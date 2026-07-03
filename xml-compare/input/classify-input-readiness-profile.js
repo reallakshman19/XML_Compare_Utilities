@@ -25,6 +25,15 @@ function diagnostic(severity, code, message, ref = '') {
   return Object.freeze({ severity, code, message, ref });
 }
 
+function normalizeProfile(value = '') {
+  const profile = clean(value), key = profile.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  if (key === 'categorizedinputxml') return XML_COMPARE_PROFILE_TYPES.CATEGORIZED_XML;
+  if (key === 'inputxml' || key === 'caesarinputxml') return XML_COMPARE_PROFILE_TYPES.INPUT_XML;
+  if (key === 'xmlcii2019enrichedxml') return XML_COMPARE_PROFILE_TYPES.CII_ENRICHED_XML;
+  if (key === 'xmlcii2019enrichedstage') return XML_COMPARE_PROFILE_TYPES.CII_ENRICHED_STAGE;
+  return profile || XML_COMPARE_PROFILE_TYPES.UNKNOWN;
+}
+
 export function createProfileReadinessDiagnostic(input = {}) {
   return diagnostic(clean(input.severity || 'WARNING'), clean(input.code || 'profile_diagnostic'), clean(input.message || input.code || 'Profile readiness diagnostic.'), input.ref || '');
 }
@@ -45,8 +54,7 @@ function parseJson(rawText = '') {
 }
 
 function xmlWellFormed(rawText = '') {
-  const source = String(rawText || '');
-  const stack = [];
+  const source = String(rawText || ''), stack = [];
   for (let i = 0; i < source.length;) {
     const lt = source.indexOf('<', i);
     if (lt < 0) return stack.length === 0;
@@ -94,7 +102,7 @@ function classifyJson(input = {}, diagnostics = []) {
   const parsed = parseJson(String(input.rawText || ''));
   if (!parsed.ok) return result({ profile: 'json', confidence: 0, inputKind: 'json', supported: false, blocker: true, diagnostics: [createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'json_parse_failed', message: parsed.error.message })] });
   const detected = detectXmlCompareProfile({ name: input.fileName, text: input.rawText, json: parsed.value });
-  const profile = clean(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
+  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
   const supported = supportedJson(parsed.value, profile), recordCount = Number(input.recordCount ?? input.records?.length ?? 0) || 0;
   if (!supported) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'unsupported_json_profile', message: 'JSON input shape is not supported by XML Compare intake.' }));
   else if (recordCount <= 0) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'zero_records', message: 'Recognized JSON profile produced zero records.' }));
@@ -105,7 +113,7 @@ function classifyJson(input = {}, diagnostics = []) {
 function classifyXml(input = {}, diagnostics = []) {
   if (!xmlWellFormed(input.rawText)) return result({ profile: 'xml', confidence: 0, inputKind: 'xml', supported: false, blocker: true, diagnostics: [createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'xml_parse_failed', message: 'XML-looking input is not well formed.' })] });
   const detected = detectXmlCompareProfile({ name: input.fileName, text: input.rawText });
-  const profile = clean(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
+  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
   const supported = SUPPORTED.has(profile), recordCount = Number(input.recordCount ?? input.records?.length ?? 0) || 0;
   if (!supported) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'unsupported_xml_profile', message: 'XML root/profile is not supported by XML Compare intake.' }));
   else if (recordCount <= 0) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'zero_records', message: 'Recognized XML profile produced zero records.' }));
