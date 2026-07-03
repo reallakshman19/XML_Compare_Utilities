@@ -37,6 +37,7 @@ export {
 const APPROVED_CONNECTOR_ACTIONS = new Set(['approve-pending-connector', 'reject-pending-connector', 'clear-pending-connector']);
 const ENRICHMENT_STORAGE_KEY = 'xml-compare-enrichment-config';
 const clean = (value) => String(value ?? '').trim();
+const READINESS_BUTTON = '<button type="button" data-xml-compare-action="download-input-readiness-json">Download Input Readiness JSON</button>';
 
 function loadEnrichmentFromStorage() {
   try { const raw = typeof localStorage !== 'undefined' && localStorage.getItem(ENRICHMENT_STORAGE_KEY); return raw ? JSON.parse(raw) || {} : {}; }
@@ -72,9 +73,15 @@ function filteredIssues(report, state) {
   return filterTopologyIssues(report?.topologyIssues?.issues || [], state.filters).filter((issue) => !state.hiddenComponentIds.has(issue.componentId));
 }
 
+function withReadinessButton(html) {
+  if (html.includes('download-input-readiness-json')) return html;
+  return html.replace('<button type="button" data-xml-compare-action="export-filtered-csv"', `${READINESS_BUTTON}<button type="button" data-xml-compare-action="export-filtered-csv"`);
+}
+
 function render(container, state) {
   const workspace = workspaceFromState(state);
-  container.innerHTML = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) });
+  const html = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) });
+  container.innerHTML = withReadinessButton(html);
 }
 
 function canvasSideFrom(target) {
