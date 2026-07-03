@@ -1,4 +1,6 @@
-export const XML_COMPARE_TRANSFER_STAGE_PANEL_SCHEMA = 'xml-compare-transfer-stage-panel/v1';
+import { renderXmlCompareTransferResultReviewPanelHtml } from './XmlCompareTransferResultReviewPanel.js';
+
+export const XML_COMPARE_TRANSFER_STAGE_PANEL_SCHEMA = 'xml-compare-transfer-stage-panel/v2';
 
 const esc = (value) => String(value ?? '')
   .replaceAll('&', '&amp;')
@@ -39,7 +41,7 @@ function actions(scope = 'node') {
 
 export function renderXmlCompareTransferStagePanelHtml({ transferState = null, scope = 'node' } = {}) {
   const state = transferState || {};
-  return `<section class="xml-compare-automap-panel" data-xml-compare-transfer-stage-panel><header><b>State-backed transfer stage</b><span>TransferPlan.v1 · TransferPatchAudit.v1</span></header>${metrics(state)}${actions(scope)}<div class="xml-compare-warning">${diagnosticsList(state)}</div></section>`;
+  return `<section class="xml-compare-automap-panel" data-xml-compare-transfer-stage-panel><header><b>State-backed transfer stage</b><span>TransferPlan.v1 · TransferPatchAudit.v1</span></header>${metrics(state)}${actions(scope)}<div class="xml-compare-warning">${diagnosticsList(state)}</div></section>${renderXmlCompareTransferResultReviewPanelHtml({ transferState: state })}`;
 }
 
 export const _test = Object.freeze({ esc, clean, shortHash, statusLabel, diagnosticsList, metric, metrics, actions });
