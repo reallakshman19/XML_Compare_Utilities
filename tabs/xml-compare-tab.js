@@ -7,6 +7,7 @@ import { createXmlCompareValidationModel } from '../xml-compare/XmlCompareValida
 import { createValidationAudit, downloadValidationAuditCsv, downloadValidationAuditJson } from '../xml-compare/XmlCompareValidationAuditExport.js';
 import { applyCompareFieldPreset } from '../xml-compare/XmlCompareCompareFieldPresets.js';
 import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
+import { createInputReadinessAuditFromWorkspace, serializeInputReadinessAuditJson } from '../xml-compare/input/create-input-readiness-audit-from-workspace.js';
 import {
   DEFAULT_XML_COMPARE_FILTERS,
   XML_COMPARE_BLOCK_CODES,
@@ -117,6 +118,13 @@ function currentValidationAudit(state) {
   return createValidationAudit({ sourceName: workspace.source?.fileName || 'Source A', targetName: workspace.target?.fileName || 'Target B', validationModel, compareFields: workspace.compareFields, validationLayer: request.validationLayer || 'current', toleranceMm: request.toleranceMm ?? 1 });
 }
 
+function downloadInputReadinessAudit(state) {
+  const workspace = workspaceFromState(state);
+  const audit = createInputReadinessAuditFromWorkspace({ state, workspace, generatedAt: new Date().toISOString() });
+  downloadText('xml-input-readiness-audit.json', serializeInputReadinessAuditJson(audit), 'application/json;charset=utf-8');
+  state.status = { kind: audit.summary.readyForConnector ? 'ok' : 'warn', message: `Input readiness JSON downloaded. ${audit.summary.blockerCount} blocker(s), ${audit.summary.warningCount} warning(s).` };
+}
+
 async function loadSelectedFile(input, state, container) {
   const file = input.files?.[0];
   if (!file) return;
@@ -214,6 +222,7 @@ function handleActionClick(event, state, container) {
 function handleGeneralAction(action, state, container, event) {
   if (!action) return false;
   if (action === 'compare') state.report = buildXmlCompareReport({ fileNameA: state.fileA?.name || 'xml-a.xml', textA: state.textA, fileNameB: state.fileB?.name || 'xml-b.xml', textB: state.textB, toleranceMm: 6 });
+  else if (action === 'download-input-readiness-json') { downloadInputReadinessAudit(state); render(container, state); return true; }
   else if (action === 'download-validation-json') downloadValidationAuditJson(currentValidationAudit(state));
   else if (action === 'download-validation-csv') downloadValidationAuditCsv(currentValidationAudit(state));
   else if (action === 'open-sideload-a' || action === 'open-sideload-b') state.sideload = { ...state.sideload, open: true, side: action === 'open-sideload-b' ? 'b' : 'a' };
