@@ -7,6 +7,7 @@ import { createXmlCompareValidationModel } from '../xml-compare/XmlCompareValida
 import { createValidationAudit, downloadValidationAuditCsv, downloadValidationAuditJson } from '../xml-compare/XmlCompareValidationAuditExport.js';
 import { applyCompareFieldPreset } from '../xml-compare/XmlCompareCompareFieldPresets.js';
 import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
+import { createInputReadinessAuditFromWorkspace, serializeInputReadinessAuditJson } from '../xml-compare/input/create-input-readiness-audit-from-workspace.js';
 import {
   DEFAULT_XML_COMPARE_FILTERS,
   XML_COMPARE_BLOCK_CODES,
@@ -36,6 +37,7 @@ export {
 const APPROVED_CONNECTOR_ACTIONS = new Set(['approve-pending-connector', 'reject-pending-connector', 'clear-pending-connector']);
 const ENRICHMENT_STORAGE_KEY = 'xml-compare-enrichment-config';
 const clean = (value) => String(value ?? '').trim();
+const READINESS_BUTTON = '<button type="button" data-xml-compare-action="download-input-readiness-json">Download Input Readiness JSON</button>';
 
 function loadEnrichmentFromStorage() {
   try { const raw = typeof localStorage !== 'undefined' && localStorage.getItem(ENRICHMENT_STORAGE_KEY); return raw ? JSON.parse(raw) || {} : {}; }
@@ -71,9 +73,15 @@ function filteredIssues(report, state) {
   return filterTopologyIssues(report?.topologyIssues?.issues || [], state.filters).filter((issue) => !state.hiddenComponentIds.has(issue.componentId));
 }
 
+function withReadinessButton(html) {
+  if (html.includes('download-input-readiness-json')) return html;
+  return html.replace('<button type="button" data-xml-compare-action="export-filtered-csv"', `${READINESS_BUTTON}<button type="button" data-xml-compare-action="export-filtered-csv"`);
+}
+
 function render(container, state) {
   const workspace = workspaceFromState(state);
-  container.innerHTML = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) });
+  const html = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) });
+  container.innerHTML = withReadinessButton(html);
 }
 
 function canvasSideFrom(target) {
@@ -115,6 +123,13 @@ function currentValidationAudit(state) {
   const request = workspace.matchMap?.request || {};
   const validationModel = workspace.approvedValidationModel || createXmlCompareValidationModel({ source: workspace.source, target: workspace.target, matchMap: workspace.matchMap, compareFields: workspace.compareFields, validationLayer: request.validationLayer || 'current', toleranceMm: request.toleranceMm ?? 1, textRules: request.textRules || {} });
   return createValidationAudit({ sourceName: workspace.source?.fileName || 'Source A', targetName: workspace.target?.fileName || 'Target B', validationModel, compareFields: workspace.compareFields, validationLayer: request.validationLayer || 'current', toleranceMm: request.toleranceMm ?? 1 });
+}
+
+function downloadInputReadinessAudit(state) {
+  const workspace = workspaceFromState(state);
+  const audit = createInputReadinessAuditFromWorkspace({ state, workspace, generatedAt: new Date().toISOString() });
+  downloadText('xml-input-readiness-audit.json', serializeInputReadinessAuditJson(audit), 'application/json;charset=utf-8');
+  state.status = { kind: audit.summary.readyForConnector ? 'ok' : 'warn', message: `Input readiness JSON downloaded. ${audit.summary.blockerCount} blocker(s), ${audit.summary.warningCount} warning(s).` };
 }
 
 async function loadSelectedFile(input, state, container) {
@@ -214,6 +229,7 @@ function handleActionClick(event, state, container) {
 function handleGeneralAction(action, state, container, event) {
   if (!action) return false;
   if (action === 'compare') state.report = buildXmlCompareReport({ fileNameA: state.fileA?.name || 'xml-a.xml', textA: state.textA, fileNameB: state.fileB?.name || 'xml-b.xml', textB: state.textB, toleranceMm: 6 });
+  else if (action === 'download-input-readiness-json') { downloadInputReadinessAudit(state); render(container, state); return true; }
   else if (action === 'download-validation-json') downloadValidationAuditJson(currentValidationAudit(state));
   else if (action === 'download-validation-csv') downloadValidationAuditCsv(currentValidationAudit(state));
   else if (action === 'open-sideload-a' || action === 'open-sideload-b') state.sideload = { ...state.sideload, open: true, side: action === 'open-sideload-b' ? 'b' : 'a' };
