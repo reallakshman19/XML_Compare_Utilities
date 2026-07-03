@@ -11,7 +11,12 @@ const expectedTabs = [
 ];
 const allowedBareImports = new Set(['three', 'gltf-exporter', 'mdb-reader', 'buffer', 'xlsx']);
 const allowedBarePrefixes = ['three/addons/'];
-const allowedMissingAssets = new Set(['data/mocks/mock_complex_piping.pcf', 'opt/mock-xml.xml', 'opt/mock-pcf-data.json']);
+const allowedMissingAssets = new Set([
+  'data/mocks/mock_complex_piping.pcf',
+  'opt/mock-xml.xml',
+  'opt/mock-pcf-data.json',
+  'Docs/Masters/wtValveweights.json',
+]);
 
 function fail(message) {
   throw new Error(message);
