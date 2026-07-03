@@ -1,4 +1,5 @@
 import { buildInputReadinessAudit } from './build-input-readiness-audit.js';
+import { collectInputReadinessDiagnosticsForSide } from './collect-input-readiness-diagnostics.js';
 
 function sideModel(workspace = {}, side = 'a') {
   return side === 'b' ? workspace.target : workspace.source;
@@ -27,13 +28,6 @@ function recordsOf(model = {}) {
   return [];
 }
 
-function diagnosticsOf(model = {}) {
-  return Object.freeze([
-    ...(Array.isArray(model?.diagnostics) ? model.diagnostics : []),
-    ...(Array.isArray(model?.intake?.diagnostics) ? model.intake.diagnostics : []),
-  ]);
-}
-
 export function createReadinessSideInputFromWorkspace({ state = {}, workspace = {}, side = 'a' } = {}) {
   const model = sideModel(workspace, side) || {};
   return Object.freeze({
@@ -44,7 +38,7 @@ export function createReadinessSideInputFromWorkspace({ state = {}, workspace = 
     profile: model.profile,
     dataset: model,
     records: recordsOf(model),
-    diagnostics: diagnosticsOf(model),
+    diagnostics: collectInputReadinessDiagnosticsForSide({ state, workspace, model, side }),
   });
 }
 
