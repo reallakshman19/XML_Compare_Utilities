@@ -34,6 +34,12 @@ function normalizeProfile(value = '') {
   return profile || XML_COMPARE_PROFILE_TYPES.UNKNOWN;
 }
 
+function confidenceOf(input = {}, detected = {}, profile = '') {
+  if (input.confidence != null || input.dataset?.confidence != null) return clamp(input.confidence ?? input.dataset?.confidence);
+  if (detected.confidence) return clamp(detected.confidence);
+  return input.profile && SUPPORTED.has(profile) ? 1 : 0;
+}
+
 export function createProfileReadinessDiagnostic(input = {}) {
   return diagnostic(clean(input.severity || 'WARNING'), clean(input.code || 'profile_diagnostic'), clean(input.message || input.code || 'Profile readiness diagnostic.'), input.ref || '');
 }
@@ -102,7 +108,7 @@ function classifyJson(input = {}, diagnostics = []) {
   const parsed = parseJson(String(input.rawText || ''));
   if (!parsed.ok) return result({ profile: 'json', confidence: 0, inputKind: 'json', supported: false, blocker: true, diagnostics: [createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'json_parse_failed', message: parsed.error.message })] });
   const detected = detectXmlCompareProfile({ name: input.fileName, text: input.rawText, json: parsed.value });
-  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
+  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = confidenceOf(input, detected, profile);
   const supported = supportedJson(parsed.value, profile), recordCount = Number(input.recordCount ?? input.records?.length ?? 0) || 0;
   if (!supported) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'unsupported_json_profile', message: 'JSON input shape is not supported by XML Compare intake.' }));
   else if (recordCount <= 0) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'zero_records', message: 'Recognized JSON profile produced zero records.' }));
@@ -113,7 +119,7 @@ function classifyJson(input = {}, diagnostics = []) {
 function classifyXml(input = {}, diagnostics = []) {
   if (!xmlWellFormed(input.rawText)) return result({ profile: 'xml', confidence: 0, inputKind: 'xml', supported: false, blocker: true, diagnostics: [createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'xml_parse_failed', message: 'XML-looking input is not well formed.' })] });
   const detected = detectXmlCompareProfile({ name: input.fileName, text: input.rawText });
-  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = clamp(input.confidence ?? input.dataset?.confidence ?? detected.confidence);
+  const profile = normalizeProfile(input.profile || detected.type || 'unknown'), confidence = confidenceOf(input, detected, profile);
   const supported = SUPPORTED.has(profile), recordCount = Number(input.recordCount ?? input.records?.length ?? 0) || 0;
   if (!supported) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'unsupported_xml_profile', message: 'XML root/profile is not supported by XML Compare intake.' }));
   else if (recordCount <= 0) diagnostics.push(createProfileReadinessDiagnostic({ severity: 'BLOCKER', code: 'zero_records', message: 'Recognized XML profile produced zero records.' }));
