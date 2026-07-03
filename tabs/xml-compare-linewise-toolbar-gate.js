@@ -1,4 +1,4 @@
-export const XML_COMPARE_LINEWISE_TOOLBAR_GATE_SCHEMA='xml-compare-linewise-toolbar-gate/v5-runtime-ownership';
+export const XML_COMPARE_LINEWISE_TOOLBAR_GATE_SCHEMA='xml-compare-linewise-toolbar-gate/v6-converter-shortcut-routing';
 
 const STYLE_ID='xml-compare-linewise-toolbar-gate-style';
 const WORKFLOW_BUTTON='data-xml-compare-categorized-open';
@@ -14,8 +14,18 @@ function injectStyle(){
   style.textContent=`.xml-compare-toolbar{gap:8px}.xml-compare-toolbar>label.xml-compare-file-btn,.xml-compare-toolbar>button:not([${WORKFLOW_BUTTON}]):not([${CONVERTER_SHORTCUT_BUTTON}]):not([${TABLE_WORKFLOW_BUTTON}]){position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;opacity:0!important;pointer-events:none!important}.xml-compare-toolbar>[${WORKFLOW_BUTTON}],.xml-compare-toolbar>[${CONVERTER_SHORTCUT_BUTTON}],.xml-compare-toolbar>[${TABLE_WORKFLOW_BUTTON}]{min-width:min(330px,100%);justify-content:center}.xml-compare-toolbar>[${CONVERTER_SHORTCUT_BUTTON}]{border:1px solid rgba(216,180,254,.45);border-radius:8px;background:rgba(88,28,135,.28);color:#f3e8ff;font-weight:850}`;
 }
 function categorizedFile(file){return /categorized/i.test(String(file?.name||''));}
+function converterTabKeys(){return Object.freeze(['load-canvas','canvas','load','preview','categorize']);}
+function converterTabLabels(){return Object.freeze(['Load Canvas','Load categorized','Categorized Preview','Preview','Categorize']);}
 function setInputFile(input,file){const transfer=new DataTransfer();transfer.items.add(file);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}
 function openWorkflow(){const button=document.querySelector(`[${WORKFLOW_BUTTON}]`);button?.click();return document.querySelector('[data-xml-compare-categorized-popup]');}
+function tabMatches(tab,keys,labels){const key=String(tab?.dataset?.xmlCompareLinewiseTab||'').toLowerCase();const text=String(tab?.textContent||'').toLowerCase();return keys.some((item)=>key===item)||labels.some((item)=>text.includes(item.toLowerCase()));}
+function selectWorkflowTab(popup,keys=converterTabKeys(),labels=converterTabLabels()){
+  const tabs=[...(popup?.querySelectorAll?.('[data-xml-compare-linewise-tab]')||[])];
+  const tab=tabs.find((item)=>tabMatches(item,keys,labels));
+  tab?.click?.();
+  return tab||null;
+}
+function openConverterWorkflow(){const popup=openWorkflow();selectWorkflowTab(popup);return popup;}
 function ensureShortcutButton(){
   const toolbar=document.querySelector('.xml-compare-tab .xml-compare-toolbar');
   if(!toolbar)return;
@@ -25,7 +35,7 @@ function ensureShortcutButton(){
     shortcut.type='button';
     shortcut.setAttribute(CONVERTER_SHORTCUT_BUTTON,'');
     shortcut.textContent='Categorized XML ↔ Enriched XML';
-    shortcut.title='Open the existing CategorizedInputXML / enriched XML converter workflow';
+    shortcut.title='Open categorized/enriched XML preview and canvas-load workflow';
   }
   const table=toolbar.querySelector(`[${TABLE_WORKFLOW_BUTTON}]`);
   const linewise=toolbar.querySelector(`[${WORKFLOW_BUTTON}]`);
@@ -36,7 +46,7 @@ function ensureShortcutButton(){
 function setWorkflowSide(side){const radio=document.querySelector(`[data-xml-compare-categorized-popup] input[name="xml-compare-canvas-side"][value="${side}"]`);if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change',{bubbles:true}));}}
 async function importIntoWorkflow(file,side){openWorkflow();setWorkflowSide(side);const input=document.querySelector('[data-xml-compare-categorized-popup] input[data-xml-compare-categorized-import]');if(!input)throw new Error('Line-wise workflow import input not found');const copy=new File([await file.text()],file.name,{type:file.type||'application/xml'});setInputFile(input,copy);}
 function gateRawXmlLoad(event){const input=event.target?.closest?.('input[data-xml-compare-load]');if(!input)return;const file=input.files?.[0];if(!file||categorizedFile(file))return;event.preventDefault();event.stopImmediatePropagation();const side=input.dataset.xmlCompareLoad==='b'?'b':'a';input.value='';importIntoWorkflow(file,side).catch((error)=>console.error('[XML Compare Line-wise Gate] failed to route raw XML to workflow',error));}
-function clickShortcut(event){const button=event.target?.closest?.(`[${CONVERTER_SHORTCUT_BUTTON}]`);if(!button)return;event.preventDefault();event.stopPropagation();openWorkflow();}
+function clickShortcut(event){const button=event.target?.closest?.(`[${CONVERTER_SHORTCUT_BUTTON}]`);if(!button)return;event.preventDefault();event.stopPropagation();openConverterWorkflow();}
 export function installXmlCompareLinewiseToolbarGate(doc=globalThis.document){
   if(installed||!doc?.addEventListener)return false;
   installed=true;
@@ -51,4 +61,4 @@ export function installXmlCompareLinewiseToolbarGate(doc=globalThis.document){
   return true;
 }
 installXmlCompareLinewiseToolbarGate();
-export const _test=Object.freeze({ensureShortcutButton,openWorkflow,installXmlCompareLinewiseToolbarGate,getToolbarObserver:()=>toolbarObserver});
+export const _test=Object.freeze({ensureShortcutButton,openWorkflow,openConverterWorkflow,selectWorkflowTab,tabMatches,converterTabKeys,converterTabLabels,clickShortcut,installXmlCompareLinewiseToolbarGate,getToolbarObserver:()=>toolbarObserver});
