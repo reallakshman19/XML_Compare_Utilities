@@ -23,7 +23,8 @@ const diag = (code, message) => Object.freeze({ severity: 'BLOCKER', code, messa
 
 function sideReady(readiness = {}, side = 'source') {
   const model = side === 'target' ? readiness.targetB : readiness.sourceA;
-  return { ready: Boolean(model?.readyForConnector), diagnostics: blockerDiagnostics(model?.diagnostics || []), recordCount: Number(model?.recordCount || 0) };
+  const diagnostics = blockerDiagnostics(model?.diagnostics || []);
+  return { ready: Boolean(model?.readyForConnector) && diagnostics.length === 0, diagnostics, recordCount: Number(model?.recordCount || 0) };
 }
 function sourceStep(readiness) {
   const side = sideReady(readiness, 'source');
