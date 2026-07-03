@@ -14,7 +14,6 @@ export { DEFAULT_XML_COMPARE_FILTERS, XML_COMPARE_BLOCK_CODES, XML_COMPARE_SCHEM
 const APPROVED_CONNECTOR_ACTIONS = new Set(['approve-pending-connector', 'reject-pending-connector', 'clear-pending-connector']);
 const TRANSFER_ACTIONS = new Set(['build-transfer-plan', 'stage-transfer', 'clear-transfer-stage', 'apply-staged-transfer', 'export-staged-transfer', 'export-transfer-audit']);
 const ENRICHMENT_STORAGE_KEY = 'xml-compare-enrichment-config';
-const READINESS_BUTTON = '<button type="button" data-xml-compare-action="download-input-readiness-json">Download Input Readiness JSON</button>';
 const clean = (value) => String(value ?? '').trim();
 function loadEnrichmentFromStorage() { try { const raw = typeof localStorage !== 'undefined' && localStorage.getItem(ENRICHMENT_STORAGE_KEY); return raw ? JSON.parse(raw) || {} : {}; } catch { return {}; } }
 function saveEnrichmentToStorage(cfg) { try { if (typeof localStorage !== 'undefined') { const { open: _open, activeEnrTab: _tab, ...rest } = cfg; localStorage.setItem(ENRICHMENT_STORAGE_KEY, JSON.stringify(rest)); } } catch {} }
@@ -22,8 +21,8 @@ function createInitialState() { return { fileA: null, fileB: null, textA: '', te
 function downloadText(name, text, type = 'text/plain;charset=utf-8') { const blob = new Blob([text], { type }), url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
 function workspaceFromState(state) { return createXmlCompareWorkspaceModel({ fileA: state.fileA, textA: state.textA, fileB: state.fileB, textB: state.textB, report: state.report, canvasState: state.canvasState }); }
 function filteredIssues(report, state) { return filterTopologyIssues(report?.topologyIssues?.issues || [], state.filters).filter((issue) => !state.hiddenComponentIds.has(issue.componentId)); }
-function withReadinessButton(html) { if (html.includes('download-input-readiness-json')) return html; return html.replace('<button type="button" data-xml-compare-action="export-filtered-csv"', `${READINESS_BUTTON}<button type="button" data-xml-compare-action="export-filtered-csv"`); }
-function render(container, state) { const workspace = workspaceFromState(state); const html = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) }); container.innerHTML = withReadinessButton(html); }
+function currentReportCsv(state) { return buildTopologyIssuesCsv(filterTopologyIssues(state.report?.topologyIssues?.issues || [], state.filters)); }
+function render(container, state) { const workspace = workspaceFromState(state); container.innerHTML = renderXmlCompareTabView({ state, workspace, issues: filteredIssues(state.report, state) }); }
 function canvasSideFrom(target) { return target.closest('[data-xml-compare-canvas-host]')?.dataset.xmlCompareCanvasHost === 'target' ? 'target' : 'source'; }
 function recordsForSide(state, side) { const workspace = workspaceFromState(state); return workspace[side]?.records || []; }
 function applyCanvasStateAction(state, action, message = 'XML Compare state updated.') { state.canvasState = applyXmlCompareCanvasAction(state.canvasState, action); state.status = { kind: 'info', message }; return true; }
