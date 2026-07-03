@@ -22,6 +22,31 @@ function freezeRef(ref) {
   return Object.freeze({ ...ref });
 }
 
+function identitySummaryOf(input = {}) {
+  const source = input.identitySummary || {};
+  return Object.freeze({
+    recordCount: Number(source.recordCount) || 0,
+    stableCount: Number(source.stableCount) || 0,
+    lowConfidenceCount: Number(source.lowConfidenceCount) || 0,
+    syntheticFallbackCount: Number(source.syntheticFallbackCount) || 0,
+    unknownCount: Number(source.unknownCount) || 0,
+  });
+}
+
+function coordinateSummaryOf(input = {}) {
+  const source = input.coordinateFrameSummary || {};
+  return Object.freeze({
+    recordCount: Number(source.recordCount) || 0,
+    absoluteCount: Number(source.absoluteCount) || 0,
+    relativeCount: Number(source.relativeCount) || 0,
+    sideloadGlobalCount: Number(source.sideloadGlobalCount) || 0,
+    syntheticLayoutCount: Number(source.syntheticLayoutCount) || 0,
+    unknownCount: Number(source.unknownCount) || 0,
+    comparableForDeltaCount: Number(source.comparableForDeltaCount) || 0,
+    notComparableForDeltaCount: Number(source.notComparableForDeltaCount) || 0,
+  });
+}
+
 export function createReadinessDiagnostic(input = {}) {
   const source = typeof input === 'string' ? { message: input } : input || {};
   const severity = normalizeSeverity(source.severity);
@@ -64,6 +89,8 @@ export function createInputReadinessSource(input = {}) {
     blockerCount: summary.blockerCount,
     warningCount: summary.warningCount,
     diagnostics,
+    identitySummary: identitySummaryOf(input),
+    coordinateFrameSummary: coordinateSummaryOf(input),
   };
   return Object.freeze({ ...source, readyForConnector: isReadyForConnector(source) });
 }
