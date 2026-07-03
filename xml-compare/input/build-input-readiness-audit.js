@@ -6,6 +6,7 @@ import {
 import { identityReadyForConnector } from '../contracts/stable-xml-identity-contract.js';
 import { buildCoordinateFrameStatusSummary } from './build-coordinate-frame-status.js';
 import { buildStableXmlIdentitySummary } from './build-stable-xml-identity.js';
+import { dedupeInputReadinessDiagnostics } from './dedupe-input-readiness-diagnostics.js';
 import { hashText } from './hash-text.js';
 
 function clean(value) {
@@ -35,9 +36,15 @@ function explicitErrors(input = {}) {
   return [...asArray(input.errors), ...asArray(dataset.errors), ...asArray(dataset.error).filter(Boolean)];
 }
 
+function hasParseBlocker(input = {}) {
+  const codes = new Set(['parse_error', 'xml_parse_failed', 'json_parse_failed']);
+  return asArray(input.diagnostics).some((item) => codes.has(clean(item?.code)) && clean(item?.severity) === 'BLOCKER');
+}
+
 function parseOkOf(input = {}) {
   if (!clean(input.rawText)) return false;
   if (input.parseOk === false || input.ok === false || input.dataset?.ok === false) return false;
+  if (hasParseBlocker(input)) return false;
   return explicitErrors(input).length === 0;
 }
 
@@ -88,7 +95,7 @@ export function collectInputDiagnostics(input = {}) {
   if (rawText && profile === 'unknown') diagnostics.push(createReadinessDiagnostic({ severity: 'WARNING', code: 'profile_unknown', message: 'Input profile is unknown.' }));
   if (rawText && parseOkOf(input) && recordCountOf(input) <= 0) diagnostics.push(createReadinessDiagnostic({ severity: 'BLOCKER', code: 'zero_records', message: 'No records were available after parse or normalization.' }));
   diagnostics.push(...identityDiagnostics(input.identitySummary || {}), ...coordinateDiagnostics(input.coordinateFrameSummary || {}));
-  return Object.freeze(diagnostics);
+  return dedupeInputReadinessDiagnostics(diagnostics.map(createReadinessDiagnostic));
 }
 
 function summariesFor(input = {}) {
