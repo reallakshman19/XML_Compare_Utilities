@@ -103,8 +103,8 @@ export function summarizeReadinessGateSide(sideReadiness = {}, options = {}) {
     status: sidePass(sideReadiness, statuses) ? 'PASS' : 'FAIL',
     readyForConnector: Boolean(sideReadiness.readyForConnector),
     ...statuses,
-    blockerCount: blockers.length,
-    warningCount: warnings.length,
+    blockerCount: statuses.diagnosticStatus.blockerCount,
+    warningCount: statuses.diagnosticStatus.warningCount,
     blockers: Object.freeze(blockers),
     warnings: Object.freeze(warnings),
   });
