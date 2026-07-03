@@ -1,10 +1,13 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, '..');
 const expectedTabs = [
-  "xml-compare",
-  "psnm-utility"
+  'xml-compare',
+  'psnm-utility',
 ];
 const allowedBareImports = new Set(['three', 'gltf-exporter', 'mdb-reader', 'buffer', 'xlsx']);
 const allowedBarePrefixes = ['three/addons/'];
@@ -42,7 +45,7 @@ function resolveRelative(fromRel, specifier) {
 
 function assertInside(absPath, context) {
   const rel = path.relative(root, absPath);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) fail(context + ' escapes app root: ' + rel);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) fail(`${context} escapes app root: ${rel}`);
   return rel.replace(/\\/g, '/');
 }
 
@@ -58,13 +61,13 @@ function assertLocalRefExists(fromRel, specifier, context) {
   }
   if (isBare(clean)) {
     const allowed = allowedBareImports.has(clean) || allowedBarePrefixes.some((prefix) => clean.startsWith(prefix));
-    if (!allowed) fail(context + ' uses unexpected bare import: ' + clean);
+    if (!allowed) fail(`${context} uses unexpected bare import: ${clean}`);
     return;
   }
-  let absPath = resolveRelative(fromRel, clean);
-  let rel = assertInside(absPath, context);
+  const absPath = resolveRelative(fromRel, clean);
+  const rel = assertInside(absPath, context);
   if (!path.extname(absPath)) {
-    const jsPath = absPath + '.js';
+    const jsPath = `${absPath}.js`;
     if (fs.existsSync(jsPath)) {
       assertInside(jsPath, context);
       return;
@@ -72,7 +75,7 @@ function assertLocalRefExists(fromRel, specifier, context) {
   }
   if (!fs.existsSync(absPath)) {
     if (allowedMissingAssets.has(rel)) return;
-    fail(context + ' target is missing: ' + rel);
+    fail(`${context} target is missing: ${rel}`);
   }
 }
 
@@ -90,7 +93,7 @@ function walk(dirRel) {
 
 const index = read('index.html');
 const moduleScripts = [...index.matchAll(/<script\s+[^>]*type=["']module["'][^>]*src=["']([^"']+)["'][^>]*>/g)].map((match) => match[1]);
-if (moduleScripts.length !== 1) fail('Expected one module script, found ' + moduleScripts.length);
+if (moduleScripts.length !== 1) fail(`Expected one module script, found ${moduleScripts.length}`);
 assertLocalRefExists('index.html', moduleScripts[0], 'index module script');
 for (const match of index.matchAll(/<link\s+[^>]*href=["']([^"']+)["'][^>]*>/g)) {
   const href = match[1];
@@ -104,10 +107,10 @@ if (!main.includes('.catch(reportStartupError)')) fail('main entrypoint must rep
 
 const runtime = read('core/app-standalone-runtime.js');
 for (const tabId of expectedTabs) {
-  if (!runtime.includes("id: '" + tabId + "'")) fail('Missing standalone tab ' + tabId);
+  if (!runtime.includes(`id: '${tabId}'`)) fail(`Missing standalone tab ${tabId}`);
 }
 for (const tabId of ['pcfx-converter', 'rvm-json-pcf']) {
-  if (!expectedTabs.includes(tabId) && runtime.includes("id: '" + tabId + "'")) fail('Unexpected standalone tab ' + tabId);
+  if (!expectedTabs.includes(tabId) && runtime.includes(`id: '${tabId}'`)) fail(`Unexpected standalone tab ${tabId}`);
 }
 if (!runtime.includes('TAB_CHANGE_REQUESTED')) fail('Runtime must listen for tab-change-requested events');
 if (!runtime.includes('app:switch-tab')) fail('Runtime must listen for app:switch-tab window events');
@@ -116,8 +119,8 @@ const importPattern = /(?:import\s+(?:[^'"()]+?\s+from\s+)?|export\s+[^'"()]+?\s
 const newUrlPattern = /new\s+URL\(\s*['"]([^'"]+)['"]\s*,\s*import\.meta\.url\s*\)/g;
 for (const jsFile of walk('').filter((file) => /\.(js|mjs)$/.test(file) && !file.startsWith('tests/'))) {
   const text = read(jsFile);
-  for (const match of text.matchAll(importPattern)) assertLocalRefExists(jsFile, match[1], jsFile + ' import');
-  for (const match of text.matchAll(newUrlPattern)) assertLocalRefExists(jsFile, match[1], jsFile + ' new URL');
+  for (const match of text.matchAll(importPattern)) assertLocalRefExists(jsFile, match[1], `${jsFile} import`);
+  for (const match of text.matchAll(newUrlPattern)) assertLocalRefExists(jsFile, match[1], `${jsFile} new URL`);
 }
 
-console.log('Standalone static validation passed for ' + path.basename(root) + ' (' + expectedTabs.join(', ') + ')');
+console.log(`Standalone static validation passed for ${path.basename(root)} (${expectedTabs.join(', ')})`);
