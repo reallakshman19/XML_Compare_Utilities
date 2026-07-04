@@ -33,7 +33,7 @@ const TAB_ICON_SVGS = Object.freeze({
 });
 
 export const STANDALONE_TABS = Object.freeze([
-  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260704-enrichment-derived-1').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260704-js-cache-refresh-1').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
