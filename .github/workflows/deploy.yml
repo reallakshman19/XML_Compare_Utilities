@@ -36,14 +36,14 @@ jobs:
         run: |
           mkdir -p "${{ runner.temp }}/pages"
           rsync -av --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
+            --exclude='.*' \
             --exclude='tests/' \
             --exclude='README.md' \
             --exclude='package.json' \
             --exclude='**/__pycache__/' \
             --exclude='**/*.pyc' \
             ./ "${{ runner.temp }}/pages/"
+          touch "${{ runner.temp }}/pages/.nojekyll"
       - name: Upload artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v4
