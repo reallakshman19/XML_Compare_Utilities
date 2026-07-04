@@ -24,7 +24,7 @@ const rootSafe = deleteLevelAtPath(added, [0]);
 assert.equal(rootSafe.levelDefinitions[0].children.length, 2);
 
 const ps = 'PS';
-const source = applySourceTransformRules(parseTableSource(['PS NO', `${ps}-XYZ.1`, `${ps}-XYZ.2`, `${ps}-ABC.1`].join('\n')), [{ newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }]);
+const source = applySourceTransformRules(parseTableSource(['PS NO', `${ps}-XYZ.1`, `${ps}-XYZ.2`, `${ps}-ABC.1`].join('\n'), { delimiterMode: 'tab' }), [{ newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }]);
 const profile = { profileId: 'derived-group-test', displayName: 'Derived Group Test', levelDefinitions: [{ levelId: 'root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [{ levelId: 'psGroup', displayName: 'PS Group', xmlTag: 'PSGroup', levelType: 'group', creationMode: 'one-per-key', keyResolver: { op: 'trim', column: 'PS_NO_Trimmed' }, children: [] }] }] };
 const graph = buildCategorizedGraph(profile, [source]);
 const keys = graph.nodes.map((node) => node.key);
