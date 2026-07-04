@@ -1,7 +1,10 @@
-export const XML_COMPARE_ENRICHMENT_CONFIG_SCHEMA = 'xml-compare-enrichment-config/v2-syntax-fix';
+import { previewPipingClassExtraction } from './XmlCompareEnrichmentApply.js';
+
+export const XML_COMPARE_ENRICHMENT_CONFIG_SCHEMA = 'xml-compare-enrichment-config/v3-line-preview';
 export const ENRICHMENT_CONFIG_SCHEMA = XML_COMPARE_ENRICHMENT_CONFIG_SCHEMA;
 
 const COMP_TYPES = ['ATTA', 'ELBO', 'BRAN', 'OLET', 'RIGID', 'TEE', 'PIPE'];
+const DASH = '—';
 const DEFAULT_DTXR_TYPE_MAP_TEXT = [
   'TYPE\tKIND\tDTXR_POS',
   '0\tANCHOR\tANCHOR',
@@ -22,8 +25,19 @@ const DEFAULT_RESTRAINT_TYPE_CONVERT_ROWS = Object.freeze([
   Object.freeze({ label: '',    from: '18', to: '15' }),
 ]);
 
+const DEFAULT_PIPING_CLASS = Object.freeze({
+  enabled: true,
+  regex: '([0-9]{5})',
+  group: '1',
+  tokenPosition: '4',
+  tokenDelimiter: '-',
+  previewSide: 'source',
+  previewLineId: '',
+  applyToAllConfirmed: false,
+});
+
 export const DEFAULT_ENRICHMENT_CONFIG = Object.freeze({
-  pipingClass: Object.freeze({ enabled: true, regex: '([0-9]{5})', group: '1', tokenPosition: '4', tokenDelimiter: '-' }),
+  pipingClass: DEFAULT_PIPING_CLASS,
   rating:       Object.freeze({ enabled: true, method: 'table', tableText: '', fixedValue: '' }),
   componentType: Object.freeze({ enabled: true, bendType: 'ELBO', sifType: 'BRAN', rigidType: 'ATTA', defaultType: 'ATTA' }),
   position:     Object.freeze({ enabled: false, startX: '', startY: '', startZ: '' }),
@@ -41,7 +55,7 @@ const ENR_TABS = Object.freeze([
 
 export function createEnrichmentConfig(overrides = {}) {
   return {
-    open: false,
+    open: Boolean(overrides.open),
     activeEnrTab: overrides.activeEnrTab || 'restraint',
     pipingClass:          { ...DEFAULT_ENRICHMENT_CONFIG.pipingClass,          ...(overrides.pipingClass          || {}) },
     rating:               { ...DEFAULT_ENRICHMENT_CONFIG.rating,               ...(overrides.rating               || {}) },
@@ -59,15 +73,49 @@ export function createEnrichmentConfig(overrides = {}) {
   };
 }
 
+const clean = (value) => String(value ?? '').trim();
 const esc = (v) => String(v ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const info = (text) => `<span class="enr-info" title="${esc(text)}">(i)</span>`;
+const dash = (value) => clean(value) || DASH;
 
-function enrField(id, label, value, type = 'text', placeholder = '', extra = '') {
-  return `<label class="enr-field"><span>${esc(label)}</span><input type="${type}" data-enr-field="${esc(id)}" value="${esc(value)}" placeholder="${esc(placeholder)}" ${extra}></label>`;
+function optionValue(record = {}) {
+  return clean(record.lineNo) || clean(record.branchName) || clean(record.nodeName) || clean(record.displayName) || clean(record.uid);
 }
 
-function enrSelect(id, label, value, options) {
-  const opts = options.map(o => `<option value="${esc(o)}" ${o === value ? 'selected' : ''}>${esc(o)}</option>`).join('');
-  const lbl = label ? `<span>${esc(label)}</span>` : '';
+function lineOptions(records = []) {
+  const seen = new Set();
+  const out = [];
+  for (const record of records || []) {
+    const value = optionValue(record);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    out.push({ value, label: value, uid: clean(record.uid) });
+  }
+  return out;
+}
+
+export function buildEnrichmentLineIdOptions(workspace = {}) {
+  return {
+    source: lineOptions(workspace.source?.records || []),
+    target: lineOptions(workspace.target?.records || []),
+  };
+}
+
+function labelHtml(label, tip = '') {
+  return `<span>${esc(label)}${tip ? ` ${info(tip)}` : ''}</span>`;
+}
+
+function enrField(id, label, value, type = 'text', placeholder = '', extra = '', tip = '') {
+  return `<label class="enr-field">${labelHtml(label, tip)}<input type="${type}" data-enr-field="${esc(id)}" value="${esc(value)}" placeholder="${esc(placeholder)}" ${extra}></label>`;
+}
+
+function normalizedOptions(options) {
+  return options.map(o => typeof o === 'string' ? { value: o, label: o } : o);
+}
+
+function enrSelect(id, label, value, options, tip = '') {
+  const opts = normalizedOptions(options).map(o => `<option value="${esc(o.value)}" ${o.value === value ? 'selected' : ''}>${esc(o.label)}</option>`).join('');
+  const lbl = label ? labelHtml(label, tip) : '';
   return `<label class="enr-field">${lbl}<select data-enr-field="${esc(id)}">${opts}</select></label>`;
 }
 
@@ -98,9 +146,35 @@ function tabButton(tab, active) {
   return `<button type="button" class="enr-tab ${active ? 'is-active' : ''}" data-xml-compare-action="enr-switch-tab" data-enr-tab-key="${esc(tab.key)}"><span>${esc(tab.icon)}</span>${esc(tab.label)}</button>`;
 }
 
-function sectionFor(key, cfg) {
+function selectedPreview(options, pc = {}) {
+  let side = pc.previewSide === 'target' ? 'target' : 'source';
+  if (side === 'source' && !options.source.length && options.target.length) side = 'target';
+  if (side === 'target' && !options.target.length && options.source.length) side = 'source';
+  const sideOptions = options[side] || [];
+  const selected = sideOptions.some(o => o.value === pc.previewLineId) ? pc.previewLineId : (sideOptions[0]?.value || '');
+  return { side, selected, sideOptions };
+}
+
+function previewRows(result) {
+  const tokens = result.tokens.length ? result.tokens.join(' | ') : DASH;
+  return `<div class="enr-preview-grid"><b>PipingClass</b><span>${esc(dash(result.pipingClass))}</span><b>Rating</b><span>${esc(dash(result.rating))}</span></div>
+  <h5>Extraction details</h5><div class="enr-preview-grid"><b>Regex group</b><span>${esc(dash(result.regexValue))}</span><b>Regex error</b><span>${esc(dash(result.regexError))}</span><b>Token value</b><span>${esc(dash(result.tokenValue))}</span><b>Selected result</b><span>${esc(dash(result.selectedValue))}</span><b>Tokens</b><span>${esc(tokens)}</span></div>`;
+}
+
+function renderPipingClassPreview(pc, rating, options) {
+  const current = selectedPreview(options, pc);
+  const lineOpts = current.sideOptions.length ? current.sideOptions : [{ value: '', label: 'No loaded line IDs' }];
+  const preview = previewPipingClassExtraction(current.selected, { pipingClass: pc, rating });
+  const sideOptions = [{ value: 'source', label: 'Source A' }, { value: 'target', label: 'Target B' }];
+  return `${enrSelect('pipingClass.previewSide', 'Source side', current.side, sideOptions)}${enrSelect('pipingClass.previewLineId', 'Example Branch / Line ID', current.selected, lineOpts)}${enrField('pipingClass.regex', 'Regex', pc.regex || '', 'text', '', '', 'Regex is a search pattern. Example: ([0-9]{5}) finds a 5-digit number inside the line ID.')}${enrField('pipingClass.group', 'Group', pc.group || '1', 'number', '', '', 'Group means which bracketed part of the regex to use. Group 1 means the first value inside parentheses.')}${enrField('pipingClass.tokenPosition', 'Token position', pc.tokenPosition || '4', 'number', '', '', 'Token position is the part number after splitting the line ID. With "-" as delimiter, position 4 gives P8810212.')}${enrField('pipingClass.tokenDelimiter', 'Token delimiter', pc.tokenDelimiter || '-', 'text', '', '', 'Token delimiter is the character used to split the line ID, for example "-".')}
+  <button type="button" data-xml-compare-action="enr-apply-pipingclass-to-all">Apply to all ${info('Use these extraction rules for every line ID during enrichment.')}</button>
+  <p class="enr-help">${pc.applyToAllConfirmed ? 'These extraction rules will be used for all line IDs during enrichment.' : 'Preview only. The extraction rules are global when saved or applied.'}</p>
+  <article class="enr-live-preview"><h4>Derived facts preview</h4>${previewRows(preview)}</article>`;
+}
+
+function sectionFor(key, cfg, context = {}) {
   if (key === 'restraintTypeConvert') return renderRestraintTypeConvertSection(cfg.restraintTypeConvert || {});
-  if (key === 'pipingClass') return enrSection('pipingClass', 'PipingClass', cfg.pipingClass?.enabled, `${enrField('pipingClass.regex','Regex',cfg.pipingClass?.regex || '')}${enrField('pipingClass.group','Group',cfg.pipingClass?.group || '1','number')}${enrField('pipingClass.tokenPosition','Token position',cfg.pipingClass?.tokenPosition || '4','number')}${enrField('pipingClass.tokenDelimiter','Token delimiter',cfg.pipingClass?.tokenDelimiter || '-')}`);
+  if (key === 'pipingClass') return enrSection('pipingClass', 'PipingClass', cfg.pipingClass?.enabled, renderPipingClassPreview(cfg.pipingClass || {}, cfg.rating || {}, buildEnrichmentLineIdOptions(context.workspace || {})));
   if (key === 'rating') return enrSection('rating', 'Rating', cfg.rating?.enabled, `${enrSelect('rating.method','Method',cfg.rating?.method || 'table',['fixed','table'])}${enrField('rating.fixedValue','Fixed value',cfg.rating?.fixedValue || '')}${enrTextarea('rating.tableText','Class→rating table',cfg.rating?.tableText || '', 'PIPINGCLASS\tRATING')}`);
   if (key === 'componentType') return enrSection('componentType', 'ComponentType', cfg.componentType?.enabled, `${enrSelect('componentType.bendType','Bend',cfg.componentType?.bendType || 'ELBO',COMP_TYPES)}${enrSelect('componentType.sifType','SIF',cfg.componentType?.sifType || 'BRAN',COMP_TYPES)}${enrSelect('componentType.rigidType','Rigid',cfg.componentType?.rigidType || 'ATTA',COMP_TYPES)}${enrSelect('componentType.defaultType','Default',cfg.componentType?.defaultType || 'ATTA',COMP_TYPES)}`);
   if (key === 'dtxr') return enrSection('dtxr', 'DTXR', cfg.dtxr?.enabled, `${enrTextarea('dtxr.typeMapText','TYPE map',cfg.dtxr?.typeMapText || '', 'TYPE\tKIND\tDTXR_POS')}`);
@@ -109,7 +183,7 @@ function sectionFor(key, cfg) {
   return '';
 }
 
-export function renderXmlCompareEnrichmentConfigPopupHtml(config = createEnrichmentConfig()) {
+export function renderXmlCompareEnrichmentConfigPopupHtml(config = createEnrichmentConfig(), context = {}) {
   if (!config.open) return '';
   const activeKey = config.activeEnrTab || 'restraint';
   const activeTab = ENR_TABS.find(t => t.key === activeKey) || ENR_TABS[0];
@@ -117,7 +191,7 @@ export function renderXmlCompareEnrichmentConfigPopupHtml(config = createEnrichm
     <section class="xml-compare-sideload-dialog enr-dialog">
       <header><div><h3>Enrichment Config</h3><p>Configure enrichment before applying sideload XML.</p></div><button type="button" data-xml-compare-action="close-enrichment">Close</button></header>
       <div class="enr-tabs">${ENR_TABS.map(t => tabButton(t, t.key === activeTab.key)).join('')}</div>
-      <div class="enr-tab-panel">${activeTab.sectionKeys.map(key => sectionFor(key, config)).join('')}</div>
+      <div class="enr-tab-panel">${activeTab.sectionKeys.map(key => sectionFor(key, config, context)).join('')}</div>
       <footer><button type="button" data-xml-compare-action="save-enrichment">Save</button><small>${esc(activeTab.label)} settings</small></footer>
     </section>
   </div>`;
@@ -126,4 +200,4 @@ export function renderXmlCompareEnrichmentConfigPopupHtml(config = createEnrichm
 export function saveEnrichmentToStorage(config) { try { localStorage.setItem('xmlCompare.enrichmentConfig.v1', JSON.stringify(config)); } catch {} }
 export function loadEnrichmentFromStorage() { try { const raw = localStorage.getItem('xmlCompare.enrichmentConfig.v1'); return raw ? createEnrichmentConfig(JSON.parse(raw)) : createEnrichmentConfig(); } catch { return createEnrichmentConfig(); } }
 
-export const _test = Object.freeze({ esc, enrField, enrSelect, enrTextarea, sectionFor, DEFAULT_DTXR_TYPE_MAP_TEXT });
+export const _test = Object.freeze({ esc, enrField, enrSelect, enrTextarea, sectionFor, DEFAULT_DTXR_TYPE_MAP_TEXT, optionValue, lineOptions, selectedPreview, renderPipingClassPreview });

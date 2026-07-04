@@ -1,4 +1,4 @@
-export const XML_COMPARE_ENRICHMENT_APPLY_SCHEMA = 'xml-compare-enrichment-apply/v1';
+export const XML_COMPARE_ENRICHMENT_APPLY_SCHEMA = 'xml-compare-enrichment-apply/v2-preview';
 
 function normalizeNode(v) {
   const n = Number(v);
@@ -86,21 +86,62 @@ function parseRatingTable(text) {
   return map;
 }
 
-function extractPipingClass(lineId, cfg) {
-  const text = String(lineId || '').trim();
-  if (!text) return '';
-  if (cfg.regex) {
-    try {
-      const g = Math.max(0, Number(cfg.group) || 1);
-      const m = new RegExp(cfg.regex, 'i').exec(text);
-      if (m?.[g]) return m[g].trim();
-    } catch {}
+function cleanLineIdForTokens(lineId) {
+  return String(lineId || '').trim().replace(/^\/+/, '').replace(/\/B\d+$/i, '');
+}
+
+function splitLineIdTokens(lineId, cfg = {}) {
+  const delimiter = cfg.tokenDelimiter || '-';
+  return cleanLineIdForTokens(lineId).split(delimiter).map(s => s.trim()).filter(Boolean);
+}
+
+function extractRegexValue(lineId, cfg = {}) {
+  const regex = String(cfg.regex || '').trim();
+  if (!regex) return { value: '', error: '' };
+  try {
+    const group = Math.max(0, Number(cfg.group) || 1);
+    const match = new RegExp(regex, 'i').exec(String(lineId || '').trim());
+    return { value: match?.[group]?.trim() || '', error: '' };
+  } catch {
+    return { value: '', error: 'Invalid regex pattern.' };
   }
-  const pos = Math.max(0, (Number(cfg.tokenPosition) || 4) - 1);
-  const delim = cfg.tokenDelimiter || '-';
-  const cleaned = text.replace(/^\/+/, '').replace(/\/B\d+$/i, '');
-  const tokens = cleaned.split(delim).map(s => s.trim()).filter(Boolean);
-  return tokens[pos] || '';
+}
+
+function extractTokenValue(lineId, cfg = {}) {
+  const tokens = splitLineIdTokens(lineId, cfg);
+  const index = Math.max(0, (Number(cfg.tokenPosition) || 4) - 1);
+  return { value: tokens[index] || '', tokens };
+}
+
+function resolvePreviewRating(selectedValue, ratingCfg = {}) {
+  if (!selectedValue || !ratingCfg?.enabled) return '';
+  if (ratingCfg.method === 'fixed') return String(ratingCfg.fixedValue || '').trim();
+  return parseRatingTable(ratingCfg.tableText).get(String(selectedValue).toUpperCase()) || '';
+}
+
+export function previewPipingClassExtraction(lineId, config = {}) {
+  const pcCfg = config.pipingClass || config || {};
+  const ratingCfg = config.rating || {};
+  const text = String(lineId || '').trim();
+  const regex = extractRegexValue(text, pcCfg);
+  const token = extractTokenValue(text, pcCfg);
+  const selectedValue = regex.value || token.value || '';
+  const source = regex.value ? 'regex' : (token.value ? 'token' : 'none');
+  return {
+    lineId: text,
+    regexValue: regex.value,
+    regexError: regex.error,
+    tokenValue: token.value,
+    selectedValue,
+    tokens: token.tokens,
+    pipingClass: selectedValue,
+    rating: resolvePreviewRating(selectedValue, ratingCfg),
+    source,
+  };
+}
+
+export function extractPipingClass(lineId, cfg) {
+  return previewPipingClassExtraction(lineId, cfg).selectedValue;
 }
 
 export function applyXmlCompareEnrichment(xmlText, config = {}) {
@@ -208,4 +249,4 @@ export function applyXmlCompareEnrichment(xmlText, config = {}) {
   return { xmlText: output, report };
 }
 
-export const _test = Object.freeze({ normalizeNode, isSentinel, attrVal, extractPipingClass, parseTypeMap, parseRatingTable, buildAnalysisMap, buildRestraintTypeConvertMap, emptyReport });
+export const _test = Object.freeze({ normalizeNode, isSentinel, attrVal, extractPipingClass, parseTypeMap, parseRatingTable, buildAnalysisMap, buildRestraintTypeConvertMap, emptyReport, cleanLineIdForTokens, splitLineIdTokens, previewPipingClassExtraction });
