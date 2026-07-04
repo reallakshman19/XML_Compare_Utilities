@@ -18,6 +18,7 @@ assertContains('uses: actions/upload-pages-artifact@v4', 'current upload-pages-a
 assertContains('uses: actions/deploy-pages@v5', 'Node 24-compatible deploy-pages action');
 assertContains('- name: Prepare Pages artifact', 'the Pages staging step');
 assertContains('path: ${{ runner.temp }}/pages', 'the staged Pages artifact path');
+assertContains('include-hidden-files: true', 'hidden file upload for the .nojekyll marker');
 assertContains('touch "${{ runner.temp }}/pages/.nojekyll"', 'the nojekyll marker');
 for (const exclusion of ["--exclude='.*'", "--exclude='tests/'", "--exclude='README.md'", "--exclude='package.json'", "--exclude='**/__pycache__/'", "--exclude='**/*.pyc'"]) assertContains(exclusion, exclusion);
 
