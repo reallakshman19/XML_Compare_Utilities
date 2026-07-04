@@ -4,7 +4,7 @@ import { createMultiSourceState, parseSourceDraft, updateSourceDraft, updateSour
 import { applySourceTransformRules } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
 
 const ps = 'PS';
-const parsed = parseTableSource(['PS NO', `${ps}-XYZ.1`, `${ps}-XYZ.10`, `${ps}-ABC.1`].join('\n'));
+const parsed = parseTableSource(['PS NO', `${ps}-XYZ.1`, `${ps}-XYZ.10`, `${ps}-ABC.1`].join('\n'), { delimiterMode: 'tab' });
 const transformed = applySourceTransformRules(parsed, [{ newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }]);
 assert.ok(transformed.headers.includes('PS_NO_Trimmed'));
 assert.deepEqual(transformed.rows.map((r) => r.rawByHeader.PS_NO_Trimmed), [`${ps}-XYZ`, `${ps}-XYZ`, `${ps}-ABC`]);
@@ -22,7 +22,7 @@ assert.ok(badRegex.diagnostics.some((d) => d.code === 'transform_regex_invalid')
 assert.equal(badRegex.rows[0].rawByHeader.X_bad, '1000mm');
 
 let state = createMultiSourceState();
-state = updateSourceDraft(state, 'S1', { sourceText: ['PS NO', `${ps}-XYZ.1`].join('\n') });
+state = updateSourceDraft(state, 'S1', { sourceText: ['PS NO', `${ps}-XYZ.1`].join('\n'), delimiterMode: 'tab' });
 state = updateSourceTransformRules(state, 'S1', [{ newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }]);
 state = parseSourceDraft(state, 'S1');
 assert.ok(state.sources[0].headers.includes('PS_NO_Trimmed'));
