@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260703-column-confirmation-1');
+  const module = await import('./core/app.js?v=20260704-enrichment-derived-1');
   await module.init(startupMount());
 }
 
