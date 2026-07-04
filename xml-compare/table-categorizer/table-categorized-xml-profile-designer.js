@@ -1,7 +1,7 @@
 import { DEFAULT_COORDINATE_CLUSTER_CONTRACT } from './table-categorized-xml-coordinate-cluster.js';
 import { PS_MAPPING_TABLE_2_SHADOW_PROFILE } from './table-categorized-xml-pilot-profiles.js';
 
-export const TABLE_CATEGORIZED_XML_PROFILE_DESIGNER_SCHEMA='table-categorized-xml-profile-designer/v2-recipe-management';
+export const TABLE_CATEGORIZED_XML_PROFILE_DESIGNER_SCHEMA='table-categorized-xml-profile-designer/v3-root-delete-guard';
 
 export const LEVEL_TYPE_OPTIONS=Object.freeze(['container','partition','group','occurrence','feature','measure','attribute','evidence','diagnostic']);
 export const CREATION_MODE_OPTIONS=Object.freeze(['static','zero-or-one','one-per-key','one-per-row','many-per-row','conditional','lookup-joined','coordinate-clustered']);
@@ -121,7 +121,7 @@ export function addChildLevel(profile,path=[],child={}){
 }
 
 export function deleteLevelAtPath(profile,path=[]){
-  if(path.length===0)return profile;
+  if(path.length<=1)return profile;
   const copy=clone(profile);
   const parentPath=path.slice(0,-1),index=path[path.length-1];
   copy.levelDefinitions=replaceAt(copy.levelDefinitions,parentPath,(item)=>normalizeLevel({...item,children:(item.children||[]).filter((_,i)=>i!==index)}));
