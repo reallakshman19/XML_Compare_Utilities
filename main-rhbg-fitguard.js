@@ -7,11 +7,11 @@ function reportStartupError(error) {
   console.error('XML Compare Utilities startup error', error);
   const root = startupMount();
   if (!root) return;
-  root.innerHTML = '<div class="tab-error"><h2>XML Compare Utilities startup error</h2><pre>' + String(error?.message || error) + '</pre></div>';
+  root.textContent = `XML Compare Utilities startup error: ${String(error?.message || error)}`;
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260704-enrichment-derived-1');
+  const module = await import('./core/app.js?v=20260704-js-cache-refresh-1');
   await module.init(startupMount());
 }
 
