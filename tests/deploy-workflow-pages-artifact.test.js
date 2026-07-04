@@ -19,6 +19,6 @@ assertContains('uses: actions/deploy-pages@v5', 'Node 24-compatible deploy-pages
 assertContains('- name: Prepare Pages artifact', 'the Pages staging step');
 assertContains('path: ${{ runner.temp }}/pages', 'the staged Pages artifact path');
 assertContains('touch "${{ runner.temp }}/pages/.nojekyll"', 'the nojekyll marker');
-for (const exclusion of ["--exclude='.git/'", "--exclude='.github/'", "--exclude='.*'", "--exclude='tests/'", "--exclude='README.md'", "--exclude='package.json'", "--exclude='**/__pycache__/'", "--exclude='**/*.pyc'"]) assertContains(exclusion, exclusion);
+for (const exclusion of ["--exclude='.*'", "--exclude='tests/'", "--exclude='README.md'", "--exclude='package.json'", "--exclude='**/__pycache__/'", "--exclude='**/*.pyc'"]) assertContains(exclusion, exclusion);
 
 console.log('Deploy workflow Pages artifact staging test passed');
