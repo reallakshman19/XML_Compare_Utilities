@@ -1,4 +1,5 @@
 import { createTextValidationRows } from './XmlCompareTextValidationRules.js';
+import { readFieldValue } from './XmlCompareFieldExtractor.js';
 export const XML_COMPARE_VALIDATION_MODEL_SCHEMA='xml-compare-validation-model/v2';
 
 const clean=(v)=>String(v??'').trim();
@@ -10,7 +11,7 @@ const LAYERS=Object.freeze({line:'lineBlock',lineblock:'lineBlock',current:'curr
 const LEVELS=Object.freeze({lineBlock:['lineBlock','LINE_BLOCK'],element:['element','ELEMENT'],node:['node','NODE'],nodeEvidence:['nodeEvidence','NODE_EVIDENCE']});
 export function normalizeValidationLayer(value){return LAYERS[key(value)]||'current';}
 export function normalizeToleranceMm(value){const n=Number(value);return Number.isFinite(n)&&n>=0?n:1;}
-export function readRecordField(record={},field=''){const names=[field,clean(field),clean(field).toUpperCase()];const bags=[record,record?.attributes,record?.fields,record?.compactFields,record?.sourceAttributes,record?.transferFields,record?.rawSummary];for(const bag of bags)for(const name of names)if(bag&&bag[name]!=null)return bag[name];const wanted=key(field);for(const bag of bags)for(const[k,v]of Object.entries(bag||{}))if(key(k)===wanted)return v;return undefined;}
+export function readRecordField(record={},field=''){return readFieldValue(record,field);}
 export function detectCoordinateFieldGroup(compareFields=[]){const selected=new Set((compareFields||[]).map(key));return GROUPS.find((g)=>selected.has(key(g.x))&&selected.has(key(g.y))&&selected.has(key(g.z)))||null;}
 export function recordCoordinate(record={},coordinateGroup=null){if(!coordinateGroup)return null;const x=num(readRecordField(record,coordinateGroup.x)),y=num(readRecordField(record,coordinateGroup.y)),z=num(readRecordField(record,coordinateGroup.z));return[x,y,z].every((v)=>v!=null)?Object.freeze({x,y,z}):null;}
 export function createAnchorTransform({sourceAnchor=null,targetAnchor=null,coordinateGroup=null}={}){const sourceCoordinate=recordCoordinate(sourceAnchor,coordinateGroup),targetCoordinate=recordCoordinate(targetAnchor,coordinateGroup);if(!sourceCoordinate||!targetCoordinate)return null;return Object.freeze({offset:Object.freeze({x:targetCoordinate.x-sourceCoordinate.x,y:targetCoordinate.y-sourceCoordinate.y,z:targetCoordinate.z-sourceCoordinate.z}),sourceCoordinate,targetCoordinate});}

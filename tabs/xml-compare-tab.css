@@ -177,3 +177,71 @@
 .enr-default-label { color: #94a3b8; font-size: 12px; }
 .enr-arrow { color: #475569; font-size: 14px; text-align: center; }
 .enr-hint { margin: 0; color: #64748b; font-size: 11px; line-height: 1.5; }
+
+/* Step 8: manual anchor + candidate review + compare panel */
+.xmlc-anchor-review { display: grid; gap: 10px; }
+.xmlc-anchor-rail { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid rgba(125,211,252,.30); border-radius: 12px; background: rgba(8,47,73,.32); }
+.xmlc-anchor-cell { display: grid; gap: 2px; }
+.xmlc-anchor-cell b { color: #bfdbfe; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.xmlc-anchor-cell span { color: #e0f2fe; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.xmlc-anchor-actions { display: flex; gap: 8px; margin-left: auto; }
+.xmlc-anchor-actions button { border: 1px solid rgba(125,211,252,.35); border-radius: 9px; background: rgba(14,116,144,.5); color: #e0f2fe; padding: 7px 12px; font-weight: 800; cursor: pointer; }
+.xmlc-anchor-actions button:disabled { opacity: .45; cursor: default; }
+.xmlc-subtitle { color: #93c5fd; font-weight: 800; font-size: 12px; margin-top: 4px; }
+.xmlc-empty { color: #94a3b8; font-size: 12px; padding: 10px; border: 1px dashed rgba(148,163,184,.3); border-radius: 10px; }
+.xmlc-cand-summary { color: #cbd5e1; font-size: 12px; font-weight: 700; }
+.xmlc-table-scroll { overflow: auto; max-height: 320px; border: 1px solid rgba(148,163,184,.18); border-radius: 10px; }
+.xmlc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.xmlc-table th, .xmlc-table td { border-bottom: 1px solid rgba(148,163,184,.13); padding: 6px 8px; text-align: left; vertical-align: top; }
+.xmlc-table th { color: #93c5fd; position: sticky; top: 0; background: #0f172a; }
+.xmlc-cand.is-conflict { background: rgba(127,29,29,.22); }
+.xmlc-cand.is-review { background: rgba(113,63,18,.16); }
+.xmlc-cand-actions { display: flex; gap: 6px; }
+.xmlc-cand-actions button { border: 1px solid rgba(125,211,252,.3); border-radius: 8px; padding: 4px 9px; font-weight: 800; cursor: pointer; }
+.xmlc-approve { background: rgba(6,78,59,.5); color: #bbf7d0; }
+.xmlc-reject { background: rgba(76,29,29,.5); color: #fecaca; }
+.xmlc-anchor-tag { color: #7dd3fc; font-size: 11px; font-weight: 800; }
+.xmlc-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 850; letter-spacing: .03em; }
+.xmlc-chip.is-valid, .xmlc-chip.is-unchanged { background: rgba(6,78,59,.55); color: #bbf7d0; }
+.xmlc-chip.is-within-tol { background: rgba(30,58,138,.55); color: #bfdbfe; }
+.xmlc-chip.is-review { background: rgba(113,63,18,.55); color: #fde68a; }
+.xmlc-chip.is-conflict, .xmlc-chip.is-changed, .xmlc-chip.is-missing { background: rgba(127,29,29,.55); color: #fecaca; }
+.xmlc-chip.is-no-target, .xmlc-chip.is-blank { background: rgba(51,65,85,.6); color: #cbd5e1; }
+
+/* Step 8 layout: validation candidates (left) + transfer/compare (right) */
+.xmlc-workspace-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; margin-top: 12px; align-items: start; }
+.xmlc-col { min-width: 0; }
+.xmlc-col-left .xml-compare-compare-field-controls { display: block; }
+.xmlc-col .xml-compare-manual-validation-builder { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.xmlc-col .xml-compare-topology-table { width: 100%; }
+.xml-compare-validation-card { border: 1px solid rgba(148,163,184,.18); border-radius: 12px; background: rgba(2,6,23,.34); padding: 16px; }
+.xml-compare-validation-card h4 { margin: 0 0 12px 0; color: #e0f2fe; }
+.xml-compare-validation-scroll { max-height: 400px; overflow-y: auto; border: 1px solid rgba(148,163,184,.18); border-radius: 8px; background: #020617; }
+.xml-compare-validation-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: rgba(15,23,42,0.4); padding: 4px; border-radius: 8px; border: 1px solid rgba(148,163,184,.15); }
+.xml-compare-validation-tab { flex: 1; padding: 8px 12px; background: transparent; border: none; border-radius: 6px; color: #94a3b8; font-weight: 800; cursor: pointer; text-align: center; }
+.xml-compare-validation-tab:hover { background: rgba(30,41,59,.6); color: #e2e8f0; }
+.xml-compare-validation-tab.is-active { background: rgba(14,116,144,.62); color: #e0f2fe; }
+.xml-compare-checkbox-label { display: flex; align-items: center; gap: 8px; color: #bfdbfe; font-weight: 800; font-size: 13px; margin-top: 8px; }
+.xml-compare-validation-action-btn { margin-top: 12px; width: 100%; padding: 10px; font-size: 14px; background: rgba(3,105,161,.6); color: #f0f9ff; border: 1px solid rgba(56,189,248,.4); border-radius: 8px; font-weight: 800; cursor: pointer; }
+.xml-compare-validation-action-btn:hover { background: rgba(3,105,161,.8); }
+.xml-compare-validation-bulk-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 12px; background: rgba(14,116,144,.1); border: 1px solid rgba(14,116,144,.3); border-radius: 8px; }
+.xml-compare-validation-bulk-actions label { flex: 1; color: #bae6fd; font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 8px; margin: 0; }
+.xml-compare-validation-bulk-actions .xml-compare-validation-action-btn { width: auto; margin-top: 0; padding: 6px 12px; background: rgba(14,116,144,.6); border-color: rgba(6,182,212,.4); }
+.xml-compare-validation-bulk-actions .xml-compare-validation-action-btn:hover { background: rgba(14,116,144,.8); }
+.table-categorized-inline-details { margin-top: 12px; background: rgba(30,41,59,.6); border: 1px solid rgba(148,163,184,.2); border-radius: 6px; padding: 8px; }
+.table-categorized-inline-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #bae6fd; user-select: none; }
+.table-categorized-inline-details-content { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 1024px) { .xmlc-workspace-columns { grid-template-columns: 1fr; } }
+.xml-compare-transfer-apply-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; margin-bottom: 12px; }
+.xml-compare-transfer-apply-actions button { border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 6px; padding: 6px 12px; background: rgba(6, 78, 59, 0.4); color: #d1fae5; font-weight: 600; cursor: pointer; }
+.xml-compare-transfer-apply-actions button:hover { background: rgba(6, 78, 59, 0.7); }
+.xml-compare-transfer-apply-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* AIM config: match basis + transfer blocks */
+.xmlc-aim-config { display: grid; gap: 8px; padding: 10px 12px; margin: 8px 0; border: 1px solid rgba(125,211,252,.28); border-radius: 10px; background: rgba(8,47,73,.28); }
+.xmlc-aim-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.xmlc-aim-row > b { color: #bfdbfe; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; min-width: 92px; }
+.xmlc-aim-row select, .xmlc-aim-row input { border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 5px 8px; }
+.xmlc-aim-row label { color: #cbd5e1; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.xmlc-block-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.xmlc-block-chk { color: #dbeafe; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }

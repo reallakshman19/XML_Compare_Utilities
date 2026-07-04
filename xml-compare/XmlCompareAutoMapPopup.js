@@ -52,7 +52,28 @@ function renderFieldValidationRows(rows=[]){return rows.map((r)=>`<tr><td>${esc(
 function renderValidationPanel({source=null,target=null,matchMap=null,compareFields=[]}={}){const validationLayer=matchMap?.request?.validationLayer||'current',toleranceMm=matchMap?.request?.toleranceMm??1,textRules=matchMap?.request?.textRules||{},model=createXmlCompareValidationModel({source,target,matchMap,compareFields,validationLayer,toleranceMm,textRules}),summary=`<div class="xml-compare-validation-summary"><span>Source ${model.summary.sourceCount}</span><span>Target ${model.summary.targetCount}</span><span>OK ${model.summary.okCount}</span><span>Mismatch ${model.summary.mismatchCount}</span></div>`,coordHead='<tr><th>Source Item</th><th>Nearest Target Item</th><th>Source XYZ</th><th>Expected Target XYZ</th><th>Actual Target XYZ</th><th>ΔX</th><th>ΔY</th><th>ΔZ</th><th>SRSS</th><th>Status</th></tr>',fieldHead='<tr><th>Source Item</th><th>Target Item</th><th>Field</th><th>Mode / Group</th><th>Source</th><th>Target</th><th>Result</th><th>Status</th></tr>';return `<section class="xml-compare-automap-panel">${validationHeader(model)}${summary}${validationDownloadActions()}${model.diagnostics.length?`<div class="xml-compare-warning">${esc(model.diagnostics.join(', '))}</div>`:''}<div class="xml-compare-popup-table"><table><thead>${model.mode==='coordinate-transform-nearest'?coordHead:fieldHead}</thead><tbody>${model.mode==='coordinate-transform-nearest'?renderCoordRows(model.rows):renderFieldValidationRows(model.rows)}</tbody></table></div></section>`;}
 function renderFieldOptions(fields=[],scope='node'){return fieldGroups(fields,scope).map(([block,items])=>`<optgroup label="${esc(block)}">${items.map((k)=>`<option value="${esc(k)}" selected>${esc(k)}</option>`).join('')}</optgroup>`).join('');}
 function blockOptionList(blocks=[]){return blocks.map((name)=>`<option value="${esc(name)}">${esc(name)}</option>`).join('');}
-function stagedSelectionControls(scope,available=[],selected=[]){return `<div class="xml-compare-stage-selection-grid"><label>Available ${esc(scope)} block(s)<select multiple size="7" data-xml-compare-transfer-${esc(scope)}-blocks>${blockOptionList(available)}</select></label><button type="button" data-xml-compare-action="stage-transfer-blocks" data-xml-compare-transfer-scope="${esc(scope)}">Add to selection</button><label>Selected ${esc(scope)} block(s)<select multiple size="7" data-xml-compare-selected-transfer-blocks>${blockOptionList(selected)}</select></label></div>`;}
+function stagedSelectionControls(scope,available=[],selected=[]){
+  const checkboxes = available.map(name => {
+    const isChecked = selected.includes(name) ? 'checked' : '';
+    return `<label class="xml-compare-checkbox-label" style="display:flex; align-items:center; gap:8px; margin-top:4px; font-weight:normal;">
+      <input type="checkbox" data-xml-compare-transfer-block-checkbox="${esc(name)}" ${isChecked}>
+      ${esc(name)}
+    </label>`;
+  }).join('');
+  return `<div class="xml-compare-stage-selection-grid" style="display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid rgba(148,163,184,.2); border-radius:8px; background:rgba(2,6,23,.34);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <b style="color:#bae6fd; font-size:13px;">${esc(scope)} blocks to transfer</b>
+      <div class="xmlc-cand-actions">
+         <button type="button" data-xml-compare-action="select-all-transfer-blocks" data-xml-compare-transfer-scope="${esc(scope)}">All</button>
+         <button type="button" data-xml-compare-action="select-none-transfer-blocks" data-xml-compare-transfer-scope="${esc(scope)}">None</button>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:8px; max-height:200px; overflow-y:auto; padding:8px; background:rgba(15,23,42,.4); border:1px solid rgba(148,163,184,.15); border-radius:6px;">
+      ${checkboxes}
+    </div>
+    <button type="button" data-xml-compare-transfer-state-action="stage-transfer" data-xml-compare-transfer-scope="${esc(scope)}" style="align-self:flex-start; margin-top:8px;" class="xml-compare-validation-action-btn">Update Selection</button>
+  </div>`;
+}
 function caseStatusLabel(status=''){if(status==='add')return'Source available / Target missing';if(status==='replace')return'Source available / Target available';if(status==='source-missing')return'Source missing / Target available';return'No change';}
 function renderNodeCaseRows(cases=[]){return cases.map((x)=>`<tr><td><input type="checkbox" ${x.approved?'checked':''} ${x.sourceBlock?'':'disabled'} data-xml-compare-transfer-pair="${esc(x.id)}" data-block-name="${esc(x.blockName)}"></td><td>${esc(x.sourceNode)}<br><small>${esc(x.sourceElement)} ${esc(x.sourceRole)}</small></td><td>${esc(x.targetNode)}<br><small>${esc(x.targetElement)} ${esc(x.targetRole)}</small></td><td>${esc(x.blockName)}<br><small>${esc(caseStatusLabel(x.status))}</small><br><small>${esc(x.resolution)}</small></td><td>${esc(x.sourceBlock?`itemCount=${x.sourceBlock.itemCount}; ${compactFields(x.sourceBlock.compactFields||x.sourceBlock.fields)}`:'not available in Source')}</td><td>${esc(x.targetBlock?`itemCount=${x.targetBlock.itemCount}; ${compactFields(x.targetBlock.compactFields||x.targetBlock.fields)}`:'not available in Target')}</td></tr>`).join('')||'<tr><td colspan="6">No affected node-owned block cases found.</td></tr>';}
 function renderRows(rows=[],fields=[],scope='node'){return rows.map((row)=>`<tr><td>${esc(scope==='line'?row.source?.lineNo:row.source?.nodeNumber||'')}</td><td>${esc(scope==='line'?row.target?.lineNo:row.target?.nodeNumber||'')}</td><td>${fields.map((key)=>`${esc(fieldBlock(scope,key))}.${esc(key)}=${esc(row.sourceFields?.[key]||'-')}`).join('<br>')}</td></tr>`).join('')||'<tr><td colspan="3">No selected pairs.</td></tr>';}

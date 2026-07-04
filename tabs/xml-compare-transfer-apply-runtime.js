@@ -1,32 +1,94 @@
-import { applyCategorizedTransferPlan } from '../xml-compare/XmlCompareCategorizedTransferApplier.js';
+export const XML_COMPARE_TRANSFER_APPLY_RUNTIME_SCHEMA = 'xml-compare-transfer-apply-runtime/v4';
+const STYLE_ID = 'xml-compare-transfer-apply-runtime-style';
+const clean = (value) => String(value ?? '').trim();
 
-export const XML_COMPARE_TRANSFER_APPLY_RUNTIME_SCHEMA='xml-compare-transfer-apply-runtime/v3';
-const STYLE_ID='xml-compare-transfer-apply-runtime-style';
-const CACHE=globalThis.__xmlCompareTransferApplyCache ||= {a:null,b:null,lastResult:null,stage:null};
-const clean=(value)=>String(value??'').trim();
-const esc=(value)=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
-const isCategorized=(text='')=>/<CategorizedInputXML\b/i.test(String(text));
-function injectStyle(){if(typeof document==='undefined')return;let style=document.getElementById(STYLE_ID);if(!style){style=document.createElement('style');style.id=STYLE_ID;document.head.append(style);}style.textContent='.xml-compare-transfer-apply-actions{display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid rgba(148,163,184,.12);border-bottom:1px solid rgba(148,163,184,.12)}.xml-compare-transfer-apply-actions button{border:1px solid rgba(52,211,153,.42)!important;background:rgba(6,78,59,.58)!important;color:#d1fae5!important}.xml-compare-transfer-apply-note{font-size:11px;color:#a7f3d0;padding:8px 10px;border-top:1px solid rgba(52,211,153,.22);background:rgba(6,78,59,.12)}.xml-compare-transfer-apply-error{font-size:11px;color:#fecaca;padding:8px 10px;background:rgba(127,29,29,.28);border-top:1px solid rgba(248,113,113,.24)}.xml-compare-transfer-apply-audit{margin-top:8px;overflow:auto;max-height:180px}.xml-compare-transfer-apply-audit table{width:100%;border-collapse:collapse}.xml-compare-transfer-apply-audit th,.xml-compare-transfer-apply-audit td{border-bottom:1px solid rgba(148,163,184,.16);padding:5px 6px;text-align:left;color:#dbeafe}.xml-compare-transfer-apply-audit small{color:#93c5fd}.xml-compare-transfer-apply-output{width:100%;min-height:88px;margin-top:8px;border:1px solid rgba(96,165,250,.24);border-radius:8px;background:#020617;color:#dbeafe;font:11px ui-monospace,monospace}';}
-function fileNameFor(side='b'){const input=document.querySelector(`input[data-xml-compare-load="${side}"]`);return input?.files?.[0]?.name||`${side==='a'?'source':'target'}-categorized.xml`;}
-function transferredFileName(name='target-categorized.xml'){const base=clean(name||'target-categorized.xml').replace(/\.(xml|txt)$/i,'');return `${base}_transferred_categorized.xml`;}
-async function textFromSide(side='a'){if(CACHE[side]?.text)return CACHE[side].text;const input=document.querySelector(`input[data-xml-compare-load="${side}"]`);const file=input?.files?.[0];if(file){const text=await file.text();CACHE[side]={fileName:file.name,text};return text;}return '';}
-async function rememberInputFile(input){const side=input?.dataset?.xmlCompareLoad==='b'?'b':'a';const file=input?.files?.[0];if(!file)return;try{CACHE[side]={fileName:file.name,text:await file.text()};}catch{}}
-function parsePreviewPlan(pane){const pre=pane?.querySelector?.('details[open] pre')||pane?.querySelector?.('pre');if(!pre)return null;try{return JSON.parse(pre.textContent||'');}catch{return null;}}
-function selectedBlockNamesFromPane(pane){const selected=[];const staged=pane?.querySelector?.('[data-xml-compare-selected-transfer-blocks]');const source=staged||pane?.querySelector?.('select[multiple]');if(!source)return [];const options=Array.from(source.options||[]).filter((option)=>Boolean(staged)||option.selected);for(const option of options){const value=clean(option.value||option.textContent);if(value&&!selected.includes(value))selected.push(value);}return selected;}
-function approvedPairIdsFromPane(pane){const ids=[];pane?.querySelectorAll?.('[data-xml-compare-transfer-pair]').forEach((input)=>{if(input.checked){const id=clean(input.dataset.xmlCompareTransferPair);if(id&&!ids.includes(id))ids.push(id);}});return ids;}
-function normalizePlanForSelection(plan={},pane=null){const selectedBlocks=selectedBlockNamesFromPane(pane);const approvedPairIds=approvedPairIdsFromPane(pane);const next={...plan,selectedBlocks:selectedBlocks.length?selectedBlocks:[]};if(approvedPairIds.length)next.approvedPairIds=approvedPairIds;return next;}
-function activeScopePane(popup,scope='node'){return popup?.querySelector?.(`.xml-compare-scope-body.is-${scope}-scope`)||null;}
-function auditRows(audit=[]){return (audit||[]).map((row)=>{const changes=(row.changedBlocks||[]).map((block)=>`${block.blockName}: ${block.status}`).join('; ')||clean(row.reason||'');return `<tr><td>${esc(row.scope)}</td><td>${esc(row.sourceNode||row.sourceElement||row.sourceLine||'')}</td><td>${esc(row.targetNode||row.targetElement||row.targetLine||'')}</td><td>${esc(row.status)}</td><td><small>${esc(changes)}</small></td></tr>`;}).join('')||'<tr><td colspan="5">No audit rows.</td></tr>';}
-function resultHtml(message='',result=null,name=''){const audit=result?.audit||[];const output=result?.xml?`<textarea class="xml-compare-transfer-apply-output" readonly>${esc(result.xml.slice(0,2000))}</textarea>`:'';return `<b>${esc(message)}</b>${audit.length?`<div class="xml-compare-transfer-apply-audit"><table><thead><tr><th>Scope</th><th>Source</th><th>Target</th><th>Status</th><th>Changed blocks</th></tr></thead><tbody>${auditRows(audit)}</tbody></table></div>`:''}${name?`<small>Download name: ${esc(name)}</small>`:''}${output}`;}
-function setRuntimeMessage(popup,message,kind='note',result=null,name=''){const card=popup?.querySelector?.('.xml-compare-automap-card')||popup;if(!card)return;card.querySelectorAll('[data-xml-compare-transfer-runtime-message]').forEach((item)=>item.remove());const node=document.createElement('div');node.dataset.xmlCompareTransferRuntimeMessage='true';node.className=kind==='error'?'xml-compare-transfer-apply-error':'xml-compare-transfer-apply-note';node.innerHTML=kind==='error'?esc(message):resultHtml(message,result,name);card.append(node);}
-function selectedScopeFromButton(button){return clean(button?.dataset?.xmlCompareTransferScope)||'node';}
-function addApplyActionsToPane(pane,scope){if(!pane||pane.querySelector('[data-xml-compare-transfer-apply-actions]'))return;const actions=document.createElement('div');actions.className='xml-compare-transfer-apply-actions';actions.dataset.xmlCompareTransferApplyActions='true';actions.innerHTML=`<button type="button" data-xml-compare-action="stage-scoped-transfer" data-xml-compare-transfer-scope="${scope}">Stage Transfer</button><button type="button" data-xml-compare-action="clear-staged-transfer" data-xml-compare-transfer-scope="${scope}">Clear Stage</button><button type="button" data-xml-compare-action="apply-scoped-transfer" data-xml-compare-transfer-scope="${scope}">Apply Staged Transfer</button><button type="button" data-xml-compare-action="export-scoped-transfer" data-xml-compare-transfer-scope="${scope}">Export Patched Target XML</button><button type="button" data-xml-compare-action="export-transfer-audit" data-xml-compare-transfer-scope="${scope}">Export Transfer Audit JSON</button>`;const details=pane.querySelector('details');if(details)details.after(actions);else pane.append(actions);}
-function augmentApplyButtons(){if(typeof document==='undefined')return;injectStyle();for(const scope of ['node','element','line'])document.querySelectorAll(`.xml-compare-scope-body.is-${scope}-scope`).forEach((pane)=>addApplyActionsToPane(pane,scope));}
-function downloadText(name,text,type='application/xml;charset=utf-8'){const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);}
-export function applyTransferPreviewToTarget({sourceText='',targetText='',previewPlan={},policy='replace'}={}){if(!isCategorized(sourceText))throw new Error('Source A must be CategorizedInputXML before transfer apply.');if(!isCategorized(targetText))throw new Error('Target B must be CategorizedInputXML before transfer apply.');if(!previewPlan||typeof previewPlan!=='object')throw new Error('Transfer preview plan is missing.');if(!Array.isArray(previewPlan.selectedBlocks)||!previewPlan.selectedBlocks.length)throw new Error('Select at least one transfer block before applying.');return applyCategorizedTransferPlan(targetText,sourceText,previewPlan,{policy});}
-function stageSelectedBlocks(button){const pane=button.closest('.xml-compare-scope-body');const available=pane?.querySelector?.('select[data-xml-compare-transfer-node-blocks],select[data-xml-compare-transfer-element-blocks],select[data-xml-compare-transfer-line-blocks]');const staged=pane?.querySelector?.('[data-xml-compare-selected-transfer-blocks]');if(!available||!staged)return;const existing=new Set([...staged.options].map((option)=>clean(option.value)));for(const option of [...available.selectedOptions]){const value=clean(option.value||option.textContent);if(!value||existing.has(value))continue;staged.add(new Option(value,value,true,true));existing.add(value);}}
-function selectTransferPairs(button,checked){const pane=button.closest('.xml-compare-scope-body');pane?.querySelectorAll?.('[data-xml-compare-transfer-pair]').forEach((input)=>{input.checked=checked;});}
-async function handleTransferAction(event,button){const popup=button.closest('[data-xml-compare-automap-popup]');const action=button.dataset.xmlCompareAction;const scope=selectedScopeFromButton(button);const pane=activeScopePane(popup,scope);const previewPlan=parsePreviewPlan(pane);const plan=normalizePlanForSelection(previewPlan,pane);if(action==='clear-staged-transfer'){CACHE.stage=null;CACHE.lastResult=null;setRuntimeMessage(popup,'Staged transfer cleared.','note');return;}if(action==='export-transfer-audit'){const audit={schema:'xml-compare-transfer-audit/v1',stage:CACHE.stage,lastResult:CACHE.lastResult};downloadText('xml-compare-transfer-audit.json',JSON.stringify(audit,null,2),'application/json;charset=utf-8');setRuntimeMessage(popup,'Downloaded transfer audit JSON.','note');return;}if(!previewPlan){setRuntimeMessage(popup,`No ${scope} transfer preview plan found.`, 'error');return;}const selectedBlocks=plan.selectedBlocks?.join(', ')||'none';if(action==='stage-scoped-transfer'){CACHE.stage={scope,plan,selectedBlocks,createdAt:new Date().toISOString()};CACHE.lastResult=null;setRuntimeMessage(popup,`Staged ${scope} transfer. Blocks: ${selectedBlocks}. Review, then apply or export.`,'note');return;}if(!CACHE.stage){setRuntimeMessage(popup,'Stage Transfer before applying or exporting.','error');return;}const sourceText=await textFromSide('a');const targetText=await textFromSide('b');const result=applyTransferPreviewToTarget({sourceText,targetText,previewPlan:CACHE.stage.plan,policy:'replace'});const updated=result.audit?.filter((row)=>row.status==='updated').length||0;const skipped=result.audit?.filter((row)=>row.status==='skipped').length||0;const name=transferredFileName(fileNameFor('b'));CACHE.lastResult={name,result,scope:CACHE.stage.scope,selectedBlocks:CACHE.stage.selectedBlocks};if(action==='export-scoped-transfer'){downloadText(name,result.xml);setRuntimeMessage(popup,`Downloaded ${name}. Blocks: ${CACHE.stage.selectedBlocks}. Updated ${updated}, skipped ${skipped}.`, 'note', result, name);return;}setRuntimeMessage(popup,`Applied staged ${CACHE.stage.scope} transfer in memory. Blocks: ${CACHE.stage.selectedBlocks}. Updated ${updated}, skipped ${skipped}. Export patched XML to save it.`, 'note', result, name);}
-function install(){if(typeof document==='undefined')return;injectStyle();document.addEventListener('change',(event)=>{const input=event.target?.closest?.('input[data-xml-compare-load]');if(input)rememberInputFile(input);},{capture:true});document.addEventListener('click',(event)=>{const stage=event.target?.closest?.('[data-xml-compare-action="stage-transfer-blocks"]');if(stage){event.preventDefault();event.stopPropagation();stageSelectedBlocks(stage);return;}const selectAll=event.target?.closest?.('[data-xml-compare-action="select-all-transfer-pairs"]');if(selectAll){event.preventDefault();event.stopPropagation();selectTransferPairs(selectAll,true);return;}const selectNone=event.target?.closest?.('[data-xml-compare-action="select-none-transfer-pairs"]');if(selectNone){event.preventDefault();event.stopPropagation();selectTransferPairs(selectNone,false);return;}const button=event.target?.closest?.('[data-xml-compare-action="stage-scoped-transfer"],[data-xml-compare-action="clear-staged-transfer"],[data-xml-compare-action="apply-scoped-transfer"],[data-xml-compare-action="export-scoped-transfer"],[data-xml-compare-action="export-transfer-audit"]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();handleTransferAction(event,button).catch((error)=>setRuntimeMessage(button.closest('[data-xml-compare-automap-popup]'),error?.message||String(error),'error'));},{capture:true});new MutationObserver(()=>augmentApplyButtons()).observe(document.body,{childList:true,subtree:true});augmentApplyButtons();}
+function injectStyle() {
+  if (typeof document === 'undefined') return;
+  let style = document.getElementById(STYLE_ID);
+  if (!style) { style = document.createElement('style'); style.id = STYLE_ID; document.head.append(style); }
+  style.textContent = '.xml-compare-transfer-apply-actions{display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid rgba(148,163,184,.12);border-bottom:1px solid rgba(148,163,184,.12)}.xml-compare-transfer-apply-actions button{border:1px solid rgba(52,211,153,.42)!important;background:rgba(6,78,59,.58)!important;color:#d1fae5!important}';
+}
+
+function selectedBlocksFromPane(pane) {
+  const checkboxes = pane?.querySelectorAll?.('input[type="checkbox"][data-xml-compare-transfer-block-checkbox]');
+  if (checkboxes && checkboxes.length > 0) {
+    const selected = [];
+    checkboxes.forEach(cb => {
+      if (cb.checked) selected.push(clean(cb.dataset.xmlCompareTransferBlockCheckbox));
+    });
+    return selected;
+  }
+  const staged = pane?.querySelector?.('[data-xml-compare-selected-transfer-blocks]');
+  const source = staged || pane?.querySelector?.('select[multiple]');
+  if (!source) return [];
+  const rows = Array.from(source.options || []).filter((option) => Boolean(staged) || option.selected);
+  return rows.map((option) => clean(option.value || option.textContent)).filter(Boolean);
+}
+
+function approvedPairIdsFromPane(pane) {
+  const ids = [];
+  pane?.querySelectorAll?.('[data-xml-compare-transfer-pair]').forEach((input) => {
+    if (input.checked && clean(input.dataset.xmlCompareTransferPair)) ids.push(clean(input.dataset.xmlCompareTransferPair));
+  });
+  return Object.freeze([...new Set(ids)]);
+}
+
+function stageSelectedBlocks(button) {
+  const pane = button.closest('.xml-compare-scope-body');
+  const available = pane?.querySelector?.('select[data-xml-compare-transfer-node-blocks],select[data-xml-compare-transfer-element-blocks],select[data-xml-compare-transfer-line-blocks]');
+  const staged = pane?.querySelector?.('[data-xml-compare-selected-transfer-blocks]');
+  if (!available || !staged) return;
+  const existing = new Set([...staged.options].map((option) => clean(option.value)));
+  for (const option of [...available.selectedOptions]) addSelectedBlock(staged, existing, option);
+}
+
+function addSelectedBlock(staged, existing, option) {
+  const value = clean(option.value || option.textContent);
+  if (!value || existing.has(value)) return;
+  staged.add(new Option(value, value, true, true));
+  existing.add(value);
+}
+
+function selectTransferPairs(button, checked) {
+  const pane = button.closest('.xml-compare-scope-body');
+  pane?.querySelectorAll?.('[data-xml-compare-transfer-pair]').forEach((input) => { input.checked = checked; });
+}
+
+function dispatchTransferAction(button) {
+  const scope = clean(button.dataset.xmlCompareTransferScope || 'node');
+  const pane = button.closest('[data-xml-compare-automap-popup]')?.querySelector(`.xml-compare-scope-body.is-${scope}-scope`);
+  document.dispatchEvent(new CustomEvent('xml-compare:state-action', { detail: { type: clean(button.dataset.xmlCompareTransferStateAction), scope, selectedBlocks: selectedBlocksFromPane(pane), approvedPairIds: approvedPairIdsFromPane(pane) } }));
+}
+
+function setBlockCheckboxes(button, checked) {
+  const pane = button.closest('.xml-compare-scope-body');
+  pane?.querySelectorAll?.('input[type="checkbox"][data-xml-compare-transfer-block-checkbox]').forEach(cb => { cb.checked = checked; });
+}
+
+function onClick(event) {
+  const stage = event.target?.closest?.('[data-xml-compare-action="stage-transfer-blocks"]');
+  if (stage) { event.preventDefault(); event.stopPropagation(); stageSelectedBlocks(stage); return; }
+  const selectAllBlocks = event.target?.closest?.('[data-xml-compare-action="select-all-transfer-blocks"]');
+  if (selectAllBlocks) { event.preventDefault(); event.stopPropagation(); setBlockCheckboxes(selectAllBlocks, true); return; }
+  const selectNoneBlocks = event.target?.closest?.('[data-xml-compare-action="select-none-transfer-blocks"]');
+  if (selectNoneBlocks) { event.preventDefault(); event.stopPropagation(); setBlockCheckboxes(selectNoneBlocks, false); return; }
+  const selectAll = event.target?.closest?.('[data-xml-compare-action="select-all-transfer-pairs"]');
+  if (selectAll) { event.preventDefault(); event.stopPropagation(); selectTransferPairs(selectAll, true); return; }
+  const selectNone = event.target?.closest?.('[data-xml-compare-action="select-none-transfer-pairs"]');
+  if (selectNone) { event.preventDefault(); event.stopPropagation(); selectTransferPairs(selectNone, false); return; }
+  const transfer = event.target?.closest?.('[data-xml-compare-transfer-state-action]');
+  if (!transfer) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  dispatchTransferAction(transfer);
+}
+
+function install() {
+  if (typeof document === 'undefined') return;
+  injectStyle();
+  document.addEventListener('click', onClick, { capture: true });
+  document.documentElement.dataset.xmlCompareTransferApplyRuntime = XML_COMPARE_TRANSFER_APPLY_RUNTIME_SCHEMA;
+}
+
 install();
-export const _test=Object.freeze({isCategorized,transferredFileName,parsePreviewPlan,selectedBlockNamesFromPane,approvedPairIdsFromPane,normalizePlanForSelection,applyTransferPreviewToTarget,auditRows,resultHtml});
+export const _test = Object.freeze({ clean, selectedBlocksFromPane, approvedPairIdsFromPane, stageSelectedBlocks, selectTransferPairs });

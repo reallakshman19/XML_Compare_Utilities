@@ -1,5 +1,6 @@
 import { PS_MAPPING_TABLE_2_SHADOW_PROFILE } from './table-categorized-xml-pilot-profiles.js';
 import { activeSource, DELIMITER_MODE_OPTIONS } from './table-categorized-xml-source-manager.js';
+import { generateSuggestedProfiles } from './table-categorized-xml-profile-designer.js';
 
 export const TABLE_CATEGORIZED_XML_SHELL_SCHEMA='table-categorized-xml-shell/v23-column-confirmation';
 export const TABLE_CATEGORIZED_XML_BUTTON_ATTR='data-xml-compare-table-categorized-open';
@@ -38,7 +39,7 @@ export function renderTableCategorizedXmlShellHtml(state={}){
   const view={activeStep:stepFromTab(state.activeTab),activeTab:'source',sources:[],activeSourceId:'S1',profile:PS_MAPPING_TABLE_2_SHADOW_PROFILE,compareCanvas:{},...state};
   view.activeStep=TABLE_CATEGORIZED_STEPS.includes(view.activeStep)?view.activeStep:'table';
   const full=Boolean(view.isFullscreen||view.fullscreen);
-  return `<div class="table-categorized-xml-backdrop" ${TABLE_CATEGORIZED_XML_POPUP_ATTR} data-table-categorized-fullscreen="${full?'true':'false'}"><section class="table-categorized-xml-dialog ${full?'is-fullscreen':''}" role="dialog" aria-modal="true" aria-label="Table to Categorized XML"><header><div><h3>Table to Categorized XML</h3><p>Load table → confirm columns → build structure → preview result → download XML.</p></div><div class="table-categorized-xml-actions"><button type="button" data-table-categorized-action="toggle-fullscreen">${full?'Exit Fullscreen':'Fullscreen'}</button><button type="button" data-table-categorized-close>Close</button></div></header>${renderStepStrip(view)}<main class="table-categorized-xml-body table-categorized-xml-with-preview"><section class="table-categorized-xml-workflow-pane">${renderStepBody(view)}</section><aside class="table-categorized-xml-card" data-table-categorized-preview="${esc(view.activeStep)}"><h4>${esc(TABLE_CATEGORIZED_STEP_LABELS[view.activeStep])} Preview</h4>${renderStepPreview(view)}</aside></main><footer><span>Simple guided flow. Extra tools stay behind inline options.</span><button type="button" data-table-categorized-close>Close</button></footer></section></div>`;
+  return `<div class="table-categorized-xml-backdrop" ${TABLE_CATEGORIZED_XML_POPUP_ATTR} data-table-categorized-fullscreen="${full?'true':'false'}"><section class="table-categorized-xml-dialog ${full?'is-fullscreen':''}" role="dialog" aria-modal="true" aria-label="Table to Categorized XML"><header><div><h3>Table to Categorized XML</h3><p>Load table → confirm columns → build structure → preview result → download XML.</p></div><div class="table-categorized-xml-actions"><button type="button" data-table-categorized-action="toggle-fullscreen">${full?'Exit Fullscreen':'Fullscreen'}</button><button type="button" data-table-categorized-close>Close</button></div></header>${renderStepStrip(view)}<main class="table-categorized-xml-body">${renderStepBody(view)}</main></section></div>`;
 }
 export function renderTabStrip(activeTab='source',view={}){return renderStepStrip({...view,activeStep:stepFromTab(activeTab)});}
 export function renderSetupTabStrip(){return '';}
@@ -49,26 +50,272 @@ export function renderLevelDesigner(view={}){return renderColumnsStep(view);}
 function renderStepStrip(view){const status=createTableCategorizedStepStatus(view);return `<nav class="table-categorized-stepper" aria-label="Table categorizer steps">${TABLE_CATEGORIZED_STEPS.map((step,index)=>{const locked=status[step]==='locked';const active=view.activeStep===step;return `<button type="button" data-table-categorized-step="${step}" data-table-categorized-tab="${tabFromStep(step)}" data-step-status="${status[step]}" class="${active?'is-active':''} is-status-${status[step]}" ${locked?'disabled aria-disabled="true"':'aria-disabled="false"'}><b>${index+1} ${TABLE_CATEGORIZED_STEP_LABELS[step]} ${statusBadge(status[step])}</b><small>${stepSubtitle(step,status[step])}</small></button>`;}).join('')}</nav>`;}
 function renderStepBody(view){if(view.activeStep==='columns')return renderColumnsStep(view);if(view.activeStep==='structure')return renderStructureStep(view);if(view.activeStep==='preview')return renderPreviewStep(view);if(view.activeStep==='export')return renderExportStep(view);return renderTableStep(view);}
 function stepSubtitle(step,status){if(status==='locked')return 'Locked';if(step==='columns'&&status==='complete')return 'Fields confirmed';if(step==='columns'&&status==='warning')return 'Review field issues';return {table:'Add source',columns:'Confirm fields',structure:'Build structure',preview:'Check result',export:'Download files'}[step];}
-function renderTableStep(view){const active=activeFor(view);const sources=sourcesFor(view);const options=`${renderDelimiterSelect(active)}<label class="table-categorized-file">Upload CSV / TXT<input type="file" data-table-categorized-file></label><button type="button" data-table-categorized-action="load-sample">Load Sample</button><button type="button" data-table-categorized-action="load-coordinate-sample">Load Coordinate Sample</button><button type="button" data-table-categorized-action="load-two-source-template">Load Two-source Template</button><button type="button" data-table-categorized-action="add-source">Add Table</button><button type="button" data-table-categorized-action="remove-source">Remove Table</button><button type="button" data-table-categorized-action="clear">Clear</button>${renderDiagnostics(active)}`;return card('Step 1 — Table','Paste your table text.',`<label>Table ID<select data-table-categorized-active-source>${sources.map((s)=>`<option ${s.sourceId===active.sourceId?'selected':''}>${esc(s.sourceId)}</option>`).join('')}</select></label><label>Table Name<input data-table-categorized-source-name value="${esc(active.sourceName||'')}"></label><label>Paste table text<textarea data-table-categorized-source-text>${esc(active.sourceText||'')}</textarea></label><div class="table-categorized-primary-actions"><button type="button" class="is-primary" data-table-categorized-action="parse">Read Table</button></div>${renderDisclosure({id:'source-options',title:'More table options',body:actionGroup(options)})}`);}
-function renderColumnsStep(view){const active=activeFor(view);const details=`${renderProfileMini(view.profile)}${renderRawPreview(active)}`;return card('Step 2 — Columns','Review the detected columns.',`${renderColumnList(active)}<div class="table-categorized-primary-actions"><button type="button" class="is-primary" data-table-categorized-action="confirm-columns" ${active?.rows?.length?'':'disabled'}>Confirm Columns</button></div>${renderDisclosure({id:'column-details',title:'Column details',body:details})}`);}
-function renderStructureStep(view){const details=`${renderRootFields(view.profile?.levelDefinitions?.[0]||{},view.profile)}<button type="button" data-table-categorized-action="apply-profile">Apply Profile</button><button type="button" data-table-categorized-action="new-blank-profile">Blank Profile</button><button type="button" data-table-categorized-action="load-ps-template">PS Template</button><label class="table-categorized-file">Load Structure Recipe<input type="file" data-table-categorized-profile-file></label>`;return card('Step 3 — Structure','Suggested XML structure.',`${renderLevelTree(view.profile,{showRootFields:false})}<div class="table-categorized-primary-actions"><button type="button" class="is-primary" data-table-categorized-action="build-graph" ${hasRows(view)?'':'disabled'}>Build Graph</button></div>${renderDisclosure({id:'structure-options',title:'Structure options',body:actionGroup(details)})}`);}
-function renderPreviewStep(view){return card('Step 4 — Preview','Structure preview and checks.',`${renderStructureSummary(view)}${renderCheckSummary(view)}<div class="table-categorized-primary-actions"><button type="button" class="is-primary" data-table-categorized-action="check-output" data-table-categorized-tab="export" ${view.graph?'':'disabled'}>Check Output</button></div>${renderDisclosure({id:'check-details',title:'Check details',body:renderValidationList(view)})}`);}
-function renderExportStep(view){const ready=Boolean(view.exportResult?.ok);const files=`<button type="button" data-table-categorized-download="graph" ${ready?'':'disabled'}>Download Graph JSON</button><button type="button" data-table-categorized-download="profile">Download Recipe JSON</button><button type="button" data-table-categorized-download="diagnostics" ${ready?'':'disabled'}>Download Diagnostics JSON</button><button type="button" data-table-categorized-download="audit" ${ready?'':'disabled'}>Download Audit JSON</button>`;return card('Step 5 — Export',ready?'XML is ready.':'Export is not ready.',`${renderExportStatus(view)}<div class="table-categorized-primary-actions"><button type="button" class="is-primary" data-table-categorized-download="xml" ${ready?'':'disabled'}>Download XML</button></div>${renderDisclosure({id:'more-export-files',title:'More export files',body:actionGroup(files)})}${renderCanvasActions(view)}`);}
-function renderStepPreview(view){if(view.activeStep==='columns')return renderColumnList(activeFor(view));if(view.activeStep==='structure')return renderLevelTree(view.profile,{showRootFields:false});if(view.activeStep==='preview')return `${renderStructureSummary(view)}${renderCheckSummary(view)}`;if(view.activeStep==='export')return renderExportStatus(view);return renderRawPreview(activeFor(view));}
+function renderTableStep(view) {
+  const active = activeFor(view);
+  const sources = sourcesFor(view);
+  return `
+    <div class="table-categorized-shell-toolbar">
+      <label>Table ID<select data-table-categorized-active-source>${sources.map((s) => `<option ${s.sourceId === active.sourceId ? 'selected' : ''}>${esc(s.sourceId)}</option>`).join('')}</select></label>
+      <label>Table Name<input data-table-categorized-source-name value="${esc(active.sourceName || '')}"></label>
+      <div class="table-categorized-shell-toolbar-actions">
+        <button type="button" data-table-categorized-action="add-source">+ Add</button>
+        <button type="button" data-table-categorized-action="remove-source">- Remove</button>
+        <button type="button" data-table-categorized-action="clear">↺ Clear</button>
+      </div>
+    </div>
+    <div class="table-categorized-shell-split">
+      <div class="table-categorized-shell-main">
+        <div class="table-categorized-drop-zone">
+          <span>📥 Drag & Drop CSV / TXT File Here</span>
+        </div>
+        <div class="table-categorized-divider"><span>- OR -</span></div>
+        <label class="table-categorized-shell-paste">
+          <span>Paste Table Text (Headers required):</span>
+          <textarea data-table-categorized-source-text placeholder="LINE_ID&#9;FROM_NODE&#9;TO_NODE&#10;L-100&#9;N1&#9;N2">${esc(active.sourceText || '')}</textarea>
+        </label>
+      </div>
+      <div class="table-categorized-shell-side">
+        <div class="table-categorized-shell-side-card">
+          <h4>Advanced Settings</h4>
+          ${renderDelimiterSelect(active)}
+          <hr/>
+          <h4>Load Template</h4>
+          <button type="button" data-table-categorized-action="load-sample">Load Sample</button>
+          <button type="button" data-table-categorized-action="load-coordinate-sample">Load Coordinate Sample</button>
+          <button type="button" data-table-categorized-action="load-two-source-template">Load Two-source Template</button>
+          <hr/>
+          <h4>Upload CSV Manually</h4>
+          <label class="table-categorized-file">
+            Choose File...
+            <input type="file" data-table-categorized-file>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="table-categorized-shell-footer">
+      <button type="button" class="is-primary" data-table-categorized-action="parse">Read Table (Parse)</button>
+      <div class="table-categorized-shell-status">
+        Status: ${active.rows?.length || 0} Rows Parsed | ${active.diagnostics?.filter((d) => ['ERROR', 'BLOCKER'].includes(d.severity)).length || 0} Errors
+      </div>
+    </div>
+  `;
+}
+
+function renderColumnsStep(view) {
+  const active = activeFor(view);
+  return `
+    <div class="table-categorized-shell-toolbar">
+      <label>Format ID<input data-profile-field="profileId" value="${esc(view.profile?.profileId || '')}"></label>
+      <label>Format Name<input data-profile-field="displayName" value="${esc(view.profile?.displayName || '')}"></label>
+    </div>
+    <div class="table-categorized-shell-split">
+      <div class="table-categorized-shell-main">
+        <div class="table-categorized-shell-side-card">
+          <h4>Detected Columns (Visual Grid)</h4>
+          ${renderColumnList(active)}
+        </div>
+      </div>
+      <div class="table-categorized-shell-side">
+        <div class="table-categorized-shell-side-card">
+          <h4>Raw Data Preview (First 8 Rows)</h4>
+          <div class="table-categorized-raw-preview">
+            ${renderRawPreview(active)}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="table-categorized-shell-footer">
+      <button type="button" class="is-primary" data-table-categorized-action="confirm-columns" ${active?.rows?.length ? '' : 'disabled'}>Confirm Columns</button>
+      <div class="table-categorized-shell-status">
+        Status: ${active.columnsConfirmed ? 'Columns Confirmed. Proceed to Structure.' : 'Review columns and confirm.'}
+      </div>
+    </div>
+  `;
+}
+
+function renderStructureStep(view) {
+  return `
+    <div class="table-categorized-shell-split">
+      <div class="table-categorized-shell-main">
+        <div class="table-categorized-shell-side-card">
+          <h4>Structure Recipe Builder</h4>
+          <p>Define the XML hierarchy. Nodes will be generated based on these rules.</p>
+          <div class="table-categorized-level-builder">
+            ${renderLevelBuilder(view.profile?.levelDefinitions || [], view)}
+          </div>
+          ${view.generateLivePreview ? `
+          <h4 style="margin-top: 16px;">Live Canvas (Preview)</h4>
+          <pre class="table-categorized-xml-tree" style="margin:0; padding:10px; font-size: 0.85em; overflow:hidden; background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px dashed rgba(14,165,233,0.4);">${esc(view.generateLivePreview())}</pre>
+          ` : ''}
+        </div>
+      </div>
+      <div class="table-categorized-shell-side">
+        <div class="table-categorized-shell-side-card">
+          <h4>Suggested Structures</h4>
+          ${renderSuggestedStructures(view)}
+        </div>
+        <div class="table-categorized-shell-side-card">
+          <h4>Load Custom Recipe</h4>
+          <label class="table-categorized-file">
+            Choose File...
+            <input type="file" data-table-categorized-profile-file accept=".json">
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="table-categorized-shell-footer">
+      <button type="button" class="is-primary" data-table-categorized-action="build-graph" ${hasRows(view) ? '' : 'disabled'}>Build Graph</button>
+      <div class="table-categorized-shell-status">
+        Status: ${view.graph ? `Graph built successfully (${view.graph.nodes?.length || 0} nodes).` : 'Ready to build.'}
+      </div>
+    </div>
+  `;
+}
+
+function renderSuggestedStructures(view) {
+  const headers = activeFor(view)?.headers || [];
+  const suggestions = generateSuggestedProfiles(headers);
+  if (!suggestions.length) return '<p>Load a table with columns to see suggestions.</p>';
+  return suggestions.map((p, i) => `
+    <div style="background: rgba(0,0,0,0.1); padding: 8px; margin-bottom: 10px; border-radius: 4px; border-left: 3px solid #007bff;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+        <strong style="font-size: 0.9em;">${esc(p.displayName)}</strong>
+        <button type="button" data-table-categorized-action="load-suggested-profile" data-suggestion-index="${i}" title="Load this structure">+</button>
+      </div>
+      <pre class="table-categorized-xml-tree" style="margin:0; padding:4px; font-size: 0.8em; overflow:hidden;">${esc(p.levelDefinitions.map(l => levelText(l, 0)).join('\n'))}</pre>
+    </div>
+  `).join('');
+}
+
+function renderPreviewStep(view) {
+  return `
+    <div class="table-categorized-shell-split">
+      <div class="table-categorized-shell-main">
+        <div class="table-categorized-shell-side-card" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+          <h4>Structure Preview & Summary</h4>
+          <div class="table-categorized-preview-summary">
+            ${renderStructureSummary(view)}
+            ${renderCheckSummary(view)}
+          </div>
+          ${view.exportResult?.xmlText ? `<pre class="table-categorized-xml-tree" style="flex:1;margin-top:1rem;white-space:pre-wrap;word-break:break-all;"><code>${esc(view.exportResult.xmlText.slice(0, 10000))}${view.exportResult.xmlText.length > 10000 ? '\n... (Preview truncated)' : ''}</code></pre>` : ''}
+        </div>
+      </div>
+      <div class="table-categorized-shell-side">
+        <div class="table-categorized-shell-side-card">
+          <h4>Check Details</h4>
+          <div class="table-categorized-validation-list">
+            ${renderValidationList(view)}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="table-categorized-shell-footer">
+      <button type="button" class="is-primary" data-table-categorized-action="check-output" data-table-categorized-tab="export" ${view.graph ? '' : 'disabled'}>Check Output</button>
+      <div class="table-categorized-shell-status">
+        Status: ${view.validationResults?.length ? 'Checks completed.' : 'Ready to check.'}
+      </div>
+    </div>
+  `;
+}
+
+function renderExportStep(view) {
+  const ready = Boolean(view.exportResult?.ok);
+  return `
+    <div class="table-categorized-shell-split">
+      <div class="table-categorized-shell-main">
+        <div class="table-categorized-export-status-banner ${ready ? 'is-ready' : 'is-not-ready'}">
+          ${renderExportStatus(view)}
+        </div>
+        <div class="table-categorized-shell-footer-inline">
+          <button type="button" class="is-primary is-large" data-table-categorized-download="xml" ${ready ? '' : 'disabled'}>Download XML</button>
+        </div>
+      </div>
+      <div class="table-categorized-shell-side">
+        <div class="table-categorized-shell-side-card">
+          <h4>Advanced Export</h4>
+          <button type="button" data-table-categorized-download="graph" ${ready ? '' : 'disabled'}>Download Graph JSON</button>
+          <button type="button" data-table-categorized-download="profile">Download Recipe JSON</button>
+          <button type="button" data-table-categorized-download="diagnostics" ${ready ? '' : 'disabled'}>Download Diagnostics JSON</button>
+          <button type="button" data-table-categorized-download="audit" ${ready ? '' : 'disabled'}>Download Audit JSON</button>
+          <hr/>
+          <h4>Canvas Handoff</h4>
+          ${renderCanvasActionsOnly(view)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderStepPreview(view) { return ''; }
 function card(title,summary,body){return `<section class="table-categorized-xml-card"><h4>${esc(title)}</h4><p>${esc(summary)}</p>${body}</section>`;}
 function actionGroup(body){return `<div class="table-categorized-xml-actions">${body}</div>`;}
-function renderDelimiterSelect(source={}){const mode=source.delimiterMode||'auto';return `<label>Delimiter<select data-table-categorized-delimiter-mode>${DELIMITER_MODE_OPTIONS.map((item)=>`<option value="${esc(item)}" ${item===mode?'selected':''}>${delimiterLabel(item)}</option>`).join('')}</select></label>`;}
-function delimiterLabel(mode){return {auto:'Auto-detect',tab:'Tab',comma:'Comma',pipe:'Pipe',semicolon:'Semicolon',whitespace:'Whitespace'}[mode]||mode;}
+function renderDelimiterSelect(source={}){const mode=source.delimiterMode||'auto';const custom=source.customDelimiter||'';return `<label>Delimiter<select data-table-categorized-delimiter-mode>${DELIMITER_MODE_OPTIONS.map((item)=>`<option value="${esc(item)}" ${item===mode?'selected':''}>${delimiterLabel(item)}</option>`).join('')}</select></label>${mode==='custom'?`<label>Custom Delimiter<input type="text" data-table-categorized-custom-delimiter value="${esc(custom)}" placeholder="e.g. ~ or |#|"></label>`:''}`;}
+function delimiterLabel(mode){return {auto:'Auto-detect',tab:'Tab',comma:'Comma',pipe:'Pipe',semicolon:'Semicolon',whitespace:'Whitespace',custom:'Custom...'}[mode]||mode;}
 function renderColumnList(source={}){const headers=source.headers||[];if(!headers.length)return '<p>No columns detected yet. Read a table first.</p>';return `<table><thead><tr><th>Column</th><th>Suggested use</th></tr></thead><tbody>${headers.map((h,i)=>`<tr><td>${esc(h)}</td><td>${i===0?'Item ID':'Detected field'}</td></tr>`).join('')}</tbody></table><p>${source.rows?.length||0} parsed rows.</p>`;}
 function renderRawPreview(source={}){const rows=(source.rows||[]).slice(0,8);if(!rows.length)return '<p>No rows parsed yet.</p>';return `<table><thead><tr>${(source.headers||[]).map((h)=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row)=>`<tr>${(row.rawCells||[]).map((cell)=>`<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;}
 function renderDiagnostics(source={}){const items=source.diagnostics||[];if(!items.length)return '<p>No table messages.</p>';return `<ul>${items.map((d)=>`<li>${esc(d.severity||'INFO')}: ${esc(d.message||d.code)}</li>`).join('')}</ul>`;}
 function renderProfileMini(profile={}){return `<div class="table-categorized-xml-subcard"><h4>XML format</h4><label>Format ID<input data-profile-field="profileId" value="${esc(profile.profileId||'')}"></label><label>Display Name<input data-profile-field="displayName" value="${esc(profile.displayName||'')}"></label></div>`;}
 function renderLevelTree(profile={},options={}){const roots=profile.levelDefinitions||[];if(!roots.length)return '<p>No XML levels defined.</p>';return `<pre class="table-categorized-xml-tree">${esc(roots.map((level)=>levelText(level,0)).join('\n'))}</pre>${options.showRootFields===false?'':renderRootFields(roots[0]||{},profile)}`;}
 function levelText(level,depth){const line=`${'  '.repeat(depth)}- ${level.displayName||level.levelId||'XML level'}`;return [line,...(level.children||[]).map((child)=>levelText(child,depth+1))].join('\n');}
-function renderRootFields(root={},profile={}){return `<div class="table-categorized-xml-subcard"><label>Root Name<input data-root-field="displayName" value="${esc(root.displayName||'')}"></label><label>Root XML Tag<input data-root-field="xmlTag" value="${esc(root.xmlTag||'')}"></label><input type="hidden" data-root-field="levelType" value="${esc(root.levelType||'document')}"><input type="hidden" data-root-field="creationMode" value="${esc(root.creationMode||'static')}"><input type="hidden" data-root-field="key" value="${esc(root.key||'ROOT')}"><input type="checkbox" data-root-document checked hidden><input type="hidden" data-root-partition-mode value="${esc(profile.rootPartitionMode||'static')}"><input type="hidden" data-root-partition-key value="${esc(profile.rootPartitions?.[0]?.key||'MODEL_SIDE')}"><input type="hidden" data-root-partition-scope value="${esc((profile.rootPartitions?.[0]?.sourceScope||[]).join(' '))}"></div>`;}
+function renderLevelBuilder(levels=[],view={},path=[]){
+  return levels.map((level,index)=>{
+    const currentPath=[...path,index];
+    const pathStr=currentPath.join(',');
+    const headers=activeFor(view)?.headers||[];
+    const isTakeToken = level.keyResolver?.op === 'takeToken';
+    const keyCol=isTakeToken ? level.keyResolver.input?.column : (level.keyResolver?.column||'');
+    const isRoot=currentPath.length===1&&currentPath[0]===0;
+    
+    const isConcat=level.keyResolver?.op==='concat';
+    const concatCols=isConcat?(level.keyResolver.parts||[]).filter(p=>p&&typeof p==='object').map(p=>p.column):[];
+
+    return `
+      <div class="table-categorized-builder-node" data-level-path="${pathStr}" style="margin-left:${path.length*20}px; border-left:2px solid #333; padding: 10px; margin-bottom: 8px; background: rgba(0,0,0,0.2);">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <label style="flex:1;min-width:120px;">Name <input type="text" data-level-field="displayName" value="${esc(level.displayName||'')}"></label>
+          <label style="flex:1;min-width:120px;">XML Tag <input type="text" data-level-field="xmlTag" value="${esc(level.xmlTag||'')}"></label>
+          ${isRoot?'':`<div style="display:flex; flex-direction:column; flex:1; min-width:120px; gap:4px;">
+            <label>Key Column 
+            <select data-level-field="keyColumn">
+              <option value="">(None)</option>
+              <option value="__concat__" ${isConcat?'selected':''}>Concat Columns...</option>
+              ${headers.map(h=>`<option value="${esc(h)}" ${h===keyCol&&!isConcat?'selected':''}>${esc(h)}</option>`).join('')}
+            </select>
+            </label>
+            ${(!isConcat && keyCol) ? `
+            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 4px;">
+              <input type="checkbox" data-level-split-dot="true" ${isTakeToken ? 'checked' : ''}>
+              Use text before '.' (e.g. PS-XYZ.1 → PS-XYZ)
+            </label>
+            ` : ''}
+          </div>`}
+          <div style="display:flex; gap:5px; margin-top:14px;">
+            <button type="button" data-table-categorized-action="add-child-level" data-path="${pathStr}" title="Add Child">+</button>
+            ${isRoot?'':`<button type="button" data-table-categorized-action="remove-level" data-path="${pathStr}" title="Remove Level">🗑</button>`}
+          </div>
+        </div>
+        ${isConcat ? `
+          <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px; padding:8px; background:rgba(255,255,255,0.05); border-radius:4px;">
+            <span style="font-size:0.8em; color:#bfdbfe;">Concatenate Columns:</span>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              ${headers.map(h => `
+                <label style="display:flex; align-items:center; gap:4px; font-weight:normal; font-size: 0.85em;">
+                  <input type="checkbox" data-level-concat-column="${esc(h)}" ${concatCols.includes(h) ? 'checked' : ''}>
+                  ${esc(h)}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${renderLevelBuilder(level.children||[],view,currentPath)}
+      </div>
+    `;
+  }).join('');
+}
+function renderRootFieldsHidden(root={},profile={}){return '';}
 function renderStructureSummary(view={}){if(!view.graph)return '<p>Structure preview not built yet.</p>';return `<p>Structure preview ready: ${view.graph.nodes?.length||0} items, ${view.graph.edges?.length||0} links.</p>`;}
 function renderCheckSummary(view={}){const items=view.validationResults||[];if(!items.length)return '<p>No checks have run yet.</p>';const fail=items.filter((item)=>['BLOCKER','ERROR'].includes(item?.severity)).length;return `<p>${fail?`${fail} check issue(s) need review.`:'Checks completed with no blockers.'}</p>`;}
 function renderValidationList(view={}){const items=view.validationResults||[];if(!items.length)return '<p>No check details yet.</p>';return `<ul>${items.slice(0,12).map((item)=>`<li>${esc(item.severity||'INFO')}: ${esc(item.message||item.code)}</li>`).join('')}</ul>`;}
 function renderExportStatus(view={}){if(view.exportResult?.ok)return `<p><b>Categorized XML ready.</b></p><p>${esc(view.exportStatus||'Export files are ready.')}</p>`;return `<p><b>Export not ready.</b></p><p>${esc(view.exportStatus||'Build the structure first, then check output.')}</p>`;}
-function renderCanvasActions(view={}){const tools=`<label>Target Structure JSON<input type="file" data-table-categorized-target-graph-input></label><button type="button" data-table-categorized-action="use-current-graph-source-canvas" ${view.graph?'':'disabled'}>Use Current Structure as Source</button><button type="button" data-table-categorized-action="use-imported-graph-target-canvas">Use Imported Structure as Target</button><button type="button" data-table-categorized-action="run-graph-compare-canvas">Run Graph Compare</button><button type="button" data-table-categorized-action="build-graph-connectors">Build Graph Connectors</button><button type="button" data-table-categorized-action="download-graph-connectors-json">Download Connectors JSON</button><button type="button" data-table-categorized-action="clear-compare-canvas-preview">Clear Compare Preview</button><button type="button" data-table-categorized-action="send-source" ${view.exportResult?.ok?'':'disabled'}>Send to SourceXML Canvas</button><button type="button" data-table-categorized-action="send-target" ${view.exportResult?.ok?'':'disabled'}>Send to TargetXML Canvas</button>${renderPendingCanvasHandoff(view.pendingHandoff)}`;return renderDisclosure({id:'canvas-comparison-tools',title:'Canvas and comparison tools',body:actionGroup(tools)});}
+function renderCanvasActionsOnly(view={}){return `<label class="table-categorized-file">Target Structure JSON<input type="file" data-table-categorized-target-graph-input></label><button type="button" data-table-categorized-action="use-current-graph-source-canvas" ${view.graph?'':'disabled'}>Use Current Structure as Source</button><button type="button" data-table-categorized-action="use-imported-graph-target-canvas">Use Imported Structure as Target</button><button type="button" data-table-categorized-action="send-source" ${view.exportResult?.ok?'':'disabled'}>Send to SourceXML Canvas</button><button type="button" data-table-categorized-action="send-target" ${view.exportResult?.ok?'':'disabled'}>Send to TargetXML Canvas</button><details class="table-categorized-inline-details"><summary>Simple guided flow. Extra tools stay behind inline options.</summary><div class="table-categorized-inline-details-content"><button type="button" data-table-categorized-action="run-graph-compare-canvas">Run Graph Compare</button><button type="button" data-table-categorized-action="build-graph-connectors">Build Graph Connectors</button><button type="button" data-table-categorized-action="download-graph-connectors-json">Download Connectors JSON</button><button type="button" data-table-categorized-action="clear-compare-canvas-preview">Clear Compare Preview</button></div></details>${renderPendingCanvasHandoff(view.pendingHandoff)}`;}
 function renderPendingCanvasHandoff(pending=null){if(!pending?.summary)return '';const s=pending.summary;return `<div class="table-categorized-xml-subcard" data-table-categorized-pending-handoff><h4>Confirm canvas handoff</h4><p>Target: ${esc(s.targetCanvas)}. Root: ${esc(s.xmlRoot)}. ${esc(s.byteCount)} bytes across ${esc(s.lineCount)} line(s).</p><p>${esc(s.origin)}. ${esc(s.warning)}</p><button type="button" data-table-categorized-action="confirm-canvas-handoff">Confirm Send</button><button type="button" data-table-categorized-action="cancel-canvas-handoff">Cancel</button></div>`;}

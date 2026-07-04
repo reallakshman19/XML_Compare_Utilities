@@ -1,11 +1,145 @@
-export const XML_COMPARE_GRAPH_CONNECTOR_LANE_SCHEMA='xml-compare-graph-connector-lane/v6';
-const esc=(v)=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
-function connectorLabel(conn={}){if(conn.locked)return'MANUAL';if(conn.type==='EXACT')return'AUTO';if(conn.type==='CANDIDATE')return'CAND';if(conn.type)return conn.type.replace('APPROX_','A');return'LINK';}
-function connectorLine(conn,index,total){const y=total<=1?50:16+(index*(68/Math.max(1,total-1)));const cls=conn.locked?'is-locked':conn.type==='EXACT'?'is-auto-exact':conn.type==='CANDIDATE'?'is-candidate':'is-auto-approx';return `<g class="xml-compare-connector-line ${cls}" data-xml-compare-connector-id="${esc(conn.id)}"><path d="M 4 ${y} C 32 ${Math.max(8,y-18)}, 68 ${Math.min(92,y+18)}, 96 ${y}"/><circle cx="4" cy="${y}" r="2.8"/><circle cx="96" cy="${y}" r="2.8"/><text x="50" y="${Math.max(10,y-5)}">${esc(connectorLabel(conn))}</text></g>`;}
-function pairKey(c={}){return `${c.sourceUid}->${c.targetUid}`;}
-function allConnectors(manualConnectors=[],autoConnectors=[],candidateConnectors=[]){const locked=new Set([...manualConnectors,...autoConnectors].map(pairKey));return Object.freeze([...manualConnectors,...autoConnectors,...candidateConnectors.filter((c)=>!locked.has(pairKey(c)))]);}
-function actionPanel(){return `<div class="xml-compare-auto-map-actions"><button type="button" data-xml-compare-action="auto-map-node">Auto Map Selected Node</button><button type="button" data-xml-compare-action="auto-map-line">Auto Map Selected Line</button><button type="button" data-xml-compare-action="clear-auto-map">Clear Auto</button></div>`;}
-function candidateAction(action,id,label){return `<button type="button" data-xml-compare-candidate-action="${esc(action)}" data-xml-compare-candidate-id="${esc(id)}">${esc(label)}</button>`;}
-function candidateRows(candidates=[],enabled=false){if(!enabled)return '<small>Manual-first mode: automatic candidate suggestions are off.</small>';if(!candidates.length)return '<small>No preview candidates at the selected levels/fields.</small>';return `<div class="xml-compare-candidate-list">${candidates.slice(0,5).map((c)=>`<article data-xml-compare-candidate-row="${esc(c.id)}" data-source-uid="${esc(c.sourceUid)}" data-target-uid="${esc(c.targetUid)}"><small><b>${esc(c.sourceLabel)}</b> → <b>${esc(c.targetLabel)}</b><br>${esc(c.sourceField)} = ${esc(c.sourceValue)}</small><div class="xml-compare-candidate-actions">${candidateAction('accept',c.id,'Accept')}${candidateAction('reject',c.id,'Reject')}</div></article>`).join('')}</div>`;}
-export function renderXmlCompareGraphConnectorLaneHtml({manualState=null,matchMap=null,connectorCandidates=null}={}){const manualConnectors=Array.isArray(manualState?.connectors)?manualState.connectors:[];const autoConnectors=Array.isArray(matchMap?.matches)?matchMap.matches:[];const candidateEnabled=connectorCandidates?.summary?.enabled===true;const candidateConnectors=candidateEnabled&&Array.isArray(connectorCandidates?.candidates)?connectorCandidates.candidates:[];const connectors=allConnectors(manualConnectors,autoConnectors,candidateConnectors);const pendingSourceUid=manualState?.pendingSourceUid||'';const autoScope=matchMap?.request?.scope||'not-run';return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Source → Target</span></header>${actionPanel()}<div class="xml-compare-graph-connector-counts"><div><b>Manual</b><span>${manualConnectors.length}</span></div><div><b>Auto</b><span>${autoConnectors.length}</span></div><div><b>Mode</b><span>${candidateEnabled?'Candidates':'Manual'}</span></div><div><b>Scope</b><span>${esc(autoScope)}</span></div><div><b>Pending</b><span>${pendingSourceUid?'1':'0'}</span></div></div><svg viewBox="0 0 100 100" preserveAspectRatio="none" class="xml-compare-graph-connector-svg">${connectors.map((conn,index)=>connectorLine(conn,index,connectors.length)).join('')}${pendingSourceUid&&!connectors.length?'<g class="xml-compare-connector-line is-pending"><path d="M 4 50 C 32 30, 68 70, 96 50"/><circle cx="4" cy="50" r="2.8"/><text x="50" y="43">PICK TARGET</text></g>':''}</svg>${candidateRows(candidateConnectors,candidateEnabled)}<small>Select one Source node and one Target node to create a manual connector.</small></section>`;}
-export const _test=Object.freeze({esc,connectorLabel,pairKey,allConnectors,actionPanel,candidateAction,candidateRows});
+export const XML_COMPARE_GRAPH_CONNECTOR_LANE_SCHEMA = 'xml-compare-graph-connector-lane/v8';
+
+const esc = (value) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+const clean = (value) => String(value ?? '').trim();
+
+function connectorLabel(conn = {}) {
+  if (conn.status === 'approved') return 'APPROVED';
+  if (conn.locked) return 'LOCKED';
+  return 'LINK';
+}
+
+function connectorLine(conn, index, total) {
+  const y = total <= 1 ? 50 : 16 + (index * (68 / Math.max(1, total - 1)));
+  const cls = conn.status === 'approved' ? 'is-approved' : 'is-manual-preview';
+  return `<g class="xml-compare-connector-line ${cls}" data-xml-compare-connector-id="${esc(conn.id)}"><path d="M 4 ${y} C 32 ${Math.max(8, y - 18)}, 68 ${Math.min(92, y + 18)}, 96 ${y}"/><circle cx="4" cy="${y}" r="2.8"/><circle cx="96" cy="${y}" r="2.8"/><text x="50" y="${Math.max(10, y - 5)}">${esc(connectorLabel(conn))}</text></g>`;
+}
+
+function pairKey(conn = {}) {
+  return `${clean(conn.sourceUid)}->${clean(conn.targetUid)}`;
+}
+
+function allConnectors(manualConnectors = []) {
+  return Object.freeze([...manualConnectors]);
+}
+
+function actionPanel() {
+  return '<div class="xml-compare-auto-map-actions"><small>Automatic connector suggestions are disabled.</small></div>';
+}
+
+function pendingPanel(preview = null) {
+  if (!preview) return '<small>Select Source and Target records to preview a manual connector. Approval requires Approve Link.</small>';
+  return `<article class="xml-compare-pending-connector" data-xml-compare-pending-connector><b>Pending connector preview</b><small>Source: ${esc(preview.sourceLabel || preview.sourceUid)}<br>Target: ${esc(preview.targetLabel || preview.targetUid)}<br>Basis: ${esc((preview.basis || []).join(', '))}<br>Confidence: ${Number(preview.confidence || 0).toFixed(2)}</small><div class="xml-compare-candidate-actions"><button type="button" data-xml-compare-action="approve-pending-connector">Approve Link</button><button type="button" data-xml-compare-action="reject-pending-connector">Reject</button><button type="button" data-xml-compare-action="clear-pending-connector">Clear</button></div></article>`;
+}
+
+function candidateAction(action, id, label, disabled = false) {
+  return `<button type="button" ${disabled ? 'disabled' : ''} data-xml-compare-candidate-action="${esc(action)}" data-xml-compare-candidate-id="${esc(id)}">${esc(label)}</button>`;
+}
+
+function candidateDataset(candidate = {}) {
+  return `data-source-uid="${esc(candidate.sourceUid)}" data-target-uid="${esc(candidate.targetUid)}" data-source-label="${esc(candidate.sourceLabel)}" data-target-label="${esc(candidate.targetLabel)}" data-source-field="${esc(candidate.sourceField)}" data-target-field="${esc(candidate.targetField)}" data-source-value="${esc(candidate.sourceValue)}" data-target-value="${esc(candidate.targetValue)}" data-score="${esc(candidate.score)}" data-basis="${esc((candidate.basis || []).join('|'))}"`;
+}
+
+function candidateRows() {
+  return '<small>Selection previews a connector only. Use Approve Link to create MatchDecision.v1 / ApprovedMatchSet.v1.</small>';
+}
+
+function candidateRow(candidate, rejected = false) {
+  return `<article data-xml-compare-candidate-row="${esc(candidate.id)}" ${candidateDataset(candidate)} ${rejected ? 'data-xml-compare-candidate-rejected="true"' : ''}><small><b>${esc(candidate.sourceLabel)}</b> → <b>${esc(candidate.targetLabel)}</b><br>${esc(candidate.sourceField)} = ${esc(candidate.sourceValue)}${rejected ? '<br><b>Rejected</b>' : ''}</small><div class="xml-compare-candidate-actions">${candidateAction('accept', candidate.id, 'Accept', rejected)}${candidateAction('reject', candidate.id, rejected ? 'Rejected' : 'Reject', rejected)}</div></article>`;
+}
+
+export function paintXmlCompareConnectorCanvas(canvas, connectors = [], pendingPreview = null) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.lineWidth = 2;
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const total = connectors.length;
+  connectors.forEach((conn, index) => {
+    const yPct = total <= 1 ? 50 : 16 + (index * (68 / Math.max(1, total - 1)));
+    const y = (yPct / 100) * h;
+    const isApproved = conn.status === 'approved';
+
+    ctx.strokeStyle = isApproved ? '#3b82f6' : '#94a3b8';
+    ctx.fillStyle = isApproved ? '#3b82f6' : '#94a3b8';
+
+    // Draw bezier curve
+    ctx.beginPath();
+    ctx.moveTo(w * 0.04, y);
+    ctx.bezierCurveTo(w * 0.32, Math.max(h * 0.08, y - 18), w * 0.68, Math.min(h * 0.92, y + 18), w * 0.96, y);
+    ctx.stroke();
+
+    // Draw circles
+    ctx.beginPath();
+    ctx.arc(w * 0.04, y, 3, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(w * 0.96, y, 3, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Draw label
+    ctx.fillStyle = isApproved ? '#bae6fd' : '#cbd5e1';
+    ctx.fillText(connectorLabel(conn), w * 0.5, Math.max(10, y - 10));
+  });
+
+  if (pendingPreview && !total) {
+    const y = h * 0.5;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.fillStyle = '#f59e0b';
+    ctx.setLineDash([4, 4]);
+
+    ctx.beginPath();
+    ctx.moveTo(w * 0.04, y);
+    ctx.bezierCurveTo(w * 0.32, y - 20, w * 0.68, y + 20, w * 0.96, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(w * 0.04, y, 3, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText('PENDING', w * 0.5, y - 10);
+  }
+}
+
+export function renderXmlCompareGraphConnectorLaneHtml({ manualState = null } = {}) {
+  const manualConnectors = Array.isArray(manualState?.connectors) ? manualState.connectors : [];
+  const connectors = allConnectors(manualConnectors);
+  const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualConnectors.length;
+  const blockers = manualState?.approvedValidationModel?.summary?.blockerCount || 0;
+  
+  const payload = esc(JSON.stringify({ connectors, pendingPreview: manualState?.pendingConnectorPreview || null }));
+  
+  return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Manual approval only</span></header>${actionPanel()}<div class="xml-compare-graph-connector-counts"><div><b>Approved</b><span>${approvedCount}</span></div><div><b>Mode</b><span>Manual</span></div><div><b>Auto</b><span>Disabled</span></div><div><b>Validation blockers</b><span>${blockers}</span></div></div>${pendingPanel(manualState?.pendingConnectorPreview || null)}<canvas class="xml-compare-graph-connector-canvas" data-xml-compare-canvas-payload="${payload}" style="width: 100%; height: 160px; min-height: 160px; display: block;"></canvas>${candidateRows()}</section>`;
+}
+
+export const _test = Object.freeze({
+  esc,
+  connectorLabel,
+  pairKey,
+  allConnectors,
+  actionPanel,
+  pendingPanel,
+  candidateAction,
+  candidateDataset,
+  candidateRows,
+  candidateRow,
+});

@@ -200,6 +200,7 @@ function freezeProfile(profile){
 }
 function replaceAt(items,path,mapper){
   if(path.length===0)return items.map((item,index)=>index===0?mapper(item):item);
+  if(path.length===1)return items.map((item,index)=>index===path[0]?mapper(item):item);
   const [head,...rest]=path;
   return items.map((item,index)=>index!==head?item:normalizeLevel({...item,children:replaceAt(item.children||[],rest,mapper)}));
 }
@@ -217,3 +218,66 @@ function flattenProfileLevels(levelDefinitions=[]){return normalizeArray(levelDe
 function hasDocumentRoot(levelDefinitions=[]){return flattenProfileLevels(levelDefinitions).some((level)=>level.documentRoot);}
 function stableStringify(value){return JSON.stringify(sortForJson(value),null,2);}
 function sortForJson(value){if(Array.isArray(value))return value.map(sortForJson);if(value&&typeof value==='object'){return Object.fromEntries(Object.keys(value).sort().map((key)=>[key,sortForJson(value[key])]));}return value;}
+
+export function generateSuggestedProfiles(headers=[]) {
+  if (!headers || !headers.length) return [];
+  const h1 = headers[0] || 'Column1';
+  const h2 = headers[1] || 'Column2';
+  const h3 = headers[2] || 'Column3';
+  
+  const suggestions = [];
+
+  // Suggestion 1: Flat List (Root -> Row)
+  suggestions.push(freezeProfile({
+    schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-flat', displayName: 'Flat List', version: '1.0.0', presetType: 'suggestion',
+    requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+    levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+      level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
+    ]})]
+  }));
+
+  // Suggestion 2: Grouped by Column 1 (Root -> Group -> Row)
+  suggestions.push(freezeProfile({
+    schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-1', displayName: `Grouped by ${h1}`, version: '1.0.0', presetType: 'suggestion',
+    requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+    levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+      level({levelId: 'Group', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
+        level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
+      ]})
+    ]})]
+  }));
+
+  // Suggestion 3: Nested Groups (Root -> Group1 -> Group2 -> Row)
+  if (headers.length >= 2) {
+    suggestions.push(freezeProfile({
+      schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-2', displayName: `Grouped by ${h1} -> ${h2}`, version: '1.0.0', presetType: 'suggestion',
+      requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+      levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+        level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
+          level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
+            level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
+          ]})
+        ]})
+      ]})]
+    }));
+  }
+
+  // Suggestion 4: Deep Nested Groups (Root -> Group1 -> Group2 -> Group3 -> Row)
+  if (headers.length >= 3) {
+    suggestions.push(freezeProfile({
+      schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-3', displayName: `Grouped by ${h1} -> ${h2} -> ${h3}`, version: '1.0.0', presetType: 'suggestion',
+      requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+      levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+        level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
+          level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
+            level({levelId: 'Group3', displayName: h3, xmlTag: h3.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h3}, children: [
+              level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
+            ]})
+          ]})
+        ]})
+      ]})]
+    }));
+  }
+
+  return suggestions;
+}

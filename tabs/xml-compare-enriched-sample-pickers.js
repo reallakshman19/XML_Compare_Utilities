@@ -16,10 +16,7 @@ function injectStyle(){
 }
 
 function pickerHtml(){
-  return `<div class="xml-compare-enriched-sample-pickers" ${ROW_ATTR}>
-    <button type="button" data-xml-compare-pick-enriched="a" title="${SAMPLES.a.title}">🧪 <span>${SAMPLES.a.label}<small>${SAMPLES.a.fileName}</small></span></button>
-    <button type="button" data-xml-compare-pick-enriched="b" title="${SAMPLES.b.title}">🎯 <span>${SAMPLES.b.label}<small>${SAMPLES.b.fileName}</small></span></button>
-  </div>`;
+  return '';
 }
 
 function injectPickers(){
