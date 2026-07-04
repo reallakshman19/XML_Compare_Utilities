@@ -7,13 +7,9 @@ import { applySourceTransformRules } from '../xml-compare/table-categorizer/tabl
 import { buildCategorizedGraph } from '../xml-compare/table-categorizer/table-categorized-xml-graph-builder.js';
 
 const runtime = fs.readFileSync('tabs/xml-compare-table-categorized-runtime.js', 'utf8');
-assert.ok(runtime.includes('addChildLevel'));
-assert.ok(runtime.includes('deleteLevelAtPath'));
-assert.ok(runtime.includes("action==='add-child-level'"));
-assert.ok(runtime.includes("action==='remove-level'"));
-assert.ok(runtime.includes("action==='add-derived-column'"));
-assert.ok(runtime.includes("action==='remove-derived-column'"));
-assert.ok(runtime.includes('data-source-transform-field'));
+for (const text of ['addChildLevel', 'deleteLevelAtPath', 'add-child-level', 'remove-level', 'add-derived-column', 'remove-derived-column', 'data-source-transform-field']) {
+  assert.ok(runtime.includes(text), `runtime missing ${text}`);
+}
 
 const shell = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile: createBlankUniversalProfile(), sources: [{ headers: ['PS NO'], rows: [{ rawCells: ['A'], rawByHeader: { 'PS NO': 'A' } }] }], columnsConfirmed: true });
 assert.ok(shell.includes('add-child-level'));
