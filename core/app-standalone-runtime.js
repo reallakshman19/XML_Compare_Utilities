@@ -33,7 +33,7 @@ const TAB_ICON_SVGS = Object.freeze({
 });
 
 export const STANDALONE_TABS = Object.freeze([
-  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260703-column-confirmation-1').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260704-enrichment-derived-1').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
@@ -102,161 +102,70 @@ async function visibleTabs() {
   }
 }
 
-function tabGroupFor(tabId) {
-  return TAB_GROUPS.find((group) => group.ids.includes(tabId))?.label || '';
+function renderNav(nav, tabs, activeId) {
+  nav.innerHTML = `
+    <div class="app-brand">
+      <img src="${APP_ICON_URL}" alt="" width="34" height="34">
+      <div><strong>${STANDALONE_APP.name}</strong><small>${STANDALONE_APP.subtitle}</small></div>
+    </div>
+    <div class="app-nav-groups">
+      ${TAB_GROUPS.map(group => {
+        const items = tabs.filter(tab => group.ids.includes(tab.id));
+        if (!items.length) return '';
+        return `<section><h3>${group.label}</h3>${items.map(tab => tabButton(tab, tab.id === activeId)).join('')}</section>`;
+      }).join('')}
+    </div>`;
 }
 
-function createBrandRail() {
-  const brand = document.createElement('div');
-  brand.className = 'app-brand-rail';
-  brand.setAttribute('aria-label', STANDALONE_APP.name);
-  const icon = document.createElement('img');
-  icon.className = 'app-brand-icon';
-  icon.src = APP_ICON_URL;
-  icon.alt = '';
-  icon.decoding = 'async';
-  icon.loading = 'eager';
-  icon.setAttribute('aria-hidden', 'true');
-  const copy = document.createElement('div');
-  copy.className = 'app-brand-copy';
-  const title = document.createElement('div');
-  title.className = 'app-brand-title';
-  title.textContent = STANDALONE_APP.name;
-  const sub = document.createElement('div');
-  sub.className = 'app-brand-subtitle';
-  sub.textContent = STANDALONE_APP.subtitle;
-  copy.append(title, sub);
-  brand.append(icon, copy);
-  return brand;
+function tabButton(tab, active) {
+  return `<button class="app-tab-btn ${active ? 'is-active' : ''}" data-tab-target="${tab.id}" type="button"><svg viewBox="0 0 24 24" aria-hidden="true">${TAB_ICON_SVGS[tab.icon] || TAB_ICON_SVGS.tool}</svg><span>${tab.label}</span></button>`;
 }
 
-function createTabIcon(tab) {
-  const iconKey = tab.icon || 'cube';
-  const span = document.createElement('span');
-  span.className = `app-tab-icon app-tab-icon-${iconKey}`;
-  span.setAttribute('aria-hidden', 'true');
-  span.innerHTML = `<svg viewBox="0 0 24 24" focusable="false" role="img"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${TAB_ICON_SVGS[iconKey] || TAB_ICON_SVGS.cube}</g></svg>`;
-  return span;
-}
-
-function renderNav(nav, tabs, content) {
-  nav.innerHTML = '';
-  nav.appendChild(createBrandRail());
-  const groups = [];
-  for (const tab of tabs) {
-    const label = tabGroupFor(tab.id);
-    let group = groups.find((entry) => entry.label === label);
-    if (!group) {
-      group = { label, tabs: [] };
-      groups.push(group);
-    }
-    group.tabs.push(tab);
-  }
-  groups.forEach((group) => {
-    const section = document.createElement('section');
-    section.className = 'app-nav-group';
-    if (group.label) {
-      const heading = document.createElement('div');
-      heading.className = 'app-nav-group-label';
-      heading.textContent = group.label;
-      section.appendChild(heading);
-    }
-    group.tabs.forEach((tab) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'app-tab';
-      button.dataset.tab = tab.id;
-      button.dataset.group = group.label || '';
-      button.appendChild(createTabIcon(tab));
-      const label = document.createElement('span');
-      label.textContent = tab.label;
-      button.appendChild(label);
-      button.addEventListener('click', () => requestTabSwitch(tab.id));
-      section.appendChild(button);
-    });
-    nav.appendChild(section);
-  });
-  updateActiveTabButton(nav, state.activeTabId);
-  content.setAttribute('data-active-tab', state.activeTabId || '');
-}
-
-function updateActiveTabButton(nav, tabId) {
-  nav.querySelectorAll('.app-tab').forEach((btn) => btn.classList.toggle('is-active', btn.dataset.tab === tabId));
-}
-
-function normalizeTabId(value) {
-  const text = String(value || '').trim();
-  return TAB_ID_ALIASES.get(text) || text;
-}
-
-function persistActiveTab(tabId) {
-  try { localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tabId); } catch {}
-}
-
-function readPersistedActiveTab(tabs) {
-  try {
-    const stored = normalizeTabId(localStorage.getItem(ACTIVE_TAB_STORAGE_KEY));
-    if (stored && tabs.some((tab) => tab.id === stored)) return stored;
-  } catch {}
-  return null;
-}
-
-function requestTabSwitch(tabId) {
-  const normalized = normalizeTabId(tabId);
-  if (!normalized) return;
-  setActiveTab(normalized);
-}
-
-async function renderActiveTab(content, nav, tabs) {
+async function mountTab(content, tab) {
   cleanupActiveTab();
-  const active = tabs.find((tab) => tab.id === state.activeTabId) || tabs[0];
-  if (!active) return;
-  if (state.activeTabId !== active.id) state.activeTabId = active.id;
-  persistActiveTab(active.id);
-  updateActiveTabButton(nav, active.id);
-  content.setAttribute('data-active-tab', active.id);
-  content.innerHTML = '<div class="tab-loading">Loading...</div>';
-  try {
-    const renderer = await active.load();
-    content.innerHTML = '';
-    const maybeDestroy = renderer(content, { state, emit, on, setActiveTab: requestTabSwitch });
-    activeTabDestroy = typeof maybeDestroy === 'function' ? maybeDestroy : null;
-    emit(RuntimeEvents.TAB_RENDERED, { id: active.id });
-  } catch (error) {
-    console.error(`Failed to render tab ${active.id}`, error);
-    content.innerHTML = `<div class="tab-error"><h2>Could not load ${active.label}</h2><pre>${String(error?.message || error)}</pre></div>`;
-  }
+  content.innerHTML = '<div class="tab-loading">Loading ' + tab.label + '...</div>';
+  const renderer = await tab.load();
+  const destroy = await renderer(content, state);
+  activeTabDestroy = typeof destroy === 'function' ? destroy : null;
+}
+
+async function switchToTab(tabId, tabs, nav, content) {
+  const resolvedId = TAB_ID_ALIASES.get(tabId) || tabId;
+  const tab = tabs.find(t => t.id === resolvedId) || tabs[0];
+  if (!tab) return;
+  setActiveTab(tab.id);
+  try { localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tab.id); } catch {}
+  renderNav(nav, tabs, tab.id);
+  await mountTab(content, tab);
 }
 
 export async function init(root) {
-  if (!root) throw new Error('App root is required');
-  loadStickyState();
-  const { nav, content } = createAppShell(root);
   const tabs = await visibleTabs();
-  const persisted = readPersistedActiveTab(tabs);
-  if (persisted) state.activeTabId = persisted;
-  if (!state.activeTabId || !tabs.some((tab) => tab.id === state.activeTabId)) state.activeTabId = tabs[0]?.id || STANDALONE_APP.defaultTab;
-  renderNav(nav, tabs, content);
-  hideStartupOverlay();
+  const { nav, content } = createAppShell(root);
+  loadStickyState();
   initDevDebugWindow();
-  const offChanged = on(RuntimeEvents.TAB_CHANGED, (payload = {}) => {
-    const tabId = normalizeTabId(payload?.tabId || payload?.id);
-    if (tabId && tabs.some((tab) => tab.id === tabId)) state.activeTabId = tabId;
-    renderActiveTab(content, nav, tabs);
-  });
-  const offRequested = on(RuntimeEvents.TAB_CHANGE_REQUESTED, (payload = {}) => requestTabSwitch(payload?.tabId || payload?.id));
-  const onWindowSwitch = (event) => requestTabSwitch(event?.detail?.tabId || event?.detail?.id);
+  const stored = (() => { try { return localStorage.getItem(ACTIVE_TAB_STORAGE_KEY); } catch { return ''; } })();
+  const initial = TAB_ID_ALIASES.get(stored) || stored || STANDALONE_APP.defaultTab;
+  const handleClick = (event) => {
+    const btn = event.target.closest('[data-tab-target]');
+    if (btn) switchToTab(btn.dataset.tabTarget, tabs, nav, content);
+  };
+  nav.addEventListener('click', handleClick);
+  const offRuntime = on(RuntimeEvents.TAB_CHANGE_REQUESTED, ({ tab }) => switchToTab(tab, tabs, nav, content));
+  const onWindowSwitch = (event) => switchToTab(event.detail?.tabId, tabs, nav, content);
   window.addEventListener('app:switch-tab', onWindowSwitch);
   appDestroy = () => {
-    offChanged?.();
-    offRequested?.();
+    nav.removeEventListener('click', handleClick);
     window.removeEventListener('app:switch-tab', onWindowSwitch);
+    offRuntime();
     cleanupActiveTab();
   };
-  await renderActiveTab(content, nav, tabs);
+  await switchToTab(initial, tabs, nav, content);
+  hideStartupOverlay();
+  return appDestroy;
 }
 
 export function destroy() {
-  appDestroy?.();
+  if (appDestroy) appDestroy();
   appDestroy = null;
 }
