@@ -5,7 +5,7 @@ import { addCompareField, normalizeCompareFields, removeCompareField } from './X
 import { normalizeToleranceMm, normalizeValidationLayer } from './XmlCompareValidationModel.js';
 import { compileTextRule, createDefaultTextRule } from './XmlCompareTextValidationRules.js';
 import { createValidationCandidateSet, normalizeValidationBuilderState, toggleValidationCandidate, approveAllValidCandidates } from './XmlCompareManualValidationBuilderModel.js';
-import { acceptCandidateConnector, approvePendingConnector, createPendingConnectorPreview, normalizeApprovedConnectorState, projectApprovedConnectors, rejectCandidateConnector, rejectPendingConnector } from './XmlCompareApprovedConnectorModel.js';
+import { acceptCandidateConnector, approvePendingConnector, createPendingConnectorPreview, normalizeApprovedConnectorState, projectApprovedConnectors, rejectCandidateConnector, rejectPendingConnector } from './XmlCompareApprovedConnectorModel.js?v=20260704-c4';
 import { applyXmlCompareTransferStateAction, normalizeTransferState } from './XmlCompareTransferStateModel.js';
 
 export const XML_COMPARE_CANVAS_STATE_CONTROLLER_SCHEMA = 'xml-compare-canvas-state-controller/v11';

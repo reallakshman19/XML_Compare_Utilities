@@ -22,7 +22,7 @@ export {
   createMatchCandidateSet,
   createMatchDecision,
   createApprovedMatchSet,
-} from './phase2/match-models.js';
+} from './phase2/match-models.js?v=20260704-c4';
 
 export {
   createValidationModelV2,
@@ -46,7 +46,7 @@ import {
   createApprovedMatchSet,
   createMatchCandidateSet,
   createTransformPolicy,
-} from './phase2/match-models.js';
+} from './phase2/match-models.js?v=20260704-c4';
 import { createValidationModelV2 } from './phase2/validation-models.js';
 import {
   createApprovedTransferCases,

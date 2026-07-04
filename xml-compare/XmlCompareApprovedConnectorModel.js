@@ -3,7 +3,7 @@ import {
   createMatchCandidateSet,
   createMatchDecision,
   createValidationModelV2,
-} from './contracts/phase2-validation-transfer-orchestrator.js';
+} from './contracts/phase2-validation-transfer-orchestrator.js?v=20260704-c4';
 
 export const XML_COMPARE_APPROVED_CONNECTOR_MODEL_SCHEMA = 'xml-compare-approved-connector-model/v1';
 
@@ -63,6 +63,7 @@ export function createPendingConnectorPreview(input = {}) {
     basis: asArray(input.basis?.length ? input.basis : ['manual-preview']),
     confidence: finite(input.confidence ?? input.score ?? input.identityConfidence, 0.8),
     transformBasis: clean(input.transformBasis || 'identity-offset'),
+    allowDuplicateTarget: Boolean(input.allowDuplicateTarget),
     diagnostics: asArray(input.diagnostics || []),
   });
 }
@@ -79,6 +80,7 @@ export function candidateFromPreview(preview = {}) {
     identityConfidence: finite(preview.confidence, 0.8),
     deltaMm: finite(preview.deltaMm, 0),
     transformBasis: clean(preview.transformBasis || 'identity-offset'),
+    allowDuplicateTarget: Boolean(preview.allowDuplicateTarget),
     diagnostics: asArray(preview.diagnostics || []),
   });
 }
@@ -94,6 +96,7 @@ export function previewFromCandidate(candidate = {}) {
     basis: ['candidate', ...(candidate.basis || [])],
     confidence: candidate.identityConfidence ?? candidate.score ?? candidate.confidence ?? 0.82,
     transformBasis: candidate.transformBasis || 'identity-offset',
+    allowDuplicateTarget: Boolean(candidate.allowDuplicateTarget || candidate.method === 'numeric-fields'),
     diagnostics: candidate.diagnostics || [],
   });
 }

@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260704-js-cache-refresh-1');
+  const module = await import('./core/app.js?v=20260704-transfer-review-1');
   await module.init(startupMount());
 }
 

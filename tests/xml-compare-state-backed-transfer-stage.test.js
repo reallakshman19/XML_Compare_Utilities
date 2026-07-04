@@ -26,6 +26,7 @@ assert.ok(canvas.transferStage.planHash, 'stage stores planHash');
 assert.equal(canvas.transferStage.workspaceRevision, 1, 'stage stores workspaceRevision');
 assert.equal(canvas.transferStage.plan.schema, 'transfer-plan/v1');
 assert.equal(canvas.transferStage.plan.ok, true);
+assert.equal(canvas.transferLastResult, null, 'stage does not mark transfer applied');
 
 let applied = applyXmlCompareCanvasAction(canvas, { type: 'apply-staged-transfer', sourceText, targetText, workspaceRevision: 1 });
 assert.equal(applied.transferLastResult.ok, true, 'stage validates and applies when unchanged');

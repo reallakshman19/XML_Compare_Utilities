@@ -111,7 +111,7 @@ export function stageTransfer(state = {}, input = {}) {
   const transferPreviewPlans = Object.freeze({ ...current.transferPreviewPlans, [clean(plan.scope || input.scope || 'node')]: plan });
   if (!plan.ok || !plan.transferCases?.length) return blockedState({ ...current, transferPreviewPlans }, plan, plan.diagnostics, plan.scope);
   const stage = Object.freeze({ ...createTransferStage({ plan, workspaceRevision: input.workspaceRevision }), selectedBlocks: plan.selectedBlocks, approvedPairIds: plan.approvedPairIds, approvedMatchSetHash: plan.approvedMatchSetHash });
-  return Object.freeze({ ...current, transferPreviewPlans, transferStage: stage, transferAudit: null, postTransferValidation: null, transferLastResult: Object.freeze({ ok: true, scope: plan.scope, updatedCount: 0, skippedCount: 0, downloadName: '', resultHash: '', diagnostics: Object.freeze([]) }) });
+  return Object.freeze({ ...current, transferPreviewPlans, transferStage: stage, transferAudit: null, postTransferValidation: null, transferLastResult: null });
 }
 
 export function clearTransferStage(state = {}) {

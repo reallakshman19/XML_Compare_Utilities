@@ -60,7 +60,7 @@
 .xml-compare-topology-table tr.topology-info td { color: #bbf7d0; }
 .xml-compare-topology-table tr.is-hidden { opacity: 0.4; }
 .xml-compare-workspace-shell { padding: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.18); background: rgba(2, 6, 23, 0.24); }
-.xml-compare-workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr) 180px minmax(0, 1fr); gap: 10px; }
+.xml-compare-workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px minmax(0, 1fr); gap: 10px; }
 .xml-compare-workspace-side,
 .xml-compare-connector-lane,
 .xml-compare-bottom-panel,
@@ -76,6 +76,32 @@
 .xml-compare-log-screen-rows { padding: 10px 12px; color: #cbd5e1; font-size: 12px; }
 .xml-compare-side-metrics,
 .xml-compare-debug-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; }
+.xmlc-side-picker-card > header { display: flex; justify-content: space-between; gap: 8px; }
+.xmlc-side-picker-card > header span { color: #94a3b8; font-size: 11px; text-transform: none; }
+.xmlc-side-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 12px 0; }
+.xmlc-side-controls.is-empty { display: block; color: #94a3b8; font-size: 12px; padding-bottom: 10px; }
+.xmlc-side-controls label { display: grid; gap: 4px; color: #bfdbfe; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.xmlc-side-controls select { min-width: 0; border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 7px 9px; font-size: 12px; text-transform: none; }
+.xmlc-side-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 12px; border-bottom: 1px solid rgba(148,163,184,.12); }
+.xmlc-side-picker label { display: grid; gap: 4px; color: #bfdbfe; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.xmlc-side-picker input { min-width: 0; border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 7px 9px; font-size: 12px; text-transform: none; }
+.xmlc-side-picker button { align-self: end; border: 1px solid rgba(125,211,252,.35); border-radius: 8px; background: rgba(14,116,144,.5); color: #e0f2fe; padding: 7px 12px; font-weight: 800; cursor: pointer; }
+.xmlc-side-label-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 0 12px 10px; border-bottom: 1px solid rgba(148,163,184,.12); }
+.xmlc-side-label-field label { display: grid; gap: 4px; color: #bfdbfe; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.xmlc-side-label-field select { min-width: 0; border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 7px 9px; font-size: 12px; text-transform: none; }
+.xmlc-side-label-field button { align-self: end; border: 1px solid rgba(125,211,252,.35); border-radius: 8px; background: rgba(14,116,144,.5); color: #e0f2fe; padding: 7px 12px; font-weight: 800; cursor: pointer; }
+.xmlc-side-field-strip { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px; padding: 8px 12px; border-bottom: 1px solid rgba(148,163,184,.12); color: #cbd5e1; font-size: 11px; }
+.xmlc-side-field-strip b { color: #93c5fd; text-transform: uppercase; letter-spacing: .03em; }
+.xmlc-side-field-strip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xmlc-main-connector { display: grid; gap: 4px; padding: 8px 10px; margin-bottom: 8px; border: 1px solid rgba(125,211,252,.24); border-radius: 10px; background: rgba(8,47,73,.28); }
+.xmlc-main-connector.is-empty { color: #94a3b8; font-size: 11px; }
+.xmlc-main-connector label { display: grid; gap: 4px; color: #bfdbfe; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.xmlc-main-connector select { min-width: 0; border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 7px 9px; font-size: 12px; text-transform: none; }
+.xmlc-main-connector small { color: #94a3b8; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xmlc-conn-type { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
+.xmlc-conn-type span { grid-column: 1 / -1; color: #bfdbfe; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.xmlc-conn-type label { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 8px; border: 1px solid rgba(96,165,250,.28); border-radius: 8px; background: rgba(2,6,23,.44); color: #dbeafe; font-size: 12px; text-transform: none; }
+.xmlc-conn-type input { accent-color: #38bdf8; }
 .xml-compare-bottom-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .xml-compare-log-row,
 .xml-compare-mini-table td,
@@ -210,6 +236,7 @@
 
 /* Step 8 layout: validation candidates (left) + transfer/compare (right) */
 .xmlc-workspace-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px; margin-top: 12px; align-items: start; }
+.xmlc-candidate-review-stack { display: grid; gap: 12px; padding: 12px; }
 .xmlc-col { min-width: 0; }
 .xmlc-col-left .xml-compare-compare-field-controls { display: block; }
 .xmlc-col .xml-compare-manual-validation-builder { width: 100%; display: flex; flex-direction: column; gap: 8px; }
@@ -243,5 +270,72 @@
 .xmlc-aim-row > b { color: #bfdbfe; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; min-width: 92px; }
 .xmlc-aim-row select, .xmlc-aim-row input { border: 1px solid rgba(96,165,250,.3); border-radius: 8px; background: #020617; color: #dbeafe; padding: 5px 8px; }
 .xmlc-aim-row label { color: #cbd5e1; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.xmlc-mode-pill, .xmlc-field-name { display: inline-flex; align-items: center; min-height: 28px; padding: 4px 9px; border: 1px solid rgba(125,211,252,.24); border-radius: 8px; background: rgba(2,6,23,.45); color: #dbeafe; font-size: 12px; }
+.xmlc-field-name { font-family: ui-monospace, Menlo, Consolas, monospace; color: #93c5fd; }
 .xmlc-block-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .xmlc-block-chk { color: #dbeafe; font-size: 12px; display: inline-flex; gap: 5px; align-items: center; }
+.xmlc-block-source { color: #93c5fd; font-size: 11px; }
+
+/* Hierarchical connectors */
+.xmlc-conn-list { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.xmlc-conn { color: #dbeafe; font-size: 12px; display: inline-flex; gap: 6px; align-items: center; border: 1px solid rgba(125,211,252,.22); border-radius: 8px; padding: 3px 8px; background: rgba(8,47,73,.35); }
+.xmlc-conn b { color: #bfdbfe; }
+.xmlc-conn-map { color: #93c5fd; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
+.xmlc-valid-rule { color: #bae6fd; font-weight: 800; font-size: 13px; }
+.xmlc-muted { color: #64748b; }
+.xmlc-delta { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 800; }
+.xmlc-delta.is-valid { color: #bbf7d0; }
+.xmlc-delta.is-review { color: #fde68a; }
+.xmlc-cand.is-approval-approved td { background: rgba(6, 78, 59, .18); }
+.xmlc-cand.is-approval-rejected td, .xmlc-cand.is-approval-blocked td { background: rgba(127, 29, 29, .16); }
+.xmlc-approval { display: inline-flex; align-items: center; justify-content: center; min-width: 76px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 900; letter-spacing: .03em; }
+.xmlc-approval.is-approved { background: rgba(6, 95, 70, .9); color: #d1fae5; }
+.xmlc-approval.is-pending { background: rgba(51, 65, 85, .9); color: #dbeafe; }
+.xmlc-approval.is-rejected, .xmlc-approval.is-blocked { background: rgba(127, 29, 29, .9); color: #fee2e2; }
+.xmlc-approval.is-anchor { background: rgba(30, 64, 175, .9); color: #dbeafe; }
+.xmlc-approved-note, .xmlc-rejected-note { color: #bbf7d0; font-weight: 800; font-size: 12px; }
+.xmlc-rejected-note { color: #fecaca; }
+.xmlc-approval-counts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.xmlc-approval-counts div { border: 1px solid rgba(96,165,250,.2); border-radius: 8px; padding: 8px; background: rgba(2,6,23,.35); }
+.xmlc-approval-counts b { display: block; color: #93c5fd; font-size: 11px; text-transform: uppercase; }
+.xmlc-approval-counts span { display: block; margin-top: 3px; color: #e2e8f0; font-size: 18px; font-weight: 900; }
+.xmlc-transfer-review { display: grid; gap: 14px; padding: 16px; overflow: auto; max-height: calc(100vh - 170px); }
+.xmlc-transfer-card { margin: 0; min-width: 0; }
+.xmlc-transfer-card > summary { cursor: pointer; color: #bfdbfe; font-weight: 900; padding: 12px 14px; text-transform: uppercase; letter-spacing: .03em; }
+.xmlc-transfer-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.xmlc-transfer-metric { border: 1px solid rgba(96,165,250,.2); border-radius: 8px; padding: 10px; background: rgba(2,6,23,.35); min-width: 0; }
+.xmlc-transfer-metric b { display: block; color: #93c5fd; font-size: 11px; text-transform: uppercase; }
+.xmlc-transfer-metric span { display: block; margin-top: 4px; color: #e2e8f0; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+.xmlc-transfer-output { border-color: rgba(14,165,233,.36); background: rgba(8,47,73,.38); }
+.xmlc-transfer-output-body { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px; }
+.xmlc-transfer-output-state { min-width: 0; display: grid; gap: 4px; }
+.xmlc-transfer-output-state b { color: #bae6fd; font-size: 16px; }
+.xmlc-transfer-output-state span { color: #93c5fd; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.xmlc-transfer-output-actions { justify-content: flex-end; margin: 0; }
+.xmlc-transfer-output-actions button.is-primary { background: rgba(14,116,144,.72); border-color: rgba(34,211,238,.55); color: #ecfeff; font-weight: 900; }
+.xmlc-transfer-review .xml-compare-automap-panel { min-width: 0; margin: 12px; border: 1px solid rgba(96,165,250,.18); border-radius: 10px; background: rgba(2,6,23,.30); overflow: hidden; }
+.xmlc-transfer-review .xml-compare-automap-panel + .xml-compare-automap-panel { margin-top: 0; }
+.xmlc-transfer-review .xml-compare-automap-panel header { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(148,163,184,.14); }
+.xmlc-transfer-review .xml-compare-automap-panel header b { color: #dbeafe; }
+.xmlc-transfer-review .xml-compare-automap-panel header span { color: #94a3b8; font-size: 11px; }
+.xmlc-transfer-review .xml-compare-validation-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 10px 12px; }
+.xmlc-transfer-review .xml-compare-validation-summary span { min-width: 0; border: 1px solid rgba(148,163,184,.14); border-radius: 8px; padding: 8px; background: rgba(15,23,42,.55); color: #dbeafe; overflow-wrap: anywhere; }
+.xmlc-transfer-review .xml-compare-validation-summary b { color: #93c5fd; font-size: 10px; text-transform: uppercase; }
+.xml-compare-transfer-workflow-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; padding: 0 12px 10px; }
+.xml-compare-workflow-step { border: 1px solid rgba(148,163,184,.14); border-radius: 8px; padding: 8px; background: rgba(15,23,42,.45); }
+.xml-compare-workflow-step header { padding: 0; border: 0; }
+.xml-compare-workflow-step p { margin: 6px 0 0; color: #cbd5e1; font-size: 12px; line-height: 1.35; }
+.xml-compare-workflow-step.is-ready, .xml-compare-workflow-step.is-complete { border-color: rgba(16,185,129,.32); }
+.xml-compare-workflow-step.is-blocked { border-color: rgba(248,113,113,.34); }
+.xml-compare-warning { margin: 0 12px 12px; border: 1px solid rgba(251,191,36,.30); border-radius: 8px; padding: 8px 10px; color: #fde68a; font-size: 12px; }
+.xmlc-transfer-review .xml-compare-bottom-panel { border: 0; border-radius: 0; background: transparent; }
+.xmlc-transfer-review .xml-compare-bottom-panel > header { display: none; }
+.xmlc-transfer-review .xml-compare-detail-card { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.xmlc-transfer-review .xml-compare-table-scroll { max-height: 280px; overflow: auto; }
+.xml-compare-transfer-review-list { display: grid; gap: 10px; padding: 0 12px 12px; }
+.xml-compare-transfer-review-row { border: 1px solid rgba(148,163,184,.14); border-radius: 8px; background: rgba(15,23,42,.42); overflow: hidden; }
+.xml-compare-transfer-review-row header { padding: 8px 10px; }
+.xml-compare-transfer-review-row small { display: block; padding: 0 10px 8px; color: #94a3b8; }
+.xml-compare-transfer-review-snippets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 10px 10px; }
+.xml-compare-transfer-review-snippets pre { min-width: 0; max-height: 160px; overflow: auto; margin: 0; padding: 8px; border: 1px solid rgba(148,163,184,.12); border-radius: 8px; background: #020617; color: #dbeafe; font-size: 11px; white-space: pre-wrap; }
+@media (max-width: 900px) { .xmlc-transfer-metrics, .xmlc-transfer-review .xml-compare-validation-summary, .xmlc-transfer-review .xml-compare-detail-card, .xml-compare-transfer-review-snippets { grid-template-columns: repeat(2, minmax(0, 1fr)); } .xmlc-transfer-output-body { grid-template-columns: 1fr; } .xmlc-transfer-output-actions { justify-content: flex-start; } }

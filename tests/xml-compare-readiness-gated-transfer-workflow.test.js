@@ -43,6 +43,12 @@ assert.ok(tabTest.transferActionBlocked('export-staged-transfer', approved), 'ha
 assert.ok(tabTest.transferActionBlocked('download-transfer-proof-json', approved), 'handler blocks proof download before proof exists');
 assert.ok(tabTest.transferActionBlocked('copy-patched-target-preview', approved), 'handler blocks copy before patched target exists');
 
+let stagedOnly = applyXmlCompareCanvasAction(approved.canvasState, { type: 'stage-transfer', scope: 'node', selectedBlocks: proofPlan.selectedBlocks, sourceText: approved.textA, targetText: approved.textB, workspaceRevision: approved.workspaceRevision, approvedMatchSet: approved.canvasState.approvedMatchSet, approvedValidationModel: createApprovedConnectorValidationModel({ state: approved.canvasState, sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords, compareFields: [] }), sourceRecords: proofPlan.sourceRecords, targetRecords: proofPlan.targetRecords });
+const stagedGate = gate({ ...approved, canvasState: stagedOnly });
+assert.equal(stagedGate.okForApply, true, 'staging enables apply but does not mark transfer applied');
+assert.equal(gateAllowsAction(stagedGate, 'apply-staged-transfer'), true);
+assert.equal(stagedGate.okForExport, false, 'export waits for applied patched target');
+
 const applied = stageAndApply(approved);
 const appliedGate = gate(applied);
 assert.equal(appliedGate.okForExport, true, 'workflow reports export ready after sample transfer apply');

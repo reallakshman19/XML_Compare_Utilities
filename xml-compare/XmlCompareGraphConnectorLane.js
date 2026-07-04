@@ -53,6 +53,29 @@ function candidateRow(candidate, rejected = false) {
   return `<article data-xml-compare-candidate-row="${esc(candidate.id)}" ${candidateDataset(candidate)} ${rejected ? 'data-xml-compare-candidate-rejected="true"' : ''}><small><b>${esc(candidate.sourceLabel)}</b> → <b>${esc(candidate.targetLabel)}</b><br>${esc(candidate.sourceField)} = ${esc(candidate.sourceValue)}${rejected ? '<br><b>Rejected</b>' : ''}</small><div class="xml-compare-candidate-actions">${candidateAction('accept', candidate.id, 'Accept', rejected)}${candidateAction('reject', candidate.id, rejected ? 'Rejected' : 'Reject', rejected)}</div></article>`;
 }
 
+function approvalCounts(manualState = null) {
+  const approved = manualState?.approvedMatchSet?.approvedMatches || [];
+  const manualFallback = Array.isArray(manualState?.connectors) ? manualState.connectors.length : 0;
+  const candidatePairs = approved.filter((match) => clean(match.matchType) === 'candidate-accepted' || (match.basis || []).includes('candidate')).length;
+  const manual = approved.length ? Math.max(0, approved.length - candidatePairs) : manualFallback;
+  return Object.freeze({
+    manual,
+    candidatePairs,
+    total: approved.length || manualFallback,
+    rejected: manualState?.approvedMatchSet?.summary?.rejectedCount || 0,
+    blockers: manualState?.approvedValidationModel?.summary?.blockerCount || manualState?.approvedMatchSet?.summary?.blockerCount || 0,
+  });
+}
+
+function countCell(label = '', value = 0) {
+  return `<div><b>${esc(label)}</b><span>${esc(value)}</span></div>`;
+}
+
+function approvalCountPanel(manualState = null) {
+  const counts = approvalCounts(manualState);
+  return `<div class="xmlc-approval-counts">${countCell('Manual', counts.manual)}${countCell('Candidate pairs', counts.candidatePairs)}${countCell('Total approved', counts.total)}${countCell('Validation blockers', counts.blockers)}</div>${counts.rejected ? `<small>${esc(counts.rejected)} rejected candidate(s)</small>` : ''}`;
+}
+
 export function paintXmlCompareConnectorCanvas(canvas, connectors = [], pendingPreview = null) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -120,15 +143,8 @@ export function paintXmlCompareConnectorCanvas(canvas, connectors = [], pendingP
   }
 }
 
-export function renderXmlCompareGraphConnectorLaneHtml({ manualState = null } = {}) {
-  const manualConnectors = Array.isArray(manualState?.connectors) ? manualState.connectors : [];
-  const connectors = allConnectors(manualConnectors);
-  const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualConnectors.length;
-  const blockers = manualState?.approvedValidationModel?.summary?.blockerCount || 0;
-  
-  const payload = esc(JSON.stringify({ connectors, pendingPreview: manualState?.pendingConnectorPreview || null }));
-  
-  return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Manual approval only</span></header>${actionPanel()}<div class="xml-compare-graph-connector-counts"><div><b>Approved</b><span>${approvedCount}</span></div><div><b>Mode</b><span>Manual</span></div><div><b>Auto</b><span>Disabled</span></div><div><b>Validation blockers</b><span>${blockers}</span></div></div>${pendingPanel(manualState?.pendingConnectorPreview || null)}<canvas class="xml-compare-graph-connector-canvas" data-xml-compare-canvas-payload="${payload}" style="width: 100%; height: 160px; min-height: 160px; display: block;"></canvas>${candidateRows()}</section>`;
+export function renderXmlCompareGraphConnectorLaneHtml({ manualState = null, controlHtml = '' } = {}) {
+  return `<section class="xml-compare-graph-connector-lane" data-xml-compare-graph-connector-lane data-xml-compare-connector-overlay><header><b>Connectors</b><span>Approval counts</span></header>${controlHtml}${actionPanel()}${approvalCountPanel(manualState)}${pendingPanel(manualState?.pendingConnectorPreview || null)}</section>`;
 }
 
 export const _test = Object.freeze({
@@ -142,4 +158,6 @@ export const _test = Object.freeze({
   candidateDataset,
   candidateRows,
   candidateRow,
+  approvalCounts,
+  approvalCountPanel,
 });

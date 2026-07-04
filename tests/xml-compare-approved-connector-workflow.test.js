@@ -63,6 +63,12 @@ ambiguousState = applyXmlCompareCanvasAction(ambiguousState, { type: 'accept-can
 assert.equal(ambiguousState.matchDecisions[0].decision, 'needs-review', 'ambiguous candidate must not silently approve');
 assert.equal(ambiguousState.approvedMatchSet.summary.approvedCount, 0);
 
+let duplicateNumericState = createXmlCompareCanvasState();
+duplicateNumericState = applyXmlCompareCanvasAction(duplicateNumericState, { type: 'accept-candidate', candidate: { ...candidate, sourceUid: 'S-1', targetUid: 'T-1', method: 'numeric-fields', allowDuplicateTarget: true, status: 'valid' } });
+duplicateNumericState = applyXmlCompareCanvasAction(duplicateNumericState, { type: 'accept-candidate', candidate: { ...candidate, sourceUid: 'S-2', targetUid: 'T-1', method: 'numeric-fields', allowDuplicateTarget: true, status: 'valid' } });
+assert.equal(duplicateNumericState.approvedMatchSet.summary.approvedCount, 2, 'numeric-field-valid duplicate target claims remain approved');
+assert.equal(duplicateNumericState.approvedMatchSet.summary.blockerCount, 0);
+
 const events = [];
 globalThis.CustomEvent = class TestCustomEvent {
   constructor(type, init = {}) { this.type = type; this.detail = init.detail; }

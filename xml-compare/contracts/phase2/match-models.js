@@ -81,7 +81,7 @@ function markAmbiguousBucket(rows, ambiguous) {
 function conflictPairSet(candidates = []) {
   const conflicts = new Set();
   const byTarget = new Map();
-  for (const candidate of candidates.filter((item) => item.status !== 'rejected')) {
+  for (const candidate of candidates.filter((item) => item.status !== 'rejected' && !item.allowDuplicateTarget)) {
     const targetUid = clean(candidate.targetUid);
     if (!byTarget.has(targetUid)) byTarget.set(targetUid, []);
     byTarget.get(targetUid).push(candidate);
@@ -108,6 +108,7 @@ function normalizeCandidate(candidate, tolerance) {
     identityConfidence: finite(candidate.identityConfidence ?? candidate.confidence, 0),
     coordinateFrameOk: candidate.coordinateFrameOk !== false,
     transformBasis: clean(candidate.transformBasis || candidate.transform?.basis || 'identity-offset'),
+    allowDuplicateTarget: Boolean(candidate.allowDuplicateTarget),
     toleranceBucket: toleranceBucket(deltaMm, tolerance),
     status: status === 'rejected' ? 'rejected' : 'candidate',
     diagnostics: cloneArray(candidate.diagnostics || []),
@@ -192,6 +193,7 @@ function approvedMatch(decision, candidate) {
     confidence: Math.max(finite(decision.confidence, 0), finite(candidate.score, 0), finite(candidate.identityConfidence, 0)),
     identityConfidence: finite(candidate.identityConfidence, 0),
     coordinateDeltaMm: finite(candidate.deltaMm, null),
+    allowDuplicateTarget: Boolean(candidate.allowDuplicateTarget),
     basis: cloneArray(candidate.basis || []),
     transformBasis: clean(candidate.transformBasis),
     reviewerStatus: decision.decision,
