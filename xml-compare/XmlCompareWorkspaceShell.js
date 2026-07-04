@@ -12,12 +12,13 @@ import { renderXmlCompareManualValidationBuilderHtml } from './XmlCompareManualV
 import { renderXmlCompareAnchorReviewPanelHtml } from './XmlCompareAnchorReviewPanel.js';
 import { availableCompareFields, normalizeCompareFields } from './XmlCompareFieldCompareModel.js';
 import { normalizeToleranceMm, normalizeValidationLayer } from './XmlCompareValidationModel.js';
+import { renderXmlCompareTransferModalPopupHtml } from './XmlCompareTransferModalPopup.js';
 
-export const XML_COMPARE_WORKSPACE_SHELL_SCHEMA = 'xml-compare-workspace-shell/v29-manual-validation-runtime';
+export const XML_COMPARE_WORKSPACE_SHELL_SCHEMA = 'xml-compare-workspace-shell/v30-integrated-config-runtime';
 let loadDiagnosticsPromise = null, loadSamplePickersPromise = null, loadCategorizedConverterPromise = null, loadTableCategorizedPromise = null, loadToolbarGatePromise = null, loadTransferApplyPromise = null, loadCandidateReviewPromise = null, loadLinewiseInfoRulePromise = null, loadManualValidationBuilderPromise = null;
 function loadTabDiagnostics() { if (typeof document !== 'undefined' && !loadDiagnosticsPromise) loadDiagnosticsPromise = import('../tabs/xml-compare-load-diagnostics-runtime.js?v=20260628-xml-compare-load-diagnostics-3').catch(() => null); }
 function loadSamplePickers() { if (typeof document !== 'undefined' && !loadSamplePickersPromise) loadSamplePickersPromise = import('../tabs/xml-compare-enriched-sample-pickers.js?v=20260701-bm-cii-categorized-samples-1').catch(() => null); }
-function loadCategorizedConverter() { if (typeof document !== 'undefined' && !loadCategorizedConverterPromise) loadCategorizedConverterPromise = import('../tabs/xml-compare-categorized-converter-runtime.js?v=20260630-clean-workflow-ui-1').catch(() => null); }
+function loadCategorizedConverter() { if (typeof document !== 'undefined' && !loadCategorizedConverterPromise) loadCategorizedConverterPromise = import('../tabs/xml-compare-categorized-converter-runtime.js?v=20260704-integrated-config-selector-1').catch(() => null); }
 function loadTableCategorizedXml() { if (typeof document !== 'undefined' && !loadTableCategorizedPromise) loadTableCategorizedPromise = import('../tabs/xml-compare-table-categorized-runtime.js?v=20260703-extra-tools-1').catch(() => null); }
 function loadToolbarGate() { if (typeof document !== 'undefined' && !loadToolbarGatePromise) loadToolbarGatePromise = import('../tabs/xml-compare-linewise-toolbar-gate.js?v=20260703-converter-shortcut-routing-1').catch(() => null); }
 function loadTransferApplyRuntime() { if (typeof document !== 'undefined' && !loadTransferApplyPromise) loadTransferApplyPromise = import('../tabs/xml-compare-transfer-apply-runtime.js?v=20260703-state-backed-transfer-1').catch(() => null); }
@@ -37,22 +38,5 @@ function compareFieldControls(source = null, target = null, compareFields = [], 
 function patchConnectorLaneActions(html = '', source = null, target = null, compareFields = [], matchMap = null, validationBuilder = null, selectedRecords = {}, validation = {}) { return String(html).replace(/<div class="xml-compare-auto-map-actions">([\s\S]*?)<\/div>/, (panel, body) => `<div class="xml-compare-auto-map-actions">${body}${compareFieldControls(source, target, compareFields, matchMap, validationBuilder, selectedRecords, validation)}</div>`); }
 function connectorLane(input = {}, manualState = null) { return renderXmlCompareGraphConnectorLaneHtml({ manualState }); }
 function validationCandidatesPanel(input = {}) { return `<section class="xml-compare-panel xmlc-col xmlc-col-left"><div class="xml-compare-panel-title">Validation candidates</div>${compareFieldControls(input.source, input.target, input.compareFields, input.matchMap, input.validationBuilder, input.selectedRecords, input.validation || {})}</section>`; }
-import { renderXmlCompareTransferModalPopupHtml } from './XmlCompareTransferModalPopup.js';
-
-export function renderXmlCompareWorkspaceShellHtml(input = {}) { loadLazyRuntimes(); const manualState = createManualState(input), tState = transferState(input), transferPreview = createXmlCompareTransferPreview({ source: input.source, target: input.target, manualConnectors: input.manualConnectors }), stageScope = tState.transferStage?.scope || 'node'; 
-const validationCandidatesHtml = validationCandidatesPanel(input);
-const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualState?.connectors?.length || 0;
-const reviewButton = `<button type="button" class="xml-compare-review-btn" data-xml-compare-action="open-transfer-modal">Review & Transfer (${approvedCount} approved)</button>`;
-
-return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}">
-<div class="xml-compare-workspace-grid is-two-canvas">
-  ${sideCard('source', 'Source', input.source || {}, input.navStates?.source, manualState)}
-  <div class="xml-compare-connector-lane-container">
-    ${connectorLane(input, manualState)}
-    ${reviewButton}
-  </div>
-  ${sideCard('target', 'Target', input.target || {}, input.navStates?.target, manualState)}
-</div>
-${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview, validationCandidatesHtml })}
-</section>`; }
+export function renderXmlCompareWorkspaceShellHtml(input = {}) { loadLazyRuntimes(); const manualState = createManualState(input), tState = transferState(input), transferPreview = createXmlCompareTransferPreview({ source: input.source, target: input.target, manualConnectors: input.manualConnectors }), stageScope = tState.transferStage?.scope || 'node'; const validationCandidatesHtml = validationCandidatesPanel(input); const approvedCount = manualState?.approvedMatchSet?.summary?.approvedCount || manualState?.connectors?.length || 0; const reviewButton = `<button type="button" class="xml-compare-review-btn" data-xml-compare-action="open-transfer-modal">Review & Transfer (${approvedCount} approved)</button>`; return `<section class="xml-compare-workspace-shell is-rebuilt" data-xml-compare-workspace-shell data-xml-compare-workspace-shell-schema="${XML_COMPARE_WORKSPACE_SHELL_SCHEMA}"><div class="xml-compare-workspace-grid is-two-canvas">${sideCard('source', 'Source', input.source || {}, input.navStates?.source, manualState)}<div class="xml-compare-connector-lane-container">${connectorLane(input, manualState)}${reviewButton}</div>${sideCard('target', 'Target', input.target || {}, input.navStates?.target, manualState)}</div>${renderXmlCompareTransferModalPopupHtml({ input, tState, stageScope, transferPreview, validationCandidatesHtml })}</section>`; }
 export const _test = Object.freeze({ esc, createManualState, transferState, compareFieldOptions, compareFieldControls, validationFromRequest, validationLayerOptions, validationControls, patchConnectorLaneActions, loadLazyRuntimes, loadManualValidationBuilderRuntime });
