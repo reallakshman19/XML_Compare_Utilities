@@ -31,7 +31,13 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   outputButtons: Object.freeze([
     Object.freeze({ key: 'coverage', label: 'Coverage CSV', exportKey: 'coverageCsv', mime: 'text/csv', suffix: 'coverage' }),
     Object.freeze({ key: 'clash', label: 'Clash Rows CSV', exportKey: 'clashRowsCsv', mime: 'text/csv', suffix: 'clash-rows' }),
+    Object.freeze({ key: 'missing', label: 'Missing CSV', exportKey: 'missingCsv', mime: 'text/csv', suffix: 'missing' }),
+    Object.freeze({ key: 'out-of-family', label: 'Out-of-Family CSV', exportKey: 'outOfFamilyCsv', mime: 'text/csv', suffix: 'out-of-family' }),
+    Object.freeze({ key: 'duplicates', label: 'Duplicates CSV', exportKey: 'duplicatesCsv', mime: 'text/csv', suffix: 'duplicates' }),
+    Object.freeze({ key: 'line-families', label: 'Line Families CSV', exportKey: 'lineFamiliesCsv', mime: 'text/csv', suffix: 'line-families' }),
+    Object.freeze({ key: 'pos-families', label: 'POSFamilies CSV', exportKey: 'posFamiliesCsv', mime: 'text/csv', suffix: 'posfamilies' }),
     Object.freeze({ key: 'source-pos', label: 'Source vs POSFamily CSV', exportKey: 'sourceVsPosFamilyCsv', mime: 'text/csv', suffix: 'source-vs-posfamily' }),
+    Object.freeze({ key: 'diagnostics', label: 'Diagnostics CSV', exportKey: 'diagnosticsCsv', mime: 'text/csv', suffix: 'diagnostics' }),
     Object.freeze({ key: 'all-json', label: 'Audit JSON', exportKey: 'auditJson', mime: 'application/json', suffix: 'audit' }),
   ]),
   info: Object.freeze([

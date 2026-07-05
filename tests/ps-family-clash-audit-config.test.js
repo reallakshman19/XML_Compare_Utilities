@@ -11,6 +11,8 @@ assert.equal(config.inputRows, 3);
 assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 3);
 assert.equal(config.reportTabs.length, 9);
+assert.equal(config.outputButtons.length, 10);
+assert.ok(config.outputButtons.every((button) => button.exportKey && button.suffix && button.mime));
 assert.ok(config.info.some((item) => item.includes('Copy-(n)-of')));
 
 const html = _test.renderInputShell(config);
@@ -18,6 +20,8 @@ assert.match(html, /Source side/);
 assert.match(html, /type="file"/);
 assert.match(html, /data-psfa-file="xml"/);
 assert.match(html, /data-psfa-tab="coverage"/);
+assert.match(html, /Missing CSV/);
+assert.match(html, /Diagnostics CSV/);
 assert.match(html, /Source vs POSFamily/);
 assert.match(html, /value="35"/);
 assert.match(html, /Copy-\(n\)-of names are preserved/);
