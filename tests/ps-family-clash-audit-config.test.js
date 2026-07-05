@@ -8,6 +8,7 @@ import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.j
 const config = resolvePsFamilyClashAuditConfig({ posToleranceMm: 35, inputRows: 3 });
 assert.equal(config.posToleranceMm, 35);
 assert.equal(config.inputRows, 3);
+assert.equal(config.launcher.label, 'PS clash check');
 assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 3);
 assert.equal(config.reportTabs.length, 9);
@@ -15,6 +16,15 @@ assert.equal(config.outputButtons.length, 10);
 assert.ok(config.outputButtons.every((button) => button.exportKey && button.suffix && button.mime));
 assert.ok(config.info.some((item) => item.includes('Copy-(n)-of')));
 assert.ok(config.info.some((item) => item.includes('Source family can be entered manually')));
+
+const launcher = _test.renderLauncher(config);
+assert.match(launcher, /PS clash check/);
+assert.match(launcher, /data-psfa-open="1"/);
+assert.doesNotMatch(launcher, /PS Family Clash Audit/);
+
+const popup = _test.renderPopup(config);
+assert.match(popup, /data-psfa-close="1"/);
+assert.match(popup, /PS Family Clash Audit/);
 
 const html = _test.renderInputShell(config);
 assert.match(html, /Source side/);
