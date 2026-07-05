@@ -56,6 +56,7 @@ function renderInputShell(config) {
         <label>Expected PS CSV<textarea data-psfa="expected" rows="${h(config.inputRows)}" placeholder="Paste Item Name CSV"></textarea></label>
         <label>Element Detail CSV<textarea data-psfa="details" rows="${h(config.inputRows)}" placeholder="Paste Name/p1bore/pipe/Position CSV"></textarea></label>
         <label>Source side<select data-psfa="source-side">${renderSourceOptions(config)}</select></label>
+        <label>Source family<input data-psfa="source-family" placeholder="${h(config.sourceFamilyPlaceholder)}"></label>
         <label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label>
       </div>
       <div class="psmap-actions"><button type="button" data-psfa="run">Run Audit</button>${renderExportButtons(config)}</div>
