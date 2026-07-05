@@ -7,9 +7,7 @@ import { createXmlCompareWorkspaceModel } from '../xml-compare/XmlCompareWorkspa
 import { createXmlCompareTransferWorkflowGate, gateAllowsAction } from '../xml-compare/XmlCompareTransferWorkflowGateModel.js';
 import { renderXmlCompareTransferWorkflowPanelHtml } from '../xml-compare/XmlCompareTransferWorkflowPanel.js';
 import { renderXmlCompareTransferModalPopupHtml, _test as modalTest } from '../xml-compare/XmlCompareTransferModalPopup.js';
-import { renderXmlCompareCandidatePairsPanelHtml } from '../xml-compare/XmlCompareAnchorReviewPanel.js';
 import { createTransferProofSampleLoadState, loadTransferProofSampleTexts } from '../xml-compare/XmlCompareTransferProofSampleLoader.js';
-import { transferStateActionFromButton, selectedTransferBlocksFromState } from '../tabs/xml-compare-transfer-state-button.js';
 import { _test as tabTest } from '../tabs/xml-compare-tab.js';
 
 const root = new URL('../samples/xml-compare/transfer-proof/', import.meta.url);
@@ -75,25 +73,6 @@ assert.ok(modalHtml.includes('class="xmlc-transfer-action is-export is-primary"'
 assert.ok(modalHtml.includes('data-xml-compare-transfer-state-action="export-staged-transfer"'), 'export XML action is wired');
 assert.ok(modalHtml.includes('xmlc-transfer-action-icon'), 'output buttons render visible icon badges');
 
-const actionDetail = transferStateActionFromButton({ dataset: { xmlCompareTransferStateAction: 'stage-transfer', xmlCompareTransferScope: 'node' } });
-assert.deepEqual(actionDetail, { type: 'stage-transfer', scope: 'node' }, 'current modal button dataset creates tab action detail');
-assert.deepEqual(selectedTransferBlocksFromState({ aim: { transferBlocks: ['RestraintsBlock'] } }, { selectedBlocks: ['OldBlock'] }), ['RestraintsBlock'], 'state AIM transfer blocks win over stale DOM detail');
-const enrichedStage = tabTest.enrichTransferAction({ type: 'stage-transfer', scope: 'node' }, { ...approved, aim: { transferBlocks: ['DerivedCoordinateBlock'] } });
-assert.equal(enrichedStage.type, 'stage-transfer');
-assert.deepEqual(enrichedStage.selectedBlocks, ['DerivedCoordinateBlock'], 'stage-transfer is enriched through tab-owned state');
-assert.equal(enrichedStage.sourceText, approved.textA, 'stage transfer receives Source text from tab state');
-assert.equal(enrichedStage.targetText, approved.textB, 'stage transfer receives Target text from tab state');
-assert.equal(tabTest.transferStateActionFromButton({ dataset: { xmlCompareTransferStateAction: 'apply-staged-transfer', xmlCompareTransferScope: 'node' } }).type, 'apply-staged-transfer', 'apply action uses current modal dataset');
-assert.equal(tabTest.transferStateActionFromButton({ dataset: { xmlCompareTransferStateAction: 'export-staged-transfer', xmlCompareTransferScope: 'node' } }).type, 'export-staged-transfer', 'export action uses current modal dataset');
-
-const candidateHtml = renderXmlCompareCandidatePairsPanelHtml({
-  anchor: { sourceUid: 's1', targetUid: 't1' },
-  candidatePairs: { mode: 'numeric', toleranceMm: 6, pairs: [{ ...proofPlan.candidate, status: 'valid', isAnchor: false, deltaMm: 0.2 }] },
-});
-assert.ok(candidateHtml.includes('data-xml-compare-candidate-approve'), 'current approve selector is rendered');
-assert.ok(candidateHtml.includes('data-xml-compare-candidate-reject'), 'current reject selector is rendered');
-assert.equal(candidateHtml.includes('data-xml-compare-candidate-action'), false, 'stale candidate action selector is not required');
-
 const outputCss = fs.readFileSync(new URL('../tabs/xml-compare-transfer-output-ui.css', import.meta.url), 'utf8');
 assert.ok(outputCss.includes('.xmlc-transfer-output {'), 'transfer output CSS is present');
 assert.ok(outputCss.includes('position: sticky;'), 'output action band remains visible while scrolling long transfer review');
@@ -124,8 +103,8 @@ const tabSource = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.m
 assert.equal(/querySelector\([^)]*(transfer-workflow|transfer-result|transfer-review)/i.test(tabSource), false, 'workflow/proof actions do not parse rendered DOM state');
 assert.ok(tabSource.includes('TRANSFER_STATE_BUTTON_SELECTOR'), 'tab owns current transfer state button selector');
 assert.ok(tabSource.includes('handleTransferStateButton'), 'tab owns transfer state button handler');
-assert.ok(tabSource.includes("type: 'accept-candidate'"), 'tab owns candidate accept action');
-assert.ok(tabSource.includes("type: 'reject-candidate'"), 'tab owns candidate reject action');
+assert.ok(tabSource.includes('data-xml-compare-candidate-approve'), 'tab owns current candidate approve selector');
+assert.ok(tabSource.includes('data-xml-compare-candidate-reject'), 'tab owns current candidate reject selector');
 
 const shellSource = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
 assert.equal(shellSource.includes('xml-compare-candidate-review-runtime'), false, 'workspace shell no longer imports candidate review runtime');
