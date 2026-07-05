@@ -6,6 +6,7 @@ import { createApprovedConnectorValidationModel } from '../xml-compare/XmlCompar
 import { createXmlCompareWorkspaceModel } from '../xml-compare/XmlCompareWorkspaceModel.js';
 import { createXmlCompareTransferWorkflowGate, gateAllowsAction } from '../xml-compare/XmlCompareTransferWorkflowGateModel.js';
 import { renderXmlCompareTransferWorkflowPanelHtml } from '../xml-compare/XmlCompareTransferWorkflowPanel.js';
+import { renderXmlCompareTransferModalPopupHtml, _test as modalTest } from '../xml-compare/XmlCompareTransferModalPopup.js';
 import { createTransferProofSampleLoadState, loadTransferProofSampleTexts } from '../xml-compare/XmlCompareTransferProofSampleLoader.js';
 import { _test as tabTest } from '../tabs/xml-compare-tab.js';
 
@@ -55,6 +56,31 @@ assert.equal(appliedGate.okForExport, true, 'workflow reports export ready after
 assert.equal(gateAllowsAction(appliedGate, 'export-staged-transfer'), true);
 assert.equal(gateAllowsAction(appliedGate, 'download-transfer-proof-json'), true);
 assert.equal(gateAllowsAction(appliedGate, 'copy-patched-target-preview'), true);
+
+const exportMeta = modalTest.outputActionMeta('export-staged-transfer');
+assert.equal(exportMeta.icon, '⬇', 'export XML action has a visible icon badge');
+assert.equal(exportMeta.kind, 'export', 'export XML action has a stable CSS hook');
+const modalHtml = renderXmlCompareTransferModalPopupHtml({
+  input: { transferModal: { activeTab: 'transfer-compare' }, transferWorkflowGate: appliedGate, approvedMatchSet: applied.canvasState.approvedMatchSet, aim: { transferBlocks: ['DerivedCoordinateBlock'] }, logs: [], diagnostics: [] },
+  tState: applied.canvasState,
+  stageScope: 'node',
+  transferPreview: { summary: { nodeOwnedBlockCount: 1, previewCount: 3 } },
+});
+assert.ok(modalHtml.includes('xml-compare-transfer-modal'), 'transfer modal renders');
+assert.ok(modalHtml.includes('xmlc-transfer-output'), 'transfer modal renders output action band');
+assert.ok(modalHtml.includes('aria-label="Export patched target XML"'), 'export XML button has accessible label');
+assert.ok(modalHtml.includes('class="xmlc-transfer-action is-export is-primary"'), 'export XML button has primary visible CSS classes');
+assert.ok(modalHtml.includes('data-xml-compare-transfer-state-action="export-staged-transfer"'), 'export XML action is wired');
+assert.ok(modalHtml.includes('xmlc-transfer-action-icon'), 'output buttons render visible icon badges');
+
+const outputCss = fs.readFileSync(new URL('../tabs/xml-compare-transfer-output-ui.css', import.meta.url), 'utf8');
+assert.ok(outputCss.includes('.xmlc-transfer-output {'), 'transfer output CSS is present');
+assert.ok(outputCss.includes('position: sticky;'), 'output action band remains visible while scrolling long transfer review');
+assert.ok(outputCss.includes('grid-template-columns: repeat(auto-fit'), 'output actions use responsive grid layout');
+assert.ok(outputCss.includes('.xmlc-transfer-action-icon'), 'export icon badge is styled');
+assert.ok(outputCss.includes('.xmlc-transfer-action.is-primary'), 'primary export action has visible styling');
+const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css'), 'transfer output CSS is loaded by index.html');
 
 const stale = { ...approved, workspaceRevision: 2, canvasState: stageAndApply(approved).canvasState };
 assert.equal(gate(stale).blockerCodes.includes('TRANSFER_STAGE_BLOCKED'), true, 'stale stage is blocked by gate');
