@@ -39,6 +39,16 @@ The audit result is a downstream report. It does not mutate the Navis XML, the e
 
 Files can be loaded with the browser file picker or pasted directly into the text areas. The audit engine always reads the visible text-area contents.
 
+## Official sample fixtures
+
+Sample files are available under `samples/ps-family-clash-audit/`:
+
+- `sample-clash.xml`
+- `sample-expected.csv`
+- `sample-element-detail.csv`
+
+The sample set proves a small end-to-end case with one found expected member, two missing expected members, one out-of-family clash row, Copy identity preservation, POSFamily output, and JSON/CSV export generation.
+
 ## Core rules
 
 - `Copy-(n)-of-...` is preserved as exact member identity. It is not normalized to the original PS name.
@@ -107,6 +117,7 @@ Current PS Family gates cover:
 - Snapshot/export schema stability
 - Medium-size performance
 - Accessibility label coverage
+- Official sample fixture reproducibility
 - PS Family implementation compliance: scoped 300-line file budget and no default exports
 
 ## Benchmark baseline
