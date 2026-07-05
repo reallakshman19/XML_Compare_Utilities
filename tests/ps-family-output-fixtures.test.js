@@ -1,28 +1,27 @@
 import assert from 'node:assert/strict';
-import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
+import { PS_FAMILY_CLASH_AUDIT_SCHEMA } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-contract.js';
 import { createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
 
-const audit = createPsFamilyClashAuditFromTextInputs({
-  expectedCsvText: 'Item Name\n/PS-11147.1\n',
-  detailCsvText: 'Name of the element,p1bore,pipe,Position\nPS-11147.1,25,ASIM-1835-1IN-D8810311-31441C4-PP-01,E 10mm S 20mm U 30mm\n',
-  config: { sourceSide: 'auto', sourceFamily: '', posToleranceMm: 25 },
-});
+const audit = {
+  schema: PS_FAMILY_CLASH_AUDIT_SCHEMA,
+  summary: { sourceFamily: 'PS-11147', coveragePct: '0.00' },
+  coverageRows: [],
+  clashRows: [],
+  missingRows: [],
+  outOfFamilyRows: [],
+  duplicateRows: [],
+  lineFamilyRows: [],
+  posFamilyRows: [],
+  sourceVsPosFamilyRows: [],
+  diagnostics: [],
+};
 
 const exports = createPsFamilyAuditExports(audit);
 
-assert.ok(exports.coverageCsv.startsWith('SourceFamily,ExpectedMember,Status,ClashCount'));
-assert.ok(exports.coverageCsv.includes('POSFamilyId'));
-assert.ok(exports.coverageCsv.includes('LineFamily'));
-assert.ok(exports.coverageCsv.includes('PS-11147.1'));
-assert.ok(exports.coverageCsv.includes('MISSING'));
-assert.ok(exports.sourceVsPosFamilyCsv.startsWith('Source,POSFamilyCount,ElementCount'));
-assert.ok(exports.sourceVsPosFamilyCsv.includes('PS-11147'));
-assert.equal(audit.summary.sourceFamily, 'PS-11147');
-assert.equal(audit.summary.expectedCount, 1);
-assert.equal(audit.summary.missingCount, 1);
-assert.equal(audit.summary.posFamilyCount, 1);
+assert.equal(exports.coverageCsv, 'SourceFamily,ExpectedMember,Status,ClashCount,ClashRows,POSFamilyId,p1bore,Pipe,LineFamily,SupportText,SupportGap,Reference,PositionE,PositionS,PositionU,AgainstMembers,LineFamilies,FullLineTags,BranchNodes,SourceObjects,Remarks');
+assert.equal(exports.sourceVsPosFamilyCsv, 'Source,POSFamilyCount,ElementCount,FoundElementCount,MissingElementCount,ClashCount,OutOfFamilyCount,POSFamilyIds,LineFamilies,Remarks');
 assert.match(exports.auditJson, /"schema": "ps-family-clash-audit\/v1"/);
-assert.match(exports.auditJson, /"coveragePct": "0.00"/);
 assert.match(exports.auditJson, /"sourceFamily": "PS-11147"/);
+assert.match(exports.auditJson, /"coveragePct": "0.00"/);
 
 console.log('ps-family-output-fixtures tests passed');
