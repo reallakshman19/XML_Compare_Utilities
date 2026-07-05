@@ -6,7 +6,7 @@ import { comparePanel, renderXmlCompareCandidatePairsPanelHtml, renderXmlCompare
 import { renderXmlCompareLogScreenHtml } from './XmlCompareLogScreen.js';
 import { renderXmlCompareDiagnosticsPanelHtml } from './XmlCompareDiagnosticsPanel.js';
 
-export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v1';
+export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v2-output-actions';
 
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const clean = (value) => String(value ?? '').trim();
@@ -51,16 +51,29 @@ function outputStatus(tState = {}) {
   return 'Stage transfer first';
 }
 
+function outputActionMeta(action = '') {
+  const meta = {
+    'stage-transfer': ['Stage transfer', 'stage', '🧩'],
+    'clear-transfer-stage': ['Clear stage', 'clear', '↺'],
+    'apply-staged-transfer': ['Apply staged transfer', 'apply', '✓'],
+    'export-staged-transfer': ['Export patched target XML', 'export', '⬇'],
+    'export-transfer-audit': ['Export transfer audit JSON', 'audit', '{}'],
+  }[action] || [action, 'generic', '•'];
+  return Object.freeze({ label: meta[0], kind: meta[1], icon: meta[2] });
+}
+
 function outputButton(action = '', label = '', scope = 'node', gate = null, primary = false) {
+  const meta = outputActionMeta(action);
+  const text = clean(label) || meta.label;
   const disabled = gate && !gateAllowsAction(gate, action) ? 'disabled' : '';
-  const className = primary ? ' class="is-primary"' : '';
-  return `<button type="button"${className} data-xml-compare-transfer-state-action="${esc(action)}" data-xml-compare-transfer-scope="${esc(scope)}" ${disabled}>${esc(label)}</button>`;
+  const classes = ['xmlc-transfer-action', `is-${meta.kind}`, primary ? 'is-primary' : ''].filter(Boolean).join(' ');
+  return `<button type="button" class="${esc(classes)}" aria-label="${esc(text)}" data-xml-compare-transfer-state-action="${esc(action)}" data-xml-compare-transfer-scope="${esc(scope)}" ${disabled}><span class="xmlc-transfer-action-icon" aria-hidden="true">${esc(meta.icon)}</span><span class="xmlc-transfer-action-label">${esc(text)}</span></button>`;
 }
 
 function outputActionBand(input = {}, tState = {}, stageScope = 'node') {
   const gate = input.transferWorkflowGate || null;
   const name = tState.transferLastResult?.downloadName || 'target_transferred_categorized.xml';
-  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output">
+  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output" aria-label="Output target XML actions">
     <div class="xml-compare-panel-title">Output target XML</div>
     <div class="xmlc-transfer-output-body">
       <div class="xmlc-transfer-output-state">
@@ -68,11 +81,11 @@ function outputActionBand(input = {}, tState = {}, stageScope = 'node') {
         <span>${esc(name)}</span>
       </div>
       <div class="xml-compare-transfer-apply-actions xmlc-transfer-output-actions" data-xml-compare-transfer-state-actions>
-        ${outputButton('stage-transfer', 'Stage transfer', stageScope, gate, false)}
-        <button type="button" data-xml-compare-transfer-state-action="clear-transfer-stage" data-xml-compare-transfer-scope="${esc(stageScope)}">Clear stage</button>
-        ${outputButton('apply-staged-transfer', 'Apply staged transfer', stageScope, gate, false)}
-        ${outputButton('export-staged-transfer', 'Export patched target XML', stageScope, gate, true)}
-        <button type="button" data-xml-compare-transfer-state-action="export-transfer-audit" data-xml-compare-transfer-scope="${esc(stageScope)}">Export transfer audit JSON</button>
+        ${outputButton('stage-transfer', '', stageScope, gate, false)}
+        ${outputButton('clear-transfer-stage', '', stageScope, null, false)}
+        ${outputButton('apply-staged-transfer', '', stageScope, gate, false)}
+        ${outputButton('export-staged-transfer', '', stageScope, gate, true)}
+        ${outputButton('export-transfer-audit', '', stageScope, null, false)}
       </div>
     </div>
   </section>`;
@@ -136,4 +149,4 @@ export function renderXmlCompareTransferModalPopupHtml({ input = {}, tState = {}
   </dialog>`;
 }
 
-export const _test = Object.freeze({ esc, clean, approvalCounts, cardMetric, transferOverview, candidateTab, transferTab });
+export const _test = Object.freeze({ esc, clean, approvalCounts, cardMetric, transferOverview, outputActionMeta, outputButton, outputActionBand, candidateTab, transferTab });
