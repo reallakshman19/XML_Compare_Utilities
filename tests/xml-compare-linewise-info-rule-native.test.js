@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { LINEWISE_XML_OWNERSHIP_RULE_TEXT, renderLinewiseInfoRuleButtonHtml, renderLinewiseInfoRuleModalHtml } from '../xml-compare/XmlCompareLinewiseInfoRule.js';
-import { _test as converterTest } from '../tabs/xml-compare-categorized-converter-runtime.js';
+import { applyLinewiseAction } from '../xml-compare/XmlCompareLinewiseWorkflowActions.js';
+import { createLinewiseWorkflowState } from '../xml-compare/XmlCompareLinewiseWorkflowState.js';
+import { renderLinewiseWorkflowPopupHtml } from '../xml-compare/XmlCompareLinewiseWorkflowView.js';
 import { installXmlCompareLinewiseInfoRuleRuntime } from '../tabs/xml-compare-linewise-info-rule-runtime.js';
 
 assert.ok(LINEWISE_XML_OWNERSHIP_RULE_TEXT.includes('Root'));
@@ -24,21 +26,19 @@ assert.ok(modalHtml.includes('Line-wise XML ownership rule'));
 assert.ok(modalHtml.includes('role=&quot;FROM&quot;'), 'rule text quotes are escaped inside modal');
 assert.equal(renderLinewiseInfoRuleModalHtml(false), '');
 
-converterTest.state.infoRuleOpen = false;
-const closedPopup = converterTest.popupHtml();
+let workflow = createLinewiseWorkflowState({ open: true });
+const closedPopup = renderLinewiseWorkflowPopupHtml(workflow);
 assert.ok(closedPopup.includes('data-xml-compare-linewise-info-action="open-info-rule"'), 'popup renders native info/help button');
 assert.equal(closedPopup.includes('data-xml-compare-linewise-info-rule-panel'), false, 'closed popup hides rule panel');
 
-let latestHtml = '';
-globalThis.document = { querySelector: () => ({ set outerHTML(value) { latestHtml = value; } }) };
-assert.equal(converterTest.handleInfoRuleAction('open-info-rule'), true);
-assert.equal(converterTest.state.infoRuleOpen, true);
-assert.ok(latestHtml.includes('data-xml-compare-linewise-info-rule-panel'), 'opening renders modal through workflow render');
-assert.ok(latestHtml.includes('data-xml-compare-linewise-info-action="close-info-rule"'));
-assert.equal(converterTest.handleInfoRuleAction('close-info-rule'), true);
-assert.equal(converterTest.state.infoRuleOpen, false);
-assert.equal(latestHtml.includes('data-xml-compare-linewise-info-rule-panel'), false, 'closing hides modal through workflow render');
-delete globalThis.document;
+workflow = applyLinewiseAction(workflow, { type: 'open-linewise-info-rule' });
+assert.equal(workflow.infoRuleOpen, true);
+const openPopup = renderLinewiseWorkflowPopupHtml(workflow);
+assert.ok(openPopup.includes('data-xml-compare-linewise-info-rule-panel'), 'opening renders modal through native workflow view');
+assert.ok(openPopup.includes('data-xml-compare-linewise-info-action="close-info-rule"'));
+workflow = applyLinewiseAction(workflow, { type: 'close-linewise-info-rule' });
+assert.equal(workflow.infoRuleOpen, false);
+assert.equal(renderLinewiseWorkflowPopupHtml(workflow).includes('data-xml-compare-linewise-info-rule-panel'), false, 'closing hides modal through native workflow view');
 
 const runtimeSource = fs.readFileSync(new URL('../tabs/xml-compare-linewise-info-rule-runtime.js', import.meta.url), 'utf8');
 const shellSource = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
