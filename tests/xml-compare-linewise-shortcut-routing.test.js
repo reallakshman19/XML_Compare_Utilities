@@ -67,7 +67,7 @@ assert.equal(converterSource.includes('function injectButton'), false, 'converte
 assert.equal(converterSource.includes('insertAdjacentElement'), false, 'converter no longer inserts toolbar button after enrichment');
 assert.equal(converterSource.includes('toolbar.append'), false, 'converter no longer appends toolbar button');
 assert.equal(converterSource.includes('MutationObserver'), false, 'converter no longer observes toolbar mutations');
-assert.equal(converterSource.includes('[data-xml-compare-categorized-open]'), true, 'converter still recognizes native open hook');
+assert.equal(converterSource.includes("const BUTTON_ATTR = 'data-xml-compare-categorized-open'"), true, 'converter still owns the native open hook constant');
 assert.equal(shellSource.includes('xml-compare-linewise-toolbar-gate.js'), false, 'workspace shell no longer lazy-loads toolbar gate');
 assert.equal(shellSource.includes('loadToolbarGate'), false, 'workspace shell no longer tracks toolbar gate loader');
 
