@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { describeBrowserFile, readBrowserTextFile } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-file-io.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG, readPsFamilyUiSettings, resolvePsFamilyClashAuditConfig } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
+import { renderPsFamilyReports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 
 const config = resolvePsFamilyClashAuditConfig({ posToleranceMm: 35, inputRows: 3 });
@@ -9,12 +10,15 @@ assert.equal(config.posToleranceMm, 35);
 assert.equal(config.inputRows, 3);
 assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 3);
+assert.equal(config.reportTabs.length, 9);
 assert.ok(config.info.some((item) => item.includes('Copy-(n)-of')));
 
 const html = _test.renderInputShell(config);
 assert.match(html, /Source side/);
 assert.match(html, /type="file"/);
 assert.match(html, /data-psfa-file="xml"/);
+assert.match(html, /data-psfa-tab="coverage"/);
+assert.match(html, /Source vs POSFamily/);
 assert.match(html, /value="35"/);
 assert.match(html, /Copy-\(n\)-of names are preserved/);
 assert.match(html, /Left clash object/);
@@ -36,5 +40,7 @@ const audit25 = createPsFamilyClashAuditFromTextInputs({ detailCsvText: detailCs
 const audit35 = createPsFamilyClashAuditFromTextInputs({ detailCsvText: detailCsv, config: { posToleranceMm: 35, sourceSide: 'auto' } });
 assert.equal(audit25.summary.posFamilyCount, 2);
 assert.equal(audit35.summary.posFamilyCount, 1);
+assert.match(renderPsFamilyReports(audit35, 'posFamilies', config), /POSFamily/);
+assert.match(renderPsFamilyReports(audit35, 'diagnostics', config), /Diagnostics/);
 
 console.log('ps-family-clash-audit-config tests passed');
