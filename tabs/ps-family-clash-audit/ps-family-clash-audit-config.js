@@ -4,6 +4,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   schema: PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA,
   appTitle: 'PS Family Clash Audit',
   inputRows: 5,
+  sourceFamilyPlaceholder: 'Auto from expected CSV, or enter PS-11147',
   posToleranceMm: 25,
   toleranceMinMm: 0,
   toleranceStepMm: 0.001,
@@ -42,6 +43,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   ]),
   info: Object.freeze([
     'Files can be loaded with the file picker or pasted into the text areas; the parser always uses the visible text area contents.',
+    'Source family can be entered manually; when blank, it is detected from the expected CSV.',
     'Tolerance is configurable in the POS tolerance field; the configured value is applied independently to E, S, and U.',
     'Copy-(n)-of names are preserved as exact member identity and are not collapsed to original PS names.',
     'Line family, full line tag, branch node, support text, gap, reference, and position are preserved when available.',
@@ -55,8 +57,10 @@ export function resolvePsFamilyClashAuditConfig(overrides = {}) {
 
 export function readPsFamilyUiSettings(getField, config = PS_FAMILY_CLASH_AUDIT_CONFIG) {
   const tolerance = Number(getField('tolerance')?.value);
+  const sourceFamily = String(getField('source-family')?.value || '').trim().toUpperCase();
   return Object.freeze({
     sourceSide: getField('source-side')?.value || config.sourceSideOptions[0].value,
+    sourceFamily,
     posToleranceMm: Number.isFinite(tolerance) ? tolerance : config.posToleranceMm,
   });
 }
