@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import './xml-compare-linewise-workflow-native.test.js';
 
 import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
 import { _test as toolbarGateTest } from '../tabs/xml-compare-linewise-toolbar-gate.js';
 import { _test as samplePickerTest } from '../tabs/xml-compare-enriched-sample-pickers.js';
-import { _test as converterTest } from '../tabs/xml-compare-categorized-converter-runtime.js';
+import { installXmlCompareCategorizedConverterRuntime } from '../tabs/xml-compare-categorized-converter-runtime.js';
 
 const state = {
   fileA: null,
@@ -17,6 +18,7 @@ const state = {
   hiddenComponentIds: new Set(),
   status: { kind: 'info', message: 'Ready.' },
   loadDiagnostics: {},
+  linewiseWorkflow: {},
   sideload: {},
   enrichmentConfig: {},
 };
@@ -32,24 +34,6 @@ assert.equal(html.includes('Enrichment Config'), true, 'Enrichment Config remain
 assert.equal(html.includes('Download Input Readiness JSON'), true, 'input readiness button remains visible');
 assert.equal(html.includes('Download Readiness Gate JSON'), true, 'readiness gate button remains visible');
 
-let insertedHtml = '';
-globalThis.document = {
-  head: { append() {} },
-  body: { insertAdjacentHTML(_where, value) { insertedHtml = value; } },
-  getElementById() { return null; },
-  createElement() { return { id: '', textContent: '' }; },
-  querySelector() { return null; },
-};
-const openEvent = {
-  target: { closest: (selector) => (selector === '[data-xml-compare-categorized-open]' ? {} : null) },
-  preventDefault() { this.defaultPrevented = true; },
-};
-converterTest.clickHandler(openEvent);
-assert.equal(openEvent.defaultPrevented, true, 'native toolbar open hook is handled by converter workflow');
-assert.ok(insertedHtml.includes('data-xml-compare-categorized-popup'), 'existing Line-wise popup opens from native toolbar button');
-assert.ok(insertedHtml.includes('Line-wise XML Enrichment / Categorized XML'), 'popup content remains available');
-delete globalThis.document;
-
 const gateSource = fs.readFileSync(new URL('../tabs/xml-compare-linewise-toolbar-gate.js', import.meta.url), 'utf8');
 const converterSource = fs.readFileSync(new URL('../tabs/xml-compare-categorized-converter-runtime.js', import.meta.url), 'utf8');
 const shellSource = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
@@ -63,13 +47,14 @@ assert.equal(gateSource.includes('MutationObserver'), false, 'toolbar gate has n
 assert.equal(gateSource.includes('createElement'), false, 'toolbar gate has no style injection path');
 assert.equal(/installXmlCompareLinewiseToolbarGate\(\);/.test(gateSource), false, 'toolbar gate has no auto-install call');
 
-assert.equal(converterSource.includes('function injectButton'), false, 'converter no longer defines toolbar injection');
-assert.equal(converterSource.includes('insertAdjacentElement'), false, 'converter no longer inserts toolbar button after enrichment');
-assert.equal(converterSource.includes('toolbar.append'), false, 'converter no longer appends toolbar button');
+assert.equal(installXmlCompareCategorizedConverterRuntime(), false, 'converter runtime is inert');
+assert.equal(converterSource.includes('addEventListener'), false, 'converter no longer owns workflow listeners');
+assert.equal(converterSource.includes('insertAdjacentHTML'), false, 'converter no longer injects popup DOM');
+assert.equal(converterSource.includes('document.body'), false, 'converter no longer injects into body');
+assert.equal(converterSource.includes('DataTransfer'), false, 'converter no longer uses synthetic Source/Target file handoff');
 assert.equal(converterSource.includes('MutationObserver'), false, 'converter no longer observes toolbar mutations');
-assert.equal(converterSource.includes("const BUTTON_ATTR = 'data-xml-compare-categorized-open'"), true, 'converter still owns the native open hook constant');
-assert.equal(shellSource.includes('xml-compare-linewise-toolbar-gate.js'), false, 'workspace shell no longer lazy-loads toolbar gate');
-assert.equal(shellSource.includes('loadToolbarGate'), false, 'workspace shell no longer tracks toolbar gate loader');
+assert.equal(shellSource.includes('xml-compare-categorized-converter-runtime.js'), false, 'workspace shell no longer lazy-loads converter runtime');
+assert.equal(shellSource.includes('loadCategorizedConverter'), false, 'workspace shell no longer tracks converter loader');
 
 assert.equal(samplePickerTest.pickerHtml(), '', 'sample picker has no hidden direct-load UI');
 assert.equal(samplePickerTest.installXmlCompareEnrichedSamplePickers(), false, 'empty sample picker installs no listeners');
@@ -78,4 +63,4 @@ assert.equal(sampleSource.includes('input[data-xml-compare-load]'), false, 'samp
 assert.equal(sampleSource.includes('stopImmediatePropagation'), false, 'sample picker must not stop native file input propagation');
 assert.equal(sampleSource.includes('DataTransfer'), false, 'sample picker must not fake native file input handoff');
 
-console.log('XML Compare native line-wise toolbar entry regression tests passed');
+console.log('XML Compare native line-wise workflow routing regression tests passed');
