@@ -1,11 +1,15 @@
-export const XML_COMPARE_MANUAL_VALIDATION_BUILDER_RUNTIME_SCHEMA = 'xml-compare-manual-validation-builder-runtime/v1';
-let installed = false;
-const field = (target) => String(target?.dataset?.validationField || '').trim();
-function emit(detail) { document.dispatchEvent(new CustomEvent('xml-compare:state-action', { detail, bubbles: true })); }
-function closest(event, selector) { return event.target?.closest?.(selector); }
-function onChange(event) { const mode = closest(event, '[data-xml-compare-validation-text-mode]'), direction = closest(event, '[data-xml-compare-validation-text-direction]'), cs = closest(event, '[data-xml-compare-validation-text-case-sensitive]'), anchor = closest(event, '[data-xml-compare-validation-auto-anchor]'), toggle = closest(event, '[data-xml-compare-validation-candidate-toggle]'); if (mode) return emit({ type: 'set-validation-text-mode', field: field(mode), mode: mode.value }); if (direction) return emit({ type: 'set-validation-text-direction', field: field(direction), direction: direction.value }); if (cs) return emit({ type: 'set-validation-text-case-sensitive', field: field(cs), caseSensitive: cs.checked }); if (anchor) return emit({ type: 'set-validation-auto-anchor', autoAnchorSelectedNodes: anchor.checked }); if (toggle) return emit({ type: 'toggle-validation-candidate', candidateId: toggle.dataset.xmlCompareValidationCandidateToggle, selected: toggle.checked }); }
-function onClick(event) { const compare = closest(event, '[data-xml-compare-action="compare-validate-selection"]'); const tab = closest(event, '[data-xml-compare-validation-builder-field-type-tab]'); const approve = closest(event, '[data-xml-compare-action="approve-all-valid-candidates"]'); if (tab) { event.preventDefault(); event.stopPropagation(); return emit({ type: 'set-validation-builder-field-type', fieldType: tab.dataset.xmlCompareValidationBuilderFieldTypeTab }); } if (approve) { event.preventDefault(); event.stopPropagation(); return emit({ type: 'approve-all-valid-candidates' }); } if (!compare) return; event.preventDefault(); event.stopPropagation(); emit({ type: 'compare-validate-selection' }); }
-function onInput(event) { const pattern = closest(event, '[data-xml-compare-validation-text-pattern]'), group = closest(event, '[data-xml-compare-validation-text-group-spec]'), pos = closest(event, '[data-xml-compare-validation-numeric-regex-position]'), round = closest(event, '[data-xml-compare-validation-numeric-round-off]'), numThresh = closest(event, '[data-xml-compare-validation-bulk-numeric-threshold]'), textThresh = closest(event, '[data-xml-compare-validation-bulk-text-threshold]'); if (pattern) return emit({ type: 'set-validation-text-pattern', field: field(pattern), pattern: pattern.value }); if (group) return emit({ type: 'set-validation-text-group-spec', field: field(group), groupSpec: group.value }); if (pos) return emit({ type: 'set-validation-numeric-regex-position', regexPosition: pos.value }); if (round) return emit({ type: 'set-validation-numeric-round-off', roundOff: round.value }); if (numThresh) return emit({ type: 'set-validation-numeric-delta-threshold', threshold: numThresh.value }); if (textThresh) return emit({ type: 'set-validation-text-similarity-threshold', threshold: textThresh.value }); }
-export function installXmlCompareManualValidationBuilderRuntime(doc = globalThis.document) { if (installed || !doc?.addEventListener) return false; installed = true; doc.addEventListener('click', onClick, { capture: true }); doc.addEventListener('change', onChange, { capture: true }); doc.addEventListener('input', onInput, { capture: true }); return true; }
-installXmlCompareManualValidationBuilderRuntime();
-export const _test = Object.freeze({ field, closest, onClick, onChange, onInput, installXmlCompareManualValidationBuilderRuntime });
+export const XML_COMPARE_MANUAL_VALIDATION_BUILDER_RUNTIME_SCHEMA = 'xml-compare-manual-validation-builder-runtime/v2-inert';
+
+export {
+  manualValidationActionFromChange,
+  manualValidationActionFromClick,
+  manualValidationActionFromEvent,
+  manualValidationActionFromInput,
+  manualValidationStatusMessage,
+} from './xml-compare-manual-validation-builder-actions.js';
+
+export function installXmlCompareManualValidationBuilderRuntime() {
+  return false;
+}
+
+export const _test = Object.freeze({ installXmlCompareManualValidationBuilderRuntime });
