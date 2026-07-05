@@ -18,6 +18,12 @@ function safeSource(audit) {
   return audit?.summary?.sourceFamily || 'audit';
 }
 
+function fileExtension(mime) {
+  if (mime === 'application/json') return 'json';
+  if (mime === 'text/markdown') return 'md';
+  return 'csv';
+}
+
 function renderInfoList(config) {
   return `<ul class="psmap-help-text">${config.info.map((item) => `<li>${h(item)}</li>`).join('')}</ul>`;
 }
@@ -181,7 +187,7 @@ function wireExportButton(get, state, button) {
   get(button.key).addEventListener(ACTIVATE, () => {
     if (!state.audit) return;
     const exports = createPsFamilyAuditExports(state.audit);
-    const extension = button.mime === 'application/json' ? 'json' : 'csv';
+    const extension = fileExtension(button.mime);
     saveTextFile(`ps-family-${button.suffix}-${safeSource(state.audit)}.${extension}`, exports[button.exportKey], button.mime);
   });
 }
