@@ -34,6 +34,10 @@ function renderExportButtons(config) {
   return config.outputButtons.map((item) => `<button type="button" data-psfa="${h(item.key)}">${h(item.label)}</button>`).join('');
 }
 
+function renderReportTabs(config) {
+  return `<div class="psmap-actions">${config.reportTabs.map((tab) => `<button type="button" data-psfa-tab="${h(tab.key)}">${h(tab.label)}</button>`).join('')}</div>`;
+}
+
 function renderFilePicker(input) {
   return `<label>${h(input.label)} file<input data-psfa-file="${h(input.key)}" type="file" accept="${h(input.accept)}"></label><div class="psmap-help-text" data-psfa-status="${h(input.key)}">No file selected</div>`;
 }
@@ -55,7 +59,7 @@ function renderInputShell(config) {
         <label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label>
       </div>
       <div class="psmap-actions"><button type="button" data-psfa="run">Run Audit</button>${renderExportButtons(config)}</div>
-      <div data-psfa="summary"></div><div data-psfa="reports"></div>
+      ${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>
     </div>`;
 }
 
@@ -63,9 +67,9 @@ function readTextInputs(get) {
   return { clashXmlText: get('xml').value, expectedCsvText: get('expected').value, detailCsvText: get('details').value };
 }
 
-function renderAudit(host, audit) {
-  host.querySelector('[data-psfa="summary"]').innerHTML = renderPsFamilySummary(audit);
-  host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(audit);
+function renderAudit(host, state, config) {
+  host.querySelector('[data-psfa="summary"]').innerHTML = renderPsFamilySummary(state.audit);
+  host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(state.audit, state.activeReportTab, config);
 }
 
 function statusNode(host, key) {
@@ -88,10 +92,21 @@ function wireFileInputs(host, get, config) {
   config.inputFiles.forEach((input) => wireFileInput(host, get, input));
 }
 
+function wireReportTab(host, state, config, tab) {
+  host.querySelector(`[data-psfa-tab="${tab.key}"]`).addEventListener('click', () => {
+    state.activeReportTab = tab.key;
+    renderAudit(host, state, config);
+  });
+}
+
+function wireReportTabs(host, state, config) {
+  config.reportTabs.forEach((tab) => wireReportTab(host, state, config, tab));
+}
+
 function wireRunButton(host, get, state, config) {
   get('run').addEventListener('click', () => {
     state.audit = createPsFamilyClashAuditFromTextInputs({ ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) });
-    renderAudit(host, state.audit);
+    renderAudit(host, state, config);
   });
 }
 
@@ -112,7 +127,7 @@ export function installPsFamilyClashAuditTile(container, ctx = {}) {
   const config = resolvePsFamilyClashAuditConfig(ctx.psFamilyClashAuditConfig || {});
   const utilitiesRoot = container.querySelector('.psnm-root') || container;
   if (utilitiesRoot.querySelector('[data-ps-family-clash-audit]')) return null;
-  const state = { audit: null };
+  const state = { audit: null, activeReportTab: config.reportTabs[0].key };
   const host = document.createElement('section');
   host.className = 'psmap-card';
   host.setAttribute('data-ps-family-clash-audit', '1');
@@ -120,9 +135,10 @@ export function installPsFamilyClashAuditTile(container, ctx = {}) {
   utilitiesRoot.appendChild(host);
   const get = (name) => host.querySelector(`[data-psfa="${name}"]`);
   wireFileInputs(host, get, config);
+  wireReportTabs(host, state, config);
   wireRunButton(host, get, state, config);
   wireExportButtons(get, state, config);
-  renderAudit(host, state.audit);
+  renderAudit(host, state, config);
   return () => host.remove();
 }
 
