@@ -16,13 +16,15 @@ assert.ok(popup.includes('Close PS clash check'));
 assert.ok(popup.includes('aria-label="Close PS Family Clash Audit popup"'));
 assert.ok(popup.includes('id="ps-family-clash-audit-title"'));
 assert.ok(popup.includes('id="ps-family-clash-audit-desc"'));
+assert.ok(popup.includes('Navis clash XML + expected PS CSV + element detail CSV audit workspace.'));
 
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(shell.includes('1. Input actions'));
-assert.ok(shell.includes('2. Input text and settings'));
-assert.ok(shell.includes('3. Audit actions and exports'));
-assert.ok(shell.includes('4. Report review'));
-assert.ok(shell.includes('aria-live="polite"'));
+assert.ok(shell.includes('data-psfa="status-strip"'));
+assert.ok(shell.includes('data-psfa-workspace-tab="input"'));
+assert.ok(shell.includes('data-psfa-workspace-tab="preview"'));
+assert.ok(shell.includes('data-psfa-workspace-tab="config"'));
+assert.ok(shell.includes('data-psfa-workspace-tab="run"'));
+assert.ok(shell.includes('data-psfa-workspace-tab="reports"'));
 assert.ok(shell.includes('Load sample clash XML'));
 assert.ok(shell.includes('Load sample expected CSV'));
 assert.ok(shell.includes('Load sample detail CSV'));
@@ -30,11 +32,13 @@ assert.ok(shell.includes('Clash XML'));
 assert.ok(shell.includes('Expected PS CSV'));
 assert.ok(shell.includes('Element Detail CSV'));
 assert.ok(shell.includes('Source side'));
-assert.ok(shell.includes('Source family'));
+assert.ok(shell.includes('Source family override'));
 assert.ok(shell.includes('POS tolerance mm'));
 assert.ok(shell.includes('Check Readiness'));
 assert.ok(shell.includes('Run Audit'));
+assert.ok(shell.includes('Report search'));
 assert.ok(shell.includes('Coverage'));
+assert.ok(shell.includes('Hierarchy'));
 assert.ok(shell.includes('Diagnostics'));
 assert.ok(shell.includes('Missing CSV'));
 assert.ok(shell.includes('Diagnostics CSV'));
@@ -45,6 +49,7 @@ assert.match(tabSource, /keydown/);
 assert.match(tabSource, /event\.key === 'Escape'/);
 assert.match(tabSource, /aria-labelledby/);
 assert.match(tabSource, /aria-describedby/);
+assert.match(tabSource, /showWorkspacePanel/);
 
 const audit = createPsFamilyClashAuditFromTextInputs({
   expectedCsvText: 'Item Name\n/PS-11147.1\n',
