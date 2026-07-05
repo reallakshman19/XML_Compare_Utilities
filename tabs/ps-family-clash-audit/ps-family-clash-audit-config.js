@@ -42,6 +42,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
     Object.freeze({ key: 'source-pos', label: 'Source vs POSFamily CSV', exportKey: 'sourceVsPosFamilyCsv', mime: 'text/csv', suffix: 'source-vs-posfamily' }),
     Object.freeze({ key: 'diagnostics', label: 'Diagnostics CSV', exportKey: 'diagnosticsCsv', mime: 'text/csv', suffix: 'diagnostics' }),
     Object.freeze({ key: 'all-json', label: 'Audit JSON', exportKey: 'auditJson', mime: 'application/json', suffix: 'audit' }),
+    Object.freeze({ key: 'markdown-report', label: 'Markdown Report', exportKey: 'markdownReport', mime: 'text/markdown', suffix: 'clash-report' }),
   ]),
   info: Object.freeze([
     'Files can be loaded with the file picker or pasted into the text areas; the parser always uses the visible text area contents.',
