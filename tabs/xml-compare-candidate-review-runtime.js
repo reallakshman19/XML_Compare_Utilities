@@ -6,26 +6,48 @@ function basisList(value = '') {
   return clean(value).split('|').map(clean).filter(Boolean);
 }
 
-export function candidateFromApproveRejectButton(button = null) {
-  if (!button?.dataset) return null;
-  const sourceUid = clean(button.dataset.sourceUid);
-  const targetUid = clean(button.dataset.targetUid);
+function candidateFromDataset(data = {}) {
+  const sourceUid = clean(data.sourceUid);
+  const targetUid = clean(data.targetUid);
   if (!sourceUid || !targetUid) return null;
   return Object.freeze({
-    id: `candidate:${sourceUid}=>${targetUid}`,
+    id: clean(data.xmlCompareCandidateRow) || `candidate:${sourceUid}=>${targetUid}`,
     sourceUid,
     targetUid,
-    sourceStableKey: clean(button.dataset.sourceStable),
-    targetStableKey: clean(button.dataset.targetStable),
-    sourceLabel: clean(button.dataset.sourceLabel || sourceUid),
-    targetLabel: clean(button.dataset.targetLabel || targetUid),
-    status: clean(button.dataset.status),
-    method: clean(button.dataset.method),
-    basis: Object.freeze(basisList(button.dataset.basis)),
-    allowDuplicateTarget: button.dataset.allowDuplicateTarget === 'true',
-    score: Number(button.dataset.score || 0.85),
-    identityConfidence: Number(button.dataset.score || 0.85),
+    sourceStableKey: clean(data.sourceStable),
+    targetStableKey: clean(data.targetStable),
+    sourceLabel: clean(data.sourceLabel || sourceUid),
+    targetLabel: clean(data.targetLabel || targetUid),
+    status: clean(data.status),
+    method: clean(data.method),
+    basis: Object.freeze(basisList(data.basis)),
+    allowDuplicateTarget: data.allowDuplicateTarget === 'true',
+    score: Number(data.score || 0.85),
+    identityConfidence: Number(data.score || 0.85),
   });
+}
+
+export function candidateFromApproveRejectButton(button = null) {
+  return candidateFromDataset(button?.dataset || {});
+}
+
+export function candidateFromRow(row = null) {
+  return candidateFromDataset(row?.dataset || {});
+}
+
+export function dispatchStateAction(detail = {}, dispatchTarget = globalThis.document) {
+  if (!dispatchTarget?.dispatchEvent || typeof CustomEvent === 'undefined') return false;
+  return dispatchTarget.dispatchEvent(new CustomEvent('xml-compare:state-action', { detail }));
+}
+
+export function acceptRow(row, dispatchTarget = globalThis.document) {
+  const candidate = candidateFromRow(row);
+  return candidate ? dispatchStateAction({ type: 'accept-candidate', candidate }, dispatchTarget) : false;
+}
+
+export function rejectRow(row, dispatchTarget = globalThis.document) {
+  const candidate = candidateFromRow(row);
+  return candidate ? dispatchStateAction({ type: 'reject-candidate', candidateId: candidate.id, candidate }, dispatchTarget) : false;
 }
 
 export function installXmlCompareCandidateReviewRuntime() {
@@ -36,5 +58,9 @@ export const _test = Object.freeze({
   clean,
   basisList,
   candidateFromApproveRejectButton,
+  candidateFromRow,
+  dispatchStateAction,
+  acceptRow,
+  rejectRow,
   installXmlCompareCandidateReviewRuntime,
 });
