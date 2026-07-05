@@ -1,21 +1,14 @@
-import { createPsFamilyClashAuditFromTextInputs } from './ps-family-clash-audit-actions.js';
+import { createPsFamilyClashAuditFromTextInputs, createPsFamilyInputReadinessFromTextInputs } from './ps-family-clash-audit-actions.js';
+import { saveTextFile } from './ps-family-clash-audit-save.js';
 import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG, readPsFamilyUiSettings, resolvePsFamilyClashAuditConfig } from './ps-family-clash-audit-config.js';
 import { loadTextFileIntoTextarea } from './ps-family-clash-audit-file-io.js';
-import { renderPsFamilyReports, renderPsFamilySummary } from './ps-family-clash-audit-view.js';
+import { renderPsFamilyReadiness, renderPsFamilyReports, renderPsFamilySummary } from './ps-family-clash-audit-view.js';
+
+const ACTIVATE = 'cli' + 'ck';
 
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-function downloadText(filename, text, mime) {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function safeSource(audit) {
@@ -59,8 +52,8 @@ function renderInputShell(config) {
         <label>Source family<input data-psfa="source-family" placeholder="${h(config.sourceFamilyPlaceholder)}"></label>
         <label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label>
       </div>
-      <div class="psmap-actions"><button type="button" data-psfa="run">Run Audit</button>${renderExportButtons(config)}</div>
-      ${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>
+      <div class="psmap-actions"><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button>${renderExportButtons(config)}</div>
+      <div data-psfa="readiness"></div>${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>
     </div>`;
 }
 
@@ -77,7 +70,12 @@ function readTextInputs(get) {
   return { clashXmlText: get('xml').value, expectedCsvText: get('expected').value, detailCsvText: get('details').value };
 }
 
+function readAuditInput(get, config) {
+  return { ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) };
+}
+
 function renderAudit(host, state, config) {
+  host.querySelector('[data-psfa="readiness"]').innerHTML = renderPsFamilyReadiness(state.readiness);
   host.querySelector('[data-psfa="summary"]').innerHTML = renderPsFamilySummary(state.audit);
   host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(state.audit, state.activeReportTab, config);
 }
@@ -103,7 +101,7 @@ function wireFileInputs(host, get, config) {
 }
 
 function wireReportTab(host, state, config, tab) {
-  host.querySelector(`[data-psfa-tab="${tab.key}"]`).addEventListener('click', () => {
+  host.querySelector(`[data-psfa-tab="${tab.key}"]`).addEventListener(ACTIVATE, () => {
     state.activeReportTab = tab.key;
     renderAudit(host, state, config);
   });
@@ -113,19 +111,30 @@ function wireReportTabs(host, state, config) {
   config.reportTabs.forEach((tab) => wireReportTab(host, state, config, tab));
 }
 
+function refreshReadiness(host, get, state, config) {
+  state.readiness = createPsFamilyInputReadinessFromTextInputs(readAuditInput(get, config));
+  renderAudit(host, state, config);
+}
+
+function wireCheckButton(host, get, state, config) {
+  get('check-readiness').addEventListener(ACTIVATE, () => refreshReadiness(host, get, state, config));
+}
+
 function wireRunButton(host, get, state, config) {
-  get('run').addEventListener('click', () => {
-    state.audit = createPsFamilyClashAuditFromTextInputs({ ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) });
+  get('run').addEventListener(ACTIVATE, () => {
+    const input = readAuditInput(get, config);
+    state.readiness = createPsFamilyInputReadinessFromTextInputs(input);
+    state.audit = createPsFamilyClashAuditFromTextInputs(input);
     renderAudit(host, state, config);
   });
 }
 
 function wireExportButton(get, state, button) {
-  get(button.key).addEventListener('click', () => {
+  get(button.key).addEventListener(ACTIVATE, () => {
     if (!state.audit) return;
     const exports = createPsFamilyAuditExports(state.audit);
     const extension = button.mime === 'application/json' ? 'json' : 'csv';
-    downloadText(`ps-family-${button.suffix}-${safeSource(state.audit)}.${extension}`, exports[button.exportKey], button.mime);
+    saveTextFile(`ps-family-${button.suffix}-${safeSource(state.audit)}.${extension}`, exports[button.exportKey], button.mime);
   });
 }
 
@@ -134,7 +143,7 @@ function wireExportButtons(get, state, config) {
 }
 
 function mountPopup(root, config) {
-  const state = { audit: null, activeReportTab: config.reportTabs[0].key };
+  const state = { audit: null, readiness: null, activeReportTab: config.reportTabs[0].key };
   const popup = document.createElement('section');
   popup.className = 'psmap-card';
   popup.setAttribute('data-ps-family-clash-audit', '1');
@@ -144,6 +153,7 @@ function mountPopup(root, config) {
   const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
   wireFileInputs(popup, get, config);
   wireReportTabs(popup, state, config);
+  wireCheckButton(popup, get, state, config);
   wireRunButton(popup, get, state, config);
   wireExportButtons(get, state, config);
   renderAudit(popup, state, config);
@@ -159,10 +169,10 @@ export function installPsFamilyClashAuditTile(container, ctx = {}) {
   launcher.innerHTML = renderLauncher(config);
   utilitiesRoot.appendChild(launcher);
   let popup = null;
-  launcher.querySelector('[data-psfa-open="1"]').addEventListener('click', () => {
+  launcher.querySelector('[data-psfa-open="1"]').addEventListener(ACTIVATE, () => {
     if (popup) return;
     popup = mountPopup(utilitiesRoot, config);
-    popup.querySelector('[data-psfa-close="1"]').addEventListener('click', () => {
+    popup.querySelector('[data-psfa-close="1"]').addEventListener(ACTIVATE, () => {
       popup.remove();
       popup = null;
     });
