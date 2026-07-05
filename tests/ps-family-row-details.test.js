@@ -1,20 +1,26 @@
 import assert from 'node:assert/strict';
-import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
-import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
-import {
-  PS_FAMILY_SAMPLE_CLASH_XML,
-  PS_FAMILY_SAMPLE_DETAIL_CSV,
-  PS_FAMILY_SAMPLE_EXPECTED_CSV,
-} from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { createPsFamilyActiveReportExport, createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
+import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
 import { renderPsFamilyReports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 
-const audit = createPsFamilyClashAuditFromTextInputs({
-  clashXmlText: PS_FAMILY_SAMPLE_CLASH_XML,
-  expectedCsvText: PS_FAMILY_SAMPLE_EXPECTED_CSV,
-  detailCsvText: PS_FAMILY_SAMPLE_DETAIL_CSV,
-  config: { sourceSide: 'auto', sourceFamily: '', posToleranceMm: 25 },
-});
+const audit = {
+  summary: { sourceFamily: 'PS-90001', coveragePct: 50, expectedCount: 2, foundExactCount: 1, missingCount: 1, outOfFamilyCount: 0, duplicateMemberCount: 0, unexpectedInFamilyCount: 0, posFamilyCount: 1 },
+  coverageRows: [
+    { expectedMember: 'PS-90001.1', status: 'FOUND', clashNames: ['Sample Clash 1'], againstMembers: ['PS-90001.1'], sourceObjects: ['PS-90001-BAR-1'], lineFamily: 'D90001', lineFamilies: ['D90001'], fullLineTags: ['SAMPLE-100-D90001-31441C4-PP-01'], branchNodes: ['SAMPLE-100-D90001-31441C4-PP-01/B1'], posFamilyId: 'POSF-000001', p1bore: 100, pipe: 'SAMPLE-100-D90001-31441C4-PP-01', supportText: 'Sample guide', supportGap: '10', reference: '=SAMPLE/1', position: { e: 1000, s: 2000, u: 3000 }, isometricNotes: 'Sample note', remarks: 'Expected member found in clash XML.' },
+    { expectedMember: 'PS-90001.2', status: 'MISSING', clashNames: [], againstMembers: [], sourceObjects: [], lineFamily: 'D90001', lineFamilies: ['D90001'], fullLineTags: ['SAMPLE-100-D90001-31441C4-PP-01'], branchNodes: [], posFamilyId: 'POSF-000001', p1bore: 100, pipe: 'SAMPLE-100-D90001-31441C4-PP-01', supportText: 'Sample missing support', supportGap: '', reference: '=SAMPLE/2', position: { e: 1020, s: 2000, u: 3000 }, isometricNotes: '', remarks: 'Expected member not found in clash XML.' },
+  ],
+  clashRows: [
+    { clashName: 'Sample Clash 1', distance: -0.01, point: { x: 1, y: 2, z: 3 }, familyStatus: 'IN_FAMILY', source: { familyRoot: 'PS-90001', objectName: 'PS-90001-BAR-1', path: ['File', 'SAMPLE.rvm', 'SAMPLE-CU-SU', 'PS-90001', 'PS-90001/MAIN', 'PS-90001-BAR-1'] }, against: { memberName: 'PS-90001.1', pipe: { lineFamily: 'D90001', fullLineTag: 'SAMPLE-100-D90001-31441C4-PP-01', fullBranchNode: 'SAMPLE-100-D90001-31441C4-PP-01/B1' }, path: ['File', 'SAMPLE.rvm', 'SAMPLE-CU-PI', 'SAMPLE-100-D90001-31441C4-PP-01', 'SAMPLE-100-D90001-31441C4-PP-01/B1', 'PS-90001.1'] }, elementDetail: { posFamilyId: 'POSF-000001', p1bore: 100, pipe: 'SAMPLE-100-D90001-31441C4-PP-01', lineFamily: 'D90001', supportText: 'Sample guide', supportGap: '10', reference: '=SAMPLE/1', position: { e: 1000, s: 2000, u: 3000 }, isometricNotes: 'Sample note' } },
+    { clashName: 'Sample Clash 2', distance: -0.005, point: { x: 4, y: 5, z: 6 }, familyStatus: 'OUT_OF_FAMILY', source: { familyRoot: 'PS-90001', objectName: 'PS-90001-BAR-1', path: ['File', 'SAMPLE.rvm', 'SAMPLE-CU-SU'] }, against: { memberName: 'PS-90002.1', pipe: { lineFamily: 'P90002', fullLineTag: 'SAMPLE-50-P90002-31441C4-PP-01', fullBranchNode: 'SAMPLE-50-P90002-31441C4-PP-01/B1' }, path: ['File', 'SAMPLE.rvm', 'SAMPLE-CU-PI', 'SAMPLE-50-P90002-31441C4-PP-01/B1', 'PS-90002.1'] }, elementDetail: { posFamilyId: '', lineFamily: '' } },
+  ],
+  missingRows: [],
+  outOfFamilyRows: [],
+  duplicateRows: [],
+  lineFamilyRows: [],
+  posFamilyRows: [],
+  sourceVsPosFamilyRows: [],
+  diagnostics: [],
+};
 
 const coverage = renderPsFamilyReports(audit, 'coverage', PS_FAMILY_CLASH_AUDIT_CONFIG, '');
 assert.ok(coverage.includes('<details>'));
