@@ -121,7 +121,13 @@ assert.equal(audit.sourceVsPosFamilyRows.find((row) => row.source === 'PS-12005'
 const exports = createPsFamilyAuditExports(audit);
 assert.match(exports.coverageCsv, /Copy-\(2\)-of-PS-11147\.9/);
 assert.match(exports.clashRowsCsv, /D8810311/);
+assert.match(exports.missingCsv, /Copy-\(2\)-of-PS-11147\.9/);
+assert.match(exports.outOfFamilyCsv, /PS-11148\.5/);
+assert.match(exports.duplicatesCsv, /PS-11147\.10/);
+assert.match(exports.lineFamiliesCsv, /D8810311/);
+assert.match(exports.posFamiliesCsv, /POSF-000001/);
 assert.match(exports.sourceVsPosFamilyCsv, /PS-12005,1,3/);
+assert.match(exports.diagnosticsCsv, /Level,Code,Message/);
 assert.match(exports.auditJson, /"schema": "ps-family-clash-audit\/v1"/);
 
 console.log('ps-family-clash-audit tests passed');
