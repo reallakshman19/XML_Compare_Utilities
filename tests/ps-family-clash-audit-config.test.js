@@ -13,8 +13,9 @@ assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 3);
 assert.equal(config.reportTabs.length, 10);
 assert.ok(config.reportTabs.some((tab) => tab.key === 'hierarchy'));
-assert.equal(config.outputButtons.length, 10);
+assert.equal(config.outputButtons.length, 11);
 assert.ok(config.outputButtons.every((button) => button.exportKey && button.suffix && button.mime));
+assert.ok(config.outputButtons.some((button) => button.key === 'markdown-report'));
 assert.ok(config.info.some((item) => item.includes('Copy-(n)-of')));
 assert.ok(config.info.some((item) => item.includes('Source family can be entered manually')));
 
@@ -38,6 +39,7 @@ assert.match(html, /data-psfa-tab="coverage"/);
 assert.match(html, /data-psfa-tab="hierarchy"/);
 assert.match(html, /Missing CSV/);
 assert.match(html, /Diagnostics CSV/);
+assert.match(html, /Markdown Report/);
 assert.match(html, /Source vs POSFamily/);
 assert.match(html, /value="35"/);
 assert.match(html, /Copy-\(n\)-of names are preserved/);
