@@ -6,19 +6,22 @@ The audit result is a downstream report. It does not mutate the Navis XML, the e
 
 ## Operator workflow
 
-1. Open **Utilities** and locate **PS Family Clash Audit**.
-2. Load or paste the three inputs:
+1. Open **Utilities**.
+2. Click the **PS clash check** tile.
+3. Use the **PS Family Clash Audit** popup that appears.
+4. Load or paste the three inputs:
    - **Clash XML** from Navis clash detective.
    - **Expected PS CSV** containing the expected PS members.
    - **Element Detail CSV** containing line, support, gap, reference, and position evidence.
-3. Choose **Source side**:
+5. Choose **Source side**:
    - `Auto` detects the support/source side from the clash row.
    - `Left clash object` forces the left object as source.
    - `Right clash object` forces the right object as source.
-4. Use **Source family** only when the source family must be forced. Leave it blank for auto-detection from the expected CSV.
-5. Set **POS tolerance mm**. The default is `25` mm.
-6. Click **Run Audit**.
-7. Review the summary, switch report tabs, and export the required CSV or JSON outputs.
+6. Use **Source family** only when the source family must be forced. Leave it blank for auto-detection from the expected CSV.
+7. Set **POS tolerance mm**. The default is `25` mm.
+8. Click **Run Audit**.
+9. Review the summary, switch report tabs, and export the required CSV or JSON outputs.
+10. Click **Close** to remove the popup.
 
 ## Inputs
 
