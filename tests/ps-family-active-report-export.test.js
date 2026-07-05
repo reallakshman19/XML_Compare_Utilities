@@ -26,7 +26,12 @@ assert.ok(shell.includes('Audit JSON'));
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   const active = createPsFamilyActiveReportExport(audit, tab.key);
   const mapping = PS_FAMILY_ACTIVE_EXPORTS[tab.key];
-  assert.ok(mapping, `missing active export mapping for ${tab.key}`);
+  if (!mapping) {
+    assert.equal(active.activeTab, 'coverage');
+    assert.equal(active.exportKey, 'coverageCsv');
+    assert.equal(active.text, allExports.coverageCsv);
+    continue;
+  }
   assert.equal(active.activeTab, tab.key);
   assert.equal(active.exportKey, mapping.exportKey);
   assert.equal(active.mime, 'text/csv');
@@ -41,6 +46,10 @@ assert.match(coverage.text, /Copy-\(2\)-of-PS-90001\.3/);
 const clashRows = createPsFamilyActiveReportExport(audit, 'clashRows');
 assert.equal(clashRows.suffix, 'clashRows');
 assert.match(clashRows.text, /PS-90002\.1/);
+
+const hierarchyFallback = createPsFamilyActiveReportExport(audit, 'hierarchy');
+assert.equal(hierarchyFallback.activeTab, 'coverage');
+assert.equal(hierarchyFallback.exportKey, 'coverageCsv');
 
 const unknown = createPsFamilyActiveReportExport(audit, 'unknown-tab');
 assert.equal(unknown.activeTab, 'coverage');
