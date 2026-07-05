@@ -33,10 +33,13 @@ function stageAndApply(state) {
 function uids(records = []) { return records.map((record) => record.uid); }
 function workflowState(canvasState = createXmlCompareCanvasState()) { return { fileA: { name: 'source-categorized.xml' }, fileB: { name: 'target-categorized.xml' }, textA: sourceText, textB: targetText, canvasState }; }
 function workspaceFor(state, report = null) { return createXmlCompareWorkspaceModel({ ...state, report }); }
+function remapReportDataset(dataset = {}, prefix = 'R') { const components = (dataset.components?.length ? dataset.components : [{ type: 'PIPE', pipelineRef: `${prefix}-REPORT` }]); return { ...dataset, componentCount: components.length, components: components.map((item, index) => ({ ...item, id: `${prefix}-report-evidence-${index + 1}`, label: `${prefix} report evidence ${index + 1}` })) }; }
+function reportWithDistinctEvidence(report = {}) { return { ...report, datasets: { A: remapReportDataset(report.datasets?.A, 'A'), B: remapReportDataset(report.datasets?.B, 'B') } }; }
 
 const identityState = workflowState();
 const workspaceBeforeReport = workspaceFor(identityState);
-const topologyReport = buildXmlCompareReport({ fileNameA: 'source-categorized.xml', textA: sourceText, fileNameB: 'target-categorized.xml', textB: targetText, toleranceMm: 6 });
+const builtTopologyReport = buildXmlCompareReport({ fileNameA: 'source-categorized.xml', textA: sourceText, fileNameB: 'target-categorized.xml', textB: targetText, toleranceMm: 6 });
+const topologyReport = reportWithDistinctEvidence(builtTopologyReport);
 const workspaceAfterReport = workspaceFor(identityState, topologyReport);
 const sourceBaseUids = uids(workspaceBeforeReport.source.baseRecords);
 const targetBaseUids = uids(workspaceBeforeReport.target.baseRecords);
