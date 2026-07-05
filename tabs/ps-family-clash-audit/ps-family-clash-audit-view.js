@@ -42,6 +42,10 @@ function pathBlock(title, path) {
   return `<div><b>${h(title)}</b><br><pre>${h(path.join('\n'))}</pre></div>`;
 }
 
+function pathText(path) {
+  return Array.isArray(path) ? path.join(' / ') : '';
+}
+
 function detailCell(row, detailRenderer) {
   if (!detailRenderer) return '';
   return `<td>${detailRenderer(row)}</td>`;
@@ -98,6 +102,25 @@ function clashRowDetail(row) {
   return `<details><summary>View details for ${h(row.clashName)}</summary>${detailGrid(fields)}${pathBlock('Source path hierarchy', row.source?.path)}${pathBlock('Against path hierarchy', row.against?.path)}</details>`;
 }
 
+function sourceHierarchyRows(audit) {
+  return audit.clashRows.map((row) => ({
+    sourceFamily: row.source?.familyRoot,
+    sourceObject: row.source?.objectName,
+    clash: row.clashName,
+    pathEvidence: pathText(row.source?.path),
+  }));
+}
+
+function againstHierarchyRows(audit) {
+  return audit.clashRows.map((row) => ({
+    lineFamily: row.against?.pipe?.lineFamily,
+    branchNode: row.against?.pipe?.fullBranchNode,
+    againstMember: row.against?.memberName,
+    clash: row.clashName,
+    pathEvidence: pathText(row.against?.path),
+  }));
+}
+
 export function renderPsFamilyReadiness(readiness) {
   if (!readiness) return section('Input Readiness', '<div class="psmap-help-text">Click Check Readiness before running the audit.</div>');
   const s = readiness.summary;
@@ -132,6 +155,19 @@ function renderClashRows(audit, searchText) {
   ], audit.clashRows, 80, searchText, clashRowDetail);
 }
 
+function renderHierarchy(audit, searchText) {
+  const sourceTable = renderPsFamilyTable([
+    { label: 'Source Family', value: (row) => row.sourceFamily }, { label: 'Source Object', value: (row) => row.sourceObject },
+    { label: 'Clash', value: (row) => row.clash }, { label: 'Source Path Evidence', value: (row) => row.pathEvidence },
+  ], sourceHierarchyRows(audit), 80, searchText);
+  const againstTable = renderPsFamilyTable([
+    { label: 'Line Family', value: (row) => row.lineFamily }, { label: 'Branch Node', value: (row) => row.branchNode },
+    { label: 'Against Member', value: (row) => row.againstMember }, { label: 'Clash', value: (row) => row.clash },
+    { label: 'Against Path Evidence', value: (row) => row.pathEvidence },
+  ], againstHierarchyRows(audit), 80, searchText);
+  return `<div class="psmap-help-text">Hierarchy search filters source and against evidence rows by visible row values.</div>${section('Source hierarchy', sourceTable)}${section('Against hierarchy', againstTable)}`;
+}
+
 function renderMissing(audit, searchText) {
   return renderPsFamilyTable([
     { label: 'Expected Member', value: (row) => row.expectedMember }, { label: 'POSFamily', value: (row) => row.posFamilyId },
@@ -155,6 +191,7 @@ function renderSimpleReport(audit, key, searchText) {
 export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
   coverage: renderCoverage,
   clashRows: renderClashRows,
+  hierarchy: renderHierarchy,
   missing: renderMissing,
   outOfFamily: renderOutOfFamily,
   duplicates: (audit, searchText) => renderPsFamilyTable([
