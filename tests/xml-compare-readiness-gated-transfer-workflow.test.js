@@ -101,5 +101,23 @@ assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'workflow pane
 
 const tabSource = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
 assert.equal(/querySelector\([^)]*(transfer-workflow|transfer-result|transfer-review)/i.test(tabSource), false, 'workflow/proof actions do not parse rendered DOM state');
+assert.ok(tabSource.includes('TRANSFER_STATE_BUTTON_SELECTOR'), 'tab owns current transfer state button selector');
+assert.ok(tabSource.includes('handleTransferStateButton'), 'tab owns transfer state button handler');
+assert.ok(tabSource.includes('data-xml-compare-candidate-approve'), 'tab owns current candidate approve selector');
+assert.ok(tabSource.includes('data-xml-compare-candidate-reject'), 'tab owns current candidate reject selector');
+
+const shellSource = fs.readFileSync(new URL('../xml-compare/XmlCompareWorkspaceShell.js', import.meta.url), 'utf8');
+assert.equal(shellSource.includes('xml-compare-candidate-review-runtime'), false, 'workspace shell no longer imports candidate review runtime');
+assert.equal(shellSource.includes('xml-compare-transfer-apply-runtime'), false, 'workspace shell no longer imports transfer apply runtime');
+
+const candidateRuntimeSource = fs.readFileSync(new URL('../tabs/xml-compare-candidate-review-runtime.js', import.meta.url), 'utf8');
+assert.equal(candidateRuntimeSource.includes('addEventListener'), false, 'candidate sidecar has no document listener');
+assert.equal(candidateRuntimeSource.includes('data-xml-compare-candidate-action'), false, 'candidate sidecar no longer owns stale selector');
+
+const transferRuntimeSource = fs.readFileSync(new URL('../tabs/xml-compare-transfer-apply-runtime.js', import.meta.url), 'utf8');
+assert.equal(transferRuntimeSource.includes('addEventListener'), false, 'transfer sidecar has no document listener');
+assert.equal(transferRuntimeSource.includes('stopImmediatePropagation'), false, 'transfer path does not require stopImmediatePropagation');
+assert.equal(transferRuntimeSource.includes('data-xml-compare-automap-popup'), false, 'transfer sidecar has no legacy automap popup dependency');
+assert.equal(transferRuntimeSource.includes('injectStyle'), false, 'transfer sidecar no longer injects dead styles');
 
 console.log('XML Compare readiness gated transfer workflow tests passed');

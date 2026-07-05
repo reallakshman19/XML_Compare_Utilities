@@ -1,78 +1,66 @@
-const RUNTIME_SCHEMA = 'xml-compare-candidate-review-runtime/v2';
-let installed = false;
+export const XML_COMPARE_CANDIDATE_REVIEW_RUNTIME_SCHEMA = 'xml-compare-candidate-review-runtime/v3-inert-helpers';
 
-function clean(value) {
-  return String(value ?? '').trim();
-}
+const clean = (value) => String(value ?? '').trim();
 
 function basisList(value = '') {
   return clean(value).split('|').map(clean).filter(Boolean);
 }
 
-function candidateFromRow(row = null) {
-  if (!row?.dataset) return null;
-  const sourceUid = clean(row.dataset.sourceUid);
-  const targetUid = clean(row.dataset.targetUid);
+function candidateFromDataset(data = {}) {
+  const sourceUid = clean(data.sourceUid);
+  const targetUid = clean(data.targetUid);
   if (!sourceUid || !targetUid) return null;
   return Object.freeze({
-    id: clean(row.dataset.xmlCompareCandidateRow),
+    id: clean(data.xmlCompareCandidateRow) || `candidate:${sourceUid}=>${targetUid}`,
     sourceUid,
     targetUid,
-    sourceLabel: clean(row.dataset.sourceLabel || sourceUid),
-    targetLabel: clean(row.dataset.targetLabel || targetUid),
-    sourceField: clean(row.dataset.sourceField),
-    targetField: clean(row.dataset.targetField),
-    sourceValue: clean(row.dataset.sourceValue),
-    targetValue: clean(row.dataset.targetValue),
-    basis: Object.freeze(basisList(row.dataset.basis)),
-    score: Number(row.dataset.score || 0),
-    identityConfidence: Number(row.dataset.score || 0),
-    transformBasis: 'identity-offset',
+    sourceStableKey: clean(data.sourceStable),
+    targetStableKey: clean(data.targetStable),
+    sourceLabel: clean(data.sourceLabel || sourceUid),
+    targetLabel: clean(data.targetLabel || targetUid),
+    status: clean(data.status),
+    method: clean(data.method),
+    basis: Object.freeze(basisList(data.basis)),
+    allowDuplicateTarget: data.allowDuplicateTarget === 'true',
+    score: Number(data.score || 0.85),
+    identityConfidence: Number(data.score || 0.85),
   });
 }
 
-function dispatchStateAction(detail = {}, dispatchTarget = document) {
+export function candidateFromApproveRejectButton(button = null) {
+  return candidateFromDataset(button?.dataset || {});
+}
+
+export function candidateFromRow(row = null) {
+  return candidateFromDataset(row?.dataset || {});
+}
+
+export function dispatchStateAction(detail = {}, dispatchTarget = globalThis.document) {
   if (!dispatchTarget?.dispatchEvent || typeof CustomEvent === 'undefined') return false;
   return dispatchTarget.dispatchEvent(new CustomEvent('xml-compare:state-action', { detail }));
 }
 
-function acceptRow(row, dispatchTarget = document) {
+export function acceptRow(row, dispatchTarget = globalThis.document) {
   const candidate = candidateFromRow(row);
-  if (!candidate) return false;
-  return dispatchStateAction({ type: 'accept-candidate', candidate }, dispatchTarget);
+  return candidate ? dispatchStateAction({ type: 'accept-candidate', candidate }, dispatchTarget) : false;
 }
 
-function rejectRow(row, dispatchTarget = document) {
+export function rejectRow(row, dispatchTarget = globalThis.document) {
   const candidate = candidateFromRow(row);
-  if (!candidate) return false;
-  return dispatchStateAction({ type: 'reject-candidate', candidateId: candidate.id, candidate }, dispatchTarget);
-}
-
-function onClick(event) {
-  const button = event.target.closest('[data-xml-compare-candidate-action]');
-  if (!button) return;
-  const row = button.closest('[data-xml-compare-candidate-row]');
-  const action = clean(button.dataset.xmlCompareCandidateAction);
-  if (action !== 'accept' && action !== 'reject') return;
-  event.preventDefault();
-  if (action === 'accept') acceptRow(row);
-  if (action === 'reject') rejectRow(row);
+  return candidate ? dispatchStateAction({ type: 'reject-candidate', candidateId: candidate.id, candidate }, dispatchTarget) : false;
 }
 
 export function installXmlCompareCandidateReviewRuntime() {
-  if (installed || typeof document === 'undefined') return;
-  installed = true;
-  document.addEventListener('click', onClick, true);
-  document.documentElement.dataset.xmlCompareCandidateReviewRuntime = RUNTIME_SCHEMA;
+  return false;
 }
-
-installXmlCompareCandidateReviewRuntime();
 
 export const _test = Object.freeze({
   clean,
   basisList,
+  candidateFromApproveRejectButton,
   candidateFromRow,
   dispatchStateAction,
   acceptRow,
   rejectRow,
+  installXmlCompareCandidateReviewRuntime,
 });
