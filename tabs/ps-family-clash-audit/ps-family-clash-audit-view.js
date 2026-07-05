@@ -50,12 +50,32 @@ export function renderPsFamilySummary(audit) {
   </div>`;
 }
 
-export function renderPsFamilyTable(headers, rows, limit = 80) {
-  const shown = (rows || []).slice(0, limit);
-  return `<div class="psmap-table-wrap"><table class="psmap-table"><thead><tr>${headers.map((item) => `<th>${h(item.label)}</th>`).join('')}</tr></thead><tbody>${shown.map((row) => `<tr>${headers.map((item) => `<td>${h(item.value(row))}</td>`).join('')}</tr>`).join('')}</tbody></table>${rows?.length > limit ? `<div class="psmap-help-text">Showing first ${limit} of ${rows.length} rows.</div>` : ''}</div>`;
+function visibleCellText(headers, row) {
+  return headers.map((item) => String(item.value(row) ?? '')).join(' ').toLowerCase();
 }
 
-function renderCoverage(audit) {
+export function filterPsFamilyRows(headers, rows, searchText = '') {
+  const term = String(searchText || '').trim().toLowerCase();
+  if (!term) return rows || [];
+  return (rows || []).filter((row) => visibleCellText(headers, row).includes(term));
+}
+
+function tableCountText(shownCount, matchedCount, totalCount, hasSearch, limit) {
+  if (hasSearch) return `Showing ${shownCount} of ${matchedCount} matched rows from ${totalCount} total rows.`;
+  if (totalCount > limit) return `Showing ${shownCount} of ${totalCount} rows.`;
+  return `Showing ${shownCount} of ${totalCount} rows.`;
+}
+
+export function renderPsFamilyTable(headers, rows, limit = 80, searchText = '') {
+  const totalRows = rows || [];
+  const matched = filterPsFamilyRows(headers, totalRows, searchText);
+  const shown = matched.slice(0, limit);
+  const hasSearch = Boolean(String(searchText || '').trim());
+  const count = tableCountText(shown.length, matched.length, totalRows.length, hasSearch, limit);
+  return `<div class="psmap-help-text" data-psfa-filter-count="1">${h(count)}</div><div class="psmap-table-wrap"><table class="psmap-table"><thead><tr>${headers.map((item) => `<th>${h(item.label)}</th>`).join('')}</tr></thead><tbody>${shown.map((row) => `<tr>${headers.map((item) => `<td>${h(item.value(row))}</td>`).join('')}</tr>`).join('')}</tbody></table>${matched.length > limit ? `<div class="psmap-help-text">Showing first ${limit} of ${matched.length} matched rows.</div>` : ''}</div>`;
+}
+
+function renderCoverage(audit, searchText) {
   return renderPsFamilyTable([
     { label: 'Expected Member', value: (row) => row.expectedMember },
     { label: 'Status', value: (row) => row.status },
@@ -64,10 +84,10 @@ function renderCoverage(audit) {
     { label: 'Line Family', value: (row) => row.lineFamily || list(row.lineFamilies) },
     { label: 'Pipe / Full Line', value: (row) => row.pipe || list(row.fullLineTags) },
     { label: 'Support Text', value: (row) => row.supportText },
-  ], audit.coverageRows);
+  ], audit.coverageRows, 80, searchText);
 }
 
-function renderClashRows(audit) {
+function renderClashRows(audit, searchText) {
   return renderPsFamilyTable([
     { label: 'Clash', value: (row) => row.clashName },
     { label: 'Source', value: (row) => row.source.familyRoot },
@@ -78,10 +98,10 @@ function renderClashRows(audit) {
     { label: 'Line Family', value: (row) => row.elementDetail.lineFamily || row.against.pipe?.lineFamily },
     { label: 'Branch Node', value: (row) => row.against.pipe?.fullBranchNode },
     { label: 'Distance', value: (row) => row.distance },
-  ], audit.clashRows);
+  ], audit.clashRows, 80, searchText);
 }
 
-function renderMissing(audit) {
+function renderMissing(audit, searchText) {
   return renderPsFamilyTable([
     { label: 'Expected Member', value: (row) => row.expectedMember },
     { label: 'POSFamily', value: (row) => row.posFamilyId },
@@ -89,10 +109,10 @@ function renderMissing(audit) {
     { label: 'Pipe', value: (row) => row.pipe },
     { label: 'Position', value: (row) => pos(row.position) },
     { label: 'Remarks', value: (row) => row.remarks },
-  ], audit.missingRows);
+  ], audit.missingRows, 80, searchText);
 }
 
-function renderOutOfFamily(audit) {
+function renderOutOfFamily(audit, searchText) {
   return renderPsFamilyTable([
     { label: 'Clash', value: (row) => row.clashName },
     { label: 'Source', value: (row) => row.source.familyRoot },
@@ -100,11 +120,11 @@ function renderOutOfFamily(audit) {
     { label: 'Against Root', value: (row) => row.against.familyRoot },
     { label: 'Line Family', value: (row) => row.against.pipe?.lineFamily },
     { label: 'Branch Node', value: (row) => row.against.pipe?.fullBranchNode },
-  ], audit.outOfFamilyRows);
+  ], audit.outOfFamilyRows, 80, searchText);
 }
 
-function renderSimpleReport(audit, key) {
-  return PS_FAMILY_REPORT_RENDERERS[key] ? PS_FAMILY_REPORT_RENDERERS[key](audit) : renderCoverage(audit);
+function renderSimpleReport(audit, key, searchText) {
+  return PS_FAMILY_REPORT_RENDERERS[key] ? PS_FAMILY_REPORT_RENDERERS[key](audit, searchText) : renderCoverage(audit, searchText);
 }
 
 export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
@@ -112,28 +132,28 @@ export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
   clashRows: renderClashRows,
   missing: renderMissing,
   outOfFamily: renderOutOfFamily,
-  duplicates: (audit) => renderPsFamilyTable([
+  duplicates: (audit, searchText) => renderPsFamilyTable([
     { label: 'Member', value: (row) => row.member },
     { label: 'Count', value: (row) => row.clashCount },
     { label: 'Clash Rows', value: (row) => list(row.clashNames) },
     { label: 'Source Objects', value: (row) => list(row.sourceObjects) },
-  ], audit.duplicateRows),
-  lineFamilies: (audit) => renderPsFamilyTable([
+  ], audit.duplicateRows, 80, searchText),
+  lineFamilies: (audit, searchText) => renderPsFamilyTable([
     { label: 'Line Family', value: (row) => row.lineFamily },
     { label: 'Full Line Tags', value: (row) => list(row.fullLineTags) },
     { label: 'Branches', value: (row) => list(row.branches) },
     { label: 'Members', value: (row) => list(row.members) },
     { label: 'Clash Rows', value: (row) => list(row.clashNames) },
-  ], audit.lineFamilyRows),
-  posFamilies: (audit) => renderPsFamilyTable([
+  ], audit.lineFamilyRows, 80, searchText),
+  posFamilies: (audit, searchText) => renderPsFamilyTable([
     { label: 'POSFamily', value: (row) => row.posFamilyId },
     { label: 'Count', value: (row) => row.elementCount },
     { label: 'Sources', value: (row) => list(row.sourceFamilies) },
     { label: 'Line Families', value: (row) => list(row.lineFamilies) },
     { label: 'Center', value: (row) => pos(row.center) },
     { label: 'Members', value: (row) => list(row.members) },
-  ], audit.posFamilyRows),
-  sourceVsPosFamily: (audit) => renderPsFamilyTable([
+  ], audit.posFamilyRows, 80, searchText),
+  sourceVsPosFamily: (audit, searchText) => renderPsFamilyTable([
     { label: 'Source', value: (row) => row.source },
     { label: 'POSFamily Count', value: (row) => row.posFamilyCount },
     { label: 'Element Count', value: (row) => row.elementCount },
@@ -141,16 +161,16 @@ export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
     { label: 'Missing', value: (row) => row.missingElementCount },
     { label: 'Clash Count', value: (row) => row.clashCount },
     { label: 'Line Families', value: (row) => list(row.lineFamilies) },
-  ], audit.sourceVsPosFamilyRows),
-  diagnostics: (audit) => renderPsFamilyTable([
+  ], audit.sourceVsPosFamilyRows, 80, searchText),
+  diagnostics: (audit, searchText) => renderPsFamilyTable([
     { label: 'Level', value: (row) => row.level },
     { label: 'Code', value: (row) => row.code },
     { label: 'Message', value: (row) => row.message },
-  ], audit.diagnostics || []),
+  ], audit.diagnostics || [], 80, searchText),
 });
 
-export function renderPsFamilyReports(audit, activeTab, config) {
+export function renderPsFamilyReports(audit, activeTab, config, searchText = '') {
   if (!audit) return '';
   const tab = config.reportTabs.find((item) => item.key === activeTab) || config.reportTabs[0];
-  return section(tab.label, renderSimpleReport(audit, tab.key));
+  return section(tab.label, renderSimpleReport(audit, tab.key, searchText));
 }
