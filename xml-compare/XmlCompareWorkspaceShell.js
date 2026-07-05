@@ -5,7 +5,7 @@ import { availableCompareFields, normalizeCompareFields } from './XmlCompareFiel
 import { normalizeToleranceMm, normalizeValidationLayer } from './XmlCompareValidationModel.js';
 import { renderXmlCompareTransferModalPopupHtml } from './XmlCompareTransferModalPopup.js?v=20260704-transfer-review-1';
 
-export const XML_COMPARE_WORKSPACE_SHELL_SCHEMA = 'xml-compare-workspace-shell/v32-native-actions';
+export const XML_COMPARE_WORKSPACE_SHELL_SCHEMA = 'xml-compare-workspace-shell/v31-transfer-review';
 let loadDiagnosticsPromise = null, loadSamplePickersPromise = null, loadCategorizedConverterPromise = null, loadTableCategorizedPromise = null, loadToolbarGatePromise = null, loadLinewiseInfoRulePromise = null, loadManualValidationBuilderPromise = null;
 function loadTabDiagnostics() { if (typeof document !== 'undefined' && !loadDiagnosticsPromise) loadDiagnosticsPromise = import('../tabs/xml-compare-load-diagnostics-runtime.js?v=20260628-xml-compare-load-diagnostics-3').catch(() => null); }
 function loadSamplePickers() { if (typeof document !== 'undefined' && !loadSamplePickersPromise) loadSamplePickersPromise = import('../tabs/xml-compare-enriched-sample-pickers.js?v=20260701-bm-cii-categorized-samples-1').catch(() => null); }
