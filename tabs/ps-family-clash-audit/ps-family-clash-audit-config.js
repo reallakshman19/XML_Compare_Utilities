@@ -17,6 +17,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   reportTabs: Object.freeze([
     Object.freeze({ key: 'coverage', label: 'Coverage' }),
     Object.freeze({ key: 'clashRows', label: 'Clash Rows' }),
+    Object.freeze({ key: 'hierarchy', label: 'Hierarchy' }),
     Object.freeze({ key: 'missing', label: 'Missing' }),
     Object.freeze({ key: 'outOfFamily', label: 'Out-of-Family' }),
     Object.freeze({ key: 'duplicates', label: 'Duplicates' }),
