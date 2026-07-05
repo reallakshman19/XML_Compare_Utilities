@@ -10,16 +10,19 @@ const audit = createPsFamilyClashAuditFromTextInputs({
 
 const exports = createPsFamilyAuditExports(audit);
 
-const expectedCoverage = `SourceFamily,ExpectedMember,Status,ClashCount,ClashRows,POSFamilyId,p1bore,Pipe,LineFamily,SupportText,SupportGap,Reference,PositionE,PositionS,PositionU,AgainstMembers,LineFamilies,FullLineTags,BranchNodes,SourceObjects,Remarks
-PS-11147,PS-11147.1,MISSING,0,,POSF-000001,25,"ASIM-1835-1""-D8810311-31441C4-PP-01",D8810311,,,,10,20,30,,,,,,No clash row found for expected member.
-`;
+const coverageLines = exports.coverageCsv.trimEnd().split('\n');
+const sourceVsPosLines = exports.sourceVsPosFamilyCsv.trimEnd().split('\n');
 
-const expectedSourceVsPos = `Source,POSFamilyCount,ElementCount,FoundElementCount,MissingElementCount,ClashCount,OutOfFamilyCount,POSFamilyIds,LineFamilies,Remarks
-PS-11147,1,1,0,1,0,0,POSF-000001,D8810311,
-`;
+assert.deepEqual(coverageLines, [
+  'SourceFamily,ExpectedMember,Status,ClashCount,ClashRows,POSFamilyId,p1bore,Pipe,LineFamily,SupportText,SupportGap,Reference,PositionE,PositionS,PositionU,AgainstMembers,LineFamilies,FullLineTags,BranchNodes,SourceObjects,Remarks',
+  'PS-11147,PS-11147.1,MISSING,0,,POSF-000001,25,"ASIM-1835-1""-D8810311-31441C4-PP-01",D8810311,,,,10,20,30,,,,,,No clash row found for expected member.',
+]);
 
-assert.equal(exports.coverageCsv, expectedCoverage);
-assert.equal(exports.sourceVsPosFamilyCsv, expectedSourceVsPos);
+assert.deepEqual(sourceVsPosLines, [
+  'Source,POSFamilyCount,ElementCount,FoundElementCount,MissingElementCount,ClashCount,OutOfFamilyCount,POSFamilyIds,LineFamilies,Remarks',
+  'PS-11147,1,1,0,1,0,0,POSF-000001,D8810311,',
+]);
+
 assert.equal(audit.summary.sourceFamily, 'PS-11147');
 assert.equal(audit.summary.expectedCount, 1);
 assert.equal(audit.summary.missingCount, 1);
