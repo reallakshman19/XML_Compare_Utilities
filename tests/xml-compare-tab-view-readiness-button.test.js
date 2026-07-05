@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import './xml-compare-load-diagnostics-panel.test.js';
+import './xml-compare-linewise-info-rule-native.test.js';
 
 import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
 import { _test as toolbarGateTest } from '../tabs/xml-compare-linewise-toolbar-gate.js';
@@ -56,4 +57,4 @@ assert.equal(css.includes('xml-compare-file-btn'), false, 'toolbar gate CSS does
 assert.equal(css.includes('button:not'), false, 'toolbar gate CSS does not hide native toolbar buttons');
 assert.equal(css.includes('pointer-events:none'), false, 'toolbar gate CSS does not disable native controls');
 
-console.log('XML compare tab view readiness, diagnostics, and toolbar visibility tests passed');
+console.log('XML compare tab view readiness, diagnostics, linewise info, and toolbar visibility tests passed');
