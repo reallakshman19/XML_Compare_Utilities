@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const benchmarkDoc = readFileSync('docs/ps-family-clash-audit-benchmark.md', 'utf8');
+const operatorDoc = readFileSync('docs/ps-family-clash-audit.md', 'utf8');
 
 assert.match(benchmarkDoc, /Parser correctness \| Met/);
 assert.match(benchmarkDoc, /PS-11147 audit correctness \| Met/);
@@ -16,5 +17,6 @@ assert.match(benchmarkDoc, /Snapshot stability \| Met/);
 assert.match(benchmarkDoc, /Medium\/large performance \| Met/);
 assert.match(benchmarkDoc, /Accessibility \/ keyboard navigation \| Met/);
 assert.match(benchmarkDoc, /no open planned gate/);
+assert.match(operatorDoc, /Official sample fixture reproducibility/);
 
 console.log('ps-family-clash-audit-benchmark-readiness tests passed');
