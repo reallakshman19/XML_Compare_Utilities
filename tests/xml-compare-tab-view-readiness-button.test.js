@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './xml-compare-load-diagnostics-panel.test.js';
 
 import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
 import { _test as toolbarGateTest } from '../tabs/xml-compare-linewise-toolbar-gate.js';
@@ -13,6 +14,7 @@ const state = {
   selectedIssueId: '',
   hiddenComponentIds: new Set(),
   status: { kind: 'info', message: 'Ready.' },
+  loadDiagnostics: {},
   sideload: {},
   enrichmentConfig: {},
 };
@@ -40,6 +42,8 @@ assert.equal(html.includes('Download Input Readiness JSON'), true);
 assert.equal(html.includes('Download Readiness Gate JSON'), true);
 assert.equal(html.includes('data-xml-compare-action="compare"'), true);
 assert.equal(html.includes('data-xml-compare-action="export-filtered-csv"'), true);
+assert.equal(html.includes('Load Diagnostics'), true, 'native Load Diagnostics panel is rendered');
+assert.equal(html.includes('data-xml-compare-action="clear-load-diagnostics"'), true, 'clear diagnostics action is rendered');
 
 assert.equal(html.includes('input type="file" data-xml-compare-load="a"'), true, 'Source A native file input is rendered');
 assert.equal(html.includes('input type="file" data-xml-compare-load="b"'), true, 'Target B native file input is rendered');
@@ -52,4 +56,4 @@ assert.equal(css.includes('xml-compare-file-btn'), false, 'toolbar gate CSS does
 assert.equal(css.includes('button:not'), false, 'toolbar gate CSS does not hide native toolbar buttons');
 assert.equal(css.includes('pointer-events:none'), false, 'toolbar gate CSS does not disable native controls');
 
-console.log('XML compare tab view readiness and toolbar visibility tests passed');
+console.log('XML compare tab view readiness, diagnostics, and toolbar visibility tests passed');
