@@ -4,6 +4,7 @@ import './ps-family-sample-buttons.test.js';
 import './ps-family-report-filter-search.test.js';
 import './ps-family-active-report-export.test.js';
 import './ps-family-row-details.test.js';
+import './ps-family-hierarchy-tab.test.js';
 import './ps-family-readiness.test.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
