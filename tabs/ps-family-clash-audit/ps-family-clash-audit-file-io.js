@@ -11,9 +11,18 @@ export function describeBrowserFile(file) {
   return `${file.name || 'unnamed file'} (${size})`;
 }
 
+export function loadTextIntoTextarea(text, textarea, statusNode, statusText) {
+  textarea.value = String(text ?? '');
+  if (statusNode) statusNode.textContent = statusText || 'Text loaded';
+  return textarea.value;
+}
+
 export async function loadTextFileIntoTextarea(file, textarea, statusNode) {
   const text = await readBrowserTextFile(file);
-  textarea.value = text;
-  if (statusNode) statusNode.textContent = describeBrowserFile(file);
-  return text;
+  return loadTextIntoTextarea(text, textarea, statusNode, describeBrowserFile(file));
+}
+
+export function loadSampleTextIntoTextarea(sample, textarea, statusNode) {
+  if (!sample || !textarea) throw new Error('No sample target was provided.');
+  return loadTextIntoTextarea(sample.text, textarea, statusNode, sample.statusText);
 }

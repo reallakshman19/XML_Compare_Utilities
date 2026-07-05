@@ -2,7 +2,8 @@ import { createPsFamilyClashAuditFromTextInputs, createPsFamilyInputReadinessFro
 import { saveTextFile } from './ps-family-clash-audit-save.js';
 import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG, readPsFamilyUiSettings, resolvePsFamilyClashAuditConfig } from './ps-family-clash-audit-config.js';
-import { loadTextFileIntoTextarea } from './ps-family-clash-audit-file-io.js';
+import { loadSampleTextIntoTextarea, loadTextFileIntoTextarea } from './ps-family-clash-audit-file-io.js';
+import { listPsFamilySampleInputs } from './ps-family-clash-audit-samples.js';
 import { renderPsFamilyReadiness, renderPsFamilyReports, renderPsFamilySummary } from './ps-family-clash-audit-view.js';
 
 const ACTIVATE = 'cli' + 'ck';
@@ -39,11 +40,15 @@ function renderFilePickers(config) {
   return `<div class="psmap-grid-2">${config.inputFiles.map(renderFilePicker).join('')}</div>`;
 }
 
+function renderSampleButtons() {
+  return `<div class="psmap-actions">${listPsFamilySampleInputs().map((sample) => `<button type="button" data-psfa-sample="${h(sample.key)}">${h(sample.label)}</button>`).join('')}</div>`;
+}
+
 function renderInputShell(config) {
   return `<div class="psmap-card-head"><b>${h(config.appTitle)}</b></div>
     <div class="psmap-card-body">
       <div class="psmap-help-text">Clash XML + expected PS CSV + element-detail CSV → audit reports.</div>
-      ${renderInfoList(config)}${renderFilePickers(config)}
+      ${renderInfoList(config)}${renderSampleButtons()}${renderFilePickers(config)}
       <div class="psmap-grid-2">
         <label>Clash XML<textarea data-psfa="xml" rows="${h(config.inputRows)}" placeholder="Paste Navis clash XML"></textarea></label>
         <label>Expected PS CSV<textarea data-psfa="expected" rows="${h(config.inputRows)}" placeholder="Paste Item Name CSV"></textarea></label>
@@ -100,6 +105,16 @@ function wireFileInputs(host, get, config) {
   config.inputFiles.forEach((input) => wireFileInput(host, get, input));
 }
 
+function wireSampleButton(host, get, sample) {
+  host.querySelector(`[data-psfa-sample="${sample.key}"]`).addEventListener(ACTIVATE, () => {
+    loadSampleTextIntoTextarea(sample, get(sample.textareaKey), statusNode(host, sample.key));
+  });
+}
+
+function wireSampleButtons(host, get) {
+  listPsFamilySampleInputs().forEach((sample) => wireSampleButton(host, get, sample));
+}
+
 function wireReportTab(host, state, config, tab) {
   host.querySelector(`[data-psfa-tab="${tab.key}"]`).addEventListener(ACTIVATE, () => {
     state.activeReportTab = tab.key;
@@ -152,6 +167,7 @@ function mountPopup(root, config) {
   root.appendChild(popup);
   const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
   wireFileInputs(popup, get, config);
+  wireSampleButtons(popup, get);
   wireReportTabs(popup, state, config);
   wireCheckButton(popup, get, state, config);
   wireRunButton(popup, get, state, config);
