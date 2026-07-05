@@ -12,6 +12,17 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
     Object.freeze({ key: 'expected', label: 'Expected PS CSV', accept: '.csv,text/csv,text/plain', textareaKey: 'expected' }),
     Object.freeze({ key: 'details', label: 'Element Detail CSV', accept: '.csv,text/csv,text/plain', textareaKey: 'details' }),
   ]),
+  reportTabs: Object.freeze([
+    Object.freeze({ key: 'coverage', label: 'Coverage' }),
+    Object.freeze({ key: 'clashRows', label: 'Clash Rows' }),
+    Object.freeze({ key: 'missing', label: 'Missing' }),
+    Object.freeze({ key: 'outOfFamily', label: 'Out-of-Family' }),
+    Object.freeze({ key: 'duplicates', label: 'Duplicates' }),
+    Object.freeze({ key: 'lineFamilies', label: 'Line Families' }),
+    Object.freeze({ key: 'posFamilies', label: 'POSFamilies' }),
+    Object.freeze({ key: 'sourceVsPosFamily', label: 'Source vs POSFamily' }),
+    Object.freeze({ key: 'diagnostics', label: 'Diagnostics' }),
+  ]),
   sourceSideOptions: Object.freeze([
     Object.freeze({ value: 'auto', label: 'Auto' }),
     Object.freeze({ value: 'left', label: 'Left clash object' }),
