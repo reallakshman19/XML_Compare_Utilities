@@ -1,0 +1,102 @@
+/* Transfer output action visibility fixes */
+.xmlc-transfer-output {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  border-color: rgba(14, 165, 233, 0.52);
+  background: linear-gradient(180deg, rgba(8, 47, 73, 0.98), rgba(15, 23, 42, 0.98));
+  box-shadow: 0 14px 32px rgba(2, 6, 23, 0.42);
+}
+
+.xmlc-transfer-output-body {
+  display: grid;
+  grid-template-columns: minmax(210px, 300px) minmax(320px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 12px;
+}
+
+.xmlc-transfer-output-state {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+}
+
+.xmlc-transfer-output-state b {
+  color: #bae6fd;
+  font-size: 16px;
+}
+
+.xmlc-transfer-output-state span {
+  color: #93c5fd;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.xmlc-transfer-output-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 8px;
+  justify-content: stretch;
+  margin: 0;
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  white-space: normal;
+}
+
+.xmlc-transfer-action-icon {
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.44);
+  color: #e0f2fe;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.xmlc-transfer-action-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action.is-primary,
+.xmlc-transfer-output-actions .xmlc-transfer-action.is-export {
+  border-color: rgba(34, 211, 238, 0.72);
+  background: rgba(14, 116, 144, 0.86);
+  color: #ecfeff;
+  font-weight: 900;
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.22), 0 8px 18px rgba(8, 47, 73, 0.34);
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action:focus-visible {
+  outline: 3px solid rgba(125, 211, 252, 0.72);
+  outline-offset: 2px;
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action:disabled {
+  opacity: 0.62;
+  filter: grayscale(0.2);
+}
+
+@media (max-width: 900px) {
+  .xmlc-transfer-output-body {
+    grid-template-columns: 1fr;
+  }
+
+  .xmlc-transfer-output-actions {
+    grid-template-columns: 1fr;
+  }
+}
