@@ -11,7 +11,7 @@ assert.match(benchmarkDoc, /Export availability \| Met/);
 assert.match(benchmarkDoc, /Configurable source side \/ source family \/ tolerance \| Met/);
 assert.match(benchmarkDoc, /Browser UI smoke \| Met/);
 assert.match(benchmarkDoc, /Snapshot stability \| Met/);
-assert.match(benchmarkDoc, /Medium\/large performance \| Planned/);
+assert.match(benchmarkDoc, /Medium\/large performance \| Met/);
 assert.match(benchmarkDoc, /accessibility gates are still planned/);
 
 console.log('ps-family-clash-audit-benchmark-readiness tests passed');
