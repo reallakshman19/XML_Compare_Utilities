@@ -14,9 +14,12 @@ assert.equal(config.reportTabs.length, 9);
 assert.equal(config.outputButtons.length, 10);
 assert.ok(config.outputButtons.every((button) => button.exportKey && button.suffix && button.mime));
 assert.ok(config.info.some((item) => item.includes('Copy-(n)-of')));
+assert.ok(config.info.some((item) => item.includes('Source family can be entered manually')));
 
 const html = _test.renderInputShell(config);
 assert.match(html, /Source side/);
+assert.match(html, /Source family/);
+assert.match(html, /data-psfa="source-family"/);
 assert.match(html, /type="file"/);
 assert.match(html, /data-psfa-file="xml"/);
 assert.match(html, /data-psfa-tab="coverage"/);
@@ -27,10 +30,11 @@ assert.match(html, /value="35"/);
 assert.match(html, /Copy-\(n\)-of names are preserved/);
 assert.match(html, /Left clash object/);
 
-const fakeGet = (name) => ({ value: name === 'tolerance' ? '12.5' : 'right' });
+const fakeGet = (name) => ({ value: name === 'tolerance' ? '12.5' : name === 'source-family' ? 'ps-12005' : 'right' });
 const settings = readPsFamilyUiSettings(fakeGet, PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.equal(settings.posToleranceMm, 12.5);
 assert.equal(settings.sourceSide, 'right');
+assert.equal(settings.sourceFamily, 'PS-12005');
 
 const textFile = { name: 'sample.csv', size: 10, text: () => Promise.resolve('abc') };
 assert.equal(describeBrowserFile(textFile), 'sample.csv (10 bytes)');
@@ -42,8 +46,10 @@ PS-1.2,E 30mm S 0mm U 0mm
 `;
 const audit25 = createPsFamilyClashAuditFromTextInputs({ detailCsvText: detailCsv, config: { posToleranceMm: 25, sourceSide: 'auto' } });
 const audit35 = createPsFamilyClashAuditFromTextInputs({ detailCsvText: detailCsv, config: { posToleranceMm: 35, sourceSide: 'auto' } });
+const auditSource = createPsFamilyClashAuditFromTextInputs({ expectedCsvText: 'Item Name\n/PS-12005.1\n', config: { sourceFamily: 'PS-99999', posToleranceMm: 25, sourceSide: 'auto' } });
 assert.equal(audit25.summary.posFamilyCount, 2);
 assert.equal(audit35.summary.posFamilyCount, 1);
+assert.equal(auditSource.summary.sourceFamily, 'PS-99999');
 assert.match(renderPsFamilyReports(audit35, 'posFamilies', config), /POSFamily/);
 assert.match(renderPsFamilyReports(audit35, 'diagnostics', config), /Diagnostics/);
 
