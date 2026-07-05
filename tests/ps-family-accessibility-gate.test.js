@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 
+const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
+const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 
 function assertVisibleLabel(text) {
-  assert.ok(shell.includes(text), `Missing visible label: ${text}`);
+  assert.ok(`${launcher}${popup}${shell}`.includes(text), `Missing visible label: ${text}`);
 }
+
+assertVisibleLabel('PS clash check');
+assertVisibleLabel('Close');
+assert.ok(launcher.includes('data-psfa-open="1"'));
+assert.ok(popup.includes('data-psfa-close="1"'));
 
 for (const input of PS_FAMILY_CLASH_AUDIT_CONFIG.inputFiles) {
   assertVisibleLabel(`${input.label} file`);
