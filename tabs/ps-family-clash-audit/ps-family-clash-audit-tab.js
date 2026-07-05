@@ -9,6 +9,13 @@ import { renderPsFamilyReadiness, renderPsFamilyReports, renderPsFamilySummary }
 const ACTIVATE = 'cli' + 'ck';
 const POPUP_TITLE_ID = 'ps-family-clash-audit-title';
 const POPUP_DESC_ID = 'ps-family-clash-audit-desc';
+const WORKSPACE_TABS = Object.freeze([
+  Object.freeze({ key: 'input', label: 'Input' }),
+  Object.freeze({ key: 'preview', label: 'Preview' }),
+  Object.freeze({ key: 'config', label: 'Config' }),
+  Object.freeze({ key: 'run', label: 'Run & Export' }),
+  Object.freeze({ key: 'reports', label: 'Reports' }),
+]);
 
 function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -16,6 +23,10 @@ function h(value) {
 
 function safeSource(audit) {
   return audit?.summary?.sourceFamily || 'audit';
+}
+
+function fileExtension(mime) {
+  return mime === 'application/json' ? 'json' : 'csv';
 }
 
 function renderInfoList(config) {
@@ -34,8 +45,16 @@ function renderReportTabs(config) {
   return `<div class="psmap-actions" aria-label="Report tabs">${config.reportTabs.map((tab) => `<button type="button" data-psfa-tab="${h(tab.key)}">${h(tab.label)}</button>`).join('')}</div>`;
 }
 
+function renderWorkspaceTabs() {
+  return `<div class="psmap-actions" aria-label="Primary workspace tabs">${WORKSPACE_TABS.map((tab, index) => `<button type="button" data-psfa-workspace-tab="${h(tab.key)}" aria-selected="${index === 0 ? 'true' : 'false'}">${h(tab.label)}</button>`).join('')}</div>`;
+}
+
 function renderSection(title, body, label = title) {
   return `<section class="psmap-card" aria-label="${h(label)}"><div class="psmap-card-head"><b>${h(title)}</b></div><div class="psmap-card-body">${body}</div></section>`;
+}
+
+function renderPanel(key, body, activeKey = 'input') {
+  return `<section data-psfa-panel="${h(key)}" ${key === activeKey ? '' : 'hidden'}>${body}</section>`;
 }
 
 function renderFilePicker(input) {
@@ -50,34 +69,40 @@ function renderSampleButtons() {
   return `<div class="psmap-actions" aria-label="Official sample loaders">${listPsFamilySampleInputs().map((sample) => `<button type="button" data-psfa-sample="${h(sample.key)}">${h(sample.label)}</button>`).join('')}</div>`;
 }
 
-function renderTextInputs(config) {
-  return `<div class="psmap-grid-2">
-    <label>Clash XML<textarea data-psfa="xml" rows="${h(config.inputRows)}" placeholder="Paste Navis clash XML"></textarea></label>
-    <label>Expected PS CSV<textarea data-psfa="expected" rows="${h(config.inputRows)}" placeholder="Paste Item Name CSV"></textarea></label>
-    <label>Element Detail CSV<textarea data-psfa="details" rows="${h(config.inputRows)}" placeholder="Paste Name/p1bore/pipe/Position CSV"></textarea></label>
-    <label>Source side<select data-psfa="source-side">${renderSourceOptions(config)}</select></label>
-    <label>Source family<input data-psfa="source-family" placeholder="${h(config.sourceFamilyPlaceholder)}"></label>
-    <label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label>
-  </div>`;
+function renderTextAreas(config) {
+  return `<div class="psmap-grid-2"><label>Clash XML<textarea data-psfa="xml" rows="${h(config.inputRows)}" placeholder="Paste Navis clash XML"></textarea></label><label>Expected PS CSV<textarea data-psfa="expected" rows="${h(config.inputRows)}" placeholder="Paste Item Name CSV"></textarea></label><label>Element Detail CSV<textarea data-psfa="details" rows="${h(config.inputRows)}" placeholder="Paste Name/p1bore/pipe/Position CSV"></textarea></label></div>`;
 }
 
-function renderReportReview(config) {
+function renderInputPanel(config) {
+  return renderSection('Input', `<div class="psmap-help-text">Load official samples, select files, or paste raw input text. Reports are isolated in the Reports tab.</div>${renderSampleButtons()}${renderFilePickers(config)}${renderTextAreas(config)}`);
+}
+
+function renderPreviewPanel() {
+  const panel = (key, label) => `<div class="psmap-card"><div class="psmap-card-head"><b>${label}</b></div><div class="psmap-card-body" data-psfa-preview="${key}"></div></div>`;
+  return renderSection('Preview', `<div class="psmap-help-text">Compact input previews only; no audit table is rendered here.</div><div class="psmap-grid-2">${panel('xml', 'Clash XML preview/count')}${panel('expected', 'Expected CSV preview/count')}${panel('details', 'Element Detail CSV preview/count')}</div>`);
+}
+
+function renderConfigPanel(config) {
+  const controls = `<div class="psmap-grid-2"><label>Source side<select data-psfa="source-side">${renderSourceOptions(config)}</select></label><label>Source family override<input data-psfa="source-family" placeholder="${h(config.sourceFamilyPlaceholder)}"></label><label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label></div>`;
+  return renderSection('Config', `${controls}${renderInfoList(config)}`);
+}
+
+function renderRunPanel(config) {
+  const actions = `<div class="psmap-actions" aria-label="Audit and export actions"><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button><button type="button" data-psfa="export-active">Export Active Report</button>${renderExportButtons(config)}</div>`;
+  return renderSection('Run & Export', `${actions}<div data-psfa="readiness" aria-live="polite"></div>`);
+}
+
+function renderReportsPanel(config) {
   const filter = `<label>Report search<input data-psfa="report-search" placeholder="Filter current report, e.g. D90001 or PS-90001.1"></label><div class="psmap-help-text">Search is case-insensitive and applies to the selected report tab only.</div>`;
-  return renderSection('4. Report review', `${filter}${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>`);
+  return renderSection('Reports', `${filter}${renderReportTabs(config)}<div data-psfa="summary"></div><div class="psmap-table-wrap" data-psfa="reports"></div>`);
+}
+
+function renderStatusStrip() {
+  return `<div class="psmap-grid-2" data-psfa="status-strip"><div><b>Readiness</b><br>Not checked</div><div><b>Source family</b><br>Unknown</div><div><b>XML / Expected / Detail</b><br>0 / 0 / 0</div><div><b>Errors / Warnings</b><br>0 / 0</div></div>`;
 }
 
 function renderInputShell(config) {
-  const intro = `<div id="${POPUP_DESC_ID}" class="psmap-help-text">Load or paste all three inputs, check readiness, then run the audit when ready.</div>${renderInfoList(config)}`;
-  const inputActions = `<div class="psmap-help-text">Use official samples for validation, or load/paste your own files.</div>${renderSampleButtons()}${renderFilePickers(config)}`;
-  const auditActions = `<div class="psmap-actions" aria-label="Audit and export actions"><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button><button type="button" data-psfa="export-active">Export Active Report</button>${renderExportButtons(config)}</div>`;
-  return `<div class="psmap-card-body">
-    ${intro}
-    ${renderSection('1. Input actions', inputActions)}
-    ${renderSection('2. Input text and settings', renderTextInputs(config))}
-    ${renderSection('3. Audit actions and exports', auditActions)}
-    <div data-psfa="readiness" aria-live="polite"></div>
-    ${renderReportReview(config)}
-  </div>`;
+  return `<div class="psmap-card-body"><div id="${POPUP_DESC_ID}" class="psmap-help-text">Tabbed PS Family Clash Audit workspace: load inputs, preview, configure, run/export, then review reports.</div>${renderStatusStrip()}${renderWorkspaceTabs()}${renderPanel('input', renderInputPanel(config))}${renderPanel('preview', renderPreviewPanel())}${renderPanel('config', renderConfigPanel(config))}${renderPanel('run', renderRunPanel(config))}${renderPanel('reports', renderReportsPanel(config))}</div>`;
 }
 
 function renderLauncher(config) {
@@ -86,7 +111,7 @@ function renderLauncher(config) {
 }
 
 function renderPopup(config) {
-  return `<div class="psmap-card-head"><b id="${POPUP_TITLE_ID}">${h(config.launcher.label)}</b><button type="button" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close PS clash check</button></div>${renderInputShell(config)}`;
+  return `<div class="psmap-card-head"><div><b id="${POPUP_TITLE_ID}">${h(config.appTitle)}</b><div class="psmap-help-text">Navis clash XML + expected PS CSV + element detail CSV audit workspace.</div></div><button type="button" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close PS clash check</button></div>${renderInputShell(config)}`;
 }
 
 function readTextInputs(get) {
@@ -97,7 +122,29 @@ function readAuditInput(get, config) {
   return { ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) };
 }
 
+function countText(value) {
+  const text = String(value || '');
+  return `${text ? text.split(/\r?\n/).length : 0} lines / ${text.length} chars`;
+}
+
+function previewHtml(label, text) {
+  return `<div class="psmap-help-text">${h(label)}: ${h(countText(text))}</div><pre>${h(String(text || '').slice(0, 600))}</pre>`;
+}
+
+function renderPreviews(host, get) {
+  host.querySelector('[data-psfa-preview="xml"]').innerHTML = previewHtml('Clash XML', get('xml').value);
+  host.querySelector('[data-psfa-preview="expected"]').innerHTML = previewHtml('Expected CSV', get('expected').value);
+  host.querySelector('[data-psfa-preview="details"]').innerHTML = previewHtml('Element Detail CSV', get('details').value);
+}
+
+function renderStatus(host, readiness) {
+  const s = readiness?.summary;
+  const status = readiness ? (readiness.blocking ? 'Blocking issues found' : 'Ready with no blocking errors') : 'Not checked';
+  host.querySelector('[data-psfa="status-strip"]').innerHTML = `<div><b>Readiness</b><br>${h(status)}</div><div><b>Source family</b><br>${h(s?.sourceFamily || 'Unknown')}</div><div><b>XML / Expected / Detail</b><br>${s?.xmlClashCount || 0} / ${s?.expectedCount || 0} / ${s?.detailCount || 0}</div><div><b>Errors / Warnings</b><br>${s?.errorCount || 0} / ${s?.warnCount || 0}</div>`;
+}
+
 function renderAudit(host, state, config) {
+  renderStatus(host, state.readiness);
   host.querySelector('[data-psfa="readiness"]').innerHTML = renderPsFamilyReadiness(state.readiness);
   host.querySelector('[data-psfa="summary"]').innerHTML = renderPsFamilySummary(state.audit);
   host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(state.audit, state.activeReportTab, config, state.reportSearch);
@@ -108,11 +155,11 @@ function statusNode(host, key) {
 }
 
 function wireFileInput(host, get, input) {
-  const fileInput = host.querySelector(`[data-psfa-file="${input.key}"]`);
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files?.[0];
+  host.querySelector(`[data-psfa-file="${input.key}"]`).addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
     try {
       await loadTextFileIntoTextarea(file, get(input.textareaKey), statusNode(host, input.key));
+      renderPreviews(host, get);
     } catch (error) {
       statusNode(host, input.key).textContent = error?.message || 'File load failed';
     }
@@ -126,11 +173,28 @@ function wireFileInputs(host, get, config) {
 function wireSampleButton(host, get, sample) {
   host.querySelector(`[data-psfa-sample="${sample.key}"]`).addEventListener(ACTIVATE, () => {
     loadSampleTextIntoTextarea(sample, get(sample.textareaKey), statusNode(host, sample.key));
+    renderPreviews(host, get);
   });
 }
 
 function wireSampleButtons(host, get) {
   listPsFamilySampleInputs().forEach((sample) => wireSampleButton(host, get, sample));
+}
+
+function showWorkspacePanel(host, state, tabKey) {
+  state.activeWorkspaceTab = tabKey;
+  host.querySelectorAll('[data-psfa-panel]').forEach((panel) => { panel.hidden = panel.dataset.psfaPanel !== tabKey; });
+  host.querySelectorAll('[data-psfa-workspace-tab]').forEach((button) => { button.setAttribute('aria-selected', String(button.dataset.psfaWorkspaceTab === tabKey)); });
+}
+
+function wireWorkspaceTabs(host, state) {
+  host.querySelectorAll('[data-psfa-workspace-tab]').forEach((button) => {
+    button.addEventListener(ACTIVATE, () => showWorkspacePanel(host, state, button.dataset.psfaWorkspaceTab));
+  });
+}
+
+function wireTextPreviewInputs(host, get) {
+  ['xml', 'expected', 'details'].forEach((key) => get(key).addEventListener('input', () => renderPreviews(host, get)));
 }
 
 function wireReportTab(host, state, config, tab) {
@@ -181,8 +245,7 @@ function wireExportButton(get, state, button) {
   get(button.key).addEventListener(ACTIVATE, () => {
     if (!state.audit) return;
     const exports = createPsFamilyAuditExports(state.audit);
-    const extension = button.mime === 'application/json' ? 'json' : 'csv';
-    saveTextFile(`ps-family-${button.suffix}-${safeSource(state.audit)}.${extension}`, exports[button.exportKey], button.mime);
+    saveTextFile(`ps-family-${button.suffix}-${safeSource(state.audit)}.${fileExtension(button.mime)}`, exports[button.exportKey], button.mime);
   });
 }
 
@@ -203,7 +266,7 @@ function wireCloseControls(popup, onClose) {
 }
 
 function mountPopup(root, config, onClose) {
-  const state = { audit: null, readiness: null, activeReportTab: config.reportTabs[0].key, reportSearch: '' };
+  const state = { audit: null, readiness: null, activeWorkspaceTab: 'input', activeReportTab: config.reportTabs[0].key, reportSearch: '' };
   const popup = document.createElement('section');
   popup.className = 'psmap-card';
   popup.setAttribute('data-ps-family-clash-audit', '1');
@@ -215,14 +278,17 @@ function mountPopup(root, config, onClose) {
   root.appendChild(popup);
   const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
   wireCloseControls(popup, onClose);
+  wireWorkspaceTabs(popup, state);
   wireFileInputs(popup, get, config);
   wireSampleButtons(popup, get);
+  wireTextPreviewInputs(popup, get);
   wireReportTabs(popup, state, config);
   wireReportSearch(popup, state, config);
   wireCheckButton(popup, get, state, config);
   wireRunButton(popup, get, state, config);
   wireActiveExportButton(get, state);
   wireExportButtons(get, state, config);
+  renderPreviews(popup, get);
   renderAudit(popup, state, config);
   if (typeof popup.focus === 'function') popup.focus();
   return popup;
@@ -247,4 +313,4 @@ export function installPsFamilyClashAuditTile(container, ctx = {}) {
   };
 }
 
-export const _test = Object.freeze({ renderInputShell, renderLauncher, renderPopup, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG });
+export const _test = Object.freeze({ renderInputShell, renderLauncher, renderPopup, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG, renderStatusStrip });
