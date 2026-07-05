@@ -7,6 +7,11 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   posToleranceMm: 25,
   toleranceMinMm: 0,
   toleranceStepMm: 0.001,
+  inputFiles: Object.freeze([
+    Object.freeze({ key: 'xml', label: 'Clash XML', accept: '.xml,text/xml,application/xml', textareaKey: 'xml' }),
+    Object.freeze({ key: 'expected', label: 'Expected PS CSV', accept: '.csv,text/csv,text/plain', textareaKey: 'expected' }),
+    Object.freeze({ key: 'details', label: 'Element Detail CSV', accept: '.csv,text/csv,text/plain', textareaKey: 'details' }),
+  ]),
   sourceSideOptions: Object.freeze([
     Object.freeze({ value: 'auto', label: 'Auto' }),
     Object.freeze({ value: 'left', label: 'Left clash object' }),
@@ -19,6 +24,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
     Object.freeze({ key: 'all-json', label: 'Audit JSON', exportKey: 'auditJson', mime: 'application/json', suffix: 'audit' }),
   ]),
   info: Object.freeze([
+    'Files can be loaded with the file picker or pasted into the text areas; the parser always uses the visible text area contents.',
     'Tolerance is configurable in the POS tolerance field; the configured value is applied independently to E, S, and U.',
     'Copy-(n)-of names are preserved as exact member identity and are not collapsed to original PS names.',
     'Line family, full line tag, branch node, support text, gap, reference, and position are preserved when available.',
