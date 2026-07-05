@@ -21,18 +21,18 @@ npm test
 | Configurable source side / source family / tolerance | Met | `tests/ps-family-clash-audit-config.test.js` validates source side, source-family override, and POS tolerance settings. |
 | File-input configuration | Met | `tests/ps-family-clash-audit-config.test.js` validates browser file metadata helpers and file input rendering. |
 | Report-tab rendering | Met | `tests/ps-family-clash-audit-config.test.js` validates report tab configuration and independent report rendering. |
+| Browser UI smoke | Met | `tests/ps-family-clash-audit-ui-smoke.test.js` validates rendered shell controls, Run Audit action path, summary rendering, and report-tab output rendering. |
 
 ## Not yet automated
 
 | Benchmark area | Status | Required next proof |
 |---|---|---|
-| Browser UI smoke | Planned | Add DOM-level test for mounting, file-input status updates, Run Audit, tab switching, and export button availability. |
 | Medium/large performance | Planned | Add deterministic synthetic dataset generator and measure parser + engine + export time outside DOM rendering. |
 | Snapshot stability | Planned | Add stable fixture snapshots for coverage CSV, source-vs-POSFamily CSV, and audit JSON. |
 | Accessibility / keyboard navigation | Planned | Add focus-order and button-label checks for report tabs and export controls. |
 
 ## Current conclusion
 
-The functional correctness benchmark identified for the PS-11147, PS-12005, POS tolerance, export, and configuration behavior is met by automated tests.
+The functional correctness benchmark identified for the PS-11147, PS-12005, POS tolerance, export, configuration, and UI-smoke behavior is met by automated tests.
 
-The complete benchmark program is not yet fully closed because browser UI smoke, large-data performance, and snapshot-stability gates are still planned.
+The complete benchmark program is not yet fully closed because large-data performance and snapshot-stability gates are still planned.

@@ -9,7 +9,7 @@ assert.match(benchmarkDoc, /POSFamily correctness \| Met/);
 assert.match(benchmarkDoc, /POS tolerance boundary \| Met/);
 assert.match(benchmarkDoc, /Export availability \| Met/);
 assert.match(benchmarkDoc, /Configurable source side \/ source family \/ tolerance \| Met/);
-assert.match(benchmarkDoc, /Browser UI smoke \| Planned/);
+assert.match(benchmarkDoc, /Browser UI smoke \| Met/);
 assert.match(benchmarkDoc, /Medium\/large performance \| Planned/);
 assert.match(benchmarkDoc, /Snapshot stability \| Planned/);
 assert.match(benchmarkDoc, /complete benchmark program is not yet fully closed/);
