@@ -2,6 +2,24 @@
 
 `PS Family Clash Audit` is a Utilities-tab audit app for comparing Navis clash XML against an expected PS family register and an optional element-detail CSV.
 
+The audit result is a downstream report. It does not mutate the Navis XML, the expected register, the element-detail CSV, or the XML Compare core workflow.
+
+## Operator workflow
+
+1. Open **Utilities** and locate **PS Family Clash Audit**.
+2. Load or paste the three inputs:
+   - **Clash XML** from Navis clash detective.
+   - **Expected PS CSV** containing the expected PS members.
+   - **Element Detail CSV** containing line, support, gap, reference, and position evidence.
+3. Choose **Source side**:
+   - `Auto` detects the support/source side from the clash row.
+   - `Left clash object` forces the left object as source.
+   - `Right clash object` forces the right object as source.
+4. Use **Source family** only when the source family must be forced. Leave it blank for auto-detection from the expected CSV.
+5. Set **POS tolerance mm**. The default is `25` mm.
+6. Click **Run Audit**.
+7. Review the summary, switch report tabs, and export the required CSV or JSON outputs.
+
 ## Inputs
 
 1. **Clash XML** exported from Navis clash detective.
@@ -16,6 +34,8 @@
    - `Position`
    - `ISOMETRIC NOTES`
 
+Files can be loaded with the browser file picker or pasted directly into the text areas. The audit engine always reads the visible text-area contents.
+
 ## Core rules
 
 - `Copy-(n)-of-...` is preserved as exact member identity. It is not normalized to the original PS name.
@@ -23,19 +43,68 @@
 - Family root is used only for grouping, for example `Copy-(2)-of-PS-11147.9` belongs to root `PS-11147` but remains a distinct member.
 - Line-family data such as `D8810311` and the full line/branch node are preserved in clash rows and exports.
 - POSFamily is derived only from E/S/U position proximity. Line number, pipe tag, and bore do not decide POSFamily membership.
-- Default POSFamily tolerance is `±25 mm` independently for E, S, and U.
+- POS tolerance is applied independently to E, S, and U.
+- Default POSFamily tolerance is `±25 mm`.
 
-## Output reports
+## Source family override
 
-- Coverage
-- Clash Rows
-- Missing
-- Out-of-Family
-- Duplicates
-- Line Families
-- POSFamilies
-- Source vs POSFamily Count
-- Diagnostics
+When **Source family** is blank, the audit detects the family from the expected CSV. When entered manually, the value is trimmed and normalized to uppercase before being passed to the audit engine.
+
+Use the override when the expected CSV is partial, mixed, or intentionally does not provide the source family root that should appear in reports and export filenames.
+
+## Output report tabs
+
+- **Coverage**: one row per expected member, with found/missing status and enrichment where available.
+- **Clash Rows**: normalized clash observations from the XML, enriched with family and element-detail evidence.
+- **Missing**: expected members not observed in the clash rows.
+- **Out-of-Family**: rows where the against member does not belong to the configured source family.
+- **Duplicates**: members observed more than once.
+- **Line Families**: grouped line-family evidence retained from pipe/branch data.
+- **POSFamilies**: position-cluster groups based on E/S/U tolerance only.
+- **Source vs POSFamily**: source-family to POSFamily count summary.
+- **Diagnostics**: warnings and validation messages produced during parsing or audit.
+
+## Exports
+
+The UI exposes exports for each major report:
+
+- Coverage CSV
+- Clash Rows CSV
+- Missing CSV
+- Out-of-Family CSV
+- Duplicates CSV
+- Line Families CSV
+- POSFamilies CSV
+- Source vs POSFamily CSV
+- Diagnostics CSV
+- Audit JSON
+
+Export filenames include the source family where available.
+
+## Benchmark and compliance gates
+
+Run:
+
+```bash
+npm run test:ps-family
+npm test
+```
+
+Current PS Family gates cover:
+
+- Parser correctness
+- PS-11147 audit correctness
+- PS-12005 POSFamily correctness
+- POS tolerance boundary
+- Export availability
+- Configurable source side, source family, and tolerance
+- File-input configuration
+- Report-tab rendering
+- UI smoke
+- Snapshot/export schema stability
+- Medium-size performance
+- Accessibility label coverage
+- PS Family implementation compliance: scoped 300-line file budget and no default exports
 
 ## Benchmark baseline
 
