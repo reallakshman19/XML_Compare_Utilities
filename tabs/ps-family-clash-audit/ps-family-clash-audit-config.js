@@ -3,6 +3,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config
 export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   schema: PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA,
   appTitle: 'PS Family Clash Audit',
+  launcher: Object.freeze({ label: 'PS clash check', icon: '🔎', help: 'Open PS Family Clash Audit popup' }),
   inputRows: 5,
   sourceFamilyPlaceholder: 'Auto from expected CSV, or enter PS-11147',
   posToleranceMm: 25,
