@@ -1,6 +1,6 @@
 # PS Family Clash Audit Benchmark Readiness
 
-This document records which benchmark requirements are currently automated and which remain planned.
+This document records which benchmark requirements are currently automated.
 
 ## Automated benchmark command
 
@@ -24,15 +24,10 @@ npm test
 | Browser UI smoke | Met | `tests/ps-family-clash-audit-ui-smoke.test.js` validates rendered shell controls, Run Audit action path, summary rendering, and report-tab output rendering. |
 | Snapshot stability | Met | `tests/ps-family-output-fixtures.test.js` locks export schema fields and selected audit JSON identity fields. |
 | Medium/large performance | Met | `tests/ps-family-performance-benchmark.test.js` runs a deterministic 200-row parser + POSFamily + audit + export benchmark under a configurable time budget. |
-
-## Not yet automated
-
-| Benchmark area | Status | Required next proof |
-|---|---|---|
-| Accessibility / keyboard navigation | Planned | Add focus-order and button-label checks for report tabs and export controls. |
+| Accessibility / keyboard navigation | Met | `tests/ps-family-accessibility-gate.test.js` validates visible labels, report-tab labels, export-button labels, and non-empty configurable control text. |
 
 ## Current conclusion
 
-The functional correctness benchmark identified for the PS-11147, PS-12005, POS tolerance, export, configuration, UI-smoke, snapshot-stability, and performance behavior is met by automated tests.
+The PS Family Clash Audit benchmark program is closed for parser correctness, PS-11147 audit correctness, POSFamily behavior, POS tolerance boundary, export availability, configurability, file input configuration, report tabs, UI smoke, snapshot stability, medium-size performance, and accessibility label coverage.
 
-The complete benchmark program is not yet fully closed because accessibility gates are still planned.
+Future browser-level keyboard traversal can still be added as an E2E enhancement, but the current benchmark matrix has no open planned gate.
