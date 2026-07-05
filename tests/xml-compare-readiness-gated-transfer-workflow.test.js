@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import { applyXmlCompareCanvasAction, createXmlCompareCanvasState } from '../xml-compare/XmlCompareCanvasStateController.js';
 import { createApprovedConnectorValidationModel } from '../xml-compare/XmlCompareApprovedConnectorModel.js';
 import { createXmlCompareWorkspaceModel } from '../xml-compare/XmlCompareWorkspaceModel.js';
+import { buildXmlCompareReport } from '../xml-compare/XmlCompareTopologyReportModel.js';
+import { createReadinessSideInputFromWorkspace } from '../xml-compare/input/create-input-readiness-audit-from-workspace.js';
 import { createXmlCompareTransferWorkflowGate, gateAllowsAction } from '../xml-compare/XmlCompareTransferWorkflowGateModel.js';
 import { renderXmlCompareTransferWorkflowPanelHtml } from '../xml-compare/XmlCompareTransferWorkflowPanel.js';
 import { renderXmlCompareTransferModalPopupHtml, _test as modalTest } from '../xml-compare/XmlCompareTransferModalPopup.js';
@@ -28,6 +30,41 @@ function stageAndApply(state) {
   canvas = applyXmlCompareCanvasAction(canvas, { type: 'apply-staged-transfer', sourceText: state.textA, targetText: state.textB, workspaceRevision: state.workspaceRevision });
   return { ...state, canvasState: canvas };
 }
+function uids(records = []) { return records.map((record) => record.uid); }
+function workflowState(canvasState = createXmlCompareCanvasState()) { return { fileA: { name: 'source-categorized.xml' }, fileB: { name: 'target-categorized.xml' }, textA: sourceText, textB: targetText, canvasState }; }
+function workspaceFor(state, report = null) { return createXmlCompareWorkspaceModel({ ...state, report }); }
+function remapReportDataset(dataset = {}, prefix = 'R') { const components = (dataset.components?.length ? dataset.components : [{ type: 'PIPE', pipelineRef: `${prefix}-REPORT` }]); return { ...dataset, componentCount: components.length, components: components.map((item, index) => ({ ...item, id: `${prefix}-report-evidence-${index + 1}`, label: `${prefix} report evidence ${index + 1}` })) }; }
+function reportWithDistinctEvidence(report = {}) { return { ...report, datasets: { A: remapReportDataset(report.datasets?.A, 'A'), B: remapReportDataset(report.datasets?.B, 'B') } }; }
+
+const identityState = workflowState();
+const workspaceBeforeReport = workspaceFor(identityState);
+const builtTopologyReport = buildXmlCompareReport({ fileNameA: 'source-categorized.xml', textA: sourceText, fileNameB: 'target-categorized.xml', textB: targetText, toleranceMm: 6 });
+const topologyReport = reportWithDistinctEvidence(builtTopologyReport);
+const workspaceAfterReport = workspaceFor(identityState, topologyReport);
+const sourceBaseUids = uids(workspaceBeforeReport.source.baseRecords);
+const targetBaseUids = uids(workspaceBeforeReport.target.baseRecords);
+assert.ok(workspaceAfterReport.source.reportRecords.length > 0, 'Source report records are exposed separately as evidence');
+assert.ok(workspaceAfterReport.target.reportRecords.length > 0, 'Target report records are exposed separately as evidence');
+assert.notDeepEqual(uids(workspaceAfterReport.source.reportRecords), sourceBaseUids, 'regression guard: report records differ from stable Source identity');
+assert.notDeepEqual(uids(workspaceAfterReport.target.reportRecords), targetBaseUids, 'regression guard: report records differ from stable Target identity');
+assert.deepEqual(uids(workspaceAfterReport.source.baseRecords), sourceBaseUids, 'Source baseRecords stay stable after topology report');
+assert.deepEqual(uids(workspaceAfterReport.target.baseRecords), targetBaseUids, 'Target baseRecords stay stable after topology report');
+assert.deepEqual(uids(workspaceAfterReport.source.records), uids(workspaceBeforeReport.source.records), 'Source visible records do not drift after topology report');
+assert.deepEqual(uids(workspaceAfterReport.target.records), uids(workspaceBeforeReport.target.records), 'Target visible records do not drift after topology report');
+assert.equal(workspaceAfterReport.source.summary.recordCount, workspaceBeforeReport.source.summary.recordCount, 'Source summary recordCount is stable identity count');
+assert.equal(workspaceAfterReport.source.summary.reportRecordCount, workspaceAfterReport.source.reportRecords.length, 'Source report count is separate evidence');
+assert.equal(workspaceAfterReport.target.summary.recordCount, workspaceBeforeReport.target.summary.recordCount, 'Target summary recordCount is stable identity count');
+assert.equal(workspaceAfterReport.target.summary.reportRecordCount, workspaceAfterReport.target.reportRecords.length, 'Target report count is separate evidence');
+const sourceReadiness = createReadinessSideInputFromWorkspace({ state: identityState, workspace: workspaceAfterReport, side: 'a' });
+const targetReadiness = createReadinessSideInputFromWorkspace({ state: identityState, workspace: workspaceAfterReport, side: 'b' });
+assert.deepEqual(uids(sourceReadiness.records), sourceBaseUids, 'readiness Source records use stable identity base');
+assert.deepEqual(uids(targetReadiness.records), targetBaseUids, 'readiness Target records use stable identity base');
+const anchorCanvas = createXmlCompareCanvasState({ autoMapRequest: { scope: 'node', sourceUid: sourceBaseUids[0], targetUid: targetBaseUids[0] } });
+const anchoredBefore = workspaceFor(workflowState(anchorCanvas));
+const anchoredAfter = workspaceFor(workflowState(anchorCanvas), topologyReport);
+assert.deepEqual(uids(anchoredAfter.source.records), uids(anchoredBefore.source.records), 'candidate Source identity remains stable with anchor');
+assert.deepEqual(uids(anchoredAfter.target.records), uids(anchoredBefore.target.records), 'candidate Target identity remains stable with anchor');
+assert.deepEqual(anchoredAfter.availableConnectors.map((conn) => conn.field), anchoredBefore.availableConnectors.map((conn) => conn.field), 'connector candidate fields remain stable after topology report');
 
 assert.equal(gate(appState()).blockerCodes.includes('SOURCE_NOT_READY'), true, 'missing Source A blocks workflow');
 assert.equal(gate(appState({ textA: sourceText })).blockerCodes.includes('TARGET_NOT_READY'), true, 'missing Target B blocks workflow');
