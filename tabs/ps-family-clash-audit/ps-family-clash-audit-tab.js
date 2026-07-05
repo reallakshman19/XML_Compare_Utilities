@@ -1,6 +1,6 @@
 import { createPsFamilyClashAuditFromTextInputs, createPsFamilyInputReadinessFromTextInputs } from './ps-family-clash-audit-actions.js';
 import { saveTextFile } from './ps-family-clash-audit-save.js';
-import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
+import { createPsFamilyActiveReportExport, createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG, readPsFamilyUiSettings, resolvePsFamilyClashAuditConfig } from './ps-family-clash-audit-config.js';
 import { loadSampleTextIntoTextarea, loadTextFileIntoTextarea } from './ps-family-clash-audit-file-io.js';
 import { listPsFamilySampleInputs } from './ps-family-clash-audit-samples.js';
@@ -69,7 +69,7 @@ function renderReportReview(config) {
 function renderInputShell(config) {
   const intro = `<div id="${POPUP_DESC_ID}" class="psmap-help-text">Load or paste all three inputs, check readiness, then run the audit when ready.</div>${renderInfoList(config)}`;
   const inputActions = `<div class="psmap-help-text">Use official samples for validation, or load/paste your own files.</div>${renderSampleButtons()}${renderFilePickers(config)}`;
-  const auditActions = `<div class="psmap-actions" aria-label="Audit and export actions"><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button>${renderExportButtons(config)}</div>`;
+  const auditActions = `<div class="psmap-actions" aria-label="Audit and export actions"><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button><button type="button" data-psfa="export-active">Export Active Report</button>${renderExportButtons(config)}</div>`;
   return `<div class="psmap-card-body">
     ${intro}
     ${renderSection('1. Input actions', inputActions)}
@@ -169,6 +169,14 @@ function wireRunButton(host, get, state, config) {
   });
 }
 
+function wireActiveExportButton(get, state) {
+  get('export-active').addEventListener(ACTIVATE, () => {
+    if (!state.audit) return;
+    const active = createPsFamilyActiveReportExport(state.audit, state.activeReportTab);
+    saveTextFile(`ps-family-active-${active.suffix}-${safeSource(state.audit)}.csv`, active.text, active.mime);
+  });
+}
+
 function wireExportButton(get, state, button) {
   get(button.key).addEventListener(ACTIVATE, () => {
     if (!state.audit) return;
@@ -213,6 +221,7 @@ function mountPopup(root, config, onClose) {
   wireReportSearch(popup, state, config);
   wireCheckButton(popup, get, state, config);
   wireRunButton(popup, get, state, config);
+  wireActiveExportButton(get, state);
   wireExportButtons(get, state, config);
   renderAudit(popup, state, config);
   if (typeof popup.focus === 'function') popup.focus();
