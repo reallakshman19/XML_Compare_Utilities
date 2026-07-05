@@ -6,13 +6,12 @@ import { normalizeToleranceMm, normalizeValidationLayer } from './XmlCompareVali
 import { renderXmlCompareTransferModalPopupHtml } from './XmlCompareTransferModalPopup.js?v=20260704-transfer-review-1';
 
 export const XML_COMPARE_WORKSPACE_SHELL_SCHEMA = 'xml-compare-workspace-shell/v31-transfer-review';
-let loadSamplePickersPromise = null, loadCategorizedConverterPromise = null, loadTableCategorizedPromise = null, loadToolbarGatePromise = null;
+let loadSamplePickersPromise = null, loadCategorizedConverterPromise = null, loadTableCategorizedPromise = null;
 function loadSamplePickers() { if (typeof document !== 'undefined' && !loadSamplePickersPromise) loadSamplePickersPromise = import('../tabs/xml-compare-enriched-sample-pickers.js?v=20260701-bm-cii-categorized-samples-1').catch(() => null); }
 function loadCategorizedConverter() { if (typeof document !== 'undefined' && !loadCategorizedConverterPromise) loadCategorizedConverterPromise = import('../tabs/xml-compare-categorized-converter-runtime.js?v=20260704-integrated-config-selector-1').catch(() => null); }
 function loadTableCategorizedXml() { if (typeof document !== 'undefined' && !loadTableCategorizedPromise) loadTableCategorizedPromise = import('../tabs/xml-compare-table-categorized-runtime.js?v=20260703-extra-tools-1').catch(() => null); }
-function loadToolbarGate() { if (typeof document !== 'undefined' && !loadToolbarGatePromise) loadToolbarGatePromise = import('../tabs/xml-compare-linewise-toolbar-gate.js?v=20260703-converter-shortcut-routing-1').catch(() => null); }
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
-function loadLazyRuntimes() { loadSamplePickers(); loadCategorizedConverter(); loadTableCategorizedXml(); loadToolbarGate(); }
+function loadLazyRuntimes() { loadSamplePickers(); loadCategorizedConverter(); loadTableCategorizedXml(); }
 function createManualState(input = {}) { return Object.freeze({ connectors: Object.freeze(Array.isArray(input.manualConnectors) ? input.manualConnectors : []), pendingSourceUid: input.pendingConnectorPreview ? input.pendingConnectorPreview.sourceUid : String(input.navStates?.source?.selectedUid || ''), pendingConnectorPreview: input.pendingConnectorPreview || null, approvedMatchSet: input.approvedMatchSet || null, approvedValidationModel: input.approvedValidationModel || null, candidateDecisions: input.candidateDecisions || null }); }
 function transferState(input = {}) { return Object.freeze({ transferPreviewPlans: input.transferPreviewPlans || {}, transferStage: input.transferStage || null, transferAudit: input.transferAudit || null, postTransferValidation: input.postTransferValidation || null, transferLastResult: input.transferLastResult || null }); }
 function sideHeader(data = {}) { return [data.fileName, data.profile, data.levelView?.label].map(esc).filter(Boolean).join(' | ') || 'not loaded'; }
