@@ -135,7 +135,7 @@ function mdSummary(audit) {
 
 function mdHierarchy(audit) {
   return mdTable(['Clash', 'Source Path', 'Against Path'], audit.clashRows.map((row) => ({
-    Clash: row.clashName, Source Path: row.source.path, Against Path: row.against.path,
+    Clash: row.clashName, 'Source Path': row.source.path, 'Against Path': row.against.path,
   })));
 }
 
