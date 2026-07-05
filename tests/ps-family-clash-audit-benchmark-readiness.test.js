@@ -1,4 +1,5 @@
 import './ps-family-implementation-compliance.test.js';
+import './ps-family-sample-fixtures.test.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
