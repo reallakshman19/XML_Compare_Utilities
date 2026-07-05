@@ -176,6 +176,18 @@ export function exportPsFamilyAuditJson(audit) {
   return `${JSON.stringify(audit, null, 2)}\n`;
 }
 
+export const PS_FAMILY_ACTIVE_EXPORTS = Object.freeze({
+  coverage: Object.freeze({ exportKey: 'coverageCsv', suffix: 'coverage' }),
+  clashRows: Object.freeze({ exportKey: 'clashRowsCsv', suffix: 'clashRows' }),
+  missing: Object.freeze({ exportKey: 'missingCsv', suffix: 'missing' }),
+  outOfFamily: Object.freeze({ exportKey: 'outOfFamilyCsv', suffix: 'outOfFamily' }),
+  duplicates: Object.freeze({ exportKey: 'duplicatesCsv', suffix: 'duplicates' }),
+  lineFamilies: Object.freeze({ exportKey: 'lineFamiliesCsv', suffix: 'lineFamilies' }),
+  posFamilies: Object.freeze({ exportKey: 'posFamiliesCsv', suffix: 'posFamilies' }),
+  sourceVsPosFamily: Object.freeze({ exportKey: 'sourceVsPosFamilyCsv', suffix: 'sourceVsPosFamily' }),
+  diagnostics: Object.freeze({ exportKey: 'diagnosticsCsv', suffix: 'diagnostics' }),
+});
+
 export function createPsFamilyAuditExports(audit) {
   return {
     coverageCsv: exportPsFamilyCoverageCsv(audit),
@@ -189,4 +201,16 @@ export function createPsFamilyAuditExports(audit) {
     diagnosticsCsv: exportPsFamilyDiagnosticsCsv(audit),
     auditJson: exportPsFamilyAuditJson(audit),
   };
+}
+
+export function createPsFamilyActiveReportExport(audit, activeTab = 'coverage') {
+  const report = PS_FAMILY_ACTIVE_EXPORTS[activeTab] || PS_FAMILY_ACTIVE_EXPORTS.coverage;
+  const exports = createPsFamilyAuditExports(audit);
+  return Object.freeze({
+    activeTab: PS_FAMILY_ACTIVE_EXPORTS[activeTab] ? activeTab : 'coverage',
+    exportKey: report.exportKey,
+    suffix: report.suffix,
+    mime: 'text/csv',
+    text: exports[report.exportKey],
+  });
 }
