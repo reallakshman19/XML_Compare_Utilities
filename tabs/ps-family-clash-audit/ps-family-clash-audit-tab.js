@@ -61,6 +61,11 @@ function renderTextInputs(config) {
   </div>`;
 }
 
+function renderReportReview(config) {
+  const filter = `<label>Report search<input data-psfa="report-search" placeholder="Filter current report, e.g. D90001 or PS-90001.1"></label><div class="psmap-help-text">Search is case-insensitive and applies to the selected report tab only.</div>`;
+  return renderSection('4. Report review', `${filter}${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>`);
+}
+
 function renderInputShell(config) {
   const intro = `<div id="${POPUP_DESC_ID}" class="psmap-help-text">Load or paste all three inputs, check readiness, then run the audit when ready.</div>${renderInfoList(config)}`;
   const inputActions = `<div class="psmap-help-text">Use official samples for validation, or load/paste your own files.</div>${renderSampleButtons()}${renderFilePickers(config)}`;
@@ -71,7 +76,7 @@ function renderInputShell(config) {
     ${renderSection('2. Input text and settings', renderTextInputs(config))}
     ${renderSection('3. Audit actions and exports', auditActions)}
     <div data-psfa="readiness" aria-live="polite"></div>
-    ${renderSection('4. Report review', `${renderReportTabs(config)}<div data-psfa="summary"></div><div data-psfa="reports"></div>`)}
+    ${renderReportReview(config)}
   </div>`;
 }
 
@@ -95,7 +100,7 @@ function readAuditInput(get, config) {
 function renderAudit(host, state, config) {
   host.querySelector('[data-psfa="readiness"]').innerHTML = renderPsFamilyReadiness(state.readiness);
   host.querySelector('[data-psfa="summary"]').innerHTML = renderPsFamilySummary(state.audit);
-  host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(state.audit, state.activeReportTab, config);
+  host.querySelector('[data-psfa="reports"]').innerHTML = renderPsFamilyReports(state.audit, state.activeReportTab, config, state.reportSearch);
 }
 
 function statusNode(host, key) {
@@ -137,6 +142,13 @@ function wireReportTab(host, state, config, tab) {
 
 function wireReportTabs(host, state, config) {
   config.reportTabs.forEach((tab) => wireReportTab(host, state, config, tab));
+}
+
+function wireReportSearch(host, state, config) {
+  host.querySelector('[data-psfa="report-search"]').addEventListener('input', (event) => {
+    state.reportSearch = event.target.value;
+    renderAudit(host, state, config);
+  });
 }
 
 function refreshReadiness(host, get, state, config) {
@@ -183,7 +195,7 @@ function wireCloseControls(popup, onClose) {
 }
 
 function mountPopup(root, config, onClose) {
-  const state = { audit: null, readiness: null, activeReportTab: config.reportTabs[0].key };
+  const state = { audit: null, readiness: null, activeReportTab: config.reportTabs[0].key, reportSearch: '' };
   const popup = document.createElement('section');
   popup.className = 'psmap-card';
   popup.setAttribute('data-ps-family-clash-audit', '1');
@@ -198,6 +210,7 @@ function mountPopup(root, config, onClose) {
   wireFileInputs(popup, get, config);
   wireSampleButtons(popup, get);
   wireReportTabs(popup, state, config);
+  wireReportSearch(popup, state, config);
   wireCheckButton(popup, get, state, config);
   wireRunButton(popup, get, state, config);
   wireExportButtons(get, state, config);
