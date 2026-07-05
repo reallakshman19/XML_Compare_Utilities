@@ -64,6 +64,15 @@ function renderInputShell(config) {
     </div>`;
 }
 
+function renderLauncher(config) {
+  const launcher = config.launcher;
+  return `<button type="button" class="psmap-card" data-psfa-open="1" title="${h(launcher.help)}"><span aria-hidden="true">${h(launcher.icon)}</span><b>${h(launcher.label)}</b><span class="psmap-help-text">${h(launcher.help)}</span></button>`;
+}
+
+function renderPopup(config) {
+  return `<div class="psmap-card-head"><b>${h(config.launcher.label)}</b><button type="button" data-psfa-close="1">Close</button></div>${renderInputShell(config)}`;
+}
+
 function readTextInputs(get) {
   return { clashXmlText: get('xml').value, expectedCsvText: get('expected').value, detailCsvText: get('details').value };
 }
@@ -124,23 +133,44 @@ function wireExportButtons(get, state, config) {
   config.outputButtons.forEach((button) => wireExportButton(get, state, button));
 }
 
+function mountPopup(root, config) {
+  const state = { audit: null, activeReportTab: config.reportTabs[0].key };
+  const popup = document.createElement('section');
+  popup.className = 'psmap-card';
+  popup.setAttribute('data-ps-family-clash-audit', '1');
+  popup.setAttribute('role', 'dialog');
+  popup.innerHTML = renderPopup(config);
+  root.appendChild(popup);
+  const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
+  wireFileInputs(popup, get, config);
+  wireReportTabs(popup, state, config);
+  wireRunButton(popup, get, state, config);
+  wireExportButtons(get, state, config);
+  renderAudit(popup, state, config);
+  return popup;
+}
+
 export function installPsFamilyClashAuditTile(container, ctx = {}) {
   const config = resolvePsFamilyClashAuditConfig(ctx.psFamilyClashAuditConfig || {});
   const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  if (utilitiesRoot.querySelector('[data-ps-family-clash-audit]')) return null;
-  const state = { audit: null, activeReportTab: config.reportTabs[0].key };
-  const host = document.createElement('section');
-  host.className = 'psmap-card';
-  host.setAttribute('data-ps-family-clash-audit', '1');
-  host.innerHTML = renderInputShell(config);
-  utilitiesRoot.appendChild(host);
-  const get = (name) => host.querySelector(`[data-psfa="${name}"]`);
-  wireFileInputs(host, get, config);
-  wireReportTabs(host, state, config);
-  wireRunButton(host, get, state, config);
-  wireExportButtons(get, state, config);
-  renderAudit(host, state, config);
-  return () => host.remove();
+  if (utilitiesRoot.querySelector('[data-ps-family-clash-audit-launcher]')) return null;
+  const launcher = document.createElement('section');
+  launcher.setAttribute('data-ps-family-clash-audit-launcher', '1');
+  launcher.innerHTML = renderLauncher(config);
+  utilitiesRoot.appendChild(launcher);
+  let popup = null;
+  launcher.querySelector('[data-psfa-open="1"]').addEventListener('click', () => {
+    if (popup) return;
+    popup = mountPopup(utilitiesRoot, config);
+    popup.querySelector('[data-psfa-close="1"]').addEventListener('click', () => {
+      popup.remove();
+      popup = null;
+    });
+  });
+  return () => {
+    if (popup) popup.remove();
+    launcher.remove();
+  };
 }
 
-export const _test = Object.freeze({ renderInputShell, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG });
+export const _test = Object.freeze({ renderInputShell, renderLauncher, renderPopup, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG });

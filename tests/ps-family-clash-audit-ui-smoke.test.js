@@ -4,9 +4,16 @@ import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-f
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 import { renderPsFamilyReports, renderPsFamilySummary } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 
-const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
+const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
+assert.ok(launcher.includes('PS clash check'));
+assert.ok(launcher.includes('data-psfa-open="1"'));
+assert.ok(!launcher.includes('Clash XML'));
 
-assert.ok(shell.includes('PS Family Clash Audit'));
+const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
+assert.ok(popup.includes('data-psfa-close="1"'));
+assert.ok(popup.includes('PS Family Clash Audit'));
+
+const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(shell.includes('Clash XML'));
 assert.ok(shell.includes('Expected PS CSV'));
 assert.ok(shell.includes('Element Detail CSV'));
