@@ -45,6 +45,8 @@ assert.equal(html.includes('data-xml-compare-action="compare"'), true);
 assert.equal(html.includes('data-xml-compare-action="export-filtered-csv"'), true);
 assert.equal(html.includes('Load Diagnostics'), true, 'native Load Diagnostics panel is rendered');
 assert.equal(html.includes('data-xml-compare-action="clear-load-diagnostics"'), true, 'clear diagnostics action is rendered');
+assert.equal(html.includes('data-xml-compare-categorized-open'), true, 'native Line-wise workflow button is rendered');
+assert.equal(html.includes('Line-wise XML Enrichment / Categorized XML'), true, 'native Line-wise workflow label is rendered');
 
 assert.equal(html.includes('input type="file" data-xml-compare-load="a"'), true, 'Source A native file input is rendered');
 assert.equal(html.includes('input type="file" data-xml-compare-load="b"'), true, 'Target B native file input is rendered');
@@ -57,4 +59,4 @@ assert.equal(css.includes('xml-compare-file-btn'), false, 'toolbar gate CSS does
 assert.equal(css.includes('button:not'), false, 'toolbar gate CSS does not hide native toolbar buttons');
 assert.equal(css.includes('pointer-events:none'), false, 'toolbar gate CSS does not disable native controls');
 
-console.log('XML compare tab view readiness, diagnostics, linewise info, and toolbar visibility tests passed');
+console.log('XML compare tab view readiness, diagnostics, linewise info, native linewise toolbar, and toolbar visibility tests passed');
