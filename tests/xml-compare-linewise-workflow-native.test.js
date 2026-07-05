@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
+import { renderXmlCompareWorkspaceShellHtml } from '../xml-compare/XmlCompareWorkspaceShell.js';
 import { applyLinewiseAction, applyLinewiseSideload, importLinewiseText, linewiseCategorizedCanvasPayload, previewText, regexSandboxResult } from '../xml-compare/XmlCompareLinewiseWorkflowActions.js';
 import { createLinewiseWorkflowState } from '../xml-compare/XmlCompareLinewiseWorkflowState.js';
 import { renderLinewiseWorkflowPopupHtml } from '../xml-compare/XmlCompareLinewiseWorkflowView.js';
@@ -15,6 +16,41 @@ const workspace = { source: side, target: side, navStates: {}, manualConnectors:
 const tabHtml = renderXmlCompareTabView({ state: baseState, workspace, issues: [] });
 assert.ok(tabHtml.includes('data-xml-compare-categorized-open'), 'native tab view renders Line-wise toolbar button');
 assert.equal(tabHtml.includes('data-xml-compare-categorized-popup'), false, 'popup is closed by default');
+
+function sideForConnector(sideName) {
+  return {
+    fileName: `${sideName}.xml`,
+    profile: 'CategorizedInputXML',
+    records: [{ uid: `${sideName}-node-10`, displayName: `${sideName} node 10`, nodeNumber: '10', lineNo: 'L1' }],
+    summary: { nodeCount: 1, recordCount: 1 },
+    levelView: {
+      levelId: 'line',
+      label: 'Line',
+      fields: ['lineNo', 'nodeName'],
+      displayField: 'nodeName',
+      hierarchyProfile: { levels: [{ levelId: 'line', label: 'Line', recordCount: 1 }, { levelId: 'node', label: 'Node', recordCount: 1 }] },
+    },
+  };
+}
+function assertHierarchyControls(html, context) {
+  assert.ok(html.includes('data-xml-compare-level-select="levelId" data-xml-compare-side="source"'), `${context}: Source hierarchy dropdown remains rendered`);
+  assert.ok(html.includes('data-xml-compare-level-select="levelId" data-xml-compare-side="target"'), `${context}: Target hierarchy dropdown remains rendered`);
+  assert.ok(html.includes('data-xml-compare-main-connector'), `${context}: main connector selector remains rendered`);
+}
+const connectorWorkspace = {
+  source: sideForConnector('source'),
+  target: sideForConnector('target'),
+  navStates: { source: { selectedUid: 'source-node-10' }, target: { selectedUid: 'target-node-10' } },
+  selectedRecords: { source: { uid: 'source-node-10', displayName: 'source node 10' }, target: { uid: 'target-node-10', displayName: 'target node 10' } },
+  anchor: { sourceUid: 'source-node-10', targetUid: 'target-node-10' },
+  availableConnectors: [{ field: 'lineNo', label: 'LineNo', sourceValue: 'L1', targetValue: 'L1', sameLevel: false }],
+  enabledConnectorFields: ['lineNo'],
+  aim: { connectionType: 'numeric', connectorFields: ['lineNo'] },
+  compareFields: ['lineNo'],
+  manualConnectors: [],
+};
+assertHierarchyControls(renderXmlCompareWorkspaceShellHtml(connectorWorkspace), 'before topology check');
+assertHierarchyControls(renderXmlCompareWorkspaceShellHtml({ ...connectorWorkspace, reportRecordCount: 2, diagnostics: [{ code: 'REPORT-EVIDENCE' }] }), 'after topology evidence');
 
 let wf = createLinewiseWorkflowState();
 wf = applyLinewiseAction(wf, { type: 'open-linewise-workflow' });
