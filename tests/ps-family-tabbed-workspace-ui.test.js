@@ -7,9 +7,10 @@ const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 
-for (const tab of ['Input', 'Preview', 'Config', 'Run & Export', 'Reports']) {
+for (const tab of ['Input', 'Preview', 'Config', 'Reports']) {
   assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
 }
+assert.ok(shell.includes('>Run &amp; Export</button>'));
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
