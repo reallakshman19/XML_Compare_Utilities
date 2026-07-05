@@ -15,6 +15,30 @@ function section(title, body) {
   return `<div class="psmap-card"><div class="psmap-card-head"><b>${h(title)}</b></div><div class="psmap-card-body">${body}</div></div>`;
 }
 
+function readinessStatus(readiness) {
+  if (!readiness) return 'Not checked';
+  return readiness.blocking ? 'Blocking issues found' : 'Ready with no blocking errors';
+}
+
+export function renderPsFamilyReadiness(readiness) {
+  if (!readiness) return section('Input Readiness', '<div class="psmap-help-text">Click Check Readiness before running the audit.</div>');
+  const s = readiness.summary;
+  const diagnostics = (readiness.diagnostics || []).slice(0, 8);
+  const counts = `<div class="psmap-grid-2">
+    <div><b>Status</b><br>${h(readinessStatus(readiness))}</div>
+    <div><b>Source family</b><br>${h(s.sourceFamily || 'Unknown')}</div>
+    <div><b>XML / Expected / Detail rows</b><br>${s.xmlClashCount} / ${s.expectedCount} / ${s.detailCount}</div>
+    <div><b>Positions parsed / missing / POSFamilies</b><br>${s.positionParsedCount} / ${s.positionMissingCount} / ${s.posFamilyCount}</div>
+    <div><b>Errors / Warnings / Info</b><br>${s.errorCount} / ${s.warnCount} / ${s.infoCount}</div>
+  </div>`;
+  const diag = renderPsFamilyTable([
+    { label: 'Level', value: (row) => row.level },
+    { label: 'Code', value: (row) => row.code },
+    { label: 'Message', value: (row) => row.message },
+  ], diagnostics, 8);
+  return section('Input Readiness', `${counts}${diagnostics.length ? diag : '<div class="psmap-help-text">No readiness diagnostics.</div>'}`);
+}
+
 export function renderPsFamilySummary(audit) {
   if (!audit) return '<div class="psmap-help-text">Load inputs and run audit.</div>';
   const s = audit.summary;
