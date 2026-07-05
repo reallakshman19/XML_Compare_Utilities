@@ -4,7 +4,7 @@ import { createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-fam
 
 const audit = createPsFamilyClashAuditFromTextInputs({
   expectedCsvText: 'Item Name\n/PS-11147.1\n',
-  detailCsvText: 'Name of the element,p1bore,pipe,Position\nPS-11147.1,25,"ASIM-1835-1""-D8810311-31441C4-PP-01",E 10mm S 20mm U 30mm\n',
+  detailCsvText: 'Name of the element,p1bore,pipe,Position\nPS-11147.1,25,ASIM-1835-1IN-D8810311-31441C4-PP-01,E 10mm S 20mm U 30mm\n',
   config: { sourceSide: 'auto', sourceFamily: '', posToleranceMm: 25 },
 });
 
