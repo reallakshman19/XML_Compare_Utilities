@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { applyXmlCompareEnrichment, extractPipingClass, previewPipingClassExtraction } from '../xml-compare/XmlCompareEnrichmentApply.js';
 
 const lineId = '/ASIM-1835-4"-P8810212-31441C4-PP/B1';
+const xmlLineId = lineId.replaceAll('"', '&quot;');
 const baseConfig = {
   pipingClass: { regex: '([0-9]{5})', group: '1', tokenPosition: '4', tokenDelimiter: '-' },
 };
@@ -34,7 +35,7 @@ assert.equal(rating.rating, '1500');
 
 const xml = `<ROOT>
   <Meta>keep-root</Meta>
-  <PIPINGELEMENT FROM_NODE="1" TO_NODE="2" LINE_ID="${lineId}" DELTA_X="1" DELTA_Y="2" DELTA_Z="3">
+  <PIPINGELEMENT FROM_NODE="1" TO_NODE="2" LINE_ID="${xmlLineId}" DELTA_X="1" DELTA_Y="2" DELTA_Z="3">
     <UserChild>keep me</UserChild>
     <BEND />
     <RESTRAINT TYPE="17" />
