@@ -20,7 +20,8 @@ assert.ok(config.info.some((item) => item.includes('Source family can be entered
 const launcher = _test.renderLauncher(config);
 assert.match(launcher, /PS clash check/);
 assert.match(launcher, /data-psfa-open="1"/);
-assert.doesNotMatch(launcher, /PS Family Clash Audit/);
+assert.doesNotMatch(launcher, /data-psfa="xml"/);
+assert.doesNotMatch(launcher, /Clash XML/);
 
 const popup = _test.renderPopup(config);
 assert.match(popup, /data-psfa-close="1"/);
