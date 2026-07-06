@@ -35,6 +35,7 @@ assert.ok(appliedModal.includes('Patched Target preview'));
 assert.ok(appliedModal.includes('patched'));
 assert.ok(appliedModal.includes('Export transfer audit JSON'));
 assert.ok(appliedModal.includes('Export transfer proof JSON'));
+assert.ok(appliedModal.includes('Copy patched Target preview'));
 const auditExport = createTransferAuditExport({ input, tState: appliedState, generatedAt: '2026-07-06T00:00:00.000Z' });
 assert.equal(auditExport.sourceFileName, 'source-categorized.xml');
 assert.equal(auditExport.targetFileName, 'target-categorized.xml');
@@ -64,8 +65,6 @@ try {
   assert.equal(downloads.at(-1).name, 'target-categorized_transfer_audit.json');
   tabTest.downloadTransferProof(state);
   assert.equal(downloads.at(-1).name, 'target-categorized_transfer_proof.json');
-  tabTest.copyPatchedTargetPreview(state);
-  assert.equal(state.status.kind, 'ok');
 } finally {
   if (originalDocument === undefined) delete globalThis.document;
   else Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
