@@ -13,6 +13,7 @@ function profile(patch = {}) {
     profileId: 'xml-contract-test',
     duplicateKeyPolicy: 'warn',
     multiValuePolicy: 'first',
+    coordinateCluster: { unit: 'mm', tolerance: 1 },
     exportPolicy: {
       documentRootTag: 'ExportRoot',
       includeXmlDeclaration: true,
