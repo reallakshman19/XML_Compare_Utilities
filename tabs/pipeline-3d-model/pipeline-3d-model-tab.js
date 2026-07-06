@@ -1,7 +1,8 @@
-import { buildCombinedCoordinateTable, parseTable1, table1ToTabText } from './pipeline-3d-model-geometry.js';
+import { buildCombinedCoordinateTable, parseTable1, table1ToTabText, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js';
 import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js';
 import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
-import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from './pipeline-3d-model-samples.js';
+import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3, SAMPLE_TABLE_1_MULTISHEET } from './pipeline-3d-model-samples.js';
+import { renderKeyPlanSvg } from './pipeline-3d-model-keyplan.js';
 
 const ACTIVATE = 'click';
 const POPUP_TITLE_ID = 'pipeline-3d-model-title';
@@ -66,11 +67,14 @@ function renderPopup() {
 ${renderBranchForm()}
 <div class="p3d-actions">
 <button type="button" data-p3d="new">New (Load Sample)</button>
+<button type="button" data-p3d="new-multisheet">Load Multi-Sheet Table 1 Sample</button>
 <button type="button" data-p3d="run">Run</button>
 <button type="button" data-p3d="download-coordinate">Download Coordinate Tab (.tsv)</button>
 <button type="button" data-p3d="download-xml">Download XML</button>
 </div>
 <div class="p3d-output">
+<h4>Key Plan — Sheet Transform</h4>
+<div data-p3d="keyplan">Run to generate.</div>
 <h4>Table 1 — Transformed (Global) Coordinates</h4>
 <pre data-p3d="table1-output">Run to generate.</pre>
 <h4>Coordinate Tab Output</h4>
@@ -143,6 +147,8 @@ function runConversion(host, get, state) {
 
   const table1Points = parseTable1(table1Text);
   const table1OutputText = table1ToTabText(table1Points);
+  const sheets = groupPointsIntoSheets(table1Points);
+  const keyPlanSvg = renderKeyPlanSvg(table1Points, sheets);
   const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
   const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
   const coordinateText = coordinateRowsToTabText(coordinateRows);
@@ -151,6 +157,7 @@ function runConversion(host, get, state) {
   state.table1OutputText = table1OutputText;
   state.coordinateText = coordinateText;
   state.xmlText = xmlText;
+  host.querySelector('[data-p3d="keyplan"]').innerHTML = keyPlanSvg;
   host.querySelector('[data-p3d="table1-output"]').textContent = table1OutputText;
   host.querySelector('[data-p3d="coordinate-output"]').textContent = coordinateText;
   host.querySelector('[data-p3d="xml-output"]').textContent = xmlText;
@@ -193,6 +200,9 @@ function mountPopup(root, onClose) {
     get('table1').value = SAMPLE_TABLE_1;
     get('table2').value = SAMPLE_TABLE_2;
     get('table3').value = SAMPLE_TABLE_3;
+  });
+  dialog.querySelector('[data-p3d="new-multisheet"]').addEventListener(ACTIVATE, () => {
+    get('table1').value = SAMPLE_TABLE_1_MULTISHEET;
   });
   dialog.querySelector('[data-p3d="run"]').addEventListener(ACTIVATE, () => {
     saveConfigValues(readConfigValues(get));

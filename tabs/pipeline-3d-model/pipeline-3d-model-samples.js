@@ -70,3 +70,24 @@ Marker 7\t56.0\t440.9
 Marker 8\t12.5\t453.4
 Marker 9\t18.7\t472.1
 Marker 10\t38.9\t511.0`;
+
+// Multi-sheet alt-format Table 1 sample: two blank-line-separated
+// "Constant width / area / length / at point X= Y= Z=" blocks. Sheet 2's
+// Angle is auto-derived from sheet 1's on Run — nothing here specifies it.
+export const SAMPLE_TABLE_1_MULTISHEET = `    Constant width     0.300
+              area   19179.305
+            length   511.100
+          at point  X=  661.549  Y= -160.249  Z=    0.000
+          at point  X= 1045.626  Y= -160.249  Z=    0.000
+          at point  X= 1089.468  Y= -116.407  Z=    0.000
+          at point  X= 1125.687  Y=  -62.406  Z=    0.000
+
+    Constant width    0.3000
+              area   112231.6379
+            length   1271.0677
+          at point  X= 620.6918  Y=-241.5160  Z=   0.0000
+          at point  X= 622.5026  Y=-243.1093  Z=   0.0000
+          at point  X= 981.9652  Y=-452.2784  Z=   0.0000
+          at point  X=1180.0855  Y=-557.5981  Z=   0.0000
+          at point  X=1282.7178  Y=-554.6324  Z=   0.0000
+          at point  X=1807.3639  Y=-521.1176  Z=   0.0000`;

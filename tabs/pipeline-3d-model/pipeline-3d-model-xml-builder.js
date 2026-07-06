@@ -1,8 +1,7 @@
-// Builds "Coordinate tab" rows and a Custom-Input-style CII(2019) XML document,
-// reusing the schema of the XML->CII(2019) Workflow's Custom Input (Branch +
-// Coordinate tabs) in the 3D_Converters repo, as a standalone (no-DOM) utility.
+// Builds "Coordinate tab" rows and a CAESARII>PIPINGMODEL>PIPINGELEMENT XML
+// document matching the actual input schema read by 3D_Converters'
+// InputXML->CII(2019) converter, as a standalone (no-DOM) utility.
 // Coordinate tab schema: [branchName, nodeNumber, x, y, z]  (mm)
-// Branch tab schema: [branchName, nodeNumber, boreMm, wallThickness, p1, t1, t2, t3, fluidDensity]
 
 const M_TO_MM = 1000;
 const NODE_NUMBER_START = 100;
@@ -58,12 +57,18 @@ function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
-// Builds one <PIPINGELEMENT> per consecutive node pair, matching the schema
-// CAESARII > PIPINGMODEL > PIPINGELEMENT required by 3D_Converters'
-// InputXML->CII(2019) workflow (converters/scripts/inputxml_to_cii2019*.py,
-// which hard-requires FROM_NODE/TO_NODE and rejects files with zero
-// PIPINGELEMENT rows). FROM_NAME/TO_NAME carry the marker/point label for
-// each node, per the "marker information passed as Node Name" requirement.
+// Builds one <PIPINGELEMENT> per consecutive node pair, matching EXACTLY the
+// attribute set actually read by 3D_Converters' InputXML->CII(2019) consumer
+// (converters/scripts/inputxml_to_cii2019.py, function that parses
+// piping_model.findall("PIPINGELEMENT")): FROM_NODE/TO_NODE are hard-required
+// (parse fails without them); DELTA_X/Y/Z default to 0.0 if absent/sentinel;
+// DIAMETER/WALL_THICK/INSUL_THICK/CORR_ALLOW/TEMP_EXP_C1-3/MATERIAL_NUM
+// "carry forward" from the previous element if absent/sentinel; FROM_NAME/
+// TO_NAME are read as plain text. No other attribute (PRESSURE*, LINE_ID,
+// FLUID_DENSITY, INSUL_DENSITY, HYDRO_PRESSURE, TEMP_EXP_C4-9) is read by
+// this script at all — those belong to a different, unrelated converter
+// (xml_to_inputxml_debug.py) and were removed after verifying against the
+// actual consumer source, not just a schema-shaped example.
 function pipingElementXml(fromRow, toRow, branchInfo) {
   const deltaX = num(toRow.x - fromRow.x);
   const deltaY = num(toRow.y - fromRow.y);
@@ -81,14 +86,7 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('TEMP_EXP_C1', num(branchInfo.t1)),
     attr('TEMP_EXP_C2', num(branchInfo.t2)),
     attr('TEMP_EXP_C3', num(branchInfo.t3)),
-    attr('PRESSURE1', num(branchInfo.p1)),
-    attr('PRESSURE2', SENTINEL_MISSING),
-    attr('PRESSURE3', SENTINEL_MISSING),
     attr('MATERIAL_NUM', num(branchInfo.materialCode)),
-    attr('FLUID_DENSITY', num(branchInfo.fluidDensity)),
-    attr('INSUL_DENSITY', num(branchInfo.insulationDensity, '0')),
-    attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
-    attr('LINE_ID', branchInfo.lineNo || branchInfo.branchName),
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];
