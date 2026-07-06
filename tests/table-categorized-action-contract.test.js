@@ -12,6 +12,7 @@ const handledActions = new Set([
   'add-source', 'remove-source', 'clear', 'load-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
   'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
+  'add-pivot-view', 'select-pivot-view',
   'use-current-graph-source-canvas', 'use-imported-graph-target-canvas', 'run-graph-compare-canvas',
   'build-graph-connectors', 'download-graph-connectors-json', 'clear-compare-canvas-preview',
   'send-source', 'send-target', 'confirm-canvas-handoff', 'cancel-canvas-handoff',
@@ -32,13 +33,16 @@ function parsedSource(transformRules = []) {
     diagnostics: [], transformRules,
   };
 }
+function pivotProfile() {
+  return { ...PS_MAPPING_TABLE_2_SHADOW_PROFILE, outputViews: [{ schema: 'OutputView.v1', viewId: 'pivotView1', type: 'pivot', displayName: 'Pivot View 1', enabled: true, pivotSpec: { schema: 'PivotSpec.v1', filters: [], rows: [{ fieldId: 'S1.PS_NO', label: 'PS NO' }], columns: [], values: [{ fieldId: 'S1.Bore', aggregate: 'sum', label: 'Bore sum' }] } }] };
+}
 function readyState(activeStep = 'columns', patch = {}) {
   return { activeStep, activeTab: stepToTab(activeStep), sources: [parsedSource(patch.transformRules || [])], activeSourceId: 'S1', columnsConfirmed: true, profile: PS_MAPPING_TABLE_2_SHADOW_PROFILE, profileValidation: [], graph: null, validationResults: [], exportResult: null, exportStatus: '', compareCanvas: {}, ...patch };
 }
 function stepToTab(step) { return { table: 'source', columns: 'levels', structure: 'graph', preview: 'validation', export: 'export' }[step] || 'source'; }
 function representativeStates() {
   const transformRules = [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.', replaceWith: '' }];
-  const graph = { nodes: [{ id: 'n1' }], edges: [], documentRootNodeIds: ['n1'] };
+  const graph = { nodes: [{ id: 'n1', fields: { 'PS NO': 'PS-100.1', Bore: '100' }, sourceRefs: ['S1:R1'] }], edges: [], documentRootNodeIds: ['n1'] };
   const exportResult = { ok: true, xmlText: '<CategorizedXML/>', graphJson: '{}', diagnosticsJson: '[]', auditJson: '{}' };
   const pendingHandoff = { summary: { targetCanvas: 'source', xmlRoot: 'CategorizedXML', byteCount: 18, lineCount: 1, origin: 'Table Categorized', warning: 'Review before sending.' } };
   return [
@@ -46,7 +50,7 @@ function representativeStates() {
     readyState('columns', { columnsConfirmed: false, transformRules }),
     readyState('structure'),
     readyState('preview', { graph, validationResults: [] }),
-    readyState('export', { graph, exportResult, pendingHandoff }),
+    readyState('export', { graph, exportResult, pendingHandoff, profile: pivotProfile(), activePivotViewId: 'pivotView1' }),
   ];
 }
 
@@ -65,6 +69,8 @@ assert.ok(activeActions.includes('add-derived-column'), 'add-derived-column is r
 assert.ok(activeActions.includes('remove-derived-column'), 'remove-derived-column is rendered active when a rule exists');
 assert.ok(activeActions.includes('load-suggested-profile'), 'load-suggested-profile is rendered active with headers');
 assert.ok(activeActions.includes('select-level'), 'recipe tree level selection action is rendered and handled');
+assert.ok(activeActions.includes('add-pivot-view'), 'add-pivot-view is rendered and handled');
+assert.ok(activeActions.includes('select-pivot-view'), 'select-pivot-view is rendered and handled');
 assert.ok(activeActions.includes('send-source') && activeActions.includes('send-target'), 'canvas handoff send actions are active only when export is ready');
 assert.equal(activeActions.includes('check-output'), false, 'Check Output is a step transition, not an unhandled action');
 assert.equal(activeActions.includes('toggle-fullscreen'), false, 'Fullscreen is not rendered as an unhandled runtime action');
