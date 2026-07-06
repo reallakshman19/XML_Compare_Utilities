@@ -20,6 +20,11 @@ function scopeOf(tState = {}, input = {}) {
   return clean(tState.transferLastResult?.scope || tState.transferStage?.scope || input.transferWorkflowGate?.scope || 'node');
 }
 
+function actionMarksOutputDone(action = '') {
+  const value = clean(action);
+  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value.startsWith('export-');
+}
+
 export function buildTransferOutputFileNames(input = {}) {
   const targetBase = baseName(input.targetFileName || input.target?.fileName || input.fileB?.name || '') || 'xml_compare';
   return Object.freeze({
@@ -30,7 +35,7 @@ export function buildTransferOutputFileNames(input = {}) {
 }
 
 export function transferOutputStatus(summary = {}) {
-  if (summary.hasAppliedResult && summary.hasPatchedTargetText) return summary.lastAction === 'exported' ? 'exported' : 'applied';
+  if (summary.hasAppliedResult && summary.hasPatchedTargetText) return actionMarksOutputDone(summary.lastAction) ? 'exported' : 'applied';
   if (summary.blockedCount > 0 || summary.outputStatus === 'blocked') return 'blocked';
   if (summary.hasStage) return 'staged';
   return 'no-stage';
@@ -58,9 +63,9 @@ export function summarizeTransferOutput({ input = {}, tState = {}, lastAction = 
     patchedTargetText: String(result?.patchedTargetText || ''),
     blockedReasons: asArray([...(result?.diagnostics || []), ...(audit?.diagnostics || [])]).map((d) => clean(d.message || d.code)).filter(Boolean),
     fileNames: files,
-    lastAction: clean(lastAction),
+    lastAction: clean(lastAction || input.transferModal?.lastTransferOutputAction || ''),
   };
   return Object.freeze({ ...summary, outputStatus: transferOutputStatus(summary) });
 }
 
-export const _test = Object.freeze({ clean, baseName, countBlockedRows, selectedBlocksOf, scopeOf });
+export const _test = Object.freeze({ clean, baseName, countBlockedRows, selectedBlocksOf, scopeOf, actionMarksOutputDone });
