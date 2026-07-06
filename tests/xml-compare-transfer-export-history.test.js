@@ -14,15 +14,11 @@ function transferState() { return { transferStage: { scope: 'node', selectedBloc
 function installDownloadStubs() {
   const savedDocument = globalThis.document;
   const savedUrl = globalThis.URL;
-  const savedNavigator = globalThis.navigator;
-  const savedClipboard = savedNavigator?.clipboard;
   const blobByUrl = new Map();
   const downloads = [];
   globalThis.URL = { createObjectURL(blob) { const url = `blob:test-${blobByUrl.size}`; blobByUrl.set(url, blob); return url; }, revokeObjectURL() {} };
   globalThis.document = { createElement() { return { href: '', download: '', click() { downloads.push({ fileName: this.download, blob: blobByUrl.get(this.href) }); }, remove() {} }; }, body: { append() {} } };
-  if (!globalThis.navigator) Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
-  Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
-  return { downloads, restore() { globalThis.document = savedDocument; globalThis.URL = savedUrl; if (savedNavigator) Object.defineProperty(globalThis.navigator, 'clipboard', { value: savedClipboard, configurable: true }); } };
+  return { downloads, restore() { globalThis.document = savedDocument; globalThis.URL = savedUrl; } };
 }
 function makeState() {
   const state = tabTest.createInitialState();
@@ -50,7 +46,7 @@ tabTest.downloadTransferAuditExport(state);
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'export-transfer-audit-json');
 tabTest.downloadTransferProof(state);
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'download-transfer-proof-json');
-tabTest.copyPatchedTargetPreview(state);
+tabTest.setOutputReceipt(state, 'copy-patched-target-preview', 'Copied patched Target preview', tabTest.currentTransferSummary(state, 'copy-patched'));
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'copy-patched-target-preview');
 tabTest.exportTransferArtifactBundle(state);
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'export-transfer-artifact-bundle');
