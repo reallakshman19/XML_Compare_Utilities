@@ -5,14 +5,18 @@ import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.j
 
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
+const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 
 for (const tab of ['Input', 'Preview', 'Config', 'Reports']) {
-  assert.ok(shell.includes(`<span>${tab}</span>`), `missing primary workspace tab ${tab}`);
+  assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
 }
-assert.ok(shell.includes('<span>Run &amp; Export</span>'));
-assert.ok(shell.includes('class="psfa-step-tabs"'));
-assert.ok(shell.includes('class="psfa-step-tab"'));
+assert.ok(shell.includes('>Run &amp; Export</button>'));
+assert.ok(shell.includes('class="psmap-tabs psfa-tabs"'));
+assert.ok(shell.includes('class="psmap-tab psfa-tab active"'));
+assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
+assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
+assert.ok(launcher.includes('class="psmap-tile-icon ps-family-clash-audit-launcher-icon"'));
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
@@ -61,7 +65,7 @@ assert.ok(popup.includes('data-psfa-close="1"'));
 assert.ok(popup.includes('>Close</button>'));
 assert.match(source, /if \(popup\) return;/);
 assert.match(source, /showWorkspacePanel/);
-assert.match(source, /panel\.hidden = panel\.dataset\.psfaPanel !== tabKey/);
+assert.match(source, /button\.classList\.toggle\('active', active\)/);
 assert.match(source, /event\.key === 'Escape'/);
 assert.doesNotMatch(shell, /Markdown Report/);
 
