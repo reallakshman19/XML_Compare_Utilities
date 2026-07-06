@@ -10,18 +10,20 @@ export function buildPivotViewModel({ graph = null, pivotSpec = null, fieldCatal
   const spec = normalizePivotSpec(pivotSpec || {});
   if (!spec.values.length) return emptyModel(diagnostics, 'pivot_values_missing', 'PivotSpec has no value fields.');
   const fieldMap = new Map(fieldCatalog.fields.map((field) => [field.fieldId, field]));
-  const records = graphRecords(graph, fieldMap);
+  const records = graphRecords(graph, fieldMap).filter((record) => Object.values(record.values).some((value) => String(value ?? '').trim()));
   const filtered = records.filter((record) => passesFilters(record, spec.filters));
   const rowFields = resolveFields(spec.rows, fieldMap, diagnostics);
   const columnFields = resolveFields(spec.columns, fieldMap, diagnostics);
   const valueFields = resolveValues(spec.values, fieldMap, diagnostics);
   const columns = dimensionKeys(filtered, columnFields, 'column');
-  const rows = rowKeys(filtered, rowFields).map((row) => rowModel(row, columns, valueFields));
-  return freeze({ schema: TABLE_CATEGORIZED_PIVOT_VIEW_MODEL_SCHEMA, rowFields, columnFields, valueFields, columns, rows, totals: totalsModel(rows, valueFields), diagnostics });
+  const rows = rowKeys(filtered, rowFields).map((row) => rowModel(row, columns, columnFields, valueFields));
+  return freeze({ schema: TABLE_CATEGORIZED_PIVOT_VIEW_MODEL_SCHEMA, rowFields, columnFields, valueFields, columns, rows, totals: totalsModel(filtered, valueFields), diagnostics: freeze([...diagnostics, ...cellDiagnostics(rows)]) });
 }
 
 function graphRecords(graph, fieldMap) {
-  return (graph.nodes || []).flatMap((node, nodeIndex) => (node.evidence?.length ? node.evidence : [{ rawByHeader: node.fields || {}, sourceRefs: node.sourceRefs || [] }]).map((evidence) => ({ nodeIndex, nodeId: node.id, sourceRefs: unique([...(node.sourceRefs || []), ...(evidence.sourceRefs || [])]), values: valuesForEvidence(evidence, fieldMap, node.fields || {}) })));
+  const parents = new Set((graph.edges || []).map((edge) => edge.fromNodeId));
+  const nodes = (graph.nodes || []).filter((node) => !parents.has(node.id) && (node.evidence?.length || node.sourceRefs?.length));
+  return nodes.flatMap((node, nodeIndex) => (node.evidence?.length ? node.evidence : [{ rawByHeader: node.fields || {}, sourceRefs: node.sourceRefs || [] }]).map((evidence) => ({ nodeIndex, nodeId: node.id, sourceRefs: unique([...(node.sourceRefs || []), ...(evidence.sourceRefs || [])]), values: valuesForEvidence(evidence, fieldMap, node.fields || {}) })));
 }
 
 function valuesForEvidence(evidence, fieldMap, nodeFields) {
@@ -82,14 +84,14 @@ function rowKeys(records, fields) {
   return [...map.values()].length ? [...map.values()] : [{ rowKey: '__all__', values: [], records: [] }];
 }
 
-function rowModel(row, columns, valueFields) {
-  const cells = columns.map((column) => cellModel(row.records.filter((record) => recordColumnKey(record, column) === column.columnKey), column, valueFields));
+function rowModel(row, columns, columnFields, valueFields) {
+  const cells = columns.map((column) => cellModel(row.records.filter((record) => recordColumnKey(record, columnFields) === column.columnKey), column, valueFields));
   return freeze({ rowKey: row.rowKey, values: freeze(row.values), label: row.values.filter(Boolean).join(' / ') || '(all)', cells: freeze(cells), sourceRefs: freeze(unique(row.records.flatMap((record) => record.sourceRefs))) });
 }
 
-function recordColumnKey(record, column) {
-  const values = column.values || [];
-  return values.length ? values.join('\u001f') : '__all__';
+function recordColumnKey(record, columnFields) {
+  const values = columnFields.map((field) => String(record.values?.[field.fieldId] ?? ''));
+  return values.join('\u001f') || '__all__';
 }
 
 function cellModel(records, column, valueFields) {
@@ -102,9 +104,12 @@ function cellModel(records, column, valueFields) {
   return freeze({ columnKey: column.columnKey, values: freeze(values), sourceRefs: freeze(unique(records.flatMap((record) => record.sourceRefs))), diagnostics: freeze(diagnostics) });
 }
 
-function totalsModel(rows, valueFields) {
-  const entries = Object.fromEntries(valueFields.map((field) => [field.label, aggregatePivotValues(rows.flatMap((row) => row.cells.flatMap((cell) => ({ value: cell.values[field.label]?.value, sourceRefs: cell.values[field.label]?.sourceRefs || [] }))), field)]));
-  return freeze({ values: freeze(Object.fromEntries(Object.entries(entries).map(([label, item]) => [label, freeze({ value: item.value, sourceRefs: item.sourceRefs })]))) });
+function totalsModel(records, valueFields) {
+  const values = Object.fromEntries(valueFields.map((field) => {
+    const result = aggregatePivotValues(records.map((record) => ({ value: record.values[field.fieldId], sourceRefs: record.sourceRefs })), field);
+    return [field.label, freeze({ value: result.value, sourceRefs: result.sourceRefs })];
+  }));
+  return freeze({ values: freeze(values) });
 }
 
 function emptyModel(diagnostics, code, message) {
@@ -112,6 +117,7 @@ function emptyModel(diagnostics, code, message) {
   return freeze({ schema: TABLE_CATEGORIZED_PIVOT_VIEW_MODEL_SCHEMA, rowFields: [], columnFields: [], valueFields: [], columns: [], rows: [], totals: {}, diagnostics });
 }
 
+function cellDiagnostics(rows) { return rows.flatMap((row) => row.cells.flatMap((cell) => cell.diagnostics || [])); }
 function arrayOfText(value) { return Object.freeze((Array.isArray(value) ? value : value == null ? [] : [value]).map((item) => String(item))); }
 function unique(values = []) { return [...new Set(values.filter((value) => String(value ?? '') !== ''))]; }
 function diag(severity, code, message, ref = '') { return Object.freeze({ severity, status: severity === 'BLOCKER' ? 'FAIL' : 'PASS', code, message, ref }); }
