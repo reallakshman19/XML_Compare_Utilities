@@ -73,7 +73,7 @@ assert.equal(eastQ1.values['First Item'].value, 'A');
 assert.equal(eastQ1.values['Last Item'].value, 'A');
 assert.deepEqual(eastQ1.values['Item List'].value, ['A', 'A']);
 assert.deepEqual(eastQ1.values['Distinct Item List'].value, ['A']);
-assert.deepEqual(eastQ1.sourceRefs, ['S1:R1', 'S1:R2']);
+assert.deepEqual(eastQ1.sourceRefs, ['S1:1', 'S1:2']);
 assert.equal(eastQ2.values['Count IDs'].value, 1, 'blank numeric value still participates in count of ID field');
 assert.equal(eastQ2.values['Amount Sum'].value, '', 'numeric aggregation ignores blanks');
 assert.equal(westQ1.values['Amount Sum'].value, '', 'non-numeric-only cell has blank numeric result');
