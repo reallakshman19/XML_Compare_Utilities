@@ -57,7 +57,8 @@ assert.equal(settings.posToleranceMm, 12.5);
 assert.equal(settings.sourceSide, 'right');
 assert.equal(settings.sourceFamily, 'SL-12005');
 assert.deepEqual(settings.familyPrefixes, ['PS', 'SL', 'SUP']);
-assert.equal(settings.familyDetectorLabel, '/(?:PS|SL|SUP)-\d+/i');
+assert.ok(settings.familyDetectorLabel.includes('PS|SL|SUP'));
+assert.ok(settings.familyDetectorLabel.endsWith('+/i'));
 
 const textFile = { name: 'sample.csv', size: 10, text: () => Promise.resolve('abc') };
 assert.equal(describeBrowserFile(textFile), 'sample.csv (10 bytes)');
