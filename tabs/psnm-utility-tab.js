@@ -6,6 +6,7 @@ import { installPsnmAnchorPersistenceAddon } from './psnm-utility/psnm-anchor-pe
 import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-prefix-ui.js?v=20260614-support-prefix-ui-no-duplicate-playground-1';
 import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260705-ps-family-clash-audit-1';
+import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260706-pipeline-3d-model-1';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260706-layout-stabilizer-1';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
@@ -20,6 +21,11 @@ function mountPsFamilyClashAudit(container, ctx) {
   return installPsFamilyClashAuditTile(utilitiesRoot, ctx);
 }
 
+function mountPipeline3dModel(container, ctx) {
+  const utilitiesRoot = container.querySelector('.psnm-root') || container;
+  return installPipeline3dModelTile(utilitiesRoot, ctx);
+}
+
 export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
   const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
@@ -27,9 +33,11 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(container, ctx);
   const destroyPsMapping = mountPsMappingLauncher(container, ctx);
   const destroyPsFamilyClashAudit = mountPsFamilyClashAudit(container, ctx);
+  const destroyPipeline3dModel = mountPipeline3dModel(container, ctx);
   const destroyBridge = installPsMappingModalBridge(container, ctx);
   return () => {
     if (typeof destroyBridge === 'function') destroyBridge();
+    if (typeof destroyPipeline3dModel === 'function') destroyPipeline3dModel();
     if (typeof destroyPsFamilyClashAudit === 'function') destroyPsFamilyClashAudit();
     if (typeof destroyPsMapping === 'function') destroyPsMapping();
     if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
