@@ -2,12 +2,13 @@ import { renderXmlCompareTransferPreviewPanelHtml } from './XmlCompareTransferPr
 import { renderXmlCompareTransferStagePanelHtml } from './XmlCompareTransferStagePanel.js';
 import { renderXmlCompareTransferWorkflowPanelHtml } from './XmlCompareTransferWorkflowPanel.js';
 import { summarizeTransferOutput } from './XmlCompareTransferOutputModel.js';
+import { summarizeTransferExportReceipt } from './XmlCompareTransferExportReceipt.js';
 import { gateAllowsAction } from './XmlCompareTransferWorkflowGateModel.js';
 import { comparePanel, renderXmlCompareCandidatePairsPanelHtml, renderXmlCompareCandidateReviewControlsHtml } from './XmlCompareAnchorReviewPanel.js?v=20260704-c4';
 import { renderXmlCompareLogScreenHtml } from './XmlCompareLogScreen.js';
 import { renderXmlCompareDiagnosticsPanelHtml } from './XmlCompareDiagnosticsPanel.js';
 
-export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v3-output-export-hardening';
+export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v4-export-receipt-state';
 
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const clean = (value) => String(value ?? '').trim();
@@ -94,6 +95,26 @@ function blockerList(summary = {}) {
   return `<ul>${reasons.map((reason) => `<li>${esc(reason)}</li>`).join('')}</ul>`;
 }
 
+function receiptPanel(input = {}) {
+  const receipt = summarizeTransferExportReceipt(input.transferModal?.lastOutputReceipt);
+  if (receipt.isEmpty) return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-receipt" aria-label="Last output receipt"><div class="xml-compare-panel-title">Last output receipt</div><div class="xml-compare-empty">No transfer output action has been exported or copied yet.</div></section>`;
+  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-receipt" aria-label="Last output receipt">
+    <div class="xml-compare-panel-title">Last output receipt</div>
+    <div class="xmlc-transfer-metrics">
+      ${cardMetric('Action type', receipt.actionType)}
+      ${cardMetric('File / label', receipt.fileName || receipt.label)}
+      ${cardMetric('Timestamp', receipt.timestamp)}
+      ${cardMetric('Scope', receipt.scope)}
+      ${cardMetric('Selected blocks', receipt.selectedBlocks.join(', ') || '-')}
+      ${cardMetric('Updated count', receipt.updatedCount)}
+      ${cardMetric('Skipped count', receipt.skippedCount)}
+      ${cardMetric('Blocked count', receipt.blockedCount)}
+      ${cardMetric('Patched Target available', receipt.patchedTargetAvailable ? 'yes' : 'no')}
+      ${cardMetric('Output status', receipt.outputStatus)}
+    </div>
+  </section>`;
+}
+
 function outputActionBand(input = {}, tState = {}, stageScope = 'node') {
   const gate = input.transferWorkflowGate || null;
   const summary = summarizeTransferOutput({ input, tState, lastAction: input.transferModal?.lastTransferOutputAction || '' });
@@ -139,6 +160,7 @@ function transferTab(input = {}, tState = {}, stageScope = 'node', transferPrevi
   return `<div class="xml-compare-modal-tab-content ${isActive ? 'is-active' : ''} xmlc-transfer-review" data-xml-compare-modal-tab="transfer-compare" style="${isActive ? '' : 'display: none;'}">
     ${transferOverview(input, transferPreview, tState)}
     ${outputActionBand(input, tState, stageScope)}
+    ${receiptPanel(input)}
     <section class="xml-compare-panel xmlc-transfer-card">
       <div class="xml-compare-panel-title">Transfer workflow</div>
       ${renderXmlCompareTransferWorkflowPanelHtml({ gate: input.transferWorkflowGate })}
@@ -184,4 +206,4 @@ export function renderXmlCompareTransferModalPopupHtml({ input = {}, tState = {}
   </dialog>`;
 }
 
-export const _test = Object.freeze({ esc, clean, approvalCounts, cardMetric, transferOverview, outputActionMeta, transferButton, commandButton, legacyExportCompatibility, outputStateText, outputPreview, blockerList, outputActionBand, candidateTab, transferTab });
+export const _test = Object.freeze({ esc, clean, approvalCounts, cardMetric, transferOverview, outputActionMeta, transferButton, commandButton, legacyExportCompatibility, outputStateText, outputPreview, blockerList, receiptPanel, outputActionBand, candidateTab, transferTab });

@@ -22,7 +22,7 @@ function scopeOf(tState = {}, input = {}) {
 
 function actionMarksOutputDone(action = '') {
   const value = clean(action);
-  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value.startsWith('export-');
+  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value === 'copy-patched' || value.startsWith('export-');
 }
 
 export function buildTransferOutputFileNames(input = {}) {
