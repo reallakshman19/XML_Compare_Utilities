@@ -299,8 +299,36 @@ export function table1ToTabText(points) {
   return [header, ...lines].join('\n');
 }
 
+// Alternative Table 2 input: an AutoCAD LWPOLYLINE "LIST" console dump —
+// vertex lines interleaved with per-segment arc metadata (bulge / center /
+// radius / start angle / end angle) for curved segments, plus "Press ENTER
+// to continue:" pagination noise. Per instruction, arcs are approximated as
+// straight chords between vertices ("coarse changes" only) — since none of
+// the arc-metadata or pagination lines match AT_POINT_RE, extracting just
+// the "at point" vertices already gives that coarse approximation for free.
+// Horizontal = cumulative planar (X,Y) distance walked along the vertex
+// chain; Elevation = each vertex's Y value, taken as-is (no offset/scale
+// applied — flagged as an assumption to confirm against real data).
+function parseTable2AltFormat(text) {
+  const vertices = [];
+  for (const rawLine of splitLines(text)) {
+    const match = rawLine.match(AT_POINT_RE);
+    if (!match) continue; // skips bulge/center/radius/angle lines, "Press ENTER...", and header metadata
+    const [, x, y] = match;
+    vertices.push({ x: Number(x), y: Number(y) });
+  }
+  const rows = [];
+  let cumulative = 0;
+  vertices.forEach((p, i) => {
+    if (i > 0) cumulative += Math.hypot(p.x - vertices[i - 1].x, p.y - vertices[i - 1].y);
+    rows.push({ horizontal: round(cumulative), elevation: p.y });
+  });
+  return rows;
+}
+
 // --- Table 2: Horizontal (m) vs Grade Elevation (m) station list ---
 export function parseTable2(text) {
+  if (isAltPointFormatText(text)) return parseTable2AltFormat(text);
   const rows = [];
   for (const rawLine of splitLines(text)) {
     if (isSeparatorLine(rawLine)) continue;
