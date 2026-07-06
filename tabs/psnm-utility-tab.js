@@ -6,6 +6,7 @@ import { installPsnmAnchorPersistenceAddon } from './psnm-utility/psnm-anchor-pe
 import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-prefix-ui.js?v=20260614-support-prefix-ui-no-duplicate-playground-1';
 import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260705-ps-family-clash-audit-1';
+import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260706-layout-stabilizer-1';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
 function mountPsMappingLauncher(container, ctx) {
@@ -21,6 +22,7 @@ function mountPsFamilyClashAudit(container, ctx) {
 
 export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
+  const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
   const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(container, ctx);
   const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(container, ctx);
   const destroyPsMapping = mountPsMappingLauncher(container, ctx);
@@ -32,6 +34,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (typeof destroyPsMapping === 'function') destroyPsMapping();
     if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
     if (typeof destroyAxisAutoAnchor === 'function') destroyAxisAutoAnchor();
+    if (typeof destroyLayout === 'function') destroyLayout();
     if (typeof destroyPSNM === 'function') destroyPSNM();
   };
 }
