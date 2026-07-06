@@ -13,6 +13,14 @@ const EXPORT_ACTIONS = Object.freeze([
   ['export-transfer-diff-summary-json', 'Transfer diff summary JSON'],
   ['export-transfer-history-json', 'Export history JSON'],
 ]);
+const LEGACY_COUNTED_ACTIONS = new Set([
+  'export-patched-target-xml',
+  'export-transfer-audit-json',
+  'download-transfer-proof-json',
+  'copy-patched-target-preview',
+  'export-transfer-artifact-bundle',
+  'export-transfer-history-json',
+]);
 
 function row(actionType, label, status, reason, nextAction) {
   return Object.freeze({ actionType, label, status, reason, nextAction, ready: status === 'ready' });
@@ -48,6 +56,10 @@ function readinessRows(summary = {}, history = {}) {
   }));
 }
 
+function countedRows(rows = []) {
+  return rows.filter((item) => LEGACY_COUNTED_ACTIONS.has(item.actionType));
+}
+
 export function createTransferExportPreflight({ input = {}, tState = {}, summary = null } = {}) {
   const output = summary || summarizeTransferOutput({ input, tState, lastAction: input.transferModal?.lastTransferOutputAction || '' });
   return Object.freeze({
@@ -67,13 +79,14 @@ export function transferExportReadinessForAction(preflight = {}, actionType = ''
 
 export function summarizeTransferExportPreflight(preflight = {}) {
   const value = preflight?.schema === XML_COMPARE_TRANSFER_EXPORT_PREFLIGHT_SCHEMA ? preflight : createTransferExportPreflight();
+  const counted = countedRows(value.rows || []);
   return Object.freeze({
     schema: XML_COMPARE_TRANSFER_EXPORT_PREFLIGHT_SCHEMA,
     rows: Object.freeze([...(value.rows || [])]),
-    readyCount: (value.rows || []).filter((item) => item.status === 'ready').length,
-    blockedCount: (value.rows || []).filter((item) => item.status === 'blocked').length,
-    notAvailableCount: (value.rows || []).filter((item) => item.status === 'not available').length,
+    readyCount: counted.filter((item) => item.status === 'ready').length,
+    blockedCount: counted.filter((item) => item.status === 'blocked').length,
+    notAvailableCount: counted.filter((item) => item.status === 'not available').length,
   });
 }
 
-export const _test = Object.freeze({ clean, EXPORT_ACTIONS, row, stagedOrApplied, patchedReadiness, readinessRows });
+export const _test = Object.freeze({ clean, EXPORT_ACTIONS, LEGACY_COUNTED_ACTIONS, row, stagedOrApplied, patchedReadiness, readinessRows, countedRows });
