@@ -299,30 +299,54 @@ export function table1ToTabText(points) {
   return [header, ...lines].join('\n');
 }
 
+const RADIUS_RE = /^\s*radius\s+(-?[\d.]+)/i;
+const START_ANGLE_RE = /start\s*angle\s+(-?[\d.]+)/i;
+const END_ANGLE_RE = /end\s*angle\s+(-?[\d.]+)/i;
+
+// True arc length for a curved LWPOLYLINE segment: radius × swept angle.
+// The swept angle is |end − start|, wrapped into [0,360); values above 180
+// are the minor complement (these dumps list start/end for the drawn arc,
+// which is always the small sweep here).
+function arcLength(radius, startDeg, endDeg) {
+  let sweep = Math.abs(endDeg - startDeg) % 360;
+  if (sweep > 180) sweep = 360 - sweep;
+  return radius * (sweep * Math.PI) / 180;
+}
+
 // Alternative Table 2 input: an AutoCAD LWPOLYLINE "LIST" console dump —
 // vertex lines interleaved with per-segment arc metadata (bulge / center /
 // radius / start angle / end angle) for curved segments, plus "Press ENTER
-// to continue:" pagination noise. Per instruction, arcs are approximated as
-// straight chords between vertices ("coarse changes" only) — since none of
-// the arc-metadata or pagination lines match AT_POINT_RE, extracting just
-// the "at point" vertices already gives that coarse approximation for free.
-// Horizontal = cumulative planar (X,Y) distance walked along the vertex
-// chain; Elevation = each vertex's Y value, taken as-is (no offset/scale
-// applied — flagged as an assumption to confirm against real data).
+// to continue:" pagination noise. The arc block appears AFTER the segment's
+// first vertex and BEFORE its second, so we buffer any radius/start/end angle
+// seen since the last vertex and, on reaching the next vertex, measure that
+// segment as a true arc (radius × swept angle) instead of a straight chord.
+// Segments with no arc block fall back to chord distance. Horizontal =
+// cumulative along-route distance; Elevation = each vertex's Y value, taken
+// as-is (anchoring/offset is applied later by the caller if requested).
 function parseTable2AltFormat(text) {
-  const vertices = [];
-  for (const rawLine of splitLines(text)) {
-    const match = rawLine.match(AT_POINT_RE);
-    if (!match) continue; // skips bulge/center/radius/angle lines, "Press ENTER...", and header metadata
-    const [, x, y] = match;
-    vertices.push({ x: Number(x), y: Number(y) });
-  }
   const rows = [];
+  let prev = null;
   let cumulative = 0;
-  vertices.forEach((p, i) => {
-    if (i > 0) cumulative += Math.hypot(p.x - vertices[i - 1].x, p.y - vertices[i - 1].y);
+  let pendingArc = {};
+  for (const rawLine of splitLines(text)) {
+    const radiusMatch = rawLine.match(RADIUS_RE);
+    if (radiusMatch) { pendingArc.radius = Number(radiusMatch[1]); continue; }
+    const startMatch = rawLine.match(START_ANGLE_RE);
+    if (startMatch) { pendingArc.start = Number(startMatch[1]); continue; }
+    const endMatch = rawLine.match(END_ANGLE_RE);
+    if (endMatch) { pendingArc.end = Number(endMatch[1]); continue; }
+    const pointMatch = rawLine.match(AT_POINT_RE);
+    if (!pointMatch) continue; // bulge/center lines, "Press ENTER...", header metadata
+    const p = { x: Number(pointMatch[1]), y: Number(pointMatch[2]) };
+    if (prev) {
+      const chord = Math.hypot(p.x - prev.x, p.y - prev.y);
+      const useArc = pendingArc.radius != null && pendingArc.start != null && pendingArc.end != null;
+      cumulative += useArc ? arcLength(pendingArc.radius, pendingArc.start, pendingArc.end) : chord;
+    }
     rows.push({ horizontal: round(cumulative), elevation: p.y });
-  });
+    prev = p;
+    pendingArc = {};
+  }
   return rows;
 }
 
