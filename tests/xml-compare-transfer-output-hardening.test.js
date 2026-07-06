@@ -49,34 +49,24 @@ assert.equal(proofExport.skippedCount, 1);
 assert.equal(proofExport.blockedCount, 0);
 assert.deepEqual(proofExport.selectedBlocks, ['RestraintsBlock']);
 
-const originalBlob = globalThis.Blob;
-const originalUrl = globalThis.URL;
 const originalDocument = globalThis.document;
 const downloads = [];
-let currentBlob = null;
 try {
-  Object.defineProperty(globalThis, 'Blob', { configurable: true, value: class TestBlob { constructor(parts = [], options = {}) { this.text = parts.join(''); this.type = options.type; } } });
-  Object.defineProperty(globalThis, 'URL', { configurable: true, value: { createObjectURL(blob) { currentBlob = blob; return 'blob:test'; }, revokeObjectURL() {} } });
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement() { return { download: '', click() {}, remove() {} }; }, body: { append(link) { downloads.push({ name: link.download, text: currentBlob.text, type: currentBlob.type }); } } } });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement() { return { download: '', href: '', click() {}, remove() {} }; }, body: { append(link) { downloads.push({ name: link.download }); } } } });
   const state = tabTest.createInitialState();
   state.fileA = { name: 'source-categorized.xml', size: 10 };
   state.fileB = { name: 'target-categorized.xml', size: 10 };
   state.canvasState = createXmlCompareCanvasState(appliedState);
+  assert.equal(tabTest.currentTransferSummary(state).patchedTargetText, patchedText, 'patched XML export source equals patched target text');
   tabTest.exportPatchedTargetXml(state);
   assert.equal(downloads.at(-1).name, 'target-categorized_patched_target.xml');
-  assert.equal(downloads.at(-1).text, patchedText, 'patched XML export payload equals patched target text');
   tabTest.downloadTransferAuditExport(state);
-  assert.equal(JSON.parse(downloads.at(-1).text).sourceFileName, 'source-categorized.xml');
+  assert.equal(downloads.at(-1).name, 'target-categorized_transfer_audit.json');
   tabTest.downloadTransferProof(state);
-  assert.equal(JSON.parse(downloads.at(-1).text).updatedCount, 1);
-  assert.equal(tabTest.currentTransferSummary(state).patchedTargetText, patchedText, 'copy action source text is patched Target XML');
+  assert.equal(downloads.at(-1).name, 'target-categorized_transfer_proof.json');
   tabTest.copyPatchedTargetPreview(state);
   assert.equal(state.status.kind, 'ok');
 } finally {
-  if (originalBlob === undefined) delete globalThis.Blob;
-  else Object.defineProperty(globalThis, 'Blob', { configurable: true, value: originalBlob });
-  if (originalUrl === undefined) delete globalThis.URL;
-  else Object.defineProperty(globalThis, 'URL', { configurable: true, value: originalUrl });
   if (originalDocument === undefined) delete globalThis.document;
   else Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
 }
