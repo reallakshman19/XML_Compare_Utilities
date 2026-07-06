@@ -15,12 +15,14 @@ function installDownloadStubs() {
   const savedDocument = globalThis.document;
   const savedUrl = globalThis.URL;
   const savedNavigator = globalThis.navigator;
+  const savedClipboard = savedNavigator?.clipboard;
   const blobByUrl = new Map();
   const downloads = [];
   globalThis.URL = { createObjectURL(blob) { const url = `blob:test-${blobByUrl.size}`; blobByUrl.set(url, blob); return url; }, revokeObjectURL() {} };
   globalThis.document = { createElement() { return { href: '', download: '', click() { downloads.push({ fileName: this.download, blob: blobByUrl.get(this.href) }); }, remove() {} }; }, body: { append() {} } };
-  Object.defineProperty(globalThis, 'navigator', { value: { clipboard: { writeText: async () => {} } }, configurable: true });
-  return { downloads, restore() { globalThis.document = savedDocument; globalThis.URL = savedUrl; Object.defineProperty(globalThis, 'navigator', { value: savedNavigator, configurable: true }); } };
+  if (!globalThis.navigator) Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
+  Object.defineProperty(globalThis.navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
+  return { downloads, restore() { globalThis.document = savedDocument; globalThis.URL = savedUrl; if (savedNavigator) Object.defineProperty(globalThis.navigator, 'clipboard', { value: savedClipboard, configurable: true }); } };
 }
 function makeState() {
   const state = tabTest.createInitialState();
