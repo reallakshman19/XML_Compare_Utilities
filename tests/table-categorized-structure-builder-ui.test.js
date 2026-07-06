@@ -33,7 +33,8 @@ assert.ok(html.includes('data-table-categorized-action="select-level"'), 'level 
 assert.ok(html.includes('data-table-categorized-action="add-child-level"'), 'add child remains rendered');
 assert.ok(html.includes('data-table-categorized-action="remove-level" data-path="0" disabled'), 'root delete is disabled');
 
-const childHtml = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0,0' });
+const keyedProfile = updateLevelAtPath(profile, [0, 0], { creationMode: 'one-per-key', keyResolver: { op: 'trim', column: 'PS NO' } });
+const childHtml = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile: keyedProfile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0,0' });
 assert.ok(childHtml.includes('data-level-path="0,0"'), 'child path is stable and rendered');
 assert.ok(childHtml.includes('data-level-split-dot="true"'), 'text-before-dot quick behavior remains available for keyed nodes');
 
@@ -42,6 +43,6 @@ assert.ok(runtime.includes('changeDisplayColumn'), 'runtime handles display reso
 
 const invalid = updateLevelAtPath(profile, [0], { xmlTag: 'Bad Tag' });
 const diagnostics = validateEditableProfile(invalid, { sources: [source] });
-assert.ok(diagnostics.some((item) => item.code === 'profile_xml_tag_invalid' || item.message.includes('XML')), 'invalid XML tag remains caught by validation');
+assert.ok(diagnostics.some((item) => item.message.includes('XML')), 'invalid XML tag remains caught by validation');
 
 console.log('table-categorized-structure-builder-ui.test.js passed');
