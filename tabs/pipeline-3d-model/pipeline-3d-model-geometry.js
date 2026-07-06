@@ -82,6 +82,41 @@ function chainGlobalPositions(points) {
   return points;
 }
 
+const AT_POINT_RE = /at\s*point\s*X\s*=\s*(-?[\d.]+)\s*Y\s*=\s*(-?[\d.]+)\s*Z\s*=\s*(-?[\d.]+)/i;
+
+// Alternative Table 1 input: CAD/GIS-style dump with metadata lines
+// ("Constant width", "area", "length") followed by "at point X= Y= Z=" rows,
+// e.g.:
+//   Constant width     0.300
+//             length   511.100
+//           at point  X=  661.549  Y= -160.249  Z=    0.000
+// No label, Origin, or Angle columns are available in this format, so points
+// get auto-generated labels and default to Origin (0,0,0) / Angle 0 — same
+// as a legacy 3-number frozen-format row.
+function isAltPointFormatText(text) {
+  return AT_POINT_RE.test(text);
+}
+
+function parseAltPointFormat(text) {
+  const points = [];
+  for (const rawLine of splitLines(text)) {
+    const match = rawLine.match(AT_POINT_RE);
+    if (!match) continue; // skip metadata lines (Constant width / area / length)
+    const [, x, y, z] = match;
+    points.push({
+      label: `Point ${points.length + 1}`,
+      x: Number(x),
+      y: Number(y),
+      z: Number(z),
+      originX: 0,
+      originY: 0,
+      originZ: 0,
+      angleDeg: 0,
+    });
+  }
+  return points;
+}
+
 // --- Table 1: Point / X / Y / Z key vertices, with the geometry's single
 // Origin Global Coordinate (X, Y, Z) carried on every row for convenience,
 // plus a per-row in-plane rotation Angle — used when the pipeline route
@@ -95,6 +130,9 @@ function chainGlobalPositions(points) {
 // used as the seed anchor; every later sheet is anchored by continuity (see
 // chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
+  if (isAltPointFormatText(text)) {
+    return chainGlobalPositions(parseAltPointFormat(text));
+  }
   const points = [];
   for (const rawLine of splitLines(text)) {
     if (isSeparatorLine(rawLine)) continue;
