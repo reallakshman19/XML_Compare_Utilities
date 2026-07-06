@@ -83,7 +83,7 @@ function mountPopup(root, config, onClose) {
   const popup = document.createElement('section'); popup.className = 'psmap-card ps-family-clash-audit-dialog'; popup.setAttribute('data-ps-family-clash-audit', '1'); popup.setAttribute('role', 'dialog'); popup.setAttribute('aria-modal', 'true'); popup.setAttribute('aria-labelledby', POPUP_TITLE_ID); popup.setAttribute('aria-describedby', POPUP_DESC_ID); popup.setAttribute('tabindex', '-1'); popup.innerHTML = renderPopup(config);
   modal.appendChild(popup); (document.body || root).appendChild(modal);
   const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
-  wireCloseControls(modal, popup, onClose); wireWorkspaceTabs(popup, state); wireFileInputs(popup, get, config); wireSampleButtons(popup, get); wireTextPreviewInputs(popup, get); wireReportTabs(popup, state, config); wireReportSearch(popup, state, config); wireCheckButton(popup, get, state, config); wireRunButton(popup, get, state); wireActiveExportButton(get, state); wireExportButtons(get, state, config); renderPreviews(popup, get); renderAudit(popup, state, config);
+  wireCloseControls(modal, popup, onClose); wireWorkspaceTabs(popup, state); wireFileInputs(popup, get, config); wireSampleButtons(popup, get); wireTextPreviewInputs(popup, get); wireReportTabs(popup, state, config); wireReportSearch(popup, state, config); wireCheckButton(popup, get, state, config); wireRunButton(popup, get, state, config); wireActiveExportButton(get, state); wireExportButtons(get, state, config); renderPreviews(popup, get); renderAudit(popup, state, config);
   if (typeof popup.focus === 'function') popup.focus();
   return modal;
 }
