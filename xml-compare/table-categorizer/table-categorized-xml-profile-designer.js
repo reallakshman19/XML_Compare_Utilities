@@ -1,7 +1,8 @@
+import { normalizeOutputViews } from './table-categorized-output-view-contracts.js';
 import { DEFAULT_COORDINATE_CLUSTER_CONTRACT } from './table-categorized-xml-coordinate-cluster.js';
 import { PS_MAPPING_TABLE_2_SHADOW_PROFILE } from './table-categorized-xml-pilot-profiles.js';
 
-export const TABLE_CATEGORIZED_XML_PROFILE_DESIGNER_SCHEMA='table-categorized-xml-profile-designer/v3-root-delete-guard';
+export const TABLE_CATEGORIZED_XML_PROFILE_DESIGNER_SCHEMA='table-categorized-xml-profile-designer/v4-output-views';
 
 export const LEVEL_TYPE_OPTIONS=Object.freeze(['container','partition','group','occurrence','feature','measure','attribute','evidence','diagnostic']);
 export const CREATION_MODE_OPTIONS=Object.freeze(['static','zero-or-one','one-per-key','one-per-row','many-per-row','conditional','lookup-joined','coordinate-clustered']);
@@ -40,6 +41,7 @@ export function normalizeImportedProfile(rawProfile={}){
   profile.rootPartitions=normalizeArray(profile.rootPartitions).map(clone);
   profile.joins=normalizeArray(profile.joins).map(clone);
   profile.levelDefinitions=normalizeArray(profile.levelDefinitions).map(normalizeLevel);
+  if('outputViews' in profile)profile.outputViews=normalizeOutputViews(profile.outputViews);
   if(!profile.levelDefinitions.length)diagnostics.push(message('WARNING','recipe_level_definitions_empty','Recipe has no graph levels yet.'));
   if(!profile.rootPartitions.length)diagnostics.push(message('INFO','recipe_root_partitions_empty','Recipe has no explicit root partitions; a later export can still use the single document root.'));
   if(profile.coordinateCluster!=null&&!isPlainObject(profile.coordinateCluster)){
@@ -95,7 +97,7 @@ export function createLevel({levelId,displayName='',levelType='group',creationMo
 }
 
 export function updateProfileHeader(profile,patch={}){
-  return freezeProfile({...clone(profile),...pick(patch,['profileId','displayName','version','presetType','requiredColumns','optionalColumns','duplicateKeyPolicy','multiValuePolicy','coordinateCluster','rootPartitions','joins'])});
+  return freezeProfile({...clone(profile),...pick(patch,['profileId','displayName','version','presetType','requiredColumns','optionalColumns','duplicateKeyPolicy','multiValuePolicy','coordinateCluster','rootPartitions','joins','outputViews'])});
 }
 
 export function updateLevelAtPath(profile,path=[],patch={}){
@@ -195,6 +197,7 @@ function freezeProfile(profile){
   out.rootPartitions=normalizeArray(out.rootPartitions).map(clone);
   out.joins=normalizeArray(out.joins).map(clone);
   out.levelDefinitions=normalizeArray(out.levelDefinitions).map(normalizeLevel);
+  if('outputViews' in out)out.outputViews=normalizeOutputViews(out.outputViews);
   if(out.coordinateCluster!=null&&isPlainObject(out.coordinateCluster))out.coordinateCluster=clone(out.coordinateCluster);
   return deepFreeze(out);
 }
@@ -224,10 +227,8 @@ export function generateSuggestedProfiles(headers=[]) {
   const h1 = headers[0] || 'Column1';
   const h2 = headers[1] || 'Column2';
   const h3 = headers[2] || 'Column3';
-  
   const suggestions = [];
 
-  // Suggestion 1: Flat List (Root -> Row)
   suggestions.push(freezeProfile({
     schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-flat', displayName: 'Flat List', version: '1.0.0', presetType: 'suggestion',
     requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
@@ -236,7 +237,6 @@ export function generateSuggestedProfiles(headers=[]) {
     ]})]
   }));
 
-  // Suggestion 2: Grouped by Column 1 (Root -> Group -> Row)
   suggestions.push(freezeProfile({
     schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-1', displayName: `Grouped by ${h1}`, version: '1.0.0', presetType: 'suggestion',
     requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
@@ -247,37 +247,31 @@ export function generateSuggestedProfiles(headers=[]) {
     ]})]
   }));
 
-  // Suggestion 3: Nested Groups (Root -> Group1 -> Group2 -> Row)
-  if (headers.length >= 2) {
-    suggestions.push(freezeProfile({
-      schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-2', displayName: `Grouped by ${h1} -> ${h2}`, version: '1.0.0', presetType: 'suggestion',
-      requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
-      levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
-        level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
-          level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
+  if (headers.length >= 2) suggestions.push(freezeProfile({
+    schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-2', displayName: `Grouped by ${h1} -> ${h2}`, version: '1.0.0', presetType: 'suggestion',
+    requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+    levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+      level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
+        level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
+          level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
+        ]})
+      ]})
+    ]})]
+  }));
+
+  if (headers.length >= 3) suggestions.push(freezeProfile({
+    schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-3', displayName: `Grouped by ${h1} -> ${h2} -> ${h3}`, version: '1.0.0', presetType: 'suggestion',
+    requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
+    levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
+      level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
+        level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
+          level({levelId: 'Group3', displayName: h3, xmlTag: h3.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h3}, children: [
             level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
           ]})
         ]})
-      ]})]
-    }));
-  }
-
-  // Suggestion 4: Deep Nested Groups (Root -> Group1 -> Group2 -> Group3 -> Row)
-  if (headers.length >= 3) {
-    suggestions.push(freezeProfile({
-      schema: 'UniversalCategorizerProfile.v1', profileId: 'suggestion-group-3', displayName: `Grouped by ${h1} -> ${h2} -> ${h3}`, version: '1.0.0', presetType: 'suggestion',
-      requiredColumns: [], optionalColumns: [], duplicateKeyPolicy: 'merge-sourceRefs', multiValuePolicy: 'single-value', coordinateCluster: {...DEFAULT_COORDINATE_CLUSTER_CONTRACT}, joins: [], rootPartitions: [],
-      levelDefinitions: [level({levelId: 'Root', displayName: 'Root', levelType: 'container', creationMode: 'static', key: 'ROOT', documentRoot: true, children: [
-        level({levelId: 'Group1', displayName: h1, xmlTag: h1.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h1}, children: [
-          level({levelId: 'Group2', displayName: h2, xmlTag: h2.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h2}, children: [
-            level({levelId: 'Group3', displayName: h3, xmlTag: h3.replace(/[^a-zA-Z0-9]/g, ''), levelType: 'group', creationMode: 'one-per-key', keyResolver: {op:'trim', column: h3}, children: [
-              level({levelId: 'Row', displayName: 'Row', xmlTag: 'Row', levelType: 'occurrence', creationMode: 'one-per-row', keyResolver: {op:'literal', value:'Row'}, children: []})
-            ]})
-          ]})
-        ]})
-      ]})]
-    }));
-  }
+      ]})
+    ]})]
+  }));
 
   return suggestions;
 }
