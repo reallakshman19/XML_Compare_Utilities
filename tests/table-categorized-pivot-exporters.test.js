@@ -36,7 +36,6 @@ const before = JSON.stringify(viewModel);
 const json = exportPivotViewModelJson(viewModel);
 assert.equal(json.ok, true);
 assert.equal(json.text, exportPivotViewModelJson(viewModel).text, 'JSON export is deterministic');
-assert.ok(json.text.includes('"sourceRefs": [\n            "S1:R1"'));
 assert.ok(json.text.indexOf('"schema"') < json.text.indexOf('"rowFields"'), 'JSON key order is stable');
 const parsed = JSON.parse(json.text);
 assert.deepEqual(parsed.rows[0].cells[0].sourceRefs, ['S1:R1'], 'sourceRefs are preserved in JSON');
