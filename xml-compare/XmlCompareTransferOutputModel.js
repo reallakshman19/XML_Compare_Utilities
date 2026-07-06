@@ -22,7 +22,7 @@ function scopeOf(tState = {}, input = {}) {
 
 function actionMarksOutputDone(action = '') {
   const value = clean(action);
-  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value === 'copy-patched' || value.startsWith('export-');
+  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value === 'copy-patched' || value === 'export-bundle' || value.startsWith('export-');
 }
 
 export function buildTransferOutputFileNames(input = {}) {
@@ -31,6 +31,7 @@ export function buildTransferOutputFileNames(input = {}) {
     patchedTargetXml: `${targetBase}_patched_target.xml`,
     transferAuditJson: `${targetBase}_transfer_audit.json`,
     transferProofJson: `${targetBase}_transfer_proof.json`,
+    transferManifestJson: `${targetBase}_transfer_manifest.json`,
   });
 }
 
