@@ -6,13 +6,15 @@ import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.j
 import { renderPsFamilyReports, renderPsFamilySummary } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 
 const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(launcher.includes('PS clash check'));
+assert.ok(launcher.includes('PS Family Clash Audit'));
+assert.ok(launcher.includes('⚠️↔️'));
+assert.ok(launcher.includes('Audit Navis clash XML against expected PS family mapping.'));
 assert.ok(launcher.includes('data-psfa-open="1"'));
-assert.ok(!launcher.includes('Clash XML'));
+assert.ok(!launcher.includes('Clash XML<textarea'));
 
 const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(popup.includes('data-psfa-close="1"'));
-assert.ok(popup.includes('Close PS clash check'));
+assert.ok(popup.includes('>Close</button>'));
 assert.ok(popup.includes('aria-label="Close PS Family Clash Audit popup"'));
 assert.ok(popup.includes('id="ps-family-clash-audit-title"'));
 assert.ok(popup.includes('id="ps-family-clash-audit-desc"'));
@@ -45,8 +47,13 @@ assert.ok(shell.includes('Diagnostics CSV'));
 
 const tabSource = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 assert.match(tabSource, /if \(popup\) return;/);
+assert.match(tabSource, /ps-family-clash-audit-backdrop/);
+assert.match(tabSource, /ps-family-clash-audit-dialog/);
+assert.match(tabSource, /document\.body \|\| root/);
+assert.match(tabSource, /event\.target === modal/);
 assert.match(tabSource, /keydown/);
 assert.match(tabSource, /event\.key === 'Escape'/);
+assert.match(tabSource, /aria-modal/);
 assert.match(tabSource, /aria-labelledby/);
 assert.match(tabSource, /aria-describedby/);
 assert.match(tabSource, /showWorkspacePanel/);

@@ -1,9 +1,9 @@
-export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v1';
+export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v2-launcher-tile';
 
 export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   schema: PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA,
   appTitle: 'PS Family Clash Audit',
-  launcher: Object.freeze({ label: 'PS clash check', icon: '🔎', help: 'Open PS Family Clash Audit popup' }),
+  launcher: Object.freeze({ label: 'PS Family Clash Audit', icon: '⚠️↔️', help: 'Audit Navis clash XML against expected PS family mapping.' }),
   inputRows: 5,
   sourceFamilyPlaceholder: 'Auto from expected CSV, or enter PS-11147',
   posToleranceMm: 25,
