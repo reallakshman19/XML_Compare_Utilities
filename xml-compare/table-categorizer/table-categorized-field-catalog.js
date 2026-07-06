@@ -35,8 +35,8 @@ export function inferFieldRole({ header = '', type = 'text', uniqueCount = 0, ro
   if (index === 0 && type === 'text' && uniqueCount > 0 && uniqueCount === rowCount) return 'key';
   if (KEY_HINT.test(header) && type !== 'number') return 'key';
   if (type === 'number') return 'measure';
-  if (GROUP_HINT.test(header)) return 'group';
-  if (rowCount > 1 && uniqueCount > 0 && uniqueCount <= Math.max(8, Math.ceil(rowCount * 0.2))) return 'group';
+  if (type === 'text' && GROUP_HINT.test(header)) return 'group';
+  if (type === 'text' && rowCount > 1 && uniqueCount > 0 && uniqueCount <= Math.max(8, Math.ceil(rowCount * 0.2))) return 'group';
   return 'attribute';
 }
 
