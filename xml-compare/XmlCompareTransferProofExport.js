@@ -1,7 +1,7 @@
 import { createTransferProof } from './XmlCompareTransferProofModel.js';
 import { summarizeTransferOutput } from './XmlCompareTransferOutputModel.js';
 
-export const XML_COMPARE_TRANSFER_PROOF_EXPORT_SCHEMA = 'xml-compare-transfer-proof-export/v1';
+export const XML_COMPARE_TRANSFER_PROOF_EXPORT_SCHEMA = 'xml-compare-transfer-proof/v1';
 const clean = (value) => String(value ?? '').trim();
 
 export function createTransferProofExport({ input = {}, tState = {}, generatedAt = null, exportedFileName = '' } = {}) {
