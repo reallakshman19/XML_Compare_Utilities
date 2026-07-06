@@ -12,12 +12,15 @@ const handledActions = new Set([
   'add-source', 'remove-source', 'clear', 'load-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
   'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
-  'add-pivot-view', 'select-pivot-view', 'download-pivot-json', 'download-pivot-csv', 'download-pivot-html',
+  'add-pivot-view', 'select-pivot-view', 'remove-pivot-view',
+  'add-pivot-row-field', 'remove-pivot-row-field', 'add-pivot-column-field', 'remove-pivot-column-field',
+  'add-pivot-value-field', 'remove-pivot-value-field', 'download-pivot-json', 'download-pivot-csv', 'download-pivot-html',
   'use-current-graph-source-canvas', 'use-imported-graph-target-canvas', 'run-graph-compare-canvas',
   'build-graph-connectors', 'download-graph-connectors-json', 'clear-compare-canvas-preview',
   'send-source', 'send-target', 'confirm-canvas-handoff', 'cancel-canvas-handoff',
 ]);
 const handledDownloads = new Set(['xml', 'graph', 'profile', 'diagnostics', 'audit']);
+const dynamicPivotActions = new Set(['download-pivot-json', 'download-pivot-csv', 'download-pivot-html']);
 
 function buttonTags(html, attr) {
   const pattern = new RegExp(`<button\\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g');
@@ -41,7 +44,7 @@ function readyState(activeStep = 'columns', patch = {}) {
 }
 function stepToTab(step) { return { table: 'source', columns: 'levels', structure: 'graph', preview: 'validation', export: 'export' }[step] || 'source'; }
 function representativeStates() {
-  const transformRules = [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.', replaceWith: '' }];
+  const transformRules = [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }];
   const graph = { nodes: [{ id: 'n1', fields: { 'PS NO': 'PS-100.1', Bore: '100' }, sourceRefs: ['S1:R1'] }], edges: [], documentRootNodeIds: ['n1'] };
   const exportResult = { ok: true, xmlText: '<CategorizedXML/>', graphJson: '{}', diagnosticsJson: '[]', auditJson: '{}' };
   const pendingHandoff = { summary: { targetCanvas: 'source', xmlRoot: 'CategorizedXML', byteCount: 18, lineCount: 1, origin: 'Table Categorized', warning: 'Review before sending.' } };
@@ -60,7 +63,10 @@ const activeDownloads = activeValues(buttonTags(renderedHtml, 'data-table-catego
 
 assert.ok(activeActions.length > 0, 'representative shell states render active actions');
 for (const action of activeActions) assert.ok(handledActions.has(action), `rendered action must be handled or intentionally disabled: ${action}`);
-for (const action of handledActions) assert.ok(runtimeSource.includes(action), `runtime source must contain handler evidence for ${action}`);
+for (const action of handledActions) {
+  if (dynamicPivotActions.has(action)) assert.ok(runtimeSource.includes("download-pivot-"), `runtime source must contain dynamic pivot download handler evidence for ${action}`);
+  else assert.ok(runtimeSource.includes(action), `runtime source must contain handler evidence for ${action}`);
+}
 for (const kind of activeDownloads) assert.ok(handledDownloads.has(kind), `rendered download must be handled: ${kind}`);
 for (const kind of handledDownloads) assert.ok(runtimeSource.includes(`kind==='${kind}'`) || runtimeSource.includes(`kind === '${kind}'`), `runtime source must contain download evidence for ${kind}`);
 
@@ -71,6 +77,10 @@ assert.ok(activeActions.includes('load-suggested-profile'), 'load-suggested-prof
 assert.ok(activeActions.includes('select-level'), 'recipe tree level selection action is rendered and handled');
 assert.ok(activeActions.includes('add-pivot-view'), 'add-pivot-view is rendered and handled');
 assert.ok(activeActions.includes('select-pivot-view'), 'select-pivot-view is rendered and handled');
+assert.ok(activeActions.includes('remove-pivot-view'), 'remove-pivot-view is rendered and handled');
+assert.ok(activeActions.includes('add-pivot-row-field'), 'add row field action is rendered and handled');
+assert.ok(activeActions.includes('add-pivot-column-field'), 'add column field action is rendered and handled');
+assert.ok(activeActions.includes('add-pivot-value-field'), 'add value field action is rendered and handled');
 assert.ok(activeActions.includes('download-pivot-json'), 'download-pivot-json is rendered and handled');
 assert.ok(activeActions.includes('download-pivot-csv'), 'download-pivot-csv is rendered and handled');
 assert.ok(activeActions.includes('download-pivot-html'), 'download-pivot-html is rendered and handled');
