@@ -23,7 +23,8 @@ export function isBlank(value) {
 
 function numericValues(values, fieldId, aggregate, diagnostics) {
   return values.flatMap((value) => {
-    const parsed = Number(String(value).replace(/[^0-9.+-]/g, ''));
+    const cleaned = String(value).replace(/[^0-9.+-]/g, '');
+    const parsed = cleaned ? Number(cleaned) : NaN;
     if (Number.isFinite(parsed)) return [parsed];
     diagnostics.push(diag('pivot_numeric_value_invalid', `${aggregate} ignored non-numeric value for ${fieldId}: ${value}.`, fieldId));
     return [];
