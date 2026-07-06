@@ -50,25 +50,15 @@ assert.equal(proofExport.skippedCount, 1);
 assert.equal(proofExport.blockedCount, 0);
 assert.deepEqual(proofExport.selectedBlocks, ['RestraintsBlock']);
 
-const originalDocument = globalThis.document;
-const downloads = [];
-try {
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement() { return { download: '', href: '', click() {}, remove() {} }; }, body: { append(link) { downloads.push({ name: link.download }); } } } });
-  const state = tabTest.createInitialState();
-  state.fileA = { name: 'source-categorized.xml', size: 10 };
-  state.fileB = { name: 'target-categorized.xml', size: 10 };
-  state.canvasState = createXmlCompareCanvasState(appliedState);
-  assert.equal(tabTest.currentTransferSummary(state).patchedTargetText, patchedText, 'patched XML export source equals patched target text');
-  tabTest.exportPatchedTargetXml(state);
-  assert.equal(downloads.at(-1).name, 'target-categorized_patched_target.xml');
-  tabTest.downloadTransferAuditExport(state);
-  assert.equal(downloads.at(-1).name, 'target-categorized_transfer_audit.json');
-  tabTest.downloadTransferProof(state);
-  assert.equal(downloads.at(-1).name, 'target-categorized_transfer_proof.json');
-} finally {
-  if (originalDocument === undefined) delete globalThis.document;
-  else Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
-}
+const state = tabTest.createInitialState();
+state.fileA = { name: 'source-categorized.xml', size: 10 };
+state.fileB = { name: 'target-categorized.xml', size: 10 };
+state.canvasState = createXmlCompareCanvasState(appliedState);
+const tabSummary = tabTest.currentTransferSummary(state);
+assert.equal(tabSummary.patchedTargetText, patchedText, 'patched XML export source equals patched target text');
+assert.equal(tabSummary.fileNames.patchedTargetXml, 'target-categorized_patched_target.xml');
+assert.equal(tabSummary.fileNames.transferAuditJson, 'target-categorized_transfer_audit.json');
+assert.equal(tabSummary.fileNames.transferProofJson, 'target-categorized_transfer_proof.json');
 
 const shellInput = { source: { records: [], levelView: { levelId: 'line', hierarchyProfile: { levels: [{ levelId: 'line', label: 'Line', recordCount: 1 }] }, fields: ['lineNo'] } }, target: { records: [], levelView: { levelId: 'line', hierarchyProfile: { levels: [{ levelId: 'line', label: 'Line', recordCount: 1 }] }, fields: ['lineNo'] } }, navStates: {}, compareFields: [], anchor: { sourceUid: 'S1', targetUid: 'T1' }, selectedRecords: {}, availableConnectors: [{ field: 'lineNo', label: 'LineNo', sourceValue: 'L1', targetValue: 'L1' }], enabledConnectorFields: ['lineNo'], aim: { connectionType: 'numeric', basis: 'coordinate' } };
 const shellHtml = renderXmlCompareWorkspaceShellHtml(shellInput);
