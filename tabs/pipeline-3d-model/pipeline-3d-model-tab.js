@@ -1,5 +1,5 @@
 import { buildCombinedCoordinateTable } from './pipeline-3d-model-geometry.js';
-import { buildCoordinateRows, coordinateRowsToTabText, buildPipeline3dModelXml } from './pipeline-3d-model-xml-builder.js';
+import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js';
 import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
 import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from './pipeline-3d-model-samples.js';
 
@@ -73,7 +73,7 @@ ${renderBranchForm()}
 <div class="p3d-output">
 <h4>Coordinate Tab Output</h4>
 <pre data-p3d="coordinate-output">Run to generate.</pre>
-<h4>CII(2019) Custom Input XML</h4>
+<h4>InputXML→CII(2019) PIPINGELEMENT XML</h4>
 <pre data-p3d="xml-output">Run to generate.</pre>
 </div>
 </div>`;
@@ -92,6 +92,10 @@ function readBranchInfo(get) {
     t3: value('t3'),
     fluidDensity: value('fluidDensity'),
     materialCode: value('materialCode'),
+    corrosionAllowance: value('corrosionAllowance'),
+    insulationThickness: value('insulationThickness'),
+    insulationDensity: value('insulationDensity'),
+    hydroPressure: value('hydroPressure'),
   };
 }
 
@@ -138,7 +142,7 @@ function runConversion(host, get, state) {
   const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
   const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
   const coordinateText = coordinateRowsToTabText(coordinateRows);
-  const xmlText = buildPipeline3dModelXml(branchInfo, coordinateRows);
+  const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
 
   state.coordinateText = coordinateText;
   state.xmlText = xmlText;

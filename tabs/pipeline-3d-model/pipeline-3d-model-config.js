@@ -14,6 +14,10 @@ export const CONFIG_FIELDS = Object.freeze([
   { key: 't3', label: 'T3', unit: 'Deg C', default: '5' },
   { key: 'fluidDensity', label: 'Fluid Density', unit: 'kg/m3', default: '100' },
   { key: 'materialCode', label: 'Material Code', unit: '', default: '106' },
+  { key: 'corrosionAllowance', label: 'Corrosion Allowance', unit: 'mm', default: '0' },
+  { key: 'insulationThickness', label: 'Insulation Thickness', unit: 'mm', default: '0' },
+  { key: 'insulationDensity', label: 'Insulation Density', unit: 'kg/m3', default: '0' },
+  { key: 'hydroPressure', label: 'Hydro Test Pressure', unit: '', default: '' },
 ]);
 
 export function fieldLabel(field) {

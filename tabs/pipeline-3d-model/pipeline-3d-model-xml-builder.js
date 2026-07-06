@@ -41,40 +41,78 @@ function tag(name, value) {
   return `<${name}>${esc(value)}</${name}>`;
 }
 
-function nodeXml(row, branchInfo) {
-  const position = `${row.x} ${row.y} ${row.z}`;
+// Sentinel used throughout 3D_Converters' InputXML->CII(2019) workflow to mean
+// "no value supplied" (converters/scripts/inputxml_to_cii2019.py /
+// xml-cii-inputxml-enrichment.js: isSentinel() checks abs(n + 1.0101) < 1e-6).
+// Using it here (rather than 0 or blank) so downstream enrichment treats these
+// exactly like any other un-supplied CAESAR II field.
+const SENTINEL_MISSING = '-1.010100';
+
+function num(value, fallback = SENTINEL_MISSING) {
+  if (value === '' || value == null) return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : fallback;
+}
+
+function attr(name, value) {
+  return `${name}="${esc(value)}"`;
+}
+
+// Builds one <PIPINGELEMENT> per consecutive node pair, matching the schema
+// CAESARII > PIPINGMODEL > PIPINGELEMENT required by 3D_Converters'
+// InputXML->CII(2019) workflow (converters/scripts/inputxml_to_cii2019*.py,
+// which hard-requires FROM_NODE/TO_NODE and rejects files with zero
+// PIPINGELEMENT rows). FROM_NAME/TO_NAME carry the marker/point label for
+// each node, per the "marker information passed as Node Name" requirement.
+function pipingElementXml(fromRow, toRow, branchInfo) {
+  const deltaX = num(toRow.x - fromRow.x);
+  const deltaY = num(toRow.y - fromRow.y);
+  const deltaZ = num(toRow.z - fromRow.z);
+  const attrs = [
+    attr('FROM_NODE', fromRow.nodeNumber),
+    attr('TO_NODE', toRow.nodeNumber),
+    attr('DELTA_X', deltaX),
+    attr('DELTA_Y', deltaY),
+    attr('DELTA_Z', deltaZ),
+    attr('DIAMETER', num(branchInfo.boreMm)),
+    attr('WALL_THICK', num(branchInfo.wallThickness)),
+    attr('INSUL_THICK', num(branchInfo.insulationThickness, '0')),
+    attr('CORR_ALLOW', num(branchInfo.corrosionAllowance, '0')),
+    attr('TEMP_EXP_C1', num(branchInfo.t1)),
+    attr('TEMP_EXP_C2', num(branchInfo.t2)),
+    attr('TEMP_EXP_C3', num(branchInfo.t3)),
+    attr('PRESSURE1', num(branchInfo.p1)),
+    attr('PRESSURE2', SENTINEL_MISSING),
+    attr('PRESSURE3', SENTINEL_MISSING),
+    attr('MATERIAL_NUM', num(branchInfo.materialCode)),
+    attr('FLUID_DENSITY', num(branchInfo.fluidDensity)),
+    attr('INSUL_DENSITY', num(branchInfo.insulationDensity, '0')),
+    attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
+    attr('LINE_ID', branchInfo.lineNo || branchInfo.branchName),
+    attr('FROM_NAME', fromRow.nodeName),
+    attr('TO_NAME', toRow.nodeName),
+  ];
+  return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
+}
+
+// Builds the CAESARII > PIPINGMODEL > PIPINGELEMENT XML that
+// InputXML->CII(2019) expects as its raw input (pre-enrichment). We do not
+// modify that workflow — this only shapes our coordinate data to match its
+// documented schema (see converters/scripts/inputxml_to_cii2019.py and
+// tests/fixtures/xml-cii-standalone/inputxml-element-benchmark.xml).
+export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
+  const elements = [];
+  for (let i = 1; i < coordinateRows.length; i += 1) {
+    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo));
+  }
   return [
-    '<Node>',
-    tag('NodeNumber', row.nodeNumber),
-    tag('NodeName', row.nodeName),
-    tag('BoreMm', branchInfo.boreMm),
-    tag('WallThickness', branchInfo.wallThickness),
-    tag('MaterialCode', branchInfo.materialCode),
-    tag('Position', position),
-    '</Node>',
-  ].join('');
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<CAESARII>',
+    `<PIPINGMODEL NUMELEMENTS="${elements.length}" NUMREST="0">`,
+    ...elements,
+    '</PIPINGMODEL>',
+    '</CAESARII>',
+  ].join('\n');
 }
 
-// Builds the Root > Branch > Node XML, mirroring buildCustomInputXml() in
-// 3D_Converters (converters/xml-cii2019-core/custom-input-xml-builder.js),
-// with marker/point names passed through as each Node's NodeName.
-export function buildPipeline3dModelXml(branchInfo, coordinateRows) {
-  const out = ['<?xml version="1.0" encoding="UTF-8"?>', '<Root>', '<Branch>'];
-  out.push(tag('Branchname', branchInfo.branchName));
-  out.push(tag('LineNo', branchInfo.lineNo));
-  out.push('<Pressure>', tag('Pressure1', branchInfo.p1), '</Pressure>');
-  out.push(
-    '<Temperature>',
-    tag('Temperature1', branchInfo.t1),
-    tag('Temperature2', branchInfo.t2),
-    tag('Temperature3', branchInfo.t3),
-    '</Temperature>',
-  );
-  out.push(tag('FluidDensity', branchInfo.fluidDensity));
-  out.push(tag('MaterialCode', branchInfo.materialCode));
-  coordinateRows.forEach((row) => out.push(nodeXml(row, branchInfo)));
-  out.push('</Branch>', '</Root>');
-  return out.join('\n');
-}
-
-export const _internal = { toMm };
+export const _internal = { toMm, SENTINEL_MISSING };
