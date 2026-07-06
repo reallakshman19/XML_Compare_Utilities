@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import './xml-compare-transfer-output-hardening.test.js';
 
 import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
 import { renderXmlCompareWorkspaceShellHtml } from '../xml-compare/XmlCompareWorkspaceShell.js';
