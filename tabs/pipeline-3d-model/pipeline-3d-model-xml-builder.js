@@ -57,18 +57,20 @@ function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
-// Builds one <PIPINGELEMENT> per consecutive node pair, matching EXACTLY the
-// attribute set actually read by 3D_Converters' InputXML->CII(2019) consumer
-// (converters/scripts/inputxml_to_cii2019.py, function that parses
-// piping_model.findall("PIPINGELEMENT")): FROM_NODE/TO_NODE are hard-required
-// (parse fails without them); DELTA_X/Y/Z default to 0.0 if absent/sentinel;
-// DIAMETER/WALL_THICK/INSUL_THICK/CORR_ALLOW/TEMP_EXP_C1-3/MATERIAL_NUM
-// "carry forward" from the previous element if absent/sentinel; FROM_NAME/
-// TO_NAME are read as plain text. No other attribute (PRESSURE*, LINE_ID,
-// FLUID_DENSITY, INSUL_DENSITY, HYDRO_PRESSURE, TEMP_EXP_C4-9) is read by
-// this script at all — those belong to a different, unrelated converter
-// (xml_to_inputxml_debug.py) and were removed after verifying against the
-// actual consumer source, not just a schema-shaped example.
+// Builds one <PIPINGELEMENT> per consecutive node pair, matching the
+// attribute set read by 3D_Converters' InputXML->CII(2019) consumer
+// (converters/scripts/inputxml_to_cii2019.py). FROM_NODE/TO_NODE are
+// hard-required; DELTA_X/Y/Z default to 0.0 if absent/sentinel;
+// DIAMETER/WALL_THICK/INSUL_THICK/CORR_ALLOW/TEMP_EXP_C1-9/PRESSURE_C1-9/
+// MATERIAL_NUM/FLUID_DENSITY/INSUL_DENSITY/HYDRO_PRESSURE "carry forward"
+// from the previous element if absent/sentinel; FROM_NAME/TO_NAME are read
+// as plain text. TEMP_EXP_C4-9 and PRESSURE_C2-9 have no corresponding
+// config field in this tool (only one temperature triple and one design
+// pressure are collected), so they're always "0" — matching the CAESAR
+// spec's own "non-specified real values are assigned a value of 0.0" rule,
+// not a hidden default. LINE_ID is NOT emitted: the consumer has no
+// attribute for it (a per-element line label exists via a separate
+// "elements.line_label" config mechanism, unrelated to XML attributes).
 function pipingElementXml(fromRow, toRow, branchInfo) {
   const deltaX = num(toRow.x - fromRow.x);
   const deltaY = num(toRow.y - fromRow.y);
@@ -86,7 +88,25 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('TEMP_EXP_C1', num(branchInfo.t1)),
     attr('TEMP_EXP_C2', num(branchInfo.t2)),
     attr('TEMP_EXP_C3', num(branchInfo.t3)),
+    attr('TEMP_EXP_C4', '0'),
+    attr('TEMP_EXP_C5', '0'),
+    attr('TEMP_EXP_C6', '0'),
+    attr('TEMP_EXP_C7', '0'),
+    attr('TEMP_EXP_C8', '0'),
+    attr('TEMP_EXP_C9', '0'),
+    attr('PRESSURE_C1', num(branchInfo.p1)),
+    attr('PRESSURE_C2', '0'),
+    attr('PRESSURE_C3', '0'),
+    attr('PRESSURE_C4', '0'),
+    attr('PRESSURE_C5', '0'),
+    attr('PRESSURE_C6', '0'),
+    attr('PRESSURE_C7', '0'),
+    attr('PRESSURE_C8', '0'),
+    attr('PRESSURE_C9', '0'),
     attr('MATERIAL_NUM', num(branchInfo.materialCode)),
+    attr('FLUID_DENSITY', num(branchInfo.fluidDensity, '0')),
+    attr('INSUL_DENSITY', num(branchInfo.insulationDensity, '0')),
+    attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];
