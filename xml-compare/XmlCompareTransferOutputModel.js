@@ -1,3 +1,5 @@
+import { createTransferExportReceipt } from './XmlCompareTransferExportReceipt.js';
+
 export const XML_COMPARE_TRANSFER_OUTPUT_MODEL_SCHEMA = 'xml-compare-transfer-output-model/v1';
 
 const clean = (value) => String(value ?? '').trim();
@@ -22,7 +24,31 @@ function scopeOf(tState = {}, input = {}) {
 
 function actionMarksOutputDone(action = '') {
   const value = clean(action);
-  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value.startsWith('export-');
+  return value === 'output-done' || value === 'export-patched' || value === 'export-audit' || value === 'export-proof' || value === 'copy-patched' || value.startsWith('export-');
+}
+
+function receiptFileForAction(action = '', summary = {}) {
+  const value = clean(action);
+  if (value === 'export-audit') return summary.fileNames?.transferAuditJson || '';
+  if (value === 'export-proof') return summary.fileNames?.transferProofJson || '';
+  if (value === 'copy-patched') return 'Copied patched Target preview';
+  return summary.fileNames?.patchedTargetXml || '';
+}
+
+function receiptActionType(action = '') {
+  const value = clean(action);
+  if (value === 'export-audit') return 'export-transfer-audit-json';
+  if (value === 'export-proof') return 'download-transfer-proof-json';
+  if (value === 'copy-patched') return 'copy-patched-target-preview';
+  return 'export-patched-target-xml';
+}
+
+function persistReceipt(tState = {}, summary = {}) {
+  if (!actionMarksOutputDone(summary.lastAction)) return null;
+  const receipt = createTransferExportReceipt({ actionType: receiptActionType(summary.lastAction), fileName: receiptFileForAction(summary.lastAction, summary), summary, outputStatus: summary.outputStatus });
+  const holder = tState.transferLastResult || tState.transferStage;
+  if (holder && typeof holder === 'object') holder.lastOutputReceipt = receipt;
+  return receipt;
 }
 
 export function buildTransferOutputFileNames(input = {}) {
@@ -65,7 +91,9 @@ export function summarizeTransferOutput({ input = {}, tState = {}, lastAction = 
     fileNames: files,
     lastAction: clean(lastAction || input.transferModal?.lastTransferOutputAction || ''),
   };
-  return Object.freeze({ ...summary, outputStatus: transferOutputStatus(summary) });
+  const output = Object.freeze({ ...summary, outputStatus: transferOutputStatus(summary) });
+  persistReceipt(tState, output);
+  return output;
 }
 
-export const _test = Object.freeze({ clean, baseName, countBlockedRows, selectedBlocksOf, scopeOf, actionMarksOutputDone });
+export const _test = Object.freeze({ clean, baseName, countBlockedRows, selectedBlocksOf, scopeOf, actionMarksOutputDone, receiptFileForAction, receiptActionType, persistReceipt });
