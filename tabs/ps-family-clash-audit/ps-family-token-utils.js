@@ -1,3 +1,27 @@
+export const DEFAULT_FAMILY_PREFIXES = Object.freeze(['PS', 'SL']);
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function normalizeFamilyPrefixes(options = {}) {
+  const raw = Array.isArray(options.familyPrefixes)
+    ? options.familyPrefixes
+    : String(options.familyPrefixesText || options.familyPrefixes || DEFAULT_FAMILY_PREFIXES.join(',')).split(/[,;\s]+/);
+  const prefixes = raw.map((item) => String(item || '').trim().toUpperCase().replace(/-+$/g, ''))
+    .filter((item) => /^[A-Z][A-Z0-9_]*$/.test(item));
+  return uniqueSorted(prefixes.length ? prefixes : DEFAULT_FAMILY_PREFIXES);
+}
+
+export function buildFamilyRootRegex(options = {}, flags = 'i') {
+  const pattern = normalizeFamilyPrefixes(options).map(escapeRegex).join('|');
+  return new RegExp(`(?:^|[^A-Z0-9])(${pattern}-\\d+)`, flags);
+}
+
+export function buildFamilyRootDetectorLabel(options = {}) {
+  return `/(?:${normalizeFamilyPrefixes(options).join('|')})-\\d+/i`;
+}
+
 export function decodeXmlEntities(value) {
   return String(value || '')
     .replace(/&quot;/g, '"')
@@ -23,10 +47,18 @@ export function makeDisplayName(value) {
   return stripLeadingSlash(value).replace(/\s+/g, ' ');
 }
 
-export function extractFamilyRoot(value) {
+export function extractFamilyRoot(value, options = {}) {
   const clean = makeExactMemberKey(value);
-  const match = clean.match(/PS-\d+/i);
-  return match ? match[0].toUpperCase() : '';
+  const match = buildFamilyRootRegex(options).exec(` ${clean}`);
+  return match ? match[1].toUpperCase() : '';
+}
+
+export function extractFamilyRoots(value, options = {}) {
+  const regex = buildFamilyRootRegex(options, 'gi');
+  const roots = [];
+  let match;
+  while ((match = regex.exec(` ${makeExactMemberKey(value)}`))) roots.push(match[1].toUpperCase());
+  return uniqueSorted(roots);
 }
 
 export function parseNumber(value) {
