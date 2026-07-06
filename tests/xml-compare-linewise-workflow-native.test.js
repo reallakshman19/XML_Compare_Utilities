@@ -55,7 +55,11 @@ assertHierarchyControls(renderXmlCompareWorkspaceShellHtml({ ...connectorWorkspa
 let wf = createLinewiseWorkflowState();
 wf = applyLinewiseAction(wf, { type: 'open-linewise-workflow' });
 assert.equal(wf.open, true, 'open action opens native workflow state');
-assert.ok(renderLinewiseWorkflowPopupHtml(wf).includes('data-xml-compare-categorized-popup'));
+const openPopupHtml = renderLinewiseWorkflowPopupHtml(wf);
+assert.ok(openPopupHtml.includes('data-xml-compare-categorized-popup'));
+assert.ok(openPopupHtml.includes('xml-compare-categorized-backdrop-close'), 'modal has a backdrop close layer');
+assert.ok(openPopupHtml.includes('aria-label="Close Line-wise XML Enrichment dialog"'), 'backdrop close has an accessible label');
+assert.ok(openPopupHtml.includes('position:relative;z-index:1'), 'dialog is layered above backdrop close button');
 wf = applyLinewiseAction(wf, { type: 'close-linewise-workflow' });
 assert.equal(wf.open, false, 'close action closes native workflow state');
 
