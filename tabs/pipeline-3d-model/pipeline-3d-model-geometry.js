@@ -22,23 +22,150 @@ function isSeparatorLine(line) {
   return /^[-|:\s]+$/.test(line);
 }
 
-// --- Table 1: Point / X / Y / Z key vertices defining the pipeline polyline ---
+// Splits a row into cells (tab > pipe > comma/whitespace, whichever the line
+// actually uses), so a label like "IP3-IP Start" is classified as ONE
+// non-numeric token instead of having its embedded digit ("3") matched by a
+// bare numeric regex scan across the whole line.
+function tokenizeRow(line) {
+  let parts;
+  if (line.includes('\t')) parts = line.split('\t');
+  else if (line.includes('|')) parts = line.split('|');
+  else parts = line.split(/,|\s+/);
+  return parts.map((part) => part.trim()).filter((part) => part.length);
+}
+
+function isNumericToken(token) {
+  return /^-?\d+(?:\.\d+)?$/.test(token);
+}
+
+// Rotates (x, y) by angleDeg (in the XY plane) then translates by the anchor.
+// Z is not rotated — only translated by anchorZ.
+function rotateAndTranslate(x, y, z, anchorX, anchorY, anchorZ, angleDeg) {
+  const rad = ((Number(angleDeg) || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    globalX: anchorX + (x * cos - y * sin),
+    globalY: anchorY + (x * sin + y * cos),
+    globalZ: anchorZ + z,
+  };
+}
+
+// The Origin Global Coordinate is ONE anchor for the whole geometry (the
+// real-world position of the very first point's local (0,0,0)) — not a
+// separate value per sheet. When the route crosses into a re-oriented sheet
+// (its Angle differs from the row before), that sheet's local frame is
+// anchored not at a fresh user-supplied origin but at wherever the PREVIOUS
+// row's chain physically landed — that's what "continuity at the match
+// line" means. So we walk the rows in order, carrying a running anchor
+// forward, and only re-anchor (to the previous row's computed Global
+// position) when Angle changes.
+function chainGlobalPositions(points) {
+  if (!points.length) return points;
+  let anchorX = points[0].originX;
+  let anchorY = points[0].originY;
+  let anchorZ = points[0].originZ;
+  let angle = points[0].angleDeg;
+  points.forEach((p, i) => {
+    if (i > 0 && p.angleDeg !== points[i - 1].angleDeg) {
+      const prev = points[i - 1];
+      anchorX = prev.globalX;
+      anchorY = prev.globalY;
+      anchorZ = prev.globalZ;
+      angle = p.angleDeg;
+    }
+    const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
+    p.globalX = globalX;
+    p.globalY = globalY;
+    p.globalZ = globalZ;
+  });
+  return points;
+}
+
+const AT_POINT_RE = /at\s*point\s*X\s*=\s*(-?[\d.]+)\s*Y\s*=\s*(-?[\d.]+)\s*Z\s*=\s*(-?[\d.]+)/i;
+
+// Alternative Table 1 input: CAD/GIS-style dump with metadata lines
+// ("Constant width", "area", "length") followed by "at point X= Y= Z=" rows,
+// e.g.:
+//   Constant width     0.300
+//             length   511.100
+//           at point  X=  661.549  Y= -160.249  Z=    0.000
+// No label, Origin, or Angle columns are available in this format, so points
+// get auto-generated labels and default to Origin (0,0,0) / Angle 0 — same
+// as a legacy 3-number frozen-format row.
+function isAltPointFormatText(text) {
+  return AT_POINT_RE.test(text);
+}
+
+function parseAltPointFormat(text) {
+  const points = [];
+  for (const rawLine of splitLines(text)) {
+    const match = rawLine.match(AT_POINT_RE);
+    if (!match) continue; // skip metadata lines (Constant width / area / length)
+    const [, x, y, z] = match;
+    points.push({
+      label: `Point ${points.length + 1}`,
+      x: Number(x),
+      y: Number(y),
+      z: Number(z),
+      originX: 0,
+      originY: 0,
+      originZ: 0,
+      angleDeg: 0,
+    });
+  }
+  return points;
+}
+
+// --- Table 1: Point / X / Y / Z key vertices, with the geometry's single
+// Origin Global Coordinate (X, Y, Z) carried on every row for convenience,
+// plus a per-row in-plane rotation Angle — used when the pipeline route
+// crosses sheets whose local axes are reoriented at a shared match-line
+// point. Rows may be:
+//   Point  X  Y  Z                                            (3 numbers)
+//   Point  X  Y  Z  OriginX  OriginY  OriginZ                  (6 numbers)
+//   Point  X  Y  Z  OriginX  OriginY  OriginZ  AngleDeg         (7 numbers)
+// Legacy 3-number rows default to Origin (0,0,0) and Angle 0, so GlobalX/Y/Z
+// equal the local X/Y/Z unchanged. Only the FIRST row's Origin is actually
+// used as the seed anchor; every later sheet is anchored by continuity (see
+// chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
+  if (isAltPointFormatText(text)) {
+    return chainGlobalPositions(parseAltPointFormat(text));
+  }
   const points = [];
   for (const rawLine of splitLines(text)) {
     if (isSeparatorLine(rawLine)) continue;
-    const nums = extractNumbers(rawLine);
-    if (nums.length < 3) continue; // needs at least X Y Z
-    const [x, y, z] = nums.slice(-3);
-    const label = rawLine
-      .replace(/\|/g, ' ')
-      .replace(new RegExp(nums.slice(-3).map((n) => String(n)).join('|'), 'g'), '')
-      .replace(/[\t,]+/g, ' ')
-      .trim() || `Point ${points.length + 1}`;
-    if (/^(point|x|y|z)$/i.test(label)) continue; // header row
-    points.push({ label, x, y, z });
+    const tokens = tokenizeRow(rawLine);
+    const numericTokens = tokens.filter(isNumericToken).map(Number);
+    const labelTokens = tokens.filter((token) => !isNumericToken(token));
+    if (numericTokens.length < 3) continue; // needs at least X Y Z
+    let x, y, z, originX, originY, originZ, angleDeg;
+    if (numericTokens.length >= 7) {
+      [x, y, z, originX, originY, originZ, angleDeg] = numericTokens.slice(-7);
+    } else if (numericTokens.length === 6) {
+      [x, y, z, originX, originY, originZ] = numericTokens.slice(-6);
+      angleDeg = 0;
+    } else {
+      [x, y, z] = numericTokens.slice(-3);
+      originX = 0;
+      originY = 0;
+      originZ = 0;
+      angleDeg = 0;
+    }
+    const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
+    if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
+    points.push({ label, x, y, z, originX, originY, originZ, angleDeg });
   }
-  return points;
+  return chainGlobalPositions(points);
+}
+
+export function table1ToTabText(points) {
+  const header = ['Point', 'X', 'Y', 'Z', 'OriginGlobalX', 'OriginGlobalY', 'OriginGlobalZ', 'AngleDeg', 'GlobalX', 'GlobalY', 'GlobalZ'].join('\t');
+  const lines = points.map((p) =>
+    [p.label, p.x, p.y, p.z, p.originX, p.originY, p.originZ, p.angleDeg, round(p.globalX), round(p.globalY), round(p.globalZ)].join('\t'),
+  );
+  return [header, ...lines].join('\n');
 }
 
 // --- Table 2: Horizontal (m) vs Grade Elevation (m) station list ---
@@ -82,11 +209,17 @@ export function parseTable3(text) {
   }));
 }
 
+// Distance between two Table-1 vertices in the GLOBAL frame — this is what
+// makes crossing a match line with a reoriented sheet work: a "Match line"
+// row ending one sheet and a "Match line" row starting the next should
+// resolve to (near-)identical global coordinates, giving a ~0-length pivot
+// segment, while all real segments use true global bearing.
 function dist2D(a, b) {
-  return Math.hypot(b.x - a.x, b.y - a.y);
+  return Math.hypot(b.globalX - a.globalX, b.globalY - a.globalY);
 }
 
-// Builds cumulative-distance segments along the polyline defined by Table 1 vertices.
+// Builds cumulative-distance segments along the polyline defined by Table 1
+// vertices' GLOBAL coordinates.
 export function buildSegments(vertices) {
   const segments = [];
   let cumulative = 0;
@@ -100,10 +233,10 @@ export function buildSegments(vertices) {
       start,
       end: cumulative,
       length,
-      dx: length ? (b.x - a.x) / length : 0,
-      dy: length ? (b.y - a.y) / length : 0,
-      ax: a.x,
-      ay: a.y,
+      dx: length ? (b.globalX - a.globalX) / length : 0,
+      dy: length ? (b.globalY - a.globalY) / length : 0,
+      ax: a.globalX,
+      ay: a.globalY,
     });
   }
   return segments;
@@ -166,7 +299,7 @@ export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Tex
   let cumulative = 0;
   vertices.forEach((v, i) => {
     if (i > 0) cumulative += dist2D(vertices[i - 1], v);
-    addPoint(points, cumulative, v.x, v.y, null, v.label, 'vertex');
+    addPoint(points, cumulative, v.globalX, v.globalY, null, v.label, 'vertex');
   });
   stations.forEach((row) => {
     const xy = interpolateXY(segments, row.horizontal);

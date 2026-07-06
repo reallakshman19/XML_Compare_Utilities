@@ -1,4 +1,4 @@
-import { buildCombinedCoordinateTable } from './pipeline-3d-model-geometry.js';
+import { buildCombinedCoordinateTable, parseTable1, table1ToTabText } from './pipeline-3d-model-geometry.js';
 import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js';
 import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
 import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from './pipeline-3d-model-samples.js';
@@ -58,7 +58,7 @@ function renderPopup() {
 <div class="psmap-card-body">
 <div class="psmap-help-text">Paste the 3 input tables below, fill in branch details, then Run.</div>
 <div class="p3d-input-grid">
-<label>Table 1 — Point / X / Y / Z<textarea data-p3d="table1" placeholder="IP3-IP Start	0	0	0"></textarea></label>
+<label>Table 1 — Point / X / Y / Z / OriginGlobalX / OriginGlobalY / OriginGlobalZ / AngleDeg<textarea data-p3d="table1" placeholder="IP3-IP Start	0	0	0	301614.82	2038115	0	0"></textarea></label>
 <label>Table 2 — Horizontal (m) vs Grade Elevation (m)<textarea data-p3d="table2" placeholder="0.0	231.32"></textarea></label>
 <label>Table 3 — Marker segment lengths / cumulative distances<textarea data-p3d="table3" placeholder="20.5, 34.3, 16.0, ..."></textarea></label>
 </div>
@@ -71,6 +71,8 @@ ${renderBranchForm()}
 <button type="button" data-p3d="download-xml">Download XML</button>
 </div>
 <div class="p3d-output">
+<h4>Table 1 — Transformed (Global) Coordinates</h4>
+<pre data-p3d="table1-output">Run to generate.</pre>
 <h4>Coordinate Tab Output</h4>
 <pre data-p3d="coordinate-output">Run to generate.</pre>
 <h4>InputXML→CII(2019) PIPINGELEMENT XML</h4>
@@ -139,13 +141,17 @@ function runConversion(host, get, state) {
   const table3Text = get('table3').value;
   const branchInfo = readBranchInfo(get);
 
+  const table1Points = parseTable1(table1Text);
+  const table1OutputText = table1ToTabText(table1Points);
   const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
   const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
   const coordinateText = coordinateRowsToTabText(coordinateRows);
   const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
 
+  state.table1OutputText = table1OutputText;
   state.coordinateText = coordinateText;
   state.xmlText = xmlText;
+  host.querySelector('[data-p3d="table1-output"]').textContent = table1OutputText;
   host.querySelector('[data-p3d="coordinate-output"]').textContent = coordinateText;
   host.querySelector('[data-p3d="xml-output"]').textContent = xmlText;
 }
