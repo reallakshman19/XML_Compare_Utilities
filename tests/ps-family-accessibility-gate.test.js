@@ -10,8 +10,8 @@ function assertVisibleLabel(text) {
   assert.ok(`${launcher}${popup}${shell}`.includes(text), `Missing visible label: ${text}`);
 }
 
-assertVisibleLabel('PS Family Clash Audit');
-assertVisibleLabel('Audit Navis clash XML against expected PS family mapping.');
+assertVisibleLabel('PS / SL Family Clash Audit');
+assertVisibleLabel('Audit Navis clash XML against configurable support-family mapping.');
 assertVisibleLabel('Close');
 assert.ok(launcher.includes('data-psfa-open="1"'));
 assert.ok(popup.includes('data-psfa-close="1"'));
@@ -33,11 +33,14 @@ for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
 for (const button of PS_FAMILY_CLASH_AUDIT_CONFIG.outputButtons) {
   assertVisibleLabel(button.label);
   assert.ok(shell.includes(`data-psfa="${button.key}"`));
+  assert.ok(shell.includes(`data-psfa-export-preview="${button.key}"`));
 }
 
 assertVisibleLabel('Source family');
+assertVisibleLabel('Valid family prefixes');
 assertVisibleLabel('POS tolerance mm');
 assertVisibleLabel('Run Audit');
+assertVisibleLabel('Download Selected');
 assert.ok(!PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => !tab.label.trim()));
 assert.ok(!PS_FAMILY_CLASH_AUDIT_CONFIG.outputButtons.some((button) => !button.label.trim()));
 
