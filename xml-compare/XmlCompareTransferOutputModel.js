@@ -47,7 +47,9 @@ function persistReceipt(tState = {}, summary = {}) {
   if (!actionMarksOutputDone(summary.lastAction)) return null;
   const receipt = createTransferExportReceipt({ actionType: receiptActionType(summary.lastAction), fileName: receiptFileForAction(summary.lastAction, summary), summary, outputStatus: summary.outputStatus });
   const holder = tState.transferLastResult || tState.transferStage;
-  if (holder && typeof holder === 'object') holder.lastOutputReceipt = receipt;
+  if (holder && typeof holder === 'object') {
+    try { holder.lastOutputReceipt = receipt; } catch {}
+  }
   return receipt;
 }
 
