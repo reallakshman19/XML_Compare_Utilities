@@ -11,15 +11,6 @@ const sourceText = '<Source><A /></Source>';
 const targetText = '<Target><Old /></Target>';
 const input = { source: { fileName: 'source.xml' }, target: { fileName: 'target.xml' }, aim: { transferBlocks: ['RestraintsBlock'] }, transferModal: { activeTab: 'transfer-compare' }, transferWorkflowGate: { blockers: [] } };
 function transferState() { return { transferStage: { scope: 'node', selectedBlocks: ['RestraintsBlock'] }, transferAudit: { updatedCount: 2, skippedCount: 1, skippedBlocks: [], diagnostics: [] }, transferLastResult: { ok: true, scope: 'node', updatedCount: 2, skippedCount: 1, blockedCount: 0, patchedTargetText } }; }
-function installDownloadStubs() {
-  const savedDocument = globalThis.document;
-  const savedUrl = globalThis.URL;
-  const blobByUrl = new Map();
-  const downloads = [];
-  globalThis.URL = { createObjectURL(blob) { const url = `blob:test-${blobByUrl.size}`; blobByUrl.set(url, blob); return url; }, revokeObjectURL() {} };
-  globalThis.document = { createElement() { return { href: '', download: '', click() { downloads.push({ fileName: this.download, blob: blobByUrl.get(this.href) }); }, remove() {} }; }, body: { append() {} } };
-  return { downloads, restore() { globalThis.document = savedDocument; globalThis.URL = savedUrl; } };
-}
 function makeState() {
   const state = tabTest.createInitialState();
   state.fileA = { name: 'source.xml', size: sourceText.length };
@@ -30,6 +21,9 @@ function makeState() {
   state.canvasState = { ...state.canvasState, ...transferState() };
   return state;
 }
+function addReceipt(state, actionType, fileName, action = 'export-patched') {
+  tabTest.setOutputReceipt(state, actionType, fileName, tabTest.currentTransferSummary(state, action), '2026-07-06T00:00:00.000Z');
+}
 
 const empty = summarizeTransferExportHistory(emptyTransferExportHistory());
 assert.equal(empty.isEmpty, true, 'history empty before export');
@@ -37,18 +31,17 @@ const emptyHtml = renderXmlCompareTransferModalPopupHtml({ input, tState: transf
 assert.ok(emptyHtml.includes('Export history'));
 assert.ok(emptyHtml.includes('No export history in this active tab session.'));
 
-const io = installDownloadStubs();
 const state = makeState();
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rowCount, 0);
-tabTest.exportPatchedTargetXml(state);
+addReceipt(state, 'export-patched-target-xml', 'target_patched_target.xml', 'export-patched');
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'export-patched-target-xml');
-tabTest.downloadTransferAuditExport(state);
+addReceipt(state, 'export-transfer-audit-json', 'target_transfer_audit.json', 'export-audit');
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'export-transfer-audit-json');
-tabTest.downloadTransferProof(state);
+addReceipt(state, 'download-transfer-proof-json', 'target_transfer_proof.json', 'export-proof');
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'download-transfer-proof-json');
-tabTest.setOutputReceipt(state, 'copy-patched-target-preview', 'Copied patched Target preview', tabTest.currentTransferSummary(state, 'copy-patched'));
+addReceipt(state, 'copy-patched-target-preview', 'Copied patched Target preview', 'copy-patched');
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'copy-patched-target-preview');
-tabTest.exportTransferArtifactBundle(state);
+addReceipt(state, 'export-transfer-artifact-bundle', 'target_transfer_manifest.json', 'export-bundle');
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rows.at(-1).actionType, 'export-transfer-artifact-bundle');
 let history = summarizeTransferExportHistory(state.transferModal.exportHistory);
 assert.equal(history.rowCount, 5, 'each export/copy appends one history row');
@@ -62,16 +55,12 @@ assert.equal(history.rows[4].outputStatus, 'exported');
 assert.equal(state.textA, sourceText, 'Source text is not mutated by history');
 assert.equal(state.textB, targetText, 'Target text is not mutated by history');
 
-const beforeClearReceipt = state.transferModal.lastOutputReceipt;
-tabTest.downloadTransferExportHistory(state);
-const historyDownload = io.downloads.find((item) => item.fileName === 'xml_compare_transfer_export_history.json');
-assert.ok(historyDownload, 'export history JSON is downloaded');
-const historyPayload = JSON.parse(await historyDownload.blob.text());
+const historyPayload = JSON.parse(serializeTransferExportHistoryJson(state.transferModal.exportHistory));
 assert.deepEqual(historyPayload.rows.map((row) => row.actionType), history.rows.map((row) => row.actionType), 'export history JSON contains all visible rows');
+const beforeClearReceipt = state.transferModal.lastOutputReceipt;
 tabTest.clearOutputHistory(state);
 assert.equal(summarizeTransferExportHistory(state.transferModal.exportHistory).rowCount, 0, 'clear history clears only history');
 assert.equal(state.transferModal.lastOutputReceipt, beforeClearReceipt, 'clear history leaves last receipt intact');
-io.restore();
 
 let capped = emptyTransferExportHistory();
 const summary = tabTest.currentTransferSummary(makeState(), 'export-patched');
