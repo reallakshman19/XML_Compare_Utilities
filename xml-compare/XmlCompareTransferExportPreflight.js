@@ -10,6 +10,7 @@ const EXPORT_ACTIONS = Object.freeze([
   ['download-transfer-proof-json', 'Transfer proof JSON'],
   ['copy-patched-target-preview', 'Copy patched Target preview'],
   ['export-transfer-artifact-bundle', 'Export all transfer artifacts'],
+  ['export-transfer-diff-summary-json', 'Transfer diff summary JSON'],
   ['export-transfer-history-json', 'Export history JSON'],
 ]);
 
@@ -19,6 +20,13 @@ function row(actionType, label, status, reason, nextAction) {
 
 function stagedOrApplied(summary = {}) {
   return Boolean(summary.hasStage || summary.hasAppliedResult);
+}
+
+function patchedReadiness(action, label, hasPatched, hasStage) {
+  if (hasPatched) return row(action, label, 'ready', 'Patched Target XML is available.', `Run ${label}.`);
+  return hasStage
+    ? row(action, label, 'blocked', 'Patched Target XML is not available yet.', 'Apply staged transfer first.')
+    : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer, then apply staged transfer.');
 }
 
 function readinessRows(summary = {}, history = {}) {
@@ -36,10 +44,7 @@ function readinessRows(summary = {}, history = {}) {
         ? row(action, label, 'ready', 'Transfer is staged or applied.', `Export ${label}.`)
         : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer first.');
     }
-    if (hasPatched) return row(action, label, 'ready', 'Patched Target XML is available.', `Run ${label}.`);
-    return hasStage
-      ? row(action, label, 'blocked', 'Patched Target XML is not available yet.', 'Apply staged transfer first.')
-      : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer, then apply staged transfer.');
+    return patchedReadiness(action, label, hasPatched, hasStage);
   }));
 }
 
@@ -71,4 +76,4 @@ export function summarizeTransferExportPreflight(preflight = {}) {
   });
 }
 
-export const _test = Object.freeze({ clean, EXPORT_ACTIONS, row, stagedOrApplied, readinessRows });
+export const _test = Object.freeze({ clean, EXPORT_ACTIONS, row, stagedOrApplied, patchedReadiness, readinessRows });
