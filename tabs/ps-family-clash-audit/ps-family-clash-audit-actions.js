@@ -33,9 +33,9 @@ function readinessSummary(xml, expected, details, pos, diagnostics, config) {
 
 function parseInputs(input) {
   const config = input?.config || {};
-  const xml = parsePsFamilyClashXml(input?.clashXmlText || '', { sourceSide: config.sourceSide });
-  const expected = parsePsFamilyRegisterCsv(input?.expectedCsvText || '');
-  const details = parsePsFamilyElementDetailCsv(input?.detailCsvText || '');
+  const xml = parsePsFamilyClashXml(input?.clashXmlText || '', config);
+  const expected = parsePsFamilyRegisterCsv(input?.expectedCsvText || '', config);
+  const details = parsePsFamilyElementDetailCsv(input?.detailCsvText || '', config);
   const pos = buildPsFamilyPosFamilies(details.rows, { toleranceMm: config.posToleranceMm });
   return { config, xml, expected, details, pos };
 }
@@ -49,11 +49,7 @@ export function createPsFamilyInputReadinessFromTextInputs(input) {
     ...parsed.pos.diagnostics,
   ];
   const summary = readinessSummary(parsed.xml, parsed.expected, parsed.details, parsed.pos, diagnostics, parsed.config);
-  return Object.freeze({
-    summary,
-    diagnostics,
-    blocking: diagnostics.some((item) => item.level === 'ERROR'),
-  });
+  return Object.freeze({ summary, diagnostics, blocking: diagnostics.some((item) => item.level === 'ERROR') });
 }
 
 export function createPsFamilyClashAuditFromTextInputs(input) {
