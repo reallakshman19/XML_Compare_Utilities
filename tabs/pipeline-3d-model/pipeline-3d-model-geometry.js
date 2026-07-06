@@ -38,30 +38,62 @@ function isNumericToken(token) {
   return /^-?\d+(?:\.\d+)?$/.test(token);
 }
 
-// Rotates (x, y) by angleDeg (in the XY plane) then translates by the origin.
-// Z is not rotated — only translated by originZ — since the angle column
-// models each sheet's in-plane orientation change (e.g. across a match line),
-// not a 3D tilt.
-export function transformToGlobal(x, y, z, originX, originY, originZ, angleDeg) {
+// Rotates (x, y) by angleDeg (in the XY plane) then translates by the anchor.
+// Z is not rotated — only translated by anchorZ.
+function rotateAndTranslate(x, y, z, anchorX, anchorY, anchorZ, angleDeg) {
   const rad = ((Number(angleDeg) || 0) * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
   return {
-    globalX: originX + (x * cos - y * sin),
-    globalY: originY + (x * sin + y * cos),
-    globalZ: originZ + z,
+    globalX: anchorX + (x * cos - y * sin),
+    globalY: anchorY + (x * sin + y * cos),
+    globalZ: anchorZ + z,
   };
 }
 
-// --- Table 1: Point / X / Y / Z key vertices, optionally with a per-row
-// Origin Global Coordinate (X, Y, Z) and in-plane rotation Angle — used when
-// the pipeline route crosses sheets whose local axes are reoriented at a
-// shared match-line point. Rows may be:
+// The Origin Global Coordinate is ONE anchor for the whole geometry (the
+// real-world position of the very first point's local (0,0,0)) — not a
+// separate value per sheet. When the route crosses into a re-oriented sheet
+// (its Angle differs from the row before), that sheet's local frame is
+// anchored not at a fresh user-supplied origin but at wherever the PREVIOUS
+// row's chain physically landed — that's what "continuity at the match
+// line" means. So we walk the rows in order, carrying a running anchor
+// forward, and only re-anchor (to the previous row's computed Global
+// position) when Angle changes.
+function chainGlobalPositions(points) {
+  if (!points.length) return points;
+  let anchorX = points[0].originX;
+  let anchorY = points[0].originY;
+  let anchorZ = points[0].originZ;
+  let angle = points[0].angleDeg;
+  points.forEach((p, i) => {
+    if (i > 0 && p.angleDeg !== points[i - 1].angleDeg) {
+      const prev = points[i - 1];
+      anchorX = prev.globalX;
+      anchorY = prev.globalY;
+      anchorZ = prev.globalZ;
+      angle = p.angleDeg;
+    }
+    const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
+    p.globalX = globalX;
+    p.globalY = globalY;
+    p.globalZ = globalZ;
+  });
+  return points;
+}
+
+// --- Table 1: Point / X / Y / Z key vertices, with the geometry's single
+// Origin Global Coordinate (X, Y, Z) carried on every row for convenience,
+// plus a per-row in-plane rotation Angle — used when the pipeline route
+// crosses sheets whose local axes are reoriented at a shared match-line
+// point. Rows may be:
 //   Point  X  Y  Z                                            (3 numbers)
 //   Point  X  Y  Z  OriginX  OriginY  OriginZ                  (6 numbers)
 //   Point  X  Y  Z  OriginX  OriginY  OriginZ  AngleDeg         (7 numbers)
 // Legacy 3-number rows default to Origin (0,0,0) and Angle 0, so GlobalX/Y/Z
-// equal the local X/Y/Z unchanged.
+// equal the local X/Y/Z unchanged. Only the FIRST row's Origin is actually
+// used as the seed anchor; every later sheet is anchored by continuity (see
+// chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
   const points = [];
   for (const rawLine of splitLines(text)) {
@@ -85,10 +117,9 @@ export function parseTable1(text) {
     }
     const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
     if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
-    const { globalX, globalY, globalZ } = transformToGlobal(x, y, z, originX, originY, originZ, angleDeg);
-    points.push({ label, x, y, z, originX, originY, originZ, angleDeg, globalX, globalY, globalZ });
+    points.push({ label, x, y, z, originX, originY, originZ, angleDeg });
   }
-  return points;
+  return chainGlobalPositions(points);
 }
 
 export function table1ToTabText(points) {
