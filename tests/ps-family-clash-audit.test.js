@@ -5,7 +5,7 @@ import { parsePsFamilyElementDetailCsv } from '../tabs/ps-family-clash-audit/ps-
 import { buildPsFamilyPosFamilies } from '../tabs/ps-family-clash-audit/ps-family-posfamily-engine.js';
 import { buildPsFamilyClashAudit } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-engine.js';
 import { createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
-import { makeExactMemberKey, parsePipeTag } from '../tabs/ps-family-clash-audit/ps-family-token-utils.js';
+import { extractFamilyRoot, makeExactMemberKey, parsePipeTag } from '../tabs/ps-family-clash-audit/ps-family-token-utils.js';
 
 function clash(name, sourceObject, againstMember, branchNode, distance = '-0.010') {
   const lineNode = branchNode.replace(/\/B\d+$/, '');
@@ -60,22 +60,20 @@ PS-11147.8\t25.00\tASIM-1835-1"-D8810311-31441C4-PP-01\tGENSEC support\t\t=1/2\t
 `;
 
 assert.equal(makeExactMemberKey('/Copy-(2)-of-PS-11147.9'), 'COPY-(2)-OF-PS-11147.9');
-assert.deepEqual(parsePipeTag('/ASIM-1835-1/2"-P8810294-36620T3-01/B2'), {
-  raw: 'ASIM-1835-1/2"-P8810294-36620T3-01/B2',
-  fullBranchNode: 'ASIM-1835-1/2"-P8810294-36620T3-01/B2',
-  fullLineTag: 'ASIM-1835-1/2"-P8810294-36620T3-01',
-  branch: 'B2',
-  project: 'ASIM-1835',
-  size: '1/2"',
-  lineFamily: 'P8810294',
-  classOrSpec: '36620T3',
-  suffix: '01',
-});
+assert.equal(extractFamilyRoot('/SL-22001.1'), 'SL-22001');
+assert.equal(extractFamilyRoot('/AA-22001.1'), '');
+assert.equal(extractFamilyRoot('/AA-22001.1', { familyPrefixesText: 'PS,SL,AA' }), 'AA-22001');
+assert.deepEqual(parsePipeTag('/ASIM-1835-1/2"-P8810294-36620T3-01/B2'), { raw: 'ASIM-1835-1/2"-P8810294-36620T3-01/B2', fullBranchNode: 'ASIM-1835-1/2"-P8810294-36620T3-01/B2', fullLineTag: 'ASIM-1835-1/2"-P8810294-36620T3-01', branch: 'B2', project: 'ASIM-1835', size: '1/2"', lineFamily: 'P8810294', classOrSpec: '36620T3', suffix: '01' });
 
 const clashParsed = parsePsFamilyClashXml(clashXml);
 assert.equal(clashParsed.rows.length, 11);
 assert.equal(clashParsed.rows.find((row) => row.clashName === 'Clash8').against.pipe.lineFamily, 'D8810311');
 assert.equal(clashParsed.rows.find((row) => row.clashName === 'Clash8').against.pipe.fullBranchNode, 'ASIM-1835-1"-D8810311-31441C4-PP-01/B1');
+
+const slXml = `<exchange><batchtest><clashtests><clashtest><clashresults>${clash('SL1', 'SL-22001-BAR-1', 'SL-22001.1', 'ASIM-1835-1"-D8810311-31441C4-PP-01/B1')}</clashresults></clashtest></clashtests></batchtest></exchange>`;
+assert.equal(parsePsFamilyClashXml(slXml).rows[0].against.familyRoot, 'SL-22001');
+assert.equal(parsePsFamilyRegisterCsv('Item Name\n/SL-22001.1\n').rows[0].familyRoot, 'SL-22001');
+assert.equal(parsePsFamilyElementDetailCsv('Name of the element,Position\nSL-22001.1,E 0mm S 0mm U 0mm\n').rows[0].sourceFamily, 'SL-22001');
 
 const expectedParsed = parsePsFamilyRegisterCsv(expectedCsv);
 assert.equal(expectedParsed.rows.length, 17);
@@ -99,13 +97,7 @@ PS-1.3,E 25.001mm S 0mm U 0mm
 const boundary = buildPsFamilyPosFamilies(boundaryRows, { toleranceMm: 25 });
 assert.equal(boundary.posFamilies.length, 2);
 
-const audit = buildPsFamilyClashAudit({
-  clashRows: clashParsed.rows,
-  expectedRows: expectedParsed.rows,
-  elementDetailRows: pos.rows,
-  posFamilies: pos.posFamilies,
-  diagnostics: [],
-});
+const audit = buildPsFamilyClashAudit({ clashRows: clashParsed.rows, expectedRows: expectedParsed.rows, elementDetailRows: pos.rows, posFamilies: pos.posFamilies, diagnostics: [] });
 assert.equal(audit.summary.expectedCount, 17);
 assert.equal(audit.summary.clashCount, 11);
 assert.equal(audit.summary.foundExactCount, 7);
