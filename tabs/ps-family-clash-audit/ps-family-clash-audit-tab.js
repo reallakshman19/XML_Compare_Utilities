@@ -9,6 +9,7 @@ import { renderPsFamilyReadiness, renderPsFamilyReports, renderPsFamilySummary }
 const ACTIVATE = 'cli' + 'ck';
 const POPUP_TITLE_ID = 'ps-family-clash-audit-title';
 const POPUP_DESC_ID = 'ps-family-clash-audit-desc';
+const MODAL_STYLE_ID = 'ps-family-clash-audit-modal-style';
 const WORKSPACE_TABS = Object.freeze(['Input', 'Preview', 'Config', 'Run & Export', 'Reports'].map((label) => Object.freeze({ key: label.toLowerCase().replace(/ & export/, '').replace(/ /g, '-'), label })));
 
 function h(value) {
@@ -16,6 +17,25 @@ function h(value) {
 }
 function safeSource(audit) { return audit?.summary?.sourceFamily || 'audit'; }
 function fileExtension(mime) { return mime === 'application/json' ? 'json' : 'csv'; }
+function ensureModalStyle(doc = globalThis.document) {
+  if (!doc || doc.getElementById(MODAL_STYLE_ID)) return;
+  const style = doc.createElement('style');
+  style.id = MODAL_STYLE_ID;
+  style.textContent = `
+.ps-family-clash-audit-launcher{display:grid!important;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;text-align:left;min-height:112px;cursor:pointer}
+.ps-family-clash-audit-launcher-icon{grid-row:1 / span 2;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:rgba(245,158,11,.16);border:1px solid rgba(251,191,36,.38);font-size:24px}
+.ps-family-clash-audit-launcher b{font-size:15px;color:#e0f2fe}.ps-family-clash-audit-launcher .psmap-help-text{grid-column:2;color:#94a3b8}
+.ps-family-clash-audit-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:rgba(2,6,23,.78);box-sizing:border-box}
+.ps-family-clash-audit-dialog{width:min(1240px,calc(100vw - 36px));height:min(860px,calc(100vh - 36px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid rgba(125,211,252,.38)!important;border-radius:18px!important;background:#0f172a!important;color:#dbeafe;box-shadow:0 24px 80px rgba(0,0,0,.58)}
+.ps-family-clash-audit-dialog>.psmap-card-head{position:sticky;top:0;z-index:2;align-items:flex-start;background:linear-gradient(90deg,rgba(8,47,73,.40),rgba(15,23,42,.90));border-bottom:1px solid rgba(148,163,184,.18)}
+.ps-family-clash-audit-dialog>.psmap-card-body{min-height:0;overflow:auto}
+.ps-family-clash-audit-dialog [data-psfa="status-strip"]{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ps-family-clash-audit-dialog [aria-label="Primary workspace tabs"]{position:sticky;top:0;z-index:1;padding:8px 0;background:#0f172a}
+.ps-family-clash-audit-dialog [data-psfa-workspace-tab][aria-selected="true"]{background:rgba(14,116,144,.72);border-color:rgba(34,211,238,.55);color:#ecfeff}
+@media(max-width:900px){.ps-family-clash-audit-backdrop{padding:10px}.ps-family-clash-audit-dialog{width:calc(100vw - 12px);height:calc(100vh - 12px)}.ps-family-clash-audit-dialog [data-psfa="status-strip"]{grid-template-columns:1fr}.ps-family-clash-audit-launcher{grid-template-columns:1fr}.ps-family-clash-audit-launcher .psmap-help-text{grid-column:1}}
+`;
+  doc.head?.appendChild(style);
+}
 function renderInfoList(config) { return `<ul class="psmap-help-text">${config.info.map((item) => `<li>${h(item)}</li>`).join('')}</ul>`; }
 function renderSourceOptions(config) { return config.sourceSideOptions.map((item) => `<option value="${h(item.value)}">${h(item.label)}</option>`).join(''); }
 function renderExportButtons(config) { return config.outputButtons.map((item) => `<button type="button" data-psfa="${h(item.key)}">${h(item.label)}</button>`).join(''); }
@@ -64,10 +84,10 @@ function renderInputShell(config) {
 }
 function renderLauncher(config) {
   const launcher = config.launcher;
-  return `<button type="button" class="psmap-card" data-psfa-open="1" title="${h(launcher.help)}"><span aria-hidden="true">${h(launcher.icon)}</span><b>${h(launcher.label)}</b><span class="psmap-help-text">${h(launcher.help)}</span></button>`;
+  return `<button type="button" class="psmap-card ps-family-clash-audit-launcher" data-psfa-open="1" title="${h(launcher.help)}"><span class="ps-family-clash-audit-launcher-icon" aria-hidden="true">${h(launcher.icon)}</span><b>${h(launcher.label)}</b><span class="psmap-help-text">${h(launcher.help)}</span></button>`;
 }
 function renderPopup(config) {
-  return `<div class="psmap-card-head"><div><b id="${POPUP_TITLE_ID}">${h(config.appTitle)}</b><div class="psmap-help-text">Navis clash XML + expected PS CSV + element detail CSV audit workspace.</div></div><button type="button" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close PS clash check</button></div>${renderInputShell(config)}`;
+  return `<div class="psmap-card-head"><div><b id="${POPUP_TITLE_ID}">${h(config.appTitle)}</b><div class="psmap-help-text">Navis clash XML + expected PS CSV + element detail CSV audit workspace.</div></div><button type="button" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close</button></div>${renderInputShell(config)}`;
 }
 function readTextInputs(get) { return { clashXmlText: get('xml').value, expectedCsvText: get('expected').value, detailCsvText: get('details').value }; }
 function readAuditInput(get, config) { return { ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) }; }
@@ -151,24 +171,31 @@ function wireExportButton(get, state, button) {
   });
 }
 function wireExportButtons(get, state, config) { config.outputButtons.forEach((button) => wireExportButton(get, state, button)); }
-function closePopup(popup, onClose) { popup.remove(); onClose(); }
-function wireCloseControls(popup, onClose) {
-  popup.querySelector('[data-psfa-close="1"]').addEventListener(ACTIVATE, () => closePopup(popup, onClose));
-  popup.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePopup(popup, onClose); });
+function closePopup(modal, onClose) { modal.remove(); onClose(); }
+function wireCloseControls(modal, dialog, onClose) {
+  dialog.querySelector('[data-psfa-close="1"]').addEventListener(ACTIVATE, () => closePopup(modal, onClose));
+  modal.addEventListener('keydown', (event) => { if (event.key === 'Escape') closePopup(modal, onClose); });
+  modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal) closePopup(modal, onClose); });
 }
 function mountPopup(root, config, onClose) {
+  ensureModalStyle();
   const state = { audit: null, readiness: null, activeWorkspaceTab: 'input', activeReportTab: config.reportTabs[0].key, reportSearch: '' };
+  const modal = document.createElement('div');
+  modal.className = 'ps-family-clash-audit-backdrop';
+  modal.setAttribute('data-ps-family-clash-audit-backdrop', '1');
   const popup = document.createElement('section');
-  popup.className = 'psmap-card';
+  popup.className = 'psmap-card ps-family-clash-audit-dialog';
   popup.setAttribute('data-ps-family-clash-audit', '1');
   popup.setAttribute('role', 'dialog');
+  popup.setAttribute('aria-modal', 'true');
   popup.setAttribute('aria-labelledby', POPUP_TITLE_ID);
   popup.setAttribute('aria-describedby', POPUP_DESC_ID);
   popup.setAttribute('tabindex', '-1');
   popup.innerHTML = renderPopup(config);
-  root.appendChild(popup);
+  modal.appendChild(popup);
+  (document.body || root).appendChild(modal);
   const get = (name) => popup.querySelector(`[data-psfa="${name}"]`);
-  wireCloseControls(popup, onClose);
+  wireCloseControls(modal, popup, onClose);
   wireWorkspaceTabs(popup, state);
   wireFileInputs(popup, get, config);
   wireSampleButtons(popup, get);
@@ -182,10 +209,11 @@ function mountPopup(root, config, onClose) {
   renderPreviews(popup, get);
   renderAudit(popup, state, config);
   if (typeof popup.focus === 'function') popup.focus();
-  return popup;
+  return modal;
 }
 export function installPsFamilyClashAuditTile(container, ctx = {}) {
   const config = resolvePsFamilyClashAuditConfig(ctx.psFamilyClashAuditConfig || {});
+  ensureModalStyle(container?.ownerDocument || globalThis.document);
   const utilitiesRoot = container.querySelector('.psnm-root') || container;
   if (utilitiesRoot.querySelector('[data-ps-family-clash-audit-launcher]')) return null;
   const launcher = document.createElement('section');
@@ -199,4 +227,4 @@ export function installPsFamilyClashAuditTile(container, ctx = {}) {
   });
   return () => { if (popup) popup.remove(); launcher.remove(); };
 }
-export const _test = Object.freeze({ renderInputShell, renderLauncher, renderPopup, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG, renderStatusStrip });
+export const _test = Object.freeze({ renderInputShell, renderLauncher, renderPopup, readTextInputs, readPsFamilyUiSettings, PS_FAMILY_CLASH_AUDIT_CONFIG, renderStatusStrip, ensureModalStyle });
