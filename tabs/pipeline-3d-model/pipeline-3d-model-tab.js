@@ -1,7 +1,7 @@
 import { buildCombinedCoordinateTable, parseTable1, table1ToTabText, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js';
 import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js';
 import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
-import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from './pipeline-3d-model-samples.js';
+import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3, SAMPLE_TABLE_1_MULTISHEET } from './pipeline-3d-model-samples.js';
 import { renderKeyPlanSvg } from './pipeline-3d-model-keyplan.js';
 
 const ACTIVATE = 'click';
@@ -67,6 +67,7 @@ function renderPopup() {
 ${renderBranchForm()}
 <div class="p3d-actions">
 <button type="button" data-p3d="new">New (Load Sample)</button>
+<button type="button" data-p3d="new-multisheet">Load Multi-Sheet Table 1 Sample</button>
 <button type="button" data-p3d="run">Run</button>
 <button type="button" data-p3d="download-coordinate">Download Coordinate Tab (.tsv)</button>
 <button type="button" data-p3d="download-xml">Download XML</button>
@@ -199,6 +200,9 @@ function mountPopup(root, onClose) {
     get('table1').value = SAMPLE_TABLE_1;
     get('table2').value = SAMPLE_TABLE_2;
     get('table3').value = SAMPLE_TABLE_3;
+  });
+  dialog.querySelector('[data-p3d="new-multisheet"]').addEventListener(ACTIVATE, () => {
+    get('table1').value = SAMPLE_TABLE_1_MULTISHEET;
   });
   dialog.querySelector('[data-p3d="run"]').addEventListener(ACTIVATE, () => {
     saveConfigValues(readConfigValues(get));
