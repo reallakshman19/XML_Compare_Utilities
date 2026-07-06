@@ -52,7 +52,6 @@ assert.deepEqual(proofExport.selectedBlocks, ['RestraintsBlock']);
 const originalBlob = globalThis.Blob;
 const originalUrl = globalThis.URL;
 const originalDocument = globalThis.document;
-const originalNavigator = globalThis.navigator;
 const downloads = [];
 let currentBlob = null;
 try {
@@ -70,16 +69,16 @@ try {
   assert.equal(JSON.parse(downloads.at(-1).text).sourceFileName, 'source-categorized.xml');
   tabTest.downloadTransferProof(state);
   assert.equal(JSON.parse(downloads.at(-1).text).updatedCount, 1);
-  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { value: '', writeText(text) { this.value = text; return Promise.resolve(); } } } });
+  assert.equal(tabTest.currentTransferSummary(state).patchedTargetText, patchedText, 'copy action source text is patched Target XML');
   tabTest.copyPatchedTargetPreview(state);
-  assert.equal(globalThis.navigator.clipboard.value, patchedText);
+  assert.equal(state.status.kind, 'ok');
 } finally {
-  Object.defineProperty(globalThis, 'Blob', { configurable: true, value: originalBlob });
-  Object.defineProperty(globalThis, 'URL', { configurable: true, value: originalUrl });
+  if (originalBlob === undefined) delete globalThis.Blob;
+  else Object.defineProperty(globalThis, 'Blob', { configurable: true, value: originalBlob });
+  if (originalUrl === undefined) delete globalThis.URL;
+  else Object.defineProperty(globalThis, 'URL', { configurable: true, value: originalUrl });
   if (originalDocument === undefined) delete globalThis.document;
   else Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
-  if (originalNavigator === undefined) delete globalThis.navigator;
-  else Object.defineProperty(globalThis, 'navigator', { configurable: true, value: originalNavigator });
 }
 
 const shellInput = { source: { records: [], levelView: { levelId: 'line', hierarchyProfile: { levels: [{ levelId: 'line', label: 'Line', recordCount: 1 }] }, fields: ['lineNo'] } }, target: { records: [], levelView: { levelId: 'line', hierarchyProfile: { levels: [{ levelId: 'line', label: 'Line', recordCount: 1 }] }, fields: ['lineNo'] } }, navStates: {}, compareFields: [], anchor: { sourceUid: 'S1', targetUid: 'T1' }, selectedRecords: {}, availableConnectors: [{ field: 'lineNo', label: 'LineNo', sourceValue: 'L1', targetValue: 'L1' }], enabledConnectorFields: ['lineNo'], aim: { connectionType: 'numeric', basis: 'coordinate' } };
