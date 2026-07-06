@@ -36,7 +36,7 @@ function addHeaderDiagnostics(csvText, diagnostics) {
   if (!hasHeader(text, POSITION_HEADERS)) diagnostics.push({ level: 'WARN', code: 'POSITION_HEADER_MISSING', message: 'Element Detail CSV has no recognizable Position column.' });
 }
 
-export function parsePsFamilyElementDetailCsv(csvText) {
+export function parsePsFamilyElementDetailCsv(csvText, options = {}) {
   const objects = rowsToObjects(csvText);
   const rows = [];
   const diagnostics = [];
@@ -59,7 +59,7 @@ export function parsePsFamilyElementDetailCsv(csvText) {
       rawName,
       displayName: makeDisplayName(rawName),
       exactMemberKey: makeExactMemberKey(rawName),
-      sourceFamily: extractFamilyRoot(rawName),
+      sourceFamily: extractFamilyRoot(rawName, options),
       p1bore: parseNumber(findField(object, ['p1bore', 'bore'])),
       pipe,
       pipeInfo,
