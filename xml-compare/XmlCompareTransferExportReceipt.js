@@ -21,6 +21,10 @@ export function emptyTransferExportReceipt() {
   });
 }
 
+function patchedAvailable(input = {}, summary = {}) {
+  return Boolean(input.patchedTargetAvailable ?? summary.patchedTargetAvailable ?? summary.hasPatchedTargetText);
+}
+
 export function createTransferExportReceipt(input = {}) {
   const summary = input.summary || {};
   const fileName = clean(input.fileName || input.exportedFileName || summary.fileName || '');
@@ -37,7 +41,7 @@ export function createTransferExportReceipt(input = {}) {
     updatedCount: Number(input.updatedCount ?? summary.updatedCount ?? 0),
     skippedCount: Number(input.skippedCount ?? summary.skippedCount ?? 0),
     blockedCount: Number(input.blockedCount ?? summary.blockedCount ?? 0),
-    patchedTargetAvailable: Boolean(input.patchedTargetAvailable ?? summary.hasPatchedTargetText),
+    patchedTargetAvailable: patchedAvailable(input, summary),
     outputStatus: clean(input.outputStatus || summary.outputStatus || 'no-stage'),
   });
 }
@@ -60,4 +64,4 @@ export function summarizeTransferExportReceipt(receipt = null) {
   });
 }
 
-export const _test = Object.freeze({ clean, asArray });
+export const _test = Object.freeze({ clean, asArray, patchedAvailable });
