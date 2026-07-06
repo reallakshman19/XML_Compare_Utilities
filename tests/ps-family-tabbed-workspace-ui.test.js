@@ -51,7 +51,8 @@ assert.ok(shell.includes('data-psfa="summary"'));
 assert.ok(shell.includes('data-psfa="reports"'));
 
 assert.ok(popup.includes('PS Family Clash Audit'));
-assert.ok(popup.includes('Close PS clash check'));
+assert.ok(popup.includes('data-psfa-close="1"'));
+assert.ok(popup.includes('>Close</button>'));
 assert.match(source, /if \(popup\) return;/);
 assert.match(source, /showWorkspacePanel/);
 assert.match(source, /panel\.hidden = panel\.dataset\.psfaPanel !== tabKey/);
