@@ -47,10 +47,16 @@ assert.ok(html.includes('S1.Rating') && html.includes('S1.Amount'), 'FieldCatalo
 assert.ok(html.includes('data-pivot-preview-schema="PivotViewModel.v1"'), 'preview uses PivotViewModel safe HTML exporter');
 assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'preview HTML escapes unsafe pivot text');
 assert.equal(html.includes('<script>'), false, 'preview does not render executable script tag');
+assert.ok(html.includes('data-pivot-download-controls'), 'Pivot download control area renders');
+assert.ok(html.includes('data-table-categorized-action="download-pivot-json"'), 'Pivot JSON download button renders');
+assert.ok(html.includes('data-table-categorized-action="download-pivot-csv"'), 'Pivot CSV download button renders');
+assert.ok(html.includes('data-table-categorized-action="download-pivot-html"'), 'Pivot HTML download button renders');
+assert.ok(html.includes('Active view status'), 'Pivot active view status is visible');
 
 const invalid = { ...profile, outputViews: [{ ...updated4[0], pivotSpec: { ...updated4[0].pivotSpec, values: [] } }] };
 const invalidHtml = renderTableCategorizedXmlShellHtml({ activeStep: 'export', activeTab: 'export', sources: [source], activeSourceId: 'S1', columnsConfirmed: true, graph, profile: invalid, activePivotViewId: 'pivotView1' });
 assert.ok(invalidHtml.includes('Enabled pivot view requires at least one value field'), 'invalid pivot spec shows diagnostics without throwing');
+assert.ok(invalidHtml.includes('data-table-categorized-action="download-pivot-json" disabled'), 'invalid pivot spec disables guarded downloads');
 
 const baseProfile = { ...createBlankUniversalProfile(), exportPolicy: { includeDiagnosticsElement: false } };
 const pivotOnlyProfile = { ...baseProfile, outputViews: updated4 };
