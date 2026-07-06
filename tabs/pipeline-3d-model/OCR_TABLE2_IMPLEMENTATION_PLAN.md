@@ -192,6 +192,178 @@ reconstructs the two-row table.
    cleanly, not crash), paste a single-row image (should hit the "couldn't
    find two distinct rows" bail-out from step 1).
 
+---
+
+# Addendum: OCR Import for "Pipe Details / Construction Details" Info Block
+
+## Goal
+
+A second, structurally different source image: a technical-drawing "info
+block" with row labels in a left column (`DESIGN FACTOR`, `SIZE/MATERIAL/
+COATING/CODE/...`, `WALL THK.`, `HORIZONTAL LENGTH`, `MINIMUM COVER`,
+`MARKERS`, `CROSSING`, `SPECIAL PROVISION`, ...) and, per row, either **one**
+value or **several values spread across horizontal pixel-positions** that
+line up with the pipe's route, not with each other. Goal: turn this into
+**Horizontal-position-indexed data** (some of it feeding existing Table 1/3
+concepts, some feeding the Branch/Config form, and some — Minimum Cover — a
+genuinely new data shape this tool doesn't currently model).
+
+**This is a materially harder and more speculative problem than the Table 2
+OCR plan above.** Do not treat it as a small variation on that plan — it
+needs its own row-type classification step and a new pixel-to-distance
+calibration mechanism that Table 2's OCR didn't require at all.
+
+## Why this is harder than Table 2
+
+Table 2 was one semantic type (a value pair per column) in a uniform 2-row
+grid. This info block mixes at least **four different semantic row types**,
+and — critically — the multi-value rows are **not aligned into a shared
+column grid at all**. Each row's values sit at whatever pixel-x position
+corresponds to its real-world location along the pipe route, independently
+of every other row. Concretely, from the reference image:
+
+| Row label | Values | Semantic type |
+|---|---|---|
+| `DESIGN FACTOR` | `DF:0.72` | single value (one per whole line) |
+| `SIZE/MATERIAL/COATING/CODE/...` | `6" CS, ISO 3183 L415 (X60), 3LPE HDCP/DP...` | single value (one per whole line) |
+| `WALL THK.` | `5.8MM` | single value (one per whole line) |
+| `HORIZONTAL LENGTH` | `24.2, 328.7, 138.0, 50.0, 36.4, 102.7, 74.0, 336.1` | **segment lengths** between boundaries — cumulative-sum these to get real horizontal boundary positions, exactly like Table 3's marker-distance logic already does |
+| `MINIMUM COVER` | `0.6M` (spans one range), `1.2M` (spans another, wider range), `0.6M` (spans a third) | **piecewise/range value** — applies over a horizontal *span*, not at a point — a genuinely new shape (Horizontal Start, Horizontal End, Value) |
+| `MARKERS` | `PM-D10`, `PM-OD6`, `PM-OD3`, `PM-O1D` | **point labels** at specific horizontal positions — maps directly onto the existing Table 3 "Marker vs Horizontal Distance" concept |
+| `CROSSING` | `WDX` | point (or narrow-span) label — same shape as Markers, likely |
+| `SPECIAL PROVISION` | (cut off in the image, `NOTE-4`) | unknown — needs a real sample to classify |
+
+## The core new problem: pixel-to-real-distance calibration
+
+Table 2's OCR never needed to know *where* along the real pipe route a
+value sat in absolute terms — pairing was purely ordinal (i-th elevation
+with i-th station, both read left-to-right). Here, we need to know the
+**real horizontal position** of each `MARKERS`/`MINIMUM COVER`/`CROSSING`
+value, but only the `HORIZONTAL LENGTH` row directly gives us real distances
+(as segment lengths, summable into cumulative boundary positions). Every
+other multi-value row only has a **pixel-x position** (from its OCR word
+bounding box) with no directly-stated real distance.
+
+**Design**: use the `HORIZONTAL LENGTH` row as the calibration reference.
+
+1. OCR the `HORIZONTAL LENGTH` row's values *and* their pixel bounding
+   boxes. Cumulative-sum the values left-to-right to get each boundary's
+   real position (`0, 24.2, 352.9, 490.9, ...`), and pair each cumulative
+   boundary with the **pixel-x midpoint between adjacent value labels**
+   (the boundary sits between two printed segment-length numbers in this
+   layout — verify this against the real image; it may instead be marked
+   by a small tick/arrow glyph between segments, which would need its own
+   detection rather than inferring the midpoint).
+2. This produces a **pixel-x → real-horizontal-position** calibration
+   table (a piecewise-linear mapping, like a lookup table with
+   interpolation between known points — directly analogous to the
+   `interpolateXY`/`interpolateElevation` pattern already in
+   `pipeline-3d-model-geometry.js`, just calibrating pixel-x instead of
+   chainage).
+3. For every other row's values, take their OCR word bounding box's
+   pixel-x center and run it through this calibration mapping to get a
+   real horizontal position.
+
+**This calibration step is the single riskiest and least-proven part of
+this addendum.** It assumes the info block's horizontal pixel axis is
+linear (or at least piecewise-consistent) with the real route distance —
+reasonable for a drawing meant to be read left-to-right at roughly
+constant scale, but **not verified against a real image** the way the
+Table 2 row-split heuristic at least has a clear fallback (bail out
+cleanly). Test this against a real sample image before trusting it, and
+have it flag low-confidence/out-of-range calibration rather than silently
+extrapolating.
+
+## Row-type classification: a label registry, not inference
+
+There's no way to generically infer "this row is a segment-length row" vs
+"this row is a point-label row" from OCR text alone — the row LABEL tells
+us the semantic type. Build a small, explicit registry, e.g.:
+
+```js
+const ROW_TYPE_REGISTRY = [
+  { labelPattern: /horizontal\s*length/i, type: 'segment-lengths' },
+  { labelPattern: /minimum\s*cover/i,     type: 'range-values' },
+  { labelPattern: /markers?/i,            type: 'point-labels' },
+  { labelPattern: /crossing/i,            type: 'point-labels' },
+  { labelPattern: /wall\s*thk|wall\s*thickness/i, type: 'single-value' },
+  { labelPattern: /design\s*factor/i,     type: 'single-value' },
+  { labelPattern: /size.*material|spec/i, type: 'single-value' },
+];
+```
+
+- **Unrecognized labels must surface as a flagged/manual-classification
+  item**, not be silently dropped or misclassified. Different drawings
+  will phrase these labels differently (abbreviations, spacing, ordering)
+  — expect the registry to need fuzzy matching (e.g. normalize
+  whitespace/case, strip punctuation) and to still miss things; show the
+  raw OCR'd label text to the user with a picker ("this looks like: segment
+  lengths / point labels / range values / single value / ignore") rather
+  than failing the whole import over one unrecognized row.
+
+## Mapping outputs to this tool's existing data model
+
+- **`HORIZONTAL LENGTH`** → cumulative boundary positions. These aren't
+  new user-facing data on their own; they're the calibration reference
+  (above) and can optionally merge into Table 3's marker-distance concept
+  if the boundaries themselves are meaningful tie-in points.
+- **`MARKERS`** → maps directly onto Table 3 (`Marker vs Horizontal
+  Distance`). Once calibrated, each marker's real horizontal position plus
+  its label (`PM-D10` etc.) can literally augment/pre-fill Table 3's input.
+- **`WALL THK.`, `DESIGN FACTOR`, `SIZE/MATERIAL/...`** → these aren't
+  Horizontal-indexed at all; they're per-branch metadata. Map to the
+  **existing Branch/Config form** (`pipeline-3d-model-config.js` fields —
+  Bore, Wall Thickness, Material Code) as an OCR **pre-fill** convenience,
+  not a new table. Note `SIZE/MATERIAL/...` bundles multiple values in one
+  string (`6" CS, ISO 3183 L415 (X60), 3LPE...`) — this needs its own
+  sub-parsing (bore size, material spec, coating, rating/class) if you
+  want it to actually populate multiple config fields rather than one
+  freeform note field.
+- **`MINIMUM COVER`** → **no existing table or config field models this.**
+  It's a piecewise range (Horizontal Start, Horizontal End, Value in
+  meters). Open question for the user before building this: does Minimum
+  Cover data need to reach the generated XML/CII output at all (e.g. as a
+  per-`PIPINGELEMENT` attribute, similar to how Corrosion Allowance was
+  added to config), or is it purely reference/documentation data that just
+  needs to be *displayed*, not exported? **Do not invent a destination for
+  this data — ask.**
+- **`CROSSING`** (and the unseen `SPECIAL PROVISION`) → same open question
+  as Minimum Cover: unclear destination, don't guess.
+
+## Suggested new file
+
+`tabs/pipeline-3d-model/pipeline-3d-model-ocr-infoblock-parser.js` — pure
+JS, no DOM, same style as the Table 2 parser. Exports something like
+`parseInfoBlockWords(words) -> { rows: [{label, type, values, warnings}], calibration, unrecognizedLabels }`,
+reusing `pipeline-3d-model-ocr.js`'s word-extraction output (same OCR
+engine wrapper as Table 2 — do not build a second OCR wrapper).
+
+## Recommended sequencing
+
+Do **not** build this addendum's feature in the same pass as the Table 2
+OCR work above. Ship Table 2 OCR first (it's self-contained, has a clear
+success/fail signal, and exercises the same underlying OCR wrapper this
+addendum reuses). Only take this on once:
+1. A real sample image is available to validate the pixel-to-distance
+   calibration assumption against ground truth.
+2. The user has answered the open destination questions above for Minimum
+   Cover / Crossing / Special Provision — building storage/UI for data
+   with no defined destination is exactly the kind of speculative
+   over-building to avoid.
+
+## Success-rate expectation (carried over from chat discussion — not measured)
+
+Same caveat as Table 2: this is an estimate, not a benchmark. Simple
+numeric tokens (segment lengths, cover values) are the easy case; the
+alphanumeric codes (`PM-D10`, `ISO 3183 L415 (X60)`) are where
+tesseract.js-style OCR is weakest (O/0/D confusion, small font, light-on-
+dark rendering). Expect this to need the same mandatory review/edit UI as
+Table 2 — likely more so, given the added row-classification and
+calibration steps each carry their own failure modes on top of raw text
+recognition.
+
+---
+
 ## Key risks to flag back to the user during implementation (don't silently resolve these)
 
 1. **CDN dependency at runtime** — this tool has no build step / npm
