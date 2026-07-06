@@ -15,7 +15,7 @@ export function normalizeFamilyPrefixes(options = {}) {
 
 export function buildFamilyRootRegex(options = {}, flags = 'i') {
   const pattern = normalizeFamilyPrefixes(options).map(escapeRegex).join('|');
-  return new RegExp(`(?:^|[^A-Z0-9])(${pattern}-\\d+)`, flags);
+  return new RegExp(`(?:^|[^A-Z0-9])((?:${pattern})-\\d+)`, flags);
 }
 
 export function buildFamilyRootDetectorLabel(options = {}) {
