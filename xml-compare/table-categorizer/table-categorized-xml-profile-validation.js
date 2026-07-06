@@ -1,6 +1,8 @@
+import { buildFieldCatalog } from './table-categorized-field-catalog.js';
+import { validateOutputViews } from './table-categorized-output-view-contracts.js';
 import { CREATION_MODE_OPTIONS, LEVEL_TYPE_OPTIONS } from './table-categorized-xml-profile-designer.js';
 
-export const TABLE_CATEGORIZED_XML_PROFILE_VALIDATION_SCHEMA='table-categorized-xml-profile-validation/v3-creation-mode-hardening';
+export const TABLE_CATEGORIZED_XML_PROFILE_VALIDATION_SCHEMA='table-categorized-xml-profile-validation/v4-output-view-contracts';
 export const ROOT_PARTITION_MODES=Object.freeze(['static','perSource','perColumn','perResolver']);
 export const IMPLEMENTED_CREATION_MODES=Object.freeze(['static','zero-or-one','one-per-key','one-per-row','conditional','lookup-joined','coordinate-clustered','many-per-row']);
 
@@ -11,6 +13,7 @@ export function validateEditableProfile(profile,{source=null,sources=null}={}){
   diagnostics.push(...validateSources(sourceList));
   diagnostics.push(...validateJoins(profile?.joins||[],sourceList));
   diagnostics.push(...validateRootPartitions(profile,sourceList));
+  if('outputViews' in (profile||{}))diagnostics.push(...validateOutputViews(profile.outputViews,buildFieldCatalog(sourceList)));
   const levels=flattenLevels(profile?.levelDefinitions||[]);
   const documentRoots=levels.filter((item)=>item.level.documentRoot);
   if(documentRoots.length===0)diagnostics.push(diag('BLOCKER','document_root_missing','Exactly one document root level is required.'));
@@ -37,4 +40,4 @@ export function flattenLevels(levelDefinitions=[]){const out=[];const walk=(item
 function findSource(sources,sourceId){return sources.find((source)=>source.sourceId===sourceId)||null;}
 function validXmlTag(value){return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(String(value||''));}
 function pathText(path=[]){return path.join('.')||'root';}
-function diag(severity,code,message,ref=''){return Object.freeze({gate:code,severity,status:severity==='BLOCKER'?'FAIL':'PASS',message,ref});}
+function diag(severity,code,message,ref=''){return Object.freeze({gate:code,severity,status:severity==='BLOCKER'?'FAIL':'PASS',code,message,ref});}
