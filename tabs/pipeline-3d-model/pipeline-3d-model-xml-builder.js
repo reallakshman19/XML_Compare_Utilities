@@ -49,6 +49,7 @@ function nodeXml(row, branchInfo) {
     tag('NodeName', row.nodeName),
     tag('BoreMm', branchInfo.boreMm),
     tag('WallThickness', branchInfo.wallThickness),
+    tag('MaterialCode', branchInfo.materialCode),
     tag('Position', position),
     '</Node>',
   ].join('');
@@ -70,6 +71,7 @@ export function buildPipeline3dModelXml(branchInfo, coordinateRows) {
     '</Temperature>',
   );
   out.push(tag('FluidDensity', branchInfo.fluidDensity));
+  out.push(tag('MaterialCode', branchInfo.materialCode));
   coordinateRows.forEach((row) => out.push(nodeXml(row, branchInfo)));
   out.push('</Branch>', '</Root>');
   return out.join('\n');

@@ -1,5 +1,7 @@
 import { buildCombinedCoordinateTable } from './pipeline-3d-model-geometry.js';
 import { buildCoordinateRows, coordinateRowsToTabText, buildPipeline3dModelXml } from './pipeline-3d-model-xml-builder.js';
+import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
+import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from './pipeline-3d-model-samples.js';
 
 const ACTIVATE = 'click';
 const POPUP_TITLE_ID = 'pipeline-3d-model-title';
@@ -45,19 +47,9 @@ function renderLauncher() {
 }
 
 function renderBranchForm() {
-  const fields = [
-    ['lineNo', 'Line No'],
-    ['boreMm', 'Bore (mm)'],
-    ['wallThickness', 'Wall Thickness (mm)'],
-    ['p1', 'P1 (Design Pressure)'],
-    ['t1', 'T1'],
-    ['t2', 'T2'],
-    ['t3', 'T3'],
-    ['fluidDensity', 'Fluid Density'],
-  ];
-  return `<div class="p3d-branch-grid">${fields
-    .map(([key, label]) => `<label>${h(label)}<input data-p3d-field="${h(key)}" placeholder="${h(label)}"></label>`)
-    .join('')}</div>`;
+  return `<div class="p3d-branch-grid">${CONFIG_FIELDS.map(
+    (field) => `<label>${h(fieldLabel(field))}<input data-p3d-field="${h(field.key)}" placeholder="${h(fieldLabel(field))}"></label>`,
+  ).join('')}</div>`;
 }
 
 function renderPopup() {
@@ -73,6 +65,7 @@ function renderPopup() {
 <h4>Line / Branch Info</h4>
 ${renderBranchForm()}
 <div class="p3d-actions">
+<button type="button" data-p3d="new">New (Load Sample)</button>
 <button type="button" data-p3d="run">Run</button>
 <button type="button" data-p3d="download-coordinate">Download Coordinate Tab (.tsv)</button>
 <button type="button" data-p3d="download-xml">Download XML</button>
@@ -98,7 +91,30 @@ function readBranchInfo(get) {
     t2: value('t2'),
     t3: value('t3'),
     fluidDensity: value('fluidDensity'),
+    materialCode: value('materialCode'),
   };
+}
+
+function applyConfigValues(get, values) {
+  CONFIG_FIELDS.forEach((field) => {
+    const input = get(`field-${field.key}`);
+    if (input) input.value = values[field.key] ?? '';
+  });
+}
+
+function readConfigValues(get) {
+  const values = {};
+  CONFIG_FIELDS.forEach((field) => {
+    values[field.key] = get(`field-${field.key}`)?.value ?? '';
+  });
+  return values;
+}
+
+function wireConfigPersistence(dialog, get) {
+  CONFIG_FIELDS.forEach((field) => {
+    const input = get(`field-${field.key}`);
+    if (input) input.addEventListener('input', () => saveConfigValues(readConfigValues(get)));
+  });
 }
 
 function saveTextFile(filename, text, mime = 'text/plain') {
@@ -160,7 +176,18 @@ function mountPopup(root, onClose) {
     if (event.target === modal) closePopup(modal, onClose);
   });
 
-  dialog.querySelector('[data-p3d="run"]').addEventListener(ACTIVATE, () => runConversion(dialog, get, state));
+  applyConfigValues(get, loadConfigValues());
+  wireConfigPersistence(dialog, get);
+
+  dialog.querySelector('[data-p3d="new"]').addEventListener(ACTIVATE, () => {
+    get('table1').value = SAMPLE_TABLE_1;
+    get('table2').value = SAMPLE_TABLE_2;
+    get('table3').value = SAMPLE_TABLE_3;
+  });
+  dialog.querySelector('[data-p3d="run"]').addEventListener(ACTIVATE, () => {
+    saveConfigValues(readConfigValues(get));
+    runConversion(dialog, get, state);
+  });
   dialog.querySelector('[data-p3d="download-coordinate"]').addEventListener(ACTIVATE, () => {
     if (!state.coordinateText) return;
     saveTextFile('pipeline-coordinate-tab.tsv', state.coordinateText, 'text/tab-separated-values');
