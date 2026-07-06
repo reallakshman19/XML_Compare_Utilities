@@ -6,7 +6,7 @@ export const TABLE_CATEGORIZED_PIVOT_VIEW_MODEL_SCHEMA = 'PivotViewModel.v1';
 export function buildPivotViewModel({ graph = null, pivotSpec = null, fieldCatalog = null } = {}) {
   const diagnostics = [...inputDiagnostics(graph, pivotSpec, fieldCatalog)];
   const spec = normalizePivotSpec(pivotSpec || {});
-  if (fieldCatalog) diagnostics.push(...validatePivotSpec(spec, fieldCatalog));
+  if (fieldCatalog?.fields) diagnostics.push(...validatePivotSpec(spec, fieldCatalog));
   const fields = fieldMap(fieldCatalog);
   const records = graphRecords(graph, [...fields.values()]).filter((record) => passesFilters(record, pivotSpec?.filters || [], fields));
   const rowGroups = groupRecords(records, spec.rows, fields);
@@ -39,7 +39,7 @@ function inputDiagnostics(graph, pivotSpec, fieldCatalog) {
 }
 
 function fieldMap(fieldCatalog = {}) {
-  return new Map((fieldCatalog.fields || []).map((field) => [field.fieldId, field]));
+  return new Map((fieldCatalog?.fields || []).map((field) => [field.fieldId, field]));
 }
 
 function graphRecords(graph, fields) {
