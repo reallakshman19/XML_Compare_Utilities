@@ -11,7 +11,7 @@ const controllerSource = fs.readFileSync(new URL('../xml-compare/table-categoriz
 const handledActions = new Set([
   'add-source', 'remove-source', 'clear', 'load-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
-  'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
+  'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
   'use-current-graph-source-canvas', 'use-imported-graph-target-canvas', 'run-graph-compare-canvas',
   'build-graph-connectors', 'download-graph-connectors-json', 'clear-compare-canvas-preview',
   'send-source', 'send-target', 'confirm-canvas-handoff', 'cancel-canvas-handoff',
@@ -64,6 +64,7 @@ assert.ok(activeActions.includes('confirm-columns'), 'confirm-columns is rendere
 assert.ok(activeActions.includes('add-derived-column'), 'add-derived-column is rendered active');
 assert.ok(activeActions.includes('remove-derived-column'), 'remove-derived-column is rendered active when a rule exists');
 assert.ok(activeActions.includes('load-suggested-profile'), 'load-suggested-profile is rendered active with headers');
+assert.ok(activeActions.includes('select-level'), 'recipe tree level selection action is rendered and handled');
 assert.ok(activeActions.includes('send-source') && activeActions.includes('send-target'), 'canvas handoff send actions are active only when export is ready');
 assert.equal(activeActions.includes('check-output'), false, 'Check Output is a step transition, not an unhandled action');
 assert.equal(activeActions.includes('toggle-fullscreen'), false, 'Fullscreen is not rendered as an unhandled runtime action');
