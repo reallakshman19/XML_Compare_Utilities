@@ -83,6 +83,9 @@ function chainGlobalPositions(points) {
 }
 
 const AT_POINT_RE = /at\s*point\s*X\s*=\s*(-?[\d.]+)\s*Y\s*=\s*(-?[\d.]+)\s*Z\s*=\s*(-?[\d.]+)/i;
+const CONSTANT_WIDTH_RE = /constant\s*width\s+(-?[\d.]+)/i;
+const AREA_RE = /^\s*area\s+(-?[\d.]+)/i;
+const LENGTH_RE = /^\s*length\s+(-?[\d.]+)/i;
 
 // Alternative Table 1 input: CAD/GIS-style dump with metadata lines
 // ("Constant width", "area", "length") followed by "at point X= Y= Z=" rows,
@@ -97,24 +100,148 @@ function isAltPointFormatText(text) {
   return AT_POINT_RE.test(text);
 }
 
-function parseAltPointFormat(text) {
-  const points = [];
-  for (const rawLine of splitLines(text)) {
-    const match = rawLine.match(AT_POINT_RE);
-    if (!match) continue; // skip metadata lines (Constant width / area / length)
-    const [, x, y, z] = match;
-    points.push({
-      label: `Point ${points.length + 1}`,
-      x: Number(x),
-      y: Number(y),
-      z: Number(z),
-      originX: 0,
-      originY: 0,
-      originZ: 0,
-      angleDeg: 0,
-    });
+// Multiple blank-line-separated blocks in the alt-format input mean the
+// route was exported from more than one sheet — one block per sheet.
+function splitIntoBlocks(text) {
+  return String(text || '')
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+function parseAltFormatBlock(blockText) {
+  const rawPoints = [];
+  let constantWidth = null;
+  let area = null;
+  let length = null;
+  for (const rawLine of splitLines(blockText)) {
+    const pointMatch = rawLine.match(AT_POINT_RE);
+    if (pointMatch) {
+      const [, x, y, z] = pointMatch;
+      rawPoints.push({ x: Number(x), y: Number(y), z: Number(z) });
+      continue;
+    }
+    const widthMatch = rawLine.match(CONSTANT_WIDTH_RE);
+    if (widthMatch) constantWidth = Number(widthMatch[1]);
+    const areaMatch = rawLine.match(AREA_RE);
+    if (areaMatch) area = Number(areaMatch[1]);
+    const lengthMatch = rawLine.match(LENGTH_RE);
+    if (lengthMatch) length = Number(lengthMatch[1]);
   }
+  return { rawPoints, meta: { constantWidth, area, length } };
+}
+
+function parseAltPointFormat(text) {
+  return parseAltFormatBlock(text).rawPoints.map((p, i) => ({
+    label: `Point ${i + 1}`,
+    x: p.x,
+    y: p.y,
+    z: p.z,
+    originX: 0,
+    originY: 0,
+    originZ: 0,
+    angleDeg: 0,
+  }));
+}
+
+function bearingDeg(a, b) {
+  return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+}
+
+function normalizeAngleDeg(angle) {
+  return ((angle % 360) + 360) % 360;
+}
+
+// Picks the reference segment for bearing-matching across a sheet boundary.
+// ASSUMPTION (validated against one real example, not a documented rule):
+// the point immediately at the match line is a tie-in/connector marker whose
+// adjacent segment isn't a reliable direction indicator, so we skip it and
+// use the NEXT segment inward — e.g. sheet 1's second-to-last real segment,
+// and the new sheet's second real segment. Falls back to the boundary
+// segment itself if a sheet only has 2 points (no second segment to skip to).
+function pickReferenceSegment(pts, fromStart) {
+  const segments = [];
+  const count = Math.min(3, pts.length - 1);
+  for (let i = 0; i < count; i += 1) {
+    const [a, b] = fromStart ? [pts[i], pts[i + 1]] : [pts[pts.length - 2 - i], pts[pts.length - 1 - i]];
+    segments.push({ length: Math.hypot(b.x - a.x, b.y - a.y), bearing: bearingDeg(a, b) });
+  }
+  return segments[1] || segments[0] || { length: 0, bearing: 0 };
+}
+
+// Chains multiple alt-format blocks (sheets) together: sheet 1 is placed as-is
+// (Origin (0,0,0), Angle 0). Every later sheet's Angle is derived — not
+// user-supplied — by matching the bearing of its first real segment (in its
+// own local frame) against the bearing of the previous sheet's last real
+// segment (already in the compounded global frame, so this naturally
+// compounds across any number of sheets without extra bookkeeping). The
+// sheet's anchor (translation) is then solved so its own first point lands
+// exactly on the previous sheet's last computed Global point — the
+// continuity-at-the-match-line assumption.
+function buildMultiSheetTable1(blocks) {
+  const points = [];
+  blocks.forEach((block, sheetIndex) => {
+    const raw = block.rawPoints;
+    let angle = 0;
+    let anchorX = 0;
+    let anchorY = 0;
+    let anchorZ = 0;
+    if (sheetIndex > 0 && raw.length) {
+      const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
+      const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
+      if (prevSheetPoints.length >= 2 && raw.length >= 2) {
+        const refPrev = pickReferenceSegment(
+          prevSheetPoints.map((p) => ({ x: p.globalX, y: p.globalY })),
+          false,
+        );
+        const refCurr = pickReferenceSegment(raw, true);
+        angle = normalizeAngleDeg(refPrev.bearing - refCurr.bearing);
+      }
+      if (prevLast) {
+        const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
+        const rotatedFirst = rotateAndTranslate(firstLocal.x, firstLocal.y, firstLocal.z, 0, 0, 0, angle);
+        anchorX = prevLast.globalX - rotatedFirst.globalX;
+        anchorY = prevLast.globalY - rotatedFirst.globalY;
+        anchorZ = prevLast.globalZ - rotatedFirst.globalZ;
+      }
+    }
+    raw.forEach((p, j) => {
+      const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
+      points.push({
+        label: `Sheet ${sheetIndex + 1} Pt ${j + 1}`,
+        x: p.x,
+        y: p.y,
+        z: p.z,
+        originX: round(anchorX),
+        originY: round(anchorY),
+        originZ: round(anchorZ),
+        angleDeg: round(angle, 4),
+        globalX,
+        globalY,
+        globalZ,
+        sheetIndex,
+        sheetMeta: block.meta,
+      });
+    });
+  });
   return points;
+}
+
+// Groups a chained point list into "sheets" — consecutive runs sharing the
+// same Angle. Works uniformly whether the points came from the frozen
+// Point/X/Y/Z table (which carries its own explicit Angle per row) or from
+// multi-block alt-format input (whose Angle was auto-derived per block) —
+// either way, a sheet is just a maximal run of constant Angle.
+export function groupPointsIntoSheets(points) {
+  const sheets = [];
+  points.forEach((p, i) => {
+    if (i === 0 || p.angleDeg !== points[i - 1].angleDeg) {
+      sheets.push({ sheetIndex: sheets.length, angleDeg: p.angleDeg, startIndex: i, endIndex: i, meta: p.sheetMeta || null });
+    } else {
+      sheets[sheets.length - 1].endIndex = i;
+    }
+  });
+  return sheets;
 }
 
 // --- Table 1: Point / X / Y / Z key vertices, with the geometry's single
@@ -131,6 +258,10 @@ function parseAltPointFormat(text) {
 // chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
   if (isAltPointFormatText(text)) {
+    const blocks = splitIntoBlocks(text)
+      .map(parseAltFormatBlock)
+      .filter((block) => block.rawPoints.length);
+    if (blocks.length > 1) return buildMultiSheetTable1(blocks);
     return chainGlobalPositions(parseAltPointFormat(text));
   }
   const points = [];
