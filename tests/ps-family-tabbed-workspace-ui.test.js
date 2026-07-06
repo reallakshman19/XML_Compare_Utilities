@@ -7,6 +7,7 @@ const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
+const professionalCss = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js', 'utf8');
 
 for (const tab of ['Input', 'Preview', 'Config', 'Reports']) {
   assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
@@ -17,6 +18,13 @@ assert.ok(shell.includes('class="psmap-tab psfa-tab active"'));
 assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('class="psmap-tile-icon ps-family-clash-audit-launcher-icon"'));
+
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v3-tab-height-stability'/);
+assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
+assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
+assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
+assert.match(professionalCss, /\.psfa-shell>\[data-psfa-panel\]\{min-height:0;overflow:auto\}/);
+assert.match(professionalCss, /\.psfa-preview-grid pre\{min-height:180px/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
