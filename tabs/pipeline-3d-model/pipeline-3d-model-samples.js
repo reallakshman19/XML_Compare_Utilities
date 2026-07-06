@@ -1,10 +1,12 @@
 // Sample table text loaded by the "New" (Load Sample) button.
 
-export const SAMPLE_TABLE_1 = `Point\tX\tY\tZ
-IP3-IP Start\t0\t0\t0
-IP3-IP-01\t384\t0\t0
-IP3-IP-02\t428\t44\t0
-Match line\t464\t98\t0`;
+export const SAMPLE_TABLE_1 = `Point\tX\tY\tZ\tOriginGlobalX\tOriginGlobalY\tOriginGlobalZ\tAngleDeg
+IP3-IP Start\t0\t0\t0\t301614.82\t2038115\t0\t0
+IP3-IP-01\t384\t0\t0\t301614.82\t2038115\t0\t0
+IP3-IP-02\t428\t44\t0\t301614.82\t2038115\t0\t0
+Match line\t464\t98\t0\t301614.82\t2038115\t0\t0
+Match line\t0\t0\t0\t301614.82\t2038115\t0\t329.84
+IP-02AA\t303\t-176.5\t0\t301614.82\t2038115\t0\t329.84`;
 
 export const SAMPLE_TABLE_2 = `Horizontal (m)\tGrade Elevation (m)
 0.0\t231.32

@@ -22,23 +22,81 @@ function isSeparatorLine(line) {
   return /^[-|:\s]+$/.test(line);
 }
 
-// --- Table 1: Point / X / Y / Z key vertices defining the pipeline polyline ---
+// Splits a row into cells (tab > pipe > comma/whitespace, whichever the line
+// actually uses), so a label like "IP3-IP Start" is classified as ONE
+// non-numeric token instead of having its embedded digit ("3") matched by a
+// bare numeric regex scan across the whole line.
+function tokenizeRow(line) {
+  let parts;
+  if (line.includes('\t')) parts = line.split('\t');
+  else if (line.includes('|')) parts = line.split('|');
+  else parts = line.split(/,|\s+/);
+  return parts.map((part) => part.trim()).filter((part) => part.length);
+}
+
+function isNumericToken(token) {
+  return /^-?\d+(?:\.\d+)?$/.test(token);
+}
+
+// Rotates (x, y) by angleDeg (in the XY plane) then translates by the origin.
+// Z is not rotated — only translated by originZ — since the angle column
+// models each sheet's in-plane orientation change (e.g. across a match line),
+// not a 3D tilt.
+export function transformToGlobal(x, y, z, originX, originY, originZ, angleDeg) {
+  const rad = ((Number(angleDeg) || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    globalX: originX + (x * cos - y * sin),
+    globalY: originY + (x * sin + y * cos),
+    globalZ: originZ + z,
+  };
+}
+
+// --- Table 1: Point / X / Y / Z key vertices, optionally with a per-row
+// Origin Global Coordinate (X, Y, Z) and in-plane rotation Angle — used when
+// the pipeline route crosses sheets whose local axes are reoriented at a
+// shared match-line point. Rows may be:
+//   Point  X  Y  Z                                            (3 numbers)
+//   Point  X  Y  Z  OriginX  OriginY  OriginZ                  (6 numbers)
+//   Point  X  Y  Z  OriginX  OriginY  OriginZ  AngleDeg         (7 numbers)
+// Legacy 3-number rows default to Origin (0,0,0) and Angle 0, so GlobalX/Y/Z
+// equal the local X/Y/Z unchanged.
 export function parseTable1(text) {
   const points = [];
   for (const rawLine of splitLines(text)) {
     if (isSeparatorLine(rawLine)) continue;
-    const nums = extractNumbers(rawLine);
-    if (nums.length < 3) continue; // needs at least X Y Z
-    const [x, y, z] = nums.slice(-3);
-    const label = rawLine
-      .replace(/\|/g, ' ')
-      .replace(new RegExp(nums.slice(-3).map((n) => String(n)).join('|'), 'g'), '')
-      .replace(/[\t,]+/g, ' ')
-      .trim() || `Point ${points.length + 1}`;
-    if (/^(point|x|y|z)$/i.test(label)) continue; // header row
-    points.push({ label, x, y, z });
+    const tokens = tokenizeRow(rawLine);
+    const numericTokens = tokens.filter(isNumericToken).map(Number);
+    const labelTokens = tokens.filter((token) => !isNumericToken(token));
+    if (numericTokens.length < 3) continue; // needs at least X Y Z
+    let x, y, z, originX, originY, originZ, angleDeg;
+    if (numericTokens.length >= 7) {
+      [x, y, z, originX, originY, originZ, angleDeg] = numericTokens.slice(-7);
+    } else if (numericTokens.length === 6) {
+      [x, y, z, originX, originY, originZ] = numericTokens.slice(-6);
+      angleDeg = 0;
+    } else {
+      [x, y, z] = numericTokens.slice(-3);
+      originX = 0;
+      originY = 0;
+      originZ = 0;
+      angleDeg = 0;
+    }
+    const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
+    if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
+    const { globalX, globalY, globalZ } = transformToGlobal(x, y, z, originX, originY, originZ, angleDeg);
+    points.push({ label, x, y, z, originX, originY, originZ, angleDeg, globalX, globalY, globalZ });
   }
   return points;
+}
+
+export function table1ToTabText(points) {
+  const header = ['Point', 'X', 'Y', 'Z', 'OriginGlobalX', 'OriginGlobalY', 'OriginGlobalZ', 'AngleDeg', 'GlobalX', 'GlobalY', 'GlobalZ'].join('\t');
+  const lines = points.map((p) =>
+    [p.label, p.x, p.y, p.z, p.originX, p.originY, p.originZ, p.angleDeg, round(p.globalX), round(p.globalY), round(p.globalZ)].join('\t'),
+  );
+  return [header, ...lines].join('\n');
 }
 
 // --- Table 2: Horizontal (m) vs Grade Elevation (m) station list ---
@@ -82,11 +140,17 @@ export function parseTable3(text) {
   }));
 }
 
+// Distance between two Table-1 vertices in the GLOBAL frame — this is what
+// makes crossing a match line with a reoriented sheet work: a "Match line"
+// row ending one sheet and a "Match line" row starting the next should
+// resolve to (near-)identical global coordinates, giving a ~0-length pivot
+// segment, while all real segments use true global bearing.
 function dist2D(a, b) {
-  return Math.hypot(b.x - a.x, b.y - a.y);
+  return Math.hypot(b.globalX - a.globalX, b.globalY - a.globalY);
 }
 
-// Builds cumulative-distance segments along the polyline defined by Table 1 vertices.
+// Builds cumulative-distance segments along the polyline defined by Table 1
+// vertices' GLOBAL coordinates.
 export function buildSegments(vertices) {
   const segments = [];
   let cumulative = 0;
@@ -100,10 +164,10 @@ export function buildSegments(vertices) {
       start,
       end: cumulative,
       length,
-      dx: length ? (b.x - a.x) / length : 0,
-      dy: length ? (b.y - a.y) / length : 0,
-      ax: a.x,
-      ay: a.y,
+      dx: length ? (b.globalX - a.globalX) / length : 0,
+      dy: length ? (b.globalY - a.globalY) / length : 0,
+      ax: a.globalX,
+      ay: a.globalY,
     });
   }
   return segments;
@@ -166,7 +230,7 @@ export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Tex
   let cumulative = 0;
   vertices.forEach((v, i) => {
     if (i > 0) cumulative += dist2D(vertices[i - 1], v);
-    addPoint(points, cumulative, v.x, v.y, null, v.label, 'vertex');
+    addPoint(points, cumulative, v.globalX, v.globalY, null, v.label, 'vertex');
   });
   stations.forEach((row) => {
     const xy = interpolateXY(segments, row.horizontal);
