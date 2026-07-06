@@ -14,7 +14,7 @@ function profile(patch = {}) {
     duplicateKeyPolicy: 'warn',
     multiValuePolicy: 'first',
     coordinateCluster: { unit: 'mm', tolerance: 1 },
-    exportPolicy: {
+    exportPolicy: patch.replaceExportPolicy ? (patch.exportPolicy || {}) : {
       documentRootTag: 'ExportRoot',
       includeXmlDeclaration: true,
       includeDiagnosticsElement: false,
@@ -57,7 +57,7 @@ assert.ok(validExport.result.diagnostics.some((item) => item.code === 'export_xm
 
 const compatPolicy = normalizeExportPolicy({ exportPolicy: {} });
 assert.equal(compatPolicy.includeDiagnosticsElement, true, 'diagnostics element remains enabled by default for compatibility');
-const compat = exportFor(profile({ exportPolicy: { documentRootTag: '', includeXmlDeclaration: false } }));
+const compat = exportFor(profile({ replaceExportPolicy: true, exportPolicy: {} }));
 assert.equal(compat.result.ok, true);
 assert.ok(compat.result.xmlText.includes('<Diagnostics'), 'default compatibility keeps diagnostics element embedded');
 
