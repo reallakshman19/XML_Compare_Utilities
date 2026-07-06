@@ -6,7 +6,7 @@ export function normalizePivotSpec(input = {}) {
   const spec = input && typeof input === 'object' ? input : {};
   return deepFreeze({
     schema: TABLE_CATEGORIZED_PIVOT_SPEC_SCHEMA,
-    filters: normalizeFieldRefs(spec.filters),
+    filters: normalizeFieldRefs(spec.filters, true),
     rows: normalizeFieldRefs(spec.rows),
     columns: normalizeFieldRefs(spec.columns),
     values: normalizeValues(spec.values),
@@ -24,8 +24,19 @@ export function validatePivotSpec(spec = {}, fieldCatalog = {}, context = {}) {
   return Object.freeze(out);
 }
 
-function normalizeFieldRefs(items = []) {
-  return Object.freeze((Array.isArray(items) ? items : []).map((item) => typeof item === 'string' ? { fieldId: item } : item).filter(Boolean).map((item) => deepFreeze({ fieldId: clean(item.fieldId), label: clean(item.label) })));
+function normalizeFieldRefs(items = [], keepFilterCriteria = false) {
+  return Object.freeze((Array.isArray(items) ? items : []).map((item) => typeof item === 'string' ? { fieldId: item } : item).filter(Boolean).map((item) => deepFreeze({
+    fieldId: clean(item.fieldId),
+    label: clean(item.label),
+    ...(keepFilterCriteria ? filterCriteria(item) : {}),
+  })));
+}
+
+function filterCriteria(item) {
+  return {
+    includeValues: list(item.includeValues ?? item.include ?? item.values),
+    excludeValues: list(item.excludeValues ?? item.exclude),
+  };
 }
 
 function normalizeValues(values = []) {
@@ -48,6 +59,7 @@ function validateValue(value, fieldMap, out, context) {
   if (!value.label) out.push(blocker('pivot_value_label_missing', 'Pivot value is missing label.', value.fieldId || context.ref));
 }
 
+function list(value) { return Object.freeze((Array.isArray(value) ? value : value == null ? [] : [value]).map(clean).filter(Boolean)); }
 function clean(value) { return String(value ?? '').trim(); }
 function clone(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
 function deepFreeze(value) { if (value && typeof value === 'object') { Object.freeze(value); Object.values(value).forEach(deepFreeze); } return value; }
