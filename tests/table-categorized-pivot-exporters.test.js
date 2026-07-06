@@ -44,7 +44,7 @@ assert.equal(parsed.totals.grand[0].value, 35, 'grand totals are represented in 
 const csv = exportPivotViewModelCsv(viewModel);
 assert.equal(csv.ok, true);
 const lines = csv.text.trimEnd().split('\n');
-assert.equal(lines[0], 'Row,A <script>alert(1)</script> | Amount <Sum>,A <script>alert(1)</script> | Line Count,"B ""quoted"" | Amount <Sum>","B ""quoted"" | Line Count,A <script>alert(1)</script> | SourceRefs,"B ""quoted"" | SourceRefs,Row Total | Amount <Sum>,Row Total | Line Count');
+assert.equal(lines[0], 'Row,A <script>alert(1)</script> | Amount <Sum>,A <script>alert(1)</script> | Line Count,"B ""quoted"" | Amount <Sum>","B ""quoted"" | Line Count",A <script>alert(1)</script> | SourceRefs,"B ""quoted"" | SourceRefs",Row Total | Amount <Sum>,Row Total | Line Count');
 assert.equal(lines[1], 'CL150,10,1,20,1,S1:R1,S1:R2,30,2');
 assert.equal(lines.find((line) => line.startsWith('Column Total | A')), 'Column Total | A <script>alert(1)</script>,15,2,,,,,,');
 assert.equal(lines.find((line) => line.startsWith('Grand Total')), 'Grand Total,,,,,,,35,3');
