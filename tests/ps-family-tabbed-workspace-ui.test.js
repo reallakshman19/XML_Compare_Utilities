@@ -9,23 +9,24 @@ const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 const professionalCss = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js', 'utf8');
 
-for (const tab of ['Input', 'Preview', 'Config', 'Reports']) {
+for (const tab of ['Input', 'Preview', 'Config', 'Run Audit', 'Reports', 'Export']) {
   assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
 }
-assert.ok(shell.includes('>Run &amp; Export</button>'));
+assert.doesNotMatch(shell, />Run &amp; Export<\/button>/);
 assert.ok(shell.includes('class="psmap-tabs psfa-tabs"'));
 assert.ok(shell.includes('class="psmap-tab psfa-tab active"'));
 assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('class="psmap-tile-icon ps-family-clash-audit-launcher-icon"'));
 
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v4-prefix-export-preview'/);
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v5-shell-split-run-export'/);
 assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
 assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
 assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
 assert.match(professionalCss, /\.psfa-shell>\[data-psfa-panel\]\{min-height:0;overflow:auto\}/);
 assert.match(professionalCss, /\.psfa-preview-grid pre\{min-height:180px/);
 assert.match(professionalCss, /\.psfa-prefix-card/);
+assert.match(professionalCss, /\.psfa-run-grid/);
 assert.match(professionalCss, /\.psfa-export-preview/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
@@ -33,6 +34,7 @@ assert.match(shell, /data-psfa-panel="preview" hidden/);
 assert.match(shell, /data-psfa-panel="config" hidden/);
 assert.match(shell, /data-psfa-panel="run" hidden/);
 assert.match(shell, /data-psfa-panel="reports" hidden/);
+assert.match(shell, /data-psfa-panel="export" hidden/);
 
 assert.ok(shell.includes('Official sample loaders'));
 assert.ok(shell.includes('Load sample clash XML'));
@@ -57,9 +59,12 @@ assert.ok(shell.includes('Generated detector'));
 assert.ok(shell.includes('POS tolerance mm'));
 assert.ok(shell.includes('Copy-(n)-of names are preserved'));
 
+assert.ok(shell.includes('Audit Controls'));
+assert.ok(shell.includes('Readiness / Run Summary'));
 assert.ok(shell.includes('Check Readiness'));
 assert.ok(shell.includes('Run Audit'));
 assert.ok(shell.includes('Export Active Report'));
+assert.ok(shell.includes('Export Package'));
 assert.ok(shell.includes('Coverage CSV'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(shell.includes('class="psfa-export-package"'));
