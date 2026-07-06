@@ -84,10 +84,10 @@ function createLineFamilyRows(clashRows) {
   })).sort((a, b) => a.lineFamily.localeCompare(b.lineFamily));
 }
 
-function createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies) {
-  const bySource = groupBy(detailRows, (row) => row.sourceFamily || extractFamilyRoot(row.displayName));
+function createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies, config) {
+  const bySource = groupBy(detailRows, (row) => row.sourceFamily || extractFamilyRoot(row.displayName, config));
   return Array.from(bySource.entries()).map(([source, rows]) => {
-    const sourceCoverage = coverageRows.filter((row) => row.sourceFamily === source || extractFamilyRoot(row.expectedMember) === source);
+    const sourceCoverage = coverageRows.filter((row) => row.sourceFamily === source || extractFamilyRoot(row.expectedMember, config) === source);
     const sourceClashes = clashRows.filter((row) => row.source.familyRoot === source);
     const posFamilyIds = uniqueSorted(rows.map((row) => row.posFamilyId));
     const sourcePosFamilies = posFamilies.filter((family) => posFamilyIds.includes(family.posFamilyId));
@@ -132,7 +132,7 @@ export function buildPsFamilyClashAudit(input) {
   const outOfFamilyRows = clashRows.filter((row) => row.familyStatus === PS_FAMILY_STATUS.OUT_OF_FAMILY);
   const unexpectedInFamilyRows = clashRows.filter((row) => row.familyStatus !== PS_FAMILY_STATUS.OUT_OF_FAMILY && !expectedKeySet.has(row.against.exactMemberKey));
   const lineFamilyRows = createLineFamilyRows(clashRows);
-  const sourceVsPosFamilyRows = createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies);
+  const sourceVsPosFamilyRows = createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies, config);
 
   const summary = {
     sourceFamily,

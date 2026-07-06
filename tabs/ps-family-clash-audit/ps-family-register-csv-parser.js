@@ -28,12 +28,10 @@ function addHeaderDiagnostics(csvText, diagnostics) {
     diagnostics.push({ level: 'ERROR', code: 'EMPTY_EXPECTED_CSV', message: 'Expected PS CSV input is empty.' });
     return;
   }
-  if (!hasHeader(text, NAME_HEADERS)) {
-    diagnostics.push({ level: 'ERROR', code: 'EXPECTED_NAME_HEADER_MISSING', message: 'Expected PS CSV has no recognizable Item Name column.' });
-  }
+  if (!hasHeader(text, NAME_HEADERS)) diagnostics.push({ level: 'ERROR', code: 'EXPECTED_NAME_HEADER_MISSING', message: 'Expected PS CSV has no recognizable Item Name column.' });
 }
 
-export function parsePsFamilyRegisterCsv(csvText) {
+export function parsePsFamilyRegisterCsv(csvText, options = {}) {
   const objects = rowsToObjects(csvText);
   const rows = [];
   const diagnostics = [];
@@ -53,7 +51,7 @@ export function parsePsFamilyRegisterCsv(csvText) {
       rawItemName,
       displayName: makeDisplayName(rawItemName),
       exactMemberKey,
-      familyRoot: extractFamilyRoot(rawItemName),
+      familyRoot: extractFamilyRoot(rawItemName, options),
       pdmsDesc: findField(object, ['pdms desc', 'description']),
     };
     if (seen.has(exactMemberKey)) diagnostics.push({ level: 'WARN', code: 'DUPLICATE_EXPECTED_MEMBER', message: `${row.displayName} appears more than once in expected CSV.` });

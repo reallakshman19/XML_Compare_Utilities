@@ -1,4 +1,5 @@
 import {
+  buildFamilyRootRegex,
   decodeXmlEntities,
   extractFamilyRoot,
   makeDisplayName,
@@ -38,21 +39,22 @@ function findLineBranchNode(path) {
   return [...path].reverse().find((node) => /ASIM-/i.test(node) && /\/B\d+$/i.test(node)) || '';
 }
 
-function findPsLeaf(path, fallback = '') {
-  return [...path].reverse().find((node) => /(?:^|\/)PS-\d+/i.test(node) && !/MAIN$/i.test(node)) || fallback;
+function findFamilyLeaf(path, fallback = '', options = {}) {
+  const detector = buildFamilyRootRegex(options);
+  return [...path].reverse().find((node) => detector.test(` ${node}`) && !/MAIN$/i.test(node)) || fallback;
 }
 
-function parseClashObject(clashObjectXml, diagnostics, clashName) {
+function parseClashObject(clashObjectXml, diagnostics, clashName, options) {
   const pathlinkMatch = clashObjectXml.match(/<pathlink>([\s\S]*?)<\/pathlink>/i);
   const path = pathlinkMatch ? extractNodes(pathlinkMatch[1]) : [];
   if (!pathlinkMatch) diagnostics.push({ level: 'WARN', code: 'CLASH_PATHLINK_MISSING', message: `${clashName} has a clash object with no pathlink.` });
-  const itemName = extractSmartTagValue(clashObjectXml, 'Item Name') || findPsLeaf(path, path[path.length - 1] || '');
+  const itemName = extractSmartTagValue(clashObjectXml, 'Item Name') || findFamilyLeaf(path, path[path.length - 1] || '', options);
   const lineBranchNode = findLineBranchNode(path);
   const pipe = lineBranchNode ? parsePipeTag(lineBranchNode) : null;
   return {
     itemName: makeDisplayName(itemName),
     exactMemberKey: makeExactMemberKey(itemName),
-    familyRoot: extractFamilyRoot(itemName),
+    familyRoot: extractFamilyRoot(itemName, options),
     path,
     lineBranchNode,
     pipe,
@@ -75,10 +77,10 @@ function extractPoint(clashXml) {
   return { x: parseNumber(attrs.x), y: parseNumber(attrs.y), z: parseNumber(attrs.z) };
 }
 
-function buildClashRow(attrs, body, objects, source, against) {
+function buildClashRow(attrs, body, source, against, options) {
   const point = extractPoint(body);
-  const sourceObject = source.itemName || findPsLeaf(source.path);
-  const againstMember = against.itemName || findPsLeaf(against.path);
+  const sourceObject = source.itemName || findFamilyLeaf(source.path, '', options);
+  const againstMember = against.itemName || findFamilyLeaf(against.path, '', options);
   return {
     schema: PS_FAMILY_CLASH_ROW_SCHEMA,
     clashName: attrs.name || '',
@@ -90,13 +92,13 @@ function buildClashRow(attrs, body, objects, source, against) {
     source: {
       objectName: sourceObject,
       exactMemberKey: makeExactMemberKey(sourceObject),
-      familyRoot: extractFamilyRoot(sourceObject) || extractFamilyRoot(source.path.join('/')),
+      familyRoot: extractFamilyRoot(sourceObject, options) || extractFamilyRoot(source.path.join('/'), options),
       path: source.path,
     },
     against: {
       memberName: againstMember,
       exactMemberKey: makeExactMemberKey(againstMember),
-      familyRoot: extractFamilyRoot(againstMember),
+      familyRoot: extractFamilyRoot(againstMember, options),
       lineBranchNode: against.lineBranchNode,
       pipe: against.pipe,
       path: against.path,
@@ -121,13 +123,13 @@ export function parsePsFamilyClashXml(xmlText, options = {}) {
     const body = match[2];
     const clashName = attrs.name || 'clash';
     const objectXml = Array.from(body.matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi)).map((item) => item[1]);
-    const objects = objectXml.map((xml) => parseClashObject(xml, diagnostics, clashName));
+    const objects = objectXml.map((xml) => parseClashObject(xml, diagnostics, clashName, options));
     const { source: sourceObject, against } = chooseSourceAndAgainst(objects, sourceSide);
     if (!sourceObject || !against) {
       diagnostics.push({ level: 'WARN', code: 'CLASH_OBJECTS_INCOMPLETE', message: `${clashName} has fewer than two clash objects.` });
       continue;
     }
-    rows.push(buildClashRow(attrs, body, objects, sourceObject, against));
+    rows.push(buildClashRow(attrs, body, sourceObject, against, options));
   }
 
   if (!rows.length) diagnostics.push({ level: 'WARN', code: 'NO_CLASH_RESULTS', message: 'No clashresult rows were found in the XML.' });
