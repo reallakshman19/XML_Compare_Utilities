@@ -8,7 +8,7 @@ import { comparePanel, renderXmlCompareCandidatePairsPanelHtml, renderXmlCompare
 import { renderXmlCompareLogScreenHtml } from './XmlCompareLogScreen.js';
 import { renderXmlCompareDiagnosticsPanelHtml } from './XmlCompareDiagnosticsPanel.js';
 
-export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v4-export-receipt-state';
+export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v5-export-all-artifacts';
 
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const clean = (value) => String(value ?? '').trim();
@@ -56,6 +56,7 @@ function outputActionMeta(action = '') {
     'export-transfer-audit-json': ['Export transfer audit JSON', 'audit', '{}'],
     'download-transfer-proof-json': ['Export transfer proof JSON', 'proof', '✓'],
     'copy-patched-target-preview': ['Copy patched Target preview', 'copy', '⧉'],
+    'export-transfer-artifact-bundle': ['Export all transfer artifacts', 'bundle', '⇩'],
   }[action] || [action, 'generic', '•'];
   return Object.freeze({ label: meta[0], kind: meta[1], icon: meta[2] });
 }
@@ -137,6 +138,7 @@ function outputActionBand(input = {}, tState = {}, stageScope = 'node') {
         ${commandButton('export-transfer-audit-json', hasStageOrResult, 'Stage or apply transfer before exporting audit JSON.')}
         ${commandButton('download-transfer-proof-json', hasStageOrResult, 'Stage or apply transfer before exporting proof JSON.')}
         ${commandButton('copy-patched-target-preview', hasPatched, 'Apply staged transfer before copying patched XML.')}
+        ${commandButton('export-transfer-artifact-bundle', hasPatched, 'Apply staged transfer before exporting all artifacts.')}
         ${legacyExportCompatibility()}
       </div>
     </div>
