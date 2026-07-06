@@ -13,7 +13,7 @@ assert.ok(css.includes('@media(max-width:900px)'));
 
 const stabilizerSource = readFileSync('tabs/psnm-utility-tab-layout-stabilizer.js', 'utf8');
 assert.match(stabilizerSource, /data-psfa-open/);
-assert.match(stabilizerSource, /data-psmap-action=\\"open\\"/);
+assert.ok(stabilizerSource.includes('[data-psmap-action="open"]'));
 assert.match(stabilizerSource, /data-psnm-utility-launcher-deck/);
 assert.match(stabilizerSource, /MutationObserver/);
 
