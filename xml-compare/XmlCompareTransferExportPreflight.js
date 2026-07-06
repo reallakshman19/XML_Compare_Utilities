@@ -10,7 +10,16 @@ const EXPORT_ACTIONS = Object.freeze([
   ['download-transfer-proof-json', 'Transfer proof JSON'],
   ['copy-patched-target-preview', 'Copy patched Target preview'],
   ['export-transfer-artifact-bundle', 'Export all transfer artifacts'],
+  ['export-transfer-diff-summary-json', 'Transfer diff summary JSON'],
   ['export-transfer-history-json', 'Export history JSON'],
+]);
+const LEGACY_COUNTED_ACTIONS = new Set([
+  'export-patched-target-xml',
+  'export-transfer-audit-json',
+  'download-transfer-proof-json',
+  'copy-patched-target-preview',
+  'export-transfer-artifact-bundle',
+  'export-transfer-history-json',
 ]);
 
 function row(actionType, label, status, reason, nextAction) {
@@ -19,6 +28,13 @@ function row(actionType, label, status, reason, nextAction) {
 
 function stagedOrApplied(summary = {}) {
   return Boolean(summary.hasStage || summary.hasAppliedResult);
+}
+
+function patchedReadiness(action, label, hasPatched, hasStage) {
+  if (hasPatched) return row(action, label, 'ready', 'Patched Target XML is available.', `Run ${label}.`);
+  return hasStage
+    ? row(action, label, 'blocked', 'Patched Target XML is not available yet.', 'Apply staged transfer first.')
+    : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer, then apply staged transfer.');
 }
 
 function readinessRows(summary = {}, history = {}) {
@@ -36,11 +52,12 @@ function readinessRows(summary = {}, history = {}) {
         ? row(action, label, 'ready', 'Transfer is staged or applied.', `Export ${label}.`)
         : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer first.');
     }
-    if (hasPatched) return row(action, label, 'ready', 'Patched Target XML is available.', `Run ${label}.`);
-    return hasStage
-      ? row(action, label, 'blocked', 'Patched Target XML is not available yet.', 'Apply staged transfer first.')
-      : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer, then apply staged transfer.');
+    return patchedReadiness(action, label, hasPatched, hasStage);
   }));
+}
+
+function countedRows(rows = []) {
+  return rows.filter((item) => LEGACY_COUNTED_ACTIONS.has(item.actionType));
 }
 
 export function createTransferExportPreflight({ input = {}, tState = {}, summary = null } = {}) {
@@ -62,13 +79,14 @@ export function transferExportReadinessForAction(preflight = {}, actionType = ''
 
 export function summarizeTransferExportPreflight(preflight = {}) {
   const value = preflight?.schema === XML_COMPARE_TRANSFER_EXPORT_PREFLIGHT_SCHEMA ? preflight : createTransferExportPreflight();
+  const counted = countedRows(value.rows || []);
   return Object.freeze({
     schema: XML_COMPARE_TRANSFER_EXPORT_PREFLIGHT_SCHEMA,
     rows: Object.freeze([...(value.rows || [])]),
-    readyCount: (value.rows || []).filter((item) => item.status === 'ready').length,
-    blockedCount: (value.rows || []).filter((item) => item.status === 'blocked').length,
-    notAvailableCount: (value.rows || []).filter((item) => item.status === 'not available').length,
+    readyCount: counted.filter((item) => item.status === 'ready').length,
+    blockedCount: counted.filter((item) => item.status === 'blocked').length,
+    notAvailableCount: counted.filter((item) => item.status === 'not available').length,
   });
 }
 
-export const _test = Object.freeze({ clean, EXPORT_ACTIONS, row, stagedOrApplied, readinessRows });
+export const _test = Object.freeze({ clean, EXPORT_ACTIONS, LEGACY_COUNTED_ACTIONS, row, stagedOrApplied, patchedReadiness, readinessRows, countedRows });
