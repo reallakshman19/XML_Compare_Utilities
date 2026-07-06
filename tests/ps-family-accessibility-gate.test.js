@@ -10,7 +10,8 @@ function assertVisibleLabel(text) {
   assert.ok(`${launcher}${popup}${shell}`.includes(text), `Missing visible label: ${text}`);
 }
 
-assertVisibleLabel('PS clash check');
+assertVisibleLabel('PS Family Clash Audit');
+assertVisibleLabel('Audit Navis clash XML against expected PS family mapping.');
 assertVisibleLabel('Close');
 assert.ok(launcher.includes('data-psfa-open="1"'));
 assert.ok(popup.includes('data-psfa-close="1"'));
