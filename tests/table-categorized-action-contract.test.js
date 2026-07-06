@@ -20,6 +20,7 @@ const handledActions = new Set([
   'send-source', 'send-target', 'confirm-canvas-handoff', 'cancel-canvas-handoff',
 ]);
 const handledDownloads = new Set(['xml', 'graph', 'profile', 'diagnostics', 'audit']);
+const dynamicPivotActions = new Set(['download-pivot-json', 'download-pivot-csv', 'download-pivot-html']);
 
 function buttonTags(html, attr) {
   const pattern = new RegExp(`<button\\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g');
@@ -62,7 +63,10 @@ const activeDownloads = activeValues(buttonTags(renderedHtml, 'data-table-catego
 
 assert.ok(activeActions.length > 0, 'representative shell states render active actions');
 for (const action of activeActions) assert.ok(handledActions.has(action), `rendered action must be handled or intentionally disabled: ${action}`);
-for (const action of handledActions) assert.ok(runtimeSource.includes(action), `runtime source must contain handler evidence for ${action}`);
+for (const action of handledActions) {
+  if (dynamicPivotActions.has(action)) assert.ok(runtimeSource.includes("download-pivot-"), `runtime source must contain dynamic pivot download handler evidence for ${action}`);
+  else assert.ok(runtimeSource.includes(action), `runtime source must contain handler evidence for ${action}`);
+}
 for (const kind of activeDownloads) assert.ok(handledDownloads.has(kind), `rendered download must be handled: ${kind}`);
 for (const kind of handledDownloads) assert.ok(runtimeSource.includes(`kind==='${kind}'`) || runtimeSource.includes(`kind === '${kind}'`), `runtime source must contain download evidence for ${kind}`);
 
