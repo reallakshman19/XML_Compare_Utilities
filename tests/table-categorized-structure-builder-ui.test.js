@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+import { renderTableCategorizedXmlShellHtml } from '../xml-compare/table-categorizer/table-categorized-xml-shell.js';
+import { parseTableSource } from '../xml-compare/table-categorizer/table-categorized-xml-source-parser.js';
+import { applySourceTransformRules } from '../xml-compare/table-categorizer/table-categorized-xml-source-transforms.js';
+import { createBlankUniversalProfile, updateLevelAtPath } from '../xml-compare/table-categorizer/table-categorized-xml-profile-designer.js';
+import { validateEditableProfile } from '../xml-compare/table-categorizer/table-categorized-xml-profile-validation.js';
+
+const runtime = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
+const source = applySourceTransformRules(
+  parseTableSource(['PS NO\tRating\tLength', 'PS-100.1\tCL150\t1200mm'].join('\n'), { sourceId: 'S1', delimiterMode: 'tab' }),
+  [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }],
+);
+const profile = createBlankUniversalProfile();
+const html = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0' });
+
+assert.ok(html.includes('data-table-categorized-recipe-tree="true"'), 'recipe tree is rendered');
+assert.ok(html.includes('data-table-categorized-selected-node-panel'), 'selected-node panel is rendered');
+assert.ok(html.includes('data-field-catalog-resolver-options="FieldCatalog.v1"'), 'FieldCatalog compact field panel is rendered');
+assert.ok(html.includes('PS NO') && html.includes('PS_NO_Trimmed'), 'FieldCatalog fields appear in resolver choices');
+assert.ok(html.includes('data-level-field="levelId"'), 'levelId editor is rendered');
+assert.ok(html.includes('data-level-field="displayName"'), 'displayName editor is rendered');
+assert.ok(html.includes('data-level-field="xmlTag"'), 'xmlTag editor is rendered');
+assert.ok(html.includes('data-level-field="levelType"'), 'levelType selector is rendered');
+assert.ok(html.includes('data-level-field="creationMode"'), 'creationMode selector is rendered');
+assert.ok(html.includes('<option value="container"'), 'levelType options include container');
+assert.ok(html.includes('<option value="one-per-key"'), 'creationMode options include one-per-key');
+assert.ok(html.includes('data-level-field="keyColumn"'), 'key resolver field selector is rendered');
+assert.ok(html.includes('data-level-display-column'), 'display resolver field selector is rendered');
+assert.ok(html.includes('Field Resolvers'), 'field resolver list is rendered');
+assert.ok(html.includes('data-table-categorized-action="select-level"'), 'level selection action is rendered');
+assert.ok(html.includes('data-table-categorized-action="add-child-level"'), 'add child remains rendered');
+assert.ok(html.includes('data-table-categorized-action="remove-level" data-path="0" disabled'), 'root delete is disabled');
+
+const childHtml = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0,0' });
+assert.ok(childHtml.includes('data-level-path="0,0"'), 'child path is stable and rendered');
+assert.ok(childHtml.includes('data-level-split-dot="true"'), 'text-before-dot quick behavior remains available for keyed nodes');
+
+assert.ok(runtime.includes('selectLevelFromButton'), 'runtime handles selected tree node action');
+assert.ok(runtime.includes('changeDisplayColumn'), 'runtime handles display resolver field selection');
+
+const invalid = updateLevelAtPath(profile, [0], { xmlTag: 'Bad Tag' });
+const diagnostics = validateEditableProfile(invalid, { sources: [source] });
+assert.ok(diagnostics.some((item) => item.code === 'profile_xml_tag_invalid' || item.message.includes('XML')), 'invalid XML tag remains caught by validation');
+
+console.log('table-categorized-structure-builder-ui.test.js passed');
