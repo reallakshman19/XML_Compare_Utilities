@@ -8,9 +8,11 @@ const popup = _test.renderPopup(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 
 for (const tab of ['Input', 'Preview', 'Config', 'Reports']) {
-  assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
+  assert.ok(shell.includes(`<span>${tab}</span>`), `missing primary workspace tab ${tab}`);
 }
-assert.ok(shell.includes('>Run &amp; Export</button>'));
+assert.ok(shell.includes('<span>Run &amp; Export</span>'));
+assert.ok(shell.includes('class="psfa-step-tabs"'));
+assert.ok(shell.includes('class="psfa-step-tab"'));
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
@@ -24,6 +26,7 @@ assert.ok(shell.includes('data-psfa-file="xml"'));
 assert.ok(shell.includes('data-psfa="xml"'));
 assert.ok(shell.includes('data-psfa="expected"'));
 assert.ok(shell.includes('data-psfa="details"'));
+assert.ok(shell.includes('class="psfa-input-wide"'));
 
 assert.ok(shell.includes('Clash XML preview/count'));
 assert.ok(shell.includes('Expected CSV preview/count'));
@@ -42,6 +45,7 @@ assert.ok(shell.includes('Run Audit'));
 assert.ok(shell.includes('Export Active Report'));
 assert.ok(shell.includes('Coverage CSV'));
 assert.ok(shell.includes('Audit JSON'));
+assert.ok(shell.includes('class="psfa-export-package"'));
 
 assert.ok(shell.includes('Report search'));
 assert.ok(shell.includes('data-psfa-tab="coverage"'));
@@ -49,8 +53,10 @@ assert.ok(shell.includes('data-psfa-tab="clashRows"'));
 assert.ok(shell.includes('data-psfa-tab="hierarchy"'));
 assert.ok(shell.includes('data-psfa="summary"'));
 assert.ok(shell.includes('data-psfa="reports"'));
+assert.ok(shell.includes('class="psfa-report-table psmap-table-wrap"'));
 
 assert.ok(popup.includes('PS Family Clash Audit'));
+assert.ok(popup.includes('Professional Audit Workspace'));
 assert.ok(popup.includes('data-psfa-close="1"'));
 assert.ok(popup.includes('>Close</button>'));
 assert.match(source, /if \(popup\) return;/);
