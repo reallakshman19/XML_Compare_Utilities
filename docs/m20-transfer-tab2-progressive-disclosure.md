@@ -15,6 +15,7 @@ Before this change, opening Transfer and Compare Tab 2 with no staged transfer d
   - Advanced readiness evidence expander
 - Output/export/diff/ledger/receipt/history panels now appear only after transfer evidence exists.
 - Export buttons are not shown before stage/apply evidence exists.
+- Patched Target preview placeholder is not shown before patched output exists.
 - Downstream dashboard status pills are hidden in the no-evidence state.
 - Existing detailed evidence remains available through an advanced expander.
 
