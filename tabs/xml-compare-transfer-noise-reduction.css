@@ -1,0 +1,150 @@
+/* M19: reduce Tab 2 visual noise from dashboard cards and action boxes. */
+.xmlc-transfer-output-dashboard {
+  box-shadow: none;
+  background: rgba(8, 47, 73, 0.32);
+  border-color: rgba(45, 212, 191, 0.28);
+}
+
+.xmlc-transfer-next-action {
+  border: 0;
+  border-left: 4px solid rgba(45, 212, 191, 0.82);
+  border-radius: 6px;
+  background: rgba(2, 6, 23, 0.30);
+  margin-bottom: 8px;
+}
+
+.xmlc-transfer-dashboard-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+}
+
+.xmlc-transfer-dashboard-card {
+  min-height: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.xmlc-transfer-dashboard-card::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #64748b;
+  flex: 0 0 auto;
+}
+
+.xmlc-transfer-dashboard-card.is-ready::before { background: #22c55e; }
+.xmlc-transfer-dashboard-card.is-blocked::before { background: #f59e0b; }
+.xmlc-transfer-dashboard-card.is-not-available::before { background: #64748b; }
+
+.xmlc-transfer-dashboard-card b {
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.xmlc-transfer-dashboard-card span {
+  padding: 1px 6px;
+  font-size: 10px;
+  background: rgba(100, 116, 139, 0.20);
+}
+
+.xmlc-transfer-dashboard-card small,
+.xmlc-transfer-dashboard-card em {
+  display: none;
+}
+
+.xmlc-transfer-output {
+  position: static;
+  box-shadow: none;
+  background: rgba(8, 47, 73, 0.24);
+}
+
+.xmlc-transfer-output-body {
+  grid-template-columns: minmax(210px, 300px) minmax(180px, 260px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.xmlc-transfer-output .xmlc-transfer-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+}
+
+.xmlc-transfer-output .xmlc-transfer-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.xmlc-transfer-output .xmlc-transfer-metric b,
+.xmlc-transfer-output .xmlc-transfer-metric span {
+  display: inline;
+  margin: 0;
+  font-size: 11px;
+}
+
+.xmlc-transfer-output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action {
+  min-height: 30px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.xmlc-transfer-action-icon {
+  display: none;
+}
+
+.xmlc-transfer-action-label {
+  font-size: 11px;
+}
+
+.xmlc-transfer-detail-group {
+  border-color: rgba(148, 163, 184, 0.10);
+  background: rgba(15, 23, 42, 0.34);
+}
+
+.xmlc-transfer-detail-group > summary {
+  padding: 9px 12px;
+  background: rgba(2, 6, 23, 0.24);
+  border-bottom-color: rgba(148, 163, 184, 0.10);
+  font-size: 11px;
+}
+
+.xmlc-transfer-detail-group > summary::after {
+  width: auto;
+  height: auto;
+  background: transparent;
+  content: 'open';
+  color: #93c5fd;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.xmlc-transfer-detail-group[open] > summary::after {
+  content: 'close';
+}
+
+@media (max-width: 900px) {
+  .xmlc-transfer-output-body {
+    grid-template-columns: 1fr;
+  }
+}
