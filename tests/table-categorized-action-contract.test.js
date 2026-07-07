@@ -21,23 +21,14 @@ const handledActions = new Set([
 ]);
 const handledDownloads = new Set(['xml', 'graph', 'profile', 'diagnostics', 'audit']);
 const dynamicPivotActions = new Set(['download-pivot-json', 'download-pivot-csv', 'download-pivot-html']);
-
-function buttonTags(html, attr) {
-  const pattern = new RegExp(`<button\\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g');
-  return [...html.matchAll(pattern)].map((match) => ({ value: match[1], tag: match[0], disabled: /\sdisabled\b/.test(match[0]) || /aria-disabled="true"/.test(match[0]) }));
-}
+function buttonTags(html, attr) { const pattern = new RegExp(`<button\\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g'); return [...html.matchAll(pattern)].map((match) => ({ value: match[1], tag: match[0], disabled: /\sdisabled\b/.test(match[0]) || /aria-disabled="true"/.test(match[0]) })); }
 function activeValues(rows) { return [...new Set(rows.filter((row) => !row.disabled).map((row) => row.value))].sort(); }
 function sourceRow(rawByHeader, index = 1) { return { rowId: `S1:R${index}`, rawCells: Object.values(rawByHeader), rawByHeader, rawByColumnId: { ...rawByHeader } }; }
-function parsedSource(transformRules = []) {
-  return { sourceId: 'S1', sourceName: 'PS sample', sourceType: 'pasteText', delimiterMode: 'tab', customDelimiter: '', headers: ['PS NO', 'Bore', 'Mandatory'], columnIds: ['PS NO', 'Bore', 'Mandatory'], rows: [sourceRow({ 'PS NO': 'PS-100.1', Bore: '100', Mandatory: 'yes' })], diagnostics: [], transformRules };
-}
-function pivotProfile() {
-  return { ...PS_MAPPING_TABLE_2_SHADOW_PROFILE, outputViews: [{ schema: 'OutputView.v1', viewId: 'pivotView1', type: 'pivot', displayName: 'Pivot View 1', enabled: true, pivotSpec: { schema: 'PivotSpec.v1', filters: [{ fieldId: 'S1.Mandatory', equals: 'yes' }], rows: [{ fieldId: 'S1.PS_NO', label: 'PS NO' }], columns: [], values: [{ fieldId: 'S1.Bore', aggregate: 'sum', label: 'Bore sum' }] } }] };
-}
+function parsedSource(transformRules = []) { return { sourceId: 'S1', sourceName: 'PS sample', sourceType: 'pasteText', delimiterMode: 'tab', customDelimiter: '', headers: ['PS NO', 'Bore', 'Mandatory'], columnIds: ['PS NO', 'Bore', 'Mandatory'], rows: [sourceRow({ 'PS NO': 'PS-100.1', Bore: '100', Mandatory: 'yes' })], diagnostics: [], transformRules }; }
+function pivotProfile() { return { ...PS_MAPPING_TABLE_2_SHADOW_PROFILE, outputViews: [{ schema: 'OutputView.v1', viewId: 'pivotView1', type: 'pivot', displayName: 'Pivot View 1', enabled: true, pivotSpec: { schema: 'PivotSpec.v1', filters: [{ fieldId: 'S1.Mandatory', equals: 'yes' }], rows: [{ fieldId: 'S1.PS_NO', label: 'PS NO' }], columns: [], values: [{ fieldId: 'S1.Bore', aggregate: 'sum', label: 'Bore sum' }] } }] }; }
 function readyState(activeStep = 'columns', patch = {}) { return { activeStep, activeTab: stepToTab(activeStep), sources: [parsedSource(patch.transformRules || [])], activeSourceId: 'S1', columnsConfirmed: true, profile: PS_MAPPING_TABLE_2_SHADOW_PROFILE, profileValidation: [], graph: null, validationResults: [], exportResult: null, exportStatus: '', compareCanvas: {}, ...patch }; }
 function stepToTab(step) { return { table: 'source', columns: 'levels', structure: 'graph', preview: 'validation', export: 'export' }[step] || 'source'; }
 function representativeStates() { const transformRules = [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }]; const graph = { nodes: [{ id: 'n1', fields: { 'PS NO': 'PS-100.1', Bore: '100', Mandatory: 'yes' }, sourceRefs: ['S1:R1'] }], edges: [], documentRootNodeIds: ['n1'] }; const exportResult = { ok: true, xmlText: '<CategorizedXML/>', graphJson: '{}', diagnosticsJson: '[]', auditJson: '{}' }; const pendingHandoff = { summary: { targetCanvas: 'source', xmlRoot: 'CategorizedXML', byteCount: 18, lineCount: 1, origin: 'Table Categorized', warning: 'Review before sending.' } }; return [readyState('table', { columnsConfirmed: false }), readyState('columns', { columnsConfirmed: false, transformRules }), readyState('structure'), readyState('preview', { graph, validationResults: [] }), readyState('export', { graph, exportResult, pendingHandoff, profile: pivotProfile(), activePivotViewId: 'pivotView1' })]; }
-
 const renderedHtml = representativeStates().map(renderTableCategorizedXmlShellHtml).join('\n');
 const activeActions = activeValues(buttonTags(renderedHtml, 'data-table-categorized-action'));
 const activeDownloads = activeValues(buttonTags(renderedHtml, 'data-table-categorized-download'));
@@ -63,4 +54,5 @@ assert.ok(runtimeSource.includes('parseSourceDraft'), 'active runtime imports/us
 assert.equal(runtimeSource.includes('parseTableSource'), false, 'active runtime does not use direct parseTableSource path');
 assert.equal(runtimeSource.includes('table-categorized-xml-controller'), false, 'active runtime does not import legacy controller');
 assert.ok(controllerSource.includes('parseTableSource'), 'legacy controller direct parser remains isolated from active runtime path');
+await import('./table-categorized-pivot-filter-drilldown-ui.test.js');
 console.log('table-categorized-action-contract.test.js passed');
