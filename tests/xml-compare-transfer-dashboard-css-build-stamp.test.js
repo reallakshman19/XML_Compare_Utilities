@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const transferCss = readFileSync('tabs/xml-compare-transfer-output-ui.css', 'utf8');
+const noiseCss = readFileSync('tabs/xml-compare-transfer-noise-reduction.css', 'utf8');
 const buildCss = readFileSync('styles/app-build-stamp.css', 'utf8');
 const indexHtml = readFileSync('index.html', 'utf8');
 const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
@@ -17,11 +18,22 @@ assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-not-available')
 assert.ok(transferCss.includes('.xmlc-transfer-detail-group > summary'), 'collapsible detail group CSS must exist');
 assert.ok(transferCss.includes('@media (max-width: 900px)'), 'dashboard CSS must include responsive fallback');
 
+assert.ok(noiseCss.includes('M19: reduce Tab 2 visual noise'), 'M19 noise reduction CSS must be loaded');
+assert.ok(noiseCss.includes('.xmlc-transfer-dashboard-grid'), 'M19 must flatten dashboard grid');
+assert.ok(noiseCss.includes('display: flex'), 'M19 dashboard should use compact flex flow');
+assert.ok(noiseCss.includes('.xmlc-transfer-dashboard-card small,'), 'M19 must suppress verbose dashboard details');
+assert.ok(noiseCss.includes('display: none'), 'M19 must hide verbose dashboard card text');
+assert.ok(noiseCss.includes('.xmlc-transfer-action-icon'), 'M19 must suppress icon circles');
+assert.ok(noiseCss.includes('border-radius: 999px'), 'M19 actions should be compact pills, not large boxes');
+assert.ok(noiseCss.includes('position: static'), 'M19 output band should not create sticky visual stripes');
+
 assert.ok(buildCss.includes('.app-build-stamp'), 'build stamp CSS must exist');
 assert.ok(buildCss.includes('text-overflow: ellipsis'), 'build stamp must not overflow header');
 
 assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260707-m18-build-stamp'), 'index must load build stamp CSS with M18 cache bust');
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must cache-bust dashboard CSS');
+assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260707-m19-noise-reduction'), 'index must load M19 noise reduction CSS after dashboard CSS');
+assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M19 noise reduction CSS must load after M18 dashboard CSS');
 assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260707-m18-build-stamp'), 'index must cache-bust app entry');
 assert.ok(mainEntry.includes("./core/app.js?v=20260707-m18-build-stamp"), 'main entry must cache-bust core app delegate');
 assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260707-m18-build-stamp"), 'core app must cache-bust standalone runtime');
@@ -29,4 +41,4 @@ assert.ok(runtime.includes("build: 'M18 transfer-dashboard-css · 2026-07-07'"),
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260707-m18-build-stamp"), 'runtime must cache-bust XML tab module');
 assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
 
-console.log('XML Compare transfer dashboard CSS and build stamp tests passed');
+console.log('XML Compare transfer dashboard CSS, build stamp, and noise reduction tests passed');
