@@ -34,11 +34,11 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260707-m18-build-st
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must cache-bust dashboard CSS');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260707-m19-noise-reduction'), 'index must load M19 noise reduction CSS after dashboard CSS');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M19 noise reduction CSS must load after M18 dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260707-m18-build-stamp'), 'index must cache-bust app entry');
-assert.ok(mainEntry.includes("./core/app.js?v=20260707-m18-build-stamp"), 'main entry must cache-bust core app delegate');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260707-m18-build-stamp"), 'core app must cache-bust standalone runtime');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260707-m20-progressive-disclosure'), 'index must cache-bust app entry for M20');
+assert.ok(mainEntry.includes("./core/app.js?v=20260707-m20-progressive-disclosure"), 'main entry must cache-bust core app delegate for M20');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260707-m20-progressive-disclosure"), 'core app must cache-bust standalone runtime for M20');
 assert.ok(runtime.includes("build: 'M18 transfer-dashboard-css · 2026-07-07'"), 'runtime must expose visible M18 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260707-m18-build-stamp"), 'runtime must cache-bust XML tab module');
 assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
 
-console.log('XML Compare transfer dashboard CSS, build stamp, and noise reduction tests passed');
+console.log('XML Compare transfer dashboard CSS, build stamp, noise reduction, and M20 cache-bust tests passed');
