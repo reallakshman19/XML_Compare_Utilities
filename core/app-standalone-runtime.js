@@ -8,6 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
+  build: 'M18 transfer-dashboard-css · 2026-07-07',
   defaultTab: 'xml-compare',
 });
 
@@ -33,7 +34,7 @@ const TAB_ICON_SVGS = Object.freeze({
 });
 
 export const STANDALONE_TABS = Object.freeze([
-  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260704-transfer-review-1').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260707-m18-build-stamp').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
@@ -106,6 +107,14 @@ function tabGroupFor(tabId) {
   return TAB_GROUPS.find((group) => group.ids.includes(tabId))?.label || '';
 }
 
+function createBuildStamp() {
+  const build = document.createElement('div');
+  build.className = 'app-build-stamp';
+  build.textContent = `Build: ${STANDALONE_APP.build}`;
+  build.title = 'Visible build marker for cache/deploy verification';
+  return build;
+}
+
 function createBrandRail() {
   const brand = document.createElement('div');
   brand.className = 'app-brand-rail';
@@ -125,7 +134,7 @@ function createBrandRail() {
   const sub = document.createElement('div');
   sub.className = 'app-brand-subtitle';
   sub.textContent = STANDALONE_APP.subtitle;
-  copy.append(title, sub);
+  copy.append(title, sub, createBuildStamp());
   brand.append(icon, copy);
   return brand;
 }
@@ -259,3 +268,5 @@ export async function init(root) {
 export function destroy() {
   appDestroy?.();
 }
+
+export const _test = Object.freeze({ createBuildStamp });
