@@ -105,6 +105,15 @@
   max-width: 980px;
 }
 
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="apply"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="patched-target"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="preflight"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="diff"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="ledger"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="exports"] {
+  display: none;
+}
+
 .xmlc-transfer-output {
   position: static;
   box-shadow: none;
