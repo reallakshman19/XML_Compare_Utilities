@@ -9,12 +9,18 @@ import { validateEditableProfile } from '../xml-compare/table-categorizer/table-
 
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
 const source = applySourceTransformRules(
-  parseTableSource(['PS NO\tRating\tLength', 'PS-100.1\tCL150\t1200mm'].join('\n'), { sourceId: 'S1', delimiterMode: 'tab' }),
+  parseTableSource(['PS NO	Rating	Length', 'PS-100.1	CL150	1200mm'].join('\n'), { sourceId: 'S1', delimiterMode: 'tab' }),
   [{ ruleId: 'trim-ps', newColumn: 'PS_NO_Trimmed', sourceColumn: 'PS NO', operation: 'take-before', find: '.' }],
 );
 const profile = createBlankUniversalProfile();
 const html = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0' });
 
+assert.ok(html.includes('data-table-categorized-fullscreen-icon'), 'fullscreen icon toggle is rendered');
+assert.ok(html.includes('table-categorized-structure-workspace is-scrollable'), 'Structure Recipe Builder gets vertical scroll container');
+assert.ok(html.includes('data-table-categorized-structure-scroll="true"'), 'scroll container has explicit structure scroll marker');
+assert.ok(html.includes('data-table-categorized-structure-live-preview'), 'live preview panel is rendered');
+assert.ok(html.includes('Live Data Preview'), 'live preview heading is visible');
+assert.ok(html.includes('PS-100.1'), 'live preview uses parsed source row data');
 assert.ok(html.includes('data-table-categorized-recipe-tree="true"'), 'recipe tree is rendered');
 assert.ok(html.includes('data-table-categorized-selected-node-panel'), 'selected-node panel is rendered');
 assert.ok(html.includes('data-field-catalog-resolver-options="FieldCatalog.v1"'), 'FieldCatalog compact field panel is rendered');
@@ -37,6 +43,7 @@ const keyedProfile = updateLevelAtPath(profile, [0, 0], { creationMode: 'one-per
 const childHtml = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile: keyedProfile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0,0' });
 assert.ok(childHtml.includes('data-level-path="0,0"'), 'child path is stable and rendered');
 assert.ok(childHtml.includes('data-level-split-dot="true"'), 'text-before-dot quick behavior remains available for keyed nodes');
+assert.ok(childHtml.includes('Key: PS NO'), 'live preview follows selected key resolver column');
 
 assert.ok(runtime.includes('selectLevelFromButton'), 'runtime handles selected tree node action');
 assert.ok(runtime.includes('changeDisplayColumn'), 'runtime handles display resolver field selection');
