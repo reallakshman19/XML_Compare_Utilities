@@ -15,7 +15,7 @@ const shell = renderUniversalXmlCategorizerShellHtml(createLinewiseUniversalPres
 assert.ok(shell.includes(UNIVERSAL_XML_CATEGORIZER_POPUP_ATTR));
 assert.ok(shell.includes('Structure Recipe Builder bridge'));
 assert.ok(shell.includes('Universal sideload attachment rules'));
-assert.ok(shell.includes('coordinates-to-node'));
+assert.ok(shell.includes('coordinateLookup'));
 assert.ok(shell.includes('DerivedCoordinateBlock'));
 assert.ok(shell.includes('Shadow-mode boundary'));
 assert.ok(shell.includes('No existing converter, sideload, enrichment, graph, XML export, pivot, or canvas module is changed.'));
