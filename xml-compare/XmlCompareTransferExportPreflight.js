@@ -11,6 +11,8 @@ const EXPORT_ACTIONS = Object.freeze([
   ['copy-patched-target-preview', 'Copy patched Target preview'],
   ['export-transfer-artifact-bundle', 'Export all transfer artifacts'],
   ['export-transfer-diff-summary-json', 'Transfer diff summary JSON'],
+  ['export-transfer-change-ledger-json', 'Transfer change ledger JSON'],
+  ['export-transfer-change-ledger-csv', 'Transfer change ledger CSV'],
   ['export-transfer-history-json', 'Export history JSON'],
 ]);
 const LEGACY_COUNTED_ACTIONS = new Set([
@@ -37,6 +39,12 @@ function patchedReadiness(action, label, hasPatched, hasStage) {
     : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage transfer, then apply staged transfer.');
 }
 
+function stagedReadiness(action, label, hasStage) {
+  return hasStage
+    ? row(action, label, 'ready', 'Transfer stage/result evidence is available.', `Export ${label}.`)
+    : row(action, label, 'not available', 'No transfer stage or applied transfer result exists.', 'Stage or apply transfer first.');
+}
+
 function readinessRows(summary = {}, history = {}) {
   const hasPatched = Boolean(summary.hasPatchedTargetText);
   const hasStage = stagedOrApplied(summary);
@@ -47,6 +55,7 @@ function readinessRows(summary = {}, history = {}) {
         ? row(action, label, 'ready', 'Export history has visible rows.', 'Download the export history JSON.')
         : row(action, label, 'not available', 'No export history rows exist in this active tab session.', 'Run any transfer export or copy action first.');
     }
+    if (action === 'export-transfer-change-ledger-json' || action === 'export-transfer-change-ledger-csv') return stagedReadiness(action, label, hasStage);
     if (action === 'export-transfer-audit-json' || action === 'download-transfer-proof-json') {
       return hasStage
         ? row(action, label, 'ready', 'Transfer is staged or applied.', `Export ${label}.`)
@@ -89,4 +98,4 @@ export function summarizeTransferExportPreflight(preflight = {}) {
   });
 }
 
-export const _test = Object.freeze({ clean, EXPORT_ACTIONS, LEGACY_COUNTED_ACTIONS, row, stagedOrApplied, patchedReadiness, readinessRows, countedRows });
+export const _test = Object.freeze({ clean, EXPORT_ACTIONS, LEGACY_COUNTED_ACTIONS, row, stagedOrApplied, patchedReadiness, stagedReadiness, readinessRows, countedRows });
