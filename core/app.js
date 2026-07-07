@@ -3,4 +3,4 @@ import { installAppTabClickStateBridge } from './app-tab-click-state-bridge.js?v
 
 installAppTabClickStateBridge();
 
-export { init, destroy } from './app-standalone-runtime.js?v=20260707-m18-build-stamp';
+export { init, destroy } from './app-standalone-runtime.js?v=20260707-m20-progressive-disclosure';
