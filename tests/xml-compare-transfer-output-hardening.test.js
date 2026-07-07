@@ -28,10 +28,13 @@ const exported = summarizeTransferOutput({ input, tState: appliedState, lastActi
 assert.equal(exported.outputStatus, 'exported');
 assert.equal(buildTransferOutputFileNames({ targetFileName: 'target-categorized.xml' }).patchedTargetXml, 'target-categorized_patched_target.xml');
 const emptyModal = renderXmlCompareTransferModalPopupHtml({ input, tState: {}, stageScope: 'node', transferPreview: {} });
-assert.ok(emptyModal.includes('Output status'));
-assert.ok(emptyModal.includes('No stage yet'));
-assert.ok(emptyModal.includes('Export patched Target XML'));
-assert.ok(emptyModal.includes('disabled'));
+assert.ok(emptyModal.includes('data-transfer-evidence="none"'));
+assert.ok(emptyModal.includes('Start transfer'));
+assert.ok(emptyModal.includes('Advanced readiness evidence'));
+assert.ok(emptyModal.includes('Stage transfer'));
+assert.ok(!emptyModal.includes('Output actions'), 'no-stage modal should not render downstream output action band');
+assert.ok(!emptyModal.includes('Export patched Target XML'), 'no-stage modal should not render disabled export buttons');
+assert.ok(!emptyModal.includes('Patched Target preview'), 'no-stage modal should not render patched preview placeholder');
 assert.ok(emptyModal.includes('Tab 1: Candidate Review'));
 const appliedModal = renderXmlCompareTransferModalPopupHtml({ input, tState: appliedState, stageScope: 'node', transferPreview: {} });
 assert.ok(appliedModal.includes('Patched Target preview'));
