@@ -38,6 +38,7 @@ for (const action of handledActions) { if (dynamicPivotActions.has(action)) asse
 for (const kind of activeDownloads) assert.ok(handledDownloads.has(kind), `rendered download must be handled: ${kind}`);
 for (const kind of handledDownloads) assert.ok(runtimeSource.includes(`kind==='${kind}'`) || runtimeSource.includes(`kind === '${kind}'`), `runtime source must contain download evidence for ${kind}`);
 for (const action of ['confirm-columns', 'add-derived-column', 'remove-derived-column', 'load-suggested-profile', 'select-level', 'add-pivot-view', 'select-pivot-view', 'remove-pivot-view', 'add-pivot-row-field', 'add-pivot-column-field', 'add-pivot-value-field', 'add-pivot-filter', 'remove-pivot-filter', 'download-pivot-json', 'download-pivot-csv', 'download-pivot-html']) assert.ok(activeActions.includes(action), `${action} is rendered and handled`);
+for (const text of ['data-pivot-filter-list', 'data-pivot-filter-field', 'data-pivot-filter-operator', 'data-pivot-filter-value', 'data-pivot-drilldown-preview', 'S1:R1']) assert.ok(renderedHtml.includes(text), `${text} is rendered`);
 assert.ok(activeActions.includes('send-source') && activeActions.includes('send-target'), 'canvas handoff send actions are active only when export is ready');
 assert.equal(activeActions.includes('check-output'), false, 'Check Output is a step transition, not an unhandled action');
 assert.equal(activeActions.includes('toggle-fullscreen'), false, 'Fullscreen is not rendered as an unhandled runtime action');
@@ -54,5 +55,4 @@ assert.ok(runtimeSource.includes('parseSourceDraft'), 'active runtime imports/us
 assert.equal(runtimeSource.includes('parseTableSource'), false, 'active runtime does not use direct parseTableSource path');
 assert.equal(runtimeSource.includes('table-categorized-xml-controller'), false, 'active runtime does not import legacy controller');
 assert.ok(controllerSource.includes('parseTableSource'), 'legacy controller direct parser remains isolated from active runtime path');
-await import('./table-categorized-pivot-filter-drilldown-ui.test.js');
 console.log('table-categorized-action-contract.test.js passed');
