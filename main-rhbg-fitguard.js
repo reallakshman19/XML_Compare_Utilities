@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260704-transfer-review-1');
+  const module = await import('./core/app.js?v=20260707-m18-build-stamp');
   await module.init(startupMount());
 }
 
