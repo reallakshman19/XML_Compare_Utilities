@@ -1,4 +1,4 @@
-/* M19: reduce Tab 2 visual noise from dashboard cards and action boxes. */
+/* M19/M20: reduce Tab 2 visual noise from dashboard cards, action boxes, and empty output panels. */
 .xmlc-transfer-output-dashboard {
   box-shadow: none;
   background: rgba(8, 47, 73, 0.32);
@@ -58,6 +58,59 @@
 
 .xmlc-transfer-dashboard-card small,
 .xmlc-transfer-dashboard-card em {
+  display: none;
+}
+
+.xmlc-transfer-start {
+  border-color: rgba(56, 189, 248, 0.22);
+  background: rgba(2, 6, 23, 0.24);
+}
+
+.xmlc-transfer-start-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.xmlc-transfer-start-body > div:first-child {
+  min-width: min(100%, 420px);
+  display: grid;
+  gap: 4px;
+}
+
+.xmlc-transfer-start-body b {
+  color: #e0f2fe;
+  font-size: 14px;
+}
+
+.xmlc-transfer-start-body span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.xmlc-transfer-start-body small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.xmlc-transfer-review[data-transfer-evidence="none"] {
+  gap: 10px;
+}
+
+.xmlc-transfer-review[data-transfer-evidence="none"] .xmlc-transfer-output-dashboard,
+.xmlc-transfer-review[data-transfer-evidence="none"] .xmlc-transfer-start {
+  max-width: 980px;
+}
+
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="apply"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="patched-target"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="preflight"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="diff"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="ledger"],
+.xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="exports"] {
   display: none;
 }
 
@@ -144,7 +197,8 @@
 }
 
 @media (max-width: 900px) {
-  .xmlc-transfer-output-body {
+  .xmlc-transfer-output-body,
+  .xmlc-transfer-start-body {
     grid-template-columns: 1fr;
   }
 }

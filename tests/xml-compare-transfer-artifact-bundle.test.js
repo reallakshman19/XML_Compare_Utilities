@@ -14,7 +14,7 @@ function transferState(hasPatch = true) { return { transferStage: { scope: 'node
 function bundleButton(html) { return html.match(/<button[^>]+data-xml-compare-action="export-transfer-artifact-bundle"[^>]*>/)?.[0] || ''; }
 
 const noPatchHtml = renderXmlCompareTransferModalPopupHtml({ input, tState: transferState(false), stageScope: 'node', transferPreview: {} });
-assert.ok(bundleButton(noPatchHtml).includes('disabled'), 'export-all disabled when patched Target XML is absent');
+assert.equal(bundleButton(noPatchHtml), '', 'export-all button is hidden until patched Target XML exists');
 const patchHtml = renderXmlCompareTransferModalPopupHtml({ input, tState: transferState(true), stageScope: 'node', transferPreview: {} });
 assert.ok(bundleButton(patchHtml).includes('Export all transfer artifacts'), 'export-all button is visible');
 assert.equal(bundleButton(patchHtml).includes('disabled'), false, 'export-all enabled when patched Target XML exists');

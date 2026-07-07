@@ -48,8 +48,9 @@ for (const row of withHistory.rows) {
   assert.equal(button.includes('disabled'), !row.ready, `button disabled agrees for ${row.actionType}`);
 }
 const stagedHtml = renderXmlCompareTransferModalPopupHtml({ input, tState: stagedState(), stageScope: 'node', transferPreview: {} });
-assert.ok(buttonFor(stagedHtml, 'export-patched-target-xml').includes('data-xml-compare-preflight-status="blocked"'));
-assert.ok(buttonFor(stagedHtml, 'export-patched-target-xml').includes('disabled'));
+assert.ok(stagedHtml.includes('Detailed export preflight'), 'staged transfer still exposes preflight evidence');
+assert.ok(stagedHtml.includes('data-xml-compare-preflight-action="export-patched-target-xml"'), 'staged preflight row still explains patched XML readiness');
+assert.equal(buttonFor(stagedHtml, 'export-patched-target-xml'), '', 'staged-only view hides export buttons until patched output exists');
 
 const beforeSource = sourceText;
 const beforeTarget = targetText;

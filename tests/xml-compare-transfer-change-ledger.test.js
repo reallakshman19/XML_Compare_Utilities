@@ -47,9 +47,10 @@ const blockedPreflight = createTransferExportPreflight({ input, tState: {}, summ
 assert.equal(transferExportReadinessForAction(blockedPreflight, 'export-transfer-change-ledger-json').status, 'not available');
 
 const modalBefore = renderXmlCompareTransferModalPopupHtml({ input, tState: {}, stageScope: 'node', transferPreview: {} });
-assert.ok(modalBefore.includes('Transfer change ledger'));
-assert.ok(modalBefore.includes('Stage or apply transfer first.'));
-assert.ok(modalBefore.match(/data-xml-compare-action="export-transfer-change-ledger-json"[^>]*disabled/));
+assert.ok(modalBefore.includes('data-transfer-evidence="none"'));
+assert.ok(modalBefore.includes('Start transfer'));
+assert.ok(!modalBefore.includes('Transfer change ledger'), 'ledger panel must not render before transfer evidence exists');
+assert.ok(!modalBefore.includes('export-transfer-change-ledger-json'), 'ledger export button must not render before transfer evidence exists');
 const modalAfter = renderXmlCompareTransferModalPopupHtml({ input, tState: applied, stageScope: 'node', transferPreview: {} });
 assert.ok(modalAfter.includes('Ledger row count'));
 assert.ok(modalAfter.includes('Export change ledger JSON'));
