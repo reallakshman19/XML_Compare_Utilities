@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js';
+import { _test } from '../xml-compare/XmlCompareTabView.js';
 import { createLinewiseUniversalPreset } from '../xml-compare/universal-categorizer/universal-xml-categorizer-contracts.js';
 import { UNIVERSAL_XML_CATEGORIZER_BUTTON_ATTR, UNIVERSAL_XML_CATEGORIZER_POPUP_ATTR, renderUniversalXmlCategorizerButtonHtml, renderUniversalXmlCategorizerShellHtml } from '../xml-compare/universal-categorizer/universal-xml-categorizer-shell.js';
 import { universalXmlCategorizerActionFromTarget } from '../tabs/xml-compare-universal-categorizer-runtime.js';
@@ -20,11 +20,11 @@ assert.ok(shell.includes('DerivedCoordinateBlock'));
 assert.ok(shell.includes('Shadow-mode boundary'));
 assert.ok(shell.includes('No existing converter, sideload, enrichment, graph, XML export, pivot, or canvas module is changed.'));
 
-const tabHtml = renderXmlCompareTabView({ state: minimalState(), workspace: minimalWorkspace(), issues: [] });
-assert.ok(tabHtml.includes('Line-wise XML Enrichment / Categorized XML'));
-assert.ok(tabHtml.includes('Universal XML Categorizer'));
-assert.ok(tabHtml.indexOf('Line-wise XML Enrichment / Categorized XML') < tabHtml.indexOf('Universal XML Categorizer'));
-assert.ok(tabHtml.includes(UNIVERSAL_XML_CATEGORIZER_BUTTON_ATTR));
+const toolbar = _test.toolbar(minimalState());
+assert.ok(toolbar.includes('Line-wise XML Enrichment / Categorized XML'));
+assert.ok(toolbar.includes('Universal XML Categorizer'));
+assert.ok(toolbar.indexOf('Line-wise XML Enrichment / Categorized XML') < toolbar.indexOf('Universal XML Categorizer'));
+assert.ok(toolbar.includes(UNIVERSAL_XML_CATEGORIZER_BUTTON_ATTR));
 
 const runtimeSource = readFileSync('tabs/xml-compare-universal-categorizer-runtime.js', 'utf8');
 assert.match(runtimeSource, /XML_COMPARE_UNIVERSAL_CATEGORIZER_RUNTIME_SCHEMA/);
@@ -40,11 +40,7 @@ function fakeTarget(isButton, isClose) {
 }
 
 function minimalState() {
-  return { fileA: null, fileB: null, textA: '', textB: '', filters: { severity: 'ALL', search: '' }, selectedIssueId: '', hiddenComponentIds: new Set(), status: { kind: 'info', message: 'ready' }, loadDiagnostics: { rows: [] }, sideload: {}, enrichmentConfig: {}, linewiseWorkflow: {} };
-}
-
-function minimalWorkspace() {
-  return { source: {}, target: {}, transferWorkflowGate: {}, approvedConnectors: [], compareCanvas: {}, readiness: {} };
+  return { fileA: null, fileB: null, textA: '', textB: '', filters: { severity: 'ALL', search: '' }, report: null };
 }
 
 console.log('xml-compare-universal-categorizer-ui tests passed');
