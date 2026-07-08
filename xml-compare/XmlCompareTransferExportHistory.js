@@ -10,6 +10,13 @@ function rowsOf(history = null) {
   return asArray(Array.isArray(history) ? history : history?.rows || []);
 }
 
+function historyFromRows(rows = []) {
+  return Object.freeze({
+    schema: XML_COMPARE_TRANSFER_EXPORT_HISTORY_SCHEMA,
+    rows: Object.freeze([...rows].slice(-TRANSFER_EXPORT_HISTORY_LIMIT)),
+  });
+}
+
 function rowFromReceipt(receipt = null) {
   const summary = summarizeTransferExportReceipt(receipt);
   if (summary.isEmpty) return null;
@@ -26,19 +33,14 @@ function rowFromReceipt(receipt = null) {
 }
 
 export function emptyTransferExportHistory() {
-  return Object.freeze({
-    schema: XML_COMPARE_TRANSFER_EXPORT_HISTORY_SCHEMA,
-    rows: Object.freeze([]),
-  });
+  return historyFromRows([]);
 }
 
 export function appendTransferExportHistory(history = null, receipt = null) {
+  const rows = rowsOf(history);
   const row = rowFromReceipt(receipt);
-  if (!row) return emptyTransferExportHistory();
-  return Object.freeze({
-    schema: XML_COMPARE_TRANSFER_EXPORT_HISTORY_SCHEMA,
-    rows: Object.freeze([...rowsOf(history), row].slice(-TRANSFER_EXPORT_HISTORY_LIMIT)),
-  });
+  if (!row) return historyFromRows(rows);
+  return historyFromRows([...rows, row]);
 }
 
 export function clearTransferExportHistory() {
@@ -46,11 +48,12 @@ export function clearTransferExportHistory() {
 }
 
 export function summarizeTransferExportHistory(history = null) {
+  const rows = rowsOf(history);
   return Object.freeze({
     schema: XML_COMPARE_TRANSFER_EXPORT_HISTORY_SCHEMA,
-    isEmpty: rowsOf(history).length === 0,
-    rows: rowsOf(history),
-    rowCount: rowsOf(history).length,
+    isEmpty: rows.length === 0,
+    rows,
+    rowCount: rows.length,
     maxRows: TRANSFER_EXPORT_HISTORY_LIMIT,
   });
 }
@@ -59,4 +62,4 @@ export function serializeTransferExportHistoryJson(history = null) {
   return `${JSON.stringify(summarizeTransferExportHistory(history), null, 2)}\n`;
 }
 
-export const _test = Object.freeze({ clean, asArray, rowsOf, rowFromReceipt });
+export const _test = Object.freeze({ clean, asArray, rowsOf, historyFromRows, rowFromReceipt });
