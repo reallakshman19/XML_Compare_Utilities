@@ -5,9 +5,9 @@ import { evaluateUniversalXmlExportGate } from './universal-export-gate.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalRecipeDesignerModel } from './universal-recipe-designer-model.js';
 import { createUniversalPreviewModel } from './universal-preview-model.js';
+import { UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
 
 export const UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA = 'universal-workspace-view-model/v1-shadow';
-
 const freeze = (value) => Object.freeze(value);
 const arr = (value) => Array.isArray(value) ? value : [];
 
@@ -21,33 +21,17 @@ export function createLinewiseUniversalWorkspaceViewModel(profile = createLinewi
 
 export function createUniversalWorkspaceViewModel(input = {}) {
   const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset());
-  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : createUniversalSourceRegistry(profile, input.sourceInputs || input.sources || {});
-  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows: input.targetRows || [] });
-  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows: input.targetRows || attachmentPreview.targetRows || [] });
+  const previewBundle = input.previewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA ? input.previewBundle : input.loadedPreviewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA ? input.loadedPreviewBundle : null;
+  const sourceInputs = previewBundle?.sourceInputs || input.sourceInputs || input.sources || {};
+  const targetRows = previewBundle?.targetRows || input.targetRows || [];
+  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : (previewBundle?.registry || createUniversalSourceRegistry(profile, sourceInputs));
+  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows });
+  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const exportGate = input.exportGate?.schema === 'universal-export-gate/v1-shadow' ? input.exportGate : evaluateUniversalXmlExportGate({ graph });
   const recipeDesigner = input.recipeDesigner?.schema === 'universal-recipe-designer-model/v1-shadow' ? input.recipeDesigner : createUniversalRecipeDesignerModel(profile);
-  const samplePreview = input.samplePreview?.schema === 'universal-preview-model/v1-shadow' ? input.samplePreview : createUniversalPreviewModel({ profile, registry, attachmentPreview, graph });
+  const samplePreview = input.samplePreview?.schema === 'universal-preview-model/v1-shadow' ? input.samplePreview : createUniversalPreviewModel({ profile, previewBundle, registry, attachmentPreview, graph });
   const summary = summarizeUniversalProfile(profile);
-  return freeze({
-    schema: UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA,
-    profileId: profile.profileId,
-    title: 'Build a governed XML / table hierarchy',
-    eyebrow: 'Universal Categorizer Workspace',
-    subtitle: 'Load source data, build the hierarchy recipe, then validate real Tree and Pivot previews before export is allowed.',
-    statusChips: freeze([statusChip('Sample preview', 'shadow'), statusChip('Export locked', 'locked')]),
-    workflowSteps: samplePreview.workflow,
-    readinessCards: readinessCards(summary, samplePreview, exportGate, recipeDesigner),
-    designerActions: designerActions(),
-    samplePreview,
-    recipeDesigner: recipeDesignerSection(recipeDesigner),
-    recipe: recipeSection(profile),
-    sources: sourceSection(registry),
-    attachments: attachmentSection(profile, attachmentPreview),
-    attachmentPreview: attachmentDiagnosticsSection(attachmentPreview),
-    graph: graphSection(graph),
-    exportGate: exportGateSection(exportGate),
-    boundary: boundarySection(),
-  });
+  return freeze({ schema: UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA, profileId: profile.profileId, title: 'Build a governed XML / table hierarchy', eyebrow: 'Universal Categorizer Workspace', subtitle: 'Load source data, build the hierarchy recipe, then validate real Tree and Pivot previews before export is allowed.', statusChips: freeze([statusChip('Sample preview', 'shadow'), statusChip('Export locked', 'locked')]), workflowSteps: samplePreview.workflow, readinessCards: readinessCards(summary, samplePreview, exportGate, recipeDesigner), designerActions: designerActions(), samplePreview, recipeDesigner: recipeDesignerSection(recipeDesigner), recipe: recipeSection(profile), sources: sourceSection(registry), attachments: attachmentSection(profile, attachmentPreview), attachmentPreview: attachmentDiagnosticsSection(attachmentPreview), graph: graphSection(graph), exportGate: exportGateSection(exportGate), boundary: boundarySection() });
 }
 
 function readinessCards(summary, samplePreview, exportGate, recipeDesigner) { return freeze([card('Sources', summary.sources, 'Registered inputs'), card('Levels', summary.levels, 'Hierarchy levels'), card('Tree nodes', samplePreview.tree.summary.nodes, 'Real preview nodes'), card('Pivot rows', samplePreview.pivot.summary.rows, 'Real preview rows'), card('Recipe check', recipeDesigner.summary.errors ? 'Blocked' : 'Ready', `${recipeDesigner.summary.errors} errors / ${recipeDesigner.summary.warnings} warnings`), card('Export', exportGate.blocked ? 'Locked' : 'Open', exportGate.status)]); }
