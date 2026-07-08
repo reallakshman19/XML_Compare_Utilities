@@ -5,6 +5,7 @@ import { evaluateUniversalXmlExportGate } from './universal-export-gate.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalRecipeDesignerModel } from './universal-recipe-designer-model.js';
 import { createUniversalPreviewModel } from './universal-preview-model.js';
+import { UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
 
 export const UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA = 'universal-workspace-view-model/v1-shadow';
 
@@ -21,12 +22,15 @@ export function createLinewiseUniversalWorkspaceViewModel(profile = createLinewi
 
 export function createUniversalWorkspaceViewModel(input = {}) {
   const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset());
-  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : createUniversalSourceRegistry(profile, input.sourceInputs || input.sources || {});
-  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows: input.targetRows || [] });
-  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows: input.targetRows || attachmentPreview.targetRows || [] });
+  const previewBundle = input.previewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA ? input.previewBundle : input.loadedPreviewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA ? input.loadedPreviewBundle : null;
+  const sourceInputs = previewBundle?.sourceInputs || input.sourceInputs || input.sources || {};
+  const targetRows = previewBundle?.targetRows || input.targetRows || [];
+  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : (previewBundle?.registry || createUniversalSourceRegistry(profile, sourceInputs));
+  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows });
+  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const exportGate = input.exportGate?.schema === 'universal-export-gate/v1-shadow' ? input.exportGate : evaluateUniversalXmlExportGate({ graph });
   const recipeDesigner = input.recipeDesigner?.schema === 'universal-recipe-designer-model/v1-shadow' ? input.recipeDesigner : createUniversalRecipeDesignerModel(profile);
-  const samplePreview = input.samplePreview?.schema === 'universal-preview-model/v1-shadow' ? input.samplePreview : createUniversalPreviewModel({ profile, registry, attachmentPreview, graph });
+  const samplePreview = input.samplePreview?.schema === 'universal-preview-model/v1-shadow' ? input.samplePreview : createUniversalPreviewModel({ profile, previewBundle, registry, attachmentPreview, graph });
   const summary = summarizeUniversalProfile(profile);
   return freeze({
     schema: UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA,
