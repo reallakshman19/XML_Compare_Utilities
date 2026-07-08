@@ -2,6 +2,7 @@ import { createLinewiseUniversalPreset, normalizeUniversalCategorizerProfile } f
 import { createLinewiseUniversalAttachmentPreviewModel, createUniversalAttachmentPreview } from './universal-attachment-preview.js';
 import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategorizedGraphPreview } from './universal-graph-builder.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
+import { createUniversalLoadedPreviewBundle, UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
 
 export const UNIVERSAL_PREVIEW_MODEL_SCHEMA = 'universal-preview-model/v1-shadow';
 const freeze = (value) => Object.freeze(value);
@@ -16,13 +17,26 @@ export function createLinewiseUniversalPreviewModel(profile = createLinewiseUniv
 }
 
 export function createUniversalPreviewModel(input = {}) {
+  const bundle = input.previewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA
+    ? input.previewBundle
+    : input.loadedPreviewBundle?.schema === UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA
+      ? input.loadedPreviewBundle
+      : null;
   const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset());
-  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : createUniversalSourceRegistry(profile, input.sourceInputs || input.sources || {});
-  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows: input.targetRows || [] });
-  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows: input.targetRows || attachmentPreview.targetRows || [] });
+  const sourceInputs = bundle?.sourceInputs || input.sourceInputs || input.sources || {};
+  const targetRows = bundle?.targetRows || input.targetRows || [];
+  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow' ? input.registry : (bundle?.registry || createUniversalSourceRegistry(profile, sourceInputs));
+  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow' ? input.attachmentPreview : createUniversalAttachmentPreview({ profile, registry, targetRows });
+  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const tree = createTreePreview({ profile, graph });
   const pivot = createPivotPreview({ tree, graph });
-  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, workflow: freeze([step('01', 'Source', 'Review columns and sample rows'), step('02', 'Builder', 'Define hierarchy and attached blocks'), step('03', 'Preview', 'Review tree and pivot outputs'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph }), exportLocked: true });
+  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns and sample rows'), step('02', 'Builder', 'Define hierarchy and attached blocks'), step('03', 'Preview', 'Review tree and pivot outputs'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportLocked: true });
+}
+
+export function createUniversalPreviewModelFromLoadedData(input = {}) {
+  const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset());
+  const previewBundle = createUniversalLoadedPreviewBundle({ profile, sourceInputs: input.sourceInputs || input.sources || {}, targetRows: input.targetRows || input.targets || [] });
+  return createUniversalPreviewModel({ profile, previewBundle });
 }
 
 function sourcePreview(registry = {}) { return freeze({ title: 'Source data', rows: freeze(arr(registry.sources).map((source = {}) => { const columns = arr(source.columns); const requiredColumns = arr(source.requiredColumns); return freeze({ sourceId: text(source.sourceId), displayName: text(source.displayName, source.sourceId || source.sourceKind || 'Source'), role: text(source.role), columns: freeze(columns.length ? columns : requiredColumns), requiredColumns: freeze(requiredColumns), rowCount: source.rowCount ?? arr(source.rows).length, sampleRows: freeze(arr(source.rows).slice(0, 3).map((row) => freeze(stableObject(row)))), status: text(source.status, 'ready') }); })) }); }
@@ -63,7 +77,7 @@ export function createPivotPreview({ tree, graph = {} } = {}) {
 
 function pivotRowsForGraphNode(treeNodeValue, graphNode) { if (!graphNode) return []; const rows = []; for (const block of Object.values(graphNode.blocks || {})) for (const [fieldName, fieldValue] of Object.entries(block.fields || {})) rows.push(pivotRow(treeNodeValue, block.blockName, fieldName, fieldValue, block.source)); return rows; }
 function pivotRow(treeNodeValue, blockName, fieldName, value, source) { return freeze({ path: treeNodeValue.path, level: treeNodeValue.level, key: treeNodeValue.key, block: blockName || '—', field: fieldName || '—', value: text(value, '—'), source: source || '—' }); }
-function advancedDiagnostics({ registry = {}, attachmentPreview = {}, graph = {} }) { const items = [...arr(registry.diagnostics), ...arr(attachmentPreview.diagnostics), ...arr(graph.diagnostics)].map((item) => freeze({ severity: item.severity || item.level || 'info', code: item.code || 'UXC_DIAGNOSTIC', subject: item.subjectId || item.ruleId || item.sourceId || '', message: item.message || '' })); return freeze({ title: 'Advanced diagnostics', items: freeze(items), count: items.length }); }
+function advancedDiagnostics({ registry = {}, attachmentPreview = {}, graph = {}, bundle = null }) { const items = [...arr(bundle?.diagnostics), ...arr(registry.diagnostics), ...arr(attachmentPreview.diagnostics), ...arr(graph.diagnostics)].map((item) => freeze({ severity: item.severity || item.level || 'info', code: item.code || 'UXC_DIAGNOSTIC', subject: item.subjectId || item.ruleId || item.sourceId || '', message: item.message || '' })); return freeze({ title: 'Advanced diagnostics', items: freeze(items), count: items.length }); }
 function treeNode(nodeId, parentId, level, label, levelId, key, fields, depth) { return freeze({ nodeId, parentId, level, label, levelId, key, fields: freeze(stableObject(fields)), depth, path: label }); }
 function finalizeTreePaths(nodes = []) { const byId = new Map(nodes.map((node) => [node.nodeId, node])); return freeze(nodes.map((node) => freeze({ ...node, path: buildPath(node, byId) }))); }
 function buildPath(node, byId) { const labels = []; let current = node; const seen = new Set(); while (current && !seen.has(current.nodeId)) { labels.unshift(current.label); seen.add(current.nodeId); current = current.parentId ? byId.get(current.parentId) : null; } return labels.filter(Boolean).join(' / '); }
