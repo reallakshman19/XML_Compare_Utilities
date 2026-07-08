@@ -1,0 +1,143 @@
+import { createLinewiseUniversalPreset, normalizeUniversalCategorizerProfile } from './universal-xml-categorizer-contracts.js';
+import { createLinewiseUniversalAttachmentPreviewModel, createUniversalAttachmentPreview } from './universal-attachment-preview.js';
+import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategorizedGraphPreview } from './universal-graph-builder.js';
+import { createUniversalSourceRegistry } from './universal-source-registry.js';
+
+export const UNIVERSAL_PREVIEW_MODEL_SCHEMA = 'universal-preview-model/v1-shadow';
+
+const freeze = (value) => Object.freeze(value);
+const arr = (value) => Array.isArray(value) ? value : [];
+const text = (value, fallback = '') => String(value ?? fallback).trim();
+
+export function createLinewiseUniversalPreviewModel(profile = createLinewiseUniversalPreset()) {
+  const normalizedProfile = normalizeUniversalCategorizerProfile(profile || createLinewiseUniversalPreset());
+  const previewModel = createLinewiseUniversalAttachmentPreviewModel(normalizedProfile);
+  const graph = createLinewiseUniversalCategorizedGraphPreview(normalizedProfile);
+  return createUniversalPreviewModel({ profile: normalizedProfile, registry: previewModel.registry, attachmentPreview: previewModel.preview, graph });
+}
+
+export function createUniversalPreviewModel(input = {}) {
+  const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset());
+  const registry = input.registry?.schema === 'universal-source-registry/v1-shadow'
+    ? input.registry
+    : createUniversalSourceRegistry(profile, input.sourceInputs || input.sources || {});
+  const attachmentPreview = input.attachmentPreview?.schema === 'universal-attachment-preview/v1-shadow'
+    ? input.attachmentPreview
+    : createUniversalAttachmentPreview({ profile, registry, targetRows: input.targetRows || [] });
+  const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow'
+    ? input.graph
+    : createUniversalCategorizedGraphPreview({ profile, registry, targetRows: input.targetRows || attachmentPreview.targetRows || [] });
+  const tree = createTreePreview({ profile, graph });
+  const pivot = createPivotPreview({ tree, graph });
+  return freeze({
+    schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA,
+    profileId: profile.profileId,
+    workflow: freeze([
+      step('01', 'Source', 'Review columns and sample rows'),
+      step('02', 'Builder', 'Define hierarchy and attached blocks'),
+      step('03', 'Preview', 'Review tree and pivot outputs'),
+      step('04', 'Export', 'Locked until graph proof is approved'),
+    ]),
+    sources: sourcePreview(registry),
+    builder: builderPreview(profile),
+    tree,
+    pivot,
+    advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph }),
+    exportLocked: true,
+  });
+}
+
+function sourcePreview(registry = {}) {
+  return freeze({
+    title: 'Source data',
+    rows: freeze(arr(registry.sources).map((source = {}) => {
+      const columns = arr(source.columns);
+      const requiredColumns = arr(source.requiredColumns);
+      return freeze({
+        sourceId: text(source.sourceId),
+        displayName: text(source.displayName, source.sourceId || source.sourceKind || 'Source'),
+        role: text(source.role),
+        columns: freeze(columns.length ? columns : requiredColumns),
+        requiredColumns: freeze(requiredColumns),
+        rowCount: source.rowCount ?? arr(source.rows).length,
+        sampleRows: freeze(arr(source.rows).slice(0, 3).map((row) => freeze(stableObject(row)))),
+        status: text(source.status, 'ready'),
+      });
+    })),
+  });
+}
+
+function builderPreview(profile) {
+  return freeze({
+    title: 'Structure Recipe Builder',
+    levels: freeze(rootLevels(profile).flatMap((level) => flattenLevel(level, profile, 0))),
+    lockedActions: freeze([action('add-level', 'Add level'), action('add-block', 'Add block'), action('map-source-field', 'Map source field')]),
+  });
+}
+
+export function createTreePreview({ profile = createLinewiseUniversalPreset(), graph = {} } = {}) {
+  const nodes = arr(graph.nodes);
+  const elementNodes = nodes.filter((node) => node.levelId === 'element');
+  const nodeNodes = nodes.filter((node) => node.levelId === 'node');
+  const rootId = 'tree:document-root';
+  const treeNodes = [treeNode(rootId, '', 'DocumentRoot', profile.displayName || profile.profileId, 'documentRoot', '', {}, 0)];
+  const lineGroups = new Map();
+  for (const element of elementNodes) {
+    const lineId = fieldValue(element, 'LineBlock', 'LINE_ID') || `Line ${element.key}`;
+    if (!lineGroups.has(lineId)) lineGroups.set(lineId, []);
+    lineGroups.get(lineId).push(element);
+  }
+  for (const [lineId, elements] of [...lineGroups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const lineNodeId = `tree:line:${lineId}`;
+    treeNodes.push(treeNode(lineNodeId, rootId, 'Line', lineId, 'line', lineId, { lineId }, 1));
+    for (const element of elements.sort((a, b) => text(a.key).localeCompare(text(b.key)))) {
+      const elementNodeId = `tree:element:${element.key}`;
+      treeNodes.push(treeNode(elementNodeId, lineNodeId, 'Element', element.label || `Element ${element.key}`, 'element', element.key, collectBlockFields(element), 2));
+      const childKeys = elementChildKeys(element);
+      const childNodes = nodeNodes.filter((node) => childKeys.includes(text(node.key))).sort((a, b) => text(a.key).localeCompare(text(b.key)));
+      for (const node of childNodes) treeNodes.push(treeNode(`tree:node:${node.key}`, elementNodeId, 'Node', node.label || `Node ${node.key}`, 'node', node.key, collectBlockFields(node), 3));
+    }
+  }
+  if (treeNodes.length === 1) for (const node of nodes) treeNodes.push(treeNode(`tree:${node.levelId}:${node.key}`, rootId, node.levelId, node.label || node.key, node.levelId, node.key, collectBlockFields(node), 1));
+  const finalizedNodes = finalizeTreePaths(treeNodes);
+  return freeze({ title: 'Tree Preview', description: 'Preview generated from the current sample graph and sideload attachments.', nodes: freeze(finalizedNodes), summary: freeze({ nodes: finalizedNodes.length, sampleNodes: Math.max(0, finalizedNodes.length - 1) }) });
+}
+
+export function createPivotPreview({ tree, graph = {} } = {}) {
+  const graphNodeByKey = new Map(arr(graph.nodes).map((node) => [`${node.levelId}:${node.key}`, node]));
+  const rows = [];
+  for (const treeNodeValue of arr(tree?.nodes)) {
+    if (!treeNodeValue.parentId) continue;
+    const graphNode = graphNodeByKey.get(`${treeNodeValue.levelId}:${treeNodeValue.key}`);
+    const blockRows = pivotRowsForGraphNode(treeNodeValue, graphNode);
+    if (blockRows.length) rows.push(...blockRows);
+    else rows.push(pivotRow(treeNodeValue, '', '', '', 'tree-preview'));
+  }
+  return freeze({ title: 'Pivot Preview', description: 'Flat pivot-style preview generated from tree nodes, graph blocks, fields, and sideload attachments.', columns: freeze(['Path', 'Level', 'Key', 'Block', 'Field', 'Value', 'Source']), rows: freeze(rows), summary: freeze({ rows: rows.length, columns: 7 }) });
+}
+
+function pivotRowsForGraphNode(treeNodeValue, graphNode) {
+  if (!graphNode) return [];
+  const rows = [];
+  for (const block of Object.values(graphNode.blocks || {})) {
+    const fields = Object.entries(block.fields || {}).filter(([fieldName]) => fieldName);
+    if (!fields.length) rows.push(pivotRow(treeNodeValue, block.blockName, '', '', block.source));
+    for (const [fieldName, fieldValue] of fields) rows.push(pivotRow(treeNodeValue, block.blockName, fieldName, fieldValue, block.source));
+  }
+  return rows;
+}
+function pivotRow(treeNodeValue, blockName, fieldName, value, source) { return freeze({ path: treeNodeValue.path, level: treeNodeValue.level, key: treeNodeValue.key, block: blockName || '—', field: fieldName || '—', value: text(value, '—'), source: source || '—' }); }
+function advancedDiagnostics({ registry = {}, attachmentPreview = {}, graph = {} }) { const items = [...arr(registry.diagnostics), ...arr(attachmentPreview.diagnostics), ...arr(graph.diagnostics)].map((item) => freeze({ severity: item.severity || item.level || 'info', code: item.code || 'UXC_DIAGNOSTIC', subject: item.subjectId || item.ruleId || item.sourceId || '', message: item.message || '' })); return freeze({ title: 'Advanced diagnostics', items: freeze(items), count: items.length }); }
+function treeNode(nodeId, parentId, level, label, levelId, key, fields, depth) { return freeze({ nodeId, parentId, level, label, levelId, key, fields: freeze(stableObject(fields)), depth, path: label }); }
+function finalizeTreePaths(nodes = []) { const byId = new Map(nodes.map((node) => [node.nodeId, node])); return freeze(nodes.map((node) => freeze({ ...node, path: buildPath(node, byId) }))); }
+function buildPath(node, byId) { const labels = []; let current = node; const seen = new Set(); while (current && !seen.has(current.nodeId)) { labels.unshift(current.label); seen.add(current.nodeId); current = current.parentId ? byId.get(current.parentId) : null; } return labels.filter(Boolean).join(' / '); }
+function collectBlockFields(node) { const out = {}; for (const [blockName, block] of Object.entries(node.blocks || {})) for (const [fieldName, fieldValue] of Object.entries(block.fields || {})) out[`${blockName}.${fieldName}`] = fieldValue; return freeze(out); }
+function fieldValue(node, blockName, fieldName) { return text(node.blocks?.[blockName]?.fields?.[fieldName]); }
+function elementChildKeys(element) { const key = text(element.key); const from = text(element.blocks?.LineBlock?.fields?.FROM_NODE); const to = text(element.blocks?.LineBlock?.fields?.TO_NODE); return freeze([...(key.includes('+') ? key.split('+') : []), from, to].map(text).filter(Boolean)); }
+function rootLevels(profile) { const referenced = new Set(profile.levelDefinitions.flatMap((level) => level.children || [])); const roots = profile.levelDefinitions.filter((level) => !referenced.has(level.levelId)); return roots.length ? roots : profile.levelDefinitions; }
+function flattenLevel(level, profile, depth) { const children = arr(level.children).map((id) => profile.levelDefinitions.find((item) => item.levelId === id)).filter(Boolean); return freeze([freeze({ levelId: level.levelId, displayName: level.displayName, depth, blocks: freeze(profile.blockDefinitions.filter((block) => block.attachToLevelId === level.levelId).map((block) => block.blockName)) }), ...children.flatMap((child) => flattenLevel(child, profile, depth + 1))]); }
+function step(number, title, caption) { return freeze({ number, title, caption }); }
+function action(actionId, label) { return freeze({ actionId, label, enabled: false, lockedReason: 'locked-shadow-mode' }); }
+function stableObject(input = {}) { return Object.fromEntries(Object.entries(input || {}).sort(([a], [b]) => a.localeCompare(b))); }
+
+export const _test = freeze({ sourcePreview, builderPreview, createTreePreview, createPivotPreview, pivotRowsForGraphNode, pivotRow, advancedDiagnostics, treeNode, finalizeTreePaths, buildPath, collectBlockFields, fieldValue, elementChildKeys, rootLevels, flattenLevel, stableObject });
