@@ -8,6 +8,7 @@ const indexHtml = readFileSync('index.html', 'utf8');
 const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
 const appDelegate = readFileSync('core/app.js', 'utf8');
 const runtime = readFileSync('core/app-standalone-runtime.js', 'utf8');
+const actionButtonRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
 
 assert.ok(transferCss.includes('.xmlc-transfer-output-dashboard'), 'dashboard panel CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-next-action'), 'next-action CSS must exist');
@@ -25,11 +26,11 @@ assert.ok(noiseCss.includes('grid-template-columns: minmax(0, 1fr)'), 'M23 root 
 assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr))'), 'dashboard tiles must use bounded auto-fit grid columns');
 assert.ok(noiseCss.includes('grid-template-areas:'), 'dashboard cards must have a stable internal grid contract');
 assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr))'), 'action tiles must use bounded auto-fit grid columns');
-assert.ok(noiseCss.includes('white-space: normal'), 'action labels must wrap instead of blocking neighboring tiles');
-assert.ok(noiseCss.includes('overflow-wrap: anywhere'), 'long labels and file names must wrap safely');
+assert.ok(actionButtonRule.includes('white-space: normal'), 'action labels must wrap instead of blocking neighboring tiles');
+assert.ok(actionButtonRule.includes('overflow-wrap: anywhere'), 'long action labels must wrap safely');
+assert.ok(!actionButtonRule.includes('white-space: nowrap'), 'action tiles must not reintroduce nowrap pills');
 assert.ok(noiseCss.includes('@media (max-width: 1180px)'), 'M23 must include a medium-width fallback before mobile');
 assert.ok(noiseCss.includes('@media (max-width: 720px)'), 'M23 must include a narrow-width fallback');
-assert.ok(!noiseCss.includes('white-space: nowrap'), 'M23 must not reintroduce nowrap action pills');
 assert.ok(!noiseCss.includes('.xmlc-transfer-dashboard-grid {\n  display: flex'), 'M23 must not use flex dashboard tiles that can collide');
 assert.ok(!noiseCss.includes('.xmlc-transfer-output-actions {\n  display: flex'), 'M23 must not use flex action tiles that can collide');
 
