@@ -8,7 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'M18 transfer-dashboard-css · 2026-07-07',
+  build: 'M21 transfer-state-truth · 2026-07-08',
   defaultTab: 'xml-compare',
 });
 
@@ -34,7 +34,7 @@ const TAB_ICON_SVGS = Object.freeze({
 });
 
 export const STANDALONE_TABS = Object.freeze([
-  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260707-m18-build-stamp').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260708-m21-transfer-state-truth').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
