@@ -62,7 +62,7 @@ function commandReceipt(command, recipeDesigner, exportGate) {
     targetArea: target,
     locked: true,
     enabled: false,
-    lockedReason: command.lockedReason || policy.lockedReason,
+    lockedReason: policy.lockedReason || command.lockedReason,
     blockedReason: policy.blockedReason,
     preconditions: freeze(policy.preconditions),
     mutationAllowed: false,
