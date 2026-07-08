@@ -76,10 +76,9 @@ export function validateUniversalRecipeProfile(profileInput = {}) {
   const diagnostics = [];
   const levelIds = profile.levelDefinitions.map((level) => level.levelId).filter(Boolean);
   const sourceIds = new Set(profile.sources.map((source) => source.sourceId));
-  const blockKeys = profile.blockDefinitions.map((block) => `${block.attachToLevelId}::${block.blockName}`);
   const blockNames = profile.blockDefinitions.map((block) => block.blockName).filter(Boolean);
+  const blockNameSet = new Set(blockNames);
   const levelIdSet = new Set(levelIds);
-  const blockKeySet = new Set(blockKeys);
 
   duplicateValues(levelIds).forEach((levelId) => diagnostics.push(diagnostic('error', 'UXC_RECIPE_DUPLICATE_LEVEL_ID', levelId, `Duplicate level id: ${levelId}`)));
   duplicateValues(blockNames).forEach((blockName) => diagnostics.push(diagnostic('error', 'UXC_RECIPE_DUPLICATE_BLOCK_NAME', blockName, `Duplicate block name: ${blockName}`)));
@@ -106,7 +105,7 @@ export function validateUniversalRecipeProfile(profileInput = {}) {
   for (const rule of profile.sideloadAttachments) {
     if (!sourceIds.has(rule.sourceId)) diagnostics.push(diagnostic('error', 'UXC_RECIPE_ATTACHMENT_SOURCE_MISSING', rule.ruleId, `Attachment ${rule.ruleId} references missing source ${rule.sourceId}.`));
     if (!levelIdSet.has(rule.attachToLevelId)) diagnostics.push(diagnostic('error', 'UXC_RECIPE_ATTACHMENT_LEVEL_MISSING', rule.ruleId, `Attachment ${rule.ruleId} targets missing level ${rule.attachToLevelId}.`));
-    if (rule.blockName && !blockKeySet.has(`${rule.attachToLevelId}::${rule.blockName}`)) diagnostics.push(diagnostic('error', 'UXC_RECIPE_ATTACHMENT_BLOCK_MISSING', rule.ruleId, `Attachment ${rule.ruleId} targets missing block ${rule.blockName} at level ${rule.attachToLevelId}.`));
+    if (rule.blockName && !blockNameSet.has(rule.blockName)) diagnostics.push(diagnostic('error', 'UXC_RECIPE_ATTACHMENT_BLOCK_MISSING', rule.ruleId, `Attachment ${rule.ruleId} targets missing block ${rule.blockName}.`));
     if (!rule.sourceKey) diagnostics.push(diagnostic('warning', 'UXC_RECIPE_ATTACHMENT_SOURCE_KEY_EMPTY', rule.ruleId, `Attachment ${rule.ruleId} has no source key.`));
     if (!rule.targetKey) diagnostics.push(diagnostic('warning', 'UXC_RECIPE_ATTACHMENT_TARGET_KEY_EMPTY', rule.ruleId, `Attachment ${rule.ruleId} has no target key.`));
   }
