@@ -4,6 +4,7 @@ import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategori
 import { evaluateUniversalXmlExportGate } from './universal-export-gate.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalRecipeDesignerModel } from './universal-recipe-designer-model.js';
+import { createUniversalCommandPlanner } from './universal-command-planner.js';
 
 export const UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA = 'universal-workspace-view-model/v1-shadow';
 
@@ -41,6 +42,9 @@ export function createUniversalWorkspaceViewModel(input = {}) {
   const recipeDesigner = input.recipeDesigner?.schema === 'universal-recipe-designer-model/v1-shadow'
     ? input.recipeDesigner
     : createUniversalRecipeDesignerModel(profile);
+  const commandPlanner = input.commandPlanner?.schema === 'universal-command-planner/v1-shadow'
+    ? input.commandPlanner
+    : createUniversalCommandPlanner({ recipeDesigner, exportGate });
   const summary = summarizeUniversalProfile(profile);
 
   return freeze({
@@ -54,9 +58,10 @@ export function createUniversalWorkspaceViewModel(input = {}) {
       statusChip('Export locked', 'locked'),
     ]),
     workflowSteps: workflowSteps(),
-    readinessCards: readinessCards(summary, graph, exportGate, recipeDesigner),
+    readinessCards: readinessCards(summary, graph, exportGate, recipeDesigner, commandPlanner),
     designerActions: designerActions(),
     recipeDesigner: recipeDesignerSection(recipeDesigner),
+    commandPlanner: commandPlannerSection(commandPlanner),
     recipe: recipeSection(profile),
     sources: sourceSection(registry),
     attachments: attachmentSection(profile, attachmentPreview),
@@ -76,12 +81,13 @@ function workflowSteps() {
   ]);
 }
 
-function readinessCards(summary, graph, exportGate, recipeDesigner) {
+function readinessCards(summary, graph, exportGate, recipeDesigner, commandPlanner) {
   return freeze([
     card('Sources', summary.sources, 'Registered inputs'),
     card('Sideloads', summary.sideloadSources, 'External enrichers'),
     card('Levels', summary.levels, 'Hierarchy depth'),
     card('Recipe check', recipeDesigner.summary.errors ? 'Blocked' : 'Ready', `${recipeDesigner.summary.errors} errors / ${recipeDesigner.summary.warnings} warnings`),
+    card('Commands', commandPlanner.summary.locked, 'Locked dry-run receipts'),
     card('Graph nodes', graph.summary?.nodes ?? graph.nodes?.length ?? 0, 'Preview output'),
     card('Export', exportGate.blocked ? 'Locked' : 'Open', exportGate.status),
   ]);
@@ -109,6 +115,29 @@ function recipeDesignerSection(model) {
       code: item.code,
       subjectId: item.subjectId,
       message: item.message,
+    }))),
+  });
+}
+
+function commandPlannerSection(model) {
+  return freeze({
+    title: 'Command planner',
+    kicker: 'Locked dry-run receipts',
+    status: model.status,
+    description: 'Each future designer command is represented as a deterministic dry-run receipt. No command mutates the recipe, exports XML, previews pivot data, or touches canvas.',
+    summary: model.summary,
+    receipts: freeze(model.receipts.map((receipt) => freeze({
+      receiptId: receipt.receiptId,
+      commandId: receipt.commandId,
+      label: receipt.label,
+      targetArea: receipt.targetArea,
+      lockedReason: receipt.lockedReason,
+      blockedReason: receipt.blockedReason,
+      mutationAllowed: receipt.mutationAllowed,
+      exportAllowed: receipt.exportAllowed,
+      pivotAllowed: receipt.pivotAllowed,
+      canvasAllowed: receipt.canvasAllowed,
+      preconditions: receipt.preconditions,
     }))),
   });
 }
@@ -272,6 +301,7 @@ export const _test = freeze({
   readinessCards,
   designerActions,
   recipeDesignerSection,
+  commandPlannerSection,
   recipeSection,
   sourceSection,
   attachmentSection,
