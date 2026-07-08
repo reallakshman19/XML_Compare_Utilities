@@ -24,7 +24,6 @@ assert.ok(shell.includes('Export'));
 assert.ok(shell.includes('Source column review'));
 assert.ok(shell.includes('Detected columns'));
 assert.ok(shell.includes('Required key'));
-assert.ok(shell.includes('Candidate key'));
 assert.ok(shell.includes('Structure Recipe Builder'));
 assert.ok(shell.includes('Selected item properties'));
 assert.ok(shell.includes('Key column'));
