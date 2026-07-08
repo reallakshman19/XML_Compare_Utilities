@@ -8,7 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'M21 transfer-state-truth · 2026-07-08',
+  build: 'M23 transfer-tile-layout · 2026-07-08',
   defaultTab: 'xml-compare',
 });
 
@@ -34,7 +34,7 @@ const TAB_ICON_SVGS = Object.freeze({
 });
 
 export const STANDALONE_TABS = Object.freeze([
-  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260708-m21-transfer-state-truth').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
@@ -113,8 +113,7 @@ function createBuildStamp() {
   build.textContent = `Build: ${STANDALONE_APP.build}`;
   build.title = 'Visible build marker for cache/deploy verification';
   return build;
-}
-
+}\n
 function createBrandRail() {
   const brand = document.createElement('div');
   brand.className = 'app-brand-rail';
@@ -254,7 +253,7 @@ export async function init(root) {
     renderActiveTab(content, nav, tabs);
   });
   const offRequested = on(RuntimeEvents.TAB_CHANGE_REQUESTED, (payload = {}) => requestTabSwitch(payload?.tabId || payload?.id));
-  const onWindowSwitch = (event) => requestTabSwitch(event?.detail?.tabId || event?.detail?.id);
+  const onWindowSwitch = (event) => requestTabSwitch(event?.detail?.tabId || event?.id);
   window.addEventListener('app:switch-tab', onWindowSwitch);
   appDestroy = () => {
     offChanged?.();
