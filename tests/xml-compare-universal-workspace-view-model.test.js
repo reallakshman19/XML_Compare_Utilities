@@ -16,7 +16,7 @@ assert.equal(linewise.readinessCards.some((card) => card.label === 'Export' && c
 assert.equal(linewise.recipe.title, 'Structure Recipe Builder bridge');
 assert.ok(linewise.recipe.levels.length >= 1);
 assert.ok(linewise.sources.rows.some((source) => source.sourceId === 'coordinateLookup'));
-assert.ok(linewise.attachments.rows.some((rule) => rule.ruleId === 'coordinate-to-node'));
+assert.ok(linewise.attachments.rows.some((rule) => rule.ruleId === 'coordinates-to-node'));
 assert.equal(linewise.graph.title, 'CategorizedGraph.v1 preview');
 assert.equal(linewise.exportGate.title, 'XML export gate');
 assert.equal(linewise.exportGate.blocked, true);
