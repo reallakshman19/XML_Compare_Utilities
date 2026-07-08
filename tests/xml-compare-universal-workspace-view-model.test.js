@@ -8,10 +8,15 @@ const linewise = createLinewiseUniversalWorkspaceViewModel(createLinewiseUnivers
 assert.equal(linewise.schema, UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA);
 assert.equal(linewise.eyebrow, 'Universal Categorizer Workspace');
 assert.equal(linewise.statusChips.some((chip) => chip.label === 'Sample preview'), true);
-assert.deepEqual(linewise.workflowSteps.map((step) => step.title), ['Source', 'Builder', 'Preview', 'Export']);
+assert.deepEqual(linewise.workflowSteps.map((step) => step.title), ['Source', 'Recipe Builder', 'Preview', 'Export']);
 assert.equal(linewise.readinessCards.some((card) => card.label === 'Export' && card.value === 'Locked'), true);
 assert.equal(linewise.readinessCards.some((card) => card.label === 'Tree nodes'), true);
 assert.equal(linewise.readinessCards.some((card) => card.label === 'Pivot rows'), true);
+assert.equal(linewise.samplePreview.sources.title, 'Source column review');
+assert.equal(linewise.samplePreview.builder.title, 'Structure Recipe Builder');
+assert.equal(linewise.samplePreview.builder.selectedItem.title, 'Selected item properties');
+assert.deepEqual(linewise.samplePreview.previewModes.map((mode) => mode.title), ['Tree Preview', 'Pivot Preview', 'Diagnostics']);
+assert.equal(linewise.samplePreview.exportPlan.status, 'Locked');
 assert.equal(linewise.samplePreview.tree.title, 'Tree Preview');
 assert.equal(linewise.samplePreview.pivot.title, 'Pivot Preview');
 assert.ok(Array.isArray(linewise.samplePreview.tree.nodes));
@@ -31,7 +36,7 @@ for (const action of linewise.designerActions) {
 }
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-008 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-010 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');

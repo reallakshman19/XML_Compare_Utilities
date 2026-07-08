@@ -6,19 +6,29 @@ import { findForbiddenUxc001Changes } from '../xml-compare/universal-categorizer
 
 const preview = createLinewiseUniversalPreviewModel(createLinewiseUniversalPreset());
 assert.equal(preview.schema, UNIVERSAL_PREVIEW_MODEL_SCHEMA);
-assert.deepEqual(preview.workflow.map((step) => step.title), ['Source', 'Builder', 'Preview', 'Export']);
+assert.deepEqual(preview.workflow.map((step) => step.title), ['Source', 'Recipe Builder', 'Preview', 'Export']);
 assert.equal(preview.exportLocked, true);
 assert.ok(preview.sources.rows.length >= 1);
+assert.equal(preview.sources.title, 'Source column review');
+assert.ok(preview.sources.rows.some((source) => source.columns.some((column) => column.name && column.role)));
 assert.ok(preview.builder.levels.length >= 1);
+assert.equal(preview.builder.title, 'Structure Recipe Builder');
+assert.equal(preview.builder.selectedItem.title, 'Selected item properties');
+assert.ok(preview.builder.selectedItem.keyColumn);
+assert.ok(Array.isArray(preview.builder.selectedItem.attachedBlocks));
+assert.ok(Array.isArray(preview.builder.selectedItem.mappedFields));
 assert.equal(preview.tree.title, 'Tree Preview');
 assert.equal(preview.pivot.title, 'Pivot Preview');
+assert.deepEqual(preview.previewModes.map((mode) => mode.title), ['Tree Preview', 'Pivot Preview', 'Diagnostics']);
+assert.equal(preview.exportPlan.status, 'Locked');
+assert.ok(preview.exportPlan.guidanceItems.some((item) => item.includes('XML serializer')));
 assert.equal(preview.pivot.columns.join('|'), 'Path|Level|Key|Block|Field|Value|Source');
 assert.ok(Array.isArray(preview.tree.nodes));
 assert.ok(Array.isArray(preview.pivot.rows));
 assert.equal(preview.advancedDiagnostics.title, 'Advanced diagnostics');
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-008 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-010 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
