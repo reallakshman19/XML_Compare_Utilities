@@ -43,10 +43,11 @@ const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
 assert.deepEqual(changedForbiddenFiles, [], `UXC-001 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
+  const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
   const commands = [
-    'git diff --name-only --diff-filter=ACMRTUXB origin/main...HEAD',
-    'git diff --name-only --diff-filter=ACMRTUXB main...HEAD',
-    'git log --name-only --pretty=format: --diff-filter=ACMRTUXB -n 20',
+    `git fetch --no-tags --depth=1 origin ${baseRef}:refs/remotes/origin/${baseRef} && git diff --name-only --diff-filter=ACMRTUXB origin/${baseRef}...HEAD`,
+    `git diff --name-only --diff-filter=ACMRTUXB origin/${baseRef}...HEAD`,
+    `git diff --name-only --diff-filter=ACMRTUXB ${baseRef}...HEAD`,
   ];
   for (const command of commands) {
     try {
@@ -57,6 +58,11 @@ function changedFilesFromGit() {
     }
   }
   return [];
+}
+
+function safeGitRef(value) {
+  const ref = String(value || 'main').trim();
+  return /^[A-Za-z0-9._/-]+$/.test(ref) ? ref : 'main';
 }
 
 console.log('xml-compare-universal-source-registry tests passed');
