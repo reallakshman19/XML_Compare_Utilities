@@ -3,12 +3,12 @@ import { createLinewiseUniversalAttachmentPreviewModel, createUniversalAttachmen
 import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategorizedGraphPreview } from './universal-graph-builder.js';
 import { evaluateUniversalXmlExportGate } from './universal-export-gate.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
+import { createUniversalRecipeDesignerModel } from './universal-recipe-designer-model.js';
 
 export const UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA = 'universal-workspace-view-model/v1-shadow';
 
 const freeze = (value) => Object.freeze(value);
 const arr = (value) => Array.isArray(value) ? value : [];
-const text = (value, fallback = '') => String(value ?? fallback).trim();
 
 export function createLinewiseUniversalWorkspaceViewModel(profile = createLinewiseUniversalPreset()) {
   const normalizedProfile = normalizeUniversalCategorizerProfile(profile || createLinewiseUniversalPreset());
@@ -38,6 +38,9 @@ export function createUniversalWorkspaceViewModel(input = {}) {
   const exportGate = input.exportGate?.schema === 'universal-export-gate/v1-shadow'
     ? input.exportGate
     : evaluateUniversalXmlExportGate({ graph });
+  const recipeDesigner = input.recipeDesigner?.schema === 'universal-recipe-designer-model/v1-shadow'
+    ? input.recipeDesigner
+    : createUniversalRecipeDesignerModel(profile);
   const summary = summarizeUniversalProfile(profile);
 
   return freeze({
@@ -51,8 +54,9 @@ export function createUniversalWorkspaceViewModel(input = {}) {
       statusChip('Export locked', 'locked'),
     ]),
     workflowSteps: workflowSteps(),
-    readinessCards: readinessCards(summary, graph, exportGate),
+    readinessCards: readinessCards(summary, graph, exportGate, recipeDesigner),
     designerActions: designerActions(),
+    recipeDesigner: recipeDesignerSection(recipeDesigner),
     recipe: recipeSection(profile),
     sources: sourceSection(registry),
     attachments: attachmentSection(profile, attachmentPreview),
@@ -72,11 +76,12 @@ function workflowSteps() {
   ]);
 }
 
-function readinessCards(summary, graph, exportGate) {
+function readinessCards(summary, graph, exportGate, recipeDesigner) {
   return freeze([
     card('Sources', summary.sources, 'Registered inputs'),
     card('Sideloads', summary.sideloadSources, 'External enrichers'),
     card('Levels', summary.levels, 'Hierarchy depth'),
+    card('Recipe check', recipeDesigner.summary.errors ? 'Blocked' : 'Ready', `${recipeDesigner.summary.errors} errors / ${recipeDesigner.summary.warnings} warnings`),
     card('Graph nodes', graph.summary?.nodes ?? graph.nodes?.length ?? 0, 'Preview output'),
     card('Export', exportGate.blocked ? 'Locked' : 'Open', exportGate.status),
   ]);
@@ -92,13 +97,29 @@ function designerActions() {
   ]);
 }
 
+function recipeDesignerSection(model) {
+  return freeze({
+    title: 'Recipe validation',
+    kicker: 'Designer draft check',
+    status: model.status,
+    description: 'The designer draft model validates hierarchy, blocks, sources, and attachment references before editable controls are enabled.',
+    summary: model.summary,
+    diagnostics: freeze(model.diagnostics.map((item) => freeze({
+      severity: item.severity,
+      code: item.code,
+      subjectId: item.subjectId,
+      message: item.message,
+    }))),
+  });
+}
+
 function recipeSection(profile) {
   return freeze({
     title: 'Structure Recipe Builder bridge',
     kicker: 'Hierarchy design',
     status: 'Graph-first',
     description: 'The future editable builder owns the hierarchy. This preview shows the level/block structure before any XML export is allowed.',
-    levels: freeze(rootLevels(profile).flatMap((level) => flattenLevel(level, profile, 0))),
+    levels: freeze(rootLevels(profile).map((level) => flattenLevel(level, profile, 0)).flat()),
   });
 }
 
@@ -250,6 +271,7 @@ export const _test = freeze({
   workflowSteps,
   readinessCards,
   designerActions,
+  recipeDesignerSection,
   recipeSection,
   sourceSection,
   attachmentSection,
