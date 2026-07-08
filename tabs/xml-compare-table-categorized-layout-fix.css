@@ -1,14 +1,16 @@
-/* Mission 077: stabilize Table to Categorized XML popup sizing and internal scrolling. */
+/* Mission TTCX-001: keep Table to Categorized XML fullscreen across step/tab rerenders. */
 
 .table-categorized-xml-backdrop {
   align-items: stretch;
-  justify-items: center;
+  justify-items: stretch;
 }
 
 .table-categorized-xml-dialog {
-  width: min(1220px, calc(100vw - 28px)) !important;
-  height: min(840px, calc(100vh - 28px)) !important;
-  max-height: calc(100vh - 28px) !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
   display: grid !important;
   grid-template-rows: auto auto minmax(0, 1fr) !important;
   overflow: hidden !important;
