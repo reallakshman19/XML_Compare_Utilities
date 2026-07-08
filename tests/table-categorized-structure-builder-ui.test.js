@@ -18,7 +18,9 @@ const profile = createBlankUniversalProfile();
 const html = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0' });
 
 assert.ok(indexHtml.includes('xml-compare-table-categorized-layout-fix.css'), 'stable layout CSS is loaded from index.html');
-assert.ok(layoutCss.includes('.table-categorized-xml-dialog') && layoutCss.includes('height: min(840px, calc(100vh - 28px))'), 'dialog height is stable across tabs');
+assert.ok(layoutCss.includes('.table-categorized-xml-dialog') && layoutCss.includes('width: 100vw !important') && layoutCss.includes('height: 100vh !important'), 'dialog defaults to fullscreen across tabs');
+assert.ok(layoutCss.includes('max-width: none !important') && layoutCss.includes('max-height: none !important'), 'fullscreen default is not constrained by modal max size');
+assert.ok(layoutCss.includes('.table-categorized-xml-dialog.is-fullscreen') && layoutCss.includes(':has([data-table-categorized-fullscreen-icon]:checked)'), 'legacy fullscreen selectors remain supported');
 assert.ok(layoutCss.includes('.table-categorized-xml-body') && layoutCss.includes('overflow: hidden'), 'body uses internal scroll, not dialog resize');
 assert.ok(layoutCss.includes('.table-categorized-shell-main') && layoutCss.includes('overflow-y: auto'), 'tab columns scroll internally');
 assert.ok(layoutCss.includes('.table-categorized-structure-workspace') && layoutCss.includes('overflow-y: auto'), 'Structure Recipe Builder has vertical scroll');
