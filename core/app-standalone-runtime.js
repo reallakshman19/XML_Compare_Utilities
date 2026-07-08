@@ -113,7 +113,8 @@ function createBuildStamp() {
   build.textContent = `Build: ${STANDALONE_APP.build}`;
   build.title = 'Visible build marker for cache/deploy verification';
   return build;
-}\n
+}
+
 function createBrandRail() {
   const brand = document.createElement('div');
   brand.className = 'app-brand-rail';
@@ -253,7 +254,7 @@ export async function init(root) {
     renderActiveTab(content, nav, tabs);
   });
   const offRequested = on(RuntimeEvents.TAB_CHANGE_REQUESTED, (payload = {}) => requestTabSwitch(payload?.tabId || payload?.id));
-  const onWindowSwitch = (event) => requestTabSwitch(event?.detail?.tabId || event?.id);
+  const onWindowSwitch = (event) => requestTabSwitch(event?.detail?.tabId || event?.detail?.id);
   window.addEventListener('app:switch-tab', onWindowSwitch);
   appDestroy = () => {
     offChanged?.();
