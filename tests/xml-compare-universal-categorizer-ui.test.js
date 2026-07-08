@@ -37,7 +37,7 @@ assert.ok(shell.includes('Add block'));
 assert.ok(shell.includes('Map source field'));
 assert.ok(shell.includes('Preview pivot'));
 assert.ok(shell.includes('Export XML'));
-assert.ok(shell.includes('data-uxc-designer-action=&quot;add-level&quot;'));
+assert.ok(shell.includes('data-uxc-designer-action="add-level"'));
 assert.ok(shell.includes('disabled data-uxc-designer-action'));
 assert.ok(shell.includes('Shadow-mode boundary'));
 assert.ok(shell.includes('No existing converter, sideload, enrichment, XML export, pivot, or canvas module is changed.'));
