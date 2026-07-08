@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260707-m20-progressive-disclosure');
+  const module = await import('./core/app.js?v=20260708-m21-transfer-state-truth');
   await module.init(startupMount());
 }
 
