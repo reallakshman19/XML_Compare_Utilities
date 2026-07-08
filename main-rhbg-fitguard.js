@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260708-m21-transfer-state-truth');
+  const module = await import('./core/app.js?v=20260708-m23-transfer-tile-layout');
   await module.init(startupMount());
 }
 
