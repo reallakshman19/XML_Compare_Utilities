@@ -3,6 +3,7 @@ import { createLinewiseUniversalAttachmentPreviewModel, createUniversalAttachmen
 import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategorizedGraphPreview } from './universal-graph-builder.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalLoadedPreviewBundle, UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
+import { createUniversalMappingWorkbench } from './universal-mapping-workbench.js';
 
 export const UNIVERSAL_PREVIEW_MODEL_SCHEMA = 'universal-preview-model/v1-shadow';
 const freeze = (value) => Object.freeze(value);
@@ -26,6 +27,7 @@ export function createUniversalPreviewModel(input = {}) {
   const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const tree = createTreePreview({ profile, graph });
   const pivot = createPivotPreview({ tree, graph });
+  const mappingWorkbench = createUniversalMappingWorkbench({ profile, registry });
   return freeze({
     schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA,
     profileId: profile.profileId,
@@ -38,6 +40,7 @@ export function createUniversalPreviewModel(input = {}) {
     ]),
     sources: sourcePreview(registry),
     builder: builderPreview(profile),
+    mappingWorkbench,
     previewModes: previewModes({ tree, pivot, attachmentPreview, graph }),
     tree,
     pivot,
