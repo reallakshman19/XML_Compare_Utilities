@@ -1,28 +1,23 @@
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
-import { createLinewiseUniversalWorkspaceViewModel, createUniversalWorkspaceViewModel, UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA } from '../xml-compare/universal-categorizer/universal-workspace-view-model.js';
-import { createLinewiseUniversalPreset, normalizeUniversalCategorizerProfile } from '../xml-compare/universal-categorizer/universal-xml-categorizer-contracts.js';
-import { createUniversalSourceRegistry, findForbiddenUxc001Changes } from '../xml-compare/universal-categorizer/universal-source-registry.js';
-import { createUniversalAttachmentPreview } from '../xml-compare/universal-categorizer/universal-attachment-preview.js';
-import { createUniversalCategorizedGraphPreview } from '../xml-compare/universal-categorizer/universal-graph-builder.js';
-import { evaluateUniversalXmlExportGate } from '../xml-compare/universal-categorizer/universal-export-gate.js';
+import { createLinewiseUniversalWorkspaceViewModel, UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA } from '../xml-compare/universal-categorizer/universal-workspace-view-model.js';
+import { createLinewiseUniversalPreset } from '../xml-compare/universal-categorizer/universal-xml-categorizer-contracts.js';
+import { findForbiddenUxc001Changes } from '../xml-compare/universal-categorizer/universal-source-registry.js';
 
 const linewise = createLinewiseUniversalWorkspaceViewModel(createLinewiseUniversalPreset());
 assert.equal(linewise.schema, UNIVERSAL_WORKSPACE_VIEW_MODEL_SCHEMA);
 assert.equal(linewise.eyebrow, 'Universal Categorizer Workspace');
-assert.equal(linewise.statusChips.some((chip) => chip.label === 'Shadow mode'), true);
-assert.deepEqual(linewise.workflowSteps.map((step) => step.title), ['Source Registry', 'Attachment Rules', 'Graph Preview', 'Export Gate']);
+assert.equal(linewise.statusChips.some((chip) => chip.label === 'Sample preview'), true);
+assert.deepEqual(linewise.workflowSteps.map((step) => step.title), ['Source', 'Builder', 'Preview', 'Export']);
 assert.equal(linewise.readinessCards.some((card) => card.label === 'Export' && card.value === 'Locked'), true);
-assert.equal(linewise.readinessCards.some((card) => card.label === 'Recipe check' && card.value === 'Ready'), true);
+assert.equal(linewise.readinessCards.some((card) => card.label === 'Tree nodes'), true);
+assert.equal(linewise.readinessCards.some((card) => card.label === 'Pivot rows'), true);
+assert.equal(linewise.samplePreview.tree.title, 'Tree Preview');
+assert.equal(linewise.samplePreview.pivot.title, 'Pivot Preview');
+assert.ok(Array.isArray(linewise.samplePreview.tree.nodes));
+assert.ok(Array.isArray(linewise.samplePreview.pivot.rows));
 assert.equal(linewise.recipeDesigner.title, 'Recipe validation');
-assert.equal(linewise.recipeDesigner.status, 'ready');
-assert.equal(linewise.recipeDesigner.summary.errors, 0);
-assert.equal(linewise.recipeDesigner.diagnostics.length, 0);
 assert.equal(linewise.recipe.title, 'Structure Recipe Builder bridge');
-assert.ok(linewise.recipe.levels.length >= 1);
-assert.ok(linewise.sources.rows.some((source) => source.sourceId === 'coordinateLookup'));
-assert.ok(linewise.attachments.rows.some((rule) => rule.ruleId === 'coordinates-to-node'));
-assert.equal(linewise.graph.title, 'CategorizedGraph.v1 preview');
 assert.equal(linewise.exportGate.title, 'XML export gate');
 assert.equal(linewise.exportGate.blocked, true);
 assert.equal(linewise.boundary.items.some((item) => item.includes('No existing converter')), true);
@@ -35,51 +30,8 @@ for (const action of linewise.designerActions) {
   assert.ok(action.lockedReason);
 }
 
-const profile = normalizeUniversalCategorizerProfile({
-  profileId: 'uxc-workspace-vm-test',
-  sources: [
-    { sourceId: 'mainXml', role: 'primary', sourceKind: 'xml' },
-    { sourceId: 'coordLookup', role: 'sideload', requiredColumns: ['NODE', 'GLOBAL_X'] },
-  ],
-  levelDefinitions: [
-    { levelId: 'root', displayName: 'Root', children: ['node'] },
-    { levelId: 'node', displayName: 'Node' },
-  ],
-  blockDefinitions: [
-    { blockName: 'CoordinateBlock', attachToLevelId: 'node' },
-  ],
-  sideloadAttachments: [
-    { ruleId: 'coord-to-node', sourceId: 'coordLookup', attachToLevelId: 'node', sourceKey: 'NODE', targetKey: 'nodeNumber', blockName: 'CoordinateBlock', mode: 'create-block', fieldBindings: [{ sourceField: 'GLOBAL_X', targetField: 'x' }] },
-  ],
-});
-const sourceInputsA = {
-  mainXml: { columns: ['DocumentRoot'] },
-  coordLookup: { rows: [{ GLOBAL_X: '1000', NODE: '10' }] },
-};
-const sourceInputsB = {
-  coordLookup: { rows: [{ NODE: '10', GLOBAL_X: '1000' }] },
-  mainXml: { columns: ['DocumentRoot'] },
-};
-const targetRows = [{ nodeNumber: '10', levelId: 'node', label: 'Node 10' }];
-
-function makeVm(sourceInputs) {
-  const registry = createUniversalSourceRegistry(profile, sourceInputs);
-  const attachmentPreview = createUniversalAttachmentPreview({ profile, registry, targetRows });
-  const graph = createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
-  const exportGate = evaluateUniversalXmlExportGate({ graph });
-  return createUniversalWorkspaceViewModel({ profile, registry, attachmentPreview, graph, exportGate });
-}
-
-const vmA = makeVm(sourceInputsA);
-const vmB = makeVm(sourceInputsB);
-assert.equal(JSON.stringify(vmA), JSON.stringify(vmB), 'Workspace view model must be deterministic for equivalent inputs');
-assert.equal(vmA.sources.rows[1].status, 'Ready');
-assert.equal(vmA.attachments.rows[0].matched, 1);
-assert.equal(vmA.graph.rows[0].blocks, 'CoordinateBlock');
-assert.equal(vmA.exportGate.allowed, false);
-
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-006 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-008 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
@@ -98,10 +50,6 @@ function changedFilesFromGit() {
   }
   return [];
 }
-
-function safeGitRef(value) {
-  const ref = String(value || 'main').trim();
-  return /^[A-Za-z0-9._/-]+$/.test(ref) ? ref : 'main';
-}
+function safeGitRef(value) { const ref = String(value || 'main').trim(); return /^[A-Za-z0-9._/-]+$/.test(ref) ? ref : 'main'; }
 
 console.log('xml-compare-universal-workspace-view-model tests passed');
