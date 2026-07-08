@@ -4,4 +4,4 @@ import '../tabs/xml-compare-universal-categorizer-runtime.js?v=20260707-universa
 
 installAppTabClickStateBridge();
 
-export { init, destroy } from './app-standalone-runtime.js?v=20260708-m21-transfer-state-truth';
+export { init, destroy } from './app-standalone-runtime.js?v=20260708-m23-transfer-tile-layout';
