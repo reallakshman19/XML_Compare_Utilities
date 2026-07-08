@@ -9,6 +9,7 @@ import { validateEditableProfile } from '../xml-compare/table-categorizer/table-
 
 const runtime = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-runtime.js', import.meta.url), 'utf8');
 const layoutCss = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-layout-fix.css', import.meta.url), 'utf8');
+const recipeUxCss = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-recipe-builder-ux.css', import.meta.url), 'utf8');
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const source = applySourceTransformRules(
   parseTableSource(['PS NO	Rating	Length', 'PS-100.1	CL150	1200mm'].join('\n'), { sourceId: 'S1', delimiterMode: 'tab' }),
@@ -18,11 +19,17 @@ const profile = createBlankUniversalProfile();
 const html = renderTableCategorizedXmlShellHtml({ activeStep: 'structure', activeTab: 'graph', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, selectedLevelPath: '0' });
 
 assert.ok(indexHtml.includes('xml-compare-table-categorized-layout-fix.css'), 'stable layout CSS is loaded from index.html');
+assert.ok(indexHtml.includes('xml-compare-table-categorized-recipe-builder-ux.css'), 'recipe builder UX CSS is loaded from index.html');
 assert.ok(layoutCss.includes('.table-categorized-xml-dialog') && layoutCss.includes('height: min(840px, calc(100vh - 28px))'), 'dialog height is stable across tabs');
 assert.ok(layoutCss.includes('.table-categorized-xml-body') && layoutCss.includes('overflow: hidden'), 'body uses internal scroll, not dialog resize');
 assert.ok(layoutCss.includes('.table-categorized-shell-main') && layoutCss.includes('overflow-y: auto'), 'tab columns scroll internally');
 assert.ok(layoutCss.includes('.table-categorized-structure-workspace') && layoutCss.includes('overflow-y: auto'), 'Structure Recipe Builder has vertical scroll');
 assert.ok(layoutCss.includes('.table-categorized-recipe-tree') && layoutCss.includes('overflow-y: auto'), 'recipe tree has vertical scroll');
+assert.ok(recipeUxCss.includes('.table-categorized-recipe-tree') && recipeUxCss.includes('border-left: 1px dashed'), 'recipe tree gets clearer hierarchy styling');
+assert.ok(recipeUxCss.includes('[data-table-categorized-selected-node-panel]') && recipeUxCss.includes('position: sticky'), 'selected node editor stays visible while scrolling');
+assert.ok(recipeUxCss.includes('Edit one hierarchy level at a time'), 'selected node panel adds user guidance');
+assert.ok(recipeUxCss.includes('[data-field-catalog-resolver-options="FieldCatalog.v1"]') && recipeUxCss.includes('border-radius: 999px'), 'field catalog choices are styled as compact chips');
+assert.ok(recipeUxCss.includes('Shows how the selected node will resolve from real rows'), 'live preview gets explanatory guidance');
 assert.ok(html.includes('data-table-categorized-fullscreen-icon'), 'fullscreen icon toggle is rendered');
 assert.ok(html.includes('table-categorized-structure-workspace is-scrollable'), 'Structure Recipe Builder gets vertical scroll container');
 assert.ok(html.includes('data-table-categorized-structure-scroll="true"'), 'scroll container has explicit structure scroll marker');
