@@ -1,6 +1,5 @@
 import { createLinewiseUniversalPreset } from './universal-xml-categorizer-contracts.js';
 import { createUniversalRecipeDesignerModel } from './universal-recipe-designer-model.js';
-import { evaluateUniversalXmlExportGate } from './universal-export-gate.js';
 
 export const UNIVERSAL_COMMAND_PLANNER_SCHEMA = 'universal-command-planner/v1-shadow';
 
@@ -9,8 +8,7 @@ const arr = (value) => Array.isArray(value) ? value : [];
 
 export function createLinewiseUniversalCommandPlanner(profile = createLinewiseUniversalPreset()) {
   const recipeDesigner = createUniversalRecipeDesignerModel(profile || createLinewiseUniversalPreset());
-  const exportGate = evaluateUniversalXmlExportGate({});
-  return createUniversalCommandPlanner({ recipeDesigner, exportGate });
+  return createUniversalCommandPlanner({ recipeDesigner });
 }
 
 export function createUniversalCommandPlanner(input = {}) {
@@ -19,7 +17,7 @@ export function createUniversalCommandPlanner(input = {}) {
     : createUniversalRecipeDesignerModel(input.profile || createLinewiseUniversalPreset());
   const exportGate = input.exportGate?.schema === 'universal-export-gate/v1-shadow'
     ? input.exportGate
-    : evaluateUniversalXmlExportGate(input.exportGateInput || {});
+    : defaultClosedExportGate(recipeDesigner.profileId);
   const receipts = designerCommands(recipeDesigner).map((command) => commandReceipt(command, recipeDesigner, exportGate));
   return freeze({
     schema: UNIVERSAL_COMMAND_PLANNER_SCHEMA,
@@ -112,4 +110,15 @@ function commandPolicy(commandId, recipeDesigner, exportGate) {
   return freeze({ ...base, preconditions: freeze(base.preconditions) });
 }
 
-export const _test = freeze({ designerCommands, command, commandReceipt, commandTarget, commandPolicy });
+function defaultClosedExportGate(profileId = '') {
+  return freeze({
+    schema: 'universal-export-gate/v1-shadow',
+    profileId,
+    status: 'blocked-shadow-graph-only',
+    allowed: false,
+    blocked: true,
+    reason: 'Command planner default export gate is closed in shadow mode.',
+  });
+}
+
+export const _test = freeze({ designerCommands, command, commandReceipt, commandTarget, commandPolicy, defaultClosedExportGate });
