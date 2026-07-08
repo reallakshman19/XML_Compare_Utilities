@@ -1,44 +1,94 @@
-/* M19/M20: reduce Tab 2 visual noise from dashboard cards, action boxes, and empty output panels. */
+/* M23: Transfer Tab 2 tile layout foundation.
+   This file intentionally replaces the earlier inline-flex/pill compression rules.
+   Tab 2 uses bounded CSS Grid tiles so dashboard cards and export actions wrap
+   without overlapping, clipping, or relying on hidden text as a layout fix. */
+
+.xmlc-transfer-review,
+.xmlc-transfer-review *,
+.xmlc-transfer-review *::before,
+.xmlc-transfer-review *::after {
+  box-sizing: border-box;
+}
+
+.xmlc-transfer-review {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  overflow-x: hidden;
+}
+
+.xmlc-transfer-review > .xml-compare-panel,
+.xmlc-transfer-review > .xmlc-transfer-card,
+.xmlc-transfer-detail-group,
+.xmlc-transfer-detail-group > .xml-compare-panel,
+.xmlc-transfer-detail-group > .xmlc-transfer-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .xmlc-transfer-output-dashboard {
   box-shadow: none;
   background: rgba(8, 47, 73, 0.32);
   border-color: rgba(45, 212, 191, 0.28);
+  overflow: hidden;
 }
 
 .xmlc-transfer-next-action {
   border: 0;
   border-left: 4px solid rgba(45, 212, 191, 0.82);
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgba(2, 6, 23, 0.30);
-  margin-bottom: 8px;
+  margin: 10px 12px;
+  max-width: calc(100% - 24px);
+}
+
+.xmlc-transfer-next-action span {
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-dashboard-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 8px;
+  align-items: stretch;
+  padding: 0 12px 12px;
+  min-width: 0;
 }
 
 .xmlc-transfer-dashboard-card {
-  min-height: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "dot title"
+    "dot status"
+    "detail detail";
+  column-gap: 8px;
+  row-gap: 4px;
+  align-content: start;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.42);
   box-shadow: none;
+  overflow: hidden;
 }
 
 .xmlc-transfer-dashboard-card::before {
   content: '';
-  width: 7px;
-  height: 7px;
+  grid-area: dot;
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
   border-radius: 999px;
   background: #64748b;
-  flex: 0 0 auto;
 }
 
 .xmlc-transfer-dashboard-card.is-ready::before { background: #22c55e; }
@@ -46,37 +96,59 @@
 .xmlc-transfer-dashboard-card.is-not-available::before { background: #64748b; }
 
 .xmlc-transfer-dashboard-card b {
-  font-size: 11px;
+  grid-area: title;
+  min-width: 0;
   color: #e2e8f0;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .xmlc-transfer-dashboard-card span {
-  padding: 1px 6px;
+  grid-area: status;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 7px;
   font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: rgba(100, 116, 139, 0.20);
 }
 
 .xmlc-transfer-dashboard-card small,
 .xmlc-transfer-dashboard-card em {
-  display: none;
+  grid-area: detail;
+  min-width: 0;
+  display: block;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.xmlc-transfer-dashboard-card em {
+  color: #93c5fd;
 }
 
 .xmlc-transfer-start {
   border-color: rgba(56, 189, 248, 0.22);
   background: rgba(2, 6, 23, 0.24);
+  overflow: hidden;
 }
 
 .xmlc-transfer-start-body {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(min(100%, 180px), auto);
   gap: 12px;
   align-items: center;
-  justify-content: space-between;
   padding: 12px;
 }
 
 .xmlc-transfer-start-body > div:first-child {
-  min-width: min(100%, 420px);
+  min-width: 0;
   display: grid;
   gap: 4px;
 }
@@ -84,6 +156,12 @@
 .xmlc-transfer-start-body b {
   color: #e0f2fe;
   font-size: 14px;
+}
+
+.xmlc-transfer-start-body span,
+.xmlc-transfer-start-body small {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-start-body span {
@@ -102,7 +180,7 @@
 
 .xmlc-transfer-review[data-transfer-evidence="none"] .xmlc-transfer-output-dashboard,
 .xmlc-transfer-review[data-transfer-evidence="none"] .xmlc-transfer-start {
-  max-width: 980px;
+  max-width: none;
 }
 
 .xmlc-transfer-review[data-transfer-evidence="none"] [data-xml-compare-dashboard-card="apply"],
@@ -118,68 +196,89 @@
   position: static;
   box-shadow: none;
   background: rgba(8, 47, 73, 0.24);
+  overflow: hidden;
 }
 
 .xmlc-transfer-output-body {
-  grid-template-columns: minmax(210px, 300px) minmax(180px, 260px) minmax(0, 1fr);
-  gap: 10px;
-  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(160px, 0.55fr) minmax(260px, 1.4fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  min-width: 0;
+}
+
+.xmlc-transfer-output-state,
+.xmlc-transfer-output .xmlc-transfer-metrics,
+.xmlc-transfer-output-actions {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .xmlc-transfer-output .xmlc-transfer-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 86px), 1fr));
+  gap: 6px;
 }
 
 .xmlc-transfer-output .xmlc-transfer-metric {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 6px 7px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.20);
 }
 
 .xmlc-transfer-output .xmlc-transfer-metric b,
 .xmlc-transfer-output .xmlc-transfer-metric span {
-  display: inline;
+  min-width: 0;
   margin: 0;
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-output-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 8px;
+  align-items: stretch;
 }
 
 .xmlc-transfer-output-actions .xmlc-transfer-action {
-  min-height: 30px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   box-shadow: none;
 }
 
 .xmlc-transfer-action-icon {
-  display: none;
+  flex: 0 0 auto;
 }
 
 .xmlc-transfer-action-label {
-  font-size: 11px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-detail-group {
   border-color: rgba(148, 163, 184, 0.10);
   background: rgba(15, 23, 42, 0.34);
+  overflow: hidden;
 }
 
 .xmlc-transfer-detail-group > summary {
+  min-width: 0;
   padding: 9px 12px;
   background: rgba(2, 6, 23, 0.24);
   border-bottom-color: rgba(148, 163, 184, 0.10);
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-detail-group > summary::after {
@@ -196,8 +295,23 @@
   content: 'close';
 }
 
-@media (max-width: 900px) {
-  .xmlc-transfer-output-body,
+.xmlc-transfer-detail-group table,
+.xmlc-transfer-detail-group pre,
+.xmlc-transfer-detail-group .xml-compare-transfer-patched-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 1180px) {
+  .xmlc-transfer-output-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .xmlc-transfer-dashboard-grid,
+  .xmlc-transfer-output-actions,
+  .xmlc-transfer-output .xmlc-transfer-metrics,
   .xmlc-transfer-start-body {
     grid-template-columns: 1fr;
   }
