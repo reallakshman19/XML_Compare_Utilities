@@ -26,7 +26,25 @@ export function createUniversalPreviewModel(input = {}) {
   const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const tree = createTreePreview({ profile, graph });
   const pivot = createPivotPreview({ tree, graph });
-  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns and sample rows'), step('02', 'Builder', 'Define hierarchy and attached blocks'), step('03', 'Preview', 'Review tree and pivot outputs'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportLocked: true });
+  return freeze({
+    schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA,
+    profileId: profile.profileId,
+    previewBundleSchema: bundle?.schema || '',
+    workflow: freeze([
+      step('01', 'Source', 'Review columns, keys, and sample rows'),
+      step('02', 'Recipe Builder', 'Arrange hierarchy levels and blocks'),
+      step('03', 'Preview', 'Review tree, pivot, and diagnostics'),
+      step('04', 'Export', 'Locked until graph proof is approved'),
+    ]),
+    sources: sourcePreview(registry),
+    builder: builderPreview(profile),
+    previewModes: previewModes({ tree, pivot, attachmentPreview, graph }),
+    tree,
+    pivot,
+    advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }),
+    exportPlan: exportPlan(graph),
+    exportLocked: true,
+  });
 }
 
 export function createUniversalPreviewModelFromLoadedData(input = {}) {
@@ -35,8 +53,43 @@ export function createUniversalPreviewModelFromLoadedData(input = {}) {
   return createUniversalPreviewModel({ profile, previewBundle });
 }
 
-function sourcePreview(registry = {}) { return freeze({ title: 'Source data', rows: freeze(arr(registry.sources).map((source = {}) => { const columns = arr(source.columns); const requiredColumns = arr(source.requiredColumns); return freeze({ sourceId: text(source.sourceId), displayName: text(source.displayName, source.sourceId || source.sourceKind || 'Source'), role: text(source.role), columns: freeze(columns.length ? columns : requiredColumns), requiredColumns: freeze(requiredColumns), rowCount: source.rowCount ?? arr(source.rows).length, sampleRows: freeze(arr(source.rows).slice(0, 3).map((row) => freeze(stableObject(row)))), status: text(source.status, 'ready') }); })) }); }
-function builderPreview(profile) { return freeze({ title: 'Structure Recipe Builder', levels: freeze(rootLevels(profile).flatMap((level) => flattenLevel(level, profile, 0))), lockedActions: freeze([action('add-level', 'Add level'), action('add-block', 'Add block'), action('map-source-field', 'Map source field')]) }); }
+function sourcePreview(registry = {}) {
+  return freeze({
+    title: 'Source column review',
+    description: 'Review detected columns before mapping them into hierarchy levels and attached fields.',
+    rows: freeze(arr(registry.sources).map((source = {}) => {
+      const columns = arr(source.columns);
+      const requiredColumns = arr(source.requiredColumns);
+      const stableColumns = columns.length ? columns : requiredColumns;
+      return freeze({
+        sourceId: text(source.sourceId),
+        displayName: text(source.displayName, source.sourceId || source.sourceKind || 'Source'),
+        role: text(source.role),
+        columns: freeze(stableColumns.map((column) => columnCard(column, source))),
+        requiredColumns: freeze(requiredColumns),
+        rowCount: source.rowCount ?? arr(source.rows).length,
+        sampleRows: freeze(arr(source.rows).slice(0, 3).map((row) => freeze(stableObject(row)))),
+        status: text(source.status, 'ready'),
+      });
+    })),
+  });
+}
+
+function builderPreview(profile) {
+  const levels = freeze(rootLevels(profile).flatMap((level) => flattenLevel(level, profile, 0)));
+  const selectedItem = selectedLevelProperties(profile, levels);
+  return freeze({
+    title: 'Structure Recipe Builder',
+    description: 'Design the hierarchy as levels, blocks, and source-field mappings. Editing remains locked until the builder handlers are approved.',
+    levels,
+    selectedItem,
+    lockedActions: freeze([
+      action('add-level', 'Add level'),
+      action('add-block', 'Add block'),
+      action('map-source-field', 'Map source field'),
+    ]),
+  });
+}
 
 export function createTreePreview({ profile = createLinewiseUniversalPreset(), graph = {} } = {}) {
   const nodes = arr(graph.nodes);
@@ -71,6 +124,59 @@ export function createPivotPreview({ tree, graph = {} } = {}) {
   return freeze({ title: 'Pivot Preview', description: 'Flat pivot-style preview generated from tree nodes, graph blocks, fields, and sideload attachments.', columns: freeze(['Path', 'Level', 'Key', 'Block', 'Field', 'Value', 'Source']), rows: freeze(rows), summary: freeze({ rows: rows.length, columns: 7 }) });
 }
 
+function columnCard(column, source = {}) {
+  const name = text(column);
+  return freeze({ name, role: columnRole(name, source), required: arr(source.requiredColumns).includes(name), mapped: true });
+}
+function columnRole(column, source = {}) {
+  const name = text(column).toLowerCase();
+  if (arr(source.requiredColumns).includes(column)) return 'Required key';
+  if (name.includes('node') || name.includes('line') || name.includes('id')) return 'Candidate key';
+  if (name.includes('global') || name.includes('position') || name.includes('coordinate')) return 'Coordinate field';
+  if (name.includes('weight') || name.includes('diameter') || name.includes('thickness') || name.includes('tag')) return 'Mapped field';
+  return 'Available field';
+}
+function selectedLevelProperties(profile, levels = []) {
+  const selected = levels.find((level) => level.blocks.length) || levels[0] || freeze({ levelId: '', displayName: '', depth: 0, blocks: freeze([]) });
+  const blocks = profile.blockDefinitions.filter((block) => block.attachToLevelId === selected.levelId);
+  const attachments = profile.sideloadAttachments.filter((rule) => rule.attachToLevelId === selected.levelId || blocks.some((block) => block.blockName === rule.blockName));
+  return freeze({
+    title: 'Selected item properties',
+    levelId: selected.levelId,
+    displayName: selected.displayName,
+    keyColumn: keyColumnForLevel(selected.levelId, profile),
+    attachedBlocks: freeze(blocks.map((block) => freeze({ blockName: block.blockName, createMode: block.createMode || 'single', fieldCount: Object.keys(block.fields || {}).length }))),
+    mappedFields: freeze(attachments.map((rule) => freeze({ sourceId: rule.sourceId, blockName: rule.blockName, sourceKey: rule.sourceKey, targetKey: rule.targetKey, mode: rule.mode || 'append' }))),
+  });
+}
+function keyColumnForLevel(levelId, profile) {
+  const directRule = profile.sideloadAttachments.find((rule) => rule.attachToLevelId === levelId);
+  if (directRule?.targetKey) return directRule.targetKey;
+  if (levelId === 'element') return 'elementKey';
+  if (levelId === 'node') return 'nodeNumber';
+  return 'documentRoot';
+}
+function previewModes({ tree, pivot, attachmentPreview = {}, graph = {} }) {
+  return freeze([
+    previewMode('Tree Preview', `${tree.summary.nodes} nodes`, 'Shows the hierarchy that will become the categorized graph.'),
+    previewMode('Pivot Preview', `${pivot.summary.rows} rows`, 'Shows the same hierarchy flattened for review before export.'),
+    previewMode('Diagnostics', `${arr(attachmentPreview.diagnostics).length + arr(graph.diagnostics).length} items`, 'Keeps warnings visible without making internals the primary screen.'),
+  ]);
+}
+function exportPlan(graph = {}) {
+  return freeze({
+    title: 'Export readiness',
+    status: 'Locked',
+    reason: 'XML export remains locked until graph parity, serializer rules, and user-approved output policy are complete.',
+    guidanceItems: freeze([
+      'Validate the hierarchy recipe against loaded source rows.',
+      'Approve Tree Preview and Pivot Preview parity.',
+      'Approve a deterministic XML serializer contract.',
+      'Only then unlock XML export in a separate gated PR.',
+    ]),
+    advancedStatus: graph.exportStatus || 'disabled-until-graph-preview-is-deterministic',
+  });
+}
 function pivotRowsForGraphNode(treeNodeValue, graphNode) { if (!graphNode) return []; const rows = []; for (const block of Object.values(graphNode.blocks || {})) for (const [fieldName, fieldValue] of Object.entries(block.fields || {})) rows.push(pivotRow(treeNodeValue, block.blockName, fieldName, fieldValue, block.source)); return rows; }
 function pivotRow(treeNodeValue, blockName, fieldName, value, source) { return freeze({ path: treeNodeValue.path, level: treeNodeValue.level, key: treeNodeValue.key, block: blockName || '—', field: fieldName || '—', value: text(value, '—'), source: source || '—' }); }
 function advancedDiagnostics({ registry = {}, attachmentPreview = {}, graph = {}, bundle = null }) { const items = [...arr(bundle?.diagnostics), ...arr(registry.diagnostics), ...arr(attachmentPreview.diagnostics), ...arr(graph.diagnostics)].map((item) => freeze({ severity: item.severity || item.level || 'info', code: item.code || 'UXC_DIAGNOSTIC', subject: item.subjectId || item.ruleId || item.sourceId || '', message: item.message || '' })); return freeze({ title: 'Advanced diagnostics', items: freeze(items), count: items.length }); }
@@ -84,5 +190,6 @@ function rootLevels(profile) { const referenced = new Set(profile.levelDefinitio
 function flattenLevel(level, profile, depth) { const children = arr(level.children).map((id) => profile.levelDefinitions.find((item) => item.levelId === id)).filter(Boolean); return freeze([freeze({ levelId: level.levelId, displayName: level.displayName, depth, blocks: freeze(profile.blockDefinitions.filter((block) => block.attachToLevelId === level.levelId).map((block) => block.blockName)) }), ...children.flatMap((child) => flattenLevel(child, profile, depth + 1))]); }
 function step(number, title, caption) { return freeze({ number, title, caption }); }
 function action(actionId, label) { return freeze({ actionId, label, enabled: false, lockedReason: 'locked-shadow-mode' }); }
+function previewMode(title, status, description) { return freeze({ title, status, description }); }
 function stableObject(input = {}) { return Object.fromEntries(Object.entries(input || {}).sort(([a], [b]) => a.localeCompare(b))); }
-export const _test = freeze({ sourcePreview, builderPreview, createTreePreview, createPivotPreview, pivotRowsForGraphNode, pivotRow, advancedDiagnostics, treeNode, finalizeTreePaths, buildPath, collectBlockFields, fieldValue, elementChildKeys, rootLevels, flattenLevel, stableObject });
+export const _test = freeze({ sourcePreview, builderPreview, createTreePreview, createPivotPreview, columnCard, columnRole, selectedLevelProperties, keyColumnForLevel, previewModes, exportPlan, pivotRowsForGraphNode, pivotRow, advancedDiagnostics, treeNode, finalizeTreePaths, buildPath, collectBlockFields, fieldValue, elementChildKeys, rootLevels, flattenLevel, stableObject });
