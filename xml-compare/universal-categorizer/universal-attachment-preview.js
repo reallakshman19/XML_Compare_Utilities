@@ -124,6 +124,7 @@ function buildRulePreview(rule, profile, registry, targetRows) {
     sourceKeyFields,
     targetKey: rule.targetKey,
     targetLevelId: rule.attachToLevelId,
+    fieldBindings: rule.fieldBindings,
     targetLevel: freeze({
       levelId: rule.attachToLevelId,
       displayName: targetLevel?.displayName || '',
