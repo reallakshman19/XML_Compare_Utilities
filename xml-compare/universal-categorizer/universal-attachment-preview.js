@@ -63,7 +63,10 @@ export function createLinewiseUniversalTargetPreviewRows() {
 function buildRulePreview(rule, profile, registry, targetRows) {
   const source = registry.sourceMap?.[rule.sourceId] || null;
   const targetLevel = profile.levelDefinitions.find((level) => level.levelId === rule.attachToLevelId) || null;
-  const targetBlock = profile.blockDefinitions.find((block) => block.blockName === rule.blockName && (!block.attachToLevelId || block.attachToLevelId === rule.attachToLevelId)) || null;
+  const exactTargetBlock = profile.blockDefinitions.find((block) => block.blockName === rule.blockName && (!block.attachToLevelId || block.attachToLevelId === rule.attachToLevelId)) || null;
+  const namedTargetBlock = profile.blockDefinitions.find((block) => block.blockName === rule.blockName) || null;
+  const targetBlock = exactTargetBlock || namedTargetBlock;
+  const targetBlockLevelMatches = Boolean(targetBlock && (!targetBlock.attachToLevelId || targetBlock.attachToLevelId === rule.attachToLevelId));
   const sourceRows = source?.rows || [];
   const targetRowsForLevel = targetRows.filter((row) => row.levelId === rule.attachToLevelId || row.targetLevelId === rule.attachToLevelId);
   const targetIndex = indexTargetRows(targetRowsForLevel, rule.targetKey);
@@ -106,6 +109,7 @@ function buildRulePreview(rule, profile, registry, targetRows) {
     ...(!source ? [diagnostic('error', 'UXC_ATTACHMENT_SOURCE_NOT_FOUND', rule.ruleId, `Attachment rule "${rule.ruleId}" references missing source "${rule.sourceId}".`)] : []),
     ...(!targetLevel ? [diagnostic('error', 'UXC_ATTACHMENT_LEVEL_NOT_FOUND', rule.ruleId, `Attachment rule "${rule.ruleId}" references missing level "${rule.attachToLevelId}".`)] : []),
     ...(!targetBlock ? [diagnostic('error', 'UXC_ATTACHMENT_BLOCK_NOT_FOUND', rule.ruleId, `Attachment rule "${rule.ruleId}" references missing block "${rule.blockName}".`)] : []),
+    ...(targetBlock && !targetBlockLevelMatches ? [diagnostic('warn', 'UXC_ATTACHMENT_BLOCK_LEVEL_MISMATCH', rule.ruleId, `Attachment rule "${rule.ruleId}" targets level "${rule.attachToLevelId}" but block "${rule.blockName}" is declared for level "${targetBlock.attachToLevelId}".`)] : []),
     ...(source && sourceKeyFields.some((field) => !source.columns.includes(field)) ? [diagnostic('error', 'UXC_ATTACHMENT_SOURCE_KEY_COLUMN_MISSING', rule.ruleId, `Attachment rule "${rule.ruleId}" source key is not fully present in source "${rule.sourceId}".`)] : []),
     ...(missingTargetRows.length ? [diagnostic('warn', 'UXC_ATTACHMENT_MISSING_TARGET_ROWS', rule.ruleId, `${missingTargetRows.length} source row(s) did not resolve to a target ${rule.attachToLevelId} row.`)] : []),
     ...(unmatchedSourceRows.length ? [diagnostic('warn', 'UXC_ATTACHMENT_UNMATCHED_SOURCE_ROWS', rule.ruleId, `${unmatchedSourceRows.length} source row(s) cannot produce the source key "${rule.sourceKey}".`)] : []),
@@ -128,6 +132,7 @@ function buildRulePreview(rule, profile, registry, targetRows) {
     targetBlock: freeze({
       blockName: rule.blockName,
       attachToLevelId: targetBlock?.attachToLevelId || '',
+      attachToLevelMatches: targetBlockLevelMatches,
       resolved: Boolean(targetBlock),
     }),
     sourceResolved: Boolean(source),
