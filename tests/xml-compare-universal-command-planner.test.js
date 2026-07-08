@@ -3,7 +3,6 @@ import { execSync } from 'node:child_process';
 import { createLinewiseUniversalPreset } from '../xml-compare/universal-categorizer/universal-xml-categorizer-contracts.js';
 import { createLinewiseUniversalCommandPlanner, createUniversalCommandPlanner, UNIVERSAL_COMMAND_PLANNER_SCHEMA } from '../xml-compare/universal-categorizer/universal-command-planner.js';
 import { createUniversalRecipeDesignerModel } from '../xml-compare/universal-categorizer/universal-recipe-designer-model.js';
-import { evaluateUniversalXmlExportGate } from '../xml-compare/universal-categorizer/universal-export-gate.js';
 import { findForbiddenUxc001Changes } from '../xml-compare/universal-categorizer/universal-source-registry.js';
 
 const planner = createLinewiseUniversalCommandPlanner(createLinewiseUniversalPreset());
@@ -37,7 +36,7 @@ assert.equal(exportReceipt.lockedReason, 'locked-export-gate');
 assert.match(exportReceipt.blockedReason, /XML export is blocked/);
 
 const recipeDesigner = createUniversalRecipeDesignerModel(createLinewiseUniversalPreset());
-const exportGate = evaluateUniversalXmlExportGate({});
+const exportGate = Object.freeze({ schema: 'universal-export-gate/v1-shadow', blocked: true, allowed: false, status: 'blocked-shadow-graph-only' });
 const explicitPlannerA = createUniversalCommandPlanner({ recipeDesigner, exportGate });
 const explicitPlannerB = createUniversalCommandPlanner({ exportGate, recipeDesigner });
 assert.equal(JSON.stringify(explicitPlannerA), JSON.stringify(explicitPlannerB), 'Command planner must be deterministic for equivalent inputs');
