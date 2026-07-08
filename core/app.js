@@ -4,4 +4,4 @@ import '../tabs/xml-compare-universal-categorizer-runtime.js?v=20260707-universa
 
 installAppTabClickStateBridge();
 
-export { init, destroy } from './app-standalone-runtime.js?v=20260707-m20-progressive-disclosure';
+export { init, destroy } from './app-standalone-runtime.js?v=20260708-m21-transfer-state-truth';
