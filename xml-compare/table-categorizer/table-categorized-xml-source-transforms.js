@@ -1,4 +1,4 @@
-export const TABLE_CATEGORIZED_XML_SOURCE_TRANSFORMS_SCHEMA = 'table-categorized-xml-source-transforms/v1';
+export const TABLE_CATEGORIZED_XML_SOURCE_TRANSFORMS_SCHEMA = 'table-categorized-xml-source-transforms/v2-source-field-validation';
 
 const OPS = new Set(['copy', 'trim', 'take-before', 'take-after', 'replace-text', 'regex-replace']);
 const clean = (v) => String(v ?? '').trim();
@@ -39,6 +39,8 @@ export function applySourceTransformRules(source, rules = []) {
 
 export function previewSourceTransform(source, rule, limit = 6) {
   const safeRule = createSourceTransformRule(rule);
+  const missing = validateSourceColumn(source, safeRule);
+  if (missing) return freeze({ rule: safeRule, rows: freeze([]), diagnostics: freeze([missing]) });
   const rows = (source?.rows || []).slice(0, Math.max(0, Number(limit) || 6)).map((row) => {
     const result = applySourceTransformRuleToRow(row, safeRule);
     return freeze({ sourceValue: result.sourceValue, newValue: result.newValue, diagnostics: result.diagnostics });
@@ -68,6 +70,8 @@ function cloneRow(row = {}) {
 function applyOneRule(source, rule) {
   if (!rule.newColumn) return { source, diagnostics: [diag('BLOCKER', 'transform_new_column_missing', 'New column name is required.', { ruleId: rule.ruleId })] };
   if ((source.headers || []).includes(rule.newColumn)) return { source, diagnostics: [diag('BLOCKER', 'transform_new_column_duplicate', `Column already exists: ${rule.newColumn}`, { ruleId: rule.ruleId, column: rule.newColumn })] };
+  const missing = validateSourceColumn(source, rule);
+  if (missing) return { source, diagnostics: [missing] };
   const columnId = stableColumnId(rule.newColumn, source.columnIds || []);
   const diagnostics = [];
   const rows = (source.rows || []).map((row) => appendValue(row, rule, columnId, diagnostics));
@@ -109,6 +113,13 @@ function readSourceValue(row = {}, column = '') {
   if (row.rawByHeader && column in row.rawByHeader) return row.rawByHeader[column];
   if (row.rawByColumnId && column in row.rawByColumnId) return row.rawByColumnId[column];
   return '';
+}
+
+function validateSourceColumn(source = {}, rule = {}) {
+  const column = clean(rule.sourceColumn);
+  if (!column) return diag('BLOCKER', 'transform_source_column_missing', 'Source column is required before adding a derived column.', { ruleId: rule.ruleId, newColumn: rule.newColumn });
+  if ((source.headers || []).includes(column) || (source.columnIds || []).includes(column)) return null;
+  return diag('BLOCKER', 'transform_source_column_missing', `Source column does not exist: ${column}`, { ruleId: rule.ruleId, sourceColumn: column, newColumn: rule.newColumn });
 }
 
 function stableColumnId(header, existing = []) {
