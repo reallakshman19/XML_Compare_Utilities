@@ -17,8 +17,10 @@ assert.ok(shell.includes('Structure Recipe Builder bridge'));
 assert.ok(shell.includes('Universal sideload attachment rules'));
 assert.ok(shell.includes('coordinateLookup'));
 assert.ok(shell.includes('DerivedCoordinateBlock'));
+assert.ok(shell.includes('CategorizedGraph.v1 preview'));
+assert.ok(shell.includes('disabled-until-graph-preview-is-deterministic'));
 assert.ok(shell.includes('Shadow-mode boundary'));
-assert.ok(shell.includes('No existing converter, sideload, enrichment, graph, XML export, pivot, or canvas module is changed.'));
+assert.ok(shell.includes('No existing converter, sideload, enrichment, XML export, pivot, or canvas module is changed.'));
 
 const toolbar = _test.toolbar(minimalState());
 assert.ok(toolbar.includes('Line-wise XML Enrichment / Categorized XML'));
