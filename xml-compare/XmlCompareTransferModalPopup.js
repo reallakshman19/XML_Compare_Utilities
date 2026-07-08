@@ -12,11 +12,22 @@ import { comparePanel, renderXmlCompareCandidatePairsPanelHtml, renderXmlCompare
 import { renderXmlCompareLogScreenHtml } from './XmlCompareLogScreen.js';
 import { renderXmlCompareDiagnosticsPanelHtml } from './XmlCompareDiagnosticsPanel.js';
 
-export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v11-progressive-disclosure';
+export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v12-state-truth';
 
 const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 const clean = (value) => String(value ?? '').trim();
 const targetTextOf = (input = {}) => String(input.target?.text ?? input.target?.xmlText ?? input.targetText ?? input.textB ?? '');
+const PENDING_WORKFLOW_CODES = Object.freeze(new Set(['TRANSFER_STAGE_REQUIRED', 'TRANSFER_APPLY_REQUIRED', 'TRANSFER_PROOF_REQUIRED']));
+const VISIBLE_APPLIED_EXPORT_ACTIONS = Object.freeze([
+  'export-patched-target-xml',
+  'export-transfer-audit-json',
+  'download-transfer-proof-json',
+  'copy-patched-target-preview',
+  'export-transfer-artifact-bundle',
+  'export-transfer-diff-summary-json',
+  'export-transfer-change-ledger-json',
+  'export-transfer-change-ledger-csv',
+]);
 
 function approvalCounts(input = {}) {
   const approved = input.approvedMatchSet?.approvedMatches || [];
@@ -156,12 +167,20 @@ function dashboardCard(id = '', label = '', status = 'not available', detail = '
   return `<article class="xmlc-transfer-dashboard-card is-${esc(status).replaceAll(' ', '-')}" data-xml-compare-dashboard-card="${esc(id)}"><b>${esc(label)}</b><span>${esc(status)}</span><small>${esc(detail)}</small>${nextAction ? `<em>${esc(nextAction)}</em>` : ''}</article>`;
 }
 
+function visibleExportActions(summary = {}) {
+  return summary.hasAppliedResult || summary.hasPatchedTargetText ? VISIBLE_APPLIED_EXPORT_ACTIONS : Object.freeze([]);
+}
+
+function visibleExportReadyCount(summary = {}, preflight = {}) {
+  return visibleExportActions(summary).filter((action) => transferExportReadinessForAction(preflight, action).ready).length;
+}
+
 function dashboardNextAction(summary = {}, preflight = {}, diff = {}, ledger = {}) {
   if (!summary.hasStage) return 'Stage transfer to make output evidence visible.';
   if (!summary.hasAppliedResult) return 'Apply staged transfer to generate patched Target XML.';
   if (!summary.hasPatchedTargetText) return 'Resolve blockers or re-apply transfer to generate patched Target XML.';
   if (ledger.status !== 'available') return 'Review the transfer stage/result evidence.';
-  const ready = summarizeTransferExportPreflight(preflight).readyCount;
+  const ready = visibleExportReadyCount(summary, preflight);
   return ready ? 'Export the needed artifact from the action bar, or inspect the detailed panels below.' : 'Review Export preflight for blocked outputs.';
 }
 
@@ -174,7 +193,23 @@ function dashboardPanel(input = {}, tState = {}, transferPreview = {}) {
   const history = summarizeTransferExportHistory(input.transferModal?.exportHistory);
   const previewSummary = transferPreview?.summary || {};
   const next = dashboardNextAction(summary, preflight, diff, ledger);
-  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output-dashboard" aria-label="Transfer Output Dashboard"><div class="xml-compare-panel-title">Transfer Output Dashboard</div><div class="xmlc-transfer-next-action"><b>What to do next</b><span>${esc(next)}</span></div><div class="xmlc-transfer-dashboard-grid">${dashboardCard('stage', 'Stage', summary.hasStage ? 'ready' : 'not available', summary.hasStage ? `${summary.selectedBlocks.join(', ') || '-'} staged` : 'No transfer stage yet.', summary.hasStage ? '' : 'Use Stage transfer.')}${dashboardCard('apply', 'Apply', summary.hasAppliedResult ? 'ready' : summary.hasStage ? 'blocked' : 'not available', summary.hasAppliedResult ? `${summary.updatedCount} updated / ${summary.skippedCount} skipped / ${summary.blockedCount} blocked` : 'No applied transfer result yet.', summary.hasAppliedResult ? '' : 'Apply staged transfer.')}${dashboardCard('patched-target', 'Patched XML', summary.hasPatchedTargetText ? 'ready' : summary.hasStage ? 'blocked' : 'not available', summary.hasPatchedTargetText ? summary.fileNames.patchedTargetXml : 'Patched Target XML not generated.', summary.hasPatchedTargetText ? '' : 'Apply staged transfer first.')}${dashboardCard('preflight', 'Preflight', preflightSummary.readyCount ? 'ready' : 'not available', `${preflightSummary.readyCount} ready / ${preflightSummary.blockedCount} blocked / ${preflightSummary.notAvailableCount} not available`, 'Open Export preflight details below.')}${dashboardCard('diff', 'Diff', diff.patchedTargetAvailable ? 'ready' : 'not available', diff.patchedTargetAvailable ? `${diff.changedLineCount} changed line(s)` : diff.reason, diff.patchedTargetAvailable ? '' : 'Apply staged transfer first.')}${dashboardCard('ledger', 'Ledger', ledger.status === 'available' ? 'ready' : 'not available', ledger.status === 'available' ? `${ledger.rowCount} ledger row(s)` : ledger.reason, ledger.status === 'available' ? '' : 'Stage or apply transfer first.')}${dashboardCard('exports', 'Exports', preflightSummary.readyCount ? 'ready' : 'not available', `${history.rowCount} history row(s), preview fields ${previewSummary.previewCount || 0}`, preflightSummary.readyCount ? 'Use the export action buttons.' : 'Create transfer evidence first.')}</div></section>`;
+  const evidence = hasTransferEvidence(input, tState);
+  const exportReadyCount = visibleExportReadyCount(summary, preflight);
+  const exportActionsVisible = visibleExportActions(summary).length > 0;
+  const cards = [
+    dashboardCard('stage', 'Stage', summary.hasStage ? 'ready' : 'not available', summary.hasStage ? `${summary.selectedBlocks.join(', ') || '-'} staged` : 'No transfer stage yet.', summary.hasStage ? '' : 'Use Stage transfer.'),
+  ];
+  if (evidence) {
+    cards.push(
+      dashboardCard('apply', 'Apply', summary.hasAppliedResult ? 'ready' : summary.hasStage ? 'blocked' : 'not available', summary.hasAppliedResult ? `${summary.updatedCount} updated / ${summary.skippedCount} skipped / ${summary.blockedCount} blocked` : 'No applied transfer result yet.', summary.hasAppliedResult ? '' : 'Apply staged transfer.'),
+      dashboardCard('patched-target', 'Patched XML', summary.hasPatchedTargetText ? 'ready' : summary.hasStage ? 'blocked' : 'not available', summary.hasPatchedTargetText ? summary.fileNames.patchedTargetXml : 'Patched Target XML not generated.', summary.hasPatchedTargetText ? '' : 'Apply staged transfer first.'),
+      dashboardCard('preflight', 'Preflight', preflightSummary.readyCount ? 'ready' : 'not available', `${preflightSummary.readyCount} ready / ${preflightSummary.blockedCount} blocked / ${preflightSummary.notAvailableCount} not available`, 'Open Export preflight details below.'),
+      dashboardCard('diff', 'Diff', diff.patchedTargetAvailable ? 'ready' : 'not available', diff.patchedTargetAvailable ? `${diff.changedLineCount} changed line(s)` : diff.reason, diff.patchedTargetAvailable ? '' : 'Apply staged transfer first.'),
+      dashboardCard('ledger', 'Ledger', ledger.status === 'available' ? 'ready' : 'not available', ledger.status === 'available' ? `${ledger.rowCount} ledger row(s)` : ledger.reason, ledger.status === 'available' ? '' : 'Stage or apply transfer first.'),
+      dashboardCard('exports', 'Exports', exportReadyCount ? 'ready' : 'not available', exportActionsVisible ? `${history.rowCount} history row(s), preview fields ${previewSummary.previewCount || 0}` : 'Export buttons unlock after applying staged transfer.', exportReadyCount ? 'Use the export action buttons.' : 'Apply staged transfer first.'),
+    );
+  }
+  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output-dashboard" aria-label="Transfer Output Dashboard"><div class="xml-compare-panel-title">Transfer Output Dashboard</div><div class="xmlc-transfer-next-action"><b>What to do next</b><span>${esc(next)}</span></div><div class="xmlc-transfer-dashboard-grid">${cards.join('')}</div></section>`;
 }
 
 function detailGroup(title = '', body = '', open = false) {
@@ -186,11 +221,17 @@ function hasTransferEvidence(input = {}, tState = {}) {
   return Boolean(summary.hasStage || summary.hasAppliedResult || summary.hasPatchedTargetText || input.transferAudit || input.transferLastResult);
 }
 
+function hardTransferBlockers(gate = {}) {
+  return Object.freeze((gate.blockers || []).filter((item) => !PENDING_WORKFLOW_CODES.has(clean(item?.code))));
+}
+
 function transferStartPanel(input = {}, tState = {}, stageScope = 'node') {
   const gate = input.transferWorkflowGate || null;
   const blockers = Array.isArray(gate?.blockers) ? gate.blockers : [];
-  const next = clean(gate?.nextSafeAction) || (blockers.length ? clean(blockers[0]?.reason || blockers[0]) : 'Stage transfer when Source and Target readiness is complete.');
-  const blockerText = blockers.length ? `${blockers.length} blocker(s)` : 'Ready to stage';
+  const hardBlockers = hardTransferBlockers(gate || {});
+  const readyToStage = Boolean(gate?.okForTransferStage) || (!gate && !blockers.length);
+  const next = clean(gate?.nextAction) || clean(hardBlockers[0]?.message) || clean(blockers[0]?.message) || 'Stage transfer when Source and Target readiness is complete.';
+  const blockerText = readyToStage ? 'Ready to stage' : hardBlockers.length ? `${hardBlockers.length} blocker(s)` : blockers.length ? 'Next workflow step' : 'Ready to stage';
   return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-start" aria-label="Start Transfer"><div class="xml-compare-panel-title">Start transfer</div><div class="xmlc-transfer-start-body"><div><b>${esc(blockerText)}</b><span>${esc(next)}</span><small>Output, export, diff, ledger, receipt, and history panels will appear after a transfer is staged or applied.</small></div><div class="xml-compare-transfer-apply-actions xmlc-transfer-output-actions" data-xml-compare-transfer-state-actions>${transferButton('stage-transfer', stageScope, gate)}</div></div></section>`;
 }
 
@@ -198,10 +239,11 @@ function outputActionBand(input = {}, tState = {}, stageScope = 'node') {
   const gate = input.transferWorkflowGate || null;
   const summary = summarizeTransferOutput({ input, tState, lastAction: input.transferModal?.lastTransferOutputAction || '' });
   const preflight = createTransferExportPreflight({ input, tState, summary });
-  const exportActions = summary.hasAppliedResult || summary.hasPatchedTargetText ? `${commandButton('export-patched-target-xml', preflight)}${commandButton('export-transfer-audit-json', preflight)}${commandButton('download-transfer-proof-json', preflight)}${commandButton('copy-patched-target-preview', preflight)}${commandButton('export-transfer-artifact-bundle', preflight)}${commandButton('export-transfer-diff-summary-json', preflight)}${commandButton('export-transfer-change-ledger-json', preflight)}${commandButton('export-transfer-change-ledger-csv', preflight)}` : '';
+  const exportActions = visibleExportActions(summary).map((action) => commandButton(action, preflight)).join('');
   const previewBlock = summary.hasPatchedTargetText ? `<div class="xml-compare-panel-title">Patched Target preview</div>${outputPreview(summary)}` : '';
   const blockerBlock = summary.blockedCount || (summary.blockedReasons || []).length ? `<div class="xml-compare-panel-title">Counts and blockers</div>${blockerList(summary)}` : '';
-  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output" aria-label="Transfer output and export artifacts"><div class="xml-compare-panel-title">Output actions</div><div class="xmlc-transfer-output-body"><div class="xmlc-transfer-output-state"><b>${esc(outputStateText(summary.outputStatus))}</b><span>${esc(summary.fileNames.patchedTargetXml)}</span><small>Source: ${esc(summary.sourceFileName)} · Target: ${esc(summary.targetFileName)} · Scope: ${esc(summary.scope)} · Blocks: ${esc(summary.selectedBlocks.join(', ') || '-')}</small></div><div class="xmlc-transfer-metrics">${cardMetric('Updated', summary.updatedCount)}${cardMetric('Skipped', summary.skippedCount)}${cardMetric('Blocked', summary.blockedCount)}</div><div class="xml-compare-transfer-apply-actions xmlc-transfer-output-actions" data-xml-compare-transfer-state-actions>${transferButton('stage-transfer', stageScope, gate)}${transferButton('clear-transfer-stage', stageScope, null)}${transferButton('apply-staged-transfer', stageScope, gate)}${exportActions}${legacyExportCompatibility()}</div></div>${previewBlock}${blockerBlock}</section>`;
+  const stagedExportNote = summary.hasStage && !exportActions ? '<div class="xml-compare-empty xmlc-transfer-export-locked">Export buttons unlock after applying staged transfer. Review Detailed export preflight for staged evidence.</div>' : '';
+  return `<section class="xml-compare-panel xmlc-transfer-card xmlc-transfer-output" aria-label="Transfer output and export artifacts"><div class="xml-compare-panel-title">Output actions</div><div class="xmlc-transfer-output-body"><div class="xmlc-transfer-output-state"><b>${esc(outputStateText(summary.outputStatus))}</b><span>${esc(summary.fileNames.patchedTargetXml)}</span><small>Source: ${esc(summary.sourceFileName)} · Target: ${esc(summary.targetFileName)} · Scope: ${esc(summary.scope)} · Blocks: ${esc(summary.selectedBlocks.join(', ') || '-')}</small></div><div class="xmlc-transfer-metrics">${cardMetric('Updated', summary.updatedCount)}${cardMetric('Skipped', summary.skippedCount)}${cardMetric('Blocked', summary.blockedCount)}</div><div class="xml-compare-transfer-apply-actions xmlc-transfer-output-actions" data-xml-compare-transfer-state-actions>${transferButton('stage-transfer', stageScope, gate)}${transferButton('clear-transfer-stage', stageScope, null)}${transferButton('apply-staged-transfer', stageScope, gate)}${exportActions}${legacyExportCompatibility()}</div></div>${stagedExportNote}${previewBlock}${blockerBlock}</section>`;
 }
 
 function candidateTab(input = {}, isActive = false) {
@@ -227,4 +269,4 @@ export function renderXmlCompareTransferModalPopupHtml({ input = {}, tState = {}
   return `<dialog class="xml-compare-transfer-modal" data-xml-compare-transfer-modal data-schema="${XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA}"><header class="xml-compare-modal-header"><h2>Transfer & Compare Review</h2><button type="button" class="xml-compare-modal-close" data-xml-compare-action="close-transfer-modal" aria-label="Close">x</button></header><nav class="xml-compare-modal-tabs"><button type="button" class="xml-compare-modal-tab-btn ${isCandidateActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="candidate-review">Tab 1: Candidate Review</button><button type="button" class="xml-compare-modal-tab-btn ${isTransferActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="transfer-compare">Tab 2: Transfer & Compare</button></nav><div class="xml-compare-modal-body">${candidateTab(input, isCandidateActive)}${transferTab(input, tState, stageScope, transferPreview, isTransferActive)}</div></dialog>`;
 }
 
-export const _test = Object.freeze({ esc, clean, targetTextOf, approvalCounts, cardMetric, transferOverview, outputActionMeta, transferButton, commandButton, legacyExportCompatibility, outputStateText, outputPreview, blockerList, preflightRow, preflightPanel, diffSummaryFor, diffSummaryPanel, changeLedgerFor, changeLedgerRow, changeLedgerPanel, dashboardCard, dashboardNextAction, dashboardPanel, detailGroup, hasTransferEvidence, transferStartPanel, receiptPanel, historyRow, historyPanel, outputActionBand, transferWorkflowGroup, candidateTab, transferTab });
+export const _test = Object.freeze({ esc, clean, targetTextOf, approvalCounts, cardMetric, transferOverview, outputActionMeta, transferButton, commandButton, legacyExportCompatibility, outputStateText, outputPreview, blockerList, preflightRow, preflightPanel, diffSummaryFor, diffSummaryPanel, changeLedgerFor, changeLedgerRow, changeLedgerPanel, dashboardCard, visibleExportActions, visibleExportReadyCount, dashboardNextAction, dashboardPanel, detailGroup, hasTransferEvidence, hardTransferBlockers, transferStartPanel, receiptPanel, historyRow, historyPanel, outputActionBand, transferWorkflowGroup, candidateTab, transferTab });

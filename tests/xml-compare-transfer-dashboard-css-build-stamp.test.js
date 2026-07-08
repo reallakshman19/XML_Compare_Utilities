@@ -27,22 +27,23 @@ assert.ok(noiseCss.includes('.xmlc-transfer-action-icon'), 'M19 must suppress ic
 assert.ok(noiseCss.includes('border-radius: 999px'), 'M19 actions should be compact pills, not large boxes');
 assert.ok(noiseCss.includes('position: static'), 'M19 output band should not create sticky visual stripes');
 assert.ok(noiseCss.includes('.xmlc-transfer-start'), 'M20 must style the simplified start panel');
-assert.ok(noiseCss.includes('data-transfer-evidence="none"'), 'M20 must target no-evidence mode');
-assert.ok(noiseCss.includes('[data-xml-compare-dashboard-card="apply"]'), 'M20 must hide downstream apply status before evidence');
-assert.ok(noiseCss.includes('[data-xml-compare-dashboard-card="exports"]'), 'M20 must hide downstream export status before evidence');
+assert.ok(noiseCss.includes('data-transfer-evidence="none"'), 'M20 must target no-evidence mode defensively');
+assert.ok(noiseCss.includes('[data-xml-compare-dashboard-card="apply"]'), 'M20 CSS may still defensively hide downstream apply status before evidence');
+assert.ok(noiseCss.includes('[data-xml-compare-dashboard-card="exports"]'), 'M20 CSS may still defensively hide downstream export status before evidence');
 
 assert.ok(buildCss.includes('.app-build-stamp'), 'build stamp CSS must exist');
 assert.ok(buildCss.includes('text-overflow: ellipsis'), 'build stamp must not overflow header');
+assert.ok(!buildCss.includes('display: none'), 'build stamp must remain visible for cache verification');
 
-assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260707-m18-build-stamp'), 'index must load build stamp CSS with M18 cache bust');
-assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must cache-bust dashboard CSS');
-assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260707-m19-noise-reduction'), 'index must load M19 noise reduction CSS after dashboard CSS');
-assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M19 noise reduction CSS must load after M18 dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260707-m20-progressive-disclosure'), 'index must cache-bust app entry for M20');
-assert.ok(mainEntry.includes("./core/app.js?v=20260707-m20-progressive-disclosure"), 'main entry must cache-bust core app delegate for M20');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260707-m20-progressive-disclosure"), 'core app must cache-bust standalone runtime for M20');
-assert.ok(runtime.includes("build: 'M18 transfer-dashboard-css · 2026-07-07'"), 'runtime must expose visible M18 build stamp');
-assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260707-m18-build-stamp"), 'runtime must cache-bust XML tab module');
+assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m21-transfer-state-truth'), 'index must load build stamp CSS with M21 cache bust');
+assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard CSS loaded');
+assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m21-transfer-state-truth'), 'index must load M21 transfer state-truth CSS cache bust');
+assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M19/M21 noise reduction CSS must load after M18 dashboard CSS');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260708-m21-transfer-state-truth'), 'index must cache-bust app entry for M21');
+assert.ok(mainEntry.includes("./core/app.js?v=20260708-m21-transfer-state-truth"), 'main entry must cache-bust core app delegate for M21');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260708-m21-transfer-state-truth"), 'core app must cache-bust standalone runtime for M21');
+assert.ok(runtime.includes("build: 'M21 transfer-state-truth · 2026-07-08'"), 'runtime must expose visible M21 build stamp');
+assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m21-transfer-state-truth"), 'runtime must cache-bust XML tab module for M21');
 assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
 
-console.log('XML Compare transfer dashboard CSS, build stamp, noise reduction, M20 progressive disclosure, and cache-bust tests passed');
+console.log('XML Compare transfer dashboard CSS, build stamp, noise reduction, M20 progressive disclosure, and M21 state-truth cache-bust tests passed');
