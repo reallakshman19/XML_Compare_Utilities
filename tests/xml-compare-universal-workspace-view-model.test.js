@@ -13,6 +13,11 @@ assert.equal(linewise.eyebrow, 'Universal Categorizer Workspace');
 assert.equal(linewise.statusChips.some((chip) => chip.label === 'Shadow mode'), true);
 assert.deepEqual(linewise.workflowSteps.map((step) => step.title), ['Source Registry', 'Attachment Rules', 'Graph Preview', 'Export Gate']);
 assert.equal(linewise.readinessCards.some((card) => card.label === 'Export' && card.value === 'Locked'), true);
+assert.equal(linewise.readinessCards.some((card) => card.label === 'Recipe check' && card.value === 'Ready'), true);
+assert.equal(linewise.recipeDesigner.title, 'Recipe validation');
+assert.equal(linewise.recipeDesigner.status, 'ready');
+assert.equal(linewise.recipeDesigner.summary.errors, 0);
+assert.equal(linewise.recipeDesigner.diagnostics.length, 0);
 assert.equal(linewise.recipe.title, 'Structure Recipe Builder bridge');
 assert.ok(linewise.recipe.levels.length >= 1);
 assert.ok(linewise.sources.rows.some((source) => source.sourceId === 'coordinateLookup'));
@@ -74,7 +79,7 @@ assert.equal(vmA.graph.rows[0].blocks, 'CoordinateBlock');
 assert.equal(vmA.exportGate.allowed, false);
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-005 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-006 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
