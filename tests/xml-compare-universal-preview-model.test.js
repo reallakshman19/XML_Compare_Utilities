@@ -17,6 +17,10 @@ assert.equal(preview.builder.selectedItem.title, 'Selected item properties');
 assert.ok(preview.builder.selectedItem.keyColumn);
 assert.ok(Array.isArray(preview.builder.selectedItem.attachedBlocks));
 assert.ok(Array.isArray(preview.builder.selectedItem.mappedFields));
+assert.equal(preview.columnRoleReview.title, 'Column role review');
+assert.equal(preview.columnRoleReview.kicker, 'Role overrides');
+assert.ok(preview.columnRoleReview.rows.length >= 1);
+assert.ok(preview.columnRoleReview.actions.every((action) => action.locked && action.enabled === false));
 assert.equal(preview.mappingWorkbench.title, 'Mapping Workbench');
 assert.equal(preview.mappingWorkbench.status, 'review-only');
 assert.ok(preview.mappingWorkbench.rows.some((row) => row.sourceField === 'FROM_NODE' && row.targetLocation.includes('LineBlock')));
@@ -42,7 +46,7 @@ assert.ok(Array.isArray(preview.pivot.rows));
 assert.equal(preview.advancedDiagnostics.title, 'Advanced diagnostics');
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-014B modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-015 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
