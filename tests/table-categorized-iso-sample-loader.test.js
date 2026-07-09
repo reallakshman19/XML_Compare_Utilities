@@ -4,13 +4,19 @@ import fs from 'node:fs';
 import {
   buildIsoRecipeSampleWorkflow,
   createIsoRecipeTemplateState,
+  injectIsoRecipeLayoutStyle,
+  injectSourceTargetHandoffControls,
   loadIsoTableIntoRuntime,
   renderIsoRecipeSamplePanel,
+  sendRuntimeSourceToXmlCompare,
   TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA,
 } from '../tabs/xml-compare-table-categorized-iso-sample-loader.js';
 
-assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v4-real-runtime-source-load');
+assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v5-s1-s2-send-controls');
 assert.equal(typeof loadIsoTableIntoRuntime, 'function');
+assert.equal(typeof sendRuntimeSourceToXmlCompare, 'function');
+assert.equal(typeof injectSourceTargetHandoffControls, 'function');
+assert.equal(typeof injectIsoRecipeLayoutStyle, 'function');
 
 const moduleSource = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-iso-sample-loader.js', import.meta.url), 'utf8');
 assert.match(moduleSource, /data-table-categorized-source-text/, 'loader must target the real app source textarea');
@@ -18,6 +24,11 @@ assert.match(moduleSource, /data-table-categorized-source-name/, 'loader must ta
 assert.match(moduleSource, /data-table-categorized-active-source/, 'loader must target the real app active-source selector');
 assert.match(moduleSource, /clickRuntimeAction\(doc, 'add-source'\)/, 'Target B loader must use the runtime add-source action when a second source does not exist');
 assert.match(moduleSource, /clickRuntimeAction\(doc, 'parse'\)/, 'loader must trigger the runtime parse action after filling the table');
+assert.match(moduleSource, /send-s1-source/, 'loader must expose Send Table S1 as Source A action');
+assert.match(moduleSource, /send-s2-target/, 'loader must expose Send Table S2 as Target B action');
+assert.match(moduleSource, /input\[data-xml-compare-load=\\"\$\{targetSide === 'b' \? 'b' : 'a'\}\\"\]/, 'send action must target XML Compare source/target file inputs');
+assert.match(moduleSource, /min-height: 360px/, 'paste textarea must be enlarged for full Rev tables');
+assert.match(moduleSource, /height: min\(54vh, 560px\)/, 'paste textarea must receive a larger viewport-aware height');
 
 const template = createIsoRecipeTemplateState();
 assert.match(template.table1Text, /JOBNAME\tLinenoinCII\tPIPEAXIS\tNODE_NUM\tNODE_NAME\tNPS\tTYPE\tSupportISONOTE\tRemarks/);
@@ -28,7 +39,7 @@ assert.match(template.savedRecipeJson, /"recipeId": "ISOrecipe"/);
 assert.match(template.savedRecipeJson, /"SupportISONOTE"/);
 
 const workflow = buildIsoRecipeSampleWorkflow(template);
-assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v4');
+assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v5');
 assert.equal(workflow.savedRecipe.recipeId, 'ISOrecipe');
 assert.equal(workflow.savedRecipe.connectorKeyField, 'connectorKey');
 assert.equal(workflow.sourceAArtifact.source.rows.length, 17);
@@ -64,6 +75,8 @@ assert.match(html, /ISOrecipe Editable Template Sample/);
 assert.match(html, /Recipe = template/);
 assert.match(html, /Load Table 1 as Source A/);
 assert.match(html, /Load Table 2 as Target B/);
+assert.match(html, /Send S1 as Source A/);
+assert.match(html, /Send S2 as Target B/);
 assert.match(html, /Rev 1 full table → XML1 → Source A/);
 assert.match(html, /Rev 2 full table → XML2 → Target B/);
 assert.match(html, /data-table-categorized-iso-sample-field="table1"/);
