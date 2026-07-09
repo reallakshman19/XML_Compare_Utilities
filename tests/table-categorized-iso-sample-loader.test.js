@@ -16,8 +16,8 @@ const moduleSource = fs.readFileSync(new URL('../tabs/xml-compare-table-categori
 assert.match(moduleSource, /data-table-categorized-source-text/, 'loader must target the real app source textarea');
 assert.match(moduleSource, /data-table-categorized-source-name/, 'loader must target the real app source name input');
 assert.match(moduleSource, /data-table-categorized-active-source/, 'loader must target the real app active-source selector');
-assert.match(moduleSource, /data-table-categorized-action=\"add-source\"/, 'Target B loader must use the runtime add-source action when a second source does not exist');
-assert.match(moduleSource, /data-table-categorized-action=\"parse\"/, 'loader must trigger the runtime parse action after filling the table');
+assert.match(moduleSource, /clickRuntimeAction\(doc, 'add-source'\)/, 'Target B loader must use the runtime add-source action when a second source does not exist');
+assert.match(moduleSource, /clickRuntimeAction\(doc, 'parse'\)/, 'loader must trigger the runtime parse action after filling the table');
 
 const template = createIsoRecipeTemplateState();
 assert.match(template.table1Text, /JOBNAME\tLinenoinCII\tPIPEAXIS\tNODE_NUM\tNODE_NAME\tNPS\tTYPE\tSupportISONOTE\tRemarks/);
