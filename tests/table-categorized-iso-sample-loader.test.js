@@ -1,13 +1,23 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import {
   buildIsoRecipeSampleWorkflow,
   createIsoRecipeTemplateState,
+  loadIsoTableIntoRuntime,
   renderIsoRecipeSamplePanel,
   TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA,
 } from '../tabs/xml-compare-table-categorized-iso-sample-loader.js';
 
-assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v3-full-rev-table-template');
+assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v4-real-runtime-source-load');
+assert.equal(typeof loadIsoTableIntoRuntime, 'function');
+
+const moduleSource = fs.readFileSync(new URL('../tabs/xml-compare-table-categorized-iso-sample-loader.js', import.meta.url), 'utf8');
+assert.match(moduleSource, /data-table-categorized-source-text/, 'loader must target the real app source textarea');
+assert.match(moduleSource, /data-table-categorized-source-name/, 'loader must target the real app source name input');
+assert.match(moduleSource, /data-table-categorized-active-source/, 'loader must target the real app active-source selector');
+assert.match(moduleSource, /data-table-categorized-action=\"add-source\"/, 'Target B loader must use the runtime add-source action when a second source does not exist');
+assert.match(moduleSource, /data-table-categorized-action=\"parse\"/, 'loader must trigger the runtime parse action after filling the table');
 
 const template = createIsoRecipeTemplateState();
 assert.match(template.table1Text, /JOBNAME\tLinenoinCII\tPIPEAXIS\tNODE_NUM\tNODE_NAME\tNPS\tTYPE\tSupportISONOTE\tRemarks/);
@@ -18,7 +28,7 @@ assert.match(template.savedRecipeJson, /"recipeId": "ISOrecipe"/);
 assert.match(template.savedRecipeJson, /"SupportISONOTE"/);
 
 const workflow = buildIsoRecipeSampleWorkflow(template);
-assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v3');
+assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v4');
 assert.equal(workflow.savedRecipe.recipeId, 'ISOrecipe');
 assert.equal(workflow.savedRecipe.connectorKeyField, 'connectorKey');
 assert.equal(workflow.sourceAArtifact.source.rows.length, 17);
