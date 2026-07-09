@@ -25,6 +25,12 @@ assert.equal(preview.mappingReview.title, 'Mapping review queue');
 assert.equal(preview.mappingReview.selected.title, 'Selected mapping detail');
 assert.equal(preview.mappingReview.decisions.length, 5);
 assert.ok(preview.mappingReview.decisions.every((action) => action.locked));
+assert.equal(preview.mappingTrace.title, 'Sample value mapping trace');
+assert.ok(Array.isArray(preview.mappingTrace.rows));
+assert.equal(preview.mappingConfidence.title, 'Mapping confidence');
+assert.equal(preview.mappingConfidence.kicker, 'Quality scoring');
+assert.ok(Array.isArray(preview.mappingConfidence.rows));
+assert.ok(preview.mappingConfidence.rows.every((row) => row.qualityScore >= 0 && row.qualityScore <= 100));
 assert.equal(preview.tree.title, 'Tree Preview');
 assert.equal(preview.pivot.title, 'Pivot Preview');
 assert.deepEqual(preview.previewModes.map((mode) => mode.title), ['Tree Preview', 'Pivot Preview', 'Diagnostics']);
@@ -36,7 +42,7 @@ assert.ok(Array.isArray(preview.pivot.rows));
 assert.equal(preview.advancedDiagnostics.title, 'Advanced diagnostics');
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-012 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-014B modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
