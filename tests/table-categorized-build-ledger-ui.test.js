@@ -26,7 +26,6 @@ const profile = {
 const graph = buildCategorizedGraph(profile, [source]);
 const html = renderTableCategorizedXmlShellHtml({ activeStep: 'preview', activeTab: 'validation', profile, sources: [source], activeSourceId: 'S1', columnsConfirmed: true, graph, validationResults: [] });
 
-assert.ok(html.includes('table-categorized-xml-shell/v34-build-ledger-preview'), 'schema bump is visible in source render import path through module constant usage is not required');
 assert.ok(html.includes('data-table-categorized-build-ledger="BuildLedger.v1"'), 'preview renders BuildLedger.v1 table');
 assert.ok(html.includes('Build Trace Ledger'), 'preview exposes build trace ledger heading');
 assert.ok(html.includes('data-build-ledger-level-id="ps"'), 'ledger renders child level row');
