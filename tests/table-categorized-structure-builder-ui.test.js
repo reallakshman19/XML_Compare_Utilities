@@ -28,7 +28,7 @@ assert.ok(layoutCss.includes('.table-categorized-recipe-tree') && layoutCss.incl
 assert.ok(recipeUxCss.includes('.table-categorized-recipe-tree') && recipeUxCss.includes('border-left: 1px dashed'), 'recipe tree gets clearer hierarchy styling');
 assert.ok(recipeUxCss.includes('[data-table-categorized-selected-node-panel]') && recipeUxCss.includes('position: sticky'), 'selected node editor stays visible while scrolling');
 assert.ok(recipeUxCss.includes('Edit one hierarchy level at a time'), 'selected node panel adds user guidance');
-assert.ok(recipeUxCss.includes('.table-categorized-field-action-chip') && recipeUxCss.includes('grid-template-columns: repeat(2'), 'field catalog choices are styled as guided action chips');
+assert.ok(recipeUxCss.includes('.table-categorized-field-action-chip') && recipeUxCss.includes('grid-template-columns: repeat(auto-fit'), 'field catalog choices are styled as responsive guided action chips');
 assert.ok(recipeUxCss.includes('[data-table-categorized-node-summary]'), 'selected node summary is styled');
 assert.ok(recipeUxCss.includes('Shows how the selected node will resolve from real rows'), 'live preview gets explanatory guidance');
 assert.ok(html.includes('data-table-categorized-fullscreen-icon'), 'fullscreen icon toggle is rendered');
