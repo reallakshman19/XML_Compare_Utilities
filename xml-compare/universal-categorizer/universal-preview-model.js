@@ -4,6 +4,7 @@ import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategori
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalLoadedPreviewBundle, UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
 import { createUniversalMappingWorkbench } from './universal-mapping-workbench.js';
+import { createUniversalMappingReview } from './universal-mapping-review.js';
 
 export const UNIVERSAL_PREVIEW_MODEL_SCHEMA = 'universal-preview-model/v1-shadow';
 const freeze = (value) => Object.freeze(value);
@@ -28,6 +29,7 @@ export function createUniversalPreviewModel(input = {}) {
   const tree = createTreePreview({ profile, graph });
   const pivot = createPivotPreview({ tree, graph });
   const mappingWorkbench = createUniversalMappingWorkbench({ profile, registry });
+  const mappingReview = createUniversalMappingReview({ mappingWorkbench });
   return freeze({
     schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA,
     profileId: profile.profileId,
@@ -41,6 +43,7 @@ export function createUniversalPreviewModel(input = {}) {
     sources: sourcePreview(registry),
     builder: builderPreview(profile),
     mappingWorkbench,
+    mappingReview,
     previewModes: previewModes({ tree, pivot, attachmentPreview, graph }),
     tree,
     pivot,
@@ -127,59 +130,12 @@ export function createPivotPreview({ tree, graph = {} } = {}) {
   return freeze({ title: 'Pivot Preview', description: 'Flat pivot-style preview generated from tree nodes, graph blocks, fields, and sideload attachments.', columns: freeze(['Path', 'Level', 'Key', 'Block', 'Field', 'Value', 'Source']), rows: freeze(rows), summary: freeze({ rows: rows.length, columns: 7 }) });
 }
 
-function columnCard(column, source = {}) {
-  const name = text(column);
-  return freeze({ name, role: columnRole(name, source), required: arr(source.requiredColumns).includes(name), mapped: true });
-}
-function columnRole(column, source = {}) {
-  const name = text(column).toLowerCase();
-  if (arr(source.requiredColumns).includes(column)) return 'Required key';
-  if (name.includes('node') || name.includes('line') || name.includes('id')) return 'Candidate key';
-  if (name.includes('global') || name.includes('position') || name.includes('coordinate')) return 'Coordinate field';
-  if (name.includes('weight') || name.includes('diameter') || name.includes('thickness') || name.includes('tag')) return 'Mapped field';
-  return 'Available field';
-}
-function selectedLevelProperties(profile, levels = []) {
-  const selected = levels.find((level) => level.blocks.length) || levels[0] || freeze({ levelId: '', displayName: '', depth: 0, blocks: freeze([]) });
-  const blocks = profile.blockDefinitions.filter((block) => block.attachToLevelId === selected.levelId);
-  const attachments = profile.sideloadAttachments.filter((rule) => rule.attachToLevelId === selected.levelId || blocks.some((block) => block.blockName === rule.blockName));
-  return freeze({
-    title: 'Selected item properties',
-    levelId: selected.levelId,
-    displayName: selected.displayName,
-    keyColumn: keyColumnForLevel(selected.levelId, profile),
-    attachedBlocks: freeze(blocks.map((block) => freeze({ blockName: block.blockName, createMode: block.createMode || 'single', fieldCount: Object.keys(block.fields || {}).length }))),
-    mappedFields: freeze(attachments.map((rule) => freeze({ sourceId: rule.sourceId, blockName: rule.blockName, sourceKey: rule.sourceKey, targetKey: rule.targetKey, mode: rule.mode || 'append' }))),
-  });
-}
-function keyColumnForLevel(levelId, profile) {
-  const directRule = profile.sideloadAttachments.find((rule) => rule.attachToLevelId === levelId);
-  if (directRule?.targetKey) return directRule.targetKey;
-  if (levelId === 'element') return 'elementKey';
-  if (levelId === 'node') return 'nodeNumber';
-  return 'documentRoot';
-}
-function previewModes({ tree, pivot, attachmentPreview = {}, graph = {} }) {
-  return freeze([
-    previewMode('Tree Preview', `${tree.summary.nodes} nodes`, 'Shows the hierarchy that will become the categorized graph.'),
-    previewMode('Pivot Preview', `${pivot.summary.rows} rows`, 'Shows the same hierarchy flattened for review before export.'),
-    previewMode('Diagnostics', `${arr(attachmentPreview.diagnostics).length + arr(graph.diagnostics).length} items`, 'Keeps warnings visible without making internals the primary screen.'),
-  ]);
-}
-function exportPlan(graph = {}) {
-  return freeze({
-    title: 'Export readiness',
-    status: 'Locked',
-    reason: 'XML export remains locked until graph parity, serializer rules, and user-approved output policy are complete.',
-    guidanceItems: freeze([
-      'Validate the hierarchy recipe against loaded source rows.',
-      'Approve Tree Preview and Pivot Preview parity.',
-      'Approve a deterministic XML serializer contract.',
-      'Only then unlock XML export in a separate gated PR.',
-    ]),
-    advancedStatus: graph.exportStatus || 'disabled-until-graph-preview-is-deterministic',
-  });
-}
+function columnCard(column, source = {}) { const name = text(column); return freeze({ name, role: columnRole(name, source), required: arr(source.requiredColumns).includes(name), mapped: true }); }
+function columnRole(column, source = {}) { const name = text(column).toLowerCase(); if (arr(source.requiredColumns).includes(column)) return 'Required key'; if (name.includes('node') || name.includes('line') || name.includes('id')) return 'Candidate key'; if (name.includes('global') || name.includes('position') || name.includes('coordinate')) return 'Coordinate field'; if (name.includes('weight') || name.includes('diameter') || name.includes('thickness') || name.includes('tag')) return 'Mapped field'; return 'Available field'; }
+function selectedLevelProperties(profile, levels = []) { const selected = levels.find((level) => level.blocks.length) || levels[0] || freeze({ levelId: '', displayName: '', depth: 0, blocks: freeze([]) }); const blocks = profile.blockDefinitions.filter((block) => block.attachToLevelId === selected.levelId); const attachments = profile.sideloadAttachments.filter((rule) => rule.attachToLevelId === selected.levelId || blocks.some((block) => block.blockName === rule.blockName)); return freeze({ title: 'Selected item properties', levelId: selected.levelId, displayName: selected.displayName, keyColumn: keyColumnForLevel(selected.levelId, profile), attachedBlocks: freeze(blocks.map((block) => freeze({ blockName: block.blockName, createMode: block.createMode || 'single', fieldCount: Object.keys(block.fields || {}).length }))), mappedFields: freeze(attachments.map((rule) => freeze({ sourceId: rule.sourceId, blockName: rule.blockName, sourceKey: rule.sourceKey, targetKey: rule.targetKey, mode: rule.mode || 'append' }))) }); }
+function keyColumnForLevel(levelId, profile) { const directRule = profile.sideloadAttachments.find((rule) => rule.attachToLevelId === levelId); if (directRule?.targetKey) return directRule.targetKey; if (levelId === 'element') return 'elementKey'; if (levelId === 'node') return 'nodeNumber'; return 'documentRoot'; }
+function previewModes({ tree, pivot, attachmentPreview = {}, graph = {} }) { return freeze([previewMode('Tree Preview', `${tree.summary.nodes} nodes`, 'Shows the hierarchy that will become the categorized graph.'), previewMode('Pivot Preview', `${pivot.summary.rows} rows`, 'Shows the same hierarchy flattened for review before export.'), previewMode('Diagnostics', `${arr(attachmentPreview.diagnostics).length + arr(graph.diagnostics).length} items`, 'Keeps warnings visible without making internals the primary screen.')]); }
+function exportPlan(graph = {}) { return freeze({ title: 'Export readiness', status: 'Locked', reason: 'XML export remains locked until graph parity, serializer rules, and user-approved output policy are complete.', guidanceItems: freeze(['Validate the hierarchy recipe against loaded source rows.', 'Approve Tree Preview and Pivot Preview parity.', 'Approve a deterministic XML serializer contract.', 'Only then unlock XML export in a separate gated PR.']), advancedStatus: graph.exportStatus || 'disabled-until-graph-preview-is-deterministic' }); }
 function pivotRowsForGraphNode(treeNodeValue, graphNode) { if (!graphNode) return []; const rows = []; for (const block of Object.values(graphNode.blocks || {})) for (const [fieldName, fieldValue] of Object.entries(block.fields || {})) rows.push(pivotRow(treeNodeValue, block.blockName, fieldName, fieldValue, block.source)); return rows; }
 function pivotRow(treeNodeValue, blockName, fieldName, value, source) { return freeze({ path: treeNodeValue.path, level: treeNodeValue.level, key: treeNodeValue.key, block: blockName || '—', field: fieldName || '—', value: text(value, '—'), source: source || '—' }); }
 function advancedDiagnostics({ registry = {}, attachmentPreview = {}, graph = {}, bundle = null }) { const items = [...arr(bundle?.diagnostics), ...arr(registry.diagnostics), ...arr(attachmentPreview.diagnostics), ...arr(graph.diagnostics)].map((item) => freeze({ severity: item.severity || item.level || 'info', code: item.code || 'UXC_DIAGNOSTIC', subject: item.subjectId || item.ruleId || item.sourceId || '', message: item.message || '' })); return freeze({ title: 'Advanced diagnostics', items: freeze(items), count: items.length }); }
