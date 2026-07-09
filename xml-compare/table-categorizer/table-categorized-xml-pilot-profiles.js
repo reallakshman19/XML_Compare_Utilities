@@ -28,10 +28,42 @@ export const FIELD_COMPARISON_SAMPLE=`SupportISONOTE	Remarks
 /SL-14143.1 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=25mm],LINE STOP(6kN)'	/SL-14143.3 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=15mm],LINE STOP(6kN)'
 /SL-14144.1 :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=20mm],LINE STOP(7kN)'	/SL-14144.2 :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=20mm],LINE STOP(7kN)'`;
 
-export const ISO_NOTE_TABLE_1_SAMPLE=`ISONOTE
-/SL-14143.1 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=25mm],LINE STOP(6kN)'`;
-export const ISO_NOTE_TABLE_2_SAMPLE=`ISONOTE
-/SL-14143.3 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=15mm],LINE STOP(6kN)'`;
+export const ISO_NOTE_TABLE_1_SAMPLE=`JOBNAME	LinenoinCII	PIPEAXIS	NODE_NUM	NODE_NAME	NPS	TYPE	SupportISONOTE	Remarks
+SYS-002C	/ASIM-1836-4"-P8810032-31441C4-PP/B1	N-S	1160	PS-14438/DATUM	4	Rigid +Y	/PS-14438/DATUM :ISONOTE 'REST(4kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	E-W	5160	SL-14141/DATUM	4	Rigid +Y; Rigid LIM	/SL-14141/DATUM :ISONOTE 'REST(2kN),LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5100	SL-14143.1|HOLD	4	Rigid +Y; Rigid LIM; Rigid GUI w/gap	/SL-14143.1 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=25mm],LINE STOP(6kN)'	HOLD
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5140	SL-14142.3	4	Rigid +Y	/SL-14142.3 :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5210	SL-14145/DATUM	4	Rigid +Y	/SL-14145/DATUM :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5230	SL-14144/DATUM	4	Rigid +Y; Rigid GUI	/SL-14144/DATUM :ISONOTE 'REST(6kN), GUIDE(4kN), [GUIDE GAP=0mm]'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5290	PS-14119/DATUM	4	Rigid +Y	/PS-14119/DATUM :ISONOTE 'REST(3kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5390	PS-14120/DATUM	4	Rigid +Y; Rigid LIM; Rigid GUI	/PS-14120/DATUM :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=0mm],LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5530	PS-14121/DATUM	4	Rigid +Y	/PS-14121/DATUM :ISONOTE 'REST(5kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	5600	PS-14442/DATUM	4	Rigid +Y	/PS-14442/DATUM :ISONOTE 'REST(5kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	E-W	1290	SL-14132/DATUM	4	Rigid +Y; Rigid LIM	/SL-14132/DATUM :ISONOTE 'REST(2kN),LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1230	SL-14307.15|HOLD	4	Rigid +Y; Rigid LIM; Rigid GUI w/gap	/SL-14307.15 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=25mm],LINE STOP(6kN)'	HOLD
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1270	SL-14133.1	4	Rigid +Y	/SL-14133.1 :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1340	SL-14136/DATUM	4	Rigid +Y	/SL-14136/DATUM :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1360	SL-14135/DATUM	4	Rigid +Y; Rigid GUI	/SL-14135/DATUM :ISONOTE 'REST(6kN), GUIDE(3kN), [GUIDE GAP=0mm]'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1420	PS-14104/DATUM	4	Rigid +Y	/PS-14104/DATUM :ISONOTE 'REST(3kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	1540	PS-14105/DATUM	4	Rigid +Y; Rigid LIM; Rigid GUI	/PS-14105/DATUM :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=0mm],LINE STOP(6kN)'	`;
+export const ISO_NOTE_TABLE_2_SAMPLE=`JOBNAME	LinenoinCII	PIPEAXIS	NODE_NUM	NODE_NAME	NPS	TYPE	SupportISONOTE	Remarks
+SYS-002C	/ASIM-1836-4"-P8810032-31441C4-PP/B1	N-S	15160	PS-14438/DATUM	4	Rigid +Y	/PS-14438/DATUM :ISONOTE 'REST(4kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	E-W	15100	SL-14141/DATUM	4	Rigid +Y; Rigid LIM	/PS-14104/DATUM :ISONOTE 'REST(3kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15140	SL-14143.1|HOLD	4	Rigid +Y; Rigid LIM; Rigid GUI w/gap	/SL-14143.1 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=15mm],LINE STOP(6kN)'	HOLD
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15210	PS-14142.3	4	Rigid +Y	/SL-14142.3 :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15230	SL-14145/DATUM	4	Rigid +Y	/SL-14145/DATUM :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15290	SL-14144/DATUM	4	Rigid +Y; Rigid LIM; Rigid GUI	/PS-14120/DATUM :ISONOTE 'REST(5kN), GUIDE(2kN), [GUIDE GAP=0mm],LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15390	PS-14119/DATUM	4	Rigid +Y	/PS-14119/DATUM :ISONOTE 'REST(3kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15530	PS-14120/DATUM	4	Rigid +Y; Rigid LIM; Rigid GUI	/PS-14120/DATUM :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=10mm],LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	15600	PS-14121/DATUM	4	Rigid +Y	/PS-14121/DATUM :ISONOTE 'REST(5kN)'	HOLD
+SYS-002C	/ASIM-1836-4"-P8810033-31441C4-PP/B1	N-S	11290	PS-14442/DATUM	4	Rigid +Y	/PS-14442/DATUM :ISONOTE 'REST(5kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	E-W	11230	SL-14132/DATUM	4	Rigid +Y; Rigid LIM	/SL-14132/DATUM :ISONOTE 'REST(2kN),LINE STOP(6kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	11270	SL-14307.15|HOLD	4	Rigid +Y; Rigid LIM; Rigid GUI w/gap	/SL-14307.15 :ISONOTE 'REST(2kN), GUIDE(2kN), [GUIDE GAP=5mm],LINE STOP(6kN)'	HOLD
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	11340	SL-14133.9	4	Rigid +Y	/SL-14133.1 :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	11360	SL-14136/DATUM	4	Rigid +Y	/SL-14136/DATUM :ISONOTE 'REST(2kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	11420	SL-14135/DATUM	4	Rigid +Y; Rigid GUI	/SL-14135/DATUM :ISONOTE 'REST(6kN), GUIDE(3kN), [GUIDE GAP=10mm]'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	11540	PS-14104/DATUM	4	Rigid +Y	/PS-14104/DATUM :ISONOTE 'REST(3kN)'	
+SYS-002C	/ASIM-1836-4"-P8810034-31441C4-PP/B1	N-S	10000	PS-14105/DATUM	4	Rigid +Y; Rigid LIM; Rigid GUI	/PS-14105/DATUM :ISONOTE 'REST(3kN), GUIDE(2kN), [GUIDE GAP=0mm],LINE STOP(6kN)'	`;
 
 const psNo={op:'trim',column:'PS NO'};
 const psBase={op:'fallback',resolvers:[{op:'regexExtract',input:psNo,pattern:'^(.+?)\\.\\d+$',group:1}],defaultResolver:psNo};
@@ -44,8 +76,8 @@ const featureS1={op:'classifier',sourceId:'S1',column:'DTXR'};
 
 const leftNote={op:'trim',column:'SupportISONOTE'};
 const rightNote={op:'trim',column:'Remarks'};
-const isoNote={op:'trim',column:'ISONOTE'};
-const noteIdPattern=`^/?([^\\s/:'"]+)\\.(\\d+)\\s*:ISONOTE`;
+const isoNote={op:'trim',column:'SupportISONOTE'};
+const noteIdPattern=`^/?([^\\s/:'".]+)(?:\\.(\\d+))?(?:/DATUM)?\\s*:ISONOTE`;
 const restPattern='\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)';
 const guidePattern='\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)';
 const guideGapPattern='\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm';
@@ -85,10 +117,10 @@ export const FIELD_COMPARISON_SAMPLE_PROFILE=Object.freeze({
 
 export const ISO_NOTE_RECIPE_PROFILE=Object.freeze({
   schema:'UniversalCategorizerProfile.v1',profileId:'ISOrecipe',displayName:'ISO Note Saved Recipe',connectorKeyField:'connectorKey',
-  requiredColumns:Object.freeze(['ISONOTE']),optionalColumns:Object.freeze([]),duplicateKeyPolicy:'merge-sourceRefs',multiValuePolicy:'single-feature-per-row',coordinateCluster:Object.freeze(DEFAULT_COORDINATE_CLUSTER_CONTRACT),
+  requiredColumns:Object.freeze(['SupportISONOTE']),optionalColumns:Object.freeze(['JOBNAME','LinenoinCII','PIPEAXIS','NODE_NUM','NODE_NAME','NPS','TYPE','Remarks']),duplicateKeyPolicy:'merge-sourceRefs',multiValuePolicy:'single-feature-per-row',coordinateCluster:Object.freeze(DEFAULT_COORDINATE_CLUSTER_CONTRACT),
   rootPartitionMode:'static',rootPartitions:Object.freeze([{key:'ISO_SOURCE',displayName:'ISO Source'}]),
-  exportPolicy:Object.freeze({documentRootTag:'IsoNoteXml',rootPartitionTag:'IsoPartition',includeDiagnosticsElement:true,childElementFields:Object.freeze(['connectorKey','revision','restKn','guideKn','guideGapMm','lineStopKn','rawNote'])}),
-  levelDefinitions:Object.freeze([Object.freeze({levelId:'isoNoteXml',xmlTag:'IsoNoteXml',levelType:'container',creationMode:'static',key:'IsoNoteXml',displayName:'IsoNoteXml',documentRoot:true,children:Object.freeze([Object.freeze({levelId:'isoPartition',xmlTag:'IsoPartition',levelType:'partition',creationMode:'static',key:'ISO_SOURCE',displayName:'ISO Source',children:Object.freeze([Object.freeze({levelId:'isoItem',xmlTag:'IsoItem',levelType:'group',creationMode:'one-per-key',keyResolver:isoConnectorKey,displayNameResolver:isoConnectorKey,fieldResolvers:Object.freeze({connectorKey:isoConnectorKey,revision:isoRevision,restKn:isoRestKn,guideKn:isoGuideKn,guideGapMm:isoGuideGapMm,lineStopKn:isoLineStopKn,rawNote:isoNote}),children:Object.freeze([])})])})])})])
+  exportPolicy:Object.freeze({documentRootTag:'IsoNoteXml',rootPartitionTag:'IsoPartition',includeDiagnosticsElement:true,childElementFields:Object.freeze(['connectorKey','revision','restKn','guideKn','guideGapMm','lineStopKn','rawNote','jobName','lineNoInCii','pipeAxis','nodeNumber','nodeName','nps','supportType','remarks'])}),
+  levelDefinitions:Object.freeze([Object.freeze({levelId:'isoNoteXml',xmlTag:'IsoNoteXml',levelType:'container',creationMode:'static',key:'IsoNoteXml',displayName:'IsoNoteXml',documentRoot:true,children:Object.freeze([Object.freeze({levelId:'isoPartition',xmlTag:'IsoPartition',levelType:'partition',creationMode:'static',key:'ISO_SOURCE',displayName:'ISO Source',children:Object.freeze([Object.freeze({levelId:'isoItem',xmlTag:'IsoItem',levelType:'group',creationMode:'one-per-key',keyResolver:isoConnectorKey,displayNameResolver:isoConnectorKey,fieldResolvers:Object.freeze({connectorKey:isoConnectorKey,revision:isoRevision,restKn:isoRestKn,guideKn:isoGuideKn,guideGapMm:isoGuideGapMm,lineStopKn:isoLineStopKn,rawNote:isoNote,jobName:{op:'trim',column:'JOBNAME'},lineNoInCii:{op:'trim',column:'LinenoinCII'},pipeAxis:{op:'trim',column:'PIPEAXIS'},nodeNumber:{op:'numberParser',column:'NODE_NUM'},nodeName:{op:'trim',column:'NODE_NAME'},nps:{op:'numberParser',column:'NPS'},supportType:{op:'trim',column:'TYPE'},remarks:{op:'trim',column:'Remarks'}}),children:Object.freeze([])})])})])})])
 });
 
 function regex(input,pattern,group){return Object.freeze({op:'regexExtract',input,pattern,group,flags:'i'});}
