@@ -39,23 +39,18 @@ const featureS1={op:'classifier',sourceId:'S1',column:'DTXR'};
 
 const leftNote={op:'trim',column:'SupportISONOTE'};
 const rightNote={op:'trim',column:'Remarks'};
-const noteIdPattern='^/?([^\\s/:' + "'" + '"]+)\\.(\\d+)\\s*:ISONOTE';
+const noteIdPattern=`^/?([^\\s/:'"]+)\\.(\\d+)\\s*:ISONOTE`;
 const restPattern='\\bREST\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)';
 const guidePattern='\\bGUIDE\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)';
 const guideGapPattern='\\bGUIDE\\s+GAP\\s*=\\s*([-+]?\\d*\\.?\\d+)\\s*mm';
 const lineStopPattern='\\bLINE\\s*STOP\\s*\\(\\s*([-+]?\\d*\\.?\\d+)\\s*kN\\s*\\)';
-const leftBase=regex(leftNote,noteIdPattern,1);
-const rightBase=regex(rightNote,noteIdPattern,1);
-const leftRevision=regex(leftNote,noteIdPattern,2);
-const rightRevision=regex(rightNote,noteIdPattern,2);
-const leftRestKn=num(regex(leftNote,restPattern,1));
-const rightRestKn=num(regex(rightNote,restPattern,1));
-const leftGuideKn=num(regex(leftNote,guidePattern,1));
-const rightGuideKn=num(regex(rightNote,guidePattern,1));
-const leftGuideGapMm=num(regex(leftNote,guideGapPattern,1));
-const rightGuideGapMm=num(regex(rightNote,guideGapPattern,1));
-const leftLineStopKn=num(regex(leftNote,lineStopPattern,1));
-const rightLineStopKn=num(regex(rightNote,lineStopPattern,1));
+const leftBase=regex(leftNote,noteIdPattern,1), rightBase=regex(rightNote,noteIdPattern,1);
+const leftRevision=regex(leftNote,noteIdPattern,2), rightRevision=regex(rightNote,noteIdPattern,2);
+const leftRestKn=num(regex(leftNote,restPattern,1)), rightRestKn=num(regex(rightNote,restPattern,1));
+const leftGuideKn=num(regex(leftNote,guidePattern,1)), rightGuideKn=num(regex(rightNote,guidePattern,1));
+const leftGuideGapMm=num(regex(leftNote,guideGapPattern,1)), rightGuideGapMm=num(regex(rightNote,guideGapPattern,1));
+const leftLineStopKn=num(regex(leftNote,lineStopPattern,1)), rightLineStopKn=num(regex(rightNote,lineStopPattern,1));
+const restLoadStatus=cmp(leftRestKn,rightRestKn), guideLoadStatus=cmp(leftGuideKn,rightGuideKn), guideGapStatus=cmp(leftGuideGapMm,rightGuideGapMm), lineStopLoadStatus=cmp(leftLineStopKn,rightLineStopKn);
 
 export const PS_MAPPING_TABLE_2_SHADOW_PROFILE=Object.freeze({
   schema:'UniversalCategorizerProfile.v1',profileId:'ps-mapping-table-2-shadow-profile',displayName:'PS Mapping Table 2 Shadow Profile',
@@ -77,7 +72,7 @@ export const FIELD_COMPARISON_SAMPLE_PROFILE=Object.freeze({
   requiredColumns:Object.freeze(['SupportISONOTE','Remarks']),optionalColumns:Object.freeze([]),duplicateKeyPolicy:'merge-sourceRefs',multiValuePolicy:'single-feature-per-row',
   rootPartitionMode:'static',rootPartitions:Object.freeze([{key:'FIELD_COMPARISON',displayName:'Field Comparison',sourceScope:Object.freeze(['S1'])}]),
   exportPolicy:Object.freeze({documentRootTag:'FieldComparisonReport',rootPartitionTag:'ComparisonPartition',includeDiagnosticsElement:true,childElementFields:Object.freeze(['leftSupportBase','rightSupportBase','leftRevision','rightRevision','restLoadStatus','guideLoadStatus','guideGapStatus','lineStopLoadStatus','comparisonSummary'])}),
-  levelDefinitions:Object.freeze([Object.freeze({levelId:'fieldComparisonReport',xmlTag:'FieldComparisonReport',levelType:'container',creationMode:'static',key:'FieldComparisonReport',displayName:'FieldComparisonReport',documentRoot:true,children:Object.freeze([Object.freeze({levelId:'comparisonPartition',xmlTag:'ComparisonPartition',levelType:'partition',creationMode:'static',key:'FIELD_COMPARISON',displayName:'Field Comparison',children:Object.freeze([Object.freeze({levelId:'comparisonItem',xmlTag:'ComparisonItem',levelType:'group',creationMode:'one-per-key',keyResolver:{op:'fallback',resolvers:Object.freeze([leftBase,rightBase]),defaultResolver:{op:'concat',parts:Object.freeze(['row_',{op:'trim',column:'SupportISONOTE'}])}},displayNameResolver:leftBase,fieldResolvers:Object.freeze({leftSupportBase:leftBase,rightSupportBase:rightBase,leftRevision,leftRevision,rightRevision,rightRevision,leftRestKn,leftRestKn,rightRestKn,rightRestKn,restLoadStatus:cmp(leftRestKn,rightRestKn),leftGuideKn,leftGuideKn,rightGuideKn,rightGuideKn,guideLoadStatus:cmp(leftGuideKn,rightGuideKn),leftGuideGapMm,leftGuideGapMm,rightGuideGapMm,rightGuideGapMm,guideGapStatus:cmp(leftGuideGapMm,rightGuideGapMm),leftLineStopKn,leftLineStopKn,rightLineStopKn,rightLineStopKn,lineStopLoadStatus:cmp(leftLineStopKn,rightLineStopKn),comparisonSummary:{op:'template',template:'{{leftSupportBase}} rev {{leftRevision}} vs {{rightRevision}}: REST {{restLoadStatus}}, GUIDE load {{guideLoadStatus}}, GUIDE GAP {{guideGapStatus}}, LINE STOP {{lineStopLoadStatus}}.',values:Object.freeze({leftSupportBase:leftBase,leftRevision,rightRevision,restLoadStatus:cmp(leftRestKn,rightRestKn),guideLoadStatus:cmp(leftGuideKn,rightGuideKn),guideGapStatus:cmp(leftGuideGapMm,rightGuideGapMm),lineStopLoadStatus:cmp(leftLineStopKn,rightLineStopKn)})}}),children:Object.freeze([])})])})])})])
+  levelDefinitions:Object.freeze([Object.freeze({levelId:'fieldComparisonReport',xmlTag:'FieldComparisonReport',levelType:'container',creationMode:'static',key:'FieldComparisonReport',displayName:'FieldComparisonReport',documentRoot:true,children:Object.freeze([Object.freeze({levelId:'comparisonPartition',xmlTag:'ComparisonPartition',levelType:'partition',creationMode:'static',key:'FIELD_COMPARISON',displayName:'Field Comparison',children:Object.freeze([Object.freeze({levelId:'comparisonItem',xmlTag:'ComparisonItem',levelType:'group',creationMode:'one-per-key',keyResolver:{op:'fallback',resolvers:Object.freeze([leftBase,rightBase]),defaultResolver:{op:'concat',parts:Object.freeze(['row_',{op:'trim',column:'SupportISONOTE'}])}},displayNameResolver:leftBase,fieldResolvers:Object.freeze({leftSupportBase:leftBase,rightSupportBase:rightBase,leftRevision,rightRevision,leftRestKn,rightRestKn,restLoadStatus,leftGuideKn,rightGuideKn,guideLoadStatus,leftGuideGapMm,rightGuideGapMm,guideGapStatus,leftLineStopKn,rightLineStopKn,lineStopLoadStatus,comparisonSummary:{op:'template',template:'{{leftSupportBase}} rev {{leftRevision}} vs {{rightRevision}}: REST {{restLoadStatus}}, GUIDE load {{guideLoadStatus}}, GUIDE GAP {{guideGapStatus}}, LINE STOP {{lineStopLoadStatus}}.',values:Object.freeze({leftSupportBase:leftBase,leftRevision,rightRevision,restLoadStatus,guideLoadStatus,guideGapStatus,lineStopLoadStatus})}}),children:Object.freeze([])})])})])})])
 });
 
 function regex(input,pattern,group){return Object.freeze({op:'regexExtract',input,pattern,group,flags:'i'});}
