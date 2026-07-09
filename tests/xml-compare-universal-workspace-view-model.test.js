@@ -17,6 +17,8 @@ assert.equal(linewise.samplePreview.builder.title, 'Structure Recipe Builder');
 assert.equal(linewise.samplePreview.builder.selectedItem.title, 'Selected item properties');
 assert.equal(linewise.samplePreview.mappingWorkbench.title, 'Mapping Workbench');
 assert.ok(linewise.samplePreview.mappingWorkbench.summary.proposals >= 1);
+assert.equal(linewise.samplePreview.mappingReview.title, 'Mapping review queue');
+assert.equal(linewise.samplePreview.mappingReview.selected.title, 'Selected mapping detail');
 assert.deepEqual(linewise.samplePreview.previewModes.map((mode) => mode.title), ['Tree Preview', 'Pivot Preview', 'Diagnostics']);
 assert.equal(linewise.samplePreview.exportPlan.status, 'Locked');
 assert.equal(linewise.samplePreview.tree.title, 'Tree Preview');
@@ -38,7 +40,7 @@ for (const action of linewise.designerActions) {
 }
 
 const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-011 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+assert.deepEqual(changedForbiddenFiles, [], `UXC-012 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
