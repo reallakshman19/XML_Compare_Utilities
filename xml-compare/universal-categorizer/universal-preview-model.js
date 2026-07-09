@@ -3,6 +3,7 @@ import { createLinewiseUniversalAttachmentPreviewModel, createUniversalAttachmen
 import { createLinewiseUniversalCategorizedGraphPreview, createUniversalCategorizedGraphPreview } from './universal-graph-builder.js';
 import { createUniversalSourceRegistry } from './universal-source-registry.js';
 import { createUniversalLoadedPreviewBundle, UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCHEMA } from './universal-loaded-preview-bundle.js';
+import { createUniversalColumnRoleReview } from './universal-column-role-review.js';
 import { createUniversalMappingWorkbench } from './universal-mapping-workbench.js';
 import { createUniversalMappingReview } from './universal-mapping-review.js';
 import { createUniversalMappingTrace } from './universal-mapping-trace.js';
@@ -30,11 +31,12 @@ export function createUniversalPreviewModel(input = {}) {
   const graph = input.graph?.schema === 'CategorizedGraph.v1-preview-shadow' ? input.graph : createUniversalCategorizedGraphPreview({ profile, registry, targetRows });
   const tree = createTreePreview({ profile, graph });
   const pivot = createPivotPreview({ tree, graph });
+  const columnRoleReview = createUniversalColumnRoleReview({ profile, registry });
   const mappingWorkbench = createUniversalMappingWorkbench({ profile, registry });
   const mappingReview = createUniversalMappingReview({ mappingWorkbench });
   const mappingTrace = createUniversalMappingTrace({ registry, mappingWorkbench, mappingReview });
   const mappingConfidence = createUniversalMappingConfidence({ profile, registry, mappingWorkbench, mappingReview, mappingTrace });
-  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns, keys, and sample rows'), step('02', 'Recipe Builder', 'Arrange hierarchy levels and blocks'), step('03', 'Preview', 'Review tree, pivot, and diagnostics'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), mappingWorkbench, mappingReview, mappingTrace, mappingConfidence, previewModes: previewModes({ tree, pivot, attachmentPreview, graph }), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportPlan: exportPlan(graph), exportLocked: true });
+  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns, keys, and sample rows'), step('02', 'Recipe Builder', 'Arrange hierarchy levels and blocks'), step('03', 'Preview', 'Review tree, pivot, and diagnostics'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), columnRoleReview, mappingWorkbench, mappingReview, mappingTrace, mappingConfidence, previewModes: previewModes({ tree, pivot, attachmentPreview, graph }), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportPlan: exportPlan(graph), exportLocked: true });
 }
 
 export function createUniversalPreviewModelFromLoadedData(input = {}) { const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset()); const previewBundle = createUniversalLoadedPreviewBundle({ profile, sourceInputs: input.sourceInputs || input.sources || {}, targetRows: input.targetRows || input.targets || [] }); return createUniversalPreviewModel({ profile, previewBundle }); }
