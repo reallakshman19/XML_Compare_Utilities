@@ -7,17 +7,22 @@ import {
   TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA,
 } from '../tabs/xml-compare-table-categorized-iso-sample-loader.js';
 
-assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v2-editable-template');
+assert.equal(TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA, 'table-categorized-iso-sample-loader/v3-full-rev-table-template');
 
 const template = createIsoRecipeTemplateState();
-assert.match(template.table1Text, /ISONOTE/);
-assert.match(template.table2Text, /ISONOTE/);
+assert.match(template.table1Text, /JOBNAME\tLinenoinCII\tPIPEAXIS\tNODE_NUM\tNODE_NAME\tNPS\tTYPE\tSupportISONOTE\tRemarks/);
+assert.match(template.table2Text, /JOBNAME\tLinenoinCII\tPIPEAXIS\tNODE_NUM\tNODE_NAME\tNPS\tTYPE\tSupportISONOTE\tRemarks/);
+assert.match(template.table1Text, /SL-14307\.15/);
+assert.match(template.table2Text, /SL-14307\.15/);
 assert.match(template.savedRecipeJson, /"recipeId": "ISOrecipe"/);
+assert.match(template.savedRecipeJson, /"SupportISONOTE"/);
 
 const workflow = buildIsoRecipeSampleWorkflow(template);
-assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v2');
+assert.equal(workflow.schema, 'IsoRecipeSampleWorkflow.v3');
 assert.equal(workflow.savedRecipe.recipeId, 'ISOrecipe');
 assert.equal(workflow.savedRecipe.connectorKeyField, 'connectorKey');
+assert.equal(workflow.sourceAArtifact.source.rows.length, 17);
+assert.equal(workflow.sourceBArtifact.source.rows.length, 17);
 
 assert.equal(workflow.sourceAArtifact.exportResult.ok, true, JSON.stringify(workflow.sourceAArtifact.exportResult.diagnostics, null, 2));
 assert.equal(workflow.sourceBArtifact.exportResult.ok, true, JSON.stringify(workflow.sourceBArtifact.exportResult.diagnostics, null, 2));
@@ -25,19 +30,21 @@ assert.match(workflow.sourceAArtifact.xmlText, /<connectorKey>SL-14143<\/connect
 assert.match(workflow.sourceBArtifact.xmlText, /<connectorKey>SL-14143<\/connectorKey>/);
 assert.match(workflow.sourceAArtifact.xmlText, /<guideGapMm>25<\/guideGapMm>/);
 assert.match(workflow.sourceBArtifact.xmlText, /<guideGapMm>15<\/guideGapMm>/);
+assert.match(workflow.sourceAArtifact.xmlText, /<jobName>SYS-002C<\/jobName>/);
+assert.match(workflow.sourceAArtifact.xmlText, /<supportType>Rigid \+Y; Rigid LIM; Rigid GUI w\/gap<\/supportType>/);
 
 const editedWorkflow = buildIsoRecipeSampleWorkflow({
   ...template,
-  table1Text: template.table1Text.replace('25mm', '30mm'),
-  table2Text: template.table2Text.replace('15mm', '30mm'),
+  table1Text: template.table1Text.replace('GUIDE GAP=25mm', 'GUIDE GAP=30mm'),
+  table2Text: template.table2Text.replace('GUIDE GAP=15mm', 'GUIDE GAP=30mm'),
 });
-assert.match(editedWorkflow.sourceAArtifact.xmlText, /<guideGapMm>30<\/guideGapMm>/, 'edited Table 1 must drive XML1 output');
-assert.match(editedWorkflow.sourceBArtifact.xmlText, /<guideGapMm>30<\/guideGapMm>/, 'edited Table 2 must drive XML2 output');
-assert.equal(editedWorkflow.sourceA.records[0].fields.guideGapMm, 30);
-assert.equal(editedWorkflow.sourceB.records[0].fields.guideGapMm, 30);
+assert.match(editedWorkflow.sourceAArtifact.xmlText, /<guideGapMm>30<\/guideGapMm>/, 'edited Rev 1 table must drive XML1 output');
+assert.match(editedWorkflow.sourceBArtifact.xmlText, /<guideGapMm>30<\/guideGapMm>/, 'edited Rev 2 table must drive XML2 output');
+assert.equal(editedWorkflow.sourceA.records.find((record) => record.connectorKey === 'SL-14143').fields.guideGapMm, 30);
+assert.equal(editedWorkflow.sourceB.records.find((record) => record.connectorKey === 'SL-14143').fields.guideGapMm, 30);
 
-assert.equal(workflow.sourceA.records[0].connectorKey, 'SL-14143');
-assert.equal(workflow.sourceB.records[0].connectorKey, 'SL-14143');
+assert.equal(workflow.sourceA.records.find((record) => record.connectorKey === 'SL-14143').connectorKey, 'SL-14143');
+assert.equal(workflow.sourceB.records.find((record) => record.connectorKey === 'SL-14143').connectorKey, 'SL-14143');
 assert.equal(workflow.connector.ok, true, JSON.stringify(workflow.connector.diagnostics, null, 2));
 assert.equal(workflow.connector.preview.sourceUid, 'SourceA:SL-14143');
 assert.equal(workflow.connector.preview.targetUid, 'SourceB:SL-14143');
@@ -45,8 +52,10 @@ assert.equal(workflow.connector.preview.targetUid, 'SourceB:SL-14143');
 const html = renderIsoRecipeSamplePanel(workflow);
 assert.match(html, /ISOrecipe Editable Template Sample/);
 assert.match(html, /Recipe = template/);
-assert.match(html, /Table 1 → XML1 → Source A/);
-assert.match(html, /Table 2 → XML2 → Source B/);
+assert.match(html, /Load Table 1 as Source A/);
+assert.match(html, /Load Table 2 as Target B/);
+assert.match(html, /Rev 1 full table → XML1 → Source A/);
+assert.match(html, /Rev 2 full table → XML2 → Target B/);
 assert.match(html, /data-table-categorized-iso-sample-field="table1"/);
 assert.match(html, /data-table-categorized-iso-sample-field="table2"/);
 assert.match(html, /data-table-categorized-iso-sample-field="recipe"/);
