@@ -6,6 +6,7 @@ import { createUniversalLoadedPreviewBundle, UNIVERSAL_LOADED_PREVIEW_BUNDLE_SCH
 import { createUniversalMappingWorkbench } from './universal-mapping-workbench.js';
 import { createUniversalMappingReview } from './universal-mapping-review.js';
 import { createUniversalMappingTrace } from './universal-mapping-trace.js';
+import { createUniversalMappingConfidence } from './universal-mapping-confidence.js';
 
 export const UNIVERSAL_PREVIEW_MODEL_SCHEMA = 'universal-preview-model/v1-shadow';
 const freeze = (value) => Object.freeze(value);
@@ -32,7 +33,8 @@ export function createUniversalPreviewModel(input = {}) {
   const mappingWorkbench = createUniversalMappingWorkbench({ profile, registry });
   const mappingReview = createUniversalMappingReview({ mappingWorkbench });
   const mappingTrace = createUniversalMappingTrace({ registry, mappingWorkbench, mappingReview });
-  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns, keys, and sample rows'), step('02', 'Recipe Builder', 'Arrange hierarchy levels and blocks'), step('03', 'Preview', 'Review tree, pivot, and diagnostics'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), mappingWorkbench, mappingReview, mappingTrace, previewModes: previewModes({ tree, pivot, attachmentPreview, graph }), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportPlan: exportPlan(graph), exportLocked: true });
+  const mappingConfidence = createUniversalMappingConfidence({ profile, registry, mappingWorkbench, mappingReview, mappingTrace });
+  return freeze({ schema: UNIVERSAL_PREVIEW_MODEL_SCHEMA, profileId: profile.profileId, previewBundleSchema: bundle?.schema || '', workflow: freeze([step('01', 'Source', 'Review columns, keys, and sample rows'), step('02', 'Recipe Builder', 'Arrange hierarchy levels and blocks'), step('03', 'Preview', 'Review tree, pivot, and diagnostics'), step('04', 'Export', 'Locked until graph proof is approved')]), sources: sourcePreview(registry), builder: builderPreview(profile), mappingWorkbench, mappingReview, mappingTrace, mappingConfidence, previewModes: previewModes({ tree, pivot, attachmentPreview, graph }), tree, pivot, advancedDiagnostics: advancedDiagnostics({ registry, attachmentPreview, graph, bundle }), exportPlan: exportPlan(graph), exportLocked: true });
 }
 
 export function createUniversalPreviewModelFromLoadedData(input = {}) { const profile = normalizeUniversalCategorizerProfile(input.profile || input.profileInput || createLinewiseUniversalPreset()); const previewBundle = createUniversalLoadedPreviewBundle({ profile, sourceInputs: input.sourceInputs || input.sources || {}, targetRows: input.targetRows || input.targets || [] }); return createUniversalPreviewModel({ profile, previewBundle }); }
