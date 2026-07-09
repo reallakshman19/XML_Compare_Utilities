@@ -12,6 +12,7 @@ const handledActions = new Set([
   'add-source', 'remove-source', 'clear', 'load-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
   'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
+  'assign-field-key', 'assign-field-display', 'add-field-resolver', 'create-child-from-field',
   'add-pivot-view', 'select-pivot-view', 'remove-pivot-view',
   'add-pivot-row-field', 'remove-pivot-row-field', 'add-pivot-column-field', 'remove-pivot-column-field',
   'add-pivot-value-field', 'remove-pivot-value-field', 'add-pivot-filter', 'remove-pivot-filter',
@@ -76,6 +77,10 @@ assert.ok(activeActions.includes('add-derived-column'), 'add-derived-column is r
 assert.ok(activeActions.includes('remove-derived-column'), 'remove-derived-column is rendered active when a rule exists');
 assert.ok(activeActions.includes('load-suggested-profile'), 'load-suggested-profile is rendered active with headers');
 assert.ok(activeActions.includes('select-level'), 'recipe tree level selection action is rendered and handled');
+assert.ok(activeActions.includes('assign-field-key'), 'guided key assignment action is rendered and handled');
+assert.ok(activeActions.includes('assign-field-display'), 'guided display assignment action is rendered and handled');
+assert.ok(activeActions.includes('add-field-resolver'), 'guided XML field resolver action is rendered and handled');
+assert.ok(activeActions.includes('create-child-from-field'), 'guided child-level creation action is rendered and handled');
 assert.ok(activeActions.includes('add-pivot-view'), 'add-pivot-view is rendered and handled');
 assert.ok(activeActions.includes('select-pivot-view'), 'select-pivot-view is rendered and handled');
 assert.ok(activeActions.includes('remove-pivot-view'), 'remove-pivot-view is rendered and handled');

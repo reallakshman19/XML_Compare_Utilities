@@ -28,7 +28,8 @@ assert.ok(layoutCss.includes('.table-categorized-recipe-tree') && layoutCss.incl
 assert.ok(recipeUxCss.includes('.table-categorized-recipe-tree') && recipeUxCss.includes('border-left: 1px dashed'), 'recipe tree gets clearer hierarchy styling');
 assert.ok(recipeUxCss.includes('[data-table-categorized-selected-node-panel]') && recipeUxCss.includes('position: sticky'), 'selected node editor stays visible while scrolling');
 assert.ok(recipeUxCss.includes('Edit one hierarchy level at a time'), 'selected node panel adds user guidance');
-assert.ok(recipeUxCss.includes('[data-field-catalog-resolver-options="FieldCatalog.v1"]') && recipeUxCss.includes('border-radius: 999px'), 'field catalog choices are styled as compact chips');
+assert.ok(recipeUxCss.includes('.table-categorized-field-action-chip') && recipeUxCss.includes('grid-template-columns: repeat(auto-fit'), 'field catalog choices are styled as responsive guided action chips');
+assert.ok(recipeUxCss.includes('[data-table-categorized-node-summary]'), 'selected node summary is styled');
 assert.ok(recipeUxCss.includes('Shows how the selected node will resolve from real rows'), 'live preview gets explanatory guidance');
 assert.ok(html.includes('data-table-categorized-fullscreen-icon'), 'fullscreen icon toggle is rendered');
 assert.ok(html.includes('table-categorized-structure-workspace is-scrollable'), 'Structure Recipe Builder gets vertical scroll container');
@@ -38,8 +39,15 @@ assert.ok(html.includes('Live Data Preview'), 'live preview heading is visible')
 assert.ok(html.includes('PS-100.1'), 'live preview uses parsed source row data');
 assert.ok(html.includes('data-table-categorized-recipe-tree="true"'), 'recipe tree is rendered');
 assert.ok(html.includes('data-table-categorized-selected-node-panel'), 'selected-node panel is rendered');
+assert.ok(html.includes('data-table-categorized-node-summary'), 'selected-node summary is rendered');
+assert.ok(html.includes('XML: documentRoot') && html.includes('Fields: 0'), 'node summary shows XML/key/display/field-count status');
 assert.ok(html.includes('data-field-catalog-resolver-options="FieldCatalog.v1"'), 'FieldCatalog compact field panel is rendered');
 assert.ok(html.includes('PS NO') && html.includes('PS_NO_Trimmed'), 'FieldCatalog fields appear in resolver choices');
+assert.ok(html.includes('data-table-categorized-action="assign-field-key"'), 'guided key assignment action is rendered');
+assert.ok(html.includes('data-table-categorized-action="assign-field-display"'), 'guided display assignment action is rendered');
+assert.ok(html.includes('data-table-categorized-action="add-field-resolver"'), 'guided XML field resolver action is rendered');
+assert.ok(html.includes('data-table-categorized-action="create-child-from-field"'), 'guided child-level creation action is rendered');
+assert.ok(html.includes('data-field-header="PS NO"'), 'guided action carries source field header');
 assert.ok(html.includes('data-level-field="levelId"'), 'levelId editor is rendered');
 assert.ok(html.includes('data-level-field="displayName"'), 'displayName editor is rendered');
 assert.ok(html.includes('data-level-field="xmlTag"'), 'xmlTag editor is rendered');
@@ -62,6 +70,10 @@ assert.ok(childHtml.includes('Key: PS NO'), 'live preview follows selected key r
 
 assert.ok(runtime.includes('selectLevelFromButton'), 'runtime handles selected tree node action');
 assert.ok(runtime.includes('changeDisplayColumn'), 'runtime handles display resolver field selection');
+assert.ok(runtime.includes('applyGuidedFieldAction'), 'runtime handles guided field-chip actions');
+assert.ok(runtime.includes('assign-field-key') && runtime.includes('assign-field-display'), 'runtime maps field chips to key/display actions');
+assert.ok(runtime.includes('add-field-resolver') && runtime.includes('create-child-from-field'), 'runtime maps field chips to XML field and child level actions');
+assert.ok(runtime.includes('uniqueResolverName'), 'runtime avoids overwriting existing field resolvers');
 
 const invalid = updateLevelAtPath(profile, [0], { xmlTag: 'Bad Tag' });
 const diagnostics = validateEditableProfile(invalid, { sources: [source] });
