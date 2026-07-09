@@ -11,12 +11,17 @@ import {
   saveTableXmlRecipe,
 } from '../xml-compare/table-categorizer/table-categorized-xml-recipe-workflow.js';
 
-export const TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA = 'table-categorized-iso-sample-loader/v3-full-rev-table-template';
+export const TABLE_CATEGORIZED_ISO_SAMPLE_LOADER_SCHEMA = 'table-categorized-iso-sample-loader/v4-real-runtime-source-load';
 export const ISO_SAMPLE_ACTION = 'load-isorecipe-full-rev-editable-template-sample';
 
 const PANEL_ATTR = 'data-table-categorized-iso-sample-panel';
 const BUTTON_ATTR = 'data-table-categorized-iso-sample-loader';
 const FIELD_ATTR = 'data-table-categorized-iso-sample-field';
+const ACTIVE_SOURCE_SELECTOR = '[data-table-categorized-active-source]';
+const SOURCE_TEXT_SELECTOR = '[data-table-categorized-source-text]';
+const SOURCE_NAME_SELECTOR = '[data-table-categorized-source-name]';
+const DELIMITER_SELECTOR = '[data-table-categorized-delimiter-mode]';
+const ACTION_SELECTOR = '[data-table-categorized-action]';
 
 export function createIsoRecipeTemplateState({ table1Text = ISO_NOTE_TABLE_1_SAMPLE, table2Text = ISO_NOTE_TABLE_2_SAMPLE, recipeProfile = ISO_NOTE_RECIPE_PROFILE } = {}) {
   const saved = saveTableXmlRecipe(recipeProfile, {
@@ -55,7 +60,7 @@ export function buildIsoRecipeSampleWorkflow(input = createIsoRecipeTemplateStat
   const connectorKey = sourceAArtifact.records?.find((record) => record.connectorKey === 'SL-14143')?.connectorKey || sourceAArtifact.records?.[0]?.connectorKey || sourceBArtifact.records?.[0]?.connectorKey || 'SL-14143';
   const connector = createConnectorPreviewByKey(sourceA, sourceB, connectorKey);
   return Object.freeze({
-    schema: 'IsoRecipeSampleWorkflow.v3',
+    schema: 'IsoRecipeSampleWorkflow.v4',
     savedRecipe: recipe,
     savedRecipeJson: template.savedRecipeJson,
     table1Text: template.table1Text,
@@ -80,12 +85,12 @@ export function renderIsoRecipeSamplePanel(workflow = buildIsoRecipeSampleWorkfl
   const b = findRecord(workflow.sourceBArtifact, 'SL-14143') || workflow.sourceBArtifact?.records?.[0] || {};
   const connector = workflow.connector?.preview || null;
   const issues = workflow.connector?.diagnostics?.length || workflow.diagnostics?.filter((item) => ['BLOCKER', 'ERROR'].includes(item?.severity)).length || 0;
-  return `<div class="table-categorized-shell-side-card" ${PANEL_ATTR}="IsoRecipeSampleWorkflow.v3">
+  return `<div class="table-categorized-shell-side-card" ${PANEL_ATTR}="IsoRecipeSampleWorkflow.v4">
     <h4>ISOrecipe Editable Template Sample</h4>
     <p><b>Recipe = template.</b> Edit Rev 1, Rev 2, or the ISOrecipe JSON, then rebuild. Outputs are generated from edited full tables, not from hardcoded result defaults.</p>
     <div class="table-categorized-xml-actions" data-table-categorized-iso-sample-icons="true">
-      <button type="button" ${BUTTON_ATTR}="load-table1-source" title="Load full Rev 1 table as Source A">📥 Load Table 1 as Source A</button>
-      <button type="button" ${BUTTON_ATTR}="load-table2-target" title="Load full Rev 2 table as Target B">📤 Load Table 2 as Target B</button>
+      <button type="button" ${BUTTON_ATTR}="load-table1-source" title="Load full Rev 1 table into the app source table slot">📥 Load Table 1 as Source A</button>
+      <button type="button" ${BUTTON_ATTR}="load-table2-target" title="Create/select the second app source slot and load full Rev 2 table as target">📤 Load Table 2 as Target B</button>
     </div>
     <label>Rev 1 full table → XML1 → Source A<textarea ${FIELD_ATTR}="table1" rows="10">${escapeHtml(workflow.table1Text)}</textarea></label>
     <label>Rev 2 full table → XML2 → Target B<textarea ${FIELD_ATTR}="table2" rows="10">${escapeHtml(workflow.table2Text)}</textarea></label>
@@ -108,7 +113,7 @@ export function renderIsoRecipeSamplePanel(workflow = buildIsoRecipeSampleWorkfl
       </tbody>
     </table>
     <p><b>Connector preview:</b> ${connector ? `${escapeHtml(connector.sourceUid)} → ${escapeHtml(connector.targetUid)}` : 'not available'}${issues ? ` (${issues} issue(s))` : ''}</p>
-    <p><small>Use the normal Column Builder and Structure Recipe Builder as the editing model for the recipe. This sample loads your full Rev 1 / Rev 2 table format in editable text form so you can change source rows before download/handoff.</small></p>
+    <p><small>The icon buttons now load the full Rev 1 / Rev 2 samples into the app's real table source controls. After loading, use the normal Confirm Columns and Structure Recipe Builder flow.</small></p>
   </div>`;
 }
 
@@ -145,8 +150,8 @@ export function handleIsoRecipeSampleClick(event, doc = globalThis.document) {
   event.preventDefault();
   const action = button.getAttribute(BUTTON_ATTR);
   if (action === 'open') return showIsoRecipeSamplePanel(doc);
-  if (action === 'load-table1-source') return setPanelFieldAndRebuild(doc, 'table1', ISO_NOTE_TABLE_1_SAMPLE);
-  if (action === 'load-table2-target') return setPanelFieldAndRebuild(doc, 'table2', ISO_NOTE_TABLE_2_SAMPLE);
+  if (action === 'load-table1-source') return loadIsoTableIntoRuntime(doc, { side: 'sourceA', sourceName: 'Rev 1 Table / Source A', tableText: ISO_NOTE_TABLE_1_SAMPLE, panelField: 'table1' });
+  if (action === 'load-table2-target') return loadIsoTableIntoRuntime(doc, { side: 'targetB', sourceName: 'Rev 2 Table / Target B', tableText: ISO_NOTE_TABLE_2_SAMPLE, panelField: 'table2' });
   if (action === 'rebuild') return showIsoRecipeSamplePanel(doc, workflowFromPanel(doc));
   const workflow = workflowFromPanel(doc);
   if (action === 'download-recipe') return downloadText('ISOrecipe.json', workflow.savedRecipeJson, 'application/json;charset=utf-8', doc);
@@ -165,13 +170,85 @@ export function workflowFromPanel(doc = globalThis.document) {
   return buildIsoRecipeSampleWorkflow({ table1Text, table2Text, savedRecipeJson });
 }
 
-function setPanelFieldAndRebuild(doc, field, value) {
+export function loadIsoTableIntoRuntime(doc = globalThis.document, { side = 'sourceA', sourceName = '', tableText = '', panelField = 'table1' } = {}) {
   const panel = doc?.querySelector?.(`[${PANEL_ATTR}]`);
-  if (!panel) return false;
-  const target = panel.querySelector(`[${FIELD_ATTR}="${field}"]`);
-  if (!target) return false;
-  target.value = value;
-  return showIsoRecipeSamplePanel(doc, workflowFromPanel(doc));
+  if (panel) {
+    const target = panel.querySelector(`[${FIELD_ATTR}="${panelField}"]`);
+    if (target) target.value = tableText;
+  }
+  const targetSecondSource = side === 'targetB';
+  const run = () => {
+    if (targetSecondSource && !hasSecondSourceOption(doc)) {
+      const added = clickRuntimeAction(doc, 'add-source');
+      if (!added) return false;
+      defer(() => selectAndFillRuntimeSource(doc, { targetSecondSource, sourceName, tableText }));
+      return true;
+    }
+    return selectAndFillRuntimeSource(doc, { targetSecondSource, sourceName, tableText });
+  };
+  return run();
+}
+
+function selectAndFillRuntimeSource(doc, { targetSecondSource = false, sourceName = '', tableText = '' } = {}) {
+  const select = doc?.querySelector?.(ACTIVE_SOURCE_SELECTOR);
+  if (select) {
+    const optionValues = [...select.options].map((option) => option.value || option.textContent || '');
+    const preferred = targetSecondSource ? (optionValues.find((value) => value === 'S2') || optionValues[1] || optionValues.at(-1)) : (optionValues.find((value) => value === 'S1') || optionValues[0]);
+    if (preferred && select.value !== preferred) {
+      select.value = preferred;
+      dispatchDomEvent(select, 'change');
+      defer(() => fillActiveRuntimeSource(doc, { sourceName, tableText }));
+      return true;
+    }
+  }
+  return fillActiveRuntimeSource(doc, { sourceName, tableText });
+}
+
+function fillActiveRuntimeSource(doc, { sourceName = '', tableText = '' } = {}) {
+  const nameInput = doc?.querySelector?.(SOURCE_NAME_SELECTOR);
+  const textArea = doc?.querySelector?.(SOURCE_TEXT_SELECTOR);
+  const delimiter = doc?.querySelector?.(DELIMITER_SELECTOR);
+  if (!textArea) return false;
+  if (nameInput) {
+    nameInput.value = sourceName;
+    dispatchDomEvent(nameInput, 'input');
+  }
+  if (delimiter) {
+    delimiter.value = 'tab';
+    dispatchDomEvent(delimiter, 'change');
+  }
+  defer(() => {
+    const freshTextArea = doc?.querySelector?.(SOURCE_TEXT_SELECTOR);
+    if (!freshTextArea) return;
+    freshTextArea.value = tableText;
+    dispatchDomEvent(freshTextArea, 'input');
+    clickRuntimeAction(doc, 'parse');
+    defer(() => showIsoRecipeSamplePanel(doc, workflowFromPanel(doc)));
+  });
+  return true;
+}
+
+function hasSecondSourceOption(doc) {
+  const select = doc?.querySelector?.(ACTIVE_SOURCE_SELECTOR);
+  return Boolean(select && select.options && select.options.length > 1);
+}
+
+function clickRuntimeAction(doc, action) {
+  const button = [...(doc?.querySelectorAll?.(`${ACTION_SELECTOR}[data-table-categorized-action="${action}"]`) || [])].find((item) => !item.disabled);
+  if (!button) return false;
+  button.click();
+  return true;
+}
+
+function dispatchDomEvent(node, type) {
+  const view = node?.ownerDocument?.defaultView || globalThis;
+  const EventCtor = view.Event || Event;
+  node.dispatchEvent(new EventCtor(type, { bubbles: true, cancelable: true }));
+}
+
+function defer(callback) {
+  if (typeof queueMicrotask === 'function') queueMicrotask(callback);
+  else setTimeout(callback, 0);
 }
 
 function normalizeWorkflowInput(input = {}) {
