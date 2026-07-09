@@ -23,42 +23,51 @@ assert.equal(saved.recipe.schema, 'SavedTableXmlRecipe.v1');
 assert.equal(saved.recipe.recipeId, 'ISOrecipe');
 assert.equal(saved.recipe.connectorKeyField, 'connectorKey');
 assert.match(saved.json, /"recipeId": "ISOrecipe"/);
+assert.match(saved.json, /"SupportISONOTE"/);
 
 const reloaded = loadTableXmlRecipe(saved.json);
 assert.equal(reloaded.recipeId, 'ISOrecipe');
 assert.equal(reloaded.profile.profileId, 'ISOrecipe');
-assert.equal(reloaded.profile.requiredColumns[0], 'ISONOTE');
+assert.equal(reloaded.profile.requiredColumns[0], 'SupportISONOTE');
 
 const sourceAArtifact = buildXmlArtifactFromTable({
   tableText: ISO_NOTE_TABLE_1_SAMPLE,
   sourceId: 'SourceA',
-  sourceName: 'Table 1',
+  sourceName: 'Rev 1 Table',
   recipe: reloaded,
 });
 const sourceBArtifact = buildXmlArtifactFromTable({
   tableText: ISO_NOTE_TABLE_2_SAMPLE,
   sourceId: 'SourceB',
-  sourceName: 'Table 2',
+  sourceName: 'Rev 2 Table',
   recipe: reloaded,
 });
 
 assert.equal(sourceAArtifact.exportResult.ok, true, JSON.stringify(sourceAArtifact.exportResult.diagnostics, null, 2));
 assert.equal(sourceBArtifact.exportResult.ok, true, JSON.stringify(sourceBArtifact.exportResult.diagnostics, null, 2));
+assert.equal(sourceAArtifact.source.rows.length, 17);
+assert.equal(sourceBArtifact.source.rows.length, 17);
 assert.match(sourceAArtifact.xmlText, /<IsoNoteXml/);
 assert.match(sourceBArtifact.xmlText, /<IsoNoteXml/);
 assert.match(sourceAArtifact.xmlText, /<connectorKey>SL-14143<\/connectorKey>/);
 assert.match(sourceBArtifact.xmlText, /<connectorKey>SL-14143<\/connectorKey>/);
 assert.match(sourceAArtifact.xmlText, /<revision>1<\/revision>/);
-assert.match(sourceBArtifact.xmlText, /<revision>3<\/revision>/);
+assert.match(sourceBArtifact.xmlText, /<revision>1<\/revision>/);
 assert.match(sourceAArtifact.xmlText, /<guideGapMm>25<\/guideGapMm>/);
 assert.match(sourceBArtifact.xmlText, /<guideGapMm>15<\/guideGapMm>/);
+assert.match(sourceAArtifact.xmlText, /<nodeName>SL-14143.1\|HOLD<\/nodeName>/);
+assert.match(sourceBArtifact.xmlText, /<nodeNumber>15140<\/nodeNumber>/);
 
-assert.equal(sourceAArtifact.records.length, 1);
-assert.equal(sourceBArtifact.records.length, 1);
-assert.equal(sourceAArtifact.records[0].connectorKey, 'SL-14143');
-assert.equal(sourceBArtifact.records[0].connectorKey, 'SL-14143');
-assert.equal(sourceAArtifact.records[0].fields.guideGapMm, 25);
-assert.equal(sourceBArtifact.records[0].fields.guideGapMm, 15);
+assert.ok(sourceAArtifact.records.length >= 14, 'full Rev 1 table should create many connector-key records');
+assert.ok(sourceBArtifact.records.length >= 14, 'full Rev 2 table should create many connector-key records even when duplicate note keys merge');
+const a14143 = sourceAArtifact.records.find((record) => record.connectorKey === 'SL-14143');
+const b14143 = sourceBArtifact.records.find((record) => record.connectorKey === 'SL-14143');
+assert.ok(a14143);
+assert.ok(b14143);
+assert.equal(a14143.fields.guideGapMm, 25);
+assert.equal(b14143.fields.guideGapMm, 15);
+assert.equal(a14143.fields.nodeName, 'SL-14143.1|HOLD');
+assert.equal(b14143.fields.nodeNumber, 15140);
 
 const sourceA = createXmlCompareSourceHandoff(sourceAArtifact, { side: 'sourceA', sourceLabel: 'Source A' });
 const sourceB = createXmlCompareSourceHandoff(sourceBArtifact, { side: 'sourceB', sourceLabel: 'Source B' });
