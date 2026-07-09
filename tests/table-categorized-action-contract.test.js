@@ -25,7 +25,7 @@ const handledDownloads = new Set(['xml', 'graph', 'profile', 'diagnostics', 'aud
 const dynamicPivotActions = new Set(['download-pivot-json', 'download-pivot-csv', 'download-pivot-html']);
 
 function buttonTags(html, attr) {
-  const pattern = new RegExp(`<button\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g');
+  const pattern = new RegExp(`<button\\b[^>]*${attr}="([^"]+)"[^>]*>`, 'g');
   return [...html.matchAll(pattern)].map((match) => ({ value: match[1], tag: match[0], disabled: /\sdisabled\b/.test(match[0]) || /aria-disabled="true"/.test(match[0]) }));
 }
 function activeValues(rows) { return [...new Set(rows.filter((row) => !row.disabled).map((row) => row.value))].sort(); }
