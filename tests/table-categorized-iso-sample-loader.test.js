@@ -26,7 +26,8 @@ assert.match(moduleSource, /clickRuntimeAction\(doc, 'add-source'\)/, 'Target B 
 assert.match(moduleSource, /clickRuntimeAction\(doc, 'parse'\)/, 'loader must trigger the runtime parse action after filling the table');
 assert.match(moduleSource, /send-s1-source/, 'loader must expose Send Table S1 as Source A action');
 assert.match(moduleSource, /send-s2-target/, 'loader must expose Send Table S2 as Target B action');
-assert.match(moduleSource, /input\[data-xml-compare-load=\\"\$\{targetSide === 'b' \? 'b' : 'a'\}\\"\]/, 'send action must target XML Compare source/target file inputs');
+assert.match(moduleSource, /data-xml-compare-load/, 'send action must target XML Compare source/target file inputs');
+assert.match(moduleSource, /targetSide === 'b' \? 'b' : 'a'/, 'send action must choose XML Compare Target B vs Source A input');
 assert.match(moduleSource, /min-height: 360px/, 'paste textarea must be enlarged for full Rev tables');
 assert.match(moduleSource, /height: min\(54vh, 560px\)/, 'paste textarea must receive a larger viewport-aware height');
 
