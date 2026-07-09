@@ -1,9 +1,10 @@
-export const TABLE_CATEGORIZED_XML_RESOLVER_CONTRACTS_SCHEMA='table-categorized-xml-resolver-contracts/v1';
+export const TABLE_CATEGORIZED_XML_RESOLVER_CONTRACTS_SCHEMA='table-categorized-xml-resolver-contracts/v2-comparison-ops';
 
 export const RESOLVER_OPS=Object.freeze([
   'literal','trim','uppercase','lowercase','regexExtract','regexReplace',
   'tokenSplit','takeToken','concat','numberParser','unitNormalizer',
-  'booleanParser','classifier','coordinateKey','coordinateCluster','fallback'
+  'booleanParser','classifier','coordinateKey','coordinateCluster','fallback',
+  'compare','template'
 ]);
 
 export const RESOLVER_TARGETS=Object.freeze([

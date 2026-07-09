@@ -2,7 +2,7 @@ import { buildFieldCatalog } from './table-categorized-field-catalog.js';
 import { validateOutputViews } from './table-categorized-output-view-contracts.js';
 import { CREATION_MODE_OPTIONS, LEVEL_TYPE_OPTIONS } from './table-categorized-xml-profile-designer.js';
 
-export const TABLE_CATEGORIZED_XML_PROFILE_VALIDATION_SCHEMA='table-categorized-xml-profile-validation/v4-output-view-contracts';
+export const TABLE_CATEGORIZED_XML_PROFILE_VALIDATION_SCHEMA='table-categorized-xml-profile-validation/v5-comparison-resolvers';
 export const ROOT_PARTITION_MODES=Object.freeze(['static','perSource','perColumn','perResolver']);
 export const IMPLEMENTED_CREATION_MODES=Object.freeze(['static','zero-or-one','one-per-key','one-per-row','conditional','lookup-joined','coordinate-clustered','many-per-row']);
 
@@ -34,7 +34,7 @@ function validateResolverColumns(resolver,sources,path,context){if(!resolver)ret
 function validateColumn(resolver,source,out,code){if(resolver?.column&&!source.headers?.includes(resolver.column)&&!source.columnIds?.includes(resolver.column))out.push(diag('BLOCKER',code,`Join references missing column ${resolver.column} in ${source.sourceId}.`,source.sourceId));}
 function validateCoordinateCluster(resolver,path){const c=resolver.contract||{};const out=[];if(!c.unit)out.push(diag('BLOCKER','coordinate_unit_missing','coordinateCluster resolver requires unit.',pathText(path)));if(!Number.isFinite(Number(c.tolerance)))out.push(diag('BLOCKER','coordinate_tolerance_missing','coordinateCluster resolver requires tolerance.',pathText(path)));return out;}
 function resolverBindings(resolver){const out=[];visitResolver(resolver,(item)=>{if(item.column)out.push({sourceId:item.sourceId,column:item.column});const a=item.contract?.axisMapping;if(a)out.push({sourceId:item.sourceId,column:a.x},{sourceId:item.sourceId,column:a.y},{sourceId:item.sourceId,column:a.z});});return out.filter((item)=>item.column);}
-function visitResolver(resolver,visitor){if(!resolver||typeof resolver!=='object')return;visitor(resolver);if(resolver.input)visitResolver(resolver.input,visitor);for(const item of resolver.resolvers||[])visitResolver(item,visitor);if(resolver.defaultResolver)visitResolver(resolver.defaultResolver,visitor);for(const part of resolver.parts||[])if(typeof part==='object')visitResolver(part,visitor);}
+function visitResolver(resolver,visitor){if(!resolver||typeof resolver!=='object')return;visitor(resolver);if(resolver.input)visitResolver(resolver.input,visitor);if(resolver.left)visitResolver(resolver.left,visitor);if(resolver.right)visitResolver(resolver.right,visitor);for(const item of resolver.resolvers||[])visitResolver(item,visitor);if(resolver.defaultResolver)visitResolver(resolver.defaultResolver,visitor);for(const part of resolver.parts||[])if(typeof part==='object')visitResolver(part,visitor);for(const item of Object.values(resolver.values||{}))visitResolver(item,visitor);}
 function duplicateLevelIds(levels){const seen=new Map(),out=[];for(const item of levels){const id=item.level.levelId;if(seen.has(id))out.push(diag('BLOCKER','duplicate_level_id',`Duplicate levelId: ${id}.`,pathText(item.path)));seen.set(id,item.path);}return out;}
 export function flattenLevels(levelDefinitions=[]){const out=[];const walk=(items,path=[],parentPath=null)=>items.forEach((level,index)=>{const p=[...path,index];out.push({level,path:p,parentPath});walk(level.children||[],p,p);});walk(levelDefinitions);return out;}
 function findSource(sources,sourceId){return sources.find((source)=>source.sourceId===sourceId)||null;}

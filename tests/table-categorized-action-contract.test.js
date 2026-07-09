@@ -9,7 +9,7 @@ const runtimeSource = fs.readFileSync(new URL('../tabs/xml-compare-table-categor
 const controllerSource = fs.readFileSync(new URL('../xml-compare/table-categorizer/table-categorized-xml-controller.js', import.meta.url), 'utf8');
 
 const handledActions = new Set([
-  'add-source', 'remove-source', 'clear', 'load-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
+  'add-source', 'remove-source', 'clear', 'load-sample', 'load-field-comparison-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
   'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
   'assign-field-key', 'assign-field-display', 'add-field-resolver', 'create-child-from-field',
@@ -75,6 +75,7 @@ for (const kind of handledDownloads) assert.ok(runtimeSource.includes(`kind==='$
 assert.ok(activeActions.includes('confirm-columns'), 'confirm-columns is rendered active after rows exist');
 assert.ok(activeActions.includes('add-derived-column'), 'add-derived-column is rendered active');
 assert.ok(activeActions.includes('remove-derived-column'), 'remove-derived-column is rendered active when a rule exists');
+assert.ok(activeActions.includes('load-field-comparison-sample'), 'field-comparison sample loader is rendered and handled');
 assert.ok(activeActions.includes('load-suggested-profile'), 'load-suggested-profile is rendered active with headers');
 assert.ok(activeActions.includes('select-level'), 'recipe tree level selection action is rendered and handled');
 assert.ok(activeActions.includes('assign-field-key'), 'guided key assignment action is rendered and handled');
