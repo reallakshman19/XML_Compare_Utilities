@@ -86,7 +86,7 @@ export const FIELD_COMPARISON_SAMPLE_PROFILE=Object.freeze({
 export const ISO_NOTE_RECIPE_PROFILE=Object.freeze({
   schema:'UniversalCategorizerProfile.v1',profileId:'ISOrecipe',displayName:'ISO Note Saved Recipe',connectorKeyField:'connectorKey',
   requiredColumns:Object.freeze(['ISONOTE']),optionalColumns:Object.freeze([]),duplicateKeyPolicy:'merge-sourceRefs',multiValuePolicy:'single-feature-per-row',coordinateCluster:Object.freeze(DEFAULT_COORDINATE_CLUSTER_CONTRACT),
-  rootPartitionMode:'static',rootPartitions:Object.freeze([{key:'ISO_SOURCE',displayName:'ISO Source',sourceScope:Object.freeze(['S1','SourceA','SourceB'])}]),
+  rootPartitionMode:'static',rootPartitions:Object.freeze([{key:'ISO_SOURCE',displayName:'ISO Source'}]),
   exportPolicy:Object.freeze({documentRootTag:'IsoNoteXml',rootPartitionTag:'IsoPartition',includeDiagnosticsElement:true,childElementFields:Object.freeze(['connectorKey','revision','restKn','guideKn','guideGapMm','lineStopKn','rawNote'])}),
   levelDefinitions:Object.freeze([Object.freeze({levelId:'isoNoteXml',xmlTag:'IsoNoteXml',levelType:'container',creationMode:'static',key:'IsoNoteXml',displayName:'IsoNoteXml',documentRoot:true,children:Object.freeze([Object.freeze({levelId:'isoPartition',xmlTag:'IsoPartition',levelType:'partition',creationMode:'static',key:'ISO_SOURCE',displayName:'ISO Source',children:Object.freeze([Object.freeze({levelId:'isoItem',xmlTag:'IsoItem',levelType:'group',creationMode:'one-per-key',keyResolver:isoConnectorKey,displayNameResolver:isoConnectorKey,fieldResolvers:Object.freeze({connectorKey:isoConnectorKey,revision:isoRevision,restKn:isoRestKn,guideKn:isoGuideKn,guideGapMm:isoGuideGapMm,lineStopKn:isoLineStopKn,rawNote:isoNote}),children:Object.freeze([])})])})])})])
 });
