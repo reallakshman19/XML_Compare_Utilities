@@ -38,6 +38,18 @@ assert.ok(miscRender.includes('>Support config<'), 'Misc tab should expose a Sup
 assert.ok(miscRender.includes('Restraint Type Mutation'), 'Misc Config should expose editable restraint type mutation rows.');
 assert.ok(miscRender.includes('data-ixw-rtm-row'), 'Restraint type mutation rows should be editable in the UI.');
 
+// 5D topo dashboard core is intentionally isolated from the production 5D compare core.
+const topoDashboardCore = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-inputxml-topology-dashboard-core.js'), 'utf8');
+const topoFrameSolver = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-inputxml-coordinate-frame-solver.js'), 'utf8');
+const topoNodeSolver = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-inputxml-node-map-solver.js'), 'utf8');
+const topoDashboardModel = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-inputxml-topology-dashboard-model.js'), 'utf8');
+assert.ok(topoDashboardCore.includes('compareInputXmlTopologyWithDashboard'), '5D topology dashboard wrapper should expose a separate compare API.');
+assert.ok(topoDashboardCore.includes('frameSolution'), '5D topology dashboard wrapper should attach frameSolution.');
+assert.ok(topoDashboardCore.includes('nodeRemap'), '5D topology dashboard wrapper should attach nodeRemap.');
+assert.ok(topoFrameSolver.includes('CiiCoordinateFrameSolution.v1'), 'Frame solver contract must exist.');
+assert.ok(topoNodeSolver.includes('CiiInputXmlNodeRemapLedger.v1'), 'Node remap ledger contract must exist.');
+assert.ok(topoDashboardModel.includes('CiiInputXmlTopologyDashboard.v1'), 'Topology dashboard model contract must exist.');
+
 // Launcher tile should show an icon.
 const launcherRender = workspaceUi.renderLauncher();
 assert.ok(launcherRender.includes('inputxml-workspace-launcher-icon'), 'Launcher tile should render an icon span.');

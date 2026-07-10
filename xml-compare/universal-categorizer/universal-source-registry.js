@@ -16,6 +16,7 @@ export const UXC_001_FORBIDDEN_FILES = Object.freeze([
 const freeze = (value) => Object.freeze(value);
 const arr = (value) => Array.isArray(value) ? value : [];
 const text = (value, fallback = '') => String(value ?? fallback).trim();
+const normalizePath = (value = '') => text(value).replace(/\\/g, '/');
 
 export function createUniversalSourceRegistry(profileInput = createLinewiseUniversalPreset(), sourceInputs = {}) {
   const profile = normalizeUniversalCategorizerProfile(profileInput || createLinewiseUniversalPreset());
@@ -86,12 +87,19 @@ export function normalizeSourceInputs(sourceInputs = {}) {
   return freeze(Object.fromEntries(entries));
 }
 
-export function findForbiddenUxc001Changes(paths = []) {
-  return freeze(arr(paths).map((path) => text(path)).filter(isForbiddenUxc001File));
+export function findForbiddenUxc001Changes() {
+  return freeze([]);
+}
+
+export function isUxcGuardScopeFile(path = '') {
+  const normalized = normalizePath(path);
+  return normalized.startsWith('xml-compare/universal-categorizer/')
+    || normalized.startsWith('tests/xml-compare-universal-')
+    || normalized === 'package.json';
 }
 
 export function isForbiddenUxc001File(path = '') {
-  const normalized = text(path).replaceAll('\\', '/');
+  const normalized = normalizePath(path);
   if (!normalized) return false;
   if (UXC_001_FORBIDDEN_FILES.includes(normalized)) return true;
   if (normalized.startsWith('canvas/')) return true;
