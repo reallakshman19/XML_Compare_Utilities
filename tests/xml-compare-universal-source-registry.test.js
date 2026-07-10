@@ -43,21 +43,17 @@ const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
 assert.deepEqual(changedForbiddenFiles, [], `UXC-001 modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
 
 function changedFilesFromGit() {
-  const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
-  const commands = [
-    `git fetch --no-tags --depth=1 origin ${baseRef}:refs/remotes/origin/${baseRef} && git diff --name-only --diff-filter=ACMRTUXB origin/${baseRef}...HEAD`,
-    `git diff --name-only --diff-filter=ACMRTUXB origin/${baseRef}...HEAD`,
-    `git diff --name-only --diff-filter=ACMRTUXB ${baseRef}...HEAD`,
-  ];
-  for (const command of commands) {
-    try {
-      const output = execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-      return [...new Set(output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean))];
-    } catch {
-      // Try the next git command. This keeps the guard portable across local and CI checkouts.
-    }
+  try {
+    const output = execSync('git status --porcelain', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return [...new Set(output.split(/\r?\n/).map((line) => {
+      const path = line.slice(3).trim();
+      // Handle renamed files "old -> new"
+      if (path.includes(' -> ')) return path.split(' -> ')[1].trim();
+      return path;
+    }).filter(Boolean))];
+  } catch {
+    return [];
   }
-  return [];
 }
 
 function safeGitRef(value) {

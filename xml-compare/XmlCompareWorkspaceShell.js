@@ -23,9 +23,21 @@ function hierarchyControls(side = 'source', levelView = {}) {
   if (!(levelView.hierarchyProfile?.levels || []).length) return '<div class="xmlc-side-controls is-empty">No hierarchy levels detected</div>';
   return `<div class="xmlc-side-controls"><label>Hierarchy<select data-xml-compare-level-select="levelId" data-xml-compare-side="${esc(side)}">${levelOptions(levelView)}</select></label></div>`;
 }
-function labelFieldControls(side = 'source', levelView = {}) {
+function labelFieldControls(side = 'source', levelView = {}, compareFields = []) {
   if (!(levelView.fields || []).length) return '';
-  return `<div class="xmlc-side-label-field"><label>Label by<select data-xml-compare-level-select="displayField" data-xml-compare-side="${esc(side)}" data-xml-compare-side-field-picker="${esc(side)}">${fieldOptions(levelView)}</select></label><button type="button" data-xml-compare-action="add-side-compare-field" data-xml-compare-side="${esc(side)}">Add</button></div>`;
+  const selectedCompare = new Set(normalizeCompareFields(compareFields));
+  const checkboxList = levelView.fields.map(field => `
+    <label style="display:flex; align-items:center; gap:8px; margin-bottom: 2px; cursor: pointer;">
+      <input type="checkbox" value="${esc(field)}" data-xml-compare-toggle-compare-field data-xml-compare-side="${esc(side)}" ${selectedCompare.has(field) ? 'checked' : ''}>
+      ${esc(field)}
+    </label>
+  `).join('');
+  return `<div class="xmlc-side-label-field" style="display:flex; flex-direction:column; gap:8px;">
+    <div style="display:flex; flex-direction:column; gap:4px; max-height: 200px; overflow-y: auto; border: 1px solid var(--xmlc-border-color, #444); padding: 8px; border-radius: 4px;">
+      <b>Compare Fields</b>
+      ${checkboxList}
+    </div>
+  </div>`;
 }
 function compareFieldStrip(compareFields = []) {
   const fields = normalizeCompareFields(compareFields);
@@ -52,10 +64,43 @@ function mainConnectorControls(input = {}) {
   const anchorBar = `<div class="xmlc-anchor-set"><b>Anchor</b><span>${anchorLabel(sel.source)} <-> ${anchorLabel(sel.target)}</span><button type="button" data-xml-compare-action="clear-auto-map">Clear anchor</button></div>`;
   const available = input.availableConnectors || [];
   if (!available.length) return `<div class="xmlc-main-connector">${typeToggle}${anchorBar}<span>No connector fields detected for the anchor.</span></div>`;
-  const selected = selectedConnectorValue(input), active = available.filter((conn) => !conn.sameLevel && (input.enabledConnectorFields || []).includes(conn.field));
-  const current = selected.startsWith('parent-multi:') ? `<option value="${esc(selected)}" selected disabled>${esc(`Active: ${active.map((conn) => conn.label).join(' + ')}`)}</option>` : '';
-  const opts = [option('none', 'None', selected), current, ...available.map((conn) => option(`${conn.sameLevel ? 'same' : 'parent'}:${conn.field}`, connectorOptionLabel(conn), selected))].join('');
-  return `<div class="xmlc-main-connector">${typeToggle}${anchorBar}<label>Connector<select data-xml-compare-main-connector>${opts}</select></label><small>${esc(available.length)} option(s) from selected anchor</small></div>`;
+
+  const basis = input.aim?.basis || 'coordinate';
+  const enabled = new Set(input.enabledConnectorFields || ['lineNo']);
+  const sameLevelConn = available.find((conn) => conn.sameLevel);
+  const parentConns = available.filter((conn) => !conn.sameLevel);
+
+  const sameCheckbox = sameLevelConn ? `
+    <label style="display:flex; align-items:center; gap:4px; margin-bottom:4px; font-weight:bold; cursor:pointer;">
+      <input type="checkbox" value="same:${esc(sameLevelConn.field)}" data-xml-compare-toggle-main-connector ${basis === 'name' ? 'checked' : ''}>
+      ${esc(connectorOptionLabel(sameLevelConn))} (Match by Name)
+    </label>
+  ` : '';
+
+  const parentCheckboxes = parentConns.map(conn => `
+    <label style="display:flex; align-items:center; gap:4px; margin-bottom:2px; padding-left:12px; cursor:pointer;">
+      <input type="checkbox" value="${esc(conn.field)}" data-xml-compare-toggle-main-connector ${enabled.has(conn.field) ? 'checked' : ''}>
+      ${esc(connectorOptionLabel(conn))}
+    </label>
+  `).join('');
+
+  const connList = `<div style="border: 1px solid var(--xmlc-border-color, #444); padding: 8px; border-radius: 4px; max-height: 250px; overflow-y: auto; background: var(--xmlc-bg-highlight, rgba(0,0,0,0.2));">
+    ${sameCheckbox}
+    ${parentConns.length > 0 ? `<div style="margin-bottom: 4px; font-weight: bold; margin-top: 8px;">Hierarchy Filters:</div>` : ''}
+    <div style="display:flex; flex-direction:column; gap:2px;">
+      ${parentCheckboxes}
+    </div>
+  </div>`;
+
+  return `<div class="xmlc-main-connector" style="display:flex; flex-direction:column; gap:8px;">
+    ${typeToggle}
+    ${anchorBar}
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <b>Connector</b>
+      ${connList}
+    </div>
+    <small>${esc(available.length)} option(s) from selected anchor</small>
+  </div>`;
 }
 function searchLabel(levelView = {}) { const label = String(levelView.label || levelView.levelId || 'record').replace(/\s+/g, ' ').trim().toLowerCase(); return `Find ${label || 'record'}`; }
 function sideCard(side, title, data = {}, navState = null, compareFields = []) {
@@ -67,7 +112,7 @@ function sideCard(side, title, data = {}, navState = null, compareFields = []) {
     const opts = levelRecords.map(r => `<option value="${esc(r.uid)}">${esc(r.displayName || r.key || r.uid)}</option>`).join('');
     searchInput = `<select data-xml-compare-anchor-search="${esc(side)}" style="width:100%;"><option value="" disabled selected>Select ${esc((data.levelView?.label || 'record').toLowerCase())}...</option>${opts}</select>`;
   }
-  return `<section class="xml-compare-workspace-side xmlc-side-picker-card is-${esc(side)}" data-xml-compare-canvas-host="${esc(side)}"><header><b>${esc(title || side)}</b><span>${sideHeader(data)}</span></header>${hierarchyControls(side, data.levelView || {})}<div class="xmlc-side-picker"><label style="width:100%; display:flex; flex-direction:column; gap:4px;">${esc(searchLabel(data.levelView || {}))}${searchInput}</label><button type="button" data-xml-compare-action="select-anchor-node" data-xml-compare-side="${esc(side)}" style="margin-top:auto;">Use</button></div>${labelFieldControls(side, data.levelView || {})}${compareFieldStrip(compareFields)}<div class="xml-compare-side-metrics">${sideMetric('Records', data.records?.length || 0)}${sideMetric('Nodes', data.summary?.nodeCount || 0)}${sideMetric('Selected', recordLabel(selected))}</div></section>`;
+  return `<section class="xml-compare-workspace-side xmlc-side-picker-card is-${esc(side)}" data-xml-compare-canvas-host="${esc(side)}"><header><b>${esc(title || side)}</b><span>${sideHeader(data)}</span></header>${hierarchyControls(side, data.levelView || {})}<div class="xmlc-side-picker"><label style="width:100%; display:flex; flex-direction:column; gap:4px;">${esc(searchLabel(data.levelView || {}))}${searchInput}</label><button type="button" data-xml-compare-action="select-anchor-node" data-xml-compare-side="${esc(side)}" style="margin-top:auto;">Use</button></div>${labelFieldControls(side, data.levelView || {}, compareFields)}${compareFieldStrip(compareFields)}<div class="xml-compare-side-metrics">${sideMetric('Records', data.records?.length || 0)}${sideMetric('Nodes', data.summary?.nodeCount || 0)}${sideMetric('Selected', recordLabel(selected))}</div></section>`;
 }
 function compareFieldOptions(source = null, target = null, compareFields = []) { const selected = new Set(normalizeCompareFields(compareFields)), fields = availableCompareFields([...(source?.levelView?.fields || []), ...(target?.levelView?.fields || [])]); return fields.map((field) => `<option value="${esc(field)}" ${selected.has(field) ? 'disabled' : ''}>${esc(field)}</option>`).join(''); }
 function validationFromRequest(matchMap = null) { return Object.freeze({ layer: normalizeValidationLayer(matchMap?.request?.validationLayer || 'current'), toleranceMm: normalizeToleranceMm(matchMap?.request?.toleranceMm), textRules: matchMap?.request?.textRules || {} }); }

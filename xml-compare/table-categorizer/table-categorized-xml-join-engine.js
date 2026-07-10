@@ -18,7 +18,7 @@ export function resolveJoinKey(rowOrContext,resolver={}){
 
 function applyJoin(contexts,sources,join,diagnostics){
   const right=sources.find((source)=>source.sourceId===join.rightSourceId);
-  if(!right){diagnostics.push(diag('BLOCKER','join_source_missing',`Join ${join.joinId} right source missing: ${join.rightSourceId}.`));return contexts;}
+  if(!right){if(join.missingSourcePolicy!=='ignore')diagnostics.push(diag('BLOCKER','join_source_missing',`Join ${join.joinId} right source missing: ${join.rightSourceId}.`));return contexts;}
   const index=new Map();
   for(const row of right.rows||[]){
     const key=resolveJoinKey(row,{...join.rightKeyResolver,sourceId:join.rightSourceId});
@@ -46,7 +46,12 @@ function applyJoin(contexts,sources,join,diagnostics){
 
 function rowContext(sourceRows,sourceRefs,primaryRow,alias='',aliasRow=null){
   const rawByHeader={...(primaryRow?.rawByHeader||{})};
-  for(const [sourceId,row] of Object.entries(sourceRows))for(const [key,value] of Object.entries(row.rawByHeader||{}))rawByHeader[`${sourceId}.${key}`]=value;
+  for(const [sourceId,row] of Object.entries(sourceRows)){
+    for(const [key,value] of Object.entries(row.rawByHeader||{})){
+      rawByHeader[`${sourceId}.${key}`]=value;
+      if(!(key in rawByHeader)) rawByHeader[key]=value;
+    }
+  }
   if(alias&&aliasRow)for(const [key,value] of Object.entries(aliasRow.rawByHeader||{}))rawByHeader[`${alias}.${key}`]=value;
   return Object.freeze({rowId:primaryRow?.rowId||sourceRefs[0]||'',rawByHeader:Object.freeze(rawByHeader),sourceRows:Object.freeze(sourceRows),sourceRefs:Object.freeze([...new Set(sourceRefs)]),primaryRow});
 }
@@ -60,6 +65,7 @@ function applyOp(value,step){
   if(step.op==='uppercase')return value.trim().toUpperCase();
   if(step.op==='lowercase')return value.trim().toLowerCase();
   if(step.op==='regexExtract'){const m=new RegExp(step.pattern||'(.*)',step.flags||'').exec(value);return m?m[Number(step.group)||0]||'':'';}
+  if(step.op==='regexReplace')return value.trim().replace(new RegExp(step.pattern||'',step.flags||''),step.replacement||'');
   return value.trim();
 }
 

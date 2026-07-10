@@ -1,0 +1,152 @@
+{
+  "lastId": 21,
+  "entries": [
+    {
+      "id": 1,
+      "timestamp": "2026-07-10 10:30:24",
+      "file": "xml-compare\\table-categorizer\\table-categorized-xml-shell.js",
+      "context": "Backup before making Advanced Settings floating, movable, collapsible",
+      "backupFile": "1_xml_compare_table_categorizer_table_categorized_xml_shell_js.bak"
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-07-10 10:31:59",
+      "file": "tabs\\xml-compare-table-categorized-runtime.js",
+      "context": "Backup before making Advanced Settings floating, movable, collapsible",
+      "backupFile": "2_tabs_xml_compare_table_categorized_runtime_js.bak"
+    },
+    {
+      "id": 3,
+      "timestamp": "2026-07-10 10:34:16",
+      "file": "tests\\table-categorized-action-contract.test.js",
+      "context": "Backup before adding toggle-settings-collapse to test list",
+      "backupFile": "3_tests_table_categorized_action_contract_test_js.bak"
+    },
+    {
+      "id": 4,
+      "timestamp": "2026-07-10 10:50:00",
+      "file": "xml-compare\\table-categorizer\\table-categorized-xml-shell.js",
+      "context": "Backup before fixing fullscreen persistence and side panel class",
+      "backupFile": "4_xml_compare_table_categorizer_table_categorized_xml_shell_js.bak"
+    },
+    {
+      "id": 5,
+      "timestamp": "2026-07-10 10:50:00",
+      "file": "tabs\\xml-compare-table-categorized-runtime.js",
+      "context": "Backup before fixing fullscreen persistence and side panel class",
+      "backupFile": "5_tabs_xml_compare_table_categorized_runtime_js.bak"
+    },
+    {
+      "id": 6,
+      "timestamp": "2026-07-10 10:54:09",
+      "file": "tabs\\xml-compare-table-categorized-iso-sample-loader.js",
+      "context": "Backup before making ISOrecipe sub tab movable, sizable and collapsible",
+      "backupFile": "6_tabs_xml_compare_table_categorized_iso_sample_loader_js.bak"
+    },
+    {
+      "id": 7,
+      "timestamp": "2026-07-10 14:20:07",
+      "file": "tabs\\xml-compare-canvas-rebuild.css",
+      "context": "RCA fix: contain dialog overflow and add body scroll lock",
+      "backupFile": "7_tabs_xml_compare_canvas_rebuild_css.bak"
+    },
+    {
+      "id": 8,
+      "timestamp": "2026-07-10 14:20:11",
+      "file": "tabs\\xml-compare-tab.css",
+      "context": "RCA fix: change table scroll to expand vertically and scroll only horizontally",
+      "backupFile": "8_tabs_xml_compare_tab_css.bak"
+    },
+    {
+      "id": 9,
+      "timestamp": "2026-07-10 14:25:05",
+      "file": "tabs\\xml-compare-transfer-noise-reduction.css",
+      "context": "RCA scrollbar fix: add min-height to fix flex collapse of transfer review content",
+      "backupFile": "9_tabs_xml_compare_transfer_noise_reduction_css.bak"
+    },
+    {
+      "id": 10,
+      "timestamp": "2026-07-10 14:58:33",
+      "file": "index.html",
+      "context": "Add importmap for mdb-reader and buffer",
+      "backupFile": "10_index_html.bak"
+    },
+    {
+      "id": 11,
+      "timestamp": "2026-07-10 15:17:43",
+      "file": "xml-compare\\XmlCompareTransferModalPopup.js",
+      "context": "Before Tab 3 generic rev compare",
+      "backupFile": "11_xml_compare_XmlCompareTransferModalPopup_js.bak"
+    },
+    {
+      "id": 12,
+      "timestamp": "2026-07-10 15:17:43",
+      "file": "tabs\\xml-compare-tab.js",
+      "context": "Before Tab 3 generic rev compare",
+      "backupFile": "12_tabs_xml_compare_tab_js.bak"
+    },
+    {
+      "id": 13,
+      "timestamp": "2026-07-10 15:17:43",
+      "file": "tabs\\xml-compare-canvas-rebuild.css",
+      "context": "Before Tab 3 generic rev compare",
+      "backupFile": "13_tabs_xml_compare_canvas_rebuild_css.bak"
+    },
+    {
+      "id": 14,
+      "timestamp": "2026-07-10 15:20:20",
+      "file": "tabs\\inputxml-workspace\\inputxml-workspace-tab.js",
+      "context": "fix accdb helper import and clean tab labels",
+      "backupFile": "14_tabs_inputxml_workspace_inputxml_workspace_tab_js.bak"
+    },
+    {
+      "id": 15,
+      "timestamp": "2026-07-10 15:20:21",
+      "file": "parser\\accdb-mdb.js",
+      "context": "robust accdb reader imports and table matching",
+      "backupFile": "15_parser_accdb_mdb_js.bak"
+    },
+    {
+      "id": 16,
+      "timestamp": "2026-07-10 15:20:21",
+      "file": "tabs\\inputxml-workspace\\inputxml-workspace-table.js",
+      "context": "case-insensitive accdb row projection",
+      "backupFile": "16_tabs_inputxml_workspace_inputxml_workspace_table_js.bak"
+    },
+    {
+      "id": 17,
+      "timestamp": "2026-07-10 16:36:26",
+      "file": "tabs\\inputxml-workspace\\inputxml-workspace-tab.js",
+      "context": "editable restraint mutation config and info icon",
+      "backupFile": "17_tabs_inputxml_workspace_inputxml_workspace_tab_js.bak"
+    },
+    {
+      "id": 18,
+      "timestamp": "2026-07-10 16:36:26",
+      "file": "tabs\\inputxml-workspace\\inputxml-workspace-sideload.js",
+      "context": "ACCDB restraint type mutation",
+      "backupFile": "18_tabs_inputxml_workspace_inputxml_workspace_sideload_js.bak"
+    },
+    {
+      "id": 19,
+      "timestamp": "2026-07-10 16:36:27",
+      "file": "tabs\\psnm-utility-tab.js",
+      "context": "XML Builder utility launcher",
+      "backupFile": "19_tabs_psnm_utility_tab_js.bak"
+    },
+    {
+      "id": 20,
+      "timestamp": "2026-07-10 16:36:27",
+      "file": "tests\\inputxml-workspace-static.test.js",
+      "context": "XML Builder utility static test",
+      "backupFile": "20_tests_inputxml_workspace_static_test_js.bak"
+    },
+    {
+      "id": 21,
+      "timestamp": "2026-07-10 16:36:27",
+      "file": "tests\\inputxml-workspace-accdb-sideload.test.js",
+      "context": "restraint mutation ACCDB test",
+      "backupFile": "21_tests_inputxml_workspace_accdb_sideload_test_js.bak"
+    }
+  ]
+}

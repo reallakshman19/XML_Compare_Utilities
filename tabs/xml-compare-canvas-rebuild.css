@@ -399,11 +399,17 @@
 }
 
 /* --- Modal Popup Styles --- */
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
 .xml-compare-transfer-modal {
   position: fixed;
   inset: 5vh 5vw;
   width: 90vw;
   height: 90vh;
+  margin: 0 !important;
+  box-sizing: border-box !important;
   padding: 0;
   border: 1px solid rgba(147, 197, 253, 0.4);
   border-radius: 12px;
@@ -411,6 +417,11 @@
   color: #e2e8f0;
   box-shadow: 0 20px 40px rgba(0,0,0,0.8);
   z-index: 1000;
+  overflow: hidden;
+}
+
+.xml-compare-transfer-modal * {
+  box-sizing: border-box !important;
 }
 
 .xml-compare-transfer-modal[open] {
@@ -453,49 +464,111 @@
 
 .xml-compare-modal-tabs {
   display: flex;
-  gap: 2px;
-  padding: 0 20px;
-  background: rgba(15, 23, 42, 0.8);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.4);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .xml-compare-modal-tab-btn {
-  padding: 12px 24px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: rgba(30, 41, 59, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 30px;
   color: #94a3b8;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.02em;
 }
 
 .xml-compare-modal-tab-btn:hover {
-  color: #e2e8f0;
+  color: #f1f5f9;
   background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(148, 163, 184, 0.3);
+  transform: translateY(-1px);
 }
 
 .xml-compare-modal-tab-btn.is-active {
-  color: #38bdf8;
-  border-bottom-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.1);
+  color: #ffffff;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border-color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(3, 105, 161, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.xmlc-tab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.xmlc-tab-text {
+  line-height: 1;
 }
 
 .xml-compare-modal-body {
   flex: 1;
+  /* CRITICAL: min-height:0 allows the flex child to be bounded by the
+     parent dialog's finite height (90vh). Without this, the child grows
+     to its content size and overflow-y:auto never fires a scrollbar. */
+  min-height: 0;
   overflow-y: auto;
   padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  /* Block display so children render at their true intrinsic height */
+  display: block;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.xml-compare-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.xml-compare-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xml-compare-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+.xml-compare-modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
+
+/* Tab-pane hide guard: beats any !important display rules on inner classes
+   (e.g. display:flex !important on .xmlc-transfer-review).
+   Specificity 0,2,0 (class + :not pseudo-class) > 0,1,0 (single class).
+   Inactive panes MUST stay hidden regardless of inner class declarations. */
+.xml-compare-modal-tab-content:not(.is-active) {
+  display: none !important;
 }
 
 .xml-compare-modal-tab-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+
+  /* Block display: children render at their natural height so the parent
+     scroll container can measure them correctly. Do NOT use flex/grid here
+     or children with overflow-y:visible collapse to zero height. */
+  display: block;
+  padding-bottom: 8px;
 }
+
+/* Spacing between block-level sections within each tab pane */
+.xml-compare-modal-tab-content > * + * {
+  margin-top: 16px;
+}
+
+.xmlc-candidate-review-stack > * + * {
+  margin-top: 12px;
+}
+
 
 .xml-compare-connector-lane-container {
   display: flex;
@@ -519,3 +592,60 @@
 .xml-compare-review-btn:hover {
   background: #1d4ed8;
 }
+
+ / *   R e v   C o m p a r e   T a b   S t y l e s   * / 
+ . x m l c - r e v - c o m p a r e - t a b   { 
+     p a d d i n g :   1 r e m ; 
+ } 
+ . x m l c - r e v - c o m p a r e - d a s h b o a r d   { 
+     d i s p l a y :   f l e x ; 
+     f l e x - d i r e c t i o n :   c o l u m n ; 
+     g a p :   1 . 5 r e m ; 
+ } 
+ . x m l c - r e v - c o m p a r e - m e t r i c s - t a b l e   { 
+     w i d t h :   1 0 0 % ; 
+     b o r d e r - c o l l a p s e :   c o l l a p s e ; 
+ } 
+ . x m l c - r e v - c o m p a r e - m e t r i c s - t a b l e   t h ,   . x m l c - r e v - c o m p a r e - m e t r i c s - t a b l e   t d   { 
+     p a d d i n g :   0 . 5 r e m ; 
+     b o r d e r :   1 p x   s o l i d   v a r ( - - x m l c - b o r d e r ) ; 
+     t e x t - a l i g n :   l e f t ; 
+ } 
+ . x m l c - r e v - c o m p a r e - m e t r i c s - t a b l e   t h   { 
+     b a c k g r o u n d :   v a r ( - - x m l c - s u r f a c e - h o v e r ) ; 
+     f o n t - w e i g h t :   6 0 0 ; 
+ } 
+ . x m l c - n u m   { 
+     f o n t - f a m i l y :   m o n o s p a c e ; 
+     t e x t - a l i g n :   r i g h t   ! i m p o r t a n t ; 
+ } 
+ . x m l c - r e v - c o m p a r e - b l o c k e r s - l i s t   { 
+     m a r g i n :   0 ; 
+     p a d d i n g - l e f t :   1 . 5 r e m ; 
+     c o l o r :   v a r ( - - x m l c - d a n g e r ) ; 
+ } 
+ . x m l c - r e v - c o m p a r e - b l o c k e r s - l i s t   l i   { 
+     m a r g i n - b o t t o m :   0 . 2 5 r e m ; 
+ } 
+ . x m l c - r e v - c o m p a r e - g r i d - w r a p p e r   { 
+     o v e r f l o w - x :   a u t o ; 
+ } 
+ . x m l c - r e v - c o m p a r e - g r i d   { 
+     w i d t h :   1 0 0 % ; 
+     b o r d e r - c o l l a p s e :   c o l l a p s e ; 
+ } 
+ . x m l c - r e v - c o m p a r e - g r i d   t h ,   . x m l c - r e v - c o m p a r e - g r i d   t d   { 
+     p a d d i n g :   0 . 5 r e m ; 
+     b o r d e r :   1 p x   s o l i d   v a r ( - - x m l c - b o r d e r ) ; 
+     t e x t - a l i g n :   l e f t ; 
+     w h i t e - s p a c e :   n o w r a p ; 
+ } 
+ . x m l c - r e v - c o m p a r e - g r i d   t h   { 
+     b a c k g r o u n d :   v a r ( - - x m l c - s u r f a c e - h o v e r ) ; 
+     f o n t - w e i g h t :   6 0 0 ; 
+ } 
+ . x m l c - r e v - c o m p a r e - g r i d   . i s - c h a n g e d   t d   { 
+     b a c k g r o u n d - c o l o r :   r g b a ( 2 5 5 ,   1 9 3 ,   7 ,   0 . 1 ) ; 
+ } 
+  
+ 

@@ -216,7 +216,7 @@
 .xmlc-subtitle { color: #93c5fd; font-weight: 800; font-size: 12px; margin-top: 4px; }
 .xmlc-empty { color: #94a3b8; font-size: 12px; padding: 10px; border: 1px dashed rgba(148,163,184,.3); border-radius: 10px; }
 .xmlc-cand-summary { color: #cbd5e1; font-size: 12px; font-weight: 700; }
-.xmlc-table-scroll { overflow: auto; max-height: 320px; border: 1px solid rgba(148,163,184,.18); border-radius: 10px; }
+.xmlc-table-scroll { overflow-x: auto; overflow-y: visible; max-height: none; border: 1px solid rgba(148,163,184,.18); border-radius: 10px; }
 .xmlc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .xmlc-table th, .xmlc-table td { border-bottom: 1px solid rgba(148,163,184,.13); padding: 6px 8px; text-align: left; vertical-align: top; }
 .xmlc-table th { color: #93c5fd; position: sticky; top: 0; background: #0f172a; }

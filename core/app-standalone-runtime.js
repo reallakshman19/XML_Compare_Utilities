@@ -35,11 +35,13 @@ const TAB_ICON_SVGS = Object.freeze({
 
 export const STANDALONE_TABS = Object.freeze([
   { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
+  { id: 'workbench-3d', label: '3D Compare Workbench', icon: 'cube', load: () => import('../workbench3d/ui/workbench3d-tab.js?v=20260710-wb3d-1').then((module) => pickRenderer(module, 'renderWorkbench3dTab', 'workbench-3d')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
   { label: 'XML', ids: [
-  "xml-compare"
+  "xml-compare",
+  "workbench-3d"
 ] },
   { label: 'Utilities', ids: [
   "psnm-utility"

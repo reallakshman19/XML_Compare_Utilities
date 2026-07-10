@@ -12,9 +12,10 @@
 
 import { pipeLength, round } from '../utils/formatter.js';
 
-// importmap keys (index.html)
-const MDB_CDN    = 'mdb-reader';   // → esm.sh/mdb-reader@2
-const BUFFER_CDN = 'https://esm.sh/buffer@6'; // Node.js Buffer polyfill for browser
+// importmap keys first, explicit CDN URLs second for deployments where dynamic
+// bare-specifier import maps are not available.
+const MDB_IMPORTS = Object.freeze(['mdb-reader', 'https://esm.sh/mdb-reader@2']);
+const BUFFER_IMPORTS = Object.freeze(['buffer', 'https://esm.sh/buffer@6']);
 
 // ── Column name matchers ───────────────────────────────────────────────────
 // Each entry is a list of candidate names (checked case-insensitively, then
@@ -593,10 +594,10 @@ async function openAccdbReader(arrayBuffer, log) {
   let MDBReader;
   try {
     if (typeof globalThis.Buffer === 'undefined' || typeof globalThis.Buffer.from !== 'function') {
-      const bufMod = await import(BUFFER_CDN);
+      const bufMod = await importFirst(BUFFER_IMPORTS, 'buffer', log);
       globalThis.Buffer = bufMod.Buffer ?? bufMod.default?.Buffer ?? bufMod.default ?? bufMod;
     }
-    const mod = await import(/* @vite-ignore */ MDB_CDN);
+    const mod = await importFirst(MDB_IMPORTS, 'mdb-reader', log);
     MDBReader = mod.default ?? mod.MDBReader ?? mod;
     if (typeof MDBReader !== 'function') throw new Error('MDBReader is not a constructor');
   } catch (e) {
@@ -622,6 +623,30 @@ async function openAccdbReader(arrayBuffer, log) {
   return { reader, tableNames };
 }
 
+async function importFirst(specifiers, label, log) {
+  const errors = [];
+  for (const specifier of specifiers) {
+    try {
+      return await import(/* @vite-ignore */ specifier);
+    } catch (error) {
+      errors.push(`${specifier}: ${error.message}`);
+    }
+  }
+  log.push({ level: 'WARN', msg: `${label} import attempts failed: ${errors.join(' | ')}` });
+  throw new Error(errors[errors.length - 1] || `Cannot import ${label}`);
+}
+
+function tableKey(value) {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '');
+}
+
+function findAccdbTableName(tableNames, wanted) {
+  const exact = tableNames.find((name) => String(name).toUpperCase() === String(wanted).toUpperCase());
+  if (exact) return exact;
+  const wantedKey = tableKey(wanted);
+  return tableNames.find((name) => tableKey(name) === wantedKey) || '';
+}
+
 /**
  * Reads specific named tables out of an ACCDB/MDB file as raw row objects.
  * Inputs: file ArrayBuffer, array of wanted table names, mutable log array.
@@ -633,9 +658,14 @@ export async function readAccdbNamedTables(arrayBuffer, tableNames, log = []) {
   if (!opened) return {};
   const out = {};
   for (const wanted of tableNames) {
-    const match = opened.tableNames.find((t) => t.toUpperCase() === wanted.toUpperCase());
+    const match = findAccdbTableName(opened.tableNames, wanted);
     if (!match) { log.push({ level: 'WARN', msg: `Table not found: ${wanted}` }); continue; }
-    out[wanted] = opened.reader.getTable(match).getData();
+    try {
+      out[wanted] = opened.reader.getTable(match).getData();
+      log.push({ level: 'OK', msg: `Loaded ACCDB table ${match} as ${wanted}: ${out[wanted].length} row(s).` });
+    } catch (error) {
+      log.push({ level: 'ERROR', msg: `Failed reading table ${match}: ${error.message}` });
+    }
   }
   return out;
 }

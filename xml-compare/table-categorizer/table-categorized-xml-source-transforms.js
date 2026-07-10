@@ -1,6 +1,6 @@
 export const TABLE_CATEGORIZED_XML_SOURCE_TRANSFORMS_SCHEMA = 'table-categorized-xml-source-transforms/v1';
 
-const OPS = new Set(['copy', 'trim', 'take-before', 'take-after', 'replace-text', 'regex-replace']);
+const OPS = new Set(['copy', 'trim', 'take-before', 'take-after', 'replace-text', 'regex-replace', 'regex-extract', 'parse-number']);
 const clean = (v) => String(v ?? '').trim();
 const diag = (severity, code, message, details = {}) => Object.freeze({ severity, code, message, details: Object.freeze({ ...details }) });
 const freeze = (value) => Object.freeze(value);
@@ -15,6 +15,7 @@ export function createSourceTransformRule(input = {}) {
     operation: op,
     find: String(input.find ?? ''),
     replaceWith: String(input.replaceWith ?? ''),
+    group: Number(input.group) || 1,
     trim: input.trim !== false,
   });
 }
@@ -69,11 +70,18 @@ function applyOneRule(source, rule) {
   if (!rule.newColumn) return { source, diagnostics: [diag('BLOCKER', 'transform_new_column_missing', 'New column name is required.', { ruleId: rule.ruleId })] };
   if ((source.headers || []).includes(rule.newColumn)) return { source, diagnostics: [diag('BLOCKER', 'transform_new_column_duplicate', `Column already exists: ${rule.newColumn}`, { ruleId: rule.ruleId, column: rule.newColumn })] };
   const columnId = stableColumnId(rule.newColumn, source.columnIds || []);
+  
+  let effectiveSourceColumn = rule.sourceColumn;
+  if (effectiveSourceColumn && source.headers && source.headers.length > 0 && !source.headers.includes(effectiveSourceColumn)) {
+    effectiveSourceColumn = source.headers[0];
+  }
+  const effectiveRule = { ...rule, sourceColumn: effectiveSourceColumn };
+
   const diagnostics = [];
-  const rows = (source.rows || []).map((row) => appendValue(row, rule, columnId, diagnostics));
+  const rows = (source.rows || []).map((row) => appendValue(row, effectiveRule, columnId, diagnostics));
   return {
     source: freeze({ ...source, headers: freeze([...(source.headers || []), rule.newColumn]), columnIds: freeze([...(source.columnIds || []), columnId]), rows: freeze(rows) }),
-    diagnostics: [diag('INFO', 'transform_column_added', `Derived column added: ${rule.newColumn}`, { ruleId: rule.ruleId, sourceColumn: rule.sourceColumn, newColumn: rule.newColumn }), ...diagnostics],
+    diagnostics: [diag('INFO', 'transform_column_added', `Derived column added: ${rule.newColumn}`, { ruleId: rule.ruleId, sourceColumn: effectiveSourceColumn, newColumn: rule.newColumn }), ...diagnostics],
   };
 }
 
@@ -101,7 +109,37 @@ function transformValue(value, rule) {
     try { text = text.replace(new RegExp(find, 'g'), replaceWith); }
     catch (error) { diagnostics.push(diag('WARNING', 'transform_regex_invalid', 'Invalid regex. Value was left unchanged.', { ruleId: rule.ruleId, error: String(error?.message || error) })); }
   }
+  else if (rule.operation === 'regex-extract' && find) {
+    try {
+      const match = text.match(new RegExp(find, 'i'));
+      if (match) {
+        if (rule.group !== undefined && rule.group !== null && rule.group !== '') {
+          text = match[Number(rule.group)] || '';
+        } else {
+          text = match[0] || '';
+        }
+      } else {
+        text = ''; // Clear if not found
+      }
+    }
+    catch (error) {
+      diagnostics.push(diag('WARNING', 'transform_regex_invalid', 'Invalid regex. Value cleared.', { ruleId: rule.ruleId, error: String(error?.message || error) }));
+      text = '';
+    }
+  }
   if (rule.trim) text = text.trim();
+  if (rule.operation === 'parse-number') {
+    if (text === '' || text === '-') {
+      text = '';
+    } else {
+      const num = Number(text.replace(/[^0-9.-]+/g, ''));
+      if (!Number.isNaN(num)) text = String(num);
+      else {
+        diagnostics.push(diag('WARNING', 'transform_number_invalid', 'Failed to parse number. Value cleared.', { ruleId: rule.ruleId, value: text }));
+        text = '';
+      }
+    }
+  }
   return { value: text, diagnostics };
 }
 

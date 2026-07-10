@@ -56,7 +56,7 @@ export function parseLooseTable(text = '', columns = [], options = {}) {
 export function rowsToTabText(rows = [], columns = []) {
   const headers = columns.map((column) => column.label || column.key);
   const lines = [headers.join('\t')];
-  for (const row of rows || []) lines.push(columns.map((column) => clean(row?.[column.key])).join('\t'));
+  for (const row of rows || []) lines.push(columns.map((column) => clean(rowValue(row, column))).join('\t'));
   return lines.join('\n');
 }
 
@@ -69,7 +69,19 @@ function projectedValue(row = {}, column = {}) {
 }
 
 export function projectRows(rows = [], columns = []) {
-  return (rows || []).map((row) => Object.fromEntries(columns.map((column) => [column.key, projectedValue(row, column)])));
+  return (rows || []).map((row) => Object.fromEntries(columns.map((column) => [column.key, clean(rowValue(row, column))])));
 }
 
-export const _test = Object.freeze({ clean, normalKey, looksLikeHeader, headerIndex, projectedValue });
+function rowValue(row = {}, column = {}) {
+  const directKeys = [column.key, column.sourceKey, ...(column.aliases || [])].filter(Boolean);
+  for (const key of directKeys) if (row[key] !== undefined && row[key] !== null) return row[key];
+  const rowKeys = Object.keys(row || []);
+  const normalized = new Map(rowKeys.map((key) => [normalKey(key), key]));
+  for (const key of directKeys) {
+    const source = normalized.get(normalKey(key));
+    if (source && row[source] !== undefined && row[source] !== null) return row[source];
+  }
+  return '';
+}
+
+export const _test = Object.freeze({ clean, normalKey, looksLikeHeader, headerIndex, rowValue });

@@ -222,7 +222,9 @@ function nameKeyOf(record = {}, nameField = 'nodeName', nameDelimiter = '', name
   const key = nameDelimiter && namePosition ? extractToken(raw, { delimiter: nameDelimiter, position: namePosition, stripLeadingSlash: false, stripTrailingBranch: false }) : raw;
   return clean(key).toUpperCase();
 }
-function pairRow(source, target, { deltaMm, delta = null, fieldDeltas = [], textComparison = null, matchPct, status, isAnchor, method }) {
+function pairRow(source, target, { deltaMm, delta = null, fieldDeltas = [], textComparison = null, matchPct, status, isAnchor, method, matchTextField = 'displayName' }) {
+  const srcVal = clean(textComparison?.sourceValue) || clean(readFieldValue(source, matchTextField));
+  const tgtVal = textComparison ? clean(textComparison.targetValue) : (target ? clean(readFieldValue(target, matchTextField)) : '');
   return {
     id: `candidate:${clean(source.uid)}=>${clean(target?.uid)}`,
     sourceUid: clean(source.uid), targetUid: clean(target?.uid),
@@ -230,7 +232,7 @@ function pairRow(source, target, { deltaMm, delta = null, fieldDeltas = [], text
     sourceLabel: label(source), targetLabel: target ? label(target) : '',
     method, deltaMm: Number.isFinite(deltaMm) ? deltaMm : null,
     deltaX: delta ? delta.dx : null, deltaY: delta ? delta.dy : null, deltaZ: delta ? delta.dz : null,
-    textField: clean(textComparison?.field), textSourceValue: clean(textComparison?.sourceValue), textTargetValue: clean(textComparison?.targetValue),
+    textField: clean(textComparison?.field) || matchTextField, textSourceValue: srcVal, textTargetValue: tgtVal,
     fieldDeltas: Object.freeze(fieldDeltas), matchPct, status, isAnchor,
   };
 }
@@ -241,6 +243,7 @@ export function createXmlCompareCandidatePairs({
   numericField = null, numericOptions = {}, mode = 'both',
   basis = 'coordinate', nameField = 'nodeName', nameDelimiter = '', namePosition = 0,
   scopeToAnchorLine = true, matchDirection = 'source', parentConnectors = null,
+  textOverrides = {}
 } = {}) {
   const axisTol = perAxisTolerance(tolerance);
   const numericFields = numericCompareFields(sourceRecords, targetRecords, compareFields);
@@ -271,11 +274,17 @@ export function createXmlCompareCandidatePairs({
       const key = nameKeyOf(source, nameField, nameDelimiter, namePosition);
       const target = key ? targetByName.get(key) || null : null;
       const fieldDeltas = target ? fieldDeltasFor(source, target, numericFields, offset, axisTol, toleranceMm) : [];
-      const textComparison = target ? textMatchFor(source, target, matchTextField, textOptions) : null;
+      const candidateId = `candidate:${clean(source.uid)}=>${clean(target?.uid)}`;
+      const overrideText = textOverrides[candidateId];
+      let textComparison = null;
+      if (target || overrideText !== undefined) {
+        const compareTarget = overrideText !== undefined ? { ...(target || {}), [matchTextField]: overrideText } : target;
+        textComparison = textMatchFor(source, compareTarget, matchTextField, textOptions);
+      }
       const numericValid = fieldsWithinTolerance(fieldDeltas, numericFields);
       const matchPct = textComparison?.matchPct ?? (target ? 1 : 0);
-      const status = statusFor({ isAnchor: false, numericValid, matchPct, textMatchThreshold, hasTarget: Boolean(target), mode: effectiveMode });
-      return pairRow(source, target, { deltaMm: null, fieldDeltas, textComparison, matchPct, status, isAnchor: false, method: effectiveMode === 'text' ? 'text' : 'name' });
+      const status = statusFor({ isAnchor: false, numericValid, matchPct, textMatchThreshold, hasTarget: Boolean(target || overrideText !== undefined), mode: effectiveMode });
+      return pairRow(source, target, { deltaMm: null, fieldDeltas, textComparison, matchPct, status, isAnchor: false, method: effectiveMode === 'text' ? 'text' : 'name', matchTextField });
     });
   } else {
     // Coordinate compare in the SOURCE frame: targets are transformed (+offset) then compared to sources.
@@ -301,13 +310,19 @@ export function createXmlCompareCandidatePairs({
       const delta = isAnchor ? { dx: 0, dy: 0, dz: 0 } : (best ? axisDeltas(drivePoint, best.point) : null);
       const hasMatch = Boolean(source && target);
       const fieldDeltas = hasMatch ? fieldDeltasFor(source, target, numericFields, offset, axisTol, toleranceMm) : [];
-      const textComparison = hasMatch ? textMatchFor(source, target, matchTextField, textOptions) : null;
+      const candidateId = `candidate:${clean(source.uid)}=>${clean(target?.uid)}`;
+      const overrideText = textOverrides[candidateId];
+      let textComparison = null;
+      if (hasMatch || overrideText !== undefined) {
+        const compareTarget = overrideText !== undefined ? { ...(target || {}), [matchTextField]: overrideText } : target;
+        textComparison = textMatchFor(source, compareTarget, matchTextField, textOptions);
+      }
       const fieldNumericValid = numericFields.length ? fieldsWithinTolerance(fieldDeltas, numericFields) : null;
       const coordinateNumericValid = axisTol ? withinPerAxis(delta, axisTol) : (Number.isFinite(deltaMm) && deltaMm <= toleranceMm);
       const numericValid = isAnchor || (fieldNumericValid == null ? coordinateNumericValid : fieldNumericValid);
       const matchPct = textComparison?.matchPct ?? 0;
-      const status = statusFor({ isAnchor, numericValid, matchPct, textMatchThreshold, hasTarget: hasMatch, mode: effectiveMode });
-      return pairRow(source || {}, target || null, { deltaMm, delta, fieldDeltas, textComparison, matchPct, status, isAnchor, method: methodFor({ mode: effectiveMode, numericField, numericFields, numericValid, matchPct, textMatchThreshold }) });
+      const status = statusFor({ isAnchor, numericValid, matchPct, textMatchThreshold, hasTarget: Boolean(hasMatch || overrideText !== undefined), mode: effectiveMode });
+      return pairRow(source || {}, target || null, { deltaMm, delta, fieldDeltas, textComparison, matchPct, status, isAnchor, method: methodFor({ mode: effectiveMode, numericField, numericFields, numericValid, matchPct, textMatchThreshold }), matchTextField });
     });
   }
 

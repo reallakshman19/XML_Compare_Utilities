@@ -9,7 +9,7 @@ const runtimeSource = fs.readFileSync(new URL('../tabs/xml-compare-table-categor
 const controllerSource = fs.readFileSync(new URL('../xml-compare/table-categorizer/table-categorized-xml-controller.js', import.meta.url), 'utf8');
 
 const handledActions = new Set([
-  'add-source', 'remove-source', 'clear', 'load-sample', 'load-field-comparison-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse',
+  'add-source', 'remove-source', 'clear', 'load-sample', 'load-field-comparison-sample', 'load-coordinate-sample', 'load-two-source-template', 'parse', 'load-iso-note-template',
   'confirm-columns', 'add-derived-column', 'preview-derived-column', 'remove-derived-column',
   'select-level', 'add-child-level', 'remove-level', 'load-suggested-profile', 'build-graph',
   'assign-field-key', 'assign-field-display', 'add-field-resolver', 'create-child-from-field',

@@ -56,12 +56,33 @@ const leafFields=(node)=>{const out={};for(const child of descendants(node,null,
 function itemCount(block){if(!block)return 0;const direct=children(block).filter((child)=>!/Block$|Blocks$/i.test(child.name));return direct.length;}
 function compactFields(block){const attrs={...block?.attrs};const fields={...attrs,...textTags(block)};return Object.freeze(Object.fromEntries(Object.entries(fields).slice(0,10).map(([k,v])=>[k,decode(v)])));}
 function lineKey(line,index){return decode(line.attrs.id)||firstText(firstChild(line,'LineBlock')||line,['LineNo'],true)||firstText(firstChild(line,'LineBlock')||line,['Branchname'],true)||firstText(line,['LINE_ID'],true)||`Line ${index}`;}
-function elementKey(element,index){const a=element.attrs||{};return decode(a.elementKey)||(decode(a.fromNode)&&decode(a.toNode)?`${decode(a.fromNode)}->${decode(a.toNode)}`:'')||firstText(element,['NAME'],true)||`Element ${index}`;}
+function elementKey(element,index){const a=element.attrs||{};return decode(a.elementKey)||decode(a.key)||(decode(a.fromNode)&&decode(a.toNode)?`${decode(a.fromNode)}->${decode(a.toNode)}`:'')||firstText(element,['NAME'],true)||`Element ${index}`;}
 function nodePoint(fields){const x=fields.FROM_GLOBAL_X||fields.TO_GLOBAL_X||fields.GLOBAL_X||fields.X;const y=fields.FROM_GLOBAL_Y||fields.TO_GLOBAL_Y||fields.GLOBAL_Y||fields.Y;const z=fields.FROM_GLOBAL_Z||fields.TO_GLOBAL_Z||fields.GLOBAL_Z||fields.Z;return {globalX:decode(x),globalY:decode(y),globalZ:decode(z),position:x&&y&&z?{x:Number(x),y:Number(y),z:Number(z)}:null};}
 function temperatureFields(fields){const out={};for(let i=1;i<=9;i++){const key=`Temperature${i}`;if(clean(fields[key]))out[key]=clean(fields[key]);}return out;}
 function countIn(node,tag){return descendants(node,tag,[]).length;}
 function makeLevel(levelId,label,records,layout,fields){return Object.freeze({levelId,label,levelType:levelId==='lineBlock'?'group':levelId==='nodeEvidence'?'evidence':'occurrence',recordCount:records.length,layout,fields:Object.freeze(fields),records:Object.freeze(records)});}
-function fieldsFor(records=[],preferred=[]){const keys=[];const add=(key)=>{if(clean(key)&&!keys.includes(key))keys.push(key);};preferred.forEach(add);for(const record of records)for(const [key,value] of Object.entries(record||{})){if(['raw','rawSummary','position','points','diagnostics','compactFields'].includes(key))continue;if(value==null||typeof value==='object')continue;if(clean(value))add(key);}return keys;}
+function fieldsFor(records=[],preferred=[]){
+  const presentKeys = new Set();
+  const rawSummaryKeys = new Set();
+  for(const record of records){
+    for(const [key,value] of Object.entries(record||{})){
+      if(['raw','rawSummary','position','points','diagnostics','compactFields'].includes(key))continue;
+      if(value!=null&&typeof value!=='object'&&clean(value)) presentKeys.add(key);
+    }
+    if (record?.rawSummary) {
+      for(const [key,value] of Object.entries(record.rawSummary||{})){
+        if(value!=null&&typeof value!=='object'&&clean(value)) rawSummaryKeys.add(key);
+      }
+    }
+  }
+  const keys=[];
+  const add=(key)=>{if(clean(key)&&!keys.includes(key))keys.push(key);};
+  preferred.forEach((key)=>{if(presentKeys.has(key)||rawSummaryKeys.has(key))add(key);});
+  if (keys.length === 0 && records.length === 0) preferred.forEach(add);
+  Array.from(rawSummaryKeys).forEach(add);
+  Array.from(presentKeys).forEach(add);
+  return keys;
+}
 function childBlockSummary(node){return Object.freeze(children(node).map((child)=>child.name).filter((name)=>/Block$|Blocks$|OriginalElement/i.test(name)));}
 function sourceRef(sourceName,lineIndex,elementIndex=null,nodeIndex=null,blockName=''){return [sourceName||'CategorizedInputXML',`Line ${lineIndex}`,elementIndex!=null?`Element ${elementIndex}`:'',nodeIndex!=null?`Node ${nodeIndex}`:'',blockName].filter(Boolean).join(' / ');}
 export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',side='source'}={}){
@@ -76,14 +97,17 @@ export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',s
   const lineRecords=[],elementRecords=[],nodeRecords=[],evidenceRecords=[];
   const hierarchy={lineKeys:[],lineToElements:{},elementToNodes:{},nodeToEvidence:{}};
   let elementTotal=0,nodeTotal=0,evidenceTotal=0;
-  const lineTag=(root?.children||[]).find((child)=>child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Line';
+  const lineTag=(root?.children||[]).find((child)=>child.attrs?.levelType||child.children?.length)?.name||'Line';
   const lineNodes=children(root,lineTag);
+  let detectedElementTag = 'Element';
+  let detectedNodeTag = 'Node';
   lineNodes.forEach((line,lineIdx)=>{
     const lIndex=lineIdx+1,lKey=lineKey(line,lIndex),uidKey=escKey(lKey)||String(lIndex);
     const lineBlock=firstChild(line,'LineBlock')||line;
     const lineNo=firstText(lineBlock,['LineNo'],true)||lKey;
     const branchName=firstText(lineBlock,['Branchname'],true)||lineNo||lKey;
-    const elementTag=(line.children||[]).find((child)=>child.name!=='LineBlock'&&child.name!=='LineBlocks'&&child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Element';
+    const elementTag=(line.children||[]).find((child)=>child.name!=='LineBlock'&&child.name!=='LineBlocks'&&child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&(child.attrs?.levelType||child.children?.length))?.name||'Element';
+    detectedElementTag = elementTag;
     const elements=descendants(line,elementTag,[]);
     const detectedBlockNames=uniq(directBlockNames(line).filter((name)=>name!=='Element'));
     const record={uid:`categorized:lineBlock:${uidKey}`,levelId:'lineBlock',recordKind:'LINE_BLOCK',lineKey:lKey,lineNo,branchName,displayName:lineNo||branchName||lKey,key:lKey,elementCount:elements.length,nodeCount:0,evidenceCount:0,detectedBlockNames,sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex)]),rawSummary:Object.freeze({...textTags(lineBlock),detectedBlockNames:detectedBlockNames.join(', ')})};
@@ -91,21 +115,22 @@ export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',s
     let lineNodeCount=0,lineEvidenceCount=0;
     elements.forEach((element,elementIdx)=>{
       const eIndex=elementIdx+1,eKey=elementKey(element,eIndex),eUidKey=escKey(eKey),attrs=element.attrs||{},fields=leafFields(element),name=fields.NAME||eKey;
-      const nodeTag=(element.children||[]).find((child)=>child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Node';
+      const nodeTag=(element.children||[]).find((child)=>child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&(child.attrs?.levelType||child.children?.length))?.name||'Node';
+      detectedNodeTag = nodeTag;
       const elementNodes=descendants(element,nodeTag,[]);
       const childBlockNames=childBlockSummary(element);
-      const er={uid:`categorized:element:${uidKey}:${eUidKey}`,levelId:'element',recordKind:'ELEMENT',lineKey:lKey,lineNo,branchName,elementKey:eKey,fromNode:decode(attrs.fromNode),toNode:decode(attrs.toNode),displayName:name,key:eKey,DELTA_X:fields.DELTA_X||'',DELTA_Y:fields.DELTA_Y||'',DELTA_Z:fields.DELTA_Z||'',ElementLengthMm:fields.ElementLengthMm||'',MaterialName:fields.MaterialName||'',DIAMETER:fields.DIAMETER||'',WALL_THICK:fields.WALL_THICK||'',INSUL_THICK:fields.INSUL_THICK||'',FROM_NAME:fields.FROM_NAME||decode(attrs.FROM_NAME),TO_NAME:fields.TO_NAME||decode(attrs.TO_NAME),NAME:fields.NAME||'',LINE_ID:fields.LINE_ID||decode(attrs.LINE_ID),childBlockNames,nodeCount:elementNodes.length,evidenceCount:0,sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex)]),rawSummary:Object.freeze(Object.fromEntries(Object.entries({...fields,...attrs}).slice(0,18)))};
+      const er={uid:`categorized:element:${uidKey}:${eUidKey}`,levelId:'element',recordKind:'ELEMENT',lineKey:lKey,lineNo,branchName,elementKey:eKey,fromNode:decode(attrs.fromNode),toNode:decode(attrs.toNode),displayName:name,key:eKey,DELTA_X:fields.DELTA_X||'',DELTA_Y:fields.DELTA_Y||'',DELTA_Z:fields.DELTA_Z||'',ElementLengthMm:fields.ElementLengthMm||'',MaterialName:fields.MaterialName||'',DIAMETER:fields.DIAMETER||'',WALL_THICK:fields.WALL_THICK||'',INSUL_THICK:fields.INSUL_THICK||'',FROM_NAME:fields.FROM_NAME||decode(attrs.FROM_NAME),TO_NAME:fields.TO_NAME||decode(attrs.TO_NAME),NAME:fields.NAME||'',LINE_ID:fields.LINE_ID||decode(attrs.LINE_ID),childBlockNames,nodeCount:elementNodes.length,evidenceCount:0,sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex)]),...fields,rawSummary:Object.freeze(Object.fromEntries(Object.entries({...fields,...attrs}).slice(0,18)))};
       elementRecords.push(Object.freeze(er));elementTotal+=1;hierarchy.lineToElements[lKey].push(eKey);hierarchy.elementToNodes[`${lKey}|${eKey}`]=[];
       let elementEvidenceCount=0;
       elementNodes.forEach((node,nodeIdx)=>{
         const nIndex=nodeIdx+1,attrs=node.attrs||{},nodeNumber=decode(attrs.nodeNumber),role=decode(attrs.role)||'NODE',nKey=`${lineNo||lKey}/${eKey}/${role}/${nodeNumber||nIndex}`,nodeUidKey=escKey(`${role}:${nodeNumber||nIndex}`),nFields=leafFields(node),point=nodePoint(nFields),blockNames=uniq(directBlockNames(node));
-        const nr={uid:`categorized:node:${uidKey}:${eUidKey}:${nodeUidKey}`,levelId:'node',recordKind:'NODE',lineKey:lKey,lineNo,branchName,elementKey:eKey,nodeNumber,role,displayName:`${role} ${nodeNumber||nIndex}`,key:nKey,globalX:point.globalX,globalY:point.globalY,globalZ:point.globalZ,coordinateBasisNode:nFields.GLOBAL_COORD_BASIS_NODE||nFields.CoordinateBasisNode||nFields.BasisNode||'',...temperatureFields(nFields),restraintCount:countIn(node,'RESTRAINT'),displacementsCount:countIn(node,'DISPLACEMENTS'),forcesMomentsCount:countIn(node,'FORCESMOMENTS'),sifCount:countIn(node,'SIF'),detectedBlockNames:blockNames,position:point.position,points:point.position?[point.position]:[],sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex,nIndex)])};
+        const nr={uid:`categorized:node:${uidKey}:${eUidKey}:${nodeUidKey}`,levelId:'node',recordKind:'NODE',lineKey:lKey,lineNo,branchName,elementKey:eKey,nodeNumber,role,displayName:`${role} ${nodeNumber||nIndex}`,key:nKey,globalX:point.globalX,globalY:point.globalY,globalZ:point.globalZ,coordinateBasisNode:nFields.GLOBAL_COORD_BASIS_NODE||nFields.CoordinateBasisNode||nFields.BasisNode||'',...temperatureFields(nFields),restraintCount:countIn(node,'RESTRAINT'),displacementsCount:countIn(node,'DISPLACEMENTS'),forcesMomentsCount:countIn(node,'FORCESMOMENTS'),sifCount:countIn(node,'SIF'),detectedBlockNames:blockNames,position:point.position,points:point.position?[point.position]:[],sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex,nIndex)]),...nFields};
         nodeRecords.push(Object.freeze(nr));nodeTotal+=1;lineNodeCount+=1;hierarchy.elementToNodes[`${lKey}|${eKey}`].push(nKey);hierarchy.nodeToEvidence[`${lKey}|${eKey}|${nKey}`]=[];
         for(const block of children(node)){
           if(!/Block$|Blocks$/i.test(block.name))continue;
           const itemTotal=itemCount(block);
           const evidenceKey=`${nKey}/${block.name}`;
-          const ev={uid:`categorized:nodeEvidence:${uidKey}:${eUidKey}:${nodeUidKey}:${escKey(block.name)}`,levelId:'nodeEvidence',recordKind:'NODE_EVIDENCE',lineKey:lKey,lineNo,branchName,elementKey:eKey,nodeNumber,role,evidenceKind:block.name,blockName:block.name,itemCount:itemTotal,displayName:`${role} ${nodeNumber||nIndex} · ${block.name}`,key:evidenceKey,compactFields:compactFields(block),sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex,nIndex,block.name)])};
+          const ev={uid:`categorized:nodeEvidence:${uidKey}:${eUidKey}:${nodeUidKey}:${escKey(block.name)}`,levelId:'nodeEvidence',recordKind:'NODE_EVIDENCE',lineKey:lKey,lineNo,branchName,elementKey:eKey,nodeNumber,role,evidenceKind:block.name,blockName:block.name,itemCount:itemTotal,displayName:`${role} ${nodeNumber||nIndex} · ${block.name}`,key:evidenceKey,compactFields:compactFields(block),sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex,nIndex,block.name)]),...(leafFields(block))};
           evidenceRecords.push(Object.freeze(ev));evidenceTotal+=1;lineEvidenceCount+=1;elementEvidenceCount+=1;hierarchy.nodeToEvidence[`${lKey}|${eKey}|${nKey}`].push(evidenceKey);
         }
       });
@@ -116,8 +141,8 @@ export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',s
   const allRecords=Object.freeze([...lineRecords,...elementRecords,...nodeRecords,...evidenceRecords]);
   const levels=Object.freeze([
     makeLevel('lineBlock',lineTag==='Line'?'LineBlock':lineTag,lineRecords,lineRecords.length>60?'compact-list':'tiles',fieldsFor(lineRecords,['displayName','lineNo','branchName','elementCount','nodeCount','evidenceCount','detectedBlockNames'])),
-    makeLevel('element',elementTag==='Element'?'Element':elementTag,elementRecords,elementRecords.length>80?'grouped-compact-tree':'grouped-tree',fieldsFor(elementRecords,['displayName','elementKey','fromNode','toNode','lineNo','DELTA_X','DELTA_Y','DELTA_Z','ElementLengthMm','MaterialName','nodeCount','evidenceCount'])),
-    makeLevel('node',nodeTag==='Node'?'Node':nodeTag,nodeRecords,nodeRecords.length>120?'grouped-compact-tree':'grouped-tree',fieldsFor(nodeRecords,['displayName','nodeNumber','role','elementKey','lineNo','globalX','globalY','globalZ','coordinateBasisNode','restraintCount','displacementsCount','forcesMomentsCount','sifCount'])),
+    makeLevel('element',detectedElementTag==='Element'?'Element':detectedElementTag,elementRecords,elementRecords.length>80?'grouped-compact-tree':'grouped-tree',fieldsFor(elementRecords,['displayName','elementKey','fromNode','toNode','lineNo','DELTA_X','DELTA_Y','DELTA_Z','ElementLengthMm','MaterialName','nodeCount','evidenceCount'])),
+    makeLevel('node',detectedNodeTag==='Node'?'Node':detectedNodeTag,nodeRecords,nodeRecords.length>120?'grouped-compact-tree':'grouped-tree',fieldsFor(nodeRecords,['displayName','nodeNumber','role','elementKey','lineNo','globalX','globalY','globalZ','coordinateBasisNode','restraintCount','displacementsCount','forcesMomentsCount','sifCount'])),
     makeLevel('nodeEvidence','Node Evidence',evidenceRecords,'grouped-compact-tree',fieldsFor(evidenceRecords,['displayName','evidenceKind','blockName','itemCount','nodeNumber','role','elementKey','lineNo']))
   ].filter((x)=>x.recordCount||x.levelId==='lineBlock'));
   const summary=Object.freeze({schema,sourceName:detectedSourceName,recordCount:allRecords.length,lineBlockCount:lineRecords.length,lineCount:lineRecords.length,elementCount:elementTotal,nodeCount:nodeTotal,evidenceCount:evidenceTotal,pipingElementCount:(stripCdata(xmlText).match(/<PIPINGELEMENT\b/gi)||[]).length,detectedBlockNames:uniq([...lineRecords.flatMap((r)=>r.detectedBlockNames),...elementRecords.flatMap((r)=>r.childBlockNames),...nodeRecords.flatMap((r)=>r.detectedBlockNames)])});

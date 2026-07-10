@@ -77,3 +77,7 @@
     max-height: 240px !important;
   }
 }
+
+.xml-compare-connector-lane {
+  overflow-y: auto !important;
+}
