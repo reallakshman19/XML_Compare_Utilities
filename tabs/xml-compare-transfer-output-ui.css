@@ -72,8 +72,7 @@
   text-transform: uppercase;
 }
 
-.xmlc-transfer-dashboard-card small,
-.xmlc-transfer-dashboard-card em {
+.xmlc-transfer-dashboard-card-details small {
   min-width: 0;
   color: #cbd5e1;
   font-size: 11px;
@@ -81,10 +80,14 @@
   overflow-wrap: anywhere;
 }
 
-.xmlc-transfer-dashboard-card em {
-  color: #93c5fd;
+.xmlc-transfer-dashboard-card-details em {
+  min-width: 0;
+  color: #38bdf8;
   font-style: normal;
   font-weight: 700;
+  font-size: 11px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-dashboard-card.is-ready {
@@ -210,6 +213,19 @@
   gap: 8px;
   text-align: center;
   white-space: normal;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.15);
+}
+
+.xmlc-transfer-output-actions .xmlc-transfer-action:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.95);
 }
 
 .xmlc-transfer-action-icon {

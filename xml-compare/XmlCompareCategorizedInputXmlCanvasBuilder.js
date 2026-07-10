@@ -68,27 +68,31 @@ export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',s
   const diagnostics=[];
   const parsed=parseXmlLite(xmlText);
   const root=(parsed.children||[]).find((child)=>child.name==='CategorizedInputXML')||parsed.children?.[0]||null;
-  if(!root||root.name!=='CategorizedInputXML')diagnostics.push(Object.freeze({severity:'ERROR',code:'categorized_inputxml_root_missing',message:'CategorizedInputXML root was not found.',details:Object.freeze({rootTag:root?.name||''})}));
+  if(!root)diagnostics.push(Object.freeze({severity:'ERROR',code:'categorized_inputxml_root_missing',message:'CategorizedInputXML root was not found.',details:Object.freeze({rootTag:''})}));
+  else if(root.name!=='CategorizedInputXML' && !root.attrs?.profileId)diagnostics.push(Object.freeze({severity:'ERROR',code:'categorized_inputxml_root_missing',message:'CategorizedInputXML root was not found.',details:Object.freeze({rootTag:root.name})}));
   const rootTag=root?.name||'';
   const schema=decode(root?.attrs?.schema||'');
   const detectedSourceName=decode(root?.attrs?.sourceName||sourceName);
   const lineRecords=[],elementRecords=[],nodeRecords=[],evidenceRecords=[];
   const hierarchy={lineKeys:[],lineToElements:{},elementToNodes:{},nodeToEvidence:{}};
   let elementTotal=0,nodeTotal=0,evidenceTotal=0;
-  const lineNodes=children(root,'Line');
+  const lineTag=(root?.children||[]).find((child)=>child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Line';
+  const lineNodes=children(root,lineTag);
   lineNodes.forEach((line,lineIdx)=>{
     const lIndex=lineIdx+1,lKey=lineKey(line,lIndex),uidKey=escKey(lKey)||String(lIndex);
     const lineBlock=firstChild(line,'LineBlock')||line;
     const lineNo=firstText(lineBlock,['LineNo'],true)||lKey;
     const branchName=firstText(lineBlock,['Branchname'],true)||lineNo||lKey;
-    const elements=descendants(line,'Element',[]);
+    const elementTag=(line.children||[]).find((child)=>child.name!=='LineBlock'&&child.name!=='LineBlocks'&&child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Element';
+    const elements=descendants(line,elementTag,[]);
     const detectedBlockNames=uniq(directBlockNames(line).filter((name)=>name!=='Element'));
     const record={uid:`categorized:lineBlock:${uidKey}`,levelId:'lineBlock',recordKind:'LINE_BLOCK',lineKey:lKey,lineNo,branchName,displayName:lineNo||branchName||lKey,key:lKey,elementCount:elements.length,nodeCount:0,evidenceCount:0,detectedBlockNames,sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex)]),rawSummary:Object.freeze({...textTags(lineBlock),detectedBlockNames:detectedBlockNames.join(', ')})};
     hierarchy.lineKeys.push(lKey);hierarchy.lineToElements[lKey]=[];
     let lineNodeCount=0,lineEvidenceCount=0;
     elements.forEach((element,elementIdx)=>{
       const eIndex=elementIdx+1,eKey=elementKey(element,eIndex),eUidKey=escKey(eKey),attrs=element.attrs||{},fields=leafFields(element),name=fields.NAME||eKey;
-      const elementNodes=descendants(element,'Node',[]);
+      const nodeTag=(element.children||[]).find((child)=>child.name!=='Diagnostics'&&child.name!=='DiagnosticsContainer'&&!child.name.endsWith('Block')&&!child.name.endsWith('Blocks'))?.name||'Node';
+      const elementNodes=descendants(element,nodeTag,[]);
       const childBlockNames=childBlockSummary(element);
       const er={uid:`categorized:element:${uidKey}:${eUidKey}`,levelId:'element',recordKind:'ELEMENT',lineKey:lKey,lineNo,branchName,elementKey:eKey,fromNode:decode(attrs.fromNode),toNode:decode(attrs.toNode),displayName:name,key:eKey,DELTA_X:fields.DELTA_X||'',DELTA_Y:fields.DELTA_Y||'',DELTA_Z:fields.DELTA_Z||'',ElementLengthMm:fields.ElementLengthMm||'',MaterialName:fields.MaterialName||'',DIAMETER:fields.DIAMETER||'',WALL_THICK:fields.WALL_THICK||'',INSUL_THICK:fields.INSUL_THICK||'',FROM_NAME:fields.FROM_NAME||decode(attrs.FROM_NAME),TO_NAME:fields.TO_NAME||decode(attrs.TO_NAME),NAME:fields.NAME||'',LINE_ID:fields.LINE_ID||decode(attrs.LINE_ID),childBlockNames,nodeCount:elementNodes.length,evidenceCount:0,sourceRefs:Object.freeze([sourceRef(detectedSourceName,lIndex,eIndex)]),rawSummary:Object.freeze(Object.fromEntries(Object.entries({...fields,...attrs}).slice(0,18)))};
       elementRecords.push(Object.freeze(er));elementTotal+=1;hierarchy.lineToElements[lKey].push(eKey);hierarchy.elementToNodes[`${lKey}|${eKey}`]=[];
@@ -111,11 +115,11 @@ export function createCategorizedInputXmlCanvasModel({sourceName='',xmlText='',s
   });
   const allRecords=Object.freeze([...lineRecords,...elementRecords,...nodeRecords,...evidenceRecords]);
   const levels=Object.freeze([
-    makeLevel('lineBlock','LineBlock',lineRecords,lineRecords.length>60?'compact-list':'tiles',fieldsFor(lineRecords,['displayName','lineNo','branchName','elementCount','nodeCount','evidenceCount','detectedBlockNames'])),
-    makeLevel('element','Element',elementRecords,elementRecords.length>80?'grouped-compact-tree':'grouped-tree',fieldsFor(elementRecords,['displayName','elementKey','fromNode','toNode','lineNo','DELTA_X','DELTA_Y','DELTA_Z','ElementLengthMm','MaterialName','nodeCount','evidenceCount'])),
-    makeLevel('node','Node',nodeRecords,nodeRecords.length>120?'grouped-compact-tree':'grouped-tree',fieldsFor(nodeRecords,['displayName','nodeNumber','role','elementKey','lineNo','globalX','globalY','globalZ','coordinateBasisNode','restraintCount','displacementsCount','forcesMomentsCount','sifCount'])),
+    makeLevel('lineBlock',lineTag==='Line'?'LineBlock':lineTag,lineRecords,lineRecords.length>60?'compact-list':'tiles',fieldsFor(lineRecords,['displayName','lineNo','branchName','elementCount','nodeCount','evidenceCount','detectedBlockNames'])),
+    makeLevel('element',elementTag==='Element'?'Element':elementTag,elementRecords,elementRecords.length>80?'grouped-compact-tree':'grouped-tree',fieldsFor(elementRecords,['displayName','elementKey','fromNode','toNode','lineNo','DELTA_X','DELTA_Y','DELTA_Z','ElementLengthMm','MaterialName','nodeCount','evidenceCount'])),
+    makeLevel('node',nodeTag==='Node'?'Node':nodeTag,nodeRecords,nodeRecords.length>120?'grouped-compact-tree':'grouped-tree',fieldsFor(nodeRecords,['displayName','nodeNumber','role','elementKey','lineNo','globalX','globalY','globalZ','coordinateBasisNode','restraintCount','displacementsCount','forcesMomentsCount','sifCount'])),
     makeLevel('nodeEvidence','Node Evidence',evidenceRecords,'grouped-compact-tree',fieldsFor(evidenceRecords,['displayName','evidenceKind','blockName','itemCount','nodeNumber','role','elementKey','lineNo']))
-  ]);
+  ].filter((x)=>x.recordCount||x.levelId==='lineBlock'));
   const summary=Object.freeze({schema,sourceName:detectedSourceName,recordCount:allRecords.length,lineBlockCount:lineRecords.length,lineCount:lineRecords.length,elementCount:elementTotal,nodeCount:nodeTotal,evidenceCount:evidenceTotal,pipingElementCount:(stripCdata(xmlText).match(/<PIPINGELEMENT\b/gi)||[]).length,detectedBlockNames:uniq([...lineRecords.flatMap((r)=>r.detectedBlockNames),...elementRecords.flatMap((r)=>r.childBlockNames),...nodeRecords.flatMap((r)=>r.detectedBlockNames)])});
   return Object.freeze({schema:XML_COMPARE_CATEGORIZED_INPUTXML_CANVAS_MODEL_SCHEMA,sourceName:detectedSourceName,profile:'categorized-inputxml',side:clean(side)||'source',rootTag,levels,records:allRecords,hierarchy:Object.freeze(hierarchy),summary,diagnostics:Object.freeze(diagnostics)});
 }

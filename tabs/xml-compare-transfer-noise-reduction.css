@@ -14,11 +14,14 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-items: stretch !important;
   overflow-x: hidden;
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
 }
 
 .xmlc-transfer-review > .xml-compare-panel,
@@ -118,19 +121,33 @@
   background: rgba(100, 116, 139, 0.20);
 }
 
-.xmlc-transfer-dashboard-card small,
-.xmlc-transfer-dashboard-card em {
+.xmlc-transfer-dashboard-card-details {
   grid-area: detail;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.xmlc-transfer-dashboard-card-details small {
   min-width: 0;
   display: block;
   color: #94a3b8;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.xmlc-transfer-dashboard-card em {
-  color: #93c5fd;
+.xmlc-transfer-dashboard-card-details em {
+  min-width: 0;
+  display: block;
+  color: #38bdf8;
+  font-size: 11px;
+  line-height: 1.35;
+  font-style: normal;
+  font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .xmlc-transfer-start {
