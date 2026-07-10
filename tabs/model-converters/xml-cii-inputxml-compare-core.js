@@ -1,6 +1,9 @@
 import { normalizeInputXmlElementGraph } from './xml-cii-inputxml-element-normalizer.js?v=20260709-5d-normalizer-1';
 import { alignElementPaths } from './xml-cii-inputxml-path-aligner.js?v=20260709-5d-path-2';
 import { supplementalEvidence, tightenedConfidence } from './xml-cii-inputxml-evidence-scorer.js?v=20260709-5d-evidence-2';
+import { solveInputXmlCoordinateFrame } from './xml-cii-inputxml-coordinate-frame-solver.js';
+import { solveInputXmlNodeRemap } from './xml-cii-inputxml-node-map-solver.js';
+import { buildInputXmlTopologyDashboard } from './xml-cii-inputxml-topology-dashboard-model.js';
 
 const DEFAULT_LENGTH_TOL_MM = 6;
 const DEFAULT_SCORE_MARGIN = 10;
@@ -10,6 +13,14 @@ function n(value) { const num = Number(value); return Number.isFinite(num) ? num
 function boolOption(options, key, fallback = false) { return options?.[key] === undefined ? fallback : !!options[key]; }
 function roundBucket(value, tolerance) { const num = Number(value); return Number.isFinite(num) && tolerance > 0 ? Math.round(num / tolerance) * tolerance : 0; }
 function attr(element, name) { return text(element?.getAttribute?.(name)); }
+function coordAttr(element, names = []) { for (const name of names) { const value = n(attr(element, name)); if (value !== null) return value; } return null; }
+function coordinateFromAttrs(element, prefix) {
+  const upper = String(prefix || '').toUpperCase();
+  const x = coordAttr(element, [`${upper}_X`, `${upper}X`, `${upper}_GLOBAL_X`, `${upper}_COORD_X`, `${upper}_POINT_X`, upper === 'FROM' ? 'X1' : 'X2', upper === 'FROM' ? 'START_X' : 'END_X']);
+  const y = coordAttr(element, [`${upper}_Y`, `${upper}Y`, `${upper}_GLOBAL_Y`, `${upper}_COORD_Y`, `${upper}_POINT_Y`, upper === 'FROM' ? 'Y1' : 'Y2', upper === 'FROM' ? 'START_Y' : 'END_Y']);
+  const z = coordAttr(element, [`${upper}_Z`, `${upper}Z`, `${upper}_GLOBAL_Z`, `${upper}_COORD_Z`, `${upper}_POINT_Z`, upper === 'FROM' ? 'Z1' : 'Z2', upper === 'FROM' ? 'START_Z' : 'END_Z']);
+  return x === null || y === null || z === null ? null : Object.freeze({ x, y, z });
+}
 function localName(node) { return text(node?.localName || node?.nodeName).replace(/^.*:/, '').toUpperCase(); }
 function children(element, name) { return Array.from(element?.children || []).filter((child) => localName(child) === String(name).toUpperCase()); }
 function edgeLength(edge) { return Math.hypot(Number(edge.dx || 0), Number(edge.dy || 0), Number(edge.dz || 0)); }
@@ -84,6 +95,8 @@ export function parseInputXmlElementGraph(xmlText, options = {}) {
       dx: n(attr(element, 'DELTA_X')) || 0,
       dy: n(attr(element, 'DELTA_Y')) || 0,
       dz: n(attr(element, 'DELTA_Z')) || 0,
+      fromCoord: coordinateFromAttrs(element, 'FROM'),
+      toCoord: coordinateFromAttrs(element, 'TO'),
       diameter: n(attr(element, 'DIAMETER')),
       wall: n(attr(element, 'WALL_THICK')),
       lineId: attr(element, 'LINE_ID'),
@@ -288,6 +301,8 @@ export function compareInputXmlTopology(referenceXmlText, targetXmlText, options
     if (!['HIGH', 'MEDIUM'].includes(conf)) conflictRows.push({ referenceElement: row.referenceElement, targetElement: row.targetElement, issue: conf, detail: `score=${row.score}; evidence=${row.evidenceScore}; gap=${row.scoreGap}; ambiguity=${row.ambiguityCount}` });
   }
   conflictRows.push(...fallbackUnmatchedConflicts(reference, usedRef));
+  const frameSolution = solveInputXmlCoordinateFrame(reference, target, options);
+  const nodeRemap = solveInputXmlNodeRemap({ elementMappings, frameSolution });
   const transferRows = elementMappings
     .filter((row) => row.confidence === 'HIGH' || row.confidence === 'MEDIUM')
     .map((row) => ({
@@ -301,6 +316,7 @@ export function compareInputXmlTopology(referenceXmlText, targetXmlText, options
       action: 'copy element child/property packet only; keep target FROM/TO and DELTA geometry',
       transferable: 'RIGID/BEND/SIF/RESTRAINT/Component metadata packet preview',
     }));
+  const topologyDashboard = buildInputXmlTopologyDashboard({ reference, target, frameSolution, nodeRemap, pathAlignment, elementMappings, conflictRows, options });
   return {
     ok: true,
     mode: 'element-wise-canonical-path-aligned-configurable-evidence',
@@ -340,7 +356,12 @@ export function compareInputXmlTopology(referenceXmlText, targetXmlText, options
       evidenceConflictElements: elementMappings.filter((row) => row.evidenceFlags).length,
       transferPreviewElements: transferRows.length,
       conflictCount: conflictRows.length,
+      nodeRemapCount: nodeRemap.summary.mappedNodeCount,
+      frameMode: frameSolution.mode,
     },
+    frameSolution,
+    nodeRemap,
+    topologyDashboard,
     normalization: { reference: reference.normalization, target: target.normalization },
     paths: {
       referencePathRows: pathAlignment.referencePathRows,
