@@ -580,8 +580,13 @@ function _finalizeRestraints(bucket) {
  * @param {object[]}    log        — mutable; entries pushed here
  * @returns {object|null}  partial parsed result, or null on failure
  */
-export async function parseBinaryAccdb(arrayBuffer, fileName, log) {
-  // ── 1. Polyfill Buffer + load mdb-reader ─────────────────────────────────
+/**
+ * Polyfills Buffer, dynamically loads mdb-reader, and opens the ACCDB/MDB buffer.
+ * Inputs: raw file ArrayBuffer, mutable log array.
+ * Outputs: { reader, tableNames } on success, or null (with a log entry) on failure.
+ * Fallback: requires internet access to fetch the CDN libraries.
+ */
+async function openAccdbReader(arrayBuffer, log) {
   // mdb-reader uses Node.js Buffer methods (e.g. .copy()) internally.
   // In the browser we must polyfill globalThis.Buffer BEFORE importing the
   // library so its module-level Buffer references resolve to the polyfill.
@@ -600,7 +605,6 @@ export async function parseBinaryAccdb(arrayBuffer, fileName, log) {
     return null;
   }
 
-  // ── 2. Open database ─────────────────────────────────────────────────────
   // Pass a proper Buffer (not a raw Uint8Array) so .copy() and other
   // Node.js Buffer methods are available to mdb-reader internals.
   let reader;
@@ -615,6 +619,31 @@ export async function parseBinaryAccdb(arrayBuffer, fileName, log) {
 
   const tableNames = reader.getTableNames();
   log.push({ level: 'INFO', msg: `ACCDB opened — ${tableNames.length} table(s): ${tableNames.join(', ')}` });
+  return { reader, tableNames };
+}
+
+/**
+ * Reads specific named tables out of an ACCDB/MDB file as raw row objects.
+ * Inputs: file ArrayBuffer, array of wanted table names, mutable log array.
+ * Outputs: { TABLE_NAME: rowObject[] } for whichever requested tables exist (case-insensitive match).
+ * Fallback: returns {} if the database can't be opened; logs a warning per missing table.
+ */
+export async function readAccdbNamedTables(arrayBuffer, tableNames, log = []) {
+  const opened = await openAccdbReader(arrayBuffer, log);
+  if (!opened) return {};
+  const out = {};
+  for (const wanted of tableNames) {
+    const match = opened.tableNames.find((t) => t.toUpperCase() === wanted.toUpperCase());
+    if (!match) { log.push({ level: 'WARN', msg: `Table not found: ${wanted}` }); continue; }
+    out[wanted] = opened.reader.getTable(match).getData();
+  }
+  return out;
+}
+
+export async function parseBinaryAccdb(arrayBuffer, fileName, log) {
+  const opened = await openAccdbReader(arrayBuffer, log);
+  if (!opened) return null;
+  const { reader, tableNames } = opened;
 
   // ── Find JOBNAME, FLANGE, STRESS and DISPLACEMENT info globally ──────────────────────────────
   let jobName = null;

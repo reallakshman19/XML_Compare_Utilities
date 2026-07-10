@@ -1,4 +1,6 @@
 import { compareInputXmlTopology, mappingRowsToCsv } from './xml-cii-inputxml-compare-core.js?v=20260709-5d-core-6';
+import { detectXmlWorkspaceSchema, XML_WORKSPACE_KINDS } from '../inputxml-workspace/inputxml-workspace-xml-detect.js';
+import { convertCategorizedInputXml } from '../../xml-compare/CategorizedInputXmlConverter.js';
 
 const STATE_KEY = '__xmlCiiInputXmlCompare5DState';
 function text(value) { return value === undefined || value === null ? '' : String(value).trim(); }
@@ -53,6 +55,74 @@ function findWorkflowInputXml(root) {
   candidates.sort((a, b) => b.value.length - a.value.length);
   return candidates[0] || null;
 }
+function pipingElementSequence(xmlText) {
+  const raw = text(xmlText);
+  if (!raw) return [];
+  try {
+    const doc = new DOMParser().parseFromString(raw, 'application/xml');
+    if (doc.querySelector('parsererror')) return [];
+    const elements = Array.from(doc.getElementsByTagName('PIPINGELEMENT'));
+    return elements.map((element) => ({ from: text(element.getAttribute('FROM_NODE')), to: text(element.getAttribute('TO_NODE')) })).filter((row) => row.from || row.to);
+  } catch {
+    return [];
+  }
+}
+function matchedTargetElements(result) {
+  const set = new Set();
+  for (const row of result?.elementMappings || []) {
+    if (text(row.referenceElement) && text(row.targetElement)) set.add(text(row.targetElement));
+  }
+  return set;
+}
+function drawCompareCanvas(canvas, state) {
+  if (!canvas) return;
+  const ctx = canvas.getContext?.('2d');
+  if (!ctx) return;
+  const rect = canvas.getBoundingClientRect?.() || { width: 900, height: 220 };
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(300, rect.width || 300);
+  const height = Math.max(160, rect.height || 160);
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#07101f';
+  ctx.fillRect(0, 0, width, height);
+  const refSeq = pipingElementSequence(state.referenceXml);
+  const targetSeq = pipingElementSequence(state.targetXml);
+  if (!refSeq.length && !targetSeq.length) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px system-ui';
+    ctx.fillText('Load reference and target InputXML to preview element sequences.', 16, height / 2);
+    return;
+  }
+  const matchedTargets = matchedTargetElements(state.result);
+  const laneY = { ref: height * 0.32, target: height * 0.72 };
+  const drawLane = (seq, y, label, colorMatched, colorUnmatched, matchedSet) => {
+    ctx.fillStyle = '#9fb3ca';
+    ctx.font = '11px system-ui';
+    ctx.fillText(label, 8, y - 20);
+    if (!seq.length) { ctx.fillStyle = '#64748b'; ctx.fillText('(no PIPINGELEMENT found)', 8, y + 4); return; }
+    const marginX = 16;
+    const usableWidth = Math.max(40, width - marginX * 2);
+    const step = seq.length > 1 ? usableWidth / (seq.length - 1) : 0;
+    let prevX = null;
+    seq.forEach((el, index) => {
+      const x = marginX + step * index;
+      const key = `${el.from}->${el.to}`;
+      const isMatched = matchedSet?.has(key) || matchedSet?.has(el.to) || matchedSet?.has(el.from);
+      ctx.fillStyle = isMatched ? colorMatched : colorUnmatched;
+      if (prevX !== null) {
+        ctx.strokeStyle = isMatched ? colorMatched : 'rgba(148,163,184,.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(prevX, y); ctx.lineTo(x, y); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(x, y, 3.4, 0, Math.PI * 2); ctx.fill();
+      prevX = x;
+    });
+  };
+  drawLane(refSeq, laneY.ref, `Reference (${refSeq.length} element(s))`, '#34d399', '#60a5fa', null);
+  drawLane(targetSeq, laneY.target, `Target (${targetSeq.length} element(s))`, '#34d399', '#f472b6', matchedTargets);
+}
 function statusClass(value) { return Number(value || 0) ? 'is-ok' : 'is-warn'; }
 function summaryCards(result) {
   const s = result?.summary || {};
@@ -82,19 +152,37 @@ function table(columns, rows, empty) {
   if (!rows?.length) return `<div class="model-converters-workflow-detail-note">${esc(empty || 'No rows.')}</div>`;
   return `<div class="xml-cii-native-table-wrap"><table class="xml-cii-native-table"><thead><tr>${columns.map(([, label]) => `<th>${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map(([key]) => `<td>${esc(row?.[key])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
+function schemaNotice(side, xmlText) {
+  const raw = text(xmlText);
+  if (!raw) return '';
+  const detected = detectXmlWorkspaceSchema({ name: '', text: raw });
+  const isCategorized = detected.kind === XML_WORKSPACE_KINDS.CATEGORIZED_XML;
+  const badgeColor = isCategorized ? '#fbbf24' : '#34d399';
+  const convertBtn = isCategorized ? `<button type="button" class="model-converters-download-btn" data-xml-cii-5d-convert="${esc(side)}">Convert to InputXML</button>` : '';
+  const warning = isCategorized ? ' — 5D compare requires raw InputXML (PIPINGELEMENT); convert before comparing.' : '';
+  return `<div class="model-converters-workflow-detail-note" style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="color:${badgeColor};">Detected: ${esc(detected.label)}${detected.enriched ? ' (enriched)' : ' (raw)'}${esc(warning)}</span>
+    ${convertBtn}
+  </div>`;
+}
 function inputCards(state) {
   return `<section class="xml-cii-native-card">
     <div class="model-converters-workflow-section-title">5D InputXML Compare Inputs</div>
     <div class="model-converters-workflow-detail-note" style="margin-bottom:8px;">Element-wise compare. Primary transfer unit is PIPINGELEMENT. Supplemental evidence is now controlled in the 5D Config section.</div>
     <div class="xml-cii-native-toolbar" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-      <input data-xml-cii-5d-ref-file type="file" accept=".xml,.XML,text/xml,application/xml">
-      <input data-xml-cii-5d-target-file type="file" accept=".xml,.XML,text/xml,application/xml">
+      <input data-xml-cii-5d-ref-file type="file" accept=".xml,.XML,.txt,.TXT,text/xml,application/xml,text/plain">
+      <input data-xml-cii-5d-target-file type="file" accept=".xml,.XML,.txt,.TXT,text/xml,application/xml,text/plain">
       <button type="button" class="model-converters-download-btn" data-xml-cii-5d-use-workflow-target>Use latest workflow InputXML as target</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <label class="model-converters-workflow-detail-note">Reference / property source InputXML<textarea data-xml-cii-5d-ref spellcheck="false" style="width:100%;min-height:180px;background:#07101f;color:#e6edf5;border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace;">${esc(state.referenceXml || '')}</textarea></label>
-      <label class="model-converters-workflow-detail-note">Target / generated InputXML<textarea data-xml-cii-5d-target spellcheck="false" style="width:100%;min-height:180px;background:#07101f;color:#e6edf5;border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace;">${esc(state.targetXml || '')}</textarea></label>
+      <label class="model-converters-workflow-detail-note">Reference / property source InputXML<textarea data-xml-cii-5d-ref spellcheck="false" style="width:100%;min-height:180px;background:#07101f;color:#e6edf5;border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace;">${esc(state.referenceXml || '')}</textarea>${schemaNotice('ref', state.referenceXml)}</label>
+      <label class="model-converters-workflow-detail-note">Target / generated InputXML<textarea data-xml-cii-5d-target spellcheck="false" style="width:100%;min-height:180px;background:#07101f;color:#e6edf5;border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace;">${esc(state.targetXml || '')}</textarea>${schemaNotice('target', state.targetXml)}</label>
     </div>
+  </section>
+  <section class="xml-cii-native-card">
+    <div class="model-converters-workflow-section-title">Source / Target Element Preview</div>
+    <div class="model-converters-workflow-detail-note" style="margin-bottom:8px;">Basic sequence preview of PIPINGELEMENT FROM→TO nodes for each side. Green = matched element (after Compare Elements), grey = unmatched/not yet compared.</div>
+    <canvas data-xml-cii-5d-canvas style="width:100%;height:220px;border:1px solid rgba(148,163,184,.28);border-radius:10px;background:#07101f;"></canvas>
   </section>`;
 }
 function configCard(state) {
@@ -203,6 +291,15 @@ function bindControls(target, root, state, options) {
   target.querySelector('[data-xml-cii-5d-ref-file]')?.addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; state.referenceXml = await file.text(); state.status = `Loaded reference ${file.name}.`; rerender(); });
   target.querySelector('[data-xml-cii-5d-target-file]')?.addEventListener('change', async (event) => { const file = event.target.files?.[0]; if (!file) return; state.targetXml = await file.text(); state.status = `Loaded target ${file.name}.`; rerender(); });
   target.querySelector('[data-xml-cii-5d-use-workflow-target]')?.addEventListener('click', () => { const found = findWorkflowInputXml(root); if (found) { state.targetXml = found.value; state.status = `Loaded target from ${found.source}.`; } else state.status = 'No workflow InputXML target found.'; rerender(); });
+  target.querySelectorAll('[data-xml-cii-5d-convert]').forEach((button) => button.addEventListener('click', () => {
+    setInputsFromDom();
+    const side = button.getAttribute('data-xml-cii-5d-convert') === 'target' ? 'target' : 'ref';
+    const sourceText = side === 'target' ? state.targetXml : state.referenceXml;
+    const converted = convertCategorizedInputXml(sourceText, 'categorized-to-input');
+    if (side === 'target') state.targetXml = converted; else state.referenceXml = converted;
+    state.status = `Converted ${side === 'target' ? 'target' : 'reference'} CategorizedXML to InputXML.`;
+    rerender();
+  }));
   target.querySelector('[data-xml-cii-5d-compare]')?.addEventListener('click', () => {
     setInputsFromDom();
     if (!looksLikeInputXml(state.referenceXml) || !looksLikeInputXml(state.targetXml)) { state.status = 'Both reference and target must be InputXML with PIPINGELEMENT FROM_NODE/TO_NODE.'; rerender(); return; }
@@ -239,5 +336,6 @@ export function renderXmlCiiInputXmlCompare5DPanel(target, options = {}) {
   const state = ensureState(target);
   target.innerHTML = `<div class="xml-cii-native-phase-head"><div><div class="model-converters-workflow-detail-title">5D InputXML Element Compare / Property Transfer</div><div class="model-converters-workflow-detail-text">Match two InputXML files by canonical PIPINGELEMENT topology, anchor-to-anchor path decomposition, dynamic element alignment, and optional evidence checks.</div></div></div>${state.status ? `<section class="xml-cii-native-card"><div class="model-converters-workflow-detail-note">${esc(state.status)}</div></section>` : ''}${inputCards(state)}${configCard(state)}${actionCard(state)}${resultHtml(state)}`;
   bindControls(target, root, state, options);
+  drawCompareCanvas(target.querySelector('[data-xml-cii-5d-canvas]'), state);
   return state.result || null;
 }

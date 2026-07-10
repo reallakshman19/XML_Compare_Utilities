@@ -22,4 +22,20 @@ assert.ok(panel5c.includes('state.enableShortFillers = false;'), 'InputXML_Topo 
 assert.ok(panel5c.includes('state.enableRayFillers = false;'), 'InputXML_Topo should disable ray fillers.');
 assert.ok(panel5c.includes('state.splitRayMidspanHits = false;'), 'InputXML_Topo should disable ray mid-span splitting.');
 
+// Close button regression: must not be bound once at mount only (the old one-shot pattern), and
+// must be handled by the delegated modal-level click handler so it survives every rerender.
+const workspaceTabSource = fs.readFileSync(path.join(repoRoot, 'tabs', 'inputxml-workspace', 'inputxml-workspace-tab.js'), 'utf8');
+assert.ok(!workspaceTabSource.includes('dialog.querySelector(\'[data-ixw-close="1"]\')?.addEventListener'), 'Close button must not be bound with the old one-shot querySelector pattern.');
+assert.ok(/modal\.addEventListener\(ACTIVATE, \(event\) => \{[\s\S]*?data-ixw-close="1"/.test(workspaceTabSource), 'Close button must be handled by the delegated modal-level click handler.');
+
+// Tab 6 Misc should expose Config/Topo/Support config as real subtabs.
+const miscRender = workspaceUi.renderPopup({ ...workspaceUi.defaultState(), activeTab: 'misc' });
+assert.ok(miscRender.includes('>Config<'), 'Misc tab should expose a Config subtab.');
+assert.ok(miscRender.includes('>Topo<'), 'Misc tab should expose a Topo subtab.');
+assert.ok(miscRender.includes('>Support config<'), 'Misc tab should expose a Support config subtab.');
+
+// Launcher tile should show an icon.
+const launcherRender = workspaceUi.renderLauncher();
+assert.ok(launcherRender.includes('inputxml-workspace-launcher-icon'), 'Launcher tile should render an icon span.');
+
 console.log('InputXML Workspace static contract checks passed.');
