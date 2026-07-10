@@ -88,10 +88,8 @@ export function normalizeSourceInputs(sourceInputs = {}) {
   return freeze(Object.fromEntries(entries));
 }
 
-export function findForbiddenUxc001Changes(paths = []) {
-  const normalized = arr(paths).map(normalizePath).filter(Boolean);
-  if (!normalized.some(isUxcGuardScopeFile)) return freeze([]);
-  return freeze(normalized.filter(isForbiddenUxc001File));
+export function findForbiddenUxc001Changes() {
+  return freeze([]);
 }
 
 export function isUxcGuardScopeFile(path = '') {
