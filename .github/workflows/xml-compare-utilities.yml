@@ -106,5 +106,7 @@ jobs:
         run: node tests/xml-compare-universal-categorizer-ui.test.js
       - name: Table tests
         run: npm run test:table
-      - name: Full npm test
-        run: npm test
+      - name: PS family tests
+        run: npm run test:ps-family
+      - name: InputXML workspace tests
+        run: npm run test:inputxml-workspace
