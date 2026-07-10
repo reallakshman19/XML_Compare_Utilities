@@ -1,4 +1,5 @@
 import { parseLooseTable, projectRows, rowsToTabText } from './inputxml-workspace-table.js';
+import { mutateRestraintType } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
 
 /**
  * ACCDB-helper/paste enrichment adapter for InputXML Workspace.
@@ -91,16 +92,20 @@ function buildNodeNameText(basicRows = []) {
   return lines.join('\n');
 }
 
-function buildRestraintTagText(restraintRows = [], restPtrPairs = new Map()) {
+function buildRestraintTagResult(restraintRows = [], restPtrPairs = new Map(), mutationConfig = {}) {
   const lines = ['FROM_NODE\tTO_NODE\tNODE\tTYPE\tSTIFFNESS\tGAP\tMU\tCNODE\tTAG'];
+  let changedTypes = 0;
   for (const row of restraintRows) {
     const pair = restPtrPairs.get(clean(row.REST_PTR)) || {};
     const tag = clean(row.RES_TAG) || clean(row.NODE_NAME);
+    const inputType = clean(row.RES_TYPEID);
+    const outputType = mutateRestraintType(inputType, mutationConfig);
+    if (outputType !== inputType) changedTypes += 1;
     lines.push([
       nodeKey(pair.from),
       nodeKey(pair.to),
       nodeKey(row.NODE_NUM),
-      clean(row.RES_TYPEID),
+      outputType,
       clean(row.STIFFNESS),
       clean(row.GAP),
       clean(row.FRIC_COEF),
@@ -108,7 +113,11 @@ function buildRestraintTagText(restraintRows = [], restPtrPairs = new Map()) {
       tag,
     ].join('\t'));
   }
-  return uniqueLines(lines).join('\n');
+  return { text: uniqueLines(lines).join('\n'), changedTypes };
+}
+
+function buildRestraintTagText(restraintRows = [], restPtrPairs = new Map(), mutationConfig = {}) {
+  return buildRestraintTagResult(restraintRows, restPtrPairs, mutationConfig).text;
 }
 
 function pushCoordinate(map, node, x, y, z, source) {
@@ -127,18 +136,19 @@ function buildCoordinateText(nodalRows = [], userRows = []) {
   return ['NODE\tX\tY\tZ', ...[...map.values()].map((row) => `${row.node}\t${row.x}\t${row.y}\t${row.z}`)].join('\n');
 }
 
-export function buildAccdbSideloadTables({ basicText = '', restraintsText = '', nodalText = '', userNodalText = '' } = {}) {
+export function buildAccdbSideloadTables({ basicText = '', restraintsText = '', nodalText = '', userNodalText = '', restraintTypeMutation = {} } = {}) {
   const basicRows = parseBasic(basicText);
   const restraintRows = parseLooseTable(restraintsText, RESTRAINT_COLUMNS);
   const nodalRows = parseLooseTable(nodalText, NODAL_COORD_COLUMNS);
   const userRows = parseLooseTable(userNodalText, USER_COORD_COLUMNS);
   const restPtrPairs = pairByRestPtr(basicRows);
+  const restraintTags = buildRestraintTagResult(restraintRows, restPtrPairs, restraintTypeMutation);
   return {
     basicRows,
     basicProjectedText: rowsToTabText(basicRows, BASIC_ELEMENT_COLUMNS),
     lineIdText: buildLineIdText(basicRows),
     nodeNameText: buildNodeNameText(basicRows),
-    restraintTagText: buildRestraintTagText(restraintRows, restPtrPairs),
+    restraintTagText: restraintTags.text,
     coordinateText: buildCoordinateText(nodalRows, userRows),
     diagnostics: {
       basicRows: basicRows.length,
@@ -146,8 +156,9 @@ export function buildAccdbSideloadTables({ basicText = '', restraintsText = '', 
       nodalRows: nodalRows.length,
       userCoordinateRows: userRows.length,
       restPtrPairs: restPtrPairs.size,
+      restraintTypeMutations: restraintTags.changedTypes,
     },
   };
 }
 
-export const _test = Object.freeze({ parseBasic, pairByRestPtr, buildLineIdText, buildNodeNameText, buildRestraintTagText, buildCoordinateText, nodeKey });
+export const _test = Object.freeze({ parseBasic, pairByRestPtr, buildLineIdText, buildNodeNameText, buildRestraintTagText, buildRestraintTagResult, buildCoordinateText, nodeKey });

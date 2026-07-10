@@ -8,10 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 
 const workspaceRender = workspaceUi.renderPopup(workspaceUi.defaultState());
-assert.ok(workspaceRender.includes('1 Clean XML / Table to CleanXML'), 'Workspace should expose CleanXML as Tab 1.');
+assert.ok(workspaceRender.includes('Clean XML'), 'Workspace should expose Clean XML as the first tab.');
 assert.ok(workspaceRender.includes('2 InputXML Enrichment'), 'Workspace should expose InputXML Enrichment as Tab 2.');
 assert.ok(workspaceRender.includes('3 XML to InputXML'), 'Workspace should expose XML to InputXML as Tab 3.');
-assert.ok(workspaceRender.includes('DTXR'), 'CleanXML Tab 1 should include the DTXR subtab.');
+assert.ok(!workspaceRender.includes('Components/Nodes'), 'Clean XML should not expose the manual Components/Nodes subtab.');
+assert.ok(!workspaceRender.includes('Supports/Restraints'), 'Clean XML should not expose the manual Supports/Restraints subtab.');
+assert.ok(!workspaceRender.includes('DTXR'), 'Clean XML should not expose the DTXR subtab.');
 
 const psnmUtilityTab = fs.readFileSync(path.join(repoRoot, 'tabs', 'psnm-utility-tab.js'), 'utf8');
 assert.ok(psnmUtilityTab.includes('installInputXmlWorkspaceTile'), 'Utilities tab should install InputXML Workspace tile.');
@@ -33,9 +35,16 @@ const miscRender = workspaceUi.renderPopup({ ...workspaceUi.defaultState(), acti
 assert.ok(miscRender.includes('>Config<'), 'Misc tab should expose a Config subtab.');
 assert.ok(miscRender.includes('>Topo<'), 'Misc tab should expose a Topo subtab.');
 assert.ok(miscRender.includes('>Support config<'), 'Misc tab should expose a Support config subtab.');
+assert.ok(miscRender.includes('Restraint Type Mutation'), 'Misc Config should expose editable restraint type mutation rows.');
+assert.ok(miscRender.includes('data-ixw-rtm-row'), 'Restraint type mutation rows should be editable in the UI.');
 
 // Launcher tile should show an icon.
 const launcherRender = workspaceUi.renderLauncher();
 assert.ok(launcherRender.includes('inputxml-workspace-launcher-icon'), 'Launcher tile should render an icon span.');
+
+assert.ok(psnmUtilityTab.includes('installXmlBuilderUtilityTile'), 'Utilities tab should install XML Builder tile.');
+const xmlBuilderSource = fs.readFileSync(path.join(repoRoot, 'tabs', 'xml-builder', 'xml-builder-utility-tile.js'), 'utf8');
+assert.ok(xmlBuilderSource.includes('renderXmlBuilderTab'), 'XML Builder utility should expose a popup renderer.');
+assert.ok(xmlBuilderSource.includes('renderXmlCiiTopology5BPanel'), 'XML Builder utility should include the topology canvas panel.');
 
 console.log('InputXML Workspace static contract checks passed.');

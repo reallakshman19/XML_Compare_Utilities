@@ -8,6 +8,7 @@ import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-mod
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260705-ps-family-clash-audit-1';
 import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260706-pipeline-3d-model-tablex-2';
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
+import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260710-layout-stabilizer-2';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
@@ -32,6 +33,11 @@ function mountInputXmlWorkspace(container, ctx) {
   return installInputXmlWorkspaceTile(utilitiesRoot, ctx);
 }
 
+function mountXmlBuilder(container, ctx) {
+  const utilitiesRoot = container.querySelector('.psnm-root') || container;
+  return installXmlBuilderUtilityTile(utilitiesRoot, ctx);
+}
+
 export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
   const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
@@ -41,9 +47,11 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPsFamilyClashAudit = mountPsFamilyClashAudit(container, ctx);
   const destroyPipeline3dModel = mountPipeline3dModel(container, ctx);
   const destroyInputXmlWorkspace = mountInputXmlWorkspace(container, ctx);
+  const destroyXmlBuilder = mountXmlBuilder(container, ctx);
   const destroyBridge = installPsMappingModalBridge(container, ctx);
   return () => {
     if (typeof destroyBridge === 'function') destroyBridge();
+    if (typeof destroyXmlBuilder === 'function') destroyXmlBuilder();
     if (typeof destroyInputXmlWorkspace === 'function') destroyInputXmlWorkspace();
     if (typeof destroyPipeline3dModel === 'function') destroyPipeline3dModel();
     if (typeof destroyPsFamilyClashAudit === 'function') destroyPsFamilyClashAudit();
