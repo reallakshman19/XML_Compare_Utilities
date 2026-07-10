@@ -108,5 +108,13 @@ jobs:
         run: npm run test:table
       - name: PS family tests
         run: npm run test:ps-family
-      - name: InputXML workspace tests
-        run: npm run test:inputxml-workspace
+      - name: InputXML workspace static
+        run: node tests/inputxml-workspace-static.test.js
+      - name: InputXML workspace cleanxml resolve role
+        run: node tests/inputxml-workspace-cleanxml-resolve-role.test.js
+      - name: InputXML workspace manual tables
+        run: node tests/inputxml-workspace-manual-tables.test.js
+      - name: InputXML workspace accdb sideload
+        run: node tests/inputxml-workspace-accdb-sideload.test.js
+      - name: InputXML workspace 5D benchmark
+        run: node tests/xml-cii-inputxml-5d-benchmark.test.js
