@@ -107,6 +107,7 @@ function parseNode(branch, nodeXml = '', nodeIndex = 0) {
     endpoint: firstText(nodeXml, ['Endpoint', 'ENDPOINT', 'End']),
     sourceComponentType: upper(sourceType),
     componentType: upper(explicitType || sourceType),
+    componentTypeOverride: firstText(nodeXml, ['ComponentTypeOverride']),
     connectionType: upper(firstText(nodeXml, ['ConnectionType', 'Connection', 'BranchConnection'])),
     componentRefNo: firstText(nodeXml, ['ComponentRefNo', 'ComponentRef', 'REF', 'CREF']),
     position: parsePosition(firstText(nodeXml, ['Position', 'POS', 'APOS', 'LPOS'])),
@@ -157,6 +158,7 @@ function angleRole(prev, row, next) {
 }
 
 function resolveRole(row, index, rows, sharedPositionCounts) {
+  if (clean(row.componentTypeOverride)) return { role: upper(row.componentTypeOverride), confidence: 1, basis: `manual override=${row.componentTypeOverride}` };
   if (clean(row.endpoint)) return { role: row.componentType || row.sourceComponentType || 'PCOM', confidence: 1, basis: `Endpoint=${row.endpoint}` };
   const textRole = inferFromText(row);
   const sharedCount = sharedPositionCounts.get(positionKey(row.position)) || 0;
@@ -193,30 +195,27 @@ function normalizeBranches(branches) {
   return branches;
 }
 
-export function parseAvevaXmlToTables(xmlText = '', options = {}) {
-  const branchXmls = tagBlocks(xmlText, 'Branch');
-  if (!branchXmls.length) throw new Error('No <Branch> blocks found for CleanXML conversion.');
-  const branches = branchXmls.map((branchXml, branchIndex) => {
-    const context = branchContext(branchXml, branchIndex);
-    const branch = { ...context, branchIndex, nodes: [] };
-    branch.nodes = tagBlocks(branchXml, 'Node').map((nodeXml, nodeIndex) => parseNode(branch, nodeXml, nodeIndex));
-    return branch;
-  });
-  normalizeBranches(branches);
-  const dtxrRows = options.dtxrRows || [];
-  if (dtxrRows.length) {
-    for (const branch of branches) {
-      branch.nodes = branch.nodes.map((node) => {
-        const match = matchDtxrRowsForNode(node, dtxrRows, { positionToleranceMm: 6 });
-        return {
-          ...node,
-          dtxrPos: match.dtxrPos || node.dtxrPos,
-          dtxrPs: match.dtxrPs || node.dtxrPs,
-          resolverBasis: [node.resolverBasis, match.basis].filter(Boolean).join('; '),
-        };
-      });
-    }
+export function applyRoleResolution(branches = []) {
+  return normalizeBranches(branches);
+}
+
+export function applyDtxrMatches(branches = [], dtxrRows = []) {
+  if (!dtxrRows.length) return branches;
+  for (const branch of branches) {
+    branch.nodes = branch.nodes.map((node) => {
+      const match = matchDtxrRowsForNode(node, dtxrRows, { positionToleranceMm: 6 });
+      return {
+        ...node,
+        dtxrPos: match.dtxrPos || node.dtxrPos,
+        dtxrPs: match.dtxrPs || node.dtxrPs,
+        resolverBasis: [node.resolverBasis, match.basis].filter(Boolean).join('; '),
+      };
+    });
   }
+  return branches;
+}
+
+export function tablesFromBranches(branches = []) {
   const nodes = branches.flatMap((branch) => branch.nodes);
   return {
     schema: INPUTXML_WORKSPACE_CLEANXML_SCHEMA,
@@ -226,6 +225,20 @@ export function parseAvevaXmlToTables(xmlText = '', options = {}) {
     dtxr: nodes.filter((node) => node.dtxrPos || node.dtxrPs).map((node) => ({ branchName: node.branchName, nodeNumber: node.nodeNumberRaw, dtxrPos: node.dtxrPos, dtxrPs: node.dtxrPs })),
     supports: nodes.flatMap((node) => node.restraints.map((restraint) => ({ branchName: node.branchName, nodeNumber: node.nodeNumberRaw, nodeName: node.nodeName, ...restraint }))),
   };
+}
+
+export function parseAvevaXmlToTables(xmlText = '', options = {}) {
+  const branchXmls = tagBlocks(xmlText, 'Branch');
+  if (!branchXmls.length) throw new Error('No <Branch> blocks found for CleanXML conversion.');
+  const branches = branchXmls.map((branchXml, branchIndex) => {
+    const context = branchContext(branchXml, branchIndex);
+    const branch = { ...context, branchIndex, nodes: [] };
+    branch.nodes = tagBlocks(branchXml, 'Node').map((nodeXml, nodeIndex) => parseNode(branch, nodeXml, nodeIndex));
+    return branch;
+  });
+  applyRoleResolution(branches);
+  applyDtxrMatches(branches, options.dtxrRows || []);
+  return tablesFromBranches(branches);
 }
 
 function tag(name, value, indent = '    ') {
@@ -241,7 +254,7 @@ function numberedBlock(name, childPrefix, values = [], extra = {}) {
   return rows.length ? `    <${name}>\n${rows.join('\n')}\n    </${name}>` : '';
 }
 
-function positiveRouteNodes(nodes = []) {
+export function positiveRouteNodes(nodes = []) {
   let generated = 10;
   return nodes.flatMap((node) => {
     if (ROUTE_EXCLUDED_TYPES.has(upper(node.componentType))) return [];
@@ -263,6 +276,7 @@ function nodeXml(node) {
     tag('ComponentType', node.componentType, '      '),
     tag('RealComponentType', node.componentType, '      '),
     tag('SourceComponentType', node.sourceComponentType, '      '),
+    tag('ComponentTypeOverride', node.componentTypeOverride, '      '),
     tag('ConnectionType', node.connectionType, '      '),
     tag('ComponentRefNo', node.componentRefNo, '      '),
     tag('Position', positionText(node.position), '      '),
@@ -327,4 +341,4 @@ export function buildCleanXml(xmlText = '', options = {}) {
   return { tables, cleanXmlText: buildCleanXmlFromTables(tables, options) };
 }
 
-export const _test = Object.freeze({ tagBlocks, tagText, firstText, parsePosition, positionText, positionKey, branchContext, parseRestraints, inferFromText, angleRole, positiveRouteNodes });
+export const _test = Object.freeze({ tagBlocks, tagText, firstText, parsePosition, positionText, positionKey, branchContext, parseRestraints, inferFromText, angleRole, positiveRouteNodes, resolveRole, normalizeBranches });

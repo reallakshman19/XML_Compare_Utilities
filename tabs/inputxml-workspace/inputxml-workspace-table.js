@@ -41,8 +41,12 @@ export function parseLooseTable(text = '', columns = [], options = {}) {
     }
     const row = {};
     columns.forEach((column, index) => {
-      const sourceIndex = headers ? headerIndex(headers, column.aliases || [column.key]) : index;
-      row[column.key] = clean(cells[sourceIndex >= 0 ? sourceIndex : index]);
+      if (headers) {
+        const sourceIndex = headerIndex(headers, column.aliases || [column.key]);
+        row[column.key] = sourceIndex >= 0 ? clean(cells[sourceIndex]) : '';
+      } else {
+        row[column.key] = clean(cells[index]);
+      }
     });
     if (Object.values(row).some((value) => clean(value))) rows.push(row);
   }

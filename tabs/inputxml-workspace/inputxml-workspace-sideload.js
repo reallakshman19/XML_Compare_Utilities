@@ -18,7 +18,7 @@ export const BASIC_ELEMENT_COLUMNS = Object.freeze([
   { key: 'ELEMENT_NAME', aliases: ['ELEMENT_NAME', 'ELEMENT NAME', 'NAME'] },
 ]);
 
-const RESTRAINT_COLUMNS = Object.freeze([
+export const RESTRAINT_COLUMNS = Object.freeze([
   { key: 'REST_PTR', aliases: ['REST_PTR', 'REST PTR', 'RESTPTR'] },
   { key: 'NODE_NUM', aliases: ['NODE_NUM', 'NODE', 'NODE NUMBER'] },
   { key: 'NODE_NAME', aliases: ['NODE_NAME', 'NODE NAME'] },
@@ -30,7 +30,7 @@ const RESTRAINT_COLUMNS = Object.freeze([
   { key: 'RES_TAG', aliases: ['RES_TAG', 'TAG', 'SUPPORT TAG'] },
 ]);
 
-const NODAL_COORD_COLUMNS = Object.freeze([
+export const NODAL_COORD_COLUMNS = Object.freeze([
   { key: 'FROM_NODE', aliases: ['FROM_NODE', 'FROM NODE', 'FROM'] },
   { key: 'TO_NODE', aliases: ['TO_NODE', 'TO NODE', 'TO'] },
   { key: 'FROM_NODE_X', aliases: ['FROM_NODE_X', 'FROM X'] },
@@ -41,12 +41,17 @@ const NODAL_COORD_COLUMNS = Object.freeze([
   { key: 'TO_NODE_Z', aliases: ['TO_NODE_Z', 'TO Z'] },
 ]);
 
-const USER_COORD_COLUMNS = Object.freeze([
+export const USER_COORD_COLUMNS = Object.freeze([
   { key: 'NODE', aliases: ['NODE', 'NODE_NUM', 'NODE NUMBER'] },
   { key: 'NODE_X', aliases: ['NODE_X', 'X'] },
   { key: 'NODE_Y', aliases: ['NODE_Y', 'Y'] },
   { key: 'NODE_Z', aliases: ['NODE_Z', 'Z'] },
 ]);
+
+export const SAMPLE_BASIC_TEXT = 'ELEMENTID\tFROM_NODE\tTO_NODE\tFROM_NODE_NAME\tTO_NODE_NAME\tLINE_NO\tREST_PTR\tELEMENT_NAME\n1\t10\t20\tPS-1\tPS-2\tL100\tR1\tPIPE-1';
+export const SAMPLE_RESTRAINTS_TEXT = 'REST_PTR\tNODE_NUM\tNODE_NAME\tRES_TYPEID\tSTIFFNESS\tGAP\tFRIC_COEF\tCNODE\tRES_TAG\nR1\t20\tPS-2\tGUIDE\t1E12\t0\t0.3\t\tG-101';
+export const SAMPLE_NODAL_TEXT = 'FROM_NODE\tTO_NODE\tFROM_NODE_X\tFROM_NODE_Y\tFROM_NODE_Z\tTO_NODE_X\tTO_NODE_Y\tTO_NODE_Z\n10\t20\t0\t0\t0\t1000\t0\t0';
+export const SAMPLE_USER_NODAL_TEXT = 'NODE\tNODE_X\tNODE_Y\tNODE_Z\n20\t1000\t0\t0';
 
 const clean = (value) => String(value ?? '').trim();
 const nodeKey = (value) => {
