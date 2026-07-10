@@ -83,42 +83,48 @@ export function buildIsoRecipeSampleWorkflow(input = createIsoRecipeTemplateStat
   });
 }
 
+let isoPanelState = { x: 480, y: 120, collapsed: false, w: 340, h: 520 };
+
 export function renderIsoRecipeSamplePanel(workflow = buildIsoRecipeSampleWorkflow()) {
   const a = findRecord(workflow.sourceAArtifact, 'SL-14143') || workflow.sourceAArtifact?.records?.[0] || {};
   const b = findRecord(workflow.sourceBArtifact, 'SL-14143') || workflow.sourceBArtifact?.records?.[0] || {};
   const connector = workflow.connector?.preview || null;
   const issues = workflow.connector?.diagnostics?.length || workflow.diagnostics?.filter((item) => ['BLOCKER', 'ERROR'].includes(item?.severity)).length || 0;
-  return `<div class="table-categorized-shell-side-card" ${PANEL_ATTR}="IsoRecipeSampleWorkflow.v5">
-    <h4>ISOrecipe Editable Template Sample</h4>
-    <p><b>Recipe = template.</b> Edit Rev 1, Rev 2, or the ISOrecipe JSON, then rebuild. Outputs are generated from edited full tables, not from hardcoded result defaults.</p>
-    <div class="table-categorized-xml-actions" data-table-categorized-iso-sample-icons="true">
-      <button type="button" ${BUTTON_ATTR}="load-table1-source" title="Load full Rev 1 table into the app source table slot">📥 Load Table 1 as Source A</button>
-      <button type="button" ${BUTTON_ATTR}="load-table2-target" title="Create/select the second app source slot and load full Rev 2 table as target">📤 Load Table 2 as Target B</button>
-      <button type="button" ${BUTTON_ATTR}="send-s1-source" title="Convert loaded table S1 and send it to XML Compare Source A">➡️ Send S1 as Source A</button>
-      <button type="button" ${BUTTON_ATTR}="send-s2-target" title="Convert loaded table S2 and send it to XML Compare Target B">➡️ Send S2 as Target B</button>
+  const collapsed = isoPanelState.collapsed;
+
+  return `<div class="table-categorized-shell-side-card" ${PANEL_ATTR}="IsoRecipeSampleWorkflow.v5" style="left: ${isoPanelState.x}px; top: ${isoPanelState.y}px; width: ${isoPanelState.w}px; height: ${collapsed ? 'auto' : isoPanelState.h + 'px'};">
+    <div class="table-categorized-iso-header" style="cursor: move; user-select: none; display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.95); padding: 8px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); border-radius: 12px 12px 0 0; font-weight: bold; font-size: 13px; color: #38bdf8; margin: -12px -12px 12px -12px;">
+      <span>📘 ISOrecipe Editable Template Sample</span>
+      <button type="button" data-iso-action="toggle-collapse" style="background: none; border: none; color: #38bdf8; cursor: pointer; font-size: 11px; font-weight: bold; padding: 2px 6px;">
+        ${collapsed ? 'Expand' : 'Collapse'}
+      </button>
     </div>
-    <label>Rev 1 full table → XML1 → Source A<textarea ${FIELD_ATTR}="table1" rows="10">${escapeHtml(workflow.table1Text)}</textarea></label>
-    <label>Rev 2 full table → XML2 → Target B<textarea ${FIELD_ATTR}="table2" rows="10">${escapeHtml(workflow.table2Text)}</textarea></label>
-    <details open>
-      <summary>ISOrecipe template JSON</summary>
-      <textarea ${FIELD_ATTR}="recipe" rows="10">${escapeHtml(workflow.savedRecipeJson)}</textarea>
-    </details>
-    <div class="table-categorized-xml-actions">
-      <button type="button" ${BUTTON_ATTR}="rebuild">Confirm / Rebuild XML1 + XML2</button>
-      <button type="button" ${BUTTON_ATTR}="download-recipe">Download ISOrecipe JSON</button>
-      <button type="button" ${BUTTON_ATTR}="download-xml1">Download XML1</button>
-      <button type="button" ${BUTTON_ATTR}="download-xml2">Download XML2</button>
-      <button type="button" ${BUTTON_ATTR}="download-handoff">Download Source A/B Handoff JSON</button>
+    <div class="table-categorized-iso-body" style="display: ${collapsed ? 'none' : 'flex'}; flex-direction: column; gap: 8px; overflow-y: auto; height: calc(100% - 36px); box-sizing: border-box; width: 100%;">
+      <p><b>Recipe = template.</b> Edit Rev 1, Rev 2, or the ISOrecipe JSON, then rebuild. Outputs are generated from edited full tables, not from hardcoded result defaults.</p>
+      <div class="table-categorized-xml-actions" data-table-categorized-iso-sample-icons="true">
+        <button type="button" ${BUTTON_ATTR}="load-table1-source" title="Load full Rev 1 table into the app source table slot">📥 Load Table 1 as Source A</button>
+        <button type="button" ${BUTTON_ATTR}="load-table2-target" title="Create/select the second app source slot and load full Rev 2 table as target">📤 Load Table 2 as Target B</button>
+        <button type="button" ${BUTTON_ATTR}="send-s1-source" title="Convert loaded table S1 and send it to XML Compare Source A">➡️ Send S1 as Source A</button>
+        <button type="button" ${BUTTON_ATTR}="send-s2-target" title="Convert loaded table S2 and send it to XML Compare Target B">➡️ Send S2 as Target B</button>
+      </div>
+
+      <div class="table-categorized-xml-actions">
+        <button type="button" ${BUTTON_ATTR}="rebuild">Confirm / Rebuild XML1 + XML2</button>
+        <button type="button" ${BUTTON_ATTR}="download-recipe">Download ISOrecipe JSON</button>
+        <button type="button" ${BUTTON_ATTR}="download-xml1">Download XML1</button>
+        <button type="button" ${BUTTON_ATTR}="download-xml2">Download XML2</button>
+        <button type="button" ${BUTTON_ATTR}="download-handoff">Download Source A/B Handoff JSON</button>
+      </div>
+      <table>
+        <thead><tr><th>Side</th><th>Rows</th><th>connectorKey</th><th>Revision</th><th>Guide Gap</th></tr></thead>
+        <tbody>
+          <tr><td>Source A / XML1</td><td>${escapeHtml(workflow.sourceAArtifact?.source?.rows?.length || 0)}</td><td>${escapeHtml(a.connectorKey)}</td><td>${escapeHtml(a.fields?.revision)}</td><td>${escapeHtml(a.fields?.guideGapMm)} mm</td></tr>
+          <tr><td>Target B / XML2</td><td>${escapeHtml(workflow.sourceBArtifact?.source?.rows?.length || 0)}</td><td>${escapeHtml(b.connectorKey)}</td><td>${escapeHtml(b.fields?.revision)}</td><td>${escapeHtml(b.fields?.guideGapMm)} mm</td></tr>
+        </tbody>
+      </table>
+      <p><b>Connector preview:</b> ${connector ? `${escapeHtml(connector.sourceUid)} → ${escapeHtml(connector.targetUid)}` : 'not available'}${issues ? ` (${issues} issue(s))` : ''}</p>
+      <p><small>The S1/S2 send buttons convert the loaded table source slot to XML using ISOrecipe and place it into the XML Compare Source/Target file inputs.</small></p>
     </div>
-    <table>
-      <thead><tr><th>Side</th><th>Rows</th><th>connectorKey</th><th>Revision</th><th>Guide Gap</th></tr></thead>
-      <tbody>
-        <tr><td>Source A / XML1</td><td>${escapeHtml(workflow.sourceAArtifact?.source?.rows?.length || 0)}</td><td>${escapeHtml(a.connectorKey)}</td><td>${escapeHtml(a.fields?.revision)}</td><td>${escapeHtml(a.fields?.guideGapMm)} mm</td></tr>
-        <tr><td>Target B / XML2</td><td>${escapeHtml(workflow.sourceBArtifact?.source?.rows?.length || 0)}</td><td>${escapeHtml(b.connectorKey)}</td><td>${escapeHtml(b.fields?.revision)}</td><td>${escapeHtml(b.fields?.guideGapMm)} mm</td></tr>
-      </tbody>
-    </table>
-    <p><b>Connector preview:</b> ${connector ? `${escapeHtml(connector.sourceUid)} → ${escapeHtml(connector.targetUid)}` : 'not available'}${issues ? ` (${issues} issue(s))` : ''}</p>
-    <p><small>The S1/S2 send buttons convert the loaded table source slot to XML using ISOrecipe and place it into the XML Compare Source/Target file inputs.</small></p>
   </div>`;
 }
 
@@ -180,6 +186,62 @@ export function injectIsoRecipeLayoutStyle(doc = globalThis.document) {
   return true;
 }
 
+export function initIsoRecipePanelDraggingAndResizing(popup, doc = globalThis.document) {
+  const panel = popup.querySelector(`[${PANEL_ATTR}]`);
+  if (!panel) return;
+  const header = panel.querySelector('.table-categorized-iso-header');
+  if (!header) return;
+
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let startLeft = 0, startTop = 0;
+
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const left = startLeft + dx;
+    const top = startTop + dy;
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+  };
+
+  const onMouseUp = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    isoPanelState.x = parseInt(panel.style.left, 10) || 0;
+    isoPanelState.y = parseInt(panel.style.top, 10) || 0;
+    doc.removeEventListener('mousemove', onMouseMove);
+    doc.removeEventListener('mouseup', onMouseUp);
+  };
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button')) return;
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startLeft = parseInt(panel.style.left, 10) || 0;
+    startTop = parseInt(panel.style.top, 10) || 0;
+    doc.addEventListener('mousemove', onMouseMove);
+    doc.addEventListener('mouseup', onMouseUp);
+    e.preventDefault();
+  });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (isoPanelState.collapsed) return;
+        const bounds = panel.getBoundingClientRect();
+        if (bounds.width > 50 && bounds.height > 50) {
+          isoPanelState.w = Math.round(bounds.width);
+          isoPanelState.h = Math.round(bounds.height);
+        }
+      }
+    });
+    observer.observe(panel);
+  }
+}
+
 export function showIsoRecipeSamplePanel(doc = globalThis.document, workflow = buildIsoRecipeSampleWorkflow()) {
   const popup = doc?.querySelector?.('[data-xml-compare-table-categorized-popup]');
   if (!popup) return false;
@@ -187,10 +249,19 @@ export function showIsoRecipeSamplePanel(doc = globalThis.document, workflow = b
   const side = popup.querySelector('.table-categorized-shell-side .table-categorized-shell-side-card') || popup.querySelector('.table-categorized-shell-side');
   if (!side) return false;
   side.insertAdjacentHTML('afterend', renderIsoRecipeSamplePanel(workflow));
+  initIsoRecipePanelDraggingAndResizing(popup, doc);
   return true;
 }
 
 export function handleIsoRecipeSampleClick(event, doc = globalThis.document) {
+  const toggle = event.target?.closest?.('[data-iso-action="toggle-collapse"]');
+  if (toggle) {
+    event.preventDefault();
+    isoPanelState.collapsed = !isoPanelState.collapsed;
+    const workflow = workflowFromPanel(doc);
+    showIsoRecipeSamplePanel(doc, workflow);
+    return true;
+  }
   const button = event.target?.closest?.(`[${BUTTON_ATTR}]`);
   if (!button) return false;
   event.preventDefault();
@@ -238,21 +309,40 @@ export function loadIsoTableIntoRuntime(doc = globalThis.document, { side = 'sou
 }
 
 export function sendRuntimeSourceToXmlCompare(doc = globalThis.document, { sourceId = 'S1', targetSide = 'a' } = {}) {
-  const select = doc?.querySelector?.(ACTIVE_SOURCE_SELECTOR);
-  if (!select) return setHandoffStatus(doc, 'Table source selector was not found.', false);
-  const option = [...select.options].find((item) => (item.value || item.textContent || '') === sourceId);
-  if (!option) return setHandoffStatus(doc, `Table ${sourceId} was not found. Add/load that source first.`, false);
-  if (select.value !== sourceId) {
-    select.value = sourceId;
-    dispatchDomEvent(select, 'change');
+  const state = globalThis.__tableCategorizedState;
+  if (state) {
+    const source = state.sources?.find((s) => s.sourceId === sourceId);
+    if (!source) return setHandoffStatus(doc, `Table ${sourceId} was not found. Add/load that source first.`, false);
+    if (state.activeSourceId !== sourceId) {
+      state.activeSourceId = sourceId;
+      if (globalThis.__tableCategorizedRender) globalThis.__tableCategorizedRender();
+    }
+  } else {
+    const select = doc?.querySelector?.(ACTIVE_SOURCE_SELECTOR);
+    if (!select) return setHandoffStatus(doc, 'Table source selector was not found.', false);
+    const option = [...select.options].find((item) => (item.value || item.textContent || '') === sourceId);
+    if (!option) return setHandoffStatus(doc, `Table ${sourceId} was not found. Add/load that source first.`, false);
+    if (select.value !== sourceId) {
+      select.value = sourceId;
+      dispatchDomEvent(select, 'change');
+    }
   }
   defer(() => sendActiveRuntimeSourceToXmlCompare(doc, { sourceId, targetSide }));
   return true;
 }
 
 function sendActiveRuntimeSourceToXmlCompare(doc, { sourceId = 'S1', targetSide = 'a' } = {}) {
-  const text = String(doc?.querySelector?.(SOURCE_TEXT_SELECTOR)?.value || '');
-  const sourceName = String(doc?.querySelector?.(SOURCE_NAME_SELECTOR)?.value || sourceId);
+  const state = globalThis.__tableCategorizedState;
+  let text = '', sourceName = sourceId;
+  if (state) {
+    const source = state.sources?.find((s) => s.sourceId === sourceId) || {};
+    text = String(source.sourceText || '');
+    sourceName = String(source.sourceName || sourceId);
+  } else {
+    text = String(doc?.querySelector?.(SOURCE_TEXT_SELECTOR)?.value || '');
+    sourceName = String(doc?.querySelector?.(SOURCE_NAME_SELECTOR)?.value || sourceId);
+  }
+
   if (!text.trim()) return setHandoffStatus(doc, `Table ${sourceId} is empty.`, false);
   let recipe;
   try {
@@ -273,10 +363,31 @@ function sendActiveRuntimeSourceToXmlCompare(doc, { sourceId = 'S1', targetSide 
     return setHandoffStatus(doc, `${sourceId} could not be exported: ${first}`, false);
   }
   const input = doc?.querySelector?.(`input[data-xml-compare-load="${targetSide === 'b' ? 'b' : 'a'}"]`);
-  if (!input) return setHandoffStatus(doc, `XML Compare ${targetSide === 'b' ? 'Target B' : 'Source A'} file input was not found.`, false);
-  const ok = setInputFile(input, artifactFile(artifact, { sourceId, targetSide }), doc);
-  if (!ok) return setHandoffStatus(doc, 'Browser file handoff API is unavailable.', false);
-  return setHandoffStatus(doc, `Sent table ${sourceId} to XML Compare ${targetSide === 'b' ? 'Target B' : 'Source A'}.`, true);
+  if (input) {
+    const ok = setInputFile(input, artifactFile(artifact, { sourceId, targetSide }), doc);
+    if (!ok) return setHandoffStatus(doc, 'Browser file handoff API is unavailable.', false);
+    return setHandoffStatus(doc, `Sent table ${sourceId} to XML Compare ${targetSide === 'b' ? 'Target B' : 'Source A'}.`, true);
+  }
+
+  try {
+    const PENDING_EXTERNAL_LOAD_KEY = 'xml-compare-pending-external-load';
+    const fileName = targetSide === 'b' ? `table_${sourceId}_target.xml` : `table_${sourceId}_source.xml`;
+    const payload = { side: targetSide === 'b' ? 'b' : 'a', fileName, text: artifact.xmlText };
+    let queue = [];
+    try {
+      const existing = localStorage.getItem(PENDING_EXTERNAL_LOAD_KEY);
+      if (existing) {
+        const parsed = JSON.parse(existing);
+        queue = Array.isArray(parsed) ? parsed : [parsed];
+      }
+    } catch (e) {}
+    queue = queue.filter(item => item.side !== payload.side);
+    queue.push(payload);
+    localStorage.setItem(PENDING_EXTERNAL_LOAD_KEY, JSON.stringify(queue));
+    return setHandoffStatus(doc, `Queued ${sourceId} for XML Compare ${targetSide === 'b' ? 'Target B' : 'Source A'} (Review tab).`, true);
+  } catch (err) {
+    return setHandoffStatus(doc, `XML Compare handoff failed: ${String(err)}`, false);
+  }
 }
 
 function selectAndFillRuntimeSource(doc, { targetSecondSource = false, sourceName = '', tableText = '' } = {}) {

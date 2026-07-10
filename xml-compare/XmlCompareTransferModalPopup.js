@@ -164,7 +164,7 @@ function historyPanel(input = {}, tState = {}) {
 }
 
 function dashboardCard(id = '', label = '', status = 'not available', detail = '', nextAction = '') {
-  return `<article class="xmlc-transfer-dashboard-card is-${esc(status).replaceAll(' ', '-')}" data-xml-compare-dashboard-card="${esc(id)}"><b>${esc(label)}</b><span>${esc(status)}</span><small>${esc(detail)}</small>${nextAction ? `<em>${esc(nextAction)}</em>` : ''}</article>`;
+  return `<article class="xmlc-transfer-dashboard-card is-${esc(status).replaceAll(' ', '-')}" data-xml-compare-dashboard-card="${esc(id)}"><b>${esc(label)}</b><span>${esc(status)}</span><div class="xmlc-transfer-dashboard-card-details"><small>${esc(detail)}</small>${nextAction ? `<em>${esc(nextAction)}</em>` : ''}</div></article>`;
 }
 
 function visibleExportActions(summary = {}) {
