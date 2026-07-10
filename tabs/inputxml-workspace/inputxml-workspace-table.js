@@ -60,8 +60,16 @@ export function rowsToTabText(rows = [], columns = []) {
   return lines.join('\n');
 }
 
-export function projectRows(rows = [], columns = []) {
-  return (rows || []).map((row) => Object.fromEntries(columns.map((column) => [column.key, clean(row?.[column.key] ?? row?.[column.sourceKey] ?? '')])));
+function projectedValue(row = {}, column = {}) {
+  if (Object.prototype.hasOwnProperty.call(row, column.key)) return clean(row[column.key]);
+  if (column.sourceKey && Object.prototype.hasOwnProperty.call(row, column.sourceKey)) return clean(row[column.sourceKey]);
+  const aliases = [column.key, column.sourceKey, ...(column.aliases || [])].filter(Boolean).map(normalKey);
+  const match = Object.entries(row || {}).find(([key]) => aliases.includes(normalKey(key)));
+  return clean(match?.[1]);
 }
 
-export const _test = Object.freeze({ clean, normalKey, looksLikeHeader, headerIndex });
+export function projectRows(rows = [], columns = []) {
+  return (rows || []).map((row) => Object.fromEntries(columns.map((column) => [column.key, projectedValue(row, column)])));
+}
+
+export const _test = Object.freeze({ clean, normalKey, looksLikeHeader, headerIndex, projectedValue });

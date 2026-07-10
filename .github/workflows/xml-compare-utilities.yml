@@ -17,9 +17,104 @@ jobs:
           node-version: 24
       - name: Static tests
         run: npm run test:static
-      - name: XML tests
-        run: npm run test:xml
+      - name: XML tests readiness and validation
+        run: >-
+          node tests/xml-compare-validation-model.test.js &&
+          node tests/xml-compare-transfer-staging.test.js &&
+          node tests/xml-compare-phase2-orchestrator.test.js &&
+          node tests/xml-input-readiness-audit.test.js &&
+          node tests/xml-input-readiness-workspace-service.test.js &&
+          node tests/xml-input-readiness-workspace-diagnostics.test.js &&
+          node tests/xml-compare-tab-view-readiness-button.test.js &&
+          node tests/xml-input-readiness-gate-snapshot.test.js &&
+          node tests/xml-input-profile-readiness.test.js &&
+          node tests/xml-input-readiness-profile-integration.test.js
+      - name: XML tests connector and manual review
+        run: >-
+          node tests/xml-compare-approved-connector-workflow.test.js &&
+          node tests/xml-compare-manual-only-connectors.test.js &&
+          node tests/xml-compare-linewise-shortcut-routing.test.js &&
+          node tests/xml-compare-manual-validation-builder.test.js &&
+          node tests/xml-compare-manual-validation-builder-runtime-load.test.js &&
+          node tests/xml-stable-identity.test.js &&
+          node tests/xml-coordinate-frame-status.test.js &&
+          node tests/xml-compare-state-backed-transfer-stage.test.js &&
+          node tests/xml-compare-graph-dom-transfer-patch-engine.test.js &&
+          node tests/xml-compare-real-sample-transfer-proof.test.js
+      - name: XML transfer readiness gated workflow
+        run: node tests/xml-compare-readiness-gated-transfer-workflow.test.js
+      - name: XML transfer linebasis coordinate solve
+        run: node tests/xml-compare-linebasis-coordinate-solve.test.js
+      - name: XML transfer anchor transform
+        run: node tests/xml-compare-anchor-transform.test.js
+      - name: XML transfer stable identity
+        run: node tests/xml-compare-stable-identity-transfer.test.js
+      - name: XML transfer field extractor
+        run: node tests/xml-compare-field-extractor.test.js
+      - name: XML transfer candidate pairs
+        run: node tests/xml-compare-candidate-pairs.test.js
+      - name: XML transfer compare report
+        run: node tests/xml-compare-compare-report.test.js
+      - name: XML transfer engine fixes
+        run: node tests/xml-compare-transfer-engine-fixes.test.js
+      - name: XML transfer output hardening
+        run: node tests/xml-compare-transfer-output-hardening.test.js
+      - name: XML transfer export command gate
+        run: node tests/xml-compare-transfer-export-command-gate.test.js
+      - name: XML tests transfer dashboard and enrichment
+        run: >-
+          node tests/xml-compare-transfer-export-receipt.test.js &&
+          node tests/xml-compare-transfer-artifact-bundle.test.js &&
+          node tests/xml-compare-transfer-export-history.test.js &&
+          node tests/xml-compare-transfer-export-preflight.test.js &&
+          node tests/xml-compare-transfer-diff-summary.test.js &&
+          node tests/xml-compare-transfer-change-ledger.test.js &&
+          node tests/xml-compare-transfer-output-dashboard.test.js &&
+          node tests/xml-compare-transfer-dashboard-css-build-stamp.test.js &&
+          node tests/xml-compare-transfer-tab2-layout-foundation.test.js &&
+          node tests/xml-compare-enrichment-apply-preview.test.js &&
+          node tests/xml-compare-enrichment-config-line-preview.test.js
+      - name: XML tests UXC contracts
+        run: node tests/xml-compare-universal-categorizer-contracts.test.js
+      - name: XML tests UXC source registry
+        run: node tests/xml-compare-universal-source-registry.test.js
+      - name: XML tests UXC attachment preview
+        run: node tests/xml-compare-universal-attachment-preview.test.js
+      - name: XML tests UXC graph builder
+        run: node tests/xml-compare-universal-graph-builder.test.js
+      - name: XML tests UXC graph proof export gate
+        run: node tests/xml-compare-universal-graph-proof-export-gate.test.js
+      - name: XML tests UXC recipe designer
+        run: node tests/xml-compare-universal-recipe-designer-model.test.js
+      - name: XML tests UXC column role review
+        run: node tests/xml-compare-universal-column-role-review.test.js
+      - name: XML tests UXC mapping workbench
+        run: node tests/xml-compare-universal-mapping-workbench.test.js
+      - name: XML tests UXC mapping review
+        run: node tests/xml-compare-universal-mapping-review.test.js
+      - name: XML tests UXC mapping trace
+        run: node tests/xml-compare-universal-mapping-trace.test.js
+      - name: XML tests UXC mapping confidence
+        run: node tests/xml-compare-universal-mapping-confidence.test.js
+      - name: XML tests UXC preview model
+        run: node tests/xml-compare-universal-preview-model.test.js
+      - name: XML tests UXC loaded preview bundle
+        run: node tests/xml-compare-universal-loaded-preview-bundle.test.js
+      - name: XML tests UXC workspace view model
+        run: node tests/xml-compare-universal-workspace-view-model.test.js
+      - name: XML tests UXC categorizer UI
+        run: node tests/xml-compare-universal-categorizer-ui.test.js
       - name: Table tests
         run: npm run test:table
-      - name: Full npm test
-        run: npm test
+      - name: PS family tests
+        run: npm run test:ps-family
+      - name: InputXML workspace static
+        run: node tests/inputxml-workspace-static.test.js
+      - name: InputXML workspace cleanxml resolve role
+        run: node tests/inputxml-workspace-cleanxml-resolve-role.test.js
+      - name: InputXML workspace manual tables
+        run: node tests/inputxml-workspace-manual-tables.test.js
+      - name: InputXML workspace accdb sideload
+        run: node tests/inputxml-workspace-accdb-sideload.test.js
+      - name: InputXML workspace 5D benchmark
+        run: node tests/xml-cii-inputxml-5d-benchmark.test.js

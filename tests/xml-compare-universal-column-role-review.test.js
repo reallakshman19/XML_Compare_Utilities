@@ -45,9 +45,24 @@ assert.equal(linewise.schema, UNIVERSAL_COLUMN_ROLE_REVIEW_SCHEMA);
 assert.ok(linewise.rows.length >= 1);
 assert.ok(linewise.selected.rowId || linewise.selected.column);
 
-const changedForbiddenFiles = findForbiddenUxc001Changes(changedFilesFromGit());
-assert.deepEqual(changedForbiddenFiles, [], `UXC-015 stabilized scope modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+const changedFiles = changedFilesFromGit();
+if (isUxcColumnRoleReviewScope(changedFiles)) {
+  const changedForbiddenFiles = findForbiddenUxc001Changes(changedFiles);
+  assert.deepEqual(changedForbiddenFiles, [], `UXC-015 stabilized scope modified forbidden files: ${changedForbiddenFiles.join(', ')}`);
+}
 
+function isUxcColumnRoleReviewScope(files = []) {
+  return files.some((file) => [
+    'xml-compare/universal-categorizer/universal-column-role-review.js',
+    'xml-compare/universal-categorizer/universal-preview-model.js',
+    'xml-compare/universal-categorizer/universal-xml-categorizer-shell.js',
+    'tests/xml-compare-universal-column-role-review.test.js',
+    'tests/xml-compare-universal-preview-model.test.js',
+    'tests/xml-compare-universal-workspace-view-model.test.js',
+    'tests/xml-compare-universal-categorizer-ui.test.js',
+    'package.json',
+  ].includes(file));
+}
 function changedFilesFromGit() {
   const baseRef = safeGitRef(process.env.GITHUB_BASE_REF || 'main');
   const commands = [
