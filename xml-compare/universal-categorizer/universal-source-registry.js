@@ -88,7 +88,16 @@ export function normalizeSourceInputs(sourceInputs = {}) {
 }
 
 export function findForbiddenUxc001Changes(paths = []) {
-  return freeze(arr(paths).map((path) => text(path)).filter(isForbiddenUxc001File));
+  const normalized = arr(paths).map((path) => text(path).replaceAll('\\', '/')).filter(Boolean);
+  if (!normalized.some(isUxcGuardScopeFile)) return freeze([]);
+  return freeze(normalized.filter(isForbiddenUxc001File));
+}
+
+export function isUxcGuardScopeFile(path = '') {
+  const normalized = text(path).replaceAll('\\', '/');
+  return normalized.startsWith('xml-compare/universal-categorizer/')
+    || normalized.startsWith('tests/xml-compare-universal-')
+    || normalized === 'package.json';
 }
 
 export function isForbiddenUxc001File(path = '') {
