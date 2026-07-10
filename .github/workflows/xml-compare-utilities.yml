@@ -41,18 +41,26 @@ jobs:
           node tests/xml-compare-state-backed-transfer-stage.test.js &&
           node tests/xml-compare-graph-dom-transfer-patch-engine.test.js &&
           node tests/xml-compare-real-sample-transfer-proof.test.js
-      - name: XML tests transfer engine
-        run: >-
-          node tests/xml-compare-readiness-gated-transfer-workflow.test.js &&
-          node tests/xml-compare-linebasis-coordinate-solve.test.js &&
-          node tests/xml-compare-anchor-transform.test.js &&
-          node tests/xml-compare-stable-identity-transfer.test.js &&
-          node tests/xml-compare-field-extractor.test.js &&
-          node tests/xml-compare-candidate-pairs.test.js &&
-          node tests/xml-compare-compare-report.test.js &&
-          node tests/xml-compare-transfer-engine-fixes.test.js &&
-          node tests/xml-compare-transfer-output-hardening.test.js &&
-          node tests/xml-compare-transfer-export-command-gate.test.js
+      - name: XML transfer readiness gated workflow
+        run: node tests/xml-compare-readiness-gated-transfer-workflow.test.js
+      - name: XML transfer linebasis coordinate solve
+        run: node tests/xml-compare-linebasis-coordinate-solve.test.js
+      - name: XML transfer anchor transform
+        run: node tests/xml-compare-anchor-transform.test.js
+      - name: XML transfer stable identity
+        run: node tests/xml-compare-stable-identity-transfer.test.js
+      - name: XML transfer field extractor
+        run: node tests/xml-compare-field-extractor.test.js
+      - name: XML transfer candidate pairs
+        run: node tests/xml-compare-candidate-pairs.test.js
+      - name: XML transfer compare report
+        run: node tests/xml-compare-compare-report.test.js
+      - name: XML transfer engine fixes
+        run: node tests/xml-compare-transfer-engine-fixes.test.js
+      - name: XML transfer output hardening
+        run: node tests/xml-compare-transfer-output-hardening.test.js
+      - name: XML transfer export command gate
+        run: node tests/xml-compare-transfer-export-command-gate.test.js
       - name: XML tests transfer dashboard and enrichment
         run: >-
           node tests/xml-compare-transfer-export-receipt.test.js &&
