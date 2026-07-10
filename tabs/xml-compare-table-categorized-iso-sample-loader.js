@@ -129,40 +129,15 @@ export function renderIsoRecipeSamplePanel(workflow = buildIsoRecipeSampleWorkfl
 }
 
 export function injectIsoRecipeSampleLoader(doc = globalThis.document) {
-  if (!doc?.querySelector) return false;
-  const popup = doc.querySelector('[data-xml-compare-table-categorized-popup]');
-  if (!popup || popup.querySelector(`[${BUTTON_ATTR}="open"]`)) return false;
-  const templateHeader = [...popup.querySelectorAll('h4')].find((node) => node.textContent?.trim() === 'Load Template');
-  const container = templateHeader?.parentElement;
-  if (!container) return false;
-  const button = doc.createElement('button');
-  button.type = 'button';
-  button.setAttribute(BUTTON_ATTR, 'open');
-  button.textContent = '📘 Load ISOrecipe Full Rev Tables';
-  const fieldComparisonButton = container.querySelector('[data-table-categorized-action="load-field-comparison-sample"]');
-  if (fieldComparisonButton) fieldComparisonButton.insertAdjacentElement('afterend', button);
-  else container.append(button);
-  return true;
+  return false;
+}
+
+export function injectIsoRecipeButton(doc = globalThis.document) {
+  return false;
 }
 
 export function injectSourceTargetHandoffControls(doc = globalThis.document) {
-  if (!doc?.querySelector) return false;
-  const popup = doc.querySelector('[data-xml-compare-table-categorized-popup]');
-  if (!popup || popup.querySelector(`[${HANDOFF_ATTR}]`)) return false;
-  const side = popup.querySelector('.table-categorized-shell-side');
-  if (!side) return false;
-  const card = doc.createElement('div');
-  card.className = 'table-categorized-shell-side-card';
-  card.setAttribute(HANDOFF_ATTR, 'true');
-  card.innerHTML = `<h4>XML Compare Source / Target</h4>
-    <p>Convert loaded table slots independently and send them to XML Compare.</p>
-    <div class="table-categorized-xml-actions">
-      <button type="button" ${BUTTON_ATTR}="send-s1-source">➡️ Send Table S1 as Source A</button>
-      <button type="button" ${BUTTON_ATTR}="send-s2-target">➡️ Send Table S2 as Target B</button>
-    </div>
-    <p ${HANDOFF_STATUS_ATTR}>Load S1/S2, then send to Source/Target.</p>`;
-  side.append(card);
-  return true;
+  return false;
 }
 
 export function injectIsoRecipeLayoutStyle(doc = globalThis.document) {

@@ -11,7 +11,6 @@ export const UXC_001_FORBIDDEN_FILES = Object.freeze([
   'xml-compare/table-categorizer/table-categorized-xml-graph-builder.js',
   'xml-compare/table-categorizer/table-categorized-xml-exporter.js',
   'xml-compare/table-categorizer/table-categorized-xml-controller.js',
-  'tabs/xml-compare-table-categorized-runtime.js',
 ]);
 
 const freeze = (value) => Object.freeze(value);

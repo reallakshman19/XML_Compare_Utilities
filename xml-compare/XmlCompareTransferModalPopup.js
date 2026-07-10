@@ -11,6 +11,7 @@ import { gateAllowsAction } from './XmlCompareTransferWorkflowGateModel.js';
 import { comparePanel, renderXmlCompareCandidatePairsPanelHtml, renderXmlCompareCandidateReviewControlsHtml } from './XmlCompareAnchorReviewPanel.js?v=20260704-c4';
 import { renderXmlCompareLogScreenHtml } from './XmlCompareLogScreen.js';
 import { renderXmlCompareDiagnosticsPanelHtml } from './XmlCompareDiagnosticsPanel.js';
+import { renderRevCompareDashboardHtml } from './rev-compare/rev-compare-ui.js';
 
 export const XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA = 'xml-compare-transfer-modal-popup/v12-state-truth';
 
@@ -262,11 +263,16 @@ function transferTab(input = {}, tState = {}, stageScope = 'node', transferPrevi
   return `<div class="xml-compare-modal-tab-content ${isActive ? 'is-active' : ''} xmlc-transfer-review" data-xml-compare-modal-tab="transfer-compare" data-transfer-evidence="${evidence ? 'available' : 'none'}" style="${isActive ? '' : 'display: none;'}">${evidence ? outputBody : noStageBody}</div>`;
 }
 
+function revCompareTab(input = {}, isActive = false) {
+  return `<div class="xml-compare-modal-tab-content ${isActive ? 'is-active' : ''} xmlc-rev-compare-tab" data-xml-compare-modal-tab="rev-compare" style="${isActive ? '' : 'display: none;'}">${renderRevCompareDashboardHtml(input)}</div>`;
+}
+
 export function renderXmlCompareTransferModalPopupHtml({ input = {}, tState = {}, stageScope = 'node', transferPreview = {} } = {}) {
   const activeTab = input.transferModal?.activeTab || 'candidate-review';
   const isCandidateActive = activeTab === 'candidate-review';
   const isTransferActive = activeTab === 'transfer-compare';
-  return `<dialog class="xml-compare-transfer-modal" data-xml-compare-transfer-modal data-schema="${XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA}"><header class="xml-compare-modal-header"><h2>Transfer & Compare Review</h2><button type="button" class="xml-compare-modal-close" data-xml-compare-action="close-transfer-modal" aria-label="Close">x</button></header><nav class="xml-compare-modal-tabs"><button type="button" class="xml-compare-modal-tab-btn ${isCandidateActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="candidate-review">Tab 1: Candidate Review</button><button type="button" class="xml-compare-modal-tab-btn ${isTransferActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="transfer-compare">Tab 2: Transfer & Compare</button></nav><div class="xml-compare-modal-body">${candidateTab(input, isCandidateActive)}${transferTab(input, tState, stageScope, transferPreview, isTransferActive)}</div></dialog>`;
+  const isRevCompareActive = activeTab === 'rev-compare';
+  return `<dialog class="xml-compare-transfer-modal" data-xml-compare-transfer-modal data-schema="${XML_COMPARE_TRANSFER_MODAL_POPUP_SCHEMA}"><header class="xml-compare-modal-header"><h2>Transfer & Compare Review</h2><button type="button" class="xml-compare-modal-close" data-xml-compare-action="close-transfer-modal" aria-label="Close">x</button></header><nav class="xml-compare-modal-tabs"><button type="button" class="xml-compare-modal-tab-btn ${isCandidateActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="candidate-review"><span class="xmlc-tab-icon">🔍</span><span class="xmlc-tab-text">Tab 1: Candidate Review</span></button><button type="button" class="xml-compare-modal-tab-btn ${isTransferActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="transfer-compare"><span class="xmlc-tab-icon">🔄</span><span class="xmlc-tab-text">Tab 2: Transfer</span></button><button type="button" class="xml-compare-modal-tab-btn ${isRevCompareActive ? 'is-active' : ''}" data-xml-compare-action="switch-modal-tab" data-tab-target="rev-compare"><span class="xmlc-tab-icon">📊</span><span class="xmlc-tab-text">Tab 3: Rev Compare</span></button></nav><div class="xml-compare-modal-body">${candidateTab(input, isCandidateActive)}${transferTab(input, tState, stageScope, transferPreview, isTransferActive)}${revCompareTab(input, isRevCompareActive)}</div></dialog>`;
 }
 
 export const _test = Object.freeze({ esc, clean, targetTextOf, approvalCounts, cardMetric, transferOverview, outputActionMeta, transferButton, commandButton, legacyExportCompatibility, outputStateText, outputPreview, blockerList, preflightRow, preflightPanel, diffSummaryFor, diffSummaryPanel, changeLedgerFor, changeLedgerRow, changeLedgerPanel, dashboardCard, visibleExportActions, visibleExportReadyCount, dashboardNextAction, dashboardPanel, detailGroup, hasTransferEvidence, hardTransferBlockers, transferStartPanel, receiptPanel, historyRow, historyPanel, outputActionBand, transferWorkflowGroup, candidateTab, transferTab });

@@ -12,6 +12,7 @@ const pct = (value) => `${Math.round((Number(value) || 0) * 100)}%`;
 const STATUS_LABEL = Object.freeze({ valid: 'VALID', review: 'REVIEW', conflict: 'CONFLICT', 'no-target': 'NO TARGET' });
 const APPROVAL_LABEL = Object.freeze({ approved: 'APPROVED', pending: 'PENDING', rejected: 'REJECTED', blocked: 'BLOCKED', anchor: 'ANCHOR' });
 const NODE_TRANSFER_BLOCKS = Object.freeze(['DerivedCoordinateBlock', 'TemperatureBlock', 'RestraintsBlock', 'DisplacementsBlock', 'ForcesMomentsBlock', 'SifBlock']);
+import { readFieldValue } from './XmlCompareFieldExtractor.js';
 
 function anchorRail(workspace = {}) {
   const anchor = workspace.anchor || null;
@@ -185,9 +186,6 @@ function allowDuplicateTargetFor(pair = {}) {
 function candidateActions(pair = {}, approval = 'pending') {
   const data = `data-source-uid="${esc(pair.sourceUid)}" data-target-uid="${esc(pair.targetUid)}" data-source-stable="${esc(pair.sourceStableKey)}" data-target-stable="${esc(pair.targetStableKey)}" data-source-label="${esc(pair.sourceLabel)}" data-target-label="${esc(pair.targetLabel)}" data-status="${esc(pair.status)}" data-method="${esc(pair.method)}" data-allow-duplicate-target="${allowDuplicateTargetFor(pair) ? 'true' : 'false'}"`;
   if (pair.isAnchor) return '<span class="xmlc-anchor-tag">anchor</span>';
-  if (approval === 'approved') return '<span class="xmlc-approved-note">Approved</span>';
-  if (approval === 'rejected') return '<span class="xmlc-rejected-note">Rejected</span>';
-  if (approval === 'blocked') return '<span class="xmlc-rejected-note">Blocked</span>';
   return `<button type="button" class="xmlc-approve" data-xml-compare-candidate-approve ${data}>Approve</button><button type="button" class="xmlc-reject" data-xml-compare-candidate-reject ${data}>Reject</button>`;
 }
 
@@ -203,9 +201,20 @@ function numericCandidateRow(pair = {}, deltaFieldNames = [], includeTextPct = f
   return `<tr class="xmlc-cand is-${esc(pair.status)} is-approval-${esc(approval)}"><td>${esc(pair.sourceLabel)}</td><td>&rarr; ${esc(pair.targetLabel || '-')}</td>${deltaCells}${textCell}<td><span class="xmlc-chip is-${esc(pair.status)}">${esc(STATUS_LABEL[pair.status] || pair.status)}</span></td><td>${approvalCell(approval)}</td><td class="xmlc-cand-actions">${candidateActions(pair, approval)}</td></tr>`;
 }
 
-function stringCandidateRow(pair = {}, sets = approvalSets()) {
+function stringCandidateRow(pair = {}, sets = approvalSets(), workspace = {}, targetFieldOptions = new Map()) {
   const approval = approvalState(pair, sets);
-  return `<tr class="xmlc-cand is-${esc(pair.status)} is-approval-${esc(approval)}"><td>${esc(pair.sourceLabel)}</td><td>&rarr; ${esc(pair.targetLabel || '-')}</td><td>${esc(pair.textField || 'displayName')}</td><td>${esc(pair.textSourceValue)}</td><td>${esc(pair.textTargetValue)}</td><td>${pct(pair.matchPct)}</td><td><span class="xmlc-chip is-${esc(pair.status)}">${esc(STATUS_LABEL[pair.status] || pair.status)}</span></td><td>${approvalCell(approval)}</td><td class="xmlc-cand-actions">${candidateActions(pair, approval)}</td></tr>`;
+  
+  const optionsHtml = targetFieldOptions.get(pair.textField) || '';
+  const isCustom = !optionsHtml.includes(`"${esc(pair.textTargetValue)}"`);
+  const customOption = (isCustom && pair.textTargetValue) ? `<option value="${esc(pair.textTargetValue)}" selected>${esc(pair.textTargetValue)}</option>` : '';
+  const finalOptionsHtml = optionsHtml.replace(`value="${esc(pair.textTargetValue)}"`, `value="${esc(pair.textTargetValue)}" selected`);
+  
+  const targetTextHtml = `<select data-xml-compare-candidate-text-target-override="${esc(pair.id)}" style="width:100%; box-sizing:border-box;">
+    <option value="">-- select target text --</option>
+    ${customOption}
+    ${finalOptionsHtml}
+  </select>`;
+  return `<tr class="xmlc-cand is-${esc(pair.status)} is-approval-${esc(approval)}"><td>${esc(pair.sourceLabel)}</td><td>&rarr; ${esc(pair.targetLabel || '-')}</td><td>${esc(pair.textField || 'displayName')}</td><td>${esc(pair.textSourceValue)}</td><td>${targetTextHtml}</td><td>${pct(pair.matchPct)}</td><td><span class="xmlc-chip is-${esc(pair.status)}">${esc(STATUS_LABEL[pair.status] || pair.status)}</span></td><td>${approvalCell(approval)}</td><td class="xmlc-cand-actions">${candidateActions(pair, approval)}</td></tr>`;
 }
 
 function candidateGrid(workspace = {}) {
@@ -236,11 +245,64 @@ function candidateGrid(workspace = {}) {
   const visiblePairs = pairs.slice(0, 200);
   const hiddenCount = pairs.length - visiblePairs.length;
   const baseSummary = `VALID ${summary.validCount || 0} - REVIEW ${summary.reviewCount || 0} - CONFLICT ${summary.conflictCount || 0}${summary.noTargetCount ? ` - NO TARGET ${summary.noTargetCount}` : ''} - APPROVED ${approvals.approved} - PENDING ${approvals.pending} - SHOWN ${visiblePairs.length}/${pairs.length}`;
+  const filterValue = (col) => esc(workspace.candidateDecisions?.filters?.[col] || '');
+
   if (isStringMode) {
-    const rows = visiblePairs.map((pair) => stringCandidateRow(pair, sets)).join('');
+    const targetFieldOptions = new Map();
+    if (pairs.length > 0) {
+      const matchField = pairs[0].textField || 'displayName';
+      const uniqueTargetTexts = new Set();
+      (workspace.target?.records || []).forEach(r => {
+         const v = readFieldValue(r, matchField);
+         if (clean(v)) uniqueTargetTexts.add(clean(v));
+      });
+      const optionsHtml = Array.from(uniqueTargetTexts).sort().map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      targetFieldOptions.set(matchField, optionsHtml);
+    }
+
+    let filteredPairs = visiblePairs;
+    const filters = workspace.candidateDecisions?.filters || {};
+    if (filters.source) filteredPairs = filteredPairs.filter(p => (p.sourceLabel||'').toLowerCase().includes(filters.source.toLowerCase()));
+    if (filters.target) filteredPairs = filteredPairs.filter(p => (p.targetLabel||'').toLowerCase().includes(filters.target.toLowerCase()));
+    if (filters.field) filteredPairs = filteredPairs.filter(p => (p.textField||'').toLowerCase().includes(filters.field.toLowerCase()));
+    if (filters.sourceText) filteredPairs = filteredPairs.filter(p => (p.textSourceValue||'').toLowerCase().includes(filters.sourceText.toLowerCase()));
+    if (filters.targetText) filteredPairs = filteredPairs.filter(p => (p.textTargetValue||'').toLowerCase().includes(filters.targetText.toLowerCase()));
+    if (filters.status) filteredPairs = filteredPairs.filter(p => (p.status||'').toLowerCase().includes(filters.status.toLowerCase()));
+    if (filters.approval) filteredPairs = filteredPairs.filter(p => (approvalState(p, sets)||'').toLowerCase().includes(filters.approval.toLowerCase()));
+
+    const filterInput = (col, placeholder = 'filter...') => {
+      const uniqueValues = new Set();
+      visiblePairs.forEach(p => {
+        let v = '';
+        if (col === 'source') v = p.sourceLabel;
+        if (col === 'target') v = p.targetLabel;
+        if (col === 'field') v = p.textField;
+        if (col === 'sourceText') v = p.textSourceValue;
+        if (col === 'targetText') v = p.textTargetValue;
+        if (col === 'status') v = p.status;
+        if (col === 'approval') v = approvalState(p, sets);
+        if (v) uniqueValues.add(v);
+      });
+      const options = Array.from(uniqueValues).sort().map(v => `<option value="${esc(v)}"></option>`).join('');
+      return `<input type="text" list="xmlc-filter-list-${col}" data-xml-compare-candidate-filter="${col}" value="${filterValue(col)}" placeholder="${placeholder}" style="width:100%; box-sizing:border-box; font-size:11px;">
+      <datalist id="xmlc-filter-list-${col}">${options}</datalist>`;
+    };
+
+    const rows = filteredPairs.map((pair) => stringCandidateRow(pair, sets, workspace, targetFieldOptions)).join('');
+    const filterRow = `<tr class="xmlc-filters">
+      <td>${filterInput('source')}</td>
+      <td>${filterInput('target')}</td>
+      <td>${filterInput('field')}</td>
+      <td>${filterInput('sourceText')}</td>
+      <td>${filterInput('targetText')}</td>
+      <td></td>
+      <td>${filterInput('status')}</td>
+      <td>${filterInput('approval')}</td>
+      <td></td>
+    </tr>`;
     return `<div class="xmlc-cand-summary">${baseSummary} <span class="xmlc-criterion">valid when ${criterion} (Match on: ${esc(matchLabelFor(model))})</span></div>
       ${bulkHtml}
-      <div class="xmlc-table-scroll"><table class="xmlc-table"><thead><tr><th>Source</th><th>Nearest target</th><th>Field</th><th>Source text</th><th>Target text</th><th>Text %</th><th>Status</th><th>Approval</th><th>Action</th></tr></thead><tbody>${rows}${hiddenCount > 0 ? '<tr><td colspan="9">Showing first 200 candidate rows. Refine the anchor/connector scope to reduce the list.</td></tr>' : ''}</tbody></table></div>`;
+      <div class="xmlc-table-scroll"><table class="xmlc-table"><thead><tr><th>Source</th><th>Nearest target</th><th>Field</th><th>Source text</th><th>Target text</th><th>Text %</th><th>Status</th><th>Approval</th><th>Action</th></tr>${filterRow}</thead><tbody>${rows}${hiddenCount > 0 ? '<tr><td colspan="9">Showing first 200 candidate rows. Refine the anchor/connector scope to reduce the list.</td></tr>' : ''}</tbody></table></div>`;
   }
   const includeTextPct = model.mode !== 'numeric';
   const rows = visiblePairs.map((pair) => numericCandidateRow(pair, deltaFieldNames, includeTextPct, sets)).join('');
