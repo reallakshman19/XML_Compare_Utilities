@@ -76,12 +76,20 @@ function elementXml(fromNode, toNode, lengthMm, index, rev2 = false) {
   const isShort = index >= 100;
   const name = isShort ? `SHORT-${index}` : `E-${String(index).padStart(2, '0')}`;
   const tag = rev2 && index === 14 ? 'TAG-14-REV2-MISMATCH' : isShort ? `SHORT-${index}` : `TAG-${String(index).padStart(2, '0')}`;
+  const coordBase = rev2 ? 1000 : 5000;
+  const startX = coordBase + index * 10;
   const attrs = [
     `FROM_NODE="${fromNode}"`,
     `TO_NODE="${toNode}"`,
     `DELTA_X="${Number(lengthMm).toFixed(3)}"`,
     'DELTA_Y="0.000"',
     'DELTA_Z="0.000"',
+    `FROM_X="${startX.toFixed(3)}"`,
+    'FROM_Y="0.000"',
+    'FROM_Z="0.000"',
+    `TO_X="${(startX + Number(lengthMm)).toFixed(3)}"`,
+    'TO_Y="0.000"',
+    'TO_Z="0.000"',
     'DIAMETER="219.100"',
     'WALL_THICK="8.180"',
     'LINE_ID="L-5D-BENCH"',
@@ -131,6 +139,8 @@ function summaryRow(label, result) {
     evidenceConflicts: result.summary.evidenceConflictElements,
     transferPreview: result.summary.transferPreviewElements,
     conflicts: result.summary.conflictCount,
+    frameMode: result.summary.frameMode,
+    nodeRemap: result.summary.nodeRemapCount,
   };
 }
 
@@ -172,6 +182,14 @@ function summaryRow(label, result) {
   assert(auditOnly.summary.matchedElements >= 18, `Expected at least 18 matched elements, got ${auditOnly.summary.matchedElements}.`);
   assert(auditOnly.summary.transferPreviewElements >= 18, `Expected at least 18 transfer-preview rows, got ${auditOnly.summary.transferPreviewElements}.`);
   assert(auditOnly.summary.evidenceConflictElements >= 1, 'Rev-2 intentionally changes one tag; evidence conflict must be audited.');
+  assert.strictEqual(auditOnly.frameSolution.schema, 'CiiCoordinateFrameSolution.v1');
+  assert.strictEqual(auditOnly.frameSolution.mode, 'TRANSLATION_ONLY', 'Benchmark includes absolute coordinates and must solve a translation frame.');
+  assert.strictEqual(auditOnly.frameSolution.translation.x, -4000, 'Rev-2 benchmark coordinate frame starts 4000 mm before Rev-1.');
+  assert.strictEqual(auditOnly.nodeRemap.schema, 'CiiInputXmlNodeRemapLedger.v1');
+  assert(auditOnly.nodeRemap.summary.mappedNodeCount >= 20, `Expected node remap ledger, got ${auditOnly.nodeRemap.summary.mappedNodeCount}.`);
+  assert.strictEqual(auditOnly.topologyDashboard.schema, 'CiiInputXmlTopologyDashboard.v1');
+  assert.strictEqual(auditOnly.topologyDashboard.summary.coordinateFrameMode, 'TRANSLATION_ONLY');
+  assert(auditOnly.topologyDashboard.nodeRemapRows.some((row) => row.sourceNode === '10' && row.targetNode === '1010'), 'Dashboard must expose node 10 -> 1010 remap.');
   assert(strictEvidence.summary.matchedElements >= 18, `Strict evidence must not kill route matching; got ${strictEvidence.summary.matchedElements}.`);
   assert(strictEvidence.summary.transferPreviewElements >= 15, `Strict evidence should still preserve most transfer previews; got ${strictEvidence.summary.transferPreviewElements}.`);
 
