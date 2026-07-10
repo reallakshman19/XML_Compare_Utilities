@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const transferCss = readFileSync('tabs/xml-compare-transfer-output-ui.css', 'utf8');
+const noiseCss = readFileSync('tabs/xml-compare-transfer-noise-reduction.css', 'utf8');
+const buildCss = readFileSync('styles/app-build-stamp.css', 'utf8');
+const indexHtml = readFileSync('index.html', 'utf8');
+const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
+const appDelegate = readFileSync('core/app.js', 'utf8');
+const runtime = readFileSync('core/app-standalone-runtime.js', 'utf8');
+const actionButtonRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
+
+assert.ok(transferCss.includes('.xmlc-transfer-output-dashboard'), 'dashboard panel CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-next-action'), 'next-action CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-dashboard-grid'), 'dashboard grid CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-ready'), 'ready dashboard card CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-blocked'), 'blocked dashboard card CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-not-available'), 'not-available dashboard card CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-detail-group > summary'), 'collapsible detail group CSS must exist');
+assert.ok(transferCss.includes('@media (max-width: 900px)'), 'dashboard CSS must include responsive fallback');
+
+assert.ok(noiseCss.includes('M23: Transfer Tab 2 tile layout foundation'), 'M23 layout foundation CSS must be loaded');
+assert.ok(noiseCss.includes('.xmlc-transfer-review'), 'M23 must define a Tab 2 layout root');
+assert.ok(noiseCss.includes('box-sizing: border-box'), 'M23 must use border-box layout containment');
+assert.ok(noiseCss.includes('grid-template-columns: minmax(0, 1fr)'), 'M23 root must use a bounded single-column grid');
+assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr))'), 'dashboard tiles must use bounded auto-fit grid columns');
+assert.ok(noiseCss.includes('grid-template-areas:'), 'dashboard cards must have a stable internal grid contract');
+assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr))'), 'action tiles must use bounded auto-fit grid columns');
+assert.ok(actionButtonRule.includes('white-space: normal'), 'action labels must wrap instead of blocking neighboring tiles');
+assert.ok(actionButtonRule.includes('overflow-wrap: anywhere'), 'long action labels must wrap safely');
+assert.ok(!actionButtonRule.includes('white-space: nowrap'), 'action tiles must not reintroduce nowrap pills');
+assert.ok(noiseCss.includes('@media (max-width: 1180px)'), 'M23 must include a medium-width fallback before mobile');
+assert.ok(noiseCss.includes('@media (max-width: 720px)'), 'M23 must include a narrow-width fallback');
+assert.ok(!noiseCss.includes('.xmlc-transfer-dashboard-grid {\n  display: flex'), 'M23 must not use flex dashboard tiles that can collide');
+assert.ok(!noiseCss.includes('.xmlc-transfer-output-actions {\n  display: flex'), 'M23 must not use flex action tiles that can collide');
+
+assert.ok(buildCss.includes('.app-build-stamp'), 'build stamp CSS must exist');
+assert.ok(buildCss.includes('text-overflow: ellipsis'), 'build stamp must not overflow header');
+assert.ok(!buildCss.includes('display: none'), 'build stamp must remain visible for cache verification');
+
+assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer-tile-layout'), 'index must load build stamp CSS with M23 cache bust');
+assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
+assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
+assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260708-m23-transfer-tile-layout'), 'index must cache-bust app entry for M23');
+assert.ok(mainEntry.includes("./core/app.js?v=20260708-m23-transfer-tile-layout"), 'main entry must cache-bust core app delegate for M23');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260708-m23-transfer-tile-layout"), 'core app must cache-bust standalone runtime for M23');
+assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
+assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
+assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
+
+console.log('XML Compare Transfer Tab 2 tile layout foundation and cache-bust tests passed');
