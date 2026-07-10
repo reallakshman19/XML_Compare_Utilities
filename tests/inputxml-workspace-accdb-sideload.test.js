@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { _test as sideloadTest, RESTRAINT_COLUMNS } from '../tabs/inputxml-workspace/inputxml-workspace-sideload.js';
-import { rowsToTabText } from '../tabs/inputxml-workspace/inputxml-workspace-table.js';
+import { rowsToTabText, projectRows } from '../tabs/inputxml-workspace/inputxml-workspace-table.js';
 
 const { parseBasic, buildLineIdText, buildRestraintTagText, buildCoordinateText, nodeKey } = sideloadTest;
 
@@ -14,8 +14,11 @@ assert.ok(lineIdText.includes('10\t20\tL100'), 'buildLineIdText should produce a
 // buildRestraintTagText using REST_PTR-based from/to pairing.
 const restPtrPairs = new Map([['R1', { from: '10', to: '20' }]]);
 const restraintTagText = buildRestraintTagText([{ REST_PTR: 'R1', NODE_NUM: '20', RES_TYPEID: 'GUIDE', STIFFNESS: '1E12', GAP: '0', RES_TAG: 'G-101' }], restPtrPairs);
-assert.ok(restraintTagText.includes('10\t20\t20\tGUIDE'), 'buildRestraintTagText should resolve from/to via REST_PTR pairing.');
+assert.ok(restraintTagText.includes('10\t20\t20\t8'), 'buildRestraintTagText should resolve from/to and normalize GUIDE through the native CAESAR type table.');
 assert.ok(restraintTagText.includes('G-101'), 'buildRestraintTagText should preserve the tag.');
+
+const mutationText = buildRestraintTagText([{ REST_PTR: 'R1', NODE_NUM: '20', RES_TYPEID: '17', STIFFNESS: '1E12', GAP: '0', RES_TAG: 'R-101' }], restPtrPairs);
+assert.ok(mutationText.includes('10\t20\t20\t14'), 'buildRestraintTagText should apply editable default mutation rows after native normalization.');
 
 // buildCoordinateText merges nodal + user coordinate rows, deduped by node.
 const coordinateText = buildCoordinateText(
@@ -32,5 +35,9 @@ const accdbRestraintRows = [{ REST_PTR: 'R1', NODE_NUM: '20', NODE_NAME: 'PS-2',
 const serialized = rowsToTabText(accdbRestraintRows, RESTRAINT_COLUMNS);
 assert.ok(serialized.startsWith('REST_PTR\tNODE_NUM\tNODE_NAME'), 'rowsToTabText should emit the ACCDB column names as a header row.');
 assert.ok(serialized.includes('R1\t20\tPS-2\tGUIDE\t1E12\t0\t0.3\t\tG-101'), 'rowsToTabText should serialize the row values in column order.');
+
+const alteredHeaderRows = [{ 'Rest Ptr': 'R2', node: '30', 'Node Name': 'PS-3', Type: 'GUIDE', Stiff: '2E12', Gap: '1', Friction: '0.2', CNode: '', Tag: 'G-102' }];
+const projected = projectRows(alteredHeaderRows, RESTRAINT_COLUMNS);
+assert.deepStrictEqual(projected[0], { REST_PTR: 'R2', NODE_NUM: '30', NODE_NAME: 'PS-3', RES_TYPEID: 'GUIDE', STIFFNESS: '2E12', GAP: '1', FRIC_COEF: '0.2', CNODE: '', RES_TAG: 'G-102' }, 'ACCDB/table projection should tolerate altered header casing and spacing.');
 
 console.log('ACCDB sideload adapter checks passed.');

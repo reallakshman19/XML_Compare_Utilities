@@ -16,6 +16,7 @@ import { renderXmlCiiInputXmlCompare5DPanel } from '../model-converters/xml-cii-
 import { bindXmlCiiJsonTracePanel, renderXmlCiiJsonTracePanel } from '../model-converters/json-trace/json-trace-panel.js';
 import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '../model-converters/converters/xmltocii2019_helper/support-types-panel.js';
 import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT, XML_WORKSPACE_KINDS } from './inputxml-workspace-xml-detect.js';
+import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
 
 /**
  * InputXML Workspace UI tile/modal.
@@ -28,7 +29,7 @@ const ACTIVATE = 'click';
 const MODAL_STYLE_ID = 'inputxml-workspace-style';
 const POPUP_TITLE_ID = 'inputxml-workspace-title';
 const TABS = Object.freeze([
-  ['clean', '1 Clean XML / Table to CleanXML'],
+  ['clean', 'Clean XML'],
   ['enrich', '2 InputXML Enrichment'],
   ['xml-to-inputxml', '3 XML to InputXML'],
   ['categorized', '4 Create Categorized XML'],
@@ -36,12 +37,7 @@ const TABS = Object.freeze([
   ['misc', '6 Misc'],
 ]);
 const CLEAN_SUBTABS = Object.freeze([
-  ['branches', 'Branches'],
-  ['components', 'Components/Nodes'],
-  ['supports', 'Supports/Restraints'],
-  ['coordinates', 'Coordinates'],
   ['cleanxml', 'CleanXML'],
-  ['dtxr', 'DTXR'],
 ]);
 const MISC_SUBTABS = Object.freeze([
   ['config', 'Config'],
@@ -77,6 +73,7 @@ function ensureModalStyle(doc = globalThis.document) {
 .ixw-textarea{width:100%;min-height:170px;box-sizing:border-box;background:#020617;color:#e5eefb;border:1px solid rgba(148,163,184,.32);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace}
 .ixw-textarea.small{min-height:92px}.ixw-textarea.tall{min-height:430px}.ixw-output{white-space:pre;overflow:auto;max-height:360px;background:#020617;color:#dbeafe;border:1px solid rgba(148,163,184,.24);border-radius:8px;padding:8px;font:11px ui-monospace,Consolas,monospace}
 .ixw-status{font-size:12px;color:#bbf7d0}.ixw-error{font-size:12px;color:#fecaca}.ixw-table{width:100%;border-collapse:collapse;font-size:12px;min-width:760px}.ixw-table th,.ixw-table td{border-bottom:1px solid rgba(148,163,184,.16);padding:6px 8px;text-align:left}.ixw-table th{color:#bfdbfe;background:#0b1220;position:sticky;top:0}.ixw-table tbody tr:nth-child(even){background:rgba(148,163,184,.05)}
+.ixw-info{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border:1px solid #60a5fa;border-radius:50%;font-size:11px;color:#bfdbfe;cursor:help;text-transform:none;letter-spacing:0}.ixw-mini-input{width:100%;box-sizing:border-box;background:#020617;color:#e5eefb;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:5px;font-size:12px}
 @media(max-width:900px){.ixw-grid,.ixw-grid.three{grid-template-columns:1fr}.ixw-dialog{height:calc(100vh - 24px);width:calc(100vw - 24px)}}
 .ixw-dialog .xml-cii-native-toolbar,.ixw-dialog .model-converters-toolbar,.ixw-dialog .json-trace-source-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.12);margin-bottom:8px}
 .ixw-dialog .json-trace-scope-controls,.ixw-dialog .json-trace-join-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;margin:4px 0}
@@ -121,6 +118,7 @@ function defaultState() {
     manualTables: { branchesText: '', componentsText: '', supportsText: '', coordinatesText: '' },
     manualRows: { branches: [], components: [], supports: [], coordinates: [] },
     supportConfigJson: '{}',
+    restraintTypeMutation: defaultRestraintTypeMutationConfig(),
     enrichment: {},
     categorizedDirection: 'input-to-categorized',
     categorizedInputText: '',
@@ -303,13 +301,8 @@ function renderManualSupportsSubtab(state) { return renderManualTableSubtab(stat
 function renderManualCoordinatesSubtab(state) { return renderManualTableSubtab(state, 'coordinates'); }
 
 function renderCleanTab(state) {
-  const body = state.cleanSubtab === 'dtxr' ? renderDtxrSubtab(state)
-    : state.cleanSubtab === 'branches' ? renderManualBranchesSubtab(state)
-    : state.cleanSubtab === 'components' ? renderManualComponentsSubtab(state)
-    : state.cleanSubtab === 'supports' ? renderManualSupportsSubtab(state)
-    : state.cleanSubtab === 'coordinates' ? renderManualCoordinatesSubtab(state)
-    : renderCleanXmlSubtab(state);
-  return `<div class="ixw-subtabs">${CLEAN_SUBTABS.map(([id, label]) => `<button type="button" class="ixw-subtab ${state.cleanSubtab === id ? 'active' : ''}" data-ixw-clean-subtab="${h(id)}">${h(label)}</button>`).join('')}</div>${body}`;
+  state.cleanSubtab = CLEAN_SUBTABS[0][0];
+  return renderCleanXmlSubtab(state);
 }
 
 function renderEnrichmentTab(state) {
@@ -331,7 +324,7 @@ function renderEnrichmentTab(state) {
       <div class="ixw-toolbar" style="margin:0 0 4px;"><button class="ixw-btn" data-ixw-action="load-sample-basic">Load sample</button></div>
       <textarea class="ixw-textarea small" data-ixw-field="basicText" spellcheck="false" placeholder="Paste helper table export">${h(output.basicText || '')}</textarea>
       <div class="ixw-note">Only sideload/enrichment columns are projected: ELEMENTID, FROM_NODE, TO_NODE, FROM_NODE_NAME, TO_NODE_NAME, LINE_NO, REST_PTR, ELEMENT_NAME.</div>
-      <div class="ixw-title" style="margin-top:6px;">INPUT_RESTRAINTS</div>
+      <div class="ixw-title" style="margin-top:6px;">INPUT_RESTRAINTS <span class="ixw-info" title="${h(RESTRAINT_TYPE_MUTATION_INFO)}">i</span></div>
       <div class="ixw-toolbar" style="margin:0 0 4px;"><button class="ixw-btn" data-ixw-action="load-sample-restraints">Load sample</button></div>
       <textarea class="ixw-textarea small" data-ixw-field="restraintsText" spellcheck="false" placeholder="INPUT_RESTRAINTS">${h(output.restraintsText || '')}</textarea>
       <div class="ixw-title" style="margin-top:6px;">INPUT_NODAL_COORDINATES</div>
@@ -388,6 +381,13 @@ function renderCategorizedTab(state) {
 }
 
 function renderMiscConfigSubtab(state) {
+  const mutation = normalizeRestraintTypeMutationConfig(state.restraintTypeMutation);
+  const rows = mutation.rows.map((row, index) => `<tr>
+    <td><input class="ixw-mini-input" data-ixw-rtm-row="${index}" data-ixw-rtm-col="label" value="${h(row.label)}" placeholder="+Y"></td>
+    <td><input class="ixw-mini-input" data-ixw-rtm-row="${index}" data-ixw-rtm-col="from" value="${h(row.from)}" placeholder="17"></td>
+    <td><input class="ixw-mini-input" data-ixw-rtm-row="${index}" data-ixw-rtm-col="to" value="${h(row.to)}" placeholder="14"></td>
+    <td><button type="button" class="ixw-btn" data-ixw-action="delete-restraint-type-mutation-row" data-row-index="${index}">Delete</button></td>
+  </tr>`).join('');
   return `<section class="ixw-panel">
     <div class="ixw-title">Shared Config</div>
     <div class="ixw-note">Settings/defaults shared across InputXML Workspace tabs.</div>
@@ -396,6 +396,18 @@ function renderMiscConfigSubtab(state) {
       <b style="color:#dbeafe;text-transform:none;letter-spacing:0;">XML_Masked</b>
       <span>When ON, every XML download in this workspace saves with a .txt extension (plain text) instead of .xml.</span>
     </label>
+    <div class="ixw-title" style="margin-top:14px;">Restraint Type Mutation <span class="ixw-info" title="${h(RESTRAINT_TYPE_MUTATION_INFO)}">i</span></div>
+    <label class="ixw-note" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" data-ixw-rtm-enabled ${mutation.enabled !== false ? 'checked' : ''}>
+      <span>Normalize native support TYPE values, then apply editable from/to mutation rows during ACCDB sideload generation.</span>
+    </label>
+    <div style="overflow:auto;">
+      <table class="ixw-table" style="min-width:560px;">
+        <thead><tr><th>Label</th><th>From TYPE</th><th>To TYPE</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="ixw-toolbar"><button type="button" class="ixw-btn" data-ixw-action="add-restraint-type-mutation-row">Add row</button></div>
     <div class="ixw-title" style="margin-top:14px;">Support Mapping Config (advanced JSON)</div>
     <div class="ixw-note">This is the same underlying data as the "Support config" subtab's mapper table, shown here as raw JSON for advanced editing/export.</div>
     <textarea class="ixw-textarea small" data-option-key="supportConfigJson" data-ixw-field="supportConfigJson" spellcheck="false">${h(state.supportConfigJson)}</textarea>
@@ -456,6 +468,17 @@ function collect(dialog, state) {
       state[key] = field.value;
     }
   });
+  const mutationEnabled = dialog.querySelector('[data-ixw-rtm-enabled]');
+  if (mutationEnabled) {
+    const rows = [];
+    dialog.querySelectorAll('[data-ixw-rtm-row]').forEach((field) => {
+      const rowIndex = Number(field.getAttribute('data-ixw-rtm-row'));
+      const col = field.getAttribute('data-ixw-rtm-col');
+      if (!Number.isInteger(rowIndex) || !col) return;
+      rows[rowIndex] = { ...(rows[rowIndex] || {}), [col]: field.value };
+    });
+    state.restraintTypeMutation = normalizeRestraintTypeMutationConfig({ enabled: mutationEnabled.checked, rows: rows.filter(Boolean) });
+  }
   return state;
 }
 
@@ -526,7 +549,7 @@ function buildCurrentDtxrRows(state) {
   return [...(state.dtxrRows || []), ...(state.jsonTraceDtxrRows || [])];
 }
 
-function handleAction(dialog, state, action) {
+function handleAction(dialog, state, action, source) {
   collect(dialog, state);
   state.error = '';
   try {
@@ -584,8 +607,18 @@ function handleAction(dialog, state, action) {
       state.enrichment.userNodalText = SAMPLE_USER_NODAL_TEXT;
       state.status = 'Loaded sample INPUT_USER_NODAL_COORDINATES rows.';
     } else if (action === 'generate-sideload') {
-      state.enrichment = { ...state.enrichment, ...buildAccdbSideloadTables(state.enrichment) };
+      state.enrichment = { ...state.enrichment, ...buildAccdbSideloadTables({ ...state.enrichment, restraintTypeMutation: state.restraintTypeMutation }) };
       state.enrichment.sideloadStatus = `Generated sideload: ${JSON.stringify(state.enrichment.diagnostics)}`;
+    } else if (action === 'add-restraint-type-mutation-row') {
+      const cfg = normalizeRestraintTypeMutationConfig(state.restraintTypeMutation);
+      state.restraintTypeMutation = { ...cfg, rows: [...cfg.rows, { label: '', from: '', to: '' }] };
+      state.status = 'Added restraint type mutation row.';
+    } else if (action === 'delete-restraint-type-mutation-row') {
+      const cfg = normalizeRestraintTypeMutationConfig(state.restraintTypeMutation);
+      const rowIndex = Number(source?.dataset?.rowIndex);
+      const rows = Number.isInteger(rowIndex) ? cfg.rows.filter((_, index) => index !== rowIndex) : cfg.rows;
+      state.restraintTypeMutation = { ...cfg, rows };
+      state.status = 'Deleted restraint type mutation row.';
     } else if (action === 'apply-sideload') {
       const result = applyXmlCompareSideload(state.enrichment.inputXmlText || '', state.enrichment);
       state.enrichment.enrichedXmlText = result.xmlText;
@@ -677,7 +710,7 @@ function bindPopup(dialog, state) {
   }));
   bindSubtabButtons(dialog, state, '[data-ixw-clean-subtab]', 'cleanSubtab', 'cleanxml');
   bindSubtabButtons(dialog, state, '[data-ixw-misc-subtab]', 'miscSubtab', 'config');
-  dialog.querySelectorAll('[data-ixw-action]').forEach((button) => button.addEventListener(ACTIVATE, () => handleAction(dialog, state, button.getAttribute('data-ixw-action'))));
+  dialog.querySelectorAll('[data-ixw-action]').forEach((button) => button.addEventListener(ACTIVATE, () => handleAction(dialog, state, button.getAttribute('data-ixw-action'), button)));
   bindFileInputs(dialog, state);
 }
 
