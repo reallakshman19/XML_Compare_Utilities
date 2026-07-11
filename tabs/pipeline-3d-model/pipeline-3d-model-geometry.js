@@ -23,10 +23,6 @@ function isSeparatorLine(line) {
   return /^[-|:\s]+$/.test(line);
 }
 
-// Splits a row into cells (tab > pipe > comma/whitespace, whichever the line
-// actually uses), so a label like "IP3-IP Start" is classified as ONE
-// non-numeric token instead of having its embedded digit ("3") matched by a
-// bare numeric regex scan across the whole line.
 function tokenizeRow(line) {
   let parts;
   if (line.includes('\t')) parts = line.split('\t');
@@ -39,8 +35,6 @@ function isNumericToken(token) {
   return /^-?\d+(?:\.\d+)?$/.test(token);
 }
 
-// Rotates (x, y) by angleDeg (in the XY plane) then translates by the anchor.
-// Z is not rotated — only translated by anchorZ.
 function rotateAndTranslate(x, y, z, anchorX, anchorY, anchorZ, angleDeg) {
   const rad = ((Number(angleDeg) || 0) * Math.PI) / 180;
   const cos = Math.cos(rad);
@@ -52,15 +46,6 @@ function rotateAndTranslate(x, y, z, anchorX, anchorY, anchorZ, angleDeg) {
   };
 }
 
-// The Origin Global Coordinate is ONE anchor for the whole geometry (the
-// real-world position of the very first point's local (0,0,0)) — not a
-// separate value per sheet. When the route crosses into a re-oriented sheet
-// (its Angle differs from the row before), that sheet's local frame is
-// anchored not at a fresh user-supplied origin but at wherever the PREVIOUS
-// row's chain physically landed — that's what "continuity at the match
-// line" means. So we walk the rows in order, carrying a running anchor
-// forward, and only re-anchor (to the previous row's computed Global
-// position) when Angle changes.
 function chainGlobalPositions(points) {
   if (!points.length) return points;
   let anchorX = points[0].originX;
@@ -88,21 +73,10 @@ const CONSTANT_WIDTH_RE = /constant\s*width\s+(-?[\d.]+)/i;
 const AREA_RE = /^\s*area\s+(-?[\d.]+)/i;
 const LENGTH_RE = /^\s*length\s+(-?[\d.]+)/i;
 
-// Alternative Table 1 input: CAD/GIS-style dump with metadata lines
-// ("Constant width", "area", "length") followed by "at point X= Y= Z=" rows,
-// e.g.:
-//   Constant width     0.300
-//             length   511.100
-//           at point  X=  661.549  Y= -160.249  Z=    0.000
-// No label, Origin, or Angle columns are available in this format, so points
-// get auto-generated labels and default to Origin (0,0,0) / Angle 0 — same
-// as a legacy 3-number frozen-format row.
 function isAltPointFormatText(text) {
   return AT_POINT_RE.test(text);
 }
 
-// Multiple blank-line-separated blocks in the alt-format input mean the
-// route was exported from more than one sheet — one block per sheet.
 function splitIntoBlocks(text) {
   return String(text || '')
     .split(/\n\s*\n/)
@@ -153,11 +127,9 @@ function normalizeAngleDeg(angle) {
   return ((angle % 360) + 360) % 360;
 }
 
-// Picks the real boundary reference segment for bearing matching. Older logic
-// always skipped the boundary-adjacent segment and used the next inward segment.
-// That fails when the boundary-adjacent segment is the actual deviation segment
-// (for example ΔX=2003, ΔY=1344 -> 33.861°). Now we skip only zero/near-zero
-// duplicate match-point connectors and otherwise keep the first real segment.
+// Kept for diagnostics/regression coverage. For CAD multi-block stitching below,
+// we no longer auto-rotate sheets from this reference bearing because that made
+// already-in-line CAD sheet blocks display as false reoriented sheets.
 function pickReferenceSegment(pts, fromStart) {
   const segments = [];
   const count = Math.min(3, pts.length - 1);
@@ -170,15 +142,12 @@ function pickReferenceSegment(pts, fromStart) {
     || { length: 0, bearing: 0 };
 }
 
-// Chains multiple alt-format blocks (sheets) together: sheet 1 is placed as-is
-// (Origin (0,0,0), Angle 0). Every later sheet's Angle is derived — not
-// user-supplied — by matching the bearing of its first real segment (in its
-// own local frame) against the bearing of the previous sheet's last real
-// segment (already in the compounded global frame, so this naturally
-// compounds across any number of sheets without extra bookkeeping). The
-// sheet's anchor (translation) is then solved so its own first point lands
-// exactly on the previous sheet's last computed Global point — the
-// continuity-at-the-match-line assumption.
+// Blank-line-separated CAD LIST blocks are sheets from the same route, but the
+// X/Y/Z rows themselves are still CAD plan coordinates. Stitch them by
+// translation only so the first point of a new sheet lands on the previous
+// sheet's last point. Do not derive/apply an in-plane rotation: doing so caused
+// false preview angles such as Sheet 2 = 75.19° even though the generated route
+// continued in-line through the sheet boundary.
 function buildMultiSheetTable1(blocks) {
   const points = [];
   blocks.forEach((block, sheetIndex) => {
@@ -188,22 +157,12 @@ function buildMultiSheetTable1(blocks) {
     let anchorY = 0;
     let anchorZ = 0;
     if (sheetIndex > 0 && raw.length) {
-      const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
-      const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
-      if (prevSheetPoints.length >= 2 && raw.length >= 2) {
-        const refPrev = pickReferenceSegment(
-          prevSheetPoints.map((p) => ({ x: p.globalX, y: p.globalY })),
-          false,
-        );
-        const refCurr = pickReferenceSegment(raw, true);
-        angle = normalizeAngleDeg(refPrev.bearing - refCurr.bearing);
-      }
+      const prevLast = points[points.length - 1];
+      const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
       if (prevLast) {
-        const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
-        const rotatedFirst = rotateAndTranslate(firstLocal.x, firstLocal.y, firstLocal.z, 0, 0, 0, angle);
-        anchorX = prevLast.globalX - rotatedFirst.globalX;
-        anchorY = prevLast.globalY - rotatedFirst.globalY;
-        anchorZ = prevLast.globalZ - rotatedFirst.globalZ;
+        anchorX = prevLast.globalX - firstLocal.x;
+        anchorY = prevLast.globalY - firstLocal.y;
+        anchorZ = prevLast.globalZ - firstLocal.z;
       }
     }
     raw.forEach((p, j) => {
@@ -228,15 +187,13 @@ function buildMultiSheetTable1(blocks) {
   return points;
 }
 
-// Groups a chained point list into "sheets" — consecutive runs sharing the
-// same Angle. Works uniformly whether the points came from the frozen
-// Point/X/Y/Z table (which carries its own explicit Angle per row) or from
-// multi-block alt-format input (whose Angle was auto-derived per block) —
-// either way, a sheet is just a maximal run of constant Angle.
 export function groupPointsIntoSheets(points) {
   const sheets = [];
   points.forEach((p, i) => {
-    if (i === 0 || p.angleDeg !== points[i - 1].angleDeg) {
+    const key = p.sheetIndex != null ? `sheet:${p.sheetIndex}` : `angle:${p.angleDeg}`;
+    const prev = points[i - 1];
+    const prevKey = prev ? (prev.sheetIndex != null ? `sheet:${prev.sheetIndex}` : `angle:${prev.angleDeg}`) : null;
+    if (i === 0 || key !== prevKey) {
       sheets.push({ sheetIndex: sheets.length, angleDeg: p.angleDeg, startIndex: i, endIndex: i, meta: p.sheetMeta || null });
     } else {
       sheets[sheets.length - 1].endIndex = i;
@@ -245,18 +202,6 @@ export function groupPointsIntoSheets(points) {
   return sheets;
 }
 
-// --- Table 1: Point / X / Y / Z key vertices, with the geometry's single
-// Origin Global Coordinate (X, Y, Z) carried on every row for convenience,
-// plus a per-row in-plane rotation Angle — used when the pipeline route
-// crosses sheets whose local axes are reoriented at a shared match-line
-// point. Rows may be:
-//   Point  X  Y  Z                                            (3 numbers)
-//   Point  X  Y  Z  OriginX  OriginY  OriginZ                  (6 numbers)
-//   Point  X  Y  Z  OriginX  OriginY  OriginZ  AngleDeg         (7 numbers)
-// Legacy 3-number rows default to Origin (0,0,0) and Angle 0, so GlobalX/Y/Z
-// equal the local X/Y/Z unchanged. Only the FIRST row's Origin is actually
-// used as the seed anchor; every later sheet is anchored by continuity (see
-// chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
   if (isAltPointFormatText(text)) {
     const blocks = splitIntoBlocks(text)
@@ -271,7 +216,7 @@ export function parseTable1(text) {
     const tokens = tokenizeRow(rawLine);
     const numericTokens = tokens.filter(isNumericToken).map(Number);
     const labelTokens = tokens.filter((token) => !isNumericToken(token));
-    if (numericTokens.length < 3) continue; // needs at least X Y Z
+    if (numericTokens.length < 3) continue;
     let x, y, z, originX, originY, originZ, angleDeg;
     if (numericTokens.length >= 7) {
       [x, y, z, originX, originY, originZ, angleDeg] = numericTokens.slice(-7);
@@ -286,7 +231,7 @@ export function parseTable1(text) {
       angleDeg = 0;
     }
     const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
-    if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
+    if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue;
     points.push({ label, x, y, z, originX, originY, originZ, angleDeg });
   }
   return chainGlobalPositions(points);
@@ -304,26 +249,12 @@ const RADIUS_RE = /^\s*radius\s+(-?[\d.]+)/i;
 const START_ANGLE_RE = /start\s*angle\s+(-?[\d.]+)/i;
 const END_ANGLE_RE = /end\s*angle\s+(-?[\d.]+)/i;
 
-// True arc length for a curved LWPOLYLINE segment: radius × swept angle.
-// The swept angle is |end − start|, wrapped into [0,360); values above 180
-// are the minor complement (these dumps list start/end for the drawn arc,
-// which is always the small sweep here).
 function arcLength(radius, startDeg, endDeg) {
   let sweep = Math.abs(endDeg - startDeg) % 360;
   if (sweep > 180) sweep = 360 - sweep;
   return radius * (sweep * Math.PI) / 180;
 }
 
-// Alternative Table 2 input: an AutoCAD LWPOLYLINE "LIST" console dump —
-// vertex lines interleaved with per-segment arc metadata (bulge / center /
-// radius / start angle / end angle) for curved segments, plus "Press ENTER
-// to continue:" pagination noise. The arc block appears AFTER the segment's
-// first vertex and BEFORE its second, so we buffer any radius/start/end angle
-// seen since the last vertex and, on reaching the next vertex, measure that
-// segment as a true arc (radius × swept angle) instead of a straight chord.
-// Segments with no arc block fall back to chord distance. Horizontal =
-// cumulative along-route distance; Elevation = each vertex's Y value, taken
-// as-is (anchoring/offset is applied later by the caller if requested).
 function parseTable2AltFormat(text) {
   const rows = [];
   let prev = null;
@@ -337,7 +268,7 @@ function parseTable2AltFormat(text) {
     const endMatch = rawLine.match(END_ANGLE_RE);
     if (endMatch) { pendingArc.end = Number(endMatch[1]); continue; }
     const pointMatch = rawLine.match(AT_POINT_RE);
-    if (!pointMatch) continue; // bulge/center lines, "Press ENTER...", header metadata
+    if (!pointMatch) continue;
     const p = { x: Number(pointMatch[1]), y: Number(pointMatch[2]) };
     if (prev) {
       const chord = Math.hypot(p.x - prev.x, p.y - prev.y);
@@ -351,7 +282,6 @@ function parseTable2AltFormat(text) {
   return rows;
 }
 
-// --- Table 2: Horizontal (m) vs Grade Elevation (m) station list ---
 export function parseTable2(text) {
   if (isAltPointFormatText(text)) return parseTable2AltFormat(text);
   const rows = [];
@@ -366,7 +296,6 @@ export function parseTable2(text) {
   return rows;
 }
 
-// --- Table 3: Marker segment lengths / cumulative horizontal distances ---
 export function parseTable3(text) {
   let rows = [];
   for (const rawLine of splitLines(text)) {
@@ -375,9 +304,7 @@ export function parseTable3(text) {
     if (!nums.length) continue;
     rows.push(nums);
   }
-  if (rows.length === 1 && rows[0].length > 1) {
-    rows = rows[0].map((n) => [n]);
-  }
+  if (rows.length === 1 && rows[0].length > 1) rows = rows[0].map((n) => [n]);
   const allSingle = rows.every((r) => r.length === 1);
   if (allSingle) {
     let cumulative = 0;
@@ -393,17 +320,10 @@ export function parseTable3(text) {
   }));
 }
 
-// Distance between two Table-1 vertices in the GLOBAL frame — this is what
-// makes crossing a match line with a reoriented sheet work: a "Match line"
-// row ending one sheet and a "Match line" row starting the next should
-// resolve to (near-)identical global coordinates, giving a ~0-length pivot
-// segment, while all real segments use true global bearing.
 function dist2D(a, b) {
   return Math.hypot(b.globalX - a.globalX, b.globalY - a.globalY);
 }
 
-// Builds cumulative-distance segments along the polyline defined by Table 1
-// vertices' GLOBAL coordinates.
 export function buildSegments(vertices) {
   const segments = [];
   let cumulative = 0;
@@ -472,7 +392,6 @@ function addPoint(map, horizontal, x, y, z, label, source) {
   map.set(key, { horizontal: round(horizontal, 2), x: round(x), y: round(y), z: z == null ? null : round(z), label: label || '', source });
 }
 
-// Merges the 3 tables into one sorted, de-duplicated coordinate list.
 export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Text }) {
   const vertices = parseTable1(table1Text);
   const stations = parseTable2(table2Text);
@@ -502,4 +421,4 @@ export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Tex
   return sorted;
 }
 
-export const _internal = { splitLines, extractNumbers, dist2D, pickReferenceSegment, bearingDeg };
+export const _internal = { splitLines, extractNumbers, dist2D, pickReferenceSegment, bearingDeg, normalizeAngleDeg };
