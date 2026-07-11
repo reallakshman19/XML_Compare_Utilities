@@ -25,21 +25,30 @@ const xml = buildInputXmlPipingModelXml({
 }, rows);
 
 for (const expected of [
-  'JOBNAME="PL-8810"',
+  '<CAESARII xmlns="COADE" VERSION="11.00" XML_TYPE="Input">',
+  'xmlns="" JOBNAME="PL-8810"',
+  'NUMELT="1"',
+  'FROM_NODE="100.000000"',
+  'TO_NODE="110.000000"',
   'LINE_ID="PL-8810"',
-  'LINE_NO="PL-8810"',
-  'PIPELINE_REFERENCE="PL-8810"',
   'FROM_NAME="Marker Start"',
   'TO_NAME="Marker End"',
-  'FROM_MARKER="Marker Start"',
-  'TO_MARKER="Marker End"',
-  'CORR_ALLOW="1.5"',
-  'CORROSION_ALLOWANCE="1.5"',
-  'MATERIAL_NUM="106"',
-  'PIPE_MATERIAL="A106 Gr B"',
+  'CORR_ALLOW="1.500000"',
+  'MATERIAL_NUM="106.000000"',
   'MATERIAL_NAME="A106 Gr B"',
+  'PRESSURE1="1000.000000"',
+  'PRESSURE2="-1.010100"',
+  'FLUID_DENSITY="0.001000"',
+  'FROM_GLOBAL_X="0.000"',
+  'TO_GLOBAL_X="1000.000"',
+  'GLOBAL_COORD_BASIS_NODE="100"',
+  '<UNITS>',
 ]) {
   assert.ok(xml.includes(expected), `missing ${expected}`);
+}
+
+for (const removed of ['NUMELEMENTS=', 'PRESSURE_C1=', 'LINE_NO=', 'CORROSION_ALLOWANCE=', 'PIPE_MATERIAL=']) {
+  assert.ok(!xml.includes(removed), `removed simplified alias still present: ${removed}`);
 }
 
 console.log('pipeline-3d-model-inputxml-contract.test.js passed');
