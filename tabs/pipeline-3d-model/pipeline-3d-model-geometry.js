@@ -179,23 +179,33 @@ function buildMultiSheetTable1(blocks) {
   const points = [];
   blocks.forEach((block, sheetIndex) => {
     const raw = block.rawPoints;
+    let angle = 0;
     let anchorX = 0;
     let anchorY = 0;
     let anchorZ = 0;
     if (sheetIndex > 0 && raw.length) {
       const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
       const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
+      if (prevSheetPoints.length >= 2 && raw.length >= 2) {
+        const refPrev = pickReferenceSegment(
+          prevSheetPoints.map((p) => ({ x: p.globalX, y: p.globalY })),
+          false,
+        );
+        const refCurr = pickReferenceSegment(raw, true);
+        const rawAngle = normalizeAngleDeg(refPrev.bearing - refCurr.bearing);
+        angle = Math.round(rawAngle / 90) * 90;
+        angle = normalizeAngleDeg(angle);
+      }
       if (prevLast) {
         const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
-        anchorX = prevLast.globalX - firstLocal.x;
-        anchorY = prevLast.globalY - firstLocal.y;
-        anchorZ = prevLast.globalZ - firstLocal.z;
+        const rotatedFirst = rotateAndTranslate(firstLocal.x, firstLocal.y, firstLocal.z, 0, 0, 0, angle);
+        anchorX = prevLast.globalX - rotatedFirst.globalX;
+        anchorY = prevLast.globalY - rotatedFirst.globalY;
+        anchorZ = prevLast.globalZ - rotatedFirst.globalZ;
       }
     }
     raw.forEach((p, j) => {
-      const globalX = anchorX + p.x;
-      const globalY = anchorY + p.y;
-      const globalZ = anchorZ + p.z;
+      const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
       points.push({
         label: `Sheet ${sheetIndex + 1} Pt ${j + 1}`,
         x: p.x,
@@ -204,7 +214,7 @@ function buildMultiSheetTable1(blocks) {
         originX: round(anchorX),
         originY: round(anchorY),
         originZ: round(anchorZ),
-        angleDeg: 0,
+        angleDeg: round(angle, 4),
         globalX,
         globalY,
         globalZ,
