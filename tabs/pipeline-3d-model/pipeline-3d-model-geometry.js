@@ -3,6 +3,7 @@
 // Coordinate-tab-shaped point list (horizontal chainage + X/Y/Z + node name).
 
 const NUMBER_RE = /-?\d+(?:\.\d+)?/g;
+const MIN_REFERENCE_SEGMENT_LENGTH = 1e-6;
 
 function splitLines(text) {
   return String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -152,13 +153,11 @@ function normalizeAngleDeg(angle) {
   return ((angle % 360) + 360) % 360;
 }
 
-// Picks the reference segment for bearing-matching across a sheet boundary.
-// ASSUMPTION (validated against one real example, not a documented rule):
-// the point immediately at the match line is a tie-in/connector marker whose
-// adjacent segment isn't a reliable direction indicator, so we skip it and
-// use the NEXT segment inward — e.g. sheet 1's second-to-last real segment,
-// and the new sheet's second real segment. Falls back to the boundary
-// segment itself if a sheet only has 2 points (no second segment to skip to).
+// Picks the real boundary reference segment for bearing matching. Older logic
+// always skipped the boundary-adjacent segment and used the next inward segment.
+// That fails when the boundary-adjacent segment is the actual deviation segment
+// (for example ΔX=2003, ΔY=1344 -> 33.861°). Now we skip only zero/near-zero
+// duplicate match-point connectors and otherwise keep the first real segment.
 function pickReferenceSegment(pts, fromStart) {
   const segments = [];
   const count = Math.min(3, pts.length - 1);
@@ -166,7 +165,9 @@ function pickReferenceSegment(pts, fromStart) {
     const [a, b] = fromStart ? [pts[i], pts[i + 1]] : [pts[pts.length - 2 - i], pts[pts.length - 1 - i]];
     segments.push({ length: Math.hypot(b.x - a.x, b.y - a.y), bearing: bearingDeg(a, b) });
   }
-  return segments[1] || segments[0] || { length: 0, bearing: 0 };
+  return segments.find((segment) => segment.length > MIN_REFERENCE_SEGMENT_LENGTH)
+    || segments[0]
+    || { length: 0, bearing: 0 };
 }
 
 // Chains multiple alt-format blocks (sheets) together: sheet 1 is placed as-is
@@ -501,4 +502,4 @@ export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Tex
   return sorted;
 }
 
-export const _internal = { splitLines, extractNumbers, dist2D };
+export const _internal = { splitLines, extractNumbers, dist2D, pickReferenceSegment, bearingDeg };
