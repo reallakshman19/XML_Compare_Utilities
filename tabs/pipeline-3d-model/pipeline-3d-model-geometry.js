@@ -153,12 +153,9 @@ function normalizeAngleDeg(angle) {
 }
 
 // Picks the reference segment for bearing-matching across a sheet boundary.
-// ASSUMPTION (validated against one real example, not a documented rule):
-// the point immediately at the match line is a tie-in/connector marker whose
-// adjacent segment isn't a reliable direction indicator, so we skip it and
-// use the NEXT segment inward — e.g. sheet 1's second-to-last real segment,
-// and the new sheet's second real segment. Falls back to the boundary
-// segment itself if a sheet only has 2 points (no second segment to skip to).
+// Removes the previous assumption of skipping the first segment.
+// The user explicitly verified that the element crossing the match line 
+// should be colinear with the next element, so we use the boundary segment itself.
 function pickReferenceSegment(pts, fromStart) {
   const segments = [];
   const count = Math.min(3, pts.length - 1);
@@ -166,7 +163,7 @@ function pickReferenceSegment(pts, fromStart) {
     const [a, b] = fromStart ? [pts[i], pts[i + 1]] : [pts[pts.length - 2 - i], pts[pts.length - 1 - i]];
     segments.push({ length: Math.hypot(b.x - a.x, b.y - a.y), bearing: bearingDeg(a, b) });
   }
-  return segments[1] || segments[0] || { length: 0, bearing: 0 };
+  return segments[0] || { length: 0, bearing: 0 };
 }
 
 // Chains multiple alt-format blocks (sheets) together: sheet 1 is placed as-is
@@ -182,31 +179,23 @@ function buildMultiSheetTable1(blocks) {
   const points = [];
   blocks.forEach((block, sheetIndex) => {
     const raw = block.rawPoints;
-    let angle = 0;
     let anchorX = 0;
     let anchorY = 0;
     let anchorZ = 0;
     if (sheetIndex > 0 && raw.length) {
       const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
       const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
-      if (prevSheetPoints.length >= 2 && raw.length >= 2) {
-        const refPrev = pickReferenceSegment(
-          prevSheetPoints.map((p) => ({ x: p.globalX, y: p.globalY })),
-          false,
-        );
-        const refCurr = pickReferenceSegment(raw, true);
-        angle = normalizeAngleDeg(refPrev.bearing - refCurr.bearing);
-      }
       if (prevLast) {
         const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
-        const rotatedFirst = rotateAndTranslate(firstLocal.x, firstLocal.y, firstLocal.z, 0, 0, 0, angle);
-        anchorX = prevLast.globalX - rotatedFirst.globalX;
-        anchorY = prevLast.globalY - rotatedFirst.globalY;
-        anchorZ = prevLast.globalZ - rotatedFirst.globalZ;
+        anchorX = prevLast.globalX - firstLocal.x;
+        anchorY = prevLast.globalY - firstLocal.y;
+        anchorZ = prevLast.globalZ - firstLocal.z;
       }
     }
     raw.forEach((p, j) => {
-      const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
+      const globalX = anchorX + p.x;
+      const globalY = anchorY + p.y;
+      const globalZ = anchorZ + p.z;
       points.push({
         label: `Sheet ${sheetIndex + 1} Pt ${j + 1}`,
         x: p.x,
@@ -215,7 +204,7 @@ function buildMultiSheetTable1(blocks) {
         originX: round(anchorX),
         originY: round(anchorY),
         originZ: round(anchorZ),
-        angleDeg: round(angle, 4),
+        angleDeg: 0,
         globalX,
         globalY,
         globalZ,
@@ -372,23 +361,27 @@ export function parseTable3(text) {
     if (isSeparatorLine(rawLine)) continue;
     const nums = extractNumbers(rawLine);
     if (!nums.length) continue;
-    rows.push(nums);
+    const tokens = tokenizeRow(rawLine);
+    const labelTokens = tokens.filter((t) => !isNumericToken(t));
+    const marker = labelTokens.join(' ').trim();
+    rows.push({ marker, nums });
   }
-  if (rows.length === 1 && rows[0].length > 1) {
-    rows = rows[0].map((n) => [n]);
+  if (rows.length === 1 && rows[0].nums.length > 1) {
+    rows = rows[0].nums.map((n) => ({ marker: rows[0].marker, nums: [n] }));
   }
-  const allSingle = rows.every((r) => r.length === 1);
+  const allSingle = rows.every((r) => r.nums.length === 1);
   if (allSingle) {
     let cumulative = 0;
     return rows.map((r, i) => {
-      cumulative += r[0];
-      return { index: i + 1, length: r[0], cumulative: round(cumulative) };
+      cumulative += r.nums[0];
+      return { index: i + 1, marker: r.marker, length: r.nums[0], cumulative: round(cumulative) };
     });
   }
   return rows.map((r, i) => ({
     index: i + 1,
-    length: r.length >= 2 ? r[r.length - 2] : r[0],
-    cumulative: r[r.length - 1],
+    marker: r.marker,
+    length: r.nums.length >= 2 ? r.nums[r.nums.length - 2] : r.nums[0],
+    cumulative: r.nums[r.nums.length - 1],
   }));
 }
 
@@ -490,7 +483,8 @@ export function buildCombinedCoordinateTable({ table1Text, table2Text, table3Tex
   });
   markers.forEach((row) => {
     const xy = interpolateXY(segments, row.cumulative);
-    addPoint(points, row.cumulative, xy.x, xy.y, null, `Marker ${row.index}`, 'marker');
+    const markerLabel = row.marker ? row.marker : `Marker ${row.index}`;
+    addPoint(points, row.cumulative, xy.x, xy.y, null, markerLabel, 'marker');
   });
 
   const sorted = [...points.values()].sort((a, b) => a.horizontal - b.horizontal);

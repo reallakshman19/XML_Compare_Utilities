@@ -1,5 +1,5 @@
 {
-  "lastId": 21,
+  "lastId": 23,
   "entries": [
     {
       "id": 1,
@@ -147,6 +147,20 @@
       "file": "tests\\inputxml-workspace-accdb-sideload.test.js",
       "context": "restraint mutation ACCDB test",
       "backupFile": "21_tests_inputxml_workspace_accdb_sideload_test_js.bak"
+    },
+    {
+      "id": 22,
+      "timestamp": "2026-07-11 14:38:55",
+      "file": "tabs\\pipeline-3d-model\\pipeline-3d-model-geometry.js",
+      "context": "RCA Fix: Preserve marker strings in Table 3 OCR parsing",
+      "backupFile": "22_tabs_pipeline_3d_model_pipeline_3d_model_geometry_js.bak"
+    },
+    {
+      "id": 23,
+      "timestamp": "2026-07-11 14:38:55",
+      "file": "tabs\\pipeline-3d-model\\pipeline-3d-model-xml-builder.js",
+      "context": "RCA Fix: Emit LINE attribute in generated PIPINGELEMENT XML",
+      "backupFile": "23_tabs_pipeline_3d_model_pipeline_3d_model_xml_builder_js.bak"
     }
   ]
 }

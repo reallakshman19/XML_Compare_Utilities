@@ -51,12 +51,15 @@ const PROPERTY_ATTRS = Object.freeze([
 export const XML_SCHEMA_KINDS = Object.freeze({
   INPUT_XML: 'input-xml',
   CATEGORIZED_XML: 'categorized-xml',
+  NODESET_XML: 'nodeset-xml',
   UNKNOWN: 'unknown',
 });
 
 export function detectSchema(xmlText) {
   const raw = String(xmlText ?? '');
-  // Categorized first: those files embed original PIPINGELEMENT text in CDATA.
+  // NodeSet is the most specific marker; categorized next (those files embed
+  // original PIPINGELEMENT text in CDATA).
+  if (/<NodeSet\b[^>]*schema\s*=\s*["']nodeset\/v1["']/i.test(raw)) return XML_SCHEMA_KINDS.NODESET_XML;
   if (/<CategorizedInputXML\b/i.test(raw) || /<Element\b[^>]*fromNode\s*=/i.test(raw)) return XML_SCHEMA_KINDS.CATEGORIZED_XML;
   if (/<PIPINGELEMENT\b/i.test(raw) && /FROM_NODE\s*=/i.test(raw)) return XML_SCHEMA_KINDS.INPUT_XML;
   return XML_SCHEMA_KINDS.UNKNOWN;
@@ -110,6 +113,7 @@ function parseRawInputXml(documentElement) {
       lineId: '',
       packets: packetsFromChildren(el),
       properties,
+      blocks: null,
     });
   });
   return records;
@@ -131,6 +135,37 @@ function collectScalarLeafValues(blockNode, into) {
     }
     if (child.children.length && !PACKET_KINDS.includes(child.name.toUpperCase())) collectScalarLeafValues(child, into);
   }
+}
+
+/**
+ * Retain the block structure of a categorized <Element> for the inspector:
+ * [{ name: 'RestraintsBlock', entries: [[key,value]], instances: [{name, attrs}] }]
+ * Sentinels are dropped; embedded original-XML blobs are skipped.
+ */
+function blocksFromElement(el) {
+  const blocks = [];
+  for (const child of el.children) {
+    if (CATEGORIZED_SKIP_LEAVES.includes(child.name.toUpperCase())) continue;
+    const entries = [];
+    const instances = [];
+    for (const inner of child.children) {
+      if (CATEGORIZED_SKIP_LEAVES.includes(inner.name.toUpperCase())) continue;
+      if (inner.name.toUpperCase() === 'UNMAPPEDATTRIBUTE') {
+        const key = String(inner.getAttribute('name') ?? '').trim();
+        if (key && !isSentinel(inner.textContent)) entries.push([key, String(inner.textContent).trim()]);
+      } else if (inner.attributes.size) {
+        const attrs = {};
+        for (const [key, value] of inner.attributes) {
+          if (!isSentinel(value)) attrs[key] = String(value).trim();
+        }
+        instances.push({ name: inner.name, attrs });
+      } else if (!inner.children.length && inner.textContent.trim()) {
+        if (!isSentinel(inner.textContent)) entries.push([inner.name, String(inner.textContent).trim()]);
+      }
+    }
+    if (entries.length || instances.length) blocks.push({ name: child.name, entries, instances });
+  }
+  return blocks;
 }
 
 function parseCategorizedXml(documentElement) {
@@ -157,6 +192,7 @@ function parseCategorizedXml(documentElement) {
         lineId,
         packets: packetsFromChildren(el),
         properties,
+        blocks: blocksFromElement(el),
       });
       index += 1;
     }
@@ -171,7 +207,11 @@ function parseCategorizedXml(documentElement) {
 export function parseInputXmlRecords(xmlText) {
   const schema = detectSchema(xmlText);
   if (schema === XML_SCHEMA_KINDS.UNKNOWN) {
-    return { schema, records: [], warnings: ['Unrecognized XML schema: expected InputXML (PIPINGELEMENT) or CategorizedInputXML (Element fromNode/toNode).'] };
+    return { schema, records: [], warnings: ['Unrecognized XML schema: expected InputXML (PIPINGELEMENT), CategorizedInputXML (Element fromNode/toNode), or NodeSet (nodeset/v1).'] };
+  }
+  if (schema === XML_SCHEMA_KINDS.NODESET_XML) {
+    // NodeSet models are parsed by nodeset-adapter.js; this parser only reports the schema.
+    return { schema, records: [], warnings: [] };
   }
   const { documentElement } = parseXml(xmlText);
   const records = schema === XML_SCHEMA_KINDS.INPUT_XML

@@ -25,10 +25,13 @@ function buildScaler(points) {
   const availW = WIDTH - PADDING * 2;
   const availH = HEIGHT - PADDING * 2;
   const scale = Math.min(availW / spanX, availH / spanY);
+  const scaledSpanX = spanX * scale;
+  const scaledSpanY = spanY * scale;
+  const offsetX = PADDING + (availW - scaledSpanX) / 2;
+  const offsetY = PADDING + (availH - scaledSpanY) / 2;
   return (x, y) => ({
-    sx: PADDING + (x - minX) * scale,
-    // Flip Y so increasing Y renders upward (conventional plan-view orientation).
-    sy: HEIGHT - PADDING - (y - minY) * scale,
+    sx: offsetX + (x - minX) * scale,
+    sy: HEIGHT - offsetY - (y - minY) * scale,
   });
 }
 
@@ -52,7 +55,7 @@ export function renderKeyPlanSvg(points, sheets) {
       const { sx, sy } = toScreen(p.globalX, p.globalY);
       const isBoundary = i === 0 || i === sheetPoints.length - 1;
       const radius = isBoundary ? 5 : 3;
-      parts.push(`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${radius}" fill="${isBoundary ? '#f87171' : color}" stroke="#0b1220" stroke-width="1"/>`);
+      parts.push(`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${radius}" fill="${isBoundary ? '#f87171' : color}" stroke="#0b1220" stroke-width="1" data-coord="${p.globalX.toFixed(3)}, ${p.globalY.toFixed(3)}, ${p.globalZ.toFixed(3)}"/>`);
     });
     // Angle annotation near the sheet's start (skip sheet 1, whose angle is always 0/reference).
     if (sheet.sheetIndex > 0 && sheetPoints.length) {
@@ -74,8 +77,10 @@ export function renderKeyPlanSvg(points, sheets) {
     })
     .join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="100%" height="${HEIGHT}" style="background:#0b1220;border-radius:8px;border:1px solid rgba(148,163,184,.28)">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="100%" height="auto" style="background:#0b1220;border-radius:8px;border:1px solid rgba(148,163,184,.28);max-height:${HEIGHT}px">
+<g id="p3d-pz-layer">
 ${parts.join('\n')}
+</g>
 ${legend}
 <text x="${WIDTH - 8}" y="${HEIGHT - 8}" fill="#64748b" font-size="10" font-family="monospace" text-anchor="end">Red dots = sheet boundary / match points</text>
 </svg>`;

@@ -175,7 +175,7 @@ function anchorType(node, degree, restraintNodes) {
 export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
   const toleranceMm = Number(options.shortElementToleranceMm ?? 6);
   // Deep-ish copy so canonicalization never mutates adapter output.
-  const records = rawRecords.map((r) => ({ ...r, deltaMm: [...r.deltaMm], packets: r.packets.map((p) => ({ ...p, attrs: { ...p.attrs } })), properties: { ...r.properties } }));
+  const records = rawRecords.map((r) => ({ ...r, deltaMm: [...r.deltaMm], packets: r.packets.map((p) => ({ ...p, attrs: { ...p.attrs } })), properties: { ...r.properties }, blocks: r.blocks ?? null }));
   const { surviving, consumedRows } = consumeShortElements(records, toleranceMm);
 
   const { coords, componentOf } = solveNodeCoordinates(surviving);
@@ -220,6 +220,7 @@ export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
         stationMm: Number(station.toFixed(3)),
         packets: record.packets,
         properties: record.properties,
+        blocks: record.blocks ?? null,
         rawIndex: record.index,
       };
       station += record.lengthMm;

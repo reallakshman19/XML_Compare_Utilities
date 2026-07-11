@@ -19,6 +19,30 @@ export const CONTRACT_VERSIONS = Object.freeze({
   ViewerStateSnapshot: 'ViewerStateSnapshot.v1',
   RollbackLedger: 'RollbackLedger.v1',
   BenchmarkResult: 'BenchmarkResult.v1',
+  GeometryBufferStore: 'GeometryBufferStore.v1',
+  ConnectorModel: 'ConnectorModel.v1',
+  DrilldownContext: 'DrilldownContext.v1',
+});
+
+/** Widget types that may emit a drill-down context (vision doc D2/D5). */
+export const DRILLDOWN_WIDGET_TYPES = Object.freeze([
+  'KPI_CARD', 'NODE_MARKER', 'HEATMAP_CELL', 'FLOW_LINK', 'GRAPH_NODE',
+  'MATRIX_CELL', 'PIVOT_CELL', 'ALERT', 'EXCEPTION_CARD',
+]);
+
+export const DRILLDOWN_DOMAINS = Object.freeze(['XML_ELEMENT', 'NODE_SUPPORT', 'GENERIC_NODE']);
+
+/**
+ * Connector classes — first-class audit-linked visual objects.
+ * Connectors are hidden by default; the viewer shows them only per mode,
+ * hover, selection, conflict review, transfer preview, or registration audit.
+ */
+export const CONNECTOR_TYPES = Object.freeze({
+  MATCH_CONNECTOR: 'MATCH_CONNECTOR',
+  CANDIDATE_CONNECTOR: 'CANDIDATE_CONNECTOR',
+  CONFLICT_CONNECTOR: 'CONFLICT_CONNECTOR',
+  TRANSFER_CONNECTOR: 'TRANSFER_CONNECTOR',
+  REGISTRATION_ANCHOR_CONNECTOR: 'REGISTRATION_ANCHOR_CONNECTOR',
 });
 
 /** Diff statuses — the only vocabulary the viewer and dashboard understand. */
@@ -137,6 +161,71 @@ export function validateCompareAudit(audit) {
   for (const row of audit.transferPlan?.rows ?? []) {
     if (row.diffId && !diffIds.has(row.diffId)) fail(errors, `transfer ${row.rowId} orphan diffId ${row.diffId}`);
     if (row.targetObjectId && !targetIds.has(row.targetObjectId)) fail(errors, `transfer ${row.rowId} orphan target ${row.targetObjectId}`);
+  }
+  return errors;
+}
+
+/**
+ * GeometryBufferStore.v1 validator — typed-array geometry kept OUTSIDE the
+ * JSON contracts (positions are Float32Array, never serialized into audits).
+ */
+export function validateGeometryBufferStore(store) {
+  const errors = [];
+  if (!store || typeof store !== 'object') return fail(errors, 'store missing');
+  if (store.contract !== CONTRACT_VERSIONS.GeometryBufferStore) fail(errors, `contract must be ${CONTRACT_VERSIONS.GeometryBufferStore}`);
+  if (!store.modelId) fail(errors, 'modelId required');
+  if (!(store.positions instanceof Float32Array)) fail(errors, 'positions must be a Float32Array');
+  if (!Array.isArray(store.objectIdByIndex)) fail(errors, 'objectIdByIndex[] required');
+  if (store.positions && store.objectIdByIndex && store.positions.length !== store.objectIdByIndex.length * 6) {
+    fail(errors, `positions length ${store.positions.length} must be 6 × segment count ${store.objectIdByIndex.length}`);
+  }
+  return errors;
+}
+
+/** ViewerStateSnapshot.v1 validator — serializable viewer state. */
+export function validateViewerStateSnapshot(snapshot) {
+  const errors = [];
+  if (!snapshot || typeof snapshot !== 'object') return fail(errors, 'snapshot missing');
+  if (snapshot.contract !== CONTRACT_VERSIONS.ViewerStateSnapshot) fail(errors, `contract must be ${CONTRACT_VERSIONS.ViewerStateSnapshot}`);
+  for (const key of ['cameraPosition', 'cameraTarget']) {
+    if (!Array.isArray(snapshot[key]) || snapshot[key].length !== 3 || snapshot[key].some((v) => !Number.isFinite(v))) {
+      fail(errors, `${key} must be [x,y,z] finite numbers`);
+    }
+  }
+  if (!['overlay', 'side-by-side', 'diff-only'].includes(snapshot.mode)) fail(errors, `unknown mode ${snapshot.mode}`);
+  if (!Array.isArray(snapshot.statusFilter)) fail(errors, 'statusFilter[] required');
+  return errors;
+}
+
+/** BenchmarkResult.v1 validator. */
+export function validateBenchmarkResult(result) {
+  const errors = [];
+  if (!result || typeof result !== 'object') return fail(errors, 'result missing');
+  if (result.contract !== CONTRACT_VERSIONS.BenchmarkResult) fail(errors, `contract must be ${CONTRACT_VERSIONS.BenchmarkResult}`);
+  if (!result.name) fail(errors, 'name required');
+  if (!result.metrics || typeof result.metrics !== 'object') fail(errors, 'metrics{} required');
+  if (!Array.isArray(result.assertions) || !result.assertions.length) fail(errors, 'assertions[] required');
+  for (const assertion of result.assertions ?? []) {
+    if (!assertion.id) fail(errors, 'assertion missing id');
+    if (typeof assertion.pass !== 'boolean') fail(errors, `assertion ${assertion.id} missing boolean pass`);
+  }
+  return errors;
+}
+
+/**
+ * DrilldownContext.v1 validator — the universal click object.
+ * Every visual widget emits this instead of opening its own popup.
+ */
+export function validateDrilldownContext(context) {
+  const errors = [];
+  if (!context || typeof context !== 'object') return fail(errors, 'context missing');
+  if (context.contract !== CONTRACT_VERSIONS.DrilldownContext) fail(errors, `contract must be ${CONTRACT_VERSIONS.DrilldownContext}`);
+  if (!DRILLDOWN_WIDGET_TYPES.includes(context.widgetType)) fail(errors, `unknown widgetType ${context.widgetType}`);
+  if (!DRILLDOWN_DOMAINS.includes(context.domain)) fail(errors, `unknown domain ${context.domain}`);
+  if (!context.title) fail(errors, 'title required');
+  if (!context.filter || typeof context.filter !== 'object') fail(errors, 'filter{} required');
+  for (const key of ['status', 'confidence', 'severity', 'objectIds', 'diffIds']) {
+    if (context.filter[key] !== undefined && !Array.isArray(context.filter[key])) fail(errors, `filter.${key} must be an array`);
   }
   return errors;
 }

@@ -68,9 +68,8 @@ function attr(name, value) {
 // config field in this tool (only one temperature triple and one design
 // pressure are collected), so they're always "0" — matching the CAESAR
 // spec's own "non-specified real values are assigned a value of 0.0" rule,
-// not a hidden default. LINE_ID is NOT emitted: the consumer has no
-// attribute for it (a per-element line label exists via a separate
-// "elements.line_label" config mechanism, unrelated to XML attributes).
+// not a hidden default. LINE is emitted and mapped directly to the 
+// element line label by the consumer.
 function pipingElementXml(fromRow, toRow, branchInfo) {
   const deltaX = num(toRow.x - fromRow.x);
   const deltaY = num(toRow.y - fromRow.y);
@@ -107,6 +106,7 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('FLUID_DENSITY', num(branchInfo.fluidDensity, '0')),
     attr('INSUL_DENSITY', num(branchInfo.insulationDensity, '0')),
     attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
+    attr('LINE', branchInfo.lineNo || ''),
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];

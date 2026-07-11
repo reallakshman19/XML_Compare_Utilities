@@ -71,8 +71,76 @@ button.wb3d-tile.is-active { outline: 2px solid #38bdf8; }
 .wb3d-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .wb3d-legend-item i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
+.wb3d-alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.wb3d-alert-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .22); background: #0f1e33; flex-wrap: wrap; }
+.wb3d-alert-HIGH { border-left: 4px solid #ef4444; }
+.wb3d-alert-MEDIUM { border-left: 4px solid #f97316; }
+.wb3d-alert-LOW { border-left: 4px solid #64748b; }
+
+.wb3d-connector-tip { position: absolute; z-index: 5; max-width: 280px; background: #12233bee; border: 1px solid rgba(148, 163, 184, .4); border-radius: 8px; padding: 6px 9px; font-size: 11px; color: #dbe7f5; pointer-events: none; }
+
 .wb3d-tree { list-style: none; padding-left: 12px; font-size: 12px; max-height: 320px; overflow: auto; }
 .wb3d-tree ul { list-style: none; padding-left: 16px; }
+
+/* header view switcher */
+.wb3d-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+
+/* settings popup */
+.wb3d-settings-popup { background: #0d1b2e; border: 1px solid rgba(148, 163, 184, .4); border-radius: 12px; margin: 10px 0; box-shadow: 0 10px 32px rgba(0, 0, 0, .5); }
+.wb3d-settings-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid rgba(148, 163, 184, .2); }
+.wb3d-settings-head .wb3d-btn-mini:last-child { margin-left: auto; }
+.wb3d-settings-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; padding: 14px; font-size: 12px; }
+.wb3d-settings-body h5 { margin: 0 0 6px; color: #9fb3ca; }
+.wb3d-settings-body section label { display: block; margin: 4px 0; color: #cbd5e1; }
+.wb3d-settings-body select, .wb3d-settings-body input[type="number"] { background: #07101f; color: #e6edf5; border: 1px solid rgba(148, 163, 184, .35); border-radius: 6px; padding: 4px 6px; }
+.wb3d-settings-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 2px 10px; }
+.wb3d-settings-styles { display: flex; flex-direction: column; gap: 4px; }
+.wb3d-settings-style-row { display: grid; grid-template-columns: 1fr 44px 90px 38px; gap: 8px; align-items: center; }
+.wb3d-settings-style-row input[type="color"] { width: 40px; height: 24px; padding: 0; border: 1px solid rgba(148, 163, 184, .35); border-radius: 4px; background: transparent; }
+
+/* floating panels */
+.wb3d-root { position: relative; }
+.wb3d-panels-layer { position: sticky; bottom: 0; height: 0; z-index: 40; }
+.wb3d-float { position: fixed; min-width: 360px; max-width: 720px; background: #0d1b2ef2; border: 1px solid rgba(148, 163, 184, .45); border-radius: 12px; box-shadow: 0 14px 40px rgba(0, 0, 0, .55); z-index: 60; backdrop-filter: blur(3px); }
+.wb3d-float-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: grab; border-bottom: 1px solid rgba(148, 163, 184, .2); user-select: none; }
+.wb3d-float-head:active { cursor: grabbing; }
+.wb3d-float-spacer { flex: 1; }
+.wb3d-float.is-collapsed .wb3d-float-body, .wb3d-float.is-collapsed .wb3d-float-chips { display: none; }
+.wb3d-float-body { max-height: 320px; font-size: 11px; }
+.wb3d-float-body table { width: 100%; }
+.wb3d-float-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; align-items: center; }
+.wb3d-chip { background: #14243c; color: #cbd5e1; border: 1px solid rgba(148, 163, 184, .35); border-radius: 999px; padding: 2px 9px; font-size: 10.5px; cursor: pointer; }
+.wb3d-chip:hover { background: #1b3151; }
+.wb3d-chip.is-active { background: #2563eb; border-color: #3b82f6; color: #fff; }
+.wb3d-chip-sep { width: 1px; height: 16px; background: rgba(148, 163, 184, .35); margin: 0 4px; }
+.wb3d-float-colpicker { padding: 8px 12px; border-bottom: 1px solid rgba(148, 163, 184, .2); font-size: 11px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.wb3d-float-actions { white-space: nowrap; }
+
+/* block inspector */
+.wb3d-block { border: 1px solid rgba(148, 163, 184, .2); border-radius: 8px; margin: 4px 0; background: #0c1a2d; }
+.wb3d-block > summary { cursor: pointer; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #cfe0f2; }
+.wb3d-block-instance { margin: 4px 8px; background: #0a1626; }
+.wb3d-block-table { width: calc(100% - 16px); margin: 2px 8px 8px; border-collapse: collapse; font-size: 11px; }
+.wb3d-block-table td { border-bottom: 1px solid rgba(148, 163, 184, .12); padding: 2px 8px; word-break: break-word; }
+.wb3d-block-table td:first-child { color: #94a3b8; width: 42%; }
+
+/* hover tip + approval overlay */
+.wb3d-hover-tip { border-color: rgba(56, 189, 248, .5); }
+.wb3d-approval-overlay { position: absolute; z-index: 6; display: flex; gap: 4px; }
+.wb3d-approval-overlay .wb3d-btn-mini { box-shadow: 0 4px 14px rgba(0, 0, 0, .5); }
+
+/* table-to-xml */
+[data-wb3d-tablexml] textarea { width: 100%; min-height: 120px; margin-top: 6px; background: #07101f; color: #e6edf5; border: 1px solid rgba(148, 163, 184, .35); border-radius: 8px; padding: 8px; font: 11px ui-monospace, Consolas, monospace; resize: vertical; }
+[data-wb3d-tablexml] select, [data-wb3d-tablexml] input:not([type="file"]):not([type="checkbox"]) { background: #07101f; color: #e6edf5; border: 1px solid rgba(148, 163, 184, .35); border-radius: 6px; padding: 3px 6px; font-size: 11px; }
+.wb3d-map-wrap { overflow: auto; border: 1px solid rgba(148, 163, 184, .2); border-radius: 8px; background: #081120; }
+.wb3d-map-port { fill: #14243c; stroke: rgba(148, 163, 184, .4); cursor: pointer; }
+.wb3d-map-port:hover { fill: #1b3151; }
+.wb3d-map-port.is-linked { stroke: #38bdf8; }
+.wb3d-map-port.is-pending { fill: #2563eb; }
+.wb3d-map-port.is-custom { stroke: #f59e0b; stroke-dasharray: 4 2; }
+.wb3d-map-label { fill: #dbe7f5; font-size: 11px; pointer-events: none; }
+.wb3d-map-edge { fill: none; stroke: #38bdf8; stroke-width: 2; opacity: .75; cursor: pointer; }
+.wb3d-map-edge:hover { stroke: #f87171; opacity: 1; }
 
 .wb3d-table-wrap { overflow: auto; max-height: 420px; border: 1px solid rgba(148, 163, 184, .2); border-radius: 8px; }
 .wb3d-table-wrap table { border-collapse: collapse; width: 100%; font-size: 11px; }

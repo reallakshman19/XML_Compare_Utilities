@@ -637,28 +637,77 @@ function wireTableXOcrImport(dialog, get) {
 }
 
 function runConversion(host, get, state) {
-  const table1Text = get('table1').value;
-  const table2Text = get('table2').value;
-  const table3Text = get('table3').value;
-  const branchInfo = readBranchInfo(get);
+    const table1Text = get('table1').value;
+    const table2Text = get('table2').value;
+    const table3Text = get('table3').value;
+    const branchInfo = readBranchInfo(get);
 
-  const table1Points = parseTable1(table1Text);
-  const table1OutputText = table1ToTabText(table1Points);
-  const sheets = groupPointsIntoSheets(table1Points);
-  const keyPlanSvg = renderKeyPlanSvg(table1Points, sheets);
-  const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
-  const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
-  const coordinateText = coordinateRowsToTabText(coordinateRows);
-  const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
+    const table1Points = parseTable1(table1Text);
+    const table1OutputText = table1ToTabText(table1Points);
+    const sheets = groupPointsIntoSheets(table1Points);
+    const keyPlanSvg = renderKeyPlanSvg(table1Points, sheets);
+    const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
+    const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
+    const coordinateText = coordinateRowsToTabText(coordinateRows);
+    const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
 
-  state.table1OutputText = table1OutputText;
-  state.coordinateText = coordinateText;
-  state.xmlText = xmlText;
-  host.querySelector('[data-p3d="keyplan"]').innerHTML = keyPlanSvg;
-  host.querySelector('[data-p3d="table1-output"]').textContent = table1OutputText;
-  host.querySelector('[data-p3d="coordinate-output"]').textContent = coordinateText;
-  host.querySelector('[data-p3d="xml-output"]').textContent = xmlText;
-}
+    state.table1OutputText = table1OutputText;
+    state.coordinateText = coordinateText;
+    state.xmlText = xmlText;
+    host.querySelector('[data-p3d="keyplan"]').innerHTML = keyPlanSvg;
+    host.querySelector('[data-p3d="table1-output"]').textContent = table1OutputText;
+    host.querySelector('[data-p3d="coordinate-output"]').textContent = coordinateText;
+    host.querySelector('[data-p3d="xml-output"]').textContent = xmlText;
+
+    const svg = host.querySelector('[data-p3d="keyplan"] svg');
+    const layer = host.querySelector('#p3d-pz-layer');
+    if (svg && layer) {
+      let isPanning = false, startPoint = { x: 0, y: 0 }, viewBox = svg.viewBox.baseVal;
+      let currentScale = 1;
+      svg.addEventListener('mousedown', (e) => {
+        isPanning = true;
+        startPoint = { x: e.clientX, y: e.clientY };
+      });
+      svg.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        const dx = (startPoint.x - e.clientX) * (viewBox.width / svg.clientWidth);
+        const dy = (startPoint.y - e.clientY) * (viewBox.height / svg.clientHeight);
+        viewBox.x += dx; viewBox.y += dy;
+        startPoint = { x: e.clientX, y: e.clientY };
+      });
+      svg.addEventListener('mouseup', () => isPanning = false);
+      svg.addEventListener('mouseleave', () => isPanning = false);
+      svg.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const zoom = Math.exp(e.deltaY * 0.001);
+        const mx = e.offsetX * (viewBox.width / svg.clientWidth) + viewBox.x;
+        const my = e.offsetY * (viewBox.height / svg.clientHeight) + viewBox.y;
+        viewBox.x = mx - (mx - viewBox.x) * zoom;
+        viewBox.y = my - (my - viewBox.y) * zoom;
+        viewBox.width *= zoom; viewBox.height *= zoom;
+        currentScale *= zoom;
+        layer.style.strokeWidth = `${1 / currentScale}`;
+      });
+      let tooltip = host.querySelector('.p3d-tooltip');
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'p3d-tooltip';
+        tooltip.style.cssText = 'position:absolute;background:#1e293b;color:#f8fafc;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;z-index:9999;';
+        host.appendChild(tooltip);
+      }
+      svg.addEventListener('mousemove', (e) => {
+        if (e.target.tagName === 'circle' && e.target.dataset.coord) {
+          tooltip.textContent = `[${e.target.dataset.coord}]`;
+          tooltip.style.left = `${e.pageX + 10}px`;
+          tooltip.style.top = `${e.pageY + 10}px`;
+          tooltip.style.display = 'block';
+        } else {
+          tooltip.style.display = 'none';
+        }
+      });
+      svg.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+    }
+  }
 
 function closePopup(modal, onClose) {
   modal.remove();
