@@ -11,6 +11,26 @@ function toMm(meters) {
   return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000;
 }
 
+function cleanText(value) {
+  return String(value ?? '').trim();
+}
+
+function firstText(...values) {
+  return values.map(cleanText).find(Boolean) || '';
+}
+
+function lineIdentity(branchInfo = {}) {
+  return firstText(branchInfo.lineNo, branchInfo.branchName, 'B1');
+}
+
+function pipeMaterial(branchInfo = {}) {
+  return firstText(branchInfo.pipeMaterial, branchInfo.materialName, branchInfo.materialCode);
+}
+
+function nodeLabel(row = {}) {
+  return firstText(row.nodeName, row.marker, row.label, `N${row.nodeNumber ?? ''}`);
+}
+
 // Turns the combined coordinate list (from pipeline-3d-model-geometry.js) into
 // Coordinate-tab rows: one row per point, with sequential CII node numbers and
 // the marker/point label carried alongside as the node name.
@@ -21,23 +41,19 @@ export function buildCoordinateRows(combinedPoints, branchName) {
     x: toMm(point.x),
     y: toMm(point.y),
     z: toMm(point.z),
-    nodeName: point.label || '',
+    nodeName: firstText(point.label, `N${NODE_NUMBER_START + index * NODE_NUMBER_STEP}`),
     horizontal: point.horizontal,
   }));
 }
 
 export function coordinateRowsToTabText(rows) {
   const header = ['BranchName', 'NodeNumber', 'X(mm)', 'Y(mm)', 'Z(mm)', 'NodeName'].join('\t');
-  const lines = rows.map((r) => [r.branchName, r.nodeNumber, r.x, r.y, r.z, r.nodeName].join('\t'));
+  const lines = rows.map((r) => [r.branchName, r.nodeNumber, r.x, r.y, r.z, nodeLabel(r)].join('\t'));
   return [header, ...lines].join('\n');
 }
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-function tag(name, value) {
-  return `<${name}>${esc(value)}</${name}>`;
 }
 
 // Sentinel used throughout 3D_Converters' InputXML->CII(2019) workflow to mean
@@ -57,34 +73,46 @@ function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
+function modelAttributes(branchInfo, elementCount) {
+  const line = lineIdentity(branchInfo);
+  return [
+    attr('NUMELEMENTS', elementCount),
+    attr('NUMREST', '0'),
+    attr('JOBNAME', line),
+    attr('LINE_ID', line),
+    attr('LINE_NO', line),
+    attr('PIPELINE_REFERENCE', line),
+  ];
+}
+
 // Builds one <PIPINGELEMENT> per consecutive node pair, matching the
 // attribute set read by 3D_Converters' InputXML->CII(2019) consumer
-// (converters/scripts/inputxml_to_cii2019.py). FROM_NODE/TO_NODE are
-// hard-required; DELTA_X/Y/Z default to 0.0 if absent/sentinel;
-// DIAMETER/WALL_THICK/INSUL_THICK/CORR_ALLOW/TEMP_EXP_C1-9/PRESSURE_C1-9/
-// MATERIAL_NUM/FLUID_DENSITY/INSUL_DENSITY/HYDRO_PRESSURE "carry forward"
-// from the previous element if absent/sentinel; FROM_NAME/TO_NAME are read
-// as plain text. TEMP_EXP_C4-9 and PRESSURE_C2-9 have no corresponding
-// config field in this tool (only one temperature triple and one design
-// pressure are collected), so they're always "0" — matching the CAESAR
-// spec's own "non-specified real values are assigned a value of 0.0" rule,
-// not a hidden default. LINE_ID is NOT emitted: the consumer has no
-// attribute for it (a per-element line label exists via a separate
-// "elements.line_label" config mechanism, unrelated to XML attributes).
+// (converters/scripts/inputxml_to_cii2019.py). Unknown line/material aliases
+// are deliberately emitted as side-car metadata so this module preserves them
+// without changing the converter contract.
 function pipingElementXml(fromRow, toRow, branchInfo) {
   const deltaX = num(toRow.x - fromRow.x);
   const deltaY = num(toRow.y - fromRow.y);
   const deltaZ = num(toRow.z - fromRow.z);
+  const line = lineIdentity(branchInfo);
+  const material = pipeMaterial(branchInfo);
+  const corrosion = num(branchInfo.corrosionAllowance, '0');
+  const fromName = nodeLabel(fromRow);
+  const toName = nodeLabel(toRow);
   const attrs = [
     attr('FROM_NODE', fromRow.nodeNumber),
     attr('TO_NODE', toRow.nodeNumber),
     attr('DELTA_X', deltaX),
     attr('DELTA_Y', deltaY),
     attr('DELTA_Z', deltaZ),
+    attr('LINE_ID', line),
+    attr('LINE_NO', line),
+    attr('PIPELINE_REFERENCE', line),
     attr('DIAMETER', num(branchInfo.boreMm)),
     attr('WALL_THICK', num(branchInfo.wallThickness)),
     attr('INSUL_THICK', num(branchInfo.insulationThickness, '0')),
-    attr('CORR_ALLOW', num(branchInfo.corrosionAllowance, '0')),
+    attr('CORR_ALLOW', corrosion),
+    attr('CORROSION_ALLOWANCE', corrosion),
     attr('TEMP_EXP_C1', num(branchInfo.t1)),
     attr('TEMP_EXP_C2', num(branchInfo.t2)),
     attr('TEMP_EXP_C3', num(branchInfo.t3)),
@@ -104,11 +132,15 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('PRESSURE_C8', '0'),
     attr('PRESSURE_C9', '0'),
     attr('MATERIAL_NUM', num(branchInfo.materialCode)),
+    attr('PIPE_MATERIAL', material),
+    attr('MATERIAL_NAME', material),
     attr('FLUID_DENSITY', num(branchInfo.fluidDensity, '0')),
     attr('INSUL_DENSITY', num(branchInfo.insulationDensity, '0')),
     attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
-    attr('FROM_NAME', fromRow.nodeName),
-    attr('TO_NAME', toRow.nodeName),
+    attr('FROM_NAME', fromName),
+    attr('TO_NAME', toName),
+    attr('FROM_MARKER', fromName),
+    attr('TO_MARKER', toName),
   ];
   return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
 }
@@ -126,11 +158,11 @@ export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<CAESARII>',
-    `<PIPINGMODEL NUMELEMENTS="${elements.length}" NUMREST="0">`,
+    `<PIPINGMODEL ${modelAttributes(branchInfo, elements.length).join(' ')}>`,
     ...elements,
     '</PIPINGMODEL>',
     '</CAESARII>',
   ].join('\n');
 }
 
-export const _internal = { toMm, SENTINEL_MISSING };
+export const _internal = { toMm, SENTINEL_MISSING, lineIdentity, pipeMaterial, nodeLabel };
