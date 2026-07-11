@@ -187,14 +187,8 @@ function buildMultiSheetTable1(blocks) {
       const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
       const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
       if (prevSheetPoints.length >= 2 && raw.length >= 2) {
-        const refPrev = pickReferenceSegment(
-          prevSheetPoints.map((p) => ({ x: p.globalX, y: p.globalY })),
-          false,
-        );
-        const refCurr = pickReferenceSegment(raw, true);
-        const rawAngle = normalizeAngleDeg(refPrev.bearing - refCurr.bearing);
-        angle = Math.round(rawAngle / 90) * 90;
-        angle = normalizeAngleDeg(angle);
+        const rawAngle = 0;
+        angle = 0;
       }
       if (prevLast) {
         const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };

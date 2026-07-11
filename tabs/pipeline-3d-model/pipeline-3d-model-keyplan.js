@@ -77,7 +77,7 @@ export function renderKeyPlanSvg(points, sheets) {
     })
     .join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="100%" height="auto" style="background:#0b1220;border-radius:8px;border:1px solid rgba(148,163,184,.28);max-height:${HEIGHT}px">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="100%" height="auto" style="background:#0b1220;border-radius:8px;border:1px solid rgba(148,163,184,.28);">
 <g id="p3d-pz-layer">
 ${parts.join('\n')}
 </g>

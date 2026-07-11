@@ -75,6 +75,9 @@ function ensureModalStyle(doc = globalThis.document) {
 .p3d-actions button:hover{background:#2563eb}
 .p3d-output pre{background:#0b1220;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:11px;white-space:pre}
 .p3d-output h4{margin:14px 0 6px;color:#e0f2fe}
+[data-p3d="keyplan"] svg { cursor: grab; }
+[data-p3d="keyplan"] svg:active { cursor: grabbing; }
+.p3d-tooltip { position: fixed; background: #0b1220; border: 1px solid rgba(148,163,184,0.4); border-radius: 4px; padding: 4px 8px; font-size: 11px; font-family: monospace; color: #cbd5e1; pointer-events: none; z-index: 10000; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); display: none; }
 `;
   doc.head?.appendChild(style);
 }
@@ -150,22 +153,11 @@ ${renderBranchForm()}
 
 function readBranchInfo(get) {
   const value = (key) => get(`field-${key}`)?.value?.trim() || '';
-  return {
-    branchName: value('lineNo') || 'B1',
-    lineNo: value('lineNo'),
-    boreMm: value('boreMm'),
-    wallThickness: value('wallThickness'),
-    p1: value('p1'),
-    t1: value('t1'),
-    t2: value('t2'),
-    t3: value('t3'),
-    fluidDensity: value('fluidDensity'),
-    materialCode: value('materialCode'),
-    corrosionAllowance: value('corrosionAllowance'),
-    insulationThickness: value('insulationThickness'),
-    insulationDensity: value('insulationDensity'),
-    hydroPressure: value('hydroPressure'),
-  };
+  const info = { branchName: value('lineNo') || 'B1' };
+  CONFIG_FIELDS.forEach(field => {
+    info[field.key] = value(field.key);
+  });
+  return info;
 }
 
 function applyConfigValues(get, values) {
@@ -692,7 +684,6 @@ function runConversion(host, get, state) {
       if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.className = 'p3d-tooltip';
-        tooltip.style.cssText = 'position:absolute;background:#1e293b;color:#f8fafc;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;z-index:9999;';
         host.appendChild(tooltip);
       }
       svg.addEventListener('mousemove', (e) => {
