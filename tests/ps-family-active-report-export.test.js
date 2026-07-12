@@ -17,6 +17,7 @@ assert.ok(shell.includes('Export Active Report'));
 assert.ok(shell.includes('data-psfa="export-active"'));
 assert.ok(shell.includes('SupportGroup Summary CSV'));
 assert.ok(shell.includes('Line Support Tree TXT'));
+assert.ok(shell.includes('StructureGroup Line Support Proximity CSV'));
 assert.ok(shell.includes('SupportChange Exceptions CSV'));
 assert.ok(shell.includes('Input Evidence Ledger CSV'));
 assert.ok(shell.includes('Audit JSON'));
@@ -46,6 +47,11 @@ const tree = createPsFamilyActiveReportExport(audit, 'lineSupportTree');
 assert.equal(tree.suffix, 'line-support-tree');
 assert.equal(tree.mime, 'text/plain');
 assert.match(tree.text, /SupportGroup: S8810011_PS-14396/);
+
+const proximity = createPsFamilyActiveReportExport(audit, 'structureLineProximity');
+assert.equal(proximity.suffix, 'structure-line-proximity');
+assert.equal(proximity.mime, 'text/csv');
+assert.match(proximity.text, /TotalSupportCount/);
 
 const evidence = createPsFamilyActiveReportExport(audit, 'inputEvidence');
 assert.match(evidence.text, /Clash603/);

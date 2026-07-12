@@ -43,7 +43,7 @@ export function renderPsFamilyReadiness(readiness) {
 export function renderPsFamilySummary(audit) {
   if (!audit) return '<div class="psmap-help-text">Load inputs and run audit.</div>';
   const s = audit.summary;
-  return `<div class="psmap-grid-2"><div><b>Source family</b><br>${h(s.sourceFamily || 'SupportChange')}</div><div><b>SupportGroups</b><br>${s.supportGroupCount || 0}</div><div><b>Exceptions</b><br>${s.supportExceptionCount || 0}</div><div><b>Legacy clash rows</b><br>${s.clashCount || 0}</div></div>`;
+  return `<div class="psmap-grid-2"><div><b>Source family</b><br>${h(s.sourceFamily || 'SupportChange')}</div><div><b>SupportGroups</b><br>${s.supportGroupCount || 0}</div><div><b>Structure proximity rows</b><br>${s.structureLineProximityCount || 0}</div><div><b>Exceptions</b><br>${s.supportExceptionCount || 0}</div><div><b>Legacy clash rows</b><br>${s.clashCount || 0}</div></div>`;
 }
 
 function renderSupportSummary(audit, searchText) {
@@ -58,6 +58,17 @@ function renderSupportSummary(audit, searchText) {
 function renderLineSupportTree(audit, searchText) {
   const rows = (audit.lineSupportTreeRows || []).map((row) => ({ supportGroup: row.supportGroup, tree: row.treeText }));
   return renderPsFamilyTable([{ label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'Tree', value: (row) => row.tree }], rows, 80, searchText);
+}
+
+function renderStructureLineProximity(audit, searchText) {
+  return renderPsFamilyTable([
+    { label: 'StructuralGroupRoot', value: (row) => row.structuralGroupRoot }, { label: 'StructuralGroupNames', value: (row) => row.structuralGroupNames },
+    { label: 'LineNo', value: (row) => row.lineNo }, { label: 'LineFamily', value: (row) => row.lineFamily },
+    { label: 'BranchNode', value: (row) => row.branchNode }, { label: 'SupportsWithin250mm', value: (row) => row.supportsWithin250mm },
+    { label: 'SupportCount', value: (row) => row.supportCount }, { label: 'TotalSupportCount', value: (row) => row.totalSupportCount },
+    { label: 'RepresentativeSupport', value: (row) => row.representativeSupport }, { label: 'RepresentativeCoordinate', value: (row) => row.representativeCoordinate },
+    { label: 'Evidence', value: (row) => row.evidenceClashes }, { label: 'Remarks', value: (row) => row.remarks },
+  ], audit.structureLineProximityRows || [], 80, searchText);
 }
 
 function renderStructureContacts(audit, searchText) {
@@ -126,6 +137,7 @@ function renderDiagnostics(audit, searchText) { return renderPsFamilyTable([{ la
 export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
   supportSummary: renderSupportSummary,
   lineSupportTree: renderLineSupportTree,
+  structureLineProximity: renderStructureLineProximity,
   supportExceptions: renderExceptions,
   inputEvidence: renderEvidence,
   structureContacts: renderStructureContacts,
