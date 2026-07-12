@@ -1,63 +1,51 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createPsFamilyInputReadinessFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
 import { loadSampleTextIntoTextarea, loadTextFileIntoTextarea } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-file-io.js';
 import {
-  PS_FAMILY_SAMPLE_CLASH_XML,
-  PS_FAMILY_SAMPLE_DETAIL_CSV,
-  PS_FAMILY_SAMPLE_EXPECTED_CSV,
   PS_FAMILY_SAMPLE_INPUTS,
-  PS_FAMILY_SAMPLE_PSCLASH_XML,
+  PS_FAMILY_SAMPLE_STRUCTURE_XML,
+  PS_FAMILY_SAMPLE_SUPPORT_XML,
   listPsFamilySampleInputs,
 } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 
-function normalizeText(value) { return String(value).replace(/\r\n/g, '\n').trimEnd(); }
-function assertSampleMatchesFile(sampleText, path) { assert.equal(normalizeText(sampleText), normalizeText(readFileSync(path, 'utf8'))); }
-
-assert.equal(listPsFamilySampleInputs().length, 4);
-assert.ok(PS_FAMILY_SAMPLE_INPUTS.xml.text.includes('Sample Clash 1'));
-assert.ok(PS_FAMILY_SAMPLE_INPUTS.expected.text.includes('PS-90001.1'));
-assert.ok(PS_FAMILY_SAMPLE_INPUTS.details.text.includes('SAMPLE-100-D90001'));
-assert.ok(PS_FAMILY_SAMPLE_INPUTS.psclash.text.includes('PS-14175.1'));
-assert.ok(PS_FAMILY_SAMPLE_PSCLASH_XML.includes('Clash76'));
-
-assertSampleMatchesFile(PS_FAMILY_SAMPLE_CLASH_XML, 'samples/ps-family-clash-audit/sample-clash.xml');
-assertSampleMatchesFile(PS_FAMILY_SAMPLE_EXPECTED_CSV, 'samples/ps-family-clash-audit/sample-expected.csv');
-assertSampleMatchesFile(PS_FAMILY_SAMPLE_DETAIL_CSV, 'samples/ps-family-clash-audit/sample-element-detail.csv');
+assert.equal(listPsFamilySampleInputs().length, 2);
+assert.ok(PS_FAMILY_SAMPLE_INPUTS.structure.text.includes('Clash603'));
+assert.ok(PS_FAMILY_SAMPLE_INPUTS.structure.text.includes('GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396'));
+assert.ok(PS_FAMILY_SAMPLE_INPUTS.support.text.includes('Clash1429'));
+assert.ok(PS_FAMILY_SAMPLE_INPUTS.support.text.includes('PS-14396.10'));
 
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(shell.includes('Load sample clash XML'));
-assert.ok(shell.includes('Load sample expected CSV'));
-assert.ok(shell.includes('Load sample detail CSV'));
-assert.ok(shell.includes('Load sample PSClash XML'));
-assert.ok(shell.includes('data-psfa="psclash"'));
+assert.ok(shell.includes('Load sample StructureGroup vs Supports XML'));
+assert.ok(shell.includes('Load sample Clash within Supports XML'));
+assert.ok(shell.includes('data-psfa="structure"'));
+assert.ok(shell.includes('data-psfa="support"'));
+assert.ok(!shell.includes('PSClash XML'));
+assert.ok(!shell.includes('Expected PS/SL CSV'));
 
 const textarea = { value: 'manual value' };
 const statusNode = { textContent: 'No file selected' };
-loadSampleTextIntoTextarea(PS_FAMILY_SAMPLE_INPUTS.psclash, textarea, statusNode);
-assert.equal(textarea.value, PS_FAMILY_SAMPLE_PSCLASH_XML);
-assert.equal(statusNode.textContent, 'Official sample PSClash XML loaded');
+loadSampleTextIntoTextarea(PS_FAMILY_SAMPLE_INPUTS.structure, textarea, statusNode);
+assert.equal(textarea.value, PS_FAMILY_SAMPLE_STRUCTURE_XML);
+assert.equal(statusNode.textContent, 'Official sample StructureGroup vs Supports XML loaded');
+loadSampleTextIntoTextarea(PS_FAMILY_SAMPLE_INPUTS.support, textarea, statusNode);
+assert.equal(textarea.value, PS_FAMILY_SAMPLE_SUPPORT_XML);
+assert.equal(statusNode.textContent, 'Official sample Clash within Supports XML loaded');
 
 await loadTextFileIntoTextarea({ name: 'manual.xml', size: 6, text: async () => 'manual' }, textarea, statusNode);
 assert.equal(textarea.value, 'manual');
 assert.equal(statusNode.textContent, 'manual.xml (6 bytes)');
 
 const readiness = createPsFamilyInputReadinessFromTextInputs({
-  clashXmlText: PS_FAMILY_SAMPLE_CLASH_XML,
-  psClashXmlText: PS_FAMILY_SAMPLE_PSCLASH_XML,
-  expectedCsvText: PS_FAMILY_SAMPLE_EXPECTED_CSV,
-  detailCsvText: PS_FAMILY_SAMPLE_DETAIL_CSV,
-  config: { sourceSide: 'auto', sourceFamily: '', posToleranceMm: 25 },
+  structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
+  supportXmlText: PS_FAMILY_SAMPLE_SUPPORT_XML,
+  config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
-
 assert.equal(readiness.blocking, false);
-assert.equal(readiness.summary.sourceFamily, 'PS-90001');
-assert.equal(readiness.summary.xmlClashCount, 2);
-assert.equal(readiness.summary.psClashCount, 2);
-assert.equal(readiness.summary.expectedCount, 3);
-assert.equal(readiness.summary.detailCount, 3);
+assert.equal(readiness.summary.sourceFamily, 'PS-14396');
+assert.equal(readiness.summary.structureContactCount, 2);
+assert.equal(readiness.summary.supportChainCount, 3);
 assert.equal(readiness.summary.errorCount, 0);
 
 console.log('ps-family-sample-buttons tests passed');

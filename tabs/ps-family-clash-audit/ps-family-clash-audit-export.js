@@ -63,7 +63,10 @@ export function exportPsFamilyOutOfFamilyCsv(audit) { return rowsToCsv(['ClashNa
 export function exportPsFamilyDuplicatesCsv(audit) { return rowsToCsv(['Member', 'ExactMemberKey', 'ClashCount'], (audit.duplicateRows || []).map((row) => ({ Member: row.member, ExactMemberKey: row.exactMemberKey, ClashCount: row.clashCount }))); }
 export function exportPsFamilyLineFamiliesCsv(audit) { return rowsToCsv(['LineFamily', 'ClashCount'], (audit.lineFamilyRows || []).map((row) => ({ LineFamily: row.lineFamily, ClashCount: row.clashCount }))); }
 export function exportPsFamilyPosFamiliesCsv(audit) { return rowsToCsv(['POSFamilyId', 'ElementCount'], (audit.posFamilyRows || []).map((row) => ({ POSFamilyId: row.posFamilyId, ElementCount: row.elementCount }))); }
-export function exportPsFamilySourceVsPosFamilyCsv(audit) { return rowsToCsv(['Source', 'POSFamilyCount'], (audit.sourceVsPosFamilyRows || []).map((row) => ({ Source: row.source, POSFamilyCount: row.posFamilyCount }))); }
+export function exportPsFamilySourceVsPosFamilyCsv(audit) {
+  const headers = ['Source', 'POSFamilyCount', 'ElementCount', 'FoundElementCount', 'MissingElementCount', 'ClashCount', 'OutOfFamilyCount', 'POSFamilyIds', 'LineFamilies', 'Remarks'];
+  return rowsToCsv(headers, (audit.sourceVsPosFamilyRows || []).map((row) => ({ Source: row.source, POSFamilyCount: row.posFamilyCount, ElementCount: row.elementCount, FoundElementCount: row.foundElementCount, MissingElementCount: row.missingElementCount, ClashCount: row.clashCount, OutOfFamilyCount: row.outOfFamilyCount, POSFamilyIds: row.posFamilyIds, LineFamilies: row.lineFamilies, Remarks: row.remarks })));
+}
 export function exportPsFamilyDiagnosticsCsv(audit) { return rowsToCsv(['Level', 'Code', 'Message'], (audit.diagnostics || []).map((row) => ({ Level: row.level, Code: row.code, Message: row.message }))); }
 export function exportPsFamilyPsClashReportCsv(audit) { return exportSupportMembersCsv(audit); }
 export function exportPsFamilyAuditJson(audit) { return `${JSON.stringify(audit, null, 2)}\n`; }

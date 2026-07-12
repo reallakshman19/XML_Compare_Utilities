@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
 import { createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
-import { buildPsClashReportRows } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-engine.js';
-import { parsePsClashXml } from '../tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js';
-import { PS_FAMILY_SAMPLE_PSCLASH_XML } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
+import { buildSupportChangeReports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-engine.js';
+import { parseSupportChangeXml } from '../tabs/ps-family-clash-audit/ps-family-psclash-xml-parser.js';
+import { PS_FAMILY_SAMPLE_STRUCTURE_XML, PS_FAMILY_SAMPLE_SUPPORT_XML } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { extractFamilyRoot } from '../tabs/ps-family-clash-audit/ps-family-token-utils.js';
 import { renderPsFamilyReports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 
@@ -32,38 +32,47 @@ assert.equal(byName.get('Clash1').familyStatus, 'IN_FAMILY');
 assert.equal(byName.get('Clash7').familyStatus, 'IN_FAMILY');
 assert.equal(byName.get('Clash9').familyStatus, 'OUT_OF_FAMILY');
 
-const psClashParsed = parsePsClashXml(PS_FAMILY_SAMPLE_PSCLASH_XML, { familyPrefixesText: 'PS, SL' });
-assert.equal(psClashParsed.rows.length, 2);
-assert.equal(psClashParsed.rows[0].source, 'PS-14175');
-assert.equal(psClashParsed.rows[0].lineFamily, 'A8010850');
-assert.equal(psClashParsed.rows[0].fullLineTag, 'ASIM-1836-2"-A8010850-13421-01');
-assert.equal(psClashParsed.rows[0].branchNode, 'ASIM-1836-2"-A8010850-13421-01/B2');
+const structureParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_STRUCTURE_XML, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
+const supportParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_SUPPORT_XML, { familyPrefixesText: 'PS, SL' }, 'Clash within Supports');
+assert.equal(structureParsed.rows.length, 2);
+assert.equal(supportParsed.rows.length, 3);
+assert.equal(structureParsed.rows[0].edgeType, 'StructuralContact');
+assert.equal(supportParsed.rows[0].edgeType, 'SupportChain');
+assert.equal(structureParsed.rows[0].supportGroup, 'S8810011_PS-14396');
+assert.equal(supportParsed.rows[0].supportGroup, 'S8810011_PS-14396');
 
-const clash904Xml = `<exchange><batchtest><clashtests><clashtest><clashresults><clashresult name="Clash904" distance="-0.01"><clashobjects>
-<clashobject><pathlink><node>File</node><node>/PS-14175</node><node>/PS-14175-BAR-1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175-BAR-1</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-2&quot;-A8010850-13421-01</node><node>/ASIM-1836-2&quot;-A8010850-13421-01/B2</node><node>/PS-14175.2</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175.2</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult></clashresults></clashtest></clashtests></batchtest></exchange>`;
-const psClashAudit = createPsFamilyClashAuditFromTextInputs({ clashXmlText: clash904Xml, psClashXmlText: PS_FAMILY_SAMPLE_PSCLASH_XML, config: { sourceSide: 'auto', sourceFamily: 'PS-14416', familyPrefixesText: 'PS, SL', posToleranceMm: 25 } });
-assert.equal(psClashAudit.psClashReportRows.length, 2);
-assert.deepEqual(buildPsClashReportRows(psClashAudit.psClashRows, psClashAudit.clashRows), psClashAudit.psClashReportRows);
-assert.equal(psClashAudit.psClashReportRows[0].sourceObject, 'PS-14175.1');
-assert.equal(psClashAudit.psClashReportRows[0].coverageInClashReport, 'Yes');
-assert.equal(psClashAudit.psClashReportRows[0].clashNo, 'Clash904');
-assert.equal(psClashAudit.psClashReportRows[0].remarks, 'None');
-assert.equal(psClashAudit.psClashReportRows[1].sourceObject, 'PS-14175.2');
-assert.equal(psClashAudit.psClashReportRows[1].coverageInClashReport, 'No');
-assert.equal(psClashAudit.psClashReportRows[1].remarks, 'Same PSClashGroup PS-14175.1');
+const audit = createPsFamilyClashAuditFromTextInputs({
+  structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
+  supportXmlText: PS_FAMILY_SAMPLE_SUPPORT_XML,
+  config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
+});
+assert.equal(audit.summary.supportGroupCount, 1);
+assert.equal(audit.summary.supportExceptionCount, 0);
+assert.equal(audit.supportSummaryRows[0].supportGroup, 'S8810011_PS-14396');
+assert.equal(audit.supportSummaryRows[0].psRoot, 'PS-14396');
+assert.deepEqual(audit.supportSummaryRows[0].supportMembers, ['PS-14396.4', 'PS-14396.8', 'PS-14396.9', 'PS-14396.10']);
+assert.deepEqual(audit.supportSummaryRows[0].evidenceClashes, ['Clash4', 'Clash202', 'Clash603', 'Clash723', 'Clash1429']);
+assert.equal(audit.structureContactRows.length, 2);
+assert.equal(audit.supportChainRows.length, 3);
+assert.equal(audit.supportMemberRows.find((row) => row.memberType === 'StructuralGroup').support, 'GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396');
+assert.equal(audit.supportMemberRows.find((row) => row.support === 'PS-14396.4').representativeSupport, 'PS-14396.4');
+assert.ok(audit.lineSupportTreeRows[0].treeText.includes('SupportGroup: S8810011_PS-14396'));
+assert.ok(audit.lineSupportTreeRows[0].treeText.includes('StructuralGroup'));
 
-const reportHtml = renderPsFamilyReports(psClashAudit, 'psClashReport', PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(reportHtml.includes('PSClashName'));
-assert.ok(reportHtml.includes('Coverage in Clash report'));
-assert.ok(reportHtml.includes('Clash904'));
-const exports = createPsFamilyAuditExports(psClashAudit);
-assert.match(exports.psClashReportCsv, /PS-14175\.1/);
-assert.match(exports.psClashReportCsv, /Same PSClashGroup PS-14175\.1/);
+const directReports = buildSupportChangeReports(structureParsed.rows, supportParsed.rows, []);
+assert.deepEqual(directReports.supportSummaryRows, audit.supportSummaryRows);
+
+const reportHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
+assert.ok(reportHtml.includes('SupportGroup Summary'));
+assert.ok(reportHtml.includes('S8810011_PS-14396'));
+assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('SupportChange Exceptions'));
+const exports = createPsFamilyAuditExports(audit);
+assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
+assert.match(exports.lineSupportTreeText, /Line: ASIM-1836-6"-S8810011-91261M7-HC-01/);
+assert.match(exports.inputEvidenceCsv, /Clash603/);
 
 const stableTabs = PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'stable').map((tab) => tab.key);
-assert.deepEqual(stableTabs, ['clashRows', 'psClashReport']);
+assert.deepEqual(stableTabs, ['supportSummary', 'lineSupportTree', 'supportExceptions', 'inputEvidence', 'clashRows']);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'draft').length > 0);
 
-console.log('ps-family-psclash-report tests passed');
+console.log('ps-family-supportchange-report tests passed');
