@@ -38,16 +38,21 @@ assert.match(shell, /data-psfa-panel="export" hidden/);
 
 assert.ok(shell.includes('Official sample loaders'));
 assert.ok(shell.includes('Load sample clash XML'));
+assert.ok(shell.includes('Load sample PSClash XML'));
 assert.ok(shell.includes('data-psfa-file="xml"'));
+assert.ok(shell.includes('data-psfa-file="psclash"'));
 assert.ok(shell.includes('data-psfa="xml"'));
+assert.ok(shell.includes('data-psfa="psclash"'));
 assert.ok(shell.includes('data-psfa="expected"'));
 assert.ok(shell.includes('data-psfa="details"'));
 assert.ok(shell.includes('class="psfa-input-wide"'));
 
 assert.ok(shell.includes('Clash XML preview/count'));
-assert.ok(shell.includes('Expected CSV preview/count'));
+assert.ok(shell.includes('PSClash XML preview/count'));
+assert.ok(shell.includes('Expected PS/SL CSV preview/count'));
 assert.ok(shell.includes('Element Detail CSV preview/count'));
 assert.ok(shell.includes('data-psfa-preview="xml"'));
+assert.ok(shell.includes('data-psfa-preview="psclash"'));
 assert.ok(shell.includes('data-psfa-preview="expected"'));
 assert.ok(shell.includes('data-psfa-preview="details"'));
 
@@ -66,6 +71,7 @@ assert.ok(shell.includes('Run Audit'));
 assert.ok(shell.includes('Export Active Report'));
 assert.ok(shell.includes('Export Package'));
 assert.ok(shell.includes('Coverage CSV'));
+assert.ok(shell.includes('PSClash report CSV'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(shell.includes('class="psfa-export-package"'));
 assert.ok(shell.includes('data-psfa-export-preview="coverage"'));
@@ -75,9 +81,10 @@ assert.ok(shell.includes('data-psfa="copy-export-preview"'));
 assert.ok(shell.includes('Report search'));
 assert.ok(shell.includes('data-psfa-tab="coverage"'));
 assert.ok(shell.includes('data-psfa-tab="clashRows"'));
+assert.ok(shell.includes('data-psfa-tab="psClashReport"'));
 assert.ok(shell.includes('data-psfa-tab="hierarchy"'));
-assert.ok(shell.includes('data-psfa="summary"'));
-assert.ok(shell.includes('data-psfa="reports"'));
+assert.ok(shell.includes('data-psfa-report-maturity="draft"'));
+assert.ok(shell.includes('data-psfa-report-maturity="stable"'));
 assert.ok(shell.includes('class="psfa-report-table psmap-table-wrap"'));
 
 assert.ok(popup.includes('PS / SL Family Clash Audit'));
