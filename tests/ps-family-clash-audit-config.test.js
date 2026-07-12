@@ -15,12 +15,14 @@ assert.match(config.structuralZonesText, /CU-SU/);
 assert.match(config.supportZonesText, /PS-/);
 assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 2);
-assert.equal(config.reportTabs.length, 10);
+assert.equal(config.reportTabs.length, 11);
 assert.ok(config.reportTabs.some((tab) => tab.key === 'supportSummary' && tab.maturity === 'stable'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'structureLineProximity' && tab.maturity === 'stable'));
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureContacts' && tab.maturity === 'draft'));
-assert.equal(config.outputButtons.length, 5);
+assert.equal(config.outputButtons.length, 6);
 assert.ok(config.info.some((item) => item.includes('LineFamily_PSRoot')));
 assert.ok(config.info.some((item) => item.includes('Zone classification')));
+assert.ok(config.info.some((item) => item.includes('PS-14311-BAR-3')));
 
 const launcher = _test.renderLauncher(config);
 assert.match(launcher, /SupportChangeXML/);
@@ -36,8 +38,10 @@ assert.match(html, /data-psfa="support"/);
 assert.doesNotMatch(html, /PSClash XML/);
 assert.doesNotMatch(html, /Expected PS\/SL CSV/);
 assert.match(html, /data-psfa-tab="supportSummary"/);
+assert.match(html, /data-psfa-tab="structureLineProximity"/);
 assert.match(html, /data-psfa-tab="supportExceptions"/);
 assert.match(html, /SupportGroup Summary CSV/);
+assert.match(html, /StructureGroup Line Support Proximity CSV/);
 assert.match(html, /Line Support Tree TXT/);
 assert.match(html, /Valid family prefixes/);
 assert.match(html, /Structural zones/);
@@ -66,5 +70,6 @@ const audit = createPsFamilyClashAuditFromTextInputs({
 assert.equal(audit.summary.supportGroupCount, 1);
 assert.match(renderPsFamilyReports(audit, 'supportSummary', config), /S8810011_PS-14396/);
 assert.match(renderPsFamilyReports(audit, 'lineSupportTree', config), /StructuralGroup/);
+assert.match(renderPsFamilyReports(audit, 'structureLineProximity', config), /TotalSupportCount/);
 
 console.log('ps-family-clash-audit-config tests passed');
