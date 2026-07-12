@@ -5,12 +5,14 @@ import {
   PS_FAMILY_SAMPLE_CLASH_XML,
   PS_FAMILY_SAMPLE_DETAIL_CSV,
   PS_FAMILY_SAMPLE_EXPECTED_CSV,
+  PS_FAMILY_SAMPLE_PSCLASH_XML,
 } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 import { createPsFamilyActiveReportExport, createPsFamilyAuditExports, PS_FAMILY_ACTIVE_EXPORTS } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
 
 const audit = createPsFamilyClashAuditFromTextInputs({
   clashXmlText: PS_FAMILY_SAMPLE_CLASH_XML,
+  psClashXmlText: PS_FAMILY_SAMPLE_PSCLASH_XML,
   expectedCsvText: PS_FAMILY_SAMPLE_EXPECTED_CSV,
   detailCsvText: PS_FAMILY_SAMPLE_DETAIL_CSV,
   config: { sourceSide: 'auto', sourceFamily: '', posToleranceMm: 25 },
@@ -21,6 +23,7 @@ const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(shell.includes('Export Active Report'));
 assert.ok(shell.includes('data-psfa="export-active"'));
 assert.ok(shell.includes('Coverage CSV'));
+assert.ok(shell.includes('PSClash report CSV'));
 assert.ok(shell.includes('Audit JSON'));
 
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
@@ -46,6 +49,10 @@ assert.match(coverage.text, /Copy-\(2\)-of-PS-90001\.3/);
 const clashRows = createPsFamilyActiveReportExport(audit, 'clashRows');
 assert.equal(clashRows.suffix, 'clashRows');
 assert.match(clashRows.text, /PS-90002\.1/);
+
+const psClash = createPsFamilyActiveReportExport(audit, 'psClashReport');
+assert.equal(psClash.suffix, 'psClashReport');
+assert.match(psClash.text, /PS-14175\.1/);
 
 const hierarchyFallback = createPsFamilyActiveReportExport(audit, 'hierarchy');
 assert.equal(hierarchyFallback.activeTab, 'coverage');

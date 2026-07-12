@@ -35,6 +35,19 @@ export const PS_FAMILY_SAMPLE_CLASH_XML = `<exchange>
   </batchtest>
 </exchange>`;
 
+export const PS_FAMILY_SAMPLE_PSCLASH_XML = `<exchange>
+  <batchtest name="Report">
+    <clashtests><clashtest name="PSClash"><clashresults>
+      <clashresult name="Clash76" guid="sample-psclash-76" status="active" distance="-0.009">
+        <clashobjects>
+          <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-2&quot;-A8010850-13421-01</node><node>/ASIM-1836-2&quot;-A8010850-13421-01/B2</node><node>/PS-14175.1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175.1</value></smarttag></smarttags></clashobject>
+          <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-2&quot;-A8010850-13421-01</node><node>/ASIM-1836-2&quot;-A8010850-13421-01/B2</node><node>/PS-14175.2</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175.2</value></smarttag></smarttags></clashobject>
+        </clashobjects>
+      </clashresult>
+    </clashresults></clashtest></clashtests>
+  </batchtest>
+</exchange>`;
+
 export const PS_FAMILY_SAMPLE_EXPECTED_CSV = `Item Name,PDMS DESC
 /PS-90001.1,Sample found member
 /PS-90001.2,Sample missing member
@@ -46,29 +59,10 @@ PS-90001.2,100.00,SAMPLE-100-D90001-31441C4-PP-01,Sample missing support,,=SAMPL
 Copy-(2)-of-PS-90001.3,100.00,SAMPLE-100-D90001-31441C4-PP-01,Sample copy support,,=SAMPLE/3,E 2000mm S 2000mm U 3000mm,`;
 
 export const PS_FAMILY_SAMPLE_INPUTS = Object.freeze({
-  xml: Object.freeze({
-    key: 'xml',
-    textareaKey: 'xml',
-    label: 'Load sample clash XML',
-    statusText: 'Official sample clash XML loaded',
-    text: PS_FAMILY_SAMPLE_CLASH_XML,
-  }),
-  expected: Object.freeze({
-    key: 'expected',
-    textareaKey: 'expected',
-    label: 'Load sample expected CSV',
-    statusText: 'Official sample expected CSV loaded',
-    text: PS_FAMILY_SAMPLE_EXPECTED_CSV,
-  }),
-  details: Object.freeze({
-    key: 'details',
-    textareaKey: 'details',
-    label: 'Load sample detail CSV',
-    statusText: 'Official sample detail CSV loaded',
-    text: PS_FAMILY_SAMPLE_DETAIL_CSV,
-  }),
+  xml: Object.freeze({ key: 'xml', textareaKey: 'xml', label: 'Load sample clash XML', statusText: 'Official sample clash XML loaded', text: PS_FAMILY_SAMPLE_CLASH_XML }),
+  expected: Object.freeze({ key: 'expected', textareaKey: 'expected', label: 'Load sample expected CSV', statusText: 'Official sample expected CSV loaded', text: PS_FAMILY_SAMPLE_EXPECTED_CSV }),
+  details: Object.freeze({ key: 'details', textareaKey: 'details', label: 'Load sample detail CSV', statusText: 'Official sample detail CSV loaded', text: PS_FAMILY_SAMPLE_DETAIL_CSV }),
+  psclash: Object.freeze({ key: 'psclash', textareaKey: 'psclash', label: 'Load sample PSClash XML', statusText: 'Official sample PSClash XML loaded', text: PS_FAMILY_SAMPLE_PSCLASH_XML }),
 });
 
-export function listPsFamilySampleInputs() {
-  return Object.values(PS_FAMILY_SAMPLE_INPUTS);
-}
+export function listPsFamilySampleInputs() { return Object.values(PS_FAMILY_SAMPLE_INPUTS); }

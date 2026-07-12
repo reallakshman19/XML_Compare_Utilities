@@ -1,4 +1,5 @@
 import { parsePsFamilyClashXml } from './ps-family-clash-xml-parser.js';
+import { parsePsClashXml } from './ps-family-psclash-xml-parser.js';
 import { parsePsFamilyRegisterCsv } from './ps-family-register-csv-parser.js';
 import { parsePsFamilyElementDetailCsv } from './ps-family-element-detail-csv-parser.js';
 import { buildPsFamilyPosFamilies } from './ps-family-posfamily-engine.js';
@@ -13,13 +14,14 @@ function severityCount(diagnostics, level) {
   return diagnostics.filter((item) => item.level === level).length;
 }
 
-function readinessSummary(xml, expected, details, pos, diagnostics, config) {
+function readinessSummary(xml, psclash, expected, details, pos, diagnostics, config) {
   const sourceFamily = detectSourceFamily(expected.rows, config);
   if (!sourceFamily) diagnostics.push({ level: 'ERROR', code: 'UNKNOWN_SOURCE_FAMILY', message: 'Source family could not be detected from expected CSV or manual input.' });
   const parsedPositions = details.rows.filter((row) => row.position).length;
   return {
     sourceFamily,
     xmlClashCount: xml.rows.length,
+    psClashCount: psclash.rows.length,
     expectedCount: expected.rows.length,
     detailCount: details.rows.length,
     positionParsedCount: parsedPositions,
@@ -34,21 +36,23 @@ function readinessSummary(xml, expected, details, pos, diagnostics, config) {
 function parseInputs(input) {
   const config = input?.config || {};
   const xml = parsePsFamilyClashXml(input?.clashXmlText || '', config);
+  const psclash = parsePsClashXml(input?.psClashXmlText || '', config);
   const expected = parsePsFamilyRegisterCsv(input?.expectedCsvText || '', config);
   const details = parsePsFamilyElementDetailCsv(input?.detailCsvText || '', config);
   const pos = buildPsFamilyPosFamilies(details.rows, { toleranceMm: config.posToleranceMm });
-  return { config, xml, expected, details, pos };
+  return { config, xml, psclash, expected, details, pos };
 }
 
 export function createPsFamilyInputReadinessFromTextInputs(input) {
   const parsed = parseInputs(input);
   const diagnostics = [
     ...parsed.xml.diagnostics,
+    ...parsed.psclash.diagnostics,
     ...parsed.expected.diagnostics,
     ...parsed.details.diagnostics,
     ...parsed.pos.diagnostics,
   ];
-  const summary = readinessSummary(parsed.xml, parsed.expected, parsed.details, parsed.pos, diagnostics, parsed.config);
+  const summary = readinessSummary(parsed.xml, parsed.psclash, parsed.expected, parsed.details, parsed.pos, diagnostics, parsed.config);
   return Object.freeze({ summary, diagnostics, blocking: diagnostics.some((item) => item.level === 'ERROR') });
 }
 
@@ -56,12 +60,14 @@ export function createPsFamilyClashAuditFromTextInputs(input) {
   const parsed = parseInputs(input);
   return buildPsFamilyClashAudit({
     clashRows: parsed.xml.rows,
+    psClashRows: parsed.psclash.rows,
     expectedRows: parsed.expected.rows,
     elementDetailRows: parsed.pos.rows,
     posFamilies: parsed.pos.posFamilies,
     config: parsed.config,
     diagnostics: [
       ...parsed.xml.diagnostics,
+      ...parsed.psclash.diagnostics,
       ...parsed.expected.diagnostics,
       ...parsed.details.diagnostics,
       ...parsed.pos.diagnostics,

@@ -7,6 +7,7 @@ const audit = {
   summary: { sourceFamily: 'PS-11147', coveragePct: '0.00' },
   coverageRows: [],
   clashRows: [],
+  psClashReportRows: [],
   missingRows: [],
   outOfFamilyRows: [],
   duplicateRows: [],
@@ -20,6 +21,7 @@ const audit = {
 const result = createPsFamilyAuditExports(audit);
 assert.ok(result.coverageCsv.startsWith('SourceFamily,ExpectedMember,Status'));
 assert.ok(result.coverageCsv.includes('POSFamilyId'));
+assert.ok(result.psClashReportCsv.startsWith('PSClashName,Source,SourceObject'));
 assert.ok(result.sourceVsPosFamilyCsv.startsWith('Source,POSFamilyCount'));
 assert.ok(result.auditJson.includes('ps-family-clash-audit/v1'));
 assert.ok(result.auditJson.includes('PS-11147'));
