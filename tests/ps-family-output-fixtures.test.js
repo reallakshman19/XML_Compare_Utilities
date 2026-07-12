@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { PS_FAMILY_CLASH_AUDIT_SCHEMA } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-contract.js';
 import { createPsFamilyAuditExports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
+import { createZipBlob } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-save.js';
 
 const audit = {
   schema: PS_FAMILY_CLASH_AUDIT_SCHEMA,
@@ -35,5 +36,17 @@ assert.ok(result.inputEvidenceCsv.startsWith('SourceInput,ClashName,ObjectAType'
 assert.ok(result.clashRowsCsv.startsWith('ClashName,Source,SourceObject'));
 assert.ok(result.auditJson.includes('ps-family-clash-audit/v1'));
 assert.ok(result.auditJson.includes('PS-14396'));
+
+const zip = createZipBlob([
+  { name: 'support-summary.csv', text: result.supportSummaryCsv },
+  { name: 'audit.json', text: result.auditJson },
+]);
+assert.equal(zip.type, 'application/zip');
+const zipBytes = new Uint8Array(await zip.arrayBuffer());
+assert.deepEqual(Array.from(zipBytes.slice(0, 4)), [0x50, 0x4b, 0x03, 0x04]);
+const zipText = new TextDecoder().decode(zipBytes);
+assert.ok(zipText.includes('support-summary.csv'));
+assert.ok(zipText.includes('audit.json'));
+assert.ok(zipText.includes('S8810011_PS-14396'));
 
 console.log('ps-family-output-fixtures tests passed');
