@@ -17,7 +17,7 @@ assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('SupportChangeXML'));
 
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v5-shell-split-run-export'/);
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v6-export-zip-active'/);
 assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
 assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
 assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
@@ -26,6 +26,7 @@ assert.match(professionalCss, /\.psfa-preview-grid pre\{min-height:180px/);
 assert.match(professionalCss, /\.psfa-prefix-card/);
 assert.match(professionalCss, /\.psfa-run-grid/);
 assert.match(professionalCss, /\.psfa-export-preview/);
+assert.match(professionalCss, /\.psfa-export-picker button\[aria-selected="true"\],\.psfa-export-picker button\.active/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
@@ -68,6 +69,8 @@ assert.ok(shell.includes('SupportChange Exceptions CSV'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(shell.includes('data-psfa-export-preview="support-summary"'));
 assert.ok(shell.includes('data-psfa="download-selected"'));
+assert.ok(shell.includes('data-psfa="download-all-zip"'));
+assert.ok(shell.includes('Download All ZIP'));
 assert.ok(shell.includes('data-psfa="copy-export-preview"'));
 
 assert.ok(shell.includes('Report search'));
@@ -84,6 +87,8 @@ assert.match(source, /showWorkspacePanel/);
 assert.match(source, /button\.classList\.toggle\('active', active\)/);
 assert.match(source, /wirePrefixInput/);
 assert.match(source, /wireExportPreviewButtons/);
+assert.match(source, /saveZipTextFiles/);
+assert.match(source, /updateExportPickerSelection/);
 assert.match(source, /event\.key === 'Escape'/);
 assert.doesNotMatch(shell, /Markdown Report/);
 assert.doesNotMatch(shell, /PSClash XML/);
@@ -102,5 +107,21 @@ assert.equal(get('root'), fakeRoot);
 assert.equal(get('prefix-detector'), prefixNode);
 assert.equal(get('export-title'), exportTitleNode);
 assert.equal(get('unknown-control'), null);
+
+const buttons = [
+  { dataset: { psfaExportPreview: 'support-summary' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
+  { dataset: { psfaExportPreview: 'support-chain' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
+];
+_test.updateExportPickerSelection({ querySelectorAll: () => buttons }, 'support-chain');
+assert.equal(buttons[0]['aria-selected'], 'false');
+assert.equal(buttons[1]['aria-selected'], 'true');
+assert.equal(buttons[0].classList.values.has('active'), false);
+assert.equal(buttons[1].classList.values.has('active'), true);
+
+const audit = { summary: { sourceFamily: 'PS-14396' }, supportSummaryRows: [], lineSupportTreeRows: [], supportExceptionRows: [], inputEvidenceRows: [], structureContactRows: [], supportChainRows: [], supportMemberRows: [], connectivityMatrixRows: [], clashRows: [], diagnostics: [] };
+const entries = _test.buildExportEntries(audit, PS_FAMILY_CLASH_AUDIT_CONFIG);
+assert.equal(entries.length, PS_FAMILY_CLASH_AUDIT_CONFIG.outputButtons.length);
+assert.ok(entries.some((entry) => entry.name === 'ps-family-supportgroup-summary-PS-14396.csv'));
+assert.ok(entries.some((entry) => entry.name === 'ps-family-audit-PS-14396.json'));
 
 console.log('ps-family-tabbed-workspace-ui tests passed');
