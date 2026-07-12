@@ -1,5 +1,8 @@
 import { decodeXmlEntities, extractFamilyRoot, makeDisplayName, makeExactMemberKey, parseNumber, parsePipeTag, stripLeadingSlash } from './ps-family-token-utils.js';
 
+const DEFAULT_STRUCTURAL_ZONES = Object.freeze(['CU-SU', 'STRUCTURE', 'FRMWORK', 'GENSEC', 'PANEL', 'FACET GROUP']);
+const DEFAULT_SUPPORT_ZONES = Object.freeze(['PS-', 'SL-']);
+
 function parseAttributes(tagText) {
   const attrs = {};
   const attrRegex = /([\w:-]+)\s*=\s*"([^"]*)"/g;
@@ -33,14 +36,24 @@ function findFamilyLeaf(path, fallback = '', options = {}) {
   return [...path].reverse().find((node) => extractFamilyRoot(node, options) && !/MAIN$/i.test(node)) || fallback;
 }
 
-function isSupportUnitHierarchy(text) {
-  return /(?:^|[\s\/_-])CU-SU(?:$|[\s\/_-])/i.test(text);
+function listFromOption(value, fallback) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  const text = String(value || '').trim();
+  if (!text) return [...fallback];
+  return text.split(/[\n,]+/).map((item) => item.trim()).filter(Boolean);
 }
 
-function classifyObject(itemName, path) {
+function hasZone(text, zones) {
+  const upper = String(text || '').toUpperCase();
+  return zones.some((zone) => upper.includes(String(zone).toUpperCase()));
+}
+
+function classifyObject(itemName, path, options = {}) {
   const text = `${itemName} ${(path || []).join(' ')}`;
-  if (isSupportUnitHierarchy(text)) return 'StructuralGroup';
-  if (/STRUCTURE|FRMWORK|GENSEC|PANEL|FACET GROUP/i.test(text)) return 'StructuralGroup';
+  const structuralZones = listFromOption(options.structuralZones || options.structuralZonesText, DEFAULT_STRUCTURAL_ZONES);
+  const supportZones = listFromOption(options.supportZones || options.supportZonesText, DEFAULT_SUPPORT_ZONES);
+  if (hasZone(text, structuralZones)) return 'StructuralGroup';
+  if (hasZone(text, supportZones)) return 'Support';
   return 'Support';
 }
 
@@ -57,7 +70,7 @@ function parseClashObject(clashObjectXml, options) {
   const itemName = extractSmartTagValue(clashObjectXml, 'Item Name') || findFamilyLeaf(path, path[path.length - 1] || '', options);
   const branchNode = findLineBranchNode(path);
   const pipe = branchNode ? parsePipeTag(branchNode) : null;
-  return { itemName: makeDisplayName(itemName), exactMemberKey: makeExactMemberKey(itemName), familyRoot: extractFamilyRoot(itemName, options), objectType: classifyObject(itemName, path), branchNode, pipe, path };
+  return { itemName: makeDisplayName(itemName), exactMemberKey: makeExactMemberKey(itemName), familyRoot: extractFamilyRoot(itemName, options), objectType: classifyObject(itemName, path, options), branchNode, pipe, path };
 }
 
 function clashNumber(name) {
