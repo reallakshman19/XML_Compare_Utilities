@@ -45,6 +45,11 @@ assert.equal(cuSuParsed.rows[0].structuralGroup, 'PS-14311-BAR-3');
 assert.equal(cuSuParsed.rows[0].support, 'PS-14311.4');
 assert.equal(cuSuParsed.rows[0].supportGroup, 'D8810084_PS-14311');
 assert.equal(cuSuParsed.rows[0].parsedEdge, 'PS-14311-BAR-3 ↔ PS-14311.4');
+const directRestingReports = buildSupportChangeReports(cuSuParsed.rows, [], []);
+assert.equal(directRestingReports.supportExceptionRows.length, 0);
+assert.equal(directRestingReports.supportSummaryRows[0].status, 'OK');
+assert.equal(directRestingReports.supportSummaryRows[0].remarks, 'Direct structural resting support.');
+assert.equal(directRestingReports.structureContactRows[0].remarks, 'Direct structural resting support');
 
 const customZoneParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL', structuralZonesText: 'BAR-3', supportZonesText: 'PS-' }, 'StructureGroup vs Supports');
 assert.equal(customZoneParsed.rows[0].edgeType, 'StructuralContact');
