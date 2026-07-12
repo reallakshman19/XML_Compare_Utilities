@@ -20,9 +20,10 @@ Outputs passed:
 - Summary printed to stdout.
 
 Fallback:
-- Node-name and absolute coordinate data are not present in Input XML.
-  Defaults are used for node names (`NODENAME` empty). Absolute
-  coordinates are reconstructed from element deltas with a local origin.
+- Node-name and absolute coordinate seed data may not be present in Input XML.
+  Defaults are used for missing node names. When endpoint coordinate seeds are
+  absent, absolute coordinates are reconstructed from element deltas with a
+  local origin.
 """
 
 from __future__ import annotations
@@ -70,6 +71,35 @@ RESTRAINT_SLOTS_PER_AUX: Final[int] = 6
 RESTRAINT_LINES_PER_SLOT: Final[int] = 4
 RESTRAINT_LINES_PER_AUX_BLOCK: Final[int] = RESTRAINT_SLOTS_PER_AUX * RESTRAINT_LINES_PER_SLOT
 UNIVERSAL_VERSION_PAYLOAD_CACHE: list[str] | None = None
+
+# Diagnostics collected during a single conversion run. Reset at the start
+# of _parse_model() (the entry point every conversion goes through) so
+# repeated in-process calls - e.g. from the test suite - don't leak state
+# between runs. Module-level rather than threaded as an explicit parameter
+# deliberately: this script converts exactly one file per process/call, so
+# there is no concurrency or reentrancy to guard against, and threading a
+# diagnostics list through every parsing/formatting function on the call
+# path would be a much larger, riskier change for the same effect.
+_DIAGNOSTICS: list[dict[str, object]] = []
+_STRICT_DIAGNOSTICS: bool = False
+
+
+def _reset_diagnostics() -> None:
+    _DIAGNOSTICS.clear()
+
+
+def _warn(code: str, message: str, **context: object) -> None:
+    """Record a recoverable data-quality issue and apply a documented fallback.
+
+    In --strict mode this raises instead, so CI/validation callers that
+    want the old fail-fast behavior for these specific situations can opt
+    into it explicitly.
+    """
+    if _STRICT_DIAGNOSTICS:
+        raise ValueError(f"[--strict] {message}")
+    entry: dict[str, object] = {"severity": "warning", "code": code, "message": message}
+    entry.update(context)
+    _DIAGNOSTICS.append(entry)
 
 
 @dataclass(frozen=True)
@@ -175,6 +205,30 @@ class ElementResolved:
     sifs: list[SifAux]
     name_from: str = ""
     name_to: str = ""
+    line: str = ""
+    from_coordinate_seed: NodeCoordinate | None = None
+    to_coordinate_seed: NodeCoordinate | None = None
+    # REL(N1,98) items 13-18, 19-27, 31-32, 36 per the CAESAR II neutral file
+    # spec (Basic Element Data / #$ ELEMENTS). Each defaults to 0.0, matching
+    # "Non-specified real values are assigned a value of 0.0 by this interface."
+    temperature4: float = 0.0
+    temperature5: float = 0.0
+    temperature6: float = 0.0
+    temperature7: float = 0.0
+    temperature8: float = 0.0
+    temperature9: float = 0.0
+    pressure1: float = 0.0
+    pressure2: float = 0.0
+    pressure3: float = 0.0
+    pressure4: float = 0.0
+    pressure5: float = 0.0
+    pressure6: float = 0.0
+    pressure7: float = 0.0
+    pressure8: float = 0.0
+    pressure9: float = 0.0
+    insulation_density: float = 0.0
+    fluid_density: float = 0.0
+    hydro_pressure: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -284,6 +338,33 @@ def _value_or_default(value: float, fallback: float) -> float:
     return value
 
 
+def _parse_node_coordinate_seed(attributes: dict[str, str], prefix: str) -> NodeCoordinate | None:
+    names = (f"{prefix}_X", f"{prefix}_Y", f"{prefix}_Z")
+    raw_values = [attributes.get(name) for name in names]
+    if all(not _safe_text(value) for value in raw_values):
+        return None
+    if any(not _safe_text(value) for value in raw_values):
+        missing = ", ".join(name for name, value in zip(names, raw_values) if not _safe_text(value))
+        # A partial seed (some but not all of X/Y/Z given) can't anchor this
+        # node on its own. Treating it as "no seed" is safe: that's already
+        # the normal, default, exercised code path used by every element
+        # that supplies no seed at all - absolute coordinates for this node
+        # get reconstructed from element deltas instead.
+        _warn(
+            "PARTIAL_COORDINATE_SEED_IGNORED",
+            f"Incomplete PIPINGELEMENT {prefix} coordinate seed (missing {missing}); "
+            "falling back to delta-reconstructed coordinates for this node.",
+            attribute_prefix=prefix,
+            missing_fields=missing,
+        )
+        return None
+    return NodeCoordinate(
+        x=_to_float(raw_values[0], f"PIPINGELEMENT/{names[0]}"),
+        y=_to_float(raw_values[1], f"PIPINGELEMENT/{names[1]}"),
+        z=_to_float(raw_values[2], f"PIPINGELEMENT/{names[2]}"),
+    )
+
+
 def _parse_restraint_slot(value: str | None, fallback_slot: int) -> int:
     text = _safe_text(value)
     if not text:
@@ -345,10 +426,26 @@ def _parse_restraints(element: ET.Element) -> list[RestraintAux]:
         node = _to_float_or_default(restraint.attrib.get("NODE"), "RESTRAINT/NODE", SENTINEL_MISSING)
         if _is_missing(node):
             continue
+        try:
+            slot = _parse_restraint_slot(restraint.attrib.get("NUM"), len(restraints) + 1)
+        except ValueError as exc:
+            # A malformed slot number on one RESTRAINT record shouldn't take
+            # down the whole element's other restraints, let alone the rest
+            # of the file - drop just this one record. This mirrors the
+            # existing, already-shipped precedent in
+            # inputxml-field-adapter.js, which does the same thing (drops
+            # overflow/unparseable RESTRAINT slots with a logged reason)
+            # at the InputXML-normalization boundary.
+            _warn(
+                "INVALID_RESTRAINT_SLOT_DROPPED",
+                f"Dropping RESTRAINT on node {_format_node_id(node)}: {exc}",
+                node=node,
+            )
+            continue
         friction_raw = restraint.attrib.get("FRIC_COEF") or restraint.attrib.get("MU")
         restraints.append(
             RestraintAux(
-                slot=_parse_restraint_slot(restraint.attrib.get("NUM"), len(restraints) + 1),
+                slot=slot,
                 node=node,
                 type_code=_to_float_or_default(restraint.attrib.get("TYPE"), "RESTRAINT/TYPE", SENTINEL_MISSING),
                 stiffness=_to_float_or_default(restraint.attrib.get("STIFFNESS"), "RESTRAINT/STIFFNESS", SENTINEL_MISSING),
@@ -426,6 +523,7 @@ def _parse_nozzles(root: ET.Element) -> list[NozzleAux]:
 
 
 def _parse_model(path: Path, defaults: ConverterDefaults) -> ParsedModel:
+    _reset_diagnostics()
     root = ET.parse(path).getroot()
     if _local_name(root.tag) != "CAESARII":
         raise ValueError("Input root must be CAESARII.")
@@ -446,6 +544,26 @@ def _parse_model(path: Path, defaults: ConverterDefaults) -> ParsedModel:
     carry_temperature2 = defaults.temperature2
     carry_temperature3 = defaults.temperature3
     carry_material: float | None = None
+    # REL items 13-18 (temp cases 4-9), 19-27 (pressure cases 1-9), 31-32
+    # (insulation/fluid density), 36 (hydro pressure) - default 0.0 per spec.
+    carry_temperature4 = 0.0
+    carry_temperature5 = 0.0
+    carry_temperature6 = 0.0
+    carry_temperature7 = 0.0
+    carry_temperature8 = 0.0
+    carry_temperature9 = 0.0
+    carry_pressure1 = 0.0
+    carry_pressure2 = 0.0
+    carry_pressure3 = 0.0
+    carry_pressure4 = 0.0
+    carry_pressure5 = 0.0
+    carry_pressure6 = 0.0
+    carry_pressure7 = 0.0
+    carry_pressure8 = 0.0
+    carry_pressure9 = 0.0
+    carry_insulation_density = 0.0
+    carry_fluid_density = 0.0
+    carry_hydro_pressure = 0.0
 
     parsed_elements: list[ElementResolved] = []
     parsed_hangers: list[HangerAux] = []
@@ -457,6 +575,30 @@ def _parse_model(path: Path, defaults: ConverterDefaults) -> ParsedModel:
         t1_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C1"), "PIPINGELEMENT/TEMP_EXP_C1", SENTINEL_MISSING)
         t2_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C2"), "PIPINGELEMENT/TEMP_EXP_C2", SENTINEL_MISSING)
         t3_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C3"), "PIPINGELEMENT/TEMP_EXP_C3", SENTINEL_MISSING)
+        t4_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C4"), "PIPINGELEMENT/TEMP_EXP_C4", SENTINEL_MISSING)
+        t5_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C5"), "PIPINGELEMENT/TEMP_EXP_C5", SENTINEL_MISSING)
+        t6_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C6"), "PIPINGELEMENT/TEMP_EXP_C6", SENTINEL_MISSING)
+        t7_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C7"), "PIPINGELEMENT/TEMP_EXP_C7", SENTINEL_MISSING)
+        t8_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C8"), "PIPINGELEMENT/TEMP_EXP_C8", SENTINEL_MISSING)
+        t9_raw = _to_float_or_default(element.attrib.get("TEMP_EXP_C9"), "PIPINGELEMENT/TEMP_EXP_C9", SENTINEL_MISSING)
+        p1_raw = _to_float_or_default(element.attrib.get("PRESSURE_C1"), "PIPINGELEMENT/PRESSURE_C1", SENTINEL_MISSING)
+        p2_raw = _to_float_or_default(element.attrib.get("PRESSURE_C2"), "PIPINGELEMENT/PRESSURE_C2", SENTINEL_MISSING)
+        p3_raw = _to_float_or_default(element.attrib.get("PRESSURE_C3"), "PIPINGELEMENT/PRESSURE_C3", SENTINEL_MISSING)
+        p4_raw = _to_float_or_default(element.attrib.get("PRESSURE_C4"), "PIPINGELEMENT/PRESSURE_C4", SENTINEL_MISSING)
+        p5_raw = _to_float_or_default(element.attrib.get("PRESSURE_C5"), "PIPINGELEMENT/PRESSURE_C5", SENTINEL_MISSING)
+        p6_raw = _to_float_or_default(element.attrib.get("PRESSURE_C6"), "PIPINGELEMENT/PRESSURE_C6", SENTINEL_MISSING)
+        p7_raw = _to_float_or_default(element.attrib.get("PRESSURE_C7"), "PIPINGELEMENT/PRESSURE_C7", SENTINEL_MISSING)
+        p8_raw = _to_float_or_default(element.attrib.get("PRESSURE_C8"), "PIPINGELEMENT/PRESSURE_C8", SENTINEL_MISSING)
+        p9_raw = _to_float_or_default(element.attrib.get("PRESSURE_C9"), "PIPINGELEMENT/PRESSURE_C9", SENTINEL_MISSING)
+        insul_density_raw = _to_float_or_default(
+            element.attrib.get("INSUL_DENSITY"), "PIPINGELEMENT/INSUL_DENSITY", SENTINEL_MISSING
+        )
+        fluid_density_raw = _to_float_or_default(
+            element.attrib.get("FLUID_DENSITY"), "PIPINGELEMENT/FLUID_DENSITY", SENTINEL_MISSING
+        )
+        hydro_pressure_raw = _to_float_or_default(
+            element.attrib.get("HYDRO_PRESSURE"), "PIPINGELEMENT/HYDRO_PRESSURE", SENTINEL_MISSING
+        )
         material_raw = _to_float_or_default(
             element.attrib.get("MATERIAL_NUM"),
             "PIPINGELEMENT/MATERIAL_NUM",
@@ -477,6 +619,42 @@ def _parse_model(path: Path, defaults: ConverterDefaults) -> ParsedModel:
             carry_temperature2 = t2_raw
         if not _is_missing(t3_raw):
             carry_temperature3 = t3_raw
+        if not _is_missing(t4_raw):
+            carry_temperature4 = t4_raw
+        if not _is_missing(t5_raw):
+            carry_temperature5 = t5_raw
+        if not _is_missing(t6_raw):
+            carry_temperature6 = t6_raw
+        if not _is_missing(t7_raw):
+            carry_temperature7 = t7_raw
+        if not _is_missing(t8_raw):
+            carry_temperature8 = t8_raw
+        if not _is_missing(t9_raw):
+            carry_temperature9 = t9_raw
+        if not _is_missing(p1_raw):
+            carry_pressure1 = p1_raw
+        if not _is_missing(p2_raw):
+            carry_pressure2 = p2_raw
+        if not _is_missing(p3_raw):
+            carry_pressure3 = p3_raw
+        if not _is_missing(p4_raw):
+            carry_pressure4 = p4_raw
+        if not _is_missing(p5_raw):
+            carry_pressure5 = p5_raw
+        if not _is_missing(p6_raw):
+            carry_pressure6 = p6_raw
+        if not _is_missing(p7_raw):
+            carry_pressure7 = p7_raw
+        if not _is_missing(p8_raw):
+            carry_pressure8 = p8_raw
+        if not _is_missing(p9_raw):
+            carry_pressure9 = p9_raw
+        if not _is_missing(insul_density_raw):
+            carry_insulation_density = insul_density_raw
+        if not _is_missing(fluid_density_raw):
+            carry_fluid_density = fluid_density_raw
+        if not _is_missing(hydro_pressure_raw):
+            carry_hydro_pressure = hydro_pressure_raw
         if not _is_missing(material_raw):
             carry_material = material_raw
         material_value = carry_material if carry_material is not None else None
@@ -512,6 +690,27 @@ def _parse_model(path: Path, defaults: ConverterDefaults) -> ParsedModel:
                 sifs=_parse_sifs(element),
                 name_from=_safe_text(element.attrib.get("FROM_NAME")),
                 name_to=_safe_text(element.attrib.get("TO_NAME")),
+                line=_safe_text(element.attrib.get("LINE") or element.attrib.get("LINE_ID")),
+                from_coordinate_seed=_parse_node_coordinate_seed(element.attrib, "FROM"),
+                to_coordinate_seed=_parse_node_coordinate_seed(element.attrib, "TO"),
+                temperature4=carry_temperature4,
+                temperature5=carry_temperature5,
+                temperature6=carry_temperature6,
+                temperature7=carry_temperature7,
+                temperature8=carry_temperature8,
+                temperature9=carry_temperature9,
+                pressure1=carry_pressure1,
+                pressure2=carry_pressure2,
+                pressure3=carry_pressure3,
+                pressure4=carry_pressure4,
+                pressure5=carry_pressure5,
+                pressure6=carry_pressure6,
+                pressure7=carry_pressure7,
+                pressure8=carry_pressure8,
+                pressure9=carry_pressure9,
+                insulation_density=carry_insulation_density,
+                fluid_density=carry_fluid_density,
+                hydro_pressure=carry_hydro_pressure,
             )
         )
 
@@ -1152,10 +1351,54 @@ def _format_node_id(value: float) -> str:
     return _format_auto_float(value)
 
 
+def _coordinate_mismatch(left: NodeCoordinate, right: NodeCoordinate, tolerance: float) -> bool:
+    return (
+        abs(left.x - right.x) > tolerance
+        or abs(left.y - right.y) > tolerance
+        or abs(left.z - right.z) > tolerance
+    )
+
+
+def _merge_coordinate_seed(
+    coordinates: dict[float, NodeCoordinate],
+    node: float,
+    seed: NodeCoordinate | None,
+    tolerance: float,
+    source_label: str,
+) -> None:
+    if seed is None:
+        return
+    existing = coordinates.get(node)
+    if existing is None:
+        coordinates[node] = seed
+        return
+    if _coordinate_mismatch(existing, seed, tolerance):
+        raise ValueError(
+            "Inconsistent absolute coordinate seed for node "
+            f"{_format_node_id(node)} from {source_label}. "
+            f"Existing=({existing.x:.6f}, {existing.y:.6f}, {existing.z:.6f}), "
+            f"Seed=({seed.x:.6f}, {seed.y:.6f}, {seed.z:.6f})."
+        )
+
+
 def _build_absolute_coordinates(
     elements: list[ElementResolved],
     tolerance: float,
+    required_nodes: set[float] | None = None,
 ) -> dict[float, NodeCoordinate]:
+    # required_nodes narrows which nodes' reconstructed coordinates actually
+    # need to agree across redundant paths. It does not change which nodes
+    # get reconstructed (the BFS below still walks the whole graph, since a
+    # required node may only be reachable through others) - it only changes
+    # what happens when two paths to the SAME node disagree beyond
+    # tolerance. When required_nodes is None (the "all_nodes" COORDS mode),
+    # behavior is unchanged: any disagreement anywhere raises. When a node
+    # set is given (a narrow COORDS mode that only emits a handful of
+    # nodes), a disagreement on a node that will never be emitted is kept
+    # at its first-seen value instead of aborting the whole conversion -
+    # the emitted COORDS payload never has ambiguous data because only
+    # required_nodes' own coordinates (which still raise on disagreement)
+    # ever get selected for output.
     adjacency: dict[float, list[tuple[float, float, float, float]]] = {}
     for element in elements:
         from_node = element.from_node
@@ -1168,6 +1411,53 @@ def _build_absolute_coordinates(
         adjacency.setdefault(to_node, []).append((from_node, -dx, -dy, -dz))
 
     coordinates: dict[float, NodeCoordinate] = {}
+    for element in elements:
+        _merge_coordinate_seed(
+            coordinates,
+            element.from_node,
+            element.from_coordinate_seed,
+            tolerance,
+            f"element {_format_node_id(element.from_node)}->{_format_node_id(element.to_node)} FROM",
+        )
+        _merge_coordinate_seed(
+            coordinates,
+            element.to_node,
+            element.to_coordinate_seed,
+            tolerance,
+            f"element {_format_node_id(element.from_node)}->{_format_node_id(element.to_node)} TO",
+        )
+
+    queue: list[float] = sorted(coordinates.keys())
+    visited: set[float] = set()
+    while queue:
+        current = queue.pop(0)
+        if current in visited:
+            continue
+        visited.add(current)
+        current_coord = coordinates[current]
+        for neighbor, dx, dy, dz in adjacency.get(current, []):
+            candidate = NodeCoordinate(
+                x=current_coord.x + dx,
+                y=current_coord.y + dy,
+                z=current_coord.z + dz,
+            )
+            if neighbor not in coordinates:
+                coordinates[neighbor] = candidate
+                queue.append(neighbor)
+                continue
+
+            existing = coordinates[neighbor]
+            if _coordinate_mismatch(existing, candidate, tolerance):
+                if required_nodes is not None and neighbor not in required_nodes:
+                    continue
+                raise ValueError(
+                    "Inconsistent coordinate reconstruction for node "
+                    f"{_format_node_id(neighbor)} via edge "
+                    f"{_format_node_id(current)} -> {_format_node_id(neighbor)}. "
+                    f"Existing=({existing.x:.6f}, {existing.y:.6f}, {existing.z:.6f}), "
+                    f"Candidate=({candidate.x:.6f}, {candidate.y:.6f}, {candidate.z:.6f})."
+                )
+
     for seed_node in sorted(adjacency.keys()):
         if seed_node in coordinates:
             continue
@@ -1195,6 +1485,8 @@ def _build_absolute_coordinates(
                     or abs(existing.y - candidate.y) > tolerance
                     or abs(existing.z - candidate.z) > tolerance
                 ):
+                    if required_nodes is not None and neighbor not in required_nodes:
+                        continue
                     raise ValueError(
                         "Inconsistent coordinate reconstruction for node "
                         f"{_format_node_id(neighbor)} via edge "
@@ -1417,17 +1709,31 @@ def _infer_reducer_indices(
         if abs(current.diameter - following.diameter) <= 1e-6:
             continue
 
-        angle_value = defaults.reducer_angle
-        if infer_angle_from_geometry:
-            run = math.sqrt(
-                current.delta_x * current.delta_x
-                + current.delta_y * current.delta_y
-                + current.delta_z * current.delta_z
+        # Geometry (DELTA_X/Y/Z + the diameters either side of the reducer) is
+        # real data already present in the source InputXML. Previously that
+        # data was only used when the "Infer Reducer Angle From Geometry"
+        # checkbox was explicitly ticked; otherwise every detected reducer
+        # was silently forced to Default Reducer Angle (0 by default),
+        # discarding an angle that could be computed from the file itself.
+        # Now geometry wins whenever it is computable and the user hasn't
+        # explicitly configured a non-zero override; a configured default is
+        # still honored (explicit intent), and the checkbox still forces
+        # geometry to win over a configured default too.
+        run = math.sqrt(
+            current.delta_x * current.delta_x
+            + current.delta_y * current.delta_y
+            + current.delta_z * current.delta_z
+        )
+        geometry_angle = None
+        if run > 1e-9:
+            geometry_angle = math.degrees(
+                math.atan(abs(following.diameter - current.diameter) / (2.0 * run))
             )
-            if run > 1e-9:
-                angle_value = math.degrees(
-                    math.atan(abs(following.diameter - current.diameter) / (2.0 * run))
-                )
+
+        if geometry_angle is not None and (infer_angle_from_geometry or defaults.reducer_angle <= 0.0):
+            angle_value = geometry_angle
+        else:
+            angle_value = defaults.reducer_angle
         reducers.append((following.diameter, angle_value))
         edge_to_reducer_index[index] = len(reducers)
 
@@ -2166,7 +2472,37 @@ def _build_coords_payload_with_layout(
         raise ValueError("Invalid 2019 layout config: 'coords' must be an object.")
     mode = str(coords_cfg.get("mode", "all_nodes")).strip().lower()
     decimals = int(coords_cfg.get("decimals", 4))
-    coordinates = _build_absolute_coordinates(elements, tolerance=tolerance)
+
+    configured_node_ids: list[float] = []
+    if mode != "all_nodes":
+        configured_node_ids_raw = coords_cfg.get("node_ids", [])
+        if configured_node_ids_raw is None:
+            configured_node_ids_raw = []
+        if not isinstance(configured_node_ids_raw, list):
+            raise ValueError("Invalid 2019 layout config: 'coords.node_ids' must be an array.")
+        configured_node_ids = [float(node_id) for node_id in configured_node_ids_raw]
+
+    # Real CII 2019 COORDS sections emitted by CAESAR II itself are sparse -
+    # typically a handful of reference/anchor nodes, not one row per node in
+    # the model. When mode isn't "all_nodes", figure out up front which
+    # node(s) will actually be emitted, so the reconstruction below only has
+    # to guarantee those are unambiguous. A redundant-path disagreement
+    # anywhere else in a large model (which never reaches this payload
+    # either way) no longer aborts the whole conversion.
+    if mode == "all_nodes":
+        required_nodes = None
+    elif configured_node_ids:
+        required_nodes = set(configured_node_ids)
+    elif candidate_nodes:
+        required_nodes = {candidate_nodes[0]}
+    else:
+        # No configured node and no candidate: which single node gets
+        # emitted depends on the full reconstructed set (lowest node id),
+        # so this rare, fully-unconfigured case keeps the original strict,
+        # whole-graph behavior.
+        required_nodes = None
+
+    coordinates = _build_absolute_coordinates(elements, tolerance=tolerance, required_nodes=required_nodes)
 
     origin_offset_values = coords_cfg.get("origin_offset", ["0.0", "0.0", "0.0"])
     if not isinstance(origin_offset_values, list) or len(origin_offset_values) != 3:
@@ -2175,18 +2511,12 @@ def _build_coords_payload_with_layout(
 
     if mode == "all_nodes":
         nodes = sorted(coordinates.keys())
+    elif configured_node_ids:
+        nodes = configured_node_ids
+    elif candidate_nodes:
+        nodes = [candidate_nodes[0]]
     else:
-        configured_node_ids = coords_cfg.get("node_ids", [])
-        if configured_node_ids is None:
-            configured_node_ids = []
-        if not isinstance(configured_node_ids, list):
-            raise ValueError("Invalid 2019 layout config: 'coords.node_ids' must be an array.")
-        nodes = [float(node_id) for node_id in configured_node_ids]
-        if not nodes:
-            if candidate_nodes:
-                nodes = [candidate_nodes[0]]
-            else:
-                nodes = [sorted(coordinates.keys())[0]]
+        nodes = [sorted(coordinates.keys())[0]]
 
     payload: list[str] = [_row([str(len(nodes))])]
     for node in nodes:
@@ -2239,10 +2569,21 @@ def _build_cii_text(
     if not isinstance(elements_cfg, dict):
         raise ValueError("Invalid 2019 layout config: 'elements' must be an object.")
 
-    row3 = _row(list(elements_cfg.get("row3", ["0.000000"] * 6)))
-    row4 = _row(list(elements_cfg.get("row4", ["0.000000"] * 6)))
-    row5 = _row(list(elements_cfg.get("row5", ["0.000000"] * 6)))
-    row6 = _row(list(elements_cfg.get("row6", ["0.000000"] * 6)))
+    # row3/row4 = REL items 13-24 (temp cases 4-9, pressure cases 1-6) - fully
+    # per-element now (see ElementResolved.temperature4-9/pressure1-6). row5/row6
+    # = REL items 25-36; only the positions with an XML source (pressure cases
+    # 7-9, insulation/fluid density, hydro pressure) are per-element - the rest
+    # (Elastic Modulus cold, Poisson's Ratio, Pipe Density, Mill Tolerances,
+    # Seam Weld) keep the existing config-template fallback, since no PIPINGELEMENT
+    # attribute supplies them.
+    def _padded_cfg(key: str, length: int) -> list[str]:
+        values = [str(v) for v in elements_cfg.get(key, [])]
+        if len(values) < length:
+            values = values + ["0.000000"] * (length - len(values))
+        return values
+
+    row5_cfg = _padded_cfg("row5", 6)
+    row6_cfg = _padded_cfg("row6", 6)
     row7 = _row(list(elements_cfg.get("row7", ["0.000000"] * 6)))
     row8 = _row(list(elements_cfg.get("row8", ["0.000000"] * 6)))
     row9 = _row(list(elements_cfg.get("row9", ["0.000000"] * 5)))
@@ -2296,8 +2637,50 @@ def _build_cii_text(
                 _format_sig6(element.temperature3),
             ]
         )
+        row3 = _row(
+            [
+                _format_sig6(element.temperature4),
+                _format_sig6(element.temperature5),
+                _format_sig6(element.temperature6),
+                _format_sig6(element.temperature7),
+                _format_sig6(element.temperature8),
+                _format_sig6(element.temperature9),
+            ]
+        )
+        row4 = _row(
+            [
+                _format_sig6(element.pressure1),
+                _format_sig6(element.pressure2),
+                _format_sig6(element.pressure3),
+                _format_sig6(element.pressure4),
+                _format_sig6(element.pressure5),
+                _format_sig6(element.pressure6),
+            ]
+        )
+        row5 = _row(
+            [
+                _format_sig6(element.pressure7),
+                _format_sig6(element.pressure8),
+                _format_sig6(element.pressure9),
+                row5_cfg[3],
+                row5_cfg[4],
+                row5_cfg[5],
+            ]
+        )
+        row6 = _row(
+            [
+                _format_sig6(element.insulation_density),
+                _format_sig6(element.fluid_density),
+                row6_cfg[2],
+                row6_cfg[3],
+                row6_cfg[4],
+                _format_sig6(element.hydro_pressure),
+            ]
+        )
         line10 = ""
-        if edge_index < len(configured_line_labels):
+        if element.line:
+            line10 = f"{pointer_start + edge_index:12d} {element.line}"
+        elif edge_index < len(configured_line_labels):
             line10 = _render_element_label_payload(configured_line_labels[edge_index])
         else:
             if line_label_mode == "to_node":
@@ -2397,7 +2780,7 @@ def _build_cii_text(
     nodename_cfg = layout_config.get("nodename", {})
     if not isinstance(nodename_cfg, dict):
         raise ValueError("Invalid 2019 layout config: 'nodename' must be an object.")
-    nodename_mode = str(nodename_cfg.get("mode", "disabled")).strip().lower()
+    nodename_mode = str(nodename_cfg.get("mode", "auto")).strip().lower()
     if nodename_mode not in ("disabled", "manual", "to_node_map", "auto"):
         raise ValueError("Invalid 2019 layout config: 'nodename.mode' must be disabled, manual, to_node_map, or auto.")
     from_labels = nodename_cfg.get("from_labels", [])
@@ -2487,6 +2870,22 @@ def _build_cii_text(
         raise ValueError("Invalid 2019 layout config: 'restraint' must be an object.")
     restraint_block_size = RESTRAINT_LINES_PER_AUX_BLOCK
 
+    # A raw_payload_overrides entry for COORDS (set below, but checked here
+    # too) replaces whatever this computes wholesale - most commonly when a
+    # layout config is derived from an existing reference CII, which passes
+    # every one of its own sections through verbatim. Reconstructing (and
+    # strictly cross-validating) absolute coordinates for the whole model
+    # is real work whose result would just be discarded in that case, so
+    # skip it rather than let a benign, irrelevant inconsistency somewhere
+    # in a large model abort a conversion whose COORDS section was never
+    # going to use the computed result anyway.
+    _sections_cfg_probe = layout_config.get("sections", {})
+    _coords_override_present = (
+        isinstance(_sections_cfg_probe, dict)
+        and isinstance(_sections_cfg_probe.get("raw_payload_overrides"), dict)
+        and "COORDS" in _sections_cfg_probe["raw_payload_overrides"]
+    )
+
     if reference_overrides is not None:
         version_payload = reference_overrides.version_payload
         nonam_count = reference_overrides.nonam_count
@@ -2494,6 +2893,8 @@ def _build_cii_text(
         bend_payload = reference_overrides.bend_payload
         reducer_payload = reference_overrides.reducers_payload
         coords_payload = reference_overrides.coords_payload
+    elif _coords_override_present:
+        coords_payload = []
     else:
         coords_payload = _build_coords_payload_with_layout(
             elements=elements,
@@ -2683,7 +3084,7 @@ def _build_cii_text(
         "restraints": restraint_count,
         "sifs": len(sif_payload) // 10,
         "reducers": len(reducer_payload),
-        "coords": len(coords_payload) - 1,
+        "coords": max(len(coords_payload) - 1, 0),
     }
     return cii_text, stats
 
@@ -2807,6 +3208,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "<HANGER/> records."
         ),
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "Fail immediately on data-quality issues that would otherwise be logged as a "
+            "warning and handled with a documented fallback (partial coordinate seeds, "
+            "unparseable RESTRAINT slot numbers). Does not affect structural validation "
+            "(malformed input XML, invalid --layout-config-json), which always fails "
+            "immediately regardless of this flag."
+        ),
+    )
     return parser
 
 
@@ -2868,8 +3280,11 @@ def _assert_cii2019_compatible(cii_text: str, output_path: Path) -> None:
 
 
 def main() -> int:
+    global _STRICT_DIAGNOSTICS
+
     parser = _build_parser()
     args = parser.parse_args()
+    _STRICT_DIAGNOSTICS = bool(args.strict)
 
     defaults = ConverterDefaults(
         diameter=args.default_diameter,
@@ -2914,12 +3329,20 @@ def main() -> int:
 
     args.output.write_text(cii_text, encoding="utf-8")
 
-    print(
+    summary = (
         f"Wrote {args.output} from {args.input} with "
         f"{stats['elements']} elements, {stats['bends']} bends, {stats['rigids']} rigids, "
         f"{stats['restraints']} restraints, {stats['sifs']} SIF blocks, "
         f"{stats['reducers']} reducers, {stats['coords']} coordinates."
     )
+    if _DIAGNOSTICS:
+        warnings_path = args.output.with_name(args.output.name + ".warnings.json")
+        warnings_path.write_text(
+            json.dumps({"input": str(args.input), "output": str(args.output), "warnings": _DIAGNOSTICS}, indent=2),
+            encoding="utf-8",
+        )
+        summary += f" {len(_DIAGNOSTICS)} warning(s) - see {warnings_path}."
+    print(summary)
     return 0
 
 
