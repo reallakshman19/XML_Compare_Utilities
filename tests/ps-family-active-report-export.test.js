@@ -20,14 +20,16 @@ assert.ok(shell.includes('Line Support Tree TXT'));
 assert.ok(shell.includes('SupportChange Exceptions CSV'));
 assert.ok(shell.includes('Input Evidence Ledger CSV'));
 assert.ok(shell.includes('Audit JSON'));
+assert.ok(!shell.includes('StructureGroup Contacts CSV'));
+assert.ok(!shell.includes('Support Chain CSV'));
+assert.ok(!shell.includes('Connectivity Matrix CSV'));
+assert.ok(!shell.includes('Clash Rows CSV'));
 
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   const active = createPsFamilyActiveReportExport(audit, tab.key);
   const mapping = PS_FAMILY_ACTIVE_EXPORTS[tab.key];
   if (!mapping) {
-    assert.equal(active.activeTab, 'supportSummary');
-    assert.equal(active.exportKey, 'supportSummaryCsv');
-    assert.equal(active.text, allExports.supportSummaryCsv);
+    assert.equal(active, null, `${tab.key} should not export while draft/unmapped`);
     continue;
   }
   assert.equal(active.activeTab, tab.key);
@@ -50,8 +52,6 @@ assert.match(evidence.text, /Clash603/);
 assert.match(evidence.text, /Clash1429/);
 
 const unknown = createPsFamilyActiveReportExport(audit, 'unknown-tab');
-assert.equal(unknown.activeTab, 'supportSummary');
-assert.equal(unknown.exportKey, 'supportSummaryCsv');
-assert.equal(unknown.text, allExports.supportSummaryCsv);
+assert.equal(unknown, null);
 
 console.log('ps-family-active-report-export tests passed');

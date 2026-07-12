@@ -46,6 +46,10 @@ assert.equal(cuSuParsed.rows[0].support, 'PS-14311.4');
 assert.equal(cuSuParsed.rows[0].supportGroup, 'D8810084_PS-14311');
 assert.equal(cuSuParsed.rows[0].parsedEdge, 'PS-14311-BAR-3 ↔ PS-14311.4');
 
+const customZoneParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL', structuralZonesText: 'BAR-3', supportZonesText: 'PS-' }, 'StructureGroup vs Supports');
+assert.equal(customZoneParsed.rows[0].edgeType, 'StructuralContact');
+assert.equal(customZoneParsed.rows[0].structuralGroup, 'PS-14311-BAR-3');
+
 const structureParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_STRUCTURE_XML, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
 const supportParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_SUPPORT_XML, { familyPrefixesText: 'PS, SL' }, 'Clash within Supports');
 assert.equal(structureParsed.rows.length, 2);
@@ -86,7 +90,7 @@ assert.match(exports.lineSupportTreeText, /Line: ASIM-1836-6"-S8810011-91261M7-H
 assert.match(exports.inputEvidenceCsv, /Clash603/);
 
 const stableTabs = PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'stable').map((tab) => tab.key);
-assert.deepEqual(stableTabs, ['supportSummary', 'lineSupportTree', 'supportExceptions', 'inputEvidence', 'clashRows']);
+assert.deepEqual(stableTabs, ['supportSummary', 'lineSupportTree', 'supportExceptions', 'inputEvidence']);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'draft').length > 0);
 
 console.log('ps-family-supportchange-report tests passed');

@@ -76,12 +76,6 @@ export const PS_FAMILY_ACTIVE_EXPORTS = Object.freeze({
   lineSupportTree: Object.freeze({ exportKey: 'lineSupportTreeText', suffix: 'line-support-tree' }),
   supportExceptions: Object.freeze({ exportKey: 'supportExceptionsCsv', suffix: 'supportchange-exceptions' }),
   inputEvidence: Object.freeze({ exportKey: 'inputEvidenceCsv', suffix: 'input-evidence' }),
-  structureContacts: Object.freeze({ exportKey: 'structureContactsCsv', suffix: 'structure-contacts' }),
-  supportChain: Object.freeze({ exportKey: 'supportChainCsv', suffix: 'support-chain' }),
-  supportMembers: Object.freeze({ exportKey: 'supportMembersCsv', suffix: 'supportgroup-members' }),
-  connectivityMatrix: Object.freeze({ exportKey: 'connectivityMatrixCsv', suffix: 'connectivity-matrix' }),
-  clashRows: Object.freeze({ exportKey: 'clashRowsCsv', suffix: 'clashRows' }),
-  diagnostics: Object.freeze({ exportKey: 'diagnosticsCsv', suffix: 'diagnostics' }),
 });
 
 export function createPsFamilyAuditExports(audit) {
@@ -89,7 +83,8 @@ export function createPsFamilyAuditExports(audit) {
 }
 
 export function createPsFamilyActiveReportExport(audit, activeTab = 'supportSummary') {
-  const report = PS_FAMILY_ACTIVE_EXPORTS[activeTab] || PS_FAMILY_ACTIVE_EXPORTS.supportSummary;
+  const report = PS_FAMILY_ACTIVE_EXPORTS[activeTab];
+  if (!report) return null;
   const exports = createPsFamilyAuditExports(audit);
-  return Object.freeze({ activeTab: PS_FAMILY_ACTIVE_EXPORTS[activeTab] ? activeTab : 'supportSummary', exportKey: report.exportKey, suffix: report.suffix, mime: report.exportKey.endsWith('Text') ? 'text/plain' : 'text/csv', text: exports[report.exportKey] });
+  return Object.freeze({ activeTab, exportKey: report.exportKey, suffix: report.suffix, mime: report.exportKey.endsWith('Text') ? 'text/plain' : 'text/csv', text: exports[report.exportKey] });
 }
