@@ -32,6 +32,20 @@ assert.equal(byName.get('Clash1').familyStatus, 'IN_FAMILY');
 assert.equal(byName.get('Clash7').familyStatus, 'IN_FAMILY');
 assert.equal(byName.get('Clash9').familyStatus, 'OUT_OF_FAMILY');
 
+const cuSuStructureXml = `<exchange><batchtest><clashtests><clashtest><clashresults>
+<clashresult name="Clash88" distance="-0.01"><clashobjects>
+<clashobject><pathlink><node>File</node><node>/ASIM-1836-CU-SU</node><node>/PS-14311</node><node>/PS-14311-BAR-3</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311-BAR-3</value></smarttag></smarttags></clashobject>
+<clashobject><pathlink><node>File</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01/B1</node><node>/PS-14311.4</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311.4</value></smarttag></smarttags></clashobject>
+</clashobjects></clashresult>
+</clashresults></clashtest></clashtests></batchtest></exchange>`;
+const cuSuParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
+assert.equal(cuSuParsed.rows.length, 1);
+assert.equal(cuSuParsed.rows[0].edgeType, 'StructuralContact');
+assert.equal(cuSuParsed.rows[0].structuralGroup, 'PS-14311-BAR-3');
+assert.equal(cuSuParsed.rows[0].support, 'PS-14311.4');
+assert.equal(cuSuParsed.rows[0].supportGroup, 'D8810084_PS-14311');
+assert.equal(cuSuParsed.rows[0].parsedEdge, 'PS-14311-BAR-3 ↔ PS-14311.4');
+
 const structureParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_STRUCTURE_XML, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
 const supportParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_SUPPORT_XML, { familyPrefixesText: 'PS, SL' }, 'Clash within Supports');
 assert.equal(structureParsed.rows.length, 2);
