@@ -1,68 +1,38 @@
-export const PS_FAMILY_SAMPLE_CLASH_XML = `<exchange>
-  <batchtest>
-    <clashtests>
-      <clashtest>
-        <clashresults>
-          <clashresult name="Sample Clash 1" guid="sample-clash-1" status="new" distance="-0.010">
-            <clashpoint><pos3f x="1" y="2" z="3"/></clashpoint>
-            <clashobjects>
-              <clashobject>
-                <pathlink><node>File</node><node>SAMPLE.rvm</node><node>/SAMPLE-CU-SU</node><node>/PS-90001</node><node>/PS-90001/MAIN</node><node>/PS-90001-BAR-1</node></pathlink>
-                <smarttags><smarttag><name>Item Name</name><value>/PS-90001-BAR-1</value></smarttag></smarttags>
-              </clashobject>
-              <clashobject>
-                <pathlink><node>File</node><node>SAMPLE.rvm</node><node>/SAMPLE-CU-PI</node><node>/SAMPLE-100-D90001-31441C4-PP-01</node><node>/SAMPLE-100-D90001-31441C4-PP-01/B1</node><node>/PS-90001.1</node></pathlink>
-                <smarttags><smarttag><name>Item Name</name><value>/PS-90001.1</value></smarttag></smarttags>
-              </clashobject>
-            </clashobjects>
-          </clashresult>
-          <clashresult name="Sample Clash 2" guid="sample-clash-2" status="new" distance="-0.005">
-            <clashpoint><pos3f x="4" y="5" z="6"/></clashpoint>
-            <clashobjects>
-              <clashobject>
-                <pathlink><node>File</node><node>SAMPLE.rvm</node><node>/SAMPLE-CU-SU</node><node>/PS-90001</node><node>/PS-90001/MAIN</node><node>/PS-90001-BAR-1</node></pathlink>
-                <smarttags><smarttag><name>Item Name</name><value>/PS-90001-BAR-1</value></smarttag></smarttags>
-              </clashobject>
-              <clashobject>
-                <pathlink><node>File</node><node>SAMPLE.rvm</node><node>/SAMPLE-CU-PI</node><node>/SAMPLE-50-P90002-31441C4-PP-01</node><node>/SAMPLE-50-P90002-31441C4-PP-01/B1</node><node>/PS-90002.1</node></pathlink>
-                <smarttags><smarttag><name>Item Name</name><value>/PS-90002.1</value></smarttag></smarttags>
-              </clashobject>
-            </clashobjects>
-          </clashresult>
-        </clashresults>
-      </clashtest>
-    </clashtests>
-  </batchtest>
+export const PS_FAMILY_SAMPLE_STRUCTURE_XML = `<exchange>
+  <batchtest><clashtests><clashtest name="StructureGroup vs Supports"><clashresults>
+    <clashresult name="Clash603" guid="sample-603" status="new" distance="-0.000">
+      <clashpoint><pos3f x="438.723" y="-1489.945" z="100.970"/></clashpoint>
+      <clashobjects>
+        <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-SU</node><node>/PS-14396</node><node>FRMWORK 1 of STRUCTURE /PS-14396</node><node>GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396</node><node>Facet Group</node></pathlink><smarttags><smarttag><name>Item Name</name><value>GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396</value></smarttag></smarttags></clashobject>
+        <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.9</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.9</value></smarttag></smarttags></clashobject>
+      </clashobjects>
+    </clashresult>
+    <clashresult name="Clash723" guid="sample-723" status="new" distance="-0.0000195">
+      <clashpoint><pos3f x="438.523" y="-1489.881" z="100.961"/></clashpoint>
+      <clashobjects>
+        <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-SU</node><node>/PS-14396</node><node>FRMWORK 1 of STRUCTURE /PS-14396</node><node>GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396</node><node>Facet Group</node></pathlink><smarttags><smarttag><name>Item Name</name><value>GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396</value></smarttag></smarttags></clashobject>
+        <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.10</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.10</value></smarttag></smarttags></clashobject>
+      </clashobjects>
+    </clashresult>
+  </clashresults></clashtest></clashtests></batchtest>
 </exchange>`;
 
-export const PS_FAMILY_SAMPLE_PSCLASH_XML = `<exchange>
-  <batchtest name="Report">
-    <clashtests><clashtest name="PSClash"><clashresults>
-      <clashresult name="Clash76" guid="sample-psclash-76" status="active" distance="-0.009">
-        <clashobjects>
-          <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-2&quot;-A8010850-13421-01</node><node>/ASIM-1836-2&quot;-A8010850-13421-01/B2</node><node>/PS-14175.1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175.1</value></smarttag></smarttags></clashobject>
-          <clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-2&quot;-A8010850-13421-01</node><node>/ASIM-1836-2&quot;-A8010850-13421-01/B2</node><node>/PS-14175.2</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14175.2</value></smarttag></smarttags></clashobject>
-        </clashobjects>
-      </clashresult>
-    </clashresults></clashtest></clashtests>
-  </batchtest>
+export const PS_FAMILY_SAMPLE_SUPPORT_XML = `<exchange>
+  <batchtest><clashtests><clashtest name="Clash within Supports"><clashresults>
+    <clashresult name="Clash4" guid="sample-4" status="active" distance="-0.011"><clashobjects><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.4</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.4</value></smarttag></smarttags></clashobject><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.8</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.8</value></smarttag></smarttags></clashobject></clashobjects></clashresult>
+    <clashresult name="Clash202" guid="sample-202" status="active" distance="-0.006"><clashobjects><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.8</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.8</value></smarttag></smarttags></clashobject><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.9</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.9</value></smarttag></smarttags></clashobject></clashobjects></clashresult>
+    <clashresult name="Clash1429" guid="sample-1429" status="active" distance="0.00000115"><clashobjects><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.9</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.9</value></smarttag></smarttags></clashobject><clashobject><pathlink><node>File</node><node>SAMPLE.nwd</node><node>/ASIM-1836-CU-PI</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01</node><node>/ASIM-1836-6&quot;-S8810011-91261M7-HC-01/B6</node><node>/PS-14396.10</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14396.10</value></smarttag></smarttags></clashobject></clashobjects></clashresult>
+  </clashresults></clashtest></clashtests></batchtest>
 </exchange>`;
 
-export const PS_FAMILY_SAMPLE_EXPECTED_CSV = `Item Name,PDMS DESC
-/PS-90001.1,Sample found member
-/PS-90001.2,Sample missing member
-/Copy-(2)-of-PS-90001.3,Sample copy identity member`;
-
-export const PS_FAMILY_SAMPLE_DETAIL_CSV = `Name of the element,p1bore,pipe,RTEXT of detailing text,SUPPORT GAP,Reference of the element,Position,ISOMETRIC NOTES
-PS-90001.1,100.00,SAMPLE-100-D90001-31441C4-PP-01,Sample guide,,=SAMPLE/1,E 1000mm S 2000mm U 3000mm,
-PS-90001.2,100.00,SAMPLE-100-D90001-31441C4-PP-01,Sample missing support,,=SAMPLE/2,E 1020mm S 2000mm U 3000mm,
-Copy-(2)-of-PS-90001.3,100.00,SAMPLE-100-D90001-31441C4-PP-01,Sample copy support,,=SAMPLE/3,E 2000mm S 2000mm U 3000mm,`;
+export const PS_FAMILY_SAMPLE_CLASH_XML = '';
+export const PS_FAMILY_SAMPLE_PSCLASH_XML = PS_FAMILY_SAMPLE_SUPPORT_XML;
+export const PS_FAMILY_SAMPLE_EXPECTED_CSV = 'Item Name\n';
+export const PS_FAMILY_SAMPLE_DETAIL_CSV = 'Name of the element,Position\n';
 
 export const PS_FAMILY_SAMPLE_INPUTS = Object.freeze({
-  xml: Object.freeze({ key: 'xml', textareaKey: 'xml', label: 'Load sample clash XML', statusText: 'Official sample clash XML loaded', text: PS_FAMILY_SAMPLE_CLASH_XML }),
-  expected: Object.freeze({ key: 'expected', textareaKey: 'expected', label: 'Load sample expected CSV', statusText: 'Official sample expected CSV loaded', text: PS_FAMILY_SAMPLE_EXPECTED_CSV }),
-  details: Object.freeze({ key: 'details', textareaKey: 'details', label: 'Load sample detail CSV', statusText: 'Official sample detail CSV loaded', text: PS_FAMILY_SAMPLE_DETAIL_CSV }),
-  psclash: Object.freeze({ key: 'psclash', textareaKey: 'psclash', label: 'Load sample PSClash XML', statusText: 'Official sample PSClash XML loaded', text: PS_FAMILY_SAMPLE_PSCLASH_XML }),
+  structure: Object.freeze({ key: 'structure', textareaKey: 'structure', label: 'Load sample StructureGroup vs Supports XML', statusText: 'Official sample StructureGroup vs Supports XML loaded', text: PS_FAMILY_SAMPLE_STRUCTURE_XML }),
+  support: Object.freeze({ key: 'support', textareaKey: 'support', label: 'Load sample Clash within Supports XML', statusText: 'Official sample Clash within Supports XML loaded', text: PS_FAMILY_SAMPLE_SUPPORT_XML }),
 });
 
 export function listPsFamilySampleInputs() { return Object.values(PS_FAMILY_SAMPLE_INPUTS); }

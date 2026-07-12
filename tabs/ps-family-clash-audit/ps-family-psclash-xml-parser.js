@@ -33,19 +33,26 @@ function findFamilyLeaf(path, fallback = '', options = {}) {
   return [...path].reverse().find((node) => extractFamilyRoot(node, options) && !/MAIN$/i.test(node)) || fallback;
 }
 
+function classifyObject(itemName, path) {
+  const text = `${itemName} ${(path || []).join(' ')}`;
+  if (/STRUCTURE|FRMWORK|GENSEC|PANEL|FACET GROUP/i.test(text)) return 'StructuralGroup';
+  return 'Support';
+}
+
+function pointFrom(xml) {
+  const match = xml.match(/<pos3f\s+([^>]*)\/>/i);
+  if (!match) return null;
+  const attrs = parseAttributes(match[1]);
+  return { x: parseNumber(attrs.x), y: parseNumber(attrs.y), z: parseNumber(attrs.z) };
+}
+
 function parseClashObject(clashObjectXml, options) {
   const pathlinkMatch = clashObjectXml.match(/<pathlink>([\s\S]*?)<\/pathlink>/i);
   const path = pathlinkMatch ? extractNodes(pathlinkMatch[1]) : [];
   const itemName = extractSmartTagValue(clashObjectXml, 'Item Name') || findFamilyLeaf(path, path[path.length - 1] || '', options);
   const branchNode = findLineBranchNode(path);
-  return {
-    itemName: makeDisplayName(itemName),
-    exactMemberKey: makeExactMemberKey(itemName),
-    familyRoot: extractFamilyRoot(itemName, options),
-    branchNode,
-    pipe: branchNode ? parsePipeTag(branchNode) : null,
-    path,
-  };
+  const pipe = branchNode ? parsePipeTag(branchNode) : null;
+  return { itemName: makeDisplayName(itemName), exactMemberKey: makeExactMemberKey(itemName), familyRoot: extractFamilyRoot(itemName, options), objectType: classifyObject(itemName, path), branchNode, pipe, path };
 }
 
 function clashNumber(name) {
@@ -53,26 +60,44 @@ function clashNumber(name) {
   return match ? match[1] : String(name || '');
 }
 
-function rowFromObject(clashName, object, objects, index) {
-  if (!object.familyRoot || !object.pipe) return null;
-  const siblingCount = objects.filter((item) => item.familyRoot === object.familyRoot && item.branchNode === object.branchNode).length;
+function lineContext(objects) {
+  return objects.find((item) => item.pipe)?.pipe || null;
+}
+
+function edgeFromObjects(attrs, body, objects, sourceInput) {
+  if (objects.length < 2) return null;
+  const pipe = lineContext(objects);
+  const [a, b] = objects;
+  if (!pipe) return null;
+  const supportObjects = objects.filter((item) => item.objectType === 'Support');
+  const structuralObjects = objects.filter((item) => item.objectType === 'StructuralGroup');
+  const edgeType = structuralObjects.length ? 'StructuralContact' : 'SupportChain';
+  const root = supportObjects[0]?.familyRoot || structuralObjects[0]?.familyRoot || '';
   return {
-    psClashName: clashNumber(clashName),
-    rawClashName: clashName,
-    source: object.familyRoot,
-    sourceObject: object.itemName,
-    exactMemberKey: object.exactMemberKey,
-    pipe: object.pipe.fullLineTag,
-    lineFamily: object.pipe.lineFamily,
-    fullLineTag: object.pipe.fullLineTag,
-    branchNode: object.pipe.fullBranchNode,
-    groupKey: `${clashName}|${object.familyRoot}|${object.pipe.fullBranchNode}`,
-    groupIndex: index + 1,
-    groupMemberCount: siblingCount,
+    sourceInput,
+    clashName: attrs.name || 'clash',
+    supportChangeName: clashNumber(attrs.name || 'clash'),
+    distance: parseNumber(attrs.distance),
+    point: pointFrom(body),
+    edgeType,
+    objectA: a,
+    objectB: b,
+    supportA: supportObjects[0]?.itemName || '',
+    supportB: supportObjects[1]?.itemName || '',
+    support: supportObjects[0]?.itemName || '',
+    structuralGroup: structuralObjects[0]?.itemName || '',
+    psRoot: root,
+    structuralRoot: structuralObjects[0]?.familyRoot || '',
+    supportRoots: supportObjects.map((item) => item.familyRoot).filter(Boolean),
+    lineFamily: pipe.lineFamily,
+    fullLineTag: pipe.fullLineTag,
+    branchNode: pipe.fullBranchNode,
+    supportGroup: pipe.lineFamily && root ? `${pipe.lineFamily}_${root}` : '',
+    parsedEdge: edgeType === 'StructuralContact' ? `${structuralObjects[0]?.itemName || a.itemName} ↔ ${supportObjects[0]?.itemName || b.itemName}` : `${a.itemName} ↔ ${b.itemName}`,
   };
 }
 
-export function parsePsClashXml(xmlText, options = {}) {
+export function parseSupportChangeXml(xmlText, options = {}, sourceInput = 'SupportChangeXML') {
   const source = String(xmlText || '');
   const rows = [];
   const diagnostics = [];
@@ -83,13 +108,12 @@ export function parsePsClashXml(xmlText, options = {}) {
     const attrs = parseAttributes(match[1]);
     const objectXml = Array.from(match[2].matchAll(/<clashobject>([\s\S]*?)<\/clashobject>/gi)).map((item) => item[1]);
     const objects = objectXml.map((xml) => parseClashObject(xml, options));
-    objects.forEach((object, index) => {
-      const row = rowFromObject(attrs.name || 'clash', object, objects, index);
-      if (row) rows.push(row);
-    });
+    const row = edgeFromObjects(attrs, match[2], objects, sourceInput);
+    if (row) rows.push(row);
   }
-  if (!rows.length) diagnostics.push({ level: 'WARN', code: 'NO_PSCLASH_ROWS', message: 'No PSClash XML rows were found.' });
+  if (!rows.length) diagnostics.push({ level: 'WARN', code: 'NO_SUPPORT_CHANGE_ROWS', message: 'No SupportChangeXML rows were found.' });
   return { rows, diagnostics };
 }
 
+export function parsePsClashXml(xmlText, options = {}) { return parseSupportChangeXml(xmlText, options, 'PSClash XML'); }
 export function numberValue(value) { return parseNumber(value); }
