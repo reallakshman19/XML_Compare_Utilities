@@ -61,11 +61,14 @@ assert.equal(directRestingReports.structureContactRows[0].remarks, 'Direct struc
 const proximityReports = buildSupportChangeReports(cuSuParsed.rows, [], []);
 assert.equal(proximityReports.structureLineProximityRows.length, 2);
 assert.deepEqual(proximityReports.structureLineProximityRows.map((row) => row.structuralGroupRoot), ['PS-14311', 'PS-14311']);
-assert.equal(proximityReports.structureLineProximityRows[0].supportsWithin250mm, 'PS-14311.4|PS-14311.5');
-assert.equal(proximityReports.structureLineProximityRows[0].supportCount, 2);
-assert.equal(proximityReports.structureLineProximityRows[0].totalSupportCount, 3);
-assert.equal(proximityReports.structureLineProximityRows[1].supportCount, 1);
-assert.equal(proximityReports.structureLineProximityRows[1].totalSupportCount, 3);
+const d8810084 = proximityReports.structureLineProximityRows.find((row) => row.lineFamily === 'D8810084');
+const d8810087 = proximityReports.structureLineProximityRows.find((row) => row.lineFamily === 'D8810087');
+assert.equal(d8810084.supportsWithin250mm, 'PS-14311.4|PS-14311.5');
+assert.equal(d8810084.supportCount, 2);
+assert.equal(d8810084.totalSupportCount, 3);
+assert.equal(d8810087.supportsWithin250mm, 'PS-14311.6');
+assert.equal(d8810087.supportCount, 1);
+assert.equal(d8810087.totalSupportCount, 3);
 
 const customZoneParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL', structuralZonesText: 'BAR-3', supportZonesText: 'PS-' }, 'StructureGroup vs Supports');
 assert.equal(customZoneParsed.rows[0].edgeType, 'StructuralContact');
