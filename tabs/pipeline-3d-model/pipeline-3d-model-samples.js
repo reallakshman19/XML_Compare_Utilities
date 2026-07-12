@@ -121,7 +121,14 @@ export const SAMPLE_TABLE_3C_RAW = `Text Position X\tMarker Text
 688.135\tPM-001`;
 
 const DASH = '—';
+const SPLIT_STYLE_ID = 'pipeline-3d-split-table-style';
 const SPLIT_TABLES_PATCHED = new WeakSet();
+const SPLIT_DEFS = Object.freeze({
+  'table2a-raw': ['H(coor)', 'V(coor)', '[H vs V] Length', 'Station Text', 'Elevation Text'],
+  'table3a-raw': ['From H(coor)', 'To H(coor)', 'Text Position X', 'HLength Text'],
+  'table3b-raw': ['From H(coor)', 'To H(coor)', 'Text Position X', 'Z Text'],
+  'table3c-raw': ['Text Position X', 'Marker Text'],
+});
 
 function splitCells(line) {
   return String(line || '').split(/\t|\s{2,}|\|/).map((part) => part.trim());
@@ -383,6 +390,105 @@ function setTextAndInput(element, value) {
   element.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function ensureSplitStyle(doc = globalThis.document) {
+  if (!doc || doc.getElementById(SPLIT_STYLE_ID)) return;
+  const style = doc.createElement('style');
+  style.id = SPLIT_STYLE_ID;
+  style.textContent = `
+.pipeline-3d-model-dialog{height:calc(100vh - 24px)!important;width:min(1680px,calc(100vw - 24px))!important}
+.pipeline-3d-model-dialog .psmap-card-body{height:100%;min-height:0}
+.pipeline-3d-model-dialog .p3d-workspace{height:100%;grid-template-columns:minmax(360px,.86fr) minmax(620px,1.14fr)!important}
+.pipeline-3d-model-dialog .p3d-output{height:100%;grid-template-rows:auto minmax(0,1fr)!important}
+.pipeline-3d-model-dialog .p3d-output-scroll{height:100%;min-height:0;max-height:none!important}
+.pipeline-3d-model-dialog .p3d-output pre{max-height:38vh;min-height:110px}
+.pipeline-3d-model-dialog .p3d-output pre[data-p3d="coordinate-output"]{max-height:48vh}
+.pipeline-3d-model-dialog .p3d-input-grid textarea{min-height:86px;max-height:150px;resize:vertical}
+.pipeline-3d-model-dialog .p3d-raw-details textarea{min-height:62px!important;max-height:108px!important}
+.p3d-split-grid{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220}
+.p3d-split-grid table{width:100%;min-width:620px;border-collapse:collapse;color:#e2e8f0;font-size:12px}
+.p3d-split-grid th,.p3d-split-grid td{border-bottom:1px solid rgba(148,163,184,.16);padding:5px;text-align:left;vertical-align:middle}
+.p3d-split-grid th{position:sticky;top:0;background:#111c2f;color:#bfdbfe;z-index:1}
+.p3d-split-grid input{width:100%;box-sizing:border-box;background:#020617;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:5px;font-family:monospace;font-size:12px}
+.p3d-split-grid .p3d-row-add{margin:8px;padding:6px 10px}
+.p3d-derived-grid{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220;max-height:360px}
+.p3d-derived-grid table{width:100%;min-width:720px;border-collapse:collapse;color:#e2e8f0;font-size:11px}
+.p3d-derived-grid th,.p3d-derived-grid td{border-bottom:1px solid rgba(148,163,184,.16);padding:5px;text-align:left;white-space:nowrap}
+.p3d-derived-grid th{position:sticky;top:0;background:#111c2f;color:#bfdbfe;z-index:1}
+`;
+  doc.head?.appendChild(style);
+}
+
+function parseRawRows(text, headers) {
+  const source = lines(text);
+  const body = source.length && source[0].toLowerCase().includes(headers[0].toLowerCase()) ? source.slice(1) : source;
+  const rows = body.map((line) => {
+    const cells = splitCells(line);
+    return headers.map((_, index) => cells[index] ?? '');
+  });
+  return rows.length ? rows : [headers.map(() => '')];
+}
+
+function rowsToRawText(headers, rows) {
+  const body = rows
+    .map((row) => headers.map((_, index) => row[index] || '').join('\t'))
+    .filter((line) => line.replace(/\t/g, '').trim());
+  return [headers.join('\t'), ...body].join('\n');
+}
+
+function inputHtml(value, rowIndex, cellIndex) {
+  return `<input data-p3d-split-cell="${rowIndex}:${cellIndex}" value="${h(value)}" spellcheck="false">`;
+}
+
+function h(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function renderEditablePreview(dialog, name) {
+  const textarea = findSlot(dialog, name);
+  const holder = dialog.querySelector(`[data-p3d-split-preview="${name}"]`);
+  const headers = SPLIT_DEFS[name];
+  if (!textarea || !holder || !headers) return;
+  const rows = parseRawRows(textarea.value, headers);
+  const head = `<tr><th>#</th>${headers.map((header) => `<th>${h(header)}</th>`).join('')}<th></th></tr>`;
+  const body = rows.map((row, rowIndex) => `<tr data-p3d-split-row="${rowIndex}">
+<td>${rowIndex + 1}</td>
+${row.map((cell, cellIndex) => `<td>${inputHtml(cell, rowIndex, cellIndex)}</td>`).join('')}
+<td><button type="button" class="p3d-row-delete" data-p3d-split-delete="${rowIndex}">-</button></td>
+</tr>`).join('');
+  holder.innerHTML = `<div class="p3d-split-grid"><table><thead>${head}</thead><tbody>${body}</tbody></table>
+<button type="button" class="p3d-row-add" data-p3d-split-add="${name}">+ Add row</button></div>`;
+}
+
+function readEditablePreviewRows(holder, columnCount) {
+  return Array.from(holder.querySelectorAll('[data-p3d-split-row]')).map((row) =>
+    Array.from({ length: columnCount }, (_, index) =>
+      row.querySelector(`[data-p3d-split-cell$=":${index}"]`)?.value?.trim() || '',
+    ),
+  );
+}
+
+function writePreviewRowsToRaw(dialog, name) {
+  const textarea = findSlot(dialog, name);
+  const holder = dialog.querySelector(`[data-p3d-split-preview="${name}"]`);
+  const headers = SPLIT_DEFS[name];
+  if (!textarea || !holder || !headers) return;
+  textarea.value = rowsToRawText(headers, readEditablePreviewRows(holder, headers.length));
+}
+
+function renderAllEditablePreviews(dialog) {
+  Object.keys(SPLIT_DEFS).forEach((name) => renderEditablePreview(dialog, name));
+}
+
+function renderTsvGrid(text) {
+  const [headerLine, ...bodyLines] = lines(text);
+  const headers = splitCells(headerLine || '');
+  const rows = bodyLines.map(splitCells);
+  if (!headers.length) return '<div class="p3d-derived-grid">No rows.</div>';
+  const head = `<tr>${headers.map((header) => `<th>${h(header)}</th>`).join('')}</tr>`;
+  const body = rows.map((row) => `<tr>${headers.map((_, index) => `<td>${h(row[index] ?? '')}</td>`).join('')}</tr>`).join('');
+  return `<div class="p3d-derived-grid"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+
 function syncSplitTables(dialog) {
   const table2Raw = findSlot(dialog, 'table2a-raw')?.value || '';
   const table3ARaw = findSlot(dialog, 'table3a-raw')?.value || '';
@@ -394,10 +500,12 @@ function syncSplitTables(dialog) {
   const table3Preview = findSlot(dialog, 'table3x-preview');
   const table2Output = dialog.querySelector('[data-p3d="table2x-output"]');
   const table3Output = dialog.querySelector('[data-p3d="table3x-output"]');
-  if (table2Preview) table2Preview.textContent = table2X;
-  if (table3Preview) table3Preview.textContent = table3X.text;
-  if (table2Output) table2Output.textContent = table2X;
-  if (table3Output) table3Output.textContent = table3X.text;
+  const table2Html = renderTsvGrid(table2X);
+  const table3Html = renderTsvGrid(table3X.text);
+  if (table2Preview) table2Preview.innerHTML = table2Html;
+  if (table3Preview) table3Preview.innerHTML = table3Html;
+  if (table2Output) table2Output.innerHTML = table2Html;
+  if (table3Output) table3Output.innerHTML = table3Html;
   setTextAndInput(dialog.querySelector('[data-p3d="table2"]'), buildTable2ModelInput(table2Raw));
   setTextAndInput(dialog.querySelector('[data-p3d="table3"]'), buildTable3ModelInput(table3X));
 }
@@ -413,6 +521,7 @@ function applyMultiSheetSplitSample(dialog) {
     const slot = findSlot(dialog, name);
     if (slot) slot.value = value;
   });
+  renderAllEditablePreviews(dialog);
   syncSplitTables(dialog);
 }
 
@@ -420,20 +529,18 @@ function rawPanel(title, name, placeholder) {
   return `<div class="p3d-input-panel" data-p3d-split-panel="${name}">
 <label class="p3d-input-title">${title}</label>
 <textarea data-p3d-split="${name}" placeholder="${placeholder}"></textarea>
-<details class="p3d-raw-details" open><summary>Preview</summary><pre data-p3d-split="${name.replace('-raw', 'x-preview')}">Paste raw data to preview.</pre></details>
+<details class="p3d-raw-details" open><summary>Editable preview</summary><div data-p3d-split-preview="${name}"></div></details>
 </div>`;
 }
 
 function markerRawPanel() {
-  return `<div class="p3d-input-panel" data-p3d-split-panel="table3c-raw">
-<label class="p3d-input-title">Table 3C Raw — H vs Markers</label>
-<textarea data-p3d-split="table3c-raw" placeholder="Text Position X&#9;Marker Text"></textarea>
-</div>`;
+  return rawPanel('Table 3C Raw — H vs Markers', 'table3c-raw', 'Text Position X&#9;Marker Text');
 }
 
 function patchPipelineDialog(dialog) {
   if (!dialog || SPLIT_TABLES_PATCHED.has(dialog)) return;
   SPLIT_TABLES_PATCHED.add(dialog);
+  ensureSplitStyle(dialog.ownerDocument || globalThis.document);
   const table3Panel = dialog.querySelector('[data-p3d="table3-panel"]');
   if (table3Panel) {
     table3Panel.insertAdjacentHTML('afterend', `
@@ -441,18 +548,51 @@ ${rawPanel('Table 2A Raw — H vs V', 'table2a-raw', 'H(coor)&#9;Station Text&#9
 ${rawPanel('Table 3A Raw — H vs HLength', 'table3a-raw', 'From H&#9;To H&#9;Text Position X&#9;HLength Text')}
 ${rawPanel('Table 3B Raw — H vs Z', 'table3b-raw', 'From H&#9;To H&#9;Text Position X&#9;Z Text')}
 ${markerRawPanel()}
-<details class="p3d-raw-details" open><summary>Table 3X Preview</summary><pre data-p3d-split="table3x-preview">Paste Table 3A/3B/3C raw data to preview.</pre></details>`);
+<details class="p3d-raw-details" open><summary>Table 2X Preview</summary><div data-p3d-split="table2x-preview">Paste Table 2A raw data to preview.</div></details>
+<details class="p3d-raw-details" open><summary>Table 3X Preview</summary><div data-p3d-split="table3x-preview">Paste Table 3A/3B/3C raw data to preview.</div></details>`);
   }
   const table1Output = dialog.querySelector('[data-p3d="table1-output"]');
   if (table1Output) {
     table1Output.insertAdjacentHTML('afterend', `
 <h4>Table 2X — H vs V</h4>
-<pre data-p3d="table2x-output">Run or load the multi-sheet sample to generate.</pre>
+<div data-p3d="table2x-output">Run or load the multi-sheet sample to generate.</div>
 <h4>Table 3X — HLength / Z / Markers</h4>
-<pre data-p3d="table3x-output">Run or load the multi-sheet sample to generate.</pre>`);
+<div data-p3d="table3x-output">Run or load the multi-sheet sample to generate.</div>`);
   }
+  renderAllEditablePreviews(dialog);
   dialog.addEventListener('input', (event) => {
-    if (event.target instanceof Element && event.target.matches('[data-p3d-split$="-raw"]')) syncSplitTables(dialog);
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const raw = target.closest('[data-p3d-split$="-raw"]');
+    const cell = target.closest('[data-p3d-split-cell]');
+    if (raw) {
+      renderEditablePreview(dialog, raw.dataset.p3dSplit);
+      syncSplitTables(dialog);
+    } else if (cell) {
+      const panel = target.closest('[data-p3d-split-panel]');
+      const name = panel?.dataset.p3dSplitPanel;
+      if (name) {
+        writePreviewRowsToRaw(dialog, name);
+        syncSplitTables(dialog);
+      }
+    }
+  });
+  dialog.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const add = target.closest('[data-p3d-split-add]');
+    const del = target.closest('[data-p3d-split-delete]');
+    if (!add && !del) return;
+    const panel = target.closest('[data-p3d-split-panel]');
+    const name = add?.dataset.p3dSplitAdd || panel?.dataset.p3dSplitPanel;
+    const headers = SPLIT_DEFS[name];
+    const holder = dialog.querySelector(`[data-p3d-split-preview="${name}"]`);
+    if (!headers || !holder) return;
+    const rows = readEditablePreviewRows(holder, headers.length);
+    const next = add ? [...rows, headers.map(() => '')] : rows.filter((_, index) => index !== Number(del.dataset.p3dSplitDelete));
+    findSlot(dialog, name).value = rowsToRawText(headers, next.length ? next : [headers.map(() => '')]);
+    renderEditablePreview(dialog, name);
+    syncSplitTables(dialog);
   });
   dialog.querySelector('[data-p3d="run"]')?.addEventListener('click', () => syncSplitTables(dialog), { capture: true });
   dialog.querySelector('[data-p3d="new-multisheet"]')?.addEventListener('click', () => queueMicrotask(() => applyMultiSheetSplitSample(dialog)), { capture: true });
@@ -461,6 +601,7 @@ ${markerRawPanel()}
 function installPipeline3dSplitTableEnhancer(doc = globalThis.document) {
   if (!doc?.body || doc.body.dataset.p3dSplitTableEnhancer === '1') return;
   doc.body.dataset.p3dSplitTableEnhancer = '1';
+  ensureSplitStyle(doc);
   const patchAll = () => doc.querySelectorAll('.pipeline-3d-model-dialog').forEach(patchPipelineDialog);
   patchAll();
   const observer = new MutationObserver(patchAll);
