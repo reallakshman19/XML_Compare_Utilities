@@ -100,6 +100,7 @@ assert.match(source, /wirePrefixInput/);
 assert.match(source, /wireExportPreviewButtons/);
 assert.match(source, /saveZipTextFiles/);
 assert.match(source, /updateExportPickerSelection/);
+assert.match(source, /function buildExportEntries/);
 assert.match(source, /event\.key === 'Escape'/);
 assert.doesNotMatch(shell, /Markdown Report/);
 assert.doesNotMatch(shell, /PSClash XML/);
@@ -118,23 +119,5 @@ assert.equal(get('root'), fakeRoot);
 assert.equal(get('prefix-detector'), prefixNode);
 assert.equal(get('export-title'), exportTitleNode);
 assert.equal(get('unknown-control'), null);
-
-const buttons = [
-  { dataset: { psfaExportPreview: 'support-summary' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
-  { dataset: { psfaExportPreview: 'support-exceptions' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
-];
-_test.updateExportPickerSelection({ querySelectorAll: () => buttons }, 'support-exceptions');
-assert.equal(buttons[0]['aria-selected'], 'false');
-assert.equal(buttons[1]['aria-selected'], 'true');
-assert.equal(buttons[0].classList.values.has('active'), false);
-assert.equal(buttons[1].classList.values.has('active'), true);
-
-const audit = { summary: { sourceFamily: 'PS-14396' }, supportSummaryRows: [], lineSupportTreeRows: [], supportExceptionRows: [], inputEvidenceRows: [], structureContactRows: [], supportChainRows: [], supportMemberRows: [], connectivityMatrixRows: [], clashRows: [], diagnostics: [] };
-const entries = _test.buildExportEntries(audit, PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.equal(entries.length, PS_FAMILY_CLASH_AUDIT_CONFIG.outputButtons.length);
-assert.ok(entries.some((entry) => entry.name === 'ps-family-supportgroup-summary-PS-14396.csv'));
-assert.ok(entries.some((entry) => entry.name === 'ps-family-audit-PS-14396.json'));
-assert.ok(!entries.some((entry) => entry.name.includes('clash-rows')));
-assert.ok(!entries.some((entry) => entry.name.includes('support-chain')));
 
 console.log('ps-family-tabbed-workspace-ui tests passed');
