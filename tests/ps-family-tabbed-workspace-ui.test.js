@@ -88,4 +88,19 @@ assert.match(source, /event\.key === 'Escape'/);
 assert.doesNotMatch(shell, /Markdown Report/);
 assert.doesNotMatch(shell, /PSClash XML/);
 
+const prefixNode = { kind: 'prefix-detector' };
+const exportTitleNode = { kind: 'export-title' };
+const fakeRoot = {
+  querySelector(selector) {
+    if (selector === '[data-psfa-prefix-detector]') return prefixNode;
+    if (selector === '[data-psfa-export-title]') return exportTitleNode;
+    return null;
+  },
+};
+const get = _test.createGetter(fakeRoot);
+assert.equal(get('root'), fakeRoot);
+assert.equal(get('prefix-detector'), prefixNode);
+assert.equal(get('export-title'), exportTitleNode);
+assert.equal(get('unknown-control'), null);
+
 console.log('ps-family-tabbed-workspace-ui tests passed');
