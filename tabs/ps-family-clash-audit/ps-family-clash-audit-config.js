@@ -1,6 +1,6 @@
 import { buildFamilyRootDetectorLabel, normalizeFamilyPrefixes } from './ps-family-token-utils.js';
 
-export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v6-zone-classification';
+export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v7-structure-proximity';
 
 export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   schema: PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA,
@@ -21,6 +21,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   reportTabs: Object.freeze([
     Object.freeze({ key: 'supportSummary', label: 'SupportGroup Summary', maturity: 'stable' }),
     Object.freeze({ key: 'lineSupportTree', label: 'Line Support Tree', maturity: 'stable' }),
+    Object.freeze({ key: 'structureLineProximity', label: 'StructureGroup Line Support Proximity', maturity: 'stable' }),
     Object.freeze({ key: 'supportExceptions', label: 'SupportChange Exceptions', maturity: 'stable' }),
     Object.freeze({ key: 'inputEvidence', label: 'Input Evidence Ledger', maturity: 'stable' }),
     Object.freeze({ key: 'structureContacts', label: 'StructureGroup Contact Report', maturity: 'draft' }),
@@ -38,6 +39,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   outputButtons: Object.freeze([
     Object.freeze({ key: 'support-summary', label: 'SupportGroup Summary CSV', exportKey: 'supportSummaryCsv', mime: 'text/csv', suffix: 'supportgroup-summary' }),
     Object.freeze({ key: 'line-support-tree', label: 'Line Support Tree TXT', exportKey: 'lineSupportTreeText', mime: 'text/plain', suffix: 'line-support-tree' }),
+    Object.freeze({ key: 'structure-line-proximity', label: 'StructureGroup Line Support Proximity CSV', exportKey: 'structureLineProximityCsv', mime: 'text/csv', suffix: 'structure-line-proximity' }),
     Object.freeze({ key: 'support-exceptions', label: 'SupportChange Exceptions CSV', exportKey: 'supportExceptionsCsv', mime: 'text/csv', suffix: 'supportchange-exceptions' }),
     Object.freeze({ key: 'input-evidence', label: 'Input Evidence Ledger CSV', exportKey: 'inputEvidenceCsv', mime: 'text/csv', suffix: 'input-evidence' }),
     Object.freeze({ key: 'all-json', label: 'Audit JSON', exportKey: 'auditJson', mime: 'application/json', suffix: 'audit' }),
@@ -45,6 +47,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   info: Object.freeze([
     'SupportChange workflow uses two Navis clash XML inputs: StructureGroup vs Supports and Clash within Supports.',
     'SupportGroup identity is LineFamily_PSRoot, for example S8810011_PS-14396.',
+    'StructureGroup Line Support Proximity groups PS-14311-BAR-3 / PS-14311-BAR / PS-14311 by the same structural PS root.',
     'StructuralGroup is a child group inside SupportGroup; it must not replace the support representative.',
     'Supports are connected with support-support edges; StructureGroup contacts attach to the same SupportGroup.',
     'Zone classification is editable: structural and support zone tokens can contain multiple comma/newline separated entries.',
