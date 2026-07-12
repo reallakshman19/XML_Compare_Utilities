@@ -79,8 +79,8 @@ function createStructureLineProximityRows(structureRows, toleranceMm = 250) {
 
 export function buildSupportChangeReports(structureRows = [], supportRows = [], clashRows = []) {
   const exceptions = [];
-  [...structureRows, ...supportRows].forEach((row) => { if (!row.supportGroup) exceptions.push(exception('ORPHAN_STRUCTURAL_GROUP', 'WARN', row, 'SupportGroup key cannot be formed.')); });
-  supportRows.forEach((row) => { if (row.supportRoots?.length > 1 && new Set(row.supportRoots).size > 1) exceptions.push(exception('STRANGER_SUPPORT_PS_WITHIN_SUPPORT_CHAIN', 'ERROR', row, 'PS roots differ in support-support chain.')); });
+  [...structureRows, ...supportRows].forEach((row) => { if (!row.supportGroup) exceptions.push(exception('ORPHAN_STRUCTURAL_GROUP', 'ERROR', row, 'SupportGroup key cannot be formed.')); });
+  supportRows.forEach((row) => { if (row.supportRoots?.length > 1 && new Set(row.supportRoots).size > 1) exceptions.push(exception('STRANGER_SUPPORT_PS_WITHIN_SUPPORT_CHAIN', 'WARN', row, 'PS roots differ in support-support chain.')); });
   structureRows.forEach((row) => { if (row.structuralRoot && row.supportRoots?.[0] && row.structuralRoot !== row.supportRoots[0]) exceptions.push(exception('STRANGER_SUPPORT_PS_VS_STRUCTURAL_GROUP', 'ERROR', row, 'StructuralGroup root differs from contacted support root.')); });
   const coverage = createCoverageLookup(clashRows);
   const summaryRows = [], treeRows = [], contactRows = [], chainRows = [], memberRows = [], ledgerRows = [], matrixRows = [];
@@ -93,8 +93,7 @@ export function buildSupportChangeReports(structureRows = [], supportRows = [], 
     const clashNames = naturalSort(rows.map((row) => row.clashName));
     const sample = rows[0];
     const directResting = isDirectRestingSupport(contacts, chains, supports);
-    if (!contacts.length) exceptions.push(exception('SUPPORT_GROUP_WITHOUT_STRUCTURAL_GROUP', 'WARN', sample, 'Support chain has no StructuralGroup contact.'));
-    if (!chains.length && contacts.length && !directResting) exceptions.push(exception('STRUCTURAL_GROUP_WITHOUT_SUPPORT_CHAIN', 'WARN', sample, 'StructuralGroup contact has no support-support chain evidence.'));
+    if (!contacts.length) exceptions.push(exception('SUPPORT_GROUP_WITHOUT_STRUCTURAL_GROUP', 'ERROR', sample, 'Support chain has no StructuralGroup contact.'));
     const covered = supports.map((support) => coverage.get(support.toUpperCase())).find(Boolean);
     summaryRows.push({ no: index + 1, line: sample.fullLineTag, branchNode: sample.branchNode, lineFamily: sample.lineFamily, psRoot: sample.psRoot, supportGroup, structuralGroupCount: structuralGroups.length, supportCount: supports.length, supportMembers: supports, evidenceClashes: clashNames, status: exceptions.some((item) => item.supportGroup === supportGroup && item.severity === 'ERROR') ? 'ERROR' : 'OK', remarks: summaryRemarks(contacts, chains, supports) });
     treeRows.push({ supportGroup, treeText: `Line: ${sample.fullLineTag}\n└─ Branch: ${sample.branchNode}\n   └─ SupportGroup: ${supportGroup}\n      ├─ StructuralGroup\n${structuralGroups.map((item) => `      │  └─ ${item}`).join('\n') || '      │  └─ None'}\n      └─ Supports\n${supports.map((item) => `         ├─ ${item}`).join('\n') || '         └─ None'}` });
