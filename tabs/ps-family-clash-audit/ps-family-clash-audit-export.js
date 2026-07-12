@@ -28,6 +28,11 @@ export function exportSupportSummaryCsv(audit) {
 
 export function exportLineSupportTreeText(audit) { return `${(audit.lineSupportTreeRows || []).map((row) => row.treeText).join('\n\n')}\n`; }
 
+export function exportStructureLineProximityCsv(audit) {
+  const headers = ['StructuralGroupRoot', 'StructuralGroupNames', 'LineNo', 'LineFamily', 'BranchNode', 'SupportGroup', 'SupportsWithin250mm', 'SupportCount', 'TotalSupportCount', 'RepresentativeSupport', 'RepresentativeCoordinate', 'EvidenceClashes', 'Remarks'];
+  return rowsToCsv(headers, (audit.structureLineProximityRows || []).map((row) => ({ StructuralGroupRoot: row.structuralGroupRoot, StructuralGroupNames: row.structuralGroupNames, LineNo: row.lineNo, LineFamily: row.lineFamily, BranchNode: row.branchNode, SupportGroup: row.supportGroup, SupportsWithin250mm: row.supportsWithin250mm, SupportCount: row.supportCount, TotalSupportCount: row.totalSupportCount, RepresentativeSupport: row.representativeSupport, RepresentativeCoordinate: row.representativeCoordinate, EvidenceClashes: row.evidenceClashes, Remarks: row.remarks })));
+}
+
 export function exportStructureContactsCsv(audit) {
   const headers = ['SupportGroup', 'StructuralGroup', 'Support', 'Line', 'LineFamily', 'BranchNode', 'ContactClash', 'Distance', 'Point', 'Remarks'];
   return rowsToCsv(headers, (audit.structureContactRows || []).map((row) => ({ SupportGroup: row.supportGroup, StructuralGroup: row.structuralGroup, Support: row.support, Line: row.line, LineFamily: row.lineFamily, BranchNode: row.branchNode, ContactClash: row.contactClash, Distance: row.distance, Point: row.point, Remarks: row.remarks })));
@@ -74,12 +79,13 @@ export function exportPsFamilyAuditJson(audit) { return `${JSON.stringify(audit,
 export const PS_FAMILY_ACTIVE_EXPORTS = Object.freeze({
   supportSummary: Object.freeze({ exportKey: 'supportSummaryCsv', suffix: 'supportgroup-summary' }),
   lineSupportTree: Object.freeze({ exportKey: 'lineSupportTreeText', suffix: 'line-support-tree' }),
+  structureLineProximity: Object.freeze({ exportKey: 'structureLineProximityCsv', suffix: 'structure-line-proximity' }),
   supportExceptions: Object.freeze({ exportKey: 'supportExceptionsCsv', suffix: 'supportchange-exceptions' }),
   inputEvidence: Object.freeze({ exportKey: 'inputEvidenceCsv', suffix: 'input-evidence' }),
 });
 
 export function createPsFamilyAuditExports(audit) {
-  return { supportSummaryCsv: exportSupportSummaryCsv(audit), lineSupportTreeText: exportLineSupportTreeText(audit), supportExceptionsCsv: exportSupportExceptionsCsv(audit), inputEvidenceCsv: exportInputEvidenceCsv(audit), structureContactsCsv: exportStructureContactsCsv(audit), supportChainCsv: exportSupportChainCsv(audit), supportMembersCsv: exportSupportMembersCsv(audit), connectivityMatrixCsv: exportConnectivityMatrixCsv(audit), coverageCsv: exportPsFamilyCoverageCsv(audit), clashRowsCsv: exportPsFamilyClashRowsCsv(audit), psClashReportCsv: exportPsFamilyPsClashReportCsv(audit), missingCsv: exportPsFamilyMissingCsv(audit), outOfFamilyCsv: exportPsFamilyOutOfFamilyCsv(audit), duplicatesCsv: exportPsFamilyDuplicatesCsv(audit), lineFamiliesCsv: exportPsFamilyLineFamiliesCsv(audit), posFamiliesCsv: exportPsFamilyPosFamiliesCsv(audit), sourceVsPosFamilyCsv: exportPsFamilySourceVsPosFamilyCsv(audit), diagnosticsCsv: exportPsFamilyDiagnosticsCsv(audit), auditJson: exportPsFamilyAuditJson(audit) };
+  return { supportSummaryCsv: exportSupportSummaryCsv(audit), lineSupportTreeText: exportLineSupportTreeText(audit), structureLineProximityCsv: exportStructureLineProximityCsv(audit), supportExceptionsCsv: exportSupportExceptionsCsv(audit), inputEvidenceCsv: exportInputEvidenceCsv(audit), structureContactsCsv: exportStructureContactsCsv(audit), supportChainCsv: exportSupportChainCsv(audit), supportMembersCsv: exportSupportMembersCsv(audit), connectivityMatrixCsv: exportConnectivityMatrixCsv(audit), coverageCsv: exportPsFamilyCoverageCsv(audit), clashRowsCsv: exportPsFamilyClashRowsCsv(audit), psClashReportCsv: exportPsFamilyPsClashReportCsv(audit), missingCsv: exportPsFamilyMissingCsv(audit), outOfFamilyCsv: exportPsFamilyOutOfFamilyCsv(audit), duplicatesCsv: exportPsFamilyDuplicatesCsv(audit), lineFamiliesCsv: exportPsFamilyLineFamiliesCsv(audit), posFamiliesCsv: exportPsFamilyPosFamiliesCsv(audit), sourceVsPosFamilyCsv: exportPsFamilySourceVsPosFamilyCsv(audit), diagnosticsCsv: exportPsFamilyDiagnosticsCsv(audit), auditJson: exportPsFamilyAuditJson(audit) };
 }
 
 export function createPsFamilyActiveReportExport(audit, activeTab = 'supportSummary') {
