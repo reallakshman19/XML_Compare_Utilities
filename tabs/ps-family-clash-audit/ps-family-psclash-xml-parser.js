@@ -33,8 +33,13 @@ function findFamilyLeaf(path, fallback = '', options = {}) {
   return [...path].reverse().find((node) => extractFamilyRoot(node, options) && !/MAIN$/i.test(node)) || fallback;
 }
 
+function isSupportUnitHierarchy(text) {
+  return /(?:^|[\s\/_-])CU-SU(?:$|[\s\/_-])/i.test(text);
+}
+
 function classifyObject(itemName, path) {
   const text = `${itemName} ${(path || []).join(' ')}`;
+  if (isSupportUnitHierarchy(text)) return 'StructuralGroup';
   if (/STRUCTURE|FRMWORK|GENSEC|PANEL|FACET GROUP/i.test(text)) return 'StructuralGroup';
   return 'Support';
 }
