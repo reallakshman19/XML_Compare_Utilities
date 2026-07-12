@@ -130,6 +130,10 @@ const SPLIT_DEFS = Object.freeze({
   'table3c-raw': ['Text Position X', 'Marker Text'],
 });
 
+function h(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
 function splitCells(line) {
   return String(line || '').split(/\t|\s{2,}|\|/).map((part) => part.trim());
 }
@@ -194,12 +198,20 @@ function interpolateByRow(rows, field) {
   });
 }
 
-function buildTable2X(rawText) {
+function buildTable2XRows(rawText) {
   const rows = parseTable2A(rawText);
   const hInt = interpolateByRow(rows, 'h');
   const vInt = interpolateByRow(rows, 'v');
+  return rows.map((row, index) => ({
+    ...row,
+    hInt: hInt[index],
+    vInt: vInt[index],
+  }));
+}
+
+function buildTable2X(rawText) {
   const header = ['Row', 'H(coor)', 'V(coor)', '[H vs V] Length', 'Station Text', 'Elevation Text', 'H', 'V', 'H_Int', 'V_Int'];
-  const body = rows.map((row, index) => [
+  const body = buildTable2XRows(rawText).map((row) => [
     row.row,
     row.hCoor,
     row.vCoor,
@@ -208,15 +220,15 @@ function buildTable2X(rawText) {
     row.elevation,
     Number.isFinite(row.h) ? fmt(row.h, 1) : DASH,
     Number.isFinite(row.v) ? fmt(row.v, 2) : DASH,
-    fmt(hInt[index], 1),
-    fmt(vInt[index], 2),
+    fmt(row.hInt, 1),
+    fmt(row.vInt, 2),
   ]);
   return [header, ...body].map((row) => row.join('\t')).join('\n');
 }
 
 function buildTable2ModelInput(rawText) {
-  const rows = parseTable2A(rawText).filter((row) => Number.isFinite(row.h) && Number.isFinite(row.v));
-  return ['Horizontal (m)\tGrade Elevation (m)', ...rows.map((row) => `${fmt(row.h, 1)}\t${fmt(row.v, 2)}`)].join('\n');
+  const rows = buildTable2XRows(rawText).filter((row) => Number.isFinite(row.hInt) && Number.isFinite(row.vInt));
+  return ['Horizontal (m)\tGrade Elevation (m)', ...rows.map((row) => `${fmt(row.hInt, 1)}\t${fmt(row.vInt, 2)}`)].join('\n');
 }
 
 function parseLengthRows(rawText) {
@@ -373,10 +385,26 @@ function buildTable3X(table2Raw, table3ARaw, table3BRaw, table3CRaw) {
   return { rows, cumInt, text: [header, ...body].map((row) => row.join('\t')).join('\n') };
 }
 
-function buildTable3ModelInput(table3X) {
-  const rows = table3X.rows
-    .map((row, index) => ({ marker: row.markerText, cumulative: table3X.cumInt[index] }))
-    .filter((row) => row.marker && row.marker !== DASH && Number.isFinite(row.cumulative));
+function addMarkerModelRow(rows, seen, marker, cumulative) {
+  if (!marker || marker === DASH || !Number.isFinite(cumulative)) return;
+  const key = `${fmt(cumulative, 1)}\u0000${marker}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  rows.push({ marker, cumulative });
+}
+
+function buildTable3ModelInput(table3X, table2Raw) {
+  const rows = [];
+  const seen = new Set();
+  buildTable2XRows(table2Raw).forEach((row) => {
+    addMarkerModelRow(rows, seen, `EL ${fmt(row.hInt, 1)}`, row.hInt);
+  });
+  table3X.rows.forEach((row, index) => {
+    const cumulative = table3X.cumInt[index];
+    if (Number.isFinite(row.hlengthCum)) addMarkerModelRow(rows, seen, `HL ${fmt(row.hlengthCum, 1)}`, row.hlengthCum);
+    if (row.zText && row.zText !== DASH) addMarkerModelRow(rows, seen, row.zText, cumulative);
+    if (row.markerText && row.markerText !== DASH) addMarkerModelRow(rows, seen, row.markerText, cumulative);
+  });
   return ['Marker\tSegment Length (m)\tHorizontal Distance (m)', ...rows.map((row) => `${row.marker}\t0\t${fmt(row.cumulative, 1)}`)].join('\n');
 }
 
@@ -398,10 +426,11 @@ function ensureSplitStyle(doc = globalThis.document) {
 .pipeline-3d-model-dialog{height:calc(100vh - 24px)!important;width:min(1680px,calc(100vw - 24px))!important}
 .pipeline-3d-model-dialog .psmap-card-body{height:100%;min-height:0}
 .pipeline-3d-model-dialog .p3d-workspace{height:100%;grid-template-columns:minmax(360px,.86fr) minmax(620px,1.14fr)!important}
-.pipeline-3d-model-dialog .p3d-output{height:100%;grid-template-rows:auto minmax(0,1fr)!important}
-.pipeline-3d-model-dialog .p3d-output-scroll{height:100%;min-height:0;max-height:none!important}
-.pipeline-3d-model-dialog .p3d-output pre{max-height:38vh;min-height:110px}
-.pipeline-3d-model-dialog .p3d-output pre[data-p3d="coordinate-output"]{max-height:48vh}
+.pipeline-3d-model-dialog .p3d-output{height:100%;grid-template-rows:auto auto minmax(220px,1fr) auto minmax(0,1fr)!important}
+.pipeline-3d-model-dialog .p3d-keyplan-frame{height:100%;min-height:220px;aspect-ratio:auto!important}
+.pipeline-3d-model-dialog .p3d-output-scroll{height:100%;min-height:0;max-height:none!important;overflow:auto}
+.pipeline-3d-model-dialog .p3d-output pre{max-height:30vh;min-height:100px}
+.pipeline-3d-model-dialog .p3d-output pre[data-p3d="coordinate-output"]{max-height:36vh}
 .pipeline-3d-model-dialog .p3d-input-grid textarea{min-height:86px;max-height:150px;resize:vertical}
 .pipeline-3d-model-dialog .p3d-raw-details textarea{min-height:62px!important;max-height:108px!important}
 .p3d-split-grid{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220}
@@ -437,10 +466,6 @@ function rowsToRawText(headers, rows) {
 
 function inputHtml(value, rowIndex, cellIndex) {
   return `<input data-p3d-split-cell="${rowIndex}:${cellIndex}" value="${h(value)}" spellcheck="false">`;
-}
-
-function h(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
 function renderEditablePreview(dialog, name) {
@@ -507,7 +532,7 @@ function syncSplitTables(dialog) {
   if (table2Output) table2Output.innerHTML = table2Html;
   if (table3Output) table3Output.innerHTML = table3Html;
   setTextAndInput(dialog.querySelector('[data-p3d="table2"]'), buildTable2ModelInput(table2Raw));
-  setTextAndInput(dialog.querySelector('[data-p3d="table3"]'), buildTable3ModelInput(table3X));
+  setTextAndInput(dialog.querySelector('[data-p3d="table3"]'), buildTable3ModelInput(table3X, table2Raw));
 }
 
 function applyMultiSheetSplitSample(dialog) {
