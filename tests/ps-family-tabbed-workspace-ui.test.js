@@ -17,13 +17,14 @@ assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('SupportChangeXML'));
 
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v6-export-zip-active'/);
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v7-zone-classification'/);
 assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
 assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
 assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
 assert.match(professionalCss, /\.psfa-shell>\[data-psfa-panel\]\{min-height:0;overflow:auto\}/);
 assert.match(professionalCss, /\.psfa-preview-grid pre\{min-height:180px/);
 assert.match(professionalCss, /\.psfa-prefix-card/);
+assert.match(professionalCss, /\.psfa-zone-grid/);
 assert.match(professionalCss, /\.psfa-run-grid/);
 assert.match(professionalCss, /\.psfa-export-preview/);
 assert.match(professionalCss, /\.psfa-export-picker button\[aria-selected="true"\],\.psfa-export-picker button\.active/);
@@ -56,6 +57,10 @@ assert.ok(shell.includes('Valid family prefixes'));
 assert.ok(shell.includes('data-psfa="family-prefixes"'));
 assert.ok(shell.includes('Generated detector'));
 assert.ok(shell.includes('POS tolerance mm'));
+assert.ok(shell.includes('Structural zones'));
+assert.ok(shell.includes('Support zones'));
+assert.ok(shell.includes('data-psfa="structural-zones"'));
+assert.ok(shell.includes('data-psfa="support-zones"'));
 
 assert.ok(shell.includes('Audit Controls'));
 assert.ok(shell.includes('Readiness / Run Summary'));
@@ -66,7 +71,13 @@ assert.ok(shell.includes('Export Package'));
 assert.ok(shell.includes('SupportGroup Summary CSV'));
 assert.ok(shell.includes('Line Support Tree TXT'));
 assert.ok(shell.includes('SupportChange Exceptions CSV'));
+assert.ok(shell.includes('Input Evidence Ledger CSV'));
 assert.ok(shell.includes('Audit JSON'));
+assert.ok(!shell.includes('StructureGroup Contacts CSV'));
+assert.ok(!shell.includes('Support Chain CSV'));
+assert.ok(!shell.includes('SupportGroup Members CSV'));
+assert.ok(!shell.includes('Connectivity Matrix CSV'));
+assert.ok(!shell.includes('Clash Rows CSV'));
 assert.ok(shell.includes('data-psfa-export-preview="support-summary"'));
 assert.ok(shell.includes('data-psfa="download-selected"'));
 assert.ok(shell.includes('data-psfa="download-all-zip"'));
@@ -110,9 +121,9 @@ assert.equal(get('unknown-control'), null);
 
 const buttons = [
   { dataset: { psfaExportPreview: 'support-summary' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
-  { dataset: { psfaExportPreview: 'support-chain' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
+  { dataset: { psfaExportPreview: 'support-exceptions' }, classList: { values: new Set(), toggle(name, active) { active ? this.values.add(name) : this.values.delete(name); } }, setAttribute(name, value) { this[name] = value; } },
 ];
-_test.updateExportPickerSelection({ querySelectorAll: () => buttons }, 'support-chain');
+_test.updateExportPickerSelection({ querySelectorAll: () => buttons }, 'support-exceptions');
 assert.equal(buttons[0]['aria-selected'], 'false');
 assert.equal(buttons[1]['aria-selected'], 'true');
 assert.equal(buttons[0].classList.values.has('active'), false);
@@ -123,5 +134,7 @@ const entries = _test.buildExportEntries(audit, PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.equal(entries.length, PS_FAMILY_CLASH_AUDIT_CONFIG.outputButtons.length);
 assert.ok(entries.some((entry) => entry.name === 'ps-family-supportgroup-summary-PS-14396.csv'));
 assert.ok(entries.some((entry) => entry.name === 'ps-family-audit-PS-14396.json'));
+assert.ok(!entries.some((entry) => entry.name.includes('clash-rows')));
+assert.ok(!entries.some((entry) => entry.name.includes('support-chain')));
 
 console.log('ps-family-tabbed-workspace-ui tests passed');
