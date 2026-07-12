@@ -35,7 +35,7 @@ const TAB_ICON_SVGS = Object.freeze({
 
 export const STANDALONE_TABS = Object.freeze([
   { id: 'xml-compare', label: 'XML Compare', icon: 'compare', load: () => import('../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout').then((module) => pickRenderer(module, 'renderXmlCompareTab', 'xml-compare')) },
-  { id: 'workbench-3d', label: '3D Compare Workbench', icon: 'cube', load: () => import('../workbench3d/ui/workbench3d-tab.js?v=20260711-wb3d-5').then((module) => pickRenderer(module, 'renderWorkbench3dTab', 'workbench-3d')) },
+  { id: 'workbench-3d', label: '3D Compare Workbench', icon: 'cube', load: () => import('../workbench3d/ui/workbench3d-tab.js?v=20260711-wb3d-10').then((module) => pickRenderer(module, 'renderWorkbench3dTab', 'workbench-3d')) },
   { id: 'psnm-utility', label: 'Utilities', icon: 'tool', load: loadPsnmUtilityRenderer }
 ]);
 const TAB_GROUPS = Object.freeze([
@@ -76,7 +76,7 @@ async function loadPsnmUtilityRenderer() {
     import('../tabs/psnm-utility/psnm-phase4c-hardening.js?v=standalone-1'),
     import('../tabs/psnm-utility/psnm-phase4d-persistence.js?v=standalone-1'),
   ]);
-  return import('../tabs/psnm-utility-tab.js?v=standalone-20260710-inputxml-workspace-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
+  return import('../tabs/psnm-utility-tab.js?v=standalone-20260711-collinear-run-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
 }
 
 function createAppShell(root) {

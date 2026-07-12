@@ -229,6 +229,20 @@ function scoreBandAsStation(words, minConfidence) {
     .reduce((score, word) => score + scoreStationTokenEvidence(word.text), 0);
 }
 
+function scoreElevationTokenEvidence(text) {
+  const parsed = parseElevationText(text);
+  if (parsed == null) return 0;
+  if (parsed >= 200 && parsed <= 260) return 5;
+  if (parsed >= 150 && parsed <= 350) return 2;
+  return 1;
+}
+
+function scoreBandAsElevation(words, minConfidence) {
+  return words
+    .filter((word) => word.confidence >= minConfidence)
+    .reduce((score, word) => score + scoreElevationTokenEvidence(word.text), 0);
+}
+
 function summarizeDroppedTokens(warnings, code, rowName, tokens) {
   if (!tokens.length) return;
   warnings.push({
@@ -360,11 +374,15 @@ function buildRowsFromBands(elevationTokens, stationTokens) {
 
 function parseRowLayout(normalizedWords, minConfidence, warnings) {
   const { topBand, bottomBand } = splitWordsIntoRowBands(normalizedWords);
+  const topAsStation = scoreBandAsStation(topBand, minConfidence) + scoreBandAsElevation(bottomBand, minConfidence);
+  const bottomAsStation = scoreBandAsStation(bottomBand, minConfidence) + scoreBandAsElevation(topBand, minConfidence);
+  const rawStationBand = topAsStation > bottomAsStation ? topBand : bottomBand;
+  const rawElevationBand = topAsStation > bottomAsStation ? bottomBand : topBand;
   return {
-    rawElevationBand: topBand,
-    rawStationBand: bottomBand,
-    elevationTokens: filterBandTokens(topBand, 'elevation', parseElevationText, minConfidence, warnings, 'xCenter'),
-    stationTokens: filterBandTokens(bottomBand, 'station', parseStationText, minConfidence, warnings, 'xCenter'),
+    rawElevationBand,
+    rawStationBand,
+    elevationTokens: filterBandTokens(rawElevationBand, 'elevation', parseElevationText, minConfidence, warnings, 'xCenter'),
+    stationTokens: filterBandTokens(rawStationBand, 'station', parseStationText, minConfidence, warnings, 'xCenter'),
   };
 }
 
@@ -393,8 +411,9 @@ function parseColumnLayout(normalizedWords, minConfidence, warnings) {
 
 /**
  * Reconstructs a two-row transposed Table 2 image into horizontal/elevation
- * rows. The top OCR row is treated as grade elevation, the bottom row as
- * station/chainage, and equal row counts are required before ordinal pairing.
+ * rows. Row/column bands are classified as station vs grade elevation before
+ * ordinal pairing, so upright, upside-down, and rotated captures are reviewed
+ * through the same output table.
  * @param {OcrWord[]} words
  * @param {{ minConfidence?: number, layout?: 'rows' | 'columns' }} options
  * @returns {{ rows: ParsedTable2OcrRow[], warnings: Array<{ code: string, message: string, tokens?: string[] }> }}

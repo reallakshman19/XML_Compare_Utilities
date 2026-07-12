@@ -32,10 +32,11 @@ function packetSignature(object) {
   return object.packets.map((p) => p.kind).sort().join('+');
 }
 
-function diffProperties(source, target) {
+function diffProperties(source, target, ignored = null) {
   const changed = [];
   const keys = new Set([...Object.keys(source.properties), ...Object.keys(target.properties)]);
   for (const key of keys) {
+    if (ignored?.has(key)) continue;
     const a = source.properties[key] ?? '';
     const b = target.properties[key] ?? '';
     if (a === b) continue;
@@ -216,7 +217,7 @@ export function runCompare(graphA, graphB, userConfig = {}, manualOverrides = []
     const confidence = record.via === 'manual-override'
       ? CONFIDENCE.HIGH
       : confidenceForScore(record.pair.score, gap, config);
-    const changedProperties = diffProperties(source, target);
+    const changedProperties = diffProperties(source, target, config.ignoredProps ? new Set(config.ignoredProps) : null);
     const geometryIssue = geometryChanged(graphA, source, graphB, target, config);
     const status = geometryIssue ? DIFF_STATUS.GEOMETRY_CHANGED
       : changedProperties.length ? DIFF_STATUS.PROPERTY_CHANGED

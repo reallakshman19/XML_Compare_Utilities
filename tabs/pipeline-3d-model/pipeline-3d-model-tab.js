@@ -1,18 +1,32 @@
-import { buildCombinedCoordinateTable, parseTable1, table1ToTabText, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js';
-import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js';
-import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js';
-import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3, SAMPLE_TABLE_1_MULTISHEET } from './pipeline-3d-model-samples.js';
-import { renderKeyPlanSvg } from './pipeline-3d-model-keyplan.js';
+import { buildCombinedCoordinateTable, parseTable1, parseTable3, table1ToTabText, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js?v=20260711-collinear-1';
+import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js?v=20260711-collinear-1';
+import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js?v=20260711-collinear-1';
+import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3, SAMPLE_TABLE_1_MULTISHEET } from './pipeline-3d-model-samples.js?v=20260711-collinear-1';
+import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js?v=20260712-marker-triangles-1';
 import { recognizeImageWords } from './pipeline-3d-model-ocr.js?v=20260706-ocr-core-1';
-import { parseTable2OcrText, parseTable2OcrWords } from './pipeline-3d-model-ocr-table-parser.js?v=20260706-text-fallback-2';
+import { parseTable2OcrText, parseTable2OcrWords } from './pipeline-3d-model-ocr-table-parser.js?v=20260712-orientation-score-1';
 import { parseTableXOcr } from './pipeline-3d-model-ocr-tablex-parser.js?v=20260706-tablex-2';
+import {
+  readTable2EditorRows,
+  readTable3EditorRows,
+  renderTable2Editor,
+  renderTable3Editor,
+  table2RowsToText,
+  table2TextToRows,
+  table3RowsToText,
+  table3TextToRows,
+} from './pipeline-3d-model-editable-tables.js?v=20260712-table-editors-1';
 
+// Functionality: renders and wires the Pipeline 3D Model popup using stable
+// vanilla DOM nodes. Inputs and outputs stay mounted; Run only updates text,
+// legend content, and the existing canvas drawing. Fallback: none.
 const ACTIVATE = 'click';
 const POPUP_TITLE_ID = 'pipeline-3d-model-title';
 const MODAL_STYLE_ID = 'pipeline-3d-model-modal-style';
 const TABLE2_OCR_MIN_CONFIDENCE = 45;
 const TABLE2_OCR_ATTEMPTS = Object.freeze([
   { label: 'normal table text', rotationDeg: 0, layout: 'rows', scale: 3, normalizeImage: true },
+  { label: 'upside-down table text', rotationDeg: 180, layout: 'rows', scale: 3, normalizeImage: true },
   { label: 'rotated table text clockwise', rotationDeg: 90, layout: 'columns', scale: 3, normalizeImage: true },
   { label: 'rotated table text counterclockwise', rotationDeg: 270, layout: 'columns', scale: 3, normalizeImage: true },
 ]);
@@ -34,22 +48,35 @@ function ensureModalStyle(doc = globalThis.document) {
 .pipeline-3d-model-launcher{height:160px;width:220px;border:1px solid rgba(143,197,255,.25);border-radius:18px;background:linear-gradient(145deg,#10213a,#0b1220);color:#e8f2ff;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,.28);display:grid!important;grid-template-columns:1fr;place-items:center;text-align:center;padding:16px;margin-top:18px;gap:4px;box-sizing:border-box}
 .pipeline-3d-model-launcher-icon{display:block;font-size:40px;line-height:1;margin:0 0 6px}.pipeline-3d-model-launcher b{font-size:15px;color:#e0f2fe}.pipeline-3d-model-launcher .psmap-help-text{color:#94a3b8;font-size:12px;line-height:1.35}
 .pipeline-3d-model-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:rgba(2,6,23,.78);box-sizing:border-box}
-.pipeline-3d-model-dialog{width:min(1240px,calc(100vw - 36px));height:min(860px,calc(100vh - 36px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid rgba(125,211,252,.38)!important;border-radius:18px!important;background:#0f172a!important;color:#dbeafe;box-shadow:0 24px 80px rgba(0,0,0,.58)}
+.pipeline-3d-model-dialog{width:min(1480px,calc(100vw - 36px));height:min(900px,calc(100vh - 36px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid rgba(125,211,252,.38)!important;border-radius:18px!important;background:#0f172a!important;color:#dbeafe;box-shadow:0 24px 80px rgba(0,0,0,.58)}
 .pipeline-3d-model-dialog>.psmap-card-head{position:sticky;top:0;z-index:2;align-items:flex-start;background:linear-gradient(90deg,rgba(8,47,73,.40),rgba(15,23,42,.90));border-bottom:1px solid rgba(148,163,184,.18)}
-.pipeline-3d-model-dialog>.psmap-card-body{min-height:0;overflow:auto;padding:14px}
+.pipeline-3d-model-dialog>.psmap-card-body{position:relative;min-height:0;overflow:hidden;padding:14px}
 .p3d-close{position:absolute;top:14px;right:16px}
-.p3d-input-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px}
+.p3d-workspace{height:100%;min-height:0;display:grid;grid-template-columns:minmax(420px,1.05fr) minmax(430px,.95fr);gap:14px;overflow:hidden}
+.p3d-input-column{min-height:0;overflow:auto;display:grid;align-content:start;gap:14px;padding-right:2px}
+.p3d-output{min-width:0;min-height:0;display:grid;grid-template-rows:auto auto auto auto minmax(220px,1fr);overflow:hidden;background:#101a2b;border:1px solid rgba(143,197,255,.20);border-radius:14px;padding:12px;box-sizing:border-box}
+.p3d-output-scroll{min-height:0;overflow:auto;padding-right:2px}
+.p3d-input-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:0}
 .p3d-input-grid label,.p3d-input-panel{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#94a3b8}
 .p3d-input-title{color:#94a3b8;font-size:12px}
-.p3d-input-grid textarea{min-height:160px;font-family:monospace;font-size:12px;background:#0b1220;color:#e2e8f0;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:6px}
-.p3d-input-panel.p3d-ocr-dragover textarea{border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,.20)}
+.p3d-input-grid textarea{min-height:136px;font-family:monospace;font-size:12px;background:#0b1220;color:#e2e8f0;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:6px}
+.p3d-raw-details{margin-top:4px}.p3d-raw-details summary{cursor:pointer;color:#93c5fd}.p3d-raw-details textarea{width:100%;box-sizing:border-box;margin-top:6px}
+.p3d-table-hint{font-size:11px;color:#7dd3fc}
+.p3d-editable-table{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220}
+.p3d-editable-table table{width:100%;min-width:520px;border-collapse:collapse;color:#e2e8f0}
+.p3d-editable-table th,.p3d-editable-table td{border-bottom:1px solid rgba(148,163,184,.16);padding:6px;text-align:left}
+.p3d-editable-table th{position:sticky;top:0;background:#111c2f;color:#bfdbfe;z-index:1}
+.p3d-editable-table input{width:100%;box-sizing:border-box;background:#020617;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:5px;font-family:monospace;font-size:12px}
+.p3d-row-add,.p3d-row-delete{background:#1e293b;color:#e2e8f0;border:1px solid rgba(148,163,184,.35);border-radius:7px;cursor:pointer}
+.p3d-row-add{margin:8px;padding:6px 10px}.p3d-row-delete{min-width:28px;min-height:28px;font-weight:700}
+.p3d-input-panel.p3d-ocr-dragover textarea,.p3d-input-panel.p3d-ocr-dragover .p3d-editable-table{border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,.20)}
 .p3d-ocr-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
 .p3d-ocr-toolbar button,.p3d-ocr-actions button{background:#334155;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px}
 .p3d-ocr-toolbar button:hover,.p3d-ocr-actions button:hover{background:#475569}
 .p3d-ocr-status{color:#cbd5e1;font-size:11px;min-height:16px}
 .p3d-ocr-status[data-state="error"]{color:#fecaca}
 .p3d-ocr-status[data-state="ok"]{color:#bbf7d0}
-.p3d-tablex-shell{margin:0 0 14px}
+.p3d-tablex-shell{margin:0}
 .p3d-tablex-shell textarea{width:100%;min-height:140px;box-sizing:border-box;font-family:monospace;font-size:12px;background:#0b1220;color:#e2e8f0;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:6px}
 .p3d-axis-grid{display:grid;grid-template-columns:repeat(2,minmax(120px,180px)) minmax(220px,1fr);gap:8px;align-items:end;margin:6px 0}
 .p3d-axis-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#94a3b8}
@@ -67,17 +94,21 @@ function ensureModalStyle(doc = globalThis.document) {
 .p3d-ocr-token-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .p3d-ocr-token-grid code{display:block;white-space:pre-wrap;word-break:break-word;background:#020617;border:1px solid rgba(148,163,184,.25);border-radius:6px;padding:6px;color:#cbd5e1;min-height:140px;max-height:320px;overflow:auto}
 .p3d-ocr-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.p3d-branch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.p3d-branch-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:0}
 .p3d-branch-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#94a3b8}
 .p3d-branch-grid input{background:#0b1220;color:#e2e8f0;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:6px}
-.p3d-actions{display:flex;gap:10px;margin-bottom:14px}
+.p3d-actions{display:flex;gap:10px;margin-bottom:0;flex-wrap:wrap}
 .p3d-actions button{background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px}
 .p3d-actions button:hover{background:#2563eb}
-.p3d-output pre{background:#0b1220;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:10px;max-height:260px;overflow:auto;font-size:11px;white-space:pre}
-.p3d-output h4{margin:14px 0 6px;color:#e0f2fe}
-[data-p3d="keyplan"] svg { cursor: grab; }
-[data-p3d="keyplan"] svg:active { cursor: grabbing; }
-.p3d-tooltip { position: fixed; background: #0b1220; border: 1px solid rgba(148,163,184,0.4); border-radius: 4px; padding: 4px 8px; font-size: 11px; font-family: monospace; color: #cbd5e1; pointer-events: none; z-index: 10000; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); display: none; }
+.p3d-output pre{background:#0b1220;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:10px;min-height:160px;max-height:360px;overflow:auto;font-size:11px;white-space:pre}
+.p3d-output pre[data-p3d="coordinate-output"]{min-height:260px;max-height:420px}
+.p3d-output h4{margin:12px 0 6px;color:#e0f2fe}
+.p3d-output h4:first-of-type{margin-top:0}
+.p3d-keyplan-frame{width:100%;height:auto;aspect-ratio:760/420;background:#0b1220;border-radius:8px 8px 0 0;border:1px solid rgba(148,163,184,.28);display:block;box-sizing:border-box}
+.p3d-keyplan-frame canvas{width:100%;height:100%;display:block;cursor:grab}
+.p3d-legend { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 8px 10px; background: #0b1220; border: 1px solid rgba(148,163,184,.28); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 4px; }
+.p3d-tooltip { position: fixed; background: #0b1220; border: 1px solid rgba(148,163,184,0.4); border-radius: 4px; padding: 6px 8px; font-size: 11px; font-family: monospace; color: #cbd5e1; pointer-events: none; z-index: 10000; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); display: none; white-space: pre-line; min-width: 170px; }
+@media (max-width: 980px){.p3d-workspace{grid-template-columns:1fr}.p3d-output{min-height:520px}.p3d-branch-grid{grid-template-columns:1fr}}
 `;
   doc.head?.appendChild(style);
 }
@@ -100,19 +131,28 @@ function renderPopup() {
   return `<div class="psmap-card-head"><b id="${POPUP_TITLE_ID}">Pipeline 3D Model</b>
 <button type="button" class="p3d-close" data-p3d-close="1" aria-label="Close Pipeline 3D Model">Close</button></div>
 <div class="psmap-card-body">
+<div class="p3d-workspace">
+<section class="p3d-input-column" aria-label="Pipeline 3D Model inputs">
 <div class="psmap-help-text">Paste the 3 input tables below, fill in branch details, then Run.</div>
 <div class="p3d-input-grid">
 <label>Table 1 — Point / X / Y / Z / OriginGlobalX / OriginGlobalY / OriginGlobalZ / AngleDeg<textarea data-p3d="table1" placeholder="IP3-IP Start	0	0	0	301614.82	2038115	0	0"></textarea></label>
 <div class="p3d-input-panel" data-p3d="table2-panel">
 <label class="p3d-input-title" for="pipeline-3d-model-table2">Table 2 - Horizontal (m) vs Grade Elevation (m)</label>
-<textarea id="pipeline-3d-model-table2" data-p3d="table2" placeholder="0.0	231.32"></textarea>
+<div class="p3d-table-hint">Use + to add station rows and - to remove rows. OCR import fills this table after review.</div>
+<div data-p3d="table2-editor"></div>
+<details class="p3d-raw-details"><summary>Paste / raw Table 2 text</summary><textarea id="pipeline-3d-model-table2" data-p3d="table2" placeholder="0.0	231.32"></textarea></details>
 <div class="p3d-ocr-toolbar">
 <button type="button" data-p3d="table2-ocr-button">Import Table 2 Image</button>
 <input data-p3d="table2-ocr-file" type="file" accept="image/*" hidden>
 <span class="p3d-ocr-status" data-p3d="table2-ocr-status"></span>
 </div>
 </div>
-<label>Table 3 — Marker segment lengths / cumulative distances<textarea data-p3d="table3" placeholder="20.5, 34.3, 16.0, ..."></textarea></label>
+<div class="p3d-input-panel" data-p3d="table3-panel">
+<label class="p3d-input-title" for="pipeline-3d-model-table3">Table 3 — Marker / Node Name vs Distance</label>
+<div class="p3d-table-hint">Marker / Node Name is exported as FROM_NAME/TO_NAME and then CII NODENAME.</div>
+<div data-p3d="table3-editor"></div>
+<details class="p3d-raw-details"><summary>Paste / raw Table 3 text</summary><textarea id="pipeline-3d-model-table3" data-p3d="table3" placeholder="Marker 1	20.5	20.5"></textarea></details>
+</div>
 </div>
 <div class="p3d-ocr-review" data-p3d="table2-ocr-review" hidden></div>
 <div class="p3d-tablex-shell">
@@ -138,9 +178,15 @@ ${renderBranchForm()}
 <button type="button" data-p3d="download-coordinate">Download Coordinate Tab (.tsv)</button>
 <button type="button" data-p3d="download-xml">Download XML</button>
 </div>
-<div class="p3d-output">
+</section>
+<section class="p3d-output" aria-label="Pipeline 3D Model output">
+<div data-p3d="error-message" style="display:none; margin-bottom: 14px;"></div>
 <h4>Key Plan — Sheet Transform</h4>
-<div data-p3d="keyplan">Run to generate.</div>
+<div class="p3d-keyplan-frame">
+  <canvas data-p3d="canvas-keyplan"></canvas>
+</div>
+<div class="p3d-legend" data-p3d="keyplan-legend" hidden></div>
+<div class="p3d-output-scroll">
 <h4>Table 1 — Transformed (Global) Coordinates</h4>
 <pre data-p3d="table1-output">Run to generate.</pre>
 <h4>Coordinate Tab Output</h4>
@@ -148,6 +194,7 @@ ${renderBranchForm()}
 <h4>InputXML→CII(2019) PIPINGELEMENT XML</h4>
 <pre data-p3d="xml-output">Run to generate.</pre>
 </div>
+</section>
 </div>`;
 }
 
@@ -173,6 +220,86 @@ function readConfigValues(get) {
     values[field.key] = get(`field-${field.key}`)?.value ?? '';
   });
   return values;
+}
+
+function renderTableEditorFromText(get, kind) {
+  if (kind === 'table2') renderTable2Editor(get('table2-editor'), table2TextToRows(get('table2')?.value || ''));
+  if (kind === 'table3') renderTable3Editor(get('table3-editor'), table3TextToRows(get('table3')?.value || ''));
+}
+
+function readEditorRows(get, kind) {
+  if (kind === 'table2') return readTable2EditorRows(get('table2-editor'));
+  return readTable3EditorRows(get('table3-editor'));
+}
+
+function writeTableTextFromRows(get, kind, rows) {
+  const textarea = get(kind);
+  if (!textarea) return;
+  textarea.value = kind === 'table2' ? table2RowsToText(rows) : table3RowsToText(rows);
+}
+
+function renderTableEditorRows(get, kind, rows) {
+  if (kind === 'table2') renderTable2Editor(get('table2-editor'), rows);
+  else renderTable3Editor(get('table3-editor'), rows);
+  writeTableTextFromRows(get, kind, rows);
+}
+
+function syncEditableTablesToText(get) {
+  writeTableTextFromRows(get, 'table2', readEditorRows(get, 'table2'));
+  writeTableTextFromRows(get, 'table3', readEditorRows(get, 'table3'));
+}
+
+function wireEditableTable(get, kind) {
+  const editor = get(`${kind}-editor`);
+  const textarea = get(kind);
+  if (!editor || !textarea) return;
+  editor.addEventListener('input', () => writeTableTextFromRows(get, kind, readEditorRows(get, kind)));
+  editor.addEventListener(ACTIVATE, (event) => handleEditableTableClick(event, get, kind));
+  textarea.addEventListener('input', () => renderTableEditorFromText(get, kind));
+}
+
+function handleEditableTableClick(event, get, kind) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return;
+  const addButton = target.closest('[data-p3d-edit-add]');
+  const deleteButton = target.closest('[data-p3d-edit-delete]');
+  if (!addButton && !deleteButton) return;
+  const rows = readEditorRows(get, kind);
+  const nextRows = addButton ? [...rows, {}] : deleteTableRow(rows, Number(deleteButton.dataset.p3dEditDelete));
+  renderTableEditorRows(get, kind, nextRows);
+}
+
+function deleteTableRow(rows, index) {
+  const source = Array.isArray(rows) ? rows : [];
+  const kept = source.filter((_, rowIndex) => rowIndex !== index);
+  return kept.length ? kept : [{}];
+}
+
+function findCombinedPointByHorizontal(combined, horizontal) {
+  let closest = null;
+  let minDelta = 0.06;
+  for (const point of combined || []) {
+    const delta = Math.abs(Number(point.horizontal) - Number(horizontal));
+    if (Number.isFinite(delta) && delta < minDelta) {
+      minDelta = delta;
+      closest = point;
+    }
+  }
+  return closest;
+}
+
+function buildCanvasMarkerPoints(combined, table3Text) {
+  return parseTable3(table3Text).map((row) => {
+    const point = findCombinedPointByHorizontal(combined, row.cumulative);
+    if (!point) return null;
+    return {
+      ...point,
+      label: row.marker || `Marker ${row.index}`,
+      markerIndex: row.index,
+      markerLength: row.length,
+      markerCumulative: row.cumulative,
+    };
+  }).filter(Boolean);
 }
 
 function wireConfigPersistence(dialog, get) {
@@ -247,11 +374,6 @@ function formatDecimal(value) {
   return String(Math.round(number * 1000) / 1000);
 }
 
-function table2RowsToText(rows) {
-  const lines = rows.map((row) => `${formatDecimal(row.horizontal)}\t${formatDecimal(row.elevation)}`);
-  return ['Horizontal (m)\tGrade Elevation (m)', ...lines].join('\n');
-}
-
 function renderWarningBanners(warnings) {
   return (warnings || []).map((warning) => `<div class="p3d-ocr-banner p3d-ocr-warning">${h(warning.message || warning)}</div>`).join('');
 }
@@ -269,6 +391,54 @@ function formatAttemptFailure(attempt) {
   }
   if (debug.text) pieces.push(`text: ${debug.text}`);
   return pieces.join(' | ');
+}
+
+function averageConfidence(rows) {
+  const values = (rows || []).map((row) => Number(row.confidence)).filter(Number.isFinite);
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function duplicateHorizontalPenalty(rows) {
+  const seen = new Set();
+  let duplicates = 0;
+  for (const row of rows || []) {
+    const key = formatDecimal(row.horizontal);
+    if (!key) continue;
+    if (seen.has(key)) duplicates += 1;
+    seen.add(key);
+  }
+  return duplicates * 250;
+}
+
+function stationSpanScore(rows) {
+  const values = (rows || []).map((row) => Number(row.horizontal)).filter(Number.isFinite);
+  if (values.length < 2) return 0;
+  return Math.min(250, Math.max(...values) - Math.min(...values));
+}
+
+function scoreTable2OcrResult(result) {
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  return (rows.length * 1000)
+    + averageConfidence(rows)
+    + stationSpanScore(rows)
+    - duplicateHorizontalPenalty(rows)
+    - ((result?.warnings || []).length * 25);
+}
+
+function buildTable2OcrBestResult(successes) {
+  const best = [...successes].sort((a, b) => b.score - a.score)[0];
+  if (!best) return null;
+  const alternatives = successes
+    .filter((success) => success !== best)
+    .map((success) => `${success.attempt.label}: ${success.result.rows.length} rows, score ${Math.round(success.score)}`)
+    .join('; ');
+  best.result.warnings = [
+    { code: 'ocr_table2_attempt_used', message: `Best OCR parse: ${best.attempt.label}. Review all values before applying.` },
+    ...(alternatives ? [{ code: 'ocr_table2_attempts_ranked', message: `Other parse candidates: ${alternatives}` }] : []),
+    ...(best.result.warnings || []),
+  ];
+  return best.result;
 }
 
 function renderTable2OcrError(get, error) {
@@ -331,7 +501,7 @@ function showTable2OcrValidationError(review, message) {
 
 function applyReviewedTable2Rows(get, review) {
   const rows = readReviewedTable2Rows(review);
-  get('table2').value = table2RowsToText(rows);
+  renderTableEditorRows(get, 'table2', rows);
   hideTable2OcrPanel(get);
   setTable2OcrStatus(get, `Applied ${rows.length} row(s) to Table 2`, 'ok');
 }
@@ -438,6 +608,7 @@ async function importTable2ImageFromOcr(imageFile, get) {
   showTable2OcrPanel(get, '<div class="p3d-ocr-banner p3d-ocr-info">Loading Tesseract.js from CDN for OCR.</div>');
   setTable2OcrStatus(get, 'Loading OCR engine', '');
   const failures = [];
+  const successes = [];
   try {
     for (const attempt of TABLE2_OCR_ATTEMPTS) {
       setTable2OcrStatus(get, `Trying ${attempt.label}`, '');
@@ -458,12 +629,7 @@ async function importTable2ImageFromOcr(imageFile, get) {
           if (!ocrDebug?.text) throw wordError;
           parsed = parseTable2OcrText(ocrDebug.text);
         }
-        parsed.warnings = [
-          { code: 'ocr_table2_attempt_used', message: `Parsed using ${attempt.label}. Review all values before applying.` },
-          ...(parsed.warnings || []),
-        ];
-        renderTable2OcrReview(get, parsed);
-        return;
+        successes.push({ attempt, result: parsed, score: scoreTable2OcrResult(parsed) });
       } catch (error) {
         failures.push({
           label: attempt.label,
@@ -472,6 +638,11 @@ async function importTable2ImageFromOcr(imageFile, get) {
           debug: ocrDebug,
         });
       }
+    }
+    const bestResult = buildTable2OcrBestResult(successes);
+    if (bestResult) {
+      renderTable2OcrReview(get, bestResult);
+      return;
     }
     const error = new Error('Table 2 OCR failed for normal and rotated image orientations.');
     error.details = { attempts: failures };
@@ -629,76 +800,64 @@ function wireTableXOcrImport(dialog, get) {
 }
 
 function runConversion(host, get, state) {
+  try {
+    syncEditableTablesToText(get);
     const table1Text = get('table1').value;
     const table2Text = get('table2').value;
     const table3Text = get('table3').value;
     const branchInfo = readBranchInfo(get);
 
+    const errorEl = host.querySelector('[data-p3d="error-message"]');
+    if (errorEl) errorEl.style.display = 'none';
+
+    if (!table1Text.trim()) {
+      if (errorEl) {
+        errorEl.innerHTML = `<div style="color:#fca5a5;padding:20px;font-family:monospace;font-size:14px;background:#2a1111;border:1px solid #7f1d1d;border-radius:4px;">Error: Table 1 input is empty.<br><br>Please click "New (Load Sample)" to load sample data, or paste your own data into the text areas before clicking Run.</div>`;
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+
     const table1Points = parseTable1(table1Text);
     const table1OutputText = table1ToTabText(table1Points);
     const sheets = groupPointsIntoSheets(table1Points);
-    const keyPlanSvg = renderKeyPlanSvg(table1Points, sheets);
+    const legendHtml = buildKeyPlanLegendHtml(table1Points, sheets);
     const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
     const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
     const coordinateText = coordinateRowsToTabText(coordinateRows);
     const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
+    const markerPoints = buildCanvasMarkerPoints(combined, table3Text);
 
     state.table1OutputText = table1OutputText;
     state.coordinateText = coordinateText;
     state.xmlText = xmlText;
-    host.querySelector('[data-p3d="keyplan"]').innerHTML = keyPlanSvg;
+
+    const legendEl = host.querySelector('[data-p3d="keyplan-legend"]');
+    if (legendEl) { legendEl.innerHTML = legendHtml; legendEl.hidden = !legendHtml; }
     host.querySelector('[data-p3d="table1-output"]').textContent = table1OutputText;
     host.querySelector('[data-p3d="coordinate-output"]').textContent = coordinateText;
     host.querySelector('[data-p3d="xml-output"]').textContent = xmlText;
 
-    const svg = host.querySelector('[data-p3d="keyplan"] svg');
-    const layer = host.querySelector('#p3d-pz-layer');
-    if (svg && layer) {
-      let isPanning = false, startPoint = { x: 0, y: 0 }, viewBox = svg.viewBox.baseVal;
-      let currentScale = 1;
-      svg.addEventListener('mousedown', (e) => {
-        isPanning = true;
-        startPoint = { x: e.clientX, y: e.clientY };
-      });
-      svg.addEventListener('mousemove', (e) => {
-        if (!isPanning) return;
-        const dx = (startPoint.x - e.clientX) * (viewBox.width / svg.clientWidth);
-        const dy = (startPoint.y - e.clientY) * (viewBox.height / svg.clientHeight);
-        viewBox.x += dx; viewBox.y += dy;
-        startPoint = { x: e.clientX, y: e.clientY };
-      });
-      svg.addEventListener('mouseup', () => isPanning = false);
-      svg.addEventListener('mouseleave', () => isPanning = false);
-      svg.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const zoom = Math.exp(e.deltaY * 0.001);
-        const mx = e.offsetX * (viewBox.width / svg.clientWidth) + viewBox.x;
-        const my = e.offsetY * (viewBox.height / svg.clientHeight) + viewBox.y;
-        viewBox.x = mx - (mx - viewBox.x) * zoom;
-        viewBox.y = my - (my - viewBox.y) * zoom;
-        viewBox.width *= zoom; viewBox.height *= zoom;
-        currentScale *= zoom;
-        layer.style.strokeWidth = `${1 / currentScale}`;
-      });
+    const canvas = host.querySelector('[data-p3d="canvas-keyplan"]');
+    if (canvas) {
       let tooltip = host.querySelector('.p3d-tooltip');
       if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.className = 'p3d-tooltip';
         host.appendChild(tooltip);
       }
-      svg.addEventListener('mousemove', (e) => {
-        if (e.target.tagName === 'circle' && e.target.dataset.coord) {
-          tooltip.textContent = `[${e.target.dataset.coord}]`;
-          tooltip.style.left = `${e.pageX + 10}px`;
-          tooltip.style.top = `${e.pageY + 10}px`;
-          tooltip.style.display = 'block';
-        } else {
-          tooltip.style.display = 'none';
-        }
-      });
-      svg.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+      paintKeyPlanCanvas(canvas, table1Points, sheets, tooltip, markerPoints);
     }
+  } catch (err) {
+    const errorEl = host.querySelector('[data-p3d="error-message"]');
+    if (errorEl) {
+      errorEl.innerHTML = `<div style="color:#fca5a5;padding:10px;font-family:monospace;font-size:12px;background:#2a1111;border:1px solid #7f1d1d;border-radius:4px;">Run error: ${h(String(err?.message || err))}</div>`;
+      errorEl.style.display = 'block';
+    }
+    // eslint-disable-next-line no-console
+    console.error('[Pipeline3D] runConversion error:', err);
   }
+}
 
 function closePopup(modal, onClose) {
   modal.remove();
@@ -722,6 +881,7 @@ function mountPopup(root, onClose) {
   const get = (name) =>
     name.startsWith('field-') ? dialog.querySelector(`[data-p3d-field="${name.slice(6)}"]`) : dialog.querySelector(`[data-p3d="${name}"]`);
 
+  paintKeyPlanCanvas(get('canvas-keyplan'), [], [], null, []);
   dialog.querySelector('[data-p3d-close="1"]').addEventListener(ACTIVATE, () => closePopup(modal, onClose));
   modal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closePopup(modal, onClose);
@@ -732,6 +892,10 @@ function mountPopup(root, onClose) {
 
   applyConfigValues(get, loadConfigValues());
   wireConfigPersistence(dialog, get);
+  renderTableEditorFromText(get, 'table2');
+  renderTableEditorFromText(get, 'table3');
+  wireEditableTable(get, 'table2');
+  wireEditableTable(get, 'table3');
   wireTable2OcrImport(dialog, get);
   wireTableXOcrImport(dialog, get);
 
@@ -739,6 +903,8 @@ function mountPopup(root, onClose) {
     get('table1').value = SAMPLE_TABLE_1;
     get('table2').value = SAMPLE_TABLE_2;
     get('table3').value = SAMPLE_TABLE_3;
+    renderTableEditorFromText(get, 'table2');
+    renderTableEditorFromText(get, 'table3');
   });
   dialog.querySelector('[data-p3d="new-multisheet"]').addEventListener(ACTIVATE, () => {
     get('table1').value = SAMPLE_TABLE_1_MULTISHEET;

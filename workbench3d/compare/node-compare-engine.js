@@ -12,6 +12,8 @@
  */
 
 import { CONTRACT_VERSIONS, DIFF_STATUS, CONFIDENCE } from '../contracts/contracts.js';
+import { loadDeltaBetween } from '../tablexml/load-cases.js';
+import { measureDeltaBetween } from '../tablexml/measures.js';
 
 export const DEFAULT_NODE_COMPARE_CONFIG = Object.freeze({
   positionToleranceMm: 100,
@@ -23,7 +25,15 @@ export const DEFAULT_NODE_COMPARE_CONFIG = Object.freeze({
   tagWeight: 20,
   boreWeight: 15,
   supportWeight: 20,
+  // Key ladder (vision doc): reference id first, then support id, then spatial.
+  useReferenceKey: true,
+  useIdKey: true,
 });
+
+/** Revision-context props excluded from PROPERTY_CHANGED classification. */
+const METADATA_PROPS = Object.freeze(new Set(['REVISION', 'REMARKS', 'FLAGS']));
+/** Measure props are reported as a delta, not as a raw property change. */
+const isMeasureKey = (key) => key.startsWith('MEASURE_') || /^LC\d+_/.test(key);
 
 function nodeCoordOf(graph, object) {
   const node = graph.nodes.find((n) => n.nodeId === object.fromNode);
@@ -108,23 +118,72 @@ export function runNodeCompare(graphA, graphB, userConfig = {}, manualOverrides 
   const config = { ...DEFAULT_NODE_COMPARE_CONFIG, ...userConfig };
   const objA = new Map(graphA.objects.map((o) => [o.objectId, o]));
   const objB = new Map(graphB.objects.map((o) => [o.objectId, o]));
-  const allPairs = matchNodes(graphA, graphB, config);
 
   const leftoverSource = new Set(graphA.objects.map((o) => o.objectId));
   const leftoverTarget = new Set(graphB.objects.map((o) => o.objectId));
   const matchRecords = [];
   const ambiguousRecords = [];
-  const candidateRows = allPairs.map((p) => ({
-    contract: CONTRACT_VERSIONS.MatchCandidate,
-    sourceObjectId: p.sourceObjectId,
-    targetObjectId: p.targetObjectId,
-    score: p.pair.score,
-    reasons: p.pair.reasons,
-    conflicts: p.pair.conflicts,
-    breakdown: p.pair.breakdown,
-    origin: 'node-grid',
-    selected: false,
-  }));
+  const candidateRows = [];
+
+  // ── Tier 1/2: key ladder — reference id, then support/node id. Keys match
+  //    globally (no spatial gate), so moved-but-same-reference nodes survive.
+  const keyTiers = [];
+  if (config.useReferenceKey) keyTiers.push(['key-ref', 'reference', (o) => String(o.properties?.REF ?? '').trim()]);
+  if (config.useIdKey) keyTiers.push(['key-id', 'support id', (o) => String(o.fromNode ?? '').trim()]);
+  for (const [via, label, keyFn] of keyTiers) {
+    const groupByKey = (graph, leftovers) => {
+      const map = new Map();
+      for (const object of graph.objects) {
+        if (!leftovers.has(object.objectId)) continue;
+        const key = keyFn(object);
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(object);
+      }
+      return map;
+    };
+    const srcByKey = groupByKey(graphA, leftoverSource);
+    const tgtByKey = groupByKey(graphB, leftoverTarget);
+    for (const [key, srcList] of srcByKey) {
+      const tgtList = tgtByKey.get(key);
+      // Only unique 1:1 keys match here; duplicates fall through to spatial.
+      if (srcList.length !== 1 || !tgtList || tgtList.length !== 1) continue;
+      const source = srcList[0];
+      const target = tgtList[0];
+      const pair = scoreNodePair(source, target, nodeCoordOf(graphA, source), nodeCoordOf(graphB, target), config);
+      pair.reasons.unshift(`${label} key equal: ${key}`);
+      matchRecords.push({ sourceObjectId: source.objectId, targetObjectId: target.objectId, pair, via, gap: 100, nextBestScore: 0 });
+      leftoverSource.delete(source.objectId);
+      leftoverTarget.delete(target.objectId);
+      candidateRows.push({
+        contract: CONTRACT_VERSIONS.MatchCandidate,
+        sourceObjectId: source.objectId,
+        targetObjectId: target.objectId,
+        score: pair.score,
+        reasons: pair.reasons,
+        conflicts: pair.conflicts,
+        breakdown: pair.breakdown,
+        origin: via,
+        selected: true,
+      });
+    }
+  }
+
+  // ── Tier 3: spatial-grid evidence matching for the rest ────────────────
+  const allPairs = matchNodes(graphA, graphB, config);
+  for (const p of allPairs) {
+    candidateRows.push({
+      contract: CONTRACT_VERSIONS.MatchCandidate,
+      sourceObjectId: p.sourceObjectId,
+      targetObjectId: p.targetObjectId,
+      score: p.pair.score,
+      reasons: p.pair.reasons,
+      conflicts: p.pair.conflicts,
+      breakdown: p.pair.breakdown,
+      origin: 'node-grid',
+      selected: false,
+    });
+  }
 
   for (const cand of allPairs) {
     if (!leftoverSource.has(cand.sourceObjectId) || !leftoverTarget.has(cand.targetObjectId)) continue;
@@ -190,7 +249,9 @@ export function runNodeCompare(graphA, graphB, userConfig = {}, manualOverrides 
     const target = objB.get(record.targetObjectId);
     const changed = [];
     const keys = new Set([...Object.keys(source.properties), ...Object.keys(target.properties)]);
+    const ignored = new Set(config.ignoredProps ?? []);
     for (const key of keys) {
+      if (METADATA_PROPS.has(key) || isMeasureKey(key) || ignored.has(key)) continue; // reported as deltas or excluded by the role-map audit
       const a = source.properties[key] ?? '';
       const b = target.properties[key] ?? '';
       if (String(a) !== String(b)) changed.push({ property: key, sourceValue: a, targetValue: b });
@@ -198,13 +259,20 @@ export function runNodeCompare(graphA, graphB, userConfig = {}, manualOverrides 
     const supA = supportKinds(source).join('+');
     const supB = supportKinds(target).join('+');
     if (supA !== supB) changed.push({ property: 'SUPPORTS', sourceValue: supA, targetValue: supB });
-    const confidence = record.via === 'manual-override' ? CONFIDENCE.HIGH
+    const confidence = record.via === 'manual-override' || String(record.via).startsWith('key')
+      ? CONFIDENCE.HIGH
       : record.gap < config.ambiguityGap ? CONFIDENCE.NONE
         : record.pair.score >= config.highConfidenceScore ? CONFIDENCE.HIGH
           : record.pair.score >= config.mediumConfidenceScore ? CONFIDENCE.MEDIUM : CONFIDENCE.LOW;
+    const reasons = [...record.pair.reasons];
+    const flags = [...new Set([source.properties.FLAGS, target.properties.FLAGS].filter(Boolean).flatMap((f) => String(f).split('|')))];
+    if (flags.length) reasons.push(`remarks flags: ${flags.join(', ')}`);
+    const loadDelta = loadDeltaBetween(source.properties, target.properties);
+    const measureDelta = measureDeltaBetween(source.properties, target.properties);
+    const hasMeasureChange = measureDelta && measureDelta.maxDeltaPct > 0.01;
     diffRows.push({
       diffId: `D${(diffSeq += 1)}`,
-      status: changed.length ? DIFF_STATUS.PROPERTY_CHANGED : DIFF_STATUS.MATCHED_UNCHANGED,
+      status: (changed.length || hasMeasureChange) ? DIFF_STATUS.PROPERTY_CHANGED : DIFF_STATUS.MATCHED_UNCHANGED,
       sourceObjectId: record.sourceObjectId,
       targetObjectId: record.targetObjectId,
       score: record.pair.score,
@@ -212,12 +280,16 @@ export function runNodeCompare(graphA, graphB, userConfig = {}, manualOverrides 
       scoreGap: record.gap,
       confidence,
       via: record.via,
-      reasons: record.pair.reasons,
+      reasons,
       conflicts: record.pair.conflicts,
       breakdown: record.pair.breakdown,
       changedProperties: changed,
       geometryIssue: null,
       positionDeltaMm: record.pair.positionDeltaMm,
+      loadDeltaPct: loadDelta ? loadDelta.maxDeltaPct : undefined,
+      measureDeltaPct: measureDelta ? measureDelta.maxDeltaPct : undefined,
+      measures: measureDelta ? measureDelta.measures : undefined,
+      remarkFlags: flags,
     });
   }
   for (const amb of ambiguousRecords) {
@@ -288,11 +360,18 @@ export function runNodeCompare(graphA, graphB, userConfig = {}, manualOverrides 
     registrationResidualMaxMm: null,
     registrationResidualAvgMm: null,
     maxPositionDeltaMm: Math.max(0, ...matchedRows.map((r) => r.positionDeltaMm ?? 0)),
+    keyMatchedElements: matchedRows.filter((r) => String(r.via).startsWith('key')).length,
+    loadChangedElements: matchedRows.filter((r) => (r.loadDeltaPct ?? 0) > 0.01).length,
+    maxLoadDeltaPct: Math.max(0, ...matchedRows.map((r) => r.loadDeltaPct ?? 0)),
+    measureChangedElements: matchedRows.filter((r) => (r.measureDeltaPct ?? 0) > 0.01).length,
+    maxMeasureDeltaPct: Math.max(0, ...matchedRows.map((r) => r.measureDeltaPct ?? 0)),
+    remarkFlaggedElements: matchedRows.filter((r) => r.remarkFlags?.length).length,
   };
 
   return {
     contract: CONTRACT_VERSIONS.CompareAudit,
     compareKind: 'node-wise',
+    profileId: config.profileId ?? null,
     generatedAt: new Date().toISOString(),
     config,
     sourceModelId: graphA.modelId,

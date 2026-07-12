@@ -14,8 +14,10 @@ import {
   NODESET_FIELDS, NODESET_GRAINS, suggestRoles, createNodeSetMapping, updateMappingColumn,
   mappingLinks, validateMapping, dynamicFields,
 } from '../tablexml/column-mapper.js';
+import { detectProfile, profileRoleHints } from '../core/profiles.js';
 import { resolveGroups } from '../tablexml/grouping-resolver.js';
-import { buildNodeSetModel, serializeNodeSetXml } from '../tablexml/nodeset-builder.js';
+import { buildNodeSetModel, serializeNodeSetXml, discoverRevisions } from '../tablexml/nodeset-builder.js';
+import { detectLoadCaseGroups } from '../tablexml/load-cases.js';
 import { downloadFile } from '../apply/exporters.js';
 
 function esc(value) {
@@ -75,11 +77,16 @@ function columnsCard(table, customRules) {
     </tr>`;
   }).join('');
   const errors = validateMapping(table.mapping);
+  const loadCases = detectLoadCaseGroups(table.mapping.columns.filter((c) => c.role === 'load'));
+  const loadInfo = loadCases.length
+    ? `<span class="wb3d-badge">Load cases: ${loadCases.map((lc) => `${lc.caseId}(${lc.components.map((c) => c.component).join(',')})`).join(' ')}</span>`
+    : '';
   return `
   <section class="wb3d-card">
     <h3>2 · Columns & roles <span class="wb3d-muted">detected values → NodeSet fields; numbers extracted smartly (prefix/suffix/units)</span></h3>
     <div class="wb3d-toolbar"><button class="wb3d-btn" data-action="txml-autodetect">Auto-detect roles</button>
-      ${errors.length ? `<span class="wb3d-badge is-bad">${esc(errors[0])}</span>` : '<span class="wb3d-badge is-ok">mapping valid</span>'}</div>
+      ${errors.length ? `<span class="wb3d-badge is-bad">${esc(errors[0])}</span>` : '<span class="wb3d-badge is-ok">mapping valid</span>'}
+      ${loadInfo}</div>
     <div class="wb3d-table-wrap"><table>
       <thead><tr><th>Column</th><th>Samples</th><th>Role</th><th>Unit</th><th>Prop name</th><th>Extract preview</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
@@ -163,9 +170,19 @@ function mappingCanvasCard(table) {
 function generateCard(tx, table) {
   if (!table.mapping) return '';
   const otherSide = tx.active === 'source' ? 'target' : 'source';
+  // Multi-revision register: offer a one-click Rev A → Rev B pair.
+  const revisions = table.parsed ? discoverRevisions(table.parsed, table.mapping) : [];
+  const revPair = revisions.length >= 2 ? `
+    <div class="wb3d-toolbar">
+      <span class="wb3d-badge">Revisions detected: ${revisions.map(esc).join(', ')}</span>
+      <label>Source rev <select data-txml-rev-a>${revisions.map((r) => `<option ${r === (table.revA ?? revisions[0]) ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
+      <label>Target rev <select data-txml-rev-b>${revisions.map((r) => `<option ${r === (table.revB ?? revisions[revisions.length - 1]) ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
+      <button class="wb3d-btn wb3d-btn-primary" data-action="txml-revpair-load">Generate Rev pair → compare</button>
+    </div>` : '';
   return `
   <section class="wb3d-card">
     <h3>5 · Generate NodeSet XML</h3>
+    ${revPair}
     <div class="wb3d-toolbar">
       <button class="wb3d-btn wb3d-btn-primary" data-action="txml-generate">Generate ${esc(tx.active)} XML</button>
       ${table.xml ? `<button class="wb3d-btn" data-action="txml-download">Download</button>
@@ -204,7 +221,8 @@ function reparse(state, table) {
   // before the shared line-based parser sees the text.
   const previous = table.mapping;
   table.parsed = parseTableSource(prepareTableText(table.text), { sourceId: state.tablexml.active === 'source' ? 'T1' : 'T2', sourceName: table.name || `Table-${state.tablexml.active === 'source' ? 1 : 2}` });
-  const roles = suggestRoles(table.parsed);
+  const profileId = state.profileOverride ?? detectProfile({ headers: table.parsed.headers });
+  const roles = suggestRoles(table.parsed, profileRoleHints(profileId));
   table.mapping = createNodeSetMapping(table.parsed, roles);
   // Preserve the user's manual role/unit/prop assignments for columns that
   // still exist, plus grain and grouping settings.
@@ -248,7 +266,8 @@ export function handleTableToXmlClick(state, btn, customRules = []) {
   if (action === 'txml-parse') { reparse(state, table); return true; }
   if (action === 'txml-autodetect') {
     if (!table.parsed) return true;
-    const roles = suggestRoles(table.parsed);
+    const profileId = state.profileOverride ?? detectProfile({ headers: table.parsed.headers });
+    const roles = suggestRoles(table.parsed, profileRoleHints(profileId));
     for (const [columnId, role] of Object.entries(roles)) table.mapping = updateMappingColumn(table.mapping, columnId, { role });
     return true;
   }
@@ -316,11 +335,40 @@ export function handleTableToXmlInput(state, target) {
   if (unit !== undefined) { table.mapping = updateMappingColumn(table.mapping, unit, { unit: target.value }); return true; }
   const propName = target.dataset?.txmlPropname;
   if (propName !== undefined) { table.mapping = updateMappingColumn(table.mapping, propName, { propName: target.value }); return false; }
+  if (target.matches?.('[data-txml-rev-a]')) { table.revA = target.value; return false; }
+  if (target.matches?.('[data-txml-rev-b]')) { table.revB = target.value; return false; }
   if (target.matches?.('[data-txml-grain]')) { table.mapping.grain = target.value; return true; }
   if (target.matches?.('[data-txml-group-enabled]')) { table.mapping.grouping.enabled = target.checked; return true; }
   if (target.matches?.('[data-txml-group-tol]')) { table.mapping.grouping.toleranceMm = Number(target.value) || 2; return false; }
   if (target.matches?.('[data-txml-group-sep]')) { table.mapping.grouping.separator = target.value || '|'; return false; }
   return false;
+}
+
+/**
+ * Build source+target NodeSet XML from ONE multi-revision table (W3.1).
+ * @returns { sourceXml, targetXml, revA, revB, sourceNodes, targetNodes, diagnostics }
+ */
+export function generateRevisionPair(state, customRules = []) {
+  const table = activeTable(state);
+  if (!table.parsed || !table.mapping) throw new Error('Parse the table first.');
+  const revisions = discoverRevisions(table.parsed, table.mapping);
+  if (revisions.length < 2) throw new Error('Need a mapped revision column with at least two revision values.');
+  const revA = table.revA ?? revisions[0];
+  const revB = table.revB ?? revisions[revisions.length - 1];
+  if (revA === revB) throw new Error('Source and target revisions must differ.');
+  const sourceModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revA}`, { revisionFilter: revA });
+  const targetModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revB}`, { revisionFilter: revB });
+  if (!sourceModel.nodes.length) throw new Error(`Revision ${revA} produced no nodes (check coordinate mapping).`);
+  if (!targetModel.nodes.length) throw new Error(`Revision ${revB} produced no nodes (check coordinate mapping).`);
+  return {
+    sourceXml: serializeNodeSetXml(sourceModel),
+    targetXml: serializeNodeSetXml(targetModel),
+    revA,
+    revB,
+    sourceNodes: sourceModel.nodes.length,
+    targetNodes: targetModel.nodes.length,
+    diagnostics: [...sourceModel.diagnostics, ...targetModel.diagnostics],
+  };
 }
 
 export async function handleTableToXmlFile(state, input) {

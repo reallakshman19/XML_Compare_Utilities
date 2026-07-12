@@ -35,8 +35,17 @@ import { runNodeCompare } from '../compare/node-compare-engine.js';
 import { buildHeatmapOverrides } from '../viewer/heatmap.js';
 import {
   tableToXmlSection, handleTableToXmlClick, handleTableToXmlInput, handleTableToXmlFile,
-  ensureTablexmlState, autoParseActiveTable,
+  ensureTablexmlState, autoParseActiveTable, generateRevisionPair,
 } from './table-to-xml-tab.js';
+import { createDrilldownContext, resolveDrilldownRows, drilldownDomainFor, DRILLDOWN_CSV_COLUMNS } from './drilldown.js';
+import { previewDrawerHtml } from './preview-drawer.js';
+import { buildDashboardModels, dashboardViewHtml } from './dashboard-panel.js';
+import { nodeWorkspaceHtml } from './node-workspace-panel.js';
+import { evidencePanelHtml, connectorLedgerHtml } from './evidence-panel.js';
+import { buildEvidenceModel, connectorLedgerModel, CONNECTOR_LEDGER_CSV_COLUMNS } from './evidence-view-models.js';
+import { setupBannerHtml, setupWizardModel } from './setup-wizard.js';
+import { roleMapAuditHtml } from './role-map-audit.js';
+import { detectProfile } from '../core/profiles.js';
 import { validateCompareAudit, DIFF_STATUS, APPROVAL_STATUS, TRANSFER_RULES, CONFIDENCE } from '../contracts/contracts.js';
 
 const STATE_KEY = '__workbench3dState';
@@ -61,6 +70,15 @@ function ensureState(container) {
       panelColumnPicker: null,
       activeView: 'compare',
       nodeInfo: null,
+      drilldown: null,
+      dashboardGroupBy: 'line',
+      dashboardModels: null,
+      nodeVizMode: 'map',
+      evidenceDiffId: null,
+      profileOverride: null,
+      wizardDismissed: false,
+      wizardPinned: false,
+      ignoredProps: [],
       status: 'Load a source and target XML/InputXML, then run compare.',
     };
   }
@@ -106,14 +124,19 @@ function isNodeCompare(state) {
 
 function runComparePipeline(state) {
   rebuildGraphs(state);
+  const profileId = state.profileOverride
+    ?? detectProfile({ schema: state.graphs.sourceSchema, headers: state.tablexml?.tables?.[state.tablexml.active]?.parsed?.headers ?? [] });
+  const ignoredProps = state.ignoredProps ?? [];
   state.audit = isNodeCompare(state)
-    ? runNodeCompare(state.graphs.A, state.graphs.B, state.config.nodeCompare ?? {}, state.manualOverrides)
-    : runCompare(state.graphs.A, state.graphs.B, state.config, state.manualOverrides);
+    ? runNodeCompare(state.graphs.A, state.graphs.B, { ...(state.config.nodeCompare ?? {}), profileId, ignoredProps }, state.manualOverrides)
+    : runCompare(state.graphs.A, state.graphs.B, { ...state.config, ignoredProps }, state.manualOverrides);
   const contractErrors = validateCompareAudit(state.audit);
   if (contractErrors.length) throw new Error(`CompareAudit contract violation: ${contractErrors[0]}`);
   state.plan = null;
   state.applyResult = null;
   state.selection = null;
+  state.evidenceDiffId = null;
+  state.drilldown = null;
   state.status = `Compared ${state.audit.summary.sourceCanonicalElements} source vs ${state.audit.summary.targetCanonicalElements} target canonical element(s): ${state.audit.summary.matchedElements} matched, ${state.audit.summary.ambiguousElements} ambiguous, ${state.audit.summary.conflictCount} conflict row(s).`;
 }
 
@@ -242,6 +265,12 @@ function dashboardSection(state) {
       ${plain('Reg residual max', s.registrationResidualMaxMm ?? 'n/a')}
       ${plain('Transfer-ready elems', readiness.ready)}
       ${plain('Transfer-blocked elems', readiness.blocked)}
+      ${s.keyMatchedElements !== undefined ? plain('Key-matched (ref/id)', s.keyMatchedElements) : ''}
+      ${s.loadChangedElements !== undefined ? plain('Load changed', s.loadChangedElements) : ''}
+      ${s.maxLoadDeltaPct !== undefined ? plain('Max load Δ %', s.maxLoadDeltaPct) : ''}
+      ${s.measureChangedElements ? plain('Measure changed', s.measureChangedElements) : ''}
+      ${s.maxMeasureDeltaPct ? plain('Max measure Δ %', s.maxMeasureDeltaPct) : ''}
+      ${s.remarkFlaggedElements !== undefined ? plain('Remark flagged', s.remarkFlaggedElements) : ''}
     </div>
   </section>`;
 }
@@ -261,6 +290,30 @@ function buildAlerts(state) {
   if (s.lowConfidenceElements > 0) alerts.push({ severity: 'MEDIUM', rule: 'WEAK_MATCH', message: `${s.lowConfidenceElements} match(es) at LOW confidence.`, isolateIds: idsWhere((r) => r.confidence === 'LOW') });
   if (s.evidenceConflictElements > 0) alerts.push({ severity: 'MEDIUM', rule: 'EVIDENCE_CONFLICT', message: `${s.evidenceConflictElements} match(es) carry conflicting evidence.`, isolateIds: [] });
   if (s.missingInTarget > 0) alerts.push({ severity: 'MEDIUM', rule: 'MISSING_IN_TARGET', message: `${s.missingInTarget} source element(s) have no target counterpart.`, isolateIds: idsWhere((r) => r.status === DIFF_STATUS.MISSING_IN_TARGET) });
+  if ((s.loadChangedElements ?? 0) > 0) {
+    alerts.push({
+      severity: (s.maxLoadDeltaPct ?? 0) >= 25 ? 'HIGH' : 'MEDIUM',
+      rule: 'LOAD_CHANGED',
+      message: `${s.loadChangedElements} node(s) have load changes (max Δ ${s.maxLoadDeltaPct?.toFixed?.(0) ?? '?'}%).`,
+      isolateIds: idsWhere((r) => (r.loadDeltaPct ?? 0) > 0.01),
+    });
+  }
+  if ((s.remarkFlaggedElements ?? 0) > 0) {
+    alerts.push({
+      severity: 'MEDIUM',
+      rule: 'REMARK_FLAGS',
+      message: `${s.remarkFlaggedElements} node(s) carry remark flags (line/PS change, hold removed, …).`,
+      isolateIds: idsWhere((r) => r.remarkFlags?.length),
+    });
+  }
+  if ((s.measureChangedElements ?? 0) > 0) {
+    alerts.push({
+      severity: (s.maxMeasureDeltaPct ?? 0) >= 25 ? 'HIGH' : 'MEDIUM',
+      rule: 'MEASURE_CHANGED',
+      message: `${s.measureChangedElements} node(s) have measure changes (max Δ ${s.maxMeasureDeltaPct?.toFixed?.(0) ?? '?'}%).`,
+      isolateIds: idsWhere((r) => (r.measureDeltaPct ?? 0) > 0.01),
+    });
+  }
   const blockedRows = (state.plan?.rows ?? []).filter((r) => r.approval === APPROVAL_STATUS.BLOCKED);
   if (blockedRows.length) alerts.push({ severity: 'MEDIUM', rule: 'TRANSFER_BLOCKED', message: `${blockedRows.length} transfer row(s) blocked by rule/confidence gates.`, isolateIds: [...new Set(blockedRows.map((r) => r.targetObjectId))] });
   if (state.audit.pathAudit.unmatchedSourcePaths.length || state.audit.pathAudit.unmatchedTargetPaths.length) {
@@ -520,7 +573,9 @@ function tablesSection(state) {
     <summary><h3>Normalization audit <span class="wb3d-muted">consumed short/zero elements</span></h3></summary>
     <h4>Source</h4>${tableHtml([['elementName', 'Element'], ['fromTo', 'FROM→TO'], ['retainedNode', 'Retained'], ['droppedNode', 'Dropped'], ['lengthMm', 'Len mm'], ['packetEvidence', 'Packets'], ['action', 'Action']], state.audit.normalization.source.consumedRows)}
     <h4>Target</h4>${tableHtml([['elementName', 'Element'], ['fromTo', 'FROM→TO'], ['retainedNode', 'Retained'], ['droppedNode', 'Dropped'], ['lengthMm', 'Len mm'], ['packetEvidence', 'Packets'], ['action', 'Action']], state.audit.normalization.target.consumedRows)}
-  </details>`;
+  </details>
+  ${roleMapAuditHtml(state)}
+  ${connectorLedgerHtml(state)}`;
 }
 
 function transferSection(state) {
@@ -588,13 +643,41 @@ function fullHtml(state) {
       </div>
       <div class="wb3d-seg" role="group">
         <button class="wb3d-btn ${state.activeView === 'compare' ? 'is-active' : ''}" data-action="set-active-view" data-view="compare">Compare</button>
+        <button class="wb3d-btn ${state.activeView === 'dashboard' ? 'is-active' : ''}" data-action="set-active-view" data-view="dashboard">Dashboard</button>
         <button class="wb3d-btn ${state.activeView === 'table-to-xml' ? 'is-active' : ''}" data-action="set-active-view" data-view="table-to-xml">Table to XML</button>
       </div>
     </header>
     <div class="wb3d-status" data-wb3d-status>${esc(state.status)}</div>
-    ${state.activeView === 'table-to-xml' ? tableToXmlSection(state, state.settings.tablexml.customRules) : compareView}
+    <div data-wb3d-wizard>${state.wizardDismissed ? '' : setupBannerHtml(state)}</div>
+    ${state.activeView === 'table-to-xml' ? tableToXmlSection(state, state.settings.tablexml.customRules)
+    : state.activeView === 'dashboard' ? `<div data-wb3d-dashview>${renderDashboardView(state)}</div>`
+      : compareView}
     <div class="wb3d-panels-layer" data-wb3d-panels>${state.audit ? floatingPanelsHtml(state, floatingPanelRows(state)) : ''}</div>
+    <div data-wb3d-drawer>${previewDrawerHtml(state)}</div>
+    <div data-wb3d-evidence-host>${evidencePanelHtml(state)}</div>
   </div>`;
+}
+
+/** Build + cache dashboard models, return the view HTML (+ node board). */
+function renderDashboardView(state) {
+  state.dashboardModels = state.audit ? buildDashboardModels(state) : null;
+  const styles = effectiveStatusStyles(state.settings, STATUS_STYLES);
+  return dashboardViewHtml(state, state.dashboardModels ?? {}, styles) + nodeWorkspaceHtml(state, styles);
+}
+
+/** Every widget click funnels through here (vision doc D2/D5). */
+function openDrilldown(container, state, { widgetType, title, filter, sourceWidgetId }) {
+  if (!state.audit) return;
+  const context = createDrilldownContext({
+    widgetType,
+    domain: drilldownDomainFor(state.audit),
+    title,
+    filter,
+    sourceWidgetId,
+  });
+  state.drilldown = { context, rows: resolveDrilldownRows(context, state.audit, state.graphs) };
+  const host = container.querySelector('[data-wb3d-drawer]');
+  if (host) host.innerHTML = previewDrawerHtml(state);
 }
 
 function setStatus(container, state, message) {
@@ -618,6 +701,9 @@ function refreshDerivedSections(container, state) {
   set('[data-wb3d-selection]', selectionPanelHtml(state));
   set('[data-wb3d-settings-host]', settingsPanelHtml(state, discoverPacketKinds(state.graphs?.A, state.graphs?.B), effectiveStatusStyles(state.settings, STATUS_STYLES)));
   set('[data-wb3d-panels]', state.audit ? floatingPanelsHtml(state, floatingPanelRows(state)) : '');
+  set('[data-wb3d-drawer]', previewDrawerHtml(state));
+  set('[data-wb3d-evidence-host]', evidencePanelHtml(state));
+  set('[data-wb3d-wizard]', state.wizardDismissed ? '' : setupBannerHtml(state));
   const toggles = container.querySelector('[data-wb3d-panel-toggles]');
   if (toggles) toggles.innerHTML = panelToggleButtonsHtml(state);
   const legend = container.querySelector('.wb3d-legend');
@@ -769,6 +855,19 @@ function bindHandlers(container) {
     const transferConfig = event.target.dataset?.transferConfig;
     if (transferConfig) s.transferConfig[transferConfig] = event.target.value;
     if (event.target.dataset?.action === 'connector-mode') s.viewer?.setConnectorMode(event.target.value);
+    if (event.target.dataset?.action === 'dash-groupby') {
+      s.dashboardGroupBy = event.target.value;
+      const host = container.querySelector('[data-wb3d-dashview]');
+      if (host) host.innerHTML = renderDashboardView(s);
+    }
+    if (event.target.dataset?.action === 'wizard-profile') {
+      s.profileOverride = event.target.value;
+      // profile changes role hints for the table wizard; re-suggest if parsed.
+      const table = s.tablexml?.tables?.[s.tablexml.active];
+      if (table?.parsed && s.activeView === 'table-to-xml') refreshTablexmlSection(container, s);
+      const host = container.querySelector('[data-wb3d-wizard]');
+      if (host) host.innerHTML = s.wizardDismissed ? '' : setupBannerHtml(s);
+    }
 
     // ── settings panel inputs ──────────────────────────────────────────
     const el = event.target;
@@ -863,9 +962,20 @@ function bindHandlers(container) {
 
     if (action === 'toggle-status-filter') {
       const status = btn.dataset.status;
-      if (state.statusFilter.has(status)) state.statusFilter.delete(status);
-      else state.statusFilter.add(status);
+      const turningOn = !state.statusFilter.has(status);
+      if (turningOn) state.statusFilter.add(status);
+      else state.statusFilter.delete(status);
       state.viewer?.setStatusFilter(state.statusFilter);
+      if (turningOn) {
+        openDrilldown(container, state, {
+          widgetType: 'KPI_CARD',
+          title: `${status.replaceAll('_', ' ')} elements`,
+          filter: { status: [status] },
+          sourceWidgetId: `kpi:${status}`,
+        });
+      } else if (state.drilldown?.context.sourceWidgetId === `kpi:${status}`) {
+        state.drilldown = null;
+      }
       refreshDerivedSections(container, state);
     }
 
@@ -882,7 +992,15 @@ function bindHandlers(container) {
 
     if (action === 'isolate-ids') {
       const alert = buildAlerts(state)[Number(btn.dataset.alertIndex)];
-      if (alert?.isolateIds.length) state.viewer?.isolate(new Set(alert.isolateIds));
+      if (alert?.isolateIds.length) {
+        state.viewer?.isolate(new Set(alert.isolateIds));
+        openDrilldown(container, state, {
+          widgetType: 'ALERT',
+          title: alert.message,
+          filter: { objectIds: alert.isolateIds },
+          sourceWidgetId: `alert:${alert.rule}`,
+        });
+      }
     }
 
     if (action === 'isolate-pivot') {
@@ -899,7 +1017,128 @@ function bindHandlers(container) {
           if (id && lineOf.get(id) === line) ids.add(id);
         }
       }
+      if (ids.size) {
+        state.viewer?.isolate(ids);
+        openDrilldown(container, state, {
+          widgetType: 'PIVOT_CELL',
+          title: `${line} · ${status.replaceAll('_', ' ')}`,
+          filter: { status: [status], groupBy: 'line', groupValue: line },
+          sourceWidgetId: `pivot:${line}:${status}`,
+        });
+      }
+    }
+
+    // ── dashboard widgets (W2) — all emit DrilldownContext ─────────────
+    if (action === 'dash-kpi' && state.dashboardModels) {
+      const kpi = state.dashboardModels.kpis[Number(btn.dataset.index)];
+      if (kpi) openDrilldown(container, state, { widgetType: 'KPI_CARD', title: `${kpi.label} (${kpi.value})`, filter: kpi.filter, sourceWidgetId: `dash-kpi:${kpi.id}` });
+    }
+    if (action === 'dash-queue' && state.dashboardModels) {
+      const entry = state.dashboardModels.queue[Number(btn.dataset.index)];
+      if (entry) openDrilldown(container, state, { widgetType: 'KPI_CARD', title: entry.label, filter: entry.filter, sourceWidgetId: `dash-queue:${entry.id}` });
+    }
+    if (action === 'dash-cell' && state.dashboardModels) {
+      const cell = state.dashboardModels.heatmap.cells.get(`${btn.dataset.group}|${btn.dataset.status}`);
+      if (cell) {
+        openDrilldown(container, state, {
+          widgetType: 'HEATMAP_CELL',
+          title: `${btn.dataset.group} · ${btn.dataset.status.replaceAll('_', ' ')}`,
+          filter: { diffIds: cell.diffIds },
+          sourceWidgetId: `dash-cell:${btn.dataset.group}`,
+        });
+      }
+    }
+    if (action === 'dash-card') {
+      openDrilldown(container, state, {
+        widgetType: 'EXCEPTION_CARD',
+        title: `Exception ${btn.dataset.diff}`,
+        filter: { diffIds: [btn.dataset.diff] },
+        sourceWidgetId: `dash-card:${btn.dataset.diff}`,
+      });
+    }
+
+    // ── node visual board (W4) ─────────────────────────────────────────
+    if (action === 'nodeviz-mode') {
+      state.nodeVizMode = btn.dataset.mode;
+      const host = container.querySelector('[data-wb3d-dashview]');
+      if (host) host.innerHTML = renderDashboardView(state);
+    }
+    if (action === 'nodeviz-pick') {
+      try {
+        const { title, filter } = JSON.parse(decodeURIComponent(btn.dataset.pick));
+        openDrilldown(container, state, { widgetType: 'NODE_MARKER', title, filter, sourceWidgetId: 'nodeviz' });
+        if (btn.dataset.object) state.viewer?.isolate(new Set([btn.dataset.object]));
+      } catch { /* malformed pick payload — ignore */ }
+    }
+
+    // ── setup wizard + role-map audit (W6 / W5) ────────────────────────
+    if (action === 'wizard-goto') {
+      state.activeView = btn.dataset.view;
+      renderView(container, state);
+      if (btn.dataset.run === 'run-compare') rerunCompare();
+      return;
+    }
+    if (action === 'wizard-dismiss') {
+      state.wizardDismissed = true;
+      const host = container.querySelector('[data-wb3d-wizard]');
+      if (host) host.innerHTML = '';
+    }
+    if (action === 'role-ignore') {
+      const field = btn.dataset.field;
+      const set = new Set(state.ignoredProps);
+      if (btn.checked) set.add(field); else set.delete(field);
+      state.ignoredProps = [...set];
+      if (state.audit) rerunCompare();
+    }
+
+    // ── full evidence overlay (W5) ─────────────────────────────────────
+    if (action === 'open-evidence') {
+      state.evidenceDiffId = btn.dataset.diff;
+      const host = container.querySelector('[data-wb3d-evidence-host]');
+      if (host) host.innerHTML = evidencePanelHtml(state);
+    }
+    if (action === 'evidence-close') {
+      state.evidenceDiffId = null;
+      const host = container.querySelector('[data-wb3d-evidence-host]');
+      if (host) host.innerHTML = '';
+    }
+    if (action === 'evidence-export' && state.audit) {
+      const model = buildEvidenceModel(state.audit, state.graphs, btn.dataset.diff);
+      if (model) {
+        const lines = [
+          `Evidence,${model.title}`,
+          `Status,${model.status}`,
+          `Confidence,${model.confidence}`,
+          '',
+          'Field,Source A,Target B,Changed',
+          ...model.fields.map((f) => rowsToCsv([f], [['label', ''], ['a', ''], ['b', ''], ['changed', '']]).split('\n')[1]),
+          '',
+          'Delta,Value',
+          ...model.delta.map(([k, v]) => rowsToCsv([{ k, v }], [['k', ''], ['v', '']]).split('\n')[1]),
+          '',
+          'Traceability,Value',
+          ...model.traceability.map(([k, v]) => rowsToCsv([{ k, v }], [['k', ''], ['v', '']]).split('\n')[1]),
+        ];
+        downloadFile(`evidence-${model.diffId}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
+      }
+    }
+    if (action === 'export-connector-ledger' && state.audit) {
+      downloadFile('connector-ledger.csv', rowsToCsv(connectorLedgerModel(state.audit, state.graphs), CONNECTOR_LEDGER_CSV_COLUMNS), 'text/csv;charset=utf-8');
+    }
+
+    // ── drill-down drawer actions (W1) ─────────────────────────────────
+    if (action === 'drilldown-close') {
+      state.drilldown = null;
+      const host = container.querySelector('[data-wb3d-drawer]');
+      if (host) host.innerHTML = '';
+    }
+    if (action === 'drilldown-isolate' && state.drilldown) {
+      const ids = new Set(state.drilldown.rows.flatMap((r) => r.relatedIds));
       if (ids.size) state.viewer?.isolate(ids);
+    }
+    if (action === 'drilldown-export' && state.drilldown) {
+      const slug = state.drilldown.context.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'drilldown';
+      downloadFile(`drilldown-${slug}.csv`, rowsToCsv(state.drilldown.rows, DRILLDOWN_CSV_COLUMNS), 'text/csv;charset=utf-8');
     }
 
     if (action === 'isolate-path') {
@@ -1036,6 +1275,22 @@ function bindHandlers(container) {
 
     // ── table-to-xml actions ───────────────────────────────────────────
     if (action?.startsWith('txml-')) {
+      if (action === 'txml-revpair-load') {
+        try {
+          const pair = generateRevisionPair(state, state.settings.tablexml.customRules);
+          state.sourceXml = pair.sourceXml;
+          state.sourceName = `rev-${pair.revA}-nodeset.xml`;
+          state.targetXml = pair.targetXml;
+          state.targetName = `rev-${pair.revB}-nodeset.xml`;
+          state.activeView = 'compare';
+          state.status = `Generated Rev ${pair.revA} (${pair.sourceNodes} node(s)) vs Rev ${pair.revB} (${pair.targetNodes} node(s)) — running node compare…`;
+          renderView(container, state);
+          rerunCompare();
+        } catch (error) {
+          setStatus(container, state, `Revision pair failed: ${error?.message || error}`);
+        }
+        return;
+      }
       if (action === 'txml-load-compare') {
         const tx = ensureTablexmlState(state);
         const table = tx.tables[tx.active];

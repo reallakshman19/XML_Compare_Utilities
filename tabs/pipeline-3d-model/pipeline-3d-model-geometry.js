@@ -66,19 +66,52 @@ function chainGlobalPositions(points) {
   let anchorY = points[0].originY;
   let anchorZ = points[0].originZ;
   let angle = points[0].angleDeg;
-  points.forEach((p, i) => {
-    if (i > 0 && p.angleDeg !== points[i - 1].angleDeg) {
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    if (i > 0 && p.originalAngleDeg !== points[i - 1].originalAngleDeg) {
       const prev = points[i - 1];
-      anchorX = prev.globalX;
-      anchorY = prev.globalY;
-      anchorZ = prev.globalZ;
-      angle = p.angleDeg;
+      const oldAngle = p.originalAngleDeg;
+      let newAngle = p.angleDeg;
+
+      // Force collinearity across sheets: compute the required global angle for the new sheet
+      // so that its first segment aligns with the previous sheet's last segment.
+      if (i >= 2 && i < points.length - 1) {
+        const prevA = points[i - 2];
+        const prevB = points[i - 1];
+        const prevBearing = bearingDeg({ x: prevA.globalX, y: prevA.globalY }, { x: prevB.globalX, y: prevB.globalY });
+
+        const nextA = p;
+        const nextB = points[i + 1];
+        const nextBearingLocal = bearingDeg(nextA, nextB);
+
+        newAngle = normalizeAngleDeg(prevBearing - nextBearingLocal);
+      }
+
+      angle = newAngle;
+      const rad = (angle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      // Match point anchoring: The local point (p.x, p.y) must land exactly on prev.global.
+      anchorX = prev.globalX - (p.x * cos - p.y * sin);
+      anchorY = prev.globalY - (p.x * sin + p.y * cos);
+      anchorZ = prev.globalZ - p.z;
+
+      // Apply the corrected angle to all remaining points in this sheet
+      // to avoid triggering this boundary block again.
+      for (let k = i; k < points.length; k++) {
+        if (points[k].angleDeg === oldAngle) {
+          points[k].angleDeg = newAngle;
+        } else {
+          break;
+        }
+      }
     }
     const { globalX, globalY, globalZ } = rotateAndTranslate(p.x, p.y, p.z, anchorX, anchorY, anchorZ, angle);
     p.globalX = globalX;
     p.globalY = globalY;
     p.globalZ = globalZ;
-  });
+  }
   return points;
 }
 
@@ -141,6 +174,7 @@ function parseAltPointFormat(text) {
     originY: 0,
     originZ: 0,
     angleDeg: 0,
+    originalAngleDeg: 0,
   }));
 }
 
@@ -166,15 +200,25 @@ function pickReferenceSegment(pts, fromStart) {
   return segments[0] || { length: 0, bearing: 0 };
 }
 
+// Compute the rotation angle (degrees) that makes the first segment of
+// `raw` (in its local frame) collinear with the last segment of `prevPts`
+// (already in the global frame). Returns 0 when either side has fewer than
+// 2 points (degenerate — no segment to match against).
+function deriveCollinearAngle(prevPts, raw) {
+  if (prevPts.length < 2 || raw.length < 2) return 0;
+  const pA = prevPts[prevPts.length - 2];
+  const pB = prevPts[prevPts.length - 1];
+  const globalBearing = bearingDeg({ x: pA.globalX, y: pA.globalY }, { x: pB.globalX, y: pB.globalY });
+  const localBearing = bearingDeg(raw[0], raw[1]);
+  return normalizeAngleDeg(globalBearing - localBearing);
+}
+
 // Chains multiple alt-format blocks (sheets) together: sheet 1 is placed as-is
-// (Origin (0,0,0), Angle 0). Every later sheet's Angle is derived — not
-// user-supplied — by matching the bearing of its first real segment (in its
-// own local frame) against the bearing of the previous sheet's last real
-// segment (already in the compounded global frame, so this naturally
-// compounds across any number of sheets without extra bookkeeping). The
-// sheet's anchor (translation) is then solved so its own first point lands
-// exactly on the previous sheet's last computed Global point — the
-// continuity-at-the-match-line assumption.
+// (Origin (0,0,0), Angle 0). Every later sheet's Angle is derived by matching
+// the bearing of its first segment (local frame) to the bearing of the
+// previous sheet's last segment (global frame) so the pipeline is collinear
+// across the sheet boundary. The anchor is then solved so the sheet's first
+// point lands exactly on the previous sheet's last global point.
 function buildMultiSheetTable1(blocks) {
   const points = [];
   blocks.forEach((block, sheetIndex) => {
@@ -186,13 +230,9 @@ function buildMultiSheetTable1(blocks) {
     if (sheetIndex > 0 && raw.length) {
       const prevSheetPoints = points.filter((p) => p.sheetIndex === sheetIndex - 1);
       const prevLast = prevSheetPoints[prevSheetPoints.length - 1];
-      if (prevSheetPoints.length >= 2 && raw.length >= 2) {
-        const rawAngle = 0;
-        angle = 0;
-      }
-      if (prevLast) {
-        const firstLocal = raw[0] || { x: 0, y: 0, z: 0 };
-        const rotatedFirst = rotateAndTranslate(firstLocal.x, firstLocal.y, firstLocal.z, 0, 0, 0, angle);
+      angle = deriveCollinearAngle(prevSheetPoints, raw);
+      if (prevLast && raw[0]) {
+        const rotatedFirst = rotateAndTranslate(raw[0].x, raw[0].y, raw[0].z, 0, 0, 0, angle);
         anchorX = prevLast.globalX - rotatedFirst.globalX;
         anchorY = prevLast.globalY - rotatedFirst.globalY;
         anchorZ = prevLast.globalZ - rotatedFirst.globalZ;
@@ -208,7 +248,7 @@ function buildMultiSheetTable1(blocks) {
         originX: round(anchorX),
         originY: round(anchorY),
         originZ: round(anchorZ),
-        angleDeg: round(angle, 4),
+        angleDeg: round(angle, 4), originalAngleDeg: round(angle, 4),
         globalX,
         globalY,
         globalZ,
@@ -228,8 +268,9 @@ function buildMultiSheetTable1(blocks) {
 export function groupPointsIntoSheets(points) {
   const sheets = [];
   points.forEach((p, i) => {
-    if (i === 0 || p.angleDeg !== points[i - 1].angleDeg) {
-      sheets.push({ sheetIndex: sheets.length, angleDeg: p.angleDeg, startIndex: i, endIndex: i, meta: p.sheetMeta || null });
+    const isNewSheet = i === 0 || (p.sheetIndex !== undefined && p.sheetIndex !== points[i - 1].sheetIndex) || (p.sheetIndex === undefined && p.originalAngleDeg !== points[i - 1].originalAngleDeg);
+    if (isNewSheet) {
+      sheets.push({ sheetIndex: sheets.length, angleDeg: p.originalAngleDeg, startIndex: i, endIndex: i, meta: p.sheetMeta || null });
     } else {
       sheets[sheets.length - 1].endIndex = i;
     }
@@ -266,12 +307,12 @@ export function parseTable1(text) {
     if (numericTokens.length < 3) continue; // needs at least X Y Z
     let x, y, z, originX, originY, originZ, angleDeg;
     if (numericTokens.length >= 7) {
-      [x, y, z, originX, originY, originZ, angleDeg] = numericTokens.slice(-7);
+      [x, y, z, originX, originY, originZ, angleDeg] = numericTokens.slice(0, 7);
     } else if (numericTokens.length === 6) {
-      [x, y, z, originX, originY, originZ] = numericTokens.slice(-6);
+      [x, y, z, originX, originY, originZ] = numericTokens.slice(0, 6);
       angleDeg = 0;
     } else {
-      [x, y, z] = numericTokens.slice(-3);
+      [x, y, z] = numericTokens.slice(0, 3);
       originX = 0;
       originY = 0;
       originZ = 0;
@@ -279,7 +320,7 @@ export function parseTable1(text) {
     }
     const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
     if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
-    points.push({ label, x, y, z, originX, originY, originZ, angleDeg });
+    points.push({ label, x, y, z, originX, originY, originZ, angleDeg, originalAngleDeg: angleDeg });
   }
   return chainGlobalPositions(points);
 }

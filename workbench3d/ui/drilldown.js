@@ -88,17 +88,18 @@ export function resolveDrilldownRows(context, audit, graphs = null) {
       score: row.score ?? null,
       positionDeltaMm: Number.isFinite(row.positionDeltaMm) ? row.positionDeltaMm : null,
       loadDeltaPct: Number.isFinite(row.loadDeltaPct) ? row.loadDeltaPct : null,
+      measureDeltaPct: Number.isFinite(row.measureDeltaPct) ? row.measureDeltaPct : null,
       detail: detailParts.join(' · '),
       objectId: row.sourceObjectId || row.targetObjectId || null,
       relatedIds: [row.sourceObjectId, row.targetObjectId, ...(row.candidateTargetIds ?? [])].filter(Boolean),
     });
   }
-  rows.sort((a, b) => b.severity - a.severity || (b.positionDeltaMm ?? 0) - (a.positionDeltaMm ?? 0) || (b.loadDeltaPct ?? 0) - (a.loadDeltaPct ?? 0));
+  rows.sort((a, b) => b.severity - a.severity || (b.measureDeltaPct ?? 0) - (a.measureDeltaPct ?? 0) || (b.loadDeltaPct ?? 0) - (a.loadDeltaPct ?? 0) || (b.positionDeltaMm ?? 0) - (a.positionDeltaMm ?? 0));
   return rows;
 }
 
 export const DRILLDOWN_CSV_COLUMNS = Object.freeze([
   ['diffId', 'Diff'], ['status', 'Status'], ['source', 'Source'], ['target', 'Target'],
   ['confidence', 'Confidence'], ['score', 'Score'], ['positionDeltaMm', 'Position Δ mm'],
-  ['loadDeltaPct', 'Load Δ %'], ['detail', 'Detail'],
+  ['loadDeltaPct', 'Load Δ %'], ['measureDeltaPct', 'Measure Δ %'], ['detail', 'Detail'],
 ]);

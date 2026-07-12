@@ -26,7 +26,9 @@ export function previewDrawerHtml(state) {
       ${row.confidence && row.confidence !== 'NONE' ? `<span class="wb3d-badge">${esc(row.confidence)}</span>` : ''}
       ${row.positionDeltaMm !== null ? `<span class="wb3d-badge">Δ ${row.positionDeltaMm.toFixed(1)}mm</span>` : ''}
       ${row.loadDeltaPct !== null ? `<span class="wb3d-badge">load Δ ${row.loadDeltaPct.toFixed(0)}%</span>` : ''}
+      ${row.measureDeltaPct !== null ? `<span class="wb3d-badge">measure Δ ${row.measureDeltaPct.toFixed(0)}%</span>` : ''}
       <span class="wb3d-muted wb3d-drawer-detail">${esc(row.detail)}</span>
+      <button class="wb3d-btn wb3d-btn-mini" data-action="open-evidence" data-diff="${esc(row.diffId)}">Evidence</button>
     </div>`).join('');
   return `
   <div class="wb3d-drawer" data-wb3d-drawer-panel>
