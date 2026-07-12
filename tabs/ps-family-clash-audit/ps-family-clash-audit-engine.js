@@ -38,7 +38,7 @@ function createLineFamilyRows(clashRows) {
 
 function createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies, config) {
   const bySource = groupBy(detailRows, (row) => row.sourceFamily || extractFamilyRoot(row.displayName, config));
-  return Array.from(bySource.entries()).map(([source, rows]) => ({ source, posFamilyCount: uniqueSorted(rows.map((row) => row.posFamilyId)).length, elementCount: rows.length, foundElementCount: coverageRows.filter((row) => row.sourceFamily === source && row.found).length, missingElementCount: coverageRows.filter((row) => row.sourceFamily === source && !row.found).length, clashCount: clashRows.filter((row) => row.source.familyRoot === source).length, outOfFamilyCount: clashRows.filter((row) => row.source.familyRoot === source && row.familyStatus === PS_FAMILY_STATUS.OUT_OF_FAMILY).length, posFamilyIds: uniqueSorted(rows.map((row) => row.posFamilyId)), lineFamilies: uniqueSorted(posFamilies.flatMap((family) => family.lineFamilies)), remarks: 'POSFamily count derived from Element Detail CSV.' })).sort((a, b) => a.source.localeCompare(b.source));
+  return Array.from(bySource.entries()).map(([source, rows]) => ({ source, posFamilyCount: uniqueSorted(rows.map((row) => row.posFamilyId)).length, elementCount: rows.length, foundElementCount: coverageRows.filter((row) => row.sourceFamily === source && row.found).length, missingElementCount: coverageRows.filter((row) => row.sourceFamily === source && !row.found).length, clashCount: clashRows.filter((row) => row.source.familyRoot === source).length, outOfFamilyCount: clashRows.filter((row) => row.source.familyRoot === source && row.familyStatus === PS_FAMILY_STATUS.OUT_OF_FAMILY).length, posFamilyIds: uniqueSorted(rows.map((row) => row.posFamilyId)), lineFamilies: uniqueSorted(posFamilies.flatMap((family) => family.lineFamilies)), remarks: 'POSFamily count derived from Element Detail CSV.' })).sort((a, b) => a.source.localeCompare(b));
 }
 
 function createCoverageLookup(clashRows) { const map = new Map(); clashRows.forEach((row) => { if (!row.against.exactMemberKey || map.has(row.against.exactMemberKey)) return; map.set(row.against.exactMemberKey, row); }); return map; }
@@ -50,6 +50,31 @@ function isDirectRestingSupport(contacts, chains, supports) { return contacts.le
 function summaryRemarks(contacts, chains, supports) {
   if (isDirectRestingSupport(contacts, chains, supports)) return 'Direct structural resting support.';
   return contacts.length ? 'Valid structure + supports evidence.' : 'Support chain without StructuralGroup.';
+}
+
+function suffixNumber(value) { const match = String(value || '').match(/\.(\d+)\b/); return match ? Number(match[1]) : Number.POSITIVE_INFINITY; }
+function representativeContact(rows) { return [...rows].sort((a, b) => (/datum/i.test(b.support) ? 1 : 0) - (/datum/i.test(a.support) ? 1 : 0) || suffixNumber(a.support) - suffixNumber(b.support) || a.support.localeCompare(b.support))[0] || null; }
+function coordDistance(a, b) { if (!a || !b) return null; return Math.hypot((a.x ?? 0) - (b.x ?? 0), (a.y ?? 0) - (b.y ?? 0), (a.z ?? 0) - (b.z ?? 0)); }
+function structuralRoot(row) { return row.structuralRoot || extractFamilyRoot(row.structuralGroup || '') || row.psRoot || ''; }
+function proximityContacts(rows, toleranceMm) {
+  const representative = representativeContact(rows);
+  if (!representative?.point) return rows;
+  return rows.filter((row) => { const distance = coordDistance(row.point, representative.point); return distance == null || distance <= toleranceMm; });
+}
+function formatPoint(value) { return value ? `X=${value.x ?? ''};Y=${value.y ?? ''};Z=${value.z ?? ''}` : ''; }
+
+function createStructureLineProximityRows(structureRows, toleranceMm = 250) {
+  const groups = groupBy(structureRows.filter((row) => row.edgeType === 'StructuralContact' && structuralRoot(row) && row.fullLineTag), (row) => `${structuralRoot(row)}|${row.fullLineTag}|${row.branchNode || ''}`);
+  const rows = Array.from(groups.values()).map((items, index) => {
+    const near = proximityContacts(items, toleranceMm);
+    const representative = representativeContact(near) || representativeContact(items);
+    const supports = naturalSort(near.map((row) => row.support));
+    const root = structuralRoot(items[0]);
+    return { no: index + 1, structuralGroupRoot: root, structuralGroupNames: naturalSort(items.map((row) => row.structuralGroup)).join('|'), lineNo: items[0].fullLineTag, lineFamily: items[0].lineFamily, branchNode: items[0].branchNode, supportGroup: items[0].supportGroup, supportsWithin250mm: supports.join('|'), supportCount: supports.length, totalSupportCount: 0, representativeSupport: representative?.support || supports[0] || '', representativeCoordinate: formatPoint(representative?.point), evidenceClashes: naturalSort(near.map((row) => row.clashName)).join('|'), remarks: supports.length === 1 ? 'Direct resting support' : 'Supports within ±250 mm of representative coordinate' };
+  }).sort((a, b) => a.structuralGroupRoot.localeCompare(b.structuralGroupRoot) || a.lineNo.localeCompare(b.lineNo));
+  const totals = new Map();
+  rows.forEach((row) => totals.set(row.structuralGroupRoot, (totals.get(row.structuralGroupRoot) || 0) + row.supportCount));
+  return rows.map((row) => ({ ...row, totalSupportCount: totals.get(row.structuralGroupRoot) || row.supportCount }));
 }
 
 export function buildSupportChangeReports(structureRows = [], supportRows = [], clashRows = []) {
@@ -79,7 +104,7 @@ export function buildSupportChangeReports(structureRows = [], supportRows = [], 
     supports.forEach((support, idx) => memberRows.push({ supportGroup, representativeSupport: representative, support, memberType: 'Support', connectedTo: rows.filter((row) => edgeMembers(row).includes(support) || row.support === support).flatMap((row) => [row.supportA, row.supportB, row.structuralGroup]).filter((item) => item && item !== support), evidenceClashes: rows.filter((row) => edgeMembers(row).includes(support) || row.support === support).map((row) => row.clashName), coverageRole: idx === 0 && covered ? `Covered by ${covered.clashName}` : idx === 0 ? 'Representative' : `Same SupportGroup ${representative}`, remarks: directResting ? 'Direct resting support' : idx === 0 ? 'Representative support' : 'Support chain member' }));
     rows.forEach((row) => { ledgerRows.push({ sourceInput: row.sourceInput, clashName: row.clashName, objectAType: row.objectA?.objectType, objectBType: row.objectB?.objectType, lineFamily: row.lineFamily, branchNode: row.branchNode, supportGroup, distance: row.distance, parsedEdge: row.parsedEdge }); matrixRows.push({ supportGroup, from: row.structuralGroup || row.supportA, to: row.support || row.supportB, edgeType: row.edgeType, clash: row.clashName, sourceInput: row.sourceInput, status: 'Connected' }); });
   });
-  return { supportSummaryRows: summaryRows, lineSupportTreeRows: treeRows, structureContactRows: contactRows, supportChainRows: chainRows, supportMemberRows: memberRows, supportExceptionRows: exceptions, inputEvidenceRows: ledgerRows, connectivityMatrixRows: matrixRows };
+  return { supportSummaryRows: summaryRows, lineSupportTreeRows: treeRows, structureContactRows: contactRows, supportChainRows: chainRows, supportMemberRows: memberRows, supportExceptionRows: exceptions, inputEvidenceRows: ledgerRows, connectivityMatrixRows: matrixRows, structureLineProximityRows: createStructureLineProximityRows(structureRows, 250) };
 }
 
 export function buildPsClashReportRows(psClashRows = [], clashRows = []) { return buildSupportChangeReports([], psClashRows, clashRows).supportMemberRows.map((row) => ({ psClashName: '', source: row.supportGroup, sourceObject: row.support, pipe: '', lineFamily: '', fullLineTag: '', branchNode: '', coverageInClashReport: row.coverageRole.startsWith('Covered') ? 'Yes' : 'No', clashNo: row.coverageRole.replace('Covered by ', ''), remarks: row.remarks })); }
@@ -90,6 +115,6 @@ export function buildPsFamilyClashAudit(input) {
   const actualInFamilyByKey = groupBy(clashRows.filter((row) => row.familyStatus !== PS_FAMILY_STATUS.OUT_OF_FAMILY), (row) => row.against.exactMemberKey); const expectedKeySet = new Set(expectedRows.map((row) => row.exactMemberKey)); const coverageRows = createCoverageRows(expectedRows, actualInFamilyByKey, detailByKey, sourceFamily); const missingRows = coverageRows.filter((row) => row.status === PS_FAMILY_STATUS.MISSING); const duplicateRows = Array.from(actualInFamilyByKey.entries()).filter(([, rows]) => rows.length > 1).map(([exactMemberKey, rows]) => ({ exactMemberKey, member: rows[0].against.memberName, clashCount: rows.length, clashNames: rows.map((row) => row.clashName), sourceObjects: uniqueSorted(rows.map((row) => row.source.objectName)) }));
   const outOfFamilyRows = clashRows.filter((row) => row.familyStatus === PS_FAMILY_STATUS.OUT_OF_FAMILY); const unexpectedInFamilyRows = clashRows.filter((row) => row.familyStatus !== PS_FAMILY_STATUS.OUT_OF_FAMILY && !expectedKeySet.has(row.against.exactMemberKey)); const lineFamilyRows = createLineFamilyRows(clashRows); const sourceVsPosFamilyRows = createSourceVsPosFamilyRows(detailRows, coverageRows, clashRows, posFamilies, config);
   const supportReports = buildSupportChangeReports(input?.structureGroupRows || [], input?.supportChainRows || input?.psClashRows || [], clashRows); const psClashRows = input?.psClashRows || []; const psClashReportRows = buildPsClashReportRows(psClashRows, clashRows);
-  const summary = { sourceFamily, expectedCount: expectedRows.length, clashCount: clashRows.length, psClashCount: psClashRows.length, supportGroupCount: supportReports.supportSummaryRows.length, supportExceptionCount: supportReports.supportExceptionRows.length, foundExactCount: coverageRows.filter((row) => row.found).length, missingCount: missingRows.length, outOfFamilyCount: outOfFamilyRows.length, duplicateMemberCount: duplicateRows.length, unexpectedInFamilyCount: unexpectedInFamilyRows.length, posFamilyCount: posFamilies.length, psClashReportCount: psClashReportRows.length, coveragePct: expectedRows.length ? Number(((coverageRows.filter((row) => row.found).length / expectedRows.length) * 100).toFixed(2)) : 0 };
+  const summary = { sourceFamily, expectedCount: expectedRows.length, clashCount: clashRows.length, psClashCount: psClashRows.length, supportGroupCount: supportReports.supportSummaryRows.length, supportExceptionCount: supportReports.supportExceptionRows.length, foundExactCount: coverageRows.filter((row) => row.found).length, missingCount: missingRows.length, outOfFamilyCount: outOfFamilyRows.length, duplicateMemberCount: duplicateRows.length, unexpectedInFamilyCount: unexpectedInFamilyRows.length, posFamilyCount: posFamilies.length, psClashReportCount: psClashReportRows.length, structureLineProximityCount: supportReports.structureLineProximityRows.length, coveragePct: expectedRows.length ? Number(((coverageRows.filter((row) => row.found).length / expectedRows.length) * 100).toFixed(2)) : 0 };
   return { schema: PS_FAMILY_CLASH_AUDIT_SCHEMA, summary, coverageRows, clashRows, psClashRows, psClashReportRows, missingRows, outOfFamilyRows, duplicateRows, unexpectedInFamilyRows, lineFamilyRows, posFamilyRows: posFamilies, sourceVsPosFamilyRows, diagnostics, ...supportReports };
 }
