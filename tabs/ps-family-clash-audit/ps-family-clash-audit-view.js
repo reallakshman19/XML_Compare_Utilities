@@ -2,58 +2,18 @@ function h(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-function list(value) {
-  return Array.isArray(value) ? value.join(', ') : (value ?? '');
-}
-
-function pos(value) {
-  if (!value) return '';
-  return `E ${value.e ?? ''} / S ${value.s ?? ''} / U ${value.u ?? ''}`;
-}
-
-function point(value) {
-  if (!value) return '';
-  return `X ${value.x ?? ''} / Y ${value.y ?? ''} / Z ${value.z ?? ''}`;
-}
-
-function section(title, body) {
-  return `<div class="psmap-card"><div class="psmap-card-head"><b>${h(title)}</b></div><div class="psmap-card-body">${body}</div></div>`;
-}
-
-function readinessStatus(readiness) {
-  if (!readiness) return 'Not checked';
-  return readiness.blocking ? 'Blocking issues found' : 'Ready with no blocking errors';
-}
-
-function visibleCellText(headers, row) {
-  return headers.map((item) => String(item.value(row) ?? '')).join(' ').toLowerCase();
-}
-
-function detailField(label, value) {
-  return `<div><b>${h(label)}</b><br>${h(list(value))}</div>`;
-}
-
-function detailGrid(fields) {
-  return `<div class="psmap-grid-2">${fields.filter((field) => field[1] != null && field[1] !== '').map((field) => detailField(field[0], field[1])).join('')}</div>`;
-}
-
-function pathBlock(title, path) {
-  if (!Array.isArray(path) || !path.length) return '';
-  return `<div><b>${h(title)}</b><br><pre>${h(path.join('\n'))}</pre></div>`;
-}
-
-function pathText(path) {
-  return Array.isArray(path) ? path.join(' / ') : '';
-}
-
-function detailCell(row, detailRenderer) {
-  if (!detailRenderer) return '';
-  return `<td>${detailRenderer(row)}</td>`;
-}
-
-function detailHeader(detailRenderer) {
-  return detailRenderer ? '<th>Details</th>' : '';
-}
+function list(value) { return Array.isArray(value) ? value.join(', ') : (value ?? ''); }
+function pos(value) { return value ? `E ${value.e ?? ''} / S ${value.s ?? ''} / U ${value.u ?? ''}` : ''; }
+function point(value) { return value ? `X ${value.x ?? ''} / Y ${value.y ?? ''} / Z ${value.z ?? ''}` : ''; }
+function section(title, body) { return `<div class="psmap-card"><div class="psmap-card-head"><b>${h(title)}</b></div><div class="psmap-card-body">${body}</div></div>`; }
+function readinessStatus(readiness) { if (!readiness) return 'Not checked'; return readiness.blocking ? 'Blocking issues found' : 'Ready with no blocking errors'; }
+function visibleCellText(headers, row) { return headers.map((item) => String(item.value(row) ?? '')).join(' ').toLowerCase(); }
+function detailField(label, value) { return `<div><b>${h(label)}</b><br>${h(list(value))}</div>`; }
+function detailGrid(fields) { return `<div class="psmap-grid-2">${fields.filter((field) => field[1] != null && field[1] !== '').map((field) => detailField(field[0], field[1])).join('')}</div>`; }
+function pathBlock(title, path) { if (!Array.isArray(path) || !path.length) return ''; return `<div><b>${h(title)}</b><br><pre>${h(path.join('\n'))}</pre></div>`; }
+function pathText(path) { return Array.isArray(path) ? path.join(' / ') : ''; }
+function detailCell(row, detailRenderer) { return detailRenderer ? `<td>${detailRenderer(row)}</td>` : ''; }
+function detailHeader(detailRenderer) { return detailRenderer ? '<th>Details</th>' : ''; }
 
 export function filterPsFamilyRows(headers, rows, searchText = '') {
   const term = String(searchText || '').trim().toLowerCase();
@@ -103,29 +63,18 @@ function clashRowDetail(row) {
 }
 
 function sourceHierarchyRows(audit) {
-  return audit.clashRows.map((row) => ({
-    sourceFamily: row.source?.familyRoot,
-    sourceObject: row.source?.objectName,
-    clash: row.clashName,
-    pathEvidence: pathText(row.source?.path),
-  }));
+  return audit.clashRows.map((row) => ({ sourceFamily: row.source?.familyRoot, sourceObject: row.source?.objectName, clash: row.clashName, pathEvidence: pathText(row.source?.path) }));
 }
 
 function againstHierarchyRows(audit) {
-  return audit.clashRows.map((row) => ({
-    lineFamily: row.against?.pipe?.lineFamily,
-    branchNode: row.against?.pipe?.fullBranchNode,
-    againstMember: row.against?.memberName,
-    clash: row.clashName,
-    pathEvidence: pathText(row.against?.path),
-  }));
+  return audit.clashRows.map((row) => ({ lineFamily: row.against?.pipe?.lineFamily, branchNode: row.against?.pipe?.fullBranchNode, againstMember: row.against?.memberName, clash: row.clashName, pathEvidence: pathText(row.against?.path) }));
 }
 
 export function renderPsFamilyReadiness(readiness) {
   if (!readiness) return section('Input Readiness', '<div class="psmap-help-text">Click Check Readiness before running the audit.</div>');
   const s = readiness.summary;
   const diagnostics = (readiness.diagnostics || []).slice(0, 8);
-  const counts = `<div class="psmap-grid-2"><div><b>Status</b><br>${h(readinessStatus(readiness))}</div><div><b>Source family</b><br>${h(s.sourceFamily || 'Unknown')}</div><div><b>XML / Expected / Detail rows</b><br>${s.xmlClashCount} / ${s.expectedCount} / ${s.detailCount}</div><div><b>Positions parsed / missing / POSFamilies</b><br>${s.positionParsedCount} / ${s.positionMissingCount} / ${s.posFamilyCount}</div><div><b>Errors / Warnings / Info</b><br>${s.errorCount} / ${s.warnCount} / ${s.infoCount}</div></div>`;
+  const counts = `<div class="psmap-grid-2"><div><b>Status</b><br>${h(readinessStatus(readiness))}</div><div><b>Source family</b><br>${h(s.sourceFamily || 'Unknown')}</div><div><b>XML / PSClash / Expected / Detail rows</b><br>${s.xmlClashCount} / ${s.psClashCount || 0} / ${s.expectedCount} / ${s.detailCount}</div><div><b>Positions parsed / missing / POSFamilies</b><br>${s.positionParsedCount} / ${s.positionMissingCount} / ${s.posFamilyCount}</div><div><b>Errors / Warnings / Info</b><br>${s.errorCount} / ${s.warnCount} / ${s.infoCount}</div></div>`;
   const diag = renderPsFamilyTable([{ label: 'Level', value: (row) => row.level }, { label: 'Code', value: (row) => row.code }, { label: 'Message', value: (row) => row.message }], diagnostics, 8);
   return section('Input Readiness', `${counts}${diagnostics.length ? diag : '<div class="psmap-help-text">No readiness diagnostics.</div>'}`);
 }
@@ -133,7 +82,7 @@ export function renderPsFamilyReadiness(readiness) {
 export function renderPsFamilySummary(audit) {
   if (!audit) return '<div class="psmap-help-text">Load inputs and run audit.</div>';
   const s = audit.summary;
-  return `<div class="psmap-grid-2"><div><b>Source family</b><br>${h(s.sourceFamily)}</div><div><b>Coverage</b><br>${h(s.coveragePct)}%</div><div><b>Expected / Found / Missing</b><br>${s.expectedCount} / ${s.foundExactCount} / ${s.missingCount}</div><div><b>Out-of-family / Duplicate / Unexpected / POSFamily</b><br>${s.outOfFamilyCount} / ${s.duplicateMemberCount} / ${s.unexpectedInFamilyCount} / ${s.posFamilyCount}</div></div>`;
+  return `<div class="psmap-grid-2"><div><b>Source family</b><br>${h(s.sourceFamily)}</div><div><b>Coverage</b><br>${h(s.coveragePct)}%</div><div><b>Expected / Found / Missing</b><br>${s.expectedCount} / ${s.foundExactCount} / ${s.missingCount}</div><div><b>Clash / PSClash rows</b><br>${s.clashCount || 0} / ${s.psClashReportCount || 0}</div><div><b>Out-of-family / Duplicate / Unexpected / POSFamily</b><br>${s.outOfFamilyCount} / ${s.duplicateMemberCount} / ${s.unexpectedInFamilyCount} / ${s.posFamilyCount}</div></div>`;
 }
 
 function renderCoverage(audit, searchText) {
@@ -153,6 +102,16 @@ function renderClashRows(audit, searchText) {
     { label: 'Line Family', value: (row) => row.elementDetail.lineFamily || row.against.pipe?.lineFamily }, { label: 'Branch Node', value: (row) => row.against.pipe?.fullBranchNode },
     { label: 'Distance', value: (row) => row.distance },
   ], audit.clashRows, 80, searchText, clashRowDetail);
+}
+
+function renderPsClashReport(audit, searchText) {
+  return renderPsFamilyTable([
+    { label: 'PSClashName', value: (row) => row.psClashName }, { label: 'Source', value: (row) => row.source },
+    { label: 'SourceObject', value: (row) => row.sourceObject }, { label: 'Pipe', value: (row) => row.pipe },
+    { label: 'LineFamily', value: (row) => row.lineFamily }, { label: 'FullLineTag', value: (row) => row.fullLineTag },
+    { label: 'BranchNode', value: (row) => row.branchNode }, { label: 'Coverage in Clash report', value: (row) => row.coverageInClashReport },
+    { label: 'Clash No', value: (row) => row.clashNo }, { label: 'Remarks', value: (row) => row.remarks },
+  ], audit.psClashReportRows || [], 80, searchText);
 }
 
 function renderHierarchy(audit, searchText) {
@@ -184,13 +143,12 @@ function renderOutOfFamily(audit, searchText) {
   ], audit.outOfFamilyRows, 80, searchText);
 }
 
-function renderSimpleReport(audit, key, searchText) {
-  return PS_FAMILY_REPORT_RENDERERS[key] ? PS_FAMILY_REPORT_RENDERERS[key](audit, searchText) : renderCoverage(audit, searchText);
-}
+function renderSimpleReport(audit, key, searchText) { return PS_FAMILY_REPORT_RENDERERS[key] ? PS_FAMILY_REPORT_RENDERERS[key](audit, searchText) : renderCoverage(audit, searchText); }
 
 export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
   coverage: renderCoverage,
   clashRows: renderClashRows,
+  psClashReport: renderPsClashReport,
   hierarchy: renderHierarchy,
   missing: renderMissing,
   outOfFamily: renderOutOfFamily,
