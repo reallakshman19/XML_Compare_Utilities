@@ -75,7 +75,21 @@ function wireRunButtons(get, state, config) { get('check-readiness')?.addEventLi
 function wireExportButtons(get, state, config) { config.outputButtons.forEach((button) => get(button.key)?.addEventListener(ACTIVATE, () => { if (!state.audit) return; const exports = createPsFamilyAuditExports(state.audit); saveTextFile(`ps-family-${button.suffix}-${safeSource(state.audit)}.${fileExtension(button.mime)}`, exports[button.exportKey], button.mime); })); }
 function wireExportPreviewButtons(get, state, config) { get('root').querySelectorAll('[data-psfa-export-preview]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.exportPreviewKey = button.dataset.psfaExportPreview; renderExportPreview(get, state, config); })); get('copy-export-preview')?.addEventListener(ACTIVATE, () => globalThis.navigator?.clipboard?.writeText(get('export-preview').textContent || '')); get('download-selected')?.addEventListener(ACTIVATE, () => { const selected = state.exportPreviewKey || config.outputButtons[0].key; get(selected)?.dispatchEvent(new Event(ACTIVATE)); }); }
 
-function createGetter(root) { return (name) => root.querySelector(`[data-psfa="${name}"]`) || root.querySelector(`[data-psfa-file="${name.replace('file:', '')}"]`) || root.querySelector(`[data-psfa-status="${name.replace('status:', '')}"]`) || root.querySelector(`[data-psfa-sample="${name.replace('sample:', '')}"]`) || root.querySelector(`[data-psfa-preview="${name.replace('preview:', '')}"]`) || root.querySelector(`[data-psfa-prefix-detector]`) || (name === 'root' ? root : null); }
+function byAttr(root, attr, value) { return root.querySelector(`[${attr}="${String(value).replace(/"/g, '\\"')}"]`); }
+function createGetter(root) {
+  return (name) => {
+    if (name === 'root') return root;
+    if (name === 'close') return root.querySelector('[data-psfa-close]');
+    if (name === 'prefix-detector') return root.querySelector('[data-psfa-prefix-detector]');
+    if (name === 'export-title') return root.querySelector('[data-psfa-export-title]');
+    if (name === 'export-meta') return root.querySelector('[data-psfa-export-meta]');
+    if (name.startsWith('file:')) return byAttr(root, 'data-psfa-file', name.slice(5));
+    if (name.startsWith('status:')) return byAttr(root, 'data-psfa-status', name.slice(7));
+    if (name.startsWith('sample:')) return byAttr(root, 'data-psfa-sample', name.slice(7));
+    if (name.startsWith('preview:')) return byAttr(root, 'data-psfa-preview', name.slice(8));
+    return byAttr(root, 'data-psfa', name);
+  };
+}
 
 function openPopup(config) {
   const doc = globalThis.document; if (!doc) return;
@@ -100,4 +114,4 @@ export function installPsFamilyClashAuditTile(root, overrides = {}) {
   root.querySelector('[data-psfa-open="1"]')?.addEventListener(ACTIVATE, () => openPopup(config));
 }
 
-export const _test = Object.freeze({ renderLauncher, renderPopup, renderInputShell, showWorkspacePanel });
+export const _test = Object.freeze({ renderLauncher, renderPopup, renderInputShell, showWorkspacePanel, createGetter });
