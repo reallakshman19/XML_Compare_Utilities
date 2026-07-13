@@ -4,10 +4,12 @@ const FIXTURE = '/tests/browser/pipeline-cad-runtime-switch-fixture.html';
 
 async function cleanRendererState(page) {
   await page.addInitScript(() => {
+    if (sessionStorage.getItem('__pipelineCadRendererTestCleaned') === '1') return;
     localStorage.removeItem('pipeline3dCadRenderer');
     localStorage.removeItem('pipeline3dCadRendererFallback');
     localStorage.removeItem('pipeline3dCadCanvas');
-    sessionStorage.removeItem('pipeline3dCadFallbackReloaded');
+    sessionStorage.clear();
+    sessionStorage.setItem('__pipelineCadRendererTestCleaned', '1');
   });
 }
 
