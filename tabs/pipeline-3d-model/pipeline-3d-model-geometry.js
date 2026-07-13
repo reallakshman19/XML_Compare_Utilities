@@ -142,16 +142,18 @@ function splitIntoBlocks(text) {
     .filter(Boolean);
 }
 
-function parseAltFormatBlock(blockText) {
+function parseAltFormatBlock(blockText, lineOffset) {
   const rawPoints = [];
   let constantWidth = null;
   let area = null;
   let length = null;
-  for (const rawLine of splitLines(blockText)) {
+  const lines = splitLines(blockText);
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
     const pointMatch = rawLine.match(AT_POINT_RE);
     if (pointMatch) {
       const [, x, y, z] = pointMatch;
-      rawPoints.push({ x: Number(x), y: Number(y), z: Number(z) });
+      rawPoints.push({ x: Number(x), y: Number(y), z: Number(z), lineIndex: lineOffset + i, rawLine });
       continue;
     }
     const widthMatch = rawLine.match(CONSTANT_WIDTH_RE);
@@ -165,7 +167,26 @@ function parseAltFormatBlock(blockText) {
 }
 
 function parseAltPointFormat(text) {
-  return parseAltFormatBlock(text).rawPoints.map((p, i) => ({
+  const lines = String(text || '').split(/\r?\n/);
+  const blocks = [];
+  let currentBlockLines = [];
+  let currentOffset = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '') {
+      if (currentBlockLines.length > 0) {
+        blocks.push({ block: currentBlockLines.join('\n'), offset: currentOffset });
+        currentBlockLines = [];
+      }
+    } else {
+      if (currentBlockLines.length === 0) currentOffset = i;
+      currentBlockLines.push(lines[i]);
+    }
+  }
+  if (currentBlockLines.length > 0) {
+    blocks.push({ block: currentBlockLines.join('\n'), offset: currentOffset });
+  }
+  if (blocks.length === 0) return [];
+  return parseAltFormatBlock(blocks[0].block, blocks[0].offset).rawPoints.map((p, i) => ({
     label: `Point ${i + 1}`,
     x: p.x,
     y: p.y,
@@ -175,6 +196,8 @@ function parseAltPointFormat(text) {
     originZ: 0,
     angleDeg: 0,
     originalAngleDeg: 0,
+    lineIndex: p.lineIndex,
+    rawLine: p.rawLine,
   }));
 }
 
@@ -254,6 +277,8 @@ function buildMultiSheetTable1(blocks) {
         globalZ,
         sheetIndex,
         sheetMeta: block.meta,
+        lineIndex: p.lineIndex,
+        rawLine: p.rawLine,
       });
     });
   });
@@ -292,14 +317,33 @@ export function groupPointsIntoSheets(points) {
 // chainGlobalPositions) rather than by re-reading the Origin column again.
 export function parseTable1(text) {
   if (isAltPointFormatText(text)) {
-    const blocks = splitIntoBlocks(text)
-      .map(parseAltFormatBlock)
-      .filter((block) => block.rawPoints.length);
+    const lines = String(text || '').split(/\r?\n/);
+    const rawBlocks = [];
+    let currentBlockLines = [];
+    let currentOffset = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === '') {
+        if (currentBlockLines.length > 0) {
+          rawBlocks.push({ block: currentBlockLines.join('\n'), offset: currentOffset });
+          currentBlockLines = [];
+        }
+      } else {
+        if (currentBlockLines.length === 0) currentOffset = i;
+        currentBlockLines.push(lines[i]);
+      }
+    }
+    if (currentBlockLines.length > 0) {
+      rawBlocks.push({ block: currentBlockLines.join('\n'), offset: currentOffset });
+    }
+    const blocks = rawBlocks.map(b => parseAltFormatBlock(b.block, b.offset)).filter((block) => block.rawPoints.length);
     if (blocks.length > 1) return buildMultiSheetTable1(blocks);
     return chainGlobalPositions(parseAltPointFormat(text));
   }
   const points = [];
-  for (const rawLine of splitLines(text)) {
+  const lines = String(text || '').split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    if (!rawLine.trim()) continue;
     if (isSeparatorLine(rawLine)) continue;
     const tokens = tokenizeRow(rawLine);
     const numericTokens = tokens.filter(isNumericToken).map(Number);
@@ -320,7 +364,7 @@ export function parseTable1(text) {
     }
     const label = labelTokens.join(' ').trim() || `Point ${points.length + 1}`;
     if (/^(point|x|y|z|origin.*|angle.*)$/i.test(label)) continue; // header row
-    points.push({ label, x, y, z, originX, originY, originZ, angleDeg, originalAngleDeg: angleDeg });
+    points.push({ label, x, y, z, originX, originY, originZ, angleDeg, originalAngleDeg: angleDeg, lineIndex: i, rawLine });
   }
   return chainGlobalPositions(points);
 }

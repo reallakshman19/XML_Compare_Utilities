@@ -6,6 +6,7 @@ import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-
 import { recognizeImageWords } from './pipeline-3d-model-ocr.js?v=20260706-ocr-core-1';
 import { parseTable2OcrText, parseTable2OcrWords } from './pipeline-3d-model-ocr-table-parser.js?v=20260712-orientation-score-1';
 import { parseTableXOcr } from './pipeline-3d-model-ocr-tablex-parser.js?v=20260706-tablex-2';
+import { wirePreviewModal } from './pipeline-3d-model-preview.js?v=1';
 import {
   readTable2EditorRows,
   readTable3EditorRows,
@@ -54,13 +55,25 @@ function ensureModalStyle(doc = globalThis.document) {
 .p3d-close{position:absolute;top:14px;right:16px}
 .p3d-workspace{height:100%;min-height:0;display:grid;grid-template-columns:minmax(420px,1.05fr) minmax(430px,.95fr);gap:14px;overflow:hidden}
 .p3d-input-column{min-height:0;overflow:auto;display:grid;align-content:start;gap:14px;padding-right:2px}
-.p3d-output{min-width:0;min-height:0;display:grid;grid-template-rows:auto auto auto auto minmax(220px,1fr);overflow:hidden;background:#101a2b;border:1px solid rgba(143,197,255,.20);border-radius:14px;padding:12px;box-sizing:border-box}
-.p3d-output-scroll{min-height:0;overflow:auto;padding-right:2px}
+.p3d-output{min-width:0;min-height:0;display:flex;flex-direction:column;gap:4px;overflow:hidden;background:#101a2b;border:1px solid rgba(143,197,255,.20);border-radius:14px;padding:12px;box-sizing:border-box}
+.p3d-output-scroll{flex:1;min-height:0;overflow:auto;padding-right:2px}
 .p3d-input-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:0}
 .p3d-input-grid label,.p3d-input-panel{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#94a3b8}
 .p3d-input-title{color:#94a3b8;font-size:12px}
 .p3d-input-grid textarea{min-height:136px;font-family:monospace;font-size:12px;background:#0b1220;color:#e2e8f0;border:1px solid rgba(148,163,184,.28);border-radius:8px;padding:6px}
 .p3d-raw-details{margin-top:4px}.p3d-raw-details summary{cursor:pointer;color:#93c5fd}.p3d-raw-details textarea{width:100%;box-sizing:border-box;margin-top:6px}
+.p3d-preview-modal{position:fixed;inset:0;background:rgba(2,6,23,0.9);z-index:100;display:none;flex-direction:column;padding:24px;box-sizing:border-box;color:#e2e8f0;}
+.p3d-preview-tabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;}
+.p3d-preview-tab{background:#1e293b;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;}
+.p3d-preview-tab[data-active="true"]{background:#38bdf8;color:#0f172a;border-color:#38bdf8;font-weight:bold;}
+.p3d-preview-content{display:grid;grid-template-columns:1fr 300px;gap:16px;flex:1;min-height:0;}
+.p3d-preview-canvas-container{background:#0b1220;border:1px solid rgba(148,163,184,0.28);border-radius:8px;position:relative;overflow:hidden;}
+.p3d-preview-canvas-container canvas{width:100%;height:100%;display:block;cursor:crosshair;}
+.p3d-preview-sidebar{background:#101a2b;border:1px solid rgba(148,163,184,0.28);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:auto;}
+.p3d-preview-sidebar h4{margin:0;color:#e0f2fe;font-size:14px;}
+.p3d-preview-info-box{background:#020617;border:1px solid rgba(148,163,184,0.2);padding:10px;border-radius:6px;font-family:monospace;font-size:12px;white-space:pre-wrap;min-height:80px;word-break:break-all;}
+.p3d-preview-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:auto;}
+.p3d-preview-actions button{padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;border:none;}
 .p3d-table-hint{font-size:11px;color:#7dd3fc}
 .p3d-editable-table{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220}
 .p3d-editable-table table{width:100%;min-width:520px;border-collapse:collapse;color:#e2e8f0}
@@ -104,8 +117,10 @@ function ensureModalStyle(doc = globalThis.document) {
 .p3d-output pre[data-p3d="coordinate-output"]{min-height:260px;max-height:420px}
 .p3d-output h4{margin:12px 0 6px;color:#e0f2fe}
 .p3d-output h4:first-of-type{margin-top:0}
-.p3d-keyplan-frame{width:100%;height:auto;aspect-ratio:760/420;background:#0b1220;border-radius:8px 8px 0 0;border:1px solid rgba(148,163,184,.28);display:block;box-sizing:border-box}
+.p3d-keyplan-frame{position:relative;width:100%;height:auto;aspect-ratio:760/420;background:#0b1220;border-radius:8px 8px 0 0;border:1px solid rgba(148,163,184,.28);display:block;box-sizing:border-box;flex-shrink:0}
 .p3d-keyplan-frame canvas{width:100%;height:100%;display:block;cursor:grab}
+.p3d-fullscreen-btn{position:absolute;top:8px;right:8px;background:rgba(15,23,42,0.6);color:#cbd5e1;border:1px solid rgba(148,163,184,0.3);border-radius:4px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer;z-index:10;}
+.p3d-fullscreen-btn:hover{background:rgba(15,23,42,0.9);color:#fff;}
 .p3d-legend { display: flex; flex-wrap: wrap; gap: 6px 4px; padding: 8px 10px; background: #0b1220; border: 1px solid rgba(148,163,184,.28); border-top: none; border-radius: 0 0 8px 8px; margin-bottom: 4px; }
 .p3d-tooltip { position: fixed; background: #0b1220; border: 1px solid rgba(148,163,184,0.4); border-radius: 4px; padding: 6px 8px; font-size: 11px; font-family: monospace; color: #cbd5e1; pointer-events: none; z-index: 10000; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); display: none; white-space: pre-line; min-width: 170px; }
 @media (max-width: 980px){.p3d-workspace{grid-template-columns:1fr}.p3d-output{min-height:520px}.p3d-branch-grid{grid-template-columns:1fr}}
@@ -135,7 +150,13 @@ function renderPopup() {
 <section class="p3d-input-column" aria-label="Pipeline 3D Model inputs">
 <div class="psmap-help-text">Paste the 3 input tables below, fill in branch details, then Run.</div>
 <div class="p3d-input-grid">
-<label>Table 1 — Point / X / Y / Z / OriginGlobalX / OriginGlobalY / OriginGlobalZ / AngleDeg<textarea data-p3d="table1" placeholder="IP3-IP Start	0	0	0	301614.82	2038115	0	0"></textarea></label>
+<label>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <span>Table 1 — Point / X / Y / Z / OriginGlobalX / OriginGlobalY / OriginGlobalZ / AngleDeg</span>
+    <button type="button" data-p3d="preview-table1" style="background:#334155;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">Preview / Edit Sheets</button>
+  </div>
+  <textarea data-p3d="table1" placeholder="IP3-IP Start	0	0	0	301614.82	2038115	0	0"></textarea>
+</label>
 <div class="p3d-input-panel" data-p3d="table2-panel">
 <label class="p3d-input-title" for="pipeline-3d-model-table2">Table 2 - Horizontal (m) vs Grade Elevation (m)</label>
 <div class="p3d-table-hint">Use + to add station rows and - to remove rows. OCR import fills this table after review.</div>
@@ -184,6 +205,9 @@ ${renderBranchForm()}
 <h4>Key Plan — Sheet Transform</h4>
 <div class="p3d-keyplan-frame">
   <canvas data-p3d="canvas-keyplan"></canvas>
+  <button type="button" class="p3d-fullscreen-btn" data-p3d="fullscreen" aria-label="Fullscreen" title="Fullscreen">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+  </button>
 </div>
 <div class="p3d-legend" data-p3d="keyplan-legend" hidden></div>
 <div class="p3d-output-scroll">
@@ -195,6 +219,28 @@ ${renderBranchForm()}
 <pre data-p3d="xml-output">Run to generate.</pre>
 </div>
 </section>
+</div>
+<div class="p3d-preview-modal" data-p3d="preview-modal">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h3 style="margin:0;color:#e0f2fe;font-size:18px;">Preview / Edit Sheets (Local Coordinates)</h3>
+    <button type="button" class="p3d-close" data-p3d="preview-close" aria-label="Close Preview" style="position:static;">Close</button>
+  </div>
+  <div class="p3d-preview-tabs" data-p3d="preview-tabs"></div>
+  <div class="p3d-preview-content">
+    <div class="p3d-preview-canvas-container">
+      <canvas data-p3d="preview-canvas"></canvas>
+    </div>
+    <div class="p3d-preview-sidebar">
+      <h4>Hovered Node Details</h4>
+      <div class="p3d-preview-info-box" data-p3d="preview-info">Hover over a node to see its raw data.</div>
+      <div style="flex:1;"></div>
+      <div class="p3d-preview-actions">
+        <button type="button" data-p3d="preview-delete" style="background:#ef4444;color:#fff;" disabled>Delete Selected Node</button>
+        <button type="button" data-p3d="preview-done" style="background:#3b82f6;color:#fff;">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
 </div>`;
 }
 
@@ -881,6 +927,7 @@ function mountPopup(root, onClose) {
   const get = (name) =>
     name.startsWith('field-') ? dialog.querySelector(`[data-p3d-field="${name.slice(6)}"]`) : dialog.querySelector(`[data-p3d="${name}"]`);
 
+  wirePreviewModal(dialog, get, parseTable1, groupPointsIntoSheets);
   paintKeyPlanCanvas(get('canvas-keyplan'), [], [], null, []);
   dialog.querySelector('[data-p3d-close="1"]').addEventListener(ACTIVATE, () => closePopup(modal, onClose));
   modal.addEventListener('keydown', (event) => {
@@ -889,6 +936,17 @@ function mountPopup(root, onClose) {
   modal.addEventListener(ACTIVATE, (event) => {
     if (event.target === modal) closePopup(modal, onClose);
   });
+  const fullscreenBtn = get('fullscreen');
+  if (fullscreenBtn) {
+    fullscreenBtn.addEventListener(ACTIVATE, () => {
+      const container = get('canvas-keyplan').parentElement;
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        container.requestFullscreen().catch(() => {});
+      }
+    });
+  }
 
   applyConfigValues(get, loadConfigValues());
   wireConfigPersistence(dialog, get);
