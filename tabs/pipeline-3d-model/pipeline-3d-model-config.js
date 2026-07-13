@@ -13,6 +13,7 @@ import './pipeline-3d-model-cad-floating-preview.js?v=20260713-floating-preview-
 import './pipeline-3d-model-cad-floating-preview-hardening.js?v=20260713-floating-preview-hardening-1';
 import './pipeline-3d-model-cad-soak-evidence.js?v=20260713-cad-soak-1';
 import './pipeline-3d-model-cad-soak-evidence-hardening.js?v=20260713-cad-soak-hardening-1';
+import './pipeline-3d-model-canvas-audit-hardening.js?v=20260713-canvas-audit-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
 
 // Branch/config defaults + localStorage persistence for the Pipeline 3D Model tile.
