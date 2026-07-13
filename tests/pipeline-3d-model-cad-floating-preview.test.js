@@ -26,7 +26,7 @@ class MemoryStorage {
 
 {
   const rect = getPipelineCadFloatingPreviewDefaultRect({ width: 1440, height: 900 });
-  assert.deepEqual(rect, { left: 383, top: 36, width: 1024, height: 702 });
+  assert.deepEqual(rect, { left: 375, top: 36, width: 1037, height: 702 });
 }
 
 {
