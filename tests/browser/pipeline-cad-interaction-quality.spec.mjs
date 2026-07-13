@@ -106,12 +106,25 @@ test.describe('Pipeline CAD interaction quality', () => {
     await page.keyboard.press('Home');
     await page.keyboard.press('ArrowRight');
     for (let index = 0; index < 5; index += 1) await page.keyboard.press('+');
-    const selectedBox = await page.locator('[data-p3d-cad-label-layer="table2x"] [data-selected="true"]').boundingBox();
-    const canvasBox = await canvas.boundingBox();
-    expect(selectedBox).not.toBeNull();
-    expect(canvasBox).not.toBeNull();
-    expect(selectedBox.x).toBeGreaterThanOrEqual(canvasBox.x);
-    expect(selectedBox.x + selectedBox.width).toBeLessThanOrEqual(canvasBox.x + canvasBox.width);
+    await expect.poll(async () => page.evaluate(() => Boolean(
+      document.querySelector('[data-p3d-cad-label-layer="table2x"] [data-selected="true"]'),
+    ))).toBe(true);
+    const geometry = await page.evaluate(() => {
+      const label = document.querySelector('[data-p3d-cad-label-layer="table2x"] [data-selected="true"]');
+      const targetCanvas = document.querySelector('[data-p3d-cad-canvas="table2x"]');
+      if (!label || !targetCanvas) return null;
+      const selectedBox = label.getBoundingClientRect();
+      const canvasBox = targetCanvas.getBoundingClientRect();
+      return {
+        selectedBox: { x: selectedBox.x, width: selectedBox.width },
+        canvasBox: { x: canvasBox.x, width: canvasBox.width },
+      };
+    });
+    expect(geometry).not.toBeNull();
+    expect(geometry.selectedBox.x).toBeGreaterThanOrEqual(geometry.canvasBox.x);
+    expect(geometry.selectedBox.x + geometry.selectedBox.width).toBeLessThanOrEqual(
+      geometry.canvasBox.x + geometry.canvasBox.width,
+    );
   });
 
   test('CAD-Q04 — dense profiles cap labels while retaining selected entities', async ({ page }) => {
