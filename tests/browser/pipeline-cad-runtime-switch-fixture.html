@@ -40,12 +40,32 @@
     await import('../../tabs/pipeline-3d-model/pipeline-3d-model-config.js');
     const frame=()=>new Promise((resolve)=>requestAnimationFrame(resolve));
     await frame();await frame();await frame();
+    const dialog=document.querySelector('.pipeline-3d-model-dialog');
+    let workspace=null;
+    if(localStorage.getItem('pipeline3dCadRenderer')==='canvas'){
+      const module=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js');
+      workspace=module.mountPipelineCadWorkspace(dialog,{force:true});
+      await frame();await frame();
+    }
+    window.__pipelineCadRuntimeWorkspace=workspace;
+    window.__pipelineCadSetRaw=(name,value)=>{
+      const element=dialog.querySelector(`[data-p3d-split="${name}-raw"]`);
+      element.value=value;
+      element.dispatchEvent(new Event('input',{bubbles:true}));
+    };
     window.__pipelineCadRuntimeState=()=>({
       renderer:localStorage.getItem('pipeline3dCadRenderer'),
       canvasStages:document.querySelectorAll('[data-p3d-cad-stage]').length,
       legacySvgs:document.querySelectorAll('[data-p3d-legacy-svg]').length,
       label:document.querySelector('[data-p3d-cad-renderer-label]')?.textContent||'',
       action:document.querySelector('[data-p3d-cad-renderer-switch]')?.textContent||'',
+      status:[...document.querySelectorAll('[data-p3d-cad-status]')].map((node)=>node.textContent),
+      table2Rows:workspace?.controller?.model?.table2Rows?.length||0,
+      table3LengthRows:workspace?.controller?.model?.table3LengthRows?.length||0,
+      history:{
+        undo:workspace?.controller?.history?.undoStack?.length||0,
+        redo:workspace?.controller?.history?.redoStack?.length||0,
+      },
     });
     document.body.dataset.pipelineCadRuntimeReady='1';
   </script>
