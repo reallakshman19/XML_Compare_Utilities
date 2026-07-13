@@ -962,6 +962,17 @@ function mountPopup(root, onClose) {
     saveTextFile('pipeline-coordinate-tab.tsv', state.coordinateText, 'text/tab-separated-values');
   });
   dialog.querySelector('[data-p3d="download-xml"]').addEventListener(ACTIVATE, () => {
+    const config = readConfigValues(get);
+    const blanks = CONFIG_FIELDS.filter((f) => !config[f.key]?.trim());
+    if (blanks.length) {
+      const errorEl = dialog.querySelector('[data-p3d="error-message"]');
+      if (errorEl) {
+        errorEl.innerHTML = `<div style="color:#fca5a5;padding:10px;font-family:monospace;font-size:12px;background:#2a1111;border:1px solid #7f1d1d;border-radius:4px;">Cannot download XML. Missing Line / Branch Info fields: ${h(blanks.map((f) => fieldLabel(f)).join(', '))}</div>`;
+        errorEl.style.display = 'block';
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
     if (!state.xmlText) return;
     saveTextFile('pipeline-3d-model.xml', state.xmlText, 'application/xml');
   });
