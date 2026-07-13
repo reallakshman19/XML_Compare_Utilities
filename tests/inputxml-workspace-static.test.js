@@ -14,6 +14,8 @@ import {
   cleanArtifactsForSourceChange,
   cleanCategorizedForInputChange,
   cleanEnrichmentForInputChange,
+  cleanGeneratedInputForSourceChange,
+  cleanSideloadForSourceChange,
   enrichmentInputPreflight,
   inputXmlFrom5CResult,
   manualCleanXmlPreflight,
@@ -72,15 +74,25 @@ assert.equal(rejected.diagnostic.code, 'WORKSPACE_SCHEMA_REJECTED');
 const accepted = enrichmentInputPreflight(inputXml, 'input.xml');
 assert.equal(accepted.ok, true, 'Tab 2 accepts PIPINGELEMENT InputXML.');
 
-const emptyManual = manualCleanXmlPreflight({ branches: [], nodes: [] });
+const emptyManual = manualCleanXmlPreflight({ branches: [], nodes: [] }, 0);
 assert.equal(emptyManual.ok, false, 'Zero-record manual CleanXML is blocked.');
 assert.equal(emptyManual.diagnostic.code, 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED');
+const noRouteManual = manualCleanXmlPreflight({ branches: [{}], nodes: [{}] }, 0);
+assert.equal(noRouteManual.ok, false, 'Manual rows with no writable route are blocked.');
 
 const cleanInvalidation = cleanArtifactsForSourceChange({ cleanXmlText: cleanXml, cleanTables: { nodes: [{}] } });
 assert.equal(cleanInvalidation.patch.cleanXmlText, '', 'Source changes clear stale CleanXML text.');
 assert.equal(cleanInvalidation.diagnostic.code, 'WORKSPACE_STALE_OUTPUT_INVALIDATED');
 const enrichmentInvalidation = cleanEnrichmentForInputChange({ lineIdText: 'rows', enrichedXmlText: inputXml });
 assert.equal(enrichmentInvalidation.patch.enrichedXmlText, '', 'Input changes clear stale enriched XML.');
+assert.equal(enrichmentInvalidation.patch.lineIdText, undefined, 'Input changes preserve reusable sideload lookup rows.');
+const sideloadInvalidation = cleanSideloadForSourceChange({ lineIdText: 'rows', inputXmlText: inputXml });
+assert.equal(sideloadInvalidation.patch.lineIdText, '', 'Helper changes clear generated sideload rows.');
+assert.equal(sideloadInvalidation.patch.inputXmlText, undefined, 'Helper changes preserve the loaded InputXML.');
+const generatedInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: '5c', inputXmlText: inputXml });
+assert.equal(generatedInvalidation.patch.inputXmlText, '', 'Source XML changes clear dependent 5C InputXML.');
+const uploadInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: 'upload', inputXmlText: inputXml });
+assert.equal(uploadInvalidation.patch.inputXmlText, undefined, 'Source XML changes preserve independent uploaded InputXML.');
 const categorizedInvalidation = cleanCategorizedForInputChange({ categorizedOutputText: cleanXml });
 assert.equal(categorizedInvalidation.patch.categorizedOutputText, '', 'Categorized input changes clear stale conversion output.');
 
@@ -103,6 +115,9 @@ assert.ok(workspaceUi.renderPopup(workspaceUi.defaultState()).includes('inputxml
 assert.ok(!workspaceTabSource.includes('state.enrichment.inputXmlText = state.cleanXmlText;'), 'CleanXML is no longer assigned directly to Tab 2 enrichment.');
 assert.ok(workspaceTabSource.includes('onResult: (result) => apply5CResultToWorkspace(state, result)'), 'Workspace wires the Tab 3 result handoff.');
 assert.ok(workspaceTabSource.includes('enrichmentInputPreflight'), 'Workspace schema-gates Tab 2 enrichment.');
+assert.ok(workspaceTabSource.includes("inputXmlSource: '5c'"), 'Workspace records 5C InputXML provenance.');
+assert.ok(workspaceTabSource.includes('invalidateSideloadArtifacts'), 'Workspace separates helper-table invalidation from InputXML invalidation.');
+assert.ok(!workspaceTabSource.includes('XML_WORKSPACE_KINDS }'), 'Workspace has no dangling XML_WORKSPACE_KINDS import.');
 const panel5cSource = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-topology-5c-panel.js'), 'utf8');
 assert.ok(panel5cSource.includes("typeof options.onResult === 'function'"), '5C panel emits an explicit result callback.');
 

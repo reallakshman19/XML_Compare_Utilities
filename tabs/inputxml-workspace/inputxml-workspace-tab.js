@@ -15,12 +15,13 @@ import { renderXmlCiiTopology5CPanel } from '../model-converters/xml-cii-topolog
 import { renderXmlCiiInputXmlCompare5DPanel } from '../model-converters/xml-cii-inputxml-compare-5d-panel.js';
 import { bindXmlCiiJsonTracePanel, renderXmlCiiJsonTracePanel } from '../model-converters/json-trace/json-trace-panel.js';
 import { bindXmlCiiSupportMapperPhase, xmlCiiRenderSupportMapperPhase } from '../model-converters/converters/xmltocii2019_helper/support-types-panel.js';
-import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT, XML_WORKSPACE_KINDS } from './inputxml-workspace-xml-detect.js';
+import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';
 import { appendInputXmlWorkspaceDiagnostics, createInputXmlWorkspaceDiagnostic, createInputXmlWorkspaceDiagnostics } from './inputxml-workspace-diagnostics.js';
 import { renderInputXmlWorkspaceDiagnosticsHtml } from './inputxml-workspace-diagnostics-view.js';
 import {
   cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
-  countDiagnostic, enrichmentInputPreflight, inputXmlFrom5CResult, manualCleanXmlPreflight, routeCleanXmlTo5C,
+  cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
+  enrichmentInputPreflight, inputXmlFrom5CResult, manualCleanXmlPreflight, routeCleanXmlTo5C,
 } from './inputxml-workspace-orchestration.js';
 import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
 
@@ -67,7 +68,11 @@ function applyWorkspaceTransition(state, transition = {}) {
 }
 
 function invalidateCleanArtifacts(state) {
-  return applyWorkspaceTransition(state, cleanArtifactsForSourceChange(state));
+  applyWorkspaceTransition(state, cleanArtifactsForSourceChange(state));
+  const generated = cleanGeneratedInputForSourceChange(state.enrichment);
+  state.enrichment = { ...state.enrichment, ...generated.patch };
+  appendWorkspaceDiagnostics(state, generated.diagnostic);
+  return state;
 }
 
 function invalidateEnrichmentArtifacts(state) {
@@ -77,19 +82,36 @@ function invalidateEnrichmentArtifacts(state) {
   return state;
 }
 
+function invalidateSideloadArtifacts(state) {
+  const transition = cleanSideloadForSourceChange(state.enrichment);
+  state.enrichment = { ...state.enrichment, ...transition.patch };
+  appendWorkspaceDiagnostics(state, transition.diagnostic);
+  return state;
+}
+
 function invalidateCategorizedArtifacts(state) {
   return applyWorkspaceTransition(state, cleanCategorizedForInputChange(state));
+}
+
+function sideloadSourceSignature(enrichment = {}) {
+  return [enrichment.basicText, enrichment.restraintsText, enrichment.nodalText, enrichment.userNodalText]
+    .map((value) => String(value ?? '')).join('\u0000');
 }
 
 function collectWithInvalidation(dialog, state) {
   const before = {
     sourceXmlText: state.sourceXmlText,
     enrichmentInput: state.enrichment.inputXmlText,
+    sideloadSource: sideloadSourceSignature(state.enrichment),
     categorizedInputText: state.categorizedInputText,
   };
   collect(dialog, state);
   if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
-  if (before.enrichmentInput !== state.enrichment.inputXmlText) invalidateEnrichmentArtifacts(state);
+  if (before.enrichmentInput !== state.enrichment.inputXmlText) {
+    invalidateEnrichmentArtifacts(state);
+    state.enrichment.inputXmlSource = 'paste';
+  }
+  if (before.sideloadSource !== sideloadSourceSignature(state.enrichment)) invalidateSideloadArtifacts(state);
   if (before.categorizedInputText !== state.categorizedInputText) invalidateCategorizedArtifacts(state);
   return state;
 }
@@ -102,7 +124,7 @@ function apply5CResultToWorkspace(state, result) {
     return state;
   }
   const transition = cleanEnrichmentForInputChange(state.enrichment);
-  state.enrichment = { ...state.enrichment, ...transition.patch, inputXmlText: handoff.text };
+  state.enrichment = { ...state.enrichment, ...transition.patch, inputXmlText: handoff.text, inputXmlSource: '5c' };
   appendWorkspaceDiagnostics(state, transition.diagnostic, handoff.diagnostic);
   state.status = handoff.diagnostic.message;
   return state;
@@ -187,7 +209,7 @@ function defaultState() {
     manualRows: { branches: [], components: [], supports: [], coordinates: [] },
     supportConfigJson: '{}',
     restraintTypeMutation: defaultRestraintTypeMutationConfig(),
-    enrichment: {},
+    enrichment: { inputXmlSource: '' },
     categorizedDirection: 'input-to-categorized',
     categorizedInputText: '',
     categorizedOutputText: '',
@@ -661,7 +683,8 @@ function handleAction(dialog, state, action, source) {
         supportRows: state.manualRows.supports,
         coordinateRows: state.manualRows.coordinates,
       });
-      const preflight = manualCleanXmlPreflight(tables);
+      const routeCount = tables.branches.reduce((sum, branch) => sum + positiveRouteNodes(branch.nodes).length, 0);
+      const preflight = manualCleanXmlPreflight(tables, routeCount);
       appendWorkspaceDiagnostics(state, preflight.diagnostic);
       if (!preflight.ok) {
         state.cleanTables = null;
@@ -678,15 +701,19 @@ function handleAction(dialog, state, action, source) {
       copyText(state.cleanXmlText);
       state.status = 'CleanXML copied.';
     } else if (action === 'load-sample-basic') {
+      invalidateSideloadArtifacts(state);
       state.enrichment.basicText = SAMPLE_BASIC_TEXT;
       state.status = 'Loaded sample INPUT_BASIC_ELEMENT_DATA rows.';
     } else if (action === 'load-sample-restraints') {
+      invalidateSideloadArtifacts(state);
       state.enrichment.restraintsText = SAMPLE_RESTRAINTS_TEXT;
       state.status = 'Loaded sample INPUT_RESTRAINTS rows.';
     } else if (action === 'load-sample-nodal') {
+      invalidateSideloadArtifacts(state);
       state.enrichment.nodalText = SAMPLE_NODAL_TEXT;
       state.status = 'Loaded sample INPUT_NODAL_COORDINATES rows.';
     } else if (action === 'load-sample-usernodal') {
+      invalidateSideloadArtifacts(state);
       state.enrichment.userNodalText = SAMPLE_USER_NODAL_TEXT;
       state.status = 'Loaded sample INPUT_USER_NODAL_COORDINATES rows.';
     } else if (action === 'generate-sideload') {
@@ -743,6 +770,7 @@ function handleAction(dialog, state, action, source) {
     } else if (action === 'use-categorized-enrichment') {
       invalidateEnrichmentArtifacts(state);
       state.enrichment.inputXmlText = state.categorizedOutputText;
+      state.enrichment.inputXmlSource = 'categorized';
       state.activeTab = 'enrich';
       state.status = 'Converted InputXML loaded into Tab 2 enrichment.';
     } else if (action === 'toggle-xml-mask') {
@@ -768,7 +796,8 @@ function bindFileInputs(dialog, state) {
   dialog.querySelector('[data-ixw-file="accdbHelper"]')?.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    invalidateEnrichmentArtifacts(state);
+    invalidateSideloadArtifacts(state);
+    state.enrichment = { ...state.enrichment, basicText: '', restraintsText: '', nodalText: '', userNodalText: '' };
     const log = [];
     const buffer = await file.arrayBuffer();
     const tables = await readAccdbNamedTables(buffer, ['INPUT_BASIC_ELEMENT_DATA', 'INPUT_RESTRAINTS', 'INPUT_NODAL_COORDINATES', 'INPUT_USER_NODAL_COORDINATES'], log);
@@ -785,6 +814,7 @@ function bindFileInputs(dialog, state) {
     if (!file) return;
     invalidateEnrichmentArtifacts(state);
     state.enrichment.inputXmlText = await file.text();
+    state.enrichment.inputXmlSource = 'upload';
     const preflight = enrichmentInputPreflight(state.enrichment.inputXmlText, file.name);
     appendWorkspaceDiagnostics(state, preflight.diagnostic);
     state.status = preflight.diagnostic.message;
