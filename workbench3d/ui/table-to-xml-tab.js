@@ -19,6 +19,7 @@ import { resolveGroups } from '../tablexml/grouping-resolver.js';
 import { buildNodeSetModel, serializeNodeSetXml, discoverRevisions } from '../tablexml/nodeset-builder.js';
 import { detectLoadCaseGroups } from '../tablexml/load-cases.js';
 import { downloadFile } from '../apply/exporters.js';
+import { tableXmlDiagnosticsPanelHtml, tableXmlDiagnosticsDownload } from './table-to-xml-diagnostics-view.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -181,16 +182,18 @@ function generateCard(tx, table) {
     </div>` : '';
   return `
   <section class="wb3d-card">
-    <h3>5 · Generate NodeSet XML</h3>
+    <h3>5 · Generate NodeSet XML (comparison-only)</h3>
+    <p class="wb3d-muted">This output is <strong>nodeset/v1</strong> for Workbench3D node comparison. It is not CAESAR II InputXML and contains no PIPINGELEMENT records.</p>
     ${revPair}
     <div class="wb3d-toolbar">
       <button class="wb3d-btn wb3d-btn-primary" data-action="txml-generate">Generate ${esc(tx.active)} XML</button>
-      ${table.xml ? `<button class="wb3d-btn" data-action="txml-download">Download</button>
+      ${table.xml ? `<button class="wb3d-btn" data-action="txml-download">Download NodeSet XML</button>
       <button class="wb3d-btn wb3d-btn-primary" data-action="txml-load-compare">Load into compare as ${esc(tx.active)}</button>
       <span class="wb3d-muted">then switch to "${esc(otherSide)}" above and repeat</span>` : ''}
     </div>
     ${table.model ? `<div class="wb3d-muted">${table.model.nodes.length} node(s). ${table.model.diagnostics.map((d) => esc(`${d.severity}: ${d.message}`)).join(' · ')}</div>` : ''}
     ${table.xml ? `<textarea readonly spellcheck="false" style="min-height:140px">${esc(table.xml.length > 200000 ? `${table.xml.slice(0, 200000)}\n… truncated preview` : table.xml)}</textarea>` : ''}
+    ${table.model?.diagnosticDocument ? tableXmlDiagnosticsPanelHtml(table.model.diagnosticDocument, tx.active) : ''}
   </section>`;
 }
 
@@ -200,7 +203,8 @@ export function tableToXmlSection(state, customRules = []) {
   return `
   <div data-wb3d-tablexml>
     <section class="wb3d-card">
-      <h3>Table to XML <span class="wb3d-muted">build source & target NodeSet XML from arbitrary node/support tables</span></h3>
+      <h3>Table → NodeSet XML (comparison-only) <span class="wb3d-muted">build source & target nodeset/v1 point-cloud XML for Workbench3D compare</span></h3>
+      <p class="wb3d-muted">This route does not generate or mutate CAESAR II InputXML.</p>
       <div class="wb3d-seg" role="group">
         <button class="wb3d-btn ${tx.active === 'source' ? 'is-active' : ''}" data-action="txml-side" data-side="source">Table-1 → Source XML ${tx.tables.source.xml ? '✔' : ''}</button>
         <button class="wb3d-btn ${tx.active === 'target' ? 'is-active' : ''}" data-action="txml-side" data-side="target">Table-2 → Target XML ${tx.tables.target.xml ? '✔' : ''}</button>
@@ -315,12 +319,19 @@ export function handleTableToXmlClick(state, btn, customRules = []) {
   }
   if (action === 'txml-generate') {
     if (!table.parsed || !table.mapping) return true;
-    table.model = buildNodeSetModel(table.parsed, table.mapping, customRules, `${tx.active}-table`);
+    table.model = buildNodeSetModel(table.parsed, table.mapping, customRules, `${tx.active}-table`, { side: tx.active });
     table.xml = table.model.nodes.length ? serializeNodeSetXml(table.model) : '';
     return true;
   }
   if (action === 'txml-download') {
-    if (table.xml) downloadFile(`${tx.active}-nodeset.xml`, table.xml, 'application/xml;charset=utf-8');
+    if (table.xml) downloadFile(`${tx.active}-nodeset-comparison.xml`, table.xml, 'application/xml;charset=utf-8');
+    return true;
+  }
+  if (action === 'txml-download-diagnostics') {
+    if (table.model?.diagnosticDocument) {
+      const artifact = tableXmlDiagnosticsDownload(table.model.diagnosticDocument, tx.active);
+      downloadFile(artifact.name, artifact.text, artifact.mime);
+    }
     return true;
   }
   return false;
@@ -356,8 +367,8 @@ export function generateRevisionPair(state, customRules = []) {
   const revA = table.revA ?? revisions[0];
   const revB = table.revB ?? revisions[revisions.length - 1];
   if (revA === revB) throw new Error('Source and target revisions must differ.');
-  const sourceModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revA}`, { revisionFilter: revA });
-  const targetModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revB}`, { revisionFilter: revB });
+  const sourceModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revA}`, { revisionFilter: revA, side: 'source' });
+  const targetModel = buildNodeSetModel(table.parsed, table.mapping, customRules, `rev-${revB}`, { revisionFilter: revB, side: 'target' });
   if (!sourceModel.nodes.length) throw new Error(`Revision ${revA} produced no nodes (check coordinate mapping).`);
   if (!targetModel.nodes.length) throw new Error(`Revision ${revB} produced no nodes (check coordinate mapping).`);
   return {
