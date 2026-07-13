@@ -2,67 +2,84 @@
 
 ## Scope resolution
 
-The two requested files were audited first:
+The requested legacy entry files were audited first:
 
 - `tabs/pipeline-3d-model/pipeline-3d-model-preview.js`
 - `tabs/pipeline-3d-model/pipeline-3d-model-samples.js`
 
-They retain the legacy preview/SVG path. The production HTML5 Canvas runtime is implemented by the `pipeline-3d-model-cad-*` modules, principally `pipeline-3d-model-interactive-graph.js`, `pipeline-3d-model-table2x-canvas.js`, `pipeline-3d-model-table3x-canvas.js`, `pipeline-3d-model-cad-controller.js`, and `pipeline-3d-model-cad-workspace.js`. The audit therefore covered both the named legacy entry files and the effective Canvas runtime.
+They retain the legacy preview/SVG path. The production HTML5 Canvas runtime is implemented by the `pipeline-3d-model-cad-*` modules, principally `pipeline-3d-model-interactive-graph.js`, `pipeline-3d-model-table2x-canvas.js`, `pipeline-3d-model-table3x-canvas.js`, `pipeline-3d-model-cad-controller.js`, and `pipeline-3d-model-cad-workspace.js`.
 
 ## Checklist
 
 ### 1. State Decoupling & Immutability — [PASS]
 
-- `PipelineCanvasManager` now exposes internal immutable `nodes[]` and `edges[]` snapshots for the attached Table 2X and Table 3X graphs.
-- Pointer movement changes graph override objects only. It does not mutate raw textarea strings.
-- A committed `nodeMoved` command serializes the canonical profile model back to the raw textareas after pointer release.
-- Geometry snapshots and edge records are frozen before broadcast so consumers cannot mutate Canvas state accidentally.
-
-Pre-fix finding: the model-first behavior already existed, but there was no aggregate `PipelineCanvasManager` contract or explicit immutable `nodes[]` / `edges[]` facade.
+- `PipelineCanvasManager` exposes immutable aggregate `nodes[]` and `edges[]` snapshots for Table 2X and Table 3X.
+- Pointer movement changes graph override objects only; raw textareas are not mutated during preview.
+- Raw serialization occurs only after the controller reports a successful committed command.
+- Node records, edge records, event payloads, and nested `before` / `after` records are frozen before publication.
 
 ### 2. Performance & Render Loop Constraints — [PASS]
 
-- Rendering is now dirty-gated by `graph.isDirty`.
-- Repeated `render()` requests within one browser frame are coalesced into one `requestAnimationFrame` paint.
-- No constant animation loop is introduced; a new frame is requested only when state becomes dirty.
-- Pointer preview broadcasts are separately coalesced to one event batch per animation frame.
-- `syncSplitTables()` retains the mounted Canvas elements in Canvas mode. Model refreshes update the existing graph instances rather than recreating the HTMLCanvasElement.
+- Repeated `render()` calls are coalesced into one `requestAnimationFrame` paint per graph.
+- No constant animation loop is introduced.
+- Pointer preview broadcasts are independently coalesced to one manager update per frame.
+- Immutable geometry snapshots are rebuilt only for geometry/model changes and preview overrides.
+- Pan, zoom, resize, selection, and other viewport-only paints reuse the existing geometry snapshot.
 
-Pre-fix finding: pointer move, pan, and wheel paths called the concrete paint routine synchronously for every input event.
+### 3. Memory and Cancellation Lifecycle — [PASS]
 
-### 3. Memory Leak Hunt — [PASS]
+- Canvas pointer listeners are removed by `InteractiveGraph.destroy()`.
+- Global keyboard, blur, and visibility listeners remain governed by the existing lifecycle cleanup stack.
+- A detached-popup observer destroys the controller, manager, graph instances, pending paint frames, pending preview frames, and event listeners.
+- Escape, pointer cancellation, blur, and visibility-loss cancellation remove queued preview broadcasts and republish canonical geometry.
+- A rejected controller commit removes the temporary visual override and emits a cancelled operation rather than a false committed event.
 
-- Canvas pointer listeners remain canvas-scoped and are removed by `InteractiveGraph.destroy()`.
-- Global keyboard, blur, and document visibility listeners are registered through cleanup callbacks and removed during graph destruction.
-- A detached-popup lifecycle observer now detects removal of the Pipeline 3D Model dialog, destroys its controller and graph instances, cancels pending animation frames, and removes retained listeners.
-- Destruction remains idempotent through the existing lifecycle hardening layer.
+### 4. Public Event Contracts — [PASS]
 
-Pre-fix finding: popup close removed the modal DOM directly without invoking workspace destruction, allowing global listener closures to retain detached graph instances.
+Two versioned schemas are published:
 
-### 4. Custom Event Broadcasting — [PASS]
+- `PipelineCanvasNodeMoved.v1`
+- `PipelineCanvasGeometryUpdated.v1`
 
-- `canvas:nodeMoved` is emitted for rAF-gated preview movement and committed pointer-release movement.
-- `canvas:geometryUpdated` is emitted for preview geometry changes, model reloads, committed commands, graph reloads, and history navigation.
-- Events are dispatched from `PipelineCanvasManager` and the attached Canvas DOM elements with structured node/edge snapshots.
+`PipelineCanvasNodeMoved.v1` normalizes Table 2X elevation moves, Table 3X depth moves, and Table 3X marker moves into a stable shape containing:
 
-Pre-fix finding: only internal `nodePreviewMoved`, `nodeMoved`, and controller events existed; the required public `canvas:*` event names were absent.
+- `operationId`
+- `phase`: `preview`, `committed`, or `cancelled`
+- graph and entity identity
+- normalized `before` / `after`
+- reason and model revision
+- immutable node and edge snapshots
+
+Committed movement is emitted only after the controller dispatches the matching `commandCommitted` event.
+
+DOM dispatch occurs once per logical event:
+
+- `canvas:nodeMoved` is dispatched from the source graph Canvas and bubbles upward.
+- `canvas:geometryUpdated` is dispatched once from the Pipeline dialog host.
+- Both events are also available directly from `PipelineCanvasManager`.
+
+This avoids duplicate document-level notifications when both Table 2X and Table 3X canvases are attached.
 
 ## Constraints verification
 
-- New JavaScript module: under 300 lines.
-- New functions and methods: under 40 lines each.
+- Production modules remain below 300 lines each.
+- New functions and methods remain below 40 lines.
 - Named exports only.
-- No polyfills or runtime shims were added to production code.
-- The existing legacy files exceed 300 lines, but this is pre-existing debt; this audit does not expand them.
+- No production polyfills or runtime compatibility shims were added.
+- The legacy preview files were not expanded or removed.
 
 ## Regression coverage
 
 `tests/pipeline-3d-model-canvas-audit-hardening.test.js` verifies:
 
-- immutable manager node/edge snapshots;
-- one-frame render coalescing and dirty reset;
-- no textarea mutation during pointer move;
-- model serialization on pointer release;
-- `canvas:nodeMoved` and `canvas:geometryUpdated` broadcasts;
-- detached popup destruction and listener cleanup;
-- cancellation of pending animation frames.
+- two attached graph canvases and immutable aggregate geometry;
+- one-frame render coalescing;
+- no raw mutation during pointer preview;
+- successful commit correlation and shared operation identity;
+- one source-canvas movement dispatch with no duplicate sibling-canvas dispatch;
+- one dialog-host geometry dispatch;
+- versioned normalized Table 2X and Table 3X payloads;
+- cancellation before the queued preview frame;
+- rejected-commit visual rollback;
+- no geometry rebuild during pan and zoom paints;
+- detached popup destruction, listener cleanup, and pending-frame cancellation.
