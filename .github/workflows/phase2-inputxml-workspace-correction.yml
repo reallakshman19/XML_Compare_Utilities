@@ -1,0 +1,238 @@
+name: Phase 2 InputXML Workspace Dependency Correction
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/phase2-inputxml-workspace-correction.yml
+
+permissions:
+  contents: write
+
+jobs:
+  correct:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: claude/snap-geometry-cii-issues-v272ju
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply exact dependency correction
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const workspacePath = 'tabs/inputxml-workspace/inputxml-workspace-tab.js';
+          const testPath = 'tests/inputxml-workspace-static.test.js';
+          function replaceOnce(source, before, after, label) {
+            const index = source.indexOf(before);
+            if (index < 0) throw new Error(`Missing patch anchor: ${label}`);
+            if (source.indexOf(before, index + before.length) >= 0) throw new Error(`Non-unique patch anchor: ${label}`);
+            return source.slice(0, index) + after + source.slice(index + before.length);
+          }
+          let source = fs.readFileSync(workspacePath, 'utf8');
+          source = replaceOnce(source,
+            "import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT, XML_WORKSPACE_KINDS } from './inputxml-workspace-xml-detect.js';",
+            "import { detectXmlWorkspaceSchema, isXmlMaskEnabled, setXmlMaskEnabled, maskedFileName, XML_OR_TXT_ACCEPT } from './inputxml-workspace-xml-detect.js';",
+            'remove unused XML_WORKSPACE_KINDS import');
+          source = replaceOnce(source,
+            `import {
+              cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
+              countDiagnostic, enrichmentInputPreflight, inputXmlFrom5CResult, manualCleanXmlPreflight, routeCleanXmlTo5C,
+            } from './inputxml-workspace-orchestration.js';`,
+            `import {
+              cleanArtifactsForSourceChange, cleanCategorizedForInputChange, cleanEnrichmentForInputChange,
+              cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
+              enrichmentInputPreflight, inputXmlFrom5CResult, manualCleanXmlPreflight, routeCleanXmlTo5C,
+            } from './inputxml-workspace-orchestration.js';`,
+            'orchestration imports');
+          source = replaceOnce(source,
+            `function invalidateCleanArtifacts(state) {
+              return applyWorkspaceTransition(state, cleanArtifactsForSourceChange(state));
+            }
+
+            function invalidateEnrichmentArtifacts(state) {
+              const transition = cleanEnrichmentForInputChange(state.enrichment);
+              state.enrichment = { ...state.enrichment, ...transition.patch };
+              appendWorkspaceDiagnostics(state, transition.diagnostic);
+              return state;
+            }
+
+            function invalidateCategorizedArtifacts(state) {
+              return applyWorkspaceTransition(state, cleanCategorizedForInputChange(state));
+            }`,
+            `function invalidateCleanArtifacts(state) {
+              applyWorkspaceTransition(state, cleanArtifactsForSourceChange(state));
+              const generated = cleanGeneratedInputForSourceChange(state.enrichment);
+              state.enrichment = { ...state.enrichment, ...generated.patch };
+              appendWorkspaceDiagnostics(state, generated.diagnostic);
+              return state;
+            }
+
+            function invalidateEnrichmentArtifacts(state) {
+              const transition = cleanEnrichmentForInputChange(state.enrichment);
+              state.enrichment = { ...state.enrichment, ...transition.patch };
+              appendWorkspaceDiagnostics(state, transition.diagnostic);
+              return state;
+            }
+
+            function invalidateSideloadArtifacts(state) {
+              const transition = cleanSideloadForSourceChange(state.enrichment);
+              state.enrichment = { ...state.enrichment, ...transition.patch };
+              appendWorkspaceDiagnostics(state, transition.diagnostic);
+              return state;
+            }
+
+            function invalidateCategorizedArtifacts(state) {
+              return applyWorkspaceTransition(state, cleanCategorizedForInputChange(state));
+            }
+
+            function sideloadSourceSignature(enrichment = {}) {
+              return [enrichment.basicText, enrichment.restraintsText, enrichment.nodalText, enrichment.userNodalText]
+                .map((value) => String(value ?? '')).join('\\u0000');
+            }`,
+            'invalidation helpers');
+          source = replaceOnce(source,
+            `function collectWithInvalidation(dialog, state) {
+              const before = {
+                sourceXmlText: state.sourceXmlText,
+                enrichmentInput: state.enrichment.inputXmlText,
+                categorizedInputText: state.categorizedInputText,
+              };
+              collect(dialog, state);
+              if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
+              if (before.enrichmentInput !== state.enrichment.inputXmlText) invalidateEnrichmentArtifacts(state);
+              if (before.categorizedInputText !== state.categorizedInputText) invalidateCategorizedArtifacts(state);
+              return state;
+            }`,
+            `function collectWithInvalidation(dialog, state) {
+              const before = {
+                sourceXmlText: state.sourceXmlText,
+                enrichmentInput: state.enrichment.inputXmlText,
+                sideloadSource: sideloadSourceSignature(state.enrichment),
+                categorizedInputText: state.categorizedInputText,
+              };
+              collect(dialog, state);
+              if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
+              if (before.enrichmentInput !== state.enrichment.inputXmlText) {
+                invalidateEnrichmentArtifacts(state);
+                state.enrichment.inputXmlSource = 'paste';
+              }
+              if (before.sideloadSource !== sideloadSourceSignature(state.enrichment)) invalidateSideloadArtifacts(state);
+              if (before.categorizedInputText !== state.categorizedInputText) invalidateCategorizedArtifacts(state);
+              return state;
+            }`,
+            'dependency-aware collection');
+          source = replaceOnce(source,
+            "state.enrichment = { ...state.enrichment, ...transition.patch, inputXmlText: handoff.text };",
+            "state.enrichment = { ...state.enrichment, ...transition.patch, inputXmlText: handoff.text, inputXmlSource: '5c' };",
+            '5C provenance');
+          source = replaceOnce(source,
+            "    enrichment: {},",
+            "    enrichment: { inputXmlSource: '' },",
+            'default InputXML provenance');
+          source = replaceOnce(source,
+            "      const preflight = manualCleanXmlPreflight(tables);",
+            "      const routeCount = tables.branches.reduce((sum, branch) => sum + positiveRouteNodes(branch.nodes).length, 0);\n      const preflight = manualCleanXmlPreflight(tables, routeCount);",
+            'manual route preflight');
+          for (const [field, sample] of [
+            ['basicText', 'SAMPLE_BASIC_TEXT'],
+            ['restraintsText', 'SAMPLE_RESTRAINTS_TEXT'],
+            ['nodalText', 'SAMPLE_NODAL_TEXT'],
+            ['userNodalText', 'SAMPLE_USER_NODAL_TEXT'],
+          ]) {
+            source = replaceOnce(source,
+              `      state.enrichment.${field} = ${sample};`,
+              `      invalidateSideloadArtifacts(state);\n      state.enrichment.${field} = ${sample};`,
+              `sample invalidation ${field}`);
+          }
+          source = replaceOnce(source,
+            `    invalidateEnrichmentArtifacts(state);
+                const log = [];`,
+            `    invalidateSideloadArtifacts(state);
+                state.enrichment = { ...state.enrichment, basicText: '', restraintsText: '', nodalText: '', userNodalText: '' };
+                const log = [];`,
+            'ACCDB helper invalidation');
+          source = replaceOnce(source,
+            `    state.enrichment.inputXmlText = await file.text();
+                const preflight = enrichmentInputPreflight(state.enrichment.inputXmlText, file.name);`,
+            `    state.enrichment.inputXmlText = await file.text();
+                state.enrichment.inputXmlSource = 'upload';
+                const preflight = enrichmentInputPreflight(state.enrichment.inputXmlText, file.name);`,
+            'uploaded InputXML provenance');
+          source = replaceOnce(source,
+            `      state.enrichment.inputXmlText = state.categorizedOutputText;
+              state.activeTab = 'enrich';`,
+            `      state.enrichment.inputXmlText = state.categorizedOutputText;
+              state.enrichment.inputXmlSource = 'categorized';
+              state.activeTab = 'enrich';`,
+            'categorized InputXML provenance');
+          fs.writeFileSync(workspacePath, source);
+
+          let test = fs.readFileSync(testPath, 'utf8');
+          test = replaceOnce(test,
+            `  cleanEnrichmentForInputChange,
+              enrichmentInputPreflight,`,
+            `  cleanEnrichmentForInputChange,
+              cleanGeneratedInputForSourceChange,
+              cleanSideloadForSourceChange,
+              enrichmentInputPreflight,`,
+            'test orchestration imports');
+          test = replaceOnce(test,
+            `const emptyManual = manualCleanXmlPreflight({ branches: [], nodes: [] });
+            assert.equal(emptyManual.ok, false, 'Zero-record manual CleanXML is blocked.');
+            assert.equal(emptyManual.diagnostic.code, 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED');`,
+            `const emptyManual = manualCleanXmlPreflight({ branches: [], nodes: [] }, 0);
+            assert.equal(emptyManual.ok, false, 'Zero-record manual CleanXML is blocked.');
+            assert.equal(emptyManual.diagnostic.code, 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED');
+            const noRouteManual = manualCleanXmlPreflight({ branches: [{}], nodes: [{}] }, 0);
+            assert.equal(noRouteManual.ok, false, 'Manual rows with no writable route are blocked.');`,
+            'manual route test');
+          test = replaceOnce(test,
+            `const enrichmentInvalidation = cleanEnrichmentForInputChange({ lineIdText: 'rows', enrichedXmlText: inputXml });
+            assert.equal(enrichmentInvalidation.patch.enrichedXmlText, '', 'Input changes clear stale enriched XML.');
+            const categorizedInvalidation = cleanCategorizedForInputChange({ categorizedOutputText: cleanXml });`,
+            `const enrichmentInvalidation = cleanEnrichmentForInputChange({ lineIdText: 'rows', enrichedXmlText: inputXml });
+            assert.equal(enrichmentInvalidation.patch.enrichedXmlText, '', 'Input changes clear stale enriched XML.');
+            assert.equal(enrichmentInvalidation.patch.lineIdText, undefined, 'Input changes preserve reusable sideload lookup rows.');
+            const sideloadInvalidation = cleanSideloadForSourceChange({ lineIdText: 'rows', inputXmlText: inputXml });
+            assert.equal(sideloadInvalidation.patch.lineIdText, '', 'Helper changes clear generated sideload rows.');
+            assert.equal(sideloadInvalidation.patch.inputXmlText, undefined, 'Helper changes preserve the loaded InputXML.');
+            const generatedInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: '5c', inputXmlText: inputXml });
+            assert.equal(generatedInvalidation.patch.inputXmlText, '', 'Source XML changes clear dependent 5C InputXML.');
+            const uploadInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: 'upload', inputXmlText: inputXml });
+            assert.equal(uploadInvalidation.patch.inputXmlText, undefined, 'Source XML changes preserve independent uploaded InputXML.');
+            const categorizedInvalidation = cleanCategorizedForInputChange({ categorizedOutputText: cleanXml });`,
+            'invalidation scope tests');
+          test = replaceOnce(test,
+            `assert.ok(workspaceTabSource.includes('enrichmentInputPreflight'), 'Workspace schema-gates Tab 2 enrichment.');`,
+            `assert.ok(workspaceTabSource.includes('enrichmentInputPreflight'), 'Workspace schema-gates Tab 2 enrichment.');
+            assert.ok(workspaceTabSource.includes("inputXmlSource: '5c'"), 'Workspace records 5C InputXML provenance.');
+            assert.ok(workspaceTabSource.includes('invalidateSideloadArtifacts'), 'Workspace separates helper-table invalidation from InputXML invalidation.');
+            assert.ok(!workspaceTabSource.includes('XML_WORKSPACE_KINDS }'), 'Workspace has no dangling XML_WORKSPACE_KINDS import.');`,
+            'source dependency assertions');
+          fs.writeFileSync(testPath, test);
+          NODE
+      - name: Syntax and focused tests
+        run: |
+          node --check tabs/inputxml-workspace/inputxml-workspace-tab.js
+          node --check tabs/inputxml-workspace/inputxml-workspace-orchestration.js
+          node --check tests/inputxml-workspace-static.test.js
+          node tests/inputxml-workspace-static.test.js
+          node tests/inputxml-workspace-accdb-sideload.test.js
+          npm run test:inputxml-workspace
+      - name: Commit correction and remove workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          rm -f .github/workflows/phase2-inputxml-workspace-correction.yml
+          git add -A
+          git diff --cached --check
+          git commit -m "fix: scope InputXML Workspace dependency invalidation"
+          git push origin HEAD:claude/snap-geometry-cii-issues-v272ju
