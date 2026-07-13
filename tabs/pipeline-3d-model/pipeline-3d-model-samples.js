@@ -1,4 +1,5 @@
 // Sample table text loaded by the "New" (Load Sample) button.
+import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js?v=2';
 
 export const SAMPLE_TABLE_1 = `Point\tX\tY\tZ\tOriginGlobalX\tOriginGlobalY\tOriginGlobalZ\tAngleDeg
 IP3-IP Start\t0\t0\t0\t301614.82\t2038115\t0\t0
@@ -426,8 +427,8 @@ function ensureSplitStyle(doc = globalThis.document) {
 .pipeline-3d-model-dialog{height:calc(100vh - 24px)!important;width:min(1680px,calc(100vw - 24px))!important}
 .pipeline-3d-model-dialog .psmap-card-body{height:100%;min-height:0}
 .pipeline-3d-model-dialog .p3d-workspace{height:100%;grid-template-columns:minmax(360px,.86fr) minmax(620px,1.14fr)!important}
-.pipeline-3d-model-dialog .p3d-output{height:100%;grid-template-rows:auto auto minmax(220px,1fr) auto minmax(0,1fr)!important}
-.pipeline-3d-model-dialog .p3d-keyplan-frame{height:100%;min-height:220px;aspect-ratio:auto!important}
+.pipeline-3d-model-dialog .p3d-output{height:100%;grid-template-rows:auto auto minmax(220px, 45vh) auto minmax(0,1fr)!important}
+.pipeline-3d-model-dialog .p3d-keyplan-frame{height:100%;min-height:220px;max-height:45vh;aspect-ratio:auto!important}
 .pipeline-3d-model-dialog .p3d-output-scroll{height:100%;min-height:0;max-height:none!important;overflow:auto}
 .pipeline-3d-model-dialog .p3d-output pre{max-height:30vh;min-height:100px}
 .pipeline-3d-model-dialog .p3d-output pre[data-p3d="coordinate-output"]{max-height:36vh}
@@ -439,10 +440,18 @@ function ensureSplitStyle(doc = globalThis.document) {
 .p3d-split-grid th{position:sticky;top:0;background:#111c2f;color:#bfdbfe;z-index:1}
 .p3d-split-grid input{width:100%;box-sizing:border-box;background:#020617;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:5px;font-family:monospace;font-size:12px}
 .p3d-split-grid .p3d-row-add{margin:8px;padding:6px 10px}
-.p3d-derived-grid{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220;max-height:360px}
+.p3d-split-grid .p3d-row-add{margin:8px;padding:6px 10px}
+.p3d-derived-grid{border:1px solid rgba(148,163,184,.28);border-radius:10px;overflow:auto;background:#0b1220;max-height:600px;height:100%;}
 .p3d-derived-grid table{width:100%;min-width:720px;border-collapse:collapse;color:#e2e8f0;font-size:11px}
 .p3d-derived-grid th,.p3d-derived-grid td{border-bottom:1px solid rgba(148,163,184,.16);padding:5px;text-align:left;white-space:nowrap}
 .p3d-derived-grid th{position:sticky;top:0;background:#111c2f;color:#bfdbfe;z-index:1}
+.p3d-x-modal{position:fixed;inset:0;background:rgba(2,6,23,0.9);z-index:100;display:none;flex-direction:column;padding:24px;box-sizing:border-box;color:#e2e8f0;}
+.p3d-x-modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+.p3d-x-tabs{display:flex;gap:8px;margin-bottom:12px;}
+.p3d-x-tab{background:#1e293b;border:1px solid rgba(148,163,184,0.3);color:#94a3b8;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;}
+.p3d-x-tab[data-active="true"]{background:#38bdf8;color:#0f172a;border-color:#38bdf8;font-weight:bold;}
+.p3d-x-content{flex:1;min-height:0;overflow:hidden;display:none;}
+.p3d-x-content[data-active="true"]{display:block;}
 `;
   doc.head?.appendChild(style);
 }
@@ -504,17 +513,30 @@ function renderAllEditablePreviews(dialog) {
   Object.keys(SPLIT_DEFS).forEach((name) => renderEditablePreview(dialog, name));
 }
 
-function renderTsvGrid(text) {
+const _highlightedKeys = new Set();
+
+function renderTsvGrid(text, highlightColIndex) {
   const [headerLine, ...bodyLines] = lines(text);
   const headers = splitCells(headerLine || '');
   const rows = bodyLines.map(splitCells);
   if (!headers.length) return '<div class="p3d-derived-grid">No rows.</div>';
   const head = `<tr>${headers.map((header) => `<th>${h(header)}</th>`).join('')}</tr>`;
-  const body = rows.map((row) => `<tr>${headers.map((_, index) => `<td>${h(row[index] ?? '')}</td>`).join('')}</tr>`).join('');
+  const body = rows.map((row) => {
+    let isHighlighted = false;
+    if (highlightColIndex != null) {
+      const val = row[highlightColIndex];
+      if (val) {
+        const num = parseFloat(val.split('→').pop().trim()); // handle range labels
+        if (_highlightedKeys.has(num) || _highlightedKeys.has(val)) isHighlighted = true;
+      }
+    }
+    const style = isHighlighted ? 'background:rgba(234,179,8,.2);' : '';
+    return `<tr style="${style}">${headers.map((_, index) => `<td>${h(row[index] ?? '')}</td>`).join('')}</tr>`;
+  }).join('');
   return `<div class="p3d-derived-grid"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 
-function syncSplitTables(dialog) {
+function syncSplitTables(dialog, forceSvgUpdate = false) {
   const table2Raw = findSlot(dialog, 'table2a-raw')?.value || '';
   const table3ARaw = findSlot(dialog, 'table3a-raw')?.value || '';
   const table3BRaw = findSlot(dialog, 'table3b-raw')?.value || '';
@@ -525,14 +547,210 @@ function syncSplitTables(dialog) {
   const table3Preview = findSlot(dialog, 'table3x-preview');
   const table2Output = dialog.querySelector('[data-p3d="table2x-output"]');
   const table3Output = dialog.querySelector('[data-p3d="table3x-output"]');
-  const table2Html = renderTsvGrid(table2X);
-  const table3Html = renderTsvGrid(table3X.text);
-  if (table2Preview) table2Preview.innerHTML = table2Html;
-  if (table3Preview) table3Preview.innerHTML = table3Html;
-  if (table2Output) table2Output.innerHTML = table2Html;
-  if (table3Output) table3Output.innerHTML = table3Html;
+  
+  if (forceSvgUpdate || !table2Preview?.querySelector('svg')) {
+    const table2Html = createTable2XSVG(table2X);
+    if (table2Preview) table2Preview.innerHTML = table2Html;
+  }
+  if (forceSvgUpdate || !table3Preview?.querySelector('svg')) {
+    const table3Html = createTable3XSVG(table3X.text);
+    if (table3Preview) table3Preview.innerHTML = table3Html;
+  }
+  
+  if (table2Output) table2Output.innerHTML = renderTsvGrid(table2X, 1);
+  if (table3Output) table3Output.innerHTML = renderTsvGrid(table3X.text, 4);
   setTextAndInput(dialog.querySelector('[data-p3d="table2"]'), buildTable2ModelInput(table2Raw));
   setTextAndInput(dialog.querySelector('[data-p3d="table3"]'), buildTable3ModelInput(table3X, table2Raw));
+  
+  if (forceSvgUpdate || !table2Preview?.dataset.boundListeners) {
+    if (table2Preview) table2Preview.dataset.boundListeners = "true";
+    bindDraggableSVGNodes(dialog);
+  }
+}
+
+function updateRawTable(dialog, rawName, matchCol, matchVal, updateCol, newVal) {
+  const textarea = findSlot(dialog, rawName);
+  if (!textarea) return;
+  const tLines = textarea.value.split('\n');
+  let changed = false;
+  for (let i = 0; i < tLines.length; i++) {
+    const cells = tLines[i].split('\t');
+    if (cells.length < 2) continue;
+    let isMatch = false;
+    
+    if (rawName === 'table3b-raw' || rawName === 'table3a-raw') {
+      const from = cells[0]?.trim();
+      const to = cells[1]?.trim();
+      const textX = cells[2]?.trim();
+      let label = '';
+      if (from && to) label = `${from} → ${to}`;
+      else label = textX || '';
+      
+      if (label === matchVal || label === matchVal.replace('→', '->')) {
+        isMatch = true;
+        while (cells.length <= updateCol) cells.push('');
+      }
+    } else {
+      if (cells.length > Math.max(matchCol, updateCol)) {
+        if (parseFloat(cells[matchCol]) === parseFloat(matchVal) || cells[matchCol].trim() === String(matchVal)) {
+          isMatch = true;
+        }
+      }
+    }
+    
+    if (isMatch) {
+      cells[updateCol] = newVal;
+      tLines[i] = cells.join('\t');
+      changed = true;
+    }
+  }
+  if (changed) {
+    textarea.value = tLines.join('\n');
+    _highlightedKeys.add(parseFloat(matchVal));
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function bindDraggableSVGNodes(dialog) {
+  const svgs = dialog.querySelectorAll('svg[data-svg-type]');
+  svgs.forEach(svg => {
+    // We already attach this once, but just to be safe:
+    if (svg.dataset.bound) return;
+    svg.dataset.bound = "true";
+
+    let draggingNode = null;
+    let type = svg.dataset.svgType;
+    let minY = parseFloat(svg.dataset.minY);
+    let maxY = parseFloat(svg.dataset.maxY);
+    let pad = parseFloat(svg.dataset.pad);
+    let h = parseFloat(svg.dataset.h);
+    let isDepth = type === 'table3x';
+
+    svg.addEventListener('pointerdown', (e) => {
+      const target = e.target.closest('.p3d-draggable-node');
+      if (!target) return;
+      e.preventDefault();
+      draggingNode = target;
+      svg.setPointerCapture(e.pointerId);
+    });
+
+    svg.addEventListener('pointermove', (e) => {
+      if (!draggingNode) return;
+      e.preventDefault();
+      
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+      
+      const dragType = draggingNode.dataset.dragType;
+      const basis = draggingNode.dataset.hBasis;
+
+      if (dragType === 'table3x-marker') {
+        let newX = svgP.x;
+        const w = parseFloat(svg.dataset.w);
+        if (newX < pad) newX = pad;
+        if (newX > w - pad) newX = w - pad;
+        
+        draggingNode.setAttribute('cx', newX);
+        const line = svg.querySelector(`.p3d-drag-marker-line[data-h-basis="${basis}"]`);
+        if (line) { line.setAttribute('x1', newX); line.setAttribute('x2', newX); }
+        const textNode = svg.querySelector(`.p3d-drag-marker-text[data-h-basis="${basis}"]`);
+        if (textNode) { textNode.setAttribute('x', newX); }
+        const xNode = svg.querySelector(`.p3d-drag-marker-x[data-h-basis="${basis}"]`);
+        if (xNode) { 
+          const minX = parseFloat(svg.dataset.minX);
+          const maxX = parseFloat(svg.dataset.maxX);
+          const valX = minX + ((newX - pad) / (w - pad * 2)) * (maxX - minX);
+          xNode.textContent = `X: ${valX.toFixed(1)}`; 
+        }
+        return;
+      }
+
+      let newY = svgP.y;
+      if (newY < pad) newY = pad;
+      if (newY > h - pad) newY = h - pad;
+      
+      draggingNode.setAttribute('cy', newY);
+      
+      const label = svg.querySelector(`.p3d-drag-label[data-h-basis="${basis}"]`);
+      if (label) {
+        label.setAttribute('y', newY + (isDepth ? 18 : -12));
+        const unscaled = minY + ((h - pad - newY) / (h - pad * 2)) * (maxY - minY);
+        let textVal;
+        if (isDepth) {
+          if (unscaled > 0.5) textVal = 'A/G';
+          else textVal = (-unscaled).toFixed(1) + 'M';
+        } else {
+          textVal = unscaled.toFixed(2);
+        }
+        label.textContent = textVal;
+      }
+    });
+
+    svg.addEventListener('pointerup', (e) => {
+      if (!draggingNode) return;
+      e.preventDefault();
+      svg.releasePointerCapture(e.pointerId);
+      
+      const dragType = draggingNode.dataset.dragType;
+      const hBasis = draggingNode.dataset.hBasis;
+
+      if (dragType === 'table3x-marker') {
+        const cx = parseFloat(draggingNode.getAttribute('cx'));
+        const w = parseFloat(svg.dataset.w);
+        const minX = parseFloat(svg.dataset.minX);
+        const maxX = parseFloat(svg.dataset.maxX);
+        const newCum = minX + ((cx - pad) / (w - pad * 2)) * (maxX - minX);
+        
+        const hMap = svg.dataset.hMap.split(',').map(pair => {
+          const [cum, h] = pair.split(':');
+          return { cum: parseFloat(cum), h: parseFloat(h) };
+        }).filter(p => !isNaN(p.cum) && !isNaN(p.h));
+        
+        hMap.sort((a,b) => a.cum - b.cum);
+        let newH = hMap[0]?.h || 0;
+        if (hMap.length > 0) {
+          if (newCum <= hMap[0].cum) newH = hMap[0].h;
+          else if (newCum >= hMap[hMap.length-1].cum) newH = hMap[hMap.length-1].h;
+          else {
+            for (let i = 0; i < hMap.length - 1; i++) {
+              const p1 = hMap[i];
+              const p2 = hMap[i+1];
+              if (newCum >= p1.cum && newCum <= p2.cum) {
+                const t = (newCum - p1.cum) / (p2.cum - p1.cum);
+                newH = p1.h + t * (p2.h - p1.h);
+                break;
+              }
+            }
+          }
+        }
+        
+        const originalText = draggingNode.dataset.originalText;
+        updateRawTable(dialog, 'table3c-raw', 1, originalText, 0, newH.toFixed(3));
+        draggingNode = null;
+        return;
+      }
+
+      const cy = parseFloat(draggingNode.getAttribute('cy'));
+      const unscaled = minY + ((h - pad - cy) / (h - pad * 2)) * (maxY - minY);
+      
+      let textVal;
+      if (isDepth) {
+        if (unscaled > 0.5) textVal = 'A/G';
+        else textVal = (-unscaled).toFixed(1) + 'M';
+      } else {
+        textVal = unscaled.toFixed(2);
+      }
+
+      if (type === 'table2x') {
+        updateRawTable(dialog, 'table2a-raw', 0, hBasis, 2, textVal);
+      } else if (type === 'table3x') {
+        updateRawTable(dialog, 'table3b-raw', 2, hBasis, 3, textVal);
+      }
+      draggingNode = null;
+    });
+  });
 }
 
 function applyMultiSheetSplitSample(dialog) {
@@ -573,19 +791,46 @@ ${rawPanel('Table 2A Raw — H vs V', 'table2a-raw', 'H(coor)&#9;Station Text&#9
 ${rawPanel('Table 3A Raw — H vs HLength', 'table3a-raw', 'From H&#9;To H&#9;Text Position X&#9;HLength Text')}
 ${rawPanel('Table 3B Raw — H vs Z', 'table3b-raw', 'From H&#9;To H&#9;Text Position X&#9;Z Text')}
 ${markerRawPanel()}
-<details class="p3d-raw-details" open><summary>Table 2X Preview</summary><div data-p3d-split="table2x-preview">Paste Table 2A raw data to preview.</div></details>
-<details class="p3d-raw-details" open><summary>Table 3X Preview</summary><div data-p3d-split="table3x-preview">Paste Table 3A/3B/3C raw data to preview.</div></details>`);
+<div class="p3d-x-modal" data-p3d-split="x-modal">
+  <div class="p3d-x-modal-head" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(148,163,184,.16);">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <h3 style="margin:0;color:#e0f2fe;font-size:18px;">Table 2X & 3X Previews</h3>
+      <button type="button" data-p3d-split="x-reload" style="background:#1e293b;color:#e2e8f0;border:1px solid rgba(148,163,184,.4);border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;">Reload Graph</button>
+    </div>
+    <button type="button" class="p3d-close" data-p3d-split="x-close" aria-label="Close Preview" style="position:static;">Close</button>
+  </div>
+  <div class="p3d-x-tabs">
+    <button type="button" class="p3d-x-tab" data-x-tab="table2x" data-active="true">Table 2X</button>
+    <button type="button" class="p3d-x-tab" data-x-tab="table3x">Table 3X</button>
+  </div>
+  <div class="p3d-x-content" data-x-content="table2x" data-active="true">
+    <div data-p3d-split="table2x-preview" style="height:100%;">Paste Table 2A raw data to preview.</div>
+  </div>
+  <div class="p3d-x-content" data-x-content="table3x">
+    <div data-p3d-split="table3x-preview" style="height:100%;">Paste Table 3A/3B/3C raw data to preview.</div>
+  </div>
+</div>`);
+  }
+  const table1Btn = dialog.querySelector('[data-p3d="btn-preview-1"]');
+  if (table1Btn) {
+    table1Btn.insertAdjacentHTML('afterend', `
+      <button type="button" data-p3d-split="btn-preview-x" class="p3d-preview-btn" style="margin-left: 8px;">Preview Table 2X & 3X</button>
+    `);
   }
   const table1Output = dialog.querySelector('[data-p3d="table1-output"]');
   if (table1Output) {
     table1Output.insertAdjacentHTML('afterend', `
-<h4>Table 2X — H vs V</h4>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+  <h4 style="margin:0;">Table 2X — H vs V</h4>
+  <button type="button" data-p3d-split="btn-preview-x" class="p3d-preview-btn" style="background:#334155;color:#e2e8f0;border:1px solid rgba(148,163,184,.32);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Preview SVG Graphs</button>
+</div>
 <div data-p3d="table2x-output">Run or load the multi-sheet sample to generate.</div>
 <h4>Table 3X — HLength / Z / Markers</h4>
 <div data-p3d="table3x-output">Run or load the multi-sheet sample to generate.</div>`);
   }
   renderAllEditablePreviews(dialog);
   dialog.addEventListener('input', (event) => {
+    if (event.isTrusted) _highlightedKeys.clear();
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     const raw = target.closest('[data-p3d-split$="-raw"]');
@@ -594,7 +839,6 @@ ${markerRawPanel()}
       renderEditablePreview(dialog, raw.dataset.p3dSplit);
       syncSplitTables(dialog);
     } else if (cell) {
-      const panel = target.closest('[data-p3d-split-panel]');
       const name = panel?.dataset.p3dSplitPanel;
       if (name) {
         writePreviewRowsToRaw(dialog, name);
@@ -620,7 +864,33 @@ ${markerRawPanel()}
     syncSplitTables(dialog);
   });
   dialog.querySelector('[data-p3d="run"]')?.addEventListener('click', () => syncSplitTables(dialog), { capture: true });
-  dialog.querySelector('[data-p3d="new-multisheet"]')?.addEventListener('click', () => queueMicrotask(() => applyMultiSheetSplitSample(dialog)), { capture: true });
+  const btnNew = dialog.querySelector('[data-p3d="new-multisheet"]');
+  if (btnNew) {
+    btnNew.addEventListener('click', () => queueMicrotask(() => applyMultiSheetSplitSample(dialog)));
+  }
+  const btnsPreviewX = dialog.querySelectorAll('[data-p3d-split="btn-preview-x"]');
+  const xModal = dialog.querySelector('[data-p3d-split="x-modal"]');
+  const xClose = dialog.querySelector('[data-p3d-split="x-close"]');
+  const xReload = dialog.querySelector('[data-p3d-split="x-reload"]');
+  if (btnsPreviewX.length && xModal && xClose) {
+    btnsPreviewX.forEach(btn => btn.addEventListener('click', () => { 
+      xModal.style.display = 'flex'; 
+      syncSplitTables(dialog, true); // Force initial draw on open
+    }));
+    xClose.addEventListener('click', () => { xModal.style.display = 'none'; });
+    if (xReload) xReload.addEventListener('click', () => syncSplitTables(dialog, true));
+    const xTabs = Array.from(xModal.querySelectorAll('.p3d-x-tab'));
+    const xContents = Array.from(xModal.querySelectorAll('.p3d-x-content'));
+    xTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        xTabs.forEach(t => t.setAttribute('data-active', 'false'));
+        xContents.forEach(c => c.setAttribute('data-active', 'false'));
+        tab.setAttribute('data-active', 'true');
+        const target = xModal.querySelector(`[data-x-content="${tab.getAttribute('data-x-tab')}"]`);
+        if (target) target.setAttribute('data-active', 'true');
+      });
+    });
+  }
 }
 
 function installPipeline3dSplitTableEnhancer(doc = globalThis.document) {
