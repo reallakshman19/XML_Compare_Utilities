@@ -10,7 +10,29 @@ async function openFixture(page) {
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
   await page.goto(FIXTURE_URL);
   await page.waitForFunction(() => document.body.dataset.pipelineCadReady === '1');
+  await page.evaluate(async () => {
+    const layout = await import('/tabs/pipeline-3d-model/pipeline-3d-model-cad-layout-hardening.js');
+    layout.stabilizePipelineCadHosts(document);
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    window.__pipelineCadHarness.workspace.resize();
+    await frame();
+    await frame();
+    window.__pipelineCadHarness.workspace.resize();
+    await frame();
+    await frame();
+  });
+  await page.waitForFunction(() => {
+    const state = window.__pipelineCadHarness.state();
+    return Object.values(state.canvas).every((metrics) => (
+      metrics.cssWidth > 0
+      && metrics.cssHeight >= 340
+      && Math.abs(metrics.width / metrics.dpr - metrics.cssWidth) <= 1
+      && Math.abs(metrics.height / metrics.dpr - metrics.cssHeight) <= 1
+    ));
+  });
   await expect(page.locator('[data-p3d-cad-stage]')).toHaveCount(2);
+  await expect(page.locator('[data-p3d-split="table2x-preview"]')).toHaveClass(/p3d-cad-host/);
+  await expect(page.locator('[data-p3d-split="table3x-preview"]')).toHaveClass(/p3d-cad-host/);
   await expect(page.locator('[data-p3d-cad-stage="table2x"] [data-p3d-cad-snap="grid"]')).toBeVisible();
   return errors;
 }
@@ -26,7 +48,11 @@ async function localWorldPoint(page, graphName, world) {
 async function clientPoint(page, graphName, local) {
   const box = await page.locator(`[data-p3d-cad-canvas="${graphName}"]`).boundingBox();
   if (!box) throw new Error(`Canvas ${graphName} has no bounding box.`);
-  return { x: box.x + local.x, y: box.y + local.y };
+  const viewport = await page.evaluate((name) => window.__pipelineCadHarness.workspace.graphs[name].getViewport(), graphName);
+  return {
+    x: box.x + local.x * (box.width / viewport.width),
+    y: box.y + local.y * (box.height / viewport.height),
+  };
 }
 
 async function dragNode(page, graphName, query, targetWorld) {
@@ -67,21 +93,21 @@ test.describe('Pipeline CAD Canvas browser acceptance', () => {
     await enableSnap(page, 'table2x', 'grid');
 
     const node = await localPoint(page, 'table2x', { stationValue: 19 });
-    await dragNode(page, 'table2x', { id: node.id }, { x: node.world.x, y: 235.03 });
+    await dragNode(page, 'table2x', { id: node.id }, { x: node.world.x, y: 232.48 });
 
-    await expect.poll(async () => (await readState(page)).table2Rows.find((row) => row.id === node.id)?.elevationValue).toBe(235.05);
+    await expect.poll(async () => (await readState(page)).table2Rows.find((row) => row.id === node.id)?.elevationValue).toBe(232.5);
     const beforeReload = await readState(page);
     const changedLine = beforeReload.raw.table2a.split('\n').find((line) => line.includes('0+019.0'));
     const columns = changedLine.split('\t');
     expect(columns[2]).toBe('65.567');
-    expect(columns[4]).toBe('235.05');
+    expect(columns[4]).toBe('232.50');
     expect(beforeReload.table2Snapshot.find((row) => row.id === node.id)?.y).toBe(230.82);
-    expect(beforeReload.table2Overrides).toContainEqual([node.id, 235.05]);
+    expect(beforeReload.table2Overrides).toContainEqual([node.id, 232.5]);
     await capture(page, testInfo, 'cad-b01-before-reload');
 
     await page.locator('[data-p3d-cad-stage="table2x"] [data-p3d-cad-action="reload"]').click();
     const afterReload = await readState(page);
-    expect(afterReload.table2Snapshot.find((row) => row.id === node.id)?.y).toBe(235.05);
+    expect(afterReload.table2Snapshot.find((row) => row.id === node.id)?.y).toBe(232.5);
     expect(afterReload.table2Overrides).toEqual([]);
     await capture(page, testInfo, 'cad-b01-after-reload');
     expectNoBrowserErrors(errors);
@@ -137,17 +163,17 @@ test.describe('Pipeline CAD Canvas browser acceptance', () => {
   test('CAD-B05 — manual TSV input rebuilds state without replacing Canvas instances', async ({ page }, testInfo) => {
     const errors = await openFixture(page);
     const node = await localPoint(page, 'table2x', { stationValue: 19 });
-    await dragNode(page, 'table2x', { id: node.id }, { x: node.world.x, y: 234.2 });
+    await dragNode(page, 'table2x', { id: node.id }, { x: node.world.x, y: 232.2 });
     expect((await readState(page)).table2Overrides.length).toBeGreaterThan(0);
 
-    const raw = (await readState(page)).raw.table2a.replace('234.20', '236.25');
+    const raw = (await readState(page)).raw.table2a.replace('232.20', '232.75');
     await page.locator('[data-p3d-split="table2a-raw"]').fill(raw);
-    await expect.poll(async () => (await readState(page)).table2Rows.find((row) => row.stationValue === 19)?.elevationValue).toBe(236.25);
+    await expect.poll(async () => (await readState(page)).table2Rows.find((row) => row.stationValue === 19)?.elevationValue).toBe(232.75);
 
     const state = await readState(page);
     expect(state.graphIdentityStable).toBe(true);
     expect(state.table2Overrides).toEqual([]);
-    expect(state.table2Snapshot.find((row) => row.id === node.id)?.y).toBe(236.25);
+    expect(state.table2Snapshot.find((row) => row.id === node.id)?.y).toBe(232.75);
     await capture(page, testInfo, 'cad-b05-manual-raw-override');
     expectNoBrowserErrors(errors);
   });
@@ -177,6 +203,8 @@ test.describe('Pipeline CAD Canvas browser acceptance', () => {
     await page.keyboard.press('v');
     expect(await page.evaluate(() => window.__pipelineCadHarness.workspace.graphs.table2x.tool)).toBe('select');
 
+    await page.locator('[data-p3d-cad-stage="table2x"] [data-p3d-cad-action="fit"]').click();
+    await expect.poll(async () => (await readState(page)).viewport.table2x.zoom).toBe(1);
     const node = await localPoint(page, 'table2x', { stationValue: 19 });
     const client = await clientPoint(page, 'table2x', node);
     await page.mouse.click(client.x, client.y, { button: 'right' });
