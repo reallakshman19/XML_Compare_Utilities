@@ -5,11 +5,31 @@ import { Table3XCanvas } from './pipeline-3d-model-table3x-canvas.js';
 const LIFECYCLE_PATCH = Symbol.for('pipeline3d.cad.lifecycle-performance.patch.v1');
 const GRAPH_BOUND = Symbol.for('pipeline3d.cad.lifecycle-performance.graph-bound.v1');
 const GRAPH_DESTROYED = Symbol.for('pipeline3d.cad.lifecycle-performance.destroyed.v1');
+const GLOBAL_STATE = Symbol.for('pipeline3d.cad.lifecycle-performance.state.v1');
 const PREVIEW_SELECTOR = '[data-p3d-split="table2x-preview"], [data-p3d-split="table3x-preview"]';
-const SURFACES = new WeakMap();
-const STATS = new WeakMap();
-const PREVIEW_SNAPSHOTS = new WeakMap();
-const SNAPSHOT_OBSERVERS = new WeakMap();
+
+function createSharedState() {
+  return Object.freeze({
+    surfaces: new WeakMap(),
+    stats: new WeakMap(),
+    previewSnapshots: new WeakMap(),
+    snapshotObservers: new WeakMap(),
+  });
+}
+
+const sharedState = globalThis[GLOBAL_STATE] || createSharedState();
+if (!globalThis[GLOBAL_STATE]) {
+  Object.defineProperty(globalThis, GLOBAL_STATE, {
+    configurable: false,
+    enumerable: false,
+    writable: false,
+    value: sharedState,
+  });
+}
+const SURFACES = sharedState.surfaces;
+const STATS = sharedState.stats;
+const PREVIEW_SNAPSHOTS = sharedState.previewSnapshots;
+const SNAPSHOT_OBSERVERS = sharedState.snapshotObservers;
 
 function finite(value, fallback) {
   const number = Number(value);
