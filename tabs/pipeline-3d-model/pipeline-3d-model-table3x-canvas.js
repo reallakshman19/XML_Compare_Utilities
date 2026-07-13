@@ -20,14 +20,29 @@ export class Table3XCanvas extends InteractiveGraph {
 
   setModel(model, options = {}) {
     this.model = model;
-    if (!options.preserveSnapshot || !this.depthSnapshot.length) this.depthSnapshot = this.depthNodes(false);
+    const preserveSnapshot = options.preserveSnapshot === true;
+    if (!preserveSnapshot) {
+      this.depthSnapshot = this.depthNodes(false);
+      this.depthOverrides.clear();
+      this.markerOverrides.clear();
+      this.selected = null;
+      this.dragging = null;
+    } else if (!this.depthSnapshot.length) {
+      this.depthSnapshot = this.depthNodes(false);
+    }
     const map = model?.coordinateMap;
     const depths = this.depthNodes(false);
     const ys = depths.map((node) => node.y);
     const minY = Math.min(-2, ...ys);
     const maxY = Math.max(this.markerRailY + 0.5, ...ys);
-    if (map) this.setWorldBounds({ minX: map.cumulativeMin, maxX: map.cumulativeMax, minY, maxY });
-    this.render();
+    if (map) {
+      this.setWorldBounds(
+        { minX: map.cumulativeMin, maxX: map.cumulativeMax, minY, maxY },
+        { fit: !preserveSnapshot },
+      );
+    } else {
+      this.render();
+    }
   }
 
   depthNodes(includeOverrides = true) {
