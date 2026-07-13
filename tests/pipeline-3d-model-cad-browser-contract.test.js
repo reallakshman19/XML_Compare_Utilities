@@ -5,6 +5,8 @@ const spec = readFileSync(new URL('./browser/pipeline-3d-model-cad-browser.spec.
 const fixture = readFileSync(new URL('./browser/pipeline-cad-fixture.html', import.meta.url), 'utf8');
 const config = readFileSync(new URL('../playwright.pipeline-cad.config.mjs', import.meta.url), 'utf8');
 const workflow = readFileSync(new URL('../.github/workflows/pipeline-cad-browser-acceptance.yml', import.meta.url), 'utf8');
+const layout = readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-cad-layout-hardening.js', import.meta.url), 'utf8');
+const runtimeConfig = readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-config.js', import.meta.url), 'utf8');
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 for (const scenario of ['CAD-B01', 'CAD-B02', 'CAD-B03', 'CAD-B04', 'CAD-B05', 'CAD-B06']) {
@@ -17,12 +19,20 @@ assert.match(spec, /page\.keyboard\.press/);
 assert.match(spec, /page\.screenshot/);
 assert.match(spec, /console/);
 assert.match(spec, /pageerror/);
+assert.match(spec, /stabilizePipelineCadHosts/);
+assert.match(spec, /box\.width \/ viewport\.width/);
 
 assert.match(fixture, /pipeline-3d-model-cad-authoring\.js/);
 assert.match(fixture, /mountPipelineCadWorkspace/);
 assert.match(fixture, /data-p3d-split="table2x-preview"/);
 assert.match(fixture, /data-p3d-split="table3x-preview"/);
 assert.match(fixture, /__pipelineCadHarness/);
+
+assert.match(layout, /\.p3d-cad-host>/);
+assert.match(layout, /position:absolute!important/);
+assert.match(layout, /contain:layout paint/);
+assert.match(layout, /MutationObserver/);
+assert.match(runtimeConfig, /pipeline-3d-model-cad-layout-hardening\.js/);
 
 assert.match(config, /browserName: 'chromium'/);
 assert.match(config, /deviceScaleFactor: 1\.5/);
