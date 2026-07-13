@@ -1,0 +1,46 @@
+name: Pipeline CAD Canvas Readiness
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/pipeline-3d-model/**'
+      - 'scripts/pipeline-3d-model-cad-readiness.mjs'
+      - 'scripts/lib/pipeline-cad-readiness-runner.mjs'
+      - 'tests/pipeline-3d-model-cad-*.test.js'
+      - 'package.json'
+      - '.github/workflows/pipeline-cad-readiness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/**'
+      - 'scripts/pipeline-3d-model-cad-readiness.mjs'
+      - 'scripts/lib/pipeline-cad-readiness-runner.mjs'
+      - 'tests/pipeline-3d-model-cad-*.test.js'
+      - 'package.json'
+      - '.github/workflows/pipeline-cad-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run readiness tests
+        run: npm run test:pipeline-cad-readiness
+      - name: Generate readiness audit
+        run: npm run audit:pipeline-cad-readiness
+      - name: Upload readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-cad-readiness-${{ github.sha }}
+          path: artifacts/pipeline-cad-readiness.json
+          if-no-files-found: error
+          retention-days: 30
