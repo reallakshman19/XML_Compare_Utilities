@@ -590,12 +590,12 @@ function ensureStyle(doc = globalThis.document) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-+.p3d-cad-soak-status{padding-left:7px;border-left:1px solid rgba(148,163,184,.35);white-space:nowrap}
-+.p3d-cad-soak-status[data-verdict="READY"]{color:#86efac}
-+.p3d-cad-soak-status[data-verdict="BLOCKED"]{color:#fca5a5}
-+.p3d-cad-soak-status[data-verdict="IN_PROGRESS"]{color:#fde68a}
-+.p3d-cad-renderer-control [data-p3d-cad-diagnostics-download]{background:#1e3a8a;border-color:#60a5fa;color:#dbeafe}
-+`;
+.p3d-cad-soak-status{padding-left:7px;border-left:1px solid rgba(148,163,184,.35);white-space:nowrap}
+.p3d-cad-soak-status[data-verdict="READY"]{color:#86efac}
+.p3d-cad-soak-status[data-verdict="BLOCKED"]{color:#fca5a5}
+.p3d-cad-soak-status[data-verdict="IN_PROGRESS"]{color:#fde68a}
+.p3d-cad-renderer-control [data-p3d-cad-diagnostics-download]{background:#1e3a8a;border-color:#60a5fa;color:#dbeafe}
+`;
   doc.head.appendChild(style);
 }
 
