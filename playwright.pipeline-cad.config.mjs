@@ -2,7 +2,10 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: 'pipeline-3d-model-cad-browser.spec.mjs',
+  testMatch: [
+    'pipeline-3d-model-cad-browser.spec.mjs',
+    'pipeline-cad-runtime-switch.spec.mjs',
+  ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
   fullyParallel: false,
