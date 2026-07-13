@@ -20,7 +20,15 @@ export class Table2XCanvas extends InteractiveGraph {
 
   setModel(model, options = {}) {
     this.model = model;
-    if (!options.preserveSnapshot || !this.renderSnapshot.length) this.renderSnapshot = usableRows(model);
+    const preserveSnapshot = options.preserveSnapshot === true;
+    if (!preserveSnapshot) {
+      this.renderSnapshot = usableRows(model);
+      this.visualOverrides.clear();
+      this.selectedId = null;
+      this.draggingId = null;
+    } else if (!this.renderSnapshot.length) {
+      this.renderSnapshot = usableRows(model);
+    }
     const rows = usableRows(model);
     const xs = rows.map((row) => row.x);
     const ys = rows.map((row) => row.y);
@@ -28,9 +36,13 @@ export class Table2XCanvas extends InteractiveGraph {
       const minY = Math.min(...ys);
       const maxY = Math.max(...ys);
       const padY = Math.max((maxY - minY) * 0.2, 0.5);
-      this.setWorldBounds({ minX: Math.min(...xs), maxX: Math.max(...xs), minY: minY - padY, maxY: maxY + padY });
+      this.setWorldBounds(
+        { minX: Math.min(...xs), maxX: Math.max(...xs), minY: minY - padY, maxY: maxY + padY },
+        { fit: !preserveSnapshot },
+      );
+    } else {
+      this.render();
     }
-    this.render();
   }
 
   reloadGraph() {
