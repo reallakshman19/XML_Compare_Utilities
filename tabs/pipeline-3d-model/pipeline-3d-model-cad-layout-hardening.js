@@ -1,5 +1,8 @@
+import { InteractiveGraph } from './pipeline-3d-model-interactive-graph.js';
+
 const STYLE_ID = 'pipeline-3d-cad-layout-hardening-style';
 const HOST_SELECTOR = '[data-p3d-split="table2x-preview"], [data-p3d-split="table3x-preview"]';
+const SIZE_PATCH = Symbol.for('pipeline3d.cad.visible-size.patch.v1');
 
 function ensureStyle(doc = globalThis.document) {
   if (!doc?.head || doc.getElementById(STYLE_ID)) return;
@@ -13,6 +16,29 @@ function ensureStyle(doc = globalThis.document) {
   doc.head.appendChild(style);
 }
 
+function visibleHostSize(graph) {
+  const holder = graph?.canvas?.closest?.(HOST_SELECTOR);
+  const rect = holder?.getBoundingClientRect?.() || {};
+  const width = Math.round(Number(rect.width || holder?.clientWidth || 0));
+  const height = Math.round(Number(rect.height || holder?.clientHeight || 0));
+  return {
+    width: Number.isFinite(width) && width > 0 ? width : null,
+    height: Number.isFinite(height) && height > 0 ? height : null,
+  };
+}
+
+export function installPipelineCadVisibleSizePatch() {
+  const prototype = InteractiveGraph.prototype;
+  if (prototype[SIZE_PATCH]) return false;
+  const originalSetSize = prototype.setSize;
+  Object.defineProperty(prototype, SIZE_PATCH, { value: true });
+  prototype.setSize = function setVisiblePipelineCadSize(width, height) {
+    const visible = visibleHostSize(this);
+    return originalSetSize.call(this, visible.width ?? width, visible.height ?? height);
+  };
+  return true;
+}
+
 export function stabilizePipelineCadHosts(doc = globalThis.document) {
   if (!doc?.querySelectorAll) return 0;
   ensureStyle(doc);
@@ -23,11 +49,17 @@ export function stabilizePipelineCadHosts(doc = globalThis.document) {
       holder.classList.add('p3d-cad-host');
       changed += 1;
     }
+    const graph = holder.querySelector('[data-p3d-cad-canvas]')?.__pipelineCadGraph;
+    if (graph) {
+      const visible = visibleHostSize(graph);
+      if (visible.width && visible.height) graph.setSize(visible.width, visible.height);
+    }
   });
   return changed;
 }
 
 export function installPipelineCadLayoutHardening(doc = globalThis.document) {
+  installPipelineCadVisibleSizePatch();
   if (!doc?.body) return null;
   ensureStyle(doc);
   stabilizePipelineCadHosts(doc);
@@ -40,5 +72,6 @@ export function installPipelineCadLayoutHardening(doc = globalThis.document) {
   return observer;
 }
 
+installPipelineCadVisibleSizePatch();
 if (globalThis.document?.body) installPipelineCadLayoutHardening(globalThis.document);
 else globalThis.document?.addEventListener?.('DOMContentLoaded', () => installPipelineCadLayoutHardening(globalThis.document), { once: true });
