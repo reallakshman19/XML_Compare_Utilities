@@ -468,8 +468,7 @@ function parseRawRows(text, headers) {
 
 function rowsToRawText(headers, rows) {
   const body = rows
-    .map((row) => headers.map((_, index) => row[index] || '').join('\t'))
-    .filter((line) => line.replace(/\t/g, '').trim());
+    .map((row) => headers.map((_, index) => row[index] || '').join('\t'));
   return [headers.join('\t'), ...body].join('\n');
 }
 
@@ -487,7 +486,10 @@ function renderEditablePreview(dialog, name) {
   const body = rows.map((row, rowIndex) => `<tr data-p3d-split-row="${rowIndex}">
 <td>${rowIndex + 1}</td>
 ${row.map((cell, cellIndex) => `<td>${inputHtml(cell, rowIndex, cellIndex)}</td>`).join('')}
-<td><button type="button" class="p3d-row-delete" data-p3d-split-delete="${rowIndex}">-</button></td>
+<td style="white-space:nowrap;">
+  <button type="button" class="p3d-row-insert" data-p3d-split-insert="${rowIndex}" style="margin-right:4px;padding:2px 6px;cursor:pointer;" title="Insert row below">+</button>
+  <button type="button" class="p3d-row-delete" data-p3d-split-delete="${rowIndex}" style="padding:2px 6px;cursor:pointer;" title="Delete row">-</button>
+</td>
 </tr>`).join('');
   holder.innerHTML = `<div class="p3d-split-grid"><table><thead>${head}</thead><tbody>${body}</tbody></table>
 <button type="button" class="p3d-row-add" data-p3d-split-add="${name}">+ Add row</button></div>`;
@@ -851,15 +853,25 @@ ${markerRawPanel()}
     if (!target) return;
     const add = target.closest('[data-p3d-split-add]');
     const del = target.closest('[data-p3d-split-delete]');
-    if (!add && !del) return;
+    const insert = target.closest('[data-p3d-split-insert]');
+    if (!add && !del && !insert) return;
+    
     const panel = target.closest('[data-p3d-split-panel]');
     const name = add?.dataset.p3dSplitAdd || panel?.dataset.p3dSplitPanel;
     const headers = SPLIT_DEFS[name];
     const holder = dialog.querySelector(`[data-p3d-split-preview="${name}"]`);
     if (!headers || !holder) return;
     const rows = readEditablePreviewRows(holder, headers.length);
-    const next = add ? [...rows, headers.map(() => '')] : rows.filter((_, index) => index !== Number(del.dataset.p3dSplitDelete));
-    findSlot(dialog, name).value = rowsToRawText(headers, next.length ? next : [headers.map(() => '')]);
+    let next;
+    if (add) {
+      next = [...rows, headers.map(() => DASH)];
+    } else if (del) {
+      next = rows.filter((_, index) => index !== Number(del.dataset.p3dSplitDelete));
+    } else if (insert) {
+      next = [...rows];
+      next.splice(Number(insert.dataset.p3dSplitInsert) + 1, 0, headers.map(() => DASH));
+    }
+    findSlot(dialog, name).value = rowsToRawText(headers, next.length ? next : [headers.map(() => DASH)]);
     renderEditablePreview(dialog, name);
     syncSplitTables(dialog);
   });
