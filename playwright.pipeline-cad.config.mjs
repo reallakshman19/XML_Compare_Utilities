@@ -12,6 +12,7 @@ export default defineConfig({
     'pipeline-cad-floating-preview.spec.mjs',
     'pipeline-cad-axis-history.spec.mjs',
     'pipeline-cad-engineering-review.spec.mjs',
+    'pipeline-cad-preview-modes.spec.mjs',
   ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
