@@ -8,7 +8,8 @@ export const PIPELINE_CAD_RENDERER_SVG = 'svg';
 const RELOAD_GUARD_SESSION_KEY = 'pipeline3dCadFallbackReloaded';
 const STYLE_ID = 'pipeline-3d-cad-runtime-policy-style';
 const CONTROL_SELECTOR = '[data-p3d-cad-renderer-control]';
-const ERROR_PATTERN = /PipelineCad|Pipeline CAD Canvas|pipeline-3d-model-cad|Table2XCanvas|Table3XCanvas|InteractiveGraph/;
+const MESSAGE_ERROR_PATTERN = /PipelineCad|Pipeline CAD Canvas|Table2XCanvas|Table3XCanvas|InteractiveGraph/;
+const STACK_ERROR_PATTERN = /\b(?:mountPipelineCadWorkspace|patchDialog|Table2XCanvas|Table3XCanvas|PipelineCadController|InteractiveGraph)\b/;
 
 function safeGet(storage, key) {
   try {
@@ -97,10 +98,9 @@ export function readPipelineCadFallback(storage = globalThis.localStorage) {
 }
 
 export function isPipelineCadRuntimeError(error) {
-  const text = error instanceof Error
-    ? `${error.name}: ${error.message}\n${error.stack || ''}`
-    : String(error?.message ?? error ?? '');
-  return ERROR_PATTERN.test(text);
+  const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error?.message ?? error ?? '');
+  const stack = error instanceof Error ? String(error.stack || '') : String(error?.stack || '');
+  return MESSAGE_ERROR_PATTERN.test(message) || STACK_ERROR_PATTERN.test(stack);
 }
 
 export function handlePipelineCadRuntimeFailure(error, options = {}) {
