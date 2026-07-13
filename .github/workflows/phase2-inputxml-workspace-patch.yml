@@ -1,24 +1,17 @@
-name: Phase 2 InputXML Workspace Patch
+name: Phase 2 InputXML Workspace Finalize
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - scripts/phase2-inputxml-workspace-patch.mjs
-      - .github/workflows/phase2-inputxml-workspace-patch.yml
-  push:
-    branches:
-      - claude/snap-geometry-cii-issues-v272ju
-    paths:
-      - scripts/phase2-inputxml-workspace-patch.mjs
       - .github/workflows/phase2-inputxml-workspace-patch.yml
 
 permissions:
   contents: write
 
 jobs:
-  patch:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -31,8 +24,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Apply guarded patch
-        run: node scripts/phase2-inputxml-workspace-patch.mjs
+      - name: Merge current main and remove scaffolding
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin main
+          git merge --no-commit --no-ff origin/main
+          rm -f .github/workflows/phase2-inputxml-workspace-patch.yml
+          rm -f scripts/phase2-inputxml-workspace-patch.mjs
+          rm -f docs/inputxml-upstream-audit/.phase2-trigger
+          rm -f docs/inputxml-upstream-audit/inputxml-workspace_pr_scope.md
+          rm -f docs/inputxml-upstream-audit/inputxml-workspace_phase2_capability.md
       - name: JavaScript syntax checks
         run: |
           node --check tabs/inputxml-workspace/inputxml-workspace-tab.js
@@ -41,15 +43,23 @@ jobs:
           node --check tabs/inputxml-workspace/inputxml-workspace-diagnostics-view.js
           node --check tabs/model-converters/xml-cii-topology-5c-panel.js
           node --check tests/inputxml-workspace-static.test.js
-      - name: Focused workspace test
-        run: node tests/inputxml-workspace-static.test.js
-      - name: Commit patched capability
+      - name: Work Pack structure checks
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tabs/inputxml-workspace/inputxml-workspace-tab.js \
-            tabs/model-converters/xml-cii-topology-5c-panel.js \
-            tests/inputxml-workspace-static.test.js
+          test "$(wc -l < tabs/inputxml-workspace/inputxml-workspace-diagnostics.js)" -lt 300
+          test "$(wc -l < tabs/inputxml-workspace/inputxml-workspace-orchestration.js)" -lt 300
+          test "$(wc -l < tabs/inputxml-workspace/inputxml-workspace-diagnostics-view.js)" -lt 300
+          ! grep -R "export default" \
+            tabs/inputxml-workspace/inputxml-workspace-diagnostics.js \
+            tabs/inputxml-workspace/inputxml-workspace-orchestration.js \
+            tabs/inputxml-workspace/inputxml-workspace-diagnostics-view.js
+      - name: Focused workspace tests
+        run: |
+          node tests/inputxml-workspace-static.test.js
+          node tests/inputxml-workspace-accdb-sideload.test.js
+          npm run test:inputxml-workspace
+      - name: Commit synchronized Work Pack
+        run: |
+          git add -A
           git diff --cached --check
-          git commit -m "feat: wire InputXML Workspace orchestration diagnostics"
+          git commit -m "chore: sync main and finalize InputXML Workspace Work Pack"
           git push origin HEAD:claude/snap-geometry-cii-issues-v272ju
