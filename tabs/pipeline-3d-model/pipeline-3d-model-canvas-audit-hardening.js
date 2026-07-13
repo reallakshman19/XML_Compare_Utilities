@@ -141,6 +141,18 @@ export class PipelineCanvasManager extends EventTarget {
     });
   }
 
+  rollbackDetail(detail = {}) {
+    const graph = this.graphs?.[detail.graph];
+    if (!graph || !detail.entityId) return false;
+    if (detail.graph === 'table2x') graph.visualOverrides?.delete?.(detail.entityId);
+    else if (detail.entityType === 'marker') graph.markerOverrides?.delete?.(detail.entityId);
+    else graph.depthOverrides?.delete?.(detail.entityId);
+    if ('draggingId' in graph) graph.draggingId = null;
+    if ('dragging' in graph) graph.dragging = null;
+    graph.render?.();
+    return true;
+  }
+
   capturePendingCommit(detail) {
     this.cancelPreview();
     this.pendingCommit = {
@@ -152,6 +164,7 @@ export class PipelineCanvasManager extends EventTarget {
       if (!this.pendingCommit || this.pendingCommit.detail !== detail || this.destroyed) return;
       const pending = this.pendingCommit;
       this.pendingCommit = null;
+      this.rollbackDetail(pending.detail);
       this.syncGeometry();
       this.emitNodeMove(pending.operation, 'cancelled', pending.detail, 'commit-rejected');
       this.operations.delete(pending.operation.key);
