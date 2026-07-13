@@ -70,6 +70,15 @@ export function cleanEnrichmentForInputChange(enrichment = {}) {
   }) });
 }
 
+export function cleanCategorizedForInputChange(state = {}) {
+  const hadOutput = Boolean(clean(state.categorizedOutputText));
+  return Object.freeze({ patch: { categorizedOutputText: '' }, diagnostic: diagnostic({
+    severity: hadOutput ? 'WARNING' : 'INFO', code: hadOutput ? 'WORKSPACE_STALE_OUTPUT_INVALIDATED' : 'WORKSPACE_CATEGORIZED_INPUT_CHANGED',
+    action: 'load-categorized-input', stage: 'categorized', sourceField: 'categorizedInputText', outputField: 'categorizedOutputText',
+    message: hadOutput ? 'Previous categorized conversion output was cleared after the input changed.' : 'Categorized conversion input changed.',
+  }) });
+}
+
 export function inputXmlFrom5CResult(result = {}) {
   const text = clean(result.finalInputXmlText) || clean(result.coreInputXmlText);
   const count = Number(result?.diagnostics?.summary?.elementCount || 0);
