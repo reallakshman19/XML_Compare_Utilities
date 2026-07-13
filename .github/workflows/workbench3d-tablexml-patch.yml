@@ -6,6 +6,11 @@ on:
     paths:
       - 'scripts/workbench3d-tablexml-workpack-patch.py'
       - '.github/workflows/workbench3d-tablexml-patch.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/workbench3d-tablexml-workpack-patch.py'
+      - '.github/workflows/workbench3d-tablexml-patch.yml'
 
 permissions:
   contents: write
