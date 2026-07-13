@@ -3,6 +3,24 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { _test as workspaceUi } from '../tabs/inputxml-workspace/inputxml-workspace-tab.js';
+import {
+  appendInputXmlWorkspaceDiagnostics,
+  createInputXmlWorkspaceDiagnostic,
+  createInputXmlWorkspaceDiagnostics,
+  serializeInputXmlWorkspaceDiagnostics,
+} from '../tabs/inputxml-workspace/inputxml-workspace-diagnostics.js';
+import { renderInputXmlWorkspaceDiagnosticsHtml } from '../tabs/inputxml-workspace/inputxml-workspace-diagnostics-view.js';
+import {
+  cleanArtifactsForSourceChange,
+  cleanCategorizedForInputChange,
+  cleanEnrichmentForInputChange,
+  cleanGeneratedInputForSourceChange,
+  cleanSideloadForSourceChange,
+  enrichmentInputPreflight,
+  inputXmlFrom5CResult,
+  manualCleanXmlPreflight,
+  routeCleanXmlTo5C,
+} from '../tabs/inputxml-workspace/inputxml-workspace-orchestration.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
@@ -46,5 +64,61 @@ assert.ok(psnmUtilityTab.includes('installXmlBuilderUtilityTile'), 'Utilities ta
 const xmlBuilderSource = fs.readFileSync(path.join(repoRoot, 'tabs', 'xml-builder', 'xml-builder-utility-tile.js'), 'utf8');
 assert.ok(xmlBuilderSource.includes('renderXmlBuilderTab'), 'XML Builder utility should expose a popup renderer.');
 assert.ok(xmlBuilderSource.includes('renderXmlCiiTopology5BPanel'), 'XML Builder utility should include the topology canvas panel.');
+
+const cleanXml = '<CleanXML><Branch><Node><NodeNumber>10</NodeNumber></Node></Branch></CleanXML>';
+const inputXml = '<CAESARII XML_TYPE="Input" VERSION="2019"><PIPINGMODEL><PIPINGELEMENT FROM_NODE="10" TO_NODE="20" /></PIPINGMODEL></CAESARII>';
+
+const rejected = enrichmentInputPreflight(cleanXml, 'clean.xml');
+assert.equal(rejected.ok, false, 'Tab 2 rejects node-based CleanXML.');
+assert.equal(rejected.diagnostic.code, 'WORKSPACE_SCHEMA_REJECTED');
+const accepted = enrichmentInputPreflight(inputXml, 'input.xml');
+assert.equal(accepted.ok, true, 'Tab 2 accepts PIPINGELEMENT InputXML.');
+
+const emptyManual = manualCleanXmlPreflight({ branches: [], nodes: [] }, 0);
+assert.equal(emptyManual.ok, false, 'Zero-record manual CleanXML is blocked.');
+assert.equal(emptyManual.diagnostic.code, 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED');
+const noRouteManual = manualCleanXmlPreflight({ branches: [{}], nodes: [{}] }, 0);
+assert.equal(noRouteManual.ok, false, 'Manual rows with no writable route are blocked.');
+
+const cleanInvalidation = cleanArtifactsForSourceChange({ cleanXmlText: cleanXml, cleanTables: { nodes: [{}] } });
+assert.equal(cleanInvalidation.patch.cleanXmlText, '', 'Source changes clear stale CleanXML text.');
+assert.equal(cleanInvalidation.diagnostic.code, 'WORKSPACE_STALE_OUTPUT_INVALIDATED');
+const enrichmentInvalidation = cleanEnrichmentForInputChange({ lineIdText: 'rows', enrichedXmlText: inputXml });
+assert.equal(enrichmentInvalidation.patch.enrichedXmlText, '', 'Input changes clear stale enriched XML.');
+assert.equal(enrichmentInvalidation.patch.lineIdText, undefined, 'Input changes preserve reusable sideload lookup rows.');
+const sideloadInvalidation = cleanSideloadForSourceChange({ lineIdText: 'rows', inputXmlText: inputXml });
+assert.equal(sideloadInvalidation.patch.lineIdText, '', 'Helper changes clear generated sideload rows.');
+assert.equal(sideloadInvalidation.patch.inputXmlText, undefined, 'Helper changes preserve the loaded InputXML.');
+const generatedInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: '5c', inputXmlText: inputXml });
+assert.equal(generatedInvalidation.patch.inputXmlText, '', 'Source XML changes clear dependent 5C InputXML.');
+const uploadInvalidation = cleanGeneratedInputForSourceChange({ inputXmlSource: 'upload', inputXmlText: inputXml });
+assert.equal(uploadInvalidation.patch.inputXmlText, undefined, 'Source XML changes preserve independent uploaded InputXML.');
+const categorizedInvalidation = cleanCategorizedForInputChange({ categorizedOutputText: cleanXml });
+assert.equal(categorizedInvalidation.patch.categorizedOutputText, '', 'Categorized input changes clear stale conversion output.');
+
+const handoff = inputXmlFrom5CResult({ finalInputXmlText: inputXml, diagnostics: { summary: { elementCount: 1 } } });
+assert.equal(handoff.ok, true, 'Positive 5C InputXML result is accepted for Tab 2 handoff.');
+assert.equal(handoff.diagnostic.code, 'WORKSPACE_5C_INPUTXML_HANDOFF');
+assert.equal(routeCleanXmlTo5C().activeTab, 'xml-to-inputxml', 'CleanXML enrichment shortcut routes through Tab 3.');
+
+let diagnostics = createInputXmlWorkspaceDiagnostics();
+diagnostics = appendInputXmlWorkspaceDiagnostics(diagnostics, [
+  createInputXmlWorkspaceDiagnostic({ severity: 'WARNING', code: 'WORKSPACE_TEST', message: 'Evidence row.' }),
+]);
+assert.equal(diagnostics.summary.warning, 1, 'Workspace diagnostics summarize warning rows.');
+assert.equal(JSON.parse(serializeInputXmlWorkspaceDiagnostics(diagnostics)).schema, 'inputxml-workspace-diagnostics/v1');
+const diagnosticsHtml = renderInputXmlWorkspaceDiagnosticsHtml(diagnostics);
+assert.ok(diagnosticsHtml.includes('inputxml_workspace_diagnostics.json'), 'Workspace exposes the diagnostics sidecar artifact.');
+assert.ok(diagnosticsHtml.includes('WORKSPACE_TEST'), 'Workspace diagnostics panel renders structured codes.');
+assert.ok(workspaceUi.renderPopup(workspaceUi.defaultState()).includes('inputxml_workspace_diagnostics.json'), 'Workspace popup renders its diagnostics panel.');
+
+assert.ok(!workspaceTabSource.includes('state.enrichment.inputXmlText = state.cleanXmlText;'), 'CleanXML is no longer assigned directly to Tab 2 enrichment.');
+assert.ok(workspaceTabSource.includes('onResult: (result) => apply5CResultToWorkspace(state, result)'), 'Workspace wires the Tab 3 result handoff.');
+assert.ok(workspaceTabSource.includes('enrichmentInputPreflight'), 'Workspace schema-gates Tab 2 enrichment.');
+assert.ok(workspaceTabSource.includes("inputXmlSource: '5c'"), 'Workspace records 5C InputXML provenance.');
+assert.ok(workspaceTabSource.includes('invalidateSideloadArtifacts'), 'Workspace separates helper-table invalidation from InputXML invalidation.');
+assert.ok(!workspaceTabSource.includes('XML_WORKSPACE_KINDS }'), 'Workspace has no dangling XML_WORKSPACE_KINDS import.');
+const panel5cSource = fs.readFileSync(path.join(repoRoot, 'tabs', 'model-converters', 'xml-cii-topology-5c-panel.js'), 'utf8');
+assert.ok(panel5cSource.includes("typeof options.onResult === 'function'"), '5C panel emits an explicit result callback.');
 
 console.log('InputXML Workspace static contract checks passed.');

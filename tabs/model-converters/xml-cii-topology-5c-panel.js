@@ -394,6 +394,7 @@ function bindControls(target, root, state, options) {
       resetCanvasView(state, 'route');
       state.lastBuildProfile = buildProfile;
       state.result = buildInputXmlFromNodeXml(source.xmlText, createBuildOptions(source, config, state, options, forcedProfile));
+      if (typeof options.onResult === 'function') options.onResult(state.result);
       const summary = state.result?.diagnostics?.summary || {};
       const topoLabel = buildProfile === 'inputxml-topo' ? 'InputXML_Topo' : 'InputXML';
       state.status = `Built ${summary.elementCount ?? 0} ${topoLabel} element(s); duplicate nodes consumed=${summary.duplicateNodeDroppedCount ?? 0}; short fillers=${summary.shortFillerCount ?? 0}; ray fillers=${summary.rayFillerCount ?? 0}; ray split nodes=${summary.raySplitNodeCount ?? 0}.`;
