@@ -14,6 +14,9 @@ import {
   readPipelineCadSoakLedger,
   recordPipelineCadEvidence,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-soak-evidence.js';
+import {
+  sanitizePipelineCadSoakStorage,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-soak-evidence-hardening.js';
 
 class MemoryStorage {
   constructor(entries = {}) {
@@ -181,6 +184,43 @@ clearPipelineCadSoakLedger(storage);
   assert.equal(normalized.sessions.length, PIPELINE_CAD_SOAK_MAX_SESSIONS);
   assert.equal(normalized.sessions[0].id, 'retention-5');
   assert.equal(normalized.sessions.at(-1).events.length, PIPELINE_CAD_SOAK_MAX_EVENTS);
+}
+
+{
+  const pollutedStorage = new MemoryStorage({
+    pipeline3dCadRenderer: 'canvas',
+    [PIPELINE_CAD_SOAK_STORAGE_KEY]: JSON.stringify({
+      schema: PIPELINE_CAD_SOAK_LEDGER_SCHEMA,
+      sessions: [{
+        id: 'polluted',
+        renderer: 'canvas',
+        counters: { mounts: 1 },
+        events: [{
+          type: 'workspace-mounted',
+          recordedAt: '2026-07-13T05:07:00.000Z',
+          detail: {
+            table2Rows: 3,
+            table3LengthRows: 3,
+            rawTable: 'PERSISTED SECRET TABLE VALUE',
+            xml: '<Secret>value</Secret>',
+          },
+        }],
+      }],
+    }),
+  });
+  const sanitized = sanitizePipelineCadSoakStorage(pollutedStorage, {
+    now: '2026-07-13T05:08:00.000Z',
+  });
+  const serialized = JSON.stringify(sanitized);
+  assert.equal(serialized.includes('PERSISTED SECRET TABLE VALUE'), false);
+  assert.equal(serialized.includes('<Secret>'), false);
+  assert.deepEqual(Object.keys(sanitized.sessions[0].events[0].detail).sort(), [
+    'renderer',
+    'table2Rows',
+    'table3DepthRows',
+    'table3LengthRows',
+    'table3MarkerRows',
+  ]);
 }
 
 assert.ok(storage.getItem(PIPELINE_CAD_SOAK_STORAGE_KEY));
