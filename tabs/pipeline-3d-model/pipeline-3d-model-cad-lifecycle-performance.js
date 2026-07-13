@@ -157,7 +157,9 @@ function bindGraphLifecycle(graph) {
   const doc = canvas.ownerDocument || globalThis.document;
 
   const cancelLostCapture = () => {
-    if (hasActiveInteraction(graph)) cancelPipelineCadInteraction(graph, 'lost-pointer-capture');
+    queueMicrotask(() => {
+      if (hasActiveInteraction(graph)) cancelPipelineCadInteraction(graph, 'lost-pointer-capture');
+    });
   };
   const cancelWindowBlur = () => {
     if (hasActiveInteraction(graph) || graph.spacePressed) cancelPipelineCadInteraction(graph, 'window-blur');
