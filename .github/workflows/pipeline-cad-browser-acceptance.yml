@@ -1,0 +1,53 @@
+name: Pipeline CAD Browser Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/pipeline-3d-model/**'
+      - 'tests/browser/pipeline-cad-*'
+      - 'playwright.pipeline-cad.config.mjs'
+      - 'package.json'
+      - '.github/workflows/pipeline-cad-browser-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/**'
+      - 'tests/browser/pipeline-cad-*'
+      - 'playwright.pipeline-cad.config.mjs'
+      - 'package.json'
+      - '.github/workflows/pipeline-cad-browser-acceptance.yml'
+  workflow_dispatch:
+
+jobs:
+  chromium-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pinned Playwright test runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.54.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Pipeline CAD Chromium acceptance
+        run: npm run test:pipeline-cad-browser
+
+      - name: Upload Pipeline CAD browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-cad-browser-${{ github.sha }}
+          path: |
+            artifacts/pipeline-cad-browser-results.json
+            playwright-report/pipeline-cad-browser
+            test-results/pipeline-cad-browser
+          if-no-files-found: warn
+          retention-days: 30
