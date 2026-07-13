@@ -1,5 +1,6 @@
 import './pipeline-3d-model-cad-runtime-policy.js?v=20260713-cad-default-1';
 import './pipeline-3d-model-cad-production-hardening.js?v=20260713-cad-hardening-1';
+import './pipeline-3d-model-cad-interaction-quality.js?v=20260713-cad-quality-1';
 import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
 import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
