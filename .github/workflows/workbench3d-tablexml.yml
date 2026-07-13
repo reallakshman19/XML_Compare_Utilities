@@ -1,0 +1,121 @@
+name: Workbench3D TableXML
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'workbench3d/tablexml/nodeset-builder.js'
+      - 'workbench3d/tablexml/tablexml-diagnostics.js'
+      - 'workbench3d/ui/table-to-xml-tab.js'
+      - 'workbench3d/ui/table-to-xml-diagnostics-view.js'
+      - 'tests/workbench3d-tablexml.test.js'
+      - 'tests/workbench3d-tablexml-authority.test.js'
+      - 'tests/workbench3d-profiles.test.js'
+      - 'scripts/workbench3d-tablexml-baseline-gate.mjs'
+      - 'docs/inputxml-upstream-audit/workbench3d-table-to-xml_audit.md'
+      - 'docs/inputxml-upstream-audit/workbench3d-tablexml_workpack_checks.md'
+      - '.backups/20260713_workbench3d_tablexml_workpack_backup.json'
+      - 'package.json'
+      - '.github/workflows/workbench3d-tablexml.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'workbench3d/tablexml/nodeset-builder.js'
+      - 'workbench3d/tablexml/tablexml-diagnostics.js'
+      - 'workbench3d/ui/table-to-xml-tab.js'
+      - 'workbench3d/ui/table-to-xml-diagnostics-view.js'
+      - 'tests/workbench3d-tablexml.test.js'
+      - 'tests/workbench3d-tablexml-authority.test.js'
+      - 'tests/workbench3d-profiles.test.js'
+      - 'scripts/workbench3d-tablexml-baseline-gate.mjs'
+      - 'docs/inputxml-upstream-audit/workbench3d-table-to-xml_audit.md'
+      - 'docs/inputxml-upstream-audit/workbench3d-tablexml_workpack_checks.md'
+      - '.backups/20260713_workbench3d_tablexml_workpack_backup.json'
+      - 'package.json'
+      - '.github/workflows/workbench3d-tablexml.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    name: Focused NodeSet authority gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --omit=dev
+      - name: Work Pack structure
+        run: |
+          test ! -e scripts/workbench3d-tablexml-workpack-patch.py
+          test ! -e .github/workflows/workbench3d-tablexml-patch.yml
+          test "$(wc -l < workbench3d/tablexml/tablexml-diagnostics.js)" -le 300
+          test "$(wc -l < workbench3d/ui/table-to-xml-diagnostics-view.js)" -le 300
+      - name: Syntax checks
+        run: |
+          node --check workbench3d/tablexml/tablexml-diagnostics.js
+          node --check workbench3d/tablexml/nodeset-builder.js
+          node --check workbench3d/ui/table-to-xml-diagnostics-view.js
+          node --check workbench3d/ui/table-to-xml-tab.js
+          node --check tests/workbench3d-tablexml-authority.test.js
+          node --check scripts/workbench3d-tablexml-baseline-gate.mjs
+      - name: Focused authority and compatibility tests
+        run: |
+          node tests/workbench3d-tablexml-authority.test.js
+          node tests/workbench3d-tablexml.test.js
+          node tests/workbench3d-profiles.test.js
+          npm run test:workbench3d
+
+  baseline:
+    name: Named Workbench3D base vs head ledger
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout head with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Prepare base and dependencies
+        run: |
+          git fetch origin main
+          git worktree add --detach /tmp/workbench3d-tablexml-base origin/main
+          npm install --omit=dev
+          npm install --prefix /tmp/workbench3d-tablexml-base --omit=dev
+      - name: Compare named Workbench3D tests
+        run: |
+          node scripts/workbench3d-tablexml-baseline-gate.mjs \
+            --base /tmp/workbench3d-tablexml-base \
+            --head . \
+            --output artifacts/workbench3d-tablexml-baseline.json
+      - name: Upload baseline ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workbench3d-tablexml-baseline
+          path: artifacts/workbench3d-tablexml-baseline.json
+
+  full:
+    name: Full repository regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install --omit=dev
+      - name: Full test suite
+        run: npm test
