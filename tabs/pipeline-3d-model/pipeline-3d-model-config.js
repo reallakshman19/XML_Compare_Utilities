@@ -2,6 +2,7 @@ import './pipeline-3d-model-cad-runtime-policy.js?v=20260713-cad-default-1';
 import './pipeline-3d-model-cad-production-hardening.js?v=20260713-cad-hardening-1';
 import './pipeline-3d-model-cad-interaction-quality.js?v=20260713-cad-quality-1';
 import './pipeline-3d-model-cad-selection-visibility.js?v=20260713-cad-selection-1';
+import './pipeline-3d-model-cad-axis-history-fix.js?v=20260713-axis-history-1';
 import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
 import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-lifecycle-performance.js?v=20260713-cad-lifecycle-1';
