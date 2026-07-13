@@ -115,17 +115,14 @@ function table3ProjectedPoints(model, zOriginElevation) {
   if (!map) return [];
   return (model?.table3DepthRows || [])
     .filter((row) => Number.isFinite(row.absoluteH) && Number.isFinite(row.z))
-    .map((row) => {
-      const x = interpolateCumulativeFromAbsoluteH(row.absoluteH, map);
-      return {
-        id: row.id,
-        x,
-        z: Number(row.z),
-        y: projectPipelineCadZToElevation(zOriginElevation, row.z),
-        zText: row.zText,
-        absoluteH: Number(row.absoluteH),
-      };
-    })
+    .map((row) => ({
+      id: row.id,
+      x: interpolateCumulativeFromAbsoluteH(row.absoluteH, map),
+      z: Number(row.z),
+      y: projectPipelineCadZToElevation(zOriginElevation, row.z),
+      zText: row.zText,
+      absoluteH: Number(row.absoluteH),
+    }))
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
     .sort((a, b) => a.x - b.x);
 }
@@ -221,10 +218,8 @@ function ensureStyle(doc = globalThis.document) {
 .p3d-x-tab[data-x-tab="overlay"]{border-color:rgba(251,146,60,.55)}
 .p3d-x-tab[data-x-tab="side-by-side"]{border-color:rgba(56,189,248,.55)}
 .p3d-cad-coordinate-inspector [data-p3d-cad-overlay-only="true"]{display:none}
-.p3d-x-modal[data-p3d-cad-preview-mode="overlay"] .p3d-cad-coordinate-inspector [data-p3d-cad-overlay-only="true"]{display:contents}
-@media (max-width:900px){
-  .p3d-cad-overlay-controls{max-width:calc(100% - 24px)}
-}
+.p3d-x-modal[data-p3d-cad-preview-mode="overlay"] .p3d-cad-coordinate-inspector [data-p3d-cad-overlay-only="true"]{display:block}
+@media (max-width:900px){.p3d-cad-overlay-controls{max-width:calc(100% - 24px)}}
 `;
   doc.head.appendChild(style);
 }
@@ -305,8 +300,7 @@ function clearGraphInspection(state) {
 }
 
 function sizeOverlay(state) {
-  const canvas = state.overlayCanvas;
-  const host = state.overlayHost;
+  const { overlayCanvas: canvas, overlayHost: host } = state;
   if (!canvas || !host) return false;
   const rect = host.getBoundingClientRect?.() || {};
   const width = Math.max(640, Math.round(host.clientWidth || rect.width || 1000));
@@ -359,8 +353,7 @@ function drawPolyline(context, points, plot, model, options = {}) {
 function drawOverlay(state) {
   if (state.mode !== PIPELINE_CAD_PREVIEW_MODE_OVERLAY || !state.controller?.model) return false;
   sizeOverlay(state);
-  const canvas = state.overlayCanvas;
-  const context = state.overlayContext;
+  const { overlayCanvas: canvas, overlayContext: context } = state;
   if (!canvas || !context) return false;
   const width = Number(canvas.dataset.p3dCadOverlayWidth) || 1000;
   const height = Number(canvas.dataset.p3dCadOverlayHeight) || 500;
@@ -368,12 +361,7 @@ function drawOverlay(state) {
   const origin = finite(state.zOriginElevation, derivePipelineCadDefaultZOrigin(state.controller.model));
   state.zOriginElevation = origin;
   const model = buildPipelineCadOverlayModel(state.controller.model, origin);
-  const plot = {
-    left: 70,
-    right: width - 28,
-    top: 68,
-    bottom: height - 54,
-  };
+  const plot = { left: 70, right: width - 28, top: 68, bottom: height - 54 };
   plot.width = Math.max(1, plot.right - plot.left);
   plot.height = Math.max(1, plot.bottom - plot.top);
 
@@ -433,8 +421,12 @@ function drawOverlay(state) {
     context.fillText(`Z=0 origin ${origin.toFixed(2)} m`, plot.left + 8, originY - 4);
   }
 
-  drawPolyline(context, model.elevationPoints, plot, model, { stroke: '#38bdf8', fill: '#7dd3fc', lineWidth: 2.2, radius: 3.2 });
-  drawPolyline(context, model.projectedZPoints, plot, model, { stroke: '#fb923c', fill: '#fdba74', lineWidth: 2.2, radius: 4, dash: [8, 5] });
+  drawPolyline(context, model.elevationPoints, plot, model, {
+    stroke: '#38bdf8', fill: '#7dd3fc', lineWidth: 2.2, radius: 3.2,
+  });
+  drawPolyline(context, model.projectedZPoints, plot, model, {
+    stroke: '#fb923c', fill: '#fdba74', lineWidth: 2.2, radius: 4, dash: [8, 5],
+  });
 
   context.font = '10px ui-monospace, monospace';
   model.markers.forEach((marker) => {
@@ -498,7 +490,9 @@ function drawOverlay(state) {
   canvas.dataset.p3dCadOverlayReviewOnly = 'true';
   canvas.dataset.p3dCadOverlayFormula = PIPELINE_CAD_OVERLAY_FORMULA;
   const status = state.overlayHost.querySelector('[data-p3d-cad-overlay-status]');
-  if (status) status.textContent = `${model.elevationPoints.length} elevation points · ${model.projectedZPoints.length} projected Z points · review only`;
+  if (status) {
+    status.textContent = `${model.elevationPoints.length} elevation points · ${model.projectedZPoints.length} projected Z points · review only`;
+  }
   return true;
 }
 
@@ -507,9 +501,10 @@ function resizeGraphs(state) {
     if (!graph) return;
     const holder = state.dialog.querySelector(`[data-p3d-split="${name}-preview"]`);
     const rect = holder?.getBoundingClientRect?.() || {};
-    const width = Math.max(320, Math.round(holder?.clientWidth || rect.width || 640));
-    const height = Math.max(340, Math.round(holder?.clientHeight || rect.height || 500));
-    graph.setSize?.(width, height);
+    graph.setSize?.(
+      Math.max(320, Math.round(holder?.clientWidth || rect.width || 640)),
+      Math.max(340, Math.round(holder?.clientHeight || rect.height || 500)),
+    );
   });
 }
 
@@ -522,8 +517,7 @@ function scheduleLayout(state) {
 }
 
 function setContentActive(content, active) {
-  if (!content) return;
-  content.dataset.active = active ? 'true' : 'false';
+  if (content) content.dataset.active = active ? 'true' : 'false';
 }
 
 export function applyPipelineCadPreviewMode(state, mode, options = {}) {
@@ -536,20 +530,21 @@ export function applyPipelineCadPreviewMode(state, mode, options = {}) {
     tab.dataset.active = active ? 'true' : 'false';
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
   });
-  const table2Content = state.body?.querySelector?.('[data-x-content="table2x"]');
-  const table3Content = state.body?.querySelector?.('[data-x-content="table3x"]');
-  const overlayContent = state.body?.querySelector?.('[data-x-content="overlay"]');
-  setContentActive(table2Content, nextMode === PIPELINE_CAD_PREVIEW_MODE_TABLE2 || nextMode === PIPELINE_CAD_PREVIEW_MODE_SIDE_BY_SIDE);
-  setContentActive(table3Content, nextMode === PIPELINE_CAD_PREVIEW_MODE_TABLE3 || nextMode === PIPELINE_CAD_PREVIEW_MODE_SIDE_BY_SIDE);
-  setContentActive(overlayContent, nextMode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY);
-  if (nextMode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY) {
-    clearGraphInspection(state);
-    state.activeOverlayCumulative = null;
-    updateOverlayInspector(state, null, null);
-  } else {
-    state.activeOverlayCumulative = null;
-    updateOverlayInspector(state, null, null);
-  }
+  setContentActive(
+    state.body?.querySelector?.('[data-x-content="table2x"]'),
+    nextMode === PIPELINE_CAD_PREVIEW_MODE_TABLE2 || nextMode === PIPELINE_CAD_PREVIEW_MODE_SIDE_BY_SIDE,
+  );
+  setContentActive(
+    state.body?.querySelector?.('[data-x-content="table3x"]'),
+    nextMode === PIPELINE_CAD_PREVIEW_MODE_TABLE3 || nextMode === PIPELINE_CAD_PREVIEW_MODE_SIDE_BY_SIDE,
+  );
+  setContentActive(
+    state.body?.querySelector?.('[data-x-content="overlay"]'),
+    nextMode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY,
+  );
+  state.activeOverlayCumulative = null;
+  updateOverlayInspector(state, null, null);
+  if (nextMode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY) clearGraphInspection(state);
   if (options.persist !== false) persistState(state);
   scheduleLayout(state);
   return nextMode;
@@ -568,17 +563,16 @@ function ensureOverlayDom(state) {
     [PIPELINE_CAD_PREVIEW_MODE_SIDE_BY_SIDE, 'Side by Side'],
     [PIPELINE_CAD_PREVIEW_MODE_OVERLAY, 'Overlay'],
   ]) {
-    if (!tabs.querySelector(`[data-x-tab="${mode}"]`)) {
-      const button = doc.createElement('button');
-      button.type = 'button';
-      button.className = 'p3d-x-tab';
-      button.dataset.xTab = mode;
-      button.dataset.active = 'false';
-      button.setAttribute('role', 'tab');
-      button.setAttribute('aria-selected', 'false');
-      button.textContent = label;
-      tabs.appendChild(button);
-    }
+    if (tabs.querySelector(`[data-x-tab="${mode}"]`)) continue;
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'p3d-x-tab';
+    button.dataset.xTab = mode;
+    button.dataset.active = 'false';
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', 'false');
+    button.textContent = label;
+    tabs.appendChild(button);
   }
   tabs.querySelectorAll('.p3d-x-tab[data-x-tab]').forEach((tab) => tab.setAttribute('role', 'tab'));
 
@@ -623,7 +617,8 @@ function ensureOverlayDom(state) {
   if (input && Number.isFinite(state.zOriginElevation)) input.value = String(state.zOriginElevation);
 
   if (!state.overlayResizeObserver && typeof globalThis.ResizeObserver === 'function' && state.overlayHost) {
-    state.overlayResizeObserver = new ResizeObserver(() => {
+    const ResizeObserverCtor = globalThis.ResizeObserver;
+    state.overlayResizeObserver = new ResizeObserverCtor(() => {
       if (state.mode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY) drawOverlay(state);
     });
     state.overlayResizeObserver.observe(state.overlayHost);
@@ -646,10 +641,10 @@ function bindOverlayInteraction(state) {
     if (localX < left || localX > right) return;
     const overlay = buildPipelineCadOverlayModel(state.controller.model, state.zOriginElevation);
     const ratio = (localX - left) / Math.max(1, right - left);
-    const cumulative = overlay.xRange.min + ratio * (overlay.xRange.max - overlay.xRange.min);
-    state.activeOverlayCumulative = cumulative;
-    const detail = buildPipelineCadInspection(state.controller.model, cumulative, { sourceGraph: 'overlay' });
-    const projectedElevation = interpolateEngineeringProfile(overlay.projectedZPoints, cumulative);
+    const requested = overlay.xRange.min + ratio * (overlay.xRange.max - overlay.xRange.min);
+    const detail = buildPipelineCadInspection(state.controller.model, requested, { sourceGraph: 'overlay' });
+    state.activeOverlayCumulative = detail?.cumulative ?? requested;
+    const projectedElevation = interpolateEngineeringProfile(overlay.projectedZPoints, state.activeOverlayCumulative);
     updateOverlayInspector(state, detail, projectedElevation);
     drawOverlay(state);
   };
@@ -663,6 +658,7 @@ function bindOverlayInteraction(state) {
   state.cleanup.push(() => {
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
+    delete canvas.dataset.p3dCadOverlayBound;
   });
 }
 
@@ -678,8 +674,7 @@ function bindModalControls(state) {
       applyPipelineCadPreviewMode(state, tab.dataset.xTab);
       return;
     }
-    const useStart = event.target?.closest?.('[data-p3d-cad-z-origin-start]');
-    if (useStart) {
+    if (event.target?.closest?.('[data-p3d-cad-z-origin-start]')) {
       const origin = derivePipelineCadDefaultZOrigin(state.controller?.model);
       state.zOriginElevation = origin;
       const input = modal.querySelector('[data-p3d-cad-z-origin]');
@@ -706,6 +701,7 @@ function bindModalControls(state) {
   state.cleanup.push(() => {
     modal.removeEventListener('click', onClickCapture, true);
     modal.removeEventListener('change', onOriginChange);
+    delete modal.dataset.p3dCadPreviewModesBound;
   });
 }
 
@@ -714,11 +710,15 @@ function bindDialogOpen(state) {
   if (dialog.dataset.p3dCadPreviewModesOpenBound === '1') return;
   dialog.dataset.p3dCadPreviewModesOpenBound = '1';
   const onClick = (event) => {
-    if (!event.target?.closest?.('[data-p3d-split="btn-preview-x"], [data-p3d-split="x-reload"]')) return;
-    queueMicrotask(() => scheduleLayout(state));
+    if (event.target?.closest?.('[data-p3d-split="btn-preview-x"], [data-p3d-split="x-reload"]')) {
+      queueMicrotask(() => scheduleLayout(state));
+    }
   };
   dialog.addEventListener('click', onClick, true);
-  state.cleanup.push(() => dialog.removeEventListener('click', onClick, true));
+  state.cleanup.push(() => {
+    dialog.removeEventListener('click', onClick, true);
+    delete dialog.dataset.p3dCadPreviewModesOpenBound;
+  });
 }
 
 function renderForControllerChange(state) {
@@ -731,6 +731,15 @@ function renderForControllerChange(state) {
   }
   if (state.mode === PIPELINE_CAD_PREVIEW_MODE_OVERLAY) drawOverlay(state);
   else scheduleLayout(state);
+}
+
+function releaseDialogState(state) {
+  state.cleanup.splice(0).forEach((dispose) => dispose());
+  state.overlayResizeObserver?.disconnect?.();
+  state.overlayResizeObserver = null;
+  state.activeOverlayCumulative = null;
+  PATCHED_DIALOGS.delete(state.dialog);
+  DIALOG_STATES.delete(state.dialog);
 }
 
 function bindControllerState(controller) {
@@ -748,13 +757,11 @@ function bindControllerState(controller) {
   const events = ['modelChanged', 'commandCommitted', 'historyApplied', 'graphsReloaded'];
   const listener = () => renderForControllerChange(state);
   events.forEach((name) => controller.addEventListener(name, listener));
-  const originalDestroy = controller.destroy.bind(controller);
+  const previousDestroy = controller.destroy.bind(controller);
   controller.destroy = (...args) => {
     events.forEach((name) => controller.removeEventListener(name, listener));
-    state.cleanup.splice(0).forEach((dispose) => dispose());
-    state.overlayResizeObserver?.disconnect?.();
-    DIALOG_STATES.delete(dialog);
-    return originalDestroy(...args);
+    releaseDialogState(state);
+    return previousDestroy(...args);
   };
   renderForControllerChange(state);
   return state;
