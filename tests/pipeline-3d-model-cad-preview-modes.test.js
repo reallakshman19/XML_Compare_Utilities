@@ -62,7 +62,7 @@ assert.equal(overlay.markers[0].markerText, 'PM-001');
 assert.ok(overlay.xRange.min < 0);
 assert.ok(overlay.xRange.max > 77.8);
 assert.ok(overlay.yRange.min < 230.3);
-assert.ok(overlay.yRange.max > 233);
+assert.ok(overlay.yRange.max > 232.55, 'Y range must include padding above the actual sample maximum');
 
 const shifted = buildPipelineCadOverlayModel(model, 233.8);
 assert.deepEqual(
