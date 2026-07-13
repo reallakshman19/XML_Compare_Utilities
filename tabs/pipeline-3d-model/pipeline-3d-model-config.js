@@ -6,6 +6,7 @@ import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
 import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-lifecycle-performance.js?v=20260713-cad-lifecycle-1';
 import './pipeline-3d-model-cad-floating-preview.js?v=20260713-floating-preview-1';
+import './pipeline-3d-model-cad-floating-preview-hardening.js?v=20260713-floating-preview-hardening-1';
 import './pipeline-3d-model-cad-soak-evidence.js?v=20260713-cad-soak-1';
 import './pipeline-3d-model-cad-soak-evidence-hardening.js?v=20260713-cad-soak-hardening-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
