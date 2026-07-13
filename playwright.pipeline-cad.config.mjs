@@ -9,6 +9,7 @@ export default defineConfig({
     'pipeline-cad-interaction-quality.spec.mjs',
     'pipeline-cad-lifecycle-performance.spec.mjs',
     'pipeline-cad-soak-evidence.spec.mjs',
+    'pipeline-cad-floating-preview.spec.mjs',
   ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
