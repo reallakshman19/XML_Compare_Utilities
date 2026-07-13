@@ -176,20 +176,6 @@ function renderPopup() {
 </div>
 </div>
 <div class="p3d-ocr-review" data-p3d="table2-ocr-review" hidden></div>
-<div class="p3d-tablex-shell">
-<label class="p3d-input-title" for="pipeline-3d-model-tablex">Table X - OCR reference / markers / cover ranges</label>
-<textarea id="pipeline-3d-model-tablex" data-p3d="tablex" placeholder="Type	Label	Start (m)	End (m)	Horizontal (m)	Value	Raw OCR	Confidence"></textarea>
-<div class="p3d-axis-grid">
-<label>Axis start (m)<input data-p3d="tablex-axis-start" inputmode="decimal" value="0"></label>
-<label>Axis end (m)<input data-p3d="tablex-axis-end" inputmode="decimal" placeholder="optional"></label>
-<div class="p3d-ocr-toolbar">
-<button type="button" data-p3d="tablex-ocr-button">Import Table X Image</button>
-<input data-p3d="tablex-ocr-file" type="file" accept="image/*" hidden>
-<span class="p3d-ocr-status" data-p3d="tablex-ocr-status"></span>
-</div>
-</div>
-</div>
-<div class="p3d-ocr-review" data-p3d="tablex-ocr-review" hidden></div>
 <h4>Line / Branch Info</h4>
 ${renderBranchForm()}
 <div class="p3d-actions">
