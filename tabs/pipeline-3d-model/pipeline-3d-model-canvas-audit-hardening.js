@@ -1,132 +1,34 @@
-import { InteractiveGraph } from './pipeline-3d-model-interactive-graph.js';
-import { Table2XCanvas } from './pipeline-3d-model-table2x-canvas.js';
-import { Table3XCanvas } from './pipeline-3d-model-table3x-canvas.js';
 import { PipelineCadController } from './pipeline-3d-model-cad-controller.js';
+import {
+  cancelPipelineCanvasFrame,
+  schedulePipelineCanvasFrame,
+  syncPipelineCanvasGeometry,
+} from './pipeline-3d-model-canvas-runtime.js';
+import {
+  createPipelineCanvasGeometryUpdatedPayload,
+  createPipelineCanvasNodeMovedPayload,
+} from './pipeline-3d-model-canvas-contracts.js';
 
-const RENDER_PATCH = Symbol.for('pipeline3d.canvas-audit.render.v1');
-const MODEL_PATCH = Symbol.for('pipeline3d.canvas-audit.model.v1');
-const DESTROY_PATCH = Symbol.for('pipeline3d.canvas-audit.destroy.v1');
-const CONTROLLER_PATCH = Symbol.for('pipeline3d.canvas-audit.controller.v1');
-const RENDER_STATE = new WeakMap();
+const CONTROLLER_PATCH = Symbol.for('pipeline3d.canvas-audit.controller.v2');
 const ACTIVE_MANAGERS = new Set();
 const OBSERVERS = new WeakMap();
+let operationSequence = 0;
 
-function renderState(graph) {
-  let state = RENDER_STATE.get(graph);
-  if (!state) {
-    state = { frameId: null, destroyed: false };
-    RENDER_STATE.set(graph, state);
-  }
-  return state;
-}
-
-function scheduleFrame(callback) {
-  const request = globalThis.requestAnimationFrame;
-  if (typeof request !== 'function') {
-    callback();
-    return null;
-  }
-  return request.call(globalThis, callback);
-}
-
-function cancelFrame(frameId) {
-  if (frameId == null) return;
-  globalThis.cancelAnimationFrame?.(frameId);
-}
-
-function freezeNode(node, graphName) {
-  return Object.freeze({ ...node, graph: graphName });
-}
-
-function buildEdges(nodes, graphName) {
-  return Object.freeze(nodes.slice(1).map((nodeB, index) => Object.freeze({
-    id: `${nodes[index].id}->${nodeB.id}`,
-    graph: graphName,
-    nodeA: nodes[index],
-    nodeB,
-  })));
-}
-
-function graphGeometry(graph) {
-  if (graph instanceof Table2XCanvas) {
-    const nodes = Object.freeze((graph.currentNodes?.() || []).map((node) => freezeNode(node, 'table2x')));
-    return { nodes, edges: buildEdges(nodes, 'table2x') };
-  }
-  if (graph instanceof Table3XCanvas) {
-    const depths = (graph.depthNodes?.() || []).map((node) => freezeNode(node, 'table3x'));
-    const markers = (graph.markerNodes?.() || []).map((node) => freezeNode(node, 'table3x'));
-    return { nodes: Object.freeze([...depths, ...markers]), edges: buildEdges(depths, 'table3x') };
-  }
-  return { nodes: Object.freeze([]), edges: Object.freeze([]) };
-}
-
-export function syncPipelineCanvasGeometry(graph) {
-  const geometry = graphGeometry(graph);
-  graph.nodes = geometry.nodes;
-  graph.edges = geometry.edges;
-  return geometry;
-}
-
-function patchRender(GraphClass) {
-  const prototype = GraphClass.prototype;
-  if (prototype[RENDER_PATCH]) return;
-  Object.defineProperty(prototype, RENDER_PATCH, { value: true });
-  const paint = prototype.render;
-  prototype.render = function renderWhenDirty() {
-    const state = renderState(this);
-    if (state.destroyed) return false;
-    this.isDirty = true;
-    if (state.frameId != null) return false;
-    state.frameId = scheduleFrame(() => {
-      state.frameId = null;
-      this.renderFrame = null;
-      if (!this.isDirty || state.destroyed) return;
-      this.isDirty = false;
-      syncPipelineCanvasGeometry(this);
-      paint.call(this);
-    });
-    this.renderFrame = state.frameId;
-    return true;
-  };
-}
-
-function patchSetModel(GraphClass) {
-  const prototype = GraphClass.prototype;
-  if (prototype[MODEL_PATCH]) return;
-  Object.defineProperty(prototype, MODEL_PATCH, { value: true });
-  const setModel = prototype.setModel;
-  prototype.setModel = function setAuditedModel(...args) {
-    const result = setModel.apply(this, args);
-    syncPipelineCanvasGeometry(this);
-    return result;
-  };
-}
-
-function patchDestroy() {
-  const prototype = InteractiveGraph.prototype;
-  if (prototype[DESTROY_PATCH]) return;
-  Object.defineProperty(prototype, DESTROY_PATCH, { value: true });
-  const destroy = prototype.destroy;
-  prototype.destroy = function destroyAuditedGraph() {
-    const state = renderState(this);
-    state.destroyed = true;
-    cancelFrame(state.frameId);
-    state.frameId = null;
-    this.renderFrame = null;
-    this.isDirty = false;
-    return destroy.call(this);
-  };
-}
-
-function dispatchCustomEvent(target, type, detail) {
-  if (!target?.dispatchEvent || typeof globalThis.CustomEvent !== 'function') return false;
-  target.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
+function dispatchCustomEvent(target, type, detail, bubbles = false) {
+  const CustomEventCtor = target?.ownerDocument?.defaultView?.CustomEvent || globalThis.CustomEvent;
+  if (!target?.dispatchEvent || typeof CustomEventCtor !== 'function') return false;
+  target.dispatchEvent(new CustomEventCtor(type, { detail, bubbles }));
   return true;
 }
 
 function bindEvent(target, type, listener, cleanup) {
   target?.addEventListener?.(type, listener);
   cleanup.push(() => target?.removeEventListener?.(type, listener));
+}
+
+function expectedCommitReason(detail = {}) {
+  if (detail.graph === 'table2x') return 'move-table2-node';
+  return detail.entityType === 'marker' ? 'move-table3-marker' : 'move-table3-depth';
 }
 
 export class PipelineCanvasManager extends EventTarget {
@@ -139,10 +41,11 @@ export class PipelineCanvasManager extends EventTarget {
     this.cleanup = [];
     this.previewFrame = null;
     this.pendingPreview = null;
+    this.pendingCommit = null;
+    this.operations = new Map();
     this.destroyed = false;
     this.bindGraphs();
     this.bindController();
-    this.syncGeometry();
     ACTIVE_MANAGERS.add(this);
     installPipelineCanvasLifecycleObserver(controller?.dialog?.ownerDocument || globalThis.document);
   }
@@ -154,57 +57,141 @@ export class PipelineCanvasManager extends EventTarget {
     return { nodes: this.nodes, edges: this.edges };
   }
 
-  emit(type, detail = {}) {
-    const payload = Object.freeze({ ...detail, nodes: this.nodes, edges: this.edges });
+  operation(detail = {}) {
+    const key = `${detail.graph || 'unknown'}:${detail.entityId || 'unknown'}`;
+    let operation = this.operations.get(key);
+    if (!operation) {
+      operation = { id: `canvas-op-${++operationSequence}`, key, detail: { ...detail } };
+      this.operations.set(key, operation);
+    } else operation.detail = { ...operation.detail, ...detail };
+    return operation;
+  }
+
+  dispatch(type, payload, graphName = null) {
     dispatchCustomEvent(this, type, payload);
-    const canvases = new Set(Object.values(this.graphs).map((graph) => graph?.canvas).filter(Boolean));
-    canvases.forEach((canvas) => dispatchCustomEvent(canvas, type, payload));
+    if (type === 'canvas:nodeMoved') {
+      dispatchCustomEvent(this.graphs?.[graphName]?.canvas, type, payload, true);
+    } else {
+      dispatchCustomEvent(this.controller?.dialog, type, payload, true);
+    }
+  }
+
+  emitNodeMove(operation, phase, detail, reason = null) {
+    const payload = createPipelineCanvasNodeMovedPayload({
+      operationId: operation.id,
+      phase,
+      detail,
+      reason,
+      modelRevision: this.controller?.model?.revision,
+      nodes: this.nodes,
+      edges: this.edges,
+    });
+    this.dispatch('canvas:nodeMoved', payload, detail.graph);
+  }
+
+  emitGeometry(reason, graph = null, operationId = null) {
+    const payload = createPipelineCanvasGeometryUpdatedPayload({
+      reason,
+      graph,
+      operationId,
+      modelRevision: this.controller?.model?.revision,
+      nodes: this.nodes,
+      edges: this.edges,
+    });
+    this.dispatch('canvas:geometryUpdated', payload);
   }
 
   queuePreview(detail) {
-    this.pendingPreview = { detail };
+    const operation = this.operation(detail);
+    this.pendingPreview = { detail: { ...detail }, operation };
     if (this.previewFrame != null) return;
-    this.previewFrame = scheduleFrame(() => {
+    this.previewFrame = schedulePipelineCanvasFrame(() => {
       this.previewFrame = null;
       const pending = this.pendingPreview;
       this.pendingPreview = null;
       if (!pending || this.destroyed) return;
       this.syncGeometry();
-      this.emit('canvas:nodeMoved', { ...pending.detail, preview: true, committed: false });
-      this.emit('canvas:geometryUpdated', { reason: 'node-preview', graph: pending.detail.graph });
+      this.emitNodeMove(pending.operation, 'preview', pending.detail);
+      this.emitGeometry('node-preview', pending.detail.graph, pending.operation.id);
     });
   }
 
   cancelPreview() {
-    cancelFrame(this.previewFrame);
+    cancelPipelineCanvasFrame(this.previewFrame);
     this.previewFrame = null;
     this.pendingPreview = null;
+  }
+
+  cancelOperations(detail = {}) {
+    const graph = detail.graph || null;
+    const affected = [...this.operations.values()].filter((operation) => !graph || operation.detail.graph === graph);
+    this.cancelPreview();
+    this.pendingCommit = null;
+    this.syncGeometry();
+    affected.forEach((operation) => this.emitNodeMove(operation, 'cancelled', operation.detail, detail.reason || 'interaction-cancelled'));
+    affected.forEach((operation) => this.operations.delete(operation.key));
+    this.emitGeometry(detail.reason || 'interaction-cancelled', graph);
   }
 
   bindGraphs() {
     Object.values(this.graphs).filter(Boolean).forEach((graph) => {
       bindEvent(graph, 'nodePreviewMoved', (event) => this.queuePreview(event.detail || {}), this.cleanup);
-      bindEvent(graph, 'nodeMoved', (event) => {
-        this.cancelPreview();
-        this.syncGeometry();
-        this.emit('canvas:nodeMoved', { ...(event.detail || {}), preview: false, committed: true });
-      }, this.cleanup);
+      bindEvent(graph, 'nodeMoved', (event) => this.capturePendingCommit(event.detail || {}), this.cleanup);
+      bindEvent(graph, 'interactionCancelled', (event) => this.cancelOperations(event.detail || {}), this.cleanup);
+    });
+  }
+
+  capturePendingCommit(detail) {
+    this.cancelPreview();
+    this.pendingCommit = {
+      detail,
+      operation: this.operation(detail),
+      expectedReason: expectedCommitReason(detail),
+    };
+    queueMicrotask(() => {
+      if (!this.pendingCommit || this.pendingCommit.detail !== detail || this.destroyed) return;
+      const pending = this.pendingCommit;
+      this.pendingCommit = null;
+      this.syncGeometry();
+      this.emitNodeMove(pending.operation, 'cancelled', pending.detail, 'commit-rejected');
+      this.operations.delete(pending.operation.key);
+      this.emitGeometry('commit-rejected', pending.detail.graph, pending.operation.id);
     });
   }
 
   bindController() {
-    const refresh = (event) => {
-      this.syncGeometry();
-      this.emit('canvas:geometryUpdated', { reason: event.type, ...(event.detail || {}) });
-    };
-    ['modelChanged', 'commandCommitted', 'graphsReloaded', 'historyApplied']
-      .forEach((type) => bindEvent(this.controller, type, refresh, this.cleanup));
+    bindEvent(this.controller, 'commandCommitted', (event) => this.commitPendingMove(event.detail || {}), this.cleanup);
+    ['modelChanged', 'graphsReloaded', 'historyApplied'].forEach((type) => bindEvent(this.controller, type, (event) => {
+      this.resetForGeometryChange(type, event.detail || {});
+    }, this.cleanup));
+  }
+
+  commitPendingMove(detail) {
+    const pending = this.pendingCommit;
+    const matched = pending && detail.reason === pending.expectedReason;
+    this.syncGeometry();
+    if (matched) {
+      this.pendingCommit = null;
+      this.emitNodeMove(pending.operation, 'committed', pending.detail, detail.reason);
+      this.operations.delete(pending.operation.key);
+    }
+    this.emitGeometry('commandCommitted', matched ? pending.detail.graph : null, matched ? pending.operation.id : null);
+  }
+
+  resetForGeometryChange(reason, detail = {}) {
+    this.cancelPreview();
+    this.pendingCommit = null;
+    this.operations.clear();
+    this.syncGeometry();
+    this.emitGeometry(reason, detail.graph || null);
   }
 
   destroy() {
     if (this.destroyed) return false;
     this.destroyed = true;
     this.cancelPreview();
+    this.pendingCommit = null;
+    this.operations.clear();
     this.cleanup.splice(0).forEach((dispose) => dispose());
     ACTIVE_MANAGERS.delete(this);
     return true;
@@ -216,11 +203,20 @@ function patchController() {
   if (prototype[CONTROLLER_PATCH]) return;
   Object.defineProperty(prototype, CONTROLLER_PATCH, { value: true });
   const attachGraphs = prototype.attachGraphs;
-  prototype.attachGraphs = function attachAuditedGraphs(...args) {
+  prototype.attachGraphs = function attachAuditedGraphs(graphs, ...args) {
     this.canvasManager?.destroy?.();
-    const result = attachGraphs.apply(this, args);
-    this.canvasManager = new PipelineCanvasManager(this, this.graphs);
-    return result;
+    const manager = new PipelineCanvasManager(this, graphs || {});
+    this.canvasManager = manager;
+    try {
+      const result = attachGraphs.call(this, graphs, ...args);
+      manager.graphs = { ...this.graphs };
+      manager.syncGeometry();
+      return result;
+    } catch (error) {
+      this.canvasManager = null;
+      manager.destroy();
+      throw error;
+    }
   };
   const destroy = prototype.destroy;
   prototype.destroy = function destroyAuditedController() {
@@ -265,11 +261,6 @@ export function installPipelineCanvasLifecycleObserver(doc = globalThis.document
 }
 
 export function installPipelineCanvasAuditHardening() {
-  patchRender(Table2XCanvas);
-  patchRender(Table3XCanvas);
-  patchSetModel(Table2XCanvas);
-  patchSetModel(Table3XCanvas);
-  patchDestroy();
   patchController();
 }
 
