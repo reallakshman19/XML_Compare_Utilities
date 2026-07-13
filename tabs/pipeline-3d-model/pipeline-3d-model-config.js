@@ -1,3 +1,4 @@
+import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
 import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
 
