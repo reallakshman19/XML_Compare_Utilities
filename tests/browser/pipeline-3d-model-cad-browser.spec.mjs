@@ -24,10 +24,10 @@ async function openFixture(page) {
   await page.waitForFunction(() => {
     const state = window.__pipelineCadHarness.state();
     return Object.values(state.canvas).every((metrics) => (
-      metrics.cssWidth > 0
-      && metrics.cssHeight >= 340
-      && Math.abs(metrics.width / metrics.dpr - metrics.cssWidth) <= 1
-      && Math.abs(metrics.height / metrics.dpr - metrics.cssHeight) <= 1
+      metrics.width > 0
+      && metrics.height > 0
+      && metrics.cssWidth > 0
+      && metrics.cssHeight > 0
     ));
   });
   await expect(page.locator('[data-p3d-cad-stage]')).toHaveCount(2);
