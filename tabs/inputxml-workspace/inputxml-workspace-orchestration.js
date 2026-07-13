@@ -7,6 +7,10 @@ function diagnostic(input) {
   return createInputXmlWorkspaceDiagnostic(input);
 }
 
+function clearedTextPatch(keys = []) {
+  return Object.fromEntries(keys.map((key) => [key, '']));
+}
+
 export function enrichmentInputPreflight(text = '', name = 'workspace-input.xml') {
   const detection = detectXmlWorkspaceSchema({ name, text });
   if (!clean(text)) {
@@ -26,16 +30,17 @@ export function enrichmentInputPreflight(text = '', name = 'workspace-input.xml'
   }) });
 }
 
-export function manualCleanXmlPreflight(tables = {}) {
+export function manualCleanXmlPreflight(tables = {}, routeCount = null) {
   const branches = Array.isArray(tables.branches) ? tables.branches.length : 0;
   const nodes = Array.isArray(tables.nodes) ? tables.nodes.length : 0;
-  const ok = branches > 0 && nodes > 0;
+  const routes = Number.isFinite(Number(routeCount)) ? Number(routeCount) : nodes;
+  const ok = branches > 0 && nodes > 0 && routes > 0;
   return Object.freeze({ ok, diagnostic: diagnostic({
     severity: ok ? 'OK' : 'ERROR', code: ok ? 'WORKSPACE_MANUAL_TABLES_READY' : 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED',
-    action: 'build-cleanxml-from-tables', stage: 'cleanxml', count: nodes,
-    message: ok ? `Manual tables resolved ${branches} branch(es) and ${nodes} node(s).`
-      : 'CleanXML build was blocked because manual tables produced no branch/node route.',
-    context: { branches, nodes },
+    action: 'build-cleanxml-from-tables', stage: 'cleanxml', count: routes,
+    message: ok ? `Manual tables resolved ${branches} branch(es), ${nodes} node(s), and ${routes} route node(s).`
+      : 'CleanXML build was blocked because manual tables produced no writable branch/node route.',
+    context: { branches, nodes, routes },
   }) });
 }
 
@@ -59,14 +64,36 @@ export function cleanArtifactsForSourceChange(state = {}) {
   }) });
 }
 
+export function cleanGeneratedInputForSourceChange(enrichment = {}) {
+  if (clean(enrichment.inputXmlSource) !== '5c') return Object.freeze({ patch: {}, diagnostic: null });
+  return Object.freeze({ patch: {
+    inputXmlText: '', inputXmlSource: '', enrichedXmlText: '', sideloadStatus: '',
+  }, diagnostic: diagnostic({
+    severity: 'WARNING', code: 'WORKSPACE_STALE_5C_INPUT_INVALIDATED', action: 'load-source-xml',
+    stage: 'xml-to-inputxml', sourceField: 'sourceXmlText', outputField: 'enrichment.inputXmlText',
+    message: 'The previous 5C-generated InputXML was cleared after its source XML changed.',
+  }) });
+}
+
 export function cleanEnrichmentForInputChange(enrichment = {}) {
-  const keys = ['lineIdText', 'nodeNameText', 'restraintTagText', 'coordinateText', 'enrichedXmlText', 'sideloadStatus'];
+  const keys = ['enrichedXmlText', 'sideloadStatus'];
   const hadOutput = keys.some((key) => clean(enrichment[key]));
-  const patch = Object.fromEntries(keys.map((key) => [key, '']));
+  const patch = { ...clearedTextPatch(keys), inputXmlSource: '' };
   return Object.freeze({ patch, diagnostic: diagnostic({
     severity: hadOutput ? 'WARNING' : 'INFO', code: hadOutput ? 'WORKSPACE_STALE_OUTPUT_INVALIDATED' : 'WORKSPACE_ENRICHMENT_INPUT_CHANGED',
     action: 'load-enrichment-input', stage: 'enrichment', sourceField: 'enrichment.inputXmlText', outputField: 'enrichment.enrichedXmlText',
-    message: hadOutput ? 'Previous sideload and enriched InputXML artifacts were cleared after the input changed.' : 'Enrichment input changed.',
+    message: hadOutput ? 'Previous enriched InputXML was cleared after the InputXML source changed.' : 'Enrichment InputXML changed.',
+  }) });
+}
+
+export function cleanSideloadForSourceChange(enrichment = {}) {
+  const keys = ['lineIdText', 'nodeNameText', 'restraintTagText', 'coordinateText', 'enrichedXmlText', 'sideloadStatus'];
+  const hadOutput = keys.some((key) => clean(enrichment[key])) || Boolean(enrichment.diagnostics);
+  const patch = { ...clearedTextPatch(keys), diagnostics: null };
+  return Object.freeze({ patch, diagnostic: diagnostic({
+    severity: hadOutput ? 'WARNING' : 'INFO', code: hadOutput ? 'WORKSPACE_SIDELOAD_OUTPUT_INVALIDATED' : 'WORKSPACE_SIDELOAD_SOURCE_CHANGED',
+    action: 'load-sideload-source', stage: 'sideload-build', sourceField: 'helper tables', outputField: 'generated sideload tables',
+    message: hadOutput ? 'Generated sideload and enriched output were cleared after helper-table data changed.' : 'Helper-table sideload source changed.',
   }) });
 }
 
@@ -101,4 +128,4 @@ export function routeCleanXmlTo5C() {
   }) });
 }
 
-export const _test = Object.freeze({ clean, diagnostic });
+export const _test = Object.freeze({ clean, diagnostic, clearedTextPatch });
