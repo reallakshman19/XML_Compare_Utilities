@@ -148,12 +148,12 @@ function ensureStyle(doc = globalThis.document) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-+.p3d-cad-renderer-host{position:relative!important}
-+.p3d-cad-renderer-control{position:absolute;z-index:40;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);padding:6px 8px;border:1px solid rgba(148,163,184,.42);border-radius:7px;background:rgba(2,6,23,.92);color:#cbd5e1;font:10px ui-monospace,monospace;box-shadow:0 6px 18px rgba(0,0,0,.32)}
-+.p3d-cad-renderer-control button{border:1px solid rgba(125,211,252,.55);border-radius:5px;background:#0c4a6e;color:#e0f2fe;padding:4px 7px;font:10px ui-monospace,monospace;cursor:pointer}
-+.p3d-cad-renderer-control[data-renderer="svg"]{border-color:rgba(251,146,60,.58)}
-+.p3d-cad-renderer-control[data-renderer="svg"] button{background:#7c2d12;border-color:#fb923c;color:#ffedd5}
-+`;
+.p3d-cad-renderer-host{position:relative!important}
+.p3d-cad-renderer-control{position:absolute;z-index:40;left:12px;bottom:10px;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);padding:6px 8px;border:1px solid rgba(148,163,184,.42);border-radius:7px;background:rgba(2,6,23,.92);color:#cbd5e1;font:10px ui-monospace,monospace;box-shadow:0 6px 18px rgba(0,0,0,.32)}
+.p3d-cad-renderer-control button{border:1px solid rgba(125,211,252,.55);border-radius:5px;background:#0c4a6e;color:#e0f2fe;padding:4px 7px;font:10px ui-monospace,monospace;cursor:pointer}
+.p3d-cad-renderer-control[data-renderer="svg"]{border-color:rgba(251,146,60,.58)}
+.p3d-cad-renderer-control[data-renderer="svg"] button{background:#7c2d12;border-color:#fb923c;color:#ffedd5}
+`;
   doc.head.appendChild(style);
 }
 
@@ -193,12 +193,17 @@ function installRendererControl(dialog, options = {}) {
   const button = control.querySelector('[data-p3d-cad-renderer-switch]');
   if (label) {
     const base = renderer === PIPELINE_CAD_RENDERER_CANVAS ? 'Renderer: CAD Canvas' : 'Renderer: Legacy SVG';
-    label.textContent = fallback?.reason && renderer === PIPELINE_CAD_RENDERER_SVG
+    const nextLabel = fallback?.reason && renderer === PIPELINE_CAD_RENDERER_SVG
       ? `${base} · auto-fallback · ${PIPELINE_CAD_RUNTIME_BUILD}`
       : `${base} · ${PIPELINE_CAD_RUNTIME_BUILD}`;
+    if (label.textContent !== nextLabel) label.textContent = nextLabel;
     if (fallback?.reason && renderer === PIPELINE_CAD_RENDERER_SVG) label.title = fallback.reason;
+    else label.removeAttribute('title');
   }
-  if (button) button.textContent = renderer === PIPELINE_CAD_RENDERER_CANVAS ? 'Use Legacy SVG' : 'Use CAD Canvas';
+  if (button) {
+    const nextButton = renderer === PIPELINE_CAD_RENDERER_CANVAS ? 'Use Legacy SVG' : 'Use CAD Canvas';
+    if (button.textContent !== nextButton) button.textContent = nextButton;
+  }
   stampCanvasStatuses(dialog);
   return control;
 }
