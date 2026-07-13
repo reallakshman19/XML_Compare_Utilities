@@ -1,3 +1,4 @@
+import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
 
 // Branch/config defaults + localStorage persistence for the Pipeline 3D Model tile.
