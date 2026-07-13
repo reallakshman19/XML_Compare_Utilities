@@ -1,6 +1,12 @@
 name: Phase 2 InputXML Workspace Patch
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/phase2-inputxml-workspace-patch.mjs
+      - .github/workflows/phase2-inputxml-workspace-patch.yml
   push:
     branches:
       - claude/snap-geometry-cii-issues-v272ju
