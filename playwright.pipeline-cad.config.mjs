@@ -8,6 +8,7 @@ export default defineConfig({
     'pipeline-cad-production-hardening.spec.mjs',
     'pipeline-cad-interaction-quality.spec.mjs',
     'pipeline-cad-lifecycle-performance.spec.mjs',
+    'pipeline-cad-soak-evidence.spec.mjs',
   ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
