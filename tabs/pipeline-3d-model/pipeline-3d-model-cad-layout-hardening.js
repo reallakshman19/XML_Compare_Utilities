@@ -27,6 +27,16 @@ function visibleHostSize(graph) {
   };
 }
 
+function toolbarSafeTopPadding(graph) {
+  const stage = graph?.canvas?.closest?.('[data-p3d-cad-stage]');
+  const toolbar = stage?.querySelector?.('.p3d-cad-toolbar');
+  if (!stage || !toolbar) return Math.max(40, Number(graph?.padding?.top) || 0);
+  const stageRect = stage.getBoundingClientRect?.() || {};
+  const toolbarRect = toolbar.getBoundingClientRect?.() || {};
+  const occupied = Number(toolbarRect.bottom) - Number(stageRect.top);
+  return Number.isFinite(occupied) && occupied > 0 ? Math.max(40, Math.ceil(occupied + 12)) : 40;
+}
+
 export function installPipelineCadVisibleSizePatch() {
   const prototype = InteractiveGraph.prototype;
   if (prototype[SIZE_PATCH]) return false;
@@ -34,6 +44,7 @@ export function installPipelineCadVisibleSizePatch() {
   Object.defineProperty(prototype, SIZE_PATCH, { value: true });
   prototype.setSize = function setVisiblePipelineCadSize(width, height) {
     const visible = visibleHostSize(this);
+    this.padding = { ...this.padding, top: toolbarSafeTopPadding(this) };
     return originalSetSize.call(this, visible.width ?? width, visible.height ?? height);
   };
   return true;
