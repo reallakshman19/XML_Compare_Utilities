@@ -4,6 +4,7 @@ import './pipeline-3d-model-cad-interaction-quality.js?v=20260713-cad-quality-1'
 import './pipeline-3d-model-cad-selection-visibility.js?v=20260713-cad-selection-1';
 import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
 import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
+import './pipeline-3d-model-cad-lifecycle-performance.js?v=20260713-cad-lifecycle-1';
 import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
 
 // Branch/config defaults + localStorage persistence for the Pipeline 3D Model tile.

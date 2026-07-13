@@ -19,8 +19,10 @@ function ensureStyle(doc = globalThis.document) {
 function visibleHostSize(graph) {
   const holder = graph?.canvas?.closest?.(HOST_SELECTOR);
   const rect = holder?.getBoundingClientRect?.() || {};
-  const width = Math.round(Number(rect.width || holder?.clientWidth || 0));
-  const height = Math.round(Number(rect.height || holder?.clientHeight || 0));
+  // Canvas CSS width:100% resolves against the holder's content box. Prefer
+  // client dimensions so the logical/backing-store size does not include borders.
+  const width = Math.round(Number(holder?.clientWidth || rect.width || 0));
+  const height = Math.round(Number(holder?.clientHeight || rect.height || 0));
   return {
     width: Number.isFinite(width) && width > 0 ? width : null,
     height: Number.isFinite(height) && height > 0 ? height : null,

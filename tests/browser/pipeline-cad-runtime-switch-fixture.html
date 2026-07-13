@@ -39,19 +39,49 @@
   <script type="module">
     await import('../../tabs/pipeline-3d-model/pipeline-3d-model-config.js');
     const frame=()=>new Promise((resolve)=>requestAnimationFrame(resolve));
-    await frame();await frame();await frame();
+    const settle=async()=>{await frame();await frame();await frame();};
+    await settle();
     const dialog=document.querySelector('.pipeline-3d-model-dialog');
     let workspace=null;
+    let workspaceModule=null;
+    const loadWorkspaceModule=async()=>workspaceModule||(workspaceModule=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js'));
     if(localStorage.getItem('pipeline3dCadRenderer')==='canvas'){
-      const module=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js');
+      const module=await loadWorkspaceModule();
       workspace=module.mountPipelineCadWorkspace(dialog,{force:true});
-      await frame();await frame();
+      await settle();
     }
-    window.__pipelineCadRuntimeWorkspace=workspace;
+    const expose=()=>{window.__pipelineCadRuntimeWorkspace=workspace;};
+    expose();
     window.__pipelineCadSetRaw=(name,value)=>{
       const element=dialog.querySelector(`[data-p3d-split="${name}-raw"]`);
       element.value=value;
       element.dispatchEvent(new Event('input',{bubbles:true}));
+    };
+    window.__pipelineCadDestroy=()=>{
+      if(!workspace)return false;
+      const current=workspace;
+      workspace=null;
+      expose();
+      current.destroy();
+      return true;
+    };
+    window.__pipelineCadRemount=async()=>{
+      const module=await loadWorkspaceModule();
+      workspace=module.mountPipelineCadWorkspace(dialog,{force:true});
+      expose();
+      await settle();
+      return Boolean(workspace);
+    };
+    window.__pipelineCadResizeBurst=async(count=100)=>{
+      for(let index=0;index<count;index+=1)workspace?.resize?.();
+      await settle();
+    };
+    window.__pipelineCadLifecycleState=async()=>{
+      const lifecycle=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-lifecycle-performance.js');
+      return {
+        table2x:workspace?.graphs?.table2x?lifecycle.getPipelineCadLifecycleStats(workspace.graphs.table2x):null,
+        table3x:workspace?.graphs?.table3x?lifecycle.getPipelineCadLifecycleStats(workspace.graphs.table3x):null,
+      };
     };
     window.__pipelineCadRuntimeState=()=>({
       renderer:localStorage.getItem('pipeline3dCadRenderer'),
