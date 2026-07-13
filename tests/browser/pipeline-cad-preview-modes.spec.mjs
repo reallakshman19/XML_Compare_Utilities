@@ -7,6 +7,9 @@ const MODULE = '/tabs/pipeline-3d-model/pipeline-3d-model-cad-preview-modes.js';
 
 async function openCleanFixture(page, saved = null) {
   await page.addInitScript(({ storageKey, floatingKey, savedValue }) => {
+    const initializedKey = 'pipeline3dCadPreviewModesFixtureInitialized';
+    if (sessionStorage.getItem(initializedKey) === '1') return;
+    sessionStorage.setItem(initializedKey, '1');
     localStorage.removeItem(storageKey);
     localStorage.removeItem(floatingKey);
     localStorage.removeItem('pipeline3dCadRendererFallback');
