@@ -100,8 +100,8 @@ export function cancelPipelineCadInteraction(graph, reason = 'cancelled') {
 function visibleSurface(graph, requestedWidth, requestedHeight) {
   const holder = graph?.canvas?.closest?.(PREVIEW_SELECTOR);
   const rect = holder?.getBoundingClientRect?.() || {};
-  const visibleWidth = Math.round(finite(rect.width || holder?.clientWidth, 0));
-  const visibleHeight = Math.round(finite(rect.height || holder?.clientHeight, 0));
+  const visibleWidth = Math.round(finite(holder?.clientWidth || rect.width, 0));
+  const visibleHeight = Math.round(finite(holder?.clientHeight || rect.height, 0));
   return {
     width: Math.max(1, visibleWidth > 0 ? visibleWidth : finite(requestedWidth, graph?.width || 1)),
     height: Math.max(1, visibleHeight > 0 ? visibleHeight : finite(requestedHeight, graph?.height || 1)),
