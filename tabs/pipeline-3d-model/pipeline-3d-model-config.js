@@ -1,3 +1,5 @@
+import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
+
 // Branch/config defaults + localStorage persistence for the Pipeline 3D Model tile.
 // Defaults below are used ONLY when localStorage has no saved value for a field —
 // every value is explicit here, nothing is silently defaulted elsewhere.
