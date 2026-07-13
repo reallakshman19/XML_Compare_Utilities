@@ -44,7 +44,7 @@
     const dialog=document.querySelector('.pipeline-3d-model-dialog');
     let workspace=null;
     let workspaceModule=null;
-    const loadWorkspaceModule=async()=>workspaceModule||(workspaceModule=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js'));
+    const loadWorkspaceModule=async()=>workspaceModule||(workspaceModule=await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1'));
     if(localStorage.getItem('pipeline3dCadRenderer')==='canvas'){
       const module=await loadWorkspaceModule();
       workspace=module.mountPipelineCadWorkspace(dialog,{force:true});
