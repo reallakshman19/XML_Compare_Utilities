@@ -3,7 +3,7 @@ import { applyXmlCompareSideload, buildXmlCompareSideloadFileName } from './XmlC
 import { selectedElement, selectedLine } from './XmlCompareLinewiseWorkspaceModel.js';
 import { createLinewiseWorkflowState, linewiseLineIdOptions, updateLinewiseWorkflowState } from './XmlCompareLinewiseWorkflowState.js';
 
-export const XML_COMPARE_LINEWISE_WORKFLOW_ACTIONS_SCHEMA = 'xml-compare-linewise-workflow-actions/v2-producer-adoption';
+export const XML_COMPARE_LINEWISE_WORKFLOW_ACTIONS_SCHEMA = 'xml-compare-linewise-workflow-actions/v1';
 const clean = (value) => String(value ?? '').trim();
 const safeName = (name = 'input.xml') => clean(name || 'input.xml').replace(/\.(xml|txt)$/i, '');
 
@@ -11,17 +11,9 @@ export function currentLine(state = {}) { return selectedLine(state.model, state
 export function currentElement(state = {}) { return selectedElement(currentLine(state), state.elementIndex); }
 export function exportBaseName(state = {}) { return safeName(state.fileName || 'input.xml'); }
 
-function sideloadWorkerOwnsCategorization(state = {}) {
-  return Boolean(clean(state.lastEnriched))
-    && ['running', 'success', 'failed'].includes(state.producerCategorizationStatus);
-}
-
 export function ensureCategorized(state = {}) {
   if (!clean(state.text)) return '';
   if (state.model?.format === 'CategorizedInputXML') return state.text;
-  if (sideloadWorkerOwnsCategorization(state)) {
-    return state.producerCategorizationStatus === 'success' ? String(state.lastCategorized || '') : '';
-  }
   return inputXmlToCategorizedInputXml(state.text, { sourceName: state.fileName || 'InputXML' });
 }
 
@@ -37,44 +29,8 @@ export function previewText(state = {}) {
   return ensureCategorized(state);
 }
 
-function producerAudit(state = {}) {
-  const result = state.producerCategorizationResult;
-  return Object.freeze({
-    status: state.producerCategorizationStatus || 'idle',
-    producer: result?.producer || null,
-    source: result?.source || null,
-    artifact: result?.artifact ? Object.freeze({
-      filename: result.artifact.filename,
-      fingerprint: result.artifact.fingerprint,
-      role: result.artifact.role,
-    }) : null,
-    summary: result?.summary || null,
-    diagnosticCounts: result?.diagnosticCounts || null,
-    error: state.producerCategorizationError || null,
-  });
-}
-
 export function linewiseAuditJson(state = {}) {
-  return JSON.stringify({
-    schema: 'xml-compare-linewise-audit/v2-producer-adoption',
-    fileName: state.fileName || '',
-    format: state.model?.format || '',
-    lineCount: state.model?.lineCount || 0,
-    elementCount: state.model?.elementCount || 0,
-    producerCategorization: producerAudit(state),
-    lines: (state.model?.lines || []).map((line) => ({
-      lineId: line.lineId,
-      elements: line.elements.map((el) => ({
-        fromNode: el.fromNode,
-        toNode: el.toNode,
-        elementKey: el.elementKey,
-        blocks: el.blockNames,
-        derivedFacts: el.derivedFacts,
-        nodeBlockCounts: el.nodeBlockCounts,
-        childCounts: el.childCounts,
-      })),
-    })),
-  }, null, 2);
+  return JSON.stringify({ schema: 'xml-compare-linewise-audit/v1', fileName: state.fileName || '', format: state.model?.format || '', lineCount: state.model?.lineCount || 0, elementCount: state.model?.elementCount || 0, lines: (state.model?.lines || []).map((line) => ({ lineId: line.lineId, elements: line.elements.map((el) => ({ fromNode: el.fromNode, toNode: el.toNode, elementKey: el.elementKey, blocks: el.blockNames, derivedFacts: el.derivedFacts, nodeBlockCounts: el.nodeBlockCounts, childCounts: el.childCounts })) })) }, null, 2);
 }
 
 export function regexSandboxResult(state = {}) {
@@ -109,26 +65,12 @@ export function importLinewiseText({ fileName = 'input.xml', text = '' } = {}) {
 export function applyLinewiseSideload(state = {}) {
   if (!clean(state.text)) return updateLinewiseWorkflowState(state, { lastCanvasStatus: 'Import XML before applying sideload.' });
   const result = applyXmlCompareSideload(state.text, state.sideload || {});
-  return updateLinewiseWorkflowState(state, {
-    text: result.xmlText,
-    fileName: buildXmlCompareSideloadFileName(state.fileName || 'input.xml'),
-    lastEnriched: result.xmlText,
-    lastCategorized: '',
-    lastSideloadReport: result.report || result.stats || null,
-    producerCategorizationStatus: 'idle',
-    producerCategorizationResult: null,
-    producerCategorizationError: null,
-    tab: 'sideload',
-  });
+  return updateLinewiseWorkflowState(state, { text: result.xmlText, fileName: buildXmlCompareSideloadFileName(state.fileName || 'input.xml'), lastEnriched: result.xmlText, lastSideloadReport: result.report || result.stats || null, tab: 'sideload' });
 }
 
 export function linewiseCategorizedCanvasPayload(state = {}, side = 'a') {
   const text = ensureCategorized(state), name = `${exportBaseName(state)}_categorized_enriched.xml`;
-  const target = side === 'b' ? 'Target B' : 'Source A';
-  const status = text
-    ? `Loaded ${name} to ${target} canvas.`
-    : `Categorized output is unavailable; ${target} canvas was not changed.`;
-  return Object.freeze({ side: side === 'b' ? 'b' : 'a', fileName: name, text, ready: Boolean(text), status });
+  return Object.freeze({ side: side === 'b' ? 'b' : 'a', fileName: name, text, status: `Loaded ${name} to ${side === 'b' ? 'Target B' : 'Source A'} canvas.` });
 }
 
-export const _test = Object.freeze({ clean, safeName, sideloadWorkerOwnsCategorization, producerAudit });
+export const _test = Object.freeze({ clean, safeName });
