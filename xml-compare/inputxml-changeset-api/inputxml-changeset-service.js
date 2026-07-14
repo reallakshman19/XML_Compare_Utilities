@@ -157,8 +157,8 @@ export function applyCategorizedInputXmlChangeSet(request = {}) {
   if (!current.changeSet.applyReady) return failure(normalized, validation, current, [], 'current-source-has-blocking-conflicts');
   const rows = preconditionRows(normalized, current.changeSet);
   const selected = approvedChanges(rows, current.changeSet);
-  if (!selected.length) return failure(normalized, validation, current, rows, 'no-current-approved-changes');
   if (rows.some(isBlocked)) return failure(normalized, validation, current, rows, 'approval-precondition-failed');
+  if (!selected.length) return failure(normalized, validation, current, rows, 'no-current-approved-changes');
   const applied = applyChangesToCategorizedSource(normalized.source.content, selected);
   const receipt = applyReceipt(rows, applied.receiptRows);
   if (receipt.blocked) return failure(normalized, validation, current, receipt.rows, 'tree-application-failed');
