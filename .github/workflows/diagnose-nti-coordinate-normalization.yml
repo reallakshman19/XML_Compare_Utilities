@@ -14,11 +14,32 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: owner/nti-coordinate-normalization
-      - name: Capture test writer output
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply source patch
         continue-on-error: true
         run: |
           mkdir -p artifacts
-          python scripts/write-nti-coordinate-profile-test.py > artifacts/patch.log 2>&1
+          python scripts/run-nti-coordinate-normalization.py > artifacts/patch.log 2>&1
+      - name: Generate focused test
+        continue-on-error: true
+        run: python scripts/write-nti-coordinate-profile-test.py > artifacts/writer.log 2>&1
+      - name: Run syntax checks
+        continue-on-error: true
+        run: |
+          node --check tabs/navis-tag-isonote/navis-tag-isonote-contracts.js > artifacts/syntax.log 2>&1
+          node --check tabs/navis-tag-isonote/navis-tag-table-source.js >> artifacts/syntax.log 2>&1
+          node --check tabs/navis-tag-isonote/navis-tag-staged-tree.js >> artifacts/syntax.log 2>&1
+          node --check tabs/navis-tag-isonote/navis-tag-xml-parser.js >> artifacts/syntax.log 2>&1
+          node --check tabs/navis-tag-isonote/navis-tag-identity-trace.js >> artifacts/syntax.log 2>&1
+          node --check tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js >> artifacts/syntax.log 2>&1
+      - name: Run focused acceptance
+        continue-on-error: true
+        run: node tests/navis-tag-isonote-coordinate-profile.test.js > artifacts/focused.log 2>&1
+      - name: Run Navis utility suite
+        continue-on-error: true
+        run: npm run test:navis-tag-isonote > artifacts/suite.log 2>&1
       - name: Upload diagnostic
         if: always()
         uses: actions/upload-artifact@v4
