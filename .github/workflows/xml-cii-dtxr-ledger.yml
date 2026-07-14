@@ -1,0 +1,53 @@
+name: XML CII DTXR Ledger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'converters/xml-cii2019-core/canonical-branch-identity.js'
+      - 'converters/xml-cii2019-core/dtxr-resolution-ledger.js'
+      - 'converters/xml-cii2019-core/xml-node-wise-trace.js'
+      - 'tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js'
+      - 'tabs/model-converters/json-trace/json-trace-panel.js'
+      - 'tests/xml-cii-dtxr-*.test.js'
+      - 'tests/xml-cii-json-trace-dual-evidence-ui.test.js'
+      - 'tests/xml-cii-xml-node-wise-trace.test.js'
+      - '.github/workflows/xml-cii-dtxr-ledger.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'converters/xml-cii2019-core/canonical-branch-identity.js'
+      - 'converters/xml-cii2019-core/dtxr-resolution-ledger.js'
+      - 'converters/xml-cii2019-core/xml-node-wise-trace.js'
+      - 'tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js'
+      - 'tabs/model-converters/json-trace/json-trace-panel.js'
+      - 'tests/xml-cii-dtxr-*.test.js'
+      - 'tests/xml-cii-json-trace-dual-evidence-ui.test.js'
+      - 'tests/xml-cii-xml-node-wise-trace.test.js'
+      - '.github/workflows/xml-cii-dtxr-ledger.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dtxr-ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate production modules
+        run: |
+          node --check converters/xml-cii2019-core/canonical-branch-identity.js
+          node --check converters/xml-cii2019-core/dtxr-resolution-ledger.js
+          node --check converters/xml-cii2019-core/xml-node-wise-trace.js
+          node --check tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js
+          node --check tabs/model-converters/json-trace/json-trace-panel.js
+      - name: Run DTXR ledger regressions
+        run: |
+          node tests/xml-cii-xml-node-wise-trace.test.js
+          node tests/xml-cii-dtxr-resolution-ledger.test.js
+          node tests/xml-cii-dtxr-ledger-trace-consumer.test.js
+          node tests/xml-cii-json-trace-dual-evidence-ui.test.js
+          node tests/xml-cii-dtxr-runtime-bridge.test.js
