@@ -6,6 +6,12 @@
 categorized-inputxml-worker/v1
 ```
 
+Worker implementation version:
+
+```text
+1.1.0
+```
+
 ## Request envelope
 
 ```json
@@ -14,7 +20,7 @@ categorized-inputxml-worker/v1
   "protocol": "categorized-inputxml-worker/v1",
   "kind": "request",
   "requestId": "client-1",
-  "operation": "categorized.inspect",
+  "operation": "producer.categorizeInputXml",
   "payload": {}
 }
 ```
@@ -41,7 +47,7 @@ Success:
   "protocol": "categorized-inputxml-worker/v1",
   "kind": "response",
   "requestId": "client-1",
-  "operation": "categorized.inspect",
+  "operation": "producer.categorizeInputXml",
   "ok": true,
   "result": {},
   "error": null
@@ -74,6 +80,7 @@ Raw `Error` objects and stack traces are not part of the public response contrac
 ## Operations
 
 ```text
+producer.categorizeInputXml
 categorized.capabilities
 categorized.validate
 categorized.inspect
@@ -85,7 +92,47 @@ changeset.validate
 changeset.apply
 ```
 
-Payloads are the corresponding service request objects. `changeset.validate` accepts:
+### Producer categorization payload
+
+```json
+{
+  "schema": "InputXmlProducerCategorizeRequest.v1",
+  "requestId": "producer-request-1",
+  "producer": {
+    "id": "xml-builder",
+    "repository": "reallaksh19/3D_Converters",
+    "module": "tabs/xml-builder-tab.js",
+    "operation": "buildXmlCiiCustomInputXml",
+    "version": "optional-version",
+    "artifactRole": "generated-inputxml"
+  },
+  "source": {
+    "filename": "model.input.xml",
+    "content": "<CAESARII XML_TYPE=\"Input\">...</CAESARII>"
+  }
+}
+```
+
+The worker calculates source and output fingerprints. A successful result contains:
+
+```text
+InputXmlProducerCategorizeResult.v1
+producer trace
+source filename and fingerprint
+categorized-review-document artifact
+categorized artifact fingerprint
+InputXML element count
+categorized line/element/node summary
+categorized service validation evidence
+```
+
+Engineering validation failures return `success: false` and `artifact: null` inside a successful worker response envelope. Protocol or runtime failures use a failed worker response envelope.
+
+### Existing service payloads
+
+Categorized operations accept the corresponding `CategorizedInputXmlServiceRequest.v1` request.
+
+`changeset.validate` accepts:
 
 ```json
 {
@@ -99,6 +146,8 @@ Payloads are the corresponding service request objects. `changeset.validate` acc
 
 ```javascript
 const client = createCategorizedInputXmlWorkerClient();
+
+const categorizedArtifact = await client.producer.categorizeInputXml(producerRequest);
 
 await client.categorized.getCapabilities();
 await client.categorized.validate(request);
@@ -121,6 +170,17 @@ Every operation also accepts request options:
   timeoutMs: 30000,
 }
 ```
+
+## Producer authority
+
+```text
+InputXML producer remains generation authority
+CategorizedInputXmlConverter remains categorization authority
+CategorizedInputXmlService remains validation authority
+worker remains transport authority
+```
+
+The producer operation does not repair, enrich, mutate, reconcile, or convert InputXML to CII.
 
 ## Cancellation semantics
 

@@ -200,6 +200,7 @@ class WorkerClientController {
     const request = this.request.bind(this);
     return Object.freeze({
       request,
+      producer: producerApi(request),
       categorized: categorizedApi(request),
       changeSet: changeSetApi(request),
       close: this.close.bind(this),
@@ -207,6 +208,12 @@ class WorkerClientController {
       isClosed: () => this.closed,
     });
   }
+}
+
+function producerApi(request) {
+  return Object.freeze({
+    categorizeInputXml: (value, options) => request('producer.categorizeInputXml', value, options),
+  });
 }
 
 function categorizedApi(request) {
@@ -239,6 +246,7 @@ export const _test = Object.freeze({
   cleanupEntry,
   requestTimeout,
   WorkerClientController,
+  producerApi,
   categorizedApi,
   changeSetApi,
 });

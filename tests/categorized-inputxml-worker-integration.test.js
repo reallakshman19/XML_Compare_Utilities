@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 
-import { inputXmlToCategorizedInputXml } from '../xml-compare/CategorizedInputXmlConverter.js';
 import {
   createCategorizedInputXmlWorkerClient,
   installCategorizedInputXmlWorkerRuntime,
@@ -55,22 +54,57 @@ const inputXml = `<?xml version="1.0" encoding="UTF-8"?>
 </PIPINGMODEL>
 </CAESARII>`;
 
-const generated = inputXmlToCategorizedInputXml(inputXml, { sourceName: 'worker.input.xml' });
-const categorized = generated.replace('<DELTA_X>100</DELTA_X>', '<DELTA_X>150</DELTA_X>');
-const serviceRequest = {
-  requestId: 'worker-service-request',
-  source: {
-    filename: 'worker_categorized_enriched.xml',
-    content: categorized,
-  },
-};
-
 const pair = createLinkedWorkerPair();
 const runtime = installCategorizedInputXmlWorkerRuntime({ scope: pair.worker });
 const client = createCategorizedInputXmlWorkerClient({
   worker: pair.client,
   clientId: 'integration',
 });
+
+const producerResult = await client.producer.categorizeInputXml({
+  requestId: 'producer-worker-request',
+  producer: {
+    id: 'xml-builder',
+    repository: 'reallaksh19/3D_Converters',
+    module: 'tabs/xml-builder-tab.js',
+    operation: 'buildXmlCiiCustomInputXml',
+    version: 'integration-test',
+    artifactRole: 'generated-inputxml',
+  },
+  source: {
+    filename: 'worker.input.xml',
+    content: inputXml,
+  },
+});
+assert.equal(producerResult.success, true);
+assert.equal(producerResult.producer.id, 'xml-builder');
+assert.equal(producerResult.summary.inputElements, 1);
+assert.equal(producerResult.summary.categorizedElements, 1);
+assert.equal(producerResult.categorizedValidation.success, true);
+assert.equal(producerResult.artifact.role, 'categorized-review-document');
+assert.equal(producerResult.artifact.filename, 'worker.input_categorized_enriched.xml');
+assert.match(producerResult.source.fingerprint, /^fnv1a32:/);
+assert.match(producerResult.artifact.fingerprint, /^fnv1a32:/);
+assert.notEqual(producerResult.source.fingerprint, producerResult.artifact.fingerprint);
+
+const invalidProducer = await client.producer.categorizeInputXml({
+  source: { filename: 'worker.input.xml', content: inputXml },
+});
+assert.equal(invalidProducer.success, false);
+assert.equal(invalidProducer.artifact, null);
+assert.ok(invalidProducer.diagnostics.some((item) => item.code === 'PRODUCER_ID_MISSING'));
+
+const categorized = producerResult.artifact.text.replace(
+  '<DELTA_X>100</DELTA_X>',
+  '<DELTA_X>150</DELTA_X>',
+);
+const serviceRequest = {
+  requestId: 'worker-service-request',
+  source: {
+    filename: producerResult.artifact.filename,
+    content: categorized,
+  },
+};
 
 const categorizedCapabilities = await client.categorized.getCapabilities();
 assert.equal(categorizedCapabilities.documentRoot, 'CategorizedInputXML');
