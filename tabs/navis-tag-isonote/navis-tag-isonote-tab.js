@@ -1,6 +1,7 @@
 import { DEFAULT_NAVIS_TAG_ISONOTE_CONFIG, normalizeConfig } from './navis-tag-isonote-contracts.js';
 import { buildSupportTableRecords, parseSupportTableText, rowsToCsv } from './navis-tag-table-source.js';
 import { buildStagedJsonHierarchy, buildStagedSupportIndex } from './navis-tag-staged-tree.js';
+import { refineStagedSupportIndex } from './navis-tag-index-refinement.js';
 import { parseNavisTagXml } from './navis-tag-xml-parser.js';
 import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from './navis-tag-identity-trace.js';
 import { resolveNavisTagIsonotes } from './navis-tag-proximity-engine.js';
@@ -10,14 +11,14 @@ import { renderNavisTagIsonotePane } from './navis-tag-isonote-ui-view.js';
 import { downloadNavisTagFile, readNavisTagStagedFile, readNavisTagTableFile } from './navis-tag-isonote-ui-io.js';
 
 const POPUP_TITLE_ID = 'navis-tag-isonote-title';
-const CONFIG_STORE = 'navisTagIsonote.config.v3';
+const CONFIG_STORE = 'navisTagIsonote.config.v4';
 const ACTIVATE = 'click';
 function readConfig() { try { return normalizeConfig(JSON.parse(localStorage.getItem(CONFIG_STORE) || '{}')); } catch { return normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG); } }
 function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {} }
 function createState() {
   return {
     config: readConfig(), activeTab: 'inputs', tableText: '', navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
-    tableParsed: null, tableBuild: null, tree: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
+    tableParsed: null, tableBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
     status: 'Load the support table, Navis Tag XML, and managed staged JSON/ZIP.', running: false,
   };
 }
@@ -30,8 +31,7 @@ function collectConfig(root, state) {
     else next[key] = input.value;
   });
   root.querySelectorAll('[data-nti-path-select]').forEach((select) => {
-    const selected = [...select.selectedOptions].map((option) => option.value).filter(Boolean);
-    if (selected.length) next[select.dataset.ntiPathSelect] = selected;
+    next[select.dataset.ntiPathSelect] = [...select.selectedOptions].map((option) => option.value).filter(Boolean);
   });
   state.config = normalizeConfig(next);
   const table = root.querySelector('[data-nti-field="tableText"]');
@@ -43,7 +43,8 @@ function buildAll(state) {
   state.tableParsed = parseSupportTableText(state.tableText);
   state.tableBuild = buildSupportTableRecords(state.tableParsed, state.config);
   state.tree = buildStagedJsonHierarchy(state.stagedDocuments, state.config);
-  state.stagedIndex = buildStagedSupportIndex(state.tree, state.config);
+  state.rawStagedIndex = buildStagedSupportIndex(state.tree, state.config);
+  state.stagedIndex = refineStagedSupportIndex(state.rawStagedIndex, state.tree, state.config);
   state.identityTrace = buildIdentityNodeTrace(state.tableBuild.records, state.stagedIndex, state.config);
   state.navisParse = parseNavisTagXml(state.navisText, state.config);
   state.readiness = buildNavisTagIsonoteReadiness({
@@ -56,7 +57,8 @@ function buildAll(state) {
     hasSourceText: Boolean(state.tableText || state.navisText || state.stagedDocuments.length),
   });
   state.audit = null;
-  state.status = `${state.readiness.status}: ${state.tree.summary.nodeCount} JSON nodes; ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
+  const suppressed = (state.stagedIndex.summary.suppressedMirrorEntryCount || 0) + (state.stagedIndex.summary.suppressedDuplicateEntryCount || 0);
+  state.status = `${state.readiness.status}: ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
 }
 function runResolution(state) {
   if (!state.identityTrace || !state.navisParse || !state.readiness) buildAll(state);
@@ -94,6 +96,8 @@ function downloadAudit(state) {
     audit: state.audit,
     readiness: state.readiness,
     hierarchySummary: state.tree?.summary,
+    rawIndexSummary: state.rawStagedIndex?.summary,
+    refinedIndexSummary: state.stagedIndex?.summary,
     pathCatalogue: state.tree?.pathCatalogue,
     pathRecommendations: state.tree?.pathRecommendations,
     identityTrace: state.identityTrace,
@@ -140,7 +144,7 @@ function mountPopup(root, onClose) {
   ensureNavisTagIsonoteStyle(root?.ownerDocument || document);
   const modal = document.createElement('div'); modal.className = 'nti-backdrop';
   const dialog = document.createElement('section'); dialog.className = 'psmap-card nti-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
-  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Canonical staged JSON hierarchy, configurable identity/position mapping, end-to-end identity node trace, and Navis comment proximity.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
+  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Canonical staged JSON hierarchy, configurable identity/reference/position mapping, end-to-end identity node trace, and Navis comment proximity.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
   modal.appendChild(dialog); (document.body || root).appendChild(modal); renderNavisTagIsonoteTab(dialog.querySelector('[data-nti-host]'));
   modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal || event.target.closest?.('[data-nti-close="1"]')) { modal.remove(); onClose(); } });
   return modal;
