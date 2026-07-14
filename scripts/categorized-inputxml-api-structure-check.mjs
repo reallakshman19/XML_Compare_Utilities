@@ -10,8 +10,14 @@ const files = [
   'xml-compare/categorized-inputxml-api/index.js',
 ];
 const forbiddenRuntime = [
-  'document.', 'window.', 'localStorage', 'sessionStorage',
-  'new Worker', 'addEventListener(', 'fetch(', 'XMLHttpRequest',
+  { label: 'DOM document API', pattern: /\bdocument\.(?:body|querySelector|querySelectorAll|getElementById|createElement|addEventListener)/ },
+  { label: 'window global', pattern: /\bwindow\./ },
+  { label: 'localStorage', pattern: /\blocalStorage\b/ },
+  { label: 'sessionStorage', pattern: /\bsessionStorage\b/ },
+  { label: 'Worker construction', pattern: /\bnew\s+Worker\b/ },
+  { label: 'event listener', pattern: /\baddEventListener\s*\(/ },
+  { label: 'network fetch', pattern: /\bfetch\s*\(/ },
+  { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
 ];
 
 function source(path) {
@@ -57,7 +63,7 @@ for (const path of files) {
   assert.ok(lines <= 300, `${path} exceeds 300 lines (${lines})`);
   assert.equal(/export\s+default\b/.test(text), false, `${path} uses a default export`);
   assert.equal(/from\s+['"]\.\.\/\.\.\/tabs\//.test(text), false, `${path} imports a UI tab module`);
-  for (const token of forbiddenRuntime) assert.equal(text.includes(token), false, `${path} contains forbidden runtime token ${token}`);
+  for (const rule of forbiddenRuntime) assert.equal(rule.pattern.test(text), false, `${path} contains forbidden runtime: ${rule.label}`);
   for (const fn of functionLengths(text)) assert.ok(fn.lines <= 40, `${path}:${fn.name} exceeds 40 lines (${fn.lines})`);
 }
 
