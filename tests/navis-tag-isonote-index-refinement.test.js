@@ -17,20 +17,20 @@ const config = {
   tableIdentityColumns: ['TAG'],
   tableReferenceColumns: ['REFCOL'],
   tablePipeColumns: ['PIPE'],
-  jsonIdentityPaths: ['attributes.STEX'],
-  jsonReferencePaths: ['attributes.REF'],
-  jsonPositionPaths: ['attributes.APOS'],
+  jsonIdentityPaths: ['attributes.STEX', 'STEX'],
+  jsonReferencePaths: ['attributes.REF', 'REF'],
+  jsonPositionPaths: ['attributes.APOS', 'APOS'],
   jsonBranchPaths: ['attributes.OWNER'],
   jsonPipePaths: [],
   jsonZonePaths: [],
   jsonOdPaths: [],
-  jsonBorePaths: ['attributes.LBORE'],
+  jsonBorePaths: ['attributes.LBORE', 'LBORE'],
   jsonUnits: 'mm',
   supportCoordinateSource: 'json-only',
 };
 const tree = buildStagedJsonHierarchy([{ sourceFile: 'managed.json', data: staged }], config);
 const rawIndex = buildStagedSupportIndex(tree, config);
-assert.equal(rawIndex.entries.length, 4, 'parent support nodes and their attributes mirrors are initially indexed');
+assert.equal(rawIndex.entries.length, 4, 'parent support nodes and their attribute child mirrors are initially indexed when both path aliases are configured');
 const refined = refineStagedSupportIndex(rawIndex, tree, config);
 assert.equal(refined.entries.length, 2, 'metadata mirror nodes must be suppressed');
 assert.equal(refined.summary.suppressedMirrorEntryCount, 2);
