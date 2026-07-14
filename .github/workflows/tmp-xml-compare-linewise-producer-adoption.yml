@@ -79,8 +79,26 @@ jobs:
           node tests/inputxml-workspace-accdb-sideload.test.js
           node tests/categorized-inputxml-worker-integration.test.js
 
-      - name: Full repository tests
-        run: npm test
+      - name: Run full repository tests
+        id: full
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm test > xml-compare-linewise-adoption-full.log 2>&1
+
+      - name: Upload full-suite evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xml-compare-linewise-adoption-full-log
+          path: xml-compare-linewise-adoption-full.log
+          retention-days: 14
+
+      - name: Enforce full repository tests
+        if: always()
+        run: |
+          cat xml-compare-linewise-adoption-full.log
+          test '${{ steps.full.outcome }}' = 'success'
 
       - name: Commit tested product patch and self-clean
         env:
