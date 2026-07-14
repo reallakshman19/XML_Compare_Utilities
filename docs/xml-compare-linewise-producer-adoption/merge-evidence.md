@@ -1,11 +1,11 @@
 # WP2 merge evidence
 
-Final candidate head: `c180b507df1d52e24a26fa0951f067744a800ed1`
+Definitive candidate head: `89f52119e97e5ceb6cacedc4fa4e01fc005abc5b`
 
 Permanent workflow results:
 
-- XML Compare Line-wise Producer Adoption — run `29342365015` — success
-- XML Compare Utilities — run `29342366407` — success
-- Deploy XML Compare Utilities to GitHub Pages — run `29342364956` — success
+- XML Compare Line-wise Producer Adoption — run `29342513635` — success
+- XML Compare Utilities — run `29342515079` — success
+- Deploy XML Compare Utilities to GitHub Pages — run `29342514955` — success
 
 The branch is ahead of `main` and behind by zero commits.
