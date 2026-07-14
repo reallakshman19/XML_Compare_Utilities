@@ -34,6 +34,14 @@
     {
       "path": ".github/workflows/categorized-inputxml-worker-transport.yml",
       "blobSha": "87f8510333fb740d4530390b5b55e7381b5a9d35"
+    },
+    {
+      "path": "docs/categorized-inputxml-worker/protocol-v1.md",
+      "blobSha": "adcda75498578f3788ec7792183c921a4f269afb"
+    },
+    {
+      "path": "docs/categorized-inputxml-worker/README.md",
+      "blobSha": "7864f788cd8b8251588091b968f89eb8ede7628d"
     }
   ]
 }
