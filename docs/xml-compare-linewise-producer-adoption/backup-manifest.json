@@ -16,6 +16,10 @@
       "blobSha": "2abcf559b61d66356592fe4c93b0ea9138b1025f"
     },
     {
+      "path": "xml-compare/XmlCompareTabView.js",
+      "blobSha": "042995a0fd1486ce387425f44ceec8dd9bf602d6"
+    },
+    {
       "path": "tabs/xml-compare-tab.js",
       "blobSha": "bfb137cc85f33a7f1bd570d03c39a72c21fb4b3c"
     },
