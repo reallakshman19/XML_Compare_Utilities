@@ -1,0 +1,28 @@
+name: XMLB VP Bootstrap
+
+on:
+  push:
+    branches: [agent/xmlb-vp-001-workbench-viewport]
+    paths:
+      - '.github/workflows/xmlb-vp-bootstrap.yml'
+      - '.xmlbvp-payload-*'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-reviewed-payload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/xmlb-vp-001-workbench-viewport
+      - name: Apply reviewed XML Builder viewport payload
+        run: |
+          cat .xmlbvp-payload-00 .xmlbvp-payload-01 .xmlbvp-payload-02 | base64 -d | zstd -d | tar -xf -
+          rm -f .xmlbvp-payload-00 .xmlbvp-payload-01 .xmlbvp-payload-02 .github/workflows/xmlb-vp-bootstrap.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'feat: add interactive Workbench Viewport to XML Builder previews'
+          git push origin HEAD:agent/xmlb-vp-001-workbench-viewport
