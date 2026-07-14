@@ -1,4 +1,4 @@
-import { NAVIS_TAG_EVIDENCE_SCHEMA, unitScaleToMm } from './navis-tag-isonote-contracts.js';
+import { NAVIS_TAG_EVIDENCE_SCHEMA, coordinateProfileOptions, normalizeConfig, parseCoordinate } from './navis-tag-isonote-contracts.js';
 
 function decodeXml(value) {
   return String(value ?? '')
@@ -53,11 +53,12 @@ function diagnostic(severity, code, message, context = {}) { return { severity, 
 
 export function parseNavisTagXml(xmlText, inputConfig = {}) {
   const source = String(xmlText || '');
+  const config = normalizeConfig(inputConfig);
   const diagnostics = [];
   if (!source.trim()) return { tags: [], diagnostics: [diagnostic('ERROR', 'NAVIS_XML_EMPTY', 'Navis Tag XML is empty.')], summary: { viewCount: 0, tagCount: 0, validTagCount: 0, units: '' } };
   if (!new RegExp(`<${localTagPattern('exchange')}\\b`, 'i').test(source)) diagnostics.push(diagnostic('ERROR', 'NAVIS_EXCHANGE_ROOT_MISSING', 'No Navis <exchange> root was found.'));
 
-  const units = rootUnit(source, inputConfig.navisUnits);
+  const units = rootUnit(source, config.navisUnits);
   const tags = [];
   const viewBlocks = blocks(source, 'view');
   viewBlocks.forEach((view, viewIndexZero) => {
@@ -82,8 +83,7 @@ export function parseNavisTagXml(xmlText, inputConfig = {}) {
       const fallbackPosition = directPosition ? null : boundsMidpoint(firstTagBody(tagBlock.body, 'bounds'));
       const rawPosition = directPosition || fallbackPosition;
       const positionSource = directPosition ? 'RLTAG_POS3D' : fallbackPosition ? 'RLTAG_BOUNDS_MIDPOINT' : 'NONE';
-      const scale = unitScaleToMm(units, rawPosition ? Object.values(rawPosition) : []);
-      const position = rawPosition ? { x: rawPosition.x * scale, y: rawPosition.y * scale, z: rawPosition.z * scale, unitScale: scale, sourceUnit: units } : null;
+      const position = rawPosition ? parseCoordinate(rawPosition, units, coordinateProfileOptions(config, 'navis')) : null;
       const codes = [];
       if (!comment) codes.push('COMMENT_LINK_NOT_FOUND');
       if (!comment?.body) codes.push('COMMENT_BODY_EMPTY');
@@ -95,7 +95,7 @@ export function parseNavisTagXml(xmlText, inputConfig = {}) {
         evidenceId: `${viewAttrs.guid || `VIEW-${viewIndex}`}:RL-${tagId}:C-${commentId || 'NONE'}`,
         viewIndex, viewName: viewAttrs.name || `View ${viewIndex}`, viewGuid: viewAttrs.guid || '', tagId, commentId,
         commentBody: comment?.body || '', commentUser: comment?.user || '', commentStatus: comment?.status || '', commentDate: comment?.createdDate || '',
-        rawPosition, position, positionSource, units, tagAttributes: tagAttrs, diagnostics: codes,
+        rawPosition, position, positionSource, units, coordinateProfileName: position?.profileName || config.navisCoordinateProfileName, datumOffsetMm: position?.datumOffsetMm || null, tagAttributes: tagAttrs, diagnostics: codes,
       };
       tags.push(evidence);
       codes.forEach((code) => diagnostics.push(diagnostic(code === 'COMMENT_BODY_EMPTY' || code === 'POSITION_FROM_BOUNDS' ? 'WARN' : 'ERROR', code, `${code} for ${evidence.evidenceId}.`, { evidenceId: evidence.evidenceId, viewGuid: evidence.viewGuid, tagId: evidence.tagId, commentId: evidence.commentId })));
@@ -113,6 +113,8 @@ export function parseNavisTagXml(xmlText, inputConfig = {}) {
       unresolvedCommentCount: tags.filter((tag) => !tag.commentBody).length,
       unresolvedPositionCount: tags.filter((tag) => !tag.position).length,
       units,
+      coordinateProfileName: config.navisCoordinateProfileName,
+      datumOffsetMm: coordinateProfileOptions(config, 'navis'),
     },
   };
 }
