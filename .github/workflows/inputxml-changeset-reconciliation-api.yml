@@ -59,10 +59,29 @@ jobs:
       - name: Structure and isolation gate
         run: node scripts/inputxml-changeset-api-structure-check.mjs
 
-      - name: Focused reconciliation tests
+      - name: Run focused reconciliation tests
+        id: focused
+        continue-on-error: true
         run: |
-          node tests/inputxml-changeset-reconciliation-api.test.js
-          node tests/inputxml-changeset-precondition.test.js
+          set -o pipefail
+          {
+            node tests/inputxml-changeset-reconciliation-api.test.js
+            node tests/inputxml-changeset-precondition.test.js
+          } > inputxml-changeset-focused.log 2>&1
+
+      - name: Upload focused test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inputxml-changeset-focused-log
+          path: inputxml-changeset-focused.log
+          retention-days: 14
+
+      - name: Enforce focused reconciliation tests
+        if: always()
+        run: |
+          cat inputxml-changeset-focused.log
+          test '${{ steps.focused.outcome }}' = 'success'
 
       - name: Full repository tests
         run: npm test
