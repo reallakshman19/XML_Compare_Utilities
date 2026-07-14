@@ -16,8 +16,9 @@ updated, count = pattern.subn(
     source,
 )
 
-if count < 3:
-    raise SystemExit(f'Expected at least 3 Navis coordinate strict assertions, found {count}')
+remaining = pattern.findall(updated)
+if remaining:
+    raise SystemExit(f'Unconverted Navis coordinate strict assertions remain: {remaining}')
 
 path.write_text(updated, encoding='utf-8')
 print(f'updated {count} Navis coordinate assertions to 1e-6 mm tolerance')
