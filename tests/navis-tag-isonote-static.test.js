@@ -3,16 +3,33 @@ import { readFileSync } from 'node:fs';
 
 const utilityTab = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-tab.js', 'utf8');
 const utilityView = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js', 'utf8');
+const readiness = readFileSync('tabs/navis-tag-isonote/navis-tag-readiness.js', 'utf8');
 const utilitiesRegistry = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
+const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
 assert.match(utilityTab, /Navis Tag to ISONOTE/);
 assert.match(utilityTab, /JSON Hierarchy/);
 assert.match(utilityTab, /Identity Node Trace/);
+assert.match(utilityTab, /Identity Matched/);
+assert.match(utilityTab, /Identity Ambiguous/);
+assert.match(utilityTab, /Identity Rejected/);
+assert.match(utilityTab, /ISONOTE Matched/);
+assert.match(utilityTab, /ISONOTE Ambiguous/);
+assert.match(utilityTab, /ISONOTE Rejected/);
+assert.match(utilityTab, /buildNavisTagIsonoteReadiness/);
 assert.match(utilityView, /Support ISONOTE/);
 assert.match(utilityView, /data-nti-config="tableIdentityColumns"/);
 assert.match(utilityView, /data-nti-config="jsonIdentityPaths"/);
 assert.match(utilityView, /data-nti-config="jsonPositionPaths"/);
+assert.match(utilityView, /data-nti-path-select/);
+assert.match(utilityView, /Discovered staged JSON paths/);
+assert.match(utilityView, /Source Readiness/);
+assert.match(utilityView, /data-nti-table-filter/);
+assert.match(readiness, /NAVIS_TAG_READINESS_SCHEMA/);
+assert.match(readiness, /NAVIS_VALID_TAGS_MISSING/);
 assert.match(utilitiesRegistry, /installNavisTagIsonoteUtilityTile/);
 assert.match(utilitiesRegistry, /mountNavisTagIsonote/);
+assert.equal(typeof packageJson.scripts['test:navis-tag-isonote'], 'string');
+assert.ok(packageJson.scripts.test.includes('test:navis-tag-isonote'));
 
 console.log('navis-tag-isonote static tests passed');
