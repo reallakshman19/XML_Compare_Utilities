@@ -14,11 +14,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: owner/nti-coordinate-normalization
-      - name: Capture patch output
+      - name: Capture test writer output
         continue-on-error: true
         run: |
           mkdir -p artifacts
-          python scripts/run-nti-coordinate-normalization.py > artifacts/patch.log 2>&1
+          python scripts/write-nti-coordinate-profile-test.py > artifacts/patch.log 2>&1
       - name: Upload diagnostic
         if: always()
         uses: actions/upload-artifact@v4
