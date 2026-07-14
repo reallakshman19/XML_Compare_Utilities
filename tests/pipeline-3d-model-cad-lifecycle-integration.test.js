@@ -44,6 +44,7 @@ const diagnostics = read('pipeline-3d-model-cad-diagnostics-lifecycle.js');
 assert.ok(workspace.split(/\r?\n/).length < 300);
 assert.ok(preview.split(/\r?\n/).length < 300);
 assert.doesNotMatch(workspace, /MutationObserver|observe\s*\(\s*doc\.body/);
+assert.match(workspace, /pipeline3d\.cad\.soak\.install-state\.v1/);
 assert.doesNotMatch(preview, /MutationObserver|\.prototype\.attachGraphs|PipelineCadController\.prototype/);
 assert.doesNotMatch(authoring, /PipelineCadController\.prototype|observe\s*\(\s*doc\.body/);
 assert.ok(engineering.split(/\r?\n/).length < 300);
