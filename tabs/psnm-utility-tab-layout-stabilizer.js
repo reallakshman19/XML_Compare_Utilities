@@ -6,6 +6,7 @@ const LAUNCHER_SELECTORS = Object.freeze([
   '[data-psmap-action="open"]',
   '[data-p3d-open="1"]',
   '[data-ixw-open="1"]',
+  '[data-nti-open="1"]',
 ]);
 
 export function utilityLayoutCss() {
