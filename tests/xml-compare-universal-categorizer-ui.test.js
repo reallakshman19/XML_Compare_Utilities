@@ -39,9 +39,14 @@ assert.ok(toolbar.indexOf('Line-wise XML Enrichment / Categorized XML') < toolba
 
 const runtimeSource = readFileSync('tabs/xml-compare-universal-categorizer-runtime.js', 'utf8');
 assert.match(runtimeSource, /XML_COMPARE_UNIVERSAL_CATEGORIZER_RUNTIME_SCHEMA/);
-assert.match(runtimeSource, /installUniversalXmlCategorizerRuntime\(\)/);
+assert.match(runtimeSource, /export function installUniversalXmlCategorizerRuntime/);
+assert.doesNotMatch(runtimeSource, /\ninstallUniversalXmlCategorizerRuntime\(\);/);
 assert.match(runtimeSource, /WeakMap/);
 assert.doesNotMatch(runtimeSource, /runtimeInstalled|MutationObserver/);
+const tabSource = readFileSync('tabs/xml-compare-tab.js', 'utf8');
+assert.match(tabSource, /installUniversalXmlCategorizerRuntime\(document\)/);
+assert.match(tabSource, /publishUniversalViewportContext\(document, \{ state, workspace \}\)/);
+assert.match(tabSource, /universalCategorizerRuntime\?\.destroy/);
 
 assert.equal(universalXmlCategorizerActionFromTarget(fakeTarget(true, false)), 'open');
 assert.equal(universalXmlCategorizerActionFromTarget(fakeTarget(false, true)), 'close');
