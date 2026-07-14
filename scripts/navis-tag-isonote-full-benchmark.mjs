@@ -85,9 +85,8 @@ function decisionReasonCounts(decisions) {
 }
 function bounds(points) {
   if (!points.length) return null;
-  const axes = ['x', 'y', 'z'];
   const result = {};
-  for (const axis of axes) {
+  for (const axis of ['x', 'y', 'z']) {
     const values = points.map((point) => Number(point?.[axis])).filter(Number.isFinite);
     result[axis] = values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
   }
@@ -104,11 +103,7 @@ function coordinateFrameAudit(stagedEntries, navisTags, config) {
   const navisPoints = navisTags.map((tag) => tag.position).filter(Boolean);
   const stagedBounds = bounds(stagedPoints);
   const navisBounds = bounds(navisPoints);
-  const axisGapsMm = stagedBounds && navisBounds ? {
-    easting: axisGap(stagedBounds.x, navisBounds.x),
-    northing: axisGap(stagedBounds.y, navisBounds.y),
-    elevation: axisGap(stagedBounds.z, navisBounds.z),
-  } : null;
+  const axisGapsMm = stagedBounds && navisBounds ? { easting: axisGap(stagedBounds.x, navisBounds.x), northing: axisGap(stagedBounds.y, navisBounds.y), elevation: axisGap(stagedBounds.z, navisBounds.z) } : null;
   let minimumHorizontalDistanceMm = null;
   let minimum3dDistanceMm = null;
   let nearestPair = null;
@@ -128,10 +123,7 @@ function coordinateFrameAudit(stagedEntries, navisTags, config) {
       }
     }
   }
-  const compatible = Boolean(axisGapsMm
-    && axisGapsMm.easting <= config.eastingToleranceMm
-    && axisGapsMm.northing <= config.northingToleranceMm
-    && axisGapsMm.elevation <= config.elevationToleranceMm);
+  const compatible = Boolean(axisGapsMm && axisGapsMm.easting <= config.eastingToleranceMm && axisGapsMm.northing <= config.northingToleranceMm && axisGapsMm.elevation <= config.elevationToleranceMm);
   return {
     status: stagedPoints.length && navisPoints.length ? compatible ? 'EXTENTS_OVERLAP_WITHIN_TOLERANCE' : 'DISJOINT_COORDINATE_EXTENTS' : 'INSUFFICIENT_COORDINATE_EVIDENCE',
     compatible,
@@ -146,12 +138,39 @@ function coordinateFrameAudit(stagedEntries, navisTags, config) {
     configuredTolerancesMm: { easting: config.eastingToleranceMm, northing: config.northingToleranceMm, elevation: config.elevationToleranceMm },
   };
 }
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) throw new Error(`Frozen benchmark mismatch at ${label}: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}.`);
+}
+function assertSubset(actual, expected, prefix = '') {
+  for (const [key, expectedValue] of Object.entries(expected || {})) {
+    const label = prefix ? `${prefix}.${key}` : key;
+    const actualValue = actual?.[key];
+    if (expectedValue && typeof expectedValue === 'object' && !Array.isArray(expectedValue)) assertSubset(actualValue, expectedValue, label);
+    else assertEqual(actualValue, expectedValue, label);
+  }
+}
+function verifyExpectations(coverage, expected) {
+  assertEqual(coverage.profile.id, expected.profileId, 'profile.id');
+  assertSubset(coverage.sources, expected.sources, 'sources');
+  assertSubset(coverage.sourceCounts, expected.sourceCounts, 'sourceCounts');
+  assertSubset(coverage.hierarchy, expected.hierarchy, 'hierarchy');
+  assertSubset(coverage.stagedIndex, expected.stagedIndex, 'stagedIndex');
+  assertSubset(coverage.identityTrace, expected.identityTrace, 'identityTrace');
+  assertSubset(coverage.navis, expected.navis, 'navis');
+  assertEqual(coverage.coordinateFrame.status, expected.coordinateFrame.status, 'coordinateFrame.status');
+  assertEqual(coverage.coordinateFrame.compatible, expected.coordinateFrame.compatible, 'coordinateFrame.compatible');
+  if (coverage.coordinateFrame.minimumHorizontalDistanceMm < expected.coordinateFrame.minimumHorizontalDistanceMmAtLeast) throw new Error('Frozen benchmark mismatch: horizontal source separation fell below the accepted floor.');
+  if (coverage.coordinateFrame.minimum3dDistanceMm < expected.coordinateFrame.minimum3dDistanceMmAtLeast) throw new Error('Frozen benchmark mismatch: 3D source separation fell below the accepted floor.');
+  assertSubset(coverage.resolution, expected.resolution, 'resolution');
+  return { schema: expected.schema, verified: true, profileId: expected.profileId };
+}
 
 const options = args(process.argv);
 const tablePath = required(options.table, 'table');
 const navisPath = required(options.navis, 'navis');
 const stagedDir = required(options['staged-dir'], 'staged-dir');
 const stagedZip = options['staged-zip'] || '';
+const expectedPath = options.expected || '';
 const outDir = options.out || 'artifacts/navis-tag-isonote/asim1836';
 await mkdir(outDir, { recursive: true });
 
@@ -194,11 +213,7 @@ for (let i = 0; i < tableBuild.records.length; i += 1) {
   if (source !== output) throw new Error(`ISOMETRIC NOTES changed at table row ${tableBuild.records[i].rowIndex}.`);
 }
 
-const sourceHashes = {
-  supportTableSha256: await sha256(tablePath),
-  navisXmlSha256: await sha256(navisPath),
-  stagedZipSha256: stagedZip ? await sha256(stagedZip) : '',
-};
+const sourceHashes = { supportTableSha256: await sha256(tablePath), navisXmlSha256: await sha256(navisPath), stagedZipSha256: stagedZip ? await sha256(stagedZip) : '' };
 const coverage = {
   schema: 'navis-tag-isonote-full-benchmark/v2',
   generatedAt: new Date().toISOString(),
@@ -214,17 +229,10 @@ const coverage = {
   coordinateFrame: frameAudit,
   readiness: { status: readiness.status, blockers: readiness.blockers, warnings: readiness.warnings, summary: readiness.summary },
   resolution: { ...audit.summary, reasonCounts: decisionReasonCounts(audit.decisions) },
-  calibratedPaths: {
-    identity: config.jsonIdentityPaths,
-    reference: config.jsonReferencePaths,
-    position: config.jsonPositionPaths,
-    branch: config.jsonBranchPaths,
-    pipe: config.jsonPipePaths,
-    zone: config.jsonZonePaths,
-    od: config.jsonOdPaths,
-    bore: config.jsonBorePaths,
-  },
+  calibratedPaths: { identity: config.jsonIdentityPaths, reference: config.jsonReferencePaths, position: config.jsonPositionPaths, branch: config.jsonBranchPaths, pipe: config.jsonPipePaths, zone: config.jsonZonePaths, od: config.jsonOdPaths, bore: config.jsonBorePaths },
+  expectations: null,
 };
+if (expectedPath) coverage.expectations = verifyExpectations(coverage, JSON.parse(await readFile(expectedPath, 'utf8')));
 
 await writeFile(path.join(outDir, '01-coverage-and-calibration.json'), JSON.stringify(coverage, null, 2));
 await writeFile(path.join(outDir, '02-path-catalogue.json'), JSON.stringify(simplifyTree(tree), null, 2));
