@@ -19,8 +19,8 @@ function normalizeBranchText(value) {
     .replace(/\/+/g, '/')
     .replace(/\s+/g, '')
     .replace(/^\/*/, '/')
-    .replace(/\/B0*(\d+)$/i, (_, number) => `/B${Number(number)}`)
     .replace(/\/+$/, '')
+    .replace(/\/B0*(\d+)$/i, (_, number) => `/B${Number(number)}`)
     .toUpperCase();
 }
 export function canonicalizeXmlCiiBranch(value) {
