@@ -17,18 +17,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Capture dual DTXR trace regression
+      - name: Capture DTXR ledger and trace regressions
         id: regression
         continue-on-error: true
         run: |
           mkdir -p artifacts/xml-cii-dual-trace
           set +e
-          node tests/xml-cii-xml-node-wise-trace-debug.mjs > artifacts/xml-cii-dual-trace/debug.log 2>&1
-          node tests/xml-cii-xml-node-wise-trace.test.js > artifacts/xml-cii-dual-trace/test.log 2>&1
-          CODE=$?
-          echo "$CODE" > artifacts/xml-cii-dual-trace/test.exit
-          exit $CODE
-      - name: Upload dual trace diagnostic
+          node tests/xml-cii-xml-node-wise-trace.test.js > artifacts/xml-cii-dual-trace/trace.log 2>&1
+          TRACE_CODE=$?
+          node tests/xml-cii-dtxr-resolution-ledger.test.js > artifacts/xml-cii-dual-trace/ledger.log 2>&1
+          LEDGER_CODE=$?
+          echo "trace=$TRACE_CODE" > artifacts/xml-cii-dual-trace/test.exit
+          echo "ledger=$LEDGER_CODE" >> artifacts/xml-cii-dual-trace/test.exit
+          if [ "$TRACE_CODE" -ne 0 ] || [ "$LEDGER_CODE" -ne 0 ]; then exit 1; fi
+      - name: Upload DTXR diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
