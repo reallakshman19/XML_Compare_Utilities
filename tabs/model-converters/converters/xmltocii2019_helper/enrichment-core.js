@@ -33,6 +33,12 @@ import {
   dedupeXmlCiiRestraintEntries,
   applyXmlRestraints
 } from '../../../../converters/xml-cii2019-core/support-mapping.js';
+import {
+  applyXmlCiiDtxrResolutionLedger,
+  buildXmlCiiDtxrResolutionLedger,
+  xmlCiiDtxrLedgerDiagnostics,
+  xmlCiiDtxrLedgerEntryForNode,
+} from '../../../../converters/xml-cii2019-core/dtxr-resolution-ledger.js';
 
 export {
   DEFAULT_PIPING_CLASS_MASTER_URLS,
@@ -657,55 +663,102 @@ export async function enrichXmlForCii2019(xmlTextVal, stagedJsonText, options = 
     });
   }
 
+  const dtxrResolutionLedger = buildXmlCiiDtxrResolutionLedger({
+    document,
+    stagedDtxrPositionIndex,
+    stagedDtxrRefIndex,
+    stagedSupportIndex,
+    config,
+  });
+  const dtxrLedgerWriteStats = applyXmlCiiDtxrResolutionLedger(document, dtxrResolutionLedger);
+  stats.dtxrPosAnnotations += dtxrLedgerWriteStats.dtxrPosAnnotations;
+  stats.dtxrPsAnnotations += dtxrLedgerWriteStats.dtxrPsAnnotations;
+  stats.dtxrSourceAnnotations = dtxrLedgerWriteStats.dtxrSourceAnnotations;
+  stats.dtxrResolutionLedger = dtxrResolutionLedger.summary;
+  diagnostics.push(...xmlCiiDtxrLedgerDiagnostics(dtxrResolutionLedger));
+
   for (const node of [...document.getElementsByTagName('Node')]) {
     const componentType = xmlText(node, 'ComponentType').toUpperCase();
+    const ledgerEntry = xmlCiiDtxrLedgerEntryForNode(dtxrResolutionLedger, node);
+    const ledgerResolved = ledgerEntry?.status === 'RESOLVED';
     const positionKey = xmlPositionKey(xmlText(node, 'Position'), tolerance);
-    const coordMatches = positionKey ? (stagedSupportIndex.byCoord.get(positionKey) || []) : [];
+    const legacyCoordMatches = positionKey ? (stagedSupportIndex.byCoord.get(positionKey) || []) : [];
     const supportTags = xmlNodeSupportTags(node);
     const tagMatches = supportTags.flatMap((tag) => stagedSupportIndex.byTag.get(tag) || []);
-    const relaxedTagMatches = tagMatches.length ? [] : relaxedSameDtxrPosSupportMatches(supportTags, coordMatches);
-    
-    const stagedMatches = coordMatches.length > 0
-      ? coordMatches
-      : (tagMatches.length > 0 ? tagMatches : relaxedTagMatches);
-    const supportMatchMethod = coordMatches.length > 0
-      ? 'dtxr-pos-coordinate'
-      : (tagMatches.length > 0 ? 'dtxr-ps-tag-fallback' : (relaxedTagMatches.length > 0 ? 'dtxr-ps-tag-relaxed-fallback' : 'unmatched'));
+    const relaxedTagMatches = tagMatches.length ? [] : relaxedSameDtxrPosSupportMatches(supportTags, legacyCoordMatches);
+    const ledgerMatches = ledgerEntry?.effectiveAuthority === 'DTXR_POS_PRIMARY'
+      ? (ledgerEntry.supportMatches || [])
+      : [];
+    const stagedMatches = ledgerMatches.length
+      ? ledgerMatches
+      : (legacyCoordMatches.length > 0
+        ? legacyCoordMatches
+        : (tagMatches.length > 0 ? tagMatches : relaxedTagMatches));
+    const supportMatchMethod = ledgerMatches.length
+      ? 'dtxr-ledger-position-group'
+      : (legacyCoordMatches.length > 0
+        ? 'dtxr-pos-coordinate'
+        : (tagMatches.length > 0
+          ? 'dtxr-ps-tag-fallback'
+          : (relaxedTagMatches.length > 0 ? 'dtxr-ps-tag-relaxed-fallback' : 'unmatched')));
     const staged = stagedMatches[0] || null;
     const restraints = xmlChildrenByName(node, 'Restraint');
-    const combinedTypes = dedupeXmlCiiRestraintEntries(stagedMatches.flatMap(m => xmlCiiRestraintEntriesFromSupportMatch(m, node, config)));
-    const dtxrPs = xmlCiiDtxrPsForNode(node, stagedComponentIndex);
-    if (dtxrPs.text) {
-      xmlSetText(document, node, 'DTXR_PS', dtxrPs.text);
-      stats.dtxrPsAnnotations += 1;
-      diagnostics.push({ type: 'dtxr-ps', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, tags: dtxrPs.tags.join('|'), count: dtxrPs.values.length, matchedBy: 'DTXR_PS', matchedKey: dtxrPs.tags.join('|'), finalValue: dtxrPs.text, status: 'applied' });
-    }
-    const dtxrPos = xmlCiiDtxrPosForNode(node, stagedDtxrPositionIndex, config);
-    if (dtxrPos.text) {
-      xmlSetText(document, node, 'DTXR_POS', dtxrPos.text);
-      stats.dtxrPosAnnotations += 1;
-      diagnostics.push({ type: 'dtxr-pos', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, position: xmlText(node, 'Position'), count: dtxrPos.values.length, matchedBy: 'DTXR_POS', matchedKey: xmlText(node, 'Position'), sourcePath: dtxrPos.matchedPath || '', method: 'DTXR_POS exact or within +/-6mm trace tolerance', finalValue: dtxrPos.text, status: 'applied' });
-    } else {
-      // Fallback: component-refno based DTXR when position match misses (e.g. INST/VALV with POSI ≠ XML node endpoint positions)
-      const _existingDtxrPos = xmlText(node, 'DTXR_POS');
-      if (!_existingDtxrPos) {
-        const _dtxrRef = resolveXmlCiiNodeDtxr(node, stagedDtxrRefIndex, config);
-        if (_dtxrRef?.value && _dtxrRef.matchedBy === 'component-refno') {
-          xmlSetText(document, node, 'DTXR_POS', _dtxrRef.value);
+    const combinedTypes = dedupeXmlCiiRestraintEntries(
+      stagedMatches.flatMap((match) => xmlCiiRestraintEntriesFromSupportMatch(match, node, config)),
+    );
+
+    if (!ledgerResolved) {
+      const dtxrPs = xmlCiiDtxrPsForNode(node, stagedComponentIndex);
+      if (dtxrPs.text) {
+        xmlSetText(document, node, 'DTXR_PS', dtxrPs.text);
+        stats.dtxrPsAnnotations += 1;
+        diagnostics.push({ type: 'dtxr-ps', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, tags: dtxrPs.tags.join('|'), count: dtxrPs.values.length, matchedBy: 'DTXR_PS', matchedKey: dtxrPs.tags.join('|'), finalValue: dtxrPs.text, status: 'applied', authority: 'legacy-unresolved-fallback' });
+      }
+      const dtxrPos = xmlCiiDtxrPosForNode(node, stagedDtxrPositionIndex, config);
+      if (dtxrPos.text) {
+        xmlSetText(document, node, 'DTXR_POS', dtxrPos.text);
+        stats.dtxrPosAnnotations += 1;
+        diagnostics.push({ type: 'dtxr-pos', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, position: xmlText(node, 'Position'), count: dtxrPos.values.length, matchedBy: 'DTXR_POS', matchedKey: xmlText(node, 'Position'), sourcePath: dtxrPos.matchedPath || '', method: 'DTXR_POS exact or within trace tolerance', finalValue: dtxrPos.text, status: 'applied', authority: 'legacy-unresolved-fallback' });
+      } else if (!xmlText(node, 'DTXR_POS')) {
+        const dtxrRef = resolveXmlCiiNodeDtxr(node, stagedDtxrRefIndex, config);
+        if (dtxrRef?.value && dtxrRef.matchedBy === 'component-refno') {
+          xmlSetText(document, node, 'DTXR_POS', dtxrRef.value);
           stats.dtxrPosAnnotations += 1;
-          diagnostics.push({ type: 'dtxr-pos', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, matchedBy: 'component-refno', matchedKey: _dtxrRef.matchedKey || '', sourcePath: _dtxrRef.sourcePath || _dtxrRef.matchedKey || '', jsonNodeNo: '', method: `component-refno: ${_dtxrRef.matchedKey || ''}`, finalValue: _dtxrRef.value, status: 'applied' });
+          diagnostics.push({ type: 'dtxr-pos', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, matchedBy: 'component-refno', matchedKey: dtxrRef.matchedKey || '', sourcePath: dtxrRef.sourcePath || dtxrRef.matchedKey || '', jsonNodeNo: '', method: `component-refno: ${dtxrRef.matchedKey || ''}`, finalValue: dtxrRef.value, status: 'applied', authority: 'legacy-component-ref-fallback' });
         }
       }
     }
+
     if (staged) {
-      const allKinds = Array.from(new Set(stagedMatches.map(m => m.kind).filter(Boolean)));
-      const xmlTypes = restraints.map((r) => xmlText(r, 'Type')).filter(Boolean).join('+');
-      diagnostics.push({ type: 'support-match', nodeNumber: xmlText(node, 'NodeNumber'), nodeName: xmlText(node, 'NodeName'), componentType, method: supportMatchMethod, matchedBy: supportMatchMethod, matchedKey: coordMatches.length > 0 ? positionKey : supportTags.join('|'), kind: allKinds.join('+'), xmlRestraintTypes: xmlTypes, restraintTypes: combinedTypes.join('+'), finalValue: combinedTypes.join('+'), stagedName: staged.component?.name || staged.attrs?.NAME || '', tags: supportTags, status: 'applied' });
+      const allKinds = Array.from(new Set(stagedMatches.map((match) => match.kind).filter(Boolean)));
+      const xmlTypes = restraints.map((restraint) => xmlText(restraint, 'Type')).filter(Boolean).join('+');
+      diagnostics.push({
+        type: 'support-match',
+        nodeNumber: xmlText(node, 'NodeNumber'),
+        nodeName: xmlText(node, 'NodeName'),
+        componentType,
+        method: supportMatchMethod,
+        matchedBy: supportMatchMethod,
+        matchedKey: ledgerMatches.length
+          ? (ledgerEntry.dtxrPositionPaths || []).join('|')
+          : (legacyCoordMatches.length > 0 ? positionKey : supportTags.join('|')),
+        kind: allKinds.join('+'),
+        xmlRestraintTypes: xmlTypes,
+        restraintTypes: combinedTypes.join('+'),
+        finalValue: combinedTypes.join('+'),
+        stagedName: staged.component?.name || staged.attrs?.NAME || '',
+        tags: supportTags,
+        dtxrAuthority: ledgerEntry?.effectiveAuthority || 'LEGACY',
+        branchRelationship: ledgerEntry?.branchRelationship || '',
+        status: 'applied',
+      });
     }
 
     let targetEntries = [];
     if (staged) {
-      targetEntries = combinedTypes.length > 0 ? combinedTypes : [config.defaultXmlSupportType || 'Y'];
+      targetEntries = combinedTypes.length > 0
+        ? combinedTypes
+        : [config.defaultXmlSupportType || 'Y'];
     } else if (restraints.length) {
       targetEntries = restraints
         .map((restraint) => xmlCiiTypeEntryFromExistingRestraint(restraint, config))
@@ -723,7 +776,11 @@ export async function enrichXmlForCii2019(xmlTextVal, stagedJsonText, options = 
     if (staged) {
       const rating = deriveRatingText(staged.attrs, config, xmlText(node, 'PipingClass'));
       const weight = deriveWeightText(staged.attrs, config);
-      const manualRigidWeight = xmlCiiRigidWeightOverrideForNode(xmlCiiAncestorBranchName(node), node, config);
+      const manualRigidWeight = xmlCiiRigidWeightOverrideForNode(
+        xmlCiiAncestorBranchName(node),
+        node,
+        config,
+      );
       if (rating) {
         xmlSetText(document, node, 'Rating', rating);
         stats.ratingAnnotations += 1;
@@ -736,9 +793,14 @@ export async function enrichXmlForCii2019(xmlTextVal, stagedJsonText, options = 
   }
 
   const xmlOut = new XMLSerializer().serializeToString(document);
-  const diagnosticText = JSON.stringify({ generatedAt: new Date().toISOString(), stats, diagnostics }, null, 2);
+  const dtxrResolutionLedgerAudit = {
+    schema: dtxrResolutionLedger.schema,
+    summary: dtxrResolutionLedger.summary,
+    entries: dtxrResolutionLedger.entries.map(({ nodeElement: _node, supportMatches = [], ...entry }) => ({ ...entry, supportMatchCount: supportMatches.length })),
+  };
+  const diagnosticText = JSON.stringify({ generatedAt: new Date().toISOString(), stats, diagnostics, dtxrResolutionLedger: dtxrResolutionLedgerAudit }, null, 2);
   if (Array.isArray(options._diagOut)) options._diagOut.push(...diagnostics);
-  return { xmlText: xmlOut, stats, config, diagnostics, diagnosticRows: diagnosticRowsForTable(diagnostics), diagnosticText };
+  return { xmlText: xmlOut, stats, config, diagnostics, diagnosticRows: diagnosticRowsForTable(diagnostics), diagnosticText, dtxrResolutionLedger: dtxrResolutionLedgerAudit };
 }
 
 // Helpers for support tags extraction (matches xmlNodeSupportTags in support-mapping.js but with clean support tag parsing)
