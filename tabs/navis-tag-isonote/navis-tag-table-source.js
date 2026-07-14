@@ -1,4 +1,4 @@
-import { normalizeConfig, normalizeSupportIdentity, parseCoordinate, supportRoot, text } from './navis-tag-isonote-contracts.js';
+import { normalizeConfig, normalizeReference, normalizeSupportIdentity, parseCoordinate, supportRoot, text } from './navis-tag-isonote-contracts.js';
 
 function parseLine(line, delimiter) {
   const cells = [];
@@ -76,6 +76,7 @@ export function buildSupportTableRecords(parsed, inputConfig = {}) {
     const identity = tableIdentity(rawRow, config);
     const position = tablePosition(rawRow, config);
     const pipe = firstColumnValue(rawRow, config.tablePipeColumns);
+    const reference = firstColumnValue(rawRow, config.tableReferenceColumns);
     if (!identity.canonical) diagnostics.push({ severity: 'WARN', code: 'TABLE_IDENTITY_MISSING', rowIndex: rawRow._rowIndex, message: 'Configured support identity columns are empty.' });
     return {
       rowId: `TABLE-${index + 1}`,
@@ -86,6 +87,9 @@ export function buildSupportTableRecords(parsed, inputConfig = {}) {
       supportRoot: supportRoot(identity.canonical),
       identityColumn: identity.column,
       identityValues: identity.all,
+      inputReferenceRaw: reference.value,
+      inputReference: normalizeReference(reference.value),
+      inputReferenceColumn: reference.column,
       position: position.point,
       positionRaw: position.raw,
       positionColumn: position.sourceColumn,
@@ -94,7 +98,19 @@ export function buildSupportTableRecords(parsed, inputConfig = {}) {
       existingIsometricNotes: text(rawRow['ISOMETRIC NOTES'] ?? rawRow.ISONOTE ?? ''),
     };
   });
-  return { config, headers, records, diagnostics, summary: { rowCount: records.length, identityCount: records.filter((row) => row.identity).length, positionedRowCount: records.filter((row) => row.position).length, pipeCount: records.filter((row) => row.inputPipe).length } };
+  return {
+    config,
+    headers,
+    records,
+    diagnostics,
+    summary: {
+      rowCount: records.length,
+      identityCount: records.filter((row) => row.identity).length,
+      referenceCount: records.filter((row) => row.inputReference).length,
+      positionedRowCount: records.filter((row) => row.position).length,
+      pipeCount: records.filter((row) => row.inputPipe).length,
+    },
+  };
 }
 export function rowsToCsv(rows, preferredHeaders = []) {
   const safeRows = Array.isArray(rows) ? rows : [];

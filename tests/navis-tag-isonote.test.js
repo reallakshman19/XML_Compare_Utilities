@@ -68,7 +68,7 @@ assert.equal(index.entries[0].boreNominalMm, 100);
 
 const identityTrace = buildIdentityNodeTrace(tableBuild.records, index, config);
 assert.equal(identityTrace.summary.resolvedCount, 1);
-assert.equal(identityTrace.rows[0].status, 'RESOLVED_EXACT');
+assert.equal(identityTrace.rows[0].status, 'RESOLVED_EXACT_PIPE');
 assert.equal(identityTrace.rows[0].selectedIdentityPath, 'attributes.CUSTOM_TAG');
 assert.equal(identityTrace.rows[0].positionSourcePath, 'attributes.CUSTOM_POS');
 assert.equal(identityTrace.rows[0].resolvedPipe, 'ASIM-1836-2"-A8010850-13421');

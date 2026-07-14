@@ -1,12 +1,13 @@
-export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v3';
+export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v4';
 export const NAVIS_TAG_EVIDENCE_SCHEMA = 'navis-tag-evidence/v2';
-export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v3';
-export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v3';
-export const NAVIS_TAG_READINESS_SCHEMA = 'navis-tag-isonote-readiness/v2';
+export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v4';
+export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v4';
+export const NAVIS_TAG_READINESS_SCHEMA = 'navis-tag-isonote-readiness/v3';
 
 export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   tableIdentityColumns: ['Name of the element'],
   tableIdentityMode: 'first-non-empty',
+  tableReferenceColumns: ['Reference of the element'],
   tablePositionMode: 'single',
   tablePositionColumn: 'POS',
   tableEastingColumn: '',
@@ -15,6 +16,7 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   tablePipeColumns: ['PIPE', 'Branch', 'BranchName', 'Line ID'],
   tableUnits: 'auto',
   jsonIdentityPaths: ['attributes.NAME', 'name'],
+  jsonReferencePaths: ['attributes.REF', 'REF'],
   jsonPositionPaths: ['attributes.SUPPORTCOORD', 'attributes.POSI', 'attributes.POS', 'attributes.APOS', 'attributes.LPOS'],
   jsonBranchPaths: ['attributes.OWNER', 'attributes.BRANCH', 'attributes.BRANCHNAME'],
   jsonPipePaths: ['attributes.PIPE', 'attributes.PIPELINE', 'attributes.LINE', 'attributes.LINE_ID', 'attributes.PIPING_SYSTEM'],
@@ -38,50 +40,41 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
 });
 
 export function text(value) { return String(value ?? '').trim(); }
-
 export function list(value, fallback = []) {
-  if (Array.isArray(value)) {
-    const out = value.map(text).filter(Boolean);
-    return out.length ? out : [...fallback];
-  }
+  if (Array.isArray(value)) return value.map(text).filter(Boolean);
   const out = text(value).split(/[\n,]+/).map(text).filter(Boolean);
   return out.length ? out : [...fallback];
 }
-
-export function normalizeSupportIdentity(value) {
-  return text(value)
-    .replace(/^\/+/, '')
-    .replace(/\s*\(\s*REF\s*\)\s*$/i, '')
-    .replace(/\s+/g, '')
-    .toUpperCase();
+function configuredList(input, key, fallback) {
+  if (!Object.prototype.hasOwnProperty.call(input || {}, key)) return [...fallback];
+  if (Array.isArray(input[key])) return input[key].map(text).filter(Boolean);
+  return text(input[key]).split(/[\n,]+/).map(text).filter(Boolean);
 }
-
+export function normalizeSupportIdentity(value) {
+  return text(value).replace(/^\/+/, '').replace(/\s*\(\s*REF\s*\)\s*$/i, '').replace(/\s+/g, '').toUpperCase();
+}
+export function normalizeReference(value) {
+  return text(value).replace(/^\/+/, '').replace(/\s+/g, '').toUpperCase();
+}
 export function supportRoot(value) {
   const normalized = normalizeSupportIdentity(value);
   const match = normalized.match(/(?:^|[^A-Z0-9])(PS|SL)-?(\d+)/i) || normalized.match(/^(PS|SL)-?(\d+)/i);
   return match ? `${match[1].toUpperCase()}-${match[2]}` : '';
 }
-
 export function unitScaleToMm(unit, values = []) {
   const normalized = text(unit).toLowerCase();
-  const scale = {
-    mm: 1, millimeter: 1, millimetre: 1,
-    cm: 10, m: 1000, meter: 1000, metre: 1000,
-    in: 25.4, inch: 25.4, ft: 304.8, feet: 304.8,
-  }[normalized];
+  const scale = { mm: 1, millimeter: 1, millimetre: 1, cm: 10, m: 1000, meter: 1000, metre: 1000, in: 25.4, inch: 25.4, ft: 304.8, feet: 304.8 }[normalized];
   if (scale) return scale;
   const finite = values.map(Number).filter(Number.isFinite).map(Math.abs);
   const max = finite.length ? Math.max(...finite) : 0;
   return max && max < 10000 ? 1000 : 1;
 }
-
 function numeric(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   const match = text(value).replace(/,/g, '').match(/-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?/);
   const number = match ? Number(match[0]) : NaN;
   return Number.isFinite(number) ? number : null;
 }
-
 export function parseCoordinate(raw, unit = 'auto') {
   if (raw == null || raw === '') return null;
   let point = null;
@@ -112,20 +105,11 @@ export function parseCoordinate(raw, unit = 'auto') {
   }
   if (!point) return null;
   const scale = unitScaleToMm(unit, [point.x, point.y, point.z]);
-  return {
-    x: point.x * scale,
-    y: point.y * scale,
-    z: point.z * scale,
-    unitScale: scale,
-    sourceUnit: text(unit) || 'auto',
-  };
+  return { x: point.x * scale, y: point.y * scale, z: point.z * scale, unitScale: scale, sourceUnit: text(unit) || 'auto' };
 }
-
 function normalizeLookup(value) {
   let source = value;
-  if (typeof source === 'string') {
-    try { source = JSON.parse(source || '{}'); } catch { return {}; }
-  }
+  if (typeof source === 'string') { try { source = JSON.parse(source || '{}'); } catch { return {}; } }
   if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
   const output = {};
   for (const [key, raw] of Object.entries(source)) {
@@ -134,21 +118,22 @@ function normalizeLookup(value) {
   }
   return output;
 }
-
 export function normalizeConfig(input = {}) {
   const defaults = DEFAULT_NAVIS_TAG_ISONOTE_CONFIG;
   return {
     ...defaults,
     ...input,
-    tableIdentityColumns: list(input.tableIdentityColumns, defaults.tableIdentityColumns),
-    tablePipeColumns: list(input.tablePipeColumns, defaults.tablePipeColumns),
-    jsonIdentityPaths: list(input.jsonIdentityPaths, defaults.jsonIdentityPaths),
-    jsonPositionPaths: list(input.jsonPositionPaths, defaults.jsonPositionPaths),
-    jsonBranchPaths: list(input.jsonBranchPaths, defaults.jsonBranchPaths),
-    jsonPipePaths: list(input.jsonPipePaths, defaults.jsonPipePaths),
-    jsonZonePaths: list(input.jsonZonePaths, defaults.jsonZonePaths),
-    jsonOdPaths: list(input.jsonOdPaths, defaults.jsonOdPaths),
-    jsonBorePaths: list(input.jsonBorePaths, defaults.jsonBorePaths),
+    tableIdentityColumns: configuredList(input, 'tableIdentityColumns', defaults.tableIdentityColumns),
+    tableReferenceColumns: configuredList(input, 'tableReferenceColumns', defaults.tableReferenceColumns),
+    tablePipeColumns: configuredList(input, 'tablePipeColumns', defaults.tablePipeColumns),
+    jsonIdentityPaths: configuredList(input, 'jsonIdentityPaths', defaults.jsonIdentityPaths),
+    jsonReferencePaths: configuredList(input, 'jsonReferencePaths', defaults.jsonReferencePaths),
+    jsonPositionPaths: configuredList(input, 'jsonPositionPaths', defaults.jsonPositionPaths),
+    jsonBranchPaths: configuredList(input, 'jsonBranchPaths', defaults.jsonBranchPaths),
+    jsonPipePaths: configuredList(input, 'jsonPipePaths', defaults.jsonPipePaths),
+    jsonZonePaths: configuredList(input, 'jsonZonePaths', defaults.jsonZonePaths),
+    jsonOdPaths: configuredList(input, 'jsonOdPaths', defaults.jsonOdPaths),
+    jsonBorePaths: configuredList(input, 'jsonBorePaths', defaults.jsonBorePaths),
     eastingToleranceMm: finiteNumber(input.eastingToleranceMm, defaults.eastingToleranceMm),
     northingToleranceMm: finiteNumber(input.northingToleranceMm, defaults.northingToleranceMm),
     elevationToleranceMm: finiteNumber(input.elevationToleranceMm, defaults.elevationToleranceMm),
@@ -160,12 +145,10 @@ export function normalizeConfig(input = {}) {
     boreToOdLookup: normalizeLookup(input.boreToOdLookup),
   };
 }
-
 function finiteNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
-
 export function firstConfiguredValue(node, paths = []) {
   for (const path of paths) {
     if (!Object.prototype.hasOwnProperty.call(node?.values || {}, path)) continue;

@@ -5,8 +5,12 @@ function branchMatches(record, entry) {
   const branch = text(entry.resolvedBranch || entry.resolvedPipe).toUpperCase();
   return Boolean(pipe && branch && branch.includes(pipe));
 }
+function referenceMatches(record, entry) {
+  return Boolean(record.inputReference && entry.reference && record.inputReference === entry.reference);
+}
 function candidateScore(record, entry, matchType) {
   let score = matchType === 'EXACT_FULL_IDENTITY' ? 100 : 60;
+  if (referenceMatches(record, entry)) score += 70;
   if (branchMatches(record, entry)) score += 20;
   if (entry.position) score += 10;
   if (Number.isFinite(entry.odMm)) score += 5;
@@ -25,10 +29,15 @@ function candidateSummary(record, entry, matchType) {
     identityRaw: entry.identityRaw,
     identityPath: entry.identityPath,
     supportRoot: entry.supportRoot,
+    reference: entry.reference,
+    referenceRaw: entry.referenceRaw,
+    referencePath: entry.referencePath,
+    referenceMatch: referenceMatches(record, entry),
     resolvedBranch: entry.resolvedBranch,
     resolvedBranchPath: entry.resolvedBranchPath,
     resolvedPipe: entry.resolvedPipe,
     resolvedPipePath: entry.resolvedPipePath,
+    resolvedPipeBasis: entry.resolvedPipeBasis,
     resolvedZone: entry.resolvedZone,
     resolvedZonePath: entry.resolvedZonePath,
     branchMatch: branchMatches(record, entry),
@@ -48,36 +57,34 @@ function candidateSummary(record, entry, matchType) {
 function rankCandidates(record, candidates, matchType) {
   return candidates.map((entry) => ({ entry, summary: candidateSummary(record, entry, matchType) })).sort((a, b) => b.summary.score - a.summary.score || Number(Boolean(b.entry.position)) - Number(Boolean(a.entry.position)) || a.entry.jsonPath.localeCompare(b.entry.jsonPath));
 }
-function selectCandidate(ranked, matchType) {
+function resolvedStatus(matchType, summary) {
+  if (matchType === 'EXACT_FULL_IDENTITY') {
+    if (summary.referenceMatch) return 'RESOLVED_EXACT_REFERENCE';
+    if (summary.branchMatch) return 'RESOLVED_EXACT_PIPE';
+    return 'RESOLVED_EXACT';
+  }
+  if (summary.referenceMatch) return 'RESOLVED_ROOT_REFERENCE';
+  if (summary.branchMatch) return 'RESOLVED_ROOT_PIPE';
+  return 'RESOLVED_ROOT';
+}
+function selectCandidate(ranked, matchType, config) {
   if (!ranked.length) return { status: 'UNRESOLVED', selected: null, reason: 'NO_JSON_IDENTITY_CANDIDATE' };
-  if (ranked.length === 1) return { status: matchType === 'EXACT_FULL_IDENTITY' ? 'RESOLVED_EXACT' : 'RESOLVED_ROOT', selected: ranked[0].entry, reason: matchType };
+  if (ranked.length === 1) return { status: resolvedStatus(matchType, ranked[0].summary), selected: ranked[0].entry, reason: matchType };
   const top = ranked[0];
   const second = ranked[1];
   const gap = top.summary.score - second.summary.score;
-  if (top.summary.branchMatch && !second.summary.branchMatch && gap >= 15) return { status: matchType === 'EXACT_FULL_IDENTITY' ? 'RESOLVED_EXACT_PIPE' : 'RESOLVED_ROOT_PIPE', selected: top.entry, reason: `${matchType}_UNIQUE_BRANCH` };
-  return { status: matchType === 'EXACT_FULL_IDENTITY' ? 'AMBIGUOUS_EXACT_IDENTITY' : 'AMBIGUOUS_ROOT_MATCH', selected: null, reason: 'CANDIDATE_SCORE_GAP_INSUFFICIENT' };
+  if (gap >= config.ambiguityScoreGap) {
+    const evidence = top.summary.referenceMatch ? 'UNIQUE_REFERENCE' : top.summary.branchMatch ? 'UNIQUE_BRANCH' : 'SCORE_GAP';
+    return { status: resolvedStatus(matchType, top.summary), selected: top.entry, reason: `${matchType}_${evidence}`, scoreGap: gap };
+  }
+  return { status: matchType === 'EXACT_FULL_IDENTITY' ? 'AMBIGUOUS_EXACT_IDENTITY' : 'AMBIGUOUS_ROOT_MATCH', selected: null, reason: 'CANDIDATE_SCORE_GAP_INSUFFICIENT', scoreGap: gap };
 }
 function pendingNavisFields() {
   return {
     navisResolutionStatus: 'PENDING_NAVIS_RESOLUTION',
-    navisAmbiguity: '',
-    navisConfidence: '',
-    navisConfidenceScore: 0,
-    navisConfidenceReasons: [],
-    selectedNavisEvidenceId: '',
-    selectedNavisViewName: '',
-    selectedNavisViewGuid: '',
-    selectedNavisTagId: '',
-    selectedNavisCommentId: '',
-    selectedNavisCommentBody: '',
-    selectedNavisPosition: null,
-    selectedNavisPositionSource: '',
-    deltaEMm: null,
-    deltaNMm: null,
-    deltaElMm: null,
-    verticalBasis: '',
-    verticalResidualMm: null,
-    supportIsonote: '',
+    navisAmbiguity: '', navisConfidence: '', navisConfidenceScore: 0, navisConfidenceReasons: [],
+    selectedNavisEvidenceId: '', selectedNavisViewName: '', selectedNavisViewGuid: '', selectedNavisTagId: '', selectedNavisCommentId: '', selectedNavisCommentBody: '',
+    selectedNavisPosition: null, selectedNavisPositionSource: '', deltaEMm: null, deltaNMm: null, deltaElMm: null, verticalBasis: '', verticalResidualMm: null, supportIsonote: '',
   };
 }
 
@@ -93,11 +100,11 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
     if (exact.length) { matchType = 'EXACT_FULL_IDENTITY'; candidates = exact; }
     else if (root.length) { matchType = 'SUPPORT_ROOT'; candidates = root; }
     const ranked = rankCandidates(record, candidates, matchType);
-    const selection = selectCandidate(ranked, matchType);
+    const selection = selectCandidate(ranked, matchType, config);
     const selected = selection.selected;
     if (!record.identity) diagnostics.push({ severity: 'ERROR', code: 'TABLE_IDENTITY_UNAVAILABLE', rowId: record.rowId, message: 'No canonical table identity is available.' });
     else if (!ranked.length) diagnostics.push({ severity: 'WARN', code: 'JSON_IDENTITY_NOT_FOUND', rowId: record.rowId, identity: record.identity, message: `No staged JSON node matches ${record.identity}.` });
-    else if (!selected) diagnostics.push({ severity: 'WARN', code: selection.status, rowId: record.rowId, identity: record.identity, candidateCount: ranked.length, message: `${ranked.length} staged JSON nodes match ${record.identity}; no dominant candidate was proven.` });
+    else if (!selected) diagnostics.push({ severity: 'WARN', code: selection.status, rowId: record.rowId, identity: record.identity, candidateCount: ranked.length, scoreGap: selection.scoreGap, message: `${ranked.length} staged JSON nodes match ${record.identity}; no dominant candidate was proven.` });
     rows.push({
       schema: IDENTITY_NODE_TRACE_SCHEMA,
       traceId: `IDENTITY-${record.rowId}`,
@@ -107,6 +114,9 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
       canonicalIdentity: record.identity,
       supportRoot: record.supportRoot,
       tableIdentityColumn: record.identityColumn,
+      inputReferenceRaw: record.inputReferenceRaw,
+      inputReference: record.inputReference,
+      inputReferenceColumn: record.inputReferenceColumn,
       tablePositionMode: config.tablePositionMode,
       tablePositionSourceColumn: record.positionColumn,
       tablePositionRaw: record.positionRaw,
@@ -118,6 +128,7 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
       candidateCount: ranked.length,
       status: selection.status,
       selectionReason: selection.reason,
+      selectionScoreGap: selection.scoreGap ?? null,
       selectedNodeId: selected?.nodeId || '',
       selectedSourceFile: selected?.sourceFile || '',
       selectedJsonPath: selected?.jsonPath || '',
@@ -126,11 +137,15 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
       selectedRawName: selected?.rawName || '',
       selectedIdentityRaw: text(selected?.identityRaw),
       selectedIdentityPath: selected?.identityPath || '',
+      selectedReferenceRaw: selected?.referenceRaw || '',
+      selectedReference: selected?.reference || '',
+      selectedReferencePath: selected?.referencePath || '',
       hierarchyPath: selected?.hierarchyPath || [],
       resolvedBranch: selected?.resolvedBranch || '',
       resolvedBranchPath: selected?.resolvedBranchPath || '',
       resolvedPipe: selected?.resolvedPipe || '',
       resolvedPipePath: selected?.resolvedPipePath || '',
+      resolvedPipeBasis: selected?.resolvedPipeBasis || '',
       resolvedZone: selected?.resolvedZone || '',
       resolvedZonePath: selected?.resolvedZonePath || '',
       positionSourcePath: selected?.positionPath || '',
@@ -144,7 +159,7 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
       boreNominalMm: selected?.boreNominalMm ?? null,
       borePath: selected?.borePath || '',
       boreUnits: selected?.boreUnits || config.jsonBoreUnits,
-      identityConfidence: selected ? selection.status.includes('EXACT') ? 'HIGH' : 'MEDIUM' : ranked.length ? 'AMBIGUOUS' : 'UNRESOLVED',
+      identityConfidence: selected ? selection.status.includes('EXACT') || selection.status.includes('REFERENCE') ? 'HIGH' : 'MEDIUM' : ranked.length ? 'AMBIGUOUS' : 'UNRESOLVED',
       candidates: ranked.map((item) => item.summary),
       selectedEntry: selected || null,
       tableRecord: record,
@@ -154,7 +169,6 @@ export function buildIdentityNodeTrace(tableRecords = [], stagedIndex, inputConf
   }
   return partitionIdentityRows({ config, rows, diagnostics });
 }
-
 function partitionIdentityRows(trace) {
   const rows = trace.rows || [];
   return {
@@ -167,6 +181,7 @@ function partitionIdentityRows(trace) {
       resolvedCount: rows.filter((row) => row.selectedNodeId).length,
       exactResolvedCount: rows.filter((row) => row.status.includes('EXACT') && row.selectedNodeId).length,
       rootResolvedCount: rows.filter((row) => row.status.includes('ROOT') && row.selectedNodeId).length,
+      referenceResolvedCount: rows.filter((row) => row.status.includes('REFERENCE') && row.selectedNodeId).length,
       ambiguousCount: rows.filter((row) => row.status.startsWith('AMBIGUOUS')).length,
       unresolvedCount: rows.filter((row) => row.status === 'UNRESOLVED').length,
       navisResolvedCount: rows.filter((row) => row.navisResolutionStatus === 'RESOLVED').length,
@@ -175,7 +190,6 @@ function partitionIdentityRows(trace) {
     },
   };
 }
-
 export function attachNavisResolutionToIdentityTrace(identityTrace, audit) {
   const decisions = new Map((audit?.decisions || []).map((row) => [row.tableRowId, row]));
   const rows = (identityTrace?.rows || []).map((row) => {

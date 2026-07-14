@@ -23,7 +23,8 @@ function renderMetrics(state) {
   const trace = state.identityTrace?.summary || {};
   const navis = state.navisParse?.summary || {};
   const audit = state.audit?.summary || {};
-  return `<div class="nti-metrics">${metric('Table rows', state.tableBuild?.records?.length || 0)}${metric('JSON nodes', tree.nodeCount || 0)}${metric('JSON objects', tree.objectCount || 0)}${metric('JSON arrays', tree.arrayCount || 0)}${metric('Indexed identities', state.stagedIndex?.summary?.indexedNodeCount || 0)}${metric('Branch facts', tree.branchResolvedNodeCount || 0)}${metric('Pipe facts', tree.pipeResolvedNodeCount || 0)}${metric('Zone facts', tree.zoneResolvedNodeCount || 0)}${metric('Identity resolved', trace.resolvedCount || 0)}${metric('Navis resolved', trace.navisResolvedCount || audit.resolvedCount || 0)}${metric('Navis ambiguous', trace.navisAmbiguousCount || audit.ambiguousCount || 0)}${metric('Navis tags', navis.tagCount || 0)}</div>`;
+  const index = state.stagedIndex?.summary || {};
+  return `<div class="nti-metrics">${metric('Table rows', state.tableBuild?.records?.length || 0)}${metric('JSON nodes', tree.nodeCount || 0)}${metric('JSON objects', tree.objectCount || 0)}${metric('JSON arrays', tree.arrayCount || 0)}${metric('Indexed identities', index.indexedNodeCount || 0)}${metric('Reference facts', index.referenceEntryCount || 0)}${metric('Suppressed mirrors', index.suppressedMirrorEntryCount || 0)}${metric('Branch facts', tree.branchResolvedNodeCount || 0)}${metric('Pipe facts', index.pipeResolvedEntryCount || tree.pipeResolvedNodeCount || 0)}${metric('Zone facts', tree.zoneResolvedNodeCount || 0)}${metric('Identity resolved', trace.resolvedCount || 0)}${metric('Navis resolved', trace.navisResolvedCount || audit.resolvedCount || 0)}${metric('Navis ambiguous', trace.navisAmbiguousCount || audit.ambiguousCount || 0)}${metric('Navis tags', navis.tagCount || 0)}</div>`;
 }
 function renderReadiness(state) {
   const readiness = state.readiness;
@@ -34,6 +35,7 @@ function renderReadiness(state) {
 function pathOptions(state, key) {
   const recommendationKey = {
     jsonIdentityPaths: 'identity',
+    jsonReferencePaths: 'reference',
     jsonPositionPaths: 'position',
     jsonBranchPaths: 'branch',
     jsonPipePaths: 'pipe',
@@ -61,14 +63,15 @@ function unitsSelect(key, value, allowAuto = true) {
 function renderInputs(state) {
   const cfg = state.config;
   const names = state.sourceNames || {};
-  return `<section class="nti-card"><h3>Source Inputs</h3><div class="nti-help">All staged JSON objects and arrays are constructed into the canonical hierarchy before identity, branch, pipe, zone, coordinate, OD or bore indexes are built.</div><div class="nti-source-status">${statusBadge('Support table', Boolean(state.tableText), names.table || '')}${statusBadge('Navis Tag XML', Boolean(state.navisText), names.navis || '')}${statusBadge('Staged JSON / ZIP', Boolean(state.stagedDocuments?.length), names.staged || '')}</div><div class="nti-grid">
+  return `<section class="nti-card"><h3>Source Inputs</h3><div class="nti-help">All staged JSON objects and arrays are constructed into the canonical hierarchy before identity, reference, branch, pipe, zone, coordinate, OD or bore indexes are built.</div><div class="nti-source-status">${statusBadge('Support table', Boolean(state.tableText), names.table || '')}${statusBadge('Navis Tag XML', Boolean(state.navisText), names.navis || '')}${statusBadge('Staged JSON / ZIP', Boolean(state.stagedDocuments?.length), names.staged || '')}</div><div class="nti-grid">
     <label class="nti-field">Support table CSV/TSV/XLSX<input type="file" data-nti-file="table" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xlsb,.xls,.ods"></label>
     <label class="nti-field">Navis Tag XML<input type="file" data-nti-file="navis" accept=".xml"></label>
     <label class="nti-field">Managed staged JSON / ZIP<input type="file" data-nti-file="staged" accept=".json,.zip"></label>
-  </div><div class="nti-grid-2"><label class="nti-field">Support table preview / paste<textarea data-nti-field="tableText" placeholder="Name of the element&#9;PIPE&#9;POS">${esc(state.tableText)}</textarea></label><label class="nti-field">Navis Tag XML preview / paste<textarea data-nti-field="navisText" placeholder="&lt;exchange units=&quot;m&quot;&gt;...">${esc(state.navisText)}</textarea></label></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="build">Parse sources + build hierarchy/index/identity trace</button><button class="nti-btn" data-nti-action="run" ${state.readiness && !state.readiness.canResolve ? 'disabled' : ''}>Run ISONOTE proximity resolution</button><span class="nti-status">${esc(state.status)}</span></div></section>
+  </div><div class="nti-grid-2"><label class="nti-field">Support table preview / paste<textarea data-nti-field="tableText" placeholder="Name of the element&#9;Reference of the element&#9;PIPE&#9;POS">${esc(state.tableText)}</textarea></label><label class="nti-field">Navis Tag XML preview / paste<textarea data-nti-field="navisText" placeholder="&lt;exchange units=&quot;m&quot;&gt;...">${esc(state.navisText)}</textarea></label></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="build">Parse sources + build hierarchy/index/identity trace</button><button class="nti-btn" data-nti-action="run" ${state.readiness && !state.readiness.canResolve ? 'disabled' : ''}>Run ISONOTE proximity resolution</button><span class="nti-status">${esc(state.status)}</span></div></section>
   <section class="nti-card"><h3>Configurable Identity and Proximity Mapping</h3><div class="nti-grid">
     <label class="nti-field">Table support identity columns<textarea data-nti-config="tableIdentityColumns">${esc(joinList(cfg.tableIdentityColumns))}</textarea></label>
     <label class="nti-field">Table identity mode<select data-nti-config="tableIdentityMode">${['first-non-empty','concatenate'].map((value) => `<option value="${value}" ${cfg.tableIdentityMode === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
+    <label class="nti-field">Table reference columns<textarea data-nti-config="tableReferenceColumns">${esc(joinList(cfg.tableReferenceColumns))}</textarea></label>
     <label class="nti-field">Table pipe/branch columns<textarea data-nti-config="tablePipeColumns">${esc(joinList(cfg.tablePipeColumns))}</textarea></label>
     <label class="nti-field">Table coordinate mode<select data-nti-config="tablePositionMode">${['single','separate'].map((value) => `<option value="${value}" ${cfg.tablePositionMode === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
     <label class="nti-field">Table single position column<input data-nti-config="tablePositionColumn" value="${esc(cfg.tablePositionColumn)}"></label>
@@ -77,6 +80,7 @@ function renderInputs(state) {
     <label class="nti-field">Table Elevation column<input data-nti-config="tableElevationColumn" value="${esc(cfg.tableElevationColumn)}"></label>
     <label class="nti-field">Table coordinate units${unitsSelect('tableUnits', cfg.tableUnits, true)}</label>
     <label class="nti-field">JSON support identity paths<textarea data-nti-config="jsonIdentityPaths">${esc(joinList(cfg.jsonIdentityPaths))}</textarea></label>
+    <label class="nti-field">JSON reference paths<textarea data-nti-config="jsonReferencePaths">${esc(joinList(cfg.jsonReferencePaths))}</textarea></label>
     <label class="nti-field">JSON proximity position paths<textarea data-nti-config="jsonPositionPaths">${esc(joinList(cfg.jsonPositionPaths))}</textarea></label>
     <label class="nti-field">JSON position units${unitsSelect('jsonUnits', cfg.jsonUnits, true)}</label>
     <label class="nti-field">JSON branch paths<textarea data-nti-config="jsonBranchPaths">${esc(joinList(cfg.jsonBranchPaths))}</textarea></label>
@@ -94,7 +98,7 @@ function renderInputs(state) {
     <label class="nti-field">Enable explicit bore→OD lookup<input type="checkbox" data-nti-config="boreToOdLookupEnabled" ${cfg.boreToOdLookupEnabled ? 'checked' : ''}></label>
     <label class="nti-field">Bore→OD lookup name<input data-nti-config="boreToOdLookupName" value="${esc(cfg.boreToOdLookupName)}" placeholder="ASME B36.10 profile"></label>
     <label class="nti-field">Explicit bore→OD lookup JSON<textarea data-nti-config="boreToOdLookup" placeholder='{"50":60.3,"80":88.9}'>${esc(JSON.stringify(cfg.boreToOdLookup || {}, null, 2))}</textarea></label>
-  </div>${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
+  </div>${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
 }
 function renderTreeNode(tree, nodeId, depth = 0) {
   const node = tree.byId.get(nodeId);
@@ -110,12 +114,14 @@ function renderHierarchy(state) {
 }
 const IDENTITY_HEADERS = [
   { key: 'tableRowIndex', label: 'Table Row' }, { key: 'tableIdentityRaw', label: 'Table Identity Raw' }, { key: 'canonicalIdentity', label: 'Canonical Identity' },
-  { key: 'supportRoot', label: 'Support Root' }, { key: 'tableIdentityColumn', label: 'Table Identity Column' }, { key: 'tablePositionSourceColumn', label: 'Table Position Source' },
+  { key: 'supportRoot', label: 'Support Root' }, { key: 'tableIdentityColumn', label: 'Table Identity Column' }, { key: 'inputReferenceRaw', label: 'Table Reference Raw' },
+  { key: 'inputReferenceColumn', label: 'Table Reference Column' }, { key: 'tablePositionSourceColumn', label: 'Table Position Source' },
   { key: 'status', label: 'Identity Status', badge: true }, { key: 'candidateCount', label: 'Candidates' }, { key: 'selectionReason', label: 'Selection Reason' },
-  { key: 'selectedNodeId', label: 'JSON Node ID' }, { key: 'selectedSourceFile', label: 'JSON Source File' }, { key: 'selectedJsonPath', label: 'JSON Path' },
-  { key: 'selectedAncestorIds', label: 'Ancestor IDs' }, { key: 'selectedRawType', label: 'Raw Type' }, { key: 'selectedRawName', label: 'Raw Name' },
-  { key: 'selectedIdentityPath', label: 'JSON Identity Path' }, { key: 'hierarchyPath', label: 'Hierarchy Path' },
-  { key: 'resolvedBranch', label: 'Resolved Branch' }, { key: 'resolvedPipe', label: 'Resolved Pipe' }, { key: 'resolvedZone', label: 'Resolved Zone' },
+  { key: 'selectionScoreGap', label: 'Score Gap' }, { key: 'selectedNodeId', label: 'JSON Node ID' }, { key: 'selectedSourceFile', label: 'JSON Source File' },
+  { key: 'selectedJsonPath', label: 'JSON Path' }, { key: 'selectedAncestorIds', label: 'Ancestor IDs' }, { key: 'selectedRawType', label: 'Raw Type' },
+  { key: 'selectedRawName', label: 'Raw Name' }, { key: 'selectedIdentityPath', label: 'JSON Identity Path' }, { key: 'selectedReferenceRaw', label: 'JSON Reference Raw' },
+  { key: 'selectedReferencePath', label: 'JSON Reference Path' }, { key: 'hierarchyPath', label: 'Hierarchy Path' },
+  { key: 'resolvedBranch', label: 'Resolved Branch' }, { key: 'resolvedPipe', label: 'Resolved Pipe' }, { key: 'resolvedPipeBasis', label: 'Pipe Basis' }, { key: 'resolvedZone', label: 'Resolved Zone' },
   { key: 'positionSourcePath', label: 'JSON Position Path' }, { key: 'position', label: 'JSON Position' }, { key: 'boreNominalMm', label: 'Bore Nominal mm' },
   { key: 'borePath', label: 'Bore Path' }, { key: 'odMm', label: 'OD mm' }, { key: 'odPath', label: 'OD Path' }, { key: 'odSource', label: 'OD Source' },
   { key: 'identityConfidence', label: 'Identity Confidence', badge: true }, { key: 'navisResolutionStatus', label: 'Navis Status', badge: true },
@@ -125,12 +131,12 @@ const IDENTITY_HEADERS = [
   { key: 'verticalBasis', label: 'Vertical Basis' }, { key: 'verticalResidualMm', label: 'Vertical Residual mm' }, { key: 'navisAmbiguity', label: 'Ambiguity' },
   { key: 'navisConfidence', label: 'Navis Confidence', badge: true }, { key: 'supportIsonote', label: 'Selected Support ISONOTE' },
 ];
-function renderIdentityRows(title, help, rows, filterId) { return `<section class="nti-card"><h3>${esc(title)}</h3><div class="nti-help">${esc(help)}</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-trace" ${rows.length ? '' : 'disabled'}>Download end-to-end trace CSV</button></div><input class="nti-filter" data-nti-table-filter="${esc(filterId)}" placeholder="Filter by identity, root, branch, pipe, zone, JSON path, Navis tag/comment or status...">${renderTable(IDENTITY_HEADERS, rows, `nti-filter-table-${filterId}`)}</section>`; }
-function renderIdentityTrace(state) { return renderIdentityRows('End-to-End Identity Node Trace', 'Table identity → canonical identity → JSON node/path → branch/pipe/zone and position source → Navis tag/comment resolution → selected Support ISONOTE.', state.identityTrace?.rows || [], 'identity'); }
+function renderIdentityRows(title, help, rows, filterId) { return `<section class="nti-card"><h3>${esc(title)}</h3><div class="nti-help">${esc(help)}</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-trace" ${rows.length ? '' : 'disabled'}>Download end-to-end trace CSV</button></div><input class="nti-filter" data-nti-table-filter="${esc(filterId)}" placeholder="Filter by identity, reference, root, branch, pipe, zone, JSON path, Navis tag/comment or status...">${renderTable(IDENTITY_HEADERS, rows, `nti-filter-table-${filterId}`)}</section>`; }
+function renderIdentityTrace(state) { return renderIdentityRows('End-to-End Identity Node Trace', 'Table identity/reference → canonical identity → JSON node/path/reference → branch/pipe/zone and position source → Navis tag/comment resolution → selected Support ISONOTE.', state.identityTrace?.rows || [], 'identity'); }
 function renderIdentityPartition(state, kind) {
   const map = {
-    matched: ['Matched Identity Trace', 'Resolved table-to-JSON identity evidence; Navis decision fields remain visible per row.', state.identityTrace?.matchedRows || []],
-    ambiguous: ['Ambiguous Identity Trace', 'Multiple staged hierarchy nodes remain plausible.', state.identityTrace?.ambiguousRows || []],
+    matched: ['Matched Identity Trace', 'Resolved table-to-JSON identity and reference evidence; Navis decision fields remain visible per row.', state.identityTrace?.matchedRows || []],
+    ambiguous: ['Ambiguous Identity Trace', 'Multiple staged hierarchy nodes remain plausible after identity/reference/branch scoring.', state.identityTrace?.ambiguousRows || []],
     rejected: ['Rejected / Unresolved Identity Trace', 'No staged identity candidate or no resolvable support position.', state.identityTrace?.rejectedRows || []],
   };
   return renderIdentityRows(map[kind][0], map[kind][1], map[kind][2], `identity-${kind}`);
