@@ -1,24 +1,17 @@
 import './pipeline-3d-model-cad-runtime-policy.js?v=20260713-cad-default-1';
 import './pipeline-3d-model-cad-production-hardening.js?v=20260713-cad-hardening-1';
 import './pipeline-3d-model-cad-interaction-quality.js?v=20260713-cad-quality-1';
-import './pipeline-3d-model-cad-selection-visibility.js?v=20260713-cad-selection-1';
 import './pipeline-3d-model-cad-axis-history-fix.js?v=20260713-axis-history-1';
-import './pipeline-3d-model-cad-engineering-review.js?v=20260713-engineering-review-1';
-import './pipeline-3d-model-cad-preview-modes.js?v=20260713-preview-modes-1';
-import './pipeline-3d-model-cad-preview-modes-hardening.js?v=20260713-preview-modes-hardening-2';
 import './pipeline-3d-model-cad-layout-hardening.js?v=20260713-cad-layout-1';
-import './pipeline-3d-model-cad-authoring.js?v=20260713-cad-authoring-1';
 import './pipeline-3d-model-cad-lifecycle-performance.js?v=20260713-cad-lifecycle-1';
 import './pipeline-3d-model-cad-floating-preview.js?v=20260713-floating-preview-1';
 import './pipeline-3d-model-cad-floating-preview-hardening.js?v=20260713-floating-preview-hardening-1';
-import './pipeline-3d-model-cad-soak-evidence.js?v=20260713-cad-soak-1';
-import './pipeline-3d-model-cad-soak-evidence-hardening.js?v=20260713-cad-soak-hardening-1';
-import './pipeline-3d-model-canvas-audit-hardening.js?v=20260713-canvas-audit-1';
-import './pipeline-3d-model-cad-workspace.js?v=20260713-cad-workspace-1';
+import {
+  installPipelineCadWorkspaceComposition,
+} from './pipeline-3d-model-cad-workspace.js?v=20260714-pcad-001';
+import './pipeline-3d-model-cad-selection-visibility.js?v=20260714-pcad-001-selection';
 
-// Branch/config defaults + localStorage persistence for the Pipeline 3D Model tile.
-// Defaults below are used ONLY when localStorage has no saved value for a field —
-// every value is explicit here, nothing is silently defaulted elsewhere.
+if (globalThis.document) installPipelineCadWorkspaceComposition(globalThis.document);
 
 export const STORAGE_KEY = 'pipeline-3d-model-config-v1';
 
@@ -51,14 +44,12 @@ function readStorage(storage) {
   }
 }
 
-// Returns a plain { key: value } map, falling back to each field's explicit
-// default only when localStorage is null/missing that key.
 export function loadConfigValues(storage = globalThis.localStorage) {
   const saved = storage ? readStorage(storage) : null;
   const values = {};
   CONFIG_FIELDS.forEach((field) => {
-    const savedValue = saved && Object.prototype.hasOwnProperty.call(saved, field.key) ? saved[field.key] : null;
-    values[field.key] = savedValue == null ? field.default : savedValue;
+    const has = saved && Object.prototype.hasOwnProperty.call(saved, field.key);
+    values[field.key] = has ? saved[field.key] : field.default;
   });
   return values;
 }
@@ -68,6 +59,6 @@ export function saveConfigValues(values, storage = globalThis.localStorage) {
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(values));
   } catch {
-    // localStorage unavailable/full — persistence is best-effort only.
+    // localStorage persistence is best-effort only.
   }
 }
