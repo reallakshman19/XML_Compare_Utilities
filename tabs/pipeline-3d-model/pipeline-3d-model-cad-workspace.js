@@ -29,7 +29,17 @@ export { buildPipelineCadStageHtml, isPipelineCadCanvasEnabled, setPipelineCadCa
 
 const WORKSPACES = new WeakMap();
 const INSTALLERS = new WeakMap();
+const LEGACY_SOAK_INSTALL_STATE = Symbol.for('pipeline3d.cad.soak.install-state.v1');
 let mountSequence = 0;
+
+function claimLegacySoakInstaller(target) {
+  const current = target[LEGACY_SOAK_INSTALL_STATE];
+  if (current) current.installed = true;
+  else Object.defineProperty(target, LEGACY_SOAK_INSTALL_STATE, {
+    configurable: true,
+    value: { installed: true, runtimeListenersInstalled: false, controlsObserver: null, pageLifecycleInstalled: false },
+  });
+}
 
 function createGraphs(view) {
   return {
@@ -65,6 +75,8 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
   if (!dialog || (!options.force && !isPipelineCadCanvasEnabled(options))) return null;
   const existing = WORKSPACES.get(dialog);
   if (existing) return existing;
+  const target = options.target ?? globalThis;
+  claimLegacySoakInstaller(target);
   const view = createPipelineCadWorkspaceView(dialog);
   const graphs = createGraphs(view);
   const controller = new PipelineCadController(dialog, options);
@@ -110,7 +122,7 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     graphs,
     storage: options.storage,
     sessionStorage: options.sessionStorage,
-    target: options.target,
+    target,
   });
   const parts = {
     view, graphs, controller, canvasManager, authoring, engineeringReview,
