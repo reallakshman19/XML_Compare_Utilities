@@ -17,19 +17,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Capture DTXR ledger and trace regressions
+      - name: Capture DTXR ledger, enrichment, and trace regressions
         id: regression
         continue-on-error: true
         run: |
           mkdir -p artifacts/xml-cii-dual-trace
           set +e
+          python scripts/apply-dtxr-ledger-enrichment.py > artifacts/xml-cii-dual-trace/enrichment-patch.log 2>&1
+          PATCH_CODE=$?
+          node --check tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js > artifacts/xml-cii-dual-trace/enrichment-check.log 2>&1
+          ENRICHMENT_CODE=$?
           node tests/xml-cii-xml-node-wise-trace.test.js > artifacts/xml-cii-dual-trace/trace.log 2>&1
           TRACE_CODE=$?
           node tests/xml-cii-dtxr-resolution-ledger.test.js > artifacts/xml-cii-dual-trace/ledger.log 2>&1
           LEDGER_CODE=$?
-          echo "trace=$TRACE_CODE" > artifacts/xml-cii-dual-trace/test.exit
-          echo "ledger=$LEDGER_CODE" >> artifacts/xml-cii-dual-trace/test.exit
-          if [ "$TRACE_CODE" -ne 0 ] || [ "$LEDGER_CODE" -ne 0 ]; then exit 1; fi
+          printf 'patch=%s\nenrichment=%s\ntrace=%s\nledger=%s\n' "$PATCH_CODE" "$ENRICHMENT_CODE" "$TRACE_CODE" "$LEDGER_CODE" > artifacts/xml-cii-dual-trace/test.exit
+          if [ "$PATCH_CODE" -ne 0 ] || [ "$ENRICHMENT_CODE" -ne 0 ] || [ "$TRACE_CODE" -ne 0 ] || [ "$LEDGER_CODE" -ne 0 ]; then exit 1; fi
       - name: Upload DTXR diagnostic
         if: always()
         uses: actions/upload-artifact@v4
