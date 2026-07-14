@@ -1,7 +1,7 @@
-export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v4';
+export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v5';
 export const NAVIS_TAG_EVIDENCE_SCHEMA = 'navis-tag-evidence/v2';
-export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v4';
-export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v4';
+export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v5';
+export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v5';
 export const NAVIS_TAG_READINESS_SCHEMA = 'navis-tag-isonote-readiness/v3';
 
 export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
@@ -15,6 +15,10 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   tableElevationColumn: '',
   tablePipeColumns: ['PIPE', 'Branch', 'BranchName', 'Line ID'],
   tableUnits: 'auto',
+  tableCoordinateProfileName: 'TABLE_DEFAULT',
+  tableEastingDatumMm: 0,
+  tableNorthingDatumMm: 0,
+  tableElevationDatumMm: 0,
   jsonIdentityPaths: ['attributes.NAME', 'name'],
   jsonReferencePaths: ['attributes.REF', 'REF'],
   jsonPositionPaths: ['attributes.SUPPORTCOORD', 'attributes.POSI', 'attributes.POS', 'attributes.APOS', 'attributes.LPOS'],
@@ -24,9 +28,17 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   jsonOdPaths: ['attributes.OUTSIDE_DIAMETER', 'attributes.OD', 'attributes.PIPE_OD'],
   jsonBorePaths: ['attributes.ABORE', 'attributes.LBORE', 'attributes.HBORE', 'attributes.BORE'],
   jsonUnits: 'auto',
+  jsonCoordinateProfileName: 'JSON_DEFAULT',
+  jsonEastingDatumMm: 0,
+  jsonNorthingDatumMm: 0,
+  jsonElevationDatumMm: 0,
   jsonOdUnits: 'mm',
   jsonBoreUnits: 'mm',
   navisUnits: 'auto',
+  navisCoordinateProfileName: 'NAVIS_DEFAULT',
+  navisEastingDatumMm: 0,
+  navisNorthingDatumMm: 0,
+  navisElevationDatumMm: 0,
   supportCoordinateSource: 'prefer-table-fallback-json',
   eastingToleranceMm: 100,
   northingToleranceMm: 100,
@@ -75,37 +87,101 @@ function numeric(value) {
   const number = match ? Number(match[0]) : NaN;
   return Number.isFinite(number) ? number : null;
 }
-export function parseCoordinate(raw, unit = 'auto') {
+export function coordinateProfileOptions(config = {}, source = 'json') {
+  const prefix = text(source).toLowerCase();
+  const profilePrefix = prefix === 'table' ? 'table' : prefix === 'navis' ? 'navis' : 'json';
+  return {
+    profileName: text(config[`${profilePrefix}CoordinateProfileName`]) || `${profilePrefix.toUpperCase()}_DEFAULT`,
+    eastingDatumMm: signedFiniteNumber(config[`${profilePrefix}EastingDatumMm`], 0),
+    northingDatumMm: signedFiniteNumber(config[`${profilePrefix}NorthingDatumMm`], 0),
+    elevationDatumMm: signedFiniteNumber(config[`${profilePrefix}ElevationDatumMm`], 0),
+  };
+}
+function inlineCoordinateUnit(raw) {
+  if (typeof raw !== 'string') return '';
+  const units = [...raw.matchAll(/-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?\s*(mm|cm|m|ft|in)\b/gi)].map((match) => match[1].toLowerCase());
+  return units.length && units.every((unit) => unit === units[0]) ? units[0] : '';
+}
+function directionalObjectPoint(raw) {
+  const entries = Object.fromEntries(Object.entries(raw || {}).map(([key, value]) => [String(key).toUpperCase(), value]));
+  const choose = (positive, negative, ordinary) => {
+    for (const key of positive) {
+      const value = numeric(entries[key]);
+      if (Number.isFinite(value)) return Math.abs(value);
+    }
+    for (const key of negative) {
+      const value = numeric(entries[key]);
+      if (Number.isFinite(value)) return -Math.abs(value);
+    }
+    for (const key of ordinary) {
+      const value = numeric(entries[key]);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+  const x = choose(['E', 'EAST', 'EASTING'], ['W', 'WEST', 'WESTING'], ['X']);
+  const y = choose(['N', 'NORTH', 'NORTHING'], ['S', 'SOUTH', 'SOUTHING'], ['Y']);
+  const z = choose(['U', 'UP', 'EL', 'ELEV', 'ELEVATION'], ['D', 'DOWN'], ['Z']);
+  return [x, y, z].every(Number.isFinite) ? { x, y, z } : null;
+}
+export function parseCoordinate(raw, unit = 'auto', options = {}) {
   if (raw == null || raw === '') return null;
   let point = null;
+  let axisBasis = 'NUMERIC_TRIPLET';
   if (Array.isArray(raw)) {
     const values = raw.slice(0, 3).map(numeric);
     if (values.length === 3 && values.every(Number.isFinite)) point = { x: values[0], y: values[1], z: values[2] };
+    axisBasis = 'ARRAY_XYZ';
   } else if (typeof raw === 'object') {
-    const x = numeric(raw.x ?? raw.X ?? raw.e ?? raw.E ?? raw.east ?? raw.Easting);
-    const y = numeric(raw.y ?? raw.Y ?? raw.n ?? raw.N ?? raw.north ?? raw.Northing);
-    const z = numeric(raw.z ?? raw.Z ?? raw.el ?? raw.EL ?? raw.u ?? raw.U ?? raw.elevation ?? raw.Elevation);
-    if ([x, y, z].every(Number.isFinite)) point = { x, y, z };
+    point = directionalObjectPoint(raw);
+    axisBasis = point && Object.keys(raw).some((key) => /^(E|W|N|S|U|D|EAST|WEST|NORTH|SOUTH|UP|DOWN|EL|ELEV|ELEVATION)$/i.test(key)) ? 'DIRECTIONAL_OBJECT' : 'OBJECT_XYZ';
   } else {
     const source = text(raw);
     const directional = {};
-    source.replace(/\b(E|EAST|EASTING|N|NORTH|NORTHING|EL|ELEV|ELEVATION|U|Z)\s*[:=]?\s*(-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?)/gi, (_, axis, value) => {
+    const axisPattern = /\b(EASTING|EAST|WESTING|WEST|NORTHING|NORTH|SOUTHING|SOUTH|ELEVATION|ELEV|EL|UP|DOWN|E|W|N|S|U|D|Z)\s*[:=]?\s*(-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?)(?:\s*(mm|cm|m|ft|in))?/gi;
+    source.replace(axisPattern, (_, axis, value) => {
       const key = axis.toUpperCase();
-      const number = Number(value);
-      if (key.startsWith('E') && !['EL', 'ELEV', 'ELEVATION'].includes(key)) directional.x = number;
-      else if (key.startsWith('N')) directional.y = number;
-      else directional.z = number;
+      const magnitude = Math.abs(Number(value));
+      if (/^(E|EAST|EASTING)$/.test(key)) directional.x = magnitude;
+      else if (/^(W|WEST|WESTING)$/.test(key)) directional.x = -magnitude;
+      else if (/^(N|NORTH|NORTHING)$/.test(key)) directional.y = magnitude;
+      else if (/^(S|SOUTH|SOUTHING)$/.test(key)) directional.y = -magnitude;
+      else if (/^(D|DOWN)$/.test(key)) directional.z = -magnitude;
+      else directional.z = magnitude;
       return '';
     });
-    if ([directional.x, directional.y, directional.z].every(Number.isFinite)) point = directional;
+    if ([directional.x, directional.y, directional.z].every(Number.isFinite)) {
+      point = directional;
+      axisBasis = 'DIRECTIONAL_ENU';
+    }
     if (!point) {
       const values = source.match(/-?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?/g)?.slice(0, 3).map(Number) || [];
       if (values.length === 3 && values.every(Number.isFinite)) point = { x: values[0], y: values[1], z: values[2] };
     }
   }
   if (!point) return null;
-  const scale = unitScaleToMm(unit, [point.x, point.y, point.z]);
-  return { x: point.x * scale, y: point.y * scale, z: point.z * scale, unitScale: scale, sourceUnit: text(unit) || 'auto' };
+  const requestedUnit = text(unit).toLowerCase() || 'auto';
+  const detectedUnit = requestedUnit === 'auto' ? inlineCoordinateUnit(raw) : '';
+  const effectiveUnit = detectedUnit || requestedUnit;
+  const scale = unitScaleToMm(effectiveUnit, [point.x, point.y, point.z]);
+  const datumOffsetMm = {
+    x: signedFiniteNumber(options.eastingDatumMm, 0),
+    y: signedFiniteNumber(options.northingDatumMm, 0),
+    z: signedFiniteNumber(options.elevationDatumMm, 0),
+  };
+  const rawPoint = { ...point };
+  return {
+    x: (point.x * scale) + datumOffsetMm.x,
+    y: (point.y * scale) + datumOffsetMm.y,
+    z: (point.z * scale) + datumOffsetMm.z,
+    unitScale: scale,
+    sourceUnit: effectiveUnit,
+    requestedUnit,
+    rawPoint,
+    datumOffsetMm,
+    profileName: text(options.profileName) || 'DEFAULT',
+    axisBasis,
+  };
 }
 function normalizeLookup(value) {
   let source = value;
@@ -138,12 +214,25 @@ export function normalizeConfig(input = {}) {
     northingToleranceMm: finiteNumber(input.northingToleranceMm, defaults.northingToleranceMm),
     elevationToleranceMm: finiteNumber(input.elevationToleranceMm, defaults.elevationToleranceMm),
     coordinateDisagreementToleranceMm: finiteNumber(input.coordinateDisagreementToleranceMm, defaults.coordinateDisagreementToleranceMm),
+    tableEastingDatumMm: signedFiniteNumber(input.tableEastingDatumMm, defaults.tableEastingDatumMm),
+    tableNorthingDatumMm: signedFiniteNumber(input.tableNorthingDatumMm, defaults.tableNorthingDatumMm),
+    tableElevationDatumMm: signedFiniteNumber(input.tableElevationDatumMm, defaults.tableElevationDatumMm),
+    jsonEastingDatumMm: signedFiniteNumber(input.jsonEastingDatumMm, defaults.jsonEastingDatumMm),
+    jsonNorthingDatumMm: signedFiniteNumber(input.jsonNorthingDatumMm, defaults.jsonNorthingDatumMm),
+    jsonElevationDatumMm: signedFiniteNumber(input.jsonElevationDatumMm, defaults.jsonElevationDatumMm),
+    navisEastingDatumMm: signedFiniteNumber(input.navisEastingDatumMm, defaults.navisEastingDatumMm),
+    navisNorthingDatumMm: signedFiniteNumber(input.navisNorthingDatumMm, defaults.navisNorthingDatumMm),
+    navisElevationDatumMm: signedFiniteNumber(input.navisElevationDatumMm, defaults.navisElevationDatumMm),
     ambiguityScoreGap: finiteNumber(input.ambiguityScoreGap, defaults.ambiguityScoreGap),
     useOdHalfAlternatives: input.useOdHalfAlternatives !== false,
     boreToOdLookupEnabled: input.boreToOdLookupEnabled === true || input.boreToOdLookupEnabled === 'true',
     boreToOdLookupName: text(input.boreToOdLookupName),
     boreToOdLookup: normalizeLookup(input.boreToOdLookup),
   };
+}
+function signedFiniteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 function finiteNumber(value, fallback) {
   const number = Number(value);
