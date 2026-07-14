@@ -1,4 +1,4 @@
-import { buildWorkbenchViewportShellModel } from '../../../core/workbench-viewport/index.js';
+import { buildWorkbenchViewportShellModel } from '../../core/workbench-viewport/index.js';
 import { selectedUniversalRecord } from './universal-viewport-state.js';
 
 export const UNIVERSAL_VIEWPORT_SHELL_MODEL_SCHEMA = 'universal-viewport-shell-model/v1';

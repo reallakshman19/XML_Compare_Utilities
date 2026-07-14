@@ -2,7 +2,7 @@ import {
   WorkbenchViewportCapability,
   normalizeWorkbenchViewportRange,
   positionWorkbenchPalette,
-} from '../../../core/workbench-viewport/index.js';
+} from '../../core/workbench-viewport/index.js';
 import { createUniversalLoadedPreviewBundle } from './universal-loaded-preview-bundle.js';
 import {
   createLinewiseUniversalWorkspaceViewModel,

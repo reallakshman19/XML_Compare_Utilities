@@ -1,7 +1,7 @@
 import {
   loadWorkbenchViewportState,
   saveWorkbenchViewportState,
-} from '../../../core/workbench-viewport/index.js';
+} from '../../core/workbench-viewport/index.js';
 
 export const UNIVERSAL_VIEWPORT_STATE_SCHEMA = 'universal-viewport-state/v1';
 export const UNIVERSAL_VIEWPORT_UI_STORAGE_KEY = 'xmlBuilderViewportUiV1';

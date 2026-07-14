@@ -6,7 +6,7 @@ import {
   workbenchScreenToWorld,
   workbenchViewForRange,
   workbenchWorldToScreen,
-} from '../../../core/workbench-viewport/index.js';
+} from '../../core/workbench-viewport/index.js';
 import {
   loadUniversalSurfaceState,
   saveUniversalSurfaceState,
