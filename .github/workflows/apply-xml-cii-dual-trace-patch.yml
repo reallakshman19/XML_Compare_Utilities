@@ -19,18 +19,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Apply validated DTXR trace-ledger patch
+      - name: Apply validated DTXR JSON Trace UI patch
         run: |
-          python scripts/apply-dtxr-trace-ledger-diagnostics.py
-          node --check converters/xml-cii2019-core/xml-node-wise-trace.js
+          python scripts/run-dtxr-json-trace-ui-patch.py
+          node --check tabs/model-converters/json-trace/json-trace-panel.js
+          node tests/xml-cii-json-trace-dual-evidence-ui.test.js
           node tests/xml-cii-xml-node-wise-trace.test.js
-          node tests/xml-cii-dtxr-resolution-ledger.test.js
           node tests/xml-cii-dtxr-ledger-trace-consumer.test.js
-      - name: Commit trace-ledger integration
+      - name: Commit JSON Trace UI integration
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add converters/xml-cii2019-core/xml-node-wise-trace.js
+          git add tabs/model-converters/json-trace/json-trace-panel.js
           git diff --cached --quiet && exit 0
-          git commit -m "Make XML node trace consume authoritative DTXR ledger"
+          git commit -m "Integrate authoritative DTXR ledger into JSON Trace UI"
           git push origin HEAD:owner/xml-cii-dual-dtxr-trace
