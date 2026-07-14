@@ -25,8 +25,10 @@ export const RECONCILABLE_FIELDS = Object.freeze({
 const clean = (value) => String(value ?? '').trim();
 
 export function stableId(prefix = 'id', parts = []) {
-  const fingerprint = contentFingerprint(parts.map((part) => String(part ?? '')).join('\u001f'));
-  return `${prefix}-${fingerprint.slice(-8)}`;
+  const text = parts.map((part) => String(part ?? '')).join('\u001f');
+  const left = contentFingerprint(`left:${text}`).slice(-8);
+  const right = contentFingerprint(`right:${text}`).slice(-8);
+  return `${prefix}-${left}${right}`;
 }
 
 export function normalizeApprovalIds(values = []) {
