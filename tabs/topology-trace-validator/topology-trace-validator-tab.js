@@ -1,0 +1,159 @@
+/**
+ * Functionality: installs the Utilities tile and mounts the four-zone,
+ * read-only Topology Trace Validator workspace. Inputs are an explicit host,
+ * application context, and optional initial fixture artifacts. Output is a
+ * cleanup function or mounted controller handle. Fallback: none; file parsing
+ * and validation errors remain visible in the workspace status line.
+ */
+
+import { createTopologyValidatorController } from './topology-validator-controller.js';
+import { FINAL_DISPOSITIONS, cleanText } from './topology-validator-values.js';
+
+const STYLE_ID = 'topology-trace-validator-style';
+
+/** @param {Element} container @param {Record<string, unknown>} context @returns {() => void} */
+export function installTopologyTraceValidatorTile(container, context) {
+  ensureStylesheet(container.ownerDocument);
+  if (container.querySelector('[data-ttv-open]')) return () => {};
+  const tile = container.ownerDocument.createElement('section');
+  tile.className = 'psmap-card psmap-tile ttv-launcher';
+  tile.innerHTML = '<button type="button" data-ttv-open="1"><span class="ttv-launcher-icon">⌁</span><span><strong>Topology Trace Validator</strong><small>Validate source → canonical → ledger → InputXML evidence</small></span></button>';
+  container.appendChild(tile);
+  let workspace = null;
+  const open = async () => { workspace = await openTopologyTraceValidator(container.ownerDocument, context); };
+  tile.querySelector('[data-ttv-open]').addEventListener('click', open);
+  return () => {
+    tile.querySelector('[data-ttv-open]')?.removeEventListener('click', open);
+    workspace?.destroy();
+    tile.remove();
+  };
+}
+
+/** @param {Document} documentRef @param {Record<string, unknown>} context @returns {Promise<Readonly<Record<string, unknown>>>} */
+export async function openTopologyTraceValidator(documentRef, context) {
+  const overlay = documentRef.createElement('div');
+  overlay.className = 'ttv-modal';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Topology Trace Validator');
+  documentRef.body.appendChild(overlay);
+  const mounted = await mountTopologyTraceValidatorWorkspace(overlay, objectOrNull(context.initialTopologyArtifacts));
+  const close = () => { mounted.destroy(); overlay.remove(); };
+  overlay.querySelector('[data-ttv-close]').addEventListener('click', close);
+  return Object.freeze({ ...mounted, destroy: close });
+}
+
+/** @param {Element} root @param {Record<string, unknown>|null} initialArtifacts @returns {Promise<Readonly<Record<string, unknown>>>} */
+export async function mountTopologyTraceValidatorWorkspace(root, initialArtifacts) {
+  ensureStylesheet(root.ownerDocument);
+  root.innerHTML = workspaceMarkup();
+  const elements = collectElements(root);
+  const controller = createTopologyValidatorController(elements);
+  const cleanups = wireWorkspace(root, controller);
+  if (initialArtifacts) {
+    for (const kind of ['source', 'canonical', 'ledger']) if (initialArtifacts[kind]) await controller.loadArtifact(kind, JSON.stringify(initialArtifacts[kind]), `${kind}.fixture.json`);
+    if (initialArtifacts.inputXml) await controller.loadArtifact('inputXml', String(initialArtifacts.inputXml), 'topology.fixture.xml');
+    controller.validate();
+  }
+  return Object.freeze({
+    controller,
+    destroy: () => { cleanups.forEach((cleanup) => cleanup()); controller.destroy(); },
+  });
+}
+
+/** @param {Element} root @param {Readonly<Record<string, unknown>>} controller @returns {Array<() => void>} */
+function wireWorkspace(root, controller) {
+  const cleanups = [];
+  const listen = (target, type, handler) => { target.addEventListener(type, handler); cleanups.push(() => target.removeEventListener(type, handler)); };
+  root.querySelectorAll('input[type="file"][data-ttv-file]').forEach((input) => listen(input, 'change', async () => {
+    const file = input.files?.[0];
+    if (file) await controller.loadFile(input.dataset.ttvFile, file);
+  }));
+  listen(root.querySelector('[data-ttv-validate]'), 'click', () => { try { controller.validate(); } catch (error) { showWorkspaceError(root, error); } });
+  listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.render());
+  root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => { setActiveButtons(root, 'data-ttv-mode', button); controller.setMode(button.dataset.ttvMode); }));
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => { setActiveButtons(root, 'data-ttv-projection', button); controller.setProjection(button.dataset.ttvProjection); }));
+  listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
+  listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
+  listen(root.querySelector('[data-ttv-branch-tree]'), 'click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ttv-branch]') : null;
+    if (!button) return;
+    setActiveButtons(root, 'data-ttv-branch', button);
+    const branch = button.dataset.ttvBranch, showComponentSymbols = Boolean(branch);
+    root.querySelector('[data-ttv-component-symbols]').checked = showComponentSymbols;
+    controller.setFilters({ branch, showComponentSymbols });
+  });
+  listen(root.querySelector('[data-ttv-type-filters]'), 'change', () => controller.setFilters({ types: [...root.querySelectorAll('[data-ttv-type]:checked')].map((input) => input.dataset.ttvType) }));
+  listen(root.querySelector('[data-ttv-disposition]'), 'change', (event) => controller.setFilters({ disposition: event.target.value }));
+  for (const key of ['searchName', 'searchRef', 'searchPath']) listen(root.querySelector(`[data-ttv-${toKebab(key)}]`), 'input', (event) => controller.setFilters({ [key]: event.target.value }));
+  root.querySelectorAll('[data-ttv-visibility]').forEach((input) => listen(input, 'change', () => controller.setVisibility(input.dataset.ttvVisibility, input.checked)));
+  listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ttv-bottom-tab]') : null;
+    if (button) controller.setBottomTab(button.dataset.ttvBottomTab);
+  });
+  listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
+    const row = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
+    if (row) controller.select(cleanText(row.getAttribute('data-object-key')));
+  });
+  return cleanups;
+}
+
+/** @param {Element} root @returns {Record<string, Element>} */
+function collectElements(root) {
+  const query = (selector) => {
+    const element = root.querySelector(selector);
+    if (!element) throw new Error(`Topology workspace element is missing: ${selector}`);
+    return element;
+  };
+  return {
+    traceRoot: root, svgHost: query('[data-ttv-svg-host]'), bottom: query('[data-ttv-bottom]'), inspector: query('[data-ttv-inspector]'),
+    status: query('[data-ttv-status]'), fileStatus: root, branchTree: query('[data-ttv-branch-tree]'),
+    typeFilters: query('[data-ttv-type-filters]'), metricStrip: query('[data-ttv-metrics]'),
+  };
+}
+
+/** @returns {string} */
+function workspaceMarkup() {
+  const fileControl = (kind, label, accept) => `<label class="ttv-file-button">${label}<input type="file" data-ttv-file="${kind}" accept="${accept}" hidden><small data-ttv-file-status="${kind}">Not loaded</small></label>`;
+  const dispositionOptions = FINAL_DISPOSITIONS.map((value) => `<option value="${value}">${value}</option>`).join('');
+  return `<section class="ttv-workspace"><header class="ttv-toolbar"><div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>${fileControl('source', 'Load Source JSON', '.json')}${fileControl('canonical', 'Load Canonical Topology', '.json')}${fileControl('ledger', 'Load Trace Ledger', '.json')}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML')}<button type="button" data-ttv-validate>Validate</button><button type="button" data-ttv-fit>Fit</button><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-projection="XY">XY</button><button type="button" data-ttv-projection="XZ">XZ</button><button type="button" data-ttv-projection="YZ">YZ</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-mode="spatial">Spatial Overlay</button><button type="button" data-ttv-mode="trace">Source ↔ Canonical</button><button type="button" data-ttv-mode="junctions">Junctions / Boundaries</button><button type="button" data-ttv-mode="issues">Issues Only</button></div><label class="ttv-toggle"><input type="checkbox" data-ttv-component-symbols checked>Show component symbols</label><label class="ttv-toggle"><input type="checkbox" data-ttv-labels checked>Labels</label><button type="button" class="ttv-close" data-ttv-close>Close</button></header><div class="ttv-file-status" data-ttv-file-status-root hidden></div><div class="ttv-metrics" data-ttv-metrics></div><div class="ttv-main"><aside class="ttv-left"><h2>Branches</h2><div class="ttv-branch-tree" data-ttv-branch-tree><p>Load source JSON.</p></div><h2>Component types</h2><div class="ttv-type-filters" data-ttv-type-filters></div><label>Disposition<select data-ttv-disposition><option value="">All dispositions</option>${dispositionOptions}</select></label><label>Search NAME<input type="search" data-ttv-search-name></label><label>Search REF<input type="search" data-ttv-search-ref></label><label>Search source path<input type="search" data-ttv-search-path></label><fieldset><legend>Visibility</legend>${visibilityCheck('source', 'Source geometry')}${visibilityCheck('canonical', 'Canonical geometry')}${visibilityCheck('pointFeatures', 'Point features')}${visibilityCheck('boundaries', 'Boundaries')}${visibilityCheck('junctions', 'Junctions')}</fieldset></aside><main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Load required artifacts and select Validate.</div></div></main><aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside></div><footer class="ttv-bottom" data-ttv-bottom></footer><div class="ttv-status" data-ttv-status data-status="idle">Required: source JSON, canonical topology, trace ledger. InputXML is optional.</div></section>`;
+}
+
+/** @param {string} key @param {string} label @returns {string} */
+function visibilityCheck(key, label) {
+  return `<label><input type="checkbox" data-ttv-visibility="${key}" checked>${label}</label>`;
+}
+
+/** @param {Element} root @param {string} attribute @param {Element} active @returns {void} */
+function setActiveButtons(root, attribute, active) {
+  root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active));
+}
+
+/** @param {Document} documentRef @returns {void} */
+function ensureStylesheet(documentRef) {
+  if (documentRef.getElementById(STYLE_ID)) return;
+  const link = documentRef.createElement('link');
+  link.id = STYLE_ID;
+  link.rel = 'stylesheet';
+  link.href = new URL('./topology-trace-validator.css', import.meta.url).href;
+  documentRef.head.appendChild(link);
+}
+
+/** @param {Element} root @param {unknown} error @returns {void} */
+function showWorkspaceError(root, error) {
+  const status = root.querySelector('[data-ttv-status]');
+  status.textContent = error?.message || String(error);
+  status.setAttribute('data-status', 'error');
+}
+
+/** @param {unknown} value @returns {Record<string, unknown>|null} */
+function objectOrNull(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+/** @param {string} value @returns {string} */
+function toKebab(value) {
+  return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
+export const _test = Object.freeze({ workspaceMarkup, visibilityCheck, toKebab });

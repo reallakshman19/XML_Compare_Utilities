@@ -10,6 +10,7 @@ import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-mode
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
+import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260714-ttv-001';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260710-layout-stabilizer-2';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
@@ -44,6 +45,11 @@ function mountNavisTagIsonote(container, ctx) {
   return installNavisTagIsonoteUtilityTile(utilitiesRoot, ctx);
 }
 
+function mountTopologyTraceValidator(container, ctx) {
+  const utilitiesRoot = container.querySelector('.psnm-root') || container;
+  return installTopologyTraceValidatorTile(utilitiesRoot, ctx);
+}
+
 export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
   const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
@@ -55,8 +61,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyInputXmlWorkspace = mountInputXmlWorkspace(container, ctx);
   const destroyXmlBuilder = mountXmlBuilder(container, ctx);
   const destroyNavisTagIsonote = mountNavisTagIsonote(container, ctx);
+  const destroyTopologyTraceValidator = mountTopologyTraceValidator(container, ctx);
   const destroyBridge = installPsMappingModalBridge(container, ctx);
   return () => {
+    if (typeof destroyTopologyTraceValidator === 'function') destroyTopologyTraceValidator();
     if (typeof destroyBridge === 'function') destroyBridge();
     if (typeof destroyNavisTagIsonote === 'function') destroyNavisTagIsonote();
     if (typeof destroyXmlBuilder === 'function') destroyXmlBuilder();
