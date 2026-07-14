@@ -1,11 +1,12 @@
 export const CATEGORIZED_INPUTXML_WORKER_PROTOCOL = 'categorized-inputxml-worker/v1';
-export const CATEGORIZED_INPUTXML_WORKER_VERSION = '1.0.0';
+export const CATEGORIZED_INPUTXML_WORKER_VERSION = '1.1.0';
 export const CATEGORIZED_INPUTXML_WORKER_REQUEST_SCHEMA = 'CategorizedInputXmlWorkerRequest.v1';
 export const CATEGORIZED_INPUTXML_WORKER_CANCEL_SCHEMA = 'CategorizedInputXmlWorkerCancel.v1';
 export const CATEGORIZED_INPUTXML_WORKER_RESPONSE_SCHEMA = 'CategorizedInputXmlWorkerResponse.v1';
 export const CATEGORIZED_INPUTXML_WORKER_CAPABILITIES_SCHEMA = 'CategorizedInputXmlWorkerCapabilities.v1';
 
 export const CATEGORIZED_INPUTXML_WORKER_OPERATIONS = Object.freeze([
+  'producer.categorizeInputXml',
   'categorized.capabilities',
   'categorized.validate',
   'categorized.inspect',
