@@ -10,6 +10,7 @@ export const UNIVERSAL_VIEWPORT_MODES = Object.freeze(['tree', 'pivot', 'side-by
 const freeze = (value) => Object.freeze(value);
 const arr = (value) => Array.isArray(value) ? value : [];
 const text = (value) => String(value ?? '').trim();
+const signatureText = (value) => text(value) || 'sample';
 
 function normalizeMode(value) {
   return UNIVERSAL_VIEWPORT_MODES.includes(value) ? value : 'tree';
@@ -59,7 +60,7 @@ export function createUniversalSelectionIndex(tree = {}, pivot = {}) {
 }
 
 function uiKey(signature) {
-  return `${UNIVERSAL_VIEWPORT_UI_STORAGE_KEY}/${encodeURIComponent(text(signature, 'sample'))}`;
+  return `${UNIVERSAL_VIEWPORT_UI_STORAGE_KEY}/${encodeURIComponent(signatureText(signature))}`;
 }
 
 function readUi(signature, storage) {
@@ -72,7 +73,7 @@ function readUi(signature, storage) {
 }
 
 export function createUniversalViewportState(input = {}) {
-  const signature = text(input.signature, 'sample');
+  const signature = signatureText(input.signature);
   const stored = readUi(signature, input.storage || globalThis.localStorage);
   const selectionIndex = createUniversalSelectionIndex(input.tree, input.pivot);
   return {
@@ -98,7 +99,7 @@ export function persistUniversalViewportUiState(state, storage = globalThis.loca
 }
 
 export function viewportIdentity(signature, surfaceId) {
-  return freeze({ namespace: 'xml-builder', modeId: text(signature, 'sample'), surfaceId });
+  return freeze({ namespace: 'xml-builder', modeId: signatureText(signature), surfaceId });
 }
 
 export function loadUniversalSurfaceState(signature, surfaceId, storage) {
@@ -128,4 +129,4 @@ export function selectedUniversalRecord(state) {
   return tree ? freeze({ kind: 'tree', ...tree.node }) : null;
 }
 
-export const _test = freeze({ normalizeMode, levelToken, readUi, uiKey });
+export const _test = freeze({ normalizeMode, levelToken, readUi, uiKey, signatureText });
