@@ -22,14 +22,32 @@ jobs:
       - name: Apply source patch
         run: python scripts/run-nti-coordinate-normalization.py
       - name: Generate focused test
-        continue-on-error: true
+        run: python scripts/write-nti-coordinate-profile-test.py
+      - name: Run focused validation
         run: |
-          mkdir -p artifacts/nti-coordinate-normalization
-          python scripts/write-nti-coordinate-profile-test.py > artifacts/nti-coordinate-normalization/test-writer.log 2>&1
-      - name: Upload writer diagnostic
-        if: always()
-        uses: actions/upload-artifact@v4
+          node --check tabs/navis-tag-isonote/navis-tag-isonote-contracts.js
+          node --check tabs/navis-tag-isonote/navis-tag-table-source.js
+          node --check tabs/navis-tag-isonote/navis-tag-staged-tree.js
+          node --check tabs/navis-tag-isonote/navis-tag-xml-parser.js
+          node --check tabs/navis-tag-isonote/navis-tag-identity-trace.js
+          node --check tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js
+          node tests/navis-tag-isonote-coordinate-profile.test.js
+          npm run test:navis-tag-isonote
+      - name: Package validated files
+        run: |
+          mkdir -p artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote
+          mkdir -p artifacts/nti-coordinate-normalization/tests
+          cp tabs/navis-tag-isonote/navis-tag-isonote-contracts.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tabs/navis-tag-isonote/navis-tag-table-source.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tabs/navis-tag-isonote/navis-tag-staged-tree.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tabs/navis-tag-isonote/navis-tag-xml-parser.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tabs/navis-tag-isonote/navis-tag-identity-trace.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js artifacts/nti-coordinate-normalization/tabs/navis-tag-isonote/
+          cp tests/navis-tag-isonote-coordinate-profile.test.js artifacts/nti-coordinate-normalization/tests/
+          cp tests/navis-tag-isonote-static.test.js artifacts/nti-coordinate-normalization/tests/
+          cp package.json artifacts/nti-coordinate-normalization/
+      - uses: actions/upload-artifact@v4
         with:
-          name: nti-coordinate-test-writer
-          path: artifacts/nti-coordinate-normalization/test-writer.log
-          if-no-files-found: warn
+          name: nti-coordinate-normalization-validated
+          path: artifacts/nti-coordinate-normalization
+          if-no-files-found: error
