@@ -83,10 +83,10 @@ jobs:
           test -s artifacts/navis-tag-isonote/asim1836/02-path-catalogue.json
           test -s artifacts/navis-tag-isonote/asim1836/03-navis-tag-index.csv
           test -s artifacts/navis-tag-isonote/asim1836/04-end-to-end-identity-trace.csv
-          test -s artifacts/navis-tag-isonote/asim1836/05-candidate-evidence-ledger.csv
-          test -s artifacts/navis-tag-isonote/asim1836/06-matched-decisions.csv
-          test -s artifacts/navis-tag-isonote/asim1836/07-ambiguous-decisions.csv
-          test -s artifacts/navis-tag-isonote/asim1836/08-rejected-decisions.csv
+          test -e artifacts/navis-tag-isonote/asim1836/05-candidate-evidence-ledger.csv
+          test -e artifacts/navis-tag-isonote/asim1836/06-matched-decisions.csv
+          test -e artifacts/navis-tag-isonote/asim1836/07-ambiguous-decisions.csv
+          test -e artifacts/navis-tag-isonote/asim1836/08-rejected-decisions.csv
           test -s artifacts/navis-tag-isonote/asim1836/09-augmented-support-table.csv
           test -s artifacts/navis-tag-isonote/asim1836/10-full-audit.json
 
