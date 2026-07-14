@@ -8,24 +8,30 @@ permissions:
   contents: read
 
 jobs:
-  navis-tests:
+  navis-core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Navis core
-        run: node tests/navis-tag-isonote.test.js
-      - name: Navis benchmark parser
-        run: node tests/navis-tag-isonote-benchmark.test.js
-      - name: Navis readiness
-        run: node tests/navis-tag-isonote-readiness.test.js
-      - name: Navis contracts
-        run: node tests/navis-tag-isonote-contracts-v3.test.js
-      - name: Navis refinement
-        run: node tests/navis-tag-isonote-index-refinement.test.js
-      - name: Navis static
-        run: node tests/navis-tag-isonote-static.test.js
-      - name: Utility layout aggregate
-        run: node tests/psnm-utility-layout-stabilizer.test.js
+      - name: Capture Navis core result
+        id: core
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts/nti004-diagnostic
+          set +e
+          node tests/navis-tag-isonote.test.js > artifacts/nti004-diagnostic/core.log 2>&1
+          CODE=$?
+          echo "$CODE" > artifacts/nti004-diagnostic/core.exit
+          exit $CODE
+      - name: Upload diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nti004-core-diagnostic
+          path: artifacts/nti004-diagnostic
+          if-no-files-found: error
+      - name: Fail when core failed
+        if: steps.core.outcome == 'failure'
+        run: exit 1
