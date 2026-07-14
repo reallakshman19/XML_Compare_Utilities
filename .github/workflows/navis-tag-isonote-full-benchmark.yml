@@ -68,16 +68,17 @@ jobs:
           test "$JSON_COUNT" -gt 0
           echo "Extracted staged JSON files: $JSON_COUNT"
 
-      - name: Run full hierarchy and ISONOTE acceptance
+      - name: Run frozen hierarchy and ISONOTE acceptance
         run: |
           node scripts/navis-tag-isonote-full-benchmark.mjs \
             --table .benchmark-input/support-table.tsv \
             --navis .benchmark-input/benchmark-navis-tags.xml \
             --staged-dir .benchmark-input/staged \
             --staged-zip .benchmark-input/ASIM-1836_managed_stage-2.zip \
+            --expected fixtures/navis-tag-isonote/asim1836-benchmark-expected.json \
             --out artifacts/navis-tag-isonote/asim1836
 
-      - name: Verify acceptance artifact set
+      - name: Verify frozen expectations and artifact set
         run: |
           test -s artifacts/navis-tag-isonote/asim1836/01-coverage-and-calibration.json
           test -s artifacts/navis-tag-isonote/asim1836/02-path-catalogue.json
@@ -89,6 +90,15 @@ jobs:
           test -e artifacts/navis-tag-isonote/asim1836/08-rejected-decisions.csv
           test -s artifacts/navis-tag-isonote/asim1836/09-augmented-support-table.csv
           test -s artifacts/navis-tag-isonote/asim1836/10-full-audit.json
+          node --input-type=module - <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const coverage = JSON.parse(readFileSync('artifacts/navis-tag-isonote/asim1836/01-coverage-and-calibration.json', 'utf8'));
+          if (coverage.expectations?.verified !== true) throw new Error('Frozen benchmark expectations were not verified.');
+          if (coverage.identityTrace?.resolvedCount !== 163) throw new Error('All 163 table identities must resolve.');
+          if (coverage.coordinateFrame?.status !== 'DISJOINT_COORDINATE_EXTENTS') throw new Error('Expected coordinate-frame incompatibility finding is missing.');
+          if (coverage.resolution?.unresolvedCount !== 163) throw new Error('All 163 rows must remain proximity-unresolved for these pinned, spatially incompatible sources.');
+          console.log('Frozen benchmark verified.');
+          NODE
 
       - name: Upload full ASIM-1836 acceptance ledger
         if: always()
