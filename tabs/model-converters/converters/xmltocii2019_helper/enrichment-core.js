@@ -800,6 +800,11 @@ export async function enrichXmlForCii2019(xmlTextVal, stagedJsonText, options = 
   };
   const diagnosticText = JSON.stringify({ generatedAt: new Date().toISOString(), stats, diagnostics, dtxrResolutionLedger: dtxrResolutionLedgerAudit }, null, 2);
   if (Array.isArray(options._diagOut)) options._diagOut.push(...diagnostics);
+  if (typeof globalThis !== 'undefined') {
+    globalThis.xmlCiiDtxrResolutionLedger = Object.freeze({
+      getSnapshot: () => dtxrResolutionLedgerAudit,
+    });
+  }
   return { xmlText: xmlOut, stats, config, diagnostics, diagnosticRows: diagnosticRowsForTable(diagnostics), diagnosticText, dtxrResolutionLedger: dtxrResolutionLedgerAudit };
 }
 

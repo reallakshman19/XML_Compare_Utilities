@@ -400,6 +400,36 @@ async function parseCurrentState(current, services = {}) {
   }
   return current;
 }
+function ledgerDiagnosticsFromSnapshot(snapshot = {}) {
+  return (snapshot?.entries || []).map((entry) => ({
+    type: 'dtxr-resolution-ledger',
+    nodeNumber: entry.xmlNode || '',
+    nodeName: entry.xmlNodeName || '',
+    componentType: entry.componentType || '',
+    branchName: entry.xmlBranch || '',
+    stagedBranch: entry.stagedBranch || '',
+    branchRelationship: entry.branchRelationship || '',
+    branchRank: entry.branchRank ?? '',
+    position: entry.xmlPosition || '',
+    distanceMm: entry.distanceMm ?? '',
+    toleranceMm: entry.toleranceMm ?? '',
+    dtxrPosValue: entry.dtxrPosValue || '',
+    dtxrPsName: entry.dtxrPsName || '',
+    dtxrPsValue: entry.dtxrPsValue || '',
+    sourcePath: entry.dtxrPsPath || '',
+    positionPaths: entry.dtxrPositionPaths || [],
+    effectiveAuthority: entry.effectiveAuthority || 'NONE',
+    status: entry.status || 'UNRESOLVED',
+    message: entry.status === 'RESOLVED'
+      ? `${entry.effectiveAuthority || 'DTXR'}: ${entry.dtxrSource || ''}`
+      : 'Authoritative DTXR ledger retained unresolved provenance.',
+  }));
+}
+async function currentDtxrLedgerSnapshot(services = {}) {
+  const supplied = await services?.getDtxrResolutionLedger?.();
+  if (supplied?.entries?.length) return supplied;
+  return globalThis.xmlCiiDtxrResolutionLedger?.getSnapshot?.() || null;
+}
 function enabledServices(services, enabled) { return { ...(services || {}), useJsonTraceSource: enabled === true }; }
 function rerender(body, services) { body.innerHTML = renderXmlCiiJsonTracePanel(services || {}); bindXmlCiiJsonTracePanel(body, services || {}); }
 export function bindXmlCiiJsonTracePanel(body, services) {
@@ -430,7 +460,11 @@ export function bindXmlCiiJsonTracePanel(body, services) {
     if (!current.trace?.length && hasJson) await parseCurrentState(current, services);
     current.xmlTraceStatus = 'Running diagnostics...'; save(current); rerender(body, hasJson ? enabledServices(services, true) : services);
     try {
-      const diagnosticRows = await services?.buildXmlNodeTrace?.();
+      const ledgerSnapshot = await currentDtxrLedgerSnapshot(services);
+      const ledgerDiagnostics = ledgerDiagnosticsFromSnapshot(ledgerSnapshot || {});
+      const diagnosticRows = ledgerDiagnostics.length
+        ? ledgerDiagnostics
+        : (await services?.buildXmlNodeTrace?.());
       const next = state();
       const xmlTextValue = await currentXmlText(services);
       next.xmlTraceRows = buildXmlNodeWiseTraceRows({
