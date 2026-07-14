@@ -73,4 +73,3 @@ export function installUniversalXmlCategorizerRuntime(doc = globalThis.document)
   return installer;
 }
 
-installUniversalXmlCategorizerRuntime();
