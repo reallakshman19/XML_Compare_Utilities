@@ -1,0 +1,68 @@
+name: CategorizedInputXML API Service
+
+on:
+  pull_request:
+    paths:
+      - 'xml-compare/categorized-inputxml-api/**'
+      - 'tests/categorized-inputxml-api-service.test.js'
+      - 'scripts/categorized-inputxml-api-structure-check.mjs'
+      - 'docs/categorized-inputxml-api/**'
+      - '.github/workflows/categorized-inputxml-api-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'xml-compare/categorized-inputxml-api/**'
+      - 'tests/categorized-inputxml-api-service.test.js'
+      - 'scripts/categorized-inputxml-api-structure-check.mjs'
+      - 'docs/categorized-inputxml-api/**'
+      - '.github/workflows/categorized-inputxml-api-service.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  service-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime version
+        run: node --version
+
+      - name: JavaScript syntax
+        run: |
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-contracts.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-model.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-diagnostics.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-source-export.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-service.js
+          node --check xml-compare/categorized-inputxml-api/index.js
+          node --check tests/categorized-inputxml-api-service.test.js
+          node --check scripts/categorized-inputxml-api-structure-check.mjs
+
+      - name: Run structure and isolation gate
+        id: structure
+        continue-on-error: true
+        run: node scripts/categorized-inputxml-api-structure-check.mjs > categorized-inputxml-api-structure.log 2>&1
+
+      - name: Upload structure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: categorized-inputxml-api-structure-log
+          path: categorized-inputxml-api-structure.log
+          retention-days: 14
+
+      - name: Enforce structure and isolation gate
+        if: always()
+        run: |
+          cat categorized-inputxml-api-structure.log
+          test '${{ steps.structure.outcome }}' = 'success'
+
+      - name: Focused service tests
+        run: node tests/categorized-inputxml-api-service.test.js
+
+      - name: Full repository tests
+        run: npm test
