@@ -109,14 +109,17 @@ export async function runLinewiseSideloadProducerAdoption(linewiseState = {}, cl
 }
 
 export function linewiseProducerOwnsOutput(linewiseState = {}, adoption = {}) {
-  if (!clean(linewiseState.lastEnriched) || !STATUSES.has(adoption.status)) return false;
+  if (!clean(linewiseState.lastEnriched) || !['running', 'success', 'failed'].includes(adoption.status)) return false;
   return contentFingerprint(linewiseState.lastEnriched) === adoption.sourceFingerprint;
 }
 
 export function linewiseCategorizedText(linewiseState = {}, adoption = {}) {
   if (linewiseState.model?.format === 'CategorizedInputXML') return linewiseState.text || '';
-  if (!linewiseProducerOwnsOutput(linewiseState, adoption)) return ensureCategorized(linewiseState);
-  return adoption.status === 'success' ? String(adoption.result?.artifact?.text || '') : '';
+  if (clean(linewiseState.lastEnriched)) {
+    if (!linewiseProducerOwnsOutput(linewiseState, adoption)) return '';
+    return adoption.status === 'success' ? String(adoption.result?.artifact?.text || '') : '';
+  }
+  return ensureCategorized(linewiseState);
 }
 
 export function linewisePreviewText(linewiseState = {}, adoption = {}) {
