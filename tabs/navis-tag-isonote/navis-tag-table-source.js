@@ -1,4 +1,4 @@
-import { normalizeConfig, normalizeReference, normalizeSupportIdentity, parseCoordinate, supportRoot, text } from './navis-tag-isonote-contracts.js';
+import { coordinateProfileOptions, normalizeConfig, normalizeReference, normalizeSupportIdentity, parseCoordinate, supportRoot, text } from './navis-tag-isonote-contracts.js';
 
 function parseLine(line, delimiter) {
   const cells = [];
@@ -55,10 +55,10 @@ function tableIdentity(row, config) {
 function tablePosition(row, config) {
   if (config.tablePositionMode === 'separate') {
     const raw = { x: row[config.tableEastingColumn], y: row[config.tableNorthingColumn], z: row[config.tableElevationColumn] };
-    return { point: parseCoordinate(raw, config.tableUnits), sourceColumn: [config.tableEastingColumn, config.tableNorthingColumn, config.tableElevationColumn].filter(Boolean).join('|'), raw };
+    return { point: parseCoordinate(raw, config.tableUnits, coordinateProfileOptions(config, 'table')), sourceColumn: [config.tableEastingColumn, config.tableNorthingColumn, config.tableElevationColumn].filter(Boolean).join('|'), raw };
   }
   const raw = row[config.tablePositionColumn];
-  return { point: parseCoordinate(raw, config.tableUnits), sourceColumn: config.tablePositionColumn, raw };
+  return { point: parseCoordinate(raw, config.tableUnits, coordinateProfileOptions(config, 'table')), sourceColumn: config.tablePositionColumn, raw };
 }
 function firstColumnValue(row, columns) {
   for (const column of columns || []) {
