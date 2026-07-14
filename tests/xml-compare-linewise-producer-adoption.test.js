@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 import {
-  ensureCategorized,
-  ensureInputXml,
   importLinewiseText,
-  linewiseCategorizedCanvasPayload,
-  previewText,
+  ensureInputXml,
 } from '../xml-compare/XmlCompareLinewiseWorkflowActions.js';
 import {
+  createLinewiseProducerAdoptionState,
+  linewiseCategorizedCanvasPayload,
+  linewiseCategorizedText,
+  linewisePreviewText,
   linewiseProducerReceiptJson,
   runLinewiseSideloadProducerAdoption,
   startLinewiseProducerRun,
@@ -66,35 +67,35 @@ const sideload = Object.freeze({
   coordinateText: '',
 });
 const imported = importLinewiseText({ fileName: 'linewise.input.xml', text: inputXml });
-const state = updateLinewiseWorkflowState(imported, { sideload });
+const linewise = updateLinewiseWorkflowState(imported, { sideload });
+const idle = createLinewiseProducerAdoptionState();
 
 const direct = applyXmlCompareSideload(inputXml, sideload);
-const started = startLinewiseProducerRun(state);
-assert.equal(started.state.lastEnriched, direct.xmlText, 'worker adoption preserves sideload output bytes');
-assert.equal(started.state.producerCategorizationStatus, 'running');
+const started = startLinewiseProducerRun(linewise);
+assert.equal(started.linewiseState.lastEnriched, direct.xmlText, 'worker adoption preserves sideload output bytes');
+assert.equal(started.adoption.status, 'running');
 assert.equal(started.request.producer.id, 'xml-compare-linewise-sideload');
 assert.equal(started.request.source.content, direct.xmlText);
-assert.equal(ensureCategorized(started.state), '', 'running worker owns categorized output without UI fallback');
-assert.equal(ensureInputXml(started.state), direct.xmlText, 'enriched InputXML remains available while worker runs');
+assert.equal(linewiseCategorizedText(started.linewiseState, started.adoption), '', 'running worker owns categorized output without UI fallback');
+assert.equal(ensureInputXml(started.linewiseState), direct.xmlText, 'enriched InputXML remains available while worker runs');
 
 const pair = createWorkerPair();
 const runtime = installCategorizedInputXmlWorkerRuntime({ scope: pair.worker });
 const client = createCategorizedInputXmlWorkerClient({ worker: pair.client, clientId: 'xml-compare-linewise-test' });
-const completed = await runLinewiseSideloadProducerAdoption(state, client);
-assert.equal(completed.producerCategorizationStatus, 'success');
-assert.equal(completed.producerCategorizationResult.success, true);
-assert.equal(completed.producerCategorizationResult.producer.id, 'xml-compare-linewise-sideload');
-assert.equal(completed.producerCategorizationResult.source.fingerprint, completed.producerCategorizationResult.artifact.sourceFingerprint);
-assert.ok(completed.lastCategorized.includes('schema="categorized-inputxml/v3"'));
-assert.ok(completed.lastCategorized.includes('<LINE_ID>L-NEW</LINE_ID>'));
-assert.equal(ensureCategorized(completed), completed.lastCategorized);
-assert.equal(previewText(updateLinewiseWorkflowState(completed, { previewMode: 'categorized' })), completed.lastCategorized);
-assert.equal(ensureInputXml(completed), direct.xmlText);
-assert.equal(linewiseCategorizedCanvasPayload(completed, 'a').ready, true);
-assert.equal(linewiseCategorizedCanvasPayload(completed, 'a').text, completed.lastCategorized);
-assert.ok(linewiseProducerReceiptJson(completed).includes('XmlCompareLinewiseProducerReceipt.v1'));
-assert.ok(linewiseProducerReceiptJson(completed).includes('xml-compare-linewise-sideload'));
-const successHtml = renderLinewiseWorkflowPopupHtml(updateLinewiseWorkflowState(completed, { open: true, tab: 'sideload' }));
+const completed = await runLinewiseSideloadProducerAdoption(linewise, client);
+assert.equal(completed.adoption.status, 'success');
+assert.equal(completed.adoption.result.success, true);
+assert.equal(completed.adoption.result.producer.id, 'xml-compare-linewise-sideload');
+assert.equal(completed.adoption.result.source.fingerprint, completed.adoption.result.artifact.sourceFingerprint);
+assert.ok(completed.adoption.result.artifact.text.includes('schema="categorized-inputxml/v3"'));
+assert.ok(completed.adoption.result.artifact.text.includes('<LINE_ID>L-NEW</LINE_ID>'));
+assert.equal(linewiseCategorizedText(completed.linewiseState, completed.adoption), completed.adoption.result.artifact.text);
+const categorizedPreview = updateLinewiseWorkflowState(completed.linewiseState, { previewMode: 'categorized' });
+assert.equal(linewisePreviewText(categorizedPreview, completed.adoption), completed.adoption.result.artifact.text);
+assert.equal(ensureInputXml(completed.linewiseState), direct.xmlText);
+assert.equal(linewiseCategorizedCanvasPayload(completed.linewiseState, completed.adoption, 'a').ready, true);
+assert.ok(linewiseProducerReceiptJson(completed.linewiseState, completed.adoption).includes('XmlCompareLinewiseProducerReceipt.v1'));
+const successHtml = renderLinewiseWorkflowPopupHtml({ ...completed.linewiseState, producerAdoption: completed.adoption, open: true, tab: 'sideload' });
 assert.ok(successHtml.includes('Worker categorization passed'));
 assert.ok(successHtml.includes('Download producer receipt JSON'));
 
@@ -108,36 +109,39 @@ const rejectedClient = Object.freeze({
     }),
   }),
 });
-const rejected = await runLinewiseSideloadProducerAdoption(state, rejectedClient);
-assert.equal(rejected.producerCategorizationStatus, 'failed');
-assert.equal(rejected.producerCategorizationError.code, 'TEST_REJECTED');
-assert.equal(rejected.lastEnriched, direct.xmlText);
-assert.equal(ensureInputXml(rejected), direct.xmlText);
-assert.equal(ensureCategorized(rejected), '');
-assert.equal(linewiseCategorizedCanvasPayload(rejected, 'b').ready, false);
-assert.ok(renderLinewiseWorkflowPopupHtml(updateLinewiseWorkflowState(rejected, { open: true, tab: 'preview' })).includes('Worker categorization failed'));
+const rejected = await runLinewiseSideloadProducerAdoption(linewise, rejectedClient);
+assert.equal(rejected.adoption.status, 'failed');
+assert.equal(rejected.adoption.error.code, 'TEST_REJECTED');
+assert.equal(rejected.linewiseState.lastEnriched, direct.xmlText);
+assert.equal(ensureInputXml(rejected.linewiseState), direct.xmlText);
+assert.equal(linewiseCategorizedText(rejected.linewiseState, rejected.adoption), '');
+assert.equal(linewiseCategorizedCanvasPayload(rejected.linewiseState, rejected.adoption, 'b').ready, false);
+assert.ok(renderLinewiseWorkflowPopupHtml({ ...rejected.linewiseState, producerAdoption: rejected.adoption, open: true, tab: 'preview' }).includes('Worker categorization failed'));
 
 const throwingClient = Object.freeze({
   producer: Object.freeze({
     categorizeInputXml: async () => { throw Object.assign(new Error('Worker transport unavailable.'), { code: 'WORKER_UNAVAILABLE' }); },
   }),
 });
-const failed = await runLinewiseSideloadProducerAdoption(state, throwingClient);
-assert.equal(failed.producerCategorizationStatus, 'failed');
-assert.equal(failed.producerCategorizationError.code, 'WORKER_UNAVAILABLE');
-assert.equal(failed.lastEnriched, direct.xmlText);
-assert.equal(ensureCategorized(failed), '');
+const failed = await runLinewiseSideloadProducerAdoption(linewise, throwingClient);
+assert.equal(failed.adoption.status, 'failed');
+assert.equal(failed.adoption.error.code, 'WORKER_UNAVAILABLE');
+assert.equal(failed.linewiseState.lastEnriched, direct.xmlText);
+assert.equal(linewiseCategorizedText(failed.linewiseState, failed.adoption), '');
+
+const staleLinewise = updateLinewiseWorkflowState(completed.linewiseState, { lastEnriched: `${completed.linewiseState.lastEnriched}\n<!-- changed -->` });
+assert.notEqual(linewiseCategorizedText(staleLinewise, completed.adoption), completed.adoption.result.artifact.text, 'stale receipt cannot own changed sideload output');
 
 const ordinary = importLinewiseText({ fileName: 'ordinary.input.xml', text: inputXml });
-assert.equal(ordinary.producerCategorizationStatus, 'idle');
-assert.ok(ensureCategorized(ordinary).includes('categorized-inputxml/v3'), 'ordinary imports retain direct compatibility');
+assert.ok(linewiseCategorizedText(ordinary, idle).includes('categorized-inputxml/v3'), 'ordinary imports retain direct compatibility');
 
+const actionsSource = fs.readFileSync(new URL('../xml-compare/XmlCompareLinewiseWorkflowActions.js', import.meta.url), 'utf8');
+const stateSource = fs.readFileSync(new URL('../xml-compare/XmlCompareLinewiseWorkflowState.js', import.meta.url), 'utf8');
 const tabSource = fs.readFileSync(new URL('../tabs/xml-compare-tab.js', import.meta.url), 'utf8');
+assert.equal(actionsSource.includes('producerCategorizationStatus'), false, 'protected line-wise actions remain producer-agnostic');
+assert.equal(stateSource.includes('producerCategorizationStatus'), false, 'protected line-wise state remains producer-agnostic');
 assert.ok(tabSource.includes('createCategorizedInputXmlWorkerClient'), 'XML Compare tab imports the worker client');
-assert.ok(tabSource.includes('startLinewiseProducerRun'), 'XML Compare tab starts producer adoption');
-assert.ok(tabSource.includes('finishLinewiseProducerRun'), 'XML Compare tab consumes successful worker results');
-assert.ok(tabSource.includes('failLinewiseProducerRun'), 'XML Compare tab retains worker failure evidence');
-assert.ok(tabSource.includes('linewiseWorkerClient'), 'XML Compare tab owns a lazy worker client');
+assert.ok(tabSource.includes('linewiseProducerAdoption'), 'XML Compare tab owns producer adoption state');
 assert.ok(tabSource.includes('linewiseProducerAbort'), 'XML Compare tab owns request cancellation');
 assert.ok(tabSource.includes('.close?.()'), 'XML Compare tab closes the worker client during cleanup');
 
