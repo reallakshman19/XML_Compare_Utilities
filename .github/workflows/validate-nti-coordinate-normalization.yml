@@ -21,7 +21,7 @@ jobs:
           node-version: 24
       - name: Apply patch in runner
         run: |
-          python scripts/apply-nti-coordinate-normalization.py
+          python scripts/run-nti-coordinate-normalization.py
           python scripts/write-nti-coordinate-profile-test.py
       - name: Run focused validation
         run: |
