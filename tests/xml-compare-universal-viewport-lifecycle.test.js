@@ -55,12 +55,16 @@ for (const file of NEW_FILES) {
   assert.doesNotMatch(source, /pipeline-3d-model|PipelineCad|CategorizedGraph.*=/, `${file} must not import Pipeline or replace graph authority`);
 }
 const runtime = fs.readFileSync(path.join(ROOT, 'tabs/xml-compare-universal-categorizer-runtime.js'), 'utf8');
-assert.doesNotMatch(runtime, /runtimeInstalled/);
-assert.doesNotMatch(runtime, /MutationObserver/);
+assert.doesNotMatch(runtime, /runtimeInstalled|MutationObserver/);
+assert.doesNotMatch(runtime, /\ninstallUniversalXmlCategorizerRuntime\(\);/);
 assert.match(runtime, /WeakMap/);
 assert.match(runtime, /mountUniversalViewportLifecycle/);
+const tab = fs.readFileSync(path.join(ROOT, 'tabs/xml-compare-tab.js'), 'utf8');
+assert.match(tab, /publishUniversalViewportContext\(document, \{ state, workspace \}\)/);
+assert.match(tab, /installUniversalXmlCategorizerRuntime\(document\)/);
+assert.match(tab, /universalCategorizerRuntime\?\.destroy/);
 const view = fs.readFileSync(path.join(ROOT, 'xml-compare/XmlCompareTabView.js'), 'utf8');
-assert.match(view, /publishUniversalViewportContext/);
+assert.doesNotMatch(view, /publishUniversalViewportContext/);
 const shell = fs.readFileSync(path.join(DIR, 'universal-xml-categorizer-shell.js'), 'utf8');
 assert.ok(shell.split(/\r?\n/).length < 300);
 assert.match(shell, /Loaded preview|contextStatus/);
