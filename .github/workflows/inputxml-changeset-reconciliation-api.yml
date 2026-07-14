@@ -1,0 +1,68 @@
+name: InputXML ChangeSet Reconciliation API
+
+on:
+  pull_request:
+    paths:
+      - 'xml-compare/inputxml-changeset-api/**'
+      - 'tests/inputxml-changeset-*.test.js'
+      - 'scripts/inputxml-changeset-api-structure-check.mjs'
+      - 'docs/inputxml-changeset-api/**'
+      - '.github/workflows/inputxml-changeset-reconciliation-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'xml-compare/inputxml-changeset-api/**'
+      - 'tests/inputxml-changeset-*.test.js'
+      - 'scripts/inputxml-changeset-api-structure-check.mjs'
+      - 'docs/inputxml-changeset-api/**'
+      - '.github/workflows/inputxml-changeset-reconciliation-api.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  service-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Runtime version
+        run: node --version
+
+      - name: Enforce Work Pack diff scope
+        run: |
+          git fetch origin main --depth=1
+          git diff --name-only origin/main...HEAD > inputxml-changeset-diff.txt
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/inputxml-changeset-reconciliation-api.yml|\
+              docs/inputxml-changeset-api/*|\
+              scripts/inputxml-changeset-api-structure-check.mjs|\
+              tests/inputxml-changeset-*.test.js|\
+              xml-compare/inputxml-changeset-api/*) ;;
+              *) echo "Out-of-scope change: $path"; exit 1 ;;
+            esac
+          done < inputxml-changeset-diff.txt
+          cat inputxml-changeset-diff.txt
+
+      - name: JavaScript syntax
+        run: |
+          for file in xml-compare/inputxml-changeset-api/*.js; do node --check "$file"; done
+          node --check tests/inputxml-changeset-reconciliation-api.test.js
+          node --check tests/inputxml-changeset-precondition.test.js
+          node --check scripts/inputxml-changeset-api-structure-check.mjs
+
+      - name: Structure and isolation gate
+        run: node scripts/inputxml-changeset-api-structure-check.mjs
+
+      - name: Focused reconciliation tests
+        run: |
+          node tests/inputxml-changeset-reconciliation-api.test.js
+          node tests/inputxml-changeset-precondition.test.js
+
+      - name: Full repository tests
+        run: npm test
