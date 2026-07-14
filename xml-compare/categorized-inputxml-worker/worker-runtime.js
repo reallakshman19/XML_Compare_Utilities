@@ -36,95 +36,115 @@ function cancelledFailure(entry = {}) {
   });
 }
 
-export function installCategorizedInputXmlWorkerRuntime(options = {}) {
-  const scope = requireWorkerScope(options.scope || globalThis);
-  const dispatcher = options.dispatcher || createCategorizedInputXmlWorkerDispatcher();
-  const schedule = options.schedule || defaultSchedule;
-  const pending = new Map();
-  let disposed = false;
+class WorkerRuntimeController {
+  constructor(options = {}) {
+    this.scope = requireWorkerScope(options.scope || globalThis);
+    this.dispatcher = options.dispatcher || createCategorizedInputXmlWorkerDispatcher();
+    this.schedule = options.schedule || defaultSchedule;
+    this.pending = new Map();
+    this.disposed = false;
+    this.handleMessage = this.handleMessage.bind(this);
+    this.scope.addEventListener('message', this.handleMessage);
+  }
 
-  const post = (message) => scope.postMessage(message);
+  post(message) {
+    this.scope.postMessage(message);
+  }
 
-  async function execute(requestId) {
-    const entry = pending.get(requestId);
-    if (!entry || disposed) return;
-    if (entry.cancelled) return completeCancelled(entry);
+  async execute(requestId) {
+    const entry = this.pending.get(requestId);
+    if (!entry || this.disposed) return;
+    if (entry.cancelled) return this.completeCancelled(entry);
     try {
-      const result = await dispatcher.dispatch(entry.request.operation, entry.request.payload);
-      const current = pending.get(requestId);
-      if (!current || disposed) return;
-      if (current.cancelled) return completeCancelled(current);
-      post(createWorkerResponse({
-        requestId,
-        operation: current.request.operation,
-        result,
-      }));
+      const result = await this.dispatcher.dispatch(entry.request.operation, entry.request.payload);
+      this.completeSuccess(requestId, result);
     } catch (error) {
-      const current = pending.get(requestId) || entry;
-      if (!disposed) post(createWorkerFailure({
-        requestId,
-        operation: current.request.operation,
-        error,
-      }));
+      this.completeFailure(requestId, entry, error);
     } finally {
-      pending.delete(requestId);
+      this.pending.delete(requestId);
     }
   }
 
-  function completeCancelled(entry) {
-    pending.delete(entry.request.requestId);
-    if (!disposed) post(cancelledFailure(entry));
+  completeSuccess(requestId, result) {
+    const current = this.pending.get(requestId);
+    if (!current || this.disposed) return;
+    if (current.cancelled) return this.completeCancelled(current);
+    this.post(createWorkerResponse({
+      requestId,
+      operation: current.request.operation,
+      result,
+    }));
   }
 
-  function queueRequest(message) {
-    if (pending.has(message.requestId)) {
-      post(requestFailure(message, 'REQUEST_DUPLICATE', 'Request ID is already pending.'));
+  completeFailure(requestId, fallback, error) {
+    const current = this.pending.get(requestId) || fallback;
+    if (this.disposed) return;
+    this.post(createWorkerFailure({
+      requestId,
+      operation: current.request.operation,
+      error,
+    }));
+  }
+
+  completeCancelled(entry) {
+    this.pending.delete(entry.request.requestId);
+    if (!this.disposed) this.post(cancelledFailure(entry));
+  }
+
+  queueRequest(message) {
+    if (this.pending.has(message.requestId)) {
+      this.post(requestFailure(message, 'REQUEST_DUPLICATE', 'Request ID is already pending.'));
       return;
     }
-    pending.set(message.requestId, {
+    this.pending.set(message.requestId, {
       request: message,
       cancelled: false,
       cancelReason: '',
     });
-    schedule(() => void execute(message.requestId));
+    this.schedule(() => void this.execute(message.requestId));
   }
 
-  function cancelRequest(message) {
-    const entry = pending.get(message.requestId);
+  cancelRequest(message) {
+    const entry = this.pending.get(message.requestId);
     if (!entry) {
-      post(requestFailure(message, 'REQUEST_NOT_PENDING', 'Request is not pending.'));
+      this.post(requestFailure(message, 'REQUEST_NOT_PENDING', 'Request is not pending.'));
       return;
     }
     entry.cancelled = true;
     entry.cancelReason = message.reason || 'Request was cancelled.';
   }
 
-  function handleMessage(event = {}) {
-    if (disposed) return;
+  handleMessage(event = {}) {
+    if (this.disposed) return;
     const message = event.data;
     const validation = validateWorkerInbound(message);
     if (!validation.valid) {
-      post(requestFailure(message, validation.code, validation.message));
+      this.post(requestFailure(message, validation.code, validation.message));
       return;
     }
-    if (message.kind === 'cancel') cancelRequest(message);
-    else queueRequest(message);
+    if (message.kind === 'cancel') this.cancelRequest(message);
+    else this.queueRequest(message);
   }
 
-  function dispose() {
-    if (disposed) return;
-    disposed = true;
-    pending.clear();
-    scope.removeEventListener('message', handleMessage);
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.pending.clear();
+    this.scope.removeEventListener('message', this.handleMessage);
   }
 
-  scope.addEventListener('message', handleMessage);
-  return Object.freeze({
-    dispose,
-    pendingCount: () => pending.size,
-    isDisposed: () => disposed,
-    getCapabilities: () => dispatcher.getCapabilities(),
-  });
+  publicApi() {
+    return Object.freeze({
+      dispose: this.dispose.bind(this),
+      pendingCount: () => this.pending.size,
+      isDisposed: () => this.disposed,
+      getCapabilities: () => this.dispatcher.getCapabilities(),
+    });
+  }
+}
+
+export function installCategorizedInputXmlWorkerRuntime(options = {}) {
+  return new WorkerRuntimeController(options).publicApi();
 }
 
 export const _test = Object.freeze({
@@ -133,4 +153,5 @@ export const _test = Object.freeze({
   transportError,
   requestFailure,
   cancelledFailure,
+  WorkerRuntimeController,
 });
