@@ -24,36 +24,15 @@ function source(path) {
   return fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 }
 
-function closingBrace(text, openIndex) {
-  let depth = 0, quote = '', escaped = false, lineComment = false, blockComment = false;
-  for (let index = openIndex; index < text.length; index += 1) {
-    const char = text[index], next = text[index + 1] || '';
-    if (lineComment) { if (char === '\n') lineComment = false; continue; }
-    if (blockComment) { if (char === '*' && next === '/') { blockComment = false; index += 1; } continue; }
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === quote) quote = '';
-      continue;
-    }
-    if (char === '/' && next === '/') { lineComment = true; index += 1; continue; }
-    if (char === '/' && next === '*') { blockComment = true; index += 1; continue; }
-    if (char === '"' || char === "'" || char === '`') { quote = char; continue; }
-    if (char === '{') depth += 1;
-    if (char === '}') depth -= 1;
-    if (depth === 0) return index;
-  }
-  return -1;
-}
-
 function functionLengths(text = '') {
-  const rows = [], pattern = /(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/g;
-  let match;
-  while ((match = pattern.exec(text))) {
-    const openIndex = text.indexOf('{', match.index), closeIndex = closingBrace(text, openIndex);
-    assert.ok(closeIndex > openIndex, `Unable to resolve function ${match[1]}`);
-    rows.push({ name: match[1], lines: text.slice(match.index, closeIndex + 1).split('\n').length });
-    pattern.lastIndex = closeIndex + 1;
+  const lines = text.split('\n'), rows = [];
+  for (let start = 0; start < lines.length; start += 1) {
+    const match = lines[start].match(/^(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\b/);
+    if (!match) continue;
+    const end = lines.findIndex((line, index) => index >= start && index > start && line === '}');
+    assert.ok(end > start, `Unable to resolve function ${match[1]}`);
+    rows.push({ name: match[1], lines: end - start + 1 });
+    start = end;
   }
   return rows;
 }
