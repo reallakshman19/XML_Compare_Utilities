@@ -1,8 +1,9 @@
 import { buildXmlCompareLinewiseWorkspaceModel } from './XmlCompareLinewiseWorkspaceModel.js';
 
-export const XML_COMPARE_LINEWISE_WORKFLOW_STATE_SCHEMA = 'xml-compare-linewise-workflow-state/v1';
+export const XML_COMPARE_LINEWISE_WORKFLOW_STATE_SCHEMA = 'xml-compare-linewise-workflow-state/v2-producer-adoption';
 
 const clean = (value) => String(value ?? '').trim();
+const PRODUCER_STATUSES = new Set(['idle', 'running', 'success', 'failed']);
 
 export function defaultRegexSandbox(input = {}) {
   return Object.freeze({
@@ -34,6 +35,11 @@ export function linewiseLineIdOptions(model = null) {
   return out;
 }
 
+function producerStatus(value = '') {
+  const status = clean(value);
+  return PRODUCER_STATUSES.has(status) ? status : 'idle';
+}
+
 export function createLinewiseWorkflowState(input = {}) {
   const text = String(input.text ?? '');
   const fileName = clean(input.fileName);
@@ -54,6 +60,9 @@ export function createLinewiseWorkflowState(input = {}) {
     lastEnriched: String(input.lastEnriched ?? ''),
     lastSideloadReport: input.lastSideloadReport || null,
     lastCanvasStatus: String(input.lastCanvasStatus ?? ''),
+    producerCategorizationStatus: producerStatus(input.producerCategorizationStatus),
+    producerCategorizationResult: input.producerCategorizationResult || null,
+    producerCategorizationError: input.producerCategorizationError || null,
     canvasSide: input.canvasSide === 'b' ? 'b' : 'a',
     infoRuleOpen: Boolean(input.infoRuleOpen),
     sideload: defaultLinewiseSideload(input.sideload),
@@ -69,4 +78,4 @@ export function updateLinewiseWorkflowState(state = {}, patch = {}) {
   return createLinewiseWorkflowState({ ...state, ...patch });
 }
 
-export const _test = Object.freeze({ clean });
+export const _test = Object.freeze({ clean, producerStatus });
