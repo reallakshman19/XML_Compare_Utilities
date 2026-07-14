@@ -23,6 +23,7 @@ jobs:
         run: |
           mkdir -p artifacts/xml-cii-dual-trace
           set +e
+          node tests/xml-cii-xml-node-wise-trace-debug.mjs > artifacts/xml-cii-dual-trace/debug.log 2>&1
           node tests/xml-cii-xml-node-wise-trace.test.js > artifacts/xml-cii-dual-trace/test.log 2>&1
           CODE=$?
           echo "$CODE" > artifacts/xml-cii-dual-trace/test.exit
