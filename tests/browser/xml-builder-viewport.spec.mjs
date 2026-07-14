@@ -45,15 +45,19 @@ test.describe('XML Builder Workbench Viewport', () => {
     const popup = await openFixture(page);
     await popup.getByRole('button', { name: 'X +' }).click();
     await popup.getByRole('button', { name: 'Y +' }).click();
-    const treeView = await page.evaluate(() => window.__xmlBuilderViewport.lifecycle().hosts.tree.readViewTransform());
-    expect(treeView.zoomX).toBeGreaterThan(1);
-    expect(treeView.zoomY).toBeGreaterThan(1);
+    const treeBeforePivot = await page.evaluate(() => window.__xmlBuilderViewport.lifecycle().hosts.tree.readViewTransform());
+    expect(treeBeforePivot.zoomX).toBeGreaterThan(1);
+    expect(treeBeforePivot.zoomY).toBeGreaterThan(1);
     await popup.getByRole('tab', { name: 'Pivot' }).click();
     const pivotBefore = await page.evaluate(() => window.__xmlBuilderViewport.lifecycle().hosts.pivot.readViewTransform());
     await popup.getByRole('button', { name: 'X +' }).click();
-    const pivotAfter = await page.evaluate(() => window.__xmlBuilderViewport.lifecycle().hosts.pivot.readViewTransform());
-    expect(pivotAfter.zoomX).toBeGreaterThan(pivotBefore.zoomX);
-    expect(treeView.zoomX).not.toBe(pivotAfter.zoomX);
+    const views = await page.evaluate(() => ({
+      tree: window.__xmlBuilderViewport.lifecycle().hosts.tree.readViewTransform(),
+      pivot: window.__xmlBuilderViewport.lifecycle().hosts.pivot.readViewTransform(),
+    }));
+    expect(views.pivot.zoomX).toBeGreaterThan(pivotBefore.zoomX);
+    expect(views.tree.zoomX).toBe(treeBeforePivot.zoomX);
+    expect(views.tree.zoomY).toBe(treeBeforePivot.zoomY);
   });
 
   test('XMLB-VP-B04 — Custom Range validates and Auto Fit restores', async ({ page }) => {
