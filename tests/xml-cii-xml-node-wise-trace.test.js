@@ -9,18 +9,24 @@ import {
 } from '../converters/xml-cii2019-core/xml-node-wise-trace.js';
 
 const branch = '/ASIM-1885-PL-4"-CS-M8810041-01/B3';
-const pos = (jsonNodeNo, e, value, name = '', path = `$.components[${jsonNodeNo}]`) => ({
-  jsonNodeNo: String(jsonNodeNo),
-  branchName: branch,
-  sourcePath: `${path}.attributes.DTXR_POS`,
-  sourceObjectType: 'SUPPORT',
-  field: 'DTXR_POS',
-  sourceAttributeName: 'DTXR_POS',
-  finalValue: value,
-  name,
-  position: `E=${e} N=-1125469.2 EL=99707.6`,
-  xmlTraceScope: 'DTXR_POS_SOURCE_ROW',
-});
+const pos = (jsonNodeNo, e, value, name = '', path = `$.components[${jsonNodeNo}]`) => {
+  const position = `E=${e} N=-1125469.2 EL=99707.6`;
+  return {
+    jsonNodeNo: String(jsonNodeNo),
+    branchName: branch,
+    sourcePath: `${path}.attributes.DTXR_POS`,
+    sourceObjectType: 'SUPPORT',
+    field: 'DTXR_POS',
+    sourceAttributeName: 'DTXR_POS',
+    finalValue: value,
+    name,
+    position,
+    xmlTraceScope: 'DTXR_POS_SOURCE_ROW',
+    xmlTraceGroupLabel: position,
+    xmlTraceGroupKey: position.replace(/\s+/g, ''),
+    xmlTraceGroupResolved: true,
+  };
+};
 
 const supportTrace = [
   pos(145, 555136.11, 'REST', '/PS02213.1'),
@@ -65,6 +71,7 @@ assert.equal(supportRows[1].dtxrPsValue, 'REST');
 assert.equal(supportRows[1].status, 'RESOLVED');
 
 const elbowPath = '$.components[180]';
+const elbowPosition = 'E=616110.81 N=-1124291 EL=100432.15';
 const elbowTrace = [
   {
     jsonNodeNo: '180',
@@ -74,8 +81,11 @@ const elbowTrace = [
     field: 'DTXR_POS',
     sourceAttributeName: 'DTXR_POS',
     finalValue: 'ELBOW 90 DEG LR BW Sch 120',
-    position: 'E=616110.81 N=-1124291 EL=100432.15',
+    position: elbowPosition,
     xmlTraceScope: 'DTXR_POS_SOURCE_ROW',
+    xmlTraceGroupLabel: elbowPosition,
+    xmlTraceGroupKey: elbowPosition.replace(/\s+/g, ''),
+    xmlTraceGroupResolved: true,
   },
   {
     jsonNodeNo: '181',
