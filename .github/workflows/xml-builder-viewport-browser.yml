@@ -36,7 +36,11 @@ jobs:
         with:
           node-version: 24
       - name: Run XML Builder viewport unit acceptance
-        run: npm run test:xml-builder-viewport
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run test:xml-builder-viewport 2>&1 | tee artifacts/xml-builder-viewport-unit.log
       - name: Install pinned Playwright test runner
         run: npm install --no-save --no-package-lock @playwright/test@1.54.1
       - name: Install Chromium
@@ -49,6 +53,7 @@ jobs:
         with:
           name: xml-builder-viewport-${{ github.sha }}
           path: |
+            artifacts/xml-builder-viewport-unit.log
             artifacts/xml-builder-viewport-browser-results.json
             playwright-report/xml-builder-viewport
             test-results/xml-builder-viewport
