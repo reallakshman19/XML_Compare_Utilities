@@ -22,9 +22,13 @@ const inputXml = `<?xml version="1.0" encoding="UTF-8"?>
 </PIPINGMODEL>
 </CAESARII>`;
 
+function encodedAttr(value = '') {
+  return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
 function editElement(xml = '', elementKey = '', edit = (value) => value) {
-  const escaped = elementKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(`(<Element\\b[^>]*elementKey="${escaped}"[^>]*>[\\s\\S]*?<\\/Element>)`);
+  const encoded = encodedAttr(elementKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(<Element\\b[^>]*elementKey="${encoded}"[^>]*>[\\s\\S]*?<\\/Element>)`);
   return xml.replace(pattern, (block) => edit(block));
 }
 
@@ -131,8 +135,8 @@ assert.ok(stale.receipt.rows.some((row) => row.changeId === deltaChange.changeId
 assert.equal(stale.artifacts.length, 0);
 
 const identityConflictXml = categorized.replace(
-  '<Element fromNode="10" toNode="20" elementKey="10->20">',
-  '<Element fromNode="11" toNode="20" elementKey="10->20">',
+  '<Element fromNode="10" toNode="20" elementKey="10-&gt;20">',
+  '<Element fromNode="11" toNode="20" elementKey="10-&gt;20">',
 );
 const identityConflict = deriveCategorizedInputXmlChangeSet({
   source: { filename: 'identity-conflict.xml', content: identityConflictXml },
