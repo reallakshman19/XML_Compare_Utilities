@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Capture DTXR ledger, enrichment, trace, and UI regressions
+      - name: Capture DTXR ledger, enrichment, trace, UI, and runtime-bridge regressions
         id: regression
         continue-on-error: true
         run: |
@@ -27,6 +27,10 @@ jobs:
           TRACE_PATCH_CODE=$?
           python scripts/run-dtxr-json-trace-ui-patch.py > artifacts/xml-cii-dual-trace/ui-patch.log 2>&1
           UI_PATCH_CODE=$?
+          python scripts/apply-dtxr-ledger-runtime-bridge.py > artifacts/xml-cii-dual-trace/runtime-patch.log 2>&1
+          RUNTIME_PATCH_CODE=$?
+          python scripts/apply-dtxr-json-trace-ledger-bridge.py > artifacts/xml-cii-dual-trace/ui-bridge-patch.log 2>&1
+          UI_BRIDGE_CODE=$?
           node --check converters/xml-cii2019-core/xml-node-wise-trace.js > artifacts/xml-cii-dual-trace/trace-check.log 2>&1
           TRACE_CHECK_CODE=$?
           node --check tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js > artifacts/xml-cii-dual-trace/enrichment-check.log 2>&1
@@ -41,8 +45,10 @@ jobs:
           CONSUMER_CODE=$?
           node tests/xml-cii-json-trace-dual-evidence-ui.test.js > artifacts/xml-cii-dual-trace/ui.log 2>&1
           UI_CODE=$?
-          printf 'tracePatch=%s\nuiPatch=%s\ntraceCheck=%s\nenrichment=%s\nuiCheck=%s\ntrace=%s\nledger=%s\nconsumer=%s\nui=%s\n' "$TRACE_PATCH_CODE" "$UI_PATCH_CODE" "$TRACE_CHECK_CODE" "$ENRICHMENT_CODE" "$UI_CHECK_CODE" "$TRACE_CODE" "$LEDGER_CODE" "$CONSUMER_CODE" "$UI_CODE" > artifacts/xml-cii-dual-trace/test.exit
-          if [ "$TRACE_PATCH_CODE" -ne 0 ] || [ "$UI_PATCH_CODE" -ne 0 ] || [ "$TRACE_CHECK_CODE" -ne 0 ] || [ "$ENRICHMENT_CODE" -ne 0 ] || [ "$UI_CHECK_CODE" -ne 0 ] || [ "$TRACE_CODE" -ne 0 ] || [ "$LEDGER_CODE" -ne 0 ] || [ "$CONSUMER_CODE" -ne 0 ] || [ "$UI_CODE" -ne 0 ]; then exit 1; fi
+          node tests/xml-cii-dtxr-runtime-bridge.test.js > artifacts/xml-cii-dual-trace/runtime.log 2>&1
+          RUNTIME_CODE=$?
+          printf 'tracePatch=%s\nuiPatch=%s\nruntimePatch=%s\nuiBridge=%s\ntraceCheck=%s\nenrichment=%s\nuiCheck=%s\ntrace=%s\nledger=%s\nconsumer=%s\nui=%s\nruntime=%s\n' "$TRACE_PATCH_CODE" "$UI_PATCH_CODE" "$RUNTIME_PATCH_CODE" "$UI_BRIDGE_CODE" "$TRACE_CHECK_CODE" "$ENRICHMENT_CODE" "$UI_CHECK_CODE" "$TRACE_CODE" "$LEDGER_CODE" "$CONSUMER_CODE" "$UI_CODE" "$RUNTIME_CODE" > artifacts/xml-cii-dual-trace/test.exit
+          if [ "$TRACE_PATCH_CODE" -ne 0 ] || [ "$UI_PATCH_CODE" -ne 0 ] || [ "$RUNTIME_PATCH_CODE" -ne 0 ] || [ "$UI_BRIDGE_CODE" -ne 0 ] || [ "$TRACE_CHECK_CODE" -ne 0 ] || [ "$ENRICHMENT_CODE" -ne 0 ] || [ "$UI_CHECK_CODE" -ne 0 ] || [ "$TRACE_CODE" -ne 0 ] || [ "$LEDGER_CODE" -ne 0 ] || [ "$CONSUMER_CODE" -ne 0 ] || [ "$UI_CODE" -ne 0 ] || [ "$RUNTIME_CODE" -ne 0 ]; then exit 1; fi
       - name: Upload DTXR diagnostic
         if: always()
         uses: actions/upload-artifact@v4
