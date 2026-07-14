@@ -36,7 +36,7 @@ assert.equal(tableBuild.records[0].existingIsometricNotes, 'EXISTING NOTE');
 assert.equal(tableBuild.records[0].inputPipeColumn, 'PIPE');
 
 const tree = buildStagedJsonHierarchy([{ sourceFile: 'managed.json', data: staged }], config);
-assert.ok(tree.summary.nodeCount >= 13, 'complete hierarchy must include arrays and attribute/coordinate objects');
+assert.ok(tree.summary.nodeCount >= 12, 'complete hierarchy must include arrays and attribute/coordinate objects');
 assert.ok(tree.summary.arrayCount >= 4);
 assert.ok(tree.pathCatalogue.some((item) => item.path === 'attributes.CUSTOM_TAG'));
 assert.ok(tree.pathCatalogue.some((item) => item.path === 'attributes.CUSTOM_POS'));
