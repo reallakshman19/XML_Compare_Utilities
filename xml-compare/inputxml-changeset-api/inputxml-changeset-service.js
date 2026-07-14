@@ -39,6 +39,14 @@ function receiptRow(change = {}, status = 'skipped', reason = '') {
   });
 }
 
+function sameChangeDefinition(left = {}, right = {}) {
+  const fields = [
+    'changeId', 'lineId', 'elementKey', 'fromNode', 'toNode', 'field',
+    'operation', 'beforeValue', 'afterValue', 'sourceElementFingerprint', 'risk',
+  ];
+  return fields.every((field) => clean(left[field]) === clean(right[field]));
+}
+
 function preconditionRows(request = {}, currentSet = {}) {
   const approved = new Set(request.approvedChangeIds), provided = new Map(), current = new Map();
   for (const change of request.changeSet?.changes || []) provided.set(change.changeId, change);
@@ -51,6 +59,7 @@ function preconditionRows(request = {}, currentSet = {}) {
     const proposed = provided.get(changeId), actual = current.get(changeId);
     if (!proposed) rows.push(receiptRow({ changeId }, 'blocked', 'approved-change-not-in-change-set'));
     else if (!actual) rows.push(receiptRow(proposed, 'conflicted', 'stale-change-precondition'));
+    else if (!sameChangeDefinition(proposed, actual)) rows.push(receiptRow(proposed, 'conflicted', 'change-definition-mismatch'));
     else rows.push(receiptRow(actual, 'approved', ''));
   }
   return Object.freeze(rows);
@@ -186,6 +195,7 @@ export function createInputXmlChangeSetService() {
 export const _test = Object.freeze({
   deriveResult,
   receiptRow,
+  sameChangeDefinition,
   preconditionRows,
   approvedChanges,
   baseName,
