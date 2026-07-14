@@ -24,7 +24,7 @@ jobs:
       - name: Generate focused test
         run: |
           python scripts/write-nti-coordinate-profile-test.py
-          python scripts/fix-nti-coordinate-test-precision.py
+          python scripts/fix-nti-coordinate-test-precision-v2.py
       - name: Run focused validation
         run: |
           node --check tabs/navis-tag-isonote/navis-tag-isonote-contracts.js
