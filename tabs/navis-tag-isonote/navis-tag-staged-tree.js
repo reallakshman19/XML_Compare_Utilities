@@ -1,7 +1,9 @@
 import {
   STAGED_JSON_TREE_SCHEMA,
+  coordinateProfileOptions,
   firstConfiguredValue,
   normalizeConfig,
+  normalizeReference,
   normalizeSupportIdentity,
   parseCoordinate,
   supportRoot,
@@ -85,8 +87,9 @@ function explicitLookupOd(bore, config) {
 }
 function deriveFacts(node, config) {
   const identity = valueForIdentity(node, config.jsonIdentityPaths);
+  const referenceEvidence = firstConfiguredValue(node, config.jsonReferencePaths);
   const positionEvidence = firstConfiguredValue(node, config.jsonPositionPaths);
-  const position = parseCoordinate(positionEvidence.value, config.jsonUnits);
+  const position = parseCoordinate(positionEvidence.value, config.jsonUnits, coordinateProfileOptions(config, 'json'));
   const directOd = numericValue(node, config.jsonOdPaths, config.jsonOdUnits);
   const bore = numericValue(node, config.jsonBorePaths, config.jsonBoreUnits);
   const lookupOd = directOd.value == null ? explicitLookupOd(bore, config) : null;
@@ -96,10 +99,19 @@ function deriveFacts(node, config) {
     canonicalIdentity: identity?.identity || '',
     supportRoot: identity?.root || '',
     identityPath: identity?.path || '',
+    referenceRaw: referenceEvidence.value ?? '',
+    reference: normalizeReference(referenceEvidence.value),
+    referencePath: referenceEvidence.path,
     positionRaw: positionEvidence.value,
     position,
     positionPath: positionEvidence.path,
     positionUnits: config.jsonUnits,
+    positionSourceUnit: position?.sourceUnit || '',
+    positionUnitScale: position?.unitScale ?? null,
+    positionRawPoint: position?.rawPoint || null,
+    positionDatumOffsetMm: position?.datumOffsetMm || coordinateProfileOptions(config, 'json'),
+    positionProfileName: position?.profileName || config.jsonCoordinateProfileName,
+    positionAxisBasis: position?.axisBasis || '',
     branch: node.resolvedBranch,
     branchPath: node.resolvedBranchPath,
     branchNodeId: node.resolvedBranchNodeId,
@@ -252,9 +264,18 @@ export function buildStagedSupportIndex(tree, inputConfig = {}) {
       identityRaw: facts.identityRaw,
       identityPath: facts.identityPath,
       supportRoot: facts.supportRoot,
+      referenceRaw: facts.referenceRaw,
+      reference: facts.reference,
+      referencePath: facts.referencePath,
       position: facts.position,
       positionRaw: facts.positionRaw,
       positionPath: facts.positionPath,
+      positionSourceUnit: facts.positionSourceUnit,
+      positionUnitScale: facts.positionUnitScale,
+      positionRawPoint: facts.positionRawPoint,
+      positionDatumOffsetMm: facts.positionDatumOffsetMm,
+      positionProfileName: facts.positionProfileName,
+      positionAxisBasis: facts.positionAxisBasis,
       resolvedBranch: facts.branch,
       resolvedBranchPath: facts.branchPath,
       resolvedPipe: facts.pipe,
@@ -287,6 +308,7 @@ export function buildStagedSupportIndex(tree, inputConfig = {}) {
       exactIdentityCount: byIdentity.size,
       supportRootCount: byRoot.size,
       positionedEntryCount: entries.filter((entry) => entry.position).length,
+      referenceEntryCount: entries.filter((entry) => entry.reference).length,
       branchResolvedEntryCount: entries.filter((entry) => entry.resolvedBranch).length,
       pipeResolvedEntryCount: entries.filter((entry) => entry.resolvedPipe).length,
       zoneResolvedEntryCount: entries.filter((entry) => entry.resolvedZone).length,
@@ -305,13 +327,14 @@ function rankedPaths(catalogue, scorer) {
 export function recommendStagedJsonPaths(tree) {
   const catalogue = tree?.pathCatalogue || [];
   const identity = rankedPaths(catalogue, (entry) => (/(?:^|\.)(NAME|PS|SUPPORT|TAG|DTXR_PS)$/i.test(entry.path) ? 40 : 0) + Math.round(sampleRate(entry, (sample) => /(?:^|[^A-Z0-9])(PS|SL)-?\d+/i.test(sample)) * 100));
+  const reference = rankedPaths(catalogue, (entry) => (/(?:^|\.)(REF|REFERENCE|COMPONENTREFNO|CMPSUPREFN)$/i.test(entry.path) ? 80 : 0) + Math.round(sampleRate(entry, (sample) => /^=?[A-Z0-9]+\/\d+$/i.test(sample)) * 60));
   const position = rankedPaths(catalogue, (entry) => (/POS|COORD|POINT|CENTER/i.test(entry.path) ? 35 : 0) + Math.round(sampleRate(entry, (sample) => Boolean(parseCoordinate(sample, 'auto'))) * 100));
   const branch = rankedPaths(catalogue, (entry) => (/OWNER|BRANCH/i.test(entry.path) ? 35 : 0) + Math.round(sampleRate(entry, (sample) => /\/B\d+/i.test(sample)) * 100));
   const pipe = rankedPaths(catalogue, (entry) => (/PIPE|PIPELINE|LINE|PIPING/i.test(entry.path) ? 60 : 0) + Math.round(sampleRate(entry, (sample) => /ASIM-|PIPE|LINE/i.test(sample)) * 40));
   const zone = rankedPaths(catalogue, (entry) => /ZONE|AREA|SITE|LOCATION/i.test(entry.path) ? 100 : 0);
   const od = rankedPaths(catalogue, (entry) => /(^|\.)(OD|OUTSIDE_DIAMETER|PIPE_OD|DIAMETER)$/i.test(entry.path) ? 100 : 0);
   const bore = rankedPaths(catalogue, (entry) => /(^|\.)(ABORE|LBORE|HBORE|BORE|NOMINAL_BORE)$/i.test(entry.path) ? 100 : 0);
-  return { identity, position, branch, pipe, zone, od, bore };
+  return { identity, reference, position, branch, pipe, zone, od, bore };
 }
 
 export function parseStagedJsonText(textValue, sourceFile = 'staged.json') {
