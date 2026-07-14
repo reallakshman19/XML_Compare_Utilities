@@ -34,16 +34,20 @@ jobs:
       - name: Apply exact adoption patch
         run: python scripts/apply-xml-compare-linewise-producer-adoption.py
 
-      - name: Syntax and source limits
+      - name: Run syntax and source limits
+        id: syntax
+        continue-on-error: true
         run: |
-          node --check xml-compare/XmlCompareLinewiseProducerAdoption.js
-          node --check xml-compare/XmlCompareLinewiseProducerStatusView.js
-          node --check xml-compare/XmlCompareLinewiseWorkflowActions.js
-          node --check xml-compare/XmlCompareLinewiseWorkflowState.js
-          node --check xml-compare/XmlCompareLinewiseWorkflowView.js
-          node --check tabs/xml-compare-tab.js
-          node --check tests/xml-compare-linewise-producer-adoption.test.js
-          python - <<'PY'
+          set -o pipefail
+          {
+            node --check xml-compare/XmlCompareLinewiseProducerAdoption.js
+            node --check xml-compare/XmlCompareLinewiseProducerStatusView.js
+            node --check xml-compare/XmlCompareLinewiseWorkflowActions.js
+            node --check xml-compare/XmlCompareLinewiseWorkflowState.js
+            node --check xml-compare/XmlCompareLinewiseWorkflowView.js
+            node --check tabs/xml-compare-tab.js
+            node --check tests/xml-compare-linewise-producer-adoption.test.js
+            python - <<'PY'
           from pathlib import Path
           for path in [
               'xml-compare/XmlCompareLinewiseProducerAdoption.js',
@@ -52,6 +56,21 @@ jobs:
               count = len(Path(path).read_text(encoding='utf-8').splitlines())
               assert count <= 300, f'{path} exceeds 300 lines: {count}'
           PY
+          } > xml-compare-linewise-adoption-syntax.log 2>&1
+
+      - name: Upload syntax evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xml-compare-linewise-adoption-syntax-log
+          path: xml-compare-linewise-adoption-syntax.log
+          retention-days: 14
+
+      - name: Enforce syntax and source limits
+        if: always()
+        run: |
+          cat xml-compare-linewise-adoption-syntax.log
+          test '${{ steps.syntax.outcome }}' = 'success'
 
       - name: Focused adoption tests
         run: |
