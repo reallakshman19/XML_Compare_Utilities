@@ -22,7 +22,9 @@ jobs:
       - name: Apply source patch
         run: python scripts/run-nti-coordinate-normalization.py
       - name: Generate focused test
-        run: python scripts/write-nti-coordinate-profile-test.py
+        run: |
+          python scripts/write-nti-coordinate-profile-test.py
+          python scripts/fix-nti-coordinate-test-precision.py
       - name: Run focused validation
         run: |
           node --check tabs/navis-tag-isonote/navis-tag-isonote-contracts.js
