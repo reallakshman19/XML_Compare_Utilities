@@ -12,14 +12,21 @@ The source JSON, canonical topology JSON, trace-ledger JSON, and optional topolo
 
 ## Required artifacts
 
-Use the four toolbar file controls:
+The primary workflow requires one selection:
 
-1. **Load Source JSON** — required managed source hierarchy.
-2. **Load Canonical Topology** — required `CanonicalTopology.v1` JSON.
-3. **Load Trace Ledger** — required `TopologyTraceLedger.v1` JSON.
-4. **Load Topology InputXML** — optional for the first phase.
+1. Select **Load Source JSON · Auto artifacts**.
+2. The utility resolves the matching canonical topology, trace ledger, and topology InputXML by filename.
+3. Validation runs automatically after the required companions load.
 
-Select **Validate** after files 1–3 are loaded. If InputXML is absent, every output/projection gate is reported as `NOT_EVALUATED`, never passed.
+For `1885_NC.json`, the expected companions are `1885_NC.canonical-topology.json`, `1885_NC.topology-trace-ledger.json`, and `1885_NC.topology.input.xml`. Discovery checks a `topologyArtifactBase` query parameter first, the sibling `3D_Converters/Benchmarks/<source-stem>/` static path second, and a colocated `topology-artifacts/<source-stem>/` path third. It reads producer artifacts only and never runs the production topology builder.
+
+The remaining toolbar controls are manual recovery options when a static host does not expose the companions:
+
+1. **Load Canonical Topology** — required `CanonicalTopology.v1` JSON.
+2. **Load Trace Ledger** — required `TopologyTraceLedger.v1` JSON.
+3. **Load Topology InputXML** — optional for the first phase.
+
+Manual loading still requires **Validate** after files 1–3 are loaded. If InputXML is absent, every output/projection gate is reported as `NOT_EVALUATED`, never passed.
 If InputXML is loaded but contains no component-aware projection lineage, general XML graph checks may run while `componentInputXmlStatus` remains `NOT_EVALUATED`; component gates are not fabricated from generic elements.
 
 ## Producer contracts
@@ -147,4 +154,4 @@ The 28 boundaries comprise the 25 externally unresolved HREF/TREF relationships 
 
 ## Static hosting
 
-All production modules are ES modules with relative imports. File loading uses browser `File.text()`. There is no server, database, token, Node production API, runtime shim, CDN dependency, or editing command. The utility is compatible with the repository's GitHub Pages deployment model.
+All production modules are ES modules with relative imports. Source loading uses browser `File.text()` and companion discovery uses static HTTP `fetch()`. There is no application server, database, token, Node production API, runtime shim, CDN dependency, or editing command. The utility is compatible with GitHub Pages when producer artifacts are published at the sibling or configured static URL. Browser security does not expose arbitrary sibling files from a local file-picker selection, so a local static host must serve the companions or the user must use the manual recovery controls.

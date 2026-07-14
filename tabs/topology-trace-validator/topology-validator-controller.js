@@ -31,7 +31,11 @@ export function createTopologyValidatorController(elements) {
   /** @param {string} kind @param {string} text @param {string} fileName @returns {Promise<void>} */
   async function loadArtifact(kind, text, fileName) {
     try {
-      if (kind === 'source') artifacts = { ...artifacts, source: readManagedTopologySource(JSON.parse(text)) };
+      if (kind === 'source') {
+        artifacts = { source: readManagedTopologySource(JSON.parse(text)), canonical: null, ledger: null, inputXml: null };
+        hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+        resetCompanionView();
+      }
       else if (kind === 'canonical') artifacts = { ...artifacts, canonical: readCanonicalTopology(JSON.parse(text)) };
       else if (kind === 'ledger') artifacts = { ...artifacts, ledger: readTopologyTraceLedger(JSON.parse(text)) };
       else if (kind === 'inputXml') artifacts = { ...artifacts, inputXml: readTopologyInputXml(text) };
@@ -53,6 +57,21 @@ export function createTopologyValidatorController(elements) {
       setStatus(`${fileName}: ${error?.message || String(error)}`, 'error');
       throw error;
     }
+  }
+
+  /** @returns {void} */
+  function resetCompanionView() {
+    for (const kind of ['canonical', 'ledger', 'inputXml']) {
+      elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = 'Not loaded';
+    }
+    destroySvgInteractions();
+    destroySvgInteractions = () => {};
+    elements.svgHost.innerHTML = '<div class="ttv-empty">Loading companion topology artifacts…</div>';
+    elements.bottom.innerHTML = '';
+    elements.inspector.innerHTML = '<div class="ttv-inspector-empty">Select an object after validation.</div>';
+    validation = null;
+    viewModel = null;
+    selectedKey = '';
   }
 
   /** @param {string} kind @param {File} file @returns {Promise<void>} */
