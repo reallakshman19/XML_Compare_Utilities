@@ -4,8 +4,8 @@ on:
   pull_request:
     paths:
       - 'xml-compare/universal-categorizer/**'
+      - 'tabs/xml-compare-tab.js'
       - 'tabs/xml-compare-universal-categorizer-runtime.js'
-      - 'xml-compare/XmlCompareTabView.js'
       - 'tests/browser/xml-builder-viewport-*'
       - 'tests/xml-compare-universal-viewport-*'
       - 'playwright.xml-builder-viewport.config.mjs'
@@ -15,8 +15,8 @@ on:
     branches: [main]
     paths:
       - 'xml-compare/universal-categorizer/**'
+      - 'tabs/xml-compare-tab.js'
       - 'tabs/xml-compare-universal-categorizer-runtime.js'
-      - 'xml-compare/XmlCompareTabView.js'
       - 'tests/browser/xml-builder-viewport-*'
       - 'tests/xml-compare-universal-viewport-*'
       - 'playwright.xml-builder-viewport.config.mjs'
@@ -35,6 +35,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Run common Workbench Viewport certification
+        run: npm run test:workbench-viewport
       - name: Run XML Builder viewport unit acceptance
         shell: bash
         run: |
