@@ -1,13 +1,15 @@
 import { createCategorizedInputXmlService } from '../categorized-inputxml-api/index.js';
 import { createInputXmlChangeSetService } from '../inputxml-changeset-api/index.js';
+import { createInputXmlProducerService } from '../inputxml-producer-api/index.js';
 import {
   CATEGORIZED_INPUTXML_WORKER_OPERATIONS,
   createWorkerCapabilities,
   isWorkerOperation,
 } from './worker-contracts.js';
 
-function operationTable(categorizedService, changeSetService) {
+function operationTable(producerService, categorizedService, changeSetService) {
   return Object.freeze({
+    'producer.categorizeInputXml': (payload) => producerService.categorizeInputXml(payload || {}),
     'categorized.capabilities': () => categorizedService.getCapabilities(),
     'categorized.validate': (payload) => categorizedService.validate(payload || {}),
     'categorized.inspect': (payload) => categorizedService.inspect(payload || {}),
@@ -21,9 +23,10 @@ function operationTable(categorizedService, changeSetService) {
 }
 
 export function createCategorizedInputXmlWorkerDispatcher(options = {}) {
+  const producerService = options.producerService || createInputXmlProducerService();
   const categorizedService = options.categorizedService || createCategorizedInputXmlService();
   const changeSetService = options.changeSetService || createInputXmlChangeSetService();
-  const operations = operationTable(categorizedService, changeSetService);
+  const operations = operationTable(producerService, categorizedService, changeSetService);
   return Object.freeze({
     getCapabilities: createWorkerCapabilities,
     listOperations: () => CATEGORIZED_INPUTXML_WORKER_OPERATIONS,
