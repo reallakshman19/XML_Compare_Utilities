@@ -21,3 +21,7 @@ Loaded contexts are labelled **Loaded preview**. When no usable loaded target id
 ## Lifecycle
 
 One per-document lifecycle owns the popup, Tree/Pivot hosts, listeners and cleanup. Reopening destroys the previous lifecycle before mounting a replacement. No body-wide observer or cross-document popup singleton is used.
+
+## Validation
+
+Focused unit tests certify context mapping, immutable inputs, host contracts, selection identities, persistence isolation and lifecycle guards. The dedicated Chromium workflow certifies loaded/sample modes, Tree/Pivot controls, range handling, cross-selection, persistence, diagnostics and deterministic reopen cleanup.
