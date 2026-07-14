@@ -1,0 +1,78 @@
+name: XML Compare Line-wise Producer Adoption
+
+on:
+  pull_request:
+    paths:
+      - 'xml-compare/XmlCompareLinewiseProducerAdoption.js'
+      - 'xml-compare/XmlCompareLinewiseProducerStatusView.js'
+      - 'xml-compare/XmlCompareLinewiseWorkflowView.js'
+      - 'xml-compare/XmlCompareTabView.js'
+      - 'tabs/xml-compare-tab.js'
+      - 'tests/xml-compare-linewise-producer-adoption.test.js'
+      - 'docs/xml-compare-linewise-producer-adoption/**'
+      - '.github/workflows/xml-compare-linewise-producer-adoption.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'xml-compare/XmlCompareLinewiseProducerAdoption.js'
+      - 'xml-compare/XmlCompareLinewiseProducerStatusView.js'
+      - 'xml-compare/XmlCompareLinewiseWorkflowView.js'
+      - 'xml-compare/XmlCompareTabView.js'
+      - 'tabs/xml-compare-tab.js'
+      - 'tests/xml-compare-linewise-producer-adoption.test.js'
+      - 'docs/xml-compare-linewise-producer-adoption/**'
+      - '.github/workflows/xml-compare-linewise-producer-adoption.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adoption-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Runtime version
+        run: node --version
+
+      - name: Protect line-wise engine and sideload authority
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}"
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          printf '%s\n' "$changed"
+          for protected in \
+            xml-compare/XmlCompareLinewiseWorkflowActions.js \
+            xml-compare/XmlCompareLinewiseWorkflowState.js \
+            xml-compare/XmlCompareSideloadEnricher.js \
+            xml-compare/categorized-inputxml-api \
+            xml-compare/inputxml-changeset-api \
+            xml-compare/categorized-inputxml-worker; do
+            if printf '%s\n' "$changed" | grep -Fq "$protected"; then
+              echo "Protected authority changed: $protected"
+              exit 1
+            fi
+          done
+
+      - name: JavaScript syntax
+        run: |
+          node --check xml-compare/XmlCompareLinewiseProducerAdoption.js
+          node --check xml-compare/XmlCompareLinewiseProducerStatusView.js
+          node --check xml-compare/XmlCompareLinewiseWorkflowView.js
+          node --check xml-compare/XmlCompareTabView.js
+          node --check tabs/xml-compare-tab.js
+          node --check tests/xml-compare-linewise-producer-adoption.test.js
+
+      - name: Focused adoption and shared regressions
+        run: |
+          node tests/xml-compare-linewise-producer-adoption.test.js
+          node tests/xml-compare-linewise-workflow-native.test.js
+          node tests/inputxml-workspace-accdb-sideload.test.js
+          node tests/categorized-inputxml-worker-integration.test.js
+
+      - name: Full repository tests
+        run: npm test
