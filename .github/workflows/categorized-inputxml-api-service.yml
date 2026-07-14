@@ -1,0 +1,58 @@
+name: CategorizedInputXML API Service
+
+on:
+  pull_request:
+    paths:
+      - 'xml-compare/categorized-inputxml-api/**'
+      - 'tests/categorized-inputxml-api-service.test.js'
+      - 'scripts/categorized-inputxml-api-structure-check.mjs'
+      - 'docs/categorized-inputxml-api/**'
+      - '.github/workflows/categorized-inputxml-api-service.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'xml-compare/categorized-inputxml-api/**'
+      - 'tests/categorized-inputxml-api-service.test.js'
+      - 'scripts/categorized-inputxml-api-structure-check.mjs'
+      - 'docs/categorized-inputxml-api/**'
+      - '.github/workflows/categorized-inputxml-api-service.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  service-and-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: JavaScript syntax
+        run: |
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-contracts.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-model.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-diagnostics.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-source-export.js
+          node --check xml-compare/categorized-inputxml-api/categorized-inputxml-api-service.js
+          node --check xml-compare/categorized-inputxml-api/index.js
+          node --check tests/categorized-inputxml-api-service.test.js
+          node --check scripts/categorized-inputxml-api-structure-check.mjs
+
+      - name: Structure and isolation gate
+        run: node scripts/categorized-inputxml-api-structure-check.mjs
+
+      - name: Focused service tests
+        run: node tests/categorized-inputxml-api-service.test.js
+
+      - name: Full repository tests
+        run: npm test
