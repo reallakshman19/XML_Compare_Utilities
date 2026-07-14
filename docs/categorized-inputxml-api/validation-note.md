@@ -1,1 +1,0 @@
-Draft PR validation will enforce the permanent workflow gates.
