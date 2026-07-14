@@ -19,17 +19,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Apply validated DTXR enrichment patch
+      - name: Apply validated DTXR trace-ledger patch
         run: |
-          python scripts/apply-dtxr-ledger-enrichment.py
-          node --check tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js
+          python scripts/apply-dtxr-trace-ledger-diagnostics.py
+          node --check converters/xml-cii2019-core/xml-node-wise-trace.js
           node tests/xml-cii-xml-node-wise-trace.test.js
           node tests/xml-cii-dtxr-resolution-ledger.test.js
-      - name: Commit enrichment integration
+          node tests/xml-cii-dtxr-ledger-trace-consumer.test.js
+      - name: Commit trace-ledger integration
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tabs/model-converters/converters/xmltocii2019_helper/enrichment-core.js
+          git add converters/xml-cii2019-core/xml-node-wise-trace.js
           git diff --cached --quiet && exit 0
-          git commit -m "Integrate authoritative DTXR ledger into XML enrichment"
+          git commit -m "Make XML node trace consume authoritative DTXR ledger"
           git push origin HEAD:owner/xml-cii-dual-dtxr-trace
