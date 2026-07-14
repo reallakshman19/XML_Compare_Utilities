@@ -1,7 +1,8 @@
 /**
  * Functionality: coordinates browser file loading, independent validation,
- * immutable view-model creation, rendering, filtering, and selection. Inputs
- * are explicit DOM hosts. Output is a disposable controller API. Fallback:
+ * immutable view-model creation, rendering, filtering, and selection. Search
+ * result focus is explicit and never changes SVG scope until the user clicks a
+ * result. Inputs are explicit DOM hosts. Output is a disposable controller API. Fallback:
  * validation stops with an actionable error until all three required JSON
  * artifacts are loaded; optional InputXML remains NOT_EVALUATED.
  */
@@ -12,8 +13,10 @@ import { renderTopologyBottomPanel, buildTopologyInspectorMarkup } from './topol
 import { readManagedTopologySource } from './topology-source-reader.js';
 import { bindProducerSourceIdentity } from './topology-source-identity.js';
 import { applyTopologyTraceSelection, wireTopologySvgInteractions } from './topology-svg-interactions.js';
-import { buildTopologySvgViewModel } from './topology-svg-view-model.js';
-import { renderTopologySvg } from './topology-svg-renderer.js';
+import { wireTopologySvgNavigation } from './topology-svg-navigation.js';
+import { buildTopologySvgViewModel, updateTopologySearchViewModel } from './topology-svg-view-model.js';
+import { renderTopologySearchStatus, renderTopologySvg } from './topology-svg-renderer.js';
+import { buildTopologySearchResultsMarkup } from './topology-search-panel.js';
 import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord, semanticHash } from './topology-validator-values.js';
 
 /** @param {Record<string, Element>} elements @returns {Readonly<Record<string, unknown>>} */
@@ -22,11 +25,12 @@ export function createTopologyValidatorController(elements) {
   let hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
   let viewState = {
     mode: 'spatial', projection: 'XY', branch: '', types: [], disposition: '',
-    searchName: '', searchRef: '', searchPath: '', labels: true, showComponentSymbols: true,
-    visibility: { source: true, canonical: true, pointFeatures: true, junctions: true, boundaries: true },
+    searchName: '', searchRef: '', searchPath: '', labels: false, showComponentSymbols: false,
+    visibility: { source: true, canonical: true, referenceConnections: false, pointFeatures: true, junctions: true, boundaries: true },
   };
   let validation = null, viewModel = null, selectedKey = '', activeBottomTab = 'summary';
   let destroySvgInteractions = () => {};
+  let svgNavigation = emptyNavigation();
 
   /** @param {string} kind @param {string} text @param {string} fileName @returns {Promise<void>} */
   async function loadArtifact(kind, text, fileName) {
@@ -65,7 +69,9 @@ export function createTopologyValidatorController(elements) {
       elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = 'Not loaded';
     }
     destroySvgInteractions();
+    svgNavigation.destroy();
     destroySvgInteractions = () => {};
+    svgNavigation = emptyNavigation();
     elements.svgHost.innerHTML = '<div class="ttv-empty">Loading companion topology artifacts…</div>';
     elements.bottom.innerHTML = '';
     elements.inspector.innerHTML = '<div class="ttv-inspector-empty">Select an object after validation.</div>';
@@ -88,7 +94,6 @@ export function createTopologyValidatorController(elements) {
     }
     assertNoMutation();
     validation = validateTopologyArtifacts(artifacts, GEOMETRY_TOLERANCE_MM);
-    if (!cleanText(viewState.branch)) viewState = { ...viewState, branch: cleanText(objectRecord(asArray(artifacts.source.branches)[0]).name) };
     render();
     setStatus(`Validation complete: ${validation.metrics.issueCount} findings, ${validation.metrics.blockingIssueCount} blocking.`, validation.metrics.blockingIssueCount ? 'error' : 'pass');
     return validation;
@@ -100,12 +105,16 @@ export function createTopologyValidatorController(elements) {
     assertNoMutation();
     viewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
     destroySvgInteractions();
+    svgNavigation.destroy();
     const svg = renderTopologySvg(elements.svgHost, viewModel);
     renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
+    svgNavigation = wireTopologySvgNavigation(svg);
     destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
+    elements.searchResults.innerHTML = buildTopologySearchResultsMarkup(viewModel);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selectedKey ? objectRecord(objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[selectedKey]) : null);
     if (selectedKey) applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), selectedKey);
     updateMetricStrip();
+    updateSearchStatus();
   }
 
   /** @param {Record<string, unknown>|null} selection @returns {void} */
@@ -121,6 +130,19 @@ export function createTopologyValidatorController(elements) {
     const selection = applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
     return selection;
+  }
+
+  /** @param {string} objectKey @returns {Record<string, unknown>|null} */
+  function focusSearchResult(objectKey) {
+    if (!viewModel) return null;
+    const result = asArray(viewModel.searchResults).map(objectRecord).find((row) => cleanText(row.objectKey) === cleanText(objectKey));
+    if (!result) throw new RangeError(`Search result is not available: ${objectKey}`);
+    const branch = cleanText(result.branch);
+    viewState = { ...viewState, branch, showComponentSymbols: true };
+    selectedKey = cleanText(objectKey);
+    syncBranchControls(branch, true);
+    render();
+    return select(selectedKey);
   }
 
   /** @param {string} mode @returns {void} */
@@ -141,6 +163,31 @@ export function createTopologyValidatorController(elements) {
   function setFilters(patch) {
     viewState = { ...viewState, ...patch };
     render();
+  }
+
+  /** @param {string} key @param {string} value @returns {void} */
+  function setSearch(key, value) {
+    if (!['searchName', 'searchRef', 'searchPath'].includes(key)) throw new RangeError(`Unknown topology search key: ${key}`);
+    viewState = { ...viewState, [key]: value };
+    if (!viewModel) return;
+    assertNoMutation();
+    viewModel = updateTopologySearchViewModel(viewModel, viewState);
+    elements.searchResults.innerHTML = buildTopologySearchResultsMarkup(viewModel);
+    const svg = elements.svgHost.querySelector('svg');
+    if (svg) renderTopologySearchStatus(svg, viewModel);
+    updateSearchStatus();
+  }
+
+  /** @returns {void} */
+  function fitView() {
+    svgNavigation.fit();
+  }
+
+  /** @param {string} direction @returns {void} */
+  function zoomView(direction) {
+    if (direction === 'in') svgNavigation.zoomIn();
+    else if (direction === 'out') svgNavigation.zoomOut();
+    else throw new RangeError(`Unknown topology zoom direction: ${direction}`);
   }
 
   /** @param {string} key @param {boolean} visible @returns {void} */
@@ -168,10 +215,19 @@ export function createTopologyValidatorController(elements) {
   /** @returns {void} */
   function updateSourceControls() {
     const source = objectRecord(artifacts.source), branches = asArray(source.branches).map(objectRecord);
-    elements.branchTree.innerHTML = `<button type="button" data-ttv-branch="">All branches<span>${branches.length}</span></button>${branches.map((branch, index) => `<button type="button" data-ttv-branch="${escapeAttribute(branch.name)}" class="${index === 0 ? 'is-active' : ''}">${escapeHtml(shortText(branch.name, 35))}<span>${asArray(branch.components).length}</span></button>`).join('')}`;
+    elements.branchTree.innerHTML = `<button type="button" data-ttv-branch="" class="is-active">All branches<span>${branches.length}</span></button>${branches.map((branch) => `<button type="button" data-ttv-branch="${escapeAttribute(branch.name)}">${escapeHtml(shortText(branch.name, 35))}<span>${asArray(branch.components).length}</span></button>`).join('')}`;
     const counts = objectRecord(objectRecord(source.metrics).componentCategoryCounts), types = Object.keys(counts);
     elements.typeFilters.innerHTML = types.map((type) => `<label><input type="checkbox" data-ttv-type="${escapeAttribute(type)}" checked>${escapeHtml(type)} <span>${counts[type]}</span></label>`).join('');
-    viewState = { ...viewState, branch: cleanText(branches[0]?.name), types };
+    viewState = { ...viewState, branch: '', types, showComponentSymbols: false };
+    elements.componentSymbols.checked = false;
+  }
+
+  /** @param {string} branch @param {boolean} showComponentSymbols @returns {void} */
+  function syncBranchControls(branch, showComponentSymbols) {
+    elements.branchTree.querySelectorAll('[data-ttv-branch]').forEach((button) => {
+      button.classList.toggle('is-active', cleanText(button.getAttribute('data-ttv-branch')) === branch);
+    });
+    elements.componentSymbols.checked = showComponentSymbols;
   }
 
   /** @returns {void} */
@@ -182,6 +238,13 @@ export function createTopologyValidatorController(elements) {
       ['Supports', metrics.deferredSupportCount], ['Nodes', metrics.canonicalNodeCount], ['Edges', metrics.canonicalEdgeCount],
       ['Issues', metrics.issueCount], ['InputXML', validation?.inputXmlStatus ?? 'NOT_EVALUATED'],
     ].map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? '—')}</span>`).join('');
+  }
+
+  /** @returns {void} */
+  function updateSearchStatus() {
+    const summary = objectRecord(viewModel?.filterSummary);
+    if (summary.searchActive !== true) return;
+    setStatus(`Search: ${summary.sourceMatchCount} matches listed; SVG scope ${summary.displayScope} remains unchanged with ${summary.displayedSourceCount} displayed source objects.`, summary.sourceMatchCount ? 'ready' : 'error');
   }
 
   /** @param {string} message @param {string} kind @returns {void} */
@@ -198,10 +261,16 @@ export function createTopologyValidatorController(elements) {
   /** @returns {void} */
   function destroy() {
     destroySvgInteractions();
+    svgNavigation.destroy();
   }
 
   updateMetricStrip();
-  return Object.freeze({ loadArtifact, loadFile, validate, render, select, setMode, setProjection, setFilters, setVisibility, setBottomTab, assertNoMutation, evidence, destroy });
+  return Object.freeze({ loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection, setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation, evidence, destroy });
+}
+
+/** @returns {Readonly<Record<string, Function>>} */
+function emptyNavigation() {
+  return Object.freeze({ fit: () => {}, zoomIn: () => {}, zoomOut: () => {}, destroy: () => {} });
 }
 
 /** @param {string} kind @param {unknown} artifact @returns {string} */

@@ -5,8 +5,9 @@ import { validateTopologyArtifacts } from '../tabs/topology-trace-validator/topo
 import { buildTopologyBottomPanelMarkup } from '../tabs/topology-trace-validator/topology-ledger-table.js';
 import { readManagedTopologySource } from '../tabs/topology-trace-validator/topology-source-reader.js';
 import { resolveTopologySelectionKeys } from '../tabs/topology-trace-validator/topology-svg-interactions.js';
+import { _test as navigationTest } from '../tabs/topology-trace-validator/topology-svg-navigation.js';
 import { buildTopologySvgMarkup } from '../tabs/topology-trace-validator/topology-svg-renderer.js';
-import { buildTopologySvgViewModel } from '../tabs/topology-trace-validator/topology-svg-view-model.js';
+import { buildTopologySvgViewModel, updateTopologySearchViewModel } from '../tabs/topology-trace-validator/topology-svg-view-model.js';
 import { GEOMETRY_TOLERANCE_MM, semanticHash } from '../tabs/topology-trace-validator/topology-validator-values.js';
 import { canonicalTopologyFixture, topologyInputXmlFixture, topologySourceFixture, topologyTraceLedgerFixture } from './fixtures/topology-trace-validator-fixture.js';
 
@@ -56,6 +57,28 @@ assert.match(spatialMarkup, /data-source-entity-ids="SRC-VALVE"/);
 assert.match(spatialMarkup, /data-inputxml-element-ids="PE-VALVE"/, 'TEST 3: rendered edge identity must include InputXML lineage');
 for (const type of ['VALVE', 'FLANGE', 'GASK', 'INST', 'REDUCER', 'ELBO\/BEND', 'TEE', 'OLET', 'SUPPORT']) assert.match(spatialMarkup, new RegExp(`data-source-component-type="${type}"`));
 assert.doesNotMatch(spatialMarkup, /ttv-source-route[^>]+SRC-SUPPORT/, 'deferred support must not participate in route continuity');
+assert.match(spatialMarkup, /ttv-hit-path/, 'rendered routes and edges need a forgiving selection target');
+
+const deferredSearch = buildTopologySvgViewModel({ ...validArtifacts, validation: report, state: { ...state('spatial'), searchName: 'S1' } });
+assert.equal(deferredSearch.filterSummary.sourceMatchCount, 1);
+assert.equal(deferredSearch.filterSummary.deferredMatchCount, 1);
+assert.equal(deferredSearch.searchResults[0].componentCategory, 'SUPPORT');
+assert(deferredSearch.canonicalEdges.length > 0, 'typing a search must preserve the selected branch SVG scope');
+assert.match(buildTopologySvgMarkup(deferredSearch), /1 search matches listed/);
+const crossBranchSearch = buildTopologySvgViewModel({ ...validArtifacts, validation: report, state: { ...state('spatial'), searchName: 'PT' } });
+assert.equal(crossBranchSearch.searchResults[0].branch, '/B2', 'search results must operate across the branch tree');
+assert(crossBranchSearch.sourceComponents.every((component) => component.branch === '/B1'), 'search must not replace the selected branch geometry');
+assert(!crossBranchSearch.canonicalEdges.some((edge) => edge.id === 'E-TEE-BR'));
+const searchOnlyUpdate = updateTopologySearchViewModel(spatialView, { ...state('spatial'), searchName: 'PT' });
+assert.strictEqual(searchOnlyUpdate.sourceComponents, spatialView.sourceComponents, 'search-only updates must reuse immutable spatial geometry');
+assert.strictEqual(searchOnlyUpdate.canonicalEdges, spatialView.canonicalEdges);
+assert.equal(searchOnlyUpdate.searchResults[0].branch, '/B2');
+const allBranchesView = buildTopologySvgViewModel({ ...validArtifacts, validation: report, state: { ...state('spatial'), branch: '', showComponentSymbols: false } });
+assert.equal(allBranchesView.branches.length, 3, 'an empty branch scope must render the complete model');
+assert.equal(allBranchesView.sourceComponents.length, validArtifacts.source.components.length);
+
+const baseBox = { x: 0, y: 0, width: 1200, height: 720 };
+assert.deepEqual(navigationTest.zoomedBox(baseBox, baseBox, 0.8, { x: 600, y: 360 }), { x: 120, y: 72, width: 960, height: 576 });
 
 const sourceKey = spatialView.sourceComponents.find((component) => component.sourceEntityId === 'SRC-BEND').objectKey;
 const selectionKeys = resolveTopologySelectionKeys(spatialView.selectionLookup.byObjectKey, sourceKey);

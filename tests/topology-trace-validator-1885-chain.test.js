@@ -72,15 +72,31 @@ if (Object.values(paths).some((path) => !existsSync(path))) {
   assert.equal(validation.metrics.connectivityMismatchCount, 0);
   for (const card of Object.values(validation.metrics.componentCoverage)) assert.equal(card.result, 'PASS');
 
+  const viewState = {
+    mode: 'issues', projection: 'XY', branch: '', types: [], disposition: '',
+    searchName: '', searchRef: '', searchPath: '', labels: false, showComponentSymbols: false,
+    visibility: { source: true, canonical: true, referenceConnections: false, pointFeatures: true, junctions: true, boundaries: true },
+  };
   const viewModel = buildTopologySvgViewModel({
     source, canonical, ledger, inputXml, validation,
-    state: {
-      mode: 'issues', projection: 'XY', branch: '', types: [], disposition: '',
-      searchName: '', searchRef: '', searchPath: '', labels: true, showComponentSymbols: false,
-      visibility: { source: true, canonical: true, pointFeatures: true, junctions: true, boundaries: true },
-    },
+    state: viewState,
   });
   assert.equal(viewModel.issues.length, validation.metrics.issueCount, 'summary, issue rows, and SVG issue objects must reconcile');
+  assert(viewModel.canonicalEdges.every((edge) => edge.segmentRole !== 'CREF_BRANCH_CONNECTION'), 'reference spans stay out of default spatial auto-fit');
+  const referenceView = buildTopologySvgViewModel({ source, canonical, ledger, inputXml, validation, state: { ...viewState, visibility: { ...viewState.visibility, referenceConnections: true } } });
+  assert(referenceView.canonicalEdges.some((edge) => edge.segmentRole === 'CREF_BRANCH_CONNECTION'), 'reference spans remain available through explicit visibility');
+  const firstBranch = source.branches[0].name;
+  const firstBranchComponentCount = source.components.filter((component) => component.sourceBranch === firstBranch).length;
+  const highCardinalitySearch = buildTopologySvgViewModel({
+    source, canonical, ledger, inputXml, validation,
+    state: { ...viewState, mode: 'spatial', branch: firstBranch, searchName: 'PS-12' },
+  });
+  assert.equal(highCardinalitySearch.filterSummary.sourceMatchCount, 1217, 'PS-12 real-data search count must remain independently visible');
+  assert.equal(highCardinalitySearch.filterSummary.deferredMatchCount, 1209);
+  assert.equal(highCardinalitySearch.filterSummary.routeMatchCount, 8);
+  assert.equal(highCardinalitySearch.searchResults.length, 100, 'the result panel must cap large result sets');
+  assert.equal(highCardinalitySearch.sourceComponents.length, firstBranchComponentCount, 'search must not expand the SVG to all matching branches');
+  assert(highCardinalitySearch.sourceComponents.every((component) => component.branch === firstBranch));
   assert(canonical.edges.every((edge) => edge.id && edge.sourceEntityIds.length && edge.inputXmlElementIds.length));
   console.log(`topology trace validator 1885_NC chain passed\n${JSON.stringify({ metrics: validation.metrics, gates: validation.gates }, null, 2)}`);
 }

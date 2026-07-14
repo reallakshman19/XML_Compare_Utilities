@@ -23,7 +23,7 @@ export function buildTopologySvgMarkup(viewModel) {
   else if (mode === 'junctions') body = junctionBoundaryMarkup(viewModel);
   else if (mode === 'issues') body = issuesMarkup(viewModel);
   else body = spatialMarkup(viewModel);
-  return `<svg class="ttv-svg" viewBox="0 0 ${TOPOLOGY_SVG_WIDTH} ${TOPOLOGY_SVG_HEIGHT}" role="img" aria-label="Topology trace validator ${escapeMarkup(mode)} view" data-view-model-schema="${escapeMarkup(viewModel.schema)}" data-mode="${escapeMarkup(mode)}">${gridMarkup()}<g class="ttv-svg-content">${body}</g></svg>`;
+  return `<svg class="ttv-svg" viewBox="0 0 ${TOPOLOGY_SVG_WIDTH} ${TOPOLOGY_SVG_HEIGHT}" role="img" tabindex="0" aria-label="Topology trace validator ${escapeMarkup(mode)} view. Drag to pan, use the wheel to zoom, and click an object to select it." data-view-model-schema="${escapeMarkup(viewModel.schema)}" data-mode="${escapeMarkup(mode)}">${gridMarkup()}<g class="ttv-svg-content">${body}</g></svg>`;
 }
 
 /** @param {Element} host @param {Record<string, unknown>} viewModel @returns {SVGElement} */
@@ -34,6 +34,13 @@ export function renderTopologySvg(host, viewModel) {
   return svg;
 }
 
+/** @param {SVGElement} svg @param {Record<string, unknown>} viewModel @returns {void} */
+export function renderTopologySearchStatus(svg, viewModel) {
+  svg.querySelector('.ttv-filter-message')?.remove();
+  const target = svg.querySelector('.ttv-svg-content'), markup = searchStatusMarkup(viewModel);
+  if (target && markup) target.insertAdjacentHTML('beforeend', markup);
+}
+
 /** @param {Record<string, unknown>} viewModel @returns {string} */
 function spatialMarkup(viewModel) {
   const transform = createTopologyWorldTransform(objectRecord(viewModel.bounds), TOPOLOGY_SVG_WIDTH, TOPOLOGY_SVG_HEIGHT, TOPOLOGY_SVG_PADDING);
@@ -42,12 +49,14 @@ function spatialMarkup(viewModel) {
   const source = visibility.source === false ? '' : asArray(viewModel.sourceComponents).map(objectRecord).flatMap((component) => {
     if (cleanText(component.componentCategory) === 'SUPPORT' || !component.projectedStart || !component.projectedEnd) return [];
     const start = transform(component.projectedStart), end = transform(component.projectedEnd);
-    return [`<g class="ttv-source-route ${cleanText(component.disposition) === 'BLOCK_AMBIGUOUS' ? 'is-ambiguous' : ''}" data-object-key="${escapeMarkup(component.objectKey)}" data-source-entity-id="${escapeMarkup(component.sourceEntityId)}"><path d="M ${start.x.toFixed(2)} ${start.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)}"/><title>${escapeMarkup(component.sourcePath)}</title></g>`];
+    const path = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+    return [`<g class="ttv-source-route ${cleanText(component.disposition) === 'BLOCK_AMBIGUOUS' ? 'is-ambiguous' : ''}" data-object-key="${escapeMarkup(component.objectKey)}" data-source-entity-id="${escapeMarkup(component.sourceEntityId)}"><path class="ttv-visible-path" d="${path}"/><path class="ttv-hit-path" d="${path}"/><title>${escapeMarkup(component.sourcePath)}</title></g>`];
   }).join('');
   const edges = visibility.canonical === false ? '' : asArray(viewModel.canonicalEdges).map(objectRecord).flatMap((edge) => {
     if (!edge.projectedStart || !edge.projectedEnd) return [];
     const start = transform(edge.projectedStart), end = transform(edge.projectedEnd), invalid = issueIds.has(cleanText(edge.id));
-    return [`<g class="ttv-canonical-edge ${invalid ? 'is-invalid' : ''}" data-object-key="${escapeMarkup(edge.objectKey)}" data-canonical-edge-id="${escapeMarkup(edge.id)}" data-source-entity-ids="${escapeMarkup(asArray(edge.sourceEntityIds).join(' '))}" data-inputxml-element-ids="${escapeMarkup(asArray(edge.inputXmlElementIds).join(' '))}"><path d="M ${start.x.toFixed(2)} ${start.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)}"/><title>${escapeMarkup(edge.id)}</title></g>`];
+    const path = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} L ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+    return [`<g class="ttv-canonical-edge ${invalid ? 'is-invalid' : ''}" data-object-key="${escapeMarkup(edge.objectKey)}" data-canonical-edge-id="${escapeMarkup(edge.id)}" data-source-entity-ids="${escapeMarkup(asArray(edge.sourceEntityIds).join(' '))}" data-inputxml-element-ids="${escapeMarkup(asArray(edge.inputXmlElementIds).join(' '))}"><path class="ttv-visible-path" d="${path}"/><path class="ttv-hit-path" d="${path}"/><title>${escapeMarkup(edge.id)}</title></g>`];
   }).join('');
   const nodes = visibility.canonical === false ? '' : asArray(viewModel.canonicalNodes).map(objectRecord).flatMap((node) => {
     if (!node.projectedPosition) return [];
@@ -60,7 +69,15 @@ function spatialMarkup(viewModel) {
     return [`<circle class="ttv-source-port" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3" data-object-key="${escapeMarkup(port.objectKey)}" data-source-port-id="${escapeMarkup(port.sourcePortId)}"><title>${escapeMarkup(port.sourcePortId || port.objectKey)}</title></circle>`];
   }).join('');
   const components = visibility.source === false ? '' : buildComponentSymbolMarkup(viewModel, transform);
-  return `${source}${ports}${components}${edges}${nodes}${symbolMarkup(viewModel, transform, 'junctions', 'junction', 'diamond', visibility.junctions !== false)}${symbolMarkup(viewModel, transform, 'pointFeatures', 'point-feature', 'triangle', visibility.pointFeatures !== false)}${symbolMarkup(viewModel, transform, 'boundaries', 'boundary', 'circle', visibility.boundaries !== false)}`;
+  return `${source}${ports}${components}${edges}${nodes}${symbolMarkup(viewModel, transform, 'junctions', 'junction', 'diamond', visibility.junctions !== false)}${symbolMarkup(viewModel, transform, 'pointFeatures', 'point-feature', 'triangle', visibility.pointFeatures !== false)}${symbolMarkup(viewModel, transform, 'boundaries', 'boundary', 'circle', visibility.boundaries !== false)}${searchStatusMarkup(viewModel)}`;
+}
+
+/** @param {Record<string, unknown>} viewModel @returns {string} */
+function searchStatusMarkup(viewModel) {
+  const summary = objectRecord(viewModel.filterSummary);
+  if (summary.searchActive !== true) return '';
+  const message = `${summary.sourceMatchCount} search matches listed · SVG scope: ${summary.displayScope} · ${summary.displayedSourceCount} source objects displayed`;
+  return `<g class="ttv-filter-message"><rect x="30" y="24" width="710" height="34" rx="7"/><text x="46" y="46">${escapeMarkup(message)}</text></g>`;
 }
 
 /** @param {Record<string, unknown>} viewModel @param {(point:{x:number,y:number})=>{x:number,y:number}} transform @param {string} collection @param {string} cssName @param {string} shape @param {boolean} visible @returns {string} */
@@ -128,4 +145,4 @@ function shortLabel(value, length) {
   return text.length > length ? `${text.slice(0, length - 1)}…` : text;
 }
 
-export const _test = Object.freeze({ spatialMarkup, junctionBoundaryMarkup, issuesMarkup, shortLabel });
+export const _test = Object.freeze({ spatialMarkup, junctionBoundaryMarkup, issuesMarkup, searchStatusMarkup, shortLabel });

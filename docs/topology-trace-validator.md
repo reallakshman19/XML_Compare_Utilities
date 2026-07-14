@@ -114,7 +114,9 @@ Source coordinates are retained as finite decimals. Coordinates are not rounded 
 - **Junctions / Boundaries** shows branch and CREF/HREF/TREF relationships.
 - **Issues Only** renders exactly one SVG issue object per findings-table row. When the blocking count is zero it displays `No blocking topology issues`.
 
-Click selection follows immutable lookup groups across source geometry, canonical objects, ledger rows, and InputXML projection rows.
+Click selection follows immutable lookup groups across source geometry, canonical objects, ledger rows, and InputXML projection rows. Wide transparent hit paths make thin source and canonical lines selectable without becoming topology data. Drag pans the fixed SVG viewBox, the wheel and `+`/`−` controls zoom around the pointer or viewport centre, and **Fit**/the `0` key restores the original view. These interactions change browser coordinates only. Synthetic `CREF_BRANCH_CONNECTION` spans remain traceable but are excluded from the default spatial view and its auto-fit bounds; **Reference connection spans** displays them explicitly. Labels are off initially and remain available through the Labels toggle.
+
+The validated workspace opens at **All branches**; it does not silently select the first branch. NAME, REF, and source-path searches operate across the branch tree, but typing changes only the immutable search slice, result list, and match status; it does not reconstruct the spatial SVG. The current SVG scope and auto-fit bounds remain unchanged. Selecting a result explicitly focuses its owning branch, enables branch-level component symbols, highlights its lineage, and opens the normal inspector. This prevents broad queries such as `PS-12` from replacing the spatial view with thousands of deferred-support markers.
 
 Spatial Overlay includes a `Show component symbols` toggle. It is on for the selected branch and off when the full model is selected. The Summary tab contains ten component-accountability cards and a completion scorecard. Source Disposition contains the full component contract, including a view-only `Focus in SVG` action.
 

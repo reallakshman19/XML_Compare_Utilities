@@ -17,7 +17,7 @@ for (const name of files) {
 }
 const tab = readFileSync(path.join(directory, 'topology-trace-validator-tab.js'), 'utf8');
 for (const label of ['Load Source JSON', 'Load Canonical Topology', 'Load Trace Ledger', 'Load Topology InputXML', 'Spatial Overlay', 'Source ↔ Canonical', 'Junctions / Boundaries', 'Issues Only', 'Show component symbols']) assert.match(tab, new RegExp(label));
-for (const moduleName of ['topology-companion-loader.js', 'topology-component-validator.js', 'topology-ledger-validator.js', 'topology-projection-geometry.js', 'topology-svg-component-symbols.js']) assert(files.includes(moduleName));
+for (const moduleName of ['topology-companion-loader.js', 'topology-component-validator.js', 'topology-ledger-validator.js', 'topology-projection-geometry.js', 'topology-search-panel.js', 'topology-svg-component-symbols.js', 'topology-svg-navigation.js']) assert(files.includes(moduleName));
 const renderer = readFileSync(path.join(directory, 'topology-svg-renderer.js'), 'utf8');
 assert.doesNotMatch(renderer, /topology-source-reader|topology-artifact-reader|DOMParser|JSON\.parse/);
 const utilityTab = readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
