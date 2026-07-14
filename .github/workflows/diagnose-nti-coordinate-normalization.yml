@@ -24,7 +24,9 @@ jobs:
           python scripts/run-nti-coordinate-normalization.py > artifacts/patch.log 2>&1
       - name: Generate focused test
         continue-on-error: true
-        run: python scripts/write-nti-coordinate-profile-test.py > artifacts/writer.log 2>&1
+        run: |
+          python scripts/write-nti-coordinate-profile-test.py > artifacts/writer.log 2>&1
+          python scripts/fix-nti-coordinate-test-precision-v2.py >> artifacts/writer.log 2>&1
       - name: Run syntax checks
         continue-on-error: true
         run: |
