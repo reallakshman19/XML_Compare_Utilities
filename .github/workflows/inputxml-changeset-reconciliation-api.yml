@@ -54,6 +54,7 @@ jobs:
           for file in xml-compare/inputxml-changeset-api/*.js; do node --check "$file"; done
           node --check tests/inputxml-changeset-reconciliation-api.test.js
           node --check tests/inputxml-changeset-precondition.test.js
+          node --check tests/inputxml-changeset-line-id.test.js
           node --check scripts/inputxml-changeset-api-structure-check.mjs
 
       - name: Structure and isolation gate
@@ -67,6 +68,7 @@ jobs:
           {
             node tests/inputxml-changeset-reconciliation-api.test.js
             node tests/inputxml-changeset-precondition.test.js
+            node tests/inputxml-changeset-line-id.test.js
           } > inputxml-changeset-focused.log 2>&1
 
       - name: Upload focused test evidence
