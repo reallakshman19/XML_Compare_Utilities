@@ -3,6 +3,8 @@ name: Validate NTI Coordinate Normalization
 on:
   push:
     branches: [owner/nti-coordinate-normalization]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
