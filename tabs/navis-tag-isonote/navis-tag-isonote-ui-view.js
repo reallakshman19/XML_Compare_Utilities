@@ -79,10 +79,18 @@ function renderInputs(state) {
     <label class="nti-field">Table Northing column<input data-nti-config="tableNorthingColumn" value="${esc(cfg.tableNorthingColumn)}"></label>
     <label class="nti-field">Table Elevation column<input data-nti-config="tableElevationColumn" value="${esc(cfg.tableElevationColumn)}"></label>
     <label class="nti-field">Table coordinate units${unitsSelect('tableUnits', cfg.tableUnits, true)}</label>
+    <label class="nti-field">Table coordinate profile<input data-nti-config="tableCoordinateProfileName" value="${esc(cfg.tableCoordinateProfileName)}"></label>
+    <label class="nti-field">Table Easting datum mm<input type="number" data-nti-config="tableEastingDatumMm" value="${esc(cfg.tableEastingDatumMm)}"></label>
+    <label class="nti-field">Table Northing datum mm<input type="number" data-nti-config="tableNorthingDatumMm" value="${esc(cfg.tableNorthingDatumMm)}"></label>
+    <label class="nti-field">Table Elevation datum mm<input type="number" data-nti-config="tableElevationDatumMm" value="${esc(cfg.tableElevationDatumMm)}"></label>
     <label class="nti-field">JSON support identity paths<textarea data-nti-config="jsonIdentityPaths">${esc(joinList(cfg.jsonIdentityPaths))}</textarea></label>
     <label class="nti-field">JSON reference paths<textarea data-nti-config="jsonReferencePaths">${esc(joinList(cfg.jsonReferencePaths))}</textarea></label>
     <label class="nti-field">JSON proximity position paths<textarea data-nti-config="jsonPositionPaths">${esc(joinList(cfg.jsonPositionPaths))}</textarea></label>
     <label class="nti-field">JSON position units${unitsSelect('jsonUnits', cfg.jsonUnits, true)}</label>
+    <label class="nti-field">JSON coordinate profile<input data-nti-config="jsonCoordinateProfileName" value="${esc(cfg.jsonCoordinateProfileName)}"></label>
+    <label class="nti-field">JSON Easting datum mm<input type="number" data-nti-config="jsonEastingDatumMm" value="${esc(cfg.jsonEastingDatumMm)}"></label>
+    <label class="nti-field">JSON Northing datum mm<input type="number" data-nti-config="jsonNorthingDatumMm" value="${esc(cfg.jsonNorthingDatumMm)}"></label>
+    <label class="nti-field">JSON Elevation datum mm<input type="number" data-nti-config="jsonElevationDatumMm" value="${esc(cfg.jsonElevationDatumMm)}"></label>
     <label class="nti-field">JSON branch paths<textarea data-nti-config="jsonBranchPaths">${esc(joinList(cfg.jsonBranchPaths))}</textarea></label>
     <label class="nti-field">JSON pipe paths<textarea data-nti-config="jsonPipePaths">${esc(joinList(cfg.jsonPipePaths))}</textarea></label>
     <label class="nti-field">JSON zone paths<textarea data-nti-config="jsonZonePaths">${esc(joinList(cfg.jsonZonePaths))}</textarea></label>
@@ -90,6 +98,11 @@ function renderInputs(state) {
     <label class="nti-field">JSON OD units${unitsSelect('jsonOdUnits', cfg.jsonOdUnits, false)}</label>
     <label class="nti-field">JSON bore paths<textarea data-nti-config="jsonBorePaths">${esc(joinList(cfg.jsonBorePaths))}</textarea></label>
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
+    <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
+    <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
+    <label class="nti-field">Navis Easting datum mm<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
+    <label class="nti-field">Navis Northing datum mm<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>
+    <label class="nti-field">Navis Elevation datum mm<input type="number" data-nti-config="navisElevationDatumMm" value="${esc(cfg.navisElevationDatumMm)}"></label>
     <label class="nti-field">Support coordinate source<select data-nti-config="supportCoordinateSource">${['prefer-table-fallback-json','prefer-json-fallback-table','table-only','json-only','compare-table-json'].map((value) => `<option value="${value}" ${cfg.supportCoordinateSource === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
     <label class="nti-field">E tolerance mm<input type="number" min="0" data-nti-config="eastingToleranceMm" value="${esc(cfg.eastingToleranceMm)}"></label>
     <label class="nti-field">N tolerance mm<input type="number" min="0" data-nti-config="northingToleranceMm" value="${esc(cfg.northingToleranceMm)}"></label>
@@ -113,7 +126,7 @@ function renderHierarchy(state) {
   return `<section class="nti-card"><h3>Complete Canonical Staged JSON Hierarchy</h3><div class="nti-help">Every staged JSON object and array is a traceable node with source file, JSON path, ancestors, attributes, raw type/name, branch/pipe/zone ancestors and configured derived facts.</div><input class="nti-filter" data-nti-filter-target=".nti-tree details" placeholder="Filter hierarchy text..."><div class="nti-tree">${state.tree.roots.map((id) => renderTreeNode(state.tree, id)).join('')}</div></section><section class="nti-card"><h3>Discovered JSON Path Catalogue</h3><div class="nti-paths nti-paths-4"><div><b>Path</b></div><div><b>Coverage</b></div><div><b>Types</b></div><div><b>Samples</b></div>${paths}</div></section>`;
 }
 const IDENTITY_HEADERS = [
-  { key: 'tableRowIndex', label: 'Table Row' }, { key: 'tableIdentityRaw', label: 'Table Identity Raw' }, { key: 'canonicalIdentity', label: 'Canonical Identity' },
+  { key: 'tableRowIndex', label: 'Table Row' }, { key: 'identitySelectionEvidence', label: 'Identity Selection Evidence' }, { key: 'traceOnlyEvidence', label: 'Trace-only Evidence' }, { key: 'navisProximityEvidence', label: 'Navis Proximity Evidence' }, { key: 'tableIdentityRaw', label: 'Table Identity Raw' }, { key: 'canonicalIdentity', label: 'Canonical Identity' },
   { key: 'supportRoot', label: 'Support Root' }, { key: 'tableIdentityColumn', label: 'Table Identity Column' }, { key: 'inputReferenceRaw', label: 'Table Reference Raw' },
   { key: 'inputReferenceColumn', label: 'Table Reference Column' }, { key: 'tablePositionSourceColumn', label: 'Table Position Source' },
   { key: 'status', label: 'Identity Status', badge: true }, { key: 'candidateCount', label: 'Candidates' }, { key: 'selectionReason', label: 'Selection Reason' },
@@ -132,7 +145,7 @@ const IDENTITY_HEADERS = [
   { key: 'navisConfidence', label: 'Navis Confidence', badge: true }, { key: 'supportIsonote', label: 'Selected Support ISONOTE' },
 ];
 function renderIdentityRows(title, help, rows, filterId) { return `<section class="nti-card"><h3>${esc(title)}</h3><div class="nti-help">${esc(help)}</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-trace" ${rows.length ? '' : 'disabled'}>Download end-to-end trace CSV</button></div><input class="nti-filter" data-nti-table-filter="${esc(filterId)}" placeholder="Filter by identity, reference, root, branch, pipe, zone, JSON path, Navis tag/comment or status...">${renderTable(IDENTITY_HEADERS, rows, `nti-filter-table-${filterId}`)}</section>`; }
-function renderIdentityTrace(state) { return renderIdentityRows('End-to-End Identity Node Trace', 'Table identity/reference → canonical identity → JSON node/path/reference → branch/pipe/zone and position source → Navis tag/comment resolution → selected Support ISONOTE.', state.identityTrace?.rows || [], 'identity'); }
+function renderIdentityTrace(state) { return renderIdentityRows('End-to-End Identity Node Trace', 'Identity selection evidence is separated from trace-only hierarchy evidence and later Navis proximity evidence. The end-to-end row remains table identity/reference → canonical identity → JSON node/path/reference → branch/pipe/zone and normalized coordinate profile → Navis tag/comment → selected Support ISONOTE.', state.identityTrace?.rows || [], 'identity'); }
 function renderIdentityPartition(state, kind) {
   const map = {
     matched: ['Matched Identity Trace', 'Resolved table-to-JSON identity and reference evidence; Navis decision fields remain visible per row.', state.identityTrace?.matchedRows || []],
