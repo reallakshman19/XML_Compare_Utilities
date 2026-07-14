@@ -3,6 +3,9 @@ import fs from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const files = [
+  'xml-compare/inputxml-producer-api/inputxml-producer-contracts.js',
+  'xml-compare/inputxml-producer-api/inputxml-producer-service.js',
+  'xml-compare/inputxml-producer-api/index.js',
   'xml-compare/categorized-inputxml-worker/worker-contracts.js',
   'xml-compare/categorized-inputxml-worker/worker-dispatcher.js',
   'xml-compare/categorized-inputxml-worker/worker-runtime.js',
@@ -18,6 +21,7 @@ const forbidden = [
   { label: 'network fetch', pattern: /\bfetch\s*\(/ },
   { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
   { label: 'Pyodide', pattern: /\bpyodide\b/i },
+  { label: 'CII conversion', pattern: /\bconvert\w*ToCii\b|\bcii2019\b/i },
 ];
 
 function source(path) {
@@ -57,7 +61,7 @@ for (const path of files) {
   for (const item of functionLengths(text)) assert.ok(item.lines <= 40, `${path}:${item.name} exceeds 40 lines (${item.lines})`);
 }
 
-const index = source('xml-compare/categorized-inputxml-worker/index.js');
+const workerIndex = source('xml-compare/categorized-inputxml-worker/index.js');
 for (const name of [
   'createCategorizedInputXmlWorkerClient',
   'createCategorizedInputXmlBrowserWorker',
@@ -65,12 +69,25 @@ for (const name of [
   'installCategorizedInputXmlWorkerRuntime',
   'createWorkerRequest',
   'createWorkerCancel',
-]) assert.ok(index.includes(name), `Public export missing: ${name}`);
+]) assert.ok(workerIndex.includes(name), `Public worker export missing: ${name}`);
+
+const producerIndex = source('xml-compare/inputxml-producer-api/index.js');
+for (const name of [
+  'createInputXmlProducerService',
+  'categorizeProducerInputXml',
+  'validateInputXmlProducerRequest',
+]) assert.ok(producerIndex.includes(name), `Public producer export missing: ${name}`);
 
 const client = source('xml-compare/categorized-inputxml-worker/worker-client.js');
 assert.ok(client.includes("type: 'module'"), 'Browser worker must be created as a module worker.');
 assert.ok(client.includes('AbortSignal') || client.includes('signal'), 'Client abort handling is missing.');
 assert.ok(client.includes('timeoutMs'), 'Client timeout handling is missing.');
+assert.ok(client.includes('producer.categorizeInputXml'), 'Producer categorization client route is missing.');
+
+const producer = source('xml-compare/inputxml-producer-api/inputxml-producer-service.js');
+assert.ok(producer.includes('inputXmlToCategorizedInputXml'), 'Producer adapter does not use the existing converter authority.');
+assert.ok(producer.includes('validateCategorizedInputXml'), 'Producer adapter does not validate categorized output.');
+assert.ok(producer.includes("role: 'categorized-review-document'"), 'Producer artifact role is missing.');
 
 const entry = source('xml-compare/categorized-inputxml-worker/categorized-inputxml.worker.js');
 assert.ok(entry.includes('installCategorizedInputXmlWorkerRuntime'), 'Worker entrypoint does not install the runtime.');
