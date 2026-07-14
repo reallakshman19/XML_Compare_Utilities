@@ -8,30 +8,31 @@ permissions:
   contents: read
 
 jobs:
-  navis-core:
+  navis-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Capture Navis core result
-        id: core
-        continue-on-error: true
-        run: |
-          mkdir -p artifacts/nti004-diagnostic
-          set +e
-          node tests/navis-tag-isonote.test.js > artifacts/nti004-diagnostic/core.log 2>&1
-          CODE=$?
-          echo "$CODE" > artifacts/nti004-diagnostic/core.exit
-          exit $CODE
-      - name: Upload diagnostic
+      - name: Navis core
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nti004-core-diagnostic
-          path: artifacts/nti004-diagnostic
-          if-no-files-found: error
-      - name: Fail when core failed
-        if: steps.core.outcome == 'failure'
-        run: exit 1
+        run: node tests/navis-tag-isonote.test.js
+      - name: Navis benchmark parser
+        if: always()
+        run: node tests/navis-tag-isonote-benchmark.test.js
+      - name: Navis readiness
+        if: always()
+        run: node tests/navis-tag-isonote-readiness.test.js
+      - name: Navis contracts
+        if: always()
+        run: node tests/navis-tag-isonote-contracts-v3.test.js
+      - name: Navis index refinement
+        if: always()
+        run: node tests/navis-tag-isonote-index-refinement.test.js
+      - name: Navis static
+        if: always()
+        run: node tests/navis-tag-isonote-static.test.js
+      - name: Utility layout aggregate
+        if: always()
+        run: node tests/psnm-utility-layout-stabilizer.test.js
