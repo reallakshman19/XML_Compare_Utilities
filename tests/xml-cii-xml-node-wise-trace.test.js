@@ -35,7 +35,7 @@ const supportTrace = [
   pos(150, 590136.11, 'REST', '/PS02218.1'),
   pos(151, 594136.11, 'REST', '/PS02219.1'),
 ];
-const supportXml = `<Root><Branch><Branchname>${branch.replace(/&/g, '&amp;')}</Branchname>
+const supportXml = `<Root><Branch><Branchname>${branch}</Branchname>
 <Node><NodeNumber>1020</NodeNumber><NodeName>PS02213.1</NodeName><Endpoint>0</Endpoint><ComponentType>ANCI</ComponentType><ComponentRefNo>=1006666139/639</ComponentRefNo><Position>555136.11 -1125469.20 99707.60</Position></Node>
 <Node><NodeNumber>1030</NodeNumber><NodeName>PS02214.1</NodeName><Endpoint>0</Endpoint><ComponentType>ANCI</ComponentType><ComponentRefNo>=1006666139/642</ComponentRefNo><Position>563136.11 -1125469.20 99707.60</Position></Node>
 </Branch></Root>`;
@@ -45,37 +45,50 @@ assert.equal(supportRows.length, 2);
 assert.equal(supportRows[0].schema, XML_CII_XML_NODE_TRACE_SCHEMA);
 assert.equal(supportRows[0].xmlNode, '1020');
 assert.equal(supportRows[0].jsonNodeNoDtxrPs, '145');
-assert.equal(supportRows[0].jsonNodeNoDtxrPos, '145 to 151');
+assert.equal(supportRows[0].jsonNodeNoDtxrPos, '145');
 assert.equal(supportRows[0].matchType, 'POS/PS');
 assert.equal(supportRows[0].posBasis, 'E=555136.11 N=-1125469.2 EL=99707.6');
-assert.match(supportRows[0].dtxrPosValue, /REST\(NAME=\/PS02213\.1\)/);
-assert.match(supportRows[0].dtxrPosValue, /PIPE STOP TYPE-602/);
+assert.equal(supportRows[0].dtxrPosValue, 'REST(NAME=/PS02213.1)');
 assert.equal(supportRows[0].dtxrPsName, 'PS02213.1');
-assert.equal(supportRows[0].dtxrPsValue, 'REST(NAME=/PS02213.1)');
+assert.equal(supportRows[0].dtxrPsValue, 'REST');
 assert.equal(supportRows[0].status, 'RESOLVED');
 assert.equal(supportRows[0].evidenceAuthority, 'DTXR_POS_PRIMARY');
 
 assert.equal(supportRows[1].xmlNode, '1030');
 assert.equal(supportRows[1].jsonNodeNoDtxrPs, '146');
-assert.equal(supportRows[1].jsonNodeNoDtxrPos, '145 to 151');
+assert.equal(supportRows[1].jsonNodeNoDtxrPos, '146');
 assert.equal(supportRows[1].matchType, 'POS/PS');
+assert.match(supportRows[1].dtxrPosValue, /GUIDE PDO-TYPE-604A\/B/);
+assert.match(supportRows[1].dtxrPosValue, /REST\(NAME=\/PS02214\.1\)/);
 assert.equal(supportRows[1].dtxrPsName, 'PS02214.1');
-assert.equal(supportRows[1].dtxrPsValue, 'GUIDE PDO-TYPE-604A/B - 2 x L50mmx100mmx6mmx160mmHIGH(NAME==1006649755/5218)');
+assert.equal(supportRows[1].dtxrPsValue, 'REST');
 assert.equal(supportRows[1].status, 'RESOLVED');
 
 const elbowPath = '$.components[180]';
 const elbowTrace = [
   {
-    jsonNodeNo: '180', branchName: branch, sourcePath: `${elbowPath}.attributes.DTXR_POS`, sourceObjectType: 'ELBO',
-    field: 'DTXR_POS', sourceAttributeName: 'DTXR_POS', finalValue: 'ELBOW 90 DEG LR BW Sch 120',
-    position: 'E=616110.81 N=-1124291 EL=100432.15', xmlTraceScope: 'DTXR_POS_SOURCE_ROW',
+    jsonNodeNo: '180',
+    branchName: branch,
+    sourcePath: `${elbowPath}.attributes.DTXR_POS`,
+    sourceObjectType: 'ELBO',
+    field: 'DTXR_POS',
+    sourceAttributeName: 'DTXR_POS',
+    finalValue: 'ELBOW 90 DEG LR BW Sch 120',
+    position: 'E=616110.81 N=-1124291 EL=100432.15',
+    xmlTraceScope: 'DTXR_POS_SOURCE_ROW',
   },
   {
-    jsonNodeNo: '181', branchName: branch, sourcePath: `${elbowPath}.attributes.NAME`, sourceObjectType: 'ELBO',
-    field: 'ComponentRefNo', sourceAttributeName: 'NAME', finalValue: '=1006649755/1762', xmlTraceScope: 'DTXR_PS_SOURCE_ROW',
+    jsonNodeNo: '181',
+    branchName: branch,
+    sourcePath: `${elbowPath}.attributes.NAME`,
+    sourceObjectType: 'ELBO',
+    field: 'ComponentRefNo',
+    sourceAttributeName: 'NAME',
+    finalValue: '=1006649755/1762',
+    xmlTraceScope: 'DTXR_PS_SOURCE_ROW',
   },
 ];
-const elbowXml = `<Root><Branch><Branchname>${branch.replace(/&/g, '&amp;')}</Branchname>
+const elbowXml = `<Root><Branch><Branchname>${branch}</Branchname>
 <Node><NodeNumber>-1</NodeNumber><NodeName/><Endpoint>1</Endpoint><ComponentType>ELBO</ComponentType><ComponentRefNo>=1006649755/1762</ComponentRefNo><Position>616110.81 -1124291.00 100280.15</Position></Node>
 <Node><NodeNumber>1270</NodeNumber><NodeName/><Endpoint>0</Endpoint><ComponentType>ELBO</ComponentType><ComponentRefNo>=1006649755/1762</ComponentRefNo><Position>616110.81 -1124291.00 100432.15</Position></Node>
 </Branch></Root>`;
@@ -103,7 +116,8 @@ assert.equal(elbowRows[1].status, 'RESOLVED');
 const traceCsv = xmlNodeWiseTraceToCsv([...supportRows, ...elbowRows]);
 assert.match(traceCsv, /JsonNodeNo\(DTXR_PS\)/);
 assert.match(traceCsv, /JsonNodeNo\(DTXR_POS\)/);
-assert.match(traceCsv, /145 to 151/);
+assert.match(traceCsv, /DTXR_POS Value/);
+assert.match(traceCsv, /Branch Relationship/);
 const treeRows = buildEvidenceTreeCsvRows(supportTrace, { useDelimiter: true });
 assert.ok(treeRows.length >= supportTrace.length);
 const treeCsv = evidenceTreeToCsv(supportTrace, { useDelimiter: true });
