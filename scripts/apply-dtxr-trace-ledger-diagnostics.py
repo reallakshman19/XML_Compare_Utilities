@@ -11,6 +11,10 @@ def replace_once(source, old, new, label):
 
 
 source = PATH.read_text()
+if "function ledgerDecision(seed, ledgerRow, traceRows)" in source and "'dtxr-resolution-ledger'" in source:
+    print(f'already patched {PATH}')
+    raise SystemExit(0)
+
 source = replace_once(
     source,
     "const TRACE_TYPES = new Set(['dtxr-pos', 'dtxr-ps', 'support-match', 'dtxr-pos-sif-zero']);",
