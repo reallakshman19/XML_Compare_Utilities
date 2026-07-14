@@ -7,6 +7,7 @@ on:
       - 'tabs/xml-compare-universal-categorizer-runtime.js'
       - 'xml-compare/XmlCompareTabView.js'
       - 'tests/browser/xml-builder-viewport-*'
+      - 'tests/xml-compare-universal-viewport-*'
       - 'playwright.xml-builder-viewport.config.mjs'
       - 'package.json'
       - '.github/workflows/xml-builder-viewport-browser.yml'
@@ -17,6 +18,7 @@ on:
       - 'tabs/xml-compare-universal-categorizer-runtime.js'
       - 'xml-compare/XmlCompareTabView.js'
       - 'tests/browser/xml-builder-viewport-*'
+      - 'tests/xml-compare-universal-viewport-*'
       - 'playwright.xml-builder-viewport.config.mjs'
       - 'package.json'
       - '.github/workflows/xml-builder-viewport-browser.yml'
@@ -33,6 +35,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Run XML Builder viewport unit acceptance
+        run: npm run test:xml-builder-viewport
       - name: Install pinned Playwright test runner
         run: npm install --no-save --no-package-lock @playwright/test@1.54.1
       - name: Install Chromium
