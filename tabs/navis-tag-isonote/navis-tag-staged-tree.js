@@ -44,16 +44,82 @@ function appendPathStat(pathStats, path, value) {
   if (sample && !stat.samples.includes(sample) && stat.samples.length < 5) stat.samples.push(sample);
   pathStats.set(path, stat);
 }
-function inferBranch(node, byId, config) {
+function inferAncestor(node, byId, paths, typePattern, namePattern, role) {
   let current = node;
   while (current) {
-    const configured = firstConfiguredValue(current, config.jsonBranchPaths);
-    if (configured.value) return { value: text(configured.value), path: configured.path, nodeId: current.nodeId };
-    if (current.rawType === 'BRANCH') return { value: current.rawName, path: 'hierarchy:type=BRANCH', nodeId: current.nodeId };
-    if (/ASIM-.*\/B\d+$/i.test(current.rawName)) return { value: current.rawName, path: 'hierarchy:name', nodeId: current.nodeId };
+    const configured = firstConfiguredValue(current, paths);
+    if (configured.value) return { value: text(configured.value), path: configured.path, nodeId: current.nodeId, basis: `CONFIGURED_${role}_PATH` };
+    if (typePattern.test(current.rawType)) return { value: current.rawName, path: `hierarchy:type=${current.rawType}`, nodeId: current.nodeId, basis: `HIERARCHY_${role}_TYPE` };
+    if (namePattern && namePattern.test(current.rawName)) return { value: current.rawName, path: 'hierarchy:name', nodeId: current.nodeId, basis: `HIERARCHY_${role}_NAME` };
     current = current.parentNodeId ? byId.get(current.parentNodeId) : null;
   }
-  return { value: '', path: '', nodeId: '' };
+  return { value: '', path: '', nodeId: '', basis: 'NONE' };
+}
+function valueForIdentity(node, paths) {
+  for (const path of paths) {
+    const raw = node.values[path];
+    const identity = normalizeSupportIdentity(raw);
+    if (identity && supportRoot(identity)) return { path, raw, identity, root: supportRoot(identity) };
+  }
+  return null;
+}
+function numericValue(node, paths, unit = 'mm') {
+  for (const path of paths) {
+    const raw = node.values[path];
+    if (raw == null || raw === '') continue;
+    const number = Number(String(raw).match(/-?\d+(?:\.\d+)?/)?.[0]);
+    if (Number.isFinite(number)) return { path, raw, value: number * unitScaleToMm(unit, [number]), sourceUnit: unit };
+  }
+  return { path: '', raw: '', value: null, sourceUnit: unit };
+}
+function explicitLookupOd(bore, config) {
+  if (!config.boreToOdLookupEnabled || !Number.isFinite(bore.value)) return null;
+  const lookup = config.boreToOdLookup || {};
+  const keys = [text(bore.raw), String(bore.value), String(Number(bore.value))];
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(lookup, key)) continue;
+    const value = Number(lookup[key]);
+    if (Number.isFinite(value) && value > 0) return { value, key, lookupName: config.boreToOdLookupName || 'unnamed-explicit-lookup' };
+  }
+  return null;
+}
+function deriveFacts(node, config) {
+  const identity = valueForIdentity(node, config.jsonIdentityPaths);
+  const positionEvidence = firstConfiguredValue(node, config.jsonPositionPaths);
+  const position = parseCoordinate(positionEvidence.value, config.jsonUnits);
+  const directOd = numericValue(node, config.jsonOdPaths, config.jsonOdUnits);
+  const bore = numericValue(node, config.jsonBorePaths, config.jsonBoreUnits);
+  const lookupOd = directOd.value == null ? explicitLookupOd(bore, config) : null;
+  const odMm = directOd.value ?? lookupOd?.value ?? null;
+  return {
+    identityRaw: identity?.raw ?? '',
+    canonicalIdentity: identity?.identity || '',
+    supportRoot: identity?.root || '',
+    identityPath: identity?.path || '',
+    positionRaw: positionEvidence.value,
+    position,
+    positionPath: positionEvidence.path,
+    positionUnits: config.jsonUnits,
+    branch: node.resolvedBranch,
+    branchPath: node.resolvedBranchPath,
+    branchNodeId: node.resolvedBranchNodeId,
+    pipe: node.resolvedPipe,
+    pipePath: node.resolvedPipePath,
+    pipeNodeId: node.resolvedPipeNodeId,
+    zone: node.resolvedZone,
+    zonePath: node.resolvedZonePath,
+    zoneNodeId: node.resolvedZoneNodeId,
+    odMm,
+    odRaw: directOd.raw,
+    odPath: directOd.path,
+    odSource: directOd.value != null ? 'DIRECT_JSON_OD_PATH' : lookupOd ? 'EXPLICIT_BORE_TO_OD_LOOKUP' : 'NONE',
+    odLookupName: lookupOd?.lookupName || '',
+    odLookupKey: lookupOd?.key || '',
+    boreNominalMm: bore.value,
+    boreRaw: bore.raw,
+    borePath: bore.path,
+    boreUnits: config.jsonBoreUnits,
+  };
 }
 
 export function buildStagedJsonHierarchy(documents = [], inputConfig = {}) {
@@ -73,9 +139,35 @@ export function buildStagedJsonHierarchy(documents = [], inputConfig = {}) {
     const kind = Array.isArray(value) ? 'array' : 'object';
     if (kind === 'array') arrayCount += 1; else objectCount += 1;
     const node = {
-      nodeId, parentNodeId: meta.parentNodeId || '', sourceFile: meta.sourceFile, sourceDocumentIndex: meta.sourceDocumentIndex,
-      depth: meta.depth, jsonPath: meta.jsonPath, rawType, rawName, kind, raw: value, values, childNodeIds: [], ancestorIds: [...meta.ancestorIds],
-      hierarchyPath: [...meta.hierarchyPath, rawName].filter(Boolean), resolvedBranch: '', resolvedBranchPath: '', resolvedBranchNodeId: '',
+      nodeId,
+      parentNodeId: meta.parentNodeId || '',
+      sourceFile: meta.sourceFile,
+      sourceDocumentIndex: meta.sourceDocumentIndex,
+      depth: meta.depth,
+      jsonPath: meta.jsonPath,
+      rawType,
+      rawName,
+      kind,
+      raw: value,
+      attributes: isObject(value?.attributes) ? { ...value.attributes } : {},
+      properties: isObject(value?.properties) ? { ...value.properties } : {},
+      values,
+      childNodeIds: [],
+      ancestorIds: [...meta.ancestorIds],
+      hierarchyPath: [...meta.hierarchyPath, rawName].filter(Boolean),
+      resolvedBranch: '',
+      resolvedBranchPath: '',
+      resolvedBranchNodeId: '',
+      resolvedBranchBasis: 'NONE',
+      resolvedPipe: '',
+      resolvedPipePath: '',
+      resolvedPipeNodeId: '',
+      resolvedPipeBasis: 'NONE',
+      resolvedZone: '',
+      resolvedZonePath: '',
+      resolvedZoneNodeId: '',
+      resolvedZoneBasis: 'NONE',
+      derivedFacts: {},
     };
     nodes.push(node);
     byId.set(nodeId, node);
@@ -83,7 +175,16 @@ export function buildStagedJsonHierarchy(documents = [], inputConfig = {}) {
     for (const [path, fieldValue] of Object.entries(values)) appendPathStat(pathStats, path, fieldValue);
     for (const child of childEntries(value)) {
       const childPath = Array.isArray(value) ? `${meta.jsonPath}[${child.key}]` : `${meta.jsonPath}.${child.key}`;
-      visit(child.value, { parentNodeId: nodeId, sourceFile: meta.sourceFile, sourceDocumentIndex: meta.sourceDocumentIndex, depth: meta.depth + 1, jsonPath: childPath, key: child.key, ancestorIds: [...meta.ancestorIds, nodeId], hierarchyPath: node.hierarchyPath });
+      visit(child.value, {
+        parentNodeId: nodeId,
+        sourceFile: meta.sourceFile,
+        sourceDocumentIndex: meta.sourceDocumentIndex,
+        depth: meta.depth + 1,
+        jsonPath: childPath,
+        key: child.key,
+        ancestorIds: [...meta.ancestorIds, nodeId],
+        hierarchyPath: node.hierarchyPath,
+      });
     }
     return node;
   };
@@ -94,51 +195,81 @@ export function buildStagedJsonHierarchy(documents = [], inputConfig = {}) {
     visit(parsed, { parentNodeId: '', sourceFile, sourceDocumentIndex: index, depth: 0, jsonPath: '$', key: sourceFile, ancestorIds: [], hierarchyPath: [] });
   });
   for (const node of nodes) {
-    const branch = inferBranch(node, byId, config);
-    node.resolvedBranch = branch.value;
-    node.resolvedBranchPath = branch.path;
-    node.resolvedBranchNodeId = branch.nodeId;
+    const branch = inferAncestor(node, byId, config.jsonBranchPaths, /^(BRANCH|PIPE_BRANCH)$/i, /\/B\d+$/i, 'BRANCH');
+    const pipe = inferAncestor(node, byId, config.jsonPipePaths, /^(PIPE|PIPELINE|LINE|PIPING|PIPING_SYSTEM)$/i, null, 'PIPE');
+    const zone = inferAncestor(node, byId, config.jsonZonePaths, /^(ZONE|AREA|SITE|LOCATION)$/i, null, 'ZONE');
+    Object.assign(node, {
+      resolvedBranch: branch.value, resolvedBranchPath: branch.path, resolvedBranchNodeId: branch.nodeId, resolvedBranchBasis: branch.basis,
+      resolvedPipe: pipe.value, resolvedPipePath: pipe.path, resolvedPipeNodeId: pipe.nodeId, resolvedPipeBasis: pipe.basis,
+      resolvedZone: zone.value, resolvedZonePath: zone.path, resolvedZoneNodeId: zone.nodeId, resolvedZoneBasis: zone.basis,
+    });
   }
+  for (const node of nodes) node.derivedFacts = deriveFacts(node, config);
   const pathCatalogue = [...pathStats.values()].map((entry) => ({ ...entry, valueTypes: [...entry.valueTypes].sort() })).sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
-  const tree = { schema: STAGED_JSON_TREE_SCHEMA, config, nodes, roots, byId, pathCatalogue, summary: { documentCount: documents.length, nodeCount: nodes.length, rootCount: roots.length, objectCount, arrayCount, discoveredPathCount: pathStats.size } };
+  const tree = {
+    schema: STAGED_JSON_TREE_SCHEMA,
+    config,
+    nodes,
+    roots,
+    byId,
+    pathCatalogue,
+    summary: {
+      documentCount: documents.length,
+      nodeCount: nodes.length,
+      rootCount: roots.length,
+      objectCount,
+      arrayCount,
+      discoveredPathCount: pathStats.size,
+      branchResolvedNodeCount: nodes.filter((node) => node.resolvedBranch).length,
+      pipeResolvedNodeCount: nodes.filter((node) => node.resolvedPipe).length,
+      zoneResolvedNodeCount: nodes.filter((node) => node.resolvedZone).length,
+      identityFactNodeCount: nodes.filter((node) => node.derivedFacts.canonicalIdentity).length,
+      positionFactNodeCount: nodes.filter((node) => node.derivedFacts.position).length,
+    },
+  };
   tree.pathRecommendations = recommendStagedJsonPaths(tree);
   return tree;
 }
-function valueForIdentity(node, paths) {
-  for (const path of paths) {
-    const raw = node.values[path];
-    const identity = normalizeSupportIdentity(raw);
-    if (identity && supportRoot(identity)) return { path, raw, identity, root: supportRoot(identity) };
-  }
-  return null;
-}
-function numericValue(node, paths, unit = 'mm') {
-  for (const path of paths) {
-    const raw = node.values[path];
-    if (raw == null || raw === '') continue;
-    const number = Number(String(raw).match(/-?\d+(?:\.\d+)?/)?.[0]);
-    if (Number.isFinite(number)) return { path, raw, value: number * unitScaleToMm(unit, [number]) };
-  }
-  return { path: '', raw: '', value: null };
-}
+
 export function buildStagedSupportIndex(tree, inputConfig = {}) {
   const config = normalizeConfig({ ...(tree?.config || {}), ...inputConfig });
   const entries = [];
   const byIdentity = new Map();
   const byRoot = new Map();
   for (const node of tree?.nodes || []) {
-    const identity = valueForIdentity(node, config.jsonIdentityPaths);
-    if (!identity) continue;
-    const positionEvidence = firstConfiguredValue(node, config.jsonPositionPaths);
-    const position = parseCoordinate(positionEvidence.value, config.jsonUnits);
-    const od = numericValue(node, config.jsonOdPaths, config.jsonOdUnits);
-    const bore = numericValue(node, config.jsonBorePaths, 'mm');
+    const facts = node.derivedFacts || deriveFacts(node, config);
+    if (!facts.canonicalIdentity || !facts.supportRoot) continue;
     const entry = {
-      nodeId: node.nodeId, sourceFile: node.sourceFile, jsonPath: node.jsonPath, hierarchyPath: node.hierarchyPath, rawType: node.rawType, rawName: node.rawName,
-      identity: identity.identity, identityRaw: identity.raw, identityPath: identity.path, supportRoot: identity.root,
-      position, positionRaw: positionEvidence.value, positionPath: positionEvidence.path,
-      resolvedBranch: node.resolvedBranch, resolvedBranchPath: node.resolvedBranchPath,
-      odMm: od.value, odPath: od.path, boreMm: bore.value, borePath: bore.path, node,
+      nodeId: node.nodeId,
+      sourceFile: node.sourceFile,
+      jsonPath: node.jsonPath,
+      hierarchyPath: node.hierarchyPath,
+      ancestorIds: node.ancestorIds,
+      rawType: node.rawType,
+      rawName: node.rawName,
+      attributes: node.attributes,
+      identity: facts.canonicalIdentity,
+      identityRaw: facts.identityRaw,
+      identityPath: facts.identityPath,
+      supportRoot: facts.supportRoot,
+      position: facts.position,
+      positionRaw: facts.positionRaw,
+      positionPath: facts.positionPath,
+      resolvedBranch: facts.branch,
+      resolvedBranchPath: facts.branchPath,
+      resolvedPipe: facts.pipe,
+      resolvedPipePath: facts.pipePath,
+      resolvedZone: facts.zone,
+      resolvedZonePath: facts.zonePath,
+      odMm: facts.odMm,
+      odPath: facts.odPath,
+      odSource: facts.odSource,
+      odLookupName: facts.odLookupName,
+      boreNominalMm: facts.boreNominalMm,
+      borePath: facts.borePath,
+      boreUnits: facts.boreUnits,
+      derivedFacts: facts,
+      node,
     };
     entries.push(entry);
     if (!byIdentity.has(entry.identity)) byIdentity.set(entry.identity, []);
@@ -146,8 +277,27 @@ export function buildStagedSupportIndex(tree, inputConfig = {}) {
     if (!byRoot.has(entry.supportRoot)) byRoot.set(entry.supportRoot, []);
     byRoot.get(entry.supportRoot).push(entry);
   }
-  return { config, entries, byIdentity, byRoot, summary: { indexedNodeCount: entries.length, exactIdentityCount: byIdentity.size, supportRootCount: byRoot.size, positionedEntryCount: entries.filter((entry) => entry.position).length, odEntryCount: entries.filter((entry) => Number.isFinite(entry.odMm)).length } };
+  return {
+    config,
+    entries,
+    byIdentity,
+    byRoot,
+    summary: {
+      indexedNodeCount: entries.length,
+      exactIdentityCount: byIdentity.size,
+      supportRootCount: byRoot.size,
+      positionedEntryCount: entries.filter((entry) => entry.position).length,
+      branchResolvedEntryCount: entries.filter((entry) => entry.resolvedBranch).length,
+      pipeResolvedEntryCount: entries.filter((entry) => entry.resolvedPipe).length,
+      zoneResolvedEntryCount: entries.filter((entry) => entry.resolvedZone).length,
+      odEntryCount: entries.filter((entry) => Number.isFinite(entry.odMm)).length,
+      directOdEntryCount: entries.filter((entry) => entry.odSource === 'DIRECT_JSON_OD_PATH').length,
+      lookupOdEntryCount: entries.filter((entry) => entry.odSource === 'EXPLICIT_BORE_TO_OD_LOOKUP').length,
+      boreEntryCount: entries.filter((entry) => Number.isFinite(entry.boreNominalMm)).length,
+    },
+  };
 }
+
 function sampleRate(entry, predicate) { const samples = entry.samples || []; return samples.length ? samples.filter(predicate).length / samples.length : 0; }
 function rankedPaths(catalogue, scorer) {
   return catalogue.map((entry) => ({ path: entry.path, score: scorer(entry), count: entry.count, samples: entry.samples })).filter((entry) => entry.score > 0).sort((a, b) => b.score - a.score || b.count - a.count || a.path.localeCompare(b.path));
@@ -156,11 +306,14 @@ export function recommendStagedJsonPaths(tree) {
   const catalogue = tree?.pathCatalogue || [];
   const identity = rankedPaths(catalogue, (entry) => (/(?:^|\.)(NAME|PS|SUPPORT|TAG|DTXR_PS)$/i.test(entry.path) ? 40 : 0) + Math.round(sampleRate(entry, (sample) => /(?:^|[^A-Z0-9])(PS|SL)-?\d+/i.test(sample)) * 100));
   const position = rankedPaths(catalogue, (entry) => (/POS|COORD|POINT|CENTER/i.test(entry.path) ? 35 : 0) + Math.round(sampleRate(entry, (sample) => Boolean(parseCoordinate(sample, 'auto'))) * 100));
-  const branch = rankedPaths(catalogue, (entry) => (/OWNER|BRANCH|PIPE|LINE/i.test(entry.path) ? 35 : 0) + Math.round(sampleRate(entry, (sample) => /\/B\d+|ASIM-/i.test(sample)) * 100));
+  const branch = rankedPaths(catalogue, (entry) => (/OWNER|BRANCH/i.test(entry.path) ? 35 : 0) + Math.round(sampleRate(entry, (sample) => /\/B\d+/i.test(sample)) * 100));
+  const pipe = rankedPaths(catalogue, (entry) => (/PIPE|PIPELINE|LINE|PIPING/i.test(entry.path) ? 60 : 0) + Math.round(sampleRate(entry, (sample) => /ASIM-|PIPE|LINE/i.test(sample)) * 40));
+  const zone = rankedPaths(catalogue, (entry) => /ZONE|AREA|SITE|LOCATION/i.test(entry.path) ? 100 : 0);
   const od = rankedPaths(catalogue, (entry) => /(^|\.)(OD|OUTSIDE_DIAMETER|PIPE_OD|DIAMETER)$/i.test(entry.path) ? 100 : 0);
   const bore = rankedPaths(catalogue, (entry) => /(^|\.)(ABORE|LBORE|HBORE|BORE|NOMINAL_BORE)$/i.test(entry.path) ? 100 : 0);
-  return { identity, position, branch, od, bore };
+  return { identity, position, branch, pipe, zone, od, bore };
 }
+
 export function parseStagedJsonText(textValue, sourceFile = 'staged.json') {
   try { return { documents: [{ sourceFile, data: JSON.parse(String(textValue || '')) }], diagnostics: [] }; }
   catch (error) { return { documents: [], diagnostics: [{ severity: 'ERROR', code: 'STAGED_JSON_PARSE_FAILED', sourceFile, message: error?.message || String(error) }] }; }

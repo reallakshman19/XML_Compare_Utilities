@@ -2,7 +2,7 @@ import { DEFAULT_NAVIS_TAG_ISONOTE_CONFIG, normalizeConfig } from './navis-tag-i
 import { buildSupportTableRecords, parseSupportTableText, rowsToCsv } from './navis-tag-table-source.js';
 import { buildStagedJsonHierarchy, buildStagedSupportIndex } from './navis-tag-staged-tree.js';
 import { parseNavisTagXml } from './navis-tag-xml-parser.js';
-import { buildIdentityNodeTrace } from './navis-tag-identity-trace.js';
+import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from './navis-tag-identity-trace.js';
 import { resolveNavisTagIsonotes } from './navis-tag-proximity-engine.js';
 import { buildNavisTagIsonoteReadiness } from './navis-tag-readiness.js';
 import { ensureNavisTagIsonoteStyle } from './navis-tag-isonote-ui-style.js';
@@ -10,7 +10,7 @@ import { renderNavisTagIsonotePane } from './navis-tag-isonote-ui-view.js';
 import { downloadNavisTagFile, readNavisTagStagedFile, readNavisTagTableFile } from './navis-tag-isonote-ui-io.js';
 
 const POPUP_TITLE_ID = 'navis-tag-isonote-title';
-const CONFIG_STORE = 'navisTagIsonote.config.v2';
+const CONFIG_STORE = 'navisTagIsonote.config.v3';
 const ACTIVATE = 'click';
 function readConfig() { try { return normalizeConfig(JSON.parse(localStorage.getItem(CONFIG_STORE) || '{}')); } catch { return normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG); } }
 function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {} }
@@ -23,7 +23,12 @@ function createState() {
 }
 function collectConfig(root, state) {
   const next = { ...state.config };
-  root.querySelectorAll('[data-nti-config]').forEach((input) => { const key = input.dataset.ntiConfig; next[key] = input.type === 'number' ? Number(input.value) : input.value; });
+  root.querySelectorAll('[data-nti-config]').forEach((input) => {
+    const key = input.dataset.ntiConfig;
+    if (input.type === 'number') next[key] = Number(input.value);
+    else if (input.type === 'checkbox') next[key] = input.checked;
+    else next[key] = input.value;
+  });
   root.querySelectorAll('[data-nti-path-select]').forEach((select) => {
     const selected = [...select.selectedOptions].map((option) => option.value).filter(Boolean);
     if (selected.length) next[select.dataset.ntiPathSelect] = selected;
@@ -41,7 +46,15 @@ function buildAll(state) {
   state.stagedIndex = buildStagedSupportIndex(state.tree, state.config);
   state.identityTrace = buildIdentityNodeTrace(state.tableBuild.records, state.stagedIndex, state.config);
   state.navisParse = parseNavisTagXml(state.navisText, state.config);
-  state.readiness = buildNavisTagIsonoteReadiness({ config: state.config, tableBuild: state.tableBuild, tree: state.tree, stagedIndex: state.stagedIndex, identityTrace: state.identityTrace, navisParse: state.navisParse, hasSourceText: Boolean(state.tableText || state.navisText || state.stagedDocuments.length) });
+  state.readiness = buildNavisTagIsonoteReadiness({
+    config: state.config,
+    tableBuild: state.tableBuild,
+    tree: state.tree,
+    stagedIndex: state.stagedIndex,
+    identityTrace: state.identityTrace,
+    navisParse: state.navisParse,
+    hasSourceText: Boolean(state.tableText || state.navisText || state.stagedDocuments.length),
+  });
   state.audit = null;
   state.status = `${state.readiness.status}: ${state.tree.summary.nodeCount} JSON nodes; ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
 }
@@ -49,7 +62,8 @@ function runResolution(state) {
   if (!state.identityTrace || !state.navisParse || !state.readiness) buildAll(state);
   if (!state.readiness.canResolve) throw new Error(`Resolution blocked: ${state.readiness.blockers.map((item) => item.code).join(', ') || 'readiness failed'}`);
   state.audit = resolveNavisTagIsonotes(state.tableBuild, state.identityTrace, state.navisParse, state.config);
-  state.status = `ISONOTE resolution: ${state.audit.summary.resolvedCount} resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved.`;
+  state.identityTrace = attachNavisResolutionToIdentityTrace(state.identityTrace, state.audit);
+  state.status = `ISONOTE resolution: ${state.audit.summary.resolvedCount} resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved. End-to-end trace refreshed for ${state.identityTrace.summary.rowCount} table rows.`;
 }
 function tabDataState(state, id) {
   const has = {
@@ -76,7 +90,16 @@ function downloadAudit(state) {
     if (value instanceof Map) return [...value.entries()];
     return value;
   };
-  downloadNavisTagFile('navis-tag-support-isonote-audit.json', JSON.stringify({ audit: state.audit, readiness: state.readiness, hierarchySummary: state.tree?.summary, pathCatalogue: state.tree?.pathCatalogue, pathRecommendations: state.tree?.pathRecommendations, identityTrace: state.identityTrace, navisSummary: state.navisParse?.summary, sourceNames: state.sourceNames }, replacer, 2), 'application/json');
+  downloadNavisTagFile('navis-tag-support-isonote-audit.json', JSON.stringify({
+    audit: state.audit,
+    readiness: state.readiness,
+    hierarchySummary: state.tree?.summary,
+    pathCatalogue: state.tree?.pathCatalogue,
+    pathRecommendations: state.tree?.pathRecommendations,
+    identityTrace: state.identityTrace,
+    navisSummary: state.navisParse?.summary,
+    sourceNames: state.sourceNames,
+  }, replacer, 2), 'application/json');
 }
 function render(root, state) {
   const tabs = [
@@ -87,8 +110,9 @@ function render(root, state) {
   root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.activeTab = button.dataset.ntiTab; render(root, state); }));
   root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveConfig(state.config); state.status = 'Mapping config saved.'; render(root, state); });
   root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); buildAll(state); } catch (error) { state.status = error?.message || String(error); } render(root, state); });
-  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'augmented'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
+  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'identity'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
   root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
+  root.querySelector('[data-nti-action="download-trace"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-end-to-end-identity-trace.csv', rowsToCsv(state.identityTrace?.rows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-audit"]')?.addEventListener(ACTIVATE, () => downloadAudit(state));
   root.querySelector('[data-nti-action="download-ambiguous"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-ambiguous.csv', rowsToCsv(state.audit?.ambiguousRows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-rejected"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-rejected.csv', rowsToCsv(state.audit?.rejectedRows || []), 'text/csv'));
@@ -116,7 +140,7 @@ function mountPopup(root, onClose) {
   ensureNavisTagIsonoteStyle(root?.ownerDocument || document);
   const modal = document.createElement('div'); modal.className = 'nti-backdrop';
   const dialog = document.createElement('section'); dialog.className = 'psmap-card nti-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
-  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Canonical staged JSON hierarchy, configurable identity/position mapping, identity-wise node trace, and Navis comment proximity.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
+  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Canonical staged JSON hierarchy, configurable identity/position mapping, end-to-end identity node trace, and Navis comment proximity.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
   modal.appendChild(dialog); (document.body || root).appendChild(modal); renderNavisTagIsonoteTab(dialog.querySelector('[data-nti-host]'));
   modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal || event.target.closest?.('[data-nti-close="1"]')) { modal.remove(); onClose(); } });
   return modal;

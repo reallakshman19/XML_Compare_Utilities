@@ -1,8 +1,8 @@
-export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v2';
+export const NAVIS_TAG_ISONOTE_AUDIT_SCHEMA = 'navis-tag-isonote-audit/v3';
 export const NAVIS_TAG_EVIDENCE_SCHEMA = 'navis-tag-evidence/v2';
-export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v2';
-export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v2';
-export const NAVIS_TAG_READINESS_SCHEMA = 'navis-tag-isonote-readiness/v1';
+export const STAGED_JSON_TREE_SCHEMA = 'staged-json-canonical-tree/v3';
+export const IDENTITY_NODE_TRACE_SCHEMA = 'navis-tag-identity-node-trace/v3';
+export const NAVIS_TAG_READINESS_SCHEMA = 'navis-tag-isonote-readiness/v2';
 
 export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   tableIdentityColumns: ['Name of the element'],
@@ -17,10 +17,13 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   jsonIdentityPaths: ['attributes.NAME', 'name'],
   jsonPositionPaths: ['attributes.SUPPORTCOORD', 'attributes.POSI', 'attributes.POS', 'attributes.APOS', 'attributes.LPOS'],
   jsonBranchPaths: ['attributes.OWNER', 'attributes.BRANCH', 'attributes.BRANCHNAME'],
+  jsonPipePaths: ['attributes.PIPE', 'attributes.PIPELINE', 'attributes.LINE', 'attributes.LINE_ID', 'attributes.PIPING_SYSTEM'],
+  jsonZonePaths: ['attributes.ZONE', 'attributes.AREA', 'attributes.SITE', 'attributes.LOCATION'],
   jsonOdPaths: ['attributes.OUTSIDE_DIAMETER', 'attributes.OD', 'attributes.PIPE_OD'],
   jsonBorePaths: ['attributes.ABORE', 'attributes.LBORE', 'attributes.HBORE', 'attributes.BORE'],
   jsonUnits: 'auto',
   jsonOdUnits: 'mm',
+  jsonBoreUnits: 'mm',
   navisUnits: 'auto',
   supportCoordinateSource: 'prefer-table-fallback-json',
   eastingToleranceMm: 100,
@@ -29,6 +32,9 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   coordinateDisagreementToleranceMm: 100,
   useOdHalfAlternatives: true,
   ambiguityScoreGap: 15,
+  boreToOdLookupEnabled: false,
+  boreToOdLookupName: '',
+  boreToOdLookup: {},
 });
 
 export function text(value) { return String(value ?? '').trim(); }
@@ -115,6 +121,20 @@ export function parseCoordinate(raw, unit = 'auto') {
   };
 }
 
+function normalizeLookup(value) {
+  let source = value;
+  if (typeof source === 'string') {
+    try { source = JSON.parse(source || '{}'); } catch { return {}; }
+  }
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  const output = {};
+  for (const [key, raw] of Object.entries(source)) {
+    const number = Number(raw);
+    if (text(key) && Number.isFinite(number) && number > 0) output[text(key)] = number;
+  }
+  return output;
+}
+
 export function normalizeConfig(input = {}) {
   const defaults = DEFAULT_NAVIS_TAG_ISONOTE_CONFIG;
   return {
@@ -125,6 +145,8 @@ export function normalizeConfig(input = {}) {
     jsonIdentityPaths: list(input.jsonIdentityPaths, defaults.jsonIdentityPaths),
     jsonPositionPaths: list(input.jsonPositionPaths, defaults.jsonPositionPaths),
     jsonBranchPaths: list(input.jsonBranchPaths, defaults.jsonBranchPaths),
+    jsonPipePaths: list(input.jsonPipePaths, defaults.jsonPipePaths),
+    jsonZonePaths: list(input.jsonZonePaths, defaults.jsonZonePaths),
     jsonOdPaths: list(input.jsonOdPaths, defaults.jsonOdPaths),
     jsonBorePaths: list(input.jsonBorePaths, defaults.jsonBorePaths),
     eastingToleranceMm: finiteNumber(input.eastingToleranceMm, defaults.eastingToleranceMm),
@@ -133,6 +155,9 @@ export function normalizeConfig(input = {}) {
     coordinateDisagreementToleranceMm: finiteNumber(input.coordinateDisagreementToleranceMm, defaults.coordinateDisagreementToleranceMm),
     ambiguityScoreGap: finiteNumber(input.ambiguityScoreGap, defaults.ambiguityScoreGap),
     useOdHalfAlternatives: input.useOdHalfAlternatives !== false,
+    boreToOdLookupEnabled: input.boreToOdLookupEnabled === true || input.boreToOdLookupEnabled === 'true',
+    boreToOdLookupName: text(input.boreToOdLookupName),
+    boreToOdLookup: normalizeLookup(input.boreToOdLookup),
   };
 }
 
