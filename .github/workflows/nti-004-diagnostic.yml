@@ -1,0 +1,31 @@
+name: NTI-004 Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  navis-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Navis core
+        run: node tests/navis-tag-isonote.test.js
+      - name: Navis benchmark parser
+        run: node tests/navis-tag-isonote-benchmark.test.js
+      - name: Navis readiness
+        run: node tests/navis-tag-isonote-readiness.test.js
+      - name: Navis contracts
+        run: node tests/navis-tag-isonote-contracts-v3.test.js
+      - name: Navis refinement
+        run: node tests/navis-tag-isonote-index-refinement.test.js
+      - name: Navis static
+        run: node tests/navis-tag-isonote-static.test.js
+      - name: Utility layout aggregate
+        run: node tests/psnm-utility-layout-stabilizer.test.js
