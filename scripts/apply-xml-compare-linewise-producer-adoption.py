@@ -14,7 +14,7 @@ def replace_once(path, old, new):
 
 def replace_regex_once(path, pattern, replacement):
     text = path.read_text(encoding="utf-8")
-    updated, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    updated, count = re.subn(pattern, lambda _match: replacement, text, count=1, flags=re.MULTILINE)
     if count != 1:
         raise RuntimeError(f"Expected one regex anchor in {path}, found {count}: {pattern}")
     path.write_text(updated, encoding="utf-8")
