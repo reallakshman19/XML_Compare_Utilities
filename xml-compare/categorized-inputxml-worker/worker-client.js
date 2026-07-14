@@ -61,32 +61,38 @@ function requestTimeout(options = {}) {
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-export function createCategorizedInputXmlWorkerClient(options = {}) {
-  const worker = requireWorker(options.worker || createCategorizedInputXmlBrowserWorker(options));
-  const nextRequestId = options.requestIdFactory || createWorkerRequestIdFactory(options.clientId || 'cixw');
-  const pending = new Map();
-  let closed = false;
+class WorkerClientController {
+  constructor(options = {}) {
+    this.worker = requireWorker(options.worker || createCategorizedInputXmlBrowserWorker(options));
+    this.nextRequestId = options.requestIdFactory || createWorkerRequestIdFactory(options.clientId || 'cixw');
+    this.pending = new Map();
+    this.closed = false;
+    this.onMessage = this.onMessage.bind(this);
+    this.onWorkerError = this.onWorkerError.bind(this);
+    this.worker.addEventListener('message', this.onMessage);
+    this.worker.addEventListener('error', this.onWorkerError);
+  }
 
-  function finish(requestId, callback) {
-    const entry = pending.get(requestId);
+  finish(requestId, callback) {
+    const entry = this.pending.get(requestId);
     if (!entry) return false;
-    pending.delete(requestId);
+    this.pending.delete(requestId);
     cleanupEntry(entry);
     callback(entry);
     return true;
   }
 
-  function postCancel(requestId, reason) {
+  postCancel(requestId, reason) {
     try {
-      worker.postMessage(createWorkerCancel({ requestId, reason }));
+      this.worker.postMessage(createWorkerCancel({ requestId, reason }));
     } catch {
-      // Client rejection is authoritative even when a terminating worker cannot receive cancellation.
+      // Local rejection remains authoritative when a terminating worker cannot receive cancellation.
     }
   }
 
-  function rejectPending(requestId, code, message, reason = code) {
-    return finish(requestId, (entry) => {
-      postCancel(requestId, reason);
+  rejectPending(requestId, code, message, reason = code) {
+    return this.finish(requestId, (entry) => {
+      this.postCancel(requestId, reason);
       entry.reject(clientError(code, message, {
         operation: entry.operation,
         requestId,
@@ -94,104 +100,136 @@ export function createCategorizedInputXmlWorkerClient(options = {}) {
     });
   }
 
-  function onMessage(event = {}) {
+  onMessage(event = {}) {
     const message = event.data;
     const validation = validateWorkerResponse(message);
-    if (!validation.valid) {
-      const requestId = message?.requestId || '';
-      finish(requestId, (entry) => entry.reject(clientError(
-        'WORKER_RESPONSE_INVALID', validation.message, { operation: entry.operation, requestId },
-      )));
-      return;
-    }
-    finish(message.requestId, (entry) => {
+    if (!validation.valid) return this.rejectInvalidResponse(message, validation);
+    this.finish(message.requestId, (entry) => {
       if (message.ok) entry.resolve(message.result);
       else entry.reject(responseError(message));
     });
   }
 
-  function rejectAll(code, message) {
-    for (const requestId of [...pending.keys()]) {
-      finish(requestId, (entry) => entry.reject(clientError(code, message, {
+  rejectInvalidResponse(message = {}, validation = {}) {
+    const requestId = message?.requestId || '';
+    this.finish(requestId, (entry) => entry.reject(clientError(
+      'WORKER_RESPONSE_INVALID', validation.message, { operation: entry.operation, requestId },
+    )));
+  }
+
+  rejectAll(code, message) {
+    for (const requestId of [...this.pending.keys()]) {
+      this.finish(requestId, (entry) => entry.reject(clientError(code, message, {
         operation: entry.operation,
         requestId,
       })));
     }
   }
 
-  function onWorkerError(event = {}) {
-    rejectAll('WORKER_RUNTIME_ERROR', event.message || 'Browser worker raised an error.');
+  onWorkerError(event = {}) {
+    this.rejectAll('WORKER_RUNTIME_ERROR', event.message || 'Browser worker raised an error.');
   }
 
-  function configureAbort(entry, signal) {
+  configureAbort(entry, signal) {
     if (!signal) return;
     entry.signal = signal;
-    entry.abortListener = () => rejectPending(
+    entry.abortListener = () => this.rejectPending(
       entry.requestId, 'REQUEST_ABORTED', 'Worker request was aborted.', signal.reason || 'abort-signal',
     );
     signal.addEventListener('abort', entry.abortListener, { once: true });
   }
 
-  function configureTimeout(entry, timeoutMs) {
+  configureTimeout(entry, timeoutMs) {
     if (!timeoutMs) return;
-    entry.timeoutId = setTimeout(() => rejectPending(
+    entry.timeoutId = setTimeout(() => this.rejectPending(
       entry.requestId, 'REQUEST_TIMEOUT', `Worker request timed out after ${timeoutMs} ms.`, 'timeout',
     ), timeoutMs);
   }
 
-  function request(operation, payload = null, requestOptions = {}) {
-    if (closed) return Promise.reject(clientError('CLIENT_CLOSED', 'Worker client is closed.', { operation }));
-    if (!isWorkerOperation(operation)) return Promise.reject(clientError('OPERATION_UNKNOWN', `Unsupported worker operation: ${operation}`, { operation }));
-    if (requestOptions.signal?.aborted) return Promise.reject(clientError('REQUEST_ABORTED', 'Worker request was aborted before dispatch.', { operation }));
-    const requestId = requestOptions.requestId || nextRequestId();
-    if (pending.has(requestId)) return Promise.reject(clientError('REQUEST_DUPLICATE', 'Request ID is already pending.', { operation, requestId }));
-    return new Promise((resolve, reject) => {
-      const entry = { requestId, operation, resolve, reject, signal: null, abortListener: null, timeoutId: null };
-      pending.set(requestId, entry);
-      configureAbort(entry, requestOptions.signal);
-      configureTimeout(entry, requestTimeout(requestOptions));
-      try {
-        worker.postMessage(createWorkerRequest({ requestId, operation, payload }));
-      } catch (error) {
-        finish(requestId, () => reject(clientError('WORKER_POST_FAILED', error.message, { operation, requestId })));
-      }
+  validateRequest(operation, requestOptions = {}) {
+    if (this.closed) return clientError('CLIENT_CLOSED', 'Worker client is closed.', { operation });
+    if (!isWorkerOperation(operation)) return clientError('OPERATION_UNKNOWN', `Unsupported worker operation: ${operation}`, { operation });
+    if (requestOptions.signal?.aborted) return clientError('REQUEST_ABORTED', 'Worker request was aborted before dispatch.', { operation });
+    return null;
+  }
+
+  request(operation, payload = null, requestOptions = {}) {
+    const invalid = this.validateRequest(operation, requestOptions);
+    if (invalid) return Promise.reject(invalid);
+    const requestId = requestOptions.requestId || this.nextRequestId();
+    if (this.pending.has(requestId)) return Promise.reject(clientError(
+      'REQUEST_DUPLICATE', 'Request ID is already pending.', { operation, requestId },
+    ));
+    return new Promise((resolve, reject) => this.dispatchRequest(
+      { requestId, operation, payload, requestOptions, resolve, reject },
+    ));
+  }
+
+  dispatchRequest(input) {
+    const entry = {
+      requestId: input.requestId,
+      operation: input.operation,
+      resolve: input.resolve,
+      reject: input.reject,
+      signal: null,
+      abortListener: null,
+      timeoutId: null,
+    };
+    this.pending.set(input.requestId, entry);
+    this.configureAbort(entry, input.requestOptions.signal);
+    this.configureTimeout(entry, requestTimeout(input.requestOptions));
+    try {
+      this.worker.postMessage(createWorkerRequest(input));
+    } catch (error) {
+      this.finish(input.requestId, () => input.reject(clientError(
+        'WORKER_POST_FAILED', error.message, input,
+      )));
+    }
+  }
+
+  close(options = {}) {
+    if (this.closed) return;
+    this.closed = true;
+    this.worker.removeEventListener('message', this.onMessage);
+    this.worker.removeEventListener('error', this.onWorkerError);
+    this.rejectAll('CLIENT_CLOSED', 'Worker client was closed.');
+    if (options.terminate !== false && typeof this.worker.terminate === 'function') this.worker.terminate();
+  }
+
+  publicApi() {
+    const request = this.request.bind(this);
+    return Object.freeze({
+      request,
+      categorized: categorizedApi(request),
+      changeSet: changeSetApi(request),
+      close: this.close.bind(this),
+      pendingCount: () => this.pending.size,
+      isClosed: () => this.closed,
     });
   }
+}
 
-  function close(closeOptions = {}) {
-    if (closed) return;
-    closed = true;
-    worker.removeEventListener('message', onMessage);
-    worker.removeEventListener('error', onWorkerError);
-    rejectAll('CLIENT_CLOSED', 'Worker client was closed.');
-    if (closeOptions.terminate !== false && typeof worker.terminate === 'function') worker.terminate();
-  }
-
-  worker.addEventListener('message', onMessage);
-  worker.addEventListener('error', onWorkerError);
-
-  const categorized = Object.freeze({
-    getCapabilities: (requestOptions) => request('categorized.capabilities', null, requestOptions),
-    validate: (serviceRequest, requestOptions) => request('categorized.validate', serviceRequest, requestOptions),
-    inspect: (serviceRequest, requestOptions) => request('categorized.inspect', serviceRequest, requestOptions),
-    serialize: (serviceRequest, requestOptions) => request('categorized.serialize', serviceRequest, requestOptions),
-    exportSourceInputXml: (serviceRequest, requestOptions) => request('categorized.exportSourceInputXml', serviceRequest, requestOptions),
-  });
-  const changeSet = Object.freeze({
-    getCapabilities: (requestOptions) => request('changeset.capabilities', null, requestOptions),
-    derive: (serviceRequest, requestOptions) => request('changeset.derive', serviceRequest, requestOptions),
-    validate: (value, requestOptions) => request('changeset.validate', { changeSet: value }, requestOptions),
-    apply: (serviceRequest, requestOptions) => request('changeset.apply', serviceRequest, requestOptions),
-  });
-
+function categorizedApi(request) {
   return Object.freeze({
-    request,
-    categorized,
-    changeSet,
-    close,
-    pendingCount: () => pending.size,
-    isClosed: () => closed,
+    getCapabilities: (options) => request('categorized.capabilities', null, options),
+    validate: (value, options) => request('categorized.validate', value, options),
+    inspect: (value, options) => request('categorized.inspect', value, options),
+    serialize: (value, options) => request('categorized.serialize', value, options),
+    exportSourceInputXml: (value, options) => request('categorized.exportSourceInputXml', value, options),
   });
+}
+
+function changeSetApi(request) {
+  return Object.freeze({
+    getCapabilities: (options) => request('changeset.capabilities', null, options),
+    derive: (value, options) => request('changeset.derive', value, options),
+    validate: (value, options) => request('changeset.validate', { changeSet: value }, options),
+    apply: (value, options) => request('changeset.apply', value, options),
+  });
+}
+
+export function createCategorizedInputXmlWorkerClient(options = {}) {
+  return new WorkerClientController(options).publicApi();
 }
 
 export const _test = Object.freeze({
@@ -200,4 +238,7 @@ export const _test = Object.freeze({
   responseError,
   cleanupEntry,
   requestTimeout,
+  WorkerClientController,
+  categorizedApi,
+  changeSetApi,
 });
