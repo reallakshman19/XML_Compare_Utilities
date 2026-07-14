@@ -1,0 +1,21 @@
+name: XML CII Dual Trace Diagnostic
+
+on:
+  push:
+    branches: [owner/xml-cii-dual-dtxr-trace]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dual-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run dual DTXR trace regression
+        run: node tests/xml-cii-xml-node-wise-trace.test.js
