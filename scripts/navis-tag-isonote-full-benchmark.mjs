@@ -6,6 +6,7 @@ import process from 'node:process';
 import { normalizeConfig } from '../tabs/navis-tag-isonote/navis-tag-isonote-contracts.js';
 import { parseSupportTableText, buildSupportTableRecords, rowsToCsv } from '../tabs/navis-tag-isonote/navis-tag-table-source.js';
 import { buildStagedJsonHierarchy, buildStagedSupportIndex } from '../tabs/navis-tag-isonote/navis-tag-staged-tree.js';
+import { refineStagedSupportIndex } from '../tabs/navis-tag-isonote/navis-tag-index-refinement.js';
 import { parseNavisTagXml } from '../tabs/navis-tag-isonote/navis-tag-xml-parser.js';
 import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from '../tabs/navis-tag-isonote/navis-tag-identity-trace.js';
 import { buildNavisTagIsonoteReadiness } from '../tabs/navis-tag-isonote/navis-tag-readiness.js';
@@ -34,23 +35,24 @@ async function walkJson(root) {
   return files;
 }
 async function sha256(file) { return createHash('sha256').update(await readFile(file)).digest('hex'); }
-function topPaths(recommendations, limit) { return (recommendations || []).slice(0, limit).map((item) => item.path); }
-function calibratedConfig(initialTree) {
-  const rec = initialTree.pathRecommendations || {};
+function asim1836Profile() {
   return normalizeConfig({
+    profileId: 'asim1836-managed-stage-2/v1',
     tableIdentityColumns: ['Name of the element'],
     tableIdentityMode: 'first-non-empty',
+    tableReferenceColumns: ['Reference of the element'],
     tablePipeColumns: ['PIPE'],
     tablePositionMode: 'single',
     tablePositionColumn: 'POS',
     tableUnits: 'mm',
-    jsonIdentityPaths: topPaths(rec.identity, 12),
-    jsonPositionPaths: topPaths(rec.position, 20),
-    jsonBranchPaths: topPaths(rec.branch, 12),
-    jsonPipePaths: topPaths(rec.pipe, 12),
-    jsonZonePaths: topPaths(rec.zone, 8),
-    jsonOdPaths: topPaths(rec.od, 12),
-    jsonBorePaths: topPaths(rec.bore, 12),
+    jsonIdentityPaths: ['attributes.STEX', 'attributes.NAME'],
+    jsonReferencePaths: ['attributes.REF'],
+    jsonPositionPaths: ['attributes.APOS', 'attributes.POS', 'attributes.POSI', 'attributes.LPOS'],
+    jsonBranchPaths: ['attributes.OWNER'],
+    jsonPipePaths: [],
+    jsonZonePaths: [],
+    jsonOdPaths: [],
+    jsonBorePaths: ['attributes.LBORE', 'attributes.ABORE', 'attributes.bore'],
     jsonUnits: 'auto',
     jsonOdUnits: 'mm',
     jsonBoreUnits: 'mm',
@@ -61,12 +63,11 @@ function calibratedConfig(initialTree) {
     elevationToleranceMm: 100,
     coordinateDisagreementToleranceMm: 100,
     useOdHalfAlternatives: true,
+    ambiguityScoreGap: 15,
     boreToOdLookupEnabled: false,
   });
 }
-function simplifyTree(tree) {
-  return { schema: tree.schema, summary: tree.summary, pathCatalogue: tree.pathCatalogue, pathRecommendations: tree.pathRecommendations };
-}
+function simplifyTree(tree) { return { schema: tree.schema, summary: tree.summary, pathCatalogue: tree.pathCatalogue, pathRecommendations: tree.pathRecommendations }; }
 function simplifyAudit(value) {
   return JSON.parse(JSON.stringify(value, (key, item) => {
     if (['raw', 'node', 'selectedEntry', 'tableRecord', 'byId', 'byIdentity', 'byRoot'].includes(key)) return undefined;
@@ -81,6 +82,69 @@ function decisionReasonCounts(decisions) {
     counts[key] = (counts[key] || 0) + 1;
   }
   return counts;
+}
+function bounds(points) {
+  if (!points.length) return null;
+  const axes = ['x', 'y', 'z'];
+  const result = {};
+  for (const axis of axes) {
+    const values = points.map((point) => Number(point?.[axis])).filter(Number.isFinite);
+    result[axis] = values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
+  }
+  return result;
+}
+function axisGap(a, b) {
+  if (!a || !b) return null;
+  if (a.max < b.min) return b.min - a.max;
+  if (b.max < a.min) return a.min - b.max;
+  return 0;
+}
+function coordinateFrameAudit(stagedEntries, navisTags, config) {
+  const stagedPoints = stagedEntries.map((entry) => entry.position).filter(Boolean);
+  const navisPoints = navisTags.map((tag) => tag.position).filter(Boolean);
+  const stagedBounds = bounds(stagedPoints);
+  const navisBounds = bounds(navisPoints);
+  const axisGapsMm = stagedBounds && navisBounds ? {
+    easting: axisGap(stagedBounds.x, navisBounds.x),
+    northing: axisGap(stagedBounds.y, navisBounds.y),
+    elevation: axisGap(stagedBounds.z, navisBounds.z),
+  } : null;
+  let minimumHorizontalDistanceMm = null;
+  let minimum3dDistanceMm = null;
+  let nearestPair = null;
+  for (const entry of stagedEntries) {
+    if (!entry.position) continue;
+    for (const tag of navisTags) {
+      if (!tag.position) continue;
+      const dx = entry.position.x - tag.position.x;
+      const dy = entry.position.y - tag.position.y;
+      const dz = entry.position.z - tag.position.z;
+      const horizontal = Math.hypot(dx, dy);
+      const distance3d = Math.hypot(dx, dy, dz);
+      if (minimum3dDistanceMm == null || distance3d < minimum3dDistanceMm) {
+        minimum3dDistanceMm = distance3d;
+        minimumHorizontalDistanceMm = horizontal;
+        nearestPair = { stagedIdentity: entry.identity, stagedJsonPath: entry.jsonPath, navisEvidenceId: tag.evidenceId, deltaE: dx, deltaN: dy, deltaEl: dz };
+      }
+    }
+  }
+  const compatible = Boolean(axisGapsMm
+    && axisGapsMm.easting <= config.eastingToleranceMm
+    && axisGapsMm.northing <= config.northingToleranceMm
+    && axisGapsMm.elevation <= config.elevationToleranceMm);
+  return {
+    status: stagedPoints.length && navisPoints.length ? compatible ? 'EXTENTS_OVERLAP_WITHIN_TOLERANCE' : 'DISJOINT_COORDINATE_EXTENTS' : 'INSUFFICIENT_COORDINATE_EVIDENCE',
+    compatible,
+    stagedPointCount: stagedPoints.length,
+    navisPointCount: navisPoints.length,
+    stagedBounds,
+    navisBounds,
+    axisGapsMm,
+    minimumHorizontalDistanceMm,
+    minimum3dDistanceMm,
+    nearestPair,
+    configuredTolerancesMm: { easting: config.eastingToleranceMm, northing: config.northingToleranceMm, elevation: config.elevationToleranceMm },
+  };
 }
 
 const options = args(process.argv);
@@ -104,14 +168,17 @@ if (!jsonFiles.length) throw new Error('No JSON files found in staged benchmark 
 if (parseFailures.length) throw new Error(`Failed to parse ${parseFailures.length}/${jsonFiles.length} staged JSON files.`);
 
 const parsedTable = parseSupportTableText(tableText);
-const initialTree = buildStagedJsonHierarchy(documents, {});
-const config = calibratedConfig(initialTree);
+const config = asim1836Profile();
 const tableBuild = buildSupportTableRecords(parsedTable, config);
 const tree = buildStagedJsonHierarchy(documents, config);
-const stagedIndex = buildStagedSupportIndex(tree, config);
+const rawStagedIndex = buildStagedSupportIndex(tree, config);
+const stagedIndex = refineStagedSupportIndex(rawStagedIndex, tree, config);
 const initialTrace = buildIdentityNodeTrace(tableBuild.records, stagedIndex, config);
 const navisParse = parseNavisTagXml(navisText, config);
+const frameAudit = coordinateFrameAudit(stagedIndex.entries, navisParse.tags, config);
 const readiness = buildNavisTagIsonoteReadiness({ config, tableBuild, tree, stagedIndex, identityTrace: initialTrace, navisParse, hasSourceText: true });
+if (!frameAudit.compatible) readiness.warnings.push({ severity: 'WARN', code: 'COORDINATE_FRAME_EXTENTS_DISJOINT', message: 'Staged support and Navis tag coordinate extents do not overlap within configured tolerances.', context: frameAudit });
+if (!readiness.blockers.length && readiness.warnings.length) readiness.status = 'READY_WITH_WARNINGS';
 const audit = resolveNavisTagIsonotes(tableBuild, initialTrace, navisParse, config);
 const finalTrace = attachNavisResolutionToIdentityTrace(initialTrace, audit);
 
@@ -133,19 +200,23 @@ const sourceHashes = {
   stagedZipSha256: stagedZip ? await sha256(stagedZip) : '',
 };
 const coverage = {
-  schema: 'navis-tag-isonote-full-benchmark/v1',
+  schema: 'navis-tag-isonote-full-benchmark/v2',
   generatedAt: new Date().toISOString(),
   sources: { tablePath, navisPath, stagedDir, stagedZip, ...sourceHashes },
   sourceCounts: { tableRows: parsedTable.rows.length, stagedJsonFiles: jsonFiles.length, parsedStagedDocuments: documents.length, stagedParseFailures: parseFailures.length },
+  profile: { id: config.profileId, boreToOdLookupEnabled: config.boreToOdLookupEnabled },
   config,
   hierarchy: tree.summary,
+  rawStagedIndex: rawStagedIndex.summary,
   stagedIndex: stagedIndex.summary,
   identityTrace: finalTrace.summary,
   navis: navisParse.summary,
+  coordinateFrame: frameAudit,
   readiness: { status: readiness.status, blockers: readiness.blockers, warnings: readiness.warnings, summary: readiness.summary },
   resolution: { ...audit.summary, reasonCounts: decisionReasonCounts(audit.decisions) },
   calibratedPaths: {
     identity: config.jsonIdentityPaths,
+    reference: config.jsonReferencePaths,
     position: config.jsonPositionPaths,
     branch: config.jsonBranchPaths,
     pipe: config.jsonPipePaths,
