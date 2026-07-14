@@ -15,6 +15,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Navis core
+        run: node tests/navis-tag-isonote.test.js
+      - name: Navis benchmark
+        run: node tests/navis-tag-isonote-benchmark.test.js
+      - name: Navis readiness
+        run: node tests/navis-tag-isonote-readiness.test.js
+      - name: Navis v3 contracts
+        run: node tests/navis-tag-isonote-contracts-v3.test.js
+      - name: Navis static
+        run: node tests/navis-tag-isonote-static.test.js
       - name: Deploy workflow artifact
         run: node tests/deploy-workflow-pages-artifact.test.js
       - name: Utility layout stabilizer
