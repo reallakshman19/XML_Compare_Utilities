@@ -17,5 +17,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Run dual DTXR trace regression
-        run: node tests/xml-cii-xml-node-wise-trace.test.js
+      - name: Capture dual DTXR trace regression
+        id: regression
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts/xml-cii-dual-trace
+          set +e
+          node tests/xml-cii-xml-node-wise-trace.test.js > artifacts/xml-cii-dual-trace/test.log 2>&1
+          CODE=$?
+          echo "$CODE" > artifacts/xml-cii-dual-trace/test.exit
+          exit $CODE
+      - name: Upload dual trace diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xml-cii-dual-trace-diagnostic
+          path: artifacts/xml-cii-dual-trace
+          if-no-files-found: error
+      - name: Fail when regression failed
+        if: steps.regression.outcome == 'failure'
+        run: exit 1
