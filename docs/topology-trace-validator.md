@@ -24,7 +24,7 @@ If InputXML is loaded but contains no component-aware projection lineage, genera
 
 ## Producer contracts
 
-The validator preserves producer IDs and does not create engineering identities. A missing ID receives only an internal `viewKey` so the record can remain visible and produce a blocking finding.
+The validator preserves producer IDs and does not create engineering identities. Source JSON may carry IDs directly, or `TopologyTraceLedger.v1` may carry the producer-owned `sourceIdentity` and `sourcePorts` manifest derived by 3D_Converters from `SourceEnvelope.v1` / `UniversalSourceGraph.v1`. The validator binds that manifest to exact source paths in a new immutable read model, checks conflicts and duplicates, and leaves the original JSON unchanged. A genuinely missing ID receives only an internal `viewKey` and remains a blocking finding.
 
 `CanonicalTopology.v1` uses these collections:
 
@@ -127,9 +127,23 @@ npm run test:topology-validator
 
 The test verifies 278 branches, 4,320 children, 2,939 route components, and 1,381 supports. The route total independently reconciles as PIPE 880 + GASK 599 + FLANGE 571 + ELBO/BEND 351 + VALVE 203 + TEE 148 + INST 77 + OLET 58 + REDUCER 52 = 2,939. It also calculates 44 finite and 33 point instruments from exact source geometry, verifies 203 resolved CREF relationships, 416 HREF/TREF references, 391 internally resolved HREF/TREF references, and reports all 25 external-reference source paths.
 
-The current acceptance directory contains no canonical topology, topology trace ledger, or topology InputXML for 1885_NC. Therefore 1885_NC topology counts, lineage coverage, and InputXML checks cannot be evaluated from real producer artifacts and must remain `NOT_EVALUATED` until those files are supplied by 3D_Converters.
+Generate the real producer artifacts from `3D_Converters`:
 
-The managed source fixture currently contains 4,598 branch/component entities and 12,078 coordinate-derived source ports, but no producer-owned `sourceEntityId` or `sourcePortId` values. The validator deliberately does not replace them with path hashes or rounded coordinates. Identity and disposition gates will therefore remain blocking for this fixture until 3D_Converters supplies its source-identity-bearing artifacts.
+```powershell
+node scripts/build-component-topology-artifacts.mjs --input Benchmarks/1885_NC/1885_NC.json --output-dir Benchmarks/1885_NC
+```
+
+This produces:
+
+```text
+1885_NC.canonical-topology.json
+1885_NC.topology-trace-ledger.json
+1885_NC.topology.input.xml
+```
+
+The real acceptance result is 3,409 canonical nodes, 3,429 canonical edges, 63 point features, 206 junctions, 28 boundaries, and 3,429 topology InputXML elements. All 4,598 branch/component entities and 12,634 component/branch coordinate ports receive producer identities through the ledger manifest. Source disposition, canonical node ancestry, canonical edge ancestry, and InputXML element ancestry are 100%; silent drops, orphan objects, zero-length InputXML elements, vector mismatches, connectivity mismatches, and blocking issues are zero.
+
+The 28 boundaries comprise the 25 externally unresolved HREF/TREF relationships plus three TEE branch ports with no CREF, explicitly classified as external or unmodeled rather than hidden. The source has 44 finite instruments that exactly overlap an `AUTO_GENERATED_PIPE` carrier span. 3D_Converters records these as 44 shared canonical/InputXML elements and 88 explicit `MANY_TO_ONE` ledger participants; neither source record is silently absorbed. One `$[113]` branch-head relationship has a 0.502 mm source residual. It is retained as a non-blocking producer diagnostic under the documented 1 mm source-connection precision allowance; canonical-to-InputXML vector validation remains at 0.5 mm.
 
 ## Static hosting
 

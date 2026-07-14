@@ -39,7 +39,7 @@ if (!existsSync(fixturePath)) {
     sourcePorts: source.ports.length,
     sourcePortsWithId: source.ports.filter((row) => row.sourcePortId).length,
   };
-  assert.deepEqual(identityInventory, { sourceEntities: 4598, sourceEntitiesWithId: 0, sourcePorts: 12078, sourcePortsWithId: 0 });
+  assert.deepEqual(identityInventory, { sourceEntities: 4598, sourceEntitiesWithId: 0, sourcePorts: 12634, sourcePortsWithId: 0 });
   const unresolved = source.references.branchReferences.filter((row) => !row.resolved);
   assert.equal(unresolved.length, 25);
   assert.equal(unresolved[0].sourcePath, '$[5].attributes.TREF');

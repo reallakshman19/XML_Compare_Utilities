@@ -65,6 +65,18 @@ function connectedComponentCount(edges, fromKey, toKey) {
 function validateSource(source, ledger, findings, next) {
   const records = asArray(ledger.records).map(objectRecord);
   const entities = asArray(source.entities).map(objectRecord), idCounts = new Map();
+  for (const conflict of asArray(source.identityConflicts).map(objectRecord)) findings.push(issue(
+    'SOURCE_IDENTITY_CONFLICT',
+    `Producer source identity conflict at ${cleanText(conflict.sourcePath) || '(unknown path)'}.`,
+    { sequence: next(), sourcePath: cleanText(conflict.sourcePath), details: conflict },
+  ));
+  const manifestUsed = entities.some((entity) => cleanText(entity.identityOrigin) === 'TRACE_LEDGER_MANIFEST');
+  const producerIdentity = objectRecord(source.producerIdentity);
+  if (manifestUsed && (cleanText(producerIdentity.schema) !== 'SourceEnvelope.v1' || cleanText(producerIdentity.entityIdentitySchema) !== 'UniversalSourceGraph.v1')) findings.push(issue(
+    'SOURCE_IDENTITY_SCHEMA_INVALID',
+    'Ledger-bound source identity must declare SourceEnvelope.v1 and UniversalSourceGraph.v1.',
+    { sequence: next(), details: producerIdentity },
+  ));
   for (const entity of entities) {
     const id = cleanText(entity.sourceEntityId);
     if (id) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);

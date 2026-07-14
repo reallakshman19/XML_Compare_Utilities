@@ -10,6 +10,7 @@ import { readCanonicalTopology, readTopologyInputXml, readTopologyTraceLedger } 
 import { validateTopologyArtifacts } from './topology-independent-validator.js';
 import { renderTopologyBottomPanel, buildTopologyInspectorMarkup } from './topology-ledger-table.js';
 import { readManagedTopologySource } from './topology-source-reader.js';
+import { bindProducerSourceIdentity } from './topology-source-identity.js';
 import { applyTopologyTraceSelection, wireTopologySvgInteractions } from './topology-svg-interactions.js';
 import { buildTopologySvgViewModel } from './topology-svg-view-model.js';
 import { renderTopologySvg } from './topology-svg-renderer.js';
@@ -35,6 +36,13 @@ export function createTopologyValidatorController(elements) {
       else if (kind === 'ledger') artifacts = { ...artifacts, ledger: readTopologyTraceLedger(JSON.parse(text)) };
       else if (kind === 'inputXml') artifacts = { ...artifacts, inputXml: readTopologyInputXml(text) };
       else throw new RangeError(`Unknown topology artifact kind: ${kind}`);
+      if (artifacts.source && artifacts.ledger) {
+        const originalSource = objectRecord(artifacts.source).raw;
+        artifacts = {
+          ...artifacts,
+          source: bindProducerSourceIdentity(readManagedTopologySource(originalSource), artifacts.ledger),
+        };
+      }
       hashes = { ...hashes, [kind]: artifactHash(kind, artifacts[kind]) };
       validation = null;
       elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = fileName;

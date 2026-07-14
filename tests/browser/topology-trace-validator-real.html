@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Topology Trace Validator — real 1885_NC</title>
+  <style>html,body,#root{height:100%;margin:0;background:#07111f}#load-error{color:#ff8d8d;white-space:pre-wrap;padding:20px}</style>
+</head>
+<body data-real-fixture="1885_NC">
+  <div id="root"></div>
+  <pre id="load-error" hidden></pre>
+  <script type="module">
+    import { mountTopologyTraceValidatorWorkspace } from '../../tabs/topology-trace-validator/topology-trace-validator-tab.js';
+
+    const base = '../../../3D_Converters/Benchmarks/1885_NC/';
+    const files = {
+      source: '1885_NC.json',
+      canonical: '1885_NC.canonical-topology.json',
+      ledger: '1885_NC.topology-trace-ledger.json',
+      inputXml: '1885_NC.topology.input.xml',
+    };
+
+    try {
+      const texts = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([kind, name]) => {
+        const response = await fetch(`${base}${name}`);
+        if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+        return [kind, await response.text()];
+      })));
+      const mounted = await mountTopologyTraceValidatorWorkspace(document.querySelector('#root'), null);
+      for (const kind of ['source', 'canonical', 'ledger']) await mounted.controller.loadArtifact(kind, texts[kind], files[kind]);
+      await mounted.controller.loadArtifact('inputXml', texts.inputXml, files.inputXml);
+      mounted.controller.validate();
+      document.body.dataset.validatorReady = 'true';
+    } catch (error) {
+      const output = document.querySelector('#load-error');
+      output.hidden = false;
+      output.textContent = error?.stack || String(error);
+      document.body.dataset.validatorReady = 'error';
+    }
+  </script>
+</body>
+</html>

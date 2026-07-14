@@ -18,6 +18,13 @@ import {
   componentCategory,
 } from './topology-validator-values.js';
 
+const COMPONENT_PORT_DEFINITIONS = Object.freeze([
+  ['APOS', 'A', 'APORT_ID'], ['LPOS', 'L', 'LPORT_ID'], ['POS', 'P', 'PORT_ID'],
+]);
+const BRANCH_PORT_DEFINITIONS = Object.freeze([
+  ['HPOS', 'H', 'HPORT_ID'], ['TPOS', 'T', 'TPORT_ID'],
+]);
+
 /** @param {string} type @param {Record<string, unknown>} positions @returns {string} */
 function geometryClassification(type, positions) {
   const category = componentCategory(type);
@@ -55,13 +62,8 @@ function recordRef(record) {
   return cleanText(record.ref ?? objectRecord(record.attributes).REF);
 }
 
-/** @param {Record<string, unknown>} attributes @param {string} prefix @param {string} sourceType @param {string} ownerId @returns {ReadonlyArray<Record<string, unknown>>} */
-function readPorts(attributes, prefix, sourceType, ownerId) {
-  const definitions = [
-    ['APOS', 'A', 'APORT_ID'],
-    ['LPOS', 'L', 'LPORT_ID'],
-    ['POS', 'P', 'PORT_ID'],
-  ];
+/** @param {Record<string, unknown>} attributes @param {string} prefix @param {string} sourcePath @param {string} sourceType @param {string} ownerId @param {readonly (readonly string[])[]} definitions @returns {ReadonlyArray<Record<string, unknown>>} */
+function readPorts(attributes, prefix, sourcePath, sourceType, ownerId, definitions) {
   return Object.freeze(definitions.flatMap(([field, role, idField]) => {
     const position = strictPoint(attributes[field]);
     if (!position) return [];
@@ -70,6 +72,7 @@ function readPorts(attributes, prefix, sourceType, ownerId) {
       viewKey: `${prefix}:port:${role}`,
       sourcePortId,
       sourceEntityId: ownerId,
+      sourcePath: `${sourcePath}.attributes.${field}`,
       sourceType,
       role,
       position,
@@ -98,7 +101,7 @@ function readComponent(child, branchIndex, sourceIndex, branchName, rootPath) {
     dispositionKind: type === 'SUPPORT' ? 'DEFER_SUPPORT' : '',
     isRouteComponent: ROUTE_COMPONENT_TYPES.includes(type),
     positions: deepFreeze(positions),
-    ports: readPorts(attributes, `source:${sourcePath}`, type, entityId),
+    ports: readPorts(attributes, `source:${sourcePath}`, sourcePath, type, entityId, COMPONENT_PORT_DEFINITIONS),
     references: deepFreeze({
       CREF: cleanText(attributes.CREF),
       HREF: cleanText(attributes.HREF),
@@ -127,6 +130,7 @@ function readBranch(branch, branchIndex, rootPath) {
     positions: deepFreeze({ HPOS: strictPoint(attributes.HPOS), TPOS: strictPoint(attributes.TPOS) }),
     references: deepFreeze({ HREF: cleanText(attributes.HREF), TREF: cleanText(attributes.TREF) }),
     attributes: deepFreeze(cloneJson(attributes)),
+    ports: readPorts(attributes, `source:${sourcePath}`, sourcePath, 'BRANCH', sourceEntityId(branch), BRANCH_PORT_DEFINITIONS),
     components: Object.freeze(components),
   });
 }
@@ -175,7 +179,10 @@ export function readManagedTopologySource(input) {
     branches,
     components,
     entities: Object.freeze([...branches, ...components]),
-    ports: Object.freeze(components.flatMap((component) => asArray(objectRecord(component).ports))),
+    ports: Object.freeze([
+      ...branches.flatMap((branch) => asArray(objectRecord(branch).ports)),
+      ...components.flatMap((component) => asArray(objectRecord(component).ports)),
+    ]),
     references,
     metrics: deepFreeze({
       branchCount: branches.length,

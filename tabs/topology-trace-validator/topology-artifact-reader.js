@@ -127,14 +127,31 @@ function ledgerRecord(record, index) {
   });
 }
 
+/** @param {Record<string, unknown>} record @param {number} index @returns {Readonly<Record<string, unknown>>} */
+function ledgerSourcePort(record, index) {
+  return deepFreeze({
+    ...cloneJson(record),
+    viewKey: `ledger:source-port:${cleanText(record.sourcePortId) || index}`,
+    sourcePortId: cleanText(record.sourcePortId ?? record.id),
+    sourceEntityId: cleanText(record.sourceEntityId),
+    sourcePath: cleanText(record.sourcePath ?? record.path),
+    role: cleanText(record.role).toUpperCase(),
+    field: cleanText(record.field).toUpperCase(),
+    sourceType: cleanText(record.sourceType).toUpperCase(),
+  });
+}
+
 /** @param {unknown} input @returns {Readonly<Record<string, unknown>>} */
 export function readTopologyTraceLedger(input) {
   const raw = objectRecord(cloneJson(input));
   const rows = asArray(raw.records ?? raw.entries ?? raw.ledger);
   if (!rows.length) throw new TypeError('Trace ledger JSON must contain a non-empty records array.');
+  const sourcePorts = asArray(raw.sourcePorts).map((row, index) => ledgerSourcePort(objectRecord(row), index));
   return deepFreeze({
     schema: cleanText(raw.schema) || 'TopologyTraceLedger.unversioned',
     records: Object.freeze(rows.map((row, index) => ledgerRecord(objectRecord(row), index))),
+    sourceIdentity: deepFreeze(cloneJson(raw.sourceIdentity ?? {})),
+    sourcePorts: Object.freeze(sourcePorts),
     raw: deepFreeze(raw),
   });
 }
