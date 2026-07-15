@@ -64,147 +64,189 @@ function virtualRowHeight(base, view) {
   return clamp(Math.max(1, finite(base, DEFAULT_UNIVERSAL_ROW_HEIGHT)) * Math.max(.5, finite(view?.zoomY, 1)), 22, 80);
 }
 
-export function createUniversalVirtualController(options = {}) {
+function surfaceVisible(surface) {
+  return Boolean(surface?.offsetParent || surface?.getClientRects?.().length);
+}
+
+function createVirtualRuntime(options) {
   const surface = options.surface;
   const spacer = surface?.querySelector?.('[data-uxc-virtual-spacer]');
   const content = surface?.querySelector?.('[data-uxc-viewport-content]');
   if (!surface || !spacer || !content) throw new TypeError('Virtual controller requires surface, spacer and content.');
-  const identityFor = options.identityFor;
-  const renderRows = options.renderRows;
-  if (typeof identityFor !== 'function' || typeof renderRows !== 'function') throw new TypeError('Virtual controller requires identityFor() and renderRows().');
-  const abort = new AbortController();
-  let rows = [];
-  let ids = [];
-  let byId = new Map();
-  let selectedId = '';
-  let relatedIds = new Set();
-  let focusId = '';
-  let view = { zoomX: 1, zoomY: 1, panX: 0, panY: 0 };
-  let frame = null;
-  let destroyed = false;
-  let lastWindow = calculateUniversalVirtualWindow();
-
-  function renderNow() {
-    if (destroyed) return lastWindow;
-    const rowHeight = virtualRowHeight(options.rowHeight, view);
-    const adjustedTop = Math.max(0, surface.scrollTop - finite(view.panY));
-    lastWindow = calculateUniversalVirtualWindow({
-      count: rows.length,
-      rowHeight,
-      viewportHeight: surface.clientHeight || 420,
-      scrollTop: adjustedTop,
-      overscan: options.overscan,
-      maxRows: options.maxRows,
-    });
-    spacer.style.height = `${lastWindow.totalHeight}px`;
-    content.style.setProperty('--uxc-row-height', `${rowHeight}px`);
-    content.style.transformOrigin = '0 0';
-    content.style.transform = `translate(${finite(view.panX)}px,${lastWindow.offset + finite(view.panY)}px) scaleX(${Math.max(.05, finite(view.zoomX, 1))})`;
-    content.innerHTML = renderRows(rows.slice(lastWindow.start, lastWindow.end), {
-      start: lastWindow.start,
-      rowHeight,
-      selectedId,
-      relatedIds,
-    });
-    surface.setAttribute('aria-rowcount', String(rows.length));
-    surface.dataset.uxcRenderedRows = String(lastWindow.rendered);
-    surface.dataset.uxcMaximumRendered = String(Math.max(Number(surface.dataset.uxcMaximumRendered || 0), lastWindow.rendered));
-    surface.dataset.uxcVirtualTotal = String(rows.length);
-    const empty = surface.querySelector('[data-uxc-empty-results]');
-    if (empty) empty.hidden = rows.length > 0;
-    if (focusId) content.querySelector(`[${options.idAttribute}="${cssValue(focusId)}"]`)?.focus?.({ preventScroll: true });
-    options.onWindowChange?.(lastWindow, getScrollAnchor());
-    return lastWindow;
+  if (typeof options.identityFor !== 'function' || typeof options.renderRows !== 'function') {
+    throw new TypeError('Virtual controller requires identityFor() and renderRows().');
   }
+  return {
+    options, surface, spacer, content,
+    abort: new AbortController(), rows: [], ids: [], byId: new Map(),
+    selectedId: '', relatedIds: new Set(), focusId: '',
+    view: { zoomX: 1, zoomY: 1, panX: 0, panY: 0 },
+    logicalScrollTop: Math.max(0, finite(surface.scrollTop)),
+    frame: null, destroyed: false,
+    lastWindow: calculateUniversalVirtualWindow(),
+  };
+}
 
-  function schedule() {
-    if (frame != null || destroyed) return;
-    frame = requestAnimationFrame(() => { frame = null; renderNow(); });
+function rowHeightFor(runtime) {
+  return virtualRowHeight(runtime.options.rowHeight, runtime.view);
+}
+
+function syncSurfaceScroll(runtime) {
+  if (!surfaceVisible(runtime.surface)) return;
+  if (Math.abs(finite(runtime.surface.scrollTop) - runtime.logicalScrollTop) > .5) {
+    runtime.surface.scrollTop = runtime.logicalScrollTop;
   }
+}
 
-  function getScrollAnchor() {
-    const item = rows[lastWindow.firstVisible];
-    return freeze({ id: item ? identityFor(item, lastWindow.firstVisible) : '', offset: surface.scrollTop - lastWindow.firstVisible * lastWindow.rowHeight });
-  }
+function renderVirtualRuntime(runtime) {
+  if (runtime.destroyed) return runtime.lastWindow;
+  syncSurfaceScroll(runtime);
+  const rowHeight = rowHeightFor(runtime);
+  const adjustedTop = Math.max(0, runtime.logicalScrollTop - finite(runtime.view.panY));
+  runtime.lastWindow = calculateUniversalVirtualWindow({
+    count: runtime.rows.length,
+    rowHeight,
+    viewportHeight: runtime.surface.clientHeight || 420,
+    scrollTop: adjustedTop,
+    overscan: runtime.options.overscan,
+    maxRows: runtime.options.maxRows,
+  });
+  renderVirtualRows(runtime, rowHeight);
+  runtime.options.onWindowChange?.(runtime.lastWindow, getVirtualScrollAnchor(runtime));
+  return runtime.lastWindow;
+}
 
-  function reveal(id, focus = false) {
-    const index = byId.get(String(id));
-    if (!Number.isInteger(index)) return false;
-    const rowHeight = virtualRowHeight(options.rowHeight, view);
-    surface.scrollTop = universalRevealScrollTop({
-      index,
-      rowHeight,
-      scrollTop: surface.scrollTop,
-      viewportHeight: surface.clientHeight || 420,
-    });
-    if (focus) focusId = String(id);
-    renderNow();
-    return true;
-  }
+function renderVirtualRows(runtime, rowHeight) {
+  const window = runtime.lastWindow;
+  runtime.spacer.style.height = `${window.totalHeight}px`;
+  runtime.content.style.setProperty('--uxc-row-height', `${rowHeight}px`);
+  runtime.content.style.transformOrigin = '0 0';
+  runtime.content.style.transform = `translate(${finite(runtime.view.panX)}px,${window.offset + finite(runtime.view.panY)}px) scaleX(${Math.max(.05, finite(runtime.view.zoomX, 1))})`;
+  runtime.content.innerHTML = runtime.options.renderRows(runtime.rows.slice(window.start, window.end), {
+    start: window.start,
+    rowHeight,
+    selectedId: runtime.selectedId,
+    relatedIds: runtime.relatedIds,
+  });
+  runtime.surface.setAttribute('aria-rowcount', String(runtime.rows.length));
+  runtime.surface.dataset.uxcRenderedRows = String(window.rendered);
+  runtime.surface.dataset.uxcMaximumRendered = String(Math.max(Number(runtime.surface.dataset.uxcMaximumRendered || 0), window.rendered));
+  runtime.surface.dataset.uxcVirtualTotal = String(runtime.rows.length);
+  const empty = runtime.surface.querySelector('[data-uxc-empty-results]');
+  if (empty) empty.hidden = runtime.rows.length > 0;
+  if (runtime.focusId) runtime.content.querySelector(`[${runtime.options.idAttribute}="${cssValue(runtime.focusId)}"]`)?.focus?.({ preventScroll: true });
+}
 
-  function applyScrollAnchor(anchor = {}) {
-    const index = byId.get(String(anchor.id || ''));
-    if (!Number.isInteger(index)) return false;
-    const rowHeight = virtualRowHeight(options.rowHeight, view);
-    surface.scrollTop = Math.max(0, index * rowHeight + finite(anchor.offset));
-    renderNow();
-    return true;
-  }
+function scheduleVirtualRender(runtime) {
+  if (runtime.frame != null || runtime.destroyed) return;
+  runtime.frame = requestAnimationFrame(() => {
+    runtime.frame = null;
+    renderVirtualRuntime(runtime);
+  });
+}
 
-  surface.addEventListener('scroll', schedule, { signal: abort.signal, passive: true });
+function getVirtualScrollAnchor(runtime) {
+  const item = runtime.rows[runtime.lastWindow.firstVisible];
+  return freeze({
+    id: item ? runtime.options.identityFor(item, runtime.lastWindow.firstVisible) : '',
+    offset: runtime.logicalScrollTop - runtime.lastWindow.firstVisible * runtime.lastWindow.rowHeight,
+  });
+}
+
+function revealVirtualIdentity(runtime, id, focus = false) {
+  const index = runtime.byId.get(String(id));
+  if (!Number.isInteger(index)) return false;
+  runtime.logicalScrollTop = universalRevealScrollTop({
+    index,
+    rowHeight: rowHeightFor(runtime),
+    scrollTop: runtime.logicalScrollTop,
+    viewportHeight: runtime.surface.clientHeight || 420,
+  });
+  if (focus) runtime.focusId = String(id);
+  renderVirtualRuntime(runtime);
+  return true;
+}
+
+function applyVirtualScrollAnchor(runtime, anchor = {}) {
+  const index = runtime.byId.get(String(anchor.id || ''));
+  if (!Number.isInteger(index)) return false;
+  runtime.logicalScrollTop = Math.max(0, index * rowHeightFor(runtime) + finite(anchor.offset));
+  renderVirtualRuntime(runtime);
+  return true;
+}
+
+function setVirtualProjection(runtime, nextRows = []) {
+  runtime.rows = Array.isArray(nextRows) ? nextRows : [];
+  runtime.ids = runtime.rows.map((row, index) => String(runtime.options.identityFor(row, index)));
+  runtime.byId = new Map(runtime.ids.map((id, index) => [id, index]));
+  const maxScroll = Math.max(0, universalVirtualTotalHeight(runtime.rows.length, rowHeightFor(runtime)) - (runtime.surface.clientHeight || 420));
+  runtime.logicalScrollTop = Math.min(runtime.logicalScrollTop, maxScroll);
+  return renderVirtualRuntime(runtime);
+}
+
+function bindVirtualRuntime(runtime) {
+  const { surface, abort, options } = runtime;
+  surface.addEventListener('scroll', () => {
+    runtime.logicalScrollTop = Math.max(0, finite(surface.scrollTop));
+    scheduleVirtualRender(runtime);
+  }, { signal: abort.signal, passive: true });
   surface.addEventListener('click', (event) => {
     const row = event.target.closest?.(`[${options.idAttribute}]`);
     if (row) options.onActivate?.(row.getAttribute(options.idAttribute), { focus: false });
   }, { signal: abort.signal });
-  surface.addEventListener('keydown', (event) => {
-    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-    const row = event.target.closest?.(`[${options.idAttribute}]`);
-    const currentId = row?.getAttribute(options.idAttribute) || selectedId || ids[0];
-    const currentIndex = Math.max(0, byId.get(currentId) ?? 0);
-    const nextIndex = moveUniversalVirtualIndex(currentIndex, event.key, rows.length);
-    const nextId = ids[nextIndex];
-    if (!nextId) return;
-    event.preventDefault();
-    focusId = nextId;
-    options.onActivate?.(nextId, { focus: true });
-    reveal(nextId, true);
-  }, { signal: abort.signal });
+  surface.addEventListener('keydown', (event) => activateVirtualKeyboardRow(runtime, event), { signal: abort.signal });
+}
 
-  const controller = {
-    setProjection(nextRows = []) {
-      rows = Array.isArray(nextRows) ? nextRows : [];
-      ids = rows.map((row, index) => String(identityFor(row, index)));
-      byId = new Map(ids.map((id, index) => [id, index]));
-      surface.scrollTop = Math.min(surface.scrollTop, Math.max(0, universalVirtualTotalHeight(rows.length, virtualRowHeight(options.rowHeight, view)) - (surface.clientHeight || 420)));
-      return renderNow();
-    },
+function activateVirtualKeyboardRow(runtime, event) {
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+  const row = event.target.closest?.(`[${runtime.options.idAttribute}]`);
+  const currentId = row?.getAttribute(runtime.options.idAttribute) || runtime.selectedId || runtime.ids[0];
+  const currentIndex = Math.max(0, runtime.byId.get(currentId) ?? 0);
+  const nextIndex = moveUniversalVirtualIndex(currentIndex, event.key, runtime.rows.length);
+  const nextId = runtime.ids[nextIndex];
+  if (!nextId) return;
+  event.preventDefault();
+  runtime.focusId = nextId;
+  runtime.options.onActivate?.(nextId, { focus: true });
+  revealVirtualIdentity(runtime, nextId, true);
+}
+
+function destroyVirtualRuntime(runtime) {
+  if (runtime.destroyed) return false;
+  runtime.destroyed = true;
+  runtime.abort.abort();
+  if (runtime.frame != null) cancelAnimationFrame(runtime.frame);
+  runtime.frame = null;
+  runtime.content.replaceChildren();
+  return true;
+}
+
+export function createUniversalVirtualController(options = {}) {
+  const runtime = createVirtualRuntime(options);
+  bindVirtualRuntime(runtime);
+  return freeze({
+    setProjection: (rows) => setVirtualProjection(runtime, rows),
     setSelection(next = {}) {
-      selectedId = String(next.selectedId || '');
-      relatedIds = new Set(next.relatedIds || []);
-      return renderNow();
+      runtime.selectedId = String(next.selectedId || '');
+      runtime.relatedIds = new Set(next.relatedIds || []);
+      return renderVirtualRuntime(runtime);
     },
-    setViewTransform(next = {}) { view = { ...view, ...next }; return renderNow(); },
-    reveal,
-    applyScrollAnchor,
-    getScrollAnchor,
-    rows: () => rows,
-    ids: () => ids,
-    metrics: () => freeze({ ...lastWindow, maximumRendered: Number(surface.dataset.uxcMaximumRendered || lastWindow.rendered) }),
-    destroy() {
-      if (destroyed) return false;
-      destroyed = true;
-      abort.abort();
-      if (frame != null) cancelAnimationFrame(frame);
-      frame = null;
-      content.replaceChildren();
-      return true;
+    setViewTransform(next = {}) {
+      runtime.view = { ...runtime.view, ...next };
+      return renderVirtualRuntime(runtime);
     },
-  };
-  return Object.freeze(controller);
+    reveal: (id, focus) => revealVirtualIdentity(runtime, id, focus),
+    applyScrollAnchor: (anchor) => applyVirtualScrollAnchor(runtime, anchor),
+    getScrollAnchor: () => getVirtualScrollAnchor(runtime),
+    rows: () => runtime.rows,
+    ids: () => runtime.ids,
+    metrics: () => freeze({ ...runtime.lastWindow, logicalScrollTop: runtime.logicalScrollTop, maximumRendered: Number(runtime.surface.dataset.uxcMaximumRendered || runtime.lastWindow.rendered) }),
+    destroy: () => destroyVirtualRuntime(runtime),
+  });
 }
 
 function cssValue(value) {
   return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
 
-export const _test = freeze({ clamp, virtualRowHeight, cssValue });
+export const _test = freeze({ clamp, virtualRowHeight, surfaceVisible, cssValue });
