@@ -1,4 +1,5 @@
 import { clamp, interpolateAbsoluteHFromCumulative, snapValue } from './pipeline-3d-model-cad-math.js';
+import { PipelineCadObjectSnapMode } from './pipeline-3d-model-cad-object-snap-contracts.js';
 
 export const PIPELINE_CAD_SNAP_STORAGE_KEY = 'pipeline3dCadSnapV1';
 
@@ -11,17 +12,26 @@ export const DEFAULT_PIPELINE_CAD_SNAP_SETTINGS = Object.freeze({
   stationTolerance: 0.75,
   aboveGroundZ: 0.75,
   aboveGroundTolerance: 0.15,
+  objectEnabled: true,
+  objectAperture: 12,
+  endpointEnabled: true,
+  midpointEnabled: true,
+  stationObjectEnabled: true,
+  markerEnabled: true,
+  nearestEnabled: true,
+  projectionEnabled: true,
+  intersectionEnabled: true,
 });
 
-function positive(value, fallback) {
+const positive = (value, fallback) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
-}
-
-function nonNegative(value, fallback) {
+};
+const nonNegative = (value, fallback) => {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
-}
+};
+const boolean = (value, fallback) => value == null ? fallback : Boolean(value);
 
 export function normalizePipelineCadSnapSettings(settings = {}) {
   const defaults = DEFAULT_PIPELINE_CAD_SNAP_SETTINGS;
@@ -34,7 +44,30 @@ export function normalizePipelineCadSnapSettings(settings = {}) {
     stationTolerance: nonNegative(settings.stationTolerance, defaults.stationTolerance),
     aboveGroundZ: Number.isFinite(Number(settings.aboveGroundZ)) ? Number(settings.aboveGroundZ) : defaults.aboveGroundZ,
     aboveGroundTolerance: nonNegative(settings.aboveGroundTolerance, defaults.aboveGroundTolerance),
+    objectEnabled: boolean(settings.objectEnabled, defaults.objectEnabled),
+    objectAperture: positive(settings.objectAperture, defaults.objectAperture),
+    endpointEnabled: boolean(settings.endpointEnabled, defaults.endpointEnabled),
+    midpointEnabled: boolean(settings.midpointEnabled, defaults.midpointEnabled),
+    stationObjectEnabled: boolean(settings.stationObjectEnabled, defaults.stationObjectEnabled),
+    markerEnabled: boolean(settings.markerEnabled, defaults.markerEnabled),
+    nearestEnabled: boolean(settings.nearestEnabled, defaults.nearestEnabled),
+    projectionEnabled: boolean(settings.projectionEnabled, defaults.projectionEnabled),
+    intersectionEnabled: boolean(settings.intersectionEnabled, defaults.intersectionEnabled),
   });
+}
+
+export function pipelineCadObjectSnapModes(settings = {}) {
+  const value = normalizePipelineCadSnapSettings(settings);
+  const pairs = [
+    [PipelineCadObjectSnapMode.ENDPOINT, value.endpointEnabled],
+    [PipelineCadObjectSnapMode.MIDPOINT, value.midpointEnabled],
+    [PipelineCadObjectSnapMode.STATION, value.stationObjectEnabled],
+    [PipelineCadObjectSnapMode.MARKER, value.markerEnabled],
+    [PipelineCadObjectSnapMode.NEAREST, value.nearestEnabled],
+    [PipelineCadObjectSnapMode.PROJECTION, value.projectionEnabled],
+    [PipelineCadObjectSnapMode.INTERSECTION, value.intersectionEnabled],
+  ];
+  return Object.freeze(pairs.filter(([, enabled]) => enabled).map(([mode]) => mode));
 }
 
 export function roundToSnapStep(value, step) {
@@ -52,9 +85,7 @@ function uniqueFinite(values) {
 
 export function table2StationCandidates(model, excludeIds = []) {
   const excluded = new Set(excludeIds || []);
-  return uniqueFinite((model?.table2Rows || [])
-    .filter((row) => !excluded.has(row.id))
-    .map((row) => row.stationValue));
+  return uniqueFinite((model?.table2Rows || []).filter((row) => !excluded.has(row.id)).map((row) => row.stationValue));
 }
 
 export function table3StationCandidates(model) {
@@ -73,9 +104,7 @@ export function snapTable2Station(value, model, settings = {}, options = {}) {
   let station = Number(value);
   if (!Number.isFinite(station)) throw new TypeError('Station must be finite.');
   if (normalized.gridEnabled) station = roundToSnapStep(station, normalized.stationStep);
-  if (normalized.stationEnabled) {
-    station = snapValue(station, table2StationCandidates(model, options.excludeIds), normalized.stationTolerance);
-  }
+  if (normalized.stationEnabled) station = snapValue(station, table2StationCandidates(model, options.excludeIds), normalized.stationTolerance);
   const min = Number(options.min);
   const max = Number(options.max);
   if (Number.isFinite(min) && Number.isFinite(max) && max >= min) station = clamp(station, min, max);
@@ -106,11 +135,7 @@ export function snapTable3Depth(value, settings = {}) {
 export function snapTable3Point(point, model, settings = {}) {
   const cumulative = snapTable3Cumulative(point?.cumulative ?? point?.x, model, settings);
   const z = snapTable3Depth(point?.z ?? point?.y, settings);
-  return Object.freeze({
-    cumulative,
-    absoluteH: interpolateAbsoluteHFromCumulative(cumulative, model.coordinateMap),
-    z,
-  });
+  return Object.freeze({ cumulative, absoluteH: interpolateAbsoluteHFromCumulative(cumulative, model.coordinateMap), z });
 }
 
 export function loadPipelineCadSnapSettings(graphName, storage = globalThis.localStorage) {
@@ -137,5 +162,6 @@ export function describePipelineCadSnapSettings(settings = {}) {
   const modes = [];
   if (normalized.gridEnabled) modes.push('Grid');
   if (normalized.stationEnabled) modes.push('Station');
+  if (normalized.objectEnabled) modes.push('Object');
   return modes.length ? `${modes.join(' + ')} snap` : 'Snap off';
 }
