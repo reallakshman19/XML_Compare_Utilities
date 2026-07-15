@@ -38,6 +38,7 @@
 </main>
 <script type="module">
 localStorage.setItem('pipeline3dCadRenderer','canvas');
+localStorage.setItem('pipeline3dCadPreviewModeV1',JSON.stringify({mode:'side-by-side',zOriginElevation:231.32}));
 localStorage.removeItem('pipeline3dCadSnapV1');
 const module = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js');
 const dialog = document.querySelector('.pipeline-3d-model-dialog');
