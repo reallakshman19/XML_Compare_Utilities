@@ -9,6 +9,7 @@ function badge(status) {
   return `<span class="nti-badge ${css}">${esc(value)}</span>`;
 }
 function compactNumber(value, digits = 3) {
+  if (value == null || value === '') return '';
   const number = Number(value);
   return Number.isFinite(number) ? Number(number.toFixed(digits)) : '';
 }
@@ -99,9 +100,21 @@ export function matchRows(state) {
     const decision = decisions.get(row.tableRowId);
     const selected = decision?.selectedCandidate || null;
     const nearest = decision?.nearestRejectedCandidate || null;
-    const displayed = selected || nearest;
-    const displayedRole = selected ? 'SELECTED_MATCH' : nearest ? 'NEAREST_REJECTED' : '';
-    const displayedPoint = displayed?.tagPosition || row.selectedNavisPosition || null;
+    const rowSelected = row.selectedNavisTagId ? {
+      tagId: row.selectedNavisTagId,
+      viewName: row.selectedNavisViewName,
+      commentId: row.selectedNavisCommentId,
+      commentBody: row.selectedNavisCommentBody,
+      tagPosition: row.selectedNavisPosition,
+      deltaEMm: row.deltaEMm,
+      deltaNMm: row.deltaNMm,
+      deltaElMm: row.deltaElMm,
+      verticalBasis: row.verticalBasis,
+      verticalResidualMm: row.verticalResidualMm,
+    } : null;
+    const displayed = selected || nearest || rowSelected;
+    const displayedRole = selected || rowSelected ? 'SELECTED_MATCH' : nearest ? 'NEAREST_REJECTED' : '';
+    const displayedPoint = displayed?.tagPosition || null;
     const failedAxes = nearest?.failedAxes || decision?.nearestRejectedAxes || [];
     return {
       resolutionRow: row.tableRowIndex,
@@ -112,17 +125,17 @@ export function matchRows(state) {
       ...pointColumns(row.position, 'json'),
       navisStatus: decision?.status || row.navisResolutionStatus,
       displayedNavisRole: displayedRole,
-      toleranceResult: selected ? 'WITHIN_TOLERANCE' : nearest ? 'OUTSIDE_TOLERANCE' : '',
-      navisTagId: displayed?.tagId || decision?.selectedTagId || decision?.nearestRejectedTagId || row.selectedNavisTagId,
-      navisView: displayed?.viewName || decision?.selectedViewName || decision?.nearestRejectedViewName || row.selectedNavisViewName,
-      navisCommentId: displayed?.commentId || decision?.selectedCommentId || decision?.nearestRejectedCommentId || row.selectedNavisCommentId,
-      navisComment: displayed?.commentBody || decision?.nearestRejectedCommentBody || row.selectedNavisCommentBody,
+      toleranceResult: selected || rowSelected ? 'WITHIN_TOLERANCE' : nearest ? 'OUTSIDE_TOLERANCE' : '',
+      navisTagId: displayed?.tagId || decision?.selectedTagId || decision?.nearestRejectedTagId || '',
+      navisView: displayed?.viewName || decision?.selectedViewName || decision?.nearestRejectedViewName || '',
+      navisCommentId: displayed?.commentId || decision?.selectedCommentId || decision?.nearestRejectedCommentId || '',
+      navisComment: displayed?.commentBody || decision?.nearestRejectedCommentBody || '',
       ...pointColumns(displayedPoint, 'navis'),
-      deltaE: compactNumber(displayed?.deltaEMm ?? decision?.nearestRejectedDeltaEMm ?? row.deltaEMm),
-      deltaN: compactNumber(displayed?.deltaNMm ?? decision?.nearestRejectedDeltaNMm ?? row.deltaNMm),
-      deltaEL: compactNumber(displayed?.deltaElMm ?? decision?.nearestRejectedDeltaElMm ?? row.deltaElMm),
-      verticalBasis: displayed?.verticalBasis || row.verticalBasis,
-      verticalResidual: compactNumber(displayed?.verticalResidualMm ?? decision?.nearestRejectedVerticalResidualMm ?? row.verticalResidualMm),
+      deltaE: compactNumber(displayed?.deltaEMm ?? decision?.nearestRejectedDeltaEMm),
+      deltaN: compactNumber(displayed?.deltaNMm ?? decision?.nearestRejectedDeltaNMm),
+      deltaEL: compactNumber(displayed?.deltaElMm ?? decision?.nearestRejectedDeltaElMm),
+      verticalBasis: displayed?.verticalBasis || '',
+      verticalResidual: compactNumber(displayed?.verticalResidualMm ?? decision?.nearestRejectedVerticalResidualMm),
       failedAxes: failedAxes.join(' | '),
       candidateCount: decision?.candidateCount ?? row.navisProximityEvidence?.candidateCount ?? '',
       ambiguity: decision?.ambiguity || row.navisAmbiguity,
