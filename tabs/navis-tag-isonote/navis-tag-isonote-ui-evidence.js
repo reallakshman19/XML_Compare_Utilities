@@ -3,9 +3,9 @@ function esc(value) {
 }
 function badge(status) {
   const value = String(status || '');
-  const css = /RESOLVED|READY|HIGH|MEDIUM|VALID|SELECTED_MATCH|WITHIN_TOLERANCE/.test(value) && !/UNRESOLVED|INVALID|NOT_SELECTED|OUTSIDE/.test(value)
+  const css = /RESOLVED|READY|HIGH|MEDIUM|VALID|SELECTED_MATCH|WITHIN_TOLERANCE|CURRENT|APPLIED/.test(value) && !/UNRESOLVED|INVALID|NOT_SELECTED|OUTSIDE|REBUILD_REQUIRED/.test(value)
     ? 'nti-ok'
-    : /AMBIGUOUS|WARN|PENDING|PARTIAL|NOT_SELECTED|NEAREST_REJECTED|OUTSIDE/.test(value) ? 'nti-warn' : 'nti-error';
+    : /AMBIGUOUS|WARN|PENDING|PARTIAL|NOT_SELECTED|NEAREST_REJECTED|OUTSIDE|REBUILD_REQUIRED|STALE/.test(value) ? 'nti-warn' : 'nti-error';
   return `<span class="nti-badge ${css}">${esc(value)}</span>`;
 }
 function compactNumber(value, digits = 3) {
@@ -30,6 +30,24 @@ function pointColumns(point, prefix) {
     [`${prefix}N`]: compactNumber(point?.y),
     [`${prefix}EL`]: compactNumber(point?.z),
   };
+}
+function axisFormula(rawValue, scaleValue, offsetValue, resultValue) {
+  const raw = Number(rawValue);
+  const scale = Number(scaleValue);
+  const offset = Number(offsetValue);
+  const result = Number(resultValue);
+  if (![raw, scale, offset, result].every(Number.isFinite)) return '';
+  return `${compactNumber(raw, 6)} × ${compactNumber(scale, 6)} ${offset < 0 ? '−' : '+'} ${compactNumber(Math.abs(offset))} = ${compactNumber(result)} mm`;
+}
+function configuredDatum(state, axis) {
+  const key = axis === 'x' ? 'navisEastingDatumMm' : axis === 'y' ? 'navisNorthingDatumMm' : 'navisElevationDatumMm';
+  const value = Number(state.config?.[key]);
+  return Number.isFinite(value) ? value : 0;
+}
+function sameNumber(left, right) {
+  const a = Number(left);
+  const b = Number(right);
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) < 0.000001;
 }
 export function jsonTraceRows(state) {
   return (state.identityTrace?.rows || []).map((row) => ({
@@ -61,11 +79,22 @@ export function jsonTraceRows(state) {
   }));
 }
 export function navisCoordinateRows(state) {
+  const configured = {
+    x: configuredDatum(state, 'x'),
+    y: configuredDatum(state, 'y'),
+    z: configuredDatum(state, 'z'),
+  };
   return (state.navisParse?.tags || []).map((tag) => {
     const raw = tag.rawPosition || {};
     const transformed = tag.position || {};
-    const datum = transformed.datumOffsetMm || {};
+    const applied = transformed.datumOffsetMm || {};
     const valid = Boolean(tag.position && tag.commentBody);
+    const datumStatus = !state.inputsDirty
+      && sameNumber(applied.x, configured.x)
+      && sameNumber(applied.y, configured.y)
+      && sameNumber(applied.z, configured.z)
+      ? 'CURRENT'
+      : 'REBUILD_REQUIRED';
     return {
       viewIndex: tag.viewIndex,
       viewName: tag.viewName,
@@ -80,15 +109,22 @@ export function navisCoordinateRows(state) {
       xmlZ: compactNumber(raw.z, 6),
       sourceUnit: transformed.sourceUnit || tag.units || '',
       unitScaleToMm: compactNumber(transformed.unitScale, 6),
-      datumE: compactNumber(datum.x),
-      datumN: compactNumber(datum.y),
-      datumEL: compactNumber(datum.z),
+      configuredDatumE: compactNumber(configured.x),
+      configuredDatumN: compactNumber(configured.y),
+      configuredDatumEL: compactNumber(configured.z),
+      appliedDatumE: compactNumber(applied.x),
+      appliedDatumN: compactNumber(applied.y),
+      appliedDatumEL: compactNumber(applied.z),
+      datumStatus,
       navisToJsonE: compactNumber(transformed.x),
       navisToJsonN: compactNumber(transformed.y),
       navisToJsonEL: compactNumber(transformed.z),
+      eFormula: axisFormula(raw.x, transformed.unitScale, applied.x, transformed.x),
+      nFormula: axisFormula(raw.y, transformed.unitScale, applied.y, transformed.y),
+      elFormula: axisFormula(raw.z, transformed.unitScale, applied.z, transformed.z),
       coordinateProfile: transformed.profileName || tag.coordinateProfileName || '',
       axisBasis: transformed.axisBasis || '',
-      transform: tag.position ? `raw × ${transformed.unitScale} + datum` : '',
+      transform: tag.position ? `raw XYZ × ${transformed.unitScale} + applied datum offsets` : '',
       coordinateStatus: valid ? 'VALID_FOR_MATCHING' : tag.position ? 'COORDINATE_ONLY' : 'INVALID',
       diagnostics: (tag.diagnostics || []).join(' | '),
     };
@@ -171,11 +207,17 @@ function renderNavisCoordinates(state) {
     ['viewIndex','View #'], ['viewName','Navis view'], ['viewGuid','View GUID'], ['tagId','Navis Tag ID'], ['commentId','Comment ID'],
     ['commentBody','Comment / candidate ISONOTE'], ['commentUser','Comment author'], ['positionSource','XML coordinate source'],
     ['xmlX','XML X raw'], ['xmlY','XML Y raw'], ['xmlZ','XML Z raw'], ['sourceUnit','XML source unit'], ['unitScaleToMm','Unit scale → mm'],
-    ['datumE','Navis E datum mm'], ['datumN','Navis N datum mm'], ['datumEL','Navis EL datum mm'],
+    ['configuredDatumE','Configured E offset mm'], ['configuredDatumN','Configured N offset mm'], ['configuredDatumEL','Configured EL offset mm'],
+    ['appliedDatumE','Applied E offset mm'], ['appliedDatumN','Applied N offset mm'], ['appliedDatumEL','Applied EL offset mm'], ['datumStatus','Configured offsets applied?',true],
     ['navisToJsonE','Transformed E (JSON comparison mm)'], ['navisToJsonN','Transformed N (JSON comparison mm)'], ['navisToJsonEL','Transformed EL (JSON comparison mm)'],
-    ['coordinateProfile','Navis coordinate profile'], ['axisBasis','Axis interpretation'], ['transform','Transformation applied'], ['coordinateStatus','Ready for Stage 3?',true], ['diagnostics','Coordinate / comment issues'],
+    ['eFormula','E transformation formula'], ['nFormula','N transformation formula'], ['elFormula','EL transformation formula'],
+    ['coordinateProfile','Navis coordinate profile'], ['axisBasis','Axis interpretation'], ['transform','Transformation basis'], ['coordinateStatus','Ready for Stage 3?',true], ['diagnostics','Coordinate / comment issues'],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
-  return `<section class="nti-card"><h3>Navis Tag Coordinate Resolution — one row per Tag ID</h3>${stageIntro(2, 'Navis Tag Coordinate Resolution', 'Shows the original XML coordinates and the exact transformed coordinates used against JSON. No JSON node selection is performed here.')}<div class="nti-help">Transformation: raw XML XYZ × detected/configured unit scale + Navis datum offsets = JSON comparison-frame E/N/EL in millimetres.</div><input class="nti-filter" data-nti-table-filter="navis-coordinate" placeholder="Filter Tag ID, view, comment, status or coordinate...">${renderTable(headers, navisCoordinateRows(state), 'nti-filter-table-navis-coordinate', 'Parse Navis Tag XML to list Tag ID coordinate transformations.')}</section>`;
+  const cfg = state.config || {};
+  const freshness = state.inputsDirty
+    ? '<div class="nti-help"><b>Configuration/source changes are pending.</b> These rows show the last applied offsets. Run resolution to rebuild automatically with the configured values.</div>'
+    : '<div class="nti-help">Configured and applied offsets are current for these parsed Navis coordinates.</div>';
+  return `<section class="nti-card"><h3>Navis Tag Coordinate Resolution — one row per Tag ID</h3>${stageIntro(2, 'Navis Tag Coordinate Resolution', 'Shows the original XML coordinates, configured datum offsets, offsets actually applied during parsing, and the exact transformed coordinates used against JSON.')}<div class="nti-help">Transformation: raw XML XYZ × detected/configured unit scale + configured Navis datum offsets = JSON comparison-frame E/N/EL in millimetres. Current configured offsets: E ${esc(cfg.navisEastingDatumMm ?? 0)} mm; N ${esc(cfg.navisNorthingDatumMm ?? 0)} mm; EL ${esc(cfg.navisElevationDatumMm ?? 0)} mm.</div>${freshness}<input class="nti-filter" data-nti-table-filter="navis-coordinate" placeholder="Filter Tag ID, view, comment, offset status, formula or coordinate...">${renderTable(headers, navisCoordinateRows(state), 'nti-filter-table-navis-coordinate', 'Parse Navis Tag XML to list Tag ID coordinate transformations.')}</section>`;
 }
 function renderMatch(state) {
   const matchHeaders = [
@@ -200,4 +242,4 @@ export function renderNavisTagIsonoteEvidencePane(state) {
   if (state.activeTab === 'candidates') return renderMatch(state);
   return null;
 }
-export const _test = Object.freeze({ jsonTraceRows, navisCoordinateRows, matchRows, candidateRows });
+export const _test = Object.freeze({ jsonTraceRows, navisCoordinateRows, matchRows, candidateRows, axisFormula });

@@ -17,14 +17,18 @@ const CONFIG_STORE = 'navisTagIsonote.config.v4';
 const ACTIVATE = 'click';
 function readConfig() { try { return normalizeConfig(JSON.parse(localStorage.getItem(CONFIG_STORE) || '{}')); } catch { return normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG); } }
 function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {} }
+function configSignature(config) { return JSON.stringify(normalizeConfig(config || {})); }
+function markInputsDirty(state) { state.inputsDirty = true; state.audit = null; }
 function createState() {
   return {
     config: readConfig(), activeTab: 'inputs', tableText: '', tableImport: null, navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
     tableParsed: null, tableBuild: null, resolutionBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
+    inputsDirty: true,
     status: 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.', running: false,
   };
 }
 function collectConfig(root, state) {
+  const previousConfigSignature = configSignature(state.config);
   const next = { ...state.config };
   root.querySelectorAll('[data-nti-config]').forEach((input) => {
     const key = input.dataset.ntiConfig;
@@ -36,6 +40,7 @@ function collectConfig(root, state) {
     next[select.dataset.ntiPathSelect] = [...select.selectedOptions].map((option) => option.value).filter(Boolean);
   });
   state.config = normalizeConfig(next);
+  if (configSignature(state.config) !== previousConfigSignature) markInputsDirty(state);
   const table = root.querySelector('[data-nti-field="tableText"]');
   const navis = root.querySelector('[data-nti-field="navisText"]');
   if (table) {
@@ -47,10 +52,15 @@ function collectConfig(root, state) {
         identityValueCount: 0, selectionMode: 'MANUAL_TEXT', candidates: [], diagnostics: [],
       };
       state.sourceNames.table = nextText ? 'Pasted / edited table' : '';
+      markInputsDirty(state);
     }
     state.tableText = nextText;
   }
-  if (navis) state.navisText = navis.value;
+  if (navis) {
+    const nextText = navis.value;
+    if (nextText !== state.navisText) markInputsDirty(state);
+    state.navisText = nextText;
+  }
 }
 function emptyTableBuild(config) {
   return {
@@ -88,13 +98,17 @@ function buildAll(state) {
     hasSourceText: Boolean(state.tableText || state.navisText || state.stagedDocuments.length),
   });
   state.audit = null;
+  state.inputsDirty = false;
   const suppressed = (state.stagedIndex.summary.suppressedMirrorEntryCount || 0) + (state.stagedIndex.summary.suppressedDuplicateEntryCount || 0);
   const sheet = state.tableImport?.selectedSheetName ? ` from worksheet "${state.tableImport.selectedSheetName}"` : '';
   const resolutionSource = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON' : `support table${sheet}`;
   state.status = `${state.readiness.status}: Stage 1 has ${state.resolutionBuild.summary.rowCount} JSON resolution rows from ${resolutionSource}; Stage 2 has ${state.navisParse.summary.validTagCount} valid Navis tags; ${state.tree.summary.nodeCount} JSON nodes and ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed).`;
 }
+function needsRebuild(state) {
+  return Boolean(state.inputsDirty || !state.identityTrace || !state.navisParse || !state.readiness || !state.resolutionBuild);
+}
 function runResolution(state) {
-  if (!state.identityTrace || !state.navisParse || !state.readiness || !state.resolutionBuild) buildAll(state);
+  if (needsRebuild(state)) buildAll(state);
   if (!state.readiness.canResolve) {
     const details = state.readiness.blockers.map((item) => `${item.code}: ${item.message}`).join(' | ') || 'readiness failed';
     throw new Error(`Resolution blocked. ${details}`);
@@ -157,7 +171,7 @@ function render(root, state) {
   ];
   root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${renderNavisTagIsonoteEvidencePane(state) ?? renderNavisTagIsonotePane(state)}</div>`;
   root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.activeTab = button.dataset.ntiTab; render(root, state); }));
-  root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveConfig(state.config); state.status = 'Mapping config saved.'; render(root, state); });
+  root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveConfig(state.config); state.status = state.inputsDirty ? 'Mapping config saved. Derived coordinates are stale; Parse or Run will rebuild them with the updated settings.' : 'Mapping config saved.'; render(root, state); });
   root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); buildAll(state); state.activeTab = 'hierarchy'; } catch (error) { state.status = error?.message || String(error); } render(root, state); });
   root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'candidates'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
   root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
@@ -181,12 +195,13 @@ function render(root, state) {
         state.tableImport = imported.meta;
         const sheet = imported.meta.selectedSheetName ? ` › ${imported.meta.selectedSheetName}` : '';
         state.sourceNames.table = `${file.name}${sheet}`;
+        markInputsDirty(state);
         state.status = imported.meta.kind === 'workbook'
           ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows. Parse sources to verify identities.`
           : `${file.name} loaded. Parse sources to refresh the three-stage evidence workflow.`;
       }
-      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; state.status = `${file.name} loaded. Parse sources to inspect Tag ID coordinate transformations.`; }
-      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; state.status = `${file.name} loaded. Parse sources to build the JSON trace.`; }
+      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; markInputsDirty(state); state.status = `${file.name} loaded. Parse sources to inspect Tag ID coordinate transformations.`; }
+      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; markInputsDirty(state); state.status = `${file.name} loaded. Parse sources to build the JSON trace.`; }
     } catch (error) { state.status = `Load failed: ${error?.message || error}`; }
     render(root, state);
   }));
@@ -217,4 +232,4 @@ export function installNavisTagIsonoteUtilityTile(container) {
   launcher.querySelector('[data-nti-open="1"]').addEventListener(ACTIVATE, () => { if (!popup) popup = mountPopup(utilitiesRoot, () => { popup = null; }); });
   return () => { popup?.remove(); launcher.remove(); };
 }
-export const _test = Object.freeze({ renderLauncher, createState, buildAll, runResolution, tabDataState });
+export const _test = Object.freeze({ renderLauncher, createState, buildAll, runResolution, tabDataState, configSignature, markInputsDirty, needsRebuild });
