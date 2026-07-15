@@ -7,6 +7,7 @@ import {
   DEFAULT_PIPELINE_CAD_SNAP_SETTINGS,
   loadPipelineCadSnapSettings,
   normalizePipelineCadSnapSettings,
+  snapTable3CommittedDepth,
   snapTable3Depth,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-snap.js';
 import { PipelineCadShortcut, resolvePipelineCadShortcut } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-shortcuts.js';
@@ -32,6 +33,7 @@ const commit = composePipelineCadSnapPoint({ x: 9.7, y: -0.04 }, acquisition, { 
 assert.deepEqual(preview, commit, 'preview and commit composition must be identical');
 assert.equal(preview.x, 10, 'object-locked X must bypass scalar rounding');
 assert.equal(preview.y, 0.75, 'unlocked Y must preserve Above-Ground Z behavior');
+assert.equal(snapTable3CommittedDepth(-0.375, {}), -0.4, 'Table 3 preview must use raw-table depth precision');
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tabs = path.join(ROOT, 'tabs/pipeline-3d-model');
