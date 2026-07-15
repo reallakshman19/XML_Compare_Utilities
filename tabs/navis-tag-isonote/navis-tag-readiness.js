@@ -8,6 +8,7 @@ function record(severity, code, message, context = {}) {
 function requiresJson(config, tableRecords) {
   if (config.supportCoordinateSource === 'json-only' || config.supportCoordinateSource === 'prefer-json-fallback-table') return true;
   if (config.supportCoordinateSource === 'table-only') return false;
+  if (!(tableRecords || []).length) return true;
   return (tableRecords || []).some((row) => !row.position);
 }
 
@@ -37,6 +38,7 @@ function tablePositionMappingStatus(config, headers = []) {
 export function buildNavisTagIsonoteReadiness(input = {}) {
   const config = normalizeConfig(input.config || {});
   const tableBuild = input.tableBuild || null;
+  const resolutionBuild = input.resolutionBuild || tableBuild;
   const tableImport = input.tableImport || null;
   const tree = input.tree || null;
   const stagedIndex = input.stagedIndex || null;
@@ -44,11 +46,15 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   const navisParse = input.navisParse || null;
 
   const records = tableBuild?.records || [];
+  const resolutionRecords = resolutionBuild?.records || [];
+  const resolutionSource = resolutionBuild?.sourceKind || (records.length ? 'SUPPORT_TABLE' : '');
   const headers = tableBuild?.headers || [];
   const blockers = [];
   const warnings = [];
+  const tableModeRequired = config.supportCoordinateSource === 'table-only';
+  const usingStagedRows = resolutionSource === 'STAGED_JSON' && resolutionRecords.length > 0;
 
-  if (!records.length) {
+  if (!records.length && tableModeRequired) {
     if (tableImport?.kind === 'workbook') {
       const selected = tableImport.selectedSheetName || '(none)';
       blockers.push(record('ERROR', 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING', `Workbook was loaded, but selected worksheet "${selected}" produced no support-table data rows. Review the selected worksheet, header row and table identity columns.`, {
@@ -58,9 +64,20 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
         selectionMode: tableImport.selectionMode || '',
       }));
     } else {
-      blockers.push(record('ERROR', 'TABLE_ROWS_MISSING', 'No support-table rows are available.'));
+      blockers.push(record('ERROR', 'TABLE_ROWS_MISSING', 'Table-only coordinate mode is selected, but no support-table rows are available.'));
     }
+  } else if (!records.length && tableImport?.kind === 'workbook' && usingStagedRows) {
+    warnings.push(record('WARN', 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING_USING_STAGED_JSON', 'The loaded workbook produced no support-table rows. Resolution will continue using staged JSON support identities and coordinates.', {
+      selectedSheetName: tableImport.selectedSheetName || '',
+      headerRowNumber: tableImport.headerRowNumber || 0,
+      resolutionRowCount: resolutionRecords.length,
+    }));
   }
+
+  if (!resolutionRecords.length && !tableModeRequired) {
+    blockers.push(record('ERROR', 'RESOLUTION_ROWS_MISSING', 'No support rows are available from either the support table or the staged JSON identity index.'));
+  }
+
   const identityRows = records.filter((row) => row.identity);
   if (records.length && !identityRows.length) blockers.push(record('ERROR', 'TABLE_IDENTITY_MAPPING_INVALID', `Configured table identity columns produce no support identities. Available headers: ${headers.join(', ') || '(none)'}.`, {
     configuredIdentityColumns: config.tableIdentityColumns,
@@ -70,15 +87,17 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   else if (identityRows.length < records.length) warnings.push(record('WARN', 'TABLE_IDENTITIES_PARTIAL', `${records.length - identityRows.length} table rows have no configured identity.`));
 
   const tablePositionMapping = tablePositionMappingStatus(config, headers);
-  const tableModeRequired = config.supportCoordinateSource === 'table-only';
-  if (!tablePositionMapping.valid) {
+  if ((records.length || tableModeRequired) && !tablePositionMapping.valid) {
     const item = record(tableModeRequired ? 'ERROR' : 'WARN', tablePositionMapping.code, tablePositionMapping.message);
     (tableModeRequired ? blockers : warnings).push(item);
   }
 
   const jsonRequired = requiresJson(config, records);
   if (jsonRequired && !tree?.summary?.nodeCount) blockers.push(record('ERROR', 'STAGED_JSON_REQUIRED', 'The selected coordinate mode requires staged JSON hierarchy evidence.'));
-  if (tree?.summary?.nodeCount && !stagedIndex?.entries?.length) blockers.push(record('ERROR', 'STAGED_IDENTITY_INDEX_EMPTY', 'The staged hierarchy was parsed, but configured JSON identity paths produced no support index entries.'));
+  if (tree?.summary?.nodeCount && !stagedIndex?.entries?.length) {
+    const item = record(jsonRequired ? 'ERROR' : 'WARN', 'STAGED_IDENTITY_INDEX_EMPTY', 'The staged hierarchy was parsed, but configured JSON identity paths produced no support index entries.');
+    (jsonRequired ? blockers : warnings).push(item);
+  }
   if (stagedIndex?.entries?.length && !stagedIndex.entries.some((entry) => entry.position)) {
     const item = record(jsonRequired ? 'ERROR' : 'WARN', 'STAGED_POSITION_INDEX_EMPTY', 'Configured JSON proximity paths produced no staged support coordinates.');
     (jsonRequired ? blockers : warnings).push(item);
@@ -101,7 +120,7 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   const validTags = navisParse?.tags?.filter((tag) => tag.position && tag.commentBody) || [];
   if (!validTags.length) blockers.push(record('ERROR', 'NAVIS_VALID_TAGS_MISSING', 'No Navis tag has both a comment body and usable 3D position.'));
 
-  if (config.supportCoordinateSource === 'table-only' && records.length && !records.some((row) => row.position)) {
+  if (tableModeRequired && records.length && !records.some((row) => row.position)) {
     blockers.push(record('ERROR', 'TABLE_POSITION_MAPPING_INVALID', 'Table-only mode is selected, but no table row has a parsed position.'));
   }
 
@@ -117,12 +136,15 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   return {
     schema: NAVIS_TAG_READINESS_SCHEMA,
     status,
-    canBuild: Boolean(records.length || input.hasSourceText),
+    canBuild: Boolean(resolutionRecords.length || input.hasSourceText),
     canResolve: blockers.length === 0,
     blockers,
     warnings,
     summary: {
       tableRowCount: records.length,
+      resolutionRowCount: resolutionRecords.length,
+      resolutionSource,
+      usingStagedResolutionRows: usingStagedRows,
       tableIdentityCount: identityRows.length,
       tableSourceKind: tableImport?.kind || '',
       workbookSheetCount: tableImport?.sheetCount || 0,

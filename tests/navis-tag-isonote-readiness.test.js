@@ -4,12 +4,15 @@ import { DEFAULT_BORE_TO_OD_PROFILE } from '../tabs/navis-tag-isonote/navis-tag-
 
 const empty = buildNavisTagIsonoteReadiness({
   config: { supportCoordinateSource: 'json-only' },
-  tableBuild: { headers: [], records: [] }, tree: { summary: { nodeCount: 0 } }, stagedIndex: { entries: [] },
+  tableBuild: { headers: [], records: [] },
+  resolutionBuild: { headers: [], records: [], sourceKind: 'STAGED_JSON' },
+  tree: { summary: { nodeCount: 0 } }, stagedIndex: { entries: [] },
   identityTrace: { rows: [], summary: {} }, navisParse: { tags: [], summary: {} },
 });
 assert.equal(empty.status, 'BLOCKED');
 assert.equal(empty.canResolve, false);
-assert.ok(empty.blockers.some((item) => item.code === 'TABLE_ROWS_MISSING'));
+assert.ok(!empty.blockers.some((item) => item.code === 'TABLE_ROWS_MISSING'));
+assert.ok(empty.blockers.some((item) => item.code === 'RESOLUTION_ROWS_MISSING'));
 assert.ok(empty.blockers.some((item) => item.code === 'STAGED_JSON_REQUIRED'));
 assert.ok(empty.blockers.some((item) => item.code === 'NAVIS_VALID_TAGS_MISSING'));
 
@@ -22,6 +25,32 @@ const tableOnly = buildNavisTagIsonoteReadiness({
 assert.equal(tableOnly.status, 'READY');
 assert.equal(tableOnly.canResolve, true);
 assert.equal(tableOnly.summary.stagedJsonRequired, false);
+
+const tableOnlyMissing = buildNavisTagIsonoteReadiness({
+  config: { supportCoordinateSource: 'table-only', tablePositionMode: 'single', tablePositionColumn: 'POS' },
+  tableBuild: { headers: [], records: [] },
+  resolutionBuild: { headers: [], records: [], sourceKind: 'SUPPORT_TABLE' },
+  tree: { summary: { nodeCount: 0 } }, stagedIndex: { entries: [] }, identityTrace: { rows: [], summary: {} },
+  navisParse: { tags: [{ commentBody: 'Note', position: { x: 1, y: 2, z: 3 } }], summary: { tagCount: 1 } },
+});
+assert.equal(tableOnlyMissing.canResolve, false);
+assert.ok(tableOnlyMissing.blockers.some((item) => item.code === 'TABLE_ROWS_MISSING'));
+
+const stagedOnly = buildNavisTagIsonoteReadiness({
+  config: { supportCoordinateSource: 'prefer-table-fallback-json', tablePositionMode: 'single', tablePositionColumn: 'POS' },
+  tableBuild: { headers: [], records: [] },
+  resolutionBuild: { headers: [], records: [{ identity: 'PS-1.1' }], sourceKind: 'STAGED_JSON' },
+  tree: { summary: { nodeCount: 1, branchResolvedNodeCount: 1, pipeResolvedNodeCount: 1, zoneResolvedNodeCount: 1 } },
+  stagedIndex: { entries: [{ identity: 'PS-1.1', position: { x: 1, y: 2, z: 3 } }] },
+  identityTrace: { rows: [{ position: { x: 1, y: 2, z: 3 }, tableRecord: { position: null } }], summary: { ambiguousCount: 0 } },
+  navisParse: { tags: [{ commentBody: 'Note', position: { x: 1, y: 2, z: 3 } }], summary: { tagCount: 1 } },
+});
+assert.equal(stagedOnly.status, 'READY');
+assert.equal(stagedOnly.canResolve, true);
+assert.equal(stagedOnly.summary.resolutionSource, 'STAGED_JSON');
+assert.equal(stagedOnly.summary.resolutionRowCount, 1);
+assert.ok(!stagedOnly.blockers.some((item) => item.code === 'TABLE_ROWS_MISSING'));
+assert.ok(!stagedOnly.warnings.some((item) => /TABLE_.*POSITION_COLUMN/.test(item.code)));
 
 const invalidSeparate = buildNavisTagIsonoteReadiness({
   config: {

@@ -67,7 +67,7 @@ assert.equal(emptyWorkbook.selected, null);
 assert.equal(emptyWorkbook.selectionMode, 'NONE');
 assert.ok(emptyWorkbook.diagnostics.some((item) => item.code === 'WORKBOOK_NO_NONEMPTY_WORKSHEET'));
 
-const workbookBlocked = buildNavisTagIsonoteReadiness({
+const workbookFallbackReadiness = buildNavisTagIsonoteReadiness({
   config: { supportCoordinateSource: 'json-only' },
   tableImport: {
     kind: 'workbook',
@@ -78,20 +78,24 @@ const workbookBlocked = buildNavisTagIsonoteReadiness({
     sheetCount: 2,
   },
   tableBuild: { headers: ['ASIM Support Register'], records: [] },
-  tree: { summary: { nodeCount: 1 } },
-  stagedIndex: { entries: [{ position: { x: 1, y: 2, z: 3 } }] },
-  identityTrace: { rows: [], summary: {} },
+  resolutionBuild: { sourceKind: 'STAGED_JSON', headers: [], records: [{ identity: 'PS-1.1' }] },
+  tree: { summary: { nodeCount: 1, branchResolvedNodeCount: 1, pipeResolvedNodeCount: 1, zoneResolvedNodeCount: 1 } },
+  stagedIndex: { entries: [{ identity: 'PS-1.1', position: { x: 1, y: 2, z: 3 } }] },
+  identityTrace: { rows: [{ position: { x: 1, y: 2, z: 3 }, tableRecord: { position: null } }], summary: {} },
   navisParse: { tags: [{ commentBody: 'R', position: { x: 1, y: 2, z: 3 } }], summary: { tagCount: 1 } },
 });
-assert.equal(workbookBlocked.status, 'BLOCKED');
-assert.ok(workbookBlocked.blockers.some((item) => item.code === 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING'));
-assert.equal(workbookBlocked.summary.selectedSheetName, 'Cover');
-assert.equal(workbookBlocked.summary.workbookSheetCount, 2);
+assert.equal(workbookFallbackReadiness.status, 'READY_WITH_WARNINGS');
+assert.equal(workbookFallbackReadiness.canResolve, true);
+assert.ok(workbookFallbackReadiness.warnings.some((item) => item.code === 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING_USING_STAGED_JSON'));
+assert.ok(!workbookFallbackReadiness.blockers.some((item) => item.code === 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING'));
+assert.equal(workbookFallbackReadiness.summary.selectedSheetName, 'Cover');
+assert.equal(workbookFallbackReadiness.summary.workbookSheetCount, 2);
+assert.equal(workbookFallbackReadiness.summary.resolutionSource, 'STAGED_JSON');
 
 const tabSource = readFileSync(new URL('../tabs/navis-tag-isonote/navis-tag-isonote-tab.js', import.meta.url), 'utf8');
 assert.match(tabSource, /returnMetadata:\s*true/);
 assert.match(tabSource, /state\.tableImport\s*=\s*imported\.meta/);
-assert.match(tabSource, /table rows\$\{sheet\}/);
+assert.match(tabSource, /resolution rows from/);
 assert.match(tabSource, /tableImport:\s*state\.tableImport/);
 
 console.log('navis-tag-isonote workbook ingestion tests passed');

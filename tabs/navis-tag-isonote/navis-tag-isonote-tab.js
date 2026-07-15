@@ -2,6 +2,7 @@ import { DEFAULT_NAVIS_TAG_ISONOTE_CONFIG, normalizeConfig } from './navis-tag-i
 import { buildSupportTableRecords, parseSupportTableText, rowsToCsv } from './navis-tag-table-source.js';
 import { buildStagedJsonHierarchy, buildStagedSupportIndex } from './navis-tag-staged-tree.js';
 import { refineStagedSupportIndex } from './navis-tag-index-refinement.js';
+import { buildResolutionSupportRecords } from './navis-tag-resolution-source.js';
 import { parseNavisTagXml } from './navis-tag-xml-parser.js';
 import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from './navis-tag-identity-trace.js';
 import { resolveNavisTagIsonotes } from './navis-tag-proximity-engine.js';
@@ -18,8 +19,8 @@ function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stri
 function createState() {
   return {
     config: readConfig(), activeTab: 'inputs', tableText: '', tableImport: null, navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
-    tableParsed: null, tableBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
-    status: 'Load the support table, Navis Tag XML, and managed staged JSON/ZIP.', running: false,
+    tableParsed: null, tableBuild: null, resolutionBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
+    status: 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.', running: false,
   };
 }
 function collectConfig(root, state) {
@@ -50,18 +51,34 @@ function collectConfig(root, state) {
   }
   if (navis) state.navisText = navis.value;
 }
+function emptyTableBuild(config) {
+  return {
+    config,
+    headers: [],
+    records: [],
+    diagnostics: [],
+    summary: { rowCount: 0, identityCount: 0, referenceCount: 0, positionedRowCount: 0, pipeCount: 0 },
+  };
+}
 function buildAll(state) {
-  state.tableParsed = parseSupportTableText(state.tableText);
-  state.tableBuild = buildSupportTableRecords(state.tableParsed, state.config);
+  if (state.tableText.trim()) {
+    state.tableParsed = parseSupportTableText(state.tableText);
+    state.tableBuild = buildSupportTableRecords(state.tableParsed, state.config);
+  } else {
+    state.tableParsed = { delimiter: '\t', headers: [], rows: [], diagnostics: [] };
+    state.tableBuild = emptyTableBuild(state.config);
+  }
   if (state.tableImport?.diagnostics?.length) state.tableBuild.diagnostics.unshift(...state.tableImport.diagnostics);
   state.tree = buildStagedJsonHierarchy(state.stagedDocuments, state.config);
   state.rawStagedIndex = buildStagedSupportIndex(state.tree, state.config);
   state.stagedIndex = refineStagedSupportIndex(state.rawStagedIndex, state.tree, state.config);
-  state.identityTrace = buildIdentityNodeTrace(state.tableBuild.records, state.stagedIndex, state.config);
+  state.resolutionBuild = buildResolutionSupportRecords(state.tableBuild, state.stagedIndex, state.config);
+  state.identityTrace = buildIdentityNodeTrace(state.resolutionBuild.records, state.stagedIndex, state.config);
   state.navisParse = parseNavisTagXml(state.navisText, state.config);
   state.readiness = buildNavisTagIsonoteReadiness({
     config: state.config,
     tableBuild: state.tableBuild,
+    resolutionBuild: state.resolutionBuild,
     tableImport: state.tableImport,
     tree: state.tree,
     stagedIndex: state.stagedIndex,
@@ -72,21 +89,26 @@ function buildAll(state) {
   state.audit = null;
   const suppressed = (state.stagedIndex.summary.suppressedMirrorEntryCount || 0) + (state.stagedIndex.summary.suppressedDuplicateEntryCount || 0);
   const sheet = state.tableImport?.selectedSheetName ? ` from worksheet "${state.tableImport.selectedSheetName}"` : '';
-  state.status = `${state.readiness.status}: ${state.tableBuild.summary.rowCount} table rows${sheet}; ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
+  const resolutionSource = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON' : `support table${sheet}`;
+  state.status = `${state.readiness.status}: ${state.resolutionBuild.summary.rowCount} resolution rows from ${resolutionSource}; ${state.tableBuild.summary.rowCount} table rows; ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
 }
 function runResolution(state) {
-  if (!state.identityTrace || !state.navisParse || !state.readiness) buildAll(state);
-  if (!state.readiness.canResolve) throw new Error(`Resolution blocked: ${state.readiness.blockers.map((item) => item.code).join(', ') || 'readiness failed'}`);
-  state.audit = resolveNavisTagIsonotes(state.tableBuild, state.identityTrace, state.navisParse, state.config);
+  if (!state.identityTrace || !state.navisParse || !state.readiness || !state.resolutionBuild) buildAll(state);
+  if (!state.readiness.canResolve) {
+    const details = state.readiness.blockers.map((item) => `${item.code}: ${item.message}`).join(' | ') || 'readiness failed';
+    throw new Error(`Resolution blocked. ${details}`);
+  }
+  state.audit = resolveNavisTagIsonotes(state.resolutionBuild, state.identityTrace, state.navisParse, state.config);
   state.identityTrace = attachNavisResolutionToIdentityTrace(state.identityTrace, state.audit);
-  state.status = `ISONOTE resolution: ${state.audit.summary.resolvedCount} resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved. End-to-end trace refreshed for ${state.identityTrace.summary.rowCount} table rows.`;
+  const source = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON rows' : 'support-table rows';
+  state.status = `ISONOTE resolution: ${state.audit.summary.resolvedCount} resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved. End-to-end trace refreshed for ${state.identityTrace.summary.rowCount} ${source}.`;
 }
 function tabDataState(state, id) {
   const has = {
     hierarchy: Boolean(state.tree?.summary?.nodeCount), identity: Boolean(state.identityTrace?.rows?.length),
     'identity-matched': Boolean(state.identityTrace?.matchedRows?.length), 'identity-ambiguous': Boolean(state.identityTrace?.ambiguousRows?.length), 'identity-rejected': Boolean(state.identityTrace?.rejectedRows?.length),
     augmented: Boolean(state.audit?.augmentedRows?.length), 'decision-matched': Boolean(state.audit?.matchedRows?.length), 'decision-ambiguous': Boolean(state.audit?.ambiguousRows?.length), 'decision-rejected': Boolean(state.audit?.rejectedRows?.length),
-    candidates: Boolean(state.audit?.candidateLedger?.length), diagnostics: Boolean(state.tableBuild?.diagnostics?.length || state.identityTrace?.diagnostics?.length || state.navisParse?.diagnostics?.length || state.audit?.diagnostics?.length),
+    candidates: Boolean(state.audit?.candidateLedger?.length), diagnostics: Boolean(state.tableBuild?.diagnostics?.length || state.resolutionBuild?.diagnostics?.length || state.identityTrace?.diagnostics?.length || state.navisParse?.diagnostics?.length || state.audit?.diagnostics?.length),
   }[id];
   return has ? (/ambiguous|rejected|diagnostics/.test(id) ? 'has-warning' : 'has-data') : '';
 }
@@ -110,6 +132,7 @@ function downloadAudit(state) {
     audit: state.audit,
     readiness: state.readiness,
     tableImport: state.tableImport,
+    resolutionSource: state.resolutionBuild?.sourceKind || '',
     hierarchySummary: state.tree?.summary,
     rawIndexSummary: state.rawStagedIndex?.summary,
     refinedIndexSummary: state.stagedIndex?.summary,

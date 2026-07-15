@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { parseSupportTableText, buildSupportTableRecords } from '../tabs/navis-tag-isonote/navis-tag-table-source.js';
 import { buildStagedJsonHierarchy, buildStagedSupportIndex } from '../tabs/navis-tag-isonote/navis-tag-staged-tree.js';
+import { buildResolutionSupportRecords } from '../tabs/navis-tag-isonote/navis-tag-resolution-source.js';
 import { parseNavisTagXml } from '../tabs/navis-tag-isonote/navis-tag-xml-parser.js';
 import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from '../tabs/navis-tag-isonote/navis-tag-identity-trace.js';
 import { resolveNavisTagIsonotes } from '../tabs/navis-tag-isonote/navis-tag-proximity-engine.js';
@@ -81,7 +82,7 @@ assert.equal(navis.tags.length, 1);
 assert.equal(navis.tags[0].commentBody, 'Model monofl ball valve (typ)');
 assert.ok(Math.abs(navis.tags[0].position.x - 151763.923) < 0.01);
 
-const readiness = buildNavisTagIsonoteReadiness({ config, tableBuild, tree, stagedIndex: index, identityTrace, navisParse: navis });
+const readiness = buildNavisTagIsonoteReadiness({ config, tableBuild, resolutionBuild: tableBuild, tree, stagedIndex: index, identityTrace, navisParse: navis });
 assert.equal(readiness.status, 'READY');
 assert.equal(readiness.canResolve, true);
 
@@ -105,5 +106,40 @@ assert.equal(finalTrace.rows[0].selectedNavisCommentId, '1');
 assert.equal(finalTrace.rows[0].selectedNavisCommentBody, 'Model monofl ball valve (typ)');
 assert.equal(finalTrace.rows[0].supportIsonote, 'Model monofl ball valve (typ)');
 assert.equal(finalTrace.summary.navisResolvedCount, 1);
+
+// The support table is optional in staged-JSON resolution mode.
+const emptyTableBuild = {
+  config,
+  headers: [],
+  records: [],
+  diagnostics: [],
+  summary: { rowCount: 0, identityCount: 0, referenceCount: 0, positionedRowCount: 0, pipeCount: 0 },
+};
+const stagedResolutionBuild = buildResolutionSupportRecords(emptyTableBuild, index, config);
+assert.equal(stagedResolutionBuild.sourceKind, 'STAGED_JSON');
+assert.equal(stagedResolutionBuild.records.length, 1);
+assert.equal(stagedResolutionBuild.records[0].identity, 'PS-14416.2');
+assert.equal(stagedResolutionBuild.records[0].position, null, 'synthetic rows must not masquerade as table coordinates');
+const stagedIdentityTrace = buildIdentityNodeTrace(stagedResolutionBuild.records, index, config);
+assert.equal(stagedIdentityTrace.summary.resolvedCount, 1);
+assert.equal(stagedIdentityTrace.rows[0].positionSourcePath, 'attributes.CUSTOM_POS');
+const stagedReadiness = buildNavisTagIsonoteReadiness({
+  config,
+  tableBuild: emptyTableBuild,
+  resolutionBuild: stagedResolutionBuild,
+  tree,
+  stagedIndex: index,
+  identityTrace: stagedIdentityTrace,
+  navisParse: navis,
+  hasSourceText: true,
+});
+assert.equal(stagedReadiness.canResolve, true);
+assert.equal(stagedReadiness.status, 'READY');
+assert.equal(stagedReadiness.summary.resolutionSource, 'STAGED_JSON');
+assert.ok(!stagedReadiness.blockers.some((item) => item.code === 'TABLE_ROWS_MISSING'));
+const stagedAudit = resolveNavisTagIsonotes(stagedResolutionBuild, stagedIdentityTrace, navis, config);
+assert.equal(stagedAudit.summary.resolvedCount, 1);
+assert.equal(stagedAudit.augmentedRows[0]['Support ISONOTE'], 'Model monofl ball valve (typ)');
+assert.equal(stagedAudit.augmentedRows[0]['Match Source'], 'STAGED_JSON');
 
 console.log('navis-tag-isonote core tests passed');
