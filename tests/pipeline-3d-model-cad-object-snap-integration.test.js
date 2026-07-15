@@ -18,7 +18,7 @@ const storage = {
 };
 const migrated = loadPipelineCadSnapSettings('table2x', storage);
 assert.equal(migrated.gridEnabled, true);
-assert.equal(migrated.objectEnabled, true, 'legacy scalar settings must migrate to Object Snap defaults');
+assert.equal(migrated.objectEnabled, false, 'legacy scalar settings must preserve scalar-only behavior');
 assert.equal(migrated.objectAperture, DEFAULT_PIPELINE_CAD_SNAP_SETTINGS.objectAperture);
 assert.equal(resolvePipelineCadShortcut({ key: 'F3', code: 'F3' }, 'table2x'), PipelineCadShortcut.TOGGLE_OBJECT_SNAP);
 assert.equal(resolvePipelineCadShortcut({ key: 'F3', code: 'F3', target: { tagName: 'INPUT' } }, 'table2x'), null);
