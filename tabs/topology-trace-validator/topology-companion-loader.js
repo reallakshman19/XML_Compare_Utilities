@@ -1,11 +1,11 @@
 /**
  * Resolves producer-owned companion topology files after one managed source JSON
  * selection. This module never invokes a topology builder. Canonical and ledger
- * are required; InputXML, scene, parsed graph, and parity report are optional
- * for compatibility with older published workpacks.
+ * are required; InputXML, scene, parsed graph, parity report, and CII projection
+ * evidence are optional for compatibility with older published workpacks.
  */
 
-const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report']);
+const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report', 'ciiProjection']);
 
 export class TopologyCompanionLoadError extends Error {
   constructor(sourceFileName, attempts) {
@@ -20,7 +20,7 @@ export function topologyCompanionFileNames(sourceFileName) {
   const name = String(sourceFileName ?? '').trim();
   if (!/\.json$/i.test(name)) throw new TypeError(`Managed source filename must end with .json: ${name || '(empty)'}.`);
   const stem = name.replace(/\.json$/i, '');
-  return Object.freeze({
+  const names = {
     stem,
     canonical: `${stem}.canonical-topology.json`,
     ledger: `${stem}.topology-trace-ledger.json`,
@@ -28,7 +28,14 @@ export function topologyCompanionFileNames(sourceFileName) {
     scene: `${stem}.topology-svg-scene.json`,
     parsed: `${stem}.parsed-inputxml-topology.json`,
     report: `${stem}.topology-parity-report.json`,
+  };
+  Object.defineProperty(names, 'ciiProjection', {
+    value: `${stem}.inputxml-cii-projection-ledger.json`,
+    enumerable: false,
+    writable: false,
+    configurable: false,
   });
+  return Object.freeze(names);
 }
 
 export function topologyCompanionBaseUrls(sourceFileName, pageUrl) {
@@ -49,7 +56,7 @@ export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImp
       const canonical = await requiredText(new URL(names.canonical, baseUrl).href, fetchImpl);
       const ledger = await requiredText(new URL(names.ledger, baseUrl).href, fetchImpl);
       const optional = {};
-      for (const kind of ['inputXml', 'scene', 'parsed', 'report']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
+      for (const kind of ['inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
       return Object.freeze({ baseUrl, names, canonical, ledger, ...optional });
     } catch (error) {
       attempts.push(`${baseUrl} (${error?.message || String(error)})`);

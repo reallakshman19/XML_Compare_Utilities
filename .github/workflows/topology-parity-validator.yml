@@ -7,6 +7,7 @@ on:
       - 'tests/topology-trace-validator-**'
       - 'tests/topology-parity-validator.test.js'
       - 'tests/topology-companion-parity.test.js'
+      - 'tests/topology-cii-identity-parity.test.js'
       - 'package.json'
       - '.github/workflows/topology-parity-validator.yml'
   workflow_dispatch:
@@ -36,6 +37,12 @@ jobs:
         run: |
           set -o pipefail
           node tests/topology-parity-validator.test.js 2>&1 | tee "$RUNNER_TEMP/topology-parity.log"
+      - name: Validate CII to SVG identity contracts
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/topology-cii-identity-parity.test.js 2>&1 | tee "$RUNNER_TEMP/topology-cii-identity.log"
       - name: Validate topology parity companion workpack
         if: always()
         shell: bash
@@ -57,6 +64,7 @@ jobs:
             ${{ runner.temp }}/topology-syntax.log
             ${{ runner.temp }}/topology-static.log
             ${{ runner.temp }}/topology-parity.log
+            ${{ runner.temp }}/topology-cii-identity.log
             ${{ runner.temp }}/topology-companion.log
             ${{ runner.temp }}/topology-suite.log
           if-no-files-found: warn

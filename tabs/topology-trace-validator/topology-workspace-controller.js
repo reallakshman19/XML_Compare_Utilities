@@ -1,7 +1,7 @@
 /** Composes the legacy evidence validator and the dedicated parity controller. */
 
 const TRACE_KINDS = new Set(['source', 'canonical', 'ledger', 'inputXml']);
-const PARITY_KINDS = new Set(['canonical', 'ledger', 'scene', 'parsed', 'report']);
+const PARITY_KINDS = new Set(['canonical', 'ledger', 'scene', 'parsed', 'report', 'ciiProjection']);
 
 export function createTopologyWorkspaceController(traceController, parityController) {
   async function loadArtifact(kind, text, fileName) {
