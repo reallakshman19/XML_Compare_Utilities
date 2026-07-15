@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { _test as uiTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js';
 
 const utilityTab = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-tab.js', 'utf8');
 const utilityView = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js', 'utf8');
+const utilityEvidence = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js', 'utf8');
 const readiness = readFileSync('tabs/navis-tag-isonote/navis-tag-readiness.js', 'utf8');
 const identityTrace = readFileSync('tabs/navis-tag-isonote/navis-tag-identity-trace.js', 'utf8');
 const stagedTree = readFileSync('tabs/navis-tag-isonote/navis-tag-staged-tree.js', 'utf8');
@@ -14,19 +16,22 @@ const utilitiesRegistry = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
 assert.match(utilityTab, /Navis Tag to ISONOTE/);
-assert.match(utilityTab, /JSON Hierarchy/);
-assert.match(utilityTab, /Identity Node Trace/);
-assert.match(utilityTab, /Identity Matched/);
-assert.match(utilityTab, /Identity Ambiguous/);
-assert.match(utilityTab, /Identity Rejected/);
-assert.match(utilityTab, /ISONOTE Matched/);
-assert.match(utilityTab, /ISONOTE Ambiguous/);
-assert.match(utilityTab, /ISONOTE Rejected/);
+assert.match(utilityTab, /1\. JSON Trace/);
+assert.match(utilityTab, /2\. Navis Tag Coordinates/);
+assert.match(utilityTab, /3\. Tag ↔ JSON Match/);
+assert.match(utilityTab, /Export Results/);
 assert.match(utilityTab, /attachNavisResolutionToIdentityTrace/);
 assert.match(utilityTab, /refineStagedSupportIndex/);
 assert.match(utilityTab, /download-trace/);
 assert.match(utilityView, /Support ISONOTE/);
-assert.match(utilityView, /End-to-End Identity Node Trace/);
+assert.match(utilityEvidence, /JSON Trace — selected support nodes/);
+assert.match(utilityEvidence, /Navis Tag Coordinate Resolution — one row per Tag ID/);
+assert.match(utilityEvidence, /Navis Tag ↔ JSON Node Match — final decisions/);
+assert.match(utilityEvidence, /Transformed E \(JSON comparison mm\)/);
+assert.match(utilityEvidence, /raw XML XYZ × detected\/configured unit scale \+ Navis datum offsets/);
+assert.match(utilityEvidence, /NEAREST_REJECTED/);
+assert.match(utilityEvidence, /Failed tolerance axes/);
+assert.match(utilityEvidence, /Candidate and nearest-rejected coordinate comparisons/);
 assert.match(utilityView, /data-nti-config="tableIdentityColumns"/);
 assert.match(utilityView, /data-nti-config="tableReferenceColumns"/);
 assert.match(utilityView, /data-nti-config="tablePositionMode"/);
@@ -36,9 +41,9 @@ assert.match(utilityView, /data-nti-config="tableElevationColumn"/);
 assert.match(utilityView, /data-nti-config="tableElevationDatumMm"/);
 assert.match(utilityView, /data-nti-config="jsonElevationDatumMm"/);
 assert.match(utilityView, /data-nti-config="navisElevationDatumMm"/);
-assert.match(utilityView, /identitySelectionEvidence/);
-assert.match(utilityView, /traceOnlyEvidence/);
-assert.match(utilityView, /navisProximityEvidence/);
+assert.match(utilityEvidence, /jsonTraceRows/);
+assert.match(utilityEvidence, /navisCoordinateRows/);
+assert.match(utilityEvidence, /matchRows/);
 assert.match(utilityView, /data-nti-config="jsonIdentityPaths"/);
 assert.match(utilityView, /data-nti-config="jsonReferencePaths"/);
 assert.match(utilityView, /data-nti-config="jsonPositionPaths"/);
@@ -78,5 +83,150 @@ assert.ok(packageJson.scripts['test:navis-tag-isonote'].includes('navis-tag-ison
 assert.ok(packageJson.scripts['test:navis-tag-isonote'].includes('navis-tag-isonote-index-refinement.test.js'));
 assert.ok(packageJson.scripts['test:navis-tag-isonote'].includes('navis-tag-isonote-bore-od-master.test.js'));
 assert.ok(packageJson.scripts.test.includes('test:navis-tag-isonote'));
+
+const navisCoordinateRows = uiTest.navisCoordinateRows({
+  navisParse: {
+    tags: [{
+      viewIndex: 1,
+      viewName: 'Tag View 8',
+      viewGuid: 'view-8',
+      tagId: '8',
+      commentId: '8',
+      commentBody: 'Tag 8 coordinate match',
+      commentUser: 'reviewer',
+      positionSource: 'RLTAG_POS3D',
+      rawPosition: { x: 423.170971, y: -1141.125, z: 101.18415 },
+      units: 'm',
+      position: {
+        x: 423170.971,
+        y: -1141125,
+        z: 1184.15,
+        unitScale: 1000,
+        sourceUnit: 'm',
+        datumOffsetMm: { x: 0, y: 0, z: -100000 },
+        profileName: 'NAVIS_DEFAULT',
+        axisBasis: 'OBJECT_XYZ',
+      },
+      diagnostics: [],
+    }],
+  },
+});
+assert.equal(navisCoordinateRows[0].tagId, '8');
+assert.equal(navisCoordinateRows[0].xmlZ, 101.18415);
+assert.equal(navisCoordinateRows[0].unitScaleToMm, 1000);
+assert.equal(navisCoordinateRows[0].datumEL, -100000);
+assert.equal(navisCoordinateRows[0].navisToJsonEL, 1184.15);
+assert.equal(navisCoordinateRows[0].coordinateStatus, 'VALID_FOR_MATCHING');
+
+const baseTraceRow = {
+  tableRowId: 'STAGED-1',
+  tableRowIndex: 1,
+  tableIdentityRaw: '/PS-12244/DATUM|/PS-12244/SREF',
+  canonicalIdentity: 'PS-12244/DATUM',
+  supportRoot: 'PS-12244',
+  status: 'RESOLVED_EXACT_REFERENCE',
+  selectionReason: 'EXACT_FULL_IDENTITY',
+  candidateCount: 1,
+  selectedNodeId: 'SJ-25',
+  selectedSourceFile: 'managed.json',
+  selectedJsonPath: '$[0].children[4]',
+  selectedRawType: 'SUPPORT',
+  selectedRawName: 'SUPPORT PS-12244',
+  selectedIdentityPath: 'attributes.NAME',
+  selectedReferenceRaw: '=1006649732/51230',
+  selectedReferencePath: 'attributes.REF',
+  positionSourcePath: 'attributes.POSI',
+  position: { x: 423170.971, y: -1141125, z: 1184.15, sourceUnit: 'mm', unitScale: 1, datumOffsetMm: { x: 0, y: 0, z: 0 }, profileName: 'JSON_DEFAULT' },
+  resolvedBranch: '/PIPE/B2',
+  resolvedPipe: '/PIPE',
+  resolvedZone: '',
+  identityConfidence: 'HIGH',
+};
+
+const stagedUiRows = uiTest.jsonTraceRows({ identityTrace: { rows: [baseTraceRow] } });
+assert.equal(stagedUiRows[0].groupedIdentityRaw, '/PS-12244/DATUM|/PS-12244/SREF');
+assert.equal(stagedUiRows[0].jsonE, 423170.971);
+
+const selectedTraceRow = {
+  ...baseTraceRow,
+  navisResolutionStatus: 'RESOLVED',
+  selectedNavisTagId: '8',
+  selectedNavisViewName: 'Tag View 8',
+  selectedNavisCommentId: '8',
+  selectedNavisCommentBody: 'Tag 8 coordinate match',
+  selectedNavisPosition: { x: 423170.971, y: -1141125, z: 1184.15 },
+  deltaEMm: 0,
+  deltaNMm: 0,
+  deltaElMm: 0,
+  verticalBasis: 'CENTERLINE',
+  verticalResidualMm: 0,
+  navisProximityEvidence: { candidateCount: 1 },
+  navisAmbiguity: 'UNAMBIGUOUS',
+  navisConfidence: 'HIGH',
+  supportIsonote: 'Tag 8 coordinate match',
+};
+const matchUiRows = uiTest.matchRows({ identityTrace: { rows: [selectedTraceRow] } });
+assert.equal(matchUiRows[0].navisTagId, '8');
+assert.equal(matchUiRows[0].deltaE, 0);
+assert.equal(matchUiRows[0].selectedIsonote, 'Tag 8 coordinate match');
+
+const rejectedUiRows = uiTest.matchRows({
+  identityTrace: { rows: [{ ...baseTraceRow, navisResolutionStatus: 'UNRESOLVED' }] },
+  audit: {
+    decisions: [{
+      tableRowId: 'STAGED-1',
+      status: 'UNRESOLVED',
+      candidateCount: 0,
+      ambiguity: 'NEAREST_TAG_8_OUTSIDE_EL_TOLERANCE',
+      confidence: 'UNRESOLVED',
+      supportIsonote: '',
+      nearestRejectedTagId: '8',
+      nearestRejectedViewName: 'Tag View 8',
+      nearestRejectedCommentId: '8',
+      nearestRejectedCommentBody: 'Tag 8 coordinate match',
+      nearestRejectedNavisPosition: { x: 423170.971, y: -1141125, z: 101184.15 },
+      nearestRejectedAxes: ['EL'],
+      nearestRejectedDeltaEMm: 0,
+      nearestRejectedDeltaNMm: 0,
+      nearestRejectedDeltaElMm: 100000,
+      nearestRejectedVerticalResidualMm: 100000,
+      nearestRejectedCandidate: {
+        tagId: '8',
+        viewName: 'Tag View 8',
+        commentId: '8',
+        commentBody: 'Tag 8 coordinate match',
+        tagPosition: { x: 423170.971, y: -1141125, z: 101184.15 },
+        deltaEMm: 0,
+        deltaNMm: 0,
+        deltaElMm: 100000,
+        verticalBasis: 'CENTERLINE',
+        verticalResidualMm: 100000,
+        failedAxes: ['EL'],
+      },
+    }],
+  },
+});
+assert.equal(rejectedUiRows[0].displayedNavisRole, 'NEAREST_REJECTED');
+assert.equal(rejectedUiRows[0].toleranceResult, 'OUTSIDE_TOLERANCE');
+assert.equal(rejectedUiRows[0].navisTagId, '8');
+assert.equal(rejectedUiRows[0].failedAxes, 'EL');
+assert.equal(rejectedUiRows[0].deltaEL, 100000);
+assert.equal(rejectedUiRows[0].selectedIsonote, '');
+
+const rejectedCandidateRows = uiTest.candidateRows({
+  audit: {
+    candidateLedger: [{
+      ledgerKind: 'NEAREST_REJECTED',
+      tagId: '8',
+      accepted: false,
+      withinTolerance: false,
+      failedAxes: ['EL'],
+      rejectionReasons: ['EL_OUTSIDE_TOLERANCE'],
+    }],
+  },
+});
+assert.equal(rejectedCandidateRows[0].comparisonOutcome, 'NEAREST_REJECTED');
+assert.equal(rejectedCandidateRows[0].failedAxesDisplay, 'EL');
+assert.equal(rejectedCandidateRows[0].rejectionReasonsDisplay, 'EL_OUTSIDE_TOLERANCE');
 
 console.log('navis-tag-isonote static tests passed');
