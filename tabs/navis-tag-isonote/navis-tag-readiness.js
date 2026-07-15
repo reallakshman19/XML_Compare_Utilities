@@ -1,4 +1,5 @@
 import { NAVIS_TAG_READINESS_SCHEMA, normalizeConfig } from './navis-tag-isonote-contracts.js';
+import { builtInBoreToOdProfileSummary, hasBuiltInBoreToOdProfile } from './navis-tag-bore-od-master.js';
 
 function record(severity, code, message, context = {}) {
   return { severity, code, message, context };
@@ -87,8 +88,14 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   if (tree?.summary?.nodeCount && !tree.summary.pipeResolvedNodeCount) warnings.push(record('WARN', 'STAGED_PIPE_ANCESTOR_UNRESOLVED', 'No staged hierarchy node has a resolved pipe ancestor.'));
   if (tree?.summary?.nodeCount && !tree.summary.zoneResolvedNodeCount) warnings.push(record('WARN', 'STAGED_ZONE_ANCESTOR_UNRESOLVED', 'No staged hierarchy node has a resolved zone ancestor.'));
 
-  if (config.boreToOdLookupEnabled && !Object.keys(config.boreToOdLookup || {}).length) {
-    blockers.push(record('ERROR', 'BORE_TO_OD_LOOKUP_ENABLED_WITHOUT_DATA', 'Explicit bore-to-OD lookup is enabled, but no lookup entries are configured.'));
+  const customLookupEntryCount = Object.keys(config.boreToOdLookup || {}).length;
+  const builtInProfile = builtInBoreToOdProfileSummary(config.boreToOdLookupName);
+  const builtInProfileAvailable = hasBuiltInBoreToOdProfile(config.boreToOdLookupName);
+  if (config.boreToOdLookupEnabled && !customLookupEntryCount && !builtInProfileAvailable) {
+    blockers.push(record('ERROR', 'BORE_TO_OD_LOOKUP_PROFILE_INVALID', `Bore-to-OD lookup is enabled, but profile "${config.boreToOdLookupName || '(blank)'}" is not a known built-in profile and no custom lookup entries are configured.`, {
+      requestedProfile: config.boreToOdLookupName || '',
+      customLookupEntryCount,
+    }));
   }
 
   const validTags = navisParse?.tags?.filter((tag) => tag.position && tag.commentBody) || [];
@@ -136,7 +143,9 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
       navisTagCount: navisParse?.summary?.tagCount || 0,
       validNavisTagCount: validTags.length,
       boreToOdLookupEnabled: config.boreToOdLookupEnabled,
-      boreToOdLookupEntryCount: Object.keys(config.boreToOdLookup || {}).length,
+      boreToOdLookupEntryCount: customLookupEntryCount,
+      boreToOdBuiltInProfileAvailable: builtInProfileAvailable,
+      boreToOdBuiltInProfile: builtInProfile,
     },
   };
 }
