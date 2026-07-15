@@ -1,0 +1,72 @@
+name: XMLB VP2 Owner Corrections
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/xmlb-vp2-owner-corrections.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-owner-corrections:
+    if: github.head_ref == 'agent/xmlb-vp-002-virtualized-previews'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/xmlb-vp-002-virtualized-previews
+      - name: Decompose controls and correct browser assertions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          event_path = Path('xml-compare/universal-categorizer/universal-viewport-event-controller.js')
+          source = event_path.read_text()
+          import_anchor = "import {\n  renderUniversalViewportActions,\n  renderUniversalViewportInspector,\n} from './universal-viewport-shell-view.js';\n"
+          helper_import = import_anchor + "import {\n  syncUniversalFilterSelect,\n  syncUniversalNamedViewSelect,\n} from './universal-viewport-control-view.js';\n"
+          if "./universal-viewport-control-view.js" not in source:
+              if import_anchor not in source:
+                  raise SystemExit('event-controller import anchor not found')
+              source = source.replace(import_anchor, helper_import)
+          start = source.find('function syncSelect(')
+          end = source.find('function refreshChrome(', start)
+          if start < 0 or end < 0:
+              raise SystemExit('event-controller control helper block not found')
+          source = source[:start] + source[end:]
+          source = source.replace('syncSelect(', 'syncUniversalFilterSelect(')
+          named_call = '  syncNamedViews(controller, model);'
+          named_replacement = "  syncUniversalNamedViewSelect(popup.querySelector('[data-uxc-named-view-select]'), model.namedViews.items, controller.selectedNamedViewId);"
+          if named_call not in source:
+              raise SystemExit('named-view sync call not found')
+          source = source.replace(named_call, named_replacement)
+          start = source.find('function escapeHtml(')
+          end = source.find('export const _test', start)
+          if start < 0 or end < 0:
+              raise SystemExit('event-controller escape helper not found')
+          source = source[:start] + source[end:]
+          if len(source.splitlines()) >= 300:
+              raise SystemExit(f'event-controller remains {len(source.splitlines())} lines')
+          event_path.write_text(source)
+
+          spec_path = Path('tests/browser/xml-builder-viewport.spec.mjs')
+          spec = spec_path.read_text()
+          old_tree = "    await expect.poll(async () => Number(await surface.getAttribute('data-uxc-rendered-rows'))).toBeGreaterThan(0);\n    const middle = await surface.locator('[data-uxc-tree-id]').first().getAttribute('data-uxc-tree-id');\n    expect(Number(middle.split(':').at(-1))).toBeGreaterThan(4_000);"
+          new_tree = "    await expect.poll(async () => page.evaluate(() => window.__xmlBuilderViewport.lifecycle().virtualViews.tree.metrics().firstVisible)).toBeGreaterThan(4_000);\n    const middle = await surface.locator('[data-uxc-tree-id]').first().getAttribute('data-uxc-tree-id');\n    expect(middle).toMatch(/^tree:node:/);"
+          if old_tree not in spec:
+              raise SystemExit('Tree scrolling assertion anchor not found')
+          spec = spec.replace(old_tree, new_tree)
+          old_filter = "    await popup.locator('[data-uxc-tree-filter=\"level\"]').selectOption('Node');\n    await popup.getByRole('tab', { name: 'Pivot' }).click();"
+          new_filter = "    await popup.locator('[data-uxc-tree-filter=\"level\"]').selectOption('node');\n    await expect(popup.locator('[data-uxc-tree-count]')).toContainText('10000 / 10001');\n    await popup.getByRole('tab', { name: 'Pivot' }).click();"
+          if old_filter not in spec:
+              raise SystemExit('Tree level filter assertion anchor not found')
+          spec = spec.replace(old_filter, new_filter)
+          spec_path.write_text(spec)
+          PY
+          rm -f .github/workflows/xmlb-vp2-owner-corrections.yml
+          git config user.name github-actions[bot]
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: complete XMLB-VP-002 browser and source corrections'
+          git push origin HEAD:agent/xmlb-vp-002-virtualized-previews
