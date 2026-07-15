@@ -1,0 +1,26 @@
+name: Navis Tag Optional Table Diagnostics
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Core optional-table regression
+        run: node tests/navis-tag-isonote.test.js
+      - name: Readiness mode regression
+        run: node tests/navis-tag-isonote-readiness.test.js
+      - name: Navis-only fixture benchmark
+        env:
+          NTI_BENCH_ITERATIONS: 1
+        run: node benchmarks/navis-tag-isonote-navis-only.mjs
