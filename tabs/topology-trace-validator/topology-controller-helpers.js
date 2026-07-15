@@ -26,11 +26,10 @@ export function emptyNavigation() {
 /**
  * Build a side-load line for one XML element using the best available payload.
  * Primary: enrichedAttributes set by the Master File Enrichment Workbench.
- * Fallback: raw PDMS source attributes always present in the StagedJSON node.
+ * Fallback: raw PDMS attributes and the component's real source identity.
  * This guarantees export works even when the Workbench was not run.
- * @param {Record<string,unknown>} element  — InputXML element record
- * @param {Record<string,unknown>} enriched — from component.enrichedAttributes (may be empty)
- * @param {Record<string,unknown>} attrs    — raw PDMS component.attributes (always present)
+ * @param {Record<string,unknown>} element - InputXML element record.
+ * @param {Record<string,unknown>} component - Managed source component and optional enrichment.
  * @returns {string[]}
  */
 function buildSideLoadLines(element, component) {
@@ -83,8 +82,8 @@ function buildSideLoadLines(element, component) {
   pushAttribute(lines, 'PRESSURE1', pressure);
   pushAttribute(lines, 'HYDRO_PRESSURE', finiteOrNull(enriched.hydroPressure ?? attrs.HPRES));
 
-  // DTXR — workbench wins, then raw DTXR attr
-  const dtxrPos = cleanText(enriched.dtxrPos || attrs.DTXR || '');
+  // DTXR — workbench wins, then raw DTXR, then the real source identity.
+  const dtxrPos = cleanText(enriched.dtxrPos || attrs.DTXR || component.name || component.type);
   if (dtxrPos) lines.push(`<DTXR_POS>${dtxrPos}</DTXR_POS>`);
 
   const dtxrPs = cleanText(enriched.dtxrPs || attrs.ISPE || attrs.SPRE || '');
@@ -144,7 +143,12 @@ function finiteOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-export function downloadEnrichedInputXml(artifacts) {
+/**
+ * Build the InputXML enrichment request without browser-only download effects.
+ * @param {Record<string,unknown>} artifacts - Parsed source, ledger, canonical, and InputXML artifacts.
+ * @returns {Record<string,unknown>} Enrichment engine request with routed element side-load text.
+ */
+export function buildTopologyInputXmlEnrichmentJob(artifacts) {
   if (!artifacts.source || !artifacts.ledger || !artifacts.inputXml) {
     throw new Error('Source JSON, Trace Ledger, and InputXML must be loaded to download enriched InputXML.');
   }
@@ -225,6 +229,13 @@ export function downloadEnrichedInputXml(artifacts) {
       normalizePressureCaseNames: true,
     },
   };
+
+  return job;
+}
+
+/** Build, enrich, and download the validated topology InputXML document. */
+export function downloadEnrichedInputXml(artifacts) {
+  const job = buildTopologyInputXmlEnrichmentJob(artifacts);
 
   const result = enrichInputXmlDocument(job);
   if (!result.ok) throw new Error(result.error || 'Enrichment failed.');
