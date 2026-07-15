@@ -1,30 +1,23 @@
 /**
- * Functionality: adds browser-coordinate pan and zoom to one rendered SVG.
- * Input is the current SVG element. Output is a disposable navigation API.
- * Fallback: Fit restores the renderer's original fixed viewBox. Navigation
- * changes browser presentation only and never reads or mutates topology data.
+ * Browser-coordinate pan, cursor-centred zoom, Fit All, Fit Branch, and Fit
+ * Issue navigation. Presentation changes never read or mutate topology data.
  */
 
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 12;
 const ZOOM_STEP = 0.8;
 
-/** @param {string} value @returns {{x:number,y:number,width:number,height:number}} */
 function parseViewBox(value) {
   const values = value.trim().split(/\s+/).map(Number);
-  if (values.length !== 4 || values.some((number) => !Number.isFinite(number)) || values[2] <= 0 || values[3] <= 0) {
-    throw new TypeError(`Invalid SVG viewBox: ${value}.`);
-  }
+  if (values.length !== 4 || values.some((number) => !Number.isFinite(number)) || values[2] <= 0 || values[3] <= 0) throw new TypeError(`Invalid SVG viewBox: ${value}.`);
   return { x: values[0], y: values[1], width: values[2], height: values[3] };
 }
 
-/** @param {SVGElement} svg @param {{x:number,y:number,width:number,height:number}} box @returns {void} */
 function writeViewBox(svg, box) {
   svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
   svg.style.setProperty('--ttv-inverse-scale', box.width / 1200);
 }
 
-/** @param {SVGElement} svg @param {{clientX:number,clientY:number}} point @param {{x:number,y:number,width:number,height:number}} box @returns {{x:number,y:number}} */
 function clientToView(svg, point, box) {
   const rect = svg.getBoundingClientRect();
   if (!rect.width || !rect.height) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -34,7 +27,6 @@ function clientToView(svg, point, box) {
   };
 }
 
-/** @param {{x:number,y:number,width:number,height:number}} base @param {{x:number,y:number,width:number,height:number}} current @param {number} factor @param {{x:number,y:number}} anchor @returns {{x:number,y:number,width:number,height:number}} */
 function zoomedBox(base, current, factor, anchor) {
   const requestedScale = (current.width * factor) / base.width;
   const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, requestedScale));
@@ -47,7 +39,6 @@ function zoomedBox(base, current, factor, anchor) {
   return box;
 }
 
-/** @param {SVGElement} svg @param {Record<string, unknown>} state @param {number} factor @param {{clientX:number,clientY:number}|null} clientPoint @returns {void} */
 function applyZoom(svg, state, factor, clientPoint) {
   const current = state.current;
   const anchor = clientPoint ? clientToView(svg, clientPoint, current) : { x: current.x + current.width / 2, y: current.y + current.height / 2 };
@@ -55,7 +46,6 @@ function applyZoom(svg, state, factor, clientPoint) {
   writeViewBox(svg, state.current);
 }
 
-/** @param {SVGElement} svg @param {Record<string, unknown>} state @param {PointerEvent} event @returns {void} */
 function movePan(svg, state, event) {
   const drag = state.drag;
   if (!drag || drag.pointerId !== event.pointerId) return;
@@ -71,7 +61,6 @@ function movePan(svg, state, event) {
   writeViewBox(svg, state.current);
 }
 
-/** @param {SVGElement} svg @param {Record<string, unknown>} state @param {PointerEvent} event @returns {void} */
 function endPan(svg, state, event) {
   if (!state.drag || state.drag.pointerId !== event.pointerId) return;
   state.drag = null;
@@ -79,12 +68,18 @@ function endPan(svg, state, event) {
   if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
 }
 
-/** @param {SVGElement} svg @param {Record<string, unknown>} state @returns {Record<string, EventListener>} */
+function elementsBox(elements, padding = 36) {
+  const boxes = [...elements].map((element) => {
+    try { return element.getBBox(); } catch { return null; }
+  }).filter((box) => box && Number.isFinite(box.x) && Number.isFinite(box.y));
+  if (!boxes.length) return null;
+  const minX = Math.min(...boxes.map((box) => box.x)), minY = Math.min(...boxes.map((box) => box.y));
+  const maxX = Math.max(...boxes.map((box) => box.x + box.width)), maxY = Math.max(...boxes.map((box) => box.y + box.height));
+  return { x: minX - padding, y: minY - padding, width: Math.max(1, maxX - minX + padding * 2), height: Math.max(1, maxY - minY + padding * 2) };
+}
+
 function navigationHandlers(svg, state) {
-  const onWheel = (event) => {
-    event.preventDefault();
-    applyZoom(svg, state, event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, event);
-  };
+  const onWheel = (event) => { event.preventDefault(); applyZoom(svg, state, event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, event); };
   const onPointerDown = (event) => {
     if (event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('[data-object-key]')) return;
@@ -109,12 +104,18 @@ function navigationHandlers(svg, state) {
   return { onWheel, onPointerDown, onPointerMove: (event) => movePan(svg, state, event), endPointer: (event) => endPan(svg, state, event), onClickCapture, onKeyDown };
 }
 
-/** @param {SVGElement} svg @returns {Readonly<Record<string, Function>>} */
 export function wireTopologySvgNavigation(svg) {
   const base = parseViewBox(svg.getAttribute('viewBox') ?? '');
   const state = { base, current: { ...base }, drag: null, suppressClick: false };
   const handlers = navigationHandlers(svg, state);
   const fit = () => { state.current = { ...base }; writeViewBox(svg, state.current); };
+  const focusElements = (elements, padding = 36) => {
+    const box = elementsBox(elements, padding);
+    if (!box) return false;
+    state.current = box;
+    writeViewBox(svg, state.current);
+    return true;
+  };
   const { onWheel, onPointerDown, onPointerMove, endPointer, onClickCapture, onKeyDown } = handlers;
   svg.addEventListener('wheel', onWheel, { passive: false });
   svg.addEventListener('pointerdown', onPointerDown);
@@ -132,7 +133,15 @@ export function wireTopologySvgNavigation(svg) {
     svg.removeEventListener('click', onClickCapture, true);
     svg.removeEventListener('keydown', onKeyDown);
   };
-  return Object.freeze({ fit, zoomIn: () => applyZoom(svg, state, ZOOM_STEP, null), zoomOut: () => applyZoom(svg, state, 1 / ZOOM_STEP, null), destroy });
+  return Object.freeze({
+    fit,
+    fitElements: focusElements,
+    fitObjectKey: (key) => focusElements(svg.querySelectorAll(`[data-object-key="${CSS.escape(String(key))}"]`)),
+    fitBranch: (branchId) => focusElements(svg.querySelectorAll(`[data-branch-id*="${CSS.escape(String(branchId))}"]`)),
+    zoomIn: () => applyZoom(svg, state, ZOOM_STEP, null),
+    zoomOut: () => applyZoom(svg, state, 1 / ZOOM_STEP, null),
+    destroy,
+  });
 }
 
-export const _test = Object.freeze({ parseViewBox, clientToView, zoomedBox, applyZoom, movePan, endPan });
+export const _test = Object.freeze({ parseViewBox, clientToView, zoomedBox, applyZoom, movePan, endPan, elementsBox });
