@@ -6,7 +6,6 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { buildComponentTopologyArtifacts } from '../../3D_Converters/tabs/model-converters/converters/component-topology/topology-artifact-exporter.js';
 import {
   readCanonicalTopology,
   readTopologyInputXml,
@@ -20,10 +19,16 @@ import { parseInputXmlElementSideLoad } from '../tabs/xml-cii-2019-standalone/xm
 
 const fixturePath = process.env.ASIM_1835_SOURCE
   || 'C:/Users/reall/Downloads/ATTRIBUTE-AML_ASIM-1835_managed_stage_enriched_stage.json';
+const exporterUrl = new URL('../../3D_Converters/tabs/model-converters/converters/component-topology/topology-artifact-exporter.js', import.meta.url);
 
-if (!existsSync(fixturePath)) {
-  console.log(`topology trace validator ASIM-1835 SKIPPED: fixture not found at ${fixturePath}`);
+if (!existsSync(fixturePath) || !existsSync(exporterUrl)) {
+  const missing = [
+    !existsSync(fixturePath) ? `fixture ${fixturePath}` : '',
+    !existsSync(exporterUrl) ? `exporter ${exporterUrl.pathname}` : '',
+  ].filter(Boolean).join(', ');
+  console.log(`topology trace validator ASIM-1835 SKIPPED: missing ${missing}`);
 } else {
+  const { buildComponentTopologyArtifacts } = await import(exporterUrl.href);
   const sourceText = readFileSync(fixturePath, 'utf8');
   const parsed = JSON.parse(sourceText);
   const built = await buildComponentTopologyArtifacts(sourceText, {
