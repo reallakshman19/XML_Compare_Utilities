@@ -162,6 +162,7 @@ export function describePipelineCadSnapSettings(settings = {}) {
   const modes = [];
   if (normalized.gridEnabled) modes.push('Grid');
   if (normalized.stationEnabled) modes.push('Station');
-  if (normalized.objectEnabled) modes.push('Object');
+  const hasObjectSetting = Object.prototype.hasOwnProperty.call(settings || {}, 'objectEnabled');
+  if (hasObjectSetting && normalized.objectEnabled) modes.push('Object');
   return modes.length ? `${modes.join(' + ')} snap` : 'Snap off';
 }
