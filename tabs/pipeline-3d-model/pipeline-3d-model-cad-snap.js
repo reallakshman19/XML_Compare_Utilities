@@ -132,6 +132,13 @@ export function snapTable3Depth(value, settings = {}) {
   return z;
 }
 
+export function snapTable3CommittedDepth(value, settings = {}) {
+  const normalized = normalizePipelineCadSnapSettings(settings);
+  const z = snapTable3Depth(value, normalized);
+  if (z >= -normalized.aboveGroundTolerance) return normalized.aboveGroundZ;
+  return -Number(Math.abs(z).toFixed(1));
+}
+
 export function snapTable3Point(point, model, settings = {}) {
   const cumulative = snapTable3Cumulative(point?.cumulative ?? point?.x, model, settings);
   const z = snapTable3Depth(point?.z ?? point?.y, settings);
