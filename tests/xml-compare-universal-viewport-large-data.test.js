@@ -27,12 +27,41 @@ for (const count of [treeProjection.count, pivotProjection.count]) {
   const window = calculateUniversalVirtualWindow({ count, rowHeight: 34, viewportHeight: 900, scrollTop: count * 17, overscan: 10 });
   assert.ok(window.rendered <= 250);
 }
+
+function namedFunctionSpans(source) {
+  const lines = source.split(/\r?\n/);
+  const starts = [];
+  lines.forEach((line, index) => {
+    const match = line.match(/^\s*(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/);
+    if (match) starts.push({ name: match[1], index });
+  });
+  const testExport = lines.findIndex((line) => /^\s*export const _test\b/.test(line));
+  return starts.map((start, index) => ({
+    name: start.name,
+    lines: (starts[index + 1]?.index ?? (testExport >= 0 ? testExport : lines.length)) - start.index,
+  }));
+}
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const files = fs.readdirSync(path.join(root, 'xml-compare/universal-categorizer')).filter((name) => name.includes('viewport') || name.includes('virtual'));
+const moduleDir = path.join(root, 'xml-compare/universal-categorizer');
+const files = fs.readdirSync(moduleDir).filter((name) => name.includes('viewport') || name.includes('virtual'));
 for (const file of files) {
-  const source = fs.readFileSync(path.join(root, 'xml-compare/universal-categorizer', file), 'utf8');
+  const source = fs.readFileSync(path.join(moduleDir, file), 'utf8');
   assert.ok(source.split(/\r?\n/).length < 300, `${file} must remain below 300 lines`);
   assert.doesNotMatch(source, /export\s+default\b/);
   assert.doesNotMatch(source, /pipeline-3d-model|PipelineCad/);
 }
+for (const file of [
+  'universal-viewport-event-controller.js',
+  'universal-viewport-virtual-window.js',
+  'universal-viewport-control-view.js',
+]) {
+  const source = fs.readFileSync(path.join(moduleDir, file), 'utf8');
+  for (const span of namedFunctionSpans(source)) {
+    assert.ok(span.lines <= 40, `${file}:${span.name} spans ${span.lines} lines; maximum is 40`);
+  }
+}
+assert.ok(files.includes('universal-viewport-control-view.js'));
+assert.ok(!files.some((file) => file.includes('owner-corrections')));
+
 console.log('xml-builder viewport 10k/20k large-data tests passed');
