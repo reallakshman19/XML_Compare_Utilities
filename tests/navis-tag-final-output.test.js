@@ -4,6 +4,7 @@ import {
   expandTagKeywords,
   keywordMappingRows,
   selectOutputSupportIdentity,
+  UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
 } from '../tabs/navis-tag-isonote/navis-tag-final-output.js';
 import { _test as workflowTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-workflow.js';
 import { _test as tabTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-tab.js';
@@ -57,6 +58,30 @@ const audit = {
   }],
 };
 
+const navisParse = {
+  tags: [
+    {
+      evidenceId: 'view-8:tag-8',
+      viewGuid: 'view-8',
+      tagId: '8',
+      commentId: '8',
+      commentBody: 'R+G+LS (applies to /ASIM-1885-8"-P8810204-31441C4-PP-01).',
+      position: sourcePosition,
+    },
+    {
+      evidenceId: 'view-9:tag-9',
+      viewGuid: 'view-9',
+      tagId: '9',
+      commentId: '9',
+      commentBody: 'G+LS',
+      position: { x: 900, y: 800, z: 1700 },
+    },
+  ],
+};
+directDecision.selectedEvidenceId = 'view-8:tag-8';
+directDecision.selectedViewGuid = 'view-8';
+directDecision.selectedCommentId = '8';
+
 assert.equal(selectOutputSupportIdentity(directDecision), '/PS-12244/DATUM');
 assert.equal(selectOutputSupportIdentity(targetDecision), '/PS-12123.1');
 assert.deepEqual(expandTagKeywords('R+G+LS'), ['REST', 'GUIDE', 'LINE STOP']);
@@ -88,6 +113,19 @@ assert.equal(rows[1]['Navis Tag ID'], '8');
 assert.equal(rows[1].confidence, 'HIGH');
 assert.match(rows[1].Basis, /FULL_PIPE_NAME_EXACT/);
 assert.match(rows[1].Basis, /OFFSET=350mm/);
+
+const rowsWithUnmatched = buildFinalOutputRows(audit, {}, navisParse);
+assert.equal(rowsWithUnmatched.length, 3);
+const unmatched = rowsWithUnmatched[2];
+assert.equal(unmatched['Name of the element'], UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE);
+assert.equal(unmatched['Navis Tag ID'], '9');
+assert.equal(unmatched['Navis Tag POS'], 'E=900;N=800;EL=1700');
+assert.equal(unmatched.Tag, 'G+LS');
+assert.equal(unmatched['Support ISONOTE'], '');
+assert.equal(unmatched.confidence, 'UNRESOLVED');
+assert.match(unmatched.Basis, /NO_PS_MATCH/);
+assert.match(unmatched.Basis, /REFER_NAVIS_FILE_TO_LOCATE_TAG/);
+assert.ok(!rowsWithUnmatched.some((row) => row['Navis Tag ID'] === '8' && row['Name of the element'] === UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE));
 
 const customRows = buildFinalOutputRows(audit, {
   isonoteKeywordMappings: [
