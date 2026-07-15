@@ -1,11 +1,11 @@
 /**
  * Resolves producer-owned companion topology files after one managed source JSON
  * selection. This module never invokes a topology builder. Canonical and ledger
- * are required; InputXML, scene, parsed graph, and parity report are optional
- * for compatibility with older published workpacks.
+ * are required; InputXML, scene, parsed graph, parity report, and CII projection
+ * evidence are optional for compatibility with older published workpacks.
  */
 
-const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report']);
+const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report', 'ciiProjection']);
 
 export class TopologyCompanionLoadError extends Error {
   constructor(sourceFileName, attempts) {
@@ -28,6 +28,7 @@ export function topologyCompanionFileNames(sourceFileName) {
     scene: `${stem}.topology-svg-scene.json`,
     parsed: `${stem}.parsed-inputxml-topology.json`,
     report: `${stem}.topology-parity-report.json`,
+    ciiProjection: `${stem}.inputxml-cii-projection-ledger.json`,
   });
 }
 
@@ -49,7 +50,7 @@ export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImp
       const canonical = await requiredText(new URL(names.canonical, baseUrl).href, fetchImpl);
       const ledger = await requiredText(new URL(names.ledger, baseUrl).href, fetchImpl);
       const optional = {};
-      for (const kind of ['inputXml', 'scene', 'parsed', 'report']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
+      for (const kind of ['inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
       return Object.freeze({ baseUrl, names, canonical, ledger, ...optional });
     } catch (error) {
       attempts.push(`${baseUrl} (${error?.message || String(error)})`);
