@@ -20,7 +20,7 @@ export function topologyCompanionFileNames(sourceFileName) {
   const name = String(sourceFileName ?? '').trim();
   if (!/\.json$/i.test(name)) throw new TypeError(`Managed source filename must end with .json: ${name || '(empty)'}.`);
   const stem = name.replace(/\.json$/i, '');
-  return Object.freeze({
+  const names = {
     stem,
     canonical: `${stem}.canonical-topology.json`,
     ledger: `${stem}.topology-trace-ledger.json`,
@@ -28,8 +28,14 @@ export function topologyCompanionFileNames(sourceFileName) {
     scene: `${stem}.topology-svg-scene.json`,
     parsed: `${stem}.parsed-inputxml-topology.json`,
     report: `${stem}.topology-parity-report.json`,
-    ciiProjection: `${stem}.inputxml-cii-projection-ledger.json`,
+  };
+  Object.defineProperty(names, 'ciiProjection', {
+    value: `${stem}.inputxml-cii-projection-ledger.json`,
+    enumerable: false,
+    writable: false,
+    configurable: false,
   });
+  return Object.freeze(names);
 }
 
 export function topologyCompanionBaseUrls(sourceFileName, pageUrl) {
