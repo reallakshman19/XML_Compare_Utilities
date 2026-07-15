@@ -1,4 +1,5 @@
 import { NAVIS_TAG_ISONOTE_AUDIT_SCHEMA, normalizeConfig, text } from './navis-tag-isonote-contracts.js';
+import { applyAppliesToPropagation } from './navis-tag-applies-to.js';
 
 function chooseSupportPosition(trace, config) {
   const tablePoint = trace.tableRecord?.position || null;
@@ -319,7 +320,7 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   const matchedRows = decisions.filter((row) => row.status === 'RESOLVED');
   const ambiguousRows = decisions.filter((row) => row.status === 'AMBIGUOUS');
   const rejectedRows = decisions.filter((row) => row.status === 'UNRESOLVED');
-  return {
+  const directAudit = {
     schema: NAVIS_TAG_ISONOTE_AUDIT_SCHEMA,
     config,
     summary: {
@@ -340,6 +341,7 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     candidateLedger,
     diagnostics,
   };
+  return applyAppliesToPropagation(directAudit, inputConfig);
 }
 
 export const _test = Object.freeze({ axisFailures, candidateFromTag, evaluateCandidates, verticalResidual });
