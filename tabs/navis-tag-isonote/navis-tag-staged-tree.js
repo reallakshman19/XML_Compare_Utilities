@@ -10,6 +10,7 @@ import {
   text,
   unitScaleToMm,
 } from './navis-tag-isonote-contracts.js';
+import { resolveBuiltInBoreToOd } from './navis-tag-bore-od-master.js';
 
 function isObject(value) { return value && typeof value === 'object' && !Array.isArray(value); }
 function scalar(value) { return value == null || ['string', 'number', 'boolean'].includes(typeof value); }
@@ -81,9 +82,19 @@ function explicitLookupOd(bore, config) {
   for (const key of keys) {
     if (!Object.prototype.hasOwnProperty.call(lookup, key)) continue;
     const value = Number(lookup[key]);
-    if (Number.isFinite(value) && value > 0) return { value, key, lookupName: config.boreToOdLookupName || 'unnamed-explicit-lookup' };
+    if (Number.isFinite(value) && value > 0) return {
+      value,
+      key,
+      lookupName: config.boreToOdLookupName || 'CUSTOM_EXPLICIT_BORE_TO_OD_LOOKUP',
+      profileName: config.boreToOdLookupName || 'CUSTOM_EXPLICIT_BORE_TO_OD_LOOKUP',
+      source: 'CUSTOM_EXPLICIT_BORE_TO_OD_LOOKUP',
+      standardBasis: null,
+      dn: Number.isFinite(bore.value) ? Number(bore.value) : null,
+      nps: '',
+      odMm: value,
+    };
   }
-  return null;
+  return resolveBuiltInBoreToOd({ rawBore: bore.raw, boreNominalMm: bore.value, profileName: config.boreToOdLookupName });
 }
 function deriveFacts(node, config) {
   const identity = valueForIdentity(node, config.jsonIdentityPaths);
@@ -124,9 +135,13 @@ function deriveFacts(node, config) {
     odMm,
     odRaw: directOd.raw,
     odPath: directOd.path,
-    odSource: directOd.value != null ? 'DIRECT_JSON_OD_PATH' : lookupOd ? 'EXPLICIT_BORE_TO_OD_LOOKUP' : 'NONE',
+    odSource: directOd.value != null ? 'DIRECT_JSON_OD_PATH' : lookupOd?.source || 'NONE',
     odLookupName: lookupOd?.lookupName || '',
     odLookupKey: lookupOd?.key || '',
+    odLookupProfileName: lookupOd?.profileName || '',
+    odLookupStandardBasis: lookupOd?.standardBasis || null,
+    odLookupDn: lookupOd?.dn ?? null,
+    odLookupNps: lookupOd?.nps || '',
     boreNominalMm: bore.value,
     boreRaw: bore.raw,
     borePath: bore.path,
@@ -286,6 +301,11 @@ export function buildStagedSupportIndex(tree, inputConfig = {}) {
       odPath: facts.odPath,
       odSource: facts.odSource,
       odLookupName: facts.odLookupName,
+      odLookupKey: facts.odLookupKey,
+      odLookupProfileName: facts.odLookupProfileName,
+      odLookupStandardBasis: facts.odLookupStandardBasis,
+      odLookupDn: facts.odLookupDn,
+      odLookupNps: facts.odLookupNps,
       boreNominalMm: facts.boreNominalMm,
       borePath: facts.borePath,
       boreUnits: facts.boreUnits,
@@ -314,7 +334,9 @@ export function buildStagedSupportIndex(tree, inputConfig = {}) {
       zoneResolvedEntryCount: entries.filter((entry) => entry.resolvedZone).length,
       odEntryCount: entries.filter((entry) => Number.isFinite(entry.odMm)).length,
       directOdEntryCount: entries.filter((entry) => entry.odSource === 'DIRECT_JSON_OD_PATH').length,
-      lookupOdEntryCount: entries.filter((entry) => entry.odSource === 'EXPLICIT_BORE_TO_OD_LOOKUP').length,
+      customLookupOdEntryCount: entries.filter((entry) => entry.odSource === 'CUSTOM_EXPLICIT_BORE_TO_OD_LOOKUP').length,
+      builtInLookupOdEntryCount: entries.filter((entry) => entry.odSource === 'BUILT_IN_ASME_BORE_TO_OD_PROFILE').length,
+      lookupOdEntryCount: entries.filter((entry) => /BORE_TO_OD|ASME_BORE_TO_OD/.test(entry.odSource)).length,
       boreEntryCount: entries.filter((entry) => Number.isFinite(entry.boreNominalMm)).length,
     },
   };
