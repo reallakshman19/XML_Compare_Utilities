@@ -60,7 +60,7 @@ assert(ciiSelection.linkedObjectKeys.includes('inputxml:edge:PE-1'));
 assert(ciiSelection.linkedObjectKeys.includes('scene:edge:CE-1'));
 const inspector = topologyParityInspectorMarkup(sceneSelection, { scene, parsed, ledger: { records: [] }, ciiProjection: ledger });
 assert.match(inspector, /CII ELEMENTS projection/);
-assert.match(inspector, /"elementIndex": 1/);
+assert.match(inspector, /&quot;elementIndex&quot;: 1/);
 const summary = topologyParitySummaryMarkup({ status: 'PASS', reasons: [] }, { summary: {} }, pass);
 assert.match(summary, /CII Identity Status/);
 assert.match(summary, />PASS</);
