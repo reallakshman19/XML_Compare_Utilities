@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { _test as tabTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-tab.js';
 import { _test as uiTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js';
+import { _test as uiViewTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js';
 
 const utilityTab = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-tab.js', 'utf8');
 const utilityView = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js', 'utf8');
@@ -23,12 +25,18 @@ assert.match(utilityTab, /Export Results/);
 assert.match(utilityTab, /attachNavisResolutionToIdentityTrace/);
 assert.match(utilityTab, /refineStagedSupportIndex/);
 assert.match(utilityTab, /download-trace/);
+assert.match(utilityTab, /inputsDirty/);
+assert.match(utilityTab, /needsRebuild/);
+assert.match(utilityTab, /Derived coordinates are stale/);
 assert.match(utilityView, /Support ISONOTE/);
 assert.match(utilityEvidence, /JSON Trace — selected support nodes/);
 assert.match(utilityEvidence, /Navis Tag Coordinate Resolution — one row per Tag ID/);
 assert.match(utilityEvidence, /Navis Tag ↔ JSON Node Match — final decisions/);
 assert.match(utilityEvidence, /Transformed E \(JSON comparison mm\)/);
-assert.match(utilityEvidence, /raw XML XYZ × detected\/configured unit scale \+ Navis datum offsets/);
+assert.match(utilityEvidence, /configured Navis datum offsets/);
+assert.match(utilityEvidence, /Configured EL offset mm/);
+assert.match(utilityEvidence, /Applied EL offset mm/);
+assert.match(utilityEvidence, /EL transformation formula/);
 assert.match(utilityEvidence, /NEAREST_REJECTED/);
 assert.match(utilityEvidence, /Failed tolerance axes/);
 assert.match(utilityEvidence, /Candidate and nearest-rejected coordinate comparisons/);
@@ -40,7 +48,10 @@ assert.match(utilityView, /data-nti-config="tableNorthingColumn"/);
 assert.match(utilityView, /data-nti-config="tableElevationColumn"/);
 assert.match(utilityView, /data-nti-config="tableElevationDatumMm"/);
 assert.match(utilityView, /data-nti-config="jsonElevationDatumMm"/);
+assert.match(utilityView, /Navis Elevation datum offset \(mm, added after unit conversion\)/);
 assert.match(utilityView, /data-nti-config="navisElevationDatumMm"/);
+assert.match(utilityView, /data-nti-navis-datum-preview/);
+assert.match(utilityView, /Run rebuilds automatically/);
 assert.match(utilityEvidence, /jsonTraceRows/);
 assert.match(utilityEvidence, /navisCoordinateRows/);
 assert.match(utilityEvidence, /matchRows/);
@@ -84,39 +95,68 @@ assert.ok(packageJson.scripts['test:navis-tag-isonote'].includes('navis-tag-ison
 assert.ok(packageJson.scripts['test:navis-tag-isonote'].includes('navis-tag-isonote-bore-od-master.test.js'));
 assert.ok(packageJson.scripts.test.includes('test:navis-tag-isonote'));
 
-const navisCoordinateRows = uiTest.navisCoordinateRows({
+const builtState = { inputsDirty: false, identityTrace: {}, navisParse: {}, readiness: {}, resolutionBuild: {} };
+assert.equal(tabTest.needsRebuild(builtState), false);
+assert.equal(tabTest.needsRebuild({ ...builtState, inputsDirty: true }), true);
+assert.equal(tabTest.needsRebuild({ ...builtState, navisParse: null }), true);
+
+const datumPreview = uiViewTest.renderNavisDatumPreview({
+  config: { navisElevationDatumMm: -100000 },
+  inputsDirty: true,
   navisParse: {
-    tags: [{
-      viewIndex: 1,
-      viewName: 'Tag View 8',
-      viewGuid: 'view-8',
-      tagId: '8',
-      commentId: '8',
-      commentBody: 'Tag 8 coordinate match',
-      commentUser: 'reviewer',
-      positionSource: 'RLTAG_POS3D',
-      rawPosition: { x: 423.170971, y: -1141.125, z: 101.18415 },
-      units: 'm',
-      position: {
-        x: 423170.971,
-        y: -1141125,
-        z: 1184.15,
-        unitScale: 1000,
-        sourceUnit: 'm',
-        datumOffsetMm: { x: 0, y: 0, z: -100000 },
-        profileName: 'NAVIS_DEFAULT',
-        axisBasis: 'OBJECT_XYZ',
-      },
-      diagnostics: [],
-    }],
+    tags: [{ tagId: '8', rawPosition: { z: 101.210338 }, position: { unitScale: 1000 } }],
   },
+});
+assert.match(datumPreview, /Current configured elevation offset: <b>-100000 mm<\/b>/);
+assert.match(datumPreview, /Tag 8: 101\.210338 × 1000 − 100000 = 1210\.338 mm/);
+assert.match(datumPreview, /automatically rebuild/);
+
+const tag8Evidence = {
+  viewIndex: 1,
+  viewName: 'Tag View 8',
+  viewGuid: 'view-8',
+  tagId: '8',
+  commentId: '8',
+  commentBody: 'Tag 8 coordinate match',
+  commentUser: 'reviewer',
+  positionSource: 'RLTAG_POS3D',
+  rawPosition: { x: 423.170971, y: -1141.125, z: 101.18415 },
+  units: 'm',
+  position: {
+    x: 423170.971,
+    y: -1141125,
+    z: 1184.15,
+    unitScale: 1000,
+    sourceUnit: 'm',
+    datumOffsetMm: { x: 0, y: 0, z: -100000 },
+    profileName: 'NAVIS_DEFAULT',
+    axisBasis: 'OBJECT_XYZ',
+  },
+  diagnostics: [],
+};
+const navisCoordinateRows = uiTest.navisCoordinateRows({
+  config: { navisEastingDatumMm: 0, navisNorthingDatumMm: 0, navisElevationDatumMm: -100000 },
+  inputsDirty: false,
+  navisParse: { tags: [tag8Evidence] },
 });
 assert.equal(navisCoordinateRows[0].tagId, '8');
 assert.equal(navisCoordinateRows[0].xmlZ, 101.18415);
 assert.equal(navisCoordinateRows[0].unitScaleToMm, 1000);
-assert.equal(navisCoordinateRows[0].datumEL, -100000);
+assert.equal(navisCoordinateRows[0].configuredDatumEL, -100000);
+assert.equal(navisCoordinateRows[0].appliedDatumEL, -100000);
+assert.equal(navisCoordinateRows[0].datumStatus, 'CURRENT');
 assert.equal(navisCoordinateRows[0].navisToJsonEL, 1184.15);
+assert.equal(navisCoordinateRows[0].elFormula, '101.18415 × 1000 − 100000 = 1184.15 mm');
 assert.equal(navisCoordinateRows[0].coordinateStatus, 'VALID_FOR_MATCHING');
+
+const staleDatumRows = uiTest.navisCoordinateRows({
+  config: { navisEastingDatumMm: 0, navisNorthingDatumMm: 0, navisElevationDatumMm: 0 },
+  inputsDirty: true,
+  navisParse: { tags: [tag8Evidence] },
+});
+assert.equal(staleDatumRows[0].configuredDatumEL, 0);
+assert.equal(staleDatumRows[0].appliedDatumEL, -100000);
+assert.equal(staleDatumRows[0].datumStatus, 'REBUILD_REQUIRED');
 
 const baseTraceRow = {
   tableRowId: 'STAGED-1',
