@@ -103,7 +103,7 @@ function ensureStylesheet(documentRef) {
     link.rel = 'stylesheet';
     documentRef.head.appendChild(link);
   }
-  link.href = './tabs/topology-trace-validator/topology-trace-validator.css?v=20260715-ttv-018-parity';
+  link.href = './tabs/topology-trace-validator/topology-parity-workspace.css?v=20260715-ttv-018-parity';
 }
 
 function objectOrNull(value) {
