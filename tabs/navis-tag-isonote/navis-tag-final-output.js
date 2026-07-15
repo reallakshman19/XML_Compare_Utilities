@@ -1,4 +1,7 @@
 import { parseAppliesToDirective } from './navis-tag-applies-to.js';
+import { parseNavisTagXml } from './navis-tag-xml-parser.js';
+
+export const UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE = 'Refer Navis file to locate Tag';
 
 export const DEFAULT_ISONOTE_KEYWORD_MAPPINGS = Object.freeze([
   Object.freeze({ key: 'R', value: 'REST' }),
@@ -112,6 +115,96 @@ function finalIsonote(identity, tags, config) {
   return `${prefix}${identity.replace(/^\/+/, '')} ${expanded.join(', ')}`;
 }
 
+function evidenceKey(record = {}) {
+  const explicit = text(record.evidenceId || record.selectedEvidenceId || record.selectedCandidate?.evidenceId);
+  if (explicit) return `EVIDENCE:${explicit}`;
+  const tagId = text(record.tagId || record.selectedTagId);
+  const viewGuid = text(record.viewGuid || record.selectedViewGuid || record.selectedCandidate?.viewGuid);
+  const commentId = text(record.commentId || record.selectedCommentId || record.selectedCandidate?.commentId);
+  if (!tagId && !viewGuid && !commentId) return '';
+  return `TAG:${viewGuid}|${tagId}|${commentId}`;
+}
+
+function matchedNavisEvidence(audit) {
+  const keys = new Set();
+  const tagIds = new Set();
+  for (const decision of audit?.decisions || []) {
+    const key = evidenceKey(decision);
+    if (key) keys.add(key);
+    const tagId = text(decision.selectedTagId || decision.selectedCandidate?.tagId);
+    if (tagId) tagIds.add(tagId);
+  }
+  return { keys, tagIds };
+}
+
+function candidateLedgerNavisParse(audit) {
+  const tags = [];
+  const seen = new Set();
+  for (const row of audit?.candidateLedger || []) {
+    const key = evidenceKey(row);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    tags.push({
+      evidenceId: row.evidenceId,
+      viewName: row.viewName,
+      viewGuid: row.viewGuid,
+      tagId: row.tagId,
+      commentId: row.commentId,
+      commentBody: row.commentBody,
+      position: row.tagPosition,
+      positionSource: row.positionSource,
+    });
+  }
+  return { tags };
+}
+
+function browserNavisParse(config) {
+  let navisText = '';
+  try {
+    navisText = String(globalThis.document?.querySelector?.('[data-nti-field="navisText"]')?.value || '');
+  } catch {}
+  if (!navisText) {
+    try {
+      const session = JSON.parse(globalThis.localStorage?.getItem?.('navisTagIsonote.session.v1') || '{}');
+      navisText = String(session?.navisText || '');
+    } catch {}
+  }
+  if (!navisText) return null;
+  try { return parseNavisTagXml(navisText, config); }
+  catch { return null; }
+}
+
+function navisParseForOutput(audit, config, explicitNavisParse) {
+  if (Array.isArray(explicitNavisParse?.tags)) return explicitNavisParse;
+  if (Array.isArray(audit?.navisTags)) return { tags: audit.navisTags };
+  const browser = browserNavisParse(config);
+  if (Array.isArray(browser?.tags)) return browser;
+  return candidateLedgerNavisParse(audit);
+}
+
+function unmatchedNavisRows(audit, navisParse, config) {
+  const matched = matchedNavisEvidence(audit);
+  const rows = [];
+  for (const tag of navisParse?.tags || []) {
+    const key = evidenceKey(tag);
+    const tagId = text(tag.tagId);
+    const isMatched = key ? matched.keys.has(key) : Boolean(tagId && matched.tagIds.has(tagId));
+    if (isMatched) continue;
+    rows.push({
+      'Name of the element': UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
+      PIPE: '',
+      POS: '',
+      'Navis Tag ID': tagId,
+      'Navis Tag POS': pointLabel(tag.position),
+      Tag: baseTagText(tag.commentBody, config),
+      'Support ISONOTE': '',
+      confidence: 'UNRESOLVED',
+      Basis: 'NO_PS_MATCH | REFER_NAVIS_FILE_TO_LOCATE_TAG',
+    });
+  }
+  return rows;
+}
+
 function propagationByTarget(audit) {
   const byTarget = new Map();
   for (const row of audit?.propagationLedger || []) {
@@ -156,7 +249,7 @@ function propagationBasis(rows) {
   ].filter(Boolean).join('; ')));
 }
 
-export function buildFinalOutputRows(audit, inputConfig = {}) {
+export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null) {
   const config = { ...(audit?.config || {}), ...inputConfig };
   const propagated = propagationByTarget(audit);
   const sources = sourceDecisionMaps(audit);
@@ -202,6 +295,7 @@ export function buildFinalOutputRows(audit, inputConfig = {}) {
       Basis: unique(basis).join(' | '),
     });
   }
+  output.push(...unmatchedNavisRows(audit, navisParseForOutput(audit, config, navisParse), config));
   return output;
 }
 
@@ -210,4 +304,9 @@ export const _test = Object.freeze({
   finalIsonote,
   identityCandidates,
   propagationBasis,
+  evidenceKey,
+  matchedNavisEvidence,
+  unmatchedNavisRows,
+  candidateLedgerNavisParse,
+  navisParseForOutput,
 });
