@@ -252,7 +252,7 @@ function renderMatch(state) {
     ['toleranceResult','Direct tolerance result',true], ['navisTagId','Direct / nearest Navis Tag ID'], ['navisView','Navis view'], ['navisCommentId','Comment ID'], ['navisComment','Navis comment'],
     ['navisE','Navis transformed E mm'], ['navisN','Navis transformed N mm'], ['navisEL','Navis transformed EL mm'],
     ['deltaE','ΔE mm'], ['deltaN','ΔN mm'], ['deltaEL','ΔEL mm'], ['verticalBasis','Vertical comparison basis'], ['verticalResidual','Vertical residual mm'],
-    ['failedAxes','Failed direct tolerance axes'], ['candidateCount','Direct candidates within tolerance'], ['ambiguity','Direct decision / rejection reason'], ['confidence','Direct match confidence',true],
+    ['failedAxes','Failed tolerance axes (direct)'], ['candidateCount','Direct candidates within tolerance'], ['ambiguity','Direct decision / rejection reason'], ['confidence','Direct match confidence',true],
     ['isonoteSource','Final ISONOTE source',true], ['directIsonote','Direct ISONOTE'], ['propagatedFromTagIds','Propagated from Tag IDs'], ['propagatedCount','Propagation count'],
     ['appliesToTargets','Source directive target pipes'], ['selectedIsonote','Final Support ISONOTE'],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
