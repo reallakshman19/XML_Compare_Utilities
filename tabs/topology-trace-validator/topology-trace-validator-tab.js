@@ -6,9 +6,10 @@
  * and validation errors remain visible in the workspace status line.
  */
 
-import { createTopologyValidatorController } from './topology-validator-controller.js';
-import { loadTopologySourceFile } from './topology-companion-loader.js';
+import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260715-ttv-014-bend-fix';
+import { loadTopologySourceFile } from './topology-companion-loader.js?v=20260715-ttv-014-bend-fix';
 import { FINAL_DISPOSITIONS, cleanText } from './topology-validator-values.js';
+import { renderStagedJsonEnrichmentPanel } from './stagedjson-enrichment/stagedjson-enrichment-ui.js?v=20260715-ttv-005-css-fix';
 
 const STYLE_ID = 'topology-trace-validator-style';
 
@@ -21,7 +22,15 @@ export function installTopologyTraceValidatorTile(container, context) {
   tile.innerHTML = '<button type="button" data-ttv-open="1"><span class="ttv-launcher-icon">⌁</span><span><strong>Topology Trace Validator</strong><small>Validate source → canonical → ledger → InputXML evidence</small></span></button>';
   container.appendChild(tile);
   let workspace = null;
-  const open = async () => { workspace = await openTopologyTraceValidator(container.ownerDocument, context); };
+  const open = async () => {
+    console.log('TTV Launcher: Click event fired!');
+    try {
+      workspace = await openTopologyTraceValidator(container.ownerDocument, context);
+      console.log('TTV Launcher: Workspace opened successfully', workspace);
+    } catch (error) {
+      console.error('TTV Launcher: Failed to open workspace modal', error);
+    }
+  };
   tile.querySelector('[data-ttv-open]').addEventListener('click', open);
   return () => {
     tile.querySelector('[data-ttv-open]')?.removeEventListener('click', open);
@@ -73,13 +82,108 @@ function wireWorkspace(root, controller) {
       if (input.dataset.ttvFile === 'source') {
         const windowRef = root.ownerDocument.defaultView;
         if (!windowRef?.fetch) throw new Error('Browser fetch is unavailable for automatic companion loading.');
-        await loadTopologySourceFile(controller, file, root.ownerDocument.location.href, windowRef.fetch.bind(windowRef));
+        try {
+          await loadTopologySourceFile(controller, file, root.ownerDocument.location.href, windowRef.fetch.bind(windowRef));
+        } catch (error) {
+          if (error.name === 'TopologyCompanionLoadError') {
+            const status = root.querySelector('[data-ttv-status]');
+            status.textContent = `${file.name} loaded. Click "⚙️ Build Topology & Validate" to generate companion artifacts.`;
+            status.setAttribute('data-status', 'ready');
+          } else {
+            throw error;
+          }
+        }
       } else await controller.loadFile(input.dataset.ttvFile, file);
     } catch (error) {
       showWorkspaceError(root, error);
     }
   }));
   listen(root.querySelector('[data-ttv-validate]'), 'click', () => { try { controller.validate(); } catch (error) { showWorkspaceError(root, error); } });
+  listen(root.querySelector('[data-ttv-enrich]'), 'click', () => {
+    const overlay = root.ownerDocument.createElement('div');
+    overlay.className = 'ttv-modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    const container = root.ownerDocument.createElement('div');
+    container.className = 'ttv-modal-content';
+    container.style.width = '90vw'; container.style.height = '90vh';
+    container.style.background = 'var(--psmap-surface)';
+    container.style.display = 'flex'; container.style.flexDirection = 'column';
+
+    const header = root.ownerDocument.createElement('div');
+    header.style.padding = '10px'; header.style.display = 'flex'; header.style.justifyContent = 'space-between'; header.style.borderBottom = '1px solid var(--psmap-border)';
+    const title = root.ownerDocument.createElement('h2'); title.textContent = 'Master File Enrichment Workbench'; title.style.margin = '0';
+    const closeBtn = root.ownerDocument.createElement('button'); closeBtn.textContent = '✕ Close';
+
+    header.append(title, closeBtn);
+    const body = root.ownerDocument.createElement('div'); body.style.flex = '1'; body.style.overflow = 'hidden'; body.style.position = 'relative';
+    container.append(header, body);
+    overlay.appendChild(container);
+    root.ownerDocument.body.appendChild(overlay);
+
+    const dispose = renderStagedJsonEnrichmentPanel(body, {
+      onApplyToWorkspace: async (json) => {
+        try {
+          dispose?.();
+          overlay.remove();
+          await controller.loadArtifact('source', JSON.stringify(json), 'enriched_source.json');
+          controller.validate();
+        } catch (error) { showWorkspaceError(root, error); }
+      }
+    });
+    closeBtn.addEventListener('click', () => { dispose?.(); overlay.remove(); });
+  });
+  listen(root.querySelector('[data-ttv-download-inputxml]'), 'click', () => { try { controller.downloadEnrichedInputXml(); } catch (error) { showWorkspaceError(root, error); } });
+  listen(root.querySelector('[data-ttv-build-topology]'), 'click', async (event) => {
+    const button = event.currentTarget;
+    if (!(button instanceof HTMLButtonElement)) return;
+    const originalText = button.textContent;
+    try {
+      button.textContent = '⚙️ Building...';
+      button.disabled = true;
+
+      const evidence = controller.evidence();
+      if (!evidence.artifacts.source) throw new Error('A Source JSON must be loaded before building topology.');
+
+      const rawObj = evidence.artifacts.source.raw;
+      const unwrappedArray = Array.isArray(rawObj) ? rawObj : (rawObj.hierarchy || rawObj.branches || rawObj.objects || []);
+      const sourceText = JSON.stringify(unwrappedArray);
+
+      const { buildComponentTopologyArtifacts, topologyArtifactOutputs } = await import('../../../3D_Converters/tabs/model-converters/converters/component-topology/topology-artifact-exporter.js');
+
+      const status = root.querySelector('[data-ttv-status]');
+      status.textContent = 'Building topology artifacts...';
+      status.setAttribute('data-status', 'ready');
+
+      const stem = root.querySelector('[data-ttv-file-status="source"]').textContent.replace(/\.json$/i, '') || 'generated';
+      const built = await buildComponentTopologyArtifacts(sourceText, {
+        sourceName: stem,
+        jobName: 'Trace Validator Build',
+        toleranceMm: 0.1,
+        supportProjectionToleranceMm: 50,
+        enrichmentConfig: {},
+      });
+      const outputs = topologyArtifactOutputs(built, { stem });
+
+      const canonicalText = outputs.find(o => o.name.includes('.canonical-topology.json')).text;
+      const ledgerText = outputs.find(o => o.name.includes('.topology-trace-ledger.json')).text;
+      const inputXmlText = outputs.find(o => o.name.includes('.topology.input.xml')).text;
+
+      await controller.loadArtifact('source', sourceText, `${stem}.json`);
+      await controller.loadArtifact('canonical', canonicalText, `${stem}.canonical-topology.json`);
+      await controller.loadArtifact('ledger', ledgerText, `${stem}.topology-trace-ledger.json`);
+      await controller.loadArtifact('inputXml', inputXmlText, `${stem}.topology.input.xml`);
+
+      controller.validate();
+
+    } catch (error) {
+      showWorkspaceError(root, error);
+      alert(`Build Failed: ${error?.message || String(error)}`);
+    } finally {
+      button.textContent = originalText;
+      button.disabled = false;
+    }
+  });
   listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
   root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
   root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => { setActiveButtons(root, 'data-ttv-mode', button); controller.setMode(button.dataset.ttvMode); }));
@@ -107,8 +211,14 @@ function wireWorkspace(root, controller) {
     if (button) controller.setBottomTab(button.dataset.ttvBottomTab);
   });
   listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
-    const row = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
-    if (row) controller.select(cleanText(row.getAttribute('data-object-key')));
+    if (!(event.target instanceof Element)) return;
+    const isFocusButton = event.target.closest('.ttv-focus-button');
+    const row = event.target.closest('[data-object-key]');
+    if (isFocusButton && row) {
+      controller.focusSearchResult(cleanText(row.getAttribute('data-object-key')));
+    } else if (row) {
+      controller.select(cleanText(row.getAttribute('data-object-key')));
+    }
   });
   return cleanups;
 }
@@ -130,9 +240,9 @@ function collectElements(root) {
 
 /** @returns {string} */
 function workspaceMarkup() {
-  const fileControl = (kind, label, accept) => `<label class="ttv-file-button">${label}<input type="file" data-ttv-file="${kind}" accept="${accept}" hidden><small data-ttv-file-status="${kind}">Not loaded</small></label>`;
+  const fileControl = (kind, label, accept, disabled = false) => `<label class="ttv-file-button ${disabled ? 'is-disabled' : ''}">${label}<input type="file" data-ttv-file="${kind}" accept="${accept}" ${disabled ? 'disabled' : ''} hidden><small data-ttv-file-status="${kind}">Not loaded</small></label>`;
   const dispositionOptions = FINAL_DISPOSITIONS.map((value) => `<option value="${value}">${value}</option>`).join('');
-  return `<section class="ttv-workspace"><header class="ttv-toolbar"><div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>${fileControl('source', 'Load Source JSON · Auto artifacts', '.json')}${fileControl('canonical', 'Load Canonical Topology', '.json')}${fileControl('ledger', 'Load Trace Ledger', '.json')}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML')}<button type="button" data-ttv-validate>Validate</button><div class="ttv-button-group"><button type="button" data-ttv-zoom="in" title="Zoom in">Zoom +</button><button type="button" data-ttv-zoom="out" title="Zoom out">Zoom −</button><button type="button" data-ttv-fit title="Reset pan and zoom">Fit</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-projection="XY">XY</button><button type="button" data-ttv-projection="XZ">XZ</button><button type="button" data-ttv-projection="YZ">YZ</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-mode="spatial">Spatial Overlay</button><button type="button" data-ttv-mode="trace">Source ↔ Canonical</button><button type="button" data-ttv-mode="junctions">Junctions / Boundaries</button><button type="button" data-ttv-mode="issues">Issues Only</button></div><label class="ttv-toggle"><input type="checkbox" data-ttv-component-symbols>Show component symbols</label><label class="ttv-toggle"><input type="checkbox" data-ttv-labels>Labels</label><button type="button" class="ttv-close" data-ttv-close>Close</button></header><div class="ttv-file-status" data-ttv-file-status-root hidden></div><div class="ttv-metrics" data-ttv-metrics></div><div class="ttv-main"><aside class="ttv-left"><h2>Branches</h2><div class="ttv-branch-tree" data-ttv-branch-tree><p>Select one source JSON; companion artifacts load automatically.</p></div><h2>Component types</h2><div class="ttv-type-filters" data-ttv-type-filters></div><label>Disposition<select data-ttv-disposition><option value="">All dispositions</option>${dispositionOptions}</select></label><label>Search NAME<input type="search" data-ttv-search-name></label><label>Search REF<input type="search" data-ttv-search-ref></label><label>Search source path<input type="search" data-ttv-search-path></label><div class="ttv-search-results" data-ttv-search-results></div><fieldset><legend>Visibility</legend>${visibilityCheck('source', 'Source geometry', true)}${visibilityCheck('canonical', 'Canonical geometry', true)}${visibilityCheck('referenceConnections', 'Reference connection spans', false)}${visibilityCheck('pointFeatures', 'Point features', true)}${visibilityCheck('boundaries', 'Boundaries', true)}${visibilityCheck('junctions', 'Junctions', true)}</fieldset></aside><main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load and validate its companion artifacts.</div></div><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main><aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside></div><footer class="ttv-bottom" data-ttv-bottom></footer><div class="ttv-status" data-ttv-status data-status="idle">Select source JSON. Canonical topology, trace ledger, and InputXML will load automatically when hosted.</div></section>`;
+  return `<section class="ttv-workspace"><header class="ttv-toolbar"><div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>${fileControl('source', 'Load Source JSON · Auto artifacts', '.json')}<button type="button" data-ttv-build-topology>⚙️ Build Topology & Validate</button><button type="button" data-ttv-enrich>📚 Master File Enrichment</button><button type="button" data-ttv-download-inputxml>⬇ Download InputXML</button><div class="ttv-button-group"><button type="button" data-ttv-zoom="in" title="Zoom in">Zoom +</button><button type="button" data-ttv-zoom="out" title="Zoom out">Zoom −</button><button type="button" data-ttv-fit title="Reset pan and zoom">Fit</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-projection="XY">XY</button><button type="button" data-ttv-projection="XZ">XZ</button><button type="button" data-ttv-projection="YZ">YZ</button><button type="button" data-ttv-projection="3D">3D</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-mode="spatial">Spatial Overlay</button><button type="button" data-ttv-mode="trace">Source ↔ Canonical</button><button type="button" data-ttv-mode="junctions">Junctions / Boundaries</button><button type="button" data-ttv-mode="issues">Issues Only</button></div><label class="ttv-toggle"><input type="checkbox" data-ttv-component-symbols>Show component symbols</label><label class="ttv-toggle"><input type="checkbox" data-ttv-labels>Labels</label><div class="ttv-manual-overrides" style="display:flex;gap:6px;align-items:center;opacity:0.45;pointer-events:none;">${fileControl('canonical', 'Load Canonical Topology', '.json', true)}${fileControl('ledger', 'Load Trace Ledger', '.json', true)}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML', true)}<button type="button" data-ttv-validate disabled>Validate</button></div><button type="button" class="ttv-close" data-ttv-close>Close</button></header><div class="ttv-file-status" data-ttv-file-status-root hidden></div><div class="ttv-metrics" data-ttv-metrics></div><div class="ttv-main"><aside class="ttv-left"><h2>Branches</h2><div class="ttv-branch-tree" data-ttv-branch-tree><p>Select one source JSON; companion artifacts load automatically.</p></div><h2>Component types</h2><div class="ttv-type-filters" data-ttv-type-filters></div><label>Disposition<select data-ttv-disposition><option value="">All dispositions</option>${dispositionOptions}</select></label><label>Search NAME<input type="search" data-ttv-search-name></label><label>Search REF<input type="search" data-ttv-search-ref></label><label>Search source path<input type="search" data-ttv-search-path></label><div class="ttv-search-results" data-ttv-search-results></div><fieldset><legend>Visibility</legend>${visibilityCheck('source', 'Source geometry', true)}${visibilityCheck('canonical', 'Canonical geometry', true)}${visibilityCheck('referenceConnections', 'Reference connection spans', false)}${visibilityCheck('pointFeatures', 'Point features', true)}${visibilityCheck('boundaries', 'Boundaries', true)}${visibilityCheck('junctions', 'Junctions', true)}</fieldset></aside><main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load and validate its companion artifacts.</div></div><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main><aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside></div><footer class="ttv-bottom" data-ttv-bottom></footer><div class="ttv-status" data-ttv-status data-status="idle">Select source JSON. Canonical topology, trace ledger, and InputXML will load automatically when hosted.</div></section>`;
 }
 
 /** @param {string} key @param {string} label @param {boolean} checked @returns {string} */
@@ -147,12 +257,14 @@ function setActiveButtons(root, attribute, active) {
 
 /** @param {Document} documentRef @returns {void} */
 function ensureStylesheet(documentRef) {
-  if (documentRef.getElementById(STYLE_ID)) return;
-  const link = documentRef.createElement('link');
-  link.id = STYLE_ID;
-  link.rel = 'stylesheet';
-  link.href = new URL('./topology-trace-validator.css', import.meta.url).href;
-  documentRef.head.appendChild(link);
+  let link = documentRef.getElementById(STYLE_ID);
+  if (!link) {
+    link = documentRef.createElement('link');
+    link.id = STYLE_ID;
+    link.rel = 'stylesheet';
+    documentRef.head.appendChild(link);
+  }
+  link.href = './tabs/topology-trace-validator/topology-trace-validator.css?v=20260715-ttv-017-layout-fixes';
 }
 
 /** @param {Element} root @param {unknown} error @returns {void} */

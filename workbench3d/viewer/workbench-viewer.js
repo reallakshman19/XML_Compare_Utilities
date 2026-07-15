@@ -79,9 +79,11 @@ function attachOrbitControls(THREE, camera, dom, onChange) {
   dom.addEventListener('wheel', onWheel, { passive: false });
   dom.addEventListener('contextmenu', onContext);
   apply();
+
   return {
     target,
     spherical,
+    apply,
     setView(position, lookAt) {
       target.copy(lookAt);
       spherical.setFromVector3(position.clone().sub(lookAt));
@@ -399,10 +401,24 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     setTimeout(run, 50);
   }
 
+  function recalibrateOrbitDepth() {
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
+    const hit = raycaster.intersectObjects(candidates, false)[0];
+    if (hit && hit.distance > 1) {
+      controls.target.copy(hit.point);
+      controls.spherical.radius = hit.distance;
+    }
+  }
+
   const controls = attachOrbitControls(THREE, camera, renderer.domElement, () => {
     render();
     if (onCameraChange) onCameraChange();
   });
+
+  renderer.domElement.addEventListener('pointerup', recalibrateOrbitDepth);
+  renderer.domElement.addEventListener('wheel', recalibrateOrbitDepth);
+
   const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(render) : null;
   resizeObserver?.observe(host);
 
@@ -441,6 +457,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
   });
   let downAt = null;
+  let lastClickTime = 0;
   renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('click', (event) => {
     if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5) return; // drag, not click
@@ -448,13 +465,22 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     raycaster.setFromCamera(pointer, camera);
     const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
     const hit = raycaster.intersectObjects(candidates, false)[0];
-    if (hit && onPick) {
-      onPick({
-        objectId: hit.object.userData.objectId ?? null,
-        nodeId: hit.object.userData.nodeId ?? null,
-        modelId: hit.object.userData.modelId,
-        status: hit.object.userData.status ?? null,
-      });
+    if (hit) {
+      const now = Date.now();
+      if (now - lastClickTime < 300) {
+        controls.setView(camera.position, hit.point);
+      }
+      lastClickTime = now;
+      if (onPick) {
+        onPick({
+          objectId: hit.object.userData.objectId ?? null,
+          nodeId: hit.object.userData.nodeId ?? null,
+          modelId: hit.object.userData.modelId,
+          status: hit.object.userData.status ?? null,
+        });
+      }
+    } else {
+      if (onPick) onPick(null);
     }
   });
 

@@ -21,6 +21,7 @@ function parseViewBox(value) {
 /** @param {SVGElement} svg @param {{x:number,y:number,width:number,height:number}} box @returns {void} */
 function writeViewBox(svg, box) {
   svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+  svg.style.setProperty('--ttv-inverse-scale', box.width / 1200);
 }
 
 /** @param {SVGElement} svg @param {{clientX:number,clientY:number}} point @param {{x:number,y:number,width:number,height:number}} box @returns {{x:number,y:number}} */
@@ -40,7 +41,10 @@ function zoomedBox(base, current, factor, anchor) {
   const width = base.width * scale, height = base.height * scale;
   const xRatio = current.width ? (anchor.x - current.x) / current.width : 0.5;
   const yRatio = current.height ? (anchor.y - current.y) / current.height : 0.5;
-  return { x: anchor.x - xRatio * width, y: anchor.y - yRatio * height, width, height };
+  const box = { x: anchor.x - xRatio * width, y: anchor.y - yRatio * height, width, height };
+  box.x = Math.max(base.x - base.width, Math.min(base.x + base.width * 2, box.x));
+  box.y = Math.max(base.y - base.height, Math.min(base.y + base.height * 2, box.y));
+  return box;
 }
 
 /** @param {SVGElement} svg @param {Record<string, unknown>} state @param {number} factor @param {{clientX:number,clientY:number}|null} clientPoint @returns {void} */
@@ -59,7 +63,11 @@ function movePan(svg, state, event) {
   if (!rect.width || !rect.height) return;
   const dx = event.clientX - drag.clientX, dy = event.clientY - drag.clientY;
   if (Math.hypot(dx, dy) > 3) state.suppressClick = true;
-  state.current = { ...drag.box, x: drag.box.x - dx * drag.box.width / rect.width, y: drag.box.y - dy * drag.box.height / rect.height };
+  let newX = drag.box.x - dx * drag.box.width / rect.width;
+  let newY = drag.box.y - dy * drag.box.height / rect.height;
+  newX = Math.max(state.base.x - state.base.width, Math.min(state.base.x + state.base.width * 2, newX));
+  newY = Math.max(state.base.y - state.base.height, Math.min(state.base.y + state.base.height * 2, newY));
+  state.current = { ...drag.box, x: newX, y: newY };
   writeViewBox(svg, state.current);
 }
 
@@ -79,6 +87,7 @@ function navigationHandlers(svg, state) {
   };
   const onPointerDown = (event) => {
     if (event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest('[data-object-key]')) return;
     state.drag = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, box: { ...state.current } };
     state.suppressClick = false;
     svg.setPointerCapture(event.pointerId);

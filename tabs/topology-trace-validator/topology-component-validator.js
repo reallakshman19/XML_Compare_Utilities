@@ -19,6 +19,12 @@ import {
 
 const INLINE_CATEGORIES = Object.freeze(['VALVE', 'FLANGE', 'GASK', 'INST', 'REDUCER']);
 
+/** @param {unknown} left @param {unknown} right @returns {boolean} */
+function equalFiniteNumber(left, right) {
+  const leftNumber = Number(left), rightNumber = Number(right);
+  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && Math.abs(leftNumber - rightNumber) < 1e-9;
+}
+
 /** @param {Record<string, unknown>} source @param {Record<string, unknown>[]} records @returns {Record<string, unknown>[]} */
 function recordsForSource(source, records) {
   const id = cleanText(source.sourceEntityId), path = cleanText(source.sourcePath);
@@ -53,8 +59,13 @@ function validateEdgeLineage(source, record, edgeById, fail) {
 function validatePrimaryPolicy(source, record, fail) {
   const category = componentCategory(source.type), geometry = cleanText(source.geometryClassification), disposition = cleanText(record.disposition);
   if (category === 'SUPPORT') {
-    if (disposition !== 'DEFER_SUPPORT') fail('SUPPORT_NOT_DEFERRED', `Support ${source.sourcePath} must use DEFER_SUPPORT.`, {});
-    if (asArray(record.canonicalEdgeIds).length || asArray(record.inputXmlElementIds).length) fail('SUPPORT_EMITTED_AS_ROUTE', `Support ${source.sourcePath} participates in route projection.`, {});
+    if (disposition === 'DEFER_SUPPORT') {
+      if (asArray(record.canonicalEdgeIds).length || asArray(record.inputXmlElementIds).length) fail('SUPPORT_EMITTED_AS_ROUTE', `Deferred support ${source.sourcePath} participates in route projection.`, {});
+      return;
+    }
+    if (disposition !== 'EMIT_SUPPORT_ATTACHMENT') fail('SUPPORT_ATTACHMENT_MISSING', `Support ${source.sourcePath} must use EMIT_SUPPORT_ATTACHMENT.`, {});
+    if (!asArray(record.canonicalNodeIds).length || !asArray(record.inputXmlElementIds).length) fail('SUPPORT_NODE_PROJECTION_MISSING', `Support ${source.sourcePath} lacks a canonical node or InputXML element.`, {});
+    if (!asArray(record.inputXmlChildIds).some((id) => cleanText(id).startsWith('RESTRAINT:'))) fail('SUPPORT_RESTRAINT_PROJECTION_MISSING', `Support ${source.sourcePath} lacks native RESTRAINT lineage.`, {});
     return;
   }
   if (category === 'TEE' || category === 'OLET') {
@@ -117,6 +128,16 @@ function validateComponentProjection(inputXml, componentPairs, edgeById, toleran
     for (const id of ids) {
       const element = objectRecord(elementById.get(id)), projectedType = componentCategory(element.sourceType);
       if (projectedType && projectedType !== category && !objectRecord(record.evidence).reclassification) addFinding('INPUTXML_COMPONENT_RETYPE_UNEXPLAINED', `InputXML element ${id} is typed ${projectedType}, not ${category}, without ledger evidence.`, { sourcePath: cleanText(source.sourcePath), inputXmlElementIds: [id], details: { sourceType: category } });
+      const enriched = objectRecord(source.enrichedAttributes);
+      const attributes = objectRecord(element.attributes);
+      const actualTemperature = attributes.TEMP_EXP_C1 ?? attributes.TEMP1;
+      if (enriched.designTemperatureC !== undefined && !equalFiniteNumber(actualTemperature, enriched.designTemperatureC)) {
+        addFinding('INPUTXML_ENRICHED_TEMP_MISMATCH', `InputXML element ${id} TEMP_EXP_C1 (${actualTemperature}) does not match enriched designTemperatureC (${enriched.designTemperatureC}).`, { sourcePath: cleanText(source.sourcePath), inputXmlElementIds: [id] });
+      }
+      const expectedPressure = enriched.designPressureMpa ?? enriched.designPressureBarg;
+      if (expectedPressure !== undefined && expectedPressure !== null && Number.isFinite(Number(expectedPressure)) && !equalFiniteNumber(attributes.PRESSURE1, expectedPressure)) {
+        addFinding('INPUTXML_ENRICHED_PRESSURE_MISMATCH', `InputXML element ${id} PRESSURE1 (${attributes.PRESSURE1}) does not match enriched design pressure (${expectedPressure}).`, { sourcePath: cleanText(source.sourcePath), inputXmlElementIds: [id] });
+      }
     }
   }
   for (const element of elements) {

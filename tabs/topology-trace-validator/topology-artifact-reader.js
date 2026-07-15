@@ -166,6 +166,13 @@ function parseAttributes(source) {
   return attributes;
 }
 
+/** Normalize native fixed-decimal node numbers for graph comparison. */
+function normalizeNodeId(value) {
+  const number = finiteNumber(value);
+  if (number === null) return cleanText(value);
+  return Math.abs(number - Math.round(number)) < 1e-9 ? String(Math.round(number)) : String(number);
+}
+
 /** @param {string} body @param {string} parentKey @returns {ReadonlyArray<Record<string, unknown>>} */
 function parseChildren(body, parentKey) {
   const counts = new Map();
@@ -199,8 +206,8 @@ export function readTopologyInputXml(xmlText) {
     elements.push(deepFreeze({
       viewKey,
       id,
-      fromNode: cleanText(attributes.FROM_NODE),
-      toNode: cleanText(attributes.TO_NODE),
+      fromNode: normalizeNodeId(attributes.FROM_NODE),
+      toNode: normalizeNodeId(attributes.TO_NODE),
       delta: deepFreeze({
         x: finiteNumber(attributes.DELTA_X),
         y: finiteNumber(attributes.DELTA_Y),

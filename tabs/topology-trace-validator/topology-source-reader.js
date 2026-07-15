@@ -98,7 +98,7 @@ function readComponent(child, branchIndex, sourceIndex, branchName, rootPath) {
     geometryClassification: geometryClassification(type, positions),
     name: recordName(child),
     ref: recordRef(child),
-    dispositionKind: type === 'SUPPORT' ? 'DEFER_SUPPORT' : '',
+    dispositionKind: type === 'SUPPORT' ? 'EMIT_SUPPORT_ATTACHMENT' : '',
     isRouteComponent: ROUTE_COMPONENT_TYPES.includes(type),
     positions: deepFreeze(positions),
     ports: readPorts(attributes, `source:${sourcePath}`, sourcePath, type, entityId, COMPONENT_PORT_DEFINITIONS),
@@ -108,6 +108,9 @@ function readComponent(child, branchIndex, sourceIndex, branchName, rootPath) {
       TREF: cleanText(attributes.TREF),
     }),
     attributes: deepFreeze(cloneJson(attributes)),
+    // Option B: carry enrichedAttributes set by the Workbench through the freeze so
+    // the export path can use them without requiring the user to re-run enrichment.
+    enrichedAttributes: deepFreeze(cloneJson(child.enrichedAttributes ?? {})),
   });
 }
 
@@ -159,9 +162,9 @@ function referenceInventory(branches) {
 export function readManagedTopologySource(input) {
   const cloned = cloneJson(input);
   const rootRecord = objectRecord(cloned);
-  const rawBranches = Array.isArray(cloned) ? cloned : asArray(rootRecord.hierarchy ?? rootRecord.branches);
+  const rawBranches = Array.isArray(cloned) ? cloned : asArray(rootRecord.hierarchy ?? rootRecord.branches ?? rootRecord.objects);
   if (!rawBranches.length) throw new TypeError('Managed source JSON must contain a non-empty branch array.');
-  const rootPath = Array.isArray(cloned) ? '$' : (Array.isArray(rootRecord.hierarchy) ? '$.hierarchy' : '$.branches');
+  const rootPath = Array.isArray(cloned) ? '$' : (Array.isArray(rootRecord.hierarchy) ? '$.hierarchy' : (Array.isArray(rootRecord.objects) ? '$.objects' : '$.branches'));
   const branches = rawBranches.map((branch, index) => readBranch(objectRecord(branch), index, rootPath));
   const components = branches.flatMap((branch) => asArray(branch.components));
   const references = referenceInventory(branches);

@@ -40,7 +40,7 @@ export function buildComponentSymbolMarkup(viewModel, transform) {
     const category = cleanText(component.componentCategory), shape = glyph(category), placement = symbolPlacement(component, transform);
     if (!shape || !placement) return [];
     const cssType = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return [`<g class="ttv-component-symbol ttv-component-${cssType}" transform="translate(${placement.x.toFixed(2)} ${placement.y.toFixed(2)}) rotate(${placement.angle.toFixed(2)})" data-object-key="${escapeMarkup(component.objectKey)}" data-source-entity-id="${escapeMarkup(component.sourceEntityId)}" data-source-component-type="${escapeMarkup(category)}">${shape}<title>${escapeMarkup(`${category} · ${component.sourcePath}`)}</title></g>`];
+    return [`<g class="ttv-component-symbol ttv-component-${cssType}" transform="translate(${placement.x.toFixed(2)} ${placement.y.toFixed(2)}) rotate(${placement.angle.toFixed(2)})" data-object-key="${escapeMarkup(component.objectKey)}" data-source-entity-id="${escapeMarkup(component.sourceEntityId)}" data-source-component-type="${escapeMarkup(category)}"><g style="transform: scale(var(--ttv-inverse-scale, 1)); transform-origin: 0 0;"><circle class="ttv-component-hit" cx="0" cy="0" r="12"/>${shape}</g><title>${escapeMarkup(`${category} · ${component.sourcePath}`)}</title></g>`];
   }).join('');
 }
 

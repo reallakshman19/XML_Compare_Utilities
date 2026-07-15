@@ -61,12 +61,12 @@ function spatialMarkup(viewModel) {
   const nodes = visibility.canonical === false ? '' : asArray(viewModel.canonicalNodes).map(objectRecord).flatMap((node) => {
     if (!node.projectedPosition) return [];
     const point = transform(node.projectedPosition), invalid = issueIds.has(cleanText(node.id));
-    return [`<g class="ttv-canonical-node ${invalid ? 'is-invalid' : ''}" data-object-key="${escapeMarkup(node.objectKey)}" data-canonical-node-id="${escapeMarkup(node.id)}"><circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="5"/>${labelMarkup(viewModel, node.id, point.x + 8, point.y - 8)}<title>${escapeMarkup(node.id)}</title></g>`];
+    return [`<g class="ttv-canonical-node ${invalid ? 'is-invalid' : ''}" data-object-key="${escapeMarkup(node.objectKey)}" data-canonical-node-id="${escapeMarkup(node.id)}"><circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="5" style="transform: scale(var(--ttv-inverse-scale, 1)); transform-origin: ${point.x.toFixed(2)}px ${point.y.toFixed(2)}px;" />${labelMarkup(viewModel, node.id, point.x + 8, point.y - 8)}<title>${escapeMarkup(node.id)}</title></g>`];
   }).join('');
   const ports = visibility.source === false ? '' : asArray(viewModel.sourcePorts).map(objectRecord).flatMap((port) => {
     if (!port.projectedPosition) return [];
     const point = transform(port.projectedPosition);
-    return [`<circle class="ttv-source-port" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3" data-object-key="${escapeMarkup(port.objectKey)}" data-source-port-id="${escapeMarkup(port.sourcePortId)}"><title>${escapeMarkup(port.sourcePortId || port.objectKey)}</title></circle>`];
+    return [`<circle class="ttv-source-port" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="3" data-object-key="${escapeMarkup(port.objectKey)}" data-source-port-id="${escapeMarkup(port.sourcePortId)}" style="transform: scale(var(--ttv-inverse-scale, 1)); transform-origin: ${point.x.toFixed(2)}px ${point.y.toFixed(2)}px;"><title>${escapeMarkup(port.sourcePortId || port.objectKey)}</title></circle>`];
   }).join('');
   const components = visibility.source === false ? '' : buildComponentSymbolMarkup(viewModel, transform);
   return `${source}${ports}${components}${edges}${nodes}${symbolMarkup(viewModel, transform, 'junctions', 'junction', 'diamond', visibility.junctions !== false)}${symbolMarkup(viewModel, transform, 'pointFeatures', 'point-feature', 'triangle', visibility.pointFeatures !== false)}${symbolMarkup(viewModel, transform, 'boundaries', 'boundary', 'circle', visibility.boundaries !== false)}${searchStatusMarkup(viewModel)}`;
@@ -92,7 +92,7 @@ function symbolMarkup(viewModel, transform, collection, cssName, shape, visible)
         ? `<path d="M ${point.x.toFixed(2)} ${(point.y - 7).toFixed(2)} L ${(point.x - 7).toFixed(2)} ${(point.y + 6).toFixed(2)} L ${(point.x + 7).toFixed(2)} ${(point.y + 6).toFixed(2)} Z"/>`
         : `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="8"/>`;
     const invalid = asArray(viewModel.issues).map(objectRecord).some((finding) => asArray(finding.canonicalIds).map(cleanText).includes(id));
-    return [`<g class="ttv-${cssName} ${invalid ? 'is-invalid' : ''}" data-object-key="${key}" data-canonical-${cssName}-id="${escapeMarkup(id)}">${shapeMarkup}${labelMarkup(viewModel, id, point.x + 9, point.y - 9)}<title>${escapeMarkup(id)}</title></g>`];
+    return [`<g class="ttv-${cssName} ${invalid ? 'is-invalid' : ''}" data-object-key="${key}" data-canonical-${cssName}-id="${escapeMarkup(id)}"><g style="transform: scale(var(--ttv-inverse-scale, 1)); transform-origin: ${point.x.toFixed(2)}px ${point.y.toFixed(2)}px;">${shapeMarkup}</g>${labelMarkup(viewModel, id, point.x + 9, point.y - 9)}<title>${escapeMarkup(id)}</title></g>`];
   }).join('');
 }
 
@@ -136,7 +136,7 @@ function gridMarkup() {
 
 /** @param {Record<string, unknown>} viewModel @param {unknown} label @param {number} x @param {number} y @returns {string} */
 function labelMarkup(viewModel, label, x, y) {
-  return viewModel.labels === true ? `<text class="ttv-symbol-label" x="${x.toFixed(2)}" y="${y.toFixed(2)}">${escapeMarkup(label)}</text>` : '';
+  return viewModel.labels === true ? `<text class="ttv-symbol-label" x="${x.toFixed(2)}" y="${y.toFixed(2)}" style="transform: scale(var(--ttv-inverse-scale, 1)); transform-origin: ${x.toFixed(2)}px ${y.toFixed(2)}px;">${escapeMarkup(label)}</text>` : '';
 }
 
 /** @param {unknown} value @param {number} length @returns {string} */

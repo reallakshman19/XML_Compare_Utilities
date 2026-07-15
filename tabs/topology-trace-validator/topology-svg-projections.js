@@ -16,7 +16,7 @@ export const TOPOLOGY_PROJECTION_PLANES = Object.freeze(['XY', 'XZ', 'YZ']);
 export function projectTopologyPoint(point, plane) {
   const value = strictPoint(point);
   if (!value) return null;
-  if (plane === 'XY') return Object.freeze({ x: value.x, y: value.y });
+  if (plane === 'XY' || plane === '3D') return Object.freeze({ x: value.x, y: value.y });
   if (plane === 'XZ') return Object.freeze({ x: value.x, y: value.z });
   if (plane === 'YZ') return Object.freeze({ x: value.y, y: value.z });
   throw new RangeError(`Unsupported topology projection plane: ${plane}`);

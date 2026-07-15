@@ -10,8 +10,8 @@ import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-mode
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
-import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260714-ttv-002-auto-companions';
-import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260710-layout-stabilizer-2';
+import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260715-ttv-015-log-debug';
+import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260715-layout-stabilizer-3';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
 function mountPsMappingLauncher(container, ctx) {

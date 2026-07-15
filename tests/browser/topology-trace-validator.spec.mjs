@@ -24,7 +24,7 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   await expect(page.locator('[data-object-key="canonical:boundary:BND-EXT"]')).toHaveClass(/is-related/);
   await page.locator('[data-ttv-branch="/B1"]').click();
   await page.locator('[data-ttv-mode="spatial"]').click();
-  await page.locator('[data-object-key="source:$[0].children[1]"]').first().click();
+  await page.locator('[data-object-key="source:$[0].children[1]"]:visible').first().click();
   await expect(page.locator('[data-canonical-edge-id="E-VALVE"]')).toHaveClass(/is-related/);
   await page.locator('[data-ttv-bottom-tab="projection"]').click();
   await expect(page.locator('[data-inputxml-element-id="PE-VALVE"]')).toHaveClass(/is-related/);

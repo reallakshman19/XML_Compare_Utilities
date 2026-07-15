@@ -109,11 +109,14 @@ function completionScorecard(metrics, viewModel) {
 /** @param {Record<string, unknown>} viewModel @returns {string} */
 function componentDispositionTable(viewModel) {
   const sources = asArray(viewModel.sourceEntities).map(objectRecord), links = asArray(viewModel.fullTraceLinks ?? viewModel.traceLinks).map(objectRecord);
-  const headings = ['Source type', 'Source entity ID', 'Source path', 'Finite/point classification', 'Primary disposition', 'Canonical nodes', 'Canonical edges', 'Point feature', 'Junction', 'Projection cardinality', 'InputXML elements', 'Deferred properties', 'Status', 'Focus in SVG'];
+  const headings = ['Source type', 'Source entity ID', 'Source path', 'POS', 'Finite/point classification', 'Primary disposition', 'Canonical nodes', 'Canonical edges', 'Point feature', 'Junction', 'Projection cardinality', 'InputXML elements', 'Deferred properties', 'Status', 'Focus in SVG'];
   const body = links.map((row) => {
     const source = sources.find((candidate) => cleanText(candidate.sourceEntityId) === cleanText(row.sourceEntityId) || cleanText(candidate.sourcePath) === cleanText(row.sourcePath));
     const edgeIds = [...new Set([...asArray(row.canonicalEdgeIds), ...asArray(row.affectedEdgeIds), ...asArray(row.branchEdgeIds)].map(cleanText).filter(Boolean))];
-    const values = [row.sourceType, row.sourceEntityId, row.sourcePath, objectRecord(source).geometryClassification, row.primaryDisposition, row.canonicalNodeIds, edgeIds, row.pointFeatureIds, row.junctionIds, row.projectionCardinality, row.inputXmlElementIds, row.deferredProperties, row.status];
+    const positions = objectRecord(objectRecord(source).positions);
+    const pos = positions.POS || positions.APOS || positions.LPOS || null;
+    const posString = pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}` : '';
+    const values = [row.sourceType, row.sourceEntityId, row.sourcePath, posString, objectRecord(source).geometryClassification, row.primaryDisposition, row.canonicalNodeIds, edgeIds, row.pointFeatureIds, row.junctionIds, row.projectionCardinality, row.inputXmlElementIds, row.deferredProperties, row.status];
     return `<tr data-object-key="${escapeMarkup(row.objectKey)}" data-ledger-record-id="${escapeMarkup(row.recordId)}">${values.map((value) => `<td>${escapeMarkup(formatValue(value))}</td>`).join('')}<td><button type="button" class="ttv-focus-button">Focus in SVG</button></td></tr>`;
   }).join('');
   return `<div class="ttv-table-scroll"><table><thead><tr>${headings.map((heading) => `<th>${escapeMarkup(heading)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;

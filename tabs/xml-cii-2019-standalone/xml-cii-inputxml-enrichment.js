@@ -1,7 +1,7 @@
 import { createWorkflowDiagnostics } from './xml-cii-workflow-types.js';
 const ENRICH_FIELDS = Object.freeze(['DTXR_POS', 'DTXR_PS', 'ComponentType', 'PipingClass', 'Rating', 'Position']);
-const ATTR_FIELDS = Object.freeze(['LINE_ID', 'FROM_NAME', 'TO_NAME']);
-const CONTEXT_FIELDS = Object.freeze(['DIAMETER', 'WALL_THICK', 'INSUL_THICK', 'CORR_ALLOW', 'MATERIAL_NUM', 'FLUID_DENSITY', 'INSUL_DENSITY', 'HYDRO_PRESSURE', ...Array.from({ length: 9 }, (_, i) => `TEMP_EXP_C${i + 1}`), ...Array.from({ length: 9 }, (_, i) => `PRESSURE_C${i + 1}`)]);
+const CONTEXT_FIELDS = Object.freeze(['DIAMETER', 'WALL_THICK', 'INSUL_THICK', 'CORR_ALLOW', 'MATERIAL_NUM', 'MATERIAL_NAME', 'MODULUS', 'POISSONS', 'PIPE_DENSITY', 'FLUID_DENSITY', 'INSUL_DENSITY', 'HYDRO_PRESSURE', ...Array.from({ length: 9 }, (_, i) => `TEMP_EXP_C${i + 1}`), ...Array.from({ length: 9 }, (_, i) => `PRESSURE${i + 1}`)]);
+const ATTR_FIELDS = Object.freeze(['LINE_ID', 'NAME', 'FROM_NAME', 'TO_NAME', ...CONTEXT_FIELDS]);
 const NUMERIC_ATTRS = Object.freeze(['FROM_NODE', 'TO_NODE', 'DELTA_X', 'DELTA_Y', 'DELTA_Z', ...CONTEXT_FIELDS]);
 const RESTRAINT_NUMERIC_ATTRS = Object.freeze(['NUM', 'NODE', 'TYPE', 'STIFFNESS', 'GAP', 'FRIC_COEF', 'CNODE', 'XCOSINE', 'YCOSINE', 'ZCOSINE']);
 const DEFAULT_INPUTXML_RATING_BY_PIPING_CLASS = Object.freeze({ 91261: '900' });
@@ -92,10 +92,10 @@ function setChildText(doc, element, name, value) {
 }
 function normalizePressureAliases(element) {
   for (let i = 1; i <= 9; i += 1) {
-    const alias = `PRESSURE${i}`;
-    const canonical = `PRESSURE_C${i}`;
-    if (element.hasAttribute(alias) && !element.hasAttribute(canonical)) element.setAttribute(canonical, element.getAttribute(alias));
-    if (element.hasAttribute(alias)) element.removeAttribute(alias);
+    const canonical = `PRESSURE${i}`;
+    const legacyAlias = `PRESSURE_C${i}`;
+    if (element.hasAttribute(legacyAlias) && !element.hasAttribute(canonical)) element.setAttribute(canonical, element.getAttribute(legacyAlias));
+    if (element.hasAttribute(legacyAlias)) element.removeAttribute(legacyAlias);
   }
 }
 function normalizeNumericAttributes(element) {
@@ -167,7 +167,11 @@ function ratingByPipingClass(pipingClass, config = {}) {
   return text(map[text(pipingClass).trim()]).trim();
 }
 function applySideLoadAttributes(element, row) {
-  for (const attr of ATTR_FIELDS) if (own(row, attr)) element.setAttribute(attr, row[attr]);
+  for (const attr of ATTR_FIELDS) {
+    if (!own(row, attr)) continue;
+    if (!element.hasAttribute(attr) || isMissing(element.getAttribute(attr))) element.setAttribute(attr, row[attr]);
+  }
+  normalizeNumericAttributes(element);
 }
 function applySideLoadChildren(doc, element, row) {
   for (const field of ENRICH_FIELDS) {
@@ -272,8 +276,10 @@ function createResult(job, doc, elements, counters, unmatched) {
   const root = doc.documentElement;
   const model = findChildren(doc, 'PIPINGMODEL')[0];
   if (model) {
-    model.setAttribute('NUMELEMENTS', String(elements.length));
+    model.setAttribute('NUMELT', String(elements.length));
+    if (model.hasAttribute('NUMELEMENTS')) model.setAttribute('NUMELEMENTS', String(elements.length));
     model.setAttribute('NUMREST', String(Array.from(doc.getElementsByTagName('RESTRAINT')).length));
+    model.setAttribute('NUMRIGID', String(Array.from(doc.getElementsByTagName('RIGID')).length));
   }
   root.setAttribute('XML_TYPE', 'Input');
   root.setAttribute('VERSION', root.getAttribute('VERSION') || '2019');

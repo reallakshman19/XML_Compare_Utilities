@@ -17,7 +17,9 @@ import { wireTopologySvgNavigation } from './topology-svg-navigation.js';
 import { buildTopologySvgViewModel, updateTopologySearchViewModel } from './topology-svg-view-model.js';
 import { renderTopologySearchStatus, renderTopologySvg } from './topology-svg-renderer.js';
 import { buildTopologySearchResultsMarkup } from './topology-search-panel.js';
-import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord, semanticHash } from './topology-validator-values.js';
+import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord } from './topology-validator-values.js';
+import { render3dViewer, select3dObject, dispose3dViewer } from './topology-3d-viewer-bridge.js?v=20260715-ttv-014-bend-fix';
+import { artifactHash, escapeHtml, escapeAttribute, shortText, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
 
 /** @param {Record<string, Element>} elements @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyValidatorController(elements) {
@@ -104,15 +106,25 @@ export function createTopologyValidatorController(elements) {
     if (!validation) return;
     assertNoMutation();
     viewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
-    destroySvgInteractions();
-    svgNavigation.destroy();
-    const svg = renderTopologySvg(elements.svgHost, viewModel);
-    renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
-    svgNavigation = wireTopologySvgNavigation(svg);
-    destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
+    if (viewState.projection !== '3D') {
+      dispose3dViewer();
+      destroySvgInteractions();
+      svgNavigation.destroy();
+      const svg = renderTopologySvg(elements.svgHost, viewModel);
+      renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
+      svgNavigation = wireTopologySvgNavigation(svg);
+      destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
+    } else {
+      destroySvgInteractions();
+      svgNavigation.destroy();
+      destroySvgInteractions = () => {};
+      svgNavigation = emptyNavigation();
+      renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
+      render3dViewer(elements, viewModel, selectedKey, select);
+    }
     elements.searchResults.innerHTML = buildTopologySearchResultsMarkup(viewModel);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selectedKey ? objectRecord(objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[selectedKey]) : null);
-    if (selectedKey) applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), selectedKey);
+    if (selectedKey && viewState.projection !== '3D') applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), selectedKey);
     updateMetricStrip();
     updateSearchStatus();
   }
@@ -127,8 +139,13 @@ export function createTopologyValidatorController(elements) {
   function select(objectKey) {
     if (!viewModel) return null;
     selectedKey = objectKey;
-    const selection = applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey);
+    const selection = viewState.projection !== '3D'
+      ? applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey)
+      : (objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[objectKey] ?? null);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
+    if (viewState.projection === '3D') {
+      select3dObject(objectKey);
+    }
     return selection;
   }
 
@@ -154,7 +171,7 @@ export function createTopologyValidatorController(elements) {
 
   /** @param {string} projection @returns {void} */
   function setProjection(projection) {
-    if (!['XY', 'XZ', 'YZ'].includes(projection)) throw new RangeError(`Unsupported projection: ${projection}`);
+    if (!['XY', 'XZ', 'YZ', '3D'].includes(projection)) throw new RangeError(`Unsupported projection: ${projection}`);
     viewState = { ...viewState, projection };
     render();
   }
@@ -260,37 +277,15 @@ export function createTopologyValidatorController(elements) {
 
   /** @returns {void} */
   function destroy() {
+    dispose3dViewer();
     destroySvgInteractions();
     svgNavigation.destroy();
   }
 
   updateMetricStrip();
-  return Object.freeze({ loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection, setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation, evidence, destroy });
-}
-
-/** @returns {Readonly<Record<string, Function>>} */
-function emptyNavigation() {
-  return Object.freeze({ fit: () => {}, zoomIn: () => {}, zoomOut: () => {}, destroy: () => {} });
-}
-
-/** @param {string} kind @param {unknown} artifact @returns {string} */
-function artifactHash(kind, artifact) {
-  if (kind === 'inputXml') return semanticHash(objectRecord(artifact).rawText);
-  return semanticHash(objectRecord(artifact).raw);
-}
-
-/** @param {unknown} value @returns {string} */
-function escapeHtml(value) {
-  return cleanText(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-}
-
-/** @param {unknown} value @returns {string} */
-function escapeAttribute(value) {
-  return escapeHtml(value);
-}
-
-/** @param {unknown} value @param {number} length @returns {string} */
-function shortText(value, length) {
-  const text = cleanText(value);
-  return text.length > length ? `${text.slice(0, length - 1)}…` : text;
+  return Object.freeze({
+    loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection,
+    setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation,
+    evidence, downloadEnrichedInputXml: () => downloadEnrichedInputXml(artifacts), destroy
+  });
 }

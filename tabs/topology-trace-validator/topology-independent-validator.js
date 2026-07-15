@@ -103,7 +103,7 @@ function validateSource(source, ledger, findings, next) {
     const valid = Boolean(entityId) && idCounts.get(entityId) === 1 && matches.length === 1 && FINAL_DISPOSITIONS.includes(cleanText(matches[0].disposition));
     if (valid) accounted += 1;
     if (matches.length === 1 && !FINAL_DISPOSITIONS.includes(cleanText(matches[0].disposition))) findings.push(issue('SOURCE_DISPOSITION_INVALID', `Ledger disposition ${matches[0].disposition || '(empty)'} is not allowed.`, { sequence: next(), sourcePath, sourceEntityIds: [entityId] }));
-    if (cleanText(entity.type) === 'SUPPORT' && matches.length === 1 && cleanText(matches[0].disposition) !== 'DEFER_SUPPORT') findings.push(issue('SUPPORT_NOT_DEFERRED', `Support ${sourcePath} must have DEFER_SUPPORT disposition.`, { sequence: next(), sourcePath, sourceEntityIds: [entityId] }));
+    if (cleanText(entity.type) === 'SUPPORT' && matches.length === 1 && !['DEFER_SUPPORT', 'EMIT_SUPPORT_ATTACHMENT'].includes(cleanText(matches[0].disposition))) findings.push(issue('SUPPORT_DISPOSITION_INVALID', `Support ${sourcePath} must be explicitly deferred or projected as an attachment.`, { sequence: next(), sourcePath, sourceEntityIds: [entityId] }));
   }
   for (const record of records) {
     const id = cleanText(record.sourceEntityId), path = cleanText(record.sourcePath);
@@ -115,7 +115,7 @@ function validateSource(source, ledger, findings, next) {
 
 /** @param {Record<string, unknown>} source @param {Record<string, unknown>} canonical @param {Record<string, unknown>} ledger @param {Record<string, unknown>[]} findings @param {() => number} next @returns {Record<string, unknown>} */
 function validateCanonical(source, canonical, ledger, findings, next) {
-  const ports = new Set(asArray(source.ports).map(objectRecord).filter((row) => cleanText(row.sourceType) !== 'SUPPORT').map((row) => cleanText(row.sourcePortId)).filter(Boolean));
+  const ports = new Set(asArray(source.ports).map(objectRecord).map((row) => cleanText(row.sourcePortId)).filter(Boolean));
   const sourceIds = new Set(asArray(source.entities).map((row) => cleanText(objectRecord(row).sourceEntityId)).filter(Boolean));
   const collections = ['nodes', 'edges', 'pointFeatures', 'junctions', 'boundaries'];
   const idSets = Object.fromEntries(collections.map((kind) => [kind, new Set(asArray(canonical[kind]).map((row) => cleanText(objectRecord(row).id)).filter(Boolean))]));
