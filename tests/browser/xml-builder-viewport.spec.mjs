@@ -157,9 +157,9 @@ test.describe('XMLB-VP-002 large-data virtualization, search and named views', (
     const { popup } = await largePopup(page);
     const surface = popup.locator('[data-uxc-surface="tree"]');
     await surface.evaluate((node) => { node.scrollTop = node.scrollHeight / 2; node.dispatchEvent(new Event('scroll')); });
-    await expect.poll(async () => Number(await surface.getAttribute('data-uxc-rendered-rows'))).toBeGreaterThan(0);
+    await expect.poll(async () => page.evaluate(() => window.__xmlBuilderViewport.lifecycle().virtualViews.tree.metrics().firstVisible)).toBeGreaterThan(4_000);
     const middle = await surface.locator('[data-uxc-tree-id]').first().getAttribute('data-uxc-tree-id');
-    expect(Number(middle.split(':').at(-1))).toBeGreaterThan(4_000);
+    expect(middle).toMatch(/^tree:node:/);
     await surface.evaluate((node) => { node.scrollTop = node.scrollHeight; node.dispatchEvent(new Event('scroll')); });
     await expect(surface.locator('[data-uxc-tree-id="tree:node:9999"]')).toHaveCount(1);
   });
@@ -200,7 +200,8 @@ test.describe('XMLB-VP-002 large-data virtualization, search and named views', (
 
   test('XMLB-VP2-B07 — Tree level and Pivot level/block/source filters work', async ({ page }) => {
     const { popup } = await largePopup(page);
-    await popup.locator('[data-uxc-tree-filter="level"]').selectOption('Node');
+    await popup.locator('[data-uxc-tree-filter="level"]').selectOption('node');
+    await expect(popup.locator('[data-uxc-tree-count]')).toContainText('10000 / 10001');
     await popup.getByRole('tab', { name: 'Pivot' }).click();
     await chooseFirstNonAll(popup.locator('[data-uxc-pivot-filter="block"]'));
     await chooseFirstNonAll(popup.locator('[data-uxc-pivot-filter="source"]'));

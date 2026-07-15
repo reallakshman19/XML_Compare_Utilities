@@ -20,6 +20,10 @@ import {
   renderUniversalViewportActions,
   renderUniversalViewportInspector,
 } from './universal-viewport-shell-view.js';
+import {
+  syncUniversalFilterSelect,
+  syncUniversalNamedViewSelect,
+} from './universal-viewport-control-view.js';
 export const UNIVERSAL_VIEWPORT_EVENT_CONTROLLER_SCHEMA = 'universal-viewport-event-controller/v1'; const freeze = (value) => Object.freeze(value), text = (value) => String(value ?? '').trim();
 function activeHost(controller) { return controller.state.mode === 'pivot' ? controller.hosts.pivot : controller.hosts.tree; }
 function createIndexes(viewModel) {
@@ -62,19 +66,6 @@ function shellModel(controller) {
     selectedNamedViewId: controller.selectedNamedViewId,
   });
 }
-function syncSelect(select, values, selected) {
-  if (!select) return;
-  const html = ['<option value="">All</option>', ...(values || []).map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)].join('');
-  if (select.innerHTML !== html) select.innerHTML = html;
-  select.value = selected || '';
-}
-function syncNamedViews(controller, model) {
-  const select = controller.popup.querySelector('[data-uxc-named-view-select]');
-  if (!select) return;
-  const html = ['<option value="">Select named view</option>', ...model.namedViews.items.map((view) => `<option value="${escapeHtml(view.id)}">${escapeHtml(view.name)}</option>`)].join('');
-  if (select.innerHTML !== html) select.innerHTML = html;
-  select.value = controller.selectedNamedViewId;
-}
 function refreshChrome(controller, message = '') {
   const model = shellModel(controller);
   const popup = controller.popup;
@@ -91,11 +82,11 @@ function refreshChrome(controller, message = '') {
   if (search && popup.ownerDocument.activeElement !== search) search.value = controller.state.searchText;
   popup.querySelector('[data-uxc-tree-count]').textContent = `${model.search.treeCount} / ${model.search.treeTotal} Tree`;
   popup.querySelector('[data-uxc-pivot-count]').textContent = `${model.search.pivotCount} / ${model.search.pivotTotal} Pivot`;
-  syncSelect(popup.querySelector('[data-uxc-tree-filter="level"]'), model.filters.options.tree?.level, model.filters.tree.level);
-  syncSelect(popup.querySelector('[data-uxc-pivot-filter="level"]'), model.filters.options.pivot?.level, model.filters.pivot.level);
-  syncSelect(popup.querySelector('[data-uxc-pivot-filter="block"]'), model.filters.options.pivot?.block, model.filters.pivot.block);
-  syncSelect(popup.querySelector('[data-uxc-pivot-filter="source"]'), model.filters.options.pivot?.source, model.filters.pivot.source);
-  syncNamedViews(controller, model);
+  syncUniversalFilterSelect(popup.querySelector('[data-uxc-tree-filter="level"]'), model.filters.options.tree?.level, model.filters.tree.level);
+  syncUniversalFilterSelect(popup.querySelector('[data-uxc-pivot-filter="level"]'), model.filters.options.pivot?.level, model.filters.pivot.level);
+  syncUniversalFilterSelect(popup.querySelector('[data-uxc-pivot-filter="block"]'), model.filters.options.pivot?.block, model.filters.pivot.block);
+  syncUniversalFilterSelect(popup.querySelector('[data-uxc-pivot-filter="source"]'), model.filters.options.pivot?.source, model.filters.pivot.source);
+  syncUniversalNamedViewSelect(popup.querySelector('[data-uxc-named-view-select]'), model.namedViews.items, controller.selectedNamedViewId);
   const status = popup.querySelector('[data-uxc-viewport-status]');
   status.textContent = message || [...activeHost(controller).statusSegments(), `${model.search.treeCount} Tree`, `${model.search.pivotCount} Pivot`].join(' · ');
   updateVirtualSelection(controller);
@@ -291,8 +282,5 @@ function bind(controller, abort) {
   bindSurface(controller, controller.treeSurface, controller.hosts.tree);
   bindSurface(controller, controller.pivotSurface, controller.hosts.pivot);
   controller.hostUnsubscribers = [controller.hosts.tree.subscribe(() => refreshChrome(controller)), controller.hosts.pivot.subscribe(() => refreshChrome(controller))];
-}
-function escapeHtml(value) {
-  return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 export const _test = freeze({ createIndexes, filterOptions, project, currentSnapshot, activeHost, applyRange });
