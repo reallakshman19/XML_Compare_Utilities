@@ -142,4 +142,6 @@ assert.equal(stagedAudit.summary.resolvedCount, 1);
 assert.equal(stagedAudit.augmentedRows[0]['Support ISONOTE'], 'Model monofl ball valve (typ)');
 assert.equal(stagedAudit.augmentedRows[0]['Match Source'], 'STAGED_JSON');
 
+await import('./navis-tag-isonote-coordinate-grouping.test.js');
+
 console.log('navis-tag-isonote core tests passed');
