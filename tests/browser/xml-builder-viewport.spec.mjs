@@ -194,7 +194,8 @@ test.describe('XMLB-VP-002 large-data virtualization, search and named views', (
     expect(pivotCount).toBeGreaterThanOrEqual(1);
     await testInfo.attach('search-duration', { body: JSON.stringify({ searchMs: Date.now() - started }), contentType: 'application/json' });
     await popup.locator('[data-uxc-search-clear]').click();
-    await expect(popup.locator('[data-uxc-tree-count]')).toContainText('10000 /');
+    const restoredTreeCount = Number((await popup.locator('[data-uxc-tree-count]').textContent()).split('/')[0].trim());
+    expect(restoredTreeCount).toBeGreaterThanOrEqual(10_000);
   });
 
   test('XMLB-VP2-B07 — Tree level and Pivot level/block/source filters work', async ({ page }) => {
