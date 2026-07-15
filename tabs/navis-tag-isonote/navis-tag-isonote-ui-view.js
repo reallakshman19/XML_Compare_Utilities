@@ -60,14 +60,33 @@ function unitsSelect(key, value, allowAuto = true) {
   const values = allowAuto ? ['auto','mm','m','cm','ft','in'] : ['mm','m','cm','ft','in'];
   return `<select data-nti-config="${esc(key)}">${values.map((item) => `<option value="${item}" ${value === item ? 'selected' : ''}>${item}</option>`).join('')}</select>`;
 }
+function compactNumber(value, digits = 3) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Number(number.toFixed(digits)) : '';
+}
+function renderNavisDatumPreview(state) {
+  const cfg = state.config || {};
+  const offset = Number(cfg.navisElevationDatumMm) || 0;
+  const sample = state.navisParse?.tags?.find((tag) => tag.rawPosition && tag.position);
+  const rawZ = Number(sample?.rawPosition?.z);
+  const scale = Number(sample?.position?.unitScale);
+  const previewResult = Number.isFinite(rawZ) && Number.isFinite(scale) ? compactNumber((rawZ * scale) + offset) : '';
+  const example = previewResult === ''
+    ? 'Load and parse Navis XML to show a Tag-ID-specific elevation example.'
+    : `Tag ${sample.tagId}: ${compactNumber(rawZ, 6)} × ${compactNumber(scale, 6)} ${offset < 0 ? '−' : '+'} ${compactNumber(Math.abs(offset))} = ${previewResult} mm`;
+  const freshness = state.inputsDirty
+    ? 'Derived coordinates are stale. Parse or Run will automatically rebuild them before matching.'
+    : 'The displayed Navis coordinates use the current configuration.';
+  return `<div class="nti-help" data-nti-navis-datum-preview><b>Navis elevation coordinate-frame transform</b><br>Comparison EL (mm) = raw Navis Z × detected/configured unit scale + configured elevation datum offset.<br>Current configured elevation offset: <b>${esc(offset)} mm</b>. Negative values move Navis elevations downward after unit conversion.<br>${esc(example)}<br><b>${esc(freshness)}</b></div>`;
+}
 function renderInputs(state) {
   const cfg = state.config;
   const names = state.sourceNames || {};
-  return `<section class="nti-card"><h3>Source Inputs</h3><div class="nti-help">All staged JSON objects and arrays are constructed into the canonical hierarchy before identity, reference, branch, pipe, zone, coordinate, OD or bore indexes are built.</div><div class="nti-source-status">${statusBadge('Support table', Boolean(state.tableText), names.table || '')}${statusBadge('Navis Tag XML', Boolean(state.navisText), names.navis || '')}${statusBadge('Staged JSON / ZIP', Boolean(state.stagedDocuments?.length), names.staged || '')}</div><div class="nti-grid">
+  return `<section class="nti-card"><h3>Source Inputs</h3><div class="nti-help">All staged JSON objects and arrays are constructed into the canonical hierarchy before identity, reference, branch, pipe, zone, coordinate, OD or bore indexes are built.</div><div class="nti-source-status">${statusBadge('Support table', Boolean(state.tableText), names.table || '')}${statusBadge('Navis Tag XML', Boolean(state.navisText), names.navis || '')}${statusBadge('Staged JSON / ZIP', Boolean(state.stagedDocuments?.length), names.staged || '')}${statusBadge('Derived coordinate evidence', !state.inputsDirty, state.inputsDirty ? 'stale — Run rebuilds automatically' : 'current')}</div><div class="nti-grid">
     <label class="nti-field">Support table CSV/TSV/XLSX<input type="file" data-nti-file="table" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xlsb,.xls,.ods"></label>
     <label class="nti-field">Navis Tag XML<input type="file" data-nti-file="navis" accept=".xml"></label>
     <label class="nti-field">Managed staged JSON / ZIP<input type="file" data-nti-file="staged" accept=".json,.zip"></label>
-  </div><div class="nti-grid-2"><label class="nti-field">Support table preview / paste<textarea data-nti-field="tableText" placeholder="Name of the element&#9;Reference of the element&#9;PIPE&#9;POS">${esc(state.tableText)}</textarea></label><label class="nti-field">Navis Tag XML preview / paste<textarea data-nti-field="navisText" placeholder="&lt;exchange units=&quot;m&quot;&gt;...">${esc(state.navisText)}</textarea></label></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="build">Parse sources + build hierarchy/index/identity trace</button><button class="nti-btn" data-nti-action="run" ${state.readiness && !state.readiness.canResolve ? 'disabled' : ''}>Run ISONOTE proximity resolution</button><span class="nti-status">${esc(state.status)}</span></div></section>
+  </div><div class="nti-grid-2"><label class="nti-field">Support table preview / paste<textarea data-nti-field="tableText" placeholder="Name of the element&#9;Reference of the element&#9;PIPE&#9;POS">${esc(state.tableText)}</textarea></label><label class="nti-field">Navis Tag XML preview / paste<textarea data-nti-field="navisText" placeholder="&lt;exchange units=&quot;m&quot;&gt;...">${esc(state.navisText)}</textarea></label></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="build">Parse sources + build hierarchy/index/identity trace</button><button class="nti-btn" data-nti-action="run">Run ISONOTE proximity resolution</button><span class="nti-status">${esc(state.status)}</span></div></section>
   <section class="nti-card"><h3>Configurable Identity and Proximity Mapping</h3><div class="nti-grid">
     <label class="nti-field">Table support identity columns<textarea data-nti-config="tableIdentityColumns">${esc(joinList(cfg.tableIdentityColumns))}</textarea></label>
     <label class="nti-field">Table identity mode<select data-nti-config="tableIdentityMode">${['first-non-empty','concatenate'].map((value) => `<option value="${value}" ${cfg.tableIdentityMode === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
@@ -100,9 +119,9 @@ function renderInputs(state) {
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
     <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
     <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
-    <label class="nti-field">Navis Easting datum mm<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
-    <label class="nti-field">Navis Northing datum mm<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>
-    <label class="nti-field">Navis Elevation datum mm<input type="number" data-nti-config="navisElevationDatumMm" value="${esc(cfg.navisElevationDatumMm)}"></label>
+    <label class="nti-field">Navis Easting datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
+    <label class="nti-field">Navis Northing datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>
+    <label class="nti-field">Navis Elevation datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisElevationDatumMm" value="${esc(cfg.navisElevationDatumMm)}" placeholder="e.g. -100000"></label>
     <label class="nti-field">Support coordinate source<select data-nti-config="supportCoordinateSource">${['prefer-table-fallback-json','prefer-json-fallback-table','table-only','json-only','compare-table-json'].map((value) => `<option value="${value}" ${cfg.supportCoordinateSource === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label>
     <label class="nti-field">E tolerance mm<input type="number" min="0" data-nti-config="eastingToleranceMm" value="${esc(cfg.eastingToleranceMm)}"></label>
     <label class="nti-field">N tolerance mm<input type="number" min="0" data-nti-config="northingToleranceMm" value="${esc(cfg.northingToleranceMm)}"></label>
@@ -111,7 +130,7 @@ function renderInputs(state) {
     <label class="nti-field">Enable explicit bore→OD lookup<input type="checkbox" data-nti-config="boreToOdLookupEnabled" ${cfg.boreToOdLookupEnabled ? 'checked' : ''}></label>
     <label class="nti-field">Bore→OD lookup name<input data-nti-config="boreToOdLookupName" value="${esc(cfg.boreToOdLookupName)}" placeholder="ASME B36.10 profile"></label>
     <label class="nti-field">Explicit bore→OD lookup JSON<textarea data-nti-config="boreToOdLookup" placeholder='{"50":60.3,"80":88.9}'>${esc(JSON.stringify(cfg.boreToOdLookup || {}, null, 2))}</textarea></label>
-  </div>${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
+  </div>${renderNavisDatumPreview(state)}${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
 }
 function renderTreeNode(tree, nodeId, depth = 0) {
   const node = tree.byId.get(nodeId);
@@ -188,4 +207,4 @@ export function renderNavisTagIsonotePane(state) {
   return renderInputs(state);
 }
 
-export const _test = Object.freeze({ renderReadiness, renderIdentityRows, renderPathPicker });
+export const _test = Object.freeze({ renderReadiness, renderIdentityRows, renderPathPicker, renderNavisDatumPreview });
