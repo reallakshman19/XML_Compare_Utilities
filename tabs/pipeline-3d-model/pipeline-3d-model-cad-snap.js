@@ -12,7 +12,7 @@ export const DEFAULT_PIPELINE_CAD_SNAP_SETTINGS = Object.freeze({
   stationTolerance: 0.75,
   aboveGroundZ: 0.75,
   aboveGroundTolerance: 0.15,
-  objectEnabled: true,
+  objectEnabled: false,
   objectAperture: 12,
   endpointEnabled: true,
   midpointEnabled: true,
