@@ -36,6 +36,7 @@ function tablePositionMappingStatus(config, headers = []) {
 export function buildNavisTagIsonoteReadiness(input = {}) {
   const config = normalizeConfig(input.config || {});
   const tableBuild = input.tableBuild || null;
+  const tableImport = input.tableImport || null;
   const tree = input.tree || null;
   const stagedIndex = input.stagedIndex || null;
   const identityTrace = input.identityTrace || null;
@@ -46,9 +47,25 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
   const blockers = [];
   const warnings = [];
 
-  if (!records.length) blockers.push(record('ERROR', 'TABLE_ROWS_MISSING', 'No support-table rows are available.'));
+  if (!records.length) {
+    if (tableImport?.kind === 'workbook') {
+      const selected = tableImport.selectedSheetName || '(none)';
+      blockers.push(record('ERROR', 'WORKBOOK_SUPPORT_TABLE_ROWS_MISSING', `Workbook was loaded, but selected worksheet "${selected}" produced no support-table data rows. Review the selected worksheet, header row and table identity columns.`, {
+        selectedSheetName: tableImport.selectedSheetName || '',
+        headerRowNumber: tableImport.headerRowNumber || 0,
+        candidateDataRowCount: tableImport.candidateDataRowCount || 0,
+        selectionMode: tableImport.selectionMode || '',
+      }));
+    } else {
+      blockers.push(record('ERROR', 'TABLE_ROWS_MISSING', 'No support-table rows are available.'));
+    }
+  }
   const identityRows = records.filter((row) => row.identity);
-  if (records.length && !identityRows.length) blockers.push(record('ERROR', 'TABLE_IDENTITY_MAPPING_INVALID', 'Configured table identity columns produce no support identities.'));
+  if (records.length && !identityRows.length) blockers.push(record('ERROR', 'TABLE_IDENTITY_MAPPING_INVALID', `Configured table identity columns produce no support identities. Available headers: ${headers.join(', ') || '(none)'}.`, {
+    configuredIdentityColumns: config.tableIdentityColumns,
+    availableHeaders: headers,
+    selectedSheetName: tableImport?.selectedSheetName || '',
+  }));
   else if (identityRows.length < records.length) warnings.push(record('WARN', 'TABLE_IDENTITIES_PARTIAL', `${records.length - identityRows.length} table rows have no configured identity.`));
 
   const tablePositionMapping = tablePositionMappingStatus(config, headers);
@@ -100,6 +117,12 @@ export function buildNavisTagIsonoteReadiness(input = {}) {
     summary: {
       tableRowCount: records.length,
       tableIdentityCount: identityRows.length,
+      tableSourceKind: tableImport?.kind || '',
+      workbookSheetCount: tableImport?.sheetCount || 0,
+      selectedSheetName: tableImport?.selectedSheetName || '',
+      selectedSheetHeaderRow: tableImport?.headerRowNumber || 0,
+      selectedSheetCandidateDataRows: tableImport?.candidateDataRowCount || 0,
+      workbookSelectionMode: tableImport?.selectionMode || '',
       tablePositionMode: config.tablePositionMode,
       tablePositionMappingValid: tablePositionMapping.valid,
       stagedJsonRequired: jsonRequired,
