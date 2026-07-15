@@ -1,16 +1,13 @@
 /**
- * Functionality: resolves and loads producer-owned companion topology files
- * after the user selects one managed source JSON file. Inputs are the source
- * filename, page URL, browser fetch adapter, and validator controller. Output
- * is the independently validated artifact set. Fallback: explicit candidate
- * locations are tried in order; failure remains visible and manual controls
- * stay available. This module never imports or invokes a topology builder.
+ * Resolves producer-owned companion topology files after one managed source JSON
+ * selection. This module never invokes a topology builder. Canonical and ledger
+ * are required; InputXML, scene, parsed graph, and parity report are optional
+ * for compatibility with older published workpacks.
  */
 
-const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml']);
+const COMPANION_KINDS = Object.freeze(['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report']);
 
 export class TopologyCompanionLoadError extends Error {
-  /** @param {string} sourceFileName @param {readonly string[]} attempts */
   constructor(sourceFileName, attempts) {
     super(`No companion topology artifacts were found for ${sourceFileName}. Tried: ${attempts.join('; ')}`);
     this.name = 'TopologyCompanionLoadError';
@@ -19,7 +16,6 @@ export class TopologyCompanionLoadError extends Error {
   }
 }
 
-/** @param {string} sourceFileName @returns {Readonly<Record<string, string>>} */
 export function topologyCompanionFileNames(sourceFileName) {
   const name = String(sourceFileName ?? '').trim();
   if (!/\.json$/i.test(name)) throw new TypeError(`Managed source filename must end with .json: ${name || '(empty)'}.`);
@@ -29,10 +25,12 @@ export function topologyCompanionFileNames(sourceFileName) {
     canonical: `${stem}.canonical-topology.json`,
     ledger: `${stem}.topology-trace-ledger.json`,
     inputXml: `${stem}.topology.input.xml`,
+    scene: `${stem}.topology-svg-scene.json`,
+    parsed: `${stem}.parsed-inputxml-topology.json`,
+    report: `${stem}.topology-parity-report.json`,
   });
 }
 
-/** @param {string} sourceFileName @param {string} pageUrl @returns {readonly string[]} */
 export function topologyCompanionBaseUrls(sourceFileName, pageUrl) {
   const names = topologyCompanionFileNames(sourceFileName);
   const page = new URL(pageUrl);
@@ -43,7 +41,6 @@ export function topologyCompanionBaseUrls(sourceFileName, pageUrl) {
   return Object.freeze([...new Set([...configured, siblingProducer, colocatedArtifacts])]);
 }
 
-/** @param {string} sourceFileName @param {string} pageUrl @param {typeof fetch} fetchImpl @returns {Promise<Readonly<Record<string, unknown>>>} */
 export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImpl) {
   if (typeof fetchImpl !== 'function') throw new TypeError('A browser fetch function is required for companion artifact loading.');
   const names = topologyCompanionFileNames(sourceFileName), attempts = [];
@@ -51,8 +48,9 @@ export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImp
     try {
       const canonical = await requiredText(new URL(names.canonical, baseUrl).href, fetchImpl);
       const ledger = await requiredText(new URL(names.ledger, baseUrl).href, fetchImpl);
-      const inputXml = await optionalText(new URL(names.inputXml, baseUrl).href, fetchImpl);
-      return Object.freeze({ baseUrl, names, canonical, ledger, inputXml });
+      const optional = {};
+      for (const kind of ['inputXml', 'scene', 'parsed', 'report']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
+      return Object.freeze({ baseUrl, names, canonical, ledger, ...optional });
     } catch (error) {
       attempts.push(`${baseUrl} (${error?.message || String(error)})`);
     }
@@ -60,7 +58,6 @@ export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImp
   throw new TopologyCompanionLoadError(sourceFileName, attempts);
 }
 
-/** @param {Readonly<Record<string, unknown>>} controller @param {File} file @param {string} pageUrl @param {typeof fetch} fetchImpl @returns {Promise<Readonly<Record<string, unknown>>>} */
 export async function loadTopologySourceFile(controller, file, pageUrl, fetchImpl) {
   if (!file || typeof file.text !== 'function') throw new TypeError('A managed source JSON File is required.');
   await controller.loadArtifact('source', await file.text(), file.name);
@@ -72,21 +69,18 @@ export async function loadTopologySourceFile(controller, file, pageUrl, fetchImp
   return Object.freeze({ companions, validation: controller.validate() });
 }
 
-/** @param {string} value @param {string} pageUrl @returns {string} */
 function normalizedBaseUrl(value, pageUrl) {
   const url = new URL(value, pageUrl);
   if (!url.pathname.endsWith('/')) url.pathname = `${url.pathname}/`;
   return url.href;
 }
 
-/** @param {string} url @param {typeof fetch} fetchImpl @returns {Promise<string>} */
 async function requiredText(url, fetchImpl) {
   const response = await fetchImpl(url, { cache: 'no-store' });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   return response.text();
 }
 
-/** @param {string} url @param {typeof fetch} fetchImpl @returns {Promise<string|null>} */
 async function optionalText(url, fetchImpl) {
   const response = await fetchImpl(url, { cache: 'no-store' });
   if (response.status === 404) return null;
@@ -94,4 +88,4 @@ async function optionalText(url, fetchImpl) {
   return response.text();
 }
 
-export const _test = Object.freeze({ normalizedBaseUrl, requiredText, optionalText });
+export const _test = Object.freeze({ normalizedBaseUrl, requiredText, optionalText, COMPANION_KINDS });

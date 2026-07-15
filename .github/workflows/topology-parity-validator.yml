@@ -1,0 +1,62 @@
+name: Topology Parity Validator
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/topology-trace-validator/**'
+      - 'tests/topology-trace-validator-**'
+      - 'tests/topology-parity-validator.test.js'
+      - 'tests/topology-companion-parity.test.js'
+      - 'package.json'
+      - '.github/workflows/topology-parity-validator.yml'
+  workflow_dispatch:
+
+jobs:
+  topology-parity-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate topology validator module syntax
+        shell: bash
+        run: |
+          set -o pipefail
+          for file in tabs/topology-trace-validator/*.js; do node --check "$file"; done 2>&1 | tee "$RUNNER_TEMP/topology-syntax.log"
+      - name: Validate static topology ownership contracts
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/topology-trace-validator-static.test.js 2>&1 | tee "$RUNNER_TEMP/topology-static.log"
+      - name: Validate topology parity artifact and SVG contracts
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/topology-parity-validator.test.js 2>&1 | tee "$RUNNER_TEMP/topology-parity.log"
+      - name: Validate topology parity companion workpack
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/topology-companion-parity.test.js 2>&1 | tee "$RUNNER_TEMP/topology-companion.log"
+      - name: Run full topology validator suite
+        if: always()
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:topology-validator 2>&1 | tee "$RUNNER_TEMP/topology-suite.log"
+      - name: Upload topology parity validator logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topology-parity-validator-logs
+          path: |
+            ${{ runner.temp }}/topology-syntax.log
+            ${{ runner.temp }}/topology-static.log
+            ${{ runner.temp }}/topology-parity.log
+            ${{ runner.temp }}/topology-companion.log
+            ${{ runner.temp }}/topology-suite.log
+          if-no-files-found: warn

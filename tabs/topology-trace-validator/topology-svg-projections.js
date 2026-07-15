@@ -11,16 +11,27 @@ export const TOPOLOGY_SVG_HEIGHT = 720;
 export const TOPOLOGY_SVG_PADDING = 54;
 export const TOPOLOGY_PROJECTION_PLANES = Object.freeze(['ISO', 'XY', 'XZ', 'YZ']);
 
+const PROJECTION_DECIMALS = 12;
+
+function normalizeProjectedNumber(value) {
+  const normalized = Number(Number(value).toFixed(PROJECTION_DECIMALS));
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+function projectedPoint(x, y) {
+  return Object.freeze({ x: normalizeProjectedNumber(x), y: normalizeProjectedNumber(y) });
+}
+
 export function projectTopologyPoint(point, plane) {
   const value = strictPoint(point);
   if (!value) return null;
-  if (plane === 'ISO') return Object.freeze({
-    x: (value.x - value.y) * Math.cos(Math.PI / 6),
-    y: value.z + (value.x + value.y) * Math.sin(Math.PI / 6),
-  });
-  if (plane === 'XY' || plane === '3D') return Object.freeze({ x: value.x, y: value.y });
-  if (plane === 'XZ') return Object.freeze({ x: value.x, y: value.z });
-  if (plane === 'YZ') return Object.freeze({ x: value.y, y: value.z });
+  if (plane === 'ISO') return projectedPoint(
+    (value.x - value.y) * Math.cos(Math.PI / 6),
+    value.z + (value.x + value.y) * Math.sin(Math.PI / 6),
+  );
+  if (plane === 'XY' || plane === '3D') return projectedPoint(value.x, value.y);
+  if (plane === 'XZ') return projectedPoint(value.x, value.z);
+  if (plane === 'YZ') return projectedPoint(value.y, value.z);
   throw new RangeError(`Unsupported topology projection plane: ${plane}`);
 }
 
@@ -44,3 +55,5 @@ export function createTopologyWorldTransform(bounds, width, height, padding) {
 export function topologyPathData(points) {
   return points.filter(Boolean).map((point, index) => `${index ? 'L' : 'M'} ${Number(point.x).toFixed(2)} ${Number(point.y).toFixed(2)}`).join(' ');
 }
+
+export const _test = Object.freeze({ normalizeProjectedNumber, projectedPoint });

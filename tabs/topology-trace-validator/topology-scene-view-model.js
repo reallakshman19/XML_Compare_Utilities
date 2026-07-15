@@ -40,6 +40,16 @@ function scenePoint(row, kind, projection, positionField = 'position') {
   });
 }
 
+function supportView(row, projection) {
+  return deepFreeze({
+    ...row,
+    objectKey: `scene:support:${cleanText(row.canonicalSupportId || row.id)}`,
+    projectedPosition: projectPoint(row.attachmentPosition ?? row.position, projection),
+    projectedSourcePosition: projectPoint(row.sourcePosition, projection),
+    projectedAttachmentPosition: projectPoint(row.attachmentPosition ?? row.position, projection),
+  });
+}
+
 function parsedEdge(row, projection) {
   return deepFreeze({
     ...row,
@@ -49,18 +59,24 @@ function parsedEdge(row, projection) {
   });
 }
 
+function identityTexts(value) {
+  return asArray(value).flatMap((item) => {
+    if (typeof item === 'string' || typeof item === 'number') return [cleanText(item)];
+    return [];
+  }).filter(Boolean);
+}
+
 function mismatchIdentityKeys(row) {
   const keys = [];
-  const canonical = cleanText(row.canonicalIdentity);
-  const input = cleanText(row.inputXmlIdentity);
-  const svg = cleanText(row.svgIdentity);
-  if (canonical.startsWith('CE-')) keys.push(`scene:edge:${canonical}`);
-  else if (canonical.startsWith('CN-')) keys.push(`scene:node:${canonical}`);
-  else if (canonical.startsWith('CJ-')) keys.push(`scene:junction:${canonical}`);
-  else if (canonical.startsWith('CB-')) keys.push(`scene:boundary:${canonical}`);
-  else if (canonical.startsWith('SUP-')) keys.push(`scene:support:${canonical}`);
-  if (input) keys.push(`inputxml:edge:${input}`);
-  if (svg) keys.push(svg.startsWith('scene:') ? svg : `scene:edge:${svg}`);
+  for (const canonical of identityTexts(row.canonicalIdentity)) {
+    if (canonical.startsWith('CE-')) keys.push(`scene:edge:${canonical}`);
+    else if (canonical.startsWith('CN-')) keys.push(`scene:node:${canonical}`);
+    else if (canonical.startsWith('CJ-')) keys.push(`scene:junction:${canonical}`);
+    else if (canonical.startsWith('CB-')) keys.push(`scene:boundary:${canonical}`);
+    else if (canonical.startsWith('SUP-')) keys.push(`scene:support:${canonical}`);
+  }
+  for (const input of identityTexts(row.inputXmlIdentity)) keys.push(`inputxml:edge:${input}`);
+  for (const svg of identityTexts(row.svgIdentity)) keys.push(svg.startsWith('scene:') ? svg : `scene:edge:${svg}`);
   return uniqueText(keys);
 }
 
@@ -103,7 +119,7 @@ export function buildTopologySceneViewModel(input) {
   const nodes = fullNodes.filter((row) => visibleNodeIds.has(cleanText(row.canonicalNodeId)));
   const activeEdges = branch ? visibleEdges : fullEdges;
   const unaffectedEdges = branch ? fullEdges.filter((row) => !branchVisible(row, branch)) : [];
-  const supports = asArray(scene.supports).map(objectRecord).filter((row) => branchVisible(row, branch)).map((row) => scenePoint(row, 'support', projection));
+  const supports = asArray(scene.supports).map(objectRecord).filter((row) => branchVisible(row, branch)).map((row) => supportView(row, projection));
   const deferredSupports = asArray(scene.deferredSupports).map(objectRecord).filter((row) => branchVisible(row, branch)).map((row) => scenePoint(row, 'deferred', projection));
   const rigids = asArray(scene.rigids).map(objectRecord).filter((row) => branchVisible(row, branch)).map((row) => deepFreeze({ ...row, objectKey: `scene:rigid:${cleanText(row.id)}` }));
   const junctions = asArray(scene.junctions).map(objectRecord).filter((row) => branchVisible(row, branch)).map((row) => scenePoint(row, 'junction', projection));
@@ -113,7 +129,7 @@ export function buildTopologySceneViewModel(input) {
   const mismatches = asArray(report.mismatches).map(objectRecord).map(mismatchView);
   const points = [
     ...fullEdges.flatMap((row) => [row.projectedStart, row.projectedEnd]),
-    ...supports.map((row) => row.projectedPosition),
+    ...supports.flatMap((row) => [row.projectedPosition, row.projectedSourcePosition]),
     ...deferredSupports.map((row) => row.projectedPosition),
     ...junctions.map((row) => row.projectedPosition),
     ...boundaries.map((row) => row.projectedPosition),
@@ -131,4 +147,4 @@ export function buildTopologySceneViewModel(input) {
   });
 }
 
-export const _test = Object.freeze({ branchVisible, sceneNode, sceneEdge, scenePoint, parsedEdge, mismatchIdentityKeys, buildSelectionLookup, mismatchView });
+export const _test = Object.freeze({ branchVisible, sceneNode, sceneEdge, scenePoint, supportView, parsedEdge, identityTexts, mismatchIdentityKeys, buildSelectionLookup, mismatchView });
