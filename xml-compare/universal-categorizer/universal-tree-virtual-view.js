@@ -8,7 +8,7 @@ const esc = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('
 
 export function renderUniversalTreeVirtualRows(rows = [], context = {}) {
   return rows.map((item, offset) => {
-    const node = item.row;
+    const node = item.row || item.node || {};
     const id = item.id;
     const selected = context.selectedId === id;
     const related = context.relatedIds?.has?.(id);
