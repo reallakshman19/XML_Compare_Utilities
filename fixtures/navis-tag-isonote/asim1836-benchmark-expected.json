@@ -63,9 +63,7 @@
     "resolvedCount": 0,
     "ambiguousCount": 0,
     "unresolvedCount": 163,
-    "candidateLedgerCount": 0,
-    "reasonCounts": {
-      "NO_PROXIMITY_CANDIDATE": 163
-    }
+    "nearestRejectedCount": 163,
+    "candidateLedgerCount": 163
   }
 }

@@ -1,50 +1,54 @@
 import { normalizeConfig, normalizeReference, supportRoot, text } from './navis-tag-isonote-contracts.js';
 
-function uniqueText(values = []) {
-  return [...new Set(values.map((value) => text(value)).filter(Boolean))];
+function uniqueText(values) {
+  const seen = new Set();
+  const output = [];
+  for (const value of values || []) {
+    const normalized = text(value);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    output.push(normalized);
+  }
+  return output;
 }
 
-function coordinateGroupKey(entry, index) {
+function coordinateKey(entry, index) {
   const point = entry?.position;
-  if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) {
-    return `UNPOSITIONED:${entry?.nodeId || index}`;
+  if (![point?.x, point?.y, point?.z].every((value) => Number.isFinite(Number(value)))) {
+    return `NO_POSITION:${entry?.nodeId || entry?.identity || index}`;
   }
-  return `E=${Number(point.x)}|N=${Number(point.y)}|EL=${Number(point.z)}`;
+  return [point.x, point.y, point.z].map((value) => Number(value).toFixed(6)).join('|');
 }
 
 function groupStagedEntriesByCoordinate(entries = []) {
   const groups = new Map();
   entries.forEach((entry, index) => {
-    const key = coordinateGroupKey(entry, index);
+    if (!text(entry?.identity)) return;
+    const key = coordinateKey(entry, index);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(entry);
   });
-  return [...groups.entries()].map(([key, groupedEntries]) => ({ key, entries: groupedEntries }));
+  return [...groups.entries()].map(([key, members]) => ({ key, members }));
 }
 
-function stagedEntriesToResolutionRecord(entries, index, coordinateKey = '') {
-  const groupedEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
-  const primary = groupedEntries[0] || {};
-  const identities = uniqueText(groupedEntries.map((entry) => entry?.identity));
-  const identityRaws = uniqueText(groupedEntries.map((entry) => entry?.identityRaw || entry?.identity));
-  const referencesRaw = uniqueText(groupedEntries.map((entry) => entry?.referenceRaw || entry?.reference));
-  const references = uniqueText(groupedEntries.map((entry) => entry?.reference || normalizeReference(entry?.referenceRaw)));
-  const supportRoots = uniqueText(groupedEntries.map((entry) => entry?.supportRoot || supportRoot(entry?.identity)));
-  const pipes = uniqueText(groupedEntries.map((entry) => entry?.resolvedPipe || entry?.resolvedBranch));
-  const identityColumns = uniqueText(groupedEntries.map((entry) => entry?.identityPath || 'STAGED_JSON_IDENTITY'));
-  const referenceColumns = uniqueText(groupedEntries.map((entry) => entry?.referencePath));
-  const pipeColumns = uniqueText(groupedEntries.map((entry) => entry?.resolvedPipePath || entry?.resolvedBranchPath));
-  const sourceFiles = uniqueText(groupedEntries.map((entry) => entry?.sourceFile));
-  const jsonPaths = uniqueText(groupedEntries.map((entry) => entry?.jsonPath));
-  const nodeIds = uniqueText(groupedEntries.map((entry) => entry?.nodeId));
-  const identity = identities[0] || '';
-  const identityRaw = identityRaws.join('|') || identity;
-  const referenceRaw = referencesRaw.join('|');
-  const reference = references[0] || normalizeReference(referencesRaw[0]);
-  const inputPipe = pipes[0] || '';
-  const identityColumn = identityColumns.join('|') || 'STAGED_JSON_IDENTITY';
-  const referenceColumn = referenceColumns.join('|');
-  const pipeColumn = pipeColumns.join('|');
+function stagedEntriesToResolutionRecord(group, index) {
+  const members = group?.members || [];
+  const entry = members[0] || {};
+  const groupedIdentityRaws = uniqueText(members.map((item) => item?.identityRaw || item?.identity));
+  const groupedIdentities = uniqueText(members.map((item) => item?.identity));
+  const groupedReferencesRaw = uniqueText(members.map((item) => item?.referenceRaw || item?.reference));
+  const groupedReferences = uniqueText(members.map((item) => item?.reference || normalizeReference(item?.referenceRaw)));
+  const groupedSupportRoots = uniqueText(members.map((item) => item?.supportRoot || supportRoot(item?.identity)));
+  const groupedNodeIds = uniqueText(members.map((item) => item?.nodeId));
+  const groupedJsonPaths = uniqueText(members.map((item) => item?.jsonPath));
+  const identity = groupedIdentities[0] || text(entry?.identity);
+  const identityRaw = groupedIdentityRaws.join('|') || text(entry?.identityRaw || identity);
+  const referenceRaw = groupedReferencesRaw.join('|');
+  const reference = groupedReferences.join('|');
+  const inputPipe = text(entry?.resolvedPipe || entry?.resolvedBranch);
+  const identityColumn = uniqueText(members.map((item) => item?.identityPath || 'STAGED_JSON_IDENTITY')).join('|');
+  const referenceColumn = uniqueText(members.map((item) => item?.referencePath)).join('|');
+  const pipeColumn = uniqueText(members.map((item) => item?.resolvedPipePath || item?.resolvedBranchPath)).join('|');
 
   return {
     rowId: `STAGED-${index + 1}`,
@@ -52,25 +56,22 @@ function stagedEntriesToResolutionRecord(entries, index, coordinateKey = '') {
     rawRow: {
       'Name of the element': identityRaw,
       'Reference of the element': referenceRaw,
-      PIPE: pipes.join('|'),
-      POS: primary?.positionRaw ?? '',
-      'Staged JSON Source File': sourceFiles.join('|'),
-      'Staged JSON Path': jsonPaths.join('|'),
-      'Coordinate Group Key': coordinateKey,
-      'Grouped Identity Count': groupedEntries.length,
+      PIPE: inputPipe,
+      POS: entry?.positionRaw ?? '',
+      'Grouped Identity Count': members.length,
+      'Grouped Canonical Identities': groupedIdentities.join('|'),
+      'Grouped JSON Node IDs': groupedNodeIds.join('|'),
+      'Grouped JSON Paths': groupedJsonPaths.join('|'),
+      'Staged JSON Source File': entry?.sourceFile || '',
+      'Staged JSON Path': entry?.jsonPath || '',
     },
-    // The first canonical identity remains the resolver anchor. All raw identities
-    // sharing the coordinate are retained and displayed as a pipe-delimited value.
     identityRaw,
     identity,
-    supportRoot: supportRoots[0] || supportRoot(identity),
+    supportRoot: groupedSupportRoots.length === 1 ? groupedSupportRoots[0] : (entry?.supportRoot || supportRoot(identity)),
     identityColumn,
-    identityValues: groupedEntries.map((entry) => ({
-      column: entry?.identityPath || 'STAGED_JSON_IDENTITY',
-      value: text(entry?.identityRaw || entry?.identity),
-      canonicalIdentity: text(entry?.identity),
-      nodeId: entry?.nodeId || '',
-      jsonPath: entry?.jsonPath || '',
+    identityValues: groupedIdentityRaws.map((value, memberIndex) => ({
+      column: members[memberIndex]?.identityPath || identityColumn,
+      value,
     })),
     inputReferenceRaw: referenceRaw,
     inputReference: reference,
@@ -84,23 +85,19 @@ function stagedEntriesToResolutionRecord(entries, index, coordinateKey = '') {
     inputPipeColumn: pipeColumn,
     existingIsometricNotes: '',
     sourceKind: 'STAGED_JSON',
-    stagedNodeId: primary?.nodeId || '',
-    stagedSourceFile: primary?.sourceFile || '',
-    stagedJsonPath: primary?.jsonPath || '',
-    coordinateGroupKey: coordinateKey,
-    groupedIdentityCount: groupedEntries.length,
-    groupedIdentityRaws: identityRaws,
-    groupedCanonicalIdentities: identities,
-    groupedSupportRoots: supportRoots,
-    groupedReferencesRaw: referencesRaw,
-    groupedNodeIds: nodeIds,
-    groupedJsonPaths: jsonPaths,
-    stagedEntries: groupedEntries,
+    stagedNodeId: entry?.nodeId || '',
+    stagedSourceFile: entry?.sourceFile || '',
+    stagedJsonPath: entry?.jsonPath || '',
+    coordinateGroupKey: group?.key || '',
+    groupMemberCount: members.length,
+    groupedIdentityRaws,
+    groupedIdentities,
+    groupedReferencesRaw,
+    groupedReferences,
+    groupedSupportRoots,
+    groupedNodeIds,
+    groupedJsonPaths,
   };
-}
-
-function stagedEntryToResolutionRecord(entry, index) {
-  return stagedEntriesToResolutionRecord([entry], index, coordinateGroupKey(entry, index));
 }
 
 export function buildResolutionSupportRecords(tableBuild, stagedIndex, inputConfig = {}) {
@@ -120,33 +117,21 @@ export function buildResolutionSupportRecords(tableBuild, stagedIndex, inputConf
     };
   }
 
-  const eligibleEntries = (stagedIndex?.entries || []).filter((entry) => text(entry?.identity));
-  const coordinateGroups = groupStagedEntriesByCoordinate(eligibleEntries);
-  const records = coordinateGroups.map((group, index) => stagedEntriesToResolutionRecord(group.entries, index, group.key));
+  const sourceEntries = (stagedIndex?.entries || []).filter((entry) => text(entry?.identity));
+  const groups = groupStagedEntriesByCoordinate(sourceEntries);
+  const records = groups.map(stagedEntriesToResolutionRecord);
   const diagnostics = [...(tableBuild?.diagnostics || [])];
-  const groupedIdentityCount = Math.max(0, eligibleEntries.length - records.length);
+  const multiIdentityGroupCount = records.filter((record) => record.groupMemberCount > 1).length;
 
   if (records.length) {
     diagnostics.push({
       severity: 'INFO',
       code: 'STAGED_JSON_RESOLUTION_ROWS_SYNTHESIZED',
-      message: `${records.length} coordinate-grouped resolution rows were created from ${eligibleEntries.length} refined staged JSON identities because no support table was provided.`,
+      message: `${records.length} coordinate-grouped resolution rows were created from ${sourceEntries.length} refined staged JSON identities because no support table was provided.`,
       context: {
         resolutionRowCount: records.length,
-        stagedIdentityEntryCount: eligibleEntries.length,
-        groupedIdentityCount,
-      },
-    });
-  }
-  if (groupedIdentityCount) {
-    diagnostics.push({
-      severity: 'INFO',
-      code: 'STAGED_IDENTITIES_GROUPED_BY_COORDINATE',
-      message: `${groupedIdentityCount} additional staged identities share coordinates with another identity and were concatenated into coordinate groups using "|".`,
-      context: {
-        coordinateGroupCount: records.length,
-        stagedIdentityEntryCount: eligibleEntries.length,
-        groupedIdentityCount,
+        sourceIdentityCount: sourceEntries.length,
+        multiIdentityCoordinateGroupCount: multiIdentityGroupCount,
       },
     });
   }
@@ -158,10 +143,12 @@ export function buildResolutionSupportRecords(tableBuild, stagedIndex, inputConf
       'Reference of the element',
       'PIPE',
       'POS',
+      'Grouped Identity Count',
+      'Grouped Canonical Identities',
+      'Grouped JSON Node IDs',
+      'Grouped JSON Paths',
       'Staged JSON Source File',
       'Staged JSON Path',
-      'Coordinate Group Key',
-      'Grouped Identity Count',
     ],
     records,
     diagnostics,
@@ -170,15 +157,15 @@ export function buildResolutionSupportRecords(tableBuild, stagedIndex, inputConf
       rowCount: records.length,
       resolutionRowCount: records.length,
       resolutionSource: 'STAGED_JSON',
-      identityCount: eligibleEntries.length,
+      identityCount: sourceEntries.length,
       coordinateGroupCount: records.length,
-      groupedIdentityCount,
-      referenceCount: records.filter((row) => row.inputReference).length,
-      positionedRowCount: eligibleEntries.filter((entry) => entry.position).length,
+      multiIdentityCoordinateGroupCount: multiIdentityGroupCount,
+      referenceCount: sourceEntries.filter((entry) => entry.reference).length,
+      positionedRowCount: groups.filter((group) => group.members[0]?.position).length,
       pipeCount: records.filter((row) => row.inputPipe).length,
       tableRowCount: tableRecords.length,
     },
   };
 }
 
-export const _test = Object.freeze({ coordinateGroupKey, groupStagedEntriesByCoordinate, stagedEntryToResolutionRecord, stagedEntriesToResolutionRecord });
+export const _test = Object.freeze({ coordinateKey, groupStagedEntriesByCoordinate, stagedEntriesToResolutionRecord });
