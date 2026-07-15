@@ -7,6 +7,7 @@ import {
   savePipelineCadSnapSettings,
   snapTable2Elevation,
   snapTable2Station,
+  snapTable3CommittedDepth,
   snapTable3Cumulative,
   snapTable3Depth,
 } from './pipeline-3d-model-cad-snap.js';
@@ -77,8 +78,10 @@ function composePointer(state, name, context) {
   const acquisition = acquire(state, name, context.screen, context.world, interaction);
   const settings = normalizePipelineCadSnapSettings(graph.getSnapSettings?.());
   const composed = composePipelineCadSnapPoint(context.world, acquisition, scalarRules(name, graph, settings, interaction));
-  state.composed[name] = Object.freeze({ ...composed, interaction: interaction.type, candidateId: acquisition.candidate?.id || null });
-  return Object.freeze({ x: composed.x, y: composed.y });
+  const y = name === 'table3x' && ['add-node', 'drag-depth'].includes(interaction.type)
+    ? snapTable3CommittedDepth(composed.y, settings) : composed.y;
+  state.composed[name] = Object.freeze({ ...composed, y, interaction: interaction.type, candidateId: acquisition.candidate?.id || null });
+  return Object.freeze({ x: composed.x, y });
 }
 
 function composeTable2NodeAdded(state, detail) {
