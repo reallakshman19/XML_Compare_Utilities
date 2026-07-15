@@ -18,8 +18,22 @@ jobs:
           node-version: 24
       - name: Core optional-table regression
         run: node tests/navis-tag-isonote.test.js
+      - name: Parser benchmark regression
+        run: node tests/navis-tag-isonote-benchmark.test.js
       - name: Readiness mode regression
         run: node tests/navis-tag-isonote-readiness.test.js
+      - name: Contracts regression
+        run: node tests/navis-tag-isonote-contracts-v3.test.js
+      - name: Index refinement regression
+        run: node tests/navis-tag-isonote-index-refinement.test.js
+      - name: Static integration regression
+        run: node tests/navis-tag-isonote-static.test.js
+      - name: Coordinate profile regression
+        run: node tests/navis-tag-isonote-coordinate-profile.test.js
+      - name: Workbook ingestion regression
+        run: node tests/navis-tag-isonote-workbook-ingestion.test.js
+      - name: Bore to OD regression
+        run: node tests/navis-tag-isonote-bore-od-master.test.js
       - name: Navis-only fixture benchmark
         env:
           NTI_BENCH_ITERATIONS: 1
