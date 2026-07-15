@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   applyAppliesToPropagation,
   extractLineKey,
@@ -6,6 +7,7 @@ import {
   parseAppliesToDirective,
 } from '../tabs/navis-tag-isonote/navis-tag-applies-to.js';
 import { resolveNavisTagIsonotes } from '../tabs/navis-tag-isonote/navis-tag-proximity-engine.js';
+import { _test as evidenceUiTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js';
 
 const appliesToComment = 'R+G+LS (applies to /ASIM-1885-8"-P8810204-31441C4-PP-01, /ASIM-1885-4"-P8810306-31441C4-PP-01).';
 const directive = parseAppliesToDirective(appliesToComment);
@@ -52,6 +54,7 @@ const records = specs.map((item, index) => ({
 const traceRows = specs.map((item, index) => ({
   tableRowId: item.rowId,
   tableRowIndex: index + 1,
+  tableIdentityRaw: item.identity,
   canonicalIdentity: item.identity,
   status: 'RESOLVED_EXACT_PIPE',
   traceId: `TRACE-${item.rowId}`,
@@ -104,8 +107,10 @@ const byId = new Map(audit.decisions.map((row) => [row.tableRowId, row]));
 assert.equal(inferPipeAxis([byId.get('S1'), byId.get('S2')], navisParse.tags[0].position).axis, 'N-S');
 assert.equal(byId.get('S1').supportIsonote, 'R+G+LS');
 assert.equal(byId.get('S1').isonoteSource, 'DIRECT');
+assert.deepEqual(byId.get('S1').appliesToDirective.targets, directive.targets);
 assert.equal(byId.get('T1').supportIsonote, 'R+G+LS (Based on Tag 8)');
 assert.equal(byId.get('T1').isonoteSource, 'PROPAGATED');
+assert.deepEqual(byId.get('T1').propagatedFromTagIds, ['8']);
 assert.equal(byId.get('U1').supportIsonote, 'R+G+LS (Based on Tag 8)');
 assert.equal(byId.get('TX1').supportIsonote, '', 'full-name exact match must take precedence over same-key fallback pipes');
 assert.equal(byId.get('T2').supportIsonote, '', 'support 1000 mm away along the pipe axis must be rejected');
@@ -115,6 +120,17 @@ assert.equal(audit.summary.propagatedTargetRowCount, 2);
 assert.ok(audit.propagationLedger.some((row) => row.targetTableRowId === 'T1' && row.applied && row.pipeMatchBasis === 'FULL_PIPE_NAME_EXACT'));
 assert.ok(audit.propagationLedger.some((row) => row.targetTableRowId === 'U1' && row.applied && row.pipeMatchBasis === 'LINE_KEY_FALLBACK'));
 assert.ok(audit.propagationLedger.some((row) => row.targetTableRowId === 'T2' && !row.applied && row.rejectionReasons.includes('ALONG_AXIS_OUTSIDE_TOLERANCE')));
+
+const matchUiRows = evidenceUiTest.matchRows({ identityTrace, audit });
+const uiByRow = new Map(matchUiRows.map((row) => [row.resolutionRow, row]));
+assert.equal(uiByRow.get(1).isonoteSource, 'DIRECT');
+assert.equal(uiByRow.get(3).isonoteSource, 'PROPAGATED');
+assert.equal(uiByRow.get(3).displayedNavisRole, 'PROPAGATED_NOTE_ONLY');
+assert.equal(uiByRow.get(3).propagatedFromTagIds, '8');
+assert.equal(uiByRow.get(3).selectedIsonote, 'R+G+LS (Based on Tag 8)');
+const propagationUiRows = evidenceUiTest.propagationRows({ audit });
+assert.ok(propagationUiRows.some((row) => row.targetTableRowId === 'T1' && row.propagationResult === 'APPLIED' && row.parallelOffset === 350));
+assert.ok(propagationUiRows.some((row) => row.targetTableRowId === 'T2' && row.propagationResult === 'REJECTED' && row.rejectionReasonsDisplay.includes('ALONG_AXIS_OUTSIDE_TOLERANCE')));
 
 const nonParallelAudit = applyAppliesToPropagation({
   config,
@@ -137,5 +153,17 @@ const tighterAudit = resolveNavisTagIsonotes(tableBuild, identityTrace, navisPar
   appliesToParallelOffsetToleranceMm: 300,
 });
 assert.equal(new Map(tighterAudit.decisions.map((row) => [row.tableRowId, row])).get('T1').supportIsonote, '', 'the 500 mm cross-pipe window must be configurable');
+
+const uiViewSource = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-view.js', 'utf8');
+const evidenceSource = readFileSync('tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js', 'utf8');
+assert.match(uiViewSource, /data-nti-config="appliesToDirectiveRegex"/);
+assert.match(uiViewSource, /data-nti-config="appliesToLineKeyRegex"/);
+assert.match(uiViewSource, /data-nti-config="appliesToParallelOffsetToleranceMm"/);
+assert.match(uiViewSource, /data-nti-config="appliesToAlongAxisToleranceMm"/);
+assert.match(uiViewSource, /data-nti-config="appliesToElevationToleranceMm"/);
+assert.match(uiViewSource, /Pipe lookup preference: normalized full pipe name first/);
+assert.match(evidenceSource, /Applies-to pipe propagation/);
+assert.match(evidenceSource, /FULL_PIPE_NAME_EXACT|Pipe match basis/);
+assert.match(evidenceSource, /propagationRows/);
 
 console.log('navis-tag applies-to propagation tests passed');
