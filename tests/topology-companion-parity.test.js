@@ -14,6 +14,7 @@ assert.deepEqual(names, {
   scene: '1885_NC.topology-svg-scene.json',
   parsed: '1885_NC.parsed-inputxml-topology.json',
   report: '1885_NC.topology-parity-report.json',
+  ciiProjection: '1885_NC.inputxml-cii-projection-ledger.json',
 });
 
 const payloads = {
@@ -23,21 +24,19 @@ const payloads = {
   [names.scene]: JSON.stringify({ schema: 'TopologySvgScene.v1' }),
   [names.parsed]: JSON.stringify({ schema: 'ParsedInputXmlTopology.v1' }),
   [names.report]: JSON.stringify({ schema: 'TopologyParityReport.v1' }),
+  [names.ciiProjection]: JSON.stringify({ schema: 'InputXmlCiiProjectionLedger.v1' }),
 };
 const requested = [];
 const fetchImpl = async (url) => {
   requested.push(url);
-  const name = url.split('/').at(-1);
-  const text = payloads[name];
-  return text === undefined
-    ? { ok: false, status: 404, text: async () => '' }
-    : { ok: true, status: 200, text: async () => text };
+  const name = url.split('/').at(-1), text = payloads[name];
+  return text === undefined ? { ok: false, status: 404, text: async () => '' } : { ok: true, status: 200, text: async () => text };
 };
 const pageUrl = 'https://example.test/index.html?topologyArtifactBase=https://cdn.test/1885_NC/';
 const companions = await loadTopologyCompanionSet('1885_NC.json', pageUrl, fetchImpl);
 assert.equal(companions.baseUrl, 'https://cdn.test/1885_NC/');
-for (const kind of ['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report']) assert.equal(companions[kind], payloads[names[kind]], kind);
-assert.equal(requested.length, 6);
+for (const kind of ['canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) assert.equal(companions[kind], payloads[names[kind]], kind);
+assert.equal(requested.length, 7);
 
 const loaded = [];
 const controller = {
@@ -46,7 +45,7 @@ const controller = {
 };
 const sourceFile = { name: '1885_NC.json', text: async () => '[]' };
 const result = await loadTopologySourceFile(controller, sourceFile, pageUrl, fetchImpl);
-assert.deepEqual(loaded.map((row) => row.kind), ['source', 'canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report']);
+assert.deepEqual(loaded.map((row) => row.kind), ['source', 'canonical', 'ledger', 'inputXml', 'scene', 'parsed', 'report', 'ciiProjection']);
 assert.equal(result.validation.parity.status, 'PASS');
 
 const optionalMissing = await loadTopologyCompanionSet('1885_NC.json', pageUrl, async (url) => {
@@ -54,6 +53,6 @@ const optionalMissing = await loadTopologyCompanionSet('1885_NC.json', pageUrl, 
   if (name === names.canonical || name === names.ledger) return { ok: true, status: 200, text: async () => payloads[name] };
   return { ok: false, status: 404, text: async () => '' };
 });
-for (const kind of ['inputXml', 'scene', 'parsed', 'report']) assert.equal(optionalMissing[kind], null, kind);
+for (const kind of ['inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) assert.equal(optionalMissing[kind], null, kind);
 
 console.log('topology parity companion discovery passed');
