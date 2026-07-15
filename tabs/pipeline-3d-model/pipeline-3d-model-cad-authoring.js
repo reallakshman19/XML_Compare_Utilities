@@ -34,51 +34,62 @@ function setSnapSettings(settings) {
   return this.snapSettings;
 }
 
+function composedWorld(graph, context, fallback) {
+  return typeof graph.composePipelineCadPointerWorld === 'function'
+    ? graph.composePipelineCadPointerWorld(context)
+    : fallback();
+}
+
+function table2World(graph, event, screen, world, phase) {
+  return composedWorld(graph, { graphName: 'table2x', event, screen, world, phase }, () => graph.draggingId
+    ? { ...world, y: snapTable2Elevation(world.y, ensureSnapState(graph)) }
+    : world);
+}
+
+function table2Added(graph, detail) {
+  if (typeof graph.composePipelineCadNodeAdded === 'function') return graph.composePipelineCadNodeAdded(detail);
+  const start = graph.renderSnapshot?.find?.((row) => row.id === detail.insertAfterId);
+  const end = graph.renderSnapshot?.find?.((row) => row.id === detail.insertBeforeId);
+  const stationValue = snapTable2Station(detail.stationValue, graph.model, ensureSnapState(graph), {
+    excludeIds: [detail.insertAfterId, detail.insertBeforeId],
+    min: Math.min(start?.x ?? detail.stationValue, end?.x ?? detail.stationValue),
+    max: Math.max(start?.x ?? detail.stationValue, end?.x ?? detail.stationValue),
+  });
+  const ratio = start && end && Math.abs(end.x - start.x) > 1e-9 ? (stationValue - start.x) / (end.x - start.x) : 0;
+  const elevationValue = start && end ? start.y + ratio * (end.y - start.y) : detail.elevationValue;
+  return { ...detail, stationValue, elevationValue: snapTable2Elevation(elevationValue, ensureSnapState(graph)), snapApplied: true };
+}
+
 function patchTable2() {
   const prototype = Table2XCanvas.prototype;
   if (prototype[TABLE2_PATCH]) return false;
   Object.defineProperty(prototype, TABLE2_PATCH, { value: true });
   prototype.setSnapSettings = setSnapSettings;
   prototype.getSnapSettings = function getSnapSettings() { return ensureSnapState(this); };
-  const move = prototype.onPrimaryPointerMove;
-  prototype.onPrimaryPointerMove = function snappedMove(event, screen, world) {
-    return move.call(this, event, screen, this.draggingId
-      ? { ...world, y: snapTable2Elevation(world.y, ensureSnapState(this)) }
-      : world);
-  };
-  const up = prototype.onPrimaryPointerUp;
-  prototype.onPrimaryPointerUp = function snappedUp(event, screen, world) {
-    return up.call(this, event, screen, this.draggingId
-      ? { ...world, y: snapTable2Elevation(world.y, ensureSnapState(this)) }
-      : world);
-  };
+  for (const name of ['onPrimaryPointerDown', 'onPrimaryPointerMove', 'onPrimaryPointerUp']) {
+    const original = prototype[name];
+    prototype[name] = function snappedInteraction(event, screen, world) {
+      return original.call(this, event, screen, table2World(this, event, screen, world, name));
+    };
+  }
   const dispatch = prototype.dispatchGraphEvent;
   prototype.dispatchGraphEvent = function snappedDispatch(type, detail = {}) {
-    if (type === 'nodeAdded' && detail.graph === 'table2x') {
-      const start = this.renderSnapshot?.find?.((row) => row.id === detail.insertAfterId);
-      const end = this.renderSnapshot?.find?.((row) => row.id === detail.insertBeforeId);
-      const stationValue = snapTable2Station(detail.stationValue, this.model, ensureSnapState(this), {
-        excludeIds: [detail.insertAfterId, detail.insertBeforeId],
-        min: Math.min(start?.x ?? detail.stationValue, end?.x ?? detail.stationValue),
-        max: Math.max(start?.x ?? detail.stationValue, end?.x ?? detail.stationValue),
-      });
-      const ratio = start && end && Math.abs(end.x - start.x) > 1e-9 ? (stationValue - start.x) / (end.x - start.x) : 0;
-      const elevationValue = start && end ? start.y + ratio * (end.y - start.y) : detail.elevationValue;
-      detail = { ...detail, stationValue, elevationValue: snapTable2Elevation(elevationValue, ensureSnapState(this)), snapApplied: true };
-    }
+    if (type === 'nodeAdded' && detail.graph === 'table2x') detail = table2Added(this, detail);
     return dispatch.call(this, type, detail);
   };
   return true;
 }
 
-function snapTable3World(graph, world) {
-  const settings = ensureSnapState(graph);
-  const next = { ...world };
-  const marker = graph.dragging?.type === 'marker' || graph.tool === GraphTool.ADD_MARKER;
-  const depth = graph.dragging?.type === 'depth-node' || graph.tool === GraphTool.ADD_NODE;
-  if (marker || depth) next.x = snapTable3Cumulative(world.x, graph.model, settings);
-  if (depth) next.y = snapTable3Depth(world.y, settings);
-  return next;
+function table3World(graph, event, screen, world, phase) {
+  return composedWorld(graph, { graphName: 'table3x', event, screen, world, phase }, () => {
+    const settings = ensureSnapState(graph);
+    const next = { ...world };
+    const marker = graph.dragging?.type === 'marker' || graph.tool === GraphTool.ADD_MARKER;
+    const depth = graph.dragging?.type === 'depth-node' || graph.tool === GraphTool.ADD_NODE;
+    if (marker || depth) next.x = snapTable3Cumulative(world.x, graph.model, settings);
+    if (depth) next.y = snapTable3Depth(world.y, settings);
+    return next;
+  });
 }
 
 function patchTable3() {
@@ -90,7 +101,7 @@ function patchTable3() {
   for (const name of ['onPrimaryPointerDown', 'onPrimaryPointerMove', 'onPrimaryPointerUp']) {
     const original = prototype[name];
     prototype[name] = function snappedInteraction(event, screen, world) {
-      return original.call(this, event, screen, snapTable3World(this, world));
+      return original.call(this, event, screen, table3World(this, event, screen, world, name));
     };
   }
   return true;
@@ -139,6 +150,7 @@ function executeShortcut(action, state) {
   else if (action === PipelineCadShortcut.DELETE_SELECTION) deleteSelection();
   else if (action === PipelineCadShortcut.TOGGLE_GRID_SNAP) graph.setSnapSettings({ gridEnabled: !ensureSnapState(graph).gridEnabled });
   else if (action === PipelineCadShortcut.TOGGLE_STATION_SNAP) graph.setSnapSettings({ stationEnabled: !ensureSnapState(graph).stationEnabled });
+  else if (action === PipelineCadShortcut.TOGGLE_OBJECT_SNAP) graph.setSnapSettings({ objectEnabled: !ensureSnapState(graph).objectEnabled });
   else return false;
   updateSnapControls(stage, graph, storage);
   const status = stage.querySelector('[data-p3d-cad-status]');
@@ -147,7 +159,7 @@ function executeShortcut(action, state) {
 }
 
 function mountStage(state) {
-  const { stage, graph, controller, storage } = state;
+  const { stage, graph, storage } = state;
   const canvas = graph.canvas;
   graph.setSnapSettings(loadPipelineCadSnapSettings(state.name, storage));
   const toolbar = stage.querySelector('.p3d-cad-toolbar');
@@ -186,15 +198,9 @@ function mountStage(state) {
     const action = event.target?.dataset?.p3dCadContextAction;
     if (action === 'delete') state.deleteSelection();
     if (action === 'edit' && hit && contextClient) {
-      canvas.dispatchEvent(new MouseEvent('dblclick', {
-        bubbles: true,
-        clientX: contextClient.x,
-        clientY: contextClient.y,
-      }));
+      canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: contextClient.x, clientY: contextClient.y }));
     }
-    hit = null;
-    contextClient = null;
-    menu.hidden = true;
+    hit = null; contextClient = null; menu.hidden = true;
   };
   toolbar?.addEventListener('click', onToolbar);
   canvas.addEventListener('keydown', onKey);
@@ -228,9 +234,7 @@ export function mountPipelineCadAuthoring(options = {}) {
     selection = null;
     return changed;
   };
-  const cleanups = Object.keys(graphs).map((name) => mountStage({
-    name, stage: stages[name], graph: graphs[name], controller, storage, select, deleteSelection,
-  }));
+  const cleanups = Object.keys(graphs).map((name) => mountStage({ name, stage: stages[name], graph: graphs[name], controller, storage, select, deleteSelection }));
   const onSelection = (event) => { if (event.detail?.entityId) select(event.detail); };
   Object.values(graphs).forEach((graph) => graph.addEventListener('selectionChanged', onSelection));
   return Object.freeze({
