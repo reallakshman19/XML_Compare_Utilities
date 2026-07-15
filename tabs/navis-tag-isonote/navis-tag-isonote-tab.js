@@ -9,6 +9,7 @@ import { resolveNavisTagIsonotes } from './navis-tag-proximity-engine.js';
 import { buildNavisTagIsonoteReadiness } from './navis-tag-readiness.js';
 import { ensureNavisTagIsonoteStyle } from './navis-tag-isonote-ui-style.js';
 import { renderNavisTagIsonotePane } from './navis-tag-isonote-ui-view.js';
+import { renderNavisTagIsonoteEvidencePane } from './navis-tag-isonote-ui-evidence.js';
 import { downloadNavisTagFile, readNavisTagStagedFile, readNavisTagTableFile } from './navis-tag-isonote-ui-io.js';
 
 const POPUP_TITLE_ID = 'navis-tag-isonote-title';
@@ -90,7 +91,7 @@ function buildAll(state) {
   const suppressed = (state.stagedIndex.summary.suppressedMirrorEntryCount || 0) + (state.stagedIndex.summary.suppressedDuplicateEntryCount || 0);
   const sheet = state.tableImport?.selectedSheetName ? ` from worksheet "${state.tableImport.selectedSheetName}"` : '';
   const resolutionSource = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON' : `support table${sheet}`;
-  state.status = `${state.readiness.status}: ${state.resolutionBuild.summary.rowCount} resolution rows from ${resolutionSource}; ${state.tableBuild.summary.rowCount} table rows; ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
+  state.status = `${state.readiness.status}: Stage 1 has ${state.resolutionBuild.summary.rowCount} JSON resolution rows from ${resolutionSource}; Stage 2 has ${state.navisParse.summary.validTagCount} valid Navis tags; ${state.tree.summary.nodeCount} JSON nodes and ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed).`;
 }
 function runResolution(state) {
   if (!state.identityTrace || !state.navisParse || !state.readiness || !state.resolutionBuild) buildAll(state);
@@ -100,17 +101,18 @@ function runResolution(state) {
   }
   state.audit = resolveNavisTagIsonotes(state.resolutionBuild, state.identityTrace, state.navisParse, state.config);
   state.identityTrace = attachNavisResolutionToIdentityTrace(state.identityTrace, state.audit);
-  const source = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON rows' : 'support-table rows';
-  state.status = `ISONOTE resolution: ${state.audit.summary.resolvedCount} resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved. End-to-end trace refreshed for ${state.identityTrace.summary.rowCount} ${source}.`;
+  const source = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON coordinate groups' : 'support-table rows';
+  state.status = `Stage 3 complete: ${state.audit.summary.resolvedCount} JSON ↔ Navis matches resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved across ${state.identityTrace.summary.rowCount} ${source}.`;
 }
 function tabDataState(state, id) {
   const has = {
-    hierarchy: Boolean(state.tree?.summary?.nodeCount), identity: Boolean(state.identityTrace?.rows?.length),
-    'identity-matched': Boolean(state.identityTrace?.matchedRows?.length), 'identity-ambiguous': Boolean(state.identityTrace?.ambiguousRows?.length), 'identity-rejected': Boolean(state.identityTrace?.rejectedRows?.length),
-    augmented: Boolean(state.audit?.augmentedRows?.length), 'decision-matched': Boolean(state.audit?.matchedRows?.length), 'decision-ambiguous': Boolean(state.audit?.ambiguousRows?.length), 'decision-rejected': Boolean(state.audit?.rejectedRows?.length),
-    candidates: Boolean(state.audit?.candidateLedger?.length), diagnostics: Boolean(state.tableBuild?.diagnostics?.length || state.resolutionBuild?.diagnostics?.length || state.identityTrace?.diagnostics?.length || state.navisParse?.diagnostics?.length || state.audit?.diagnostics?.length),
+    hierarchy: Boolean(state.identityTrace?.rows?.length),
+    identity: Boolean(state.navisParse?.tags?.length),
+    candidates: Boolean(state.audit || state.identityTrace?.rows?.length),
+    augmented: Boolean(state.audit?.augmentedRows?.length),
+    diagnostics: Boolean(state.tableBuild?.diagnostics?.length || state.resolutionBuild?.diagnostics?.length || state.identityTrace?.diagnostics?.length || state.navisParse?.diagnostics?.length || state.audit?.diagnostics?.length),
   }[id];
-  return has ? (/ambiguous|rejected|diagnostics/.test(id) ? 'has-warning' : 'has-data') : '';
+  return has ? (id === 'diagnostics' ? 'has-warning' : 'has-data') : '';
 }
 function bindFilters(root) {
   root.querySelectorAll('[data-nti-table-filter]').forEach((input) => input.addEventListener('input', () => {
@@ -140,19 +142,24 @@ function downloadAudit(state) {
     pathRecommendations: state.tree?.pathRecommendations,
     identityTrace: state.identityTrace,
     navisSummary: state.navisParse?.summary,
+    navisTags: state.navisParse?.tags,
     sourceNames: state.sourceNames,
   }, replacer, 2), 'application/json');
 }
 function render(root, state) {
   const tabs = [
-    ['inputs','Config & Index'], ['hierarchy','JSON Hierarchy'], ['identity','Identity Node Trace'], ['identity-matched','Identity Matched'], ['identity-ambiguous','Identity Ambiguous'], ['identity-rejected','Identity Rejected'],
-    ['augmented','Augmented Table'], ['decision-matched','ISONOTE Matched'], ['decision-ambiguous','ISONOTE Ambiguous'], ['decision-rejected','ISONOTE Rejected'], ['candidates','Candidate Ledger'], ['diagnostics','Diagnostics'],
+    ['inputs','Inputs & Mapping'],
+    ['hierarchy','1. JSON Trace'],
+    ['identity','2. Navis Tag Coordinates'],
+    ['candidates','3. Tag ↔ JSON Match'],
+    ['augmented','Export Results'],
+    ['diagnostics','Diagnostics'],
   ];
-  root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${renderNavisTagIsonotePane(state)}</div>`;
+  root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${renderNavisTagIsonoteEvidencePane(state) ?? renderNavisTagIsonotePane(state)}</div>`;
   root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.activeTab = button.dataset.ntiTab; render(root, state); }));
   root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveConfig(state.config); state.status = 'Mapping config saved.'; render(root, state); });
-  root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); buildAll(state); } catch (error) { state.status = error?.message || String(error); } render(root, state); });
-  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'identity'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
+  root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); buildAll(state); state.activeTab = 'hierarchy'; } catch (error) { state.status = error?.message || String(error); } render(root, state); });
+  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'candidates'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
   root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-trace"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-end-to-end-identity-trace.csv', rowsToCsv(state.identityTrace?.rows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-audit"]')?.addEventListener(ACTIVATE, () => downloadAudit(state));
@@ -175,11 +182,11 @@ function render(root, state) {
         const sheet = imported.meta.selectedSheetName ? ` › ${imported.meta.selectedSheetName}` : '';
         state.sourceNames.table = `${file.name}${sheet}`;
         state.status = imported.meta.kind === 'workbook'
-          ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows. Build the index to verify identities.`
-          : `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`;
+          ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows. Parse sources to verify identities.`
+          : `${file.name} loaded. Parse sources to refresh the three-stage evidence workflow.`;
       }
-      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; state.status = `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`; }
-      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; state.status = `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`; }
+      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; state.status = `${file.name} loaded. Parse sources to inspect Tag ID coordinate transformations.`; }
+      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; state.status = `${file.name} loaded. Parse sources to build the JSON trace.`; }
     } catch (error) { state.status = `Load failed: ${error?.message || error}`; }
     render(root, state);
   }));
@@ -191,12 +198,12 @@ export function renderNavisTagIsonoteTab(container) {
   render(container, state);
   return () => { container.innerHTML = ''; };
 }
-function renderLauncher() { return `<button type="button" class="psmap-card psmap-tile nti-launcher" data-nti-open="1" title="Open Navis Tag to ISONOTE"><span class="nti-launcher-icon" aria-hidden="true">TAG→ISO</span><b>Navis Tag to ISONOTE</b><span>Map Navis comments to support rows by configurable identity and proximity</span></button>`; }
+function renderLauncher() { return `<button type="button" class="psmap-card psmap-tile nti-launcher" data-nti-open="1" title="Open Navis Tag to ISONOTE"><span class="nti-launcher-icon" aria-hidden="true">TAG→ISO</span><b>Navis Tag to ISONOTE</b><span>Trace JSON supports, transform Navis Tag coordinates, and review Tag ↔ JSON matches</span></button>`; }
 function mountPopup(root, onClose) {
   ensureNavisTagIsonoteStyle(root?.ownerDocument || document);
   const modal = document.createElement('div'); modal.className = 'nti-backdrop';
   const dialog = document.createElement('section'); dialog.className = 'psmap-card nti-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
-  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Canonical staged JSON hierarchy, configurable identity/reference/position mapping, end-to-end identity node trace, and Navis comment proximity.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
+  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Three-stage evidence: JSON trace → Navis Tag coordinate transformation → Navis Tag ↔ JSON node match.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
   modal.appendChild(dialog); (document.body || root).appendChild(modal); renderNavisTagIsonoteTab(dialog.querySelector('[data-nti-host]'));
   modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal || event.target.closest?.('[data-nti-close="1"]')) { modal.remove(); onClose(); } });
   return modal;
