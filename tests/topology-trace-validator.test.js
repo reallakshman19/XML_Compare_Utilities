@@ -32,6 +32,8 @@ const validArtifacts = artifacts(topologyInputXmlFixture);
 assert.deepEqual(topologyCompanionFileNames('1885_NC.json'), {
   stem: '1885_NC', canonical: '1885_NC.canonical-topology.json',
   ledger: '1885_NC.topology-trace-ledger.json', inputXml: '1885_NC.topology.input.xml',
+  scene: '1885_NC.topology-svg-scene.json', parsed: '1885_NC.parsed-inputxml-topology.json',
+  report: '1885_NC.topology-parity-report.json',
 });
 const configuredBases = topologyCompanionBaseUrls('1885_NC.json', 'https://example.test/XML_Compare_Utilities/?topologyArtifactBase=/published/1885_NC');
 assert.equal(configuredBases[0], 'https://example.test/published/1885_NC/');
@@ -86,7 +88,7 @@ assert(selectionKeys.includes(sourceKey));
 assert(selectionKeys.includes('canonical:edge:E-BEND-A'));
 assert(selectionKeys.includes('canonical:edge:E-BEND-B'), 'one bend source must retain its one-to-many edge mapping');
 assert(selectionKeys.some((key) => key.startsWith('inputxml:PIPINGELEMENT')), 'TEST 4: source click group must include projected InputXML objects');
-assert(selectionKeys.some((key) => key.startsWith('ledger:')));
+assert(selectionKeys.some((key) => key.startsWith('ledger:'));
 
 const clickSamples = {
   'SRC-PIPE-1': 'canonical:edge:E-P1A', 'SRC-VALVE': 'canonical:edge:E-VALVE', 'SRC-FLANGE': 'canonical:edge:E-FLANGE',
