@@ -14,8 +14,9 @@ assert.deepEqual(names, {
   scene: '1885_NC.topology-svg-scene.json',
   parsed: '1885_NC.parsed-inputxml-topology.json',
   report: '1885_NC.topology-parity-report.json',
-  ciiProjection: '1885_NC.inputxml-cii-projection-ledger.json',
 });
+assert.equal(names.ciiProjection, '1885_NC.inputxml-cii-projection-ledger.json');
+assert.equal(Object.keys(names).includes('ciiProjection'), false, 'new optional filename must not alter legacy descriptor enumeration');
 
 const payloads = {
   [names.canonical]: JSON.stringify({ schema: 'CanonicalTopology.v1' }),
