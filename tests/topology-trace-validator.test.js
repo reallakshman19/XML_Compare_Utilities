@@ -88,7 +88,7 @@ assert(selectionKeys.includes(sourceKey));
 assert(selectionKeys.includes('canonical:edge:E-BEND-A'));
 assert(selectionKeys.includes('canonical:edge:E-BEND-B'), 'one bend source must retain its one-to-many edge mapping');
 assert(selectionKeys.some((key) => key.startsWith('inputxml:PIPINGELEMENT')), 'TEST 4: source click group must include projected InputXML objects');
-assert(selectionKeys.some((key) => key.startsWith('ledger:'));
+assert(selectionKeys.some((key) => key.startsWith('ledger:')));
 
 const clickSamples = {
   'SRC-PIPE-1': 'canonical:edge:E-P1A', 'SRC-VALVE': 'canonical:edge:E-VALVE', 'SRC-FLANGE': 'canonical:edge:E-FLANGE',
