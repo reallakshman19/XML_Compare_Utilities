@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildNavisTagIsonoteReadiness } from '../tabs/navis-tag-isonote/navis-tag-readiness.js';
+import { DEFAULT_BORE_TO_OD_PROFILE } from '../tabs/navis-tag-isonote/navis-tag-bore-od-master.js';
 
 const empty = buildNavisTagIsonoteReadiness({
   config: { supportCoordinateSource: 'json-only' },
@@ -49,12 +50,23 @@ assert.equal(partial.status, 'READY_WITH_WARNINGS');
 assert.ok(partial.warnings.some((item) => item.code === 'TABLE_IDENTITIES_PARTIAL'));
 assert.ok(partial.warnings.some((item) => item.code === 'IDENTITY_AMBIGUITIES_PRESENT'));
 
-const badLookup = buildNavisTagIsonoteReadiness({
-  config: { supportCoordinateSource: 'table-only', tablePositionColumn: 'POS', boreToOdLookupEnabled: true, boreToOdLookup: {} },
+const builtInLookup = buildNavisTagIsonoteReadiness({
+  config: { supportCoordinateSource: 'table-only', tablePositionColumn: 'POS', boreToOdLookupEnabled: true, boreToOdLookup: {}, boreToOdLookupName: '' },
   tableBuild: { headers: ['TAG', 'POS'], records: [{ identity: 'PS-1.1', position: { x: 1, y: 2, z: 3 } }] },
   tree: { summary: { nodeCount: 0 } }, stagedIndex: { entries: [] }, identityTrace: { rows: [], summary: {} },
   navisParse: { tags: [{ commentBody: 'Note', position: { x: 1, y: 2, z: 3 } }], summary: { tagCount: 1 } },
 });
-assert.ok(badLookup.blockers.some((item) => item.code === 'BORE_TO_OD_LOOKUP_ENABLED_WITHOUT_DATA'));
+assert.equal(builtInLookup.canResolve, true);
+assert.equal(builtInLookup.summary.boreToOdBuiltInProfileAvailable, true);
+assert.equal(builtInLookup.summary.boreToOdBuiltInProfile.name, DEFAULT_BORE_TO_OD_PROFILE);
+assert.ok(!builtInLookup.blockers.some((item) => /BORE_TO_OD_LOOKUP/.test(item.code)));
+
+const invalidLookup = buildNavisTagIsonoteReadiness({
+  config: { supportCoordinateSource: 'table-only', tablePositionColumn: 'POS', boreToOdLookupEnabled: true, boreToOdLookup: {}, boreToOdLookupName: 'UNKNOWN_PROFILE' },
+  tableBuild: { headers: ['TAG', 'POS'], records: [{ identity: 'PS-1.1', position: { x: 1, y: 2, z: 3 } }] },
+  tree: { summary: { nodeCount: 0 } }, stagedIndex: { entries: [] }, identityTrace: { rows: [], summary: {} },
+  navisParse: { tags: [{ commentBody: 'Note', position: { x: 1, y: 2, z: 3 } }], summary: { tagCount: 1 } },
+});
+assert.ok(invalidLookup.blockers.some((item) => item.code === 'BORE_TO_OD_LOOKUP_PROFILE_INVALID'));
 
 console.log('navis-tag-isonote readiness tests passed');
