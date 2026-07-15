@@ -7,24 +7,136 @@ import { parseNavisTagXml } from './navis-tag-xml-parser.js';
 import { attachNavisResolutionToIdentityTrace, buildIdentityNodeTrace } from './navis-tag-identity-trace.js';
 import { resolveNavisTagIsonotes } from './navis-tag-proximity-engine.js';
 import { buildNavisTagIsonoteReadiness } from './navis-tag-readiness.js';
+import { buildFinalOutputRows, keywordMappingRows } from './navis-tag-final-output.js';
 import { ensureNavisTagIsonoteStyle } from './navis-tag-isonote-ui-style.js';
+import { ensureNavisTagWorkflowStyle, renderNavisTagWorkflowPane } from './navis-tag-isonote-ui-workflow.js';
 import { renderNavisTagIsonotePane } from './navis-tag-isonote-ui-view.js';
 import { renderNavisTagIsonoteEvidencePane } from './navis-tag-isonote-ui-evidence.js';
 import { downloadNavisTagFile, readNavisTagStagedFile, readNavisTagTableFile } from './navis-tag-isonote-ui-io.js';
 
 const POPUP_TITLE_ID = 'navis-tag-isonote-title';
 const CONFIG_STORE = 'navisTagIsonote.config.v4';
+const SESSION_STORE = 'navisTagIsonote.session.v1';
+const MAX_SOURCE_TEXT_CHARS = 900000;
+const MAX_STAGED_JSON_CHARS = 1400000;
+const MAX_SESSION_CHARS = 3600000;
 const ACTIVATE = 'click';
-function readConfig() { try { return normalizeConfig(JSON.parse(localStorage.getItem(CONFIG_STORE) || '{}')); } catch { return normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG); } }
-function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {} }
+
+function storage() { return globalThis.localStorage; }
+function readConfig() {
+  try { return normalizeConfig(JSON.parse(storage()?.getItem(CONFIG_STORE) || '{}')); }
+  catch { return normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG); }
+}
+function saveConfig(config) {
+  try { storage()?.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {}
+}
+function readSession() {
+  try {
+    const value = JSON.parse(storage()?.getItem(SESSION_STORE) || '{}');
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+function compactTableImport(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    ...value,
+    candidates: Array.isArray(value.candidates) ? value.candidates.slice(0, 25) : [],
+    diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics.slice(0, 100) : [],
+  };
+}
+function sourceSnapshot(state) {
+  const omitted = {};
+  const tableText = String(state.tableText || '');
+  const navisText = String(state.navisText || '');
+  let stagedDocuments = [];
+  let stagedSize = 0;
+  try {
+    const serialized = JSON.stringify(state.stagedDocuments || []);
+    stagedSize = serialized.length;
+    if (stagedSize <= MAX_STAGED_JSON_CHARS) stagedDocuments = state.stagedDocuments || [];
+    else omitted.staged = `Staged documents exceeded ${MAX_STAGED_JSON_CHARS} characters and must be reloaded.`;
+  } catch {
+    omitted.staged = 'Staged documents could not be serialized and must be reloaded.';
+  }
+  if (tableText.length > MAX_SOURCE_TEXT_CHARS) omitted.table = `Support table exceeded ${MAX_SOURCE_TEXT_CHARS} characters and must be reloaded.`;
+  if (navisText.length > MAX_SOURCE_TEXT_CHARS) omitted.navis = `Navis XML exceeded ${MAX_SOURCE_TEXT_CHARS} characters and must be reloaded.`;
+  const payload = {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    tableText: omitted.table ? '' : tableText,
+    navisText: omitted.navis ? '' : navisText,
+    stagedDocuments,
+    tableImport: compactTableImport(state.tableImport),
+    sourceNames: { ...(state.sourceNames || {}) },
+    sourceTypes: { ...(state.sourceTypes || {}) },
+    omitted,
+    stagedSize,
+  };
+  let serialized = JSON.stringify(payload);
+  if (serialized.length > MAX_SESSION_CHARS && payload.stagedDocuments.length) {
+    payload.stagedDocuments = [];
+    payload.omitted.staged = `Session exceeded ${MAX_SESSION_CHARS} characters; staged documents must be reloaded.`;
+    serialized = JSON.stringify(payload);
+  }
+  if (serialized.length > MAX_SESSION_CHARS && payload.navisText) {
+    payload.navisText = '';
+    payload.omitted.navis = `Session exceeded ${MAX_SESSION_CHARS} characters; Navis XML must be reloaded.`;
+    serialized = JSON.stringify(payload);
+  }
+  if (serialized.length > MAX_SESSION_CHARS && payload.tableText) {
+    payload.tableText = '';
+    payload.omitted.table = `Session exceeded ${MAX_SESSION_CHARS} characters; support table must be reloaded.`;
+    serialized = JSON.stringify(payload);
+  }
+  return { payload, serialized };
+}
+function saveSession(state) {
+  try {
+    const snapshot = sourceSnapshot(state);
+    storage()?.setItem(SESSION_STORE, snapshot.serialized);
+    state.sessionMeta = { restoredAt: snapshot.payload.savedAt, omitted: snapshot.payload.omitted };
+  } catch {
+    state.sessionMeta = { ...(state.sessionMeta || {}), storageError: true };
+  }
+}
+function clearSessionStorage() {
+  try { storage()?.removeItem(SESSION_STORE); } catch {}
+}
 function configSignature(config) { return JSON.stringify(normalizeConfig(config || {})); }
 function markInputsDirty(state) { state.inputsDirty = true; state.audit = null; }
+function hasRestoredSources(session) {
+  return Boolean(session.tableText || session.navisText || session.stagedDocuments?.length || Object.values(session.sourceNames || {}).some(Boolean));
+}
 function createState() {
+  const session = readSession();
+  const restored = hasRestoredSources(session);
   return {
-    config: readConfig(), activeTab: 'inputs', tableText: '', tableImport: null, navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
-    tableParsed: null, tableBuild: null, resolutionBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
+    config: readConfig(),
+    activeTab: 'inputs',
+    tableText: String(session.tableText || ''),
+    tableImport: session.tableImport || null,
+    navisText: String(session.navisText || ''),
+    stagedDocuments: Array.isArray(session.stagedDocuments) ? session.stagedDocuments : [],
+    sourceNames: { table: '', navis: '', staged: '', ...(session.sourceNames || {}) },
+    sourceTypes: { table: '', navis: '', staged: '', ...(session.sourceTypes || {}) },
+    sessionMeta: { restoredAt: session.savedAt || '', omitted: session.omitted || {} },
+    tableParsed: null,
+    tableBuild: null,
+    resolutionBuild: null,
+    tree: null,
+    rawStagedIndex: null,
+    stagedIndex: null,
+    identityTrace: null,
+    navisParse: null,
+    readiness: null,
+    audit: null,
     inputsDirty: true,
-    status: 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.', running: false,
+    status: restored
+      ? 'Previous source names, types and restorable values were loaded from browser storage. Build evidence to validate them.'
+      : 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.',
+    running: false,
   };
 }
 function collectConfig(root, state) {
@@ -39,6 +151,13 @@ function collectConfig(root, state) {
   root.querySelectorAll('[data-nti-path-select]').forEach((select) => {
     next[select.dataset.ntiPathSelect] = [...select.selectedOptions].map((option) => option.value).filter(Boolean);
   });
+  const keywordRows = [...root.querySelectorAll('[data-nti-keyword-row]')];
+  if (keywordRows.length) {
+    next.isonoteKeywordMappings = keywordRows.map((row) => ({
+      key: row.querySelector('[data-nti-keyword-key]')?.value || '',
+      value: row.querySelector('[data-nti-keyword-value]')?.value || '',
+    }));
+  }
   state.config = normalizeConfig(next);
   if (configSignature(state.config) !== previousConfigSignature) markInputsDirty(state);
   const table = root.querySelector('[data-nti-field="tableText"]');
@@ -52,13 +171,18 @@ function collectConfig(root, state) {
         identityValueCount: 0, selectionMode: 'MANUAL_TEXT', candidates: [], diagnostics: [],
       };
       state.sourceNames.table = nextText ? 'Pasted / edited table' : '';
+      state.sourceTypes.table = nextText ? 'MANUAL_TEXT' : '';
       markInputsDirty(state);
     }
     state.tableText = nextText;
   }
   if (navis) {
     const nextText = navis.value;
-    if (nextText !== state.navisText) markInputsDirty(state);
+    if (nextText !== state.navisText) {
+      state.sourceNames.navis = nextText ? 'Pasted / edited Navis XML' : '';
+      state.sourceTypes.navis = nextText ? 'MANUAL_XML' : '';
+      markInputsDirty(state);
+    }
     state.navisText = nextText;
   }
 }
@@ -114,16 +238,41 @@ function runResolution(state) {
     throw new Error(`Resolution blocked. ${details}`);
   }
   state.audit = resolveNavisTagIsonotes(state.resolutionBuild, state.identityTrace, state.navisParse, state.config);
+  state.audit.finalRows = buildFinalOutputRows(state.audit, state.config);
+  state.audit.summary = { ...(state.audit.summary || {}), finalOutputCount: state.audit.finalRows.length };
   state.identityTrace = attachNavisResolutionToIdentityTrace(state.identityTrace, state.audit);
   const source = state.resolutionBuild.sourceKind === 'STAGED_JSON' ? 'staged JSON coordinate groups' : 'support-table rows';
-  state.status = `Stage 3 complete: ${state.audit.summary.resolvedCount} JSON ↔ Navis matches resolved, ${state.audit.summary.ambiguousCount} ambiguous, ${state.audit.summary.unresolvedCount} unresolved across ${state.identityTrace.summary.rowCount} ${source}.`;
+  state.status = `Stage 3 complete: ${state.audit.summary.resolvedCount} direct JSON ↔ Navis matches, ${state.audit.summary.propagatedTargetRowCount || 0} propagated target rows, and ${state.audit.finalRows.length} final output rows across ${state.identityTrace.summary.rowCount} ${source}.`;
+}
+function resetRememberedSources(state) {
+  clearSessionStorage();
+  state.activeTab = 'inputs';
+  state.tableText = '';
+  state.tableImport = null;
+  state.navisText = '';
+  state.stagedDocuments = [];
+  state.sourceNames = { table: '', navis: '', staged: '' };
+  state.sourceTypes = { table: '', navis: '', staged: '' };
+  state.sessionMeta = { restoredAt: '', omitted: {} };
+  state.tableParsed = null;
+  state.tableBuild = null;
+  state.resolutionBuild = null;
+  state.tree = null;
+  state.rawStagedIndex = null;
+  state.stagedIndex = null;
+  state.identityTrace = null;
+  state.navisParse = null;
+  state.readiness = null;
+  state.audit = null;
+  state.inputsDirty = true;
+  state.status = 'Remembered source values were cleared from this browser. Configuration was retained.';
 }
 function tabDataState(state, id) {
   const has = {
     hierarchy: Boolean(state.identityTrace?.rows?.length),
     identity: Boolean(state.navisParse?.tags?.length),
     candidates: Boolean(state.audit || state.identityTrace?.rows?.length),
-    augmented: Boolean(state.audit?.augmentedRows?.length),
+    augmented: Boolean(state.audit?.finalRows?.length),
     diagnostics: Boolean(state.tableBuild?.diagnostics?.length || state.resolutionBuild?.diagnostics?.length || state.identityTrace?.diagnostics?.length || state.navisParse?.diagnostics?.length || state.audit?.diagnostics?.length),
   }[id];
   return has ? (id === 'diagnostics' ? 'has-warning' : 'has-data') : '';
@@ -158,30 +307,96 @@ function downloadAudit(state) {
     navisSummary: state.navisParse?.summary,
     navisTags: state.navisParse?.tags,
     sourceNames: state.sourceNames,
+    sourceTypes: state.sourceTypes,
+    sessionMeta: state.sessionMeta,
   }, replacer, 2), 'application/json');
 }
 function render(root, state) {
   const tabs = [
-    ['inputs','Inputs & Mapping'],
+    ['inputs','Home'],
+    ['config','Config'],
     ['hierarchy','1. JSON Trace'],
     ['identity','2. Navis Tag Coordinates'],
     ['candidates','3. Tag ↔ JSON Match'],
-    ['augmented','Export Results'],
+    ['augmented','Final Output / Export Results'],
     ['diagnostics','Diagnostics'],
   ];
-  root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${renderNavisTagIsonoteEvidencePane(state) ?? renderNavisTagIsonotePane(state)}</div>`;
-  root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.activeTab = button.dataset.ntiTab; render(root, state); }));
-  root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveConfig(state.config); state.status = state.inputsDirty ? 'Mapping config saved. Derived coordinates are stale; Parse or Run will rebuild them with the updated settings.' : 'Mapping config saved.'; render(root, state); });
-  root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); buildAll(state); state.activeTab = 'hierarchy'; } catch (error) { state.status = error?.message || String(error); } render(root, state); });
-  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => { try { collectConfig(root, state); runResolution(state); state.activeTab = 'candidates'; } catch (error) { state.status = error?.message || String(error); state.activeTab = 'inputs'; } render(root, state); });
-  root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
+  const pane = renderNavisTagWorkflowPane(state) ?? renderNavisTagIsonoteEvidencePane(state) ?? renderNavisTagIsonotePane(state);
+  root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${pane}</div>`;
+  root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => {
+    collectConfig(root, state);
+    saveSession(state);
+    state.activeTab = button.dataset.ntiTab;
+    render(root, state);
+  }));
+  root.querySelector('[data-nti-action="open-config"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveSession(state); state.activeTab = 'config'; render(root, state); });
+  root.querySelector('[data-nti-action="open-final"]')?.addEventListener(ACTIVATE, () => { collectConfig(root, state); saveSession(state); state.activeTab = 'augmented'; render(root, state); });
+  root.querySelector('[data-nti-action="save-config"]')?.addEventListener(ACTIVATE, () => {
+    collectConfig(root, state);
+    saveConfig(state.config);
+    saveSession(state);
+    state.status = state.inputsDirty ? 'Configuration saved. Derived coordinates are stale; Build or Run will refresh them.' : 'Configuration saved.';
+    render(root, state);
+  });
+  root.querySelector('[data-nti-action="reset-config"]')?.addEventListener(ACTIVATE, () => {
+    state.config = normalizeConfig(DEFAULT_NAVIS_TAG_ISONOTE_CONFIG);
+    markInputsDirty(state);
+    saveConfig(state.config);
+    state.status = 'Configuration reset to defaults. Build or Run to refresh evidence.';
+    render(root, state);
+  });
+  root.querySelector('[data-nti-action="add-keyword"]')?.addEventListener(ACTIVATE, () => {
+    collectConfig(root, state);
+    state.config = normalizeConfig({
+      ...state.config,
+      isonoteKeywordMappings: [...keywordMappingRows(state.config), { key: '', value: '' }],
+    });
+    markInputsDirty(state);
+    render(root, state);
+  });
+  root.querySelectorAll('[data-nti-action="remove-keyword"]').forEach((button) => button.addEventListener(ACTIVATE, () => {
+    collectConfig(root, state);
+    const rows = keywordMappingRows(state.config);
+    rows.splice(Number(button.dataset.ntiKeywordIndex), 1);
+    state.config = normalizeConfig({ ...state.config, isonoteKeywordMappings: rows });
+    markInputsDirty(state);
+    render(root, state);
+  }));
+  root.querySelector('[data-nti-action="clear-session"]')?.addEventListener(ACTIVATE, () => { resetRememberedSources(state); render(root, state); });
+  root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => {
+    try {
+      collectConfig(root, state);
+      buildAll(state);
+      saveSession(state);
+      state.activeTab = 'hierarchy';
+    } catch (error) {
+      state.status = error?.message || String(error);
+    }
+    render(root, state);
+  });
+  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => {
+    try {
+      collectConfig(root, state);
+      runResolution(state);
+      saveSession(state);
+      state.activeTab = 'candidates';
+    } catch (error) {
+      state.status = error?.message || String(error);
+      state.activeTab = 'inputs';
+    }
+    render(root, state);
+  });
+  root.querySelector('[data-nti-action="download-final-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-final-isonote.csv', rowsToCsv(state.audit?.finalRows || []), 'text/csv'));
+  root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-audit.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-trace"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-end-to-end-identity-trace.csv', rowsToCsv(state.identityTrace?.rows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-audit"]')?.addEventListener(ACTIVATE, () => downloadAudit(state));
   root.querySelector('[data-nti-action="download-ambiguous"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-ambiguous.csv', rowsToCsv(state.audit?.ambiguousRows || []), 'text/csv'));
   root.querySelector('[data-nti-action="download-rejected"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-rejected.csv', rowsToCsv(state.audit?.rejectedRows || []), 'text/csv'));
   root.querySelectorAll('[data-nti-file]').forEach((input) => input.addEventListener('change', async () => {
-    const file = input.files?.[0]; if (!file) return;
-    state.status = `Loading ${file.name}...`; render(root, state);
+    const file = input.files?.[0];
+    if (!file) return;
+    state.status = `Loading ${file.name}...`;
+    render(root, state);
     try {
       if (input.dataset.ntiFile === 'table') {
         const imported = await readNavisTagTableFile(file, {
@@ -195,41 +410,94 @@ function render(root, state) {
         state.tableImport = imported.meta;
         const sheet = imported.meta.selectedSheetName ? ` › ${imported.meta.selectedSheetName}` : '';
         state.sourceNames.table = `${file.name}${sheet}`;
+        state.sourceTypes.table = String(imported.meta.kind || file.name.split('.').pop() || 'TABLE').toUpperCase();
         markInputsDirty(state);
         state.status = imported.meta.kind === 'workbook'
-          ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows. Parse sources to verify identities.`
-          : `${file.name} loaded. Parse sources to refresh the three-stage evidence workflow.`;
+          ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows.`
+          : `${file.name} loaded. Build evidence to refresh the workflow.`;
       }
-      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; markInputsDirty(state); state.status = `${file.name} loaded. Parse sources to inspect Tag ID coordinate transformations.`; }
-      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; markInputsDirty(state); state.status = `${file.name} loaded. Parse sources to build the JSON trace.`; }
-    } catch (error) { state.status = `Load failed: ${error?.message || error}`; }
+      if (input.dataset.ntiFile === 'navis') {
+        state.navisText = await file.text();
+        state.sourceNames.navis = file.name;
+        state.sourceTypes.navis = file.type || 'XML';
+        markInputsDirty(state);
+        state.status = `${file.name} loaded. Build evidence to inspect Tag coordinate transformations.`;
+      }
+      if (input.dataset.ntiFile === 'staged') {
+        state.stagedDocuments = await readNavisTagStagedFile(file);
+        state.sourceNames.staged = file.name;
+        state.sourceTypes.staged = `${file.name.toLowerCase().endsWith('.zip') ? 'ZIP' : 'JSON'} · ${state.stagedDocuments.length} document(s)`;
+        markInputsDirty(state);
+        state.status = `${file.name} loaded. Build evidence to create the JSON trace.`;
+      }
+      saveSession(state);
+    } catch (error) {
+      state.status = `Load failed: ${error?.message || error}`;
+    }
     render(root, state);
   }));
   bindFilters(root);
 }
 export function renderNavisTagIsonoteTab(container) {
-  ensureNavisTagIsonoteStyle(container?.ownerDocument || document);
+  const doc = container?.ownerDocument || document;
+  ensureNavisTagIsonoteStyle(doc);
+  ensureNavisTagWorkflowStyle(doc);
   const state = createState();
   render(container, state);
   return () => { container.innerHTML = ''; };
 }
-function renderLauncher() { return `<button type="button" class="psmap-card psmap-tile nti-launcher" data-nti-open="1" title="Open Navis Tag to ISONOTE"><span class="nti-launcher-icon" aria-hidden="true">TAG→ISO</span><b>Navis Tag to ISONOTE</b><span>Trace JSON supports, transform Navis Tag coordinates, and review Tag ↔ JSON matches</span></button>`; }
+function renderLauncher() {
+  return `<button type="button" class="psmap-card psmap-tile nti-launcher" data-nti-open="1" title="Open Navis Tag to ISONOTE"><span class="nti-launcher-icon" aria-hidden="true">TAG→ISO</span><b>Navis Tag to ISONOTE</b><span>Resolve direct Tags, propagate pipe instructions, and export final support notes</span></button>`;
+}
 function mountPopup(root, onClose) {
-  ensureNavisTagIsonoteStyle(root?.ownerDocument || document);
-  const modal = document.createElement('div'); modal.className = 'nti-backdrop';
-  const dialog = document.createElement('section'); dialog.className = 'psmap-card nti-dialog'; dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
-  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Three-stage evidence: JSON trace → Navis Tag coordinate transformation → Navis Tag ↔ JSON node match.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
-  modal.appendChild(dialog); (document.body || root).appendChild(modal); renderNavisTagIsonoteTab(dialog.querySelector('[data-nti-host]'));
-  modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal || event.target.closest?.('[data-nti-close="1"]')) { modal.remove(); onClose(); } });
+  const doc = root?.ownerDocument || document;
+  ensureNavisTagIsonoteStyle(doc);
+  ensureNavisTagWorkflowStyle(doc);
+  const modal = document.createElement('div');
+  modal.className = 'nti-backdrop';
+  const dialog = document.createElement('section');
+  dialog.className = 'psmap-card nti-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
+  dialog.innerHTML = `<div class="nti-head"><div><b id="${POPUP_TITLE_ID}">Navis Tag to ISONOTE</b><span>Load evidence → configure coordinate frames → resolve Tags → export final support notes.</span></div><button class="nti-close" data-nti-close="1">Close</button></div><div data-nti-host style="display:contents"></div>`;
+  modal.appendChild(dialog);
+  (document.body || root).appendChild(modal);
+  renderNavisTagIsonoteTab(dialog.querySelector('[data-nti-host]'));
+  modal.addEventListener(ACTIVATE, (event) => {
+    if (event.target === modal || event.target.closest?.('[data-nti-close="1"]')) {
+      modal.remove();
+      onClose();
+    }
+  });
   return modal;
 }
 export function installNavisTagIsonoteUtilityTile(container) {
   ensureNavisTagIsonoteStyle(container?.ownerDocument || document);
+  ensureNavisTagWorkflowStyle(container?.ownerDocument || document);
   const utilitiesRoot = container.querySelector('.psnm-root') || container;
   if (utilitiesRoot.querySelector('[data-nti-launcher]')) return null;
-  const launcher = document.createElement('section'); launcher.dataset.ntiLauncher = '1'; launcher.innerHTML = renderLauncher(); utilitiesRoot.appendChild(launcher);
+  const launcher = document.createElement('section');
+  launcher.dataset.ntiLauncher = '1';
+  launcher.innerHTML = renderLauncher();
+  utilitiesRoot.appendChild(launcher);
   let popup = null;
-  launcher.querySelector('[data-nti-open="1"]').addEventListener(ACTIVATE, () => { if (!popup) popup = mountPopup(utilitiesRoot, () => { popup = null; }); });
+  launcher.querySelector('[data-nti-open="1"]').addEventListener(ACTIVATE, () => {
+    if (!popup) popup = mountPopup(utilitiesRoot, () => { popup = null; });
+  });
   return () => { popup?.remove(); launcher.remove(); };
 }
-export const _test = Object.freeze({ renderLauncher, createState, buildAll, runResolution, tabDataState, configSignature, markInputsDirty, needsRebuild });
+export const _test = Object.freeze({
+  renderLauncher,
+  createState,
+  buildAll,
+  runResolution,
+  tabDataState,
+  configSignature,
+  markInputsDirty,
+  needsRebuild,
+  readSession,
+  saveSession,
+  sourceSnapshot,
+  resetRememberedSources,
+});
