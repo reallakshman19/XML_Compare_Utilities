@@ -1,3 +1,5 @@
+import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
+
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
@@ -6,7 +8,7 @@ function metric(label, value) { return `<div class="nti-metric"><span>${esc(labe
 function statusBadge(label, loaded, detail = '') { return `<span class="nti-source-badge ${loaded ? 'is-loaded' : 'is-missing'}">${loaded ? '✓' : '!'} ${esc(label)}${detail ? `: ${esc(detail)}` : ''}</span>`; }
 function badge(status) {
   const value = String(status || '');
-  const css = /RESOLVED|READY|HIGH|MEDIUM/.test(value) && !/UNRESOLVED/.test(value) ? 'nti-ok' : /AMBIGUOUS|WARN|PENDING/.test(value) ? 'nti-warn' : 'nti-error';
+  const css = /RESOLVED|READY|HIGH|MEDIUM|DIRECT|PROPAGATED/.test(value) && !/UNRESOLVED|NONE/.test(value) ? 'nti-ok' : /AMBIGUOUS|WARN|PENDING/.test(value) ? 'nti-warn' : 'nti-error';
   return `<span class="nti-badge ${css}">${esc(value)}</span>`;
 }
 function renderTable(headers, rows, tableClass = '') {
@@ -24,7 +26,7 @@ function renderMetrics(state) {
   const navis = state.navisParse?.summary || {};
   const audit = state.audit?.summary || {};
   const index = state.stagedIndex?.summary || {};
-  return `<div class="nti-metrics">${metric('Table rows', state.tableBuild?.records?.length || 0)}${metric('JSON nodes', tree.nodeCount || 0)}${metric('JSON objects', tree.objectCount || 0)}${metric('JSON arrays', tree.arrayCount || 0)}${metric('Indexed identities', index.indexedNodeCount || 0)}${metric('Reference facts', index.referenceEntryCount || 0)}${metric('Suppressed mirrors', index.suppressedMirrorEntryCount || 0)}${metric('Branch facts', tree.branchResolvedNodeCount || 0)}${metric('Pipe facts', index.pipeResolvedEntryCount || tree.pipeResolvedNodeCount || 0)}${metric('Zone facts', tree.zoneResolvedNodeCount || 0)}${metric('Identity resolved', trace.resolvedCount || 0)}${metric('Navis resolved', trace.navisResolvedCount || audit.resolvedCount || 0)}${metric('Navis ambiguous', trace.navisAmbiguousCount || audit.ambiguousCount || 0)}${metric('Navis tags', navis.tagCount || 0)}</div>`;
+  return `<div class="nti-metrics">${metric('Table rows', state.tableBuild?.records?.length || 0)}${metric('JSON nodes', tree.nodeCount || 0)}${metric('JSON objects', tree.objectCount || 0)}${metric('JSON arrays', tree.arrayCount || 0)}${metric('Indexed identities', index.indexedNodeCount || 0)}${metric('Reference facts', index.referenceEntryCount || 0)}${metric('Suppressed mirrors', index.suppressedMirrorEntryCount || 0)}${metric('Branch facts', tree.branchResolvedNodeCount || 0)}${metric('Pipe facts', index.pipeResolvedEntryCount || tree.pipeResolvedNodeCount || 0)}${metric('Zone facts', tree.zoneResolvedNodeCount || 0)}${metric('Identity resolved', trace.resolvedCount || 0)}${metric('Navis resolved', trace.navisResolvedCount || audit.resolvedCount || 0)}${metric('Navis ambiguous', trace.navisAmbiguousCount || audit.ambiguousCount || 0)}${metric('Navis tags', navis.tagCount || 0)}${metric('Applies-to directives', audit.appliesToDirectiveCount || 0)}${metric('Propagated support rows', audit.propagatedTargetRowCount || 0)}</div>`;
 }
 function renderReadiness(state) {
   const readiness = state.readiness;
@@ -79,8 +81,13 @@ function renderNavisDatumPreview(state) {
     : 'The displayed Navis coordinates use the current configuration.';
   return `<div class="nti-help" data-nti-navis-datum-preview><b>Navis elevation coordinate-frame transform</b><br>Comparison EL (mm) = raw Navis Z × detected/configured unit scale + configured elevation datum offset.<br>Current configured elevation offset: <b>${esc(offset)} mm</b>. Negative values move Navis elevations downward after unit conversion.<br>${esc(example)}<br><b>${esc(freshness)}</b></div>`;
 }
+function renderAppliesToConfigPreview(state) {
+  const cfg = { ...DEFAULT_APPLIES_TO_CONFIG, ...(state.config || {}) };
+  return `<div class="nti-help" data-nti-applies-to-preview><b>Applies-to pipe propagation</b><br>A comment such as <code>R+G+LS (applies to /FULL-PIPE-A, /FULL-PIPE-B)</code> is interpreted as routing metadata. The directly matched support receives <code>R+G+LS</code>; qualifying supports on the listed parallel pipes receive <code>${esc(cfg.appliesToDerivedNoteTemplate.replace('{note}', 'R+G+LS').replace('{tagId}', '8'))}</code>.<br>Pipe lookup preference: normalized full pipe name first, configured line-key regex second. For an N–S source pipe, N is the along-axis station and E is the parallel offset; for an E–W source pipe, E is the station and N is the offset.<br>Current windows: along-axis ±${esc(cfg.appliesToAlongAxisToleranceMm)} mm, parallel offset ±${esc(cfg.appliesToParallelOffsetToleranceMm)} mm, elevation ±${esc(cfg.appliesToElevationToleranceMm)} mm.</div>`;
+}
 function renderInputs(state) {
   const cfg = state.config;
+  const applies = { ...DEFAULT_APPLIES_TO_CONFIG, ...cfg };
   const names = state.sourceNames || {};
   return `<section class="nti-card"><h3>Source Inputs</h3><div class="nti-help">All staged JSON objects and arrays are constructed into the canonical hierarchy before identity, reference, branch, pipe, zone, coordinate, OD or bore indexes are built.</div><div class="nti-source-status">${statusBadge('Support table', Boolean(state.tableText), names.table || '')}${statusBadge('Navis Tag XML', Boolean(state.navisText), names.navis || '')}${statusBadge('Staged JSON / ZIP', Boolean(state.stagedDocuments?.length), names.staged || '')}${statusBadge('Derived coordinate evidence', !state.inputsDirty, state.inputsDirty ? 'stale — Run rebuilds automatically' : 'current')}</div><div class="nti-grid">
     <label class="nti-field">Support table CSV/TSV/XLSX<input type="file" data-nti-file="table" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xlsb,.xls,.ods"></label>
@@ -127,10 +134,21 @@ function renderInputs(state) {
     <label class="nti-field">N tolerance mm<input type="number" min="0" data-nti-config="northingToleranceMm" value="${esc(cfg.northingToleranceMm)}"></label>
     <label class="nti-field">EL / OD-half tolerance mm<input type="number" min="0" data-nti-config="elevationToleranceMm" value="${esc(cfg.elevationToleranceMm)}"></label>
     <label class="nti-field">Table-vs-JSON disagreement mm<input type="number" min="0" data-nti-config="coordinateDisagreementToleranceMm" value="${esc(cfg.coordinateDisagreementToleranceMm)}"></label>
+    <label class="nti-field">Enable applies-to pipe propagation<input type="checkbox" data-nti-config="appliesToEnabled" ${applies.appliesToEnabled ? 'checked' : ''}></label>
+    <label class="nti-field">Applies-to directive regex<textarea data-nti-config="appliesToDirectiveRegex">${esc(applies.appliesToDirectiveRegex)}</textarea></label>
+    <label class="nti-field">Target pipe separator regex<textarea data-nti-config="appliesToTargetSeparatorRegex">${esc(applies.appliesToTargetSeparatorRegex)}</textarea></label>
+    <label class="nti-field">Pipe line-key regex<textarea data-nti-config="appliesToLineKeyRegex">${esc(applies.appliesToLineKeyRegex)}</textarea></label>
+    <label class="nti-field">Line-key capture group<input type="number" min="0" step="1" data-nti-config="appliesToLineKeyCaptureGroup" value="${esc(applies.appliesToLineKeyCaptureGroup)}"></label>
+    <label class="nti-field">Same station / along-axis tolerance mm<input type="number" min="0" data-nti-config="appliesToAlongAxisToleranceMm" value="${esc(applies.appliesToAlongAxisToleranceMm)}"></label>
+    <label class="nti-field">Parallel pipe offset tolerance mm<input type="number" min="0" data-nti-config="appliesToParallelOffsetToleranceMm" value="${esc(applies.appliesToParallelOffsetToleranceMm)}"></label>
+    <label class="nti-field">Applies-to elevation tolerance mm<input type="number" min="0" data-nti-config="appliesToElevationToleranceMm" value="${esc(applies.appliesToElevationToleranceMm)}"></label>
+    <label class="nti-field">Pipe-axis dominance ratio<input type="number" min="1" step="0.05" data-nti-config="appliesToAxisDominanceRatio" value="${esc(applies.appliesToAxisDominanceRatio)}"></label>
+    <label class="nti-field">Minimum support span to prove axis mm<input type="number" min="0" data-nti-config="appliesToMinimumAxisSpanMm" value="${esc(applies.appliesToMinimumAxisSpanMm)}"></label>
+    <label class="nti-field">Derived ISONOTE template<input data-nti-config="appliesToDerivedNoteTemplate" value="${esc(applies.appliesToDerivedNoteTemplate)}"></label>
     <label class="nti-field">Enable explicit bore→OD lookup<input type="checkbox" data-nti-config="boreToOdLookupEnabled" ${cfg.boreToOdLookupEnabled ? 'checked' : ''}></label>
     <label class="nti-field">Bore→OD lookup name<input data-nti-config="boreToOdLookupName" value="${esc(cfg.boreToOdLookupName)}" placeholder="ASME B36.10 profile"></label>
     <label class="nti-field">Explicit bore→OD lookup JSON<textarea data-nti-config="boreToOdLookup" placeholder='{"50":60.3,"80":88.9}'>${esc(JSON.stringify(cfg.boreToOdLookup || {}, null, 2))}</textarea></label>
-  </div>${renderNavisDatumPreview(state)}${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
+  </div>${renderNavisDatumPreview(state)}${renderAppliesToConfigPreview(state)}${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
 }
 function renderTreeNode(tree, nodeId, depth = 0) {
   const node = tree.byId.get(nodeId);
@@ -185,7 +203,7 @@ function renderCandidates(state) {
 function renderDecisionPartition(state, kind) {
   const rows = kind === 'matched' ? state.audit?.matchedRows || [] : kind === 'ambiguous' ? state.audit?.ambiguousRows || [] : state.audit?.rejectedRows || [];
   const title = kind === 'matched' ? 'Matched ISONOTE Decisions' : kind === 'ambiguous' ? 'Ambiguous ISONOTE Decisions' : 'Rejected ISONOTE Decisions';
-  const headers = ['tableRowIndex','canonicalIdentity','supportRoot','identityStatus','resolvedBranch','resolvedPipe','resolvedZone','supportPositionSource','supportPositionPath','candidateCount','status','ambiguity','confidence','confidenceScore','confidenceReasons','supportIsonote','selectedViewName','selectedViewGuid','selectedTagId','selectedCommentId','selectedEvidenceId'];
+  const headers = ['tableRowIndex','canonicalIdentity','supportRoot','identityStatus','resolvedBranch','resolvedPipe','resolvedZone','supportPositionSource','supportPositionPath','candidateCount','status','ambiguity','confidence','confidenceScore','confidenceReasons','isonoteSource','propagatedFromTagIds','supportIsonote','selectedViewName','selectedViewGuid','selectedTagId','selectedCommentId','selectedEvidenceId'];
   return `<section class="nti-card"><h3>${title}</h3><input class="nti-filter" data-nti-table-filter="decision-${kind}" placeholder="Filter decision rows...">${renderTable(headers, rows, `nti-filter-table-decision-${kind}`)}</section>`;
 }
 function renderDiagnostics(state) {
@@ -207,4 +225,4 @@ export function renderNavisTagIsonotePane(state) {
   return renderInputs(state);
 }
 
-export const _test = Object.freeze({ renderReadiness, renderIdentityRows, renderPathPicker, renderNavisDatumPreview });
+export const _test = Object.freeze({ renderReadiness, renderIdentityRows, renderPathPicker, renderNavisDatumPreview, renderAppliesToConfigPreview });
