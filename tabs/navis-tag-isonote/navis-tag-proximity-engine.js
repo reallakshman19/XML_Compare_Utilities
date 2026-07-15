@@ -34,63 +34,109 @@ function candidateScore(candidate, config) {
   if (candidate.diagnostics.length) score -= 10;
   return { score: Math.max(0, Math.min(100, score)), reasons };
 }
-function buildCandidates(trace, supportPosition, navisTags, config) {
-  const candidates = [];
-  for (const tag of navisTags) {
-    if (!tag.position || !tag.commentBody) continue;
-    const deltaE = tag.position.x - supportPosition.x;
-    const deltaN = tag.position.y - supportPosition.y;
-    const deltaEl = tag.position.z - supportPosition.z;
-    if (Math.abs(deltaE) > config.eastingToleranceMm || Math.abs(deltaN) > config.northingToleranceMm) continue;
-    const vertical = verticalResidual(deltaEl, trace.odMm, config.useOdHalfAlternatives);
-    if (vertical.residual > config.elevationToleranceMm) continue;
-    const candidate = {
-      evidenceId: tag.evidenceId,
-      viewName: tag.viewName,
-      viewGuid: tag.viewGuid,
-      tagId: tag.tagId,
-      commentId: tag.commentId,
-      commentBody: tag.commentBody,
-      commentUser: tag.commentUser,
-      commentStatus: tag.commentStatus,
-      commentDate: tag.commentDate,
-      tagPosition: tag.position,
-      positionSource: tag.positionSource,
-      deltaEMm: deltaE,
-      deltaNMm: deltaN,
-      deltaElMm: deltaEl,
-      horizontalDistanceMm: Math.hypot(deltaE, deltaN),
-      verticalBasis: vertical.basis,
-      verticalResidualMm: vertical.residual,
-      odMm: trace.odMm,
-      odSource: trace.odSource || 'NONE',
-      boreNominalMm: trace.boreNominalMm,
-      diagnostics: [...(tag.diagnostics || [])],
-      score: 0,
-      confidenceReasons: [],
-    };
+function axisFailures(deltaE, deltaN, vertical, config) {
+  const failedAxes = [];
+  if (Math.abs(deltaE) > config.eastingToleranceMm) failedAxes.push('E');
+  if (Math.abs(deltaN) > config.northingToleranceMm) failedAxes.push('N');
+  if (vertical.residual > config.elevationToleranceMm) failedAxes.push('EL');
+  return failedAxes;
+}
+function toleranceRatio(value, tolerance) {
+  const denominator = Math.max(Number(tolerance) || 0, 0.000001);
+  return Math.abs(Number(value) || 0) / denominator;
+}
+function candidateFromTag(trace, supportPosition, tag, config) {
+  const deltaE = tag.position.x - supportPosition.x;
+  const deltaN = tag.position.y - supportPosition.y;
+  const deltaEl = tag.position.z - supportPosition.z;
+  const vertical = verticalResidual(deltaEl, trace.odMm, config.useOdHalfAlternatives);
+  const failedAxes = axisFailures(deltaE, deltaN, vertical, config);
+  const candidate = {
+    evidenceId: tag.evidenceId,
+    viewName: tag.viewName,
+    viewGuid: tag.viewGuid,
+    tagId: tag.tagId,
+    commentId: tag.commentId,
+    commentBody: tag.commentBody,
+    commentUser: tag.commentUser,
+    commentStatus: tag.commentStatus,
+    commentDate: tag.commentDate,
+    tagPosition: tag.position,
+    positionSource: tag.positionSource,
+    deltaEMm: deltaE,
+    deltaNMm: deltaN,
+    deltaElMm: deltaEl,
+    horizontalDistanceMm: Math.hypot(deltaE, deltaN),
+    spatialDistanceMm: Math.hypot(deltaE, deltaN, vertical.residual),
+    verticalBasis: vertical.basis,
+    verticalResidualMm: vertical.residual,
+    odMm: trace.odMm,
+    odSource: trace.odSource || 'NONE',
+    boreNominalMm: trace.boreNominalMm,
+    diagnostics: [...(tag.diagnostics || [])],
+    failedAxes,
+    withinTolerance: failedAxes.length === 0,
+    rejectionReasons: failedAxes.map((axis) => `${axis}_OUTSIDE_TOLERANCE`),
+    normalizedToleranceDistance: Math.max(
+      toleranceRatio(deltaE, config.eastingToleranceMm),
+      toleranceRatio(deltaN, config.northingToleranceMm),
+      toleranceRatio(vertical.residual, config.elevationToleranceMm),
+    ),
+    score: 0,
+    confidenceReasons: [],
+  };
+  if (candidate.withinTolerance) {
     const scoring = candidateScore(candidate, config);
     candidate.score = scoring.score;
     candidate.confidenceReasons = scoring.reasons;
-    candidates.push(candidate);
+  } else {
+    candidate.confidenceReasons = [...candidate.rejectionReasons];
   }
-  return candidates.sort((a, b) => b.score - a.score || a.horizontalDistanceMm - b.horizontalDistanceMm || a.verticalResidualMm - b.verticalResidualMm || a.evidenceId.localeCompare(b.evidenceId));
+  return candidate;
+}
+function evaluateCandidates(trace, supportPosition, navisTags, config) {
+  const accepted = [];
+  const rejected = [];
+  for (const tag of navisTags) {
+    if (!tag.position || !tag.commentBody) continue;
+    const candidate = candidateFromTag(trace, supportPosition, tag, config);
+    (candidate.withinTolerance ? accepted : rejected).push(candidate);
+  }
+  accepted.sort((a, b) => b.score - a.score || a.horizontalDistanceMm - b.horizontalDistanceMm || a.verticalResidualMm - b.verticalResidualMm || a.evidenceId.localeCompare(b.evidenceId));
+  rejected.sort((a, b) => a.normalizedToleranceDistance - b.normalizedToleranceDistance || a.spatialDistanceMm - b.spatialDistanceMm || a.evidenceId.localeCompare(b.evidenceId));
+  return { candidates: accepted, nearestRejected: rejected[0] || null };
 }
 function confidence(score) { if (score >= 85) return 'HIGH'; if (score >= 65) return 'MEDIUM'; if (score >= 40) return 'LOW'; return 'UNRESOLVED'; }
-function decision(candidates, config) {
-  if (!candidates.length) return { status: 'UNRESOLVED', selected: null, ambiguity: 'NO_PROXIMITY_CANDIDATE', confidence: 'UNRESOLVED', score: 0, confidenceReasons: [] };
+function decision(candidates, config, nearestRejected = null) {
+  if (!candidates.length) {
+    const tagLabel = nearestRejected?.tagId || nearestRejected?.evidenceId || '';
+    const failed = nearestRejected?.failedAxes?.join('_') || '';
+    return {
+      status: 'UNRESOLVED',
+      selected: null,
+      nearestRejected,
+      ambiguity: nearestRejected ? `NEAREST_TAG_${tagLabel}_OUTSIDE_${failed}_TOLERANCE` : 'NO_PROXIMITY_CANDIDATE',
+      confidence: 'UNRESOLVED',
+      score: 0,
+      confidenceReasons: nearestRejected ? [`NEAREST_TAG_${tagLabel}`, ...(nearestRejected.rejectionReasons || [])] : [],
+    };
+  }
   const uniqueText = new Map();
   candidates.forEach((candidate) => {
     const key = text(candidate.commentBody).toUpperCase().replace(/\s+/g, ' ');
     if (!uniqueText.has(key)) uniqueText.set(key, candidate);
   });
   const selected = candidates[0];
-  if (uniqueText.size === 1) return { status: 'RESOLVED', selected, ambiguity: candidates.length > 1 ? 'DUPLICATE_SAME_TEXT' : '', confidence: confidence(selected.score), score: selected.score, confidenceReasons: [...selected.confidenceReasons, candidates.length > 1 ? 'DUPLICATE_TEXT_DEDUPLICATED' : 'UNIQUE_CANDIDATE'].filter(Boolean) };
+  if (uniqueText.size === 1) return { status: 'RESOLVED', selected, nearestRejected, ambiguity: candidates.length > 1 ? 'DUPLICATE_SAME_TEXT' : '', confidence: confidence(selected.score), score: selected.score, confidenceReasons: [...selected.confidenceReasons, candidates.length > 1 ? 'DUPLICATE_TEXT_DEDUPLICATED' : 'UNIQUE_CANDIDATE'].filter(Boolean) };
   const gap = selected.score - (candidates[1]?.score ?? 0);
-  if (gap >= config.ambiguityScoreGap) return { status: 'RESOLVED', selected, ambiguity: 'RUNNER_UP_REJECTED_BY_SCORE_GAP', confidence: confidence(selected.score), score: selected.score, confidenceReasons: [...selected.confidenceReasons, `RUNNER_UP_GAP_${gap}`] };
-  return { status: 'AMBIGUOUS', selected: null, ambiguity: 'CONFLICTING_NEARBY_COMMENTS', confidence: 'AMBIGUOUS', score: selected.score, confidenceReasons: ['MULTIPLE_DIFFERENT_COMMENTS', `TOP_SCORE_GAP_${gap}`] };
+  if (gap >= config.ambiguityScoreGap) return { status: 'RESOLVED', selected, nearestRejected, ambiguity: 'RUNNER_UP_REJECTED_BY_SCORE_GAP', confidence: confidence(selected.score), score: selected.score, confidenceReasons: [...selected.confidenceReasons, `RUNNER_UP_GAP_${gap}`] };
+  return { status: 'AMBIGUOUS', selected: null, nearestRejected, ambiguity: 'CONFLICTING_NEARBY_COMMENTS', confidence: 'AMBIGUOUS', score: selected.score, confidenceReasons: ['MULTIPLE_DIFFERENT_COMMENTS', `TOP_SCORE_GAP_${gap}`] };
 }
 function positionLabel(point) { return point ? `E=${point.x};N=${point.y};EL=${point.z}` : ''; }
+function nearestRejectedMessage(candidate, config) {
+  const label = candidate?.tagId ? `Tag ${candidate.tagId}` : candidate?.evidenceId || 'Nearest Navis tag';
+  return `${label} (${candidate?.viewName || 'unnamed view'}) is the nearest rejected tag: ΔE ${candidate.deltaEMm.toFixed(3)} mm, ΔN ${candidate.deltaNMm.toFixed(3)} mm, ΔEL ${candidate.deltaElMm.toFixed(3)} mm, vertical residual ${candidate.verticalResidualMm.toFixed(3)} mm. Failed axes: ${candidate.failedAxes.join(', ') || '(none)'}. Tolerances: E ${config.eastingToleranceMm} mm, N ${config.northingToleranceMm} mm, EL ${config.elevationToleranceMm} mm.`;
+}
 
 export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, inputConfig = {}) {
   const config = normalizeConfig({ ...(tableBuild?.config || {}), ...(identityTrace?.config || {}), ...inputConfig });
@@ -103,13 +149,16 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     const trace = traceByRow.get(record.rowId);
     const positionChoice = trace ? chooseSupportPosition(trace, config) : { point: record.position, source: record.position ? 'TABLE' : 'NONE', comparison: null, sourcePath: record.positionColumn || '' };
     if (Number.isFinite(positionChoice.comparison) && positionChoice.comparison > config.coordinateDisagreementToleranceMm) diagnostics.push({ severity: 'WARN', code: 'TABLE_JSON_COORDINATE_DISAGREEMENT', rowId: record.rowId, identity: record.identity, distanceMm: positionChoice.comparison, message: `Table and staged coordinates differ by ${positionChoice.comparison.toFixed(3)} mm.` });
-    const candidates = positionChoice.point ? buildCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config) : [];
-    const result = positionChoice.point ? decision(candidates, config) : { status: 'UNRESOLVED', selected: null, ambiguity: trace?.status || 'SUPPORT_POSITION_UNAVAILABLE', confidence: 'UNRESOLVED', score: 0, confidenceReasons: ['SUPPORT_POSITION_UNAVAILABLE'] };
-    candidates.forEach((candidate, index) => candidateLedger.push({
-      ledgerId: `${record.rowId}:C${index + 1}`,
+    const evaluation = positionChoice.point ? evaluateCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config) : { candidates: [], nearestRejected: null };
+    const candidates = evaluation.candidates;
+    const result = positionChoice.point ? decision(candidates, config, evaluation.nearestRejected) : { status: 'UNRESOLVED', selected: null, nearestRejected: null, ambiguity: trace?.status || 'SUPPORT_POSITION_UNAVAILABLE', confidence: 'UNRESOLVED', score: 0, confidenceReasons: ['SUPPORT_POSITION_UNAVAILABLE'] };
+    const ledgerBase = {
       tableRowId: record.rowId,
       tableRowIndex: record.rowIndex,
       canonicalIdentity: record.identity,
+      tableIdentityRaw: record.identityRaw,
+      groupedIdentities: record.groupedIdentities || [record.identity].filter(Boolean),
+      groupMemberCount: record.groupMemberCount || 1,
       supportRoot: record.supportRoot,
       inputPipe: record.inputPipe,
       jsonNodeId: trace?.selectedNodeId || '',
@@ -128,15 +177,49 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
       supportPositionPath: positionChoice.sourcePath,
       supportPosition: positionChoice.point,
       tableJsonCoordinateDeltaMm: positionChoice.comparison,
+    };
+    candidates.forEach((candidate, index) => candidateLedger.push({
+      ledgerId: `${record.rowId}:C${index + 1}`,
+      ledgerKind: 'ACCEPTED_CANDIDATE',
+      ...ledgerBase,
       candidateRank: index + 1,
       accepted: result.selected?.evidenceId === candidate.evidenceId,
       ...candidate,
     }));
+    if (!candidates.length && result.nearestRejected) {
+      candidateLedger.push({
+        ledgerId: `${record.rowId}:NEAREST-REJECTED`,
+        ledgerKind: 'NEAREST_REJECTED',
+        ...ledgerBase,
+        candidateRank: 1,
+        accepted: false,
+        ...result.nearestRejected,
+      });
+      diagnostics.push({
+        severity: 'WARN',
+        code: 'NAVIS_NEAREST_TAG_OUTSIDE_TOLERANCE',
+        rowId: record.rowId,
+        identity: record.identity,
+        evidenceId: result.nearestRejected.evidenceId,
+        tagId: result.nearestRejected.tagId,
+        viewName: result.nearestRejected.viewName,
+        failedAxes: result.nearestRejected.failedAxes,
+        deltaEMm: result.nearestRejected.deltaEMm,
+        deltaNMm: result.nearestRejected.deltaNMm,
+        deltaElMm: result.nearestRejected.deltaElMm,
+        verticalResidualMm: result.nearestRejected.verticalResidualMm,
+        message: nearestRejectedMessage(result.nearestRejected, config),
+      });
+    }
+    const nearest = result.nearestRejected || null;
     const decisionRow = {
       decisionId: `DECISION-${record.rowId}`,
       tableRowId: record.rowId,
       tableRowIndex: record.rowIndex,
       canonicalIdentity: record.identity,
+      tableIdentityRaw: record.identityRaw,
+      groupedIdentities: record.groupedIdentities || [record.identity].filter(Boolean),
+      groupMemberCount: record.groupMemberCount || 1,
       supportRoot: record.supportRoot,
       identityStatus: trace?.status || 'UNRESOLVED',
       identityTraceId: trace?.traceId || '',
@@ -175,6 +258,19 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
       selectedNavisPosition: result.selected?.tagPosition || null,
       selectedNavisPositionSource: result.selected?.positionSource || '',
       selectedCandidate: result.selected,
+      nearestRejectedEvidenceId: nearest?.evidenceId || '',
+      nearestRejectedViewName: nearest?.viewName || '',
+      nearestRejectedViewGuid: nearest?.viewGuid || '',
+      nearestRejectedTagId: nearest?.tagId || '',
+      nearestRejectedCommentId: nearest?.commentId || '',
+      nearestRejectedCommentBody: nearest?.commentBody || '',
+      nearestRejectedNavisPosition: nearest?.tagPosition || null,
+      nearestRejectedAxes: nearest?.failedAxes || [],
+      nearestRejectedDeltaEMm: nearest?.deltaEMm ?? null,
+      nearestRejectedDeltaNMm: nearest?.deltaNMm ?? null,
+      nearestRejectedDeltaElMm: nearest?.deltaElMm ?? null,
+      nearestRejectedVerticalResidualMm: nearest?.verticalResidualMm ?? null,
+      nearestRejectedCandidate: nearest,
     };
     decisions.push(decisionRow);
     augmentedRows.push({
@@ -210,6 +306,13 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
       'Navis View GUID': decisionRow.selectedViewGuid,
       'Navis Tag ID': decisionRow.selectedTagId,
       'Navis Comment ID': decisionRow.selectedCommentId,
+      'Nearest Rejected Navis Tag ID': decisionRow.nearestRejectedTagId,
+      'Nearest Rejected Navis View': decisionRow.nearestRejectedViewName,
+      'Nearest Rejected Axes': decisionRow.nearestRejectedAxes.join('|'),
+      'Nearest Rejected Delta E mm': decisionRow.nearestRejectedDeltaEMm ?? '',
+      'Nearest Rejected Delta N mm': decisionRow.nearestRejectedDeltaNMm ?? '',
+      'Nearest Rejected Delta EL mm': decisionRow.nearestRejectedDeltaElMm ?? '',
+      'Nearest Rejected Vertical Residual mm': decisionRow.nearestRejectedVerticalResidualMm ?? '',
       'Identity Trace ID': decisionRow.identityTraceId,
     });
   }
@@ -226,6 +329,7 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
       resolvedCount: matchedRows.length,
       ambiguousCount: ambiguousRows.length,
       unresolvedCount: rejectedRows.length,
+      nearestRejectedCount: decisions.filter((row) => row.nearestRejectedTagId).length,
       candidateLedgerCount: candidateLedger.length,
     },
     augmentedRows,
@@ -237,3 +341,5 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     diagnostics,
   };
 }
+
+export const _test = Object.freeze({ axisFailures, candidateFromTag, evaluateCandidates, verticalResidual });
