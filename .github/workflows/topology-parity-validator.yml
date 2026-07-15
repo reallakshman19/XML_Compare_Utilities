@@ -1,0 +1,32 @@
+name: Topology Parity Validator
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/topology-trace-validator/**'
+      - 'tests/topology-trace-validator-**'
+      - 'tests/topology-parity-validator.test.js'
+      - 'tests/topology-companion-parity.test.js'
+      - 'package.json'
+      - '.github/workflows/topology-parity-validator.yml'
+  workflow_dispatch:
+
+jobs:
+  topology-parity-validator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate topology validator module syntax
+        run: |
+          for file in tabs/topology-trace-validator/*.js; do node --check "$file"; done
+      - name: Validate static topology ownership contracts
+        run: node tests/topology-trace-validator-static.test.js
+      - name: Validate topology parity artifact and SVG contracts
+        run: node tests/topology-parity-validator.test.js
+      - name: Validate topology parity companion workpack
+        run: node tests/topology-companion-parity.test.js
+      - name: Run full topology validator suite
+        run: npm run test:topology-validator
