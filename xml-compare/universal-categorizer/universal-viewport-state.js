@@ -3,7 +3,7 @@ import {
   saveWorkbenchViewportState,
 } from '../../core/workbench-viewport/index.js';
 
-export const UNIVERSAL_VIEWPORT_STATE_SCHEMA = 'universal-viewport-state/v1';
+export const UNIVERSAL_VIEWPORT_STATE_SCHEMA = 'universal-viewport-state/v2';
 export const UNIVERSAL_VIEWPORT_UI_STORAGE_KEY = 'xmlBuilderViewportUiV1';
 export const UNIVERSAL_VIEWPORT_MODES = Object.freeze(['tree', 'pivot', 'side-by-side', 'diagnostics']);
 
@@ -14,6 +14,14 @@ const signatureText = (value) => text(value) || 'sample';
 
 function normalizeMode(value) {
   return UNIVERSAL_VIEWPORT_MODES.includes(value) ? value : 'tree';
+}
+
+function normalizeFilters(value = {}, dimensions = []) {
+  return Object.fromEntries(dimensions.map((name) => [name, text(value?.[name])]));
+}
+
+function normalizeAnchor(value = {}) {
+  return { id: text(value?.id), offset: finite(value?.offset) };
 }
 
 export function treeViewIdentity(node = {}) {
@@ -53,6 +61,8 @@ export function createUniversalSelectionIndex(tree = {}, pivot = {}) {
   return freeze({
     treeItems,
     pivotItems,
+    treeItemById: freeze(Object.fromEntries(treeItems.map((item) => [item.id, item]))),
+    pivotItemById: freeze(Object.fromEntries(pivotItems.map((item) => [item.id, item]))),
     treeByPivot: freeze(treeByPivot),
     pivotByTree: freeze(Object.fromEntries(Object.entries(pivotByTree)
       .map(([key, values]) => [key, freeze(values)]))),
@@ -75,14 +85,18 @@ function readUi(signature, storage) {
 export function createUniversalViewportState(input = {}) {
   const signature = signatureText(input.signature);
   const stored = readUi(signature, input.storage || globalThis.localStorage);
-  const selectionIndex = createUniversalSelectionIndex(input.tree, input.pivot);
   return {
     schema: UNIVERSAL_VIEWPORT_STATE_SCHEMA,
     signature,
     mode: normalizeMode(stored.mode),
     selectedTreeId: text(stored.selectedTreeId),
     selectedPivotId: text(stored.selectedPivotId),
-    selectionIndex,
+    searchText: text(stored.searchText),
+    treeFilters: normalizeFilters(stored.treeFilters, ['level']),
+    pivotFilters: normalizeFilters(stored.pivotFilters, ['level', 'block', 'source']),
+    treeScrollAnchor: normalizeAnchor(stored.treeScrollAnchor),
+    pivotScrollAnchor: normalizeAnchor(stored.pivotScrollAnchor),
+    selectionIndex: createUniversalSelectionIndex(input.tree, input.pivot),
   };
 }
 
@@ -92,6 +106,11 @@ export function persistUniversalViewportUiState(state, storage = globalThis.loca
       mode: normalizeMode(state.mode),
       selectedTreeId: text(state.selectedTreeId),
       selectedPivotId: text(state.selectedPivotId),
+      searchText: text(state.searchText),
+      treeFilters: normalizeFilters(state.treeFilters, ['level']),
+      pivotFilters: normalizeFilters(state.pivotFilters, ['level', 'block', 'source']),
+      treeScrollAnchor: normalizeAnchor(state.treeScrollAnchor),
+      pivotScrollAnchor: normalizeAnchor(state.pivotScrollAnchor),
     }));
   } catch {
     // Best-effort view-only persistence.
@@ -123,10 +142,15 @@ export function selectPivotIdentity(state, pivotId) {
 }
 
 export function selectedUniversalRecord(state) {
-  const pivot = state.selectionIndex.pivotItems.find((item) => item.id === state.selectedPivotId);
+  const pivot = state.selectionIndex.pivotItemById[state.selectedPivotId];
   if (pivot) return freeze({ kind: 'pivot', ...pivot.row });
-  const tree = state.selectionIndex.treeItems.find((item) => item.id === state.selectedTreeId);
+  const tree = state.selectionIndex.treeItemById[state.selectedTreeId];
   return tree ? freeze({ kind: 'tree', ...tree.node }) : null;
 }
 
-export const _test = freeze({ normalizeMode, levelToken, readUi, uiKey, signatureText });
+function finite(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+export const _test = freeze({ normalizeMode, normalizeFilters, normalizeAnchor, levelToken, readUi, uiKey, signatureText });

@@ -28,13 +28,6 @@ function worldBounds(nodes) {
   return freeze({ minX: 0, maxX: maxDepth + 1, minY: 0, maxY: maxRow });
 }
 
-function applyDomTransform(surface, state) {
-  const content = surface?.querySelector?.('[data-uxc-viewport-content]');
-  if (!content) return;
-  content.style.transformOrigin = '0 0';
-  content.style.transform = `translate(${state.panX}px,${state.panY}px) scale(${state.zoomX},${state.zoomY})`;
-}
-
 function transformFor(surface, bounds, view) {
   return createWorkbenchTransform(bounds, plotBounds(surface), view);
 }
@@ -46,13 +39,17 @@ function attributeValue(value) {
 export function createUniversalTreeViewportHost(options = {}) {
   const surface = options.surface;
   const nodes = arr(options.tree?.nodes);
-  const bounds = worldBounds(nodes);
+  const visibleRows = typeof options.rowProvider === 'function' ? options.rowProvider : () => nodes;
   const identity = viewportIdentity(options.signature, 'tree');
   const listeners = new Set();
   let disposed = false;
   let view = loadUniversalSurfaceState(options.signature, 'tree', options.storage);
+  const bounds = () => worldBounds(visibleRows());
   const notify = (type) => listeners.forEach((listener) => listener({ type, state: view }));
-  const invalidate = () => applyDomTransform(surface, view);
+  const invalidate = () => {
+    if (typeof options.onViewTransform === 'function') options.onViewTransform(view);
+    else applyFallbackTransform(surface, view);
+  };
   const apply = (next = {}) => {
     view = saveUniversalSurfaceState(normalizeWorkbenchViewportState({ ...view, ...next, ...identity }), options.storage);
     invalidate();
@@ -68,19 +65,21 @@ export function createUniversalTreeViewportHost(options = {}) {
       WorkbenchViewportCapability.SELECT_SURFACE,
     ],
     getPlotBounds: () => plotBounds(surface),
-    getWorldBounds: () => bounds,
-    worldToScreen: (point) => workbenchWorldToScreen(transformFor(surface, bounds, view), {
-      x: point.x, y: bounds.maxY - Number(point.y),
-    }),
+    getWorldBounds: bounds,
+    worldToScreen: (point) => {
+      const world = bounds();
+      return workbenchWorldToScreen(transformFor(surface, world, view), { x: point.x, y: world.maxY - Number(point.y) });
+    },
     screenToWorld: (point) => {
-      const world = workbenchScreenToWorld(transformFor(surface, bounds, view), point);
-      return freeze({ x: world.x, y: bounds.maxY - world.y });
+      const worldBoundsValue = bounds();
+      const world = workbenchScreenToWorld(transformFor(surface, worldBoundsValue, view), point);
+      return freeze({ x: world.x, y: worldBoundsValue.maxY - world.y });
     },
     readViewTransform: () => view,
     applyViewTransform: apply,
     invalidate,
     formatPointer: (point) => `Depth ${Math.max(0, Math.round(point.x))} · Row ${Math.max(0, Math.round(point.y)) + 1}`,
-    statusSegments: () => ['Tree', `${nodes.length} rows`],
+    statusSegments: () => ['Tree', `${visibleRows().length} / ${nodes.length} rows`],
     subscribe: (listener) => {
       if (disposed || typeof listener !== 'function') return () => undefined;
       listeners.add(listener);
@@ -93,17 +92,28 @@ export function createUniversalTreeViewportHost(options = {}) {
       return true;
     },
     fit: () => apply({ zoomX: 1, zoomY: 1, panX: 0, panY: 0, customRange: null, scaleMode: 'auto-fit' }),
-    applyRange: (range) => apply({ ...workbenchViewForRange(bounds, plotBounds(surface), range), customRange: range, scaleMode: 'custom-range' }),
+    applyRange: (range) => apply({ ...workbenchViewForRange(bounds(), plotBounds(surface), range), customRange: range, scaleMode: 'custom-range' }),
     zoomBy: (xFactor = 1, yFactor = 1) => apply({ zoomX: view.zoomX * xFactor, zoomY: view.zoomY * yFactor }),
     panBy: (dx = 0, dy = 0) => apply({ panX: view.panX + dx, panY: view.panY + dy }),
     reveal: (id) => {
+      if (typeof options.revealIdentity === 'function') return Boolean(options.revealIdentity(id));
       const row = surface?.querySelector?.(`[data-uxc-tree-id="${attributeValue(id)}"]`);
       row?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
       return Boolean(row);
     },
     rows: nodes,
+    visibleRows,
     identityFor: treeViewIdentity,
   });
   invalidate();
   return host;
 }
+
+function applyFallbackTransform(surface, state) {
+  const content = surface?.querySelector?.('[data-uxc-viewport-content]');
+  if (!content) return;
+  content.style.transformOrigin = '0 0';
+  content.style.transform = `translate(${state.panX}px,${state.panY}px) scale(${state.zoomX},${state.zoomY})`;
+}
+
+export const _test = freeze({ plotBounds, worldBounds, attributeValue, applyFallbackTransform });
