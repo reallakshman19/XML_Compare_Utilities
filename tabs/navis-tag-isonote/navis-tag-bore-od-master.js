@@ -47,8 +47,8 @@ function aliases(row) {
   const npsCompact = row.nps.replace(/\s+/g, '');
   return [
     `DN${row.dn}`, `DN ${row.dn}`, `${row.dn}`, `${row.dn}MM`,
-    `NPS${npsCompact}`, `NPS ${row.nps}`, row.nps, `${row.nps}IN`, `${row.nps}"`,
-    Number.isFinite(decimal) ? String(decimal) : '', Number.isFinite(decimal) ? `${decimal}IN` : '',
+    `NPS${npsCompact}`, `NPS ${row.nps}`, `${row.nps}IN`, `${row.nps}"`,
+    Number.isFinite(decimal) ? `${decimal}IN` : '', Number.isFinite(decimal) ? `${decimal}"` : '',
   ].filter(Boolean).map(compact);
 }
 
