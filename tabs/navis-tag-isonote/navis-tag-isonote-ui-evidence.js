@@ -127,7 +127,7 @@ export function matchRows(state) {
       candidateCount: decision?.candidateCount ?? row.navisProximityEvidence?.candidateCount ?? '',
       ambiguity: decision?.ambiguity || row.navisAmbiguity,
       confidence: decision?.confidence || row.navisConfidence,
-      selectedIsonote: decision?.supportIsonote || row.supportIsonote,
+      selectedIsonote: decision?.supportIsonote ?? row.supportIsonote ?? '',
     };
   });
 }
