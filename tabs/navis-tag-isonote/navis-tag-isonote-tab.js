@@ -17,7 +17,7 @@ function readConfig() { try { return normalizeConfig(JSON.parse(localStorage.get
 function saveConfig(config) { try { localStorage.setItem(CONFIG_STORE, JSON.stringify(config)); } catch {} }
 function createState() {
   return {
-    config: readConfig(), activeTab: 'inputs', tableText: '', navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
+    config: readConfig(), activeTab: 'inputs', tableText: '', tableImport: null, navisText: '', stagedDocuments: [], sourceNames: { table: '', navis: '', staged: '' },
     tableParsed: null, tableBuild: null, tree: null, rawStagedIndex: null, stagedIndex: null, identityTrace: null, navisParse: null, readiness: null, audit: null,
     status: 'Load the support table, Navis Tag XML, and managed staged JSON/ZIP.', running: false,
   };
@@ -36,12 +36,24 @@ function collectConfig(root, state) {
   state.config = normalizeConfig(next);
   const table = root.querySelector('[data-nti-field="tableText"]');
   const navis = root.querySelector('[data-nti-field="navisText"]');
-  if (table) state.tableText = table.value;
+  if (table) {
+    const nextText = table.value;
+    if (nextText !== state.tableText) {
+      state.tableImport = {
+        kind: 'manual', fileName: '', sheetCount: 0, selectedSheetName: '', selectedSheetIndex: -1,
+        headerRowNumber: nextText ? 1 : 0, candidateDataRowCount: Math.max(0, nextText.split(/\r?\n/).filter((line) => line.trim()).length - 1),
+        identityValueCount: 0, selectionMode: 'MANUAL_TEXT', candidates: [], diagnostics: [],
+      };
+      state.sourceNames.table = nextText ? 'Pasted / edited table' : '';
+    }
+    state.tableText = nextText;
+  }
   if (navis) state.navisText = navis.value;
 }
 function buildAll(state) {
   state.tableParsed = parseSupportTableText(state.tableText);
   state.tableBuild = buildSupportTableRecords(state.tableParsed, state.config);
+  if (state.tableImport?.diagnostics?.length) state.tableBuild.diagnostics.unshift(...state.tableImport.diagnostics);
   state.tree = buildStagedJsonHierarchy(state.stagedDocuments, state.config);
   state.rawStagedIndex = buildStagedSupportIndex(state.tree, state.config);
   state.stagedIndex = refineStagedSupportIndex(state.rawStagedIndex, state.tree, state.config);
@@ -50,6 +62,7 @@ function buildAll(state) {
   state.readiness = buildNavisTagIsonoteReadiness({
     config: state.config,
     tableBuild: state.tableBuild,
+    tableImport: state.tableImport,
     tree: state.tree,
     stagedIndex: state.stagedIndex,
     identityTrace: state.identityTrace,
@@ -58,7 +71,8 @@ function buildAll(state) {
   });
   state.audit = null;
   const suppressed = (state.stagedIndex.summary.suppressedMirrorEntryCount || 0) + (state.stagedIndex.summary.suppressedDuplicateEntryCount || 0);
-  state.status = `${state.readiness.status}: ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
+  const sheet = state.tableImport?.selectedSheetName ? ` from worksheet "${state.tableImport.selectedSheetName}"` : '';
+  state.status = `${state.readiness.status}: ${state.tableBuild.summary.rowCount} table rows${sheet}; ${state.tree.summary.nodeCount} JSON nodes; ${state.stagedIndex.summary.indexedNodeCount} refined identity entries (${suppressed} mirrors/duplicates suppressed); ${state.identityTrace.summary.resolvedCount}/${state.identityTrace.summary.rowCount} identities resolved; ${state.navisParse.summary.validTagCount} valid Navis tags.`;
 }
 function runResolution(state) {
   if (!state.identityTrace || !state.navisParse || !state.readiness) buildAll(state);
@@ -95,6 +109,7 @@ function downloadAudit(state) {
   downloadNavisTagFile('navis-tag-support-isonote-audit.json', JSON.stringify({
     audit: state.audit,
     readiness: state.readiness,
+    tableImport: state.tableImport,
     hierarchySummary: state.tree?.summary,
     rawIndexSummary: state.rawStagedIndex?.summary,
     refinedIndexSummary: state.stagedIndex?.summary,
@@ -124,10 +139,24 @@ function render(root, state) {
     const file = input.files?.[0]; if (!file) return;
     state.status = `Loading ${file.name}...`; render(root, state);
     try {
-      if (input.dataset.ntiFile === 'table') { state.tableText = await readNavisTagTableFile(file); state.sourceNames.table = file.name; }
-      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; }
-      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; }
-      state.status = `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`;
+      if (input.dataset.ntiFile === 'table') {
+        const imported = await readNavisTagTableFile(file, {
+          returnMetadata: true,
+          identityColumns: state.config.tableIdentityColumns,
+          referenceColumns: state.config.tableReferenceColumns,
+          pipeColumns: state.config.tablePipeColumns,
+          positionColumn: state.config.tablePositionColumn,
+        });
+        state.tableText = imported.text;
+        state.tableImport = imported.meta;
+        const sheet = imported.meta.selectedSheetName ? ` › ${imported.meta.selectedSheetName}` : '';
+        state.sourceNames.table = `${file.name}${sheet}`;
+        state.status = imported.meta.kind === 'workbook'
+          ? `${file.name}: selected worksheet "${imported.meta.selectedSheetName || '(none)'}"; header row ${imported.meta.headerRowNumber || 0}; ${imported.meta.candidateDataRowCount || 0} candidate data rows. Build the index to verify identities.`
+          : `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`;
+      }
+      if (input.dataset.ntiFile === 'navis') { state.navisText = await file.text(); state.sourceNames.navis = file.name; state.status = `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`; }
+      if (input.dataset.ntiFile === 'staged') { state.stagedDocuments = await readNavisTagStagedFile(file); state.sourceNames.staged = file.name; state.status = `${file.name} loaded. Build the index to refresh hierarchy and trace evidence.`; }
     } catch (error) { state.status = `Load failed: ${error?.message || error}`; }
     render(root, state);
   }));
