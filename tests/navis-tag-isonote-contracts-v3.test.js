@@ -63,7 +63,7 @@ const lookupConfig = normalizeConfig({
 const lookupTree = buildStagedJsonHierarchy([{ sourceFile: 'source.json', data: staged }], lookupConfig);
 const lookupIndex = buildStagedSupportIndex(lookupTree, lookupConfig);
 assert.equal(lookupIndex.entries[0].odMm, 88.9);
-assert.equal(lookupIndex.entries[0].odSource, 'EXPLICIT_BORE_TO_OD_LOOKUP');
+assert.equal(lookupIndex.entries[0].odSource, 'CUSTOM_EXPLICIT_BORE_TO_OD_LOOKUP');
 assert.equal(lookupIndex.entries[0].odLookupName, 'explicit-test-profile');
 
 console.log('navis-tag-isonote v3 contract tests passed');
