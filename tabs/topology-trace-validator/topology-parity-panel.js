@@ -19,7 +19,7 @@ export function topologyParitySummaryMarkup(state, report, ciiParity = null) {
 
 export function topologyParityMismatchTableMarkup(report, selectedId = '') {
   const rows = asArray(report?.mismatches).map(objectRecord);
-  if (!rows.length) return '<div class="ttv-parity-pass">No topology or CII identity mismatches.</div>';
+  if (!rows.length) return '<div class="ttv-parity-pass">No topology mismatches or CII identity mismatches.</div>';
   return `<div class="ttv-parity-table-wrap"><table class="ttv-parity-table"><thead><tr><th>Severity</th><th>Category</th><th>Canonical ID</th><th>InputXML ID</th><th>SVG ID</th><th>CII ID</th><th>Branch</th><th>Source Ref</th><th>Expected</th><th>Actual</th><th>Source Path</th><th>Status</th></tr></thead><tbody>${rows.map((row) => `<tr data-parity-mismatch-id="${escapeHtml(row.id)}" class="${cleanText(row.id) === cleanText(selectedId) ? 'is-selected' : ''}"><td>${escapeHtml(row.severity)}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(valueText(row.canonicalIdentity))}</td><td>${escapeHtml(valueText(row.inputXmlIdentity))}</td><td>${escapeHtml(valueText(row.svgIdentity))}</td><td>${escapeHtml(valueText(row.ciiIdentity))}</td><td>${escapeHtml(asArray(row.branchIds).join(', '))}</td><td>${escapeHtml(row.sourceRef || '—')}</td><td><code>${escapeHtml(valueText(row.expected))}</code></td><td><code>${escapeHtml(valueText(row.actual))}</code></td><td>${escapeHtml(asArray(row.sourcePaths).join(', '))}</td><td>${escapeHtml(row.status || 'OPEN')}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
