@@ -10,44 +10,47 @@ import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-mode
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260716-ssrb-1';
 import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260715-ttv-015-log-debug';
-import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260715-layout-stabilizer-3';
+import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260716-ssrb-layout-1';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
+function utilityRoot(container) {
+  return container.querySelector('.psnm-root') || container;
+}
+
 function mountPsMappingLauncher(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  if (utilitiesRoot.querySelector('[data-psmap-action="open"]')) return null;
-  return installPsMappingUtilityTile(utilitiesRoot, ctx);
+  const root = utilityRoot(container);
+  if (root.querySelector('[data-psmap-action="open"]')) return null;
+  return installPsMappingUtilityTile(root, ctx);
 }
 
 function mountPsFamilyClashAudit(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installPsFamilyClashAuditTile(utilitiesRoot, ctx);
+  return installPsFamilyClashAuditTile(utilityRoot(container), ctx);
 }
 
 function mountPipeline3dModel(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installPipeline3dModelTile(utilitiesRoot, ctx);
+  return installPipeline3dModelTile(utilityRoot(container), ctx);
 }
 
 function mountInputXmlWorkspace(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installInputXmlWorkspaceTile(utilitiesRoot, ctx);
+  return installInputXmlWorkspaceTile(utilityRoot(container), ctx);
 }
 
 function mountXmlBuilder(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installXmlBuilderUtilityTile(utilitiesRoot, ctx);
+  return installXmlBuilderUtilityTile(utilityRoot(container), ctx);
 }
 
 function mountNavisTagIsonote(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installNavisTagIsonoteUtilityTile(utilitiesRoot, ctx);
+  return installNavisTagIsonoteUtilityTile(utilityRoot(container), ctx);
+}
+
+function mountSupportSteelRelationshipBuilder(container, ctx) {
+  return installSupportSteelRelationshipBuilderTile(utilityRoot(container), ctx);
 }
 
 function mountTopologyTraceValidator(container, ctx) {
-  const utilitiesRoot = container.querySelector('.psnm-root') || container;
-  return installTopologyTraceValidatorTile(utilitiesRoot, ctx);
+  return installTopologyTraceValidatorTile(utilityRoot(container), ctx);
 }
 
 export function renderPSNM_UtilityTab(container, ctx = {}) {
@@ -56,6 +59,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(container, ctx);
   const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(container, ctx);
   const destroyPsMapping = mountPsMappingLauncher(container, ctx);
+  const destroySupportSteelRelationshipBuilder = mountSupportSteelRelationshipBuilder(container, ctx);
   const destroyPsFamilyClashAudit = mountPsFamilyClashAudit(container, ctx);
   const destroyPipeline3dModel = mountPipeline3dModel(container, ctx);
   const destroyInputXmlWorkspace = mountInputXmlWorkspace(container, ctx);
@@ -71,6 +75,7 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (typeof destroyInputXmlWorkspace === 'function') destroyInputXmlWorkspace();
     if (typeof destroyPipeline3dModel === 'function') destroyPipeline3dModel();
     if (typeof destroyPsFamilyClashAudit === 'function') destroyPsFamilyClashAudit();
+    if (typeof destroySupportSteelRelationshipBuilder === 'function') destroySupportSteelRelationshipBuilder();
     if (typeof destroyPsMapping === 'function') destroyPsMapping();
     if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
     if (typeof destroyAxisAutoAnchor === 'function') destroyAxisAutoAnchor();
