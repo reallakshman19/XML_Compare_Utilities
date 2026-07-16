@@ -8,6 +8,7 @@ on:
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
@@ -21,6 +22,7 @@ on:
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
@@ -49,12 +51,14 @@ jobs:
         run: node tests/sequential-confirmed-support-projection.test.js
       - name: Pinned 1885 NC branch probe
         run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
+      - name: Pinned B3 support evidence
+        run: node tests/sequential-sketcher-1885-nc-support-evidence.mjs
       - name: Publish 1885 NC probe
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sequential-sketcher-1885-nc-probe
-          path: artifacts/sequential-sketcher/1885-nc-b3-probe.json
+          path: artifacts/sequential-sketcher/
           if-no-files-found: warn
       - name: Legacy foundation regression
         run: node tests/sequential-sketcher-core.test.js
