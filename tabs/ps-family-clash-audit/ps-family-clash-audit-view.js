@@ -4,7 +4,12 @@ function h(value) {
 
 function list(value) { return Array.isArray(value) ? value.join(', ') : (value ?? ''); }
 function point(value) { return value ? `X ${value.x ?? ''} / Y ${value.y ?? ''} / Z ${value.z ?? ''}` : ''; }
-function section(title, body) { return `<div class="psmap-card"><div class="psmap-card-head"><b>${h(title)}</b></div><div class="psmap-card-body">${body}</div></div>`; }
+function section(title, body, eyebrow = '') {
+  const heading = eyebrow
+    ? `<div class="psfa-report-card-title"><span>${h(eyebrow)}</span><b>${h(title)}</b></div>`
+    : `<b>${h(title)}</b>`;
+  return `<div class="psmap-card"><div class="psmap-card-head">${heading}</div><div class="psmap-card-body">${body}</div></div>`;
+}
 function readinessStatus(readiness) { if (!readiness) return 'Not checked'; return readiness.blocking ? 'Blocking issues found' : 'Ready with no blocking errors'; }
 function visibleCellText(headers, row) { return headers.map((item) => String(item.value(row) ?? '')).join(' ').toLowerCase(); }
 
@@ -28,7 +33,7 @@ export function renderPsFamilyTable(headers, rows, limit = 80, searchText = '') 
   const count = tableCountText(shown.length, matched.length, totalRows.length, hasSearch, limit);
   const head = headers.map((item) => `<th>${h(item.label)}</th>`).join('');
   const body = shown.map((row) => `<tr>${headers.map((item) => `<td>${h(item.value(row))}</td>`).join('')}</tr>`).join('');
-  return `<div class="psmap-help-text" data-psfa-filter-count="1">${h(count)}</div><div class="psmap-table-wrap"><table class="psmap-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="psmap-help-text" data-psfa-filter-count="1">${h(count)}</div><div class="psmap-table-wrap" role="region" tabindex="0" aria-label="Scrollable report table"><table class="psmap-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 export function renderPsFamilyReadiness(readiness) {
@@ -43,111 +48,140 @@ export function renderPsFamilyReadiness(readiness) {
 export function renderPsFamilySummary(audit) {
   if (!audit) return '<div class="psmap-help-text">Load inputs and run audit.</div>';
   const s = audit.summary;
-  return `<div class="psmap-grid-2"><div><b>Source family</b><br>${h(s.sourceFamily || 'SupportChange')}</div><div><b>SupportGroups</b><br>${s.supportGroupCount || 0}</div><div><b>Structure proximity rows</b><br>${s.structureLineProximityCount || 0}</div><div><b>Exceptions</b><br>${s.supportExceptionCount || 0}</div><div><b>Legacy clash rows</b><br>${s.clashCount || 0}</div></div>`;
+  return `<div class="psmap-grid-2 psfa-report-summary"><div><b>Source family</b><br>${h(s.sourceFamily || 'SupportChange')}</div><div><b>Support groups</b><br>${s.supportGroupCount || 0}</div><div><b>Structure basis rows</b><br>${s.structureLineProximityCount || 0}</div><div><b>Audit exceptions</b><br>${s.supportExceptionCount || 0}</div><div><b>Clash rows</b><br>${s.clashCount || 0}</div></div>`;
 }
 
 function renderSupportSummary(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'Line', value: (row) => row.line }, { label: 'BranchNode', value: (row) => row.branchNode },
-    { label: 'LineFamily', value: (row) => row.lineFamily }, { label: 'PSRoot', value: (row) => row.psRoot },
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'Supports', value: (row) => list(row.supportMembers) },
-    { label: 'Evidence', value: (row) => list(row.evidenceClashes) }, { label: 'Status', value: (row) => row.status },
+    { label: 'Line', value: (row) => row.line }, { label: 'Branch Node', value: (row) => row.branchNode },
+    { label: 'Line Family', value: (row) => row.lineFamily }, { label: 'PS Root', value: (row) => row.psRoot },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Support Members', value: (row) => list(row.supportMembers) },
+    { label: 'Clash Evidence', value: (row) => list(row.evidenceClashes) }, { label: 'Outcome', value: (row) => row.status },
   ], audit.supportSummaryRows || [], 80, searchText);
 }
 
 function renderLineSupportTree(audit, searchText) {
   const rows = (audit.lineSupportTreeRows || []).map((row) => ({ supportGroup: row.supportGroup, tree: row.treeText }));
-  return renderPsFamilyTable([{ label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'Tree', value: (row) => row.tree }], rows, 80, searchText);
+  return renderPsFamilyTable([{ label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Line Tree', value: (row) => row.tree }], rows, 80, searchText);
+}
+
+function structurePath(row) {
+  return [row.structuralGroupRoot, row.lineNo || row.lineFamily, row.branchNode, row.supportGroup, row.representativeSupport]
+    .filter(Boolean).join(' → ');
+}
+
+function renderStructureTree(audit, searchText) {
+  const rows = (audit.structureLineProximityRows || []).map((row) => ({
+    structureGroup: row.structuralGroupRoot,
+    structureNames: row.structuralGroupNames,
+    line: row.lineNo || row.lineFamily,
+    branchNode: row.branchNode,
+    supportGroup: row.supportGroup,
+    representativeSupport: row.representativeSupport,
+    nearbySupports: row.supportsWithin250mm,
+    path: structurePath(row),
+  }));
+  return renderPsFamilyTable([
+    { label: 'Structure Group', value: (row) => row.structureGroup },
+    { label: 'Structure Members', value: (row) => row.structureNames },
+    { label: 'Line', value: (row) => row.line },
+    { label: 'Branch Node', value: (row) => row.branchNode },
+    { label: 'Support Group', value: (row) => row.supportGroup },
+    { label: 'Representative Support', value: (row) => row.representativeSupport },
+    { label: 'Nearby Supports', value: (row) => row.nearbySupports },
+    { label: 'Structure Path', value: (row) => row.path },
+  ], rows, 80, searchText);
 }
 
 function renderStructureLineProximity(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'StructuralGroupRoot', value: (row) => row.structuralGroupRoot }, { label: 'StructuralGroupNames', value: (row) => row.structuralGroupNames },
-    { label: 'LineNo', value: (row) => row.lineNo }, { label: 'LineFamily', value: (row) => row.lineFamily },
-    { label: 'BranchNode', value: (row) => row.branchNode }, { label: 'SupportsWithin250mm', value: (row) => row.supportsWithin250mm },
-    { label: 'SupportCount', value: (row) => row.supportCount }, { label: 'TotalSupportCount', value: (row) => row.totalSupportCount },
-    { label: 'RepresentativeSupport', value: (row) => row.representativeSupport }, { label: 'RepresentativeCoordinate', value: (row) => row.representativeCoordinate },
-    { label: 'Evidence', value: (row) => row.evidenceClashes }, { label: 'Remarks', value: (row) => row.remarks },
+    { label: 'Structure Group Root', value: (row) => row.structuralGroupRoot }, { label: 'Structure Group Names', value: (row) => row.structuralGroupNames },
+    { label: 'Line Number', value: (row) => row.lineNo }, { label: 'Line Family', value: (row) => row.lineFamily },
+    { label: 'Branch Node', value: (row) => row.branchNode }, { label: 'Supports within 250 mm', value: (row) => row.supportsWithin250mm },
+    { label: 'Support Count', value: (row) => row.supportCount }, { label: 'Total Support Count', value: (row) => row.totalSupportCount },
+    { label: 'Representative Support', value: (row) => row.representativeSupport }, { label: 'Representative Coordinate', value: (row) => row.representativeCoordinate },
+    { label: 'Clash Evidence', value: (row) => row.evidenceClashes }, { label: 'Basis / Remarks', value: (row) => row.remarks },
   ], audit.structureLineProximityRows || [], 80, searchText);
 }
 
 function renderStructureContacts(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'StructuralGroup', value: (row) => row.structuralGroup },
-    { label: 'Support', value: (row) => row.support }, { label: 'LineFamily', value: (row) => row.lineFamily },
-    { label: 'BranchNode', value: (row) => row.branchNode }, { label: 'Clash', value: (row) => row.contactClash },
-    { label: 'Distance', value: (row) => row.distance }, { label: 'Point', value: (row) => point(row.point) },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Structure Group', value: (row) => row.structuralGroup },
+    { label: 'Support', value: (row) => row.support }, { label: 'Line Family', value: (row) => row.lineFamily },
+    { label: 'Branch Node', value: (row) => row.branchNode }, { label: 'Contact Clash', value: (row) => row.contactClash },
+    { label: 'Distance', value: (row) => row.distance }, { label: 'Contact Point', value: (row) => point(row.point) },
   ], audit.structureContactRows || [], 80, searchText);
 }
 
 function renderSupportChain(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'SupportA', value: (row) => row.supportA },
-    { label: 'SupportB', value: (row) => row.supportB }, { label: 'LineFamily', value: (row) => row.lineFamily },
-    { label: 'BranchNode', value: (row) => row.branchNode }, { label: 'Clash', value: (row) => row.supportClash },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Support A', value: (row) => row.supportA },
+    { label: 'Support B', value: (row) => row.supportB }, { label: 'Line Family', value: (row) => row.lineFamily },
+    { label: 'Branch Node', value: (row) => row.branchNode }, { label: 'Support Clash', value: (row) => row.supportClash },
   ], audit.supportChainRows || [], 80, searchText);
 }
 
 function renderSupportMembers(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'Representative', value: (row) => row.representativeSupport },
-    { label: 'MemberType', value: (row) => row.memberType }, { label: 'Support', value: (row) => row.support },
-    { label: 'ConnectedTo', value: (row) => list(row.connectedTo) }, { label: 'Evidence', value: (row) => list(row.evidenceClashes) },
-    { label: 'CoverageRole', value: (row) => row.coverageRole }, { label: 'Remarks', value: (row) => row.remarks },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Representative Support', value: (row) => row.representativeSupport },
+    { label: 'Member Type', value: (row) => row.memberType }, { label: 'Support', value: (row) => row.support },
+    { label: 'Connected To', value: (row) => list(row.connectedTo) }, { label: 'Clash Evidence', value: (row) => list(row.evidenceClashes) },
+    { label: 'Coverage Role', value: (row) => row.coverageRole }, { label: 'Remarks', value: (row) => row.remarks },
   ], audit.supportMemberRows || [], 80, searchText);
 }
 
 function renderExceptions(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'Code', value: (row) => row.exceptionCode }, { label: 'Severity', value: (row) => row.severity },
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'StructuralGroup', value: (row) => row.structuralGroup },
-    { label: 'Support', value: (row) => row.support }, { label: 'SupportA', value: (row) => row.supportA },
-    { label: 'SupportB', value: (row) => row.supportB }, { label: 'Reason', value: (row) => row.reason },
+    { label: 'Exception Code', value: (row) => row.exceptionCode }, { label: 'Severity', value: (row) => row.severity },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Structure Group', value: (row) => row.structuralGroup },
+    { label: 'Support', value: (row) => row.support }, { label: 'Support A', value: (row) => row.supportA },
+    { label: 'Support B', value: (row) => row.supportB }, { label: 'Outcome / Reason', value: (row) => row.reason },
   ], audit.supportExceptionRows || [], 80, searchText);
 }
 
 function renderEvidence(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'SourceInput', value: (row) => row.sourceInput }, { label: 'ClashName', value: (row) => row.clashName },
-    { label: 'ObjectAType', value: (row) => row.objectAType }, { label: 'ObjectBType', value: (row) => row.objectBType },
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'ParsedEdge', value: (row) => row.parsedEdge },
+    { label: 'Source Input', value: (row) => row.sourceInput }, { label: 'Clash Name', value: (row) => row.clashName },
+    { label: 'Object A Type', value: (row) => row.objectAType }, { label: 'Object B Type', value: (row) => row.objectBType },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'Parsed Edge', value: (row) => row.parsedEdge },
   ], audit.inputEvidenceRows || [], 80, searchText);
 }
 
 function renderMatrix(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'SupportGroup', value: (row) => row.supportGroup }, { label: 'From', value: (row) => row.from },
-    { label: 'To', value: (row) => row.to }, { label: 'EdgeType', value: (row) => row.edgeType },
-    { label: 'Clash', value: (row) => row.clash }, { label: 'Status', value: (row) => row.status },
+    { label: 'Support Group', value: (row) => row.supportGroup }, { label: 'From', value: (row) => row.from },
+    { label: 'To', value: (row) => row.to }, { label: 'Edge Type', value: (row) => row.edgeType },
+    { label: 'Clash Evidence', value: (row) => row.clash }, { label: 'Outcome', value: (row) => row.status },
   ], audit.connectivityMatrixRows || [], 80, searchText);
 }
 
 function renderClashRows(audit, searchText) {
   return renderPsFamilyTable([
-    { label: 'Clash', value: (row) => row.clashName }, { label: 'Source', value: (row) => row.source.familyRoot },
+    { label: 'Clash', value: (row) => row.clashName }, { label: 'Source Family', value: (row) => row.source.familyRoot },
     { label: 'Source Object', value: (row) => row.source.objectName }, { label: 'Against Member', value: (row) => row.against.memberName },
-    { label: 'Status', value: (row) => row.familyStatus }, { label: 'Line Family', value: (row) => row.against.pipe?.lineFamily },
+    { label: 'Family Outcome', value: (row) => row.familyStatus }, { label: 'Line Family', value: (row) => row.against.pipe?.lineFamily },
     { label: 'Branch Node', value: (row) => row.against.pipe?.fullBranchNode },
   ], audit.clashRows || [], 80, searchText);
 }
 
-function renderCoverage(audit, searchText) { return renderPsFamilyTable([{ label: 'Expected Member', value: (row) => row.expectedMember }, { label: 'Status', value: (row) => row.status }], audit.coverageRows || [], 80, searchText); }
+function renderCoverage(audit, searchText) { return renderPsFamilyTable([{ label: 'Expected Member', value: (row) => row.expectedMember }, { label: 'Outcome', value: (row) => row.status }], audit.coverageRows || [], 80, searchText); }
 function renderDiagnostics(audit, searchText) { return renderPsFamilyTable([{ label: 'Level', value: (row) => row.level }, { label: 'Code', value: (row) => row.code }, { label: 'Message', value: (row) => row.message }], audit.diagnostics || [], 80, searchText); }
 
 export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
   supportSummary: renderSupportSummary,
-  lineSupportTree: renderLineSupportTree,
-  structureLineProximity: renderStructureLineProximity,
-  supportExceptions: renderExceptions,
-  inputEvidence: renderEvidence,
-  structureContacts: renderStructureContacts,
   supportChain: renderSupportChain,
   supportMembers: renderSupportMembers,
+  structureLineProximity: renderStructureLineProximity,
+  structureContacts: renderStructureContacts,
+  lineSupportTree: renderLineSupportTree,
+  structureTree: renderStructureTree,
+  inputEvidence: renderEvidence,
   connectivityMatrix: renderMatrix,
   clashRows: renderClashRows,
+  supportExceptions: renderExceptions,
+  diagnostics: renderDiagnostics,
   coverage: renderCoverage,
   psClashReport: renderSupportMembers,
-  diagnostics: renderDiagnostics,
   hierarchy: renderEvidence,
   missing: renderCoverage,
   outOfFamily: renderClashRows,
@@ -159,8 +193,20 @@ export const PS_FAMILY_REPORT_RENDERERS = Object.freeze({
 
 function renderSimpleReport(audit, key, searchText) { return PS_FAMILY_REPORT_RENDERERS[key] ? PS_FAMILY_REPORT_RENDERERS[key](audit, searchText) : renderSupportSummary(audit, searchText); }
 
-export function renderPsFamilyReports(audit, activeTab, config, searchText = '') {
+function activeReportGroup(config, activeGroupKey, activeTab) {
+  const groups = config.reportGroups || [];
+  return groups.find((item) => item.key === activeGroupKey)
+    || groups.find((item) => item.reportKeys?.includes(activeTab))
+    || groups[0]
+    || null;
+}
+
+export function renderPsFamilyReports(audit, activeTab, config, searchText = '', activeGroupKey = '') {
   if (!audit) return '';
   const tab = config.reportTabs.find((item) => item.key === activeTab) || config.reportTabs[0];
-  return section(tab.label, renderSimpleReport(audit, tab.key, searchText));
+  const group = activeReportGroup(config, activeGroupKey, tab.key);
+  const context = group
+    ? `<div class="psfa-report-context"><b>${h(group.label)}</b><span>${h(group.description)}</span></div>`
+    : '';
+  return section(tab.label, `${context}${renderSimpleReport(audit, tab.key, searchText)}`, group?.label || 'Report');
 }
