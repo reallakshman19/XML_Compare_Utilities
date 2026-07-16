@@ -5,6 +5,10 @@ import {
   parseTable2Paste,
   parseTable3Paste,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-parser.js';
+import {
+  SAMPLE_TABLE_2_PASTE_MULTISHEET,
+  SAMPLE_TABLE_3_PASTE_MULTISHEET,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-samples.js';
 
 const WORLD_FRAME_POINTS = [{
   sheetIndex: 0,
@@ -104,6 +108,47 @@ assert.equal(table3Result.table3CRaw, [
   '1459.416\tPMS-001',
   '1492.213\tPMS-002',
 ].join('\n'), 'Layer 1 circles become deterministic PMS markers sorted by center X');
+
+const multiSheetTable2 = parseTable2Paste(SAMPLE_TABLE_2_PASTE_MULTISHEET);
+assert.equal(multiSheetTable2.rows.length, 10, 'chat Table 2 sample yields ten geometry-backed rows');
+assert.deepEqual(multiSheetTable2.rows[0], {
+  h: 1451.141,
+  vFrom: -715.825,
+  vTo: -650.258,
+  length: 65.567,
+  stationText: '13+621.6',
+  elevationText: '240.17',
+});
+assert.deepEqual(multiSheetTable2.rows.at(-1), {
+  h: 1524.946,
+  vFrom: -715.825,
+  vTo: -650.258,
+  length: 65.567,
+  stationText: '13+695.4',
+  elevationText: '240.30',
+});
+assert.deepEqual(
+  multiSheetTable2.warnings,
+  ['Ignored 1 unmatched station/elevation pair(s).'],
+  'duplicate 13+704.7 text is deduplicated and its missing parent line is reported',
+);
+assert.match(multiSheetTable2.rawText, /1486\.976\t-715\.825 → -650\.258\t65\.567\t13\+657\.5\t240\.19/);
+
+const multiSheetTable3 = parseTable3Paste(SAMPLE_TABLE_3_PASTE_MULTISHEET);
+assert.equal(multiSheetTable3.lengthRows.length, 4);
+assert.equal(multiSheetTable3.zRows.length, 2);
+assert.deepEqual(
+  multiSheetTable3.markerRows.map((row) => [row.textX, row.markerText]),
+  [
+    [1459.416, 'PMS-001'],
+    [1465.887, 'PMS-002'],
+    [1492.213, 'PMS-003'],
+    [1530.289, 'PMS-004'],
+  ],
+);
+assert.match(multiSheetTable3.table3ARaw, /1430\.577\t1445\.249\t1437\.913\t14\.7/);
+assert.match(multiSheetTable3.table3BRaw, /1430\.577\t1513\.232\t1478\.826\t1\.5M/);
+assert.match(multiSheetTable3.table3CRaw, /1530\.289\tPMS-004/);
 
 assert.throws(
   () => parseTable2Paste(worldTable2),

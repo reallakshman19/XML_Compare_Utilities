@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pipeline Table Paste Sample Fixture</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif}.pipeline-3d-model-dialog{min-height:100vh;padding:16px;display:grid;gap:12px}.fixture-actions{display:flex;gap:8px}.p3d-input-panel{display:grid;gap:6px}.p3d-input-grid textarea,textarea{width:100%;min-height:90px;background:#07111f;color:#cbd5e1;border:1px solid #334155;font:11px monospace}.p3d-editable-table,.p3d-split-grid{overflow:auto}.p3d-editable-table table,.p3d-split-grid table{border-collapse:collapse;min-width:680px}.p3d-editable-table th,.p3d-editable-table td,.p3d-split-grid th,.p3d-split-grid td{border:1px solid #334155;padding:4px}.p3d-output{display:grid;gap:8px}.p3d-output-scroll{display:grid;gap:8px}[data-p3d="table2x-output"],[data-p3d="table3x-output"]{min-height:40px;border:1px solid #334155;padding:6px;overflow:auto}
+</style>
+</head>
+<body>
+<main class="pipeline-3d-model-dialog" data-browser-fixture="pipeline-table-paste-samples">
+  <div class="fixture-actions">
+    <button type="button" data-p3d="new-multisheet">Load Multi-Sheet Table 1 Sample</button>
+    <button type="button" data-p3d="run">Run</button>
+  </div>
+  <textarea data-p3d="table1">Constant width 0.300
+at point X=661.549 Y=-160.249 Z=0.000
+at point X=1045.626 Y=-160.249 Z=0.000
+
+Constant width 0.300
+at point X=620.6918 Y=-241.5160 Z=0.0000
+at point X=981.9652 Y=-452.2784 Z=0.0000</textarea>
+  <textarea data-p3d="table2"></textarea>
+  <textarea data-p3d="table3"></textarea>
+  <div data-p3d="table3-panel"></div>
+  <section class="p3d-output">
+    <div class="p3d-output-scroll">
+      <pre data-p3d="table1-output">Fixture</pre>
+    </div>
+  </section>
+</main>
+<script type="module">
+await import('../../tabs/pipeline-3d-model/pipeline-3d-model-samples.js?v=20260716-table-paste-sample-browser-1');
+const addon = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260716-table-paste-sample-browser-1');
+const dialog = document.querySelector('.pipeline-3d-model-dialog');
+addon.patchPipeline3dTablePasteDialog(dialog);
+window.__pipelineTablePasteSample = {
+  dialog,
+  value(selector) { return dialog.querySelector(selector)?.value || ''; },
+  text(selector) { return dialog.querySelector(selector)?.textContent || ''; },
+};
+document.body.dataset.pipelineTablePasteSampleReady = '1';
+</script>
+</body>
+</html>

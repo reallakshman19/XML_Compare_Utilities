@@ -14,6 +14,7 @@ export default defineConfig({
     'pipeline-cad-axis-history.spec.mjs',
     'pipeline-cad-engineering-review.spec.mjs',
     'pipeline-cad-preview-modes.spec.mjs',
+    'pipeline-table-paste-sample.spec.mjs',
   ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
