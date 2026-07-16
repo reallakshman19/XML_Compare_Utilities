@@ -1,5 +1,7 @@
 import {
+  SUPPORT_STEEL_EVIDENCE_SOURCE,
   SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
+  SUPPORT_STEEL_RELATIONSHIP_SEMANTIC,
   resolveSupportSteelConfig,
 } from './support-steel-relationship-contracts.js';
 import { collectSteelGroups, collectSupportFamilies } from './support-steel-source-reader.js';
@@ -23,6 +25,8 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
     .map((family) => family.familyId);
   return {
     schema: SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
+    bundlePurpose: 'RELATIONSHIP_INFERENCE',
+    contactEvidenceAvailable: false,
     coordinateSystem: {
       units: 'mm',
       globalAxes: { x: 'EAST', y: 'NORTH', z: 'UP' },
@@ -39,7 +43,8 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
 
 function resolveFamilyRelationships(family, steelGroups, config) {
   const explicit = explicitCandidates(family, steelGroups);
-  if (explicit.length) return resolvedExplicit(family, explicit);
+  if (explicit.length === 1) return resolvedExplicit(family, explicit[0]);
+  if (explicit.length > 1) return ambiguousRelationships(family, explicit, 'EXPLICIT_REFERENCE');
   const spatial = spatialCandidates(family, steelGroups, config.projectionToleranceMm);
   if (spatial.length) return resolvedSpatial(family, spatial, config.ambiguityDeltaMm);
   const owners = sharedOwnerCandidates(family, steelGroups);
@@ -75,14 +80,17 @@ function sharedOwnerCandidates(family, steelGroups) {
   });
 }
 
-function resolvedExplicit(family, candidates) {
-  const relationships = candidates.map((candidate) => relationshipRecord(
-    family,
-    candidate,
-    'RESOLVED_EXPLICIT',
-    'HIGH',
-  ));
-  return { relationships, diagnostics: [] };
+function resolvedExplicit(family, candidate) {
+  return {
+    relationships: [relationshipRecord(
+      family,
+      candidate,
+      'RESOLVED_EXPLICIT',
+      'HIGH',
+      'ONE_TO_ONE',
+    )],
+    diagnostics: [],
+  };
 }
 
 function resolvedSpatial(family, candidates, ambiguityDeltaMm) {
@@ -93,14 +101,26 @@ function resolvedSpatial(family, candidates, ambiguityDeltaMm) {
     return ambiguousRelationships(family, tied, 'POINT_PROXIMITY');
   }
   return {
-    relationships: [relationshipRecord(family, first, 'RESOLVED_SPATIAL', 'MEDIUM')],
+    relationships: [relationshipRecord(
+      family,
+      first,
+      'RESOLVED_SPATIAL',
+      'MEDIUM',
+      'ONE_TO_ONE',
+    )],
     diagnostics: [],
   };
 }
 
 function resolvedOwner(family, candidate) {
   return {
-    relationships: [relationshipRecord(family, candidate, 'RESOLVED_SHARED_OWNER', 'LOW')],
+    relationships: [relationshipRecord(
+      family,
+      candidate,
+      'RESOLVED_SHARED_OWNER',
+      'LOW',
+      'ONE_TO_ONE',
+    )],
     diagnostics: [{
       severity: 'WARNING',
       code: 'RELATIONSHIP_RESOLVED_BY_SHARED_OWNER_ONLY',
@@ -114,7 +134,13 @@ function resolvedOwner(family, candidate) {
 function ambiguousRelationships(family, candidates, basis) {
   const candidateSteelGroupIds = candidates.map((candidate) => candidate.steel.steelGroupId);
   const relationships = candidates.map((candidate) => ({
-    ...relationshipRecord(family, candidate, 'AMBIGUOUS', 'NONE'),
+    ...relationshipRecord(
+      family,
+      candidate,
+      'AMBIGUOUS',
+      'NONE',
+      'ONE_TO_MANY_AMBIGUOUS',
+    ),
     candidateSteelGroupIds,
   }));
   return {
@@ -125,6 +151,7 @@ function ambiguousRelationships(family, candidates, basis) {
       supportFamilyId: family.familyId,
       candidateSteelGroupIds,
       relationshipBasis: basis,
+      relationshipCardinality: 'ONE_TO_MANY_AMBIGUOUS',
       message: 'More than one steel group satisfies the strongest available relationship evidence.',
     }],
   };
@@ -135,22 +162,20 @@ function unresolvedRelationship(family, steelGroups) {
     .map((steel) => ({ steel, distanceMm: minimumDistance(family, steel) }))
     .filter((row) => Number.isFinite(row.distanceMm))
     .sort((left, right) => left.distanceMm - right.distanceMm)[0];
-  const record = {
+  const record = baseEvidenceRecord(family, null, 'UNRESOLVED');
+  Object.assign(record, {
     relationshipId: `${family.familyId}::UNRESOLVED`,
-    supportFamilyId: family.familyId,
+    evidenceId: `SSRB:${family.familyId}::UNRESOLVED`,
     steelGroupId: null,
     relationshipStatus: 'UNRESOLVED',
     relationshipBasis: [],
+    relationshipCardinality: 'UNRESOLVED',
     confidence: 'NONE',
     distanceMm: nearest?.distanceMm ?? null,
     nearestSteelGroupId: nearest?.steel.steelGroupId ?? null,
-    supportPositionGlobal: family.supportPositionGlobal || null,
     steelPositionGlobal: nearest?.steel.steelPositionGlobal || null,
-    branchIds: [...(family.branchIds || [])],
-    carrierIds: [...(family.carrierIds || [])],
-    memberCount: family.members?.length || 0,
     candidateSteelGroupIds: [],
-  };
+  });
   return {
     relationships: [record],
     diagnostics: [{
@@ -164,21 +189,37 @@ function unresolvedRelationship(family, steelGroups) {
   };
 }
 
-function relationshipRecord(family, candidate, status, confidence) {
+function relationshipRecord(family, candidate, status, confidence, relationshipCardinality) {
+  const record = baseEvidenceRecord(family, candidate.steel, relationshipCardinality);
   return {
+    ...record,
     relationshipId: `${family.familyId}::${candidate.steel.steelGroupId}`,
-    supportFamilyId: family.familyId,
+    evidenceId: `SSRB:${family.familyId}::${candidate.steel.steelGroupId}`,
     steelGroupId: candidate.steel.steelGroupId,
     relationshipStatus: status,
     relationshipBasis: [...candidate.relationshipBasis],
+    relationshipCardinality,
     confidence,
     distanceMm: finiteOrNull(candidate.distanceMm),
-    supportPositionGlobal: family.supportPositionGlobal || null,
     steelPositionGlobal: candidate.steel.steelPositionGlobal || null,
+    candidateSteelGroupIds: [],
+  };
+}
+
+function baseEvidenceRecord(family, steel, relationshipCardinality) {
+  return {
+    evidenceSource: SUPPORT_STEEL_EVIDENCE_SOURCE,
+    evidenceClass: 'INFERRED',
+    sourceSchema: SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
+    relationshipSemantic: SUPPORT_STEEL_RELATIONSHIP_SEMANTIC,
+    contactEvidenceStatus: 'NOT_PROVEN',
+    relationshipCardinality,
+    supportFamilyId: family.familyId,
+    supportPositionGlobal: family.supportPositionGlobal || null,
+    steelPositionGlobal: steel?.steelPositionGlobal || null,
     branchIds: [...(family.branchIds || [])],
     carrierIds: [...(family.carrierIds || [])],
     memberCount: family.members?.length || 0,
-    candidateSteelGroupIds: [],
   };
 }
 
@@ -206,10 +247,10 @@ function buildSummary(supportFamilies, steelGroups, relationships) {
 }
 
 function strongestFamilyStatus(rows = []) {
+  if (rows.some((row) => row.relationshipStatus === 'AMBIGUOUS')) return 'AMBIGUOUS';
   if (rows.some((row) => row.relationshipStatus === 'RESOLVED_EXPLICIT')) return 'RESOLVED_EXPLICIT';
   if (rows.some((row) => row.relationshipStatus === 'RESOLVED_SPATIAL')) return 'RESOLVED_SPATIAL';
   if (rows.some((row) => row.relationshipStatus === 'RESOLVED_SHARED_OWNER')) return 'RESOLVED_SHARED_OWNER';
-  if (rows.some((row) => row.relationshipStatus === 'AMBIGUOUS')) return 'AMBIGUOUS';
   return 'UNRESOLVED';
 }
 
@@ -250,6 +291,8 @@ function publicConfig(config) {
     steelGroupPattern: config.steelGroupPattern,
     supportTypes: [...config.supportTypes],
     steelTypes: [...config.steelTypes],
+    explicitSteelReferenceKeys: [...config.explicitSteelReferenceKeys],
+    ownerEvidenceKeys: [...config.ownerEvidenceKeys],
     projectionToleranceMm: config.projectionToleranceMm,
     ambiguityDeltaMm: config.ambiguityDeltaMm,
   };
