@@ -3,25 +3,50 @@ import {
   applyConstructionDecision as applyGatedConstructionDecision,
   createSequentialConstructionSession,
 } from './sequential-gated-construction-engine.js';
-import { CONSTRUCTION_STATES } from './sequential-construction-contract.js';
+import { CONSTRUCTION_STATES, freezeConstructionSession } from './sequential-construction-contract.js';
 import { enrichCommittedConnectionEvidence } from './sequential-connection-audit.js';
 
 export { createSequentialConstructionSession };
 
-export function advanceConstruction(session, evidenceModel, indexes, options = {}) {
-  const result = advanceGatedConstruction(session, evidenceModel, indexes, options);
-  return Object.freeze({
-    ...result,
-    session: enrichCommittedConnectionEvidence(session, result.session, indexes),
+function enrichPendingBranchBoundary(session, indexes) {
+  const transition = session?.transitionContext;
+  if (!transition || transition.targetKind !== 'BRANCH' || transition.boundaryPosition) return session;
+  if (transition.origin !== 'PENDING_JUNCTION') return session;
+  const targetBranch = indexes.branches.get(transition.targetBranchId);
+  if (!targetBranch?.headPosition) return session;
+  return freezeConstructionSession({
+    ...session,
+    transitionContext: Object.freeze({
+      ...transition,
+      targetBoundaryRole: 'HEAD',
+      boundaryPosition: Object.freeze({ ...targetBranch.headPosition }),
+      boundaryPositionBasis: 'CREF_TARGET_HPOS',
+    }),
   });
 }
 
-export function applyConstructionDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
-  const result = applyGatedConstructionDecision(session, evidenceModel, indexes, action, payload, options);
+function finalizeRuntimeResult(previousSession, result, indexes) {
+  const withBoundary = enrichPendingBranchBoundary(result.session, indexes);
   return Object.freeze({
     ...result,
-    session: enrichCommittedConnectionEvidence(session, result.session, indexes),
+    session: enrichCommittedConnectionEvidence(previousSession, withBoundary, indexes),
   });
+}
+
+export function advanceConstruction(session, evidenceModel, indexes, options = {}) {
+  return finalizeRuntimeResult(
+    session,
+    advanceGatedConstruction(session, evidenceModel, indexes, options),
+    indexes,
+  );
+}
+
+export function applyConstructionDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
+  return finalizeRuntimeResult(
+    session,
+    applyGatedConstructionDecision(session, evidenceModel, indexes, action, payload, options),
+    indexes,
+  );
 }
 
 export function runConstructionUntilBlocked(session, evidenceModel, indexes, options = {}, maxSteps = 10000) {
