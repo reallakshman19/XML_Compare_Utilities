@@ -55,9 +55,9 @@ assert.match(support, /buildValidatedSupportCarriers/);
 assert.match(support, /decorateTopologyWithSupportProjection/);
 
 const workspace = read('sequential-sketcher-workspace.js');
-const topologyAt = workspace.indexOf('buildBranchTopology');
-const traversalAt = workspace.indexOf('planSequentialTraversal');
-const supportAt = workspace.indexOf('buildSequentialSketcherSupportProjection');
+const topologyAt = workspace.indexOf('const pipingTopology = buildBranchTopology');
+const traversalAt = workspace.indexOf('const pipingTraversal = planSequentialTraversal');
+const supportAt = workspace.indexOf('model.supportBundle = buildSequentialSketcherSupportProjection');
 assert(topologyAt >= 0 && traversalAt > topologyAt && supportAt > traversalAt,
   'workspace must complete topology and pen traversal before support projection');
 
