@@ -25,12 +25,29 @@ function uniqueByPort(candidates) {
 function targetComponents(session, indexes) {
   const branch = indexes.branches.get(session.activeBranchId);
   if (!branch) return [];
-  if (session.transitionContext?.targetBranchId) {
-    const target = indexes.branches.get(session.transitionContext.targetBranchId);
+  const transition = session.transitionContext;
+  if (transition?.targetComponentId) {
+    const component = indexes.components.get(transition.targetComponentId);
+    return component ? [{
+      component,
+      sourceAdjacent: false,
+      referenceTarget: true,
+      targetPortRoles: transition.targetPortRoles || [],
+      targetKind: transition.targetKind || null,
+    }] : [];
+  }
+  if (transition?.targetBranchId) {
+    const target = indexes.branches.get(transition.targetBranchId);
     if (!target) return [];
     const first = target.components[0]; const last = target.components[target.components.length - 1];
     return [first, last].filter(Boolean).filter((component, index, rows) => rows.indexOf(component) === index)
-      .map((component) => ({ component, sourceAdjacent: false, referenceTarget: true }));
+      .map((component) => ({
+        component,
+        sourceAdjacent: false,
+        referenceTarget: true,
+        targetPortRoles: [],
+        targetKind: transition.targetKind || 'BRANCH',
+      }));
   }
   const remaining = branch.components.filter((component) => (
     component.sourceIndex > (session.activeSourceIndex ?? -1)
@@ -41,6 +58,8 @@ function targetComponents(session, indexes) {
     component,
     sourceAdjacent: component.componentId === expected?.componentId,
     referenceTarget: false,
+    targetPortRoles: [],
+    targetKind: null,
   }));
 }
 
@@ -56,6 +75,7 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
     const component = target.component;
     for (const port of component.ports) {
       if (!port.sourcePosition || component.componentId === activeComponent.componentId) continue;
+      if (target.targetPortRoles.length && !target.targetPortRoles.includes(port.role)) continue;
       const candidateId = `CAND-${stableToken(`${activePort.portId}|${port.portId}`)}`;
       if (rejected.has(candidateId)) continue;
       const gapMm = distance(activePort.sourcePosition, port.sourcePosition);
@@ -69,7 +89,10 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
       if (!sourceAdjacent && !referenceMatch && gapMm > candidateSearchRadiusMm) continue;
       const angle = directionAngleDeg(activePort, port);
       const bore = boreCompatibility(activePort, port, activeComponent, component);
-      const roleCompatible = port.role !== 'BRANCH_OUT' || Boolean(session.transitionContext?.junctionId);
+      const explicitRoleTarget = target.targetPortRoles.length > 0;
+      const roleCompatible = explicitRoleTarget
+        ? target.targetPortRoles.includes(port.role)
+        : port.role !== 'BRANCH_OUT' || Boolean(session.transitionContext?.junctionId);
       const directionCompatible = angle === null || angle <= Number(options.maxDirectionAngleDeg ?? 30);
       const boreCompatible = bore !== 'MISMATCH';
       candidates.push(Object.freeze({
@@ -81,6 +104,8 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         targetComponentId: component.componentId,
         targetSourceComponentId: component.sourceComponentId,
         targetBranchId: component.branchId,
+        targetPortRole: port.role,
+        targetKind: target.targetKind,
         gapMm,
         directionAngleDeg: angle,
         boreCompatibility: bore,
