@@ -1,3 +1,9 @@
+import {
+  IDENTITY_MATRIX_4X4,
+  composeWorldMatrix,
+  resolveNodeTransform,
+} from './support-steel-world-matrix.js';
+
 const CHILD_KEYS = Object.freeze([
   'children', 'items', 'nodes', 'members', 'components',
   'branches', 'groups', 'records', 'elements', 'objects',
@@ -17,13 +23,14 @@ export function parseSupportSteelJson(value, label = 'JSON input') {
 export function walkSupportSteelHierarchy(source) {
   const roots = Array.isArray(source) ? source : source?.objects || [source];
   const rows = [];
-  walkNodes(roots, [], null, rows);
+  walkNodes(roots, [], null, rows, IDENTITY_MATRIX_4X4);
   return rows;
 }
 
 export function parsePoint(value) {
   if (!value) return null;
-  if (typeof value === 'object' && !Array.isArray(value)) return pointFromObject(value);
+  if (Array.isArray(value)) return pointFromArray(value);
+  if (typeof value === 'object') return pointFromObject(value);
   if (typeof value === 'string') return pointFromString(value);
   return null;
 }
@@ -91,7 +98,7 @@ export function byId(key) {
   return (left, right) => String(left[key]).localeCompare(String(right[key]));
 }
 
-function walkNodes(nodes, path, inheritedOwner, rows) {
+function walkNodes(nodes, path, inheritedOwner, rows, parentWorldMatrix) {
   const list = Array.isArray(nodes) ? nodes : [nodes];
   list.forEach((node, index) => {
     if (!node || typeof node !== 'object' || Array.isArray(node)) return;
@@ -99,12 +106,31 @@ function walkNodes(nodes, path, inheritedOwner, rows) {
     const identity = sourceIdentity(node, attrs);
     const owner = cleanText(attrs.OWNER || inheritedOwner);
     const currentPath = [...path, index];
-    rows.push({ node, path: currentPath, owner, identity });
+    const transform = resolveNodeTransform(node, attrs);
+    const worldMatrix = composeWorldMatrix(parentWorldMatrix, transform);
+    rows.push({
+      node,
+      path: currentPath,
+      owner,
+      identity,
+      localMatrix: [...transform.matrix],
+      worldMatrix,
+      transformScope: transform.scope,
+      transformBasis: transform.basis,
+    });
     for (const key of CHILD_KEYS) {
       const children = node[key];
-      if (children) walkNodes(children, [...currentPath, key], identity || owner, rows);
+      if (children) walkNodes(children, [...currentPath, key], identity || owner, rows, worldMatrix);
     }
   });
+}
+
+function pointFromArray(value) {
+  if (value.length < 3) return null;
+  const x = numberValue(value[0]);
+  const y = numberValue(value[1]);
+  const z = numberValue(value[2]);
+  return x === null || y === null || z === null ? null : { x, y, z };
 }
 
 function pointFromObject(value) {
@@ -122,7 +148,9 @@ function pointFromString(value) {
   for (let index = 0; index < tokens.length - 1; index += 2) {
     applyAxisToken(result, tokens[index], numberValue(tokens[index + 1]));
   }
-  return result.x === undefined || result.y === undefined || result.z === undefined ? null : result;
+  if (result.x !== undefined && result.y !== undefined && result.z !== undefined) return result;
+  const numbers = String(value).match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/gu)?.map(numberValue).filter((item) => item !== null) || [];
+  return numbers.length >= 3 ? { x: numbers[0], y: numbers[1], z: numbers[2] } : null;
 }
 
 function applyAxisToken(result, rawAxis, number) {
