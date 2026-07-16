@@ -9,6 +9,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
       - 'tests/sequential-attachment-event.test.js'
@@ -27,6 +28,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
       - 'tests/sequential-attachment-event.test.js'
@@ -69,6 +71,8 @@ jobs:
         run: node tests/sequential-sketcher-1885-nc-support-regression.mjs
       - name: Pinned B2 junction sequence probe
         run: node tests/sequential-sketcher-1885-nc-b2-probe.mjs
+      - name: Pinned B2 component evidence
+        run: node tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs
       - name: Publish 1885 NC probe
         if: always()
         uses: actions/upload-artifact@v4
