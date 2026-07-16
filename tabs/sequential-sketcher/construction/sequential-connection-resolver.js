@@ -137,6 +137,7 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         : port.role !== 'BRANCH_OUT' || Boolean(session.transitionContext?.junctionId);
       const directionCompatible = angle === null || angle <= Number(options.maxDirectionAngleDeg ?? 30);
       const boreCompatible = bore !== 'MISMATCH';
+      const attachmentEvent = component.canonicalType === 'OLET' && port.role === 'HOST_ATTACHMENT';
       candidates.push(Object.freeze({
         candidateId,
         fromPortId: activePort.portId,
@@ -153,6 +154,8 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         targetBranchId: component.branchId,
         targetPortRole: port.role,
         targetKind: target.targetKind,
+        targetComponentType: component.canonicalType,
+        attachmentEvent,
         gapMm,
         directionAngleDeg: angle,
         boreCompatibility: bore,
@@ -178,6 +181,40 @@ export function resolveNextConnection(session, evidenceModel, indexes, options =
   const autoRepairToleranceMm = Number(options.autoRepairToleranceMm ?? 25);
   const candidates = buildConnectionCandidates(session, evidenceModel, indexes, options);
   const eligible = candidates.filter((candidate) => candidate.eligible);
+
+  const sourceAdjacentAttachmentEvents = eligible.filter((candidate) => candidate.sourceAdjacent && candidate.attachmentEvent);
+  if (sourceAdjacentAttachmentEvents.length > 1) {
+    return Object.freeze({
+      status: 'USER_DECISION_REQUIRED',
+      reason: 'MULTIPLE_SOURCE_ADJACENT_ATTACHMENT_EVENTS',
+      candidates,
+    });
+  }
+  if (sourceAdjacentAttachmentEvents.length === 1) {
+    const event = sourceAdjacentAttachmentEvents[0];
+    if (event.gapMm <= exactToleranceMm) {
+      return Object.freeze({
+        status: 'CONFIRMED_EXACT',
+        selected: event,
+        candidates,
+        resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
+      });
+    }
+    if (event.gapMm <= autoRepairToleranceMm && event.directionCompatible) {
+      return Object.freeze({
+        status: 'AUTO_REPAIRED_SMALL_GAP',
+        selected: event,
+        candidates,
+        resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
+      });
+    }
+    return Object.freeze({
+      status: 'USER_DECISION_REQUIRED',
+      reason: 'ATTACHMENT_EVENT_GAP_EXCEEDS_LIMIT',
+      candidates,
+    });
+  }
+
   const exact = eligible.filter((candidate) => candidate.gapMm <= exactToleranceMm);
   if (exact.length === 1) return Object.freeze({ status: exact[0].referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT', selected: exact[0], candidates });
   if (exact.length > 1) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_EXACT_CANDIDATES', candidates });
