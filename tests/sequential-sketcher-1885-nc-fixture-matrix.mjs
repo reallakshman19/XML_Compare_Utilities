@@ -13,6 +13,8 @@ import { resolveSequentialReference } from '../tabs/sequential-sketcher/source/s
 const SOURCE_COMMIT = 'd5fda9c95fda9bba9b6b05171628ba16778a7667';
 const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/${SOURCE_COMMIT}/Benchmarks/1885_NC/1885_NC.json`;
 const REPORT_PATH = 'artifacts/sequential-sketcher/1885-nc-fixture-matrix.json';
+const EXPECTED_S_LINE_KEYS = Object.freeze(['S8810101', 'S8810103', 'S8810111', 'S8810112', 'S8811951']);
+const EXPECTED_S_BRANCH_COUNT = 21;
 const ENGINE_OPTIONS = Object.freeze({
   exactToleranceMm: 1,
   autoRepairToleranceMm: 25,
@@ -22,7 +24,6 @@ const MAX_STEPS_PER_ROOT = 1200;
 const TWO_PORT_TYPES = new Set(['PIPE', 'ELBOW', 'REDUCER', 'VALVE', 'FLANGE', 'GASKET', 'INSTRUMENT', 'COUPLING', 'UNION']);
 
 function text(value) { return String(value ?? '').trim(); }
-function branchId(record) { return text(record?.attributes?.NAME || record?.name); }
 function samePoint(left, right) {
   return Boolean(left && right && left.x === right.x && left.y === right.y && left.z === right.z);
 }
@@ -92,6 +93,33 @@ function representative(rows, featureSelector, limit = 12) {
       shadowCarrierCount: row.shadowCarrierCount,
       referenceIssueCount: row.referenceIssues.length,
     }));
+}
+function featureCounts(rows) {
+  return {
+    teeBranches: rows.filter((row) => row.teeCount > 0).length,
+    reducerBranches: rows.filter((row) => row.reducerCount > 0).length,
+    oletBranches: rows.filter((row) => row.oletCount > 0).length,
+    zeroLengthBranches: rows.filter((row) => row.zeroLengthComponents.length > 0).length,
+    explicitClosureBranches: rows.filter((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)).length,
+    unexplainedTerminalBranches: rows.filter((row) => row.blockedDecision?.reason === 'UNEXPLAINED_TERMINAL').length,
+    unresolvedReferenceBranches: rows.filter((row) => row.referenceIssues.length > 0).length,
+    shadowCarrierBranches: rows.filter((row) => row.shadowCarrierCount > 0).length,
+    routeCompleteBranches: rows.filter((row) => row.state === 'ROUTE_COMPLETE').length,
+    blockedBranches: rows.filter((row) => row.state === 'USER_DECISION_REQUIRED').length,
+    failedBranches: rows.filter((row) => row.state === 'FAILED').length,
+  };
+}
+function representatives(rows) {
+  return {
+    tee: representative(rows, (row) => row.teeCount > 0),
+    reducer: representative(rows, (row) => row.reducerCount > 0),
+    zeroLength: representative(rows, (row) => row.zeroLengthComponents.length > 0),
+    explicitClosure: representative(rows, (row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)),
+    unexplainedTerminal: representative(rows, (row) => row.blockedDecision?.reason === 'UNEXPLAINED_TERMINAL'),
+    referenceIssue: representative(rows, (row) => row.referenceIssues.length > 0),
+    blocked: representative(rows, (row) => row.state === 'USER_DECISION_REQUIRED'),
+    routeComplete: representative(rows, (row) => row.state === 'ROUTE_COMPLETE'),
+  };
 }
 
 const response = await fetch(SOURCE_URL, { headers: { 'user-agent': 'sequential-sketcher-fixture-matrix' } });
@@ -168,11 +196,14 @@ for (const branch of evidence.branches) {
 }
 
 const sourceUnchanged = JSON.stringify(records) === immutableSnapshot;
-const featurePresence = {
+const sScopeRows = branchRows.filter((row) => row.lineKey);
+const sLineKeys = [...new Set(sScopeRows.map((row) => row.lineKey))].sort();
+const fixtureFeaturePresence = {
   tee: branchRows.some((row) => row.teeCount > 0),
   reducer: branchRows.some((row) => row.reducerCount > 0),
   zeroLength: branchRows.some((row) => row.zeroLengthComponents.length > 0),
-  explicitTerminal: branchRows.some((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)),
+  explicitClosure: branchRows.some((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)),
+  unexplainedTerminal: branchRows.some((row) => row.blockedDecision?.reason === 'UNEXPLAINED_TERMINAL'),
 };
 const report = {
   schema: 'Sequential1885NcFixtureMatrix.v1',
@@ -186,31 +217,21 @@ const report = {
   blockedReasonCounts: countBy(branchRows.filter((row) => row.blockedDecision), (row) => row.blockedDecision.reason),
   componentTypeCounts: countBy(evidence.components, (component) => component.canonicalType),
   referenceStatusCounts: countBy(branchRows.flatMap((row) => row.referenceAudit), (row) => `${row.status}:${row.kind}`),
-  featureCounts: {
-    teeBranches: branchRows.filter((row) => row.teeCount > 0).length,
-    reducerBranches: branchRows.filter((row) => row.reducerCount > 0).length,
-    oletBranches: branchRows.filter((row) => row.oletCount > 0).length,
-    zeroLengthBranches: branchRows.filter((row) => row.zeroLengthComponents.length > 0).length,
-    explicitTerminalBranches: branchRows.filter((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)).length,
-    unresolvedReferenceBranches: branchRows.filter((row) => row.referenceIssues.length > 0).length,
-    shadowCarrierBranches: branchRows.filter((row) => row.shadowCarrierCount > 0).length,
-    routeCompleteBranches: branchRows.filter((row) => row.state === 'ROUTE_COMPLETE').length,
-    blockedBranches: branchRows.filter((row) => row.state === 'USER_DECISION_REQUIRED').length,
-    failedBranches: branchRows.filter((row) => row.state === 'FAILED').length,
-  },
+  featureCounts: featureCounts(branchRows),
   validation: {
     sourceUnchanged,
     runtimeErrorCount: runtimeErrors.length,
-    featurePresence,
+    fixtureFeaturePresence,
   },
-  representatives: {
-    tee: representative(branchRows, (row) => row.teeCount > 0),
-    reducer: representative(branchRows, (row) => row.reducerCount > 0),
-    zeroLength: representative(branchRows, (row) => row.zeroLengthComponents.length > 0),
-    explicitTerminal: representative(branchRows, (row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)),
-    referenceIssue: representative(branchRows, (row) => row.referenceIssues.length > 0),
-    blocked: representative(branchRows, (row) => row.state === 'USER_DECISION_REQUIRED'),
-    routeComplete: representative(branchRows, (row) => row.state === 'ROUTE_COMPLETE'),
+  representatives: representatives(branchRows),
+  sScope: {
+    lineKeys: sLineKeys,
+    branchCount: sScopeRows.length,
+    branchStateCounts: countBy(sScopeRows, (row) => row.state),
+    blockedReasonCounts: countBy(sScopeRows.filter((row) => row.blockedDecision), (row) => row.blockedDecision.reason),
+    featureCounts: featureCounts(sScopeRows),
+    representatives: representatives(sScopeRows),
+    branches: sScopeRows,
   },
   runtimeErrors,
   branches: branchRows,
@@ -226,12 +247,25 @@ console.log(JSON.stringify({
   featureCounts: report.featureCounts,
   branchStateCounts: report.branchStateCounts,
   blockedReasonCounts: report.blockedReasonCounts,
-  representatives: report.representatives,
+  sScope: {
+    lineKeys: report.sScope.lineKeys,
+    branchCount: report.sScope.branchCount,
+    branchStateCounts: report.sScope.branchStateCounts,
+    blockedReasonCounts: report.sScope.blockedReasonCounts,
+    featureCounts: report.sScope.featureCounts,
+    representatives: report.sScope.representatives,
+  },
 }, null, 2));
 
 assert.equal(sourceUnchanged, true, 'Fixture-wide matrix must not mutate source evidence');
 assert.equal(runtimeErrors.length, 0, 'Fixture-wide construction probes must not throw');
-assert.equal(featurePresence.tee, true, 'Fixture must contain at least one tee branch');
-assert.equal(featurePresence.reducer, true, 'Fixture must contain at least one reducer branch');
-assert.equal(featurePresence.zeroLength, true, 'Fixture must contain at least one zero-length inline fitting');
-assert.equal(featurePresence.explicitTerminal, true, 'Fixture must contain at least one explicit terminal branch');
+assert.equal(fixtureFeaturePresence.tee, true, 'Fixture must contain at least one tee branch');
+assert.equal(fixtureFeaturePresence.reducer, true, 'Fixture must contain at least one reducer branch');
+assert.equal(fixtureFeaturePresence.zeroLength, true, 'Fixture must contain at least one zero-length inline fitting');
+assert.equal(fixtureFeaturePresence.explicitClosure, false, 'Pinned fixture unexpectedly gained CAP/BLIND closure components');
+assert.equal(fixtureFeaturePresence.unexplainedTerminal, true, 'Fixture must retain fail-closed unexplained-terminal examples');
+assert.deepEqual(sLineKeys, EXPECTED_S_LINE_KEYS, 'Pinned S-line ownership set changed');
+assert.equal(sScopeRows.length, EXPECTED_S_BRANCH_COUNT, 'Pinned S-line branch count changed');
+assert.ok(sScopeRows.some((row) => row.state === 'ROUTE_COMPLETE'), 'S-line scope must retain at least one complete reference-connected route');
+assert.ok(sScopeRows.some((row) => row.blockedDecision?.reason === 'UNEXPLAINED_TERMINAL'), 'S-line scope must retain terminal-review cases');
+assert.ok(sScopeRows.some((row) => row.referenceIssues.length > 0), 'S-line scope must retain missing external-reference evidence');
