@@ -20,16 +20,30 @@ function assertUnique(values, label) {
     seen.add(value);
   }
 }
+function normalizedShadowCarrier(shadow) {
+  if (!shadow) return null;
+  return Object.freeze({
+    ...shadow,
+    ports: Object.freeze((shadow.ports || []).map((port) => Object.freeze({
+      ...port,
+      sourcePosition: clonePoint(port.sourcePosition),
+      resolvedPosition: clonePoint(port.resolvedPosition),
+      tangent: port.tangent ? Object.freeze({ ...port.tangent }) : null,
+    }))),
+  });
+}
 function confirmedComponent(component) {
   return Object.freeze({
     componentId: component.componentId,
     sourceComponentId: component.sourceComponentId,
+    sourceName: component.sourceName,
     branchId: component.branchId,
     sourceIndex: component.sourceIndex,
     canonicalType: component.canonicalType,
     sourceType: component.sourceType,
     attributes: component.attributes,
     geometry: component.geometry,
+    shadowCarrierEvidence: normalizedShadowCarrier(component.shadowCarrierEvidence),
     ports: Object.freeze(component.ports.map((port) => Object.freeze({
       portId: port.portId,
       role: port.role,
@@ -93,11 +107,12 @@ export function createConfirmedSequentialConstruction(session, indexes) {
   const branchIds = [...new Set(components.map((component) => component.branchId))];
   const evidenceForFingerprint = {
     rootBranchId: session.rootBranchId,
-    componentIds: components.map((component) => component.componentId),
+    componentIds: components.map((component) => [component.componentId, component.shadowCarrierEvidence?.componentId || null]),
     connections: connections.map((connection) => [connection.connectionId, connection.fromPortId, connection.toPortId, connection.status, connection.resolvedGapMm]),
     repairs: repairs.map((repair) => [repair.repairId, repair.connectionId, repair.gapMm, repair.approvedBy]),
     strokes: session.strokeLedger.map((stroke) => [stroke.op, stroke.componentId || stroke.connectionId || stroke.branchId || '']),
   };
+  const shadowCarrierCount = components.filter((component) => component.shadowCarrierEvidence).length;
 
   return Object.freeze({
     schema: 'ConfirmedSequentialConstruction.v1',
@@ -117,6 +132,7 @@ export function createConfirmedSequentialConstruction(session, indexes) {
     }),
     audit: Object.freeze({
       confirmedComponentCount: components.length,
+      shadowCarrierCount,
       committedConnectionCount: connections.length,
       repairCount: repairs.length,
       branchCount: branchIds.length,
