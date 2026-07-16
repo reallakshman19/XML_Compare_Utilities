@@ -11,56 +11,43 @@ const audit = createPsFamilyClashAuditFromTextInputs({
   config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
 const allExports = createPsFamilyAuditExports(audit);
-
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(shell.includes('Export Active Report'));
+
+assert.ok(shell.includes('Export Active Report CSV'));
 assert.ok(shell.includes('data-psfa="export-active"'));
-assert.ok(shell.includes('Support Group Summary CSV'));
-assert.ok(shell.includes('Line Tree TXT'));
-assert.ok(shell.includes('Structure Group Basis CSV'));
-assert.ok(shell.includes('Clash Audit Outcome CSV'));
-assert.ok(shell.includes('Input Evidence CSV'));
-assert.ok(shell.includes('Audit JSON'));
-assert.ok(!shell.includes('StructureGroup Contacts CSV'));
-assert.ok(!shell.includes('Support Chain CSV'));
-assert.ok(!shell.includes('Connectivity Matrix CSV'));
-assert.ok(!shell.includes('Clash Rows CSV'));
+assert.ok(shell.includes('Export current report as CSV'));
+assert.ok(shell.includes('data-psfa="report-export-csv"'));
 
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   const active = createPsFamilyActiveReportExport(audit, tab.key);
   const mapping = PS_FAMILY_ACTIVE_EXPORTS[tab.key];
-  assert.ok(mapping, `${tab.key} must be exportable from the structured report workspace`);
+  assert.ok(mapping, `${tab.key} must be exportable from the report workspace`);
   assert.equal(active.activeTab, tab.key);
   assert.equal(active.exportKey, mapping.exportKey);
+  assert.equal(active.mime, 'text/csv');
   assert.equal(active.text, allExports[mapping.exportKey]);
 }
 
 const summary = createPsFamilyActiveReportExport(audit, 'supportSummary');
 assert.equal(summary.suffix, 'supportgroup-summary');
-assert.equal(summary.mime, 'text/csv');
 assert.match(summary.text, /S8810011_PS-14396/);
 
 const lineTree = createPsFamilyActiveReportExport(audit, 'lineSupportTree');
-assert.equal(lineTree.suffix, 'line-support-tree');
-assert.equal(lineTree.mime, 'text/plain');
+assert.equal(lineTree.suffix, 'line-tree');
+assert.match(lineTree.text, /^Line,LineFamily,BranchNode,SupportGroup,Tree/m);
 assert.match(lineTree.text, /SupportGroup: S8810011_PS-14396/);
 
 const structureTree = createPsFamilyActiveReportExport(audit, 'structureTree');
 assert.equal(structureTree.suffix, 'structure-tree');
-assert.equal(structureTree.mime, 'text/plain');
-assert.match(structureTree.text, /StructureGroup:/);
-assert.match(structureTree.text, /RepresentativeSupport:/);
+assert.match(structureTree.text, /^StructureGroup,StructureNames,Line,LineFamily,BranchNode,SupportGroup,RepresentativeSupport,NearbySupports,StructurePath/m);
+assert.match(structureTree.text, /S8810011_PS-14396/);
 
 const proximity = createPsFamilyActiveReportExport(audit, 'structureLineProximity');
-assert.equal(proximity.suffix, 'structure-line-proximity');
-assert.equal(proximity.mime, 'text/csv');
 assert.match(proximity.text, /TotalSupportCount/);
 
 const evidence = createPsFamilyActiveReportExport(audit, 'inputEvidence');
 assert.match(evidence.text, /Clash603/);
 assert.match(evidence.text, /Clash1429/);
 
-const unknown = createPsFamilyActiveReportExport(audit, 'unknown-tab');
-assert.equal(unknown, null);
-
+assert.equal(createPsFamilyActiveReportExport(audit, 'unknown-tab'), null);
 console.log('ps-family-active-report-export tests passed');
