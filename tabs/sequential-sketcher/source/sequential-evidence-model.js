@@ -42,6 +42,7 @@ function makePort(componentId, branchId, role, sourcePosition, sourceIndex, extr
     resolvedPosition: null,
     tangent: extra.tangent || null,
     boreMm: extra.boreMm ?? null,
+    boreStatus: Number.isFinite(extra.boreMm) ? 'SOURCE_EXPLICIT' : 'UNRESOLVED',
     referenceTarget: text(extra.referenceTarget),
     connectionStatus: 'UNRESOLVED',
   });
@@ -55,6 +56,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
   const inletBore = readBore(attrs, ['INLET_BORE', 'INLETBORE', 'LARGE_BORE', 'LARGEBORE', 'OD1', 'BORE1', 'NPD1', 'ABORE']);
   const outletBore = readBore(attrs, ['OUTLET_BORE', 'OUTLETBORE', 'SMALL_BORE', 'SMALLBORE', 'OD2', 'BORE2', 'NPD2', 'LBORE']);
   const commonBore = readBore(attrs, ['BORE', 'NOMINAL_BORE', 'NOMINALBORE', 'OUTSIDE_DIAMETER', 'OUTSIDEDIAMETER', 'OD', 'NPD', 'ABORE', 'LBORE', 'HBOR', 'TBOR']);
+  const branchBore = readBore(attrs, ['BRANCH_BORE', 'BRANCHBORE', 'BBORE', 'CBORE', 'OD3', 'BORE3', 'NPD3']);
   const cref = text(attrs.CREF);
 
   if (TWO_PORT_TYPES.has(canonicalType)) {
@@ -82,7 +84,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       }),
       makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
-        boreMm: readBore(attrs, ['BRANCH_BORE', 'BRANCHBORE', 'OD3', 'BORE3', 'NPD3']) ?? commonBore,
+        boreMm: branchBore,
         referenceTarget: cref,
       }),
     ];
@@ -93,7 +95,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       makePort(componentId, branchId, 'HOST_ATTACHMENT', centre || apos, sourceIndex, { boreMm: inletBore ?? commonBore }),
       makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
-        boreMm: outletBore ?? commonBore,
+        boreMm: branchBore,
         referenceTarget: cref,
       }),
     ];
