@@ -76,10 +76,18 @@ assert.match(evidence, /identicalSpan/);
 assert.match(evidence, /shadowCarrierCount/);
 assert.doesNotMatch(evidence, /samePoint|toleranceMm/, 'source evidence must not merge coordinates');
 
+const referenceResolver = read('source/sequential-reference-resolver.js');
+assert.match(referenceResolver, /JUNCTION_COMPONENT/);
+assert.match(referenceResolver, /INLINE_COMPONENT/);
+assert.match(referenceResolver, /AMBIGUOUS/);
+assert.match(referenceResolver, /componentReferences/);
+
 const engine = read('construction/sequential-construction-engine.js');
 assert.match(engine, /USER_DECISION_REQUIRED/);
 assert.match(engine, /RETURN_TO_JUNCTION/);
 assert.match(engine, /ENTER_BRANCH/);
+assert.match(engine, /REFERENCE_TARGET_MISSING/);
+assert.match(engine, /REFERENCE_TARGET_AMBIGUOUS/);
 assert.doesNotMatch(engine, /DISCONNECTED_FRAGMENT|unvisited|options\[0\]/,
   'construction authority must not continue through arbitrary or disconnected graph sections');
 
@@ -135,6 +143,15 @@ assert.match(resolver, /sourceAdjacent/);
 assert.match(resolver, /referenceMatch/);
 assert.match(resolver, /derivedBranchLegLengthMm/);
 assert.match(resolver, /SOURCE_ADJACENT_ATTACHMENT_EVENT/);
+assert.match(resolver, /SOURCE_ADJACENT_ZERO_LENGTH_ENTRY_ROLE/);
+assert.match(resolver, /ZERO_LENGTH_INLINE_PORT_EVIDENCE_INCOMPLETE/);
+assert.match(resolver, /ZERO_LENGTH_INLINE_ENTRY_ROLE_UNRESOLVED/);
+
+const terminalClassifier = read('construction/sequential-terminal-classifier.js');
+assert.match(terminalClassifier, /CONFIRMED_TERMINAL/);
+assert.match(terminalClassifier, /EXPECTED_CONTINUATION/);
+assert.match(terminalClassifier, /UNEXPLAINED_TERMINAL/);
+assert.match(terminalClassifier, /NO_CLOSURE_OR_DECLARED_BOUNDARY/);
 
 const strokes = read('stroke/sequential-component-stroke-compiler.js');
 for (const operation of [
