@@ -2,6 +2,8 @@ import { buildBranchInventory } from '../sequential-sketcher-source.js';
 import { buildPipeSupportProjectionBundle } from './sj-pipe-support-projection.js';
 
 function clonePoint(point) { return point ? { x: point.x, y: point.y, z: point.z } : null; }
+function cleanText(value) { return String(value ?? '').trim(); }
+function uniqueText(values) { return [...new Set(values.map(cleanText).filter(Boolean))]; }
 function strokeByComponent(confirmed) {
   const rows = new Map();
   for (const stroke of confirmed.strokeLedger) {
@@ -28,6 +30,21 @@ function fittingPorts(component) {
     boreMm: port.boreMm,
   }));
 }
+function carrierReferences(component) {
+  const shadow = component.shadowCarrierEvidence;
+  return uniqueText([
+    component.componentId,
+    component.sourceComponentId,
+    component.sourceName,
+    component.attributes?.NAME,
+    component.attributes?.REF,
+    shadow?.componentId,
+    shadow?.sourceComponentId,
+    shadow?.sourceName,
+    shadow?.attributes?.NAME,
+    shadow?.attributes?.REF,
+  ]);
+}
 function carrierFromComponent(component, stroke) {
   const entryPosition = clonePoint(stroke?.entryPosition || stroke?.hostPosition);
   const exitPosition = clonePoint(stroke?.exitPosition || stroke?.branchPosition);
@@ -41,15 +58,20 @@ function carrierFromComponent(component, stroke) {
     ),
   } : null;
   const ports = fittingPorts(component);
+  const shadow = component.shadowCarrierEvidence;
   return {
     carrierId: component.componentId,
     sourceRef: component.sourceComponentId,
     ref: component.sourceComponentId,
     name: component.sourceComponentId,
+    references: carrierReferences(component),
     carrierType: component.canonicalType,
     sourceBranchId: component.branchId,
-    sourceSequenceIndex: component.sourceIndex,
+    sourceSequenceIndex: shadow
+      ? Math.min(component.sourceIndex, shadow.sourceIndex)
+      : component.sourceIndex,
     attributes: component.attributes,
+    shadowCarrierEvidence: shadow || null,
     traversal: traversalFor(component, stroke),
     centerline,
     ports,
@@ -109,6 +131,7 @@ export function buildConfirmedConstructionSupportProjection(confirmed, indexes, 
       branchBundleCount: branchBundles.length,
       supportGlyphCount: branchBundles.reduce((sum, bundle) => sum + bundle.supportGlyphs.length, 0),
       unresolvedSupportFamilyCount: branchBundles.reduce((sum, bundle) => sum + bundle.unresolvedSupportFamilies.length, 0),
+      shadowCarrierCount: confirmed.audit?.shadowCarrierCount || 0,
       constructionMutated: false,
     }),
   });
