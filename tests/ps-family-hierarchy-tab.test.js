@@ -14,12 +14,12 @@ const audit = createPsFamilyClashAuditFromTextInputs({
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => tab.key === 'lineSupportTree'));
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => tab.key === 'structureTree'));
-assert.ok(shell.includes('Line Support Tree'));
-assert.ok(shell.includes('Structure Evidence Tree'));
-assert.ok(shell.includes('Support Group Summary'));
+assert.ok(shell.includes('Line Tree'));
+assert.ok(shell.includes('Structure Tree'));
+assert.ok(shell.includes('SupportGroup Summary'));
 
 const lineTree = renderPsFamilyReports(audit, 'lineSupportTree', PS_FAMILY_CLASH_AUDIT_CONFIG, '', 'lineTree');
-assert.ok(lineTree.includes('Line Support Tree'));
+assert.ok(lineTree.includes('Line Tree'));
 assert.ok(lineTree.includes('S8810011_PS-14396'));
 assert.ok(lineTree.includes('StructuralGroup'));
 assert.ok(lineTree.includes('PS-14396.4'));
@@ -31,7 +31,7 @@ assert.ok(filteredLineTree.includes('Showing 1 of 1 matched rows from 1 total ro
 assert.ok(filteredLineTree.includes('S8810011_PS-14396'));
 
 const structureTree = renderPsFamilyReports(audit, 'structureTree', PS_FAMILY_CLASH_AUDIT_CONFIG, '', 'structureTree');
-assert.ok(structureTree.includes('Structure Evidence Tree'));
+assert.ok(structureTree.includes('Structure Tree'));
 assert.ok(structureTree.includes('Structure Path'));
 assert.ok(structureTree.includes('S8810011_PS-14396'));
 assert.ok(structureTree.includes('role="region"'));
