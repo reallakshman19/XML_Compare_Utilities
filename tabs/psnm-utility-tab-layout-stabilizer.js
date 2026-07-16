@@ -7,6 +7,7 @@ const LAUNCHER_SELECTORS = Object.freeze([
   '[data-p3d-open="1"]',
   '[data-ixw-open="1"]',
   '[data-nti-open="1"]',
+  '[data-ssrb-open="1"]',
   '[data-ttv-open="1"]',
 ]);
 
@@ -40,7 +41,7 @@ function launcherChildNodes(root) {
   for (const selector of LAUNCHER_SELECTORS) {
     for (const button of root.querySelectorAll(selector)) {
       if (button.closest('[data-psnm-utility-launcher-deck]')) continue;
-      if (button.closest('[role="dialog"], [data-psmap-modal], .ps-family-clash-audit-backdrop')) continue;
+      if (button.closest('[role="dialog"], [data-psmap-modal], .ps-family-clash-audit-backdrop, .ssrb-backdrop')) continue;
       const child = directChildOf(root, button);
       if (child && !result.includes(child)) result.push(child);
     }
