@@ -15,6 +15,18 @@ export const FITTING_LOCATION_TYPES = Object.freeze([
   'INLET_PORT', 'OUTLET_PORT', 'BRANCH_PORT', 'COMPONENT_CENTRE',
   'ARC_STATION', 'AXIAL_STATION', 'SURFACE_ATTACHMENT',
 ]);
+export const FITTING_LOCATION_TYPE = Object.freeze(Object.fromEntries(
+  FITTING_LOCATION_TYPES.map((value) => [value, value]),
+));
+export const POSITION_STATUS = Object.freeze({
+  ON_CENTERLINE: 'ON_CENTERLINE',
+  PROJECTED_TO_CENTERLINE: 'PROJECTED_TO_CENTERLINE',
+  ATTACHED_TO_COMPONENT_PORT: 'ATTACHED_TO_COMPONENT_PORT',
+  ATTACHED_TO_FITTING: 'ATTACHED_TO_FITTING',
+  AMBIGUOUS_CARRIER: 'AMBIGUOUS_CARRIER',
+  OUTSIDE_PROJECTION_TOLERANCE: 'OUTSIDE_PROJECTION_TOLERANCE',
+  UNRESOLVED: 'UNRESOLVED',
+});
 const FITTING_LOCATION_TYPE_SET = new Set(FITTING_LOCATION_TYPES);
 const AXIAL_FITTING_TYPES = new Set(['REDU', 'REDUCER', 'VALV', 'VALVE', 'FLAN', 'FLANGE', 'GASK', 'GASKET', 'INST', 'INSTRUMENT']);
 const DEFAULT_PLANT_UP = Object.freeze({ x: 0, y: 0, z: 1 });
@@ -42,11 +54,11 @@ export function projectPointToStraightCarrier(point, carrier, options = {}) {
   const projectionToleranceMm = positiveNumber(options.projectionToleranceMm, 50);
   const onCenterlineToleranceMm = nonNegativeNumber(options.onCenterlineToleranceMm, 0.001);
 
-  let positionStatus = 'OUTSIDE_PROJECTION_TOLERANCE';
+  let positionStatus = POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE;
   if (radialDistanceMm <= onCenterlineToleranceMm && rawFraction >= -1e-9 && rawFraction <= 1 + 1e-9) {
-    positionStatus = 'ON_CENTERLINE';
+    positionStatus = POSITION_STATUS.ON_CENTERLINE;
   } else if (radialDistanceMm <= projectionToleranceMm) {
-    positionStatus = 'PROJECTED_TO_CENTERLINE';
+    positionStatus = POSITION_STATUS.PROJECTED_TO_CENTERLINE;
   }
 
   return {
@@ -75,7 +87,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
   for (const port of normalizePorts(carrier)) {
     const portPoint = parsePoint(port.point || port.position || port.centerlinePointGlobal);
     if (!portPoint) continue;
-    const locationType = normalizeFittingLocationType(port.locationType || port.type || port.role, 'SURFACE_ATTACHMENT');
+    const locationType = normalizeFittingLocationType(port.locationType || port.type || port.role, FITTING_LOCATION_TYPE.SURFACE_ATTACHMENT);
     const tangent = normalizeVector(parsePoint(port.tangent || port.axis || port.direction))
       || tangentFromCentreToPoint(geometry.componentCentre, portPoint);
     candidates.push({
@@ -104,7 +116,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
     tangent: normalizeVector(parsePoint(geometry.tangent || carrier.tangent))
       || tangentFromCenterline(carrier.centerline),
     fittingLocation: {
-      locationType: 'COMPONENT_CENTRE',
+      locationType: FITTING_LOCATION_TYPE.COMPONENT_CENTRE,
       nearestCenterlinePointGlobal: clonePoint(componentCentre),
     },
   });
@@ -118,7 +130,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
       tangent: normalizeVector(parsePoint(surface.tangent || surface.axis || surface.direction))
         || tangentFromCenterline(carrier.centerline),
       fittingLocation: {
-        locationType: 'SURFACE_ATTACHMENT',
+        locationType: FITTING_LOCATION_TYPE.SURFACE_ATTACHMENT,
         nearestCenterlinePointGlobal: clonePoint(surfacePoint),
         surfaceId: cleanText(surface.surfaceId || surface.id || surface.name) || null,
       },
@@ -136,7 +148,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
 
   return {
     projectionKind: 'FITTING_LOCATION',
-    positionStatus: portAttachment ? 'ATTACHED_TO_COMPONENT_PORT' : 'ATTACHED_TO_FITTING',
+    positionStatus: portAttachment ? POSITION_STATUS.ATTACHED_TO_COMPONENT_PORT : POSITION_STATUS.ATTACHED_TO_FITTING,
     distanceMm: selected.distanceMm,
     centerlinePointGlobal: clonePoint(selected.point),
     carrierStationMm: null,
@@ -208,7 +220,7 @@ function projectPointToArc(point, arc) {
     point: projected,
     tangent,
     fittingLocation: {
-      locationType: 'ARC_STATION',
+      locationType: FITTING_LOCATION_TYPE.ARC_STATION,
       arcFraction: fraction,
       nearestCenterlinePointGlobal: clonePoint(projected),
     },
@@ -230,7 +242,7 @@ function projectPointToAxis(point, axis) {
     point: projected,
     tangent: normalizeVector(vector),
     fittingLocation: {
-      locationType: 'AXIAL_STATION',
+      locationType: FITTING_LOCATION_TYPE.AXIAL_STATION,
       axialFraction: fraction,
       nearestCenterlinePointGlobal: clonePoint(projected),
     },
@@ -258,10 +270,15 @@ function normalizePorts(carrier) {
 function normalizeFittingLocationType(value, fallback) {
   const compact = cleanText(value).toUpperCase().replace(/[\s-]+/gu, '_');
   const aliases = {
-    INLET: 'INLET_PORT', OUTLET: 'OUTLET_PORT', BRANCH: 'BRANCH_PORT',
-    CENTRE: 'COMPONENT_CENTRE', CENTER: 'COMPONENT_CENTRE',
-    COMPONENT_CENTER: 'COMPONENT_CENTRE', ARC: 'ARC_STATION',
-    AXIS: 'AXIAL_STATION', SURFACE: 'SURFACE_ATTACHMENT',
+    INLET: FITTING_LOCATION_TYPE.INLET_PORT,
+    OUTLET: FITTING_LOCATION_TYPE.OUTLET_PORT,
+    BRANCH: FITTING_LOCATION_TYPE.BRANCH_PORT,
+    CENTRE: FITTING_LOCATION_TYPE.COMPONENT_CENTRE,
+    CENTER: FITTING_LOCATION_TYPE.COMPONENT_CENTRE,
+    COMPONENT_CENTER: FITTING_LOCATION_TYPE.COMPONENT_CENTRE,
+    ARC: FITTING_LOCATION_TYPE.ARC_STATION,
+    AXIS: FITTING_LOCATION_TYPE.AXIAL_STATION,
+    SURFACE: FITTING_LOCATION_TYPE.SURFACE_ATTACHMENT,
   };
   const resolved = aliases[compact] || compact;
   return FITTING_LOCATION_TYPE_SET.has(resolved) ? resolved : fallback;
