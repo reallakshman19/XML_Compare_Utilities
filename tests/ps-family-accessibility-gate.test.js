@@ -8,8 +8,10 @@ const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 
 function assertVisibleLabel(text) { assert.ok(`${launcher}${popup}${shell}`.includes(text), `Missing visible label: ${text}`); }
 
-assertVisibleLabel('PS / SL Family Clash Audit');
-assertVisibleLabel('Build SupportChangeXML line/support-group reports from two Navis clash XML inputs.');
+assertVisibleLabel('PS / SL Family Evidence Audit');
+assertVisibleLabel('Audit support families directly from the XML-free relationship evidence graph.');
+assertVisibleLabel('Relationship bundle — XML-free production mode');
+assertVisibleLabel('Legacy clash XML — validation mode');
 assertVisibleLabel('Close');
 assert.ok(launcher.includes('data-psfa-open="1"'));
 assert.ok(popup.includes('data-psfa-close="1"'));
@@ -19,6 +21,7 @@ for (const input of PS_FAMILY_CLASH_AUDIT_CONFIG.inputFiles) {
   assert.ok(shell.includes(`data-psfa-file="${input.key}"`));
 }
 
+for (const option of PS_FAMILY_CLASH_AUDIT_CONFIG.evidenceModes) assertVisibleLabel(option.label);
 for (const option of PS_FAMILY_CLASH_AUDIT_CONFIG.sourceSideOptions) assertVisibleLabel(option.label);
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   assertVisibleLabel(tab.label);
