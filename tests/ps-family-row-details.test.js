@@ -6,7 +6,8 @@ import { renderPsFamilyReports } from '../tabs/ps-family-clash-audit/ps-family-c
 const audit = {
   summary: { sourceFamily: 'PS-14396', supportGroupCount: 1, supportExceptionCount: 0, clashCount: 0 },
   supportSummaryRows: [{ no: 1, line: 'ASIM-1836-6"-S8810011-91261M7-HC-01', branchNode: 'ASIM-1836-6"-S8810011-91261M7-HC-01/B6', lineFamily: 'S8810011', psRoot: 'PS-14396', supportGroup: 'S8810011_PS-14396', supportMembers: ['PS-14396.4', 'PS-14396.8', 'PS-14396.9', 'PS-14396.10'], evidenceClashes: ['Clash4', 'Clash202', 'Clash603', 'Clash723', 'Clash1429'], status: 'OK' }],
-  lineSupportTreeRows: [{ supportGroup: 'S8810011_PS-14396', treeText: 'Line: ASIM-1836-6"-S8810011-91261M7-HC-01\n└─ Branch: ASIM-1836-6"-S8810011-91261M7-HC-01/B6\n   └─ SupportGroup: S8810011_PS-14396\n      ├─ StructuralGroup\n      │  └─ GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396\n      └─ Supports\n         ├─ PS-14396.4' }],
+  lineSupportTreeRows: [{ line: 'ASIM-1836-6"-S8810011-91261M7-HC-01', lineFamily: 'S8810011', branchNode: 'ASIM-1836-6"-S8810011-91261M7-HC-01/B6', supportGroup: 'S8810011_PS-14396', treeText: 'Line: ASIM-1836-6"-S8810011-91261M7-HC-01\n└─ Branch: ASIM-1836-6"-S8810011-91261M7-HC-01/B6\n   └─ SupportGroup: S8810011_PS-14396\n      ├─ StructuralGroup\n      │  └─ GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396\n      └─ Supports\n         ├─ PS-14396.4' }],
+  structureLineProximityRows: [{ structuralGroupRoot: 'PS-14396', structuralGroupNames: 'GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396', lineNo: 'ASIM-1836-6"-S8810011-91261M7-HC-01', lineFamily: 'S8810011', branchNode: 'ASIM-1836-6"-S8810011-91261M7-HC-01/B6', supportGroup: 'S8810011_PS-14396', representativeSupport: 'PS-14396.4', supportsWithin250mm: 'PS-14396.4; PS-14396.8' }],
   structureContactRows: [{ supportGroup: 'S8810011_PS-14396', structuralGroup: 'GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396', support: 'PS-14396.9', line: 'ASIM-1836-6"-S8810011-91261M7-HC-01', lineFamily: 'S8810011', branchNode: 'ASIM-1836-6"-S8810011-91261M7-HC-01/B6', contactClash: 'Clash603', distance: 0, point: { x: 1, y: 2, z: 3 } }],
   supportChainRows: [{ supportGroup: 'S8810011_PS-14396', supportA: 'PS-14396.4', supportB: 'PS-14396.8', line: 'ASIM-1836-6"-S8810011-91261M7-HC-01', lineFamily: 'S8810011', branchNode: 'ASIM-1836-6"-S8810011-91261M7-HC-01/B6', supportClash: 'Clash4', distance: -0.011, point: { x: 1, y: 2, z: 3 } }],
   supportMemberRows: [{ supportGroup: 'S8810011_PS-14396', representativeSupport: 'PS-14396.4', support: 'PS-14396.4', memberType: 'Support', connectedTo: ['PS-14396.8'], evidenceClashes: ['Clash4'], coverageRole: 'Representative', remarks: 'Representative support' }],
@@ -39,7 +40,10 @@ assert.ok(chain.includes('PS-14396.8'));
 
 const exports = createPsFamilyAuditExports(audit);
 assert.equal(createPsFamilyActiveReportExport(audit, 'supportSummary').text, exports.supportSummaryCsv);
-assert.equal(createPsFamilyActiveReportExport(audit, 'lineSupportTree').text, exports.lineSupportTreeText);
+assert.equal(createPsFamilyActiveReportExport(audit, 'lineSupportTree').text, exports.lineSupportTreeCsv);
+assert.equal(createPsFamilyActiveReportExport(audit, 'structureTree').text, exports.structureTreeCsv);
+assert.match(exports.lineSupportTreeCsv, /^Line,LineFamily,BranchNode,SupportGroup,Tree/m);
+assert.match(exports.structureTreeCsv, /^StructureGroup,StructureNames,Line,LineFamily,BranchNode,SupportGroup,RepresentativeSupport,NearbySupports,StructurePath/m);
 assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
 assert.match(exports.supportChainCsv, /PS-14396\.8/);
 
