@@ -29,7 +29,8 @@ export function walkSupportSteelHierarchy(source) {
 
 export function parsePoint(value) {
   if (!value) return null;
-  if (typeof value === 'object' && !Array.isArray(value)) return pointFromObject(value);
+  if (Array.isArray(value)) return pointFromArray(value);
+  if (typeof value === 'object') return pointFromObject(value);
   if (typeof value === 'string') return pointFromString(value);
   return null;
 }
@@ -156,6 +157,14 @@ function ancestorContext(identity, type, owner, attrs) {
   };
 }
 
+function pointFromArray(value) {
+  if (value.length < 3) return null;
+  const x = numberValue(value[0]);
+  const y = numberValue(value[1]);
+  const z = numberValue(value[2]);
+  return x === null || y === null || z === null ? null : { x, y, z };
+}
+
 function pointFromObject(value) {
   const x = numberValue(value.x ?? value.X ?? value.E ?? value.east ?? value.easting);
   const north = numberValue(value.y ?? value.Y ?? value.N ?? value.north ?? value.northing);
@@ -171,7 +180,12 @@ function pointFromString(value) {
   for (let index = 0; index < tokens.length - 1; index += 2) {
     applyAxisToken(result, tokens[index], numberValue(tokens[index + 1]));
   }
-  return result.x === undefined || result.y === undefined || result.z === undefined ? null : result;
+  if (result.x !== undefined && result.y !== undefined && result.z !== undefined) return result;
+  const numbers = String(value)
+    .match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/gu)
+    ?.map(numberValue)
+    .filter((item) => item !== null) || [];
+  return numbers.length >= 3 ? { x: numbers[0], y: numbers[1], z: numbers[2] } : null;
 }
 
 function applyAxisToken(result, rawAxis, number) {
