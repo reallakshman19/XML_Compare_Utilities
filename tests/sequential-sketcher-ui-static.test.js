@@ -69,6 +69,11 @@ assert.match(evidence, /RUN_IN/);
 assert.match(evidence, /RUN_OUT/);
 assert.match(evidence, /BRANCH_OUT/);
 assert.match(evidence, /boreStatus/);
+assert.match(evidence, /collapseSyntheticCarrierShadows/);
+assert.match(evidence, /shadowCarrierEvidence/);
+assert.match(evidence, /PIPE\\s\+AUTO/);
+assert.match(evidence, /identicalSpan/);
+assert.match(evidence, /shadowCarrierCount/);
 assert.doesNotMatch(evidence, /samePoint|toleranceMm/, 'source evidence must not merge coordinates');
 
 const engine = read('construction/sequential-construction-engine.js');
@@ -88,6 +93,7 @@ const runtime = read('construction/sequential-construction-runtime.js');
 assert.match(runtime, /enrichCommittedConnectionEvidence/);
 assert.match(runtime, /advanceGatedConstruction/);
 assert.match(runtime, /applyGatedConstructionDecision/);
+assert.match(runtime, /CREF_TARGET_HPOS/);
 
 const connectionAudit = read('construction/sequential-connection-audit.js');
 assert.match(connectionAudit, /coordinateDerivationStatus/);
@@ -100,13 +106,21 @@ assert.match(acceptance, /ConfirmedSequentialConstruction\.v1/);
 assert.match(acceptance, /ROUTE_COMPLETE/);
 assert.match(acceptance, /supportProjection:\s*true/);
 assert.match(acceptance, /Connection audit evidence is incomplete/);
+assert.match(acceptance, /shadowCarrierEvidence/);
+assert.match(acceptance, /shadowCarrierCount/);
 
 const confirmedSupport = read('support/sequential-confirmed-support-projection.js');
 assert.match(confirmedSupport, /ConfirmedSequentialConstruction\.v1/);
 assert.match(confirmedSupport, /buildPipeSupportProjectionBundle/);
 assert.match(confirmedSupport, /constructionFingerprint/);
+assert.match(confirmedSupport, /carrierReferences/);
+assert.match(confirmedSupport, /shadowCarrierEvidence/);
 assert.doesNotMatch(confirmedSupport, /advanceConstruction|resolveNextConnection/,
   'support projection must consume accepted construction and never resolve piping continuity');
+
+const supportProjection = read('support/sj-pipe-support-projection.js');
+assert.match(supportProjection, /carrier\.references/);
+assert.match(supportProjection, /explicitCarrierReferences/);
 
 const boundaryResolver = read('construction/sequential-boundary-resolver.js');
 assert.match(boundaryResolver, /BOUNDARY_TO_FIRST_COMPONENT_GAP/);
@@ -120,13 +134,15 @@ assert.match(resolver, /CONTINUITY_NOT_PROVEN/);
 assert.match(resolver, /sourceAdjacent/);
 assert.match(resolver, /referenceMatch/);
 assert.match(resolver, /derivedBranchLegLengthMm/);
+assert.match(resolver, /SOURCE_ADJACENT_ATTACHMENT_EVENT/);
 
 const strokes = read('stroke/sequential-component-stroke-compiler.js');
 for (const operation of [
   'DRAW_PIPE', 'DRAW_ELBOW', 'DRAW_REDUCER', 'DRAW_TEE_RUN',
-  'REGISTER_TEE_BRANCH', 'DRAW_OLET', 'DRAW_VALVE', 'DRAW_FLANGE', 'DRAW_CAP',
-  'DRAW_VIRTUAL_REPAIR',
+  'REGISTER_TEE_BRANCH', 'DRAW_OLET', 'DRAW_VALVE', 'DRAW_INSTRUMENT',
+  'DRAW_FLANGE', 'DRAW_CAP', 'DRAW_VIRTUAL_REPAIR',
 ]) assert.match(strokes, new RegExp(operation));
+assert.match(strokes, /shadowCarrierEvidence/);
 
 const canvas = read('canvas/sequential-construction-svg.js');
 assert.match(canvas, /<svg/);
@@ -135,6 +151,8 @@ for (const layer of ['confirmed-geometry', 'candidate-connections', 'active-port
 assert.match(canvas, /data-ssk-candidate-id/);
 assert.match(canvas, /ssk-confirmed-repair/);
 assert.match(canvas, /ssk-candidate/);
+assert.match(canvas, /ssk-confirmed-instrument/);
+assert.match(canvas, /data-ssk-shadow-carrier/);
 
 const support = read('sequential-sketcher-support.js');
 assert.match(support, /\.\/support\/sj-pipe-support-projection\.js/);
