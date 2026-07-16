@@ -2,6 +2,8 @@ import {
   canonicalComponentType, isRouteComponent, pointFrom, stableToken,
 } from './sequential-sketcher-contract.js';
 
+const SUPPORT_SOURCE_TYPES = new Set(['SUPPORT', 'ATTA', 'ANCI']);
+
 export function parseStagedJson(text) {
   let parsed;
   try { parsed = JSON.parse(String(text || '')); }
@@ -35,15 +37,41 @@ function componentIdentity(child, branchId, sourceIndex) {
   ).trim();
 }
 
+function sourceTypeOf(child) {
+  return String(child?.type || child?.attributes?.RAW_TYPE || child?.attributes?.TYPE || '').trim().toUpperCase();
+}
+
+function isSupportSource(child) {
+  return SUPPORT_SOURCE_TYPES.has(sourceTypeOf(child))
+    || SUPPORT_SOURCE_TYPES.has(String(child?.attributes?.TYPE || '').trim().toUpperCase());
+}
+
+function supportEvidenceRecord(child, branchId, sourceIndex) {
+  return Object.freeze({
+    ...child,
+    sourceBranchName: String(child?.sourceBranchName || child?.sourceBranchId || child?.attributes?.OWNER || branchId),
+    sourceBranchId: String(child?.sourceBranchId || child?.sourceBranchName || child?.attributes?.OWNER || branchId),
+    sourceSequenceIndex: Number.isFinite(Number(child?.sourceSequenceIndex)) ? Number(child.sourceSequenceIndex) : sourceIndex,
+    path: Array.isArray(child?.path) ? child.path : Object.freeze(['children', sourceIndex]),
+  });
+}
+
 export function buildBranchInventory(branch) {
   const branchId = branchIdentity(branch);
   const children = Array.isArray(branch?.children) ? branch.children : [];
   const routeComponents = [];
+  const supportRecords = [];
   const ignoredRecords = [];
   children.forEach((child, sourceIndex) => {
-    const sourceType = String(child?.type || child?.attributes?.TYPE || '').toUpperCase();
+    const sourceType = sourceTypeOf(child);
     if (!isRouteComponent(sourceType)) {
-      ignoredRecords.push(Object.freeze({ sourceIndex, sourceType, name: componentIdentity(child, branchId, sourceIndex) }));
+      if (isSupportSource(child)) supportRecords.push(supportEvidenceRecord(child, branchId, sourceIndex));
+      ignoredRecords.push(Object.freeze({
+        sourceIndex,
+        sourceType,
+        recordClass: isSupportSource(child) ? 'SUPPORT_EVIDENCE' : 'NON_ROUTE_RECORD',
+        name: componentIdentity(child, branchId, sourceIndex),
+      }));
       return;
     }
     const attributes = child?.attributes && typeof child.attributes === 'object' ? child.attributes : {};
@@ -58,22 +86,15 @@ export function buildBranchInventory(branch) {
       a, b, position,
       cref: String(attributes.CREF || '').trim(),
       attributes,
+      sourcePath: Object.freeze(['children', sourceIndex]),
     }));
   });
   return Object.freeze({
     branchId,
     attributes: branch?.attributes || {},
     routeComponents: Object.freeze(routeComponents),
+    supportRecords: Object.freeze(supportRecords),
     ignoredRecords: Object.freeze(ignoredRecords),
     sourceChildCount: children.length,
   });
-}
-
-export function parseSupportBundle(text) {
-  if (!String(text || '').trim()) return null;
-  let parsed;
-  try { parsed = JSON.parse(String(text)); }
-  catch (error) { throw new Error(`Support bundle JSON is invalid: ${error.message}`); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Support bundle must be a JSON object.');
-  return parsed;
 }
