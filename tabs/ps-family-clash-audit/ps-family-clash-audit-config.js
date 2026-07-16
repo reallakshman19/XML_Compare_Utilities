@@ -1,18 +1,18 @@
 import { buildFamilyRootDetectorLabel, normalizeFamilyPrefixes } from './ps-family-token-utils.js';
 
-export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v8-structured-reports';
+export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v9-clean-report-workspace';
 
 const REPORT_TABS = Object.freeze([
-  Object.freeze({ key: 'supportSummary', label: 'Support Group Summary', maturity: 'stable' }),
-  Object.freeze({ key: 'supportChain', label: 'Support Chain', maturity: 'draft' }),
+  Object.freeze({ key: 'supportSummary', label: 'SupportGroup Summary', maturity: 'stable' }),
+  Object.freeze({ key: 'supportChain', label: 'Support Chain Report', maturity: 'draft' }),
   Object.freeze({ key: 'supportMembers', label: 'Support Members', maturity: 'draft' }),
-  Object.freeze({ key: 'structureLineProximity', label: 'Line Support Proximity Basis', maturity: 'stable' }),
+  Object.freeze({ key: 'structureLineProximity', label: 'StructureGroup Line Support Proximity Basis', maturity: 'stable' }),
   Object.freeze({ key: 'structureContacts', label: 'Structure Contacts', maturity: 'draft' }),
-  Object.freeze({ key: 'lineSupportTree', label: 'Line Support Tree', maturity: 'stable' }),
-  Object.freeze({ key: 'structureTree', label: 'Structure Evidence Tree', maturity: 'stable' }),
+  Object.freeze({ key: 'lineSupportTree', label: 'Line Tree', maturity: 'stable' }),
+  Object.freeze({ key: 'structureTree', label: 'Structure Tree', maturity: 'stable' }),
   Object.freeze({ key: 'inputEvidence', label: 'Input Evidence', maturity: 'stable' }),
   Object.freeze({ key: 'connectivityMatrix', label: 'Connectivity Matrix', maturity: 'draft' }),
-  Object.freeze({ key: 'clashRows', label: 'Clash Rows', maturity: 'draft' }),
+  Object.freeze({ key: 'clashRows', label: 'Clash Detail Rows', maturity: 'draft' }),
   Object.freeze({ key: 'supportExceptions', label: 'SupportChange Exceptions', maturity: 'stable' }),
   Object.freeze({ key: 'diagnostics', label: 'Diagnostics', maturity: 'draft' }),
 ]);
@@ -21,37 +21,37 @@ const REPORT_GROUPS = Object.freeze([
   Object.freeze({
     key: 'supportGroup',
     label: 'Support Group',
-    description: 'Support-group identity, chain continuity and member evidence.',
+    description: 'SupportGroup Summary, support-chain continuity and member evidence.',
     reportKeys: Object.freeze(['supportSummary', 'supportChain', 'supportMembers']),
   }),
   Object.freeze({
     key: 'structureBasis',
     label: 'Structure Group Basis',
-    description: 'Structure-to-line proximity and structure-contact evidence.',
+    description: 'StructureGroup line-support proximity basis and structure-contact evidence.',
     reportKeys: Object.freeze(['structureLineProximity', 'structureContacts']),
   }),
   Object.freeze({
     key: 'lineTree',
     label: 'Line Tree',
-    description: 'Line, branch and support-group hierarchy.',
+    description: 'Line, branch, SupportGroup and support hierarchy.',
     reportKeys: Object.freeze(['lineSupportTree']),
   }),
   Object.freeze({
     key: 'structureTree',
     label: 'Structure Tree',
-    description: 'Structure-root hierarchy and the supporting input evidence.',
+    description: 'Structure-root hierarchy with the input evidence used to construct it.',
     reportKeys: Object.freeze(['structureTree', 'inputEvidence']),
   }),
   Object.freeze({
     key: 'clashSummary',
     label: 'Clash Summary',
-    description: 'Support-group summary, connectivity matrix and detailed clash rows.',
+    description: 'SupportGroup Summary, connectivity matrix and detailed clash evidence.',
     reportKeys: Object.freeze(['supportSummary', 'connectivityMatrix', 'clashRows']),
   }),
   Object.freeze({
     key: 'clashOutcome',
     label: 'Clash Audit Outcome',
-    description: 'SupportChange exceptions and audit diagnostics requiring action.',
+    description: 'SupportChange exceptions and diagnostics requiring engineering action.',
     reportKeys: Object.freeze(['supportExceptions', 'diagnostics']),
   }),
 ]);

@@ -14,7 +14,7 @@ const audit = createPsFamilyClashAuditFromTextInputs({
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => tab.key === 'lineSupportTree'));
 assert.ok(shell.includes('Line Support Tree'));
-assert.ok(shell.includes('SupportGroup Summary'));
+assert.ok(shell.includes('Support Group Summary'));
 
 const tree = renderPsFamilyReports(audit, 'lineSupportTree', PS_FAMILY_CLASH_AUDIT_CONFIG, '');
 assert.ok(tree.includes('Line Support Tree'));
@@ -35,6 +35,6 @@ assert.ok(!evidence.includes('Clash4</td>'));
 
 const members = renderPsFamilyReports(audit, 'supportMembers', PS_FAMILY_CLASH_AUDIT_CONFIG, 'Representative');
 assert.ok(members.includes('PS-14396.4'));
-assert.ok(members.includes('Representative support'));
+assert.ok(members.includes('Representative Support'));
 
 console.log('ps-family-hierarchy-tab tests passed');

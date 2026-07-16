@@ -45,6 +45,7 @@ assert.ok(shell.includes('data-psfa-report-group="clashOutcome"'));
 assert.ok(shell.includes('data-psfa-report-subtabs="structureTree"'));
 
 const tabSource = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
+const professionalSource = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js', 'utf8');
 assert.match(tabSource, /if \(doc\.querySelector\('\[data-psfa-popup="1"\]'\)\) return;/);
 assert.match(tabSource, /ps-family-clash-audit-backdrop/);
 assert.match(tabSource, /ps-family-clash-audit-dialog/);
@@ -57,6 +58,7 @@ assert.match(tabSource, /aria-describedby/);
 assert.match(tabSource, /showWorkspacePanel/);
 assert.match(tabSource, /updateReportNavigation/);
 assert.match(tabSource, /activeReportGroup/);
+assert.match(professionalSource, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
 
 assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v8-structured-reports');
 const reportCss = psFamilyProfessionalCss();

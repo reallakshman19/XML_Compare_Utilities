@@ -1,4 +1,4 @@
-export const PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui/v8-structured-reports';
+export const PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui/v9-clean-report-workspace';
 
 export function psFamilyProfessionalCss() {
   return `
