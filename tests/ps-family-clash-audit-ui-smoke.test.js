@@ -1,3 +1,5 @@
+import './ps-family-tabbed-workspace-ui.test.js';
+import './ps-family-active-report-export.test.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
