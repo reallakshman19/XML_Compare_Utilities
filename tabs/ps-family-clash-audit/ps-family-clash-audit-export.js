@@ -26,8 +26,8 @@ export function exportPsFamilyClashRowsCsv(audit) {
 }
 
 export function exportSupportSummaryCsv(audit) {
-  const headers = ['No', 'Line', 'FullLineTags', 'BranchNode', 'BranchNodes', 'LineFamily', 'LineFamilies', 'LineMembershipCount', 'LineMembershipIds', 'PSRoot', 'SupportGroup', 'StructuralGroupCount', 'SupportCount', 'SupportMembers', 'EvidenceIds', 'Status', 'Remarks'];
-  return rowsToCsv(headers, (audit.supportSummaryRows || []).map((row) => ({ No: row.no, Line: row.line, FullLineTags: row.fullLineTags, BranchNode: row.branchNode, BranchNodes: row.branchNodes, LineFamily: row.lineFamily, LineFamilies: row.lineFamilies, LineMembershipCount: row.lineMembershipCount, LineMembershipIds: row.lineMembershipIds, PSRoot: row.psRoot, SupportGroup: row.supportGroup, StructuralGroupCount: row.structuralGroupCount, SupportCount: row.supportCount, SupportMembers: row.supportMembers, EvidenceIds: evidenceList(row), Status: row.status, Remarks: row.remarks })));
+  const headers = ['No', 'Line', 'BranchNode', 'LineFamily', 'PSRoot', 'SupportGroup', 'StructuralGroupCount', 'SupportCount', 'SupportMembers', 'EvidenceIds', 'Status', 'Remarks', 'FullLineTags', 'BranchNodes', 'LineFamilies', 'LineMembershipCount', 'LineMembershipIds'];
+  return rowsToCsv(headers, (audit.supportSummaryRows || []).map((row) => ({ No: row.no, Line: row.line, BranchNode: row.branchNode, LineFamily: row.lineFamily, PSRoot: row.psRoot, SupportGroup: row.supportGroup, StructuralGroupCount: row.structuralGroupCount, SupportCount: row.supportCount, SupportMembers: row.supportMembers, EvidenceIds: evidenceList(row), Status: row.status, Remarks: row.remarks, FullLineTags: row.fullLineTags, BranchNodes: row.branchNodes, LineFamilies: row.lineFamilies, LineMembershipCount: row.lineMembershipCount, LineMembershipIds: row.lineMembershipIds })));
 }
 
 export function exportLineMembershipsCsv(audit) {
@@ -37,8 +37,8 @@ export function exportLineMembershipsCsv(audit) {
 
 export function exportLineSupportTreeText(audit) { return `${(audit.lineSupportTreeRows || []).map((row) => row.treeText).join('\n\n')}\n`; }
 export function exportLineSupportTreeCsv(audit) {
-  const headers = ['LineMembershipId', 'SupportGroup', 'LineFamily', 'FullLineTag', 'BranchNode', 'LineTree'];
-  return rowsToCsv(headers, (audit.lineSupportTreeRows || []).map((row) => ({ LineMembershipId: row.membershipId, SupportGroup: row.supportGroup, LineFamily: row.lineFamily, FullLineTag: row.fullLineTag, BranchNode: row.branchNode, LineTree: row.treeText })));
+  const headers = ['SupportGroup', 'LineTree', 'LineMembershipId', 'LineFamily', 'FullLineTag', 'BranchNode'];
+  return rowsToCsv(headers, (audit.lineSupportTreeRows || []).map((row) => ({ SupportGroup: row.supportGroup, LineTree: row.treeText, LineMembershipId: row.membershipId, LineFamily: row.lineFamily, FullLineTag: row.fullLineTag, BranchNode: row.branchNode })));
 }
 
 export function exportStructureTreeText(audit) {
