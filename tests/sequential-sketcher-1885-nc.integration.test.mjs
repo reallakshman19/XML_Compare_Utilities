@@ -16,42 +16,80 @@ const MAX_REFERENCE_DEPTH = 2;
 const MAX_BRANCHES = 40;
 const REPORT_PATH = 'artifacts/sequential-sketcher/1885-nc-b3-probe.json';
 
-function branchId(record) {
-  return String(record?.attributes?.NAME || record?.name || '').trim();
+function text(value) { return String(value ?? '').trim(); }
+function branchId(record) { return text(record?.attributes?.NAME || record?.name); }
+function componentAliases(child) {
+  return [...new Set([
+    child?.attributes?.NAME,
+    child?.attributes?.REF,
+    child?.name,
+  ].map(text).filter(Boolean))];
 }
-
 function references(record) {
   const values = [record?.attributes?.HREF, record?.attributes?.TREF];
-  for (const child of Array.isArray(record?.children) ? record.children : []) {
-    values.push(child?.attributes?.CREF);
+  for (const child of Array.isArray(record?.children) ? record.children : []) values.push(child?.attributes?.CREF);
+  return [...new Set(values.map(text).filter(Boolean))];
+}
+
+function buildRawReferenceIndexes(records) {
+  const branches = new Map();
+  const componentOwners = new Map();
+  for (const record of records) {
+    const ownerId = branchId(record);
+    if (!ownerId) continue;
+    branches.set(ownerId, record);
+    for (const child of Array.isArray(record?.children) ? record.children : []) {
+      for (const alias of componentAliases(child)) {
+        const owners = componentOwners.get(alias) || new Set();
+        owners.add(ownerId);
+        componentOwners.set(alias, owners);
+      }
+    }
   }
-  return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))];
+  return { branches, componentOwners };
+}
+
+function resolveRawReference(reference, rawIndexes) {
+  if (rawIndexes.branches.has(reference)) return { status: 'BRANCH', branchIds: [reference] };
+  const owners = [...(rawIndexes.componentOwners.get(reference) || [])].sort();
+  if (owners.length === 1) return { status: 'COMPONENT_OWNER', branchIds: owners };
+  if (owners.length > 1) return { status: 'AMBIGUOUS_COMPONENT_OWNER', branchIds: owners };
+  return { status: 'MISSING', branchIds: [] };
 }
 
 function collectReferenceClosure(records, rootId) {
-  const index = new Map(records.map((record) => [branchId(record), record]).filter(([id]) => id));
+  const rawIndexes = buildRawReferenceIndexes(records);
   const queue = [{ id: rootId, depth: 0 }];
   const selected = [];
   const seen = new Set();
+  const referenceResolution = [];
   const missingReferences = [];
 
   while (queue.length && selected.length < MAX_BRANCHES) {
     const current = queue.shift();
     if (seen.has(current.id)) continue;
     seen.add(current.id);
-    const record = index.get(current.id);
+    const record = rawIndexes.branches.get(current.id);
     if (!record) {
       missingReferences.push({ source: current.source || null, target: current.id, depth: current.depth });
       continue;
     }
     selected.push(record);
     if (current.depth >= MAX_REFERENCE_DEPTH) continue;
-    for (const target of references(record)) {
-      queue.push({ id: target, depth: current.depth + 1, source: current.id });
+    for (const reference of references(record)) {
+      const resolution = resolveRawReference(reference, rawIndexes);
+      referenceResolution.push({ source: current.id, reference, depth: current.depth + 1, ...resolution });
+      if (resolution.status === 'MISSING') {
+        missingReferences.push({ source: current.id, target: reference, depth: current.depth + 1 });
+        continue;
+      }
+      for (const ownerBranchId of resolution.branchIds) {
+        queue.push({ id: ownerBranchId, depth: current.depth + 1, source: current.id });
+      }
     }
   }
 
-  return { selected, missingReferences };
+  return { selected, missingReferences, referenceResolution };
 }
 
 function countTypes(branches) {
@@ -85,8 +123,8 @@ assert.ok(Array.isArray(records), '1885_NC fixture must be a JSON array');
 const root = records.find((record) => branchId(record) === ROOT_BRANCH);
 assert.ok(root, `Pinned fixture must contain ${ROOT_BRANCH}`);
 
-const { selected, missingReferences } = collectReferenceClosure(records, ROOT_BRANCH);
-assert.ok(selected.length >= 1, 'reference closure must contain the root branch');
+const { selected, missingReferences, referenceResolution } = collectReferenceClosure(records, ROOT_BRANCH);
+assert.ok(selected.length > 1, 'component references must include their owner branches in the fixture closure');
 const immutableSnapshot = JSON.stringify(selected);
 const evidence = buildSequentialEvidenceModel(selected);
 const indexes = indexSequentialEvidence(evidence);
@@ -111,6 +149,7 @@ const report = {
   sourceCommit: SOURCE_COMMIT,
   rootBranchId: ROOT_BRANCH,
   selectedBranchIds: evidence.branches.map((branch) => branch.branchId),
+  referenceResolution,
   missingReferences,
   rawChildTypeCounts: countTypes(selected),
   rootSourceChildCount: Array.isArray(root.children) ? root.children.length : 0,
@@ -125,6 +164,12 @@ const report = {
   outcomes: result.outcomes,
   confirmedComponentCount: result.session.confirmedComponentIds.length,
   committedConnectionCount: result.session.committedConnections.length,
+  connectionTypes: Object.fromEntries(
+    [...new Set(result.session.committedConnections.map((connection) => connection.connectionType))]
+      .sort()
+      .map((type) => [type, result.session.committedConnections.filter((connection) => connection.connectionType === type).length]),
+  ),
+  boundaryConnections: result.session.committedConnections.filter((connection) => connection.connectionType === 'BOUNDARY_TO_JUNCTION'),
   repairCount: result.session.repairLedger.length,
   pendingJunctionCount: result.session.pendingBranchJunctions.length,
   blockedReason: result.session.currentDecisionRequest?.reason || null,
@@ -132,6 +177,7 @@ const report = {
   candidateSummary: (result.session.currentDecisionRequest?.candidates || []).slice(0, 10).map((candidate) => ({
     targetBranchId: candidate.targetBranchId,
     targetSourceComponentId: candidate.targetSourceComponentId,
+    targetPortRole: candidate.targetPortRole,
     gapMm: Number(candidate.gapMm.toFixed(3)),
     directionAngleDeg: candidate.directionAngleDeg === null ? null : Number(candidate.directionAngleDeg.toFixed(3)),
     boreCompatibility: candidate.boreCompatibility,
