@@ -57,11 +57,11 @@ export function exportStructureTreeText(audit) {
 }
 
 export function exportStructureTreeCsv(audit) {
-  const headers = ['StructureGroup', 'StructureMembers', 'Line', 'BranchNode', 'LineMembershipId', 'SupportGroup', 'RepresentativeSupport', 'AnalyticalTerminalSupports', 'EvidenceIds', 'StructurePath'];
+  const headers = ['StructureGroup', 'StructureMembers', 'Line', 'BranchNode', 'SupportGroup', 'LineMembershipId', 'RepresentativeSupport', 'AnalyticalTerminalSupports', 'EvidenceIds', 'StructurePath'];
   return rowsToCsv(headers, (audit.structureLineProximityRows || []).map((row) => {
     const line = row.lineNo || row.lineFamily || '';
     const path = [row.structuralGroupRoot, line, row.branchNode, row.lineMembershipId, row.supportGroup, row.representativeSupport].filter(Boolean).join(' → ');
-    return { StructureGroup: row.structuralGroupRoot, StructureMembers: row.structuralGroupNames, Line: line, BranchNode: row.branchNode, LineMembershipId: row.lineMembershipId, SupportGroup: row.supportGroup, RepresentativeSupport: row.representativeSupport, AnalyticalTerminalSupports: row.supportsWithin250mm, EvidenceIds: row.evidenceIds || row.evidenceClashes, StructurePath: path };
+    return { StructureGroup: row.structuralGroupRoot, StructureMembers: row.structuralGroupNames, Line: line, BranchNode: row.branchNode, SupportGroup: row.supportGroup, LineMembershipId: row.lineMembershipId, RepresentativeSupport: row.representativeSupport, AnalyticalTerminalSupports: row.supportsWithin250mm, EvidenceIds: row.evidenceIds || row.evidenceClashes, StructurePath: path };
   }));
 }
 
