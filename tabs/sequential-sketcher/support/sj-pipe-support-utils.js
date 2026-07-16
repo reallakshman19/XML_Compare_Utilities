@@ -60,6 +60,15 @@ export function isPoint(value) {
     && Number.isFinite(Number(value.z));
 }
 
+export function pointDistance(left, right) {
+  if (!isPoint(left) || !isPoint(right)) return Number.POSITIVE_INFINITY;
+  return Math.hypot(
+    Number(right.x) - Number(left.x),
+    Number(right.y) - Number(left.y),
+    Number(right.z) - Number(left.z),
+  );
+}
+
 /** Owned replacement for the converter-specific point resolver. */
 export function parsePoint(value) {
   if (isPoint(value)) return clonePoint(value);
