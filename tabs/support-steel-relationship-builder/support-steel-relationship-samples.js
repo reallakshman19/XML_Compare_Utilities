@@ -86,6 +86,12 @@ export const SUPPORT_STEEL_SAMPLE_STEEL = Object.freeze([
         attributes: {
           NAME: '/SL-4201/BEAM-01',
           POS: { x: 437500, y: -1159000, z: 2100 },
+          AXIS_START: { x: 437250, y: -1159000, z: 2050 },
+          AXIS_END: { x: 437750, y: -1159000, z: 2050 },
+          BOUNDS: {
+            min: { x: 437250, y: -1159050, z: 2000 },
+            max: { x: 437750, y: -1158950, z: 2100 },
+          },
           DTXR: 'STEEL SECTION',
         },
       },
@@ -97,7 +103,7 @@ export const SUPPORT_STEEL_SAMPLE_STEEL = Object.freeze([
     attributes: {
       NAME: '/SL-4202',
       POS: { x: 438000, y: -1159500, z: 2100 },
-      DESCRIPTION: 'SECONDARY STEEL GROUP',
+      DESCRIPTION: 'SECONDARY STEEL GROUP WITHOUT ANALYTICAL GEOMETRY',
     },
   },
 ]);
