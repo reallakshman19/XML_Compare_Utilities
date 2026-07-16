@@ -24,6 +24,8 @@ jobs:
           set +e
           node --test tests/ps-family-evidence-graph-audit.test.js > graph.log 2>&1
           echo "$?" > graph.status
+          node --test tests/ps-family-multiline-projection.test.js > multiline.log 2>&1
+          echo "$?" > multiline.status
           node tests/ps-family-clash-audit-config.test.js > config.log 2>&1
           echo "$?" > config.status
           node tests/ps-family-clash-audit-ui-smoke.test.js > ui.log 2>&1
@@ -52,7 +54,7 @@ jobs:
       - name: Enforce focused audit contracts
         shell: bash
         run: |
-          for name in graph config ui accessibility legacy compliance readiness fixtures aggregate; do
+          for name in graph multiline config ui accessibility legacy compliance readiness fixtures aggregate; do
             echo "===== ${name}.log ====="
             cat "${name}.log"
             test "$(cat "${name}.status")" = "0"

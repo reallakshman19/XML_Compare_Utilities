@@ -20,6 +20,7 @@ export function createEvidenceGraphReports(bundle, families, chain, diagnostics)
 function emptyReports() {
   return {
     supportSummaryRows: [],
+    lineMembershipRows: [],
     lineSupportTreeRows: [],
     structureContactRows: [],
     supportChainRows: [],
@@ -31,12 +32,15 @@ function emptyReports() {
     lineFamilyRows: [],
     relationshipCount: 0,
     symbolicReferenceCount: 0,
+    crossLineSupportEdgeCount: 0,
+    multiLineFamilyCount: 0,
   };
 }
 
 function appendProjection(output, projection) {
   output.supportSummaryRows.push(projection.supportSummaryRow);
-  output.lineSupportTreeRows.push(projection.lineSupportTreeRow);
+  output.lineMembershipRows.push(...(projection.lineMembershipRows || []));
+  output.lineSupportTreeRows.push(...(projection.lineSupportTreeRows || []));
   output.structureContactRows.push(...projection.structureContactRows);
   output.supportChainRows.push(...projection.supportChainRows);
   output.supportMemberRows.push(...projection.supportMemberRows);
@@ -44,7 +48,9 @@ function appendProjection(output, projection) {
   output.inputEvidenceRows.push(...projection.inputEvidenceRows);
   output.connectivityMatrixRows.push(...projection.connectivityMatrixRows);
   output.structureLineProximityRows.push(...projection.structureLineProximityRows);
-  output.lineFamilyRows.push(projection.lineFamilyRow);
+  output.lineFamilyRows.push(...(projection.lineFamilyRows || []));
   output.relationshipCount += projection.relationshipCount;
   output.symbolicReferenceCount += projection.symbolicReferenceCount;
+  output.crossLineSupportEdgeCount += projection.crossLineSupportEdgeCount || 0;
+  output.multiLineFamilyCount += projection.lineMembershipRows?.length > 1 ? 1 : 0;
 }

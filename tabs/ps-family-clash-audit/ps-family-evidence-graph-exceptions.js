@@ -29,6 +29,39 @@ export function createEvidenceFamilyExceptions(input) {
   if (!input.context.branchNode || !input.context.lineFamily) {
     add('MISSING_LINE_CONTEXT', 'ERROR', 'The support family has no reliable branch and line context.');
   }
+  if (input.context.ownerFallbackUsed) {
+    add(
+      'OWNER_FALLBACK_LINE_CONTEXT',
+      'WARN',
+      'At least one member uses OWNER because explicit or hierarchical line context was unavailable.',
+    );
+  }
+  if ((input.memberships || []).length > 1) {
+    add(
+      'MULTI_LINE_SUPPORT_FAMILY',
+      'WARN',
+      `The support family is projected into ${input.memberships.length} member-level line memberships.`,
+    );
+  }
+  if ((input.context.branchNodes || []).length > 1) {
+    add(
+      'MULTI_BRANCH_SUPPORT_FAMILY',
+      'WARN',
+      `The support family contains ${input.context.branchNodes.length} branch contexts.`,
+    );
+  }
+  for (const edge of input.crossLineEdges || []) {
+    add(
+      'CROSS_LINE_SUPPORT_MEMBER_EDGE',
+      'WARN',
+      'A physical support-member edge connects members assigned to different line memberships.',
+      {
+        supportA: edge.supportA || '',
+        supportB: edge.supportB || '',
+        evidenceId: evidenceId(edge),
+      },
+    );
+  }
   if (input.ambiguousRelationships.length) {
     add(
       'AMBIGUOUS_SUPPORT_STEEL_RELATIONSHIP',
@@ -53,7 +86,10 @@ export function createEvidenceFamilyExceptions(input) {
 
   const physicalMembers = (input.family.members || []).filter((member) => (
     !SYMBOLIC_SUPPORT_ROLES.has(member.semanticRole)
-    && member.analyticalGeometry?.geometryAvailable
+    && Boolean(
+      member.analyticalGeometry?.physicalGeometryAvailable
+      || member.analyticalGeometry?.geometryAvailable,
+    )
   ));
   if (physicalMembers.length > 1 && !input.memberEdges.length) {
     add('NO_PHYSICAL_MEMBER_CHAIN', 'ERROR', 'Multiple analytical support members exist but no physical member-chain edge was established.');

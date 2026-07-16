@@ -1,6 +1,5 @@
 import { uniqueSorted } from './ps-family-token-utils.js';
 import {
-  PS_FAMILY_EVIDENCE_MODE,
   createEvidenceSupportGroup,
   deriveEvidenceFamilyContext,
   evidenceId,
@@ -12,11 +11,30 @@ import {
   createEvidenceMemberRows,
   createEvidenceStructureBasisRows,
 } from './ps-family-evidence-graph-edges.js';
+import {
+  createMemberLineMembershipIndex,
+  deriveEvidenceFamilyLineMemberships,
+  resolveEdgeLineProjection,
+} from './ps-family-evidence-line-memberships.js';
+import {
+  countMembershipEvidence,
+  createFamilySummaryRow,
+  createLineMembershipRow,
+  createLineSupportTreeRow,
+  createStructureContactRow,
+  createSupportChainRow,
+} from './ps-family-evidence-graph-family-projection.js';
 
 export function projectEvidenceFamily(bundle, family, index, chain) {
   const context = deriveEvidenceFamilyContext(family);
-  const supportGroup = createEvidenceSupportGroup(context.lineFamily, family.familyId);
-  const relationships = (bundle.relationships || []).filter((row) => row.supportFamilyId === family.familyId);
+  const memberships = deriveEvidenceFamilyLineMemberships(family, context);
+  const membershipIndex = createMemberLineMembershipIndex(memberships);
+  const primaryMembership = memberships.find((row) => row.isPrimary) || memberships[0] || null;
+  const supportGroup = primaryMembership?.supportGroup
+    || createEvidenceSupportGroup(context.lineFamily, family.familyId);
+  const relationships = (bundle.relationships || []).filter((row) => (
+    row.supportFamilyId === family.familyId
+  ));
   const resolvedRelationships = relationships.filter((row) => (
     row.steelGroupId && String(row.relationshipStatus || '').startsWith('RESOLVED_')
   ));
@@ -27,10 +45,17 @@ export function projectEvidenceFamily(bundle, family, index, chain) {
   const terminalEdges = familyEdges(chain.structuralTerminalEdges, family.familyId);
   const physicalTerminals = terminalEdges.filter((row) => row.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE');
   const symbolicTerminals = terminalEdges.filter((row) => row.edgeType === 'STRUCTURAL_REFERENCE');
-  const familyChain = (chain.familyChains || []).find((row) => row.supportFamilyId === family.familyId) || {};
+  const familyChain = (chain.familyChains || []).find((row) => (
+    row.supportFamilyId === family.familyId
+  )) || {};
+  const crossLineEdges = memberEdges.filter((edge) => (
+    resolveEdgeLineProjection(edge, membershipIndex, primaryMembership).crossLine
+  ));
   const exceptions = createEvidenceFamilyExceptions({
     family,
     context,
+    memberships,
+    crossLineEdges,
     supportGroup,
     resolvedRelationships,
     ambiguousRelationships,
@@ -46,33 +71,40 @@ export function projectEvidenceFamily(bundle, family, index, chain) {
     ...referenceEdges.map(evidenceId),
     ...terminalEdges.map(evidenceId),
   ]);
+  const summaryInput = {
+    family,
+    index,
+    context,
+    supportGroup,
+    memberships,
+    resolvedRelationships,
+    physicalTerminals,
+    symbolicTerminals,
+    memberEdges,
+    exceptions,
+    evidenceIds,
+  };
 
   return {
-    supportSummaryRow: createSummaryRow(
+    supportSummaryRow: createFamilySummaryRow(summaryInput),
+    lineMembershipRows: memberships.map(createLineMembershipRow),
+    lineSupportTreeRows: memberships.map((membership) => createLineSupportTreeRow({
       family,
-      index,
-      context,
-      supportGroup,
-      resolvedRelationships,
-      physicalTerminals,
-      symbolicTerminals,
+      membership,
+      relationships,
       memberEdges,
-      exceptions,
-      evidenceIds,
-    ),
-    lineSupportTreeRow: {
-      supportGroup,
-      treeText: createEvidenceLineTree(
-        family,
-        context,
-        supportGroup,
-        relationships,
-        memberEdges,
-        terminalEdges,
-      ),
-    },
-    structureContactRows: physicalTerminals.map((edge) => structureContactRow(edge, context, supportGroup)),
-    supportChainRows: memberEdges.map((edge) => supportChainRow(edge, context, supportGroup)),
+      terminalEdges,
+    })),
+    structureContactRows: physicalTerminals.map((edge) => createStructureContactRow(
+      edge,
+      membershipIndex,
+      primaryMembership,
+    )),
+    supportChainRows: memberEdges.map((edge) => createSupportChainRow(
+      edge,
+      membershipIndex,
+      primaryMembership,
+    )),
     supportMemberRows: createEvidenceMemberRows(
       family,
       supportGroup,
@@ -80,6 +112,8 @@ export function projectEvidenceFamily(bundle, family, index, chain) {
       memberEdges,
       referenceEdges,
       terminalEdges,
+      membershipIndex,
+      primaryMembership,
     ),
     supportExceptionRows: exceptions,
     inputEvidenceRows: createEvidenceInputRows(
@@ -91,6 +125,8 @@ export function projectEvidenceFamily(bundle, family, index, chain) {
       nearbyEdges,
       referenceEdges,
       terminalEdges,
+      membershipIndex,
+      primaryMembership,
     ),
     connectivityMatrixRows: createEvidenceMatrixRows(
       supportGroup,
@@ -106,131 +142,30 @@ export function projectEvidenceFamily(bundle, family, index, chain) {
       context,
       relationships,
       physicalTerminals,
+      membershipIndex,
+      primaryMembership,
     ),
-    lineFamilyRow: {
-      lineFamily: context.lineFamily || 'NO_LINE_FAMILY',
-      evidenceCount: evidenceIds.length,
-      supportGroup,
+    lineFamilyRows: memberships.map((membership) => ({
+      lineFamily: membership.lineFamily || 'NO_LINE_FAMILY',
+      fullLineTag: membership.fullLineTag,
+      branchNode: membership.branchNode,
+      lineMembershipId: membership.membershipId,
+      evidenceCount: countMembershipEvidence(
+        membership,
+        relationships,
+        memberEdges,
+        referenceEdges,
+        terminalEdges,
+      ),
+      supportGroup: membership.supportGroup,
       supportFamilyId: family.familyId,
-    },
+    })),
     relationshipCount: relationships.length,
     symbolicReferenceCount: referenceEdges.length + symbolicTerminals.length,
+    crossLineSupportEdgeCount: crossLineEdges.length,
   };
 }
 
 function familyEdges(rows = [], familyId) {
   return rows.filter((row) => row.supportFamilyId === familyId);
-}
-
-function createSummaryRow(
-  family,
-  index,
-  context,
-  supportGroup,
-  resolvedRelationships,
-  physicalTerminals,
-  symbolicTerminals,
-  memberEdges,
-  exceptions,
-  evidenceIds,
-) {
-  const members = (family.members || []).map((member) => member.memberId).filter(Boolean);
-  const structuralGroups = uniqueSorted(resolvedRelationships.map((row) => row.steelGroupId));
-  const status = exceptions.some((row) => row.severity === 'ERROR')
-    ? 'ERROR'
-    : exceptions.some((row) => row.severity === 'WARN') ? 'WARN' : 'OK';
-  return {
-    no: index + 1,
-    line: context.fullLineTag,
-    branchNode: context.branchNode,
-    branchNodes: context.branchNodes,
-    lineFamily: context.lineFamily,
-    psRoot: family.familyId,
-    supportGroup,
-    structuralGroupCount: structuralGroups.length,
-    supportCount: members.length,
-    supportMembers: members,
-    evidenceIds,
-    status,
-    remarks: summaryRemarks(physicalTerminals, memberEdges, symbolicTerminals),
-    evidenceMode: PS_FAMILY_EVIDENCE_MODE,
-  };
-}
-
-function structureContactRow(edge, context, supportGroup) {
-  return {
-    supportGroup,
-    structuralGroup: edge.steelGroupId || '',
-    structuralMember: edge.structuralMemberId || '',
-    support: edge.supportMemberId || '',
-    line: context.fullLineTag,
-    lineFamily: context.lineFamily,
-    branchNode: context.branchNode,
-    contactEvidence: evidenceId(edge),
-    distance: edge.distanceMm ?? null,
-    point: edge.contactPointGlobal || edge.nearestPointOnSupportGlobal || null,
-    evidenceClass: edge.evidenceClass || 'ANALYTICAL',
-    contactEvidenceStatus: edge.contactEvidenceStatus || '',
-    remarks: edge.relationshipStatus === 'RESOLVED_ANALYTICAL_CONTACT'
-      ? 'Analytical support-member to structure contact candidate.'
-      : 'Analytical support-member to structure proximity candidate.',
-  };
-}
-
-function supportChainRow(edge, context, supportGroup) {
-  return {
-    supportGroup,
-    supportA: edge.supportA,
-    supportB: edge.supportB,
-    line: context.fullLineTag,
-    lineFamily: context.lineFamily,
-    branchNode: context.branchNode,
-    chainEvidence: evidenceId(edge),
-    distance: edge.distanceMm ?? null,
-    point: edge.contactPointGlobal || null,
-    evidenceClass: edge.evidenceClass || 'ANALYTICAL',
-    contactEvidenceStatus: edge.contactEvidenceStatus || '',
-    remarks: 'Analytical support-member chain edge.',
-  };
-}
-
-function createEvidenceLineTree(
-  family,
-  context,
-  supportGroup,
-  relationships,
-  memberEdges,
-  terminalEdges,
-) {
-  const branches = context.branchNodes.length ? context.branchNodes : ['None'];
-  const members = (family.members || []).map((member) => (
-    `${member.memberId || '(unresolved)'} [${member.semanticRole || 'OTHER'}]`
-  ));
-  const steel = uniqueSorted(relationships
-    .map((row) => row.structuralMemberId || row.steelGroupId)
-    .filter(Boolean));
-  const chains = memberEdges.map((edge) => `${edge.supportA} ↔ ${edge.supportB}`);
-  const terminals = terminalEdges.map((edge) => (
-    `${edge.supportMemberId} → ${edge.structuralMemberId || edge.steelGroupId}`
-  ));
-  return [
-    `Line: ${context.fullLineTag || 'Unknown'}`,
-    `└─ Branches: ${branches.join(', ')}`,
-    `   └─ SupportGroup: ${supportGroup}`,
-    `      ├─ Support family: ${family.familyId}`,
-    '      ├─ Members',
-    ...(members.length ? members.map((item) => `      │  ├─ ${item}`) : ['      │  └─ None']),
-    '      ├─ Member chain',
-    ...(chains.length ? chains.map((item) => `      │  ├─ ${item}`) : ['      │  └─ None']),
-    '      ├─ Structural terminals',
-    ...(terminals.length ? terminals.map((item) => `      │  ├─ ${item}`) : ['      │  └─ None']),
-    `      └─ Structural evidence: ${steel.join(', ') || 'None'}`,
-  ].join('\n');
-}
-
-function summaryRemarks(physicalTerminals, memberEdges, symbolicTerminals) {
-  if (physicalTerminals.length && memberEdges.length) return 'Analytical support chain with structural terminal.';
-  if (physicalTerminals.length) return 'Direct analytical structural terminal.';
-  if (symbolicTerminals.length) return 'Symbolic structural reference only.';
-  return 'Incomplete XML-free relationship graph.';
 }
