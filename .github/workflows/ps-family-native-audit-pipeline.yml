@@ -4,9 +4,12 @@ on:
   pull_request:
     paths:
       - 'tabs/ps-family-clash-audit/ps-family-native-audit-pipeline*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-carrier-evidence-export.js'
+      - 'tabs/ps-family-clash-audit/ps-family-evidence-graph-audit.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js'
       - 'tabs/support-steel-relationship-builder/**'
       - 'tests/ps-family-native-audit-pipeline*.test.js'
+      - 'tests/ps-family-native-carrier-resolution.test.js'
       - '.github/workflows/ps-family-native-audit-pipeline.yml'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
@@ -23,6 +26,8 @@ jobs:
           node-version: '22'
       - name: Native staged JSON pipeline engine
         run: node --test tests/ps-family-native-audit-pipeline.test.js
+      - name: Native carrier evidence pipeline
+        run: node --test tests/ps-family-native-carrier-resolution.test.js
       - name: Native pipeline UI and export contracts
         run: node tests/ps-family-native-audit-pipeline-ui.test.js
       - name: PS family module compliance

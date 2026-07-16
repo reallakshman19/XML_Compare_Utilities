@@ -1,4 +1,5 @@
-import { buildSupportSteelRelationshipBundle } from './support-steel-relationship-engine.js';
+import { supportCarrierResolutionToCsv } from './support-carrier-resolution-export.js';
+import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
 import {
   supportMemberChainToCsv,
   supportSteelBundleToJson,
@@ -27,6 +28,7 @@ const EXPORT_FORMATS = Object.freeze({
   csv: { filename: 'support-steel-relationships.csv', mime: 'text/csv' },
   tree: { filename: 'support-steel-relationship-hierarchy.txt', mime: 'text/plain' },
   chain: { filename: 'support-member-chain.csv', mime: 'text/csv' },
+  carrier: { filename: 'support-carrier-resolutions.csv', mime: 'text/csv' },
 });
 
 export function installSupportSteelRelationshipBuilderTile(root, ctx = {}) {
@@ -109,7 +111,7 @@ function loadSample(modal, ctx) {
   modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
   modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 analytical member demo loaded';
   modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
-  ctx.showToast?.('Support member and steel geometry demo loaded.', 'success');
+  ctx.showToast?.('Support member, carrier context and steel geometry demo loaded.', 'success');
 }
 
 function runBuilder(modal, state, ctx) {
@@ -124,7 +126,7 @@ function runBuilder(modal, state, ctx) {
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'chain');
-    ctx.showToast?.('XML-free support assembly evidence built.', 'success');
+    ctx.showToast?.('XML-free support assembly and carrier evidence built.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -166,7 +168,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.analyticalSupportMemberCount} physical members · ${bundle.summary.supportChainEdgeCount} chain edges · ${bundle.summary.structuralTerminalEdgeCount} terminal edges</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.carrierObjectCount || 0} carrier objects · ${bundle.summary.resolvedPhysicalCarrierCount || 0} physical carrier resolutions · ${bundle.summary.supportChainEdgeCount} chain edges · ${bundle.summary.structuralTerminalEdgeCount} terminal edges</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -213,6 +215,7 @@ function exportText(bundle, key) {
   if (key === 'csv') return supportSteelRelationshipsToCsv(bundle);
   if (key === 'tree') return supportSteelHierarchyToText(bundle);
   if (key === 'chain') return supportMemberChainToCsv(bundle);
+  if (key === 'carrier') return supportCarrierResolutionToCsv(bundle);
   return supportSteelBundleToJson(bundle);
 }
 
@@ -237,7 +240,7 @@ function ensureStyle(doc) {
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-member-chain-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-carrier-resolution-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
 
@@ -246,7 +249,7 @@ function getHost(modal, key) {
 }
 
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Analytical steel', 'Physical members', 'Chain edges', 'Terminal edges', 'Ambiguous', 'Unresolved']
+  return ['Support families', 'Steel groups', 'Carrier objects', 'Resolved carriers', 'Physical members', 'Chain edges', 'Terminal edges', 'Ambiguous', 'Unresolved']
     .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`)
     .join('');
 }

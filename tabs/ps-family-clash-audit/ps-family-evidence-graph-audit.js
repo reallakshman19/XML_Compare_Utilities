@@ -95,11 +95,14 @@ export function buildPsFamilyEvidenceAudit(input = {}) {
     coverage,
     config,
   );
+  const carrier = bundle.supportCarrierResolution || {};
   return {
     schema: PS_FAMILY_EVIDENCE_AUDIT_SCHEMA,
     legacyReportContractSchema: PS_FAMILY_CLASH_AUDIT_SCHEMA,
     evidenceMode: PS_FAMILY_EVIDENCE_MODE,
     sourceSchema: bundle.schema,
+    carrierResolutionSchema: bundle.carrierResolutionSchema || carrier.schema || null,
+    carrierCatalogSchema: bundle.carrierCatalogSchema || carrier.catalogSchema || null,
     summary,
     coverageRows: coverage.coverageRows,
     clashRows: [],
@@ -117,6 +120,11 @@ export function buildPsFamilyEvidenceAudit(input = {}) {
       coverage.coverageRows,
       posFamilies,
     ),
+    carrierObjectRows: carrier.carrierObjects || [],
+    branchContextRows: carrier.branchContexts || [],
+    carrierResolutionRows: carrier.resolutions || [],
+    supportCarrierEdgeRows: carrier.supportCarrierEdges || [],
+    branchContextEdgeRows: carrier.branchContextEdges || [],
     diagnostics,
     ...reports,
   };
@@ -153,6 +161,7 @@ function readinessSummary(bundle, expectedRows, detailRows, diagnostics, config 
     resolvedConfig.sourceFamily,
   );
   const chain = bundle.supportMemberChain || {};
+  const carrier = bundle.supportCarrierResolution || {};
   const physicalTerminals = (chain.structuralTerminalEdges || []).filter(
     (edge) => edge.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE',
   );
@@ -161,6 +170,9 @@ function readinessSummary(bundle, expectedRows, detailRows, diagnostics, config 
     sourceFamily: detectedEvidenceSourceFamily(families, resolvedConfig),
     structureContactCount: physicalTerminals.length,
     supportChainCount: (chain.supportChainEdges || []).length,
+    carrierObjectCount: (carrier.carrierObjects || []).length,
+    resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
+    branchContextEdgeCount: (carrier.branchContextEdges || []).length,
     xmlClashCount: 0,
     psClashCount: 0,
     expectedCount: expectedRows.length,
@@ -180,6 +192,9 @@ function emptyReadinessSummary(diagnostics) {
     sourceFamily: '',
     structureContactCount: 0,
     supportChainCount: 0,
+    carrierObjectCount: 0,
+    resolvedCarrierEdgeCount: 0,
+    branchContextEdgeCount: 0,
     xmlClashCount: 0,
     psClashCount: 0,
     expectedCount: 0,
@@ -203,6 +218,7 @@ function buildSummary(
   config,
 ) {
   const foundCount = coverage.coverageRows.filter((row) => row.found).length;
+  const carrier = bundle.supportCarrierResolution || {};
   return {
     sourceFamily: detectedEvidenceSourceFamily(families, config),
     evidenceMode: PS_FAMILY_EVIDENCE_MODE,
@@ -214,6 +230,11 @@ function buildSummary(
     relationshipCount: reports.relationshipCount,
     supportChainEdgeCount: reports.supportChainRows.length,
     structuralTerminalCount: reports.structureContactRows.length,
+    carrierObjectCount: (carrier.carrierObjects || []).length,
+    resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
+    branchContextEdgeCount: (carrier.branchContextEdges || []).length,
+    ambiguousCarrierCount: carrier.summary?.ambiguousCarrierCount || 0,
+    unresolvedCarrierCount: carrier.summary?.unresolvedCarrierCount || 0,
     symbolicReferenceCount: reports.symbolicReferenceCount,
     supportGroupCount: reports.supportSummaryRows.length,
     supportExceptionCount: reports.supportExceptionRows.length,

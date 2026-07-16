@@ -1,3 +1,8 @@
+import {
+  exportCarrierCatalogCsv,
+  exportCarrierResolutionCsv,
+  exportSupportCarrierEdgesCsv,
+} from './ps-family-carrier-evidence-export.js';
 import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
 
 export function exportPsFamilyNativePipelineJson(pipeline) {
@@ -16,7 +21,9 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
   const summary = pipeline?.summary || {};
   const headers = [
     'Status', 'SupportFamilyCount', 'SteelGroupCount', 'ResolvedFamilyCount',
-    'AmbiguousFamilyCount', 'UnresolvedFamilyCount', 'SupportChainEdgeCount',
+    'AmbiguousFamilyCount', 'UnresolvedFamilyCount', 'CarrierObjectCount',
+    'ResolvedPhysicalCarrierCount', 'BranchContextOnlyCount',
+    'AmbiguousCarrierCount', 'UnresolvedCarrierCount', 'SupportChainEdgeCount',
     'StructuralTerminalCount', 'AuditSupportGroupCount', 'AuditExceptionCount',
     'XmlRequired', 'XmlConsumed',
   ];
@@ -27,6 +34,11 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     ResolvedFamilyCount: summary.resolvedFamilyCount,
     AmbiguousFamilyCount: summary.ambiguousFamilyCount,
     UnresolvedFamilyCount: summary.unresolvedFamilyCount,
+    CarrierObjectCount: summary.carrierObjectCount,
+    ResolvedPhysicalCarrierCount: summary.resolvedPhysicalCarrierCount,
+    BranchContextOnlyCount: summary.branchContextOnlyCount,
+    AmbiguousCarrierCount: summary.ambiguousCarrierCount,
+    UnresolvedCarrierCount: summary.unresolvedCarrierCount,
     SupportChainEdgeCount: summary.supportChainEdgeCount,
     StructuralTerminalCount: summary.structuralTerminalCount,
     AuditSupportGroupCount: summary.auditSupportGroupCount,
@@ -47,6 +59,9 @@ export function createPsFamilyNativePipelineExports(pipeline) {
     supportSummaryCsv: auditExports.supportSummaryCsv || '',
     supportExceptionsCsv: auditExports.supportExceptionsCsv || '',
     inputEvidenceCsv: auditExports.inputEvidenceCsv || '',
+    carrierCatalogCsv: exportCarrierCatalogCsv(pipeline?.audit),
+    carrierResolutionCsv: exportCarrierResolutionCsv(pipeline?.audit),
+    supportCarrierEdgesCsv: exportSupportCarrierEdgesCsv(pipeline?.audit),
   };
 }
 

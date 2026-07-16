@@ -1,4 +1,4 @@
-import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-relationship-engine.js';
+import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-evidence-bundle.js';
 import { parseSupportSteelJson } from '../support-steel-relationship-builder/support-steel-source-utils.js';
 import { buildPsFamilyEvidenceAudit } from './ps-family-evidence-graph-audit.js';
 
@@ -40,6 +40,8 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
     outputSchemas: {
       relationshipBundle: relationshipBundle.schema,
       memberChain: relationshipBundle.memberChainEngineSchema || null,
+      carrierResolution: relationshipBundle.carrierResolutionSchema || null,
+      carrierCatalog: relationshipBundle.carrierCatalogSchema || null,
       audit: audit.schema,
     },
     config: {
@@ -116,6 +118,20 @@ function createPipelineDiagnostics(bundle, audit) {
       `${bundle.unresolvedSupportFamilies.length} support family or families remain unresolved.`,
     ));
   }
+  if (bundle.summary?.branchContextOnlyCount > 0) {
+    diagnostics.push(diagnostic(
+      'INFO',
+      'BRANCH_CONTEXT_ONLY_CARRIER_RELATIONSHIPS',
+      `${bundle.summary.branchContextOnlyCount} support member(s) have branch context without a physical carrier object.`,
+    ));
+  }
+  if (bundle.summary?.ambiguousCarrierCount > 0 || bundle.summary?.unresolvedCarrierCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'CARRIER_OBJECT_RESOLUTION_EXCEPTIONS_REMAIN',
+      'Some support members do not have a unique authoritative carrier object.',
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -138,6 +154,11 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     resolvedFamilyCount: bundle.summary?.resolvedFamilyCount || 0,
     ambiguousFamilyCount: bundle.summary?.ambiguousFamilyCount || 0,
     unresolvedFamilyCount: bundle.summary?.unresolvedFamilyCount || 0,
+    carrierObjectCount: bundle.summary?.carrierObjectCount || 0,
+    resolvedPhysicalCarrierCount: bundle.summary?.resolvedPhysicalCarrierCount || 0,
+    branchContextOnlyCount: bundle.summary?.branchContextOnlyCount || 0,
+    ambiguousCarrierCount: bundle.summary?.ambiguousCarrierCount || 0,
+    unresolvedCarrierCount: bundle.summary?.unresolvedCarrierCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,
