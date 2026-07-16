@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
 import {
   createSequentialConstructionSession,
@@ -23,14 +24,66 @@ const records = [{ type: 'BRANCH', name: branchId, attributes: { NAME: branchId,
 const evidence = buildSequentialEvidenceModel(records);
 const indexes = indexSequentialEvidence(evidence);
 const branch = indexes.branches.get(branchId);
+const xv = branch.components.find((component) => component.sourceComponentId === '/XV-1');
+const fi = branch.components.find((component) => component.sourceComponentId === '/FI-2');
+const result = runConstructionUntilBlocked(
+  createSequentialConstructionSession(branchId),
+  evidence,
+  indexes,
+  {},
+);
+let confirmed = null;
+let supportProjection = null;
+let downstreamError = null;
+try {
+  confirmed = createConfirmedSequentialConstruction(result.session, indexes);
+  supportProjection = buildConfirmedConstructionSupportProjection(confirmed, indexes, {});
+} catch (error) {
+  downstreamError = { name: error.name, message: error.message, stack: error.stack };
+}
+
+mkdirSync('artifacts/sequential-sketcher', { recursive: true });
+writeFileSync('artifacts/sequential-sketcher/shadow-carrier-probe.json', `${JSON.stringify({
+  branch: {
+    sourceRouteComponentCount: branch.sourceRouteComponentCount,
+    shadowCarrierCount: branch.shadowCarrierCount,
+    componentIds: branch.components.map((component) => ({
+      sourceComponentId: component.sourceComponentId,
+      canonicalType: component.canonicalType,
+      sourceIndex: component.sourceIndex,
+      shadowCarrierEvidence: component.shadowCarrierEvidence,
+    })),
+  },
+  evidenceAudit: evidence.audit,
+  aliases: {
+    primary: indexes.componentReferences.get('=REF/XV1')?.map((component) => component.sourceComponentId) || [],
+    shadowName: indexes.componentReferences.get(shadowCarrierName)?.map((component) => component.sourceComponentId) || [],
+    shadowRef: indexes.componentReferences.get('=SHADOW/PIPE1')?.map((component) => component.sourceComponentId) || [],
+  },
+  construction: {
+    state: result.session.state,
+    outcomes: result.outcomes,
+    confirmedComponents: result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId),
+    operations: result.session.strokeLedger.map((row) => ({ op: row.op, sourceComponentId: row.sourceComponentId, hasShadow: Boolean(row.shadowCarrierEvidence) })),
+    connections: result.session.committedConnections,
+    decision: result.session.currentDecisionRequest,
+  },
+  confirmedAudit: confirmed?.audit || null,
+  supportProjection: supportProjection ? {
+    glyphs: supportProjection.supportGlyphs,
+    unresolved: supportProjection.unresolvedSupportFamilies,
+    diagnostics: supportProjection.diagnostics,
+    audit: supportProjection.audit,
+    carriers: supportProjection.branchBundles.flatMap((bundle) => bundle.carriers),
+  } : null,
+  downstreamError,
+}, null, 2)}\n`, 'utf8');
+
 assert.equal(branch.sourceRouteComponentCount, 7);
 assert.equal(branch.shadowCarrierCount, 2);
 assert.equal(branch.components.length, 5);
 assert.deepEqual(branch.components.map((component) => component.sourceComponentId), ['P0', '/XV-1', 'P2', '/FI-2', 'C1']);
 assert.equal(evidence.audit.shadowCarrierCount, 2);
-
-const xv = branch.components.find((component) => component.sourceComponentId === '/XV-1');
-const fi = branch.components.find((component) => component.sourceComponentId === '/FI-2');
 assert.equal(xv.shadowCarrierEvidence.sourceName, shadowCarrierName);
 assert.equal(xv.shadowCarrierEvidence.orientation, 'SAME_DIRECTION');
 assert.equal(fi.shadowCarrierEvidence.sourceName, `PIPE AUTO ${branchId} TAIL`);
@@ -38,23 +91,14 @@ assert.equal(fi.shadowCarrierEvidence.orientation, 'SAME_DIRECTION');
 assert.equal(indexes.componentReferences.get('=REF/XV1')[0].componentId, xv.componentId);
 assert.equal(indexes.componentReferences.get(shadowCarrierName)[0].componentId, xv.componentId);
 assert.equal(indexes.componentReferences.get('=SHADOW/PIPE1')[0].componentId, xv.componentId);
-
-const result = runConstructionUntilBlocked(
-  createSequentialConstructionSession(branchId),
-  evidence,
-  indexes,
-  {},
-);
 assert.equal(result.session.state, 'ROUTE_COMPLETE');
 assert.deepEqual(result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId), ['P0', '/XV-1', 'P2', '/FI-2', 'C1']);
 assert.equal(result.session.strokeLedger.filter((row) => row.op === 'DRAW_INSTRUMENT').length, 2);
 assert.equal(result.session.strokeLedger.filter((row) => row.op === 'DRAW_PIPE').length, 2);
 assert.equal(result.session.strokeLedger.some((row) => row.sourceComponentId?.startsWith('PIPE AUTO')), false);
 assert.ok(result.session.strokeLedger.filter((row) => row.op === 'DRAW_INSTRUMENT').every((row) => row.shadowCarrierEvidence));
-
-const confirmed = createConfirmedSequentialConstruction(result.session, indexes);
+assert.equal(downstreamError, null);
 assert.equal(confirmed.audit.shadowCarrierCount, 2);
-const supportProjection = buildConfirmedConstructionSupportProjection(confirmed, indexes, {});
 assert.equal(supportProjection.supportGlyphs.length, 1);
 assert.equal(supportProjection.unresolvedSupportFamilies.length, 0);
 assert.equal(supportProjection.supportGlyphs[0].familyId, '/PS-SHADOW');
