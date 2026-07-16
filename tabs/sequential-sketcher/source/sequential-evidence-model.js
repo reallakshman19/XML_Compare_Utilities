@@ -4,7 +4,13 @@ const TWO_PORT_TYPES = new Set(['PIPE', 'ELBOW', 'REDUCER', 'VALVE', 'FLANGE', '
 const TERMINAL_TYPES = new Set(['CAP', 'BLIND']);
 
 function text(value) { return String(value ?? '').trim(); }
-function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
+function number(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const match = String(value ?? '').trim().match(/[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 function clonePoint(value) { const point = pointFrom(value); return point ? { ...point } : null; }
 function componentIdentity(child, branchId, sourceIndex) {
   return text(child?.attributes?.NAME || child?.attributes?.REF || child?.name || `${branchId}#CHILD-${sourceIndex + 1}`);
@@ -24,13 +30,15 @@ function readBore(attrs, keys) {
   return null;
 }
 function makePort(componentId, branchId, role, sourcePosition, sourceIndex, extra = {}) {
+  const position = clonePoint(sourcePosition);
   return Object.freeze({
     portId: `PORT-${stableToken(`${componentId}|${role}`)}`,
     componentId,
     branchId,
     role,
     sourceIndex,
-    sourcePosition: clonePoint(sourcePosition),
+    sourcePosition: position,
+    sourcePositionStatus: position ? 'SOURCE_EXPLICIT' : 'UNRESOLVED',
     resolvedPosition: null,
     tangent: extra.tangent || null,
     boreMm: extra.boreMm ?? null,
@@ -44,8 +52,8 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
   const lpos = clonePoint(attrs.LPOS || attrs.TPOS);
   const centre = clonePoint(attrs.POS || attrs.CPOS || attrs.CENTRE || attrs.CENTER);
   const branchPoint = clonePoint(attrs.BPOS || attrs.BRANCH_POS || attrs.BRANCHPOS);
-  const inletBore = readBore(attrs, ['INLET_BORE', 'INLETBORE', 'LARGE_BORE', 'LARGEBORE', 'OD1', 'BORE1', 'NPD1']);
-  const outletBore = readBore(attrs, ['OUTLET_BORE', 'OUTLETBORE', 'SMALL_BORE', 'SMALLBORE', 'OD2', 'BORE2', 'NPD2']);
+  const inletBore = readBore(attrs, ['INLET_BORE', 'INLETBORE', 'LARGE_BORE', 'LARGEBORE', 'OD1', 'BORE1', 'NPD1', 'ABORE']);
+  const outletBore = readBore(attrs, ['OUTLET_BORE', 'OUTLETBORE', 'SMALL_BORE', 'SMALLBORE', 'OD2', 'BORE2', 'NPD2', 'LBORE']);
   const commonBore = readBore(attrs, ['BORE', 'NOMINAL_BORE', 'NOMINALBORE', 'OUTSIDE_DIAMETER', 'OUTSIDEDIAMETER', 'OD', 'NPD', 'ABORE', 'LBORE', 'HBOR', 'TBOR']);
   const cref = text(attrs.CREF);
 
@@ -72,7 +80,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       makePort(componentId, branchId, 'RUN_OUT', lpos, sourceIndex, {
         tangent: tangentFrom(centre || apos, lpos), boreMm: outletBore ?? commonBore,
       }),
-      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint || centre, sourceIndex, {
+      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
         boreMm: readBore(attrs, ['BRANCH_BORE', 'BRANCHBORE', 'OD3', 'BORE3', 'NPD3']) ?? commonBore,
         referenceTarget: cref,
@@ -82,8 +90,8 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
 
   if (canonicalType === 'OLET') {
     return [
-      makePort(componentId, branchId, 'HOST_ATTACHMENT', centre || apos, sourceIndex, { boreMm: commonBore }),
-      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint || lpos || centre || apos, sourceIndex, {
+      makePort(componentId, branchId, 'HOST_ATTACHMENT', centre || apos, sourceIndex, { boreMm: inletBore ?? commonBore }),
+      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
         boreMm: outletBore ?? commonBore,
         referenceTarget: cref,
@@ -117,7 +125,7 @@ function buildComponent(child, branchId, sourceIndex) {
     ports: Object.freeze(ports),
     geometry: Object.freeze({
       centre: clonePoint(attrs.POS || attrs.CPOS || attrs.CENTRE || attrs.CENTER),
-      radiusMm: readBore(attrs, ['BEND_RADIUS', 'BENDRADIUS', 'RADIUS', 'RADI']),
+      radiusMm: number(attrs.BEND_RADIUS || attrs.BENDRADIUS || attrs.RADIUS || attrs.RADI),
       angleDeg: number(attrs.ANGLE || attrs.BEND_ANGLE || attrs.BENDANGLE || attrs.ANGL),
       eccentricOffsetMm: number(attrs.ECCENTRIC_OFFSET || attrs.ECCENTRICOFFSET),
     }),
