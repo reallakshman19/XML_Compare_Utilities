@@ -13,6 +13,7 @@ import {
   resolveSupportLineContext,
   summarizeSupportFamilyLineContext,
 } from './support-steel-line-context.js';
+import { transformPoint } from './support-steel-world-matrix.js';
 import {
   byId,
   cleanText,
@@ -93,20 +94,29 @@ function isSteelRecord(node, attrs, identity, steelTypes) {
 function addSupportMember(groups, familyId, row, attrs, memberId, config) {
   if (!groups.has(familyId)) groups.set(familyId, createSupportFamily(familyId));
   const group = groups.get(familyId);
-  const position = readPosition(attrs, config.supportPositionKeys);
+  const position = supportPositionGlobal(row, attrs, config.supportPositionKeys);
   const lineContext = resolveSupportLineContext(row, attrs);
   const branchId = lineContext.branchNode || cleanText(row.owner);
   const carrierId = lineContext.carrierId || cleanText(attrs.CARRIER_ID || attrs.CARRIER_REF || attrs.PIPE_REF);
   const references = readReferences(attrs, config.explicitSteelReferenceKeys);
-  group.members.push(createSupportMember(row, attrs, memberId, branchId, position, lineContext));
+  const member = createSupportMember(
+    row,
+    attrs,
+    memberId,
+    branchId,
+    position,
+    lineContext,
+    config,
+  );
+  group.members.push(member);
   if (position) group.positions.push(position);
   if (branchId) group.branchIds.add(branchId);
   if (carrierId) group.carrierIds.add(carrierId);
   references.forEach((value) => group.explicitReferences.add(value));
 }
 
-function createSupportMember(row, attrs, memberId, branchId, position, lineContext) {
-  const base = {
+function createSupportMember(row, attrs, memberId, branchId, position, lineContext, config) {
+  const member = {
     memberId: memberId || null,
     sourceRecordType: sourceType(row.node, attrs),
     semanticRole: supportMemberRole(memberId, attrs),
@@ -114,12 +124,12 @@ function createSupportMember(row, attrs, memberId, branchId, position, lineConte
     sourceParentBranch: branchId || null,
     positionGlobal: position,
     lineContext,
+    worldMatrix: [...(row.worldMatrix || [])],
+    transformBasis: row.transformBasis || 'IDENTITY',
     attributes: cloneJson(attrs),
   };
-  return {
-    ...base,
-    analyticalGeometry: buildSupportMemberAnalyticalGeometry(base, row, attrs),
-  };
+  member.analyticalGeometry = buildSupportMemberAnalyticalGeometry(member, config);
+  return member;
 }
 
 function addSteelRecord(groups, steelGroupId, row, attrs, config) {
@@ -158,10 +168,18 @@ function mergeProjectionFamily(group, family, carrier, bundle, config) {
   if (position) group.positions.push(position);
   if (lineContext.branchNode) group.branchIds.add(lineContext.branchNode);
   if (lineContext.carrierId) group.carrierIds.add(lineContext.carrierId);
-  group.members.push(...cloneJson(family.members || []).map((member) => ({
-    ...member,
-    lineContext: member.lineContext || lineContext,
-  })));
+  for (const sourceMember of cloneJson(family.members || [])) {
+    const member = {
+      ...sourceMember,
+      positionGlobal: sourceMember.positionGlobal || sourceMember.sourcePositionGlobal || position,
+      worldMatrix: sourceMember.worldMatrix || null,
+      transformBasis: sourceMember.transformBasis || 'IDENTITY',
+      lineContext: sourceMember.lineContext || lineContext,
+    };
+    member.analyticalGeometry = sourceMember.analyticalGeometry
+      || buildSupportMemberAnalyticalGeometry(member, config);
+    group.members.push(member);
+  }
   collectFamilyReferences(family, config.explicitSteelReferenceKeys)
     .forEach((value) => group.explicitReferences.add(value));
 }
@@ -217,6 +235,9 @@ function finalizeSupportFamily(group) {
     carrierIds: lineContext.carrierIds.length ? lineContext.carrierIds : [...group.carrierIds].sort(),
     lineContext,
     explicitReferences: [...group.explicitReferences].sort(),
+    analyticalMemberCount: group.members.filter(
+      (member) => member.analyticalGeometry?.physicalGeometryAvailable,
+    ).length,
     members: group.members,
   };
 }
@@ -238,18 +259,33 @@ function finalizeSteelGroup(group) {
 
 function supportMemberRole(memberId, attrs) {
   const id = cleanText(memberId).toUpperCase();
-  const text = [id, attrs.DTXR, attrs.CMPSUPTYPE, attrs.MDSSUPPTYPE, attrs.DESCRIPTION].join(' ').toUpperCase();
+  const text = [id, attrs.DTXR, attrs.CMPSUPTYPE, attrs.MDSSUPPTYPE, attrs.DESCRIPTION]
+    .join(' ')
+    .toUpperCase();
   if (/\/DATUM$/u.test(id)) return 'DATUM';
   if (/\/SREF$/u.test(id)) return 'STRUCTURAL_REFERENCE';
   if (/WEAR\s*PLATE|W\.?\s*PAD/u.test(text)) return 'WEAR_PLATE';
   if (/PIPE\s*SHOE|\bSHOE\b|\bSH[-_ ]?\d+/u.test(text)) return 'PIPE_SHOE';
-  if (/LINE\s*STOP|LINESTOP|AXIAL\s*STOP/u.test(text)) return 'LINE_STOP_MEMBER';
+  if (/LINE\s*STOP|LINESTOP|AXIAL\s*STOP|\bSTOPPER\b/u.test(text)) return 'LINE_STOP_MEMBER';
   if (/\bGUIDE\b|GUIDE\s*PLATE/u.test(text)) return 'GUIDE_MEMBER';
   if (/\bCLAMP\b|U[- ]?BOLT/u.test(text)) return 'CLAMP_MEMBER';
   if (/\bSPRING\b|VARIABLE\s*SUPPORT|CONSTANT\s*SUPPORT/u.test(text)) return 'SPRING_MEMBER';
-  if (/\bANCHOR\b/u.test(text)) return 'ANCHOR_MEMBER';
-  if (/BRACKET|CANTILEVER|TRUNNION/u.test(text)) return 'BRACKET_MEMBER';
+  if (/\bANCHOR\b|\bFIXED\b/u.test(text)) return 'ANCHOR_MEMBER';
+  if (/BRACKET|CANTILEVER|TRUNNION|\bFRAME\b|\bPOST\b/u.test(text)) return 'BRACKET_MEMBER';
   return 'OTHER_FAMILY_MEMBER';
+}
+
+function supportPositionGlobal(row, attrs, keys) {
+  const point = readPosition(attrs, keys);
+  if (!point) return null;
+  const coordinateSpace = cleanText(
+    attrs.POSITION_COORDINATE_SPACE || attrs.GEOMETRY_COORDINATE_SPACE || attrs.COORDINATE_SPACE,
+  ).toUpperCase();
+  if (coordinateSpace === 'WORLD' || coordinateSpace === 'GLOBAL') return point;
+  if (row.transformBasis && row.transformBasis !== 'IDENTITY' && row.worldMatrix?.length === 16) {
+    return transformPoint(row.worldMatrix, point);
+  }
+  return point;
 }
 
 function readReferences(attrs, keys) {
