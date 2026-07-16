@@ -204,12 +204,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   function markerMesh(marker, modelId, statusKey) {
     const isAnchor = String(marker.kind).startsWith('ANCHOR');
     const isNode = marker.kind === 'NODE';
+    const isRestraintArrow = marker.kind === 'RESTRAINT_ARROW';
     const size = Number.isFinite(marker.sizeMm) ? marker.sizeMm : (isAnchor ? 34 : 30);
-    const geometry = isAnchor
-      ? new THREE.OctahedronGeometry(size)
-      : new THREE.SphereGeometry(size, 12, 10);
-    const colors = { RIGID: 0xf59e0b, BEND: 0x8b5cf6, SIF: 0x14b8a6, RESTRAINT: 0x22d3ee, HANGER: 0x22d3ee, SUPPORT: 0x22d3ee, NODE: 0x94a3b8 };
-    let colorInt = isAnchor ? 0x94a3b8 : (colors[marker.kind] ?? 0xcbd5e1);
+    const geometry = isAnchor ? new THREE.OctahedronGeometry(size)
+      : isRestraintArrow ? new THREE.ConeGeometry(size * 0.45, size, 12)
+        : new THREE.SphereGeometry(size, 12, 10);
+    const colors = { RIGID: 0xf59e0b, BEND: 0x8b5cf6, SIF: 0x14b8a6, RESTRAINT: 0x22d3ee, RESTRAINT_ARROW: 0x06b6d4, HANGER: 0x22d3ee, SUPPORT: 0x22d3ee, NODE: 0x94a3b8 };
+    let colorInt = Number.isFinite(marker.colorInt) ? marker.colorInt : isAnchor ? 0x94a3b8 : (colors[marker.kind] ?? 0xcbd5e1);
     let alpha = 1;
     // Markers that stand for a diffed object (node-set models) take the
     // status color; explicit overrides (heatmap) beat both.
@@ -224,6 +225,11 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
     const mesh = new THREE.Mesh(geometry, material(colorInt, modelId === 'source' && !marker.isObjectMarker, alpha));
     mesh.position.set(...marker.position);
+    if (isRestraintArrow) {
+      if (!Array.isArray(marker.direction) || marker.direction.length !== 3) throw new TypeError(`Restraint arrow ${marker.objectId ?? '(unknown)'} has no 3D direction.`);
+      const direction = new THREE.Vector3(...marker.direction).normalize();
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+    }
     mesh.userData = { objectId: marker.objectId, nodeId: marker.nodeId ?? null, modelId, marker: marker.kind, fallback: !!marker.fallback, status: statusKey ?? null };
     return mesh;
   }

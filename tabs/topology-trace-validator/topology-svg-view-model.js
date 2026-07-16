@@ -25,11 +25,17 @@ function componentPassesFacets(component, state, dispositions) {
   return true;
 }
 
-/** @param {Record<string, unknown>} component @param {Record<string, unknown>} state @param {Map<string,string>} dispositions @returns {boolean} */
 function componentVisible(component, state, dispositions) {
-  const branch = cleanText(state.branch);
+  const branches = selectedBranchSet(state);
   return componentPassesFacets(component, state, dispositions)
-    && (!branch || cleanText(component.sourceBranch) === branch);
+    && (branches.size === 0 || branches.has(cleanText(component.sourceBranch)));
+}
+
+/** @param {Record<string, unknown>} state @returns {Set<string>} */
+function selectedBranchSet(state) {
+  if (state.selectedBranches instanceof Set) return state.selectedBranches;
+  const branch = cleanText(state.branch);
+  return new Set(branch ? [branch] : []);
 }
 
 /** @param {Record<string, unknown>} component @param {Record<string, unknown>} state @returns {boolean} */
@@ -99,6 +105,7 @@ function traceLinkView(record) {
 export function buildTopologySvgViewModel(input) {
   const source = objectRecord(input.source), canonical = objectRecord(input.canonical), ledger = objectRecord(input.ledger);
   const validation = objectRecord(input.validation), state = objectRecord(input.state), inputXml = input.inputXml ? objectRecord(input.inputXml) : null;
+  const selectedBranches = selectedBranchSet(state);
   const dispositionMap = new Map(asArray(ledger.records).map((row) => {
     const record = objectRecord(row);
     return [cleanText(record.sourceEntityId) || cleanText(record.sourcePath), cleanText(record.disposition)];
@@ -111,7 +118,7 @@ export function buildTopologySvgViewModel(input) {
   const matchingComponents = searchActive
     ? componentViews.filter((component) => componentViewMatchesSearch(component, state))
     : [];
-  const visibleBranches = branchViews.filter((branch) => !cleanText(state.branch) || branch.branch === cleanText(state.branch));
+  const visibleBranches = branchViews.filter((branch) => selectedBranches.size === 0 || selectedBranches.has(branch.branch));
   const traceSources = [...visibleBranches, ...sourceComponents];
   const visibleSourceKeys = new Set(traceSources.flatMap((component) => [component.sourceEntityId, component.sourcePath]).filter(Boolean));
   const visibleSourceIds = new Set(sourceComponents.map((component) => component.sourceEntityId).filter(Boolean));
@@ -203,7 +210,7 @@ export function buildTopologySvgViewModel(input) {
     deferredMatchCount: deferredMatches, canonicalEdgeMatchCount: edges.length,
     canonicalObjectMatchCount: nodes.length + edges.length + pointFeatures.length + junctions.length + boundaries.length,
     displayedSourceCount: sourceComponents.length, displayedBranchCount: visibleBranches.length,
-    displayScope: cleanText(state.branch) || 'ALL_BRANCHES',
+    displayScope: selectedBranches.size > 0 ? Array.from(selectedBranches).join(', ') : 'ALL_BRANCHES',
   });
   return deepFreeze({
     schema: TOPOLOGY_VIEW_MODEL_SCHEMA,
@@ -213,8 +220,8 @@ export function buildTopologySvgViewModel(input) {
     visibility: deepFreeze(objectRecord(state.visibility)),
     labels: state.labels === true,
     showComponentSymbols: state.showComponentSymbols === true,
-    branches: Object.freeze(asArray(source.branches).map(objectRecord).filter((row) => !cleanText(state.branch) || cleanText(row.name) === cleanText(state.branch)).map((row) => ({ name: cleanText(row.name), sourcePath: cleanText(row.sourcePath), references: deepFreeze(objectRecord(row.references)) }))),
-    branchReferences: filterBranchReferences(objectRecord(source.references), cleanText(state.branch)),
+    branches: Object.freeze(asArray(source.branches).map(objectRecord).filter((row) => selectedBranches.size === 0 || selectedBranches.has(cleanText(row.name))).map((row) => ({ name: cleanText(row.name), sourcePath: cleanText(row.sourcePath), references: deepFreeze(objectRecord(row.references)) }))),
+    branchReferences: filterBranchReferences(objectRecord(source.references), selectedBranches),
     sourceComponents: Object.freeze(sourceGeometry),
     searchResults: Object.freeze(matchingComponents.slice(0, 100)),
     filterSummary,
@@ -252,11 +259,11 @@ export function updateTopologySearchViewModel(viewModel, state) {
   return Object.freeze({ ...viewModel, searchResults: Object.freeze(matches.slice(0, 100)), filterSummary });
 }
 
-export const _test = Object.freeze({ componentVisible, componentViewMatchesSearch, componentView, branchView, traceLinkView, hasActiveSearch, hasVisibleLineage, isReferenceConnection });
+export const _test = Object.freeze({ componentVisible, selectedBranchSet, componentViewMatchesSearch, componentView, branchView, traceLinkView, hasActiveSearch, hasVisibleLineage, isReferenceConnection });
 
-/** @param {Record<string, unknown>} references @param {string} branch @returns {Readonly<Record<string, unknown>>} */
-function filterBranchReferences(references, branch) {
-  const filter = (rows) => Object.freeze(asArray(rows).map(objectRecord).filter((row) => !branch || cleanText(row.branchName) === branch));
+/** @param {Record<string, unknown>} references @param {Set<string>} selectedBranches @returns {Readonly<Record<string, unknown>>} */
+function filterBranchReferences(references, selectedBranches) {
+  const filter = (rows) => Object.freeze(asArray(rows).map(objectRecord).filter((row) => !selectedBranches || selectedBranches.size === 0 || selectedBranches.has(cleanText(row.branchName))));
   return deepFreeze({
     branchReferences: filter(references.branchReferences),
     crefReferences: filter(references.crefReferences),

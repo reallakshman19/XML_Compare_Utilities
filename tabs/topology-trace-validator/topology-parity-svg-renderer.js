@@ -100,6 +100,18 @@ function residualMarkup(row, transform) {
   return `<line class="ttv-parity-residual" x1="${a.x.toFixed(2)}" y1="${a.y.toFixed(2)}" x2="${b.x.toFixed(2)}" y2="${b.y.toFixed(2)}" data-residual-mm="${escapeAttribute(row.connectionResidual)}"/>`;
 }
 
+function gapMarkup(edge, transform) {
+  if (!(edge.connectionGap > 0)) return '';
+  const d = pathData(edge.projectedStart, edge.projectedEnd, transform);
+  return d ? `<path class="ttv-parity-gap" d="${d}"/>` : '';
+}
+
+function overlapMarkup(edge, transform) {
+  if (!(edge.connectionOverlap > 0)) return '';
+  const d = pathData(edge.projectedStart, edge.projectedEnd, transform);
+  return d ? `<path class="ttv-parity-overlap" d="${d}"/>` : '';
+}
+
 function labelMarkup(row, transform, text) {
   if (!row.projectedPosition) return '';
   const point = transform(row.projectedPosition);
@@ -134,6 +146,8 @@ export function topologyParitySvgMarkup(viewModel) {
     rigids: asArray(viewModel.rigids).map((row) => rigidMarkup(row, edgeById, transform)).join(''),
     junctions: `${asArray(viewModel.junctions).map((row) => pointMarkup(row, transform, 'ttv-parity-junction', cleanText(row.kind) === 'OLET' ? 'O' : 'T')).join('')}${asArray(viewModel.boundaries).map((row) => pointMarkup(row, transform, 'ttv-parity-boundary', '↗')).join('')}`,
     issues: asArray(viewModel.inputEdges).map((edge) => inputEdgeMarkup(edge, transform, selectedKeys.has(edge.objectKey))).join(''),
+    'gap-indicators': asArray(viewModel.activeEdges).map((edge) => gapMarkup(edge, transform)).join(''),
+    'overlap-indicators': asArray(viewModel.activeEdges).map((edge) => overlapMarkup(edge, transform)).join(''),
     nodes: asArray(viewModel.nodes).map((row) => nodeMarkup(row, transform)).join(''),
     dimensions: asArray(viewModel.supports).map((row) => residualMarkup(row, transform)).join(''),
     labels: viewModel.labels ? `${asArray(viewModel.nodes).map((row) => labelMarkup(row, transform, row.canonicalNodeId)).join('')}${asArray(viewModel.supports).map((row) => labelMarkup(row, transform, row.tag)).join('')}` : '',

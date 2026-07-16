@@ -1,21 +1,179 @@
-/** Static workspace markup shared by trace and parity controllers. */
-import { FINAL_DISPOSITIONS } from './topology-validator-values.js';
+/** Static markup for immutable Trace/Parity surfaces and the Edit Draft tab. */
 
-function fileControl(kind, label, accept, options = {}) {
-  const scope = options.scope === 'parity' ? 'data-ttv-parity-file' : 'data-ttv-file';
-  const status = options.scope === 'parity' ? 'data-ttv-parity-file-status' : 'data-ttv-file-status';
-  return `<label class="ttv-file-button ${options.disabled ? 'is-disabled' : ''}">${label}<input type="file" ${scope}="${kind}" accept="${accept}" ${options.disabled ? 'disabled' : ''} hidden><small ${status}="${kind}">Not loaded</small></label>`;
+import { FINAL_DISPOSITIONS, escapeMarkup } from './topology-validator-values.js';
+
+/** @param {string} kind @param {string} label @param {string} accept @param {Record<string, unknown>} options @returns {string} */
+function fileControl(kind, label, accept, options) {
+  const parity = options.scope === 'parity';
+  const scope = parity ? 'data-ttv-parity-file' : 'data-ttv-file';
+  const status = parity ? 'data-ttv-parity-file-status' : 'data-ttv-file-status';
+  const title = options.title ? ` title="${escapeMarkup(options.title)}"` : '';
+  return `<label class="ttv-file-button ${options.disabled ? 'is-disabled' : ''}"${title}>${label}<input type="file" ${scope}="${kind}" accept="${accept}" ${options.disabled ? 'disabled' : ''} hidden><small ${status}="${kind}" hidden>Not loaded</small></label>`;
 }
-function visibilityCheck(key, label, checked) { return `<label><input type="checkbox" data-ttv-visibility="${key}"${checked ? ' checked' : ''}>${label}</label>`; }
 
+/** @returns {string} */
 function traceMarkup() {
   const dispositionOptions = FINAL_DISPOSITIONS.map((value) => `<option value="${value}">${value}</option>`).join('');
-  return `<section class="ttv-trace-area"><header class="ttv-toolbar"><div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>${fileControl('source', 'Load Source JSON · Auto artifacts', '.json')}<button type="button" data-ttv-build-topology>⚙️ Build Topology & Validate</button><button type="button" data-ttv-enrich>📚 Master File Enrichment</button><button type="button" data-ttv-download-inputxml>⬇ Download InputXML</button><div class="ttv-button-group"><button type="button" data-ttv-zoom="in">Zoom +</button><button type="button" data-ttv-zoom="out">Zoom −</button><button type="button" data-ttv-fit>Fit</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-projection="XY">XY</button><button type="button" data-ttv-projection="XZ">XZ</button><button type="button" data-ttv-projection="YZ">YZ</button><button type="button" data-ttv-projection="3D">3D</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-mode="spatial">Spatial Overlay</button><button type="button" data-ttv-mode="trace">Source ↔ Canonical</button><button type="button" data-ttv-mode="junctions">Junctions / Boundaries</button><button type="button" data-ttv-mode="issues">Issues Only</button></div><label class="ttv-toggle"><input type="checkbox" data-ttv-component-symbols>Show component symbols</label><label class="ttv-toggle"><input type="checkbox" data-ttv-labels>Labels</label><div class="ttv-manual-overrides">${fileControl('canonical', 'Load Canonical Topology', '.json')}${fileControl('ledger', 'Load Trace Ledger', '.json')}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML')}<button type="button" data-ttv-validate>Validate</button></div><button type="button" class="ttv-close" data-ttv-close>Close</button></header><div class="ttv-file-status" data-ttv-file-status-root hidden></div><div class="ttv-metrics" data-ttv-metrics></div><div class="ttv-main"><aside class="ttv-left"><h2>Branches</h2><div class="ttv-branch-tree" data-ttv-branch-tree><p>Select one source JSON; companion artifacts load automatically.</p></div><h2>Component types</h2><div class="ttv-type-filters" data-ttv-type-filters></div><label>Disposition<select data-ttv-disposition><option value="">All dispositions</option>${dispositionOptions}</select></label><label>Search NAME<input type="search" data-ttv-search-name></label><label>Search REF<input type="search" data-ttv-search-ref></label><label>Search source path<input type="search" data-ttv-search-path></label><div class="ttv-search-results" data-ttv-search-results></div><fieldset><legend>Visibility</legend>${visibilityCheck('source', 'Source geometry', true)}${visibilityCheck('canonical', 'Canonical geometry', true)}${visibilityCheck('referenceConnections', 'Reference connection spans', false)}${visibilityCheck('pointFeatures', 'Point features', true)}${visibilityCheck('boundaries', 'Boundaries', true)}${visibilityCheck('junctions', 'Junctions', true)}</fieldset></aside><main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load its companion artifacts.</div></div><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main><aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside></div><footer class="ttv-bottom" data-ttv-bottom></footer><div class="ttv-status" data-ttv-status data-status="idle">Select source JSON. Canonical topology, trace ledger, and InputXML will load automatically when hosted.</div></section>`;
+  return `<section class="ttv-trace-area is-active" data-ttv-workspace-panel="trace">
+    <header class="ttv-toolbar">
+      <div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>
+      <div class="ttv-button-group">
+        ${fileControl('source', '📂', '.json', { title: 'Load Source JSON · Auto artifacts' })}
+        <button type="button" data-ttv-build-topology title="Build Topology & Validate">⚙️</button>
+        <button type="button" data-ttv-enrich title="Master File Enrichment">📚</button>
+        <button type="button" data-ttv-download-inputxml title="Download InputXML">📥</button>
+        <button type="button" data-ttv-export-selection title="Export Selection" disabled>📤</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" data-ttv-zoom="in" title="Zoom In">🔍+</button>
+        <button type="button" data-ttv-zoom="out" title="Zoom Out">🔍−</button>
+        <button type="button" data-ttv-fit title="Fit View">🏠</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" class="is-active" data-ttv-projection="XY">XY</button>
+        <button type="button" data-ttv-projection="XZ">XZ</button>
+        <button type="button" data-ttv-projection="YZ">YZ</button>
+        <button type="button" data-ttv-projection="3D">3D</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" class="is-active" data-ttv-mode="spatial" title="Spatial Overlay">🗺️</button>
+        <button type="button" data-ttv-mode="trace" title="Source ↔ Canonical">↔</button>
+        <button type="button" data-ttv-mode="junctions" title="Junctions / Boundaries">⊕</button>
+        <button type="button" data-ttv-mode="issues" title="Issues Only">⚠️</button>
+      </div>
+      <div class="ttv-visibility-ribbon">
+        <button data-ttv-vis="source" class="ttv-vis-btn is-active" title="Source geometry">⬟</button>
+        <button data-ttv-vis="canonical" class="ttv-vis-btn is-active" title="Canonical geometry">⬡</button>
+        <button data-ttv-vis="referenceConnections" class="ttv-vis-btn" title="Reference spans">⇢</button>
+        <button data-ttv-vis="pointFeatures" class="ttv-vis-btn is-active" title="Point features">◉</button>
+        <button data-ttv-vis="boundaries" class="ttv-vis-btn is-active" title="Boundaries">⊠</button>
+        <button data-ttv-vis="junctions" class="ttv-vis-btn is-active" title="Junctions">⊕</button>
+      </div>
+      <div class="ttv-type-ribbon" data-ttv-type-ribbon></div>
+      <label class="ttv-toggle" title="Show component symbols"><input type="checkbox" data-ttv-component-symbols>Symbols</label>
+      <label class="ttv-toggle"><input type="checkbox" data-ttv-labels>Labels</label>
+      <div class="ttv-button-group ttv-manual-overrides">
+        ${fileControl('canonical', '⬡', '.json', { title: 'Load Canonical Topology' })}
+        ${fileControl('ledger', '📔', '.json', { title: 'Load Trace Ledger' })}
+        ${fileControl('inputXml', '📄', '.xml,.XML', { title: 'Load Topology InputXML' })}
+        <button type="button" data-ttv-validate title="Validate">✔️</button>
+      </div>
+      <button type="button" class="ttv-close" data-ttv-close title="Close">✕</button>
+    </header>
+    <div class="ttv-file-status" data-ttv-file-status-root hidden></div>
+    <div class="ttv-metrics" data-ttv-metrics></div>
+    <div class="ttv-main">
+      <aside class="ttv-left">
+        <h2>Branches</h2><div class="ttv-branch-tree" data-ttv-branch-tree><p>Select one source JSON; companion artifacts load automatically.</p></div>
+        <label>Disposition<select data-ttv-disposition><option value="">All dispositions</option>${dispositionOptions}</select></label>
+        <label>Search NAME<input type="search" data-ttv-search-name></label>
+        <label>Search REF<input type="search" data-ttv-search-ref></label>
+        <label>Search source path<input type="search" data-ttv-search-path></label>
+        <div class="ttv-search-results" data-ttv-search-results></div>
+      </aside>
+      <div class="ttv-resize-gutter ttv-resize-gutter-left"></div>
+      <main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load its companion artifacts.</div></div><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main>
+      <aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside>
+    </div>
+    <div class="ttv-resize-gutter ttv-resize-gutter-bottom"></div>
+    <footer class="ttv-bottom" data-ttv-bottom></footer>
+    <div class="ttv-status" data-ttv-status data-status="idle">Select source JSON. Canonical topology, trace ledger, and InputXML will load automatically when hosted.</div>
+  </section>`;
 }
 
+/** @returns {string} */
+function editMarkup() {
+  return `<section class="ttv-edit-area" data-ttv-workspace-panel="edit" data-ttv-edit-root hidden>
+    <header class="ttv-edit-toolbar">
+      <div class="ttv-title"><strong>Edit Draft</strong><span>Reversible canonical topology surgery · source remains immutable</span></div>
+      <div class="ttv-button-group">
+        <button type="button" class="is-active" data-ttv-edit-tool="SELECT">Select</button>
+        <button type="button" data-ttv-edit-tool="MOVE">Move</button>
+        <button type="button" data-ttv-edit-operation="MERGE">Snap / Merge</button>
+        <button type="button" data-ttv-edit-operation="BRIDGE">Bridge</button>
+        <button type="button" data-ttv-edit-operation="ADD">Add</button>
+        <button type="button" data-ttv-edit-operation="SPLIT">Break</button>
+        <button type="button" data-ttv-edit-operation="DISCONNECT">Disconnect</button>
+        <button type="button" data-ttv-edit-operation="DELETE">Delete</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" data-ttv-edit-undo disabled>Undo</button>
+        <button type="button" data-ttv-edit-redo disabled>Redo</button>
+        <button type="button" data-ttv-edit-zoom="in">+</button>
+        <button type="button" data-ttv-edit-zoom="out">−</button>
+        <button type="button" data-ttv-edit-fit>Fit</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" class="is-active" data-ttv-edit-projection="XY">XY</button>
+        <button type="button" data-ttv-edit-projection="XZ">XZ</button>
+        <button type="button" data-ttv-edit-projection="YZ">YZ</button>
+        <label class="ttv-toggle"><input type="checkbox" data-ttv-edit-3d>3D preview</label>
+      </div>
+      <div class="ttv-visibility-ribbon" aria-label="Selection filters">
+        ${EDIT_FILTERS.map((kind) => {
+          const icons = { node:'⬡', edge:'📏', support:'△', bend:'⌒', issue:'⚠️' };
+          return `<button type="button" class="ttv-vis-btn is-active" data-ttv-edit-selection-filter="${kind}" title="Filter ${kind}">${icons[kind]}</button>`;
+        }).join('')}
+      </div>
+      <div class="ttv-button-group ttv-edit-exports">
+        <button type="button" data-ttv-edit-save>Save Draft</button>
+        <label class="ttv-file-button">Load Draft<input type="file" data-ttv-edit-load accept=".json" hidden></label>
+        <button type="button" data-ttv-edit-export disabled>Export Bundle</button>
+      </div>
+    </header>
+    <div class="ttv-edit-metrics" data-ttv-edit-metrics></div>
+    <div class="ttv-edit-main">
+      <main class="ttv-edit-canvas-stack">
+        <div class="ttv-edit-svg-host" data-ttv-edit-svg-host><div class="ttv-empty">Open Edit Draft after loading topology.</div></div>
+        <div class="ttv-edit-3d-host" data-ttv-edit-3d-host hidden></div>
+        <div class="ttv-navigation-hint">Move tool: drag a node · Shift-drag: box select · Shift-click: path · Ctrl/Cmd-click: multi-select · Arrow keys: nudge</div>
+      </main>
+      <aside class="ttv-edit-inspector" data-ttv-edit-inspector><div class="ttv-inspector-empty">Select a draft object.</div></aside>
+    </div>
+    <footer class="ttv-edit-bottom">
+      <section data-ttv-edit-timeline></section>
+      <section data-ttv-edit-validation></section>
+    </footer>
+    <div class="ttv-status" data-ttv-edit-status data-status="idle">Edit Draft is not initialized.</div>
+    <div class="ttv-sr-only" aria-live="polite" data-ttv-edit-live></div>
+  </section>`;
+}
+
+const EDIT_FILTERS = Object.freeze(['node', 'edge', 'support', 'bend', 'issue']);
+
+/** @returns {string} */
 function parityMarkup() {
-  return `<section class="ttv-parity-area" data-ttv-parity-root><header class="ttv-parity-toolbar"><div class="ttv-title"><strong>Topology Parity</strong><span>Canonical ↔ InputXML ↔ SVG ↔ actual CII records</span></div>${fileControl('scene', 'Load SVG Scene', '.json', { scope: 'parity' })}${fileControl('parsed', 'Load Parsed InputXML Topology', '.json', { scope: 'parity' })}${fileControl('report', 'Load Parity Report', '.json', { scope: 'parity' })}${fileControl('ciiProjection', 'Load CII Projection Ledger', '.json', { scope: 'parity' })}<div class="ttv-button-group"><button type="button" data-ttv-parity-zoom="in">Zoom +</button><button type="button" data-ttv-parity-zoom="out">Zoom −</button><button type="button" data-ttv-parity-fit="all">Fit All</button><button type="button" data-ttv-parity-fit="branch">Fit Branch</button><button type="button" data-ttv-parity-fit="issue">Fit Issue</button></div><div class="ttv-button-group"><button type="button" class="is-active" data-ttv-parity-projection="ISO">ISO</button><button type="button" data-ttv-parity-projection="XY">XY</button><button type="button" data-ttv-parity-projection="XZ">XZ</button><button type="button" data-ttv-parity-projection="YZ">YZ</button></div><label class="ttv-toggle"><input type="checkbox" data-ttv-parity-labels>Labels</label><div class="ttv-parity-exports"><button type="button" data-ttv-parity-export="scene">Scene JSON</button><button type="button" data-ttv-parity-export="parsed">Parsed JSON</button><button type="button" data-ttv-parity-export="report">Report JSON</button><button type="button" data-ttv-parity-export="ciiProjection">CII Ledger</button><button type="button" data-ttv-parity-export="ciiIdentity">CII Identity Report</button><button type="button" data-ttv-parity-export="mismatches">Mismatch CSV</button><button type="button" data-ttv-parity-export="svg">Topology SVG</button></div></header><div class="ttv-parity-summary" data-ttv-parity-summary></div><div class="ttv-parity-main"><main class="ttv-parity-center"><div class="ttv-parity-svg-host" data-ttv-parity-svg-host><div class="ttv-empty">Load parity artifacts or build topology.</div></div><div class="ttv-navigation-hint">Scene-only topology · CII is linked evidence, never geometry · Drag to pan · Cursor-centred wheel zoom</div></main><aside class="ttv-parity-inspector-host" data-ttv-parity-inspector><div class="ttv-inspector-empty">Select a parity mismatch or SVG entity.</div></aside></div><div class="ttv-parity-mismatches" data-ttv-parity-mismatches></div><div class="ttv-status" data-ttv-parity-status data-status="not_run">Topology parity NOT_RUN.</div></section>`;
+  return `<section class="ttv-parity-area" data-ttv-workspace-panel="parity" data-ttv-parity-root hidden>
+    <header class="ttv-parity-toolbar">
+      <div class="ttv-title"><strong>Topology Parity</strong><span>Canonical ↔ InputXML ↔ SVG ↔ actual CII records</span></div>
+      <div class="ttv-button-group">
+        ${fileControl('scene', '🖼️', '.json', { scope: 'parity', title: 'Load SVG Scene' })}
+        ${fileControl('parsed', '🌳', '.json', { scope: 'parity', title: 'Load Parsed InputXML Topology' })}
+        ${fileControl('report', '📊', '.json', { scope: 'parity', title: 'Load Parity Report' })}
+        ${fileControl('ciiProjection', '📋', '.json', { scope: 'parity', title: 'Load CII Projection Ledger' })}
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" data-ttv-parity-zoom="in">🔍+</button><button type="button" data-ttv-parity-zoom="out">🔍−</button>
+        <button type="button" data-ttv-parity-fit="all" title="Fit All">🏠</button><button type="button" data-ttv-parity-fit="branch" title="Fit Branch">🌿</button><button type="button" data-ttv-parity-fit="issue" title="Fit Issue">⚠️</button>
+      </div>
+      <div class="ttv-button-group">
+        <button type="button" class="is-active" data-ttv-parity-projection="ISO">ISO</button><button type="button" data-ttv-parity-projection="XY">XY</button><button type="button" data-ttv-parity-projection="XZ">XZ</button><button type="button" data-ttv-parity-projection="YZ">YZ</button>
+      </div>
+      <label class="ttv-toggle"><input type="checkbox" data-ttv-parity-labels>Labels</label>
+      <div class="ttv-parity-exports">
+        <button type="button" data-ttv-parity-export="scene">Scene</button><button type="button" data-ttv-parity-export="parsed">Parsed</button><button type="button" data-ttv-parity-export="report">Report</button><button type="button" data-ttv-parity-export="ciiProjection">CII Ledger</button><button type="button" data-ttv-parity-export="ciiIdentity">CII Identity</button><button type="button" data-ttv-parity-export="mismatches">Mismatch CSV</button><button type="button" data-ttv-parity-export="svg" title="Topology SVG">SVG</button>
+      </div>
+    </header>
+    <div class="ttv-parity-summary" data-ttv-parity-summary></div>
+    <div class="ttv-parity-main"><main class="ttv-parity-center"><div class="ttv-parity-svg-host" data-ttv-parity-svg-host><div class="ttv-empty">Load parity artifacts or build topology.</div></div><div class="ttv-navigation-hint">Scene-only topology · CII is linked evidence, never geometry · Drag to pan · Cursor-centred wheel zoom</div></main><aside class="ttv-parity-inspector-host" data-ttv-parity-inspector><div class="ttv-inspector-empty">Select a parity mismatch or SVG entity.</div></aside></div>
+    <div class="ttv-parity-mismatches" data-ttv-parity-mismatches></div>
+    <div class="ttv-status" data-ttv-parity-status data-status="not_run">Topology parity NOT_RUN.</div>
+  </section>`;
 }
 
-export function workspaceMarkup() { return `<section class="ttv-workspace">${traceMarkup()}${parityMarkup()}</section>`; }
-export const _test = Object.freeze({ fileControl, visibilityCheck, traceMarkup, parityMarkup });
+/** @returns {string} */
+export function workspaceMarkup() {
+  return `<section class="ttv-workspace"><nav class="ttv-workspace-tabs" role="tablist" aria-label="Topology workspace"><button type="button" role="tab" aria-selected="true" class="is-active" data-ttv-workspace-tab="trace">Trace</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="edit">Edit Draft</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="parity">Parity</button></nav>${traceMarkup()}${editMarkup()}${parityMarkup()}</section>`;
+}
+
+export const _test = Object.freeze({ fileControl, traceMarkup, editMarkup, parityMarkup });

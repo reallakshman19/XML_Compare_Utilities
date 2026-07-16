@@ -1,11 +1,6 @@
-/**
- * Functionality: coordinates browser file loading, independent validation,
- * immutable view-model creation, rendering, filtering, and selection. Search
- * result focus is explicit and never changes SVG scope until the user clicks a
- * result. Inputs are explicit DOM hosts. Output is a disposable controller API. Fallback:
- * validation stops with an actionable error until all three required JSON
- * artifacts are loaded; optional InputXML remains NOT_EVALUATED.
- */
+/** Coordinates immutable topology loading, validation, rendering, filtering,
+ * and selection. Missing required JSON stops with an actionable error;
+ * optional InputXML remains NOT_EVALUATED. */
 
 import { readCanonicalTopology, readTopologyInputXml, readTopologyTraceLedger } from './topology-artifact-reader.js';
 import { validateTopologyArtifacts } from './topology-independent-validator.js';
@@ -19,27 +14,28 @@ import { renderTopologySearchStatus, renderTopologySvg } from './topology-svg-re
 import { buildTopologySearchResultsMarkup } from './topology-search-panel.js';
 import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord } from './topology-validator-values.js';
 import { render3dViewer, select3dObject, dispose3dViewer } from './topology-3d-viewer-bridge.js?v=20260715-ttv-014-bend-fix';
-import { artifactHash, escapeHtml, escapeAttribute, shortText, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
-
+import { artifactHash, escapeHtml, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
+import { renderTopologySourceControls, syncTopologySourceControls } from './topology-source-controls.js';
 /** @param {Record<string, Element>} elements @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyValidatorController(elements) {
   let artifacts = { source: null, canonical: null, ledger: null, inputXml: null };
   let hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+  let fileNames = { source: '', canonical: '', ledger: '', inputXml: '' };
   let viewState = {
-    mode: 'spatial', projection: 'XY', branch: '', types: [], disposition: '',
+    mode: 'spatial', projection: 'XY', branch: '', selectedBranches: new Set(), types: [], disposition: '',
     searchName: '', searchRef: '', searchPath: '', labels: false, showComponentSymbols: false,
     visibility: { source: true, canonical: true, referenceConnections: false, pointFeatures: true, junctions: true, boundaries: true },
   };
   let validation = null, viewModel = null, selectedKey = '', activeBottomTab = 'summary';
   let destroySvgInteractions = () => {};
   let svgNavigation = emptyNavigation();
-
   /** @param {string} kind @param {string} text @param {string} fileName @returns {Promise<void>} */
   async function loadArtifact(kind, text, fileName) {
     try {
       if (kind === 'source') {
         artifacts = { source: readManagedTopologySource(JSON.parse(text)), canonical: null, ledger: null, inputXml: null };
         hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+        fileNames = { source: fileName, canonical: '', ledger: '', inputXml: '' };
         resetCompanionView();
       }
       else if (kind === 'canonical') artifacts = { ...artifacts, canonical: readCanonicalTopology(JSON.parse(text)) };
@@ -54,8 +50,10 @@ export function createTopologyValidatorController(elements) {
         };
       }
       hashes = { ...hashes, [kind]: artifactHash(kind, artifacts[kind]) };
+      fileNames = { ...fileNames, [kind]: fileName };
       validation = null;
-      elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = fileName;
+      const fileStatus = elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`);
+      if (fileStatus) fileStatus.textContent = fileName;
       if (kind === 'source') updateSourceControls();
       setStatus(`${fileName} loaded. Select Validate after required artifacts are ready.`, 'ready');
       updateMetricStrip();
@@ -64,11 +62,11 @@ export function createTopologyValidatorController(elements) {
       throw error;
     }
   }
-
   /** @returns {void} */
   function resetCompanionView() {
     for (const kind of ['canonical', 'ledger', 'inputXml']) {
-      elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = 'Not loaded';
+      const fileStatus = elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`);
+      if (fileStatus) fileStatus.textContent = 'Not loaded';
     }
     destroySvgInteractions();
     svgNavigation.destroy();
@@ -81,7 +79,6 @@ export function createTopologyValidatorController(elements) {
     viewModel = null;
     selectedKey = '';
   }
-
   /** @param {string} kind @param {File} file @returns {Promise<void>} */
   async function loadFile(kind, file) {
     if (!file) throw new TypeError(`A file is required for ${kind}.`);
@@ -162,6 +159,13 @@ export function createTopologyValidatorController(elements) {
     return select(selectedKey);
   }
 
+  /** @param {string} objectKey @returns {void} */
+  function zoomToObject(objectKey) {
+    if (viewModel && svgNavigation.fitObjectKey) {
+      svgNavigation.fitObjectKey(objectKey, true);
+    }
+  }
+
   /** @param {string} mode @returns {void} */
   function setMode(mode) {
     if (!['spatial', 'trace', 'junctions', 'issues'].includes(mode)) throw new RangeError(`Unsupported topology SVG mode: ${mode}`);
@@ -178,7 +182,19 @@ export function createTopologyValidatorController(elements) {
 
   /** @param {Record<string, unknown>} patch @returns {void} */
   function setFilters(patch) {
-    viewState = { ...viewState, ...patch };
+    if ('branch' in patch) {
+      const { multiSelect, ...filterPatch } = patch;
+      if (multiSelect) {
+        const set = new Set(viewState.selectedBranches);
+        if (set.has(patch.branch)) set.delete(patch.branch);
+        else set.add(patch.branch);
+        viewState = { ...viewState, selectedBranches: set, ...filterPatch };
+      } else {
+        viewState = { ...viewState, branch: patch.branch, selectedBranches: patch.branch ? new Set([patch.branch]) : new Set(), ...filterPatch };
+      }
+    } else {
+      viewState = { ...viewState, ...patch };
+    }
     render();
   }
 
@@ -231,20 +247,12 @@ export function createTopologyValidatorController(elements) {
 
   /** @returns {void} */
   function updateSourceControls() {
-    const source = objectRecord(artifacts.source), branches = asArray(source.branches).map(objectRecord);
-    elements.branchTree.innerHTML = `<button type="button" data-ttv-branch="" class="is-active">All branches<span>${branches.length}</span></button>${branches.map((branch) => `<button type="button" data-ttv-branch="${escapeAttribute(branch.name)}">${escapeHtml(shortText(branch.name, 35))}<span>${asArray(branch.components).length}</span></button>`).join('')}`;
-    const counts = objectRecord(objectRecord(source.metrics).componentCategoryCounts), types = Object.keys(counts);
-    elements.typeFilters.innerHTML = types.map((type) => `<label><input type="checkbox" data-ttv-type="${escapeAttribute(type)}" checked>${escapeHtml(type)} <span>${counts[type]}</span></label>`).join('');
-    viewState = { ...viewState, branch: '', types, showComponentSymbols: false };
-    elements.componentSymbols.checked = false;
+    viewState = { ...viewState, ...renderTopologySourceControls(elements, objectRecord(artifacts.source)) };
   }
 
   /** @param {string} branch @param {boolean} showComponentSymbols @returns {void} */
   function syncBranchControls(branch, showComponentSymbols) {
-    elements.branchTree.querySelectorAll('[data-ttv-branch]').forEach((button) => {
-      button.classList.toggle('is-active', cleanText(button.getAttribute('data-ttv-branch')) === branch);
-    });
-    elements.componentSymbols.checked = showComponentSymbols;
+    syncTopologySourceControls(elements, objectRecord(artifacts.source), viewState, showComponentSymbols);
   }
 
   /** @returns {void} */
@@ -272,7 +280,7 @@ export function createTopologyValidatorController(elements) {
 
   /** @returns {Readonly<Record<string, unknown>>} */
   function evidence() {
-    return Object.freeze({ artifacts, hashes, validation, viewModel, viewState, activeBottomTab });
+    return Object.freeze({ artifacts, hashes, fileNames, validation, viewModel, viewState, activeBottomTab });
   }
 
   /** @returns {void} */
@@ -284,8 +292,8 @@ export function createTopologyValidatorController(elements) {
 
   updateMetricStrip();
   return Object.freeze({
-    loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection,
+    loadArtifact, loadFile, validate, render, select, focusSearchResult, zoomToObject, setMode, setProjection,
     setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation,
-    evidence, downloadEnrichedInputXml: () => downloadEnrichedInputXml(artifacts), destroy
+    evidence, downloadEnrichedInputXml: (exportSelection) => downloadEnrichedInputXml(artifacts, exportSelection ? viewState.selectedBranches : null), destroy
   });
 }

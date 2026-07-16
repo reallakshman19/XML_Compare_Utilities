@@ -1,0 +1,113 @@
+/**
+ * Synchronized preview-only 3D companion for editable topology.
+ * The original canonical model is passed as the ghosted source and the draft
+ * as the target. Picking updates shared selection; no transform gizmo or
+ * direct 3D mutation is exposed in the first release.
+ */
+
+import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
+import { buildCanonicalRestraintGeometry } from './topology-3d-visual-model.js';
+
+let viewer = null;
+let viewerHost = null;
+let pickCallback = null;
+
+/** @param {Record<string, unknown>} canonical @param {Record<string, unknown>|null} validation @returns {Readonly<Record<string, unknown>>} */
+function visualGeometry(canonical, validation) {
+  const nodes = asArray(canonical.nodes).map(objectRecord);
+  const nodeIndex = new Map(nodes.map((node) => [cleanText(node.id), node]));
+  const routeSegments = asArray(canonical.edges).map(objectRecord).flatMap((edge) => {
+    const from = nodeIndex.get(cleanText(edge.fromNodeId)), to = nodeIndex.get(cleanText(edge.toNodeId));
+    if (!from || !to) return [];
+    return [{
+      objectId: cleanText(edge.id),
+      start: [from.position.x, from.position.y, from.position.z],
+      end: [to.position.x, to.position.y, to.position.z],
+      radiusMm: 24,
+      kind: 'topology-edit-edge',
+      pathId: asArray(edge.branchIds)[0] ?? '',
+    }];
+  });
+  const nodeMarkers = nodes.map((node) => ({
+    objectId: cleanText(node.id),
+    nodeId: cleanText(node.id),
+    kind: 'NODE',
+    position: [node.position.x, node.position.y, node.position.z],
+    sizeMm: 20,
+  }));
+  const restraintGeometry = buildCanonicalRestraintGeometry(canonical);
+  const issueMarkers = asArray(validation?.findings).map(objectRecord).flatMap((issue) => {
+    const objectId = asArray(issue.objectIds).map(cleanText).find(Boolean), node = nodeIndex.get(objectId);
+    const edge = asArray(canonical.edges).map(objectRecord).find((row) => cleanText(row.id) === objectId);
+    const from = edge ? nodeIndex.get(cleanText(edge.fromNodeId)) : null, to = edge ? nodeIndex.get(cleanText(edge.toNodeId)) : null;
+    const position = node ? [node.position.x, node.position.y, node.position.z]
+      : from && to ? [(from.position.x + to.position.x) / 2, (from.position.y + to.position.y) / 2, (from.position.z + to.position.z) / 2] : null;
+    return position ? [{ objectId, kind: 'ISSUE_BADGE', position, label: cleanText(issue.code), colorInt: Number.parseInt(cleanText(issue.color).replace('#', ''), 16), sizeMm: 34, isObjectMarker: true }] : [];
+  });
+  const segments = [...routeSegments, ...restraintGeometry.segments], markers = [...nodeMarkers, ...restraintGeometry.markers, ...issueMarkers];
+  const points = [...segments.flatMap((row) => [row.start, row.end]), ...markers.map((row) => row.position)];
+  const axes = [0, 1, 2].map((axis) => points.map((value) => Number(value[axis])));
+  return Object.freeze({
+    schema: 'VisualGeometryModel.v1',
+    segments: Object.freeze(segments),
+    markers: Object.freeze(markers),
+    bounds: Object.freeze({
+      min: axes.map((values) => values.length ? Math.min(...values) : 0),
+      max: axes.map((values) => values.length ? Math.max(...values) : 1),
+    }),
+  });
+}
+
+/** @param {Element} host @returns {Promise<void>} */
+async function ensureViewer(host) {
+  if (viewer && viewerHost === host) return;
+  if (viewer) viewer.dispose();
+  host.innerHTML = '<div class="ttv-edit-3d-canvas"></div><div class="ttv-edit-3d-controls"><button type="button" data-view="fit">Fit</button><button type="button" data-view="top">XY</button><button type="button" data-view="front">XZ</button><button type="button" data-view="side">YZ</button><button type="button" data-view="iso">ISO</button></div>';
+  const canvasHost = host.querySelector('.ttv-edit-3d-canvas');
+  const { createWorkbenchViewer } = await import('../../workbench3d/viewer/workbench-viewer.js');
+  viewer = await createWorkbenchViewer(canvasHost, {
+    onPick: (pick) => pickCallback?.(cleanText(pick?.objectId)),
+  });
+  viewerHost = host;
+  host.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
+    const view = button.getAttribute('data-view');
+    if (view === 'fit') viewer.fitAll();
+    else viewer.setStandardView(view);
+  }));
+}
+
+/**
+ * @param {Element} host
+ * @param {Record<string, unknown>} original
+ * @param {Record<string, unknown>} draft
+ * @param {Record<string, unknown>} validation
+ * @param {ReadonlyArray<Record<string, string>>} selection
+ * @param {(objectId:string)=>void} onPick
+ * @returns {Promise<void>}
+ */
+export async function renderTopologyEdit3dPreview(host, original, draft, validation, selection, onPick) {
+  pickCallback = onPick;
+  await ensureViewer(host);
+  viewer.setModels({ source: visualGeometry(original, null), target: visualGeometry(draft, validation), registrationTranslation: [0, 0, 0] });
+  const active = selection.at(-1);
+  viewer.setSelection(cleanText(active?.id), []);
+  if (!host.dataset.fitted) {
+    viewer.fitAll();
+    host.dataset.fitted = 'true';
+  }
+}
+
+/** @param {string} objectId @returns {void} */
+export function selectTopologyEdit3dObject(objectId) {
+  viewer?.setSelection(cleanText(objectId), []);
+}
+
+/** @returns {void} */
+export function disposeTopologyEdit3dPreview() {
+  viewer?.dispose();
+  viewer = null;
+  viewerHost = null;
+  pickCallback = null;
+}
+
+export const _test = Object.freeze({ visualGeometry });
