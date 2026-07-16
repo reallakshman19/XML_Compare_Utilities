@@ -6,6 +6,10 @@ import {
 import { resolveNextConnection } from './sequential-connection-resolver.js';
 import { classifyActiveTerminal } from './sequential-terminal-classifier.js';
 import {
+  REFERENCE_TARGET_KINDS,
+  resolveSequentialReference,
+} from '../source/sequential-reference-resolver.js';
+import {
   compileComponentStrokes, compileRepairStroke, resolveComponentTraversal,
 } from '../stroke/sequential-component-stroke-compiler.js';
 
@@ -30,6 +34,11 @@ function createDecisionRequest(session, reason, candidates, extra = {}) {
   });
 }
 
+function blockForDecision(session, reason, candidates, extra = {}) {
+  const request = createDecisionRequest(session, reason, candidates, extra);
+  return freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request });
+}
+
 function chooseStart(branch) {
   const component = branch?.components?.[0];
   if (!component) return { status: 'FAILED', reason: 'BRANCH_HAS_NO_ROUTE_COMPONENTS' };
@@ -46,16 +55,23 @@ function chooseStart(branch) {
 function pendingJunction(component, traversal, session) {
   const port = traversal.pendingBranchPort;
   if (!port) return null;
+  const expectedReference = port.referenceTarget || component.cref || '';
   return Object.freeze({
     junctionId: `JUNCTION-${stableToken(`${component.componentId}|${port.portId}`)}`,
     parentBranchId: component.branchId,
     parentComponentId: component.componentId,
     branchPortId: port.portId,
     branchPosition: port.sourcePosition ? { ...port.sourcePosition } : component.geometry?.centre || null,
-    expectedTargetBranchId: port.referenceTarget || component.cref || '',
+    expectedReference,
+    expectedTargetBranchId: expectedReference,
     encounterOrder: session.pendingBranchJunctions.length + 1,
-    status: port.referenceTarget || component.cref ? 'CONFIRMED_REFERENCE' : 'PENDING_USER_RESOLUTION',
+    status: expectedReference ? 'CONFIRMED_REFERENCE' : 'PENDING_USER_RESOLUTION',
   });
+}
+
+function updateJunctionStatus(rows, junctionId, status) {
+  if (!junctionId) return rows;
+  return rows.map((junction) => junction.junctionId === junctionId ? Object.freeze({ ...junction, status }) : junction);
 }
 
 function commitPlacedComponent(session, component, entryPortId, context = {}) {
@@ -101,16 +117,60 @@ function commitPlacedComponent(session, component, entryPortId, context = {}) {
   });
 }
 
+function resolveTransition(reference, indexes, extra = {}) {
+  const target = resolveSequentialReference(reference, indexes);
+  if (target.status !== 'RESOLVED') return { target, context: null };
+  return {
+    target,
+    context: Object.freeze({
+      referenceTarget: target.reference,
+      targetKind: target.kind,
+      targetBranchId: target.targetBranchId,
+      targetComponentId: target.targetComponentId,
+      targetSourceComponentId: target.targetSourceComponentId,
+      targetPortRoles: target.targetPortRoles,
+      junctionId: extra.junctionId || null,
+      origin: extra.origin || 'BRANCH_BOUNDARY',
+    }),
+  };
+}
+
+function addRepair(session, connection, status, options) {
+  if (status !== CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP && !options.forceVirtualRepair) return session;
+  const repair = Object.freeze({
+    repairId: nextRepairId(session),
+    connectionId: connection.connectionId,
+    type: 'VIRTUAL_GAP_CLOSURE',
+    fromPortId: connection.fromPortId,
+    toPortId: connection.toPortId,
+    sourceFromPosition: connection.fromPosition,
+    sourceToPosition: connection.toPosition,
+    gapMm: connection.gapMm,
+    thresholdMm: Number(options.autoRepairToleranceMm ?? 25),
+    repairPolicy: 'VIRTUAL_CONNECTOR',
+    approvedBy: status === CONNECTION_STATUSES.USER_CONFIRMED ? 'USER' : 'SYSTEM',
+  });
+  return freezeConstructionSession({
+    ...session,
+    repairLedger: [...session.repairLedger, repair],
+    strokeLedger: [...session.strokeLedger, compileRepairStroke({ ...connection, repairPolicy: repair.repairPolicy })],
+  });
+}
+
 function commitConnection(session, candidate, indexes, status, options = {}) {
   const targetComponent = indexes.components.get(candidate.targetComponentId);
   if (!targetComponent) return freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.FAILED, diagnostics: [...session.diagnostics, { severity: 'ERROR', code: 'TARGET_COMPONENT_MISSING', componentId: candidate.targetComponentId }] });
+  const boundaryToJunction = options.transitionContext?.targetKind === REFERENCE_TARGET_KINDS.JUNCTION_COMPONENT;
   const connection = Object.freeze({
     connectionId: nextConnectionId(session),
-    connectionType: options.transitionContext ? 'BRANCH_TRANSITION' : 'COMPONENT_CONNECTION',
+    connectionType: boundaryToJunction ? 'BOUNDARY_TO_JUNCTION' : options.transitionContext ? 'BRANCH_TRANSITION' : 'COMPONENT_CONNECTION',
     fromPortId: candidate.fromPortId,
     toPortId: candidate.toPortId,
     fromBranchId: indexes.ports.get(candidate.fromPortId)?.branchId || session.activeBranchId,
     toBranchId: candidate.targetBranchId,
+    targetComponentId: candidate.targetComponentId,
+    targetSourceComponentId: candidate.targetSourceComponentId,
+    targetPortRole: candidate.targetPortRole || null,
     fromPosition: candidate.fromPosition,
     toPosition: candidate.toPosition,
     gapMm: candidate.gapMm,
@@ -123,57 +183,48 @@ function commitConnection(session, candidate, indexes, status, options = {}) {
     ].filter(Boolean)),
     approvedBy: status === CONNECTION_STATUSES.USER_CONFIRMED ? 'USER' : 'SYSTEM',
   });
+  const transitionStroke = boundaryToJunction
+    ? Object.freeze({ op: 'CONFIRM_JUNCTION_BOUNDARY', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, targetBranchId: connection.toBranchId, targetComponentId: connection.targetComponentId, targetPortRole: connection.targetPortRole })
+    : options.transitionContext
+      ? Object.freeze({ op: 'ENTER_BRANCH', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, toBranchId: connection.toBranchId })
+      : null;
   let next = freezeConstructionSession({
     ...session,
     committedConnections: [...session.committedConnections, connection],
-    strokeLedger: options.transitionContext
-      ? [...session.strokeLedger, Object.freeze({ op: 'ENTER_BRANCH', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, toBranchId: connection.toBranchId })]
-      : session.strokeLedger,
+    strokeLedger: transitionStroke ? [...session.strokeLedger, transitionStroke] : session.strokeLedger,
   });
+  next = addRepair(next, connection, status, options);
 
-  if (status === CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP || options.forceVirtualRepair) {
-    const repair = Object.freeze({
-      repairId: nextRepairId(session),
-      connectionId: connection.connectionId,
-      type: 'VIRTUAL_GAP_CLOSURE',
-      fromPortId: candidate.fromPortId,
-      toPortId: candidate.toPortId,
-      sourceFromPosition: candidate.fromPosition,
-      sourceToPosition: candidate.toPosition,
-      gapMm: candidate.gapMm,
-      thresholdMm: Number(options.autoRepairToleranceMm ?? 25),
-      repairPolicy: 'VIRTUAL_CONNECTOR',
-      approvedBy: status === CONNECTION_STATUSES.USER_CONFIRMED ? 'USER' : 'SYSTEM',
-    });
-    next = freezeConstructionSession({
+  if (boundaryToJunction || options.placeTargetComponent === false) {
+    return freezeConstructionSession({
       ...next,
-      repairLedger: [...next.repairLedger, repair],
-      strokeLedger: [...next.strokeLedger, compileRepairStroke({
-        ...connection,
-        repairPolicy: repair.repairPolicy,
-      })],
+      transitionContext: null,
+      pendingBranchJunctions: updateJunctionStatus(next.pendingBranchJunctions, options.transitionContext?.junctionId, 'COMPLETED'),
     });
   }
-  return commitPlacedComponent(next, targetComponent, candidate.toPortId, { basis: status });
+
+  const entered = freezeConstructionSession({
+    ...next,
+    pendingBranchJunctions: updateJunctionStatus(next.pendingBranchJunctions, options.transitionContext?.junctionId, 'ENTERED'),
+  });
+  return commitPlacedComponent(entered, targetComponent, candidate.toPortId, { basis: status });
 }
 
-function completeActiveBranch(session, terminalStatus) {
+function completeActiveBranch(session, terminalStatus, indexes) {
   const completed = session.completedBranchIds.includes(session.activeBranchId)
     ? session.completedBranchIds
     : [...session.completedBranchIds, session.activeBranchId];
-  const pending = session.pendingBranchJunctions.find((junction) => (
-    !['USER_TERMINAL', 'USER_EXTERNAL_BOUNDARY', 'REJECTED'].includes(junction.status)
-    && (!junction.expectedTargetBranchId || !completed.includes(junction.expectedTargetBranchId))
-  ));
+  const pending = session.pendingBranchJunctions.find((junction) => !['USER_TERMINAL', 'USER_EXTERNAL_BOUNDARY', 'REJECTED', 'COMPLETED', 'ENTERED'].includes(junction.status));
   if (!pending) return freezeConstructionSession({
     ...session,
     state: CONSTRUCTION_STATES.ROUTE_COMPLETE,
     completedBranchIds: completed,
     currentDecisionRequest: null,
+    transitionContext: null,
     strokeLedger: [...session.strokeLedger, Object.freeze({ op: 'COMPLETE_ROUTE', branchId: session.activeBranchId, terminalStatus })],
   });
 
-  const returned = freezeConstructionSession({
+  const returnedBase = freezeConstructionSession({
     ...session,
     state: CONSTRUCTION_STATES.RETURNING_TO_JUNCTION,
     completedBranchIds: completed,
@@ -182,26 +233,40 @@ function completeActiveBranch(session, terminalStatus) {
     activeExitPortId: pending.branchPortId,
     activeEntryPortId: null,
     activeSourceIndex: session.activeComponentId === pending.parentComponentId ? session.activeSourceIndex : -1,
-    transitionContext: pending.expectedTargetBranchId ? Object.freeze({
-      junctionId: pending.junctionId,
-      targetBranchId: pending.expectedTargetBranchId,
-      referenceTarget: pending.expectedTargetBranchId,
-    }) : null,
+    pendingBranchJunctions: updateJunctionStatus(session.pendingBranchJunctions, pending.junctionId, 'ACTIVE'),
     strokeLedger: [...session.strokeLedger, Object.freeze({ op: 'RETURN_TO_JUNCTION', junctionId: pending.junctionId, componentId: pending.parentComponentId, branchPortId: pending.branchPortId })],
   });
-  if (!pending.expectedTargetBranchId) {
-    return blockForDecision(returned, 'UNRESOLVED_PENDING_BRANCH', [], {
+  const expectedReference = pending.expectedReference || pending.expectedTargetBranchId || '';
+  if (!expectedReference) {
+    return blockForDecision(returnedBase, 'UNRESOLVED_PENDING_BRANCH', [], {
       junctionId: pending.junctionId,
       parentComponentId: pending.parentComponentId,
       branchPortId: pending.branchPortId,
     });
   }
-  return returned;
+  const transition = resolveTransition(expectedReference, indexes, { junctionId: pending.junctionId, origin: 'PENDING_JUNCTION' });
+  if (transition.target.status === 'MISSING') {
+    return blockForDecision(returnedBase, 'REFERENCE_TARGET_MISSING', [], { referenceTarget: expectedReference, junctionId: pending.junctionId });
+  }
+  if (transition.target.status === 'AMBIGUOUS') {
+    return blockForDecision(returnedBase, 'REFERENCE_TARGET_AMBIGUOUS', transition.target.matches || [], { referenceTarget: expectedReference, junctionId: pending.junctionId });
+  }
+  return freezeConstructionSession({ ...returnedBase, transitionContext: transition.context });
 }
 
-function blockForDecision(session, reason, candidates, extra = {}) {
-  const request = createDecisionRequest(session, reason, candidates, extra);
-  return freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request });
+function finishResolvedConnection(working, resolved, indexes, status, options, normalOutcome) {
+  const boundaryToJunction = working.transitionContext?.targetKind === REFERENCE_TARGET_KINDS.JUNCTION_COMPONENT;
+  const committed = commitConnection(working, resolved.selected, indexes, status, {
+    ...options,
+    transitionContext: working.transitionContext,
+    placeTargetComponent: !boundaryToJunction,
+  });
+  if (!boundaryToJunction) return Object.freeze({ session: committed, outcome: normalOutcome });
+  const completed = completeActiveBranch(committed, 'CONFIRMED_JUNCTION_BOUNDARY', indexes);
+  return Object.freeze({
+    session: completed,
+    outcome: completed.state === CONSTRUCTION_STATES.USER_DECISION_REQUIRED ? 'DECISION_REQUIRED' : completed.state === CONSTRUCTION_STATES.ROUTE_COMPLETE ? 'ROUTE_COMPLETE' : 'BRANCH_COMPLETE',
+  });
 }
 
 export function createSequentialConstructionSession(rootBranchId) {
@@ -226,42 +291,46 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
   if (working.state === CONSTRUCTION_STATES.RETURNING_TO_JUNCTION) {
     working = freezeConstructionSession({ ...working, state: CONSTRUCTION_STATES.BRANCH_TRANSITION_PENDING });
   }
-  if (working.transitionContext?.targetBranchId && !indexes.branches.has(working.transitionContext.targetBranchId)) {
-    const blocked = blockForDecision(working, 'REFERENCE_TARGET_MISSING', [], {
-      referenceTarget: working.transitionContext.targetBranchId,
-      junctionId: working.transitionContext.junctionId || null,
-    });
-    return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
-  }
 
   let resolved = resolveNextConnection(working, evidenceModel, indexes, options);
   if (resolved.status === 'NO_CANDIDATE' && !working.transitionContext) {
     const terminal = classifyActiveTerminal(working, indexes);
     if (terminal.status === 'EXPECTED_CONTINUATION') {
-      if (!indexes.branches.has(terminal.referenceTarget)) {
+      const transition = resolveTransition(terminal.referenceTarget, indexes, { origin: 'BRANCH_TAIL' });
+      if (transition.target.status === 'MISSING') {
         const blocked = blockForDecision(working, 'REFERENCE_TARGET_MISSING', [], { referenceTarget: terminal.referenceTarget });
         return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
       }
-      working = freezeConstructionSession({
-        ...working,
-        state: CONSTRUCTION_STATES.BRANCH_TRANSITION_PENDING,
-        transitionContext: Object.freeze({ targetBranchId: terminal.referenceTarget, referenceTarget: terminal.referenceTarget, junctionId: null }),
-      });
+      if (transition.target.status === 'AMBIGUOUS') {
+        const blocked = blockForDecision(working, 'REFERENCE_TARGET_AMBIGUOUS', transition.target.matches || [], { referenceTarget: terminal.referenceTarget });
+        return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
+      }
+      working = freezeConstructionSession({ ...working, state: CONSTRUCTION_STATES.BRANCH_TRANSITION_PENDING, transitionContext: transition.context });
       resolved = resolveNextConnection(working, evidenceModel, indexes, options);
     } else if (terminal.status === 'CONFIRMED_TERMINAL') {
-      return Object.freeze({ session: completeActiveBranch(working, terminal.status), outcome: 'BRANCH_COMPLETE' });
+      return Object.freeze({ session: completeActiveBranch(working, terminal.status, indexes), outcome: 'BRANCH_COMPLETE' });
     } else {
       const blocked = blockForDecision(working, 'UNEXPLAINED_TERMINAL', [], { terminalBasis: terminal.basis });
       return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
     }
   }
 
+  if (resolved.status === 'NO_CANDIDATE' && working.transitionContext) {
+    const blocked = blockForDecision(working, 'REFERENCE_TARGET_PORT_UNRESOLVED', [], {
+      referenceTarget: working.transitionContext.referenceTarget,
+      targetBranchId: working.transitionContext.targetBranchId,
+      targetComponentId: working.transitionContext.targetComponentId,
+      junctionId: working.transitionContext.junctionId,
+    });
+    return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
+  }
+
   if (resolved.status === 'CONFIRMED_EXACT' || resolved.status === 'CONFIRMED_REFERENCE') {
     const status = resolved.status === 'CONFIRMED_REFERENCE' ? CONNECTION_STATUSES.CONFIRMED_REFERENCE : CONNECTION_STATUSES.CONFIRMED_EXACT;
-    return Object.freeze({ session: commitConnection(working, resolved.selected, indexes, status, { transitionContext: working.transitionContext }), outcome: 'CONNECTION_COMMITTED' });
+    return finishResolvedConnection(working, resolved, indexes, status, options, 'CONNECTION_COMMITTED');
   }
   if (resolved.status === 'AUTO_REPAIRED_SMALL_GAP') {
-    return Object.freeze({ session: commitConnection(working, resolved.selected, indexes, CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP, { ...options, transitionContext: working.transitionContext }), outcome: 'AUTO_REPAIR_COMMITTED' });
+    return finishResolvedConnection(working, resolved, indexes, CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP, options, 'AUTO_REPAIR_COMMITTED');
   }
   const blocked = blockForDecision(working, resolved.reason || 'CONTINUITY_NOT_PROVEN', resolved.candidates || []);
   return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
@@ -288,26 +357,20 @@ export function applyConstructionDecision(session, evidenceModel, indexes, actio
     if (request.junctionId) {
       base = freezeConstructionSession({
         ...base,
-        pendingBranchJunctions: base.pendingBranchJunctions.map((junction) => (
-          junction.junctionId === request.junctionId
-            ? Object.freeze({ ...junction, status: action === DECISION_ACTIONS.MARK_TERMINAL ? 'USER_TERMINAL' : 'USER_EXTERNAL_BOUNDARY' })
-            : junction
-        )),
+        pendingBranchJunctions: updateJunctionStatus(base.pendingBranchJunctions, request.junctionId, action === DECISION_ACTIONS.MARK_TERMINAL ? 'USER_TERMINAL' : 'USER_EXTERNAL_BOUNDARY'),
       });
     }
-    return Object.freeze({ session: completeActiveBranch(base, status), outcome: 'BRANCH_COMPLETE' });
+    return Object.freeze({ session: completeActiveBranch(base, status, indexes), outcome: 'BRANCH_COMPLETE' });
   }
   if (action === DECISION_ACTIONS.CONNECT) {
     const candidate = request.candidates.find((row) => row.candidateId === payload.candidateId);
     if (!candidate) return Object.freeze({ session: freezeConstructionSession({ ...base, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request }), outcome: 'CANDIDATE_NOT_FOUND' });
-    return Object.freeze({
-      session: commitConnection(base, candidate, indexes, CONNECTION_STATUSES.USER_CONFIRMED, {
-        ...options,
-        transitionContext: base.transitionContext,
-        forceVirtualRepair: candidate.gapMm > Number(options.exactToleranceMm ?? 1),
-      }),
-      outcome: 'USER_CONNECTION_COMMITTED',
-    });
+    const status = CONNECTION_STATUSES.USER_CONFIRMED;
+    const resolved = Object.freeze({ selected: candidate });
+    return finishResolvedConnection(base, resolved, indexes, status, {
+      ...options,
+      forceVirtualRepair: candidate.gapMm > Number(options.exactToleranceMm ?? 1),
+    }, 'USER_CONNECTION_COMMITTED');
   }
   return Object.freeze({ session: freezeConstructionSession({ ...base, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request }), outcome: 'UNSUPPORTED_DECISION' });
 }
