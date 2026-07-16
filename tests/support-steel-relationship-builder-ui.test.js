@@ -9,11 +9,12 @@ import {
 const launcher = renderSupportSteelLauncher();
 assert.match(launcher, /Support \/ Steel Relationship Builder/);
 assert.match(launcher, /data-ssrb-open="1"/);
-assert.match(launcher, /Support family ↔ steel group/);
+assert.match(launcher, /Support family ↔ steel group inference/);
 
 const dialog = renderSupportSteelDialog();
-assert.match(dialog, /relationship construction only/i);
-assert.match(dialog, /does not perform clash detection/i);
+assert.match(dialog, /inferred relationship/i);
+assert.match(dialog, /does not prove physical contact/i);
+assert.match(dialog, /perform clash detection/i);
 assert.match(dialog, /data-ssrb-fullscreen="1"/);
 assert.match(dialog, /data-ssrb-close="1"/);
 
@@ -29,9 +30,11 @@ for (const label of [
   'Projection tolerance mm',
   'Build Relationships',
   'Support-centred hierarchy',
-  'Relationship ledger',
+  'Inferred relationship ledger',
   'Selected relationship evidence',
   'Bundle JSON',
+  'OWNER',
+  'Physical contact remains unproven',
 ]) assert.ok(workspace.includes(label), `missing UI label ${label}`);
 
 const utilityTab = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
