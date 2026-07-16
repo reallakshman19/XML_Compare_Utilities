@@ -28,7 +28,7 @@ const audit = {
 };
 
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(shell.includes('Report search'));
+assert.ok(shell.includes('Search selected report'));
 assert.ok(shell.includes('data-psfa="report-search"'));
 
 const summaryByLine = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG, 's8810011');
