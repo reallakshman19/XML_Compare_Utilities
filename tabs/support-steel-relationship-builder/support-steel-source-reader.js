@@ -4,6 +4,10 @@ import {
   resolveSupportSteelConfig,
 } from './support-steel-relationship-contracts.js';
 import {
+  buildStructuralAnalyticalMember,
+  summarizeSteelAnalyticalGeometry,
+} from './support-steel-analytical-geometry.js';
+import {
   byId,
   cleanText,
   cloneJson,
@@ -111,12 +115,14 @@ function addSteelRecord(groups, steelGroupId, row, attrs, config) {
   const group = groups.get(steelGroupId);
   const position = readPosition(attrs, config.steelPositionKeys);
   const owner = firstEvidenceValue(attrs, config.ownerEvidenceKeys) || cleanText(row.owner);
+  const analyticalGeometry = buildStructuralAnalyticalMember(row, attrs, config);
   group.records.push({
     recordId: sourceIdentity(row.node, attrs) || null,
     sourceRecordType: sourceType(row.node, attrs),
     sourcePath: row.path,
     owner: owner || null,
     positionGlobal: position,
+    analyticalGeometry,
     attributes: cloneJson(attrs),
   });
   if (position) group.positions.push(position);
@@ -173,11 +179,16 @@ function finalizeSupportFamily(group) {
 }
 
 function finalizeSteelGroup(group) {
+  const analyticalGeometry = summarizeSteelAnalyticalGeometry(group.records);
+  const steelPositionGlobal = group.positions[0]
+    || analyticalGeometry.worldAabb && boundsCenter(analyticalGeometry.worldAabb)
+    || null;
   return {
     steelGroupId: group.steelGroupId,
-    steelPositionGlobal: group.positions[0] || null,
+    steelPositionGlobal,
     positions: uniquePoints(group.positions),
     owners: [...group.owners].sort(),
+    analyticalGeometry,
     records: group.records,
   };
 }
@@ -219,4 +230,12 @@ function firstEvidenceValue(attrs, keys) {
     if (value) return value;
   }
   return '';
+}
+
+function boundsCenter(bounds) {
+  return {
+    x: (bounds.min.x + bounds.max.x) / 2,
+    y: (bounds.min.y + bounds.max.y) / 2,
+    z: (bounds.min.z + bounds.max.z) / 2,
+  };
 }
