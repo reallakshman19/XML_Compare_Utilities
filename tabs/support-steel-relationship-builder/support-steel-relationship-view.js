@@ -1,13 +1,12 @@
 export function renderSupportSteelSummary(bundle) {
   const summary = bundle?.summary || {};
+  const chain = bundle?.supportMemberChain?.summary || {};
   return [
     summaryCard('Support families', summary.supportFamilyCount ?? 0),
     summaryCard('Steel groups', summary.steelGroupCount ?? 0),
     summaryCard('Analytical steel', summary.analyticalSteelGroupCount ?? 0),
-    summaryCard('Physical members', summary.analyticalSupportMemberCount ?? 0),
-    summaryCard('Chain edges', summary.supportChainEdgeCount ?? 0),
-    summaryCard('Terminal edges', summary.structuralTerminalEdgeCount ?? 0),
-    summaryCard('Ambiguous', summary.ambiguousFamilyCount ?? 0),
+    summaryCard('Resolved', summary.resolvedFamilyCount ?? 0),
+    summaryCard('Member contacts', chain.resolvedContactEdgeCount ?? 0),
     summaryCard('Unresolved', summary.unresolvedFamilyCount ?? 0),
   ].join('');
 }
@@ -39,19 +38,23 @@ export function renderSupportSteelTree(bundle) {
   return `<div class="ssrb-tree">${families.map(familyTree).join('')}</div>`;
 }
 
-export function renderSupportMemberChain(bundle) {
-  const chain = bundle?.supportMemberChain;
-  if (!chain?.familyChains?.length) return emptyState('Build relationships to populate support member chains.');
-  return `<div class="ssrb-chain-summary">${summaryCard('Physical contacts', chain.summary.supportChainEdgeCount ?? 0)}${summaryCard('Nearby clearances', chain.summary.nearbyCandidateEdgeCount ?? 0)}${summaryCard('Reference edges', chain.summary.referenceEdgeCount ?? 0)}${summaryCard('Structural terminals', chain.summary.structuralTerminalEdgeCount ?? 0)}${summaryCard('Unresolved physical', chain.summary.unresolvedPhysicalMemberCount ?? 0)}</div><div class="ssrb-chain-families">${chain.familyChains.map(chainFamily).join('')}</div>`;
-}
-
 export function renderSupportSteelEvidence(bundle, relationshipId) {
   const relationship = (bundle?.relationships || []).find((row) => row.relationshipId === relationshipId)
     || bundle?.relationships?.[0];
   if (!relationship) return emptyState('Select a relationship after running the builder.');
   const family = bundle.supportFamilies.find((row) => row.familyId === relationship.supportFamilyId);
   const steel = bundle.steelGroups.find((row) => row.steelGroupId === relationship.steelGroupId);
-  return `<div class="ssrb-evidence-grid">${evidenceCard('Inferred relationship', relationshipDetails(relationship))}${evidenceCard('Support family evidence', supportEvidence(family))}${evidenceCard('Structural analytical evidence', steelEvidence(steel, relationship))}</div>`;
+  return `<div class="ssrb-evidence-grid">${evidenceCard('Inferred relationship', relationshipDetails(relationship))}${evidenceCard('Support family and line context', supportEvidence(family))}${evidenceCard('Structural analytical evidence', steelEvidence(steel, relationship))}</div>`;
+}
+
+export function renderSupportSteelMemberChain(bundle) {
+  const chain = bundle?.supportMemberChain;
+  if (!chain) return emptyState('Build relationships to populate support-member chain evidence.');
+  const physical = chain.supportChainEdges || [];
+  const nearby = chain.nearbyCandidateEdges || [];
+  const references = chain.referenceEdges || [];
+  const terminals = chain.structuralTerminalEdges || [];
+  return `<div class="ssrb-chain-grid">${chainSection('Physical member contacts', physical, physicalEdgeTable)}${chainSection('Nearby clearance candidates', nearby, physicalEdgeTable)}${chainSection('Symbolic member references', references, referenceEdgeTable)}${chainSection('Structural terminals', terminals, terminalEdgeTable)}</div>${chainDiagnostics(chain)}`;
 }
 
 export function renderSupportSteelDiagnostics(bundle) {
@@ -66,45 +69,17 @@ function relationshipRow(row) {
 }
 
 function familyTree(family) {
-  const members = (family.members || []).map((member) => `<li><span class="ssrb-role">${h(member.semanticRole || 'OTHER')}</span><code>${h(member.memberId || '(unresolved)')}</code><small>${member.analyticalGeometry?.physicalGeometryAvailable ? h((member.analyticalGeometry.geometryMethods || []).join(' + ')) : 'symbolic / no geometry'}</small></li>`).join('');
+  const members = (family.members || []).map((member) => `<li><span class="ssrb-role">${h(member.semanticRole || 'OTHER')}</span><code>${h(member.memberId || '(unresolved)')}</code></li>`).join('');
   const relationships = (family.steelRelationships || []).map((row) => `<li><button type="button" data-ssrb-select="${h(row.relationshipId)}">${h(row.steelGroupId || 'UNRESOLVED')}</button>${statusBadge(row.relationshipStatus)}<small>${h(row.geometryMethod || 'UNAVAILABLE')}</small></li>`).join('');
-  return `<details class="ssrb-tree-family" open><summary><b>${h(family.familyId)}</b><span>${family.members?.length || 0} members · ${family.analyticalMemberCount || 0} physical · ${family.branchIds?.length || 0} branches</span></summary><div class="ssrb-tree-columns"><section><h5>Pipe branches</h5><ul>${listItems(family.branchIds)}</ul><h5>Family members</h5><ul>${members || '<li>None</li>'}</ul></section><section><h5>Inferred steel relationships</h5><ul>${relationships || '<li>None</li>'}</ul></section></div></details>`;
-}
-
-function chainFamily(family) {
-  const contactRows = family.supportChainEdges || [];
-  const nearbyRows = family.nearbyCandidateEdges || [];
-  const referenceRows = family.referenceEdges || [];
-  const terminalRows = family.structuralTerminalEdges || [];
-  return `<details class="ssrb-chain-family" open><summary><b>${h(family.familyId)}</b><span>${contactRows.length} contacts · ${nearbyRows.length} nearby · ${terminalRows.length} terminals</span></summary><div class="ssrb-chain-sections">${chainSection('Physical member contacts', contactRows, contactEdgeRow)}${chainSection('Nearby clearance candidates', nearbyRows, contactEdgeRow)}${chainSection('Symbolic member references', referenceRows, referenceEdgeRow)}${chainSection('Structural terminal edges', terminalRows, terminalEdgeRow)}${unresolvedChainMembers(family)}</div></details>`;
-}
-
-function chainSection(title, rows, renderer) {
-  return `<section><h4>${h(title)}</h4>${rows.length ? `<div class="ssrb-table-wrap"><table class="ssrb-table ssrb-chain-table"><thead>${chainHeader(title)}</thead><tbody>${rows.map(renderer).join('')}</tbody></table></div>` : '<p class="ssrb-chain-empty">None</p>'}</section>`;
-}
-
-function chainHeader(title) {
-  if (title.includes('Structural')) return '<tr><th>Support member</th><th>Steel target</th><th>Status</th><th>Evidence</th><th>Distance mm</th></tr>';
-  if (title.includes('reference')) return '<tr><th>From member</th><th>To member</th><th>Status</th><th>Evidence</th></tr>';
-  return '<tr><th>Member A</th><th>Member B</th><th>Status</th><th>Geometry</th><th>Quality</th><th>Distance mm</th><th>Contact evidence</th></tr>';
-}
-
-function contactEdgeRow(row) {
-  return `<tr><td><code>${h(row.supportA)}</code><small>${h(row.roleA || '')}</small></td><td><code>${h(row.supportB)}</code><small>${h(row.roleB || '')}</small></td><td>${statusBadge(row.relationshipStatus)}</td><td>${h(row.geometryMethod || 'UNAVAILABLE')}</td><td>${h(row.geometryQuality || 'NONE')}</td><td>${row.distanceMm ?? '—'}</td><td>${h(row.contactEvidenceStatus || 'NOT_PROVEN')}</td></tr>`;
-}
-
-function referenceEdgeRow(row) {
-  return `<tr><td><code>${h(row.fromMemberId)}</code></td><td><code>${h(row.toMemberId)}</code></td><td>${statusBadge(row.relationshipStatus)}</td><td>${h((row.relationshipBasis || []).join(' + '))}</td></tr>`;
-}
-
-function terminalEdgeRow(row) {
-  const target = row.structuralMemberId || row.steelGroupId || 'UNRESOLVED';
-  return `<tr><td><code>${h(row.supportMemberId)}</code><small>${h(row.supportMemberRole || '')}</small></td><td><code>${h(target)}</code></td><td>${statusBadge(row.relationshipStatus)}</td><td>${h((row.relationshipBasis || []).join(' + '))}</td><td>${row.distanceMm ?? '—'}</td></tr>`;
-}
-
-function unresolvedChainMembers(family) {
-  const ids = family.unresolvedPhysicalMemberIds || [];
-  return `<section><h4>Unresolved physical members</h4>${ids.length ? `<ul class="ssrb-evidence-list">${ids.map((id) => `<li><code>${h(id)}</code><span>No analytical contact edge</span></li>`).join('')}</ul>` : '<p class="ssrb-chain-empty">None</p>'}</section>`;
+  const context = family.lineContext || {};
+  const contextItems = [
+    `<li><b>Primary line</b> <code>${h(context.lineFamily || family.lineFamily || 'None')}</code></li>`,
+    `<li><b>Full line tags</b> ${h((context.fullLineTags || family.fullLineTags || []).join(', ') || 'None')}</li>`,
+    `<li><b>Context quality</b> ${h(context.contextQuality || 'NONE')}</li>`,
+    `<li><b>OWNER fallback</b> ${context.ownerFallbackUsed ? 'Yes' : 'No'}</li>`,
+  ].join('');
+  const lineCount = (context.fullLineTags || family.fullLineTags || []).length;
+  return `<details class="ssrb-tree-family" open><summary><b>${h(family.familyId)}</b><span>${family.members?.length || 0} members · ${family.branchIds?.length || 0} branches · ${lineCount} lines</span></summary><div class="ssrb-tree-columns"><section><h5>Normalized line context</h5><ul>${contextItems}</ul><h5>Pipe branches</h5><ul>${listItems(family.branchIds)}</ul><h5>Family members</h5><ul>${members || '<li>None</li>'}</ul></section><section><h5>Inferred steel relationships</h5><ul>${relationships || '<li>None</li>'}</ul></section></div></details>`;
 }
 
 function relationshipDetails(row) {
@@ -113,7 +88,8 @@ function relationshipDetails(row) {
 
 function supportEvidence(family) {
   if (!family) return '<p>No support family evidence available.</p>';
-  return `<dl><dt>Family</dt><dd>${h(family.familyId)}</dd><dt>Branches</dt><dd>${h((family.branchIds || []).join(', ') || 'None')}</dd><dt>Carriers</dt><dd>${h((family.carrierIds || []).join(', ') || 'None')}</dd><dt>Members</dt><dd>${family.members?.length || 0}</dd><dt>Physical geometry members</dt><dd>${family.analyticalMemberCount || 0}</dd><dt>Explicit steel references</dt><dd>${h((family.explicitReferences || []).join(', ') || 'None')}</dd></dl><ul class="ssrb-evidence-list">${(family.members || []).map((member) => `<li><code>${h(member.memberId || '(unresolved)')}</code><span>${h(member.semanticRole || 'OTHER')} · ${member.analyticalGeometry?.physicalGeometryAvailable ? 'analytical geometry' : 'symbolic/no geometry'}</span></li>`).join('')}</ul>`;
+  const context = family.lineContext || {};
+  return `<dl><dt>Family</dt><dd>${h(family.familyId)}</dd><dt>Primary branch</dt><dd>${h(context.branchNode || family.branchId || 'None')}</dd><dt>All branches</dt><dd>${h((context.branchNodes || family.branchIds || []).join(', ') || 'None')}</dd><dt>Primary full line tag</dt><dd>${h(context.fullLineTag || family.fullLineTag || 'None')}</dd><dt>All full line tags</dt><dd>${h((context.fullLineTags || family.fullLineTags || []).join(', ') || 'None')}</dd><dt>Primary line family</dt><dd>${h(context.lineFamily || family.lineFamily || 'None')}</dd><dt>Pipe owner</dt><dd>${h(context.pipeOwner || family.pipeOwner || 'None')}</dd><dt>Carriers</dt><dd>${h((context.carrierIds || family.carrierIds || []).join(', ') || 'None')}</dd><dt>Context quality</dt><dd>${h(context.contextQuality || 'NONE')}</dd><dt>Context evidence</dt><dd>${h((context.contextEvidence || []).join(', ') || 'None')}</dd><dt>OWNER fallback used</dt><dd>${context.ownerFallbackUsed ? 'Yes' : 'No'}</dd><dt>Context cardinality</dt><dd>${h((context.contextConflicts || []).join(', ') || 'Single context')}</dd><dt>Members</dt><dd>${family.members?.length || 0}</dd><dt>Explicit steel references</dt><dd>${h((family.explicitReferences || []).join(', ') || 'None')}</dd></dl><ul class="ssrb-evidence-list">${(family.members || []).map((member) => `<li><code>${h(member.memberId || '(unresolved)')}</code><span>${h(member.semanticRole || 'OTHER')} · ${h(member.lineContext?.contextQuality || 'NONE')}</span></li>`).join('')}</ul>`;
 }
 
 function steelEvidence(steel, relationship) {
@@ -122,29 +98,32 @@ function steelEvidence(steel, relationship) {
   return `<dl><dt>Steel group</dt><dd>${h(steel.steelGroupId)}</dd><dt>Source records</dt><dd>${steel.records?.length || 0}</dd><dt>Analytical members</dt><dd>${summary.analyticalMemberCount || 0}</dd><dt>Representative-only members</dt><dd>${summary.representativeOnlyMemberCount || 0}</dd><dt>Geometry methods</dt><dd>${h((summary.methods || []).join(', ') || 'None')}</dd><dt>Selected structural member</dt><dd>${h(relationship?.structuralMemberId || 'None')}</dd><dt>Owners</dt><dd>${h((steel.owners || []).join(', ') || 'None')}</dd><dt>Related supports</dt><dd>${h((steel.supportFamilyIds || []).join(', ') || 'None')}</dd></dl><ul class="ssrb-evidence-list">${(steel.records || []).map((record) => `<li><code>${h(record.recordId || '(unresolved)')}</code><span>${h((record.analyticalGeometry?.geometryMethods || []).join(' + ') || record.sourceRecordType || 'UNKNOWN')}</span></li>`).join('')}</ul>`;
 }
 
-function evidenceCard(title, body) {
-  return `<section class="ssrb-evidence-card"><h4>${h(title)}</h4>${body}</section>`;
+function chainSection(title, rows, renderer) {
+  return `<section class="ssrb-chain-section"><h4>${h(title)} <span>${rows.length}</span></h4>${rows.length ? renderer(rows) : emptyState(`No ${title.toLowerCase()}.`)}</section>`;
 }
 
-function summaryCard(label, value) {
-  return `<div class="ssrb-summary-card"><span>${h(label)}</span><strong>${h(value)}</strong></div>`;
+function physicalEdgeTable(rows) {
+  return `<div class="ssrb-table-wrap"><table class="ssrb-table"><thead><tr><th>Family</th><th>Member A</th><th>Member B</th><th>Roles</th><th>Status</th><th>Method</th><th>Distance mm</th><th>Confidence</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.supportFamilyId)}</td><td>${h(row.supportA)}</td><td>${h(row.supportB)}</td><td>${h(row.roleA)} ↔ ${h(row.roleB)}</td><td>${statusBadge(row.relationshipStatus)}</td><td>${h(row.geometryMethod)}</td><td>${row.distanceMm ?? '—'}</td><td>${h(row.confidence)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function statusBadge(status) {
-  const key = String(status || 'UNRESOLVED').toLowerCase().replace(/_/g, '-');
-  return `<span class="ssrb-status ssrb-status-${h(key)}">${h(status || 'UNRESOLVED')}</span>`;
+function referenceEdgeTable(rows) {
+  return `<div class="ssrb-table-wrap"><table class="ssrb-table"><thead><tr><th>Family</th><th>From member</th><th>To member</th><th>Basis</th><th>Contact proof</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.supportFamilyId)}</td><td>${h(row.fromMemberId)}</td><td>${h(row.toMemberId)}</td><td>${h((row.relationshipBasis || []).join(', '))}</td><td>${h(row.contactEvidenceStatus)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function listItems(values = []) {
-  return values.length ? values.map((value) => `<li><code>${h(value)}</code></li>`).join('') : '<li>None</li>';
+function terminalEdgeTable(rows) {
+  return `<div class="ssrb-table-wrap"><table class="ssrb-table"><thead><tr><th>Family</th><th>Support member</th><th>Role</th><th>Steel group</th><th>Structural member</th><th>Edge type</th><th>Status</th><th>Distance mm</th></tr></thead><tbody>${rows.map((row) => `<tr><td>${h(row.supportFamilyId)}</td><td>${h(row.supportMemberId)}</td><td>${h(row.supportMemberRole || 'SYMBOLIC')}</td><td>${h(row.steelGroupId)}</td><td>${h(row.structuralMemberId || '—')}</td><td>${h(row.edgeType)}</td><td>${h(row.contactEvidenceStatus || row.relationshipStatus)}</td><td>${row.distanceMm ?? '—'}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
-function emptyState(message) {
-  return `<div class="ssrb-empty">${h(message)}</div>`;
+function chainDiagnostics(chain) {
+  const unresolved = chain.unresolvedPhysicalMembers || [];
+  const diagnostics = chain.diagnostics || [];
+  if (!unresolved.length && !diagnostics.length) return '';
+  return `<div class="ssrb-chain-diagnostics"><h4>Member-chain diagnostics</h4>${unresolved.map((row) => `<p><b>${h(row.supportFamilyId)}</b> unresolved physical member <code>${h(row.memberId)}</code></p>`).join('')}${diagnostics.map((row) => `<p><b>${h(row.code)}</b> ${h(row.message)}</p>`).join('')}</div>`;
 }
 
-function h(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[char]));
-}
+function evidenceCard(title, body) { return `<section class="ssrb-evidence-card"><h4>${h(title)}</h4>${body}</section>`; }
+function summaryCard(label, value) { return `<div class="ssrb-summary-card"><span>${h(label)}</span><strong>${h(value)}</strong></div>`; }
+function statusBadge(status) { const key = String(status || 'UNRESOLVED').toLowerCase().replace(/_/g, '-'); return `<span class="ssrb-status ssrb-status-${h(key)}">${h(status || 'UNRESOLVED')}</span>`; }
+function listItems(values = []) { return values.length ? values.map((value) => `<li><code>${h(value)}</code></li>`).join('') : '<li>None</li>'; }
+function emptyState(message) { return `<div class="ssrb-empty">${h(message)}</div>`; }
+function h(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
