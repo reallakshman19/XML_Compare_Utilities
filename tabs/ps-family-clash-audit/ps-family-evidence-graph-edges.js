@@ -6,6 +6,11 @@ import {
   formatEvidencePoint,
   representativeEvidenceSupport,
 } from './ps-family-evidence-graph-shared.js';
+import {
+  lineProjectionFields,
+  resolveEdgeLineProjection,
+  resolveMemberLineMembership,
+} from './ps-family-evidence-line-memberships.js';
 
 export function createEvidenceMemberRows(
   family,
@@ -14,6 +19,8 @@ export function createEvidenceMemberRows(
   chainEdges,
   referenceEdges,
   terminalEdges,
+  membershipIndex = new Map(),
+  primaryMembership = null,
 ) {
   const representative = representativeEvidenceSupport(family);
   const rows = (family.members || []).map((member) => memberRow(
@@ -24,6 +31,8 @@ export function createEvidenceMemberRows(
     chainEdges,
     referenceEdges,
     terminalEdges,
+    membershipIndex,
+    primaryMembership,
   ));
   uniqueSorted(relationships.map((row) => row.steelGroupId).filter(Boolean)).forEach((steelGroupId) => {
     rows.push({
@@ -37,6 +46,7 @@ export function createEvidenceMemberRows(
       evidenceIds: relationships.filter((row) => row.steelGroupId === steelGroupId).map(evidenceId),
       coverageRole: 'Resolved structural group',
       remarks: 'Structural group from relationship evidence.',
+      ...lineProjectionFields(primaryMembership),
     });
   });
   return rows;
@@ -51,28 +61,35 @@ export function createEvidenceInputRows(
   nearbyEdges,
   referenceEdges,
   terminalEdges,
+  membershipIndex = new Map(),
+  primaryMembership = null,
 ) {
-  const row = (edge, fromType, toType, parsedEdge) => ({
-    sourceInput: PS_FAMILY_EVIDENCE_SOURCE_SCHEMA,
-    sourceSchema: edge.sourceSchema || PS_FAMILY_EVIDENCE_SOURCE_SCHEMA,
-    evidenceId: evidenceId(edge),
-    evidenceClass: edge.evidenceClass || 'INFERRED',
-    fromType,
-    toType,
-    lineFamily: context.lineFamily,
-    branchNode: context.branchNode,
-    supportGroup,
-    distance: edge.distanceMm ?? null,
-    parsedEdge,
-    supportFamilyId: family.familyId,
-    contactEvidenceStatus: edge.contactEvidenceStatus || '',
-  });
+  const row = (edge, fromType, toType, parsedEdge, familyLevel = false) => {
+    const projection = familyLevel
+      ? { membership: primaryMembership, lineMembershipIds: [primaryMembership?.membershipId].filter(Boolean) }
+      : resolveEdgeLineProjection(edge, membershipIndex, primaryMembership);
+    return {
+      sourceInput: PS_FAMILY_EVIDENCE_SOURCE_SCHEMA,
+      sourceSchema: edge.sourceSchema || PS_FAMILY_EVIDENCE_SOURCE_SCHEMA,
+      evidenceId: evidenceId(edge),
+      evidenceClass: edge.evidenceClass || 'INFERRED',
+      fromType,
+      toType,
+      ...lineProjectionFields(projection),
+      supportGroup: projection.membership?.supportGroup || supportGroup,
+      distance: edge.distanceMm ?? null,
+      parsedEdge,
+      supportFamilyId: family.familyId,
+      contactEvidenceStatus: edge.contactEvidenceStatus || '',
+    };
+  };
   return [
     ...relationships.map((edge) => row(
       edge,
       'SUPPORT_FAMILY',
       'STRUCTURAL_GROUP',
       edge.relationshipSemantic || edge.relationshipStatus,
+      true,
     )),
     ...memberEdges.map((edge) => row(edge, 'SUPPORT_MEMBER', 'SUPPORT_MEMBER', edge.edgeType)),
     ...nearbyEdges.map((edge) => row(edge, 'SUPPORT_MEMBER', 'SUPPORT_MEMBER', edge.edgeType)),
@@ -140,6 +157,8 @@ export function createEvidenceStructureBasisRows(
   context,
   relationships,
   physicalTerminals,
+  membershipIndex = new Map(),
+  primaryMembership = null,
 ) {
   const groups = groupRelationshipsBySteel(relationships);
   return [...groups.entries()].map(([steelGroupId, rows]) => {
@@ -147,15 +166,22 @@ export function createEvidenceStructureBasisRows(
     const terminals = physicalTerminals.filter((edge) => edge.steelGroupId === steelGroupId);
     const supports = uniqueSorted(terminals.map((edge) => edge.supportMemberId));
     const representative = terminals[0];
+    const membership = resolveMemberLineMembership(
+      membershipIndex,
+      representative?.supportMemberId,
+      primaryMembership,
+    );
+    const lineFields = lineProjectionFields(membership);
     return {
       structuralGroupRoot: extractFamilyRoot(steelGroupId) || steelGroupId,
       structuralGroupNames: uniqueSorted((steel?.records || [])
         .map((record) => record.recordId)
         .filter(Boolean)).join('|') || steelGroupId,
-      lineNo: context.fullLineTag,
-      lineFamily: context.lineFamily,
-      branchNode: context.branchNode,
-      supportGroup,
+      lineNo: lineFields.fullLineTag || context.fullLineTag,
+      lineFamily: lineFields.lineFamily || context.lineFamily,
+      branchNode: lineFields.branchNode || context.branchNode,
+      lineMembershipId: lineFields.lineMembershipId,
+      supportGroup: membership?.supportGroup || supportGroup,
       supportsWithin250mm: supports.join('|'),
       supportCount: supports.length,
       totalSupportCount: supports.length,
@@ -179,6 +205,8 @@ function memberRow(
   chainEdges,
   referenceEdges,
   terminalEdges,
+  membershipIndex,
+  primaryMembership,
 ) {
   const connectedTo = [];
   chainEdges.forEach((edge) => {
@@ -194,8 +222,9 @@ function memberRow(
       connectedTo.push(edge.structuralMemberId || edge.steelGroupId);
     }
   });
+  const membership = resolveMemberLineMembership(membershipIndex, member.memberId, primaryMembership);
   return {
-    supportGroup,
+    supportGroup: membership?.supportGroup || supportGroup,
     representativeSupport: representative,
     support: member.memberId,
     memberType: member.semanticRole || 'OTHER_FAMILY_MEMBER',
@@ -208,12 +237,15 @@ function memberRow(
     coverageRole: memberCoverageRole(member),
     remarks: connectedTo.length ? 'Connected in evidence graph.' : 'No graph connection established.',
     supportFamilyId: family.familyId,
+    ...lineProjectionFields(membership),
   };
 }
 
 function memberCoverageRole(member) {
   if (SYMBOLIC_SUPPORT_ROLES.has(member.semanticRole)) return 'Symbolic evidence node';
-  if (member.analyticalGeometry?.geometryAvailable) return 'Analytical physical member';
+  if (member.analyticalGeometry?.physicalGeometryAvailable || member.analyticalGeometry?.geometryAvailable) {
+    return 'Analytical physical member';
+  }
   return 'Physical member without analytical geometry';
 }
 
