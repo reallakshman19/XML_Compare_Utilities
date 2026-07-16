@@ -11,6 +11,7 @@ const audit = createPsFamilyClashAuditFromTextInputs({
   config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
 const allExports = createPsFamilyAuditExports(audit);
+assert.equal(audit.summary.sourceFamily, 'PS-14396');
 
 const shell = _test.renderInputShell(PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(shell.includes('Export current report CSV'));
