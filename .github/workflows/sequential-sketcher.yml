@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'tabs/sequential-sketcher/**'
+      - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
       - '.github/workflows/sequential-sketcher.yml'
@@ -11,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'tabs/sequential-sketcher/**'
+      - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
       - '.github/workflows/sequential-sketcher.yml'
@@ -29,5 +31,9 @@ jobs:
           node-version: 20
       - name: Core topology and traversal
         run: node tests/sequential-sketcher-core.test.js
-      - name: UI architecture gate
+      - name: Owned support projection contract
+        run: node --test tests/sequential-sketcher-support-projection.test.js
+      - name: Support integration isolation
+        run: node --test tests/sequential-sketcher-support-integration.test.js
+      - name: UI and ownership architecture gate
         run: node tests/sequential-sketcher-ui-static.test.js
