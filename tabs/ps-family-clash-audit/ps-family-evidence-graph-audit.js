@@ -96,6 +96,7 @@ export function buildPsFamilyEvidenceAudit(input = {}) {
     config,
   );
   const carrier = bundle.supportCarrierResolution || {};
+  const attachment = bundle.supportCarrierAttachment || {};
   return {
     schema: PS_FAMILY_EVIDENCE_AUDIT_SCHEMA,
     legacyReportContractSchema: PS_FAMILY_CLASH_AUDIT_SCHEMA,
@@ -103,6 +104,8 @@ export function buildPsFamilyEvidenceAudit(input = {}) {
     sourceSchema: bundle.schema,
     carrierResolutionSchema: bundle.carrierResolutionSchema || carrier.schema || null,
     carrierCatalogSchema: bundle.carrierCatalogSchema || carrier.catalogSchema || null,
+    carrierAttachmentSchema: bundle.carrierAttachmentSchema || attachment.schema || null,
+    carrierGeometrySchema: bundle.carrierGeometrySchema || null,
     summary,
     coverageRows: coverage.coverageRows,
     clashRows: [],
@@ -125,6 +128,10 @@ export function buildPsFamilyEvidenceAudit(input = {}) {
     carrierResolutionRows: carrier.resolutions || [],
     supportCarrierEdgeRows: carrier.supportCarrierEdges || [],
     branchContextEdgeRows: carrier.branchContextEdges || [],
+    carrierAttachmentEvaluationRows: attachment.evaluations || [],
+    carrierAttachmentRows: attachment.supportCarrierAttachmentEdges || [],
+    nearbyCarrierAttachmentRows: attachment.nearbyCarrierAttachmentCandidates || [],
+    unresolvedCarrierAttachmentRows: attachment.unresolvedCarrierAttachments || [],
     diagnostics,
     ...reports,
   };
@@ -162,6 +169,7 @@ function readinessSummary(bundle, expectedRows, detailRows, diagnostics, config 
   );
   const chain = bundle.supportMemberChain || {};
   const carrier = bundle.supportCarrierResolution || {};
+  const attachment = bundle.supportCarrierAttachment || {};
   const physicalTerminals = (chain.structuralTerminalEdges || []).filter(
     (edge) => edge.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE',
   );
@@ -173,6 +181,9 @@ function readinessSummary(bundle, expectedRows, detailRows, diagnostics, config 
     carrierObjectCount: (carrier.carrierObjects || []).length,
     resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
     branchContextEdgeCount: (carrier.branchContextEdges || []).length,
+    carrierAttachmentCandidateCount: (attachment.supportCarrierAttachmentEdges || []).length,
+    nearbyCarrierAttachmentCount: (attachment.nearbyCarrierAttachmentCandidates || []).length,
+    unresolvedCarrierAttachmentCount: (attachment.unresolvedCarrierAttachments || []).length,
     xmlClashCount: 0,
     psClashCount: 0,
     expectedCount: expectedRows.length,
@@ -195,6 +206,9 @@ function emptyReadinessSummary(diagnostics) {
     carrierObjectCount: 0,
     resolvedCarrierEdgeCount: 0,
     branchContextEdgeCount: 0,
+    carrierAttachmentCandidateCount: 0,
+    nearbyCarrierAttachmentCount: 0,
+    unresolvedCarrierAttachmentCount: 0,
     xmlClashCount: 0,
     psClashCount: 0,
     expectedCount: 0,
@@ -219,6 +233,7 @@ function buildSummary(
 ) {
   const foundCount = coverage.coverageRows.filter((row) => row.found).length;
   const carrier = bundle.supportCarrierResolution || {};
+  const attachment = bundle.supportCarrierAttachment || {};
   return {
     sourceFamily: detectedEvidenceSourceFamily(families, config),
     evidenceMode: PS_FAMILY_EVIDENCE_MODE,
@@ -233,6 +248,10 @@ function buildSummary(
     carrierObjectCount: (carrier.carrierObjects || []).length,
     resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
     branchContextEdgeCount: (carrier.branchContextEdges || []).length,
+    carrierAttachmentCandidateCount: (attachment.supportCarrierAttachmentEdges || []).length,
+    nearbyCarrierAttachmentCount: (attachment.nearbyCarrierAttachmentCandidates || []).length,
+    unresolvedCarrierAttachmentCount: (attachment.unresolvedCarrierAttachments || []).length,
+    analyticalCarrierGeometryCount: attachment.summary?.analyticalCarrierGeometryCount || 0,
     ambiguousCarrierCount: carrier.summary?.ambiguousCarrierCount || 0,
     unresolvedCarrierCount: carrier.summary?.unresolvedCarrierCount || 0,
     symbolicReferenceCount: reports.symbolicReferenceCount,
