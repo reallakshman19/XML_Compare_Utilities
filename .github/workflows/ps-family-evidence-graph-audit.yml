@@ -1,0 +1,59 @@
+name: PS Family Evidence Graph Audit
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tabs/support-steel-relationship-builder/**'
+      - 'tests/ps-family-*.test.js'
+      - 'package.json'
+      - '.github/workflows/ps-family-evidence-graph-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run focused audit contracts
+        shell: bash
+        run: |
+          set +e
+          node --test tests/ps-family-evidence-graph-audit.test.js > graph.log 2>&1
+          echo "$?" > graph.status
+          node tests/ps-family-clash-audit-config.test.js > config.log 2>&1
+          echo "$?" > config.status
+          node tests/ps-family-clash-audit-ui-smoke.test.js > ui.log 2>&1
+          echo "$?" > ui.status
+          node tests/ps-family-accessibility-gate.test.js > accessibility.log 2>&1
+          echo "$?" > accessibility.status
+          node tests/ps-family-psclash-report.test.js > legacy.log 2>&1
+          echo "$?" > legacy.status
+          node tests/ps-family-implementation-compliance.test.js > compliance.log 2>&1
+          echo "$?" > compliance.status
+          node tests/ps-family-readiness.test.js > readiness.log 2>&1
+          echo "$?" > readiness.status
+          node tests/ps-family-output-fixtures.test.js > fixtures.log 2>&1
+          echo "$?" > fixtures.status
+          node tests/ps-family-clash-audit-benchmark-readiness.test.js > aggregate.log 2>&1
+          echo "$?" > aggregate.status
+          exit 0
+      - name: Upload focused test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps-family-evidence-audit-focused-logs
+          path: |
+            *.log
+            *.status
+      - name: Enforce focused audit contracts
+        shell: bash
+        run: |
+          for name in graph config ui accessibility legacy compliance readiness fixtures aggregate; do
+            echo "===== ${name}.log ====="
+            cat "${name}.log"
+            test "$(cat "${name}.status")" = "0"
+          done

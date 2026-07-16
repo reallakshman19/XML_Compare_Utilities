@@ -6,9 +6,10 @@ import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.j
 import { createPsFamilyActiveReportExport, createPsFamilyAuditExports, PS_FAMILY_ACTIVE_EXPORTS } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-export.js';
 
 const audit = createPsFamilyClashAuditFromTextInputs({
+  evidenceMode: 'XML',
   structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
   supportXmlText: PS_FAMILY_SAMPLE_SUPPORT_XML,
-  config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
+  config: { evidenceMode: 'XML', sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
 const allExports = createPsFamilyAuditExports(audit);
 assert.equal(audit.summary.sourceFamily, 'PS-14396');
@@ -19,7 +20,7 @@ assert.ok(shell.includes('data-psfa="export-report-csv"'));
 assert.ok(shell.includes('Support Group Summary CSV'));
 assert.ok(shell.includes('Line Tree TXT'));
 assert.ok(shell.includes('Structure Group Basis CSV'));
-assert.ok(shell.includes('Clash Audit Outcome CSV'));
+assert.ok(shell.includes('Audit Outcome CSV'));
 assert.ok(shell.includes('Input Evidence CSV'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(!shell.includes('StructureGroup Contacts CSV'));

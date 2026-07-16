@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260716-ssrb-member-chain-1');
+  const module = await import('./core/app.js?v=20260716-ps-family-evidence-graph-1');
   await module.init(startupMount());
 }
 

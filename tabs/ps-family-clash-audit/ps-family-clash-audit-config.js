@@ -1,19 +1,19 @@
 import { buildFamilyRootDetectorLabel, normalizeFamilyPrefixes } from './ps-family-token-utils.js';
 
-export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v10-report-hub';
+export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v11-evidence-graph';
 
 const REPORT_TABS = Object.freeze([
   Object.freeze({ key: 'supportSummary', label: 'SupportGroup Summary', maturity: 'stable' }),
   Object.freeze({ key: 'supportChain', label: 'Support Chain Report', maturity: 'draft' }),
   Object.freeze({ key: 'supportMembers', label: 'Support Members', maturity: 'draft' }),
-  Object.freeze({ key: 'structureLineProximity', label: 'StructureGroup Line Support Proximity Basis', maturity: 'stable' }),
-  Object.freeze({ key: 'structureContacts', label: 'Structure Contacts', maturity: 'draft' }),
+  Object.freeze({ key: 'structureLineProximity', label: 'StructureGroup Line Support Basis', maturity: 'stable' }),
+  Object.freeze({ key: 'structureContacts', label: 'Structure Terminals', maturity: 'draft' }),
   Object.freeze({ key: 'lineSupportTree', label: 'Line Tree', maturity: 'stable' }),
   Object.freeze({ key: 'structureTree', label: 'Structure Tree', maturity: 'stable' }),
   Object.freeze({ key: 'inputEvidence', label: 'Input Evidence', maturity: 'stable' }),
   Object.freeze({ key: 'connectivityMatrix', label: 'Connectivity Matrix', maturity: 'draft' }),
-  Object.freeze({ key: 'clashRows', label: 'Clash Detail Rows', maturity: 'draft' }),
-  Object.freeze({ key: 'supportExceptions', label: 'SupportChange Exceptions', maturity: 'stable' }),
+  Object.freeze({ key: 'clashRows', label: 'Evidence Detail Rows', maturity: 'draft' }),
+  Object.freeze({ key: 'supportExceptions', label: 'Audit Exceptions', maturity: 'stable' }),
   Object.freeze({ key: 'diagnostics', label: 'Diagnostics', maturity: 'stable' }),
 ]);
 
@@ -21,13 +21,13 @@ const REPORT_GROUPS = Object.freeze([
   Object.freeze({
     key: 'supportGroup',
     label: 'Support Group',
-    description: 'SupportGroup Summary, support-chain continuity and member evidence.',
+    description: 'SupportGroup summary, support-chain continuity and member evidence.',
     reportKeys: Object.freeze(['supportSummary', 'supportChain', 'supportMembers']),
   }),
   Object.freeze({
     key: 'structureBasis',
     label: 'Structure Group Basis',
-    description: 'StructureGroup line-support proximity basis and structure-contact evidence.',
+    description: 'Structure-group relationship basis and analytical structural terminals.',
     reportKeys: Object.freeze(['structureLineProximity', 'structureContacts']),
   }),
   Object.freeze({
@@ -39,29 +39,36 @@ const REPORT_GROUPS = Object.freeze([
   Object.freeze({
     key: 'structureTree',
     label: 'Structure Tree',
-    description: 'Structure-root hierarchy with the input evidence used to construct it.',
+    description: 'Structure-root hierarchy with the native evidence used to construct it.',
     reportKeys: Object.freeze(['structureTree', 'inputEvidence']),
   }),
   Object.freeze({
-    key: 'clashSummary',
-    label: 'Clash Summary',
-    description: 'SupportGroup Summary, connectivity matrix and detailed clash evidence.',
+    key: 'evidenceSummary',
+    label: 'Evidence Summary',
+    description: 'SupportGroup summary, connectivity matrix and source evidence.',
     reportKeys: Object.freeze(['supportSummary', 'connectivityMatrix', 'clashRows']),
   }),
   Object.freeze({
-    key: 'clashOutcome',
-    label: 'Clash Audit Outcome',
-    description: 'SupportChange exceptions and diagnostics requiring engineering action.',
+    key: 'auditOutcome',
+    label: 'Audit Outcome',
+    description: 'Exceptions and diagnostics requiring engineering action.',
     reportKeys: Object.freeze(['supportExceptions', 'diagnostics']),
   }),
 ]);
 
+const EVIDENCE_MODES = Object.freeze([
+  Object.freeze({ value: 'RELATIONSHIP_BUNDLE', label: 'Relationship bundle — XML-free production mode' }),
+  Object.freeze({ value: 'XML', label: 'Legacy clash XML — validation mode' }),
+]);
+
 export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   schema: PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA,
-  appTitle: 'PS / SL Family Clash Audit',
-  launcher: Object.freeze({ label: 'PS / SL Family Clash Audit', icon: '⚠️↔️', help: 'Build SupportChangeXML line/support-group reports from two Navis clash XML inputs.' }),
+  appTitle: 'PS / SL Family Evidence Audit',
+  launcher: Object.freeze({ label: 'PS / SL Family Evidence Audit', icon: '⚠️↔️', help: 'Audit support families directly from the XML-free relationship evidence graph.' }),
   inputRows: 7,
-  sourceFamilyPlaceholder: 'Optional filter, e.g. PS-14396 / SL-14396',
+  defaultEvidenceMode: 'RELATIONSHIP_BUNDLE',
+  evidenceModes: EVIDENCE_MODES,
+  sourceFamilyPlaceholder: 'Optional filter, e.g. /PS-14396 or /SL-14396',
   familyPrefixesText: 'PS, SL',
   structuralZonesText: 'CU-SU, STRUCTURE, FRMWORK, GENSEC, PANEL, FACET GROUP',
   supportZonesText: 'PS-, SL-',
@@ -69,8 +76,9 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   toleranceMinMm: 0,
   toleranceStepMm: 0.001,
   inputFiles: Object.freeze([
-    Object.freeze({ key: 'structure', label: 'StructureGroup vs Supports XML', accept: '.xml,text/xml,application/xml', textareaKey: 'structure' }),
-    Object.freeze({ key: 'support', label: 'Clash within Supports XML', accept: '.xml,text/xml,application/xml', textareaKey: 'support' }),
+    Object.freeze({ key: 'bundle', label: 'Support / Steel Relationship Bundle', accept: '.json,application/json', textareaKey: 'bundle' }),
+    Object.freeze({ key: 'structure', label: 'Legacy StructureGroup vs Supports XML', accept: '.xml,text/xml,application/xml', textareaKey: 'structure' }),
+    Object.freeze({ key: 'support', label: 'Legacy Clash within Supports XML', accept: '.xml,text/xml,application/xml', textareaKey: 'support' }),
   ]),
   reportTabs: REPORT_TABS,
   reportGroups: REPORT_GROUPS,
@@ -83,21 +91,21 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
     Object.freeze({ key: 'support-summary', label: 'Support Group Summary CSV', exportKey: 'supportSummaryCsv', mime: 'text/csv', suffix: 'supportgroup-summary' }),
     Object.freeze({ key: 'line-support-tree', label: 'Line Tree TXT', exportKey: 'lineSupportTreeText', mime: 'text/plain', suffix: 'line-support-tree' }),
     Object.freeze({ key: 'structure-line-proximity', label: 'Structure Group Basis CSV', exportKey: 'structureLineProximityCsv', mime: 'text/csv', suffix: 'structure-line-proximity' }),
-    Object.freeze({ key: 'support-exceptions', label: 'Clash Audit Outcome CSV', exportKey: 'supportExceptionsCsv', mime: 'text/csv', suffix: 'supportchange-exceptions' }),
+    Object.freeze({ key: 'support-exceptions', label: 'Audit Outcome CSV', exportKey: 'supportExceptionsCsv', mime: 'text/csv', suffix: 'audit-exceptions' }),
     Object.freeze({ key: 'input-evidence', label: 'Input Evidence CSV', exportKey: 'inputEvidenceCsv', mime: 'text/csv', suffix: 'input-evidence' }),
     Object.freeze({ key: 'all-json', label: 'Audit JSON', exportKey: 'auditJson', mime: 'application/json', suffix: 'audit' }),
   ]),
   info: Object.freeze([
-    'SupportChange workflow uses two Navis clash XML inputs: StructureGroup vs Supports and Clash within Supports.',
+    'Relationship bundle mode is the XML-free production workflow and is selected by default.',
+    'Legacy StructureGroup vs Supports and Clash within Supports XML remain available only for validation and historical comparison.',
     'SupportGroup identity is LineFamily_PSRoot, for example S8810011_PS-14396.',
     'Reports are organized into six task-oriented groups in a two-row report catalog.',
     'Every visible report can be exported directly as CSV from the Reports workspace.',
-    'Structure Group Basis groups PS-14311-BAR-3 / PS-14311-BAR / PS-14311 by the same structural PS root.',
-    'StructuralGroup is a child group inside SupportGroup; it must not replace the support representative.',
-    'Supports are connected with support-support edges; StructureGroup contacts attach to the same SupportGroup.',
-    'Zone classification is editable: structural and support zone tokens can contain multiple comma/newline separated entries.',
+    'Structural relationships, member-chain edges, symbolic references and analytical terminals remain distinct evidence classes.',
+    'A support-family association alone does not prove a physical terminal; analytical support-member geometry is required.',
+    'Zone classification and source-side settings apply only to legacy XML validation mode.',
     'The Export Package workspace retains stable deliverables, previews, Audit JSON and ZIP packaging.',
-    'Stranger PS roots and orphan StructureGroup/support evidence are reported in Clash Audit Outcome.',
+    'Disconnected physical members, ambiguous steel relationships, missing line context and reference-only terminals are reported as exceptions.',
     'Family prefixes are configurable; default prefixes are PS and SL.',
   ]),
 });
@@ -121,6 +129,7 @@ export function readPsFamilyUiSettings(getField, config = PS_FAMILY_CLASH_AUDIT_
   const structuralZones = parseListText(structuralZonesText, config.structuralZonesText);
   const supportZones = parseListText(supportZonesText, config.supportZonesText);
   return Object.freeze({
+    evidenceMode: getField('evidence-mode')?.value || config.defaultEvidenceMode,
     sourceSide: getField('source-side')?.value || config.sourceSideOptions[0].value,
     sourceFamily,
     familyPrefixesText: familyPrefixes.join(', '),
