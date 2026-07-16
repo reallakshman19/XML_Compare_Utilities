@@ -7,6 +7,7 @@ on:
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-construction-engine.test.js'
       - '.github/workflows/sequential-sketcher.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-construction-engine.test.js'
       - '.github/workflows/sequential-sketcher.yml'
 
@@ -25,7 +27,7 @@ permissions:
 jobs:
   sequential-sketcher:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,6 +35,8 @@ jobs:
           node-version: 20
       - name: Supervised sequential construction
         run: node tests/sequential-construction-engine.test.js
+      - name: Pinned 1885 NC branch probe
+        run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
       - name: Legacy foundation regression
         run: node tests/sequential-sketcher-core.test.js
       - name: Owned support projection contract
