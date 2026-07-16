@@ -8,6 +8,10 @@ import {
   SUPPORT_STEEL_ANALYTICAL_GEOMETRY_SCHEMA,
   minimumSupportToSteelGeometryDistance,
 } from './support-steel-analytical-geometry.js';
+import {
+  SUPPORT_MEMBER_CHAIN_SCHEMA,
+  buildSupportMemberChainBundle,
+} from './support-member-chain-engine.js';
 import { collectSteelGroups, collectSupportFamilies } from './support-steel-source-reader.js';
 import { cleanText, cloneJson } from './support-steel-source-utils.js';
 
@@ -24,23 +28,33 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
     return { ...cloneJson(family), steelRelationships: result.relationships };
   });
   const steelOutput = projectSteelRelationships(steelGroups, relationships);
+  const supportMemberChain = buildSupportMemberChainBundle({
+    supportFamilies: supportOutput,
+    steelGroups: steelOutput,
+    relationships,
+    config,
+  });
+  diagnostics.push(...supportMemberChain.diagnostics);
   const unresolvedSupportFamilies = supportOutput
     .filter((family) => family.steelRelationships.every((row) => row.relationshipStatus === 'UNRESOLVED'))
     .map((family) => family.familyId);
   return {
     schema: SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
     geometryEngineSchema: SUPPORT_STEEL_ANALYTICAL_GEOMETRY_SCHEMA,
-    bundlePurpose: 'RELATIONSHIP_INFERENCE',
+    memberChainEngineSchema: SUPPORT_MEMBER_CHAIN_SCHEMA,
+    bundlePurpose: 'RELATIONSHIP_AND_MEMBER_CONNECTIVITY_INFERENCE',
     contactEvidenceAvailable: false,
+    analyticalMemberContactEvidenceAvailable: supportMemberChain.summary.supportChainEdgeCount > 0,
     coordinateSystem: {
       units: 'mm',
       globalAxes: { x: 'EAST', y: 'NORTH', z: 'UP' },
     },
     config: publicConfig(config),
-    summary: buildSummary(supportOutput, steelOutput, relationships),
+    summary: buildSummary(supportOutput, steelOutput, relationships, supportMemberChain),
     supportFamilies: supportOutput,
     steelGroups: steelOutput,
     relationships,
+    supportMemberChain,
     unresolvedSupportFamilies,
     diagnostics,
   };
@@ -306,17 +320,22 @@ function projectSteelRelationships(steelGroups, relationships) {
   }));
 }
 
-function buildSummary(supportFamilies, steelGroups, relationships) {
+function buildSummary(supportFamilies, steelGroups, relationships, supportMemberChain) {
   const familyStatuses = supportFamilies.map((family) => strongestFamilyStatus(family.steelRelationships));
   return {
     supportFamilyCount: supportFamilies.length,
     steelGroupCount: steelGroups.length,
     analyticalSteelGroupCount: steelGroups.filter((steel) => steel.analyticalGeometry?.analyticalMemberCount > 0).length,
+    analyticalSupportMemberCount: supportMemberChain.summary.analyticalMemberCount,
     relationshipCount: relationships.filter((row) => row.steelGroupId).length,
     resolvedFamilyCount: familyStatuses.filter((status) => status.startsWith('RESOLVED_')).length,
     analyticalSpatialResolvedFamilyCount: supportFamilies.filter((family) => family.steelRelationships.some(
       (row) => row.relationshipStatus === 'RESOLVED_SPATIAL' && row.analyticalGeometryAvailable,
     )).length,
+    supportChainEdgeCount: supportMemberChain.summary.supportChainEdgeCount,
+    nearbyMemberCandidateCount: supportMemberChain.summary.nearbyCandidateEdgeCount,
+    structuralTerminalEdgeCount: supportMemberChain.summary.structuralTerminalEdgeCount,
+    unresolvedPhysicalMemberCount: supportMemberChain.summary.unresolvedPhysicalMemberCount,
     ambiguousFamilyCount: familyStatuses.filter((status) => status === 'AMBIGUOUS').length,
     unresolvedFamilyCount: familyStatuses.filter((status) => status === 'UNRESOLVED').length,
   };
@@ -369,5 +388,7 @@ function publicConfig(config) {
     projectionToleranceMm: config.projectionToleranceMm,
     ambiguityDeltaMm: config.ambiguityDeltaMm,
     requireAnalyticalGeometryForSpatialResolution: config.requireAnalyticalGeometryForSpatialResolution,
+    memberContactToleranceMm: Number.isFinite(Number(config.memberContactToleranceMm)) ? Number(config.memberContactToleranceMm) : 2,
+    memberCandidateToleranceMm: Number.isFinite(Number(config.memberCandidateToleranceMm)) ? Number(config.memberCandidateToleranceMm) : 25,
   };
 }

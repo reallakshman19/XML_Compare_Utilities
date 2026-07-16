@@ -22,7 +22,11 @@ export const SUPPORT_STEEL_SAMPLE_SUPPORT = Object.freeze([
         attributes: {
           NAME: '/PS-14259.1',
           OWNER: '/ASIM-1836-6"-P9001001/B1',
-          POS: { x: 437500, y: -1159000, z: 2100 },
+          POS: { x: 437500, y: -1159000, z: 2181 },
+          BOUNDS: {
+            min: { x: 437430, y: -1159075, z: 2106 },
+            max: { x: 437570, y: -1158925, z: 2256 },
+          },
           CMPSUPTYPE: 'SH-150',
           DTXR: 'PIPE SHOE SH-150',
         },
@@ -33,7 +37,11 @@ export const SUPPORT_STEEL_SAMPLE_SUPPORT = Object.freeze([
         attributes: {
           NAME: '/PS-14259.2',
           OWNER: '/ASIM-1836-6"-P9001001/B1',
-          POS: { x: 437500, y: -1159000, z: 2100 },
+          POS: { x: 437500, y: -1159000, z: 2103 },
+          BOUNDS: {
+            min: { x: 437350, y: -1159080, z: 2100 },
+            max: { x: 437650, y: -1158920, z: 2106 },
+          },
           CMPSUPTYPE: 'W.PAD THK 6mm',
           DTXR: 'WEAR PLATE TYPE-421 PAD L 550mm',
         },
@@ -85,7 +93,7 @@ export const SUPPORT_STEEL_SAMPLE_STEEL = Object.freeze([
         type: 'SCTN',
         attributes: {
           NAME: '/SL-4201/BEAM-01',
-          POS: { x: 437500, y: -1159000, z: 2100 },
+          POS: { x: 437500, y: -1159000, z: 2050 },
           AXIS_START: { x: 437250, y: -1159000, z: 2050 },
           AXIS_END: { x: 437750, y: -1159000, z: 2050 },
           BOUNDS: {

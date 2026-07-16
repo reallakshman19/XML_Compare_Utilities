@@ -1,5 +1,6 @@
 import { buildSupportSteelRelationshipBundle } from './support-steel-relationship-engine.js';
 import {
+  supportMemberChainToCsv,
   supportSteelBundleToJson,
   supportSteelHierarchyToText,
   supportSteelRelationshipsToCsv,
@@ -11,6 +12,7 @@ import {
 } from './support-steel-relationship-shell.js';
 import { parseSupportSteelJson } from './support-steel-source-utils.js';
 import {
+  renderSupportMemberChain,
   renderSupportSteelDiagnostics,
   renderSupportSteelEvidence,
   renderSupportSteelRelationshipTable,
@@ -24,6 +26,7 @@ const EXPORT_FORMATS = Object.freeze({
   json: { filename: 'support-steel-relationship-bundle.json', mime: 'application/json' },
   csv: { filename: 'support-steel-relationships.csv', mime: 'text/csv' },
   tree: { filename: 'support-steel-relationship-hierarchy.txt', mime: 'text/plain' },
+  chain: { filename: 'support-member-chain.csv', mime: 'text/csv' },
 });
 
 export function installSupportSteelRelationshipBuilderTile(root, ctx = {}) {
@@ -104,9 +107,9 @@ function wireFileInputs(modal) {
 function loadSample(modal, ctx) {
   modal.querySelector('[data-ssrb-input="support"]').value = supportSteelSampleText('support');
   modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
-  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 demo loaded';
-  modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 demo loaded';
-  ctx.showToast?.('Support / steel demo loaded.', 'success');
+  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 analytical member demo loaded';
+  modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
+  ctx.showToast?.('Support member and steel geometry demo loaded.', 'success');
 }
 
 function runBuilder(modal, state, ctx) {
@@ -120,8 +123,8 @@ function runBuilder(modal, state, ctx) {
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
-    showPanel(modal, 'relationships');
-    ctx.showToast?.('XML-free support / steel relationships built.', 'success');
+    showPanel(modal, 'chain');
+    ctx.showToast?.('XML-free support assembly evidence built.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -139,9 +142,13 @@ function readRules(modal) {
     steelTypes: read('steelTypes'),
     projectionToleranceMm: Number(read('projectionToleranceMm')),
     ambiguityDeltaMm: Number(read('ambiguityDeltaMm')),
+    memberContactToleranceMm: Number(read('memberContactToleranceMm')),
+    memberCandidateToleranceMm: Number(read('memberCandidateToleranceMm')),
     requireAnalyticalGeometryForSpatialResolution: Boolean(
       node('requireAnalyticalGeometryForSpatialResolution')?.checked,
     ),
+    emitNearbyMemberCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
+    emitNearbyCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
   };
 }
 
@@ -149,6 +156,7 @@ function renderState(modal, state) {
   getHost(modal, 'summary').innerHTML = state.bundle ? renderSupportSteelSummary(state.bundle) : initialSummaryHtml();
   getHost(modal, 'tree').innerHTML = renderSupportSteelTree(state.bundle);
   getHost(modal, 'table').innerHTML = renderSupportSteelRelationshipTable(state.bundle, state.search);
+  getHost(modal, 'chain').innerHTML = renderSupportMemberChain(state.bundle);
   getHost(modal, 'evidence').innerHTML = renderSupportSteelEvidence(state.bundle, state.selectedRelationshipId);
   getHost(modal, 'diagnostics').innerHTML = renderSupportSteelDiagnostics(state.bundle);
   renderRunState(modal, state.bundle);
@@ -158,7 +166,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.analyticalSteelGroupCount} analytical steel groups · ${bundle.summary.resolvedFamilyCount} resolved</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.analyticalSupportMemberCount} physical members · ${bundle.summary.supportChainEdgeCount} chain edges · ${bundle.summary.structuralTerminalEdgeCount} terminal edges</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -182,7 +190,7 @@ function renderExportPreview(modal, state) {
 async function copyPreview(modal, ctx) {
   try {
     await globalThis.navigator?.clipboard?.writeText(modal.querySelector('[data-ssrb-export-preview]')?.textContent || '');
-    ctx.showToast?.('Relationship export preview copied.', 'success');
+    ctx.showToast?.('Evidence export preview copied.', 'success');
   } catch (error) {
     ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error');
   }
@@ -204,6 +212,7 @@ function downloadPreview(modal, state, ctx) {
 function exportText(bundle, key) {
   if (key === 'csv') return supportSteelRelationshipsToCsv(bundle);
   if (key === 'tree') return supportSteelHierarchyToText(bundle);
+  if (key === 'chain') return supportMemberChainToCsv(bundle);
   return supportSteelBundleToJson(bundle);
 }
 
@@ -228,7 +237,7 @@ function ensureStyle(doc) {
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-world-geometry-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-member-chain-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
 
@@ -237,7 +246,7 @@ function getHost(modal, key) {
 }
 
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Analytical steel', 'Resolved', 'Ambiguous', 'Unresolved']
+  return ['Support families', 'Steel groups', 'Analytical steel', 'Physical members', 'Chain edges', 'Terminal edges', 'Ambiguous', 'Unresolved']
     .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`)
     .join('');
 }

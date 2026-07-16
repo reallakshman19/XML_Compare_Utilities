@@ -43,6 +43,9 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
   projectionToleranceMm: 25,
   ambiguityDeltaMm: 2,
   requireAnalyticalGeometryForSpatialResolution: true,
+  memberContactToleranceMm: 2,
+  memberCandidateToleranceMm: 25,
+  emitNearbyMemberCandidates: true,
   supportPositionKeys: Object.freeze([
     'POS',
     'SUPPORT_POS',
@@ -98,6 +101,10 @@ export function resolveSupportSteelConfig(overrides = {}) {
       overrides.requireAnalyticalGeometryForSpatialResolution,
       SUPPORT_STEEL_DEFAULT_CONFIG.requireAnalyticalGeometryForSpatialResolution,
     ),
+    emitNearbyMemberCandidates: booleanValue(
+      overrides.emitNearbyMemberCandidates,
+      SUPPORT_STEEL_DEFAULT_CONFIG.emitNearbyMemberCandidates,
+    ),
     projectionToleranceMm: positiveNumber(
       overrides.projectionToleranceMm,
       SUPPORT_STEEL_DEFAULT_CONFIG.projectionToleranceMm,
@@ -105,6 +112,14 @@ export function resolveSupportSteelConfig(overrides = {}) {
     ambiguityDeltaMm: nonNegativeNumber(
       overrides.ambiguityDeltaMm,
       SUPPORT_STEEL_DEFAULT_CONFIG.ambiguityDeltaMm,
+    ),
+    memberContactToleranceMm: nonNegativeNumber(
+      overrides.memberContactToleranceMm,
+      SUPPORT_STEEL_DEFAULT_CONFIG.memberContactToleranceMm,
+    ),
+    memberCandidateToleranceMm: positiveNumber(
+      overrides.memberCandidateToleranceMm,
+      SUPPORT_STEEL_DEFAULT_CONFIG.memberCandidateToleranceMm,
     ),
   };
 }

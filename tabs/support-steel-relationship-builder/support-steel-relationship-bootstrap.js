@@ -1,6 +1,7 @@
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260716-ssrb-1';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260716-ssrb-member-chain-1';
 
 const ROOT_SELECTOR = '.psnm-root';
+const LAUNCHER_VERSION = 'member-chain-1';
 const installedRoots = new WeakSet();
 let observer = null;
 
@@ -9,14 +10,16 @@ export function mountSupportSteelRelationshipBuilder() {
   if (!doc) return 0;
   let mounted = 0;
   for (const root of doc.querySelectorAll(ROOT_SELECTOR)) {
-    if (installedRoots.has(root) || root.querySelector('[data-ssrb-open="1"]')) {
-      installedRoots.add(root);
-      continue;
+    const existing = root.querySelector('[data-ssrb-open="1"]');
+    const current = existing?.dataset?.ssrbVersion === LAUNCHER_VERSION;
+    if (installedRoots.has(root) && current) continue;
+    if (existing && !current) existing.remove();
+    if (!root.querySelector('[data-ssrb-open="1"]')) {
+      const deck = root.querySelector('[data-psnm-utility-launcher-deck]') || root;
+      installSupportSteelRelationshipBuilderTile(deck, {});
+      mounted += 1;
     }
-    const deck = root.querySelector('[data-psnm-utility-launcher-deck]') || root;
-    installSupportSteelRelationshipBuilderTile(deck, {});
     installedRoots.add(root);
-    mounted += 1;
   }
   return mounted;
 }
