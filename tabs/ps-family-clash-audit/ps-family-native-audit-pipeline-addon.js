@@ -104,7 +104,11 @@ function runPipeline(popup, panel, state) {
   try {
     state.pipeline = buildPsFamilyNativeAuditPipeline(nativeInput(panel));
     panel.querySelector('[data-psfa="native-results"]').innerHTML = renderPsFamilyNativePipelineResults(state.pipeline);
-    setRunState(panel, state.pipeline.summary.status, `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.auditExceptionCount} audit exceptions`);
+    setRunState(
+      panel,
+      state.pipeline.summary.status,
+      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.resolvedPhysicalCarrierCount} physical carrier resolutions · ${state.pipeline.summary.auditExceptionCount} audit exceptions`,
+    );
     populateBundleField(popup, state.pipeline);
   } catch (error) {
     state.pipeline = null;
@@ -169,6 +173,9 @@ function wireDownloads(panel, state) {
       { name: 'support-summary.csv', text: exports.supportSummaryCsv },
       { name: 'audit-exceptions.csv', text: exports.supportExceptionsCsv },
       { name: 'input-evidence.csv', text: exports.inputEvidenceCsv },
+      { name: 'carrier-catalog.csv', text: exports.carrierCatalogCsv },
+      { name: 'carrier-resolutions.csv', text: exports.carrierResolutionCsv },
+      { name: 'support-carrier-edges.csv', text: exports.supportCarrierEdgesCsv },
     ]);
   });
 }
