@@ -28,11 +28,52 @@ export const POSITION_STATUS = Object.freeze({
   UNRESOLVED: 'UNRESOLVED',
 });
 const FITTING_LOCATION_TYPE_SET = new Set(FITTING_LOCATION_TYPES);
-const AXIAL_FITTING_TYPES = new Set(['REDU', 'REDUCER', 'VALV', 'VALVE', 'FLAN', 'FLANGE', 'GASK', 'GASKET', 'INST', 'INSTRUMENT']);
+const AXIAL_FITTING_TYPES = new Set([
+  'REDU', 'REDUCER', 'VALV', 'VALVE', 'FLAN', 'FLANGE',
+  'GASK', 'GASKET', 'INST', 'INSTRUMENT', 'COUPLING', 'UNION',
+]);
 const DEFAULT_PLANT_UP = Object.freeze({ x: 0, y: 0, z: 1 });
 
 export function normalizePlantUp(value) {
   return normalizeVector(parsePoint(value)) || clonePoint(DEFAULT_PLANT_UP);
+}
+
+export function locateSupportOnCarrier(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const supportPosGlobal = parsePoint(input.supportPosGlobal);
+  const carrier = input.carrier;
+  if (!supportPosGlobal || !carrier || typeof carrier !== 'object' || Array.isArray(carrier)) return null;
+
+  const options = {
+    projectionToleranceMm: positiveNumber(input.projectionToleranceMm, 50),
+    onCenterlineToleranceMm: nonNegativeNumber(input.onCenterlineToleranceMm, 0.001),
+    plantUp: normalizePlantUp(input.plantUp),
+  };
+  const carrierType = cleanText(carrier.carrierType || carrier.componentType || carrier.type).toUpperCase();
+  const prefersStraight = STRAIGHT_CARRIER_TYPES.has(carrierType) || AXIAL_FITTING_TYPES.has(carrierType);
+  let projection = prefersStraight
+    ? projectPointToStraightCarrier(supportPosGlobal, carrier, options)
+    : projectPointToFittingCarrier(supportPosGlobal, carrier, options);
+  if (!projection) {
+    projection = prefersStraight
+      ? projectPointToFittingCarrier(supportPosGlobal, carrier, options)
+      : projectPointToStraightCarrier(supportPosGlobal, carrier, options);
+  }
+  if (!projection) return null;
+
+  const distanceToCarrierMm = finiteNumber(projection.distanceToCarrierMm)
+    ?? finiteNumber(projection.distanceMm);
+  const fittingOutsideTolerance = projection.projectionKind === 'FITTING_LOCATION'
+    && Number.isFinite(distanceToCarrierMm)
+    && distanceToCarrierMm > options.projectionToleranceMm;
+  return {
+    ...projection,
+    supportPosGlobal: clonePoint(supportPosGlobal),
+    distanceToCarrierMm,
+    positionStatus: fittingOutsideTolerance
+      ? POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE
+      : projection.positionStatus,
+  };
 }
 
 export function projectPointToStraightCarrier(point, carrier, options = {}) {
@@ -65,6 +106,7 @@ export function projectPointToStraightCarrier(point, carrier, options = {}) {
     projectionKind: 'STRAIGHT_CENTERLINE',
     positionStatus,
     distanceMm: radialDistanceMm,
+    distanceToCarrierMm: radialDistanceMm,
     centerlinePointGlobal: clonePoint(projected),
     carrierStationMm: lengthMm * fraction,
     carrierFraction: fraction,
@@ -105,7 +147,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
   const arcCandidate = projectPointToArc(point, geometry.arc);
   if (arcCandidate) candidates.push(arcCandidate);
 
-  const axis = geometry.axis || (AXIAL_FITTING_TYPES.has(carrier.carrierType) ? carrier.centerline : null);
+  const axis = geometry.axis || (AXIAL_FITTING_TYPES.has(cleanText(carrier.carrierType).toUpperCase()) ? carrier.centerline : null);
   const axialCandidate = projectPointToAxis(point, axis);
   if (axialCandidate) candidates.push(axialCandidate);
 
@@ -150,6 +192,7 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
     projectionKind: 'FITTING_LOCATION',
     positionStatus: portAttachment ? POSITION_STATUS.ATTACHED_TO_COMPONENT_PORT : POSITION_STATUS.ATTACHED_TO_FITTING,
     distanceMm: selected.distanceMm,
+    distanceToCarrierMm: selected.distanceMm,
     centerlinePointGlobal: clonePoint(selected.point),
     carrierStationMm: null,
     carrierFraction: null,
@@ -164,10 +207,19 @@ export function projectPointToFittingCarrier(point, carrier, options = {}) {
   };
 }
 
-export function buildLocalFrame(origin, tangentValue, plantUpValue = DEFAULT_PLANT_UP) {
-  const tangent = normalizeVector(tangentValue);
-  const vertical = normalizeVector(plantUpValue);
-  if (!tangent || !vertical) return null;
+export function buildLocalFrame(originValue, tangentValue, plantUpValue = DEFAULT_PLANT_UP) {
+  let origin = originValue;
+  let tangentInput = tangentValue;
+  let plantUpInput = plantUpValue;
+  if (originValue && typeof originValue === 'object' && !Array.isArray(originValue)
+    && 'origin' in originValue && tangentValue === undefined) {
+    origin = originValue.origin;
+    tangentInput = originValue.tangent;
+    plantUpInput = originValue.plantUp ?? DEFAULT_PLANT_UP;
+  }
+  const tangent = normalizeVector(tangentInput);
+  const vertical = normalizeVector(plantUpInput);
+  if (!isPoint(origin) || !tangent || !vertical) return null;
   const lateral = normalizeVector(cross(vertical, tangent));
   if (!lateral) return {
     origin: clonePoint(origin),
