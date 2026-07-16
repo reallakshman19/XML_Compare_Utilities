@@ -29,9 +29,10 @@ assert.equal(structureParsed.rows[0].supportGroup, 'S8810011_PS-14396');
 assert.equal(supportParsed.rows[0].supportGroup, 'S8810011_PS-14396');
 
 const audit = createPsFamilyClashAuditFromTextInputs({
+  evidenceMode: 'XML',
   structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
   supportXmlText: PS_FAMILY_SAMPLE_SUPPORT_XML,
-  config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
+  config: { evidenceMode: 'XML', sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
 assert.equal(audit.summary.supportGroupCount, 1);
 assert.equal(audit.summary.supportExceptionCount, 0);
@@ -80,7 +81,7 @@ assert.equal(buildSupportChangeReports([{ ...structureContact, supportGroup: '' 
 const supportSummaryHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
 assert.ok(supportSummaryHtml.includes('SupportGroup Summary'));
 assert.ok(supportSummaryHtml.includes('S8810011_PS-14396'));
-assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('SupportChange Exceptions'));
+assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('Audit Exceptions'));
 
 const exports = createPsFamilyAuditExports(audit);
 assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
