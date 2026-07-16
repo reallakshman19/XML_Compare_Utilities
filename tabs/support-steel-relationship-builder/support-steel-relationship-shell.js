@@ -9,11 +9,11 @@ const WORKSPACE_TABS = Object.freeze([
 ]);
 
 export function renderSupportSteelLauncher() {
-  return `<button type="button" class="psmap-card psmap-tile ssrb-launcher" data-ssrb-open="1" title="Build XML-free support families, member chains and structural relationships from staged model geometry."><span class="psmap-tile-icon ssrb-launcher-icon" aria-hidden="true">⌁</span><b>Support / Steel Relationship Builder</b><span class="psmap-help-text">World-geometry support assembly evidence</span></button>`;
+  return `<button type="button" class="psmap-card psmap-tile ssrb-launcher" data-ssrb-open="1" data-ssrb-version="member-chain-1" title="Build XML-free support families, member chains and structural relationships from staged model geometry."><span class="psmap-tile-icon ssrb-launcher-icon" aria-hidden="true">⌁</span><b>Support / Steel Relationship Builder</b><span class="psmap-help-text">World-geometry support assembly evidence</span></button>`;
 }
 
 export function renderSupportSteelDialog() {
-  return `<div class="ssrb-dialog-head"><div><div class="ssrb-title-row"><b id="ssrb-dialog-title">Support / Steel Relationship Builder</b><span>XML-free assembly workspace</span></div><p id="ssrb-dialog-description">Reconstruct support families, compose hierarchy transforms, build support and steel analytical geometry, infer member chains and resolve support-to-steel relationships directly from staged model data. Clash-detection XML is not an input.</p></div><div class="ssrb-dialog-actions"><button type="button" data-ssrb-fullscreen="1" aria-pressed="false">Full screen</button><button type="button" data-ssrb-close="1" aria-label="Close Support Steel Relationship Builder">Close</button></div></div>${renderWorkspace()}`;
+  return `<link rel="stylesheet" href="./tabs/support-steel-relationship-builder/support-member-chain.css?v=20260716-member-chain-1"><div class="ssrb-dialog-head"><div><div class="ssrb-title-row"><b id="ssrb-dialog-title">Support / Steel Relationship Builder</b><span>XML-free assembly workspace</span></div><p id="ssrb-dialog-description">Reconstruct support families, compose hierarchy transforms, build support and steel analytical geometry, infer member chains and resolve support-to-steel relationships directly from staged model data. Clash-detection XML is not an input.</p></div><div class="ssrb-dialog-actions"><button type="button" data-ssrb-fullscreen="1" aria-pressed="false">Full screen</button><button type="button" data-ssrb-close="1" aria-label="Close Support Steel Relationship Builder">Close</button></div></div>${renderWorkspace()}`;
 }
 
 export function renderSupportSteelWorkspace() {
