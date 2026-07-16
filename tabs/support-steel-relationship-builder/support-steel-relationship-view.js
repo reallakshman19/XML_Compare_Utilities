@@ -16,13 +16,15 @@ export function renderSupportSteelRelationshipTable(bundle, query = '') {
       row.supportFamilyId,
       row.steelGroupId,
       row.relationshipStatus,
+      row.relationshipCardinality,
+      row.evidenceClass,
       ...(row.relationshipBasis || []),
       ...(row.branchIds || []),
     ].join(' ').toUpperCase();
     return !needle || text.includes(needle);
   });
   if (!rows.length) return emptyState('No relationships match the current filter.');
-  return `<div class="ssrb-table-wrap" role="region" tabindex="0" aria-label="Support and steel relationships"><table class="ssrb-table"><thead><tr><th>Support family</th><th>Steel group</th><th>Status</th><th>Evidence</th><th>Distance mm</th><th>Branches</th></tr></thead><tbody>${rows.map(relationshipRow).join('')}</tbody></table></div>`;
+  return `<div class="ssrb-table-wrap" role="region" tabindex="0" aria-label="Support and steel relationships"><table class="ssrb-table"><thead><tr><th>Support family</th><th>Steel group</th><th>Status</th><th>Cardinality</th><th>Evidence</th><th>Distance mm</th><th>Branches</th></tr></thead><tbody>${rows.map(relationshipRow).join('')}</tbody></table></div>`;
 }
 
 export function renderSupportSteelTree(bundle) {
@@ -37,7 +39,7 @@ export function renderSupportSteelEvidence(bundle, relationshipId) {
   if (!relationship) return emptyState('Select a relationship after running the builder.');
   const family = bundle.supportFamilies.find((row) => row.familyId === relationship.supportFamilyId);
   const steel = bundle.steelGroups.find((row) => row.steelGroupId === relationship.steelGroupId);
-  return `<div class="ssrb-evidence-grid">${evidenceCard('Relationship', relationshipDetails(relationship))}${evidenceCard('Support family evidence', supportEvidence(family))}${evidenceCard('Steel group evidence', steelEvidence(steel))}</div>`;
+  return `<div class="ssrb-evidence-grid">${evidenceCard('Inferred relationship', relationshipDetails(relationship))}${evidenceCard('Support family evidence', supportEvidence(family))}${evidenceCard('Steel group evidence', steelEvidence(steel))}</div>`;
 }
 
 export function renderSupportSteelDiagnostics(bundle) {
@@ -48,22 +50,22 @@ export function renderSupportSteelDiagnostics(bundle) {
 
 function relationshipRow(row) {
   const steel = row.steelGroupId || row.nearestSteelGroupId || 'UNRESOLVED';
-  return `<tr data-ssrb-relationship-row="${h(row.relationshipId)}"><td><button type="button" class="ssrb-link" data-ssrb-select="${h(row.relationshipId)}">${h(row.supportFamilyId)}</button></td><td>${h(steel)}</td><td>${statusBadge(row.relationshipStatus)}</td><td>${h((row.relationshipBasis || []).join(' + ') || '—')}</td><td>${row.distanceMm ?? '—'}</td><td>${h((row.branchIds || []).join(', ') || '—')}</td></tr>`;
+  return `<tr data-ssrb-relationship-row="${h(row.relationshipId)}"><td><button type="button" class="ssrb-link" data-ssrb-select="${h(row.relationshipId)}">${h(row.supportFamilyId)}</button></td><td>${h(steel)}</td><td>${statusBadge(row.relationshipStatus)}</td><td>${h(row.relationshipCardinality || '—')}</td><td>${h((row.relationshipBasis || []).join(' + ') || '—')}</td><td>${row.distanceMm ?? '—'}</td><td>${h((row.branchIds || []).join(', ') || '—')}</td></tr>`;
 }
 
 function familyTree(family) {
   const members = (family.members || []).map((member) => `<li><span class="ssrb-role">${h(member.semanticRole || 'OTHER')}</span><code>${h(member.memberId || '(unresolved)')}</code></li>`).join('');
   const relationships = (family.steelRelationships || []).map((row) => `<li><button type="button" data-ssrb-select="${h(row.relationshipId)}">${h(row.steelGroupId || 'UNRESOLVED')}</button>${statusBadge(row.relationshipStatus)}</li>`).join('');
-  return `<details class="ssrb-tree-family" open><summary><b>${h(family.familyId)}</b><span>${family.members?.length || 0} members · ${family.branchIds?.length || 0} branches</span></summary><div class="ssrb-tree-columns"><section><h5>Pipe branches</h5><ul>${listItems(family.branchIds)}</ul><h5>Family members</h5><ul>${members || '<li>None</li>'}</ul></section><section><h5>Steel relationships</h5><ul>${relationships || '<li>None</li>'}</ul></section></div></details>`;
+  return `<details class="ssrb-tree-family" open><summary><b>${h(family.familyId)}</b><span>${family.members?.length || 0} members · ${family.branchIds?.length || 0} branches</span></summary><div class="ssrb-tree-columns"><section><h5>Pipe branches</h5><ul>${listItems(family.branchIds)}</ul><h5>Family members</h5><ul>${members || '<li>None</li>'}</ul></section><section><h5>Inferred steel relationships</h5><ul>${relationships || '<li>None</li>'}</ul></section></div></details>`;
 }
 
 function relationshipDetails(row) {
-  return `<dl><dt>Support family</dt><dd>${h(row.supportFamilyId)}</dd><dt>Steel group</dt><dd>${h(row.steelGroupId || 'UNRESOLVED')}</dd><dt>Status</dt><dd>${statusBadge(row.relationshipStatus)}</dd><dt>Basis</dt><dd>${h((row.relationshipBasis || []).join(', ') || 'None')}</dd><dt>Distance</dt><dd>${row.distanceMm ?? '—'} mm</dd><dt>Confidence</dt><dd>${h(row.confidence)}</dd></dl>`;
+  return `<dl><dt>Evidence ID</dt><dd>${h(row.evidenceId || '')}</dd><dt>Evidence source</dt><dd>${h(row.evidenceSource || '')}</dd><dt>Evidence class</dt><dd>${h(row.evidenceClass || '')}</dd><dt>Contact proof</dt><dd>${h(row.contactEvidenceStatus || 'NOT_PROVEN')}</dd><dt>Support family</dt><dd>${h(row.supportFamilyId)}</dd><dt>Steel group</dt><dd>${h(row.steelGroupId || 'UNRESOLVED')}</dd><dt>Status</dt><dd>${statusBadge(row.relationshipStatus)}</dd><dt>Cardinality</dt><dd>${h(row.relationshipCardinality || '')}</dd><dt>Basis</dt><dd>${h((row.relationshipBasis || []).join(', ') || 'None')}</dd><dt>Distance</dt><dd>${row.distanceMm ?? '—'} mm</dd><dt>Confidence</dt><dd>${h(row.confidence)}</dd></dl>`;
 }
 
 function supportEvidence(family) {
   if (!family) return '<p>No support family evidence available.</p>';
-  return `<dl><dt>Family</dt><dd>${h(family.familyId)}</dd><dt>Branches</dt><dd>${h((family.branchIds || []).join(', ') || 'None')}</dd><dt>Carriers</dt><dd>${h((family.carrierIds || []).join(', ') || 'None')}</dd><dt>Members</dt><dd>${family.members?.length || 0}</dd><dt>Explicit references</dt><dd>${h((family.explicitReferences || []).join(', ') || 'None')}</dd></dl><ul class="ssrb-evidence-list">${(family.members || []).map((member) => `<li><code>${h(member.memberId || '(unresolved)')}</code><span>${h(member.semanticRole || 'OTHER')}</span></li>`).join('')}</ul>`;
+  return `<dl><dt>Family</dt><dd>${h(family.familyId)}</dd><dt>Branches</dt><dd>${h((family.branchIds || []).join(', ') || 'None')}</dd><dt>Carriers</dt><dd>${h((family.carrierIds || []).join(', ') || 'None')}</dd><dt>Members</dt><dd>${family.members?.length || 0}</dd><dt>Explicit steel references</dt><dd>${h((family.explicitReferences || []).join(', ') || 'None')}</dd></dl><ul class="ssrb-evidence-list">${(family.members || []).map((member) => `<li><code>${h(member.memberId || '(unresolved)')}</code><span>${h(member.semanticRole || 'OTHER')}</span></li>`).join('')}</ul>`;
 }
 
 function steelEvidence(steel) {
