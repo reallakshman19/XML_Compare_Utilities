@@ -15,6 +15,7 @@ on:
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
       - 'tests/sequential-attachment-event.test.js'
       - 'tests/sequential-zero-length-inline.test.js'
+      - 'tests/sequential-reference-terminal-semantics.test.js'
       - 'tests/sequential-shadow-carrier.test.js'
       - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
@@ -37,6 +38,7 @@ on:
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
       - 'tests/sequential-attachment-event.test.js'
       - 'tests/sequential-zero-length-inline.test.js'
+      - 'tests/sequential-reference-terminal-semantics.test.js'
       - 'tests/sequential-shadow-carrier.test.js'
       - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
@@ -63,6 +65,8 @@ jobs:
         run: node tests/sequential-attachment-event.test.js
       - name: Zero-length inline sequencing
         run: node tests/sequential-zero-length-inline.test.js
+      - name: Reference and terminal semantics
+        run: node tests/sequential-reference-terminal-semantics.test.js
       - name: Pinned fixture-wide feature matrix
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
       - name: Exact synthetic carrier shadows
