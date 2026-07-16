@@ -1,4 +1,6 @@
 export const SUPPORT_STEEL_RELATIONSHIP_SCHEMA = 'SupportSteelRelationshipBundle.v1';
+export const SUPPORT_STEEL_EVIDENCE_SOURCE = 'STAGED_JSON_RELATIONSHIP_ENGINE';
+export const SUPPORT_STEEL_RELATIONSHIP_SEMANTIC = 'INFERRED_STRUCTURAL_RELATIONSHIP';
 
 export const SUPPORT_STEEL_RELATIONSHIP_STATUSES = Object.freeze([
   'RESOLVED_EXPLICIT',
@@ -13,6 +15,12 @@ export const SUPPORT_STEEL_RELATIONSHIP_BASES = Object.freeze([
   'EXPLICIT_REFERENCE',
   'SHARED_OWNER',
   'POINT_PROXIMITY',
+]);
+
+export const SUPPORT_STEEL_RELATIONSHIP_CARDINALITIES = Object.freeze([
+  'ONE_TO_ONE',
+  'ONE_TO_MANY_AMBIGUOUS',
+  'UNRESOLVED',
 ]);
 
 const DEFAULT_SUPPORT_TYPES = Object.freeze(['ATTA', 'ANCI', 'SUPPORT']);
@@ -50,7 +58,7 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
     'APOS',
     'LPOS',
   ]),
-  explicitReferenceKeys: Object.freeze([
+  explicitSteelReferenceKeys: Object.freeze([
     'STEEL_REF',
     'STEELREF',
     'STRUCTURE_REF',
@@ -58,6 +66,8 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
     'SREF',
     'MDSSREF',
     'MDSGUIDEREF',
+  ]),
+  ownerEvidenceKeys: Object.freeze([
     'OWNER',
   ]),
 });
@@ -65,11 +75,21 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
 export function resolveSupportSteelConfig(overrides = {}) {
   const supportTypes = normalizeTokenList(overrides.supportTypes, SUPPORT_STEEL_DEFAULT_CONFIG.supportTypes);
   const steelTypes = normalizeTokenList(overrides.steelTypes, SUPPORT_STEEL_DEFAULT_CONFIG.steelTypes);
+  const explicitSteelReferenceKeys = normalizeKeyList(
+    overrides.explicitSteelReferenceKeys,
+    SUPPORT_STEEL_DEFAULT_CONFIG.explicitSteelReferenceKeys,
+  );
+  const ownerEvidenceKeys = normalizeKeyList(
+    overrides.ownerEvidenceKeys,
+    SUPPORT_STEEL_DEFAULT_CONFIG.ownerEvidenceKeys,
+  );
   return {
     ...SUPPORT_STEEL_DEFAULT_CONFIG,
     ...overrides,
     supportTypes,
     steelTypes,
+    explicitSteelReferenceKeys,
+    ownerEvidenceKeys,
     projectionToleranceMm: positiveNumber(
       overrides.projectionToleranceMm,
       SUPPORT_STEEL_DEFAULT_CONFIG.projectionToleranceMm,
@@ -93,6 +113,12 @@ function normalizeTokenList(value, fallback) {
   const source = Array.isArray(value) ? value : String(value || '').split(/[\s,]+/u);
   const tokens = source.map((item) => String(item || '').trim().toUpperCase()).filter(Boolean);
   return Object.freeze(tokens.length ? [...new Set(tokens)] : [...fallback]);
+}
+
+function normalizeKeyList(value, fallback) {
+  const source = Array.isArray(value) ? value : String(value || '').split(/[\s,]+/u);
+  const keys = source.map((item) => String(item || '').trim().toUpperCase()).filter(Boolean);
+  return Object.freeze(keys.length ? [...new Set(keys)] : [...fallback]);
 }
 
 function positiveNumber(value, fallback) {
