@@ -28,6 +28,7 @@ for (const label of [
   'Download Relationship Bundle',
   'Download Audit JSON',
   'Download Pipeline Package',
+  'authoritative pipe/carrier objects',
 ]) assert.ok(panel.includes(label), `missing native pipeline label ${label}`);
 for (const key of [
   'native-support',
@@ -59,6 +60,10 @@ assert.match(results, /READY_WITH_ENGINEERING_EXCEPTIONS/);
 assert.match(results, /\/PS-14259/);
 assert.match(results, /\/PS-14260/);
 assert.match(results, /FAMILY_WITHOUT_RESOLVED_STRUCTURE/);
+assert.match(results, /Carrier-object resolution/);
+assert.match(results, /Carrier catalog<\/dt><dd>SupportCarrierCatalog\.v1/);
+assert.match(results, /Carrier resolution<\/dt><dd>SupportCarrierResolution\.v1/);
+assert.match(results, /Carrier contact proof<\/dt><dd>Not proven/);
 assert.match(results, /XML required<\/dt><dd>No/);
 assert.match(results, /XML consumed<\/dt><dd>No/);
 
@@ -66,10 +71,14 @@ const exports = createPsFamilyNativePipelineExports(pipeline);
 assert.match(exports.pipelineJson, /PsFamilyNativeAuditPipeline\.v1/);
 assert.match(exports.relationshipBundleJson, /SupportSteelRelationshipBundle\.v1/);
 assert.match(exports.auditJson, /ps-family-evidence-audit\/v1/);
+assert.match(exports.summaryCsv, /CarrierObjectCount,ResolvedPhysicalCarrierCount/);
 assert.match(exports.summaryCsv, /XmlRequired,XmlConsumed/);
 assert.match(exports.supportSummaryCsv, /PS-14259/);
 assert.match(exports.supportExceptionsCsv, /FAMILY_WITHOUT_RESOLVED_STRUCTURE/);
 assert.match(exports.inputEvidenceCsv, /EvidenceId/);
+assert.match(exports.carrierCatalogCsv, /CarrierObjectId,CarrierObjectClass/);
+assert.match(exports.carrierResolutionCsv, /ResolutionStatus,CarrierObjectId/);
+assert.match(exports.supportCarrierEdgesCsv, /EdgeId,EdgeType/);
 
 const addon = readFileSync('tabs/ps-family-clash-audit/ps-family-native-audit-pipeline-addon.js', 'utf8');
 const bootstrap = readFileSync('tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js', 'utf8');
@@ -79,8 +88,11 @@ assert.match(addon, /populateBundleField/);
 assert.match(addon, /RELATIONSHIP_BUNDLE/);
 assert.match(addon, /saveZipTextFiles/);
 assert.match(addon, /relationship-bundle\.json/);
+assert.match(addon, /carrier-catalog\.csv/);
+assert.match(addon, /carrier-resolutions\.csv/);
+assert.match(addon, /support-carrier-edges\.csv/);
 assert.doesNotMatch(addon, /parseSupportChangeXml/);
 assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
-assert.match(bootstrap, /native-pipeline-v1/);
+assert.match(bootstrap, /carrier-resolution-v1/);
 
 console.log('ps-family-native-audit-pipeline-ui tests passed');
