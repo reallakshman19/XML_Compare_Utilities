@@ -18,30 +18,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Graph-native audit tests
-        id: graph_tests
-        continue-on-error: true
+      - name: Run focused audit contracts
         shell: bash
         run: |
           set +e
-          node --test tests/ps-family-evidence-graph-audit.test.js > ps-family-evidence-graph-test.log 2>&1
-          status=$?
-          echo "$status" > ps-family-evidence-graph-test.status
+          node --test tests/ps-family-evidence-graph-audit.test.js > graph.log 2>&1
+          echo "$?" > graph.status
+          node tests/ps-family-clash-audit-config.test.js > config.log 2>&1
+          echo "$?" > config.status
+          node tests/ps-family-clash-audit-ui-smoke.test.js > ui.log 2>&1
+          echo "$?" > ui.status
+          node tests/ps-family-accessibility-gate.test.js > accessibility.log 2>&1
+          echo "$?" > accessibility.status
+          node tests/ps-family-psclash-report.test.js > legacy.log 2>&1
+          echo "$?" > legacy.status
           exit 0
-      - name: Upload graph test diagnostics
+      - name: Upload focused test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ps-family-evidence-graph-test-log
+          name: ps-family-evidence-audit-focused-logs
           path: |
-            ps-family-evidence-graph-test.log
-            ps-family-evidence-graph-test.status
-      - name: Enforce graph test result
+            *.log
+            *.status
+      - name: Enforce focused audit contracts
         shell: bash
         run: |
-          cat ps-family-evidence-graph-test.log
-          test "$(cat ps-family-evidence-graph-test.status)" = "0"
-      - name: Audit configuration and UI contracts
-        run: node tests/ps-family-clash-audit-config.test.js && node tests/ps-family-clash-audit-ui-smoke.test.js && node tests/ps-family-accessibility-gate.test.js
-      - name: Legacy XML validation compatibility
-        run: node tests/ps-family-psclash-report.test.js
+          for name in graph config ui accessibility legacy; do
+            echo "===== ${name}.log ====="
+            cat "${name}.log"
+            test "$(cat "${name}.status")" = "0"
+          done
