@@ -7,11 +7,13 @@ import {
 import {
   createSequentialConstructionSession,
   runConstructionUntilBlocked,
-} from '../tabs/sequential-sketcher/construction/sequential-construction-engine.js';
+} from '../tabs/sequential-sketcher/construction/sequential-gated-construction-engine.js';
 
 const SOURCE_COMMIT = 'd5fda9c95fda9bba9b6b05171628ba16778a7667';
 const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/${SOURCE_COMMIT}/Benchmarks/1885_NC/1885_NC.json`;
 const ROOT_BRANCH = '/ASIM-1885-6"-S8811951-91261M7-HC-01/B3';
+const EXPECTED_HEAD_REFERENCE = '=1006649732/51233';
+const EXPECTED_TAIL_REFERENCE = '=1006649732/51239';
 const MAX_REFERENCE_DEPTH = 2;
 const MAX_BRANCHES = 40;
 const REPORT_PATH = 'artifacts/sequential-sketcher/1885-nc-b3-probe.json';
@@ -122,6 +124,8 @@ assert.ok(Array.isArray(records), '1885_NC fixture must be a JSON array');
 
 const root = records.find((record) => branchId(record) === ROOT_BRANCH);
 assert.ok(root, `Pinned fixture must contain ${ROOT_BRANCH}`);
+assert.equal(text(root.attributes?.HREF), EXPECTED_HEAD_REFERENCE);
+assert.equal(text(root.attributes?.TREF), EXPECTED_TAIL_REFERENCE);
 
 const { selected, missingReferences, referenceResolution } = collectReferenceClosure(records, ROOT_BRANCH);
 assert.ok(selected.length > 1, 'component references must include their owner branches in the fixture closure');
@@ -136,12 +140,31 @@ const result = runConstructionUntilBlocked(session, evidence, indexes, {
 });
 
 assert.equal(JSON.stringify(selected), immutableSnapshot, 'construction must not mutate pinned source evidence');
-assert.notEqual(result.session.state, 'FAILED', 'real fixture construction must stop safely rather than fail');
-assert.ok(result.session.confirmedComponentIds.length > 0, 'real fixture must confirm at least the first component');
+assert.equal(result.session.state, 'ROUTE_COMPLETE', 'B3 must complete through both explicit OLET boundaries');
+assert.equal(result.session.confirmedComponentIds.length, 21);
+assert.equal(result.session.committedConnections.length, 22);
+assert.equal(result.session.repairLedger.length, 0, 'derived explicit junction ports are not small-gap repairs');
 assert.equal(result.session.strokeLedger.some((command) => command.op === 'DISCONNECTED_FRAGMENT'), false);
-if (result.session.state === 'USER_DECISION_REQUIRED') {
-  assert.ok(result.session.currentDecisionRequest, 'blocked construction must expose one decision request');
-}
+assert.equal(result.outcomes[0], 'HEAD_BOUNDARY_COMMITTED');
+assert.equal(result.outcomes[1], 'COMPONENT_COMMITTED');
+
+const confirmedForeignComponents = result.session.confirmedComponentIds
+  .map((id) => indexes.components.get(id))
+  .filter((component) => component?.branchId !== ROOT_BRANCH);
+assert.deepEqual(confirmedForeignComponents, [], 'referenced host branch components must not be drawn');
+
+const headConnections = result.session.committedConnections.filter((connection) => connection.connectionType === 'HEAD_BOUNDARY_TO_JUNCTION');
+const tailConnections = result.session.committedConnections.filter((connection) => connection.connectionType === 'BOUNDARY_TO_JUNCTION');
+assert.equal(headConnections.length, 1);
+assert.equal(tailConnections.length, 1);
+assert.equal(headConnections[0].targetSourceComponentId, EXPECTED_HEAD_REFERENCE);
+assert.equal(tailConnections[0].targetSourceComponentId, EXPECTED_TAIL_REFERENCE);
+assert.equal(headConnections[0].gapMm, 0);
+assert.equal(tailConnections[0].gapMm, 0);
+assert.equal(headConnections[0].fromPositionBasis, 'DERIVED_FROM_BRANCH_BOUNDARY');
+assert.ok(headConnections[0].derivedBranchLegLengthMm > 0);
+assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_HEAD_JUNCTION_BOUNDARY'));
+assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_JUNCTION_BOUNDARY'));
 
 const rootEvidence = indexes.branches.get(ROOT_BRANCH);
 const report = {
@@ -169,22 +192,12 @@ const report = {
       .sort()
       .map((type) => [type, result.session.committedConnections.filter((connection) => connection.connectionType === type).length]),
   ),
-  boundaryConnections: result.session.committedConnections.filter((connection) => connection.connectionType === 'BOUNDARY_TO_JUNCTION'),
+  headBoundaryConnections: headConnections,
+  tailBoundaryConnections: tailConnections,
   repairCount: result.session.repairLedger.length,
   pendingJunctionCount: result.session.pendingBranchJunctions.length,
   blockedReason: result.session.currentDecisionRequest?.reason || null,
   candidateCount: result.session.currentDecisionRequest?.candidates?.length || 0,
-  candidateSummary: (result.session.currentDecisionRequest?.candidates || []).slice(0, 10).map((candidate) => ({
-    targetBranchId: candidate.targetBranchId,
-    targetSourceComponentId: candidate.targetSourceComponentId,
-    targetPortRole: candidate.targetPortRole,
-    gapMm: Number(candidate.gapMm.toFixed(3)),
-    directionAngleDeg: candidate.directionAngleDeg === null ? null : Number(candidate.directionAngleDeg.toFixed(3)),
-    boreCompatibility: candidate.boreCompatibility,
-    sourceAdjacent: candidate.sourceAdjacent,
-    referenceMatch: candidate.referenceMatch,
-    eligible: candidate.eligible,
-  })),
   committedOperations: result.session.strokeLedger.map((command) => command.op),
 };
 
