@@ -29,8 +29,10 @@ for (const required of [
   'construction/sequential-gated-construction-engine.js',
   'construction/sequential-connection-audit.js',
   'construction/sequential-construction-runtime.js',
+  'construction/sequential-construction-acceptance.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
+  'support/sequential-confirmed-support-projection.js',
   'support/sj-pipe-support-projection.js', 'support/sj-pipe-support-family.js',
   'support/sj-pipe-support-geometry.js', 'support/sj-pipe-support-utils.js',
 ]) assert(files.includes(required), `${required} is required`);
@@ -93,6 +95,19 @@ assert.match(connectionAudit, /sourceGapMm/);
 assert.match(connectionAudit, /resolvedGapMm/);
 assert.match(connectionAudit, /derivedBranchLegLengthMm/);
 
+const acceptance = read('construction/sequential-construction-acceptance.js');
+assert.match(acceptance, /ConfirmedSequentialConstruction\.v1/);
+assert.match(acceptance, /ROUTE_COMPLETE/);
+assert.match(acceptance, /supportProjection:\s*true/);
+assert.match(acceptance, /Connection audit evidence is incomplete/);
+
+const confirmedSupport = read('support/sequential-confirmed-support-projection.js');
+assert.match(confirmedSupport, /ConfirmedSequentialConstruction\.v1/);
+assert.match(confirmedSupport, /buildPipeSupportProjectionBundle/);
+assert.match(confirmedSupport, /constructionFingerprint/);
+assert.doesNotMatch(confirmedSupport, /advanceConstruction|resolveNextConnection/,
+  'support projection must consume accepted construction and never resolve piping continuity');
+
 const boundaryResolver = read('construction/sequential-boundary-resolver.js');
 assert.match(boundaryResolver, /BOUNDARY_TO_FIRST_COMPONENT_GAP/);
 assert.match(boundaryResolver, /MULTIPLE_BOUNDARY_REFERENCE_PORTS/);
@@ -134,6 +149,7 @@ const constructionFiles = [
   'construction/sequential-gated-construction-engine.js',
   'construction/sequential-connection-audit.js',
   'construction/sequential-construction-runtime.js',
+  'construction/sequential-construction-acceptance.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
   'sequential-sketcher-workspace.js',
