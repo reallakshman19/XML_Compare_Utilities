@@ -2,7 +2,6 @@ import {
   DEFAULT_TOLERANCE_MM, JUNCTION_TYPES, SEQUENTIAL_SKETCH_SCHEMA,
   pointFrom, samePoint, stableToken,
 } from './sequential-sketcher-contract.js';
-import { indexSupportBundle } from './sequential-sketcher-support.js';
 
 function createNodeStore(toleranceMm) {
   const nodes = [];
@@ -55,7 +54,6 @@ export function buildBranchTopology(inventory, options = {}) {
   const components = [];
   const boundaries = [];
   const issues = [];
-  const supportData = indexSupportBundle(options.supportBundle, inventory.branchId);
 
   for (const component of inventory.routeComponents) {
     const built = componentSegments(component, store, toleranceMm);
@@ -73,8 +71,7 @@ export function buildBranchTopology(inventory, options = {}) {
     });
     const eventNodeId = built.eventNode?.id || null;
     if (!segmentIds.length && eventNodeId) built.eventNode.eventComponentIds.push(component.id);
-    const supports = supportData.index.get(component.componentId) || [];
-    components.push({ ...component, segmentIds, eventNodeId, supports });
+    components.push({ ...component, segmentIds, eventNodeId, supports: Object.freeze([]) });
     if (!component.a && !component.b && !component.position) issues.push({ code: 'COMPONENT_WITHOUT_POSITION', severity: 'ERROR', componentId: component.componentId });
     if (component.cref) attachBoundary(store, boundaries, 'CREF', component.position || component.a || component.b, component.cref, inventory.branchId, `${component.componentId}:CREF`);
   }
@@ -90,22 +87,18 @@ export function buildBranchTopology(inventory, options = {}) {
       issues.push({ code: 'UNDECLARED_MULTIWAY_JUNCTION', severity: 'WARNING', nodeId: node.id, degree });
     }
   }
-  for (const family of supportData.unresolved) issues.push({ code: 'SUPPORT_WITHOUT_CARRIER', severity: 'WARNING', familyId: family.familyId });
-  for (const [carrierId] of supportData.index) {
-    if (!components.some((component) => component.componentId === carrierId)) issues.push({ code: 'SUPPORT_CARRIER_NOT_IN_BRANCH', severity: 'WARNING', carrierId });
-  }
 
   return Object.freeze({
     schema: SEQUENTIAL_SKETCH_SCHEMA,
     branchId: inventory.branchId,
     toleranceMm,
     source: Object.freeze({ HPOS: pointFrom(attrs.HPOS), TPOS: pointFrom(attrs.TPOS), HREF: String(attrs.HREF || ''), TREF: String(attrs.TREF || '') }),
-    inventory: Object.freeze({ sourceChildCount: inventory.sourceChildCount, routeComponentCount: components.length, ignoredRecordCount: inventory.ignoredRecords.length }),
+    inventory: Object.freeze({ sourceChildCount: inventory.sourceChildCount, routeComponentCount: components.length, supportRecordCount: inventory.supportRecords?.length || 0, ignoredRecordCount: inventory.ignoredRecords.length }),
     nodes: Object.freeze(store.nodes.map((node) => Object.freeze({ ...node, evidence: Object.freeze(node.evidence), segmentIds: Object.freeze(node.segmentIds), eventComponentIds: Object.freeze(node.eventComponentIds), boundaryIds: Object.freeze(node.boundaryIds) }))),
     components: Object.freeze(components.map(Object.freeze)),
     segments: Object.freeze(segments.map(Object.freeze)),
     boundaries: Object.freeze(boundaries.map(Object.freeze)),
     issues: Object.freeze(issues.map(Object.freeze)),
-    supportSummary: Object.freeze({ familyCount: supportData.familyCount, unresolvedCount: supportData.unresolved.length }),
+    supportSummary: Object.freeze({ familyCount: 0, unresolvedCount: 0, diagnosticCount: 0 }),
   });
 }
