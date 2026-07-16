@@ -107,7 +107,7 @@ function runPipeline(popup, panel, state) {
     setRunState(
       panel,
       state.pipeline.summary.status,
-      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.resolvedPhysicalCarrierCount} physical carrier resolutions · ${state.pipeline.summary.auditExceptionCount} audit exceptions`,
+      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.resolvedPhysicalCarrierCount} carrier identities · ${state.pipeline.summary.carrierAttachmentCandidateCount} analytical carrier attachments · ${state.pipeline.summary.auditExceptionCount} audit exceptions`,
     );
     populateBundleField(popup, state.pipeline);
   } catch (error) {
@@ -125,6 +125,8 @@ function nativeInput(panel) {
       projectionToleranceMm: numberField(panel, 'native-projection-tolerance'),
       memberContactToleranceMm: numberField(panel, 'native-contact-tolerance'),
       memberCandidateToleranceMm: numberField(panel, 'native-candidate-tolerance'),
+      carrierContactToleranceMm: numberField(panel, 'native-carrier-contact-tolerance'),
+      carrierCandidateToleranceMm: numberField(panel, 'native-carrier-candidate-tolerance'),
     },
     auditConfig: {
       sourceFamily: field(panel, 'native-source-family')?.value || '',
@@ -176,6 +178,8 @@ function wireDownloads(panel, state) {
       { name: 'carrier-catalog.csv', text: exports.carrierCatalogCsv },
       { name: 'carrier-resolutions.csv', text: exports.carrierResolutionCsv },
       { name: 'support-carrier-edges.csv', text: exports.supportCarrierEdgesCsv },
+      { name: 'carrier-attachment-evaluations.csv', text: exports.carrierAttachmentCsv },
+      { name: 'carrier-attachment-edges.csv', text: exports.carrierAttachmentEdgesCsv },
     ]);
   });
 }
