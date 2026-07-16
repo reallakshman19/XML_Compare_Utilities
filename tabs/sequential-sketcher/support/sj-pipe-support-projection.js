@@ -3,13 +3,14 @@
 import {
   POSITION_STATUS,
   FITTING_LOCATION_TYPE,
+  buildLocalFrame,
+  locateSupportOnCarrier,
 } from './sj-pipe-support-geometry.js';
 import {
   cleanText,
   cloneJson,
   clonePoint,
   finiteNumber,
-  firstText,
   isPoint,
   parsePoint,
   pointDistance,
@@ -19,49 +20,62 @@ import {
   unique,
 } from './sj-pipe-support-utils.js';
 import {
+  deriveSupportFamilyIdentity,
   reconstructSupportFamilies,
 } from './sj-pipe-support-family.js';
-import {
-  buildLocalFrame,
-  locateSupportOnCarrier,
-  projectPointToStraightCarrier,
-} from './sj-pipe-support-geometry.js';
 
 export const PIPE_SUPPORT_PROJECTION_SCHEMA = 'PipeSupportProjectionBundle.v1';
-export { POSITION_STATUS, FITTING_LOCATION_TYPE };
+export { POSITION_STATUS, FITTING_LOCATION_TYPE, deriveSupportFamilyIdentity };
 
-const STRAIGHT_CARRIER_TYPES = new Set(['PIPE', 'REDUCER', 'VALVE', 'FLANGE', 'GASKET', 'INSTRUMENT', 'COUPLING', 'UNION']);
+const STRAIGHT_CARRIER_TYPES = new Set([
+  'PIPE', 'REDUCER', 'VALVE', 'FLANGE', 'GASKET',
+  'INSTRUMENT', 'COUPLING', 'UNION',
+]);
 const POSITION_STATUS_SET = new Set(Object.values(POSITION_STATUS));
 
 export function buildPipeSupportProjectionBundle(input = {}) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('buildPipeSupportProjectionBundle input must be an object.');
-  if (!Array.isArray(input.carriers)) throw new TypeError('input.carriers must be an already validated ordered carrier traversal.');
-  if (!Array.isArray(input.supportRecords)) throw new TypeError('input.supportRecords must be an array of source support sibling records.');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('buildPipeSupportProjectionBundle input must be an object.');
+  }
+  if (!Array.isArray(input.carriers)) {
+    throw new TypeError('input.carriers must be an already validated ordered carrier traversal.');
+  }
+  if (!Array.isArray(input.supportRecords)) {
+    throw new TypeError('input.supportRecords must be an array of source support sibling records.');
+  }
+  const requestedUnits = cleanText(input.coordinateSystem?.units || 'mm').toLowerCase();
+  if (requestedUnits && requestedUnits !== 'mm') {
+    throw new TypeError('Pipe support projection accepts millimetres only.');
+  }
 
   const options = normalizeOptions(input);
   if (!options.branchId) throw new TypeError('input.branchId is required.');
   const diagnostics = [];
   const sourceCarriers = input.carriers;
-  const carriers = sourceCarriers.map((carrier, index) => normalizeCarrier(carrier, index, options.branchId, diagnostics));
+  const carriers = sourceCarriers.map((carrier, index) => (
+    normalizeCarrier(carrier, index, options.branchId, diagnostics)
+  ));
   const families = reconstructSupportFamilies(input.supportRecords, {
     branchId: options.branchId,
     diagnostics,
     hasPhysicalGeometry: input.hasPhysicalGeometry,
   });
-  const branchAliases = new Set([options.branchId, ...(input.branchAliases || [])].map(cleanText).filter(Boolean));
+  const branchAliases = new Set([
+    options.branchId,
+    ...(input.branchAliases || []),
+  ].map(cleanText).filter(Boolean));
   const resolvedFamilies = [];
   const unresolvedFamilies = [];
 
   for (const family of families) {
     if (family.sourceParentBranch && !branchAliases.has(family.sourceParentBranch)) {
       diagnostics.push({
-        severity: 'INFO', code: 'SUPPORT_FAMILY_FOREIGN_BRANCH', familyId: family.familyId,
+        severity: 'INFO',
+        code: 'SUPPORT_FAMILY_EXCLUDED_FROM_BRANCH_BUNDLE',
+        familyId: family.familyId,
         sourceParentBranch: family.sourceParentBranch,
-        message: 'Support family belongs to another piping branch and was isolated.',
+        message: 'Support family belongs to another piping branch and was excluded from this branch bundle.',
       });
-      unresolvedFamilies.push(finalizeUnresolvedFamily(family, {
-        bindingStatus: 'UNRESOLVED', bindingBasis: 'FOREIGN_BRANCH', candidateCarrierIds: [],
-      }, POSITION_STATUS.UNRESOLVED));
       continue;
     }
 
@@ -82,7 +96,8 @@ export function buildPipeSupportProjectionBundle(input = {}) {
 
   resolvedFamilies.sort((left, right) => (
     left.carrierBinding.carrierTraversalIndex - right.carrierBinding.carrierTraversalIndex
-    || (left.position.carrierStationMm ?? Number.POSITIVE_INFINITY) - (right.position.carrierStationMm ?? Number.POSITIVE_INFINITY)
+    || (left.position.carrierStationMm ?? Number.POSITIVE_INFINITY)
+      - (right.position.carrierStationMm ?? Number.POSITIVE_INFINITY)
     || left.familyId.localeCompare(right.familyId)
   ));
   unresolvedFamilies.sort((left, right) => left.familyId.localeCompare(right.familyId));
@@ -92,7 +107,9 @@ export function buildPipeSupportProjectionBundle(input = {}) {
     carrierTraversalIndex,
     supportFamilies: [],
   }]));
-  for (const family of resolvedFamilies) byCarrier.get(family.carrierBinding.carrierId)?.supportFamilies.push(cloneJson(family));
+  for (const family of resolvedFamilies) {
+    byCarrier.get(family.carrierBinding.carrierId)?.supportFamilies.push(cloneJson(family));
+  }
 
   return {
     schema: PIPE_SUPPORT_PROJECTION_SCHEMA,
@@ -114,6 +131,9 @@ export function buildPipeSupportProjectionBundle(input = {}) {
       reconstructedFamilyCount: families.length,
       resolvedFamilyCount: resolvedFamilies.length,
       unresolvedFamilyCount: unresolvedFamilies.length,
+      excludedForeignFamilyCount: diagnostics.filter((row) => (
+        row.code === 'SUPPORT_FAMILY_EXCLUDED_FROM_BRANCH_BUNDLE'
+      )).length,
       sourceCarrierTraversalPreserved: true,
       carrierCoordinatesModified: false,
       structuralTraversalPerformed: false,
@@ -126,53 +146,71 @@ export function buildPipeSupportProjectionBundle(input = {}) {
 
 function resolveCarrierBinding(family, carriers, sourceCarriers, options, diagnostics) {
   const explicit = explicitCarrierCandidates(family, carriers);
-  if (explicit.length === 1) return locateOnCarrier(family, explicit[0], carriers, options, 'EXPLICIT_REFERENCE');
+  if (explicit.length === 1) {
+    return locateOnCarrier(family, explicit[0], carriers, options, 'EXPLICIT_REFERENCE');
+  }
   if (explicit.length > 1) {
     diagnostics.push({
-      severity: 'WARNING', code: 'SUPPORT_CARRIER_REFERENCE_AMBIGUOUS', familyId: family.familyId,
+      severity: 'WARNING',
+      code: 'SUPPORT_CARRIER_REFERENCE_AMBIGUOUS',
+      familyId: family.familyId,
       candidateCarrierIds: explicit.map((carrier) => carrier.carrierId),
       message: 'Explicit support carrier references matched multiple carriers.',
     });
     return {
-      bindingStatus: 'AMBIGUOUS', bindingBasis: 'EXPLICIT_REFERENCE',
+      bindingStatus: 'AMBIGUOUS',
+      bindingBasis: 'EXPLICIT_REFERENCE',
       candidateCarrierIds: explicit.map((carrier) => carrier.carrierId),
       positionStatus: POSITION_STATUS.AMBIGUOUS_CARRIER,
     };
   }
 
-  const sequenceCandidates = carriers.filter((carrier) => isSourceSequenceMatch(family, carrier, sourceCarriers));
+  const sequenceCandidates = carriers.filter((carrier) => (
+    isSourceSequenceMatch(family, carrier, sourceCarriers)
+  ));
   if (sequenceCandidates.length === 1) {
     const located = locateOnCarrier(family, sequenceCandidates[0], carriers, options, 'SOURCE_SEQUENCE');
     if (located.bindingStatus === 'RESOLVED') return located;
   }
 
-  const locatedCandidates = carriers.map((carrier) => locateOnCarrier(family, carrier, carriers, options, 'GEOMETRIC_PROJECTION'))
+  const locatedCandidates = carriers
+    .map((carrier) => locateOnCarrier(family, carrier, carriers, options, 'GEOMETRIC_PROJECTION'))
     .filter((candidate) => candidate.bindingStatus === 'RESOLVED')
-    .sort((left, right) => left.position.distanceToCarrierMm - right.position.distanceToCarrierMm
-      || left.carrierTraversalIndex - right.carrierTraversalIndex);
+    .sort((left, right) => (
+      left.position.distanceToCarrierMm - right.position.distanceToCarrierMm
+      || left.carrierTraversalIndex - right.carrierTraversalIndex
+    ));
   if (!locatedCandidates.length) {
     diagnostics.push({
-      severity: 'WARNING', code: 'SUPPORT_CARRIER_UNRESOLVED', familyId: family.familyId,
+      severity: 'WARNING',
+      code: 'SUPPORT_CARRIER_UNRESOLVED',
+      familyId: family.familyId,
       message: 'No validated carrier was within the projection tolerance.',
     });
     return {
-      bindingStatus: 'UNRESOLVED', bindingBasis: 'GEOMETRIC_PROJECTION',
-      candidateCarrierIds: [], positionStatus: POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE,
+      bindingStatus: 'UNRESOLVED',
+      bindingBasis: 'GEOMETRIC_PROJECTION',
+      candidateCarrierIds: [],
+      positionStatus: POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE,
     };
   }
 
   const best = locatedCandidates[0];
   const tied = locatedCandidates.filter((candidate) => (
-    Math.abs(candidate.position.distanceToCarrierMm - best.position.distanceToCarrierMm) <= options.ambiguityToleranceMm
+    Math.abs(candidate.position.distanceToCarrierMm - best.position.distanceToCarrierMm)
+      <= options.ambiguityToleranceMm
   ));
   if (tied.length > 1) {
     diagnostics.push({
-      severity: 'WARNING', code: 'SUPPORT_CARRIER_GEOMETRIC_AMBIGUITY', familyId: family.familyId,
+      severity: 'WARNING',
+      code: 'SUPPORT_CARRIER_GEOMETRIC_AMBIGUITY',
+      familyId: family.familyId,
       candidateCarrierIds: tied.map((candidate) => candidate.carrierId),
       message: 'Multiple carriers are equally plausible within the ambiguity tolerance.',
     });
     return {
-      bindingStatus: 'AMBIGUOUS', bindingBasis: 'GEOMETRIC_PROJECTION',
+      bindingStatus: 'AMBIGUOUS',
+      bindingBasis: 'GEOMETRIC_PROJECTION',
       candidateCarrierIds: tied.map((candidate) => candidate.carrierId),
       positionStatus: POSITION_STATUS.AMBIGUOUS_CARRIER,
     };
@@ -182,7 +220,9 @@ function resolveCarrierBinding(family, carriers, sourceCarriers, options, diagno
 
 function explicitCarrierCandidates(family, carriers) {
   if (!family.explicitCarrierReferences.length) return [];
-  return carriers.filter((carrier) => family.explicitCarrierReferences.some((reference) => carrier.references.has(reference)));
+  return carriers.filter((carrier) => family.explicitCarrierReferences.some((reference) => (
+    carrier.references.has(reference)
+  )));
 }
 
 function locateOnCarrier(family, carrier, carriers, options, bindingBasis) {
@@ -194,17 +234,26 @@ function locateOnCarrier(family, carrier, carriers, options, bindingBasis) {
     onCenterlineToleranceMm: options.onCenterlineToleranceMm,
     plantUp: options.plantUp,
   });
-  if (!location || !POSITION_STATUS_SET.has(location.positionStatus)) return {
-    bindingStatus: 'UNRESOLVED', bindingBasis,
-    candidateCarrierIds: [carrier.carrierId], positionStatus: POSITION_STATUS.UNRESOLVED,
-  };
-  if (location.positionStatus === POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE) return {
-    bindingStatus: 'UNRESOLVED', bindingBasis,
-    candidateCarrierIds: [carrier.carrierId], positionStatus: location.positionStatus,
-    position: normalizePosition(location),
-  };
+  if (!location || !POSITION_STATUS_SET.has(location.positionStatus)) {
+    return {
+      bindingStatus: 'UNRESOLVED',
+      bindingBasis,
+      candidateCarrierIds: [carrier.carrierId],
+      positionStatus: POSITION_STATUS.UNRESOLVED,
+    };
+  }
+  if (location.positionStatus === POSITION_STATUS.OUTSIDE_PROJECTION_TOLERANCE) {
+    return {
+      bindingStatus: 'UNRESOLVED',
+      bindingBasis,
+      candidateCarrierIds: [carrier.carrierId],
+      positionStatus: location.positionStatus,
+      position: normalizePosition(location),
+    };
+  }
   return {
-    bindingStatus: 'RESOLVED', bindingBasis,
+    bindingStatus: 'RESOLVED',
+    bindingBasis,
     carrierId: carrier.carrierId,
     carrierType: carrier.carrierType,
     carrierTraversalIndex,
@@ -222,10 +271,16 @@ function finalizeResolvedFamily(family, binding, options, diagnostics) {
     tangent: binding.carrier.tangent,
     plantUp: options.plantUp,
   });
-  if (!localFrame) diagnostics.push({
-    severity: 'WARNING', code: 'LOCAL_FRAME_UNRESOLVED', familyId: family.familyId,
-    carrierId: binding.carrierId, message: 'A right-handed carrier-local frame could not be resolved.',
-  });
+  if (!localFrame) {
+    diagnostics.push({
+      severity: 'WARNING',
+      code: 'LOCAL_FRAME_UNRESOLVED',
+      familyId: family.familyId,
+      carrierId: binding.carrierId,
+      message: 'A right-handed carrier-local frame could not be resolved.',
+    });
+  }
+  const normalizedFrame = localFrame ? normalizeLocalFrame(localFrame) : null;
 
   return {
     familyId: family.familyId,
@@ -245,9 +300,11 @@ function finalizeResolvedFamily(family, binding, options, diagnostics) {
       sourceBranchId: binding.sourceBranchId,
       candidateCarrierIds: cloneJson(binding.candidateCarrierIds),
     },
+    traversal: cloneJson(binding.carrier.traversal),
+    localFrame: normalizedFrame,
     position: {
       ...normalizePosition(binding.position),
-      localFrame: localFrame ? normalizeLocalFrame(localFrame) : null,
+      localFrame: normalizedFrame,
     },
     members: cloneJson(family.members),
   };
@@ -272,16 +329,26 @@ function finalizeUnresolvedFamily(family, binding, positionStatus) {
       sourceBranchId: binding.sourceBranchId || null,
       candidateCarrierIds: cloneJson(binding.candidateCarrierIds || []),
     },
+    traversal: binding.carrier?.traversal ? cloneJson(binding.carrier.traversal) : null,
+    localFrame: binding.position?.localFrame ? normalizeLocalFrame(binding.position.localFrame) : null,
     position: {
       supportPosGlobal: family.supportPosGlobal ? clonePoint(family.supportPosGlobal) : null,
-      centerlinePointGlobal: binding.position?.centerlinePointGlobal ? clonePoint(binding.position.centerlinePointGlobal) : null,
-      carrierStationMm: finiteNumber(binding.position?.carrierStationMm),
-      carrierFraction: finiteNumber(binding.position?.carrierFraction),
-      distanceToCarrierMm: finiteNumber(binding.position?.distanceToCarrierMm),
-      offsetFromCenterline: binding.position?.offsetFromCenterline ? cloneJson(binding.position.offsetFromCenterline) : null,
+      centerlinePointGlobal: binding.position?.centerlinePointGlobal
+        ? clonePoint(binding.position.centerlinePointGlobal)
+        : null,
+      carrierStationMm: roundedNumber(binding.position?.carrierStationMm),
+      carrierFraction: roundedNumber(binding.position?.carrierFraction),
+      distanceToCarrierMm: roundedNumber(binding.position?.distanceToCarrierMm),
+      offsetFromCenterline: binding.position?.offsetFromCenterline
+        ? cloneJson(binding.position.offsetFromCenterline)
+        : null,
       positionStatus: normalizePositionStatus(positionStatus),
-      fittingLocation: binding.position?.fittingLocation ? cloneJson(binding.position.fittingLocation) : null,
-      localFrame: binding.position?.localFrame ? normalizeLocalFrame(binding.position.localFrame) : null,
+      fittingLocation: binding.position?.fittingLocation
+        ? cloneJson(binding.position.fittingLocation)
+        : null,
+      localFrame: binding.position?.localFrame
+        ? normalizeLocalFrame(binding.position.localFrame)
+        : null,
     },
     members: cloneJson(family.members),
   };
@@ -295,7 +362,9 @@ function toSupportGlyph(family) {
     carrierStationMm: family.position.carrierStationMm,
     centerlinePointGlobal: clonePoint(family.position.centerlinePointGlobal),
     localFrame: cloneJson(family.position.localFrame),
-    fittingLocation: family.position.fittingLocation ? cloneJson(family.position.fittingLocation) : null,
+    fittingLocation: family.position.fittingLocation
+      ? cloneJson(family.position.fittingLocation)
+      : null,
     displayKind: family.resolvedFunction.supportKind,
     label: family.familyId.replace(/^\//u, ''),
     resolutionStatus: 'RESOLVED',
@@ -303,18 +372,28 @@ function toSupportGlyph(family) {
 }
 
 function normalizeCarrier(carrier, index, branchId, diagnostics) {
-  if (!carrier || typeof carrier !== 'object' || Array.isArray(carrier)) throw new TypeError(`carriers[${index}] must be an object.`);
+  if (!carrier || typeof carrier !== 'object' || Array.isArray(carrier)) {
+    throw new TypeError(`carriers[${index}] must be an object.`);
+  }
   const carrierId = cleanText(carrier.carrierId || carrier.id || carrier.ref || carrier.name);
   if (!carrierId) throw new TypeError(`carriers[${index}].carrierId is required.`);
-  const carrierType = cleanText(carrier.carrierType || carrier.componentType || carrier.type).toUpperCase() || 'UNKNOWN';
-  const sourceBranchId = cleanText(carrier.sourceBranchId || carrier.sourceBranchName || carrier.branchId || carrier.branchName) || branchId;
+  const carrierType = cleanText(
+    carrier.carrierType || carrier.componentType || carrier.type,
+  ).toUpperCase() || 'UNKNOWN';
+  const sourceBranchId = cleanText(
+    carrier.sourceBranchId || carrier.sourceBranchName || carrier.branchId || carrier.branchName,
+  ) || branchId;
   const attrs = sourceAttributes(carrier);
   const traversal = normalizeTraversal(carrier.traversal || carrier);
   const centerline = normalizeCenterline(carrier, attrs, traversal);
-  if (!centerline && STRAIGHT_CARRIER_TYPES.has(carrierType)) diagnostics.push({
-    severity: 'WARNING', code: 'CARRIER_CENTERLINE_MISSING', carrierId,
-    message: 'Straight carrier has no usable validated centreline.',
-  });
+  if (!centerline && STRAIGHT_CARRIER_TYPES.has(carrierType)) {
+    diagnostics.push({
+      severity: 'WARNING',
+      code: 'CARRIER_CENTERLINE_MISSING',
+      carrierId,
+      message: 'Straight carrier has no usable validated centreline.',
+    });
+  }
 
   const references = new Set(unique([
     carrierId,
@@ -330,14 +409,29 @@ function normalizeCarrier(carrier, index, branchId, diagnostics) {
     ?? sequenceIndexFromPath(carrier.sourcePath || carrier.path);
   const fittingGeometry = cloneJson(carrier.fittingGeometry || {});
   const ports = cloneJson(carrier.ports || carrier.fittingGeometry?.ports || []);
-  const componentCentre = parsePoint(carrier.componentCentre || carrier.fittingGeometry?.componentCentre);
-  const tangent = parsePoint(carrier.tangent || carrier.fittingGeometry?.tangent) || normalizedTangent(centerline);
+  const componentCentre = parsePoint(
+    carrier.componentCentre || carrier.fittingGeometry?.componentCentre,
+  );
+  const tangent = parsePoint(carrier.tangent || carrier.fittingGeometry?.tangent)
+    || normalizedTangent(centerline);
 
   return {
-    carrierId, carrierType, sourceBranchId, sourceSequenceIndex, centerline, traversal,
-    fittingGeometry, ports, componentCentre, tangent, references,
+    carrierId,
+    carrierType,
+    sourceBranchId,
+    sourceSequenceIndex,
+    centerline,
+    traversal,
+    fittingGeometry,
+    ports,
+    componentCentre,
+    tangent,
+    references,
     output: {
-      carrierId, carrierType, sourceBranchId, sourceSequenceIndex,
+      carrierId,
+      carrierType,
+      sourceBranchId,
+      sourceSequenceIndex,
       centerline: centerline ? cloneJson(centerline) : null,
       traversal: cloneJson(traversal),
       supportFamilies: [],
@@ -348,25 +442,33 @@ function normalizeCarrier(carrier, index, branchId, diagnostics) {
 function normalizeCenterline(carrier, attrs, traversal) {
   const explicitStart = parsePoint(carrier.centerline?.start);
   const explicitEnd = parsePoint(carrier.centerline?.end);
-  if (explicitStart && explicitEnd) return {
-    start: clonePoint(explicitStart),
-    end: clonePoint(explicitEnd),
-    lengthMm: finiteNumber(carrier.centerline.lengthMm) ?? pointDistance(explicitStart, explicitEnd),
-  };
+  if (explicitStart && explicitEnd) {
+    return {
+      start: clonePoint(explicitStart),
+      end: clonePoint(explicitEnd),
+      lengthMm: finiteNumber(carrier.centerline.lengthMm)
+        ?? pointDistance(explicitStart, explicitEnd),
+    };
+  }
 
   const apos = parsePoint(attrs.APOS);
   const lpos = parsePoint(attrs.LPOS);
   if (!apos || !lpos) return null;
   const start = traversal.reversedForTraversal ? lpos : apos;
   const end = traversal.reversedForTraversal ? apos : lpos;
-  return { start: clonePoint(start), end: clonePoint(end), lengthMm: pointDistance(start, end) };
+  return {
+    start: clonePoint(start),
+    end: clonePoint(end),
+    lengthMm: pointDistance(start, end),
+  };
 }
 
 function normalizeTraversal(value = {}) {
   const reversedForTraversal = Boolean(value.reversedForTraversal);
   return {
     sourceStartField: cleanText(value.sourceStartField) || 'APOS',
-    traversalStartField: cleanText(value.traversalStartField) || (reversedForTraversal ? 'LPOS' : 'APOS'),
+    traversalStartField: cleanText(value.traversalStartField)
+      || (reversedForTraversal ? 'LPOS' : 'APOS'),
     reversedForTraversal,
   };
 }
@@ -383,23 +485,34 @@ function normalizeOptions(input) {
 }
 
 function isSourceSequenceMatch(family, carrier, sourceCarriers) {
-  if (!Number.isFinite(family.sourceSequenceIndex) || !Number.isFinite(carrier.sourceSequenceIndex)) return false;
+  if (!Number.isFinite(family.sourceSequenceIndex)
+    || !Number.isFinite(carrier.sourceSequenceIndex)) return false;
   const rows = sourceCarriers.map((row, index) => ({
     id: cleanText(row.carrierId || row.id || row.ref || row.name),
-    sequence: finiteNumber(row.sourceSequenceIndex) ?? sequenceIndexFromPath(row.sourcePath || row.path) ?? index,
+    sequence: finiteNumber(row.sourceSequenceIndex)
+      ?? sequenceIndexFromPath(row.sourcePath || row.path)
+      ?? index,
   })).filter((row) => row.id);
-  const preceding = rows.filter((row) => row.sequence <= family.sourceSequenceIndex).sort((a, b) => b.sequence - a.sequence)[0];
+  const preceding = rows
+    .filter((row) => row.sequence <= family.sourceSequenceIndex)
+    .sort((left, right) => right.sequence - left.sequence)[0];
   return preceding?.id === carrier.carrierId;
 }
 
 function normalizePosition(value = {}) {
   return {
-    supportPosGlobal: isPoint(value.supportPosGlobal) ? normalizePoint(value.supportPosGlobal) : null,
-    centerlinePointGlobal: isPoint(value.centerlinePointGlobal) ? normalizePoint(value.centerlinePointGlobal) : null,
-    carrierStationMm: finiteNumber(value.carrierStationMm),
-    carrierFraction: finiteNumber(value.carrierFraction),
-    distanceToCarrierMm: finiteNumber(value.distanceToCarrierMm),
-    offsetFromCenterline: value.offsetFromCenterline ? cloneJson(value.offsetFromCenterline) : null,
+    supportPosGlobal: isPoint(value.supportPosGlobal)
+      ? normalizePoint(value.supportPosGlobal)
+      : null,
+    centerlinePointGlobal: isPoint(value.centerlinePointGlobal)
+      ? normalizePoint(value.centerlinePointGlobal)
+      : null,
+    carrierStationMm: roundedNumber(value.carrierStationMm),
+    carrierFraction: roundedNumber(value.carrierFraction),
+    distanceToCarrierMm: roundedNumber(value.distanceToCarrierMm),
+    offsetFromCenterline: value.offsetFromCenterline
+      ? cloneJson(value.offsetFromCenterline)
+      : null,
     positionStatus: normalizePositionStatus(value.positionStatus),
     fittingLocation: value.fittingLocation ? cloneJson(value.fittingLocation) : null,
     localFrame: value.localFrame ? normalizeLocalFrame(value.localFrame) : null,
@@ -408,13 +521,17 @@ function normalizePosition(value = {}) {
 
 function normalizeLocalFrame(value) {
   if (!value) return null;
-  return {
+  const frame = {
     origin: normalizePoint(value.origin),
     tangent: normalizePoint(value.tangent),
-    lateral: normalizePoint(value.lateral),
+    lateral: value.lateral ? normalizePoint(value.lateral) : null,
     vertical: normalizePoint(value.vertical),
-    handedness: 'RIGHT_HANDED',
+    handedness: cleanText(value.handedness) || 'RIGHT_HANDED',
+    frameStatus: cleanText(value.frameStatus)
+      || (value.lateral ? 'RESOLVED' : 'DEGENERATE'),
   };
+  if (value.reason) frame.reason = cleanText(value.reason);
+  return frame;
 }
 
 function normalizePlantUp(value) {
@@ -443,8 +560,17 @@ function normalizedTangent(centerline) {
   return length > 1e-12 ? { x: dx / length, y: dy / length, z: dz / length } : null;
 }
 
-function normalizePoint(point) {
-  return isPoint(point) ? { x: round6(point.x), y: round6(point.y), z: round6(point.z) } : null;
+function roundedNumber(value) {
+  const number = finiteNumber(value);
+  return Number.isFinite(number) ? round6(number) : null;
 }
 
-function normalizePositionStatus(value) { return POSITION_STATUS_SET.has(value) ? value : 'UNRESOLVED'; }
+function normalizePoint(point) {
+  return isPoint(point)
+    ? { x: round6(point.x), y: round6(point.y), z: round6(point.z) }
+    : null;
+}
+
+function normalizePositionStatus(value) {
+  return POSITION_STATUS_SET.has(value) ? value : POSITION_STATUS.UNRESOLVED;
+}
