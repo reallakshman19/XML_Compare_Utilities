@@ -61,15 +61,16 @@ function summarizeReference(reference, indexes) {
 }
 function compactDecision(request) {
   if (!request) return null;
+  const minimumGapMm = (request.candidates || []).reduce((minimum, candidate) => {
+    const gap = Number(candidate.gapMm ?? candidate.totalGapMm);
+    return Number.isFinite(gap) ? Math.min(minimum, gap) : minimum;
+  }, Number.POSITIVE_INFINITY);
   return {
     reason: request.reason,
     decisionScope: request.decisionScope || null,
     candidateCount: request.candidates?.length || 0,
     candidateTypes: countBy(request.candidates || [], (candidate) => candidate.targetComponentType || candidate.referenceKind || 'UNKNOWN'),
-    minimumGapMm: (request.candidates || []).reduce((minimum, candidate) => {
-      const gap = Number(candidate.gapMm ?? candidate.totalGapMm);
-      return Number.isFinite(gap) ? Math.min(minimum, gap) : minimum;
-    }, Number.POSITIVE_INFINITY),
+    minimumGapMm: Number.isFinite(minimumGapMm) ? minimumGapMm : null,
   };
 }
 function representative(rows, featureSelector, limit = 12) {
@@ -166,13 +167,13 @@ for (const branch of evidence.branches) {
   });
 }
 
-assert.equal(JSON.stringify(records), immutableSnapshot, 'Fixture-wide matrix must not mutate source evidence');
-assert.equal(runtimeErrors.length, 0, 'Fixture-wide construction probes must not throw');
-assert.ok(branchRows.some((row) => row.teeCount > 0), 'Fixture must contain at least one tee branch');
-assert.ok(branchRows.some((row) => row.reducerCount > 0), 'Fixture must contain at least one reducer branch');
-assert.ok(branchRows.some((row) => row.zeroLengthComponents.length > 0), 'Fixture must contain at least one zero-length inline fitting');
-assert.ok(branchRows.some((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)), 'Fixture must contain at least one explicit terminal branch');
-
+const sourceUnchanged = JSON.stringify(records) === immutableSnapshot;
+const featurePresence = {
+  tee: branchRows.some((row) => row.teeCount > 0),
+  reducer: branchRows.some((row) => row.reducerCount > 0),
+  zeroLength: branchRows.some((row) => row.zeroLengthComponents.length > 0),
+  explicitTerminal: branchRows.some((row) => !row.hasTref && ['CAP', 'BLIND'].includes(row.terminalComponentType)),
+};
 const report = {
   schema: 'Sequential1885NcFixtureMatrix.v1',
   sourceCommit: SOURCE_COMMIT,
@@ -197,6 +198,11 @@ const report = {
     blockedBranches: branchRows.filter((row) => row.state === 'USER_DECISION_REQUIRED').length,
     failedBranches: branchRows.filter((row) => row.state === 'FAILED').length,
   },
+  validation: {
+    sourceUnchanged,
+    runtimeErrorCount: runtimeErrors.length,
+    featurePresence,
+  },
   representatives: {
     tee: representative(branchRows, (row) => row.teeCount > 0),
     reducer: representative(branchRows, (row) => row.reducerCount > 0),
@@ -216,8 +222,16 @@ console.log(JSON.stringify({
   schema: report.schema,
   indexedBranchCount: report.indexedBranchCount,
   indexedComponentCount: report.indexedComponentCount,
+  validation: report.validation,
   featureCounts: report.featureCounts,
   branchStateCounts: report.branchStateCounts,
   blockedReasonCounts: report.blockedReasonCounts,
   representatives: report.representatives,
 }, null, 2));
+
+assert.equal(sourceUnchanged, true, 'Fixture-wide matrix must not mutate source evidence');
+assert.equal(runtimeErrors.length, 0, 'Fixture-wide construction probes must not throw');
+assert.equal(featurePresence.tee, true, 'Fixture must contain at least one tee branch');
+assert.equal(featurePresence.reducer, true, 'Fixture must contain at least one reducer branch');
+assert.equal(featurePresence.zeroLength, true, 'Fixture must contain at least one zero-length inline fitting');
+assert.equal(featurePresence.explicitTerminal, true, 'Fixture must contain at least one explicit terminal branch');
