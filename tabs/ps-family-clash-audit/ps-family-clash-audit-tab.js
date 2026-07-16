@@ -14,7 +14,7 @@ const MODAL_STYLE_ID = 'ps-family-clash-audit-modal-style';
 const WORKSPACE_TABS = Object.freeze([
   Object.freeze({ key: 'input', label: 'Input' }), Object.freeze({ key: 'preview', label: 'Preview' }),
   Object.freeze({ key: 'config', label: 'Config' }), Object.freeze({ key: 'run', label: 'Run Audit' }),
-  Object.freeze({ key: 'reports', label: 'Reports' }), Object.freeze({ key: 'export', label: 'Export' }),
+  Object.freeze({ key: 'reports', label: 'Reports' }), Object.freeze({ key: 'export', label: 'Export Package' }),
 ]);
 
 function h(value) { return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
@@ -25,7 +25,7 @@ function ensureModalStyle(doc = globalThis.document) {
   if (!doc || doc.getElementById(MODAL_STYLE_ID)) return;
   const style = doc.createElement('style');
   style.id = MODAL_STYLE_ID;
-  style.textContent = `.ps-family-clash-audit-launcher{height:160px;width:220px;border:1px solid rgba(143,197,255,.25);border-radius:18px;background:linear-gradient(145deg,#10213a,#0b1220);color:#e8f2ff;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,.28);display:grid!important;grid-template-columns:1fr;place-items:center;text-align:center;padding:16px;margin-top:18px;gap:4px;box-sizing:border-box}.ps-family-clash-audit-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:rgba(2,6,23,.78);box-sizing:border-box}.ps-family-clash-audit-dialog{width:min(1240px,calc(100vw - 36px));height:min(860px,calc(100vh - 36px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid rgba(125,211,252,.38)!important;border-radius:18px!important;background:#0f172a!important;color:#dbeafe;box-shadow:0 24px 80px rgba(0,0,0,.58)}.ps-family-clash-audit-dialog>.psmap-card-body{min-height:0;overflow:auto}.psfa-report-draft{opacity:.78;border-color:rgba(245,158,11,.45)!important}.psfa-draft-badge{font-size:10px;margin-left:6px;color:#fbbf24}${psFamilyProfessionalCss()}`;
+  style.textContent = `.ps-family-clash-audit-launcher{height:160px;width:220px;border:1px solid rgba(143,197,255,.25);border-radius:18px;background:linear-gradient(145deg,#10213a,#0b1220);color:#e8f2ff;cursor:pointer;box-shadow:0 12px 34px rgba(0,0,0,.28);display:grid!important;grid-template-columns:1fr;place-items:center;text-align:center;padding:16px;margin-top:18px;gap:4px;box-sizing:border-box}.ps-family-clash-audit-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:22px;background:rgba(2,6,23,.78);box-sizing:border-box}.ps-family-clash-audit-dialog{width:min(1240px,calc(100vw - 36px));height:min(860px,calc(100vh - 36px));display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid rgba(125,211,252,.38)!important;border-radius:18px!important;background:#0f172a!important;color:#dbeafe;box-shadow:0 24px 80px rgba(0,0,0,.58)}.ps-family-clash-audit-dialog>.psmap-card-body{min-height:0;overflow:auto}.ps-family-clash-audit-backdrop.psfa-fullscreen{padding:0}.ps-family-clash-audit-backdrop.psfa-fullscreen .ps-family-clash-audit-dialog{width:100vw;height:100vh;max-width:none;max-height:none;border-radius:0!important}.psfa-report-draft{opacity:.86;border-color:rgba(245,158,11,.45)!important}.psfa-draft-badge{font-size:10px;margin-left:6px;color:#fbbf24}${psFamilyProfessionalCss()}`;
   doc.head?.appendChild(style);
 }
 
@@ -38,21 +38,18 @@ function reportGroupByKey(config, key) { return (config.reportGroups || []).find
 function firstReportKey(config, groupKey) { return reportGroupByKey(config, groupKey)?.reportKeys?.[0] || config.reportTabs[0]?.key || ''; }
 function defaultReportGroup(config) { return config.reportGroups?.[0]?.key || ''; }
 
-function renderReportGroups(config) {
-  return `<nav class="psfa-report-groups" aria-label="Structured report groups">${(config.reportGroups || []).map((group, index) => `<button type="button" class="psfa-report-group${index === 0 ? ' active' : ''}" data-psfa-report-group="${h(group.key)}" aria-selected="${index === 0 ? 'true' : 'false'}"><span>${h(group.label)}</span><small>${h(group.description)}</small><em>${group.reportKeys.length} ${group.reportKeys.length === 1 ? 'report' : 'reports'}</em></button>`).join('')}</nav>`;
+function renderReportButtons(config, group, groupIndex) {
+  return group.reportKeys.map((reportKey, reportIndex) => {
+    const tab = reportByKey(config, reportKey);
+    if (!tab) return '';
+    const draft = tab.maturity !== 'stable';
+    const active = groupIndex === 0 && reportIndex === 0;
+    return `<button type="button" class="psfa-report-subtab ${draft ? 'psfa-report-draft' : 'psfa-report-stable'}${active ? ' active' : ''}" data-psfa-tab="${h(tab.key)}" data-psfa-group="${h(group.key)}" data-psfa-report-maturity="${draft ? 'draft' : 'stable'}" aria-selected="${active ? 'true' : 'false'}"><span>${h(tab.label)}</span>${draft ? '<span class="psfa-draft-badge">Review</span>' : ''}</button>`;
+  }).join('');
 }
 
-function renderReportSubtabs(config) {
-  return (config.reportGroups || []).map((group, groupIndex) => {
-    const buttons = group.reportKeys.map((reportKey, reportIndex) => {
-      const tab = reportByKey(config, reportKey);
-      if (!tab) return '';
-      const draft = tab.maturity !== 'stable';
-      const active = groupIndex === 0 && reportIndex === 0;
-      return `<button type="button" class="psfa-report-subtab ${draft ? 'psfa-report-draft' : 'psfa-report-stable'}${active ? ' active' : ''}" data-psfa-tab="${h(tab.key)}" data-psfa-group="${h(group.key)}" data-psfa-report-maturity="${draft ? 'draft' : 'stable'}" aria-selected="${active ? 'true' : 'false'}">${h(tab.label)}${draft ? '<span class="psfa-draft-badge">Review</span>' : ''}</button>`;
-    }).join('');
-    return `<div class="psfa-report-subtabs" data-psfa-report-subtabs="${h(group.key)}" ${groupIndex === 0 ? '' : 'hidden'}>${buttons}</div>`;
-  }).join('');
+function renderReportCatalog(config) {
+  return `<nav class="psfa-report-groups psfa-report-catalog" aria-label="Structured report catalog">${(config.reportGroups || []).map((group, index) => `<section class="psfa-report-group-card${index === 0 ? ' active' : ''}" data-psfa-report-card="${h(group.key)}"><button type="button" class="psfa-report-group${index === 0 ? ' active' : ''}" data-psfa-report-group="${h(group.key)}" aria-selected="${index === 0 ? 'true' : 'false'}"><span>${h(group.label)}</span><small>${h(group.description)}</small></button><div class="psfa-report-subtabs" data-psfa-report-subtabs="${h(group.key)}">${renderReportButtons(config, group, index)}</div></section>`).join('')}</nav>`;
 }
 
 function workspaceTabClass(tab, index) { return `psmap-tab psfa-tab${tab.key === 'config' ? ' config' : ''}${index === 0 ? ' active' : ''}`; }
@@ -69,19 +66,19 @@ function renderPreviewPanel(config) { const panel = (input) => `<div class="psma
 function renderPrefixConfig(config) { return `<div class="psfa-prefix-card"><label>Valid family prefixes<input data-psfa="family-prefixes" value="${h(config.familyPrefixesText)}" placeholder="PS, SL"></label><div class="psmap-help-text">Comma-separated prefixes used to detect support-family roots.</div><div>Generated detector: <span class="psfa-detector" data-psfa-prefix-detector>/(?:PS|SL)-\d+/i</span></div></div>`; }
 function renderZoneConfig(config) { return `<div class="psfa-zone-grid"><label>Structural zones<textarea data-psfa="structural-zones" rows="3" placeholder="CU-SU, STRUCTURE">${h(config.structuralZonesText)}</textarea><span class="psmap-help-text">Comma or newline separated hierarchy/name tokens classified as StructuralGroup.</span></label><label>Support zones<textarea data-psfa="support-zones" rows="3" placeholder="PS-, SL-">${h(config.supportZonesText)}</textarea><span class="psmap-help-text">Comma or newline separated hierarchy/name tokens classified as Support when no structural zone matches.</span></label></div>`; }
 function renderConfigPanel(config) { const controls = `<div class="psfa-config-grid"><label>Source side<select data-psfa="source-side">${renderSourceOptions(config)}</select></label><label>Source family override<input data-psfa="source-family" placeholder="${h(config.sourceFamilyPlaceholder)}"></label><label>POS tolerance mm<input data-psfa="tolerance" type="number" value="${h(config.posToleranceMm)}" min="${h(config.toleranceMinMm)}" step="${h(config.toleranceStepMm)}"></label></div>`; return renderSection('3 Config', `<div class="psfa-section-intro">Set matching basis, valid family prefixes, object classification zones, source side, source family override, and POS tolerance.</div>${controls}${renderPrefixConfig(config)}${renderZoneConfig(config)}${renderInfoList(config)}`); }
-function renderRunPanel() { return renderSection('4 Run Audit', `<div class="psfa-run-grid"><div class="psfa-primary-actions"><h4>Audit Controls</h4><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button><button type="button" data-psfa="export-active">Export Active Report</button></div><div class="psfa-run-log"><h4>Readiness / Run Summary</h4><div class="psmap-help-text">Run readiness check or audit to populate summary and diagnostics.</div><div data-psfa="readiness" aria-live="polite"></div></div></div>`); }
-function renderExportPanel(config) { return renderSection('6 Export', `<div class="psfa-export-package"><h4>Export Package</h4><div class="psfa-section-intro">Select a stable report to preview, copy, download individually, or download all stable exports in one ZIP. Review reports remain available in the Reports workspace.</div><div class="psfa-export-picker">${renderExportPreviewButtons(config)}</div><div class="psfa-export-preview"><div class="psfa-export-preview-head"><b data-psfa-export-title>Support Group Summary CSV Preview</b><span class="psmap-help-text" data-psfa-export-meta>Run Audit first</span></div><pre data-psfa="export-preview">Run Audit to preview this export.</pre><div class="psmap-actions"><button type="button" data-psfa="copy-export-preview">Copy Preview</button><button type="button" data-psfa="download-selected">Download Selected</button><button type="button" data-psfa="download-all-zip">Download All ZIP</button></div><details><summary>Individual stable download buttons</summary><div class="psfa-export-grid">${renderExportButtons(config)}</div></details></div></div>`); }
+function renderRunPanel() { return renderSection('4 Run Audit', `<div class="psfa-run-grid"><div class="psfa-primary-actions"><h4>Audit Controls</h4><button type="button" data-psfa="check-readiness">Check Readiness</button><button type="button" data-psfa="run">Run Audit</button></div><div class="psfa-run-log"><h4>Readiness / Run Summary</h4><div class="psmap-help-text">Run readiness check or audit to populate summary and diagnostics.</div><div data-psfa="readiness" aria-live="polite"></div></div></div>`); }
+function renderExportPanel(config) { return renderSection('6 Export Package', `<div class="psfa-export-package"><h4>Stable Deliverable Package</h4><div class="psfa-section-intro">Each report can be exported directly as CSV from the Reports workspace. This package area remains for stable previews, individual deliverables, audit JSON, and the combined ZIP.</div><div class="psfa-export-picker">${renderExportPreviewButtons(config)}</div><div class="psfa-export-preview"><div class="psfa-export-preview-head"><b data-psfa-export-title>Support Group Summary CSV Preview</b><span class="psmap-help-text" data-psfa-export-meta>Run Audit first</span></div><pre data-psfa="export-preview">Run Audit to preview this export.</pre><div class="psmap-actions"><button type="button" data-psfa="copy-export-preview">Copy Preview</button><button type="button" data-psfa="download-selected">Download Selected</button><button type="button" data-psfa="download-all-zip">Download All ZIP</button></div><details><summary>Individual stable download buttons</summary><div class="psfa-export-grid">${renderExportButtons(config)}</div></details></div></div>`); }
 function renderReportsPanel(config) {
   const firstGroup = config.reportGroups?.[0];
-  const header = `<div class="psfa-report-head"><div class="psfa-report-heading"><span>Structured reports</span><h4 data-psfa-report-group-title>${h(firstGroup?.label || 'Reports')}</h4><p data-psfa-report-group-description>${h(firstGroup?.description || '')}</p></div><label class="psfa-report-search">Search selected report<input data-psfa="report-search" placeholder="Filter current report, e.g. S8810011 or PS-14396"></label></div>`;
-  const layout = `<div class="psfa-report-layout"><aside class="psfa-report-sidebar"><div class="psmap-help-text">Choose a report group</div>${renderReportGroups(config)}</aside><div class="psfa-report-main">${renderReportSubtabs(config)}<div data-psfa="summary"></div><div class="psfa-report-table psmap-table-wrap" data-psfa="reports"></div></div></div>`;
+  const header = `<div class="psfa-report-head"><div class="psfa-report-heading"><span>Report and export workspace</span><h4 data-psfa-report-group-title>${h(firstGroup?.label || 'Reports')}</h4><p data-psfa-report-group-description>${h(firstGroup?.description || '')}</p></div><label class="psfa-report-search">Search selected report<input data-psfa="report-search" placeholder="Filter current report, e.g. S8810011 or PS-14396"></label><div class="psfa-report-actions"><button type="button" class="psfa-report-export" data-psfa="export-report-csv">Export current report CSV</button><span class="psmap-help-text" data-psfa="report-export-status">Run Audit first</span></div></div>`;
+  const layout = `<div class="psfa-report-layout">${renderReportCatalog(config)}<div class="psfa-report-main"><div data-psfa="summary"></div><div class="psfa-report-table psmap-table-wrap" data-psfa="reports"></div></div></div>`;
   return renderSection('5 Reports', `${header}${layout}`);
 }
 function statusCard(label, value, detail = '') { return `<div class="psfa-status-card"><b>${h(label)}</b><span>${h(value)}</span>${detail ? `<small>${h(detail)}</small>` : ''}</div>`; }
 function renderStatusStrip() { return `<div class="psfa-status-strip" data-psfa="status-strip">${statusCard('Readiness','Not checked')}${statusCard('Support Groups','0')}${statusCard('Structure / Support XML','0 / 0')}${statusCard('Errors / Warnings','0 / 0')}</div>`; }
-function renderInputShell(config) { return `<div class="psmap-card-body psfa-shell"><div id="${POPUP_DESC_ID}" class="psfa-section-intro">Tabbed SupportChangeXML workspace: load two clash XML reports, preview, configure, run, review structured reports, then export.</div>${renderStatusStrip()}${renderWorkspaceTabs()}${renderPanel('input', renderInputPanel(config))}${renderPanel('preview', renderPreviewPanel(config))}${renderPanel('config', renderConfigPanel(config))}${renderPanel('run', renderRunPanel())}${renderPanel('reports', renderReportsPanel(config))}${renderPanel('export', renderExportPanel(config))}</div>`; }
+function renderInputShell(config) { return `<div class="psmap-card-body psfa-shell"><div id="${POPUP_DESC_ID}" class="psfa-section-intro">Tabbed SupportChangeXML workspace: load two clash XML reports, preview, configure, run, review and export reports.</div>${renderStatusStrip()}${renderWorkspaceTabs()}${renderPanel('input', renderInputPanel(config))}${renderPanel('preview', renderPreviewPanel(config))}${renderPanel('config', renderConfigPanel(config))}${renderPanel('run', renderRunPanel())}${renderPanel('reports', renderReportsPanel(config))}${renderPanel('export', renderExportPanel(config))}</div>`; }
 function renderLauncher(config) { const launcher = config.launcher; return `<button type="button" class="psmap-card psmap-tile ps-family-clash-audit-launcher" data-psfa-open="1" title="${h(launcher.help)}"><span class="psmap-tile-icon ps-family-clash-audit-launcher-icon" aria-hidden="true">${h(launcher.icon)}</span><b>${h(launcher.label)}</b><span class="psmap-help-text">${h(launcher.help)}</span></button>`; }
-function renderPopup(config) { return `<div class="psmap-card-head"><div class="psfa-title-block"><div class="psfa-title-row"><b id="${POPUP_TITLE_ID}">${h(config.appTitle)}</b><span class="psfa-title-badge">SupportChangeXML Workspace</span></div><div class="psfa-subtitle">StructureGroup vs Supports XML + Clash within Supports XML.</div></div><button type="button" class="psfa-close" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close</button></div>${renderInputShell(config)}`; }
+function renderPopup(config) { return `<div class="psmap-card-head"><div class="psfa-title-block"><div class="psfa-title-row"><b id="${POPUP_TITLE_ID}">${h(config.appTitle)}</b><span class="psfa-title-badge">SupportChangeXML Workspace</span></div><div class="psfa-subtitle">StructureGroup vs Supports XML + Clash within Supports XML.</div></div><div class="psfa-title-actions"><button type="button" class="psfa-fullscreen" data-psfa-fullscreen="1" aria-pressed="false">Full screen</button><button type="button" class="psfa-close" data-psfa-close="1" aria-label="Close PS Family Clash Audit popup">Close</button></div></div>${renderInputShell(config)}`; }
 
 function readTextInputs(get) { return { structureXmlText: get('structure')?.value || '', supportXmlText: get('support')?.value || '', clashXmlText: get('xml')?.value || '', psClashXmlText: get('psclash')?.value || '', expectedCsvText: get('expected')?.value || '', detailCsvText: get('details')?.value || '' }; }
 function readAuditInput(get, config) { return { ...readTextInputs(get), config: readPsFamilyUiSettings(get, config) }; }
@@ -95,7 +92,7 @@ function updateReportNavigation(root, state, config) {
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
   });
-  root.querySelectorAll('[data-psfa-report-subtabs]').forEach((node) => { node.hidden = node.dataset.psfaReportSubtabs !== state.activeReportGroup; });
+  root.querySelectorAll('[data-psfa-report-card]').forEach((card) => card.classList.toggle('active', card.dataset.psfaReportCard === state.activeReportGroup));
   root.querySelectorAll('[data-psfa-tab]').forEach((button) => {
     const active = button.dataset.psfaGroup === state.activeReportGroup && button.dataset.psfaTab === state.activeReportTab;
     button.classList.toggle('active', active);
@@ -118,6 +115,14 @@ function renderExportPreview(get, state, config) { const selected = state.export
 function showWorkspacePanel(root, tabKey) { root.querySelectorAll('[data-psfa-panel]').forEach((panel) => { panel.hidden = panel.dataset.psfaPanel !== tabKey; }); root.querySelectorAll('[data-psfa-workspace-tab]').forEach((button) => { const active = button.dataset.psfaWorkspaceTab === tabKey; button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); }); }
 function exportFilename(button, audit) { return `ps-family-${button.suffix}-${safeSource(audit)}.${fileExtension(button.mime)}`; }
 function buildExportEntries(audit, config) { const exports = createPsFamilyAuditExports(audit); return config.outputButtons.map((button) => ({ name: exportFilename(button, audit), text: exports[button.exportKey] || '' })); }
+function activeReportFilename(active, audit) { return `ps-family-${active.suffix}-${safeSource(audit)}.csv`; }
+function exportActiveReportCsv(get, state) {
+  if (!state.audit) { if (get('report-export-status')) get('report-export-status').textContent = 'Run Audit first'; return; }
+  const active = createPsFamilyActiveReportExport(state.audit, state.activeReportTab);
+  if (!active) return;
+  saveTextFile(activeReportFilename(active, state.audit), active.text, 'text/csv');
+  if (get('report-export-status')) get('report-export-status').textContent = `${active.text.length} characters exported`;
+}
 
 function wireInputFiles(get, state, config) { config.inputFiles.forEach((input) => { const picker = get(`file:${input.key}`); const status = get(`status:${input.key}`); picker?.addEventListener('change', async () => { const file = picker.files?.[0]; if (file) await loadTextFileIntoTextarea(file, get(input.textareaKey), status); renderPreviews(get, state, config); }); get(input.textareaKey)?.addEventListener('input', () => renderPreviews(get, state, config)); }); }
 function wireSamples(get, state, config) { listPsFamilySampleInputs().forEach((sample) => { get(`sample:${sample.key}`)?.addEventListener(ACTIVATE, () => { loadSampleTextIntoTextarea(sample, get(sample.textareaKey), get(`status:${sample.key}`)); renderPreviews(get, state, config); }); }); }
@@ -136,15 +141,17 @@ function wireReportTabs(get, state, config) {
 function wireReportSearch(get, state, config) { get('report-search')?.addEventListener('input', () => { state.reportSearch = get('report-search').value; renderReportReview(get, state, config); }); }
 function wirePrefixInput(get, config) { get('family-prefixes')?.addEventListener('input', () => { get('prefix-detector').textContent = readPsFamilyUiSettings(get, config).familyDetectorLabel; }); }
 function wireWorkspaceTabs(get) { get('root').querySelectorAll('[data-psfa-workspace-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => showWorkspacePanel(get('root'), button.dataset.psfaWorkspaceTab))); }
-function wireRunButtons(get, state, config) { get('check-readiness')?.addEventListener(ACTIVATE, () => { const readiness = createPsFamilyInputReadinessFromTextInputs(readAuditInput(get, config)); get('readiness').innerHTML = renderPsFamilyReadiness(readiness); }); get('run')?.addEventListener(ACTIVATE, () => { state.audit = createPsFamilyClashAuditFromTextInputs(readAuditInput(get, config)); state.activeReportGroup = defaultReportGroup(config); state.activeReportTab = firstReportKey(config, state.activeReportGroup); get('readiness').innerHTML = renderPsFamilyReadiness(createPsFamilyInputReadinessFromTextInputs(readAuditInput(get, config))); renderReportReview(get, state, config); renderExportPreview(get, state, config); }); get('export-active')?.addEventListener(ACTIVATE, () => { if (!state.audit) return; const active = createPsFamilyActiveReportExport(state.audit, state.activeReportTab); if (!active) return; saveTextFile(`ps-family-active-${active.suffix}-${safeSource(state.audit)}.${fileExtension(active.mime)}`, active.text, active.mime); }); }
+function wireRunButtons(get, state, config) { get('check-readiness')?.addEventListener(ACTIVATE, () => { const readiness = createPsFamilyInputReadinessFromTextInputs(readAuditInput(get, config)); get('readiness').innerHTML = renderPsFamilyReadiness(readiness); }); get('run')?.addEventListener(ACTIVATE, () => { state.audit = createPsFamilyClashAuditFromTextInputs(readAuditInput(get, config)); state.activeReportGroup = defaultReportGroup(config); state.activeReportTab = firstReportKey(config, state.activeReportGroup); get('readiness').innerHTML = renderPsFamilyReadiness(createPsFamilyInputReadinessFromTextInputs(readAuditInput(get, config))); renderReportReview(get, state, config); renderExportPreview(get, state, config); if (get('report-export-status')) get('report-export-status').textContent = 'Ready to export current report'; }); get('export-report-csv')?.addEventListener(ACTIVATE, () => exportActiveReportCsv(get, state)); }
 function wireExportButtons(get, state, config) { config.outputButtons.forEach((button) => get(button.key)?.addEventListener(ACTIVATE, () => { if (!state.audit) return; const exports = createPsFamilyAuditExports(state.audit); saveTextFile(exportFilename(button, state.audit), exports[button.exportKey], button.mime); })); }
 function wireExportPreviewButtons(get, state, config) { get('root').querySelectorAll('[data-psfa-export-preview]').forEach((button) => button.addEventListener(ACTIVATE, () => { state.exportPreviewKey = button.dataset.psfaExportPreview; renderExportPreview(get, state, config); })); get('copy-export-preview')?.addEventListener(ACTIVATE, () => globalThis.navigator?.clipboard?.writeText(get('export-preview').textContent || '')); get('download-selected')?.addEventListener(ACTIVATE, () => { const selected = state.exportPreviewKey || config.outputButtons[0].key; get(selected)?.dispatchEvent(new Event(ACTIVATE)); }); get('download-all-zip')?.addEventListener(ACTIVATE, () => { if (!state.audit) return; saveZipTextFiles(`ps-family-export-package-${safeSource(state.audit)}.zip`, buildExportEntries(state.audit, config)); }); }
+function setFullscreen(modal, button, active) { modal.classList.toggle('psfa-fullscreen', active); button?.setAttribute('aria-pressed', String(active)); if (button) button.textContent = active ? 'Exit full screen' : 'Full screen'; }
 
 function byAttr(root, attr, value) { return root.querySelector(`[${attr}="${String(value).replace(/"/g, '\\"')}"]`); }
 function createGetter(root) {
   return (name) => {
     if (name === 'root') return root;
     if (name === 'close') return root.querySelector('[data-psfa-close]');
+    if (name === 'fullscreen') return root.querySelector('[data-psfa-fullscreen]');
     if (name === 'prefix-detector') return root.querySelector('[data-psfa-prefix-detector]');
     if (name === 'export-title') return root.querySelector('[data-psfa-export-title]');
     if (name === 'export-meta') return root.querySelector('[data-psfa-export-meta]');
@@ -164,13 +171,15 @@ function openPopup(config) {
   modal.className = 'ps-family-clash-audit-backdrop'; modal.dataset.psfaPopup = '1';
   modal.innerHTML = `<div class="psmap-card ps-family-clash-audit-dialog" role="dialog" aria-modal="true" aria-labelledby="${POPUP_TITLE_ID}" aria-describedby="${POPUP_DESC_ID}">${renderPopup(config)}</div>`;
   (doc.body || doc.documentElement).appendChild(modal);
-  const close = () => modal.remove();
   const get = createGetter(modal);
   const initialGroup = defaultReportGroup(config);
   const state = { audit: null, activeReportGroup: initialGroup, activeReportTab: firstReportKey(config, initialGroup), reportSearch: '', exportPreviewKey: config.outputButtons[0].key };
+  const onKey = (event) => { if (event.key !== 'Escape') return; if (modal.classList.contains('psfa-fullscreen')) { setFullscreen(modal, get('fullscreen'), false); return; } close(); };
+  const close = () => { doc.removeEventListener('keydown', onKey); modal.remove(); };
   get('close')?.addEventListener(ACTIVATE, close);
-  modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal) close(); });
-  doc.addEventListener('keydown', function onKey(event) { if (event.key === 'Escape') { close(); doc.removeEventListener('keydown', onKey); } });
+  get('fullscreen')?.addEventListener(ACTIVATE, () => setFullscreen(modal, get('fullscreen'), !modal.classList.contains('psfa-fullscreen')));
+  modal.addEventListener(ACTIVATE, (event) => { if (event.target === modal && !modal.classList.contains('psfa-fullscreen')) close(); });
+  doc.addEventListener('keydown', onKey);
   wireWorkspaceTabs(get); wireInputFiles(get, state, config); wireSamples(get, state, config); wirePrefixInput(get, config); wireRunButtons(get, state, config); wireReportTabs(get, state, config); wireReportSearch(get, state, config); wireExportButtons(get, state, config); wireExportPreviewButtons(get, state, config); updateReportNavigation(get('root'), state, config); renderPreviews(get, state, config); renderExportPreview(get, state, config);
 }
 
@@ -182,4 +191,4 @@ export function installPsFamilyClashAuditTile(root, overrides = {}) {
   root.querySelector('[data-psfa-open="1"]')?.addEventListener(ACTIVATE, () => openPopup(config));
 }
 
-export const _test = Object.freeze({ renderLauncher, renderPopup, renderInputShell, showWorkspacePanel, createGetter, updateReportNavigation, firstReportKey });
+export const _test = Object.freeze({ renderLauncher, renderPopup, renderInputShell, showWorkspacePanel, createGetter, updateReportNavigation, firstReportKey, setFullscreen, activeReportFilename });
