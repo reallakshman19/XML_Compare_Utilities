@@ -97,6 +97,7 @@ assert.deepEqual(stableTabs, [
   'structureTree',
   'inputEvidence',
   'supportExceptions',
+  'diagnostics',
 ]);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => tab.maturity === 'draft'));
 

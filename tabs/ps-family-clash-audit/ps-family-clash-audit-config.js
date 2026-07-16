@@ -1,6 +1,6 @@
 import { buildFamilyRootDetectorLabel, normalizeFamilyPrefixes } from './ps-family-token-utils.js';
 
-export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v9-clean-report-workspace';
+export const PS_FAMILY_CLASH_AUDIT_CONFIG_SCHEMA = 'ps-family-clash-audit-config/v10-report-hub';
 
 const REPORT_TABS = Object.freeze([
   Object.freeze({ key: 'supportSummary', label: 'SupportGroup Summary', maturity: 'stable' }),
@@ -14,7 +14,7 @@ const REPORT_TABS = Object.freeze([
   Object.freeze({ key: 'connectivityMatrix', label: 'Connectivity Matrix', maturity: 'draft' }),
   Object.freeze({ key: 'clashRows', label: 'Clash Detail Rows', maturity: 'draft' }),
   Object.freeze({ key: 'supportExceptions', label: 'SupportChange Exceptions', maturity: 'stable' }),
-  Object.freeze({ key: 'diagnostics', label: 'Diagnostics', maturity: 'draft' }),
+  Object.freeze({ key: 'diagnostics', label: 'Diagnostics', maturity: 'stable' }),
 ]);
 
 const REPORT_GROUPS = Object.freeze([
@@ -90,12 +90,13 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   info: Object.freeze([
     'SupportChange workflow uses two Navis clash XML inputs: StructureGroup vs Supports and Clash within Supports.',
     'SupportGroup identity is LineFamily_PSRoot, for example S8810011_PS-14396.',
-    'Reports are organized into six task-oriented groups instead of one long report-tab strip.',
+    'Reports are organized into six task-oriented groups in a two-row report catalog.',
+    'Every visible report can be exported directly as CSV from the Reports workspace.',
     'Structure Group Basis groups PS-14311-BAR-3 / PS-14311-BAR / PS-14311 by the same structural PS root.',
     'StructuralGroup is a child group inside SupportGroup; it must not replace the support representative.',
     'Supports are connected with support-support edges; StructureGroup contacts attach to the same SupportGroup.',
     'Zone classification is editable: structural and support zone tokens can contain multiple comma/newline separated entries.',
-    'Only stable reports are exposed in the packaged export list; review reports remain available in the Reports workspace.',
+    'The Export Package workspace retains stable deliverables, previews, Audit JSON and ZIP packaging.',
     'Stranger PS roots and orphan StructureGroup/support evidence are reported in Clash Audit Outcome.',
     'Family prefixes are configurable; default prefixes are PS and SL.',
   ]),
