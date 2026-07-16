@@ -11,6 +11,7 @@ on:
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-attachment-event.test.js'
       - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
@@ -28,6 +29,7 @@ on:
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-attachment-event.test.js'
       - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
@@ -49,6 +51,8 @@ jobs:
           node-version: 20
       - name: Supervised sequential construction
         run: node tests/sequential-construction-engine.test.js
+      - name: Source-ordered OLET attachment events
+        run: node tests/sequential-attachment-event.test.js
       - name: Head boundary before first component
         run: node tests/sequential-head-boundary-gate.test.js
       - name: Confirmed construction acceptance
