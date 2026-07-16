@@ -1,21 +1,30 @@
 import { DEFAULT_TOLERANCE_MM } from './sequential-sketcher-contract.js';
 import { sequentialSketcherMarkup } from './sequential-sketcher-markup.js';
-import { buildBranchInventory, listBranchIds, parseStagedJson, parseSupportBundle, selectExactBranch } from './sequential-sketcher-source.js';
+import { buildBranchInventory, listBranchIds, parseStagedJson, selectExactBranch } from './sequential-sketcher-source.js';
+import {
+  appendSupportDiagnostics,
+  buildSequentialSketcherSupportProjection,
+  decorateTopologyWithSupportProjection,
+} from './sequential-sketcher-support.js';
 import { buildBranchTopology } from './sequential-sketcher-topology.js';
 import { planSequentialTraversal } from './sequential-sketcher-traversal.js';
 import { renderInspector, renderMetrics, renderSequence, renderSketchSvg } from './sequential-sketcher-renderer.js';
 
 function readFile(file) { return file ? file.text() : Promise.resolve(''); }
 function required(root, selector) { const element = root.querySelector(selector); if (!element) throw new Error(`Sequential Sketcher element missing: ${selector}`); return element; }
+function numberValue(element, fallback) { const value = Number(element.value); return Number.isFinite(value) ? value : fallback; }
 
 export function mountSequentialSketcherWorkspace(root, context = {}) {
   root.innerHTML = sequentialSketcherMarkup();
   const elements = {
-    source: required(root, '[data-ssk-source]'), supports: required(root, '[data-ssk-supports]'), branch: required(root, '[data-ssk-branch]'),
-    tolerance: required(root, '[data-ssk-tolerance]'), status: required(root, '[data-ssk-status]'), canvas: required(root, '[data-ssk-canvas]'),
-    metrics: required(root, '[data-ssk-metrics]'), sequence: required(root, '[data-ssk-sequence]'), inspector: required(root, '[data-ssk-inspector]'), stepLabel: required(root, '[data-ssk-step-label]'),
+    source: required(root, '[data-ssk-source]'), branch: required(root, '[data-ssk-branch]'),
+    tolerance: required(root, '[data-ssk-tolerance]'), supportTolerance: required(root, '[data-ssk-support-tolerance]'),
+    onCenterline: required(root, '[data-ssk-on-centerline]'), supportAmbiguity: required(root, '[data-ssk-support-ambiguity]'),
+    status: required(root, '[data-ssk-status]'), canvas: required(root, '[data-ssk-canvas]'),
+    metrics: required(root, '[data-ssk-metrics]'), sequence: required(root, '[data-ssk-sequence]'),
+    inspector: required(root, '[data-ssk-inspector]'), stepLabel: required(root, '[data-ssk-step-label]'),
   };
-  const model = { records: null, topology: null, traversal: null, mode: 'ISO', step: -1 };
+  const model = { records: null, inventory: null, topology: null, traversal: null, supportBundle: null, mode: 'ISO', step: -1 };
   const setStatus = (message, state = 'info') => { elements.status.textContent = message; elements.status.dataset.state = state; };
 
   function inspect() {
@@ -38,22 +47,42 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
   function compile() {
     if (!model.records) inspect();
     const branch = selectExactBranch(model.records, elements.branch.value);
-    const inventory = buildBranchInventory(branch);
-    const supportBundle = parseSupportBundle(elements.supports.value);
-    model.topology = buildBranchTopology(inventory, { toleranceMm: Number(elements.tolerance.value || DEFAULT_TOLERANCE_MM), supportBundle });
-    model.traversal = planSequentialTraversal(model.topology);
+    model.inventory = buildBranchInventory(branch);
+
+    // Pipe/fitting topology and pen traversal are authoritative and complete before support projection starts.
+    const pipingTopology = buildBranchTopology(model.inventory, {
+      toleranceMm: numberValue(elements.tolerance, DEFAULT_TOLERANCE_MM),
+    });
+    const pipingTraversal = planSequentialTraversal(pipingTopology);
+
+    model.supportBundle = buildSequentialSketcherSupportProjection(
+      model.inventory,
+      pipingTopology,
+      pipingTraversal,
+      {
+        projectionToleranceMm: numberValue(elements.supportTolerance, 50),
+        onCenterlineToleranceMm: numberValue(elements.onCenterline, 0.001),
+        ambiguityToleranceMm: numberValue(elements.supportAmbiguity, 1),
+      },
+    );
+    model.topology = decorateTopologyWithSupportProjection(pipingTopology, model.supportBundle);
+    model.traversal = appendSupportDiagnostics(pipingTraversal, model.topology);
     model.step = model.traversal.commands.length - 1;
     repaint();
+
     const errors = model.traversal.issues.filter((issue) => issue.severity === 'ERROR').length;
-    setStatus(`Compiled ${model.topology.components.length} components into ${model.traversal.routeSections.length} route sections${errors ? ` with ${errors} blocking diagnostics` : ''}.`, errors ? 'warning' : 'ok');
+    const supports = model.topology.supportSummary;
+    setStatus(
+      `Compiled ${model.topology.components.length} components into ${model.traversal.routeSections.length} route sections; projected ${supports.familyCount} support families${supports.unresolvedCount ? `, ${supports.unresolvedCount} unresolved` : ''}${errors ? `, ${errors} blocking diagnostics` : ''}.`,
+      errors ? 'warning' : supports.unresolvedCount ? 'warning' : 'ok',
+    );
   }
 
   async function onChange(event) {
-    const fileKind = event.target?.dataset?.sskFile;
-    if (!fileKind) return;
-    const value = await readFile(event.target.files?.[0]);
-    if (fileKind === 'source') { elements.source.value = value; model.records = null; inspect(); }
-    if (fileKind === 'supports') elements.supports.value = value;
+    if (event.target?.dataset?.sskFile !== 'source') return;
+    elements.source.value = await readFile(event.target.files?.[0]);
+    model.records = null;
+    inspect();
   }
 
   function onClick(event) {
