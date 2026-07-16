@@ -4,6 +4,10 @@ import {
   parseTable2Paste,
   parseTable3Paste,
 } from './pipeline-3d-model-table-paste-parser.js?v=20260716-table-paste-1';
+import {
+  SAMPLE_TABLE_2_PASTE_MULTISHEET,
+  SAMPLE_TABLE_3_PASTE_MULTISHEET,
+} from './pipeline-3d-model-table-paste-samples.js?v=20260716-table-paste-samples-1';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();
@@ -68,6 +72,12 @@ function setRawValue(dialog, name, value) {
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function setPasteValue(dialog, kind, value) {
+  const textarea = dialog.querySelector(`[data-p3d-table-paste="${kind}"]`);
+  if (!textarea) throw new Error(`Table ${kind === 'table2' ? '2' : '3'} Paste is not available.`);
+  textarea.value = value;
+}
+
 function readFrames(dialog) {
   const table1Text = dialog.querySelector('[data-p3d="table1"]')?.value || '';
   return framesFromTable1(parseTable1(table1Text));
@@ -79,6 +89,7 @@ function transferTable2(dialog) {
   setRawValue(dialog, 'table2a-raw', result.rawText);
   const warning = result.warnings.length ? ` ${result.warnings.join(' ')}` : '';
   setStatus(dialog, 'table2', `Transferred ${result.rows.length} row(s).${warning}`, 'ok');
+  return result;
 }
 
 function transferTable3(dialog) {
@@ -93,6 +104,15 @@ function transferTable3(dialog) {
     `Transferred ${result.lengthRows.length} H-length, ${result.zRows.length} Z, and ${result.markerRows.length} marker row(s).`,
     'ok',
   );
+  return result;
+}
+
+export function loadMultiSheetPasteSamples(dialog) {
+  setPasteValue(dialog, 'table2', SAMPLE_TABLE_2_PASTE_MULTISHEET);
+  setPasteValue(dialog, 'table3', SAMPLE_TABLE_3_PASTE_MULTISHEET);
+  const table2 = transferTable2(dialog);
+  const table3 = transferTable3(dialog);
+  return { table2, table3 };
 }
 
 function wireTransfers(dialog) {
@@ -106,6 +126,22 @@ function wireTransfers(dialog) {
     } catch (error) {
       setStatus(dialog, kind, error instanceof Error ? error.message : 'Transfer failed.', 'error');
     }
+  });
+}
+
+function wireMultiSheetSample(dialog) {
+  const button = dialog.querySelector('[data-p3d="new-multisheet"]');
+  if (!button) return;
+  button.addEventListener('click', () => {
+    setTimeout(() => {
+      try {
+        loadMultiSheetPasteSamples(dialog);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Multi-sheet paste samples could not be loaded.';
+        setStatus(dialog, 'table2', message, 'error');
+        setStatus(dialog, 'table3', message, 'error');
+      }
+    }, 0);
   });
 }
 
@@ -125,6 +161,7 @@ export function patchPipeline3dTablePasteDialog(dialog) {
   table3Group.insertAdjacentHTML('beforebegin', pastePanelHtml('table3'));
 
   wireTransfers(dialog);
+  wireMultiSheetSample(dialog);
   return true;
 }
 
@@ -145,4 +182,4 @@ export function installPipeline3dTablePasteAddon(container, doc = container?.own
   return () => container?.removeEventListener?.('click', handleClick);
 }
 
-export const _test = Object.freeze({ pastePanelHtml });
+export const _test = Object.freeze({ pastePanelHtml, loadMultiSheetPasteSamples });
