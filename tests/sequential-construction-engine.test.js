@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
-import { advanceConstruction, createSequentialConstructionSession, runConstructionUntilBlocked } from '../tabs/sequential-sketcher/construction/sequential-construction-engine.js';
+import {
+  advanceConstruction,
+  applyConstructionDecision,
+  createSequentialConstructionSession,
+  runConstructionUntilBlocked,
+} from '../tabs/sequential-sketcher/construction/sequential-construction-engine.js';
 
 function setup(records, branchId) {
   const evidence = buildSequentialEvidenceModel(records);
@@ -87,6 +92,54 @@ function setup(records, branchId) {
   const reducer = result.session.strokeLedger.find((row) => row.op === 'DRAW_REDUCER');
   assert.equal(reducer.inletBoreMm, 168.3);
   assert.equal(reducer.outletBoreMm, 114.3);
+}
+
+{
+  const first = '/TREF/FIRST'; const second = '/TREF/SECOND';
+  const records = [
+    { type: 'BRANCH', name: first, attributes: { NAME: first, HPOS: { x: 0, y: 0, z: 0 }, TREF: second }, children: [
+      { type: 'PIPE', name: 'F-P1', attributes: { APOS: { x: 0, y: 0, z: 0 }, LPOS: { x: 100, y: 0, z: 0 } } },
+    ] },
+    { type: 'BRANCH', name: second, attributes: { NAME: second, HPOS: { x: 140, y: 0, z: 0 } }, children: [
+      { type: 'PIPE', name: 'S-P1', attributes: { APOS: { x: 140, y: 0, z: 0 }, LPOS: { x: 220, y: 0, z: 0 } } },
+      { type: 'CAP', name: 'S-C1', attributes: { APOS: { x: 220, y: 0, z: 0 } } },
+    ] },
+  ];
+  const { evidence, indexes, session } = setup(records, first);
+  const blocked = runConstructionUntilBlocked(session, evidence, indexes, { autoRepairToleranceMm: 25, candidateSearchRadiusMm: 250 });
+  assert.equal(blocked.session.state, 'USER_DECISION_REQUIRED');
+  assert.equal(blocked.session.confirmedComponentIds.length, 1);
+  const candidate = blocked.session.currentDecisionRequest.candidates.find((row) => row.targetBranchId === second);
+  assert.ok(candidate, 'referenced branch candidate must be presented');
+  assert.equal(candidate.gapMm, 40);
+  const approved = applyConstructionDecision(
+    blocked.session,
+    evidence,
+    indexes,
+    'CONNECT',
+    { candidateId: candidate.candidateId, reason: 'Approved referenced continuation' },
+    { exactToleranceMm: 1, autoRepairToleranceMm: 25 },
+  );
+  assert.equal(approved.outcome, 'USER_CONNECTION_COMMITTED');
+  assert.equal(approved.session.repairLedger.length, 1, 'approved long gap remains an auditable virtual connector');
+  const completed = runConstructionUntilBlocked(approved.session, evidence, indexes, {});
+  assert.equal(completed.session.state, 'ROUTE_COMPLETE');
+}
+
+{
+  const main = '/TEE/UNRESOLVED';
+  const records = [{ type: 'BRANCH', name: main, attributes: { NAME: main, HPOS: { x: 0, y: 0, z: 0 } }, children: [
+    { type: 'PIPE', name: 'P1', attributes: { APOS: { x: 0, y: 0, z: 0 }, LPOS: { x: 100, y: 0, z: 0 } } },
+    { type: 'TEE', name: 'T1', attributes: { APOS: { x: 100, y: 0, z: 0 }, POS: { x: 120, y: 0, z: 0 }, LPOS: { x: 140, y: 0, z: 0 }, BPOS: { x: 120, y: 20, z: 0 } } },
+    { type: 'CAP', name: 'C1', attributes: { APOS: { x: 140, y: 0, z: 0 } } },
+  ] }];
+  const { evidence, indexes, session } = setup(records, main);
+  const blocked = runConstructionUntilBlocked(session, evidence, indexes, {});
+  assert.equal(blocked.session.state, 'USER_DECISION_REQUIRED');
+  assert.equal(blocked.session.currentDecisionRequest.reason, 'UNRESOLVED_PENDING_BRANCH');
+  assert.ok(blocked.session.strokeLedger.some((row) => row.op === 'RETURN_TO_JUNCTION'));
+  const terminal = applyConstructionDecision(blocked.session, evidence, indexes, 'MARK_TERMINAL', { reason: 'Branch outlet intentionally unused' }, {});
+  assert.equal(terminal.session.state, 'ROUTE_COMPLETE');
 }
 
 console.log('sequential construction engine tests passed');
