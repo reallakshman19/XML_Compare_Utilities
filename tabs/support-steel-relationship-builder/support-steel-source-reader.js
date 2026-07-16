@@ -26,7 +26,7 @@ const BASE_SUPPORT_TYPES = new Set(['ATTA', 'ANCI', 'SUPPORT']);
 export function collectSupportFamilies(source, overrides = {}) {
   const config = resolveSupportSteelConfig(overrides);
   if (source?.schema === 'PipeSupportProjectionBundle.v1') {
-    return collectProjectionBundleFamilies(source);
+    return collectProjectionBundleFamilies(source, config);
   }
   const supportPattern = compileIdentityPattern(
     config.supportFamilyPattern,
@@ -72,18 +72,21 @@ function isSupportRecord(node, attrs, identity, supportTypes) {
 function isSteelRecord(node, attrs, identity, steelTypes) {
   const type = sourceType(node, attrs);
   const support = isSupportRecord(node, attrs, identity, BASE_SUPPORT_TYPES);
-  if (steelTypes.has(type) && !support) return true;
-  const text = [identity, attrs.DTXR, attrs.DESCRIPTION, attrs.CLASS, type].join(' ');
-  return STRUCTURE_TEXT.test(text) && !support && !SUPPORT_MEMBER_SUFFIX.test(identity);
+  if (support || SUPPORT_MEMBER_SUFFIX.test(identity)) return false;
+  const text = [identity, attrs.DTXR, attrs.DESCRIPTION, attrs.CLASS, attrs.CATEGORY, type].join(' ');
+  const structuralClassEvidence = STRUCTURE_TEXT.test(text);
+  if (type === 'GROUP') return steelTypes.has(type) && structuralClassEvidence;
+  if (steelTypes.has(type)) return true;
+  return structuralClassEvidence;
 }
 
 function addSupportMember(groups, familyId, row, attrs, memberId, config) {
   if (!groups.has(familyId)) groups.set(familyId, createSupportFamily(familyId));
   const group = groups.get(familyId);
   const position = readPosition(attrs, config.supportPositionKeys);
-  const branchId = cleanText(attrs.OWNER || row.owner);
+  const branchId = firstEvidenceValue(attrs, config.ownerEvidenceKeys) || cleanText(row.owner);
   const carrierId = cleanText(attrs.CARRIER_ID || attrs.CARRIER_REF || attrs.PIPE_REF);
-  const references = readReferences(attrs, config.explicitReferenceKeys);
+  const references = readReferences(attrs, config.explicitSteelReferenceKeys);
   group.members.push(createSupportMember(row, attrs, memberId, branchId, position));
   if (position) group.positions.push(position);
   if (branchId) group.branchIds.add(branchId);
@@ -107,7 +110,7 @@ function addSteelRecord(groups, steelGroupId, row, attrs, config) {
   if (!groups.has(steelGroupId)) groups.set(steelGroupId, createSteelGroup(steelGroupId));
   const group = groups.get(steelGroupId);
   const position = readPosition(attrs, config.steelPositionKeys);
-  const owner = cleanText(attrs.OWNER || row.owner);
+  const owner = firstEvidenceValue(attrs, config.ownerEvidenceKeys) || cleanText(row.owner);
   group.records.push({
     recordId: sourceIdentity(row.node, attrs) || null,
     sourceRecordType: sourceType(row.node, attrs),
@@ -120,24 +123,25 @@ function addSteelRecord(groups, steelGroupId, row, attrs, config) {
   if (owner) group.owners.add(owner);
 }
 
-function collectProjectionBundleFamilies(bundle) {
+function collectProjectionBundleFamilies(bundle, config) {
   const groups = new Map();
   for (const carrier of bundle.carriers || []) {
     for (const family of carrier.supportFamilies || []) {
       if (!groups.has(family.familyId)) groups.set(family.familyId, createSupportFamily(family.familyId));
-      mergeProjectionFamily(groups.get(family.familyId), family, carrier, bundle);
+      mergeProjectionFamily(groups.get(family.familyId), family, carrier, bundle, config);
     }
   }
   return [...groups.values()].map(finalizeSupportFamily).sort(byId('familyId'));
 }
 
-function mergeProjectionFamily(group, family, carrier, bundle) {
+function mergeProjectionFamily(group, family, carrier, bundle, config) {
   const position = family.position?.supportPosGlobal || family.position?.centerlinePointGlobal || null;
   if (position) group.positions.push(position);
   if (bundle.branchId) group.branchIds.add(bundle.branchId);
   if (carrier.carrierId) group.carrierIds.add(carrier.carrierId);
   group.members.push(...cloneJson(family.members || []));
-  collectFamilyReferences(family).forEach((value) => group.explicitReferences.add(value));
+  collectFamilyReferences(family, config.explicitSteelReferenceKeys)
+    .forEach((value) => group.explicitReferences.add(value));
 }
 
 function createSupportFamily(familyId) {
@@ -197,14 +201,22 @@ function readReferences(attrs, keys) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function collectFamilyReferences(family) {
+function collectFamilyReferences(family, keys) {
   const values = [];
   for (const member of family.members || []) {
     const attrs = member.attributes || {};
-    for (const key of SUPPORT_STEEL_DEFAULT_CONFIG.explicitReferenceKeys) {
+    for (const key of keys || []) {
       const value = cleanText(attrs[key]);
       if (value) values.push(normalizeReference(value));
     }
   }
   return [...new Set(values.filter(Boolean))];
+}
+
+function firstEvidenceValue(attrs, keys) {
+  for (const key of keys || []) {
+    const value = cleanText(attrs?.[key]);
+    if (value) return value;
+  }
+  return '';
 }
