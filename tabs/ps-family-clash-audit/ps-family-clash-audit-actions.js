@@ -68,6 +68,8 @@ export function createPsFamilyInputReadinessFromTextInputs(input) {
 
 export function createPsFamilyClashAuditFromTextInputs(input) {
   const parsed = parseInputs(input);
+  const sourceFamily = detectSourceFamily(parsed.expected.rows, [...parsed.structure.rows, ...parsed.support.rows], parsed.config);
+  const auditConfig = sourceFamily ? { ...parsed.config, sourceFamily } : parsed.config;
   return buildPsFamilyClashAudit({
     clashRows: parsed.legacy.rows,
     structureGroupRows: parsed.structure.rows,
@@ -75,7 +77,7 @@ export function createPsFamilyClashAuditFromTextInputs(input) {
     expectedRows: parsed.expected.rows,
     elementDetailRows: parsed.pos.rows,
     posFamilies: parsed.pos.posFamilies,
-    config: parsed.config,
+    config: auditConfig,
     diagnostics: [...parsed.legacy.diagnostics, ...parsed.structure.diagnostics, ...parsed.support.diagnostics, ...parsed.expected.diagnostics, ...parsed.details.diagnostics, ...parsed.pos.diagnostics],
   });
 }
