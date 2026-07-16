@@ -198,7 +198,7 @@ Object classification relies on configurable family prefixes and zone/name token
 
 ### Report maturity
 
-Support Chain, Support Members, Structure Contacts, Connectivity Matrix, Clash Detail Rows, and Diagnostics are explicitly marked Review. Their field semantics need formal stabilization before downstream systems depend on them.
+Support Chain, Support Members, Structure Contacts, Connectivity Matrix, and Clash Detail Rows are explicitly marked Review. Their field semantics need formal stabilization before downstream systems depend on them.
 
 ### Duplicate report context
 
