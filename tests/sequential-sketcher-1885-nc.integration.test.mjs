@@ -7,7 +7,7 @@ import {
 import {
   createSequentialConstructionSession,
   runConstructionUntilBlocked,
-} from '../tabs/sequential-sketcher/construction/sequential-gated-construction-engine.js';
+} from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
 
 const SOURCE_COMMIT = 'd5fda9c95fda9bba9b6b05171628ba16778a7667';
 const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/${SOURCE_COMMIT}/Benchmarks/1885_NC/1885_NC.json`;
@@ -162,7 +162,11 @@ assert.equal(tailConnections[0].targetSourceComponentId, EXPECTED_TAIL_REFERENCE
 assert.equal(headConnections[0].gapMm, 0);
 assert.equal(tailConnections[0].gapMm, 0);
 assert.equal(headConnections[0].fromPositionBasis, 'DERIVED_FROM_BRANCH_BOUNDARY');
+assert.equal(tailConnections[0].toPositionBasis, 'DERIVED_FROM_ACTIVE_BOUNDARY_PORT');
+assert.equal(headConnections[0].coordinateDerivationStatus, 'ONE_PORT_DERIVED');
+assert.equal(tailConnections[0].coordinateDerivationStatus, 'ONE_PORT_DERIVED');
 assert.ok(headConnections[0].derivedBranchLegLengthMm > 0);
+assert.ok(tailConnections[0].derivedBranchLegLengthMm > 0);
 assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_HEAD_JUNCTION_BOUNDARY'));
 assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_JUNCTION_BOUNDARY'));
 
