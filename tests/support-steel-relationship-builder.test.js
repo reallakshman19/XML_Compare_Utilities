@@ -40,10 +40,12 @@ test('reconstructs one support family across multiple pipe branches', () => {
 test('resolves explicit support to steel relationship and retains unresolved family', () => {
   const bundle = build();
   assert.equal(bundle.schema, 'SupportSteelRelationshipBundle.v1');
+  assert.equal(bundle.geometryEngineSchema, 'SupportSteelAnalyticalGeometry.v1');
   assert.equal(bundle.bundlePurpose, 'RELATIONSHIP_INFERENCE');
   assert.equal(bundle.contactEvidenceAvailable, false);
   assert.equal(bundle.summary.supportFamilyCount, 2);
   assert.equal(bundle.summary.steelGroupCount, 2);
+  assert.equal(bundle.summary.analyticalSteelGroupCount, 1);
   assert.equal(bundle.summary.resolvedFamilyCount, 1);
   assert.equal(bundle.summary.unresolvedFamilyCount, 1);
   const resolved = bundle.relationships.find((row) => row.supportFamilyId === '/PS-14259');
@@ -53,7 +55,10 @@ test('resolves explicit support to steel relationship and retains unresolved fam
   assert.equal(resolved.evidenceSource, 'STAGED_JSON_RELATIONSHIP_ENGINE');
   assert.equal(resolved.evidenceClass, 'INFERRED');
   assert.equal(resolved.relationshipSemantic, 'INFERRED_STRUCTURAL_RELATIONSHIP');
-  assert.equal(resolved.contactEvidenceStatus, 'NOT_PROVEN');
+  assert.equal(resolved.contactEvidenceStatus, 'ANALYTICAL_PROXIMITY_ONLY');
+  assert.equal(resolved.analyticalGeometryAvailable, true);
+  assert.equal(resolved.geometryMethod, 'POINT_TO_WORLD_OBB');
+  assert.equal(resolved.structuralMemberId, '/SL-4201/BEAM-01');
   assert.match(resolved.evidenceId, /^SSRB:/);
   assert.ok(resolved.relationshipBasis.includes('EXPLICIT_REFERENCE'));
   const unresolved = bundle.relationships.find((row) => row.supportFamilyId === '/PS-14260');
@@ -61,6 +66,7 @@ test('resolves explicit support to steel relationship and retains unresolved fam
   assert.equal(unresolved.relationshipCardinality, 'UNRESOLVED');
   assert.equal(unresolved.nearestSteelGroupId, '/SL-4202');
   assert.equal(unresolved.distanceMm, 50);
+  assert.equal(unresolved.geometryMethod, 'POINT_TO_REPRESENTATIVE_POINT');
 });
 
 test('OWNER remains low-confidence shared-owner evidence and never becomes explicit', () => {
@@ -108,7 +114,7 @@ test('multiple explicit steel candidates are ambiguous, not multiply resolved', 
   assert.ok(bundle.relationships.every((row) => row.relationshipCardinality === 'ONE_TO_MANY_AMBIGUOUS'));
 });
 
-test('uses point proximity only when no stronger explicit relationship exists', () => {
+test('representative point proximity is diagnostic-only by default', () => {
   const support = [{
     type: 'ATTA',
     attributes: { NAME: '/PS-15000/DATUM', POS: { x: 0, y: 0, z: 0 } },
@@ -118,27 +124,87 @@ test('uses point proximity only when no stronger explicit relationship exists', 
     attributes: { NAME: '/SL-5000', POS: { x: 0, y: 0, z: 20 } },
   }];
   const bundle = buildSupportSteelRelationshipBundle({ supportInput: support, steelInput: steel });
-  assert.equal(bundle.relationships[0].relationshipStatus, 'RESOLVED_SPATIAL');
+  assert.equal(bundle.relationships[0].relationshipStatus, 'UNRESOLVED');
   assert.equal(bundle.relationships[0].distanceMm, 20);
-  assert.equal(bundle.relationships[0].contactEvidenceStatus, 'NOT_PROVEN');
+  assert.equal(bundle.relationships[0].geometryQuality, 'FALLBACK');
+  assert.equal(bundle.relationships[0].analyticalGeometryAvailable, false);
+  assert.ok(bundle.diagnostics.some((row) => row.code === 'REPRESENTATIVE_POINT_PROXIMITY_NOT_ACCEPTED'));
 });
 
-test('keeps tied spatial candidates ambiguous', () => {
+test('representative point proximity can be enabled only as an explicit compatibility option', () => {
+  const support = [{
+    type: 'ATTA',
+    attributes: { NAME: '/PS-15002/DATUM', POS: { x: 0, y: 0, z: 0 } },
+  }];
+  const steel = [{
+    type: 'STEEL_GROUP',
+    attributes: { NAME: '/SL-5002', POS: { x: 0, y: 0, z: 20 } },
+  }];
+  const bundle = buildSupportSteelRelationshipBundle({
+    supportInput: support,
+    steelInput: steel,
+    config: { requireAnalyticalGeometryForSpatialResolution: false },
+  });
+  assert.equal(bundle.relationships[0].relationshipStatus, 'RESOLVED_SPATIAL');
+  assert.equal(bundle.relationships[0].distanceMm, 20);
+  assert.deepEqual(bundle.relationships[0].relationshipBasis, ['REPRESENTATIVE_POINT_PROXIMITY']);
+  assert.equal(bundle.relationships[0].confidence, 'LOW');
+});
+
+test('resolves unique analytical bounds proximity', () => {
+  const support = [{
+    type: 'ATTA',
+    attributes: { NAME: '/PS-15100/DATUM', POS: { x: 0, y: 0, z: 0 } },
+  }];
+  const steel = [{
+    type: 'SCTN',
+    attributes: {
+      NAME: '/SL-5200/BEAM-01',
+      DESCRIPTION: 'STRUCTURAL STEEL SECTION',
+      BOUNDS: { min: { x: 10, y: -2, z: -2 }, max: { x: 30, y: 2, z: 2 } },
+    },
+  }];
+  const bundle = buildSupportSteelRelationshipBundle({ supportInput: support, steelInput: steel });
+  const relationship = bundle.relationships[0];
+  assert.equal(relationship.relationshipStatus, 'RESOLVED_SPATIAL');
+  assert.equal(relationship.distanceMm, 10);
+  assert.equal(relationship.geometryMethod, 'POINT_TO_WORLD_OBB');
+  assert.equal(relationship.geometryQuality, 'HIGH');
+  assert.equal(relationship.analyticalGeometryAvailable, true);
+  assert.deepEqual(relationship.relationshipBasis, ['ANALYTICAL_GEOMETRY_PROXIMITY']);
+});
+
+test('keeps tied analytical geometry candidates ambiguous', () => {
   const support = [{
     type: 'ATTA',
     attributes: { NAME: '/PS-15001/DATUM', POS: { x: 0, y: 0, z: 0 } },
   }];
   const steel = [
-    { type: 'STEEL_GROUP', attributes: { NAME: '/SL-5100', POS: { x: 10, y: 0, z: 0 } } },
-    { type: 'STEEL_GROUP', attributes: { NAME: '/SL-5101', POS: { x: -10.5, y: 0, z: 0 } } },
+    {
+      type: 'SCTN',
+      attributes: {
+        NAME: '/SL-5100/BEAM-01',
+        DESCRIPTION: 'STRUCTURAL STEEL SECTION',
+        BOUNDS: { min: { x: 10, y: -1, z: -1 }, max: { x: 12, y: 1, z: 1 } },
+      },
+    },
+    {
+      type: 'SCTN',
+      attributes: {
+        NAME: '/SL-5101/BEAM-01',
+        DESCRIPTION: 'STRUCTURAL STEEL SECTION',
+        BOUNDS: { min: { x: -12.5, y: -1, z: -1 }, max: { x: -10.5, y: 1, z: 1 } },
+      },
+    },
   ];
   const bundle = buildSupportSteelRelationshipBundle({ supportInput: support, steelInput: steel });
   assert.equal(bundle.summary.ambiguousFamilyCount, 1);
   assert.equal(bundle.relationships.length, 2);
   assert.ok(bundle.relationships.every((row) => row.relationshipStatus === 'AMBIGUOUS'));
+  assert.ok(bundle.relationships.every((row) => row.analyticalGeometryAvailable));
 });
 
-test('parses plant coordinates and exports provenance for each ledger row', () => {
+test('parses plant coordinates and exports analytical provenance for each ledger row', () => {
   assert.deepEqual(parsePoint('E 437500mm S 1159000mm U 2100mm'), {
     x: 437500,
     y: -1159000,
@@ -146,9 +212,11 @@ test('parses plant coordinates and exports provenance for each ledger row', () =
   });
   const bundle = build();
   const csv = supportSteelRelationshipsToCsv(bundle);
-  assert.match(csv, /evidenceId,evidenceSource,evidenceClass,sourceSchema/);
-  assert.match(csv, /supportFamilyId,steelGroupId,relationshipStatus,relationshipCardinality/);
+  assert.match(csv, /evidenceId,evidenceSource,evidenceClass,sourceSchema,geometryEngineSchema/);
+  assert.match(csv, /supportFamilyId,steelGroupId,structuralMemberId,relationshipStatus/);
+  assert.match(csv, /analyticalGeometryAvailable,geometryMethod,geometryQuality,distanceMm/);
   assert.match(csv, /PS-14259/);
   assert.match(csv, /RESOLVED_EXPLICIT/);
-  assert.match(csv, /NOT_PROVEN/);
+  assert.match(csv, /ANALYTICAL_PROXIMITY_ONLY/);
+  assert.match(csv, /POINT_TO_WORLD_OBB/);
 });
