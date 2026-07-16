@@ -68,6 +68,7 @@ assert.match(view, /Structural relationships/);
 assert.match(view, /Support-member chain/);
 assert.match(view, /DIFFERENT_STEEL/);
 assert.match(view, /50\.00%/);
+assert.match(view, /Validation only: Yes/);
 assert.match(view, /Production dependency: No/);
 
 const metrics = exportPsFamilyValidationMetricsCsv(benchmark);
@@ -84,12 +85,13 @@ assert.equal(exports.disagreementsCsv, disagreements);
 assert.match(exports.validationJson, /PsFamilyOfflineValidationBenchmark\.v1/);
 
 const addon = readFileSync('tabs/ps-family-clash-audit/ps-family-offline-validation-addon.js', 'utf8');
+const viewSource = readFileSync('tabs/ps-family-clash-audit/ps-family-offline-validation-view.js', 'utf8');
 const bootstrap = readFileSync('tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js', 'utf8');
 assert.match(addon, /data\.psfaWorkspaceTab = TAB_KEY/);
 assert.match(addon, /buildPsFamilyOfflineValidationBenchmark/);
-assert.match(addon, /validationOnly/);
-assert.match(addon, /productionDependency/);
 assert.match(addon, /saveTextFile/);
+assert.match(viewSource, /benchmark\.validationOnly/);
+assert.match(viewSource, /benchmark\.productionDependency/);
 assert.match(bootstrap, /ps-family-offline-validation-addon\.js/);
 assert.match(bootstrap, /evidence-validation-v1/);
 
