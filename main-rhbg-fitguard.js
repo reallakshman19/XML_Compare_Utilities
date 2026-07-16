@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260716-ps-family-native-pipeline-1');
+  const module = await import('./core/app.js?v=20260716-ps-family-carrier-resolution-1');
   await module.init(startupMount());
 }
 
