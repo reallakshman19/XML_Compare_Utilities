@@ -129,6 +129,25 @@ assert.doesNotMatch(confirmedSupport, /advanceConstruction|resolveNextConnection
 const supportProjection = read('support/sj-pipe-support-projection.js');
 assert.match(supportProjection, /carrier\.references/);
 assert.match(supportProjection, /explicitCarrierReferences/);
+assert.match(supportProjection, /deriveSupportFamilyIdentity/);
+assert.match(supportProjection, /SUPPORT_FAMILY_EXCLUDED_FROM_BRANCH_BUNDLE/);
+assert.match(supportProjection, /millimetres only/);
+assert.match(supportProjection, /traversal:\s*cloneJson\(binding\.carrier\.traversal\)/);
+assert.match(supportProjection, /localFrame:\s*normalizedFrame/);
+
+const supportGeometry = read('support/sj-pipe-support-geometry.js');
+for (const contract of [
+  'POSITION_STATUS', 'FITTING_LOCATION_TYPE', 'locateSupportOnCarrier',
+  'projectPointToStraightCarrier', 'projectPointToFittingCarrier', 'buildLocalFrame',
+]) assert.match(supportGeometry, new RegExp(`export (?:const|function) ${contract}`));
+assert.match(supportGeometry, /distanceToCarrierMm/);
+assert.match(supportGeometry, /OUTSIDE_PROJECTION_TOLERANCE/);
+assert.match(supportGeometry, /projectionToleranceMm/);
+
+const supportUtils = read('support/sj-pipe-support-utils.js');
+assert.match(supportUtils, /export function pointDistance/);
+assert.match(supportUtils, /export function parsePoint/);
+assert.match(supportUtils, /export function classifySupportKind/);
 
 const boundaryResolver = read('construction/sequential-boundary-resolver.js');
 assert.match(boundaryResolver, /BOUNDARY_TO_FIRST_COMPONENT_GAP/);
