@@ -65,7 +65,6 @@ assert.doesNotMatch(evidence, /samePoint|toleranceMm/, 'source evidence must not
 
 const engine = read('construction/sequential-construction-engine.js');
 assert.match(engine, /USER_DECISION_REQUIRED/);
-assert.match(engine, /DRAW_VIRTUAL_REPAIR/);
 assert.match(engine, /RETURN_TO_JUNCTION/);
 assert.match(engine, /ENTER_BRANCH/);
 assert.doesNotMatch(engine, /DISCONNECTED_FRAGMENT|unvisited|options\[0\]/,
@@ -82,6 +81,7 @@ const strokes = read('stroke/sequential-component-stroke-compiler.js');
 for (const operation of [
   'DRAW_PIPE', 'DRAW_ELBOW', 'DRAW_REDUCER', 'DRAW_TEE_RUN',
   'REGISTER_TEE_BRANCH', 'DRAW_OLET', 'DRAW_VALVE', 'DRAW_FLANGE', 'DRAW_CAP',
+  'DRAW_VIRTUAL_REPAIR',
 ]) assert.match(strokes, new RegExp(operation));
 
 const canvas = read('canvas/sequential-construction-svg.js');
