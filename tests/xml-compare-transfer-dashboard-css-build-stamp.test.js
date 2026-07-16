@@ -42,9 +42,10 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260708-m23-transfer-tile-layout'), 'index must cache-bust app entry for M23');
-assert.ok(mainEntry.includes("./core/app.js?v=20260708-m23-transfer-tile-layout"), 'main entry must cache-bust core app delegate for M23');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260708-m23-transfer-tile-layout"), 'core app must cache-bust standalone runtime for M23');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260716-ssrb-1'), 'index must cache-bust app entry for the Support / Steel Relationship Builder');
+assert.ok(mainEntry.includes("./core/app.js?v=20260716-ssrb-1"), 'main entry must cache-bust core app delegate for the Support / Steel Relationship Builder');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260716-ssrb-runtime-1"), 'core app must refresh standalone runtime while registering the Support / Steel Relationship Builder');
+assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260716-ssrb-bootstrap-1'), 'core app must register the Support / Steel Relationship Builder cache-safe bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
 assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
