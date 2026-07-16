@@ -17,7 +17,7 @@ assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('SupportChangeXML'));
 
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v7-zone-classification'/);
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
 assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
 assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
 assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
@@ -28,6 +28,9 @@ assert.match(professionalCss, /\.psfa-zone-grid/);
 assert.match(professionalCss, /\.psfa-run-grid/);
 assert.match(professionalCss, /\.psfa-export-preview/);
 assert.match(professionalCss, /\.psfa-export-picker button\[aria-selected="true"\],\.psfa-export-picker button\.active/);
+assert.match(professionalCss, /\.psfa-report-layout/);
+assert.match(professionalCss, /\.psfa-report-group/);
+assert.match(professionalCss, /\.psfa-report-subtabs/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
@@ -68,11 +71,11 @@ assert.ok(shell.includes('Check Readiness'));
 assert.ok(shell.includes('Run Audit'));
 assert.ok(shell.includes('Export Active Report'));
 assert.ok(shell.includes('Export Package'));
-assert.ok(shell.includes('SupportGroup Summary CSV'));
-assert.ok(shell.includes('Line Support Tree TXT'));
-assert.ok(shell.includes('StructureGroup Line Support Proximity CSV'));
-assert.ok(shell.includes('SupportChange Exceptions CSV'));
-assert.ok(shell.includes('Input Evidence Ledger CSV'));
+assert.ok(shell.includes('Support Group Summary CSV'));
+assert.ok(shell.includes('Line Tree TXT'));
+assert.ok(shell.includes('Structure Group Basis CSV'));
+assert.ok(shell.includes('Clash Audit Outcome CSV'));
+assert.ok(shell.includes('Input Evidence CSV'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(!shell.includes('StructureGroup Contacts CSV'));
 assert.ok(!shell.includes('Support Chain CSV'));
@@ -86,8 +89,12 @@ assert.ok(shell.includes('data-psfa="download-all-zip"'));
 assert.ok(shell.includes('Download All ZIP'));
 assert.ok(shell.includes('data-psfa="copy-export-preview"'));
 
-assert.ok(shell.includes('Report search'));
-for (const tab of ['supportSummary', 'lineSupportTree', 'structureLineProximity', 'supportExceptions', 'inputEvidence', 'structureContacts', 'supportChain', 'supportMembers', 'connectivityMatrix', 'clashRows', 'diagnostics']) assert.ok(shell.includes(`data-psfa-tab="${tab}"`));
+assert.ok(shell.includes('Search selected report'));
+for (const group of PS_FAMILY_CLASH_AUDIT_CONFIG.reportGroups) {
+  assert.ok(shell.includes(`data-psfa-report-group="${group.key}"`));
+  assert.ok(shell.includes(`data-psfa-report-subtabs="${group.key}"`));
+}
+for (const tab of ['supportSummary', 'lineSupportTree', 'structureTree', 'structureLineProximity', 'supportExceptions', 'inputEvidence', 'structureContacts', 'supportChain', 'supportMembers', 'connectivityMatrix', 'clashRows', 'diagnostics']) assert.ok(shell.includes(`data-psfa-tab="${tab}"`));
 assert.ok(shell.includes('data-psfa-report-maturity="draft"'));
 assert.ok(shell.includes('data-psfa-report-maturity="stable"'));
 assert.ok(shell.includes('class="psfa-report-table psmap-table-wrap"'));
@@ -102,6 +109,8 @@ assert.match(source, /wirePrefixInput/);
 assert.match(source, /wireExportPreviewButtons/);
 assert.match(source, /saveZipTextFiles/);
 assert.match(source, /updateExportPickerSelection/);
+assert.match(source, /updateReportNavigation/);
+assert.match(source, /activeReportGroup/);
 assert.match(source, /function buildExportEntries/);
 assert.match(source, /event\.key === 'Escape'/);
 assert.doesNotMatch(shell, /Markdown Report/);
@@ -121,5 +130,6 @@ assert.equal(get('root'), fakeRoot);
 assert.equal(get('prefix-detector'), prefixNode);
 assert.equal(get('export-title'), exportTitleNode);
 assert.equal(get('unknown-control'), null);
+assert.equal(_test.firstReportKey(PS_FAMILY_CLASH_AUDIT_CONFIG, 'clashOutcome'), 'supportExceptions');
 
 console.log('ps-family-tabbed-workspace-ui tests passed');
