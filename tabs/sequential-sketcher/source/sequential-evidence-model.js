@@ -2,6 +2,7 @@ import { canonicalComponentType, pointFrom, stableToken } from '../sequential-sk
 
 const TWO_PORT_TYPES = new Set(['PIPE', 'ELBOW', 'REDUCER', 'VALVE', 'FLANGE', 'GASKET', 'INSTRUMENT', 'COUPLING', 'UNION']);
 const TERMINAL_TYPES = new Set(['CAP', 'BLIND']);
+const SHADOW_PRIMARY_TYPES = new Set(['INSTRUMENT', 'VALVE']);
 
 function text(value) { return String(value ?? '').trim(); }
 function number(value) {
@@ -132,14 +133,72 @@ function buildComponent(child, branchId, sourceIndex) {
       eccentricOffsetMm: number(attrs.ECCENTRIC_OFFSET || attrs.ECCENTRICOFFSET),
     }),
     cref: text(attrs.CREF),
+    shadowCarrierEvidence: null,
   });
+}
+
+function exactPoint(left, right) {
+  return Boolean(left && right && left.x === right.x && left.y === right.y && left.z === right.z);
+}
+function componentSpan(component) {
+  const positioned = component.ports.filter((port) => port.sourcePosition);
+  if (positioned.length < 2) return null;
+  return { start: positioned[0].sourcePosition, end: positioned[1].sourcePosition };
+}
+function identicalSpan(left, right) {
+  const a = componentSpan(left); const b = componentSpan(right);
+  if (!a || !b || exactPoint(a.start, a.end) || exactPoint(b.start, b.end)) return null;
+  if (exactPoint(a.start, b.start) && exactPoint(a.end, b.end)) return 'SAME_DIRECTION';
+  if (exactPoint(a.start, b.end) && exactPoint(a.end, b.start)) return 'REVERSED_DIRECTION';
+  return null;
+}
+function isSyntheticAutoPipe(component) {
+  return component.canonicalType === 'PIPE' && /^PIPE\s+AUTO\b/iu.test(component.sourceName || component.sourceComponentId);
+}
+function shadowPair(left, right) {
+  const pipe = isSyntheticAutoPipe(left) ? left : isSyntheticAutoPipe(right) ? right : null;
+  const primary = pipe === left ? right : pipe === right ? left : null;
+  if (!pipe || !primary || !SHADOW_PRIMARY_TYPES.has(primary.canonicalType)) return null;
+  const orientation = identicalSpan(pipe, primary);
+  return orientation ? { pipe, primary, orientation } : null;
+}
+function shadowEvidence(pipe, orientation) {
+  return Object.freeze({
+    schema: 'SequentialShadowCarrierEvidence.v1',
+    componentId: pipe.componentId,
+    sourceComponentId: pipe.sourceComponentId,
+    sourceName: pipe.sourceName,
+    sourceIndex: pipe.sourceIndex,
+    sourceType: pipe.sourceType,
+    canonicalType: pipe.canonicalType,
+    orientation,
+    attributes: pipe.attributes,
+    ports: pipe.ports,
+  });
+}
+function collapseSyntheticCarrierShadows(sourceComponents) {
+  const suppressed = new Set();
+  const shadows = new Map();
+  for (let index = 0; index < sourceComponents.length - 1; index += 1) {
+    const pair = shadowPair(sourceComponents[index], sourceComponents[index + 1]);
+    if (!pair || suppressed.has(pair.pipe.componentId) || shadows.has(pair.primary.componentId)) continue;
+    suppressed.add(pair.pipe.componentId);
+    shadows.set(pair.primary.componentId, shadowEvidence(pair.pipe, pair.orientation));
+  }
+  return sourceComponents
+    .filter((component) => !suppressed.has(component.componentId))
+    .map((component) => {
+      const shadow = shadows.get(component.componentId);
+      return shadow ? Object.freeze({ ...component, shadowCarrierEvidence: shadow }) : component;
+    });
 }
 
 function buildBranch(record, sourceBranchIndex) {
   const branchId = branchIdentity(record);
   const attrs = record?.attributes && typeof record.attributes === 'object' ? record.attributes : {};
   const children = Array.isArray(record?.children) ? record.children : [];
-  const components = children.map((child, sourceIndex) => buildComponent(child, branchId, sourceIndex)).filter(Boolean);
+  const sourceComponents = children.map((child, sourceIndex) => buildComponent(child, branchId, sourceIndex)).filter(Boolean).sort((a, b) => a.sourceIndex - b.sourceIndex);
+  const components = collapseSyntheticCarrierShadows(sourceComponents);
   return Object.freeze({
     branchId,
     sourceBranchIndex,
@@ -148,7 +207,9 @@ function buildBranch(record, sourceBranchIndex) {
     tailPosition: clonePoint(attrs.TPOS),
     href: text(attrs.HREF),
     tref: text(attrs.TREF),
-    components: Object.freeze(components.sort((a, b) => a.sourceIndex - b.sourceIndex)),
+    sourceRouteComponentCount: sourceComponents.length,
+    shadowCarrierCount: sourceComponents.length - components.length,
+    components: Object.freeze(components),
   });
 }
 
@@ -158,6 +219,19 @@ function addMulti(map, key, value) {
   const rows = map.get(normalized) || [];
   if (!rows.some((row) => row.componentId === value.componentId)) rows.push(value);
   map.set(normalized, rows);
+}
+function addComponentAliases(componentReferences, component) {
+  addMulti(componentReferences, component.sourceComponentId, component);
+  addMulti(componentReferences, component.sourceName, component);
+  addMulti(componentReferences, component.attributes?.NAME, component);
+  addMulti(componentReferences, component.attributes?.REF, component);
+  const shadow = component.shadowCarrierEvidence;
+  if (shadow) {
+    addMulti(componentReferences, shadow.sourceComponentId, component);
+    addMulti(componentReferences, shadow.sourceName, component);
+    addMulti(componentReferences, shadow.attributes?.NAME, component);
+    addMulti(componentReferences, shadow.attributes?.REF, component);
+  }
 }
 
 export function buildSequentialEvidenceModel(records) {
@@ -177,17 +251,17 @@ export function buildSequentialEvidenceModel(records) {
     branches: Object.freeze(branches),
     components: Object.freeze(components),
     ports: Object.freeze(ports),
+    audit: Object.freeze({
+      sourceRouteComponentCount: branches.reduce((sum, branch) => sum + branch.sourceRouteComponentCount, 0),
+      activeRouteComponentCount: components.length,
+      shadowCarrierCount: branches.reduce((sum, branch) => sum + branch.shadowCarrierCount, 0),
+    }),
   });
 }
 
 export function indexSequentialEvidence(model) {
   const componentReferences = new Map();
-  for (const component of model.components) {
-    addMulti(componentReferences, component.sourceComponentId, component);
-    addMulti(componentReferences, component.sourceName, component);
-    addMulti(componentReferences, component.attributes?.NAME, component);
-    addMulti(componentReferences, component.attributes?.REF, component);
-  }
+  for (const component of model.components) addComponentAliases(componentReferences, component);
   return Object.freeze({
     branches: new Map(model.branches.map((branch) => [branch.branchId, branch])),
     components: new Map(model.components.map((component) => [component.componentId, component])),
