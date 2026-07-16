@@ -25,6 +25,7 @@ test('reconstructs one support family across multiple pipe branches', () => {
   const family = families.find((row) => row.familyId === '/PS-14259');
   assert.ok(family);
   assert.equal(family.members.length, 4);
+  assert.equal(family.analyticalMemberCount, 2);
   assert.deepEqual(family.branchIds, [
     '/ASIM-1836-4"-P9001002/B3',
     '/ASIM-1836-6"-P9001001/B1',
@@ -37,15 +38,20 @@ test('reconstructs one support family across multiple pipe branches', () => {
   ]);
 });
 
-test('resolves explicit support to steel relationship and retains unresolved family', () => {
+test('resolves explicit support to steel relationship and includes member connectivity evidence', () => {
   const bundle = build();
   assert.equal(bundle.schema, 'SupportSteelRelationshipBundle.v1');
   assert.equal(bundle.geometryEngineSchema, 'SupportSteelAnalyticalGeometry.v1');
-  assert.equal(bundle.bundlePurpose, 'RELATIONSHIP_INFERENCE');
+  assert.equal(bundle.memberChainEngineSchema, 'SupportMemberChainBundle.v1');
+  assert.equal(bundle.bundlePurpose, 'RELATIONSHIP_AND_MEMBER_CONNECTIVITY_INFERENCE');
   assert.equal(bundle.contactEvidenceAvailable, false);
+  assert.equal(bundle.analyticalMemberContactEvidenceAvailable, true);
   assert.equal(bundle.summary.supportFamilyCount, 2);
   assert.equal(bundle.summary.steelGroupCount, 2);
   assert.equal(bundle.summary.analyticalSteelGroupCount, 1);
+  assert.equal(bundle.summary.analyticalSupportMemberCount, 2);
+  assert.equal(bundle.summary.supportChainEdgeCount, 1);
+  assert.equal(bundle.summary.structuralTerminalEdgeCount, 2);
   assert.equal(bundle.summary.resolvedFamilyCount, 1);
   assert.equal(bundle.summary.unresolvedFamilyCount, 1);
   const resolved = bundle.relationships.find((row) => row.supportFamilyId === '/PS-14259');
