@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import {
   buildSequentialEvidenceModel,
   indexSequentialEvidence,
@@ -13,6 +14,7 @@ const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/
 const ROOT_BRANCH = '/ASIM-1885-6"-S8811951-91261M7-HC-01/B3';
 const MAX_REFERENCE_DEPTH = 2;
 const MAX_BRANCHES = 40;
+const REPORT_PATH = 'artifacts/sequential-sketcher/1885-nc-b3-probe.json';
 
 function branchId(record) {
   return String(record?.attributes?.NAME || record?.name || '').trim();
@@ -140,4 +142,6 @@ const report = {
   committedOperations: result.session.strokeLedger.map((command) => command.op),
 };
 
+mkdirSync('artifacts/sequential-sketcher', { recursive: true });
+writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 console.log(JSON.stringify(report, null, 2));
