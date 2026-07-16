@@ -24,27 +24,35 @@ const records = [{ type: 'BRANCH', name: branchId, attributes: { NAME: branchId,
 const evidence = buildSequentialEvidenceModel(records);
 const indexes = indexSequentialEvidence(evidence);
 const branch = indexes.branches.get(branchId);
-const xv = branch.components.find((component) => component.sourceComponentId === '/XV-1');
-const fi = branch.components.find((component) => component.sourceComponentId === '/FI-2');
-const result = runConstructionUntilBlocked(
-  createSequentialConstructionSession(branchId),
-  evidence,
-  indexes,
-  {},
-);
+const xv = branch?.components.find((component) => component.sourceComponentId === '/XV-1') || null;
+const fi = branch?.components.find((component) => component.sourceComponentId === '/FI-2') || null;
+let result = null;
+let constructionError = null;
+try {
+  result = runConstructionUntilBlocked(
+    createSequentialConstructionSession(branchId),
+    evidence,
+    indexes,
+    {},
+  );
+} catch (error) {
+  constructionError = { name: error.name, message: error.message, stack: error.stack };
+}
 let confirmed = null;
 let supportProjection = null;
 let downstreamError = null;
-try {
-  confirmed = createConfirmedSequentialConstruction(result.session, indexes);
-  supportProjection = buildConfirmedConstructionSupportProjection(confirmed, indexes, {});
-} catch (error) {
-  downstreamError = { name: error.name, message: error.message, stack: error.stack };
+if (result) {
+  try {
+    confirmed = createConfirmedSequentialConstruction(result.session, indexes);
+    supportProjection = buildConfirmedConstructionSupportProjection(confirmed, indexes, {});
+  } catch (error) {
+    downstreamError = { name: error.name, message: error.message, stack: error.stack };
+  }
 }
 
 mkdirSync('artifacts/sequential-sketcher', { recursive: true });
 writeFileSync('artifacts/sequential-sketcher/shadow-carrier-probe.json', `${JSON.stringify({
-  branch: {
+  branch: branch ? {
     sourceRouteComponentCount: branch.sourceRouteComponentCount,
     shadowCarrierCount: branch.shadowCarrierCount,
     componentIds: branch.components.map((component) => ({
@@ -53,21 +61,22 @@ writeFileSync('artifacts/sequential-sketcher/shadow-carrier-probe.json', `${JSON
       sourceIndex: component.sourceIndex,
       shadowCarrierEvidence: component.shadowCarrierEvidence,
     })),
-  },
+  } : null,
   evidenceAudit: evidence.audit,
   aliases: {
     primary: indexes.componentReferences.get('=REF/XV1')?.map((component) => component.sourceComponentId) || [],
     shadowName: indexes.componentReferences.get(shadowCarrierName)?.map((component) => component.sourceComponentId) || [],
     shadowRef: indexes.componentReferences.get('=SHADOW/PIPE1')?.map((component) => component.sourceComponentId) || [],
   },
-  construction: {
+  construction: result ? {
     state: result.session.state,
     outcomes: result.outcomes,
     confirmedComponents: result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId),
     operations: result.session.strokeLedger.map((row) => ({ op: row.op, sourceComponentId: row.sourceComponentId, hasShadow: Boolean(row.shadowCarrierEvidence) })),
     connections: result.session.committedConnections,
     decision: result.session.currentDecisionRequest,
-  },
+  } : null,
+  constructionError,
   confirmedAudit: confirmed?.audit || null,
   supportProjection: supportProjection ? {
     glyphs: supportProjection.supportGlyphs,
@@ -79,6 +88,10 @@ writeFileSync('artifacts/sequential-sketcher/shadow-carrier-probe.json', `${JSON
   downstreamError,
 }, null, 2)}\n`, 'utf8');
 
+assert.equal(constructionError, null);
+assert.ok(branch);
+assert.ok(xv);
+assert.ok(fi);
 assert.equal(branch.sourceRouteComponentCount, 7);
 assert.equal(branch.shadowCarrierCount, 2);
 assert.equal(branch.components.length, 5);
