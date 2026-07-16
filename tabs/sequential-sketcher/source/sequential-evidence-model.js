@@ -46,7 +46,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
   const branchPoint = clonePoint(attrs.BPOS || attrs.BRANCH_POS || attrs.BRANCHPOS);
   const inletBore = readBore(attrs, ['INLET_BORE', 'INLETBORE', 'LARGE_BORE', 'LARGEBORE', 'OD1', 'BORE1', 'NPD1']);
   const outletBore = readBore(attrs, ['OUTLET_BORE', 'OUTLETBORE', 'SMALL_BORE', 'SMALLBORE', 'OD2', 'BORE2', 'NPD2']);
-  const commonBore = readBore(attrs, ['BORE', 'NOMINAL_BORE', 'NOMINALBORE', 'OUTSIDE_DIAMETER', 'OUTSIDEDIAMETER', 'OD', 'NPD']);
+  const commonBore = readBore(attrs, ['BORE', 'NOMINAL_BORE', 'NOMINALBORE', 'OUTSIDE_DIAMETER', 'OUTSIDEDIAMETER', 'OD', 'NPD', 'ABORE', 'LBORE', 'HBOR', 'TBOR']);
   const cref = text(attrs.CREF);
 
   if (TWO_PORT_TYPES.has(canonicalType)) {
@@ -72,9 +72,9 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       makePort(componentId, branchId, 'RUN_OUT', lpos, sourceIndex, {
         tangent: tangentFrom(centre || apos, lpos), boreMm: outletBore ?? commonBore,
       }),
-      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
+      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint || centre, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
-        boreMm: readBore(attrs, ['BRANCH_BORE', 'BRANCHBORE', 'OD3', 'BORE3', 'NPD3']),
+        boreMm: readBore(attrs, ['BRANCH_BORE', 'BRANCHBORE', 'OD3', 'BORE3', 'NPD3']) ?? commonBore,
         referenceTarget: cref,
       }),
     ];
@@ -83,7 +83,7 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
   if (canonicalType === 'OLET') {
     return [
       makePort(componentId, branchId, 'HOST_ATTACHMENT', centre || apos, sourceIndex, { boreMm: commonBore }),
-      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint || lpos, sourceIndex, {
+      makePort(componentId, branchId, 'BRANCH_OUT', branchPoint || lpos || centre || apos, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
         boreMm: outletBore ?? commonBore,
         referenceTarget: cref,
@@ -108,6 +108,7 @@ function buildComponent(child, branchId, sourceIndex) {
   return Object.freeze({
     componentId,
     sourceComponentId,
+    sourceName: text(child?.name),
     branchId,
     sourceIndex,
     sourceType: text(child?.type || attrs.TYPE).toUpperCase(),
@@ -116,8 +117,8 @@ function buildComponent(child, branchId, sourceIndex) {
     ports: Object.freeze(ports),
     geometry: Object.freeze({
       centre: clonePoint(attrs.POS || attrs.CPOS || attrs.CENTRE || attrs.CENTER),
-      radiusMm: readBore(attrs, ['BEND_RADIUS', 'BENDRADIUS', 'RADIUS']),
-      angleDeg: number(attrs.ANGLE || attrs.BEND_ANGLE || attrs.BENDANGLE),
+      radiusMm: readBore(attrs, ['BEND_RADIUS', 'BENDRADIUS', 'RADIUS', 'RADI']),
+      angleDeg: number(attrs.ANGLE || attrs.BEND_ANGLE || attrs.BENDANGLE || attrs.ANGL),
       eccentricOffsetMm: number(attrs.ECCENTRIC_OFFSET || attrs.ECCENTRICOFFSET),
     }),
     cref: text(attrs.CREF),
@@ -141,6 +142,14 @@ function buildBranch(record, sourceBranchIndex) {
   });
 }
 
+function addMulti(map, key, value) {
+  const normalized = text(key);
+  if (!normalized) return;
+  const rows = map.get(normalized) || [];
+  if (!rows.some((row) => row.componentId === value.componentId)) rows.push(value);
+  map.set(normalized, rows);
+}
+
 export function buildSequentialEvidenceModel(records) {
   if (!Array.isArray(records)) throw new TypeError('records must be an array.');
   const branches = records
@@ -162,9 +171,17 @@ export function buildSequentialEvidenceModel(records) {
 }
 
 export function indexSequentialEvidence(model) {
+  const componentReferences = new Map();
+  for (const component of model.components) {
+    addMulti(componentReferences, component.sourceComponentId, component);
+    addMulti(componentReferences, component.sourceName, component);
+    addMulti(componentReferences, component.attributes?.NAME, component);
+    addMulti(componentReferences, component.attributes?.REF, component);
+  }
   return Object.freeze({
     branches: new Map(model.branches.map((branch) => [branch.branchId, branch])),
     components: new Map(model.components.map((component) => [component.componentId, component])),
     ports: new Map(model.ports.map((port) => [port.portId, port])),
+    componentReferences,
   });
 }
