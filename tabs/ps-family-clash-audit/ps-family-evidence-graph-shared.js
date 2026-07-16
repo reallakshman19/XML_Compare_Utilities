@@ -29,21 +29,39 @@ export function resolveEvidenceConfig(config = {}) {
 }
 
 export function deriveEvidenceFamilyContext(family) {
-  const branchNodes = uniqueSorted(family.branchIds || []);
-  const attributes = (family.members || []).map((member) => member.attributes || {});
-  const explicitLineFamily = firstAttribute(attributes, ['LINE_FAMILY', 'LINEFAMILY']);
+  const normalized = family?.lineContext || {};
+  const branchNodes = uniqueSorted(normalized.branchNodes || family?.branchIds || []);
+  const fullLineTags = uniqueSorted(normalized.fullLineTags || family?.fullLineTags || []);
+  const lineFamilies = uniqueSorted(normalized.lineFamilies || family?.lineFamilies || []);
+  const carrierIds = uniqueSorted(normalized.carrierIds || family?.carrierIds || []);
+  const attributes = (family?.members || []).map((member) => member.attributes || {});
+  const branchNode = text(normalized.branchNode || family?.branchId || branchNodes[0]);
   const explicitFullLineTag = firstAttribute(attributes, [
     'FULL_LINE_TAG', 'FULLLINETAG', 'LINE_TAG', 'LINETAG', 'LINE_NO', 'LINENO',
   ]);
-  const branchNode = branchNodes[0] || '';
   const derivedTag = branchNode.replace(/^\//u, '').replace(/\/B[^/]*$/iu, '');
-  const fullLineTag = explicitFullLineTag || derivedTag;
+  const fullLineTag = text(
+    normalized.fullLineTag || family?.fullLineTag || fullLineTags[0] || explicitFullLineTag || derivedTag,
+  );
+  const explicitLineFamily = firstAttribute(attributes, ['LINE_FAMILY', 'LINEFAMILY']);
+  const lineFamily = text(
+    normalized.lineFamily || family?.lineFamily || lineFamilies[0] || explicitLineFamily || fullLineTag,
+  );
   return {
     branchNode,
-    branchNodes,
+    branchNodes: branchNodes.length ? branchNodes : [branchNode].filter(Boolean),
     fullLineTag,
-    lineFamily: explicitLineFamily || fullLineTag,
-    carrierIds: uniqueSorted(family.carrierIds || []),
+    fullLineTags: fullLineTags.length ? fullLineTags : [fullLineTag].filter(Boolean),
+    lineFamily,
+    lineFamilies: lineFamilies.length ? lineFamilies : [lineFamily].filter(Boolean),
+    pipeOwner: text(normalized.pipeOwner || family?.pipeOwner),
+    pipeOwners: uniqueSorted(normalized.pipeOwners || family?.pipeOwners || []),
+    carrierIds,
+    contextQuality: text(normalized.contextQuality || 'NONE').toUpperCase(),
+    contextEvidence: uniqueSorted(normalized.contextEvidence || []),
+    ownerFallbackUsed: Boolean(normalized.ownerFallbackUsed),
+    contextConflicts: uniqueSorted(normalized.contextConflicts || []),
+    contextComplete: normalized.contextComplete !== false && Boolean(branchNode && lineFamily),
   };
 }
 
@@ -104,4 +122,8 @@ function firstAttribute(rows, keys) {
     }
   }
   return '';
+}
+
+function text(value) {
+  return String(value ?? '').trim();
 }
