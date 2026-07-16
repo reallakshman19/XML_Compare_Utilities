@@ -11,10 +11,26 @@ function transformedPoint(transform, point, mode) { const projected = project(po
 function commandPoints(command) {
   return [command.entryPosition, command.exitPosition, command.centre, command.branchPosition, command.hostPosition, command.fromPosition, command.toPosition].filter(Boolean);
 }
-function allPlantPoints(session) {
+function candidatePositions(candidate) {
+  return {
+    from: candidate.fromPosition || candidate.targetPosition || candidate.boundaryPosition || null,
+    to: candidate.toPosition || candidate.connectedPosition || candidate.boundaryPosition || null,
+  };
+}
+function candidateGap(candidate) {
+  const value = Number(candidate.gapMm ?? candidate.totalGapMm ?? candidate.targetToBoundaryGapMm);
+  return Number.isFinite(value) ? value : null;
+}
+function supportPoints(supportProjection) {
+  return (supportProjection?.supportGlyphs || []).map((glyph) => glyph.centerlinePointGlobal).filter(Boolean);
+}
+function allPlantPoints(session, supportProjection) {
   const confirmed = session.strokeLedger.flatMap(commandPoints);
-  const candidates = session.currentDecisionRequest?.candidates?.flatMap((candidate) => [candidate.fromPosition, candidate.toPosition]) || [];
-  return [...confirmed, ...candidates];
+  const candidates = session.currentDecisionRequest?.candidates?.flatMap((candidate) => {
+    const points = candidatePositions(candidate);
+    return [points.from, points.to].filter(Boolean);
+  }) || [];
+  return [...confirmed, ...candidates, ...supportPoints(supportProjection)];
 }
 
 function reducerPolygon(a, b, inletWidth, outletWidth) {
@@ -73,11 +89,22 @@ function renderConfirmedCommand(parts, command, transform, mode) {
   }
 }
 
+function renderSupportGlyphs(parts, supportProjection, transform, mode) {
+  parts.push('<g data-ssk-layer="confirmed-supports">');
+  for (const glyph of supportProjection?.supportGlyphs || []) {
+    const point = transformedPoint(transform, glyph.centerlinePointGlobal, mode);
+    if (!point) continue;
+    parts.push(`<g class="ssk-confirmed-support" data-ssk-support-family="${escapeHtml(glyph.familyId)}"><path d="M${point.x.toFixed(2)} ${(point.y - 10).toFixed(2)}V${(point.y + 5).toFixed(2)}M${(point.x - 8).toFixed(2)} ${(point.y + 5).toFixed(2)}H${(point.x + 8).toFixed(2)}"/><text x="${(point.x + 10).toFixed(2)}" y="${(point.y - 3).toFixed(2)}">${escapeHtml(glyph.label)}</text></g>`);
+  }
+  parts.push('</g>');
+}
+
 export function renderSequentialConstructionCanvas(host, session, options = {}) {
   const width = Math.max(640, Number(options.width) || 1000);
   const height = Math.max(420, Number(options.height) || 660);
   const mode = options.mode || 'ISO';
-  const projected = allPlantPoints(session).map((point) => project(point, mode)).filter(Boolean);
+  const supportProjection = options.supportProjection || null;
+  const projected = allPlantPoints(session, supportProjection).map((point) => project(point, mode)).filter(Boolean);
   if (!projected.length) {
     host.innerHTML = '<div class="ssk-empty"><strong>No confirmed construction</strong><span>Start the selected branch to place the first proven component.</span></div>';
     return;
@@ -85,28 +112,35 @@ export function renderSequentialConstructionCanvas(host, session, options = {}) 
   const transform = createViewportTransform(projected, width, height);
   const parts = [`<svg class="ssk-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Gated sequential piping construction">`, '<defs><pattern id="ssk-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="rgba(148,163,184,.11)" stroke-width="1"/></pattern></defs>', `<rect width="${width}" height="${height}" fill="url(#ssk-grid)"/>`, '<g data-ssk-layer="confirmed-geometry">'];
   for (const command of session.strokeLedger) renderConfirmedCommand(parts, command, transform, mode);
-  parts.push('</g><g data-ssk-layer="candidate-connections">');
+  parts.push('</g>');
+  renderSupportGlyphs(parts, supportProjection, transform, mode);
+  parts.push('<g data-ssk-layer="candidate-connections">');
   for (const candidate of session.currentDecisionRequest?.candidates || []) {
-    const from = transformedPoint(transform, candidate.fromPosition, mode);
-    const to = transformedPoint(transform, candidate.toPosition, mode);
+    const positions = candidatePositions(candidate);
+    const from = transformedPoint(transform, positions.from, mode);
+    const to = transformedPoint(transform, positions.to, mode);
     if (!from || !to) continue;
     line(parts, from, to, `ssk-candidate${candidate.candidateId === options.selectedCandidateId ? ' is-selected' : ''}`, `data-ssk-candidate-id="${escapeHtml(candidate.candidateId)}" tabindex="0" role="button"`);
-    parts.push(`<text x="${((from.x + to.x) / 2 + 6).toFixed(2)}" y="${((from.y + to.y) / 2 - 6).toFixed(2)}" class="ssk-candidate-label">${escapeHtml(candidate.gapMm.toFixed(1))} mm</text>`);
+    const gap = candidateGap(candidate);
+    if (gap !== null) parts.push(`<text x="${((from.x + to.x) / 2 + 6).toFixed(2)}" y="${((from.y + to.y) / 2 - 6).toFixed(2)}" class="ssk-candidate-label">${escapeHtml(gap.toFixed(1))} mm</text>`);
   }
   parts.push('</g>');
-  const activePort = session.currentDecisionRequest?.candidates?.[0]?.fromPosition;
-  const active = transformedPoint(transform, activePort, mode);
+  const activeCandidate = session.currentDecisionRequest?.candidates?.[0];
+  const activePosition = activeCandidate ? candidatePositions(activeCandidate).to : null;
+  const active = transformedPoint(transform, activePosition, mode);
   if (active) parts.push(`<g data-ssk-layer="active-port"><circle cx="${active.x.toFixed(2)}" cy="${active.y.toFixed(2)}" r="10" class="ssk-active-port"/></g>`);
   parts.push('</svg>');
   host.innerHTML = parts.join('');
 }
 
-export function renderConstructionMetrics(host, session) {
+export function renderConstructionMetrics(host, session, supportProjection = null) {
   const metrics = [
     ['State', session.state],
     ['Components', session.confirmedComponentIds.length],
     ['Connections', session.committedConnections.length],
     ['Repairs', session.repairLedger.length],
+    ['Supports', supportProjection?.supportGlyphs?.length || 0],
+    ['Unresolved supports', supportProjection?.unresolvedSupportFamilies?.length || 0],
     ['Pending branches', session.pendingBranchJunctions.length],
     ['Decisions', session.decisionLedger.length],
   ];
@@ -117,10 +151,16 @@ export function renderConstructionSequence(host, session) {
   host.innerHTML = session.strokeLedger.map((command, index) => `<button type="button" disabled><span>${String(index + 1).padStart(2, '0')}</span><b>${escapeHtml(command.op)}</b><small>${escapeHtml(command.sourceComponentId || command.connectionId || command.branchId || '')}</small></button>`).join('');
 }
 
-export function renderConstructionInspector(host, session, evidenceIndexes, selectedCandidateId = '') {
+export function renderConstructionInspector(host, session, evidenceIndexes, selectedCandidateId = '', supportProjection = null) {
   const activePort = evidenceIndexes?.ports?.get(session.activeExitPortId);
   const request = session.currentDecisionRequest;
   const candidates = request?.candidates || [];
-  const candidateHtml = candidates.length ? candidates.map((candidate, index) => `<article class="ssk-candidate-card${candidate.candidateId === selectedCandidateId ? ' is-selected' : ''}" data-ssk-candidate-card="${escapeHtml(candidate.candidateId)}"><header><b>Candidate ${index + 1}</b><span>${escapeHtml(candidate.gapMm.toFixed(2))} mm</span></header><p>${escapeHtml(candidate.targetSourceComponentId)}<br>${escapeHtml(candidate.targetBranchId)}</p><dl><dt>Direction</dt><dd>${candidate.directionAngleDeg === null ? 'unknown' : `${candidate.directionAngleDeg.toFixed(1)}°`}</dd><dt>Bore</dt><dd>${escapeHtml(candidate.boreCompatibility)}</dd><dt>Evidence</dt><dd>${escapeHtml([candidate.referenceMatch ? 'reference' : '', candidate.sourceAdjacent ? 'source sequence' : ''].filter(Boolean).join(', ') || 'proximity only')}</dd></dl><div><button type="button" data-ssk-select-candidate="${escapeHtml(candidate.candidateId)}">Preview</button><button type="button" data-ssk-connect-candidate="${escapeHtml(candidate.candidateId)}">Connect</button><button type="button" data-ssk-reject-candidate="${escapeHtml(candidate.candidateId)}">Reject</button></div></article>`).join('') : '<p>No eligible continuation candidate.</p>';
-  host.innerHTML = `<section><h3>Construction session</h3><dl><dt>State</dt><dd>${escapeHtml(session.state)}</dd><dt>Branch</dt><dd>${escapeHtml(session.activeBranchId || '—')}</dd><dt>Component</dt><dd>${escapeHtml(evidenceIndexes?.components?.get(session.activeComponentId)?.sourceComponentId || '—')}</dd><dt>Active port</dt><dd>${escapeHtml(activePort?.role || '—')}</dd></dl></section>${request ? `<section class="ssk-decision-panel"><h3>Construction stopped</h3><p><b>${escapeHtml(request.reason)}</b></p><div class="ssk-candidate-list">${candidateHtml}</div><div class="ssk-decision-actions"><button type="button" data-ssk-decision-action="MARK_TERMINAL">Mark intentional terminal</button><button type="button" data-ssk-decision-action="MARK_EXTERNAL_BOUNDARY">Mark external boundary</button></div></section>` : '<section><h3>Continuity gate</h3><p>Construction is clear to advance. Only proven components are shown.</p></section>'}`;
+  const candidateHtml = candidates.length ? candidates.map((candidate, index) => {
+    const gap = candidateGap(candidate);
+    const direction = Number(candidate.directionAngleDeg);
+    const evidence = [candidate.referenceMatch || candidate.referenceKind ? 'reference' : '', candidate.sourceAdjacent ? 'source sequence' : '', candidate.targetPositionBasis?.startsWith('DERIVED') ? 'derived boundary port' : ''].filter(Boolean).join(', ') || 'constrained candidate';
+    return `<article class="ssk-candidate-card${candidate.candidateId === selectedCandidateId ? ' is-selected' : ''}" data-ssk-candidate-card="${escapeHtml(candidate.candidateId)}"><header><b>Candidate ${index + 1}</b><span>${gap === null ? 'gap unknown' : `${escapeHtml(gap.toFixed(2))} mm`}</span></header><p>${escapeHtml(candidate.targetSourceComponentId || candidate.referenceTarget || 'Reference target')}<br>${escapeHtml(candidate.targetBranchId || '')}</p><dl><dt>Port</dt><dd>${escapeHtml(candidate.targetPortRole || '—')}</dd><dt>Direction</dt><dd>${Number.isFinite(direction) ? `${direction.toFixed(1)}°` : 'unknown'}</dd><dt>Bore</dt><dd>${escapeHtml(candidate.boreCompatibility || 'unknown')}</dd><dt>Evidence</dt><dd>${escapeHtml(evidence)}</dd></dl><div><button type="button" data-ssk-select-candidate="${escapeHtml(candidate.candidateId)}">Preview</button><button type="button" data-ssk-connect-candidate="${escapeHtml(candidate.candidateId)}">Connect</button><button type="button" data-ssk-reject-candidate="${escapeHtml(candidate.candidateId)}">Reject</button></div></article>`;
+  }).join('') : '<p>No eligible continuation candidate.</p>';
+  const supportHtml = supportProjection ? `<section><h3>Accepted support projection</h3><dl><dt>Resolved</dt><dd>${supportProjection.supportGlyphs.length}</dd><dt>Unresolved</dt><dd>${supportProjection.unresolvedSupportFamilies.length}</dd><dt>Diagnostics</dt><dd>${supportProjection.diagnostics.length}</dd></dl></section>` : '';
+  host.innerHTML = `<section><h3>Construction session</h3><dl><dt>State</dt><dd>${escapeHtml(session.state)}</dd><dt>Branch</dt><dd>${escapeHtml(session.activeBranchId || '—')}</dd><dt>Component</dt><dd>${escapeHtml(evidenceIndexes?.components?.get(session.activeComponentId)?.sourceComponentId || '—')}</dd><dt>Active port</dt><dd>${escapeHtml(activePort?.role || '—')}</dd></dl></section>${request ? `<section class="ssk-decision-panel"><h3>Construction stopped</h3><p><b>${escapeHtml(request.reason)}</b></p><div class="ssk-candidate-list">${candidateHtml}</div><div class="ssk-decision-actions"><button type="button" data-ssk-decision-action="MARK_TERMINAL">Mark intentional terminal</button><button type="button" data-ssk-decision-action="MARK_EXTERNAL_BOUNDARY">Mark external boundary</button></div></section>` : '<section><h3>Continuity gate</h3><p>Construction is clear to advance. Only proven components are shown.</p></section>'}${supportHtml}`;
 }
