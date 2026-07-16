@@ -36,8 +36,25 @@ export function reconstructSupportFamilies(supportRecords, context = {}) {
     const attrs = sourceAttributes(record);
     const sourceRecordType = sourceType(record, attrs);
     const memberId = cleanText(attrs.NAME);
-    const identity = deriveSupportFamilyIdentity(memberId, attrs, sourceIndex);
 
+    if (isNonSemanticAttachmentPlaceholder(record, attrs, memberId)) {
+      const sourceParentBranch = sourceBranch(record, attrs);
+      const position = readSupportPosition(attrs);
+      diagnostics.push({
+        severity: 'INFO',
+        code: 'NON_SEMANTIC_ATTACHMENT_EXCLUDED',
+        memberId: memberId || null,
+        sourceIndex,
+        sourceRecordType,
+        sourceParentBranch: sourceParentBranch || null,
+        sourcePositionGlobal: position ? clonePoint(position) : null,
+        attributes: cloneJson(attrs),
+        message: 'Generic ATTA placeholder was retained as audit evidence and excluded from semantic support-family reconstruction.',
+      });
+      return;
+    }
+
+    const identity = deriveSupportFamilyIdentity(memberId, attrs, sourceIndex);
     if (!SUPPORT_SOURCE_TYPES.has(sourceRecordType) && !memberId && identity.familyIdBasis === 'UNRESOLVED') return;
     if (!memberId) diagnostics.push({
       severity: 'WARNING',
@@ -79,6 +96,26 @@ export function reconstructSupportFamilies(supportRecords, context = {}) {
   });
 
   return [...groups.values()].map((group) => finalizeFamily(group, context, diagnostics));
+}
+
+export function isNonSemanticAttachmentPlaceholder(record = {}, attrs = sourceAttributes(record), memberId = cleanText(attrs?.NAME)) {
+  const recordType = sourceType(record, attrs);
+  if (recordType !== 'ATTA') return false;
+  const identity = cleanText(memberId);
+  if (!/^=\d+(?:\/\d+)?$/u.test(identity)) return false;
+
+  const functionText = firstText(attrs, [
+    'CMPSUPTYPE', 'MDSSUPPTYPE', 'SUPPORT_KIND', 'SUPPORT_MAPPER_KIND',
+    'SUPPORT_TYPE', 'NODETYPE', 'FUNCTION',
+  ]);
+  const description = firstText(attrs, ['DTXR', 'DESCRIPTION', 'DESC', 'STEX']);
+  const placeholderDescription = !description || /^-+$/u.test(description);
+  if (functionText || !placeholderDescription) return false;
+
+  const aliases = [attrs.REF, attrs.SUPPORT_TAG]
+    .map(cleanText)
+    .filter(Boolean);
+  return aliases.length > 0 && aliases.every((value) => value === identity);
 }
 
 export function deriveSupportFamilyIdentity(memberId, attrs = {}, sourceIndex = 0) {
