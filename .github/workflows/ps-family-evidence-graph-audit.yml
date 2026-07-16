@@ -1,0 +1,26 @@
+name: PS Family Evidence Graph Audit
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tabs/support-steel-relationship-builder/**'
+      - 'tests/ps-family-*.test.js'
+      - 'package.json'
+      - '.github/workflows/ps-family-evidence-graph-audit.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Graph-native audit tests
+        run: node --test tests/ps-family-evidence-graph-audit.test.js
+      - name: Audit configuration and UI contracts
+        run: node tests/ps-family-clash-audit-config.test.js && node tests/ps-family-clash-audit-ui-smoke.test.js && node tests/ps-family-accessibility-gate.test.js
+      - name: Legacy XML validation compatibility
+        run: node tests/ps-family-psclash-report.test.js
