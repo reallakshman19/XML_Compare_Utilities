@@ -20,10 +20,13 @@ for (const required of [
   'sequential-sketcher-projection.js', 'sequential-sketcher-markup.js',
   'sequential-sketcher-workspace.js', 'sequential-sketcher-tab.js', 'sequential-sketcher.css',
   'source/sequential-evidence-model.js',
+  'source/sequential-reference-resolver.js',
   'construction/sequential-construction-contract.js',
+  'construction/sequential-boundary-resolver.js',
   'construction/sequential-connection-resolver.js',
   'construction/sequential-terminal-classifier.js',
   'construction/sequential-construction-engine.js',
+  'construction/sequential-gated-construction-engine.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
   'support/sj-pipe-support-projection.js', 'support/sj-pipe-support-family.js',
@@ -48,7 +51,7 @@ for (const label of [
 assert.doesNotMatch(markup, /Compile branch|Coordinate tolerance/, 'graph-first compile controls must be retired');
 
 const workspace = read('sequential-sketcher-workspace.js');
-assert.match(workspace, /sequential-construction-engine\.js/);
+assert.match(workspace, /sequential-gated-construction-engine\.js/);
 assert.match(workspace, /buildSequentialEvidenceModel/);
 assert.match(workspace, /runConstructionUntilBlocked/);
 assert.match(workspace, /applyConstructionDecision/);
@@ -61,6 +64,7 @@ assert.match(evidence, /resolvedPosition:\s*null/);
 assert.match(evidence, /RUN_IN/);
 assert.match(evidence, /RUN_OUT/);
 assert.match(evidence, /BRANCH_OUT/);
+assert.match(evidence, /boreStatus/);
 assert.doesNotMatch(evidence, /samePoint|toleranceMm/, 'source evidence must not merge coordinates');
 
 const engine = read('construction/sequential-construction-engine.js');
@@ -70,12 +74,24 @@ assert.match(engine, /ENTER_BRANCH/);
 assert.doesNotMatch(engine, /DISCONNECTED_FRAGMENT|unvisited|options\[0\]/,
   'construction authority must not continue through arbitrary or disconnected graph sections');
 
+const gatedEngine = read('construction/sequential-gated-construction-engine.js');
+assert.match(gatedEngine, /HEAD_BOUNDARY_TO_JUNCTION/);
+assert.match(gatedEngine, /CONFIRM_HEAD_JUNCTION_BOUNDARY/);
+assert.match(gatedEngine, /headBoundaryValidated/);
+assert.match(gatedEngine, /resolveBoundaryReference/);
+
+const boundaryResolver = read('construction/sequential-boundary-resolver.js');
+assert.match(boundaryResolver, /BOUNDARY_TO_FIRST_COMPONENT_GAP/);
+assert.match(boundaryResolver, /MULTIPLE_BOUNDARY_REFERENCE_PORTS/);
+assert.match(boundaryResolver, /DERIVED_FROM_BRANCH_BOUNDARY/);
+
 const resolver = read('construction/sequential-connection-resolver.js');
 assert.match(resolver, /autoRepairToleranceMm/);
 assert.match(resolver, /MULTIPLE_REPAIR_CANDIDATES/);
 assert.match(resolver, /CONTINUITY_NOT_PROVEN/);
 assert.match(resolver, /sourceAdjacent/);
 assert.match(resolver, /referenceMatch/);
+assert.match(resolver, /derivedBranchLegLengthMm/);
 
 const strokes = read('stroke/sequential-component-stroke-compiler.js');
 for (const operation of [
@@ -96,10 +112,13 @@ const support = read('sequential-sketcher-support.js');
 assert.match(support, /\.\/support\/sj-pipe-support-projection\.js/);
 const constructionFiles = [
   'source/sequential-evidence-model.js',
+  'source/sequential-reference-resolver.js',
   'construction/sequential-construction-contract.js',
+  'construction/sequential-boundary-resolver.js',
   'construction/sequential-connection-resolver.js',
   'construction/sequential-terminal-classifier.js',
   'construction/sequential-construction-engine.js',
+  'construction/sequential-gated-construction-engine.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
   'sequential-sketcher-workspace.js',
