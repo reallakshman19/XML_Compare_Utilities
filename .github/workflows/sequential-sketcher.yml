@@ -1,0 +1,33 @@
+name: Sequential Sketcher
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-sketcher-*.test.js'
+      - '.github/workflows/sequential-sketcher.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-sketcher-*.test.js'
+      - '.github/workflows/sequential-sketcher.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sequential-sketcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Core topology and traversal
+        run: node tests/sequential-sketcher-core.test.js
+      - name: UI architecture gate
+        run: node tests/sequential-sketcher-ui-static.test.js
