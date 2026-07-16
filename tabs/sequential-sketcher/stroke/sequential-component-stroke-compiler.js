@@ -6,6 +6,7 @@ function command(op, component, fields = {}) {
     sourceComponentId: component.sourceComponentId,
     branchId: component.branchId,
     componentType: component.canonicalType,
+    shadowCarrierEvidence: component.shadowCarrierEvidence || null,
     ...fields,
   });
 }
@@ -50,6 +51,7 @@ export function compileComponentStrokes(component, traversal) {
       command('REGISTER_OLET_BRANCH', component, { branchPortId: traversal.pendingBranchPort?.portId || null, branchPosition: point(traversal.pendingBranchPort), referenceTarget: traversal.pendingBranchPort?.referenceTarget || component.cref || '' }),
     ];
     case 'VALVE': return [command('DRAW_VALVE', component, common)];
+    case 'INSTRUMENT': return [command('DRAW_INSTRUMENT', component, common)];
     case 'FLANGE': return [command('DRAW_FLANGE', component, common)];
     case 'GASKET': return [command('DRAW_GASKET', component, common)];
     case 'CAP':
