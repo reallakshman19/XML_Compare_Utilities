@@ -1,0 +1,53 @@
+name: PS Family Clash Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tests/ps-family-*.test.js'
+      - '.github/workflows/ps-family-clash-audit.yml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tests/ps-family-*.test.js'
+      - '.github/workflows/ps-family-clash-audit.yml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.test_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - test_name: Core audit
+            test_file: tests/ps-family-clash-audit.test.js
+          - test_name: Configuration and reports
+            test_file: tests/ps-family-clash-audit-config.test.js
+          - test_name: UI smoke and scrolling
+            test_file: tests/ps-family-clash-audit-ui-smoke.test.js
+          - test_name: Output fixtures
+            test_file: tests/ps-family-output-fixtures.test.js
+          - test_name: Performance benchmark
+            test_file: tests/ps-family-performance-benchmark.test.js
+          - test_name: Accessibility gate
+            test_file: tests/ps-family-accessibility-gate.test.js
+          - test_name: Benchmark readiness
+            test_file: tests/ps-family-clash-audit-benchmark-readiness.test.js
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Run ${{ matrix.test_name }}
+        run: node ${{ matrix.test_file }}
