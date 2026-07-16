@@ -28,8 +28,10 @@ assert.deepEqual(config.reportGroups.map((group) => group.label), [
 assert.deepEqual(config.reportGroups.find((group) => group.key === 'supportGroup').reportKeys, ['supportSummary', 'supportChain', 'supportMembers']);
 assert.deepEqual(config.reportGroups.find((group) => group.key === 'structureBasis').reportKeys, ['structureLineProximity', 'structureContacts']);
 assert.deepEqual(config.reportGroups.find((group) => group.key === 'clashSummary').reportKeys, ['supportSummary', 'connectivityMatrix', 'clashRows']);
-assert.ok(config.reportTabs.some((tab) => tab.key === 'supportSummary' && tab.label === 'Support Group Summary' && tab.maturity === 'stable'));
-assert.ok(config.reportTabs.some((tab) => tab.key === 'structureTree' && tab.maturity === 'stable'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'supportSummary' && tab.label === 'SupportGroup Summary' && tab.maturity === 'stable'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'supportChain' && tab.label === 'Support Chain Report'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'structureLineProximity' && tab.label === 'StructureGroup Line Support Proximity Basis'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'structureTree' && tab.label === 'Structure Tree' && tab.maturity === 'stable'));
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureContacts' && tab.maturity === 'draft'));
 assert.equal(config.outputButtons.length, 6);
 assert.ok(config.info.some((item) => item.includes('LineFamily_PSRoot')));

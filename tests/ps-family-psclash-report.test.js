@@ -78,7 +78,7 @@ assert.equal(buildSupportChangeReports([structureContact], [{ ...supportChain, s
 assert.equal(buildSupportChangeReports([{ ...structureContact, supportGroup: '' }], [], []).supportExceptionRows[0].exceptionCode, 'ORPHAN_STRUCTURAL_GROUP');
 
 const supportSummaryHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(supportSummaryHtml.includes('Support Group Summary'));
+assert.ok(supportSummaryHtml.includes('SupportGroup Summary'));
 assert.ok(supportSummaryHtml.includes('S8810011_PS-14396'));
 assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('SupportChange Exceptions'));
 
