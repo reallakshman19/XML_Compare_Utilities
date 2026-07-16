@@ -70,8 +70,8 @@ assert.match(tabSource, /showWorkspacePanel/);
 assert.match(tabSource, /updateReportNavigation/);
 assert.match(tabSource, /activeReportGroup/);
 assert.match(tabSource, /exportActiveReportCsv/);
-assert.match(tabSource, /RELATIONSHIP_BUNDLE/);
 assert.match(tabSource, /relationshipBundleText/);
+assert.match(tabSource, /wireEvidenceModes/);
 assert.match(professionalSource, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v10-report-hub'/);
 
 assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v10-report-hub');
