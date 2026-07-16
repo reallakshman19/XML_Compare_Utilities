@@ -9,6 +9,8 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
@@ -23,6 +25,8 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-support-placeholder.test.js'
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
@@ -35,7 +39,7 @@ permissions:
 jobs:
   sequential-sketcher:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,10 +53,14 @@ jobs:
         run: node tests/sequential-construction-acceptance.test.js
       - name: Confirmed support projection
         run: node tests/sequential-confirmed-support-projection.test.js
+      - name: Non-semantic ATTA placeholder isolation
+        run: node tests/sequential-support-placeholder.test.js
       - name: Pinned 1885 NC branch probe
         run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
       - name: Pinned B3 support evidence
         run: node tests/sequential-sketcher-1885-nc-support-evidence.mjs
+      - name: Pinned B3 support semantics
+        run: node tests/sequential-sketcher-1885-nc-support-regression.mjs
       - name: Publish 1885 NC probe
         if: always()
         uses: actions/upload-artifact@v4
