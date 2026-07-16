@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
 import {
   createSequentialConstructionSession,
@@ -9,6 +10,27 @@ function setup(records, branchId) {
   const evidence = buildSequentialEvidenceModel(records);
   return { evidence, indexes: indexSequentialEvidence(evidence), session: createSequentialConstructionSession(branchId) };
 }
+function sessionReport(result, indexes) {
+  return {
+    state: result.session.state,
+    outcomes: result.outcomes,
+    confirmedComponents: result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId),
+    operations: result.session.strokeLedger.map((row) => row.op),
+    pendingJunctions: result.session.pendingBranchJunctions,
+    blockedReason: result.session.currentDecisionRequest?.reason || null,
+    candidates: (result.session.currentDecisionRequest?.candidates || []).map((candidate) => ({
+      targetSourceComponentId: candidate.targetSourceComponentId,
+      targetComponentType: candidate.targetComponentType,
+      targetPortRole: candidate.targetPortRole,
+      sourceAdjacent: candidate.sourceAdjacent,
+      attachmentEvent: candidate.attachmentEvent,
+      gapMm: candidate.gapMm,
+    })),
+  };
+}
+
+let resolvedReport;
+let brokenReport;
 
 {
   const main = '/EVENT/MAIN';
@@ -27,6 +49,9 @@ function setup(records, branchId) {
   ];
   const { evidence, indexes, session } = setup(records, main);
   const result = runConstructionUntilBlocked(session, evidence, indexes, {});
+  resolvedReport = sessionReport(result, indexes);
+  mkdirSync('artifacts/sequential-sketcher', { recursive: true });
+  writeFileSync('artifacts/sequential-sketcher/attachment-event-probe.json', `${JSON.stringify({ resolvedReport }, null, 2)}\n`, 'utf8');
   assert.equal(result.session.state, 'ROUTE_COMPLETE');
   const components = result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId);
   assert.deepEqual(components.slice(0, 4), ['P1', 'O1', 'P2', 'C1']);
@@ -45,6 +70,9 @@ function setup(records, branchId) {
   ] }];
   const { evidence, indexes, session } = setup(records, main);
   const result = runConstructionUntilBlocked(session, evidence, indexes, {});
+  brokenReport = sessionReport(result, indexes);
+  mkdirSync('artifacts/sequential-sketcher', { recursive: true });
+  writeFileSync('artifacts/sequential-sketcher/attachment-event-probe.json', `${JSON.stringify({ resolvedReport, brokenReport }, null, 2)}\n`, 'utf8');
   assert.equal(result.session.state, 'USER_DECISION_REQUIRED');
   assert.equal(result.session.currentDecisionRequest.reason, 'ATTACHMENT_EVENT_GAP_EXCEEDS_LIMIT');
   assert.deepEqual(result.session.confirmedComponentIds.map((id) => indexes.components.get(id)?.sourceComponentId), ['P1']);
