@@ -4,7 +4,7 @@ import { buildSequentialEvidenceModel, indexSequentialEvidence } from './source/
 import {
   advanceConstruction, applyConstructionDecision, createSequentialConstructionSession,
   runConstructionUntilBlocked,
-} from './construction/sequential-construction-engine.js';
+} from './construction/sequential-gated-construction-engine.js';
 import { DECISION_ACTIONS } from './construction/sequential-construction-contract.js';
 import {
   renderConstructionInspector, renderConstructionMetrics, renderConstructionSequence,
