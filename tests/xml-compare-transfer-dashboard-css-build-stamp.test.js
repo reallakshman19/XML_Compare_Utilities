@@ -42,11 +42,11 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260716-ps-family-offline-validation-1'), 'index must cache-bust app entry for the offline validation stage');
-assert.ok(mainEntry.includes("./core/app.js?v=20260716-ps-family-offline-validation-1"), 'main entry must cache-bust core app delegate for offline validation');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260716-ps-family-validation-runtime-1"), 'core app must refresh the standalone runtime for offline validation');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260716-ps-family-native-pipeline-1'), 'index must cache-bust app entry for the native audit pipeline');
+assert.ok(mainEntry.includes("./core/app.js?v=20260716-ps-family-native-pipeline-1"), 'main entry must cache-bust core app delegate for the native audit pipeline');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260716-ps-family-native-runtime-1"), 'core app must refresh the standalone runtime for the native audit pipeline');
 assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260716-ssrb-member-chain-1'), 'core app must retain the member-chain-aware relationship builder bootstrap');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260716-ps-family-offline-validation-1'), 'core app must load the validation-aware evidence audit bootstrap');
+assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260716-ps-family-native-pipeline-1'), 'core app must load the native-pipeline-aware evidence audit bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
 assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
