@@ -123,10 +123,10 @@ const directReports = buildSupportChangeReports(structureParsed.rows, supportPar
 assert.deepEqual(directReports.supportSummaryRows, audit.supportSummaryRows);
 
 const reportHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(reportHtml.includes('SupportGroup Summary'));
+assert.ok(reportHtml.includes('Support Group Summary'));
 assert.ok(reportHtml.includes('S8810011_PS-14396'));
 assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('SupportChange Exceptions'));
-assert.ok(renderPsFamilyReports(proximityReports, 'structureLineProximity', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('TotalSupportCount'));
+assert.ok(renderPsFamilyReports(proximityReports, 'structureLineProximity', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('Total Support Count'));
 const exports = createPsFamilyAuditExports(audit);
 assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
 assert.match(exports.lineSupportTreeText, /Line: ASIM-1836-6"-S8810011-91261M7-HC-01/);
@@ -135,7 +135,7 @@ assert.match(createPsFamilyAuditExports(proximityReports).structureLineProximity
 assert.match(createPsFamilyAuditExports(proximityReports).structureLineProximityCsv, /PS-14311\.4\|PS-14311\.5/);
 
 const stableTabs = PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'stable').map((tab) => tab.key);
-assert.deepEqual(stableTabs, ['supportSummary', 'lineSupportTree', 'structureLineProximity', 'supportExceptions', 'inputEvidence']);
+assert.deepEqual(stableTabs, ['supportSummary', 'structureLineProximity', 'lineSupportTree', 'structureTree', 'inputEvidence', 'supportExceptions']);
 assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'draft').length > 0);
 
 console.log('ps-family-supportchange-report tests passed');
