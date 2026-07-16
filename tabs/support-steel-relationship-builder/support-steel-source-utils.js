@@ -23,14 +23,13 @@ export function parseSupportSteelJson(value, label = 'JSON input') {
 export function walkSupportSteelHierarchy(source) {
   const roots = Array.isArray(source) ? source : source?.objects || [source];
   const rows = [];
-  walkNodes(roots, [], null, rows, IDENTITY_MATRIX_4X4);
+  walkNodes(roots, [], null, IDENTITY_MATRIX_4X4, [], rows);
   return rows;
 }
 
 export function parsePoint(value) {
   if (!value) return null;
-  if (Array.isArray(value)) return pointFromArray(value);
-  if (typeof value === 'object') return pointFromObject(value);
+  if (typeof value === 'object' && !Array.isArray(value)) return pointFromObject(value);
   if (typeof value === 'string') return pointFromString(value);
   return null;
 }
@@ -98,12 +97,13 @@ export function byId(key) {
   return (left, right) => String(left[key]).localeCompare(String(right[key]));
 }
 
-function walkNodes(nodes, path, inheritedOwner, rows, parentWorldMatrix) {
+function walkNodes(nodes, path, inheritedOwner, parentWorldMatrix, ancestors, rows) {
   const list = Array.isArray(nodes) ? nodes : [nodes];
   list.forEach((node, index) => {
     if (!node || typeof node !== 'object' || Array.isArray(node)) return;
     const attrs = sourceAttributes(node);
     const identity = sourceIdentity(node, attrs);
+    const type = sourceType(node, attrs);
     const owner = cleanText(attrs.OWNER || inheritedOwner);
     const currentPath = [...path, index];
     const transform = resolveNodeTransform(node, attrs);
@@ -113,24 +113,47 @@ function walkNodes(nodes, path, inheritedOwner, rows, parentWorldMatrix) {
       path: currentPath,
       owner,
       identity,
-      localMatrix: [...transform.matrix],
+      type,
+      ancestors: ancestors.map((entry) => ({ ...entry })),
       worldMatrix,
+      localMatrix: [...transform.matrix],
       transformScope: transform.scope,
       transformBasis: transform.basis,
     });
+    const nextAncestors = [...ancestors, ancestorContext(identity, type, owner, attrs)];
     for (const key of CHILD_KEYS) {
       const children = node[key];
-      if (children) walkNodes(children, [...currentPath, key], identity || owner, rows, worldMatrix);
+      if (children) {
+        walkNodes(
+          children,
+          [...currentPath, key],
+          identity || owner,
+          worldMatrix,
+          nextAncestors,
+          rows,
+        );
+      }
     }
   });
 }
 
-function pointFromArray(value) {
-  if (value.length < 3) return null;
-  const x = numberValue(value[0]);
-  const y = numberValue(value[1]);
-  const z = numberValue(value[2]);
-  return x === null || y === null || z === null ? null : { x, y, z };
+function ancestorContext(identity, type, owner, attrs) {
+  return {
+    identity: identity || null,
+    type: type || null,
+    owner: owner || null,
+    lineFamily: cleanText(attrs.LINE_FAMILY || attrs.LINEFAMILY) || null,
+    fullLineTag: cleanText(
+      attrs.FULL_LINE_TAG || attrs.FULLLINETAG || attrs.LINE_TAG
+      || attrs.LINETAG || attrs.LINE_NO || attrs.LINENO,
+    ) || null,
+    branchId: cleanText(
+      attrs.BRANCH_NODE || attrs.BRANCH_ID || attrs.BRANCH || attrs.PIPE_BRANCH,
+    ) || null,
+    carrierId: cleanText(
+      attrs.CARRIER_ID || attrs.CARRIER_REF || attrs.PIPE_REF,
+    ) || null,
+  };
 }
 
 function pointFromObject(value) {
@@ -148,9 +171,7 @@ function pointFromString(value) {
   for (let index = 0; index < tokens.length - 1; index += 2) {
     applyAxisToken(result, tokens[index], numberValue(tokens[index + 1]));
   }
-  if (result.x !== undefined && result.y !== undefined && result.z !== undefined) return result;
-  const numbers = String(value).match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/gu)?.map(numberValue).filter((item) => item !== null) || [];
-  return numbers.length >= 3 ? { x: numbers[0], y: numbers[1], z: numbers[2] } : null;
+  return result.x === undefined || result.y === undefined || result.z === undefined ? null : result;
 }
 
 function applyAxisToken(result, rawAxis, number) {
