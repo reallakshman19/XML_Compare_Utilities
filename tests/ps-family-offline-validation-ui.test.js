@@ -93,6 +93,7 @@ assert.match(addon, /saveTextFile/);
 assert.match(viewSource, /benchmark\.validationOnly/);
 assert.match(viewSource, /benchmark\.productionDependency/);
 assert.match(bootstrap, /ps-family-offline-validation-addon\.js/);
-assert.match(bootstrap, /evidence-validation-v1/);
+assert.match(bootstrap, /native-pipeline-v1/);
+assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
 
 console.log('ps-family-offline-validation-ui tests passed');
