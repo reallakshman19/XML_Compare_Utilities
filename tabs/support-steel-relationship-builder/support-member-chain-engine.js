@@ -49,6 +49,16 @@ const EXPLICIT_MEMBER_REFERENCE_KEYS = Object.freeze([
   'CHILD_MEMBER',
 ]);
 
+const EXPLICIT_STEEL_REFERENCE_KEYS = Object.freeze([
+  'STEEL_REF',
+  'STEELREF',
+  'STRUCTURE_REF',
+  'STRUCTUREREF',
+  'SREF',
+  'MDSSREF',
+  'MDSGUIDEREF',
+]);
+
 export function buildSupportMemberChainBundle(input = {}) {
   const config = resolveConfig(input.config);
   const supportFamilies = input.supportFamilies || [];
@@ -127,11 +137,14 @@ function buildFamilyChain(family, relationships, config) {
   );
   const connectedMemberIds = new Set([
     ...supportChainEdges.flatMap((edge) => [edge.supportA, edge.supportB]),
-    ...structuralTerminalEdges.map((edge) => edge.supportMemberId),
+    ...structuralTerminalEdges
+      .filter((edge) => edge.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE')
+      .map((edge) => edge.supportMemberId),
   ]);
   const unresolvedPhysicalMemberIds = physicalMembers
     .map((member) => member.memberId)
     .filter((memberId) => memberId && !connectedMemberIds.has(memberId));
+
   if (!physicalMembers.length && memberNodes.length) {
     diagnostics.push({
       severity: 'WARNING',
@@ -254,7 +267,10 @@ function buildStructuralTerminalEdges(family, physicalMembers, allMembers, relat
   const edges = [];
   for (const relationship of relationships) {
     if (!relationship.steelGroupId || relationship.relationshipStatus === 'AMBIGUOUS') continue;
-    const srefMembers = allMembers.filter((member) => member.semanticRole === 'STRUCTURAL_REFERENCE');
+    const srefMembers = allMembers.filter((member) => (
+      member.semanticRole === 'STRUCTURAL_REFERENCE'
+      && symbolicReferenceMatchesRelationship(member, relationship)
+    ));
     for (const sref of srefMembers) {
       edges.push({
         edgeId: `SSMR-STRUCT:${sref.memberId}::${relationship.structuralMemberId || relationship.steelGroupId}`,
@@ -264,13 +280,14 @@ function buildStructuralTerminalEdges(family, physicalMembers, allMembers, relat
         steelGroupId: relationship.steelGroupId,
         structuralMemberId: relationship.structuralMemberId || null,
         relationshipStatus: 'RESOLVED_STRUCTURAL_REFERENCE',
-        relationshipBasis: [...(relationship.relationshipBasis || [])],
+        relationshipBasis: ['EXPLICIT_SREF_TARGET_MATCH', ...(relationship.relationshipBasis || [])],
         evidenceSource: SUPPORT_MEMBER_CHAIN_EVIDENCE_SOURCE,
         evidenceClass: 'REFERENCE',
         contactEvidenceStatus: 'NOT_PROVEN',
         confidence: relationship.confidence,
       });
     }
+
     if (!relationship.nearestPointOnSteelGlobal || !relationship.analyticalGeometryAvailable) continue;
     const candidates = physicalMembers
       .map((member) => ({
@@ -305,6 +322,26 @@ function buildStructuralTerminalEdges(family, physicalMembers, allMembers, relat
     });
   }
   return deduplicateEdges(edges);
+}
+
+function symbolicReferenceMatchesRelationship(member, relationship) {
+  const targets = EXPLICIT_STEEL_REFERENCE_KEYS
+    .map((key) => normalizeId(member.attributes?.[key]))
+    .filter(Boolean);
+  if (!targets.length) return false;
+  const steelGroup = normalizeId(relationship.steelGroupId);
+  const structuralMember = normalizeId(relationship.structuralMemberId);
+  return targets.some((target) => (
+    identityMatches(target, steelGroup)
+    || identityMatches(target, structuralMember)
+  ));
+}
+
+function identityMatches(reference, target) {
+  if (!reference || !target) return false;
+  return reference === target
+    || reference.startsWith(`${target}/`)
+    || target.startsWith(`${reference}/`);
 }
 
 function connectedComponents(members, edges) {
@@ -359,21 +396,27 @@ function deduplicateEdges(edges) {
 }
 
 function normalizeId(value) {
-  const text = String(value || '').trim().toUpperCase();
+  const text = String(value || '').trim().replace(/\(REF\)$/iu, '').toUpperCase();
   if (!text) return '';
   return text.startsWith('/') ? text : `/${text}`;
 }
 
 function resolveConfig(overrides = {}) {
+  const nearbySetting = overrides.emitNearbyCandidates ?? overrides.emitNearbyMemberCandidates;
   return {
-    memberContactToleranceMm: positiveNumber(overrides.memberContactToleranceMm, DEFAULT_CONFIG.memberContactToleranceMm),
+    memberContactToleranceMm: nonNegativeNumber(overrides.memberContactToleranceMm, DEFAULT_CONFIG.memberContactToleranceMm),
     memberCandidateToleranceMm: positiveNumber(overrides.memberCandidateToleranceMm, DEFAULT_CONFIG.memberCandidateToleranceMm),
     requireAnalyticalGeometry: overrides.requireAnalyticalGeometry !== false,
-    emitNearbyCandidates: overrides.emitNearbyCandidates !== false,
+    emitNearbyCandidates: nearbySetting !== false,
   };
 }
 
 function positiveNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
+function nonNegativeNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
