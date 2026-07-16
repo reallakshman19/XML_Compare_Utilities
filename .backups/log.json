@@ -1,5 +1,5 @@
 {
-  "lastId": 56,
+  "lastId": 89,
   "entries": [
     {
       "id": 1,
@@ -392,6 +392,237 @@
       "file": "tabs\\psnm-utility-tab.js",
       "context": "marker triangle cache bump",
       "backupFile": "56_tabs_psnm_utility_tab_js.bak"
+    },
+    {
+      "id": 57,
+      "timestamp": "2026-07-14 23:46:18",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-3d-viewer.js",
+      "context": "Pre-panning 3D update",
+      "backupFile": "57____3D_Converters_tabs_stagedjson_to_enrichxml_sj_3d_viewer_js.bak"
+    },
+    {
+      "id": 58,
+      "timestamp": "2026-07-14 23:56:26",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-enrichment-engine.js",
+      "context": "Grouping update",
+      "backupFile": "58____3D_Converters_tabs_stagedjson_to_enrichxml_sj_enrichment_engine_js.bak"
+    },
+    {
+      "id": 59,
+      "timestamp": "2026-07-14 23:56:26",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-xml-writer.js",
+      "context": "Grouping update",
+      "backupFile": "59____3D_Converters_tabs_stagedjson_to_enrichxml_sj_xml_writer_js.bak"
+    },
+    {
+      "id": 60,
+      "timestamp": "2026-07-14 23:56:26",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-audit-table.js",
+      "context": "Grouping update",
+      "backupFile": "60____3D_Converters_tabs_stagedjson_to_enrichxml_sj_audit_table_js.bak"
+    },
+    {
+      "id": 61,
+      "timestamp": "2026-07-14 23:56:26",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-export.js",
+      "context": "Grouping update",
+      "backupFile": "61____3D_Converters_tabs_stagedjson_to_enrichxml_sj_export_js.bak"
+    },
+    {
+      "id": 62,
+      "timestamp": "2026-07-15 00:00:41",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-3d-viewer.js",
+      "context": "Zoom and preset fixes",
+      "backupFile": "62____3D_Converters_tabs_stagedjson_to_enrichxml_sj_3d_viewer_js.bak"
+    },
+    {
+      "id": 63,
+      "timestamp": "2026-07-15 00:00:41",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-3d-renderer.js",
+      "context": "Zoom and preset fixes",
+      "backupFile": "63____3D_Converters_tabs_stagedjson_to_enrichxml_sj_3d_renderer_js.bak"
+    },
+    {
+      "id": 64,
+      "timestamp": "2026-07-15 00:01:51",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-enrichment-engine.js",
+      "context": "Unique constraints",
+      "backupFile": "64____3D_Converters_tabs_stagedjson_to_enrichxml_sj_enrichment_engine_js.bak"
+    },
+    {
+      "id": 65,
+      "timestamp": "2026-07-15 00:06:35",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-app.js",
+      "context": "Add Master Enrichment UI popup",
+      "backupFile": "65____3D_Converters_tabs_stagedjson_to_enrichxml_sj_app_js.bak"
+    },
+    {
+      "id": 66,
+      "timestamp": "2026-07-15 00:07:00",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-parser.js",
+      "context": "Capture enrichedAttributes",
+      "backupFile": "66____3D_Converters_tabs_stagedjson_to_enrichxml_sj_parser_js.bak"
+    },
+    {
+      "id": 67,
+      "timestamp": "2026-07-15 00:07:25",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-xml-writer.js",
+      "context": "Extract Temperature and Pressure from enrichedAttributes or attrs",
+      "backupFile": "67____3D_Converters_tabs_stagedjson_to_enrichxml_sj_xml_writer_js.bak"
+    },
+    {
+      "id": 68,
+      "timestamp": "2026-07-15 00:09:53",
+      "file": "..\\3D_Converters\\tabs\\xml-cii-2019-standalone\\stagedjson-enrichment\\stagedjson-enrichment-ui.js",
+      "context": "Add Apply to Workspace button",
+      "backupFile": "68____3D_Converters_tabs_xml_cii_2019_standalone_stagedjson_enrichment_stagedjson_enrichment_ui_js.bak"
+    },
+    {
+      "id": 69,
+      "timestamp": "2026-07-15 00:18:00",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\index.html",
+      "context": "Add cache buster",
+      "backupFile": "69____3D_Converters_tabs_stagedjson_to_enrichxml_index_html.bak"
+    },
+    {
+      "id": 70,
+      "timestamp": "2026-07-15 00:21:43",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-xml-writer.js",
+      "context": "Add debug comments",
+      "backupFile": "70____3D_Converters_tabs_stagedjson_to_enrichxml_sj_xml_writer_js.bak"
+    },
+    {
+      "id": 71,
+      "timestamp": "2026-07-15 00:22:04",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-app.js",
+      "context": "Add static cache buster to ui import",
+      "backupFile": "71____3D_Converters_tabs_stagedjson_to_enrichxml_sj_app_js.bak"
+    },
+    {
+      "id": 72,
+      "timestamp": "2026-07-15 00:22:53",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-enrichment-engine.js",
+      "context": "Add static cache busters",
+      "backupFile": "72____3D_Converters_tabs_stagedjson_to_enrichxml_sj_enrichment_engine_js.bak"
+    },
+    {
+      "id": 73,
+      "timestamp": "2026-07-15 00:28:33",
+      "file": "..\\3D_Converters\\tabs\\stagedjson-to-enrichxml\\sj-parser.js",
+      "context": "Fix Managed JSON wrapper parsing",
+      "backupFile": "73____3D_Converters_tabs_stagedjson_to_enrichxml_sj_parser_js.bak"
+    },
+    {
+      "id": 74,
+      "timestamp": "2026-07-15 05:02:58",
+      "file": "tabs\\topology-trace-validator\\topology-trace-validator-tab.js",
+      "context": "Before 3D integration",
+      "backupFile": "74_tabs_topology_trace_validator_topology_trace_validator_tab_js.bak"
+    },
+    {
+      "id": 75,
+      "timestamp": "2026-07-15 05:03:10",
+      "file": "tabs\\topology-trace-validator\\topology-validator-controller.js",
+      "context": "Before 3D integration",
+      "backupFile": "75_tabs_topology_trace_validator_topology_validator_controller_js.bak"
+    },
+    {
+      "id": 76,
+      "timestamp": "2026-07-15 05:03:17",
+      "file": "tabs\\topology-trace-validator\\topology-trace-validator.css",
+      "context": "Before 3D integration",
+      "backupFile": "76_tabs_topology_trace_validator_topology_trace_validator_css.bak"
+    },
+    {
+      "id": 77,
+      "timestamp": "2026-07-15 05:03:58",
+      "file": "tabs\\topology-trace-validator\\topology-svg-projections.js",
+      "context": "Before 3D integration",
+      "backupFile": "77_tabs_topology_trace_validator_topology_svg_projections_js.bak"
+    },
+    {
+      "id": 78,
+      "timestamp": "2026-07-15 05:23:03",
+      "file": "tabs\\psnm-utility-tab-layout-stabilizer.js",
+      "context": "Add TTV launcher support",
+      "backupFile": "78_tabs_psnm_utility_tab_layout_stabilizer_js.bak"
+    },
+    {
+      "id": 79,
+      "timestamp": "2026-07-15 05:23:03",
+      "file": "tabs\\topology-trace-validator\\topology-trace-validator.css",
+      "context": "Add modal and layout styles",
+      "backupFile": "79_tabs_topology_trace_validator_topology_trace_validator_css.bak"
+    },
+    {
+      "id": 80,
+      "timestamp": "2026-07-15 05:23:12",
+      "file": "tabs\\psnm-utility-tab.js",
+      "context": "Bump layout stabilizer cache buster",
+      "backupFile": "80_tabs_psnm_utility_tab_js.bak"
+    },
+    {
+      "id": 81,
+      "timestamp": "2026-07-15 05:56:49",
+      "file": "tabs\\topology-trace-validator\\topology-controller-helpers.js",
+      "context": "pre-A+B export fix: ledger-indexed + enrichedAttributes passthrough",
+      "backupFile": "81_tabs_topology_trace_validator_topology_controller_helpers_js.bak"
+    },
+    {
+      "id": 82,
+      "timestamp": "2026-07-15 05:56:54",
+      "file": "tabs\\topology-trace-validator\\topology-source-reader.js",
+      "context": "pre-A+B export fix: enrichedAttributes passthrough in readComponent",
+      "backupFile": "82_tabs_topology_trace_validator_topology_source_reader_js.bak"
+    },
+    {
+      "id": 83,
+      "timestamp": "2026-07-15 19:49:55",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-enrichment-engine.js",
+      "context": "pre-contract-normalization",
+      "backupFile": "83_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_enrichment_engine_js.bak"
+    },
+    {
+      "id": 84,
+      "timestamp": "2026-07-15 19:50:01",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-file-parser.js",
+      "context": "pre-contract-normalization",
+      "backupFile": "84_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_file_parser_js.bak"
+    },
+    {
+      "id": 85,
+      "timestamp": "2026-07-15 19:50:07",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-enrichment-ui.js",
+      "context": "pre-contract-normalization",
+      "backupFile": "85_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_enrichment_ui_js.bak"
+    },
+    {
+      "id": 86,
+      "timestamp": "2026-07-16 05:10:59",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-enrichment-engine.js",
+      "context": "pre-pull-contract-changes",
+      "backupFile": "86_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_enrichment_engine_js.bak"
+    },
+    {
+      "id": 87,
+      "timestamp": "2026-07-16 05:10:59",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-file-parser.js",
+      "context": "pre-pull-contract-changes",
+      "backupFile": "87_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_file_parser_js.bak"
+    },
+    {
+      "id": 88,
+      "timestamp": "2026-07-16 05:10:59",
+      "file": "tabs\\topology-trace-validator\\stagedjson-enrichment\\stagedjson-enrichment-ui.js",
+      "context": "pre-pull-contract-changes",
+      "backupFile": "88_tabs_topology_trace_validator_stagedjson_enrichment_stagedjson_enrichment_ui_js.bak"
+    },
+    {
+      "id": 89,
+      "timestamp": "2026-07-16 05:11:33",
+      "file": ".backups\\log.json",
+      "context": "post-pull-68e004b-57-commits-merged",
+      "backupFile": "89__backups_log_json.bak"
     }
   ]
 }
