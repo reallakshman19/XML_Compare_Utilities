@@ -1,0 +1,110 @@
+name: Sequential Sketcher
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'contracts/pipe-support-projection/**'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
+      - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-attachment-event.test.js'
+      - 'tests/sequential-zero-length-inline.test.js'
+      - 'tests/sequential-reference-terminal-semantics.test.js'
+      - 'tests/sequential-shadow-carrier.test.js'
+      - 'tests/sequential-support-placeholder.test.js'
+      - 'tests/sequential-construction-engine.test.js'
+      - 'tests/sequential-head-boundary-gate.test.js'
+      - 'tests/sequential-construction-acceptance.test.js'
+      - 'tests/sequential-confirmed-support-projection.test.js'
+      - '.github/workflows/sequential-sketcher.yml'
+  push:
+    branches: [main, agent/sequential-sketcher]
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'contracts/pipe-support-projection/**'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
+      - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
+      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
+      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
+      - 'tests/sequential-attachment-event.test.js'
+      - 'tests/sequential-zero-length-inline.test.js'
+      - 'tests/sequential-reference-terminal-semantics.test.js'
+      - 'tests/sequential-shadow-carrier.test.js'
+      - 'tests/sequential-support-placeholder.test.js'
+      - 'tests/sequential-construction-engine.test.js'
+      - 'tests/sequential-head-boundary-gate.test.js'
+      - 'tests/sequential-construction-acceptance.test.js'
+      - 'tests/sequential-confirmed-support-projection.test.js'
+      - '.github/workflows/sequential-sketcher.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  sequential-sketcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Supervised sequential construction
+        run: node tests/sequential-construction-engine.test.js
+      - name: Source-ordered OLET attachment events
+        run: node tests/sequential-attachment-event.test.js
+      - name: Zero-length inline sequencing
+        run: node tests/sequential-zero-length-inline.test.js
+      - name: Reference and terminal semantics
+        run: node tests/sequential-reference-terminal-semantics.test.js
+      - name: Pinned fixture-wide feature matrix
+        run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
+      - name: Pinned complete S-line scope
+        run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
+      - name: Exact synthetic carrier shadows
+        run: node tests/sequential-shadow-carrier.test.js
+      - name: Head boundary before first component
+        run: node tests/sequential-head-boundary-gate.test.js
+      - name: Confirmed construction acceptance
+        run: node tests/sequential-construction-acceptance.test.js
+      - name: Confirmed support projection
+        run: node tests/sequential-confirmed-support-projection.test.js
+      - name: Non-semantic ATTA placeholder isolation
+        run: node tests/sequential-support-placeholder.test.js
+      - name: Pinned 1885 NC branch probe
+        run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
+      - name: Pinned B3 support evidence
+        run: node tests/sequential-sketcher-1885-nc-support-evidence.mjs
+      - name: Pinned B3 support semantics
+        run: node tests/sequential-sketcher-1885-nc-support-regression.mjs
+      - name: Pinned B2 junction sequence probe
+        run: node tests/sequential-sketcher-1885-nc-b2-probe.mjs
+      - name: Pinned B2 component evidence
+        run: node tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs
+      - name: Publish 1885 NC probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-sketcher-1885-nc-probe
+          path: artifacts/sequential-sketcher/
+          if-no-files-found: warn
+      - name: Legacy foundation regression
+        run: node tests/sequential-sketcher-core.test.js
+      - name: Owned support projection contract
+        run: node --test tests/sequential-sketcher-support-projection.test.js
+      - name: Support integration isolation
+        run: node --test tests/sequential-sketcher-support-integration.test.js
+      - name: UI and ownership architecture gate
+        run: node tests/sequential-sketcher-ui-static.test.js
