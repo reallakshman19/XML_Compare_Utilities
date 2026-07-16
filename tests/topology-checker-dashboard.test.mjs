@@ -1,0 +1,53 @@
+/** Dedicated topology-checker dashboard and pinned-core acceptance contracts. */
+
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { topologyCheckerPanelMarkup } from '../tabs/topology-trace-validator/topology-checker-panel.js';
+import {
+  CHECKER_FILTER_DEFAULTS, checkerCategoryCounts, checkerIssueRow, checkerObjectIndexes,
+  filterCheckerIssueRows,
+} from '../tabs/topology-trace-validator/topology-checker-model.js';
+import { topologyCheckerIconUrl } from '../tabs/topology-trace-validator/topology-checker-icons.js';
+import * as core from '../vendor/3d-converters/topology-browser-core.mjs';
+
+const node = (id, x, y) => ({ id, position: { x, y, z: 0 }, sourcePortIds: [`P-${id}`], positionAuthority: 'SOURCE', inputXmlNodeIds: [id] });
+const edge = (id, fromNodeId, toNodeId, role = 'PIPE') => ({
+  id, fromNodeId, toNodeId, segmentRole: role, ownerBranchId: 'BRANCH-ASIM', branchIds: ['BRANCH-ASIM'],
+  sourceEntityIds: [`SOURCE-${id}`, 'BRANCH-ASIM'], sourceTypes: [role], inputXmlElementIds: [`PE-${id}`], diameterMm: 100,
+});
+const canonical = {
+  schema: 'CanonicalTopology.v1', canonicalTopologyHash: 'fnv1a64:dashboard', toleranceMm: 0.1,
+  nodes: [node('N1', 0, 0), node('N2', 3.2, 0), node('N3', 100, 0), node('N4', 100, 100), node('N5', 120, 100), node('N6', 140, 100)],
+  edges: [edge('GASK-1', 'N1', 'N2', 'GASK'), edge('PIPE-1', 'N2', 'N3'), edge('PIPE-2', 'N3', 'N4'), edge('PIPE-3', 'N5', 'N6')],
+  pointFeatures: [], junctions: [], boundaries: [], supports: [], rigids: [], bends: [], buildIssues: [],
+};
+
+const report = core.runTopologyChecks(canonical, { shortElementMm: 6, toleranceMm: 0.1, snapToleranceMm: 25, angleToleranceDeg: 5, originToleranceMm: 0.1, clearanceMm: 0 });
+assert.equal(report.schema, 'TopologyCheckReport.v1');
+assert.equal(report.summary.countsByCode.EXPECTED_SHORT_INLINE_COMPONENT, 1);
+assert.equal(report.summary.countsByCode.RIGHT_ANGLE_WITHOUT_BEND, 1);
+assert.equal(report.summary.countsByCode.SNAP_GAP, 1);
+assert.equal(report.summary.findingCount, Object.values(report.summary.countsByCode).reduce((sum, count) => sum + count, 0));
+
+const suggestions = core.buildTopologyFixSuggestions(canonical, report, {});
+assert(suggestions.some((row) => row.schema === 'TopologyFixSuggestion.v1' && row.operations[0]?.type === 'ADD_BEND_DEFINITION'));
+const review = core.createTopologyReviewState(report);
+const resolved = core.setTopologyIssueStatus(report, review, report.issues[0].id, 'RESOLVED', '');
+assert.equal(core.topologyReviewSummary(report, resolved).resolvedCount, 1);
+
+const indexes = checkerObjectIndexes(canonical), suggestionByIssue = new Map(suggestions.map((row) => [row.issueId, row]));
+const rows = report.issues.map((issue) => checkerIssueRow(issue, suggestionByIssue.get(issue.id), { indexes, reviewState: resolved, baselineIssueIds: new Set(report.issues.map((row) => row.id)) }));
+assert.equal(Object.values(checkerCategoryCounts(rows)).reduce((sum, count) => sum + count, 0), rows.length);
+assert(filterCheckerIssueRows(rows, { ...CHECKER_FILTER_DEFAULTS, category: 'CONNECTIVITY' }, new Set()).every((row) => row.category === 'CONNECTIVITY'));
+
+const markup = topologyCheckerPanelMarkup();
+for (const token of ['data-ttv-checker-kpis', 'data-ttv-checker-buckets', 'data-ttv-checker-scroll', 'data-ttv-checker-detail', 'data-ttv-checker-apply-approved', 'data-ttv-checker-layout="right"', 'data-ttv-checker-layout="bottom"']) assert(markup.includes(token), token);
+assert(!markup.includes('⌁'));
+assert(existsSync(new URL('../vendor/lucide/icons/scan-search.svg', import.meta.url)));
+assert(topologyCheckerIconUrl('scan-search').endsWith('/vendor/lucide/icons/scan-search.svg'));
+
+const manifest = JSON.parse(readFileSync(new URL('../vendor/3d-converters/topology-browser-core.manifest.json', import.meta.url), 'utf8'));
+assert.equal(manifest.sourceCommit, 'd0ac3b77659ccdf4517843f32ea911bbdcb0a37e');
+for (const name of ['runTopologyChecks', 'buildTopologyFixSuggestions', 'applyTopologyFixSuggestion', 'applyApprovedTopologyFixes']) assert.equal(typeof core[name], 'function', name);
+
+console.log('topology checker dashboard passed: pinned core, filters, reconciled KPIs, review state, local icons, and modeless controls verified.');

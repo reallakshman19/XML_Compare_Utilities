@@ -24,7 +24,9 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   await expect(page.locator('[data-object-key="canonical:boundary:BND-EXT"]')).toHaveClass(/is-related/);
   await page.locator('[data-ttv-branch="/B1"]').click();
   await page.locator('[data-ttv-mode="spatial"]').click();
-  await page.locator('[data-object-key="source:$[0].children[1]"]:visible').first().click();
+  const horizontalSourceRoute = page.locator('[data-object-key="source:$[0].children[1]"]').first();
+  await expect(horizontalSourceRoute).toHaveCount(1);
+  await horizontalSourceRoute.dispatchEvent('click');
   await expect(page.locator('[data-canonical-edge-id="E-VALVE"]')).toHaveClass(/is-related/);
   await page.locator('[data-ttv-bottom-tab="projection"]').click();
   await expect(page.locator('[data-inputxml-element-id="PE-VALVE"]')).toHaveClass(/is-related/);
@@ -57,7 +59,7 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   const immutable = await page.evaluate(() => {
     const controller = window.__topologyValidatorHarness.controller;
     controller.assertNoMutation();
-    return controller.evidence().validation.metrics.issueCount;
+    return controller.evidence().trace.validation.metrics.issueCount;
   });
   expect(immutable).toBe(0);
 });

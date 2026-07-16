@@ -69,6 +69,16 @@ export function createTopologyWorkspaceController(traceController, editControlle
     if (source !== 'parity' && ['node', 'edge', 'support'].includes(kind)) parityController.select(`scene:${kind}:${id}`);
   }
 
+  /** @param {ReadonlyArray<Record<string,string>>} selection @returns {void} */
+  function focusCanonicalSelection(selection) {
+    const active = asArray(selection).map(objectRecord).filter((row) => cleanText(row.id)).at(-1);
+    if (!active) return;
+    const kind = cleanText(active.kind), id = cleanText(active.id).replace(/^bend:/, '');
+    if (activeTab === 'trace' && ['node', 'edge'].includes(kind)) traceController.zoomToObject(`canonical:${kind}:${id}`);
+    else if (activeTab === 'parity' && ['node', 'edge', 'support'].includes(kind)) parityController.select(`scene:${kind}:${id}`, true);
+    else if (activeTab === 'edit') editController.focusSelection();
+  }
+
   /** @param {string} objectKey @param {string} surface @returns {ReadonlyArray<Record<string,string>>} */
   function synchronizeSurfaceSelection(objectKey, surface) {
     const selection = surface === 'trace' ? traceController.select(objectKey) : parityController.select(objectKey);
@@ -95,6 +105,8 @@ export function createTopologyWorkspaceController(traceController, editControlle
     if (next === 'edit') await editController.initialize(traceController.evidence());
     else if (next === 'parity') parityController.render();
     else traceController.render();
+    const currentSelection = asArray(editController.evidence().selection);
+    if (currentSelection.length) synchronizeCanonicalSelection(currentSelection, 'edit');
   }
 
   function evidence() {
@@ -120,6 +132,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
     destroy,
     activateTab,
     synchronizeCanonicalSelection,
+    focusCanonicalSelection,
     synchronizeSurfaceSelection,
     render: traceController.render,
     select: traceController.select,

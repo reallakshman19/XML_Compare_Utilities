@@ -152,7 +152,7 @@ export function createTopologyValidatorController(elements) {
     const result = asArray(viewModel.searchResults).map(objectRecord).find((row) => cleanText(row.objectKey) === cleanText(objectKey));
     if (!result) throw new RangeError(`Search result is not available: ${objectKey}`);
     const branch = cleanText(result.branch);
-    viewState = { ...viewState, branch, showComponentSymbols: true };
+    viewState = { ...viewState, branch, selectedBranches: branch ? new Set([branch]) : new Set(), showComponentSymbols: true };
     selectedKey = cleanText(objectKey);
     syncBranchControls(branch, true);
     render();
@@ -195,6 +195,7 @@ export function createTopologyValidatorController(elements) {
     } else {
       viewState = { ...viewState, ...patch };
     }
+    if (artifacts.source) syncBranchControls(cleanText(viewState.branch), viewState.showComponentSymbols === true);
     render();
   }
 
@@ -244,7 +245,6 @@ export function createTopologyValidatorController(elements) {
       if (current !== hashes[kind]) throw new Error(`Immutable ${kind} artifact changed after load (${hashes[kind]} -> ${current}).`);
     }
   }
-
   /** @returns {void} */
   function updateSourceControls() {
     viewState = { ...viewState, ...renderTopologySourceControls(elements, objectRecord(artifacts.source)) };

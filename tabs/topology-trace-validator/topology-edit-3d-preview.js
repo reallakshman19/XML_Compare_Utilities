@@ -12,8 +12,8 @@ let viewer = null;
 let viewerHost = null;
 let pickCallback = null;
 
-/** @param {Record<string, unknown>} canonical @param {Record<string, unknown>|null} validation @returns {Readonly<Record<string, unknown>>} */
-function visualGeometry(canonical, validation) {
+/** @param {Record<string, unknown>} canonical @param {Record<string, unknown>|null} validation @param {string} [verticalAxis] @returns {Readonly<Record<string, unknown>>} */
+function visualGeometry(canonical, validation, verticalAxis = 'Y') {
   const nodes = asArray(canonical.nodes).map(objectRecord);
   const nodeIndex = new Map(nodes.map((node) => [cleanText(node.id), node]));
   const routeSegments = asArray(canonical.edges).map(objectRecord).flatMap((edge) => {
@@ -35,7 +35,7 @@ function visualGeometry(canonical, validation) {
     position: [node.position.x, node.position.y, node.position.z],
     sizeMm: 20,
   }));
-  const restraintGeometry = buildCanonicalRestraintGeometry(canonical);
+  const restraintGeometry = buildCanonicalRestraintGeometry(canonical, { verticalAxis });
   const issueMarkers = asArray(validation?.findings).map(objectRecord).flatMap((issue) => {
     const objectId = asArray(issue.objectIds).map(cleanText).find(Boolean), node = nodeIndex.get(objectId);
     const edge = asArray(canonical.edges).map(objectRecord).find((row) => cleanText(row.id) === objectId);
@@ -85,10 +85,11 @@ async function ensureViewer(host) {
  * @param {(objectId:string)=>void} onPick
  * @returns {Promise<void>}
  */
-export async function renderTopologyEdit3dPreview(host, original, draft, validation, selection, onPick) {
+export async function renderTopologyEdit3dPreview(host, original, draft, validation, selection, verticalAxis, onPick) {
   pickCallback = onPick;
   await ensureViewer(host);
-  viewer.setModels({ source: visualGeometry(original, null), target: visualGeometry(draft, validation), registrationTranslation: [0, 0, 0] });
+  viewer.setVerticalAxis(verticalAxis);
+  viewer.setModels({ source: visualGeometry(original, null, verticalAxis), target: visualGeometry(draft, validation, verticalAxis), registrationTranslation: [0, 0, 0] });
   const active = selection.at(-1);
   viewer.setSelection(cleanText(active?.id), []);
   if (!host.dataset.fitted) {

@@ -2575,7 +2575,7 @@ function findSupportAnchor(component, byPosition, byName) {
   return null;
 }
 function assignRigidEdges(edges, nodes, rigids, toleranceMm) {
-  const nodeById2 = new Map(nodes.map((node) => [node.id, node]));
+  const nodeById3 = new Map(nodes.map((node) => [node.id, node]));
   return rigids.map((rigid) => {
     const natural = edges.filter((edge) => edge.sourceEntityIds.includes(rigid.component.sourceEntityId));
     const branch = edges.filter((edge) => edge.sourceEntityIds.includes(rigid.component.sourceBranchEntityId));
@@ -2591,8 +2591,8 @@ function assignRigidEdges(edges, nodes, rigids, toleranceMm) {
       authorityRank: naturalIds.has(edge.id) ? 0 : branchIds.has(edge.id) ? 1 : 2,
       distanceMm: pointSegmentDistance(
         rigid.position,
-        nodeById2.get(edge.fromNodeId).position,
-        nodeById2.get(edge.toNodeId).position
+        nodeById3.get(edge.fromNodeId).position,
+        nodeById3.get(edge.toNodeId).position
       ).distanceMm
     })).sort((left, right) => left.authorityRank - right.authorityRank || left.distanceMm - right.distanceMm || left.edge.id.localeCompare(right.edge.id));
     const selected = ranked[0];
@@ -2605,7 +2605,7 @@ function assignRigidEdges(edges, nodes, rigids, toleranceMm) {
       sourcePath: rigid.component.sourcePath,
       edgeId: selected.edge.id,
       inputXmlElementId: selected.edge.inputXmlElementIds[0],
-      inputXmlNodeId: nodeById2.get(selected.edge.toNodeId).inputXmlNodeIds[0],
+      inputXmlNodeId: nodeById3.get(selected.edge.toNodeId).inputXmlNodeIds[0],
       connectionResidual: selected.distanceMm,
       componentType: rigid.record.componentType,
       weightKg: Number(rigid.record.resolved?.weightKg ?? rigid.record.sourceWeightKg ?? 0)
@@ -5295,6 +5295,27 @@ function restraintXml(restraint, support, index) {
   ];
   return `      <RESTRAINT ${serialize(attributes)}/>`;
 }
+function bendXml(bend, nodes) {
+  const node = nodes.get(bend.nodeId);
+  if (!node) throw new Error(`Bend ${bend.id} references missing canonical node ${bend.nodeId}.`);
+  const halfAngle = finiteNumber4(bend.angleDeg) === null ? null : Number(bend.angleDeg) / 2;
+  const attributes = [
+    ["ID", bend.id],
+    ["RADIUS", fixed(bend.radiusMm)],
+    ["TYPE", SENTINEL],
+    ["ANGLE1", fixed(halfAngle)],
+    ["NODE1", fixed(node.inputXmlNodeIds[0])],
+    ["ANGLE2", SENTINEL],
+    ["NODE2", SENTINEL],
+    ["ANGLE3", SENTINEL],
+    ["NODE3", SENTINEL],
+    ["NUM_MITER", SENTINEL],
+    ["FITTINGTHICKNESS", SENTINEL],
+    ["KFACTOR", SENTINEL],
+    ["RADIUS_AUTHORITY", cleanText(bend.radiusAuthority)]
+  ];
+  return `      <BEND ${serialize(attributes)}/>`;
+}
 function supportIndex(canonical) {
   const supportsByEdge = /* @__PURE__ */ new Map(), namesByNode = /* @__PURE__ */ new Map();
   for (const support of canonical.supports) {
@@ -5306,7 +5327,7 @@ function supportIndex(canonical) {
   }
   return { supportsByEdge, namesByNode };
 }
-function elementXml(edge, nodes, values, supports, rigids, names) {
+function elementXml(edge, nodes, values, supports, rigids, bends, names) {
   const from = nodes.get(edge.fromNodeId), to = nodes.get(edge.toNodeId);
   if (!from || !to) throw new Error(`InputXML edge ${edge.id} references a missing canonical node.`);
   const attributes = nativeAttributes(edge, from, to, values, names.get(from.id) ?? "", names.get(to.id) ?? "");
@@ -5322,6 +5343,7 @@ function elementXml(edge, nodes, values, supports, rigids, names) {
       ...topologyRigidTraceAttributes(edge, rigids)
     ])}/>`);
   }
+  for (const bend of bends) children.push(bendXml(bend, nodes));
   for (const support of supports) for (const [index, restraint] of support.restraints.entries()) children.push(restraintXml(restraint, support, index));
   return `    <PIPINGELEMENT ${serialize(attributes)}>
 ${children.join("\n")}${children.length ? "\n" : ""}    </PIPINGELEMENT>`;
@@ -5332,16 +5354,24 @@ function buildTopologyInputXml(canonical, engineering, options) {
   const engineeringByEdge = buildEdgeEngineeringValues(canonical.edges, engineering.recordBySourceEntityId);
   const rigidByEdge = /* @__PURE__ */ new Map();
   for (const rigid of canonical.rigids) rigidByEdge.set(rigid.edgeId, [...rigidByEdge.get(rigid.edgeId) ?? [], rigid]);
+  const bendByEdge = /* @__PURE__ */ new Map();
+  for (const bend of canonical.bends ?? []) {
+    const edgeId = bend.edgeIds?.[0];
+    if (!edgeId) throw new Error(`Bend ${bend.id} has no owning InputXML edge.`);
+    bendByEdge.set(edgeId, [...bendByEdge.get(edgeId) ?? [], bend]);
+  }
   const elements = canonical.edges.map((edge) => elementXml(
     edge,
     nodes,
     engineeringByEdge.get(edge.id),
     supportData.supportsByEdge.get(edge.id) ?? [],
     rigidByEdge.get(edge.id) ?? [],
+    bendByEdge.get(edge.id) ?? [],
     supportData.namesByNode
   )).join("\n");
   const restraintCount = canonical.supports.reduce((sum, support) => sum + support.restraints.length, 0);
-  const bendCount = canonical.edges.filter((edge) => edge.segmentRole.includes("ELBO/BEND_RUN_IN")).length;
+  const derivedBendCount = canonical.edges.filter((edge) => edge.segmentRole.includes("ELBO/BEND_RUN_IN")).length;
+  const bendCount = derivedBendCount + (canonical.bends ?? []).length;
   const modelAttributes = [
     ["JOBNAME", options.jobName],
     ["NUMELT", canonical.edges.length],
@@ -5375,7 +5405,7 @@ function buildTopologyInputXml(canonical, engineering, options) {
     ""
   ].join("\n");
 }
-var _test6 = Object.freeze({ finiteNumber: finiteNumber4, fixed, globalFixed, physicalWall, nodeMap, engineeringRecord, engineeringValues, nativeAttributes, serialize, supportIndex, elementXml });
+var _test6 = Object.freeze({ finiteNumber: finiteNumber4, fixed, globalFixed, physicalWall, nodeMap, engineeringRecord, engineeringValues, nativeAttributes, serialize, supportIndex, bendXml, elementXml });
 
 // tabs/model-converters/converters/component-topology/topology-deterministic-hash.js
 var DEFAULT_OMIT_KEYS = Object.freeze([
@@ -5440,7 +5470,11 @@ var TOPOLOGY_EDIT_COMMAND_TYPES = Object.freeze([
   "ADD_STRAIGHT_ELEMENT",
   "SPLIT_EDGE",
   "DISCONNECT_ENDPOINT",
-  "DELETE_EDGE"
+  "DELETE_EDGE",
+  "ADD_BEND_DEFINITION",
+  "ADD_JUNCTION_DEFINITION",
+  "TRIM_EDGE",
+  "TRANSACTION"
 ]);
 var EDIT_DRAFT_HASH_KEYS = Object.freeze(["topologyEditDraftHash"]);
 function editError(code, message) {
@@ -5538,6 +5572,28 @@ function appendTopologyEditCommand(draft, type, payload) {
     nextCommandSequence: sequence + 1
   });
 }
+function appendTopologyEditTransaction(draft, operations, metadata) {
+  if (!Array.isArray(operations) || !operations.length) {
+    throw editError("EMPTY_TRANSACTION", "A topology edit transaction requires at least one operation.");
+  }
+  const normalized = operations.map((operation, index) => {
+    if (!operation || typeof operation !== "object") {
+      throw editError("INVALID_TRANSACTION_OPERATION", `Transaction operation ${index + 1} must be an object.`);
+    }
+    const type = requiredText(operation.type, `Transaction operation ${index + 1} type`).toUpperCase();
+    if (type === "TRANSACTION" || !TOPOLOGY_EDIT_COMMAND_TYPES.includes(type)) {
+      throw editError("INVALID_TRANSACTION_OPERATION", `Transaction operation ${index + 1} has unsupported type ${type}.`);
+    }
+    if (!operation.payload || typeof operation.payload !== "object") {
+      throw editError("INVALID_TRANSACTION_OPERATION", `Transaction operation ${index + 1} requires a payload object.`);
+    }
+    return Object.freeze({ type, payload: structuredClone(operation.payload) });
+  });
+  return appendTopologyEditCommand(draft, "TRANSACTION", {
+    operations: normalized,
+    metadata: structuredClone(metadata ?? {})
+  });
+}
 function undoTopologyEditCommand(draft) {
   assertDraft(draft);
   if (!draft.commands.length) return finalizeDraft(structuredClone(draft));
@@ -5560,6 +5616,11 @@ function mutableCanonical(canonical) {
   delete clone.topologyEditDraftHash;
   delete clone.baseCanonicalTopologyHash;
   delete clone.editCommandCount;
+  clone.bends = clone.bends ?? [];
+  clone.junctions = clone.junctions ?? [];
+  clone.boundaries = clone.boundaries ?? [];
+  clone.supports = clone.supports ?? [];
+  clone.rigids = clone.rigids ?? [];
   return clone;
 }
 function nodeById(state, nodeId) {
@@ -5642,7 +5703,100 @@ function refreshDerivedTopology(state) {
     support.attachmentPosition = { ...node.position };
     support.inputXmlNodeId = node.inputXmlNodeIds[0];
   }
+  for (const bend of state.bends ?? []) {
+    const node = nodeIndex.get(bend.nodeId);
+    if (node) bend.position = { ...node.position };
+    bend.edgeIds = incidentEdges(state, bend.nodeId).map((edge) => edge.id);
+  }
 }
+
+// tabs/model-converters/converters/component-topology/topology-edit-engineering-operations.js
+function assertNoBend(state, nodeId) {
+  if ((state.bends ?? []).some((bend) => bend.nodeId === nodeId)) {
+    throw editError("BEND_ALREADY_DEFINED", `Node ${nodeId} already has an explicit bend definition.`);
+  }
+}
+function addBendDefinition(state, command) {
+  const payload = command.payload, nodeId = requiredText(payload.nodeId, "ADD_BEND_DEFINITION nodeId");
+  const node = nodeById(state, nodeId), edgeIds = textIds(payload.edgeIds ?? []);
+  if (edgeIds.length !== 2 || incidentEdges(state, nodeId).length !== 2) {
+    throw editError("INVALID_BEND_ARMS", `Bend node ${nodeId} must have exactly two incident route arms.`);
+  }
+  for (const edgeId of edgeIds) if (!incidentEdges(state, nodeId).some((edge) => edge.id === edgeId)) {
+    throw editError("INVALID_BEND_ARM", `Edge ${edgeId} is not incident to bend node ${nodeId}.`);
+  }
+  assertNoBend(state, nodeId);
+  const radiusMm = finiteNumber5(payload.radiusMm, "ADD_BEND_DEFINITION radiusMm");
+  if (radiusMm <= 0) throw editError("INVALID_BEND_RADIUS", "Bend radius must be greater than zero.");
+  const id = `EDIT-BEND-${safeIdPart(command.id)}`;
+  state.bends.push({
+    id,
+    nodeId,
+    edgeIds,
+    position: { ...node.position },
+    radiusMm,
+    angleDeg: finiteNumber5(payload.angleDeg, "ADD_BEND_DEFINITION angleDeg"),
+    radiusAuthority: requiredText(payload.radiusAuthority, "ADD_BEND_DEFINITION radiusAuthority"),
+    sourceEntityIds: textIds(edgeIds.flatMap((edgeId) => edgeById(state, edgeId).sourceEntityIds ?? [])),
+    inputXmlElementId: edgeById(state, edgeIds[0]).inputXmlElementIds[0],
+    editAncestry: [command.id]
+  });
+  return { targets: [nodeId, ...edgeIds], changed: [], created: [id], removed: [], before: null, after: { id, radiusMm } };
+}
+function addJunctionDefinition(state, command) {
+  const payload = command.payload, nodeId = requiredText(payload.nodeId, "ADD_JUNCTION_DEFINITION nodeId");
+  const node = nodeById(state, nodeId), edges = incidentEdges(state, nodeId), edgeIds = textIds(payload.edgeIds ?? []);
+  if (edges.length !== 3 || edgeIds.length !== 3 || edgeIds.some((id2) => !edges.some((edge) => edge.id === id2))) {
+    throw editError("INVALID_JUNCTION_ARMS", `Junction node ${nodeId} must name its three incident edges.`);
+  }
+  if (state.junctions.some((junction) => junction.nodeId === nodeId)) {
+    throw editError("JUNCTION_ALREADY_DEFINED", `Node ${nodeId} already has a junction definition.`);
+  }
+  const kind = requiredText(payload.kind, "ADD_JUNCTION_DEFINITION kind").toUpperCase();
+  if (!["TEE", "OLET"].includes(kind)) throw editError("INVALID_JUNCTION_KIND", `Unsupported junction kind ${kind}.`);
+  const id = `EDIT-CJ-${safeIdPart(command.id)}`;
+  state.junctions.push({
+    id,
+    kind,
+    nodeId,
+    position: { ...node.position },
+    expectedDegree: 3,
+    participatingEdgeIds: edgeIds,
+    sourceEntityIds: textIds(edges.flatMap((edge) => edge.sourceEntityIds ?? [])),
+    sourceTypes: ["TOPOLOGY_EDIT"],
+    sourceRelationship: `TOPOLOGY_EDIT:${command.id}`,
+    inferenceAuthority: requiredText(payload.inferenceAuthority, "ADD_JUNCTION_DEFINITION inferenceAuthority"),
+    editAncestry: [command.id]
+  });
+  return { targets: [nodeId, ...edgeIds], changed: [], created: [id], removed: [], before: null, after: { id, kind } };
+}
+function assertTrimDependencies(state, edgeId, nodeId) {
+  const nodeDependents = [...state.supports, ...state.junctions, ...state.boundaries, ...state.bends ?? []].filter((row) => row.nodeId === nodeId);
+  const edgeDependents = state.rigids.filter((rigid) => rigid.edgeId === edgeId);
+  if (nodeDependents.length || edgeDependents.length) {
+    throw editError("TRIM_HAS_DEPENDENCIES", `Cannot trim ${edgeId} at ${nodeId}; attached engineering or fitting evidence must be reassigned first.`);
+  }
+}
+function trimEdge(state, command) {
+  const payload = command.payload, edgeId = requiredText(payload.edgeId, "TRIM_EDGE edgeId");
+  const endpoint = requiredText(payload.endpoint, "TRIM_EDGE endpoint").toUpperCase();
+  if (!["FROM", "TO"].includes(endpoint)) throw editError("INVALID_ENDPOINT", "TRIM_EDGE endpoint must be FROM or TO.");
+  const edge = edgeById(state, edgeId), nodeId = endpoint === "FROM" ? edge.fromNodeId : edge.toNodeId;
+  const node = nodeById(state, nodeId), otherId = endpoint === "FROM" ? edge.toNodeId : edge.fromNodeId;
+  if (incidentEdges(state, nodeId).length !== 1) throw editError("TRIM_ENDPOINT_NOT_FREE", `Trim endpoint ${nodeId} is not graph-open.`);
+  assertTrimDependencies(state, edgeId, nodeId);
+  const before = { ...node.position }, position = point(payload.position, "TRIM_EDGE position");
+  if (pointDistance(position, nodeById(state, otherId).position) <= Number(state.toleranceMm ?? 0.1)) {
+    throw editError("TRIM_WOULD_COLLAPSE_EDGE", `Trim would collapse edge ${edgeId}.`);
+  }
+  node.position = position;
+  node.positionAuthority = `TOPOLOGY_EDIT:${command.id}/TRIM:${edgeId}`;
+  edge.topologyOperation = "EDIT_TRIM_EDGE";
+  edge.editAncestry = textIds([...edge.editAncestry ?? [], edge.id, command.id]);
+  synchronizeNodeDependents(state, nodeId, position);
+  return { targets: [edgeId, nodeId], changed: [edgeId, nodeId], created: [], removed: [], before, after: { ...position } };
+}
+var _test9 = Object.freeze({ assertNoBend, assertTrimDependencies });
 
 // tabs/model-converters/converters/component-topology/topology-edit-operations.js
 function moveNode(state, payload) {
@@ -5758,10 +5912,10 @@ function interpolate(from, to, fraction) {
   return { x: from.x + (to.x - from.x) * fraction, y: from.y + (to.y - from.y) * fraction, z: from.z + (to.z - from.z) * fraction };
 }
 function splitFraction(payload, from, to) {
-  const length2 = pointDistance(from.position, to.position);
-  if (length2 <= 0) throw editError("ZERO_LENGTH_EDGE", "Cannot split a zero-length edge.");
+  const length = pointDistance(from.position, to.position);
+  if (length <= 0) throw editError("ZERO_LENGTH_EDGE", "Cannot split a zero-length edge.");
   if (payload.fraction !== void 0) return finiteNumber5(payload.fraction, "SPLIT_EDGE fraction");
-  if (payload.distanceMm !== void 0) return finiteNumber5(payload.distanceMm, "SPLIT_EDGE distanceMm") / length2;
+  if (payload.distanceMm !== void 0) return finiteNumber5(payload.distanceMm, "SPLIT_EDGE distanceMm") / length;
   if (payload.position === void 0) throw editError("MISSING_SPLIT_LOCATION", "SPLIT_EDGE requires fraction, distanceMm, or position.");
   const requested = point(payload.position, "SPLIT_EDGE position");
   const vector = { x: to.position.x - from.position.x, y: to.position.y - from.position.y, z: to.position.z - from.position.z };
@@ -5849,6 +6003,28 @@ function deleteEdge(state, payload) {
   state.edges = state.edges.filter((row) => row.id !== edgeId);
   return { targets: [edgeId], changed: [], created: [], removed: [edgeId], removedSourceEntityIds: textIds(edge.sourceEntityIds ?? []), before: structuredClone(edge), after: null };
 }
+function applyTransaction(state, command) {
+  const operations = command.payload?.operations;
+  if (!Array.isArray(operations) || !operations.length) throw editError("EMPTY_TRANSACTION", "TRANSACTION requires operations.");
+  const results = operations.map((operation, index) => {
+    if (operation.type === "TRANSACTION") throw editError("NESTED_TRANSACTION", "Nested topology transactions are not supported.");
+    return applyTopologyEditCommand(state, {
+      schema: "TopologyEditCommand.v1",
+      id: `${command.id}-${String(index + 1).padStart(3, "0")}`,
+      type: operation.type,
+      payload: operation.payload
+    });
+  });
+  return {
+    targets: textIds(results.flatMap((row) => row.targets ?? [])),
+    created: textIds(results.flatMap((row) => row.created ?? [])),
+    changed: textIds(results.flatMap((row) => row.changed ?? [])),
+    removed: textIds(results.flatMap((row) => row.removed ?? [])),
+    removedSourceEntityIds: textIds(results.flatMap((row) => row.removedSourceEntityIds ?? [])),
+    before: results.map((row) => row.before),
+    after: results.map((row) => row.after)
+  };
+}
 function applyTopologyEditCommand(state, command) {
   if (command?.schema !== "TopologyEditCommand.v1") throw editError("INVALID_COMMAND_SCHEMA", "Expected TopologyEditCommand.v1.");
   const payload = (
@@ -5862,28 +6038,16 @@ function applyTopologyEditCommand(state, command) {
   if (command.type === "SPLIT_EDGE") return splitEdge(state, command);
   if (command.type === "DISCONNECT_ENDPOINT") return disconnectEndpoint(state, command);
   if (command.type === "DELETE_EDGE") return deleteEdge(state, payload);
+  if (command.type === "ADD_BEND_DEFINITION") return addBendDefinition(state, command);
+  if (command.type === "ADD_JUNCTION_DEFINITION") return addJunctionDefinition(state, command);
+  if (command.type === "TRIM_EDGE") return trimEdge(state, command);
+  if (command.type === "TRANSACTION") return applyTransaction(state, command);
   throw editError("UNSUPPORTED_COMMAND", `Unsupported topology edit command ${command.type}.`);
 }
 
-// tabs/model-converters/converters/component-topology/topology-geometry-diagnostics.js
-var TOPOLOGY_GEOMETRY_ISSUE_STYLES = Object.freeze({
-  BRANCH_DISCONNECTED: { color: "#2563eb", icon: "unlink", canvasFix: "BRIDGE_GAP_OR_MERGE_NODES" },
-  ISOLATED_ELEMENT: { color: "#1d4ed8", icon: "plug-zap", canvasFix: "BRIDGE_GAP_OR_DELETE_EDGE" },
-  SHORT_ELEMENT: { color: "#f97316", icon: "ruler", canvasFix: "MERGE_NODES_OR_DELETE_EDGE" },
-  CENTERLINE_CLASH: { color: "#dc2626", icon: "collision", canvasFix: "MOVE_NODE_OR_SPLIT_EDGE" },
-  OVERLAPPING_ELEMENTS: { color: "#be123c", icon: "layers", canvasFix: "DELETE_EDGE_OR_DISCONNECT_ENDPOINT" },
-  SNAP_GAP: { color: "#0ea5e9", icon: "magnet", canvasFix: "MERGE_NODES_OR_BRIDGE_GAP" },
-  PIPE_BACKTRACK: { color: "#7c3aed", icon: "undo-2", canvasFix: "MOVE_NODE_OR_DELETE_EDGE" },
-  RIGHT_ANGLE_WITHOUT_BEND: { color: "#eab308", icon: "corner-down-right", canvasFix: "" },
-  BEND_WITHOUT_DIRECTION_CHANGE: { color: "#a855f7", icon: "corner-up-right", canvasFix: "" },
-  UNDEFINED_KINK: { color: "#d97706", icon: "git-commit-horizontal", canvasFix: "MOVE_NODE" },
-  MULTIWAY_WITHOUT_JUNCTION: { color: "#db2777", icon: "git-fork", canvasFix: "" },
-  JUNCTION_WITHOUT_MULTIWAY: { color: "#c026d3", icon: "split", canvasFix: "" },
-  BEND_AT_JUNCTION: { color: "#9333ea", icon: "triangle-alert", canvasFix: "" },
-  ORPHAN_EDGE_ENDPOINT: { color: "#991b1b", icon: "circle-off", canvasFix: "DELETE_EDGE_OR_ADD_STRAIGHT_ELEMENT" },
-  ORPHAN_NODE: { color: "#b91c1c", icon: "circle-dot", canvasFix: "DELETE_OR_CONNECT" },
-  ORIGIN_DEFAULTED: { color: "#475569", icon: "map-pin-off", canvasFix: "MOVE_NODE" }
-});
+// tabs/model-converters/converters/component-topology/topology-checker-graph.js
+var INLINE_ROLES = /^(GASK|FLANGE|VALVE|INST|INSTRUMENT|REDUCER)$/;
+var EXPECTED_SHORT_ROLES = /^(GASK)$/;
 function xyz(point3) {
   return [Number(point3.x), Number(point3.y), Number(point3.z)];
 }
@@ -5893,18 +6057,18 @@ function subtract(left, right) {
 function dot(left, right) {
   return left.reduce((sum, value, index) => sum + value * right[index], 0);
 }
-function length(value) {
+function vectorLength(value) {
   return Math.hypot(...value);
 }
 function unit(value) {
-  const size = length(value);
+  const size = vectorLength(value);
   return size > 1e-12 ? value.map((part) => part / size) : null;
 }
 function clamp(value, minimum, maximum) {
   return Math.max(minimum, Math.min(maximum, value));
 }
 function pointDistance2(left, right) {
-  return length(subtract(left, right));
+  return vectorLength(subtract(left, right));
 }
 function angleDegrees(first, second) {
   const left = unit(first), right = unit(second);
@@ -5912,74 +6076,69 @@ function angleDegrees(first, second) {
 }
 function segmentDistance(p1, q1, p2, q2) {
   const u = subtract(q1, p1), v = subtract(q2, p2), w = subtract(p1, p2);
-  const a = dot(u, u), b = dot(u, v), c = dot(v, v), d = dot(u, w), e = dot(v, w), denominator = a * c - b * b;
-  let sNumerator = denominator, sDenominator = denominator, tNumerator = denominator, tDenominator = denominator;
-  if (denominator < 1e-12) {
-    sNumerator = 0;
-    sDenominator = 1;
-    tNumerator = e;
-    tDenominator = c;
+  const a = dot(u, u), b = dot(u, v), c = dot(v, v), d = dot(u, w), e = dot(v, w), den = a * c - b * b;
+  let sn = den, sd = den, tn = den, td = den;
+  if (den < 1e-12) {
+    sn = 0;
+    sd = 1;
+    tn = e;
+    td = c;
   } else {
-    sNumerator = b * e - c * d;
-    tNumerator = a * e - b * d;
-    if (sNumerator < 0) {
-      sNumerator = 0;
-      tNumerator = e;
-      tDenominator = c;
-    } else if (sNumerator > sDenominator) {
-      sNumerator = sDenominator;
-      tNumerator = e + b;
-      tDenominator = c;
+    sn = b * e - c * d;
+    tn = a * e - b * d;
+    if (sn < 0) {
+      sn = 0;
+      tn = e;
+      td = c;
+    } else if (sn > sd) {
+      sn = sd;
+      tn = e + b;
+      td = c;
     }
   }
-  if (tNumerator < 0) {
-    tNumerator = 0;
-    if (-d < 0) sNumerator = 0;
-    else if (-d > a) sNumerator = sDenominator;
+  if (tn < 0) {
+    tn = 0;
+    if (-d < 0) sn = 0;
+    else if (-d > a) sn = sd;
     else {
-      sNumerator = -d;
-      sDenominator = a;
+      sn = -d;
+      sd = a;
     }
-  } else if (tNumerator > tDenominator) {
-    tNumerator = tDenominator;
-    if (-d + b < 0) sNumerator = 0;
-    else if (-d + b > a) sNumerator = sDenominator;
+  } else if (tn > td) {
+    tn = td;
+    if (-d + b < 0) sn = 0;
+    else if (-d + b > a) sn = sd;
     else {
-      sNumerator = -d + b;
-      sDenominator = a;
+      sn = -d + b;
+      sd = a;
     }
   }
-  const sc = Math.abs(sNumerator) < 1e-12 ? 0 : sNumerator / sDenominator, tc = Math.abs(tNumerator) < 1e-12 ? 0 : tNumerator / tDenominator;
-  return length(w.map((value, index) => value + sc * u[index] - tc * v[index]));
+  const sc = Math.abs(sn) < 1e-12 ? 0 : sn / sd, tc = Math.abs(tn) < 1e-12 ? 0 : tn / td;
+  return vectorLength(w.map((value, index) => value + sc * u[index] - tc * v[index]));
 }
 function overlapLength(left, right, tolerance) {
-  const a = left.start, b = left.end, c = right.start, d = right.end, axis = subtract(b, a), axisLength = length(axis), direction = unit(axis);
-  if (!direction || segmentDistance(a, b, c, d) > tolerance) return 0;
-  const rightDirection = unit(subtract(d, c));
+  const axis = subtract(left.end, left.start), size = vectorLength(axis), direction = unit(axis);
+  if (!direction || segmentDistance(left.start, left.end, right.start, right.end) > tolerance) return 0;
+  const rightDirection = unit(subtract(right.end, right.start));
   if (!rightDirection || Math.abs(Math.abs(dot(direction, rightDirection)) - 1) > 1e-6) return 0;
-  const cOffset = dot(subtract(c, a), direction), dOffset = dot(subtract(d, a), direction);
-  return Math.max(0, Math.min(axisLength, Math.max(cOffset, dOffset)) - Math.max(0, Math.min(cOffset, dOffset)));
+  const first = dot(subtract(right.start, left.start), direction), second = dot(subtract(right.end, left.start), direction);
+  return Math.max(0, Math.min(size, Math.max(first, second)) - Math.max(0, Math.min(first, second)));
 }
-function hasBendEvidence(edge) {
-  return /BEND|ELBO/.test(`${cleanText(edge.segmentRole)} ${edge.sourceTypes?.join(" ")}`.toUpperCase());
+function edgeRole(edge) {
+  return cleanText(edge.segmentRole).toUpperCase().replace(/_SUPPORT_SPLIT$/, "");
 }
-function hasBendPairEvidence(edges) {
-  for (let leftIndex = 0; leftIndex < edges.length; leftIndex += 1) for (let rightIndex = leftIndex + 1; rightIndex < edges.length; rightIndex += 1) {
-    const left = edges[leftIndex], right = edges[rightIndex], roles = `${cleanText(left.segmentRole)}|${cleanText(right.segmentRole)}`.toUpperCase();
-    if (!roles.includes("RUN_IN") || !roles.includes("RUN_OUT")) continue;
-    const excluded = new Set([...left.branchIds ?? [], ...right.branchIds ?? []].map(cleanText));
-    const rightSources = new Set((right.sourceEntityIds ?? []).map(cleanText).filter((id) => !excluded.has(id)));
-    if ((left.sourceEntityIds ?? []).map(cleanText).some((id) => !excluded.has(id) && rightSources.has(id))) return true;
-  }
-  return false;
+function isInlineEdge(edge) {
+  return INLINE_ROLES.test(edgeRole(edge));
 }
-function finding(code, message, objectIds, details) {
-  const style = TOPOLOGY_GEOMETRY_ISSUE_STYLES[code];
-  return Object.freeze({ code, severity: "WARNING", blocking: false, message, objectIds: Object.freeze([...objectIds]), details: Object.freeze({ ...details }), color: style.color, icon: style.icon, canvasFix: style.canvasFix });
+function isExpectedShortEdge(edge) {
+  return EXPECTED_SHORT_ROLES.test(edgeRole(edge));
+}
+function ownerBranch(edge) {
+  return cleanText(edge.ownerBranchId ?? edge.sourceBranchEntityId ?? edge.branchIds?.[0]);
 }
 function edgeComponents(edges) {
   const byNode = /* @__PURE__ */ new Map();
-  for (const edge of edges) for (const nodeId of [edge.fromNodeId, edge.toNodeId]) byNode.set(nodeId, [...byNode.get(nodeId) ?? [], edge]);
+  for (const edge of edges) for (const id of [edge.fromNodeId, edge.toNodeId]) byNode.set(id, [...byNode.get(id) ?? [], edge]);
   const remaining = new Set(edges), components = [];
   while (remaining.size) {
     const first = remaining.values().next().value, stack = [first], rows = [];
@@ -5987,7 +6146,7 @@ function edgeComponents(edges) {
     while (stack.length) {
       const edge = stack.pop();
       rows.push(edge);
-      for (const nodeId of [edge.fromNodeId, edge.toNodeId]) for (const next of byNode.get(nodeId) ?? []) if (remaining.delete(next)) stack.push(next);
+      for (const id of [edge.fromNodeId, edge.toNodeId]) for (const next of byNode.get(id) ?? []) if (remaining.delete(next)) stack.push(next);
     }
     components.push(rows);
   }
@@ -5995,87 +6154,427 @@ function edgeComponents(edges) {
 }
 function candidatePairs(geometry, tolerance) {
   if (geometry.length < 2) return [];
-  const ranges = [0, 1, 2].map((axis) => Math.max(...geometry.map((row) => row.max[axis])) - Math.min(...geometry.map((row) => row.min[axis]))), sweepAxis = ranges.indexOf(Math.max(...ranges));
-  const sorted = [...geometry].sort((left, right) => left.min[sweepAxis] - right.min[sweepAxis]), pairs = [];
+  const ranges = [0, 1, 2].map((axis) => Math.max(...geometry.map((row) => row.max[axis])) - Math.min(...geometry.map((row) => row.min[axis])));
+  const sweep = ranges.indexOf(Math.max(...ranges)), sorted = [...geometry].sort((left, right) => left.min[sweep] - right.min[sweep]), pairs = [];
   for (let leftIndex = 0; leftIndex < sorted.length; leftIndex += 1) for (let rightIndex = leftIndex + 1; rightIndex < sorted.length; rightIndex += 1) {
     const left = sorted[leftIndex], right = sorted[rightIndex];
-    if (right.min[sweepAxis] > left.max[sweepAxis] + tolerance) break;
+    if (right.min[sweep] > left.max[sweep] + tolerance) break;
     if ([0, 1, 2].every((axis) => right.min[axis] <= left.max[axis] + tolerance && right.max[axis] >= left.min[axis] - tolerance)) pairs.push([left, right]);
   }
   return pairs;
 }
-function validateTopologyGeometry(canonical, options) {
-  if (canonical?.schema !== "CanonicalTopology.v1") throw new TypeError("Geometry diagnostics require CanonicalTopology.v1.");
-  for (const [key, value] of Object.entries(options)) if (!Number.isFinite(Number(value)) || Number(value) < 0) throw new TypeError(`Geometry diagnostic option ${key} must be a non-negative finite number.`);
-  const findings = [], nodes = new Map(canonical.nodes.map((node) => [cleanText(node.id), node])), degree = /* @__PURE__ */ new Map(), incident = /* @__PURE__ */ new Map(), geometry = [];
+function buildTopologyCheckGraph(canonical) {
+  const nodes = new Map(canonical.nodes.map((node) => [cleanText(node.id), node]));
+  const incident = /* @__PURE__ */ new Map(), degree = /* @__PURE__ */ new Map(), geometry = [];
   for (const edge of canonical.edges) {
     const from = nodes.get(cleanText(edge.fromNodeId)), to = nodes.get(cleanText(edge.toNodeId));
-    if (!from || !to) {
-      findings.push(finding("ORPHAN_EDGE_ENDPOINT", `Element ${edge.id} references a missing endpoint.`, [edge.id], {}));
-      continue;
+    if (!from || !to) continue;
+    for (const id of [edge.fromNodeId, edge.toNodeId]) {
+      incident.set(id, [...incident.get(id) ?? [], edge]);
+      degree.set(id, (degree.get(id) ?? 0) + 1);
     }
-    for (const nodeId of [edge.fromNodeId, edge.toNodeId]) {
-      degree.set(nodeId, (degree.get(nodeId) ?? 0) + 1);
-      incident.set(nodeId, [...incident.get(nodeId) ?? [], edge]);
-    }
-    const start = xyz(from.position), end = xyz(to.position), edgeLength = pointDistance2(start, end);
-    if (edgeLength > options.toleranceMm && edgeLength < options.shortElementMm) findings.push(finding("SHORT_ELEMENT", `Element ${edge.id} is ${edgeLength.toFixed(3)} mm; threshold is ${options.shortElementMm} mm.`, [edge.id], { lengthMm: edgeLength }));
+    const start = xyz(from.position), end = xyz(to.position);
     geometry.push({ edge, start, end, min: start.map((value, axis) => Math.min(value, end[axis])), max: start.map((value, axis) => Math.max(value, end[axis])) });
   }
+  const components = edgeComponents(canonical.edges.filter((edge) => nodes.has(edge.fromNodeId) && nodes.has(edge.toNodeId)));
+  const componentByEdge = new Map(components.flatMap((rows, index) => rows.map((edge) => [edge.id, index])));
+  return Object.freeze({ nodes, incident, degree, geometry: Object.freeze(geometry), components: Object.freeze(components), componentByEdge });
+}
+function outwardVector(graph, edge, nodeId) {
+  const node = graph.nodes.get(nodeId), otherId = edge.fromNodeId === nodeId ? edge.toNodeId : edge.fromNodeId, other = graph.nodes.get(otherId);
+  return node && other ? subtract(xyz(other.position), xyz(node.position)) : [0, 0, 0];
+}
+
+// tabs/model-converters/converters/component-topology/topology-checker-values.js
+var TOPOLOGY_CHECK_DEFAULTS = Object.freeze({
+  shortElementMm: 6,
+  toleranceMm: 0.1,
+  snapToleranceMm: 25,
+  angleToleranceDeg: 5,
+  originToleranceMm: 0.1,
+  clearanceMm: 0
+});
+var TOPOLOGY_ISSUE_STYLES = Object.freeze({
+  BRANCH_DISCONNECTED: { category: "CONNECTIVITY", color: "#2563eb", icon: "unlink", canvasFix: "BRIDGE_GAP_OR_MERGE_NODES" },
+  ISOLATED_ELEMENT: { category: "CONNECTIVITY", color: "#1d4ed8", icon: "plug-zap", canvasFix: "BRIDGE_GAP_OR_DELETE_EDGE" },
+  SNAP_GAP: { category: "CONNECTIVITY", color: "#0ea5e9", icon: "magnet", canvasFix: "MERGE_NODES_OR_BRIDGE_GAP" },
+  ORPHAN_EDGE_ENDPOINT: { category: "CONNECTIVITY", color: "#991b1b", icon: "circle-off", canvasFix: "DELETE_EDGE_OR_ADD_STRAIGHT_ELEMENT" },
+  ORPHAN_NODE: { category: "CONNECTIVITY", color: "#b91c1c", icon: "circle-dot", canvasFix: "DELETE_OR_CONNECT" },
+  SHORT_ELEMENT: { category: "GEOMETRY", color: "#f97316", icon: "ruler", canvasFix: "MERGE_NODES_OR_DELETE_EDGE" },
+  EXPECTED_SHORT_INLINE_COMPONENT: { category: "GEOMETRY", color: "#64748b", icon: "component", canvasFix: "" },
+  CENTERLINE_CLASH: { category: "GEOMETRY", color: "#dc2626", icon: "scan-line", canvasFix: "MOVE_NODE_OR_SPLIT_EDGE" },
+  PHYSICAL_CLEARANCE_CLASH: { category: "GEOMETRY", color: "#ef4444", icon: "collision", canvasFix: "MOVE_NODE_OR_SPLIT_EDGE" },
+  OVERLAPPING_ELEMENTS: { category: "GEOMETRY", color: "#be123c", icon: "layers", canvasFix: "TRIM_EDGE" },
+  PIPE_BACKTRACK: { category: "GEOMETRY", color: "#7c3aed", icon: "undo-2", canvasFix: "TRIM_EDGE" },
+  UNDEFINED_KINK: { category: "GEOMETRY", color: "#d97706", icon: "git-commit-horizontal", canvasFix: "MOVE_NODE" },
+  RIGHT_ANGLE_WITHOUT_BEND: { category: "FITTINGS", color: "#eab308", icon: "corner-down-right", canvasFix: "ADD_BEND_DEFINITION" },
+  BEND_WITHOUT_DIRECTION_CHANGE: { category: "FITTINGS", color: "#a855f7", icon: "corner-up-right", canvasFix: "" },
+  MULTIWAY_WITHOUT_JUNCTION: { category: "FITTINGS", color: "#db2777", icon: "git-fork", canvasFix: "ADD_JUNCTION_DEFINITION" },
+  JUNCTION_WITHOUT_MULTIWAY: { category: "FITTINGS", color: "#c026d3", icon: "split", canvasFix: "" },
+  BEND_AT_JUNCTION: { category: "FITTINGS", color: "#9333ea", icon: "triangle-alert", canvasFix: "" },
+  ORIGIN_DEFAULTED: { category: "DATA_AUTHORITY", color: "#475569", icon: "map-pin-off", canvasFix: "MOVE_NODE" },
+  ORPHAN_SUPPORT: { category: "ATTACHMENTS", color: "#f43f5e", icon: "construction", canvasFix: "REATTACH_SUPPORT" },
+  ORPHAN_RIGID: { category: "ATTACHMENTS", color: "#e11d48", icon: "weight", canvasFix: "REASSIGN_RIGID" },
+  UNKNOWN_RESTRAINT_FAMILY: { category: "ATTACHMENTS", color: "#d946ef", icon: "circle-help", canvasFix: "EDIT_RESTRAINT" },
+  UNRESOLVED_RESTRAINT_DIRECTION: { category: "ATTACHMENTS", color: "#c026d3", icon: "move-3d", canvasFix: "EDIT_RESTRAINT" }
+});
+var TOPOLOGY_CHECK_CATEGORIES = Object.freeze([
+  "CONNECTIVITY",
+  "GEOMETRY",
+  "FITTINGS",
+  "ATTACHMENTS",
+  "DATA_AUTHORITY",
+  "EXPORT_INTEGRITY"
+]);
+function normalizeTopologyCheckOptions(options) {
+  const merged = { ...TOPOLOGY_CHECK_DEFAULTS, ...options ?? {} };
+  for (const [key, value] of Object.entries(merged)) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) throw new TypeError(`Topology check option ${key} must be a non-negative finite number.`);
+    merged[key] = number;
+  }
+  return Object.freeze(merged);
+}
+function uniqueIds(values) {
+  return [...new Set(values.map(cleanText).filter(Boolean))].sort();
+}
+function topologyIssue(input) {
+  const code = cleanText(input.code).toUpperCase();
+  const style = TOPOLOGY_ISSUE_STYLES[code];
+  if (!style) throw new RangeError(`Unknown topology issue code ${code}.`);
+  const objectIds = uniqueIds(
+    /** @type {string[]} */
+    input.objectIds ?? []
+  );
+  const identity = deterministicHash({ ruleSet: "TopologyCheckerRules.v1", code, objectIds });
+  return Object.freeze({
+    schema: "TopologyIssue.v1",
+    id: `TI-${identity.split(":")[1]}`,
+    code,
+    category: style.category,
+    severity: input.severity ?? "WARNING",
+    blocking: input.blocking === true,
+    confidence: input.confidence ?? "MEDIUM",
+    message: cleanText(input.message),
+    objectIds: Object.freeze(objectIds),
+    details: Object.freeze({ ...input.details ?? {} }),
+    evidence: Object.freeze([...input.evidence ?? []]),
+    location: input.location ? Object.freeze({ ...input.location }) : null,
+    color: style.color,
+    icon: style.icon,
+    canvasFix: style.canvasFix,
+    fixability: input.fixability ?? (style.canvasFix ? "NEEDS_CONFIRMATION" : "MANUAL_ENGINEERING"),
+    baseline: input.baseline === true,
+    suggestionIds: Object.freeze([])
+  });
+}
+function topologyCheckSummary(issues) {
+  const count = (field, value) => issues.filter((row) => row[field] === value).length;
+  const countsByCode = Object.fromEntries([...new Set(issues.map((row) => row.code))].sort().map((code) => [code, count("code", code)]));
+  const countsByCategory = Object.fromEntries(TOPOLOGY_CHECK_CATEGORIES.map((category) => [category, count("category", category)]));
+  return Object.freeze({
+    findingCount: issues.length,
+    openCount: issues.length,
+    blockingCount: issues.filter((row) => row.blocking).length,
+    warningCount: count("severity", "WARNING"),
+    infoCount: count("severity", "INFO"),
+    autoApprovedCount: count("fixability", "AUTO_APPROVED"),
+    needsConfirmationCount: count("fixability", "NEEDS_CONFIRMATION"),
+    countsByCode: Object.freeze(countsByCode),
+    countsByCategory: Object.freeze(countsByCategory)
+  });
+}
+
+// tabs/model-converters/converters/component-topology/topology-checker-feature-rules.js
+function runIn(edge) {
+  return /ELBO\/BEND_RUN_IN/i.test(cleanText(edge.segmentRole));
+}
+function runOut(edge) {
+  return /ELBO\/BEND_RUN_OUT/i.test(cleanText(edge.segmentRole));
+}
+function componentEntityIds(edge) {
+  const excluded = new Set((edge.branchIds ?? []).map(cleanText));
+  return (edge.sourceEntityIds ?? []).map(cleanText).filter((id) => id && !excluded.has(id));
+}
+function sharedNode(left, right) {
+  return [left.fromNodeId, left.toNodeId].find((id) => id === right.fromNodeId || id === right.toNodeId) ?? "";
+}
+function deriveBendInstances(canonical) {
+  const byEntity = /* @__PURE__ */ new Map();
+  for (const edge of canonical.edges.filter((row) => runIn(row) || runOut(row))) for (const entityId of componentEntityIds(edge)) {
+    byEntity.set(entityId, [...byEntity.get(entityId) ?? [], edge]);
+  }
+  const derived = [];
+  for (const [entityId, edges] of byEntity) {
+    const first = edges.find(runIn), second = edges.find(runOut), nodeId = first && second ? sharedNode(first, second) : "";
+    if (!first || !second || !nodeId) continue;
+    derived.push(Object.freeze({ id: `BEND:${entityId}`, nodeId, edgeIds: Object.freeze([first.id, second.id]), sourceEntityId: entityId, explicit: true }));
+  }
+  for (const bend of canonical.bends ?? []) derived.push(Object.freeze({ ...bend, explicit: true }));
+  const seen = /* @__PURE__ */ new Set();
+  return Object.freeze(derived.filter((bend) => {
+    const key = `${bend.nodeId}:${[...bend.edgeIds ?? []].sort().join("|")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }));
+}
+function fittingIssues(canonical, graph, options) {
+  const issues = [], bends = deriveBendInstances(canonical), bendByNode = new Map(bends.map((bend) => [bend.nodeId, bend]));
+  const junctionByNode = new Map((canonical.junctions ?? []).map((junction) => [junction.nodeId, junction]));
   for (const node of canonical.nodes) {
-    const nodeId = cleanText(node.id), nodeDegree = degree.get(nodeId) ?? 0;
-    if (!nodeDegree) findings.push(finding("ORPHAN_NODE", `Node ${nodeId} has no incident element.`, [nodeId], {}));
-    const authority = cleanText(node.positionAuthority).toUpperCase(), atOrigin = length(xyz(node.position)) <= options.originToleranceMm;
-    if (atOrigin && (!node.sourcePortIds?.length || /DEFAULT|UNKNOWN|MISSING/.test(authority))) findings.push(finding("ORIGIN_DEFAULTED", `Node ${nodeId} is at 0,0,0 without authoritative source-port geometry.`, [nodeId], { positionAuthority: node.positionAuthority }));
-    const rows = incident.get(nodeId) ?? [], junction = canonical.junctions.find((row) => cleanText(row.nodeId) === nodeId), bendAtNode = hasBendPairEvidence(rows);
+    const nodeId = cleanText(node.id), rows = graph.incident.get(nodeId) ?? [], junction = junctionByNode.get(nodeId), bend = bendByNode.get(nodeId);
     if (rows.length === 2) {
-      const vectors = rows.map((edge) => {
-        const other = cleanText(edge.fromNodeId) === nodeId ? nodes.get(cleanText(edge.toNodeId)) : nodes.get(cleanText(edge.fromNodeId));
-        return subtract(xyz(other.position), xyz(node.position));
-      });
-      const angle = angleDegrees(vectors[0], vectors[1]);
-      if (angle <= options.angleToleranceDeg) findings.push(finding("PIPE_BACKTRACK", `Pipe reverses onto the same ray at ${nodeId} (${angle.toFixed(2)}\xB0).`, [nodeId, rows[0].id, rows[1].id], { angleDeg: angle }));
-      else if (bendAtNode && Math.abs(180 - angle) <= options.angleToleranceDeg) findings.push(finding("BEND_WITHOUT_DIRECTION_CHANGE", `Bend evidence at ${nodeId} has no direction change (${angle.toFixed(2)}\xB0).`, [nodeId, ...rows.map((row) => row.id)], { angleDeg: angle }));
-      else if (!bendAtNode && Math.abs(90 - angle) <= options.angleToleranceDeg) findings.push(finding("RIGHT_ANGLE_WITHOUT_BEND", `A ${angle.toFixed(2)}\xB0 direction change at ${nodeId} has no bend evidence.`, [nodeId, ...rows.map((row) => row.id)], { angleDeg: angle }));
-      else if (!bendAtNode && Math.abs(180 - angle) > options.angleToleranceDeg) findings.push(finding("UNDEFINED_KINK", `Undefined ${angle.toFixed(2)}\xB0 kink at ${nodeId} has no bend evidence.`, [nodeId, ...rows.map((row) => row.id)], { angleDeg: angle }));
+      const angleDeg = angleDegrees(outwardVector(graph, rows[0], nodeId), outwardVector(graph, rows[1], nodeId));
+      const common = { objectIds: [nodeId, ...rows.map((row) => row.id)], details: { angleDeg, nodeId, edgeIds: rows.map((row) => row.id) }, location: node.position };
+      const routeSpine = rows.every((edge) => !isInlineEdge(edge));
+      if (angleDeg <= options.angleToleranceDeg) issues.push(topologyIssue({ code: "PIPE_BACKTRACK", severity: "ERROR", confidence: "HIGH", fixability: "NEEDS_CONFIRMATION", message: `The route reverses onto the same ray at ${nodeId} (${angleDeg.toFixed(2)}\xB0).`, ...common }));
+      else if (routeSpine && bend && Math.abs(180 - angleDeg) <= options.angleToleranceDeg) issues.push(topologyIssue({ code: "BEND_WITHOUT_DIRECTION_CHANGE", severity: "ERROR", confidence: "HIGH", message: `Bend ${bend.id} at ${nodeId} has no direction change.`, ...common, objectIds: [...common.objectIds, bend.id] }));
+      else if (routeSpine && !bend && Math.abs(90 - angleDeg) <= options.angleToleranceDeg) issues.push(topologyIssue({ code: "RIGHT_ANGLE_WITHOUT_BEND", severity: "ERROR", confidence: "HIGH", fixability: "AUTO_APPROVED", message: `A ${angleDeg.toFixed(2)}\xB0 direction change at ${nodeId} has no bend definition.`, ...common }));
+      else if (routeSpine && !bend && Math.abs(180 - angleDeg) > options.angleToleranceDeg) issues.push(topologyIssue({ code: "UNDEFINED_KINK", severity: "WARNING", confidence: "HIGH", message: `Undefined ${angleDeg.toFixed(2)}\xB0 route kink at ${nodeId} has no bend definition.`, ...common }));
     }
-    if (rows.length >= 3 && !junction) findings.push(finding("MULTIWAY_WITHOUT_JUNCTION", `${nodeId} has degree ${rows.length} but no TEE/OLET junction record.`, [nodeId, ...rows.map((row) => row.id)], { degree: rows.length }));
-    if (junction && rows.length < 3) findings.push(finding("JUNCTION_WITHOUT_MULTIWAY", `${junction.kind} ${junction.id} is defined at degree-${rows.length} node ${nodeId}.`, [junction.id, nodeId], { degree: rows.length }));
-    if (junction && bendAtNode) findings.push(finding("BEND_AT_JUNCTION", `Bend evidence and ${junction.kind} ${junction.id} share node ${nodeId}.`, [junction.id, nodeId, ...rows.filter(hasBendEvidence).map((row) => row.id)], {}));
+    if (rows.length >= 3 && !junction) issues.push(topologyIssue({
+      code: "MULTIWAY_WITHOUT_JUNCTION",
+      severity: "ERROR",
+      confidence: "HIGH",
+      fixability: rows.length === 3 ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+      message: `${nodeId} has degree ${rows.length} but no Tee/Olet junction definition.`,
+      objectIds: [nodeId, ...rows.map((row) => row.id)],
+      details: { degree: rows.length, nodeId, edgeIds: rows.map((row) => row.id) },
+      location: node.position
+    }));
+    if (junction && rows.length < 3) issues.push(topologyIssue({ code: "JUNCTION_WITHOUT_MULTIWAY", severity: "ERROR", confidence: "HIGH", message: `${junction.kind} ${junction.id} is defined at degree-${rows.length} node ${nodeId}.`, objectIds: [junction.id, nodeId], details: { degree: rows.length, nodeId }, location: node.position }));
+    if (junction && bend) issues.push(topologyIssue({
+      code: "BEND_AT_JUNCTION",
+      severity: "ERROR",
+      confidence: "HIGH",
+      message: `Explicit bend ${bend.id} and ${junction.kind} ${junction.id} share node ${nodeId}.`,
+      objectIds: [bend.id, junction.id, nodeId, ...bend.edgeIds ?? []],
+      details: { nodeId, bendId: bend.id, junctionId: junction.id },
+      location: node.position
+    }));
   }
-  const byBranch = /* @__PURE__ */ new Map();
-  for (const edge of canonical.edges) for (const branchId of edge.branchIds ?? []) byBranch.set(branchId, [...byBranch.get(branchId) ?? [], edge]);
-  for (const [branchId, edges] of byBranch) {
-    const components = edgeComponents(edges);
-    if (components.length > 1) for (const rows of components.slice(1)) findings.push(finding("BRANCH_DISCONNECTED", `Branch ${branchId} contains ${components.length} disconnected route components.`, rows.map((row) => row.id), { branchId, componentCount: components.length }));
-    for (const edge of edges) if (edges.length > 1 && (degree.get(edge.fromNodeId) ?? 0) === 1 && (degree.get(edge.toNodeId) ?? 0) === 1) findings.push(finding("ISOLATED_ELEMENT", `Element ${edge.id} is isolated from the rest of branch ${branchId}.`, [edge.id], { branchId }));
-  }
-  for (const [left, right] of candidatePairs(geometry, options.snapToleranceMm)) {
-    const leftNodes = [left.edge.fromNodeId, left.edge.toNodeId];
-    if (leftNodes.includes(right.edge.fromNodeId) || leftNodes.includes(right.edge.toNodeId)) continue;
-    const overlap = overlapLength(left, right, options.toleranceMm);
-    if (overlap > options.toleranceMm) {
-      findings.push(finding("OVERLAPPING_ELEMENTS", `Elements ${left.edge.id} and ${right.edge.id} overlap by ${overlap.toFixed(3)} mm.`, [left.edge.id, right.edge.id], { overlapMm: overlap }));
+  return issues;
+}
+function restraintToken(restraint) {
+  return cleanText(restraint.type || restraint.kind).toUpperCase();
+}
+function knownRestraint(restraint) {
+  return Number.isFinite(RESTRAINT_CODE_MAP[restraintToken(restraint)]);
+}
+function knownDirection(restraint) {
+  const token = cleanText(restraint.direction || restraint.type).toUpperCase();
+  return /^(A|ANC|GUI|GUIDE|LIM|LIMIT|[+-]?[XYZ]|[+-]?R[XYZ]|[XYZ](SNB|SPR|ROD))$/.test(token);
+}
+function attachmentIssues(canonical, graph) {
+  const issues = [], edgeIds = new Set(canonical.edges.map((edge) => edge.id));
+  for (const support of canonical.supports ?? []) {
+    const node = graph.nodes.get(cleanText(support.nodeId));
+    if (!node) {
+      issues.push(topologyIssue({ code: "ORPHAN_SUPPORT", severity: "BLOCKER", blocking: true, confidence: "HIGH", message: `Support ${support.id} references missing node ${support.nodeId}.`, objectIds: [support.id, support.nodeId] }));
       continue;
     }
-    const closestEndpoints = Math.min(...leftNodes.flatMap((leftId) => [right.edge.fromNodeId, right.edge.toNodeId].map((rightId) => pointDistance2(xyz(nodes.get(leftId).position), xyz(nodes.get(rightId).position)))));
-    if (closestEndpoints > options.toleranceMm && closestEndpoints <= options.snapToleranceMm) findings.push(finding("SNAP_GAP", `Elements ${left.edge.id} and ${right.edge.id} have unsnapped endpoints ${closestEndpoints.toFixed(3)} mm apart.`, [left.edge.id, right.edge.id], { gapMm: closestEndpoints }));
-    else if (segmentDistance(left.start, left.end, right.start, right.end) <= options.toleranceMm) findings.push(finding("CENTERLINE_CLASH", `Elements ${left.edge.id} and ${right.edge.id} intersect without a shared canonical node.`, [left.edge.id, right.edge.id], { clearanceAuthority: "CENTERLINE_ONLY" }));
+    for (const [index, restraint] of (support.restraints ?? []).entries()) {
+      const id = `RESTRAINT:${support.id}:${index + 1}`;
+      if (!knownRestraint(restraint)) issues.push(topologyIssue({ code: "UNKNOWN_RESTRAINT_FAMILY", severity: "ERROR", confidence: "HIGH", message: `Restraint ${id} has unsupported family ${restraintToken(restraint) || "(blank)"}.`, objectIds: [support.id, id], location: node.position }));
+      else if (!knownDirection(restraint)) issues.push(topologyIssue({ code: "UNRESOLVED_RESTRAINT_DIRECTION", severity: "WARNING", confidence: "HIGH", message: `Restraint ${id} has unresolved direction ${cleanText(restraint.direction) || "(blank)"}.`, objectIds: [support.id, id], location: node.position }));
+    }
   }
-  const countsByCode = Object.freeze(Object.fromEntries([...new Set(findings.map((row) => row.code))].map((code) => [code, findings.filter((row) => row.code === code).length])));
-  return Object.freeze({ schema: "TopologyGeometryDiagnostics.v1", options: Object.freeze({ ...options }), findings: Object.freeze(findings), summary: Object.freeze({ findingCount: findings.length, countsByCode }) });
+  for (const rigid of canonical.rigids ?? []) if (!edgeIds.has(cleanText(rigid.edgeId))) issues.push(topologyIssue({
+    code: "ORPHAN_RIGID",
+    severity: "BLOCKER",
+    blocking: true,
+    confidence: "HIGH",
+    message: `Rigid ${rigid.sourceEntityId} references missing edge ${rigid.edgeId}.`,
+    objectIds: [rigid.sourceEntityId, rigid.edgeId]
+  }));
+  return issues;
 }
-var _test9 = Object.freeze({ xyz, subtract, dot, length, unit, angleDegrees, segmentDistance, overlapLength, hasBendEvidence, hasBendPairEvidence, edgeComponents, candidatePairs });
+var _test10 = Object.freeze({ runIn, runOut, componentEntityIds, sharedNode, restraintToken, knownRestraint, knownDirection });
+
+// tabs/model-converters/converters/component-topology/topology-checker-route-rules.js
+function edgeRadius(edge) {
+  const diameter = Number(edge.diameterMm ?? edge.diameter ?? 0), insulation = Number(edge.insulationMm ?? edge.insulThicknessMm ?? 0);
+  return diameter > 0 ? diameter / 2 + Math.max(0, insulation) : 0;
+}
+function sameFeature(left, right) {
+  const excluded = new Set([...left.branchIds ?? [], ...right.branchIds ?? []].map(cleanText));
+  const rightIds = new Set((right.sourceEntityIds ?? []).map(cleanText).filter((id) => !excluded.has(id)));
+  return (left.sourceEntityIds ?? []).map(cleanText).some((id) => !excluded.has(id) && rightIds.has(id));
+}
+function edgeGeometry(graph, edge) {
+  const from = graph.nodes.get(cleanText(edge.fromNodeId)), to = graph.nodes.get(cleanText(edge.toNodeId));
+  if (!from || !to) return null;
+  const start = xyz(from.position), end = xyz(to.position), radius = edgeRadius(edge);
+  return { edge, start, end, radius, min: start.map((value, axis) => Math.min(value, end[axis]) - radius), max: start.map((value, axis) => Math.max(value, end[axis]) + radius) };
+}
+function basicRouteIssues(canonical, graph, options) {
+  const issues = [];
+  for (const edge of canonical.edges) {
+    const from = graph.nodes.get(cleanText(edge.fromNodeId)), to = graph.nodes.get(cleanText(edge.toNodeId));
+    if (!from || !to) {
+      issues.push(topologyIssue({ code: "ORPHAN_EDGE_ENDPOINT", severity: "BLOCKER", blocking: true, confidence: "HIGH", message: `Element ${edge.id} references a missing endpoint.`, objectIds: [edge.id] }));
+      continue;
+    }
+    const lengthMm = pointDistance2(xyz(from.position), xyz(to.position));
+    if (lengthMm <= options.toleranceMm || lengthMm >= options.shortElementMm) continue;
+    const expected = isExpectedShortEdge(edge);
+    issues.push(topologyIssue({
+      code: expected ? "EXPECTED_SHORT_INLINE_COMPONENT" : "SHORT_ELEMENT",
+      severity: expected ? "INFO" : "WARNING",
+      confidence: "HIGH",
+      fixability: expected ? "MANUAL_ENGINEERING" : "NEEDS_CONFIRMATION",
+      message: expected ? `${edge.segmentRole} ${edge.id} is an expected ${lengthMm.toFixed(3)} mm inline component.` : `Route element ${edge.id} is ${lengthMm.toFixed(3)} mm; threshold is ${options.shortElementMm} mm.`,
+      objectIds: [edge.id],
+      details: { lengthMm, thresholdMm: options.shortElementMm, expectedInline: expected },
+      location: from.position
+    }));
+  }
+  for (const node of canonical.nodes) {
+    const id = cleanText(node.id), degree = graph.degree.get(id) ?? 0;
+    if (!degree) issues.push(topologyIssue({ code: "ORPHAN_NODE", severity: "BLOCKER", blocking: true, confidence: "HIGH", message: `Node ${id} has no incident element.`, objectIds: [id], location: node.position }));
+    const authority = cleanText(node.positionAuthority).toUpperCase();
+    if (vectorLength(xyz(node.position)) <= options.originToleranceMm && (!(node.sourcePortIds ?? []).length || /DEFAULT|UNKNOWN|MISSING/.test(authority))) {
+      issues.push(topologyIssue({ code: "ORIGIN_DEFAULTED", severity: "WARNING", confidence: "HIGH", message: `Node ${id} is at 0,0,0 without authoritative source-port geometry.`, objectIds: [id], details: { positionAuthority: node.positionAuthority }, location: node.position }));
+    }
+  }
+  return issues;
+}
+function branchConnectivityIssues(canonical, graph) {
+  const issues = [], byBranch = /* @__PURE__ */ new Map();
+  for (const edge of canonical.edges) {
+    const branch = ownerBranch(edge);
+    if (branch) byBranch.set(branch, [...byBranch.get(branch) ?? [], edge]);
+  }
+  for (const [branchId, edges] of byBranch) {
+    const components = edgeComponents(edges);
+    if (components.length > 1) for (const rows of components.slice(1)) issues.push(topologyIssue({
+      code: "BRANCH_DISCONNECTED",
+      severity: "ERROR",
+      confidence: "HIGH",
+      message: `Branch ${branchId} contains ${components.length} disconnected route components.`,
+      objectIds: rows.map((row) => row.id),
+      details: { branchId, componentCount: components.length }
+    }));
+    for (const edge of edges) if (edges.length > 1 && (graph.degree.get(edge.fromNodeId) ?? 0) === 1 && (graph.degree.get(edge.toNodeId) ?? 0) === 1) issues.push(topologyIssue({
+      code: "ISOLATED_ELEMENT",
+      severity: "ERROR",
+      confidence: "HIGH",
+      message: `Element ${edge.id} is isolated from branch ${branchId}.`,
+      objectIds: [edge.id],
+      details: { branchId }
+    }));
+  }
+  return issues;
+}
+function snapGapIssues(canonical, graph, options) {
+  const endpoints = canonical.edges.flatMap((edge) => [edge.fromNodeId, edge.toNodeId].filter((nodeId) => (graph.degree.get(nodeId) ?? 0) === 1).map((nodeId) => ({ edge, nodeId, point: xyz(graph.nodes.get(nodeId).position) })));
+  const candidates = [];
+  for (let leftIndex = 0; leftIndex < endpoints.length; leftIndex += 1) for (let rightIndex = leftIndex + 1; rightIndex < endpoints.length; rightIndex += 1) {
+    const left = endpoints[leftIndex], right = endpoints[rightIndex];
+    if (graph.componentByEdge.get(left.edge.id) === graph.componentByEdge.get(right.edge.id)) continue;
+    const gapMm = pointDistance2(left.point, right.point);
+    if (gapMm > options.toleranceMm && gapMm <= options.snapToleranceMm) candidates.push({ left, right, gapMm });
+  }
+  const frequency = /* @__PURE__ */ new Map();
+  for (const row of candidates) for (const endpoint of [row.left, row.right]) frequency.set(endpoint.nodeId, (frequency.get(endpoint.nodeId) ?? 0) + 1);
+  return candidates.map((row) => {
+    const sameBranch = ownerBranch(row.left.edge) && ownerBranch(row.left.edge) === ownerBranch(row.right.edge);
+    const unique = frequency.get(row.left.nodeId) === 1 && frequency.get(row.right.nodeId) === 1;
+    return topologyIssue({
+      code: "SNAP_GAP",
+      severity: "ERROR",
+      confidence: sameBranch && unique ? "HIGH" : "MEDIUM",
+      fixability: sameBranch && unique ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+      message: `Open endpoints ${row.left.nodeId} and ${row.right.nodeId} are ${row.gapMm.toFixed(3)} mm apart.`,
+      objectIds: [row.left.edge.id, row.right.edge.id, row.left.nodeId, row.right.nodeId],
+      details: { gapMm: row.gapMm, endpointIds: [row.left.nodeId, row.right.nodeId], edgeIds: [row.left.edge.id, row.right.edge.id], sameBranch, uniqueCandidate: unique },
+      location: graph.nodes.get(row.left.nodeId).position
+    });
+  });
+}
+function pairGeometryIssues(canonical, graph, options) {
+  const geometry = canonical.edges.map((edge) => edgeGeometry(graph, edge)).filter(Boolean), issues = [];
+  for (const [left, right] of candidatePairs(geometry, options.toleranceMm + options.clearanceMm)) {
+    const leftNodes = [left.edge.fromNodeId, left.edge.toNodeId];
+    if (leftNodes.includes(right.edge.fromNodeId) || leftNodes.includes(right.edge.toNodeId) || sameFeature(left.edge, right.edge)) continue;
+    const overlapMm = overlapLength(left, right, options.toleranceMm);
+    if (overlapMm > options.toleranceMm) {
+      issues.push(topologyIssue({ code: "OVERLAPPING_ELEMENTS", severity: "ERROR", confidence: "HIGH", fixability: "NEEDS_CONFIRMATION", message: `Elements ${left.edge.id} and ${right.edge.id} overlap by ${overlapMm.toFixed(3)} mm.`, objectIds: [left.edge.id, right.edge.id], details: { overlapMm }, location: graph.nodes.get(left.edge.fromNodeId).position }));
+      continue;
+    }
+    const clearance = segmentDistance(left.start, left.end, right.start, right.end), required = left.radius + right.radius + options.clearanceMm;
+    if (required > 0 && clearance < required - options.toleranceMm) issues.push(topologyIssue({
+      code: "PHYSICAL_CLEARANCE_CLASH",
+      severity: "ERROR",
+      confidence: "HIGH",
+      message: `Elements ${left.edge.id} and ${right.edge.id} have ${clearance.toFixed(3)} mm clearance; ${required.toFixed(3)} mm is required.`,
+      objectIds: [left.edge.id, right.edge.id],
+      details: { clearanceMm: clearance, requiredMm: required, clearanceAuthority: "OD_INSULATION" },
+      location: graph.nodes.get(left.edge.fromNodeId).position
+    }));
+    else if (clearance <= options.toleranceMm) issues.push(topologyIssue({
+      code: "CENTERLINE_CLASH",
+      severity: "WARNING",
+      confidence: "LOW",
+      message: `Elements ${left.edge.id} and ${right.edge.id} intersect without a shared canonical node.`,
+      objectIds: [left.edge.id, right.edge.id],
+      details: { clearanceMm: clearance, clearanceAuthority: "CENTERLINE_ONLY" },
+      location: graph.nodes.get(left.edge.fromNodeId).position
+    }));
+  }
+  return issues;
+}
+
+// tabs/model-converters/converters/component-topology/topology-geometry-diagnostics.js
+var TOPOLOGY_GEOMETRY_ISSUE_STYLES = TOPOLOGY_ISSUE_STYLES;
+var SEVERITY_RANK = Object.freeze({ BLOCKER: 4, ERROR: 3, WARNING: 2, INFO: 1 });
+function compareIssues(left, right) {
+  return (SEVERITY_RANK[right.severity] ?? 0) - (SEVERITY_RANK[left.severity] ?? 0) || String(left.category).localeCompare(String(right.category)) || String(left.code).localeCompare(String(right.code)) || String(left.id).localeCompare(String(right.id));
+}
+function runTopologyChecks(canonical, options) {
+  if (canonical?.schema !== "CanonicalTopology.v1") throw new TypeError("Topology checking requires CanonicalTopology.v1.");
+  const normalized = normalizeTopologyCheckOptions(options), graph = buildTopologyCheckGraph(canonical);
+  const issues = Object.freeze([
+    ...basicRouteIssues(canonical, graph, normalized),
+    ...branchConnectivityIssues(canonical, graph),
+    ...snapGapIssues(canonical, graph, normalized),
+    ...pairGeometryIssues(canonical, graph, normalized),
+    ...fittingIssues(canonical, graph, normalized),
+    ...attachmentIssues(canonical, graph)
+  ].sort(compareIssues));
+  return Object.freeze({
+    schema: "TopologyCheckReport.v1",
+    ruleSet: "TopologyCheckerRules.v1",
+    canonicalTopologyHash: String(canonical.canonicalTopologyHash ?? ""),
+    options: normalized,
+    issues,
+    findings: issues,
+    summary: topologyCheckSummary(issues)
+  });
+}
+function validateTopologyGeometry(canonical, options) {
+  const report = runTopologyChecks(canonical, options);
+  return Object.freeze({
+    schema: "TopologyGeometryDiagnostics.v1",
+    options: report.options,
+    findings: report.issues,
+    issues: report.issues,
+    summary: report.summary,
+    topologyCheckReport: report
+  });
+}
+var _test11 = Object.freeze({ compareIssues, SEVERITY_RANK });
 
 // tabs/model-converters/converters/component-topology/topology-edit-validation.js
 var GEOMETRY_DIAGNOSTIC_OPTIONS = Object.freeze({
   shortElementMm: 6,
   toleranceMm: 0.1,
-  snapToleranceMm: 6,
+  snapToleranceMm: 25,
   angleToleranceDeg: 5,
   originToleranceMm: 0.1
 });
-function finding2(code, blocking, message, objectIds) {
+function finding(code, blocking, message, objectIds) {
   return Object.freeze({ code, blocking, message, objectIds: Object.freeze([...objectIds]) });
 }
 function duplicateFindings(rows, field, code) {
@@ -6085,29 +6584,29 @@ function duplicateFindings(rows, field, code) {
     if (seen.has(value)) duplicates.add(value);
     seen.add(value);
   }
-  return [...duplicates].map((value) => finding2(code, true, `Duplicate ${field} ${value}.`, [value]));
+  return [...duplicates].map((value) => finding(code, true, `Duplicate ${field} ${value}.`, [value]));
 }
 function edgeFindings(canonical, nodeIndex, degree) {
   const findings = [], edgePairs = /* @__PURE__ */ new Map();
   for (const edge of canonical.edges) {
     const from = nodeIndex.get(edge.fromNodeId), to = nodeIndex.get(edge.toNodeId);
     if (!from || !to) {
-      findings.push(finding2("MISSING_EDGE_ENDPOINT", true, `Edge ${edge.id} references a missing endpoint.`, [edge.id]));
+      findings.push(finding("MISSING_EDGE_ENDPOINT", true, `Edge ${edge.id} references a missing endpoint.`, [edge.id]));
       continue;
     }
     degree.set(from.id, (degree.get(from.id) ?? 0) + 1);
     degree.set(to.id, (degree.get(to.id) ?? 0) + 1);
     if (from.id === to.id || pointDistance(from.position, to.position) <= Number(canonical.toleranceMm ?? 0.1)) {
-      findings.push(finding2("ZERO_LENGTH_EDGE", true, `Edge ${edge.id} has zero length within topology tolerance.`, [edge.id]));
+      findings.push(finding("ZERO_LENGTH_EDGE", true, `Edge ${edge.id} has zero length within topology tolerance.`, [edge.id]));
     }
     const pair = [from.id, to.id].sort().join("|");
-    if (edgePairs.has(pair)) findings.push(finding2("DUPLICATE_EDGE", true, `Edges ${edgePairs.get(pair)} and ${edge.id} connect the same nodes.`, [edgePairs.get(pair), edge.id]));
+    if (edgePairs.has(pair)) findings.push(finding("DUPLICATE_EDGE", true, `Edges ${edgePairs.get(pair)} and ${edge.id} connect the same nodes.`, [edgePairs.get(pair), edge.id]));
     else edgePairs.set(pair, edge.id);
     if (String(edge.id).startsWith("EDIT-CE-") && !String(edge.engineeringAuthorityEdgeId ?? "").trim()) {
-      findings.push(finding2("UNRESOLVED_ENGINEERING_AUTHORITY", true, `Edited edge ${edge.id} has no explicit context-edge authority.`, [edge.id]));
+      findings.push(finding("UNRESOLVED_ENGINEERING_AUTHORITY", true, `Edited edge ${edge.id} has no explicit context-edge authority.`, [edge.id]));
     }
     if (String(edge.id).startsWith("EDIT-CE-") && !(edge.sourceEntityIds ?? []).length) {
-      findings.push(finding2("UNRESOLVED_ENGINEERING_LINEAGE", true, `Edited edge ${edge.id} has no inherited source lineage.`, [edge.id]));
+      findings.push(finding("UNRESOLVED_ENGINEERING_LINEAGE", true, `Edited edge ${edge.id} has no inherited source lineage.`, [edge.id]));
     }
   }
   return findings;
@@ -6115,14 +6614,23 @@ function edgeFindings(canonical, nodeIndex, degree) {
 function dependencyFindings(canonical, nodeIndex, degree) {
   const findings = [], edgeIndex = new Map(canonical.edges.map((edge) => [edge.id, edge]));
   for (const node of canonical.nodes) if ((degree.get(node.id) ?? 0) === 0) {
-    findings.push(finding2("ISOLATED_NODE", true, `Node ${node.id} is not incident to any edge.`, [node.id]));
+    findings.push(finding("ISOLATED_NODE", true, `Node ${node.id} is not incident to any edge.`, [node.id]));
   }
   for (const collectionName of ["supports", "junctions", "boundaries"]) for (const row of canonical[collectionName]) {
-    if (!nodeIndex.has(row.nodeId)) findings.push(finding2("ORPHAN_NODE_DEPENDENCY", true, `${collectionName} ${row.id} references missing node ${row.nodeId}.`, [row.id]));
-    else if ((degree.get(row.nodeId) ?? 0) === 0) findings.push(finding2("ISOLATED_NODE_DEPENDENCY", true, `${collectionName} ${row.id} is attached to isolated node ${row.nodeId}.`, [row.id, row.nodeId]));
+    if (!nodeIndex.has(row.nodeId)) findings.push(finding("ORPHAN_NODE_DEPENDENCY", true, `${collectionName} ${row.id} references missing node ${row.nodeId}.`, [row.id]));
+    else if ((degree.get(row.nodeId) ?? 0) === 0) findings.push(finding("ISOLATED_NODE_DEPENDENCY", true, `${collectionName} ${row.id} is attached to isolated node ${row.nodeId}.`, [row.id, row.nodeId]));
   }
   for (const rigid of canonical.rigids) if (!edgeIndex.has(rigid.edgeId)) {
-    findings.push(finding2("ORPHAN_RIGID", true, `Rigid ${rigid.sourceEntityId} references missing edge ${rigid.edgeId}.`, [rigid.sourceEntityId]));
+    findings.push(finding("ORPHAN_RIGID", true, `Rigid ${rigid.sourceEntityId} references missing edge ${rigid.edgeId}.`, [rigid.sourceEntityId]));
+  }
+  for (const bend of canonical.bends ?? []) {
+    const missingEdges = (bend.edgeIds ?? []).filter((edgeId) => !edgeIndex.has(edgeId));
+    if (!nodeIndex.has(bend.nodeId) || missingEdges.length) findings.push(finding(
+      "ORPHAN_BEND_DEFINITION",
+      true,
+      `Bend ${bend.id} references missing node or arm geometry.`,
+      [bend.id, bend.nodeId, ...missingEdges]
+    ));
   }
   return findings;
 }
@@ -6137,9 +6645,9 @@ function validateEditedTopology(canonical, draft) {
   findings.push(...edgeFindings(canonical, nodeIndex, degree));
   findings.push(...dependencyFindings(canonical, nodeIndex, degree));
   for (const issue2 of canonical.buildIssues ?? []) if (issue2.blocking !== false) {
-    findings.push(finding2(String(issue2.code ?? "CANONICAL_BUILD_ISSUE"), true, `Canonical build issue: ${issue2.code ?? "unknown"}.`, textIds([issue2.sourcePath])));
+    findings.push(finding(String(issue2.code ?? "CANONICAL_BUILD_ISSUE"), true, `Canonical build issue: ${issue2.code ?? "unknown"}.`, textIds([issue2.sourcePath])));
   }
-  if (Object.keys(draft.engineeringOverrides ?? {}).length) findings.push(finding2(
+  if (Object.keys(draft.engineeringOverrides ?? {}).length) findings.push(finding(
     "ENGINEERING_OVERRIDES_NOT_RELEASED",
     true,
     "Engineering overrides are reserved for the restraints and basic-properties release and cannot be exported yet.",
@@ -6169,8 +6677,6 @@ function mergeGeometryDiagnostics(structural, current, base) {
   const baselineKeys = new Set(baseReport.findings.map(geometryFindingKey));
   const geometryFindings = currentReport.findings.map((row) => Object.freeze({
     ...row,
-    blocking: false,
-    severity: "WARNING",
     baseline: baselineKeys.has(geometryFindingKey(row))
   }));
   const findings = Object.freeze([...structural.findings, ...geometryFindings]);
@@ -6184,7 +6690,7 @@ function mergeGeometryDiagnostics(structural, current, base) {
     summary: Object.freeze({ findingCount: findings.length, blockingCount, geometryFindingCount: geometryFindings.length })
   });
 }
-var _test10 = Object.freeze({ finding: finding2, duplicateFindings, geometryFindingKey });
+var _test12 = Object.freeze({ finding, duplicateFindings, geometryFindingKey });
 
 // tabs/model-converters/converters/component-topology/topology-edit-engine.js
 var EDIT_LEDGER_HASH_KEYS = Object.freeze(["topologyEditLedgerHash"]);
@@ -6203,6 +6709,7 @@ function finalizeCanonical(state, draft) {
     boundaries: Object.freeze(state.boundaries),
     supports: Object.freeze(state.supports),
     rigids: Object.freeze(state.rigids),
+    bends: Object.freeze(state.bends ?? []),
     buildIssues: Object.freeze(state.buildIssues ?? [])
   };
   return stampArtifactHash(prepared, "canonicalTopologyHash");
@@ -6264,7 +6771,7 @@ function materializeTopologyEditDraft(canonical, draft) {
   const validation = mergeGeometryDiagnostics(validateEditedTopology(canonicalTopology, draft), canonicalTopology, canonical);
   return Object.freeze({ canonicalTopology, editLedger: editLedger(draft, canonicalTopology, records), validation });
 }
-var _test11 = Object.freeze({
+var _test13 = Object.freeze({
   finiteNumber: finiteNumber5,
   point,
   editError,
@@ -6307,9 +6814,10 @@ function enrichCanonicalTopologyIdentity(canonical, model) {
   const indexes = sourceIndexes(model);
   const edges = (canonical.edges ?? []).map((edge) => ({
     ...traceRow(edge, indexes),
+    ownerBranchId: indexedValues([edge.sourceEntityIds?.[0]], indexes.branchByEntity)[0] ?? indexedValues(edge.sourceEntityIds ?? [], indexes.branchByEntity)[0] ?? "",
     topologyOperation: cleanText(edge.topologyOperation ?? edge.segmentRole)
   }));
-  const edgeById2 = new Map(edges.map((edge) => [edge.id, edge]));
+  const edgeById3 = new Map(edges.map((edge) => [edge.id, edge]));
   const nodes = (canonical.nodes ?? []).map((node) => traceRow(node, indexes));
   const pointFeatures = (canonical.pointFeatures ?? []).map((row) => traceRow(row, indexes));
   const junctions = (canonical.junctions ?? []).map((row) => ({
@@ -6323,7 +6831,7 @@ function enrichCanonicalTopologyIdentity(canonical, model) {
   const supports = (canonical.supports ?? []).map((row) => traceRow(row, indexes));
   const rigids = (canonical.rigids ?? []).map((row) => {
     const branchIds = indexedValues([row.sourceEntityId], indexes.branchByEntity);
-    const edge = edgeById2.get(row.edgeId);
+    const edge = edgeById3.get(row.edgeId);
     const assignmentAuthority = edge?.sourceEntityIds?.includes(row.sourceEntityId) ? "SOURCE_COMPONENT_EDGE" : edge?.sourceEntityIds?.some((id) => branchIds.includes(id)) ? "SOURCE_BRANCH_EDGE" : "GLOBAL_PROXIMITY_FALLBACK";
     return {
       ...row,
@@ -6386,7 +6894,7 @@ function enrichTopologyTraceLedgerIdentity(ledger, canonical, model, engineering
     records: Object.freeze(records)
   });
 }
-var _test12 = Object.freeze({ sourceIndexes, indexedValues, traceRow, sourcePosition });
+var _test14 = Object.freeze({ sourceIndexes, indexedValues, traceRow, sourcePosition });
 
 // tabs/model-converters/converters/component-topology/topology-svg-scene-builder.js
 function sceneNode(row) {
@@ -6500,8 +7008,8 @@ function buildTopologySvgScene(canonical, ledger, producerDiagnostics = []) {
     throw new Error("Topology trace ledger canonicalTopologyHash does not match the canonical snapshot.");
   }
   const nodes = Object.freeze((canonical.nodes ?? []).map(sceneNode));
-  const nodeById2 = new Map(nodes.map((row) => [row.canonicalNodeId, row]));
-  const edges = Object.freeze((canonical.edges ?? []).map((row) => sceneEdge(row, nodeById2)));
+  const nodeById3 = new Map(nodes.map((row) => [row.canonicalNodeId, row]));
+  const edges = Object.freeze((canonical.edges ?? []).map((row) => sceneEdge(row, nodeById3)));
   const supports = Object.freeze((canonical.supports ?? []).map(sceneSupport));
   const deferredSupports = Object.freeze((ledger.records ?? []).filter((row) => row.primaryDisposition === "DEFER_SUPPORT").map(deferredSupport));
   const rigids = sceneRigids(canonical.rigids ?? []);
@@ -6569,7 +7077,7 @@ function buildTopologySvgScene(canonical, ledger, producerDiagnostics = []) {
   });
   return stampArtifactHash(scene, "svgSceneHash");
 }
-var _test13 = Object.freeze({ sceneNode, sceneEdge, sceneSupport, deferredSupport, sceneRigids });
+var _test15 = Object.freeze({ sceneNode, sceneEdge, sceneSupport, deferredSupport, sceneRigids });
 
 // tabs/model-converters/converters/component-topology/topology-inputxml-parser-values.js
 function decodeXml(value) {
@@ -6834,7 +7342,7 @@ function parseTopologyInputXml(xmlText) {
   return stampArtifactHash(parsed, "parsedInputXmlTopologyHash");
 }
 var INPUTXML_TOPOLOGY_SERIALIZATION = Object.freeze({ globalCoordinateDecimals: GLOBAL_DECIMALS, deltaDecimals: DELTA_DECIMALS, coordinateToleranceMm: 0 });
-var _test14 = Object.freeze({ issue, parseRestraint, parseRigid, parseChildren, endpointRows, buildNodes: buildNodes2, parseElement });
+var _test16 = Object.freeze({ issue, parseRestraint, parseRigid, parseChildren, endpointRows, buildNodes: buildNodes2, parseElement });
 
 // tabs/model-converters/converters/component-topology/topology-parity-values.js
 var GLOBAL_DECIMALS2 = 3;
@@ -7907,7 +8415,7 @@ async function buildEditedComponentTopologyArtifacts(sourceText, draft, options)
     objectIds: Object.freeze([])
   })];
   const combinedFindings = Object.freeze([...editValidation.findings, ...parityBlocking]);
-  const blockingCount = combinedFindings.filter((finding3) => finding3.blocking).length;
+  const blockingCount = combinedFindings.filter((finding2) => finding2.blocking).length;
   return Object.freeze({
     ...artifacts,
     editValidation: Object.freeze({
@@ -7975,13 +8483,196 @@ function topologyArtifactOutputs(artifacts, options) {
   }));
   return Object.freeze(outputs);
 }
-var _test15 = Object.freeze({
+var _test17 = Object.freeze({
   componentCounts,
   referenceCounts,
   artifactMetrics,
   buildProducerState,
   buildArtifactsFromState
 });
+
+// tabs/model-converters/converters/component-topology/topology-checker-suggestions.js
+function edgeById2(canonical, id) {
+  return canonical.edges.find((edge) => edge.id === id) ?? null;
+}
+function nodeById2(canonical, id) {
+  return canonical.nodes.find((node) => node.id === id) ?? null;
+}
+function edgeDiameter(edge) {
+  return Number(edge?.diameterMm ?? edge?.diameter ?? 0);
+}
+function suggestion(issue2, input) {
+  const operations = Object.freeze([...input.operations ?? []]);
+  const hash = deterministicHash({ issueId: issue2.id, operations, title: input.title });
+  return Object.freeze({
+    schema: "TopologyFixSuggestion.v1",
+    id: `TS-${hash.split(":")[1]}`,
+    issueId: issue2.id,
+    title: input.title,
+    rationale: input.rationale,
+    confidence: input.confidence ?? issue2.confidence,
+    risk: input.risk ?? "MEDIUM",
+    fixability: input.fixability ?? (operations.length ? "NEEDS_CONFIRMATION" : "MANUAL_ENGINEERING"),
+    approvedByDefault: input.approvedByDefault === true && operations.length > 0,
+    operations,
+    preconditions: Object.freeze([...input.preconditions ?? []]),
+    affectedObjectIds: Object.freeze([...issue2.objectIds ?? []]),
+    preview: Object.freeze({ ...input.preview ?? {} })
+  });
+}
+function snapSuggestion(canonical, issue2) {
+  const [sourceNodeId, targetNodeId] = [...issue2.details.endpointIds ?? []].sort().reverse();
+  const executable = issue2.fixability === "AUTO_APPROVED" && sourceNodeId && targetNodeId;
+  return suggestion(issue2, {
+    title: "Merge verified open endpoints",
+    rationale: "The endpoints are a unique, graph-disconnected candidate within the approved snap tolerance.",
+    confidence: executable ? "HIGH" : "MEDIUM",
+    risk: "LOW",
+    fixability: executable ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+    approvedByDefault: executable,
+    operations: executable ? [{ type: "MERGE_NODES", payload: { sourceNodeId, targetNodeId } }] : [],
+    preconditions: ["OPEN_ENDPOINTS", "NO_EXISTING_GRAPH_PATH", "UNIQUE_NEAREST_CANDIDATE", "SAME_OWNER_BRANCH"],
+    preview: { kind: "MERGE_NODES", from: nodeById2(canonical, sourceNodeId)?.position, to: nodeById2(canonical, targetNodeId)?.position }
+  });
+}
+function bendSuggestion(canonical, issue2) {
+  const edges = (issue2.details.edgeIds ?? []).map((id) => edgeById2(canonical, id)).filter(Boolean);
+  const catalogRadius = Math.max(0, ...edges.map((edge) => Number(edge.bendRadiusMm ?? edge.radiusMm ?? 0)));
+  const diameter = Math.max(0, ...edges.map(edgeDiameter)), radiusMm = catalogRadius || (diameter > 0 ? diameter * 1.5 : 0);
+  const executable = edges.length === 2 && radiusMm > 0;
+  return suggestion(issue2, {
+    title: "Add bend definition",
+    rationale: catalogRadius ? "Uses authoritative bend radius from the inherited edge context." : "No catalog radius exists; uses the approved 1.5D long-radius fallback.",
+    confidence: executable ? "HIGH" : "LOW",
+    risk: catalogRadius ? "LOW" : "MEDIUM",
+    fixability: executable ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+    approvedByDefault: executable,
+    operations: executable ? [{ type: "ADD_BEND_DEFINITION", payload: { nodeId: issue2.details.nodeId, edgeIds: edges.map((edge) => edge.id), radiusMm, angleDeg: issue2.details.angleDeg, radiusAuthority: catalogRadius ? "CATALOG" : "APPROVED_1_5D_FALLBACK" } }] : [],
+    preconditions: ["DEGREE_TWO_ROUTE_NODE", "NO_EXISTING_BEND", "POSITIVE_RADIUS_AUTHORITY"],
+    preview: { kind: "ADD_BEND_DEFINITION", nodeId: issue2.details.nodeId, radiusMm, fallback: !catalogRadius }
+  });
+}
+function inferredJunctionKind(edges) {
+  const diameters = edges.map(edgeDiameter).filter((value) => value > 0);
+  return diameters.length === edges.length && Math.min(...diameters) < Math.max(...diameters) ? "OLET" : "TEE";
+}
+function junctionSuggestion(canonical, issue2) {
+  const edges = (issue2.details.edgeIds ?? []).map((id) => edgeById2(canonical, id)).filter(Boolean), executable = edges.length === 3;
+  const kind = inferredJunctionKind(edges), completeDiameter = edges.every((edge) => edgeDiameter(edge) > 0);
+  return suggestion(issue2, {
+    title: `Add ${kind} junction definition`,
+    rationale: kind === "OLET" ? "Authoritative branch diameter is smaller than the run diameter." : "Equal or unavailable diameters default to Tee; missing diameter authority remains visible for review.",
+    confidence: completeDiameter ? "HIGH" : "MEDIUM",
+    risk: completeDiameter ? "LOW" : "MEDIUM",
+    fixability: executable ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+    approvedByDefault: executable,
+    operations: executable ? [{ type: "ADD_JUNCTION_DEFINITION", payload: { nodeId: issue2.details.nodeId, edgeIds: edges.map((edge) => edge.id), kind, inferenceAuthority: completeDiameter ? "AUTHORITATIVE_DIAMETER" : "TEE_MISSING_DIAMETER_FALLBACK" } }] : [],
+    preconditions: ["DEGREE_THREE_NODE", "NO_EXISTING_JUNCTION"],
+    preview: { kind: "ADD_JUNCTION_DEFINITION", nodeId: issue2.details.nodeId, junctionKind: kind }
+  });
+}
+function projectPoint(point3, start, end) {
+  const vector = end.map((value, index) => value - start[index]), offset = point3.map((value, index) => value - start[index]);
+  const denominator = vector.reduce((sum, value) => sum + value * value, 0), parameter = denominator ? offset.reduce((sum, value, index) => sum + value * vector[index], 0) / denominator : 0;
+  const projection = start.map((value, index) => value + vector[index] * parameter);
+  return { distance: pointDistance2(point3, projection), parameter, projection };
+}
+function provenTrim(canonical, issue2, graph) {
+  const edges = issue2.objectIds.map((id) => edgeById2(canonical, id)).filter(Boolean);
+  if (edges.length !== 2 || !ownerBranch(edges[0]) || ownerBranch(edges[0]) !== ownerBranch(edges[1])) return null;
+  const candidates = [];
+  for (const edge of edges) for (const endpoint of ["FROM", "TO"]) {
+    const nodeId = endpoint === "FROM" ? edge.fromNodeId : edge.toNodeId;
+    if ((graph.degree.get(nodeId) ?? 0) !== 1) continue;
+    const other = edges.find((row) => row.id !== edge.id), node = nodeById2(canonical, nodeId);
+    const from = nodeById2(canonical, other.fromNodeId), to = nodeById2(canonical, other.toNodeId);
+    const projected = projectPoint(xyz(node.position), xyz(from.position), xyz(to.position));
+    if (projected.distance > Number(canonical.toleranceMm ?? 0.1) || projected.parameter <= 0 || projected.parameter >= 1) continue;
+    const targets = [from.position, to.position].sort((left, right) => pointDistance2(xyz(node.position), xyz(left)) - pointDistance2(xyz(node.position), xyz(right)));
+    candidates.push({ edgeId: edge.id, endpoint, nodeId, position: targets[0] });
+  }
+  return candidates.length === 1 ? candidates[0] : null;
+}
+function trimSuggestion(canonical, issue2, graph) {
+  const trim = provenTrim(canonical, issue2, graph), executable = Boolean(trim);
+  return suggestion(issue2, {
+    title: "Trim proven redundant tail",
+    rationale: executable ? "Branch ownership, a unique free endpoint, and collinear overlap prove one redundant tail." : "No unique dependency-free redundant tail can be proven; open a manual preview.",
+    confidence: executable ? "HIGH" : "LOW",
+    risk: executable ? "LOW" : "HIGH",
+    fixability: executable ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+    approvedByDefault: executable,
+    operations: executable ? [{ type: "TRIM_EDGE", payload: trim }] : [],
+    preconditions: ["SAME_OWNER_BRANCH", "UNIQUE_FREE_ENDPOINT", "NO_ATTACHED_DEPENDENCIES", "COLLINEAR_REDUNDANT_TAIL"],
+    preview: executable ? { kind: "TRIM_EDGE", ...trim } : { kind: "MANUAL_TRIM" }
+  });
+}
+function buildTopologyFixSuggestions(canonical, report, options) {
+  if (report?.schema !== "TopologyCheckReport.v1") throw new TypeError("Fix suggestions require TopologyCheckReport.v1.");
+  const graph = buildTopologyCheckGraph(canonical), suggestions = [];
+  for (const issue2 of report.issues) {
+    if (issue2.code === "SNAP_GAP") suggestions.push(snapSuggestion(canonical, issue2));
+    else if (issue2.code === "RIGHT_ANGLE_WITHOUT_BEND") suggestions.push(bendSuggestion(canonical, issue2));
+    else if (issue2.code === "MULTIWAY_WITHOUT_JUNCTION") suggestions.push(junctionSuggestion(canonical, issue2));
+    else if (["OVERLAPPING_ELEMENTS", "PIPE_BACKTRACK"].includes(issue2.code)) suggestions.push(trimSuggestion(canonical, issue2, graph));
+  }
+  return Object.freeze(suggestions);
+}
+function applyTopologyFixSuggestion(draft, suggestionRecord) {
+  if (suggestionRecord?.schema !== "TopologyFixSuggestion.v1") throw new TypeError("Expected TopologyFixSuggestion.v1.");
+  if (!suggestionRecord.operations?.length) throw new Error(`Suggestion ${suggestionRecord.id} has no executable operations.`);
+  return appendTopologyEditTransaction(draft, suggestionRecord.operations, { suggestionIds: [suggestionRecord.id], issueIds: [suggestionRecord.issueId] });
+}
+function applyApprovedTopologyFixes(draft, suggestions) {
+  const approved = suggestions.filter((row) => row.approvedByDefault && row.operations?.length);
+  if (!approved.length) return draft;
+  return appendTopologyEditTransaction(draft, approved.flatMap((row) => row.operations), { suggestionIds: approved.map((row) => row.id), issueIds: approved.map((row) => row.issueId) });
+}
+var _test18 = Object.freeze({ edgeDiameter, inferredJunctionKind, projectPoint, provenTrim });
+
+// tabs/model-converters/converters/component-topology/topology-checker-review.js
+var TOPOLOGY_REVIEW_STATUSES = Object.freeze(["OPEN", "ACKNOWLEDGED", "SUPPRESSED", "RESOLVED"]);
+function finalizeReviewState(state) {
+  const withoutHash = { ...state };
+  delete withoutHash.topologyReviewStateHash;
+  return Object.freeze({
+    ...withoutHash,
+    issueStates: Object.freeze({ ...withoutHash.issueStates }),
+    topologyReviewStateHash: deterministicHash(withoutHash, { omitKeys: ["topologyReviewStateHash"] })
+  });
+}
+function createTopologyReviewState(report) {
+  if (report?.schema !== "TopologyCheckReport.v1") throw new TypeError("Review state requires TopologyCheckReport.v1.");
+  return finalizeReviewState({
+    schema: "TopologyReviewState.v1",
+    canonicalTopologyHash: report.canonicalTopologyHash,
+    issueStates: {}
+  });
+}
+function setTopologyIssueStatus(report, state, issueId, status, reason) {
+  if (state?.schema !== "TopologyReviewState.v1") throw new TypeError("Expected TopologyReviewState.v1.");
+  if (state.canonicalTopologyHash !== report.canonicalTopologyHash) throw new Error("Review state belongs to a different canonical topology hash.");
+  if (!report.issues.some((issue2) => issue2.id === issueId)) throw new RangeError(`Unknown topology issue ${issueId}.`);
+  const normalized = cleanText(status).toUpperCase();
+  if (!TOPOLOGY_REVIEW_STATUSES.includes(normalized)) throw new RangeError(`Unsupported topology review status ${normalized}.`);
+  const rationale = cleanText(reason);
+  if (normalized === "SUPPRESSED" && !rationale) throw new Error("Suppressing a topology issue requires a reason.");
+  const issueStates = { ...state.issueStates };
+  if (normalized === "OPEN") delete issueStates[issueId];
+  else issueStates[issueId] = Object.freeze({ status: normalized, reason: rationale });
+  return finalizeReviewState({ ...state, issueStates });
+}
+function topologyReviewSummary(report, state) {
+  const statusFor = (issue2) => state.issueStates?.[issue2.id]?.status ?? "OPEN";
+  const count = (status) => report.issues.filter((issue2) => statusFor(issue2) === status).length;
+  return Object.freeze({
+    openCount: count("OPEN"),
+    acknowledgedCount: count("ACKNOWLEDGED"),
+    resolvedCount: count("RESOLVED"),
+    suppressedCount: count("SUPPRESSED")
+  });
+}
+var _test19 = Object.freeze({ finalizeReviewState });
 
 // tabs/model-converters/converters/component-topology/topology-browser-core.js
 var TOPOLOGY_BROWSER_CORE_CONTRACT = Object.freeze({
@@ -7990,19 +8681,32 @@ var TOPOLOGY_BROWSER_CORE_CONTRACT = Object.freeze({
   draftSchema: "TopologyEditDraft.v1",
   commandSchema: "TopologyEditCommand.v1",
   editLedgerSchema: "TopologyEditLedger.v1",
-  geometryDiagnosticsSchema: "TopologyGeometryDiagnostics.v1"
+  geometryDiagnosticsSchema: "TopologyGeometryDiagnostics.v1",
+  topologyCheckReportSchema: "TopologyCheckReport.v1",
+  topologyIssueSchema: "TopologyIssue.v1",
+  topologyFixSuggestionSchema: "TopologyFixSuggestion.v1",
+  topologyReviewStateSchema: "TopologyReviewState.v1"
 });
 export {
   TOPOLOGY_BROWSER_CORE_CONTRACT,
   TOPOLOGY_EDIT_COMMAND_TYPES,
   TOPOLOGY_GEOMETRY_ISSUE_STYLES,
+  TOPOLOGY_REVIEW_STATUSES,
   appendTopologyEditCommand,
+  appendTopologyEditTransaction,
+  applyApprovedTopologyFixes,
+  applyTopologyFixSuggestion,
   buildComponentTopologyArtifacts,
   buildEditedComponentTopologyArtifacts,
+  buildTopologyFixSuggestions,
   createTopologyEditDraft,
+  createTopologyReviewState,
   materializeTopologyEditDraft,
   redoTopologyEditCommand,
+  runTopologyChecks,
+  setTopologyIssueStatus,
   topologyArtifactOutputs,
+  topologyReviewSummary,
   undoTopologyEditCommand,
   validateEditedTopology,
   validateTopologyGeometry

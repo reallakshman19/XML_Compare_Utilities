@@ -30,6 +30,7 @@ export function wireTopologyWorkspace(root, controller) {
           else throw error;
         }
       } else await controller.loadFile(input.dataset.ttvFile, file);
+      await refreshCheckerIfReady(controller);
     } catch (error) { showWorkspaceError(root, error); }
   }));
   root.querySelectorAll('input[type="file"][data-ttv-parity-file]').forEach((input) => listen(input, 'change', async () => {
@@ -38,8 +39,8 @@ export function wireTopologyWorkspace(root, controller) {
     try { await controller.parity.loadFile(input.dataset.ttvParityFile, file); }
     catch (error) { showWorkspaceError(root, error); }
   }));
-  listen(root.querySelector('[data-ttv-validate]'), 'click', () => {
-    try { controller.validate(); } catch (error) { showWorkspaceError(root, error); }
+  listen(root.querySelector('[data-ttv-validate]'), 'click', async () => {
+    try { controller.validate(); await refreshCheckerIfReady(controller); } catch (error) { showWorkspaceError(root, error); }
   });
   wireEnrichment(root, controller, listen);
   listen(root.querySelector('[data-ttv-download-inputxml]'), 'click', () => {
@@ -63,7 +64,30 @@ export function wireTopologyWorkspace(root, controller) {
     const projection = button.dataset.ttvProjection;
     const is3D = projection === '3D';
     root.querySelectorAll('[data-ttv-zoom], [data-ttv-fit], [data-ttv-mode]').forEach(btn => btn.disabled = is3D);
+    const compass = root.querySelector('[data-ttv-trace-root] [data-ttv-axis-compass]');
+    if (compass) {
+      compass.style.display = is3D ? 'none' : '';
+      if (!is3D) {
+        const hAxis = projection.charAt(0);
+        const vAxis = projection.charAt(1);
+        compass.innerHTML = `
+          <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
+          <line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" />
+          <text x="40" y="5" font-size="12" fill="#ef4444">${hAxis}</text>
+          <line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" />
+          <text x="-5" y="-40" font-size="12" fill="#22c55e">${vAxis}</text>
+        `;
+      }
+    }
     controller.setProjection(projection);
+  }));
+  root.querySelectorAll('[data-ttv-vertical-axis]').forEach((select) => listen(select, 'change', (event) => {
+    const verticalAxis = event.target.value;
+    root.querySelectorAll('[data-ttv-vertical-axis]').forEach((el) => { el.value = verticalAxis; });
+    controller.setFilters({ verticalAxis });
+    if (controller.edit && typeof controller.edit.render === 'function') {
+      controller.edit.render();
+    }
   }));
   listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
   listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
@@ -141,12 +165,30 @@ function wireEditControls(root, controller, listen) {
   };
   root.querySelectorAll('[data-ttv-edit-tool]').forEach((button) => listen(button, 'click', () => controller.edit.setTool(button.dataset.ttvEditTool)));
   root.querySelectorAll('[data-ttv-edit-operation]').forEach((button) => listen(button, 'click', () => run(button.dataset.ttvEditOperation)));
-  root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => listen(button, 'click', () => controller.edit.setProjection(button.dataset.ttvEditProjection)));
+  root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => listen(button, 'click', () => {
+    const projection = button.dataset.ttvEditProjection;
+    controller.edit.setProjection(projection);
+    const compass = root.querySelector('[data-ttv-edit-root] [data-ttv-axis-compass]');
+    if (compass) {
+      const hAxis = projection.charAt(0);
+      const vAxis = projection.charAt(1);
+      compass.innerHTML = `
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
+        <line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" />
+        <text x="40" y="5" font-size="12" fill="#ef4444">${hAxis}</text>
+        <line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" />
+        <text x="-5" y="-40" font-size="12" fill="#22c55e">${vAxis}</text>
+      `;
+    }
+  }));
   root.querySelectorAll('[data-ttv-edit-selection-filter]').forEach((button) => listen(button, 'click', () => {
     button.classList.toggle('is-active');
     controller.edit.setSelectionFilter(button.dataset.ttvEditSelectionFilter, button.classList.contains('is-active'));
   }));
-  listen(root.querySelector('[data-ttv-edit-3d]'), 'change', (event) => controller.edit.set3dVisible(event.target.checked));
+  listen(root.querySelector('[data-ttv-edit-3d]'), 'change', (event) => {
+    const is3D = event.target.checked;
+    controller.edit.set3dVisible(is3D);
+  });
   listen(root.querySelector('[data-ttv-edit-undo]'), 'click', async () => { try { await controller.edit.undo(); } catch (error) { showEditError(root, error); } });
   listen(root.querySelector('[data-ttv-edit-redo]'), 'click', async () => { try { await controller.edit.redo(); } catch (error) { showEditError(root, error); } });
   listen(root.querySelector('[data-ttv-edit-fit]'), 'click', () => controller.edit.fit());
@@ -172,25 +214,11 @@ function wireEditControls(root, controller, listen) {
 }
 
 function wireParityControls(root, controller, listen) {
-  root.querySelectorAll('[data-ttv-parity-projection]').forEach((button) => listen(button, 'click', () => {
-    setActiveButtons(root, 'data-ttv-parity-projection', button);
-    controller.parity.setProjection(button.dataset.ttvParityProjection);
-  }));
-  root.querySelectorAll('[data-ttv-parity-zoom]').forEach((button) => listen(button, 'click', () => {
-    if (button.dataset.ttvParityZoom === 'in') controller.parity.zoomIn();
-    else controller.parity.zoomOut();
-  }));
-  root.querySelectorAll('[data-ttv-parity-fit]').forEach((button) => listen(button, 'click', () => {
-    const action = button.dataset.ttvParityFit;
-    if (action === 'all') controller.parity.fitAll();
-    else if (action === 'branch') controller.parity.fitBranch();
-    else if (action === 'issue') controller.parity.fitIssue();
-  }));
-  listen(root.querySelector('[data-ttv-parity-labels]'), 'change', (event) => controller.parity.setLabels(event.target.checked));
-  root.querySelectorAll('[data-ttv-parity-export]').forEach((button) => listen(button, 'click', () => {
-    try { controller.parity.exportArtifact(button.dataset.ttvParityExport); }
-    catch (error) { showWorkspaceError(root, error); }
-  }));
+  root.querySelectorAll('[data-ttv-parity-projection]').forEach((btn) => listen(btn, 'click', () => { setActiveButtons(root, 'data-ttv-parity-projection', btn); controller.parity.setProjection(btn.dataset.ttvParityProjection); }));
+  root.querySelectorAll('[data-ttv-parity-zoom]').forEach((btn) => listen(btn, 'click', () => { if (btn.dataset.ttvParityZoom === 'in') controller.parity.zoomIn(); else controller.parity.zoomOut(); }));
+  root.querySelectorAll('[data-ttv-parity-fit]').forEach((btn) => listen(btn, 'click', () => { const act = btn.dataset.ttvParityFit; if (act === 'all') controller.parity.fitAll(); else if (act === 'branch') controller.parity.fitBranch(); else if (act === 'issue') controller.parity.fitIssue(); }));
+  listen(root.querySelector('[data-ttv-parity-labels]'), 'change', (ev) => controller.parity.setLabels(ev.target.checked));
+  root.querySelectorAll('[data-ttv-parity-export]').forEach((btn) => listen(btn, 'click', () => { try { controller.parity.exportArtifact(btn.dataset.ttvParityExport); } catch (e) { showWorkspaceError(root, e); } }));
 }
 
 function wireEnrichment(root, controller, listen) {
@@ -243,37 +271,21 @@ async function buildTopology(root, controller, event) {
       if (kind) await controller.loadArtifact(kind, output.text, output.name);
     }
     controller.validate();
+    await refreshCheckerIfReady(controller);
   } catch (error) {
     showWorkspaceError(root, error);
     root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
   } finally { button.textContent = originalText; button.disabled = false; }
 }
 
-function setActiveButtons(root, attribute, active) {
-  root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active));
+function setActiveButtons(root, attr, act) { root.querySelectorAll(`[${attr}]`).forEach((b) => b.classList.toggle('is-active', b === act)); }
+function setStatus(root, msg, status) { const t = root.querySelector('[data-ttv-status]'); if (t) { t.textContent = msg; t.setAttribute('data-status', status); } }
+function showWorkspaceError(root, error) { setStatus(root, error?.message || String(error), 'error'); }
+function showEditError(root, error) { const t = root.querySelector('[data-ttv-edit-status]'); if (t) { t.textContent = error?.message || String(error); t.setAttribute('data-status', 'error'); } const l = root.querySelector('[data-ttv-edit-live]'); if (l) l.textContent = error?.message || String(error); }
+async function refreshCheckerIfReady(controller) {
+  const canonical = objectRecord(objectRecord(objectRecord(controller.evidence()).trace).artifacts).canonical;
+  if (objectRecord(canonical).schema === 'CanonicalTopology.v1') await controller.checker?.refresh();
 }
+function toKebab(value) { return value.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`); }
 
-function setStatus(root, message, status) {
-  const target = root.querySelector('[data-ttv-status]');
-  target.textContent = message;
-  target.setAttribute('data-status', status);
-}
-
-function showWorkspaceError(root, error) {
-  setStatus(root, error?.message || String(error), 'error');
-}
-
-function showEditError(root, error) {
-  const target = root.querySelector('[data-ttv-edit-status]');
-  if (!target) return;
-  target.textContent = error?.message || String(error);
-  target.setAttribute('data-status', 'error');
-  const live = root.querySelector('[data-ttv-edit-live]');
-  if (live) live.textContent = target.textContent;
-}
-
-function toKebab(value) {
-  return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-}
-
-export const _test = Object.freeze({ wireWorkspaceTabs, wireEditControls, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, showEditError, toKebab });
+export const _test = Object.freeze({ wireWorkspaceTabs, wireEditControls, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, showEditError, refreshCheckerIfReady, toKebab });

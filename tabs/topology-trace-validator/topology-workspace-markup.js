@@ -1,6 +1,8 @@
 /** Static markup for immutable Trace/Parity surfaces and the Edit Draft tab. */
 
 import { FINAL_DISPOSITIONS, escapeMarkup } from './topology-validator-values.js';
+import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
+import { topologyCheckerPanelMarkup } from './topology-checker-panel.js';
 
 /** @param {string} kind @param {string} label @param {string} accept @param {Record<string, unknown>} options @returns {string} */
 function fileControl(kind, label, accept, options) {
@@ -17,6 +19,9 @@ function traceMarkup() {
   return `<section class="ttv-trace-area is-active" data-ttv-workspace-panel="trace">
     <header class="ttv-toolbar">
       <div class="ttv-title"><strong>Topology Trace Validator</strong><span>Evidence-only · read-only</span></div>
+      <button type="button" class="ttv-checker-launcher" data-ttv-checker-open aria-expanded="false" title="Open dedicated Topology Checker">
+        ${topologyCheckerIconMarkup('scan-search', 'Topology Checker', '')}<span>Topology Checker</span><b data-ttv-checker-badge hidden>0</b>
+      </button>
       <div class="ttv-button-group">
         ${fileControl('source', '📂', '.json', { title: 'Load Source JSON · Auto artifacts' })}
         <button type="button" data-ttv-build-topology title="Build Topology & Validate">⚙️</button>
@@ -52,6 +57,7 @@ function traceMarkup() {
       <div class="ttv-type-ribbon" data-ttv-type-ribbon></div>
       <label class="ttv-toggle" title="Show component symbols"><input type="checkbox" data-ttv-component-symbols>Symbols</label>
       <label class="ttv-toggle"><input type="checkbox" data-ttv-labels>Labels</label>
+      <label class="ttv-toggle" title="Select Vertical Axis">Up Axis: <select data-ttv-vertical-axis><option value="Y" selected>Y</option><option value="Z">Z</option></select></label>
       <div class="ttv-button-group ttv-manual-overrides">
         ${fileControl('canonical', '⬡', '.json', { title: 'Load Canonical Topology' })}
         ${fileControl('ledger', '📔', '.json', { title: 'Load Trace Ledger' })}
@@ -72,7 +78,7 @@ function traceMarkup() {
         <div class="ttv-search-results" data-ttv-search-results></div>
       </aside>
       <div class="ttv-resize-gutter ttv-resize-gutter-left"></div>
-      <main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load its companion artifacts.</div></div><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main>
+      <main class="ttv-center"><div class="ttv-svg-host" data-ttv-svg-host><div class="ttv-empty">Select a managed source JSON to auto-load its companion artifacts.</div></div><svg class="ttv-axis-compass" data-ttv-axis-compass viewBox="-50 -50 100 100" width="80" height="80" style="position:absolute;bottom:10px;left:10px;pointer-events:none;z-index:20;"><defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs><line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" /><text x="40" y="5" font-size="12" fill="#ef4444">X</text><line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" /><text x="-5" y="-40" font-size="12" fill="#22c55e">Y</text></svg><div class="ttv-navigation-hint">Drag to pan · Wheel to zoom · Click to select · + / − / 0 keyboard controls</div></main>
       <aside class="ttv-inspector" data-ttv-inspector><div class="ttv-inspector-empty">Select an object after validation.</div></aside>
     </div>
     <div class="ttv-resize-gutter ttv-resize-gutter-bottom"></div>
@@ -108,6 +114,7 @@ function editMarkup() {
         <button type="button" data-ttv-edit-projection="XZ">XZ</button>
         <button type="button" data-ttv-edit-projection="YZ">YZ</button>
         <label class="ttv-toggle"><input type="checkbox" data-ttv-edit-3d>3D preview</label>
+        <label class="ttv-toggle" title="Select Vertical Axis">Up Axis: <select data-ttv-vertical-axis><option value="Y" selected>Y</option><option value="Z">Z</option></select></label>
       </div>
       <div class="ttv-visibility-ribbon" aria-label="Selection filters">
         ${EDIT_FILTERS.map((kind) => {
@@ -124,16 +131,19 @@ function editMarkup() {
     <div class="ttv-edit-metrics" data-ttv-edit-metrics></div>
     <div class="ttv-edit-main">
       <main class="ttv-edit-canvas-stack">
-        <div class="ttv-edit-svg-host" data-ttv-edit-svg-host><div class="ttv-empty">Open Edit Draft after loading topology.</div></div>
+        <div class="ttv-edit-svg-host" data-ttv-edit-svg-host><div class="ttv-empty">Open Edit Draft after loading topology.</div></div><svg class="ttv-axis-compass" data-ttv-axis-compass viewBox="-50 -50 100 100" width="80" height="80" style="position:absolute;bottom:10px;left:10px;pointer-events:none;z-index:20;"><defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs><line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" /><text x="40" y="5" font-size="12" fill="#ef4444">X</text><line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" /><text x="-5" y="-40" font-size="12" fill="#22c55e">Y</text></svg>
         <div class="ttv-edit-3d-host" data-ttv-edit-3d-host hidden></div>
         <div class="ttv-navigation-hint">Move tool: drag a node · Shift-drag: box select · Shift-click: path · Ctrl/Cmd-click: multi-select · Arrow keys: nudge</div>
       </main>
       <aside class="ttv-edit-inspector" data-ttv-edit-inspector><div class="ttv-inspector-empty">Select a draft object.</div></aside>
     </div>
-    <footer class="ttv-edit-bottom">
-      <section data-ttv-edit-timeline></section>
-      <section data-ttv-edit-validation></section>
-    </footer>
+    <details class="ttv-edit-bottom-details" open>
+      <summary class="ttv-edit-bottom-summary">Logs & Findings</summary>
+      <footer class="ttv-edit-bottom">
+        <section data-ttv-edit-timeline></section>
+        <section data-ttv-edit-validation></section>
+      </footer>
+    </details>
     <div class="ttv-status" data-ttv-edit-status data-status="idle">Edit Draft is not initialized.</div>
     <div class="ttv-sr-only" aria-live="polite" data-ttv-edit-live></div>
   </section>`;
@@ -173,7 +183,7 @@ function parityMarkup() {
 
 /** @returns {string} */
 export function workspaceMarkup() {
-  return `<section class="ttv-workspace"><nav class="ttv-workspace-tabs" role="tablist" aria-label="Topology workspace"><button type="button" role="tab" aria-selected="true" class="is-active" data-ttv-workspace-tab="trace">Trace</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="edit">Edit Draft</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="parity">Parity</button></nav>${traceMarkup()}${editMarkup()}${parityMarkup()}</section>`;
+  return `<section class="ttv-workspace"><nav class="ttv-workspace-tabs" role="tablist" aria-label="Topology workspace"><button type="button" role="tab" aria-selected="true" class="is-active" data-ttv-workspace-tab="trace">Trace</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="edit">Edit Draft</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="parity">Parity</button></nav>${traceMarkup()}${editMarkup()}${parityMarkup()}${topologyCheckerPanelMarkup()}</section>`;
 }
 
 export const _test = Object.freeze({ fileControl, traceMarkup, editMarkup, parityMarkup });

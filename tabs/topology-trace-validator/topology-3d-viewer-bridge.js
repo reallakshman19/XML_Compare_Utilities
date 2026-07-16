@@ -39,6 +39,7 @@ export async function render3dViewer(elements, viewModel, selectedKey, selectCal
   active3dViewer.reattach(container.querySelector('.ttv-3d-canvas-host'));
   const visualModel = build3dVisualGeometryModel(viewModel), statusMap = buildStatusMap(viewModel);
   active3dViewer.setStatuses(statusMap);
+  active3dViewer.setVerticalAxis(viewModel.verticalAxis || 'Y');
   active3dViewer.setModels({ source: visualModel, target: { segments: [], markers: [], bounds: visualModel.bounds } });
   if (selectedKey) {
     const selected = objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[selectedKey];
@@ -54,11 +55,11 @@ function buildStatusMap(viewModel) {
     const key = component.sourceEntityId || component.sourcePath;
     statusMap.set(key, issueIds.has(component.objectKey) ? 'invalid' : cleanText(component.disposition) === 'BLOCK_AMBIGUOUS' ? 'source-ambiguous' : 'source-route');
   }
-  for (const edge of viewModel.canonicalEdges) statusMap.set(edge.id, issueIds.has(edge.id) ? 'invalid' : 'canonical-edge');
-  for (const junction of viewModel.junctions) statusMap.set(junction.id, issueIds.has(junction.id) ? 'invalid' : 'junction');
-  for (const point of viewModel.pointFeatures) statusMap.set(point.id, issueIds.has(point.id) ? 'invalid' : 'pointFeature');
-  for (const boundary of viewModel.boundaries) statusMap.set(boundary.id, issueIds.has(boundary.id) ? 'invalid' : 'boundary');
-  for (const support of viewModel.supports) statusMap.set(support.id || support.canonicalSupportId, issueIds.has(support.id) ? 'invalid' : 'support');
+  for (const edge of asArray(viewModel.canonicalEdges)) statusMap.set(edge.id, issueIds.has(edge.id) ? 'invalid' : 'canonical-edge');
+  for (const junction of asArray(viewModel.junctions)) statusMap.set(junction.id, issueIds.has(junction.id) ? 'invalid' : 'junction');
+  for (const point of asArray(viewModel.pointFeatures)) statusMap.set(point.id, issueIds.has(point.id) ? 'invalid' : 'pointFeature');
+  for (const boundary of asArray(viewModel.boundaries)) statusMap.set(boundary.id, issueIds.has(boundary.id) ? 'invalid' : 'boundary');
+  for (const support of asArray(viewModel.supports)) statusMap.set(support.id || support.canonicalSupportId, issueIds.has(support.id) ? 'invalid' : 'support');
   return statusMap;
 }
 

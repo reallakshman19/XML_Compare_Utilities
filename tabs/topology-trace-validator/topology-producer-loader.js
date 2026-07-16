@@ -19,8 +19,16 @@ function assertCoreContract(core) {
     'topologyArtifactOutputs',
     'createTopologyEditDraft',
     'appendTopologyEditCommand',
+    'appendTopologyEditTransaction',
     'undoTopologyEditCommand',
     'redoTopologyEditCommand',
+    'runTopologyChecks',
+    'buildTopologyFixSuggestions',
+    'applyTopologyFixSuggestion',
+    'applyApprovedTopologyFixes',
+    'createTopologyReviewState',
+    'setTopologyIssueStatus',
+    'topologyReviewSummary',
   ]) {
     if (typeof core[name] !== 'function') throw new TypeError(`Pinned topology core is missing ${name}().`);
   }

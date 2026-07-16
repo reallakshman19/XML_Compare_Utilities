@@ -34,15 +34,26 @@ async function loadThree() {
 }
 
 /** Minimal orbit controls: left-drag rotate, wheel dolly, right/shift-drag pan. */
-function attachOrbitControls(THREE, camera, dom, onChange) {
+function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange) {
   const target = new THREE.Vector3();
-  const spherical = new THREE.Spherical().setFromVector3(camera.position.clone().sub(target));
+  const toSphericalVec = (vec) => {
+    const verticalAxis = getVerticalAxis();
+    if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, vec.z, -vec.y);
+    return vec.clone();
+  };
+  const toWorldVec = (vec) => {
+    const verticalAxis = getVerticalAxis();
+    if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, -vec.z, vec.y);
+    return vec.clone();
+  };
+  const spherical = new THREE.Spherical().setFromVector3(toSphericalVec(camera.position.clone().sub(target)));
   let dragging = null;
   let lastX = 0; let lastY = 0;
   const apply = () => {
     spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi));
     spherical.radius = Math.max(1, spherical.radius);
-    camera.position.setFromSpherical(spherical).add(target);
+    const sphPos = new THREE.Vector3().setFromSpherical(spherical);
+    camera.position.copy(toWorldVec(sphPos).add(target));
     camera.lookAt(target);
     onChange();
   };
@@ -86,7 +97,8 @@ function attachOrbitControls(THREE, camera, dom, onChange) {
     apply,
     setView(position, lookAt) {
       target.copy(lookAt);
-      spherical.setFromVector3(position.clone().sub(lookAt));
+      const offset = position.clone().sub(lookAt);
+      spherical.setFromVector3(toSphericalVec(offset));
       apply();
     },
     dispose() {
@@ -112,6 +124,7 @@ const CONNECTOR_COLORS = Object.freeze({
 
 export async function createWorkbenchViewer(container, { onPick, onHoverConnector, onHoverObject, onCameraChange } = {}) {
   const THREE = await loadThree();
+  let verticalAxis = 'Y';
   let host = container; // reassigned by reattach() when the tab re-renders its DOM
   // preserveDrawingBuffer keeps readPixels/screenshots dependable; scenes here
   // are small (centerline cylinders), so the cost is negligible.
@@ -133,6 +146,38 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   scene.add(grid);
   const axes = new THREE.AxesHelper(800);
   scene.add(axes);
+
+  const axisScene = new THREE.Scene();
+  const axisCamera = new THREE.PerspectiveCamera(50, 1, 1, 1000);
+  const axisHelper = new THREE.AxesHelper(40);
+  axisScene.add(axisHelper);
+
+  const createLineLetter = (pointsArray, color) => {
+    const pts = pointsArray.map(p => new THREE.Vector3(...p));
+    const geom = new THREE.BufferGeometry().setFromPoints(pts);
+    return new THREE.LineSegments(geom, new THREE.LineBasicMaterial({ color }));
+  };
+  const letterX = createLineLetter([[48, -4, -4], [48, 4, 4], [48, 4, -4], [48, -4, 4]], 0xff8888);
+  const letterY = createLineLetter([[-4, 52, 0], [0, 48, 0], [4, 52, 0], [0, 48, 0], [0, 48, 0], [0, 44, 0]], 0x88ff88);
+  const letterZ = createLineLetter([[-4, 0, 52], [4, 0, 52], [4, 0, 52], [-4, 0, 44], [-4, 0, 44], [4, 0, 44]], 0x8888ff);
+  axisScene.add(letterX, letterY, letterZ);
+
+  function renderAxisCompass(xOffset, yOffset, viewWidth, viewHeight) {
+    axisCamera.quaternion.copy(camera.quaternion);
+    const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+    axisCamera.position.copy(dir.multiplyScalar(120));
+    axisCamera.lookAt(0, 0, 0);
+
+    const autoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setScissorTest(true);
+    const size = 64;
+    renderer.setViewport(xOffset + 10, yOffset + 10, size, size);
+    renderer.setScissor(xOffset + 10, yOffset + 10, size, size);
+    renderer.render(axisScene, axisCamera);
+    renderer.autoClear = autoClear;
+    renderer.setScissorTest(mode === 'side-by-side');
+  }
 
   const camera = new THREE.PerspectiveCamera(55, 1, 1, 1e7);
   camera.position.set(2500, 2200, 2500);
@@ -187,18 +232,193 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
   }
 
-  function segmentMesh(seg, mat, modelId, radiusScale) {
+  function segmentMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
+    const kind = String(seg.kind || '');
+    if (/VALV/i.test(kind)) {
+      return buildValveMesh(seg, mat, modelId, radiusScale, ghost, alpha);
+    }
+    if (/FLAN/i.test(kind)) {
+      return buildFlangeMesh(seg, mat, modelId, radiusScale, ghost, alpha);
+    }
+    if (/BEND|ELBO/i.test(kind)) {
+      return buildElbowMesh(seg, mat, modelId, radiusScale, ghost, alpha);
+    }
     const start = new THREE.Vector3(...seg.start);
     const end = new THREE.Vector3(...seg.end);
+    return buildStraightCylinder(start, end, Math.max((seg.radiusMm || 25) * radiusScale, 4), mat, seg, modelId);
+  }
+
+  function buildStraightCylinder(start, end, radius, mat, seg, modelId) {
     const dir = end.clone().sub(start);
     const length = Math.max(dir.length(), 0.001);
-    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
     const geometry = new THREE.CylinderGeometry(radius, radius, length, 12, 1);
     const mesh = new THREE.Mesh(geometry, mat);
     mesh.position.copy(start.clone().add(end).multiplyScalar(0.5));
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     mesh.userData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
     return mesh;
+  }
+
+  function buildFlangeMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
+    const s = new THREE.Vector3(...seg.start);
+    const e = new THREE.Vector3(...seg.end);
+    const diff = new THREE.Vector3().subVectors(e, s);
+    const len = diff.length();
+    if (len < 0.1) return null;
+    const normal = diff.clone().normalize();
+    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
+    const discR = radius * 2.0;
+    const discT = Math.min(radius * 0.5, len * 0.4);
+    const mid = new THREE.Vector3().addVectors(s, e).multiplyScalar(0.5);
+    const q1 = s.clone().lerp(mid, 0.15);
+    const q2 = e.clone().lerp(mid, 0.15);
+
+    const group = new THREE.Group();
+
+    const d1Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
+    const d1 = new THREE.Mesh(d1Geo, mat);
+    d1.position.copy(q1);
+    d1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(d1);
+
+    const d2Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
+    const d2 = new THREE.Mesh(d2Geo, mat);
+    d2.position.copy(q2);
+    d2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(d2);
+
+    const webMat = material(0xaaaaaa, ghost, alpha);
+    const webGeo = new THREE.CylinderGeometry(radius * 0.85, radius * 0.85, q1.distanceTo(q2), 12);
+    const web = new THREE.Mesh(webGeo, webMat);
+    web.position.copy(mid);
+    web.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(web);
+
+    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
+    group.userData = uData;
+    d1.userData = uData;
+    d2.userData = uData;
+    web.userData = uData;
+
+    return group;
+  }
+
+  function buildValveMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
+    const s = new THREE.Vector3(...seg.start);
+    const e = new THREE.Vector3(...seg.end);
+    const diff = new THREE.Vector3().subVectors(e, s);
+    const len = diff.length();
+    if (len < 0.1) return null;
+    const normal = diff.clone().normalize();
+    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
+    const mid = new THREE.Vector3().addVectors(s, e).multiplyScalar(0.5);
+    const q1 = s.clone().lerp(mid, 0.25);
+    const q2 = e.clone().lerp(mid, 0.25);
+    const discR = radius * 1.8;
+    const discT = radius * 0.5;
+
+    const group = new THREE.Group();
+
+    const d1Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
+    const d1 = new THREE.Mesh(d1Geo, mat);
+    d1.position.copy(q1);
+    d1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(d1);
+
+    const d2Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
+    const d2 = new THREE.Mesh(d2Geo, mat);
+    d2.position.copy(q2);
+    d2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(d2);
+
+    const ballGeo = new THREE.SphereGeometry(radius * 1.5, 16, 16);
+    const ball = new THREE.Mesh(ballGeo, mat);
+    ball.position.copy(mid);
+    group.add(ball);
+
+    const tubeMat = material(0xaaaaaa, ghost, alpha);
+    const tubeGeo = new THREE.CylinderGeometry(radius * 0.7, radius * 0.7, q1.distanceTo(q2), 12);
+    const tube = new THREE.Mesh(tubeGeo, tubeMat);
+    tube.position.copy(mid);
+    tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+    group.add(tube);
+
+    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
+    group.userData = uData;
+    d1.userData = uData;
+    d2.userData = uData;
+    ball.userData = uData;
+    tube.userData = uData;
+
+    return group;
+  }
+
+  function buildElbowMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
+    const p1 = new THREE.Vector3(...seg.start);
+    const p2 = new THREE.Vector3(...seg.end);
+    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
+    const centerArr = seg.center || (seg.attrs?.centerPoint || seg.attrs?.centrePoint || seg.attrs?.center || seg.attrs?.centre);
+    const c = centerArr ? new THREE.Vector3(...centerArr) : null;
+
+    if (!c) {
+      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    }
+
+    const v1 = p1.clone().sub(c);
+    const v2 = p2.clone().sub(c);
+    if (v1.length() < 0.1 || v2.length() < 0.1) {
+      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    }
+    const d1 = v1.clone().normalize();
+    const d2 = v2.clone().normalize();
+    const dot = THREE.MathUtils.clamp(d1.dot(d2), -1, 1);
+    const angle = Math.acos(dot);
+
+    if (angle < 0.05 || Math.abs(Math.PI - angle) < 0.05) {
+      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    }
+
+    const normal = new THREE.Vector3().crossVectors(d1, d2);
+    if (normal.length() < 1e-4) {
+      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    }
+    normal.normalize();
+
+    const arcRadius = Math.min(v1.length(), v2.length());
+    if (arcRadius < radius * 0.5) {
+      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    }
+
+    const arcStart = c.clone().addScaledVector(d1, arcRadius);
+    const arcEnd   = c.clone().addScaledVector(d2, arcRadius);
+
+    const sweepAngle = Math.PI - angle;
+    const alphaVal = (4 / 3) * Math.tan(sweepAngle / 4);
+
+    const cp1 = arcStart.clone().addScaledVector(d1, -alphaVal * arcRadius);
+    const cp2 = arcEnd.clone().addScaledVector(d2, -alphaVal * arcRadius);
+    const bendCurve = new THREE.CubicBezierCurve3(arcStart, cp1, cp2, arcEnd);
+
+    const group = new THREE.Group();
+
+    if (p1.distanceTo(arcStart) > 0.1) {
+      const leg1 = buildStraightCylinder(p1, arcStart, radius, mat, seg, modelId);
+      if (leg1) group.add(leg1);
+    }
+    if (arcEnd.distanceTo(p2) > 0.1) {
+      const leg2 = buildStraightCylinder(arcEnd, p2, radius, mat, seg, modelId);
+      if (leg2) group.add(leg2);
+    }
+
+    const bendGeo = new THREE.TubeGeometry(bendCurve, 16, radius, 12, false);
+    const bend = new THREE.Mesh(bendGeo, mat);
+    group.add(bend);
+
+    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
+    group.userData = uData;
+    bend.userData = uData;
+
+    return group;
   }
 
   function markerMesh(marker, modelId, statusKey) {
@@ -297,15 +517,20 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     clearHighlight();
     const wanted = new Set(objectIds ?? []);
     for (const group of [sourceGroup, targetGroup]) {
-      for (const mesh of group.children) {
-        if (!wanted.has(mesh.userData.objectId)) continue;
-        mesh.userData.__origMaterial = mesh.material;
-        const clone = mesh.material.clone();
-        clone.emissive = new THREE.Color(0xffffff);
-        clone.emissiveIntensity = 0.45;
-        clone.opacity = Math.max(clone.opacity, 0.9);
-        mesh.material = clone;
-        highlightedMeshes.push(mesh);
+      for (const item of group.children) {
+        if (!wanted.has(item.userData.objectId)) continue;
+        item.traverse((child) => {
+          if (!child.isMesh) return;
+          if (!child.userData.__origMaterial) {
+            child.userData.__origMaterial = child.material;
+            const clone = child.material.clone();
+            clone.emissive = new THREE.Color(0xffffff);
+            clone.emissiveIntensity = 0.45;
+            clone.opacity = Math.max(clone.opacity, 0.9);
+            child.material = clone;
+            highlightedMeshes.push(child);
+          }
+        });
       }
     }
   }
@@ -327,7 +552,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         const ghost = modelId === 'source' && (!status || ['MATCHED_UNCHANGED', 'PROPERTY_CHANGED', 'GEOMETRY_CHANGED'].includes(status));
         const style = styleOf(ghost ? 'GHOST' : (status ?? 'GHOST'));
         const colorInt = (!ghost && colorOverrides?.has(seg.objectId)) ? colorOverrides.get(seg.objectId) : style.colorInt;
-        const mesh = segmentMesh(seg, material(colorInt, ghost, style.alpha), modelId, 1);
+        const mesh = segmentMesh(seg, material(colorInt, ghost, style.alpha), modelId, 1, ghost, style.alpha);
         mesh.userData.status = status ?? null;
         mesh.userData.ghost = ghost;
         group.add(mesh);
@@ -389,11 +614,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         renderer.setViewport(0, 0, width / 2, height);
         renderer.setScissor(0, 0, width / 2, height);
         renderer.render(scene, camera);
+        renderAxisCompass(0, 0, width / 2, height);
         // right: target only
         sourceGroup.visible = false; targetGroup.visible = true;
         renderer.setViewport(width / 2, 0, width / 2, height);
         renderer.setScissor(width / 2, 0, width / 2, height);
         renderer.render(scene, camera);
+        renderAxisCompass(width / 2, 0, width / 2, height);
         sourceGroup.visible = true;
         renderer.setScissorTest(false);
       } else {
@@ -401,6 +628,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         camera.updateProjectionMatrix();
         renderer.setViewport(0, 0, width, height);
         renderer.render(scene, camera);
+        renderAxisCompass(0, 0, width, height);
       }
     };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
@@ -410,14 +638,14 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   function recalibrateOrbitDepth() {
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-    const hit = raycaster.intersectObjects(candidates, false)[0];
+    const hit = raycaster.intersectObjects(candidates, true)[0];
     if (hit && hit.distance > 1) {
       controls.target.copy(hit.point);
       controls.spherical.radius = hit.distance;
     }
   }
 
-  const controls = attachOrbitControls(THREE, camera, renderer.domElement, () => {
+  const controls = attachOrbitControls(THREE, camera, renderer.domElement, () => verticalAxis, () => {
     render();
     if (onCameraChange) onCameraChange();
   });
@@ -458,7 +686,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
     if (onHoverObject) {
       const meshes = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-      const hit = raycaster.intersectObjects(meshes, false)[0];
+      const hit = raycaster.intersectObjects(meshes, true)[0];
       onHoverObject(hit ? { ...hit.object.userData } : null, event);
     }
   });
@@ -470,7 +698,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     pointer.set(...pointerToNdc(event));
     raycaster.setFromCamera(pointer, camera);
     const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-    const hit = raycaster.intersectObjects(candidates, false)[0];
+    const hit = raycaster.intersectObjects(candidates, true)[0];
     if (hit) {
       const now = Date.now();
       if (now - lastClickTime < 300) {
@@ -617,12 +845,33 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     },
     fitAll() { fitBox(boundsOf(null)); },
     fitObject(objectId) { fitBox(boundsOf(new Set([objectId]))); },
+    setVerticalAxis(axis) {
+      const nextAxis = String(axis || '').trim().toUpperCase() === 'Z' ? 'Z' : 'Y';
+      if (verticalAxis === nextAxis) return;
+      verticalAxis = nextAxis;
+      if (verticalAxis === 'Z') {
+        camera.up.set(0, 0, 1);
+        axisCamera.up.set(0, 0, 1);
+      } else {
+        camera.up.set(0, 1, 0);
+        axisCamera.up.set(0, 1, 0);
+      }
+      const offset = camera.position.clone().sub(controls.target);
+      const toSphericalVec = (vec) => {
+        if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, vec.z, -vec.y);
+        return vec.clone();
+      };
+      controls.spherical.setFromVector3(toSphericalVec(offset));
+      render();
+    },
     setStandardView(view) {
       const box = boundsOf(null);
       if (!box) return;
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3()).length() || 1000;
-      const dirs = { top: [0, 1, 0.001], front: [0, 0.001, 1], side: [1, 0.001, 0], iso: [1, 0.8, 1] };
+      const dirs = verticalAxis === 'Z'
+        ? { top: [0, 0.001, 1], front: [0, 1, 0.001], side: [1, 0.001, 0], iso: [1, 1, 0.8] }
+        : { top: [0, 1, 0.001], front: [0, 0.001, 1], side: [1, 0.001, 0], iso: [1, 0.8, 1] };
       const d = new THREE.Vector3(...(dirs[view] ?? dirs.iso)).normalize();
       controls.setView(center.clone().add(d.multiplyScalar(size * 0.95 + 200)), center);
     },

@@ -119,6 +119,18 @@ export function createTopologyEditController(elements, dependencies) {
   async function undo() { if (draft?.commands?.length) await regenerateDraft(core.undoTopologyEditCommand(draft), 'Undo'); }
   /** @returns {Promise<void>} */
   async function redo() { if (draft?.redoCommands?.length) await regenerateDraft(core.redoTopologyEditCommand(draft), 'Redo'); }
+  /** @param {Record<string,unknown>[]} selectedSuggestions @param {boolean} approvedOnly @returns {Promise<Readonly<Record<string,unknown>>>} */
+  async function applyTopologyFixSuggestions(selectedSuggestions, approvedOnly) {
+    if (!core || !draft) throw new Error('Edit Draft has not been initialized.');
+    if (!Array.isArray(selectedSuggestions) || !selectedSuggestions.length) throw new Error('At least one topology fix suggestion is required.');
+    if (!approvedOnly && selectedSuggestions.length !== 1) throw new Error('Reviewed fixes must be applied one suggestion at a time.');
+    const candidate = approvedOnly
+      ? core.applyApprovedTopologyFixes(draft, selectedSuggestions)
+      : core.applyTopologyFixSuggestion(draft, selectedSuggestions[0]);
+    if (candidate === draft) throw new Error('No approved topology fixes passed their deterministic preconditions.');
+    await regenerateDraft(candidate, approvedOnly ? 'Apply approved topology fixes' : 'Apply topology fix');
+    return evidence();
+  }
   /** @param {string} nextTool @returns {void} */
   function setTool(nextTool) {
     if (!['SELECT', 'MOVE'].includes(nextTool)) throw new RangeError(`Unsupported edit tool ${nextTool}.`);
@@ -143,8 +155,14 @@ export function createTopologyEditController(elements, dependencies) {
   /** @returns {Promise<void>} */
   async function render3d() {
     if (!show3d || !baseArtifacts || !canonical()) return;
-    await renderTopologyEdit3dPreview(elements.preview3d, baseArtifacts.canonicalTopology, canonical(), editedArtifacts.editValidation, selection, (objectId) => {
-      const row = selectionForObjectId(canonical(), objectId); if (row) setSelection([row], true);
+    const selectEl = elements.root.querySelector('[data-ttv-vertical-axis]');
+    const verticalAxis = selectEl ? selectEl.value : 'Y';
+    await renderTopologyEdit3dPreview(elements.preview3d, baseArtifacts.canonicalTopology, canonical(), editedArtifacts.editValidation, selection, verticalAxis, (objectId) => {
+      const row = selectionForObjectId(canonical(), objectId);
+      if (row) {
+        setSelection([row], true);
+        navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true);
+      }
     });
   }
   /** @returns {void} */
@@ -227,7 +245,8 @@ export function createTopologyEditController(elements, dependencies) {
 
   return Object.freeze({
     initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible,
-    setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge,
+    setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions,
+    focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); },
     fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), render, evidence, destroy,
   });
 }

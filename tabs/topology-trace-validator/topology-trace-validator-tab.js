@@ -2,9 +2,11 @@
 import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyEditController } from './topology-edit-controller.js';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260715-ttv-018-parity';
-import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260715-ttv-018-parity';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260715-ttv-018-parity';
+import { createTopologyCheckerController } from './topology-checker-controller.js';
+import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
+import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260716-topology-checker-v1';
+import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260716-topology-checker-v1';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260716-topology-checker-v1';
 
 const STYLE_ID = 'topology-trace-validator-style';
 
@@ -13,7 +15,7 @@ export function installTopologyTraceValidatorTile(container, context) {
   if (container.querySelector('[data-ttv-open]')) return () => {};
   const tile = container.ownerDocument.createElement('section');
   tile.className = 'psmap-card psmap-tile ttv-launcher';
-  tile.innerHTML = '<button type="button" data-ttv-open="1"><span class="ttv-launcher-icon">⌁</span><span><strong>Topology Trace Validator</strong><small>Validate source → canonical → InputXML → SVG parity</small></span></button>';
+  tile.innerHTML = `<button type="button" data-ttv-open="1"><span class="ttv-launcher-icon">${topologyCheckerIconMarkup('network', 'Topology Trace Validator', '')}</span><span><strong>Topology Trace Validator</strong><small>Trace · edit · check · validate topology</small></span></button>`;
   container.appendChild(tile);
   let workspace = null;
   const open = async () => { workspace = await openTopologyTraceValidator(container.ownerDocument, context); };
@@ -100,7 +102,20 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   const editController = createTopologyEditController(collectEditElements(shell), {
     onSelectionChange: (selection) => controller?.synchronizeCanonicalSelection(selection, 'edit'),
   });
-  controller = createTopologyWorkspaceController(traceController, editController, parityController);
+  const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController);
+  const checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
+    evidence: () => workspaceController.evidence(),
+    select: (selection) => workspaceController.synchronizeCanonicalSelection(selection, 'checker'),
+    focus: (selection) => workspaceController.focusCanonicalSelection(selection),
+    applySuggestions: async (suggestions, approvedOnly) => {
+      await editController.initialize(traceController.evidence());
+      return editController.applyTopologyFixSuggestions(suggestions, approvedOnly);
+    },
+  });
+  controller = Object.freeze({
+    ...workspaceController, checker: checkerController,
+    destroy: () => { checkerController.destroy(); workspaceController.destroy(); },
+  });
   const cleanups = wireTopologyWorkspace(shell, controller);
   if (initialArtifacts) {
     for (const kind of ['source', 'canonical', 'ledger', 'scene', 'parsed', 'report']) {
@@ -108,11 +123,24 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
     }
     if (initialArtifacts.inputXml) await controller.loadArtifact('inputXml', String(initialArtifacts.inputXml), 'topology.fixture.xml');
     controller.validate();
+    await checkerController.refresh();
   }
   return Object.freeze({
     controller,
     destroy: () => { cleanups.forEach((cleanup) => cleanup()); controller.destroy(); },
   });
+}
+
+function collectCheckerElements(root) {
+  const query = requiredQuery(root);
+  return {
+    workspace: root, panel: query('[data-ttv-checker-panel]'), launcher: query('[data-ttv-checker-open]'),
+    badge: query('[data-ttv-checker-badge]'), subtitle: query('[data-ttv-checker-subtitle]'),
+    live: query('[data-ttv-checker-live]'), kpis: query('[data-ttv-checker-kpis]'),
+    buckets: query('[data-ttv-checker-buckets]'), scroll: query('[data-ttv-checker-scroll]'),
+    spacer: query('[data-ttv-checker-spacer]'), rows: query('[data-ttv-checker-rows]'),
+    detail: query('[data-ttv-checker-detail]'),
+  };
 }
 
 function collectEditElements(root) {
@@ -179,11 +207,11 @@ function ensureStylesheet(documentRef) {
     link.rel = 'stylesheet';
     documentRef.head.appendChild(link);
   }
-  link.href = new URL('./topology-parity-workspace.css?v=20260716-edit-draft-v1', import.meta.url).href;
+  link.href = new URL('./topology-parity-workspace.css?v=20260716-topology-checker-v1', import.meta.url).href;
 }
 
 function objectOrNull(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
-export const _test = Object.freeze({ collectTraceElements, collectEditElements, collectParityElements, requiredQuery, workspaceMarkup });
+export const _test = Object.freeze({ collectTraceElements, collectEditElements, collectParityElements, collectCheckerElements, requiredQuery, workspaceMarkup });

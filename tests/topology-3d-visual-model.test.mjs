@@ -1,7 +1,8 @@
 /**
  * Directional restraint rendering contract.
  * Real CAESAR restraint semantics are projected into one REST arrow, two
- * lateral GUIDE arrows, and two axial LINESTOP arrows without browser state.
+ * lateral GUIDE arrows, axial LINESTOP arrows, hold-down pairs, and explicit
+ * axis arrows without browser state.
  */
 
 import assert from 'node:assert/strict';
@@ -17,16 +18,21 @@ const canonical = {
     { id: 'S-REST', nodeId: 'N1', restraints: [{ kind: 'REST', type: '+Y', direction: '+Y' }] },
     { id: 'S-GUIDE', nodeId: 'N1', restraints: [{ kind: 'GUIDE', type: 'GUI', direction: 'GUI' }] },
     { id: 'S-LINESTOP', nodeId: 'N2', restraints: [{ kind: 'LINESTOP', type: 'LIM', direction: 'LIM' }] },
+    { id: 'S-HOLDOWN', nodeId: 'N1', restraints: [{ kind: 'HOLDOWN', type: '+Y', direction: '+Y' }] },
+    { id: 'S-X', nodeId: 'N2', restraints: [{ kind: '', type: 'X', direction: 'X' }] },
   ],
 };
 
 const geometry = buildCanonicalRestraintGeometry(canonical);
 const arrows = geometry.markers.filter((marker) => marker.kind === 'RESTRAINT_ARROW');
-assert.equal(geometry.segments.length, 5);
-assert.equal(arrows.length, 5);
-assert.deepEqual(arrows.filter((row) => row.objectId === 'S-REST').map((row) => row.direction), [[0, 1, 0]]);
-assert.deepEqual(arrows.filter((row) => row.objectId === 'S-GUIDE').map((row) => row.direction), [[0, 0, 1], [0, 0, -1]]);
-assert.deepEqual(arrows.filter((row) => row.objectId === 'S-LINESTOP').map((row) => row.direction), [[-1, 0, 0], [1, 0, 0]]);
+assert.equal(geometry.segments.length, 8);
+assert.equal(arrows.length, 8);
+const sortDirs = (dirs) => dirs.map(d => d.join(',')).sort();
+assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-REST').map((row) => row.direction)), sortDirs([[0, 1, 0]]));
+assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-GUIDE').map((row) => row.direction)), sortDirs([[0, 0, 1], [0, 0, -1]]));
+assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-LINESTOP').map((row) => row.direction)), sortDirs([[-1, 0, 0], [1, 0, 0]]));
+assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-HOLDOWN').map((row) => row.direction)), sortDirs([[0, 1, 0], [0, -1, 0]]));
+assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-X').map((row) => row.direction)), sortDirs([[1, 0, 0]]));
 assert(geometry.markers.filter((marker) => marker.kind === 'SUPPORT').every((marker) => marker.isObjectMarker));
 
-console.log('topology 3D restraint geometry passed: REST, GUIDE, and LINESTOP arrows verified.');
+console.log('topology 3D restraint geometry passed: REST, HOLDOWN, GUIDE, LINESTOP, and explicit-axis arrows verified.');
