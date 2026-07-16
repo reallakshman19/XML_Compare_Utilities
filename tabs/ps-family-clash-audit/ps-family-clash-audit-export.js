@@ -91,15 +91,31 @@ export function exportConnectivityMatrixCsv(audit) {
   return rowsToCsv(headers, (audit.connectivityMatrixRows || []).map((row) => ({ SupportGroup: row.supportGroup, From: row.from, To: row.to, EdgeType: row.edgeType, EvidenceId: evidenceId(row), SourceInput: row.sourceInput, Status: row.status })));
 }
 
-export function exportPsFamilyMissingCsv(audit) { return rowsToCsv(['SourceFamily', 'ExpectedMember', 'Remarks'], (audit.missingRows || []).map((row) => ({ SourceFamily: row.sourceFamily, ExpectedMember: row.expectedMember, Remarks: row.remarks }))); }
-export function exportPsFamilyOutOfFamilyCsv(audit) { return rowsToCsv(['ClashName', 'Source', 'AgainstMember', 'AgainstRoot'], (audit.outOfFamilyRows || []).map((row) => ({ ClashName: row.clashName, Source: row.source?.familyRoot, AgainstMember: row.against?.memberName, AgainstRoot: row.against?.familyRoot })));
-export function exportPsFamilyDuplicatesCsv(audit) { return rowsToCsv(['Member', 'ExactMemberKey', 'EvidenceCount'], (audit.duplicateRows || []).map((row) => ({ Member: row.member, ExactMemberKey: row.exactMemberKey, EvidenceCount: row.evidenceCount ?? row.clashCount })));
-export function exportPsFamilyLineFamiliesCsv(audit) { return rowsToCsv(['LineFamily', 'EvidenceCount'], (audit.lineFamilyRows || []).map((row) => ({ LineFamily: row.lineFamily, EvidenceCount: row.evidenceCount ?? row.clashCount })));
-export function exportPsFamilyPosFamiliesCsv(audit) { return rowsToCsv(['POSFamilyId', 'ElementCount'], (audit.posFamilyRows || []).map((row) => ({ POSFamilyId: row.posFamilyId, ElementCount: row.elementCount }))); }
+export function exportPsFamilyMissingCsv(audit) {
+  return rowsToCsv(['SourceFamily', 'ExpectedMember', 'Remarks'], (audit.missingRows || []).map((row) => ({ SourceFamily: row.sourceFamily, ExpectedMember: row.expectedMember, Remarks: row.remarks })));
+}
+
+export function exportPsFamilyOutOfFamilyCsv(audit) {
+  return rowsToCsv(['ClashName', 'Source', 'AgainstMember', 'AgainstRoot'], (audit.outOfFamilyRows || []).map((row) => ({ ClashName: row.clashName, Source: row.source?.familyRoot, AgainstMember: row.against?.memberName, AgainstRoot: row.against?.familyRoot })));
+}
+
+export function exportPsFamilyDuplicatesCsv(audit) {
+  return rowsToCsv(['Member', 'ExactMemberKey', 'EvidenceCount'], (audit.duplicateRows || []).map((row) => ({ Member: row.member, ExactMemberKey: row.exactMemberKey, EvidenceCount: row.evidenceCount ?? row.clashCount })));
+}
+
+export function exportPsFamilyLineFamiliesCsv(audit) {
+  return rowsToCsv(['LineFamily', 'EvidenceCount'], (audit.lineFamilyRows || []).map((row) => ({ LineFamily: row.lineFamily, EvidenceCount: row.evidenceCount ?? row.clashCount })));
+}
+
+export function exportPsFamilyPosFamiliesCsv(audit) {
+  return rowsToCsv(['POSFamilyId', 'ElementCount'], (audit.posFamilyRows || []).map((row) => ({ POSFamilyId: row.posFamilyId, ElementCount: row.elementCount })));
+}
+
 export function exportPsFamilySourceVsPosFamilyCsv(audit) {
   const headers = ['Source', 'POSFamilyCount', 'ElementCount', 'FoundElementCount', 'MissingElementCount', 'EvidenceCount', 'OutOfFamilyCount', 'POSFamilyIds', 'LineFamilies', 'Remarks'];
   return rowsToCsv(headers, (audit.sourceVsPosFamilyRows || []).map((row) => ({ Source: row.source, POSFamilyCount: row.posFamilyCount, ElementCount: row.elementCount, FoundElementCount: row.foundElementCount, MissingElementCount: row.missingElementCount, EvidenceCount: row.evidenceCount ?? row.clashCount, OutOfFamilyCount: row.outOfFamilyCount, POSFamilyIds: row.posFamilyIds, LineFamilies: row.lineFamilies, Remarks: row.remarks })));
 }
+
 export function exportPsFamilyDiagnosticsCsv(audit) { return rowsToCsv(['Level', 'Code', 'Message'], (audit.diagnostics || []).map((row) => ({ Level: row.level, Code: row.code, Message: row.message }))); }
 export function exportPsFamilyPsClashReportCsv(audit) { return exportSupportMembersCsv(audit); }
 export function exportPsFamilyAuditJson(audit) { return `${JSON.stringify(audit, null, 2)}\n`; }
@@ -121,15 +137,29 @@ export const PS_FAMILY_ACTIVE_EXPORTS = Object.freeze({
 
 export function createPsFamilyAuditExports(audit) {
   return {
-    supportSummaryCsv: exportSupportSummaryCsv(audit), supportChainCsv: exportSupportChainCsv(audit), supportMembersCsv: exportSupportMembersCsv(audit),
-    structureLineProximityCsv: exportStructureLineProximityCsv(audit), structureContactsCsv: exportStructureContactsCsv(audit),
-    lineSupportTreeText: exportLineSupportTreeText(audit), lineSupportTreeCsv: exportLineSupportTreeCsv(audit),
-    structureTreeText: exportStructureTreeText(audit), structureTreeCsv: exportStructureTreeCsv(audit),
-    inputEvidenceCsv: exportInputEvidenceCsv(audit), connectivityMatrixCsv: exportConnectivityMatrixCsv(audit),
-    coverageCsv: exportPsFamilyCoverageCsv(audit), clashRowsCsv: exportPsFamilyClashRowsCsv(audit), psClashReportCsv: exportPsFamilyPsClashReportCsv(audit),
-    missingCsv: exportPsFamilyMissingCsv(audit), outOfFamilyCsv: exportPsFamilyOutOfFamilyCsv(audit), duplicatesCsv: exportPsFamilyDuplicatesCsv(audit),
-    lineFamiliesCsv: exportPsFamilyLineFamiliesCsv(audit), posFamiliesCsv: exportPsFamilyPosFamiliesCsv(audit), sourceVsPosFamilyCsv: exportPsFamilySourceVsPosFamilyCsv(audit),
-    diagnosticsCsv: exportPsFamilyDiagnosticsCsv(audit), supportExceptionsCsv: exportSupportExceptionsCsv(audit), auditJson: exportPsFamilyAuditJson(audit),
+    supportSummaryCsv: exportSupportSummaryCsv(audit),
+    supportChainCsv: exportSupportChainCsv(audit),
+    supportMembersCsv: exportSupportMembersCsv(audit),
+    structureLineProximityCsv: exportStructureLineProximityCsv(audit),
+    structureContactsCsv: exportStructureContactsCsv(audit),
+    lineSupportTreeText: exportLineSupportTreeText(audit),
+    lineSupportTreeCsv: exportLineSupportTreeCsv(audit),
+    structureTreeText: exportStructureTreeText(audit),
+    structureTreeCsv: exportStructureTreeCsv(audit),
+    inputEvidenceCsv: exportInputEvidenceCsv(audit),
+    connectivityMatrixCsv: exportConnectivityMatrixCsv(audit),
+    coverageCsv: exportPsFamilyCoverageCsv(audit),
+    clashRowsCsv: exportPsFamilyClashRowsCsv(audit),
+    psClashReportCsv: exportPsFamilyPsClashReportCsv(audit),
+    missingCsv: exportPsFamilyMissingCsv(audit),
+    outOfFamilyCsv: exportPsFamilyOutOfFamilyCsv(audit),
+    duplicatesCsv: exportPsFamilyDuplicatesCsv(audit),
+    lineFamiliesCsv: exportPsFamilyLineFamiliesCsv(audit),
+    posFamiliesCsv: exportPsFamilyPosFamiliesCsv(audit),
+    sourceVsPosFamilyCsv: exportPsFamilySourceVsPosFamilyCsv(audit),
+    diagnosticsCsv: exportPsFamilyDiagnosticsCsv(audit),
+    supportExceptionsCsv: exportSupportExceptionsCsv(audit),
+    auditJson: exportPsFamilyAuditJson(audit),
   };
 }
 
