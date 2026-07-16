@@ -27,6 +27,8 @@ for (const required of [
   'construction/sequential-terminal-classifier.js',
   'construction/sequential-construction-engine.js',
   'construction/sequential-gated-construction-engine.js',
+  'construction/sequential-connection-audit.js',
+  'construction/sequential-construction-runtime.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
   'support/sj-pipe-support-projection.js', 'support/sj-pipe-support-family.js',
@@ -51,7 +53,7 @@ for (const label of [
 assert.doesNotMatch(markup, /Compile branch|Coordinate tolerance/, 'graph-first compile controls must be retired');
 
 const workspace = read('sequential-sketcher-workspace.js');
-assert.match(workspace, /sequential-gated-construction-engine\.js/);
+assert.match(workspace, /sequential-construction-runtime\.js/);
 assert.match(workspace, /buildSequentialEvidenceModel/);
 assert.match(workspace, /runConstructionUntilBlocked/);
 assert.match(workspace, /applyConstructionDecision/);
@@ -79,6 +81,17 @@ assert.match(gatedEngine, /HEAD_BOUNDARY_TO_JUNCTION/);
 assert.match(gatedEngine, /CONFIRM_HEAD_JUNCTION_BOUNDARY/);
 assert.match(gatedEngine, /headBoundaryValidated/);
 assert.match(gatedEngine, /resolveBoundaryReference/);
+
+const runtime = read('construction/sequential-construction-runtime.js');
+assert.match(runtime, /enrichCommittedConnectionEvidence/);
+assert.match(runtime, /advanceGatedConstruction/);
+assert.match(runtime, /applyGatedConstructionDecision/);
+
+const connectionAudit = read('construction/sequential-connection-audit.js');
+assert.match(connectionAudit, /coordinateDerivationStatus/);
+assert.match(connectionAudit, /sourceGapMm/);
+assert.match(connectionAudit, /resolvedGapMm/);
+assert.match(connectionAudit, /derivedBranchLegLengthMm/);
 
 const boundaryResolver = read('construction/sequential-boundary-resolver.js');
 assert.match(boundaryResolver, /BOUNDARY_TO_FIRST_COMPONENT_GAP/);
@@ -119,6 +132,8 @@ const constructionFiles = [
   'construction/sequential-terminal-classifier.js',
   'construction/sequential-construction-engine.js',
   'construction/sequential-gated-construction-engine.js',
+  'construction/sequential-connection-audit.js',
+  'construction/sequential-construction-runtime.js',
   'stroke/sequential-component-stroke-compiler.js',
   'canvas/sequential-construction-svg.js',
   'sequential-sketcher-workspace.js',
