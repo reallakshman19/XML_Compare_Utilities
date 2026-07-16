@@ -62,7 +62,7 @@
 .ttv-toolbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
 /* Premium Toolbar Buttons & Groups */
-.ttv-toolbar > button, .ttv-button-group button, .ttv-toolbar > label {
+.ttv-toolbar > button, .ttv-button-group button, .ttv-toolbar > label, .ttv-file-button {
   background: #172033;
   color: #cbd5e1;
   border: 1px solid #334155;
@@ -77,7 +77,7 @@
   align-items: center;
   gap: 6px;
 }
-.ttv-toolbar > button:hover, .ttv-button-group button:hover {
+.ttv-toolbar > button:hover, .ttv-button-group button:hover, .ttv-file-button:hover {
   background: #1e293b;
   border-color: #475569;
   color: #f8fafc;
@@ -105,6 +105,24 @@
   border-radius: 6px 0 0 6px;
   display: flex;
   align-items: center;
+}
+.ttv-manual-overrides {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #1e293b;
+}
+.ttv-file-button {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.2;
+}
+.ttv-file-button small {
+  font-size: 10px;
+  color: #94a3b8;
 }
 .ttv-button-group button {
   border-radius: 0;
