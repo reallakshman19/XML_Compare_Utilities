@@ -1,0 +1,29 @@
+name: PS Family Offline Validation Benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/ps-family-clash-audit/ps-family-offline-validation-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-validation-normalize.js'
+      - 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js'
+      - 'tests/ps-family-offline-validation-*.test.js'
+      - '.github/workflows/ps-family-offline-validation.yml'
+      - 'core/app.js'
+      - 'main-rhbg-fitguard.js'
+      - 'index.html'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline benchmark engine
+        run: node --test tests/ps-family-offline-validation-benchmark.test.js
+      - name: Validation UI and export contracts
+        run: node tests/ps-family-offline-validation-ui.test.js
+      - name: PS family module compliance
+        run: node tests/ps-family-implementation-compliance.test.js

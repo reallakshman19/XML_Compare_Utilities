@@ -1,8 +1,9 @@
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
+import './ps-family-offline-validation-addon.js?v=20260716-ps-family-offline-validation-1';
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_SELECTOR = '[data-psfa-open="1"]';
-const VERSION = 'evidence-graph-v1';
+const VERSION = 'evidence-validation-v1';
 let observer = null;
 
 export function mountPsFamilyEvidenceAudit() {
