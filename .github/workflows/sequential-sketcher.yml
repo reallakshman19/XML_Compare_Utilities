@@ -24,7 +24,7 @@ on:
       - 'tests/sequential-confirmed-support-projection.test.js'
       - '.github/workflows/sequential-sketcher.yml'
   push:
-    branches: [main]
+    branches: [main, agent/sequential-sketcher]
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
