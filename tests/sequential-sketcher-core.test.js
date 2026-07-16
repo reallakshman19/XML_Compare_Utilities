@@ -31,6 +31,7 @@ assert.equal(topology.segments.length, 4, 'tee must split around its explicit PO
 const traversal = planSequentialTraversal(topology);
 assert.equal(new Set(traversal.commands.filter((row) => row.op === 'DRAW_SEGMENT').map((row) => row.segmentId)).size, topology.segments.length);
 assert.equal(traversal.issues.filter((row) => row.code === 'UNACCOUNTED_COMPONENT').length, 0);
-assert.equal(traversal.routeSections.length, 1);
+assert.equal(traversal.routeSections.length, 2, 'CREF junction must split the run into two route sections');
+assert.equal(traversal.graphClass, 'BRANCHED_GRAPH');
 assert.throws(() => selectExactBranch(records, '/MISSING'), /not found/i);
 console.log('sequential sketcher core tests passed');
