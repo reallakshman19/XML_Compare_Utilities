@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests/browser',
   testMatch: [
     'pipeline-3d-model-cad-browser.spec.mjs',
+    'pipeline-cad-object-snap.spec.mjs',
     'pipeline-cad-runtime-switch.spec.mjs',
     'pipeline-cad-production-hardening.spec.mjs',
     'pipeline-cad-interaction-quality.spec.mjs',

@@ -8,7 +8,7 @@ import './pipeline-3d-model-cad-floating-preview.js?v=20260713-floating-preview-
 import './pipeline-3d-model-cad-floating-preview-hardening.js?v=20260713-floating-preview-hardening-1';
 import {
   installPipelineCadWorkspaceComposition,
-} from './pipeline-3d-model-cad-workspace.js?v=20260714-pcad-001';
+} from './pipeline-3d-model-cad-workspace.js?v=20260715-pcad-002';
 import './pipeline-3d-model-cad-selection-visibility.js?v=20260714-pcad-001-selection';
 
 if (globalThis.document) installPipelineCadWorkspaceComposition(globalThis.document);
