@@ -9,6 +9,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
@@ -32,6 +33,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
@@ -53,7 +55,7 @@ permissions:
 jobs:
   sequential-sketcher:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -69,6 +71,8 @@ jobs:
         run: node tests/sequential-reference-terminal-semantics.test.js
       - name: Pinned fixture-wide feature matrix
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
+      - name: Pinned complete S-line scope
+        run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
       - name: Exact synthetic carrier shadows
         run: node tests/sequential-shadow-carrier.test.js
       - name: Head boundary before first component
