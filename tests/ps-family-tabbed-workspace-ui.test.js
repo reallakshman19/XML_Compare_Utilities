@@ -17,7 +17,7 @@ assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('SupportChangeXML'));
 
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
+assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v9-clean-report-workspace'/);
 assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
 assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
 assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
@@ -31,6 +31,9 @@ assert.match(professionalCss, /\.psfa-export-picker button\[aria-selected="true"
 assert.match(professionalCss, /\.psfa-report-layout/);
 assert.match(professionalCss, /\.psfa-report-group/);
 assert.match(professionalCss, /\.psfa-report-subtabs/);
+assert.match(professionalCss, /\.psfa-report-table\{[^}]*overflow:auto/);
+assert.match(professionalCss, /\.psfa-report-table table,\.psfa-report-table \.psmap-table\{[^}]*width:max-content!important/);
+assert.match(professionalCss, /scrollbar-gutter:stable both-edges/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 assert.match(shell, /data-psfa-panel="preview" hidden/);
@@ -94,6 +97,8 @@ for (const group of PS_FAMILY_CLASH_AUDIT_CONFIG.reportGroups) {
   assert.ok(shell.includes(`data-psfa-report-group="${group.key}"`));
   assert.ok(shell.includes(`data-psfa-report-subtabs="${group.key}"`));
 }
+for (const label of ['Support Group', 'Structure Group Basis', 'Line Tree', 'Structure Tree', 'Clash Summary', 'Clash Audit Outcome']) assert.ok(shell.includes(`>${label}</span>`), `missing clean report group ${label}`);
+for (const label of ['SupportGroup Summary', 'Support Chain Report', 'StructureGroup Line Support Proximity Basis', 'Connectivity Matrix', 'SupportChange Exceptions']) assert.ok(shell.includes(label), `missing clean report label ${label}`);
 for (const tab of ['supportSummary', 'lineSupportTree', 'structureTree', 'structureLineProximity', 'supportExceptions', 'inputEvidence', 'structureContacts', 'supportChain', 'supportMembers', 'connectivityMatrix', 'clashRows', 'diagnostics']) assert.ok(shell.includes(`data-psfa-tab="${tab}"`));
 assert.ok(shell.includes('data-psfa-report-maturity="draft"'));
 assert.ok(shell.includes('data-psfa-report-maturity="stable"'));
