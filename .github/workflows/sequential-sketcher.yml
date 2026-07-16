@@ -37,6 +37,13 @@ jobs:
         run: node tests/sequential-construction-engine.test.js
       - name: Pinned 1885 NC branch probe
         run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
+      - name: Publish 1885 NC probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-sketcher-1885-nc-probe
+          path: artifacts/sequential-sketcher/1885-nc-b3-probe.json
+          if-no-files-found: warn
       - name: Legacy foundation regression
         run: node tests/sequential-sketcher-core.test.js
       - name: Owned support projection contract
