@@ -14,7 +14,8 @@ export const SUPPORT_STEEL_RELATIONSHIP_BASES = Object.freeze([
   'SAME_CANONICAL_ID',
   'EXPLICIT_REFERENCE',
   'SHARED_OWNER',
-  'POINT_PROXIMITY',
+  'ANALYTICAL_GEOMETRY_PROXIMITY',
+  'REPRESENTATIVE_POINT_PROXIMITY',
 ]);
 
 export const SUPPORT_STEEL_RELATIONSHIP_CARDINALITIES = Object.freeze([
@@ -41,6 +42,7 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
   steelTypes: DEFAULT_STEEL_TYPES,
   projectionToleranceMm: 25,
   ambiguityDeltaMm: 2,
+  requireAnalyticalGeometryForSpatialResolution: true,
   supportPositionKeys: Object.freeze([
     'POS',
     'SUPPORT_POS',
@@ -51,6 +53,8 @@ export const SUPPORT_STEEL_DEFAULT_CONFIG = Object.freeze({
     'LPOS',
   ]),
   steelPositionKeys: Object.freeze([
+    'WORLD_POS',
+    'WORLD_POSITION',
     'POS',
     'CENTRE',
     'CENTER',
@@ -90,6 +94,10 @@ export function resolveSupportSteelConfig(overrides = {}) {
     steelTypes,
     explicitSteelReferenceKeys,
     ownerEvidenceKeys,
+    requireAnalyticalGeometryForSpatialResolution: booleanValue(
+      overrides.requireAnalyticalGeometryForSpatialResolution,
+      SUPPORT_STEEL_DEFAULT_CONFIG.requireAnalyticalGeometryForSpatialResolution,
+    ),
     projectionToleranceMm: positiveNumber(
       overrides.projectionToleranceMm,
       SUPPORT_STEEL_DEFAULT_CONFIG.projectionToleranceMm,
@@ -129,4 +137,13 @@ function positiveNumber(value, fallback) {
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function booleanValue(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const text = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(text)) return true;
+  if (['false', '0', 'no', 'off'].includes(text)) return false;
+  return fallback;
 }

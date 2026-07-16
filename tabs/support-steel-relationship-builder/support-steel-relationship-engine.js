@@ -4,6 +4,10 @@ import {
   SUPPORT_STEEL_RELATIONSHIP_SEMANTIC,
   resolveSupportSteelConfig,
 } from './support-steel-relationship-contracts.js';
+import {
+  SUPPORT_STEEL_ANALYTICAL_GEOMETRY_SCHEMA,
+  minimumSupportToSteelGeometryDistance,
+} from './support-steel-analytical-geometry.js';
 import { collectSteelGroups, collectSupportFamilies } from './support-steel-source-reader.js';
 import { cleanText, cloneJson } from './support-steel-source-utils.js';
 
@@ -25,6 +29,7 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
     .map((family) => family.familyId);
   return {
     schema: SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
+    geometryEngineSchema: SUPPORT_STEEL_ANALYTICAL_GEOMETRY_SCHEMA,
     bundlePurpose: 'RELATIONSHIP_INFERENCE',
     contactEvidenceAvailable: false,
     coordinateSystem: {
@@ -42,18 +47,18 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
 }
 
 function resolveFamilyRelationships(family, steelGroups, config) {
-  const explicit = explicitCandidates(family, steelGroups);
+  const explicit = explicitCandidates(family, steelGroups, config);
   if (explicit.length === 1) return resolvedExplicit(family, explicit[0]);
   if (explicit.length > 1) return ambiguousRelationships(family, explicit, 'EXPLICIT_REFERENCE');
-  const spatial = spatialCandidates(family, steelGroups, config.projectionToleranceMm);
+  const spatial = spatialCandidates(family, steelGroups, config);
   if (spatial.length) return resolvedSpatial(family, spatial, config.ambiguityDeltaMm);
-  const owners = sharedOwnerCandidates(family, steelGroups);
+  const owners = sharedOwnerCandidates(family, steelGroups, config);
   if (owners.length === 1) return resolvedOwner(family, owners[0]);
   if (owners.length > 1) return ambiguousRelationships(family, owners, 'SHARED_OWNER');
-  return unresolvedRelationship(family, steelGroups);
+  return unresolvedRelationship(family, steelGroups, config);
 }
 
-function explicitCandidates(family, steelGroups) {
+function explicitCandidates(family, steelGroups, config) {
   const refs = new Set((family.explicitReferences || []).map(normalizeToken));
   const familyToken = normalizeToken(family.familyId);
   return steelGroups.flatMap((steel) => {
@@ -61,23 +66,47 @@ function explicitCandidates(family, steelGroups) {
     const bases = [];
     if (steelToken === familyToken) bases.push('SAME_CANONICAL_ID');
     if ([...refs].some((ref) => tokenMatches(ref, steelToken))) bases.push('EXPLICIT_REFERENCE');
-    return bases.length ? [{ steel, relationshipBasis: bases, distanceMm: minimumDistance(family, steel) }] : [];
+    return bases.length ? [candidateRecord(family, steel, bases, config)] : [];
   });
 }
 
-function spatialCandidates(family, steelGroups, toleranceMm) {
+function spatialCandidates(family, steelGroups, config) {
   return steelGroups
-    .map((steel) => ({ steel, relationshipBasis: ['POINT_PROXIMITY'], distanceMm: minimumDistance(family, steel) }))
-    .filter((candidate) => Number.isFinite(candidate.distanceMm) && candidate.distanceMm <= toleranceMm)
-    .sort((left, right) => left.distanceMm - right.distanceMm);
+    .map((steel) => candidateRecord(family, steel, [], config))
+    .map((candidate) => ({
+      ...candidate,
+      relationshipBasis: [candidate.geometryEvidence.analyticalGeometryAvailable
+        ? 'ANALYTICAL_GEOMETRY_PROXIMITY'
+        : 'REPRESENTATIVE_POINT_PROXIMITY'],
+    }))
+    .filter((candidate) => Number.isFinite(candidate.distanceMm) && candidate.distanceMm <= config.projectionToleranceMm)
+    .filter((candidate) => !config.requireAnalyticalGeometryForSpatialResolution
+      || candidate.geometryEvidence.analyticalGeometryAvailable)
+    .sort(compareCandidates);
 }
 
-function sharedOwnerCandidates(family, steelGroups) {
+function sharedOwnerCandidates(family, steelGroups, config) {
   const branches = new Set((family.branchIds || []).map(normalizeToken));
   return steelGroups.flatMap((steel) => {
     const matched = (steel.owners || []).some((owner) => branches.has(normalizeToken(owner)));
-    return matched ? [{ steel, relationshipBasis: ['SHARED_OWNER'], distanceMm: minimumDistance(family, steel) }] : [];
+    return matched ? [candidateRecord(family, steel, ['SHARED_OWNER'], config)] : [];
   });
+}
+
+function candidateRecord(family, steel, relationshipBasis, config) {
+  const geometryEvidence = minimumSupportToSteelGeometryDistance(family, steel);
+  return {
+    steel,
+    relationshipBasis,
+    distanceMm: geometryEvidence.distanceMm,
+    geometryEvidence: {
+      ...geometryEvidence,
+      withinProjectionTolerance: Number.isFinite(geometryEvidence.distanceMm)
+        ? geometryEvidence.distanceMm <= config.projectionToleranceMm
+        : false,
+      projectionToleranceMm: config.projectionToleranceMm,
+    },
+  };
 }
 
 function resolvedExplicit(family, candidate) {
@@ -89,7 +118,7 @@ function resolvedExplicit(family, candidate) {
       'HIGH',
       'ONE_TO_ONE',
     )],
-    diagnostics: [],
+    diagnostics: geometryDiagnostics(family, candidate, 'EXPLICIT'),
   };
 }
 
@@ -98,17 +127,17 @@ function resolvedSpatial(family, candidates, ambiguityDeltaMm) {
   const second = candidates[1];
   if (second && second.distanceMm - first.distanceMm <= ambiguityDeltaMm) {
     const tied = candidates.filter((candidate) => candidate.distanceMm - first.distanceMm <= ambiguityDeltaMm);
-    return ambiguousRelationships(family, tied, 'POINT_PROXIMITY');
+    return ambiguousRelationships(family, tied, 'ANALYTICAL_GEOMETRY_PROXIMITY');
   }
   return {
     relationships: [relationshipRecord(
       family,
       first,
       'RESOLVED_SPATIAL',
-      'MEDIUM',
+      spatialConfidence(first.geometryEvidence.geometryQuality),
       'ONE_TO_ONE',
     )],
-    diagnostics: [],
+    diagnostics: geometryDiagnostics(family, first, 'SPATIAL'),
   };
 }
 
@@ -126,8 +155,8 @@ function resolvedOwner(family, candidate) {
       code: 'RELATIONSHIP_RESOLVED_BY_SHARED_OWNER_ONLY',
       supportFamilyId: family.familyId,
       steelGroupId: candidate.steel.steelGroupId,
-      message: 'Relationship uses shared owner evidence because explicit and spatial evidence were unavailable.',
-    }],
+      message: 'Relationship uses shared owner evidence because explicit and analytical spatial evidence were unavailable.',
+    }, ...geometryDiagnostics(family, candidate, 'OWNER')],
   };
 }
 
@@ -157,11 +186,11 @@ function ambiguousRelationships(family, candidates, basis) {
   };
 }
 
-function unresolvedRelationship(family, steelGroups) {
+function unresolvedRelationship(family, steelGroups, config) {
   const nearest = steelGroups
-    .map((steel) => ({ steel, distanceMm: minimumDistance(family, steel) }))
+    .map((steel) => candidateRecord(family, steel, [], config))
     .filter((row) => Number.isFinite(row.distanceMm))
-    .sort((left, right) => left.distanceMm - right.distanceMm)[0];
+    .sort(compareCandidates)[0];
   const record = baseEvidenceRecord(family, null, 'UNRESOLVED');
   Object.assign(record, {
     relationshipId: `${family.familyId}::UNRESOLVED`,
@@ -175,18 +204,29 @@ function unresolvedRelationship(family, steelGroups) {
     nearestSteelGroupId: nearest?.steel.steelGroupId ?? null,
     steelPositionGlobal: nearest?.steel.steelPositionGlobal || null,
     candidateSteelGroupIds: [],
+    ...geometryFields(nearest?.geometryEvidence),
   });
-  return {
-    relationships: [record],
-    diagnostics: [{
+  const diagnostics = [{
+    severity: 'WARNING',
+    code: 'UNRESOLVED_SUPPORT_STEEL_RELATIONSHIP',
+    supportFamilyId: family.familyId,
+    nearestSteelGroupId: record.nearestSteelGroupId,
+    nearestDistanceMm: record.distanceMm,
+    message: 'No explicit, in-tolerance analytical geometry, or unique shared-owner relationship was established.',
+  }];
+  if (nearest?.geometryEvidence?.geometryQuality === 'FALLBACK'
+      && nearest.geometryEvidence.withinProjectionTolerance
+      && config.requireAnalyticalGeometryForSpatialResolution) {
+    diagnostics.push({
       severity: 'WARNING',
-      code: 'UNRESOLVED_SUPPORT_STEEL_RELATIONSHIP',
+      code: 'REPRESENTATIVE_POINT_PROXIMITY_NOT_ACCEPTED',
       supportFamilyId: family.familyId,
-      nearestSteelGroupId: record.nearestSteelGroupId,
-      nearestDistanceMm: record.distanceMm,
-      message: 'No explicit, in-tolerance spatial, or unique shared-owner relationship was established.',
-    }],
-  };
+      nearestSteelGroupId: nearest.steel.steelGroupId,
+      nearestDistanceMm: nearest.distanceMm,
+      message: 'Representative point proximity is retained as diagnostic evidence but cannot resolve the relationship without analytical structural geometry.',
+    });
+  }
+  return { relationships: [record], diagnostics };
 }
 
 function relationshipRecord(family, candidate, status, confidence, relationshipCardinality) {
@@ -203,6 +243,7 @@ function relationshipRecord(family, candidate, status, confidence, relationshipC
     distanceMm: finiteOrNull(candidate.distanceMm),
     steelPositionGlobal: candidate.steel.steelPositionGlobal || null,
     candidateSteelGroupIds: [],
+    ...geometryFields(candidate.geometryEvidence),
   };
 }
 
@@ -211,6 +252,7 @@ function baseEvidenceRecord(family, steel, relationshipCardinality) {
     evidenceSource: SUPPORT_STEEL_EVIDENCE_SOURCE,
     evidenceClass: 'INFERRED',
     sourceSchema: SUPPORT_STEEL_RELATIONSHIP_SCHEMA,
+    geometryEngineSchema: SUPPORT_STEEL_ANALYTICAL_GEOMETRY_SCHEMA,
     relationshipSemantic: SUPPORT_STEEL_RELATIONSHIP_SEMANTIC,
     contactEvidenceStatus: 'NOT_PROVEN',
     relationshipCardinality,
@@ -221,6 +263,36 @@ function baseEvidenceRecord(family, steel, relationshipCardinality) {
     carrierIds: [...(family.carrierIds || [])],
     memberCount: family.members?.length || 0,
   };
+}
+
+function geometryFields(evidence = {}) {
+  return {
+    analyticalGeometryAvailable: Boolean(evidence.analyticalGeometryAvailable),
+    geometryMethod: evidence.geometryMethod || 'UNAVAILABLE',
+    geometryQuality: evidence.geometryQuality || 'NONE',
+    structuralMemberId: evidence.structuralMemberId || null,
+    supportPointUsedGlobal: evidence.supportPointGlobal || null,
+    nearestPointOnSteelGlobal: evidence.nearestPointOnSteelGlobal || null,
+    projectionToleranceMm: evidence.projectionToleranceMm ?? null,
+    withinProjectionTolerance: Boolean(evidence.withinProjectionTolerance),
+    contactEvidenceStatus: evidence.analyticalGeometryAvailable
+      ? 'ANALYTICAL_PROXIMITY_ONLY'
+      : 'NOT_PROVEN',
+  };
+}
+
+function geometryDiagnostics(family, candidate, resolutionMode) {
+  const evidence = candidate.geometryEvidence;
+  if (evidence.analyticalGeometryAvailable) return [];
+  return [{
+    severity: 'INFO',
+    code: 'ANALYTICAL_GEOMETRY_UNAVAILABLE',
+    supportFamilyId: family.familyId,
+    steelGroupId: candidate.steel.steelGroupId,
+    resolutionMode,
+    geometryMethod: evidence.geometryMethod,
+    message: 'The relationship is not backed by a structural axis or bounds; representative position is retained only as supporting context.',
+  }];
 }
 
 function projectSteelRelationships(steelGroups, relationships) {
@@ -239,8 +311,12 @@ function buildSummary(supportFamilies, steelGroups, relationships) {
   return {
     supportFamilyCount: supportFamilies.length,
     steelGroupCount: steelGroups.length,
+    analyticalSteelGroupCount: steelGroups.filter((steel) => steel.analyticalGeometry?.analyticalMemberCount > 0).length,
     relationshipCount: relationships.filter((row) => row.steelGroupId).length,
     resolvedFamilyCount: familyStatuses.filter((status) => status.startsWith('RESOLVED_')).length,
+    analyticalSpatialResolvedFamilyCount: supportFamilies.filter((family) => family.steelRelationships.some(
+      (row) => row.relationshipStatus === 'RESOLVED_SPATIAL' && row.analyticalGeometryAvailable,
+    )).length,
     ambiguousFamilyCount: familyStatuses.filter((status) => status === 'AMBIGUOUS').length,
     unresolvedFamilyCount: familyStatuses.filter((status) => status === 'UNRESOLVED').length,
   };
@@ -254,19 +330,20 @@ function strongestFamilyStatus(rows = []) {
   return 'UNRESOLVED';
 }
 
-function minimumDistance(family, steel) {
-  const supportPoints = family.positions?.length ? family.positions : [family.supportPositionGlobal].filter(Boolean);
-  const steelPoints = steel.positions?.length ? steel.positions : [steel.steelPositionGlobal].filter(Boolean);
-  let best = Infinity;
-  for (const supportPoint of supportPoints) {
-    for (const steelPoint of steelPoints) best = Math.min(best, pointDistance(supportPoint, steelPoint));
-  }
-  return best === Infinity ? null : round3(best);
+function compareCandidates(left, right) {
+  const distanceDelta = left.distanceMm - right.distanceMm;
+  if (Math.abs(distanceDelta) > 1e-9) return distanceDelta;
+  return geometryRank(left.geometryEvidence?.geometryQuality) - geometryRank(right.geometryEvidence?.geometryQuality);
 }
 
-function pointDistance(left, right) {
-  if (!left || !right) return Infinity;
-  return Math.hypot(right.x - left.x, right.y - left.y, right.z - left.z);
+function geometryRank(quality) {
+  return ({ HIGH: 0, MEDIUM: 1, LOW: 2, FALLBACK: 3, NONE: 4 })[quality] ?? 5;
+}
+
+function spatialConfidence(quality) {
+  if (quality === 'HIGH') return 'HIGH';
+  if (quality === 'MEDIUM') return 'MEDIUM';
+  return 'LOW';
 }
 
 function tokenMatches(reference, steelToken) {
@@ -281,10 +358,6 @@ function finiteOrNull(value) {
   return Number.isFinite(value) ? value : null;
 }
 
-function round3(value) {
-  return Math.round(value * 1000) / 1000;
-}
-
 function publicConfig(config) {
   return {
     supportFamilyPattern: config.supportFamilyPattern,
@@ -295,5 +368,6 @@ function publicConfig(config) {
     ownerEvidenceKeys: [...config.ownerEvidenceKeys],
     projectionToleranceMm: config.projectionToleranceMm,
     ambiguityDeltaMm: config.ambiguityDeltaMm,
+    requireAnalyticalGeometryForSpatialResolution: config.requireAnalyticalGeometryForSpatialResolution,
   };
 }

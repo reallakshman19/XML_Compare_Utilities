@@ -121,7 +121,7 @@ function runBuilder(modal, state, ctx) {
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'relationships');
-    ctx.showToast?.('Support / steel relationships built.', 'success');
+    ctx.showToast?.('XML-free support / steel relationships built.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -130,7 +130,8 @@ function runBuilder(modal, state, ctx) {
 }
 
 function readRules(modal) {
-  const read = (key) => modal.querySelector(`[data-ssrb-rule="${key}"]`)?.value || '';
+  const node = (key) => modal.querySelector(`[data-ssrb-rule="${key}"]`);
+  const read = (key) => node(key)?.value || '';
   return {
     supportFamilyPattern: read('supportFamilyPattern'),
     steelGroupPattern: read('steelGroupPattern'),
@@ -138,6 +139,9 @@ function readRules(modal) {
     steelTypes: read('steelTypes'),
     projectionToleranceMm: Number(read('projectionToleranceMm')),
     ambiguityDeltaMm: Number(read('ambiguityDeltaMm')),
+    requireAnalyticalGeometryForSpatialResolution: Boolean(
+      node('requireAnalyticalGeometryForSpatialResolution')?.checked,
+    ),
   };
 }
 
@@ -154,7 +158,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.steelGroupCount} steel groups · ${bundle.summary.resolvedFamilyCount} resolved</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.analyticalSteelGroupCount} analytical steel groups · ${bundle.summary.resolvedFamilyCount} resolved</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -224,7 +228,7 @@ function ensureStyle(doc) {
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-world-geometry-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
 
@@ -233,7 +237,7 @@ function getHost(modal, key) {
 }
 
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Resolved', 'Ambiguous', 'Unresolved']
+  return ['Support families', 'Steel groups', 'Analytical steel', 'Resolved', 'Ambiguous', 'Unresolved']
     .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`)
     .join('');
 }

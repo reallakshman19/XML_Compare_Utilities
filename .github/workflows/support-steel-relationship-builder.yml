@@ -7,6 +7,7 @@ on:
       - 'tabs/psnm-utility-tab.js'
       - 'tabs/psnm-utility-tab-layout-stabilizer.js'
       - 'tests/support-steel-relationship-builder*.test.js'
+      - 'tests/support-steel-world-geometry.test.js'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
       - 'index.html'
@@ -23,5 +24,7 @@ jobs:
           node-version: '22'
       - name: Relationship engine tests
         run: node --test tests/support-steel-relationship-builder.test.js
+      - name: World transform and analytical geometry tests
+        run: node --test tests/support-steel-world-geometry.test.js
       - name: Utility UI contract tests
         run: node tests/support-steel-relationship-builder-ui.test.js
