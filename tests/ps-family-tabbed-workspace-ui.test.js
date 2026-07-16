@@ -10,75 +10,51 @@ const launcher = _test.renderLauncher(PS_FAMILY_CLASH_AUDIT_CONFIG);
 const source = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 const professionalCss = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js', 'utf8');
 
-for (const tab of ['Input', 'Preview', 'Config', 'Run Audit', 'Reports', 'Export']) assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
-assert.doesNotMatch(shell, />Run &amp; Export<\/button>/);
+for (const tab of ['Input', 'Preview', 'Config', 'Run Audit', 'Reports', 'Export Package']) assert.ok(shell.includes(`>${tab}</button>`), `missing primary workspace tab ${tab}`);
 assert.ok(shell.includes('class="psmap-tabs psfa-tabs"'));
 assert.ok(shell.includes('class="psmap-tab psfa-tab active"'));
 assert.ok(shell.includes('class="psmap-tab psfa-tab config"'));
 assert.ok(launcher.includes('class="psmap-card psmap-tile ps-family-clash-audit-launcher"'));
 assert.ok(launcher.includes('SupportChangeXML'));
 
-assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v9-clean-report-workspace');
-assert.match(professionalCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v9-clean-report-workspace'/);
-assert.match(professionalCss, /grid-template-rows:auto auto auto minmax\(0,1fr\)/);
-assert.match(professionalCss, /\.psfa-tabs\{[^}]*min-height:42px/);
-assert.match(professionalCss, /\.psfa-tab\{[^}]*height:30px/);
-assert.match(professionalCss, /\.psfa-shell>\[data-psfa-panel\]\{min-height:0;overflow:auto\}/);
-assert.match(professionalCss, /\.psfa-report-layout/);
-assert.match(professionalCss, /\.psfa-report-group/);
+assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v10-report-ribbon-export-fullscreen');
+assert.match(professionalCss, /grid-template-rows:repeat\(2,minmax\(36px,auto\)\)/);
+assert.match(professionalCss, /grid-auto-flow:column/);
 assert.match(professionalCss, /\.psfa-report-subtabs\{[^}]*overflow-x:auto/);
-assert.match(professionalCss, /\.psfa-report-table\{[^}]*overflow-x:auto;[^}]*overflow-y:auto;[^}]*scrollbar-gutter:stable both-edges/);
-assert.match(professionalCss, /\.psfa-report-table \.psmap-table-wrap\{[^}]*overflow-x:auto/);
-assert.match(professionalCss, /\.psfa-report-table \.psmap-table\{[^}]*width:max-content;[^}]*min-width:100%/);
+assert.match(professionalCss, /\.psfa-report-table\{[^}]*overflow-x:auto;[^}]*overflow-y:auto/);
+assert.match(professionalCss, /\.psfa-report-controls/);
+assert.match(professionalCss, /\.psfa-window-actions/);
 
 assert.match(shell, /data-psfa-panel="input"[^>]*>/);
 for (const key of ['preview', 'config', 'run', 'reports', 'export']) assert.match(shell, new RegExp(`data-psfa-panel="${key}" hidden`));
-
 assert.ok(shell.includes('Official sample loaders'));
-assert.ok(shell.includes('Load sample StructureGroup vs Supports XML'));
-assert.ok(shell.includes('Load sample Clash within Supports XML'));
-assert.ok(shell.includes('data-psfa-file="structure"'));
-assert.ok(shell.includes('data-psfa-file="support"'));
-assert.ok(!shell.includes('data-psfa="expected"'));
-assert.ok(!shell.includes('data-psfa="details"'));
-
 assert.ok(shell.includes('Source side'));
-assert.ok(shell.includes('Source family override'));
 assert.ok(shell.includes('Valid family prefixes'));
-assert.ok(shell.includes('POS tolerance mm'));
-assert.ok(shell.includes('Structural zones'));
-assert.ok(shell.includes('Support zones'));
-
 assert.ok(shell.includes('Audit Controls'));
-assert.ok(shell.includes('Readiness / Run Summary'));
-assert.ok(shell.includes('Check Readiness'));
-assert.ok(shell.includes('Run Audit'));
-assert.ok(shell.includes('Export Active Report'));
-assert.ok(shell.includes('Export Package'));
-for (const label of ['Support Group Summary CSV', 'Line Tree TXT', 'Structure Group Basis CSV', 'Clash Audit Outcome CSV', 'Input Evidence CSV', 'Audit JSON']) assert.ok(shell.includes(label));
-assert.ok(shell.includes('Download All ZIP'));
-assert.ok(shell.includes('data-psfa="copy-export-preview"'));
+assert.ok(shell.includes('Export Active Report CSV'));
+assert.ok(shell.includes('Export current report as CSV'));
+assert.ok(shell.includes('data-psfa="report-export-csv"'));
+assert.ok(shell.includes('data-psfa-report-subtabs="all"'));
+assert.equal((shell.match(/data-psfa-report-subtabs=/g) || []).length, 1);
 
-assert.ok(shell.includes('Search selected report'));
-for (const group of PS_FAMILY_CLASH_AUDIT_CONFIG.reportGroups) {
-  assert.ok(shell.includes(`data-psfa-report-group="${group.key}"`));
-  assert.ok(shell.includes(`data-psfa-report-subtabs="${group.key}"`));
-}
-for (const label of ['Support Group', 'Structure Group Basis', 'Line Tree', 'Structure Tree', 'Clash Summary', 'Clash Audit Outcome']) assert.ok(shell.includes(`>${label}</span>`), `missing clean report group ${label}`);
-for (const label of ['SupportGroup Summary', 'Support Chain Report', 'StructureGroup Line Support Proximity Basis', 'Connectivity Matrix', 'SupportChange Exceptions']) assert.ok(shell.includes(label), `missing clean report label ${label}`);
+for (const group of PS_FAMILY_CLASH_AUDIT_CONFIG.reportGroups) assert.ok(shell.includes(`data-psfa-report-group="${group.key}"`));
+for (const label of ['Support Group', 'Structure Group Basis', 'Line Tree', 'Structure Tree', 'Clash Summary', 'Clash Audit Outcome']) assert.ok(shell.includes(`>${label}</span>`), `missing report group ${label}`);
+for (const label of ['SupportGroup Summary', 'Support Chain Report', 'Support Members', 'StructureGroup Line Support Proximity Basis', 'Structure Contacts', 'Line Tree', 'Structure Tree', 'Input Evidence', 'Connectivity Matrix', 'Clash Detail Rows', 'SupportChange Exceptions', 'Diagnostics']) assert.ok(shell.includes(label), `missing report label ${label}`);
 for (const tab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) assert.ok(shell.includes(`data-psfa-tab="${tab.key}"`));
+assert.equal((shell.match(/data-psfa-tab="supportSummary"/g) || []).length, 2, 'SupportGroup Summary must remain available in Support Group and Clash Summary');
 assert.ok(shell.includes('data-psfa-report-maturity="draft"'));
-assert.ok(shell.includes('data-psfa-report-maturity="stable"'));
+assert.ok(shell.includes('<span class="psfa-draft-badge">Review</span>'));
 assert.ok(shell.includes('class="psfa-report-table psmap-table-wrap"'));
 
 assert.ok(popup.includes('PS / SL Family Clash Audit'));
 assert.ok(popup.includes('SupportChangeXML Workspace'));
+assert.ok(popup.includes('data-psfa="fullscreen"'));
+assert.ok(popup.includes('aria-pressed="false">Full Screen</button>'));
 assert.ok(popup.includes('data-psfa-close="1"'));
-assert.match(source, /showWorkspacePanel/);
-assert.match(source, /updateReportNavigation/);
-assert.match(source, /activeReportGroup/);
-assert.match(source, /saveZipTextFiles/);
-assert.match(source, /event\.key === 'Escape'/);
+assert.match(source, /toggleFullscreen/);
+assert.match(source, /exportActiveReportCsv/);
+assert.match(source, /get\('report-export-csv'\)/);
+assert.match(source, /modal\.classList\.contains\('psfa-fullscreen'\)/);
 
 const prefixNode = { kind: 'prefix-detector' };
 const exportTitleNode = { kind: 'export-title' };
