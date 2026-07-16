@@ -49,34 +49,44 @@ function renderConfirmedCommand(parts, command, transform, mode) {
   const a = transformedPoint(transform, command.entryPosition || command.fromPosition, mode);
   const b = transformedPoint(transform, command.exitPosition || command.toPosition, mode);
   const centre = transformedPoint(transform, command.centre, mode);
-  if (command.op === 'DRAW_PIPE') line(parts, a, b, 'ssk-confirmed ssk-pipe', `data-ssk-component-id="${escapeHtml(command.componentId)}"`);
+  const componentAttribute = `data-ssk-component-id="${escapeHtml(command.componentId)}"`;
+  const shadowAttribute = command.shadowCarrierEvidence
+    ? ` data-ssk-shadow-carrier="${escapeHtml(command.shadowCarrierEvidence.sourceComponentId || command.shadowCarrierEvidence.componentId)}"`
+    : '';
+  if (command.op === 'DRAW_PIPE') line(parts, a, b, 'ssk-confirmed ssk-pipe', componentAttribute);
   else if (command.op === 'DRAW_VIRTUAL_REPAIR') line(parts, a, b, 'ssk-confirmed-repair', `data-ssk-repair-id="${escapeHtml(command.connectionId)}"`);
   else if (command.op === 'DRAW_ELBOW') {
-    if (a && b && centre) parts.push(`<path data-ssk-component-id="${escapeHtml(command.componentId)}" d="M${a.x.toFixed(2)} ${a.y.toFixed(2)} Q${centre.x.toFixed(2)} ${centre.y.toFixed(2)} ${b.x.toFixed(2)} ${b.y.toFixed(2)}" class="ssk-confirmed ssk-elbow"/>`);
-    else line(parts, a, b, 'ssk-confirmed ssk-elbow', `data-ssk-component-id="${escapeHtml(command.componentId)}"`);
+    if (a && b && centre) parts.push(`<path ${componentAttribute} d="M${a.x.toFixed(2)} ${a.y.toFixed(2)} Q${centre.x.toFixed(2)} ${centre.y.toFixed(2)} ${b.x.toFixed(2)} ${b.y.toFixed(2)}" class="ssk-confirmed ssk-elbow"/>`);
+    else line(parts, a, b, 'ssk-confirmed ssk-elbow', componentAttribute);
   } else if (command.op === 'DRAW_REDUCER') {
     const inlet = Math.max(5, Math.min(16, Number(command.inletBoreMm || 80) / 18));
     const outlet = Math.max(3, Math.min(14, Number(command.outletBoreMm || 50) / 18));
     const points = reducerPolygon(a, b, inlet, outlet);
-    if (points.length) parts.push(`<polygon data-ssk-component-id="${escapeHtml(command.componentId)}" points="${polylinePoints(points)}" class="ssk-confirmed-fitting ssk-reducer"/>`);
+    if (points.length) parts.push(`<polygon ${componentAttribute} points="${polylinePoints(points)}" class="ssk-confirmed-fitting ssk-reducer"/>`);
   } else if (command.op === 'DRAW_TEE_RUN') {
-    line(parts, a, b, 'ssk-confirmed ssk-tee-run', `data-ssk-component-id="${escapeHtml(command.componentId)}"`);
+    line(parts, a, b, 'ssk-confirmed ssk-tee-run', componentAttribute);
     const branch = transformedPoint(transform, command.branchPosition, mode);
     const anchor = centre || (a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null);
     line(parts, anchor, branch, 'ssk-confirmed ssk-tee-branch');
   } else if (command.op === 'DRAW_OLET') {
     const host = transformedPoint(transform, command.hostPosition, mode);
     const branch = transformedPoint(transform, command.branchPosition, mode);
-    if (host) parts.push(`<circle cx="${host.x.toFixed(2)}" cy="${host.y.toFixed(2)}" r="5" class="ssk-confirmed-fitting ssk-olet"/>`);
+    if (host) parts.push(`<circle ${componentAttribute} cx="${host.x.toFixed(2)}" cy="${host.y.toFixed(2)}" r="5" class="ssk-confirmed-fitting ssk-olet"/>`);
     line(parts, host, branch, 'ssk-confirmed ssk-olet-branch');
   } else if (command.op === 'DRAW_VALVE') {
     if (a && b) {
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      line(parts, a, b, 'ssk-confirmed ssk-valve-line');
-      parts.push(`<path d="M${mid.x - 10} ${mid.y - 8} L${mid.x} ${mid.y} L${mid.x - 10} ${mid.y + 8} Z M${mid.x + 10} ${mid.y - 8} L${mid.x} ${mid.y} L${mid.x + 10} ${mid.y + 8} Z" class="ssk-confirmed-fitting ssk-valve"/>`);
+      line(parts, a, b, 'ssk-confirmed ssk-valve-line', `${componentAttribute}${shadowAttribute}`);
+      parts.push(`<path ${componentAttribute}${shadowAttribute} d="M${mid.x - 10} ${mid.y - 8} L${mid.x} ${mid.y} L${mid.x - 10} ${mid.y + 8} Z M${mid.x + 10} ${mid.y - 8} L${mid.x} ${mid.y} L${mid.x + 10} ${mid.y + 8} Z" class="ssk-confirmed-fitting ssk-valve"/>`);
+    }
+  } else if (command.op === 'DRAW_INSTRUMENT') {
+    if (a && b) {
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      line(parts, a, b, 'ssk-confirmed ssk-instrument-line', `${componentAttribute}${shadowAttribute}`);
+      parts.push(`<g ${componentAttribute}${shadowAttribute} class="ssk-confirmed-instrument"><circle cx="${mid.x.toFixed(2)}" cy="${mid.y.toFixed(2)}" r="11"/><text x="${mid.x.toFixed(2)}" y="${(mid.y + 3.5).toFixed(2)}" text-anchor="middle">I</text></g>`);
     }
   } else if (command.op === 'DRAW_FLANGE' || command.op === 'DRAW_GASKET') {
-    line(parts, a, b, 'ssk-confirmed ssk-inline-fitting');
+    line(parts, a, b, 'ssk-confirmed ssk-inline-fitting', componentAttribute);
     if (a && b) {
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       const dx = b.x - a.x; const dy = b.y - a.y; const length = Math.hypot(dx, dy) || 1;
@@ -85,7 +95,7 @@ function renderConfirmedCommand(parts, command, transform, mode) {
     }
   } else if (command.op === 'DRAW_CAP') {
     const at = transformedPoint(transform, command.entryPosition, mode);
-    if (at) parts.push(`<rect x="${(at.x - 5).toFixed(2)}" y="${(at.y - 5).toFixed(2)}" width="10" height="10" class="ssk-confirmed-fitting ssk-cap"/>`);
+    if (at) parts.push(`<rect ${componentAttribute} x="${(at.x - 5).toFixed(2)}" y="${(at.y - 5).toFixed(2)}" width="10" height="10" class="ssk-confirmed-fitting ssk-cap"/>`);
   }
 }
 
