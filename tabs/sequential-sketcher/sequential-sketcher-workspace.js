@@ -1,14 +1,15 @@
-import { DEFAULT_TOLERANCE_MM } from './sequential-sketcher-contract.js';
+import { parseStagedJson } from './sequential-sketcher-source.js';
 import { sequentialSketcherMarkup } from './sequential-sketcher-markup.js';
-import { buildBranchInventory, listBranchIds, parseStagedJson, selectExactBranch } from './sequential-sketcher-source.js';
+import { buildSequentialEvidenceModel, indexSequentialEvidence } from './source/sequential-evidence-model.js';
 import {
-  appendSupportDiagnostics,
-  buildSequentialSketcherSupportProjection,
-  decorateTopologyWithSupportProjection,
-} from './sequential-sketcher-support.js';
-import { buildBranchTopology } from './sequential-sketcher-topology.js';
-import { planSequentialTraversal } from './sequential-sketcher-traversal.js';
-import { renderInspector, renderMetrics, renderSequence, renderSketchSvg } from './sequential-sketcher-renderer.js';
+  advanceConstruction, applyConstructionDecision, createSequentialConstructionSession,
+  runConstructionUntilBlocked,
+} from './construction/sequential-construction-engine.js';
+import { DECISION_ACTIONS } from './construction/sequential-construction-contract.js';
+import {
+  renderConstructionInspector, renderConstructionMetrics, renderConstructionSequence,
+  renderSequentialConstructionCanvas,
+} from './canvas/sequential-construction-svg.js';
 
 function readFile(file) { return file ? file.text() : Promise.resolve(''); }
 function required(root, selector) { const element = root.querySelector(selector); if (!element) throw new Error(`Sequential Sketcher element missing: ${selector}`); return element; }
@@ -18,86 +19,108 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
   root.innerHTML = sequentialSketcherMarkup();
   const elements = {
     source: required(root, '[data-ssk-source]'), branch: required(root, '[data-ssk-branch]'),
-    tolerance: required(root, '[data-ssk-tolerance]'), supportTolerance: required(root, '[data-ssk-support-tolerance]'),
-    onCenterline: required(root, '[data-ssk-on-centerline]'), supportAmbiguity: required(root, '[data-ssk-support-ambiguity]'),
-    status: required(root, '[data-ssk-status]'), canvas: required(root, '[data-ssk-canvas]'),
-    metrics: required(root, '[data-ssk-metrics]'), sequence: required(root, '[data-ssk-sequence]'),
-    inspector: required(root, '[data-ssk-inspector]'), stepLabel: required(root, '[data-ssk-step-label]'),
+    exactTolerance: required(root, '[data-ssk-exact-tolerance]'), repairTolerance: required(root, '[data-ssk-repair-tolerance]'),
+    candidateRadius: required(root, '[data-ssk-candidate-radius]'), status: required(root, '[data-ssk-status]'),
+    canvas: required(root, '[data-ssk-canvas]'), metrics: required(root, '[data-ssk-metrics]'),
+    sequence: required(root, '[data-ssk-sequence]'), inspector: required(root, '[data-ssk-inspector]'),
+    stepLabel: required(root, '[data-ssk-step-label]'),
   };
-  const model = { records: null, inventory: null, topology: null, traversal: null, supportBundle: null, mode: 'ISO', step: -1 };
+  const model = { records: null, evidence: null, indexes: null, session: null, mode: 'ISO', selectedCandidateId: '' };
   const setStatus = (message, state = 'info') => { elements.status.textContent = message; elements.status.dataset.state = state; };
+  const engineOptions = () => ({
+    exactToleranceMm: numberValue(elements.exactTolerance, 1),
+    autoRepairToleranceMm: Math.min(25, numberValue(elements.repairTolerance, 25)),
+    candidateSearchRadiusMm: numberValue(elements.candidateRadius, 250),
+  });
 
   function inspect() {
     model.records = parseStagedJson(elements.source.value);
-    const ids = listBranchIds(model.records);
-    elements.branch.innerHTML = `<option value="">Select exact branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
+    model.evidence = buildSequentialEvidenceModel(model.records);
+    model.indexes = indexSequentialEvidence(model.evidence);
+    const ids = model.evidence.branches.map((branch) => branch.branchId).sort((a, b) => a.localeCompare(b));
+    elements.branch.innerHTML = `<option value="">Select authoritative start branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
     [...elements.branch.options].slice(1).forEach((option, index) => { option.value = ids[index]; option.textContent = ids[index]; });
-    setStatus(`${ids.length} branch records indexed. Select one exact branch.`, 'ok');
+    model.session = null; model.selectedCandidateId = '';
+    setStatus(`${ids.length} branches indexed as immutable evidence. No topology has been committed.`, 'ok');
   }
 
   function repaint() {
-    if (!model.topology || !model.traversal) return;
-    renderSketchSvg(elements.canvas, model.topology, model.traversal, { mode: model.mode, step: model.step });
-    renderMetrics(elements.metrics, model.topology, model.traversal);
-    renderSequence(elements.sequence, model.traversal, model.step);
-    renderInspector(elements.inspector, model.topology, model.traversal);
-    elements.stepLabel.textContent = `${Math.max(0, model.step + 1)} / ${model.traversal.commands.length}`;
+    if (!model.session) return;
+    renderSequentialConstructionCanvas(elements.canvas, model.session, { mode: model.mode, selectedCandidateId: model.selectedCandidateId });
+    renderConstructionMetrics(elements.metrics, model.session);
+    renderConstructionSequence(elements.sequence, model.session);
+    renderConstructionInspector(elements.inspector, model.session, model.indexes, model.selectedCandidateId);
+    elements.stepLabel.textContent = `${model.session.strokeLedger.length} committed operations`;
   }
 
-  function compile() {
-    if (!model.records) inspect();
-    const branch = selectExactBranch(model.records, elements.branch.value);
-    model.inventory = buildBranchInventory(branch);
+  function reportOutcome(outcome) {
+    const session = model.session;
+    if (!session) return;
+    if (session.state === 'USER_DECISION_REQUIRED') {
+      const count = session.currentDecisionRequest?.candidates?.length || 0;
+      setStatus(`Construction stopped: ${session.currentDecisionRequest?.reason || 'decision required'}. ${count} candidate${count === 1 ? '' : 's'} shown in dotted lines.`, 'warning');
+    } else if (session.state === 'ROUTE_COMPLETE') {
+      setStatus(`Route complete: ${session.confirmedComponentIds.length} components, ${session.committedConnections.length} connections, ${session.repairLedger.length} audited repairs.`, 'ok');
+    } else if (session.state === 'FAILED') {
+      setStatus(`Construction failed: ${session.diagnostics.at(-1)?.code || outcome}.`, 'error');
+    } else {
+      setStatus(`${outcome}: active branch ${session.activeBranchId}; ${session.confirmedComponentIds.length} components confirmed.`, 'ok');
+    }
+  }
 
-    // Pipe/fitting topology and pen traversal are authoritative and complete before support projection starts.
-    const pipingTopology = buildBranchTopology(model.inventory, {
-      toleranceMm: numberValue(elements.tolerance, DEFAULT_TOLERANCE_MM),
-    });
-    const pipingTraversal = planSequentialTraversal(pipingTopology);
-
-    model.supportBundle = buildSequentialSketcherSupportProjection(
-      model.inventory,
-      pipingTopology,
-      pipingTraversal,
-      {
-        projectionToleranceMm: numberValue(elements.supportTolerance, 50),
-        onCenterlineToleranceMm: numberValue(elements.onCenterline, 0.001),
-        ambiguityToleranceMm: numberValue(elements.supportAmbiguity, 1),
-      },
-    );
-    model.topology = decorateTopologyWithSupportProjection(pipingTopology, model.supportBundle);
-    model.traversal = appendSupportDiagnostics(pipingTraversal, model.topology);
-    model.step = model.traversal.commands.length - 1;
-    repaint();
-
-    const errors = model.traversal.issues.filter((issue) => issue.severity === 'ERROR').length;
-    const supports = model.topology.supportSummary;
-    setStatus(
-      `Compiled ${model.topology.components.length} components into ${model.traversal.routeSections.length} route sections; projected ${supports.familyCount} support families${supports.unresolvedCount ? `, ${supports.unresolvedCount} unresolved` : ''}${errors ? `, ${errors} blocking diagnostics` : ''}.`,
-      errors ? 'warning' : supports.unresolvedCount ? 'warning' : 'ok',
-    );
+  function ensureEvidence() { if (!model.evidence || !model.indexes) inspect(); }
+  function start() {
+    ensureEvidence();
+    const branchId = elements.branch.value;
+    if (!branchId) throw new Error('Select one authoritative start branch.');
+    model.session = createSequentialConstructionSession(branchId);
+    model.selectedCandidateId = '';
+    const result = advanceConstruction(model.session, model.evidence, model.indexes, engineOptions());
+    model.session = result.session; repaint(); reportOutcome(result.outcome);
+  }
+  function advance() {
+    if (!model.session) return start();
+    const result = advanceConstruction(model.session, model.evidence, model.indexes, engineOptions());
+    model.session = result.session; model.selectedCandidateId = ''; repaint(); reportOutcome(result.outcome);
+  }
+  function run() {
+    if (!model.session) start();
+    if (!model.session || model.session.state === 'USER_DECISION_REQUIRED') { repaint(); return; }
+    const result = runConstructionUntilBlocked(model.session, model.evidence, model.indexes, engineOptions());
+    model.session = result.session; model.selectedCandidateId = ''; repaint(); reportOutcome(result.outcomes.at(-1) || 'NO_CHANGE');
+  }
+  function decide(action, candidateId = '') {
+    if (!model.session) return;
+    const result = applyConstructionDecision(model.session, model.evidence, model.indexes, action, { candidateId }, engineOptions());
+    model.session = result.session; model.selectedCandidateId = ''; repaint(); reportOutcome(result.outcome);
   }
 
   async function onChange(event) {
     if (event.target?.dataset?.sskFile !== 'source') return;
     elements.source.value = await readFile(event.target.files?.[0]);
-    model.records = null;
+    model.records = null; model.evidence = null; model.indexes = null; model.session = null;
     inspect();
   }
 
   function onClick(event) {
     const view = event.target?.closest?.('[data-ssk-view]')?.dataset?.sskView;
     if (view) { model.mode = view; root.querySelectorAll('[data-ssk-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.sskView === view)); repaint(); return; }
-    const step = event.target?.closest?.('[data-ssk-step]')?.dataset?.sskStep;
-    if (step !== undefined) { model.step = Number(step); repaint(); return; }
+    const canvasCandidate = event.target?.closest?.('[data-ssk-candidate-id]')?.dataset?.sskCandidateId;
+    const selected = event.target?.closest?.('[data-ssk-select-candidate]')?.dataset?.sskSelectCandidate;
+    if (canvasCandidate || selected) { model.selectedCandidateId = canvasCandidate || selected; repaint(); return; }
+    const connect = event.target?.closest?.('[data-ssk-connect-candidate]')?.dataset?.sskConnectCandidate;
+    if (connect) { decide(DECISION_ACTIONS.CONNECT, connect); return; }
+    const reject = event.target?.closest?.('[data-ssk-reject-candidate]')?.dataset?.sskRejectCandidate;
+    if (reject) { decide(DECISION_ACTIONS.REJECT_CANDIDATE, reject); return; }
+    const decisionAction = event.target?.closest?.('[data-ssk-decision-action]')?.dataset?.sskDecisionAction;
+    if (decisionAction) { decide(decisionAction); return; }
     const action = event.target?.closest?.('[data-ssk-action]')?.dataset?.sskAction;
     if (!action) return;
     try {
       if (action === 'inspect') inspect();
-      if (action === 'compile') compile();
-      if (action === 'previous' && model.traversal) { model.step = Math.max(-1, model.step - 1); repaint(); }
-      if (action === 'next' && model.traversal) { model.step = Math.min(model.traversal.commands.length - 1, model.step + 1); repaint(); }
-      if (action === 'all' && model.traversal) { model.step = model.traversal.commands.length - 1; repaint(); }
+      if (action === 'start') start();
+      if (action === 'advance') advance();
+      if (action === 'run') run();
       if (action === 'close') context.close?.();
     } catch (error) { setStatus(error.message || String(error), 'error'); context.showToast?.(error.message || String(error), 'error'); }
   }
