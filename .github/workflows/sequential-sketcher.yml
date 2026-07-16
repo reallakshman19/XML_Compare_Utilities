@@ -11,6 +11,7 @@ on:
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
+      - 'tests/sequential-confirmed-support-projection.test.js'
       - '.github/workflows/sequential-sketcher.yml'
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - 'tests/sequential-construction-engine.test.js'
       - 'tests/sequential-head-boundary-gate.test.js'
       - 'tests/sequential-construction-acceptance.test.js'
+      - 'tests/sequential-confirmed-support-projection.test.js'
       - '.github/workflows/sequential-sketcher.yml'
 
 permissions:
@@ -43,6 +45,8 @@ jobs:
         run: node tests/sequential-head-boundary-gate.test.js
       - name: Confirmed construction acceptance
         run: node tests/sequential-construction-acceptance.test.js
+      - name: Confirmed support projection
+        run: node tests/sequential-confirmed-support-projection.test.js
       - name: Pinned 1885 NC branch probe
         run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
       - name: Publish 1885 NC probe
