@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
+import { psFamilyProfessionalCss } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js';
 import { PS_FAMILY_SAMPLE_STRUCTURE_XML, PS_FAMILY_SAMPLE_SUPPORT_XML } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 import { renderPsFamilyReports, renderPsFamilySummary } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
@@ -50,6 +51,12 @@ assert.match(tabSource, /aria-labelledby/);
 assert.match(tabSource, /aria-describedby/);
 assert.match(tabSource, /showWorkspacePanel/);
 
+const reportCss = psFamilyProfessionalCss();
+assert.match(reportCss, /\.psfa-report-table\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto/);
+assert.match(reportCss, /\.psfa-report-table \.psmap-table-wrap\{[^}]*overflow-x:auto/);
+assert.match(reportCss, /\.psfa-report-table \.psmap-table\{[^}]*width:max-content;[^}]*min-width:100%/);
+assert.match(reportCss, /\.psfa-report-table \.psmap-table th,\.psfa-report-table \.psmap-table td\{white-space:nowrap\}/);
+
 const audit = createPsFamilyClashAuditFromTextInputs({
   structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
   supportXmlText: PS_FAMILY_SAMPLE_SUPPORT_XML,
@@ -62,5 +69,9 @@ assert.ok(summary.includes('SupportGroups'));
 assert.ok(summary.includes('1'));
 assert.ok(supportSummary.includes('S8810011_PS-14396'));
 assert.ok(diagnostics.includes('Diagnostics'));
+for (const reportTab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
+  const report = renderPsFamilyReports(audit, reportTab.key, PS_FAMILY_CLASH_AUDIT_CONFIG);
+  assert.ok(report.includes('class="psmap-table-wrap"'), `${reportTab.label} must render through the horizontal-scroll table wrapper`);
+}
 
 console.log('ps-family-clash-audit-ui-smoke tests passed');
