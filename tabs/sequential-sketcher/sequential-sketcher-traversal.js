@@ -7,23 +7,66 @@ function segmentPreference(left, right) {
   return roleRank(left.role) - roleRank(right.role) || left.sourceIndex - right.sourceIndex || left.id.localeCompare(right.id);
 }
 
-function chooseStartNode(topology, unvisited) {
-  const head = topology.boundaries.find((boundary) => boundary.role === 'HEAD' && boundary.nodeId && topology.nodes.find((node) => node.id === boundary.nodeId)?.segmentIds.some((id) => unvisited.has(id)));
-  if (head) return { nodeId: head.nodeId, basis: 'HEAD_BOUNDARY' };
-  const terminal = topology.nodes
-    .filter((node) => node.segmentIds.filter((id) => unvisited.has(id)).length === 1)
-    .sort((a, b) => a.id.localeCompare(b.id))[0];
-  if (terminal) return { nodeId: terminal.id, basis: 'DEGREE_ONE_TERMINAL' };
-  const any = topology.nodes.find((node) => node.segmentIds.some((id) => unvisited.has(id)));
-  return any ? { nodeId: any.id, basis: 'PRESENTATION_SEED' } : null;
+function nodeIndex(topology) { return new Map(topology.nodes.map((node) => [node.id, node])); }
+function segmentIndex(topology) { return new Map(topology.segments.map((segment) => [segment.id, segment])); }
+
+function isDecisionNode(node) {
+  return node.segmentIds.length !== 2 || node.boundaryIds.length > 0;
 }
 
-function incident(topology, nodeId, unvisited) {
-  const node = topology.nodes.find((candidate) => candidate.id === nodeId);
-  return (node?.segmentIds || [])
-    .filter((id) => unvisited.has(id))
-    .map((id) => topology.segments.find((segment) => segment.id === id))
-    .filter(Boolean).sort(segmentPreference);
+function walkSection(topology, startNodeId, firstSegmentId, unvisited, sectionNumber) {
+  const nodes = nodeIndex(topology);
+  const segments = segmentIndex(topology);
+  const orderedSegmentIds = [];
+  let currentNodeId = startNodeId;
+  let segmentId = firstSegmentId;
+  while (segmentId && unvisited.has(segmentId)) {
+    unvisited.delete(segmentId);
+    orderedSegmentIds.push(segmentId);
+    const segment = segments.get(segmentId);
+    const nextNodeId = otherNode(segment, currentNodeId);
+    const nextNode = nodes.get(nextNodeId);
+    if (!nextNode || isDecisionNode(nextNode)) {
+      return Object.freeze({ id: `RS-${String(sectionNumber).padStart(3, '0')}`, startNodeId, endNodeId: nextNodeId, segmentIds: Object.freeze(orderedSegmentIds) });
+    }
+    const candidates = nextNode.segmentIds.filter((id) => unvisited.has(id)).map((id) => segments.get(id)).filter(Boolean).sort(segmentPreference);
+    currentNodeId = nextNodeId;
+    segmentId = candidates[0]?.id || null;
+  }
+  return Object.freeze({ id: `RS-${String(sectionNumber).padStart(3, '0')}`, startNodeId, endNodeId: currentNodeId, segmentIds: Object.freeze(orderedSegmentIds) });
+}
+
+export function decomposeRouteSections(topology) {
+  const segments = segmentIndex(topology);
+  const unvisited = new Set(topology.segments.map((segment) => segment.id));
+  const sections = [];
+  const decisions = topology.nodes.filter(isDecisionNode).sort((a, b) => a.id.localeCompare(b.id));
+  for (const node of decisions) {
+    const candidates = node.segmentIds.map((id) => segments.get(id)).filter((segment) => segment && unvisited.has(segment.id)).sort(segmentPreference);
+    for (const segment of candidates) sections.push(walkSection(topology, node.id, segment.id, unvisited, sections.length + 1));
+  }
+  while (unvisited.size) {
+    const segment = segments.get([...unvisited].sort()[0]);
+    sections.push(walkSection(topology, segment.fromNodeId, segment.id, unvisited, sections.length + 1));
+  }
+  return Object.freeze(sections);
+}
+
+function sectionsAtNode(sections, nodeId, unvisited) {
+  return sections
+    .filter((section) => unvisited.has(section.id) && (section.startNodeId === nodeId || section.endNodeId === nodeId))
+    .sort((left, right) => left.segmentIds[0].localeCompare(right.segmentIds[0]));
+}
+
+function chooseStartNode(topology, sections, unvisited) {
+  const head = topology.boundaries.find((boundary) => boundary.role === 'HEAD' && boundary.nodeId && sectionsAtNode(sections, boundary.nodeId, unvisited).length);
+  if (head) return { nodeId: head.nodeId, basis: 'HEAD_BOUNDARY' };
+  const terminal = topology.nodes
+    .filter((node) => sectionsAtNode(sections, node.id, unvisited).length === 1)
+    .sort((a, b) => a.id.localeCompare(b.id))[0];
+  if (terminal) return { nodeId: terminal.id, basis: 'DEGREE_ONE_TERMINAL' };
+  const any = topology.nodes.find((node) => sectionsAtNode(sections, node.id, unvisited).length);
+  return any ? { nodeId: any.id, basis: 'PRESENTATION_SEED' } : null;
 }
 
 function markEvents(topology, nodeId, markedComponents, commands) {
@@ -35,29 +78,40 @@ function markEvents(topology, nodeId, markedComponents, commands) {
   }
 }
 
+function orientedSegments(section, fromNodeId, segments) {
+  const ids = section.startNodeId === fromNodeId ? [...section.segmentIds] : [...section.segmentIds].reverse();
+  let current = fromNodeId;
+  return ids.map((id) => {
+    const segment = segments.get(id);
+    const next = otherNode(segment, current);
+    const oriented = { segment, fromNodeId: current, toNodeId: next };
+    current = next;
+    return oriented;
+  });
+}
+
 export function planSequentialTraversal(topology) {
-  const unvisited = new Set(topology.segments.map((segment) => segment.id));
+  const sections = decomposeRouteSections(topology);
+  const segments = segmentIndex(topology);
+  const unvisited = new Set(sections.map((section) => section.id));
   const markedComponents = new Set();
   const commands = [];
-  const routeSections = [];
   const issues = [...topology.issues];
-  let sectionNumber = 0;
-  let firstStart = true;
+  let disconnectedCount = 0;
 
   while (unvisited.size) {
-    const start = chooseStartNode(topology, unvisited);
+    const start = chooseStartNode(topology, sections, unvisited);
     if (!start) break;
-    sectionNumber += 1;
-    const section = { id: `RS-${String(sectionNumber).padStart(3, '0')}`, startNodeId: start.nodeId, segmentIds: [], startBasis: start.basis };
-    if (!firstStart) issues.push({ code: 'DISCONNECTED_FRAGMENT', severity: 'WARNING', nodeId: start.nodeId });
-    commands.push(Object.freeze({ op: 'MOVE_TO', nodeId: start.nodeId, reason: firstStart ? 'START' : 'DISCONNECTED_FRAGMENT' }));
-    firstStart = false;
+    if (commands.length) {
+      disconnectedCount += 1;
+      issues.push({ code: 'DISCONNECTED_FRAGMENT', severity: 'WARNING', nodeId: start.nodeId });
+    }
+    commands.push(Object.freeze({ op: 'MOVE_TO', nodeId: start.nodeId, reason: commands.length ? 'DISCONNECTED_FRAGMENT' : 'START' }));
     let currentNodeId = start.nodeId;
     const pending = [];
     markEvents(topology, currentNodeId, markedComponents, commands);
-
     while (true) {
-      const options = incident(topology, currentNodeId, unvisited);
+      const options = sectionsAtNode(sections, currentNodeId, unvisited);
       if (!options.length) {
         if (!pending.length) break;
         const resume = pending.pop();
@@ -68,27 +122,28 @@ export function planSequentialTraversal(topology) {
         continue;
       }
       if (options.length > 1) {
-        commands.push(Object.freeze({ op: 'REGISTER_JUNCTION', nodeId: currentNodeId, pendingSegmentIds: Object.freeze(options.slice(1).map((segment) => segment.id)) }));
+        commands.push(Object.freeze({ op: 'REGISTER_JUNCTION', nodeId: currentNodeId, pendingSectionIds: Object.freeze(options.slice(1).map((section) => section.id)) }));
         pending.push({ nodeId: currentNodeId });
       }
-      const segment = options[0];
-      unvisited.delete(segment.id);
-      const nextNodeId = otherNode(segment, currentNodeId);
-      section.segmentIds.push(segment.id);
-      commands.push(Object.freeze({ op: 'DRAW_SEGMENT', segmentId: segment.id, componentId: segment.componentId, fromNodeId: currentNodeId, toNodeId: nextNodeId }));
-      currentNodeId = nextNodeId;
-      markEvents(topology, currentNodeId, markedComponents, commands);
+      const section = options[0];
+      unvisited.delete(section.id);
+      commands.push(Object.freeze({ op: 'BEGIN_ROUTE_SECTION', sectionId: section.id, nodeId: currentNodeId }));
+      for (const oriented of orientedSegments(section, currentNodeId, segments)) {
+        commands.push(Object.freeze({ op: 'DRAW_SEGMENT', sectionId: section.id, segmentId: oriented.segment.id, componentId: oriented.segment.componentId, fromNodeId: oriented.fromNodeId, toNodeId: oriented.toNodeId }));
+        currentNodeId = oriented.toNodeId;
+        markEvents(topology, currentNodeId, markedComponents, commands);
+      }
+      commands.push(Object.freeze({ op: 'END_ROUTE_SECTION', sectionId: section.id, nodeId: currentNodeId }));
     }
-    section.endNodeId = currentNodeId;
-    routeSections.push(Object.freeze({ ...section, segmentIds: Object.freeze(section.segmentIds) }));
   }
 
   const undrawnComponents = topology.components.filter((component) => !component.segmentIds.length && !markedComponents.has(component.id));
   for (const component of undrawnComponents) issues.push({ code: 'UNACCOUNTED_COMPONENT', severity: 'ERROR', componentId: component.componentId });
+  const hasBranchDecision = topology.nodes.some((node) => sections.filter((section) => section.startNodeId === node.id || section.endNodeId === node.id).length + node.boundaryIds.length > 2);
   return Object.freeze({
     commands: Object.freeze(commands),
-    routeSections: Object.freeze(routeSections),
+    routeSections: sections,
     issues: Object.freeze(issues.map(Object.freeze)),
-    graphClass: routeSections.length > 1 ? 'DISCONNECTED_FOREST' : topology.nodes.some((node) => node.segmentIds.length > 2) ? 'BRANCHED_GRAPH' : topology.nodes.every((node) => node.segmentIds.length === 2) ? 'LOOP' : 'SIMPLE_PATH',
+    graphClass: disconnectedCount ? 'DISCONNECTED_FOREST' : hasBranchDecision ? 'BRANCHED_GRAPH' : topology.nodes.every((node) => node.segmentIds.length === 2 && !node.boundaryIds.length) ? 'LOOP' : 'SIMPLE_PATH',
   });
 }
