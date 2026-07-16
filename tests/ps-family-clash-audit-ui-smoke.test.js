@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
-import { psFamilyProfessionalCss } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js';
+import { PS_FAMILY_PROFESSIONAL_UI_SCHEMA, psFamilyProfessionalCss } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js';
 import { PS_FAMILY_SAMPLE_STRUCTURE_XML, PS_FAMILY_SAMPLE_SUPPORT_XML } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 import { renderPsFamilyReports, renderPsFamilySummary } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
@@ -58,8 +58,8 @@ assert.match(tabSource, /showWorkspacePanel/);
 assert.match(tabSource, /updateReportNavigation/);
 assert.match(tabSource, /activeReportGroup/);
 
+assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v8-structured-reports');
 const reportCss = psFamilyProfessionalCss();
-assert.match(reportCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
 assert.match(reportCss, /\.psfa-report-layout\{[^}]*grid-template-columns:minmax\(210px,250px\) minmax\(0,1fr\)/);
 assert.match(reportCss, /\.psfa-report-groups\{[^}]*display:grid/);
 assert.match(reportCss, /\.psfa-report-group\.active,\.psfa-report-group\[aria-selected="true"\]/);
