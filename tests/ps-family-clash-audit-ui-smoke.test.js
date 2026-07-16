@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPsFamilyClashAuditFromTextInputs } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-actions.js';
 import { PS_FAMILY_CLASH_AUDIT_CONFIG } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-config.js';
-import { psFamilyProfessionalCss } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js';
+import { PS_FAMILY_PROFESSIONAL_UI_SCHEMA, psFamilyProfessionalCss } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-professional-ui.js';
 import { PS_FAMILY_SAMPLE_STRUCTURE_XML, PS_FAMILY_SAMPLE_SUPPORT_XML } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-samples.js';
 import { _test } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js';
 import { renderPsFamilyReports, renderPsFamilySummary } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
@@ -60,13 +60,16 @@ assert.match(tabSource, /updateReportNavigation/);
 assert.match(tabSource, /activeReportGroup/);
 assert.match(professionalSource, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
 
+assert.equal(PS_FAMILY_PROFESSIONAL_UI_SCHEMA, 'ps-family-clash-audit-professional-ui/v8-structured-reports');
 const reportCss = psFamilyProfessionalCss();
 assert.match(reportCss, /\.psfa-report-layout\{[^}]*grid-template-columns:minmax\(210px,250px\) minmax\(0,1fr\)/);
 assert.match(reportCss, /\.psfa-report-groups\{[^}]*display:grid/);
 assert.match(reportCss, /\.psfa-report-group\.active,\.psfa-report-group\[aria-selected="true"\]/);
 assert.match(reportCss, /\.psfa-report-subtabs\{[^}]*overflow-x:auto/);
-assert.match(reportCss, /\.psfa-report-table\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto/);
+assert.match(reportCss, /\.psfa-report-table\{[^}]*overflow-x:auto;[^}]*overflow-y:auto;[^}]*scrollbar-gutter:stable both-edges/);
+assert.doesNotMatch(reportCss, /\.psfa-report-table\{[^}]*overflow-x:hidden/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table-wrap\{[^}]*overflow-x:auto/);
+assert.match(reportCss, /\.psfa-report-table \.psmap-table-wrap:focus\{[^}]*outline:2px solid/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table\{[^}]*width:max-content;[^}]*min-width:100%/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table th,\.psfa-report-table \.psmap-table td\{white-space:nowrap\}/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table th\{[^}]*position:sticky/);
@@ -89,6 +92,7 @@ assert.ok(diagnostics.includes('Clash Audit Outcome'));
 for (const reportTab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   const report = renderPsFamilyReports(audit, reportTab.key, PS_FAMILY_CLASH_AUDIT_CONFIG);
   assert.ok(report.includes('class="psmap-table-wrap"'), `${reportTab.label} must render through the horizontal-scroll table wrapper`);
+  assert.ok(report.includes('role="region"'), `${reportTab.label} horizontal scroll region must be announced as a region`);
   assert.ok(report.includes('tabindex="0"'), `${reportTab.label} horizontal scroll region must be keyboard focusable`);
 }
 

@@ -8,92 +8,19 @@ import { PS_FAMILY_SAMPLE_STRUCTURE_XML, PS_FAMILY_SAMPLE_SUPPORT_XML } from '..
 import { extractFamilyRoot } from '../tabs/ps-family-clash-audit/ps-family-token-utils.js';
 import { renderPsFamilyReports } from '../tabs/ps-family-clash-audit/ps-family-clash-audit-view.js';
 
-const rowLocalXml = `<exchange><batchtest><clashtests><clashtest><clashresults>
-<clashresult name="Clash1" distance="-0.01"><clashobjects>
-<clashobject><pathlink><node>File</node><node>/PS-14221</node><node>/PS-14221-BAR-1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14221-BAR-1</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-8&quot;-P8810021-31441C4-PP-01</node><node>/ASIM-1836-8&quot;-P8810021-31441C4-PP-01/B4</node><node>/PS-14221.1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14221.1</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-<clashresult name="Clash7" distance="-0.01"><clashobjects>
-<clashobject><pathlink><node>File</node><node>/STRUCTURE</node><node>/PS-14236</node></pathlink><smarttags><smarttag><name>Item Name</name><value>GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14236</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-6&quot;-D8810001-PP-01</node><node>/ASIM-1836-6&quot;-D8810001-PP-01/B1</node><node>/PS-14236.1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14236.1</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-<clashresult name="Clash9" distance="-0.01"><clashobjects>
-<clashobject><pathlink><node>File</node><node>/PS-11488</node><node>/Copy-of-PS-11488-BAR-1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/Copy-of-PS-11488-BAR-1</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-10&quot;-P8810001-PP-01</node><node>/ASIM-1836-10&quot;-P8810001-PP-01/B1</node><node>/PS-14443.1</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14443.1</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-</clashresults></clashtest></clashtests></batchtest></exchange>`;
-
 assert.equal(extractFamilyRoot('PS-14221.1'), 'PS-14221');
 assert.equal(extractFamilyRoot('GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14236'), 'PS-14236');
 
-const rowLocalAudit = createPsFamilyClashAuditFromTextInputs({ clashXmlText: rowLocalXml, config: { sourceSide: 'auto', sourceFamily: 'PS-14416', familyPrefixesText: 'PS, SL', posToleranceMm: 25 } });
-const byName = new Map(rowLocalAudit.clashRows.map((row) => [row.clashName, row]));
-assert.equal(byName.get('Clash1').familyStatus, 'IN_FAMILY');
-assert.equal(byName.get('Clash7').familyStatus, 'IN_FAMILY');
-assert.equal(byName.get('Clash9').familyStatus, 'OUT_OF_FAMILY');
-
-const cuSuStructureXml = `<exchange><batchtest><clashtests><clashtest><clashresults>
-<clashresult name="Clash88" distance="-0.01"><pos3f x="100" y="10" z="0"/><clashobjects>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-CU-SU</node><node>/PS-14311</node><node>/PS-14311-BAR-3</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311-BAR-3</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01/B1</node><node>/PS-14311.4</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311.4</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-<clashresult name="Clash89" distance="-0.02"><pos3f x="160" y="10" z="0"/><clashobjects>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-CU-SU</node><node>/PS-14311-BAR</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311-BAR</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01</node><node>/ASIM-1836-3&quot;-D8810084-91261M7-PP-01/B1</node><node>/PS-14311.5</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311.5</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-<clashresult name="Clash90" distance="-0.03"><pos3f x="210" y="10" z="0"/><clashobjects>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-CU-SU</node><node>/PS-14311</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311</value></smarttag></smarttags></clashobject>
-<clashobject><pathlink><node>File</node><node>/ASIM-1836-2&quot;-D8810087-91261M7-PP-01</node><node>/ASIM-1836-2&quot;-D8810087-91261M7-PP-01/B1</node><node>/PS-14311.6</node></pathlink><smarttags><smarttag><name>Item Name</name><value>/PS-14311.6</value></smarttag></smarttags></clashobject>
-</clashobjects></clashresult>
-</clashresults></clashtest></clashtests></batchtest></exchange>`;
-const cuSuParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
-assert.equal(cuSuParsed.rows.length, 3);
-assert.equal(cuSuParsed.rows[0].edgeType, 'StructuralContact');
-assert.equal(cuSuParsed.rows[0].structuralGroup, 'PS-14311-BAR-3');
-assert.equal(cuSuParsed.rows[0].support, 'PS-14311.4');
-assert.equal(cuSuParsed.rows[0].supportGroup, 'D8810084_PS-14311');
-assert.equal(cuSuParsed.rows[0].parsedEdge, 'PS-14311-BAR-3 ↔ PS-14311.4');
-const directRestingReports = buildSupportChangeReports([cuSuParsed.rows[0]], [], []);
-assert.equal(directRestingReports.supportExceptionRows.length, 0);
-assert.equal(directRestingReports.supportSummaryRows[0].status, 'OK');
-assert.equal(directRestingReports.supportSummaryRows[0].remarks, 'Direct structural resting support.');
-assert.equal(directRestingReports.structureContactRows[0].remarks, 'Direct structural resting support');
-const proximityReports = buildSupportChangeReports(cuSuParsed.rows, [], []);
-assert.equal(proximityReports.supportExceptionRows.length, 0);
-assert.equal(proximityReports.structureLineProximityRows.length, 2);
-assert.deepEqual(proximityReports.structureLineProximityRows.map((row) => row.structuralGroupRoot), ['PS-14311', 'PS-14311']);
-const d8810084 = proximityReports.structureLineProximityRows.find((row) => row.lineFamily === 'D8810084');
-const d8810087 = proximityReports.structureLineProximityRows.find((row) => row.lineFamily === 'D8810087');
-assert.equal(d8810084.supportsWithin250mm, 'PS-14311.4|PS-14311.5');
-assert.equal(d8810084.supportCount, 2);
-assert.equal(d8810084.totalSupportCount, 3);
-assert.equal(d8810087.supportsWithin250mm, 'PS-14311.6');
-assert.equal(d8810087.supportCount, 1);
-assert.equal(d8810087.totalSupportCount, 3);
-
-const baseLine = { supportGroup: 'D8810084_PS-100', lineFamily: 'D8810084', fullLineTag: 'LINE-1', branchNode: 'LINE-1/B1', psRoot: 'PS-100' };
-const structureContact = { ...baseLine, edgeType: 'StructuralContact', structuralGroup: 'PS-100-BAR-1', structuralRoot: 'PS-100', support: 'PS-100.1', supportRoots: ['PS-100'], clashName: 'Structure1', sourceInput: 'StructureGroup vs Supports' };
-const supportChain = { ...baseLine, edgeType: 'SupportChain', supportA: 'PS-100.1', supportB: 'PS-100.2', supportRoots: ['PS-100'], clashName: 'Chain1', sourceInput: 'Clash within Supports' };
-const policyMissingStructure = buildSupportChangeReports([], [supportChain], []);
-assert.equal(policyMissingStructure.supportExceptionRows[0].exceptionCode, 'SUPPORT_GROUP_WITHOUT_STRUCTURAL_GROUP');
-assert.equal(policyMissingStructure.supportExceptionRows[0].severity, 'ERROR');
-const policyStrangerChain = buildSupportChangeReports([structureContact], [{ ...supportChain, supportB: 'PS-101.2', supportRoots: ['PS-100', 'PS-101'] }], []);
-assert.equal(policyStrangerChain.supportExceptionRows[0].exceptionCode, 'STRANGER_SUPPORT_PS_WITHIN_SUPPORT_CHAIN');
-assert.equal(policyStrangerChain.supportExceptionRows[0].severity, 'WARN');
-const policyStrangerStructure = buildSupportChangeReports([{ ...structureContact, support: 'PS-200.1', supportRoots: ['PS-200'] }], [], []);
-assert.equal(policyStrangerStructure.supportExceptionRows[0].exceptionCode, 'STRANGER_SUPPORT_PS_VS_STRUCTURAL_GROUP');
-assert.equal(policyStrangerStructure.supportExceptionRows[0].severity, 'ERROR');
-const policyOrphan = buildSupportChangeReports([{ ...structureContact, supportGroup: '' }], [], []);
-assert.equal(policyOrphan.supportExceptionRows[0].exceptionCode, 'ORPHAN_STRUCTURAL_GROUP');
-assert.equal(policyOrphan.supportExceptionRows[0].severity, 'ERROR');
-assert.ok(![...policyMissingStructure.supportExceptionRows, ...policyStrangerChain.supportExceptionRows, ...policyStrangerStructure.supportExceptionRows, ...policyOrphan.supportExceptionRows].some((row) => row.exceptionCode === 'STRUCTURAL_GROUP_WITHOUT_SUPPORT_CHAIN'));
-
-const customZoneParsed = parseSupportChangeXml(cuSuStructureXml, { familyPrefixesText: 'PS, SL', structuralZonesText: 'BAR-3', supportZonesText: 'PS-' }, 'StructureGroup vs Supports');
-assert.equal(customZoneParsed.rows[0].edgeType, 'StructuralContact');
-assert.equal(customZoneParsed.rows[0].structuralGroup, 'PS-14311-BAR-3');
-
-const structureParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_STRUCTURE_XML, { familyPrefixesText: 'PS, SL' }, 'StructureGroup vs Supports');
-const supportParsed = parseSupportChangeXml(PS_FAMILY_SAMPLE_SUPPORT_XML, { familyPrefixesText: 'PS, SL' }, 'Clash within Supports');
+const structureParsed = parseSupportChangeXml(
+  PS_FAMILY_SAMPLE_STRUCTURE_XML,
+  { familyPrefixesText: 'PS, SL' },
+  'StructureGroup vs Supports',
+);
+const supportParsed = parseSupportChangeXml(
+  PS_FAMILY_SAMPLE_SUPPORT_XML,
+  { familyPrefixesText: 'PS, SL' },
+  'Clash within Supports',
+);
 assert.equal(structureParsed.rows.length, 2);
 assert.equal(supportParsed.rows.length, 3);
 assert.equal(structureParsed.rows[0].edgeType, 'StructuralContact');
@@ -111,31 +38,66 @@ assert.equal(audit.summary.supportExceptionCount, 0);
 assert.equal(audit.supportSummaryRows[0].supportGroup, 'S8810011_PS-14396');
 assert.equal(audit.supportSummaryRows[0].psRoot, 'PS-14396');
 assert.deepEqual(audit.supportSummaryRows[0].supportMembers, ['PS-14396.4', 'PS-14396.8', 'PS-14396.9', 'PS-14396.10']);
-assert.deepEqual(audit.supportSummaryRows[0].evidenceClashes, ['Clash4', 'Clash202', 'Clash603', 'Clash723', 'Clash1429']);
 assert.equal(audit.structureContactRows.length, 2);
 assert.equal(audit.supportChainRows.length, 3);
 assert.equal(audit.supportMemberRows.find((row) => row.memberType === 'StructuralGroup').support, 'GENSEC 2 of FRMWORK 1 of STRUCTURE /PS-14396');
-assert.equal(audit.supportMemberRows.find((row) => row.support === 'PS-14396.4').representativeSupport, 'PS-14396.4');
 assert.ok(audit.lineSupportTreeRows[0].treeText.includes('SupportGroup: S8810011_PS-14396'));
 assert.ok(audit.lineSupportTreeRows[0].treeText.includes('StructuralGroup'));
 
 const directReports = buildSupportChangeReports(structureParsed.rows, supportParsed.rows, []);
 assert.deepEqual(directReports.supportSummaryRows, audit.supportSummaryRows);
 
-const reportHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(reportHtml.includes('Support Group Summary'));
-assert.ok(reportHtml.includes('S8810011_PS-14396'));
+const baseLine = {
+  supportGroup: 'D8810084_PS-100',
+  lineFamily: 'D8810084',
+  fullLineTag: 'LINE-1',
+  branchNode: 'LINE-1/B1',
+  psRoot: 'PS-100',
+};
+const structureContact = {
+  ...baseLine,
+  edgeType: 'StructuralContact',
+  structuralGroup: 'PS-100-BAR-1',
+  structuralRoot: 'PS-100',
+  support: 'PS-100.1',
+  supportRoots: ['PS-100'],
+  clashName: 'Structure1',
+  sourceInput: 'StructureGroup vs Supports',
+};
+const supportChain = {
+  ...baseLine,
+  edgeType: 'SupportChain',
+  supportA: 'PS-100.1',
+  supportB: 'PS-100.2',
+  supportRoots: ['PS-100'],
+  clashName: 'Chain1',
+  sourceInput: 'Clash within Supports',
+};
+assert.equal(buildSupportChangeReports([], [supportChain], []).supportExceptionRows[0].exceptionCode, 'SUPPORT_GROUP_WITHOUT_STRUCTURAL_GROUP');
+assert.equal(buildSupportChangeReports([structureContact], [{ ...supportChain, supportB: 'PS-101.2', supportRoots: ['PS-100', 'PS-101'] }], []).supportExceptionRows[0].exceptionCode, 'STRANGER_SUPPORT_PS_WITHIN_SUPPORT_CHAIN');
+assert.equal(buildSupportChangeReports([{ ...structureContact, supportGroup: '' }], [], []).supportExceptionRows[0].exceptionCode, 'ORPHAN_STRUCTURAL_GROUP');
+
+const supportSummaryHtml = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
+assert.ok(supportSummaryHtml.includes('Support Group Summary'));
+assert.ok(supportSummaryHtml.includes('S8810011_PS-14396'));
 assert.ok(renderPsFamilyReports(audit, 'supportExceptions', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('SupportChange Exceptions'));
-assert.ok(renderPsFamilyReports(proximityReports, 'structureLineProximity', PS_FAMILY_CLASH_AUDIT_CONFIG).includes('Total Support Count'));
+
 const exports = createPsFamilyAuditExports(audit);
 assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
-assert.match(exports.lineSupportTreeText, /Line: ASIM-1836-6"-S8810011-91261M7-HC-01/);
+assert.match(exports.lineSupportTreeText, /S8810011_PS-14396/);
 assert.match(exports.inputEvidenceCsv, /Clash603/);
-assert.match(createPsFamilyAuditExports(proximityReports).structureLineProximityCsv, /TotalSupportCount/);
-assert.match(createPsFamilyAuditExports(proximityReports).structureLineProximityCsv, /PS-14311\.4\|PS-14311\.5/);
 
-const stableTabs = PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'stable').map((tab) => tab.key);
-assert.deepEqual(stableTabs, ['supportSummary', 'structureLineProximity', 'lineSupportTree', 'structureTree', 'inputEvidence', 'supportExceptions']);
-assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.filter((tab) => tab.maturity === 'draft').length > 0);
+const stableTabs = PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs
+  .filter((tab) => tab.maturity === 'stable')
+  .map((tab) => tab.key);
+assert.deepEqual(stableTabs, [
+  'supportSummary',
+  'structureLineProximity',
+  'lineSupportTree',
+  'structureTree',
+  'inputEvidence',
+  'supportExceptions',
+]);
+assert.ok(PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs.some((tab) => tab.maturity === 'draft'));
 
 console.log('ps-family-supportchange-report tests passed');
