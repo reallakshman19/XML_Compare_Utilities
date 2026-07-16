@@ -4,6 +4,7 @@ function distance(a, b) {
   if (!a || !b) return Number.POSITIVE_INFINITY;
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
+function clonePoint(point) { return point ? { x: point.x, y: point.y, z: point.z } : null; }
 function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 function directionAngleDeg(active, candidate) {
   if (!active?.tangent || !candidate?.tangent) return null;
@@ -63,6 +64,45 @@ function targetComponents(session, indexes) {
   }));
 }
 
+function resolveCandidatePositions(activePort, targetPort, component, session, target) {
+  let fromPosition = clonePoint(activePort.sourcePosition);
+  let toPosition = clonePoint(targetPort.sourcePosition);
+  let fromPositionBasis = activePort.sourcePosition ? 'SOURCE_EXPLICIT' : 'UNRESOLVED';
+  let toPositionBasis = targetPort.sourcePosition ? 'SOURCE_EXPLICIT' : 'UNRESOLVED';
+  const explicitReference = Boolean(target.referenceTarget || session.transitionContext?.referenceTarget);
+  const boundaryPosition = clonePoint(session.transitionContext?.boundaryPosition);
+
+  if (explicitReference && !fromPosition && toPosition) {
+    fromPosition = boundaryPosition || clonePoint(toPosition);
+    fromPositionBasis = boundaryPosition ? 'DERIVED_FROM_BRANCH_BOUNDARY' : 'DERIVED_FROM_REFERENCED_TARGET_PORT';
+  }
+  if (explicitReference && fromPosition && !toPosition) {
+    toPosition = boundaryPosition || clonePoint(fromPosition);
+    toPositionBasis = boundaryPosition ? 'DERIVED_FROM_BRANCH_BOUNDARY' : 'DERIVED_FROM_ACTIVE_BOUNDARY_PORT';
+  }
+  if (explicitReference && !fromPosition && !toPosition && boundaryPosition) {
+    fromPosition = clonePoint(boundaryPosition);
+    toPosition = clonePoint(boundaryPosition);
+    fromPositionBasis = 'DERIVED_FROM_BRANCH_BOUNDARY';
+    toPositionBasis = 'DERIVED_FROM_BRANCH_BOUNDARY';
+  }
+  if (!fromPosition || !toPosition) return null;
+
+  const hostPort = component.ports.find((port) => port.role === 'HOST_ATTACHMENT' && port.sourcePosition);
+  const derivedBranchLegLengthMm = targetPort.role === 'BRANCH_OUT' && !targetPort.sourcePosition && hostPort
+    ? distance(toPosition, hostPort.sourcePosition)
+    : null;
+  return {
+    fromPosition,
+    toPosition,
+    fromPositionBasis,
+    toPositionBasis,
+    fromSourcePosition: clonePoint(activePort.sourcePosition),
+    toSourcePosition: clonePoint(targetPort.sourcePosition),
+    derivedBranchLegLengthMm,
+  };
+}
+
 export function buildConnectionCandidates(session, evidenceModel, indexes, options = {}) {
   const activePort = indexes.ports.get(session.activeExitPortId);
   const activeComponent = indexes.components.get(session.activeComponentId);
@@ -74,11 +114,13 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
   for (const target of targets) {
     const component = target.component;
     for (const port of component.ports) {
-      if (!port.sourcePosition || component.componentId === activeComponent.componentId) continue;
+      if (component.componentId === activeComponent.componentId) continue;
       if (target.targetPortRoles.length && !target.targetPortRoles.includes(port.role)) continue;
+      const positions = resolveCandidatePositions(activePort, port, component, session, target);
+      if (!positions) continue;
       const candidateId = `CAND-${stableToken(`${activePort.portId}|${port.portId}`)}`;
       if (rejected.has(candidateId)) continue;
-      const gapMm = distance(activePort.sourcePosition, port.sourcePosition);
+      const gapMm = distance(positions.fromPosition, positions.toPosition);
       const sourceAdjacent = Boolean(target.sourceAdjacent && component.branchId === activeComponent.branchId && !session.transitionContext);
       const referenceMatch = Boolean(
         target.referenceTarget
@@ -99,8 +141,13 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         candidateId,
         fromPortId: activePort.portId,
         toPortId: port.portId,
-        fromPosition: { ...activePort.sourcePosition },
-        toPosition: { ...port.sourcePosition },
+        fromPosition: positions.fromPosition,
+        toPosition: positions.toPosition,
+        fromSourcePosition: positions.fromSourcePosition,
+        toSourcePosition: positions.toSourcePosition,
+        fromPositionBasis: positions.fromPositionBasis,
+        toPositionBasis: positions.toPositionBasis,
+        derivedBranchLegLengthMm: positions.derivedBranchLegLengthMm,
         targetComponentId: component.componentId,
         targetSourceComponentId: component.sourceComponentId,
         targetBranchId: component.branchId,
