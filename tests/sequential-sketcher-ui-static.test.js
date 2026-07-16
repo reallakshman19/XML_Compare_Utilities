@@ -16,10 +16,16 @@ function relativeFiles(root, prefix = '') {
 
 const files = relativeFiles(directory);
 for (const required of [
-  'sequential-sketcher-contract.js', 'sequential-sketcher-source.js', 'sequential-sketcher-support.js',
-  'sequential-sketcher-topology.js', 'sequential-sketcher-traversal.js', 'sequential-sketcher-projection.js',
-  'sequential-sketcher-renderer.js', 'sequential-sketcher-markup.js', 'sequential-sketcher-workspace.js',
-  'sequential-sketcher-tab.js', 'sequential-sketcher.css',
+  'sequential-sketcher-contract.js', 'sequential-sketcher-source.js',
+  'sequential-sketcher-projection.js', 'sequential-sketcher-markup.js',
+  'sequential-sketcher-workspace.js', 'sequential-sketcher-tab.js', 'sequential-sketcher.css',
+  'source/sequential-evidence-model.js',
+  'construction/sequential-construction-contract.js',
+  'construction/sequential-connection-resolver.js',
+  'construction/sequential-terminal-classifier.js',
+  'construction/sequential-construction-engine.js',
+  'stroke/sequential-component-stroke-compiler.js',
+  'canvas/sequential-construction-svg.js',
   'support/sj-pipe-support-projection.js', 'support/sj-pipe-support-family.js',
   'support/sj-pipe-support-geometry.js', 'support/sj-pipe-support-utils.js',
 ]) assert(files.includes(required), `${required} is required`);
@@ -35,40 +41,77 @@ for (const name of files.filter((file) => file.endsWith('.js'))) {
 
 const markup = read('sequential-sketcher-markup.js');
 for (const label of [
-  'Sequential Sketcher', 'Exact branch', 'Coordinate tolerance', 'Stroke sequence',
-  'Support projection', 'Owned PipeSupportProjectionBundle.v1',
-  'Projection tolerance', 'On-centreline tolerance', 'Ambiguity tolerance',
+  'Sequential Sketcher', 'Authoritative start branch', 'Exact tolerance',
+  'Automatic repair limit', 'Candidate search radius', 'Advance one',
+  'Run until blocked', 'Solid = confirmed', 'dotted = candidate',
 ]) assert.match(markup, new RegExp(label));
-assert.doesNotMatch(markup, /Load optional support JSON|data-ssk-supports/, 'support evidence must come from selected branch siblings');
+assert.doesNotMatch(markup, /Compile branch|Coordinate tolerance/, 'graph-first compile controls must be retired');
 
-const renderer = read('sequential-sketcher-renderer.js');
-assert.match(renderer, /<svg/);
-assert.doesNotMatch(renderer, /<canvas|canvas\.getContext/);
-assert.match(renderer, /centerlinePointGlobal/);
+const workspace = read('sequential-sketcher-workspace.js');
+assert.match(workspace, /sequential-construction-engine\.js/);
+assert.match(workspace, /buildSequentialEvidenceModel/);
+assert.match(workspace, /runConstructionUntilBlocked/);
+assert.match(workspace, /applyConstructionDecision/);
+assert.doesNotMatch(workspace, /buildBranchTopology|planSequentialTraversal|sequential-sketcher-renderer|buildSequentialSketcherSupportProjection/,
+  'runtime must not construct and walk a complete graph or project supports before confirmation');
 
-const topology = read('sequential-sketcher-topology.js');
-assert.doesNotMatch(topology, /sequential-sketcher-support|buildPipeSupportProjectionBundle/, 'topology construction must remain support-independent');
+const evidence = read('source/sequential-evidence-model.js');
+assert.match(evidence, /sourcePosition/);
+assert.match(evidence, /resolvedPosition:\s*null/);
+assert.match(evidence, /RUN_IN/);
+assert.match(evidence, /RUN_OUT/);
+assert.match(evidence, /BRANCH_OUT/);
+assert.doesNotMatch(evidence, /samePoint|toleranceMm/, 'source evidence must not merge coordinates');
+
+const engine = read('construction/sequential-construction-engine.js');
+assert.match(engine, /USER_DECISION_REQUIRED/);
+assert.match(engine, /DRAW_VIRTUAL_REPAIR/);
+assert.match(engine, /RETURN_TO_JUNCTION/);
+assert.match(engine, /ENTER_BRANCH/);
+assert.doesNotMatch(engine, /DISCONNECTED_FRAGMENT|unvisited|options\[0\]/,
+  'construction authority must not continue through arbitrary or disconnected graph sections');
+
+const resolver = read('construction/sequential-connection-resolver.js');
+assert.match(resolver, /autoRepairToleranceMm/);
+assert.match(resolver, /MULTIPLE_REPAIR_CANDIDATES/);
+assert.match(resolver, /CONTINUITY_NOT_PROVEN/);
+assert.match(resolver, /sourceAdjacent/);
+assert.match(resolver, /referenceMatch/);
+
+const strokes = read('stroke/sequential-component-stroke-compiler.js');
+for (const operation of [
+  'DRAW_PIPE', 'DRAW_ELBOW', 'DRAW_REDUCER', 'DRAW_TEE_RUN',
+  'REGISTER_TEE_BRANCH', 'DRAW_OLET', 'DRAW_VALVE', 'DRAW_FLANGE', 'DRAW_CAP',
+]) assert.match(strokes, new RegExp(operation));
+
+const canvas = read('canvas/sequential-construction-svg.js');
+assert.match(canvas, /<svg/);
+assert.doesNotMatch(canvas, /<canvas|canvas\.getContext/);
+for (const layer of ['confirmed-geometry', 'candidate-connections', 'active-port']) assert.match(canvas, new RegExp(layer));
+assert.match(canvas, /data-ssk-candidate-id/);
+assert.match(canvas, /ssk-confirmed-repair/);
+assert.match(canvas, /ssk-candidate/);
 
 const support = read('sequential-sketcher-support.js');
 assert.match(support, /\.\/support\/sj-pipe-support-projection\.js/);
-assert.match(support, /buildValidatedSupportCarriers/);
-assert.match(support, /decorateTopologyWithSupportProjection/);
-
-const workspace = read('sequential-sketcher-workspace.js');
-const topologyAt = workspace.indexOf('const pipingTopology = buildBranchTopology');
-const traversalAt = workspace.indexOf('const pipingTraversal = planSequentialTraversal');
-const supportAt = workspace.indexOf('model.supportBundle = buildSequentialSketcherSupportProjection');
-assert(topologyAt >= 0 && traversalAt > topologyAt && supportAt > traversalAt,
-  'workspace must complete topology and pen traversal before support projection');
+const constructionFiles = [
+  'source/sequential-evidence-model.js',
+  'construction/sequential-construction-contract.js',
+  'construction/sequential-connection-resolver.js',
+  'construction/sequential-terminal-classifier.js',
+  'construction/sequential-construction-engine.js',
+  'stroke/sequential-component-stroke-compiler.js',
+  'canvas/sequential-construction-svg.js',
+  'sequential-sketcher-workspace.js',
+];
+for (const name of constructionFiles) {
+  assert.doesNotMatch(read(name), /sj-pipe-support|buildPipeSupportProjectionBundle/,
+    `${name} must remain independent of support projection`);
+}
 
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
 assert.equal(schema.properties.schema.const, 'PipeSupportProjectionBundle.v1');
 assert.equal(schema.$defs.coordinateSystem.properties.units.const, 'mm');
-assert.deepEqual(schema.$defs.position.properties.positionStatus.enum, [
-  'ON_CENTERLINE', 'PROJECTED_TO_CENTERLINE', 'OFFSET_FROM_CENTERLINE',
-  'ATTACHED_TO_FITTING', 'ATTACHED_TO_COMPONENT_PORT', 'AMBIGUOUS_CARRIER',
-  'OUTSIDE_PROJECTION_TOLERANCE', 'UNRESOLVED',
-]);
 
 const utilityTab = readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
 assert.match(utilityTab, /installSequentialSketcherTile/);
