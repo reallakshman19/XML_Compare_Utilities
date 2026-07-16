@@ -8,6 +8,8 @@ import {
   createSequentialConstructionSession,
   runConstructionUntilBlocked,
 } from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
+import { createConfirmedSequentialConstruction } from '../tabs/sequential-sketcher/construction/sequential-construction-acceptance.js';
+import { buildConfirmedConstructionSupportProjection } from '../tabs/sequential-sketcher/support/sequential-confirmed-support-projection.js';
 
 const SOURCE_COMMIT = 'd5fda9c95fda9bba9b6b05171628ba16778a7667';
 const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/${SOURCE_COMMIT}/Benchmarks/1885_NC/1885_NC.json`;
@@ -170,6 +172,18 @@ assert.ok(tailConnections[0].derivedBranchLegLengthMm > 0);
 assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_HEAD_JUNCTION_BOUNDARY'));
 assert.ok(result.session.strokeLedger.some((command) => command.op === 'CONFIRM_JUNCTION_BOUNDARY'));
 
+const confirmedConstruction = createConfirmedSequentialConstruction(result.session, indexes);
+const confirmedSnapshot = JSON.stringify(confirmedConstruction);
+const supportProjection = buildConfirmedConstructionSupportProjection(confirmedConstruction, indexes, {
+  projectionToleranceMm: 50,
+  onCenterlineToleranceMm: 0.001,
+  ambiguityToleranceMm: 1,
+});
+assert.equal(JSON.stringify(confirmedConstruction), confirmedSnapshot, 'real support projection must not mutate accepted construction');
+assert.equal(supportProjection.schema, 'SequentialConfirmedSupportProjection.v1');
+assert.equal(supportProjection.constructionFingerprint, confirmedConstruction.constructionFingerprint);
+assert.equal(supportProjection.branchBundles.length, 1);
+
 const rootEvidence = indexes.branches.get(ROOT_BRANCH);
 const report = {
   schema: 'Sequential1885NcProbe.v1',
@@ -189,6 +203,7 @@ const report = {
   missingOrPartialPorts: summarizeMissingPorts(evidence),
   finalState: result.session.state,
   outcomes: result.outcomes,
+  confirmedConstructionFingerprint: confirmedConstruction.constructionFingerprint,
   confirmedComponentCount: result.session.confirmedComponentIds.length,
   committedConnectionCount: result.session.committedConnections.length,
   connectionTypes: Object.fromEntries(
@@ -203,6 +218,24 @@ const report = {
   blockedReason: result.session.currentDecisionRequest?.reason || null,
   candidateCount: result.session.currentDecisionRequest?.candidates?.length || 0,
   committedOperations: result.session.strokeLedger.map((command) => command.op),
+  supportProjection: {
+    branchBundleCount: supportProjection.branchBundles.length,
+    supportGlyphCount: supportProjection.supportGlyphs.length,
+    unresolvedSupportFamilyCount: supportProjection.unresolvedSupportFamilies.length,
+    diagnosticCount: supportProjection.diagnostics.length,
+    diagnosticCodes: Object.fromEntries(
+      [...new Set(supportProjection.diagnostics.map((row) => row.code))]
+        .sort()
+        .map((code) => [code, supportProjection.diagnostics.filter((row) => row.code === code).length]),
+    ),
+    glyphs: supportProjection.supportGlyphs,
+    unresolvedFamilies: supportProjection.unresolvedSupportFamilies.map((family) => ({
+      familyId: family.familyId,
+      bindingStatus: family.carrierBinding.bindingStatus,
+      positionStatus: family.position.positionStatus,
+      candidateCarrierIds: family.carrierBinding.candidateCarrierIds,
+    })),
+  },
 };
 
 mkdirSync('artifacts/sequential-sketcher', { recursive: true });
