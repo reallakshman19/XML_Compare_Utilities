@@ -42,10 +42,13 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
       memberChain: relationshipBundle.memberChainEngineSchema || null,
       carrierResolution: relationshipBundle.carrierResolutionSchema || null,
       carrierCatalog: relationshipBundle.carrierCatalogSchema || null,
+      carrierGeometry: relationshipBundle.carrierGeometrySchema || null,
+      carrierAttachment: relationshipBundle.carrierAttachmentSchema || null,
       audit: audit.schema,
     },
     config: {
       relationship: relationshipBundle.config,
+      carrierAttachment: relationshipBundle.supportCarrierAttachment?.config || {},
       audit: { sourceFamily: audit.summary.sourceFamily || '' },
     },
     summary: createPipelineSummary(relationshipBundle, audit, diagnostics),
@@ -132,6 +135,20 @@ function createPipelineDiagnostics(bundle, audit) {
       'Some support members do not have a unique authoritative carrier object.',
     ));
   }
+  if (bundle.summary?.unresolvedCarrierAttachmentCount > 0) {
+    diagnostics.push(diagnostic(
+      'INFO',
+      'CARRIER_ATTACHMENT_GEOMETRY_INCOMPLETE',
+      `${bundle.summary.unresolvedCarrierAttachmentCount} resolved carrier identity edge(s) lack analytical attachment evidence.`,
+    ));
+  }
+  if (bundle.summary?.nearbyCarrierAttachmentCandidateCount > 0) {
+    diagnostics.push(diagnostic(
+      'INFO',
+      'NEARBY_CARRIER_ATTACHMENT_CLEARANCES',
+      `${bundle.summary.nearbyCarrierAttachmentCandidateCount} support-to-carrier pair(s) are near but outside contact tolerance.`,
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -155,10 +172,14 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     ambiguousFamilyCount: bundle.summary?.ambiguousFamilyCount || 0,
     unresolvedFamilyCount: bundle.summary?.unresolvedFamilyCount || 0,
     carrierObjectCount: bundle.summary?.carrierObjectCount || 0,
+    analyticalCarrierGeometryCount: bundle.summary?.analyticalCarrierGeometryCount || 0,
     resolvedPhysicalCarrierCount: bundle.summary?.resolvedPhysicalCarrierCount || 0,
     branchContextOnlyCount: bundle.summary?.branchContextOnlyCount || 0,
     ambiguousCarrierCount: bundle.summary?.ambiguousCarrierCount || 0,
     unresolvedCarrierCount: bundle.summary?.unresolvedCarrierCount || 0,
+    carrierAttachmentCandidateCount: bundle.summary?.carrierAttachmentCandidateCount || 0,
+    nearbyCarrierAttachmentCandidateCount: bundle.summary?.nearbyCarrierAttachmentCandidateCount || 0,
+    unresolvedCarrierAttachmentCount: bundle.summary?.unresolvedCarrierAttachmentCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,
