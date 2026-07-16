@@ -15,12 +15,25 @@ assert.match(config.structuralZonesText, /CU-SU/);
 assert.match(config.supportZonesText, /PS-/);
 assert.equal(config.sourceSideOptions.length, 3);
 assert.equal(config.inputFiles.length, 2);
-assert.equal(config.reportTabs.length, 11);
-assert.ok(config.reportTabs.some((tab) => tab.key === 'supportSummary' && tab.maturity === 'stable'));
-assert.ok(config.reportTabs.some((tab) => tab.key === 'structureLineProximity' && tab.maturity === 'stable'));
+assert.equal(config.reportTabs.length, 12);
+assert.equal(config.reportGroups.length, 6);
+assert.deepEqual(config.reportGroups.map((group) => group.label), [
+  'Support Group',
+  'Structure Group Basis',
+  'Line Tree',
+  'Structure Tree',
+  'Clash Summary',
+  'Clash Audit Outcome',
+]);
+assert.deepEqual(config.reportGroups.find((group) => group.key === 'supportGroup').reportKeys, ['supportSummary', 'supportChain', 'supportMembers']);
+assert.deepEqual(config.reportGroups.find((group) => group.key === 'structureBasis').reportKeys, ['structureLineProximity', 'structureContacts']);
+assert.deepEqual(config.reportGroups.find((group) => group.key === 'clashSummary').reportKeys, ['supportSummary', 'connectivityMatrix', 'clashRows']);
+assert.ok(config.reportTabs.some((tab) => tab.key === 'supportSummary' && tab.label === 'Support Group Summary' && tab.maturity === 'stable'));
+assert.ok(config.reportTabs.some((tab) => tab.key === 'structureTree' && tab.maturity === 'stable'));
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureContacts' && tab.maturity === 'draft'));
 assert.equal(config.outputButtons.length, 6);
 assert.ok(config.info.some((item) => item.includes('LineFamily_PSRoot')));
+assert.ok(config.info.some((item) => item.includes('six task-oriented groups')));
 assert.ok(config.info.some((item) => item.includes('Zone classification')));
 assert.ok(config.info.some((item) => item.includes('PS-14311-BAR-3')));
 
@@ -37,12 +50,14 @@ assert.match(html, /data-psfa="structure"/);
 assert.match(html, /data-psfa="support"/);
 assert.doesNotMatch(html, /PSClash XML/);
 assert.doesNotMatch(html, /Expected PS\/SL CSV/);
+for (const group of config.reportGroups) assert.match(html, new RegExp(`data-psfa-report-group="${group.key}"`));
 assert.match(html, /data-psfa-tab="supportSummary"/);
-assert.match(html, /data-psfa-tab="structureLineProximity"/);
+assert.match(html, /data-psfa-tab="structureTree"/);
 assert.match(html, /data-psfa-tab="supportExceptions"/);
-assert.match(html, /SupportGroup Summary CSV/);
-assert.match(html, /StructureGroup Line Support Proximity CSV/);
-assert.match(html, /Line Support Tree TXT/);
+assert.match(html, /Support Group Summary CSV/);
+assert.match(html, /Structure Group Basis CSV/);
+assert.match(html, /Line Tree TXT/);
+assert.match(html, /Clash Audit Outcome CSV/);
 assert.match(html, /Valid family prefixes/);
 assert.match(html, /Structural zones/);
 assert.match(html, /Support zones/);
@@ -68,8 +83,9 @@ const audit = createPsFamilyClashAuditFromTextInputs({
   config: { sourceSide: 'auto', familyPrefixesText: 'PS, SL', structuralZonesText: 'STRUCTURE, FRMWORK, GENSEC, CU-SU', supportZonesText: 'PS-, SL-', posToleranceMm: 25 },
 });
 assert.equal(audit.summary.supportGroupCount, 1);
-assert.match(renderPsFamilyReports(audit, 'supportSummary', config), /S8810011_PS-14396/);
-assert.match(renderPsFamilyReports(audit, 'lineSupportTree', config), /StructuralGroup/);
-assert.match(renderPsFamilyReports(audit, 'structureLineProximity', config), /TotalSupportCount/);
+assert.match(renderPsFamilyReports(audit, 'supportSummary', config, '', 'supportGroup'), /S8810011_PS-14396/);
+assert.match(renderPsFamilyReports(audit, 'lineSupportTree', config, '', 'lineTree'), /StructuralGroup/);
+assert.match(renderPsFamilyReports(audit, 'structureLineProximity', config, '', 'structureBasis'), /Total Support Count/);
+assert.match(renderPsFamilyReports(audit, 'structureTree', config, '', 'structureTree'), /Structure Path/);
 
 console.log('ps-family-clash-audit-config tests passed');

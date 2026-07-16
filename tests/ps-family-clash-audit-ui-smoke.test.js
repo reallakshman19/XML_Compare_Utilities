@@ -28,16 +28,21 @@ assert.ok(shell.includes('StructureGroup vs Supports XML'));
 assert.ok(shell.includes('Clash within Supports XML'));
 assert.ok(shell.includes('Valid family prefixes'));
 assert.ok(shell.includes('Run Audit'));
-assert.ok(shell.includes('SupportGroup Summary'));
-assert.ok(shell.includes('Line Support Tree'));
+for (const label of ['Support Group', 'Structure Group Basis', 'Line Tree', 'Structure Tree', 'Clash Summary', 'Clash Audit Outcome']) assert.ok(shell.includes(label), `missing structured report label ${label}`);
+assert.ok(shell.includes('Support Group Summary'));
+assert.ok(shell.includes('Support Chain'));
+assert.ok(shell.includes('Structure Evidence Tree'));
+assert.ok(shell.includes('Connectivity Matrix'));
 assert.ok(shell.includes('SupportChange Exceptions'));
-assert.ok(shell.includes('Input Evidence Ledger'));
-assert.ok(shell.includes('SupportGroup Summary CSV'));
-assert.ok(shell.includes('Line Support Tree TXT'));
+assert.ok(shell.includes('Support Group Summary CSV'));
+assert.ok(shell.includes('Line Tree TXT'));
 assert.ok(shell.includes('Audit JSON'));
 assert.ok(!shell.includes('PSClash XML'));
 assert.ok(!shell.includes('Expected PS/SL CSV'));
 assert.ok(!shell.includes('Run &amp; Export'));
+assert.ok(shell.includes('data-psfa-report-group="supportGroup"'));
+assert.ok(shell.includes('data-psfa-report-group="clashOutcome"'));
+assert.ok(shell.includes('data-psfa-report-subtabs="structureTree"'));
 
 const tabSource = readFileSync('tabs/ps-family-clash-audit/ps-family-clash-audit-tab.js', 'utf8');
 assert.match(tabSource, /if \(doc\.querySelector\('\[data-psfa-popup="1"\]'\)\) return;/);
@@ -50,12 +55,20 @@ assert.match(tabSource, /aria-modal/);
 assert.match(tabSource, /aria-labelledby/);
 assert.match(tabSource, /aria-describedby/);
 assert.match(tabSource, /showWorkspacePanel/);
+assert.match(tabSource, /updateReportNavigation/);
+assert.match(tabSource, /activeReportGroup/);
 
 const reportCss = psFamilyProfessionalCss();
+assert.match(reportCss, /PS_FAMILY_PROFESSIONAL_UI_SCHEMA = 'ps-family-clash-audit-professional-ui\/v8-structured-reports'/);
+assert.match(reportCss, /\.psfa-report-layout\{[^}]*grid-template-columns:minmax\(210px,250px\) minmax\(0,1fr\)/);
+assert.match(reportCss, /\.psfa-report-groups\{[^}]*display:grid/);
+assert.match(reportCss, /\.psfa-report-group\.active,\.psfa-report-group\[aria-selected="true"\]/);
+assert.match(reportCss, /\.psfa-report-subtabs\{[^}]*overflow-x:auto/);
 assert.match(reportCss, /\.psfa-report-table\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table-wrap\{[^}]*overflow-x:auto/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table\{[^}]*width:max-content;[^}]*min-width:100%/);
 assert.match(reportCss, /\.psfa-report-table \.psmap-table th,\.psfa-report-table \.psmap-table td\{white-space:nowrap\}/);
+assert.match(reportCss, /\.psfa-report-table \.psmap-table th\{[^}]*position:sticky/);
 
 const audit = createPsFamilyClashAuditFromTextInputs({
   structureXmlText: PS_FAMILY_SAMPLE_STRUCTURE_XML,
@@ -63,15 +76,19 @@ const audit = createPsFamilyClashAuditFromTextInputs({
   config: { sourceSide: 'auto', sourceFamily: '', familyPrefixesText: 'PS, SL', posToleranceMm: 25 },
 });
 const summary = renderPsFamilySummary(audit);
-const supportSummary = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG);
-const diagnostics = renderPsFamilyReports(audit, 'diagnostics', PS_FAMILY_CLASH_AUDIT_CONFIG);
-assert.ok(summary.includes('SupportGroups'));
+const supportSummary = renderPsFamilyReports(audit, 'supportSummary', PS_FAMILY_CLASH_AUDIT_CONFIG, '', 'supportGroup');
+const structureTree = renderPsFamilyReports(audit, 'structureTree', PS_FAMILY_CLASH_AUDIT_CONFIG, '', 'structureTree');
+const diagnostics = renderPsFamilyReports(audit, 'diagnostics', PS_FAMILY_CLASH_AUDIT_CONFIG, '', 'clashOutcome');
+assert.ok(summary.includes('Support groups'));
 assert.ok(summary.includes('1'));
 assert.ok(supportSummary.includes('S8810011_PS-14396'));
-assert.ok(diagnostics.includes('Diagnostics'));
+assert.ok(supportSummary.includes('Support Group'));
+assert.ok(structureTree.includes('Structure Path'));
+assert.ok(diagnostics.includes('Clash Audit Outcome'));
 for (const reportTab of PS_FAMILY_CLASH_AUDIT_CONFIG.reportTabs) {
   const report = renderPsFamilyReports(audit, reportTab.key, PS_FAMILY_CLASH_AUDIT_CONFIG);
   assert.ok(report.includes('class="psmap-table-wrap"'), `${reportTab.label} must render through the horizontal-scroll table wrapper`);
+  assert.ok(report.includes('tabindex="0"'), `${reportTab.label} horizontal scroll region must be keyboard focusable`);
 }
 
 console.log('ps-family-clash-audit-ui-smoke tests passed');
