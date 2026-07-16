@@ -11,6 +11,7 @@ import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-work
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
 import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260715-ttv-015-log-debug';
+import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260716-ssk-001';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260715-layout-stabilizer-3';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
@@ -50,6 +51,11 @@ function mountTopologyTraceValidator(container, ctx) {
   return installTopologyTraceValidatorTile(utilitiesRoot, ctx);
 }
 
+function mountSequentialSketcher(container, ctx) {
+  const utilitiesRoot = container.querySelector('.psnm-root') || container;
+  return installSequentialSketcherTile(utilitiesRoot, ctx);
+}
+
 export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
   const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
@@ -62,8 +68,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
   const destroyXmlBuilder = mountXmlBuilder(container, ctx);
   const destroyNavisTagIsonote = mountNavisTagIsonote(container, ctx);
   const destroyTopologyTraceValidator = mountTopologyTraceValidator(container, ctx);
+  const destroySequentialSketcher = mountSequentialSketcher(container, ctx);
   const destroyBridge = installPsMappingModalBridge(container, ctx);
   return () => {
+    if (typeof destroySequentialSketcher === 'function') destroySequentialSketcher();
     if (typeof destroyTopologyTraceValidator === 'function') destroyTopologyTraceValidator();
     if (typeof destroyBridge === 'function') destroyBridge();
     if (typeof destroyNavisTagIsonote === 'function') destroyNavisTagIsonote();
