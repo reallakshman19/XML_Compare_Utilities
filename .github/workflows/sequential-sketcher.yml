@@ -7,6 +7,7 @@ on:
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-construction-engine.test.js'
       - '.github/workflows/sequential-sketcher.yml'
   push:
     branches: [main]
@@ -15,6 +16,7 @@ on:
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-construction-engine.test.js'
       - '.github/workflows/sequential-sketcher.yml'
 
 permissions:
@@ -29,7 +31,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Core topology and traversal
+      - name: Supervised sequential construction
+        run: node tests/sequential-construction-engine.test.js
+      - name: Legacy foundation regression
         run: node tests/sequential-sketcher-core.test.js
       - name: Owned support projection contract
         run: node --test tests/sequential-sketcher-support-projection.test.js
