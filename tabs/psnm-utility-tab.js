@@ -5,7 +5,7 @@ import { installPsnmAxisAutoAnchorAddon } from './psnm-utility/psnm-axis-auto-an
 import { installPsnmAnchorPersistenceAddon } from './psnm-utility/psnm-anchor-persistence-addon.js?v=20260613-anchor-persistence-1';
 import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-prefix-ui.js?v=20260614-support-prefix-ui-no-duplicate-playground-1';
 import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
-import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260705-ps-family-clash-audit-1';
+import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
 import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260712-marker-triangles-1';
 import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260716-table-paste-1';
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
