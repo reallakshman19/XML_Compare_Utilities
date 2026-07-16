@@ -40,7 +40,27 @@ jobs:
             test_file: tests/ps-family-performance-benchmark.test.js
           - test_name: Accessibility gate
             test_file: tests/ps-family-accessibility-gate.test.js
-          - test_name: Benchmark readiness
+          - test_name: Implementation compliance
+            test_file: tests/ps-family-implementation-compliance.test.js
+          - test_name: Sample fixtures
+            test_file: tests/ps-family-sample-fixtures.test.js
+          - test_name: Sample buttons
+            test_file: tests/ps-family-sample-buttons.test.js
+          - test_name: Report filtering
+            test_file: tests/ps-family-report-filter-search.test.js
+          - test_name: Active report export
+            test_file: tests/ps-family-active-report-export.test.js
+          - test_name: Row details
+            test_file: tests/ps-family-row-details.test.js
+          - test_name: Hierarchy report
+            test_file: tests/ps-family-hierarchy-tab.test.js
+          - test_name: Tabbed workspace
+            test_file: tests/ps-family-tabbed-workspace-ui.test.js
+          - test_name: PS clash report
+            test_file: tests/ps-family-psclash-report.test.js
+          - test_name: Readiness
+            test_file: tests/ps-family-readiness.test.js
+          - test_name: Benchmark readiness aggregate
             test_file: tests/ps-family-clash-audit-benchmark-readiness.test.js
     steps:
       - name: Checkout
