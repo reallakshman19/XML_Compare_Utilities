@@ -8,6 +8,6 @@
 .ttv-axis-compass [data-ttv-axis=z] line{stroke:#3b82f6}.ttv-axis-compass [data-ttv-axis=z] text{fill:#93c5fd}
 .ttv-axis-compass [hidden]{display:none}
 @media(max-width:900px){.ttv-axis-compass{width:92px;height:76px}.ttv-canvas-navigation{top:8px;left:8px}.ttv-axis-compass{top:8px;right:8px}}
-/* Keep source symbol overlays clickable above broad canonical hit targets. */
-.ttv-svg:has(.ttv-component-symbol) .ttv-canonical-edge .ttv-hit-path{pointer-events:none}
+/* Symbol overlays own pointer selection where source symbols overlap canonical strokes. */
+.ttv-svg:has(.ttv-component-symbol) .ttv-canonical-edge :is(.ttv-hit-path,.ttv-visible-path){pointer-events:none}
 .ttv-component-symbol{pointer-events:all}
