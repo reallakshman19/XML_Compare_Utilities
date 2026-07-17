@@ -12,22 +12,15 @@ import {
 
 const panel = renderPsFamilyValidationPanel();
 for (const label of [
-  'Offline Validation Benchmark',
-  'Development and QA only',
-  'Structural precision threshold',
-  'Structural recall threshold',
-  'Chain precision threshold',
-  'Chain recall threshold',
-  'Run Offline Validation',
-  'Download Metrics CSV',
-  'Download Disagreements CSV',
-  'Download Validation JSON',
+  'Offline Validation Benchmark', 'Development and QA only',
+  'Structural precision threshold', 'Structural recall threshold',
+  'Chain precision threshold', 'Chain recall threshold',
+  'Run Offline Validation', 'Download Metrics CSV',
+  'Download Disagreements CSV', 'Download Validation JSON',
 ]) assert.ok(panel.includes(label), `missing validation UI label ${label}`);
 for (const key of [
-  'run-offline-validation',
-  'download-validation-metrics',
-  'download-validation-disagreements',
-  'download-validation-json',
+  'run-offline-validation', 'download-validation-metrics',
+  'download-validation-disagreements', 'download-validation-json',
   'offline-validation-results',
 ]) assert.ok(panel.includes(`data-psfa="${key}"`), `missing validation control ${key}`);
 
@@ -93,7 +86,7 @@ assert.match(addon, /saveTextFile/);
 assert.match(viewSource, /benchmark\.validationOnly/);
 assert.match(viewSource, /benchmark\.productionDependency/);
 assert.match(bootstrap, /ps-family-offline-validation-addon\.js/);
-assert.match(bootstrap, /carrier-attachment-v1/);
+assert.match(bootstrap, /carrier-topology-v1/);
 assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
 
 console.log('ps-family-offline-validation-ui tests passed');
