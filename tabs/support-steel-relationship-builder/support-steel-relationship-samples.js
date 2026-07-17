@@ -116,7 +116,16 @@ export const SUPPORT_STEEL_SAMPLE_STEEL = Object.freeze([
   },
 ]);
 
-export function supportSteelSampleText(kind) {
-  const value = kind === 'steel' ? SUPPORT_STEEL_SAMPLE_STEEL : SUPPORT_STEEL_SAMPLE_SUPPORT;
+export const SUPPORT_STEEL_SAMPLE_COMBINED = Object.freeze([
+  ...SUPPORT_STEEL_SAMPLE_SUPPORT,
+  ...SUPPORT_STEEL_SAMPLE_STEEL,
+]);
+
+export function supportSteelSampleText(kind = 'combined') {
+  const value = kind === 'support'
+    ? SUPPORT_STEEL_SAMPLE_SUPPORT
+    : kind === 'steel'
+      ? SUPPORT_STEEL_SAMPLE_STEEL
+      : SUPPORT_STEEL_SAMPLE_COMBINED;
   return JSON.stringify(value, null, 2);
 }
