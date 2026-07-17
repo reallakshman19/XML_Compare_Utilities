@@ -14,6 +14,11 @@ function identityFromDetail(detail = {}) {
   return Object.freeze({ graph, entityId, entityType });
 }
 
+function closePrecision(state) {
+  state.sessions.close();
+  state.view.close();
+}
+
 function openIdentity(state, identity, source = 'typed') {
   if (!identity || state.disabled) return null;
   try {
@@ -26,6 +31,12 @@ function openIdentity(state, identity, source = 'typed') {
     state.view.status(identity.graph, error.message, 'error');
     return null;
   }
+}
+
+function handleSelection(state, detail = {}) {
+  const count = Number.isFinite(Number(detail.count)) ? Number(detail.count) : detail.entityId ? 1 : 0;
+  if (count !== 1) { closePrecision(state); return null; }
+  return openIdentity(state, identityFromDetail(detail), 'typed');
 }
 
 function stageCurrent(state, name) {
@@ -55,10 +66,8 @@ function applyCurrent(state, name) {
 }
 
 function cancelCurrent(state, name, close = true) {
-  if (close) {
-    state.sessions.close();
-    state.view.close(name);
-  } else {
+  if (close) closePrecision(state);
+  else {
     const reset = state.sessions.reset();
     if (reset) state.view.open(name, reset.identity, reset.before);
   }
@@ -92,16 +101,15 @@ function bindPanel(state, name) {
 
 function bindGraph(state, name) {
   const graph = state.graphs[name];
-  bind(graph, 'selectionChanged', (event) => openIdentity(state, identityFromDetail(event.detail), 'typed'), state.cleanup);
+  bind(graph, 'selectionChanged', (event) => handleSelection(state, event.detail), state.cleanup);
   bind(graph.canvas, 'dblclick', (event) => {
     const hit = graph.hitTest(graph.eventToScreen(event));
     if (!hit || state.disabled) return;
     event.preventDefault();
-    const identity = { graph: name, entityId: hit.node.id, entityType: hit.type };
-    if (name === 'table2x') graph.selectedId = hit.node.id;
-    else graph.selected = { id: hit.node.id, type: hit.type };
-    graph.render();
-    openIdentity(state, identity, 'context');
+    graph.setSelection?.([{ id: hit.node.id, type: hit.type }], {
+      primaryId: hit.node.id, source: 'context', mode: 'replace',
+    });
+    openIdentity(state, { graph: name, entityId: hit.node.id, entityType: hit.type }, 'context');
   }, state.cleanup, true);
   bind(graph, 'nodePreviewMoved', (event) => {
     const identity = state.sessions.identity;
@@ -117,10 +125,7 @@ function bindGraph(state, name) {
 
 function bindController(state) {
   for (const eventName of ['modelChanged', 'historyApplied', 'graphsReloaded']) {
-    bind(state.controller, eventName, () => {
-      state.sessions.close();
-      state.view.close();
-    }, state.cleanup);
+    bind(state.controller, eventName, () => closePrecision(state), state.cleanup);
   }
 }
 
@@ -138,7 +143,7 @@ export function mountPipelineCadPrecisionEditing(options = {}) {
   const setMode = (mode) => {
     state.disabled = mode === 'overlay';
     state.view.setDisabled(state.disabled);
-    if (state.disabled) { state.sessions.close(); state.view.close(); }
+    if (state.disabled) closePrecision(state);
   };
   bind(modal, 'pipelineCadPreviewModeChanged', (event) => setMode(event.detail?.mode), state.cleanup);
   setMode(options.mode || modal?.dataset?.p3dCadPreviewMode || 'table2x');
@@ -148,11 +153,11 @@ export function mountPipelineCadPrecisionEditing(options = {}) {
     sessions: state.sessions,
     setMode,
     open: (identity) => openIdentity(state, identity, 'typed'),
-    cancel: () => { state.sessions.close(); state.view.close(); return true; },
+    cancel: () => { closePrecision(state); return true; },
     destroy() {
       if (state.destroyed) return false;
       state.destroyed = true;
-      state.sessions.close();
+      closePrecision(state);
       state.cleanup.splice(0).reverse().forEach((dispose) => dispose());
       state.view.destroy();
       delete dialog.dataset.p3dCadPrecisionLifecycle;
@@ -161,4 +166,4 @@ export function mountPipelineCadPrecisionEditing(options = {}) {
   });
 }
 
-export const _test = Object.freeze({ identityFromDetail });
+export const _test = Object.freeze({ identityFromDetail, handleSelection });

@@ -1,10 +1,19 @@
 import { GraphTool, InteractiveGraph } from './pipeline-3d-model-interactive-graph.js';
 import { projectPointToSegment } from './pipeline-3d-model-cad-math.js';
+import {
+  drawPipelineCadSelectionBox,
+  installPipelineCadSelectionRuntime,
+  selectedPipelineCadItems,
+} from './pipeline-3d-model-cad-selection-runtime.js';
 
 function usableRows(model) {
   return (model?.table2Rows || [])
     .filter((row) => Number.isFinite(row.stationValue) && Number.isFinite(row.elevationValue))
-    .map((row) => ({ id: row.id, x: row.stationValue, y: row.elevationValue, stationText: row.stationText }));
+    .map((row) => ({ id: row.id, type: 'elevation-node', x: row.stationValue, y: row.elevationValue, stationText: row.stationText }));
+}
+
+function modifierActive(event = {}) {
+  return event.shiftKey || event.ctrlKey || event.metaKey;
 }
 
 export class Table2XCanvas extends InteractiveGraph {
@@ -17,7 +26,16 @@ export class Table2XCanvas extends InteractiveGraph {
     this.precisionGripId = null;
     this.selectedId = null;
     this.draggingId = null;
+    this.groupDrag = null;
     this.hitRadius = Number(options.hitRadius) || 10;
+    installPipelineCadSelectionRuntime(this, {
+      graphName: 'table2x',
+      candidates: () => this.currentNodes().map((node) => ({ ...node, type: 'elevation-node' })),
+      syncLegacy: (detail) => { this.selectedId = detail.primaryId; },
+    });
+    const cancel = () => this.cancelActiveSelectionInteraction('escape');
+    this.addEventListener('interactionCancelled', cancel);
+    this.destroyCallbacks.push(() => this.removeEventListener('interactionCancelled', cancel));
   }
 
   setModel(model, options = {}) {
@@ -28,11 +46,10 @@ export class Table2XCanvas extends InteractiveGraph {
       this.visualOverrides.clear();
       this.precisionOverrides.clear();
       this.precisionGripId = null;
-      this.selectedId = null;
       this.draggingId = null;
-    } else if (!this.renderSnapshot.length) {
-      this.renderSnapshot = usableRows(model);
-    }
+      this.groupDrag = null;
+      this.setSelection([], { emit: false, source: 'model-reset' });
+    } else if (!this.renderSnapshot.length) this.renderSnapshot = usableRows(model);
     const rows = usableRows(model);
     const xs = rows.map((row) => row.x);
     const ys = rows.map((row) => row.y);
@@ -44,15 +61,14 @@ export class Table2XCanvas extends InteractiveGraph {
         { minX: Math.min(...xs), maxX: Math.max(...xs), minY: minY - padY, maxY: maxY + padY },
         { fit: !preserveSnapshot },
       );
-    } else {
-      this.render();
-    }
+    } else this.render();
   }
 
   reloadGraph() {
     this.renderSnapshot = usableRows(this.model);
     this.visualOverrides.clear();
     this.precisionOverrides.clear();
+    this.setSelection([], { emit: false, source: 'reload' });
     this.model?.clearDirtyRows?.();
     this.dispatchGraphEvent('reloadRequested', { graph: 'table2x' });
     this.render();
@@ -61,11 +77,7 @@ export class Table2XCanvas extends InteractiveGraph {
   currentNodes() {
     return usableRows(this.model).map((row) => {
       const precision = this.precisionOverrides.get(row.id);
-      return {
-        ...row,
-        x: precision?.x ?? row.x,
-        y: this.visualOverrides.get(row.id) ?? precision?.y ?? row.y,
-      };
+      return { ...row, x: precision?.x ?? row.x, y: this.visualOverrides.get(row.id) ?? precision?.y ?? row.y };
     });
   }
 
@@ -76,16 +88,8 @@ export class Table2XCanvas extends InteractiveGraph {
     return true;
   }
 
-  clearPrecisionPreview() {
-    this.precisionOverrides.clear();
-    this.render();
-    return true;
-  }
-
-  setPrecisionGrip(id) {
-    this.precisionGripId = id || null;
-    this.render();
-  }
+  clearPrecisionPreview() { this.precisionOverrides.clear(); this.render(); return true; }
+  setPrecisionGrip(id) { this.precisionGripId = id || null; this.render(); }
 
   hitTest(screenPoint) {
     let best = null;
@@ -93,10 +97,7 @@ export class Table2XCanvas extends InteractiveGraph {
     for (const node of this.currentNodes()) {
       const screen = this.worldToScreen(node);
       const next = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
-      if (next < distance) {
-        distance = next;
-        best = { type: 'elevation-node', node, screen };
-      }
+      if (next < distance) { distance = next; best = { type: 'elevation-node', node, screen }; }
     }
     return best;
   }
@@ -113,6 +114,16 @@ export class Table2XCanvas extends InteractiveGraph {
     return best;
   }
 
+  beginGroupDrag(hit, event, world) {
+    if (modifierActive(event) || !this.isSelected(hit.node.id)) return false;
+    const items = selectedPipelineCadItems(this, 'elevation-node');
+    this.draggingId = hit.node.id;
+    if (items.length < 2) return false;
+    const current = new Map(this.currentNodes().map((node) => [node.id, node.y]));
+    this.groupDrag = { startY: world.y, ids: items.map((item) => item.id), initial: current };
+    return true;
+  }
+
   onPrimaryPointerDown(event, screen, world) {
     const hit = this.hitTest(screen);
     if (this.tool === GraphTool.DELETE && hit) {
@@ -121,103 +132,99 @@ export class Table2XCanvas extends InteractiveGraph {
     }
     if (this.tool === GraphTool.ADD_NODE) {
       const projection = this.nearestProfileProjection(world);
-      if (projection) {
-        this.dispatchGraphEvent('nodeAdded', {
-          graph: 'table2x',
-          entityType: 'elevation-node',
-          stationValue: projection.x,
-          elevationValue: projection.y,
-          insertAfterId: projection.start.id,
-          insertBeforeId: projection.end.id,
-        });
-      }
+      if (projection) this.dispatchGraphEvent('nodeAdded', {
+        graph: 'table2x', entityType: 'elevation-node', stationValue: projection.x,
+        elevationValue: projection.y, insertAfterId: projection.start.id, insertBeforeId: projection.end.id,
+      });
       return;
     }
-    if (this.tool === GraphTool.SELECT && hit) {
-      this.clearPrecisionPreview();
-      this.selectedId = hit.node.id;
-      this.draggingId = hit.node.id;
-      this.dispatchGraphEvent('selectionChanged', { graph: 'table2x', entityId: hit.node.id, entityType: hit.type });
-      this.render();
+    if (this.tool !== GraphTool.SELECT) return;
+    this.clearPrecisionPreview();
+    if (!hit) {
+      this.draggingId = null;
+      this.groupDrag = null;
+      this.beginSelectionBox(screen, event);
+      return;
     }
+    this.selectHit(hit, event);
+    if (modifierActive(event) || !this.isSelected(hit.node.id)) return;
+    this.beginGroupDrag(hit, event, world);
+    this.render();
   }
 
   onPrimaryPointerMove(event, screen, world) {
+    if (this.pipelineCadSelectionState.box) { this.updateSelectionBox(screen); return; }
+    if (this.groupDrag) {
+      const delta = world.y - this.groupDrag.startY;
+      for (const id of this.groupDrag.ids) this.visualOverrides.set(id, this.groupDrag.initial.get(id) + delta);
+      this.dispatchGraphEvent('batchPreviewMoved', {
+        graph: 'table2x', entityType: 'elevation-node', entityIds: [...this.groupDrag.ids], delta: { y: delta },
+      });
+      this.render();
+      return;
+    }
     if (!this.draggingId) return;
     this.visualOverrides.set(this.draggingId, world.y);
     this.dispatchGraphEvent('nodePreviewMoved', {
-      graph: 'table2x',
-      entityId: this.draggingId,
-      entityType: 'elevation-node',
-      elevationValue: world.y,
+      graph: 'table2x', entityId: this.draggingId, entityType: 'elevation-node', elevationValue: world.y,
     });
     this.render();
   }
 
   onPrimaryPointerUp(event, screen, world) {
+    if (this.pipelineCadSelectionState.box) { this.finishSelectionBox(); return; }
+    if (this.groupDrag) {
+      const drag = this.groupDrag;
+      const delta = world.y - drag.startY;
+      const edits = drag.ids.map((id) => ({ id, elevation: drag.initial.get(id) + delta }));
+      this.groupDrag = null;
+      this.draggingId = null;
+      this.dispatchGraphEvent('batchMoved', {
+        graph: 'table2x', entityType: 'elevation-node', entityIds: edits.map((edit) => edit.id), edits, delta: { y: delta },
+      });
+      this.render();
+      return;
+    }
     if (!this.draggingId) return;
     const entityId = this.draggingId;
     this.draggingId = null;
     this.visualOverrides.set(entityId, world.y);
     this.dispatchGraphEvent('nodeMoved', {
-      graph: 'table2x',
-      entityId,
-      entityType: 'elevation-node',
-      after: { elevationValue: world.y },
-      commitReason: 'pointer-release',
+      graph: 'table2x', entityId, entityType: 'elevation-node', after: { elevationValue: world.y }, commitReason: 'pointer-release',
     });
     this.render();
   }
 
+  cancelActiveSelectionInteraction(source = 'cancel') {
+    this.groupDrag = null;
+    this.draggingId = null;
+    this.visualOverrides.clear();
+    this.cancelSelectionBox();
+    this.clearSelection({ source });
+  }
+
   drawPrecisionGrip(ctx, point, node) {
     if (node.id !== this.precisionGripId || node.id !== this.selectedId) return;
-    ctx.save();
-    ctx.strokeStyle = '#f8fafc';
-    ctx.fillStyle = '#0ea5e9';
-    ctx.lineWidth = 2;
-    ctx.fillRect(point.x - 5, point.y - 5, 10, 10);
-    ctx.strokeRect(point.x - 7, point.y - 7, 14, 14);
-    ctx.restore();
+    ctx.save(); ctx.strokeStyle = '#f8fafc'; ctx.fillStyle = '#0ea5e9'; ctx.lineWidth = 2;
+    ctx.fillRect(point.x - 5, point.y - 5, 10, 10); ctx.strokeRect(point.x - 7, point.y - 7, 14, 14); ctx.restore();
   }
 
   render() {
     const ctx = this.context;
     if (!ctx) return;
-    ctx.clearRect(0, 0, this.width, this.height);
-    ctx.fillStyle = '#0b1220';
-    ctx.fillRect(0, 0, this.width, this.height);
-    this.drawGrid(ctx);
-
+    ctx.clearRect(0, 0, this.width, this.height); ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, this.width, this.height); this.drawGrid(ctx);
     if (this.renderSnapshot.length > 1) {
-      ctx.save();
-      ctx.beginPath();
-      const first = this.worldToScreen(this.renderSnapshot[0]);
-      ctx.moveTo(first.x, first.y);
-      for (let index = 1; index < this.renderSnapshot.length; index += 1) {
-        const point = this.worldToScreen(this.renderSnapshot[index]);
-        ctx.lineTo(point.x, point.y);
-      }
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 3;
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-      ctx.restore();
+      ctx.save(); ctx.beginPath(); const first = this.worldToScreen(this.renderSnapshot[0]); ctx.moveTo(first.x, first.y);
+      for (let index = 1; index < this.renderSnapshot.length; index += 1) { const point = this.worldToScreen(this.renderSnapshot[index]); ctx.lineTo(point.x, point.y); }
+      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
     }
-
     for (const node of this.currentNodes()) {
-      const point = this.worldToScreen(node);
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, node.id === this.selectedId ? 8 : 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#facc15';
-      ctx.strokeStyle = node.id === this.selectedId ? '#ffffff' : '#0f172a';
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
+      const point = this.worldToScreen(node); const selected = this.isSelected(node.id); const primary = node.id === this.selectedId;
+      ctx.beginPath(); ctx.arc(point.x, point.y, selected ? 8 : 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#facc15'; ctx.strokeStyle = primary ? '#ffffff' : selected ? '#22d3ee' : '#0f172a'; ctx.lineWidth = selected ? 2.5 : 2; ctx.fill(); ctx.stroke();
       this.drawPrecisionGrip(ctx, point, node);
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = '11px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(Number(node.y).toFixed(2), point.x, point.y - 12);
+      ctx.fillStyle = '#cbd5e1'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillText(Number(node.y).toFixed(2), point.x, point.y - 12);
     }
+    drawPipelineCadSelectionBox(this, ctx);
   }
 }

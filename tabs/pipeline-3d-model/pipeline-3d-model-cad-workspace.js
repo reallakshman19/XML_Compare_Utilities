@@ -57,6 +57,11 @@ function createHosts(graphs) {
   };
 }
 
+function setSelectionMode(graphs, mode) {
+  const enabled = mode !== 'overlay';
+  Object.values(graphs || {}).forEach((graph) => graph.setSelectionEnabled?.(enabled));
+}
+
 function destroyParts(parts) {
   parts.bindings?.destroy?.();
   parts.precision?.destroy?.();
@@ -125,20 +130,23 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     holders: view.holders,
     resize,
   });
+  const initialMode = previewModes?.mode || modal?.dataset?.p3dCadPreviewMode || 'table2x';
   const precision = mountPipelineCadPrecisionEditing({
     dialog,
     controller,
     graphs,
     stages: view.stages,
-    mode: previewModes?.mode || modal?.dataset?.p3dCadPreviewMode || 'table2x',
+    mode: initialMode,
   });
   const onMode = (event) => {
     const mode = event.detail?.mode || 'table2x';
     shell?.setMode(mode);
     objectSnap?.setMode(mode);
     precision?.setMode(mode);
+    setSelectionMode(graphs, mode);
   };
   previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
+  setSelectionMode(graphs, initialMode);
   if (shell && previewModes) {
     shell.setMode(previewModes.mode);
     objectSnap?.setMode(previewModes.mode);

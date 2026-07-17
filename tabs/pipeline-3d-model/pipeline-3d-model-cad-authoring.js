@@ -3,6 +3,11 @@ import { Table2XCanvas } from './pipeline-3d-model-table2x-canvas.js';
 import { Table3XCanvas } from './pipeline-3d-model-table3x-canvas.js';
 import { deleteProfileRowCommand } from './pipeline-3d-model-cad-commands.js';
 import {
+  clearPipelineCadBatchOverrides,
+  executePipelineCadBatchDelete,
+  executePipelineCadBatchMove,
+} from './pipeline-3d-model-cad-batch-controller.js';
+import {
   describePipelineCadSnapSettings,
   loadPipelineCadSnapSettings,
   normalizePipelineCadSnapSettings,
@@ -147,7 +152,7 @@ function executeShortcut(action, state) {
   else if (action === PipelineCadShortcut.RELOAD) controller.reloadGraphs();
   else if (action === PipelineCadShortcut.UNDO) controller.undo();
   else if (action === PipelineCadShortcut.REDO) controller.redo();
-  else if (action === PipelineCadShortcut.DELETE_SELECTION) deleteSelection();
+  else if (action === PipelineCadShortcut.DELETE_SELECTION) deleteSelection(state.name);
   else if (action === PipelineCadShortcut.TOGGLE_GRID_SNAP) graph.setSnapSettings({ gridEnabled: !ensureSnapState(graph).gridEnabled });
   else if (action === PipelineCadShortcut.TOGGLE_STATION_SNAP) graph.setSnapSettings({ stationEnabled: !ensureSnapState(graph).stationEnabled });
   else if (action === PipelineCadShortcut.TOGGLE_OBJECT_SNAP) graph.setSnapSettings({ objectEnabled: !ensureSnapState(graph).objectEnabled });
@@ -168,9 +173,8 @@ function mountStage(state) {
     separator.insertAdjacentHTML('beforebegin', '<button type="button" data-p3d-cad-snap="grid" aria-pressed="false">Grid Snap</button><button type="button" data-p3d-cad-snap="station" aria-pressed="false">Station Snap</button><span data-p3d-cad-snap-hint></span>');
   }
   const menu = stage.ownerDocument.createElement('div');
-  menu.className = 'p3d-cad-context-menu';
-  menu.hidden = true;
-  menu.innerHTML = '<button type="button" data-p3d-cad-context-action="edit">Edit value / label</button><button type="button" data-p3d-cad-context-action="delete">Delete</button>';
+  menu.className = 'p3d-cad-context-menu'; menu.hidden = true;
+  menu.innerHTML = '<button type="button" data-p3d-cad-context-action="edit">Edit value / label</button><button type="button" data-p3d-cad-context-action="delete">Delete selection</button>';
   stage.appendChild(menu);
   let hit = null;
   let contextClient = null;
@@ -182,6 +186,9 @@ function mountStage(state) {
     updateSnapControls(stage, graph, storage);
   };
   const onKey = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && graph.tool === GraphTool.SELECT) {
+      event.preventDefault(); state.selectAll(state.name); return;
+    }
     const action = resolvePipelineCadShortcut(event, state.name);
     if (action && executeShortcut(action, state)) event.preventDefault();
   };
@@ -189,15 +196,16 @@ function mountStage(state) {
     const screen = graph.eventToScreen(event);
     hit = graph.hitTest(screen);
     if (!hit) return;
-    event.preventDefault();
-    contextClient = { x: event.clientX, y: event.clientY };
-    state.select({ graph: state.name, entityId: hit.node.id, entityType: hit.type });
+    event.preventDefault(); contextClient = { x: event.clientX, y: event.clientY };
+    graph.selectHit?.(hit, event);
+    const edit = menu.querySelector('[data-p3d-cad-context-action="edit"]');
+    if (edit) edit.disabled = graph.getSelectionDetail?.().count !== 1;
     menu.style.left = `${screen.x}px`; menu.style.top = `${screen.y}px`; menu.hidden = false;
   };
   const onMenu = (event) => {
     const action = event.target?.dataset?.p3dCadContextAction;
-    if (action === 'delete') state.deleteSelection();
-    if (action === 'edit' && hit && contextClient) {
+    if (action === 'delete') state.deleteSelection(state.name);
+    if (action === 'edit' && hit && contextClient && graph.getSelectionDetail?.().count === 1) {
       canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: contextClient.x, clientY: contextClient.y }));
     }
     hit = null; contextClient = null; menu.hidden = true;
@@ -216,6 +224,10 @@ function mountStage(state) {
   };
 }
 
+function selectionIds(graph) {
+  return graph?.getSelectionDetail?.().entityIds || [];
+}
+
 export function mountPipelineCadAuthoring(options = {}) {
   installPipelineCadAuthoringPatches();
   const { stages, graphs, controller } = options;
@@ -223,23 +235,48 @@ export function mountPipelineCadAuthoring(options = {}) {
   ensureStyle(stages.table2x.ownerDocument || globalThis.document);
   let selection = null;
   const select = (detail) => {
-    selection = detail;
-    if (detail.graph === 'table2x') graphs.table2x.selectedId = detail.entityId;
-    else graphs.table3x.selected = { id: detail.entityId, type: detail.entityType };
-    graphs[detail.graph]?.render?.();
+    if (!detail?.graph) return;
+    if (selection?.graph && selection.graph !== detail.graph) graphs[selection.graph]?.clearSelection?.({ emit: false, source: 'graph-switch' });
+    selection = detail.count ? detail : null;
   };
-  const deleteSelection = () => {
-    if (!selection?.entityId || !controller.model?.findRow?.(selection.entityId)) return false;
-    const changed = controller.execute(deleteProfileRowCommand(controller.model, selection.entityId), 'delete-selected-profile-row');
+  const deleteSelection = (name = selection?.graph) => {
+    const graph = graphs[name];
+    const ids = selectionIds(graph).filter((id) => controller.model?.findRow?.(id));
+    if (!ids.length) return false;
+    const changed = ids.length === 1
+      ? controller.execute(deleteProfileRowCommand(controller.model, ids[0]), 'delete-selected-profile-row')
+      : executePipelineCadBatchDelete(controller, { graph: name, entityIds: ids });
+    graph.clearSelection?.({ emit: false, source: 'delete' });
     selection = null;
     return changed;
   };
-  const cleanups = Object.keys(graphs).map((name) => mountStage({ name, stage: stages[name], graph: graphs[name], controller, storage, select, deleteSelection }));
-  const onSelection = (event) => { if (event.detail?.entityId) select(event.detail); };
-  Object.values(graphs).forEach((graph) => graph.addEventListener('selectionChanged', onSelection));
+  const selectAll = (name) => {
+    if (selection?.graph && selection.graph !== name) graphs[selection.graph]?.clearSelection?.({ emit: false, source: 'graph-switch' });
+    return graphs[name]?.selectAll?.({ source: 'select-all' });
+  };
+  const cleanups = Object.keys(graphs).map((name) => mountStage({
+    name, stage: stages[name], graph: graphs[name], controller, storage, deleteSelection, selectAll,
+  }));
+  const onSelection = (event) => select(event.detail);
+  const onBatchMoved = (event) => {
+    if (executePipelineCadBatchMove(controller, event.detail)) clearPipelineCadBatchOverrides(graphs[event.detail.graph]);
+  };
+  const onBatchDelete = (event) => executePipelineCadBatchDelete(controller, event.detail);
+  Object.values(graphs).forEach((graph) => {
+    graph.addEventListener('selectionChanged', onSelection);
+    graph.addEventListener('batchMoved', onBatchMoved);
+    graph.addEventListener('batchDeleteRequested', onBatchDelete);
+  });
   return Object.freeze({
+    getSelection: () => selection,
+    deleteSelection,
+    selectAll,
     destroy() {
-      Object.values(graphs).forEach((graph) => graph.removeEventListener('selectionChanged', onSelection));
+      Object.values(graphs).forEach((graph) => {
+        graph.removeEventListener('selectionChanged', onSelection);
+        graph.removeEventListener('batchMoved', onBatchMoved);
+        graph.removeEventListener('batchDeleteRequested', onBatchDelete);
+      });
       cleanups.splice(0).forEach((dispose) => dispose());
       return true;
     },
