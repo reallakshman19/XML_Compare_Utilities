@@ -39,7 +39,8 @@ assert.ok(chain.includes('PS-14396.8'));
 
 const exports = createPsFamilyAuditExports(audit);
 assert.equal(createPsFamilyActiveReportExport(audit, 'supportSummary').text, exports.supportSummaryCsv);
-assert.equal(createPsFamilyActiveReportExport(audit, 'lineSupportTree').text, exports.lineSupportTreeText);
+assert.equal(createPsFamilyActiveReportExport(audit, 'lineSupportTree').text, exports.lineSupportTreeCsv);
+assert.match(exports.lineSupportTreeCsv, /SupportGroup,LineTree/);
 assert.match(exports.supportSummaryCsv, /S8810011_PS-14396/);
 assert.match(exports.supportChainCsv, /PS-14396\.8/);
 

@@ -4,6 +4,12 @@ import { parsePsFamilyRegisterCsv } from './ps-family-register-csv-parser.js';
 import { parsePsFamilyElementDetailCsv } from './ps-family-element-detail-csv-parser.js';
 import { buildPsFamilyPosFamilies } from './ps-family-posfamily-engine.js';
 import { buildPsFamilyClashAudit } from './ps-family-clash-audit-engine.js';
+import {
+  PS_FAMILY_EVIDENCE_MODE,
+  buildPsFamilyEvidenceAudit,
+  createPsFamilyEvidenceReadiness,
+  parsePsFamilyEvidenceBundle,
+} from './ps-family-evidence-graph-audit.js';
 
 function hasText(value) { return Boolean(String(value || '').trim()); }
 function emptyParsed() { return { rows: [], diagnostics: [] }; }
@@ -17,16 +23,17 @@ function severityCount(diagnostics, level) { return diagnostics.filter((item) =>
 
 function inputPresenceDiagnostics(parsed) {
   const diagnostics = [];
-  if (!parsed.structure.rows.length) diagnostics.push({ level: 'ERROR', code: 'MISSING_STRUCTUREGROUP_SUPPORTS_XML', message: 'StructureGroup vs Supports XML is required for SupportChange audit.' });
-  if (!parsed.support.rows.length) diagnostics.push({ level: 'ERROR', code: 'MISSING_SUPPORT_CHAIN_XML', message: 'Clash within Supports XML is required for SupportChange audit.' });
+  if (!parsed.structure.rows.length) diagnostics.push({ level: 'ERROR', code: 'MISSING_STRUCTUREGROUP_SUPPORTS_XML', message: 'StructureGroup vs Supports XML is required for legacy XML audit mode.' });
+  if (!parsed.support.rows.length) diagnostics.push({ level: 'ERROR', code: 'MISSING_SUPPORT_CHAIN_XML', message: 'Clash within Supports XML is required for legacy XML audit mode.' });
   return diagnostics;
 }
 
 function readinessSummary(parsed, diagnostics) {
   const sourceFamily = detectSourceFamily(parsed.expected.rows, [...parsed.structure.rows, ...parsed.support.rows], parsed.config);
-  if (!sourceFamily) diagnostics.push({ level: 'ERROR', code: 'UNKNOWN_SOURCE_FAMILY', message: 'Source family could not be detected from SupportChangeXML evidence or manual input.' });
+  if (!sourceFamily) diagnostics.push({ level: 'ERROR', code: 'UNKNOWN_SOURCE_FAMILY', message: 'Source family could not be detected from XML evidence or manual input.' });
   const parsedPositions = parsed.details.rows.filter((row) => row.position).length;
   return {
+    evidenceMode: 'XML',
     sourceFamily,
     structureContactCount: parsed.structure.rows.length,
     supportChainCount: parsed.support.rows.length,
@@ -43,31 +50,90 @@ function readinessSummary(parsed, diagnostics) {
   };
 }
 
-function parseInputs(input) {
+function parseSharedInputs(input) {
   const config = input?.config || {};
-  const legacyText = input?.clashXmlText || '';
-  const structureText = input?.structureXmlText || '';
-  const supportText = input?.supportXmlText || input?.psClashXmlText || '';
   const expectedText = input?.expectedCsvText || '';
   const detailText = input?.detailCsvText || '';
-  const legacy = hasText(legacyText) ? parsePsFamilyClashXml(legacyText, config) : emptyParsed();
-  const structure = hasText(structureText) ? parseSupportChangeXml(structureText, config, 'StructureGroup vs Supports') : emptyParsed();
-  const support = hasText(supportText) ? parseSupportChangeXml(supportText, config, 'Clash within Supports') : emptyParsed();
   const expected = hasText(expectedText) ? parsePsFamilyRegisterCsv(expectedText, config) : emptyParsed();
   const details = hasText(detailText) ? parsePsFamilyElementDetailCsv(detailText, config) : emptyParsed();
   const pos = buildPsFamilyPosFamilies(details.rows, { toleranceMm: config.posToleranceMm });
-  return { config, legacy, structure, support, expected, details, pos };
+  return { config, expected, details, pos };
+}
+
+function parseInputs(input) {
+  const shared = parseSharedInputs(input);
+  const legacyText = input?.clashXmlText || '';
+  const structureText = input?.structureXmlText || '';
+  const supportText = input?.supportXmlText || input?.psClashXmlText || '';
+  const legacy = hasText(legacyText) ? parsePsFamilyClashXml(legacyText, shared.config) : emptyParsed();
+  const structure = hasText(structureText) ? parseSupportChangeXml(structureText, shared.config, 'StructureGroup vs Supports') : emptyParsed();
+  const support = hasText(supportText) ? parseSupportChangeXml(supportText, shared.config, 'Clash within Supports') : emptyParsed();
+  return { ...shared, legacy, structure, support };
+}
+
+function evidenceMode(input) {
+  const explicit = String(input?.evidenceMode || input?.config?.evidenceMode || '').trim().toUpperCase();
+  if (explicit === PS_FAMILY_EVIDENCE_MODE) return PS_FAMILY_EVIDENCE_MODE;
+  if (explicit === 'XML') return 'XML';
+  return hasText(input?.relationshipBundleText) && !hasText(input?.structureXmlText) && !hasText(input?.supportXmlText)
+    ? PS_FAMILY_EVIDENCE_MODE
+    : 'XML';
+}
+
+function graphDiagnostics(shared) {
+  return [...shared.expected.diagnostics, ...shared.details.diagnostics, ...shared.pos.diagnostics];
+}
+
+function createGraphReadiness(input) {
+  const shared = parseSharedInputs(input);
+  const readiness = createPsFamilyEvidenceReadiness({
+    relationshipBundleText: input?.relationshipBundleText || '',
+    expectedRows: shared.expected.rows,
+    elementDetailRows: shared.pos.rows,
+    config: shared.config,
+  });
+  const diagnostics = [...readiness.diagnostics, ...graphDiagnostics(shared)];
+  const parsedPositions = shared.details.rows.filter((row) => row.position).length;
+  const summary = {
+    ...readiness.summary,
+    expectedCount: shared.expected.rows.length,
+    detailCount: shared.details.rows.length,
+    positionParsedCount: parsedPositions,
+    positionMissingCount: shared.details.rows.length - parsedPositions,
+    posFamilyCount: shared.pos.posFamilies.length,
+    errorCount: severityCount(diagnostics, 'ERROR'),
+    warnCount: severityCount(diagnostics, 'WARN'),
+    infoCount: severityCount(diagnostics, 'INFO'),
+  };
+  return Object.freeze({ summary, diagnostics, blocking: diagnostics.some((item) => item.level === 'ERROR') });
 }
 
 export function createPsFamilyInputReadinessFromTextInputs(input) {
+  if (evidenceMode(input) === PS_FAMILY_EVIDENCE_MODE) return createGraphReadiness(input);
   const parsed = parseInputs(input);
   const diagnostics = [...inputPresenceDiagnostics(parsed), ...parsed.legacy.diagnostics, ...parsed.structure.diagnostics, ...parsed.support.diagnostics, ...parsed.expected.diagnostics, ...parsed.details.diagnostics, ...parsed.pos.diagnostics];
   const summary = readinessSummary(parsed, diagnostics);
   return Object.freeze({ summary, diagnostics, blocking: diagnostics.some((item) => item.level === 'ERROR') });
 }
 
+function createGraphAudit(input) {
+  const shared = parseSharedInputs(input);
+  const bundle = parsePsFamilyEvidenceBundle(input?.relationshipBundleText || '');
+  return buildPsFamilyEvidenceAudit({
+    relationshipBundle: bundle,
+    expectedRows: shared.expected.rows,
+    elementDetailRows: shared.pos.rows,
+    posFamilies: shared.pos.posFamilies,
+    config: shared.config,
+    diagnostics: graphDiagnostics(shared),
+  });
+}
+
 export function createPsFamilyClashAuditFromTextInputs(input) {
+  if (evidenceMode(input) === PS_FAMILY_EVIDENCE_MODE) return createGraphAudit(input);
   const parsed = parseInputs(input);
+  const sourceFamily = detectSourceFamily(parsed.expected.rows, [...parsed.structure.rows, ...parsed.support.rows], parsed.config);
+  const auditConfig = sourceFamily ? { ...parsed.config, sourceFamily } : parsed.config;
   return buildPsFamilyClashAudit({
     clashRows: parsed.legacy.rows,
     structureGroupRows: parsed.structure.rows,
@@ -75,7 +141,9 @@ export function createPsFamilyClashAuditFromTextInputs(input) {
     expectedRows: parsed.expected.rows,
     elementDetailRows: parsed.pos.rows,
     posFamilies: parsed.pos.posFamilies,
-    config: parsed.config,
+    config: auditConfig,
     diagnostics: [...parsed.legacy.diagnostics, ...parsed.structure.diagnostics, ...parsed.support.diagnostics, ...parsed.expected.diagnostics, ...parsed.details.diagnostics, ...parsed.pos.diagnostics],
   });
 }
+
+export const createPsFamilyAuditFromTextInputs = createPsFamilyClashAuditFromTextInputs;

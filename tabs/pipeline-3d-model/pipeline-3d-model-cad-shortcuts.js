@@ -10,6 +10,7 @@ export const PipelineCadShortcut = Object.freeze({
   REDO: 'redo',
   TOGGLE_GRID_SNAP: 'toggle-grid-snap',
   TOGGLE_STATION_SNAP: 'toggle-station-snap',
+  TOGGLE_OBJECT_SNAP: 'toggle-object-snap',
 });
 
 export function isPipelineCadEditableTarget(target) {
@@ -24,6 +25,7 @@ export function resolvePipelineCadShortcut(event, graphName) {
   if (modifier && key === 'z') return event.shiftKey ? PipelineCadShortcut.REDO : PipelineCadShortcut.UNDO;
   if (modifier && key === 'y') return PipelineCadShortcut.REDO;
   if (modifier || event.altKey) return null;
+  if (key === 'f3') return PipelineCadShortcut.TOGGLE_OBJECT_SNAP;
   if (key === 'v') return PipelineCadShortcut.SELECT;
   if (key === 'n') return PipelineCadShortcut.ADD_NODE;
   if (key === 'm' && graphName === 'table3x') return PipelineCadShortcut.ADD_MARKER;
@@ -49,5 +51,6 @@ export function pipelineCadShortcutLabel(action) {
     [PipelineCadShortcut.REDO]: 'Redo (Ctrl/Cmd+Shift+Z)',
     [PipelineCadShortcut.TOGGLE_GRID_SNAP]: 'Toggle grid snap (G)',
     [PipelineCadShortcut.TOGGLE_STATION_SNAP]: 'Toggle station snap (S)',
+    [PipelineCadShortcut.TOGGLE_OBJECT_SNAP]: 'Toggle Object Snap (F3)',
   })[action] || '';
 }
