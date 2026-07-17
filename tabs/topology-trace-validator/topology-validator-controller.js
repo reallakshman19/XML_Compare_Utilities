@@ -32,6 +32,9 @@ export function createTopologyValidatorController(elements) {
   let activeBottomTab = 'summary';
   let destroySvgInteractions = () => {};
   let svgNavigation = emptyNavigation();
+  let viewModelAdapter = (value) => value;
+  let renderObserver = () => {};
+  let selectionObserver = () => {};
 
   async function loadArtifact(kind, text, fileName) {
     try {
@@ -95,7 +98,8 @@ export function createTopologyValidatorController(elements) {
   function render() {
     if (!validation) return;
     assertNoMutation();
-    viewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
+    const baseViewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
+    viewModel = viewModelAdapter(baseViewModel) ?? baseViewModel;
     destroySvgInteractions();
     svgNavigation.destroy();
     const svg = renderTopologySvg(elements.svgHost, viewModel);
@@ -108,11 +112,13 @@ export function createTopologyValidatorController(elements) {
     if (selectedKey) applyTopologyTraceSelection(elements.traceRoot, lookup, selectedKey);
     updateMetricStrip();
     updateSearchStatus();
+    renderObserver({ svg, viewModel, baseViewModel, selectedKey });
   }
 
   function selectGroup(selection, objectKey) {
     selectedKey = selection ? cleanText(objectKey) : '';
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
+    selectionObserver(selection, selectedKey);
   }
 
   function select(objectKey) {
@@ -124,6 +130,7 @@ export function createTopologyValidatorController(elements) {
       selectedKey,
     );
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
+    selectionObserver(selection, selectedKey);
     return selection;
   }
 
@@ -186,6 +193,10 @@ export function createTopologyValidatorController(elements) {
     render();
   }
 
+  function setViewModelAdapter(adapter) { viewModelAdapter = typeof adapter === 'function' ? adapter : (value) => value; }
+  function setRenderObserver(observer) { renderObserver = typeof observer === 'function' ? observer : () => {}; }
+  function setSelectionObserver(observer) { selectionObserver = typeof observer === 'function' ? observer : () => {}; }
+
   function assertNoMutation() {
     for (const kind of ['source', 'canonical', 'ledger', 'inputXml']) {
       if (!artifacts[kind]) continue;
@@ -238,12 +249,14 @@ export function createTopologyValidatorController(elements) {
   function destroy() {
     destroySvgInteractions();
     svgNavigation.destroy();
+    setViewModelAdapter(null); setRenderObserver(null); setSelectionObserver(null);
   }
 
   updateMetricStrip();
   return Object.freeze({
     loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection,
     setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation,
+    setViewModelAdapter, setRenderObserver, setSelectionObserver,
     evidence, downloadEnrichedInputXml: () => downloadEnrichedInputXml(artifacts), destroy,
   });
 }
