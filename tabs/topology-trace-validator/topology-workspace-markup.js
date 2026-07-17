@@ -94,13 +94,14 @@ function editMarkup() {
       <div class="ttv-title"><strong>Edit Draft</strong><span>Reversible canonical topology surgery · source remains immutable</span></div>
       <div class="ttv-button-group">
         <button type="button" class="is-active" data-ttv-edit-tool="SELECT">Select</button>
-        <button type="button" data-ttv-edit-tool="MOVE">Move</button>
-        <button type="button" data-ttv-edit-operation="MERGE">Snap / Merge</button>
-        <button type="button" data-ttv-edit-operation="BRIDGE">Bridge</button>
-        <button type="button" data-ttv-edit-operation="ADD">Add</button>
-        <button type="button" data-ttv-edit-operation="SPLIT">Break</button>
-        <button type="button" data-ttv-edit-operation="DISCONNECT">Disconnect</button>
-        <button type="button" data-ttv-edit-operation="DELETE">Delete</button>
+        <button type="button" data-ttv-edit-tool="MOVE" title="Drag a node · X/Y/Z locks an axis · drop on a node to merge">Move</button>
+        <button type="button" data-ttv-edit-tool="CONNECT" title="Drag node → node to bridge the gap">Connect</button>
+        <button type="button" data-ttv-edit-tool="ADD" title="Drag from a node to add a straight element">Add</button>
+        <button type="button" data-ttv-edit-tool="SPLIT" title="Click an edge to split at the picked point">Break</button>
+        <button type="button" data-ttv-edit-tool="MEASURE" title="Click component surfaces to measure segment and total distances">Measure</button>
+        <button type="button" data-ttv-edit-operation="MERGE" title="Merge the two selected nodes">Snap / Merge</button>
+        <button type="button" data-ttv-edit-operation="DISCONNECT" title="Disconnect the selected edge endpoint">Disconnect</button>
+        <button type="button" data-ttv-edit-operation="DELETE" title="Delete the selected edge">Delete</button>
       </div>
       <div class="ttv-button-group">
         <button type="button" data-ttv-edit-undo disabled>Undo</button>
@@ -113,8 +114,10 @@ function editMarkup() {
         <button type="button" class="is-active" data-ttv-edit-projection="XY">XY</button>
         <button type="button" data-ttv-edit-projection="XZ">XZ</button>
         <button type="button" data-ttv-edit-projection="YZ">YZ</button>
-        <label class="ttv-toggle"><input type="checkbox" data-ttv-edit-3d>3D preview</label>
         <label class="ttv-toggle" title="Select Vertical Axis">Up Axis: <select data-ttv-vertical-axis><option value="Y" selected>Y</option><option value="Z">Z</option></select></label>
+        <label class="ttv-support-scale" title="Scale support symbols without changing topology">Support scale <input type="range" min="0.25" max="6" step="0.25" value="1" data-ttv-support-scale><output data-ttv-support-scale-output>1.00×</output></label>
+        <label class="ttv-toggle" title="Show autofix proposals as translucent ghosts"><input type="checkbox" data-ttv-edit-ghosts>Ghost fixes</label>
+        <button type="button" data-ttv-edit-apply-approved title="Apply every auto-approved proposal (one transaction)">Apply approved</button>
       </div>
       <div class="ttv-visibility-ribbon" aria-label="Selection filters">
         ${EDIT_FILTERS.map((kind) => {
@@ -123,17 +126,20 @@ function editMarkup() {
         }).join('')}
       </div>
       <div class="ttv-button-group ttv-edit-exports">
+        <label class="ttv-file-button" title="Load a managed-stage / staged JSON directly (branch scope popup for large files)">Load Staged JSON<input type="file" data-ttv-edit-load-staged accept=".json" hidden></label>
         <button type="button" data-ttv-edit-save>Save Draft</button>
         <label class="ttv-file-button">Load Draft<input type="file" data-ttv-edit-load accept=".json" hidden></label>
         <button type="button" data-ttv-edit-export disabled>Export Bundle</button>
+        <button type="button" data-ttv-edit-export-staged title="Export inputxml-managed-stage/v1 with applied mutations + provenance">Export Staged JSON</button>
       </div>
     </header>
     <div class="ttv-edit-metrics" data-ttv-edit-metrics></div>
+    <div class="ttv-edit-ghost-summary" data-ttv-edit-ghost-summary></div>
     <div class="ttv-edit-main">
       <main class="ttv-edit-canvas-stack">
         <div class="ttv-edit-svg-host" data-ttv-edit-svg-host><div class="ttv-empty">Open Edit Draft after loading topology.</div></div><svg class="ttv-axis-compass" data-ttv-axis-compass viewBox="-50 -50 100 100" width="80" height="80" style="position:absolute;bottom:10px;left:10px;pointer-events:none;z-index:20;"><defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs><line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" /><text x="40" y="5" font-size="12" fill="#ef4444">X</text><line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" /><text x="-5" y="-40" font-size="12" fill="#22c55e">Y</text></svg>
         <div class="ttv-edit-3d-host" data-ttv-edit-3d-host hidden></div>
-        <div class="ttv-navigation-hint">Move tool: drag a node · Shift-drag: box select · Shift-click: path · Ctrl/Cmd-click: multi-select · Arrow keys: nudge</div>
+        <div class="ttv-navigation-hint">Move: drag node (X/Y/Z axis lock) · Connect/Add: drag from node · Break: click edge · Shift-drag: box select · Shift-click: path · Ctrl/Cmd-click: multi · Wheel: cursor zoom · F: fit</div>
       </main>
       <aside class="ttv-edit-inspector" data-ttv-edit-inspector><div class="ttv-inspector-empty">Select a draft object.</div></aside>
     </div>
@@ -142,6 +148,7 @@ function editMarkup() {
       <footer class="ttv-edit-bottom">
         <section data-ttv-edit-timeline></section>
         <section data-ttv-edit-validation></section>
+        <section class="ttv-edit-updates" data-ttv-edit-updates></section>
       </footer>
     </details>
     <div class="ttv-status" data-ttv-edit-status data-status="idle">Edit Draft is not initialized.</div>

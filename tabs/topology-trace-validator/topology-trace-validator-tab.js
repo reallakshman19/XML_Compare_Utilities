@@ -1,12 +1,13 @@
 /** Mounts immutable Trace/Parity surfaces and the reversible Edit Draft tab. */
 import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
-import { createTopologyEditController } from './topology-edit-controller.js';
+import { createTopologyEditController } from './topology-edit-controller.js?v=20260717-ttv-components-v1';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
 import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260716-topology-checker-v1';
-import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260716-topology-checker-v1';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260716-topology-checker-v1';
+import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260717-ttv-components-v1';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260717-ttv-components-v1';
+import { createTopologyEditExtensions } from './topology-edit-extensions.js';
 
 const STYLE_ID = 'topology-trace-validator-style';
 
@@ -99,8 +100,11 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   const traceController = createTopologyValidatorController(collectTraceElements(shell));
   const parityController = createTopologyParityController(collectParityElements(shell));
   let controller = null;
+  let editExtensions = null;
   const editController = createTopologyEditController(collectEditElements(shell), {
     onSelectionChange: (selection) => controller?.synchronizeCanonicalSelection(selection, 'edit'),
+    onRender: () => editExtensions?.onRender(),
+    onGhostPick: (objectId) => editExtensions?.onGhostPick(objectId),
   });
   const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController);
   const checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
@@ -117,6 +121,7 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
     destroy: () => { checkerController.destroy(); workspaceController.destroy(); },
   });
   const cleanups = wireTopologyWorkspace(shell, controller);
+  editExtensions = createTopologyEditExtensions(shell, controller);
   if (initialArtifacts) {
     for (const kind of ['source', 'canonical', 'ledger', 'scene', 'parsed', 'report']) {
       if (initialArtifacts[kind]) await controller.loadArtifact(kind, JSON.stringify(initialArtifacts[kind]), `${kind}.fixture.json`);
@@ -127,7 +132,7 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   }
   return Object.freeze({
     controller,
-    destroy: () => { cleanups.forEach((cleanup) => cleanup()); controller.destroy(); },
+    destroy: () => { cleanups.forEach((cleanup) => cleanup()); editExtensions?.destroy(); controller.destroy(); },
   });
 }
 
@@ -207,7 +212,7 @@ function ensureStylesheet(documentRef) {
     link.rel = 'stylesheet';
     documentRef.head.appendChild(link);
   }
-  link.href = new URL('./topology-parity-workspace.css?v=20260716-topology-checker-v1', import.meta.url).href;
+  link.href = new URL('./topology-parity-workspace.css?v=20260717-ttv-components-v1', import.meta.url).href;
 }
 
 function objectOrNull(value) {

@@ -9,10 +9,11 @@
  */
 
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
-import { renderTopologyEditSvg } from './topology-edit-svg-renderer.js';
-import { wireTopologyEditInteractions } from './topology-edit-interactions.js';
-import { disposeTopologyEdit3dPreview, renderTopologyEdit3dPreview, selectTopologyEdit3dObject } from './topology-edit-3d-preview.js';
-import { wireTopologySvgNavigation } from './topology-svg-navigation.js';
+import {
+  disposeTopologyEditCanvas, renderTopologyEditCanvas, selectTopologyEditObjects,
+  setTopologyEditGhostModel, topologyEditCanvasNavigation,
+} from './topology-edit-3d-canvas.js?v=20260717-ttv-components-v1';
+import { clearTopologyMeasurement, setTopologyMeasurementActive } from './topology-edit-measurement.js?v=20260717-ttv-components-v1';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 import {
   EDIT_KINDS, downloadText, emptyEditNavigation, objectForSelection, outputStem,
@@ -22,15 +23,16 @@ import {
 import {
   buildTopologyEditInspectorMarkup, buildTopologyEditMetricsMarkup,
   buildTopologyEditTimelineMarkup, buildTopologyEditValidationMarkup,
-} from './topology-edit-panel.js';
+} from './topology-edit-panel.js?v=20260717-ttv-components-v1';
 
 /** @param {Record<string, Element>} elements @param {{onSelectionChange:(selection:ReadonlyArray<Record<string,string>>)=>void}} dependencies @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyEditController(elements, dependencies) {
   if (typeof dependencies?.onSelectionChange !== 'function') throw new TypeError('Edit controller requires onSelectionChange().');
-  let core = null, sourceText = '', options = null, baseArtifacts = null, editedArtifacts = null, draft = null;
-  let selection = Object.freeze([]), projection = 'XY', tool = 'SELECT', contextEdgeId = '', show3d = false;
+  let core = null, sourceText = '', options = null, baseArtifacts = null, editedArtifacts = null, draft = null, sourceBranches = [];
+  let selection = Object.freeze([]), projection = 'XY', tool = 'SELECT', contextEdgeId = '', ghostModel = null;
+  let supportScale = 1;
   let selectionFilters = new Set(EDIT_KINDS), basisKey = '', busy = false, lastRegenerationMs = 0;
-  let navigation = emptyEditNavigation(), svgContext = null, destroySvgInteractions = () => {};
+  let navigation = emptyEditNavigation();
 
   /** @param {string} message @param {string} status @returns {void} */
   function setStatus(message, status) {
@@ -38,17 +40,12 @@ export function createTopologyEditController(elements, dependencies) {
   }
   /** @returns {Record<string, unknown>|null} */
   function canonical() { return editedArtifacts?.canonicalTopology ?? baseArtifacts?.canonicalTopology ?? null; }
-  /** @returns {void} */
-  function applySelectionClasses() {
-    elements.svgHost.querySelectorAll('.is-selected').forEach((element) => element.classList.remove('is-selected'));
-    for (const row of selection) elements.svgHost.querySelector(`[data-edit-kind="${CSS.escape(row.kind)}"][data-edit-id="${CSS.escape(row.id)}"]`)?.classList.add('is-selected');
-  }
   /** @param {ReadonlyArray<Record<string,string>>} next @param {boolean} notify @returns {void} */
   function setSelection(next, notify) {
     selection = Object.freeze(uniqueSelection(next).filter((row) => selectionFilters.has(row.kind)));
     const activeEdge = [...selection].reverse().find((row) => row.kind === 'edge');
     if (activeEdge) contextEdgeId = activeEdge.id;
-    applySelectionClasses(); renderInspector(); selectTopologyEdit3dObject(selection.at(-1)?.id ?? '');
+    renderInspector(); selectTopologyEditObjects(selection.map((row) => row.id));
     if (notify) dependencies.onSelectionChange(selection);
   }
   /** @param {ReadonlyArray<Record<string,string>>} next @returns {void} */
@@ -76,13 +73,14 @@ export function createTopologyEditController(elements, dependencies) {
     busy = true; setStatus('Building immutable edit basis with the pinned topology core…', 'ready');
     try {
       core = await loadTopologyProducerCore(); sourceText = producerSourceText(source.raw); options = producerOptions(traceEvidence);
+      sourceBranches = Array.isArray(source.raw) ? source.raw : (source.raw.hierarchy ?? source.raw.branches ?? source.raw.objects ?? []);
       const started = performance.now(); baseArtifacts = await core.buildComponentTopologyArtifacts(sourceText, options); lastRegenerationMs = performance.now() - started;
       const loadedHash = cleanText(objectRecord(artifacts.canonical).canonicalTopologyHash);
       if (loadedHash && loadedHash !== baseArtifacts.canonicalTopology.canonicalTopologyHash) throw new Error(`Loaded canonical hash ${loadedHash} does not match pinned producer hash ${baseArtifacts.canonicalTopology.canonicalTopologyHash}. Rebuild topology before editing.`);
       draft = core.createTopologyEditDraft(baseArtifacts.canonicalTopology, { projection: 'XY', snapToleranceMm: Number(options.toleranceMm), showOriginal: true });
       const materialized = core.materializeTopologyEditDraft(baseArtifacts.canonicalTopology, draft);
       editedArtifacts = Object.freeze({ ...baseArtifacts, editDraft: draft, editLedger: materialized.editLedger, editValidation: materialized.validation });
-      basisKey = nextBasis; selection = Object.freeze([]); contextEdgeId = ''; render();
+      basisKey = nextBasis; selection = Object.freeze([]); contextEdgeId = ''; clearTopologyMeasurement(); render();
       setStatus(`Edit Draft ready: ${baseArtifacts.canonicalTopology.edges.length} immutable base elements; no commands applied.`, 'pass');
     } finally { busy = false; renderBottom(); }
   }
@@ -133,51 +131,50 @@ export function createTopologyEditController(elements, dependencies) {
   }
   /** @param {string} nextTool @returns {void} */
   function setTool(nextTool) {
-    if (!['SELECT', 'MOVE'].includes(nextTool)) throw new RangeError(`Unsupported edit tool ${nextTool}.`);
+    if (!['SELECT', 'MOVE', 'CONNECT', 'ADD', 'SPLIT', 'MEASURE'].includes(nextTool)) throw new RangeError(`Unsupported edit tool ${nextTool}.`);
     tool = nextTool; elements.root.querySelectorAll('[data-ttv-edit-tool]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-tool') === tool));
-    setStatus(`${tool === 'MOVE' ? 'Move' : 'Select'} tool active.`, 'ready');
+    setTopologyMeasurementActive(tool === 'MEASURE');
+    const hints = { SELECT: 'Select tool active.', MOVE: 'Move tool: drag a node (X/Y/Z locks an axis; drop on a node to merge).', CONNECT: 'Connect tool: drag from one node to another to bridge.', ADD: 'Add tool: drag from a node to place a straight element.', SPLIT: 'Break tool: click an edge to split it at the picked point.', MEASURE: 'Measure tool: click component surfaces to add polyline points; choose Select to finish.' };
+    setStatus(hints[tool], 'ready');
+  }
+  /** @param {number} nextScale @returns {void} */
+  function setSupportScale(nextScale) {
+    const parsed = Number(nextScale);
+    if (!Number.isFinite(parsed) || parsed < 0.25 || parsed > 6) throw new RangeError(`Support render scale must be between 0.25 and 6; received ${nextScale}.`);
+    supportScale = parsed;
+    renderCanvas();
   }
   /** @param {string} nextProjection @returns {void} */
   function setProjection(nextProjection) {
     if (!['XY', 'XZ', 'YZ'].includes(nextProjection)) throw new RangeError(`Unsupported edit projection ${nextProjection}.`);
-    projection = nextProjection; elements.root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-projection') === projection)); renderCanvas();
+    projection = nextProjection; elements.root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-projection') === projection));
+    navigation.setStandardView?.({ XY: 'top', XZ: 'front', YZ: 'side' }[projection]);
   }
   /** @param {string} kind @param {boolean} enabled @returns {void} */
   function setSelectionFilter(kind, enabled) {
     if (!EDIT_KINDS.includes(kind)) throw new RangeError(`Unsupported selection filter ${kind}.`);
     const next = new Set(selectionFilters); if (enabled) next.add(kind); else next.delete(kind); selectionFilters = next; setSelection(selection, true);
   }
-  /** @param {boolean} visible @returns {void} */
-  function set3dVisible(visible) {
-    show3d = visible; elements.root.classList.toggle('is-3d-visible', show3d); elements.preview3d.hidden = !show3d;
-    if (show3d) render3d(); else disposeTopologyEdit3dPreview();
-  }
-  /** @returns {Promise<void>} */
-  async function render3d() {
-    if (!show3d || !baseArtifacts || !canonical()) return;
-    const selectEl = elements.root.querySelector('[data-ttv-vertical-axis]');
-    const verticalAxis = selectEl ? selectEl.value : 'Y';
-    await renderTopologyEdit3dPreview(elements.preview3d, baseArtifacts.canonicalTopology, canonical(), editedArtifacts.editValidation, selection, verticalAxis, (objectId) => {
-      const row = selectionForObjectId(canonical(), objectId);
-      if (row) {
-        setSelection([row], true);
-        navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true);
-      }
-    });
-  }
+  /** Legacy no-op: the 3D canvas is always the primary Edit Draft surface. */
+  function set3dVisible() {}
+  /** Ghost fix-proposal model (VisualGeometryModel.v1 or null) — Phase 5 UI. */
+  function setGhostModel(model) { ghostModel = model ?? null; setTopologyEditGhostModel(ghostModel); }
   /** @returns {void} */
   function renderCanvas() {
-    navigation.destroy(); destroySvgInteractions(); navigation = emptyEditNavigation(); destroySvgInteractions = () => {};
     if (!baseArtifacts || !canonical()) { elements.svgHost.innerHTML = '<div class="ttv-empty">Load and build topology before editing.</div>'; return; }
-    svgContext = renderTopologyEditSvg(elements.svgHost, baseArtifacts.canonicalTopology, canonical(), editedArtifacts.editValidation, projection, selection);
-    destroySvgInteractions = wireTopologyEditInteractions({
-      svg: svgContext.svg, svgHost: elements.svgHost, svgContext, canonical: canonical(),
-      getTool: () => tool, getProjection: () => projection, getSelection: () => selection,
-      isSelectable: (kind) => selectionFilters.has(kind), setSelection, selectFromPointer,
-      executeCommand, runOperation, undo, redo, renderCanvas,
-    });
-    navigation = wireTopologySvgNavigation(svgContext.svg);
-    if (show3d) render3d().catch((error) => setStatus(`3D preview failed: ${error?.message || String(error)}`, 'error'));
+    const verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Y';
+    renderTopologyEditCanvas(elements.svgHost, {
+      original: baseArtifacts.canonicalTopology, draft: canonical(), validation: editedArtifacts?.editValidation ?? null,
+      selection, verticalAxis, supportScale, ghost: ghostModel, sourceBranches,
+      callbacks: {
+        getTool: () => tool, getSelection: () => selection, getContextEdgeId: () => contextEdgeId,
+        setSelection, selectFromPointer, executeCommand, runOperation, undo, redo,
+        onGestureError: (error) => setStatus(error?.message || String(error), 'error'),
+        onHint: (message) => setStatus(message, 'ready'),
+        onGhostPick: (objectId) => dependencies.onGhostPick?.(objectId),
+      },
+    }).then(() => { navigation = topologyEditCanvasNavigation(); })
+      .catch((error) => setStatus(`3D canvas failed: ${error?.message || String(error)}`, 'error'));
   }
   /** @returns {void} */
   function renderInspector() {
@@ -189,6 +186,7 @@ export function createTopologyEditController(elements, dependencies) {
     elements.timeline.innerHTML = buildTopologyEditTimelineMarkup(draft); elements.validation.innerHTML = buildTopologyEditValidationMarkup(editedArtifacts.editValidation);
     elements.undo.disabled = !draft.commands.length || busy; elements.redo.disabled = !draft.redoCommands.length || busy;
     elements.exportBundle.disabled = Number(objectRecord(editedArtifacts.editValidation.summary).blockingCount ?? 0) > 0 || busy;
+    dependencies.onRender?.(evidence());
   }
   /** @returns {void} */
   function renderMetrics() {
@@ -239,12 +237,12 @@ export function createTopologyEditController(elements, dependencies) {
   /** @param {string} edgeId @returns {void} */
   function setContextEdge(edgeId) { contextEdgeId = cleanText(edgeId); renderInspector(); }
   /** @returns {Readonly<Record<string, unknown>>} */
-  function evidence() { return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, show3d, lastRegenerationMs }); }
+  function evidence() { return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, supportScale, lastRegenerationMs }); }
   /** @returns {void} */
-  function destroy() { navigation.destroy(); destroySvgInteractions(); disposeTopologyEdit3dPreview(); }
+  function destroy() { navigation.destroy(); disposeTopologyEditCanvas(); }
 
   return Object.freeze({
-    initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible,
+    initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale,
     setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions,
     focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); },
     fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), render, evidence, destroy,

@@ -1,11 +1,20 @@
 /**
- * workbench-viewer.js — the 3D viewer shell (Phases 2–3).
+ * workbench-viewer.js — the 3D viewer shell.
  *
  * The viewer never matches: it renders VisualGeometryModel.v1 plus a
  * status-by-objectId map derived from CompareAudit.v1 and reports picks back.
  * Three.js is loaded dynamically (importmap key first, CDN fallback) so the
  * rest of the workbench — and Node tests — never depend on it.
+ *
+ * Rendering strategy: every drawable is an instance of a unit primitive
+ * (cylinder / sphere / cone / octahedron) inside a small set of InstancedMesh
+ * batches keyed by (group × primitive × opacity class). Large models collapse
+ * to a few dozen draw calls; visibility and recolor are per-instance buffer
+ * writes, not scene rebuilds. Picking is a GPU color-ID pass (gpu-picker.js),
+ * O(draw calls) regardless of model size.
  */
+
+import { createGpuPicker, PICK_LAYER } from './gpu-picker.js';
 
 const THREE_IMPORTS = Object.freeze(['three', 'https://esm.sh/three@0.160.0/build/three.module.js']);
 
@@ -33,8 +42,12 @@ async function loadThree() {
   throw new Error(`Three.js unavailable: ${lastError?.message ?? 'no import source worked'}`);
 }
 
-/** Minimal orbit controls: left-drag rotate, wheel dolly, right/shift-drag pan. */
-function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange) {
+/**
+ * Minimal orbit controls: left-drag rotate, wheel dolly, right/shift-drag pan.
+ * `getZoomAnchor(event)` may return a world-space Vector3 under the cursor;
+ * the dolly then keeps that point stationary on screen (cursor-anchored zoom).
+ */
+function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZoomAnchor) {
   const target = new THREE.Vector3();
   const toSphericalVec = (vec) => {
     const verticalAxis = getVerticalAxis();
@@ -80,7 +93,15 @@ function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange) {
   const onPointerUp = () => { dragging = null; };
   const onWheel = (e) => {
     e.preventDefault();
-    spherical.radius *= e.deltaY > 0 ? 1.12 : 1 / 1.12;
+    const step = e.shiftKey ? 1.035 : 1.12;
+    const factor = e.deltaY > 0 ? step : 1 / step;
+    const anchor = getZoomAnchor ? getZoomAnchor(e) : null;
+    if (anchor) {
+      // Keep the anchor stationary: the target slides toward/away from it in
+      // proportion to the dolly so the point under the cursor stays put.
+      target.sub(anchor).multiplyScalar(factor).add(anchor);
+    }
+    spherical.radius *= factor;
     apply();
   };
   const onContext = (e) => e.preventDefault();
@@ -122,12 +143,18 @@ const CONNECTOR_COLORS = Object.freeze({
   REGISTRATION_ANCHOR_CONNECTOR: 0x94a3b8,
 });
 
+const MARKER_COLORS = Object.freeze({
+  RIGID: 0xf59e0b, BEND: 0x8b5cf6, SIF: 0x14b8a6, RESTRAINT: 0x22d3ee,
+  RESTRAINT_ARROW: 0x06b6d4, HANGER: 0x22d3ee, SUPPORT: 0x22d3ee, NODE: 0x94a3b8,
+});
+
+const GHOST_PROPOSAL_COLOR = 0x22d3ee;
+
 export async function createWorkbenchViewer(container, { onPick, onHoverConnector, onHoverObject, onCameraChange } = {}) {
   const THREE = await loadThree();
   let verticalAxis = 'Y';
   let host = container; // reassigned by reattach() when the tab re-renders its DOM
-  // preserveDrawingBuffer keeps readPixels/screenshots dependable; scenes here
-  // are small (centerline cylinders), so the cost is negligible.
+  // preserveDrawingBuffer keeps readPixels/screenshots dependable.
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x0b1220);
@@ -136,6 +163,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   renderer.domElement.style.width = '100%';
   renderer.domElement.style.height = '100%';
   renderer.domElement.style.display = 'block';
+  renderer.domElement.tabIndex = 0;
 
   const scene = new THREE.Scene();
   scene.add(new THREE.AmbientLight(0xffffff, 0.85));
@@ -162,7 +190,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   const letterZ = createLineLetter([[-4, 0, 52], [4, 0, 52], [4, 0, 52], [-4, 0, 44], [-4, 0, 44], [4, 0, 44]], 0x8888ff);
   axisScene.add(letterX, letterY, letterZ);
 
-  function renderAxisCompass(xOffset, yOffset, viewWidth, viewHeight) {
+  function renderAxisCompass(xOffset, yOffset) {
     axisCamera.quaternion.copy(camera.quaternion);
     const dir = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
     axisCamera.position.copy(dir.multiplyScalar(120));
@@ -184,11 +212,12 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
 
   const sourceGroup = new THREE.Group();
   const targetGroup = new THREE.Group();
+  const ghostGroup = new THREE.Group(); // ghost fix proposals (setGhostModel)
   const connectorGroup = new THREE.Group();
-  scene.add(sourceGroup, targetGroup, connectorGroup);
+  const transientGroup = new THREE.Group(); // drag previews / rubber bands
+  const measurementGroup = new THREE.Group(); // persistent measure polyline, excluded from picking
+  scene.add(sourceGroup, targetGroup, ghostGroup, connectorGroup, transientGroup, measurementGroup);
 
-  const meshIndex = new Map(); // objectId -> mesh[]
-  const materialPool = new Map();
   let mode = 'overlay';
   let sourceOpacity = 0.32;
   let statusFilter = null; // Set of statuses or null
@@ -199,10 +228,11 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   // per mode ('selection' follows the selected object).
   let connectorMode = 'selection';
   let selectedObjectId = null;
-  let highlightedMeshes = [];
+  let selectedIds = new Set();
   // Style/override state — set from outside; the viewer never derives colors.
   let activeStyles = null; // { STATUS: { colorInt, alpha, label } } from effectiveStatusStyles
   let colorOverrides = null; // Map<objectId, colorInt> (e.g. heatmap) — beats status color
+  let transientRecolor = null; // Map<objectId, colorInt> from updateObjects() — beats everything but selection
 
   function styleOf(statusKey) {
     if (activeStyles?.[statusKey]) return activeStyles[statusKey];
@@ -210,282 +240,426 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return { colorInt: base.color, alpha: 1, label: base.label };
   }
 
-  const material = (colorInt, ghost, alpha = 1) => {
-    const key = `${colorInt}:${alpha}:${ghost ? 'g' : 's'}`;
-    if (!materialPool.has(key)) {
-      materialPool.set(key, new THREE.MeshStandardMaterial({
-        color: colorInt,
-        transparent: ghost || alpha < 1,
-        opacity: ghost ? sourceOpacity : alpha,
-        roughness: 0.55,
-        metalness: 0.08,
-        depthWrite: !ghost && alpha >= 1,
-      }));
-    }
-    return materialPool.get(key);
-  };
+  let models = { source: null, target: null, registrationTranslation: [0, 0, 0] };
+  let ghostModel = null;
+  let connectorRecords = []; // [{ connector, from:V3, to:V3, colorInt }]
 
-  function clearGroup(group) {
-    for (const child of [...group.children]) {
-      group.remove(child);
-      child.geometry?.dispose?.();
+  // ── instanced batching ───────────────────────────────────────────────────
+  // A "record" is one instance of a unit primitive. Batches group records by
+  // (render group × primitive × opacity class) into one InstancedMesh each.
+  const UNIT = {}; // primitive name -> unit BufferGeometry (lazy)
+  function unitGeometry(prim) {
+    if (!UNIT[prim]) {
+      const frustumRatio = prim.startsWith('FRUSTUM:') ? Number(prim.split(':')[1]) : null;
+      UNIT[prim] = Number.isFinite(frustumRatio) ? new THREE.CylinderGeometry(frustumRatio, 1, 1, 16, 1)
+        : prim === 'CYL' ? new THREE.CylinderGeometry(1, 1, 1, 12, 1)
+        : prim === 'CONE' ? new THREE.ConeGeometry(0.45, 1, 12)
+          : prim === 'OCT' ? new THREE.OctahedronGeometry(1)
+            : new THREE.SphereGeometry(1, 12, 10);
     }
+    return UNIT[prim];
   }
 
-  function segmentMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
-    const kind = String(seg.kind || '');
-    if (/VALV/i.test(kind)) {
-      return buildValveMesh(seg, mat, modelId, radiusScale, ghost, alpha);
+  const batchMaterials = new Map(); // alphaKey -> MeshStandardMaterial
+  function batchMaterial(alphaKey) {
+    if (!batchMaterials.has(alphaKey)) {
+      const opts = { color: 0xffffff, roughness: 0.55, metalness: 0.08 };
+      const mat = new THREE.MeshStandardMaterial(opts);
+      if (alphaKey === 'ghost') { mat.transparent = true; mat.opacity = sourceOpacity; mat.depthWrite = false; }
+      else if (alphaKey === 'proposal') { mat.transparent = true; mat.opacity = 0.45; mat.depthWrite = false; mat.emissive = new THREE.Color(0x0e7490); mat.emissiveIntensity = 0.4; }
+      else if (alphaKey.startsWith('a')) { const alpha = Number(alphaKey.slice(1)) || 1; mat.transparent = alpha < 1; mat.opacity = alpha; }
+      batchMaterials.set(alphaKey, mat);
     }
-    if (/FLAN/i.test(kind)) {
-      return buildFlangeMesh(seg, mat, modelId, radiusScale, ghost, alpha);
-    }
-    if (/BEND|ELBO/i.test(kind)) {
-      return buildElbowMesh(seg, mat, modelId, radiusScale, ghost, alpha);
-    }
-    const start = new THREE.Vector3(...seg.start);
-    const end = new THREE.Vector3(...seg.end);
-    return buildStraightCylinder(start, end, Math.max((seg.radiusMm || 25) * radiusScale, 4), mat, seg, modelId);
+    return batchMaterials.get(alphaKey);
   }
 
-  function buildStraightCylinder(start, end, radius, mat, seg, modelId) {
+  let batches = []; // [{ mesh, records, group }]
+  let pickTable = [null]; // pickId (1-based) -> record
+  let pendingRecords = null; // Map<batchKey, {group, prim, alphaKey, records[]}> during rebuild
+
+  const _pos = new THREE.Vector3(); const _quat = new THREE.Quaternion(); const _scale = new THREE.Vector3();
+  const _mat4 = new THREE.Matrix4(); const _color = new THREE.Color(); const _up = new THREE.Vector3(0, 1, 0);
+
+  /**
+   * Queue one instance. `spec`: prim, position(V3), quaternion(Quaternion|null),
+   * scale(V3), alphaKey, colorMode('style'|'fixed'), styleKey, fixedColorInt,
+   * overridable, meta { objectId, nodeId, modelId, marker, kind, pathId,
+   * status, ghost, isObjectMarker, connector, groupKind }.
+   */
+  function emit(group, spec) {
+    const key = `${group.uuid}|${spec.prim}|${spec.alphaKey}`;
+    let bucket = pendingRecords.get(key);
+    if (!bucket) { bucket = { group, prim: spec.prim, alphaKey: spec.alphaKey, records: [] }; pendingRecords.set(key, bucket); }
+    const record = {
+      prim: spec.prim,
+      position: spec.position.clone(),
+      quaternion: spec.quaternion ? spec.quaternion.clone() : null,
+      scale: spec.scale.clone(),
+      colorMode: spec.colorMode,
+      styleKey: spec.styleKey ?? null,
+      fixedColorInt: spec.fixedColorInt ?? null,
+      overridable: !!spec.overridable,
+      meta: spec.meta,
+      pickId: 0,
+      batch: null,
+      index: 0,
+    };
+    if (spec.pickable !== false) {
+      record.pickId = pickTable.length;
+      pickTable.push(record);
+    }
+    bucket.records.push(record);
+    return record;
+  }
+
+  function emitCylinderBetween(group, start, end, radius, spec) {
     const dir = end.clone().sub(start);
     const length = Math.max(dir.length(), 0.001);
-    const geometry = new THREE.CylinderGeometry(radius, radius, length, 12, 1);
-    const mesh = new THREE.Mesh(geometry, mat);
-    mesh.position.copy(start.clone().add(end).multiplyScalar(0.5));
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-    mesh.userData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
-    return mesh;
+    _quat.setFromUnitVectors(_up, dir.normalize());
+    emit(group, {
+      ...spec,
+      prim: 'CYL',
+      position: start.clone().add(end).multiplyScalar(0.5),
+      quaternion: _quat,
+      scale: _scale.set(radius, length, radius),
+    });
   }
 
-  function buildFlangeMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
-    const s = new THREE.Vector3(...seg.start);
-    const e = new THREE.Vector3(...seg.end);
-    const diff = new THREE.Vector3().subVectors(e, s);
+  /** Emit a true tapered cylinder whose bottom is at start and top is at end. */
+  function emitFrustumBetween(group, start, end, startRadius, endRadius, spec) {
+    const dir = end.clone().sub(start);
+    const length = Math.max(dir.length(), 0.001);
+    const baseRadius = Math.max(Number(startRadius) || 0, 0.001);
+    const ratio = Math.max(Number(endRadius) || 0, 0.001) / baseRadius;
+    _quat.setFromUnitVectors(_up, dir.normalize());
+    emit(group, {
+      ...spec,
+      prim: `FRUSTUM:${ratio.toFixed(4)}`,
+      position: start.clone().add(end).multiplyScalar(0.5),
+      quaternion: _quat,
+      scale: _scale.set(baseRadius, length, baseRadius),
+    });
+  }
+
+  function segmentRecords(group, seg, spec, radiusScale = 1) {
+    const kind = String(seg.kind || '');
+    const start = new THREE.Vector3(...seg.start);
+    const end = new THREE.Vector3(...seg.end);
+    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
+    const diff = end.clone().sub(start);
     const len = diff.length();
-    if (len < 0.1) return null;
-    const normal = diff.clone().normalize();
-    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
-    const discR = radius * 2.0;
-    const discT = Math.min(radius * 0.5, len * 0.4);
-    const mid = new THREE.Vector3().addVectors(s, e).multiplyScalar(0.5);
-    const q1 = s.clone().lerp(mid, 0.15);
-    const q2 = e.clone().lerp(mid, 0.15);
-
-    const group = new THREE.Group();
-
-    const d1Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
-    const d1 = new THREE.Mesh(d1Geo, mat);
-    d1.position.copy(q1);
-    d1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(d1);
-
-    const d2Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
-    const d2 = new THREE.Mesh(d2Geo, mat);
-    d2.position.copy(q2);
-    d2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(d2);
-
-    const webMat = material(0xaaaaaa, ghost, alpha);
-    const webGeo = new THREE.CylinderGeometry(radius * 0.85, radius * 0.85, q1.distanceTo(q2), 12);
-    const web = new THREE.Mesh(webGeo, webMat);
-    web.position.copy(mid);
-    web.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(web);
-
-    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
-    group.userData = uData;
-    d1.userData = uData;
-    d2.userData = uData;
-    web.userData = uData;
-
-    return group;
-  }
-
-  function buildValveMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
-    const s = new THREE.Vector3(...seg.start);
-    const e = new THREE.Vector3(...seg.end);
-    const diff = new THREE.Vector3().subVectors(e, s);
-    const len = diff.length();
-    if (len < 0.1) return null;
-    const normal = diff.clone().normalize();
-    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
-    const mid = new THREE.Vector3().addVectors(s, e).multiplyScalar(0.5);
-    const q1 = s.clone().lerp(mid, 0.25);
-    const q2 = e.clone().lerp(mid, 0.25);
-    const discR = radius * 1.8;
-    const discT = radius * 0.5;
-
-    const group = new THREE.Group();
-
-    const d1Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
-    const d1 = new THREE.Mesh(d1Geo, mat);
-    d1.position.copy(q1);
-    d1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(d1);
-
-    const d2Geo = new THREE.CylinderGeometry(discR, discR, discT, 16);
-    const d2 = new THREE.Mesh(d2Geo, mat);
-    d2.position.copy(q2);
-    d2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(d2);
-
-    const ballGeo = new THREE.SphereGeometry(radius * 1.5, 16, 16);
-    const ball = new THREE.Mesh(ballGeo, mat);
-    ball.position.copy(mid);
-    group.add(ball);
-
-    const tubeMat = material(0xaaaaaa, ghost, alpha);
-    const tubeGeo = new THREE.CylinderGeometry(radius * 0.7, radius * 0.7, q1.distanceTo(q2), 12);
-    const tube = new THREE.Mesh(tubeGeo, tubeMat);
-    tube.position.copy(mid);
-    tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
-    group.add(tube);
-
-    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
-    group.userData = uData;
-    d1.userData = uData;
-    d2.userData = uData;
-    ball.userData = uData;
-    tube.userData = uData;
-
-    return group;
-  }
-
-  function buildElbowMesh(seg, mat, modelId, radiusScale, ghost, alpha) {
-    const p1 = new THREE.Vector3(...seg.start);
-    const p2 = new THREE.Vector3(...seg.end);
-    const radius = Math.max((seg.radiusMm || 25) * radiusScale, 4);
-    const centerArr = seg.center || (seg.attrs?.centerPoint || seg.attrs?.centrePoint || seg.attrs?.center || seg.attrs?.centre);
-    const c = centerArr ? new THREE.Vector3(...centerArr) : null;
-
-    if (!c) {
-      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
+    const normalizedKind = kind.trim().toUpperCase();
+    if (normalizedKind === 'VALVE' && len >= 0.1) {
+      const normal = diff.clone().normalize();
+      const at = (fraction) => start.clone().addScaledVector(normal, len * fraction);
+      const cuts = [0, 0.14, 0.30, 0.70, 0.86, 1].map(at);
+      const flangeRadius = Math.max(radius * 1.55, radius + 35);
+      const seatRadius = Math.max(radius * 1.04, radius + 2);
+      const bodyRadius = Math.max(radius * 1.35, radius + 25);
+      const flangeSpec = { ...spec, fixedColorInt: 0xb7b7b7 };
+      _quat.setFromUnitVectors(_up, normal);
+      emitCylinderBetween(group, cuts[0], cuts[1], flangeRadius, flangeSpec);
+      emitCylinderBetween(group, cuts[1], cuts[2], seatRadius, spec);
+      const bodyLength = cuts[2].distanceTo(cuts[3]);
+      const sphereRadius = Math.max(bodyRadius, bodyLength / 2);
+      emit(group, { ...spec, prim: 'SPH', position: cuts[2].clone().add(cuts[3]).multiplyScalar(0.5), quaternion: _quat, scale: _scale.set(sphereRadius, sphereRadius, sphereRadius) });
+      emitCylinderBetween(group, cuts[3], cuts[4], seatRadius, spec);
+      emitCylinderBetween(group, cuts[4], cuts[5], flangeRadius, flangeSpec);
+      return;
     }
+    if (normalizedKind === 'INST' && len >= 0.1) {
+      emitCylinderBetween(group, start, end, radius, spec);
+      const mid = start.clone().add(end).multiplyScalar(0.5);
+      emit(group, { ...spec, prim: 'SPH', position: mid, quaternion: null, scale: _scale.set(radius * 1.22, radius * 1.22, radius * 1.22) });
+      return;
+    }
+    if (normalizedKind === 'FLANGE' && len >= 0.1) {
+      const normal = diff.clone().normalize();
+      const split = start.clone().addScaledVector(normal, len * 0.46);
+      const hubRadius = Math.max(radius * 1.18, radius + 8);
+      emitFrustumBetween(group, start, split, radius, hubRadius, spec);
+      emitCylinderBetween(group, split, end, Math.max(radius * 1.55, radius + 35), spec);
+      return;
+    }
+    if (normalizedKind === 'GASK' && len >= 0.1) {
+      emitCylinderBetween(group, start, end, radius * 1.25, spec);
+      return;
+    }
+    if ((normalizedKind === 'TEE' || normalizedKind === 'TEE_COLLAR') && len >= 0.1) {
+      emitCylinderBetween(group, start, end, radius, spec);
+      return;
+    }
+    if (normalizedKind === 'OLET' && len >= 0.1) {
+      const branchRadius = Math.max((Number(seg.radiusMm2) || radius * 0.5) * radiusScale, 3);
+      emitFrustumBetween(group, start, end, radius, branchRadius, spec);
+      return;
+    }
+    if (normalizedKind === 'REDUCER' && len >= 0.1) {
+      // Reducer: truncated taper from the large end (seg.radiusMm at start) to
+      // the small end (seg.radiusMm2 at end) as stepped cylinders — exact bore
+      // radii, no fudge factor, orientation supplied by the visual model.
+      const smallR = Math.max((Number(seg.radiusMm2) || radius * 0.6) * radiusScale, 3);
+      emitFrustumBetween(group, start, end, radius, smallR, spec);
+      return;
+    }
+    if (normalizedKind === 'ELBOW') {
+      const centerArr = seg.center || (seg.attrs?.centerPoint || seg.attrs?.centrePoint || seg.attrs?.center || seg.attrs?.centre);
+      const c = centerArr ? new THREE.Vector3(...centerArr) : null;
+      if (c && elbowRecords(group, seg, spec, start, end, c, radius)) return;
+    }
+    emitCylinderBetween(group, start, end, radius, spec);
+  }
 
+  /** Tessellate the bend arc into cylinder instances. Returns false when the
+   *  geometry degenerates and the caller should fall back to a straight run. */
+  function elbowRecords(group, seg, spec, p1, p2, c, radius) {
     const v1 = p1.clone().sub(c);
     const v2 = p2.clone().sub(c);
-    if (v1.length() < 0.1 || v2.length() < 0.1) {
-      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
-    }
+    if (v1.length() < 0.1 || v2.length() < 0.1) return false;
     const d1 = v1.clone().normalize();
     const d2 = v2.clone().normalize();
     const dot = THREE.MathUtils.clamp(d1.dot(d2), -1, 1);
     const angle = Math.acos(dot);
-
-    if (angle < 0.05 || Math.abs(Math.PI - angle) < 0.05) {
-      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
-    }
-
+    if (angle < 0.05 || Math.abs(Math.PI - angle) < 0.05) return false;
     const normal = new THREE.Vector3().crossVectors(d1, d2);
-    if (normal.length() < 1e-4) {
-      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
-    }
-    normal.normalize();
-
+    if (normal.length() < 1e-4) return false;
     const arcRadius = Math.min(v1.length(), v2.length());
-    if (arcRadius < radius * 0.5) {
-      return buildStraightCylinder(p1, p2, radius, mat, seg, modelId);
-    }
-
+    if (arcRadius < radius * 0.5) return false;
     const arcStart = c.clone().addScaledVector(d1, arcRadius);
-    const arcEnd   = c.clone().addScaledVector(d2, arcRadius);
-
+    const arcEnd = c.clone().addScaledVector(d2, arcRadius);
     const sweepAngle = Math.PI - angle;
     const alphaVal = (4 / 3) * Math.tan(sweepAngle / 4);
-
     const cp1 = arcStart.clone().addScaledVector(d1, -alphaVal * arcRadius);
     const cp2 = arcEnd.clone().addScaledVector(d2, -alphaVal * arcRadius);
-    const bendCurve = new THREE.CubicBezierCurve3(arcStart, cp1, cp2, arcEnd);
-
-    const group = new THREE.Group();
-
-    if (p1.distanceTo(arcStart) > 0.1) {
-      const leg1 = buildStraightCylinder(p1, arcStart, radius, mat, seg, modelId);
-      if (leg1) group.add(leg1);
+    const curve = new THREE.CubicBezierCurve3(arcStart, cp1, cp2, arcEnd);
+    const requestedRange = Array.isArray(seg.curveRange) ? seg.curveRange.map(Number) : [0, 1];
+    const startT = THREE.MathUtils.clamp(Number.isFinite(requestedRange[0]) ? requestedRange[0] : 0, 0, 1);
+    const endT = THREE.MathUtils.clamp(Number.isFinite(requestedRange[1]) ? requestedRange[1] : 1, startT, 1);
+    if (startT === 0 && p1.distanceTo(arcStart) > 0.1) emitCylinderBetween(group, p1, arcStart, radius, spec);
+    if (endT === 1 && arcEnd.distanceTo(p2) > 0.1) emitCylinderBetween(group, arcEnd, p2, radius, spec);
+    const steps = Math.max(4, Math.ceil(12 * (endT - startT)));
+    const points = Array.from({ length: steps + 1 }, (_, index) => curve.getPoint(startT + ((endT - startT) * index / steps)));
+    for (let i = 0; i < steps; i += 1) {
+      emitCylinderBetween(group, points[i], points[i + 1], radius, spec);
     }
-    if (arcEnd.distanceTo(p2) > 0.1) {
-      const leg2 = buildStraightCylinder(arcEnd, p2, radius, mat, seg, modelId);
-      if (leg2) group.add(leg2);
+    // Sphere joints hide the faceting between arc segments.
+    for (let i = 1; i < steps; i += 1) {
+      emit(group, { ...spec, prim: 'SPH', position: points[i], quaternion: null, scale: _scale.set(radius, radius, radius) });
     }
-
-    const bendGeo = new THREE.TubeGeometry(bendCurve, 16, radius, 12, false);
-    const bend = new THREE.Mesh(bendGeo, mat);
-    group.add(bend);
-
-    const uData = { objectId: seg.objectId, modelId, kind: seg.kind, pathId: seg.pathId };
-    group.userData = uData;
-    bend.userData = uData;
-
-    return group;
+    return true;
   }
 
-  function markerMesh(marker, modelId, statusKey) {
+  function markerRecord(group, marker, modelId, statusKey, groupKind) {
     const isAnchor = String(marker.kind).startsWith('ANCHOR');
     const isNode = marker.kind === 'NODE';
     const isRestraintArrow = marker.kind === 'RESTRAINT_ARROW';
     const size = Number.isFinite(marker.sizeMm) ? marker.sizeMm : (isAnchor ? 34 : 30);
-    const geometry = isAnchor ? new THREE.OctahedronGeometry(size)
-      : isRestraintArrow ? new THREE.ConeGeometry(size * 0.45, size, 12)
-        : new THREE.SphereGeometry(size, 12, 10);
-    const colors = { RIGID: 0xf59e0b, BEND: 0x8b5cf6, SIF: 0x14b8a6, RESTRAINT: 0x22d3ee, RESTRAINT_ARROW: 0x06b6d4, HANGER: 0x22d3ee, SUPPORT: 0x22d3ee, NODE: 0x94a3b8 };
-    let colorInt = Number.isFinite(marker.colorInt) ? marker.colorInt : isAnchor ? 0x94a3b8 : (colors[marker.kind] ?? 0xcbd5e1);
-    let alpha = 1;
-    // Markers that stand for a diffed object (node-set models) take the
-    // status color; explicit overrides (heatmap) beat both.
-    if (marker.objectId && (isNode || marker.isObjectMarker)) {
-      if (colorOverrides?.has(marker.objectId)) {
-        colorInt = colorOverrides.get(marker.objectId);
-      } else if (statusKey) {
-        const style = styleOf(statusKey);
-        colorInt = style.colorInt;
-        alpha = style.alpha;
-      }
-    }
-    const mesh = new THREE.Mesh(geometry, material(colorInt, modelId === 'source' && !marker.isObjectMarker, alpha));
-    mesh.position.set(...marker.position);
+    if (size <= 0) return; // LABEL markers carry sizeMm 0 — nothing to draw
+    const prim = isAnchor ? 'OCT' : isRestraintArrow ? 'CONE' : 'SPH';
+    const baseColor = Number.isFinite(marker.colorInt) ? marker.colorInt : isAnchor ? 0x94a3b8 : (MARKER_COLORS[marker.kind] ?? 0xcbd5e1);
+    const statusColored = !!(marker.objectId && (isNode || marker.isObjectMarker) && statusKey);
+    const overridable = !!(marker.objectId && (isNode || marker.isObjectMarker));
+    const ghost = groupKind === 'ghostModel' ? false : (modelId === 'source' && !marker.isObjectMarker);
+    const alpha = statusColored ? styleOf(statusKey).alpha : 1;
+    const alphaKey = groupKind === 'ghostModel' ? 'proposal' : ghost ? 'ghost' : alpha < 1 ? `a${alpha}` : 'solid';
+    let quaternion = null;
     if (isRestraintArrow) {
       if (!Array.isArray(marker.direction) || marker.direction.length !== 3) throw new TypeError(`Restraint arrow ${marker.objectId ?? '(unknown)'} has no 3D direction.`);
-      const direction = new THREE.Vector3(...marker.direction).normalize();
-      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+      quaternion = new THREE.Quaternion().setFromUnitVectors(_up, new THREE.Vector3(...marker.direction).normalize());
     }
-    mesh.userData = { objectId: marker.objectId, nodeId: marker.nodeId ?? null, modelId, marker: marker.kind, fallback: !!marker.fallback, status: statusKey ?? null };
-    return mesh;
+    emit(group, {
+      prim,
+      position: _pos.set(...marker.position),
+      quaternion,
+      scale: _scale.set(size, size, size),
+      alphaKey,
+      colorMode: statusColored ? 'style' : 'fixed',
+      styleKey: statusColored ? statusKey : null,
+      fixedColorInt: baseColor,
+      overridable,
+      meta: {
+        objectId: marker.objectId ?? null,
+        nodeId: marker.nodeId ?? null,
+        modelId,
+        marker: marker.kind,
+        fallback: !!marker.fallback,
+        status: statusKey ?? null,
+        ghost,
+        groupKind,
+      },
+    });
   }
 
-  let models = { source: null, target: null, registrationTranslation: [0, 0, 0] };
+  function buildModelRecords(visual, group, modelId, groupKind) {
+    if (!visual) return;
+    for (const seg of visual.segments ?? []) {
+      const status = groupKind === 'ghostModel' ? null : statusByObjectId.get(seg.objectId);
+      const ghost = groupKind !== 'ghostModel' && modelId === 'source'
+        && (!status || ['MATCHED_UNCHANGED', 'PROPERTY_CHANGED', 'GEOMETRY_CHANGED'].includes(status));
+      const style = styleOf(ghost ? 'GHOST' : (status ?? 'GHOST'));
+      const alphaKey = groupKind === 'ghostModel' ? 'proposal' : ghost ? 'ghost' : style.alpha < 1 ? `a${style.alpha}` : 'solid';
+      // Statusless target segments honor an explicit per-segment color
+      // (restraint family tints etc.); diff statuses always win when present.
+      const explicitColor = Number.isFinite(seg.colorInt) && !ghost && !status && groupKind !== 'ghostModel';
+      segmentRecords(group, seg, {
+        alphaKey,
+        colorMode: groupKind === 'ghostModel' || explicitColor ? 'fixed' : 'style',
+        styleKey: ghost ? 'GHOST' : (status ?? 'GHOST'),
+        fixedColorInt: Number.isFinite(seg.colorInt) ? seg.colorInt : GHOST_PROPOSAL_COLOR,
+        overridable: !ghost,
+        meta: {
+          objectId: seg.objectId ?? null,
+          nodeId: null,
+          modelId,
+          kind: seg.kind,
+          pathId: seg.pathId,
+          status: status ?? null,
+          ghost,
+          groupKind,
+        },
+      });
+    }
+    for (const marker of visual.markers ?? []) {
+      markerRecord(group, marker, modelId, marker.objectId ? statusByObjectId.get(marker.objectId) : null, groupKind);
+    }
+  }
+
+  function buildConnectorHandleRecords() {
+    for (let i = 0; i < connectorRecords.length; i += 1) {
+      const rec = connectorRecords[i];
+      for (const [point, endpointId] of [[rec.from, rec.connector.sourceObjectId], [rec.to, rec.connector.targetObjectId]]) {
+        emit(connectorGroup, {
+          prim: 'SPH',
+          position: point,
+          quaternion: null,
+          scale: _scale.set(26, 26, 26),
+          alphaKey: 'solid',
+          colorMode: 'fixed',
+          fixedColorInt: rec.colorInt,
+          overridable: false,
+          meta: { objectId: endpointId ?? null, nodeId: null, modelId: 'connector', connector: rec.connector, connectorIndex: i, groupKind: 'connector' },
+        });
+      }
+    }
+  }
+
+  function disposeBatches() {
+    for (const batch of batches) {
+      batch.group.remove(batch.mesh);
+      batch.mesh.geometry.dispose(); // per-batch clone (owns the pickColor attribute)
+      batch.mesh.dispose?.();
+    }
+    batches = [];
+    pickTable = [null];
+  }
+
+  function rebuild() {
+    disposeBatches();
+    pendingRecords = new Map();
+    buildModelRecords(models.source, sourceGroup, 'source', 'model');
+    buildModelRecords(models.target, targetGroup, 'target', 'model');
+    buildModelRecords(ghostModel, ghostGroup, 'ghost', 'ghostModel');
+    buildConnectorHandleRecords();
+    for (const bucket of pendingRecords.values()) {
+      const count = bucket.records.length;
+      const geometry = unitGeometry(bucket.prim).clone();
+      const pickAttr = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+      geometry.setAttribute('pickColor', pickAttr);
+      const mesh = new THREE.InstancedMesh(geometry, batchMaterial(bucket.alphaKey), count);
+      mesh.frustumCulled = false;
+      mesh.layers.enable(PICK_LAYER);
+      for (let i = 0; i < count; i += 1) {
+        const record = bucket.records[i];
+        record.batch = mesh;
+        record.index = i;
+        picker.encodeId(record.pickId, pickAttr.array, i * 3);
+      }
+      mesh.userData.records = bucket.records;
+      bucket.group.add(mesh);
+      batches.push({ mesh, records: bucket.records, group: bucket.group });
+    }
+    pendingRecords = null;
+    sourceGroup.position.set(...(models.registrationTranslation ?? [0, 0, 0]));
+    refreshInstanceStates();
+    rebuildConnectorLines();
+    render();
+  }
+
+  // Coalesce state pushes (setModels + setStatuses + setStatusStyles arrive
+  // back-to-back from the tabs) into a single geometry rebuild.
+  let rebuildQueued = false;
+  function invalidate() {
+    if (rebuildQueued || disposed) return;
+    rebuildQueued = true;
+    queueMicrotask(() => {
+      rebuildQueued = false;
+      if (!disposed) rebuild();
+    });
+  }
+
+  function recordVisible(record) {
+    const meta = record.meta;
+    if (meta.groupKind === 'ghostModel') return true;
+    if (meta.groupKind === 'connector') return connectorVisible(meta.connector);
+    if (isolation) {
+      if (meta.objectId && !isolation.has(meta.objectId)) return false;
+      if (!meta.objectId) return false;
+    }
+    if (mode === 'diff-only') {
+      if (meta.modelId === 'source' && meta.ghost) return false;
+      if (!meta.status || meta.status === 'MATCHED_UNCHANGED') return meta.modelId === 'target' ? false : !meta.ghost;
+    }
+    if (statusFilter && meta.status && !statusFilter.has(meta.status)) return false;
+    if (statusFilter && !meta.status && !meta.marker) return false;
+    return true;
+  }
+
+  function effectiveColorInt(record) {
+    const meta = record.meta;
+    let color;
+    if (record.colorMode === 'fixed' && !record.overridable) {
+      color = record.fixedColorInt;
+    } else {
+      const override = meta.objectId && record.overridable
+        ? (transientRecolor?.get(meta.objectId) ?? colorOverrides?.get(meta.objectId))
+        : undefined;
+      if (override !== undefined && override !== null) color = override;
+      else if (record.colorMode === 'style') color = styleOf(record.styleKey).colorInt;
+      else color = record.fixedColorInt;
+    }
+    if (meta.objectId && selectedIds.has(meta.objectId)) {
+      _color.set(color).lerp(new THREE.Color(0xffffff), 0.55);
+      return _color.getHex();
+    }
+    return color;
+  }
+
+  /** Write per-instance matrices + colors from record state. No geometry work. */
+  function refreshInstanceStates() {
+    for (const batch of batches) {
+      const mesh = batch.mesh;
+      for (let i = 0; i < batch.records.length; i += 1) {
+        const record = batch.records[i];
+        const visible = recordVisible(record);
+        _pos.copy(record.position);
+        if (record.quaternion) _quat.copy(record.quaternion); else _quat.identity();
+        if (visible) _scale.copy(record.scale); else _scale.set(0, 0, 0);
+        _mat4.compose(_pos, _quat, _scale);
+        mesh.setMatrixAt(i, _mat4);
+        mesh.setColorAt(i, _color.set(effectiveColorInt(record)));
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    }
+    sourceGroup.visible = mode !== 'target-only';
+  }
 
   // ── connector layer (renders ConnectorModel.v1 — never derives links) ──
-  function clearConnectors() {
-    for (const child of [...connectorGroup.children]) {
-      connectorGroup.remove(child);
-      child.geometry?.dispose?.();
-      child.material?.dispose?.();
-    }
-  }
+  let connectorLines = []; // [{ line, records }] one per opacity bucket
 
   function connectorColor(connector) {
     if (connector.type === 'TRANSFER_CONNECTOR' && CONNECTOR_COLORS[connector.status]) return CONNECTOR_COLORS[connector.status];
     return CONNECTOR_COLORS[connector.type] ?? 0xcbd5e1;
-  }
-
-  function buildConnectorObjects(connectors) {
-    clearConnectors();
-    for (const connector of connectors ?? []) {
-      const geometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(...connector.from),
-        new THREE.Vector3(...connector.to),
-      ]);
-      const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({
-        color: connectorColor(connector),
-        transparent: true,
-        opacity: connector.type === 'CANDIDATE_CONNECTOR' ? 0.55 : 0.9,
-      }));
-      line.userData = { connector };
-      connectorGroup.add(line);
-    }
-    applyConnectorVisibility();
   }
 
   function connectorVisible(connector) {
@@ -497,97 +671,43 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return connector.visibleModes.includes(connectorMode);
   }
 
+  function disposeConnectorLines() {
+    for (const entry of connectorLines) {
+      connectorGroup.remove(entry.line);
+      entry.line.geometry.dispose();
+      entry.line.material.dispose();
+    }
+    connectorLines = [];
+  }
+
+  /** Merge visible connectors into one LineSegments per opacity bucket. */
+  function rebuildConnectorLines() {
+    disposeConnectorLines();
+    const buckets = new Map(); // opacity -> { positions:[], colors:[], records:[] }
+    for (const rec of connectorRecords) {
+      if (!connectorVisible(rec.connector)) continue;
+      const opacity = rec.connector.type === 'CANDIDATE_CONNECTOR' ? 0.55 : 0.9;
+      let bucket = buckets.get(opacity);
+      if (!bucket) { bucket = { positions: [], colors: [], records: [] }; buckets.set(opacity, bucket); }
+      bucket.positions.push(rec.from.x, rec.from.y, rec.from.z, rec.to.x, rec.to.y, rec.to.z);
+      _color.set(rec.colorInt);
+      bucket.colors.push(_color.r, _color.g, _color.b, _color.r, _color.g, _color.b);
+      bucket.records.push(rec);
+    }
+    for (const [opacity, bucket] of buckets) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(bucket.positions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(bucket.colors, 3));
+      const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity }));
+      line.userData.records = bucket.records;
+      connectorGroup.add(line);
+      connectorLines.push({ line, records: bucket.records });
+    }
+  }
+
   function applyConnectorVisibility() {
-    for (const line of connectorGroup.children) line.visible = connectorVisible(line.userData.connector);
-  }
-
-  // ── matched-object highlight (emissive clone; pooled materials untouched) ─
-  function clearHighlight() {
-    for (const mesh of highlightedMeshes) {
-      if (mesh.userData.__origMaterial) {
-        mesh.material.dispose();
-        mesh.material = mesh.userData.__origMaterial;
-        delete mesh.userData.__origMaterial;
-      }
-    }
-    highlightedMeshes = [];
-  }
-
-  function setHighlight(objectIds) {
-    clearHighlight();
-    const wanted = new Set(objectIds ?? []);
-    for (const group of [sourceGroup, targetGroup]) {
-      for (const item of group.children) {
-        if (!wanted.has(item.userData.objectId)) continue;
-        item.traverse((child) => {
-          if (!child.isMesh) return;
-          if (!child.userData.__origMaterial) {
-            child.userData.__origMaterial = child.material;
-            const clone = child.material.clone();
-            clone.emissive = new THREE.Color(0xffffff);
-            clone.emissiveIntensity = 0.45;
-            clone.opacity = Math.max(clone.opacity, 0.9);
-            child.material = clone;
-            highlightedMeshes.push(child);
-          }
-        });
-      }
-    }
-  }
-
-  function rebuild() {
-    clearHighlight();
-    clearGroup(sourceGroup);
-    clearGroup(targetGroup);
-    meshIndex.clear();
-    const register = (id, mesh) => {
-      if (!id) return;
-      if (!meshIndex.has(id)) meshIndex.set(id, []);
-      meshIndex.get(id).push(mesh);
-    };
-    const build = (visual, group, modelId) => {
-      if (!visual) return;
-      for (const seg of visual.segments) {
-        const status = statusByObjectId.get(seg.objectId);
-        const ghost = modelId === 'source' && (!status || ['MATCHED_UNCHANGED', 'PROPERTY_CHANGED', 'GEOMETRY_CHANGED'].includes(status));
-        const style = styleOf(ghost ? 'GHOST' : (status ?? 'GHOST'));
-        const colorInt = (!ghost && colorOverrides?.has(seg.objectId)) ? colorOverrides.get(seg.objectId) : style.colorInt;
-        const mesh = segmentMesh(seg, material(colorInt, ghost, style.alpha), modelId, 1, ghost, style.alpha);
-        mesh.userData.status = status ?? null;
-        mesh.userData.ghost = ghost;
-        group.add(mesh);
-        register(seg.objectId, mesh);
-      }
-      for (const marker of visual.markers) {
-        const mesh = markerMesh(marker, modelId, marker.objectId ? statusByObjectId.get(marker.objectId) : null);
-        group.add(mesh);
-        register(marker.objectId, mesh);
-      }
-    };
-    build(models.source, sourceGroup, 'source');
-    build(models.target, targetGroup, 'target');
-    sourceGroup.position.set(...(models.registrationTranslation ?? [0, 0, 0]));
-    applyVisibility();
-    render();
-  }
-
-  function applyVisibility() {
-    const visible = (mesh) => {
-      const { objectId, status, ghost, modelId } = mesh.userData;
-      if (isolation && objectId && !isolation.has(objectId)) return false;
-      if (isolation && !objectId) return false;
-      if (mode === 'diff-only') {
-        if (modelId === 'source' && ghost) return false;
-        if (!status || status === 'MATCHED_UNCHANGED') return modelId === 'target' ? false : !ghost;
-      }
-      if (statusFilter && status && !statusFilter.has(status)) return false;
-      if (statusFilter && !status && !mesh.userData.marker) return false;
-      return true;
-    };
-    for (const group of [sourceGroup, targetGroup]) {
-      for (const mesh of group.children) mesh.visible = visible(mesh);
-    }
-    sourceGroup.visible = mode !== 'target-only';
+    rebuildConnectorLines();
+    refreshInstanceStates();
   }
 
   // ── render loop (on-demand; rAF with timeout fallback so throttled or
@@ -614,13 +734,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         renderer.setViewport(0, 0, width / 2, height);
         renderer.setScissor(0, 0, width / 2, height);
         renderer.render(scene, camera);
-        renderAxisCompass(0, 0, width / 2, height);
+        renderAxisCompass(0, 0);
         // right: target only
         sourceGroup.visible = false; targetGroup.visible = true;
         renderer.setViewport(width / 2, 0, width / 2, height);
         renderer.setScissor(width / 2, 0, width / 2, height);
         renderer.render(scene, camera);
-        renderAxisCompass(width / 2, 0, width / 2, height);
+        renderAxisCompass(width / 2, 0);
         sourceGroup.visible = true;
         renderer.setScissorTest(false);
       } else {
@@ -628,35 +748,101 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         camera.updateProjectionMatrix();
         renderer.setViewport(0, 0, width, height);
         renderer.render(scene, camera);
-        renderAxisCompass(0, 0, width, height);
+        renderAxisCompass(0, 0);
       }
     };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
     setTimeout(run, 50);
   }
 
-  function recalibrateOrbitDepth() {
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-    const hit = raycaster.intersectObjects(candidates, true)[0];
-    if (hit && hit.distance > 1) {
-      controls.target.copy(hit.point);
-      controls.spherical.radius = hit.distance;
+  const picker = createGpuPicker(THREE, renderer);
+
+  /**
+   * GPU pick at client coordinates. Handles the side-by-side split (each half
+   * is its own view of the shared camera). Returns { record, point } or null.
+   */
+  function gpuPickAt(clientX, clientY) {
+    if (disposed) return null;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const width = host.clientWidth || 800;
+    const height = host.clientHeight || 480;
+    let x = (clientX - rect.left) * (width / Math.max(rect.width, 1));
+    const y = (clientY - rect.top) * (height / Math.max(rect.height, 1));
+    let viewWidth = width;
+    let hiddenGroup = null;
+    if (mode === 'side-by-side') {
+      viewWidth = width / 2;
+      if (x < viewWidth) hiddenGroup = targetGroup;
+      else { hiddenGroup = sourceGroup; x -= viewWidth; }
     }
+    const prevAspect = camera.aspect;
+    camera.aspect = viewWidth / height;
+    const prevHiddenVisible = hiddenGroup ? hiddenGroup.visible : true;
+    if (hiddenGroup) hiddenGroup.visible = false;
+    let id = 0;
+    try {
+      if (mode !== 'side-by-side' && sourceGroup.visible) {
+        // Two-phase pick: the ghosted source renders in the transparent list
+        // (after opaque) and would win depth ties against the target it
+        // duplicates, so prefer target/ghost-proposal hits first.
+        sourceGroup.visible = false;
+        id = picker.pick(scene, camera, x, y, viewWidth, height);
+        sourceGroup.visible = true;
+        if (!id) id = picker.pick(scene, camera, x, y, viewWidth, height);
+      } else {
+        id = picker.pick(scene, camera, x, y, viewWidth, height);
+      }
+    } finally {
+      if (hiddenGroup) hiddenGroup.visible = prevHiddenVisible;
+      camera.aspect = prevAspect;
+      camera.updateProjectionMatrix();
+    }
+    const record = pickTable[id] ?? null;
+    if (!record) return null;
+    const point = record.position.clone();
+    if (record.batch?.parent === sourceGroup) point.add(sourceGroup.position);
+    return { record, point };
+  }
+
+  function recalibrateOrbitDepth() {
+    const width = host.clientWidth || 800;
+    const height = host.clientHeight || 480;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const hit = gpuPickAt(rect.left + width / 2, rect.top + height / 2);
+    if (hit) {
+      const distance = camera.position.distanceTo(hit.point);
+      if (distance > 1) {
+        controls.target.copy(hit.point);
+        controls.spherical.radius = distance;
+      }
+    }
+  }
+
+  // Cursor-anchored zoom: reuse the last anchor during a wheel burst so we
+  // don't run a pick per wheel tick.
+  let zoomAnchor = null;
+  let zoomAnchorAt = 0;
+  function getZoomAnchor(event) {
+    const now = Date.now();
+    if (!zoomAnchor || now - zoomAnchorAt > 150) {
+      const hit = gpuPickAt(event.clientX, event.clientY);
+      zoomAnchor = hit ? hit.point : null;
+    }
+    zoomAnchorAt = now;
+    return zoomAnchor;
   }
 
   const controls = attachOrbitControls(THREE, camera, renderer.domElement, () => verticalAxis, () => {
     render();
     if (onCameraChange) onCameraChange();
-  });
+  }, getZoomAnchor);
 
   renderer.domElement.addEventListener('pointerup', recalibrateOrbitDepth);
-  renderer.domElement.addEventListener('wheel', recalibrateOrbitDepth);
 
   const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(render) : null;
   resizeObserver?.observe(host);
 
-  // ── picking ────────────────────────────────────────────────────────────
+  // ── picking events ───────────────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line = { threshold: 40 };
   const pointer = new THREE.Vector2();
@@ -669,25 +855,42 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return [x, y];
   }
 
+  function connectorAt(event) {
+    if (!connectorLines.length) return null;
+    pointer.set(...pointerToNdc(event));
+    raycaster.setFromCamera(pointer, camera);
+    for (const entry of connectorLines) {
+      const hit = raycaster.intersectObject(entry.line, false)[0];
+      if (hit) {
+        const segmentIndex = Math.floor((hit.index ?? 0) / 2);
+        const rec = entry.records[segmentIndex];
+        if (rec) return rec.connector;
+      }
+    }
+    return null;
+  }
+
   // Hover — connector and object hits go to the host UI as tooltip data.
   let hoverThrottle = 0;
   renderer.domElement.addEventListener('pointermove', (event) => {
     if (!onHoverConnector && !onHoverObject) return;
     const now = Date.now();
-    if (now - hoverThrottle < 80) return;
+    if (now - hoverThrottle < 33) return;
     hoverThrottle = now;
-    pointer.set(...pointerToNdc(event));
-    raycaster.setFromCamera(pointer, camera);
     if (onHoverConnector) {
-      const visibleLines = connectorGroup.children.filter((l) => l.visible);
-      const hit = visibleLines.length ? raycaster.intersectObjects(visibleLines, false)[0] : null;
-      onHoverConnector(hit ? hit.object.userData.connector : null, event);
-      if (hit) { if (onHoverObject) onHoverObject(null, event); return; }
+      const connector = connectorAt(event);
+      onHoverConnector(connector, event);
+      if (connector) { if (onHoverObject) onHoverObject(null, event); return; }
     }
     if (onHoverObject) {
-      const meshes = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-      const hit = raycaster.intersectObjects(meshes, true)[0];
-      onHoverObject(hit ? { ...hit.object.userData } : null, event);
+      const hit = gpuPickAt(event.clientX, event.clientY);
+      const meta = hit?.record.meta;
+      if (meta?.connector) {
+        if (onHoverConnector) onHoverConnector(meta.connector, event);
+        onHoverObject(null, event);
+        return;
+      }
+      onHoverObject(meta ? { ...meta } : null, event);
     }
   });
   let downAt = null;
@@ -695,10 +898,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('click', (event) => {
     if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5) return; // drag, not click
-    pointer.set(...pointerToNdc(event));
-    raycaster.setFromCamera(pointer, camera);
-    const candidates = [...sourceGroup.children, ...targetGroup.children].filter((m) => m.visible && (m.userData.objectId || m.userData.nodeId));
-    const hit = raycaster.intersectObjects(candidates, true)[0];
+    const hit = gpuPickAt(event.clientX, event.clientY);
     if (hit) {
       const now = Date.now();
       if (now - lastClickTime < 300) {
@@ -706,11 +906,14 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       }
       lastClickTime = now;
       if (onPick) {
+        const meta = hit.record.meta;
         onPick({
-          objectId: hit.object.userData.objectId ?? null,
-          nodeId: hit.object.userData.nodeId ?? null,
-          modelId: hit.object.userData.modelId,
-          status: hit.object.userData.status ?? null,
+          objectId: meta.objectId ?? null,
+          nodeId: meta.nodeId ?? null,
+          modelId: meta.modelId,
+          status: meta.status ?? null,
+          connector: meta.connector ?? null,
+          point: hit.point.toArray(),
         });
       }
     } else {
@@ -718,19 +921,32 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
   });
 
+  // 'F' fits the current selection (or everything) while the cursor is over
+  // the canvas — matches common CAD viewers.
+  const onKeyDown = (event) => {
+    if (event.key !== 'f' && event.key !== 'F') return;
+    if (!renderer.domElement.matches(':hover')) return;
+    if (selectedObjectId) fitBox(boundsOf(new Set([selectedObjectId])));
+    else fitBox(boundsOf(null));
+  };
+  window.addEventListener('keydown', onKeyDown);
+
   function boundsOf(ids) {
     const box = new THREE.Box3();
     let any = false;
-    const include = (group) => {
-      for (const mesh of group.children) {
-        if (!mesh.userData.objectId) continue;
-        if (ids && !ids.has(mesh.userData.objectId)) continue;
-        box.expandByObject(mesh);
+    for (const batch of batches) {
+      if (batch.group !== sourceGroup && batch.group !== targetGroup) continue;
+      for (const record of batch.records) {
+        if (!record.meta.objectId) continue;
+        if (ids && !ids.has(record.meta.objectId)) continue;
+        const extent = Math.max(record.scale.x, record.scale.y, record.scale.z);
+        _pos.copy(record.position);
+        if (batch.group === sourceGroup) _pos.add(sourceGroup.position);
+        box.expandByPoint(_pos.clone().addScalar(extent));
+        box.expandByPoint(_pos.clone().addScalar(-extent));
         any = true;
       }
-    };
-    include(sourceGroup);
-    include(targetGroup);
+    }
     return any ? box : null;
   }
 
@@ -740,6 +956,46 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     const size = box.getSize(new THREE.Vector3()).length() || 1000;
     const dir = new THREE.Vector3(1, 0.8, 1).normalize();
     controls.setView(center.clone().add(dir.multiplyScalar(size * 0.9 + 200)), center);
+  }
+
+  // ── transient overlay (drag previews, rubber bands) — cheap plain meshes ─
+  let transientObjects = [];
+  function clearTransient() {
+    for (const obj of transientObjects) {
+      transientGroup.remove(obj);
+      obj.geometry?.dispose?.();
+      obj.material?.dispose?.();
+    }
+    transientObjects = [];
+  }
+
+  let measurementObjects = [];
+  function clearMeasurement() {
+    for (const object of measurementObjects) {
+      measurementGroup.remove(object);
+      object.geometry?.dispose?.();
+      object.material?.dispose?.();
+    }
+    measurementObjects = [];
+  }
+
+  function rebuildMeasurement(points) {
+    clearMeasurement();
+    const vectors = (points ?? []).filter((point) => Array.isArray(point) && point.length === 3)
+      .map((point) => new THREE.Vector3(...point.map(Number))).filter((point) => [point.x, point.y, point.z].every(Number.isFinite));
+    if (vectors.length > 1) {
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(vectors), new THREE.LineBasicMaterial({ color: 0xffd166, depthTest: false }));
+      line.renderOrder = 20;
+      measurementGroup.add(line);
+      measurementObjects.push(line);
+    }
+    if (vectors.length) {
+      const markers = new THREE.Points(new THREE.BufferGeometry().setFromPoints(vectors), new THREE.PointsMaterial({ color: 0xffd166, size: 8, sizeAttenuation: false, depthTest: false }));
+      markers.renderOrder = 21;
+      measurementGroup.add(markers);
+      measurementObjects.push(markers);
+    }
+    render();
   }
 
   return {
@@ -758,31 +1014,78 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     },
     setModels(next) {
       models = { ...models, ...next };
-      rebuild();
+      invalidate();
     },
     setStatuses(map) {
       statusByObjectId = map instanceof Map ? map : new Map(Object.entries(map ?? {}));
-      rebuild();
+      invalidate();
     },
-    setMode(nextMode) { mode = nextMode; applyVisibility(); render(); },
+    setMode(nextMode) { mode = nextMode; refreshInstanceStates(); render(); },
     getMode() { return mode; },
     /**
      * Apply effective status styles ({ STATUS: { colorInt, alpha } }).
-     * Rebuilds the material pool — highlights are cleared first because their
-     * clones reference pooled materials.
+     * Alpha changes move records between opacity batches, so this rebuilds.
      */
     setStatusStyles(styles) {
-      clearHighlight();
       activeStyles = styles ?? null;
-      for (const mat of materialPool.values()) mat.dispose();
-      materialPool.clear();
-      rebuild();
+      invalidate();
     },
     /** Map<objectId, colorInt> (e.g. heatmap) — overrides status colors. */
     setColorOverrides(map) {
       colorOverrides = map instanceof Map && map.size ? map : null;
-      rebuild();
+      refreshInstanceStates();
+      render();
     },
+    /**
+     * Ghost proposal model (VisualGeometryModel.v1 or null) — rendered
+     * translucent cyan on top of everything and pickable, for fix previews.
+     */
+    setGhostModel(model) {
+      ghostModel = model ?? null;
+      invalidate();
+    },
+    /**
+     * Incremental per-object updates without a geometry rebuild.
+     * patch: { recolor?: Map<objectId, colorInt>|null }.
+     */
+    updateObjects(patch) {
+      if (patch && 'recolor' in patch) {
+        const map = patch.recolor;
+        transientRecolor = map instanceof Map && map.size ? map : null;
+      }
+      refreshInstanceStates();
+      render();
+    },
+    /**
+     * Transient overlay for in-flight gestures (drag ghost, rubber band).
+     * overlay: { lines?: [{ points: [[x,y,z],...], colorInt? }],
+     *            spheres?: [{ position: [x,y,z], radiusMm?, colorInt? }] } | null
+     */
+    setTransient(overlay) {
+      clearTransient();
+      if (overlay) {
+        for (const spec of overlay.lines ?? []) {
+          const pts = (spec.points ?? []).map((p) => new THREE.Vector3(...p));
+          if (pts.length < 2) continue;
+          const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+          const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: spec.colorInt ?? 0x38bdf8, transparent: true, opacity: 0.9, depthTest: false }));
+          line.renderOrder = 10;
+          transientGroup.add(line);
+          transientObjects.push(line);
+        }
+        for (const spec of overlay.spheres ?? []) {
+          const geometry = new THREE.SphereGeometry(Math.max(Number(spec.radiusMm) || 26, 4), 12, 10);
+          const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color: spec.colorInt ?? 0x38bdf8, transparent: true, opacity: 0.85, depthTest: false }));
+          mesh.position.set(...spec.position);
+          mesh.renderOrder = 10;
+          transientGroup.add(mesh);
+          transientObjects.push(mesh);
+        }
+      }
+      render();
+    },
+    /** Persistent click-to-measure overlay; lengths are calculated by the caller. */
+    setMeasurement(points) { rebuildMeasurement(points); },
     /** Project a world [x,y,z] to canvas pixel coords (null when behind camera). */
     worldToScreen(xyz) {
       const v = new THREE.Vector3(...xyz).project(camera);
@@ -791,10 +1094,44 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       const height = host.clientHeight || 480;
       return { x: (v.x + 1) / 2 * width, y: (1 - v.y) / 2 * height };
     },
+    /** Alias of worldToScreen — HTML overlay anchoring. */
+    projectPoint(xyz) { return this.worldToScreen(xyz); },
+    /** World-space ray under the given client coordinates (drag-plane math). */
+    screenRay(clientX, clientY) {
+      pointer.set(...pointerToNdc({ clientX, clientY }));
+      raycaster.setFromCamera(pointer, camera);
+      return { origin: raycaster.ray.origin.toArray(), direction: raycaster.ray.direction.toArray() };
+    },
+    /** Dolly by a factor (>1 zooms out). */
+    zoomBy(factor) {
+      controls.spherical.radius *= Number(factor) > 0 ? Number(factor) : 1;
+      controls.apply();
+    },
+    /** Pick whatever is under the given client coordinates (GPU ID pass). */
+    pickAt(clientX, clientY) {
+      const hit = gpuPickAt(clientX, clientY);
+      if (!hit) return null;
+      const meta = hit.record.meta;
+      return {
+        objectId: meta.objectId ?? null,
+        nodeId: meta.nodeId ?? null,
+        modelId: meta.modelId,
+        status: meta.status ?? null,
+        marker: meta.marker ?? null,
+        kind: meta.kind ?? null,
+        connector: meta.connector ?? null,
+        point: hit.point.toArray(),
+      };
+    },
     /** Render ConnectorModel.v1 connectors (viewer never derives links itself). */
     setConnectors(connectorModel) {
-      buildConnectorObjects(connectorModel?.connectors ?? []);
-      render();
+      connectorRecords = (connectorModel?.connectors ?? []).map((connector) => ({
+        connector,
+        from: new THREE.Vector3(...connector.from),
+        to: new THREE.Vector3(...connector.to),
+        colorInt: connectorColor(connector),
+      }));
+      invalidate();
     },
     /** 'hidden' | 'selection' | 'matches' | 'candidates' | 'conflicts' | 'transfer' | 'registration' */
     setConnectorMode(nextMode) {
@@ -808,7 +1145,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
      */
     setSelection(objectId, relatedIds = []) {
       selectedObjectId = objectId ?? null;
-      setHighlight(objectId ? [objectId, ...relatedIds] : []);
+      selectedIds = new Set(objectId ? [objectId, ...relatedIds] : []);
       applyConnectorVisibility();
       render();
     },
@@ -823,24 +1160,25 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         statusFilter: statusFilter ? [...statusFilter] : [],
         isolation: isolation ? [...isolation] : [],
         selectedObjectId,
-        connectorCount: connectorGroup.children.length,
-        visibleConnectorCount: connectorGroup.children.filter((l) => l.visible).length,
+        connectorCount: connectorRecords.length,
+        visibleConnectorCount: connectorRecords.filter((rec) => connectorVisible(rec.connector)).length,
+        instanceCount: batches.reduce((sum, batch) => sum + batch.records.length, 0),
+        drawBatchCount: batches.length,
       };
     },
     setSourceOpacity(value) {
       sourceOpacity = Math.max(0.05, Math.min(1, Number(value)));
-      for (const [key, mat] of materialPool) {
-        if (key.endsWith(':g')) { mat.opacity = sourceOpacity; mat.needsUpdate = true; }
-      }
+      const ghostMat = batchMaterials.get('ghost');
+      if (ghostMat) { ghostMat.opacity = sourceOpacity; ghostMat.needsUpdate = true; }
       render();
     },
     setStatusFilter(statuses) {
       statusFilter = statuses && statuses.size ? new Set(statuses) : null;
-      applyVisibility(); render();
+      refreshInstanceStates(); render();
     },
     isolate(objectIds) {
       isolation = objectIds && objectIds.size ? new Set(objectIds) : null;
-      applyVisibility(); render();
+      refreshInstanceStates(); render();
       if (isolation) fitBox(boundsOf(isolation));
     },
     fitAll() { fitBox(boundsOf(null)); },
@@ -878,14 +1216,17 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     render,
     dispose() {
       disposed = true;
+      window.removeEventListener('keydown', onKeyDown);
       resizeObserver?.disconnect();
       controls.dispose();
-      clearHighlight();
-      clearConnectors();
-      clearGroup(sourceGroup);
-      clearGroup(targetGroup);
-      for (const mat of materialPool.values()) mat.dispose();
-      materialPool.clear();
+      disposeBatches();
+      disposeConnectorLines();
+      clearTransient();
+      clearMeasurement();
+      for (const mat of batchMaterials.values()) mat.dispose();
+      batchMaterials.clear();
+      for (const key of Object.keys(UNIT)) { UNIT[key].dispose(); delete UNIT[key]; }
+      picker.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },

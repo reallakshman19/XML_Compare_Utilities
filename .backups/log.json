@@ -1,5 +1,5 @@
 {
-  "lastId": 89,
+  "lastId": 104,
   "entries": [
     {
       "id": 1,
@@ -623,6 +623,111 @@
       "file": ".backups\\log.json",
       "context": "post-pull-68e004b-57-commits-merged",
       "backupFile": "89__backups_log_json.bak"
+    },
+    {
+      "id": 90,
+      "timestamp": "2026-07-16 21:11:08",
+      "file": "tabs\\topology-trace-validator\\topology-workspace-markup.js",
+      "context": "collapsible bottom panel and pre-populated compass",
+      "backupFile": "90_tabs_topology_trace_validator_topology_workspace_markup_js.bak"
+    },
+    {
+      "id": 91,
+      "timestamp": "2026-07-16 21:11:09",
+      "file": "tabs\\topology-trace-validator\\topology-workspace-wiring.js",
+      "context": "sync up axis and edit compass fixes",
+      "backupFile": "91_tabs_topology_trace_validator_topology_workspace_wiring_js.bak"
+    },
+    {
+      "id": 92,
+      "timestamp": "2026-07-16 21:11:09",
+      "file": "tabs\\topology-trace-validator\\topology-edit-panel.js",
+      "context": "revert inner details to h3 for clean layout",
+      "backupFile": "92_tabs_topology_trace_validator_topology_edit_panel_js.bak"
+    },
+    {
+      "id": 93,
+      "timestamp": "2026-07-16 21:11:10",
+      "file": "tabs\\topology-trace-validator\\topology-edit-controller.js",
+      "context": "zoom to clicked 3d elements",
+      "backupFile": "93_tabs_topology_trace_validator_topology_edit_controller_js.bak"
+    },
+    {
+      "id": 94,
+      "timestamp": "2026-07-16 21:11:10",
+      "file": "tabs\\topology-trace-validator\\topology-edit-3d-preview.js",
+      "context": "pass active vertical axis to visual geometry builder",
+      "backupFile": "94_tabs_topology_trace_validator_topology_edit_3d_preview_js.bak"
+    },
+    {
+      "id": 95,
+      "timestamp": "2026-07-16 21:11:17",
+      "file": "tabs\\xml-compare-tab.js",
+      "context": "copy 3d compare workbench import section logic",
+      "backupFile": "95_tabs_xml_compare_tab_js.bak"
+    },
+    {
+      "id": 96,
+      "timestamp": "2026-07-16 21:11:17",
+      "file": "xml-compare\\XmlCompareTabView.js",
+      "context": "copy 3d compare workbench import UI layout",
+      "backupFile": "96_xml_compare_XmlCompareTabView_js.bak"
+    },
+    {
+      "id": 97,
+      "timestamp": "2026-07-16 21:11:37",
+      "file": "tabs\\topology-trace-validator\\topology-parity-workspace.css",
+      "context": "collapsible footer details panel style",
+      "backupFile": "97_tabs_topology_trace_validator_topology_parity_workspace_css.bak"
+    },
+    {
+      "id": 98,
+      "timestamp": "2026-07-16 21:17:57",
+      "file": "workbench3d\\viewer\\workbench-viewer.js",
+      "context": "render corner axis compass helper in 3D canvas",
+      "backupFile": "98_workbench3d_viewer_workbench_viewer_js.bak"
+    },
+    {
+      "id": 99,
+      "timestamp": "2026-07-16 21:25:25",
+      "file": "tabs\\topology-trace-validator\\topology-edit-3d-preview.js",
+      "context": "set verticalAxis in renderTopologyEdit3dPreview",
+      "backupFile": "99_tabs_topology_trace_validator_topology_edit_3d_preview_js.bak"
+    },
+    {
+      "id": 100,
+      "timestamp": "2026-07-16 21:25:58",
+      "file": "tabs\\topology-trace-validator\\topology-3d-viewer-bridge.js",
+      "context": "set verticalAxis in render3dViewer",
+      "backupFile": "100_tabs_topology_trace_validator_topology_3d_viewer_bridge_js.bak"
+    },
+    {
+      "id": 101,
+      "timestamp": "2026-07-16 21:29:27",
+      "file": "workbench3d\\adapters\\visual-model-builder.js",
+      "context": "add center/attrs to segment in visual-model-builder",
+      "backupFile": "101_workbench3d_adapters_visual_model_builder_js.bak"
+    },
+    {
+      "id": 102,
+      "timestamp": "2026-07-16 21:29:42",
+      "file": "tabs\\topology-trace-validator\\topology-3d-visual-model.js",
+      "context": "set segment kind and center for source components",
+      "backupFile": "102_tabs_topology_trace_validator_topology_3d_visual_model_js.bak"
+    },
+    {
+      "id": 103,
+      "timestamp": "2026-07-16 21:35:55",
+      "file": "workbench3d\\adapters\\visual-model-builder.js",
+      "context": "resolve segment kind for valve and flange in visual-model-builder",
+      "backupFile": "103_workbench3d_adapters_visual_model_builder_js.bak"
+    },
+    {
+      "id": 104,
+      "timestamp": "2026-07-16 21:36:06",
+      "file": "workbench3d\\viewer\\workbench-viewer.js",
+      "context": "make component classification case-insensitive and match short names",
+      "backupFile": "104_workbench3d_viewer_workbench_viewer_js.bak"
     }
   ]
 }

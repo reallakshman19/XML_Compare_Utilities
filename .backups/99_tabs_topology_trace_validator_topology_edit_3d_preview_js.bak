@@ -88,7 +88,6 @@ async function ensureViewer(host) {
 export async function renderTopologyEdit3dPreview(host, original, draft, validation, selection, verticalAxis, onPick) {
   pickCallback = onPick;
   await ensureViewer(host);
-  viewer.setVerticalAxis(verticalAxis);
   viewer.setModels({ source: visualGeometry(original, null, verticalAxis), target: visualGeometry(draft, validation, verticalAxis), registrationTranslation: [0, 0, 0] });
   const active = selection.at(-1);
   viewer.setSelection(cleanText(active?.id), []);

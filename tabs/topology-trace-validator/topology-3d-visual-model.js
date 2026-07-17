@@ -53,6 +53,16 @@ export function restraintFamily(restraint) {
   return RESTRAINT_FAMILY_MAPPING[rawKind] || rawKind;
 }
 
+/** Family → arrow tint so restraint kinds read apart at a glance. */
+export const RESTRAINT_FAMILY_COLORS = Object.freeze({
+  REST: 0x22d3ee, SHOE: 0x22d3ee, TRUNNION: 0x22d3ee, HANGER: 0x22d3ee,
+  GUIDE: 0x4ade80,
+  LINE_STOP: 0xf59e0b, LIMIT: 0xf59e0b,
+  ANCHOR: 0xef4444,
+  HOLDOWN: 0xa78bfa, U_BOLT: 0xa78bfa,
+  SPRING_WARNING: 0xfacc15, SPRING_HANGER: 0xfacc15, CAN: 0xfacc15,
+});
+
 function verticalAxisVector(verticalAxis) { return verticalAxis === 'Z' ? [0, 0, 1] : [0, 1, 0]; }
 function lateralAxes(axis, verticalAxis = 'Y') {
   if (Math.abs(axis[verticalAxis === 'Z' ? 2 : 1]) > 0.9) return verticalAxis === 'Z' ? [[1, 0, 0], [0, 1, 0]] : [[1, 0, 0], [0, 0, 1]];
@@ -70,13 +80,15 @@ export function buildCanonicalRestraintGeometry(canonical, viewModel) {
   const nodes = new Map(asArray(canonical.nodes).map(objectRecord).map((node) => [cleanText(node.id), node]));
   const edges = asArray(canonical.edges).map(objectRecord), segments = [], markers = [];
   const verticalAxis = cleanText(viewModel?.verticalAxis || 'Y').toUpperCase() === 'Z' ? 'Z' : 'Y';
+  const requestedScale = Number(viewModel?.supportScale);
+  const supportScale = Number.isFinite(requestedScale) ? Math.min(6, Math.max(0.25, requestedScale)) : 1;
   const up = verticalAxisVector(verticalAxis);
 
   for (const support of asArray(canonical.supports).map(objectRecord)) {
     const node = nodes.get(cleanText(support.nodeId));
     if (!node) continue;
     const center = [node.position.x, node.position.y, node.position.z], axis = pipeAxis(support, nodes, edges) || [1,0,0];
-    markers.push({ objectId: cleanText(support.id), nodeId: cleanText(support.nodeId), kind: 'SUPPORT', position: center, sizeMm: 28, isObjectMarker: true });
+    markers.push({ objectId: cleanText(support.id), nodeId: cleanText(support.nodeId), kind: 'SUPPORT', position: center, sizeMm: 28 * supportScale, isObjectMarker: true });
 
     let odMm = 25 * 2;
     const edge = edges.find((row) => cleanText(row.fromNodeId) === cleanText(support.nodeId) || cleanText(row.toNodeId) === cleanText(support.nodeId));
@@ -90,15 +102,16 @@ export function buildCanonicalRestraintGeometry(canonical, viewModel) {
 
       const family = restraintFamily(restraint);
 
-      const arrowLen = Math.max(Math.min(odMm * 0.8, 240), 60);
+      const arrowLen = Math.max(Math.min(odMm * 0.8, 240), 60) * supportScale;
 
+      const familyColor = RESTRAINT_FAMILY_COLORS[family] ?? 0x22d3ee;
       const pushArrow = (dir, tipPos, kind) => {
         const d = unit(dir) || [1,0,0];
         const shaftStart = sub(tipPos, scale(d, arrowLen));
         const shaftEnd = tipPos; // the shaft connects exactly to the tip
 
-        segments.push({ objectId: cleanText(support.id), start: shaftStart, end: shaftEnd, radiusMm: 7, kind: 'restraint', pathId: cleanText(support.id) });
-        markers.push({ objectId: cleanText(support.id), nodeId: cleanText(support.nodeId), kind, position: tipPos, direction: d, restraintKind: cleanText(restraint.kind), restraintFamily: family, restraintIndex: index, sizeMm: 34, isObjectMarker: true });
+        segments.push({ objectId: cleanText(support.id), start: shaftStart, end: shaftEnd, radiusMm: 7 * supportScale, kind: 'restraint', pathId: cleanText(support.id), colorInt: familyColor });
+        markers.push({ objectId: cleanText(support.id), nodeId: cleanText(support.nodeId), kind, position: tipPos, direction: d, restraintKind: cleanText(restraint.kind), restraintFamily: family, restraintIndex: index, sizeMm: 34 * supportScale, isObjectMarker: true, colorInt: kind === 'WARNING' ? 0xfacc15 : familyColor });
       };
 
       const pipeDim = Math.abs(axis[0]) > 0.9 ? 'X' : Math.abs(axis[verticalAxis === 'Z' ? 2 : 1]) > 0.9 ? verticalAxis : 'Z';

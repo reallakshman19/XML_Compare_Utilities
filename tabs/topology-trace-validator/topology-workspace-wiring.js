@@ -4,7 +4,7 @@ import { cleanText, objectRecord } from './topology-validator-values.js';
 import { renderStagedJsonEnrichmentPanel } from './stagedjson-enrichment/stagedjson-enrichment-ui.js?v=20260715-ttv-005-css-fix';
 import { wireLeftPanelResize, wireBottomPanelResize } from './topology-panel-resize.js';
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
-
+import { loadStagedJsonScoped } from './topology-staged-load-flow.js';
 export function wireTopologyWorkspace(root, controller) {
   const cleanups = [];
   cleanups.push(wireLeftPanelResize(root));
@@ -150,14 +150,12 @@ export function wireTopologyWorkspace(root, controller) {
   });
   return cleanups;
 }
-
 function wireWorkspaceTabs(root, controller, listen) {
   root.querySelectorAll('[data-ttv-workspace-tab]').forEach((button) => listen(button, 'click', async () => {
     try { await controller.activateTab(button.dataset.ttvWorkspaceTab, root); }
     catch (error) { showWorkspaceError(root, error); showEditError(root, error); }
   }));
 }
-
 function wireEditControls(root, controller, listen) {
   const run = async (operation) => {
     try { await controller.edit.runOperation(operation); }
@@ -185,6 +183,12 @@ function wireEditControls(root, controller, listen) {
     button.classList.toggle('is-active');
     controller.edit.setSelectionFilter(button.dataset.ttvEditSelectionFilter, button.classList.contains('is-active'));
   }));
+  listen(root.querySelector('[data-ttv-support-scale]'), 'input', (event) => {
+    const value = Number(event.target.value);
+    const output = root.querySelector('[data-ttv-support-scale-output]');
+    if (output) output.textContent = `${value.toFixed(2)}×`;
+    try { controller.edit.setSupportScale(value); } catch (error) { showEditError(root, error); }
+  });
   listen(root.querySelector('[data-ttv-edit-3d]'), 'change', (event) => {
     const is3D = event.target.checked;
     controller.edit.set3dVisible(is3D);
@@ -195,6 +199,12 @@ function wireEditControls(root, controller, listen) {
   root.querySelectorAll('[data-ttv-edit-zoom]').forEach((button) => listen(button, 'click', () => {
     if (button.dataset.ttvEditZoom === 'in') controller.edit.zoomIn(); else controller.edit.zoomOut();
   }));
+  listen(root.querySelector('[data-ttv-edit-load-staged]'), 'change', async (event) => {
+    const input = event.target, file = input.files?.[0];
+    if (!file) return;
+    try { await loadStagedJsonScoped(root, controller, file, refreshCheckerIfReady); }
+    catch (error) { showEditError(root, error); } finally { input.value = ''; }
+  });
   listen(root.querySelector('[data-ttv-edit-save]'), 'click', () => { try { controller.edit.saveDraft(); } catch (error) { showEditError(root, error); } });
   listen(root.querySelector('[data-ttv-edit-load]'), 'change', async (event) => {
     try { if (event.target.files?.[0]) await controller.edit.loadDraftFile(event.target.files[0]); }
@@ -212,7 +222,6 @@ function wireEditControls(root, controller, listen) {
     if (action) run(action.dataset.ttvEditInspectorAction);
   });
 }
-
 function wireParityControls(root, controller, listen) {
   root.querySelectorAll('[data-ttv-parity-projection]').forEach((btn) => listen(btn, 'click', () => { setActiveButtons(root, 'data-ttv-parity-projection', btn); controller.parity.setProjection(btn.dataset.ttvParityProjection); }));
   root.querySelectorAll('[data-ttv-parity-zoom]').forEach((btn) => listen(btn, 'click', () => { if (btn.dataset.ttvParityZoom === 'in') controller.parity.zoomIn(); else controller.parity.zoomOut(); }));
@@ -277,7 +286,6 @@ async function buildTopology(root, controller, event) {
     root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
   } finally { button.textContent = originalText; button.disabled = false; }
 }
-
 function setActiveButtons(root, attr, act) { root.querySelectorAll(`[${attr}]`).forEach((b) => b.classList.toggle('is-active', b === act)); }
 function setStatus(root, msg, status) { const t = root.querySelector('[data-ttv-status]'); if (t) { t.textContent = msg; t.setAttribute('data-status', status); } }
 function showWorkspaceError(root, error) { setStatus(root, error?.message || String(error), 'error'); }
@@ -287,5 +295,4 @@ async function refreshCheckerIfReady(controller) {
   if (objectRecord(canonical).schema === 'CanonicalTopology.v1') await controller.checker?.refresh();
 }
 function toKebab(value) { return value.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`); }
-
 export const _test = Object.freeze({ wireWorkspaceTabs, wireEditControls, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, showEditError, refreshCheckerIfReady, toKebab });

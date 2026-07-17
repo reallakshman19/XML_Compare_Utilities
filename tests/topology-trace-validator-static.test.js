@@ -31,7 +31,9 @@ for (const moduleName of [
   'topology-svg-navigation.js', 'topology-parity-artifact-reader.js', 'topology-parity-state.js',
   'topology-scene-view-model.js', 'topology-parity-svg-renderer.js', 'topology-parity-controller.js',
   'topology-parity-panel.js', 'topology-workspace-controller.js', 'topology-workspace-wiring.js',
-  'topology-edit-controller.js', 'topology-edit-svg-renderer.js', 'topology-edit-3d-preview.js',
+  'topology-edit-controller.js', 'topology-edit-3d-canvas.js', 'topology-edit-3d-gestures.js',
+  'topology-edit-measurement.js',
+  'topology-staged-input-adapter.js', 'topology-branch-scope-popup.js',
   'topology-3d-visual-model.js', 'topology-producer-loader.js',
 ]) assert(files.includes(moduleName), `${moduleName} is required`);
 

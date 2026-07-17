@@ -35,4 +35,10 @@ assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-HOLDOWN').m
 assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-X').map((row) => row.direction)), sortDirs([[1, 0, 0]]));
 assert(geometry.markers.filter((marker) => marker.kind === 'SUPPORT').every((marker) => marker.isObjectMarker));
 
-console.log('topology 3D restraint geometry passed: REST, HOLDOWN, GUIDE, LINESTOP, and explicit-axis arrows verified.');
+const scaledGeometry = buildCanonicalRestraintGeometry(canonical, { verticalAxis: 'Y', supportScale: 2 });
+const baseSupport = geometry.markers.find((marker) => marker.kind === 'SUPPORT');
+const scaledSupport = scaledGeometry.markers.find((marker) => marker.kind === 'SUPPORT');
+assert.equal(scaledSupport.sizeMm, baseSupport.sizeMm * 2, 'support marker scale must follow the UI slider');
+assert.equal(scaledGeometry.segments[0].radiusMm, geometry.segments[0].radiusMm * 2, 'support shaft scale must follow the UI slider');
+
+console.log('topology 3D restraint geometry passed: directional arrows and support rendering scale verified.');
