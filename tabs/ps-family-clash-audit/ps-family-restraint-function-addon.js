@@ -3,7 +3,7 @@ import {
   supportRestraintDirectionsToCsv,
   supportRestraintExceptionsToCsv,
   supportRestraintFamiliesToCsv,
-} from '../support-steel-relationship-builder/support-restraint-function-export.js';
+} from '../support-steel-relationship-builder/support-restraint-function-export.js?v=20260717-startup-cache-recovery-1';
 import { saveZipTextFiles } from './ps-family-clash-audit-save.js';
 
 const POPUP_SELECTOR = '[data-psfa-popup="1"]';
