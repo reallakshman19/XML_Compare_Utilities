@@ -1,11 +1,11 @@
-import { buildPsFamilyNativeAuditPipeline } from './ps-family-native-audit-pipeline.js';
+import { buildPsFamilyNativeAuditPipeline } from './ps-family-native-combined-input.js';
 import { buildPsFamilyOfflineValidationBenchmark } from './ps-family-offline-validation-benchmark.js';
 import { parseSupportChangeXml } from './ps-family-psclash-xml-parser.js';
 
 export const PS_FAMILY_INDEPENDENT_BENCHMARK_SCHEMA = 'PsFamilyIndependentModelBenchmark.v1';
 
 export function buildPsFamilyIndependentModelBenchmark(input = {}) {
-  const combinedInputText = sourceText(input.combinedInputText ?? input.combinedInput);
+  const combinedInputText = text(input.combinedInputText ?? input.combinedInput);
   if (!combinedInputText.trim()) throw new Error('Load one combined staged model JSON in Native Pipeline before benchmarking.');
   const pipeline = buildPsFamilyNativeAuditPipeline({
     combinedInputText,
@@ -18,13 +18,13 @@ export function buildPsFamilyIndependentModelBenchmark(input = {}) {
     supportXmlText: input.supportXmlText || '',
     config: input.validationConfig || {},
   });
-  const memberTerminal = compareMemberTerminals(
+  const memberTerminal = terminalBenchmark(
     pipeline.relationshipBundle,
     input.structureXmlText || '',
     input.validationConfig || {},
   );
-  const coverage = buildCoverage(pipeline, reference, memberTerminal);
-  const gaps = buildGaps(reference, memberTerminal, coverage);
+  const coverage = coverageRows(pipeline, reference, memberTerminal);
+  const gaps = gapRows(reference, memberTerminal, coverage);
   return {
     schema: PS_FAMILY_INDEPENDENT_BENCHMARK_SCHEMA,
     validationOnly: true,
@@ -38,7 +38,7 @@ export function buildPsFamilyIndependentModelBenchmark(input = {}) {
     coverage,
     gaps,
     summary: {
-      status: benchmarkStatus(reference, memberTerminal, gaps),
+      status: gaps.some((row) => row.severity === 'HIGH') ? 'MATERIAL_GAPS_FOUND' : 'MEETS_AVAILABLE_REFERENCE',
       referenceComparableLayerCount: coverage.filter((row) => row.coverageStatus === 'REFERENCE_COMPARABLE').length,
       modelOnlyLayerCount: coverage.filter((row) => row.coverageStatus === 'MODEL_ONLY').length,
       noModelEvidenceLayerCount: coverage.filter((row) => row.coverageStatus === 'NO_MODEL_EVIDENCE').length,
@@ -54,105 +54,102 @@ export function buildPsFamilyIndependentModelBenchmark(input = {}) {
   };
 }
 
-function compareMemberTerminals(bundle, structureXmlText, config) {
-  const parsed = parseSupportChangeXml(structureXmlText, config, 'StructureGroup vs Supports');
-  const predictedRows = uniqueRows((bundle.supportMemberChain?.structuralTerminalEdges || [])
+function terminalBenchmark(bundle, structureXmlText, config) {
+  const xml = parseSupportChangeXml(structureXmlText, config, 'StructureGroup vs Supports');
+  const predictedRows = unique((bundle.supportMemberChain?.structuralTerminalEdges || [])
     .filter((row) => row.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE'
       && row.contactEvidenceStatus === 'ANALYTICAL_CONTACT_CANDIDATE')
-    .map((row) => terminalRow(row.supportMemberId, row.steelGroupId, row.edgeId, 'MODEL')));
-  const referenceRows = uniqueRows((parsed.rows || [])
+    .map((row) => terminal(row.supportMemberId, row.steelGroupId, row.edgeId, 'MODEL')));
+  const referenceRows = unique((xml.rows || [])
     .filter((row) => row.edgeType === 'StructuralContact')
-    .map((row) => terminalRow(row.support, row.structuralRoot || row.structuralGroup, row.clashName, 'XML')));
-  const predictedKeys = new Set(predictedRows.map((row) => row.key));
-  const referenceKeys = new Set(referenceRows.map((row) => row.key));
-  const matches = predictedRows.filter((row) => referenceKeys.has(row.key));
-  const predictedOnly = predictedRows.filter((row) => !referenceKeys.has(row.key));
-  const referenceOnly = referenceRows.filter((row) => !predictedKeys.has(row.key));
+    .map((row) => terminal(row.support, row.structuralRoot || row.structuralGroup, row.clashName, 'XML')));
+  const predicted = new Set(predictedRows.map((row) => row.key));
+  const reference = new Set(referenceRows.map((row) => row.key));
+  const matches = predictedRows.filter((row) => reference.has(row.key));
   return {
-    metrics: metrics(matches.length, predictedRows.length, referenceRows.length),
+    metrics: metric(matches.length, predicted.size, reference.size),
     predictedRows,
     referenceRows,
     matches,
     disagreements: [
-      ...predictedOnly.map((row) => ({ classification: 'MODEL_ONLY', ...row })),
-      ...referenceOnly.map((row) => ({ classification: 'XML_ONLY', ...row })),
+      ...predictedRows.filter((row) => !reference.has(row.key)).map((row) => ({ classification: 'MODEL_ONLY', ...row })),
+      ...referenceRows.filter((row) => !predicted.has(row.key)).map((row) => ({ classification: 'XML_ONLY', ...row })),
     ],
-    diagnostics: parsed.diagnostics || [],
+    diagnostics: xml.diagnostics || [],
   };
 }
 
-function buildCoverage(pipeline, reference, memberTerminal) {
-  const bundle = pipeline.relationshipBundle || {};
+function coverageRows(pipeline, reference, terminalResult) {
   const summary = pipeline.summary || {};
+  const restraint = pipeline.relationshipBundle?.supportRestraintFunction?.summary || {};
   return [
-    coverageRow('FAMILY_TO_STEEL', reference.structural.metrics.graphAcceptedCount, reference.structural.metrics.xmlReferenceCount, 'Family-to-steel relationships are comparable to historical structure clashes.'),
-    coverageRow('SUPPORT_MEMBER_CHAIN', reference.chain.metrics.graphAcceptedCount, reference.chain.metrics.xmlReferenceCount, 'Physical support-member contacts are comparable to historical support clashes.'),
-    coverageRow('MEMBER_TO_STEEL_TERMINAL', memberTerminal.metrics.graphAcceptedCount, memberTerminal.metrics.xmlReferenceCount, 'Every physical member terminal is evaluated separately; family-level collapse is not used.'),
-    modelOnlyRow('CARRIER_IDENTITY', summary.resolvedPhysicalCarrierCount || 0, 'Clash XML has no authoritative physical carrier object.'),
-    modelOnlyRow('CARRIER_ATTACHMENT', summary.carrierAttachmentCandidateCount || 0, 'Clash XML does not independently describe carrier-to-support attachment geometry.'),
-    modelOnlyRow('CARRIER_TOPOLOGY', summary.carrierTopologyConnectionCount || 0, 'Clash XML has no component ports or route-continuity evidence.'),
-    modelOnlyRow('COMPLETE_CARRIER_TO_STRUCTURE_PATH', summary.completeCarrierToStructurePathCount || 0, 'Historical pair clashes cannot validate the complete carrier-to-structure proof path.'),
-    modelOnlyRow('RESTRAINT_FUNCTION', bundle.supportRestraintFunction?.summary?.confirmedFamilyCount || 0, 'Historical clash XML has no authoritative restraint intent or directional capability.'),
+    comparable('FAMILY_TO_STEEL', reference.structural.metrics),
+    comparable('SUPPORT_MEMBER_CHAIN', reference.chain.metrics),
+    comparable('MEMBER_TO_STEEL_TERMINAL', terminalResult.metrics),
+    modelOnly('CARRIER_IDENTITY', summary.resolvedPhysicalCarrierCount, 'Clash XML has no authoritative physical carrier object.'),
+    modelOnly('CARRIER_ATTACHMENT', summary.carrierAttachmentCandidateCount, 'Clash XML has no carrier-to-support attachment geometry.'),
+    modelOnly('CARRIER_TOPOLOGY', summary.carrierTopologyConnectionCount, 'Clash XML has no component ports or route continuity.'),
+    modelOnly('COMPLETE_CARRIER_TO_STRUCTURE_PATH', summary.completeCarrierToStructurePathCount, 'Pair clashes cannot validate the complete proof path.'),
+    modelOnly('RESTRAINT_FUNCTION', restraint.confirmedFamilyCount, 'Clash XML has no authoritative restraint intent or direction.'),
   ];
 }
 
-function buildGaps(reference, memberTerminal, coverage) {
-  const gaps = [];
-  const addMetricGap = (code, label, result) => {
-    if (result.metrics.status === 'BELOW_REFERENCE_THRESHOLDS') gaps.push(gap(code, 'HIGH', `${label} is below configured XML-reference thresholds.`));
-    if (result.metrics.status === 'NO_REFERENCE_COVERAGE') gaps.push(gap(`${code}_NO_REFERENCE`, 'INFO', `${label} has no historical XML reference coverage.`));
-  };
-  addMetricGap('FAMILY_TO_STEEL_REFERENCE_GAP', 'Family-to-steel agreement', reference.structural);
-  addMetricGap('SUPPORT_CHAIN_REFERENCE_GAP', 'Support-chain agreement', reference.chain);
-  addMetricGap('MEMBER_TERMINAL_REFERENCE_GAP', 'Member-terminal agreement', memberTerminal);
-  if (reference.structural.metrics.recall === 1 && memberTerminal.metrics.xmlReferenceCount > 0 && memberTerminal.metrics.recall < 1) {
-    gaps.push(gap('FAMILY_MATCH_MASKS_MEMBER_TERMINAL_GAP', 'HIGH', 'Family-level structural recall is complete while one or more physical member terminals are missing.'));
+function gapRows(reference, terminalResult, coverage) {
+  const rows = [];
+  for (const [code, result] of [
+    ['FAMILY_TO_STEEL_REFERENCE_GAP', reference.structural],
+    ['SUPPORT_CHAIN_REFERENCE_GAP', reference.chain],
+    ['MEMBER_TERMINAL_REFERENCE_GAP', terminalResult],
+  ]) {
+    if (result.metrics.status === 'BELOW_REFERENCE_THRESHOLDS') rows.push(gap(code, 'HIGH', 'Agreement is below available XML-reference thresholds.'));
+    if (result.metrics.status === 'NO_REFERENCE_COVERAGE') rows.push(gap(`${code}_NO_REFERENCE`, 'INFO', 'No historical XML reference coverage is available.'));
   }
-  coverage.filter((row) => row.coverageStatus === 'NO_MODEL_EVIDENCE').forEach((row) => {
-    gaps.push(gap(`${row.layer}_NOT_PROVEN`, row.layer === 'CARRIER_IDENTITY' ? 'HIGH' : 'MEDIUM', row.claimBoundary));
-  });
-  coverage.filter((row) => row.coverageStatus === 'MODEL_ONLY').forEach((row) => {
-    gaps.push(gap(`${row.layer}_XML_COVERAGE_UNAVAILABLE`, 'INFO', row.claimBoundary));
-  });
-  return gaps;
+  if (reference.structural.metrics.recall === 1 && terminalResult.metrics.xmlReferenceCount > 0 && terminalResult.metrics.recall < 1) {
+    rows.push(gap('FAMILY_MATCH_MASKS_MEMBER_TERMINAL_GAP', 'HIGH', 'Family-level recall hides missing physical member terminals.'));
+  }
+  coverage.filter((row) => row.coverageStatus === 'NO_MODEL_EVIDENCE')
+    .forEach((row) => rows.push(gap(`${row.layer}_NOT_PROVEN`, 'MEDIUM', row.claimBoundary)));
+  coverage.filter((row) => row.coverageStatus === 'MODEL_ONLY')
+    .forEach((row) => rows.push(gap(`${row.layer}_XML_COVERAGE_UNAVAILABLE`, 'INFO', row.claimBoundary)));
+  return rows;
 }
 
-function coverageRow(layer, modelEvidenceCount, referenceEvidenceCount, claimBoundary) {
-  const coverageStatus = referenceEvidenceCount > 0
-    ? modelEvidenceCount > 0 ? 'REFERENCE_COMPARABLE' : 'NO_MODEL_EVIDENCE'
-    : modelEvidenceCount > 0 ? 'MODEL_ONLY' : 'NO_REFERENCE_OR_MODEL_EVIDENCE';
-  return { layer, coverageStatus, modelEvidenceCount, referenceEvidenceCount, claimBoundary };
-}
-function modelOnlyRow(layer, modelEvidenceCount, claimBoundary) {
-  return { layer, coverageStatus: modelEvidenceCount > 0 ? 'MODEL_ONLY' : 'NO_MODEL_EVIDENCE', modelEvidenceCount, referenceEvidenceCount: 0, claimBoundary };
-}
-function metrics(matchCount, modelCount, referenceCount) {
-  const precision = modelCount ? round(matchCount / modelCount) : 0;
-  const recall = referenceCount ? round(matchCount / referenceCount) : 0;
+function comparable(layer, metrics) {
   return {
-    status: !referenceCount ? 'NO_REFERENCE_COVERAGE' : precision === 1 && recall === 1 ? 'MEETS_REFERENCE_THRESHOLDS' : 'BELOW_REFERENCE_THRESHOLDS',
-    matchCount,
-    graphAcceptedCount: modelCount,
-    xmlReferenceCount: referenceCount,
-    falsePositiveReferenceCount: Math.max(0, modelCount - matchCount),
-    falseNegativeReferenceCount: Math.max(0, referenceCount - matchCount),
+    layer,
+    coverageStatus: metrics.xmlReferenceCount
+      ? metrics.graphAcceptedCount ? 'REFERENCE_COMPARABLE' : 'NO_MODEL_EVIDENCE'
+      : metrics.graphAcceptedCount ? 'MODEL_ONLY' : 'NO_REFERENCE_OR_MODEL_EVIDENCE',
+    modelEvidenceCount: metrics.graphAcceptedCount,
+    referenceEvidenceCount: metrics.xmlReferenceCount,
+    claimBoundary: 'Comparable only within the historical pair relationships represented by the XML reference.',
+  };
+}
+function modelOnly(layer, count = 0, claimBoundary) {
+  return { layer, coverageStatus: count ? 'MODEL_ONLY' : 'NO_MODEL_EVIDENCE', modelEvidenceCount: count || 0, referenceEvidenceCount: 0, claimBoundary };
+}
+function metric(matches, model, reference) {
+  const precision = model ? round(matches / model) : 0;
+  const recall = reference ? round(matches / reference) : 0;
+  return {
+    status: !reference ? 'NO_REFERENCE_COVERAGE' : precision === 1 && recall === 1 ? 'MEETS_REFERENCE_THRESHOLDS' : 'BELOW_REFERENCE_THRESHOLDS',
+    matchCount: matches,
+    graphAcceptedCount: model,
+    xmlReferenceCount: reference,
+    falsePositiveReferenceCount: Math.max(0, model - matches),
+    falseNegativeReferenceCount: Math.max(0, reference - matches),
     precision,
     recall,
   };
 }
-function terminalRow(memberId, steelGroupId, evidenceId, source) {
-  const member = normalize(memberId);
-  const steel = normalizeSteel(steelGroupId);
-  return { key: `${member}::${steel}`, supportMemberId: member, steelGroupId: steel, evidenceId, source };
+function terminal(member, steel, evidenceId, source) {
+  const supportMemberId = id(member);
+  const steelGroupId = steelId(steel);
+  return { key: `${supportMemberId}::${steelGroupId}`, supportMemberId, steelGroupId, evidenceId, source };
 }
-function uniqueRows(rows) { const seen = new Set(); return rows.filter((row) => !seen.has(row.key) && seen.add(row.key)); }
-function sourceText(value) { return typeof value === 'string' ? value : value ? JSON.stringify(value) : ''; }
-function normalize(value) { const text = String(value || '').trim().replace(/^\/+/, ''); return text ? `/${text.toUpperCase()}` : ''; }
-function normalizeSteel(value) { const text = normalize(value); const match = text.match(/\/(?:.*\/)?((?:PS|SL)-\d+)/u); return match ? `/${match[1]}` : text; }
+function unique(rows) { const seen = new Set(); return rows.filter((row) => !seen.has(row.key) && seen.add(row.key)); }
+function text(value) { return typeof value === 'string' ? value : value ? JSON.stringify(value) : ''; }
+function id(value) { const valueText = String(value || '').trim().replace(/^\/+/, ''); return valueText ? `/${valueText.toUpperCase()}` : ''; }
+function steelId(value) { const normalized = id(value); const match = normalized.match(/\/(?:.*\/)?((?:PS|SL)-\d+)/u); return match ? `/${match[1]}` : normalized; }
 function round(value) { return Number(value.toFixed(6)); }
 function gap(code, severity, message) { return { code, severity, message }; }
-function benchmarkStatus(reference, memberTerminal, gaps) {
-  if (gaps.some((row) => row.severity === 'HIGH')) return 'MATERIAL_GAPS_FOUND';
-  const statuses = [reference.structural.metrics.status, reference.chain.metrics.status, memberTerminal.metrics.status];
-  return statuses.every((status) => status === 'MEETS_REFERENCE_THRESHOLDS') ? 'MEETS_AVAILABLE_REFERENCE' : 'INCOMPLETE_REFERENCE_COVERAGE';
-}
