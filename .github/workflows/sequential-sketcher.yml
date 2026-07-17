@@ -12,6 +12,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
+      - 'tests/sequential-tolerance-callsite-migration.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
       - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
@@ -38,6 +39,7 @@ on:
       - agent/sequential-sketcher-fixture-evidence-resolution-rebased
       - agent/sequential-external-boundary-policy-v1
       - agent/sequential-tolerance-policy-v1
+      - agent/sequential-tolerance-callsite-migration
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -48,6 +50,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
+      - 'tests/sequential-tolerance-callsite-migration.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
       - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
@@ -95,6 +98,8 @@ jobs:
         run: node tests/sequential-external-boundary-policy.test.js
       - name: Evidence-specific construction tolerance policy
         run: node tests/sequential-construction-tolerance-policy.test.js
+      - name: Tolerance policy callsite migration
+        run: node tests/sequential-tolerance-callsite-migration.test.js
       - name: External boundary position gates
         run: node tests/sequential-sketcher-source-boundary-position.test.js
       - name: Accepted construction carrier adapter

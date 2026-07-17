@@ -55,10 +55,39 @@ assert.doesNotMatch(engine, /sj-pipe-support|buildPipeSupportProjectionBundle/);
 const boundaryResolver = read('tabs/sequential-sketcher/construction/sequential-boundary-resolver.js');
 assert.match(boundaryResolver, /resolveSequentialConstructionTolerances/);
 assert.match(boundaryResolver, /referenceBoundaryEquivalenceMm/);
+assert.match(boundaryResolver, /branchEndpointEquivalenceMm/);
 assert.match(boundaryResolver, /REFERENCE_BOUNDARY_EQUIVALENCE/);
+assert.match(boundaryResolver, /BRANCH_ENDPOINT_EQUIVALENCE/);
 assert.match(boundaryResolver, /automaticRepairMm/);
 assert.doesNotMatch(boundaryResolver, /autoRepairToleranceMm\s*=\s*25/,
   'repair limit must come from the versioned tolerance policy');
+
+const connectionResolver = read('tabs/sequential-sketcher/construction/sequential-connection-resolver.js');
+assert.match(connectionResolver, /resolveSequentialConstructionTolerances/);
+assert.match(connectionResolver, /FITTING_PORT_EQUIVALENCE/);
+assert.match(connectionResolver, /fittingPortMm/);
+assert.match(connectionResolver, /transformNoiseMm/);
+assert.match(connectionResolver, /automaticRepairMm/);
+assert.doesNotMatch(connectionResolver, /exactToleranceMm\s*=\s*1|autoRepairToleranceMm\s*=\s*25/,
+  'component connection gates must consume the versioned tolerance policy');
+
+const gatedEngine = read('tabs/sequential-sketcher/construction/sequential-gated-construction-engine.js');
+assert.match(gatedEngine, /transformNoiseMm/);
+assert.match(gatedEngine, /branchEndpointToleranceMm/);
+assert.match(gatedEngine, /referenceBoundaryToleranceMm/);
+assert.match(gatedEngine, /tolerancePolicyFingerprint/);
+assert.doesNotMatch(gatedEngine, /<=\s*1e-6/,
+  'branch-start ambiguity must use transform-noise policy');
+
+const constructionEngine = read('tabs/sequential-sketcher/construction/sequential-construction-engine.js');
+assert.match(constructionEngine, /FITTING_PORT_EQUIVALENCE/);
+assert.match(constructionEngine, /fittingPortToleranceMm/);
+assert.match(constructionEngine, /transformNoiseMm/);
+assert.match(constructionEngine, /tolerancePolicyFingerprint/);
+assert.doesNotMatch(constructionEngine, /candidate\.gapMm\s*>\s*Number\(options\.exactToleranceMm/,
+  'manual repair detection must use fitting-port tolerance');
+assert.doesNotMatch(constructionEngine, /<=\s*1e-6/,
+  'core branch-start ambiguity must use transform-noise policy');
 
 const fingerprint = read('tabs/sequential-sketcher/construction/sequential-session-fingerprint.js');
 assert.match(fingerprint, /policySchema/);
