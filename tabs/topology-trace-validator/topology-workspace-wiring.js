@@ -46,155 +46,176 @@ export function wireTopologyWorkspace(root, controller) {
     try { controller.downloadEnrichedInputXml(); } catch (error) { showWorkspaceError(root, error); }
   });
   listen(root.querySelector('[data-ttv-build-topology]'), 'click', (event) => buildTopology(root, controller, event));
-  listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
-  listen(root.querySelector('[data-ttv-canvas-fit]'), 'click', () => controller.fitView());
-  root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
-  root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => {
-    setActiveButtons(root, 'data-ttv-mode', button);
-    controller.setMode(button.dataset.ttvMode);
-  }));
-  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvProjection)));
-  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvCanvasProjection)));
-  listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
-  listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
-  listen(root.querySelector('[data-ttv-isolate="supports"]'), 'change', (event) => {
-    const checked = event.target.checked;
-    const overlays = root.querySelector('[data-ttv-component-symbols]');
-    if (checked && overlays) overlays.checked = true;
-    controller.setFilters({ isolateSupports: checked, ...(checked ? { showComponentSymbols: true } : {}) });
-  });
-  listen(root.querySelector('[data-ttv-branch-tree]'), 'click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-ttv-branch]') : null;
-    if (!button) return;
-    setActiveButtons(root, 'data-ttv-branch', button);
-    const branch = button.dataset.ttvBranch, showComponentSymbols = Boolean(branch);
-    root.querySelector('[data-ttv-component-symbols]').checked = showComponentSymbols;
-    controller.setFilters({ branch, showComponentSymbols });
-    controller.parity.setBranch(branch);
-  });
-  listen(root.querySelector('[data-ttv-type-filters]'), 'change', () => controller.setFilters({
+  listen(root.querySelectoЉ	ЦЩ]K]‹Yљ]IКK	ШЫXЪЙЛ
+
+HO€ЫЫќ›Ы\‹™љ]љY]К
+JNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹XШ[ќ\ЛYљ]IКK	ШЫXЪЙЛ
+
+HO€ЫЫќ›Ы\‹™љ]љY]К
+JNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹^›ЫЫWIКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€ЫЫќ›Ы\‹ћ›ЫЫUљY]Кќ]Ы‹™]\Щ]ќ–›ЫЫJJJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹[[ЩWIКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€В€Щ]XЭ]™Pќ]ЫњК›ЫЭ	Щ]K]‹[[ЩIЛќ]ЫЉNВ€ЫЫќ›Ы\‹њЩ][ЩJќ]Ы‹™]\Щ]ќ“[ЩJNВ€JJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\›Ъ™XЭ[Ы—IКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€\UXЩT›Ъ™XЭ[ЫЉ›ЫЭЫЫќ›Ы\‹ќ]Ы‹™]\Щ]ќ”›Ъ™XЭ[ЫЉJJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹XШ[ќ\Л\›Ъ™XЭ[Ы—IКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€\UXЩT›Ъ™XЭ[ЫЉ›ЫЭЫЫќ›Ы\‹ќ]Ы‹™]\Щ]ќђШ[ќ\Ф›Ъ™XЭ[ЫЉJJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹[X™[ЧIКK	ШЪ[™ЩIЛ
+]™[ќ
+HO€ЫЫќ›Ы\‹њЩ]љ[\њКИX™[О€]™[ќќ\™Щ]ЪXЪЩYJJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹XЫЫ\Ы™[ќ\Ю[X›ЫЧIКK	ШЪ[™ЩIЛ
+]™[ќ
+HO€ЫЫќ›Ы\‹њЩ]љ[\њКИЪЭРЫЫ\Ы™[ќЮ[X›ЫО€]™[ќќ\™Щ]ЪXЪЩYJJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭв‚u¶FFЧGGbЦ—6цЖFSТ'7Wч'G2%Тr’Вv6†жvRrВ†WfVзB’Ув°ў6цз7B6†V6¶VBТWfVзBзF&vWBж6†V6¶VC°ў6цз7BчfW&Ж—2Т&цчBзVW'•6VЖV7Fч"‚u¶FFЧGGbЦ6цЧцжVзBЧ7–Ц&цЗ5Тr“°ў–b†6†V6¶VBbbчfW&Ж—2’чfW&Ж—2ж6†V6¶VBТG'VS°ў6цзG&цЖЖW"з6WDf–ЗFW'2‡І—6цЖFU7Wч'G3ў6†V6¶VBВввв†6†V6¶VBтІ6†чt6цЧцжVзE7–Ц&цЗ3ўG'VRТў·Т’Т“°ўТ“°ўЖ—7FVв‡&цчBзVW'•6VЖV7Fш ќm‘…С„µССШµ‰Й…№Ќ µСЙ••tњ¤°ЂќЌ±ҐЌ¬њ°ЂЎ•Щ•№Р¤ЂфшЃм(ЂЂЂЃЌЅ№НРЃ‰ХССЅёЂфЃ•Щ•№Р№С…Йќ•РЃҐ№НС…№Ќ•ЅЃ±•µ•№РЂьЃ•Щ•№Р№С…Йќ•Р№Ќ±ЅН•НР ќm‘…С„µССШµ‰Й…№ЌЎtњ¤ЂиЃ№Х±°м(ЂЂЂЃҐЂ …‰ХССЅё¤ЃЙ•СХЙём(ЂЂЂЃН•СЌСҐЩ•	ХССЅ№МЎЙЅЅР°Ђќ‘…С„µССШµ‰Й…№Ќ њ°Ѓ‰ХССЅё¤м(ЂЂЂЃЌЅ№НРЃ‰Й…№Ќ ЂфЃ‰ХССЅё№‘…С…Н•Р№ССЩ	Й…№Ќ °ЃНЎЅЭЅµБЅ№•№СMеµ‰Ѕ±МЂфЃ	ЅЅ±•…ёЎ‰Й…№Ќ ¤м(ЂЂЂЃЙЅЅР№ЕХ•ЙеM•±•ЌСЅИ ќm‘…С„µССШµЌЅµБЅ№•№РµНеµ‰Ѕ±Нtњ¤№ЌЎ•Ќ­•ђЂфЃНЎЅЭЅµБЅ№•№СMеµ‰Ѕ±Мм(ЂЂЂЃЌЅ№СЙЅ±±•И№Н•СҐ±С•ЙМЎмЃ‰Й…№Ќ °ЃНЎЅЭЅµБЅ№•№СMеµ‰Ѕ±МЃф¤м(ЂЂЂЃЌЅ№СЙЅ±±•И№Б…ЙҐСд№Н•С	Й…№Ќ Ў‰Й…№Ќ ¤м(ЂЃф¤м(ЂЃ±ҐНС•ёЎЙЅЅР№ЕХ•ЙеM•±•ЌСѕ('[data-ttv-type-filters]'), 'change', () => controller.setFilters({
     types: [...root.querySelectorAll('[data-ttv-type]:checked')].map((input) => input.dataset.ttvType),
   }));
-  listen(root.querySelector('[data-ttv-disposition]'), 'change', (event) => controller.setFilters({ disposition: event.target.value }));
-  for (const key of ['searchName', 'searchRef', 'searchPath']) listen(root.querySelector(`[data-ttv-${toKebab(key)}]`), 'input', (event) => controller.setSearch(key, event.target.value));
-  listen(root.querySelector('[data-ttv-search-results]'), 'click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
-    if (button) controller.focusSearchResult(cleanText(button.getAttribute('data-object-key')));
-  });
-  root.querySelectorAll('[data-ttv-visibility]').forEach((input) => listen(input, 'change', () => controller.setVisibility(input.dataset.ttvVisibility, input.checked)));
-  listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-ttv-bottom-tab]') : null;
-    if (button) controller.setBottomTab(button.dataset.ttvBottomTab);
-    const focus = event.target instanceof Element ? event.target.closest('.ttv-focus-button') : null;
-    const row = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
-    if (focus && row) controller.focusSearchResult(cleanText(row.getAttribute('data-object-key')));
-    else if (row) controller.select(cleanText(row.getAttribute('data-object-key')));
-  });
-  wireParityControls(root, controller, listen);
-  syncTopologyProjectionUi(root, 'XY');
-  return cleanups;
-}
+  listen(root.querySelectoЉ	ЦЩ]K]‹Y\ЬЬЪ][Ы—IКK	ШЪ[™ЩIЛ
+]™[ќ
+HO€ЫЫќ›Ы\‹њЩ]љ[\њКИ\ЬЬЪ][ЫЋ€]™[ќќ\™Щ]ќ[YHJJNВ€›Ь€
+ЫЫњЭЩ^HЩ€ЙЬЩX\Ъ[YIЛ	ЬЩX\Ъ™Y‰Л	ЬЩX\Ъ]	ЧJH\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉЩ]K]‹IЭТЩXXЉЩ^J_WX
+K	Ъ[њ]	Л
+]™[ќ
+HO€ЫЫќ›Ы\‹њЩ]ЩX\Ъ
+Щ^K]™[ќќ\™Щ]ќ[YJJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹\ЩX\Ъ\™\Э[ЧIКK	ШЫXЪЙЛ
+]™[ќ
+HO€В€ЫЫњЭќ]Ы€H]™[ќќ\™Щ][њЭ[Щ[Щ€[[Y[ќИ]™[ќќ\™Щ]ЫЬЩ\Э
+	ЦЩ]K[Шљ™XЭZЩ^WIКH€ќ[В€Y€
+ќ]ЫЉHЫЫќ›Ы\‹™›ШЭ\ФЩX\Ъ™\Э[
+ЫX[•^
+ќ]Ы‹™Щ]]љXќ]J	Щ]K[Шљ™XЭZЩ^IКJJNВ€JNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹]љ\ЪXљ[]WIКK™›Ь‘XXЪ
 
-function applyTraceProjection(root, controller, projection) {
-  syncTopologyProjectionUi(root, projection);
-  controller.setProjection(projection);
-}
+[њ]
+HO€\Э[Љ[њ]	ШЪ[™ЩIЛ
 
-export function syncTopologyProjectionUi(root, projection) {
-  const normalized = projection === '3D' ? 'ISO' : projection;
-  const toolbarProjection = normalized === 'ISO' ? '3D' : normalized;
-  root.querySelectorAll('[data-ttv-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvProjection === toolbarProjection));
-  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvCanvasProjection === normalized));
-  const compass = root.querySelector('[data-ttv-axis-compass]');
-  if (!compass) return;
-  compass.dataset.projection = projection;
-  compass.setAttribute('aria-label', `${normalized} axis compass`);
-  const geometry = COMPASS_GEOMETRY[normalized] || COMPASS_GEOMETRY.ISO;
-  for (const axis of ['x', 'y', 'z']) updateCompassAxis(compass, axis, geometry[axis]);
-}
+HO€ЫЫќ›Ы\‹њЩ]љ\ЪXљ[]J[њ]™]\Щ]ќ•љ\ЪXљ[]K[њ]ЪXЪЩY
+JJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹X›ЭЫWIКK	ШЫXЪЙЛ
+]™[ќ
+HO€В€ЫЫњЭќ]Ы€H]™[ќќ\™Щ][њЭ[Щ[Щ€[[Y[ќИ]™[ќќ\™Щ]ЫЬЩ\Э
+	ЦЩ]K]‹X›ЭЫK]X—IКH€ќ[В€Y€
+ќ]ЫЉHЫЫќ›Ы\‹њЩ]›ЭЫUXЉќ]Ы‹™]\Щ]ќђ›ЭЫUXЉNВ€ЫЫњЭ›ШЭ\ИH]™[ќќ\™Щ][њЭ[Щ[Щ€[[Y[ќИ]™[ќќ\™Щ]ЫЬЩ\Э
+	Лќ‹Y›ШЭ\ЛXќ]Ы‰КH€ќ[В€ЫЫњЭ›ЭИH]™[ќќ\™Щ][њЭ[Щ[Щ€[[Y[ќИ]™[ќќ\™Щ]ЫЬЩ\Э
+	ЦЩ]K[Шљ™XЭZЩ^WIКH€ќ[В€Y€
+›ШЭ\И	‰€›ЭКHЫЫќ›Ы\‹™›ШЭ\ФЩX\Ъ™\Э[
+ЫX[•^
+›ЭЛ™Щ]]љXќ]J	Щ]K[Шљ™XЭZЩ^IКJJNВ€[ЩHY€
+›ЭКHЫЫќ›Ы\‹њЩ[XЭ
+ЫX[•^
+›ЭЛ™Щ]]љXќ]J	Щ]K[Шљ™XЭZЩ^IКJJNВ€JNВ€Ъ\™T\љ]PЫЫќ›ЫК›ЫЭЫЫќ›Ы\‹\Э[ЉNВ€Ю[ХЬЫЩЮT›Ъ™XЭ[Ы•ZJ›ЫЭ	ЦIКNВ€™]\›€ЫX[ќ\ОВџB‚™ќ[Э[Ы€\UXЩT›Ъ™XЭ[ЫЉ›ЫЭЫЫќ›Ы\‹›Ъ™XЭ[ЫЉHВ€Ю[ХЬЫЩЮT›Ъ™XЭ[Ы•ZJ›ЫЭ›Ъ™XЭ[ЫЉNВ€ЫЫќ›Ы\‹њЩ]›Ъ™XЭ[ЫЉ›Ъ™XЭ[ЫЉNВџB‚™^Ьќќ[Э[Ы€Ю[ХЬЫЩЮT›Ъ™XЭ[Ы•ZJ›ЫЭ›Ъ™XЭ[ЫЉHВ€ЫЫњЭ›Ь›X[^™YH›Ъ™XЭ[Ы€OOH	МС	ИИ	ТTУЙИ€›Ъ™XЭ[ЫЋВ€ЫЫњЭЫЫ\”›Ъ™XЭ[Ы€H›Ь›X[^™YOOH	ТTУЙИИ	МС	И€›Ь›X[^™YВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\›Ъ™XЭ[Ы—IКK™›Ь‘XXЪ
 
-function updateCompassAxis(compass, axis, coordinates) {
-  const group = compass.querySelector(`[data-ttv-axis="${axis}"]`);
-  if (!group) return;
-  group.hidden = !coordinates;
-  if (!coordinates) return;
-  const [x1, y1, x2, y2] = coordinates;
-  const line = group.querySelector('line'), text = group.querySelector('text');
-  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line?.setAttribute(name, String(value));
-  text?.setAttribute('x', String(x2 + (axis === 'y' && x2 < 50 ? -7 : 4)));
-  text?.setAttribute('y', String(y2 + (y2 < 20 ? -3 : 5)));
-}
+ќ]ЫЉHO€ќ]Ы‹Ы\ЬУ\ЭќЩЩЫJ	Ъ\ЛXXЭ]™IЛќ]Ы‹™]\Щ]ќ”›Ъ™XЭ[Ы€OOHЫЫ\”›Ъ™XЭ[ЫЉJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹XШ[ќ\Л\›Ъ™XЭ[Ы—IКK™›Ь‘XXЪ
 
-function wireParityControls(root, controller, listen) {
-  root.querySelectorAll('[data-ttv-parity-projection]').forEach((button) => listen(button, 'click', () => {
-    setActiveButtons(root, 'data-ttv-parity-projection', button);
-    controller.parity.setProjection(button.dataset.ttvParityProjection);
-  }));
-  root.querySelectorAll('[data-ttv-parity-zoom]').forEach((button) => listen(button, 'click', () => {
-    if (button.dataset.ttvParityZoom === 'in') controller.parity.zoomIn(); else controller.parity.zoomOut();
-  }));
-  root.querySelectorAll('[data-ttv-parity-fit]').forEach((button) => listen(button, 'click', () => {
-    const action = button.dataset.ttvParityFit;
-    if (action === 'all') controller.parity.fitAll();
-    else if (action === 'branch') controller.parity.fitBranch();
-    else if (action === 'issue') controller.parity.fitIssue();
-  }));
-  listen(root.querySelector('[data-ttv-parity-labels]'), 'change', (event) => controller.parity.setLabels(event.target.checked));
-  root.querySelectorAll('[data-ttv-parity-export]').forEach((button) => listen(button, 'click', () => {
-    try { controller.parity.exportArtifact(button.dataset.ttvParityExport); }
-    catch (error) { showWorkspaceError(root, error); }
-  }));
-}
+ќ]ЫЉHO€ќ]Ы‹Ы\ЬУ\ЭќЩЩЫJ	Ъ\ЛXXЭ]™IЛќ]Ы‹™]\Щ]ќђШ[ќ\Ф›Ъ™XЭ[Ы€OOH›Ь›X[^™Y
+JNВ€ЫЫњЭЫЫ\\ЬИH›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹X^\ЛXЫЫ\\ЬЧIКNВ€Y€
+XЫЫ\\ЬКH™]\›ЋВ€ЫЫ\\ЬЛ™]\Щ]њ›Ъ™XЭ[Ы€H›Ъ™XЭ[ЫЋВ€ЫЫ\\ЬЛњЩ]]љXќ]J	Ш\љXK[X™[	Л	Ы›Ь›X[^™YH^\ИЫЫ\\ЬШ
+NВ€ЫЫњЭЩ[ЫY]ћHHУУTTФЧССSУQU–VЫ›Ь›X[^™YHУУTTФЧССSУQU–K’TУОВ€›Ь€
+ЫЫњЭ^\ИЩ€ЙЮ	Л	ЮIЛ	Ю‰ЧJH\]PЫЫ\\ЬР^\КЫЫ\\ЬЛ^\ЛЩ[ЫY]ћVШ^\ЧJNВџB‚™ќ[Э[Ы€\]PЫЫ\\ЬР^\КЫЫ\\ЬЛ^\ЛЫЫЬ™[]\КHВ€ЫЫњЭЬ›Э\HЫЫ\\ЬЛњ]Y\ћTЩ[XЭЬЉЩ]K]‹X^\ПH‰Ш^\ЯH—X
+NВ€Y€
+YЬ›Э\
+H™]\›ЋВ€Ь›Э\ќЩЩЫP]љXќ]J	ЪY[‰ЛXЫЫЬ™[]\КNВ€Y€
+XЫЫЬ™[]\КH™]\›ЋВ€ЫЫњЭЮKLK‹L—HHЫЫЬ™[]\ОВ€ЫЫњЭ[™HHЬ›Э\њ]Y\ћTЩ[XЭЬЉ	Ы[™IКK^HЬ›Э\њ]Y\ћTЩ[XЭЬЉ	Э^	КNВ€›Ь€
+ЫЫњЭЫ[YK[YWHЩ€Шљ™XЭ™[ќљY\КИKLK‹L€JJH[™OЛњЩ]]љXќ]J[YKЭљ[™К[YJJNВ€^ЛњЩ]]љXќ]J	Ю	ЛЭљ[™К€
+И
+^\ИOOH	ЮIИ	‰€€LИMИ€
+JJNВ€^ЛњЩ]]љXќ]J	ЮIЛЭљ[™КL€
+И
+L€ЊИLИ€JJJNВџB‚™ќ[Э[Ы€Ъ\™T\љ]PЫЫќ›ЫК›ЫЭЫЫќ›Ы\‹\Э[ЉHВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\\љ]K\›Ъ™XЭ[Ы—IКK™›Ь‘XXЪ
 
-function wireEnrichment(root, controller, listen) {
-  listen(root.querySelector('[data-ttv-enrich]'), 'click', () => {
-    const overlay = root.ownerDocument.createElement('div'); overlay.className = 'ttv-modal'; overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true');
-    const container = root.ownerDocument.createElement('div'); container.className = 'ttv-modal-content'; Object.assign(container.style, { width: '90vw', height: '90vh', background: 'var(--psmap-surface)', display: 'flex', flexDirection: 'column' });
-    const header = root.ownerDocument.createElement('div'); Object.assign(header.style, { padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--psmap-border)' });
-    const title = root.ownerDocument.createElement('h2'); title.textContent = 'Master File Enrichment Workbench'; title.style.margin = '0';
-    const closeBtn = root.ownerDocument.createElement('button'); closeBtn.textContent = 'вњ• Close';
-    const body = root.ownerDocument.createElement('div'); Object.assign(body.style, { flex: '1', overflow: 'hidden', position: 'relative' });
-    header.append(title, closeBtn); container.append(header, body); overlay.appendChild(container); root.ownerDocument.body.appendChild(overlay);
-    const dispose = renderStagedJsonEnrichmentPanel(body, { onApplyToWorkspace: async (json) => {
-      try { dispose?.(); overlay.remove(); await controller.loadArtifact('source', JSON.stringify(json), 'enriched_source.json'); }
-      catch (error) { showWorkspaceError(root, error); }
-    } });
-    closeBtn.addEventListener('click', () => { dispose?.(); overlay.remove(); });
-  });
-}
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
 
-async function buildTopology(root, controller, event) {
-  const button = event.currentTarget;
-  if (!(button instanceof HTMLButtonElement)) return;
-  const originalText = button.textContent;
-  try {
-    button.textContent = 'вљ™пёЏ Building...'; button.disabled = true;
-    const evidence = controller.evidence(), source = evidence.trace.artifacts.source;
-    if (!source) throw new Error('A Source JSON must be loaded before building topology.');
-    const rawObj = source.raw, sourceText = JSON.stringify(Array.isArray(rawObj) ? rawObj : (rawObj.hierarchy || rawObj.branches || rawObj.objects || []));
-    const { buildComponentTopologyArtifacts, topologyArtifactOutputs } = await import('../../../3D_Converters/tabs/model-converters/converters/component-topology/topology-artifact-exporter.js');
-    setStatus(root, 'Building topology artifacts and exact parity report...', 'ready');
-    const stem = root.querySelector('[data-ttv-file-status="source"]').textContent.replace(/\.json$/i, '') || 'generated';
-    const built = await buildComponentTopologyArtifacts(sourceText, { sourceName: stem, jobName: 'Trace Validator Build', toleranceMm: 0.1, supportProjectionToleranceMm: 50, enrichmentConfig: {} });
-    const outputs = topologyArtifactOutputs(built, { stem });
-    const outputKind = (name) => name.includes('.canonical-topology.json') ? 'canonical'
-      : name.includes('.topology-trace-ledger.json') ? 'ledger'
-        : name.includes('.topology.input.xml') ? 'inputXml'
-          : name.includes('.topology-svg-scene.json') ? 'scene'
-            : name.includes('.parsed-inputxml-topology.json') ? 'parsed'
-              : name.includes('.topology-parity-report.json') ? 'report' : '';
-    await controller.loadArtifact('source', sourceText, `${stem}.json`);
-    for (const output of outputs) { const kind = outputKind(output.name); if (kind) await controller.loadArtifact(kind, output.text, output.name); }
-    controller.validate();
-  } catch (error) {
-    showWorkspaceError(root, error);
-    root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
-  } finally { button.textContent = originalText; button.disabled = false; }
-}
+HO€В€Щ]XЭ]™Pќ]ЫњК›ЫЭ	Щ]K]‹\\љ]K\›Ъ™XЭ[Ы‰Лќ]ЫЉNВ€ЫЫќ›Ы\‹њ\љ]KњЩ]›Ъ™XЭ[ЫЉќ]Ы‹™]\Щ]ќ”\љ]T›Ъ™XЭ[ЫЉNВ€JJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\\љ]K^›ЫЫWIКK™›Ь‘XXЪ
 
-function setActiveButtons(root, attribute, active) { root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active)); }
-function setStatus(root, message, status) { const target = root.querySelector('[data-ttv-status]'); target.textContent = message; target.setAttribute('data-status', status); }
-function showWorkspaceError(root, error) { setStatus(root, error?.message || String(error), 'error'); }
-function toKebab(value) { return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`); }
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
 
-export const _test = Object.freeze({ COMPASS_GEOMETRY, applyTraceProjection, syncTopologyProjectionUi, updateCompassAxis, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, toKebab });
+HO€В€Y€
+ќ]Ы‹™]\Щ]ќ”\љ]V›ЫЫHOOH	Ъ[‰КHЫЫќ›Ы\‹њ\љ]Kћ›ЫЫR[Љ
+NИ[ЩHЫЫќ›Ы\‹њ\љ]Kћ›ЫЫSЭ]
+
+NВ€JJNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\\љ]KYљ]IКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€В€ЫЫњЭXЭ[Ы€Hќ]Ы‹™]\Щ]ќ”\љ]Qљ]В€Y€
+XЭ[Ы€OOH	Ш[	КHЫЫќ›Ы\‹њ\љ]K™љ][
+
+NВ€[ЩHY€
+XЭ[Ы€OOH	Шњ[Ъ	КHЫЫќ›Ы\‹њ\љ]K™љ]њ[Ъ
+
+NВ€[ЩHY€
+XЭ[Ы€OOH	Ъ\ЬЭYIКHЫЫќ›Ы\‹њ\љ]K™љ]\ЬЭYJ
+NВ€JJNВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹\\љ]K[X™[ЧIКK	ШЪ[™ЩIЛ
+]™[ќ
+HO€ЫЫќ›Ы\‹њ\љ]KњЩ]X™[К]™[ќќ\™Щ]ЪXЪЩY
+JNВ€›ЫЭњ]Y\ћTЩ[XЭЬђ[
+	ЦЩ]K]‹\\љ]KY^ЬќIКK™›Ь‘XXЪ
+
+ќ]ЫЉHO€\Э[Љќ]Ы‹	ШЫXЪЙЛ
+
+HO€В€ћHИЫЫќ›Ы\‹њ\љ]K™^Ьќ\ќYXЭ
+ќ]Ы‹™]\Щ]ќ”\љ]Q^Ьќ
+NИB€Ш]Ъ
+\њ›ЬЉHИЪЭХЫЬљЬЬXЩQ\њ›ЬЉ›ЫЭ\њ›ЬЉNИB€JJNВџB‚™ќ[Э[Ы€Ъ\™Q[њљXЪY[ќ
+›ЫЭЫЫќ›Ы\‹\Э[ЉHВ€\Э[Љ›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹Y[њљXЪIКK	ШЫXЪЙЛ
+
+HO€В€ЫЫњЭЭ™\›^HH›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Щ]‰КNИЭ™\›^KЫ\ЬУ[YHH	Э‹[[Щ[	ОИЭ™\›^KњЩ]]љXќ]J	Ь›ЫIЛ	ЩX[ЩЙКNИЭ™\›^KњЩ]]љXќ]J	Ш\љXK[[Щ[	Л	ЭќYIКNВ€ЫЫњЭЫЫќZ[™\€H›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Щ]‰КNИЫЫќZ[™\‹Ы\ЬУ[YHH	Э‹[[Щ[XЫЫќ[ќ	ОИШљ™XЭ\ЬЪYЫЉЫЫќZ[™\‹њЭ[KИЪY€	ОLќЙЛZYЪ€	ОLљ	ЛXЪЩЬ›Э[™€	Э\ЉK\ЫX\\Э\™XЩJIЛ\Ь^N€	Щ›^	Л›^\™XЭ[ЫЋ€	ШЫЫ[[‰ИJNВ€ЫЫњЭXY\€H›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Щ]‰КNИШљ™XЭ\ЬЪYЫЉXY\‹њЭ[KИY[™О€	МL	Л\Ь^N€	Щ›^	Лќ\ЭYћPЫЫќ[ќ€	ЬЬXЩKX™]ЩY[‰Л›Ь™\ђ›ЭЫN€	М\ЫЫY\ЉK\ЫX\X›Ь™\ЉIИJNВ€ЫЫњЭ]HH›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Ъ‰КNИ]Kќ^ЫЫќ[ќH	УX\Э\€љ[H[њљXЪY[ќЫЬљШ™[Ъ	ОИ]KњЭ[K›X\™Ъ[€H	М	ОВ€ЫЫњЭЫЬЩPќ€H›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Шќ]Ы‰КNИЫЬЩPќ‹ќ^ЫЫќ[ќH	ш§%HЫЬЩIОВ€ЫЫњЭ›ЩHH›ЫЭ›ЭЫ™\‘ШЭ[Y[ќЬ™X]Q[[Y[ќ
+	Щ]‰КNИШљ™XЭ\ЬЪYЫЉ›ЩKњЭ[KИ›^€	МIЛЭ™\™›ЭО€	ЪY[‰ЛЬЪ][ЫЋ€	Ь™[]]™IИJNВ€XY\‹\[™
+]KЫЬЩPќЉNИЫЫќZ[™\‹\[™
+XY\‹›ЩJNИЭ™\›^K\[™Ъ[
+ЫЫќZ[™\ЉNИ›ЫЭ›ЭЫ™\‘ШЭ[Y[ќ›ЩK\[™Ъ[
+Э™\›^JNВ€ЫЫњЭ\ЬЬЩHH™[™\”ЭYЩYњЫЫ‘[њљXЪY[ќ[™[
+›ЩKИЫђ\UХЫЬљЬЬXЩN€\Ю[И
+њЫЫЉHO€В€ћHИ\ЬЬЩOЛЉ
+NИЭ™\›^Kњ™[[Э™J
+NИ]ШZ]ЫЫќ›Ы\‹›ШY\ќYXЭ
+	ЬЫЭ\ЩIЛ”УУ‹њЭљ[™ЪYћJњЫЫЉK	Щ[њљXЪYЬЫЭ\ЩKљњЫЫ‰КNИB€Ш]Ъ
+\њ›ЬЉHИЪЭХЫЬљЬЬXЩQ\њ›ЬЉ›ЫЭ\њ›ЬЉNИB€HJNВ€ЫЬЩPќ‹Y]™[ќ\Э[™\Љ	ШЫXЪЙЛ
+
+HO€И\ЬЬЩOЛЉ
+NИЭ™\›^Kњ™[[Э™J
+NИJNВ€JNВџB‚\Ю[Иќ[Э[Ы€ќZ[ЬЫЩЮJ›ЫЭЫЫќ›Ы\‹]™[ќ
+HВ€ЫЫњЭќ]Ы€H]™[ќЭ\њ™[ќ\™Щ]В€Y€
+Jќ]Ы€[њЭ[Щ[Щ€Sќ]Ы‘[[Y[ќ
+JH™]\›ЋВ€ЫЫњЭЬљYЪ[[^Hќ]Ы‹ќ^ЫЫќ[ќВ€ћHВ€ќ]Ы‹ќ^ЫЫќ[ќH	ш¦¦{о#ИќZ[[™Л‹‹‰ОИќ]Ы‹™\ШX›YHќYNВ€ЫЫњЭ]љY[ЩHHЫЫќ›Ы\‹™]љY[ЩJ
+KЫЭ\ЩHH]љY[ЩKќXЩK\ќYXЭЛњЫЭ\ЩNВ€Y€
+\ЫЭ\ЩJH›ЭИ™]И\њ›ЬЉ	РHЫЭ\ЩH”УУ€]\Э™HШYY™Y›Ь™HќZ[[™ИЬЫЩЮK‰КNВ€ЫЫњЭ]УШљ€HЫЭ\ЩKњ]ЛЫЭ\ЩU^H”УУ‹њЭљ[™ЪYћJ\њ^Kљ\Р\њ^J]УШљЉHИ]УШљ€€
+]УШљ‹љY\\ЪH]УШљ‹њ[Ъ\И]УШљ‹›Шљ™XЭИЧJJNВ€ЫЫњЭИќZ[ЫЫ\Ы™[ќЬЫЩЮP\ќYXЭЛЬЫЩЮP\ќYXЭЭ]]ИHH]ШZ][\Ьќ
+	Л‹‹Л‹‹Л‹‹МСРЫЫќ™\ќ\њЛЭXњЛЫ[Щ[XЫЫќ™\ќ\њЛШЫЫќ™\ќ\њЛШЫЫ\Ы™[ќ]ЬЫЩЮKЭЬЫЩЮKX\ќYXЭY^Ьќ\‹љњЙКNВ€Щ]Э]\К›ЫЭ	РќZ[[™ИЬЫЩЮH\ќYXЭИ[™^XЭ\љ]H™\Ьќ‹‹‰Л	Ь™XYIКNВ€ЫЫњЭЭ[HH›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹Yљ[K\Э]\ПHњЫЭ\ЩH—IКKќ^ЫЫќ[ќњ™\XЩJЧљњЫЫ‰ЪK	ЙКH	ЩЩ[™\]Y	ОВ€ЫЫњЭќZ[H]ШZ]ќZ[ЫЫ\Ы™[ќЬЫЩЮP\ќYXЭКЫЭ\ЩU^ИЫЭ\ЩS[YN€Э[K›Ш“[YN€	ХXЩH[Y]Ь€ќZ[	ЛЫ\[ЩS[N€ЊKЭ\Ьќ›Ъ™XЭ[Ы•Ы\[ЩS[N€L[њљXЪY[ќЫЫ™љYО€ЯHJNВ€ЫЫњЭЭ]]ИHЬЫЩЮP\ќYXЭЭ]]КќZ[ИЭ[HJNВ€ЫЫњЭЭ]]Ъ[™H
+[YJHO€[YKљ[ЫY\К	ЛШ[›ЫљXШ[]ЬЫЩЮKљњЫЫ‰КHИ	ШШ[›ЫљXШ[	В€€[YKљ[ЫY\К	ЛќЬЫЩЮK]XЩK[YЩ\‹љњЫЫ‰КHИ	ЫYЩ\‰В€€[YKљ[ЫY\К	ЛќЬЫЩЮKљ[њ]ћ[	КHИ	Ъ[њ][	В€€[YKљ[ЫY\К	ЛќЬЫЩЮK\Э™Л\ШЩ[™KљњЫЫ‰КHИ	ЬШЩ[™IВ€€[YKљ[ЫY\К	Лњ\њЩYZ[њ][]ЬЫЩЮKљњЫЫ‰КHИ	Ь\њЩY	В€€[YKљ[ЫY\К	ЛќЬЫЩЮK\\љ]K\™\ЬќљњЫЫ‰КHИ	Ь™\Ьќ	И€	ЙОВ€]ШZ]ЫЫќ›Ы\‹›ШY\ќYXЭ
+	ЬЫЭ\ЩIЛЫЭ\ЩU^	ЬЭ[_KљњЫЫ
+NВ€›Ь€
+ЫЫњЭЭ]]Щ€Э]]КHИЫЫњЭЪ[™HЭ]]Ъ[™
+Э]]›[YJNИY€
+Ъ[™
+H]ШZ]ЫЫќ›Ы\‹›ШY\ќYXЭ
+Ъ[™Э]]ќ^Э]]›[YJNИB€ЫЫќ›Ы\‹ќ[Y]J
+NВ€HШ]Ъ
+\њ›ЬЉHВ€ЪЭХЫЬљЬЬXЩQ\њ›ЬЉ›ЫЭ\њ›ЬЉNВ€›ЫЭ›ЭЫ™\‘ШЭ[Y[ќ™Y][љY]ПЛ[\ќ
+ќZ[Z[Y€	Щ\њ›ЬЏЛ›Y\ЬШYЩHЭљ[™К\њ›ЬЉ_X
+NВ€Hљ[[HИќ]Ы‹ќ^ЫЫќ[ќHЬљYЪ[[^Иќ]Ы‹™\ШX›YH[ЩNИBџB‚™ќ[Э[Ы€Щ]XЭ]™Pќ]ЫњК›ЫЭ]љXќ]KXЭ]™JHИ›ЫЭњ]Y\ћTЩ[XЭЬђ[
+ЙШ]љXќ]_WX
+K™›Ь‘XXЪ
+
+ќ]ЫЉHO€ќ]Ы‹Ы\ЬУ\ЭќЩЩЫJ	Ъ\ЛXXЭ]™IЛќ]Ы€OOHXЭ]™JJNИB™ќ[Э[Ы€Щ]Э]\К›ЫЭY\ЬШYЩKЭ]\КHИЫЫњЭ\™Щ]H›ЫЭњ]Y\ћTЩ[XЭЬЉ	ЦЩ]K]‹\Э]\ЧIКNИ\™Щ]ќ^ЫЫќ[ќHY\ЬШYЩNИ\™Щ]њЩ]]љXќ]J	Щ]K\Э]\ЙЛЭ]\КNИB™ќ[Э[Ы€ЪЭХЫЬљЬЬXЩQ\њ›ЬЉ›ЫЭ\њ›ЬЉHИЩ]Э]\К›ЫЭ\њ›ЬЏЛ›Y\ЬШYЩHЭљ[™К\њ›ЬЉK	Щ\њ›Ь‰КNИB™ќ[Э[Ы€ТЩXXЉ[YJHИ™]\›€[YKњ™\XЩJЦРKV—KЩЛ
+]\ЉHO€IЫ]\‹ќУЭЩ\ђШ\ЩJ
+_X
+NИB‚™^ЬќЫЫњЭЭ\ЭHШљ™XЭ™њ™Y^™JИУУTTФЧССSУQU–K\UXЩT›Ъ™XЭ[Ы‹Ю[ХЬЫЩЮT›Ъ™XЭ[Ы•ZK\]PЫЫ\\ЬР^\ЛЪ\™T\љ]PЫЫќ›ЫЛќZ[ЬЫЩЮKЩ]XЭ]™Pќ]ЫњЛЩ]Э]\ЛЪЭХЫЬљЬЬXЩQ\њ›Ь‹ТЩXX€JNВ
