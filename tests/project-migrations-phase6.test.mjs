@@ -25,7 +25,7 @@ import { runCompare } from '../workbench3d/compare/compare-engine.js';
 import { buildCompareWorkbenchProjectMigration, compareWorkbenchProjectArtifacts } from '../workbench3d/project/compare-workbench-project-adapter.js';
 
 const NOW = '2026-07-17T12:39:55.000Z';
-const REAL_SOURCE = 'F:/CODE-5/3D_Converters/Benchmarks/1885Sjson/Sjson.json';
+const REAL_SOURCE = fileURLToPath(new URL('./fixtures/project-migrations/Sjson.json', import.meta.url));
 const realSourceText = readFileSync(REAL_SOURCE, 'utf8');
 const realBranches = JSON.parse(realSourceText);
 
