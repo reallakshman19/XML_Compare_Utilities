@@ -1,4 +1,4 @@
-import { supportMemberGeometryDistance } from './support-member-analytical-geometry.js';
+import { supportMemberToStructuralGeometryDistance } from './support-structural-terminal-distance.js';
 
 export const SUPPORT_STRUCTURAL_TERMINAL_MULTI_CONTACT_SCHEMA = 'SupportStructuralTerminalMultiContact.v1';
 
@@ -112,7 +112,7 @@ function evaluateRelationship(familyId, members, relationship, steelGroup, conta
     const structuralMemberId = record.recordId || relationship.structuralMemberId || relationship.steelGroupId;
     const candidates = members.map((member) => ({
       member,
-      evidence: supportMemberGeometryDistance(member, record.analyticalGeometry),
+      evidence: supportMemberToStructuralGeometryDistance(member, record.analyticalGeometry),
     })).filter((row) => row.evidence.analyticalGeometryAvailable && Number.isFinite(row.evidence.distanceMm))
       .sort((left, right) => left.evidence.distanceMm - right.evidence.distanceMm || String(left.member.memberId).localeCompare(String(right.member.memberId)));
     const contacts = candidates.filter((row) => row.evidence.distanceMm <= contactToleranceMm);
