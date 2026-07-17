@@ -21,14 +21,16 @@ const markup = read('topology-workspace-markup.js');
 for (const label of [
   'Load Source JSON', 'Load Canonical Topology', 'Load Trace Ledger', 'Load Topology InputXML',
   'Spatial Overlay', 'Source ↔ Canonical', 'Junctions / Boundaries', 'Issues Only', 'Symbol Overlays',
-  'Isolate Supports', 'Review', 'Edit Draft', 'Support Draft', 'Set XYZ', 'Undo', 'Redo', 'Revert Draft', 'Export Patch',
-  'Topology Parity', 'Load SVG Scene', 'Load Parsed InputXML Topology', 'Load Parity Report',
+  'Isolate Supports', 'Review SVG', 'Edit SVG', 'SVG Support Draft', 'Set XYZ', 'Undo', 'Redo', 'Revert Draft', 'Export Patch',
+  'SVG Edit', 'Topology Edit', 'Topology Parity', 'Load SVG Scene', 'Load Parsed InputXML Topology', 'Load Parity Report',
   'Fit All', 'Fit Branch', 'Fit Issue', 'ISO', 'Mismatch CSV', 'Topology SVG',
 ]) assert.match(markup, new RegExp(label));
 assert.match(markup, /data-ttv-axis-compass/);
 assert.match(markup, /data-ttv-canvas-projection="ISO"/);
 assert.match(markup, /data-ttv-editor-panel/);
 assert.match(markup, /data-ttv-editor-coordinate=/);
+assert.match(markup, /data-ttv-workspace-tab="svg-edit"/);
+assert.match(markup, /data-ttv-workspace-tab="edit"[^>]*[^]*Topology Edit/);
 
 for (const moduleName of [
   'topology-companion-loader.js', 'topology-component-validator.js', 'topology-ledger-validator.js',
@@ -60,6 +62,11 @@ const editorController = read('topology-svg-editor-controller.js');
 assert.match(editorController, /assertNoMutation/);
 assert.match(editorController, /MOVE_SUPPORT|moveTopologySupportCommand/);
 assert.doesNotMatch(editorController, /artifacts\.(?:source|canonical|ledger|inputXml)\s*=/);
+const workspaceController = read('topology-workspace-controller.js');
+assert.match(workspaceController, /['"]svg-edit['"]/);
+assert.match(workspaceController, /workspacePanelForTab/);
+assert.match(workspaceController, /editorController\.setMode\('edit'\)/);
+assert.match(workspaceController, /editorController\.setMode\('review'\)/);
 const projections = read('topology-svg-projections.js');
 assert.match(projections, /plane === 'ISO' \|\| plane === '3D'/);
 
