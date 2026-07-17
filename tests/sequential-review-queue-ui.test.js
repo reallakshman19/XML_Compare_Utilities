@@ -15,8 +15,8 @@ assert.match(queue, /toPortId/);
 assert.match(queue, /missingEvidenceClass/);
 assert.match(queue, /expectedContinuationCategory/);
 assert.match(queue, /constructionFingerprint/);
-assert.doesNotMatch(queue, /applyConstructionDecision|MARK_EXTERNAL_BOUNDARY|MARK_TERMINAL|acceptAll|bulkAccept/i,
-  'queue analysis must not mutate or accept construction decisions');
+assert.doesNotMatch(queue, /applyConstructionDecision|DECISION_ACTIONS|acceptAll|bulkAccept/i,
+  'queue analysis must not import decision mutation or bulk-acceptance APIs');
 assert.doesNotMatch(queue, /sj-pipe-support|buildPipeSupportProjectionBundle/);
 
 const exportsSource = read('tabs/sequential-sketcher/review/sequential-review-queue-export.js');
