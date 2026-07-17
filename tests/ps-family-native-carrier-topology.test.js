@@ -50,6 +50,9 @@ test('native pipeline exposes fail-closed carrier topology through the audit', (
     supportInput: SUPPORT_SOURCE,
     steelInput: STEEL_SOURCE,
   });
+  if (pipeline.summary.carrierTopologyConnectionCount !== 2) {
+    console.log('NATIVE_TOPOLOGY_DIAGNOSTIC', JSON.stringify(pipeline.relationshipBundle.supportCarrierTopology, null, 2));
+  }
   assert.equal(pipeline.outputSchemas.carrierTopologyCatalog, 'SupportCarrierTopologyCatalog.v1');
   assert.equal(pipeline.outputSchemas.carrierTopology, 'SupportCarrierTopologyBundle.v1');
   assert.equal(pipeline.summary.carrierTopologyComponentCount, 3);
