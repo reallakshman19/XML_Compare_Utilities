@@ -87,7 +87,7 @@ assert.match(exports.carrierCatalogCsv, /CarrierObjectId,CarrierObjectClass/);
 assert.match(exports.carrierResolutionCsv, /ResolutionStatus,CarrierObjectId/);
 assert.match(exports.supportCarrierEdgesCsv, /EdgeId,EdgeType/);
 assert.match(exports.carrierAttachmentCsv, /AttachmentStatus/);
-assert.match(exports.carrierAttachmentEdgesCsv, /SUPPORT_MEMBER_TO_CARRIER_/);
+assert.match(exports.carrierAttachmentEdgesCsv, /EdgeId,EdgeType,SupportFamilyId/);
 
 const addon = readFileSync('tabs/ps-family-clash-audit/ps-family-native-audit-pipeline-addon.js', 'utf8');
 const bootstrap = readFileSync('tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js', 'utf8');
