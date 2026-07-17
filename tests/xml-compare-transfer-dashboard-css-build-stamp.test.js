@@ -18,7 +18,6 @@ assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-blocked'), 'blo
 assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-not-available'), 'not-available dashboard card CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-detail-group > summary'), 'collapsible detail group CSS must exist');
 assert.ok(transferCss.includes('@media (max-width: 900px)'), 'dashboard CSS must include responsive fallback');
-
 assert.ok(noiseCss.includes('M23: Transfer Tab 2 tile layout foundation'), 'M23 layout foundation CSS must be loaded');
 assert.ok(noiseCss.includes('.xmlc-transfer-review'), 'M23 must define a Tab 2 layout root');
 assert.ok(noiseCss.includes('box-sizing: border-box'), 'M23 must use border-box layout containment');
@@ -33,20 +32,18 @@ assert.ok(noiseCss.includes('@media (max-width: 1180px)'), 'M23 must include a m
 assert.ok(noiseCss.includes('@media (max-width: 720px)'), 'M23 must include a narrow-width fallback');
 assert.ok(!noiseCss.includes('.xmlc-transfer-dashboard-grid {\n  display: flex'), 'M23 must not use flex dashboard tiles that can collide');
 assert.ok(!noiseCss.includes('.xmlc-transfer-output-actions {\n  display: flex'), 'M23 must not use flex action tiles that can collide');
-
 assert.ok(buildCss.includes('.app-build-stamp'), 'build stamp CSS must exist');
 assert.ok(buildCss.includes('text-overflow: ellipsis'), 'build stamp must not overflow header');
 assert.ok(!buildCss.includes('display: none'), 'build stamp must remain visible for cache verification');
-
 assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer-tile-layout'), 'index must load build stamp CSS with M23 cache bust');
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-carrier-attachment-1'), 'index must cache-bust app entry for carrier attachment');
-assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-carrier-attachment-1"), 'main entry must cache-bust core app delegate for carrier attachment');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-carrier-attachment-runtime-1"), 'core app must refresh the standalone runtime for carrier attachment');
-assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-carrier-attachment-1'), 'core app must load the carrier-attachment-aware relationship builder bootstrap');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-carrier-attachment-1'), 'core app must load the carrier-attachment-aware evidence audit bootstrap');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-carrier-topology-1'), 'index must cache-bust app entry for carrier topology');
+assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-carrier-topology-1"), 'main entry must cache-bust core app delegate for carrier topology');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-carrier-topology-runtime-1"), 'core app must refresh the standalone runtime for carrier topology');
+assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-carrier-topology-1'), 'core app must load the carrier-topology-aware relationship builder bootstrap');
+assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-carrier-topology-1'), 'core app must load the carrier-topology-aware evidence audit bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
 assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');

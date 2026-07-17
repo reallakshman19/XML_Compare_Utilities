@@ -128,8 +128,10 @@ function pointInWorld(point, attrs, worldMatrix, transformBasis) {
 
 function readBore(attrs, role) {
   const roleKey = role === 'BRANCH_OUT' ? attrs.BRANCH_BORE || attrs.BORE_BRANCH : null;
-  const value = roleKey ?? attrs.BORE ?? attrs.NOMINAL_DIAMETER ?? attrs.DIAMETER ?? attrs.OD;
-  const number = Number(cleanText(value).replace(/mm|,/giu, ''));
+  const raw = roleKey ?? attrs.BORE ?? attrs.NOMINAL_DIAMETER ?? attrs.DIAMETER ?? attrs.OD;
+  const text = cleanText(raw).replace(/mm|,/giu, '').trim();
+  if (!text) return null;
+  const number = Number(text);
   return Number.isFinite(number) ? number : null;
 }
 

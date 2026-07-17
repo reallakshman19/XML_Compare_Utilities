@@ -5,6 +5,13 @@ import {
   exportCarrierResolutionCsv,
   exportSupportCarrierEdgesCsv,
 } from './ps-family-carrier-evidence-export.js';
+import {
+  exportCarrierTopologyComponentsCsv,
+  exportCarrierTopologyConnectionsCsv,
+  exportCarrierTopologyExceptionsCsv,
+  exportCarrierTopologyPathsCsv,
+  exportCarrierTopologyPortsCsv,
+} from './ps-family-carrier-topology-export.js';
 import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
 
 export function exportPsFamilyNativePipelineJson(pipeline) {
@@ -27,9 +34,11 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     'ResolvedPhysicalCarrierCount', 'AnalyticalCarrierGeometryCount',
     'BranchContextOnlyCount', 'AmbiguousCarrierCount', 'UnresolvedCarrierCount',
     'CarrierAttachmentCandidateCount', 'NearbyCarrierAttachmentCandidateCount',
-    'UnresolvedCarrierAttachmentCount', 'SupportChainEdgeCount',
-    'StructuralTerminalCount', 'AuditSupportGroupCount', 'AuditExceptionCount',
-    'XmlRequired', 'XmlConsumed',
+    'UnresolvedCarrierAttachmentCount', 'CarrierTopologyComponentCount',
+    'CarrierTopologyConnectionCount', 'CarrierTopologyPathCount',
+    'CarrierTopologyRepairCount', 'CarrierTopologyExceptionCount',
+    'SupportChainEdgeCount', 'StructuralTerminalCount',
+    'AuditSupportGroupCount', 'AuditExceptionCount', 'XmlRequired', 'XmlConsumed',
   ];
   const row = {
     Status: summary.status,
@@ -47,6 +56,11 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     CarrierAttachmentCandidateCount: summary.carrierAttachmentCandidateCount,
     NearbyCarrierAttachmentCandidateCount: summary.nearbyCarrierAttachmentCandidateCount,
     UnresolvedCarrierAttachmentCount: summary.unresolvedCarrierAttachmentCount,
+    CarrierTopologyComponentCount: summary.carrierTopologyComponentCount,
+    CarrierTopologyConnectionCount: summary.carrierTopologyConnectionCount,
+    CarrierTopologyPathCount: summary.carrierTopologyPathCount,
+    CarrierTopologyRepairCount: summary.carrierTopologyRepairCount,
+    CarrierTopologyExceptionCount: summary.carrierTopologyExceptionCount,
     SupportChainEdgeCount: summary.supportChainEdgeCount,
     StructuralTerminalCount: summary.structuralTerminalCount,
     AuditSupportGroupCount: summary.auditSupportGroupCount,
@@ -72,6 +86,11 @@ export function createPsFamilyNativePipelineExports(pipeline) {
     supportCarrierEdgesCsv: exportSupportCarrierEdgesCsv(pipeline?.audit),
     carrierAttachmentCsv: exportCarrierAttachmentCsv(pipeline?.audit),
     carrierAttachmentEdgesCsv: exportCarrierAttachmentEdgesCsv(pipeline?.audit),
+    carrierTopologyComponentsCsv: exportCarrierTopologyComponentsCsv(pipeline?.audit),
+    carrierTopologyPortsCsv: exportCarrierTopologyPortsCsv(pipeline?.audit),
+    carrierTopologyConnectionsCsv: exportCarrierTopologyConnectionsCsv(pipeline?.audit),
+    carrierTopologyPathsCsv: exportCarrierTopologyPathsCsv(pipeline?.audit),
+    carrierTopologyExceptionsCsv: exportCarrierTopologyExceptionsCsv(pipeline?.audit),
   };
 }
 
