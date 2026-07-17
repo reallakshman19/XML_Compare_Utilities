@@ -24,6 +24,12 @@ function branchStateLabel(state) {
   if (state === 'NOT_OPENED') return '○';
   return '●';
 }
+function candidatePorts(candidate) {
+  return {
+    fromPortId: candidate?.fromPortId || candidate?.targetPortId || '',
+    toPortId: candidate?.toPortId || candidate?.connectedPortId || '',
+  };
+}
 
 export function mountSequentialSketcherWorkspace(root, context = {}) {
   root.innerHTML = sequentialSketcherMarkup();
@@ -145,16 +151,34 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     renderConstructionMetrics(elements.metrics, model.session, model.supportProjection);
     renderConstructionSequence(elements.sequence, model.session);
     renderConstructionInspector(elements.inspector, model.session, model.indexes, model.selectedCandidateId, model.supportProjection);
-    elements.stepLabel.textContent = `${model.session.strokeLedger.length} committed operations`;
+    elements.stepLabel.textContent = `${model.session.strokeLedger.length} committed operations · ${model.session.transactionLedger.length} transactions`;
     syncBranchNavigator();
   }
 
   function reportOutcome(outcome) {
     const session = model.session;
     if (!session) return;
+    const explicitMessages = {
+      MANUAL_EVIDENCE_REQUIRED: ['Manual connection requires both a reason and an evidence note.', 'error'],
+      MANUAL_PORT_PAIR_NOT_CANDIDATE: ['The selected port pair is not an eligible candidate.', 'error'],
+      MANUAL_PORT_PAIR_MISMATCH: ['The manual port pair no longer matches the selected candidate.', 'error'],
+      REVERSAL_REASON_REQUIRED: ['Component reversal requires an engineering reason.', 'error'],
+      REVERSAL_ENTRY_PORT_INVALID: ['The selected component entry is not reversible.', 'error'],
+      REVERSAL_REFERENCED_HEAD_REQUIRES_REVIEW: ['Reversal cannot bypass a referenced head boundary; resolve the boundary evidence first.', 'warning'],
+      NOTHING_TO_UNDO: ['No supervised transaction is available to undo.', 'info'],
+      TRANSACTION_UNDONE: ['Last supervised transaction was undone atomically.', 'ok'],
+    };
+    if (explicitMessages[outcome]) {
+      setStatus(...explicitMessages[outcome]);
+      return;
+    }
     if (session.state === 'USER_DECISION_REQUIRED') {
       const count = session.currentDecisionRequest?.candidates?.length || 0;
-      setStatus(`Construction stopped: ${session.currentDecisionRequest?.reason || 'decision required'}. ${count} candidate${count === 1 ? '' : 's'} shown in dotted lines.`, 'warning');
+      if (session.currentDecisionRequest?.state === 'DEFERRED') {
+        setStatus(`Decision deferred on ${session.activeBranchId}. The branch workspace preserves the open evidence for later review.`, 'warning');
+      } else {
+        setStatus(`Construction stopped: ${session.currentDecisionRequest?.reason || 'decision required'}. ${count} candidate${count === 1 ? '' : 's'} shown in dotted lines.`, 'warning');
+      }
     } else if (session.state === 'ROUTE_COMPLETE') {
       const supports = model.supportProjection;
       setStatus(`Route accepted: ${session.confirmedComponentIds.length} components, ${session.committedConnections.length} connections, ${session.repairLedger.length} repairs, ${supports?.supportGlyphs.length || 0} supports projected${supports?.unresolvedSupportFamilies.length ? `, ${supports.unresolvedSupportFamilies.length} unresolved` : ''}.`, supports?.unresolvedSupportFamilies.length ? 'warning' : 'ok');
@@ -186,7 +210,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     elements.branch.value = branchId;
     repaint();
     const detail = opened.restored
-      ? `Restored ${model.session.strokeLedger.length} committed operations; state ${model.session.state}.`
+      ? `Restored ${model.session.strokeLedger.length} committed operations, ${model.session.transactionLedger.length} transactions; state ${model.session.state}.`
       : 'Opened a clean workspace. No construction was committed by the branch switch.';
     setStatus(`Branch ${opened.index + 1} of ${opened.count}: ${branchId}. ${detail}`, opened.restored ? 'ok' : 'info');
   }
@@ -223,9 +247,23 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     const result = runConstructionUntilBlocked(model.session, model.evidence, model.indexes, engineOptions());
     applyResult({ session: result.session, outcome: result.outcomes.at(-1) || 'NO_CHANGE' });
   }
-  function decide(action, candidateId = '') {
+  function decisionPayload(extra = {}) {
+    return {
+      reason: root.querySelector('[data-ssk-decision-reason]')?.value || '',
+      evidenceNote: root.querySelector('[data-ssk-decision-evidence]')?.value || '',
+      ...extra,
+    };
+  }
+  function decide(action, candidateId = '', extra = {}) {
     if (!model.session) return;
-    applyResult(applyConstructionDecision(model.session, model.evidence, model.indexes, action, { candidateId }, engineOptions()));
+    applyResult(applyConstructionDecision(
+      model.session,
+      model.evidence,
+      model.indexes,
+      action,
+      decisionPayload({ candidateId, ...extra }),
+      engineOptions(),
+    ));
   }
 
   async function onChange(event) {
@@ -250,6 +288,22 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     if (canvasCandidate || selected) { model.selectedCandidateId = canvasCandidate || selected; saveActiveBranch(); repaint(); return; }
     const connect = event.target?.closest?.('[data-ssk-connect-candidate]')?.dataset?.sskConnectCandidate;
     if (connect) { decide(DECISION_ACTIONS.CONNECT, connect); return; }
+    const manualButton = event.target?.closest?.('[data-ssk-manual-connect]');
+    if (manualButton) {
+      const candidateId = manualButton.dataset.sskManualConnect;
+      const candidate = model.session?.currentDecisionRequest?.candidates?.find((row) => row.candidateId === candidateId);
+      const ports = candidatePorts(candidate);
+      decide(DECISION_ACTIONS.MANUAL_CONNECT, candidateId, ports);
+      return;
+    }
+    const reverseButton = event.target?.closest?.('[data-ssk-reverse-component]');
+    if (reverseButton) {
+      decide(DECISION_ACTIONS.REVERSE_COMPONENT, reverseButton.dataset.sskReverseComponent, {
+        componentId: reverseButton.dataset.sskComponentId,
+        entryPortId: reverseButton.dataset.sskEntryPort,
+      });
+      return;
+    }
     const reject = event.target?.closest?.('[data-ssk-reject-candidate]')?.dataset?.sskRejectCandidate;
     if (reject) { decide(DECISION_ACTIONS.REJECT_CANDIDATE, reject); return; }
     const decisionAction = event.target?.closest?.('[data-ssk-decision-action]')?.dataset?.sskDecisionAction;
@@ -261,10 +315,16 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       if (action === 'start') start();
       if (action === 'advance') advance();
       if (action === 'run') run();
+      if (action === 'undo') decide(DECISION_ACTIONS.UNDO_LAST_TRANSACTION);
       if (action === 'close') context.close?.();
     } catch (error) { setStatus(error.message || String(error), 'error'); context.showToast?.(error.message || String(error), 'error'); }
   }
   function onKeyDown(event) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      decide(DECISION_ACTIONS.UNDO_LAST_TRANSACTION);
+      return;
+    }
     if (!event.altKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
     navigateBranch(event.key === 'ArrowLeft' ? -1 : 1);

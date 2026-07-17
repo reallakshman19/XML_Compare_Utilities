@@ -89,6 +89,41 @@ assert.doesNotMatch(constructionEngine, /candidate\.gapMm\s*>\s*Number\(options\
 assert.doesNotMatch(constructionEngine, /<=\s*1e-6/,
   'core branch-start ambiguity must use transform-noise policy');
 
+const transactions = read('tabs/sequential-sketcher/construction/sequential-construction-transactions.js');
+assert.match(transactions, /SequentialConstructionTransaction\.v1/);
+assert.match(transactions, /beforeSnapshot/);
+assert.match(transactions, /afterSnapshot/);
+assert.match(transactions, /beforeFingerprint/);
+assert.match(transactions, /afterFingerprint/);
+assert.match(transactions, /externalBoundaryPolicyFingerprint/);
+assert.match(transactions, /tolerancePolicyFingerprint/);
+assert.match(transactions, /DECISION_DEFERRED/);
+assert.match(transactions, /TRANSACTION_UNDONE/);
+assert.doesNotMatch(transactions, /MARK_EXTERNAL_BOUNDARY|MARK_TERMINAL|bulk|acceptAll/i,
+  'transaction storage must not introduce acceptance policy or bulk resolution');
+assert.doesNotMatch(transactions, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
+const supervisedActions = read('tabs/sequential-sketcher/construction/sequential-supervised-decision-actions.js');
+assert.match(supervisedActions, /MANUAL_EVIDENCE_REQUIRED/);
+assert.match(supervisedActions, /MANUAL_PORT_PAIR_NOT_CANDIDATE/);
+assert.match(supervisedActions, /approvalProvenance:\s*'USER_MANUAL'/);
+assert.match(supervisedActions, /selectedFromPortId/);
+assert.match(supervisedActions, /selectedToPortId/);
+assert.match(supervisedActions, /resultingConstructionFingerprint/);
+assert.match(supervisedActions, /REVERSAL_REFERENCED_HEAD_REQUIRES_REVIEW/);
+assert.match(supervisedActions, /SequentialComponentTraversalOverride\.v1/);
+assert.match(supervisedActions, /reversibleComponentEntryPorts/);
+assert.doesNotMatch(supervisedActions, /candidates\[0\]|acceptAll|autoAccept/i,
+  'manual actions must require a selected candidate or explicit reversible entry');
+assert.doesNotMatch(supervisedActions, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
+const runtime = read('tabs/sequential-sketcher/construction/sequential-construction-runtime.js');
+assert.match(runtime, /recordSequentialConstructionTransaction/);
+assert.match(runtime, /RUN_UNTIL_BLOCKED/);
+assert.match(runtime, /UNDO_LAST_TRANSACTION/);
+assert.match(runtime, /currentDecisionRequest\?\.state === 'DEFERRED'/);
+assert.doesNotMatch(runtime, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
 const fingerprint = read('tabs/sequential-sketcher/construction/sequential-session-fingerprint.js');
 assert.match(fingerprint, /policySchema/);
 assert.match(fingerprint, /policyId/);
@@ -98,6 +133,10 @@ assert.match(fingerprint, /policyFingerprint/);
 assert.match(fingerprint, /toleranceEvidenceType/);
 assert.match(fingerprint, /tolerancePolicyId/);
 assert.match(fingerprint, /tolerancePolicyFingerprint/);
+assert.match(fingerprint, /openDecision/);
+assert.match(fingerprint, /deferredDecisionIds/);
+assert.match(fingerprint, /componentTraversalOverrides/);
+assert.match(fingerprint, /approvalProvenance/);
 
 const acceptance = read('tabs/sequential-sketcher/construction/sequential-construction-acceptance.js');
 assert.match(acceptance, /EXTERNAL_PHYSICAL_BOUNDARY_CONFIRMED/);
