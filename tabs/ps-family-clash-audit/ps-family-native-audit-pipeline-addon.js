@@ -55,13 +55,11 @@ function mountWorkspace(popup) {
   button.setAttribute('aria-selected', 'false');
   button.textContent = 'Native Pipeline';
   tabs.appendChild(button);
-
   const panel = popup.ownerDocument.createElement('section');
   panel.dataset.psfaPanel = TAB_KEY;
   panel.hidden = true;
   panel.innerHTML = renderPsFamilyNativePipelinePanel();
   shell.appendChild(panel);
-
   const state = { pipeline: null };
   button.addEventListener('click', () => showPanel(popup));
   panel.querySelector('[data-psfa="native-load-sample"]')?.addEventListener('click', () => loadSample(panel));
@@ -107,7 +105,7 @@ function runPipeline(popup, panel, state) {
     setRunState(
       panel,
       state.pipeline.summary.status,
-      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.resolvedPhysicalCarrierCount} carrier identities · ${state.pipeline.summary.carrierAttachmentCandidateCount} analytical carrier attachments · ${state.pipeline.summary.auditExceptionCount} audit exceptions`,
+      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.carrierTopologyConnectionCount} topology connections · ${state.pipeline.summary.carrierTopologyExceptionCount} topology exceptions`,
     );
     populateBundleField(popup, state.pipeline);
   } catch (error) {
@@ -127,10 +125,10 @@ function nativeInput(panel) {
       memberCandidateToleranceMm: numberField(panel, 'native-candidate-tolerance'),
       carrierContactToleranceMm: numberField(panel, 'native-carrier-contact-tolerance'),
       carrierCandidateToleranceMm: numberField(panel, 'native-carrier-candidate-tolerance'),
+      carrierTopologyExactToleranceMm: numberField(panel, 'native-topology-exact-tolerance'),
+      carrierTopologySmallGapToleranceMm: numberField(panel, 'native-topology-gap-tolerance'),
     },
-    auditConfig: {
-      sourceFamily: field(panel, 'native-source-family')?.value || '',
-    },
+    auditConfig: { sourceFamily: field(panel, 'native-source-family')?.value || '' },
   };
 }
 
@@ -180,6 +178,11 @@ function wireDownloads(panel, state) {
       { name: 'support-carrier-edges.csv', text: exports.supportCarrierEdgesCsv },
       { name: 'carrier-attachment-evaluations.csv', text: exports.carrierAttachmentCsv },
       { name: 'carrier-attachment-edges.csv', text: exports.carrierAttachmentEdgesCsv },
+      { name: 'carrier-topology-components.csv', text: exports.carrierTopologyComponentsCsv },
+      { name: 'carrier-topology-ports.csv', text: exports.carrierTopologyPortsCsv },
+      { name: 'carrier-topology-connections.csv', text: exports.carrierTopologyConnectionsCsv },
+      { name: 'carrier-topology-paths.csv', text: exports.carrierTopologyPathsCsv },
+      { name: 'carrier-topology-exceptions.csv', text: exports.carrierTopologyExceptionsCsv },
     ]);
   });
 }
@@ -188,32 +191,18 @@ function setRunState(panel, title, message) {
   const host = panel.querySelector('[data-psfa="native-run-state"]');
   if (host) host.innerHTML = `<b>${escapeHtml(title)}</b><span>${escapeHtml(message)}</span>`;
 }
-
-function field(root, key) {
-  return root.querySelector(`[data-psfa="${key}"]`);
-}
-
-function numberField(root, key) {
-  return Number(field(root, key)?.value);
-}
-
-function setText(root, key, value) {
-  const node = field(root, key);
-  if (node) node.textContent = value;
-}
-
+function field(root, key) { return root.querySelector(`[data-psfa="${key}"]`); }
+function numberField(root, key) { return Number(field(root, key)?.value); }
+function setText(root, key, value) { const node = field(root, key); if (node) node.textContent = value; }
 function ensureStyle(doc) {
   if (doc.getElementById(STYLE_ID)) return;
   const style = doc.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `.psfa-native-actions,.psfa-native-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.psfa-native-primary{font-weight:700}.psfa-native-input-grid,.psfa-native-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.psfa-native-input-grid label{display:grid;gap:6px}.psfa-native-input-grid textarea{min-height:280px;font-family:ui-monospace,monospace}.psfa-native-config{margin:12px 0}.psfa-native-config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}.psfa-native-config-grid label{display:grid;gap:5px}.psfa-native-run-state,.psfa-native-readiness,.psfa-native-error{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.3);border-radius:10px;margin:10px 0}.psfa-native-readiness.is-blocked,.psfa-native-error{border-color:rgba(239,68,68,.55)}.psfa-native-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}.psfa-native-summary article{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.22);border-radius:10px}.psfa-native-summary span{font-size:11px}.psfa-native-summary strong{font-size:18px}.psfa-native-contract{display:grid;grid-template-columns:auto 1fr;gap:5px 12px}.psfa-native-contract dd{margin:0}.psfa-native-ok{padding:16px;text-align:center}@media(max-width:900px){.psfa-native-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.psfa-native-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.psfa-native-input-grid,.psfa-native-result-grid{grid-template-columns:1fr}.psfa-native-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
+  style.textContent = `.psfa-native-actions,.psfa-native-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.psfa-native-primary{font-weight:700}.psfa-native-input-grid,.psfa-native-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.psfa-native-input-grid label{display:grid;gap:6px}.psfa-native-input-grid textarea{min-height:280px;font-family:ui-monospace,monospace}.psfa-native-config{margin:12px 0}.psfa-native-config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}.psfa-native-config-grid label{display:grid;gap:5px}.psfa-native-run-state,.psfa-native-readiness,.psfa-native-error{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.3);border-radius:10px;margin:10px 0}.psfa-native-readiness.is-blocked,.psfa-native-error{border-color:rgba(239,68,68,.55)}.psfa-native-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}.psfa-native-summary article{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.22);border-radius:10px}.psfa-native-summary span{font-size:11px}.psfa-native-summary strong{font-size:18px}.psfa-native-contract{display:grid;grid-template-columns:auto 1fr;gap:5px 12px}.psfa-native-contract dd{margin:0}@media(max-width:900px){.psfa-native-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.psfa-native-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.psfa-native-input-grid,.psfa-native-result-grid{grid-template-columns:1fr}.psfa-native-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
   doc.head?.appendChild(style);
 }
-
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[char]));
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
 installPsFamilyNativeAuditPipelineAddon();
