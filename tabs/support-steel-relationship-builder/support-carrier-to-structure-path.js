@@ -5,25 +5,33 @@ export function buildSupportCarrierToStructurePathBundle(input = {}) {
   const attachment = input.carrierAttachment || {};
   const topology = input.carrierTopology || {};
   const chain = input.supportMemberChain || {};
+  const families = input.supportFamilies || [];
   const completePaths = [];
   const pathExceptions = [];
+  const identityEdges = resolution.supportCarrierEdges || [];
+  const identityEdgesByFamily = groupBy(identityEdges, 'supportFamilyId');
   const topologyByComponent = indexTopologyPaths(topology.topologyPaths || []);
+  const topologyEdgeIndex = new Map((topology.connectionEdges || []).map((row) => [row.edgeId, row]));
   const chainEdgesByFamily = groupBy(chain.supportChainEdges || [], 'supportFamilyId');
   const terminalsByFamily = groupBy(
     (chain.structuralTerminalEdges || []).filter(isAnalyticalStructuralTerminal),
     'supportFamilyId',
   );
-  const attachmentsByIdentity = new Map(
-    (attachment.supportCarrierAttachmentEdges || []).map((row) => [identityKey(row), row]),
-  );
-  const nearbyByIdentity = new Map(
-    (attachment.nearbyCarrierAttachmentCandidates || []).map((row) => [identityKey(row), row]),
-  );
-  const unresolvedByIdentity = new Map(
-    (attachment.unresolvedCarrierAttachments || []).map((row) => [identityKey(row), row]),
-  );
+  const attachmentsByIdentity = indexByIdentity(attachment.supportCarrierAttachmentEdges || []);
+  const nearbyByIdentity = indexByIdentity(attachment.nearbyCarrierAttachmentCandidates || []);
+  const unresolvedByIdentity = indexByIdentity(attachment.unresolvedCarrierAttachments || []);
 
-  for (const identityEdge of resolution.supportCarrierEdges || []) {
+  for (const family of families) {
+    if ((identityEdgesByFamily.get(family.familyId) || []).length) continue;
+    pathExceptions.push(pathException('CARRIER_IDENTITY_NOT_RESOLVED', {
+      supportFamilyId: family.familyId,
+      supportMemberId: null,
+      carrierObjectId: null,
+      edgeId: null,
+    }, { message: 'No authoritative physical carrier identity edge exists for this support family.' }));
+  }
+
+  for (const identityEdge of identityEdges) {
     const key = identityKey(identityEdge);
     const attachmentEdge = attachmentsByIdentity.get(key);
     if (!attachmentEdge) {
@@ -38,6 +46,7 @@ export function buildSupportCarrierToStructurePathBundle(input = {}) {
       identityEdge,
       attachmentEdge,
       topologyByComponent,
+      topologyEdgeIndex,
       chainEdges: chainEdgesByFamily.get(identityEdge.supportFamilyId) || [],
       terminals: terminalsByFamily.get(identityEdge.supportFamilyId) || [],
       completePaths,
@@ -45,7 +54,7 @@ export function buildSupportCarrierToStructurePathBundle(input = {}) {
     });
   }
 
-  const familyResults = buildFamilyResults(input.supportFamilies || [], completePaths, pathExceptions);
+  const familyResults = buildFamilyResults(families, completePaths, pathExceptions);
   return {
     schema: SUPPORT_CARRIER_TO_STRUCTURE_PATH_SCHEMA,
     relationshipSemantic: 'CARRIER_TO_SUPPORT_TO_STRUCTURE_ANALYTICAL_PATH',
@@ -53,33 +62,36 @@ export function buildSupportCarrierToStructurePathBundle(input = {}) {
     completePaths,
     pathExceptions,
     familyResults,
-    summary: {
-      familyCount: familyResults.length,
-      completePathCount: completePaths.length,
-      completeFamilyCount: familyResults.filter((row) => row.pathStatus === 'COMPLETE').length,
-      incompleteFamilyCount: familyResults.filter((row) => row.pathStatus !== 'COMPLETE').length,
-      attachmentNotProvenCount: countCode(pathExceptions, [
-        'CARRIER_ATTACHMENT_NOT_PROVEN',
-        'CARRIER_ATTACHMENT_CLEARANCE_ONLY',
-        'CARRIER_ATTACHMENT_GEOMETRY_UNRESOLVED',
-      ]),
-      topologyPathExceptionCount: countCode(pathExceptions, [
-        'CARRIER_TOPOLOGY_PATH_MISSING',
-        'CARRIER_TOPOLOGY_PATH_REVIEW_REQUIRED',
-        'AMBIGUOUS_CARRIER_TOPOLOGY_PATH',
-      ]),
-      structuralTerminalMissingCount: countCode(pathExceptions, ['STRUCTURAL_TERMINAL_MISSING']),
-      supportChainIncompleteCount: countCode(pathExceptions, ['SUPPORT_CHAIN_TO_STRUCTURE_INCOMPLETE']),
-      multipleCompletePathFamilyCount: familyResults.filter((row) => row.completePathIds.length > 1).length,
-      exceptionCount: pathExceptions.length,
-    },
+    summary: createSummary(familyResults, completePaths, pathExceptions),
     diagnostics: pathExceptions.map(exceptionDiagnostic),
+  };
+}
+
+function createSummary(familyResults, completePaths, exceptions) {
+  return {
+    familyCount: familyResults.length,
+    completePathCount: completePaths.length,
+    completeFamilyCount: familyResults.filter((row) => row.pathStatus === 'COMPLETE').length,
+    incompleteFamilyCount: familyResults.filter((row) => row.pathStatus !== 'COMPLETE').length,
+    carrierIdentityMissingCount: countCode(exceptions, ['CARRIER_IDENTITY_NOT_RESOLVED']),
+    attachmentNotProvenCount: countCode(exceptions, [
+      'CARRIER_ATTACHMENT_NOT_PROVEN', 'CARRIER_ATTACHMENT_CLEARANCE_ONLY',
+      'CARRIER_ATTACHMENT_GEOMETRY_UNRESOLVED',
+    ]),
+    topologyPathExceptionCount: countCode(exceptions, [
+      'CARRIER_TOPOLOGY_PATH_MISSING', 'CARRIER_TOPOLOGY_PATH_REVIEW_REQUIRED',
+      'AMBIGUOUS_CARRIER_TOPOLOGY_PATH',
+    ]),
+    structuralTerminalMissingCount: countCode(exceptions, ['STRUCTURAL_TERMINAL_MISSING']),
+    supportChainIncompleteCount: countCode(exceptions, ['SUPPORT_CHAIN_TO_STRUCTURE_INCOMPLETE']),
+    multipleCompletePathFamilyCount: familyResults.filter((row) => row.completePathIds.length > 1).length,
+    exceptionCount: exceptions.length,
   };
 }
 
 function evaluateAttachmentPath(context) {
   const {
-    identityEdge, attachmentEdge, topologyByComponent,
+    identityEdge, attachmentEdge, topologyByComponent, topologyEdgeIndex,
     chainEdges, terminals, completePaths, pathExceptions,
   } = context;
   const topologyPaths = topologyByComponent.get(identityEdge.carrierObjectId) || [];
@@ -113,11 +125,7 @@ function evaluateAttachmentPath(context) {
   }
   const routes = terminals.map((terminal) => ({
     terminal,
-    supportChainEdgeIds: findMemberPath(
-      attachmentEdge.supportMemberId,
-      terminal.supportMemberId,
-      chainEdges,
-    ),
+    supportChainEdgeIds: findMemberPath(attachmentEdge.supportMemberId, terminal.supportMemberId, chainEdges),
   })).filter((row) => row.supportChainEdgeIds !== null);
   if (!routes.length) {
     pathExceptions.push(pathException('SUPPORT_CHAIN_TO_STRUCTURE_INCOMPLETE', identityEdge, {
@@ -129,18 +137,17 @@ function evaluateAttachmentPath(context) {
   }
   for (const route of routes) {
     completePaths.push(completePathRecord(
-      identityEdge,
-      attachmentEdge,
-      topologyPath,
-      route.terminal,
-      route.supportChainEdgeIds,
-      chainEdges,
+      identityEdge, attachmentEdge, topologyPath, topologyEdgeIndex,
+      route.terminal, route.supportChainEdgeIds, chainEdges,
     ));
   }
 }
 
-function completePathRecord(identity, attachment, topologyPath, terminal, chainEdgeIds, chainEdges) {
+function completePathRecord(identity, attachment, topologyPath, topologyEdgeIndex, terminal, chainEdgeIds, chainEdges) {
   const usedChainEdges = chainEdges.filter((row) => chainEdgeIds.includes(row.edgeId));
+  const repairEdgeIds = (topologyPath.edgeIds || []).filter(
+    (edgeId) => topologyEdgeIndex.get(edgeId)?.relationshipStatus === 'SMALL_GAP_CARRIER_REPAIR',
+  );
   return {
     pathId: `SCSP:${identity.supportFamilyId}:${identity.carrierObjectId}:${terminal.supportMemberId}:${terminal.structuralMemberId || terminal.steelGroupId}`,
     pathStatus: 'COMPLETE_CARRIER_TO_STRUCTURE_PATH',
@@ -150,13 +157,12 @@ function completePathRecord(identity, attachment, topologyPath, terminal, chainE
     carrierTopologyPathId: topologyPath.pathId,
     carrierTopologyComponentIds: topologyPath.componentIds || [],
     carrierTopologyEdgeIds: topologyPath.edgeIds || [],
-    carrierTopologyRepairEdgeIds: (topologyPath.edgeIds || []).filter((edgeId) => edgeId.includes('REPAIR')),
+    carrierTopologyRepairEdgeIds: repairEdgeIds,
     carrierAttachmentEdgeId: attachment.edgeId,
     attachmentSupportMemberId: attachment.supportMemberId,
     supportChainEdgeIds: chainEdgeIds,
     supportChainMemberIds: unique([
-      attachment.supportMemberId,
-      terminal.supportMemberId,
+      attachment.supportMemberId, terminal.supportMemberId,
       ...usedChainEdges.flatMap((row) => [row.supportA, row.supportB]),
     ]),
     structuralTerminalEdgeId: terminal.edgeId,
@@ -164,17 +170,15 @@ function completePathRecord(identity, attachment, topologyPath, terminal, chainE
     steelGroupId: terminal.steelGroupId,
     structuralMemberId: terminal.structuralMemberId || null,
     relationshipBasis: [
-      'AUTHORITATIVE_CARRIER_IDENTITY',
-      'CONNECTED_CARRIER_TOPOLOGY',
+      'AUTHORITATIVE_CARRIER_IDENTITY', 'CONNECTED_CARRIER_TOPOLOGY',
+      repairEdgeIds.length ? 'AUDITED_CARRIER_TOPOLOGY_REPAIR' : 'EXACT_OR_EXPLICIT_CARRIER_TOPOLOGY',
       'ANALYTICAL_SUPPORT_TO_CARRIER_ATTACHMENT',
       chainEdgeIds.length ? 'ANALYTICAL_SUPPORT_MEMBER_CHAIN' : 'ATTACHMENT_MEMBER_IS_STRUCTURAL_TERMINAL',
       'ANALYTICAL_SUPPORT_TO_STRUCTURE_TERMINAL',
     ],
     contactEvidenceStatus: 'ANALYTICAL_PATH_CANDIDATE',
     confidence: minimumConfidence([
-      identity.confidence,
-      attachment.confidence,
-      terminal.confidence,
+      identity.confidence, attachment.confidence, terminal.confidence,
       ...usedChainEdges.map((row) => row.confidence),
     ]),
   };
@@ -204,7 +208,7 @@ function findMemberPath(start, target, edges) {
 }
 
 function buildFamilyResults(families, completePaths, exceptions) {
-  return (families || []).map((family) => {
+  return families.map((family) => {
     const familyPaths = completePaths.filter((row) => row.supportFamilyId === family.familyId);
     const familyExceptions = exceptions.filter((row) => row.supportFamilyId === family.familyId);
     return {
@@ -220,18 +224,14 @@ function buildFamilyResults(families, completePaths, exceptions) {
 }
 
 function missingAttachmentException(identity, nearby, unresolved) {
-  if (nearby) {
-    return pathException('CARRIER_ATTACHMENT_CLEARANCE_ONLY', identity, {
-      distanceMm: nearby.distanceMm,
-      message: 'Carrier identity is resolved, but analytical geometry shows clearance rather than attachment.',
-    });
-  }
-  if (unresolved) {
-    return pathException('CARRIER_ATTACHMENT_GEOMETRY_UNRESOLVED', identity, {
-      attachmentStatus: unresolved.attachmentStatus,
-      message: 'Carrier identity is resolved, but analytical attachment geometry is incomplete.',
-    });
-  }
+  if (nearby) return pathException('CARRIER_ATTACHMENT_CLEARANCE_ONLY', identity, {
+    distanceMm: nearby.distanceMm,
+    message: 'Carrier identity is resolved, but analytical geometry shows clearance rather than attachment.',
+  });
+  if (unresolved) return pathException('CARRIER_ATTACHMENT_GEOMETRY_UNRESOLVED', identity, {
+    attachmentStatus: unresolved.attachmentStatus,
+    message: 'Carrier identity is resolved, but analytical attachment geometry is incomplete.',
+  });
   return pathException('CARRIER_ATTACHMENT_NOT_PROVEN', identity, {
     message: 'Carrier identity is resolved, but no analytical carrier-attachment edge exists.',
   });
@@ -239,13 +239,13 @@ function missingAttachmentException(identity, nearby, unresolved) {
 
 function pathException(code, identity, extra = {}) {
   return {
-    exceptionId: `SCSP-EX:${code}:${identity.supportMemberId}:${identity.carrierObjectId}`,
+    exceptionId: `SCSP-EX:${code}:${identity.supportMemberId || identity.supportFamilyId}:${identity.carrierObjectId || 'NONE'}`,
     exceptionCode: code,
     severity: code === 'CARRIER_ATTACHMENT_CLEARANCE_ONLY' ? 'INFO' : 'WARN',
     supportFamilyId: identity.supportFamilyId,
-    supportMemberId: identity.supportMemberId,
-    carrierObjectId: identity.carrierObjectId,
-    carrierIdentityEdgeId: identity.edgeId,
+    supportMemberId: identity.supportMemberId || null,
+    carrierObjectId: identity.carrierObjectId || null,
+    carrierIdentityEdgeId: identity.edgeId || null,
     ...extra,
   };
 }
@@ -256,44 +256,25 @@ function isAnalyticalStructuralTerminal(row) {
 }
 function indexTopologyPaths(paths) {
   const index = new Map();
-  for (const path of paths) {
-    for (const componentId of path.componentIds || []) {
-      if (!index.has(componentId)) index.set(componentId, []);
-      index.get(componentId).push(path);
-    }
-  }
+  for (const path of paths) for (const id of path.componentIds || []) push(index, id, path);
   return index;
 }
-function groupBy(rows, key) {
-  const map = new Map();
-  for (const row of rows) {
-    const value = row[key];
-    if (!map.has(value)) map.set(value, []);
-    map.get(value).push(row);
-  }
-  return map;
-}
+function indexByIdentity(rows) { return new Map(rows.map((row) => [identityKey(row), row])); }
+function groupBy(rows, key) { const map = new Map(); for (const row of rows) push(map, row[key], row); return map; }
+function push(map, key, value) { if (!map.has(key)) map.set(key, []); map.get(key).push(value); }
 function identityKey(row) { return `${row.supportMemberId}::${row.carrierObjectId}`; }
-function addNeighbor(map, from, to, edgeId) {
-  if (!from || !to) return;
-  if (!map.has(from)) map.set(from, []);
-  map.get(from).push({ memberId: to, edgeId });
-}
+function addNeighbor(map, from, to, edgeId) { if (from && to) push(map, from, { memberId: to, edgeId }); }
 function minimumConfidence(values) {
   const rank = { NONE: 0, LOW: 1, MEDIUM: 2, HIGH: 3 };
   const filtered = values.filter((row) => rank[row] !== undefined);
-  if (!filtered.length) return 'NONE';
-  return filtered.reduce((minimum, value) => rank[value] < rank[minimum] ? value : minimum, 'HIGH');
+  return filtered.length ? filtered.reduce((min, value) => rank[value] < rank[min] ? value : min, 'HIGH') : 'NONE';
 }
 function countCode(rows, codes) { return rows.filter((row) => codes.includes(row.exceptionCode)).length; }
 function unique(values) { return [...new Set(values.filter(Boolean))].sort(); }
 function exceptionDiagnostic(row) {
   return {
-    severity: row.severity,
-    code: row.exceptionCode,
-    supportFamilyId: row.supportFamilyId,
-    supportMemberId: row.supportMemberId,
-    carrierObjectId: row.carrierObjectId,
-    message: row.message,
+    severity: row.severity, code: row.exceptionCode,
+    supportFamilyId: row.supportFamilyId, supportMemberId: row.supportMemberId,
+    carrierObjectId: row.carrierObjectId, message: row.message,
   };
 }
