@@ -6,9 +6,13 @@ import { buildSupportCarrierTopologyBundle } from './support-carrier-topology-en
 import { buildSupportSteelRelationshipBundle as buildCoreRelationshipBundle } from './support-steel-relationship-engine.js';
 
 export function buildSupportSteelRelationshipBundle(input = {}) {
-  const coreBundle = buildCoreRelationshipBundle(input);
+  const combinedInput = input.combinedInput ?? input.stagedInput ?? null;
+  const supportInput = input.supportInput ?? combinedInput;
+  const steelInput = input.steelInput ?? combinedInput;
+  const normalizedInput = { ...input, supportInput, steelInput };
+  const coreBundle = buildCoreRelationshipBundle(normalizedInput);
   const carrierResolution = buildSupportCarrierResolutionBundle({
-    supportInput: input.supportInput,
+    supportInput,
     supportFamilies: coreBundle.supportFamilies,
   });
   const carrierAttachment = buildSupportCarrierAttachmentBundle({
@@ -17,7 +21,7 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
     supportCarrierEdges: carrierResolution.supportCarrierEdges,
     config: input.config || {},
   });
-  const carrierTopologyCatalog = collectSupportCarrierTopologyCatalog(input.supportInput);
+  const carrierTopologyCatalog = collectSupportCarrierTopologyCatalog(supportInput);
   const carrierTopology = buildSupportCarrierTopologyBundle({
     catalog: carrierTopologyCatalog,
     config: input.config || {},
@@ -31,6 +35,7 @@ export function buildSupportSteelRelationshipBundle(input = {}) {
   });
   return {
     ...coreBundle,
+    inputMode: combinedInput ? 'COMBINED_STAGED_MODEL' : 'LEGACY_SEPARATE_SOURCES',
     carrierResolutionSchema: carrierResolution.schema,
     carrierCatalogSchema: carrierResolution.catalogSchema,
     carrierAttachmentSchema: carrierAttachment.schema,
