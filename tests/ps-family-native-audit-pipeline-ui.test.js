@@ -67,8 +67,8 @@ assert.match(results, /Carrier-object resolution/);
 assert.match(results, /Carrier catalog<\/dt><dd>SupportCarrierCatalog\.v1/);
 assert.match(results, /Carrier resolution<\/dt><dd>SupportCarrierResolution\.v1/);
 assert.match(results, /Carrier attachment<\/dt><dd>SupportCarrierAttachmentBundle\.v1/);
-assert.match(results, /Carrier identity proof<\/dt><dd>Not physical contact/);
-assert.match(results, /Carrier attachment proof<\/dt><dd>Analytical candidates only/);
+assert.match(results, /Carrier identity contact proof<\/dt><dd>Not proven/);
+assert.match(results, /Attachment classification<\/dt><dd>Analytical candidate only/);
 assert.match(results, /XML required<\/dt><dd>No/);
 assert.match(results, /XML consumed<\/dt><dd>No/);
 
