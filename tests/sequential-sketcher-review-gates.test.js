@@ -18,6 +18,16 @@ assert.match(policy, /PHYSICAL_BOUNDARY_ROLE_NOT_PROVEN/);
 assert.match(policy, /policyFingerprint/);
 assert.match(policy, /validateSequentialExternalBoundaryPolicy/);
 
+const tolerancePolicy = read('tabs/sequential-sketcher/policy/sequential-construction-tolerance-policy.js');
+assert.match(tolerancePolicy, /SequentialConstructionTolerancePolicy\.v1/);
+assert.match(tolerancePolicy, /branchEndpointMm/);
+assert.match(tolerancePolicy, /referenceBoundaryMm/);
+assert.match(tolerancePolicy, /fittingPortMm/);
+assert.match(tolerancePolicy, /transformNoiseMm/);
+assert.match(tolerancePolicy, /maximumMm:\s*25/);
+assert.match(tolerancePolicy, /resolveSequentialConstructionTolerances/);
+assert.match(tolerancePolicy, /policyFingerprint/);
+
 const classifier = read('tabs/sequential-sketcher/construction/sequential-boundary-reference-classifier.js');
 assert.match(classifier, /SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY/);
 assert.match(classifier, /matchSequentialExternalBoundaryPolicy/);
@@ -33,12 +43,22 @@ const engine = read('tabs/sequential-sketcher/construction/sequential-source-bou
 assert.match(engine, /EXTERNAL_BOUNDARY_ACTIVE_ENDPOINT_MISSING/);
 assert.match(engine, /EXTERNAL_BOUNDARY_POSITION_MISSING/);
 assert.match(engine, /EXTERNAL_BOUNDARY_POSITION_MISMATCH/);
-assert.match(engine, /externalBoundaryExactToleranceMm/);
+assert.match(engine, /resolveSequentialConstructionTolerances/);
+assert.match(engine, /REFERENCE_BOUNDARY_EQUIVALENCE/);
+assert.match(engine, /tolerancePolicyFingerprint/);
 assert.match(engine, /SOURCE_PHYSICAL_BOUNDARY_EVIDENCE/);
 assert.match(engine, /USER_MANUAL/);
 assert.match(engine, /patternId/);
 assert.match(engine, /policyFingerprint/);
 assert.doesNotMatch(engine, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
+const boundaryResolver = read('tabs/sequential-sketcher/construction/sequential-boundary-resolver.js');
+assert.match(boundaryResolver, /resolveSequentialConstructionTolerances/);
+assert.match(boundaryResolver, /referenceBoundaryEquivalenceMm/);
+assert.match(boundaryResolver, /REFERENCE_BOUNDARY_EQUIVALENCE/);
+assert.match(boundaryResolver, /automaticRepairMm/);
+assert.doesNotMatch(boundaryResolver, /autoRepairToleranceMm\s*=\s*25/,
+  'repair limit must come from the versioned tolerance policy');
 
 const fingerprint = read('tabs/sequential-sketcher/construction/sequential-session-fingerprint.js');
 assert.match(fingerprint, /policySchema/);
@@ -46,6 +66,9 @@ assert.match(fingerprint, /policyId/);
 assert.match(fingerprint, /policyRevision/);
 assert.match(fingerprint, /policyDialect/);
 assert.match(fingerprint, /policyFingerprint/);
+assert.match(fingerprint, /toleranceEvidenceType/);
+assert.match(fingerprint, /tolerancePolicyId/);
+assert.match(fingerprint, /tolerancePolicyFingerprint/);
 
 const acceptance = read('tabs/sequential-sketcher/construction/sequential-construction-acceptance.js');
 assert.match(acceptance, /EXTERNAL_PHYSICAL_BOUNDARY_CONFIRMED/);
