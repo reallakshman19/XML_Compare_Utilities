@@ -6,7 +6,7 @@ import './ps-family-offline-validation-independent-addon.js?v=20260717-independe
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_SELECTOR = '[data-psfa-open="1"]';
-const VERSION = 'independent-model-benchmark-v1';
+const VERSION = 'startup-cache-recovery-v1';
 let observer = null;
 
 export function mountPsFamilyEvidenceAudit() {
