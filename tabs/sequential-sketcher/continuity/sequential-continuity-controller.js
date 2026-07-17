@@ -20,6 +20,7 @@ function required(root, selector) {
   if (!element) throw new Error(`Sequential continuity element missing: ${selector}`);
   return element;
 }
+function text(value) { return String(value ?? '').trim(); }
 function escape(value) {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -174,22 +175,33 @@ export function mountSequentialContinuityController(root, workspace, context = {
       if (event.target?.closest?.('[data-ssk-workspace-apply]')) queueMicrotask(reset);
     } catch (error) { setStatus(error.message || String(error), 'error'); }
   }
+  function stageRow(row) {
+    readOverride(row);
+    const model = workspace.getModel?.(); const queue = workspace.getReviewQueue?.();
+    state.draft = buildSequentialContinuationDraft(model.records, queue, state.overrides);
+    state.geometry = null; elements.export.disabled = true; elements.active.disabled = true;
+    const value = state.draft.summary;
+    elements.summary.textContent = `${value.connectorCount} connectors · ${value.internalCount} internal · ${value.externalCount} external sheets · ${value.editedCount} edited · staged for Construct geometry`;
+  }
   function onChange(event) {
     const row = event.target?.closest?.('[data-ssk-continuity-row]');
-    if (row) {
-      readOverride(row); state.geometry = null; elements.export.disabled = true; elements.active.disabled = true;
-      refresh(); return;
-    }
+    if (row) { stageRow(row); return; }
     if (event.target?.dataset?.sskFile === 'source') queueMicrotask(reset);
+  }
+  function onInput(event) {
+    const row = event.target?.closest?.('[data-ssk-continuity-row]');
+    if (row) stageRow(row);
   }
   root.addEventListener('click', onClick);
   root.addEventListener('change', onChange);
+  root.addEventListener('input', onInput);
   reset();
   return Object.freeze({
     refresh, construct, exportSource, exportConstructed,
     getDraft: () => state.draft, getGeometry: () => state.geometry,
     destroy() {
       root.removeEventListener('click', onClick); root.removeEventListener('change', onChange);
+      root.removeEventListener('input', onInput);
       root.querySelector('.ssk-continuity-panel')?.remove();
     },
   });
