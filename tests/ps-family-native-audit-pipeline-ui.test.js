@@ -102,6 +102,6 @@ assert.match(restraintAddon, /Download Restraint Evidence/);
 assert.match(restraintAddon, /support-restraint-function-evidence\.zip/);
 assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
 assert.match(bootstrap, /ps-family-restraint-function-addon\.js/);
-assert.match(bootstrap, /restraint-function-v1/);
+assert.match(bootstrap, /startup-cache-recovery-v1/);
 
 console.log('ps-family-native-audit-pipeline-ui tests passed');
