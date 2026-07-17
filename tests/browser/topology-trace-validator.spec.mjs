@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 async function openValidatedWorkspace(page) {
@@ -111,4 +112,82 @@ test('TTV-B02 — Trace 3D is native SVG ISO with overlays, support isolation, c
   await expect(page.locator('[data-ttv-axis-compass]')).toHaveAttribute('data-projection', 'ISO');
   await expect(page.locator('[data-ttv-projection="3D"]')).toHaveClass(/is-active/);
   expect(await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().trace.viewState.projection)).toBe('ISO');
+});
+
+test('TTV-B03 — support draft edits are live, undoable, exportable, and evidence-safe', async ({ page }) => {
+  await openValidatedWorkspace(page);
+  const originalHashes = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().trace.hashes);
+  await page.locator('[data-ttv-editor-mode="edit"]').click();
+  await expect(page.locator('[data-ttv-editor-panel]')).toBeVisible();
+  await expect(page.locator('[data-ttv-component-symbols]')).toBeChecked();
+
+  const support = page.locator('[data-source-component-type="SUPPORT"]');
+  await expect(support).toHaveCount(1);
+  await support.click();
+  await expect(page.locator('[data-ttv-editor-selection]')).toContainText('SRC-SUPPORT');
+  await expect(page.locator('[data-ttv-editor-axis="x"]')).toBeVisible();
+  await expect(page.locator('[data-ttv-editor-axis="y"]')).toBeVisible();
+  await expect(page.locator('[data-ttv-editor-axis="z"]')).toHaveCount(0);
+
+  await page.locator('[data-ttv-editor-coordinate="x"]').fill('17.25');
+  await page.locator('[data-ttv-editor-coordinate="y"]').fill('0');
+  await page.locator('[data-ttv-editor-coordinate="z"]').fill('0');
+  await page.locator('[data-ttv-editor-set]').click();
+  let editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
+  expect(editor.draft.dirtyCount).toBe(1);
+  expect(editor.draft.entities[0].position.x).toBe(17.25);
+  await expect(page.locator('[data-ttv-editor-dirty]').first()).toContainText('1 pending');
+
+  await page.locator('[data-ttv-editor-undo]').click();
+  editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
+  expect(editor.draft.entities[0].position.x).toBe(15);
+  await page.locator('[data-ttv-editor-redo]').click();
+  editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
+  expect(editor.draft.entities[0].position.x).toBe(17.25);
+
+  const xHandle = page.locator('[data-ttv-editor-axis="x"]');
+  const handleBox = await xHandle.boundingBox();
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(handleBox.x + handleBox.width / 2 + 60, handleBox.y + handleBox.height / 2, { steps: 6 });
+  await page.mouse.up();
+  editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
+  expect(editor.draft.entities[0].position.x).toBeGreaterThan(17.25);
+  expect(editor.draft.entities[0].position.y).toBe(0);
+  expect(editor.draft.entities[0].position.z).toBe(0);
+  const committedX = editor.draft.entities[0].position.x;
+
+  const cancelHandle = page.locator('[data-ttv-editor-axis="x"]');
+  const cancelBox = await cancelHandle.boundingBox();
+  await page.mouse.move(cancelBox.x + cancelBox.width / 2, cancelBox.y + cancelBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(cancelBox.x + cancelBox.width / 2 + 80, cancelBox.y + cancelBox.height / 2, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
+  expect(editor.draft.entities[0].position.x).toBe(committedX);
+  expect(editor.dragging).toBe(false);
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('[data-ttv-editor-export]').click(),
+  ]);
+  const patch = JSON.parse(await readFile(await download.path(), 'utf8'));
+  expect(patch.schema).toBe('TopologyEditPatch.v1');
+  expect(patch.operations).toHaveLength(1);
+  expect(patch.operations[0].type).toBe('MOVE_SUPPORT');
+  expect(patch.baseHashes).toEqual(originalHashes);
+
+  const final = await page.evaluate(() => {
+    const controller = window.__topologyValidatorHarness.controller;
+    controller.assertNoMutation();
+    return { hashes: controller.evidence().trace.hashes, editor: controller.evidence().editor };
+  });
+  expect(final.hashes).toEqual(originalHashes);
+  expect(final.editor.mode).toBe('edit');
+  await expect(page.locator('.ttv-svg-host canvas')).toHaveCount(0);
+
+  await page.locator('[data-ttv-editor-mode="review"]').click();
+  await expect(page.locator('[data-ttv-editor-panel]')).toBeHidden();
+  expect((await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor)).draft.dirtyCount).toBe(1);
 });

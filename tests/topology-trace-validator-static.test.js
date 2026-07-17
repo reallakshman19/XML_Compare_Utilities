@@ -6,7 +6,7 @@ import path from 'node:path';
 const directory = fileURLToPath(new URL('../tabs/topology-trace-validator/', import.meta.url));
 const files = readdirSync(directory).filter((name) => name.endsWith('.js'));
 const read = (name) => readFileSync(path.join(directory, name), 'utf8');
-assert(files.length >= 20);
+assert(files.length >= 25);
 for (const name of files) {
   const fullPath = path.join(directory, name);
   const text = readFileSync(fullPath, 'utf8');
@@ -21,16 +21,21 @@ const markup = read('topology-workspace-markup.js');
 for (const label of [
   'Load Source JSON', 'Load Canonical Topology', 'Load Trace Ledger', 'Load Topology InputXML',
   'Spatial Overlay', 'Source ↔ Canonical', 'Junctions / Boundaries', 'Issues Only', 'Symbol Overlays',
-  'Isolate Supports', 'Topology Parity', 'Load SVG Scene', 'Load Parsed InputXML Topology', 'Load Parity Report',
+  'Isolate Supports', 'Review', 'Edit Draft', 'Support Draft', 'Set XYZ', 'Undo', 'Redo', 'Revert Draft', 'Export Patch',
+  'Topology Parity', 'Load SVG Scene', 'Load Parsed InputXML Topology', 'Load Parity Report',
   'Fit All', 'Fit Branch', 'Fit Issue', 'ISO', 'Mismatch CSV', 'Topology SVG',
 ]) assert.match(markup, new RegExp(label));
 assert.match(markup, /data-ttv-axis-compass/);
 assert.match(markup, /data-ttv-canvas-projection="ISO"/);
+assert.match(markup, /data-ttv-editor-panel/);
+assert.match(markup, /data-ttv-editor-coordinate="x"/);
 
 for (const moduleName of [
   'topology-companion-loader.js', 'topology-component-validator.js', 'topology-ledger-validator.js',
   'topology-projection-geometry.js', 'topology-search-panel.js', 'topology-svg-component-symbols.js',
   'topology-svg-navigation.js', 'topology-svg-view-state.js', 'topology-svg-view-model-core.js',
+  'topology-svg-editor-model.js', 'topology-svg-editor-history.js', 'topology-svg-editor-view-model.js',
+  'topology-svg-editor-overlay.js', 'topology-svg-editor-controller.js',
   'topology-parity-artifact-reader.js', 'topology-parity-state.js', 'topology-scene-view-model.js',
   'topology-parity-svg-renderer.js', 'topology-parity-controller.js', 'topology-parity-panel.js',
   'topology-workspace-controller.js', 'topology-workspace-wiring.js',
@@ -41,6 +46,13 @@ assert.doesNotMatch(controller, /render3dViewer|select3dObject|dispose3dViewer|t
   'Trace controller must remain native SVG-only for every projection');
 assert.match(controller, /renderTopologySvg/);
 assert.match(controller, /wireTopologySvgNavigation/);
+assert.match(controller, /setViewModelAdapter/);
+assert.match(controller, /setRenderObserver/);
+assert.match(controller, /setSelectionObserver/);
+const editorController = read('topology-svg-editor-controller.js');
+assert.match(editorController, /assertNoMutation/);
+assert.match(editorController, /MOVE_SUPPORT|moveTopologySupportCommand/);
+assert.doesNotMatch(editorController, /artifacts\.(?:source|canonical|ledger|inputXml)\s*=/);
 const projections = read('topology-svg-projections.js');
 assert.match(projections, /plane === 'ISO' \|\| plane === '3D'/);
 
@@ -69,4 +81,5 @@ for (const attribute of [
 const utilityTab = readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
 assert.match(utilityTab, /installTopologyTraceValidatorTile/);
 await import('./topology-trace-native-svg-3d.test.js');
+await import('./topology-svg-editor-foundation.test.js');
 console.log('topology trace validator static architecture tests passed');
