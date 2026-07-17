@@ -9,7 +9,7 @@ import {
 const launcher = renderSupportSteelLauncher();
 assert.match(launcher, /Support \/ Steel Relationship Builder/);
 assert.match(launcher, /data-ssrb-open="1"/);
-assert.match(launcher, /data-ssrb-version="carrier-structure-path-1"/);
+assert.match(launcher, /data-ssrb-version="combined-model-1"/);
 assert.match(launcher, /Complete carrier-to-structure evidence/);
 
 const dialog = renderSupportSteelDialog();
