@@ -25,12 +25,20 @@ jobs:
       - name: Parse every production JavaScript module
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          failed=0
+          checked=0
           while IFS= read -r -d '' file; do
-            echo "Checking ${file}"
-            node --check "${file}"
+            checked=$((checked + 1))
+            if ! output=$(node --check "${file}" 2>&1); then
+              failed=1
+              echo "::error file=${file}::JavaScript syntax check failed"
+              printf '%s\n' "${output}"
+            fi
           done < <(find . -type f -name '*.js' \
             -not -path './node_modules/*' \
             -not -path './.backups/*' \
             -not -path './tests/*' \
             -print0 | sort -z)
+          echo "Checked ${checked} production JavaScript files."
+          exit "${failed}"
