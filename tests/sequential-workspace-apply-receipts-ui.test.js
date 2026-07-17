@@ -52,6 +52,6 @@ assert.match(markup, /destructive changes also require an evidence note/);
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 const utility = read('tabs/psnm-utility-tab.js');
 assert.match(tab, /20260717-ssk-workspace-apply-receipts-1/);
-assert.match(utility, /20260717-ssk-workspace-apply-receipts-1/);
+assert.match(utility, /20260717-ssk-continuity-geometry-1/);
 
 console.log('sequential workspace application receipt UI tests passed');
