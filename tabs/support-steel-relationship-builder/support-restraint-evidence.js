@@ -23,13 +23,15 @@ export function buildFamilyRestraintEvidence(input = {}) {
     for (const member of memberRows) {
       const point = geometryRepresentativePoint(member);
       const projection = projectPointToCarrierFrame(point, frame);
+      const physicalGeometryAvailable = Boolean(member.analyticalGeometry?.physicalGeometryAvailable);
       memberProjections.push({
         supportMemberId: member.memberId,
         semanticRole: member.semanticRole,
         representativePointGlobal: point,
+        physicalGeometryAvailable,
         ...projection,
       });
-      if (!projection.available || !paths.length || frame?.frameStatus !== 'RESOLVED_ORTHOGONAL_FRAME') continue;
+      if (!physicalGeometryAvailable || !projection.available || !paths.length || frame?.frameStatus !== 'RESOLVED_ORTHOGONAL_FRAME') continue;
       directionEvidence.push(...directionsForMember(member, projection, threshold, frame));
     }
     return {
@@ -78,22 +80,24 @@ function directionRow(member, direction, offsetMm, frame) {
     semanticRole: member.semanticRole,
     direction,
     offsetMm: round3(offsetMm),
-    evidenceClass: 'ANALYTICAL_MEMBER_POSITION_IN_CARRIER_FRAME',
+    evidenceClass: 'ANALYTICAL_MEMBER_GEOMETRY_IN_CARRIER_FRAME',
     structuralContinuityRequired: true,
     confidence: frame.frameQuality === 'HIGH' ? 'HIGH' : 'LOW',
   };
 }
 
 function roleEvidence(members, attachment) {
-  const roles = new Set(members.map((row) => row.semanticRole));
+  const physicalMembers = members.filter((row) => row.analyticalGeometry?.physicalGeometryAvailable);
+  const roles = new Set(physicalMembers.map((row) => row.semanticRole));
   return {
-    pipeShoePresent: roles.has('PIPE_SHOE') || attachment.supportMemberRole === 'PIPE_SHOE',
-    guideMemberCount: members.filter((row) => row.semanticRole === 'GUIDE_MEMBER').length,
-    lineStopMemberCount: members.filter((row) => row.semanticRole === 'LINE_STOP_MEMBER').length,
-    clampMemberCount: members.filter((row) => row.semanticRole === 'CLAMP_MEMBER').length,
-    springMemberCount: members.filter((row) => row.semanticRole === 'SPRING_MEMBER').length,
-    anchorMemberCount: members.filter((row) => row.semanticRole === 'ANCHOR_MEMBER').length,
-    wearPlateCount: members.filter((row) => row.semanticRole === 'WEAR_PLATE').length,
+    pipeShoePresent: roles.has('PIPE_SHOE') || (attachment.supportMemberRole === 'PIPE_SHOE'
+      && physicalMembers.some((row) => row.memberId === attachment.supportMemberId)),
+    guideMemberCount: physicalMembers.filter((row) => row.semanticRole === 'GUIDE_MEMBER').length,
+    lineStopMemberCount: physicalMembers.filter((row) => row.semanticRole === 'LINE_STOP_MEMBER').length,
+    clampMemberCount: physicalMembers.filter((row) => row.semanticRole === 'CLAMP_MEMBER').length,
+    springMemberCount: physicalMembers.filter((row) => row.semanticRole === 'SPRING_MEMBER').length,
+    anchorMemberCount: physicalMembers.filter((row) => row.semanticRole === 'ANCHOR_MEMBER').length,
+    wearPlateCount: physicalMembers.filter((row) => row.semanticRole === 'WEAR_PLATE').length,
   };
 }
 
