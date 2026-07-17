@@ -1,4 +1,5 @@
 import { stableToken } from '../sequential-sketcher-contract.js';
+import { resolveSequentialConstructionTolerances } from '../policy/sequential-construction-tolerance-policy.js';
 import {
   advanceConstruction as advanceBaseConstruction,
   applyConstructionDecision as applyBaseConstructionDecision,
@@ -41,7 +42,8 @@ function positionEvidence(session, source, indexes, options) {
   const boundaryPosition = clonePoint(source.boundaryRole === 'HEAD'
     ? source.branch.headPosition
     : source.branch.tailPosition);
-  const toleranceMm = Number(options.externalBoundaryExactToleranceMm ?? options.exactToleranceMm ?? 1);
+  const tolerances = resolveSequentialConstructionTolerances(options);
+  const toleranceMm = tolerances.referenceBoundaryMm;
   const gapMm = distance(activePosition, boundaryPosition);
   let status = 'POSITION_CONFIRMED';
   let reason = null;
@@ -51,7 +53,7 @@ function positionEvidence(session, source, indexes, options) {
   } else if (!boundaryPosition) {
     status = 'BOUNDARY_POSITION_MISSING';
     reason = 'EXTERNAL_BOUNDARY_POSITION_MISSING';
-  } else if (!Number.isFinite(toleranceMm) || toleranceMm < 0 || gapMm > toleranceMm) {
+  } else if (gapMm > toleranceMm) {
     status = 'POSITION_MISMATCH';
     reason = 'EXTERNAL_BOUNDARY_POSITION_MISMATCH';
   }
@@ -60,6 +62,8 @@ function positionEvidence(session, source, indexes, options) {
     activePosition,
     boundaryPosition,
     toleranceMm,
+    toleranceEvidenceType: 'REFERENCE_BOUNDARY_EQUIVALENCE',
+    tolerances,
     gapMm: Number.isFinite(gapMm) ? gapMm : null,
     status,
     reason,
@@ -74,6 +78,11 @@ function retainBlockedClassification(session, source, position, reason) {
     boundaryPosition: position.boundaryPosition,
     positionGapMm: position.gapMm,
     exactBoundaryToleranceMm: position.toleranceMm,
+    toleranceEvidenceType: position.toleranceEvidenceType,
+    tolerancePolicySchema: position.tolerances.policySchema,
+    tolerancePolicyId: position.tolerances.policyId,
+    tolerancePolicyRevision: position.tolerances.policyRevision,
+    tolerancePolicyFingerprint: position.tolerances.policyFingerprint,
     positionStatus: position.status,
   });
   const request = Object.freeze({
@@ -92,6 +101,10 @@ function retainBlockedClassification(session, source, position, reason) {
     policyId: source.classification.policyId,
     policyRevision: source.classification.policyRevision,
     policyFingerprint: source.classification.policyFingerprint,
+    toleranceEvidenceType: position.toleranceEvidenceType,
+    tolerancePolicyId: position.tolerances.policyId,
+    tolerancePolicyRevision: position.tolerances.policyRevision,
+    tolerancePolicyFingerprint: position.tolerances.policyFingerprint,
     positionGapMm: position.gapMm,
     exactBoundaryToleranceMm: position.toleranceMm,
   });
@@ -131,6 +144,11 @@ function classificationRecord(session, acceptedSession, source, position) {
     resolvedPosition: position.activePosition,
     positionGapMm: position.gapMm,
     exactBoundaryToleranceMm: position.toleranceMm,
+    toleranceEvidenceType: position.toleranceEvidenceType,
+    tolerancePolicySchema: position.tolerances.policySchema,
+    tolerancePolicyId: position.tolerances.policyId,
+    tolerancePolicyRevision: position.tolerances.policyRevision,
+    tolerancePolicyFingerprint: position.tolerances.policyFingerprint,
     positionStatus: position.status,
     approvalSource: 'SOURCE_PHYSICAL_BOUNDARY_EVIDENCE',
     previousConstructionFingerprint,
@@ -172,7 +190,12 @@ function acceptSourceBoundary(session, evidenceModel, indexes, options, source, 
       policyId: record.policyId,
       policyRevision: record.policyRevision,
       policyFingerprint: record.policyFingerprint,
+      toleranceEvidenceType: record.toleranceEvidenceType,
+      tolerancePolicyId: record.tolerancePolicyId,
+      tolerancePolicyRevision: record.tolerancePolicyRevision,
+      tolerancePolicyFingerprint: record.tolerancePolicyFingerprint,
       positionGapMm: record.positionGapMm,
+      exactBoundaryToleranceMm: record.exactBoundaryToleranceMm,
       approvedBy: record.approvalSource,
     })],
   });
