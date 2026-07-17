@@ -12,6 +12,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-review-*.test.js'
+      - 'tests/sequential-workspace-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -45,6 +46,7 @@ on:
       - agent/sequential-supervised-decision-transactions
       - agent/sequential-blocked-review-queue
       - agent/sequential-supervised-redo
+      - agent/sequential-workspace-persistence
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -55,6 +57,7 @@ on:
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-review-*.test.js'
+      - 'tests/sequential-workspace-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -117,6 +120,10 @@ jobs:
         run: node tests/sequential-supervised-redo.test.js
       - name: Supervised redo UI
         run: node tests/sequential-supervised-redo-ui.test.js
+      - name: Portable workspace package integrity
+        run: node tests/sequential-workspace-persistence.test.js
+      - name: Portable workspace package UI
+        run: node tests/sequential-workspace-persistence-ui.test.js
       - name: Blocked branch review queue
         run: node tests/sequential-review-queue.test.js
       - name: Decision register exports

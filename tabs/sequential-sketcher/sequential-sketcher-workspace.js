@@ -53,6 +53,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     session: null,
     confirmedConstruction: null,
     supportProjection: null,
+    restoredDecisionRegister: null,
     mode: 'ISO',
     selectedCandidateId: '',
     branchRegistry: createSequentialBranchWorkspaceRegistry(),
@@ -96,6 +97,13 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     const branchId = model.session?.rootBranchId;
     if (branchId) model.branchRegistry.save(branchId, branchSnapshot());
   }
+  function populateBranchOptions(ids) {
+    elements.branch.innerHTML = `<option value="">Select authoritative start branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
+    [...elements.branch.options].slice(1).forEach((option, index) => {
+      option.value = ids[index];
+      option.textContent = ids[index];
+    });
+  }
   function syncBranchOptions() {
     const ids = model.branchRegistry.ids();
     [...elements.branch.options].slice(1).forEach((option, index) => {
@@ -127,10 +135,12 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.evidence = buildSequentialEvidenceModel(model.records);
     model.indexes = indexSequentialEvidence(model.evidence);
     const ids = model.evidence.branches.map((branch) => branch.branchId).sort((a, b) => a.localeCompare(b));
-    elements.branch.innerHTML = `<option value="">Select authoritative start branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
-    [...elements.branch.options].slice(1).forEach((option, index) => { option.value = ids[index]; option.textContent = ids[index]; });
+    populateBranchOptions(ids);
     model.branchRegistry.reset(ids);
-    model.session = null; model.selectedCandidateId = ''; clearDownstream();
+    model.session = null;
+    model.selectedCandidateId = '';
+    model.restoredDecisionRegister = null;
+    clearDownstream();
     reviewController?.reset();
     repaint();
     setStatus(`${ids.length} branches indexed as immutable evidence. Select a branch or explicitly build the blocked review queue.`, 'ok');
@@ -211,6 +221,10 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.confirmedConstruction = opened.snapshot.confirmedConstruction;
     model.supportProjection = opened.snapshot.supportProjection;
     model.selectedCandidateId = opened.snapshot.selectedCandidateId;
+    if (model.session?.state === 'ROUTE_COMPLETE' && !model.confirmedConstruction) {
+      refreshDownstream();
+      saveActiveBranch();
+    }
     elements.branch.value = branchId;
     reviewController?.selectBranch(branchId);
     repaint();
@@ -270,6 +284,30 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       engineOptions(),
     ));
   }
+  function restorePackage(restoration) {
+    if (restoration?.schema !== 'SequentialWorkspaceRestoration.v1') {
+      throw new Error('Sequential workspace restoration schema is invalid.');
+    }
+    model.records = restoration.records;
+    model.evidence = restoration.evidence;
+    model.indexes = restoration.indexes;
+    model.session = null;
+    model.selectedCandidateId = '';
+    model.restoredDecisionRegister = restoration.decisionRegister || null;
+    clearDownstream();
+    elements.source.value = JSON.stringify(restoration.records, null, 2);
+    populateBranchOptions(restoration.branchIds);
+    model.branchRegistry.replace(restoration.branchIds, restoration.workspaces);
+    reviewController?.reset();
+    if (restoration.activeBranchId) openBranch(restoration.activeBranchId);
+    else repaint();
+    const register = restoration.decisionRegister?.summary;
+    setStatus(
+      `Verified workspace package restored: ${restoration.workspaces.length} saved branches${register ? `; ${register.unresolvedCount || 0} unresolved and ${register.manualResolutionCount || 0} manual register rows retained` : ''}.`,
+      'ok',
+    );
+    return restoration;
+  }
 
   async function onChange(event) {
     if (event.target === elements.branch) {
@@ -279,7 +317,12 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     }
     if (event.target?.dataset?.sskFile !== 'source') return;
     elements.source.value = await readFile(event.target.files?.[0]);
-    model.records = null; model.evidence = null; model.indexes = null; model.session = null; clearDownstream();
+    model.records = null;
+    model.evidence = null;
+    model.indexes = null;
+    model.session = null;
+    model.restoredDecisionRegister = null;
+    clearDownstream();
     inspect();
   }
 
@@ -346,11 +389,15 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     setStatus,
     showToast: context.showToast,
   });
-  root.addEventListener('click', onClick); root.addEventListener('change', onChange); root.addEventListener('keydown', onKeyDown);
+  root.addEventListener('click', onClick);
+  root.addEventListener('change', onChange);
+  root.addEventListener('keydown', onKeyDown);
   syncBranchNavigator();
   return Object.freeze({
     getModel: () => model,
     getReviewQueue: () => reviewController?.getQueue() || null,
+    saveActiveBranch,
+    restorePackage,
     destroy: () => {
       reviewController?.destroy();
       root.removeEventListener('click', onClick);
