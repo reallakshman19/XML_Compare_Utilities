@@ -8,6 +8,9 @@ function frozenSnapshot(snapshot = {}) {
     selectedCandidateId: text(snapshot.selectedCandidateId),
   });
 }
+function normalizedIds(ids = []) {
+  return Object.freeze([...new Set(ids.map(text).filter(Boolean))]);
+}
 
 export function createSequentialBranchWorkspaceRegistry() {
   let branchIds = Object.freeze([]);
@@ -16,13 +19,27 @@ export function createSequentialBranchWorkspaceRegistry() {
   function assertKnown(branchId) {
     if (!branchIds.includes(branchId)) throw new Error(`Unknown Sequential Sketcher branch: ${branchId}`);
   }
+  function replace(ids = [], entries = []) {
+    const nextIds = normalizedIds(ids);
+    const nextSnapshots = new Map();
+    for (const entry of entries || []) {
+      const branchId = text(entry?.branchId);
+      if (!branchId || !nextIds.includes(branchId) || nextSnapshots.has(branchId)) {
+        throw new Error(`Invalid Sequential Sketcher workspace entry: ${branchId || '(missing)'}`);
+      }
+      nextSnapshots.set(branchId, frozenSnapshot(entry.snapshot));
+    }
+    branchIds = nextIds;
+    snapshots.clear();
+    for (const [branchId, snapshot] of nextSnapshots) snapshots.set(branchId, snapshot);
+    return Object.freeze({ branchIds, savedCount: snapshots.size });
+  }
 
   return Object.freeze({
     reset(ids = []) {
-      branchIds = Object.freeze([...new Set(ids.map(text).filter(Boolean))]);
-      snapshots.clear();
-      return branchIds;
+      return replace(ids, []).branchIds;
     },
+    replace,
     save(branchIdValue, snapshot) {
       const branchId = text(branchIdValue);
       if (!branchId) return null;
