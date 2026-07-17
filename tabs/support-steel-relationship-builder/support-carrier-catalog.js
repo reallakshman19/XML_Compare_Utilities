@@ -1,3 +1,4 @@
+import { buildSupportCarrierAnalyticalGeometry } from './support-carrier-analytical-geometry.js';
 import { resolveSupportLineContext } from './support-steel-line-context.js';
 import { transformPoint } from './support-steel-world-matrix.js';
 import {
@@ -59,7 +60,7 @@ function collectProjectionCarrierCatalog(bundle) {
     const carrierObjectId = normalizeCarrierId(
       carrier.carrierId || carrier.id || `CARRIER-${index + 1}`,
     );
-    return {
+    return withCarrierGeometry({
       schema: SUPPORT_CARRIER_CATALOG_SCHEMA,
       carrierObjectId,
       carrierObjectClass: 'PROJECTION_CARRIER',
@@ -67,6 +68,7 @@ function collectProjectionCarrierCatalog(bundle) {
       sourcePath: ['carriers', index],
       positionGlobal: carrier.positionGlobal || carrier.position || null,
       worldMatrix: carrier.worldMatrix || null,
+      transformBasis: carrier.transformBasis || 'IDENTITY',
       lineContext: {
         ...lineContext,
         carrierId: carrierObjectId,
@@ -75,10 +77,10 @@ function collectProjectionCarrierCatalog(bundle) {
           'PROJECTION_CARRIER_OBJECT',
         ]),
       },
-      attributes: cloneJson(carrier.attributes || {}),
+      attributes: cloneJson(carrier.attributes || carrier.geometry || {}),
       physicalCarrierObjectAvailable: true,
       contactEvidenceStatus: 'NOT_PROVEN',
-    };
+    });
   });
   return {
     schema: SUPPORT_CARRIER_CATALOG_SCHEMA,
@@ -96,7 +98,7 @@ function collectProjectionCarrierCatalog(bundle) {
 
 function carrierRecord(row, attrs, identity, type) {
   const carrierObjectId = carrierReference(attrs) || normalizeCarrierId(identity);
-  return {
+  return withCarrierGeometry({
     schema: SUPPORT_CARRIER_CATALOG_SCHEMA,
     carrierObjectId,
     carrierObjectClass: 'PHYSICAL_PIPE_CARRIER',
@@ -104,10 +106,22 @@ function carrierRecord(row, attrs, identity, type) {
     sourcePath: row.path,
     positionGlobal: sourcePositionGlobal(row, attrs),
     worldMatrix: [...(row.worldMatrix || [])],
+    transformBasis: row.transformBasis || 'IDENTITY',
     lineContext: { ...resolveSupportLineContext(row, attrs), carrierId: carrierObjectId },
     attributes: cloneJson(attrs),
     physicalCarrierObjectAvailable: true,
     contactEvidenceStatus: 'NOT_PROVEN',
+  });
+}
+
+function withCarrierGeometry(carrier) {
+  const analyticalGeometry = buildSupportCarrierAnalyticalGeometry(carrier);
+  return {
+    ...carrier,
+    analyticalGeometry,
+    analyticalCarrierGeometryAvailable: Boolean(
+      analyticalGeometry.physicalCarrierGeometryAvailable,
+    ),
   };
 }
 

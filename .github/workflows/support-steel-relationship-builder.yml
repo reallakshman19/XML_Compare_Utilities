@@ -10,6 +10,7 @@ on:
       - 'tests/support-steel-world-geometry.test.js'
       - 'tests/support-member-chain*.test.js'
       - 'tests/support-carrier-resolution.test.js'
+      - 'tests/support-carrier-attachment-geometry.test.js'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
       - 'index.html'
@@ -32,5 +33,7 @@ jobs:
         run: node --test tests/support-member-chain.test.js tests/support-member-chain-policy.test.js
       - name: Authoritative carrier resolution tests
         run: node --test tests/support-carrier-resolution.test.js
+      - name: Analytical carrier attachment tests
+        run: node --test tests/support-carrier-attachment-geometry.test.js
       - name: Utility UI contract tests
         run: node tests/support-steel-relationship-builder-ui.test.js

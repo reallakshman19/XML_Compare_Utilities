@@ -26,6 +26,37 @@ export function supportCarrierResolutionToCsv(bundle) {
   })));
 }
 
+export function supportCarrierAttachmentToCsv(bundle) {
+  const headers = [
+    'evaluationId', 'identityEvidenceId', 'supportFamilyId', 'supportMemberId',
+    'supportMemberRole', 'carrierObjectId', 'attachmentStatus',
+    'relationshipBasis', 'confidence', 'contactEvidenceStatus', 'distanceMm',
+    'geometryMethod', 'geometryQuality', 'carrierContactToleranceMm',
+    'carrierCandidateToleranceMm', 'contactPointGlobal',
+    'nearestPointOnSupportGlobal', 'nearestPointOnCarrierGlobal',
+  ];
+  return rowsToCsv(headers, (bundle?.supportCarrierAttachment?.evaluations || []).map((row) => ({
+    evaluationId: row.evaluationId,
+    identityEvidenceId: row.identityEvidenceId,
+    supportFamilyId: row.supportFamilyId,
+    supportMemberId: row.supportMemberId,
+    supportMemberRole: row.supportMemberRole,
+    carrierObjectId: row.carrierObjectId,
+    attachmentStatus: row.attachmentStatus,
+    relationshipBasis: row.relationshipBasis,
+    confidence: row.confidence,
+    contactEvidenceStatus: row.contactEvidenceStatus,
+    distanceMm: row.distanceMm,
+    geometryMethod: row.geometryMethod,
+    geometryQuality: row.geometryQuality,
+    carrierContactToleranceMm: row.carrierContactToleranceMm,
+    carrierCandidateToleranceMm: row.carrierCandidateToleranceMm,
+    contactPointGlobal: row.contactPointGlobal,
+    nearestPointOnSupportGlobal: row.nearestPointOnSupportGlobal,
+    nearestPointOnCarrierGlobal: row.nearestPointOnCarrierGlobal,
+  })));
+}
+
 function rowsToCsv(headers, rows) {
   return `${[
     headers.join(','),

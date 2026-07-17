@@ -1,4 +1,6 @@
 import {
+  exportCarrierAttachmentCsv,
+  exportCarrierAttachmentEdgesCsv,
   exportCarrierCatalogCsv,
   exportCarrierResolutionCsv,
   exportSupportCarrierEdgesCsv,
@@ -22,8 +24,10 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
   const headers = [
     'Status', 'SupportFamilyCount', 'SteelGroupCount', 'ResolvedFamilyCount',
     'AmbiguousFamilyCount', 'UnresolvedFamilyCount', 'CarrierObjectCount',
-    'ResolvedPhysicalCarrierCount', 'BranchContextOnlyCount',
-    'AmbiguousCarrierCount', 'UnresolvedCarrierCount', 'SupportChainEdgeCount',
+    'ResolvedPhysicalCarrierCount', 'AnalyticalCarrierGeometryCount',
+    'BranchContextOnlyCount', 'AmbiguousCarrierCount', 'UnresolvedCarrierCount',
+    'CarrierAttachmentCandidateCount', 'NearbyCarrierAttachmentCandidateCount',
+    'UnresolvedCarrierAttachmentCount', 'SupportChainEdgeCount',
     'StructuralTerminalCount', 'AuditSupportGroupCount', 'AuditExceptionCount',
     'XmlRequired', 'XmlConsumed',
   ];
@@ -36,9 +40,13 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     UnresolvedFamilyCount: summary.unresolvedFamilyCount,
     CarrierObjectCount: summary.carrierObjectCount,
     ResolvedPhysicalCarrierCount: summary.resolvedPhysicalCarrierCount,
+    AnalyticalCarrierGeometryCount: summary.analyticalCarrierGeometryCount,
     BranchContextOnlyCount: summary.branchContextOnlyCount,
     AmbiguousCarrierCount: summary.ambiguousCarrierCount,
     UnresolvedCarrierCount: summary.unresolvedCarrierCount,
+    CarrierAttachmentCandidateCount: summary.carrierAttachmentCandidateCount,
+    NearbyCarrierAttachmentCandidateCount: summary.nearbyCarrierAttachmentCandidateCount,
+    UnresolvedCarrierAttachmentCount: summary.unresolvedCarrierAttachmentCount,
     SupportChainEdgeCount: summary.supportChainEdgeCount,
     StructuralTerminalCount: summary.structuralTerminalCount,
     AuditSupportGroupCount: summary.auditSupportGroupCount,
@@ -62,6 +70,8 @@ export function createPsFamilyNativePipelineExports(pipeline) {
     carrierCatalogCsv: exportCarrierCatalogCsv(pipeline?.audit),
     carrierResolutionCsv: exportCarrierResolutionCsv(pipeline?.audit),
     supportCarrierEdgesCsv: exportSupportCarrierEdgesCsv(pipeline?.audit),
+    carrierAttachmentCsv: exportCarrierAttachmentCsv(pipeline?.audit),
+    carrierAttachmentEdgesCsv: exportCarrierAttachmentEdgesCsv(pipeline?.audit),
   };
 }
 

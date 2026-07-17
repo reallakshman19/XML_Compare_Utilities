@@ -2,6 +2,7 @@ export function exportCarrierCatalogCsv(audit) {
   const headers = [
     'CarrierObjectId', 'CarrierObjectClass', 'SourceRecordType',
     'BranchNode', 'FullLineTag', 'LineFamily', 'PositionGlobal',
+    'AnalyticalCarrierGeometryAvailable', 'GeometryMethods', 'OutsideRadiusMm',
     'PhysicalCarrierObjectAvailable', 'ContactEvidenceStatus', 'SourcePath',
   ];
   return rowsToCsv(headers, (audit?.carrierObjectRows || []).map((row) => ({
@@ -12,6 +13,9 @@ export function exportCarrierCatalogCsv(audit) {
     FullLineTag: row.lineContext?.fullLineTag,
     LineFamily: row.lineContext?.lineFamily,
     PositionGlobal: row.positionGlobal,
+    AnalyticalCarrierGeometryAvailable: row.analyticalCarrierGeometryAvailable,
+    GeometryMethods: row.analyticalGeometry?.geometryMethods,
+    OutsideRadiusMm: row.analyticalGeometry?.outsideRadiusMm,
     PhysicalCarrierObjectAvailable: row.physicalCarrierObjectAvailable,
     ContactEvidenceStatus: row.contactEvidenceStatus,
     SourcePath: row.sourcePath,
@@ -70,6 +74,70 @@ export function exportSupportCarrierEdgesCsv(audit) {
     EvidenceId: row.evidenceId,
     EvidenceClass: row.evidenceClass,
     ContactEvidenceStatus: row.contactEvidenceStatus,
+  })));
+}
+
+export function exportCarrierAttachmentCsv(audit) {
+  const headers = [
+    'EvaluationId', 'IdentityEvidenceId', 'SupportFamilyId', 'SupportMemberId',
+    'SupportMemberRole', 'CarrierObjectId', 'AttachmentStatus',
+    'RelationshipBasis', 'Confidence', 'ContactEvidenceStatus',
+    'DistanceMm', 'GeometryMethod', 'GeometryQuality',
+    'CarrierContactToleranceMm', 'CarrierCandidateToleranceMm',
+    'ContactPointGlobal', 'NearestPointOnSupportGlobal', 'NearestPointOnCarrierGlobal',
+  ];
+  return rowsToCsv(headers, (audit?.carrierAttachmentEvaluationRows || []).map((row) => ({
+    EvaluationId: row.evaluationId,
+    IdentityEvidenceId: row.identityEvidenceId,
+    SupportFamilyId: row.supportFamilyId,
+    SupportMemberId: row.supportMemberId,
+    SupportMemberRole: row.supportMemberRole,
+    CarrierObjectId: row.carrierObjectId,
+    AttachmentStatus: row.attachmentStatus,
+    RelationshipBasis: row.relationshipBasis,
+    Confidence: row.confidence,
+    ContactEvidenceStatus: row.contactEvidenceStatus,
+    DistanceMm: row.distanceMm,
+    GeometryMethod: row.geometryMethod,
+    GeometryQuality: row.geometryQuality,
+    CarrierContactToleranceMm: row.carrierContactToleranceMm,
+    CarrierCandidateToleranceMm: row.carrierCandidateToleranceMm,
+    ContactPointGlobal: row.contactPointGlobal,
+    NearestPointOnSupportGlobal: row.nearestPointOnSupportGlobal,
+    NearestPointOnCarrierGlobal: row.nearestPointOnCarrierGlobal,
+  })));
+}
+
+export function exportCarrierAttachmentEdgesCsv(audit) {
+  const headers = [
+    'EdgeId', 'EdgeType', 'SupportFamilyId', 'SupportMemberId',
+    'SupportMemberRole', 'CarrierObjectId', 'RelationshipStatus',
+    'RelationshipBasis', 'Confidence', 'EvidenceId', 'IdentityEvidenceId',
+    'EvidenceClass', 'ContactEvidenceStatus', 'DistanceMm',
+    'GeometryMethod', 'GeometryQuality', 'ContactPointGlobal',
+  ];
+  const rows = [
+    ...(audit?.carrierAttachmentRows || []),
+    ...(audit?.nearbyCarrierAttachmentRows || []),
+  ];
+  return rowsToCsv(headers, rows.map((row) => ({
+    EdgeId: row.edgeId,
+    EdgeType: row.edgeType,
+    SupportFamilyId: row.supportFamilyId,
+    SupportMemberId: row.supportMemberId,
+    SupportMemberRole: row.supportMemberRole,
+    CarrierObjectId: row.carrierObjectId,
+    RelationshipStatus: row.relationshipStatus,
+    RelationshipBasis: row.relationshipBasis,
+    Confidence: row.confidence,
+    EvidenceId: row.evidenceId,
+    IdentityEvidenceId: row.identityEvidenceId,
+    EvidenceClass: row.evidenceClass,
+    ContactEvidenceStatus: row.contactEvidenceStatus,
+    DistanceMm: row.distanceMm,
+    GeometryMethod: row.geometryMethod,
+    GeometryQuality: row.geometryQuality,
+    ContactPointGlobal: row.contactPointGlobal,
   })));
 }
 

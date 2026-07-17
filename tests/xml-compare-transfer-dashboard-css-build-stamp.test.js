@@ -42,13 +42,13 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260716-ps-family-carrier-resolution-1'), 'index must cache-bust app entry for carrier resolution');
-assert.ok(mainEntry.includes("./core/app.js?v=20260716-ps-family-carrier-resolution-1"), 'main entry must cache-bust core app delegate for carrier resolution');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260716-ps-family-carrier-runtime-1"), 'core app must refresh the standalone runtime for carrier resolution');
-assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260716-ssrb-carrier-resolution-1'), 'core app must load the carrier-aware relationship builder bootstrap');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260716-ps-family-carrier-resolution-1'), 'core app must load the carrier-aware evidence audit bootstrap');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-carrier-attachment-1'), 'index must cache-bust app entry for carrier attachment');
+assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-carrier-attachment-1"), 'main entry must cache-bust core app delegate for carrier attachment');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-carrier-attachment-runtime-1"), 'core app must refresh the standalone runtime for carrier attachment');
+assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-carrier-attachment-1'), 'core app must load the carrier-attachment-aware relationship builder bootstrap');
+assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-carrier-attachment-1'), 'core app must load the carrier-attachment-aware evidence audit bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
-assert.ok(runtime.includes('className = \'app-build-stamp\''), 'runtime must render build stamp element');
+assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');
 
 console.log('XML Compare Transfer Tab 2 tile layout foundation and cache-bust tests passed');

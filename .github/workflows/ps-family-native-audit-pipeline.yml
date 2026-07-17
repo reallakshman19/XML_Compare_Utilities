@@ -10,6 +10,7 @@ on:
       - 'tabs/support-steel-relationship-builder/**'
       - 'tests/ps-family-native-audit-pipeline*.test.js'
       - 'tests/ps-family-native-carrier-resolution.test.js'
+      - 'tests/support-carrier-attachment-geometry.test.js'
       - '.github/workflows/ps-family-native-audit-pipeline.yml'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
@@ -28,6 +29,8 @@ jobs:
         run: node --test tests/ps-family-native-audit-pipeline.test.js
       - name: Native carrier evidence pipeline
         run: node --test tests/ps-family-native-carrier-resolution.test.js
+      - name: Analytical carrier attachment engine
+        run: node --test tests/support-carrier-attachment-geometry.test.js
       - name: Native pipeline UI and export contracts
         run: node tests/ps-family-native-audit-pipeline-ui.test.js
       - name: PS family module compliance
