@@ -1,5 +1,4 @@
-import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260717-ssk-supervised-redo-1';
-import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-supervised-redo-1';
+import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260716-ssk-001';
 
 const STYLE_ID = 'sequential-sketcher-style';
 
@@ -8,7 +7,7 @@ function ensureStylesheet(documentRef) {
   const link = documentRef.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-supervised-redo-1';
+  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260716-ssk-001';
   documentRef.head.appendChild(link);
 }
 
@@ -20,7 +19,6 @@ export function installSequentialSketcherTile(container, context = {}) {
   tile.innerHTML = '<button type="button" data-ssk-open="1"><span class="ssk-launcher-icon">✎</span><span><strong>Sequential Sketcher</strong><small>Compile pipe + fittings into an auditable pen sequence</small></span></button>';
   container.appendChild(tile);
   let active = null;
-  let redoController = null;
   const open = () => {
     if (active) return;
     const overlay = container.ownerDocument.createElement('div');
@@ -29,23 +27,13 @@ export function installSequentialSketcherTile(container, context = {}) {
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Sequential Sketcher');
     container.ownerDocument.body.appendChild(overlay);
-    const close = () => {
-      redoController?.destroy();
-      redoController = null;
-      active?.destroy();
-      active = null;
-      overlay.remove();
-    };
+    const close = () => { active?.destroy(); active = null; overlay.remove(); };
     active = mountSequentialSketcherWorkspace(overlay, { ...context, close });
-    redoController = mountSequentialRedoController(overlay, active, context);
   };
   tile.querySelector('[data-ssk-open]').addEventListener('click', open);
   return () => {
     tile.querySelector('[data-ssk-open]')?.removeEventListener('click', open);
-    redoController?.destroy();
-    redoController = null;
     active?.destroy();
-    active = null;
     tile.remove();
   };
 }

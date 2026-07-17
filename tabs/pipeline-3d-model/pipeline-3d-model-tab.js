@@ -1,5 +1,7 @@
-import { buildCombinedCoordinateTable, parseTable1, parseTable3, table1ToTabText, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js?v=20260711-collinear-1';
-import { buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js?v=20260711-collinear-1';
+import { parseTable1, parseTable3, groupPointsIntoSheets } from './pipeline-3d-model-geometry.js?v=20260711-collinear-1';
+import {
+  buildPipelineProjectMigration, buildPipelineProjectOutputs,
+} from './pipeline-3d-model-project-adapter.js?v=20260717-platform-1';
 import { CONFIG_FIELDS, fieldLabel, loadConfigValues, saveConfigValues } from './pipeline-3d-model-config.js?v=20260711-collinear-1';
 import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3, SAMPLE_TABLE_1_MULTISHEET } from './pipeline-3d-model-samples.js?v=20260711-collinear-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js?v=20260712-marker-triangles-1';
@@ -831,7 +833,7 @@ function wireTableXOcrImport(dialog, get) {
   });
 }
 
-function runConversion(host, get, state) {
+async function runConversion(host, get, state) {
   try {
     syncEditableTablesToText(get);
     const table1Text = get('table1').value;
@@ -850,15 +852,19 @@ function runConversion(host, get, state) {
       return;
     }
 
-    const table1Points = parseTable1(table1Text);
-    const table1OutputText = table1ToTabText(table1Points);
-    const sheets = groupPointsIntoSheets(table1Points);
+    const nativeOutput = buildPipelineProjectOutputs({ table1Text, table2Text, table3Text, branchInfo });
+    const {
+      table1Points, table1OutputText, sheets, combined,
+      coordinateText, xmlText,
+    } = nativeOutput;
     const legendHtml = buildKeyPlanLegendHtml(table1Points, sheets);
-    const combined = buildCombinedCoordinateTable({ table1Text, table2Text, table3Text });
-    const coordinateRows = buildCoordinateRows(combined, branchInfo.branchName);
-    const coordinateText = coordinateRowsToTabText(coordinateRows);
-    const xmlText = buildInputXmlPipingModelXml(branchInfo, coordinateRows);
     const markerPoints = buildCanvasMarkerPoints(combined, table3Text);
+
+    state.platformMigration = await buildPipelineProjectMigration({
+      table1Text, table2Text, table3Text, branchInfo,
+      sourceName: 'pipeline-3d-model-session.json',
+      createdAt: new Date().toISOString(), cryptoRef: globalThis.crypto,
+    });
 
     state.table1OutputText = table1OutputText;
     state.coordinateText = coordinateText;

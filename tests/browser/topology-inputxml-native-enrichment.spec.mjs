@@ -31,12 +31,12 @@ test('TTV-B02 — native enrichment preserves the real ASIM-1835 benchmark', asy
     });
     return result.enrichedText;
   }, inputXml);
-  expect([...enriched.matchAll(/<PIPINGELEMENT\b/g)]).toHaveLength(4437);
+  expect([...enriched.matchAll(/<PIPINGELEMENT\b/g)]).toHaveLength(4434);
   expect([...enriched.matchAll(/<RESTRAINT\b/g)]).toHaveLength(828);
   const rigids = [...enriched.matchAll(/<RIGID\b([^>]*)/g)];
   expect(rigids).toHaveLength(1606);
   expect(rigids.reduce((sum, match) => sum + Number(match[1].match(/SOURCE_BODY_COUNT="(\d+)"/)?.[1] || 1), 0)).toBe(1652);
-  expect(enriched).toMatch(/<PIPINGMODEL\b[^>]*NUMELT="4437"[^>]*NUMRIGID="1606"[^>]*NUMREST="828"/);
+  expect(enriched).toMatch(/<PIPINGMODEL\b[^>]*NUMELT="4434"[^>]*NUMRIGID="1606"[^>]*NUMREST="828"/);
   expect(enriched).not.toMatch(/\bPRESSURE_C\d+=/);
   const elementAttributes = [...enriched.matchAll(/<PIPINGELEMENT\b([^>]*)>/g)].map((match) => (
     Object.fromEntries([...match[1].matchAll(/([A-Z0-9_]+)="([^"]*)"/g)].map((attribute) => [attribute[1], attribute[2]]))

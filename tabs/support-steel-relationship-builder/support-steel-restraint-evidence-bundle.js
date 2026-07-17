@@ -1,4 +1,4 @@
-import { buildSupportRestraintFunctionBundle } from './support-restraint-function-engine.js?v=20260717-startup-cache-recovery-1';
+import { buildSupportRestraintFunctionBundle } from './support-restraint-function-engine.js';
 import { buildSupportSteelRelationshipBundle as buildBaseBundle } from './support-steel-evidence-bundle.js';
 
 export function buildSupportSteelRelationshipBundle(input = {}) {

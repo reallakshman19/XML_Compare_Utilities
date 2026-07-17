@@ -1,10 +1,3 @@
-import {
-  buildMonotonicCoordinateMap,
-  formatDepth,
-  formatStation,
-  parseDepthText,
-} from './pipeline-3d-model-cad-math.js';
-
 export class SnapshotCommand {
   constructor(model, description, applyMutation) {
     if (!model || typeof model.snapshot !== 'function' || typeof model.restore !== 'function') {
@@ -128,56 +121,3 @@ export function addTable3MarkerCommand(model, payload) {
 export function deleteProfileRowCommand(model, id) {
   return new SnapshotCommand(model, `Delete profile row ${id}`, (target) => target.deleteRow(id));
 }
-
-function rebuildTable2StationMap(model) {
-  const anchors = model.table2Rows
-    .filter((row) => Number.isFinite(row.stationValue) && Number.isFinite(row.basisH))
-    .map((row) => ({ cumulative: row.stationValue, absoluteH: row.basisH }));
-  model.table2StationMap = buildMonotonicCoordinateMap(anchors);
-}
-
-export function editTable2NodeCommand(model, id, after = {}) {
-  return new SnapshotCommand(model, `Precision edit Table 2 node ${id}`, (target) => {
-    const station = Number(after.station);
-    const elevation = Number(after.elevation);
-    if (!Number.isFinite(station) || !Number.isFinite(elevation)) throw new TypeError('Table 2 precision values must be finite.');
-    target.mutateRow(id, {
-      stationValue: station,
-      stationText: formatStation(station),
-      elevationValue: elevation,
-      elevationText: elevation.toFixed(2),
-    }, 'precision-edit-table2-node');
-    rebuildTable2StationMap(target);
-  });
-}
-
-export function editTable3DepthCommand(model, id, after = {}) {
-  return new SnapshotCommand(model, `Precision edit Table 3 depth ${id}`, (target) => {
-    const absoluteH = Number(after.absoluteH);
-    const z = Number(after.z);
-    if (!Number.isFinite(absoluteH) || !Number.isFinite(z)) throw new TypeError('Table 3 depth precision values must be finite.');
-    const zText = formatDepth(z);
-    const parsed = parseDepthText(zText);
-    target.mutateRow(id, {
-      absoluteH,
-      textPositionH: absoluteH,
-      z: parsed?.z ?? z,
-      zText,
-      zMode: parsed?.mode ?? 'DEPTH',
-      depth: parsed?.depth ?? Math.max(0, -z),
-    }, 'precision-edit-table3-depth');
-    target.table3DepthRows.sort((a, b) => (a.absoluteH ?? Infinity) - (b.absoluteH ?? Infinity));
-  });
-}
-
-export function editTable3MarkerCommand(model, id, after = {}) {
-  return new SnapshotCommand(model, `Precision edit Table 3 marker ${id}`, (target) => {
-    const absoluteH = Number(after.absoluteH);
-    const markerText = String(after.label ?? '').trim();
-    if (!Number.isFinite(absoluteH) || !markerText) throw new TypeError('Marker position and label are required.');
-    target.mutateRow(id, { absoluteH, markerText }, 'precision-edit-table3-marker');
-    target.table3MarkerRows.sort((a, b) => (a.absoluteH ?? Infinity) - (b.absoluteH ?? Infinity));
-  });
-}
-
-export const _precisionTest = Object.freeze({ rebuildTable2StationMap });

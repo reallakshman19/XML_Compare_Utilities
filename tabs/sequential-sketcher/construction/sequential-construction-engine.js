@@ -12,7 +12,6 @@ import {
 import {
   compileComponentStrokes, compileRepairStroke, resolveComponentTraversal,
 } from '../stroke/sequential-component-stroke-compiler.js';
-import { resolveSequentialConstructionTolerances } from '../policy/sequential-construction-tolerance-policy.js';
 
 function pointDistance(a, b) {
   if (!a || !b) return Number.POSITIVE_INFINITY;
@@ -40,32 +39,17 @@ function blockForDecision(session, reason, candidates, extra = {}) {
   return freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request });
 }
 
-function chooseStart(branch, options = {}) {
+function chooseStart(branch) {
   const component = branch?.components?.[0];
   if (!component) return { status: 'FAILED', reason: 'BRANCH_HAS_NO_ROUTE_COMPONENTS' };
   const candidates = component.ports.filter((port) => port.sourcePosition);
   if (!candidates.length) return { status: 'FAILED', reason: 'FIRST_COMPONENT_HAS_NO_POSITIONED_PORT' };
   if (!branch.headPosition) return { status: 'RESOLVED', component, entry: candidates[0], basis: 'SOURCE_FIRST_PORT' };
-  const tolerances = resolveSequentialConstructionTolerances(options);
   const ranked = candidates.map((port) => ({ port, gapMm: pointDistance(branch.headPosition, port.sourcePosition) })).sort((a, b) => a.gapMm - b.gapMm || a.port.portId.localeCompare(b.port.portId));
-  if (ranked.length > 1 && Math.abs(ranked[0].gapMm - ranked[1].gapMm) <= tolerances.transformNoiseMm) {
-    return {
-      status: 'AMBIGUOUS',
-      reason: 'AMBIGUOUS_BRANCH_START',
-      candidates: ranked.map((row) => row.port),
-      transformNoiseMm: tolerances.transformNoiseMm,
-      tolerancePolicyFingerprint: tolerances.policyFingerprint,
-    };
+  if (ranked.length > 1 && Math.abs(ranked[0].gapMm - ranked[1].gapMm) <= 1e-6) {
+    return { status: 'AMBIGUOUS', reason: 'AMBIGUOUS_BRANCH_START', candidates: ranked.map((row) => row.port) };
   }
-  return {
-    status: 'RESOLVED',
-    component,
-    entry: ranked[0].port,
-    basis: 'NEAREST_TO_HPOS',
-    gapMm: ranked[0].gapMm,
-    transformNoiseMm: tolerances.transformNoiseMm,
-    tolerancePolicyFingerprint: tolerances.policyFingerprint,
-  };
+  return { status: 'RESOLVED', component, entry: ranked[0].port, basis: 'NEAREST_TO_HPOS', gapMm: ranked[0].gapMm };
 }
 
 function pendingJunction(component, traversal, session) {
@@ -153,7 +137,6 @@ function resolveTransition(reference, indexes, extra = {}) {
 
 function addRepair(session, connection, status, options) {
   if (status !== CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP && !options.forceVirtualRepair) return session;
-  const tolerances = resolveSequentialConstructionTolerances(options);
   const repair = Object.freeze({
     repairId: nextRepairId(session),
     connectionId: connection.connectionId,
@@ -163,29 +146,20 @@ function addRepair(session, connection, status, options) {
     sourceFromPosition: connection.fromPosition,
     sourceToPosition: connection.toPosition,
     gapMm: connection.gapMm,
-    thresholdMm: tolerances.automaticRepairMm,
+    thresholdMm: Number(options.autoRepairToleranceMm ?? 25),
     repairPolicy: 'VIRTUAL_CONNECTOR',
-    toleranceEvidenceType: 'FITTING_PORT_EQUIVALENCE',
-    tolerancePolicyId: tolerances.policyId,
-    tolerancePolicyRevision: tolerances.policyRevision,
-    tolerancePolicyFingerprint: tolerances.policyFingerprint,
     approvedBy: status === CONNECTION_STATUSES.USER_CONFIRMED ? 'USER' : 'SYSTEM',
   });
   return freezeConstructionSession({
     ...session,
     repairLedger: [...session.repairLedger, repair],
-    strokeLedger: [...session.strokeLedger, compileRepairStroke({
-      ...connection,
-      repairPolicy: repair.repairPolicy,
-      tolerancePolicyFingerprint: repair.tolerancePolicyFingerprint,
-    })],
+    strokeLedger: [...session.strokeLedger, compileRepairStroke({ ...connection, repairPolicy: repair.repairPolicy })],
   });
 }
 
 function commitConnection(session, candidate, indexes, status, options = {}) {
   const targetComponent = indexes.components.get(candidate.targetComponentId);
   if (!targetComponent) return freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.FAILED, diagnostics: [...session.diagnostics, { severity: 'ERROR', code: 'TARGET_COMPONENT_MISSING', componentId: candidate.targetComponentId }] });
-  const tolerances = resolveSequentialConstructionTolerances(options);
   const boundaryToJunction = options.transitionContext?.targetKind === REFERENCE_TARGET_KINDS.JUNCTION_COMPONENT;
   const connection = Object.freeze({
     connectionId: nextConnectionId(session),
@@ -200,25 +174,19 @@ function commitConnection(session, candidate, indexes, status, options = {}) {
     fromPosition: candidate.fromPosition,
     toPosition: candidate.toPosition,
     gapMm: candidate.gapMm,
-    fittingPortToleranceMm: tolerances.fittingPortMm,
-    toleranceEvidenceType: 'FITTING_PORT_EQUIVALENCE',
-    tolerancePolicyId: tolerances.policyId,
-    tolerancePolicyRevision: tolerances.policyRevision,
-    tolerancePolicyFingerprint: tolerances.policyFingerprint,
     status,
     basis: Object.freeze([
       candidate.sourceAdjacent ? 'SOURCE_ADJACENCY' : null,
       candidate.referenceMatch ? 'REFERENCE_MATCH' : null,
       candidate.directionCompatible ? 'DIRECTION_COMPATIBILITY' : null,
       candidate.boreCompatible ? 'BORE_COMPATIBILITY' : null,
-      'FITTING_PORT_EQUIVALENCE',
     ].filter(Boolean)),
     approvedBy: status === CONNECTION_STATUSES.USER_CONFIRMED ? 'USER' : 'SYSTEM',
   });
   const transitionStroke = boundaryToJunction
-    ? Object.freeze({ op: 'CONFIRM_JUNCTION_BOUNDARY', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, targetBranchId: connection.toBranchId, targetComponentId: connection.targetComponentId, targetPortRole: connection.targetPortRole, tolerancePolicyFingerprint: tolerances.policyFingerprint })
+    ? Object.freeze({ op: 'CONFIRM_JUNCTION_BOUNDARY', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, targetBranchId: connection.toBranchId, targetComponentId: connection.targetComponentId, targetPortRole: connection.targetPortRole })
     : options.transitionContext
-      ? Object.freeze({ op: 'ENTER_BRANCH', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, toBranchId: connection.toBranchId, tolerancePolicyFingerprint: tolerances.policyFingerprint })
+      ? Object.freeze({ op: 'ENTER_BRANCH', connectionId: connection.connectionId, fromBranchId: connection.fromBranchId, toBranchId: connection.toBranchId })
       : null;
   let next = freezeConstructionSession({
     ...session,
@@ -312,9 +280,9 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
   if (session.state === CONSTRUCTION_STATES.NOT_STARTED) {
     const branch = indexes.branches.get(session.rootBranchId);
     if (!branch) return Object.freeze({ session: freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.FAILED, diagnostics: [...session.diagnostics, { severity: 'ERROR', code: 'ROOT_BRANCH_NOT_FOUND', branchId: session.rootBranchId }] }), outcome: 'FAILED' });
-    const start = chooseStart(branch, options);
+    const start = chooseStart(branch);
     if (start.status === 'FAILED') return Object.freeze({ session: freezeConstructionSession({ ...session, state: CONSTRUCTION_STATES.FAILED, diagnostics: [...session.diagnostics, { severity: 'ERROR', code: start.reason, branchId: branch.branchId }] }), outcome: 'FAILED' });
-    if (start.status === 'AMBIGUOUS') return Object.freeze({ session: blockForDecision(session, start.reason, [], { branchId: branch.branchId, transformNoiseMm: start.transformNoiseMm, tolerancePolicyFingerprint: start.tolerancePolicyFingerprint }), outcome: 'DECISION_REQUIRED' });
+    if (start.status === 'AMBIGUOUS') return Object.freeze({ session: blockForDecision(session, start.reason, [], { branchId: branch.branchId }), outcome: 'DECISION_REQUIRED' });
     const placed = commitPlacedComponent(session, start.component, start.entry.portId, { basis: start.basis });
     return Object.freeze({ session: placed, outcome: placed.state === CONSTRUCTION_STATES.USER_DECISION_REQUIRED ? 'DECISION_REQUIRED' : 'COMPONENT_COMMITTED' });
   }
@@ -364,12 +332,7 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
   if (resolved.status === 'AUTO_REPAIRED_SMALL_GAP') {
     return finishResolvedConnection(working, resolved, indexes, CONNECTION_STATUSES.AUTO_REPAIRED_SMALL_GAP, options, 'AUTO_REPAIR_COMMITTED');
   }
-  const blocked = blockForDecision(working, resolved.reason || 'CONTINUITY_NOT_PROVEN', resolved.candidates || [], {
-    toleranceEvidenceType: resolved.toleranceEvidenceType || null,
-    exactToleranceMm: resolved.exactToleranceMm ?? null,
-    transformNoiseMm: resolved.transformNoiseMm ?? null,
-    tolerancePolicyFingerprint: resolved.tolerancePolicyFingerprint || null,
-  });
+  const blocked = blockForDecision(working, resolved.reason || 'CONTINUITY_NOT_PROVEN', resolved.candidates || []);
   return Object.freeze({ session: blocked, outcome: 'DECISION_REQUIRED' });
 }
 
@@ -404,10 +367,9 @@ export function applyConstructionDecision(session, evidenceModel, indexes, actio
     if (!candidate) return Object.freeze({ session: freezeConstructionSession({ ...base, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request }), outcome: 'CANDIDATE_NOT_FOUND' });
     const status = CONNECTION_STATUSES.USER_CONFIRMED;
     const resolved = Object.freeze({ selected: candidate });
-    const tolerances = resolveSequentialConstructionTolerances(options);
     return finishResolvedConnection(base, resolved, indexes, status, {
       ...options,
-      forceVirtualRepair: candidate.gapMm > tolerances.fittingPortMm,
+      forceVirtualRepair: candidate.gapMm > Number(options.exactToleranceMm ?? 1),
     }, 'USER_CONNECTION_COMMITTED');
   }
   return Object.freeze({ session: freezeConstructionSession({ ...base, state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED, currentDecisionRequest: request }), outcome: 'UNSUPPORTED_DECISION' });

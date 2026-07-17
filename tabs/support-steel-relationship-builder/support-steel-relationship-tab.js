@@ -4,13 +4,16 @@ import {
   supportCarrierAttachmentToCsv,
   supportCarrierResolutionToCsv,
 } from './support-carrier-resolution-export.js';
-import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
 import {
   supportMemberChainToCsv,
   supportSteelBundleToJson,
   supportSteelHierarchyToText,
   supportSteelRelationshipsToCsv,
 } from './support-steel-relationship-export.js';
+import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
+// The 3D-edit "scalable projects" migration reuses these exact exporters via
+// supportSteelProjectArtifacts in the project adapter (extended FORMATS).
+import { buildSupportSteelProjectMigration } from './support-steel-project-adapter.js';
 import { supportSteelSampleText } from './support-steel-relationship-samples.js';
 import {
   renderSupportSteelDialog,
@@ -62,7 +65,7 @@ export function openSupportSteelRelationshipBuilder(ctx = {}) {
 }
 
 function wireDialog(modal, ctx) {
-  const state = { bundle: null, selectedRelationshipId: '', exportView: 'json', search: '' };
+  const state = { bundle: null, platformMigration: null, selectedRelationshipId: '', exportView: 'json', search: '' };
   const get = (selector) => modal.querySelector(selector);
   const close = () => { modal.remove(); globalThis.document?.removeEventListener('keydown', onKey); };
   const onKey = (event) => {
@@ -87,7 +90,7 @@ function handleModalClick(event, modal, state, ctx) {
   const tab = event.target.closest('[data-ssrb-tab]')?.dataset.ssrbTab;
   if (tab) showPanel(modal, tab);
   if (event.target.closest('[data-ssrb-load-sample]')) loadSample(modal, ctx);
-  if (event.target.closest('[data-ssrb-build]')) runBuilder(modal, state, ctx);
+  if (event.target.closest('[data-ssrb-build]')) void runBuilder(modal, state, ctx);
   const selected = event.target.closest('[data-ssrb-select]')?.dataset.ssrbSelect;
   if (selected) selectRelationship(modal, state, selected);
   const exportView = event.target.closest('[data-ssrb-export-view]')?.dataset.ssrbExportView;
@@ -120,7 +123,7 @@ function loadSample(modal, ctx) {
   ctx.showToast?.('Combined staged model demo loaded.', 'success');
 }
 
-function runBuilder(modal, state, ctx) {
+async function runBuilder(modal, state, ctx) {
   try {
     const combinedInput = parseSupportSteelJson(
       modal.querySelector('[data-ssrb-input="model"]').value,
@@ -129,6 +132,11 @@ function runBuilder(modal, state, ctx) {
     state.bundle = buildSupportSteelRelationshipBundle({
       combinedInput,
       config: readRules(modal),
+    });
+    state.platformMigration = await buildSupportSteelProjectMigration({
+      bundle: state.bundle, supportSourceText: supportText, steelSourceText: steelText,
+      sourceName: 'support-steel-sources.json', createdAt: new Date().toISOString(),
+      cryptoRef: globalThis.crypto,
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);

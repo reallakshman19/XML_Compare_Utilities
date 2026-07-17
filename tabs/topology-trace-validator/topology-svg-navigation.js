@@ -18,6 +18,33 @@ function writeViewBox(svg, box) {
   svg.style.setProperty('--ttv-inverse-scale', box.width / 1200);
 }
 
+function animateViewBox(svg, state, endBox, duration = 600) {
+  const startBox = { ...state.current };
+  const startTime = performance.now();
+
+  if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+
+  function step(time) {
+    let progress = (time - startTime) / duration;
+    if (progress >= 1) {
+      state.current = { ...endBox };
+      writeViewBox(svg, state.current);
+      state.animationFrame = null;
+      return;
+    }
+    const t = progress * (2 - progress); // ease-out quad
+    state.current = {
+      x: startBox.x + (endBox.x - startBox.x) * t,
+      y: startBox.y + (endBox.y - startBox.y) * t,
+      width: startBox.width + (endBox.width - startBox.width) * t,
+      height: startBox.height + (endBox.height - startBox.height) * t
+    };
+    writeViewBox(svg, state.current);
+    state.animationFrame = requestAnimationFrame(step);
+  }
+  state.animationFrame = requestAnimationFrame(step);
+}
+
 function clientToView(svg, point, box) {
   const rect = svg.getBoundingClientRect();
   if (!rect.width || !rect.height) return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -79,10 +106,15 @@ function elementsBox(elements, padding = 36) {
 }
 
 function navigationHandlers(svg, state) {
-  const onWheel = (event) => { event.preventDefault(); applyZoom(svg, state, event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, event); };
+  const onWheel = (event) => {
+    event.preventDefault();
+    if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+    applyZoom(svg, state, event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, event);
+  };
   const onPointerDown = (event) => {
     if (event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('[data-object-key]')) return;
+    if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
     state.drag = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, box: { ...state.current } };
     state.suppressClick = false;
     svg.setPointerCapture(event.pointerId);
@@ -106,14 +138,23 @@ function navigationHandlers(svg, state) {
 
 export function wireTopologySvgNavigation(svg) {
   const base = parseViewBox(svg.getAttribute('viewBox') ?? '');
-  const state = { base, current: { ...base }, drag: null, suppressClick: false };
+  const state = { base, current: { ...base }, drag: null, suppressClick: false, animationFrame: null };
   const handlers = navigationHandlers(svg, state);
-  const fit = () => { state.current = { ...base }; writeViewBox(svg, state.current); };
-  const focusElements = (elements, padding = 36) => {
+  const fit = () => {
+    if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+    state.current = { ...base };
+    writeViewBox(svg, state.current);
+  };
+  const focusElements = (elements, padding = 36, animate = false) => {
     const box = elementsBox(elements, padding);
     if (!box) return false;
-    state.current = box;
-    writeViewBox(svg, state.current);
+    if (animate) {
+      animateViewBox(svg, state, box);
+    } else {
+      if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+      state.current = box;
+      writeViewBox(svg, state.current);
+    }
     return true;
   };
   const { onWheel, onPointerDown, onPointerMove, endPointer, onClickCapture, onKeyDown } = handlers;
@@ -136,8 +177,8 @@ export function wireTopologySvgNavigation(svg) {
   return Object.freeze({
     fit,
     fitElements: focusElements,
-    fitObjectKey: (key) => focusElements(svg.querySelectorAll(`[data-object-key="${CSS.escape(String(key))}"]`)),
-    fitBranch: (branchId) => focusElements(svg.querySelectorAll(`[data-branch-id*="${CSS.escape(String(branchId))}"]`)),
+    fitObjectKey: (key, animate = false) => focusElements(svg.querySelectorAll(`[data-object-key="${CSS.escape(String(key))}"]`), 36, animate),
+    fitBranch: (branchId, animate = false) => focusElements(svg.querySelectorAll(`[data-branch-id*="${CSS.escape(String(branchId))}"]`), 36, animate),
     zoomIn: () => applyZoom(svg, state, ZOOM_STEP, null),
     zoomOut: () => applyZoom(svg, state, 1 / ZOOM_STEP, null),
     destroy,

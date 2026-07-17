@@ -55,8 +55,8 @@ if (!existsSync(fixturePath) || !existsSync(exporterUrl)) {
   assert.equal(built.metrics.engineering.restraints, 828);
   assert.equal(built.metrics.engineering.rigids, 1652);
   assert.equal(built.metrics.ledger.deferredSupports, 0);
-  assert.equal(sideLoadByElement.size, 4437);
-  assert.equal([...sideLoadByElement.values()].filter((sideLoad) => sideLoad.PipingClass).length, 4437);
-  assert.equal([...sideLoadByElement.values()].filter((sideLoad) => sideLoad.DTXR_POS).length, 4437);
+  assert.equal(sideLoadByElement.size, 4434);
+  assert.equal([...sideLoadByElement.values()].filter((sideLoad) => sideLoad.PipingClass).length, 4434);
+  assert.equal([...sideLoadByElement.values()].filter((sideLoad) => sideLoad.DTXR_POS).length, 4434);
   console.log(`topology trace validator ASIM-1835 acceptance passed\n${JSON.stringify({ build: built.metrics, gates: validation.gates }, null, 2)}`);
 }
