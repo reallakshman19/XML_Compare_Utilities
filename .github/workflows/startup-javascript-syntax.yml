@@ -45,5 +45,9 @@ jobs:
           done
           cat /tmp/xml-compare-startup-server.log
           exit 1
-      - name: Browser startup import smoke
+      - name: Browser startup import smoke - branch artifact
+        run: node tests/browser/xml-compare-startup-smoke.mjs
+      - name: Browser startup import smoke - deployed Pages
+        env:
+          STARTUP_BASE_URL: https://reallaksh19.github.io/XML_Compare_Utilities/
         run: node tests/browser/xml-compare-startup-smoke.mjs
