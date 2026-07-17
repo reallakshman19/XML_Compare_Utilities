@@ -31,6 +31,11 @@ function boundaryEvidence(classification) {
     classification.positionStatus,
     classification.positionGapMm,
     classification.exactBoundaryToleranceMm,
+    classification.toleranceEvidenceType,
+    classification.tolerancePolicySchema,
+    classification.tolerancePolicyId,
+    classification.tolerancePolicyRevision,
+    classification.tolerancePolicyFingerprint,
   ];
 }
 
