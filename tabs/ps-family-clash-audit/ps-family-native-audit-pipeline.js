@@ -1,4 +1,4 @@
-import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-evidence-bundle.js';
+import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-restraint-evidence-bundle.js';
 import { parseSupportSteelJson } from '../support-steel-relationship-builder/support-steel-source-utils.js';
 import { buildPsFamilyEvidenceAudit } from './ps-family-evidence-graph-audit.js';
 
@@ -47,12 +47,15 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
       carrierTopologyCatalog: relationshipBundle.carrierTopologyCatalogSchema || null,
       carrierTopology: relationshipBundle.carrierTopologySchema || null,
       carrierToStructurePath: relationshipBundle.carrierToStructurePathSchema || null,
+      carrierLocalFrame: relationshipBundle.carrierLocalFrameSchema || null,
+      restraintFunction: relationshipBundle.restraintFunctionSchema || null,
       audit: audit.schema,
     },
     config: {
       relationship: relationshipBundle.config,
       carrierAttachment: relationshipBundle.supportCarrierAttachment?.config || {},
       carrierTopology: relationshipBundle.supportCarrierTopology?.config || {},
+      restraintFunction: relationshipBundle.supportRestraintFunction?.config || {},
       audit: { sourceFamily: audit.summary.sourceFamily || '' },
     },
     summary: createPipelineSummary(relationshipBundle, audit, diagnostics),
@@ -167,6 +170,13 @@ function createPipelineDiagnostics(bundle, audit) {
       `${bundle.summary.carrierToStructurePathExceptionCount} carrier-to-structure path exception(s) require review.`,
     ));
   }
+  if (bundle.summary?.restraintFunctionExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'RESTRAINT_FUNCTION_EXCEPTIONS_REMAIN',
+      `${bundle.summary.restraintFunctionExceptionCount} restraint-function exception(s) require engineering review.`,
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -207,6 +217,13 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     completeCarrierToStructureFamilyCount: bundle.summary?.completeCarrierToStructureFamilyCount || 0,
     incompleteCarrierToStructureFamilyCount: bundle.summary?.incompleteCarrierToStructureFamilyCount || 0,
     carrierToStructurePathExceptionCount: bundle.summary?.carrierToStructurePathExceptionCount || 0,
+    restraintFunctionAssessmentCount: bundle.summary?.restraintFunctionAssessmentCount || 0,
+    restraintFunctionConfirmedFamilyCount: bundle.summary?.restraintFunctionConfirmedFamilyCount || 0,
+    restraintFunctionPartiallyConfirmedFamilyCount: bundle.summary?.restraintFunctionPartiallyConfirmedFamilyCount || 0,
+    restraintFunctionConflictFamilyCount: bundle.summary?.restraintFunctionConflictFamilyCount || 0,
+    restraintFunctionAmbiguousFamilyCount: bundle.summary?.restraintFunctionAmbiguousFamilyCount || 0,
+    restraintFunctionNotProvenFamilyCount: bundle.summary?.restraintFunctionNotProvenFamilyCount || 0,
+    restraintFunctionExceptionCount: bundle.summary?.restraintFunctionExceptionCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,

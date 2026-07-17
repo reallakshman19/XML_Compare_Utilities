@@ -18,6 +18,13 @@ import {
   exportCarrierTopologyPortsCsv,
 } from './ps-family-carrier-topology-export.js';
 import { createPsFamilyAuditExports } from './ps-family-clash-audit-export.js';
+import {
+  exportCarrierFramesCsv,
+  exportRestraintDirectionEdgesCsv,
+  exportRestraintFunctionAssessmentsCsv,
+  exportRestraintFunctionExceptionsCsv,
+  exportRestraintFunctionFamiliesCsv,
+} from './ps-family-restraint-function-export.js';
 
 export function exportPsFamilyNativePipelineJson(pipeline) {
   return `${JSON.stringify(pipeline, null, 2)}\n`;
@@ -44,7 +51,10 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     'CarrierTopologyRepairCount', 'CarrierTopologyExceptionCount',
     'CompleteCarrierToStructurePathCount', 'CompleteCarrierToStructureFamilyCount',
     'IncompleteCarrierToStructureFamilyCount', 'CarrierToStructurePathExceptionCount',
-    'SupportChainEdgeCount', 'StructuralTerminalCount',
+    'RestraintFunctionAssessmentCount', 'RestraintFunctionConfirmedFamilyCount',
+    'RestraintFunctionPartiallyConfirmedFamilyCount', 'RestraintFunctionConflictFamilyCount',
+    'RestraintFunctionAmbiguousFamilyCount', 'RestraintFunctionNotProvenFamilyCount',
+    'RestraintFunctionExceptionCount', 'SupportChainEdgeCount', 'StructuralTerminalCount',
     'AuditSupportGroupCount', 'AuditExceptionCount', 'XmlRequired', 'XmlConsumed',
   ];
   const row = {
@@ -72,6 +82,13 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     CompleteCarrierToStructureFamilyCount: summary.completeCarrierToStructureFamilyCount,
     IncompleteCarrierToStructureFamilyCount: summary.incompleteCarrierToStructureFamilyCount,
     CarrierToStructurePathExceptionCount: summary.carrierToStructurePathExceptionCount,
+    RestraintFunctionAssessmentCount: summary.restraintFunctionAssessmentCount,
+    RestraintFunctionConfirmedFamilyCount: summary.restraintFunctionConfirmedFamilyCount,
+    RestraintFunctionPartiallyConfirmedFamilyCount: summary.restraintFunctionPartiallyConfirmedFamilyCount,
+    RestraintFunctionConflictFamilyCount: summary.restraintFunctionConflictFamilyCount,
+    RestraintFunctionAmbiguousFamilyCount: summary.restraintFunctionAmbiguousFamilyCount,
+    RestraintFunctionNotProvenFamilyCount: summary.restraintFunctionNotProvenFamilyCount,
+    RestraintFunctionExceptionCount: summary.restraintFunctionExceptionCount,
     SupportChainEdgeCount: summary.supportChainEdgeCount,
     StructuralTerminalCount: summary.structuralTerminalCount,
     AuditSupportGroupCount: summary.auditSupportGroupCount,
@@ -105,6 +122,11 @@ export function createPsFamilyNativePipelineExports(pipeline) {
     carrierToStructureCompletePathsCsv: exportCarrierToStructureCompletePathsCsv(pipeline?.audit),
     carrierToStructurePathExceptionsCsv: exportCarrierToStructurePathExceptionsCsv(pipeline?.audit),
     carrierToStructureFamiliesCsv: exportCarrierToStructureFamiliesCsv(pipeline?.audit),
+    carrierFramesCsv: exportCarrierFramesCsv(pipeline?.audit),
+    restraintFunctionAssessmentsCsv: exportRestraintFunctionAssessmentsCsv(pipeline?.audit),
+    restraintDirectionEdgesCsv: exportRestraintDirectionEdgesCsv(pipeline?.audit),
+    restraintFunctionExceptionsCsv: exportRestraintFunctionExceptionsCsv(pipeline?.audit),
+    restraintFunctionFamiliesCsv: exportRestraintFunctionFamiliesCsv(pipeline?.audit),
   };
 }
 

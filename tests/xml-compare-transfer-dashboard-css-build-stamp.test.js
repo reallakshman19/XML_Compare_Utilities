@@ -39,11 +39,11 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-combined-model-1'), 'index must cache-bust app entry for combined model input');
-assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-combined-model-1"), 'main entry must cache-bust core app delegate for combined model input');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-combined-model-runtime-1"), 'core app must refresh the standalone runtime for combined model input');
-assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-combined-model-1'), 'core app must load the combined-model relationship builder bootstrap');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-combined-model-1'), 'core app must load the combined-model evidence audit bootstrap');
+assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-restraint-function-1'), 'index must cache-bust app entry for restraint function validation');
+assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-restraint-function-1"), 'main entry must cache-bust core app delegate for restraint function validation');
+assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-restraint-function-runtime-1"), 'core app must refresh the standalone runtime for restraint function validation');
+assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-restraint-function-1'), 'core app must load the restraint-aware relationship builder bootstrap');
+assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-restraint-function-1'), 'core app must load the restraint-aware evidence audit bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260708-m23-transfer-tile-layout"), 'runtime must cache-bust XML tab module for M23');
 assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');

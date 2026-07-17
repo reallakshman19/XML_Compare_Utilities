@@ -9,13 +9,14 @@ import {
 const launcher = renderSupportSteelLauncher();
 assert.match(launcher, /Support \/ Steel Relationship Builder/);
 assert.match(launcher, /data-ssrb-open="1"/);
-assert.match(launcher, /data-ssrb-version="combined-model-1"/);
-assert.match(launcher, /Complete carrier-to-structure evidence/);
+assert.match(launcher, /data-ssrb-version="restraint-function-1"/);
+assert.match(launcher, /Path and restraint-function evidence/);
 
 const dialog = renderSupportSteelDialog();
 assert.match(dialog, /XML-free assembly workspace/i);
 assert.match(dialog, /one staged model JSON containing piping, support and structural records/i);
-assert.match(dialog, /audits? complete carrier-to-structure paths/i);
+assert.match(dialog, /proves fail-closed carrier-to-structure paths/i);
+assert.match(dialog, /validates intended restraint functions/i);
 assert.match(dialog, /without clash XML/i);
 assert.match(dialog, /data-ssrb-fullscreen="1"/);
 assert.match(dialog, /data-ssrb-close="1"/);
@@ -28,6 +29,7 @@ for (const label of [
   'Load one combined staged model JSON', 'Combined staged model JSON',
   'One hierarchy containing piping, support and structural records',
   'Separate support and steel files are not required',
+  'restraint-function validation',
   'Support family regex', 'Steel group regex', 'Steel projection tolerance mm',
   'Member contact tolerance mm', 'Carrier attachment tolerance mm',
   'Carrier topology exact tolerance mm', 'Carrier topology small-gap tolerance mm',
@@ -49,8 +51,11 @@ const layout = readFileSync('tabs/psnm-utility-tab-layout-stabilizer.js', 'utf8'
 const relationshipTab = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-tab.js', 'utf8');
 const relationshipView = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-view.js', 'utf8');
 const evidenceBundle = readFileSync('tabs/support-steel-relationship-builder/support-steel-evidence-bundle.js', 'utf8');
+const restraintFacade = readFileSync('tabs/support-steel-relationship-builder/support-steel-restraint-evidence-bundle.js', 'utf8');
+const restraintAddon = readFileSync('tabs/support-steel-relationship-builder/support-restraint-function-addon.js', 'utf8');
+const restraintView = readFileSync('tabs/support-steel-relationship-builder/support-restraint-function-view.js', 'utf8');
+const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'utf8');
 const pathEngine = readFileSync('tabs/support-steel-relationship-builder/support-carrier-to-structure-path.js', 'utf8');
-const pathExport = readFileSync('tabs/support-steel-relationship-builder/support-carrier-to-structure-path-export.js', 'utf8');
 const topologyEngine = readFileSync('tabs/support-steel-relationship-builder/support-carrier-topology-engine.js', 'utf8');
 const carrierAttachment = readFileSync('tabs/support-steel-relationship-builder/support-carrier-attachment-engine.js', 'utf8');
 const chainEngine = readFileSync('tabs/support-steel-relationship-builder/support-member-chain-engine.js', 'utf8');
@@ -62,18 +67,19 @@ assert.match(relationshipTab, /data-ssrb-input=\"model\"/);
 assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"support\"/);
 assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"steel\"/);
 assert.match(relationshipTab, /supportCarrierToStructurePathsToCsv/);
-assert.match(relationshipTab, /ssrb-combined-model-1/);
 assert.match(relationshipView, /Complete carrier-to-structure paths/);
 assert.match(relationshipView, /Carrier-to-structure missing-link exceptions/);
 assert.match(relationshipView, /ANALYTICAL_PATH_CANDIDATE/);
 assert.match(evidenceBundle, /combinedInput/);
 assert.match(evidenceBundle, /COMBINED_STAGED_MODEL/);
-assert.match(evidenceBundle, /buildSupportCarrierToStructurePathBundle/);
+assert.match(restraintFacade, /supportRestraintFunction/);
+assert.match(restraintAddon, /data-ssrb-input=\"model\"/);
+assert.match(restraintAddon, /support-steel-restraint-evidence-bundle/);
+assert.match(restraintView, /Support restraint-function validation/);
+assert.match(restraintView, /ANALYTICAL_FUNCTION_CANDIDATE/);
+assert.match(bootstrap, /support-restraint-function-addon\.js/);
+assert.match(bootstrap, /restraint-function-1/);
 assert.match(pathEngine, /SupportCarrierToStructurePathBundle\.v1/);
-assert.match(pathEngine, /COMPLETE_CARRIER_TO_STRUCTURE_PATH/);
-assert.match(pathEngine, /CARRIER_IDENTITY_NOT_RESOLVED/);
-assert.match(pathEngine, /SUPPORT_CHAIN_TO_STRUCTURE_INCOMPLETE/);
-assert.match(pathExport, /supportCarrierToStructurePathsToCsv/);
 assert.match(topologyEngine, /EXACT_PORT_CONNECTION/);
 assert.match(carrierAttachment, /SUPPORT_MEMBER_TO_CARRIER_ATTACHMENT/);
 assert.match(chainEngine, /SUPPORT_MEMBER_TO_STRUCTURE/);

@@ -3,6 +3,7 @@ export function createCarrierEvidenceProjection(bundle = {}) {
   const attachment = bundle.supportCarrierAttachment || {};
   const topology = bundle.supportCarrierTopology || {};
   const structurePath = bundle.supportCarrierToStructurePath || {};
+  const restraint = bundle.supportRestraintFunction || {};
   return {
     schemas: {
       carrierResolutionSchema: bundle.carrierResolutionSchema || carrier.schema || null,
@@ -12,6 +13,8 @@ export function createCarrierEvidenceProjection(bundle = {}) {
       carrierTopologyCatalogSchema: bundle.carrierTopologyCatalogSchema || topology.catalogSchema || null,
       carrierTopologySchema: bundle.carrierTopologySchema || topology.schema || null,
       carrierToStructurePathSchema: bundle.carrierToStructurePathSchema || structurePath.schema || null,
+      carrierLocalFrameSchema: bundle.carrierLocalFrameSchema || restraint.carrierFrameSchema || null,
+      restraintFunctionSchema: bundle.restraintFunctionSchema || restraint.schema || null,
     },
     rows: {
       carrierObjectRows: carrier.carrierObjects || [],
@@ -31,6 +34,13 @@ export function createCarrierEvidenceProjection(bundle = {}) {
       carrierToStructureCompletePathRows: structurePath.completePaths || [],
       carrierToStructurePathExceptionRows: structurePath.pathExceptions || [],
       carrierToStructureFamilyRows: structurePath.familyResults || [],
+      carrierFrameRows: restraint.carrierFrames || [],
+      restraintIntentRows: restraint.intendedFunctions || [],
+      evidencedRestraintRows: restraint.evidencedRestraints || [],
+      restraintFunctionAssessmentRows: restraint.functionAssessments || [],
+      restraintDirectionEdgeRows: restraint.restraintEdges || [],
+      restraintFunctionExceptionRows: restraint.functionExceptions || [],
+      restraintFunctionFamilyRows: restraint.familyResults || [],
     },
     summary: carrierEvidenceSummary(bundle),
   };
@@ -41,6 +51,7 @@ export function carrierEvidenceSummary(bundle = {}) {
   const attachment = bundle.supportCarrierAttachment || {};
   const topology = bundle.supportCarrierTopology || {};
   const structurePath = bundle.supportCarrierToStructurePath || {};
+  const restraint = bundle.supportRestraintFunction || {};
   return {
     carrierObjectCount: (carrier.carrierObjects || []).length,
     resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
@@ -66,5 +77,14 @@ export function carrierEvidenceSummary(bundle = {}) {
     carrierTopologyPathExceptionCount: structurePath.summary?.topologyPathExceptionCount || 0,
     supportChainPathExceptionCount: structurePath.summary?.supportChainIncompleteCount || 0,
     structuralTerminalPathExceptionCount: structurePath.summary?.structuralTerminalMissingCount || 0,
+    carrierFrameCount: (restraint.carrierFrames || []).length,
+    restraintFunctionAssessmentCount: (restraint.functionAssessments || []).length,
+    restraintDirectionEdgeCount: (restraint.restraintEdges || []).length,
+    restraintFunctionExceptionCount: (restraint.functionExceptions || []).length,
+    restraintFunctionConfirmedFamilyCount: restraint.summary?.confirmedFamilyCount || 0,
+    restraintFunctionPartiallyConfirmedFamilyCount: restraint.summary?.partiallyConfirmedFamilyCount || 0,
+    restraintFunctionConflictFamilyCount: restraint.summary?.conflictFamilyCount || 0,
+    restraintFunctionAmbiguousFamilyCount: restraint.summary?.ambiguousFamilyCount || 0,
+    restraintFunctionNotProvenFamilyCount: restraint.summary?.notProvenFamilyCount || 0,
   };
 }
