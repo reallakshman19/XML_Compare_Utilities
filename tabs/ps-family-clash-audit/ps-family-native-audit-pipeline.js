@@ -44,11 +44,14 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
       carrierCatalog: relationshipBundle.carrierCatalogSchema || null,
       carrierGeometry: relationshipBundle.carrierGeometrySchema || null,
       carrierAttachment: relationshipBundle.carrierAttachmentSchema || null,
+      carrierTopologyCatalog: relationshipBundle.carrierTopologyCatalogSchema || null,
+      carrierTopology: relationshipBundle.carrierTopologySchema || null,
       audit: audit.schema,
     },
     config: {
       relationship: relationshipBundle.config,
       carrierAttachment: relationshipBundle.supportCarrierAttachment?.config || {},
+      carrierTopology: relationshipBundle.supportCarrierTopology?.config || {},
       audit: { sourceFamily: audit.summary.sourceFamily || '' },
     },
     summary: createPipelineSummary(relationshipBundle, audit, diagnostics),
@@ -149,6 +152,13 @@ function createPipelineDiagnostics(bundle, audit) {
       `${bundle.summary.nearbyCarrierAttachmentCandidateCount} support-to-carrier pair(s) are near but outside contact tolerance.`,
     ));
   }
+  if (bundle.summary?.carrierTopologyExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'CARRIER_TOPOLOGY_EXCEPTIONS_REMAIN',
+      `${bundle.summary.carrierTopologyExceptionCount} carrier topology exception(s) require review.`,
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -180,6 +190,11 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     carrierAttachmentCandidateCount: bundle.summary?.carrierAttachmentCandidateCount || 0,
     nearbyCarrierAttachmentCandidateCount: bundle.summary?.nearbyCarrierAttachmentCandidateCount || 0,
     unresolvedCarrierAttachmentCount: bundle.summary?.unresolvedCarrierAttachmentCount || 0,
+    carrierTopologyComponentCount: bundle.summary?.carrierTopologyComponentCount || 0,
+    carrierTopologyConnectionCount: bundle.summary?.carrierTopologyConnectionCount || 0,
+    carrierTopologyPathCount: bundle.summary?.carrierTopologyPathCount || 0,
+    carrierTopologyRepairCount: bundle.summary?.carrierTopologyRepairCount || 0,
+    carrierTopologyExceptionCount: bundle.summary?.carrierTopologyExceptionCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,
