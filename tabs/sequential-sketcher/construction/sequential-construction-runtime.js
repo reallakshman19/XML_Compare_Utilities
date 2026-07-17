@@ -2,7 +2,7 @@ import {
   advanceConstruction as advanceGatedConstruction,
   applyConstructionDecision as applyGatedConstructionDecision,
   createSequentialConstructionSession,
-} from './sequential-gated-construction-engine.js';
+} from './sequential-source-boundary-engine.js';
 import { CONSTRUCTION_STATES, freezeConstructionSession } from './sequential-construction-contract.js';
 import { enrichCommittedConnectionEvidence } from './sequential-connection-audit.js';
 

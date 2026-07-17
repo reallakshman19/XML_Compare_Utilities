@@ -6,9 +6,13 @@ on:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
+      - 'docs/sequential-sketcher/**'
+      - 'tests/helpers/sequential-1885-nc-evidence-report.js'
+      - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
@@ -25,14 +29,22 @@ on:
       - 'tests/sequential-confirmed-support-projection.test.js'
       - '.github/workflows/sequential-sketcher.yml'
   push:
-    branches: [main, agent/sequential-sketcher]
+    branches:
+      - main
+      - agent/sequential-sketcher
+      - agent/sequential-sketcher-fixture-evidence-resolution
+      - agent/sequential-sketcher-fixture-evidence-resolution-rebased
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
+      - 'docs/sequential-sketcher/**'
+      - 'tests/helpers/sequential-1885-nc-evidence-report.js'
+      - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
+      - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
@@ -69,8 +81,22 @@ jobs:
         run: node tests/sequential-zero-length-inline.test.js
       - name: Reference and terminal semantics
         run: node tests/sequential-reference-terminal-semantics.test.js
+      - name: Collision-safe reference normalization
+        run: node tests/sequential-sketcher-reference-normalization.test.js
+      - name: Controlled source boundary semantics
+        run: node tests/sequential-sketcher-source-boundary.test.js
+      - name: External boundary position gates
+        run: node tests/sequential-sketcher-source-boundary-position.test.js
+      - name: Accepted construction carrier adapter
+        run: node tests/sequential-sketcher-carrier-evidence-adapter.test.js
+      - name: Review correction architecture gates
+        run: node tests/sequential-sketcher-review-gates.test.js
+      - name: Branch switching workspace UX
+        run: node tests/sequential-sketcher-branch-switch-ui.test.js
       - name: Pinned fixture-wide feature matrix
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
+      - name: Fixture-wide blocked evidence report
+        run: node tests/sequential-sketcher-1885-nc-blocked-evidence.mjs
       - name: Pinned complete S-line scope
         run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
       - name: Exact synthetic carrier shadows

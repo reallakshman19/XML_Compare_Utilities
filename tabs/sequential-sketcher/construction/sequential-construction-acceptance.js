@@ -75,6 +75,22 @@ function normalizedRepair(repair) {
     resolvedToPosition: clonePoint(repair.resolvedToPosition),
   });
 }
+function normalizedBoundaryClassification(classification) {
+  if (classification.classification !== 'EXTERNAL_PHYSICAL_BOUNDARY_CONFIRMED') {
+    throw new Error(`Boundary classification is not physically confirmed: ${classification.classificationId}`);
+  }
+  if (classification.positionStatus !== 'POSITION_CONFIRMED') {
+    throw new Error(`Boundary position evidence is not confirmed: ${classification.classificationId}`);
+  }
+  return Object.freeze({
+    ...classification,
+    normalizationOperations: Object.freeze([...(classification.normalizationOperations || [])]),
+    basis: Object.freeze([...(classification.basis || [])]),
+    sourcePosition: clonePoint(classification.sourcePosition),
+    boundaryPosition: clonePoint(classification.boundaryPosition),
+    resolvedPosition: clonePoint(classification.resolvedPosition),
+  });
+}
 
 export function createConfirmedSequentialConstruction(session, indexes) {
   if (!session || session.state !== CONSTRUCTION_STATES.ROUTE_COMPLETE) {
@@ -85,6 +101,7 @@ export function createConfirmedSequentialConstruction(session, indexes) {
   if (!session.confirmedComponentIds.length) throw new Error('Confirmed construction requires at least one component.');
   assertUnique(session.confirmedComponentIds, 'component ID');
   assertUnique(session.committedConnections.map((connection) => connection.connectionId), 'connection ID');
+  assertUnique((session.boundaryClassifications || []).map((row) => row.classificationId), 'boundary classification ID');
 
   const components = session.confirmedComponentIds.map((componentId) => {
     const component = indexes.components.get(componentId);
@@ -104,12 +121,28 @@ export function createConfirmedSequentialConstruction(session, indexes) {
     return normalizedConnection(connection);
   });
   const repairs = session.repairLedger.map(normalizedRepair);
+  const boundaryClassifications = (session.boundaryClassifications || []).map(normalizedBoundaryClassification);
   const branchIds = [...new Set(components.map((component) => component.branchId))];
   const evidenceForFingerprint = {
     rootBranchId: session.rootBranchId,
     componentIds: components.map((component) => [component.componentId, component.shadowCarrierEvidence?.componentId || null]),
     connections: connections.map((connection) => [connection.connectionId, connection.fromPortId, connection.toPortId, connection.status, connection.resolvedGapMm]),
     repairs: repairs.map((repair) => [repair.repairId, repair.connectionId, repair.gapMm, repair.approvedBy]),
+    boundaryClassifications: boundaryClassifications.map((row) => [
+      row.classificationId,
+      row.boundaryRole,
+      row.branchId,
+      row.rawReference,
+      row.normalizedReference,
+      row.classification,
+      row.dialect,
+      row.confidence,
+      [...row.basis],
+      row.activePortId,
+      row.positionStatus,
+      row.positionGapMm,
+      row.exactBoundaryToleranceMm,
+    ]),
     strokes: session.strokeLedger.map((stroke) => [stroke.op, stroke.componentId || stroke.connectionId || stroke.branchId || '']),
   };
   const shadowCarrierCount = components.filter((component) => component.shadowCarrierEvidence).length;
@@ -123,18 +156,16 @@ export function createConfirmedSequentialConstruction(session, indexes) {
     components: Object.freeze(components),
     connections: Object.freeze(connections),
     repairs: Object.freeze(repairs),
+    boundaryClassifications: Object.freeze(boundaryClassifications),
     decisions: freezeArray(session.decisionLedger.map((decision) => ({ ...decision }))),
     strokeLedger: freezeArray(session.strokeLedger.map((stroke) => ({ ...stroke }))),
-    downstreamEligibility: Object.freeze({
-      supportProjection: true,
-      export: true,
-      calculation: true,
-    }),
+    downstreamEligibility: Object.freeze({ supportProjection: true, export: true, calculation: true }),
     audit: Object.freeze({
       confirmedComponentCount: components.length,
       shadowCarrierCount,
       committedConnectionCount: connections.length,
       repairCount: repairs.length,
+      boundaryClassificationCount: boundaryClassifications.length,
       branchCount: branchIds.length,
       sourceCoordinatesMutated: false,
       openDecisionCount: 0,
