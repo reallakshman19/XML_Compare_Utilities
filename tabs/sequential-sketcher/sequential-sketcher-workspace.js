@@ -9,6 +9,7 @@ import {
 import { createConfirmedSequentialConstruction } from './construction/sequential-construction-acceptance.js';
 import { DECISION_ACTIONS } from './construction/sequential-construction-contract.js';
 import { buildConfirmedConstructionSupportProjection } from './support/sequential-confirmed-support-projection.js';
+import { mountSequentialReviewQueueController } from './review/sequential-review-queue-controller.js';
 import {
   renderConstructionInspector, renderConstructionMetrics, renderConstructionSequence,
   renderSequentialConstructionCanvas,
@@ -56,6 +57,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     selectedCandidateId: '',
     branchRegistry: createSequentialBranchWorkspaceRegistry(),
   };
+  let reviewController = null;
   const setStatus = (message, state = 'info') => { elements.status.textContent = message; elements.status.dataset.state = state; };
   const engineOptions = () => ({
     exactToleranceMm: numberValue(elements.exactTolerance, 1),
@@ -129,8 +131,9 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     [...elements.branch.options].slice(1).forEach((option, index) => { option.value = ids[index]; option.textContent = ids[index]; });
     model.branchRegistry.reset(ids);
     model.session = null; model.selectedCandidateId = ''; clearDownstream();
+    reviewController?.reset();
     repaint();
-    setStatus(`${ids.length} branches indexed as immutable evidence. Select a branch to open a clean workspace.`, 'ok');
+    setStatus(`${ids.length} branches indexed as immutable evidence. Select a branch or explicitly build the blocked review queue.`, 'ok');
   }
 
   function repaint() {
@@ -194,6 +197,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.selectedCandidateId = '';
     refreshDownstream();
     saveActiveBranch();
+    reviewController?.refresh();
     repaint();
     reportOutcome(result.outcome);
   }
@@ -208,6 +212,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.supportProjection = opened.snapshot.supportProjection;
     model.selectedCandidateId = opened.snapshot.selectedCandidateId;
     elements.branch.value = branchId;
+    reviewController?.selectBranch(branchId);
     repaint();
     const detail = opened.restored
       ? `Restored ${model.session.strokeLedger.length} committed operations, ${model.session.transactionLedger.length} transactions; state ${model.session.state}.`
@@ -330,10 +335,28 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     navigateBranch(event.key === 'ArrowLeft' ? -1 : 1);
   }
 
+  reviewController = mountSequentialReviewQueueController(root, {
+    ensureEvidence,
+    getEvidence: () => model.evidence,
+    getIndexes: () => model.indexes,
+    getEngineOptions: engineOptions,
+    getBranchRegistry: () => model.branchRegistry,
+    saveActiveBranch,
+    openBranch,
+    setStatus,
+    showToast: context.showToast,
+  });
   root.addEventListener('click', onClick); root.addEventListener('change', onChange); root.addEventListener('keydown', onKeyDown);
   syncBranchNavigator();
   return Object.freeze({
     getModel: () => model,
-    destroy: () => { root.removeEventListener('click', onClick); root.removeEventListener('change', onChange); root.removeEventListener('keydown', onKeyDown); root.innerHTML = ''; },
+    getReviewQueue: () => reviewController?.getQueue() || null,
+    destroy: () => {
+      reviewController?.destroy();
+      root.removeEventListener('click', onClick);
+      root.removeEventListener('change', onChange);
+      root.removeEventListener('keydown', onKeyDown);
+      root.innerHTML = '';
+    },
   });
 }
