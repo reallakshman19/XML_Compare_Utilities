@@ -1,9 +1,9 @@
-import { buildSupportSteelRelationshipBundle } from './support-steel-restraint-evidence-bundle.js';
-import { parseSupportSteelJson } from './support-steel-source-utils.js';
+import { buildSupportSteelRelationshipBundle } from './support-steel-restraint-evidence-bundle.js?v=20260717-startup-parse-hotfix-1';
+import { parseSupportSteelJson } from './support-steel-source-utils.js?v=20260717-startup-parse-hotfix-1';
 import {
   renderSupportRestraintFunctionPanel,
   renderSupportRestraintFunctionResults,
-} from './support-restraint-function-view.js';
+} from './support-restraint-function-view.js?v=20260717-startup-parse-hotfix-1';
 
 const POPUP_SELECTOR = '[data-ssrb-popup="1"]';
 const TAB_KEY = 'restraint';
