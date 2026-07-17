@@ -1,0 +1,31 @@
+name: Sequential Workspace Reconciliation
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'tests/sequential-workspace-*.test.js'
+      - '.github/workflows/sequential-workspace-reconciliation.yml'
+  push:
+    branches:
+      - main
+      - agent/sequential-workspace-reconciliation-rebased
+    paths:
+      - 'tabs/sequential-sketcher/**'
+      - 'tests/sequential-workspace-*.test.js'
+      - '.github/workflows/sequential-workspace-reconciliation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  reconciliation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Combined preview and receipt safety guard
+        run: node tests/sequential-workspace-reconciliation.test.js
