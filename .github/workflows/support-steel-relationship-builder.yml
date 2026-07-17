@@ -6,6 +6,7 @@ on:
       - 'tabs/support-steel-relationship-builder/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tabs/psnm-utility-tab-layout-stabilizer.js'
+      - 'tests/combined-staged-model-input.test.js'
       - 'tests/support-steel-relationship-builder*.test.js'
       - 'tests/support-steel-world-geometry.test.js'
       - 'tests/support-member-chain*.test.js'
@@ -27,6 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Combined staged model input contract
+        run: node --test tests/combined-staged-model-input.test.js
       - name: Relationship engine tests
         run: node --test tests/support-steel-relationship-builder.test.js
       - name: World transform and analytical geometry tests
