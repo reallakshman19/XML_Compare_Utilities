@@ -10,6 +10,7 @@ on:
       - 'tests/helpers/sequential-1885-nc-evidence-report.js'
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -40,6 +41,7 @@ on:
       - agent/sequential-external-boundary-policy-v1
       - agent/sequential-tolerance-policy-v1
       - agent/sequential-tolerance-callsite-migration
+      - agent/sequential-supervised-decision-transactions
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -48,6 +50,7 @@ on:
       - 'tests/helpers/sequential-1885-nc-evidence-report.js'
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -100,6 +103,12 @@ jobs:
         run: node tests/sequential-construction-tolerance-policy.test.js
       - name: Tolerance policy callsite migration
         run: node tests/sequential-tolerance-callsite-migration.test.js
+      - name: Atomic supervised transactions
+        run: node tests/sequential-supervised-transactions.test.js
+      - name: Manual connect and component reversal
+        run: node tests/sequential-supervised-manual-actions.test.js
+      - name: Supervised decision transaction UI
+        run: node tests/sequential-supervised-decision-ui.test.js
       - name: External boundary position gates
         run: node tests/sequential-sketcher-source-boundary-position.test.js
       - name: Accepted construction carrier adapter
