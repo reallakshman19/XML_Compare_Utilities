@@ -22,8 +22,19 @@ export function applySupportStructuralTerminalMultiContact(bundle = {}, config =
   const nearbyCandidates = structuralTerminalEdges.filter((row) => (
     row.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE' && row.contactEvidenceStatus === 'CLEARANCE_ONLY'
   ));
+  const unresolvedPhysicalMemberCount = familyChains.reduce(
+    (sum, row) => sum + (row.unresolvedPhysicalMemberIds || []).length,
+    0,
+  );
   const multiTerminalFamilies = familyChains.filter((row) => (
     (row.structuralTerminalEdges || []).filter(isAnalyticalContact).length > 1
+  ));
+  const unresolvedKeys = new Set(familyChains.flatMap((row) => (
+    (row.unresolvedPhysicalMemberIds || []).map((memberId) => memberKey(row.familyId, memberId))
+  )));
+  const reconciledDiagnostics = (bundle.diagnostics || []).filter((row) => (
+    row.code !== 'SUPPORT_MEMBER_NOT_CONNECTED_BY_ANALYTICAL_GEOMETRY'
+    || unresolvedKeys.has(memberKey(row.supportFamilyId, row.memberId))
   ));
   const supportMemberChain = {
     ...chain,
@@ -36,6 +47,7 @@ export function applySupportStructuralTerminalMultiContact(bundle = {}, config =
       analyticalStructuralTerminalContactCount: analyticalContacts.length,
       nearbyStructuralTerminalCandidateCount: nearbyCandidates.length,
       multiTerminalFamilyCount: multiTerminalFamilies.length,
+      unresolvedPhysicalMemberCount,
     },
   };
   return {
@@ -48,9 +60,10 @@ export function applySupportStructuralTerminalMultiContact(bundle = {}, config =
       analyticalStructuralTerminalContactCount: analyticalContacts.length,
       nearbyStructuralTerminalCandidateCount: nearbyCandidates.length,
       multiTerminalFamilyCount: multiTerminalFamilies.length,
+      unresolvedPhysicalMemberCount,
     },
     diagnostics: [
-      ...(bundle.diagnostics || []),
+      ...reconciledDiagnostics,
       ...multiTerminalFamilies.map((row) => ({
         severity: 'INFO',
         code: 'MULTIPLE_ANALYTICAL_STRUCTURAL_TERMINALS_CONFIRMED',
@@ -155,6 +168,7 @@ function isAnalyticalContact(row) {
   return row.edgeType === 'SUPPORT_MEMBER_TO_STRUCTURE'
     && row.contactEvidenceStatus === 'ANALYTICAL_CONTACT_CANDIDATE';
 }
+function memberKey(familyId, memberId) { return `${normalize(familyId)}::${normalize(memberId)}`; }
 function relationshipKey(steelGroupId, structuralMemberId) {
   return `${normalize(steelGroupId)}::${normalize(structuralMemberId)}`;
 }
