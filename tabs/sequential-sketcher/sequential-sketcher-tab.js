@@ -1,7 +1,7 @@
-import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260717-ssk-workspace-import-preview-1';
-import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-import-preview-1';
-import { mountSequentialProjectExportController } from './platform/sequential-project-export-controller.js?v=20260717-ssk-workspace-import-preview-1';
-import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-import-preview-1';
+import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260717-ssk-workspace-apply-receipts-1';
+import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
+import { mountSequentialProjectExportController } from './platform/sequential-project-export-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
+import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 
 const STYLE_ID = 'sequential-sketcher-style';
 
@@ -10,7 +10,7 @@ function ensureStylesheet(documentRef) {
   const link = documentRef.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-workspace-import-preview-1';
+  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-workspace-apply-receipts-1';
   documentRef.head.appendChild(link);
 }
 

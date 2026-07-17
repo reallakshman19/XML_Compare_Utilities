@@ -22,8 +22,8 @@ assert.doesNotMatch(packageSource, /sj-pipe-support|buildPipeSupportProjectionBu
 
 const controller = read('tabs/sequential-sketcher/persistence/sequential-workspace-persistence-controller.js');
 assert.match(controller, /mountSequentialWorkspacePersistenceController/);
-assert.match(controller, /serializeSequentialWorkspacePackage/);
-assert.match(controller, /restoreSequentialWorkspacePackage/);
+assert.match(controller, /serializeSequentialWorkspacePackageWithReceipts/);
+assert.match(controller, /restoreSequentialWorkspacePackageWithReceipts/);
 assert.match(controller, /workspace\?\.saveActiveBranch/);
 assert.match(controller, /workspace\?\.restorePackage/);
 assert.match(controller, /data-ssk-workspace-export/);
@@ -47,7 +47,8 @@ for (const selector of [
   'data-ssk-workspace-cancel',
   'data-ssk-workspace-package-summary',
 ]) assert.match(markup, new RegExp(selector));
-assert.match(markup, /Import remains atomic and fingerprint-verified/);
+assert.match(markup, /creates a non-mutating preview/);
+assert.match(markup, /Every successful apply creates a fingerprinted receipt/);
 
 const workspace = read('tabs/sequential-sketcher/sequential-sketcher-workspace.js');
 assert.match(workspace, /function restorePackage\(restoration\)/);
@@ -67,9 +68,9 @@ assert.match(css, /\.ssk-workspace-package-summary/);
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 assert.match(tab, /mountSequentialWorkspacePersistenceController/);
 assert.match(tab, /persistenceController\?\.destroy\(\)/);
-assert.match(tab, /20260717-ssk-workspace-import-preview-1/);
+assert.match(tab, /20260717-ssk-workspace-apply-receipts-1/);
 
 const utility = read('tabs/psnm-utility-tab.js');
-assert.match(utility, /20260717-ssk-workspace-import-preview-1/);
+assert.match(utility, /20260717-ssk-workspace-apply-receipts-1/);
 
 console.log('sequential workspace persistence UI tests passed');
