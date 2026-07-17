@@ -31,6 +31,8 @@ jobs:
           node-version: '22'
       - name: Combined staged model input contract
         run: node --test tests/combined-staged-model-input.test.js
+      - name: Preview export build flow
+        run: node tests/support-steel-relationship-builder-preview.test.js
       - name: Relationship engine tests
         run: node --test tests/support-steel-relationship-builder.test.js
       - name: World transform and analytical geometry tests

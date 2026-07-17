@@ -40,6 +40,8 @@ export function supportSteelProjectArtifacts(bundle) {
 }
 
 function sourceText(input) {
+  const combinedSourceText = String(input.combinedSourceText ?? '').trim();
+  if (combinedSourceText) return combinedSourceText;
   return JSON.stringify({ supportSourceText: input.supportSourceText, steelSourceText: input.steelSourceText });
 }
 
