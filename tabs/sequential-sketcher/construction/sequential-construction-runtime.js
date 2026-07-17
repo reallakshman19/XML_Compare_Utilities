@@ -12,6 +12,7 @@ import { enrichCommittedConnectionEvidence } from './sequential-connection-audit
 import {
   deferSequentialConstructionDecision,
   recordSequentialConstructionTransaction,
+  redoLastSequentialConstructionTransaction,
   resumeSequentialConstructionDecision,
   undoLastSequentialConstructionTransaction,
 } from './sequential-construction-transactions.js';
@@ -75,6 +76,9 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
 export function applyConstructionDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
   if (action === DECISION_ACTIONS.UNDO_LAST_TRANSACTION) {
     return undoLastSequentialConstructionTransaction(session, payload);
+  }
+  if (action === DECISION_ACTIONS.REDO_LAST_TRANSACTION) {
+    return redoLastSequentialConstructionTransaction(session, payload);
   }
   const deferred = session?.currentDecisionRequest?.state === 'DEFERRED';
   if (deferred && action !== DECISION_ACTIONS.RESUME_DECISION) {
