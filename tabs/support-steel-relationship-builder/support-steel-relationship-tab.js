@@ -115,24 +115,25 @@ function wireFileInputs(modal) {
 }
 
 function loadSample(modal, ctx) {
-  modal.querySelector('[data-ssrb-input="support"]').value = supportSteelSampleText('support');
-  modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
-  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 staged support and carrier demo loaded';
-  modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
-  ctx.showToast?.('Support, carrier topology and structural evidence demo loaded.', 'success');
+  modal.querySelector('[data-ssrb-input="model"]').value = supportSteelSampleText();
+  modal.querySelector('[data-ssrb-file-status="model"]').textContent = 'Combined PS-14259 piping, support and structural demo loaded';
+  ctx.showToast?.('Combined staged model demo loaded.', 'success');
 }
 
 function runBuilder(modal, state, ctx) {
   try {
+    const combinedInput = parseSupportSteelJson(
+      modal.querySelector('[data-ssrb-input="model"]').value,
+      'Combined staged model source',
+    );
     state.bundle = buildSupportSteelRelationshipBundle({
-      supportInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="support"]').value, 'Support source'),
-      steelInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="steel"]').value, 'Steel source'),
+      combinedInput,
       config: readRules(modal),
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'chain');
-    ctx.showToast?.('XML-free carrier-to-structure path audit built.', 'success');
+    ctx.showToast?.('XML-free carrier-to-structure path audit built from one combined model.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -241,7 +242,7 @@ function ensureStyle(doc) {
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-carrier-structure-path-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-combined-model-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
 function getHost(modal, key) { return modal.querySelector(`[data-ssrb-${key}]`); }
