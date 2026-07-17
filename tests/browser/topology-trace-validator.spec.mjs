@@ -73,7 +73,7 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   const immutable = await page.evaluate(() => {
     const controller = window.__topologyValidatorHarness.controller;
     controller.assertNoMutation();
-    return controller.evidence().validation.metrics.issueCount;
+    return controller.evidence().trace.validation.metrics.issueCount;
   });
   expect(immutable).toBe(0);
 });
