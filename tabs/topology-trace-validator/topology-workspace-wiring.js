@@ -46,176 +46,155 @@ export function wireTopologyWorkspace(root, controller) {
     try { controller.downloadEnrichedInputXml(); } catch (error) { showWorkspaceError(root, error); }
   });
   listen(root.querySelector('[data-ttv-build-topology]'), 'click', (event) => buildTopology(root, controller, event));
-  listen(root.querySelectoŠ	ÖÙ]K]‹Yš]IÊK	ØÛXÚÉË
-
-HOˆÛÛ›Û\‹™š]šY]Ê
-JNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹XØ[˜\ËYš]IÊK	ØÛXÚÉË
-
-HOˆÛÛ›Û\‹™š]šY]Ê
-JNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹^›ÛÛWIÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆÛÛ›Û\‹›ÛÛUšY]Ê]Û‹™]\Ù]–›ÛÛJJJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹[[ÙWIÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆÂˆÙ]Xİ]™P]ÛœÊ›Ûİ	Ù]K]‹[[ÙIË]ÛŠNÂˆÛÛ›Û\‹œÙ][ÙJ]Û‹™]\Ù]“[ÙJNÂˆJJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\›Ú™Xİ[Û—IÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆ\U˜XÙT›Ú™Xİ[ÛŠ›ÛİÛÛ›Û\‹]Û‹™]\Ù]”›Ú™Xİ[ÛŠJJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹XØ[˜\Ë\›Ú™Xİ[Û—IÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆ\U˜XÙT›Ú™Xİ[ÛŠ›ÛİÛÛ›Û\‹]Û‹™]\Ù]Ø[˜\Ô›Ú™Xİ[ÛŠJJNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹[X™[×IÊK	ØÚ[™ÙIË
-]™[
-HOˆÛÛ›Û\‹œÙ]š[\œÊÈX™[Îˆ]™[\™Ù]˜ÚXÚÙYJJNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹XÛÛ\Û™[\Ş[X›Û×IÊK	ØÚ[™ÙIË
-]™[
-HOˆÛÛ›Û\‹œÙ]š[\œÊÈÚİĞÛÛ\Û™[Ş[X›ÛÎˆ]™[\™Ù]˜ÚXÚÙYJJNÂˆ\İ[Š›Ûİœ]Y\TÙ[Xİâ‚u¶FF×GGbÖ—6öÆFSÒ'7W÷'G2%Òr’Âv6†ævRrÂ†WfVçB’Óâ°¢6öç7B6†V6¶VBÒWfVçBçF&vWBæ6†V6¶VC°¢6öç7B÷fW&Æ—2Ò&ö÷BçVW'•6VÆV7F÷"‚u¶FF×GGbÖ6ö×öæVçB×7–Ö&öÇ5Òr“°¢–b†6†V6¶VBbb÷fW&Æ—2’÷fW&Æ—2æ6†V6¶VBÒG'VS°¢6öçG&öÆÆW"ç6WDf–ÇFW'2‡²—6öÆFU7W÷'G3¢6†V6¶VBÂâââ†6†V6¶VBò²6†÷t6ö×öæVçE7–Ö&öÇ3¢G'VRÒ¢·Ò’Ò“°¢Ò“°¢Æ—7FVâ‡&ö÷BçVW'•6VÆV7Fø m‘…Ñ„µÑÑØµ‰É…¹ µÑÉ••tœ¤°€±¥¬œ°€¡•Ù•¹Ğ¤€ôøì(€€€½¹ÍĞ‰ÕÑÑ½¸€ô•Ù•¹Ğ¹Ñ…É•Ğ¥¹ÍÑ…¹•½˜±•µ•¹Ğ€ü•Ù•¹Ğ¹Ñ…É•Ğ¹±½Í•ÍĞ m‘…Ñ„µÑÑØµ‰É…¹¡tœ¤€è¹Õ±°ì(€€€¥˜€ …‰ÕÑÑ½¸¤É•ÑÕÉ¸ì(€€€Í•ÑÑ¥Ù•	ÕÑÑ½¹Ì¡É½½Ğ°€‘…Ñ„µÑÑØµ‰É…¹ œ°‰ÕÑÑ½¸¤ì(€€€½¹ÍĞ‰É…¹ €ô‰ÕÑÑ½¸¹‘…Ñ…Í•Ğ¹ÑÑÙ	É…¹ °Í¡½İ½µÁ½¹•¹ÑMåµ‰½±Ì€ô	½½±•…¸¡‰É…¹ ¤ì(€€€É½½Ğ¹ÅÕ•ÉåM•±•Ñ½È m‘…Ñ„µÑÑØµ½µÁ½¹•¹ĞµÍåµ‰½±Ítœ¤¹¡•­•€ôÍ¡½İ½µÁ½¹•¹ÑMåµ‰½±Ìì(€€€½¹ÑÉ½±±•È¹Í•Ñ¥±Ñ•ÉÌ¡ì‰É…¹ °Í¡½İ½µÁ½¹•¹ÑMåµ‰½±Ìô¤ì(€€€½¹ÑÉ½±±•È¹Á…É¥Ñä¹Í•Ñ	É…¹ ¡‰É…¹ ¤ì(€ô¤ì(€±¥ÍÑ•¸¡É½½Ğ¹ÅÕ•ÉåM•±•Ñ¾('[data-ttv-type-filters]'), 'change', () => controller.setFilters({
+  listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
+  listen(root.querySelector('[data-ttv-canvas-fit]'), 'click', () => controller.fitView());
+  root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
+  root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => {
+    setActiveButtons(root, 'data-ttv-mode', button);
+    controller.setMode(button.dataset.ttvMode);
+  }));
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvProjection)));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvCanvasProjection)));
+  listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
+  listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
+  listen(root.querySelector('[data-ttv-isolate="supports"]'), 'change', (event) => {
+    const checked = event.target.checked;
+    const overlays = root.querySelector('[data-ttv-component-symbols]');
+    if (checked && overlays) overlays.checked = true;
+    controller.setFilters({ isolateSupports: checked, ...(checked ? { showComponentSymbols: true } : {}) });
+  });
+  listen(root.querySelector('[data-ttv-branch-tree]'), 'click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ttv-branch]') : null;
+    if (!button) return;
+    setActiveButtons(root, 'data-ttv-branch', button);
+    const branch = button.dataset.ttvBranch, showComponentSymbols = Boolean(branch);
+    root.querySelector('[data-ttv-component-symbols]').checked = showComponentSymbols;
+    controller.setFilters({ branch, showComponentSymbols });
+    controller.parity.setBranch(branch);
+  });
+  listen(root.querySelector('[data-ttv-type-filters]'), 'change', () => controller.setFilters({
     types: [...root.querySelectorAll('[data-ttv-type]:checked')].map((input) => input.dataset.ttvType),
   }));
-  listen(root.querySelectoŠ	ÖÙ]K]‹Y\ÜÜÚ][Û—IÊK	ØÚ[™ÙIË
-]™[
-HOˆÛÛ›Û\‹œÙ]š[\œÊÈ\ÜÜÚ][Ûˆ]™[\™Ù]˜[YHJJNÂˆ›Üˆ
-ÛÛœİÙ^HÙˆÉÜÙX\˜Ú˜[YIË	ÜÙX\˜Ú™Y‰Ë	ÜÙX\˜Ú]	×JH\İ[Š›Ûİœ]Y\TÙ[XİÜŠÙ]K]‹IİÒÙX˜XŠÙ^J_WX
-K	Ú[œ]	Ë
-]™[
-HOˆÛÛ›Û\‹œÙ]ÙX\˜Ú
-Ù^K]™[\™Ù]˜[YJJNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹\ÙX\˜Ú\™\İ[×IÊK	ØÛXÚÉË
-]™[
-HOˆÂˆÛÛœİ]ÛˆH]™[\™Ù][œİ[˜Ù[Ùˆ[[Y[È]™[\™Ù]˜ÛÜÙ\İ
-	ÖÙ]K[Øš™XİZÙ^WIÊHˆ[ÂˆYˆ
-]ÛŠHÛÛ›Û\‹™›Øİ\ÔÙX\˜Ú™\İ[
-ÛX[•^
-]Û‹™Ù]]šX]J	Ù]K[Øš™XİZÙ^IÊJJNÂˆJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹]š\ÚXš[]WIÊK™›Ü‘XXÚ
+  listen(root.querySelector('[data-ttv-disposition]'), 'change', (event) => controller.setFilters({ disposition: event.target.value }));
+  for (const key of ['searchName', 'searchRef', 'searchPath']) listen(root.querySelector(`[data-ttv-${toKebab(key)}]`), 'input', (event) => controller.setSearch(key, event.target.value));
+  listen(root.querySelector('[data-ttv-search-results]'), 'click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
+    if (button) controller.focusSearchResult(cleanText(button.getAttribute('data-object-key')));
+  });
+  root.querySelectorAll('[data-ttv-visibility]').forEach((input) => listen(input, 'change', () => controller.setVisibility(input.dataset.ttvVisibility, input.checked)));
+  listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-ttv-bottom-tab]') : null;
+    if (button) controller.setBottomTab(button.dataset.ttvBottomTab);
+    const focus = event.target instanceof Element ? event.target.closest('.ttv-focus-button') : null;
+    const row = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
+    if (focus && row) controller.focusSearchResult(cleanText(row.getAttribute('data-object-key')));
+    else if (row) controller.select(cleanText(row.getAttribute('data-object-key')));
+  });
+  wireParityControls(root, controller, listen);
+  syncTopologyProjectionUi(root, 'XY');
+  return cleanups;
+}
 
-[œ]
-HOˆ\İ[Š[œ]	ØÚ[™ÙIË
+function applyTraceProjection(root, controller, projection) {
+  syncTopologyProjectionUi(root, projection);
+  controller.setProjection(projection);
+}
 
-HOˆÛÛ›Û\‹œÙ]š\ÚXš[]J[œ]™]\Ù]•š\ÚXš[]K[œ]˜ÚXÚÙY
-JJNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹X›İÛWIÊK	ØÛXÚÉË
-]™[
-HOˆÂˆÛÛœİ]ÛˆH]™[\™Ù][œİ[˜Ù[Ùˆ[[Y[È]™[\™Ù]˜ÛÜÙ\İ
-	ÖÙ]K]‹X›İÛK]X—IÊHˆ[ÂˆYˆ
-]ÛŠHÛÛ›Û\‹œÙ]›İÛUXŠ]Û‹™]\Ù]›İÛUXŠNÂˆÛÛœİ›Øİ\ÈH]™[\™Ù][œİ[˜Ù[Ùˆ[[Y[È]™[\™Ù]˜ÛÜÙ\İ
-	Ë‹Y›Øİ\ËX]Û‰ÊHˆ[ÂˆÛÛœİ›İÈH]™[\™Ù][œİ[˜Ù[Ùˆ[[Y[È]™[\™Ù]˜ÛÜÙ\İ
-	ÖÙ]K[Øš™XİZÙ^WIÊHˆ[ÂˆYˆ
-›Øİ\È	‰ˆ›İÊHÛÛ›Û\‹™›Øİ\ÔÙX\˜Ú™\İ[
-ÛX[•^
-›İË™Ù]]šX]J	Ù]K[Øš™XİZÙ^IÊJJNÂˆ[ÙHYˆ
-›İÊHÛÛ›Û\‹œÙ[Xİ
-ÛX[•^
-›İË™Ù]]šX]J	Ù]K[Øš™XİZÙ^IÊJJNÂˆJNÂˆÚ\™T\š]PÛÛ›ÛÊ›ÛİÛÛ›Û\‹\İ[ŠNÂˆŞ[˜ÕÜÛÙŞT›Ú™Xİ[Û•ZJ›Ûİ	ÖIÊNÂˆ™]\›ˆÛX[\ÎÂŸB‚™[˜İ[Ûˆ\U˜XÙT›Ú™Xİ[ÛŠ›ÛİÛÛ›Û\‹›Ú™Xİ[ÛŠHÂˆŞ[˜ÕÜÛÙŞT›Ú™Xİ[Û•ZJ›Ûİ›Ú™Xİ[ÛŠNÂˆÛÛ›Û\‹œÙ]›Ú™Xİ[ÛŠ›Ú™Xİ[ÛŠNÂŸB‚™^Ü[˜İ[ÛˆŞ[˜ÕÜÛÙŞT›Ú™Xİ[Û•ZJ›Ûİ›Ú™Xİ[ÛŠHÂˆÛÛœİ›Ü›X[^™YH›Ú™Xİ[ÛˆOOH	ÌÑ	ÈÈ	ÒTÓÉÈˆ›Ú™Xİ[ÛÂˆÛÛœİÛÛ˜\”›Ú™Xİ[ÛˆH›Ü›X[^™YOOH	ÒTÓÉÈÈ	ÌÑ	Èˆ›Ü›X[^™YÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\›Ú™Xİ[Û—IÊK™›Ü‘XXÚ
+export function syncTopologyProjectionUi(root, projection) {
+  const normalized = projection === '3D' ? 'ISO' : projection;
+  const toolbarProjection = normalized === 'ISO' ? '3D' : normalized;
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvProjection === toolbarProjection));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvCanvasProjection === normalized));
+  const compass = root.querySelector('[data-ttv-axis-compass]');
+  if (!compass) return;
+  compass.dataset.projection = projection;
+  compass.setAttribute('aria-label', `${normalized} axis compass`);
+  const geometry = COMPASS_GEOMETRY[normalized] || COMPASS_GEOMETRY.ISO;
+  for (const axis of ['x', 'y', 'z']) updateCompassAxis(compass, axis, geometry[axis]);
+}
 
-]ÛŠHOˆ]Û‹˜Û\ÜÓ\İÙÙÛJ	Ú\ËXXİ]™IË]Û‹™]\Ù]”›Ú™Xİ[ÛˆOOHÛÛ˜\”›Ú™Xİ[ÛŠJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹XØ[˜\Ë\›Ú™Xİ[Û—IÊK™›Ü‘XXÚ
+function updateCompassAxis(compass, axis, coordinates) {
+  const group = compass.querySelector(`[data-ttv-axis="${axis}"]`);
+  if (!group) return;
+  group.toggleAttribute('hidden', !coordinates);
+  if (!coordinates) return;
+  const [x1, y1, x2, y2] = coordinates;
+  const line = group.querySelector('line'), text = group.querySelector('text');
+  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line?.setAttribute(name, String(value));
+  text?.setAttribute('x', String(x2 + (axis === 'y' && x2 < 50 ? -7 : 4)));
+  text?.setAttribute('y', String(y2 + (y2 < 20 ? -3 : 5)));
+}
 
-]ÛŠHOˆ]Û‹˜Û\ÜÓ\İÙÙÛJ	Ú\ËXXİ]™IË]Û‹™]\Ù]Ø[˜\Ô›Ú™Xİ[ÛˆOOH›Ü›X[^™Y
-JNÂˆÛÛœİÛÛ\\ÜÈH›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹X^\ËXÛÛ\\Ü×IÊNÂˆYˆ
-XÛÛ\\ÜÊH™]\›ÂˆÛÛ\\ÜË™]\Ù]œ›Ú™Xİ[ÛˆH›Ú™Xİ[ÛÂˆÛÛ\\ÜËœÙ]]šX]J	Ø\šXK[X™[	Ë	Û›Ü›X[^™YH^\ÈÛÛ\\ÜØ
-NÂˆÛÛœİÙ[ÛY]HHÓÓTTÔ×ÑÑSÓQU–VÛ›Ü›X[^™YHÓÓTTÔ×ÑÑSÓQU–K’TÓÎÂˆ›Üˆ
-ÛÛœİ^\ÈÙˆÉŞ	Ë	ŞIË	Ş‰×JH\]PÛÛ\\ÜĞ^\ÊÛÛ\\ÜË^\ËÙ[ÛY]VØ^\×JNÂŸB‚™[˜İ[Ûˆ\]PÛÛ\\ÜĞ^\ÊÛÛ\\ÜË^\ËÛÛÜ™[˜]\ÊHÂˆÛÛœİÜ›İ\HÛÛ\\ÜËœ]Y\TÙ[XİÜŠÙ]K]‹X^\ÏH‰Ø^\ßH—X
-NÂˆYˆ
-YÜ›İ\
-H™]\›ÂˆÜ›İ\ÙÙÛP]šX]J	ÚY[‰ËXÛÛÜ™[˜]\ÊNÂˆYˆ
-XÛÛÜ™[˜]\ÊH™]\›ÂˆÛÛœİŞKLK‹L—HHÛÛÜ™[˜]\ÎÂˆÛÛœİ[™HHÜ›İ\œ]Y\TÙ[XİÜŠ	Û[™IÊK^HÜ›İ\œ]Y\TÙ[XİÜŠ	İ^	ÊNÂˆ›Üˆ
-ÛÛœİÛ˜[YK˜[YWHÙˆØš™Xİ™[šY\ÊÈKLK‹LˆJJH[™OËœÙ]]šX]J˜[YKİš[™Ê˜[YJJNÂˆ^ËœÙ]]šX]J	Ş	Ëİš[™Êˆ
-È
-^\ÈOOH	ŞIÈ	‰ˆˆLÈMÈˆ
-JJNÂˆ^ËœÙ]]šX]J	ŞIËİš[™ÊLˆ
-È
-LˆŒÈLÈˆJJJNÂŸB‚™[˜İ[ÛˆÚ\™T\š]PÛÛ›ÛÊ›ÛİÛÛ›Û\‹\İ[ŠHÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\\š]K\›Ú™Xİ[Û—IÊK™›Ü‘XXÚ
+function wireParityControls(root, controller, listen) {
+  root.querySelectorAll('[data-ttv-parity-projection]').forEach((button) => listen(button, 'click', () => {
+    setActiveButtons(root, 'data-ttv-parity-projection', button);
+    controller.parity.setProjection(button.dataset.ttvParityProjection);
+  }));
+  root.querySelectorAll('[data-ttv-parity-zoom]').forEach((button) => listen(button, 'click', () => {
+    if (button.dataset.ttvParityZoom === 'in') controller.parity.zoomIn(); else controller.parity.zoomOut();
+  }));
+  root.querySelectorAll('[data-ttv-parity-fit]').forEach((button) => listen(button, 'click', () => {
+    const action = button.dataset.ttvParityFit;
+    if (action === 'all') controller.parity.fitAll();
+    else if (action === 'branch') controller.parity.fitBranch();
+    else if (action === 'issue') controller.parity.fitIssue();
+  }));
+  listen(root.querySelector('[data-ttv-parity-labels]'), 'change', (event) => controller.parity.setLabels(event.target.checked));
+  root.querySelectorAll('[data-ttv-parity-export]').forEach((button) => listen(button, 'click', () => {
+    try { controller.parity.exportArtifact(button.dataset.ttvParityExport); }
+    catch (error) { showWorkspaceError(root, error); }
+  }));
+}
 
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
+function wireEnrichment(root, controller, listen) {
+  listen(root.querySelector('[data-ttv-enrich]'), 'click', () => {
+    const overlay = root.ownerDocument.createElement('div'); overlay.className = 'ttv-modal'; overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true');
+    const container = root.ownerDocument.createElement('div'); container.className = 'ttv-modal-content'; Object.assign(container.style, { width: '90vw', height: '90vh', background: 'var(--psmap-surface)', display: 'flex', flexDirection: 'column' });
+    const header = root.ownerDocument.createElement('div'); Object.assign(header.style, { padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--psmap-border)' });
+    const title = root.ownerDocument.createElement('h2'); title.textContent = 'Master File Enrichment Workbench'; title.style.margin = '0';
+    const closeBtn = root.ownerDocument.createElement('button'); closeBtn.textContent = 'âœ• Close';
+    const body = root.ownerDocument.createElement('div'); Object.assign(body.style, { flex: '1', overflow: 'hidden', position: 'relative' });
+    header.append(title, closeBtn); container.append(header, body); overlay.appendChild(container); root.ownerDocument.body.appendChild(overlay);
+    const dispose = renderStagedJsonEnrichmentPanel(body, { onApplyToWorkspace: async (json) => {
+      try { dispose?.(); overlay.remove(); await controller.loadArtifact('source', JSON.stringify(json), 'enriched_source.json'); }
+      catch (error) { showWorkspaceError(root, error); }
+    } });
+    closeBtn.addEventListener('click', () => { dispose?.(); overlay.remove(); });
+  });
+}
 
-HOˆÂˆÙ]Xİ]™P]ÛœÊ›Ûİ	Ù]K]‹\\š]K\›Ú™Xİ[Û‰Ë]ÛŠNÂˆÛÛ›Û\‹œ\š]KœÙ]›Ú™Xİ[ÛŠ]Û‹™]\Ù]”\š]T›Ú™Xİ[ÛŠNÂˆJJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\\š]K^›ÛÛWIÊK™›Ü‘XXÚ
+async function buildTopology(root, controller, event) {
+  const button = event.currentTarget;
+  if (!(button instanceof HTMLButtonElement)) return;
+  const originalText = button.textContent;
+  try {
+    button.textContent = 'âš™ï¸ Building...'; button.disabled = true;
+    const evidence = controller.evidence(), source = evidence.trace.artifacts.source;
+    if (!source) throw new Error('A Source JSON must be loaded before building topology.');
+    const rawObj = source.raw, sourceText = JSON.stringify(Array.isArray(rawObj) ? rawObj : (rawObj.hierarchy || rawObj.branches || rawObj.objects || []));
+    const { buildComponentTopologyArtifacts, topologyArtifactOutputs } = await import('../../../3D_Converters/tabs/model-converters/converters/component-topology/topology-artifact-exporter.js');
+    setStatus(root, 'Building topology artifacts and exact parity report...', 'ready');
+    const stem = root.querySelector('[data-ttv-file-status="source"]').textContent.replace(/\.json$/i, '') || 'generated';
+    const built = await buildComponentTopologyArtifacts(sourceText, { sourceName: stem, jobName: 'Trace Validator Build', toleranceMm: 0.1, supportProjectionToleranceMm: 50, enrichmentConfig: {} });
+    const outputs = topologyArtifactOutputs(built, { stem });
+    const outputKind = (name) => name.includes('.canonical-topology.json') ? 'canonical'
+      : name.includes('.topology-trace-ledger.json') ? 'ledger'
+        : name.includes('.topology.input.xml') ? 'inputXml'
+          : name.includes('.topology-svg-scene.json') ? 'scene'
+            : name.includes('.parsed-inputxml-topology.json') ? 'parsed'
+              : name.includes('.topology-parity-report.json') ? 'report' : '';
+    await controller.loadArtifact('source', sourceText, `${stem}.json`);
+    for (const output of outputs) { const kind = outputKind(output.name); if (kind) await controller.loadArtifact(kind, output.text, output.name); }
+    controller.validate();
+  } catch (error) {
+    showWorkspaceError(root, error);
+    root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
+  } finally { button.textContent = originalText; button.disabled = false; }
+}
 
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
+function setActiveButtons(root, attribute, active) { root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active)); }
+function setStatus(root, message, status) { const target = root.querySelector('[data-ttv-status]'); target.textContent = message; target.setAttribute('data-status', status); }
+function showWorkspaceError(root, error) { setStatus(root, error?.message || String(error), 'error'); }
+function toKebab(value) { return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`); }
 
-HOˆÂˆYˆ
-]Û‹™]\Ù]”\š]V›ÛÛHOOH	Ú[‰ÊHÛÛ›Û\‹œ\š]K›ÛÛR[Š
-NÈ[ÙHÛÛ›Û\‹œ\š]K›ÛÛSİ]
-
-NÂˆJJNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\\š]KYš]IÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆÂˆÛÛœİXİ[ÛˆH]Û‹™]\Ù]”\š]Qš]ÂˆYˆ
-Xİ[ÛˆOOH	Ø[	ÊHÛÛ›Û\‹œ\š]K™š][
-
-NÂˆ[ÙHYˆ
-Xİ[ÛˆOOH	Øœ˜[˜Ú	ÊHÛÛ›Û\‹œ\š]K™š]œ˜[˜Ú
-
-NÂˆ[ÙHYˆ
-Xİ[ÛˆOOH	Ú\ÜİYIÊHÛÛ›Û\‹œ\š]K™š]\ÜİYJ
-NÂˆJJNÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹\\š]K[X™[×IÊK	ØÚ[™ÙIË
-]™[
-HOˆÛÛ›Û\‹œ\š]KœÙ]X™[Ê]™[\™Ù]˜ÚXÚÙY
-JNÂˆ›Ûİœ]Y\TÙ[XİÜ[
-	ÖÙ]K]‹\\š]KY^ÜIÊK™›Ü‘XXÚ
-
-]ÛŠHOˆ\İ[Š]Û‹	ØÛXÚÉË
-
-HOˆÂˆHÈÛÛ›Û\‹œ\š]K™^Ü\Y˜Xİ
-]Û‹™]\Ù]”\š]Q^Ü
-NÈBˆØ]Ú
-\œ›ÜŠHÈÚİÕÛÜšÜÜXÙQ\œ›ÜŠ›Ûİ\œ›ÜŠNÈBˆJJNÂŸB‚™[˜İ[ÛˆÚ\™Q[œšXÚY[
-›ÛİÛÛ›Û\‹\İ[ŠHÂˆ\İ[Š›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹Y[œšXÚIÊK	ØÛXÚÉË
-
-HOˆÂˆÛÛœİİ™\›^HH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ù]‰ÊNÈİ™\›^K˜Û\ÜÓ˜[YHH	İ‹[[Ù[	ÎÈİ™\›^KœÙ]]šX]J	Ü›ÛIË	ÙX[ÙÉÊNÈİ™\›^KœÙ]]šX]J	Ø\šXK[[Ù[	Ë	İYIÊNÂˆÛÛœİÛÛZ[™\ˆH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ù]‰ÊNÈÛÛZ[™\‹˜Û\ÜÓ˜[YHH	İ‹[[Ù[XÛÛ[	ÎÈØš™Xİ˜\ÜÚYÛŠÛÛZ[™\‹œİ[KÈÚYˆ	ÎLÉËZYÚˆ	ÎLš	Ë˜XÚÙÜ›İ[™ˆ	İ˜\ŠK\ÛX\\İ\™˜XÙJIË\Ü^Nˆ	Ù›^	Ë›^\™Xİ[Ûˆ	ØÛÛ[[‰ÈJNÂˆÛÛœİXY\ˆH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ù]‰ÊNÈØš™Xİ˜\ÜÚYÛŠXY\‹œİ[KÈY[™Îˆ	ÌL	Ë\Ü^Nˆ	Ù›^	Ë\İYPÛÛ[ˆ	ÜÜXÙKX™]ÙY[‰Ë›Ü™\›İÛNˆ	Ì\ÛÛY˜\ŠK\ÛX\X›Ü™\ŠIÈJNÂˆÛÛœİ]HH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ú‰ÊNÈ]K^ÛÛ[H	ÓX\İ\ˆš[H[œšXÚY[ÛÜšØ™[˜Ú	ÎÈ]Kœİ[K›X\™Ú[ˆH	Ì	ÎÂˆÛÛœİÛÜÙPˆH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ø]Û‰ÊNÈÛÜÙP‹^ÛÛ[H	ø§%HÛÜÙIÎÂˆÛÛœİ›ÙHH›Ûİ›İÛ™\‘Øİ[Y[˜Ü™X]Q[[Y[
-	Ù]‰ÊNÈØš™Xİ˜\ÜÚYÛŠ›ÙKœİ[KÈ›^ˆ	ÌIËİ™\™›İÎˆ	ÚY[‰ËÜÚ][Ûˆ	Ü™[]]™IÈJNÂˆXY\‹˜\[™
-]KÛÜÙPŠNÈÛÛZ[™\‹˜\[™
-XY\‹›ÙJNÈİ™\›^K˜\[™Ú[
-ÛÛZ[™\ŠNÈ›Ûİ›İÛ™\‘Øİ[Y[˜›ÙK˜\[™Ú[
-İ™\›^JNÂˆÛÛœİ\ÜÜÙHH™[™\”İYÙYœÛÛ‘[œšXÚY[[™[
-›ÙKÈÛ\UÕÛÜšÜÜXÙNˆ\Ş[˜È
-œÛÛŠHOˆÂˆHÈ\ÜÜÙOËŠ
-NÈİ™\›^Kœ™[[İ™J
-NÈ]ØZ]ÛÛ›Û\‹›ØY\Y˜Xİ
-	ÜÛİ\˜ÙIË”ÓÓ‹œİš[™ÚYJœÛÛŠK	Ù[œšXÚYÜÛİ\˜ÙKšœÛÛ‰ÊNÈBˆØ]Ú
-\œ›ÜŠHÈÚİÕÛÜšÜÜXÙQ\œ›ÜŠ›Ûİ\œ›ÜŠNÈBˆHJNÂˆÛÜÙP‹˜Y]™[\İ[™\Š	ØÛXÚÉË
-
-HOˆÈ\ÜÜÙOËŠ
-NÈİ™\›^Kœ™[[İ™J
-NÈJNÂˆJNÂŸB‚˜\Ş[˜È[˜İ[ÛˆZ[ÜÛÙŞJ›ÛİÛÛ›Û\‹]™[
-HÂˆÛÛœİ]ÛˆH]™[˜İ\œ™[\™Ù]ÂˆYˆ
-J]Ûˆ[œİ[˜Ù[ÙˆS]Û‘[[Y[
-JH™]\›ÂˆÛÛœİÜšYÚ[˜[^H]Û‹^ÛÛ[ÂˆHÂˆ]Û‹^ÛÛ[H	ø¦¦{î#ÈZ[[™Ë‹‹‰ÎÈ]Û‹™\ØX›YHYNÂˆÛÛœİ]šY[˜ÙHHÛÛ›Û\‹™]šY[˜ÙJ
-KÛİ\˜ÙHH]šY[˜ÙK˜XÙK˜\Y˜XİËœÛİ\˜ÙNÂˆYˆ
-\Ûİ\˜ÙJH›İÈ™]È\œ›ÜŠ	ĞHÛİ\˜ÙH”ÓÓˆ]\İ™HØYY™Y›Ü™HZ[[™ÈÜÛÙŞK‰ÊNÂˆÛÛœİ˜]ÓØšˆHÛİ\˜ÙKœ˜]ËÛİ\˜ÙU^H”ÓÓ‹œİš[™ÚYJ\œ˜^Kš\Ğ\œ˜^J˜]ÓØšŠHÈ˜]ÓØšˆˆ
-˜]ÓØš‹šY\˜\˜ÚH˜]ÓØš‹˜œ˜[˜Ú\È˜]ÓØš‹›Øš™XİÈ×JJNÂˆÛÛœİÈZ[ÛÛ\Û™[ÜÛÙŞP\Y˜XİËÜÛÙŞP\Y˜Xİİ]]ÈHH]ØZ][\Ü
-	Ë‹‹Ë‹‹Ë‹‹ÌÑĞÛÛ™\\œËİXœËÛ[Ù[XÛÛ™\\œËØÛÛ™\\œËØÛÛ\Û™[]ÜÛÙŞKİÜÛÙŞKX\Y˜XİY^Ü\‹šœÉÊNÂˆÙ]İ]\Ê›Ûİ	ĞZ[[™ÈÜÛÙŞH\Y˜XİÈ[™^Xİ\š]H™\Ü‹‹‰Ë	Ü™XYIÊNÂˆÛÛœİİ[HH›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹Yš[K\İ]\ÏHœÛİ\˜ÙH—IÊK^ÛÛ[œ™\XÙJ×šœÛÛ‰ÚK	ÉÊH	ÙÙ[™\˜]Y	ÎÂˆÛÛœİZ[H]ØZ]Z[ÛÛ\Û™[ÜÛÙŞP\Y˜XİÊÛİ\˜ÙU^ÈÛİ\˜ÙS˜[YNˆİ[K›Ø“˜[YNˆ	Õ˜XÙH˜[Y]ÜˆZ[	ËÛ\˜[˜ÙS[NˆŒKİ\Ü›Ú™Xİ[Û•Û\˜[˜ÙS[NˆL[œšXÚY[ÛÛ™šYÎˆßHJNÂˆÛÛœİİ]]ÈHÜÛÙŞP\Y˜Xİİ]]ÊZ[Èİ[HJNÂˆÛÛœİİ]]Ú[™H
-˜[YJHOˆ˜[YKš[˜ÛY\Ê	Ë˜Ø[›ÛšXØ[]ÜÛÙŞKšœÛÛ‰ÊHÈ	ØØ[›ÛšXØ[	Âˆˆ˜[YKš[˜ÛY\Ê	ËÜÛÙŞK]˜XÙK[YÙ\‹šœÛÛ‰ÊHÈ	ÛYÙ\‰Âˆˆ˜[YKš[˜ÛY\Ê	ËÜÛÙŞKš[œ][	ÊHÈ	Ú[œ][	Âˆˆ˜[YKš[˜ÛY\Ê	ËÜÛÙŞK\İ™Ë\ØÙ[™KšœÛÛ‰ÊHÈ	ÜØÙ[™IÂˆˆ˜[YKš[˜ÛY\Ê	Ëœ\œÙYZ[œ][]ÜÛÙŞKšœÛÛ‰ÊHÈ	Ü\œÙY	Âˆˆ˜[YKš[˜ÛY\Ê	ËÜÛÙŞK\\š]K\™\ÜšœÛÛ‰ÊHÈ	Ü™\Ü	Èˆ	ÉÎÂˆ]ØZ]ÛÛ›Û\‹›ØY\Y˜Xİ
-	ÜÛİ\˜ÙIËÛİ\˜ÙU^	Üİ[_KšœÛÛ˜
-NÂˆ›Üˆ
-ÛÛœİİ]]Ùˆİ]]ÊHÈÛÛœİÚ[™Hİ]]Ú[™
-İ]]›˜[YJNÈYˆ
-Ú[™
-H]ØZ]ÛÛ›Û\‹›ØY\Y˜Xİ
-Ú[™İ]]^İ]]›˜[YJNÈBˆÛÛ›Û\‹˜[Y]J
-NÂˆHØ]Ú
-\œ›ÜŠHÂˆÚİÕÛÜšÜÜXÙQ\œ›ÜŠ›Ûİ\œ›ÜŠNÂˆ›Ûİ›İÛ™\‘Øİ[Y[™Y˜][šY]ÏË˜[\
-Z[˜Z[Yˆ	Ù\œ›ÜË›Y\ÜØYÙHİš[™Ê\œ›ÜŠ_X
-NÂˆHš[˜[HÈ]Û‹^ÛÛ[HÜšYÚ[˜[^È]Û‹™\ØX›YH˜[ÙNÈBŸB‚™[˜İ[ÛˆÙ]Xİ]™P]ÛœÊ›Ûİ]šX]KXİ]™JHÈ›Ûİœ]Y\TÙ[XİÜ[
-ÉØ]šX]_WX
-K™›Ü‘XXÚ
-
-]ÛŠHOˆ]Û‹˜Û\ÜÓ\İÙÙÛJ	Ú\ËXXİ]™IË]ÛˆOOHXİ]™JJNÈB™[˜İ[ÛˆÙ]İ]\Ê›ÛİY\ÜØYÙKİ]\ÊHÈÛÛœİ\™Ù]H›Ûİœ]Y\TÙ[XİÜŠ	ÖÙ]K]‹\İ]\×IÊNÈ\™Ù]^ÛÛ[HY\ÜØYÙNÈ\™Ù]œÙ]]šX]J	Ù]K\İ]\ÉËİ]\ÊNÈB™[˜İ[ÛˆÚİÕÛÜšÜÜXÙQ\œ›ÜŠ›Ûİ\œ›ÜŠHÈÙ]İ]\Ê›Ûİ\œ›ÜË›Y\ÜØYÙHİš[™Ê\œ›ÜŠK	Ù\œ›Ü‰ÊNÈB™[˜İ[ÛˆÒÙX˜XŠ˜[YJHÈ™]\›ˆ˜[YKœ™\XÙJÖĞKV—KÙË
-]\ŠHOˆIÛ]\‹ÓİÙ\Ø\ÙJ
-_X
-NÈB‚™^ÜÛÛœİİ\İHØš™Xİ™œ™Y^™JÈÓÓTTÔ×ÑÑSÓQU–K\U˜XÙT›Ú™Xİ[Û‹Ş[˜ÕÜÛÙŞT›Ú™Xİ[Û•ZK\]PÛÛ\\ÜĞ^\ËÚ\™T\š]PÛÛ›ÛËZ[ÜÛÙŞKÙ]Xİ]™P]ÛœËÙ]İ]\ËÚİÕÛÜšÜÜXÙQ\œ›Ü‹ÒÙX˜XˆJNÂ
+export const _test = Object.freeze({ COMPASS_GEOMETRY, applyTraceProjection, syncTopologyProjectionUi, updateCompassAxis, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, toKebab });
