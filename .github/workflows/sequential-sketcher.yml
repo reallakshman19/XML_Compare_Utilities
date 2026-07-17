@@ -91,6 +91,8 @@ jobs:
         run: node tests/sequential-sketcher-carrier-evidence-adapter.test.js
       - name: Review correction architecture gates
         run: node tests/sequential-sketcher-review-gates.test.js
+      - name: Branch switching workspace UX
+        run: node tests/sequential-sketcher-branch-switch-ui.test.js
       - name: Pinned fixture-wide feature matrix
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
       - name: Fixture-wide blocked evidence report
