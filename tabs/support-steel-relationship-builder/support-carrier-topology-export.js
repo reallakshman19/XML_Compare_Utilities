@@ -20,7 +20,7 @@ export function supportCarrierTopologyToCsv(bundle) {
     confidence: row.confidence,
     branchIds: row.branchIds,
     lineFamilies: row.lineFamilies,
-  }));
+  })));
 }
 
 export function supportCarrierTopologyExceptionsToCsv(bundle) {
