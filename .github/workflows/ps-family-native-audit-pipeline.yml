@@ -37,7 +37,19 @@ jobs:
       - name: Fail-closed carrier topology engine
         run: node --test tests/support-carrier-topology.test.js
       - name: Native carrier topology pipeline
-        run: node --test tests/ps-family-native-carrier-topology.test.js
+        shell: bash
+        run: |
+          set +e
+          node --test tests/ps-family-native-carrier-topology.test.js 2>&1 | tee native-carrier-topology-test.log
+          status=${PIPESTATUS[0]}
+          exit "$status"
+      - name: Upload native topology test transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-carrier-topology-test-log
+          path: native-carrier-topology-test.log
+          retention-days: 7
       - name: Native pipeline UI and export contracts
         run: node tests/ps-family-native-audit-pipeline-ui.test.js
       - name: PS family module compliance
