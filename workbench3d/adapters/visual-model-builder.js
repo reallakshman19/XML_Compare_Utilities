@@ -72,13 +72,28 @@ export function buildVisualModel(graph, options = {}) {
         sizeMm: markerSize ?? 60,
       });
     } else {
+      let resolvedKind = object.kind;
+      if (object.kind === 'RIGID') {
+        const rigidPacket = object.packets?.find((p) => p.kind === 'RIGID');
+        if (rigidPacket) {
+          const typeAttr = String(rigidPacket.attrs?.TYPE || rigidPacket.attrs?.type || '').toUpperCase();
+          const nameAttr = String(object.name || '').toUpperCase();
+          if (/VALVE/.test(typeAttr) || /VALVE/.test(nameAttr)) {
+            resolvedKind = 'VALVE';
+          } else if (/FLANGE/.test(typeAttr) || /FLAN/.test(typeAttr) || /FLANGE/.test(nameAttr) || /FLAN/.test(nameAttr)) {
+            resolvedKind = 'FLANGE';
+          }
+        }
+      }
       segments.push({
         objectId: object.objectId,
         start: [...start],
         end: [...end],
         radiusMm: object.diameterMm ? object.diameterMm / 2 : 25,
-        kind: object.kind,
+        kind: resolvedKind,
         pathId: object.pathId,
+        center: object.attrs?.centerPoint || object.attrs?.centrePoint || object.attrs?.center || object.attrs?.centre || null,
+        attrs: object.attrs ? { ...object.attrs } : null,
       });
     }
     for (const packet of object.packets) {

@@ -20,6 +20,8 @@ import { artifactHash, escapeHtml, escapeAttribute, shortText, emptyNavigation, 
 export function createTopologyValidatorController(elements) {
   let artifacts = { source: null, canonical: null, ledger: null, inputXml: null };
   let hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+  // fileNames feed the Edit Draft producer options (source name) via evidence().
+  let fileNames = { source: '', canonical: '', ledger: '', inputXml: '' };
   let viewState = {
     mode: 'spatial', projection: 'XY', branch: '', types: [], disposition: '',
     searchName: '', searchRef: '', searchPath: '', labels: false,
@@ -41,6 +43,7 @@ export function createTopologyValidatorController(elements) {
       if (kind === 'source') {
         artifacts = { source: readManagedTopologySource(JSON.parse(text)), canonical: null, ledger: null, inputXml: null };
         hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+        fileNames = { source: fileName, canonical: '', ledger: '', inputXml: '' };
         resetCompanionView();
       } else if (kind === 'canonical') artifacts = { ...artifacts, canonical: readCanonicalTopology(JSON.parse(text)) };
       else if (kind === 'ledger') artifacts = { ...artifacts, ledger: readTopologyTraceLedger(JSON.parse(text)) };
@@ -51,6 +54,7 @@ export function createTopologyValidatorController(elements) {
         artifacts = { ...artifacts, source: bindProducerSourceIdentity(readManagedTopologySource(originalSource), artifacts.ledger) };
       }
       hashes = { ...hashes, [kind]: artifactHash(kind, artifacts[kind]) };
+      fileNames = { ...fileNames, [kind]: fileName };
       validation = null;
       elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = fileName;
       if (kind === 'source') updateSourceControls();
@@ -132,6 +136,11 @@ export function createTopologyValidatorController(elements) {
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
     selectionObserver(selection, selectedKey);
     return selection;
+  }
+
+  /** Fit the SVG viewport to an object (cross-surface focus from Edit/Parity). */
+  function zoomToObject(objectKey) {
+    if (viewModel && typeof svgNavigation.fitObjectKey === 'function') svgNavigation.fitObjectKey(objectKey, true);
   }
 
   function focusSearchResult(objectKey) {
@@ -245,7 +254,7 @@ export function createTopologyValidatorController(elements) {
     elements.status.setAttribute('data-status', kind);
   }
 
-  function evidence() { return Object.freeze({ artifacts, hashes, validation, viewModel, viewState, activeBottomTab }); }
+  function evidence() { return Object.freeze({ artifacts, hashes, fileNames, validation, viewModel, viewState, activeBottomTab }); }
   function destroy() {
     destroySvgInteractions();
     svgNavigation.destroy();
@@ -254,7 +263,7 @@ export function createTopologyValidatorController(elements) {
 
   updateMetricStrip();
   return Object.freeze({
-    loadArtifact, loadFile, validate, render, select, focusSearchResult, setMode, setProjection,
+    loadArtifact, loadFile, validate, render, select, focusSearchResult, zoomToObject, setMode, setProjection,
     setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation,
     setViewModelAdapter, setRenderObserver, setSelectionObserver,
     evidence, downloadEnrichedInputXml: () => downloadEnrichedInputXml(artifacts), destroy,

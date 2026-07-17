@@ -1,6 +1,5 @@
 import { escapeHtml } from '../sequential-sketcher-contract.js';
 import { createViewportTransform, projectPlantPoint } from '../sequential-sketcher-projection.js';
-import { buildSequentialReversalCandidates } from '../construction/sequential-supervised-decision-actions.js';
 
 function project(value, mode) { return value ? projectPlantPoint(value, mode) : null; }
 function line(parts, a, b, className, attrs = '') {
@@ -16,12 +15,6 @@ function candidatePositions(candidate) {
   return {
     from: candidate.fromPosition || candidate.targetPosition || candidate.boundaryPosition || null,
     to: candidate.toPosition || candidate.connectedPosition || candidate.boundaryPosition || null,
-  };
-}
-function candidatePorts(candidate) {
-  return {
-    fromPortId: candidate.fromPortId || candidate.targetPortId || '',
-    toPortId: candidate.toPortId || candidate.connectedPortId || '',
   };
 }
 function candidateGap(candidate) {
@@ -160,8 +153,6 @@ export function renderConstructionMetrics(host, session, supportProjection = nul
     ['Unresolved supports', supportProjection?.unresolvedSupportFamilies?.length || 0],
     ['Pending branches', session.pendingBranchJunctions.length],
     ['Decisions', session.decisionLedger.length],
-    ['Transactions', session.transactionLedger?.length || 0],
-    ['Deferred', session.deferredDecisionIds?.length || 0],
   ];
   host.innerHTML = metrics.map(([label, value]) => `<div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`).join('');
 }
@@ -170,28 +161,16 @@ export function renderConstructionSequence(host, session) {
   host.innerHTML = session.strokeLedger.map((command, index) => `<button type="button" disabled><span>${String(index + 1).padStart(2, '0')}</span><b>${escapeHtml(command.op)}</b><small>${escapeHtml(command.sourceComponentId || command.connectionId || command.branchId || '')}</small></button>`).join('');
 }
 
-function transactionHistory(session) {
-  const rows = (session.transactionLedger || []).slice(-5).reverse();
-  if (!rows.length) return '<p>No supervised transactions recorded.</p>';
-  return `<ol>${rows.map((row) => `<li><b>${escapeHtml(row.action)}</b><span>${escapeHtml(row.outcome)}</span><small>${escapeHtml(row.transactionId)}</small></li>`).join('')}</ol>`;
-}
-
 export function renderConstructionInspector(host, session, evidenceIndexes, selectedCandidateId = '', supportProjection = null) {
   const activePort = evidenceIndexes?.ports?.get(session.activeExitPortId);
   const request = session.currentDecisionRequest;
   const candidates = request?.candidates || [];
-  const deferred = request?.state === 'DEFERRED';
-  const disabled = deferred ? ' disabled' : '';
   const candidateHtml = candidates.length ? candidates.map((candidate, index) => {
     const gap = candidateGap(candidate);
     const direction = Number(candidate.directionAngleDeg);
-    const ports = candidatePorts(candidate);
     const evidence = [candidate.referenceMatch || candidate.referenceKind ? 'reference' : '', candidate.sourceAdjacent ? 'source sequence' : '', candidate.targetPositionBasis?.startsWith('DERIVED') ? 'derived boundary port' : ''].filter(Boolean).join(', ') || 'constrained candidate';
-    return `<article class="ssk-candidate-card${candidate.candidateId === selectedCandidateId ? ' is-selected' : ''}" data-ssk-candidate-card="${escapeHtml(candidate.candidateId)}"><header><b>Candidate ${index + 1}</b><span>${gap === null ? 'gap unknown' : `${escapeHtml(gap.toFixed(2))} mm`}</span></header><p>${escapeHtml(candidate.targetSourceComponentId || candidate.referenceTarget || 'Reference target')}<br>${escapeHtml(candidate.targetBranchId || '')}</p><dl><dt>From</dt><dd>${escapeHtml(ports.fromPortId || '—')}</dd><dt>To</dt><dd>${escapeHtml(ports.toPortId || '—')}</dd><dt>Port</dt><dd>${escapeHtml(candidate.targetPortRole || '—')}</dd><dt>Direction</dt><dd>${Number.isFinite(direction) ? `${direction.toFixed(1)}°` : 'unknown'}</dd><dt>Bore</dt><dd>${escapeHtml(candidate.boreCompatibility || 'unknown')}</dd><dt>Evidence</dt><dd>${escapeHtml(evidence)}</dd></dl><div><button type="button" data-ssk-select-candidate="${escapeHtml(candidate.candidateId)}">Preview</button><button type="button" data-ssk-connect-candidate="${escapeHtml(candidate.candidateId)}"${disabled}>Connect</button><button type="button" data-ssk-manual-connect="${escapeHtml(candidate.candidateId)}" data-ssk-from-port="${escapeHtml(ports.fromPortId)}" data-ssk-to-port="${escapeHtml(ports.toPortId)}"${disabled}>Manual connect</button><button type="button" data-ssk-reject-candidate="${escapeHtml(candidate.candidateId)}"${disabled}>Reject</button></div></article>`;
+    return `<article class="ssk-candidate-card${candidate.candidateId === selectedCandidateId ? ' is-selected' : ''}" data-ssk-candidate-card="${escapeHtml(candidate.candidateId)}"><header><b>Candidate ${index + 1}</b><span>${gap === null ? 'gap unknown' : `${escapeHtml(gap.toFixed(2))} mm`}</span></header><p>${escapeHtml(candidate.targetSourceComponentId || candidate.referenceTarget || 'Reference target')}<br>${escapeHtml(candidate.targetBranchId || '')}</p><dl><dt>Port</dt><dd>${escapeHtml(candidate.targetPortRole || '—')}</dd><dt>Direction</dt><dd>${Number.isFinite(direction) ? `${direction.toFixed(1)}°` : 'unknown'}</dd><dt>Bore</dt><dd>${escapeHtml(candidate.boreCompatibility || 'unknown')}</dd><dt>Evidence</dt><dd>${escapeHtml(evidence)}</dd></dl><div><button type="button" data-ssk-select-candidate="${escapeHtml(candidate.candidateId)}">Preview</button><button type="button" data-ssk-connect-candidate="${escapeHtml(candidate.candidateId)}">Connect</button><button type="button" data-ssk-reject-candidate="${escapeHtml(candidate.candidateId)}">Reject</button></div></article>`;
   }).join('') : '<p>No eligible continuation candidate.</p>';
-  const reversals = buildSequentialReversalCandidates(session, evidenceIndexes);
-  const reversalHtml = reversals.length ? `<div class="ssk-reversal-list"><h4>Reversible entry</h4>${reversals.map((row) => `<button type="button" data-ssk-reverse-component="${escapeHtml(row.candidateId)}" data-ssk-component-id="${escapeHtml(row.componentId)}" data-ssk-entry-port="${escapeHtml(row.entryPortId)}"${disabled}>${escapeHtml(row.portRole || row.entryPortId)}</button>`).join('')}</div>` : '';
   const supportHtml = supportProjection ? `<section><h3>Accepted support projection</h3><dl><dt>Resolved</dt><dd>${supportProjection.supportGlyphs.length}</dd><dt>Unresolved</dt><dd>${supportProjection.unresolvedSupportFamilies.length}</dd><dt>Diagnostics</dt><dd>${supportProjection.diagnostics.length}</dd></dl></section>` : '';
-  const decisionHtml = request ? `<section class="ssk-decision-panel"><h3>Construction stopped${deferred ? ' · deferred' : ''}</h3><p><b>${escapeHtml(request.reason)}</b></p><label>Decision reason<textarea data-ssk-decision-reason placeholder="Why is this supervised action justified?">${escapeHtml(request.deferral?.reason || '')}</textarea></label><label>Evidence note<textarea data-ssk-decision-evidence placeholder="Reference, field check, drawing note, or engineering basis">${escapeHtml(request.deferral?.evidenceNote || '')}</textarea></label><div class="ssk-candidate-list">${candidateHtml}</div>${reversalHtml}<div class="ssk-decision-actions">${deferred ? '<button type="button" data-ssk-decision-action="RESUME_DECISION">Resume decision</button>' : '<button type="button" data-ssk-decision-action="DEFER_DECISION">Defer decision</button>'}<button type="button" data-ssk-decision-action="MARK_TERMINAL"${disabled}>Mark intentional terminal</button><button type="button" data-ssk-decision-action="MARK_EXTERNAL_BOUNDARY"${disabled}>Mark external boundary</button></div></section>` : '<section><h3>Continuity gate</h3><p>Construction is clear to advance. Only proven components are shown.</p></section>';
-  host.innerHTML = `<section><h3>Construction session</h3><dl><dt>State</dt><dd>${escapeHtml(session.state)}</dd><dt>Branch</dt><dd>${escapeHtml(session.activeBranchId || '—')}</dd><dt>Component</dt><dd>${escapeHtml(evidenceIndexes?.components?.get(session.activeComponentId)?.sourceComponentId || '—')}</dd><dt>Active port</dt><dd>${escapeHtml(activePort?.role || '—')}</dd><dt>Undo depth</dt><dd>${escapeHtml(session.undoStack?.length || 0)}</dd></dl></section>${decisionHtml}<section class="ssk-transaction-history"><h3>Supervised transactions</h3>${transactionHistory(session)}</section>${supportHtml}`;
+  host.innerHTML = `<section><h3>Construction session</h3><dl><dt>State</dt><dd>${escapeHtml(session.state)}</dd><dt>Branch</dt><dd>${escapeHtml(session.activeBranchId || '—')}</dd><dt>Component</dt><dd>${escapeHtml(evidenceIndexes?.components?.get(session.activeComponentId)?.sourceComponentId || '—')}</dd><dt>Active port</dt><dd>${escapeHtml(activePort?.role || '—')}</dd></dl></section>${request ? `<section class="ssk-decision-panel"><h3>Construction stopped</h3><p><b>${escapeHtml(request.reason)}</b></p><div class="ssk-candidate-list">${candidateHtml}</div><div class="ssk-decision-actions"><button type="button" data-ssk-decision-action="MARK_TERMINAL">Mark intentional terminal</button><button type="button" data-ssk-decision-action="MARK_EXTERNAL_BOUNDARY">Mark external boundary</button></div></section>` : '<section><h3>Continuity gate</h3><p>Construction is clear to advance. Only proven components are shown.</p></section>'}${supportHtml}`;
 }

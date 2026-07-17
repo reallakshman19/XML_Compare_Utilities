@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: ['topology-trace-validator.spec.mjs', 'topology-inputxml-native-enrichment.spec.mjs'],
+  testMatch: ['topology-trace-validator.spec.mjs', 'topology-inputxml-native-enrichment.spec.mjs', 'topology-edit-draft.spec.mjs', 'topology-checker-dashboard.spec.mjs'],
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: false,

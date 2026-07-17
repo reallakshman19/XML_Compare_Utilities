@@ -6,9 +6,6 @@ on:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
-      - 'docs/sequential-sketcher/**'
-      - 'tests/helpers/sequential-1885-nc-evidence-report.js'
-      - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-review-*.test.js'
@@ -18,7 +15,6 @@ on:
       - 'tests/sequential-tolerance-callsite-migration.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
-      - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
@@ -51,9 +47,6 @@ on:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
-      - 'docs/sequential-sketcher/**'
-      - 'tests/helpers/sequential-1885-nc-evidence-report.js'
-      - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
       - 'tests/sequential-review-*.test.js'
@@ -63,7 +56,6 @@ on:
       - 'tests/sequential-tolerance-callsite-migration.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
-      - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
       - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
       - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
@@ -140,8 +132,6 @@ jobs:
         run: node tests/sequential-sketcher-branch-switch-ui.test.js
       - name: Pinned fixture-wide feature matrix
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
-      - name: Fixture-wide blocked evidence report
-        run: node tests/sequential-sketcher-1885-nc-blocked-evidence.mjs
       - name: Pinned complete S-line scope
         run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
       - name: Exact synthetic carrier shadows

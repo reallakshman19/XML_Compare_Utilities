@@ -14,14 +14,15 @@ export const TOPOLOGY_BOTTOM_TABS = Object.freeze([
   ['junctions', 'Junctions'],
   ['boundaries', 'Boundaries'],
   ['projection', 'Projection'],
-  ['issues', 'Issues'],
+  ['issues', 'Findings'],
   ['ledger', 'Full Ledger'],
 ]);
 
 /** @param {Record<string, unknown>} viewModel @param {string} activeTab @returns {string} */
 export function buildTopologyBottomPanelMarkup(viewModel, activeTab) {
   const tabs = TOPOLOGY_BOTTOM_TABS.map(([id, label]) => `<button type="button" data-ttv-bottom-tab="${id}" class="${id === activeTab ? 'is-active' : ''}">${label}</button>`).join('');
-  return `<div class="ttv-bottom-tabbar">${tabs}</div><div class="ttv-bottom-content">${bottomContent(viewModel, activeTab)}</div>`;
+  const collapse = '<button type="button" data-ttv-bottom-collapse title="Collapse panel" style="margin-left:auto; font-weight:bold; font-size:16px;">▾</button>';
+  return `<div class="ttv-bottom-tabbar">${tabs}${collapse}</div><div class="ttv-bottom-content">${bottomContent(viewModel, activeTab)}</div>`;
 }
 
 /** @param {Element} host @param {Record<string, unknown>} viewModel @param {string} activeTab @returns {void} */
@@ -59,7 +60,12 @@ export function buildTopologyInspectorMarkup(viewModel, selection) {
 
 /** @param {string} title @param {unknown[][]} rows @returns {string} */
 function inspectorSection(title, rows) {
-  return `<section class="ttv-inspector-section"><h3>${escapeMarkup(title)}</h3>${rows.map(([label, value]) => `<div><dt>${escapeMarkup(label)}</dt><dd>${escapeMarkup(formatValue(value))}</dd></div>`).join('')}</section>`;
+  return `<section class="ttv-inspector-section"><h3>${escapeMarkup(title)}</h3>${rows.map(([label, value]) => {
+    const arr = Array.isArray(value) ? value.filter((v) => v !== null && v !== undefined && v !== '') : null;
+    const isLarge = arr && arr.length > 2;
+    const content = isLarge ? `<details><summary style="cursor:pointer;color:#22d3ee">${arr.length} items</summary><div style="margin-top:4px;opacity:0.8">${escapeMarkup(formatValue(arr))}</div></details>` : escapeMarkup(formatValue(value));
+    return `<div><dt>${escapeMarkup(label)}</dt><dd>${content}</dd></div>`;
+  }).join('')}</section>`;
 }
 
 /** @param {Record<string, unknown>} viewModel @param {string} activeTab @returns {string} */
@@ -145,9 +151,9 @@ function projectionTable(viewModel) {
 function issuesTable(viewModel) {
   const body = asArray(viewModel.issues).map((raw) => {
     const row = objectRecord(raw);
-    return `<tr data-issue-id="${escapeMarkup(row.id)}" data-object-key="issue:${escapeMarkup(row.id)}"><td>${escapeMarkup(row.severity)}</td><td>${escapeMarkup(row.code)}</td><td>${escapeMarkup(row.message)}</td><td>${escapeMarkup(row.sourcePath)}</td></tr>`;
+    return `<tr data-issue-id="${escapeMarkup(row.id)}" data-object-key="issue:${escapeMarkup(row.id)}"><td>${escapeMarkup(row.severity)}</td><td>${escapeMarkup(row.code)}</td><td>${escapeMarkup(row.message)}</td><td>${escapeMarkup(row.sourcePath)}</td><td><button type="button" class="ttv-focus-button">Focus in SVG</button></td></tr>`;
   }).join('');
-  return `<div class="ttv-table-scroll"><table><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Source path</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="ttv-table-scroll"><table><thead><tr><th>Severity</th><th>Code</th><th>Message</th><th>Source path</th><th>Focus in SVG</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 /** @param {Record<string, unknown>} viewModel @param {string} kind @returns {string} */

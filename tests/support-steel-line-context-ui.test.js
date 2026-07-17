@@ -23,7 +23,7 @@ const evidence = renderSupportSteelEvidence(bundle, relationship.relationshipId)
 const csv = supportSteelRelationshipsToCsv(bundle);
 const hierarchy = supportSteelHierarchyToText(bundle);
 
-assert.match(tree, /Normalized line context/);
+assert.match(tree, /Normalized line and carrier context/);
 assert.match(tree, /Primary line/);
 assert.match(tree, /Context quality/);
 assert.match(tree, /OWNER fallback/);
@@ -38,11 +38,11 @@ assert.match(evidence, /Context cardinality/);
 assert.match(evidence, /MULTIPLE_FULL_LINE_TAGS/);
 assert.match(csv, /branchNode,branchIds,fullLineTag,fullLineTags,lineFamily,lineFamilies,pipeOwner/);
 assert.match(csv, /lineContextQuality,ownerFallbackUsed,lineContextConflicts/);
-assert.match(csv, /TYPED_BRANCH_ANCESTOR/);
+assert.match(csv, /MULTIPLE_BRANCH_NODES/);
 assert.match(csv, /MULTIPLE_LINE_FAMILIES/);
 assert.match(hierarchy, /primary branch:/);
 assert.match(hierarchy, /full line tags:/);
 assert.match(hierarchy, /line context: MEDIUM · OWNER fallback NO/);
-assert.match(hierarchy, /context cardinality: MULTIPLE_BRANCH_NODES, MULTIPLE_FULL_LINE_TAGS, MULTIPLE_LINE_FAMILIES/);
+assert.match(hierarchy, /context cardinality: MULTIPLE_FULL_LINE_TAGS, MULTIPLE_LINE_FAMILIES, MULTIPLE_BRANCH_NODES/);
 
 console.log('support-steel-line-context-ui tests passed');

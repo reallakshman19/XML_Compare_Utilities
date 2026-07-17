@@ -1,277 +1,228 @@
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
+const REAL_ROOT = fs.realpathSync(ROOT_DIR);
 const BACKUP_DIR = path.join(ROOT_DIR, '.backups');
 const LOG_FILE = path.join(BACKUP_DIR, 'log.json');
 
-// Ensure backup directory exists
-function ensureDirectories() {
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  }
+function ensureBackupDirectory() {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true });
 }
 
-// Load log
+function isInside(parent, candidate) {
+  const relative = path.relative(parent, candidate);
+  return relative !== '' && !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative);
+}
+
+function resolveSource(filePathArg) {
+  if (!filePathArg) throw new Error('Specify a repository file path.');
+  const absolutePath = path.resolve(process.cwd(), filePathArg);
+  if (!isInside(ROOT_DIR, absolutePath)) throw new Error(`Path is outside repository: ${absolutePath}`);
+  if (!fs.existsSync(absolutePath)) throw new Error(`File not found: ${absolutePath}`);
+  const realPath = fs.realpathSync(absolutePath);
+  if (!isInside(REAL_ROOT, realPath)) throw new Error(`Resolved path escapes repository: ${realPath}`);
+  if (!fs.statSync(realPath).isFile()) throw new Error(`Target is not a regular file: ${absolutePath}`);
+  return { absolutePath: realPath, relativePath: path.relative(REAL_ROOT, realPath) };
+}
+
+function resolveStoredSource(relativePath) {
+  if (!relativePath || path.isAbsolute(relativePath)) throw new Error('Backup entry has an invalid source path.');
+  const absolutePath = path.resolve(ROOT_DIR, relativePath);
+  if (!isInside(ROOT_DIR, absolutePath)) throw new Error(`Backup source escapes repository: ${relativePath}`);
+  const existingPath = findExistingAncestor(absolutePath);
+  const realExistingPath = fs.realpathSync(existingPath);
+  if (realExistingPath !== REAL_ROOT && !isInside(REAL_ROOT, realExistingPath)) {
+    throw new Error(`Backup source resolves outside repository: ${relativePath}`);
+  }
+  return absolutePath;
+}
+
+function findExistingAncestor(candidate) {
+  let current = candidate;
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) throw new Error(`No existing ancestor for path: ${candidate}`);
+    current = parent;
+  }
+  return current;
+}
+
+function resolveBackup(backupFile) {
+  if (!backupFile || path.basename(backupFile) !== backupFile) throw new Error('Backup entry has an invalid backup filename.');
+  const absolutePath = path.resolve(BACKUP_DIR, backupFile);
+  if (!isInside(BACKUP_DIR, absolutePath)) throw new Error(`Backup path escapes .backups: ${backupFile}`);
+  if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) throw new Error(`Backup file not found: ${absolutePath}`);
+  return absolutePath;
+}
+
+function timestampParts(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  const file = [pad(date.getDate()), pad(date.getMonth() + 1), String(date.getFullYear()).slice(-2), pad(date.getHours()), pad(date.getMinutes())].join('_');
+  const display = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return { file, display };
+}
+
+function sha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
 function loadLog() {
-  ensureDirectories();
-  if (fs.existsSync(LOG_FILE)) {
-    try {
-      return JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
-    } catch (e) {
-      console.warn('Failed to parse log file, resetting.', e);
-    }
+  ensureBackupDirectory();
+  if (!fs.existsSync(LOG_FILE)) return { schemaVersion: 2, lastId: 0, entries: [] };
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8'));
+  } catch (error) {
+    throw new Error(`Cannot parse ${LOG_FILE}; repair it before continuing. ${error.message}`);
   }
-  return { lastId: 0, entries: [] };
+  if (!Number.isInteger(parsed.lastId) || !Array.isArray(parsed.entries)) throw new Error(`Invalid backup log structure: ${LOG_FILE}`);
+  return { schemaVersion: 2, ...parsed };
 }
 
-// Save log
-function saveLog(log) {
-  ensureDirectories();
-  fs.writeFileSync(LOG_FILE, JSON.stringify(log, null, 2), 'utf8');
+function writeLog(log) {
+  ensureBackupDirectory();
+  const temporary = `${LOG_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(log, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  fs.renameSync(temporary, LOG_FILE);
 }
 
-// Format date to local ISO-like format
-function formatLocalTime(date) {
-  const tzoffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
-  const localISOTime = (new Date(date - tzoffset)).toISOString().slice(0, -1);
-  return localISOTime.replace('T', ' ').substring(0, 19);
+function normalizePlan(context) {
+  const text = String(context || '').trim();
+  if (!text) throw new Error('Provide a planned action, for example: "Plan to update validation".');
+  return /^Plan to\b/i.test(text) ? `Plan to${text.slice(7)}` : `Plan to ${text}`;
 }
 
-// CLI Commands
+function slugFor(relativePath) {
+  const extension = path.extname(relativePath);
+  const stem = extension ? relativePath.slice(0, -extension.length) : relativePath;
+  return `${stem.replace(/[\\/:*?"<>|\s]+/g, '__')}${extension}`;
+}
+
+function uniqueBackupName(relativePath, stamp) {
+  const base = `${slugFor(relativePath)}_${stamp}`;
+  for (let index = 1; index < 1000; index += 1) {
+    const suffix = index === 1 ? '' : `_${String(index).padStart(2, '0')}`;
+    const name = `${base}${suffix}.bak`;
+    if (!fs.existsSync(path.join(BACKUP_DIR, name))) return name;
+  }
+  throw new Error(`Unable to allocate a unique backup name for ${relativePath}.`);
+}
+
+function escapeMarkdown(value) {
+  return String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+function appendPlanLog(stamp, entry) {
+  const planLog = path.join(BACKUP_DIR, `plan-log_${stamp}.md`);
+  if (!fs.existsSync(planLog)) fs.writeFileSync(planLog, '| ID | Backup | Source | Planned action |\n|---:|---|---|---|\n', 'utf8');
+  const row = `| ${entry.id} | ${escapeMarkdown(entry.backupFile)} | ${escapeMarkdown(entry.file)} | ${escapeMarkdown(entry.context)} |\n`;
+  fs.appendFileSync(planLog, row, 'utf8');
+}
+
+function saveFile(filePathArg, context) {
+  const source = resolveSource(filePathArg);
+  const plan = normalizePlan(context);
+  const log = loadLog();
+  const now = timestampParts(new Date());
+  const backupFile = uniqueBackupName(source.relativePath, now.file);
+  const content = fs.readFileSync(source.absolutePath);
+  fs.writeFileSync(path.join(BACKUP_DIR, backupFile), content, { flag: 'wx' });
+  const entry = { id: log.lastId + 1, timestamp: now.display, file: source.relativePath, context: plan, backupFile, bytes: content.length, sha256: sha256(content) };
+  appendPlanLog(now.file, entry);
+  writeLog({ ...log, schemaVersion: 2, lastId: entry.id, entries: [...log.entries, entry] });
+  console.log(`Saved backup #${entry.id} for ${entry.file}`);
+  console.log(`Plan: ${entry.context}`);
+  console.log(`SHA-256: ${entry.sha256}`);
+  return entry;
+}
+
+function findEntry(idArg) {
+  const id = Number(idArg);
+  if (!Number.isInteger(id) || id < 1) throw new Error('Specify a valid positive backup ID.');
+  const entry = loadLog().entries.find((candidate) => candidate.id === id);
+  if (!entry) throw new Error(`Backup #${id} not found.`);
+  return entry;
+}
+
+function verifyEntry(entry) {
+  const content = fs.readFileSync(resolveBackup(entry.backupFile));
+  const actual = sha256(content);
+  if (entry.sha256 && actual !== entry.sha256) throw new Error(`Checksum mismatch for backup #${entry.id}. Expected ${entry.sha256}, received ${actual}.`);
+  if (Number.isInteger(entry.bytes) && content.length !== entry.bytes) throw new Error(`Size mismatch for backup #${entry.id}.`);
+  console.log(`Verified backup #${entry.id}: ${actual}`);
+  return content;
+}
+
+function listBackups(filterFile) {
+  const entries = loadLog().entries.filter((entry) => !filterFile || entry.file.toLowerCase().includes(filterFile.toLowerCase()));
+  if (!entries.length) {
+    console.log(filterFile ? `No backups match: ${filterFile}` : 'No backups created yet.');
+    return;
+  }
+  entries.forEach((entry) => console.log(`[#${entry.id}] ${entry.timestamp} ${entry.file}\n  ${entry.context}`));
+}
+
+function runDiff(idArg) {
+  const entry = findEntry(idArg);
+  const backupPath = resolveBackup(entry.backupFile);
+  const targetPath = resolveStoredSource(entry.file);
+  if (!fs.existsSync(targetPath)) throw new Error(`Current source file not found: ${entry.file}`);
+  const result = spawnSync('git', ['--no-pager', 'diff', '--no-index', '--text', '--', backupPath, targetPath], { cwd: ROOT_DIR, encoding: 'utf8' });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (![0, 1].includes(result.status)) throw new Error(`git diff failed with exit code ${result.status}.`);
+  if (result.status === 0) console.log(`Backup #${entry.id} is identical to ${entry.file}.`);
+}
+
+function restoreFile(idArg) {
+  const entry = findEntry(idArg);
+  const backupContent = verifyEntry(entry);
+  const targetPath = resolveStoredSource(entry.file);
+  if (fs.existsSync(targetPath)) {
+    const current = fs.readFileSync(targetPath);
+    if (current.equals(backupContent)) {
+      console.log(`${entry.file} is already identical to backup #${entry.id}.`);
+      return;
+    }
+    saveFile(targetPath, `Plan to preserve the current file before restoring backup #${entry.id}`);
+  } else {
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  }
+  fs.writeFileSync(targetPath, backupContent);
+  console.log(`Restored backup #${entry.id} to ${entry.file}.`);
+}
+
 const commands = {
-  save(filePathArg, context) {
-    if (!filePathArg) {
-      console.error('Error: Please specify the file path to back up.');
-      process.exit(1);
-    }
-
-    const absolutePath = path.resolve(process.cwd(), filePathArg);
-    if (!fs.existsSync(absolutePath)) {
-      console.error(`Error: File not found: ${absolutePath}`);
-      process.exit(1);
-    }
-
-    const stat = fs.statSync(absolutePath);
-    if (stat.isDirectory()) {
-      console.error('Error: Target is a directory. Backup only supports single files.');
-      process.exit(1);
-    }
-
-    const relativePath = path.relative(ROOT_DIR, absolutePath);
-    const content = fs.readFileSync(absolutePath, 'utf8');
-
-    const log = loadLog();
-    const id = log.lastId + 1;
-    const timestamp = formatLocalTime(new Date());
-    const fileSlug = relativePath.replace(/[^a-zA-Z0-9]/g, '_');
-    const backupFileName = `${id}_${fileSlug}.bak`;
-    const backupFilePath = path.join(BACKUP_DIR, backupFileName);
-
-    // Save backup file
-    fs.writeFileSync(backupFilePath, content, 'utf8');
-
-    // Add entry
-    const entry = {
-      id,
-      timestamp,
-      file: relativePath,
-      context: context || 'No context provided',
-      backupFile: backupFileName
-    };
-    log.entries.push(entry);
-    log.lastId = id;
-    saveLog(log);
-
-    console.log(`\x1b[32mSuccessfully saved backup #${id} for ${relativePath}\x1b[0m`);
-    console.log(`Context: "${entry.context}"`);
-    console.log(`Time:    ${entry.timestamp}`);
-  },
-
-  list(filterFile) {
-    const log = loadLog();
-    if (!log.entries.length) {
-      console.log('No backups created yet.');
-      return;
-    }
-
-    console.log('\n\x1b[36m=== Backups list ===\x1b[0m');
-    const filtered = filterFile 
-      ? log.entries.filter(e => e.file.toLowerCase().includes(filterFile.toLowerCase()))
-      : log.entries;
-
-    if (!filtered.length) {
-      console.log(`No backups found matching: ${filterFile}`);
-      return;
-    }
-
-    filtered.forEach(entry => {
-      console.log(`[#${entry.id}] \x1b[33m${entry.timestamp}\x1b[0m - \x1b[35m${entry.file}\x1b[0m`);
-      console.log(`     Context: "${entry.context}"`);
-      console.log('--------------------------------------------------');
-    });
-  },
-
-  restore(idArg) {
-    if (!idArg) {
-      console.error('Error: Please specify the backup ID to restore.');
-      process.exit(1);
-    }
-
-    const id = parseInt(idArg, 10);
-    const log = loadLog();
-    const entry = log.entries.find(e => e.id === id);
-
-    if (!entry) {
-      console.error(`Error: Backup with ID #${id} not found.`);
-      process.exit(1);
-    }
-
-    const backupFilePath = path.join(BACKUP_DIR, entry.backupFile);
-    if (!fs.existsSync(backupFilePath)) {
-      console.error(`Error: Backup file file not found on disk: ${backupFilePath}`);
-      process.exit(1);
-    }
-
-    const targetFilePath = path.join(ROOT_DIR, entry.file);
-    const targetDir = path.dirname(targetFilePath);
-
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-
-    // Safety backup of the current file before overwriting (if it exists)
-    if (fs.existsSync(targetFilePath)) {
-      const currentContent = fs.readFileSync(targetFilePath, 'utf8');
-      const backupContent = fs.readFileSync(backupFilePath, 'utf8');
-      if (currentContent === backupContent) {
-        console.log(`\x1b[33mFile ${entry.file} is already identical to backup #${id}. No action needed.\x1b[0m`);
-        return;
-      }
-      
-      const safetyId = log.lastId + 1;
-      const safetyFileName = `${safetyId}_safety_${entry.backupFile}`;
-      const safetyFilePath = path.join(BACKUP_DIR, safetyFileName);
-      fs.writeFileSync(safetyFilePath, currentContent, 'utf8');
-      
-      log.entries.push({
-        id: safetyId,
-        timestamp: formatLocalTime(new Date()),
-        file: entry.file,
-        context: `Auto-safety backup before restoring #${id}`,
-        backupFile: safetyFileName
-      });
-      log.lastId = safetyId;
-      saveLog(log);
-      console.log(`\x1b[33mSaved auto-safety backup #${safetyId} of current file.\x1b[0m`);
-    }
-
-    const content = fs.readFileSync(backupFilePath, 'utf8');
-    fs.writeFileSync(targetFilePath, content, 'utf8');
-
-    console.log(`\x1b[32mSuccessfully restored backup #${id} to ${entry.file}\x1b[0m`);
-  },
-
-  diff(idArg) {
-    if (!idArg) {
-      console.error('Error: Please specify the backup ID to diff.');
-      process.exit(1);
-    }
-
-    const id = parseInt(idArg, 10);
-    const log = loadLog();
-    const entry = log.entries.find(e => e.id === id);
-
-    if (!entry) {
-      console.error(`Error: Backup with ID #${id} not found.`);
-      process.exit(1);
-    }
-
-    const backupFilePath = path.join(BACKUP_DIR, entry.backupFile);
-    if (!fs.existsSync(backupFilePath)) {
-      console.error(`Error: Backup file file not found on disk: ${backupFilePath}`);
-      process.exit(1);
-    }
-
-    const targetFilePath = path.join(ROOT_DIR, entry.file);
-    if (!fs.existsSync(targetFilePath)) {
-      console.log(`File ${entry.file} does not exist currently. Showing entire backup as additions:`);
-      const backupText = fs.readFileSync(backupFilePath, 'utf8');
-      console.log(backupText.split('\n').map(l => `\x1b[32m+ ${l}\x1b[0m`).join('\n'));
-      return;
-    }
-
-    const oldText = fs.readFileSync(backupFilePath, 'utf8');
-    const newText = fs.readFileSync(targetFilePath, 'utf8');
-
-    const oldLines = oldText.split(/\r?\n/);
-    const newLines = newText.split(/\r?\n/);
-
-    const diffs = getDiff(oldLines, newLines);
-
-    console.log(`\n\x1b[36m=== Diff: Backup #${id} (old) vs. Current file (new) ===\x1b[0m`);
-    console.log(`File: ${entry.file}`);
-    console.log('--------------------------------------------------');
-
-    diffs.forEach(change => {
-      if (change.type === 'added') {
-        console.log(`\x1b[32m+ ${change.text}\x1b[0m`);
-      } else if (change.type === 'removed') {
-        console.log(`\x1b[31m- ${change.text}\x1b[0m`);
-      } else {
-        // Show context only, optional: skip rendering unchanged lines if too long
-        console.log(`  ${change.text}`);
-      }
-    });
-    console.log('--------------------------------------------------');
-  }
+  save: (filePathArg, context) => saveFile(filePathArg, context),
+  list: (filterFile) => listBackups(filterFile),
+  verify: (idArg) => verifyEntry(findEntry(idArg)),
+  diff: (idArg) => runDiff(idArg),
+  restore: (idArg) => restoreFile(idArg)
 };
 
-// Longest Common Subsequence Diff algorithm
-function getDiff(oldLines, newLines) {
-  const dp = Array(oldLines.length + 1).fill(null).map(() => Array(newLines.length + 1).fill(0));
-  for (let i = 1; i <= oldLines.length; i++) {
-    for (let j = 1; j <= newLines.length; j++) {
-      if (oldLines[i - 1] === newLines[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-  }
-
-  const diff = [];
-  let i = oldLines.length;
-  let j = newLines.length;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-      diff.unshift({ type: 'common', text: oldLines[i - 1] });
-      i--;
-      j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      diff.unshift({ type: 'added', text: newLines[j - 1] });
-      j--;
-    } else {
-      diff.unshift({ type: 'removed', text: oldLines[i - 1] });
-      i--;
-    }
-  }
-  return diff;
-}
-
-// Run CLI
-const [,, cmd, ...args] = process.argv;
-
-if (!cmd || !commands[cmd]) {
-  console.log(`
-\x1b[36mBackup Manager Utility\x1b[0m
+function printUsage() {
+  console.log(`Backup Manager Utility
 Usage:
-  node utils/backup.cjs save <file-path> "<context/reason>"
+  node utils/backup.cjs save <file-path> "Plan to ..."
   node utils/backup.cjs list [file-filter]
+  node utils/backup.cjs verify <backup-id>
   node utils/backup.cjs diff <backup-id>
-  node utils/backup.cjs restore <backup-id>
-`);
-  process.exit(0);
+  node utils/backup.cjs restore <backup-id>`);
 }
 
-commands[cmd](...args);
+function main() {
+  const [, , command, ...args] = process.argv;
+  if (!command) return printUsage();
+  if (!commands[command]) throw new Error(`Unknown command: ${command}`);
+  return commands[command](...args);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(`Backup error: ${error.message}`);
+  process.exitCode = 1;
+}

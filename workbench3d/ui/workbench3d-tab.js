@@ -17,7 +17,8 @@ import { runCompare } from '../compare/compare-engine.js';
 import { DEFAULT_COMPARE_CONFIG } from '../compare/evidence-scorer.js';
 import { buildTransferPlan, batchApprove, refreshTransferSummary, DEFAULT_TRANSFER_CONFIG } from '../compare/transfer-planner.js';
 import { applyTransferPlan } from '../apply/transfer-apply.js';
-import { buildExportBundle, downloadFile, rowsToCsv, DIFF_CSV_COLUMNS, CONFLICT_CSV_COLUMNS, TRANSFER_CSV_COLUMNS, PATH_CSV_COLUMNS } from '../apply/exporters.js';
+import { downloadFile, rowsToCsv, DIFF_CSV_COLUMNS, CONFLICT_CSV_COLUMNS, TRANSFER_CSV_COLUMNS, PATH_CSV_COLUMNS } from '../apply/exporters.js';
+import { compareWorkbenchProjectArtifacts } from '../project/compare-workbench-project-adapter.js';
 import { createWorkbenchViewer, STATUS_STYLES } from '../viewer/workbench-viewer.js';
 import { buildConnectorModel } from '../viewer/connector-model.js';
 import {
@@ -191,9 +192,16 @@ function transferReadiness(state) {
 // ── section renderers ─────────────────────────────────────────────────────
 
 function importSection(state) {
-  const schemaBadge = (label, xml) => {
+  // Schema detection is a full parse; cache per side so re-renders don't
+  // re-parse multi-MB documents just to draw the badge.
+  const detectedSchema = (side, xml) => {
+    const cache = state._schemaCache ?? (state._schemaCache = {});
+    if (!cache[side] || cache[side].xml !== xml) cache[side] = { xml, kind: parseInputXmlRecords(xml).schema };
+    return cache[side].kind;
+  };
+  const schemaBadge = (label, side, xml) => {
     if (!xml) return `<span class="wb3d-badge">${label}: none</span>`;
-    const kind = parseInputXmlRecords(xml).schema;
+    const kind = detectedSchema(side, xml);
     const cls = kind === XML_SCHEMA_KINDS.UNKNOWN ? 'is-bad' : 'is-ok';
     return `<span class="wb3d-badge ${cls}">${label}: ${kind}</span>`;
   };
@@ -203,12 +211,12 @@ function importSection(state) {
     <div class="wb3d-import-grid">
       <div>
         <label class="wb3d-file">Source XML/InputXML <input type="file" data-action="load-file" data-side="source" accept=".xml,.txt,text/xml,application/xml,text/plain"></label>
-        ${schemaBadge('Detected', state.sourceXml)} ${state.sourceName ? `<span class="wb3d-muted">${esc(state.sourceName)}</span>` : ''}
+        ${schemaBadge('Detected', 'source', state.sourceXml)} ${state.sourceName ? `<span class="wb3d-muted">${esc(state.sourceName)}</span>` : ''}
         <textarea data-field="sourceXml" spellcheck="false" placeholder="…or paste source XML here">${esc(state.sourceXml.length > 400000 ? '' : state.sourceXml)}</textarea>
       </div>
       <div>
         <label class="wb3d-file">Target XML/InputXML <input type="file" data-action="load-file" data-side="target" accept=".xml,.txt,text/xml,application/xml,text/plain"></label>
-        ${schemaBadge('Detected', state.targetXml)} ${state.targetName ? `<span class="wb3d-muted">${esc(state.targetName)}</span>` : ''}
+        ${schemaBadge('Detected', 'target', state.targetXml)} ${state.targetName ? `<span class="wb3d-muted">${esc(state.targetName)}</span>` : ''}
         <textarea data-field="targetXml" spellcheck="false" placeholder="…or paste target XML here">${esc(state.targetXml.length > 400000 ? '' : state.targetXml)}</textarea>
       </div>
     </div>
@@ -801,14 +809,14 @@ function applySettings(container, state) {
 }
 
 function exportBundleFile(state, filename) {
-  const files = buildExportBundle({
+  const files = compareWorkbenchProjectArtifacts({
     compareAudit: state.audit,
     transferPlan: state.plan,
     rollbackLedger: state.applyResult?.rollbackLedger,
     outputXml: state.applyResult?.outputXml,
   });
-  const file = files.find((f) => f.filename === filename);
-  if (file) downloadFile(file.filename, file.content, file.type);
+  const file = files.find((candidate) => candidate.name === filename);
+  if (file) downloadFile(file.name, file.text, file.mime);
 }
 
 function renderView(container, state) {

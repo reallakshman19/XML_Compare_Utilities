@@ -39,7 +39,14 @@ for (const moduleName of [
   'topology-parity-artifact-reader.js', 'topology-parity-state.js', 'topology-scene-view-model.js',
   'topology-parity-svg-renderer.js', 'topology-parity-controller.js', 'topology-parity-panel.js',
   'topology-workspace-controller.js', 'topology-workspace-wiring.js',
+  'topology-edit-controller.js', 'topology-edit-3d-canvas.js', 'topology-edit-3d-gestures.js',
+  'topology-edit-measurement.js',
+  'topology-export-snapshot.js', 'topology-export-inspector-model.js', 'topology-export-plan-service.js',
+  'topology-staged-input-adapter.js', 'topology-branch-scope-popup.js',
+  'topology-3d-visual-model.js', 'topology-producer-loader.js',
 ]) assert(files.includes(moduleName), `${moduleName} is required`);
+assert.match(markup, /Data, Export, Logs & Findings/);
+assert.match(markup, /data-ttv-edit-export-plan/);
 
 const controller = read('topology-validator-controller.js');
 assert.doesNotMatch(controller, /render3dViewer|select3dObject|dispose3dViewer|topology-3d-viewer-bridge/,
@@ -80,6 +87,13 @@ for (const attribute of [
 
 const utilityTab = readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
 assert.match(utilityTab, /installTopologyTraceValidatorTile/);
+const staleImportBridge = readFileSync(new URL('../tabs/model-converters-tab.js', import.meta.url), 'utf8');
+assert.match(staleImportBridge, /export function renderModelConvertersTab/);
+assert.match(staleImportBridge, /xml-compare-utilities-20260716/);
+assert.match(staleImportBridge, /searchParams\.set\('appBuild'/);
+const producerLoader = read('topology-producer-loader.js');
+assert.match(producerLoader, /vendor\/3d-converters\/topology-browser-core\.mjs/);
+assert.doesNotMatch(producerLoader, /\.\.\/\.\.\/\.\.\/3D_Converters/);
 await import('./topology-trace-native-svg-3d.test.js');
 await import('./topology-svg-editor-foundation.test.js');
 console.log('topology trace validator static architecture tests passed');

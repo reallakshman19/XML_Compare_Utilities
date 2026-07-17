@@ -1,12 +1,11 @@
 import { stableToken } from '../sequential-sketcher-contract.js';
-import { resolveSequentialConstructionTolerances } from '../policy/sequential-construction-tolerance-policy.js';
 
 function distance(a, b) {
   if (!a || !b) return Number.POSITIVE_INFINITY;
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
-function samePoint(a, b, toleranceMm) {
-  return Boolean(a && b && distance(a, b) <= toleranceMm);
+function samePoint(a, b) {
+  return Boolean(a && b && a.x === b.x && a.y === b.y && a.z === b.z);
 }
 function clonePoint(point) { return point ? { x: point.x, y: point.y, z: point.z } : null; }
 function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -180,95 +179,80 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
   )));
 }
 
-function resolution(payload, tolerances) {
-  return Object.freeze({
-    ...payload,
-    toleranceEvidenceType: 'FITTING_PORT_EQUIVALENCE',
-    exactToleranceMm: tolerances.fittingPortMm,
-    transformNoiseMm: tolerances.transformNoiseMm,
-    autoRepairToleranceMm: tolerances.automaticRepairMm,
-    tolerancePolicySchema: tolerances.policySchema,
-    tolerancePolicyId: tolerances.policyId,
-    tolerancePolicyRevision: tolerances.policyRevision,
-    tolerancePolicyFingerprint: tolerances.policyFingerprint,
-  });
-}
-
-function resolveSourceAdjacentZeroLengthEntry(eligible, indexes, tolerances) {
-  const exactAdjacent = eligible.filter((candidate) => candidate.sourceAdjacent && candidate.gapMm <= tolerances.fittingPortMm);
+function resolveSourceAdjacentZeroLengthEntry(eligible, indexes, exactToleranceMm) {
+  const exactAdjacent = eligible.filter((candidate) => candidate.sourceAdjacent && candidate.gapMm <= exactToleranceMm);
   const componentIds = [...new Set(exactAdjacent.map((candidate) => candidate.targetComponentId))];
   if (componentIds.length !== 1) return null;
   const component = indexes.components.get(componentIds[0]);
   if (!component || component.ports.length !== 2) return null;
   const [firstPort, secondPort] = component.ports;
-  if (!samePoint(firstPort.sourcePosition, secondPort.sourcePosition, tolerances.transformNoiseMm)) return null;
+  if (!samePoint(firstPort.sourcePosition, secondPort.sourcePosition)) return null;
   const componentCandidates = exactAdjacent.filter((candidate) => candidate.targetComponentId === component.componentId);
   if (componentCandidates.length !== 2) {
-    return resolution({
+    return Object.freeze({
       status: 'USER_DECISION_REQUIRED',
       reason: 'ZERO_LENGTH_INLINE_PORT_EVIDENCE_INCOMPLETE',
-    }, tolerances);
+    });
   }
   const selected = componentCandidates.find((candidate) => candidate.toPortId === firstPort.portId);
   if (!selected) {
-    return resolution({
+    return Object.freeze({
       status: 'USER_DECISION_REQUIRED',
       reason: 'ZERO_LENGTH_INLINE_ENTRY_ROLE_UNRESOLVED',
-    }, tolerances);
+    });
   }
-  return resolution({
+  return Object.freeze({
     status: selected.referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT',
     selected,
     resolutionBasis: 'SOURCE_ADJACENT_ZERO_LENGTH_ENTRY_ROLE',
-  }, tolerances);
+  });
 }
 
 export function resolveNextConnection(session, evidenceModel, indexes, options = {}) {
-  const tolerances = resolveSequentialConstructionTolerances(options);
-  const exactToleranceMm = tolerances.fittingPortMm;
-  const autoRepairToleranceMm = tolerances.automaticRepairMm;
+  const exactToleranceMm = Number(options.exactToleranceMm ?? 1);
+  const autoRepairToleranceMm = Number(options.autoRepairToleranceMm ?? 25);
   const candidates = buildConnectionCandidates(session, evidenceModel, indexes, options);
   const eligible = candidates.filter((candidate) => candidate.eligible);
 
   const sourceAdjacentAttachmentEvents = eligible.filter((candidate) => candidate.sourceAdjacent && candidate.attachmentEvent);
   if (sourceAdjacentAttachmentEvents.length > 1) {
-    return resolution({
+    return Object.freeze({
       status: 'USER_DECISION_REQUIRED',
       reason: 'MULTIPLE_SOURCE_ADJACENT_ATTACHMENT_EVENTS',
       candidates,
-    }, tolerances);
+    });
   }
   if (sourceAdjacentAttachmentEvents.length === 1) {
     const event = sourceAdjacentAttachmentEvents[0];
     if (event.gapMm <= exactToleranceMm) {
-      return resolution({
+      return Object.freeze({
         status: 'CONFIRMED_EXACT',
         selected: event,
         candidates,
         resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
-      }, tolerances);
+      });
     }
     if (event.gapMm <= autoRepairToleranceMm && event.directionCompatible) {
-      return resolution({
+      return Object.freeze({
         status: 'AUTO_REPAIRED_SMALL_GAP',
         selected: event,
         candidates,
         resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
-      }, tolerances);
+      });
     }
-    return resolution({
+    return Object.freeze({
       status: 'USER_DECISION_REQUIRED',
       reason: 'ATTACHMENT_EVENT_GAP_EXCEEDS_LIMIT',
       candidates,
-    }, tolerances);
+    });
   }
 
-  const zeroLength = resolveSourceAdjacentZeroLengthEntry(eligible, indexes, tolerances);
-  if (zeroLength) return resolution({ ...zeroLength, candidates }, tolerances);
+  const zeroLength = resolveSourceAdjacentZeroLengthEntry(eligible, indexes, exactToleranceMm);
+  if (zeroLength) return Object.freeze({ ...zeroLength, candidates });
 
   const exact = eligible.filter((candidate) => candidate.gapMm <= exactToleranceMm);
-  if (exact.length === 1) return resolution({ status: exact[0].referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT', selected: exact[0], candidates }, tolerances);
-  if (exact.length > 1) return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_EXACT_CANDIDATES', candidates }, tolerances);
+  if (exact.length === 1) return Object.freeze({ status: exact[0].referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT', selected: exact[0], candidates });
+  if (exact.length > 1) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_EXACT_CANDIDATES', candidates });
 
   const repairable = eligible.filter((candidate) => (
     candidate.gapMm > exactToleranceMm
@@ -277,12 +261,12 @@ export function resolveNextConnection(session, evidenceModel, indexes, options =
     && (candidate.sourceAdjacent || candidate.referenceMatch)
   ));
   if (repairable.length === 1 && eligible.filter((candidate) => candidate.gapMm <= autoRepairToleranceMm).length === 1) {
-    return resolution({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: repairable[0], candidates }, tolerances);
+    return Object.freeze({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: repairable[0], candidates });
   }
-  if (eligible.length) return resolution({
+  if (eligible.length) return Object.freeze({
     status: 'USER_DECISION_REQUIRED',
     reason: repairable.length > 1 ? 'MULTIPLE_REPAIR_CANDIDATES' : 'CONTINUITY_NOT_PROVEN',
     candidates,
-  }, tolerances);
-  return resolution({ status: 'NO_CANDIDATE', reason: 'NO_ELIGIBLE_NEXT_PORT', candidates }, tolerances);
+  });
+  return Object.freeze({ status: 'NO_CANDIDATE', reason: 'NO_ELIGIBLE_NEXT_PORT', candidates });
 }

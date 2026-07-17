@@ -6,7 +6,6 @@ import { mountPipelineCadAuthoring } from './pipeline-3d-model-cad-authoring.js'
 import { mountPipelineCadEngineeringReview } from './pipeline-3d-model-cad-engineering-review.js';
 import { mountPipelineCadDiagnosticsLifecycle } from './pipeline-3d-model-cad-diagnostics-lifecycle.js';
 import { mountPipelineCadObjectSnap } from './pipeline-3d-model-cad-object-snap-runtime.js';
-import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { createPipelineCadViewportHost } from './pipeline-3d-model-cad-viewport-host.js';
 import { mountPipelineCadViewportShell } from './pipeline-3d-model-cad-viewport-shell.js';
 import { mountPipelineCadPreviewModes } from './pipeline-3d-model-cad-preview-modes.js';
@@ -59,7 +58,6 @@ function createHosts(graphs) {
 
 function destroyParts(parts) {
   parts.bindings?.destroy?.();
-  parts.precision?.destroy?.();
   parts.previewModes?.destroy?.();
   parts.engineeringReview?.destroy?.();
   parts.objectSnap?.destroy?.();
@@ -117,6 +115,16 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     storage: options.storage,
     view: previewView,
   }) : null;
+  const onMode = (event) => {
+    const mode = event.detail?.mode || 'table2x';
+    shell?.setMode(mode);
+    objectSnap?.setMode(mode);
+  };
+  previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
+  if (shell && previewModes) {
+    shell.setMode(previewModes.mode);
+    objectSnap?.setMode(previewModes.mode);
+  }
   const bindings = bindPipelineCadWorkspace({
     dialog,
     controller,
@@ -125,25 +133,6 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     holders: view.holders,
     resize,
   });
-  const precision = mountPipelineCadPrecisionEditing({
-    dialog,
-    controller,
-    graphs,
-    stages: view.stages,
-    mode: previewModes?.mode || modal?.dataset?.p3dCadPreviewMode || 'table2x',
-  });
-  const onMode = (event) => {
-    const mode = event.detail?.mode || 'table2x';
-    shell?.setMode(mode);
-    objectSnap?.setMode(mode);
-    precision?.setMode(mode);
-  };
-  previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
-  if (shell && previewModes) {
-    shell.setMode(previewModes.mode);
-    objectSnap?.setMode(previewModes.mode);
-    precision?.setMode(previewModes.mode);
-  }
   const diagnostics = mountPipelineCadDiagnosticsLifecycle({
     dialog,
     controller,
@@ -154,7 +143,7 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
   });
   const parts = {
     view, graphs, controller, canvasManager, authoring, engineeringReview,
-    previewView, hosts, shell, objectSnap, precision, previewModes, bindings, diagnostics,
+    previewView, hosts, shell, objectSnap, previewModes, bindings, diagnostics,
   };
   const mountId = ++mountSequence;
   dialog.dataset.p3dCadWorkspaceMountId = String(mountId);
@@ -167,7 +156,6 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     hosts,
     shell,
     objectSnap,
-    precision,
     previewModes,
     diagnostics,
     resize,

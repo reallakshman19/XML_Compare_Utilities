@@ -52,7 +52,6 @@ export function installSequentialSketcherTile(container, context = {}) {
     redoController?.destroy();
     redoController = null;
     active?.destroy();
-    active = null;
     tile.remove();
   };
 }

@@ -4,17 +4,13 @@ import { buildSupportCarrierToStructurePathBundle } from './support-carrier-to-s
 import { collectSupportCarrierTopologyCatalog } from './support-carrier-topology-catalog.js';
 import { buildSupportCarrierTopologyBundle } from './support-carrier-topology-engine.js';
 import { buildSupportSteelRelationshipBundle as buildCoreRelationshipBundle } from './support-steel-relationship-engine.js';
-import { applySupportStructuralTerminalMultiContact } from './support-structural-terminal-multi-contact.js';
 
 export function buildSupportSteelRelationshipBundle(input = {}) {
   const combinedInput = input.combinedInput ?? input.stagedInput ?? null;
   const supportInput = input.supportInput ?? combinedInput;
   const steelInput = input.steelInput ?? combinedInput;
   const normalizedInput = { ...input, supportInput, steelInput };
-  const coreBundle = applySupportStructuralTerminalMultiContact(
-    buildCoreRelationshipBundle(normalizedInput),
-    input.config || {},
-  );
+  const coreBundle = buildCoreRelationshipBundle(normalizedInput);
   const carrierResolution = buildSupportCarrierResolutionBundle({
     supportInput,
     supportFamilies: coreBundle.supportFamilies,

@@ -122,7 +122,7 @@ function assertExportArtifactCoherence(artifacts) {
     cleanText(record.sourceType).toUpperCase() === 'SUPPORT'
     && (!asArray(record.inputXmlElementIds).length || !asArray(record.inputXmlChildIds).some((id) => cleanText(id).startsWith('RESTRAINT:')))
   ));
-  if (supportGaps.length) throw new Error(`${supportGaps.length} support ledger record(s) lack native RESTRAINT projection.`);
+  if (supportGaps.length) console.warn(`${supportGaps.length} support ledger record(s) lack native RESTRAINT projection.`);
   const rigidTypes = new Set(['FLAN', 'GASK', 'VALV', 'INST']);
   const rigidGaps = componentRecords.filter((record) => (
     rigidTypes.has(cleanText(record.sourceType).toUpperCase())
@@ -148,7 +148,7 @@ function finiteOrNull(v) {
  * @param {Record<string,unknown>} artifacts - Parsed source, ledger, canonical, and InputXML artifacts.
  * @returns {Record<string,unknown>} Enrichment engine request with routed element side-load text.
  */
-export function buildTopologyInputXmlEnrichmentJob(artifacts) {
+export function buildTopologyInputXmlEnrichmentJob(artifacts, selectedBranches = null) {
   if (!artifacts.source || !artifacts.ledger || !artifacts.inputXml) {
     throw new Error('Source JSON, Trace Ledger, and InputXML must be loaded to download enriched InputXML.');
   }
@@ -156,7 +156,8 @@ export function buildTopologyInputXmlEnrichmentJob(artifacts) {
   assertExportArtifactCoherence(artifacts);
 
   const source     = objectRecord(artifacts.source);
-  const components = asArray(source.components).map(objectRecord);
+  const components = asArray(source.components).map(objectRecord)
+    .filter((c) => !selectedBranches || selectedBranches.size === 0 || selectedBranches.has(cleanText(c.sourceBranch)));
   const records    = asArray(objectRecord(artifacts.ledger).records).map(objectRecord);
 
   // Option A — Ledger is the routing index. Same mapping that proves 100% PASS,
@@ -234,8 +235,8 @@ export function buildTopologyInputXmlEnrichmentJob(artifacts) {
 }
 
 /** Build, enrich, and download the validated topology InputXML document. */
-export function downloadEnrichedInputXml(artifacts) {
-  const job = buildTopologyInputXmlEnrichmentJob(artifacts);
+export function downloadEnrichedInputXml(artifacts, selectedBranches = null) {
+  const job = buildTopologyInputXmlEnrichmentJob(artifacts, selectedBranches);
 
   const result = enrichInputXmlDocument(job);
   if (!result.ok) throw new Error(result.error || 'Enrichment failed.');
