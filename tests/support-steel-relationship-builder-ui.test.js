@@ -76,7 +76,7 @@ assert.match(relationshipTab, /supportCarrierAttachmentToCsv/);
 assert.match(relationshipTab, /ssrb-carrier-attachment-1/);
 assert.match(evidenceBundle, /buildSupportCarrierResolutionBundle/);
 assert.match(evidenceBundle, /buildSupportCarrierAttachmentBundle/);
-assert.match(evidenceBundle, /RELATIONSHIP_MEMBER_CONNECTIVITY_CARRIER_IDENTITY_AND_ATTACHMENT_INFERENCE/);
+assert.match(evidenceBundle, /RELATIONSHIP_MEMBER_CONNECTIVITY_CARRIER_CONTEXT_AND_ATTACHMENT_INFERENCE/);
 assert.match(carrierCatalog, /SupportCarrierCatalog\.v1/);
 assert.match(carrierCatalog, /PHYSICAL_PIPE_CARRIER/);
 assert.match(carrierResolution, /SupportCarrierResolution\.v1/);
