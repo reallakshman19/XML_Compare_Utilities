@@ -14,7 +14,7 @@ import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag
 import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260716-ssrb-1';
 import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260717-ttv-components-v1';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260716-ssrb-layout-1';
-import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260716-ssk-001';
+import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260717-ssk-workspace-import-preview-1';
 import { installRevisionCompareTile } from './revision-compare/revision-compare-tab.js?v=20260717-rc-001';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
