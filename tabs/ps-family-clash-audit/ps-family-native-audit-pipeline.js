@@ -46,6 +46,7 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
       carrierAttachment: relationshipBundle.carrierAttachmentSchema || null,
       carrierTopologyCatalog: relationshipBundle.carrierTopologyCatalogSchema || null,
       carrierTopology: relationshipBundle.carrierTopologySchema || null,
+      carrierToStructurePath: relationshipBundle.carrierToStructurePathSchema || null,
       audit: audit.schema,
     },
     config: {
@@ -159,6 +160,13 @@ function createPipelineDiagnostics(bundle, audit) {
       `${bundle.summary.carrierTopologyExceptionCount} carrier topology exception(s) require review.`,
     ));
   }
+  if (bundle.summary?.carrierToStructurePathExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'CARRIER_TO_STRUCTURE_PATH_EXCEPTIONS_REMAIN',
+      `${bundle.summary.carrierToStructurePathExceptionCount} carrier-to-structure path exception(s) require review.`,
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -195,6 +203,10 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     carrierTopologyPathCount: bundle.summary?.carrierTopologyPathCount || 0,
     carrierTopologyRepairCount: bundle.summary?.carrierTopologyRepairCount || 0,
     carrierTopologyExceptionCount: bundle.summary?.carrierTopologyExceptionCount || 0,
+    completeCarrierToStructurePathCount: bundle.summary?.completeCarrierToStructurePathCount || 0,
+    completeCarrierToStructureFamilyCount: bundle.summary?.completeCarrierToStructureFamilyCount || 0,
+    incompleteCarrierToStructureFamilyCount: bundle.summary?.incompleteCarrierToStructureFamilyCount || 0,
+    carrierToStructurePathExceptionCount: bundle.summary?.carrierToStructurePathExceptionCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,
