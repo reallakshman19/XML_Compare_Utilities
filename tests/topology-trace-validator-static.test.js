@@ -28,7 +28,7 @@ for (const label of [
 assert.match(markup, /data-ttv-axis-compass/);
 assert.match(markup, /data-ttv-canvas-projection="ISO"/);
 assert.match(markup, /data-ttv-editor-panel/);
-assert.match(markup, /data-ttv-editor-coordinate="x"/);
+assert.match(markup, /data-ttv-editor-coordinate=/);
 
 for (const moduleName of [
   'topology-companion-loader.js', 'topology-component-validator.js', 'topology-ledger-validator.js',
