@@ -6,22 +6,6 @@ async function openValidatedWorkspace(page) {
   await expect(page.locator('[data-ttv-status]')).toContainText('Validation complete');
 }
 
-async function emptySvgPoint(page) {
-  return page.evaluate(() => {
-    const svg = document.querySelector('.ttv-svg');
-    const rect = svg.getBoundingClientRect();
-    for (const yRatio of [0.82, 0.72, 0.62, 0.52]) {
-      for (const xRatio of [0.08, 0.18, 0.28, 0.38]) {
-        const x = rect.left + rect.width * xRatio;
-        const y = rect.top + rect.height * yRatio;
-        const target = document.elementFromPoint(x, y);
-        if (target && svg.contains(target) && !target.closest('[data-object-key]')) return { x, y };
-      }
-    }
-    throw new Error('No empty SVG pan target was found.');
-  });
-}
-
 test('TTV-B01 — component-aware click traces and immutable projection remain linked', async ({ page }) => {
   await openValidatedWorkspace(page);
   await page.locator('[data-ttv-branch="/B1"]').click();
@@ -57,11 +41,23 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   expect(await svg.getAttribute('viewBox')).not.toBe(fittedViewBox);
   await page.locator('[data-ttv-fit]').click();
   expect(await svg.getAttribute('viewBox')).toBe(fittedViewBox);
-  const dragStart = await emptySvgPoint(page);
-  await page.mouse.move(dragStart.x, dragStart.y);
+  await svg.evaluate((node) => {
+    for (const child of node.children) {
+      child.dataset.ttvTestPointerEvents = child.style.pointerEvents;
+      child.style.pointerEvents = 'none';
+    }
+  });
+  const box = await svg.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(dragStart.x + 100, dragStart.y - 60, { steps: 8 });
+  await page.mouse.move(box.x + box.width / 2 + 100, box.y + box.height / 2 - 60, { steps: 8 });
   await page.mouse.up();
+  await svg.evaluate((node) => {
+    for (const child of node.children) {
+      child.style.pointerEvents = child.dataset.ttvTestPointerEvents || '';
+      delete child.dataset.ttvTestPointerEvents;
+    }
+  });
   expect(await svg.getAttribute('viewBox')).not.toBe(fittedViewBox);
   await page.locator('[data-ttv-fit]').click();
   await page.evaluate(() => { window.__ttvSvgBeforeSearch = document.querySelector('.ttv-svg'); });
