@@ -180,7 +180,7 @@ function collectTraceElements(root) {
     status: query('[data-ttv-status]'),
     fileStatus: root,
     branchTree: query('[data-ttv-branch-tree]'),
-    typeRibbon: query('[data-ttv-type-ribbon]'),
+    typeFilters: query('[data-ttv-type-filters]'),
     metricStrip: query('[data-ttv-metrics]'),
     searchResults: query('[data-ttv-search-results]'),
     componentSymbols: query('[data-ttv-component-symbols]'),
