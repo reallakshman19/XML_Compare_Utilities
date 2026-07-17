@@ -15,7 +15,7 @@ assert.match(launcher, /Complete carrier-to-structure evidence/);
 const dialog = renderSupportSteelDialog();
 assert.match(dialog, /XML-free assembly workspace/i);
 assert.match(dialog, /one staged model JSON containing piping, support and structural records/i);
-assert.match(dialog, /audit complete carrier-to-structure paths/i);
+assert.match(dialog, /audits? complete carrier-to-structure paths/i);
 assert.match(dialog, /without clash XML/i);
 assert.match(dialog, /data-ssrb-fullscreen="1"/);
 assert.match(dialog, /data-ssrb-close="1"/);
