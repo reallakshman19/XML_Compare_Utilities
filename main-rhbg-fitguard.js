@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260717-ps-family-carrier-attachment-1');
+  const module = await import('./core/app.js?v=20260717-ps-family-carrier-topology-1');
   await module.init(startupMount());
 }
 
