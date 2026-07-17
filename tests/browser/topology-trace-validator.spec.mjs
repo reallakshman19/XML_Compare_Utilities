@@ -32,7 +32,7 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   await expect(page.locator('[data-canonical-edge-id="E-VALVE"]')).toHaveClass(/is-related/);
   await page.locator('[data-ttv-bottom-tab="projection"]').evaluate((button) => button.click());
   await expect(page.locator('[data-inputxml-element-id="PE-VALVE"]')).toHaveClass(/is-related/);
-  await page.locator('[data-inputxml-element-id="PE-ASSEMBLY"]').click();
+  await page.locator('[data-inputxml-element-id="PE-ASSEMBLY"]').evaluate((row) => row.click());
   await expect(page.locator('[data-canonical-edge-id="E-FLANGE"]')).toHaveClass(/is-related/);
   await expect(page.locator('[data-canonical-edge-id="E-GASK"]')).toHaveClass(/is-related/);
   const svg = page.locator('.ttv-svg');
