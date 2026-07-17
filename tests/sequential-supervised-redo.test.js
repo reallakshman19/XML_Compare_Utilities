@@ -84,8 +84,9 @@ function setup(records, branchId) {
   assert.equal(undoAgain.session.redoStack.length, 1);
 
   const divergent = advanceConstruction(undoAgain.session, evidence, indexes, {});
-  assert.notEqual(divergent.session.state, 'NOT_STARTED');
+  assert.equal(divergent.session.headBoundaryValidated, true);
   assert.equal(divergent.session.redoStack.length, 0, 'a new supervised action must clear the redo path');
+  assert.equal(divergent.session.transactionLedger.at(-1).action, 'ADVANCE_ONE');
   const noRedo = applyConstructionDecision(
     divergent.session,
     evidence,
@@ -149,6 +150,8 @@ function setup(records, branchId) {
   ])];
   const { evidence, indexes, session } = setup(records, root);
   const advanced = advanceConstruction(session, evidence, indexes, {});
+  assert.equal(advanced.session.headBoundaryValidated, true);
+  assert.equal(advanced.session.undoStack.length, 1);
   const undone = applyConstructionDecision(
     advanced.session,
     evidence,
@@ -157,6 +160,7 @@ function setup(records, branchId) {
     {},
     {},
   );
+  assert.equal(undone.session.redoStack.length, 1);
   const altered = freezeConstructionSession({
     ...undone.session,
     activeComponentId: 'UNTRACKED-MUTATION',
