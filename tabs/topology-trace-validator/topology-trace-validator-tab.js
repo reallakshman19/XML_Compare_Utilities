@@ -1,12 +1,13 @@
-/** Mounts the read-only trace validator and dedicated topology parity area. */
-import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260715-ttv-018-parity';
+/** Mounts the trace validator, SVG draft editor, and topology parity area. */
+import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260717-ttv-editor-001';
+import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260717-ttv-editor-001';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260715-ttv-018-parity';
+import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260717-ttv-editor-001';
 import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260715-ttv-018-parity';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260715-ttv-018-parity';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260717-ttv-editor-001';
 
 const STYLE_ID = 'topology-trace-validator-style';
-const STYLE_URL = new URL('./topology-parity-workspace.css?v=20260717-ttv-native-svg-3d-1', import.meta.url).href;
+const STYLE_URL = new URL('./topology-parity-workspace.css?v=20260717-ttv-editor-001', import.meta.url).href;
 
 export function installTopologyTraceValidatorTile(container, context) {
   ensureStylesheet(container.ownerDocument);
@@ -42,8 +43,9 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   ensureStylesheet(root.ownerDocument);
   root.innerHTML = workspaceMarkup();
   const traceController = createTopologyValidatorController(collectTraceElements(root));
+  const editorController = createTopologySvgEditorController(traceController, collectEditorElements(root));
   const parityController = createTopologyParityController(collectParityElements(root));
-  const controller = createTopologyWorkspaceController(traceController, parityController);
+  const controller = createTopologyWorkspaceController(traceController, parityController, editorController);
   const cleanups = wireTopologyWorkspace(root, controller);
   if (initialArtifacts) {
     for (const kind of ['source', 'canonical', 'ledger', 'scene', 'parsed', 'report']) {
@@ -73,6 +75,11 @@ function collectTraceElements(root) {
     searchResults: query('[data-ttv-search-results]'),
     componentSymbols: query('[data-ttv-component-symbols]'),
   };
+}
+
+function collectEditorElements(root) {
+  const query = requiredQuery(root);
+  return { root, panel: query('[data-ttv-editor-panel]') };
 }
 
 function collectParityElements(root) {
@@ -111,4 +118,4 @@ function objectOrNull(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
-export const _test = Object.freeze({ collectTraceElements, collectParityElements, requiredQuery, ensureStylesheet, workspaceMarkup });
+export const _test = Object.freeze({ collectTraceElements, collectEditorElements, collectParityElements, requiredQuery, ensureStylesheet, workspaceMarkup });

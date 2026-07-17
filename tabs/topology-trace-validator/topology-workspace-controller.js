@@ -1,12 +1,15 @@
-/** Composes the legacy evidence validator and the dedicated parity controller. */
+/** Composes trace validation, SVG draft editing, and topology parity. */
 
 const TRACE_KINDS = new Set(['source', 'canonical', 'ledger', 'inputXml']);
 const PARITY_KINDS = new Set(['canonical', 'ledger', 'scene', 'parsed', 'report', 'ciiProjection']);
 
-export function createTopologyWorkspaceController(traceController, parityController) {
+export function createTopologyWorkspaceController(traceController, parityController, editorController) {
   async function loadArtifact(kind, text, fileName) {
     const results = {};
-    if (TRACE_KINDS.has(kind)) results.trace = await traceController.loadArtifact(kind, text, fileName);
+    if (TRACE_KINDS.has(kind)) {
+      editorController.reset();
+      results.trace = await traceController.loadArtifact(kind, text, fileName);
+    }
     if (PARITY_KINDS.has(kind)) results.parity = await parityController.loadArtifact(kind, text, fileName);
     if (!TRACE_KINDS.has(kind) && !PARITY_KINDS.has(kind)) throw new RangeError(`Unknown topology workspace artifact: ${kind}`);
     return Object.freeze(results);
@@ -24,10 +27,11 @@ export function createTopologyWorkspaceController(traceController, parityControl
   }
 
   function evidence() {
-    return Object.freeze({ trace: traceController.evidence(), parity: parityController.evidence() });
+    return Object.freeze({ trace: traceController.evidence(), editor: editorController.evidence(), parity: parityController.evidence() });
   }
 
   function destroy() {
+    editorController.destroy();
     traceController.destroy();
     parityController.destroy();
   }
@@ -51,6 +55,7 @@ export function createTopologyWorkspaceController(traceController, parityControl
     zoomView: traceController.zoomView,
     assertNoMutation: traceController.assertNoMutation,
     downloadEnrichedInputXml: traceController.downloadEnrichedInputXml,
+    editor: editorController,
     parity: parityController,
   });
 }

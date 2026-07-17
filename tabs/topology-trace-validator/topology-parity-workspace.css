@@ -1,5 +1,6 @@
 @import url('./topology-trace-validator.css?v=20260715-ttv-017-layout-fixes');
 @import url('./topology-svg-native-3d.css?v=20260717-ttv-native-svg-3d-1');
+@import url('./topology-svg-editor.css?v=20260717-ttv-editor-001');
 
 .ttv-workspace { overflow: auto; }
 .ttv-trace-area { min-height: 100%; }
