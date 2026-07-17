@@ -5,7 +5,8 @@ on:
     paths:
       - 'tabs/ps-family-clash-audit/ps-family-native-audit-pipeline*.js'
       - 'tabs/ps-family-clash-audit/ps-family-native-combined-input.js'
-      - 'tabs/ps-family-clash-audit/ps-family-carrier-evidence-export.js'
+      - 'tabs/ps-family-clash-audit/ps-family-restraint-function-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-carrier-evidence-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-topology-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-to-structure-path-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-graph-audit.js'
@@ -16,9 +17,11 @@ on:
       - 'tests/ps-family-native-carrier-resolution.test.js'
       - 'tests/ps-family-native-carrier-topology.test.js'
       - 'tests/ps-family-native-carrier-to-structure-path.test.js'
+      - 'tests/ps-family-native-restraint-function.test.js'
       - 'tests/support-carrier-attachment-geometry.test.js'
       - 'tests/support-carrier-topology.test.js'
       - 'tests/support-carrier-to-structure-path.test.js'
+      - 'tests/support-restraint-function*.test.js'
       - '.github/workflows/ps-family-native-audit-pipeline.yml'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
@@ -45,10 +48,16 @@ jobs:
         run: node --test tests/support-carrier-topology.test.js
       - name: Complete carrier-to-structure path engine
         run: node --test tests/support-carrier-to-structure-path.test.js
+      - name: Restraint function validation engine
+        run: node --test tests/support-restraint-function.test.js
       - name: Native carrier topology pipeline
         run: node --test tests/ps-family-native-carrier-topology.test.js
       - name: Native carrier-to-structure path pipeline
         run: node --test tests/ps-family-native-carrier-to-structure-path.test.js
+      - name: Native restraint function pipeline
+        run: node --test tests/ps-family-native-restraint-function.test.js
+      - name: Restraint function UI and export contracts
+        run: node tests/support-restraint-function-ui.test.js
       - name: Native pipeline UI and export contracts
         run: node tests/ps-family-native-audit-pipeline-ui.test.js
       - name: PS family module compliance
