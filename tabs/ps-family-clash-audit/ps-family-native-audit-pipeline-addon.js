@@ -1,11 +1,8 @@
-import {
-  SUPPORT_STEEL_SAMPLE_STEEL,
-  SUPPORT_STEEL_SAMPLE_SUPPORT,
-} from '../support-steel-relationship-builder/support-steel-relationship-samples.js';
+import { SUPPORT_STEEL_SAMPLE_COMBINED } from '../support-steel-relationship-builder/support-steel-relationship-samples.js';
 import {
   buildPsFamilyNativeAuditPipeline,
   createPsFamilyNativePipelineReadiness,
-} from './ps-family-native-audit-pipeline.js';
+} from './ps-family-native-combined-input.js';
 import { createPsFamilyNativePipelineExports } from './ps-family-native-audit-pipeline-export.js';
 import {
   renderPsFamilyNativePipelinePanel,
@@ -81,10 +78,8 @@ function showPanel(popup) {
 }
 
 function loadSample(panel) {
-  field(panel, 'native-support').value = JSON.stringify(SUPPORT_STEEL_SAMPLE_SUPPORT, null, 2);
-  field(panel, 'native-steel').value = JSON.stringify(SUPPORT_STEEL_SAMPLE_STEEL, null, 2);
-  setText(panel, 'native-support-status', 'PS-14259 staged support demo loaded');
-  setText(panel, 'native-steel-status', 'SL-4201 / SL-4202 staged steel demo loaded');
+  field(panel, 'native-model').value = JSON.stringify(SUPPORT_STEEL_SAMPLE_COMBINED, null, 2);
+  setText(panel, 'native-model-status', 'Combined PS-14259 piping, support and structural demo loaded');
   setRunState(panel, 'Demo loaded', 'Check readiness or build the native pipeline.');
 }
 
@@ -93,8 +88,8 @@ function checkReadiness(panel) {
   panel.querySelector('[data-psfa="native-results"]').innerHTML = renderPsFamilyNativePipelineReadiness(readiness);
   setRunState(
     panel,
-    readiness.blocking ? 'Readiness blocked' : 'Inputs ready',
-    readiness.blocking ? 'Correct staged source errors before building.' : 'No clash XML is required.',
+    readiness.blocking ? 'Readiness blocked' : 'Combined model ready',
+    readiness.blocking ? 'Correct the combined staged model before building.' : 'No clash XML is required.',
   );
 }
 
@@ -105,7 +100,7 @@ function runPipeline(popup, panel, state) {
     setRunState(
       panel,
       state.pipeline.summary.status,
-      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.carrierTopologyConnectionCount} topology connections · ${state.pipeline.summary.carrierTopologyExceptionCount} topology exceptions`,
+      `${state.pipeline.summary.completeCarrierToStructurePathCount} complete carrier-to-structure paths · ${state.pipeline.summary.incompleteCarrierToStructureFamilyCount} incomplete families · ${state.pipeline.summary.carrierToStructurePathExceptionCount} path exceptions`,
     );
     populateBundleField(popup, state.pipeline);
   } catch (error) {
@@ -117,8 +112,7 @@ function runPipeline(popup, panel, state) {
 
 function nativeInput(panel) {
   return {
-    supportInputText: field(panel, 'native-support')?.value || '',
-    steelInputText: field(panel, 'native-steel')?.value || '',
+    combinedInputText: field(panel, 'native-model')?.value || '',
     relationshipConfig: {
       projectionToleranceMm: numberField(panel, 'native-projection-tolerance'),
       memberContactToleranceMm: numberField(panel, 'native-contact-tolerance'),
@@ -183,6 +177,9 @@ function wireDownloads(panel, state) {
       { name: 'carrier-topology-connections.csv', text: exports.carrierTopologyConnectionsCsv },
       { name: 'carrier-topology-paths.csv', text: exports.carrierTopologyPathsCsv },
       { name: 'carrier-topology-exceptions.csv', text: exports.carrierTopologyExceptionsCsv },
+      { name: 'carrier-to-structure-complete-paths.csv', text: exports.carrierToStructureCompletePathsCsv },
+      { name: 'carrier-to-structure-path-exceptions.csv', text: exports.carrierToStructurePathExceptionsCsv },
+      { name: 'carrier-to-structure-families.csv', text: exports.carrierToStructureFamiliesCsv },
     ]);
   });
 }
@@ -198,7 +195,7 @@ function ensureStyle(doc) {
   if (doc.getElementById(STYLE_ID)) return;
   const style = doc.createElement('style');
   style.id = STYLE_ID;
-  style.textContent = `.psfa-native-actions,.psfa-native-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.psfa-native-primary{font-weight:700}.psfa-native-input-grid,.psfa-native-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.psfa-native-input-grid label{display:grid;gap:6px}.psfa-native-input-grid textarea{min-height:280px;font-family:ui-monospace,monospace}.psfa-native-config{margin:12px 0}.psfa-native-config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}.psfa-native-config-grid label{display:grid;gap:5px}.psfa-native-run-state,.psfa-native-readiness,.psfa-native-error{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.3);border-radius:10px;margin:10px 0}.psfa-native-readiness.is-blocked,.psfa-native-error{border-color:rgba(239,68,68,.55)}.psfa-native-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}.psfa-native-summary article{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.22);border-radius:10px}.psfa-native-summary span{font-size:11px}.psfa-native-summary strong{font-size:18px}.psfa-native-contract{display:grid;grid-template-columns:auto 1fr;gap:5px 12px}.psfa-native-contract dd{margin:0}@media(max-width:900px){.psfa-native-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.psfa-native-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.psfa-native-input-grid,.psfa-native-result-grid{grid-template-columns:1fr}.psfa-native-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
+  style.textContent = `.psfa-native-actions,.psfa-native-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.psfa-native-primary{font-weight:700}.psfa-native-input-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.psfa-native-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.psfa-native-input-grid label{display:grid;gap:6px}.psfa-native-input-grid textarea{min-height:360px;font-family:ui-monospace,monospace}.psfa-native-config{margin:12px 0}.psfa-native-config-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}.psfa-native-config-grid label{display:grid;gap:5px}.psfa-native-run-state,.psfa-native-readiness,.psfa-native-error{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.3);border-radius:10px;margin:10px 0}.psfa-native-readiness.is-blocked,.psfa-native-error{border-color:rgba(239,68,68,.55)}.psfa-native-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:12px 0}.psfa-native-summary article{display:grid;gap:4px;padding:10px;border:1px solid rgba(125,211,252,.22);border-radius:10px}.psfa-native-summary span{font-size:11px}.psfa-native-summary strong{font-size:18px}.psfa-native-contract{display:grid;grid-template-columns:auto 1fr;gap:5px 12px}.psfa-native-contract dd{margin:0}@media(max-width:900px){.psfa-native-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.psfa-native-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.psfa-native-result-grid{grid-template-columns:1fr}.psfa-native-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
   doc.head?.appendChild(style);
 }
 function escapeHtml(value) {

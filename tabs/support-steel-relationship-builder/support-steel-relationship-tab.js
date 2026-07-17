@@ -1,3 +1,4 @@
+import { supportCarrierToStructurePathsToCsv } from './support-carrier-to-structure-path-export.js';
 import { supportCarrierTopologyToCsv } from './support-carrier-topology-export.js';
 import {
   supportCarrierAttachmentToCsv,
@@ -35,6 +36,7 @@ const EXPORT_FORMATS = Object.freeze({
   carrier: { filename: 'support-carrier-resolutions.csv', mime: 'text/csv' },
   attachment: { filename: 'support-carrier-attachments.csv', mime: 'text/csv' },
   topology: { filename: 'support-carrier-topology.csv', mime: 'text/csv' },
+  structurePath: { filename: 'support-carrier-to-structure-paths.csv', mime: 'text/csv' },
 });
 
 export function installSupportSteelRelationshipBuilderTile(root, ctx = {}) {
@@ -113,24 +115,25 @@ function wireFileInputs(modal) {
 }
 
 function loadSample(modal, ctx) {
-  modal.querySelector('[data-ssrb-input="support"]').value = supportSteelSampleText('support');
-  modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
-  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 staged support and carrier demo loaded';
-  modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
-  ctx.showToast?.('Support, carrier topology and steel geometry demo loaded.', 'success');
+  modal.querySelector('[data-ssrb-input="model"]').value = supportSteelSampleText();
+  modal.querySelector('[data-ssrb-file-status="model"]').textContent = 'Combined PS-14259 piping, support and structural demo loaded';
+  ctx.showToast?.('Combined staged model demo loaded.', 'success');
 }
 
 function runBuilder(modal, state, ctx) {
   try {
+    const combinedInput = parseSupportSteelJson(
+      modal.querySelector('[data-ssrb-input="model"]').value,
+      'Combined staged model source',
+    );
     state.bundle = buildSupportSteelRelationshipBundle({
-      supportInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="support"]').value, 'Support source'),
-      steelInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="steel"]').value, 'Steel source'),
+      combinedInput,
       config: readRules(modal),
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'chain');
-    ctx.showToast?.('XML-free support assembly, carrier attachment and topology evidence built.', 'success');
+    ctx.showToast?.('XML-free carrier-to-structure path audit built from one combined model.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -174,7 +177,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.carrierTopologyComponentCount || 0} topology components · ${bundle.summary.carrierTopologyConnectionCount || 0} accepted connections · ${bundle.summary.carrierTopologyExceptionCount || 0} topology exceptions</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.completeCarrierToStructurePathCount || 0} complete paths · ${bundle.summary.completeCarrierToStructureFamilyCount || 0} complete families · ${bundle.summary.incompleteCarrierToStructureFamilyCount || 0} incomplete families · ${bundle.summary.carrierToStructurePathExceptionCount || 0} path exceptions</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -217,6 +220,7 @@ function exportText(bundle, key) {
   if (key === 'carrier') return supportCarrierResolutionToCsv(bundle);
   if (key === 'attachment') return supportCarrierAttachmentToCsv(bundle);
   if (key === 'topology') return supportCarrierTopologyToCsv(bundle);
+  if (key === 'structurePath') return supportCarrierToStructurePathsToCsv(bundle);
   return supportSteelBundleToJson(bundle);
 }
 function showPanel(modal, key) {
@@ -238,12 +242,12 @@ function ensureStyle(doc) {
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-carrier-topology-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-combined-model-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
 function getHost(modal, key) { return modal.querySelector(`[data-ssrb-${key}]`); }
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Carrier objects', 'Carrier attachments', 'Topology components', 'Topology connections', 'Topology exceptions', 'Chain edges', 'Terminal edges']
+  return ['Support families', 'Carrier objects', 'Carrier attachments', 'Topology paths', 'Complete structure paths', 'Complete families', 'Incomplete families', 'Path exceptions']
     .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`).join('');
 }
 function escapeHtml(value) {

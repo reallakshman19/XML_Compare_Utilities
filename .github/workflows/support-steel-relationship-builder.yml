@@ -6,12 +6,14 @@ on:
       - 'tabs/support-steel-relationship-builder/**'
       - 'tabs/psnm-utility-tab.js'
       - 'tabs/psnm-utility-tab-layout-stabilizer.js'
+      - 'tests/combined-staged-model-input.test.js'
       - 'tests/support-steel-relationship-builder*.test.js'
       - 'tests/support-steel-world-geometry.test.js'
       - 'tests/support-member-chain*.test.js'
       - 'tests/support-carrier-resolution.test.js'
       - 'tests/support-carrier-attachment-geometry.test.js'
       - 'tests/support-carrier-topology.test.js'
+      - 'tests/support-carrier-to-structure-path.test.js'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
       - 'index.html'
@@ -26,6 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Combined staged model input contract
+        run: node --test tests/combined-staged-model-input.test.js
       - name: Relationship engine tests
         run: node --test tests/support-steel-relationship-builder.test.js
       - name: World transform and analytical geometry tests
@@ -38,5 +42,7 @@ jobs:
         run: node --test tests/support-carrier-attachment-geometry.test.js
       - name: Fail-closed carrier topology tests
         run: node --test tests/support-carrier-topology.test.js
+      - name: Complete carrier-to-structure path tests
+        run: node --test tests/support-carrier-to-structure-path.test.js
       - name: Utility UI contract tests
         run: node tests/support-steel-relationship-builder-ui.test.js

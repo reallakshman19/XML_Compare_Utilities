@@ -2,6 +2,7 @@ export function createCarrierEvidenceProjection(bundle = {}) {
   const carrier = bundle.supportCarrierResolution || {};
   const attachment = bundle.supportCarrierAttachment || {};
   const topology = bundle.supportCarrierTopology || {};
+  const structurePath = bundle.supportCarrierToStructurePath || {};
   return {
     schemas: {
       carrierResolutionSchema: bundle.carrierResolutionSchema || carrier.schema || null,
@@ -10,6 +11,7 @@ export function createCarrierEvidenceProjection(bundle = {}) {
       carrierGeometrySchema: bundle.carrierGeometrySchema || null,
       carrierTopologyCatalogSchema: bundle.carrierTopologyCatalogSchema || topology.catalogSchema || null,
       carrierTopologySchema: bundle.carrierTopologySchema || topology.schema || null,
+      carrierToStructurePathSchema: bundle.carrierToStructurePathSchema || structurePath.schema || null,
     },
     rows: {
       carrierObjectRows: carrier.carrierObjects || [],
@@ -26,6 +28,9 @@ export function createCarrierEvidenceProjection(bundle = {}) {
       carrierTopologyConnectionRows: topology.connectionEdges || [],
       carrierTopologyPathRows: topology.topologyPaths || [],
       carrierTopologyExceptionRows: topology.topologyExceptions || [],
+      carrierToStructureCompletePathRows: structurePath.completePaths || [],
+      carrierToStructurePathExceptionRows: structurePath.pathExceptions || [],
+      carrierToStructureFamilyRows: structurePath.familyResults || [],
     },
     summary: carrierEvidenceSummary(bundle),
   };
@@ -35,6 +40,7 @@ export function carrierEvidenceSummary(bundle = {}) {
   const carrier = bundle.supportCarrierResolution || {};
   const attachment = bundle.supportCarrierAttachment || {};
   const topology = bundle.supportCarrierTopology || {};
+  const structurePath = bundle.supportCarrierToStructurePath || {};
   return {
     carrierObjectCount: (carrier.carrierObjects || []).length,
     resolvedCarrierEdgeCount: (carrier.supportCarrierEdges || []).length,
@@ -52,5 +58,13 @@ export function carrierEvidenceSummary(bundle = {}) {
     carrierTopologyRepairCount: topology.summary?.smallGapRepairCount || 0,
     carrierTopologyAmbiguousCount: topology.summary?.ambiguousConnectionCount || 0,
     carrierTopologyDisconnectedCount: topology.summary?.disconnectedComponentCount || 0,
+    completeCarrierToStructurePathCount: (structurePath.completePaths || []).length,
+    completeCarrierToStructureFamilyCount: structurePath.summary?.completeFamilyCount || 0,
+    incompleteCarrierToStructureFamilyCount: structurePath.summary?.incompleteFamilyCount || 0,
+    carrierToStructurePathExceptionCount: (structurePath.pathExceptions || []).length,
+    carrierAttachmentPathExceptionCount: structurePath.summary?.attachmentNotProvenCount || 0,
+    carrierTopologyPathExceptionCount: structurePath.summary?.topologyPathExceptionCount || 0,
+    supportChainPathExceptionCount: structurePath.summary?.supportChainIncompleteCount || 0,
+    structuralTerminalPathExceptionCount: structurePath.summary?.structuralTerminalMissingCount || 0,
   };
 }

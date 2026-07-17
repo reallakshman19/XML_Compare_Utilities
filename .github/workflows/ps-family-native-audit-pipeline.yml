@@ -4,16 +4,21 @@ on:
   pull_request:
     paths:
       - 'tabs/ps-family-clash-audit/ps-family-native-audit-pipeline*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-native-combined-input.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-evidence-export.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-topology-*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-carrier-to-structure-path-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-graph-audit.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js'
       - 'tabs/support-steel-relationship-builder/**'
+      - 'tests/combined-staged-model-input.test.js'
       - 'tests/ps-family-native-audit-pipeline*.test.js'
       - 'tests/ps-family-native-carrier-resolution.test.js'
       - 'tests/ps-family-native-carrier-topology.test.js'
+      - 'tests/ps-family-native-carrier-to-structure-path.test.js'
       - 'tests/support-carrier-attachment-geometry.test.js'
       - 'tests/support-carrier-topology.test.js'
+      - 'tests/support-carrier-to-structure-path.test.js'
       - '.github/workflows/ps-family-native-audit-pipeline.yml'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
@@ -28,6 +33,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Combined staged model input contract
+        run: node --test tests/combined-staged-model-input.test.js
       - name: Native staged JSON pipeline engine
         run: node --test tests/ps-family-native-audit-pipeline.test.js
       - name: Native carrier evidence pipeline
@@ -36,20 +43,12 @@ jobs:
         run: node --test tests/support-carrier-attachment-geometry.test.js
       - name: Fail-closed carrier topology engine
         run: node --test tests/support-carrier-topology.test.js
+      - name: Complete carrier-to-structure path engine
+        run: node --test tests/support-carrier-to-structure-path.test.js
       - name: Native carrier topology pipeline
-        shell: bash
-        run: |
-          set +e
-          node --test tests/ps-family-native-carrier-topology.test.js 2>&1 | tee native-carrier-topology-test.log
-          status=${PIPESTATUS[0]}
-          exit "$status"
-      - name: Upload native topology test transcript
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-carrier-topology-test-log
-          path: native-carrier-topology-test.log
-          retention-days: 7
+        run: node --test tests/ps-family-native-carrier-topology.test.js
+      - name: Native carrier-to-structure path pipeline
+        run: node --test tests/ps-family-native-carrier-to-structure-path.test.js
       - name: Native pipeline UI and export contracts
         run: node tests/ps-family-native-audit-pipeline-ui.test.js
       - name: PS family module compliance
