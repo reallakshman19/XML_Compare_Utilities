@@ -124,6 +124,52 @@ assert.match(runtime, /UNDO_LAST_TRANSACTION/);
 assert.match(runtime, /currentDecisionRequest\?\.state === 'DEFERRED'/);
 assert.doesNotMatch(runtime, /sj-pipe-support|buildPipeSupportProjectionBundle/);
 
+const reviewQueue = read('tabs/sequential-sketcher/review/sequential-blocked-review-queue.js');
+assert.match(reviewQueue, /SequentialBlockedBranchReviewQueue\.v1/);
+assert.match(reviewQueue, /buildSequentialBlockedReviewQueue/);
+assert.match(reviewQueue, /refreshSequentialBlockedReviewQueue/);
+assert.match(reviewQueue, /filterSequentialBlockedReviewQueue/);
+assert.match(reviewQueue, /adjacentSequentialReviewRow/);
+assert.match(reviewQueue, /UNRESOLVED/);
+assert.match(reviewQueue, /DEFERRED/);
+assert.match(reviewQueue, /MANUALLY_RESOLVED/);
+assert.match(reviewQueue, /candidateId/);
+assert.match(reviewQueue, /fromPortId/);
+assert.match(reviewQueue, /toPortId/);
+assert.match(reviewQueue, /missingEvidenceClass/);
+assert.match(reviewQueue, /expectedContinuationCategory/);
+assert.match(reviewQueue, /constructionFingerprint/);
+assert.doesNotMatch(reviewQueue, /applyConstructionDecision|MARK_EXTERNAL_BOUNDARY|MARK_TERMINAL|acceptAll|bulkAccept/i,
+  'review queue analysis must not mutate or accept decisions');
+assert.doesNotMatch(reviewQueue, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
+const reviewExport = read('tabs/sequential-sketcher/review/sequential-review-queue-export.js');
+assert.match(reviewExport, /SequentialDecisionRegister\.v1/);
+assert.match(reviewExport, /unresolvedRows/);
+assert.match(reviewExport, /manualRows/);
+assert.match(reviewExport, /candidatePortPairs/);
+assert.match(reviewExport, /previousConstructionFingerprint/);
+assert.match(reviewExport, /resultingConstructionFingerprint/);
+assert.match(reviewExport, /unresolvedCsv/);
+assert.match(reviewExport, /manualCsv/);
+assert.match(reviewExport, /registerJson/);
+assert.doesNotMatch(reviewExport, /applyConstructionDecision|acceptAll|bulkAccept/i);
+
+const reviewController = read('tabs/sequential-sketcher/review/sequential-review-queue-controller.js');
+assert.match(reviewController, /data-ssk-review-build/);
+assert.match(reviewController, /buildSequentialBlockedReviewQueue/);
+assert.match(reviewController, /filterSequentialBlockedReviewQueue/);
+assert.match(reviewController, /createSequentialDecisionRegisterExports/);
+assert.match(reviewController, /if \(branchRegistry\.get\(snapshot\.branchId\)\) continue/,
+  'analysis must preserve existing branch workspaces');
+assert.match(reviewController, /options\.openBranch\?\.\(row\.branchId\)/);
+assert.doesNotMatch(reviewController, /applyConstructionDecision|DECISION_ACTIONS|acceptAll|bulkAccept/i);
+assert.doesNotMatch(reviewController, /sj-pipe-support|buildPipeSupportProjectionBundle/);
+
+const workspaceRegistry = read('tabs/sequential-sketcher/sequential-branch-workspace-state.js');
+assert.match(workspaceRegistry, /get\(branchIdValue\)/);
+assert.match(workspaceRegistry, /entries\(\)/);
+
 const fingerprint = read('tabs/sequential-sketcher/construction/sequential-session-fingerprint.js');
 assert.match(fingerprint, /policySchema/);
 assert.match(fingerprint, /policyId/);
