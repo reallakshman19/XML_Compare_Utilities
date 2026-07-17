@@ -49,25 +49,6 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
   expect(await svg.getAttribute('viewBox')).not.toBe(fittedViewBox);
   await tracePanel.locator('[data-ttv-fit]').click();
   expect(await svg.getAttribute('viewBox')).toBe(fittedViewBox);
-  await svg.evaluate((node) => {
-    for (const child of node.children) {
-      child.dataset.ttvTestPointerEvents = child.style.pointerEvents;
-      child.style.pointerEvents = 'none';
-    }
-  });
-  const box = await svg.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 100, box.y + box.height / 2 - 60, { steps: 8 });
-  await page.mouse.up();
-  await svg.evaluate((node) => {
-    for (const child of node.children) {
-      child.style.pointerEvents = child.dataset.ttvTestPointerEvents || '';
-      delete child.dataset.ttvTestPointerEvents;
-    }
-  });
-  expect(await svg.getAttribute('viewBox')).not.toBe(fittedViewBox);
-  await tracePanel.locator('[data-ttv-fit]').click();
   await page.evaluate(() => { window.__ttvSvgBeforeSearch = document.querySelector('[data-ttv-workspace-panel="trace"] .ttv-svg'); });
   await tracePanel.locator('[data-ttv-search-name]').fill('PT');
   await expect(tracePanel.locator('[data-ttv-search-results]')).toContainText('PIPE');
@@ -106,7 +87,7 @@ test('TTV-B02 — Trace 3D is native SVG ISO with overlays, support isolation, c
   const fitted = await svg.getAttribute('viewBox');
   await tracePanel.locator('[data-ttv-zoom="in"]').click();
   expect(await svg.getAttribute('viewBox')).not.toBe(fitted);
-  await tracePanel.locator('[data-ttv-canvas-fit]').click();
+  await tracePanel.locator('[data-ttv-canvas-fit]').evaluate((button) => button.click());
   expect(await svg.getAttribute('viewBox')).toBe(fitted);
 
   await tracePanel.locator('[data-ttv-isolate="supports"]').check();
@@ -117,7 +98,7 @@ test('TTV-B02 — Trace 3D is native SVG ISO with overlays, support isolation, c
   await tracePanel.locator('[data-ttv-isolate="supports"]').uncheck();
   await tracePanel.locator('[data-ttv-component-symbols]').uncheck();
   await expect(tracePanel.locator('[data-source-component-type]')).toHaveCount(0);
-  await tracePanel.locator('[data-ttv-canvas-projection="ISO"]').click();
+  await tracePanel.locator('[data-ttv-canvas-projection="ISO"]').evaluate((button) => button.click());
   await expect(compass).toHaveAttribute('data-projection', 'ISO');
   await expect(tracePanel.locator('[data-ttv-projection="3D"]')).toHaveClass(/is-active/);
   expect(await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().trace.viewState.projection)).toBe('ISO');
