@@ -1,4 +1,5 @@
 import { stableToken } from '../sequential-sketcher-contract.js';
+import { resolveSequentialConstructionTolerances } from '../policy/sequential-construction-tolerance-policy.js';
 import {
   REFERENCE_TARGET_KINDS,
   resolveSequentialReference,
@@ -63,34 +64,57 @@ function candidate(boundaryRole, boundaryPosition, connectedPort, referenceTarge
   });
 }
 
+function outcome(payload, tolerances) {
+  return Object.freeze({
+    ...payload,
+    toleranceEvidenceType: 'REFERENCE_BOUNDARY_EQUIVALENCE',
+    exactToleranceMm: tolerances.referenceBoundaryMm,
+    autoRepairToleranceMm: tolerances.automaticRepairMm,
+    tolerancePolicySchema: tolerances.policySchema,
+    tolerancePolicyId: tolerances.policyId,
+    tolerancePolicyRevision: tolerances.policyRevision,
+    tolerancePolicyFingerprint: tolerances.policyFingerprint,
+  });
+}
+
 export function resolveBoundaryReference({
   boundaryRole,
   boundaryPosition,
   referenceValue,
   connectedPort,
   indexes,
-  exactToleranceMm = 1,
-  autoRepairToleranceMm = 25,
+  exactToleranceMm,
+  externalBoundaryExactToleranceMm,
+  referenceBoundaryEquivalenceMm,
+  autoRepairToleranceMm,
 }) {
-  if (!boundaryPosition) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_POSITION_MISSING', candidates: Object.freeze([]) });
-  if (!connectedPort) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_CONNECTED_PORT_MISSING', candidates: Object.freeze([]) });
+  const tolerances = resolveSequentialConstructionTolerances({
+    exactToleranceMm,
+    externalBoundaryExactToleranceMm,
+    referenceBoundaryEquivalenceMm,
+    autoRepairToleranceMm,
+  });
+  const exactMm = tolerances.referenceBoundaryMm;
+  const repairMm = tolerances.automaticRepairMm;
+  if (!boundaryPosition) return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_POSITION_MISSING', candidates: Object.freeze([]) }, tolerances);
+  if (!connectedPort) return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_CONNECTED_PORT_MISSING', candidates: Object.freeze([]) }, tolerances);
   const referenceTarget = resolveSequentialReference(referenceValue, indexes);
-  if (referenceTarget.status === 'MISSING') return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_MISSING', referenceTarget, candidates: Object.freeze([]) });
-  if (referenceTarget.status === 'AMBIGUOUS') return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_AMBIGUOUS', referenceTarget, candidates: Object.freeze(referenceTarget.matches || []) });
+  if (referenceTarget.status === 'MISSING') return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_MISSING', referenceTarget, candidates: Object.freeze([]) }, tolerances);
+  if (referenceTarget.status === 'AMBIGUOUS') return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_AMBIGUOUS', referenceTarget, candidates: Object.freeze(referenceTarget.matches || []) }, tolerances);
   const candidates = targetPortRows(referenceTarget, indexes)
     .map((row) => candidate(boundaryRole, boundaryPosition, connectedPort, referenceTarget, row))
     .filter(Boolean)
     .sort((left, right) => left.totalGapMm - right.totalGapMm || left.candidateId.localeCompare(right.candidateId));
-  if (!candidates.length) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_PORT_UNRESOLVED', referenceTarget, candidates: Object.freeze([]) });
+  if (!candidates.length) return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'REFERENCE_TARGET_PORT_UNRESOLVED', referenceTarget, candidates: Object.freeze([]) }, tolerances);
 
   const connectedBoundaryGap = candidates[0].boundaryToConnectedGapMm;
-  if (connectedBoundaryGap > autoRepairToleranceMm) {
-    return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_TO_FIRST_COMPONENT_GAP', referenceTarget, candidates: Object.freeze(candidates) });
+  if (connectedBoundaryGap > repairMm) {
+    return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'BOUNDARY_TO_FIRST_COMPONENT_GAP', referenceTarget, candidates: Object.freeze(candidates) }, tolerances);
   }
-  const exact = candidates.filter((row) => row.targetToBoundaryGapMm <= exactToleranceMm);
-  if (exact.length === 1) return Object.freeze({ status: 'CONFIRMED_REFERENCE', selected: exact[0], referenceTarget, candidates: Object.freeze(candidates) });
-  if (exact.length > 1) return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_BOUNDARY_REFERENCE_PORTS', referenceTarget, candidates: Object.freeze(candidates) });
-  const repairable = candidates.filter((row) => row.targetToBoundaryGapMm <= autoRepairToleranceMm);
-  if (repairable.length === 1) return Object.freeze({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: repairable[0], referenceTarget, candidates: Object.freeze(candidates) });
-  return Object.freeze({ status: 'USER_DECISION_REQUIRED', reason: repairable.length > 1 ? 'MULTIPLE_BOUNDARY_REPAIR_PORTS' : 'BOUNDARY_REFERENCE_GAP_EXCEEDS_LIMIT', referenceTarget, candidates: Object.freeze(candidates) });
+  const exact = candidates.filter((row) => row.targetToBoundaryGapMm <= exactMm);
+  if (exact.length === 1) return outcome({ status: 'CONFIRMED_REFERENCE', selected: exact[0], referenceTarget, candidates: Object.freeze(candidates) }, tolerances);
+  if (exact.length > 1) return outcome({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_BOUNDARY_REFERENCE_PORTS', referenceTarget, candidates: Object.freeze(candidates) }, tolerances);
+  const repairable = candidates.filter((row) => row.targetToBoundaryGapMm <= repairMm);
+  if (repairable.length === 1) return outcome({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: repairable[0], referenceTarget, candidates: Object.freeze(candidates) }, tolerances);
+  return outcome({ status: 'USER_DECISION_REQUIRED', reason: repairable.length > 1 ? 'MULTIPLE_BOUNDARY_REPAIR_PORTS' : 'BOUNDARY_REFERENCE_GAP_EXCEEDS_LIMIT', referenceTarget, candidates: Object.freeze(candidates) }, tolerances);
 }
