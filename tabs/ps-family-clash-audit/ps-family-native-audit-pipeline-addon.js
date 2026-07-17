@@ -105,7 +105,7 @@ function runPipeline(popup, panel, state) {
     setRunState(
       panel,
       state.pipeline.summary.status,
-      `${state.pipeline.summary.supportFamilyCount} support families · ${state.pipeline.summary.carrierTopologyConnectionCount} topology connections · ${state.pipeline.summary.carrierTopologyExceptionCount} topology exceptions`,
+      `${state.pipeline.summary.completeCarrierToStructurePathCount} complete carrier-to-structure paths · ${state.pipeline.summary.incompleteCarrierToStructureFamilyCount} incomplete families · ${state.pipeline.summary.carrierToStructurePathExceptionCount} path exceptions`,
     );
     populateBundleField(popup, state.pipeline);
   } catch (error) {
@@ -183,6 +183,9 @@ function wireDownloads(panel, state) {
       { name: 'carrier-topology-connections.csv', text: exports.carrierTopologyConnectionsCsv },
       { name: 'carrier-topology-paths.csv', text: exports.carrierTopologyPathsCsv },
       { name: 'carrier-topology-exceptions.csv', text: exports.carrierTopologyExceptionsCsv },
+      { name: 'carrier-to-structure-complete-paths.csv', text: exports.carrierToStructureCompletePathsCsv },
+      { name: 'carrier-to-structure-path-exceptions.csv', text: exports.carrierToStructurePathExceptionsCsv },
+      { name: 'carrier-to-structure-families.csv', text: exports.carrierToStructureFamiliesCsv },
     ]);
   });
 }
