@@ -13,6 +13,7 @@
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 import { applyAttributeLedgerToStaged } from './topology-attribute-edit-ledger.js';
+import { isIsoTimestamp } from '../../contracts/contract-values.js';
 
 const COORD_FIELDS = Object.freeze(['APOS', 'LPOS', 'POS', 'BPOS', 'HPOS', 'TPOS']);
 
@@ -81,24 +82,27 @@ function remapDocumentPositions(doc, remaps, toleranceMm) {
 /**
  * @param {{ baseStagedJson: unknown, baseCanonical: Record<string, unknown>,
  *           draft: Record<string, unknown>, editedCanonicalHash: string,
- *           attributeLedger: Record<string, unknown>, ledgerRows: ReadonlyArray<Record<string, unknown>>,
+ *           attributeLedger: Record<string, unknown>, commandJournal: Record<string, unknown>, exportedAt: string,
+ *           ledgerRows: ReadonlyArray<Record<string, unknown>>,
  *           toleranceMm?: number }} input
  * @returns {{ text: string, summary: { remaps: number, coordinatesTouched: number, attributeEdits: number } }}
  */
 export function buildStagedExport(input) {
+  if (!isIsoTimestamp(input.exportedAt)) throw new TypeError('Staged export requires an exact ISO exportedAt timestamp.');
   const toleranceMm = Number(input.toleranceMm) > 0 ? Number(input.toleranceMm) : 0.5;
   const withAttributes = applyAttributeLedgerToStaged(input.baseStagedJson, input.attributeLedger);
   const remaps = buildPositionRemaps(input.baseCanonical, input.draft);
   const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, toleranceMm);
   const provenance = {
     schema: 'StagedEditProvenance.v1',
-    exportedAt: new Date().toISOString(),
+    exportedAt: input.exportedAt,
     baseCanonicalTopologyHash: cleanText(objectRecord(input.draft).baseCanonicalTopologyHash),
     topologyEditDraftHash: cleanText(objectRecord(input.draft).topologyEditDraftHash),
     editedCanonicalTopologyHash: cleanText(input.editedCanonicalHash),
     positionRemaps: remaps,
     commands: asArray(objectRecord(input.draft).commands),
     attributeEdits: asArray(objectRecord(input.attributeLedger).edits),
+    commandJournal: input.commandJournal,
     ledger: asArray(input.ledgerRows).map((row) => ({
       seq: row.seq, id: row.id, kind: row.kind, target: row.target,
       before: row.before, after: row.after, origin: row.origin, remark: row.remark,

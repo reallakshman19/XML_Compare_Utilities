@@ -9,46 +9,72 @@
  */
 
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
-import {
-  disposeTopologyEditCanvas, renderTopologyEditCanvas, selectTopologyEditObjects,
-  setTopologyEditGhostModel, topologyEditCanvasNavigation,
-} from './topology-edit-3d-canvas.js?v=20260717-ttv-components-v1';
-import { clearTopologyMeasurement, setTopologyMeasurementActive } from './topology-edit-measurement.js?v=20260717-ttv-components-v1';
+import { createTopologyEditCanvasRuntime } from './topology-edit-3d-canvas.js?v=20260717-phase1-runtime';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 import {
-  EDIT_KINDS, downloadText, emptyEditNavigation, objectForSelection, outputStem,
+  EDIT_KINDS, downloadText, objectForSelection, outputStem,
   producerOptions, producerSourceText, selectionForObjectId, shortestPathSelection,
   uniqueContextEdges, uniqueSelection,
 } from './topology-edit-controller-helpers.js';
+import { createTopologyPlatformContext } from './topology-platform-adapter.js';
+import { createTopologyDraftRecovery } from './topology-draft-recovery.js';
+import { createTopologyEditJournalService } from './topology-edit-journal-service.js';
+import { buildTopologyEditBundle, loadTopologySessionDraftFile, saveTopologySessionDraft } from './topology-edit-persistence-actions.js';
+import { dispatchTopologyEditOperation } from './topology-edit-operation-dispatch.js';
+import { createTopologyEditUiState, normalizeTopologyEditUiState, syncTopologyEditUiControls } from './topology-edit-ui-state.js';
+import { createTopologyExportPlanService } from './topology-export-plan-service.js';
+import { syncTopologyEditCapabilityControls } from './topology-edit-capability-registry.js';
 import {
   buildTopologyEditInspectorMarkup, buildTopologyEditMetricsMarkup,
   buildTopologyEditTimelineMarkup, buildTopologyEditValidationMarkup,
 } from './topology-edit-panel.js?v=20260717-ttv-components-v1';
-
 /** @param {Record<string, Element>} elements @param {{onSelectionChange:(selection:ReadonlyArray<Record<string,string>>)=>void}} dependencies @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyEditController(elements, dependencies) {
   if (typeof dependencies?.onSelectionChange !== 'function') throw new TypeError('Edit controller requires onSelectionChange().');
+  const canvasRuntime = createTopologyEditCanvasRuntime();
+  const exportPlanService = createTopologyExportPlanService({ host: elements.exportPlan, exportButton: elements.exportBundle });
   let core = null, sourceText = '', options = null, baseArtifacts = null, editedArtifacts = null, draft = null, sourceBranches = [];
+  let platformContext = null, baseDraft = null, journalService = null;
+  let attributeLedger = null, remarks = Object.freeze({});
   let selection = Object.freeze([]), projection = 'XY', tool = 'SELECT', contextEdgeId = '', ghostModel = null;
-  let supportScale = 1;
+  let supportScale = 2.5;
   let selectionFilters = new Set(EDIT_KINDS), basisKey = '', busy = false, lastRegenerationMs = 0;
-  let navigation = emptyEditNavigation();
+  const navigation = canvasRuntime.navigation();
+
+  function persistentUiState() { return createTopologyEditUiState({ projection, tool, contextEdgeId, supportScale, selection }); }
+  function applyPersistentUiState(state) {
+    const next = normalizeTopologyEditUiState(state);
+    ({ projection, tool, contextEdgeId, supportScale, selection } = next);
+    syncTopologyEditUiControls(elements.root, next, canvasRuntime.setMeasurementActive);
+  }
+  function applyJournalState(state) {
+    draft = state.draft; attributeLedger = state.attributeLedger; remarks = state.remarks;
+  }
+  function exportPlanInput(createdAt) {
+    return { core, built: editedArtifacts, options, context: platformContext, draft,
+      commandJournal: journalService.evidence().journal, createdAt,
+      cryptoRef: elements.root.ownerDocument.defaultView?.crypto };
+  }
+  function queueExportPlan() {
+    if (busy || !core || !editedArtifacts || !journalService) return;
+    exportPlanService.refresh(exportPlanInput(new Date().toISOString()))
+      .catch((error) => setStatus(`Export plan failed: ${error?.message || String(error)}`, 'error'));
+  }
 
   /** @param {string} message @param {string} status @returns {void} */
   function setStatus(message, status) {
     elements.status.textContent = message; elements.status.setAttribute('data-status', status); elements.live.textContent = message;
   }
-  /** @returns {Record<string, unknown>|null} */
   function canonical() { return editedArtifacts?.canonicalTopology ?? baseArtifacts?.canonicalTopology ?? null; }
   /** @param {ReadonlyArray<Record<string,string>>} next @param {boolean} notify @returns {void} */
   function setSelection(next, notify) {
     selection = Object.freeze(uniqueSelection(next).filter((row) => selectionFilters.has(row.kind)));
     const activeEdge = [...selection].reverse().find((row) => row.kind === 'edge');
     if (activeEdge) contextEdgeId = activeEdge.id;
-    renderInspector(); selectTopologyEditObjects(selection.map((row) => row.id));
+    renderInspector(); canvasRuntime.selectObjects(selection.map((row) => row.id));
+    syncTopologyEditCapabilityControls(elements.root, evidence());
     if (notify) dependencies.onSelectionChange(selection);
   }
-  /** @param {ReadonlyArray<Record<string,string>>} next @returns {void} */
   function setExternalSelection(next) { setSelection(next, false); }
   /** @param {Record<string,string>} row @param {MouseEvent} event @returns {void} */
   function selectFromPointer(row, event) {
@@ -63,7 +89,6 @@ export function createTopologyEditController(elements, dependencies) {
     }
     setSelection([row], true);
   }
-
   /** @param {Record<string, unknown>} traceEvidence @returns {Promise<void>} */
   async function initialize(traceEvidence) {
     const artifacts = objectRecord(traceEvidence?.artifacts), source = objectRecord(artifacts.source);
@@ -75,13 +100,28 @@ export function createTopologyEditController(elements, dependencies) {
       core = await loadTopologyProducerCore(); sourceText = producerSourceText(source.raw); options = producerOptions(traceEvidence);
       sourceBranches = Array.isArray(source.raw) ? source.raw : (source.raw.hierarchy ?? source.raw.branches ?? source.raw.objects ?? []);
       const started = performance.now(); baseArtifacts = await core.buildComponentTopologyArtifacts(sourceText, options); lastRegenerationMs = performance.now() - started;
+      const createdAt = new Date().toISOString(), verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Y';
+      platformContext = await createTopologyPlatformContext({
+        sourceText, sourceName: options.sourceName, sourceBranches,
+        verticalAxis, createdAt, cryptoRef: elements.root.ownerDocument.defaultView?.crypto,
+      });
       const loadedHash = cleanText(objectRecord(artifacts.canonical).canonicalTopologyHash);
       if (loadedHash && loadedHash !== baseArtifacts.canonicalTopology.canonicalTopologyHash) throw new Error(`Loaded canonical hash ${loadedHash} does not match pinned producer hash ${baseArtifacts.canonicalTopology.canonicalTopologyHash}. Rebuild topology before editing.`);
-      draft = core.createTopologyEditDraft(baseArtifacts.canonicalTopology, { projection: 'XY', snapToleranceMm: Number(options.toleranceMm), showOriginal: true });
-      const materialized = core.materializeTopologyEditDraft(baseArtifacts.canonicalTopology, draft);
-      editedArtifacts = Object.freeze({ ...baseArtifacts, editDraft: draft, editLedger: materialized.editLedger, editValidation: materialized.validation });
-      basisKey = nextBasis; selection = Object.freeze([]); contextEdgeId = ''; clearTopologyMeasurement(); render();
-      setStatus(`Edit Draft ready: ${baseArtifacts.canonicalTopology.edges.length} immutable base elements; no commands applied.`, 'pass');
+      baseDraft = core.createTopologyEditDraft(baseArtifacts.canonicalTopology, { projection: 'XY', snapToleranceMm: Number(options.toleranceMm), showOriginal: true });
+      const recovery = createTopologyDraftRecovery(elements.root.ownerDocument.defaultView?.localStorage);
+      journalService = createTopologyEditJournalService({ core, context: platformContext, baseDraft, recovery, createdAt });
+      const recovered = journalService.restore();
+      if (recovered) applyPersistentUiState(recovered.uiState);
+      applyJournalState(recovered?.state ?? journalService.evidence().state);
+      if (draft.commands.length) editedArtifacts = await core.buildEditedComponentTopologyArtifacts(sourceText, draft, options);
+      else {
+        const materialized = core.materializeTopologyEditDraft(baseArtifacts.canonicalTopology, draft);
+        editedArtifacts = Object.freeze({ ...baseArtifacts, editDraft: draft, editLedger: materialized.editLedger, editValidation: materialized.validation });
+      }
+      basisKey = nextBasis; selection = recovered ? selection : Object.freeze([]); contextEdgeId = recovered ? contextEdgeId : '';
+      canvasRuntime.clearMeasurement(); render();
+      setStatus(recovered ? `Recovered ${recovered.commandCount} journal command(s) from the exact source basis.`
+        : `Edit Draft ready: ${baseArtifacts.canonicalTopology.edges.length} immutable base elements; no commands applied.`, 'pass');
     } finally { busy = false; renderBottom(); }
   }
 
@@ -91,9 +131,13 @@ export function createTopologyEditController(elements, dependencies) {
     if (!core || !draft || !sourceText || !options) throw new Error('Edit Draft has not been initialized.');
     busy = true; setStatus(`${type}: regenerating canonical topology and parity evidence…`, 'ready');
     try {
+      const issuedAt = new Date().toISOString();
       const candidate = core.appendTopologyEditCommand(draft, type, payload), started = performance.now();
       const built = await core.buildEditedComponentTopologyArtifacts(sourceText, candidate, options); lastRegenerationMs = performance.now() - started;
-      draft = candidate; editedArtifacts = built;
+      const state = journalService.appendNative(candidate.commands.at(-1),
+        { kind: 'USER', actorId: 'LOCAL_USER', issuedAt }, persistentUiState(), issuedAt);
+      if (state.draft.topologyEditDraftHash !== candidate.topologyEditDraftHash) throw new Error('Journal replay hash differs from validated topology candidate.');
+      applyJournalState(state); editedArtifacts = built;
       const current = canonical(), ids = new Set([...asArray(current.nodes), ...asArray(current.edges), ...asArray(current.supports)].map((row) => cleanText(objectRecord(row).id)));
       selection = Object.freeze(selection.filter((row) => ids.has(row.id) || row.kind === 'issue' || row.kind === 'bend'));
       render(); dependencies.onSelectionChange(selection);
@@ -103,22 +147,21 @@ export function createTopologyEditController(elements, dependencies) {
     finally { busy = false; renderBottom(); }
   }
 
-  /** @param {Record<string, unknown>} nextDraft @param {string} label @returns {Promise<void>} */
-  async function regenerateDraft(nextDraft, label) {
+  /** @param {Record<string, unknown>} state @param {string} label @returns {Promise<void>} */
+  async function rebuildJournalState(state, label) {
     if (!core || !sourceText || !options) throw new Error('Edit Draft has not been initialized.');
     busy = true; setStatus(`${label}: regenerating…`, 'ready');
     try {
-      const started = performance.now(), built = await core.buildEditedComponentTopologyArtifacts(sourceText, nextDraft, options);
-      lastRegenerationMs = performance.now() - started; draft = nextDraft; editedArtifacts = built; render();
+      const started = performance.now(), built = await core.buildEditedComponentTopologyArtifacts(sourceText, state.draft, options);
+      lastRegenerationMs = performance.now() - started; applyJournalState(state); editedArtifacts = built; render();
       setStatus(`${label} complete. Topology hash ${built.canonicalTopology.canonicalTopologyHash}.`, 'pass');
     } finally { busy = false; renderBottom(); }
   }
-  /** @returns {Promise<void>} */
-  async function undo() { if (draft?.commands?.length) await regenerateDraft(core.undoTopologyEditCommand(draft), 'Undo'); }
-  /** @returns {Promise<void>} */
-  async function redo() { if (draft?.redoCommands?.length) await regenerateDraft(core.redoTopologyEditCommand(draft), 'Redo'); }
+  async function undo() { if (journalService?.evidence().journal.activeCommandIds.length) await rebuildJournalState(journalService.undo(persistentUiState(), new Date().toISOString()), 'Undo'); }
+  async function redo() { if (journalService?.evidence().journal.redoCommandIds.length) await rebuildJournalState(journalService.redo(persistentUiState(), new Date().toISOString()), 'Redo'); }
   /** @param {Record<string,unknown>[]} selectedSuggestions @param {boolean} approvedOnly @returns {Promise<Readonly<Record<string,unknown>>>} */
   async function applyTopologyFixSuggestions(selectedSuggestions, approvedOnly) {
+    if (busy) throw new Error('Another Edit Draft transaction is in progress.');
     if (!core || !draft) throw new Error('Edit Draft has not been initialized.');
     if (!Array.isArray(selectedSuggestions) || !selectedSuggestions.length) throw new Error('At least one topology fix suggestion is required.');
     if (!approvedOnly && selectedSuggestions.length !== 1) throw new Error('Reviewed fixes must be applied one suggestion at a time.');
@@ -126,46 +169,61 @@ export function createTopologyEditController(elements, dependencies) {
       ? core.applyApprovedTopologyFixes(draft, selectedSuggestions)
       : core.applyTopologyFixSuggestion(draft, selectedSuggestions[0]);
     if (candidate === draft) throw new Error('No approved topology fixes passed their deterministic preconditions.');
-    await regenerateDraft(candidate, approvedOnly ? 'Apply approved topology fixes' : 'Apply topology fix');
-    return evidence();
+    const label = approvedOnly ? 'Apply approved topology fixes' : 'Apply topology fix', issuedAt = new Date().toISOString();
+    busy = true; setStatus(`${label}: validating one atomic journal transaction…`, 'ready');
+    try {
+      const built = await core.buildEditedComponentTopologyArtifacts(sourceText, candidate, options);
+      const commands = candidate.commands.slice(draft.commands.length);
+      const state = journalService.appendNativeBatch(commands, { kind: 'AUTOFIX', actorId: 'TOPOLOGY_CHECKER', issuedAt }, persistentUiState(), issuedAt);
+      if (state.draft.topologyEditDraftHash !== candidate.topologyEditDraftHash) throw new Error('Autofix journal replay differs from validated candidate.');
+      applyJournalState(state); editedArtifacts = built; render(); setStatus(`${label} complete.`, 'pass'); return evidence();
+    } finally { busy = false; renderBottom(); }
   }
-  /** @param {string} nextTool @returns {void} */
+  function appendAttributeEditCommand(edit, origin) {
+    if (!journalService || !baseDraft) throw new Error('Edit Draft has not been initialized.');
+    const state = journalService.appendAttribute(edit, origin, persistentUiState(), origin.issuedAt);
+    applyJournalState(state); renderBottom();
+    return asArray(attributeLedger.edits).at(-1);
+  }
+  function setCommandRemark(targetId, value) {
+    if (!journalService || !baseDraft) throw new Error('Edit Draft has not been initialized.');
+    const issuedAt = new Date().toISOString();
+    const state = journalService.setRemark(targetId, value,
+      { kind: 'USER', actorId: 'LOCAL_USER', issuedAt }, persistentUiState(), issuedAt);
+    applyJournalState(state); renderBottom();
+  }
   function setTool(nextTool) {
     if (!['SELECT', 'MOVE', 'CONNECT', 'ADD', 'SPLIT', 'MEASURE'].includes(nextTool)) throw new RangeError(`Unsupported edit tool ${nextTool}.`);
     tool = nextTool; elements.root.querySelectorAll('[data-ttv-edit-tool]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-tool') === tool));
-    setTopologyMeasurementActive(tool === 'MEASURE');
+    canvasRuntime.setMeasurementActive(tool === 'MEASURE');
     const hints = { SELECT: 'Select tool active.', MOVE: 'Move tool: drag a node (X/Y/Z locks an axis; drop on a node to merge).', CONNECT: 'Connect tool: drag from one node to another to bridge.', ADD: 'Add tool: drag from a node to place a straight element.', SPLIT: 'Break tool: click an edge to split it at the picked point.', MEASURE: 'Measure tool: click component surfaces to add polyline points; choose Select to finish.' };
     setStatus(hints[tool], 'ready');
   }
-  /** @param {number} nextScale @returns {void} */
   function setSupportScale(nextScale) {
     const parsed = Number(nextScale);
     if (!Number.isFinite(parsed) || parsed < 0.25 || parsed > 6) throw new RangeError(`Support render scale must be between 0.25 and 6; received ${nextScale}.`);
     supportScale = parsed;
     renderCanvas();
   }
-  /** @param {string} nextProjection @returns {void} */
   function setProjection(nextProjection) {
     if (!['XY', 'XZ', 'YZ'].includes(nextProjection)) throw new RangeError(`Unsupported edit projection ${nextProjection}.`);
     projection = nextProjection; elements.root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-projection') === projection));
     navigation.setStandardView?.({ XY: 'top', XZ: 'front', YZ: 'side' }[projection]);
   }
-  /** @param {string} kind @param {boolean} enabled @returns {void} */
   function setSelectionFilter(kind, enabled) {
     if (!EDIT_KINDS.includes(kind)) throw new RangeError(`Unsupported selection filter ${kind}.`);
     const next = new Set(selectionFilters); if (enabled) next.add(kind); else next.delete(kind); selectionFilters = next; setSelection(selection, true);
   }
   /** Legacy no-op: the 3D canvas is always the primary Edit Draft surface. */
   function set3dVisible() {}
-  /** Ghost fix-proposal model (VisualGeometryModel.v1 or null) — Phase 5 UI. */
-  function setGhostModel(model) { ghostModel = model ?? null; setTopologyEditGhostModel(ghostModel); }
-  /** @returns {void} */
+  /** Ghost fix-proposal model (VisualGeometryModel.v2 or null). */
+  function setGhostModel(model) { ghostModel = model ?? null; canvasRuntime.setGhostModel(ghostModel); }
   function renderCanvas() {
     if (!baseArtifacts || !canonical()) { elements.svgHost.innerHTML = '<div class="ttv-empty">Load and build topology before editing.</div>'; return; }
     const verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Y';
-    renderTopologyEditCanvas(elements.svgHost, {
+    canvasRuntime.render(elements.svgHost, {
       original: baseArtifacts.canonicalTopology, draft: canonical(), validation: editedArtifacts?.editValidation ?? null,
-      selection, verticalAxis, supportScale, ghost: ghostModel, sourceBranches,
+      selection, verticalAxis, supportScale, ghost: ghostModel, sourceBranches, platformDocument: platformContext?.document,
       callbacks: {
         getTool: () => tool, getSelection: () => selection, getContextEdgeId: () => contextEdgeId,
         setSelection, selectFromPointer, executeCommand, runOperation, undo, redo,
@@ -173,77 +231,66 @@ export function createTopologyEditController(elements, dependencies) {
         onHint: (message) => setStatus(message, 'ready'),
         onGhostPick: (objectId) => dependencies.onGhostPick?.(objectId),
       },
-    }).then(() => { navigation = topologyEditCanvasNavigation(); })
-      .catch((error) => setStatus(`3D canvas failed: ${error?.message || String(error)}`, 'error'));
+    }).catch((error) => setStatus(`3D canvas failed: ${error?.message || String(error)}`, 'error'));
   }
-  /** @returns {void} */
   function renderInspector() {
     elements.inspector.innerHTML = buildTopologyEditInspectorMarkup({ canonical: canonical(), validation: objectRecord(editedArtifacts?.editValidation), selection, contextEdgeId });
   }
-  /** @returns {void} */
   function renderBottom() {
     if (!draft || !editedArtifacts) { elements.timeline.innerHTML = ''; elements.validation.innerHTML = ''; return; }
     elements.timeline.innerHTML = buildTopologyEditTimelineMarkup(draft); elements.validation.innerHTML = buildTopologyEditValidationMarkup(editedArtifacts.editValidation);
-    elements.undo.disabled = !draft.commands.length || busy; elements.redo.disabled = !draft.redoCommands.length || busy;
-    elements.exportBundle.disabled = Number(objectRecord(editedArtifacts.editValidation.summary).blockingCount ?? 0) > 0 || busy;
+    const journal = journalService?.evidence().journal;
+    elements.undo.disabled = !journal?.activeCommandIds.length || busy; elements.redo.disabled = !journal?.redoCommandIds.length || busy;
+    syncTopologyEditCapabilityControls(elements.root, { initialized: Boolean(editedArtifacts), busy, selection, tool, canUndo: Boolean(journal?.activeCommandIds.length), canRedo: Boolean(journal?.redoCommandIds.length) });
+    if (busy) elements.exportBundle.disabled = true; else queueExportPlan();
     dependencies.onRender?.(evidence());
   }
-  /** @returns {void} */
   function renderMetrics() {
     elements.metrics.innerHTML = buildTopologyEditMetricsMarkup({ baseArtifacts, canonical: canonical(), draft, validation: objectRecord(editedArtifacts?.editValidation), lastRegenerationMs });
   }
-  /** @returns {void} */
   function render() { renderCanvas(); renderInspector(); renderBottom(); renderMetrics(); }
 
-  /** @param {string} selector @param {string} label @returns {number} */
-  function requiredNumber(selector, label) {
-    const value = elements.inspector.querySelector(selector)?.value?.trim();
-    if (!value) throw new Error(`${label} is required.`);
-    const number = Number(value); if (!Number.isFinite(number)) throw new TypeError(`${label} must be a finite number.`); return number;
-  }
-  /** @param {string} prefix @returns {{x:number,y:number,z:number}} */
-  function readPosition(prefix) { return Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, requiredNumber(`[data-ttv-edit-${prefix}="${axis}"]`, `${prefix} ${axis.toUpperCase()}`)])); }
   /** @param {string} operation @returns {Promise<void>} */
   async function runOperation(operation) {
-    const nodes = selection.filter((row) => row.kind === 'node'), edges = selection.filter((row) => row.kind === 'edge');
-    if (operation === 'MERGE') { if (nodes.length !== 2) throw new Error('Merge requires exactly two selected nodes; the second node is retained.'); await executeCommand('MERGE_NODES', { sourceNodeId: nodes[0].id, targetNodeId: nodes[1].id }); return; }
-    if (operation === 'BRIDGE') { if (nodes.length !== 2) throw new Error('Bridge requires exactly two selected nodes.'); if (!contextEdgeId) throw new Error('Bridge requires an explicit engineering context edge.'); await executeCommand('BRIDGE_GAP', { fromNodeId: nodes[0].id, toNodeId: nodes[1].id, contextEdgeId }); return; }
-    if (operation === 'DELETE') { if (edges.length !== 1) throw new Error('Delete requires exactly one selected edge.'); await executeCommand('DELETE_EDGE', { edgeId: edges[0].id }); return; }
-    if (operation === 'SPLIT') { if (edges.length !== 1) throw new Error('Split requires exactly one selected edge.'); await executeCommand('SPLIT_EDGE', { edgeId: edges[0].id, fraction: requiredNumber('[data-ttv-edit-split-fraction]', 'Split fraction') }); return; }
-    if (operation === 'DISCONNECT') { if (edges.length !== 1) throw new Error('Disconnect requires exactly one selected edge.'); const endpoint = cleanText(elements.inspector.querySelector('[data-ttv-edit-disconnect-endpoint]')?.value) || 'FROM'; await executeCommand('DISCONNECT_ENDPOINT', { edgeId: edges[0].id, endpoint }); return; }
-    if (operation === 'MOVE_EXACT') { if (nodes.length !== 1) throw new Error('Exact XYZ requires exactly one selected node.'); await executeCommand('MOVE_NODE', { nodeId: nodes[0].id, position: readPosition('coordinate') }); return; }
-    if (operation === 'ADD') { if (nodes.length !== 1) throw new Error('Add straight element requires exactly one selected start node.'); if (!contextEdgeId) throw new Error('Add straight element requires an explicit engineering context edge.'); await executeCommand('ADD_STRAIGHT_ELEMENT', { fromNodeId: nodes[0].id, toPosition: readPosition('target'), contextEdgeId }); return; }
-    throw new RangeError(`Unsupported edit operation ${operation}.`);
+    await dispatchTopologyEditOperation({ operation, selection, contextEdgeId, inspector: elements.inspector, execute: executeCommand });
   }
-  /** @returns {void} */
   function saveDraft() {
-    if (!draft || !options) throw new Error('No edit draft is available.');
-    downloadText(elements.root.ownerDocument, `${outputStem(options.sourceName)}.topology-edit-draft.json`, `${JSON.stringify(draft, null, 2)}\n`, 'application/json;charset=utf-8');
+    if (!journalService || !options) throw new Error('No edit draft is available.');
+    saveTopologySessionDraft({ service: journalService, uiState: persistentUiState(), savedAt: new Date().toISOString(),
+      documentRef: elements.root.ownerDocument, sourceName: options.sourceName });
   }
   /** @param {File} file @returns {Promise<void>} */
   async function loadDraftFile(file) {
-    if (!file) throw new TypeError('A TopologyEditDraft.v1 JSON file is required.');
-    const loaded = JSON.parse(await file.text()); if (loaded?.schema !== 'TopologyEditDraft.v1') throw new TypeError(`${file.name} is not TopologyEditDraft.v1.`); await regenerateDraft(loaded, `Load ${file.name}`);
+    const loaded = await loadTopologySessionDraftFile(file, journalService, persistentUiState(), new Date().toISOString());
+    applyPersistentUiState(loaded.uiState); await rebuildJournalState(loaded.state, `Load ${file.name}`);
   }
   /** @returns {Promise<void>} */
   async function exportBundle() {
-    if (!core || !draft || !options) throw new Error('No edit draft is available.');
-    const blockers = Number(objectRecord(editedArtifacts.editValidation.summary).blockingCount ?? 0); if (blockers) throw new Error(`Export is blocked by ${blockers} validation findings.`);
-    const built = await core.buildEditedComponentTopologyArtifacts(sourceText, draft, options); if (!built.editValidation.ok) throw new Error('Export regeneration produced blocking validation findings.');
-    const stem = outputStem(options.sourceName), outputs = core.topologyArtifactOutputs(built, { stem });
-    const bundle = { schema: 'TopologyEditExportBundle.v1', baseCanonicalTopologyHash: draft.baseCanonicalTopologyHash, topologyEditDraftHash: draft.topologyEditDraftHash, topologyEditLedgerHash: built.editLedger.topologyEditLedgerHash, editedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash, files: outputs.map((row) => ({ name: row.name, mime: row.mime, text: row.text })) };
-    downloadText(elements.root.ownerDocument, `${stem}.topology-edit-bundle.json`, `${JSON.stringify(bundle, null, 2)}\n`, 'application/json;charset=utf-8'); setStatus(`Exported ${outputs.length} evidence files in one immutable edit bundle.`, 'pass');
+    if (busy) throw new Error('Wait for the active Edit Draft transaction to complete.');
+    if (!core || !draft || !options || !journalService) throw new Error('No edit draft is available.');
+    const commandJournal = journalService.evidence().journal;
+    const snapshot = await exportPlanService.prepare(exportPlanInput(new Date().toISOString()));
+    const result = await buildTopologyEditBundle({ snapshot, draft, commandJournal,
+      cryptoRef: elements.root.ownerDocument.defaultView?.crypto });
+    downloadText(elements.root.ownerDocument, `${result.stem}.topology-edit-bundle.json`, `${JSON.stringify(result.bundle, null, 2)}\n`, 'application/json;charset=utf-8');
+    setStatus(`Exported ${result.outputs.length} evidence files in one immutable edit bundle.`, 'pass');
   }
-  /** @param {string} edgeId @returns {void} */
   function setContextEdge(edgeId) { contextEdgeId = cleanText(edgeId); renderInspector(); }
   /** @returns {Readonly<Record<string, unknown>>} */
-  function evidence() { return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, supportScale, lastRegenerationMs }); }
-  /** @returns {void} */
-  function destroy() { navigation.destroy(); disposeTopologyEditCanvas(); }
+  function evidence() {
+    const journalEvidence = journalService?.evidence();
+    return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, busy,
+      supportScale, lastRegenerationMs, projectSession: platformContext?.session ?? null,
+      projectDocument: platformContext?.document ?? null, commandJournal: journalEvidence?.journal ?? null,
+      commandEnvelopes: journalEvidence?.commandEnvelopes ?? Object.freeze([]), attributeLedger, remarks,
+      exportPlan: exportPlanService.evidence().plan });
+  }
+  function destroy() { navigation.destroy(); canvasRuntime.dispose(); exportPlanService.destroy(); }
 
   return Object.freeze({
     initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale,
     setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions,
+    appendAttributeEditCommand, setCommandRemark, addMeasurementPoint: canvasRuntime.addMeasurementPoint,
     focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); },
     fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), render, evidence, destroy,
   });

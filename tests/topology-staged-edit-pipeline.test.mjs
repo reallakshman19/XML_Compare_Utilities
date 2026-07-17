@@ -21,6 +21,7 @@ import { buildGhostVisualModel, ghostSuggestionId } from '../tabs/topology-trace
 import { buildPositionRemaps, buildStagedExport } from '../tabs/topology-trace-validator/topology-staged-export.js';
 
 const point = (x, y, z) => ({ x, y, z });
+const NOW = '2026-07-17T11:11:44.000Z';
 
 // ── staged-json core: root shapes, scope tree, filter stats ───────────────
 const stagedDoc = {
@@ -118,7 +119,8 @@ assert.equal(zeroRows[0].approvedByDefault, true);
 let ledger = createAttributeEditLedger();
 ledger = appendAttributeEdit(ledger, {
   branchIndex: 0, childIndex: 2, sourcePath: catalogRow.sourcePath,
-  field: 'SUPPORT_TYPE', before: '', after: 'REST', reason: 'test', fixCode: 'UNKNOWN_RESTRAINT_FAMILY', origin: 'AUTOFIX:UNKNOWN_RESTRAINT_FAMILY',
+  field: 'SUPPORT_TYPE', before: '', after: 'REST', reason: 'test', fixCode: 'UNKNOWN_RESTRAINT_FAMILY',
+  origin: 'AUTOFIX:UNKNOWN_RESTRAINT_FAMILY', appliedAt: NOW,
 });
 assert.equal(ledger.edits.length, 1);
 assert.equal(ledger.edits[0].id, 'AE-000001');
@@ -140,7 +142,7 @@ const draft = {
   ],
   redoCommands: [],
 };
-const rows = buildUpdateLedgerRows({ draft, attributeLedger: ledger, remarks: new Map([['EC-000001', 'checked']]) });
+const rows = buildUpdateLedgerRows({ draft, attributeLedger: ledger, remarks: { 'EC-000001': 'checked' } });
 assert.equal(rows.length, 3, 'MOVE + nested MERGE + attribute edit');
 assert.equal(rows[0].remark, 'checked');
 assert.match(rows[1].origin, /^AUTOFIX:TS-1/);
@@ -150,8 +152,9 @@ assert.match(csv.split('\n')[0], /^#,Id,Kind/);
 assert.equal(csv.trim().split('\n').length, 4);
 
 // ── ghost model ────────────────────────────────────────────────────────────
-const ghost = buildGhostVisualModel(bridges, [catalogRow], canonical);
-assert.equal(ghost.schema, 'VisualGeometryModel.v1');
+const ghostDocument = { documentId: 'topology-test-document', unit: 'MM', coordinateFrame: 'UNKNOWN', verticalAxis: 'Y' };
+const ghost = buildGhostVisualModel(bridges, [catalogRow], canonical, ghostDocument);
+assert.equal(ghost.schema, 'VisualGeometryModel.v2');
 assert.equal(ghost.segments.length, 1);
 assert.ok(ghost.segments[0].objectId.startsWith('ghost:XS-GAP-'));
 assert.equal(ghostSuggestionId(ghost.segments[0].objectId), bridges[0].id);
@@ -170,6 +173,8 @@ const exportResult = buildStagedExport({
   draft,
   editedCanonicalHash: 'hash:edited',
   attributeLedger: ledger,
+  commandJournal: { schema: 'CommandJournal.v1' },
+  exportedAt: NOW,
   ledgerRows: rows,
   toleranceMm: 0.5,
 });

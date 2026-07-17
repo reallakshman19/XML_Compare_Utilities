@@ -1,11 +1,12 @@
 /**
  * Ghost visual model for fix proposals. Converts TopologyFixSuggestion.v1
  * previews (and ATTRIBUTE_EDIT suggestion rows) into translucent
- * VisualGeometryModel.v1 fragments rendered by the viewer's ghost layer.
+ * VisualGeometryModel.v2 fragments rendered by the viewer's ghost layer.
  * Every ghost object carries objectId `ghost:<suggestionId>` so a canvas pick
  * routes straight back to its suggestion for Apply / Reject.
  */
 
+import { createVisualGeometryModelV2 } from '../../contracts/visual-geometry-model.js';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 
 export const GHOST_ID_PREFIX = 'ghost:';
@@ -40,9 +41,10 @@ export function ghostSuggestionId(objectId) {
  * @param {ReadonlyArray<Record<string, unknown>>} suggestions core + extended geometry suggestions
  * @param {ReadonlyArray<Record<string, unknown>>} attributeSuggestions ATTRIBUTE_EDIT rows
  * @param {Record<string, unknown>} canonical current draft canonical
- * @returns {Readonly<Record<string, unknown>>} VisualGeometryModel.v1
+ * @param {Record<string, unknown>} document active ProjectDocument.v1
+ * @returns {Readonly<Record<string, unknown>>} VisualGeometryModel.v2
  */
-export function buildGhostVisualModel(suggestions, attributeSuggestions, canonical) {
+export function buildGhostVisualModel(suggestions, attributeSuggestions, canonical, document) {
   const segments = [];
   const markers = [];
   const marker = (objectId, position, colorInt, sizeMm) => {
@@ -74,10 +76,11 @@ export function buildGhostVisualModel(suggestions, attributeSuggestions, canonic
     if (!Array.isArray(row.position)) continue;
     marker(`${GHOST_ID_PREFIX}${cleanText(row.id)}`, row.position.map(Number), COLOR_BY_KIND.ATTRIBUTE_EDIT, 30);
   }
-  return Object.freeze({
-    schema: 'VisualGeometryModel.v1',
-    segments: Object.freeze(segments),
-    markers: Object.freeze(markers),
-    bounds: Object.freeze({ min: [0, 0, 0], max: [1, 1, 1] }),
+  const hash = cleanText(canonical.canonicalTopologyHash) || cleanText(canonical.schema);
+  return createVisualGeometryModelV2({
+    modelId: `topology:ghost:${hash}`, documentId: cleanText(document.documentId), revisionId: `ghost:${hash}`,
+    unit: cleanText(document.unit), coordinateFrame: cleanText(document.coordinateFrame),
+    verticalAxis: cleanText(document.verticalAxis), origin: [0, 0, 0], segments, markers,
+    bounds: { min: [0, 0, 0], max: [1, 1, 1] },
   });
 }

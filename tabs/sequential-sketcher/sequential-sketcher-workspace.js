@@ -8,6 +8,7 @@ import {
 import { createConfirmedSequentialConstruction } from './construction/sequential-construction-acceptance.js';
 import { DECISION_ACTIONS } from './construction/sequential-construction-contract.js';
 import { buildConfirmedConstructionSupportProjection } from './support/sequential-confirmed-support-projection.js';
+import { buildSequentialProjectMigration } from './sequential-sketcher-project-adapter.js';
 import {
   renderConstructionInspector, renderConstructionMetrics, renderConstructionSequence,
   renderSequentialConstructionCanvas,
@@ -34,6 +35,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     session: null,
     confirmedConstruction: null,
     supportProjection: null,
+    platformMigration: null,
+    sourceName: 'pasted-sequential-source.json',
     mode: 'ISO',
     selectedCandidateId: '',
   };
@@ -137,11 +140,34 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
   async function onChange(event) {
     if (event.target?.dataset?.sskFile !== 'source') return;
     elements.source.value = await readFile(event.target.files?.[0]);
+    model.sourceName = event.target.files?.[0]?.name || model.sourceName;
     model.records = null; model.evidence = null; model.indexes = null; model.session = null; clearDownstream();
     inspect();
   }
 
-  function onClick(event) {
+  function downloadArtifact(artifact) {
+    const blob = new Blob([artifact.text], { type: `${artifact.mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = artifact.name; anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportProject() {
+    if (!model.evidence || !model.session) throw new Error('Inspect and construct a route before export.');
+    const migration = await buildSequentialProjectMigration({
+      sourceText: elements.source.value, sourceName: model.sourceName,
+      evidence: model.evidence, session: model.session,
+      confirmedConstruction: model.confirmedConstruction, supportProjection: model.supportProjection,
+      createdAt: new Date().toISOString(), cryptoRef: globalThis.crypto,
+    });
+    if (migration.exportPlan.gate.status !== 'READY') throw new Error(migration.exportPlan.gate.blockers.join(' '));
+    model.platformMigration = migration;
+    downloadArtifact(migration.outputs[0]);
+    setStatus('Accepted construction and support evidence exported.', 'ok');
+  }
+
+  async function onClick(event) {
     const view = event.target?.closest?.('[data-ssk-view]')?.dataset?.sskView;
     if (view) { model.mode = view; root.querySelectorAll('[data-ssk-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.sskView === view)); repaint(); return; }
     const canvasCandidate = event.target?.closest?.('[data-ssk-candidate-id]')?.dataset?.sskCandidateId;
@@ -160,6 +186,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       if (action === 'start') start();
       if (action === 'advance') advance();
       if (action === 'run') run();
+      if (action === 'export') await exportProject();
       if (action === 'close') context.close?.();
     } catch (error) { setStatus(error.message || String(error), 'error'); context.showToast?.(error.message || String(error), 'error'); }
   }

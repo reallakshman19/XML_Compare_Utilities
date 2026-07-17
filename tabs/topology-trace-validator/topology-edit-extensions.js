@@ -9,15 +9,12 @@ import { loadTopologyProducerCore } from './topology-producer-loader.js';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 import { buildGapBridgeSuggestions, buildAttributeFixSuggestions } from './topology-extended-fix-suggestions.js';
 import { buildGhostVisualModel, ghostSuggestionId } from './topology-fix-ghost-model.js';
-import { appendAttributeEdit, createAttributeEditLedger } from './topology-attribute-edit-ledger.js';
 import { buildUpdateLedgerRows, UPDATE_LEDGER_COLUMNS } from './topology-update-ledger-model.js';
 import { createUpdateLedgerGrid } from './topology-update-ledger-grid.js';
 import { buildStagedExport } from './topology-staged-export.js';
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
 
 export function createTopologyEditExtensions(root, controller) {
-  let attributeLedger = createAttributeEditLedger();
-  const remarks = new Map();
   const dismissed = new Set();
   let ghostsEnabled = false;
   let suggestionsById = new Map();
@@ -28,7 +25,7 @@ export function createTopologyEditExtensions(root, controller) {
   const updatesHost = root.querySelector('[data-ttv-edit-updates]');
   const grid = updatesHost ? createUpdateLedgerGrid(updatesHost, {
     columns: UPDATE_LEDGER_COLUMNS,
-    onCellEdit: (row, key, value) => { if (key === 'remark') remarks.set(cleanText(row.id), value); },
+    onCellEdit: (row, key, value) => { if (key === 'remark') controller.edit.setCommandRemark(cleanText(row.id), value); },
     onRowFocus: (row) => {
       const target = cleanText(row.target).split(',')[0].trim();
       if (row.source === 'COMMAND' && target) controller.edit.setExternalSelection([{ kind: target.startsWith('CN-') ? 'node' : 'edge', id: target }]);
@@ -43,7 +40,8 @@ export function createTopologyEditExtensions(root, controller) {
   }
 
   function refreshLedger() {
-    grid?.setRows([...buildUpdateLedgerRows({ draft: editEvidence().draft, attributeLedger, remarks })]);
+    const evidence = editEvidence();
+    grid?.setRows([...buildUpdateLedgerRows({ draft: evidence.draft, attributeLedger: evidence.attributeLedger, remarks: evidence.remarks })]);
   }
 
   async function refreshGhosts() {
@@ -60,10 +58,11 @@ export function createTopologyEditExtensions(root, controller) {
       ].filter((row) => row.operations?.length && !dismissed.has(row.id));
       const attributes = buildAttributeFixSuggestions(stagedSource() ?? [])
         .filter((row) => row.after !== null && !dismissed.has(row.id))
-        .filter((row) => !attributeLedger.edits.some((edit) => edit.sourcePath === row.sourcePath && edit.field === row.field));
+        .filter((row) => !asArray(objectRecord(editEvidence().attributeLedger).edits)
+          .some((edit) => edit.sourcePath === row.sourcePath && edit.field === row.field));
       suggestionsById = new Map(geometry.map((row) => [row.id, row]));
       attributeById = new Map(attributes.map((row) => [row.id, row]));
-      controller.edit.setGhostModel(buildGhostVisualModel(geometry, attributes, canonical));
+      controller.edit.setGhostModel(buildGhostVisualModel(geometry, attributes, canonical, editEvidence().projectDocument));
       setGhostSummary(`${geometry.length} geometry + ${attributes.length} attribute proposal(s) shown as ghosts. Click a ghost to review.`);
     } catch (error) { setGhostSummary(`Ghost refresh failed: ${error?.message || String(error)}`); }
     finally { refreshing = false; }
@@ -76,11 +75,12 @@ export function createTopologyEditExtensions(root, controller) {
 
   function applyAttributeSuggestion(row, origin) {
     const warning = cleanText(row.warning);
-    attributeLedger = appendAttributeEdit(attributeLedger, {
+    const issuedAt = new Date().toISOString();
+    controller.edit.appendAttributeEditCommand({
       branchIndex: row.branchIndex, childIndex: row.childIndex, sourcePath: row.sourcePath,
       field: row.field, before: row.before, after: row.after,
-      reason: warning ? `⚠ ${warning}` : row.rationale, fixCode: row.fixCode, origin,
-    });
+      reason: warning ? `⚠ ${warning}` : row.rationale, fixCode: row.fixCode,
+    }, { kind: origin.startsWith('AUTOFIX:') ? 'AUTOFIX' : 'USER', actorId: origin, issuedAt });
     return warning;
   }
 
@@ -134,13 +134,15 @@ export function createTopologyEditExtensions(root, controller) {
     const base = stagedSource();
     if (!base) throw new Error('Load a staged/managed source JSON before exporting.');
     if (!evidence.draft) throw new Error('Edit Draft has not been initialized.');
-    const rows = buildUpdateLedgerRows({ draft: evidence.draft, attributeLedger, remarks });
+    const rows = buildUpdateLedgerRows({ draft: evidence.draft, attributeLedger: evidence.attributeLedger, remarks: evidence.remarks });
     const { text, summary } = buildStagedExport({
       baseStagedJson: base,
       baseCanonical: objectRecord(evidence.baseArtifacts).canonicalTopology,
       draft: evidence.draft,
       editedCanonicalHash: cleanText(objectRecord(objectRecord(evidence.editedArtifacts).canonicalTopology).canonicalTopologyHash),
-      attributeLedger,
+      attributeLedger: evidence.attributeLedger,
+      commandJournal: evidence.commandJournal,
+      exportedAt: new Date().toISOString(),
       ledgerRows: rows,
       toleranceMm: 0.5,
     });
@@ -164,7 +166,7 @@ export function createTopologyEditExtensions(root, controller) {
       if (suggestionsById.has(id)) showOverlay(suggestionsById.get(id), false);
       else if (attributeById.has(id)) showOverlay(attributeById.get(id), true);
     },
-    getAttributeLedger: () => attributeLedger,
+    getAttributeLedger: () => editEvidence().attributeLedger,
     destroy() { closeOverlay(); grid?.destroy(); },
   });
 }

@@ -1,56 +1,10 @@
 /** Pure HTML builders for the Edit Draft inspector, timeline, and metrics. */
 
 import { asArray, cleanText, escapeMarkup, objectRecord } from './topology-validator-values.js';
-import { objectForSelection, uniqueContextEdges } from './topology-edit-controller-helpers.js';
-
-/** Flatten a selected canonical record into stable field/value rows. */
-export function lineageRecordRows(value) {
-  const rows = [];
-  const visit = (current, path) => {
-    if (Array.isArray(current)) {
-      if (!current.length) rows.push({ field: path, value: '[]' });
-      current.forEach((item, index) => visit(item, `${path}[${index}]`));
-      return;
-    }
-    if (current && typeof current === 'object') {
-      const entries = Object.entries(current);
-      if (!entries.length) rows.push({ field: path, value: '{}' });
-      entries.forEach(([key, item]) => visit(item, path ? `${path}.${key}` : key));
-      return;
-    }
-    rows.push({ field: path || 'value', value: current === null ? 'null' : String(current) });
-  };
-  visit(value, '');
-  return Object.freeze(rows.map((row) => Object.freeze(row)));
-}
-
-/** Build the readable table used by the Lineage and record disclosure. */
-export function buildLineageRecordTableMarkup(value) {
-  const rows = lineageRecordRows(value);
-  return `<div class="ttv-lineage-table-wrap"><table class="ttv-lineage-table"><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>${rows.map((row) => `<tr><th scope="row">${escapeMarkup(row.field)}</th><td>${escapeMarkup(row.value)}</td></tr>`).join('')}</tbody></table></div>`;
-}
-
-/** @param {Record<string, unknown>} input @returns {string} */
-export function buildTopologyEditInspectorMarkup(input) {
-  const { canonical, validation, selection, contextEdgeId } = input;
-  if (!canonical) return '<div class="ttv-inspector-empty">Edit Draft is not initialized.</div>';
-  const active = selection.at(-1), value = active ? objectForSelection(canonical, active, validation) : null;
-  if (!active || !value) {
-    return '<div class="ttv-edit-inspector-intro"><h2>Edit Draft</h2><p>Select a node or edge. Ctrl/Cmd adds to selection; Shift selects the shortest connected path; Shift-drag draws a selection box.</p><p>Source JSON, CanonicalTopology.v1, Trace Ledger, and InputXML remain immutable.</p></div>';
-  }
-  const node = active.kind === 'node' ? value : null, edge = active.kind === 'edge' ? value : null, support = active.kind === 'support' ? value : null;
-  const incident = node ? asArray(canonical.edges).map(objectRecord).filter((row) => row.fromNodeId === node.id || row.toNodeId === node.id) : [];
-  const contexts = uniqueContextEdges(canonical, selection, contextEdgeId);
-  const supports = node ? asArray(canonical.supports).map(objectRecord).filter((row) => row.nodeId === node.id) : [];
-  const rigids = edge ? asArray(canonical.rigids).map(objectRecord).filter((row) => row.edgeId === edge.id) : [];
-  const findings = asArray(validation.findings).map(objectRecord).filter((row) => asArray(row.objectIds).map(cleanText).includes(active.id));
-  const contextOptions = contexts.map((row) => `<option value="${escapeMarkup(row.id)}"${row.id === contextEdgeId ? ' selected' : ''}>${escapeMarkup(row.id)} · ${escapeMarkup(row.segmentRole)}</option>`).join('');
-  const nodeForm = node ? `<div class="ttv-edit-coordinate-grid">${['x', 'y', 'z'].map((axis) => `<label>${axis.toUpperCase()}<input type="number" step="any" data-ttv-edit-coordinate="${axis}" value="${node.position[axis]}"></label>`).join('')}</div><button type="button" data-ttv-edit-inspector-action="MOVE_EXACT">Apply exact XYZ</button><h3>Add straight element</h3><div class="ttv-edit-coordinate-grid">${['x', 'y', 'z'].map((axis) => `<label>${axis.toUpperCase()}<input type="number" step="any" data-ttv-edit-target="${axis}"></label>`).join('')}</div><button type="button" data-ttv-edit-inspector-action="ADD">Add with context</button>` : '';
-  const edgeForm = edge ? `<dl><div><dt>From</dt><dd>${escapeMarkup(edge.fromNodeId)}</dd></div><div><dt>To</dt><dd>${escapeMarkup(edge.toNodeId)}</dd></div><div><dt>Role</dt><dd>${escapeMarkup(edge.segmentRole)}</dd></div></dl><label>Split fraction<input type="number" min="0.001" max="0.999" step="0.001" value="0.5" data-ttv-edit-split-fraction></label><button type="button" data-ttv-edit-inspector-action="SPLIT">Split edge</button><label>Disconnect endpoint<select data-ttv-edit-disconnect-endpoint><option value="FROM">FROM</option><option value="TO">TO</option></select></label><button type="button" data-ttv-edit-inspector-action="DISCONNECT">Disconnect endpoint</button>` : '';
-  const supportForm = support ? `<dl><div><dt>Node</dt><dd>${escapeMarkup(support.nodeId)}</dd></div><div><dt>Restraints</dt><dd>${asArray(support.restraints).length}</dd></div></dl><ul>${asArray(support.restraints).map((r) => `<li><b>${escapeMarkup(r.kind)}</b> ${escapeMarkup(r.type || r.direction)} ${Number(r.gap) >= 0 ? `(Gap: ${r.gap}mm)` : ''}</li>`).join('')}</ul>` : '';
-  const findingMarkup = findings.length ? findings.map((row) => `<p class="${row.blocking ? 'is-blocking' : ''}" style="border-inline-start:3px solid ${escapeMarkup(cleanText(row.color) || '#ef4444')};padding-inline-start:8px"><b>${escapeMarkup(row.code)}</b> · ${escapeMarkup(row.message)}${row.canvasFix ? `<br><small>Canvas fix: ${escapeMarkup(row.canvasFix)}</small>` : ''}</p>`).join('') : '<p>No findings for this object.</p>';
-  return `<section><h2>${escapeMarkup(active.kind.toUpperCase())} · ${escapeMarkup(active.id)}</h2><label>Engineering context edge<select data-ttv-edit-context><option value="">Select explicit authority…</option>${contextOptions}</select></label>${nodeForm}${edgeForm}${supportForm}<h3>Geometry details</h3><dl><div><dt>Selection</dt><dd>${selection.length} object(s)</dd></div>${node ? `<div><dt>Incidence</dt><dd>${incident.length}</dd></div>` : ''}<div><dt>Supports</dt><dd>${supports.map((row) => escapeMarkup(row.tag || row.id)).join(', ') || (support ? 'N/A' : 'None')}</dd></div><div><dt>Rigids</dt><dd>${rigids.length}</dd></div></dl><h3>Validation</h3>${findingMarkup}<details open><summary>Lineage and record</summary>${buildLineageRecordTableMarkup(value)}</details></section>`;
-}
+export {
+  buildLineageRecordTableMarkup, buildRegisteredTopologyEditInspectorMarkup as buildTopologyEditInspectorMarkup,
+  lineageRecordRows,
+} from './topology-edit-inspector-registry.js';
 
 /** @param {Record<string, unknown>} draft @returns {string} */
 export function buildTopologyEditTimelineMarkup(draft) {

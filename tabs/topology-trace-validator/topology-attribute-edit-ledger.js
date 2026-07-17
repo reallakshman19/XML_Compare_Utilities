@@ -7,6 +7,7 @@
  */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
+import { isIsoTimestamp } from '../../contracts/contract-values.js';
 
 /** @returns {Readonly<Record<string, unknown>>} */
 export function createAttributeEditLedger() {
@@ -23,9 +24,12 @@ export function appendAttributeEdit(ledger, edit) {
   const field = cleanText(edit.field);
   if (!field) throw new TypeError('Attribute edit requires a field name.');
   if (!Number.isInteger(edit.branchIndex) || edit.branchIndex < 0) throw new TypeError('Attribute edit requires a branchIndex.');
+  if (!isIsoTimestamp(edit.appliedAt)) throw new TypeError('Attribute edit requires an exact ISO appliedAt timestamp.');
+  const origin = cleanText(edit.origin);
+  if (!origin) throw new TypeError('Attribute edit requires an explicit origin.');
   const record = Object.freeze({
     id: `AE-${String(ledger.nextSequence).padStart(6, '0')}`,
-    appliedAt: new Date().toISOString(),
+    appliedAt: edit.appliedAt,
     branchIndex: edit.branchIndex,
     childIndex: Number.isInteger(edit.childIndex) ? edit.childIndex : null,
     sourcePath: cleanText(edit.sourcePath),
@@ -34,7 +38,7 @@ export function appendAttributeEdit(ledger, edit) {
     after: edit.after ?? null,
     reason: cleanText(edit.reason),
     fixCode: cleanText(edit.fixCode),
-    origin: cleanText(edit.origin) || 'MANUAL',
+    origin,
   });
   return Object.freeze({
     ...ledger,

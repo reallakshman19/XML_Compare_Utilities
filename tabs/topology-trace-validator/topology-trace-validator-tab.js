@@ -157,6 +157,7 @@ function collectEditElements(root) {
     inspector: query('[data-ttv-edit-inspector]'),
     timeline: query('[data-ttv-edit-timeline]'),
     validation: query('[data-ttv-edit-validation]'),
+    exportPlan: query('[data-ttv-edit-export-plan]'),
     metrics: query('[data-ttv-edit-metrics]'),
     status: query('[data-ttv-edit-status]'),
     live: query('[data-ttv-edit-live]'),

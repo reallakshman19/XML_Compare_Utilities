@@ -81,7 +81,7 @@ export function buildCanonicalRestraintGeometry(canonical, viewModel) {
   const edges = asArray(canonical.edges).map(objectRecord), segments = [], markers = [];
   const verticalAxis = cleanText(viewModel?.verticalAxis || 'Y').toUpperCase() === 'Z' ? 'Z' : 'Y';
   const requestedScale = Number(viewModel?.supportScale);
-  const supportScale = Number.isFinite(requestedScale) ? Math.min(6, Math.max(0.25, requestedScale)) : 1;
+  const supportScale = Number.isFinite(requestedScale) ? Math.min(6, Math.max(0.25, requestedScale)) : 2.5;
   const up = verticalAxisVector(verticalAxis);
 
   for (const support of asArray(canonical.supports).map(objectRecord)) {
@@ -92,7 +92,11 @@ export function buildCanonicalRestraintGeometry(canonical, viewModel) {
 
     let odMm = 25 * 2;
     const edge = edges.find((row) => cleanText(row.fromNodeId) === cleanText(support.nodeId) || cleanText(row.toNodeId) === cleanText(support.nodeId));
-    if (edge && edge.diameterMm) odMm = edge.diameterMm;
+    if (edge && viewModel?.edgeRadii?.has(cleanText(edge.id))) {
+      odMm = viewModel.edgeRadii.get(cleanText(edge.id)) * 2;
+    } else if (edge && edge.diameterMm) {
+      odMm = edge.diameterMm;
+    }
     const R = odMm * 0.5;
 
     asArray(support.restraints).map(objectRecord).forEach((restraint, index) => {
@@ -117,66 +121,72 @@ export function buildCanonicalRestraintGeometry(canonical, viewModel) {
       const pipeDim = Math.abs(axis[0]) > 0.9 ? 'X' : Math.abs(axis[verticalAxis === 'Z' ? 2 : 1]) > 0.9 ? verticalAxis : 'Z';
       const offsetDir = pipeDim === verticalAxis ? (verticalAxis === 'Z' ? [1,0,0] : [1,0,0]) : up;
 
+      const pushResolvedArrow = (dir, gapMm, kind) => {
+        const isAxial = Math.abs(axis[0]*dir[0] + axis[1]*dir[1] + axis[2]*dir[2]) > 0.99;
+        
+        let tipPos;
+        // 1. Apply engineering contact first
+        if (isAxial) {
+          // Axial restraints do not use OD/2 radial contact. 
+          // No positive gap means opposing axial arrow tips touch. Positive gap means separation = 10×gap.
+          tipPos = add(center, scale(dir, -gapMm * 10));
+        } else {
+          tipPos = add(center, scale(dir, -(R + gapMm)));
+        }
+
+        // 2 & 3. Classify final symbol orientation & Apply OD×2/3 visual resolver only to final pipe-parallel / axial symbols.
+        if (isAxial) {
+          tipPos = add(tipPos, scale(offsetDir, R + 17));
+        }
+
+        pushArrow(dir, tipPos, kind);
+      };
+
       if (family === 'HOLDOWN' || family === 'U_BOLT') {
         const directions = [up, opposite(up)];
         for (let directionIndex = 0; directionIndex < directions.length; directionIndex += 1) {
-          pushArrow(
-            directions[directionIndex],
-            add(center, scale(up, directionIndex === 0 ? -(R + gap) : R + gap)),
-            'RESTRAINT_ARROW',
-          );
+          pushResolvedArrow(directions[directionIndex], gap, 'RESTRAINT_ARROW');
         }
         return;
       }
 
       switch (family) {
         case 'REST':
-          pushArrow(up, add(center, scale(up, -(R + gap))), 'RESTRAINT_ARROW');
+          pushResolvedArrow(up, gap, 'RESTRAINT_ARROW');
           break;
         case 'GUIDE':
           const laterals = lateralAxes(axis, verticalAxis);
-          if (laterals.length === 2) { // 2 axes = 4 arrows for vertical pipe
-            pushArrow(laterals[0], add(center, scale(laterals[0], -(R + gap))), 'RESTRAINT_ARROW');
-            pushArrow(opposite(laterals[0]), add(center, scale(opposite(laterals[0]), -(R + gap))), 'RESTRAINT_ARROW');
-            pushArrow(laterals[1], add(center, scale(laterals[1], -(R + gap))), 'RESTRAINT_ARROW');
-            pushArrow(opposite(laterals[1]), add(center, scale(opposite(laterals[1]), -(R + gap))), 'RESTRAINT_ARROW');
-          } else if (laterals.length === 1) { // 1 axis = 2 arrows
-            pushArrow(laterals[0], add(center, scale(laterals[0], -(R + gap))), 'RESTRAINT_ARROW');
-            pushArrow(opposite(laterals[0]), add(center, scale(opposite(laterals[0]), -(R + gap))), 'RESTRAINT_ARROW');
+          for (const lat of laterals) {
+            pushResolvedArrow(lat, gap, 'RESTRAINT_ARROW');
+            pushResolvedArrow(opposite(lat), gap, 'RESTRAINT_ARROW');
           }
           break;
         case 'LINE_STOP':
         case 'LIMIT':
-          const offsetPos = add(center, scale(offsetDir, odMm * 2/3));
-          pushArrow(axis, add(offsetPos, scale(axis, -gap * 10)), 'RESTRAINT_ARROW');
-          pushArrow(opposite(axis), add(offsetPos, scale(axis, gap * 10)), 'RESTRAINT_ARROW');
+          pushResolvedArrow(axis, gap, 'RESTRAINT_ARROW');
+          pushResolvedArrow(opposite(axis), gap, 'RESTRAINT_ARROW');
           break;
         case 'CAN':
         case 'SPRING_WARNING':
         case 'SPRING':
         case 'SPRING_HANGER':
-          pushArrow(up, add(center, scale(up, -(R + gap + arrowLen / 2))), 'WARNING');
-          if (family === 'SPRING_HANGER') pushArrow(up, add(center, scale(up, -(R + gap))), 'RESTRAINT_ARROW');
+          pushArrow(up, add(center, scale(up, -(R + gap + 17))), 'WARNING');
+          if (family === 'SPRING_HANGER') pushResolvedArrow(up, gap, 'RESTRAINT_ARROW');
           break;
         case 'SHOE':
         case 'TRUNNION':
         case 'HANGER':
-          pushArrow(up, add(center, scale(up, -(R + gap))), 'RESTRAINT_ARROW');
+          pushResolvedArrow(up, gap, 'RESTRAINT_ARROW');
           break;
         case 'ANCHOR':
-          const anchOffsetPos = add(center, scale(offsetDir, odMm * 2/3));
-          pushArrow(axis, add(anchOffsetPos, scale(axis, -gap * 10)), 'RESTRAINT_ARROW');
-          pushArrow(opposite(axis), add(anchOffsetPos, scale(axis, gap * 10)), 'RESTRAINT_ARROW');
-          pushArrow(up, add(center, scale(up, -(R + gap))), 'RESTRAINT_ARROW');
-          pushArrow(opposite(up), add(center, scale(up, R + gap)), 'RESTRAINT_ARROW');
+          pushResolvedArrow(axis, gap, 'RESTRAINT_ARROW');
+          pushResolvedArrow(opposite(axis), gap, 'RESTRAINT_ARROW');
+          pushResolvedArrow(up, gap, 'RESTRAINT_ARROW');
+          pushResolvedArrow(opposite(up), gap, 'RESTRAINT_ARROW');
           break;
         default:
           if (explicit) {
-            const dir = explicit;
-            const isAxial = Math.abs(axis[0]*dir[0] + axis[1]*dir[1] + axis[2]*dir[2]) > 0.99;
-            const pos = isAxial ? add(center, scale(offsetDir, odMm * 2/3)) : center;
-            const tipPos = isAxial ? add(pos, scale(dir, -gap * 10)) : add(pos, scale(dir, -(R + gap)));
-            pushArrow(dir, tipPos, 'RESTRAINT_ARROW');
+            pushResolvedArrow(explicit, gap, 'RESTRAINT_ARROW');
           }
           break;
       }
@@ -229,7 +239,9 @@ export function build3dVisualGeometryModel(viewModel) {
       const from = nodeMap.get(cleanText(edge.fromNodeId)), to = nodeMap.get(cleanText(edge.toNodeId));
       if (from && to) segments.push({ objectId: edge.id, start: [from.position.x, from.position.y, from.position.z], end: [to.position.x, to.position.y, to.position.z], radiusMm: edge.diameterMm ? edge.diameterMm / 2 : 30, kind: 'canonical-edge' });
     }
-    for (const node of asArray(viewModel.canonicalNodes)) markers.push({ objectId: node.id, kind: 'NODE', position: [node.position.x, node.position.y, node.position.z], nodeId: node.id, sizeMm: 24 });
+    for (const node of asArray(viewModel.canonicalNodes)) {
+      markers.push({ objectId: node.id, kind: 'NODE', position: [node.position.x, node.position.y, node.position.z], nodeId: node.id, sizeMm: 9, pickSizeMm: 28 });
+    }
     const restraintGeometry = buildCanonicalRestraintGeometry({ nodes: viewModel.canonicalNodes, edges: viewModel.canonicalEdges, supports: viewModel.supports }, viewModel);
     segments.push(...restraintGeometry.segments); markers.push(...restraintGeometry.markers);
   }

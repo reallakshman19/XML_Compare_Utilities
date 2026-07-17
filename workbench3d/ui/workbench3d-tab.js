@@ -17,7 +17,8 @@ import { runCompare } from '../compare/compare-engine.js';
 import { DEFAULT_COMPARE_CONFIG } from '../compare/evidence-scorer.js';
 import { buildTransferPlan, batchApprove, refreshTransferSummary, DEFAULT_TRANSFER_CONFIG } from '../compare/transfer-planner.js';
 import { applyTransferPlan } from '../apply/transfer-apply.js';
-import { buildExportBundle, downloadFile, rowsToCsv, DIFF_CSV_COLUMNS, CONFLICT_CSV_COLUMNS, TRANSFER_CSV_COLUMNS, PATH_CSV_COLUMNS } from '../apply/exporters.js';
+import { downloadFile, rowsToCsv, DIFF_CSV_COLUMNS, CONFLICT_CSV_COLUMNS, TRANSFER_CSV_COLUMNS, PATH_CSV_COLUMNS } from '../apply/exporters.js';
+import { compareWorkbenchProjectArtifacts } from '../project/compare-workbench-project-adapter.js';
 import { createWorkbenchViewer, STATUS_STYLES } from '../viewer/workbench-viewer.js';
 import { buildConnectorModel } from '../viewer/connector-model.js';
 import {
@@ -808,14 +809,14 @@ function applySettings(container, state) {
 }
 
 function exportBundleFile(state, filename) {
-  const files = buildExportBundle({
+  const files = compareWorkbenchProjectArtifacts({
     compareAudit: state.audit,
     transferPlan: state.plan,
     rollbackLedger: state.applyResult?.rollbackLedger,
     outputXml: state.applyResult?.outputXml,
   });
-  const file = files.find((f) => f.filename === filename);
-  if (file) downloadFile(file.filename, file.content, file.type);
+  const file = files.find((candidate) => candidate.name === filename);
+  if (file) downloadFile(file.name, file.text, file.mime);
 }
 
 function renderView(container, state) {

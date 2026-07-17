@@ -1,4 +1,5 @@
 @import url('./topology-trace-validator.css?v=20260715-ttv-017-layout-fixes');
+@import url('./topology-export-inspector.css?v=20260717-phase3-export-plan');
 
 .ttv-workspace { overflow: auto; display: flex; flex-direction: column; }
 .ttv-trace-area { flex: 1; min-height: 50vh; display: flex; flex-direction: column; }

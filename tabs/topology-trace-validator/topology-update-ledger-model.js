@@ -29,6 +29,8 @@ function commandTarget(payload) {
     || asArray(record.edgeIds).map(cleanText).join(', ');
 }
 
+function remarkValue(remarks, id) { return cleanText(objectRecord(remarks)[id]); }
+
 function commandRows(command, sequenceStart, remarks, origin) {
   const record = objectRecord(command);
   const type = cleanText(record.type);
@@ -49,7 +51,7 @@ function commandRows(command, sequenceStart, remarks, origin) {
     before: '',
     after: compact(payload.position ?? payload.toPosition ?? payload.fraction ?? payload.endpoint ?? payload.targetNodeId ?? payload.toNodeId ?? payload.kind ?? payload.radiusMm ?? ''),
     origin,
-    remark: remarks.get(id) ?? '',
+    remark: remarkValue(remarks, id),
     source: 'COMMAND',
     detail: payload,
   }];
@@ -57,10 +59,11 @@ function commandRows(command, sequenceStart, remarks, origin) {
 
 /**
  * @param {{ draft: Record<string, unknown>|null, attributeLedger: Record<string, unknown>|null,
- *           remarks?: Map<string, string> }} input
+ *           remarks: Record<string, string> }} input
  * @returns {ReadonlyArray<Record<string, unknown>>}
  */
-export function buildUpdateLedgerRows({ draft, attributeLedger, remarks = new Map() }) {
+export function buildUpdateLedgerRows(input) {
+  const { draft, attributeLedger, remarks } = input;
   const rows = [];
   let sequence = 1;
   for (const command of asArray(draft?.commands)) {
@@ -77,7 +80,7 @@ export function buildUpdateLedgerRows({ draft, attributeLedger, remarks = new Ma
       before: compact(edit.before),
       after: compact(edit.after),
       origin: cleanText(edit.origin) || 'MANUAL',
-      remark: remarks.get(cleanText(edit.id)) ?? cleanText(edit.reason),
+      remark: remarkValue(remarks, cleanText(edit.id)) || cleanText(edit.reason),
       source: 'ATTRIBUTE',
       detail: edit,
     });

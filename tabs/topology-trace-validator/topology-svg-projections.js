@@ -25,11 +25,11 @@ function projectedPoint(x, y) {
 export function projectTopologyPoint(point, plane) {
   const value = strictPoint(point);
   if (!value) return null;
-  if (plane === 'ISO') return projectedPoint(
+  if (plane === 'ISO' || plane === '3D') return projectedPoint(
     (value.x - value.y) * Math.cos(Math.PI / 6),
     value.z + (value.x + value.y) * Math.sin(Math.PI / 6),
   );
-  if (plane === 'XY' || plane === '3D') return projectedPoint(value.x, value.y);
+  if (plane === 'XY') return projectedPoint(value.x, value.y);
   if (plane === 'XZ') return projectedPoint(value.x, value.z);
   if (plane === 'YZ') return projectedPoint(value.y, value.z);
   throw new RangeError(`Unsupported topology projection plane: ${plane}`);

@@ -35,7 +35,7 @@ assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-HOLDOWN').m
 assert.deepEqual(sortDirs(arrows.filter((row) => row.objectId === 'S-X').map((row) => row.direction)), sortDirs([[1, 0, 0]]));
 assert(geometry.markers.filter((marker) => marker.kind === 'SUPPORT').every((marker) => marker.isObjectMarker));
 
-const scaledGeometry = buildCanonicalRestraintGeometry(canonical, { verticalAxis: 'Y', supportScale: 2 });
+const scaledGeometry = buildCanonicalRestraintGeometry(canonical, { verticalAxis: 'Y', supportScale: 5 });
 const baseSupport = geometry.markers.find((marker) => marker.kind === 'SUPPORT');
 const scaledSupport = scaledGeometry.markers.find((marker) => marker.kind === 'SUPPORT');
 assert.equal(scaledSupport.sizeMm, baseSupport.sizeMm * 2, 'support marker scale must follow the UI slider');

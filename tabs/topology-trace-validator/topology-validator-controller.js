@@ -13,7 +13,7 @@ import { buildTopologySvgViewModel, updateTopologySearchViewModel } from './topo
 import { renderTopologySearchStatus, renderTopologySvg } from './topology-svg-renderer.js';
 import { buildTopologySearchResultsMarkup } from './topology-search-panel.js';
 import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord } from './topology-validator-values.js';
-import { render3dViewer, select3dObject, dispose3dViewer } from './topology-3d-viewer-bridge.js?v=20260715-ttv-014-bend-fix';
+// 3D viewer bridge is only for Edit Draft tab
 import { artifactHash, escapeHtml, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
 import { renderTopologySourceControls, syncTopologySourceControls } from './topology-source-controls.js';
 /** @param {Record<string, Element>} elements @returns {Readonly<Record<string, unknown>>} */
@@ -103,22 +103,12 @@ export function createTopologyValidatorController(elements) {
     if (!validation) return;
     assertNoMutation();
     viewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
-    if (viewState.projection !== '3D') {
-      dispose3dViewer();
-      destroySvgInteractions();
-      svgNavigation.destroy();
-      const svg = renderTopologySvg(elements.svgHost, viewModel);
-      renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
-      svgNavigation = wireTopologySvgNavigation(svg);
-      destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
-    } else {
-      destroySvgInteractions();
-      svgNavigation.destroy();
-      destroySvgInteractions = () => {};
-      svgNavigation = emptyNavigation();
-      renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
-      render3dViewer(elements, viewModel, selectedKey, select);
-    }
+    destroySvgInteractions();
+    svgNavigation.destroy();
+    const svg = renderTopologySvg(elements.svgHost, viewModel);
+    renderTopologyBottomPanel(elements.bottom, viewModel, activeBottomTab);
+    svgNavigation = wireTopologySvgNavigation(svg);
+    destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
     elements.searchResults.innerHTML = buildTopologySearchResultsMarkup(viewModel);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selectedKey ? objectRecord(objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[selectedKey]) : null);
     if (selectedKey && viewState.projection !== '3D') applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), selectedKey);
@@ -136,13 +126,8 @@ export function createTopologyValidatorController(elements) {
   function select(objectKey) {
     if (!viewModel) return null;
     selectedKey = objectKey;
-    const selection = viewState.projection !== '3D'
-      ? applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey)
-      : (objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[objectKey] ?? null);
+    const selection = applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey);
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
-    if (viewState.projection === '3D') {
-      select3dObject(objectKey);
-    }
     return selection;
   }
 

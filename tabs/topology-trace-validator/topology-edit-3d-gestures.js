@@ -216,9 +216,6 @@ export function wireTopologyEditGestures({ host, viewer, callbacks, input }) {
       return;
     }
     try {
-      if ((event.ctrlKey || event.metaKey) && key === 'z') { event.preventDefault(); await (event.shiftKey ? cb().redo?.() : cb().undo?.()); return; }
-      if ((event.ctrlKey || event.metaKey) && key === 'y') { event.preventDefault(); await cb().redo?.(); return; }
-      if (key === 'delete' || key === 'backspace') { event.preventDefault(); await cb().runOperation?.('DELETE'); return; }
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key)) {
         const nodes = (cb().getSelection?.() ?? []).filter((row) => row.kind === 'node');
         if (nodes.length !== 1) return;

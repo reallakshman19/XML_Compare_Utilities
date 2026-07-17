@@ -46,6 +46,7 @@ export function topologyCheckerPanelMarkup() {
       <footer class="ttv-checker-actions">
         <button type="button" data-ttv-checker-refresh>${topologyCheckerIconMarkup('scan-search', '', '')} Run checks</button>
         <button type="button" data-ttv-checker-apply-approved>${topologyCheckerIconMarkup('wand-sparkles', '', '')} Apply approved fixes</button>
+        <button type="button" data-ttv-checker-apply-selected>${topologyCheckerIconMarkup('wand-sparkles', '', '')} Apply selected</button>
         <button type="button" data-ttv-checker-export>${topologyCheckerIconMarkup('check-check', '', '')} Export report</button>
       </footer>
     </div>
@@ -79,12 +80,14 @@ export function renderCheckerFilterOptions(select, values, selected) {
 /** @param {Record<string,unknown>} issue @returns {string} */
 export function checkerIssueRowMarkup(issue) {
   const selected = issue.selected ? ' is-selected' : '';
-  return `<button type="button" role="row" class="ttv-checker-row${selected}" data-ttv-checker-issue="${escapeMarkup(issue.id)}" style="--ttv-issue-color:${escapeMarkup(issue.color)}">
+  return `<div role="row" style="display:flex;align-items:center;padding-left:4px;">
+    <input type="checkbox" class="ttv-checker-bulk-select" data-ttv-checker-bulk-id="${escapeMarkup(issue.id)}" title="Select for bulk apply" style="margin-right:4px;">
+    <button type="button" class="ttv-checker-row${selected}" data-ttv-checker-issue="${escapeMarkup(issue.id)}" style="--ttv-issue-color:${escapeMarkup(issue.color)};flex:1;">
     <span class="ttv-checker-severity" data-severity="${escapeMarkup(issue.severity)}">${topologyCheckerIconMarkup(issue.icon, '', '')}<small>${escapeMarkup(issue.severity)}</small></span>
     <span><b>${escapeMarkup(issue.code.replaceAll('_', ' '))}</b><small>${escapeMarkup(issue.message)}</small></span>
     <span>${escapeMarkup(issue.measurement || '—')}</span><span title="${escapeMarkup(issue.branch)}">${escapeMarkup(issue.branch || '—')}</span>
     <span>${escapeMarkup(issue.confidence)}</span><span data-fixability="${escapeMarkup(issue.fixability)}">${escapeMarkup(fixLabel(issue.fixability))}</span>
-  </button>`;
+  </button></div>`;
 }
 
 /** @param {string} value @returns {string} */

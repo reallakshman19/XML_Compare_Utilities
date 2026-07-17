@@ -1,10 +1,11 @@
 /** Browser event wiring for the combined trace and topology parity workspace. */
 import { loadTopologySourceFile } from './topology-companion-loader.js';
 import { cleanText, objectRecord } from './topology-validator-values.js';
-import { renderStagedJsonEnrichmentPanel } from './stagedjson-enrichment/stagedjson-enrichment-ui.js?v=20260715-ttv-005-css-fix';
 import { wireLeftPanelResize, wireBottomPanelResize } from './topology-panel-resize.js';
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
 import { loadStagedJsonScoped } from './topology-staged-load-flow.js';
+import { wireTopologyEnrichment } from './topology-enrichment-wiring.js';
+import { wireTopologyEditCommandRouter } from './topology-edit-command-router.js';
 export function wireTopologyWorkspace(root, controller) {
   const cleanups = [];
   cleanups.push(wireLeftPanelResize(root));
@@ -42,7 +43,7 @@ export function wireTopologyWorkspace(root, controller) {
   listen(root.querySelector('[data-ttv-validate]'), 'click', async () => {
     try { controller.validate(); await refreshCheckerIfReady(controller); } catch (error) { showWorkspaceError(root, error); }
   });
-  wireEnrichment(root, controller, listen);
+  wireTopologyEnrichment(root, controller, listen, showWorkspaceError);
   listen(root.querySelector('[data-ttv-download-inputxml]'), 'click', () => {
     try { controller.downloadEnrichedInputXml(); } catch (error) { showWorkspaceError(root, error); }
   });
@@ -52,6 +53,12 @@ export function wireTopologyWorkspace(root, controller) {
   listen(root.querySelector('[data-ttv-build-topology]'), 'click', (event) => buildTopology(root, controller, event));
   listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
   root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
+  root.querySelectorAll('[data-ttv-font-zoom]').forEach((button) => listen(button, 'click', () => {
+    const isOut = button.dataset.ttvFontZoom === 'out';
+    const current = parseFloat(root.style.getPropertyValue('--ttv-font-scale')) || 1;
+    const next = Math.max(0.6, Math.min(1.8, current + (isOut ? -0.1 : 0.1)));
+    root.style.setProperty('--ttv-font-scale', next.toFixed(1));
+  }));
   root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => {
     setActiveButtons(root, 'data-ttv-mode', button);
     const mode = button.dataset.ttvMode;
@@ -62,12 +69,19 @@ export function wireTopologyWorkspace(root, controller) {
   root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => {
     setActiveButtons(root, 'data-ttv-projection', button);
     const projection = button.dataset.ttvProjection;
-    const is3D = projection === '3D';
-    root.querySelectorAll('[data-ttv-zoom], [data-ttv-fit], [data-ttv-mode]').forEach(btn => btn.disabled = is3D);
     const compass = root.querySelector('[data-ttv-trace-root] [data-ttv-axis-compass]');
     if (compass) {
-      compass.style.display = is3D ? 'none' : '';
-      if (!is3D) {
+      if (projection === '3D' || projection === 'ISO') {
+        compass.innerHTML = `
+          <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
+          <line x1="0" y1="0" x2="-25" y2="-15" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="-35" y="-20" font-size="12" fill="#ef4444">X</text>
+          <line x1="0" y1="0" x2="25" y2="-15" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="30" y="-20" font-size="12" fill="#22c55e">Y</text>
+          <line x1="0" y1="0" x2="0" y2="-35" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="-5" y="-40" font-size="12" fill="#3b82f6">Z</text>
+        `;
+      } else {
         const hAxis = projection.charAt(0);
         const vAxis = projection.charAt(1);
         compass.innerHTML = `
@@ -161,8 +175,7 @@ function wireEditControls(root, controller, listen) {
     try { await controller.edit.runOperation(operation); }
     catch (error) { showEditError(root, error); }
   };
-  root.querySelectorAll('[data-ttv-edit-tool]').forEach((button) => listen(button, 'click', () => controller.edit.setTool(button.dataset.ttvEditTool)));
-  root.querySelectorAll('[data-ttv-edit-operation]').forEach((button) => listen(button, 'click', () => run(button.dataset.ttvEditOperation)));
+  wireTopologyEditCommandRouter(root, controller.edit, listen, (error) => showEditError(root, error));
   root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => listen(button, 'click', () => {
     const projection = button.dataset.ttvEditProjection;
     controller.edit.setProjection(projection);
@@ -193,12 +206,6 @@ function wireEditControls(root, controller, listen) {
     const is3D = event.target.checked;
     controller.edit.set3dVisible(is3D);
   });
-  listen(root.querySelector('[data-ttv-edit-undo]'), 'click', async () => { try { await controller.edit.undo(); } catch (error) { showEditError(root, error); } });
-  listen(root.querySelector('[data-ttv-edit-redo]'), 'click', async () => { try { await controller.edit.redo(); } catch (error) { showEditError(root, error); } });
-  listen(root.querySelector('[data-ttv-edit-fit]'), 'click', () => controller.edit.fit());
-  root.querySelectorAll('[data-ttv-edit-zoom]').forEach((button) => listen(button, 'click', () => {
-    if (button.dataset.ttvEditZoom === 'in') controller.edit.zoomIn(); else controller.edit.zoomOut();
-  }));
   listen(root.querySelector('[data-ttv-edit-load-staged]'), 'change', async (event) => {
     const input = event.target, file = input.files?.[0];
     if (!file) return;
@@ -228,29 +235,6 @@ function wireParityControls(root, controller, listen) {
   root.querySelectorAll('[data-ttv-parity-fit]').forEach((btn) => listen(btn, 'click', () => { const act = btn.dataset.ttvParityFit; if (act === 'all') controller.parity.fitAll(); else if (act === 'branch') controller.parity.fitBranch(); else if (act === 'issue') controller.parity.fitIssue(); }));
   listen(root.querySelector('[data-ttv-parity-labels]'), 'change', (ev) => controller.parity.setLabels(ev.target.checked));
   root.querySelectorAll('[data-ttv-parity-export]').forEach((btn) => listen(btn, 'click', () => { try { controller.parity.exportArtifact(btn.dataset.ttvParityExport); } catch (e) { showWorkspaceError(root, e); } }));
-}
-
-function wireEnrichment(root, controller, listen) {
-  listen(root.querySelector('[data-ttv-enrich]'), 'click', () => {
-    const overlay = root.ownerDocument.createElement('div');
-    overlay.className = 'ttv-modal';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    const container = root.ownerDocument.createElement('div');
-    container.className = 'ttv-modal-content';
-    Object.assign(container.style, { width: '90vw', height: '90vh', background: 'var(--psmap-surface)', display: 'flex', flexDirection: 'column' });
-    const header = root.ownerDocument.createElement('div');
-    Object.assign(header.style, { padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--psmap-border)' });
-    const title = root.ownerDocument.createElement('h2'); title.textContent = 'Master File Enrichment Workbench'; title.style.margin = '0';
-    const closeBtn = root.ownerDocument.createElement('button'); closeBtn.textContent = '✕ Close';
-    const body = root.ownerDocument.createElement('div'); Object.assign(body.style, { flex: '1', overflow: 'hidden', position: 'relative' });
-    header.append(title, closeBtn); container.append(header, body); overlay.appendChild(container); root.ownerDocument.body.appendChild(overlay);
-    const dispose = renderStagedJsonEnrichmentPanel(body, { onApplyToWorkspace: async (json) => {
-      try { dispose?.(); overlay.remove(); await controller.loadArtifact('source', JSON.stringify(json), 'enriched_source.json'); }
-      catch (error) { showWorkspaceError(root, error); }
-    } });
-    closeBtn.addEventListener('click', () => { dispose?.(); overlay.remove(); });
-  });
 }
 
 async function buildTopology(root, controller, event) {

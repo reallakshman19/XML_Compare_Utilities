@@ -15,6 +15,8 @@
  */
 
 import { createGpuPicker, PICK_LAYER } from './gpu-picker.js';
+import { createSceneDerivationScheduler } from './scene-derivation-scheduler.js';
+import { diffSceneChunks, querySceneSpatialIndex, SCENE_CHUNK_SIZE } from './scene-runtime.js';
 
 const THREE_IMPORTS = Object.freeze(['three', 'https://esm.sh/three@0.160.0/build/three.module.js']);
 
@@ -93,8 +95,8 @@ function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZ
   const onPointerUp = () => { dragging = null; };
   const onWheel = (e) => {
     e.preventDefault();
-    const step = e.shiftKey ? 1.035 : 1.12;
-    const factor = e.deltaY > 0 ? step : 1 / step;
+    const speed = e.shiftKey ? 0.0005 : 0.002;
+    const factor = Math.exp(e.deltaY * speed);
     const anchor = getZoomAnchor ? getZoomAnchor(e) : null;
     if (anchor) {
       // Keep the anchor stationary: the target slides toward/away from it in
@@ -150,8 +152,9 @@ const MARKER_COLORS = Object.freeze({
 
 const GHOST_PROPOSAL_COLOR = 0x22d3ee;
 
-export async function createWorkbenchViewer(container, { onPick, onHoverConnector, onHoverObject, onCameraChange } = {}) {
+export async function createWorkbenchViewer(container, { onPick, onHoverConnector, onHoverObject, onCameraChange, onRuntimeError } = {}) {
   const THREE = await loadThree();
+  if (typeof Worker !== 'function') throw new Error('Workbench viewer requires browser Worker support for scene derivation.');
   let verticalAxis = 'Y';
   let host = container; // reassigned by reattach() when the tab re-renders its DOM
   // preserveDrawingBuffer keeps readPixels/screenshots dependable.
@@ -164,6 +167,9 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   renderer.domElement.style.height = '100%';
   renderer.domElement.style.display = 'block';
   renderer.domElement.tabIndex = 0;
+  renderer.domElement.setAttribute('role', 'application');
+  renderer.domElement.setAttribute('aria-label', 'Interactive engineering 3D scene. Use the toolbar or keyboard commands to select, navigate, zoom, and fit objects.');
+  renderer.domElement.setAttribute('aria-keyshortcuts', 'F [ ] Enter Delete Control+Z Control+Y');
 
   const scene = new THREE.Scene();
   scene.add(new THREE.AmbientLight(0xffffff, 0.85));
@@ -241,6 +247,14 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   }
 
   let models = { source: null, target: null, registrationTranslation: [0, 0, 0] };
+  let pendingModels = models;
+  let sceneRuntime = null;
+  let runtimeError = null;
+  let fullRebuildCount = 0;
+  let incrementalRebuildCount = 0;
+  let skippedRebuildCount = 0;
+  let pendingFit = false;
+  const sceneOrigin = new THREE.Vector3();
   let ghostModel = null;
   let connectorRecords = []; // [{ connector, from:V3, to:V3, colorInt }]
 
@@ -253,9 +267,11 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       const frustumRatio = prim.startsWith('FRUSTUM:') ? Number(prim.split(':')[1]) : null;
       UNIT[prim] = Number.isFinite(frustumRatio) ? new THREE.CylinderGeometry(frustumRatio, 1, 1, 16, 1)
         : prim === 'CYL' ? new THREE.CylinderGeometry(1, 1, 1, 12, 1)
-        : prim === 'CONE' ? new THREE.ConeGeometry(0.45, 1, 12)
-          : prim === 'OCT' ? new THREE.OctahedronGeometry(1)
-            : new THREE.SphereGeometry(1, 12, 10);
+          : prim === 'CONE' ? new THREE.ConeGeometry(0.45, 1, 12)
+            : prim === 'OCT' ? new THREE.OctahedronGeometry(1)
+              : prim === 'SPH_LOW' ? new THREE.SphereGeometry(1, 6, 4)
+                : prim === 'SPH_BALANCED' ? new THREE.SphereGeometry(1, 8, 6)
+                  : new THREE.SphereGeometry(1, 12, 10);
     }
     return UNIT[prim];
   }
@@ -273,9 +289,10 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return batchMaterials.get(alphaKey);
   }
 
-  let batches = []; // [{ mesh, records, group }]
+  let batches = []; // [{ mesh, records, group, chunkId }]
   let pickTable = [null]; // pickId (1-based) -> record
-  let pendingRecords = null; // Map<batchKey, {group, prim, alphaKey, records[]}> during rebuild
+  let freePickIds = [];
+  let pendingRecords = null; // Map<batchKey, {group, prim, alphaKey, chunkId, layerMode, records[]}> during rebuild
 
   const _pos = new THREE.Vector3(); const _quat = new THREE.Quaternion(); const _scale = new THREE.Vector3();
   const _mat4 = new THREE.Matrix4(); const _color = new THREE.Color(); const _up = new THREE.Vector3(0, 1, 0);
@@ -287,9 +304,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
    * status, ghost, isObjectMarker, connector, groupKind }.
    */
   function emit(group, spec) {
-    const key = `${group.uuid}|${spec.prim}|${spec.alphaKey}`;
+    const layerMode = spec.layerMode ?? 'both';
+    const key = `${spec.chunkId}|${group.uuid}|${spec.prim}|${spec.alphaKey}|${layerMode}`;
     let bucket = pendingRecords.get(key);
-    if (!bucket) { bucket = { group, prim: spec.prim, alphaKey: spec.alphaKey, records: [] }; pendingRecords.set(key, bucket); }
+    if (!bucket) {
+      bucket = { group, prim: spec.prim, alphaKey: spec.alphaKey, chunkId: spec.chunkId, layerMode, records: [] };
+      pendingRecords.set(key, bucket);
+    }
     const record = {
       prim: spec.prim,
       position: spec.position.clone(),
@@ -305,8 +326,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       index: 0,
     };
     if (spec.pickable !== false) {
-      record.pickId = pickTable.length;
-      pickTable.push(record);
+      record.pickId = freePickIds.pop() ?? pickTable.length;
+      pickTable[record.pickId] = record;
     }
     bucket.records.push(record);
     return record;
@@ -449,50 +470,84 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return true;
   }
 
-  function markerRecord(group, marker, modelId, statusKey, groupKind) {
+  function nodePrimitive() {
+    if (sceneRuntime?.lod.level === 'coarse') return 'SPH_LOW';
+    if (sceneRuntime?.lod.level === 'balanced') return 'SPH_BALANCED';
+    return 'SPH';
+  }
+
+  function emitNodePickProxy(group, spec, marker, meta) {
+    const pickSize = Math.max(Number(marker.pickSizeMm) || Number(marker.sizeMm) || 24, 18);
+    emit(group, {
+      ...spec,
+      prim: nodePrimitive(),
+      scale: _scale.set(pickSize, pickSize, pickSize),
+      alphaKey: 'solid',
+      layerMode: 'pick',
+      pickable: true,
+      meta: { ...meta, pickProxy: true },
+    });
+  }
+
+  function markerRecord(group, marker, modelId, statusKey, groupKind, chunkId) {
     const isAnchor = String(marker.kind).startsWith('ANCHOR');
     const isNode = marker.kind === 'NODE';
     const isRestraintArrow = marker.kind === 'RESTRAINT_ARROW';
     const size = Number.isFinite(marker.sizeMm) ? marker.sizeMm : (isAnchor ? 34 : 30);
     if (size <= 0) return; // LABEL markers carry sizeMm 0 — nothing to draw
-    const prim = isAnchor ? 'OCT' : isRestraintArrow ? 'CONE' : 'SPH';
+    const prim = isAnchor ? 'OCT' : isRestraintArrow ? 'CONE' : isNode ? nodePrimitive() : 'SPH';
     const baseColor = Number.isFinite(marker.colorInt) ? marker.colorInt : isAnchor ? 0x94a3b8 : (MARKER_COLORS[marker.kind] ?? 0xcbd5e1);
     const statusColored = !!(marker.objectId && (isNode || marker.isObjectMarker) && statusKey);
     const overridable = !!(marker.objectId && (isNode || marker.isObjectMarker));
     const ghost = groupKind === 'ghostModel' ? false : (modelId === 'source' && !marker.isObjectMarker);
-    const alpha = statusColored ? styleOf(statusKey).alpha : 1;
+    const alpha = statusColored ? styleOf(statusKey).alpha : (marker.kind === 'SUPPORT' ? 0.15 : isNode ? 0.38 : 1);
     const alphaKey = groupKind === 'ghostModel' ? 'proposal' : ghost ? 'ghost' : alpha < 1 ? `a${alpha}` : 'solid';
+    const pos = _pos.set(...marker.position);
     let quaternion = null;
     if (isRestraintArrow) {
       if (!Array.isArray(marker.direction) || marker.direction.length !== 3) throw new TypeError(`Restraint arrow ${marker.objectId ?? '(unknown)'} has no 3D direction.`);
-      quaternion = new THREE.Quaternion().setFromUnitVectors(_up, new THREE.Vector3(...marker.direction).normalize());
+      const dirVec = new THREE.Vector3(...marker.direction).normalize();
+      quaternion = new THREE.Quaternion().setFromUnitVectors(_up, dirVec);
+      // The cone primitive points in +Y and its tip is at +size/2 locally.
+      // To place the tip exactly at marker.position, we shift the cone's center backward by size/2.
+      pos.addScaledVector(dirVec, -size / 2);
     }
-    emit(group, {
-      prim,
-      position: _pos.set(...marker.position),
+    const meta = {
+      objectId: marker.objectId ?? null,
+      nodeId: marker.nodeId ?? null,
+      modelId,
+      marker: marker.kind,
+      fallback: !!marker.fallback,
+      status: statusKey ?? null,
+      ghost,
+      groupKind,
+    };
+    const shared = {
+      chunkId,
+      position: pos,
       quaternion,
-      scale: _scale.set(size, size, size),
-      alphaKey,
       colorMode: statusColored ? 'style' : 'fixed',
       styleKey: statusColored ? statusKey : null,
       fixedColorInt: baseColor,
       overridable,
-      meta: {
-        objectId: marker.objectId ?? null,
-        nodeId: marker.nodeId ?? null,
-        modelId,
-        marker: marker.kind,
-        fallback: !!marker.fallback,
-        status: statusKey ?? null,
-        ghost,
-        groupKind,
-      },
+    };
+    emit(group, {
+      ...shared,
+      prim,
+      scale: _scale.set(size, size, size),
+      alphaKey,
+      layerMode: isNode ? 'render' : 'both',
+      pickable: !isNode,
+      meta,
     });
+    if (isNode) emitNodePickProxy(group, shared, marker, meta);
   }
 
-  function buildModelRecords(visual, group, modelId, groupKind) {
+  function buildModelRecords(visual, group, modelId, groupKind, allowedChunks) {
     if (!visual) return;
-    for (const seg of visual.segments ?? []) {
+    for (const [index, seg] of (visual.segments ?? []).entries()) {
+      const chunkId = `${modelId}:segments:${Math.floor(index / SCENE_CHUNK_SIZE)}`;
+      if (allowedChunks && !allowedChunks.has(chunkId)) continue;
       const status = groupKind === 'ghostModel' ? null : statusByObjectId.get(seg.objectId);
       const ghost = groupKind !== 'ghostModel' && modelId === 'source'
         && (!status || ['MATCHED_UNCHANGED', 'PROPERTY_CHANGED', 'GEOMETRY_CHANGED'].includes(status));
@@ -502,6 +557,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       // (restraint family tints etc.); diff statuses always win when present.
       const explicitColor = Number.isFinite(seg.colorInt) && !ghost && !status && groupKind !== 'ghostModel';
       segmentRecords(group, seg, {
+        chunkId,
         alphaKey,
         colorMode: groupKind === 'ghostModel' || explicitColor ? 'fixed' : 'style',
         styleKey: ghost ? 'GHOST' : (status ?? 'GHOST'),
@@ -519,8 +575,10 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         },
       });
     }
-    for (const marker of visual.markers ?? []) {
-      markerRecord(group, marker, modelId, marker.objectId ? statusByObjectId.get(marker.objectId) : null, groupKind);
+    for (const [index, marker] of (visual.markers ?? []).entries()) {
+      const chunkId = `${modelId}:markers:${Math.floor(index / SCENE_CHUNK_SIZE)}`;
+      if (allowedChunks && !allowedChunks.has(chunkId)) continue;
+      markerRecord(group, marker, modelId, marker.objectId ? statusByObjectId.get(marker.objectId) : null, groupKind, chunkId);
     }
   }
 
@@ -529,6 +587,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       const rec = connectorRecords[i];
       for (const [point, endpointId] of [[rec.from, rec.connector.sourceObjectId], [rec.to, rec.connector.targetObjectId]]) {
         emit(connectorGroup, {
+          chunkId: 'connector:handles:0',
           prim: 'SPH',
           position: point,
           quaternion: null,
@@ -543,23 +602,26 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
   }
 
-  function disposeBatches() {
-    for (const batch of batches) {
-      batch.group.remove(batch.mesh);
-      batch.mesh.geometry.dispose(); // per-batch clone (owns the pickColor attribute)
-      batch.mesh.dispose?.();
+  function releaseBatch(batch, recyclePickIds) {
+    batch.group.remove(batch.mesh);
+    batch.mesh.geometry.dispose();
+    batch.mesh.dispose?.();
+    if (!recyclePickIds) return;
+    for (const record of batch.records) {
+      if (!record.pickId) continue;
+      pickTable[record.pickId] = null;
+      freePickIds.push(record.pickId);
     }
-    batches = [];
-    pickTable = [null];
   }
 
-  function rebuild() {
-    disposeBatches();
-    pendingRecords = new Map();
-    buildModelRecords(models.source, sourceGroup, 'source', 'model');
-    buildModelRecords(models.target, targetGroup, 'target', 'model');
-    buildModelRecords(ghostModel, ghostGroup, 'ghost', 'ghostModel');
-    buildConnectorHandleRecords();
+  function disposeBatches() {
+    for (const batch of batches) releaseBatch(batch, false);
+    batches = [];
+    pickTable = [null];
+    freePickIds = [];
+  }
+
+  function materializePendingRecords() {
     for (const bucket of pendingRecords.values()) {
       const count = bucket.records.length;
       const geometry = unitGeometry(bucket.prim).clone();
@@ -568,6 +630,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       const mesh = new THREE.InstancedMesh(geometry, batchMaterial(bucket.alphaKey), count);
       mesh.frustumCulled = false;
       mesh.layers.enable(PICK_LAYER);
+      if (bucket.layerMode === 'render') mesh.layers.disable(PICK_LAYER);
+      if (bucket.layerMode === 'pick') mesh.layers.disable(0);
       for (let i = 0; i < count; i += 1) {
         const record = bucket.records[i];
         record.batch = mesh;
@@ -576,12 +640,49 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       }
       mesh.userData.records = bucket.records;
       bucket.group.add(mesh);
-      batches.push({ mesh, records: bucket.records, group: bucket.group });
+      batches.push({ mesh, records: bucket.records, group: bucket.group, chunkId: bucket.chunkId });
     }
     pendingRecords = null;
-    sourceGroup.position.set(...(models.registrationTranslation ?? [0, 0, 0]));
+  }
+
+  function applyGroupOrigins() {
+    const translation = new THREE.Vector3(...(models.registrationTranslation ?? [0, 0, 0]));
+    sourceGroup.position.copy(translation).sub(sceneOrigin);
+    for (const group of [targetGroup, ghostGroup, connectorGroup, transientGroup, measurementGroup]) group.position.copy(sceneOrigin).multiplyScalar(-1);
+  }
+
+  function rebuild() {
+    disposeBatches();
+    pendingRecords = new Map();
+    buildModelRecords(models.source, sourceGroup, 'source', 'model', null);
+    buildModelRecords(models.target, targetGroup, 'target', 'model', null);
+    buildModelRecords(ghostModel, ghostGroup, 'ghost', 'ghostModel', null);
+    buildConnectorHandleRecords();
+    materializePendingRecords();
+    applyGroupOrigins();
     refreshInstanceStates();
     rebuildConnectorLines();
+    fullRebuildCount += 1;
+    completePendingFit();
+    render();
+  }
+
+  function rebuildChangedChunks(chunkIds) {
+    const changed = new Set(chunkIds);
+    const retained = [];
+    for (const batch of batches) {
+      if (changed.has(batch.chunkId)) releaseBatch(batch, true);
+      else retained.push(batch);
+    }
+    batches = retained;
+    pendingRecords = new Map();
+    buildModelRecords(models.source, sourceGroup, 'source', 'model', changed);
+    buildModelRecords(models.target, targetGroup, 'target', 'model', changed);
+    materializePendingRecords();
+    applyGroupOrigins();
+    refreshInstanceStates();
+    incrementalRebuildCount += 1;
+    completePendingFit();
     render();
   }
 
@@ -628,8 +729,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       else color = record.fixedColorInt;
     }
     if (meta.objectId && selectedIds.has(meta.objectId)) {
-      _color.set(color).lerp(new THREE.Color(0xffffff), 0.55);
-      return _color.getHex();
+      return 0xff00ff;
     }
     return color;
   }
@@ -800,7 +900,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     const record = pickTable[id] ?? null;
     if (!record) return null;
     const point = record.position.clone();
-    if (record.batch?.parent === sourceGroup) point.add(sourceGroup.position);
+    if (record.batch?.parent) point.add(record.batch.parent.position);
+    point.add(sceneOrigin);
     return { record, point };
   }
 
@@ -836,6 +937,40 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     render();
     if (onCameraChange) onCameraChange();
   }, getZoomAnchor);
+
+  function applySceneOrigin(origin, preserveView) {
+    const next = new THREE.Vector3(...origin);
+    if (preserveView) {
+      const shift = sceneOrigin.clone().sub(next);
+      camera.position.add(shift);
+      controls.target.add(shift);
+    }
+    sceneOrigin.copy(next);
+  }
+
+  function acceptRuntimeSnapshot(snapshot) {
+    const changedChunkIds = diffSceneChunks(sceneRuntime?.chunks, snapshot.chunks);
+    const preserveView = sceneRuntime !== null;
+    models = pendingModels;
+    applySceneOrigin(snapshot.origin, preserveView);
+    sceneRuntime = { ...snapshot, changedChunkIds };
+    if (changedChunkIds.length) rebuildChangedChunks(changedChunkIds);
+    else {
+      skippedRebuildCount += 1;
+      applyGroupOrigins();
+      completePendingFit();
+      render();
+    }
+  }
+
+  function reportRuntimeError(error) {
+    runtimeError = error.message;
+    if (typeof onRuntimeError === 'function') onRuntimeError(error);
+    else queueMicrotask(() => { throw error; });
+  }
+
+  const sceneWorker = new Worker(new URL('./scene-derivation-worker.js', import.meta.url), { type: 'module', name: 'workbench-scene-derivation' });
+  const sceneScheduler = createSceneDerivationScheduler(sceneWorker, acceptRuntimeSnapshot, reportRuntimeError);
 
   renderer.domElement.addEventListener('pointerup', recalibrateOrbitDepth);
 
@@ -938,10 +1073,10 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       if (batch.group !== sourceGroup && batch.group !== targetGroup) continue;
       for (const record of batch.records) {
         if (!record.meta.objectId) continue;
+        if (record.meta.pickProxy) continue;
         if (ids && !ids.has(record.meta.objectId)) continue;
         const extent = Math.max(record.scale.x, record.scale.y, record.scale.z);
-        _pos.copy(record.position);
-        if (batch.group === sourceGroup) _pos.add(sourceGroup.position);
+        _pos.copy(record.position).add(batch.group.position);
         box.expandByPoint(_pos.clone().addScalar(extent));
         box.expandByPoint(_pos.clone().addScalar(-extent));
         any = true;
@@ -956,6 +1091,14 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     const size = box.getSize(new THREE.Vector3()).length() || 1000;
     const dir = new THREE.Vector3(1, 0.8, 1).normalize();
     controls.setView(center.clone().add(dir.multiplyScalar(size * 0.9 + 200)), center);
+  }
+
+  function completePendingFit() {
+    if (!pendingFit) return;
+    const box = boundsOf(null);
+    if (!box) return;
+    pendingFit = false;
+    fitBox(box);
   }
 
   // ── transient overlay (drag previews, rubber bands) — cheap plain meshes ─
@@ -1013,8 +1156,9 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       render();
     },
     setModels(next) {
-      models = { ...models, ...next };
-      invalidate();
+      pendingModels = { ...pendingModels, ...next };
+      runtimeError = null;
+      sceneScheduler.request(pendingModels);
     },
     setStatuses(map) {
       statusByObjectId = map instanceof Map ? map : new Map(Object.entries(map ?? {}));
@@ -1088,7 +1232,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     setMeasurement(points) { rebuildMeasurement(points); },
     /** Project a world [x,y,z] to canvas pixel coords (null when behind camera). */
     worldToScreen(xyz) {
-      const v = new THREE.Vector3(...xyz).project(camera);
+      const v = new THREE.Vector3(...xyz).sub(sceneOrigin).project(camera);
       if (v.z > 1) return null;
       const width = host.clientWidth || 800;
       const height = host.clientHeight || 480;
@@ -1100,7 +1244,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     screenRay(clientX, clientY) {
       pointer.set(...pointerToNdc({ clientX, clientY }));
       raycaster.setFromCamera(pointer, camera);
-      return { origin: raycaster.ray.origin.toArray(), direction: raycaster.ray.direction.toArray() };
+      return { origin: raycaster.ray.origin.clone().add(sceneOrigin).toArray(), direction: raycaster.ray.direction.toArray() };
     },
     /** Dolly by a factor (>1 zooms out). */
     zoomBy(factor) {
@@ -1160,6 +1304,17 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         statusFilter: statusFilter ? [...statusFilter] : [],
         isolation: isolation ? [...isolation] : [],
         selectedObjectId,
+        runtimeRevision: sceneRuntime?.revision ?? null,
+        runtimePending: sceneScheduler.getState().pending,
+        runtimeError,
+        floatingOrigin: sceneOrigin.toArray(),
+        lod: sceneRuntime?.lod.level ?? null,
+        sceneChunkCount: sceneRuntime?.chunks.length ?? 0,
+        changedChunkCount: sceneRuntime?.changedChunkIds.length ?? 0,
+        spatialEntryCount: sceneRuntime?.spatialIndex.entries.length ?? 0,
+        fullRebuildCount,
+        incrementalRebuildCount,
+        skippedRebuildCount,
         connectorCount: connectorRecords.length,
         visibleConnectorCount: connectorRecords.filter((rec) => connectorVisible(rec.connector)).length,
         instanceCount: batches.reduce((sum, batch) => sum + batch.records.length, 0),
@@ -1181,8 +1336,15 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       refreshInstanceStates(); render();
       if (isolation) fitBox(boundsOf(isolation));
     },
-    fitAll() { fitBox(boundsOf(null)); },
+    fitAll() {
+      const box = boundsOf(null);
+      if (box) fitBox(box); else pendingFit = true;
+    },
     fitObject(objectId) { fitBox(boundsOf(new Set([objectId]))); },
+    querySpatial(bounds) {
+      if (!sceneRuntime) throw new Error('Scene spatial index is not ready.');
+      return querySceneSpatialIndex(sceneRuntime.spatialIndex, bounds);
+    },
     setVerticalAxis(axis) {
       const nextAxis = String(axis || '').trim().toUpperCase() === 'Z' ? 'Z' : 'Y';
       if (verticalAxis === nextAxis) return;
@@ -1219,6 +1381,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       window.removeEventListener('keydown', onKeyDown);
       resizeObserver?.disconnect();
       controls.dispose();
+      sceneScheduler.dispose();
       disposeBatches();
       disposeConnectorLines();
       clearTransient();

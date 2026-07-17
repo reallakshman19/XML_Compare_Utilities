@@ -230,7 +230,9 @@ export function installPipelineCadRuntimeFailureGuard(target = globalThis, optio
   return true;
 }
 
-installPipelineCadRuntimeFailureGuard(globalThis);
-applyPipelineCadRendererPolicy();
-if (globalThis.document?.body) installPipelineCadRendererControls(globalThis.document);
-else globalThis.document?.addEventListener?.('DOMContentLoaded', () => installPipelineCadRendererControls(globalThis.document), { once: true });
+if (globalThis.document) {
+  installPipelineCadRuntimeFailureGuard(globalThis);
+  applyPipelineCadRendererPolicy();
+  if (globalThis.document.body) installPipelineCadRendererControls(globalThis.document);
+  else globalThis.document.addEventListener('DOMContentLoaded', () => installPipelineCadRendererControls(globalThis.document), { once: true });
+}

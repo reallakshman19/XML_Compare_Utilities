@@ -25,6 +25,15 @@ test('TTV-E01 — reversible Edit Draft commands regenerate evidence and preserv
   expect(base.baseArtifacts.canonicalTopology.nodes.length).toBe(3);
   expect(base.baseArtifacts.canonicalTopology.edges.length).toBe(2);
   await expect(page.locator('[data-ttv-edit-export]')).toBeEnabled();
+  const exportInspector = page.locator('[data-ttv-edit-export-plan]');
+  await expect(exportInspector).toContainText('Data & Export Inspector');
+  await expect(exportInspector.locator('[data-export-gate]')).toHaveText('READY');
+  expect(await exportInspector.locator('[data-export-row]').count()).toBeLessThan(80);
+  const bottomDetails = page.locator('.ttv-edit-bottom-details');
+  await page.locator('.ttv-edit-bottom-summary').click();
+  await expect(bottomDetails).not.toHaveAttribute('open', '');
+  await page.locator('.ttv-edit-bottom-summary').click();
+  await expect(bottomDetails).toHaveAttribute('open', '');
 
   // The 3D canvas mounts inside the former SVG host region.
   await expect(page.locator('[data-ttv-edit-svg-host] .ttv-edit-3d-canvas canvas')).toBeVisible();
@@ -34,10 +43,10 @@ test('TTV-E01 — reversible Edit Draft commands regenerate evidence and preserv
 
   await page.locator('[data-ttv-edit-tool="MEASURE"]').click();
   await expect(page.locator('[data-ttv-edit-tool="MEASURE"]')).toHaveClass(/is-active/);
-  await page.evaluate(async () => {
-    const measure = await import('/tabs/topology-trace-validator/topology-edit-measurement.js?v=20260717-ttv-components-v1');
-    measure.addTopologyMeasurementPoint([0, 0, 0]);
-    measure.addTopologyMeasurementPoint([3000, 4000, 0]);
+  await page.evaluate(() => {
+    const edit = window.__topologyEditHarness.controller.edit;
+    edit.addMeasurementPoint([0, 0, 0]);
+    edit.addMeasurementPoint([3000, 4000, 0]);
   });
   await expect(page.locator('[data-ttv-measure-total]')).toHaveText('5.000 m');
   await expect(page.locator('[data-ttv-measure-segments]')).toContainText('S1');

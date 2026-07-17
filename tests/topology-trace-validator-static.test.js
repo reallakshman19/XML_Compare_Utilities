@@ -33,9 +33,12 @@ for (const moduleName of [
   'topology-parity-panel.js', 'topology-workspace-controller.js', 'topology-workspace-wiring.js',
   'topology-edit-controller.js', 'topology-edit-3d-canvas.js', 'topology-edit-3d-gestures.js',
   'topology-edit-measurement.js',
+  'topology-export-snapshot.js', 'topology-export-inspector-model.js', 'topology-export-plan-service.js',
   'topology-staged-input-adapter.js', 'topology-branch-scope-popup.js',
   'topology-3d-visual-model.js', 'topology-producer-loader.js',
 ]) assert(files.includes(moduleName), `${moduleName} is required`);
+assert.match(markup, /Data, Export, Logs & Findings/);
+assert.match(markup, /data-ttv-edit-export-plan/);
 
 const legacyRenderer = read('topology-svg-renderer.js');
 assert.doesNotMatch(legacyRenderer, /topology-source-reader|topology-artifact-reader|DOMParser|JSON\.parse/);

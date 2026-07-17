@@ -177,6 +177,11 @@ export function createTopologyCheckerController(elements, dependencies) {
     if (target.dataset.ttvCheckerBucket) { setFilter('category', filters.category === target.dataset.ttvCheckerBucket ? '' : target.dataset.ttvCheckerBucket); renderFilterLists(); return; }
     if (target.matches('[data-ttv-checker-refresh]')) { await refresh(); return; }
     if (target.matches('[data-ttv-checker-apply-approved]')) { await applySuggestions(suggestions.filter((row) => row.approvedByDefault && row.operations?.length), true); return; }
+    if (target.matches('[data-ttv-checker-apply-selected]')) {
+      const selectedIds = new Set([...elements.panel.querySelectorAll('.ttv-checker-bulk-select:checked')].map(cb => cb.dataset.ttvCheckerBulkId));
+      await applySuggestions(suggestions.filter((row) => selectedIds.has(row.issueId) && row.operations?.length), false);
+      return;
+    }
     if (target.dataset.ttvCheckerApply) { await applySuggestions(suggestions.filter((row) => row.id === target.dataset.ttvCheckerApply), false); return; }
     if (target.dataset.ttvCheckerStatus) { setReviewStatus(target.dataset.ttvCheckerStatus); return; }
     if (target.matches('[data-ttv-checker-export]')) exportReport();
