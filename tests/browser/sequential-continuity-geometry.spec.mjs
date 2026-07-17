@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-test('Build queue exposes editable continuation sheets and constructs one SVG network', async ({ page }) => {
+test('Build queue exposes editable continuation sheets and builds one SVG network', async ({ page }) => {
   await page.goto('/tests/browser/sequential-continuity-geometry-fixture.html');
   await page.locator('[data-ssk-action="inspect"]').click();
 
@@ -12,6 +12,7 @@ test('Build queue exposes editable continuation sheets and constructs one SVG ne
   await page.locator('[data-ssk-review-build]').click();
   await expect(page.locator('[data-ssk-continuity-row]')).toHaveCount(4);
   await expect(page.locator('[data-ssk-continuity-construct]')).toBeEnabled();
+  await expect(page.locator('[data-ssk-continuity-construct]')).toHaveText('Build entire geometry');
   await expect(page.locator('[data-ssk-continuity-construct] svg')).toHaveCount(1);
 
   const externalRow = page.locator('[data-ssk-continuity-row]').filter({ hasText: 'TAIL' }).last();
