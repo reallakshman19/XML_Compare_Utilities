@@ -1,0 +1,49 @@
+name: PCAD-003 Final Rebase Helper
+
+on:
+  push:
+    branches:
+      - agent/pcad-003-rebase-final
+    paths:
+      - .github/workflows/pcad003-rebase-final-helper.yml
+
+permissions:
+  contents: write
+
+jobs:
+  copy-rebased-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pcad-003-rebase-final
+          fetch-depth: 0
+      - name: Copy rebased PCAD-003 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/pcad-003-rebase-20260717
+          git checkout origin/agent/pcad-003-rebase-20260717 -- \
+            package.json \
+            playwright.pipeline-cad.config.mjs \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-adapters.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-contracts.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-parser.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-runtime.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-session.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-view.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js \
+            tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js \
+            tests/browser/pipeline-cad-precision-fixture.html \
+            tests/browser/pipeline-cad-precision.spec.mjs \
+            tests/pipeline-3d-model-cad-precision-adapters.test.js \
+            tests/pipeline-3d-model-cad-precision-contracts.test.js \
+            tests/pipeline-3d-model-cad-precision-integration.test.js \
+            tests/pipeline-3d-model-cad-precision-parser.test.js
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git commit -m "rebase PCAD-003 onto latest main"
+          git push origin HEAD:agent/pcad-003-rebase-final
