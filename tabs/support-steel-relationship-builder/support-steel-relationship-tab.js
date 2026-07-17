@@ -1,3 +1,4 @@
+import { supportCarrierTopologyToCsv } from './support-carrier-topology-export.js';
 import {
   supportCarrierAttachmentToCsv,
   supportCarrierResolutionToCsv,
@@ -33,6 +34,7 @@ const EXPORT_FORMATS = Object.freeze({
   chain: { filename: 'support-member-chain.csv', mime: 'text/csv' },
   carrier: { filename: 'support-carrier-resolutions.csv', mime: 'text/csv' },
   attachment: { filename: 'support-carrier-attachments.csv', mime: 'text/csv' },
+  topology: { filename: 'support-carrier-topology.csv', mime: 'text/csv' },
 });
 
 export function installSupportSteelRelationshipBuilderTile(root, ctx = {}) {
@@ -113,24 +115,22 @@ function wireFileInputs(modal) {
 function loadSample(modal, ctx) {
   modal.querySelector('[data-ssrb-input="support"]').value = supportSteelSampleText('support');
   modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
-  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 analytical member demo loaded';
+  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 staged support and carrier demo loaded';
   modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
-  ctx.showToast?.('Support member, carrier attachment and steel geometry demo loaded.', 'success');
+  ctx.showToast?.('Support, carrier topology and steel geometry demo loaded.', 'success');
 }
 
 function runBuilder(modal, state, ctx) {
   try {
-    const supportText = modal.querySelector('[data-ssrb-input="support"]').value;
-    const steelText = modal.querySelector('[data-ssrb-input="steel"]').value;
     state.bundle = buildSupportSteelRelationshipBundle({
-      supportInput: parseSupportSteelJson(supportText, 'Support source'),
-      steelInput: parseSupportSteelJson(steelText, 'Steel source'),
+      supportInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="support"]').value, 'Support source'),
+      steelInput: parseSupportSteelJson(modal.querySelector('[data-ssrb-input="steel"]').value, 'Steel source'),
       config: readRules(modal),
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'chain');
-    ctx.showToast?.('XML-free support assembly and carrier attachment evidence built.', 'success');
+    ctx.showToast?.('XML-free support assembly, carrier attachment and topology evidence built.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -152,9 +152,9 @@ function readRules(modal) {
     memberCandidateToleranceMm: Number(read('memberCandidateToleranceMm')),
     carrierContactToleranceMm: Number(read('carrierContactToleranceMm')),
     carrierCandidateToleranceMm: Number(read('carrierCandidateToleranceMm')),
-    requireAnalyticalGeometryForSpatialResolution: Boolean(
-      node('requireAnalyticalGeometryForSpatialResolution')?.checked,
-    ),
+    carrierTopologyExactToleranceMm: Number(read('carrierTopologyExactToleranceMm')),
+    carrierTopologySmallGapToleranceMm: Number(read('carrierTopologySmallGapToleranceMm')),
+    requireAnalyticalGeometryForSpatialResolution: Boolean(node('requireAnalyticalGeometryForSpatialResolution')?.checked),
     emitNearbyMemberCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
     emitNearbyCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
   };
@@ -174,7 +174,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.carrierObjectCount || 0} carrier objects · ${bundle.summary.carrierAttachmentCandidateCount || 0} analytical carrier attachments · ${bundle.summary.supportChainEdgeCount} chain edges · ${bundle.summary.structuralTerminalEdgeCount} terminal edges</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.carrierTopologyComponentCount || 0} topology components · ${bundle.summary.carrierTopologyConnectionCount || 0} accepted connections · ${bundle.summary.carrierTopologyExceptionCount || 0} topology exceptions</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -182,28 +182,22 @@ function selectRelationship(modal, state, relationshipId) {
   getHost(modal, 'evidence').innerHTML = renderSupportSteelEvidence(state.bundle, relationshipId);
   showPanel(modal, 'evidence');
 }
-
 function selectExportView(modal, state, key) {
   state.exportView = EXPORT_FORMATS[key] ? key : 'json';
   modal.querySelectorAll('[data-ssrb-export-view]').forEach((button) => button.classList.toggle('active', button.dataset.ssrbExportView === state.exportView));
   renderExportPreview(modal, state);
 }
-
 function renderExportPreview(modal, state) {
   const host = modal.querySelector('[data-ssrb-export-preview]');
   if (!state.bundle) { host.textContent = 'Build relationships to preview exports.'; return; }
   host.textContent = exportText(state.bundle, state.exportView);
 }
-
 async function copyPreview(modal, ctx) {
   try {
     await globalThis.navigator?.clipboard?.writeText(modal.querySelector('[data-ssrb-export-preview]')?.textContent || '');
     ctx.showToast?.('Evidence export preview copied.', 'success');
-  } catch (error) {
-    ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error');
-  }
+  } catch (error) { ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error'); }
 }
-
 function downloadPreview(modal, state, ctx) {
   if (!state.bundle) return;
   const format = EXPORT_FORMATS[state.exportView];
@@ -216,16 +210,15 @@ function downloadPreview(modal, state, ctx) {
   URL.revokeObjectURL(url);
   ctx.showToast?.(`${format.filename} downloaded.`, 'success');
 }
-
 function exportText(bundle, key) {
   if (key === 'csv') return supportSteelRelationshipsToCsv(bundle);
   if (key === 'tree') return supportSteelHierarchyToText(bundle);
   if (key === 'chain') return supportMemberChainToCsv(bundle);
   if (key === 'carrier') return supportCarrierResolutionToCsv(bundle);
   if (key === 'attachment') return supportCarrierAttachmentToCsv(bundle);
+  if (key === 'topology') return supportCarrierTopologyToCsv(bundle);
   return supportSteelBundleToJson(bundle);
 }
-
 function showPanel(modal, key) {
   modal.querySelectorAll('[data-ssrb-panel]').forEach((panel) => { panel.hidden = panel.dataset.ssrbPanel !== key; });
   modal.querySelectorAll('[data-ssrb-tab]').forEach((button) => {
@@ -234,37 +227,27 @@ function showPanel(modal, key) {
     button.setAttribute('aria-selected', String(active));
   });
 }
-
 function setFullscreen(modal, active) {
   modal.classList.toggle('ssrb-fullscreen', active);
   const button = modal.querySelector('[data-ssrb-fullscreen]');
   button?.setAttribute('aria-pressed', String(active));
   if (button) button.textContent = active ? 'Exit full screen' : 'Full screen';
 }
-
 function ensureStyle(doc) {
   if (!doc || doc.getElementById(STYLE_ID)) return;
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-carrier-attachment-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-carrier-topology-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
-
-function getHost(modal, key) {
-  return modal.querySelector(`[data-ssrb-${key}]`);
-}
-
+function getHost(modal, key) { return modal.querySelector(`[data-ssrb-${key}]`); }
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Carrier objects', 'Carrier attachments', 'Physical members', 'Chain edges', 'Terminal edges', 'Ambiguous', 'Unresolved']
-    .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`)
-    .join('');
+  return ['Support families', 'Steel groups', 'Carrier objects', 'Carrier attachments', 'Topology components', 'Topology connections', 'Topology exceptions', 'Chain edges', 'Terminal edges']
+    .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`).join('');
 }
-
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[char]));
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
 export const _test = Object.freeze({ readRules, exportText, showPanel, setFullscreen });
