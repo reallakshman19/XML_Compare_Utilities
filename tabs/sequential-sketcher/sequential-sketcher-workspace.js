@@ -35,8 +35,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     session: null,
     confirmedConstruction: null,
     supportProjection: null,
-    platformMigration: null,
-    sourceName: 'pasted-sequential-source.json',
+    restoredDecisionRegister: null,
     mode: 'ISO',
     selectedCandidateId: '',
   };
@@ -66,15 +65,65 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     );
   }
 
+  function branchSnapshot() {
+    return {
+      session: model.session,
+      confirmedConstruction: model.confirmedConstruction,
+      supportProjection: model.supportProjection,
+      selectedCandidateId: model.selectedCandidateId,
+    };
+  }
+  function saveActiveBranch() {
+    const branchId = model.session?.rootBranchId;
+    if (branchId) model.branchRegistry.save(branchId, branchSnapshot());
+  }
+  function populateBranchOptions(ids) {
+    elements.branch.innerHTML = `<option value="">Select authoritative start branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
+    [...elements.branch.options].slice(1).forEach((option, index) => {
+      option.value = ids[index];
+      option.textContent = ids[index];
+    });
+  }
+  function syncBranchOptions() {
+    const ids = model.branchRegistry.ids();
+    [...elements.branch.options].slice(1).forEach((option, index) => {
+      const branchId = ids[index];
+      if (!branchId) return;
+      const state = model.branchRegistry.status(branchId);
+      option.textContent = `${branchStateLabel(state)} ${branchId}`;
+      option.title = `${branchId} · ${state.replaceAll('_', ' ').toLowerCase()}`;
+    });
+  }
+  function syncBranchNavigator() {
+    const activeBranchId = model.session?.rootBranchId || '';
+    const selectedBranchId = elements.branch.value || activeBranchId;
+    const position = model.branchRegistry.position(selectedBranchId);
+    elements.branchPosition.textContent = position.index >= 0 ? `${position.index + 1} / ${position.count}` : `0 / ${position.count}`;
+    elements.activeBranch.textContent = activeBranchId || 'No active branch';
+    elements.activeBranch.title = activeBranchId;
+    elements.activeBranchChip.textContent = activeBranchId ? `Active · ${activeBranchId}` : 'No branch open';
+    elements.activeBranchChip.title = activeBranchId;
+    elements.savedBranches.textContent = `${model.branchRegistry.savedCount()} saved`;
+    elements.branchPrev.disabled = position.index <= 0;
+    elements.branchNext.disabled = position.index < 0 || position.index >= position.count - 1;
+    elements.startLabel.textContent = activeBranchId && selectedBranchId === activeBranchId ? 'Restart branch' : 'Start selected';
+    syncBranchOptions();
+  }
+
   function inspect() {
     model.records = parseStagedJson(elements.source.value);
     model.evidence = buildSequentialEvidenceModel(model.records);
     model.indexes = indexSequentialEvidence(model.evidence);
     const ids = model.evidence.branches.map((branch) => branch.branchId).sort((a, b) => a.localeCompare(b));
-    elements.branch.innerHTML = `<option value="">Select authoritative start branch (${ids.length})</option>${ids.map(() => '<option></option>').join('')}`;
-    [...elements.branch.options].slice(1).forEach((option, index) => { option.value = ids[index]; option.textContent = ids[index]; });
-    model.session = null; model.selectedCandidateId = ''; clearDownstream();
-    setStatus(`${ids.length} branches indexed as immutable evidence. No topology has been committed.`, 'ok');
+    populateBranchOptions(ids);
+    model.branchRegistry.reset(ids);
+    model.session = null;
+    model.selectedCandidateId = '';
+    model.restoredDecisionRegister = null;
+    clearDownstream();
+    reviewController?.reset();
+    repaint();
+    setStatus(`${ids.length} branches indexed as immutable evidence. Select a branch or explicitly build the blocked review queue.`, 'ok');
   }
 
   function repaint() {
@@ -114,6 +163,33 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     reportOutcome(result.outcome);
   }
   function ensureEvidence() { if (!model.evidence || !model.indexes) inspect(); }
+  function openBranch(branchId) {
+    ensureEvidence();
+    if (!branchId) return;
+    saveActiveBranch();
+    const opened = model.branchRegistry.open(branchId, createSequentialConstructionSession);
+    model.session = opened.snapshot.session;
+    model.confirmedConstruction = opened.snapshot.confirmedConstruction;
+    model.supportProjection = opened.snapshot.supportProjection;
+    model.selectedCandidateId = opened.snapshot.selectedCandidateId;
+    if (model.session?.state === 'ROUTE_COMPLETE' && !model.confirmedConstruction) {
+      refreshDownstream();
+      saveActiveBranch();
+    }
+    elements.branch.value = branchId;
+    reviewController?.selectBranch(branchId);
+    repaint();
+    const detail = opened.restored
+      ? `Restored ${model.session.strokeLedger.length} committed operations, ${model.session.transactionLedger.length} transactions; state ${model.session.state}.`
+      : 'Opened a clean workspace. No construction was committed by the branch switch.';
+    setStatus(`Branch ${opened.index + 1} of ${opened.count}: ${branchId}. ${detail}`, opened.restored ? 'ok' : 'info');
+  }
+  function navigateBranch(delta) {
+    ensureEvidence();
+    const current = elements.branch.value || model.session?.rootBranchId || model.branchRegistry.ids()[0];
+    const branchId = model.branchRegistry.adjacent(current, delta);
+    if (branchId) openBranch(branchId);
+  }
   function start() {
     ensureEvidence();
     const branchId = elements.branch.value;
@@ -136,12 +212,40 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     if (!model.session) return;
     applyResult(applyConstructionDecision(model.session, model.evidence, model.indexes, action, { candidateId }, engineOptions()));
   }
+  function restorePackage(restoration) {
+    if (restoration?.schema !== 'SequentialWorkspaceRestoration.v1') {
+      throw new Error('Sequential workspace restoration schema is invalid.');
+    }
+    model.records = restoration.records;
+    model.evidence = restoration.evidence;
+    model.indexes = restoration.indexes;
+    model.session = null;
+    model.selectedCandidateId = '';
+    model.restoredDecisionRegister = restoration.decisionRegister || null;
+    clearDownstream();
+    elements.source.value = JSON.stringify(restoration.records, null, 2);
+    populateBranchOptions(restoration.branchIds);
+    model.branchRegistry.replace(restoration.branchIds, restoration.workspaces);
+    reviewController?.reset();
+    if (restoration.activeBranchId) openBranch(restoration.activeBranchId);
+    else repaint();
+    const register = restoration.decisionRegister?.summary;
+    setStatus(
+      `Verified workspace package restored: ${restoration.workspaces.length} saved branches${register ? `; ${register.unresolvedCount || 0} unresolved and ${register.manualResolutionCount || 0} manual register rows retained` : ''}.`,
+      'ok',
+    );
+    return restoration;
+  }
 
   async function onChange(event) {
     if (event.target?.dataset?.sskFile !== 'source') return;
     elements.source.value = await readFile(event.target.files?.[0]);
-    model.sourceName = event.target.files?.[0]?.name || model.sourceName;
-    model.records = null; model.evidence = null; model.indexes = null; model.session = null; clearDownstream();
+    model.records = null;
+    model.evidence = null;
+    model.indexes = null;
+    model.session = null;
+    model.restoredDecisionRegister = null;
+    clearDownstream();
     inspect();
   }
 
@@ -191,9 +295,32 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     } catch (error) { setStatus(error.message || String(error), 'error'); context.showToast?.(error.message || String(error), 'error'); }
   }
 
-  root.addEventListener('click', onClick); root.addEventListener('change', onChange);
+  reviewController = mountSequentialReviewQueueController(root, {
+    ensureEvidence,
+    getEvidence: () => model.evidence,
+    getIndexes: () => model.indexes,
+    getEngineOptions: engineOptions,
+    getBranchRegistry: () => model.branchRegistry,
+    saveActiveBranch,
+    openBranch,
+    setStatus,
+    showToast: context.showToast,
+  });
+  root.addEventListener('click', onClick);
+  root.addEventListener('change', onChange);
+  root.addEventListener('keydown', onKeyDown);
+  syncBranchNavigator();
   return Object.freeze({
     getModel: () => model,
-    destroy: () => { root.removeEventListener('click', onClick); root.removeEventListener('change', onChange); root.innerHTML = ''; },
+    getReviewQueue: () => reviewController?.getQueue() || null,
+    saveActiveBranch,
+    restorePackage,
+    destroy: () => {
+      reviewController?.destroy();
+      root.removeEventListener('click', onClick);
+      root.removeEventListener('change', onChange);
+      root.removeEventListener('keydown', onKeyDown);
+      root.innerHTML = '';
+    },
   });
 }

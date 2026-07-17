@@ -26,7 +26,7 @@ assert.match(runtime, /DECISION_ACTIONS\.REDO_LAST_TRANSACTION/);
 const controller = read('tabs/sequential-sketcher/construction/sequential-redo-controller.js');
 assert.match(controller, /mountSequentialRedoController/);
 assert.match(controller, /DECISION_ACTIONS\.REDO_LAST_TRANSACTION/);
-assert.match(controller, /data-ssk-action=\"redo\"/);
+assert.match(controller, /data-ssk-action="redo"/);
 assert.match(controller, /key === 'z' && event\.shiftKey/);
 assert.match(controller, /key === 'y'/);
 assert.match(controller, /createConfirmedSequentialConstruction/);
@@ -37,16 +37,16 @@ assert.doesNotMatch(controller, /runConstructionUntilBlocked|advanceConstruction
   'redo UI must restore recorded state rather than re-execute construction');
 
 const markup = read('tabs/sequential-sketcher/sequential-sketcher-markup.js');
-assert.match(markup, /data-ssk-action=\"redo\"/);
+assert.match(markup, /data-ssk-action="redo"/);
 assert.match(markup, /Redo transaction/);
 assert.match(markup, /A new supervised action after undo clears the redo path/);
 
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 assert.match(tab, /mountSequentialRedoController/);
 assert.match(tab, /redoController\?\.destroy\(\)/);
-assert.match(tab, /20260717-ssk-supervised-redo-1/);
+assert.match(tab, /20260717-ssk-workspace-persistence-1/);
 
 const utility = read('tabs/psnm-utility-tab.js');
-assert.match(utility, /20260717-ssk-supervised-redo-1/);
+assert.match(utility, /20260717-ssk-workspace-persistence-1/);
 
 console.log('sequential supervised redo UI tests passed');
