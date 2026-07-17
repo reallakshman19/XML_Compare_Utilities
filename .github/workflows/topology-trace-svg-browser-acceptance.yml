@@ -1,0 +1,84 @@
+name: Topology Trace SVG Browser Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/topology-trace-validator/**'
+      - 'tests/browser/topology-trace-validator*'
+      - 'playwright.topology-validator.config.mjs'
+      - 'package.json'
+      - '.github/workflows/topology-trace-svg-browser-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/topology-trace-validator/**'
+      - 'tests/browser/topology-trace-validator*'
+      - 'playwright.topology-validator.config.mjs'
+      - 'package.json'
+      - '.github/workflows/topology-trace-svg-browser-acceptance.yml'
+  workflow_dispatch:
+
+jobs:
+  chromium-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pinned Playwright test runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.54.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Topology Trace Chromium acceptance
+        run: npm run test:topology-validator-browser
+
+      - name: Generate backup comparison patch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          worklog='.agent-worklogs/20260717_0905_ttv-native-svg-3d'
+          backup='.backups/20260717_0905_ttv-native-svg-3d'
+          mkdir -p "$worklog" artifacts/ttv-native-svg-3d
+          patch='artifacts/ttv-native-svg-3d/changes.patch'
+          : > "$patch"
+          compare() {
+            local relative="$1"
+            git diff --no-index --binary -- "$backup/$relative" "$relative" >> "$patch" || test "$?" -eq 1
+          }
+          compare 'tabs/topology-trace-validator/topology-validator-controller.js'
+          compare 'tabs/topology-trace-validator/topology-svg-projections.js'
+          compare 'tabs/topology-trace-validator/topology-workspace-markup.js'
+          compare 'tabs/topology-trace-validator/topology-workspace-wiring.js'
+          compare 'tabs/topology-trace-validator/topology-svg-view-model.js'
+          compare 'tabs/topology-trace-validator/topology-parity-workspace.css'
+          compare 'tabs/topology-trace-validator/topology-trace-validator-tab.js'
+          compare 'tests/browser/topology-trace-validator.spec.mjs'
+          for relative in \
+            'tabs/topology-trace-validator/topology-svg-native-3d.css' \
+            'tabs/topology-trace-validator/topology-svg-view-model-core.js' \
+            'tabs/topology-trace-validator/topology-svg-view-state.js' \
+            'tests/topology-trace-native-svg-3d.test.js'; do
+            git diff --no-index --binary -- /dev/null "$relative" >> "$patch" || test "$?" -eq 1
+          done
+          cp "$patch" "$worklog/changes.patch"
+
+      - name: Upload Topology Trace SVG evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topology-trace-svg-${{ github.sha }}
+          path: |
+            test-results/topology-trace-validator
+            .agent-worklogs/20260717_0905_ttv-native-svg-3d/changes.patch
+            artifacts/ttv-native-svg-3d/changes.patch
+          if-no-files-found: warn
+          retention-days: 30
