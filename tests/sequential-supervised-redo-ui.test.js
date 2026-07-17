@@ -44,9 +44,9 @@ assert.match(markup, /A new supervised action after undo clears the redo path/);
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 assert.match(tab, /mountSequentialRedoController/);
 assert.match(tab, /redoController\?\.destroy\(\)/);
-assert.match(tab, /20260717-ssk-workspace-persistence-1/);
+assert.match(tab, /20260717-ssk-workspace-import-preview-1/);
 
 const utility = read('tabs/psnm-utility-tab.js');
-assert.match(utility, /20260717-ssk-workspace-persistence-1/);
+assert.match(utility, /20260717-ssk-workspace-import-preview-1/);
 
 console.log('sequential supervised redo UI tests passed');
