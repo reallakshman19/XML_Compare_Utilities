@@ -25,11 +25,11 @@ assert.match(controller, /let pendingPreview = null/);
 assert.match(controller, /function applyPending\(\)/);
 assert.match(controller, /function cancelPending\(\)/);
 assert.match(controller, /WORKSPACE_IMPORT_PREVIEW_STALE/);
-assert.match(controller, /currentFingerprint !== pendingPreview\.currentStateFingerprint/);
+assert.match(controller, /beforeFingerprint !== pendingPreview\.currentStateFingerprint/);
 assert.match(controller, /data-ssk-workspace-apply/);
 assert.match(controller, /data-ssk-workspace-cancel/);
 assert.match(controller, /getPendingPreview/);
-const previewFileBody = controller.match(/async function previewFile\(file\) \{([\s\S]*?)\n  \}\n\n  function applyPending/u)?.[1] || '';
+const previewFileBody = controller.match(/async function previewFile\(file\) \{([\s\S]*?)\n  \}\n\n  function approval/u)?.[1] || '';
 assert.ok(previewFileBody, 'previewFile body must be discoverable');
 assert.doesNotMatch(previewFileBody, /restorePackage/,
   'selecting a file must validate and preview without restoring live state');
@@ -56,7 +56,7 @@ assert.match(markup, /data-ssk-workspace-cancel disabled/);
 
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 const utility = read('tabs/psnm-utility-tab.js');
-assert.match(tab, /20260717-ssk-workspace-import-preview-1/);
-assert.match(utility, /20260717-ssk-workspace-import-preview-1/);
+assert.match(tab, /20260717-ssk-workspace-apply-receipts-1/);
+assert.match(utility, /20260717-ssk-workspace-apply-receipts-1/);
 
 console.log('sequential workspace import preview UI tests passed');
