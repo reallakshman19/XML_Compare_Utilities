@@ -60,6 +60,14 @@ export function createSequentialBranchWorkspaceRegistry() {
       const snapshot = snapshots.get(text(branchIdValue));
       return snapshot?.session?.state || 'NOT_OPENED';
     },
+    get(branchIdValue) {
+      return snapshots.get(text(branchIdValue)) || null;
+    },
+    entries() {
+      return Object.freeze(branchIds
+        .filter((branchId) => snapshots.has(branchId))
+        .map((branchId) => Object.freeze({ branchId, snapshot: snapshots.get(branchId) })));
+    },
     savedCount() { return snapshots.size; },
     ids() { return branchIds; },
   });

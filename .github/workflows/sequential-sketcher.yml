@@ -11,6 +11,7 @@ on:
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
+      - 'tests/sequential-review-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -42,6 +43,7 @@ on:
       - agent/sequential-tolerance-policy-v1
       - agent/sequential-tolerance-callsite-migration
       - agent/sequential-supervised-decision-transactions
+      - agent/sequential-blocked-review-queue
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -51,6 +53,7 @@ on:
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
       - 'tests/sequential-supervised-*.test.js'
+      - 'tests/sequential-review-*.test.js'
       - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-construction-tolerance-policy.test.js'
       - 'tests/sequential-tolerance-callsite-migration.test.js'
@@ -109,6 +112,12 @@ jobs:
         run: node tests/sequential-supervised-manual-actions.test.js
       - name: Supervised decision transaction UI
         run: node tests/sequential-supervised-decision-ui.test.js
+      - name: Blocked branch review queue
+        run: node tests/sequential-review-queue.test.js
+      - name: Decision register exports
+        run: node tests/sequential-review-queue-export.test.js
+      - name: Blocked review queue UI
+        run: node tests/sequential-review-queue-ui.test.js
       - name: External boundary position gates
         run: node tests/sequential-sketcher-source-boundary-position.test.js
       - name: Accepted construction carrier adapter
