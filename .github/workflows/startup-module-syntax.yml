@@ -1,0 +1,35 @@
+name: Startup Module Syntax
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'main-rhbg-fitguard.js'
+      - 'core/app.js'
+      - 'tabs/support-steel-relationship-builder/**'
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tests/startup-module-syntax.test.js'
+      - '.github/workflows/startup-module-syntax.yml'
+  push:
+    branches: [main, agent/startup-module-cache-hotfix-current]
+    paths:
+      - 'index.html'
+      - 'main-rhbg-fitguard.js'
+      - 'core/app.js'
+      - 'tabs/support-steel-relationship-builder/**'
+      - 'tabs/ps-family-clash-audit/**'
+      - 'tests/startup-module-syntax.test.js'
+      - '.github/workflows/startup-module-syntax.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/startup-module-syntax.test.js

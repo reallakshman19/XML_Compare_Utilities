@@ -1,5 +1,5 @@
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-ssrb-restraint-function-1';
-import './support-restraint-function-addon.js?v=20260717-ssrb-restraint-function-1';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-startup-parse-hotfix-1';
+import './support-restraint-function-addon.js?v=20260717-startup-parse-hotfix-1';
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_VERSION = 'restraint-function-1';
@@ -33,10 +33,7 @@ export function installSupportSteelRelationshipBootstrap() {
   mountSupportSteelRelationshipBuilder();
   observer = new MutationObserver(() => mountSupportSteelRelationshipBuilder());
   observer.observe(doc.documentElement, { childList: true, subtree: true });
-  return () => {
-    observer?.disconnect();
-    observer = null;
-  };
+  return () => { observer?.disconnect(); observer = null; };
 }
 
 installSupportSteelRelationshipBootstrap();
