@@ -23,22 +23,40 @@ jobs:
         with:
           node-version: '24'
       - name: Parse every production JavaScript module
+        id: syntax
         shell: bash
         run: |
           set -uo pipefail
           failed=0
           checked=0
+          : > syntax-errors.txt
           while IFS= read -r -d '' file; do
             checked=$((checked + 1))
             if ! output=$(node --check "${file}" 2>&1); then
               failed=1
-              echo "::error file=${file}::JavaScript syntax check failed"
-              printf '%s\n' "${output}"
+              {
+                printf 'FILE: %s\n' "${file}"
+                printf '%s\n\n' "${output}"
+              } >> syntax-errors.txt
             fi
           done < <(find . -type f -name '*.js' \
             -not -path './node_modules/*' \
             -not -path './.backups/*' \
             -not -path './tests/*' \
             -print0 | sort -z)
-          echo "Checked ${checked} production JavaScript files."
-          exit "${failed}"
+          echo "checked=${checked}" >> "${GITHUB_OUTPUT}"
+          echo "failed=${failed}" >> "${GITHUB_OUTPUT}"
+          if [[ ${failed} -eq 0 ]]; then
+            printf 'All %s production JavaScript files passed node --check.\n' "${checked}" > syntax-errors.txt
+          fi
+      - name: Upload syntax report
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-syntax-report
+          path: syntax-errors.txt
+          if-no-files-found: error
+      - name: Fail on syntax errors
+        if: steps.syntax.outputs.failed == '1'
+        run: |
+          cat syntax-errors.txt
+          exit 1
