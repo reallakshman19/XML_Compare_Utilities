@@ -2,7 +2,7 @@ import { installSupportSteelRelationshipBuilderTile } from './support-steel-rela
 import './support-restraint-function-addon.js?v=20260717-startup-parse-hotfix-1';
 
 const ROOT_SELECTOR = '.psnm-root';
-const LAUNCHER_VERSION = 'startup-parse-hotfix-1';
+const LAUNCHER_VERSION = 'restraint-function-1';
 const installedRoots = new WeakSet();
 let observer = null;
 
