@@ -35,7 +35,7 @@ assert.match(controller, /sequence: restoration\.applicationReceipts\.length \+ 
 assert.match(controller, /getLastReceipt/);
 assert.match(controller, /exportLastReceipt/);
 const restoreIndex = controller.indexOf('workspace?.restorePackage?.(restoration)');
-const receiptIndex = controller.indexOf('createSequentialWorkspaceApplicationReceipt');
+const receiptIndex = controller.indexOf('const receipt = createSequentialWorkspaceApplicationReceipt');
 assert.ok(restoreIndex >= 0 && receiptIndex >= 0 && restoreIndex < receiptIndex,
   'receipt must be recorded only after atomic restoration succeeds');
 assert.doesNotMatch(controller, /applyConstructionDecision|advanceConstruction|runConstructionUntilBlocked|DECISION_ACTIONS/);
