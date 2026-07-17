@@ -36,7 +36,7 @@ jobs:
       - name: World transform and analytical geometry tests
         run: node --test tests/support-steel-world-geometry.test.js
       - name: Support member chain tests
-        run: node --test tests/support-member-chain.test.js tests/support-member-chain-policy.test.js
+        run: node --test tests/support-member-chain.test.js tests/support-member-chain-policy.test.js tests/support-member-chain-multi-terminal.test.js
       - name: Authoritative carrier resolution tests
         run: node --test tests/support-carrier-resolution.test.js
       - name: Analytical carrier attachment tests
