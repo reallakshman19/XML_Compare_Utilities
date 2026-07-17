@@ -1,7 +1,7 @@
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-ssrb-carrier-topology-1';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-ssrb-carrier-structure-path-1';
 
 const ROOT_SELECTOR = '.psnm-root';
-const LAUNCHER_VERSION = 'carrier-topology-1';
+const LAUNCHER_VERSION = 'carrier-structure-path-1';
 const installedRoots = new WeakSet();
 let observer = null;
 
