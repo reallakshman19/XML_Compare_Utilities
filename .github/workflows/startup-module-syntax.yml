@@ -1,0 +1,26 @@
+name: Startup Module Syntax
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core/**/*.js'
+      - 'tabs/**/*.js'
+      - 'tests/startup-module-syntax.test.js'
+      - '.github/workflows/startup-module-syntax.yml'
+  push:
+    branches:
+      - agent/fix-startup-syntax-error
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node tests/startup-module-syntax.test.js
