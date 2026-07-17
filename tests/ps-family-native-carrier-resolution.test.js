@@ -64,8 +64,8 @@ test('native pipeline carries authoritative carrier catalog and analytical attac
   assert.equal(pipeline.audit.carrierObjectRows.length, 1);
   assert.equal(pipeline.audit.carrierResolutionRows.length, 1);
   assert.equal(pipeline.audit.supportCarrierEdgeRows.length, 1);
+  assert.equal(pipeline.audit.carrierAttachmentEvaluationRows.length, 1);
   assert.equal(pipeline.audit.carrierAttachmentRows.length, 1);
-  assert.equal(pipeline.audit.carrierAttachmentEdgeRows.length, 1);
   assert.equal(pipeline.audit.summary.carrierObjectCount, 1);
   assert.equal(pipeline.audit.summary.resolvedCarrierEdgeCount, 1);
   assert.equal(pipeline.audit.summary.carrierAttachmentCandidateCount, 1);
@@ -74,10 +74,13 @@ test('native pipeline carries authoritative carrier catalog and analytical attac
   assert.equal(resolution.carrierObjectId, '/PIPE-300');
   assert.equal(resolution.resolutionStatus, 'RESOLVED_HIERARCHY_CARRIER');
   assert.equal(resolution.contactEvidenceStatus, 'NOT_PROVEN');
-  const attachment = pipeline.audit.carrierAttachmentRows[0];
-  assert.equal(attachment.attachmentStatus, 'ANALYTICAL_CARRIER_CONTACT_CANDIDATE');
-  assert.equal(attachment.contactEvidenceStatus, 'ANALYTICAL_CONTACT_CANDIDATE');
-  assert.equal(attachment.distanceMm, 0);
+  const evaluation = pipeline.audit.carrierAttachmentEvaluationRows[0];
+  assert.equal(evaluation.attachmentStatus, 'ANALYTICAL_CARRIER_CONTACT_CANDIDATE');
+  assert.equal(evaluation.contactEvidenceStatus, 'ANALYTICAL_CONTACT_CANDIDATE');
+  assert.equal(evaluation.distanceMm, 0);
+  const attachmentEdge = pipeline.audit.carrierAttachmentRows[0];
+  assert.equal(attachmentEdge.edgeType, 'SUPPORT_MEMBER_TO_CARRIER_ATTACHMENT');
+  assert.equal(attachmentEdge.relationshipStatus, 'ANALYTICAL_CARRIER_CONTACT_CANDIDATE');
 });
 
 test('native pipeline exports carrier identity and attachment evidence separately', () => {
@@ -119,7 +122,7 @@ test('branch-only carrier context stays non-physical through the audit boundary'
   assert.equal(pipeline.summary.carrierAttachmentCandidateCount, 0);
   assert.equal(pipeline.audit.supportCarrierEdgeRows.length, 0);
   assert.equal(pipeline.audit.branchContextEdgeRows.length, 1);
-  assert.equal(pipeline.audit.carrierAttachmentEdgeRows.length, 0);
+  assert.equal(pipeline.audit.carrierAttachmentRows.length, 0);
   assert.equal(
     pipeline.audit.carrierResolutionRows[0].resolutionStatus,
     'BRANCH_CONTEXT_ONLY',
