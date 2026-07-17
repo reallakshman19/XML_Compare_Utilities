@@ -9,7 +9,8 @@ const renderer = read('tabs/sequential-sketcher/continuity/sequential-network-sv
 const tab = read('tabs/sequential-sketcher/sequential-sketcher-tab.js');
 const utility = read('tabs/psnm-utility-tab.js');
 
-assert.match(controller, /Construct geometry/);
+assert.match(controller, /Build entire geometry/);
+assert.doesNotMatch(controller, />Construct geometry</);
 assert.match(controller, /Export constructed source JSON/);
 assert.match(controller, /Export source JSON · same import format/);
 assert.match(controller, /Export workspace package/);
