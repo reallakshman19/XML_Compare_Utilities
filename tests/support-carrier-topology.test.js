@@ -25,6 +25,15 @@ test('straight pipe, elbow and pipe form one exact topology path', () => {
   assert.equal(topology.topologyPaths[0].pathStatus, 'CONNECTED');
 });
 
+test('missing bore remains unknown and does not become a false zero-bore mismatch', () => {
+  const { catalog, topology } = build([
+    component('PIPE', '/P1', { AXIS_START: '0 0 0', AXIS_END: '100 0 0', OUTSIDE_DIAMETER: 100 }),
+    component('ELBOW', '/E1', { APOS: '100 0 0', LPOS: '100 100 0', BORE: 100 }),
+  ]);
+  assert.equal(catalog.components[0].ports[0].boreMm, null);
+  assert.equal(topology.summary.exactConnectionCount, 1);
+});
+
 test('reducer permits a bore transition without weakening other bore checks', () => {
   const { topology } = build([
     component('PIPE', '/P1', { AXIS_START: '0 0 0', AXIS_END: '100 0 0', BORE: 100 }),
