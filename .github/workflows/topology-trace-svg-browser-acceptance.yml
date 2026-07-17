@@ -60,6 +60,7 @@ jobs:
           compare 'tabs/topology-trace-validator/topology-workspace-wiring.js'
           compare 'tabs/topology-trace-validator/topology-svg-view-model.js'
           compare 'tabs/topology-trace-validator/topology-parity-workspace.css'
+          compare 'tabs/topology-trace-validator/topology-trace-validator-tab.js'
           compare 'tests/browser/topology-trace-validator.spec.mjs'
           for relative in \
             'tabs/topology-trace-validator/topology-svg-native-3d.css' \
