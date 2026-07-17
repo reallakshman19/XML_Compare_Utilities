@@ -38,12 +38,12 @@ function icon() {
 }
 function panelMarkup() {
   return `<section class="ssk-continuity-panel">
-    <header><div><h2>4. Continuation build queue</h2><p>Connector edits remain draft-only until Construct geometry is selected.</p></div>
+    <header><div><h2>4. Continuation build queue</h2><p>Connector edits remain draft-only until Build entire geometry is selected.</p></div>
       <button type="button" data-ssk-continuity-refresh disabled>Refresh connectors</button></header>
     <div class="ssk-continuity-summary" data-ssk-continuity-summary>Build the blocked review queue to expose branch continuations.</div>
     <div class="ssk-continuity-list" data-ssk-continuity-list></div>
     <div class="ssk-continuity-actions">
-      <button type="button" data-ssk-continuity-construct disabled>${icon()}<span>Construct geometry</span></button>
+      <button type="button" data-ssk-continuity-construct disabled>${icon()}<span>Build entire geometry</span></button>
       <button type="button" data-ssk-continuity-export disabled>Export constructed source JSON</button>
       <button type="button" data-ssk-continuity-active disabled>Show active branch</button>
     </div>
@@ -143,8 +143,8 @@ export function mountSequentialContinuityController(root, workspace, context = {
     renderSequentialConstructedNetwork(elements.canvas, state.geometry, { mode: currentMode(root) });
     elements.export.disabled = false; elements.active.disabled = false;
     const metrics = state.geometry.metrics;
-    elements.summary.textContent = `Constructed ${metrics.branchCount} branches as one SVG network: ${metrics.internalConnectorCount} internal continuations, ${metrics.externalSheetCount} continuation sheets, ${metrics.generatedPipeCount} generated connector pipes.`;
-    setStatus('Constructed geometry from the current Build queue continuity. Source evidence remains unchanged until the constructed JSON is exported.', 'ok');
+    elements.summary.textContent = `Built ${metrics.branchCount} branches as one SVG network: ${metrics.internalConnectorCount} internal continuations, ${metrics.externalSheetCount} continuation sheets, ${metrics.generatedPipeCount} generated connector pipes.`;
+    setStatus('Built entire geometry from the current Build queue continuity. Source evidence remains unchanged until the constructed JSON is exported.', 'ok');
     return state.geometry;
   }
   function showActiveBranch() {
@@ -180,7 +180,7 @@ export function mountSequentialContinuityController(root, workspace, context = {
     state.draft = buildSequentialContinuationDraft(model.records, queue, state.overrides);
     state.geometry = null; elements.export.disabled = true; elements.active.disabled = true;
     const value = state.draft.summary;
-    elements.summary.textContent = `${value.connectorCount} connectors · ${value.internalCount} internal · ${value.externalCount} external sheets · ${value.editedCount} edited · staged for Construct geometry`;
+    elements.summary.textContent = `${value.connectorCount} connectors · ${value.internalCount} internal · ${value.externalCount} external sheets · ${value.editedCount} edited · staged for Build entire geometry`;
   }
   function onChange(event) {
     const row = event.target?.closest?.('[data-ssk-continuity-row]');
