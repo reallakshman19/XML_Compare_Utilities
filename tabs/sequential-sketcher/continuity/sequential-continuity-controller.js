@@ -20,7 +20,6 @@ function required(root, selector) {
   if (!element) throw new Error(`Sequential continuity element missing: ${selector}`);
   return element;
 }
-function text(value) { return String(value ?? '').trim(); }
 function escape(value) {
   return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
