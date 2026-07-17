@@ -17,6 +17,13 @@ function model(records) {
   const evidence = buildSequentialEvidenceModel(records);
   return { evidence, indexes: indexSequentialEvidence(evidence) };
 }
+function advanceThree(session, evidence, indexes, options) {
+  let current = session;
+  for (let step = 0; step < 3; step += 1) {
+    current = advanceConstruction(current, evidence, indexes, options).session;
+  }
+  return current;
+}
 
 {
   const root = '/FITTING-TOLERANCE';
@@ -29,17 +36,19 @@ function model(records) {
   ])];
   const { evidence, indexes } = model(records);
 
-  let exact = createSequentialConstructionSession(root);
-  exact = advanceConstruction(exact, evidence, indexes, { exactToleranceMm: 2, fittingPortEquivalenceMm: 1 }).session;
-  exact = advanceConstruction(exact, evidence, indexes, { exactToleranceMm: 2, fittingPortEquivalenceMm: 1 }).session;
+  const exact = advanceThree(
+    createSequentialConstructionSession(root), evidence, indexes,
+    { exactToleranceMm: 2, fittingPortEquivalenceMm: 1 },
+  );
   assert.equal(exact.repairLedger.length, 0);
   assert.equal(exact.committedConnections[0].fittingPortToleranceMm, 1);
   assert.equal(exact.committedConnections[0].toleranceEvidenceType, 'FITTING_PORT_EQUIVALENCE');
   assert.equal(exact.committedConnections[0].tolerancePolicyFingerprint, SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint);
 
-  let repaired = createSequentialConstructionSession(root);
-  repaired = advanceConstruction(repaired, evidence, indexes, { exactToleranceMm: 2, fittingPortEquivalenceMm: 0.1 }).session;
-  repaired = advanceConstruction(repaired, evidence, indexes, { exactToleranceMm: 2, fittingPortEquivalenceMm: 0.1 }).session;
+  const repaired = advanceThree(
+    createSequentialConstructionSession(root), evidence, indexes,
+    { exactToleranceMm: 2, fittingPortEquivalenceMm: 0.1 },
+  );
   assert.equal(repaired.repairLedger.length, 1, 'fitting-port override must control exact versus repair');
   assert.equal(repaired.repairLedger[0].thresholdMm, 25);
   assert.equal(repaired.repairLedger[0].toleranceEvidenceType, 'FITTING_PORT_EQUIVALENCE');
