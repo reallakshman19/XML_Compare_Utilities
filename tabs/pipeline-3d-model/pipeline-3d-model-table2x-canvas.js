@@ -13,6 +13,8 @@ export class Table2XCanvas extends InteractiveGraph {
     this.model = null;
     this.renderSnapshot = [];
     this.visualOverrides = new Map();
+    this.precisionOverrides = new Map();
+    this.precisionGripId = null;
     this.selectedId = null;
     this.draggingId = null;
     this.hitRadius = Number(options.hitRadius) || 10;
@@ -24,6 +26,8 @@ export class Table2XCanvas extends InteractiveGraph {
     if (!preserveSnapshot) {
       this.renderSnapshot = usableRows(model);
       this.visualOverrides.clear();
+      this.precisionOverrides.clear();
+      this.precisionGripId = null;
       this.selectedId = null;
       this.draggingId = null;
     } else if (!this.renderSnapshot.length) {
@@ -48,13 +52,39 @@ export class Table2XCanvas extends InteractiveGraph {
   reloadGraph() {
     this.renderSnapshot = usableRows(this.model);
     this.visualOverrides.clear();
+    this.precisionOverrides.clear();
     this.model?.clearDirtyRows?.();
     this.dispatchGraphEvent('reloadRequested', { graph: 'table2x' });
     this.render();
   }
 
   currentNodes() {
-    return usableRows(this.model).map((row) => ({ ...row, y: this.visualOverrides.get(row.id) ?? row.y }));
+    return usableRows(this.model).map((row) => {
+      const precision = this.precisionOverrides.get(row.id);
+      return {
+        ...row,
+        x: precision?.x ?? row.x,
+        y: this.visualOverrides.get(row.id) ?? precision?.y ?? row.y,
+      };
+    });
+  }
+
+  setPrecisionPreview(id, point = {}) {
+    if (!id) return false;
+    this.precisionOverrides.set(id, { x: Number(point.x), y: Number(point.y) });
+    this.render();
+    return true;
+  }
+
+  clearPrecisionPreview() {
+    this.precisionOverrides.clear();
+    this.render();
+    return true;
+  }
+
+  setPrecisionGrip(id) {
+    this.precisionGripId = id || null;
+    this.render();
   }
 
   hitTest(screenPoint) {
@@ -104,9 +134,10 @@ export class Table2XCanvas extends InteractiveGraph {
       return;
     }
     if (this.tool === GraphTool.SELECT && hit) {
+      this.clearPrecisionPreview();
       this.selectedId = hit.node.id;
       this.draggingId = hit.node.id;
-      this.dispatchGraphEvent('selectionChanged', { graph: 'table2x', entityId: hit.node.id });
+      this.dispatchGraphEvent('selectionChanged', { graph: 'table2x', entityId: hit.node.id, entityType: hit.type });
       this.render();
     }
   }
@@ -136,6 +167,17 @@ export class Table2XCanvas extends InteractiveGraph {
       commitReason: 'pointer-release',
     });
     this.render();
+  }
+
+  drawPrecisionGrip(ctx, point, node) {
+    if (node.id !== this.precisionGripId || node.id !== this.selectedId) return;
+    ctx.save();
+    ctx.strokeStyle = '#f8fafc';
+    ctx.fillStyle = '#0ea5e9';
+    ctx.lineWidth = 2;
+    ctx.fillRect(point.x - 5, point.y - 5, 10, 10);
+    ctx.strokeRect(point.x - 7, point.y - 7, 14, 14);
+    ctx.restore();
   }
 
   render() {
@@ -171,6 +213,7 @@ export class Table2XCanvas extends InteractiveGraph {
       ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
+      this.drawPrecisionGrip(ctx, point, node);
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '11px monospace';
       ctx.textAlign = 'center';
