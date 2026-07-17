@@ -1,11 +1,11 @@
-import { installPsFamilyClashAuditTile } from './ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
-import './ps-family-offline-validation-addon.js?v=20260716-ps-family-offline-validation-1';
-import './ps-family-native-audit-pipeline-addon.js?v=20260717-ps-family-restraint-function-1';
-import './ps-family-restraint-function-addon.js?v=20260717-ps-family-restraint-function-1';
+import { installPsFamilyClashAuditTile } from './ps-family-clash-audit-tab.js?v=20260717-startup-parse-hotfix-1';
+import './ps-family-offline-validation-addon.js?v=20260717-startup-parse-hotfix-1';
+import './ps-family-native-audit-pipeline-addon.js?v=20260717-startup-parse-hotfix-1';
+import './ps-family-restraint-function-addon.js?v=20260717-startup-parse-hotfix-1';
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_SELECTOR = '[data-psfa-open="1"]';
-const VERSION = 'restraint-function-v1';
+const VERSION = 'startup-parse-hotfix-v1';
 let observer = null;
 
 export function mountPsFamilyEvidenceAudit() {
@@ -33,10 +33,7 @@ export function installPsFamilyEvidenceAuditBootstrap() {
   mountPsFamilyEvidenceAudit();
   observer = new MutationObserver(() => mountPsFamilyEvidenceAudit());
   observer.observe(doc.documentElement, { childList: true, subtree: true });
-  return () => {
-    observer?.disconnect();
-    observer = null;
-  };
+  return () => { observer?.disconnect(); observer = null; };
 }
 
 installPsFamilyEvidenceAuditBootstrap();
