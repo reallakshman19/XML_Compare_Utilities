@@ -1,5 +1,9 @@
 import { stableToken } from '../sequential-sketcher-contract.js';
 
+function pointEvidence(point) {
+  return point ? [point.x, point.y, point.z] : null;
+}
+
 function decisionEvidence(decision) {
   return [
     decision.decisionId,
@@ -27,6 +31,59 @@ function openDecisionEvidence(decision) {
     ]),
     decision.deferral?.reason || null,
     decision.deferral?.evidenceNote || null,
+  ];
+}
+
+function transitionEvidence(transition) {
+  if (!transition) return null;
+  return [
+    transition.referenceTarget || null,
+    transition.targetKind || null,
+    transition.targetBranchId || null,
+    transition.targetComponentId || null,
+    transition.targetSourceComponentId || null,
+    [...(transition.targetPortRoles || [])],
+    transition.targetBoundaryRole || null,
+    pointEvidence(transition.boundaryPosition),
+    transition.boundaryPositionBasis || null,
+    transition.junctionId || null,
+    transition.origin || null,
+  ];
+}
+
+function junctionEvidence(junction) {
+  return [
+    junction.junctionId,
+    junction.parentBranchId,
+    junction.parentComponentId,
+    junction.branchPortId,
+    pointEvidence(junction.branchPosition),
+    junction.expectedReference || null,
+    junction.expectedTargetBranchId || null,
+    junction.encounterOrder ?? null,
+    junction.status || null,
+  ];
+}
+
+function strokeEvidence(stroke) {
+  return [
+    stroke.op,
+    stroke.componentId || null,
+    stroke.sourceComponentId || null,
+    stroke.connectionId || null,
+    stroke.branchId || null,
+    stroke.fromPortId || null,
+    stroke.toPortId || null,
+    stroke.entryPortId || null,
+    stroke.exitPortId || null,
+    stroke.branchPortId || null,
+    pointEvidence(stroke.fromPosition),
+    pointEvidence(stroke.toPosition),
+    pointEvidence(stroke.entryPosition),
+    pointEvidence(stroke.exitPosition),
+    pointEvidence(stroke.branchPosition),
+    stroke.gapMm ?? null,
+    stroke.repairPolicy || null,
   ];
 }
 
@@ -63,12 +120,18 @@ export function sequentialSessionFingerprint(session) {
   const evidence = {
     rootBranchId: session?.rootBranchId || null,
     state: session?.state || null,
+    headBoundaryValidated: Boolean(session?.headBoundaryValidated),
+    headBoundaryConnectionId: session?.headBoundaryConnectionId || null,
     activeBranchId: session?.activeBranchId || null,
     activeComponentId: session?.activeComponentId || null,
     activeEntryPortId: session?.activeEntryPortId || null,
     activePortId: session?.activeExitPortId || null,
+    activeComponentOrderIndex: session?.activeComponentOrderIndex ?? null,
+    activeSourceIndex: session?.activeSourceIndex ?? null,
     startComponentId: session?.startComponentId || null,
     startEntryPortId: session?.startEntryPortId || null,
+    transitionContext: transitionEvidence(session?.transitionContext),
+    lastCommitBasis: session?.lastCommitBasis || null,
     confirmedComponentIds: [...(session?.confirmedComponentIds || [])],
     connections: (session?.committedConnections || []).map((connection) => [
       connection.connectionId,
@@ -96,6 +159,9 @@ export function sequentialSessionFingerprint(session) {
       row.decisionId || null,
       row.provenance || null,
     ]),
+    pendingBranchJunctions: (session?.pendingBranchJunctions || []).map(junctionEvidence),
+    rejectedCandidateIds: [...(session?.rejectedCandidateIds || [])],
+    strokes: (session?.strokeLedger || []).map(strokeEvidence),
     boundaryClassifications: (session?.boundaryClassifications || []).map(boundaryEvidence),
     completedBranchIds: [...(session?.completedBranchIds || [])],
   };
