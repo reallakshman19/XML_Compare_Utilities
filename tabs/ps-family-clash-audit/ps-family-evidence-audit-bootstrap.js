@@ -2,10 +2,11 @@ import { installPsFamilyClashAuditTile } from './ps-family-clash-audit-tab.js?v=
 import './ps-family-offline-validation-addon.js?v=20260716-ps-family-offline-validation-1';
 import './ps-family-native-audit-pipeline-addon.js?v=20260717-startup-cache-recovery-1';
 import './ps-family-restraint-function-addon.js?v=20260717-startup-cache-recovery-1';
+import './ps-family-offline-validation-independent-addon.js?v=20260717-independent-model-benchmark-1';
 
 const ROOT_SELECTOR = '.psnm-root';
 const LAUNCHER_SELECTOR = '[data-psfa-open="1"]';
-const VERSION = 'startup-cache-recovery-v1';
+const VERSION = 'independent-model-benchmark-v1';
 let observer = null;
 
 export function mountPsFamilyEvidenceAudit() {
