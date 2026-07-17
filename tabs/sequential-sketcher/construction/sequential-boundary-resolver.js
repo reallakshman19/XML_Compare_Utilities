@@ -67,10 +67,12 @@ function candidate(boundaryRole, boundaryPosition, connectedPort, referenceTarge
 function outcome(payload, tolerances) {
   return Object.freeze({
     ...payload,
+    toleranceEvidenceType: 'REFERENCE_BOUNDARY_EQUIVALENCE',
     toleranceEvidenceTypes: Object.freeze([
       'REFERENCE_BOUNDARY_EQUIVALENCE',
       'BRANCH_ENDPOINT_EQUIVALENCE',
     ]),
+    exactToleranceMm: tolerances.referenceBoundaryMm,
     referenceBoundaryToleranceMm: tolerances.referenceBoundaryMm,
     branchEndpointToleranceMm: tolerances.branchEndpointMm,
     autoRepairToleranceMm: tolerances.automaticRepairMm,
