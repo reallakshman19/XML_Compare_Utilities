@@ -145,7 +145,7 @@ test('TTV-B03 — support draft edits are live, undoable, exportable, and eviden
   editor = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().editor);
   expect(editor.draft.entities[0].position.x).toBe(17.25);
 
-  const xHandle = page.locator('[data-ttv-editor-axis="x"]');
+  const xHandle = page.locator('[data-ttv-editor-axis="x"] circle');
   const handleBox = await xHandle.boundingBox();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
@@ -157,7 +157,7 @@ test('TTV-B03 — support draft edits are live, undoable, exportable, and eviden
   expect(editor.draft.entities[0].position.z).toBe(0);
   const committedX = editor.draft.entities[0].position.x;
 
-  const cancelHandle = page.locator('[data-ttv-editor-axis="x"]');
+  const cancelHandle = page.locator('[data-ttv-editor-axis="x"] circle');
   const cancelBox = await cancelHandle.boundingBox();
   await page.mouse.move(cancelBox.x + cancelBox.width / 2, cancelBox.y + cancelBox.height / 2);
   await page.mouse.down();
