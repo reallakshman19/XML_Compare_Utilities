@@ -1,9 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-test('TTV-B01 — component-aware click traces and immutable projection remain linked', async ({ page }) => {
+async function openValidatedWorkspace(page) {
   await page.goto('/tests/browser/topology-trace-validator-fixture.html');
   await page.waitForFunction(() => document.body.dataset.topologyValidatorReady === '1');
   await expect(page.locator('[data-ttv-status]')).toContainText('Validation complete');
+}
+
+test('TTV-B01 — component-aware click traces and immutable projection remain linked', async ({ page }) => {
+  await openValidatedWorkspace(page);
   await page.locator('[data-ttv-branch="/B1"]').click();
   await page.locator('[data-ttv-mode="trace"]').click();
   const samples = [
@@ -60,4 +64,39 @@ test('TTV-B01 — component-aware click traces and immutable projection remain l
     return controller.evidence().validation.metrics.issueCount;
   });
   expect(immutable).toBe(0);
+});
+
+test('TTV-B02 — Trace 3D is native SVG ISO with overlays, support isolation, compass, and navigation', async ({ page }) => {
+  await openValidatedWorkspace(page);
+  await page.locator('[data-ttv-projection="3D"]').click();
+  await expect(page.locator('.ttv-svg')).toHaveCount(1);
+  await expect(page.locator('.ttv-svg-host canvas')).toHaveCount(0);
+  await expect(page.locator('[data-ttv-axis-compass]')).toHaveAttribute('data-projection', '3D');
+  for (const axis of ['x', 'y', 'z']) await expect(page.locator(`[data-ttv-axis="${axis}"]`)).toBeVisible();
+  const evidence = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().trace);
+  expect(evidence.viewState.projection).toBe('3D');
+  const sourcePoint = evidence.artifacts.canonical.nodes[0].position;
+  const projected = evidence.viewModel.canonicalNodes[0].projectedPosition;
+  expect(projected.x).toBeCloseTo((sourcePoint.x - sourcePoint.y) * Math.cos(Math.PI / 6), 8);
+  expect(projected.y).toBeCloseTo(sourcePoint.z + (sourcePoint.x + sourcePoint.y) * Math.sin(Math.PI / 6), 8);
+
+  const svg = page.locator('.ttv-svg');
+  const fitted = await svg.getAttribute('viewBox');
+  await page.locator('[data-ttv-zoom="in"]').click();
+  expect(await svg.getAttribute('viewBox')).not.toBe(fitted);
+  await page.locator('[data-ttv-canvas-fit]').click();
+  expect(await svg.getAttribute('viewBox')).toBe(fitted);
+
+  await page.locator('[data-ttv-isolate="supports"]').check();
+  await expect(page.locator('[data-ttv-component-symbols]')).toBeChecked();
+  await expect(page.locator('[data-source-component-type="SUPPORT"]')).toHaveCount(1);
+  await expect(page.locator('[data-source-component-type="PIPE"]')).toHaveCount(0);
+
+  await page.locator('[data-ttv-isolate="supports"]').uncheck();
+  await page.locator('[data-ttv-component-symbols]').uncheck();
+  await expect(page.locator('[data-source-component-type]')).toHaveCount(0);
+  await page.locator('[data-ttv-canvas-projection="ISO"]').click();
+  await expect(page.locator('[data-ttv-axis-compass]')).toHaveAttribute('data-projection', 'ISO');
+  await expect(page.locator('[data-ttv-projection="3D"]')).toHaveClass(/is-active/);
+  expect(await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().trace.viewState.projection)).toBe('ISO');
 });

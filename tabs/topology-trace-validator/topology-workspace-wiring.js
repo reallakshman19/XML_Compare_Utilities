@@ -3,6 +3,13 @@ import { loadTopologySourceFile } from './topology-companion-loader.js';
 import { cleanText } from './topology-validator-values.js';
 import { renderStagedJsonEnrichmentPanel } from './stagedjson-enrichment/stagedjson-enrichment-ui.js?v=20260715-ttv-005-css-fix';
 
+const COMPASS_GEOMETRY = Object.freeze({
+  XY: { x: [50, 50, 84, 50], y: [50, 50, 50, 16], z: null },
+  XZ: { x: [50, 50, 84, 50], y: null, z: [50, 50, 50, 14] },
+  YZ: { x: null, y: [50, 50, 84, 50], z: [50, 50, 50, 14] },
+  ISO: { x: [50, 50, 82, 68], y: [50, 50, 18, 68], z: [50, 50, 50, 12] },
+});
+
 export function wireTopologyWorkspace(root, controller) {
   const cleanups = [];
   const listen = (target, type, handler) => {
@@ -17,9 +24,8 @@ export function wireTopologyWorkspace(root, controller) {
       if (input.dataset.ttvFile === 'source') {
         const windowRef = root.ownerDocument.defaultView;
         if (!windowRef?.fetch) throw new Error('Browser fetch is unavailable for automatic companion loading.');
-        try {
-          await loadTopologySourceFile(controller, file, root.ownerDocument.location.href, windowRef.fetch.bind(windowRef));
-        } catch (error) {
+        try { await loadTopologySourceFile(controller, file, root.ownerDocument.location.href, windowRef.fetch.bind(windowRef)); }
+        catch (error) {
           if (error.name === 'TopologyCompanionLoadError') setStatus(root, `${file.name} loaded. Build topology or load companion artifacts manually.`, 'ready');
           else throw error;
         }
@@ -41,17 +47,22 @@ export function wireTopologyWorkspace(root, controller) {
   });
   listen(root.querySelector('[data-ttv-build-topology]'), 'click', (event) => buildTopology(root, controller, event));
   listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
+  listen(root.querySelector('[data-ttv-canvas-fit]'), 'click', () => controller.fitView());
   root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
   root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => {
     setActiveButtons(root, 'data-ttv-mode', button);
     controller.setMode(button.dataset.ttvMode);
   }));
-  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => {
-    setActiveButtons(root, 'data-ttv-projection', button);
-    controller.setProjection(button.dataset.ttvProjection);
-  }));
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvProjection)));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvCanvasProjection)));
   listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
   listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
+  listen(root.querySelector('[data-ttv-isolate="supports"]'), 'change', (event) => {
+    const checked = event.target.checked;
+    const overlays = root.querySelector('[data-ttv-component-symbols]');
+    if (checked && overlays) overlays.checked = true;
+    controller.setFilters({ isolateSupports: checked, ...(checked ? { showComponentSymbols: true } : {}) });
+  });
   listen(root.querySelector('[data-ttv-branch-tree]'), 'click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-ttv-branch]') : null;
     if (!button) return;
@@ -80,7 +91,38 @@ export function wireTopologyWorkspace(root, controller) {
     else if (row) controller.select(cleanText(row.getAttribute('data-object-key')));
   });
   wireParityControls(root, controller, listen);
+  syncTopologyProjectionUi(root, 'XY');
   return cleanups;
+}
+
+function applyTraceProjection(root, controller, projection) {
+  syncTopologyProjectionUi(root, projection);
+  controller.setProjection(projection);
+}
+
+export function syncTopologyProjectionUi(root, projection) {
+  const normalized = projection === '3D' ? 'ISO' : projection;
+  const toolbarProjection = normalized === 'ISO' ? '3D' : normalized;
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvProjection === toolbarProjection));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvCanvasProjection === normalized));
+  const compass = root.querySelector('[data-ttv-axis-compass]');
+  if (!compass) return;
+  compass.dataset.projection = projection;
+  compass.setAttribute('aria-label', `${normalized} axis compass`);
+  const geometry = COMPASS_GEOMETRY[normalized] || COMPASS_GEOMETRY.ISO;
+  for (const axis of ['x', 'y', 'z']) updateCompassAxis(compass, axis, geometry[axis]);
+}
+
+function updateCompassAxis(compass, axis, coordinates) {
+  const group = compass.querySelector(`[data-ttv-axis="${axis}"]`);
+  if (!group) return;
+  group.hidden = !coordinates;
+  if (!coordinates) return;
+  const [x1, y1, x2, y2] = coordinates;
+  const line = group.querySelector('line'), text = group.querySelector('text');
+  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line?.setAttribute(name, String(value));
+  text?.setAttribute('x', String(x2 + (axis === 'y' && x2 < 50 ? -7 : 4)));
+  text?.setAttribute('y', String(y2 + (y2 < 20 ? -3 : 5)));
 }
 
 function wireParityControls(root, controller, listen) {
@@ -89,8 +131,7 @@ function wireParityControls(root, controller, listen) {
     controller.parity.setProjection(button.dataset.ttvParityProjection);
   }));
   root.querySelectorAll('[data-ttv-parity-zoom]').forEach((button) => listen(button, 'click', () => {
-    if (button.dataset.ttvParityZoom === 'in') controller.parity.zoomIn();
-    else controller.parity.zoomOut();
+    if (button.dataset.ttvParityZoom === 'in') controller.parity.zoomIn(); else controller.parity.zoomOut();
   }));
   root.querySelectorAll('[data-ttv-parity-fit]').forEach((button) => listen(button, 'click', () => {
     const action = button.dataset.ttvParityFit;
@@ -107,15 +148,9 @@ function wireParityControls(root, controller, listen) {
 
 function wireEnrichment(root, controller, listen) {
   listen(root.querySelector('[data-ttv-enrich]'), 'click', () => {
-    const overlay = root.ownerDocument.createElement('div');
-    overlay.className = 'ttv-modal';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    const container = root.ownerDocument.createElement('div');
-    container.className = 'ttv-modal-content';
-    Object.assign(container.style, { width: '90vw', height: '90vh', background: 'var(--psmap-surface)', display: 'flex', flexDirection: 'column' });
-    const header = root.ownerDocument.createElement('div');
-    Object.assign(header.style, { padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--psmap-border)' });
+    const overlay = root.ownerDocument.createElement('div'); overlay.className = 'ttv-modal'; overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-modal', 'true');
+    const container = root.ownerDocument.createElement('div'); container.className = 'ttv-modal-content'; Object.assign(container.style, { width: '90vw', height: '90vh', background: 'var(--psmap-surface)', display: 'flex', flexDirection: 'column' });
+    const header = root.ownerDocument.createElement('div'); Object.assign(header.style, { padding: '10px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--psmap-border)' });
     const title = root.ownerDocument.createElement('h2'); title.textContent = 'Master File Enrichment Workbench'; title.style.margin = '0';
     const closeBtn = root.ownerDocument.createElement('button'); closeBtn.textContent = '✕ Close';
     const body = root.ownerDocument.createElement('div'); Object.assign(body.style, { flex: '1', overflow: 'hidden', position: 'relative' });
@@ -149,10 +184,7 @@ async function buildTopology(root, controller, event) {
             : name.includes('.parsed-inputxml-topology.json') ? 'parsed'
               : name.includes('.topology-parity-report.json') ? 'report' : '';
     await controller.loadArtifact('source', sourceText, `${stem}.json`);
-    for (const output of outputs) {
-      const kind = outputKind(output.name);
-      if (kind) await controller.loadArtifact(kind, output.text, output.name);
-    }
+    for (const output of outputs) { const kind = outputKind(output.name); if (kind) await controller.loadArtifact(kind, output.text, output.name); }
     controller.validate();
   } catch (error) {
     showWorkspaceError(root, error);
@@ -160,22 +192,9 @@ async function buildTopology(root, controller, event) {
   } finally { button.textContent = originalText; button.disabled = false; }
 }
 
-function setActiveButtons(root, attribute, active) {
-  root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active));
-}
+function setActiveButtons(root, attribute, active) { root.querySelectorAll(`[${attribute}]`).forEach((button) => button.classList.toggle('is-active', button === active)); }
+function setStatus(root, message, status) { const target = root.querySelector('[data-ttv-status]'); target.textContent = message; target.setAttribute('data-status', status); }
+function showWorkspaceError(root, error) { setStatus(root, error?.message || String(error), 'error'); }
+function toKebab(value) { return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`); }
 
-function setStatus(root, message, status) {
-  const target = root.querySelector('[data-ttv-status]');
-  target.textContent = message;
-  target.setAttribute('data-status', status);
-}
-
-function showWorkspaceError(root, error) {
-  setStatus(root, error?.message || String(error), 'error');
-}
-
-function toKebab(value) {
-  return value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
-}
-
-export const _test = Object.freeze({ wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, toKebab });
+export const _test = Object.freeze({ COMPASS_GEOMETRY, applyTraceProjection, syncTopologyProjectionUi, updateCompassAxis, wireParityControls, buildTopology, setActiveButtons, setStatus, showWorkspaceError, toKebab });
