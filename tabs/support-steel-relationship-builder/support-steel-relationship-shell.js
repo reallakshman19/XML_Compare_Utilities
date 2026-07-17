@@ -5,7 +5,7 @@ const WORKSPACE_TABS = Object.freeze([
 ]);
 
 export function renderSupportSteelLauncher() {
-  return `<button type="button" class="psmap-card psmap-tile ssrb-launcher" data-ssrb-open="1" data-ssrb-version="carrier-structure-path-1" title="Build XML-free carrier identity, attachment, topology, support-chain and structural-terminal evidence paths."><span class="psmap-tile-icon ssrb-launcher-icon" aria-hidden="true">⌁</span><b>Support / Steel Relationship Builder</b><span class="psmap-help-text">Complete carrier-to-structure evidence</span></button>`;
+  return `<button type="button" class="psmap-card psmap-tile ssrb-launcher" data-ssrb-open="1" data-ssrb-version="combined-model-1" title="Build XML-free carrier identity, attachment, topology, support-chain and structural-terminal evidence paths."><span class="psmap-tile-icon ssrb-launcher-icon" aria-hidden="true">⌁</span><b>Support / Steel Relationship Builder</b><span class="psmap-help-text">Complete carrier-to-structure evidence</span></button>`;
 }
 
 export function renderSupportSteelDialog() {
@@ -20,7 +20,7 @@ function renderTabs() {
   return `<nav class="ssrb-tabs" aria-label="Support steel relationship workflow">${WORKSPACE_TABS.map(([key, label], index) => `<button type="button" data-ssrb-tab="${key}" class="${index === 0 ? 'active' : ''}" aria-selected="${index === 0}">${label}</button>`).join('')}</nav>`;
 }
 function renderInputPanel() {
-  return `<section class="ssrb-card"><header><div><span class="ssrb-step">1</span><b>Load one combined staged model JSON</b></div><button type="button" data-ssrb-load-sample="1">Load PS-14259 demo</button></header><div class="ssrb-input-grid">${sourceInput('model', 'Combined staged model JSON', 'One hierarchy containing piping, support and structural records')}</div><div class="ssrb-scope-note"><b>XML-free scope:</b> the same model hierarchy feeds carrier identity, analytical attachment, piping topology, support-member continuity and structural-terminal classification. Separate support and steel files are not required.</div></section>`;
+  return `<section class="ssrb-card"><header><div><span class="ssrb-step">1</span><b>Load one combined staged model JSON</b></div><button type="button" data-ssrb-load-sample="1">Load PS-14259 demo</button></header><div class="ssrb-input-grid" style="grid-template-columns:minmax(0,1fr)">${sourceInput('model', 'Combined staged model JSON', 'One hierarchy containing piping, support and structural records')}</div><div class="ssrb-scope-note"><b>XML-free scope:</b> the same model hierarchy feeds carrier identity, analytical attachment, piping topology, support-member continuity and structural-terminal classification. Separate support and steel files are not required.</div></section>`;
 }
 function sourceInput(key, title, hint) {
   return `<div class="ssrb-source-card"><div class="ssrb-source-head"><b>${title}</b><label class="ssrb-file-button">Choose JSON<input type="file" accept=".json,application/json" data-ssrb-file="${key}"></label></div><span>${hint}</span><textarea rows="22" data-ssrb-input="${key}" spellcheck="false" placeholder="Paste one combined staged model JSON"></textarea><small data-ssrb-file-status="${key}">No combined model selected</small></div>`;
