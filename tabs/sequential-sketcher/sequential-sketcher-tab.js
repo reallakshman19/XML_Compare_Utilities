@@ -1,6 +1,7 @@
-import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260717-ssk-workspace-persistence-1';
-import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-persistence-1';
-import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-persistence-1';
+import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260717-ssk-workspace-import-preview-1';
+import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-import-preview-1';
+import { mountSequentialProjectExportController } from './platform/sequential-project-export-controller.js?v=20260717-ssk-workspace-import-preview-1';
+import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-import-preview-1';
 
 const STYLE_ID = 'sequential-sketcher-style';
 
@@ -9,7 +10,7 @@ function ensureStylesheet(documentRef) {
   const link = documentRef.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-workspace-persistence-1';
+  link.href = './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-workspace-import-preview-1';
   documentRef.head.appendChild(link);
 }
 
@@ -22,6 +23,7 @@ export function installSequentialSketcherTile(container, context = {}) {
   container.appendChild(tile);
   let active = null;
   let redoController = null;
+  let projectExportController = null;
   let persistenceController = null;
   const open = () => {
     if (active) return;
@@ -34,6 +36,8 @@ export function installSequentialSketcherTile(container, context = {}) {
     const close = () => {
       persistenceController?.destroy();
       persistenceController = null;
+      projectExportController?.destroy();
+      projectExportController = null;
       redoController?.destroy();
       redoController = null;
       active?.destroy();
@@ -42,6 +46,7 @@ export function installSequentialSketcherTile(container, context = {}) {
     };
     active = mountSequentialSketcherWorkspace(overlay, { ...context, close });
     redoController = mountSequentialRedoController(overlay, active, context);
+    projectExportController = mountSequentialProjectExportController(overlay, active, context);
     persistenceController = mountSequentialWorkspacePersistenceController(overlay, active, context);
   };
   tile.querySelector('[data-ssk-open]').addEventListener('click', open);
@@ -49,9 +54,12 @@ export function installSequentialSketcherTile(container, context = {}) {
     tile.querySelector('[data-ssk-open]')?.removeEventListener('click', open);
     persistenceController?.destroy();
     persistenceController = null;
+    projectExportController?.destroy();
+    projectExportController = null;
     redoController?.destroy();
     redoController = null;
     active?.destroy();
+    active = null;
     tile.remove();
   };
 }

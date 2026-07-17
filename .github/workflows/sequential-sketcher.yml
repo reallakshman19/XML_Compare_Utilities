@@ -43,6 +43,7 @@ on:
       - agent/sequential-blocked-review-queue
       - agent/sequential-supervised-redo
       - agent/sequential-workspace-persistence
+      - agent/sequential-workspace-import-preview-rebased
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -116,6 +117,10 @@ jobs:
         run: node tests/sequential-workspace-persistence.test.js
       - name: Portable workspace package UI
         run: node tests/sequential-workspace-persistence-ui.test.js
+      - name: Workspace import preview
+        run: node tests/sequential-workspace-import-preview.test.js
+      - name: Workspace import preview UI
+        run: node tests/sequential-workspace-import-preview-ui.test.js
       - name: Blocked branch review queue
         run: node tests/sequential-review-queue.test.js
       - name: Decision register exports

@@ -20,9 +20,15 @@ export const CONNECTION_STATUSES = Object.freeze({
 
 export const DECISION_ACTIONS = Object.freeze({
   CONNECT: 'CONNECT',
+  MANUAL_CONNECT: 'MANUAL_CONNECT',
   REJECT_CANDIDATE: 'REJECT_CANDIDATE',
   MARK_TERMINAL: 'MARK_TERMINAL',
   MARK_EXTERNAL_BOUNDARY: 'MARK_EXTERNAL_BOUNDARY',
+  REVERSE_COMPONENT: 'REVERSE_COMPONENT',
+  DEFER_DECISION: 'DEFER_DECISION',
+  RESUME_DECISION: 'RESUME_DECISION',
+  UNDO_LAST_TRANSACTION: 'UNDO_LAST_TRANSACTION',
+  REDO_LAST_TRANSACTION: 'REDO_LAST_TRANSACTION',
 });
 
 export function freezeConstructionSession(session) {
@@ -34,9 +40,15 @@ export function freezeConstructionSession(session) {
     completedBranchIds: Object.freeze([...(session.completedBranchIds || [])]),
     repairLedger: Object.freeze([...(session.repairLedger || [])]),
     decisionLedger: Object.freeze([...(session.decisionLedger || [])]),
+    boundaryClassifications: Object.freeze([...(session.boundaryClassifications || [])]),
     rejectedCandidateIds: Object.freeze([...(session.rejectedCandidateIds || [])]),
     strokeLedger: Object.freeze([...(session.strokeLedger || [])]),
     diagnostics: Object.freeze([...(session.diagnostics || [])]),
+    transactionLedger: Object.freeze([...(session.transactionLedger || [])]),
+    undoStack: Object.freeze([...(session.undoStack || [])]),
+    redoStack: Object.freeze([...(session.redoStack || [])]),
+    deferredDecisionIds: Object.freeze([...(session.deferredDecisionIds || [])]),
+    componentTraversalOverrides: Object.freeze([...(session.componentTraversalOverrides || [])]),
   });
 }
 
@@ -60,9 +72,15 @@ export function createEmptyConstructionSession(rootBranchId) {
     completedBranchIds: [],
     repairLedger: [],
     decisionLedger: [],
+    boundaryClassifications: [],
     rejectedCandidateIds: [],
     strokeLedger: [],
     currentDecisionRequest: null,
     diagnostics: [],
+    transactionLedger: [],
+    undoStack: [],
+    redoStack: [],
+    deferredDecisionIds: [],
+    componentTraversalOverrides: [],
   });
 }
