@@ -1,7 +1,7 @@
 import {
   buildPsFamilyNativeAuditPipeline as buildCombinedPipeline,
   createPsFamilyNativePipelineReadiness,
-} from './ps-family-native-combined-input.js';
+} from './ps-family-native-combined-input-core.js';
 
 export { createPsFamilyNativePipelineReadiness };
 
