@@ -3,7 +3,7 @@ import { installAppTabClickStateBridge } from './app-tab-click-state-bridge.js?v
 import '../tabs/xml-compare-transfer-export-command-gate.js?v=20260708-m22-export-command-gate';
 import '../tabs/xml-compare-universal-categorizer-runtime.js?v=20260707-universal-shadow-1';
 import '../tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js?v=20260717-startup-cache-recovery-1';
-import '../tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js?v=20260717-independent-model-benchmark-1';
+import '../tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js?v=20260717-startup-cache-recovery-1';
 
 installAppTabClickStateBridge();
 
