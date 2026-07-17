@@ -1,0 +1,39 @@
+name: JavaScript Syntax Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check production JavaScript syntax
+        shell: bash
+        run: |
+          set -uo pipefail
+          : > syntax-error.txt
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            if ! node --check "$file" > syntax-check.out 2>&1; then
+              {
+                echo "FAILING_FILE=$file"
+                cat syntax-check.out
+              } | tee syntax-error.txt
+              exit 1
+            fi
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+      - name: Publish syntax failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: javascript-syntax-audit
+          path: syntax-error.txt
+          if-no-files-found: error
