@@ -199,3 +199,48 @@ export function undoLastSequentialConstructionTransaction(session, payload = {})
     outcome: 'TRANSACTION_UNDONE',
   });
 }
+
+export function redoLastSequentialConstructionTransaction(session, payload = {}) {
+  const redoStack = [...(session?.redoStack || [])];
+  const redone = redoStack.pop();
+  if (!redone) return Object.freeze({ session, outcome: 'NOTHING_TO_REDO' });
+  const currentFingerprint = sequentialSessionFingerprint(session);
+  if (currentFingerprint !== redone.beforeFingerprint) {
+    return Object.freeze({ session, outcome: 'REDO_STATE_MISMATCH' });
+  }
+  const restoredSnapshot = redone.afterSnapshot;
+  const afterFingerprint = sequentialSessionFingerprint(restoredSnapshot);
+  if (afterFingerprint !== redone.afterFingerprint) {
+    return Object.freeze({ session, outcome: 'REDO_SNAPSHOT_MISMATCH' });
+  }
+  const action = 'REDO_LAST_TRANSACTION';
+  const record = Object.freeze({
+    schema: SEQUENTIAL_CONSTRUCTION_TRANSACTION_SCHEMA,
+    transactionId: nextTransactionId(session, action, currentFingerprint, afterFingerprint),
+    status: 'COMMITTED',
+    action,
+    outcome: 'TRANSACTION_REDONE',
+    actorProvenance: 'USER_MANUAL',
+    reason: String(payload.reason || '').trim(),
+    evidenceNote: String(payload.evidenceNote || '').trim(),
+    decisionId: restoredSnapshot?.currentDecisionRequest?.decisionId || null,
+    affected: Object.freeze({ componentIds: Object.freeze([]), connectionIds: Object.freeze([]), portIds: Object.freeze([]) }),
+    beforeState: session?.state || null,
+    afterState: restoredSnapshot?.state || null,
+    beforeFingerprint: currentFingerprint,
+    afterFingerprint,
+    redoneTransactionId: redone.transactionId,
+    externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
+    tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
+    createdAt: new Date().toISOString(),
+  });
+  return Object.freeze({
+    session: freezeConstructionSession({
+      ...restoredSnapshot,
+      transactionLedger: [...(session.transactionLedger || []), record],
+      undoStack: [...(session.undoStack || []), redone],
+      redoStack,
+    }),
+    outcome: 'TRANSACTION_REDONE',
+  });
+}
