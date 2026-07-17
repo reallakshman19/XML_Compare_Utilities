@@ -10,6 +10,7 @@ on:
       - 'tests/helpers/sequential-1885-nc-evidence-report.js'
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
       - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
@@ -34,6 +35,7 @@ on:
       - agent/sequential-sketcher
       - agent/sequential-sketcher-fixture-evidence-resolution
       - agent/sequential-sketcher-fixture-evidence-resolution-rebased
+      - agent/sequential-external-boundary-policy-v1
     paths:
       - 'tabs/sequential-sketcher/**'
       - 'contracts/pipe-support-projection/**'
@@ -42,6 +44,7 @@ on:
       - 'tests/helpers/sequential-1885-nc-evidence-report.js'
       - 'tests/fixtures/sequential-sketcher/**'
       - 'tests/sequential-sketcher-*.test.js'
+      - 'tests/sequential-external-boundary-policy.test.js'
       - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
       - 'tests/sequential-sketcher-1885-nc-blocked-evidence.mjs'
@@ -85,6 +88,8 @@ jobs:
         run: node tests/sequential-sketcher-reference-normalization.test.js
       - name: Controlled source boundary semantics
         run: node tests/sequential-sketcher-source-boundary.test.js
+      - name: Versioned external boundary policy
+        run: node tests/sequential-external-boundary-policy.test.js
       - name: External boundary position gates
         run: node tests/sequential-sketcher-source-boundary-position.test.js
       - name: Accepted construction carrier adapter
