@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - 'tabs/ps-family-clash-audit/ps-family-native-audit-pipeline*.js'
+      - 'tabs/ps-family-clash-audit/ps-family-native-combined-input.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-evidence-export.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-topology-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-carrier-to-structure-path-*.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-graph-audit.js'
       - 'tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js'
       - 'tabs/support-steel-relationship-builder/**'
+      - 'tests/combined-staged-model-input.test.js'
       - 'tests/ps-family-native-audit-pipeline*.test.js'
       - 'tests/ps-family-native-carrier-resolution.test.js'
       - 'tests/ps-family-native-carrier-topology.test.js'
@@ -31,6 +33,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Combined staged model input contract
+        run: node --test tests/combined-staged-model-input.test.js
       - name: Native staged JSON pipeline engine
         run: node --test tests/ps-family-native-audit-pipeline.test.js
       - name: Native carrier evidence pipeline
