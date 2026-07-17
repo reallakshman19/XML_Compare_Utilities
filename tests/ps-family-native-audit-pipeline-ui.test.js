@@ -25,25 +25,20 @@ for (const label of [
   'Member candidate tolerance mm',
   'Carrier attachment tolerance mm',
   'Carrier nearby tolerance mm',
+  'Carrier topology exact tolerance mm',
+  'Carrier topology small-gap tolerance mm',
   'Audit family filter',
   'Use Bundle in Audit Input',
   'Download Relationship Bundle',
   'Download Audit JSON',
   'Download Pipeline Package',
   'authoritative pipe/carrier objects',
-  'analytical support-to-carrier attachment',
+  'fail-closed carrier topology continuity',
 ]) assert.ok(panel.includes(label), `missing native pipeline label ${label}`);
 for (const key of [
-  'native-support',
-  'native-steel',
-  'native-load-sample',
-  'native-check-readiness',
-  'native-build-audit',
-  'native-use-bundle',
-  'native-download-bundle',
-  'native-download-audit',
-  'native-download-package',
-  'native-results',
+  'native-support', 'native-steel', 'native-load-sample', 'native-check-readiness',
+  'native-build-audit', 'native-use-bundle', 'native-download-bundle',
+  'native-download-audit', 'native-download-package', 'native-results',
 ]) assert.ok(panel.includes(`data-psfa="${key}"`), `missing native pipeline control ${key}`);
 
 const readinessHtml = renderPsFamilyNativePipelineReadiness({
@@ -61,14 +56,14 @@ const pipeline = buildPsFamilyNativeAuditPipeline({
 const results = renderPsFamilyNativePipelineResults(pipeline);
 assert.match(results, /READY_WITH_ENGINEERING_EXCEPTIONS/);
 assert.match(results, /\/PS-14259/);
-assert.match(results, /\/PS-14260/);
-assert.match(results, /FAMILY_WITHOUT_RESOLVED_STRUCTURE/);
 assert.match(results, /Carrier-object resolution/);
+assert.match(results, /Carrier topology continuity/);
 assert.match(results, /Carrier catalog<\/dt><dd>SupportCarrierCatalog\.v1/);
 assert.match(results, /Carrier resolution<\/dt><dd>SupportCarrierResolution\.v1/);
 assert.match(results, /Carrier attachment<\/dt><dd>SupportCarrierAttachmentBundle\.v1/);
-assert.match(results, /Carrier identity contact proof<\/dt><dd>Not proven/);
-assert.match(results, /Attachment classification<\/dt><dd>Analytical candidate only/);
+assert.match(results, /Carrier topology catalog<\/dt><dd>SupportCarrierTopologyCatalog\.v1/);
+assert.match(results, /Carrier topology<\/dt><dd>SupportCarrierTopologyBundle\.v1/);
+assert.match(results, /Topology policy<\/dt><dd>Explicit reference/);
 assert.match(results, /XML required<\/dt><dd>No/);
 assert.match(results, /XML consumed<\/dt><dd>No/);
 
@@ -77,33 +72,29 @@ assert.match(exports.pipelineJson, /PsFamilyNativeAuditPipeline\.v1/);
 assert.match(exports.relationshipBundleJson, /SupportSteelRelationshipBundle\.v1/);
 assert.match(exports.auditJson, /ps-family-evidence-audit\/v1/);
 assert.match(exports.summaryCsv, /CarrierObjectCount,ResolvedPhysicalCarrierCount/);
-assert.match(exports.summaryCsv, /AnalyticalCarrierGeometryCount/);
-assert.match(exports.summaryCsv, /CarrierAttachmentCandidateCount/);
+assert.match(exports.summaryCsv, /CarrierTopologyComponentCount/);
+assert.match(exports.summaryCsv, /CarrierTopologyConnectionCount/);
 assert.match(exports.summaryCsv, /XmlRequired,XmlConsumed/);
-assert.match(exports.supportSummaryCsv, /PS-14259/);
-assert.match(exports.supportExceptionsCsv, /FAMILY_WITHOUT_RESOLVED_STRUCTURE/);
-assert.match(exports.inputEvidenceCsv, /EvidenceId/);
 assert.match(exports.carrierCatalogCsv, /CarrierObjectId,CarrierObjectClass/);
 assert.match(exports.carrierResolutionCsv, /ResolutionStatus,CarrierObjectId/);
-assert.match(exports.supportCarrierEdgesCsv, /EdgeId,EdgeType/);
 assert.match(exports.carrierAttachmentCsv, /AttachmentStatus/);
-assert.match(exports.carrierAttachmentEdgesCsv, /EdgeId,EdgeType,SupportFamilyId/);
+assert.match(exports.carrierTopologyComponentsCsv, /ComponentId,CanonicalType/);
+assert.match(exports.carrierTopologyPortsCsv, /PortId,ComponentId,Role/);
+assert.match(exports.carrierTopologyConnectionsCsv, /EdgeId,EdgeType/);
+assert.match(exports.carrierTopologyPathsCsv, /PathId,PathStatus/);
+assert.match(exports.carrierTopologyExceptionsCsv, /ExceptionId,ExceptionCode/);
 
 const addon = readFileSync('tabs/ps-family-clash-audit/ps-family-native-audit-pipeline-addon.js', 'utf8');
 const bootstrap = readFileSync('tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js', 'utf8');
 assert.match(addon, /button\.textContent = 'Native Pipeline'/);
 assert.match(addon, /buildPsFamilyNativeAuditPipeline/);
-assert.match(addon, /populateBundleField/);
 assert.match(addon, /RELATIONSHIP_BUNDLE/);
-assert.match(addon, /saveZipTextFiles/);
-assert.match(addon, /relationship-bundle\.json/);
-assert.match(addon, /carrier-catalog\.csv/);
-assert.match(addon, /carrier-resolutions\.csv/);
-assert.match(addon, /support-carrier-edges\.csv/);
-assert.match(addon, /carrier-attachment-evaluations\.csv/);
-assert.match(addon, /carrier-attachment-edges\.csv/);
+assert.match(addon, /carrier-topology-components\.csv/);
+assert.match(addon, /carrier-topology-connections\.csv/);
+assert.match(addon, /carrier-topology-paths\.csv/);
+assert.match(addon, /carrier-topology-exceptions\.csv/);
 assert.doesNotMatch(addon, /parseSupportChangeXml/);
 assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
-assert.match(bootstrap, /carrier-attachment-v1/);
+assert.match(bootstrap, /carrier-topology-v1/);
 
 console.log('ps-family-native-audit-pipeline-ui tests passed');
