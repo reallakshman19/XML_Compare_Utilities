@@ -146,6 +146,7 @@ test('TTV-B03 — support draft edits are live, undoable, exportable, and eviden
   expect(editor.draft.entities[0].position.x).toBe(17.25);
 
   const xHandle = page.locator('[data-ttv-editor-axis="x"] circle');
+  await xHandle.scrollIntoViewIfNeeded();
   const handleBox = await xHandle.boundingBox();
   await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
   await page.mouse.down();
@@ -158,6 +159,7 @@ test('TTV-B03 — support draft edits are live, undoable, exportable, and eviden
   const committedX = editor.draft.entities[0].position.x;
 
   const cancelHandle = page.locator('[data-ttv-editor-axis="x"] circle');
+  await cancelHandle.scrollIntoViewIfNeeded();
   const cancelBox = await cancelHandle.boundingBox();
   await page.mouse.move(cancelBox.x + cancelBox.width / 2, cancelBox.y + cancelBox.height / 2);
   await page.mouse.down();
