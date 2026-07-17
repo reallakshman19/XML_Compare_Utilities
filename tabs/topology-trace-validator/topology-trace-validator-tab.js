@@ -6,6 +6,7 @@ import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260715
 import { workspaceMarkup } from './topology-workspace-markup.js?v=20260715-ttv-018-parity';
 
 const STYLE_ID = 'topology-trace-validator-style';
+const STYLE_URL = new URL('./topology-parity-workspace.css?v=20260717-ttv-native-svg-3d-1', import.meta.url).href;
 
 export function installTopologyTraceValidatorTile(container, context) {
   ensureStylesheet(container.ownerDocument);
@@ -103,11 +104,11 @@ function ensureStylesheet(documentRef) {
     link.rel = 'stylesheet';
     documentRef.head.appendChild(link);
   }
-  link.href = './tabs/topology-trace-validator/topology-parity-workspace.css?v=20260715-ttv-018-parity';
+  link.href = STYLE_URL;
 }
 
 function objectOrNull(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
-export const _test = Object.freeze({ collectTraceElements, collectParityElements, requiredQuery, workspaceMarkup });
+export const _test = Object.freeze({ collectTraceElements, collectParityElements, requiredQuery, ensureStylesheet, workspaceMarkup });
