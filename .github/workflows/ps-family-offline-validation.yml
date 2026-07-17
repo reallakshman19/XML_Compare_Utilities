@@ -28,6 +28,8 @@ jobs:
           node-version: '22'
       - name: Offline benchmark engine
         run: node --test tests/ps-family-offline-validation-benchmark.test.js
+      - name: Independent combined-model benchmark
+        run: node --test tests/ps-family-offline-validation-independent-benchmark.test.js
       - name: Default first-icon fixture member-level benchmark
         run: node --test tests/ps-family-default-clash-benchmark.test.js
       - name: Default first-icon fixture conversion benchmark
