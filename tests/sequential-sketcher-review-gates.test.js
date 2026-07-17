@@ -139,8 +139,8 @@ assert.match(reviewQueue, /toPortId/);
 assert.match(reviewQueue, /missingEvidenceClass/);
 assert.match(reviewQueue, /expectedContinuationCategory/);
 assert.match(reviewQueue, /constructionFingerprint/);
-assert.doesNotMatch(reviewQueue, /applyConstructionDecision|MARK_EXTERNAL_BOUNDARY|MARK_TERMINAL|acceptAll|bulkAccept/i,
-  'review queue analysis must not mutate or accept decisions');
+assert.doesNotMatch(reviewQueue, /applyConstructionDecision|DECISION_ACTIONS|acceptAll|bulkAccept/i,
+  'review queue analysis must not import decision mutation or bulk-acceptance APIs');
 assert.doesNotMatch(reviewQueue, /sj-pipe-support|buildPipeSupportProjectionBundle/);
 
 const reviewExport = read('tabs/sequential-sketcher/review/sequential-review-queue-export.js');
