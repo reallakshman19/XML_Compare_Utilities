@@ -6,6 +6,11 @@ import {
   exportSupportCarrierEdgesCsv,
 } from './ps-family-carrier-evidence-export.js';
 import {
+  exportCarrierToStructureCompletePathsCsv,
+  exportCarrierToStructureFamiliesCsv,
+  exportCarrierToStructurePathExceptionsCsv,
+} from './ps-family-carrier-to-structure-path-export.js';
+import {
   exportCarrierTopologyComponentsCsv,
   exportCarrierTopologyConnectionsCsv,
   exportCarrierTopologyExceptionsCsv,
@@ -37,6 +42,8 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     'UnresolvedCarrierAttachmentCount', 'CarrierTopologyComponentCount',
     'CarrierTopologyConnectionCount', 'CarrierTopologyPathCount',
     'CarrierTopologyRepairCount', 'CarrierTopologyExceptionCount',
+    'CompleteCarrierToStructurePathCount', 'CompleteCarrierToStructureFamilyCount',
+    'IncompleteCarrierToStructureFamilyCount', 'CarrierToStructurePathExceptionCount',
     'SupportChainEdgeCount', 'StructuralTerminalCount',
     'AuditSupportGroupCount', 'AuditExceptionCount', 'XmlRequired', 'XmlConsumed',
   ];
@@ -61,6 +68,10 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     CarrierTopologyPathCount: summary.carrierTopologyPathCount,
     CarrierTopologyRepairCount: summary.carrierTopologyRepairCount,
     CarrierTopologyExceptionCount: summary.carrierTopologyExceptionCount,
+    CompleteCarrierToStructurePathCount: summary.completeCarrierToStructurePathCount,
+    CompleteCarrierToStructureFamilyCount: summary.completeCarrierToStructureFamilyCount,
+    IncompleteCarrierToStructureFamilyCount: summary.incompleteCarrierToStructureFamilyCount,
+    CarrierToStructurePathExceptionCount: summary.carrierToStructurePathExceptionCount,
     SupportChainEdgeCount: summary.supportChainEdgeCount,
     StructuralTerminalCount: summary.structuralTerminalCount,
     AuditSupportGroupCount: summary.auditSupportGroupCount,
@@ -91,6 +102,9 @@ export function createPsFamilyNativePipelineExports(pipeline) {
     carrierTopologyConnectionsCsv: exportCarrierTopologyConnectionsCsv(pipeline?.audit),
     carrierTopologyPathsCsv: exportCarrierTopologyPathsCsv(pipeline?.audit),
     carrierTopologyExceptionsCsv: exportCarrierTopologyExceptionsCsv(pipeline?.audit),
+    carrierToStructureCompletePathsCsv: exportCarrierToStructureCompletePathsCsv(pipeline?.audit),
+    carrierToStructurePathExceptionsCsv: exportCarrierToStructurePathExceptionsCsv(pipeline?.audit),
+    carrierToStructureFamiliesCsv: exportCarrierToStructureFamiliesCsv(pipeline?.audit),
   };
 }
 
