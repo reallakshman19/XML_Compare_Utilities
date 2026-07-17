@@ -4,7 +4,7 @@ import { deepFreeze, strictPoint } from './topology-validator-values.js';
 export const TOPOLOGY_SVG_WIDTH = 1200;
 export const TOPOLOGY_SVG_HEIGHT = 720;
 export const TOPOLOGY_SVG_PADDING = 54;
-export const TOPOLOGY_PROJECTION_PLANES = Object.freeze(['ISO', '3D', 'XY', 'XZ', 'YZ']);
+export const TOPOLOGY_PROJECTION_PLANES = Object.freeze(['ISO', 'XY', 'XZ', 'YZ']);
 const PROJECTION_DECIMALS = 12;
 
 function normalizeProjectedNumber(value) {
