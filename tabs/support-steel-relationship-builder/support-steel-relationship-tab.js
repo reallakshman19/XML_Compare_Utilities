@@ -13,7 +13,7 @@ import {
 import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
 // The 3D-edit "scalable projects" migration reuses these exact exporters via
 // supportSteelProjectArtifacts in the project adapter (extended FORMATS).
-import { buildSupportSteelProjectMigration } from './support-steel-project-adapter.js';
+import { buildSupportSteelProjectMigration } from './support-steel-project-adapter.js?v=20260717-ssrb-preview-export-fix-1';
 import { supportSteelSampleText } from './support-steel-relationship-samples.js';
 import {
   renderSupportSteelDialog,
@@ -125,17 +125,17 @@ function loadSample(modal, ctx) {
 
 async function runBuilder(modal, state, ctx) {
   try {
-    const combinedInput = parseSupportSteelJson(
-      modal.querySelector('[data-ssrb-input="model"]').value,
-      'Combined staged model source',
-    );
+    const combinedSourceText = modal.querySelector('[data-ssrb-input="model"]').value;
+    const combinedInput = parseSupportSteelJson(combinedSourceText, 'Combined staged model source');
     state.bundle = buildSupportSteelRelationshipBundle({
       combinedInput,
       config: readRules(modal),
     });
     state.platformMigration = await buildSupportSteelProjectMigration({
-      bundle: state.bundle, supportSourceText: supportText, steelSourceText: steelText,
-      sourceName: 'support-steel-sources.json', createdAt: new Date().toISOString(),
+      bundle: state.bundle,
+      combinedSourceText,
+      sourceName: 'support-steel-sources.json',
+      createdAt: new Date().toISOString(),
       cryptoRef: globalThis.crypto,
     });
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
