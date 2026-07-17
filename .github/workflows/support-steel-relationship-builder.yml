@@ -14,6 +14,7 @@ on:
       - 'tests/support-carrier-attachment-geometry.test.js'
       - 'tests/support-carrier-topology.test.js'
       - 'tests/support-carrier-to-structure-path.test.js'
+      - 'tests/support-restraint-function*.test.js'
       - 'core/app.js'
       - 'main-rhbg-fitguard.js'
       - 'index.html'
@@ -44,5 +45,9 @@ jobs:
         run: node --test tests/support-carrier-topology.test.js
       - name: Complete carrier-to-structure path tests
         run: node --test tests/support-carrier-to-structure-path.test.js
+      - name: Restraint function validation tests
+        run: node --test tests/support-restraint-function.test.js
+      - name: Restraint function UI and export contracts
+        run: node tests/support-restraint-function-ui.test.js
       - name: Utility UI contract tests
         run: node tests/support-steel-relationship-builder-ui.test.js
