@@ -1,8 +1,8 @@
 import {
-  advanceConstruction as advanceGatedConstruction,
-  applyConstructionDecision as applyGatedConstructionDecision,
+  advanceConstruction as advanceSourceBoundaryConstruction,
+  applyConstructionDecision as applySourceBoundaryConstructionDecision,
   createSequentialConstructionSession,
-} from './sequential-gated-construction-engine.js';
+} from './sequential-source-boundary-engine.js';
 import { CONSTRUCTION_STATES, freezeConstructionSession } from './sequential-construction-contract.js';
 import { enrichCommittedConnectionEvidence } from './sequential-connection-audit.js';
 
@@ -36,7 +36,7 @@ function finalizeRuntimeResult(previousSession, result, indexes) {
 export function advanceConstruction(session, evidenceModel, indexes, options = {}) {
   return finalizeRuntimeResult(
     session,
-    advanceGatedConstruction(session, evidenceModel, indexes, options),
+    advanceSourceBoundaryConstruction(session, evidenceModel, indexes, options),
     indexes,
   );
 }
@@ -44,7 +44,7 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
 export function applyConstructionDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
   return finalizeRuntimeResult(
     session,
-    applyGatedConstructionDecision(session, evidenceModel, indexes, action, payload, options),
+    applySourceBoundaryConstructionDecision(session, evidenceModel, indexes, action, payload, options),
     indexes,
   );
 }
