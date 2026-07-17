@@ -20,7 +20,7 @@ for (const label of [
   'Check Native Readiness',
   'Staged support JSON',
   'Staged steel JSON',
-  'Projection tolerance mm',
+  'Steel projection tolerance mm',
   'Member contact tolerance mm',
   'Member candidate tolerance mm',
   'Carrier attachment tolerance mm',
