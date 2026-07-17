@@ -78,7 +78,7 @@ assert.match(restraintAddon, /support-steel-restraint-evidence-bundle/);
 assert.match(restraintView, /Support restraint-function validation/);
 assert.match(restraintView, /ANALYTICAL_FUNCTION_CANDIDATE/);
 assert.match(bootstrap, /support-restraint-function-addon\.js/);
-assert.match(bootstrap, /restraint-function-1/);
+assert.match(bootstrap, /startup-cache-recovery-1/);
 assert.match(pathEngine, /SupportCarrierToStructurePathBundle\.v1/);
 assert.match(topologyEngine, /EXACT_PORT_CONNECTION/);
 assert.match(carrierAttachment, /SUPPORT_MEMBER_TO_CARRIER_ATTACHMENT/);
