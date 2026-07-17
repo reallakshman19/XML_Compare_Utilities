@@ -4,7 +4,12 @@ import { asArray, cleanText, objectRecord } from './topology-validator-values.js
 
 const TRACE_KINDS = new Set(['source', 'canonical', 'ledger', 'inputXml']);
 const PARITY_KINDS = new Set(['canonical', 'ledger', 'scene', 'parsed', 'report', 'ciiProjection']);
-const WORKSPACE_TABS = new Set(['trace', 'edit', 'parity']);
+const WORKSPACE_TABS = new Set(['trace', 'svg-edit', 'edit', 'parity']);
+
+/** @param {string} tab @returns {string} */
+function workspacePanelForTab(tab) { return tab === 'svg-edit' ? 'trace' : tab; }
+/** @param {string} tab @returns {boolean} */
+function isTraceWorkspaceTab(tab) { return tab === 'trace' || tab === 'svg-edit'; }
 
 /** @param {string} key @returns {Record<string,string>|null} */
 function canonicalSelectionFromKey(key) {
@@ -77,7 +82,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
     const active = asArray(selection).map(objectRecord).filter((row) => cleanText(row.id)).at(-1);
     if (!active) return;
     const kind = cleanText(active.kind), id = cleanText(active.id).replace(/^bend:/, '');
-    if (activeTab === 'trace' && ['node', 'edge'].includes(kind)) traceController.zoomToObject(`canonical:${kind}:${id}`);
+    if (isTraceWorkspaceTab(activeTab) && ['node', 'edge'].includes(kind)) traceController.zoomToObject(`canonical:${kind}:${id}`);
     else if (activeTab === 'parity' && ['node', 'edge', 'support'].includes(kind)) parityController.select(`scene:${kind}:${id}`, true);
     else if (activeTab === 'edit') editController.focusSelection();
   }
@@ -94,6 +99,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
   async function activateTab(tab, root) {
     const next = cleanText(tab);
     if (!WORKSPACE_TABS.has(next)) throw new RangeError(`Unknown topology workspace tab ${next}.`);
+    const panelKey = workspacePanelForTab(next);
     activeTab = next;
     root.querySelectorAll('[data-ttv-workspace-tab]').forEach((button) => {
       const active = button.getAttribute('data-ttv-workspace-tab') === next;
@@ -101,13 +107,14 @@ export function createTopologyWorkspaceController(traceController, editControlle
       button.setAttribute('aria-selected', String(active));
     });
     root.querySelectorAll('[data-ttv-workspace-panel]').forEach((panel) => {
-      const active = panel.getAttribute('data-ttv-workspace-panel') === next;
+      const active = panel.getAttribute('data-ttv-workspace-panel') === panelKey;
       panel.hidden = !active;
       panel.classList.toggle('is-active', active);
     });
-    if (next === 'edit') await editController.initialize(traceController.evidence());
-    else if (next === 'parity') parityController.render();
-    else traceController.render();
+    if (next === 'svg-edit') editorController.setMode('edit');
+    else if (next === 'trace') editorController.setMode('review');
+    else if (next === 'edit') await editController.initialize(traceController.evidence());
+    else parityController.render();
     const currentSelection = asArray(editController.evidence().selection);
     if (currentSelection.length) synchronizeCanonicalSelection(currentSelection, 'edit');
   }
@@ -159,4 +166,4 @@ export function createTopologyWorkspaceController(traceController, editControlle
   });
 }
 
-export const _test = Object.freeze({ TRACE_KINDS, PARITY_KINDS, WORKSPACE_TABS, canonicalSelectionFromKey, selectionRows });
+export const _test = Object.freeze({ TRACE_KINDS, PARITY_KINDS, WORKSPACE_TABS, workspacePanelForTab, isTraceWorkspaceTab, canonicalSelectionFromKey, selectionRows });
