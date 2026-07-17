@@ -1,7 +1,8 @@
-/** Coordinates immutable topology loading, validation, rendering, filtering,
- * and selection. Missing required JSON stops with an actionable error;
- * optional InputXML remains NOT_EVALUATED. */
-
+/**
+ * Coordinates artifact loading, validation, immutable SVG view-model creation,
+ * rendering, filtering, navigation, and selection for the Trace workspace.
+ * Every projection, including 3D/ISO, uses the native SVG renderer.
+ */
 import { readCanonicalTopology, readTopologyInputXml, readTopologyTraceLedger } from './topology-artifact-reader.js';
 import { validateTopologyArtifacts } from './topology-independent-validator.js';
 import { renderTopologyBottomPanel, buildTopologyInspectorMarkup } from './topology-ledger-table.js';
@@ -13,23 +14,30 @@ import { buildTopologySvgViewModel, updateTopologySearchViewModel } from './topo
 import { renderTopologySearchStatus, renderTopologySvg } from './topology-svg-renderer.js';
 import { buildTopologySearchResultsMarkup } from './topology-search-panel.js';
 import { GEOMETRY_TOLERANCE_MM, asArray, cleanText, objectRecord } from './topology-validator-values.js';
-// 3D viewer bridge is only for Edit Draft tab
-import { artifactHash, escapeHtml, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
-import { renderTopologySourceControls, syncTopologySourceControls } from './topology-source-controls.js';
+import { artifactHash, escapeHtml, escapeAttribute, shortText, emptyNavigation, downloadEnrichedInputXml } from './topology-controller-helpers.js?v=20260715-ttv-015-native-caesar';
+
 /** @param {Record<string, Element>} elements @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyValidatorController(elements) {
   let artifacts = { source: null, canonical: null, ledger: null, inputXml: null };
   let hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
+  // fileNames feed the Edit Draft producer options (source name) via evidence().
   let fileNames = { source: '', canonical: '', ledger: '', inputXml: '' };
   let viewState = {
-    mode: 'spatial', projection: 'XY', branch: '', selectedBranches: new Set(), types: [], disposition: '',
-    searchName: '', searchRef: '', searchPath: '', labels: false, showComponentSymbols: false,
+    mode: 'spatial', projection: 'XY', branch: '', types: [], disposition: '',
+    searchName: '', searchRef: '', searchPath: '', labels: false,
+    showComponentSymbols: false, isolateSupports: false,
     visibility: { source: true, canonical: true, referenceConnections: false, pointFeatures: true, junctions: true, boundaries: true },
   };
-  let validation = null, viewModel = null, selectedKey = '', activeBottomTab = 'summary';
+  let validation = null;
+  let viewModel = null;
+  let selectedKey = '';
+  let activeBottomTab = 'summary';
   let destroySvgInteractions = () => {};
   let svgNavigation = emptyNavigation();
-  /** @param {string} kind @param {string} text @param {string} fileName @returns {Promise<void>} */
+  let viewModelAdapter = (value) => value;
+  let renderObserver = () => {};
+  let selectionObserver = () => {};
+
   async function loadArtifact(kind, text, fileName) {
     try {
       if (kind === 'source') {
@@ -37,23 +45,18 @@ export function createTopologyValidatorController(elements) {
         hashes = { source: '', canonical: '', ledger: '', inputXml: '' };
         fileNames = { source: fileName, canonical: '', ledger: '', inputXml: '' };
         resetCompanionView();
-      }
-      else if (kind === 'canonical') artifacts = { ...artifacts, canonical: readCanonicalTopology(JSON.parse(text)) };
+      } else if (kind === 'canonical') artifacts = { ...artifacts, canonical: readCanonicalTopology(JSON.parse(text)) };
       else if (kind === 'ledger') artifacts = { ...artifacts, ledger: readTopologyTraceLedger(JSON.parse(text)) };
       else if (kind === 'inputXml') artifacts = { ...artifacts, inputXml: readTopologyInputXml(text) };
       else throw new RangeError(`Unknown topology artifact kind: ${kind}`);
       if (artifacts.source && artifacts.ledger) {
         const originalSource = objectRecord(artifacts.source).raw;
-        artifacts = {
-          ...artifacts,
-          source: bindProducerSourceIdentity(readManagedTopologySource(originalSource), artifacts.ledger),
-        };
+        artifacts = { ...artifacts, source: bindProducerSourceIdentity(readManagedTopologySource(originalSource), artifacts.ledger) };
       }
       hashes = { ...hashes, [kind]: artifactHash(kind, artifacts[kind]) };
       fileNames = { ...fileNames, [kind]: fileName };
       validation = null;
-      const fileStatus = elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`);
-      if (fileStatus) fileStatus.textContent = fileName;
+      elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = fileName;
       if (kind === 'source') updateSourceControls();
       setStatus(`${fileName} loaded. Select Validate after required artifacts are ready.`, 'ready');
       updateMetricStrip();
@@ -62,11 +65,10 @@ export function createTopologyValidatorController(elements) {
       throw error;
     }
   }
-  /** @returns {void} */
+
   function resetCompanionView() {
     for (const kind of ['canonical', 'ledger', 'inputXml']) {
-      const fileStatus = elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`);
-      if (fileStatus) fileStatus.textContent = 'Not loaded';
+      elements.fileStatus.querySelector(`[data-ttv-file-status="${kind}"]`).textContent = 'Not loaded';
     }
     destroySvgInteractions();
     svgNavigation.destroy();
@@ -79,13 +81,12 @@ export function createTopologyValidatorController(elements) {
     viewModel = null;
     selectedKey = '';
   }
-  /** @param {string} kind @param {File} file @returns {Promise<void>} */
+
   async function loadFile(kind, file) {
     if (!file) throw new TypeError(`A file is required for ${kind}.`);
     await loadArtifact(kind, await file.text(), file.name);
   }
 
-  /** @returns {Readonly<Record<string, unknown>>} */
   function validate() {
     if (!artifacts.source || !artifacts.canonical || !artifacts.ledger) {
       const missing = ['source', 'canonical', 'ledger'].filter((kind) => !artifacts[kind]);
@@ -98,11 +99,11 @@ export function createTopologyValidatorController(elements) {
     return validation;
   }
 
-  /** @returns {void} */
   function render() {
     if (!validation) return;
     assertNoMutation();
-    viewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
+    const baseViewModel = buildTopologySvgViewModel({ ...artifacts, validation, state: viewState });
+    viewModel = viewModelAdapter(baseViewModel) ?? baseViewModel;
     destroySvgInteractions();
     svgNavigation.destroy();
     const svg = renderTopologySvg(elements.svgHost, viewModel);
@@ -110,81 +111,67 @@ export function createTopologyValidatorController(elements) {
     svgNavigation = wireTopologySvgNavigation(svg);
     destroySvgInteractions = wireTopologySvgInteractions(svg, elements.traceRoot, objectRecord(viewModel.selectionLookup).byObjectKey, selectGroup);
     elements.searchResults.innerHTML = buildTopologySearchResultsMarkup(viewModel);
-    elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selectedKey ? objectRecord(objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey)[selectedKey]) : null);
-    if (selectedKey && viewState.projection !== '3D') applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), selectedKey);
+    const lookup = objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey);
+    elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selectedKey ? lookup[selectedKey] : null);
+    if (selectedKey) applyTopologyTraceSelection(elements.traceRoot, lookup, selectedKey);
     updateMetricStrip();
     updateSearchStatus();
+    renderObserver({ svg, viewModel, baseViewModel, selectedKey });
   }
 
-  /** @param {Record<string, unknown>|null} selection @returns {void} */
   function selectGroup(selection, objectKey) {
     selectedKey = selection ? cleanText(objectKey) : '';
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
+    selectionObserver(selection, selectedKey);
   }
 
-  /** @param {string} objectKey @returns {Record<string, unknown>|null} */
   function select(objectKey) {
     if (!viewModel) return null;
-    selectedKey = objectKey;
-    const selection = applyTopologyTraceSelection(elements.traceRoot, objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey), objectKey);
+    selectedKey = cleanText(objectKey);
+    const selection = applyTopologyTraceSelection(
+      elements.traceRoot,
+      objectRecord(objectRecord(viewModel.selectionLookup).byObjectKey),
+      selectedKey,
+    );
     elements.inspector.innerHTML = buildTopologyInspectorMarkup(viewModel, selection);
+    selectionObserver(selection, selectedKey);
     return selection;
   }
 
-  /** @param {string} objectKey @returns {Record<string, unknown>|null} */
+  /** Fit the SVG viewport to an object (cross-surface focus from Edit/Parity). */
+  function zoomToObject(objectKey) {
+    if (viewModel && typeof svgNavigation.fitObjectKey === 'function') svgNavigation.fitObjectKey(objectKey, true);
+  }
+
   function focusSearchResult(objectKey) {
     if (!viewModel) return null;
     const result = asArray(viewModel.searchResults).map(objectRecord).find((row) => cleanText(row.objectKey) === cleanText(objectKey));
     if (!result) throw new RangeError(`Search result is not available: ${objectKey}`);
     const branch = cleanText(result.branch);
-    viewState = { ...viewState, branch, selectedBranches: branch ? new Set([branch]) : new Set(), showComponentSymbols: true };
+    viewState = { ...viewState, branch, showComponentSymbols: true };
     selectedKey = cleanText(objectKey);
     syncBranchControls(branch, true);
     render();
     return select(selectedKey);
   }
 
-  /** @param {string} objectKey @returns {void} */
-  function zoomToObject(objectKey) {
-    if (viewModel && svgNavigation.fitObjectKey) {
-      svgNavigation.fitObjectKey(objectKey, true);
-    }
-  }
-
-  /** @param {string} mode @returns {void} */
   function setMode(mode) {
     if (!['spatial', 'trace', 'junctions', 'issues'].includes(mode)) throw new RangeError(`Unsupported topology SVG mode: ${mode}`);
     viewState = { ...viewState, mode };
     render();
   }
 
-  /** @param {string} projection @returns {void} */
   function setProjection(projection) {
-    if (!['XY', 'XZ', 'YZ', '3D'].includes(projection)) throw new RangeError(`Unsupported projection: ${projection}`);
+    if (!['XY', 'XZ', 'YZ', '3D', 'ISO'].includes(projection)) throw new RangeError(`Unsupported projection: ${projection}`);
     viewState = { ...viewState, projection };
     render();
   }
 
-  /** @param {Record<string, unknown>} patch @returns {void} */
   function setFilters(patch) {
-    if ('branch' in patch) {
-      const { multiSelect, ...filterPatch } = patch;
-      if (multiSelect) {
-        const set = new Set(viewState.selectedBranches);
-        if (set.has(patch.branch)) set.delete(patch.branch);
-        else set.add(patch.branch);
-        viewState = { ...viewState, selectedBranches: set, ...filterPatch };
-      } else {
-        viewState = { ...viewState, branch: patch.branch, selectedBranches: patch.branch ? new Set([patch.branch]) : new Set(), ...filterPatch };
-      }
-    } else {
-      viewState = { ...viewState, ...patch };
-    }
-    if (artifacts.source) syncBranchControls(cleanText(viewState.branch), viewState.showComponentSymbols === true);
+    viewState = { ...viewState, ...patch };
     render();
   }
 
-  /** @param {string} key @param {string} value @returns {void} */
   function setSearch(key, value) {
     if (!['searchName', 'searchRef', 'searchPath'].includes(key)) throw new RangeError(`Unknown topology search key: ${key}`);
     viewState = { ...viewState, [key]: value };
@@ -197,32 +184,28 @@ export function createTopologyValidatorController(elements) {
     updateSearchStatus();
   }
 
-  /** @returns {void} */
-  function fitView() {
-    svgNavigation.fit();
-  }
-
-  /** @param {string} direction @returns {void} */
+  function fitView() { svgNavigation.fit(); }
   function zoomView(direction) {
     if (direction === 'in') svgNavigation.zoomIn();
     else if (direction === 'out') svgNavigation.zoomOut();
     else throw new RangeError(`Unknown topology zoom direction: ${direction}`);
   }
 
-  /** @param {string} key @param {boolean} visible @returns {void} */
   function setVisibility(key, visible) {
     if (!Object.hasOwn(viewState.visibility, key)) throw new RangeError(`Unknown topology visibility key: ${key}`);
     viewState = { ...viewState, visibility: { ...viewState.visibility, [key]: visible } };
     render();
   }
 
-  /** @param {string} tabId @returns {void} */
   function setBottomTab(tabId) {
     activeBottomTab = tabId;
     render();
   }
 
-  /** @returns {void} */
+  function setViewModelAdapter(adapter) { viewModelAdapter = typeof adapter === 'function' ? adapter : (value) => value; }
+  function setRenderObserver(observer) { renderObserver = typeof observer === 'function' ? observer : () => {}; }
+  function setSelectionObserver(observer) { selectionObserver = typeof observer === 'function' ? observer : () => {}; }
+
   function assertNoMutation() {
     for (const kind of ['source', 'canonical', 'ledger', 'inputXml']) {
       if (!artifacts[kind]) continue;
@@ -230,17 +213,27 @@ export function createTopologyValidatorController(elements) {
       if (current !== hashes[kind]) throw new Error(`Immutable ${kind} artifact changed after load (${hashes[kind]} -> ${current}).`);
     }
   }
-  /** @returns {void} */
+
   function updateSourceControls() {
-    viewState = { ...viewState, ...renderTopologySourceControls(elements, objectRecord(artifacts.source)) };
+    const source = objectRecord(artifacts.source);
+    const branches = asArray(source.branches).map(objectRecord);
+    elements.branchTree.innerHTML = `<button type="button" data-ttv-branch="" class="is-active">All branches<span>${branches.length}</span></button>${branches.map((branch) => `<button type="button" data-ttv-branch="${escapeAttribute(branch.name)}">${escapeHtml(shortText(branch.name, 35))}<span>${asArray(branch.components).length}</span></button>`).join('')}`;
+    const counts = objectRecord(objectRecord(source.metrics).componentCategoryCounts);
+    const types = Object.keys(counts);
+    elements.typeFilters.innerHTML = types.map((type) => `<label><input type="checkbox" data-ttv-type="${escapeAttribute(type)}" checked>${escapeHtml(type)} <span>${counts[type]}</span></label>`).join('');
+    viewState = { ...viewState, branch: '', types, showComponentSymbols: false, isolateSupports: false };
+    elements.componentSymbols.checked = false;
+    const isolateToggle = elements.traceRoot.querySelector('[data-ttv-isolate="supports"]');
+    if (isolateToggle) isolateToggle.checked = false;
   }
 
-  /** @param {string} branch @param {boolean} showComponentSymbols @returns {void} */
   function syncBranchControls(branch, showComponentSymbols) {
-    syncTopologySourceControls(elements, objectRecord(artifacts.source), viewState, showComponentSymbols);
+    elements.branchTree.querySelectorAll('[data-ttv-branch]').forEach((button) => {
+      button.classList.toggle('is-active', cleanText(button.getAttribute('data-ttv-branch')) === branch);
+    });
+    elements.componentSymbols.checked = showComponentSymbols;
   }
 
-  /** @returns {void} */
   function updateMetricStrip() {
     const metrics = objectRecord(validation?.metrics ?? objectRecord(artifacts.source).metrics);
     elements.metricStrip.innerHTML = [
@@ -250,35 +243,29 @@ export function createTopologyValidatorController(elements) {
     ].map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? '—')}</span>`).join('');
   }
 
-  /** @returns {void} */
   function updateSearchStatus() {
     const summary = objectRecord(viewModel?.filterSummary);
     if (summary.searchActive !== true) return;
     setStatus(`Search: ${summary.sourceMatchCount} matches listed; SVG scope ${summary.displayScope} remains unchanged with ${summary.displayedSourceCount} displayed source objects.`, summary.sourceMatchCount ? 'ready' : 'error');
   }
 
-  /** @param {string} message @param {string} kind @returns {void} */
   function setStatus(message, kind) {
     elements.status.textContent = message;
     elements.status.setAttribute('data-status', kind);
   }
 
-  /** @returns {Readonly<Record<string, unknown>>} */
-  function evidence() {
-    return Object.freeze({ artifacts, hashes, fileNames, validation, viewModel, viewState, activeBottomTab });
-  }
-
-  /** @returns {void} */
+  function evidence() { return Object.freeze({ artifacts, hashes, fileNames, validation, viewModel, viewState, activeBottomTab }); }
   function destroy() {
-    dispose3dViewer();
     destroySvgInteractions();
     svgNavigation.destroy();
+    setViewModelAdapter(null); setRenderObserver(null); setSelectionObserver(null);
   }
 
   updateMetricStrip();
   return Object.freeze({
     loadArtifact, loadFile, validate, render, select, focusSearchResult, zoomToObject, setMode, setProjection,
     setFilters, setSearch, setVisibility, setBottomTab, fitView, zoomView, assertNoMutation,
-    evidence, downloadEnrichedInputXml: (exportSelection) => downloadEnrichedInputXml(artifacts, exportSelection ? viewState.selectedBranches : null), destroy
+    setViewModelAdapter, setRenderObserver, setSelectionObserver,
+    evidence, downloadEnrichedInputXml: () => downloadEnrichedInputXml(artifacts), destroy,
   });
 }

@@ -1,5 +1,7 @@
 @import url('./topology-trace-validator.css?v=20260715-ttv-017-layout-fixes');
 @import url('./topology-export-inspector.css?v=20260717-phase3-export-plan');
+@import url('./topology-svg-native-3d.css?v=20260717-ttv-native-svg-3d-1');
+@import url('./topology-svg-editor.css?v=20260717-ttv-editor-001');
 
 .ttv-workspace { overflow: auto; display: flex; flex-direction: column; }
 .ttv-trace-area { flex: 1; min-height: 50vh; display: flex; flex-direction: column; }
@@ -49,7 +51,6 @@ details > pre { max-height: 140px; overflow: auto; font-size: 10px; }
 .ttv-parity-table tbody tr { cursor: pointer; }
 .ttv-parity-table tr.is-selected { outline: 2px solid #a855f7; outline-offset: -2px; }
 .ttv-parity-pass { padding: 18px; color: #166534; font-weight: 700; }
-
 .ttv-parity-svg [data-layer="grid"] line { stroke: #cbd5e1; stroke-width: .5; opacity: .35; vector-effect: non-scaling-stroke; }
 .ttv-parity-edge { fill: none; stroke: #2563eb; stroke-width: 2.2; vector-effect: non-scaling-stroke; }
 .ttv-parity-edge.is-unaffected { stroke: #94a3b8; stroke-width: 1.2; opacity: .45; }
@@ -75,7 +76,6 @@ details > pre { max-height: 140px; overflow: auto; font-size: 10px; }
 .ttv-status[data-status="pass"] { color: #166534; }
 .ttv-status[data-status="fail"] { color: #b91c1c; }
 .ttv-status[data-status="stale"] { color: #b45309; }
-
 @media (max-width: 1250px) {
   .ttv-parity-cards { grid-template-columns: repeat(5, minmax(110px, 1fr)); }
   .ttv-parity-main { flex-direction: column; }

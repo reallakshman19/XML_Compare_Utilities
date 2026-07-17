@@ -1,7 +1,8 @@
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260716-ssrb-carrier-resolution-1';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-tab.js?v=20260717-ssrb-restraint-function-1';
+import './support-restraint-function-addon.js?v=20260717-ssrb-restraint-function-1';
 
 const ROOT_SELECTOR = '.psnm-root';
-const LAUNCHER_VERSION = 'carrier-resolution-1';
+const LAUNCHER_VERSION = 'restraint-function-1';
 const installedRoots = new WeakSet();
 let observer = null;
 
@@ -17,6 +18,8 @@ export function mountSupportSteelRelationshipBuilder() {
     if (!root.querySelector('[data-ssrb-open="1"]')) {
       const deck = root.querySelector('[data-psnm-utility-launcher-deck]') || root;
       installSupportSteelRelationshipBuilderTile(deck, {});
+      const currentLauncher = root.querySelector('[data-ssrb-open="1"]');
+      if (currentLauncher) currentLauncher.dataset.ssrbVersion = LAUNCHER_VERSION;
       mounted += 1;
     }
     installedRoots.add(root);

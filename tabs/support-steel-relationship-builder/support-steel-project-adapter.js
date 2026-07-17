@@ -1,7 +1,9 @@
 /** Support/Steel adapter retaining the relationship engine and all native exporters. */
 
 import { buildSingleDocumentMigration } from '../../contracts/project-migration-contract.js';
-import { supportCarrierResolutionToCsv } from './support-carrier-resolution-export.js';
+import { supportCarrierAttachmentToCsv, supportCarrierResolutionToCsv } from './support-carrier-resolution-export.js';
+import { supportCarrierTopologyToCsv } from './support-carrier-topology-export.js';
+import { supportCarrierToStructurePathsToCsv } from './support-carrier-to-structure-path-export.js';
 import { SUPPORT_STEEL_RELATIONSHIP_SCHEMA } from './support-steel-relationship-contracts.js';
 import {
   supportMemberChainToCsv, supportSteelBundleToJson,
@@ -16,6 +18,9 @@ const FORMATS = Object.freeze({
   tree: Object.freeze({ fileId: 'support-steel-tree', name: 'support-steel-relationship-hierarchy.txt', mime: 'text/plain', role: 'HIERARCHY', sourceSchema: 'SupportSteelHierarchy.text.v1', writer: supportSteelHierarchyToText }),
   chain: Object.freeze({ fileId: 'support-member-chain', name: 'support-member-chain.csv', mime: 'text/csv', role: 'MEMBER_CHAIN', sourceSchema: 'SupportMemberChain.csv.v1', writer: supportMemberChainToCsv }),
   carrier: Object.freeze({ fileId: 'support-carrier-resolution', name: 'support-carrier-resolutions.csv', mime: 'text/csv', role: 'CARRIER_RESOLUTION', sourceSchema: 'SupportCarrierResolution.csv.v1', writer: supportCarrierResolutionToCsv }),
+  attachment: Object.freeze({ fileId: 'support-carrier-attachment', name: 'support-carrier-attachments.csv', mime: 'text/csv', role: 'CARRIER_ATTACHMENT', sourceSchema: 'SupportCarrierAttachment.csv.v1', writer: supportCarrierAttachmentToCsv }),
+  topology: Object.freeze({ fileId: 'support-carrier-topology', name: 'support-carrier-topology.csv', mime: 'text/csv', role: 'CARRIER_TOPOLOGY', sourceSchema: 'SupportCarrierTopology.csv.v1', writer: supportCarrierTopologyToCsv }),
+  structurePath: Object.freeze({ fileId: 'support-carrier-structure-path', name: 'support-carrier-structure-paths.csv', mime: 'text/csv', role: 'CARRIER_STRUCTURE_PATH', sourceSchema: 'SupportCarrierStructurePath.csv.v1', writer: supportCarrierToStructurePathsToCsv }),
 });
 
 /** Return the exact text already used by the selected native export view. */

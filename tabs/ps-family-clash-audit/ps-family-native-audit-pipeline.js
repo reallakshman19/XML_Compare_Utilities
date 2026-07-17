@@ -1,4 +1,4 @@
-import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-evidence-bundle.js';
+import { buildSupportSteelRelationshipBundle } from '../support-steel-relationship-builder/support-steel-restraint-evidence-bundle.js';
 import { parseSupportSteelJson } from '../support-steel-relationship-builder/support-steel-source-utils.js';
 import { buildPsFamilyEvidenceAudit } from './ps-family-evidence-graph-audit.js';
 
@@ -42,10 +42,20 @@ export function buildPsFamilyNativeAuditPipeline(input = {}) {
       memberChain: relationshipBundle.memberChainEngineSchema || null,
       carrierResolution: relationshipBundle.carrierResolutionSchema || null,
       carrierCatalog: relationshipBundle.carrierCatalogSchema || null,
+      carrierGeometry: relationshipBundle.carrierGeometrySchema || null,
+      carrierAttachment: relationshipBundle.carrierAttachmentSchema || null,
+      carrierTopologyCatalog: relationshipBundle.carrierTopologyCatalogSchema || null,
+      carrierTopology: relationshipBundle.carrierTopologySchema || null,
+      carrierToStructurePath: relationshipBundle.carrierToStructurePathSchema || null,
+      carrierLocalFrame: relationshipBundle.carrierLocalFrameSchema || null,
+      restraintFunction: relationshipBundle.restraintFunctionSchema || null,
       audit: audit.schema,
     },
     config: {
       relationship: relationshipBundle.config,
+      carrierAttachment: relationshipBundle.supportCarrierAttachment?.config || {},
+      carrierTopology: relationshipBundle.supportCarrierTopology?.config || {},
+      restraintFunction: relationshipBundle.supportRestraintFunction?.config || {},
       audit: { sourceFamily: audit.summary.sourceFamily || '' },
     },
     summary: createPipelineSummary(relationshipBundle, audit, diagnostics),
@@ -132,6 +142,41 @@ function createPipelineDiagnostics(bundle, audit) {
       'Some support members do not have a unique authoritative carrier object.',
     ));
   }
+  if (bundle.summary?.unresolvedCarrierAttachmentCount > 0) {
+    diagnostics.push(diagnostic(
+      'INFO',
+      'CARRIER_ATTACHMENT_GEOMETRY_INCOMPLETE',
+      `${bundle.summary.unresolvedCarrierAttachmentCount} resolved carrier identity edge(s) lack analytical attachment evidence.`,
+    ));
+  }
+  if (bundle.summary?.nearbyCarrierAttachmentCandidateCount > 0) {
+    diagnostics.push(diagnostic(
+      'INFO',
+      'NEARBY_CARRIER_ATTACHMENT_CLEARANCES',
+      `${bundle.summary.nearbyCarrierAttachmentCandidateCount} support-to-carrier pair(s) are near but outside contact tolerance.`,
+    ));
+  }
+  if (bundle.summary?.carrierTopologyExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'CARRIER_TOPOLOGY_EXCEPTIONS_REMAIN',
+      `${bundle.summary.carrierTopologyExceptionCount} carrier topology exception(s) require review.`,
+    ));
+  }
+  if (bundle.summary?.carrierToStructurePathExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'CARRIER_TO_STRUCTURE_PATH_EXCEPTIONS_REMAIN',
+      `${bundle.summary.carrierToStructurePathExceptionCount} carrier-to-structure path exception(s) require review.`,
+    ));
+  }
+  if (bundle.summary?.restraintFunctionExceptionCount > 0) {
+    diagnostics.push(diagnostic(
+      'WARN',
+      'RESTRAINT_FUNCTION_EXCEPTIONS_REMAIN',
+      `${bundle.summary.restraintFunctionExceptionCount} restraint-function exception(s) require engineering review.`,
+    ));
+  }
   if (audit.supportExceptionRows?.some((row) => row.severity === 'ERROR')) {
     diagnostics.push(diagnostic(
       'WARN',
@@ -155,10 +200,30 @@ function createPipelineSummary(bundle, audit, diagnostics) {
     ambiguousFamilyCount: bundle.summary?.ambiguousFamilyCount || 0,
     unresolvedFamilyCount: bundle.summary?.unresolvedFamilyCount || 0,
     carrierObjectCount: bundle.summary?.carrierObjectCount || 0,
+    analyticalCarrierGeometryCount: bundle.summary?.analyticalCarrierGeometryCount || 0,
     resolvedPhysicalCarrierCount: bundle.summary?.resolvedPhysicalCarrierCount || 0,
     branchContextOnlyCount: bundle.summary?.branchContextOnlyCount || 0,
     ambiguousCarrierCount: bundle.summary?.ambiguousCarrierCount || 0,
     unresolvedCarrierCount: bundle.summary?.unresolvedCarrierCount || 0,
+    carrierAttachmentCandidateCount: bundle.summary?.carrierAttachmentCandidateCount || 0,
+    nearbyCarrierAttachmentCandidateCount: bundle.summary?.nearbyCarrierAttachmentCandidateCount || 0,
+    unresolvedCarrierAttachmentCount: bundle.summary?.unresolvedCarrierAttachmentCount || 0,
+    carrierTopologyComponentCount: bundle.summary?.carrierTopologyComponentCount || 0,
+    carrierTopologyConnectionCount: bundle.summary?.carrierTopologyConnectionCount || 0,
+    carrierTopologyPathCount: bundle.summary?.carrierTopologyPathCount || 0,
+    carrierTopologyRepairCount: bundle.summary?.carrierTopologyRepairCount || 0,
+    carrierTopologyExceptionCount: bundle.summary?.carrierTopologyExceptionCount || 0,
+    completeCarrierToStructurePathCount: bundle.summary?.completeCarrierToStructurePathCount || 0,
+    completeCarrierToStructureFamilyCount: bundle.summary?.completeCarrierToStructureFamilyCount || 0,
+    incompleteCarrierToStructureFamilyCount: bundle.summary?.incompleteCarrierToStructureFamilyCount || 0,
+    carrierToStructurePathExceptionCount: bundle.summary?.carrierToStructurePathExceptionCount || 0,
+    restraintFunctionAssessmentCount: bundle.summary?.restraintFunctionAssessmentCount || 0,
+    restraintFunctionConfirmedFamilyCount: bundle.summary?.restraintFunctionConfirmedFamilyCount || 0,
+    restraintFunctionPartiallyConfirmedFamilyCount: bundle.summary?.restraintFunctionPartiallyConfirmedFamilyCount || 0,
+    restraintFunctionConflictFamilyCount: bundle.summary?.restraintFunctionConflictFamilyCount || 0,
+    restraintFunctionAmbiguousFamilyCount: bundle.summary?.restraintFunctionAmbiguousFamilyCount || 0,
+    restraintFunctionNotProvenFamilyCount: bundle.summary?.restraintFunctionNotProvenFamilyCount || 0,
+    restraintFunctionExceptionCount: bundle.summary?.restraintFunctionExceptionCount || 0,
     supportChainEdgeCount: bundle.supportMemberChain?.summary?.supportChainEdgeCount || 0,
     structuralTerminalCount: audit.summary?.structuralTerminalCount || 0,
     auditSupportGroupCount: audit.summary?.supportGroupCount || 0,

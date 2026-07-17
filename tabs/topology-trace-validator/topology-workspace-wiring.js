@@ -6,6 +6,14 @@ import { loadTopologyProducerCore } from './topology-producer-loader.js';
 import { loadStagedJsonScoped } from './topology-staged-load-flow.js';
 import { wireTopologyEnrichment } from './topology-enrichment-wiring.js';
 import { wireTopologyEditCommandRouter } from './topology-edit-command-router.js';
+
+// Trace SVG axis-compass geometry per projection (PR #363 native-SVG editor).
+const COMPASS_GEOMETRY = Object.freeze({
+  XY: { x: [50, 50, 84, 50], y: [50, 50, 50, 16], z: null },
+  XZ: { x: [50, 50, 84, 50], y: null, z: [50, 50, 50, 14] },
+  YZ: { x: null, y: [50, 50, 84, 50], z: [50, 50, 50, 14] },
+  ISO: { x: [50, 50, 82, 68], y: [50, 50, 18, 68], z: [50, 50, 50, 12] },
+});
 export function wireTopologyWorkspace(root, controller) {
   const cleanups = [];
   cleanups.push(wireLeftPanelResize(root));
@@ -52,6 +60,7 @@ export function wireTopologyWorkspace(root, controller) {
   });
   listen(root.querySelector('[data-ttv-build-topology]'), 'click', (event) => buildTopology(root, controller, event));
   listen(root.querySelector('[data-ttv-fit]'), 'click', () => controller.fitView());
+  listen(root.querySelector('[data-ttv-canvas-fit]'), 'click', () => controller.fitView());
   root.querySelectorAll('[data-ttv-zoom]').forEach((button) => listen(button, 'click', () => controller.zoomView(button.dataset.ttvZoom)));
   root.querySelectorAll('[data-ttv-font-zoom]').forEach((button) => listen(button, 'click', () => {
     const isOut = button.dataset.ttvFontZoom === 'out';
@@ -61,40 +70,10 @@ export function wireTopologyWorkspace(root, controller) {
   }));
   root.querySelectorAll('[data-ttv-mode]').forEach((button) => listen(button, 'click', () => {
     setActiveButtons(root, 'data-ttv-mode', button);
-    const mode = button.dataset.ttvMode;
-    const hideVis = mode === 'issues' || mode === 'trace';
-    root.querySelectorAll('[data-ttv-vis]').forEach(btn => btn.disabled = hideVis);
-    controller.setMode(mode);
+    controller.setMode(button.dataset.ttvMode);
   }));
-  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => {
-    setActiveButtons(root, 'data-ttv-projection', button);
-    const projection = button.dataset.ttvProjection;
-    const compass = root.querySelector('[data-ttv-trace-root] [data-ttv-axis-compass]');
-    if (compass) {
-      if (projection === '3D' || projection === 'ISO') {
-        compass.innerHTML = `
-          <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
-          <line x1="0" y1="0" x2="-25" y2="-15" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="-35" y="-20" font-size="12" fill="#ef4444">X</text>
-          <line x1="0" y1="0" x2="25" y2="-15" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="30" y="-20" font-size="12" fill="#22c55e">Y</text>
-          <line x1="0" y1="0" x2="0" y2="-35" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="-5" y="-40" font-size="12" fill="#3b82f6">Z</text>
-        `;
-      } else {
-        const hAxis = projection.charAt(0);
-        const vAxis = projection.charAt(1);
-        compass.innerHTML = `
-          <defs><marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
-          <line x1="0" y1="0" x2="35" y2="0" stroke="#ef4444" stroke-width="2" marker-end="url(#arrow)" style="color:#ef4444" />
-          <text x="40" y="5" font-size="12" fill="#ef4444">${hAxis}</text>
-          <line x1="0" y1="0" x2="0" y2="-35" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)" style="color:#22c55e" />
-          <text x="-5" y="-40" font-size="12" fill="#22c55e">${vAxis}</text>
-        `;
-      }
-    }
-    controller.setProjection(projection);
-  }));
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvProjection)));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => listen(button, 'click', () => applyTraceProjection(root, controller, button.dataset.ttvCanvasProjection)));
   root.querySelectorAll('[data-ttv-vertical-axis]').forEach((select) => listen(select, 'change', (event) => {
     const verticalAxis = event.target.value;
     root.querySelectorAll('[data-ttv-vertical-axis]').forEach((el) => { el.value = verticalAxis; });
@@ -105,21 +84,25 @@ export function wireTopologyWorkspace(root, controller) {
   }));
   listen(root.querySelector('[data-ttv-labels]'), 'change', (event) => controller.setFilters({ labels: event.target.checked }));
   listen(root.querySelector('[data-ttv-component-symbols]'), 'change', (event) => controller.setFilters({ showComponentSymbols: event.target.checked }));
+  listen(root.querySelector('[data-ttv-isolate="supports"]'), 'change', (event) => {
+    const checked = event.target.checked;
+    const overlays = root.querySelector('[data-ttv-component-symbols]');
+    if (checked && overlays) overlays.checked = true;
+    controller.setFilters({ isolateSupports: checked, ...(checked ? { showComponentSymbols: true } : {}) });
+  });
   listen(root.querySelector('[data-ttv-branch-tree]'), 'click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-ttv-branch]') : null;
     if (!button) return;
-    const branch = button.dataset.ttvBranch;
-    const multi = event.ctrlKey || event.metaKey;
-    controller.setFilters({ branch, multiSelect: multi });
+    setActiveButtons(root, 'data-ttv-branch', button);
+    const branch = button.dataset.ttvBranch, showComponentSymbols = Boolean(branch);
+    const overlays = root.querySelector('[data-ttv-component-symbols]');
+    if (overlays) overlays.checked = showComponentSymbols;
+    controller.setFilters({ branch, showComponentSymbols });
+    controller.parity?.setBranch?.(branch);
   });
-  listen(root.querySelector('[data-ttv-type-ribbon]'), 'click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-ttv-type]') : null;
-    if (!button) return;
-    button.classList.toggle('is-active');
-    controller.setFilters({
-      types: [...root.querySelectorAll('[data-ttv-type].is-active')].map((btn) => btn.dataset.ttvType),
-    });
-  });
+  listen(root.querySelector('[data-ttv-type-filters]'), 'change', () => controller.setFilters({
+    types: [...root.querySelectorAll('[data-ttv-type]:checked')].map((input) => input.dataset.ttvType),
+  }));
   listen(root.querySelector('[data-ttv-disposition]'), 'change', (event) => controller.setFilters({ disposition: event.target.value }));
   for (const key of ['searchName', 'searchRef', 'searchPath']) listen(root.querySelector(`[data-ttv-${toKebab(key)}]`), 'input', (event) => controller.setSearch(key, event.target.value));
   listen(root.querySelector('[data-ttv-search-results]'), 'click', (event) => {
@@ -130,10 +113,7 @@ export function wireTopologyWorkspace(root, controller) {
     const target = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
     if (target) controller.synchronizeSurfaceSelection(cleanText(target.getAttribute('data-object-key')), 'trace');
   });
-  root.querySelectorAll('[data-ttv-vis]').forEach((button) => listen(button, 'click', () => {
-    button.classList.toggle('is-active');
-    controller.setVisibility(button.dataset.ttvVis, button.classList.contains('is-active'));
-  }));
+  root.querySelectorAll('[data-ttv-visibility]').forEach((input) => listen(input, 'change', () => controller.setVisibility(input.dataset.ttvVisibility, input.checked)));
   listen(root.querySelector('[data-ttv-bottom]'), 'click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const collapseBtn = target ? target.closest('[data-ttv-bottom-collapse]') : null;
@@ -162,8 +142,40 @@ export function wireTopologyWorkspace(root, controller) {
     const target = event.target instanceof Element ? event.target.closest('[data-object-key]') : null;
     if (target) controller.synchronizeSurfaceSelection(cleanText(target.getAttribute('data-object-key')), 'parity');
   });
+  syncTopologyProjectionUi(root, 'XY');
   return cleanups;
 }
+
+function applyTraceProjection(root, controller, projection) {
+  syncTopologyProjectionUi(root, projection);
+  controller.setProjection(projection);
+}
+
+export function syncTopologyProjectionUi(root, projection) {
+  const normalized = projection === '3D' ? 'ISO' : projection;
+  const toolbarProjection = normalized === 'ISO' ? '3D' : normalized;
+  root.querySelectorAll('[data-ttv-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvProjection === toolbarProjection));
+  root.querySelectorAll('[data-ttv-canvas-projection]').forEach((button) => button.classList.toggle('is-active', button.dataset.ttvCanvasProjection === normalized));
+  const compass = root.querySelector('[data-ttv-axis-compass]');
+  if (!compass) return;
+  compass.dataset.projection = projection;
+  compass.setAttribute('aria-label', `${normalized} axis compass`);
+  const geometry = COMPASS_GEOMETRY[normalized] || COMPASS_GEOMETRY.ISO;
+  for (const axis of ['x', 'y', 'z']) updateCompassAxis(compass, axis, geometry[axis]);
+}
+
+function updateCompassAxis(compass, axis, coordinates) {
+  const group = compass.querySelector(`[data-ttv-axis="${axis}"]`);
+  if (!group) return;
+  group.toggleAttribute('hidden', !coordinates);
+  if (!coordinates) return;
+  const [x1, y1, x2, y2] = coordinates;
+  const line = group.querySelector('line'), text = group.querySelector('text');
+  for (const [name, value] of Object.entries({ x1, y1, x2, y2 })) line?.setAttribute(name, String(value));
+  text?.setAttribute('x', String(x2 + (axis === 'y' && x2 < 50 ? -7 : 4)));
+  text?.setAttribute('y', String(y2 + (y2 < 20 ? -3 : 5)));
+}
+
 function wireWorkspaceTabs(root, controller, listen) {
   root.querySelectorAll('[data-ttv-workspace-tab]').forEach((button) => listen(button, 'click', async () => {
     try { await controller.activateTab(button.dataset.ttvWorkspaceTab, root); }

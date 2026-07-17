@@ -114,7 +114,7 @@ const supportInput = {
 };
 const support = await buildSupportSteelProjectMigration(supportInput);
 assert.equal(support.exportPlan.gate.status, 'READY');
-assert.equal(support.outputs.length, 5);
+assert.equal(support.outputs.length, 8); // json/csv/tree/chain/carrier + attachment/topology/structurePath (PR #363 carrier exports)
 assert.deepEqual(support.outputs.map((row) => row.text), supportSteelProjectArtifacts(supportBundle).map((row) => row.text));
 
 const sourceXml = pipelineNative.xmlText;

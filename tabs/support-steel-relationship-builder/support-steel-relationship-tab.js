@@ -1,9 +1,19 @@
-import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
+import { supportCarrierToStructurePathsToCsv } from './support-carrier-to-structure-path-export.js';
+import { supportCarrierTopologyToCsv } from './support-carrier-topology-export.js';
 import {
-  buildSupportSteelProjectMigration, supportSteelArtifactText,
-} from './support-steel-project-adapter.js';
-// Native export compatibility remains exact: supportMemberChainToCsv and
-// supportCarrierResolutionToCsv are delegated by supportSteelArtifactText.
+  supportCarrierAttachmentToCsv,
+  supportCarrierResolutionToCsv,
+} from './support-carrier-resolution-export.js';
+import {
+  supportMemberChainToCsv,
+  supportSteelBundleToJson,
+  supportSteelHierarchyToText,
+  supportSteelRelationshipsToCsv,
+} from './support-steel-relationship-export.js';
+import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bundle.js';
+// The 3D-edit "scalable projects" migration reuses these exact exporters via
+// supportSteelProjectArtifacts in the project adapter (extended FORMATS).
+import { buildSupportSteelProjectMigration } from './support-steel-project-adapter.js';
 import { supportSteelSampleText } from './support-steel-relationship-samples.js';
 import {
   renderSupportSteelDialog,
@@ -27,6 +37,9 @@ const EXPORT_FORMATS = Object.freeze({
   tree: { filename: 'support-steel-relationship-hierarchy.txt', mime: 'text/plain' },
   chain: { filename: 'support-member-chain.csv', mime: 'text/csv' },
   carrier: { filename: 'support-carrier-resolutions.csv', mime: 'text/csv' },
+  attachment: { filename: 'support-carrier-attachments.csv', mime: 'text/csv' },
+  topology: { filename: 'support-carrier-topology.csv', mime: 'text/csv' },
+  structurePath: { filename: 'support-carrier-to-structure-paths.csv', mime: 'text/csv' },
 });
 
 export function installSupportSteelRelationshipBuilderTile(root, ctx = {}) {
@@ -105,20 +118,19 @@ function wireFileInputs(modal) {
 }
 
 function loadSample(modal, ctx) {
-  modal.querySelector('[data-ssrb-input="support"]').value = supportSteelSampleText('support');
-  modal.querySelector('[data-ssrb-input="steel"]').value = supportSteelSampleText('steel');
-  modal.querySelector('[data-ssrb-file-status="support"]').textContent = 'PS-14259 analytical member demo loaded';
-  modal.querySelector('[data-ssrb-file-status="steel"]').textContent = 'SL-4201 / SL-4202 analytical demo loaded';
-  ctx.showToast?.('Support member, carrier context and steel geometry demo loaded.', 'success');
+  modal.querySelector('[data-ssrb-input="model"]').value = supportSteelSampleText();
+  modal.querySelector('[data-ssrb-file-status="model"]').textContent = 'Combined PS-14259 piping, support and structural demo loaded';
+  ctx.showToast?.('Combined staged model demo loaded.', 'success');
 }
 
 async function runBuilder(modal, state, ctx) {
   try {
-    const supportText = modal.querySelector('[data-ssrb-input="support"]').value;
-    const steelText = modal.querySelector('[data-ssrb-input="steel"]').value;
+    const combinedInput = parseSupportSteelJson(
+      modal.querySelector('[data-ssrb-input="model"]').value,
+      'Combined staged model source',
+    );
     state.bundle = buildSupportSteelRelationshipBundle({
-      supportInput: parseSupportSteelJson(supportText, 'Support source'),
-      steelInput: parseSupportSteelJson(steelText, 'Steel source'),
+      combinedInput,
       config: readRules(modal),
     });
     state.platformMigration = await buildSupportSteelProjectMigration({
@@ -129,7 +141,7 @@ async function runBuilder(modal, state, ctx) {
     state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
     renderState(modal, state);
     showPanel(modal, 'chain');
-    ctx.showToast?.('XML-free support assembly and carrier evidence built.', 'success');
+    ctx.showToast?.('XML-free carrier-to-structure path audit built from one combined model.', 'success');
   } catch (error) {
     const host = modal.querySelector('[data-ssrb-run-state]');
     host.innerHTML = `<b>Build blocked</b><span>${escapeHtml(error.message || error)}</span>`;
@@ -149,9 +161,11 @@ function readRules(modal) {
     ambiguityDeltaMm: Number(read('ambiguityDeltaMm')),
     memberContactToleranceMm: Number(read('memberContactToleranceMm')),
     memberCandidateToleranceMm: Number(read('memberCandidateToleranceMm')),
-    requireAnalyticalGeometryForSpatialResolution: Boolean(
-      node('requireAnalyticalGeometryForSpatialResolution')?.checked,
-    ),
+    carrierContactToleranceMm: Number(read('carrierContactToleranceMm')),
+    carrierCandidateToleranceMm: Number(read('carrierCandidateToleranceMm')),
+    carrierTopologyExactToleranceMm: Number(read('carrierTopologyExactToleranceMm')),
+    carrierTopologySmallGapToleranceMm: Number(read('carrierTopologySmallGapToleranceMm')),
+    requireAnalyticalGeometryForSpatialResolution: Boolean(node('requireAnalyticalGeometryForSpatialResolution')?.checked),
     emitNearbyMemberCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
     emitNearbyCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
   };
@@ -171,7 +185,7 @@ function renderState(modal, state) {
 function renderRunState(modal, bundle) {
   const host = modal.querySelector('[data-ssrb-run-state]');
   if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.supportFamilyCount} support families · ${bundle.summary.carrierObjectCount || 0} carrier objects · ${bundle.summary.resolvedPhysicalCarrierCount || 0} physical carrier resolutions · ${bundle.summary.supportChainEdgeCount} chain edges · ${bundle.summary.structuralTerminalEdgeCount} terminal edges</span>`;
+  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.completeCarrierToStructurePathCount || 0} complete paths · ${bundle.summary.completeCarrierToStructureFamilyCount || 0} complete families · ${bundle.summary.incompleteCarrierToStructureFamilyCount || 0} incomplete families · ${bundle.summary.carrierToStructurePathExceptionCount || 0} path exceptions</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -179,28 +193,22 @@ function selectRelationship(modal, state, relationshipId) {
   getHost(modal, 'evidence').innerHTML = renderSupportSteelEvidence(state.bundle, relationshipId);
   showPanel(modal, 'evidence');
 }
-
 function selectExportView(modal, state, key) {
   state.exportView = EXPORT_FORMATS[key] ? key : 'json';
   modal.querySelectorAll('[data-ssrb-export-view]').forEach((button) => button.classList.toggle('active', button.dataset.ssrbExportView === state.exportView));
   renderExportPreview(modal, state);
 }
-
 function renderExportPreview(modal, state) {
   const host = modal.querySelector('[data-ssrb-export-preview]');
   if (!state.bundle) { host.textContent = 'Build relationships to preview exports.'; return; }
   host.textContent = exportText(state.bundle, state.exportView);
 }
-
 async function copyPreview(modal, ctx) {
   try {
     await globalThis.navigator?.clipboard?.writeText(modal.querySelector('[data-ssrb-export-preview]')?.textContent || '');
     ctx.showToast?.('Evidence export preview copied.', 'success');
-  } catch (error) {
-    ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error');
-  }
+  } catch (error) { ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error'); }
 }
-
 function downloadPreview(modal, state, ctx) {
   if (!state.bundle) return;
   const format = EXPORT_FORMATS[state.exportView];
@@ -213,11 +221,16 @@ function downloadPreview(modal, state, ctx) {
   URL.revokeObjectURL(url);
   ctx.showToast?.(`${format.filename} downloaded.`, 'success');
 }
-
 function exportText(bundle, key) {
-  return supportSteelArtifactText(bundle, key);
+  if (key === 'csv') return supportSteelRelationshipsToCsv(bundle);
+  if (key === 'tree') return supportSteelHierarchyToText(bundle);
+  if (key === 'chain') return supportMemberChainToCsv(bundle);
+  if (key === 'carrier') return supportCarrierResolutionToCsv(bundle);
+  if (key === 'attachment') return supportCarrierAttachmentToCsv(bundle);
+  if (key === 'topology') return supportCarrierTopologyToCsv(bundle);
+  if (key === 'structurePath') return supportCarrierToStructurePathsToCsv(bundle);
+  return supportSteelBundleToJson(bundle);
 }
-
 function showPanel(modal, key) {
   modal.querySelectorAll('[data-ssrb-panel]').forEach((panel) => { panel.hidden = panel.dataset.ssrbPanel !== key; });
   modal.querySelectorAll('[data-ssrb-tab]').forEach((button) => {
@@ -226,37 +239,27 @@ function showPanel(modal, key) {
     button.setAttribute('aria-selected', String(active));
   });
 }
-
 function setFullscreen(modal, active) {
   modal.classList.toggle('ssrb-fullscreen', active);
   const button = modal.querySelector('[data-ssrb-fullscreen]');
   button?.setAttribute('aria-pressed', String(active));
   if (button) button.textContent = active ? 'Exit full screen' : 'Full screen';
 }
-
 function ensureStyle(doc) {
   if (!doc || doc.getElementById(STYLE_ID)) return;
   const link = doc.createElement('link');
   link.id = STYLE_ID;
   link.rel = 'stylesheet';
-  link.href = new URL('./support-steel-relationship-tab.css?v=20260716-ssrb-carrier-resolution-1', import.meta.url).href;
+  link.href = new URL('./support-steel-relationship-tab.css?v=20260717-ssrb-combined-model-1', import.meta.url).href;
   doc.head?.appendChild(link);
 }
-
-function getHost(modal, key) {
-  return modal.querySelector(`[data-ssrb-${key}]`);
-}
-
+function getHost(modal, key) { return modal.querySelector(`[data-ssrb-${key}]`); }
 function initialSummaryHtml() {
-  return ['Support families', 'Steel groups', 'Carrier objects', 'Resolved carriers', 'Physical members', 'Chain edges', 'Terminal edges', 'Ambiguous', 'Unresolved']
-    .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`)
-    .join('');
+  return ['Support families', 'Carrier objects', 'Carrier attachments', 'Topology paths', 'Complete structure paths', 'Complete families', 'Incomplete families', 'Path exceptions']
+    .map((label) => `<div class="ssrb-summary-card"><span>${label}</span><strong>0</strong></div>`).join('');
 }
-
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[char]));
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
 export const _test = Object.freeze({ readRules, exportText, showPanel, setFullscreen });

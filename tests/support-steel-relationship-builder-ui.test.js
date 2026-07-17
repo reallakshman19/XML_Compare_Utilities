@@ -9,14 +9,15 @@ import {
 const launcher = renderSupportSteelLauncher();
 assert.match(launcher, /Support \/ Steel Relationship Builder/);
 assert.match(launcher, /data-ssrb-open="1"/);
-assert.match(launcher, /data-ssrb-version="carrier-resolution-1"/);
-assert.match(launcher, /World-geometry support assembly evidence/);
+assert.match(launcher, /data-ssrb-version="restraint-function-1"/);
+assert.match(launcher, /Path and restraint-function evidence/);
 
 const dialog = renderSupportSteelDialog();
 assert.match(dialog, /XML-free assembly workspace/i);
-assert.match(dialog, /resolve authoritative pipe\/carrier objects/i);
-assert.match(dialog, /support and steel analytical geometry/i);
-assert.match(dialog, /Clash-detection XML is not an input/i);
+assert.match(dialog, /one staged model JSON containing piping, support and structural records/i);
+assert.match(dialog, /proves fail-closed carrier-to-structure paths/i);
+assert.match(dialog, /validates intended restraint functions/i);
+assert.match(dialog, /without clash XML/i);
 assert.match(dialog, /data-ssrb-fullscreen="1"/);
 assert.match(dialog, /data-ssrb-close="1"/);
 
@@ -25,68 +26,68 @@ for (const tab of ['input', 'rules', 'build', 'relationships', 'chain', 'evidenc
   assert.ok(workspace.includes(`data-ssrb-tab="${tab}"`), `missing ${tab} tab`);
 }
 for (const label of [
-  'Support source',
-  'Steel source',
-  'Support family regex',
-  'Steel group regex',
-  'Steel projection tolerance mm',
-  'Member contact tolerance mm',
-  'Member candidate tolerance mm',
-  'Require structural axis or bounds for steel spatial resolution',
-  'Show nearby member clearances separately from contact edges',
-  'SupportCarrierResolution.v1',
-  'SupportMemberChainBundle.v1',
-  'Build Relationships',
-  'Support-centred hierarchy',
-  'Geometry evidence ledger',
-  'Support member chain evidence',
-  'Physical contact, nearby clearance and symbolic reference are separate edge classes',
-  'Selected relationship, carrier and geometry evidence',
-  'Member Chain CSV',
-  'Carrier Resolution CSV',
-  'Branch context never becomes a physical carrier edge',
-  'no Navisworks clash XML is consumed',
+  'Load one combined staged model JSON', 'Combined staged model JSON',
+  'One hierarchy containing piping, support and structural records',
+  'Separate support and steel files are not required',
+  'restraint-function validation',
+  'Support family regex', 'Steel group regex', 'Steel projection tolerance mm',
+  'Member contact tolerance mm', 'Carrier attachment tolerance mm',
+  'Carrier topology exact tolerance mm', 'Carrier topology small-gap tolerance mm',
+  'Complete-path policy', 'SupportCarrierToStructurePathBundle.v1',
+  'Build Relationships', 'Support-centred hierarchy', 'Geometry evidence ledger',
+  'Carrier-to-structure path evidence',
+  'Complete paths and missing-link exceptions are reported separately',
+  'Selected relationship and complete-path evidence',
+  'Carrier → Structure Path CSV',
 ]) assert.ok(workspace.includes(label), `missing UI label ${label}`);
+assert.match(workspace, /data-ssrb-input="model"/);
+assert.match(workspace, /data-ssrb-file="model"/);
+assert.doesNotMatch(workspace, /data-ssrb-input="support"/);
+assert.doesNotMatch(workspace, /data-ssrb-input="steel"/);
+assert.equal((workspace.match(/<textarea /g) || []).length, 1);
 
 const utilityTab = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
 const layout = readFileSync('tabs/psnm-utility-tab-layout-stabilizer.js', 'utf8');
 const relationshipTab = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-tab.js', 'utf8');
+const relationshipView = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-view.js', 'utf8');
 const evidenceBundle = readFileSync('tabs/support-steel-relationship-builder/support-steel-evidence-bundle.js', 'utf8');
-const carrierCatalog = readFileSync('tabs/support-steel-relationship-builder/support-carrier-catalog.js', 'utf8');
-const carrierResolution = readFileSync('tabs/support-steel-relationship-builder/support-carrier-resolution.js', 'utf8');
-const carrierExport = readFileSync('tabs/support-steel-relationship-builder/support-carrier-resolution-export.js', 'utf8');
-const engine = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-engine.js', 'utf8');
+const restraintFacade = readFileSync('tabs/support-steel-relationship-builder/support-steel-restraint-evidence-bundle.js', 'utf8');
+const restraintAddon = readFileSync('tabs/support-steel-relationship-builder/support-restraint-function-addon.js', 'utf8');
+const restraintView = readFileSync('tabs/support-steel-relationship-builder/support-restraint-function-view.js', 'utf8');
+const bootstrap = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-bootstrap.js', 'utf8');
+const pathEngine = readFileSync('tabs/support-steel-relationship-builder/support-carrier-to-structure-path.js', 'utf8');
+const topologyEngine = readFileSync('tabs/support-steel-relationship-builder/support-carrier-topology-engine.js', 'utf8');
+const carrierAttachment = readFileSync('tabs/support-steel-relationship-builder/support-carrier-attachment-engine.js', 'utf8');
 const chainEngine = readFileSync('tabs/support-steel-relationship-builder/support-member-chain-engine.js', 'utf8');
-const memberGeometry = readFileSync('tabs/support-steel-relationship-builder/support-member-analytical-geometry.js', 'utf8');
 assert.match(utilityTab, /installSupportSteelRelationshipBuilderTile/);
 assert.match(utilityTab, /destroySupportSteelRelationshipBuilder/);
 assert.match(layout, /data-ssrb-open/);
-assert.match(relationshipTab, /renderSupportMemberChain/);
-assert.match(relationshipTab, /supportMemberChainToCsv/);
-assert.match(relationshipTab, /supportCarrierResolutionToCsv/);
-assert.match(relationshipTab, /ssrb-carrier-resolution-1/);
-assert.match(evidenceBundle, /buildSupportCarrierResolutionBundle/);
-assert.match(evidenceBundle, /RELATIONSHIP_MEMBER_CONNECTIVITY_AND_CARRIER_CONTEXT_INFERENCE/);
-assert.match(carrierCatalog, /SupportCarrierCatalog\.v1/);
-assert.match(carrierCatalog, /PHYSICAL_PIPE_CARRIER/);
-assert.match(carrierResolution, /SupportCarrierResolution\.v1/);
-assert.match(carrierResolution, /SUPPORT_MEMBER_TO_CARRIER/);
-assert.match(carrierResolution, /SUPPORT_MEMBER_TO_BRANCH_CONTEXT/);
-assert.match(carrierResolution, /contactEvidenceStatus: 'NOT_PROVEN'/);
-assert.match(carrierExport, /supportCarrierResolutionToCsv/);
-assert.match(engine, /buildSupportMemberChainBundle/);
-assert.match(engine, /RELATIONSHIP_AND_MEMBER_CONNECTIVITY_INFERENCE/);
-assert.match(chainEngine, /SUPPORT_MEMBER_CONTACT/);
+assert.match(relationshipTab, /combinedInput/);
+assert.match(relationshipTab, /data-ssrb-input=\"model\"/);
+assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"support\"/);
+assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"steel\"/);
+assert.match(relationshipTab, /supportCarrierToStructurePathsToCsv/);
+assert.match(relationshipView, /Complete carrier-to-structure paths/);
+assert.match(relationshipView, /Carrier-to-structure missing-link exceptions/);
+assert.match(relationshipView, /ANALYTICAL_PATH_CANDIDATE/);
+assert.match(evidenceBundle, /combinedInput/);
+assert.match(evidenceBundle, /COMBINED_STAGED_MODEL/);
+assert.match(restraintFacade, /supportRestraintFunction/);
+assert.match(restraintAddon, /data-ssrb-input=\"model\"/);
+assert.match(restraintAddon, /support-steel-restraint-evidence-bundle/);
+assert.match(restraintView, /Support restraint-function validation/);
+assert.match(restraintView, /ANALYTICAL_FUNCTION_CANDIDATE/);
+assert.match(bootstrap, /support-restraint-function-addon\.js/);
+assert.match(bootstrap, /restraint-function-1/);
+assert.match(pathEngine, /SupportCarrierToStructurePathBundle\.v1/);
+assert.match(topologyEngine, /EXACT_PORT_CONNECTION/);
+assert.match(carrierAttachment, /SUPPORT_MEMBER_TO_CARRIER_ATTACHMENT/);
 assert.match(chainEngine, /SUPPORT_MEMBER_TO_STRUCTURE/);
-assert.match(chainEngine, /contactEvidenceStatus: 'NOT_PROVEN'/);
-assert.match(memberGeometry, /WORLD_OBB_SAT_OVERLAP/);
-assert.match(memberGeometry, /REPRESENTATIVE_POINT_TO_POINT/);
 
 const css = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-tab.css', 'utf8');
 assert.match(css, /\.ssrb-results-layout/);
 assert.match(css, /\.ssrb-table-wrap/);
 assert.match(css, /position:sticky/);
-assert.match(css, /\.ssrb-status-resolved-explicit/);
 assert.match(css, /@media\(max-width:700px\)/);
 
 console.log('support-steel-relationship-builder-ui tests passed');

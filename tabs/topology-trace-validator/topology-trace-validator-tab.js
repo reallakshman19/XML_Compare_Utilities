@@ -1,15 +1,17 @@
-/** Mounts immutable Trace/Parity surfaces and the reversible Edit Draft tab. */
-import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260715-ttv-018-parity';
+/** Mounts Trace, the 3D Edit Draft, the SVG support-draft editor, and Parity. */
+import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260717-ttv-editor-001';
+import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260717-ttv-editor-001';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyEditController } from './topology-edit-controller.js?v=20260717-ttv-components-v1';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260716-topology-checker-v1';
+import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260717-ttv-editor-001';
 import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260717-ttv-components-v1';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260717-ttv-components-v1';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260717-ttv-editor-001';
 import { createTopologyEditExtensions } from './topology-edit-extensions.js';
 
 const STYLE_ID = 'topology-trace-validator-style';
+const STYLE_URL = new URL('./topology-parity-workspace.css?v=20260717-ttv-editor-001', import.meta.url).href;
 
 export function installTopologyTraceValidatorTile(container, context) {
   ensureStylesheet(container.ownerDocument);
@@ -98,6 +100,7 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   root.innerHTML = workspaceMarkup();
   const shell = root.closest('.ttv-float-shell') || root;
   const traceController = createTopologyValidatorController(collectTraceElements(shell));
+  const editorController = createTopologySvgEditorController(traceController, collectEditorElements(shell));
   const parityController = createTopologyParityController(collectParityElements(shell));
   let controller = null;
   let editExtensions = null;
@@ -106,7 +109,7 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
     onRender: () => editExtensions?.onRender(),
     onGhostPick: (objectId) => editExtensions?.onGhostPick(objectId),
   });
-  const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController);
+  const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController, editorController);
   const checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
     evidence: () => workspaceController.evidence(),
     select: (selection) => workspaceController.synchronizeCanonicalSelection(selection, 'checker'),
@@ -184,6 +187,11 @@ function collectTraceElements(root) {
   };
 }
 
+function collectEditorElements(root) {
+  const query = requiredQuery(root);
+  return { root, panel: query('[data-ttv-editor-panel]') };
+}
+
 function collectParityElements(root) {
   const query = requiredQuery(root);
   return {
@@ -213,11 +221,11 @@ function ensureStylesheet(documentRef) {
     link.rel = 'stylesheet';
     documentRef.head.appendChild(link);
   }
-  link.href = new URL('./topology-parity-workspace.css?v=20260717-ttv-components-v1', import.meta.url).href;
+  link.href = STYLE_URL;
 }
 
 function objectOrNull(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
-export const _test = Object.freeze({ collectTraceElements, collectEditElements, collectParityElements, collectCheckerElements, requiredQuery, workspaceMarkup });
+export const _test = Object.freeze({ collectTraceElements, collectEditElements, collectEditorElements, collectParityElements, collectCheckerElements, requiredQuery, ensureStylesheet, workspaceMarkup });

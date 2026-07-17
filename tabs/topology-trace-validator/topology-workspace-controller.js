@@ -1,4 +1,4 @@
-/** Composes immutable Trace/Parity controllers with the Edit Draft controller. */
+/** Composes Trace, the 3D Edit Draft, the SVG support-draft editor, and Parity. */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 
@@ -35,13 +35,16 @@ function selectionRows(selection, requestedKey) {
   }));
 }
 
-/** @param {Record<string, unknown>} traceController @param {Record<string, unknown>} editController @param {Record<string, unknown>} parityController @returns {Readonly<Record<string, unknown>>} */
-export function createTopologyWorkspaceController(traceController, editController, parityController) {
+/** @param {Record<string, unknown>} traceController @param {Record<string, unknown>} editController 3D Edit Draft @param {Record<string, unknown>} parityController @param {Record<string, unknown>} editorController SVG support-draft editor @returns {Readonly<Record<string, unknown>>} */
+export function createTopologyWorkspaceController(traceController, editController, parityController, editorController) {
   let activeTab = 'trace';
 
   async function loadArtifact(kind, text, fileName) {
     const results = {};
-    if (TRACE_KINDS.has(kind)) results.trace = await traceController.loadArtifact(kind, text, fileName);
+    if (TRACE_KINDS.has(kind)) {
+      editorController.reset();
+      results.trace = await traceController.loadArtifact(kind, text, fileName);
+    }
     if (PARITY_KINDS.has(kind)) results.parity = await parityController.loadArtifact(kind, text, fileName);
     if (!TRACE_KINDS.has(kind) && !PARITY_KINDS.has(kind)) throw new RangeError(`Unknown topology workspace artifact: ${kind}`);
     return Object.freeze(results);
@@ -113,12 +116,14 @@ export function createTopologyWorkspaceController(traceController, editControlle
     return Object.freeze({
       trace: traceController.evidence(),
       edit: editController.evidence(),
+      editor: editorController.evidence(),
       parity: parityController.evidence(),
       activeTab,
     });
   }
 
   function destroy() {
+    editorController.destroy();
     traceController.destroy();
     editController.destroy();
     parityController.destroy();
@@ -149,6 +154,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
     assertNoMutation: traceController.assertNoMutation,
     downloadEnrichedInputXml: traceController.downloadEnrichedInputXml,
     edit: editController,
+    editor: editorController,
     parity: parityController,
   });
 }
