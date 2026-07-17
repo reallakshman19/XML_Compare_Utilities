@@ -49,7 +49,7 @@ async function loadThree() {
  * `getZoomAnchor(event)` may return a world-space Vector3 under the cursor;
  * the dolly then keeps that point stationary on screen (cursor-anchored zoom).
  */
-function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZoomAnchor) {
+function attachOrbitControls(THREE, getCamera, dom, getVerticalAxis, onChange, getZoomAnchor) {
   const target = new THREE.Vector3();
   const toSphericalVec = (vec) => {
     const verticalAxis = getVerticalAxis();
@@ -61,51 +61,120 @@ function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZ
     if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, -vec.z, vec.y);
     return vec.clone();
   };
-  const spherical = new THREE.Spherical().setFromVector3(toSphericalVec(camera.position.clone().sub(target)));
+  
+  let spherical = new THREE.Spherical().setFromVector3(toSphericalVec(getCamera().position.clone().sub(target)));
   let dragging = null;
   let lastX = 0; let lastY = 0;
+
+  const velocity = { theta: 0, phi: 0, radius: 1, panRight: 0, panUp: 0 };
+  let rAF = null;
+  let pivot = null;
+  let transition = null;
+
+  const cancelTransition = () => { if (transition) transition = null; };
+
   const apply = () => {
-    spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi));
-    spherical.radius = Math.max(1, spherical.radius);
+    spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi));
+    spherical.radius = Math.max(0.01, spherical.radius);
     const sphPos = new THREE.Vector3().setFromSpherical(spherical);
-    camera.position.copy(toWorldVec(sphPos).add(target));
-    camera.lookAt(target);
+    const cam = getCamera();
+    cam.position.copy(toWorldVec(sphPos).add(target));
+    cam.lookAt(target);
     onChange();
   };
+
+  const easeCubicOut = (t) => 1 - Math.pow(1 - t, 3);
+
+  const tick = () => {
+    let moved = false;
+    if (transition) {
+      const t = Math.min(1, (performance.now() - transition.start) / 300);
+      const eased = easeCubicOut(t);
+      target.lerpVectors(transition.startTarget, transition.endTarget, eased);
+      const pos = new THREE.Vector3().lerpVectors(transition.startPos, transition.endPos, eased);
+      spherical.setFromVector3(toSphericalVec(pos.clone().sub(target)));
+      apply();
+      if (t >= 1) transition = null;
+      moved = true;
+    } else {
+      if (Math.abs(velocity.theta) > 1e-4 || Math.abs(velocity.phi) > 1e-4 || Math.abs(velocity.radius - 1) > 1e-4 || Math.abs(velocity.panRight) > 1e-4 || Math.abs(velocity.panUp) > 1e-4) {
+        if (pivot && (velocity.theta !== 0 || velocity.phi !== 0)) {
+           const cam = getCamera();
+           const offset = cam.position.clone().sub(pivot);
+           const pivotSpherical = new THREE.Spherical().setFromVector3(toSphericalVec(offset));
+           pivotSpherical.theta -= velocity.theta;
+           pivotSpherical.phi -= velocity.phi;
+           pivotSpherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, pivotSpherical.phi));
+           const newPos = toWorldVec(new THREE.Vector3().setFromSpherical(pivotSpherical)).add(pivot);
+           target.add(newPos.clone().sub(cam.position));
+           spherical.setFromVector3(toSphericalVec(newPos.clone().sub(target)));
+        } else {
+           spherical.theta -= velocity.theta;
+           spherical.phi -= velocity.phi;
+        }
+        spherical.radius *= velocity.radius;
+        if (velocity.panRight !== 0 || velocity.panUp !== 0) {
+           const cam = getCamera();
+           const right = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 0).multiplyScalar(velocity.panRight);
+           const up = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 1).multiplyScalar(velocity.panUp);
+           target.add(right).add(up);
+        }
+        velocity.theta *= 0.85;
+        velocity.phi *= 0.85;
+        velocity.radius = 1 + (velocity.radius - 1) * 0.85;
+        velocity.panRight *= 0.85;
+        velocity.panUp *= 0.85;
+        apply();
+        moved = true;
+      }
+    }
+    if (moved) rAF = requestAnimationFrame(tick);
+    else rAF = null;
+  };
+
+  const startTick = () => { if (!rAF) rAF = requestAnimationFrame(tick); };
+
   const onPointerDown = (e) => {
+    cancelTransition();
     dragging = (e.button === 2 || e.shiftKey) ? 'pan' : 'rotate';
     lastX = e.clientX; lastY = e.clientY;
+    velocity.theta = 0; velocity.phi = 0; velocity.radius = 1; velocity.panRight = 0; velocity.panUp = 0;
     dom.setPointerCapture?.(e.pointerId);
   };
+  
   const onPointerMove = (e) => {
     if (!dragging) return;
     const dx = e.clientX - lastX; const dy = e.clientY - lastY;
     lastX = e.clientX; lastY = e.clientY;
+    
     if (dragging === 'rotate') {
-      spherical.theta -= dx * 0.006;
-      spherical.phi -= dy * 0.006;
+      velocity.theta += dx * 0.003;
+      velocity.phi += dy * 0.003;
     } else {
-      const panScale = spherical.radius * 0.0016;
-      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0).multiplyScalar(-dx * panScale);
-      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1).multiplyScalar(dy * panScale);
-      target.add(right).add(up);
+      const cam = getCamera();
+      let panScale;
+      if (cam.isOrthographicCamera) panScale = (cam.top - cam.bottom) / dom.clientHeight / cam.zoom;
+      else panScale = 2 * Math.tan((cam.fov * Math.PI) / 360) * spherical.radius / dom.clientHeight;
+      velocity.panRight += -dx * panScale * 0.5;
+      velocity.panUp += dy * panScale * 0.5;
     }
-    apply();
+    startTick();
   };
+
   const onPointerUp = () => { dragging = null; };
+
   const onWheel = (e) => {
     e.preventDefault();
-    const speed = e.shiftKey ? 0.0005 : 0.002;
+    cancelTransition();
+    let speed = e.shiftKey ? 0.0005 : 0.002;
+    if (typeof controls.zoomSpeed === 'number') speed *= controls.zoomSpeed;
     const factor = Math.exp(e.deltaY * speed);
     const anchor = getZoomAnchor ? getZoomAnchor(e) : null;
-    if (anchor) {
-      // Keep the anchor stationary: the target slides toward/away from it in
-      // proportion to the dolly so the point under the cursor stays put.
-      target.sub(anchor).multiplyScalar(factor).add(anchor);
-    }
-    spherical.radius *= factor;
-    apply();
+    if (anchor) target.sub(anchor).multiplyScalar(factor).add(anchor);
+    velocity.radius = factor;
+    startTick();
   };
+
   const onContext = (e) => e.preventDefault();
   dom.addEventListener('pointerdown', onPointerDown);
   dom.addEventListener('pointermove', onPointerMove);
@@ -114,17 +183,44 @@ function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZ
   dom.addEventListener('contextmenu', onContext);
   apply();
 
-  return {
+  const controls = {
     target,
     spherical,
+    zoomSpeed: 1,
+    get pivot() { return pivot; },
+    setPivot(worldPoint) { pivot = worldPoint ? worldPoint.clone() : null; onChange(); },
     apply,
     setView(position, lookAt) {
+      cancelTransition();
+      transition = {
+        start: performance.now(),
+        startTarget: target.clone(),
+        endTarget: lookAt.clone(),
+        startPos: getCamera().position.clone(),
+        endPos: position.clone(),
+      };
+      startTick();
+    },
+    setViewInstant(position, lookAt) {
+      cancelTransition();
       target.copy(lookAt);
       const offset = position.clone().sub(lookAt);
       spherical.setFromVector3(toSphericalVec(offset));
       apply();
     },
+    orbitBy(dTheta, dPhi) {
+      cancelTransition();
+      velocity.theta += dTheta;
+      velocity.phi += dPhi;
+      startTick();
+    },
+    zoomBy(factor) {
+      cancelTransition();
+      velocity.radius = factor;
+      startTick();
+    },
     dispose() {
+      if (rAF) cancelAnimationFrame(rAF);
       dom.removeEventListener('pointerdown', onPointerDown);
       dom.removeEventListener('pointermove', onPointerMove);
       dom.removeEventListener('pointerup', onPointerUp);
@@ -132,6 +228,7 @@ function attachOrbitControls(THREE, camera, dom, getVerticalAxis, onChange, getZ
       dom.removeEventListener('contextmenu', onContext);
     },
   };
+  return controls;
 }
 
 /** Connector type/status → line color. */
@@ -213,8 +310,21 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     renderer.setScissorTest(mode === 'side-by-side');
   }
 
-  const camera = new THREE.PerspectiveCamera(55, 1, 1, 1e7);
-  camera.position.set(2500, 2200, 2500);
+  let activeCameraType = 'Perspective';
+  const perspCamera = new THREE.PerspectiveCamera(55, 1, 1, 1e7);
+  perspCamera.position.set(2500, 2200, 2500);
+  const orthoCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1e7);
+  let camera = perspCamera;
+
+  const pivotMarker = new THREE.Group();
+  const pivotGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-40,0,0), new THREE.Vector3(40,0,0),
+    new THREE.Vector3(0,-40,0), new THREE.Vector3(0,40,0),
+    new THREE.Vector3(0,0,-40), new THREE.Vector3(0,0,40)
+  ]);
+  const pivotMat = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.5 });
+  pivotMarker.add(new THREE.LineSegments(pivotGeom, pivotMat));
+  pivotMarker.visible = false;
 
   const sourceGroup = new THREE.Group();
   const targetGroup = new THREE.Group();
@@ -222,7 +332,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   const connectorGroup = new THREE.Group();
   const transientGroup = new THREE.Group(); // drag previews / rubber bands
   const measurementGroup = new THREE.Group(); // persistent measure polyline, excluded from picking
-  scene.add(sourceGroup, targetGroup, ghostGroup, connectorGroup, transientGroup, measurementGroup);
+  scene.add(sourceGroup, targetGroup, ghostGroup, connectorGroup, transientGroup, measurementGroup, pivotMarker);
 
   let mode = 'overlay';
   let sourceOpacity = 0.32;
@@ -810,6 +920,17 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     refreshInstanceStates();
   }
 
+  function updateCameraAspect(cam, aspect) {
+    if (cam.isPerspectiveCamera) {
+      cam.aspect = aspect;
+    } else {
+      const frustumSize = (cam.top - cam.bottom) || (2 * Math.tan((55 * Math.PI) / 360) * controls.target.distanceTo(cam.position));
+      cam.left = -frustumSize * aspect / 2;
+      cam.right = frustumSize * aspect / 2;
+    }
+    cam.updateProjectionMatrix();
+  }
+
   // ── render loop (on-demand; rAF with timeout fallback so throttled or
   //    occluded tabs still paint) ─────────────────────────────────────────
   let renderQueued = false;
@@ -827,8 +948,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       renderer.setSize(width, height, false);
       if (mode === 'side-by-side') {
         renderer.setScissorTest(true);
-        camera.aspect = (width / 2) / height;
-        camera.updateProjectionMatrix();
+        updateCameraAspect(camera, (width / 2) / height);
         // left: source only
         targetGroup.visible = false; sourceGroup.visible = true;
         renderer.setViewport(0, 0, width / 2, height);
@@ -844,8 +964,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         sourceGroup.visible = true;
         renderer.setScissorTest(false);
       } else {
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
+        updateCameraAspect(camera, width / height);
         renderer.setViewport(0, 0, width, height);
         renderer.render(scene, camera);
         renderAxisCompass(0, 0);
@@ -875,8 +994,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       if (x < viewWidth) hiddenGroup = targetGroup;
       else { hiddenGroup = sourceGroup; x -= viewWidth; }
     }
-    const prevAspect = camera.aspect;
-    camera.aspect = viewWidth / height;
+    const prevAspect = camera.aspect || (host.clientWidth / host.clientHeight);
+    updateCameraAspect(camera, viewWidth / height);
     const prevHiddenVisible = hiddenGroup ? hiddenGroup.visible : true;
     if (hiddenGroup) hiddenGroup.visible = false;
     let id = 0;
@@ -894,8 +1013,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       }
     } finally {
       if (hiddenGroup) hiddenGroup.visible = prevHiddenVisible;
-      camera.aspect = prevAspect;
-      camera.updateProjectionMatrix();
+      updateCameraAspect(camera, prevAspect);
     }
     const record = pickTable[id] ?? null;
     if (!record) return null;
@@ -933,7 +1051,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return zoomAnchor;
   }
 
-  const controls = attachOrbitControls(THREE, camera, renderer.domElement, () => verticalAxis, () => {
+  const controls = attachOrbitControls(THREE, () => camera, renderer.domElement, () => verticalAxis, () => {
+    if (controls && controls.pivot) {
+      pivotMarker.visible = true;
+      pivotMarker.position.copy(controls.pivot);
+    } else if (controls) {
+      pivotMarker.visible = false;
+    }
     render();
     if (onCameraChange) onCameraChange();
   }, getZoomAnchor);
@@ -1033,6 +1157,44 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('click', (event) => {
     if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5) return; // drag, not click
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = rect.bottom - event.clientY;
+    let inGizmo = false;
+    let viewWidth = host.clientWidth || 800;
+    if (mode === 'side-by-side') {
+      viewWidth = viewWidth / 2;
+      const xRight = x - viewWidth;
+      if (x > 10 && x < 74 && y > 10 && y < 74) inGizmo = true;
+      if (xRight > 10 && xRight < 74 && y > 10 && y < 74) inGizmo = true;
+    } else {
+      if (x > 10 && x < 74 && y > 10 && y < 74) inGizmo = true;
+    }
+
+    if (inGizmo) {
+      const gizmoX = mode === 'side-by-side' && x > viewWidth ? x - viewWidth : x;
+      const ndcX = ((gizmoX - 10) / 64) * 2 - 1;
+      const ndcY = ((y - 10) / 64) * 2 - 1;
+      raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), axisCamera);
+      const intersects = raycaster.intersectObjects(axisScene.children, true);
+      if (intersects.length > 0) {
+        let clicked = null;
+        intersects[0].object.traverseAncestors(a => {
+           if (a === letterX) clicked = 'side';
+           if (a === letterY) clicked = verticalAxis === 'Z' ? 'front' : 'top';
+           if (a === letterZ) clicked = verticalAxis === 'Z' ? 'top' : 'front';
+        });
+        if (intersects[0].object === letterX) clicked = 'side';
+        if (intersects[0].object === letterY) clicked = verticalAxis === 'Z' ? 'front' : 'top';
+        if (intersects[0].object === letterZ) clicked = verticalAxis === 'Z' ? 'top' : 'front';
+        if (clicked) {
+          api.setStandardView(clicked);
+          return;
+        }
+      }
+    }
+
     const hit = gpuPickAt(event.clientX, event.clientY);
     if (hit) {
       const now = Date.now();
@@ -1200,10 +1362,42 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       refreshInstanceStates();
       render();
     },
+    get camera() { return camera; },
+    get activeCameraType() { return activeCameraType; },
+    toggleCameraType() {
+      const distance = controls.target.distanceTo(camera.position);
+      const aspect = (host.clientWidth || 800) / (host.clientHeight || 480);
+      if (activeCameraType === 'Perspective') {
+        const frustumSize = 2 * Math.tan((55 * Math.PI) / 360) * distance;
+        orthoCamera.left = -frustumSize * aspect / 2;
+        orthoCamera.right = frustumSize * aspect / 2;
+        orthoCamera.top = frustumSize / 2;
+        orthoCamera.bottom = -frustumSize / 2;
+        orthoCamera.position.copy(perspCamera.position);
+        orthoCamera.quaternion.copy(perspCamera.quaternion);
+        orthoCamera.zoom = 1;
+        orthoCamera.updateProjectionMatrix();
+        camera = orthoCamera;
+        activeCameraType = 'Orthographic';
+      } else {
+        perspCamera.position.copy(orthoCamera.position);
+        perspCamera.quaternion.copy(orthoCamera.quaternion);
+        const frustumSize = orthoCamera.top - orthoCamera.bottom;
+        const targetDist = frustumSize / (2 * Math.tan((55 * Math.PI) / 360) * orthoCamera.zoom);
+        const dir = new THREE.Vector3(0,0,1).applyQuaternion(orthoCamera.quaternion);
+        perspCamera.position.copy(controls.target).add(dir.multiplyScalar(targetDist));
+        perspCamera.aspect = aspect;
+        perspCamera.updateProjectionMatrix();
+        camera = perspCamera;
+        activeCameraType = 'Perspective';
+      }
+      controls.apply();
+    },
+    get controls() { return controls; },
     /**
-     * Transient overlay for in-flight gestures (drag ghost, rubber band).
-     * overlay: { lines?: [{ points: [[x,y,z],...], colorInt? }],
-     *            spheres?: [{ position: [x,y,z], radiusMm?, colorInt? }] } | null
+     * Overlay transient geometry (cleared by the next setTransient or clearTransient call).
+     * @param {{ lines?: [{ points: [[x,y,z], ...], colorInt? }],
+     *            spheres?: [{ position: [x,y,z], radiusMm?, colorInt? }] } | null} overlay
      */
     setTransient(overlay) {
       clearTransient();
@@ -1341,6 +1535,11 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       if (box) fitBox(box); else pendingFit = true;
     },
     fitObject(objectId) { fitBox(boundsOf(new Set([objectId]))); },
+    setPivotToSelection() {
+      if (!selectedIds.size) { controls.setPivot(null); return; }
+      const box = boundsOf(selectedIds);
+      if (box) controls.setPivot(box.getCenter(new THREE.Vector3()));
+    },
     querySpatial(bounds) {
       if (!sceneRuntime) throw new Error('Scene spatial index is not ready.');
       return querySceneSpatialIndex(sceneRuntime.spatialIndex, bounds);
@@ -1394,4 +1593,5 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       renderer.domElement.remove();
     },
   };
+  return api;
 }

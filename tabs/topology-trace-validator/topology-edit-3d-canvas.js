@@ -95,6 +95,15 @@ function runtimeNavigation(state) {
     fit: () => state.viewer?.fitAll(), zoomIn: () => state.viewer?.zoomBy(1 / 1.2), zoomOut: () => state.viewer?.zoomBy(1.2),
     fitObjectKey: (key) => { const id = cleanText(key).split(':').pop(); if (id) state.viewer?.fitObject(id); },
     setStandardView: (view) => state.viewer?.setStandardView(view), destroy: () => {},
+    toggleCameraType: () => {
+      if (state.viewer) {
+        state.viewer.toggleCameraType();
+        return state.viewer.activeCameraType;
+      }
+      return 'Perspective';
+    },
+    setPivot: (xyz) => state.viewer?.controls?.setPivot(xyz),
+    setPivotToSelection: () => state.viewer?.setPivotToSelection(),
   });
 }
 

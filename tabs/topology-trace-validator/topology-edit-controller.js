@@ -210,6 +210,14 @@ export function createTopologyEditController(elements, dependencies) {
     projection = nextProjection; elements.root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-projection') === projection));
     navigation.setStandardView?.({ XY: 'top', XZ: 'front', YZ: 'side' }[projection]);
   }
+  function toggleCameraType() {
+    const type = navigation.toggleCameraType?.() ?? 'Perspective';
+    const button = elements.root.querySelector('[data-ttv-edit-camera]');
+    if (button) button.textContent = type === 'Orthographic' ? 'Ortho' : 'Persp';
+  }
+  function setPivotToSelection() {
+    navigation.setPivotToSelection?.();
+  }
   function setSelectionFilter(kind, enabled) {
     if (!EDIT_KINDS.includes(kind)) throw new RangeError(`Unsupported selection filter ${kind}.`);
     const next = new Set(selectionFilters); if (enabled) next.add(kind); else next.delete(kind); selectionFilters = next; setSelection(selection, true);
@@ -292,7 +300,9 @@ export function createTopologyEditController(elements, dependencies) {
     setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions,
     appendAttributeEditCommand, setCommandRemark, addMeasurementPoint: canvasRuntime.addMeasurementPoint,
     focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); },
-    fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), render, evidence, destroy,
+    fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(),
+    toggleCameraType, setPivotToSelection,
+    render, evidence, destroy,
   });
 }
 

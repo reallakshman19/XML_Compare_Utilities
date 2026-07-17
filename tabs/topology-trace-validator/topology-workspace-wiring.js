@@ -204,6 +204,10 @@ function wireEditControls(root, controller, listen) {
       `;
     }
   }));
+  const camBtn = root.querySelector('[data-ttv-edit-camera]');
+  if (camBtn) listen(camBtn, 'click', () => controller.edit.toggleCameraType());
+  const pivotBtn = root.querySelector('[data-ttv-edit-pivot]');
+  if (pivotBtn) listen(pivotBtn, 'click', () => controller.edit.setPivotToSelection());
   root.querySelectorAll('[data-ttv-edit-selection-filter]').forEach((button) => listen(button, 'click', () => {
     button.classList.toggle('is-active');
     controller.edit.setSelectionFilter(button.dataset.ttvEditSelectionFilter, button.classList.contains('is-active'));

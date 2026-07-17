@@ -46,6 +46,8 @@ function editMarkup() {
         <button type="button" class="is-active" data-ttv-edit-projection="XY">XY</button>
         <button type="button" data-ttv-edit-projection="XZ">XZ</button>
         <button type="button" data-ttv-edit-projection="YZ">YZ</button>
+        <button type="button" data-ttv-edit-camera="toggle" title="Toggle Orthographic/Perspective">Persp</button>
+        <button type="button" data-ttv-edit-pivot="set" title="Set orbit pivot to selection center">Pivot</button>
         <label class="ttv-toggle" title="Select Vertical Axis">Up Axis: <select data-ttv-vertical-axis><option value="Y">Y</option><option value="Z" selected>Z</option></select></label>
         <label class="ttv-support-scale" title="Scale support symbols without changing topology">Support scale <input type="range" min="0.25" max="6" step="0.25" value="2.5" data-ttv-support-scale><output data-ttv-support-scale-output>2.50×</output></label>
         <label class="ttv-toggle" title="Show autofix proposals as translucent ghosts"><input type="checkbox" data-ttv-edit-ghosts>Ghost fixes</label>
