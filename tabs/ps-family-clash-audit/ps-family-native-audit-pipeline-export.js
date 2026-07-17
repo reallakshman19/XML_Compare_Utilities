@@ -24,7 +24,7 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
   const headers = [
     'Status', 'SupportFamilyCount', 'SteelGroupCount', 'ResolvedFamilyCount',
     'AmbiguousFamilyCount', 'UnresolvedFamilyCount', 'CarrierObjectCount',
-    'AnalyticalCarrierGeometryCount', 'ResolvedPhysicalCarrierCount',
+    'ResolvedPhysicalCarrierCount', 'AnalyticalCarrierGeometryCount',
     'BranchContextOnlyCount', 'AmbiguousCarrierCount', 'UnresolvedCarrierCount',
     'CarrierAttachmentCandidateCount', 'NearbyCarrierAttachmentCandidateCount',
     'UnresolvedCarrierAttachmentCount', 'SupportChainEdgeCount',
@@ -39,8 +39,8 @@ export function exportPsFamilyNativePipelineSummaryCsv(pipeline) {
     AmbiguousFamilyCount: summary.ambiguousFamilyCount,
     UnresolvedFamilyCount: summary.unresolvedFamilyCount,
     CarrierObjectCount: summary.carrierObjectCount,
-    AnalyticalCarrierGeometryCount: summary.analyticalCarrierGeometryCount,
     ResolvedPhysicalCarrierCount: summary.resolvedPhysicalCarrierCount,
+    AnalyticalCarrierGeometryCount: summary.analyticalCarrierGeometryCount,
     BranchContextOnlyCount: summary.branchContextOnlyCount,
     AmbiguousCarrierCount: summary.ambiguousCarrierCount,
     UnresolvedCarrierCount: summary.unresolvedCarrierCount,
