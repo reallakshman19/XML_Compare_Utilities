@@ -1,0 +1,53 @@
+name: Startup JavaScript Syntax
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'core/**/*.js'
+      - 'tabs/**/*.js'
+      - 'main-rhbg-fitguard.js'
+      - 'index.html'
+      - 'tests/browser/xml-compare-startup-smoke.mjs'
+      - '.github/workflows/startup-javascript-syntax.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  javascript-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Parse startup JavaScript modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
+      - name: Install browser runtime
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Start static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/xml-compare-startup-server.log 2>&1 &
+          echo $! > /tmp/xml-compare-startup-server.pid
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/xml-compare-startup-server.log
+          exit 1
+      - name: Browser startup import smoke - branch artifact
+        run: node tests/browser/xml-compare-startup-smoke.mjs
+      - name: Browser startup import smoke - deployed Pages
+        env:
+          STARTUP_BASE_URL: https://reallaksh19.github.io/XML_Compare_Utilities/
+        run: node tests/browser/xml-compare-startup-smoke.mjs

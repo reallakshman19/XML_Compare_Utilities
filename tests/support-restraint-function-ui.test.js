@@ -102,7 +102,7 @@ assert.match(nativeAddon, /support-restraint-function-evidence\.zip/);
 assert.match(projection, /restraintFunctionAssessmentRows/);
 assert.match(projection, /restraintDirectionEdgeRows/);
 assert.match(bootstrap, /ps-family-restraint-function-addon\.js/);
-assert.match(bootstrap, /restraint-function-v1/);
+assert.match(bootstrap, /startup-cache-recovery-v1/);
 for (const source of [engine, evidence, intent, frame, facade, builderAddon, nativeAddon]) {
   assert.doesNotMatch(source, /parseSupportChangeXml|clashRows|clashName/);
 }

@@ -86,7 +86,7 @@ assert.match(addon, /saveTextFile/);
 assert.match(viewSource, /benchmark\.validationOnly/);
 assert.match(viewSource, /benchmark\.productionDependency/);
 assert.match(bootstrap, /ps-family-offline-validation-addon\.js/);
-assert.match(bootstrap, /restraint-function-v1/);
+assert.match(bootstrap, /startup-cache-recovery-v1/);
 assert.match(bootstrap, /ps-family-native-audit-pipeline-addon\.js/);
 assert.match(bootstrap, /ps-family-restraint-function-addon\.js/);
 
