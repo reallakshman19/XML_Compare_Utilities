@@ -143,7 +143,7 @@ function disposeService(context) {
 
 /** Create the isolated two-slot intake service. */
 export function createRevisionLoadService(cryptoRef, options = {}) {
-  const clientFactory = options.clientFactory ?? createRevisionWorkerClient;
+  const clientFactory = options.clientFactory ?? (() => createRevisionWorkerClient());
   const context = {
     cryptoRef,
     clients: new Map(REVISION_SLOT_IDS.map((slotId) => [slotId, clientFactory(slotId)])),
