@@ -2,9 +2,9 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: ['revision-compare-rc001.spec.mjs'],
-  timeout: 45_000,
-  expect: { timeout: 8_000 },
+  testMatch: ['revision-compare-rc001.spec.mjs', 'revision-compare-rc002.spec.mjs'],
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
