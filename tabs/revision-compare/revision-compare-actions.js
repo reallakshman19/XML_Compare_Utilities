@@ -1,198 +1,124 @@
-/**
- * RC action handlers: state transitions for load/scope/compare/plan/approve.
- * 3D specifics (viewer, connectors, overlay, PSI apply) live in
- * revision-compare-wb3d.js; raw PSI XML loads are converted to staged JSON by
- * the psi-staged-adapter before staging.
- */
+/** RC-001 actions: load, refine scope, approve basis, and download manifests. */
 
-import { buildTransferPlan, batchApprove, refreshTransferSummary, DEFAULT_TRANSFER_CONFIG } from '../../workbench3d/compare/transfer-planner.js';
-import { attachProjectDocument } from './revision-session-contracts.js';
-import { convertPsiXmlToStaged, isPsiPipeStressXml } from '../../workbench3d/adapters/psi-staged-adapter.js';
+import { createRevisionComparisonBasis } from './revision-comparison-basis.js';
+import { createRevisionSessionManifest, createRevisionScopeManifest } from './revision-manifests.js';
+import { revisionComparisonPreflight } from './revision-preflight.js';
+import { createRevisionScopeProposal, updateScopeDecision, updateScopeGroup } from './revision-scope-proposal.js';
+import { RevisionRequestSupersededError } from './revision-load-service.js';
 import {
-  buildCompareWorkbench, createRevisionViewer, refreshConnectors,
-  updateApprovalOverlay, downloadUpdatedTargetXml,
-} from './revision-compare-wb3d.js';
+  failWorkspaceLoad, finishWorkspaceLoad, finishWorkspaceScope, resetWorkspaceSlot,
+  setWorkspaceBasis, setWorkspaceMessage, setWorkspaceProposal, setWorkspaceSearch, startWorkspaceLoad,
+} from './revision-workspace-state.js';
 
-export function createRevisionActions({
-  root, options, service, readState, writeState,
-  renderWorkspace, isoNow, downloadManifest, reportError
-}) {
-  const safe = (operation) => async (...args) => {
-    try { await operation(...args); } catch (error) { reportError(root, options, error); }
+function labelFor(slotId) { return slotId === 'baseline' ? 'Rev A' : 'Rev B'; }
+function preflight(context, state) { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
+function commit(context, state) { context.writeState(state); context.render(state); return state; }
+
+async function proposalFor(context, state, decisions) {
+  if (!state.slots.baseline.document || !state.slots.candidate.document) return null;
+  return createRevisionScopeProposal(state.slots.baseline, state.slots.candidate, decisions, context.cryptoRef);
+}
+
+function report(context, error) {
+  const message = error?.message || String(error);
+  const live = context.root.querySelector('[data-revc-live]');
+  if (live) live.textContent = message;
+  context.options?.showToast?.(message, 'error');
+}
+
+async function loadRevision(context, slotId, file) {
+  const generation = context.service.begin(slotId);
+  commit(context, startWorkspaceLoad(context.readState(), slotId, generation, file.name, file.size, context.now()));
+  try {
+    const result = await context.service.loadFile(slotId, file, context.now(), generation);
+    let next = finishWorkspaceLoad(context.readState(), slotId, result, context.now());
+    const proposal = await proposalFor(context, next, {});
+    if (proposal) next = setWorkspaceProposal(next, proposal, {});
+    commit(context, next);
+    context.options?.showToast?.(`${labelFor(slotId)} loaded.`, 'success');
+  } catch (error) {
+    if (error instanceof RevisionRequestSupersededError) return;
+    commit(context, failWorkspaceLoad(context.readState(), slotId, generation, error));
+    report(context, error);
+  }
+}
+
+async function cancelRevision(context, slotId) {
+  try {
+    const generation = await context.service.cancel(slotId);
+    commit(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
+  } catch (error) { report(context, error); }
+}
+
+async function refineScope(context, decisions) {
+  const state = context.readState();
+  const proposal = await proposalFor(context, state, decisions);
+  commit(context, setWorkspaceProposal(state, proposal, decisions));
+}
+
+async function setBranch(context, branchId, included) {
+  const decisions = updateScopeDecision(context.readState().scopeDecisions, branchId, !included);
+  await refineScope(context, decisions);
+}
+
+async function setGroup(context, group, included) {
+  const proposal = context.readState().proposal;
+  if (!proposal) return;
+  const groups = { common: proposal.commonBranches, revAOnly: proposal.revAOnlyBranches, revBOnly: proposal.revBOnlyBranches };
+  const ids = (groups[group] ?? []).map((entry) => entry.branchId);
+  await refineScope(context, updateScopeGroup(context.readState().scopeDecisions, ids, included));
+}
+
+function scopeDraft(proposal, side) {
+  const selectedIds = side === 'A' ? proposal.includedBranchIdsA : proposal.includedBranchIdsB;
+  return Object.freeze({ selectedIds, exclusions: proposal.excludedBranches });
+}
+
+async function approveBasis(context) {
+  const state = context.readState();
+  const current = preflight(context, state);
+  if (current.status !== 'READY') throw new Error(current.blockers[0] || 'Comparison basis is blocked.');
+  const proposal = state.proposal;
+  const results = {
+    baseline: await context.service.applyScope('baseline', { selectedIds: proposal.includedBranchIdsA }, context.now()),
+    candidate: await context.service.applyScope('candidate', { selectedIds: proposal.includedBranchIdsB }, context.now()),
   };
+  let next = finishWorkspaceScope(state, results, { baseline: scopeDraft(proposal, 'A'), candidate: scopeDraft(proposal, 'B') }, context.now());
+  const basis = await createRevisionComparisonBasis({
+    sessionId: next.session.sessionId, revA: next.slots.baseline, revB: next.slots.candidate,
+    proposal, preflight: preflight(context, next),
+  }, context.cryptoRef);
+  next = setWorkspaceBasis(next, basis);
+  commit(context, next);
+  context.options?.showToast?.('Comparison basis approved.', 'success');
+}
 
-  const load = safe(async (slotId, file) => {
-    renderWorkspace(root, readState(), { [slotId]: `Parsing ${file.name} and hashing exact input bytes…` });
-    let text = await file.text();
-    let rawXml = null;
-    let convertedNote = '';
-    if (isPsiPipeStressXml(text)) {
-      rawXml = text;
-      text = JSON.stringify(convertPsiXmlToStaged(text, file.name));
-      convertedNote = ' (converted from PipeStressExport XML)';
-    }
-    const result = await service.loadText(slotId, file.name, text, isoNow());
+function safe(context, operation) {
+  return async (...args) => { try { await operation(...args); } catch (error) { report(context, error); } };
+}
 
-    const state = readState();
-    const documents = Object.freeze({ ...state.documents, [slotId]: result.document });
-    const stagedJsons = Object.freeze({ ...state.stagedJsons, [slotId]: result.filtered });
-    const rawXmls = Object.freeze({ ...(state.rawXmls ?? {}), [slotId]: rawXml });
-    const session = attachProjectDocument(state.session, result.document, isoNow());
-    writeState(Object.freeze({ session, documents, stagedJsons, rawXmls, wb3d: state.wb3d }));
+function downloadSession(context) {
+  const state = context.readState();
+  context.downloadArtifact(context.root, `${state.session.sessionId}.session.json`, createRevisionSessionManifest(state, preflight(context, state)));
+}
 
-    options?.showToast?.(`${slotId} revision loaded${convertedNote}.`, 'success');
-    renderWorkspace(root, readState(), { [slotId]: `Loaded ${result.document.stats.branchCount} branch(es)${convertedNote}.` });
-  });
+function downloadScope(context) {
+  const state = context.readState();
+  context.downloadArtifact(context.root, `${state.session.sessionId}.scope-basis.json`, createRevisionScopeManifest(state, preflight(context, state)));
+}
 
-  const scope = safe(async (slotId) => {
-    const wildcard = root.querySelector(`[data-revc-scope="${slotId}"]`)?.value || '';
-    const result = await service.applyScope(slotId, { wildcard, selectedIds: [] }, isoNow());
-
-    const state = readState();
-    const documents = Object.freeze({ ...state.documents, [slotId]: result.document });
-    const stagedJsons = Object.freeze({ ...state.stagedJsons, [slotId]: result.filtered });
-    const session = attachProjectDocument(state.session, result.document, isoNow());
-    writeState(Object.freeze({ session, documents, stagedJsons, rawXmls: state.rawXmls, wb3d: state.wb3d }));
-
-    renderWorkspace(root, readState(), { [slotId]: `Scope retained ${result.document.stats.matched}/${result.document.stats.scanned} branch(es).` });
-  });
-
-  const runCompareAction = safe(async () => {
-    const currentState = readState();
-    if (!currentState.stagedJsons.baseline || !currentState.stagedJsons.candidate) return;
-    options?.showToast?.('Building models and comparing...', 'success');
-
-    const manualOverrides = currentState.wb3d?.manualOverrides ?? [];
-    const { topos, audit, visuals } = await buildCompareWorkbench({
-      stagedJsons: currentState.stagedJsons,
-      documents: currentState.documents,
-      manualOverrides,
-    });
-
-    const ui = root.querySelector('[data-revc-workbench-ui]');
-    if (ui) ui.hidden = false;
-
-    const canvasHost = root.querySelector('[data-revc-canvas-host]');
-    let viewer = currentState.wb3d?.viewer;
-    if (!viewer && canvasHost) {
-      viewer = await createRevisionViewer(root, canvasHost, { readState, writeState });
-    }
-    if (viewer) {
-      viewer.setModels({
-        source: visuals.source,
-        target: visuals.target,
-        registrationTranslation: audit.registration?.translationMm ?? [0, 0, 0],
-      });
-    }
-
-    writeState({
-      ...currentState,
-      wb3d: { topos, visuals, audit, viewer, plan: null, manualOverrides, transferConfig: { ...DEFAULT_TRANSFER_CONFIG } },
-    });
-
-    refreshConnectors(readState());
-    const modeSelect = root.querySelector('[data-revc-connector-mode]');
-    if (modeSelect && viewer) viewer.setConnectorMode(modeSelect.value);
-    renderWorkspace(root, readState(), null);
-    options?.showToast?.(
-      `Comparison complete — ${audit.summary.matchedElements} matched (${audit.summary.basisElements ?? 0} basis anchors).`,
-      'success',
-    );
-  });
-
-  const selectObject = safe(async (objectId) => {
-    const s = readState();
-    if (!s.wb3d?.viewer) return;
-    const pick = { objectId, nodeId: null, modelId: null };
-    const related = new Set();
-    for (const row of s.wb3d.audit?.objectDiff.rows ?? []) {
-      if (row.sourceObjectId === pick.objectId && row.targetObjectId) related.add(row.targetObjectId);
-      if (row.targetObjectId === pick.objectId && row.sourceObjectId) related.add(row.sourceObjectId);
-    }
-    s.wb3d.viewer.setSelection(pick.objectId, [...related]);
-    writeState({ ...s, wb3d: { ...s.wb3d, selection: pick } });
-    renderWorkspace(root, readState(), null);
-    setTimeout(() => updateApprovalOverlay(root, readState()), 0);
-  });
-
-  const setConnectorMode = safe(async (mode) => {
-    const s = readState();
-    if (s.wb3d?.viewer) s.wb3d.viewer.setConnectorMode(mode);
-  });
-
-  const setLayoutMode = safe(async (mode) => {
-    const s = readState();
-    if (!s.wb3d?.viewer) return;
-    s.wb3d.layoutMode = mode;
-    const vGeoA = s.wb3d.visuals?.source;
-    let translation = s.wb3d.audit?.registration?.translationMm ?? [0, 0, 0];
-    if (mode === 'side-by-side' && vGeoA?.bounds) {
-      const dx = vGeoA.bounds[3] - vGeoA.bounds[0];
-      translation = [Math.round(dx + 2000), 0, 0];
-    }
-    s.wb3d.viewer.setModels({
-      source: s.wb3d.visuals?.source,
-      target: s.wb3d.visuals?.target,
-      registrationTranslation: translation
-    });
-    writeState({ ...s });
-  });
-
-  const buildPlan = safe(async () => {
-    const s = readState();
-    if (!s.wb3d?.audit || !s.wb3d?.topos) return;
-    s.wb3d.plan = buildTransferPlan(s.wb3d.audit, s.wb3d.topos.A, s.wb3d.topos.B, s.wb3d.transferConfig);
-    writeState({ ...s });
-    refreshConnectors(readState());
-    renderWorkspace(root, readState(), null);
-  });
-
-  const batchApproveAction = safe(async () => {
-    const s = readState();
-    if (!s.wb3d?.plan) return;
-    batchApprove(s.wb3d.plan, s.wb3d.transferConfig.minConfidence);
-    writeState({ ...s });
-    refreshConnectors(readState());
-    renderWorkspace(root, readState(), null);
-  });
-
-  const setApproval = safe(async (rowId, approvalStatus) => {
-    const s = readState();
-    if (!s.wb3d?.plan) return;
-    const row = s.wb3d.plan.rows.find((r) => r.rowId === rowId);
-    if (row && row.approval !== 'BLOCKED') {
-      row.approval = approvalStatus;
-      refreshTransferSummary(s.wb3d.plan);
-      writeState({ ...s });
-      refreshConnectors(readState());
-      renderWorkspace(root, readState(), null);
-    }
-  });
-
-  const approveElement = safe(async (targetId, approvalStatus) => {
-    const s = readState();
-    if (!s.wb3d?.plan) return;
-    let changed = false;
-    for (const row of s.wb3d.plan.rows) {
-      if ((row.targetObjectId === targetId || row.sourceObjectId === targetId) && row.approval !== 'BLOCKED') {
-        row.approval = approvalStatus;
-        changed = true;
-      }
-    }
-    if (changed) {
-      refreshTransferSummary(s.wb3d.plan);
-      writeState({ ...s });
-      refreshConnectors(readState());
-      renderWorkspace(root, readState(), null);
-    }
-  });
-
-  const downloadUpdatedXml = safe(async () => downloadUpdatedTargetXml(root, readState(), options));
-
+/** Create user actions for the mounted RC-001 workspace. */
+export function createRevisionActions(context) {
   return Object.freeze({
-    load, scope, runCompare: runCompareAction, selectObject, setConnectorMode, setLayoutMode,
-    buildPlan, batchApprove: batchApproveAction, setApproval, approveElement, downloadUpdatedXml,
-    download: () => { try { downloadManifest(root, readState().session); } catch (error) { reportError(root, options, error); } },
-    close: () => options?.close?.(),
+    load: (slotId, file) => loadRevision(context, slotId, file),
+    cancel: (slotId) => cancelRevision(context, slotId),
+    setBranchIncluded: safe(context, (id, included) => setBranch(context, id, included)),
+    setGroupIncluded: safe(context, (group, included) => setGroup(context, group, included)),
+    setSearch: (group, value) => commit(context, setWorkspaceSearch(context.readState(), group, value)),
+    approveBasis: safe(context, () => approveBasis(context)),
+    downloadSession: safe(context, () => downloadSession(context)),
+    downloadScope: safe(context, () => downloadScope(context)),
+    close: () => context.options?.close?.(),
+    setMessage: (message) => commit(context, setWorkspaceMessage(context.readState(), message)),
   });
 }
