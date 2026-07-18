@@ -5,8 +5,8 @@ import { createEngineeringSvgRenderer } from './engineering-svg-renderer.js';
 import { createEngineeringSvgSelection } from './engineering-svg-selection.js';
 
 function viewportSize(host, viewport = {}) {
-  const width = Number(viewport.width || host.clientWidth || 1200);
-  const height = Number(viewport.height || host.clientHeight || 720);
+  const width = Number(viewport.width ?? host.clientWidth ?? 1200);
+  const height = Number(viewport.height ?? host.clientHeight ?? 720);
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
     throw new TypeError('Engineering SVG workspace viewport must be positive and finite.');
   }
@@ -23,12 +23,19 @@ function entityIdFromTarget(target, root) {
   return null;
 }
 
+function assertSceneProjection(scene, projection) {
+  if (!ENGINEERING_SCENE_PROJECTION.includes(projection) || !scene.projections.includes(projection)) {
+    throw new TypeError(`Scene does not support workspace projection "${projection}".`);
+  }
+  return projection;
+}
+
 export function createEngineeringSvgWorkspace(options = {}) {
   const { host, sceneSource } = options;
   if (!host || !sceneSource?.getSnapshot || !sceneSource?.subscribe) {
     throw new TypeError('Engineering SVG workspace requires a host and scene source.');
   }
-  let projection = options.projection || 'ISO';
+  let projection = assertSceneProjection(sceneSource.getSnapshot(), options.projection || 'ISO');
   let viewport = viewportSize(host, options.viewport);
   let padding = Number(options.padding ?? 24);
   let destroyed = false;
@@ -37,7 +44,9 @@ export function createEngineeringSvgWorkspace(options = {}) {
 
   function render() {
     if (destroyed) throw new Error('Engineering SVG workspace is destroyed.');
-    const projected = buildEngineeringSvgProjectedScene(sceneSource.getSnapshot(), { projection, viewport, padding });
+    const scene = sceneSource.getSnapshot();
+    assertSceneProjection(scene, projection);
+    const projected = buildEngineeringSvgProjectedScene(scene, { projection, viewport, padding });
     renderer.reconcile(projected);
     renderer.setSelection(selection.getSelection());
     return projected;
@@ -58,8 +67,7 @@ export function createEngineeringSvgWorkspace(options = {}) {
     render,
     getProjection: () => projection,
     setProjection(value) {
-      if (!ENGINEERING_SCENE_PROJECTION.includes(value)) throw new TypeError(`Unsupported workspace projection "${value}".`);
-      projection = value;
+      projection = assertSceneProjection(sceneSource.getSnapshot(), value);
       return render();
     },
     setViewport(value) {
@@ -77,8 +85,10 @@ export function createEngineeringSvgWorkspace(options = {}) {
     getEntityNode: renderer.getEntityNode,
     getEntityCount: renderer.getEntityCount,
     exportSvg(exportOptions = {}) {
-      return exportEngineeringSvg(sceneSource.getSnapshot(), {
-        projection: exportOptions.projection || projection,
+      const scene = sceneSource.getSnapshot();
+      const exportProjection = assertSceneProjection(scene, exportOptions.projection || projection);
+      return exportEngineeringSvg(scene, {
+        projection: exportProjection,
         viewport: exportOptions.viewport || viewport,
         padding: exportOptions.padding ?? padding,
       });
