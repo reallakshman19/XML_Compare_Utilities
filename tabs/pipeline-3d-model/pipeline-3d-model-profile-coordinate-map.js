@@ -163,6 +163,8 @@ export function buildDepthRules(profile, context) {
 export function activeDepthRule(rules, distance) {
   const matches = rules.filter((rule) => distance >= rule.start - EPSILON && distance <= rule.end + EPSILON);
   if (!matches.length) return null;
+  const ending = matches.filter((rule) => !rule.pointOnly && Math.abs(rule.end - distance) <= EPSILON);
+  if (ending.length) return ending.at(-1);
   const starting = matches.filter((rule) => Math.abs(rule.start - distance) <= EPSILON);
   return (starting.length ? starting : matches).at(-1);
 }
