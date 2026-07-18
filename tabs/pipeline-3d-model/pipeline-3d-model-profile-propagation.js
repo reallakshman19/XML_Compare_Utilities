@@ -30,6 +30,18 @@ import {
   buildTable3XText,
 } from './pipeline-3d-model-profile-output.js';
 
+const PLACEHOLDER_POINT_LABEL = /^at\s+point\s+X\s*=\s*Y\s*=\s*Z\s*=$/i;
+
+export function sanitizeTable1Label(label, index) {
+  const value = String(label || '').trim();
+  if (!value || PLACEHOLDER_POINT_LABEL.test(value)) return `T1-${String(index + 1).padStart(3, '0')}`;
+  return value;
+}
+
+function sanitizeTable1Points(points) {
+  return points.map((point, index) => ({ ...point, label: sanitizeTable1Label(point.label, index) }));
+}
+
 function diagnostics(context, profile, gradeRows, maxSegment) {
   return Object.freeze({
     routeLength: context.total,
@@ -64,7 +76,7 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
 
 export function buildAuthoritativePipelineOutputs(input) {
   const profile = PipelineProfileModel.fromRaw(input.profileRaw);
-  const table1Points = parseTable1(input.table1Text);
+  const table1Points = sanitizeTable1Points(parseTable1(input.table1Text));
   const sheets = groupPointsIntoSheets(table1Points);
   const context = buildProfileRouteContext(table1Points, profile);
   const gradeRows = buildGradeProfile(profile, context);
