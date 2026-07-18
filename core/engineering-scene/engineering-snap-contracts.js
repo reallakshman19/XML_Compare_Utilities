@@ -1,5 +1,5 @@
 import { createEngineeringPoint3D } from './engineering-geometry-contracts.js';
-import { freezeJsonValue } from './engineering-json-value.js';
+import { freezeJsonValue, isPlainObject } from './engineering-json-value.js';
 
 export const ENGINEERING_SNAP_CANDIDATE_SCHEMA = 'EngineeringSnapCandidate.v1';
 export const ENGINEERING_SNAP_ACQUISITION_SCHEMA = 'EngineeringSnapAcquisition.v1';
@@ -72,9 +72,7 @@ function providerErrors(values = []) {
 }
 
 function providerCountRecord(value = {}) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('providerCounts must be a plain record.');
-  }
+  if (!isPlainObject(value)) throw new TypeError('providerCounts must be a plain record.');
   const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
   return Object.fromEntries(entries.map(([providerId, count]) => {
     const id = requiredText(providerId, 'providerCounts key');
