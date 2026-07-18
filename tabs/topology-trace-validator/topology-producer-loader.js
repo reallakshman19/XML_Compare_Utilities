@@ -4,7 +4,7 @@
  * no runtime path to a sibling 3D_Converters checkout is used or attempted.
  */
 
-const CORE_URL = new URL('../../vendor/3d-converters/topology-browser-core.mjs?v=20260718-support-deferral-v1', import.meta.url).href;
+const CORE_URL = new URL('../../vendor/3d-converters/topology-browser-core.mjs?v=20260718-cref-span-guard-v1', import.meta.url).href;
 let corePromise = null;
 
 /** @param {Record<string, unknown>} core @returns {Record<string, unknown>} */

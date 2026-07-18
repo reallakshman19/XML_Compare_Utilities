@@ -50,6 +50,16 @@ if (!existsSync(fixturePath)) {
     sourceName: 'ASIM-1885-NC', jobName: 'ASIM-1885 graceful support regression',
     toleranceMm: 0.1, supportProjectionToleranceMm: 50, enrichmentConfig: {},
   });
+  const crefEdges = built.canonicalTopology.edges.filter((row) => row.segmentRole === 'CREF_BRANCH_CONNECTION');
+  const rejectedCrefSpans = built.buildIssues.filter((row) => row.code === 'CREF_CONNECTION_SPAN_REJECTED');
+  assert.equal(crefEdges.length, 192);
+  assert(Math.max(...crefEdges.map((row) => row.connectionResidual)) < 226);
+  assert.deepEqual(rejectedCrefSpans.map((row) => row.sourcePath), [
+    '$[0].children[22]', '$[5].children[12]', '$[20].children[2]',
+  ]);
+  assert(rejectedCrefSpans.every((row) => row.blocking === false && row.residualMm > 156_000));
+  assert.equal((built.topologyInputXml.match(/<PIPINGELEMENT\b/g) ?? []).length, 3948);
+  assert.equal((built.topologyInputXml.match(/TOPOLOGY_OPERATION="CREF_BRANCH_CONNECTION"/g) ?? []).length, 192);
   const reportedSupport = built.traceLedger.records.find((row) => row.sourcePath === '$[169].children[8]');
   assert.equal(reportedSupport?.sourceRef, '=1006649732/53464');
   assert.equal(reportedSupport?.primaryDisposition, 'DEFER_SUPPORT');
@@ -64,5 +74,6 @@ if (!existsSync(fixturePath)) {
     unresolvedPaths: unresolved.map((row) => row.sourcePath), reportedSupport: { sourcePath: reportedSupport.sourcePath,
       sourceRef: reportedSupport.sourceRef, disposition: reportedSupport.primaryDisposition,
       authority: reportedSupport.evidence.supportProjectionAuthority }, producer: { deferredSupports: built.metrics.ledger.deferredSupports,
+      crefEdges: crefEdges.length, rejectedCrefSpans: rejectedCrefSpans.length,
       blockingBuildIssues: built.buildIssues.filter((row) => row.blocking !== false).length, parity: built.topologyParityReport.ok } }, null, 2)}`);
 }
