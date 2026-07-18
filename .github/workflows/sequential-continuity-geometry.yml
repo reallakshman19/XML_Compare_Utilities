@@ -4,21 +4,29 @@ on:
   pull_request:
     paths:
       - 'tabs/sequential-sketcher/continuity/**'
+      - 'tabs/sequential-sketcher/source/sequential-evidence-model.js'
+      - 'tabs/sequential-sketcher/source/sequential-geometry-route-order.js'
+      - 'tabs/sequential-sketcher/construction/sequential-connection-resolver.js'
       - 'tabs/sequential-sketcher/sequential-sketcher-tab.js'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-continuity-*.test.js'
+      - 'tests/sequential-geometry-route-order.test.js'
       - 'tests/browser/sequential-continuity-geometry*'
       - 'playwright.sequential-continuity.config.mjs'
       - '.github/workflows/sequential-continuity-geometry.yml'
   push:
     branches:
       - main
-      - agent/sequential-continuity-geometry-roundtrip
+      - agent/sequential-geometry-first-sequencing
     paths:
       - 'tabs/sequential-sketcher/continuity/**'
+      - 'tabs/sequential-sketcher/source/sequential-evidence-model.js'
+      - 'tabs/sequential-sketcher/source/sequential-geometry-route-order.js'
+      - 'tabs/sequential-sketcher/construction/sequential-connection-resolver.js'
       - 'tabs/sequential-sketcher/sequential-sketcher-tab.js'
       - 'tabs/psnm-utility-tab.js'
       - 'tests/sequential-continuity-*.test.js'
+      - 'tests/sequential-geometry-route-order.test.js'
       - 'tests/browser/sequential-continuity-geometry*'
       - 'playwright.sequential-continuity.config.mjs'
       - '.github/workflows/sequential-continuity-geometry.yml'
@@ -37,6 +45,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Geometry-first route sequencing
+        run: node tests/sequential-geometry-route-order.test.js
       - name: Same-schema source and continuity construction contracts
         run: node tests/sequential-continuity-geometry.test.js
       - name: Continuity UI and architecture contracts
