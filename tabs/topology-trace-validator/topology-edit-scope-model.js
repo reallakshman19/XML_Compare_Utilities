@@ -51,6 +51,15 @@ export function createTopologyEditScope(sourceRaw, selection) {
   });
 }
 
+/** Empty render scope used while model-wide Auto fix edits a large draft without mounting its geometry. */
+export function createHeadlessTopologyEditScope() {
+  return Object.freeze({
+    schema: 'TopologyEditScope.v1', purpose: 'AUTO_FIX_HEADLESS', wildcard: '',
+    selectedIds: Object.freeze([]), sourceBranchIndexes: Object.freeze([]),
+    sourceBranches: Object.freeze([]), stats: Object.freeze({ matched: 0 }),
+  });
+}
+
 function sourcePathBelongs(path, indexes) {
   const value = cleanText(path);
   return indexes.some((index) => value === `$[${index}]` || value.startsWith(`$[${index}].`) || value.startsWith(`$[${index}][`));
@@ -135,4 +144,3 @@ export function scopeContainsBranchIndexes(scope, requiredIndexes) {
   const selected = new Set(asArray(scope?.sourceBranchIndexes).map(Number));
   return asArray(requiredIndexes).map(Number).every((index) => selected.has(index));
 }
-

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import * as producer from '../vendor/3d-converters/topology-browser-core.mjs';
 import { readManagedTopologySource } from '../tabs/topology-trace-validator/topology-source-reader.js';
 
 const fixtureUrl = new URL('../../3D_Converters/Benchmarks/1885_NC/1885_NC.json', import.meta.url);
@@ -9,7 +10,8 @@ const fixturePath = fileURLToPath(fixtureUrl);
 if (!existsSync(fixturePath)) {
   console.log(`topology trace validator 1885_NC acceptance SKIPPED: fixture not found at ${fixturePath}`);
 } else {
-  const source = readManagedTopologySource(JSON.parse(readFileSync(fixturePath, 'utf8')));
+  const sourceText = readFileSync(fixturePath, 'utf8');
+  const source = readManagedTopologySource(JSON.parse(sourceText));
   const metrics = source.metrics;
   assert.equal(metrics.branchCount, 278);
   assert.equal(metrics.sourceComponentCount, 4320);
@@ -44,5 +46,23 @@ if (!existsSync(fixturePath)) {
   assert.equal(unresolved.length, 25);
   assert.equal(unresolved[0].sourcePath, '$[5].attributes.TREF');
   assert.equal(unresolved.at(-1).sourcePath, '$[277].attributes.HREF');
-  console.log(`topology trace validator 1885_NC acceptance passed\n${JSON.stringify({ metrics, instrumentGeometry, identityInventory, unresolvedPaths: unresolved.map((row) => row.sourcePath) }, null, 2)}`);
+  const built = await producer.buildComponentTopologyArtifacts(sourceText, {
+    sourceName: 'ASIM-1885-NC', jobName: 'ASIM-1885 graceful support regression',
+    toleranceMm: 0.1, supportProjectionToleranceMm: 50, enrichmentConfig: {},
+  });
+  const reportedSupport = built.traceLedger.records.find((row) => row.sourcePath === '$[169].children[8]');
+  assert.equal(reportedSupport?.sourceRef, '=1006649732/53464');
+  assert.equal(reportedSupport?.primaryDisposition, 'DEFER_SUPPORT');
+  assert.equal(reportedSupport?.evidence?.supportProjectionAuthority, 'NON_RESTRAINT_ATTACHMENT_DESCRIPTION');
+  assert.match(reportedSupport?.evidence?.supportProjectionReason ?? '', /FLOOR OPENING.*FENCE PENETRATION/);
+  assert.equal(reportedSupport?.status, 'ACCEPTED');
+  assert.equal(reportedSupport?.canonicalSupportIds.length, 0);
+  assert.equal(built.metrics.ledger.deferredSupports, 92);
+  assert.equal(built.buildIssues.filter((row) => row.blocking !== false).length, 0);
+  assert.equal(built.topologyParityReport.ok, true);
+  console.log(`topology trace validator 1885_NC acceptance passed\n${JSON.stringify({ metrics, instrumentGeometry, identityInventory,
+    unresolvedPaths: unresolved.map((row) => row.sourcePath), reportedSupport: { sourcePath: reportedSupport.sourcePath,
+      sourceRef: reportedSupport.sourceRef, disposition: reportedSupport.primaryDisposition,
+      authority: reportedSupport.evidence.supportProjectionAuthority }, producer: { deferredSupports: built.metrics.ledger.deferredSupports,
+      blockingBuildIssues: built.buildIssues.filter((row) => row.blocking !== false).length, parity: built.topologyParityReport.ok } }, null, 2)}`);
 }

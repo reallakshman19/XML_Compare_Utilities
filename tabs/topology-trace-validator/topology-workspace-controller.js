@@ -4,7 +4,7 @@ import { asArray, cleanText, objectRecord } from './topology-validator-values.js
 import { buildBranchScopeTree, readStagedBranches } from '../../workbench3d/core/staged-json-core.js';
 import { openBranchScopePopup } from './topology-branch-scope-popup.js';
 import {
-  branchSelectionIdsForIndexes, createTopologyEditScope, scopeContainsBranchIndexes,
+  branchSelectionIdsForIndexes, createHeadlessTopologyEditScope, createTopologyEditScope, scopeContainsBranchIndexes,
   suggestionBranchIndexes, topologyModelMode,
 } from './topology-edit-scope-model.js';
 
@@ -58,8 +58,17 @@ export function createTopologyWorkspaceController(traceController, editControlle
     const target = root.querySelector('[data-ttv-edit-scope-status]');
     if (!target) return;
     target.textContent = mode.requiresScope
-      ? `${mode.elementCount.toLocaleString()} elements · ${editScope?.stats?.matched ?? 0} scoped branch(es) · full export`
+      ? editScope
+        ? `${mode.elementCount.toLocaleString()} elements · ${editScope.stats?.matched ?? 0} loaded branch(es) · full export`
+        : `${mode.elementCount.toLocaleString()} elements · branches not loaded · full export retained`
       : `${mode.elementCount.toLocaleString()} elements · full Draft Edit`;
+  }
+
+  function renderBranchLoadRequired(root) {
+    const status = root.querySelector('[data-ttv-edit-status]');
+    if (!status) return;
+    status.textContent = 'Large-model Draft Edit is ready. Select Load JSON branches only when interactive branch geometry is required; Auto fix runs model-wide without this view scope.';
+    status.setAttribute('data-status', 'ready');
   }
 
   async function requestEditScope(root, requiredIndexes) {
@@ -149,7 +158,6 @@ export function createTopologyWorkspaceController(traceController, editControlle
   async function activateTab(tab, root) {
     const next = cleanText(tab);
     if (!WORKSPACE_TABS.has(next)) throw new RangeError(`Unknown topology workspace tab ${next}.`);
-    if (next === 'edit' && !await ensureEditScope(root, false, [])) return false;
     activeTab = next;
     root.querySelectorAll('[data-ttv-workspace-tab]').forEach((button) => {
       const active = button.getAttribute('data-ttv-workspace-tab') === next;
@@ -161,7 +169,11 @@ export function createTopologyWorkspaceController(traceController, editControlle
       panel.hidden = !active;
       panel.classList.toggle('is-active', active);
     });
-    if (next === 'edit') await editController.initialize(traceController.evidence());
+    if (next === 'edit') {
+      const mode = currentModelMode(root); renderScopeStatus(root, mode);
+      if (mode.requiresScope && !editScope) renderBranchLoadRequired(root);
+      else await editController.initialize(traceController.evidence());
+    }
     else if (next === 'parity') parityController.render();
     else traceController.render();
     const currentSelection = asArray(editController.evidence().selection);
@@ -169,21 +181,32 @@ export function createTopologyWorkspaceController(traceController, editControlle
     return true;
   }
 
-  async function changeEditScope(root) {
-    if (!currentModelMode(root).requiresScope) { renderScopeStatus(root, currentModelMode(root)); return true; }
-    const changed = await ensureEditScope(root, true, []); if (changed) editController.render(); return changed;
+  async function loadEditBranches(root) {
+    const mode = currentModelMode(root);
+    const loaded = mode.requiresScope ? await ensureEditScope(root, true, []) : true;
+    if (!loaded) return false;
+    renderScopeStatus(root, mode); await editController.initialize(traceController.evidence()); editController.render();
+    return true;
   }
 
   async function prepareEditForSuggestions(suggestions, root) {
     const canonical = objectRecord(objectRecord(traceController.evidence().artifacts).canonical);
     const requested = asArray(suggestions), mode = currentModelMode(root);
-    const required = mode.requiresScope && requested.length === 1 ? suggestionBranchIndexes(canonical, requested) : [];
-    if (!await ensureEditScope(root, false, required)) return Object.freeze([]);
-    const scoped = mode.requiresScope && requested.length > 1 ? requested.filter((suggestion) => {
+    if (mode.requiresScope && !editScope) throw new Error('Load JSON branches in Edit Draft before applying an interactive selected fix on a large model.');
+    const scoped = mode.requiresScope ? requested.filter((suggestion) => {
       const indexes = suggestionBranchIndexes(canonical, [suggestion]);
       return !indexes.length || scopeContainsBranchIndexes(editScope, indexes);
     }) : requested;
     await editController.initialize(traceController.evidence()); return Object.freeze(scoped);
+  }
+
+  /** Model-wide Auto fix owns a full command draft; large geometry stays on an empty render scope until loaded manually. */
+  async function prepareEditForAutoFix(suggestions, root) {
+    const requested = Object.freeze(asArray(suggestions));
+    const mode = currentModelMode(root);
+    editController.setEditScope(mode.requiresScope && !editScope ? createHeadlessTopologyEditScope() : editScope);
+    await editController.initialize(traceController.evidence());
+    return requested;
   }
 
   function evidence() {
@@ -210,8 +233,9 @@ export function createTopologyWorkspaceController(traceController, editControlle
     evidence,
     destroy,
     activateTab,
-    changeEditScope,
+    loadEditBranches,
     prepareEditForSuggestions,
+    prepareEditForAutoFix,
     modelMode: currentModelMode,
     synchronizeCanonicalSelection,
     focusCanonicalSelection,

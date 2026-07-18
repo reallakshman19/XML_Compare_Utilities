@@ -278,7 +278,6 @@ async function buildTopology(root, controller, event) {
     await refreshCheckerIfReady(controller);
   } catch (error) {
     showWorkspaceError(root, error);
-    root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
   } finally {
     if (button) { button.textContent = originalText; button.disabled = false; }
   }
