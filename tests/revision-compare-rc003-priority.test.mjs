@@ -26,12 +26,14 @@ session = setReviewItemState(session, audit, 'd:unresolved', 'UNRESOLVED', '2026
 const projection = projectReviewPriority(audit, session);
 assert.deepEqual(projection.all.map((entry) => entry.row.differenceId), ['d:ambiguous', 'd:clarify', 'd:unresolved', 'd:remove', 'd:add', 'd:geometry', 'd:property', 'd:reviewed']);
 assert.equal(nextPriorityDifferenceId(projection, 'd:ambiguous'), 'd:clarify');
+assert.equal(nextPriorityDifferenceId(projection, 'd:reviewed'), 'd:ambiguous');
 assert.equal(previousPriorityDifferenceId(projection, 'd:clarify'), 'd:ambiguous');
 assert.equal(previousPriorityDifferenceId(projection, 'd:ambiguous'), null);
 
 const filtered = projectReviewPriority(audit, session, { ...createReviewFilters(), reviewStates: ['UNREVIEWED'], search: 'geometry' });
 assert.deepEqual(filtered.visible.map((entry) => entry.row.differenceId), ['d:geometry']);
 assert.deepEqual(filtered.all.map((entry) => entry.row.differenceId), projection.all.map((entry) => entry.row.differenceId));
+assert.equal(nextPriorityDifferenceId(filtered, 'd:geometry'), null);
 const certainty = projectReviewPriority(audit, session, { ...createReviewFilters(), certainties: ['AMBIGUOUS'] });
 assert.deepEqual(certainty.visible.map((entry) => entry.row.differenceId), ['d:ambiguous']);
 
