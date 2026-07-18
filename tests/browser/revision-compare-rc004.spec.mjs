@@ -78,6 +78,7 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await page.locator('[data-revc-decision-rationale]').fill('<accept>& explicit evidence');
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeEnabled();
   await page.getByRole('button', { name: 'Accept candidate' }).click();
+  await expect.poll(() => page.evaluate((id) => window.rcHandle.evidence().state.decision.ledger.decisions.find((item) => item.differenceId === id).decisionState, firstId)).toBe('ACCEPTED_CANDIDATE');
   const accepted = await page.evaluate(() => window.rcHandle.evidence().state);
   const firstDecision = accepted.decision.ledger.decisions.find((item) => item.differenceId === firstId);
   expect(firstDecision.decisionState).toBe('ACCEPTED_CANDIDATE');
@@ -92,18 +93,19 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await page.locator('[data-revc-decision-rationale]').fill('attempt reserved target');
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeDisabled();
   await page.getByRole('button', { name: 'Defer' }).click();
-  expect((await page.evaluate((id) => window.rcHandle.evidence().state.decision.ledger.decisions.find((item) => item.differenceId === id).decisionState, secondId))).toBe('DEFERRED');
+  await expect.poll(() => page.evaluate((id) => window.rcHandle.evidence().state.decision.ledger.decisions.find((item) => item.differenceId === id).decisionState, secondId)).toBe('DEFERRED');
 
   await page.locator(`[data-revc-difference-id="${firstId}"]`).click();
   await page.locator('[data-revc-decision-rationale]').fill('revoke to release the target');
   await page.getByRole('button', { name: 'Revoke decision' }).click();
-  expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.summary.activeTargetReservations)).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.summary.activeTargetReservations)).toBe(0);
 
   await page.locator(`[data-revc-difference-id="${secondId}"]`).click();
   await clickCandidate(page, firstDecision.acceptedTargetRecordId);
   await page.locator('[data-revc-decision-rationale]').fill('accept the released persisted target');
   await expect(page.getByRole('button', { name: 'Accept candidate' })).toBeEnabled();
   await page.getByRole('button', { name: 'Accept candidate' }).click();
+  await expect.poll(() => page.evaluate((id) => window.rcHandle.evidence().state.decision.ledger.decisions.find((item) => item.differenceId === id).decisionState, secondId)).toBe('ACCEPTED_CANDIDATE');
   const resolved = await page.evaluate(async () => {
     const state = window.rcHandle.evidence().state;
     const module = await import('/tabs/revision-compare/revision-decision-projection.js');
@@ -126,6 +128,7 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
   await page.getByRole('button', { name: 'Run visual comparison' }).click();
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
+  await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('CURRENT');
   const reattached = await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger);
   expect(reattached.status).toBe('CURRENT'); expect(reattached.ledgerId).toBe(exported.ledgerId); expect(reattached.events).toEqual(exported.events);
 
