@@ -1,0 +1,48 @@
+name: Engineering SVG Interaction Core
+
+on:
+  pull_request:
+    paths:
+      - 'core/engineering-scene/**'
+      - 'core/engineering-svg/**'
+      - 'tests/engineering-svg-interaction-*.test.js'
+      - '.github/workflows/engineering-svg-interaction-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pointer-session-and-feedback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run merged engineering SVG foundations
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-source-export.test.js
+          node tests/engineering-svg-workspace.test.js
+          node tests/engineering-svg-edit-command-gateway.test.js
+          node tests/engineering-svg-edit-properties.test.js
+          node tests/engineering-svg-edit-coordinator.test.js
+          node tests/engineering-svg-overlay-scene.test.js
+          node tests/engineering-svg-overlay-zero-centroid.test.js
+          node tests/engineering-svg-overlay-inspector.test.js
+          node tests/engineering-svg-precision-parser.test.js
+          node tests/engineering-svg-precision-geometry.test.js
+          node tests/engineering-svg-precision-constraint-solver.test.js
+          node tests/engineering-svg-snap-contracts.test.js
+          node tests/engineering-svg-snap-ranking.test.js
+          node tests/engineering-svg-snap-acquisition.test.js
+      - name: Run pointer interaction and feedback foundation
+        run: |
+          node tests/engineering-svg-interaction-session.test.js
+          node tests/engineering-svg-interaction-snap.test.js
+          node tests/engineering-svg-interaction-feedback.test.js
+          node tests/engineering-svg-interaction-dependency-guard.test.js
