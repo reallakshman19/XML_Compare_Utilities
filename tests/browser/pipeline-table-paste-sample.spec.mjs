@@ -55,13 +55,13 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-PROP-B01 raw profile reaches Table 3X, Coordinate Tab and InputXML', async ({ page }) => {
+  test('P3D-PROP-B01 raw profile reaches cleaned Table 3X, Coordinate Tab and InputXML', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
     await page.locator('[data-p3d="run"]').click();
 
     const table3x = page.locator('[data-p3d="table3x-output"]');
-    for (const value of ['14.7', '46.7', '21.2', '20.9', '1.5M', 'A/G', 'PMS-001', 'PMS-004']) {
+    for (const value of ['1430.577', '0.0', '14.7', '46.7', '21.2', '20.9', '1.5M', 'A/G', 'PMS-001', 'PMS-004']) {
       await expect(table3x).toContainText(value);
     }
 
@@ -69,24 +69,41 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     const rows = coordinateRows(coordinate || '');
     const pms1 = rows.find((row) => row.name.includes('PMS-001'));
     const pms4 = rows.find((row) => row.name.includes('PMS-004'));
+    const gradeEnd = rows.find((row) => row.name.includes('GRADE END'));
+    const buriedStart = rows.find((row) => row.name.includes('1.5M START'));
     const buriedEnd = rows.find((row) => row.name.includes('1.5M END'));
     const aboveStart = rows.find((row) => row.name.includes('A/G START'));
+    const aboveEnd = rows.find((row) => row.name.includes('A/G END'));
+    const gradeStart = rows.find((row) => row.name.includes('GRADE START'));
     expect(pms1?.z).toBeGreaterThan(238000);
     expect(pms1?.z).toBeLessThan(240000);
     expect(pms4?.z).toBeGreaterThan(240000);
+    expect(gradeEnd?.x).toBe(buriedStart?.x);
+    expect(gradeEnd?.y).toBe(buriedStart?.y);
+    expect((gradeEnd?.z || 0) - (buriedStart?.z || 0)).toBe(1500);
     expect(buriedEnd?.x).toBe(aboveStart?.x);
     expect(buriedEnd?.y).toBe(aboveStart?.y);
     expect((aboveStart?.z || 0) - (buriedEnd?.z || 0)).toBe(2250);
+    expect(aboveEnd?.x).toBe(gradeStart?.x);
+    expect(aboveEnd?.y).toBe(gradeStart?.y);
+    expect((aboveEnd?.z || 0) - (gradeStart?.z || 0)).toBe(750);
+    expect(coordinate).toContain('T1-001');
+    expect(coordinate).not.toContain('at point X= Y= Z=');
     expect(coordinate).not.toContain('8573374\t-10498846');
 
     const xml = await page.locator('[data-p3d="xml-output"]').textContent();
-    expect(xml).toContain('PMS-001');
-    expect(xml).toContain('PMS-004');
-    expect(xml).toContain('1.5M END');
-    expect(xml).toContain('A/G START');
+    for (const value of ['T1-001', 'PMS-001', 'PMS-004', 'GRADE END', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'GRADE START']) {
+      expect(xml).toContain(value);
+    }
+    expect(xml).not.toContain('at point X= Y= Z=');
     const deltas = [...String(xml).matchAll(/DELTA_X="(-?[\d.]+)"[^>]*DELTA_Y="(-?[\d.]+)"[^>]*DELTA_Z="(-?[\d.]+)"/g)]
       .map((match) => Math.hypot(Number(match[1]), Number(match[2]), Number(match[3])));
     expect(Math.max(...deltas)).toBeLessThan(600000);
+
+    const warningLog = page.locator('[data-p3d-warning-log]');
+    await expect(warningLog).toContainText('Warning Log (1)');
+    await warningLog.evaluate((element) => { element.open = true; });
+    await expect(warningLog).toContainText('grade_profile_extrapolated');
     expect(errors).toEqual([]);
   });
 
@@ -120,8 +137,9 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
 
     const warningLog = page.locator('[data-p3d-warning-log]');
     await expect(warningLog).not.toHaveAttribute('open', '');
-    await expect(warningLog).toContainText('Warning Log (1)');
+    await expect(warningLog).toContainText('Warning Log (2)');
     await warningLog.evaluate((element) => { element.open = true; });
+    await expect(warningLog).toContainText('grade_profile_extrapolated');
     await expect(warningLog).toContainText('table3_h_clamped');
     await expect(warningLog).toContainText('was clamped for output');
     await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-OUTSIDE');
