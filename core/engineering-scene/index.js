@@ -5,6 +5,7 @@ export * from './engineering-property-set-contracts.js';
 export * from './engineering-geometry-contracts.js';
 export * from './engineering-constraint-contracts.js';
 export * from './engineering-precision-contracts.js';
+export * from './engineering-snap-contracts.js';
 export * from './engineering-scene-contracts.js';
 export * from './engineering-edit-intent-contracts.js';
 export * from './engineering-command-result-contracts.js';
