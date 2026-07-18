@@ -63,6 +63,7 @@ function entityErrors(entity, path) {
   if (!String(entity?.kind || '').trim()) errors.push(`${path}.kind is required`);
   if (!isPlainObject(entity?.domainRef)) errors.push(`${path}.domainRef must be a plain object`);
   if (typeof entity?.renderOrder !== 'number' || !Number.isFinite(entity.renderOrder)) errors.push(`${path}.renderOrder must be finite`);
+  if (typeof entity?.contributesToFit !== 'boolean') errors.push(`${path}.contributesToFit must be boolean`);
   errors.push(...uniqueStringArrayErrors(entity?.propertySetIds, `${path}.propertySetIds`));
   errors.push(...uniqueStringArrayErrors(entity?.editCapabilities, `${path}.editCapabilities`));
   errors.push(...geometryErrors(entity?.geometry, `${path}.geometry`));
