@@ -118,6 +118,7 @@ test('download failure reports error without mutating review state', async ({ pa
   });
   await openWorkspace(page);
   await upload(page, 'baseline', 'rev-a.json');
+  await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
   const before = await page.evaluate(() => JSON.stringify(window.rcHandle.evidence().state));
   await page.getByRole('button', { name: 'Download session manifest' }).click();
   await expect(page.locator('[data-revc-live]')).toContainText('Injected download failure');
