@@ -1,4 +1,4 @@
-/** RC-002 workspace lifecycle: trusted intake, bounded compare, and fixed visual review. */
+/** RC-003 workspace lifecycle: trusted compare plus exact guided-review state. */
 import { createRevisionActions } from './revision-compare-actions.js';
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
@@ -24,6 +24,14 @@ function comparisonButton(actions, button) {
   if (button.hasAttribute('data-revc-fit-selected')) actions.fitSelected();
   if (button.dataset.revcDifferenceId) actions.selectDifference(button.dataset.revcDifferenceId);
 }
+function reviewButton(actions, button) {
+  if (button.dataset.revcReviewState) actions.setReviewState(button.dataset.revcReviewState);
+  if (button.hasAttribute('data-revc-save-review-note')) actions.saveReviewNote();
+  if (button.hasAttribute('data-revc-next-priority')) actions.nextPriority();
+  if (button.hasAttribute('data-revc-previous-priority')) actions.previousPriority();
+  if (button.hasAttribute('data-revc-download-review')) actions.downloadReviewSession();
+  if (button.hasAttribute('data-revc-start-new-review')) actions.startNewReviewSession();
+}
 function actionClick(actions, target) {
   const button = target.closest('button'); if (!button) return;
   if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
@@ -32,7 +40,13 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
   if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
   if (button.hasAttribute('data-revc-close')) actions.close();
-  comparisonButton(actions, button);
+  comparisonButton(actions, button); reviewButton(actions, button);
+}
+function reviewInput(actions, target) {
+  if (target.matches('[data-revc-review-search]')) actions.setReviewSearch(target.value);
+  if (target.matches('[data-revc-review-state-filter]')) actions.toggleReviewFilter('reviewStates', target.dataset.revcReviewStateFilter);
+  if (target.matches('[data-revc-certainty-filter]')) actions.toggleReviewFilter('certainties', target.dataset.revcCertaintyFilter);
+  if (target.matches('[data-revc-review-import]')) { const file = target.files?.[0]; if (file) actions.importReviewSession(file); }
 }
 function inputChange(actions, target) {
   if (target.matches('[data-revc-file]')) fileChange(actions, target);
@@ -41,12 +55,14 @@ function inputChange(actions, target) {
   if (target.matches('[data-revc-queue-search]')) actions.setQueueSearch(target.value);
   if (target.matches('[data-revc-changed-reason]')) actions.toggleChangedReason(target.dataset.revcChangedReason);
   if (target.matches('[data-revc-needs-decision]')) actions.setNeedsDecision(target.checked);
+  reviewInput(actions, target);
 }
 function bindWorkspace(root, actions, cleanups) {
   trackedListener(cleanups, root, 'click', (event) => actionClick(actions, event.target));
   trackedListener(cleanups, root, 'change', (event) => inputChange(actions, event.target));
   trackedListener(cleanups, root, 'input', (event) => {
     if (event.target.matches('[data-revc-queue-search]')) actions.setQueueSearch(event.target.value);
+    if (event.target.matches('[data-revc-review-search]')) actions.setReviewSearch(event.target.value);
   });
 }
 export function mountRevisionCompareWorkspace(root, options = {}) {
