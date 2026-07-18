@@ -8,6 +8,9 @@ on:
       - 'tabs/psnm-utility-tab-layout-stabilizer.js'
       - 'tests/combined-staged-model-input.test.js'
       - 'tests/support-steel-relationship-builder*.test.js'
+      - 'tests/support-steel-preview-state.test.js'
+      - 'tests/browser/support-steel-preview-staleness.spec.mjs'
+      - 'playwright.support-steel.config.mjs'
       - 'tests/support-steel-world-geometry.test.js'
       - 'tests/support-member-chain*.test.js'
       - 'tests/support-carrier-resolution.test.js'
@@ -24,6 +27,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +35,10 @@ jobs:
           node-version: '22'
       - name: Combined staged model input contract
         run: node --test tests/combined-staged-model-input.test.js
+      - name: Preview export build flow
+        run: node tests/support-steel-relationship-builder-preview.test.js
+      - name: Preview freshness state
+        run: node tests/support-steel-preview-state.test.js
       - name: Relationship engine tests
         run: node --test tests/support-steel-relationship-builder.test.js
       - name: World transform and analytical geometry tests
@@ -51,3 +59,26 @@ jobs:
         run: node tests/support-restraint-function-ui.test.js
       - name: Utility UI contract tests
         run: node tests/support-steel-relationship-builder-ui.test.js
+      - name: Install browser dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start static browser server
+        run: |
+          python3 -m http.server 4182 --bind 127.0.0.1 > /tmp/ssrb-http.log 2>&1 &
+          for attempt in {1..20}; do
+            curl -fsS http://127.0.0.1:4182/index.html >/dev/null && break
+            sleep 1
+          done
+      - name: Browser stale preview acceptance
+        run: npx playwright test --config=playwright.support-steel.config.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: support-steel-browser-evidence
+          path: |
+            artifacts/support-steel-browser-results.json
+            playwright-report/support-steel
+            test-results/support-steel
+          if-no-files-found: ignore

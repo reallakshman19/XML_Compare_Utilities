@@ -1,0 +1,109 @@
+import { stableToken } from '../sequential-sketcher-contract.js';
+import { SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY } from '../policy/sequential-external-boundary-policy.js';
+import { SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY } from '../policy/sequential-construction-tolerance-policy.js';
+
+export const SEQUENTIAL_WORKSPACE_APPLICATION_RECEIPT_SCHEMA = 'SequentialWorkspaceApplicationReceipt.v1';
+
+function text(value) { return String(value ?? '').trim(); }
+function fail(code) { throw new Error(code); }
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
+}
+function fingerprintPayload(value) {
+  const { receiptFingerprint, ...payload } = value || {};
+  return payload;
+}
+function frozenStrings(values = []) {
+  return Object.freeze([...values].map(text).filter(Boolean));
+}
+
+export function sequentialWorkspaceApplicationReceiptFingerprint(value) {
+  return stableToken(JSON.stringify(canonicalValue(fingerprintPayload(value))));
+}
+
+export function validateSequentialWorkspaceApplicationApproval(preview, approval = {}) {
+  if (preview?.schema !== 'SequentialWorkspaceImportPreview.v1') fail('WORKSPACE_APPLY_PREVIEW_INVALID');
+  const reason = text(approval.reason);
+  const evidenceNote = text(approval.evidenceNote);
+  if (!reason) fail('WORKSPACE_APPLY_REASON_REQUIRED');
+  if (preview.hasDestructiveChanges && !evidenceNote) fail('WORKSPACE_APPLY_EVIDENCE_REQUIRED');
+  return Object.freeze({ reason, evidenceNote });
+}
+
+function impact(preview) {
+  return Object.freeze({
+    sourceRelation: preview.sourceRelation,
+    sourceReplacementRequired: Boolean(preview.sourceReplacementRequired),
+    addedBranchIds: frozenStrings(preview.addedBranchIds),
+    removedBranchIds: frozenStrings(preview.removedBranchIds),
+    newWorkspaceBranchIds: frozenStrings(preview.newWorkspaceBranchIds),
+    overwrittenWorkspaceBranchIds: frozenStrings(preview.overwrittenWorkspaceBranchIds),
+    unchangedWorkspaceBranchIds: frozenStrings(preview.unchangedWorkspaceBranchIds),
+    removedWorkspaceBranchIds: frozenStrings(preview.removedWorkspaceBranchIds),
+    activeBranchBefore: preview.activeBranchBefore || null,
+    activeBranchAfter: preview.activeBranchAfter || null,
+    packageTotals: Object.freeze({ ...(preview.packageTotals || {}) }),
+    decisionRegisterSummary: preview.decisionRegisterSummary
+      ? Object.freeze({ ...preview.decisionRegisterSummary }) : null,
+    hasDestructiveChanges: Boolean(preview.hasDestructiveChanges),
+  });
+}
+
+export function createSequentialWorkspaceApplicationReceipt(options = {}) {
+  const approval = validateSequentialWorkspaceApplicationApproval(options.preview, options);
+  const packageFingerprint = text(options.packageFingerprint || options.restoration?.packageFingerprint);
+  const beforeFingerprint = text(options.beforeFingerprint);
+  const afterFingerprint = text(options.afterFingerprint);
+  if (!packageFingerprint) fail('WORKSPACE_APPLY_PACKAGE_FINGERPRINT_REQUIRED');
+  if (!beforeFingerprint || !afterFingerprint) fail('WORKSPACE_APPLY_STATE_FINGERPRINT_REQUIRED');
+  const sequence = Math.max(1, Number(options.sequence) || 1);
+  const payload = {
+    schema: SEQUENTIAL_WORKSPACE_APPLICATION_RECEIPT_SCHEMA,
+    receiptId: `WS-APPLY-${String(sequence).padStart(5, '0')}-${stableToken(`${packageFingerprint}|${beforeFingerprint}|${afterFingerprint}|${approval.reason}`)}`,
+    sequence,
+    status: 'APPLIED',
+    actorProvenance: 'USER_MANUAL',
+    reason: approval.reason,
+    evidenceNote: approval.evidenceNote,
+    packageFingerprint,
+    packageSourceFingerprint: options.restoration?.sourceFingerprint || options.preview?.packageSourceFingerprint || null,
+    beforeWorkspaceFingerprint: beforeFingerprint,
+    afterWorkspaceFingerprint: afterFingerprint,
+    previewCurrentStateFingerprint: options.preview.currentStateFingerprint,
+    impact: impact(options.preview),
+    externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
+    tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
+    appliedAt: new Date().toISOString(),
+  };
+  return Object.freeze({
+    ...payload,
+    receiptFingerprint: sequentialWorkspaceApplicationReceiptFingerprint(payload),
+  });
+}
+
+export function validateSequentialWorkspaceApplicationReceipt(receipt, index = 0) {
+  if (receipt?.schema !== SEQUENTIAL_WORKSPACE_APPLICATION_RECEIPT_SCHEMA) {
+    fail(`WORKSPACE_APPLY_RECEIPT_SCHEMA_INVALID:${index}`);
+  }
+  if (!text(receipt.receiptId) || receipt.status !== 'APPLIED' || receipt.actorProvenance !== 'USER_MANUAL') {
+    fail(`WORKSPACE_APPLY_RECEIPT_IDENTITY_INVALID:${index}`);
+  }
+  if (!text(receipt.reason) || !text(receipt.packageFingerprint)
+    || !text(receipt.beforeWorkspaceFingerprint) || !text(receipt.afterWorkspaceFingerprint)) {
+    fail(`WORKSPACE_APPLY_RECEIPT_EVIDENCE_INVALID:${index}`);
+  }
+  if (receipt.impact?.hasDestructiveChanges && !text(receipt.evidenceNote)) {
+    fail(`WORKSPACE_APPLY_RECEIPT_DESTRUCTIVE_EVIDENCE_MISSING:${index}`);
+  }
+  if (receipt.externalBoundaryPolicyFingerprint !== SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint) {
+    fail(`WORKSPACE_APPLY_RECEIPT_EXTERNAL_POLICY_MISMATCH:${index}`);
+  }
+  if (receipt.tolerancePolicyFingerprint !== SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint) {
+    fail(`WORKSPACE_APPLY_RECEIPT_TOLERANCE_POLICY_MISMATCH:${index}`);
+  }
+  const expected = sequentialWorkspaceApplicationReceiptFingerprint(receipt);
+  if (receipt.receiptFingerprint !== expected) fail(`WORKSPACE_APPLY_RECEIPT_FINGERPRINT_MISMATCH:${index}`);
+  return Object.freeze({ ...receipt, impact: Object.freeze({ ...(receipt.impact || {}) }) });
+}

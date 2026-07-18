@@ -9,6 +9,7 @@ const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
 const appDelegate = readFileSync('core/app.js', 'utf8');
 const runtime = readFileSync('core/app-standalone-runtime.js', 'utf8');
 const actionButtonRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
+const startupToken = '20260717-startup-parse-hotfix-1';
 
 assert.ok(transferCss.includes('.xmlc-transfer-output-dashboard'), 'dashboard panel CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-next-action'), 'next-action CSS must exist');
@@ -39,11 +40,11 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes('main-rhbg-fitguard.js?v=20260717-ps-family-restraint-function-1'), 'index must cache-bust app entry for restraint function validation');
-assert.ok(mainEntry.includes("./core/app.js?v=20260717-ps-family-restraint-function-1"), 'main entry must cache-bust core app delegate for restraint function validation');
-assert.ok(appDelegate.includes("./app-standalone-runtime.js?v=20260717-ps-family-restraint-function-runtime-1"), 'core app must refresh the standalone runtime for restraint function validation');
-assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-ssrb-restraint-function-1'), 'core app must load the restraint-aware relationship builder bootstrap');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-ps-family-restraint-function-1'), 'core app must load the restraint-aware evidence audit bootstrap');
+assert.ok(indexHtml.includes(`main-rhbg-fitguard.js?v=${startupToken}`), 'index must use the current startup cache token');
+assert.ok(mainEntry.includes(`./core/app.js?v=${startupToken}`), 'main entry must use the current startup cache token');
+assert.ok(appDelegate.includes(`./app-standalone-runtime.js?v=${startupToken}`), 'core app must refresh the standalone runtime with the current startup token');
+assert.ok(appDelegate.includes(`support-steel-relationship-bootstrap.js?v=${startupToken}`), 'core app must load the current relationship builder bootstrap');
+assert.ok(appDelegate.includes(`ps-family-evidence-audit-bootstrap.js?v=${startupToken}`), 'core app must load the current evidence audit bootstrap');
 assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260717-psi-support-1"), 'runtime must cache-bust XML tab module for PSI support');
 assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');

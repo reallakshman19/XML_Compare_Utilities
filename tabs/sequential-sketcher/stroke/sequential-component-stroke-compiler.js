@@ -11,6 +11,15 @@ function command(op, component, fields = {}) {
   });
 }
 
+export function reversibleComponentEntryPorts(component) {
+  if (!component || ['OLET', 'CAP', 'BLIND'].includes(component.canonicalType)) return Object.freeze([]);
+  if (component.canonicalType === 'TEE') {
+    return Object.freeze(component.ports.filter((port) => ['RUN_IN', 'RUN_OUT'].includes(port.role)));
+  }
+  if (component.ports.length === 2) return Object.freeze([...component.ports]);
+  return Object.freeze([]);
+}
+
 export function resolveComponentTraversal(component, entryPortId) {
   const entry = component.ports.find((port) => port.portId === entryPortId) || null;
   if (!entry) return { status: 'ENTRY_PORT_NOT_FOUND', entry: null, exit: null, pendingBranchPort: null };
