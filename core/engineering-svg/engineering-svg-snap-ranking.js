@@ -110,7 +110,7 @@ export function rankEngineeringSvgSnapCandidates(candidates = [], options = {}) 
       deduplicated: inAperture.length - unique.length,
       winnerId: candidate?.id || null,
       orderedIds: unique.map((value) => value.id),
-      providerCounts: providerCounts(candidates),
+      providerCounts: options.providerCounts || providerCounts(candidates),
       providerErrors: options.providerErrors || [],
     }),
   });
