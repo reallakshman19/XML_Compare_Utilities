@@ -111,7 +111,7 @@ function ensureRunAuthority(context, basisId) {
   if (state.basisStatus !== 'CURRENT' || state.basis?.basisId !== basisId) throw new RevisionCompareSupersededError();
 }
 function combinedReviewFilters(state) {
-  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search || state.compare.queue.search,
+  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search,
     needsDecisionOnly: state.compare.queue.needsDecisionOnly, changedReasons: state.compare.queue.changedReasons };
 }
 function reviewProjection(state) {
