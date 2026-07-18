@@ -14,6 +14,7 @@ await import('./revision-compare-rc003-owner-fixes.test.mjs');
 await import('./revision-compare-rc003-static.test.mjs');
 await import('./revision-compare-rc004-contracts.test.mjs');
 await import('./revision-compare-rc004-scale.test.mjs');
+await import('./revision-compare-rc004-owner-fixes.test.mjs');
 await import('./revision-compare-rc004-static.test.mjs');
 
 console.log('revision-compare-foundation.test.mjs passed');
