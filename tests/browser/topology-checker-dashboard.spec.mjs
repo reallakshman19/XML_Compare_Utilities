@@ -69,6 +69,16 @@ test('TTV-C02 — settings policy and dedicated Auto fix produce audited outcome
   await expect(settings).toBeHidden();
 
   await expect(autoButton).toBeEnabled();
+  const traceToolbar = page.locator('[data-ttv-workspace-panel="trace"] .ttv-toolbar');
+  await expect(traceToolbar.locator('[data-ttv-edit-export]')).toHaveCount(1);
+  await expect(traceToolbar.locator('[data-ttv-edit-export-staged]')).toHaveCount(1);
+  await expect(page.locator('[data-ttv-workspace-panel="edit"] [data-ttv-edit-export]')).toHaveCount(0);
+  const legacyLoaders = traceToolbar.locator('details.ttv-manual-overrides');
+  await expect(legacyLoaders).not.toHaveAttribute('open', '');
+  await expect(legacyLoaders.locator('summary')).toHaveText('>');
+  await expect(legacyLoaders.locator('[data-ttv-file="canonical"]')).toHaveCount(1);
+  await expect(legacyLoaders.locator('[data-ttv-file="ledger"]')).toHaveCount(1);
+  await expect(legacyLoaders.locator('[data-ttv-file="inputXml"]')).toHaveCount(1);
   await autoButton.click();
   await page.waitForFunction(() => window.__topologyValidatorHarness.controller.checker.evidence().autoFixRuns.length > 0, null, { timeout: 30_000 });
   const after = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence());
@@ -76,5 +86,19 @@ test('TTV-C02 — settings policy and dedicated Auto fix produce audited outcome
   expect(run.schema).toBe('TopologyAutoFixRun.v1');
   expect(run.applied.length + run.related.length + run.rejected.length).toBeGreaterThan(0);
   expect(after.resolvedIssues.length).toBe(run.applied.length + run.related.length);
+  const toast = page.locator('[data-ttv-autofix-toast]');
+  await expect(toast).toBeVisible();
+  await expect(toast.locator('[data-ttv-autofix-toast-title]')).toHaveText(`Auto fixed ${run.applied.length + run.related.length}`);
+  await expect(toast.locator('[data-ttv-autofix-toast-detail]')).toContainText('ID-wise change(s) recorded in Edit Draft');
+  await expect(toast.locator('[data-ttv-autofix-toast-export="bundle"]')).toBeEnabled();
+  await expect(toast.locator('[data-ttv-autofix-toast-export="staged"]')).toBeEnabled();
+
+  await page.locator('[data-ttv-workspace-tab="edit"]').click();
+  const ledgerRows = page.locator('[data-ttv-edit-updates] [data-ledger-row]');
+  await expect(ledgerRows).toHaveCount(run.operationCount);
+  const ledgerId = await ledgerRows.first().locator('[data-key="id"]').textContent();
+  expect(ledgerId).toMatch(/^EC-\d+\.\d+$/);
+  await expect(ledgerRows.first().locator('[data-key="kind"]')).toHaveText('MOVE_NODE');
+  await expect(ledgerRows.first().locator('[data-key="target"]')).toHaveText(/^CN-/);
   expect(errors).toEqual([]);
 });

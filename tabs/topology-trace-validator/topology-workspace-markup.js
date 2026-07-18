@@ -22,6 +22,40 @@ function editorPanelMarkup() {
   return `<section class="ttv-editor-panel" data-ttv-editor-panel hidden aria-label="SVG support draft editor"><header><strong>Support Draft</strong><span data-ttv-editor-dirty>Clean</span></header><p data-ttv-editor-selection>Select a support symbol</p><div class="ttv-editor-coordinates">${['x', 'y', 'z'].map((axis) => `<label>${axis.toUpperCase()}<input type="number" step="0.001" data-ttv-editor-coordinate="${axis}" disabled></label>`).join('')}</div><div class="ttv-editor-actions"><button type="button" data-ttv-editor-set disabled>Set XYZ</button><button type="button" data-ttv-editor-undo disabled>Undo</button><button type="button" data-ttv-editor-redo disabled>Redo</button><button type="button" data-ttv-editor-revert disabled>Revert Draft</button><button type="button" data-ttv-editor-export disabled>Export Patch</button></div><p class="ttv-editor-status" data-ttv-editor-status data-status="ready">Draft changes never mutate loaded evidence.</p></section>`;
 }
 
+/** Main-header downloads remain accessible in large-model Trace-only rendering mode. */
+function traceExportActionsMarkup() {
+  return `<div class="ttv-button-group ttv-main-exports" aria-label="Topology export downloads"><button type="button" data-ttv-edit-export disabled title="Always allowed after exact bytes are prepared; issues and ID-wise operations are logged">Export Bundle + Log</button><button type="button" data-ttv-edit-export-staged title="Export inputxml-managed-stage/v1 with applied mutations and provenance">Export Staged JSON</button></div>`;
+}
+
+/** Infrequent artifact overrides are disclosed without occupying the primary header. */
+function manualArtifactControlsMarkup() {
+  return `<details class="ttv-manual-overrides"><summary aria-label="Show legacy artifact loaders" title="Legacy artifact loaders">&gt;</summary><div class="ttv-manual-overrides-menu">${fileControl('canonical', 'Load Canonical Topology', '.json')}${fileControl('ledger', 'Load Trace Ledger', '.json')}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML')}<button type="button" data-ttv-validate>Validate</button></div></details>`;
+}
+
+/** Non-modal completion feedback forwards to the same audited header export actions. */
+function autoFixToastMarkup() {
+  return `<aside class="ttv-autofix-toast" data-ttv-autofix-toast hidden role="status" aria-live="polite"><div class="ttv-autofix-toast-copy"><strong data-ttv-autofix-toast-title>Auto fixed 0</strong><span data-ttv-autofix-toast-detail>0 ID-wise changes recorded in Edit Draft.</span></div><div class="ttv-autofix-toast-actions"><button type="button" data-ttv-autofix-toast-export="bundle">Export Bundle + Log</button><button type="button" data-ttv-autofix-toast-export="staged">Export Staged JSON</button><button type="button" class="ttv-autofix-toast-close" data-ttv-autofix-toast-close aria-label="Dismiss Auto fix summary">×</button></div></aside>`;
+}
+
+function replaceRequiredMarkup(markup, fragment, replacement, label) {
+  if (!markup.includes(fragment)) throw new Error(`Topology workspace markup is missing ${label}.`);
+  return markup.replace(fragment, replacement);
+}
+
+function promotedTraceMarkup() {
+  const launcherEnd = '<b data-ttv-checker-badge hidden>0</b></button>';
+  const legacyControls = `<div class="ttv-manual-overrides">${fileControl('canonical', 'Load Canonical Topology', '.json')}${fileControl('ledger', 'Load Trace Ledger', '.json')}${fileControl('inputXml', 'Load Topology InputXML', '.xml,.XML')}<button type="button" data-ttv-validate>Validate</button></div>`;
+  const withExports = replaceRequiredMarkup(traceMarkup(), launcherEnd, `${launcherEnd}${traceExportActionsMarkup()}`, 'checker launcher');
+  return replaceRequiredMarkup(withExports, legacyControls, manualArtifactControlsMarkup(), 'legacy artifact controls');
+}
+
+function editWithoutExportActionsMarkup() {
+  const bundle = '        <button type="button" data-ttv-edit-export disabled title="Always allowed after exact bytes are prepared; issues and operations are logged">Export Bundle + Log</button>\n';
+  const staged = '        <button type="button" data-ttv-edit-export-staged title="Export inputxml-managed-stage/v1 with applied mutations + provenance">Export Staged JSON</button>\n';
+  const withoutBundle = replaceRequiredMarkup(editMarkup(), bundle, '', 'Edit Draft Bundle + Log action');
+  return replaceRequiredMarkup(withoutBundle, staged, '', 'Edit Draft staged JSON action');
+}
+
 /** @returns {string} */
 function traceMarkup() {
   const dispositionOptions = FINAL_DISPOSITIONS.map((value) => `<option value="${value}">${value}</option>`).join('');
@@ -125,7 +159,7 @@ export function workspaceMarkup() {
   return `<section class="ttv-workspace"><nav class="ttv-workspace-tabs" role="tablist" aria-label="Topology workspace"><button type="button" role="tab" aria-selected="true" class="is-active" data-ttv-workspace-tab="trace">Trace</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="edit">Edit Draft</button><button type="button" role="tab" aria-selected="false" data-ttv-workspace-tab="parity">Parity</button>    <div class="ttv-button-group" style="margin-left:auto; margin-right:8px; align-self:center; transform:scale(0.85);">
       <button type="button" data-ttv-font-zoom="in" title="Increase font size (F+)">F+</button>
       <button type="button" data-ttv-font-zoom="out" title="Decrease font size (F-)">F−</button>
-    </div></nav>${traceMarkup()}${editMarkup()}${parityMarkup()}${topologyCheckerPanelMarkup()}</section>`;
+    </div></nav>${promotedTraceMarkup()}${editWithoutExportActionsMarkup()}${parityMarkup()}${topologyCheckerPanelMarkup()}${autoFixToastMarkup()}</section>`;
 }
 
-export const _test = Object.freeze({ fileControl, visibilityCheck, canvasNavigationMarkup, editorPanelMarkup, traceMarkup, editMarkup, parityMarkup });
+export const _test = Object.freeze({ fileControl, visibilityCheck, canvasNavigationMarkup, editorPanelMarkup, traceExportActionsMarkup, manualArtifactControlsMarkup, autoFixToastMarkup, replaceRequiredMarkup, promotedTraceMarkup, editWithoutExportActionsMarkup, traceMarkup, editMarkup, parityMarkup });

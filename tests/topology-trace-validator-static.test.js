@@ -19,7 +19,7 @@ for (const name of files) {
 
 const markup = read('topology-workspace-markup.js');
 for (const label of [
-  'Load Source JSON', 'Load Canonical Topology', 'Load Trace Ledger', 'Load Topology InputXML',
+  'Load Json', 'Load Canonical Topology', 'Load Trace Ledger', 'Load Topology InputXML',
   'Spatial Overlay', 'Source ↔ Canonical', 'Junctions / Boundaries', 'Issues Only', 'Symbol Overlays',
   'Isolate Supports', 'Review', 'Edit Draft', 'Support Draft', 'Set XYZ', 'Undo', 'Redo', 'Revert Draft', 'Export Patch',
   'Topology Parity', 'Load SVG Scene', 'Load Parsed InputXML Topology', 'Load Parity Report',

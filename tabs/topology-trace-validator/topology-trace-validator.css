@@ -109,13 +109,47 @@
   align-items: center;
 }
 .ttv-manual-overrides {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
   margin-left: 8px;
   padding-left: 8px;
   border-left: 1px solid #1e293b;
 }
+.ttv-manual-overrides summary {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #172033;
+  color: #cbd5e1;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+.ttv-manual-overrides summary::-webkit-details-marker { display: none; }
+.ttv-manual-overrides summary:hover,
+.ttv-manual-overrides summary:focus-visible {
+  border-color: #22d3ee;
+  color: #e0f2fe;
+  outline: none;
+}
+.ttv-manual-overrides[open] summary { border-radius: 6px 0 0 6px; }
+.ttv-manual-overrides-menu {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+}
+.ttv-manual-overrides[open] .ttv-manual-overrides-menu { display: flex; }
+.ttv-main-exports {
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  flex: 0 0 auto;
+}
+.ttv-main-exports [data-ttv-edit-export]:not(:disabled),
+.ttv-main-exports [data-ttv-edit-export-staged] { color: #a5f3fc; }
 .ttv-file-button {
   display: flex;
   align-items: center;
@@ -144,6 +178,45 @@
 .ttv-button-group > button:first-child {
   border-left: 1px solid #334155;
   border-radius: 6px 0 0 6px;
+}
+
+/* Auto-fix completion remains modeless while exposing the same audited downloads as the Trace header. */
+.ttv-autofix-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 160;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(680px, calc(100vw - 40px));
+  padding: 12px 14px;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  border-radius: 10px;
+  background: rgba(8, 19, 38, 0.96);
+  color: #e2e8f0;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
+}
+.ttv-autofix-toast[hidden] { display: none; }
+.ttv-autofix-toast-copy { display: grid; gap: 2px; min-width: 180px; }
+.ttv-autofix-toast-copy strong { color: #67e8f9; font-size: calc(15px * var(--ttv-font-scale, 1)); }
+.ttv-autofix-toast-copy span { color: #94a3b8; font-size: calc(12px * var(--ttv-font-scale, 1)); }
+.ttv-autofix-toast-actions { display: flex; align-items: center; gap: 6px; }
+.ttv-autofix-toast-actions button {
+  padding: 6px 9px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #172033;
+  color: #cbd5e1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ttv-autofix-toast-actions button:hover,
+.ttv-autofix-toast-actions button:focus-visible { border-color: #22d3ee; color: #e0f2fe; outline: none; }
+.ttv-autofix-toast-actions .ttv-autofix-toast-close { border-color: transparent; background: transparent; color: #94a3b8; }
+@media (max-width: 760px) {
+  .ttv-autofix-toast { align-items: stretch; flex-direction: column; }
+  .ttv-autofix-toast-actions { flex-wrap: wrap; }
 }
 
 /* Sidebar Inputs & Layout */

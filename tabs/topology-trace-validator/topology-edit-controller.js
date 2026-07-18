@@ -56,8 +56,8 @@ export function createTopologyEditController(elements, dependencies) {
       modelMode: dependencies.modeEvidence?.() ?? null, editScope, attributeLedger, remarks };
   }
   function queueExportPlan() {
-    if (busy || !core || !editedArtifacts || !journalService) return;
-    exportPlanService.refresh(exportPlanInput(new Date().toISOString()))
+    if (busy || !core || !editedArtifacts || !journalService) return Promise.resolve(null);
+    return exportPlanService.refresh(exportPlanInput(new Date().toISOString()))
       .catch((error) => setStatus(`Export plan failed: ${error?.message || String(error)}`, 'error'));
   }
   /** @param {string} message @param {string} status @returns {void} */
