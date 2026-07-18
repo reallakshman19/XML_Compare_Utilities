@@ -1,4 +1,5 @@
 import { canonicalComponentType, pointFrom, stableToken } from '../sequential-sketcher-contract.js';
+import { orderSequentialComponentsByGeometry } from './sequential-geometry-route-order.js';
 
 const TWO_PORT_TYPES = new Set(['PIPE', 'ELBOW', 'REDUCER', 'VALVE', 'FLANGE', 'GASKET', 'INSTRUMENT', 'COUPLING', 'UNION']);
 const TERMINAL_TYPES = new Set(['CAP', 'BLIND']);
@@ -34,10 +35,7 @@ function makePort(componentId, branchId, role, sourcePosition, sourceIndex, extr
   const position = clonePoint(sourcePosition);
   return Object.freeze({
     portId: `PORT-${stableToken(`${componentId}|${role}`)}`,
-    componentId,
-    branchId,
-    role,
-    sourceIndex,
+    componentId, branchId, role, sourceIndex,
     sourcePosition: position,
     sourcePositionStatus: position ? 'SOURCE_EXPLICIT' : 'UNRESOLVED',
     resolvedPosition: null,
@@ -74,7 +72,6 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       }),
     ];
   }
-
   if (canonicalType === 'TEE') {
     return [
       makePort(componentId, branchId, 'RUN_IN', apos, sourceIndex, {
@@ -85,27 +82,22 @@ function buildComponentPorts(componentId, branchId, canonicalType, attrs, source
       }),
       makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
-        boreMm: branchBore,
-        referenceTarget: cref,
+        boreMm: branchBore, referenceTarget: cref,
       }),
     ];
   }
-
   if (canonicalType === 'OLET') {
     return [
       makePort(componentId, branchId, 'HOST_ATTACHMENT', centre || apos, sourceIndex, { boreMm: inletBore ?? commonBore }),
       makePort(componentId, branchId, 'BRANCH_OUT', branchPoint, sourceIndex, {
         tangent: branchPoint && centre ? tangentFrom(centre, branchPoint) : null,
-        boreMm: branchBore,
-        referenceTarget: cref,
+        boreMm: branchBore, referenceTarget: cref,
       }),
     ];
   }
-
   if (TERMINAL_TYPES.has(canonicalType)) {
     return [makePort(componentId, branchId, 'TERMINAL', apos || lpos || centre, sourceIndex, { boreMm: commonBore })];
   }
-
   return [];
 }
 
@@ -117,14 +109,8 @@ function buildComponent(child, branchId, sourceIndex) {
   const componentId = `COMP-${stableToken(`${branchId}|${sourceComponentId}|${sourceIndex}`)}`;
   const ports = buildComponentPorts(componentId, branchId, canonicalType, attrs, sourceIndex);
   return Object.freeze({
-    componentId,
-    sourceComponentId,
-    sourceName: text(child?.name),
-    branchId,
-    sourceIndex,
-    sourceType: text(child?.type || attrs.TYPE).toUpperCase(),
-    canonicalType,
-    attributes: attrs,
+    componentId, sourceComponentId, sourceName: text(child?.name), branchId, sourceIndex,
+    sourceType: text(child?.type || attrs.TYPE).toUpperCase(), canonicalType, attributes: attrs,
     ports: Object.freeze(ports),
     geometry: Object.freeze({
       centre: clonePoint(attrs.POS || attrs.CPOS || attrs.CENTRE || attrs.CENTER),
@@ -132,8 +118,7 @@ function buildComponent(child, branchId, sourceIndex) {
       angleDeg: number(attrs.ANGLE || attrs.BEND_ANGLE || attrs.BENDANGLE || attrs.ANGL),
       eccentricOffsetMm: number(attrs.ECCENTRIC_OFFSET || attrs.ECCENTRICOFFSET),
     }),
-    cref: text(attrs.CREF),
-    shadowCarrierEvidence: null,
+    cref: text(attrs.CREF), shadowCarrierEvidence: null,
   });
 }
 
@@ -164,52 +149,46 @@ function shadowPair(left, right) {
 }
 function shadowEvidence(pipe, orientation) {
   return Object.freeze({
-    schema: 'SequentialShadowCarrierEvidence.v1',
-    componentId: pipe.componentId,
-    sourceComponentId: pipe.sourceComponentId,
-    sourceName: pipe.sourceName,
-    sourceIndex: pipe.sourceIndex,
-    sourceType: pipe.sourceType,
-    canonicalType: pipe.canonicalType,
-    orientation,
-    attributes: pipe.attributes,
-    ports: pipe.ports,
+    schema: 'SequentialShadowCarrierEvidence.v1', componentId: pipe.componentId,
+    sourceComponentId: pipe.sourceComponentId, sourceName: pipe.sourceName,
+    sourceIndex: pipe.sourceIndex, sourceType: pipe.sourceType,
+    canonicalType: pipe.canonicalType, orientation, attributes: pipe.attributes, ports: pipe.ports,
   });
 }
 function collapseSyntheticCarrierShadows(sourceComponents) {
-  const suppressed = new Set();
-  const shadows = new Map();
+  const suppressed = new Set(); const shadows = new Map();
   for (let index = 0; index < sourceComponents.length - 1; index += 1) {
     const pair = shadowPair(sourceComponents[index], sourceComponents[index + 1]);
     if (!pair || suppressed.has(pair.pipe.componentId) || shadows.has(pair.primary.componentId)) continue;
     suppressed.add(pair.pipe.componentId);
     shadows.set(pair.primary.componentId, shadowEvidence(pair.pipe, pair.orientation));
   }
-  return sourceComponents
-    .filter((component) => !suppressed.has(component.componentId))
-    .map((component) => {
-      const shadow = shadows.get(component.componentId);
-      return shadow ? Object.freeze({ ...component, shadowCarrierEvidence: shadow }) : component;
-    });
+  return sourceComponents.filter((component) => !suppressed.has(component.componentId)).map((component) => {
+    const shadow = shadows.get(component.componentId);
+    return shadow ? Object.freeze({ ...component, shadowCarrierEvidence: shadow }) : component;
+  });
 }
 
 function buildBranch(record, sourceBranchIndex) {
   const branchId = branchIdentity(record);
   const attrs = record?.attributes && typeof record.attributes === 'object' ? record.attributes : {};
   const children = Array.isArray(record?.children) ? record.children : [];
-  const sourceComponents = children.map((child, sourceIndex) => buildComponent(child, branchId, sourceIndex)).filter(Boolean).sort((a, b) => a.sourceIndex - b.sourceIndex);
-  const components = collapseSyntheticCarrierShadows(sourceComponents);
+  const sourceComponents = children
+    .map((child, sourceIndex) => buildComponent(child, branchId, sourceIndex))
+    .filter(Boolean)
+    .sort((a, b) => a.sourceIndex - b.sourceIndex);
+  const collapsed = collapseSyntheticCarrierShadows(sourceComponents);
+  const components = orderSequentialComponentsByGeometry(collapsed, clonePoint(attrs.HPOS));
   return Object.freeze({
-    branchId,
-    sourceBranchIndex,
-    sourceRecord: record,
-    headPosition: clonePoint(attrs.HPOS),
-    tailPosition: clonePoint(attrs.TPOS),
-    href: text(attrs.HREF),
-    tref: text(attrs.TREF),
+    branchId, sourceBranchIndex, sourceRecord: record,
+    headPosition: clonePoint(attrs.HPOS), tailPosition: clonePoint(attrs.TPOS),
+    href: text(attrs.HREF), tref: text(attrs.TREF),
     sourceRouteComponentCount: sourceComponents.length,
     shadowCarrierCount: sourceComponents.length - components.length,
-    components: Object.freeze(components),
+    routeSequenceBasis: components.every((component) => component.routeSequenceBasis === 'GEOMETRY_PORT_CONTINUITY')
+      ? 'GEOMETRY_PORT_CONTINUITY'
+      : 'GEOMETRY_WITH_REVIEWABLE_FRAGMENTS',
+    components,
   });
 }
 
@@ -248,13 +227,12 @@ export function buildSequentialEvidenceModel(records) {
   const ports = components.flatMap((component) => component.ports);
   return Object.freeze({
     schema: 'SequentialSourceEvidence.v1',
-    branches: Object.freeze(branches),
-    components: Object.freeze(components),
-    ports: Object.freeze(ports),
+    branches: Object.freeze(branches), components: Object.freeze(components), ports: Object.freeze(ports),
     audit: Object.freeze({
       sourceRouteComponentCount: branches.reduce((sum, branch) => sum + branch.sourceRouteComponentCount, 0),
       activeRouteComponentCount: components.length,
       shadowCarrierCount: branches.reduce((sum, branch) => sum + branch.shadowCarrierCount, 0),
+      geometryOrderedBranchCount: branches.filter((branch) => branch.routeSequenceBasis === 'GEOMETRY_PORT_CONTINUITY').length,
     }),
   });
 }
