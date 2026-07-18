@@ -27,12 +27,28 @@ assert.match(propagation, /PipelineProfileModel\.fromRaw/);
 assert.match(propagation, /buildDepthRules/);
 assert.match(propagation, /warnings: Object\.freeze/);
 assert.match(propagation, /assertPlausibleProfileSegments\(combined, context\.total, context\.warnings\)/);
+assert.match(propagation, /sanitizeTable1Label/);
+assert.match(propagation, /T1-\$\{String\(index \+ 1\)\.padStart\(3, '0'\)\}/);
+assert.match(propagation, /PLACEHOLDER_POINT_LABEL/);
 
 const coordinateMap = sources.find((source) => source.name === 'pipeline-3d-model-profile-coordinate-map.js').text;
 assert.match(coordinateMap, /table3_h_clamped/);
 assert.match(coordinateMap, /route_distance_clamped/);
 assert.match(coordinateMap, /station_alignment_quality/);
+assert.match(coordinateMap, /grade_profile_extrapolated/);
+assert.match(coordinateMap, /warnGradeCoverage/);
 assert.doesNotMatch(coordinateMap, /throw new RangeError\(`Table 3 H/);
+
+const events = sources.find((source) => source.name === 'pipeline-3d-model-profile-events.js').text;
+assert.match(events, /GRADE END/);
+assert.match(events, /GRADE START/);
+assert.match(events, /event\('grade-end', rule\.start, 'GRADE END', 5, GRADE_RULE\)/);
+assert.match(events, /hasBoundaryPeer/);
+
+const output = sources.find((source) => source.name === 'pipeline-3d-model-profile-output.js').text;
+assert.match(output, /originEvidence/);
+assert.match(output, /hText: '0\.0'/);
+assert.match(output, /\.\.\.originEvidence\(profile\)/);
 
 const warningLog = sources.find((source) => source.name === 'pipeline-3d-model-warning-log.js').text;
 assert.match(warningLog, /createElement\('details'\)/);
@@ -57,9 +73,10 @@ assert.match(adapter, /Pipeline3DModelTables\.v1/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
+assert.match(addon, /20260718-profile-output-cleanup-1/);
 
 const utilityTab = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=/);
+assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260718-profile-output-cleanup-1/);
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.match(packageJson.scripts['test:pipeline-table-paste'], /test:pipeline-profile-propagation/);
