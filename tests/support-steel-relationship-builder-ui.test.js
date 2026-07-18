@@ -62,7 +62,7 @@ const chainEngine = readFileSync('tabs/support-steel-relationship-builder/suppor
 assert.match(utilityTab, /installSupportSteelRelationshipBuilderTile/);
 assert.match(utilityTab, /destroySupportSteelRelationshipBuilder/);
 assert.match(layout, /data-ssrb-open/);
-assert.match(relationshipTab, /combinedInput/);
+assert.match(relationshipTab, /supportSteelBuildInputSnapshot/);
 assert.match(relationshipTab, /data-ssrb-input=\"model\"/);
 assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"support\"/);
 assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"steel\"/);
