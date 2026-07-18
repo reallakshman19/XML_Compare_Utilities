@@ -26,7 +26,7 @@ function fieldsForKey(propertySets, key, ownerId) {
   ));
   if (owned.length) return owned;
   return propertySets.flatMap((set) => set.fields.filter((field) => (
-    field.key === key && ['SCENE', 'REFERENCE'].includes(field.scope)
+    field.key === key && ['SCENE', 'SELECTION', 'REFERENCE'].includes(field.scope)
   )));
 }
 
