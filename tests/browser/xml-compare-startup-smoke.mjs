@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from '@playwright/test';
 
 const baseUrl = process.env.STARTUP_BASE_URL || 'http://127.0.0.1:4173/';
 const browser = await chromium.launch({ headless: true });
+
+async function persistReport(report) {
+  await mkdir('artifacts', { recursive: true });
+  const safeName = report.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase();
+  const environment = report.baseUrl.includes('127.0.0.1') ? 'branch' : 'deployed';
+  await writeFile(
+    `artifacts/startup-smoke-${environment}-${safeName}.json`,
+    `${JSON.stringify(report, null, 2)}\n`,
+    'utf8',
+  );
+}
 
 async function runScenario(name, activeTabId = null) {
   const context = await browser.newContext();
@@ -39,6 +51,7 @@ async function runScenario(name, activeTabId = null) {
     visibleStartupError: bodyText.includes('XML Compare Utilities startup error') ? bodyText : null,
   };
   console.log(JSON.stringify(report, null, 2));
+  await persistReport(report);
   assert.deepEqual(pageErrors, [], `${name}: browser page errors detected:\n${pageErrors.join('\n\n')}`);
   assert.equal(report.visibleStartupError, null, report.visibleStartupError || `${name}: unexpected startup error`);
   assert.deepEqual(failedRequests, [], `${name}: failed startup requests detected:\n${failedRequests.join('\n')}`);
