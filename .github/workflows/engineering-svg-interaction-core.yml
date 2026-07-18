@@ -42,6 +42,7 @@ jobs:
           node tests/engineering-svg-snap-acquisition.test.js
       - name: Run pointer interaction and feedback foundation
         run: |
+          node tests/engineering-svg-interaction-fit-contract.test.js
           node tests/engineering-svg-interaction-session.test.js
           node tests/engineering-svg-interaction-snap.test.js
           node tests/engineering-svg-interaction-feedback.test.js
