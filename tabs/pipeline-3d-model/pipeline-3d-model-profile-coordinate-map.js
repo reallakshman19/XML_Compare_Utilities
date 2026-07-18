@@ -1,4 +1,5 @@
 import { buildSegments } from './pipeline-3d-model-geometry.js';
+import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 
 const EPSILON = 1e-6;
 const ROUTE_TOLERANCE = 0.5;
@@ -38,7 +39,7 @@ export function interpolateProfileMap(value, map, xKey, yKey) {
   return a[yKey] + ((input - a[xKey]) / span) * (b[yKey] - a[yKey]);
 }
 
-export function fitStationAlignment(stationMap) {
+export function fitStationAlignment(stationMap, warnings = []) {
   const anchors = stationMap?.anchors || [];
   if (anchors.length < 2) throw new Error('At least two station/H anchors are required.');
   const count = anchors.length;
@@ -56,7 +57,12 @@ export function fitStationAlignment(stationMap) {
   const residuals = anchors.map((row) => Math.abs((slope * row.absoluteH + intercept) - row.cumulative));
   const maxResidual = Math.max(...residuals);
   if (slope <= 0 || maxResidual > 0.5) {
-    throw new Error(`Station/H alignment is not affine enough (slope ${slope.toFixed(6)}, max residual ${maxResidual.toFixed(3)} m).`);
+    addPipelineWarning(
+      warnings,
+      'station_alignment_quality',
+      `Station/H alignment is weak (slope ${slope.toFixed(6)}, max residual ${maxResidual.toFixed(3)} m). Output was generated for review.`,
+      { slope, maxResidual, anchorCount: anchors.length },
+    );
   }
   return Object.freeze({ slope, intercept, maxResidual });
 }
@@ -65,46 +71,66 @@ export function stationFromAbsoluteH(absoluteH, stationMap) {
   return interpolateProfileMap(absoluteH, stationMap, 'absoluteH', 'cumulative');
 }
 
-export function cumulativeFromAbsoluteH(absoluteH, coordinateMap) {
+export function cumulativeFromAbsoluteH(absoluteH, coordinateMap, warnings = []) {
   const h = finite(absoluteH, 'absoluteH');
-  if (h < coordinateMap.absoluteHMin - EPSILON || h > coordinateMap.absoluteHMax + EPSILON) {
-    throw new RangeError(`Table 3 H ${h} is outside [${coordinateMap.absoluteHMin}, ${coordinateMap.absoluteHMax}].`);
+  const clamped = Math.min(coordinateMap.absoluteHMax, Math.max(coordinateMap.absoluteHMin, h));
+  if (Math.abs(clamped - h) > EPSILON) {
+    addPipelineWarning(
+      warnings,
+      'table3_h_clamped',
+      `Table 3 H ${formatProfileValue(h)} is outside [${formatProfileValue(coordinateMap.absoluteHMin)}, ${formatProfileValue(coordinateMap.absoluteHMax)}] and was clamped for output.`,
+      { requestedH: h, usedH: clamped },
+    );
   }
-  return interpolateProfileMap(h, coordinateMap, 'absoluteH', 'cumulative');
+  return interpolateProfileMap(clamped, coordinateMap, 'absoluteH', 'cumulative');
 }
 
 function routeLength(segments) {
   return segments.length ? segments.at(-1).end : 0;
 }
 
-export function validateRouteDistance(distance, total, label) {
+export function validateRouteDistance(distance, total, label, warnings = []) {
   const value = finite(distance, label);
+  const clamped = Math.min(total, Math.max(0, value));
   if (value < -ROUTE_TOLERANCE || value > total + ROUTE_TOLERANCE) {
-    throw new RangeError(`${label} ${formatProfileValue(value)} is outside the Table 1 route [0, ${formatProfileValue(total)}].`);
+    addPipelineWarning(
+      warnings,
+      'route_distance_clamped',
+      `${label} ${formatProfileValue(value)} is outside the Table 1 route [0, ${formatProfileValue(total)}] and was clamped for output.`,
+      { label, requestedDistance: value, usedDistance: clamped, routeLength: total },
+    );
   }
-  return Math.min(total, Math.max(0, value));
+  return clamped;
 }
 
 export function buildProfileRouteContext(table1Points, profile) {
   if (table1Points.length < 2) throw new Error('Table 1 must contain at least two route points.');
+  const warnings = [];
   const segments = buildSegments(table1Points);
   const total = routeLength(segments);
-  const alignment = fitStationAlignment(profile.table2StationMap);
+  const alignment = fitStationAlignment(profile.table2StationMap, warnings);
   const routeStartStation = alignment.slope * table1Points[0].x + alignment.intercept;
   const originH = profile.coordinateMap.anchors[0].absoluteH;
   const originStation = stationFromAbsoluteH(originH, profile.table2StationMap);
-  return { segments, total, routeStartStation, table3OriginRoute: originStation - routeStartStation, stationAlignment: alignment };
+  return {
+    segments,
+    total,
+    routeStartStation,
+    table3OriginRoute: originStation - routeStartStation,
+    stationAlignment: alignment,
+    warnings,
+  };
 }
 
 export function table2RouteDistance(row, context) {
   const distance = row.stationValue - context.routeStartStation;
-  return validateRouteDistance(distance, context.total, `Table 2 station ${row.stationText}`);
+  return validateRouteDistance(distance, context.total, `Table 2 station ${row.stationText}`, context.warnings);
 }
 
 export function table3RouteDistance(absoluteH, profile, context) {
-  const local = cumulativeFromAbsoluteH(absoluteH, profile.coordinateMap);
+  const local = cumulativeFromAbsoluteH(absoluteH, profile.coordinateMap, context.warnings);
   const distance = context.table3OriginRoute + local;
-  return validateRouteDistance(distance, context.total, `Table 3 H ${absoluteH}`);
+  return validateRouteDistance(distance, context.total, `Table 3 H ${absoluteH}`, context.warnings);
 }
 
 export function buildGradeProfile(profile, context) {
