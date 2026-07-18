@@ -40,10 +40,13 @@ jobs:
           node tests/engineering-svg-snap-contracts.test.js
           node tests/engineering-svg-snap-ranking.test.js
           node tests/engineering-svg-snap-acquisition.test.js
-      - name: Run pointer interaction and feedback foundation
-        run: |
-          node tests/engineering-svg-interaction-fit-contract.test.js
-          node tests/engineering-svg-interaction-session.test.js
-          node tests/engineering-svg-interaction-snap.test.js
-          node tests/engineering-svg-interaction-feedback.test.js
-          node tests/engineering-svg-interaction-dependency-guard.test.js
+      - name: Validate interaction fit contract
+        run: node tests/engineering-svg-interaction-fit-contract.test.js
+      - name: Validate interaction session lifecycle
+        run: node tests/engineering-svg-interaction-session.test.js
+      - name: Validate constrained snap composition
+        run: node tests/engineering-svg-interaction-snap.test.js
+      - name: Validate feedback scene and renderer identity
+        run: node tests/engineering-svg-interaction-feedback.test.js
+      - name: Validate interaction architecture guards
+        run: node tests/engineering-svg-interaction-dependency-guard.test.js
