@@ -40,6 +40,7 @@ export function createEngineeringSceneEntity(input = {}) {
     renderOrder: finiteOrDefault(input.renderOrder, 0, 'Scene entity renderOrder'),
     visible: input.visible !== false,
     selectable: input.selectable !== false,
+    contributesToFit: input.contributesToFit !== false,
     metadata: input.metadata ?? {},
   });
 }

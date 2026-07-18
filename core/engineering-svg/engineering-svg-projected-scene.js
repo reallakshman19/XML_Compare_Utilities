@@ -9,6 +9,7 @@ const LAYER_PRIORITY = Object.freeze({
   difference: 40,
   diagnostic: 45,
   selection: 50,
+  feedback: 55,
   handles: 60,
 });
 
@@ -38,6 +39,7 @@ function projectEntity(entity, projection) {
     renderOrder: entity.renderOrder,
     visible: entity.visible,
     selectable: entity.selectable,
+    contributesToFit: entity.contributesToFit,
     projectedGeometry,
     depth: entityDepth(projectedGeometry),
   });
@@ -56,8 +58,9 @@ export function buildEngineeringSvgProjectedScene(scene, options = {}) {
   const projection = options.projection || 'ISO';
   const projected = scene.entities.filter((entity) => entity.visible !== false)
     .map((entity) => projectEntity(entity, projection));
-  const points = projected.flatMap((entity) => projectedGeometryPoints(entity.projectedGeometry));
-  const bounds = createProjectedBounds(points);
+  const fitPoints = projected.filter((entity) => entity.contributesToFit !== false)
+    .flatMap((entity) => projectedGeometryPoints(entity.projectedGeometry));
+  const bounds = createProjectedBounds(fitPoints);
   const fit = createEngineeringSvgFit(bounds, options.viewport, options.padding);
   const entities = projected.map((entity) => Object.freeze({
     ...entity,
