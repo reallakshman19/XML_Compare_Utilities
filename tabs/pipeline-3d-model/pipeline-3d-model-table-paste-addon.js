@@ -8,6 +8,9 @@ import {
   SAMPLE_TABLE_2_PASTE_MULTISHEET,
   SAMPLE_TABLE_3_PASTE_MULTISHEET,
 } from './pipeline-3d-model-table-paste-samples.js?v=20260716-table-paste-samples-1';
+import {
+  installPipelineProfilePropagation,
+} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260718-profile-propagation-1';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();
@@ -162,6 +165,7 @@ export function patchPipeline3dTablePasteDialog(dialog) {
 
   wireTransfers(dialog);
   wireMultiSheetSample(dialog);
+  installPipelineProfilePropagation(dialog);
   return true;
 }
 
