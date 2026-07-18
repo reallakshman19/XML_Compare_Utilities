@@ -5,11 +5,12 @@ function distance(a, b) {
   if (!a || !b) return Number.POSITIVE_INFINITY;
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
-function samePoint(a, b, toleranceMm) {
-  return Boolean(a && b && distance(a, b) <= toleranceMm);
-}
+function samePoint(a, b, toleranceMm) { return Boolean(a && b && distance(a, b) <= toleranceMm); }
 function clonePoint(point) { return point ? { x: point.x, y: point.y, z: point.z } : null; }
 function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+function routeIndex(component) {
+  return Number.isFinite(component?.routeIndex) ? component.routeIndex : Number(component?.sourceIndex ?? -1);
+}
 function directionAngleDeg(active, candidate) {
   if (!active?.tangent || !candidate?.tangent) return null;
   const opposed = { x: -candidate.tangent.x, y: -candidate.tangent.y, z: -candidate.tangent.z };
@@ -54,8 +55,10 @@ function targetComponents(session, indexes) {
         targetKind: transition.targetKind || 'BRANCH',
       }));
   }
+  const active = indexes.components.get(session.activeComponentId);
+  const activeRouteIndex = routeIndex(active);
   const remaining = branch.components.filter((component) => (
-    component.sourceIndex > (session.activeSourceIndex ?? -1)
+    routeIndex(component) > activeRouteIndex
     && !session.confirmedComponentIds.includes(component.componentId)
   ));
   const expected = remaining[0] || null;
@@ -159,11 +162,13 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         targetPortRole: port.role,
         targetKind: target.targetKind,
         targetComponentType: component.canonicalType,
+        targetRouteIndex: routeIndex(component),
         attachmentEvent,
         gapMm,
         directionAngleDeg: angle,
         boreCompatibility: bore,
         sourceAdjacent,
+        adjacencyBasis: sourceAdjacent ? 'GEOMETRY_ROUTE_ORDER' : null,
         referenceMatch,
         roleCompatible,
         directionCompatible,
@@ -176,6 +181,7 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
     Number(right.referenceMatch) - Number(left.referenceMatch)
     || Number(right.sourceAdjacent) - Number(left.sourceAdjacent)
     || left.gapMm - right.gapMm
+    || left.targetRouteIndex - right.targetRouteIndex
     || left.candidateId.localeCompare(right.candidateId)
   )));
 }
@@ -204,22 +210,16 @@ function resolveSourceAdjacentZeroLengthEntry(eligible, indexes, tolerances) {
   if (!samePoint(firstPort.sourcePosition, secondPort.sourcePosition, tolerances.transformNoiseMm)) return null;
   const componentCandidates = exactAdjacent.filter((candidate) => candidate.targetComponentId === component.componentId);
   if (componentCandidates.length !== 2) {
-    return resolution({
-      status: 'USER_DECISION_REQUIRED',
-      reason: 'ZERO_LENGTH_INLINE_PORT_EVIDENCE_INCOMPLETE',
-    }, tolerances);
+    return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'ZERO_LENGTH_INLINE_PORT_EVIDENCE_INCOMPLETE' }, tolerances);
   }
   const selected = componentCandidates.find((candidate) => candidate.toPortId === firstPort.portId);
   if (!selected) {
-    return resolution({
-      status: 'USER_DECISION_REQUIRED',
-      reason: 'ZERO_LENGTH_INLINE_ENTRY_ROLE_UNRESOLVED',
-    }, tolerances);
+    return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'ZERO_LENGTH_INLINE_ENTRY_ROLE_UNRESOLVED' }, tolerances);
   }
   return resolution({
     status: selected.referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT',
     selected,
-    resolutionBasis: 'SOURCE_ADJACENT_ZERO_LENGTH_ENTRY_ROLE',
+    resolutionBasis: 'GEOMETRY_ADJACENT_ZERO_LENGTH_ENTRY_ROLE',
   }, tolerances);
 }
 
@@ -232,41 +232,33 @@ export function resolveNextConnection(session, evidenceModel, indexes, options =
 
   const sourceAdjacentAttachmentEvents = eligible.filter((candidate) => candidate.sourceAdjacent && candidate.attachmentEvent);
   if (sourceAdjacentAttachmentEvents.length > 1) {
-    return resolution({
-      status: 'USER_DECISION_REQUIRED',
-      reason: 'MULTIPLE_SOURCE_ADJACENT_ATTACHMENT_EVENTS',
-      candidates,
-    }, tolerances);
+    return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_GEOMETRY_ADJACENT_ATTACHMENT_EVENTS', candidates }, tolerances);
   }
   if (sourceAdjacentAttachmentEvents.length === 1) {
     const event = sourceAdjacentAttachmentEvents[0];
     if (event.gapMm <= exactToleranceMm) {
-      return resolution({
-        status: 'CONFIRMED_EXACT',
-        selected: event,
-        candidates,
-        resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
-      }, tolerances);
+      return resolution({ status: 'CONFIRMED_EXACT', selected: event, candidates, resolutionBasis: 'GEOMETRY_ADJACENT_ATTACHMENT_EVENT' }, tolerances);
     }
     if (event.gapMm <= autoRepairToleranceMm && event.directionCompatible) {
-      return resolution({
-        status: 'AUTO_REPAIRED_SMALL_GAP',
-        selected: event,
-        candidates,
-        resolutionBasis: 'SOURCE_ADJACENT_ATTACHMENT_EVENT',
-      }, tolerances);
+      return resolution({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: event, candidates, resolutionBasis: 'GEOMETRY_ADJACENT_ATTACHMENT_EVENT' }, tolerances);
     }
-    return resolution({
-      status: 'USER_DECISION_REQUIRED',
-      reason: 'ATTACHMENT_EVENT_GAP_EXCEEDS_LIMIT',
-      candidates,
-    }, tolerances);
+    return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'ATTACHMENT_EVENT_GAP_EXCEEDS_LIMIT', candidates }, tolerances);
   }
 
   const zeroLength = resolveSourceAdjacentZeroLengthEntry(eligible, indexes, tolerances);
   if (zeroLength) return resolution({ ...zeroLength, candidates }, tolerances);
 
   const exact = eligible.filter((candidate) => candidate.gapMm <= exactToleranceMm);
+  const exactAdjacent = exact.filter((candidate) => candidate.sourceAdjacent);
+  if (exactAdjacent.length === 1) {
+    return resolution({
+      status: exactAdjacent[0].referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT',
+      selected: exactAdjacent[0], candidates, resolutionBasis: 'GEOMETRY_ROUTE_ORDER',
+    }, tolerances);
+  }
+  if (exactAdjacent.length > 1) {
+    return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_GEOMETRY_ADJACENT_CANDIDATES', candidates }, tolerances);
+  }
   if (exact.length === 1) return resolution({ status: exact[0].referenceMatch ? 'CONFIRMED_REFERENCE' : 'CONFIRMED_EXACT', selected: exact[0], candidates }, tolerances);
   if (exact.length > 1) return resolution({ status: 'USER_DECISION_REQUIRED', reason: 'MULTIPLE_EXACT_CANDIDATES', candidates }, tolerances);
 
@@ -276,6 +268,10 @@ export function resolveNextConnection(session, evidenceModel, indexes, options =
     && candidate.directionCompatible
     && (candidate.sourceAdjacent || candidate.referenceMatch)
   ));
+  const adjacentRepairable = repairable.filter((candidate) => candidate.sourceAdjacent);
+  if (adjacentRepairable.length === 1) {
+    return resolution({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: adjacentRepairable[0], candidates, resolutionBasis: 'GEOMETRY_ROUTE_ORDER' }, tolerances);
+  }
   if (repairable.length === 1 && eligible.filter((candidate) => candidate.gapMm <= autoRepairToleranceMm).length === 1) {
     return resolution({ status: 'AUTO_REPAIRED_SMALL_GAP', selected: repairable[0], candidates }, tolerances);
   }
