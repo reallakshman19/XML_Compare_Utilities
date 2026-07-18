@@ -1,0 +1,39 @@
+name: Engineering SVG Overlay Core
+
+on:
+  pull_request:
+    paths:
+      - 'core/engineering-scene/**'
+      - 'core/engineering-svg/**'
+      - 'tests/engineering-svg-overlay-*.test.js'
+      - '.github/workflows/engineering-svg-overlay-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  draft-overlay-and-inspector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run merged engineering SVG foundations
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-source-export.test.js
+          node tests/engineering-svg-workspace.test.js
+          node tests/engineering-svg-edit-command-gateway.test.js
+          node tests/engineering-svg-edit-properties.test.js
+          node tests/engineering-svg-edit-coordinator.test.js
+      - name: Run overlay and inspector models
+        run: |
+          node tests/engineering-svg-overlay-scene.test.js
+          node tests/engineering-svg-overlay-zero-centroid.test.js
+          node tests/engineering-svg-overlay-inspector.test.js
+          node tests/engineering-svg-overlay-dependency-guard.test.js

@@ -60,10 +60,14 @@ export function createEngineeringSvgDraftStore() {
     stageGeometry(entityId, value = {}) {
       assertOperation();
       const id = requiredText(entityId, 'Draft geometry entityId');
+      if (value.entity?.id != null && String(value.entity.id) !== id) {
+        throw new TypeError('Draft geometry entity descriptor ID must match entityId.');
+      }
       state.geometry[id] = cloneJsonValue({
         original: value.original ?? null,
         draft: value.draft ?? null,
         constraint: value.constraint ?? null,
+        entity: value.entity ?? null,
       });
       return publish('stage-geometry');
     },
