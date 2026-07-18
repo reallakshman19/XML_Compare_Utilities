@@ -7,7 +7,7 @@ async function upload(page, slot, name) {
   await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
 }
 async function installViewer(page, fail = false) {
-  await page.addInitScript(({ shouldFail }) => {
+  await page.evaluate(({ shouldFail }) => {
     window.rcViewerLog = { selections: [], modes: [], fitAll: 0, fitSelected: 0, disposed: 0, models: null, callbacks: null };
     window.rcObservedCompareStages = [];
     const observer = new MutationObserver(() => {
@@ -35,8 +35,8 @@ async function installViewer(page, fail = false) {
   }, { shouldFail: fail });
 }
 async function openLoadApprove(page, options = {}) {
-  await installViewer(page, options.viewerFailure ?? false);
   await page.goto('/tests/browser/revision-compare-rc001.html');
+  await installViewer(page, options.viewerFailure ?? false);
   await page.getByRole('button', { name: 'Open Revision Compare' }).click();
   await upload(page, 'baseline', 'rc002-rev-a.json');
   await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
