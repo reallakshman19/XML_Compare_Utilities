@@ -95,6 +95,7 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await page.getByRole('button', { name: 'Defer' }).click();
   await expect.poll(() => page.evaluate((id) => window.rcHandle.evidence().state.decision.ledger.decisions.find((item) => item.differenceId === id).decisionState, secondId)).toBe('DEFERRED');
 
+  await page.locator('[data-revc-unresolved-ambiguity]').uncheck();
   await page.locator(`[data-revc-difference-id="${firstId}"]`).click();
   await page.locator('[data-revc-decision-rationale]').fill('revoke to release the target');
   await page.getByRole('button', { name: 'Revoke decision' }).click();
