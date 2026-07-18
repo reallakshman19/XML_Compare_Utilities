@@ -70,13 +70,19 @@ function providerCounts(candidates) {
     .map((providerId) => [providerId, candidates.filter((candidate) => candidate.providerId === providerId).length]));
 }
 
-export function rankEngineeringSvgSnapCandidates(candidates = [], options = {}) {
-  if (!Array.isArray(candidates)) throw new TypeError('Snap candidates must be an array.');
+function assertCandidates(candidates) {
   candidates.forEach((candidate, index) => {
     if (candidate?.schema !== ENGINEERING_SNAP_CANDIDATE_SCHEMA) {
       throw new TypeError(`candidates[${index}] must use EngineeringSnapCandidate.v1.`);
     }
   });
+  const ids = candidates.map((candidate) => candidate.id);
+  if (new Set(ids).size !== ids.length) throw new TypeError('Snap candidate IDs must be globally unique.');
+}
+
+export function rankEngineeringSvgSnapCandidates(candidates = [], options = {}) {
+  if (!Array.isArray(candidates)) throw new TypeError('Snap candidates must be an array.');
+  assertCandidates(candidates);
   const aperture = finiteNonNegative(options.aperture, 'Snap aperture');
   if (!aperture) throw new TypeError('Snap aperture must be positive.');
   const screenTolerance = finiteNonNegative(options.screenTolerance ?? 0, 'Screen tolerance');
