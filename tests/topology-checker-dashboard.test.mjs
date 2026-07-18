@@ -8,6 +8,7 @@ import {
   filterCheckerIssueRows,
 } from '../tabs/topology-trace-validator/topology-checker-model.js';
 import { topologyCheckerIconUrl } from '../tabs/topology-trace-validator/topology-checker-icons.js';
+import { workspaceMarkup } from '../tabs/topology-trace-validator/topology-workspace-markup.js';
 import * as core from '../vendor/3d-converters/topology-browser-core.mjs';
 
 const node = (id, x, y) => ({ id, position: { x, y, z: 0 }, sourcePortIds: [`P-${id}`], positionAuthority: 'SOURCE', inputXmlNodeIds: [id] });
@@ -51,6 +52,17 @@ assert(!markup.includes('⌁'));
 assert(existsSync(new URL('../vendor/lucide/icons/scan-search.svg', import.meta.url)));
 assert(existsSync(new URL('../vendor/lucide/icons/settings.svg', import.meta.url)));
 assert(topologyCheckerIconUrl('scan-search').endsWith('/vendor/lucide/icons/scan-search.svg'));
+
+const workspace = workspaceMarkup();
+const tracePanel = workspace.slice(workspace.indexOf('data-ttv-workspace-panel="trace"'), workspace.indexOf('data-ttv-workspace-panel="edit"'));
+const editPanel = workspace.slice(workspace.indexOf('data-ttv-workspace-panel="edit"'), workspace.indexOf('data-ttv-workspace-panel="parity"'));
+assert(tracePanel.includes('data-ttv-edit-export'), 'Bundle + Log is promoted to the Trace/main header');
+assert(tracePanel.includes('data-ttv-edit-export-staged'), 'staged JSON export is promoted to the Trace/main header');
+assert(!editPanel.includes('data-ttv-edit-export disabled'), 'Edit Draft no longer duplicates the Bundle + Log button');
+assert(!editPanel.includes('data-ttv-edit-export-staged'), 'Edit Draft no longer duplicates the staged JSON button');
+assert(tracePanel.includes('<details class="ttv-manual-overrides">'), 'legacy loaders use a disclosure');
+assert(tracePanel.includes('Load Canonical Topology') && tracePanel.includes('Load Trace Ledger') && tracePanel.includes('Load Topology InputXML'));
+assert(workspace.includes('data-ttv-autofix-toast') && workspace.includes('data-ttv-autofix-toast-export="bundle"'));
 
 const manifest = JSON.parse(readFileSync(new URL('../vendor/3d-converters/topology-browser-core.manifest.json', import.meta.url), 'utf8'));
 assert.equal(manifest.sourceCommit, 'd0ac3b77659ccdf4517843f32ea911bbdcb0a37e');

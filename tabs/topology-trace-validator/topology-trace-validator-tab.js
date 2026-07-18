@@ -125,9 +125,12 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
       const scoped = await workspaceController.prepareEditForSuggestions(request.suggestions, shell);
       if (!scoped.length) return null;
       const scopedIds = new Set(scoped.map((row) => row.issueId));
-      return editController.applyTopologyAutoFixes({ ...request,
+      const run = await editController.applyTopologyAutoFixes({ ...request,
         issueIds: request.issueIds.filter((id) => scopedIds.has(id)),
         outOfScopeIssueIds: request.issueIds.filter((id) => !scopedIds.has(id)) });
+      editExtensions?.refreshLedger();
+      await editController.refreshExportPlan();
+      return run;
     },
     modeEvidence: () => workspaceController.modelMode(shell),
     onReviewChange: () => editController.refreshExportPlan(),
@@ -162,6 +165,8 @@ function collectCheckerElements(root) {
     spacer: query('[data-ttv-checker-spacer]'), rows: query('[data-ttv-checker-rows]'),
     detail: query('[data-ttv-checker-detail]'), settings: query('[data-ttv-checker-settings-panel]'),
     autoFix: query('[data-ttv-checker-auto-fix]'), autoCount: query('[data-ttv-checker-auto-count]'),
+    toast: query('[data-ttv-autofix-toast]'), toastTitle: query('[data-ttv-autofix-toast-title]'),
+    toastDetail: query('[data-ttv-autofix-toast-detail]'),
   };
 }
 

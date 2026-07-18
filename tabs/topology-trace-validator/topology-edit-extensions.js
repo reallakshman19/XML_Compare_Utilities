@@ -160,6 +160,7 @@ export function createTopologyEditExtensions(root, controller) {
 
   return Object.freeze({
     onRender() { refreshLedger(); if (ghostsEnabled) refreshGhosts(); },
+    refreshLedger,
     onGhostPick(objectId) {
       const id = ghostSuggestionId(objectId);
       if (!id) return;

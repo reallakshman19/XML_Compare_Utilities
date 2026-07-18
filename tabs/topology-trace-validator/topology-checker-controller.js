@@ -170,9 +170,23 @@ export function createTopologyCheckerController(elements, dependencies) {
         issueIds: eligible.map((row) => row.id), report, policy, policyHash: topologyCheckerPolicyHash(policy), checkOptions: topologyCheckerOptions(canonical, policy),
         onProgress: ({ completed, total }) => announce(`Auto fix: validated ${completed} of ${total} candidate(s)...`) });
       if (!run) { announce('Auto fix cancelled before an edit scope was selected.'); return; }
-      storedRuns = saveTopologyAutoFixRun(storage, historyBasis, storedRuns, run); dependencies.onReviewChange?.(); await refresh();
+      storedRuns = saveTopologyAutoFixRun(storage, historyBasis, storedRuns, run); await refresh(); await dependencies.onReviewChange?.();
       announce(`Auto fix complete: ${run.applied.length} applied, ${run.related.length} related, ${run.rejected.length} left Open.`);
+      showAutoFixToast(run);
     } finally { autoBusy = false; updateSummary(); }
+  }
+  function showAutoFixToast(run) {
+    const fixed = asArray(run.applied).length + asArray(run.related).length;
+    const operations = Number.isFinite(Number(run.operationCount)) ? Number(run.operationCount) : asArray(run.applied).length;
+    elements.toastTitle.textContent = `Auto fixed ${fixed}`;
+    elements.toastDetail.textContent = `${operations} ID-wise change(s) recorded in Edit Draft · ${asArray(run.rejected).length} left Open.`;
+    elements.toast.hidden = false;
+  }
+  function forwardToastExport(kind) {
+    const selector = kind === 'bundle' ? '[data-ttv-edit-export]' : '[data-ttv-edit-export-staged]';
+    const action = elements.workspace.querySelector(selector);
+    if (!action || action.disabled) { announce('Export bytes are still being prepared. Please retry when the header action is enabled.'); return; }
+    action.click();
   }
   function renderSettings() { elements.settings.innerHTML = topologyCheckerSettingsMarkup(policy, report, suggestions); elements.settings.hidden = false; }
   function closeSettings() { elements.settings.hidden = true; elements.settings.innerHTML = ''; }
@@ -194,6 +208,8 @@ export function createTopologyCheckerController(elements, dependencies) {
   }
   async function handleClick(event) {
     const target = event.target.closest?.('button'); if (!target) return;
+    if (target.matches('[data-ttv-autofix-toast-close]')) { elements.toast.hidden = true; return; }
+    if (target.dataset.ttvAutofixToastExport) { forwardToastExport(target.dataset.ttvAutofixToastExport); return; }
     if (target === elements.launcher) { await open(); return; }
     if (target.matches('[data-ttv-checker-close]')) { close(); return; }
     if (target.matches('[data-ttv-checker-collapse]')) { layout.toggleCollapsed(); return; }
