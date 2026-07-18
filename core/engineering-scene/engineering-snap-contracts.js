@@ -14,6 +14,7 @@ export const ENGINEERING_SNAP_GENERIC_MODE = Object.freeze({
 });
 
 const GENERIC_MODES = new Set(Object.values(ENGINEERING_SNAP_GENERIC_MODE));
+const CONSTRAINT_KINDS = new Set(['axis', 'plane', 'path', 'normal']);
 const NAMESPACED_MODE = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)*$/;
 
 function requiredText(value, label) {
@@ -39,13 +40,35 @@ function mode(value) {
   return result;
 }
 
-function axes(value = {}) {
-  return Object.freeze({ x: value.x === true, y: value.y === true, z: value.z === true });
+function axes(value = {}, requireLock = false) {
+  const result = Object.freeze({ x: value.x === true, y: value.y === true, z: value.z === true });
+  if (requireLock && !result.x && !result.y && !result.z) {
+    throw new TypeError('Snap candidate must lock at least one world axis.');
+  }
+  return result;
 }
 
-function stringList(values, label) {
+function uniqueStringList(values, label) {
   if (!Array.isArray(values)) throw new TypeError(`${label} must be an array.`);
-  return Object.freeze(values.map((value, index) => requiredText(value, `${label}[${index}]`)));
+  const result = values.map((value, index) => requiredText(value, `${label}[${index}]`));
+  if (new Set(result).size !== result.length) throw new TypeError(`${label} must contain unique values.`);
+  return Object.freeze(result);
+}
+
+function constraintKinds(values) {
+  const result = uniqueStringList(values || [], 'compatibleConstraintKinds');
+  result.forEach((kind) => {
+    if (!CONSTRAINT_KINDS.has(kind)) throw new TypeError(`Unsupported compatible constraint kind "${kind}".`);
+  });
+  return result;
+}
+
+function providerErrors(values = []) {
+  if (!Array.isArray(values)) throw new TypeError('providerErrors must be an array.');
+  return values.map((value, index) => Object.freeze({
+    providerId: requiredText(value?.providerId, `providerErrors[${index}].providerId`),
+    message: requiredText(value?.message, `providerErrors[${index}].message`),
+  }));
 }
 
 export function createEngineeringSnapCandidate(input = {}) {
@@ -60,14 +83,14 @@ export function createEngineeringSnapCandidate(input = {}) {
     id: requiredText(input.id, 'Snap candidate id'),
     providerId: requiredText(input.providerId, 'Snap provider id'),
     mode: mode(input.mode),
-    sourceEntityIds: stringList(input.sourceEntityIds || [], 'sourceEntityIds'),
+    sourceEntityIds: uniqueStringList(input.sourceEntityIds || [], 'sourceEntityIds'),
     worldPoint: createEngineeringPoint3D(input.worldPoint),
     screenPoint: finitePoint2D(input.screenPoint, 'Snap screenPoint'),
     screenDistance,
     priority,
-    lockedAxes: axes(input.lockedAxes),
-    compatibleConstraintKinds: stringList(input.compatibleConstraintKinds || [], 'compatibleConstraintKinds'),
-    compatibleReferenceIds: stringList(input.compatibleReferenceIds || [], 'compatibleReferenceIds'),
+    lockedAxes: axes(input.lockedAxes, true),
+    compatibleConstraintKinds: constraintKinds(input.compatibleConstraintKinds),
+    compatibleReferenceIds: uniqueStringList(input.compatibleReferenceIds || [], 'compatibleReferenceIds'),
     label: String(input.label || input.mode || ''),
     metadata: input.metadata ?? {},
   });
@@ -79,16 +102,23 @@ export function createEngineeringSnapEvidence(input = {}) {
     if (!Number.isInteger(result) || result < 0) throw new TypeError(`${label} must be a non-negative integer.`);
     return result;
   };
+  const considered = count(input.considered, 'considered');
+  const compatible = count(input.compatible, 'compatible');
+  const inAperture = count(input.inAperture, 'inAperture');
+  const deduplicated = count(input.deduplicated, 'deduplicated');
+  if (compatible > considered || inAperture > compatible || deduplicated > inAperture) {
+    throw new TypeError('Snap evidence counts are inconsistent.');
+  }
   return freezeJsonValue({
     schema: ENGINEERING_SNAP_EVIDENCE_SCHEMA,
-    considered: count(input.considered, 'considered'),
-    compatible: count(input.compatible, 'compatible'),
-    inAperture: count(input.inAperture, 'inAperture'),
-    deduplicated: count(input.deduplicated, 'deduplicated'),
+    considered,
+    compatible,
+    inAperture,
+    deduplicated,
     winnerId: input.winnerId == null ? null : String(input.winnerId),
-    orderedIds: stringList(input.orderedIds || [], 'orderedIds'),
+    orderedIds: uniqueStringList(input.orderedIds || [], 'orderedIds'),
     providerCounts: input.providerCounts ?? {},
-    providerErrors: input.providerErrors ?? [],
+    providerErrors: providerErrors(input.providerErrors),
   });
 }
 
