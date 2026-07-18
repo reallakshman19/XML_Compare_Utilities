@@ -1,4 +1,4 @@
-name: Revision Compare RC-003
+name: Revision Compare RC-004
 on:
   pull_request:
     paths:
