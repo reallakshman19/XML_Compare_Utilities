@@ -55,13 +55,19 @@ function summary(rows) {
     inferred: rows.filter((row) => row.matchCertainty === 'INFERRED').length,
   });
 }
+function exactRecordErrors(records, rowIds, label) {
+  const expected = new Set(records.map((record) => record.recordId)); const actual = new Set(rowIds); const errors = [];
+  for (const id of actual) if (!expected.has(id)) errors.push(`${label} row references unknown record ${id}.`);
+  for (const id of expected) if (!actual.has(id)) errors.push(`${label} record ${id} is not accounted for.`);
+  return errors;
+}
 function validateAccounting(aRecords, bRecords, rows) {
   const sourceIds = rows.map((row) => row.sourceRecordId).filter(Boolean);
   const targetIds = rows.map((row) => row.targetRecordId).filter(Boolean); const errors = [];
   if (new Set(sourceIds).size !== sourceIds.length) errors.push('A source record appears in more than one final row.');
   if (new Set(targetIds).size !== targetIds.length) errors.push('A target record appears in more than one final row.');
-  if (sourceIds.length !== aRecords.length) errors.push('Not every Rev A record is accounted for exactly once.');
-  if (targetIds.length !== bRecords.length) errors.push('Not every Rev B record is accepted/accounted for exactly once.');
+  errors.push(...exactRecordErrors(aRecords, sourceIds, 'Rev A'));
+  errors.push(...exactRecordErrors(bRecords, targetIds, 'Rev B'));
   return errors;
 }
 function validateReferences(rows, candidateEvidence, visualModels) {
