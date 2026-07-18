@@ -123,6 +123,7 @@ test('cancelled compare publishes no partial audit', async ({ page }) => {
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await page.getByRole('button', { name: 'Open Revision Compare' }).click();
   await upload(page, 'baseline', 'rc002-rev-a.json');
+  await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
   await upload(page, 'candidate', 'rc002-rev-b.json');
   await expect(page.getByRole('heading', { name: 'Confirm branch scope' })).toBeVisible();
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
