@@ -2,6 +2,7 @@
 
 await import('./revision-compare-contracts.test.mjs');
 await import('./revision-compare-load-service.test.mjs');
+await import('./revision-compare-owner-fixes.test.mjs');
 await import('./revision-compare-static.test.mjs');
 
 console.log('revision-compare-foundation.test.mjs passed');

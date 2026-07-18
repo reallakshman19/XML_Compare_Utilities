@@ -14,6 +14,20 @@ function labelFor(slotId) { return slotId === 'baseline' ? 'Rev A' : 'Rev B'; }
 function preflight(context, state) { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
 function commit(context, state) { context.writeState(state); context.render(state); return state; }
 
+export function createRevisionActionAuthority() {
+  let revision = 0;
+  return Object.freeze({
+    invalidate: () => { revision += 1; return revision; },
+    capture: () => revision,
+    isCurrent: (token) => token === revision,
+  });
+}
+
+function commitAuthoritative(context, state) {
+  context.authority.invalidate();
+  return commit(context, state);
+}
+
 async function proposalFor(context, state, decisions) {
   if (!state.slots.baseline.document || !state.slots.candidate.document) return null;
   return createRevisionScopeProposal(state.slots.baseline, state.slots.candidate, decisions, context.cryptoRef);
@@ -26,34 +40,46 @@ function report(context, error) {
   context.options?.showToast?.(message, 'error');
 }
 
+async function refreshProposal(context, decisions) {
+  const token = context.authority.capture();
+  const proposal = await proposalFor(context, context.readState(), decisions);
+  if (!context.authority.isCurrent(token)) return false;
+  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions));
+  return true;
+}
+
 async function loadRevision(context, slotId, file) {
   const generation = context.service.begin(slotId);
-  commit(context, startWorkspaceLoad(context.readState(), slotId, generation, file.name, file.size, context.now()));
+  commitAuthoritative(context, startWorkspaceLoad(context.readState(), slotId, generation, file.name, file.size, context.now()));
   try {
     const result = await context.service.loadFile(slotId, file, context.now(), generation);
-    let next = finishWorkspaceLoad(context.readState(), slotId, result, context.now());
-    const proposal = await proposalFor(context, next, {});
-    if (proposal) next = setWorkspaceProposal(next, proposal, {});
-    commit(context, next);
+    const loaded = finishWorkspaceLoad(context.readState(), slotId, result, context.now());
+    if (loaded === context.readState()) return;
+    commitAuthoritative(context, loaded);
+    await refreshProposal(context, {});
     context.options?.showToast?.(`${labelFor(slotId)} loaded.`, 'success');
   } catch (error) {
     if (error instanceof RevisionRequestSupersededError) return;
-    commit(context, failWorkspaceLoad(context.readState(), slotId, generation, error));
+    const failed = failWorkspaceLoad(context.readState(), slotId, generation, error);
+    if (failed !== context.readState()) commitAuthoritative(context, failed);
     report(context, error);
   }
 }
 
 async function cancelRevision(context, slotId) {
+  const token = context.authority.invalidate();
   try {
     const generation = await context.service.cancel(slotId);
-    commit(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
+    if (!context.authority.isCurrent(token)) return;
+    commitAuthoritative(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
   } catch (error) { report(context, error); }
 }
 
 async function refineScope(context, decisions) {
-  const state = context.readState();
-  const proposal = await proposalFor(context, state, decisions);
-  commit(context, setWorkspaceProposal(state, proposal, decisions));
+  const token = context.authority.invalidate();
+  const proposal = await proposalFor(context, context.readState(), decisions);
+  if (!context.authority.isCurrent(token)) return;
+  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions));
 }
 
 async function setBranch(context, branchId, included) {
@@ -75,21 +101,27 @@ function scopeDraft(proposal, side) {
 }
 
 async function approveBasis(context) {
+  const token = context.authority.invalidate();
   const state = context.readState();
   const current = preflight(context, state);
   if (current.status !== 'READY') throw new Error(current.blockers[0] || 'Comparison basis is blocked.');
   const proposal = state.proposal;
-  const results = {
-    baseline: await context.service.applyScope('baseline', { selectedIds: proposal.includedBranchIdsA }, context.now()),
-    candidate: await context.service.applyScope('candidate', { selectedIds: proposal.includedBranchIdsB }, context.now()),
-  };
-  let next = finishWorkspaceScope(state, results, { baseline: scopeDraft(proposal, 'A'), candidate: scopeDraft(proposal, 'B') }, context.now());
+  const [baseline, candidate] = await Promise.all([
+    context.service.applyScope('baseline', { selectedIds: proposal.includedBranchIdsA }, context.now()),
+    context.service.applyScope('candidate', { selectedIds: proposal.includedBranchIdsB }, context.now()),
+  ]);
+  if (!context.authority.isCurrent(token)) return;
+  const scoped = finishWorkspaceScope(context.readState(), { baseline, candidate }, {
+    baseline: scopeDraft(proposal, 'A'), candidate: scopeDraft(proposal, 'B'),
+  }, context.now());
+  commitAuthoritative(context, scoped);
+  const basisToken = context.authority.capture();
   const basis = await createRevisionComparisonBasis({
-    sessionId: next.session.sessionId, revA: next.slots.baseline, revB: next.slots.candidate,
-    proposal, preflight: preflight(context, next),
+    sessionId: scoped.session.sessionId, revA: scoped.slots.baseline, revB: scoped.slots.candidate,
+    proposal, preflight: preflight(context, scoped),
   }, context.cryptoRef);
-  next = setWorkspaceBasis(next, basis);
-  commit(context, next);
+  if (!context.authority.isCurrent(basisToken)) return;
+  commitAuthoritative(context, setWorkspaceBasis(context.readState(), basis));
   context.options?.showToast?.('Comparison basis approved.', 'success');
 }
 
@@ -109,16 +141,17 @@ function downloadScope(context) {
 
 /** Create user actions for the mounted RC-001 workspace. */
 export function createRevisionActions(context) {
+  const guarded = { ...context, authority: createRevisionActionAuthority() };
   return Object.freeze({
-    load: (slotId, file) => loadRevision(context, slotId, file),
-    cancel: (slotId) => cancelRevision(context, slotId),
-    setBranchIncluded: safe(context, (id, included) => setBranch(context, id, included)),
-    setGroupIncluded: safe(context, (group, included) => setGroup(context, group, included)),
-    setSearch: (group, value) => commit(context, setWorkspaceSearch(context.readState(), group, value)),
-    approveBasis: safe(context, () => approveBasis(context)),
-    downloadSession: safe(context, () => downloadSession(context)),
-    downloadScope: safe(context, () => downloadScope(context)),
-    close: () => context.options?.close?.(),
-    setMessage: (message) => commit(context, setWorkspaceMessage(context.readState(), message)),
+    load: (slotId, file) => loadRevision(guarded, slotId, file),
+    cancel: (slotId) => cancelRevision(guarded, slotId),
+    setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)),
+    setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
+    setSearch: (group, value) => commit(guarded, setWorkspaceSearch(guarded.readState(), group, value)),
+    approveBasis: safe(guarded, () => approveBasis(guarded)),
+    downloadSession: safe(guarded, () => downloadSession(guarded)),
+    downloadScope: safe(guarded, () => downloadScope(guarded)),
+    close: () => guarded.options?.close?.(),
+    setMessage: (message) => commit(guarded, setWorkspaceMessage(guarded.readState(), message)),
   });
 }

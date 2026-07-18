@@ -1,0 +1,46 @@
+name: Revision Compare RC-001
+on:
+  pull_request:
+    paths:
+      - 'tabs/revision-compare/**'
+      - 'tests/revision-compare-*'
+      - 'tests/browser/revision-compare-*'
+      - 'tests/fixtures/revision-compare/**'
+      - 'playwright.revision-compare.config.mjs'
+      - '.github/workflows/revision-compare.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact checked-out SHA
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:revision-compare
+      - run: node --check tabs/revision-compare/*.js
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Record certification SHA
+        if: always()
+        run: mkdir -p artifacts && printf '%s\n' "$EXPECTED_SHA" > artifacts/revision-compare-checked-sha.txt
+      - name: Upload browser certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-browser-evidence
+          path: |
+            artifacts/revision-compare-checked-sha.txt
+            artifacts/revision-compare-results.json
+            test-results/revision-compare
+          if-no-files-found: warn
