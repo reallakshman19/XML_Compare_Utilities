@@ -64,6 +64,7 @@ test('guided review preserves comparison meaning and resumes exact review eviden
   const note = '<support>& "clarify"';
   await page.locator('[data-revc-review-note]').fill(note);
   await page.getByRole('button', { name: 'Save note' }).click();
+  await page.locator('[data-level="2"] summary').click();
   await page.getByRole('button', { name: 'Mark reviewed' }).click();
   await expect(page.locator('.revc-inspector-facts')).toContainText('Reviewed');
   await page.locator('[data-level="3"] summary').click();
