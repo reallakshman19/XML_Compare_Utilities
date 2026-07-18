@@ -14,6 +14,13 @@ import { buildSupportSteelRelationshipBundle } from './support-steel-evidence-bu
 // The 3D-edit "scalable projects" migration reuses these exact exporters via
 // supportSteelProjectArtifacts in the project adapter (extended FORMATS).
 import { buildSupportSteelProjectMigration } from './support-steel-project-adapter.js?v=20260717-ssrb-preview-export-fix-1';
+import {
+  markSupportSteelPreviewFresh,
+  SUPPORT_STEEL_STALE_PREVIEW_MESSAGE,
+  supportSteelBuildInputSnapshot,
+  supportSteelPreviewExportReady,
+  syncSupportSteelPreviewFreshness,
+} from './support-steel-preview-state.js?v=20260717-ssrb-preview-stale-1';
 import { supportSteelSampleText } from './support-steel-relationship-samples.js';
 import {
   renderSupportSteelDialog,
@@ -65,7 +72,7 @@ export function openSupportSteelRelationshipBuilder(ctx = {}) {
 }
 
 function wireDialog(modal, ctx) {
-  const state = { bundle: null, platformMigration: null, selectedRelationshipId: '', exportView: 'json', search: '' };
+  const state = { bundle: null, platformMigration: null, selectedRelationshipId: '', exportView: 'json', search: '', buildInputSnapshot: '', previewStale: false };
   const get = (selector) => modal.querySelector(selector);
   const close = () => { modal.remove(); globalThis.document?.removeEventListener('keydown', onKey); };
   const onKey = (event) => {
@@ -77,35 +84,35 @@ function wireDialog(modal, ctx) {
   get('[data-ssrb-fullscreen]')?.addEventListener('click', () => setFullscreen(modal, !modal.classList.contains('ssrb-fullscreen')));
   modal.addEventListener('click', (event) => handleModalClick(event, modal, state, ctx));
   modal.addEventListener('input', (event) => handleModalInput(event, modal, state));
-  wireFileInputs(modal);
+  wireFileInputs(modal, state);
   globalThis.document?.addEventListener('keydown', onKey);
   renderState(modal, state);
 }
 
 function handleModalClick(event, modal, state, ctx) {
-  if (event.target === modal && !modal.classList.contains('ssrb-fullscreen')) {
-    modal.remove();
-    return;
-  }
+  if (event.target === modal && !modal.classList.contains('ssrb-fullscreen')) { modal.remove(); return; }
   const tab = event.target.closest('[data-ssrb-tab]')?.dataset.ssrbTab;
   if (tab) showPanel(modal, tab);
-  if (event.target.closest('[data-ssrb-load-sample]')) loadSample(modal, ctx);
+  if (event.target.closest('[data-ssrb-load-sample]')) loadSample(modal, state, ctx);
   if (event.target.closest('[data-ssrb-build]')) void runBuilder(modal, state, ctx);
   const selected = event.target.closest('[data-ssrb-select]')?.dataset.ssrbSelect;
   if (selected) selectRelationship(modal, state, selected);
   const exportView = event.target.closest('[data-ssrb-export-view]')?.dataset.ssrbExportView;
   if (exportView) selectExportView(modal, state, exportView);
-  if (event.target.closest('[data-ssrb-copy]')) void copyPreview(modal, ctx);
+  if (event.target.closest('[data-ssrb-copy]')) void copyPreview(modal, state, ctx);
   if (event.target.closest('[data-ssrb-download]')) downloadPreview(modal, state, ctx);
 }
 
 function handleModalInput(event, modal, state) {
-  if (!event.target.matches('[data-ssrb-search]')) return;
-  state.search = event.target.value;
-  getHost(modal, 'table').innerHTML = renderSupportSteelRelationshipTable(state.bundle, state.search);
+  if (event.target.matches('[data-ssrb-search]')) {
+    state.search = event.target.value;
+    getHost(modal, 'table').innerHTML = renderSupportSteelRelationshipTable(state.bundle, state.search);
+    return;
+  }
+  if (event.target.matches('[data-ssrb-input="model"], [data-ssrb-rule]')) syncPreviewFreshness(modal, state);
 }
 
-function wireFileInputs(modal) {
+function wireFileInputs(modal, state) {
   modal.querySelectorAll('[data-ssrb-file]').forEach((input) => input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -114,31 +121,32 @@ function wireFileInputs(modal) {
     const status = modal.querySelector(`[data-ssrb-file-status="${key}"]`);
     textarea.value = await file.text();
     status.textContent = `${file.name} · ${file.size} bytes`;
+    syncPreviewFreshness(modal, state);
   }));
 }
 
-function loadSample(modal, ctx) {
+function loadSample(modal, state, ctx) {
   modal.querySelector('[data-ssrb-input="model"]').value = supportSteelSampleText();
   modal.querySelector('[data-ssrb-file-status="model"]').textContent = 'Combined PS-14259 piping, support and structural demo loaded';
+  syncPreviewFreshness(modal, state);
   ctx.showToast?.('Combined staged model demo loaded.', 'success');
 }
 
 async function runBuilder(modal, state, ctx) {
   try {
     const combinedSourceText = modal.querySelector('[data-ssrb-input="model"]').value;
+    const rules = readRules(modal);
+    const buildInputSnapshot = supportSteelBuildInputSnapshot(combinedSourceText, rules);
     const combinedInput = parseSupportSteelJson(combinedSourceText, 'Combined staged model source');
-    state.bundle = buildSupportSteelRelationshipBundle({
-      combinedInput,
-      config: readRules(modal),
+    const bundle = buildSupportSteelRelationshipBundle({ combinedInput, config: rules });
+    const platformMigration = await buildSupportSteelProjectMigration({
+      bundle, combinedSourceText, sourceName: 'support-steel-sources.json',
+      createdAt: new Date().toISOString(), cryptoRef: globalThis.crypto,
     });
-    state.platformMigration = await buildSupportSteelProjectMigration({
-      bundle: state.bundle,
-      combinedSourceText,
-      sourceName: 'support-steel-sources.json',
-      createdAt: new Date().toISOString(),
-      cryptoRef: globalThis.crypto,
-    });
-    state.selectedRelationshipId = state.bundle.relationships[0]?.relationshipId || '';
+    state.bundle = bundle;
+    state.platformMigration = platformMigration;
+    state.selectedRelationshipId = bundle.relationships[0]?.relationshipId || '';
+    markSupportSteelPreviewFresh(state, buildInputSnapshot);
     renderState(modal, state);
     showPanel(modal, 'chain');
     ctx.showToast?.('XML-free carrier-to-structure path audit built from one combined model.', 'success');
@@ -153,24 +161,27 @@ function readRules(modal) {
   const node = (key) => modal.querySelector(`[data-ssrb-rule="${key}"]`);
   const read = (key) => node(key)?.value || '';
   return {
-    supportFamilyPattern: read('supportFamilyPattern'),
-    steelGroupPattern: read('steelGroupPattern'),
-    supportTypes: read('supportTypes'),
-    steelTypes: read('steelTypes'),
-    projectionToleranceMm: Number(read('projectionToleranceMm')),
-    ambiguityDeltaMm: Number(read('ambiguityDeltaMm')),
-    memberContactToleranceMm: Number(read('memberContactToleranceMm')),
-    memberCandidateToleranceMm: Number(read('memberCandidateToleranceMm')),
-    carrierContactToleranceMm: Number(read('carrierContactToleranceMm')),
-    carrierCandidateToleranceMm: Number(read('carrierCandidateToleranceMm')),
-    carrierTopologyExactToleranceMm: Number(read('carrierTopologyExactToleranceMm')),
-    carrierTopologySmallGapToleranceMm: Number(read('carrierTopologySmallGapToleranceMm')),
+    supportFamilyPattern: read('supportFamilyPattern'), steelGroupPattern: read('steelGroupPattern'),
+    supportTypes: read('supportTypes'), steelTypes: read('steelTypes'),
+    projectionToleranceMm: Number(read('projectionToleranceMm')), ambiguityDeltaMm: Number(read('ambiguityDeltaMm')),
+    memberContactToleranceMm: Number(read('memberContactToleranceMm')), memberCandidateToleranceMm: Number(read('memberCandidateToleranceMm')),
+    carrierContactToleranceMm: Number(read('carrierContactToleranceMm')), carrierCandidateToleranceMm: Number(read('carrierCandidateToleranceMm')),
+    carrierTopologyExactToleranceMm: Number(read('carrierTopologyExactToleranceMm')), carrierTopologySmallGapToleranceMm: Number(read('carrierTopologySmallGapToleranceMm')),
     requireAnalyticalGeometryForSpatialResolution: Boolean(node('requireAnalyticalGeometryForSpatialResolution')?.checked),
     emitNearbyMemberCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
     emitNearbyCandidates: Boolean(node('emitNearbyMemberCandidates')?.checked),
   };
 }
 
+function currentInputSnapshot(modal) {
+  return supportSteelBuildInputSnapshot(modal.querySelector('[data-ssrb-input="model"]').value, readRules(modal));
+}
+function syncPreviewFreshness(modal, state) {
+  if (!syncSupportSteelPreviewFreshness(state, currentInputSnapshot(modal))) return;
+  renderRunState(modal, state);
+  renderExportPreview(modal, state);
+  updateExportActions(modal, state);
+}
 function renderState(modal, state) {
   getHost(modal, 'summary').innerHTML = state.bundle ? renderSupportSteelSummary(state.bundle) : initialSummaryHtml();
   getHost(modal, 'tree').innerHTML = renderSupportSteelTree(state.bundle);
@@ -178,14 +189,17 @@ function renderState(modal, state) {
   getHost(modal, 'chain').innerHTML = renderSupportMemberChain(state.bundle);
   getHost(modal, 'evidence').innerHTML = renderSupportSteelEvidence(state.bundle, state.selectedRelationshipId);
   getHost(modal, 'diagnostics').innerHTML = renderSupportSteelDiagnostics(state.bundle);
-  renderRunState(modal, state.bundle);
+  renderRunState(modal, state);
   renderExportPreview(modal, state);
+  updateExportActions(modal, state);
 }
 
-function renderRunState(modal, bundle) {
+function renderRunState(modal, state) {
   const host = modal.querySelector('[data-ssrb-run-state]');
-  if (!bundle) return;
-  host.innerHTML = `<b>Bundle ready</b><span>${bundle.summary.completeCarrierToStructurePathCount || 0} complete paths · ${bundle.summary.completeCarrierToStructureFamilyCount || 0} complete families · ${bundle.summary.incompleteCarrierToStructureFamilyCount || 0} incomplete families · ${bundle.summary.carrierToStructurePathExceptionCount || 0} path exceptions</span>`;
+  if (!state.bundle) return;
+  if (state.previewStale) { host.innerHTML = `<b>Inputs changed</b><span>${SUPPORT_STEEL_STALE_PREVIEW_MESSAGE}</span>`; return; }
+  const summary = state.bundle.summary;
+  host.innerHTML = `<b>Bundle ready</b><span>${summary.completeCarrierToStructurePathCount || 0} complete paths · ${summary.completeCarrierToStructureFamilyCount || 0} complete families · ${summary.incompleteCarrierToStructureFamilyCount || 0} incomplete families · ${summary.carrierToStructurePathExceptionCount || 0} path exceptions</span>`;
 }
 
 function selectRelationship(modal, state, relationshipId) {
@@ -201,16 +215,24 @@ function selectExportView(modal, state, key) {
 function renderExportPreview(modal, state) {
   const host = modal.querySelector('[data-ssrb-export-preview]');
   if (!state.bundle) { host.textContent = 'Build relationships to preview exports.'; return; }
-  host.textContent = exportText(state.bundle, state.exportView);
+  host.textContent = state.previewStale ? SUPPORT_STEEL_STALE_PREVIEW_MESSAGE : exportText(state.bundle, state.exportView);
 }
-async function copyPreview(modal, ctx) {
+function updateExportActions(modal, state) {
+  const disabled = !supportSteelPreviewExportReady(state);
+  modal.querySelectorAll('[data-ssrb-copy], [data-ssrb-download]').forEach((button) => {
+    button.disabled = disabled;
+    button.setAttribute('aria-disabled', String(disabled));
+  });
+}
+async function copyPreview(modal, state, ctx) {
+  if (!supportSteelPreviewExportReady(state)) { ctx.showToast?.(SUPPORT_STEEL_STALE_PREVIEW_MESSAGE, 'warning'); return; }
   try {
     await globalThis.navigator?.clipboard?.writeText(modal.querySelector('[data-ssrb-export-preview]')?.textContent || '');
     ctx.showToast?.('Evidence export preview copied.', 'success');
   } catch (error) { ctx.showToast?.(`Copy failed: ${error.message || error}`, 'error'); }
 }
 function downloadPreview(modal, state, ctx) {
-  if (!state.bundle) return;
+  if (!supportSteelPreviewExportReady(state)) { ctx.showToast?.(SUPPORT_STEEL_STALE_PREVIEW_MESSAGE, 'warning'); return; }
   const format = EXPORT_FORMATS[state.exportView];
   const blob = new Blob([exportText(state.bundle, state.exportView)], { type: `${format.mime};charset=utf-8` });
   const url = URL.createObjectURL(blob);
@@ -262,4 +284,4 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
-export const _test = Object.freeze({ readRules, exportText, showPanel, setFullscreen });
+export const _test = Object.freeze({ readRules, currentInputSnapshot, exportText, showPanel, setFullscreen });
