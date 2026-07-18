@@ -30,6 +30,7 @@ const domainCandidate = createEngineeringSnapCandidate({
   screenPoint: { x: 5, y: 0 },
   screenDistance: 1,
   priority: 20,
+  lockedAxes: { x: true, y: true, z: true },
   compatibleConstraintKinds: ['path'],
   compatibleReferenceIds: ['route-1'],
 });
@@ -59,21 +60,32 @@ assert.deepEqual(JSON.parse(JSON.stringify(acquisition)), acquisition);
 assert.throws(() => createEngineeringSnapCandidate({
   id: 'bad', providerId: 'p', mode: 'station',
   worldPoint: { x: 0, y: 0, z: 0 }, screenPoint: { x: 0, y: 0 },
-  screenDistance: 1, priority: 0,
+  screenDistance: 1, priority: 0, lockedAxes: { x: true },
 }), /generic or namespaced/);
 assert.throws(() => createEngineeringSnapCandidate({
   id: 'bad', providerId: 'p', mode: 'endpoint',
   worldPoint: { x: NaN, y: 0, z: 0 }, screenPoint: { x: 0, y: 0 },
-  screenDistance: 1, priority: 0,
+  screenDistance: 1, priority: 0, lockedAxes: { x: true },
 }), /finite/);
 assert.throws(() => createEngineeringSnapCandidate({
   id: 'bad', providerId: 'p', mode: 'endpoint',
   worldPoint: { x: 0, y: 0, z: 0 }, screenPoint: { x: 0, y: 0 },
-  screenDistance: -1, priority: 0,
+  screenDistance: -1, priority: 0, lockedAxes: { x: true },
 }), /non-negative/);
+assert.throws(() => createEngineeringSnapCandidate({
+  id: 'bad', providerId: 'p', mode: 'endpoint',
+  worldPoint: { x: 0, y: 0, z: 0 }, screenPoint: { x: 0, y: 0 },
+  screenDistance: 1, priority: 0,
+}), /lock at least one world axis/);
+assert.throws(() => createEngineeringSnapCandidate({
+  id: 'bad', providerId: 'p', mode: 'endpoint', sourceEntityIds: ['a', 'a'],
+  worldPoint: { x: 0, y: 0, z: 0 }, screenPoint: { x: 0, y: 0 },
+  screenDistance: 1, priority: 0, lockedAxes: { x: true },
+}), /unique values/);
 assert.throws(() => createEngineeringSnapAcquisition({
   rawScreenPoint: { x: 0, y: 0 }, rawWorldPoint: { x: 0, y: 0, z: 0 }, aperture: 0,
 }), /positive/);
 assert.throws(() => createEngineeringSnapEvidence({ considered: -1 }), /non-negative integer/);
+assert.throws(() => createEngineeringSnapEvidence({ considered: 1, compatible: 2 }), /inconsistent/);
 
 console.log('engineering SVG snap contracts: ok');
