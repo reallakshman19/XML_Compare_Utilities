@@ -17,7 +17,7 @@ function primaryReason(row) {
   return row.evidenceSummary?.primary || 'Comparison evidence is unavailable.';
 }
 function combinedFilters(state) {
-  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search || state.compare.queue.search,
+  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search,
     needsDecisionOnly: state.compare.queue.needsDecisionOnly, changedReasons: state.compare.queue.changedReasons };
 }
 export function reviewPriorityProjection(state) {
