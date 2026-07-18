@@ -21,56 +21,87 @@ export const ENGINEERING_PROPERTY_AGGREGATE_STATE = Object.freeze({
   NOT_APPLICABLE: 'not-applicable',
 });
 
-function assertPropertyValue(type, value, key) {
+function requiredText(value, label) {
+  const result = String(value ?? '').trim();
+  if (!result) throw new TypeError(`${label} is required.`);
+  return result;
+}
+
+function optionalFinite(value, label) {
+  if (value == null) return null;
+  if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${label} must be a finite number.`);
+  return value;
+}
+
+function enumOptions(input, key) {
+  if (input.type !== 'enum') return null;
+  if (!Array.isArray(input.options) || input.options.length === 0) {
+    throw new TypeError(`Property "${key}" is enum but declares no options.`);
+  }
+  const options = input.options.map((value, index) => requiredText(value, `Property "${key}" options[${index}]`));
+  if (new Set(options).size !== options.length) throw new TypeError(`Property "${key}" enum options must be unique.`);
+  return options;
+}
+
+function assertPropertyValue(type, value, input) {
   if (value == null) return;
-  if (type === 'number' && (!Number.isFinite(value) || typeof value !== 'number')) {
-    throw new TypeError(`Property "${key}" requires a finite numeric value.`);
+  if (type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) {
+    throw new TypeError(`Property "${input.key}" requires a finite numeric value.`);
   }
-  if (type === 'boolean' && typeof value !== 'boolean') {
-    throw new TypeError(`Property "${key}" requires a boolean value.`);
-  }
-  if (['text', 'enum'].includes(type) && typeof value !== 'string') {
-    throw new TypeError(`Property "${key}" requires a string value.`);
-  }
+  if (type === 'boolean' && typeof value !== 'boolean') throw new TypeError(`Property "${input.key}" requires a boolean value.`);
+  if (['text', 'enum'].includes(type) && typeof value !== 'string') throw new TypeError(`Property "${input.key}" requires a string value.`);
+  if (type === 'enum' && !input.options.includes(value)) throw new TypeError(`Property "${input.key}" value must be one of its options.`);
+  if (type === 'number' && input.min != null && value < input.min) throw new RangeError(`Property "${input.key}" is below its minimum.`);
+  if (type === 'number' && input.max != null && value > input.max) throw new RangeError(`Property "${input.key}" is above its maximum.`);
 }
 
 export function createEngineeringPropertyField(input = {}) {
-  const { key, label = key, type = 'text', scope = 'ENTITY', value = null } = input;
-  if (!String(key || '').trim()) throw new TypeError('Property key is required.');
+  const key = requiredText(input.key, 'Property key');
+  const label = requiredText(input.label ?? key, `Property "${key}" label`);
+  const type = input.type || 'text';
+  const scope = input.scope || 'ENTITY';
   if (!Object.values(ENGINEERING_PROPERTY_TYPE).includes(type)) throw new TypeError(`Property "${key}" has unsupported type "${type}".`);
   if (!Object.values(ENGINEERING_PROPERTY_SCOPE).includes(scope)) throw new TypeError(`Property "${key}" has unsupported scope "${scope}".`);
-  if (type === 'enum' && (!Array.isArray(input.options) || input.options.length === 0)) {
-    throw new TypeError(`Property "${key}" is enum but declares no options.`);
-  }
-  assertPropertyValue(type, value, key);
+  const options = enumOptions({ ...input, type }, key);
+  const min = optionalFinite(input.min, `Property "${key}" min`);
+  const max = optionalFinite(input.max, `Property "${key}" max`);
+  if (min != null && max != null && min > max) throw new RangeError(`Property "${key}" min cannot exceed max.`);
+  const value = input.value ?? null;
+  assertPropertyValue(type, value, { key, options, min, max });
+  const editable = scope === 'REFERENCE' ? false : input.editable !== false;
   return freezeJsonValue({
     schema: ENGINEERING_PROPERTY_FIELD_SCHEMA,
-    key: String(key),
-    label: String(label || key),
+    key,
+    label,
     type,
     scope,
     unit: input.unit == null ? null : String(input.unit),
     value,
-    options: input.options == null ? null : [...input.options],
-    min: input.min == null ? null : Number(input.min),
-    max: input.max == null ? null : Number(input.max),
-    editable: input.editable !== false,
+    options,
+    min,
+    max,
+    editable,
     source: input.source == null ? null : String(input.source),
   });
 }
 
 export function createEngineeringPropertyAggregate(input = {}) {
+  const key = requiredText(input.key, 'Property aggregate key');
   const state = input.state || 'uniform';
-  if (!String(input.key || '').trim()) throw new TypeError('Property aggregate key is required.');
   if (!Object.values(ENGINEERING_PROPERTY_AGGREGATE_STATE).includes(state)) {
     throw new TypeError(`Property aggregate has unsupported state "${state}".`);
   }
-  const value = state === 'uniform' ? input.value : null;
+  if (state === 'uniform' && !Object.prototype.hasOwnProperty.call(input, 'value')) {
+    throw new TypeError(`Uniform property aggregate "${key}" requires a value.`);
+  }
+  if (input.selectedCount != null && (!Number.isInteger(input.selectedCount) || input.selectedCount < 0)) {
+    throw new TypeError('Property aggregate selectedCount must be a non-negative integer.');
+  }
   return freezeJsonValue({
     schema: ENGINEERING_PROPERTY_AGGREGATE_SCHEMA,
-    key: String(input.key),
+    key,
     state,
-    value,
-    selectedCount: Number.isInteger(input.selectedCount) ? input.selectedCount : 0,
+    value: state === 'uniform' ? input.value : null,
+    selectedCount: input.selectedCount ?? 0,
   });
 }
