@@ -1,7 +1,9 @@
-/** User-facing RC-001 intake plus RC-002 bounded visual review projections. */
+/** User-facing RC-001 intake, RC-002 comparison, and RC-003 guided review. */
 import { revisionScopeMarkup } from './revision-scope-view.js';
 import { revisionCompareReviewMarkup } from './revision-compare-review-view.js';
 import { revisionVisualReadiness } from './revision-compare-readiness.js';
+import { REVISION_REVIEW_STYLES } from './revision-review-styles.js';
+import { reviewSessionControlsMarkup } from './revision-review-view.js';
 
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 function shortHash(value) { const text = String(value ?? ''); return text ? `${text.slice(0, 12)}…${text.slice(-8)}` : '—'; }
@@ -34,7 +36,8 @@ function comparisonControlMarkup(state) {
   return `<section class="revc-compare-control"><header><div><span>STAGE 3</span><h2>Bounded visual comparison</h2><p>Run deterministic exact and bounded inferred matching from the current approved basis.</p></div><strong data-status="${readiness.status.toLowerCase()}">${readiness.status}</strong></header>${messageList('Visual-readiness blockers', readiness.blockers, 'blocker')}${state.compare.error ? messageList('Comparison failure', [state.compare.error], 'blocker') : ''}<div class="revc-compare-actions"><button type="button" class="revc-primary" data-revc-run-compare ${readiness.status !== 'READY' ? 'disabled' : ''}>Run visual comparison</button>${state.compare.audit ? '<button type="button" data-revc-open-review>Open visual review</button>' : ''}</div></section>`;
 }
 function setupMarkup(state, preflight) {
-  return `<main class="revc-body"><section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header><div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision')}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision')}</div></section>${preflightMarkup(preflight)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
+  const preserved = state.review.session ? reviewSessionControlsMarkup(state, false) : '';
+  return `<main class="revc-body"><section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header><div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision')}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision')}</div></section>${preserved}${preflightMarkup(preflight)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
 }
 function footerMarkup(state, canDownload) {
   return `<footer><div><span>Session</span><b>${escapeHtml(state.session.sessionId)}</b></div><div><span>Scope</span><b>${state.proposal ? `${state.proposal.summary.includedBranchCountA} A / ${state.proposal.summary.includedBranchCountB} B` : 'Not proposed'}</b></div><div><span>Basis</span><b data-status="${escapeHtml(state.basisStatus.toLowerCase())}">${escapeHtml(state.basisStatus)}</b></div><div class="revc-actions">${canDownload ? '<button type="button" data-revc-download-session>Download session manifest</button>' : ''}<button type="button" data-revc-close>Close</button></div><p aria-live="polite" data-revc-live>${escapeHtml(state.message)}</p></footer>`;
@@ -42,6 +45,6 @@ function footerMarkup(state, canDownload) {
 export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence = {}) {
   const canDownload = state.slots.baseline.document || state.slots.candidate.document;
   const review = state.compare.reviewVisible && state.compare.audit && state.basisStatus === 'CURRENT';
-  return `<section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-002</span><h1 id="revc-title">${review ? 'Visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D context, prioritized change queue, and one authoritative inspector.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${review ? revisionCompareReviewMarkup(state, viewerEvidence) : setupMarkup(state, preflight)}${footerMarkup(state, canDownload)}</section>`;
+  return `<style>${REVISION_REVIEW_STYLES}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-003</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D context, deterministic review priority, progressive evidence, and exact review history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${review ? revisionCompareReviewMarkup(state, viewerEvidence) : setupMarkup(state, preflight)}${footerMarkup(state, canDownload)}</section>`;
 }
 export const _test = Object.freeze({ escapeHtml, shortHash, comparisonControlMarkup });
