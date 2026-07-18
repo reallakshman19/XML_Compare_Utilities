@@ -4,7 +4,7 @@ import { createVisualGeometryModelV2 } from '../../contracts/visual-geometry-mod
 import { wireTopologyEditGestures } from './topology-edit-3d-gestures.js?v=20260717-ttv-components-v1';
 import { COMPONENT_COLORS, buildBoreIndex, componentKindForEdge, visualGeometry } from './topology-edit-3d-geometry.js';
 import { createTopologyMeasurement, formatTopologyMeasurement } from './topology-edit-measurement.js?v=20260717-phase1-runtime';
-import { bindTopologyEditNavigation, topologyEditNavigationMarkup } from './topology-edit-navigation-controls.js';
+import { bindTopologyEditNavigation, topologyEditNavigationMarkup } from './topology-edit-navigation-controls.js?v=20260718-nav-icons-v1';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
 
 export { COMPONENT_COLORS, buildBoreIndex, visualGeometry } from './topology-edit-3d-geometry.js';
@@ -56,7 +56,7 @@ function teardownRuntime(state) {
 
 async function mountViewer(state, host, sequence) {
   const canvasHost = host.querySelector('.ttv-edit-3d-canvas');
-  const { createWorkbenchViewer } = await import('../../workbench3d/viewer/workbench-viewer.js?v=20260717-ttv-components-v1');
+  const { createWorkbenchViewer } = await import('../../workbench3d/viewer/workbench-viewer.js?v=20260718-edit-nav-icons-v1');
   const created = await createWorkbenchViewer(canvasHost, {
     navigationPreset: 'CAD_EDIT',
     onCameraChange: () => state.navigationBinding?.sync(),
@@ -69,6 +69,7 @@ async function mountViewer(state, host, sequence) {
   });
   state.navigationBinding = bindTopologyEditNavigation({
     host, viewer: state.viewer, onViewSelected: (view) => state.callbacks?.onViewSelected?.(view),
+    onSelect: () => state.callbacks?.setTool?.('SELECT'),
   });
   state.measurement.bind(state.viewer, host);
   return state.viewer;

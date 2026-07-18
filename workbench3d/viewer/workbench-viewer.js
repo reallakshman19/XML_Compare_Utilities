@@ -1418,6 +1418,13 @@ export async function createWorkbenchViewer(container, {
       raycaster.setFromCamera(pointer, camera);
       return { origin: raycaster.ray.origin.clone().add(sceneOrigin).toArray(), direction: raycaster.ray.direction.toArray() };
     },
+    /** Orbit the camera by finite azimuth and polar radians. */
+    orbitBy(theta, phi) {
+      const azimuth = Number(theta), polar = Number(phi);
+      if (!Number.isFinite(azimuth) || !Number.isFinite(polar)) throw new RangeError('Orbit angles must be finite radians.');
+      rememberNavigationState(captureNavigationState());
+      controls.orbitBy(azimuth, polar);
+    },
     /** Dolly by a factor (>1 zooms out). */
     zoomBy(factor) {
       const parsed = Number(factor);

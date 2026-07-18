@@ -76,7 +76,7 @@ async function loadPsnmUtilityRenderer() {
     import('../tabs/psnm-utility/psnm-phase4c-hardening.js?v=standalone-1'),
     import('../tabs/psnm-utility/psnm-phase4d-persistence.js?v=standalone-1'),
   ]);
-  return import('../tabs/psnm-utility-tab.js?v=standalone-20260718-headless-autofix-v2').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
+  return import('../tabs/psnm-utility-tab.js?v=standalone-20260718-edit-nav-icons-v3').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
 }
 
 function createAppShell(root) {
