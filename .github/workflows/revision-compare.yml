@@ -1,4 +1,4 @@
-name: Revision Compare RC-001
+name: Revision Compare RC-002
 on:
   pull_request:
     paths:
@@ -7,6 +7,7 @@ on:
       - 'tests/browser/revision-compare-*'
       - 'tests/fixtures/revision-compare/**'
       - 'playwright.revision-compare.config.mjs'
+      - 'package.json'
       - '.github/workflows/revision-compare.yml'
   workflow_dispatch:
 permissions:
