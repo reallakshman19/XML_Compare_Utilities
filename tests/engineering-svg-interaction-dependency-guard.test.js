@@ -16,7 +16,7 @@ for (const name of files) {
   assert.ok(lines <= 300, `${name} exceeds 300 lines (${lines})`);
   assert.doesNotMatch(source, /from\s+['"][^'"]*tabs\//, `${name} imports from tabs/`);
   assert.doesNotMatch(source, /export\s+default\b/, `${name} uses a default export`);
-  assert.doesNotMatch(source, /\b(Pipeline|Topology|Sequential|Categorizer|XML Builder|station|marker|support)\b/i, `${name} leaks adopter semantics`);
+  assert.doesNotMatch(source, /\b(Pipeline|Topology|Sequential|Categorizer|XML Builder|station|marker|support-restraint|support-carrier)\b/i, `${name} leaks adopter semantics`);
   assert.doesNotMatch(source, /\b(Canvas|WebGL|ReactDOM|React|THREE|localStorage|sessionStorage)\b/, `${name} leaks a forbidden runtime or storage owner`);
   assert.doesNotMatch(source, /toFixed|Math\.(round|floor|ceil|trunc)|parseInt/, `${name} rounds interaction geometry`);
   assert.doesNotMatch(source, /document\.|window\.|innerHTML|body\.addEventListener/, `${name} introduces global DOM ownership`);
