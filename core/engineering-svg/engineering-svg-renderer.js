@@ -92,10 +92,10 @@ export function createEngineeringSvgRenderer(host) {
       'data-engineering-svg-projection': projectedScene.projection,
     });
     const presentEntities = new Set();
-    const presentLayers = new Set();
+    const orderedLayers = [];
     projectedScene.entities.forEach((entity) => {
       presentEntities.add(entity.id);
-      presentLayers.add(entity.layer);
+      if (!orderedLayers.includes(entity.layer)) orderedLayers.push(entity.layer);
       const layer = ensureLayer(entity.layer);
       const group = entities.get(entity.id) || svgElement(documentRef, 'g');
       entities.set(entity.id, group);
@@ -109,11 +109,12 @@ export function createEngineeringSvgRenderer(host) {
       }
     });
     layers.forEach((layer, name) => {
-      if (!presentLayers.has(name)) {
+      if (!orderedLayers.includes(name)) {
         layer.remove();
         layers.delete(name);
-      } else root.appendChild(layer);
+      }
     });
+    orderedLayers.forEach((name) => root.appendChild(layers.get(name)));
     return root;
   }
 
