@@ -133,8 +133,28 @@ export function table3RouteDistance(absoluteH, profile, context) {
   return validateRouteDistance(distance, context.total, `Table 3 H ${absoluteH}`, context.warnings);
 }
 
+function warnGradeCoverage(rows, context) {
+  if (!rows.length) return;
+  const coverageStart = rows[0].distance;
+  const coverageEnd = rows.at(-1).distance;
+  if (coverageStart <= ROUTE_TOLERANCE && coverageEnd >= context.total - ROUTE_TOLERANCE) return;
+  addPipelineWarning(
+    context.warnings,
+    'grade_profile_extrapolated',
+    `Table 2 grade coverage ${formatProfileValue(coverageStart)}–${formatProfileValue(coverageEnd)} m does not span the Table 1 route 0–${formatProfileValue(context.total)} m. End elevations were held outside the surveyed range.`,
+    {
+      routeStart: 0,
+      routeEnd: context.total,
+      coverageStart,
+      coverageEnd,
+      heldStartElevation: rows[0].elevation,
+      heldEndElevation: rows.at(-1).elevation,
+    },
+  );
+}
+
 export function buildGradeProfile(profile, context) {
-  return profile.table2Rows
+  const rows = profile.table2Rows
     .filter((row) => Number.isFinite(row.stationValue) && Number.isFinite(row.elevationValue))
     .map((row) => ({
       distance: table2RouteDistance(row, context),
@@ -144,6 +164,8 @@ export function buildGradeProfile(profile, context) {
       sourceId: row.id,
     }))
     .sort((a, b) => a.distance - b.distance);
+  warnGradeCoverage(rows, context);
+  return rows;
 }
 
 export function interpolateGrade(rows, distance) {
