@@ -28,7 +28,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run test:revision-compare
+      - name: Run focused Revision Compare tests
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npm run test:revision-compare 2>&1 | tee artifacts/revision-compare-focused.log
       - run: node --check tabs/revision-compare/*.js
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config=playwright.revision-compare.config.mjs
@@ -42,6 +47,7 @@ jobs:
           name: revision-compare-browser-evidence
           path: |
             artifacts/revision-compare-checked-sha.txt
+            artifacts/revision-compare-focused.log
             artifacts/revision-compare-results.json
             test-results/revision-compare
           if-no-files-found: warn
