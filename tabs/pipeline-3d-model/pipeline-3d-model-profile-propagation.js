@@ -38,6 +38,7 @@ function diagnostics(context, profile, gradeRows, maxSegment) {
     stationSlope: context.stationAlignment.slope,
     stationResidual: context.stationAlignment.maxResidual,
     maxSegment,
+    warningCount: context.warnings.length,
     table2Rows: gradeRows.length,
     table3LengthRows: profile.table3LengthRows.length,
     table3DepthRows: profile.table3DepthRows.length,
@@ -56,6 +57,7 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     table3XText: buildTable3XText(profile),
     coordinateText: coordinateRowsToTabText(coordinateRows),
     xmlText: buildInputXmlPipingModelXml(input.branchInfo, coordinateRows),
+    warnings: Object.freeze([...context.warnings]),
     diagnostics: diagnostics(context, profile, gradeRows, maxSegment),
   });
 }
@@ -75,6 +77,6 @@ export function buildAuthoritativePipelineOutputs(input) {
     ...buildMarkerEvents(profile, context),
   ];
   const combined = materializeProfileEvents(events, context, gradeRows, rules);
-  const maxSegment = assertPlausibleProfileSegments(combined, context.total);
+  const maxSegment = assertPlausibleProfileSegments(combined, context.total, context.warnings);
   return outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment);
 }

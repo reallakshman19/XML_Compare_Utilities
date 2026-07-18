@@ -31,6 +31,10 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     const errors = await open(page);
     await expect(page.locator('[data-p3d-raw-text-group="table2"]')).not.toHaveAttribute('open', '');
     await expect(page.locator('[data-p3d-raw-text-group="table3"]')).not.toHaveAttribute('open', '');
+    const warningLog = page.locator('[data-p3d-warning-log]');
+    await expect(warningLog).not.toHaveAttribute('open', '');
+    expect(await warningLog.evaluate((element) => element.parentElement?.lastElementChild === element)).toBe(true);
+    await expect(warningLog).toContainText('Warning Log (0)');
     await loadSample(page);
     await expect(page.locator('[data-p3d-table-paste="table2"]')).toHaveValue(/13\+621\.6/);
     await expect(page.locator('[data-p3d-table-paste="table2"]')).toHaveValue(/Handle = 271f6/);
@@ -102,6 +106,33 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     await page.locator('[data-p3d="run"]').click();
     await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-001A');
     await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-001A');
+    expect(errors).toEqual([]);
+  });
+
+  test('P3D-WARN-B01 out-of-domain evidence warns without blocking downloads', async ({ page }) => {
+    const errors = await open(page);
+    await loadSample(page);
+    const raw = page.locator('[data-p3d-split="table3c-raw"]');
+    await raw.evaluate((element) => {
+      element.value += '\n2000.000\tPMS-OUTSIDE';
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    const warningLog = page.locator('[data-p3d-warning-log]');
+    await expect(warningLog).not.toHaveAttribute('open', '');
+    await expect(warningLog).toContainText('Warning Log (1)');
+    await warningLog.evaluate((element) => { element.open = true; });
+    await expect(warningLog).toContainText('table3_h_clamped');
+    await expect(warningLog).toContainText('was clamped for output');
+    await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-OUTSIDE');
+    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-OUTSIDE');
+
+    const coordinateDownload = page.waitForEvent('download');
+    await page.locator('[data-p3d="download-coordinate"]').click();
+    expect((await coordinateDownload).suggestedFilename()).toBe('pipeline-coordinate-tab.tsv');
+    const xmlDownload = page.waitForEvent('download');
+    await page.locator('[data-p3d="download-xml"]').click();
+    expect((await xmlDownload).suggestedFilename()).toBe('pipeline-3d-model.xml');
     expect(errors).toEqual([]);
   });
 });

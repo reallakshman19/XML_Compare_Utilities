@@ -55,6 +55,8 @@ assert.equal(output.diagnostics.table2Rows, 10);
 assert.equal(output.diagnostics.table3LengthRows, 4);
 assert.equal(output.diagnostics.table3DepthRows, 2);
 assert.equal(output.diagnostics.table3MarkerRows, 4);
+assert.equal(output.diagnostics.warningCount, 0);
+assert.deepEqual(output.warnings, []);
 assert.ok(Math.abs(output.diagnostics.stationSlope - 1) < 0.001);
 assert.ok(output.diagnostics.stationResidual < 0.05);
 assert.ok(output.diagnostics.routeStartStation > 12830 && output.diagnostics.routeStartStation < 12834);
@@ -97,6 +99,11 @@ assert.ok(Math.max(...deltas) < 600000, 'InputXML must not contain the prior ~12
 assert.doesNotMatch(output.coordinateText, /8573374\t-10498846/);
 
 const invalidRaw = { ...raw, table3c: `${raw.table3c}\n2000.000\tPMS-OUTSIDE` };
-assert.throws(() => build(invalidRaw), /outside/);
+const warningOutput = build(invalidRaw);
+assert.ok(warningOutput.warnings.some((warning) => warning.code === 'table3_h_clamped'));
+assert.equal(warningOutput.diagnostics.warningCount, 1);
+assert.match(warningOutput.coordinateText, /PMS-OUTSIDE/);
+assert.match(warningOutput.xmlText, /PMS-OUTSIDE/);
+assert.ok(!warningOutput.combined.some((point) => point.horizontal > warningOutput.diagnostics.routeLength + 0.001));
 
 console.log('Pipeline profile propagation tests passed.');

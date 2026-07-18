@@ -7,7 +7,7 @@ import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-pr
 import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
 import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260712-marker-triangles-1';
-import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260718-profile-propagation-1';
+import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260718-warning-log-1';
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
@@ -65,13 +65,8 @@ function mountRevisionCompare(container, ctx) {
 }
 
 export function renderPSNM_UtilityTab(container, ctx = {}) {
-  // 1. First, setup the layout dashboard grid. This returns the root where tiles should go.
   const deckRoot = installPsnmUtilityLayoutStabilizer(container, ctx);
-  
-  // 2. Install PSNM Matcher directly into the deck (it now appends its launcher tile).
   const destroyPSNM = renderPSNMCoreUtilityTab(deckRoot, ctx);
-  
-  // 3. Install all other utilities into the deck.
   const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(deckRoot, ctx);
   const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(deckRoot, ctx);
   const destroyPsMapping = installPsMappingUtilityTile(deckRoot, ctx);
@@ -103,8 +98,6 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
     if (typeof destroyAxisAutoAnchor === 'function') destroyAxisAutoAnchor();
     if (typeof destroyPSNM === 'function') destroyPSNM();
-    // The layout stabilizer doesn't currently return a destructor in the refactored version,
-    // but we can clear the container to clean up the dashboard.
     container.innerHTML = '';
   };
 }

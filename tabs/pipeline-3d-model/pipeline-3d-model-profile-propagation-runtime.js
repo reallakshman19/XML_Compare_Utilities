@@ -5,6 +5,12 @@ import {
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
+import {
+  addPipelineWarning,
+  ensurePipelineWarningLog,
+  renderPipelineWarningLog,
+  warningFromError,
+} from './pipeline-3d-model-warning-log.js?v=20260718-warning-log-1';
 
 const INSTANCES = new WeakMap();
 const CONFIG_KEYS = Object.freeze([
@@ -130,17 +136,20 @@ function renderKeyPlan(dialog, output) {
   if (canvas) paintKeyPlanCanvas(canvas, output.table1Points, output.sheets, ensureTooltip(dialog), markerPoints(output));
 }
 
-function showError(dialog, error) {
-  const element = find(dialog, '[data-p3d="error-message"]');
-  if (!element) return;
-  const message = error instanceof Error ? error.message : String(error || 'Profile propagation failed.');
-  element.innerHTML = `<div style="color:#fca5a5;padding:10px;font-family:monospace;font-size:12px;background:#2a1111;border:1px solid #7f1d1d;border-radius:4px;">Propagation error: ${escapeHtml(message)}</div>`;
-  element.style.display = 'block';
-}
-
-function clearError(dialog) {
+function clearLegacyError(dialog) {
   const element = find(dialog, '[data-p3d="error-message"]');
   if (element) element.style.display = 'none';
+}
+
+function setWarnings(dialog, instance, warnings = []) {
+  instance.warnings = [...warnings];
+  renderPipelineWarningLog(dialog, instance.warnings);
+}
+
+function logWarning(dialog, instance, code, error, details = null) {
+  const warning = warningFromError(error, code);
+  addPipelineWarning(instance.warnings, warning.code, warning.message, details);
+  renderPipelineWarningLog(dialog, instance.warnings);
 }
 
 function buildAndRender(dialog, instance) {
@@ -150,7 +159,8 @@ function buildAndRender(dialog, instance) {
   instance.output = output;
   renderProfileOutputs(dialog, output);
   renderKeyPlan(dialog, output);
-  clearError(dialog);
+  clearLegacyError(dialog);
+  setWarnings(dialog, instance, output.warnings || []);
   return { input, output };
 }
 
@@ -166,10 +176,10 @@ async function updateMigration(instance, input) {
 function run(dialog, instance) {
   try {
     const { input, output } = buildAndRender(dialog, instance);
-    updateMigration(instance, input).catch((error) => showError(dialog, error));
+    updateMigration(instance, input).catch((error) => logWarning(dialog, instance, 'migration_warning', error));
     return output;
   } catch (error) {
-    showError(dialog, error);
+    logWarning(dialog, instance, 'propagation_unavailable', error);
     return null;
   }
 }
@@ -188,7 +198,10 @@ function saveTextFile(filename, text, mime) {
 
 function download(dialog, instance, kind) {
   const output = instance.output || run(dialog, instance);
-  if (!output) return;
+  if (!output) {
+    logWarning(dialog, instance, 'download_unavailable', 'Output could not be built; no file was downloaded.');
+    return;
+  }
   if (kind === 'coordinate') {
     saveTextFile('pipeline-coordinate-tab.tsv', output.coordinateText, 'text/tab-separated-values');
     return;
@@ -196,8 +209,13 @@ function download(dialog, instance, kind) {
   const branchInfo = readBranchInfo(dialog);
   const blanks = CONFIG_KEYS.filter((key) => !branchInfo[key]);
   if (blanks.length) {
-    showError(dialog, new Error(`Cannot download XML. Missing Line / Branch fields: ${blanks.join(', ')}.`));
-    return;
+    logWarning(
+      dialog,
+      instance,
+      'missing_branch_fields',
+      `XML was downloaded with missing Line / Branch fields: ${blanks.join(', ')}.`,
+      { missingFields: blanks },
+    );
   }
   saveTextFile('pipeline-3d-model.xml', output.xmlText, 'application/xml');
 }
@@ -257,7 +275,9 @@ function onClick(dialog, instance, event) {
 export function installPipelineProfilePropagation(dialog) {
   if (!dialog || INSTANCES.has(dialog)) return INSTANCES.get(dialog)?.destroy || null;
   const controller = new AbortController();
-  const instance = { output: null, migration: null, refreshQueued: false };
+  const instance = { output: null, migration: null, refreshQueued: false, warnings: [] };
+  ensurePipelineWarningLog(dialog);
+  renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
   instance.destroy = () => {
@@ -268,4 +288,4 @@ export function installPipelineProfilePropagation(dialog) {
   return instance.destroy;
 }
 
-export const _test = Object.freeze({ buildInput, hasAuthoritativeProfile, rawTextFromPreview, renderTsvGrid });
+export const _test = Object.freeze({ buildInput, hasAuthoritativeProfile, rawTextFromPreview, renderTsvGrid, setWarnings });
