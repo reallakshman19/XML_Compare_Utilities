@@ -89,7 +89,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
   test('P3D-PROP-B02 editable raw cells propagate bidirectionally and refresh SVG', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
-    await page.locator('[data-p3d-raw-text-group="table3"] > summary').click();
+    await page.locator('[data-p3d-raw-text-group="table3"]').evaluate((element) => { element.open = true; });
     const markerCell = page.locator('[data-p3d-split-preview="table3c-raw"] [data-p3d-split-cell="0:1"]');
     await markerCell.fill('PMS-001A');
     await expect(page.locator('[data-p3d-split="table3c-raw"]')).toHaveValue(/PMS-001A/);
