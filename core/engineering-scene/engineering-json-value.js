@@ -28,6 +28,12 @@ function assertObject(value, path, seen) {
   seen.delete(value);
 }
 
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(deepFreeze);
+  return Object.freeze(value);
+}
+
 export function assertJsonValue(value, path = '$', seen = new Set()) {
   if (value === null) return value;
   assertPrimitive(value, path);
@@ -41,8 +47,5 @@ export function cloneJsonValue(value) {
 }
 
 export function freezeJsonValue(value) {
-  assertJsonValue(value);
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  Object.values(value).forEach(freezeJsonValue);
-  return Object.freeze(value);
+  return deepFreeze(cloneJsonValue(value));
 }
