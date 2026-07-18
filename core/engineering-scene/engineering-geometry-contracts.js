@@ -11,6 +11,12 @@ export const ENGINEERING_GEOMETRY_KIND = Object.freeze({
   POLYLINE: 'polyline',
 });
 
+function requiredText(value, label) {
+  const result = String(value ?? '').trim();
+  if (!result) throw new TypeError(`${label} is required.`);
+  return result;
+}
+
 function finiteCoordinate(value, name) {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(`${name} must be a finite number.`);
@@ -28,17 +34,17 @@ export function createEngineeringPoint3D(input = {}) {
 }
 
 export function createEngineeringCoordinateSystem(input = {}) {
-  const verticalAxis = input.verticalAxis || 'Z';
-  const handedness = input.handedness || 'right';
-  if (!String(input.unit || 'mm').trim()) throw new TypeError('Coordinate-system unit is required.');
-  if (!String(input.frame || 'GLOBAL').trim()) throw new TypeError('Coordinate-system frame is required.');
+  const unit = requiredText(input.unit ?? 'mm', 'Coordinate-system unit');
+  const frame = requiredText(input.frame ?? 'GLOBAL', 'Coordinate-system frame');
+  const verticalAxis = input.verticalAxis ?? 'Z';
+  const handedness = input.handedness ?? 'right';
   if (!ENGINEERING_VERTICAL_AXIS.includes(verticalAxis)) throw new TypeError(`Unsupported vertical axis "${verticalAxis}".`);
   if (!ENGINEERING_HANDEDNESS.includes(handedness)) throw new TypeError(`Unsupported handedness "${handedness}".`);
   return freezeJsonValue({
     schema: ENGINEERING_COORDINATE_SYSTEM_SCHEMA,
-    unit: String(input.unit || 'mm'),
+    unit,
     verticalAxis,
-    frame: String(input.frame || 'GLOBAL'),
+    frame,
     handedness,
   });
 }
@@ -65,7 +71,7 @@ export function createPolylineGeometry(points = [], closed = false) {
   return freezeJsonValue({
     schema: ENGINEERING_GEOMETRY_SCHEMA,
     kind: ENGINEERING_GEOMETRY_KIND.POLYLINE,
-    points: points.map(createEngineeringPoint3D),
+    points: points.map((point) => createEngineeringPoint3D(point)),
     closed: closed === true,
   });
 }
