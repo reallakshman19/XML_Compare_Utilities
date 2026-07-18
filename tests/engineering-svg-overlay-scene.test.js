@@ -145,6 +145,10 @@ const collisionScene = createEngineeringScene({
   sceneId: 'collision', revision,
   entities: [entity('point-1', pointGeometry), entity(pointDraftId, unchangedGeometry)],
 });
-assert.throws(() => composeEngineeringSvgDraftScene(collisionScene, draft), /ID collision/);
+const collisionDraft = {
+  ...draft,
+  geometry: { 'point-1': draft.geometry['point-1'] },
+};
+assert.throws(() => composeEngineeringSvgDraftScene(collisionScene, collisionDraft), /ID collision/);
 
 console.log('engineering SVG overlay scene: ok');
