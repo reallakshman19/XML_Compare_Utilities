@@ -1,0 +1,36 @@
+name: Engineering SVG Edit Core
+
+on:
+  pull_request:
+    paths:
+      - 'core/engineering-scene/**'
+      - 'core/engineering-svg/**'
+      - 'tests/engineering-svg-edit-*.test.js'
+      - '.github/workflows/engineering-svg-edit-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unified-edit-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run merged scene and workspace foundations
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-source-export.test.js
+          node tests/engineering-svg-workspace.test.js
+      - name: Run unified edit runtime
+        run: |
+          node tests/engineering-svg-edit-command-gateway.test.js
+          node tests/engineering-svg-edit-properties.test.js
+          node tests/engineering-svg-edit-coordinator.test.js
+          node tests/engineering-svg-edit-dependency-guard.test.js
