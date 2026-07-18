@@ -1,9 +1,8 @@
 /**
- * evidence-scorer.js — configurable element-pair evidence scoring.
+ * evidence-scorer.js — configurable element-pair evidence scoring for CanonicalTopology.v1.
  *
- * Pure scoring: given one source object and one target object (plus their
- * path context), returns a score with a full reason/evidence breakdown.
- * No candidate selection happens here.
+ * Pure scoring: given one source edge and one target edge, returns a score with
+ * a full reason/evidence breakdown.
  */
 
 export const DEFAULT_COMPARE_CONFIG = Object.freeze({
@@ -13,12 +12,10 @@ export const DEFAULT_COMPARE_CONFIG = Object.freeze({
   ambiguityGap: 8,
   highConfidenceScore: 75,
   mediumConfidenceScore: 55,
-  useDiameterEvidence: true,
-  useNameEvidence: true,
-  useStationEvidence: true,
-  usePacketEvidence: true,
-  diameterRatioTolerance: 0.02,
   registrationResidualToleranceMm: 50,
+  useDiameterEvidence: true,
+  usePointFeatureEvidence: true,
+  diameterRatioTolerance: 0.02,
 });
 
 function ratioScore(a, b) {
@@ -27,15 +24,7 @@ function ratioScore(a, b) {
   return ratio;
 }
 
-function nameTokens(name) {
-  return String(name ?? '').toUpperCase().split(/[^A-Z0-9]+/).filter((t) => t.length >= 2);
-}
-
-/**
- * Score a source/target element pair. Weights sum to 100.
- * Returns { score, breakdown: [{evidence, weight, earned, detail}], reasons, conflicts }.
- */
-export function scoreElementPair(source, target, config = DEFAULT_COMPARE_CONFIG, context = {}) {
+export function scoreElementPair(sourceEdge, targetEdge, config = DEFAULT_COMPARE_CONFIG, context = {}) {
   const breakdown = [];
   const reasons = [];
   const conflicts = [];
@@ -50,59 +39,39 @@ export function scoreElementPair(source, target, config = DEFAULT_COMPARE_CONFIG
     if (fraction <= 0.25) conflicts.push(`${evidence}: ${detail}`);
   };
 
-  // Kind (pipe / rigid / bend)
-  add('kind', 10, source.kind === target.kind ? 1 : 0.2, `${source.kind} vs ${target.kind}`);
+  // Kind (segmentRole)
+  add('kind', 15, sourceEdge.segmentRole === targetEdge.segmentRole ? 1 : 0.2, `${sourceEdge.segmentRole} vs ${targetEdge.segmentRole}`);
 
   // Length ratio
-  const lengthRatio = ratioScore(source.lengthMm, target.lengthMm);
-  const lengthDelta = Math.abs(source.lengthMm - target.lengthMm);
-  add('length', 30,
-    lengthRatio === null ? null : (lengthDelta <= config.lengthToleranceMm ? 1 : Math.max(0, (lengthRatio - 0.5) * 2)),
-    `Δ=${lengthDelta.toFixed(1)}mm ratio=${lengthRatio === null ? 'n/a' : lengthRatio.toFixed(3)}`);
+  if (Number.isFinite(context.sourceLength) && Number.isFinite(context.targetLength)) {
+    const lengthRatio = ratioScore(context.sourceLength, context.targetLength);
+    const lengthDelta = Math.abs(context.sourceLength - context.targetLength);
+    add('length', 35,
+      lengthRatio === null ? null : (lengthDelta <= config.lengthToleranceMm ? 1 : Math.max(0, (lengthRatio - 0.5) * 2)),
+      `Δ=${lengthDelta.toFixed(1)}mm ratio=${lengthRatio === null ? 'n/a' : lengthRatio.toFixed(3)}`);
+  }
 
   // Diameter
   if (config.useDiameterEvidence) {
-    const diaRatio = ratioScore(source.diameterMm, target.diameterMm);
-    add('diameter', 20,
-      diaRatio === null ? null : (diaRatio >= 1 - config.diameterRatioTolerance ? 1 : Math.max(0, (diaRatio - 0.7) / 0.3)),
-      `src=${source.diameterMm ?? '?'} tgt=${target.diameterMm ?? '?'}`);
-  }
-
-  // Path station (relative position along path)
-  if (config.useStationEvidence && context.sourcePathLength > 0 && context.targetPathLength > 0) {
-    const srcRel = source.stationMm / context.sourcePathLength;
-    const tgtRel = target.stationMm / context.targetPathLength;
-    const stationDelta = Math.abs(srcRel - tgtRel);
-    add('station', 20, Math.max(0, 1 - stationDelta * 4), `relΔ=${stationDelta.toFixed(3)}`);
-  }
-
-  // Property packet signature
-  if (config.usePacketEvidence) {
-    const srcSig = source.packets.map((p) => p.kind).sort().join('+');
-    const tgtSig = target.packets.map((p) => p.kind).sort().join('+');
-    if (srcSig || tgtSig) {
-      add('packets', 12, srcSig === tgtSig ? 1 : (srcSig && tgtSig ? 0.4 : 0.2), `src=[${srcSig}] tgt=[${tgtSig}]`);
+    const sDia = Number(sourceEdge.diameterMm || 0);
+    const tDia = Number(targetEdge.diameterMm || 0);
+    if (sDia > 0 && tDia > 0) {
+      const diaRatio = ratioScore(sDia, tDia);
+      add('diameter', 25,
+        diaRatio === null ? null : (diaRatio >= 1 - config.diameterRatioTolerance ? 1 : Math.max(0, (diaRatio - 0.7) / 0.3)),
+        `src=${sDia} tgt=${tDia}`);
     }
   }
 
-  // Name / tag tokens
-  if (config.useNameEvidence) {
-    const srcTokens = nameTokens(source.name);
-    const tgtTokens = nameTokens(target.name);
-    if (srcTokens.length && tgtTokens.length) {
-      const common = srcTokens.filter((t) => tgtTokens.includes(t));
-      add('name', 8, common.length / Math.max(srcTokens.length, tgtTokens.length), `common=[${common.join(',')}]`);
+  // Point feature signature
+  if (config.usePointFeatureEvidence && context.sourcePointFeatures && context.targetPointFeatures) {
+    const srcSig = context.sourcePointFeatures.map((p) => p.kind || p.type).sort().join('+');
+    const tgtSig = context.targetPointFeatures.map((p) => p.kind || p.type).sort().join('+');
+    if (srcSig || tgtSig) {
+      add('features', 25, srcSig === tgtSig ? 1 : (srcSig && tgtSig ? 0.4 : 0.2), `src=[${srcSig}] tgt=[${tgtSig}]`);
     }
   }
 
   const score = weightTotal > 0 ? (earnedTotal / weightTotal) * 100 : 0;
   return { score: Number(score.toFixed(2)), breakdown, reasons, conflicts };
-}
-
-export function confidenceForScore(score, gap, config = DEFAULT_COMPARE_CONFIG) {
-  if (gap < config.ambiguityGap) return 'NONE'; // ambiguous — caller decides
-  if (score >= config.highConfidenceScore) return 'HIGH';
-  if (score >= config.mediumConfidenceScore) return 'MEDIUM';
-  if (score >= config.minCandidateScore) return 'LOW';
-  return 'NONE';
 }

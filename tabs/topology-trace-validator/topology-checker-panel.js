@@ -8,7 +8,7 @@ import { topologyCheckerIconMarkup, topologyCheckerIconUrl } from './topology-ch
 import { asArray, cleanText, escapeMarkup, objectRecord } from './topology-validator-values.js';
 
 const KPI_FIELDS = Object.freeze([
-  ['openCount', 'Open'], ['blockingCount', 'Blocking'], ['warningCount', 'Warning'],
+  ['openCount', 'Open'], ['acknowledgedCount', 'Known'], ['warningCount', 'Warning'],
   ['autoApprovedCount', 'Auto-approved'], ['needsConfirmationCount', 'Confirm'],
   ['resolvedCount', 'Resolved'], ['suppressedCount', 'Suppressed'],
 ]);
@@ -20,14 +20,18 @@ export function topologyCheckerPanelMarkup() {
       ${topologyCheckerIconMarkup('scan-search', '', 'ttv-checker-title-icon')}
       <div><strong>Topology Checker</strong><span data-ttv-checker-subtitle>No report</span></div>
       <div class="ttv-checker-window-actions">
+        <button type="button" data-ttv-font-zoom="in" title="Increase font size (F+)" style="color: #94a3b8; font-weight: bold; font-size: 13px;">F+</button>
+        <button type="button" data-ttv-font-zoom="out" title="Decrease font size (F-)" style="color: #94a3b8; font-weight: bold; font-size: 13px;">F−</button>
         <button type="button" data-ttv-checker-layout="right" title="Dock right">${topologyCheckerIconMarkup('panel-right', 'Dock right', '')}</button>
         <button type="button" data-ttv-checker-layout="bottom" title="Dock bottom">${topologyCheckerIconMarkup('panel-bottom', 'Dock bottom', '')}</button>
         <button type="button" data-ttv-checker-layout="float" title="Float panel">${topologyCheckerIconMarkup('maximize-2', 'Float panel', '')}</button>
         <button type="button" data-ttv-checker-layout="reset" title="Reset layout">${topologyCheckerIconMarkup('rotate-ccw', 'Reset layout', '')}</button>
+        <button type="button" data-ttv-checker-settings title="Topology Checker settings">${topologyCheckerIconMarkup('settings', 'Settings', '')}</button>
         <button type="button" data-ttv-checker-collapse title="Collapse">${topologyCheckerIconMarkup('chevron-up', 'Collapse', '')}</button>
         <button type="button" data-ttv-checker-close title="Close">${topologyCheckerIconMarkup('x', 'Close', '')}</button>
       </div>
     </header>
+    <section class="ttv-checker-settings" data-ttv-checker-settings-panel hidden></section>
     <div class="ttv-checker-body" data-ttv-checker-body>
       <section class="ttv-checker-kpis" data-ttv-checker-kpis></section>
       <section class="ttv-checker-filters" aria-label="Topology issue filters">
@@ -45,7 +49,7 @@ export function topologyCheckerPanelMarkup() {
       <section class="ttv-checker-detail" data-ttv-checker-detail><p>Select an issue to inspect evidence and a proposed operation.</p></section>
       <footer class="ttv-checker-actions">
         <button type="button" data-ttv-checker-refresh>${topologyCheckerIconMarkup('scan-search', '', '')} Run checks</button>
-        <button type="button" data-ttv-checker-apply-approved>${topologyCheckerIconMarkup('wand-sparkles', '', '')} Apply approved fixes</button>
+        <button type="button" class="is-primary" data-ttv-checker-auto-fix>${topologyCheckerIconMarkup('wand-sparkles', '', '')} Auto fix <b data-ttv-checker-auto-count>0</b></button>
         <button type="button" data-ttv-checker-apply-selected>${topologyCheckerIconMarkup('wand-sparkles', '', '')} Apply selected</button>
         <button type="button" data-ttv-checker-export>${topologyCheckerIconMarkup('check-check', '', '')} Export report</button>
       </footer>
@@ -67,7 +71,7 @@ export function checkerKpiMarkup(summary) {
 
 /** @param {Record<string,number>} counts @param {string} active @returns {string} */
 export function checkerBucketMarkup(counts, active) {
-  return Object.entries(counts).map(([category, count]) => `<button type="button" class="${category === active ? 'is-active' : ''}" data-ttv-checker-bucket="${escapeMarkup(category)}"><span class="ttv-checker-bucket-shape"></span>${escapeMarkup(category.replaceAll('_', ' '))}<b>${Number(count).toLocaleString()}</b></button>`).join('');
+  return Object.entries(counts).map(([category, count]) => `<div class="ttv-checker-bucket-group" style="display:contents"><button type="button" class="${category === active ? 'is-active' : ''}" data-ttv-checker-bucket="${escapeMarkup(category)}"><span class="ttv-checker-bucket-shape"></span>${escapeMarkup(category.replaceAll('_', ' '))}<b>${Number(count).toLocaleString()}</b></button><button type="button" data-ttv-checker-skip-bucket="${escapeMarkup(category)}" title="Skip this bucket; export remains allowed">Skip</button></div>`).join('');
 }
 
 /** @param {Element} select @param {string[]} values @param {string} selected @returns {void} */
@@ -81,24 +85,25 @@ export function renderCheckerFilterOptions(select, values, selected) {
 export function checkerIssueRowMarkup(issue) {
   const selected = issue.selected ? ' is-selected' : '';
   return `<div role="row" style="display:flex;align-items:center;padding-left:4px;">
-    <input type="checkbox" class="ttv-checker-bulk-select" data-ttv-checker-bulk-id="${escapeMarkup(issue.id)}" title="Select for bulk apply" style="margin-right:4px;">
+    <input type="checkbox" class="ttv-checker-bulk-select" data-ttv-checker-bulk-id="${escapeMarkup(issue.id)}" title="Select for bulk apply" style="margin-right:4px;" ${issue.status === 'RESOLVED' ? 'disabled' : ''}>
     <button type="button" class="ttv-checker-row${selected}" data-ttv-checker-issue="${escapeMarkup(issue.id)}" style="--ttv-issue-color:${escapeMarkup(issue.color)};flex:1;">
     <span class="ttv-checker-severity" data-severity="${escapeMarkup(issue.severity)}">${topologyCheckerIconMarkup(issue.icon, '', '')}<small>${escapeMarkup(issue.severity)}</small></span>
     <span><b>${escapeMarkup(issue.code.replaceAll('_', ' '))}</b><small>${escapeMarkup(issue.message)}</small></span>
     <span>${escapeMarkup(issue.measurement || '—')}</span><span title="${escapeMarkup(issue.branch)}">${escapeMarkup(issue.branch || '—')}</span>
-    <span>${escapeMarkup(issue.confidence)}</span><span data-fixability="${escapeMarkup(issue.fixability)}">${escapeMarkup(fixLabel(issue.fixability))}</span>
+    <span>${escapeMarkup(issue.confidence)}</span><span data-fixability="${escapeMarkup(issue.fixability)}" title="${escapeMarkup(issue.executionState || '')}">${escapeMarkup(fixLabel(issue.fixability, issue.executionState))}</span>
   </button></div>`;
 }
 
 /** @param {string} value @returns {string} */
-function fixLabel(value) {
+function fixLabel(value, executionState) {
+  if (value === 'AUTO_APPROVED' && executionState === 'UNAVAILABLE') return 'Auto unavailable';
   if (value === 'AUTO_APPROVED') return 'Auto';
   if (value === 'NEEDS_CONFIRMATION') return 'Confirm';
   return 'Manual';
 }
 
-/** @param {Record<string,unknown>|null} issue @param {Record<string,unknown>|null} suggestion @param {string} status @returns {string} */
-export function checkerDetailMarkup(issue, suggestion, status) {
+/** Render one candidate; large-model manual/confirmation cases remain documented but non-interactive. */
+export function checkerDetailMarkup(issue, suggestion, status, nonInteractive) {
   if (!issue) return '<p>Select an issue to inspect evidence and a proposed operation.</p>';
   const details = objectRecord(issue.details), preview = objectRecord(suggestion?.preview);
   const evidence = asArray(issue.evidence).length ? asArray(issue.evidence) : Object.entries(details).map(([name, value]) => ({ name, value }));
@@ -107,11 +112,14 @@ export function checkerDetailMarkup(issue, suggestion, status) {
     <dl><dt>Affected</dt><dd>${asArray(issue.objectIds).map((id) => `<code>${escapeMarkup(id)}</code>`).join(' ')}</dd>
     <dt>Evidence</dt><dd>${evidence.map((row) => `${escapeMarkup(cleanText(row.name ?? row.field ?? 'value'))}: <b>${escapeMarkup(formatEvidence(row.value ?? row))}</b>`).join('<br>') || 'No evidence supplied'}</dd>
     <dt>Proposed operation</dt><dd>${suggestion ? `<b>${escapeMarkup(suggestion.title)}</b><br>${escapeMarkup(suggestion.rationale)}<br><code>${escapeMarkup(JSON.stringify(preview))}</code>` : 'Manual engineering review required.'}</dd>
-    <dt>Engineering impact</dt><dd>${suggestion ? `${escapeMarkup(suggestion.risk)} risk · ${asArray(suggestion.preconditions).map((row) => escapeMarkup(row)).join(', ')}` : 'No deterministic fix operation.'}</dd></dl>
-    <div class="ttv-checker-detail-actions">
-      <button type="button" data-ttv-checker-status="OPEN">Reopen</button><button type="button" data-ttv-checker-status="RESOLVED">Mark resolved</button><button type="button" data-ttv-checker-status="SUPPRESSED">Suppress…</button>
-      ${suggestion?.operations?.length ? `<button type="button" class="is-primary" data-ttv-checker-apply="${escapeMarkup(suggestion.id)}">Preview & apply</button>` : ''}
-    </div>`;
+    <dt>Engineering impact</dt><dd>${suggestion ? `${escapeMarkup(suggestion.risk)} risk · ${asArray(suggestion.preconditions).map((row) => escapeMarkup(row)).join(', ')}` : 'No deterministic fix operation.'}</dd>
+    ${issue.autoFixFailure ? `<dt>Auto fix status</dt><dd><b>${escapeMarkup(issue.autoFixFailure.reasonCode)}</b> · ${escapeMarkup(issue.autoFixFailure.message)}</dd>` : ''}
+    ${issue.resolution ? `<dt>Resolution</dt><dd><b>${escapeMarkup(issue.resolution.outcome)}</b> · run ${escapeMarkup(issue.resolution.runId)} · transaction ${escapeMarkup(issue.resolution.transactionId)}</dd>` : ''}</dl>
+    ${nonInteractive && suggestion?.fixability !== 'AUTO_APPROVED' ? '<p><b>Large-model policy: recorded as a known issue; export remains allowed.</b></p>' : ''}
+    ${status === 'RESOLVED' ? '' : `<div class="ttv-checker-detail-actions">
+      <button type="button" data-ttv-checker-status="OPEN">Reopen</button><button type="button" data-ttv-checker-status="RESOLVED">Mark resolved</button><button type="button" data-ttv-checker-status="SUPPRESSED">Skip…</button>
+      ${suggestion?.operations?.length && (!nonInteractive || suggestion.fixability === 'AUTO_APPROVED') ? `<button type="button" class="is-primary" data-ttv-checker-apply="${escapeMarkup(suggestion.id)}">Preview & apply</button>` : ''}
+    </div>`}`;
 }
 
 /** @param {unknown} value @returns {string} */

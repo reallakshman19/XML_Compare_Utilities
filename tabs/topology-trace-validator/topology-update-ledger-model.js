@@ -35,20 +35,23 @@ function commandRows(command, sequenceStart, remarks, origin) {
   const record = objectRecord(command);
   const type = cleanText(record.type);
   if (type === 'TRANSACTION') {
-    const meta = objectRecord(record.payload);
-    const nestedOrigin = asArray(meta.suggestionIds).length ? `AUTOFIX:${asArray(meta.suggestionIds).map(cleanText).join(',')}` : origin;
-    return asArray(meta.operations).flatMap((operation, index) => commandRows(
+    const payload = objectRecord(record.payload), metadata = objectRecord(payload.metadata);
+    const nestedOrigin = asArray(metadata.suggestionIds).length ? `AUTOFIX:${asArray(metadata.suggestionIds).map(cleanText).join(',')}` : origin;
+    return asArray(payload.operations).flatMap((operation, index) => commandRows(
       { ...objectRecord(operation), id: `${cleanText(record.id)}.${index + 1}` }, sequenceStart + index, remarks, nestedOrigin,
     ));
   }
   const payload = objectRecord(record.payload);
   const id = cleanText(record.id) || `${type}-${sequenceStart}`;
+  // For MOVE_NODE, shortInlineStretchSuggestion embeds fromPosition so the
+  // Before column shows the original node coordinates for auditability.
+  const beforeValue = type === 'MOVE_NODE' && payload.fromPosition ? compact(payload.fromPosition) : '';
   return [{
     seq: sequenceStart,
     id,
     kind: type,
     target: commandTarget(payload),
-    before: '',
+    before: beforeValue,
     after: compact(payload.position ?? payload.toPosition ?? payload.fraction ?? payload.endpoint ?? payload.targetNodeId ?? payload.toNodeId ?? payload.kind ?? payload.radiusMm ?? ''),
     origin,
     remark: remarkValue(remarks, id),
@@ -56,6 +59,7 @@ function commandRows(command, sequenceStart, remarks, origin) {
     detail: payload,
   }];
 }
+
 
 /**
  * @param {{ draft: Record<string, unknown>|null, attributeLedger: Record<string, unknown>|null,

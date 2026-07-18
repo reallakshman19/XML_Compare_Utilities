@@ -231,7 +231,6 @@ export function validateTopologyArtifacts(input, toleranceMm) {
   const source = objectRecord(input.source), canonical = objectRecord(input.canonical), ledger = objectRecord(input.ledger);
   const inputXml = input.inputXml ? objectRecord(input.inputXml) : null;
   if (!asArray(source.branches).length) throw new TypeError('Independent validation requires a managed source inventory.');
-  if (!asArray(canonical.nodes).length && !asArray(canonical.edges).length) throw new TypeError('Independent validation requires canonical topology objects.');
   if (!asArray(ledger.records).length) throw new TypeError('Independent validation requires trace-ledger records.');
   if (!Number.isFinite(toleranceMm) || toleranceMm < 0) throw new RangeError('Geometry tolerance must be a non-negative finite number.');
   const findings = [];

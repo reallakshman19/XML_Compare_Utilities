@@ -329,7 +329,15 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (node) { const row = event.target.closest('[data-master-node-row]'); updateMasterNodeCell(row?.dataset.masterNodeRow, node.dataset.masterNodeField, node.value, node.checked); }
   }
   function onKeydown(event) { if (event.key === 'Escape') container.querySelector('[data-psnm="modal"]')?.remove(); }
-  container.innerHTML = `<section class="psnm-root"><h1 class="psnm-title">Utilities</h1><p class="psnm-sub">PSNM master-table workbench.</p><button class="psnm-launch-tile" data-psnm-action="open" type="button"><div><div class="psnm-tile-icon">🔗</div><div><b>PSNM Matcher</b></div><div class="psnm-sub">Source -> Master -> Match</div></div></button></section>`;
+  
+  const utilitiesRoot = container.querySelector('[data-psnm-deck]') || container;
+  const tile = document.createElement('button');
+  tile.type = 'button';
+  tile.className = 'psmap-card psmap-tile';
+  tile.setAttribute('data-psnm-action', 'open');
+  tile.innerHTML = '<span class="psnm-tile-icon">🔗</span><b>PSNM Matcher</b><span>Source -> Master -> Match</span>';
+  utilitiesRoot.appendChild(tile);
+
   container.addEventListener('click', onClick); container.addEventListener('input', onInput); container.addEventListener('change', onInput); document.addEventListener('keydown', onKeydown);
-  return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); document.removeEventListener('keydown', onKeydown); };
+  return () => { container.removeEventListener('click', onClick); container.removeEventListener('input', onInput); container.removeEventListener('change', onInput); document.removeEventListener('keydown', onKeydown); tile.remove(); };
 }

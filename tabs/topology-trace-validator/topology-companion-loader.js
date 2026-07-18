@@ -53,16 +53,22 @@ export async function loadTopologyCompanionSet(sourceFileName, pageUrl, fetchImp
   const names = topologyCompanionFileNames(sourceFileName), attempts = [];
   for (const baseUrl of topologyCompanionBaseUrls(sourceFileName, pageUrl)) {
     try {
-      const canonical = await requiredText(new URL(names.canonical, baseUrl).href, fetchImpl);
-      const ledger = await requiredText(new URL(names.ledger, baseUrl).href, fetchImpl);
-      const optional = {};
-      for (const kind of ['inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
-      return Object.freeze({ baseUrl, names, canonical, ledger, ...optional });
+      const canonical = await optionalText(new URL(names.canonical, baseUrl).href, fetchImpl);
+      if (!canonical) continue; // If canonical is missing, assume no artifacts exist at this baseUrl to prevent 404 spam
+      
+      const optional = { canonical };
+      for (const kind of ['ledger', 'inputXml', 'scene', 'parsed', 'report', 'ciiProjection']) {
+        optional[kind] = await optionalText(new URL(names[kind], baseUrl).href, fetchImpl);
+      }
+      return Object.freeze({ baseUrl, names, ...optional });
     } catch (error) {
       attempts.push(`${baseUrl} (${error?.message || String(error)})`);
     }
   }
-  throw new TopologyCompanionLoadError(sourceFileName, attempts);
+  
+  const empty = {};
+  for (const kind of COMPANION_KINDS) empty[kind] = null;
+  return Object.freeze({ baseUrl: '', names, ...empty });
 }
 
 export async function loadTopologySourceFile(controller, file, pageUrl, fetchImpl) {

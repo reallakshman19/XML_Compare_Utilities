@@ -31,12 +31,21 @@ const core = Object.freeze({ topologyArtifactOutputs: () => Object.freeze([
   Object.freeze({ name: 'phase3.topology.input.xml', mime: 'application/xml', text: '<InputXML />\n' }),
 ]) });
 
+const checkerEvidence = Object.freeze({
+  report: Object.freeze({ schema: 'TopologyCheckReport.v1', topologyCheckReportHash: 'check:phase3', issues: Object.freeze([
+    Object.freeze({ id: 'ISSUE-1', code: 'SHORT_ELEMENT', category: 'GEOMETRY', severity: 'WARNING', fixability: 'NEEDS_CONFIRMATION', message: 'Review short element', objectIds: Object.freeze(['CE-1']) }),
+  ]) }),
+  suggestions: Object.freeze([]), reviewState: Object.freeze({ schema: 'TopologyReviewState.v1', topologyReviewStateHash: 'review:phase3', issueStates: Object.freeze({}) }),
+});
 const input = Object.freeze({ core, built, options: Object.freeze({ sourceName: 'phase3.json' }), context, draft,
-  commandJournal: journal, createdAt: NOW, cryptoRef: globalThis.crypto });
+  commandJournal: journal, createdAt: NOW, cryptoRef: globalThis.crypto, checkerEvidence,
+  modelMode: Object.freeze({ kind: 'SMALL_FULL', elementCount: 1, threshold: 200 }), editScope: null, attributeLedger: null, remarks: Object.freeze({}) });
 const snapshot = await prepareTopologyExportSnapshot(input);
 assert.equal(snapshot.plan.gate.status, 'READY');
 assert.equal(snapshot.plan.calculations.counts.nodes, 1);
-assert.equal(snapshot.plan.calculations.counts.artifacts, 2);
+assert.equal(snapshot.plan.calculations.counts.artifacts, 3);
+assert.equal(snapshot.plan.calculations.counts.userConfirmationPending, 1);
+assert.equal(snapshot.plan.files.at(-1).role, 'TOPOLOGY_EXPORT_LOG');
 assert.equal(snapshot.plan.files[0].contentHash, await sha256Text(outputText, globalThis.crypto));
 assert.deepEqual(snapshot.plan.hierarchy.editState.activeCommandIds, []);
 
@@ -61,7 +70,7 @@ const updatedJournal = appendJournalCommand(journal, { commandType: 'ATTRIBUTE_E
   basis: { documentHash: 'canonical:base', revision: 'TopologyEditDraft.v1' },
   origin: { kind: 'USER', actorId: 'LOCAL_USER', issuedAt: NOW }, transactionId: null,
   inverse: { operation: 'SET_ATTRIBUTE', field: 'STATUS', value: null } }, NOW);
-assert.notEqual(topologyExportStateKey(draft, journal), topologyExportStateKey(draft, updatedJournal));
+assert.notEqual(topologyExportStateKey(draft, journal, ''), topologyExportStateKey(draft, updatedJournal, ''));
 await assert.rejects(() => buildTopologyEditBundle({ snapshot, draft, commandJournal: updatedJournal, cryptoRef: globalThis.crypto }), /stale/);
 
 let editJournal = journal;
@@ -79,14 +88,18 @@ assert.equal(new Set(editPlanIds).size, 3, 'geometry, attribute and remark edits
 
 const blockedBuilt = Object.freeze({ ...built, editValidation: Object.freeze({ ok: false, summary: Object.freeze({ blockingCount: 1 }),
   findings: Object.freeze([{ code: 'TOPOLOGY_GAP', message: 'Resolve gap', blocking: true }]) }) });
-const blocked = await prepareTopologyExportSnapshot({ ...input, built: blockedBuilt });
-assert.equal(blocked.plan.gate.status, 'BLOCKED');
-assert.match(blocked.plan.gate.blockers[0], /TOPOLOGY_GAP/);
-await assert.rejects(() => buildTopologyEditBundle({ snapshot: blocked, draft, commandJournal: journal, cryptoRef: globalThis.crypto }), /blocked/);
+const documented = await prepareTopologyExportSnapshot({ ...input, built: blockedBuilt });
+assert.equal(documented.plan.gate.status, 'READY', 'validation findings document export but never block it');
+assert.deepEqual(documented.plan.gate.blockers, []);
+const documentedBundle = await buildTopologyEditBundle({ snapshot: documented, draft, commandJournal: journal, cryptoRef: globalThis.crypto });
+const exportLog = JSON.parse(documentedBundle.outputs.at(-1).text);
+assert.equal(exportLog.exportPolicy, 'ALWAYS_ALLOWED');
+assert.equal(exportLog.findings[0].status, 'USER_CONFIRMATION_PENDING');
+assert.equal(exportLog.validationWarnings[0].status, 'INTEGRITY_WARNING');
 
 for (const relative of ['topology-export-snapshot.js', 'topology-export-inspector-model.js', 'topology-export-plan-service.js']) {
   const source = readFileSync(fileURLToPath(new URL(`../tabs/topology-trace-validator/${relative}`, import.meta.url)), 'utf8');
   assert(source.split(/\r?\n/).length <= 300, `${relative} exceeds 300 lines`);
   assert.doesNotMatch(source, /export\s+default/, `${relative} must use named exports`);
 }
-console.log('[SIMULATED] Phase 3 exact ExportPlan/writer parity, blocked gates, hierarchy and virtualization passed.');
+console.log('[SIMULATED] Phase 3 exact ExportPlan/writer parity, always-allowed documented export, hierarchy and virtualization passed.');

@@ -17,6 +17,13 @@ import { runCompare } from '../compare/compare-engine.js';
 import { DEFAULT_COMPARE_CONFIG } from '../compare/evidence-scorer.js';
 import { buildTransferPlan, batchApprove, refreshTransferSummary, DEFAULT_TRANSFER_CONFIG } from '../compare/transfer-planner.js';
 import { applyTransferPlan } from '../apply/transfer-apply.js';
+import { applyTransferPlanToPsi } from '../apply/psi-transfer-apply.js';
+import { dropPairProperty, dropPropertyGlobally } from './transfer-overlay-models.js';
+import { canvasPivotHeaderHtml } from './canvas-pivot-header.js';
+import { canvasHierarchyHtml } from './canvas-hierarchy-panel.js';
+import { renderArrowLayer } from './transfer-arrow-layer.js';
+import { updateArrowPopup } from './transfer-arrow-popup.js';
+import { previewOverlayHtml, updateTransferPreviewLabels } from './transfer-preview-overlay.js';
 import { downloadFile, rowsToCsv, DIFF_CSV_COLUMNS, CONFLICT_CSV_COLUMNS, TRANSFER_CSV_COLUMNS, PATH_CSV_COLUMNS } from '../apply/exporters.js';
 import { compareWorkbenchProjectArtifacts } from '../project/compare-workbench-project-adapter.js';
 import { createWorkbenchViewer, STATUS_STYLES } from '../viewer/workbench-viewer.js';
@@ -45,7 +52,6 @@ import { nodeWorkspaceHtml } from './node-workspace-panel.js';
 import { evidencePanelHtml, connectorLedgerHtml } from './evidence-panel.js';
 import { buildEvidenceModel, connectorLedgerModel, CONNECTOR_LEDGER_CSV_COLUMNS } from './evidence-view-models.js';
 import { setupBannerHtml, setupWizardModel } from './setup-wizard.js';
-import { roleMapAuditHtml } from './role-map-audit.js';
 import { detectProfile } from '../core/profiles.js';
 import { validateCompareAudit, DIFF_STATUS, APPROVAL_STATUS, TRANSFER_RULES, CONFIDENCE } from '../contracts/contracts.js';
 
@@ -164,7 +170,8 @@ function connectorModelFor(state) {
 }
 
 function pushConnectors(state) {
-  state.viewer?.setConnectors(connectorModelFor(state));
+  state.connectorModel = connectorModelFor(state);
+  state.viewer?.setConnectors(state.connectorModel);
 }
 
 /** Matched counterpart / candidates / transfer receivers for an object. */
@@ -344,44 +351,6 @@ function alertsSection(state) {
   return `<section class="wb3d-card"><h3>Rule alerts <span class="wb3d-muted">${alerts.length} active rule(s)</span></h3><ul class="wb3d-alerts">${rows}</ul></section>`;
 }
 
-/** Pivot/summary comparison: line/path × diff status matrix (function 9). */
-function pivotSection(state) {
-  if (!state.audit || !state.graphs) return '';
-  const lineOf = new Map();
-  for (const graph of [state.graphs.A, state.graphs.B]) {
-    for (const object of graph.objects) lineOf.set(object.objectId, object.lineId || '(model)');
-  }
-  const statuses = [...new Set(state.audit.objectDiff.rows.map((r) => r.status))];
-  const buckets = new Map(); // line -> status -> Set<objectId>
-  for (const row of state.audit.objectDiff.rows) {
-    for (const id of [row.sourceObjectId, row.targetObjectId]) {
-      if (!id) continue;
-      const line = lineOf.get(id) ?? '(model)';
-      if (!buckets.has(line)) buckets.set(line, new Map());
-      const perStatus = buckets.get(line);
-      if (!perStatus.has(row.status)) perStatus.set(row.status, new Set());
-      perStatus.get(row.status).add(id);
-    }
-  }
-  const header = `<tr><th>Line / group</th>${statuses.map((s) => `<th>${esc(s)}</th>`).join('')}<th>Total</th></tr>`;
-  const body = [...buckets.entries()].map(([line, perStatus]) => {
-    let total = 0;
-    const cells = statuses.map((status) => {
-      const ids = perStatus.get(status);
-      total += ids?.size ?? 0;
-      return ids?.size
-        ? `<td><button class="wb3d-link" data-action="isolate-pivot" data-line="${esc(line)}" data-status="${esc(status)}">${ids.size}</button></td>`
-        : '<td class="wb3d-muted">—</td>';
-    }).join('');
-    return `<tr><td>${esc(line)}</td>${cells}<td>${total}</td></tr>`;
-  }).join('');
-  return `
-  <details class="wb3d-card">
-    <summary><h3>Pivot summary <span class="wb3d-muted">line × status; click a count to isolate in 3D</span></h3></summary>
-    <div class="wb3d-table-wrap"><table><thead>${header}</thead><tbody>${body}</tbody></table></div>
-  </details>`;
-}
-
 function legendHtml(state) {
   const styles = effectiveStatusStyles(state.settings, STATUS_STYLES);
   return Object.values(styles)
@@ -426,6 +395,12 @@ function viewerSection(state) {
         <div class="wb3d-connector-tip" data-wb3d-connector-tip hidden></div>
         <div class="wb3d-connector-tip wb3d-hover-tip" data-wb3d-hover-tip hidden></div>
         <div class="wb3d-approval-overlay" data-wb3d-approval-overlay hidden></div>
+        <svg class="wb3d-arrow-layer" data-wb3d-arrow-layer style="display:none"></svg>
+        <div class="wb3d-preview-labels" data-wb3d-preview-labels></div>
+        <div class="wb3d-arrow-popup" data-wb3d-arrow-popup hidden></div>
+        <div class="wb3d-canvas-pivot" data-wb3d-canvas-pivot>${canvasPivotHeaderHtml(state)}</div>
+        <div class="wb3d-canvas-tree ${state.canvasTreeOpen === false ? 'is-closed' : ''}" data-wb3d-canvas-tree>${canvasHierarchyHtml(state)}</div>
+        <div class="wb3d-preview-overlay" data-wb3d-preview-overlay></div>
         ${state.viewerError ? `<div class="wb3d-viewer-fallback">3D viewer unavailable: ${esc(state.viewerError)}<br>All compare data remains available in the tables below.</div>` : ''}
       </div>
       <aside class="wb3d-selection" data-wb3d-selection>${selectionPanelHtml(state)}</aside>
@@ -522,26 +497,6 @@ function stripModelPrefixLocal(id) {
   return String(id ?? '').replace(/^(source|target):/, '');
 }
 
-function hierarchySection(state) {
-  if (!state.graphs) return '';
-  const tree = (graph, label) => {
-    const lines = graph.hierarchy.map((line) => {
-      const paths = line.paths.map((p) => {
-        const path = graph.paths.find((x) => x.pathId === p.pathId);
-        return `<li><button class="wb3d-link" data-action="isolate-path" data-path="${esc(p.pathId)}" data-model="${esc(graph.modelId)}">${esc(p.pathId)}</button> <span class="wb3d-muted">${path?.startAnchorType}→${path?.endAnchorType}, ${p.elementIds.length} elem, ${path?.totalLengthMm} mm</span>
-          <ul>${p.elementIds.map((id) => `<li><button class="wb3d-link" data-action="select-object" data-object="${esc(id)}">${esc(id)}</button></li>`).join('')}</ul></li>`;
-      }).join('');
-      return `<li><strong>${esc(line.lineId)}</strong><ul>${paths}</ul></li>`;
-    }).join('');
-    return `<div><h4>${esc(label)}</h4><ul class="wb3d-tree">${lines}</ul></div>`;
-  };
-  return `
-  <details class="wb3d-card">
-    <summary><h3>Hierarchy <span class="wb3d-muted">line → path → element; click to isolate in 3D</span></h3></summary>
-    <div class="wb3d-import-grid">${tree(state.graphs.A, `Source (${state.graphs.A.modelId})`)}${tree(state.graphs.B, `Target (${state.graphs.B.modelId})`)}</div>
-  </details>`;
-}
-
 function tableHtml(columns, rows, { rowAttrs = () => '', limit = 300 } = {}) {
   if (!rows?.length) return '<p class="wb3d-muted">No rows.</p>';
   const shown = rows.slice(0, limit);
@@ -582,7 +537,6 @@ function tablesSection(state) {
     <h4>Source</h4>${tableHtml([['elementName', 'Element'], ['fromTo', 'FROM→TO'], ['retainedNode', 'Retained'], ['droppedNode', 'Dropped'], ['lengthMm', 'Len mm'], ['packetEvidence', 'Packets'], ['action', 'Action']], state.audit.normalization.source.consumedRows)}
     <h4>Target</h4>${tableHtml([['elementName', 'Element'], ['fromTo', 'FROM→TO'], ['retainedNode', 'Retained'], ['droppedNode', 'Dropped'], ['lengthMm', 'Len mm'], ['packetEvidence', 'Packets'], ['action', 'Action']], state.audit.normalization.target.consumedRows)}
   </details>
-  ${roleMapAuditHtml(state)}
   ${connectorLedgerHtml(state)}`;
 }
 
@@ -603,6 +557,7 @@ function transferSection(state) {
       <label>Min confidence <select data-transfer-config="minConfidence">${[CONFIDENCE.HIGH, CONFIDENCE.MEDIUM, CONFIDENCE.LOW].map((c) => `<option ${state.transferConfig.minConfidence === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <button class="wb3d-btn wb3d-btn-primary" data-action="build-plan">Build transfer plan</button>
       ${plan ? `<button class="wb3d-btn" data-action="batch-approve">Batch approve ≥ ${esc(state.transferConfig.minConfidence)}</button>` : ''}
+      ${plan ? `<button class="wb3d-btn ${state.transferPreview ? 'is-active' : ''}" data-action="transfer-preview-toggle" title="Show approved transfers as labelled arrows on the 3D view">Graphical preview</button>` : ''}
     </div>
     ${plan ? `<p>${plan.summary.totalRows} row(s): <strong>${plan.summary.approvedRows ?? 0} approved</strong>, ${plan.summary.pendingRows} pending, ${plan.summary.blockedRows} blocked.</p>` : '<p class="wb3d-muted">No plan yet.</p>'}
     ${plan ? `<div data-wb3d-transfer-table>${tableHtml(columns, rows)}</div>` : ''}
@@ -637,8 +592,6 @@ function fullHtml(state) {
     <div data-wb3d-dashboard>${dashboardSection(state)}</div>
     <div data-wb3d-alerts>${alertsSection(state)}</div>
     ${viewerSection(state)}
-    <div data-wb3d-pivot>${pivotSection(state)}</div>
-    <div data-wb3d-hierarchy>${hierarchySection(state)}</div>
     <div data-wb3d-tables>${tablesSection(state)}</div>
     <div data-wb3d-transfer>${transferSection(state)}</div>
     <div data-wb3d-export>${exportSection(state)}</div>`;
@@ -701,12 +654,14 @@ function refreshDerivedSections(container, state) {
   };
   set('[data-wb3d-dashboard]', dashboardSection(state));
   set('[data-wb3d-alerts]', alertsSection(state));
-  set('[data-wb3d-pivot]', pivotSection(state));
-  set('[data-wb3d-hierarchy]', hierarchySection(state));
+  set('[data-wb3d-canvas-pivot]', canvasPivotHeaderHtml(state));
+  set('[data-wb3d-canvas-tree]', canvasHierarchyHtml(state));
+  container.querySelector('[data-wb3d-canvas-tree]')?.classList.toggle('is-closed', state.canvasTreeOpen === false);
   set('[data-wb3d-tables]', tablesSection(state));
   set('[data-wb3d-transfer]', transferSection(state));
   set('[data-wb3d-export]', exportSection(state));
   set('[data-wb3d-selection]', selectionPanelHtml(state));
+  set('[data-wb3d-preview-overlay]', previewOverlayHtml(state));
   set('[data-wb3d-settings-host]', settingsPanelHtml(state, discoverPacketKinds(state.graphs?.A, state.graphs?.B), effectiveStatusStyles(state.settings, STATUS_STYLES)));
   set('[data-wb3d-panels]', state.audit ? floatingPanelsHtml(state, floatingPanelRows(state)) : '');
   set('[data-wb3d-drawer]', previewDrawerHtml(state));
@@ -717,6 +672,14 @@ function refreshDerivedSections(container, state) {
   const legend = container.querySelector('.wb3d-legend');
   if (legend) legend.innerHTML = legendHtml(state);
   updateApprovalOverlay(container, state);
+  refreshTransferOverlays(container, state);
+}
+
+/** Redraw the screen-space transfer overlays (arrows, edit popup, labels). */
+function refreshTransferOverlays(container, state) {
+  const drawn = renderArrowLayer(container, state);
+  updateArrowPopup(container, state, drawn);
+  updateTransferPreviewLabels(container, state, drawn);
 }
 
 function refreshTablexmlSection(container, state) {
@@ -742,8 +705,8 @@ async function ensureViewer(container, state) {
   try {
     state.viewer = await createWorkbenchViewer(host, {
       onPick: (pick) => {
-        state.selection = pick;
-        if (pick.objectId) state.viewer?.setSelection(pick.objectId, relatedIdsFor(state, pick.objectId));
+        state.selection = pick ?? null;
+        if (pick?.objectId) state.viewer?.setSelection(pick.objectId, relatedIdsFor(state, pick.objectId));
         else state.viewer?.setSelection(null);
         const panel = container.querySelector('[data-wb3d-selection]');
         if (panel) panel.innerHTML = selectionPanelHtml(state);
@@ -776,7 +739,10 @@ async function ensureViewer(container, state) {
         tip.innerHTML = lines.map((l) => `<div>${esc(l)}</div>`).join('');
         placeTip(tip, event);
       },
-      onCameraChange: () => updateApprovalOverlay(container, state),
+      onCameraChange: () => {
+        updateApprovalOverlay(container, state);
+        refreshTransferOverlays(container, state);
+      },
     });
   } catch (error) {
     state.viewerError = String(error?.message || error);
@@ -862,7 +828,11 @@ function bindHandlers(container) {
     }
     const transferConfig = event.target.dataset?.transferConfig;
     if (transferConfig) s.transferConfig[transferConfig] = event.target.value;
-    if (event.target.dataset?.action === 'connector-mode') s.viewer?.setConnectorMode(event.target.value);
+    if (event.target.dataset?.action === 'connector-mode') {
+      s.connectorMode = event.target.value;
+      s.viewer?.setConnectorMode(event.target.value);
+      refreshTransferOverlays(container, s);
+    }
     if (event.target.dataset?.action === 'dash-groupby') {
       s.dashboardGroupBy = event.target.value;
       const host = container.querySelector('[data-wb3d-dashview]');
@@ -951,6 +921,16 @@ function bindHandlers(container) {
     renderView(container, s);
   });
 
+  // Double-click a transfer arrow (SVG overlay) → per-pair edit popup.
+  container.addEventListener('dblclick', (event) => {
+    const path = event.target.closest?.('.wb3d-arrow[data-pair-key]');
+    if (!path) return;
+    const s = ensureState(container);
+    s.arrowPopup = { pairKey: path.dataset.pairKey };
+    refreshTransferOverlays(container, s);
+    event.preventDefault();
+  });
+
   container.addEventListener('click', (event) => {
     const state = ensureState(container);
     const btn = event.target.closest('[data-action]');
@@ -959,11 +939,80 @@ function bindHandlers(container) {
 
     if (action === 'run-compare') rerunCompare();
 
+    // ── transfer arrow editing ─────────────────────────────────────────
+    if (action === 'panel-roleaudit') {
+      state.roleAuditOpen = !state.roleAuditOpen;
+      const panels = container.querySelector('[data-wb3d-panels]');
+      if (panels && state.audit) panels.innerHTML = floatingPanelsHtml(state, floatingPanelRows(state));
+    }
+    if (action === 'arrow-popup-close') {
+      state.arrowPopup = null;
+      refreshTransferOverlays(container, state);
+    }
+    if (action === 'arrow-drop-prop' && state.plan) {
+      dropPairProperty(state.plan, { sourceObjectId: btn.dataset.source, targetObjectId: btn.dataset.target, property: btn.dataset.prop });
+      pushConnectors(state);
+      refreshDerivedSections(container, state);
+    }
+    if (action === 'arrow-smartdrop-prop' && state.plan) {
+      dropPropertyGlobally(state.plan, state.transferConfig, btn.dataset.prop, true);
+      pushConnectors(state);
+      refreshDerivedSections(container, state);
+    }
+    if (action === 'global-drop-prop' && state.plan) {
+      dropPropertyGlobally(state.plan, state.transferConfig, btn.dataset.prop, btn.checked === false);
+      pushConnectors(state);
+      refreshDerivedSections(container, state);
+    }
+    if (action === 'transfer-preview-toggle') {
+      state.transferPreview = !state.transferPreview;
+      if (state.transferPreview) {
+        state.connectorMode = 'transfer';
+        state.viewer?.setConnectorMode('transfer');
+        const select = container.querySelector('select[data-action="connector-mode"]');
+        if (select) select.value = 'transfer';
+      }
+      refreshDerivedSections(container, state);
+    }
+
     if (action === 'set-mode' && state.viewer) {
       state.viewer.setMode(btn.dataset.mode);
       container.querySelectorAll('[data-action="set-mode"]').forEach((b) => b.classList.toggle('is-active', b === btn));
+      refreshTransferOverlays(container, state);
     }
     if (action === 'set-view' && state.viewer) state.viewer.setStandardView(btn.dataset.view);
+
+    // ── canvas hierarchy tree ──────────────────────────────────────────
+    const refreshTree = () => {
+      const host = container.querySelector('[data-wb3d-canvas-tree]');
+      if (host) {
+        host.innerHTML = canvasHierarchyHtml(state);
+        host.classList.toggle('is-closed', state.canvasTreeOpen === false);
+      }
+    };
+    const isolateChecked = () => {
+      const checked = state.treeChecked ?? new Set();
+      if (!checked.size) { state.viewer?.isolate(null); return; }
+      const ids = new Set(checked);
+      for (const id of checked) for (const related of relatedIdsFor(state, id)) ids.add(related);
+      state.viewer?.isolate([...ids]);
+    };
+    if (action === 'tree-toggle') {
+      state.canvasTreeOpen = state.canvasTreeOpen === false;
+      refreshTree();
+    }
+    if (action === 'tree-clear') {
+      state.treeChecked = new Set();
+      state.viewer?.isolate(null);
+      refreshTree();
+    }
+    if (action === 'tree-check') {
+      const ids = String(btn.dataset.ids || '').split(',').filter(Boolean);
+      const checked = state.treeChecked ?? (state.treeChecked = new Set());
+      for (const id of ids) { if (btn.checked) checked.add(id); else checked.delete(id); }
+      isolateChecked();
+      refreshTree();
+    }
     if (action === 'fit-all' && state.viewer) state.viewer.fitAll();
     if (action === 'clear-isolation' && state.viewer) state.viewer.isolate(null);
     if (action === 'set-opacity' && state.viewer) state.viewer.setSourceOpacity(Number(btn.value) / 100);
@@ -1202,6 +1251,22 @@ function bindHandlers(container) {
         refreshTransferSummary(state.plan);
         if (!state.plan.summary.approvedRows) {
           setStatus(container, state, 'Nothing approved yet — approve rows (or batch approve) before applying.');
+          return;
+        }
+        if (state.graphs?.targetSchema === XML_SCHEMA_KINDS.PSI_XML) {
+          // PSI targets are written back per <Node> by node number.
+          const targetTopo = { edges: state.graphs.B.objects.map((o) => ({ id: o.objectId, nodeNumbers: [o.fromNode, o.toNode] })) };
+          const psiResult = applyTransferPlanToPsi(state.targetXml, state.plan, targetTopo);
+          state.applyResult = {
+            outputXml: psiResult.xmlText,
+            appliedCount: psiResult.applied,
+            skippedRows: psiResult.skipped,
+            geometryViolations: [],
+            rollbackLedger: { contract: 'RollbackLedger.v1', rows: psiResult.rollbackRows },
+          };
+          downloadFile('transferred-target-pipestress.xml', psiResult.xmlText, 'application/xml;charset=utf-8');
+          refreshDerivedSections(container, state);
+          setStatus(container, state, `Applied ${psiResult.applied} approved change(s) to the PSI target; ${psiResult.skipped.length} skipped. Transferred XML downloaded.`);
           return;
         }
         state.applyResult = applyTransferPlan(state.targetXml, state.plan);

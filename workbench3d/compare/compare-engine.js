@@ -1,259 +1,312 @@
+import { CONTRACT_VERSIONS, DIFF_STATUS, CONFIDENCE } from '../contracts/contracts.js';
+import { scoreElementPair, DEFAULT_COMPARE_CONFIG } from './evidence-scorer.js';
+import { extractBasisPairs, extractAnchorPairs } from './topology-identity.js';
+
 /**
- * compare-engine.js — the compare orchestrator (Phase 4).
- *
- * runCompare(graphA, graphB, config, manualOverrides) →
- *   CompareAudit.v1 wrapping ObjectDiff.v1 rows, ConflictLedger.v1 rows,
- *   MatchCandidate.v1 rows, path audit, and RegistrationAudit.v1.
- *
- * Invariants:
- *  - every canonical source object appears in exactly one diff row
- *  - every canonical target object appears in exactly one diff row
- *  - no ambiguous row carries an auto-selected target
- *  - rejected candidates stay visible in matchCandidates
+ * Fields compared on matched pairs. 'PROPERTIES' expands to the union of both
+ * sides' property-block keys; pass an explicit key list in
+ * config.compareFields to narrow the comparison to selected fields.
  */
+export const DEFAULT_COMPARE_FIELDS = Object.freeze([
+  'NAME', 'ELEMENT_LENGTH', 'RESTRAINTS', 'PROPERTIES',
+]);
 
-import { CONTRACT_VERSIONS, DIFF_STATUS, PATH_OPS, CONFIDENCE } from '../contracts/contracts.js';
-import { scoreElementPair, confidenceForScore, DEFAULT_COMPARE_CONFIG } from './evidence-scorer.js';
-import { matchPaths, alignPathElements } from './path-aligner.js';
-import { buildRegistration } from './registration-engine.js';
-
-function normalizedDirection(graph, object) {
-  const nodeCoord = new Map(graph.nodes.map((n) => [n.nodeId, n.coordMm]));
-  const a = nodeCoord.get(object.fromNode);
-  const b = nodeCoord.get(object.toNode);
-  if (!a || !b) return null;
-  const v = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-  const len = Math.hypot(v[0], v[1], v[2]);
-  if (len < 1e-6) return null;
-  return v.map((x) => x / len);
+function getEdgeMidpoint(edge, nodesById) {
+  const n1 = nodesById.get(edge.fromNodeId)?.position;
+  const n2 = nodesById.get(edge.toNodeId)?.position;
+  if (!n1 || !n2) return [0, 0, 0];
+  return [(n1.x + n2.x) / 2, (n1.y + n2.y) / 2, (n1.z + n2.z) / 2];
 }
 
-function packetSignature(object) {
-  return object.packets.map((p) => p.kind).sort().join('+');
+function getEdgeLength(edge, nodesById) {
+  if (Number.isFinite(edge.lengthMm)) return edge.lengthMm;
+  const n1 = nodesById.get(edge.fromNodeId)?.position;
+  const n2 = nodesById.get(edge.toNodeId)?.position;
+  if (!n1 || !n2) return 0;
+  return Math.hypot(n1.x - n2.x, n1.y - n2.y, n1.z - n2.z);
 }
 
-function diffProperties(source, target, ignored = null) {
-  const changed = [];
-  const keys = new Set([...Object.keys(source.properties), ...Object.keys(target.properties)]);
-  for (const key of keys) {
-    if (ignored?.has(key)) continue;
-    const a = source.properties[key] ?? '';
-    const b = target.properties[key] ?? '';
-    if (a === b) continue;
-    const numA = Number(a); const numB = Number(b);
-    if (Number.isFinite(numA) && Number.isFinite(numB) && Math.abs(numA - numB) < 1e-4) continue;
-    changed.push({ property: key, sourceValue: a, targetValue: b });
+function scorePair(source, target, config, topoA, topoB, nodesA, nodesB) {
+  const context = {
+    sourceLength: getEdgeLength(source, nodesA),
+    targetLength: getEdgeLength(target, nodesB),
+    sourcePointFeatures: topoA.pointFeatures.filter((f) => f.nodeId === source.fromNodeId || f.nodeId === source.toNodeId),
+    targetPointFeatures: topoB.pointFeatures.filter((f) => f.nodeId === target.fromNodeId || f.nodeId === target.toNodeId),
+  };
+  return scoreElementPair(source, target, config, context);
+}
+
+/**
+ * Spatial fallback candidate scoring over the leftover pool.
+ * Every leftover×leftover pair above the score floor is a candidate so the
+ * ambiguity gate can see score-identical rivals even when they sit far apart;
+ * `withinTolerance` marks which candidates may actually be accepted. Large
+ * pools fall back to a proximity grid to stay O(n).
+ */
+function matchEdges(topoA, topoB, config, nodesA, nodesB, leftoverSource, leftoverTarget) {
+  const coordA = new Map(topoA.edges.map(e => [e.id, getEdgeMidpoint(e, nodesA)]));
+  const coordB = new Map(topoB.edges.map(e => [e.id, getEdgeMidpoint(e, nodesB)]));
+  const tolerance = config.positionToleranceMm || 100;
+  const sources = topoA.edges.filter((e) => leftoverSource.has(e.id));
+  const targets = topoB.edges.filter((e) => leftoverTarget.has(e.id));
+  const pairs = [];
+
+  const consider = (source, target) => {
+    const pair = scorePair(source, target, config, topoA, topoB, nodesA, nodesB);
+    if (pair.score < config.minCandidateScore) return;
+    const a = coordA.get(source.id);
+    const b = coordB.get(target.id);
+    const dist = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    pairs.push({ sourceObjectId: source.id, targetObjectId: target.id, pair, withinTolerance: dist <= tolerance });
+  };
+
+  if (sources.length * targets.length <= 250000) {
+    for (const source of sources) for (const target of targets) consider(source, target);
+  } else {
+    const cell = Math.max(1, tolerance);
+    const grid = new Map();
+    const keyOf = (c) => `${Math.floor(c[0]/cell)}|${Math.floor(c[1]/cell)}|${Math.floor(c[2]/cell)}`;
+    for (const target of targets) {
+      const key = keyOf(coordB.get(target.id));
+      if (!grid.has(key)) grid.set(key, []);
+      grid.get(key).push(target);
+    }
+    for (const source of sources) {
+      const c = coordA.get(source.id);
+      const base = [Math.floor(c[0]/cell), Math.floor(c[1]/cell), Math.floor(c[2]/cell)];
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) {
+        for (const target of grid.get(`${base[0]+dx}|${base[1]+dy}|${base[2]+dz}`) || []) consider(source, target);
+      }
+    }
   }
-  const sigA = packetSignature(source);
-  const sigB = packetSignature(target);
-  if (sigA !== sigB) changed.push({ property: 'PACKETS', sourceValue: sigA, targetValue: sigB });
-  return changed;
+  pairs.sort((a, b) => b.pair.score - a.pair.score);
+  return pairs;
 }
 
-function geometryChanged(graphA, source, graphB, target, config) {
-  if (Math.abs(source.lengthMm - target.lengthMm) > config.lengthToleranceMm) return `length Δ=${Math.abs(source.lengthMm - target.lengthMm).toFixed(1)}mm`;
-  const dirA = normalizedDirection(graphA, source);
-  const dirB = normalizedDirection(graphB, target);
-  if (dirA && dirB) {
-    const dot = Math.abs(dirA[0] * dirB[0] + dirA[1] * dirB[1] + dirA[2] * dirB[2]);
-    if (dot < 0.985) return `direction differs (cos=${dot.toFixed(3)})`; // ~10°
+/** node id → edges touching it. */
+function adjacencyIndex(topo) {
+  const byNode = new Map();
+  for (const edge of topo.edges) {
+    for (const nodeId of [edge.fromNodeId, edge.toNodeId]) {
+      if (!byNode.has(nodeId)) byNode.set(nodeId, []);
+      byNode.get(nodeId).push(edge);
+    }
   }
-  return null;
+  return byNode;
 }
 
-export function runCompare(graphA, graphB, userConfig = {}, manualOverrides = []) {
-  const config = { ...DEFAULT_COMPARE_CONFIG, ...userConfig };
-  const objA = new Map(graphA.objects.map((o) => [o.objectId, o]));
-  const objB = new Map(graphB.objects.map((o) => [o.objectId, o]));
-  const pathsA = new Map(graphA.paths.map((p) => [p.pathId, p]));
-  const pathsB = new Map(graphB.paths.map((p) => [p.pathId, p]));
+/**
+ * Derived matching: starting from confirmed pairs, walk outward — unmatched
+ * neighbours of a matched source edge are scored against unmatched neighbours
+ * of its matched target edge. Robust against global reroutes because only
+ * local evidence (kind, length, diameter, features) is used.
+ */
+function propagateFromBasis(seeds, topoA, topoB, config, nodesA, nodesB, leftoverSource, leftoverTarget, claim) {
+  const adjA = adjacencyIndex(topoA);
+  const adjB = adjacencyIndex(topoB);
+  const edgesA = new Map(topoA.edges.map(e => [e.id, e]));
+  const edgesB = new Map(topoB.edges.map(e => [e.id, e]));
+  const queue = [...seeds];
 
-  // ── 1. Path matching ──────────────────────────────────────────────────
-  const pathResult = matchPaths(graphA, graphB, config);
+  while (queue.length) {
+    const { sourceObjectId, targetObjectId } = queue.shift();
+    const source = edgesA.get(sourceObjectId);
+    const target = edgesB.get(targetObjectId);
+    if (!source || !target) continue;
 
-  // ── 2. Element alignment inside matched paths ─────────────────────────
-  const alignmentRows = [];
-  const matchRecords = []; // { sourceObjectId, targetObjectId, pair, via }
-  const splitRows = [];
-  const mergeRows = [];
-  const leftoverSource = new Set(graphA.objects.map((o) => o.objectId));
-  const leftoverTarget = new Set(graphB.objects.map((o) => o.objectId));
+    const neighboursA = [source.fromNodeId, source.toNodeId].flatMap((n) => adjA.get(n) ?? [])
+      .filter((e) => leftoverSource.has(e.id));
+    const neighboursB = [target.fromNodeId, target.toNodeId].flatMap((n) => adjB.get(n) ?? [])
+      .filter((e) => leftoverTarget.has(e.id));
+    if (!neighboursA.length || !neighboursB.length) continue;
+
+    const scored = [];
+    for (const a of neighboursA) {
+      for (const b of neighboursB) {
+        const pair = scorePair(a, b, config, topoA, topoB, nodesA, nodesB);
+        if (pair.score >= config.minCandidateScore) scored.push({ sourceObjectId: a.id, targetObjectId: b.id, pair });
+      }
+    }
+    scored.sort((x, y) => y.pair.score - x.pair.score);
+    for (const cand of scored) {
+      if (!leftoverSource.has(cand.sourceObjectId) || !leftoverTarget.has(cand.targetObjectId)) continue;
+      // Local ambiguity gate: identical siblings at the same junction must not
+      // be auto-paired — leave them for review instead of guessing.
+      const rival = scored.find((p) => p !== cand
+        && (p.sourceObjectId === cand.sourceObjectId || p.targetObjectId === cand.targetObjectId)
+        && leftoverSource.has(p.sourceObjectId) && leftoverTarget.has(p.targetObjectId));
+      if (rival && cand.pair.score - rival.pair.score < config.ambiguityGap) continue;
+      claim({ ...cand, via: 'derived-adjacency' });
+      queue.push(cand);
+    }
+  }
+}
+
+/**
+ * Accept either CanonicalTopology.v1 ({ edges, nodes, pointFeatures }) or the
+ * older CanonicalObjectGraph.v1 ({ objects, nodes:[{nodeId, coordMm}] }) and
+ * normalize to the edge shape the engine works on. Object ids are preserved,
+ * so audits reference the caller's ids either way.
+ */
+function normalizeTopology(topo) {
+  if (Array.isArray(topo?.edges)) return topo;
+  const edges = (topo?.objects ?? []).map((object, rawIndex) => ({
+    ...object,
+    id: object.objectId,
+    fromNodeId: object.fromNode,
+    toNodeId: object.toNode,
+    segmentRole: object.kind,
+    diameterMm: Number(object.diameterMm ?? object.properties?.DIAMETER ?? 0),
+    lengthMm: Number.isFinite(object.lengthMm) ? object.lengthMm : undefined,
+    name: object.name ?? object.properties?.NAME ?? '',
+    ref: '',
+    rawIndex: Number.isInteger(object.rawIndex) ? object.rawIndex : rawIndex,
+    properties: object.properties ?? {},
+    packets: object.packets ?? [],
+  }));
+  const nodes = (topo?.nodes ?? []).map((node) => ({
+    id: node.nodeId ?? node.id,
+    position: node.coordMm
+      ? { x: node.coordMm[0], y: node.coordMm[1], z: node.coordMm[2] }
+      : node.position ?? { x: 0, y: 0, z: 0 },
+  }));
+  return { ...topo, edges, nodes, pointFeatures: topo?.pointFeatures ?? [], supports: topo?.supports ?? [] };
+}
+
+export function runCompare(rawTopoA, rawTopoB, userConfig = {}, manualOverrides = []) {
+  const topoA = normalizeTopology(rawTopoA);
+  const topoB = normalizeTopology(rawTopoB);
+  const config = { ...DEFAULT_COMPARE_CONFIG, positionToleranceMm: 100, compareFields: DEFAULT_COMPARE_FIELDS, ...userConfig };
+  const edgesA = new Map(topoA.edges.map(e => [e.id, e]));
+  const edgesB = new Map(topoB.edges.map(e => [e.id, e]));
+  const nodesA = new Map(topoA.nodes.map(n => [n.id, n]));
+  const nodesB = new Map(topoB.nodes.map(n => [n.id, n]));
+
+  const leftoverSource = new Set(topoA.edges.map(e => e.id));
+  const leftoverTarget = new Set(topoB.edges.map(e => e.id));
+  const matchRecords = [];
+  const ambiguousRecords = [];
   const candidateRows = [];
 
-  for (const mapping of pathResult.mappings) {
-    const pathA = pathsA.get(mapping.sourcePathId);
-    const pathB = pathsB.get(mapping.targetPathId);
-    if (!pathA || !pathB) continue;
-    const ops = alignPathElements(graphA, pathA, graphB, pathB, config);
-    for (const op of ops) {
-      alignmentRows.push({
-        sourcePathId: mapping.sourcePathId,
-        targetPathId: mapping.targetPathId,
-        pathStatus: mapping.status,
-        op: op.op,
-        sourceObjectId: op.sourceObjectId,
-        targetObjectId: op.targetObjectId,
-        score: op.pair?.score ?? null,
-      });
-      if (op.pair) {
-        candidateRows.push({
-          contract: CONTRACT_VERSIONS.MatchCandidate,
-          sourceObjectId: op.sourceObjectId,
-          targetObjectId: op.targetObjectId,
-          score: op.pair.score,
-          reasons: op.pair.reasons,
-          conflicts: op.pair.conflicts,
-          breakdown: op.pair.breakdown,
-          origin: 'path-alignment',
-          selected: false,
-        });
-      }
-      if (op.op === PATH_OPS.MATCH && mapping.status === PATH_OPS.MATCH) {
-        matchRecords.push({ sourceObjectId: op.sourceObjectId, targetObjectId: op.targetObjectId, pair: op.pair, via: 'path-alignment' });
-        leftoverSource.delete(op.sourceObjectId);
-        leftoverTarget.delete(op.targetObjectId);
-      } else if (op.op === PATH_OPS.SPLIT) {
-        if (op.sourceObjectId) { splitRows.push(op); leftoverSource.delete(op.sourceObjectId); }
-        if (op.targetObjectId) { splitRows.push(op); leftoverTarget.delete(op.targetObjectId); }
-      } else if (op.op === PATH_OPS.MERGE) {
-        if (op.sourceObjectId) { mergeRows.push(op); leftoverSource.delete(op.sourceObjectId); }
-        if (op.targetObjectId) { mergeRows.push(op); leftoverTarget.delete(op.targetObjectId); }
+  // Rejected pairs (manual REJECT overrides) may never re-match automatically.
+  const rejectedPairs = new Set((manualOverrides ?? [])
+    .filter((o) => o.type === 'REJECT')
+    .map((o) => `${o.sourceObjectId}|${o.targetObjectId}`));
+
+  const claim = (record) => {
+    if (rejectedPairs.has(`${record.sourceObjectId}|${record.targetObjectId}`)) return false;
+    if (!leftoverSource.has(record.sourceObjectId) || !leftoverTarget.has(record.targetObjectId)) return false;
+    matchRecords.push(record);
+    leftoverSource.delete(record.sourceObjectId);
+    leftoverTarget.delete(record.targetObjectId);
+    return true;
+  };
+
+  // Phase 1 — manual basis connections (always win; REJECTs only exclude).
+  for (const override of manualOverrides ?? []) {
+    if (override.type === 'REJECT') continue;
+    if (!edgesA.has(override.sourceObjectId) || !edgesB.has(override.targetObjectId)) continue;
+    const pair = scorePair(edgesA.get(override.sourceObjectId), edgesB.get(override.targetObjectId), config, topoA, topoB, nodesA, nodesB);
+    claim({ sourceObjectId: override.sourceObjectId, targetObjectId: override.targetObjectId, pair, via: 'manual', basis: true, basisDetail: override.detail ?? 'manual connection' });
+  }
+
+  // Phase 2 — automatic basis connections from source identity (highest confidence).
+  const basisPairs = extractBasisPairs(topoA, topoB);
+  for (const basis of basisPairs) {
+    const pair = scorePair(edgesA.get(basis.sourceObjectId), edgesB.get(basis.targetObjectId), config, topoA, topoB, nodesA, nodesB);
+    claim({ ...basis, pair, basis: true, basisDetail: basis.detail });
+  }
+
+  // Phase 3 — derived matches propagated outward from the basis network.
+  propagateFromBasis(matchRecords.slice(), topoA, topoB, config, nodesA, nodesB, leftoverSource, leftoverTarget, claim);
+
+  // Phase 4 — spatial fallback for whatever identity and adjacency missed.
+  const allPairs = matchEdges(topoA, topoB, config, nodesA, nodesB, leftoverSource, leftoverTarget);
+
+  for (const p of allPairs) {
+    candidateRows.push({
+      contract: CONTRACT_VERSIONS.MatchCandidate,
+      sourceObjectId: p.sourceObjectId,
+      targetObjectId: p.targetObjectId,
+      score: p.pair.score,
+      reasons: p.pair.reasons,
+      conflicts: p.pair.conflicts,
+      breakdown: p.pair.breakdown,
+      origin: 'spatial-grid',
+      selected: false,
+    });
+  }
+
+  // Alternate spatial acceptance with adjacency propagation: every confirmed
+  // pair unlocks its topological neighbours (path-order disambiguation), so a
+  // score tie against a far-away twin resolves once a neighbouring element is
+  // pinned down. Only pairs that stay tied after propagation become AMBIGUOUS.
+  const rivalsOf = (cand) => allPairs.filter((p) => p !== cand
+    && ((p.sourceObjectId === cand.sourceObjectId && leftoverTarget.has(p.targetObjectId))
+      || (p.targetObjectId === cand.targetObjectId && leftoverSource.has(p.sourceObjectId))));
+
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const cand of allPairs) {
+      if (!cand.withinTolerance) continue;
+      if (!leftoverSource.has(cand.sourceObjectId) || !leftoverTarget.has(cand.targetObjectId)) continue;
+      const rivals = rivalsOf(cand);
+      const nextBestScore = rivals[0]?.pair.score ?? 0;
+      const gap = cand.pair.score - nextBestScore;
+      if (gap < config.ambiguityGap && nextBestScore >= config.minCandidateScore) continue; // still tied — try again after propagation
+      if (claim({ ...cand, via: 'spatial-grid', gap, nextBestScore })) {
+        progressed = true;
+        propagateFromBasis([cand], topoA, topoB, config, nodesA, nodesB, leftoverSource, leftoverTarget, claim);
       }
     }
   }
 
-  // ── 3. Global leftover candidate pass (cross-path) ────────────────────
-  const leftoverPairs = [];
-  for (const sid of leftoverSource) {
-    for (const tid of leftoverTarget) {
-      const pair = scoreElementPair(objA.get(sid), objB.get(tid), config, {});
-      if (pair.score < config.minCandidateScore) continue;
-      leftoverPairs.push({ sourceObjectId: sid, targetObjectId: tid, pair });
-      candidateRows.push({
-        contract: CONTRACT_VERSIONS.MatchCandidate,
-        sourceObjectId: sid,
-        targetObjectId: tid,
-        score: pair.score,
-        reasons: pair.reasons,
-        conflicts: pair.conflicts,
-        breakdown: pair.breakdown,
-        origin: 'global-leftover',
-        selected: false,
-      });
-    }
-  }
-  leftoverPairs.sort((a, b) => b.pair.score - a.pair.score);
-  const ambiguousRecords = []; // { sourceObjectId, candidates: [{targetObjectId, score}], bestScore, gap }
-  for (const cand of leftoverPairs) {
+  for (const cand of allPairs) {
+    if (!cand.withinTolerance) continue;
     if (!leftoverSource.has(cand.sourceObjectId) || !leftoverTarget.has(cand.targetObjectId)) continue;
-    const rivals = leftoverPairs.filter((p) => p !== cand
-      && ((p.sourceObjectId === cand.sourceObjectId && leftoverTarget.has(p.targetObjectId))
-        || (p.targetObjectId === cand.targetObjectId && leftoverSource.has(p.sourceObjectId))));
+    const rivals = rivalsOf(cand);
     const nextBestScore = rivals[0]?.pair.score ?? 0;
     const gap = cand.pair.score - nextBestScore;
-    if (gap < config.ambiguityGap && nextBestScore >= config.minCandidateScore) {
-      // Ambiguous — do NOT auto-match; leave the target available.
-      const candidates = [cand, ...rivals.filter((r) => r.sourceObjectId === cand.sourceObjectId)]
-        .map((p) => ({ targetObjectId: p.targetObjectId, score: p.pair.score }));
-      ambiguousRecords.push({ sourceObjectId: cand.sourceObjectId, candidates, bestScore: cand.pair.score, gap: Number(gap.toFixed(2)) });
-      leftoverSource.delete(cand.sourceObjectId);
-      continue;
-    }
-    matchRecords.push({ sourceObjectId: cand.sourceObjectId, targetObjectId: cand.targetObjectId, pair: cand.pair, via: 'global-leftover' });
+    const candidates = [cand, ...rivals.filter(r => r.sourceObjectId === cand.sourceObjectId)]
+      .map(p => ({ targetObjectId: p.targetObjectId, score: p.pair.score }));
+    ambiguousRecords.push({ sourceObjectId: cand.sourceObjectId, candidates, bestScore: cand.pair.score, gap });
     leftoverSource.delete(cand.sourceObjectId);
-    leftoverTarget.delete(cand.targetObjectId);
   }
 
-  // ── 4. Manual overrides (ManualOverrideLedger.v1 rows) ────────────────
-  for (const override of manualOverrides) {
-    if (override.type === 'REJECT') {
-      const idx = matchRecords.findIndex((m) => m.sourceObjectId === override.sourceObjectId && m.targetObjectId === override.targetObjectId);
-      if (idx >= 0) {
-        const [removed] = matchRecords.splice(idx, 1);
-        leftoverSource.add(removed.sourceObjectId);
-        leftoverTarget.add(removed.targetObjectId);
-      }
-    } else if (override.type === 'LINK' || override.type === 'ACCEPT') {
-      // Free both ends of any existing assignments, then force the link.
-      for (let idx = matchRecords.length - 1; idx >= 0; idx -= 1) {
-        const m = matchRecords[idx];
-        if (m.sourceObjectId === override.sourceObjectId || m.targetObjectId === override.targetObjectId) {
-          matchRecords.splice(idx, 1);
-          leftoverSource.add(m.sourceObjectId);
-          leftoverTarget.add(m.targetObjectId);
-        }
-      }
-      const ambIdx = ambiguousRecords.findIndex((a) => a.sourceObjectId === override.sourceObjectId);
-      if (ambIdx >= 0) ambiguousRecords.splice(ambIdx, 1);
-      const pair = scoreElementPair(objA.get(override.sourceObjectId), objB.get(override.targetObjectId), config, {});
-      matchRecords.push({ sourceObjectId: override.sourceObjectId, targetObjectId: override.targetObjectId, pair, via: 'manual-override' });
-      leftoverSource.delete(override.sourceObjectId);
-      leftoverTarget.delete(override.targetObjectId);
-    }
-  }
-  for (const record of matchRecords) {
-    const row = candidateRows.find((c) => c.sourceObjectId === record.sourceObjectId && c.targetObjectId === record.targetObjectId);
-    if (row) row.selected = true;
-  }
-
-  // ── 5. Registration ────────────────────────────────────────────────────
-  const registration = buildRegistration(graphA, graphB, pathResult.mappings, config);
-
-  // ── 6. Diff rows ───────────────────────────────────────────────────────
   const diffRows = [];
   const conflictRows = [];
   let diffSeq = 0;
   let conflictSeq = 0;
-  const nextDiffId = () => `D${(diffSeq += 1)}`;
-  const nextConflictId = () => `C${(conflictSeq += 1)}`;
 
   for (const record of matchRecords) {
-    const source = objA.get(record.sourceObjectId);
-    const target = objB.get(record.targetObjectId);
-    const bestRival = candidateRows
-      .filter((c) => !c.selected && (c.sourceObjectId === record.sourceObjectId || c.targetObjectId === record.targetObjectId))
-      .reduce((best, c) => Math.max(best, c.score), 0);
-    const gap = Number((record.pair.score - bestRival).toFixed(2));
-    const confidence = record.via === 'manual-override'
-      ? CONFIDENCE.HIGH
-      : confidenceForScore(record.pair.score, gap, config);
-    const changedProperties = diffProperties(source, target, config.ignoredProps ? new Set(config.ignoredProps) : null);
-    const geometryIssue = geometryChanged(graphA, source, graphB, target, config);
-    const status = geometryIssue ? DIFF_STATUS.GEOMETRY_CHANGED
-      : changedProperties.length ? DIFF_STATUS.PROPERTY_CHANGED
-        : DIFF_STATUS.MATCHED_UNCHANGED;
-    const diffId = nextDiffId();
+    const source = edgesA.get(record.sourceObjectId);
+    const target = edgesB.get(record.targetObjectId);
+    const changed = compareFields(source, target, nodesA, nodesB, config);
+    const geometryIssue = geometryChanged(source, target, nodesA, nodesB, config);
+
     diffRows.push({
-      diffId,
-      status,
+      diffId: `D${++diffSeq}`,
+      status: geometryIssue ? DIFF_STATUS.GEOMETRY_CHANGED
+        : changed.length ? DIFF_STATUS.PROPERTY_CHANGED : DIFF_STATUS.MATCHED_UNCHANGED,
       sourceObjectId: record.sourceObjectId,
       targetObjectId: record.targetObjectId,
-      score: record.pair.score,
-      nextBestScore: bestRival,
-      scoreGap: gap,
-      confidence,
+      score: record.basis ? 100 : record.pair.score,
+      confidence: record.basis ? CONFIDENCE.HIGH
+        : record.pair.score >= config.highConfidenceScore ? CONFIDENCE.HIGH
+          : record.pair.score >= config.mediumConfidenceScore ? CONFIDENCE.MEDIUM : CONFIDENCE.LOW,
+      basis: Boolean(record.basis),
       via: record.via,
-      reasons: record.pair.reasons,
+      reasons: record.basis ? [record.basisDetail, ...record.pair.reasons] : record.pair.reasons,
       conflicts: record.pair.conflicts,
       breakdown: record.pair.breakdown,
-      changedProperties,
+      changedProperties: changed,
       geometryIssue,
     });
-    if (record.pair.conflicts.length && status !== DIFF_STATUS.MATCHED_UNCHANGED) {
-      conflictRows.push({
-        conflictId: nextConflictId(),
-        diffId,
-        kind: 'EVIDENCE_CONFLICT',
-        sourceObjectId: record.sourceObjectId,
-        targetObjectId: record.targetObjectId,
-        detail: record.pair.conflicts.join('; '),
-        resolution: 'OPEN',
-      });
-    }
   }
 
   for (const amb of ambiguousRecords) {
-    const diffId = nextDiffId();
+    const diffId = `D${(diffSeq += 1)}`;
     diffRows.push({
       diffId,
       status: DIFF_STATUS.AMBIGUOUS,
@@ -271,7 +324,7 @@ export function runCompare(graphA, graphB, userConfig = {}, manualOverrides = []
       geometryIssue: null,
     });
     conflictRows.push({
-      conflictId: nextConflictId(),
+      conflictId: `C${(conflictSeq += 1)}`,
       diffId,
       kind: 'AMBIGUOUS_MATCH',
       sourceObjectId: amb.sourceObjectId,
@@ -281,122 +334,222 @@ export function runCompare(graphA, graphB, userConfig = {}, manualOverrides = []
     });
   }
 
-  const emitted = new Set();
-  for (const op of splitRows.concat(mergeRows)) {
-    const key = `${op.sourceObjectId ?? ''}|${op.targetObjectId ?? ''}`;
-    if (emitted.has(key)) continue;
-    emitted.add(key);
-    diffRows.push({
-      diffId: nextDiffId(),
-      status: op.op === PATH_OPS.SPLIT ? DIFF_STATUS.SPLIT : DIFF_STATUS.MERGE,
-      sourceObjectId: op.sourceObjectId,
-      targetObjectId: op.targetObjectId,
-      score: null,
-      confidence: CONFIDENCE.NONE,
-      via: 'path-alignment',
-      reasons: [op.splitOf ? `split of ${op.splitOf}` : op.mergedInto ? `merged into ${op.mergedInto}` : 'split/merge event'],
-      conflicts: [],
-      changedProperties: [],
-      geometryIssue: null,
-    });
-  }
-
   for (const sid of leftoverSource) {
-    diffRows.push({
-      diffId: nextDiffId(),
-      status: DIFF_STATUS.MISSING_IN_TARGET,
-      sourceObjectId: sid,
-      targetObjectId: null,
-      score: null,
-      confidence: CONFIDENCE.NONE,
-      via: 'unmatched',
-      reasons: [],
-      conflicts: [],
-      changedProperties: [],
-      geometryIssue: null,
-    });
+    diffRows.push({ diffId: `D${++diffSeq}`, status: DIFF_STATUS.MISSING_IN_TARGET, sourceObjectId: sid, targetObjectId: null, score: null, confidence: CONFIDENCE.NONE, via: 'unmatched', reasons: [], conflicts: [], changedProperties: [], geometryIssue: null });
   }
   for (const tid of leftoverTarget) {
-    diffRows.push({
-      diffId: nextDiffId(),
-      status: DIFF_STATUS.NEW_IN_TARGET,
-      sourceObjectId: null,
-      targetObjectId: tid,
-      score: null,
-      confidence: CONFIDENCE.NONE,
-      via: 'unmatched',
-      reasons: [],
-      conflicts: [],
-      changedProperties: [],
-      geometryIssue: null,
-    });
+    diffRows.push({ diffId: `D${++diffSeq}`, status: DIFF_STATUS.NEW_IN_TARGET, sourceObjectId: null, targetObjectId: tid, score: null, confidence: CONFIDENCE.NONE, via: 'unmatched', reasons: [], conflicts: [], changedProperties: [], geometryIssue: null });
   }
 
-  for (const warning of registration.warnings) {
-    conflictRows.push({ conflictId: nextConflictId(), diffId: null, kind: 'REGISTRATION_WARNING', sourceObjectId: null, targetObjectId: null, detail: warning, resolution: 'OPEN' });
-  }
-  for (const mapping of pathResult.mappings.filter((m) => m.status === PATH_OPS.AMBIGUOUS)) {
-    conflictRows.push({ conflictId: nextConflictId(), diffId: null, kind: 'AMBIGUOUS_PATH', sourceObjectId: null, targetObjectId: null, detail: `${mapping.sourcePathId} vs ${mapping.targetPathId} score=${mapping.score} gap=${mapping.scoreGap}`, resolution: 'OPEN' });
-  }
-
-  // ── 7. Dashboard counts (derived from rows — never recomputed elsewhere)
   const count = (status) => diffRows.filter((r) => r.status === status).length;
   const matchedRows = diffRows.filter((r) => r.sourceObjectId && r.targetObjectId);
-  const confidences = matchedRows.filter((r) => Number.isFinite(r.score));
-  const summary = {
-    sourceRawElements: graphA.rawElementCount,
-    targetRawElements: graphB.rawElementCount,
-    sourceCanonicalElements: graphA.canonicalElementCount,
-    targetCanonicalElements: graphB.canonicalElementCount,
-    consumedSourceElements: graphA.consumedRows.length,
-    consumedTargetElements: graphB.consumedRows.length,
-    sourcePaths: graphA.paths.length,
-    targetPaths: graphB.paths.length,
-    matchedPaths: pathResult.mappings.filter((m) => m.status === PATH_OPS.MATCH).length,
-    ambiguousPaths: pathResult.mappings.filter((m) => m.status === PATH_OPS.AMBIGUOUS).length,
-    matchedElements: matchedRows.length,
-    unchangedElements: count(DIFF_STATUS.MATCHED_UNCHANGED),
-    propertyChangedElements: count(DIFF_STATUS.PROPERTY_CHANGED),
-    geometryChangedElements: count(DIFF_STATUS.GEOMETRY_CHANGED),
-    missingInTarget: count(DIFF_STATUS.MISSING_IN_TARGET),
-    newInTarget: count(DIFF_STATUS.NEW_IN_TARGET),
-    ambiguousElements: count(DIFF_STATUS.AMBIGUOUS),
-    splitElements: count(DIFF_STATUS.SPLIT),
-    mergeElements: count(DIFF_STATUS.MERGE),
-    highConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.HIGH).length,
-    mediumConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.MEDIUM).length,
-    lowConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.LOW).length,
-    evidenceConflictElements: conflictRows.filter((c) => c.kind === 'EVIDENCE_CONFLICT').length,
-    conflictCount: conflictRows.length,
-    averageMatchScore: confidences.length ? Number((confidences.reduce((s, r) => s + r.score, 0) / confidences.length).toFixed(2)) : 0,
-    registrationAnchorCount: registration.anchorCount,
-    registrationResidualMaxMm: registration.residualMaxMm,
-    registrationResidualAvgMm: registration.residualAvgMm,
-  };
+  const registration = buildRegistrationFromBasis(topoA, topoB, matchRecords, nodesA, nodesB, config);
+
+  // Legacy dashboard fields: raw/consumed counts and path tallies come from
+  // the caller's graph when present (CanonicalObjectGraph inputs).
+  const pathIdOf = (edge) => edge.pathId ?? edge.ownerBranchId ?? null;
+  const pathsOf = (topo, raw) => raw?.paths?.length ?? new Set(topo.edges.map(pathIdOf).filter(Boolean)).size;
+  const matchedSourceIds = new Set(matchedRows.map((r) => r.sourceObjectId));
+  const edgeByIdA = new Map(topoA.edges.map((e) => [e.id, e]));
+  const matchedPathIds = new Set([...matchedSourceIds].map((id) => pathIdOf(edgeByIdA.get(id) ?? {})).filter(Boolean));
 
   return {
     contract: CONTRACT_VERSIONS.CompareAudit,
-    generatedAt: new Date().toISOString(),
-    config,
-    sourceModelId: graphA.modelId,
-    targetModelId: graphB.modelId,
-    sourceObjectIds: graphA.objects.map((o) => o.objectId),
-    targetObjectIds: graphB.objects.map((o) => o.objectId),
-    summary,
+    compareKind: 'topology-edge',
+    sourceObjectIds: topoA.edges.map(e => e.id),
+    targetObjectIds: topoB.edges.map(e => e.id),
+    summary: {
+      sourceRawElements: rawTopoA.rawElementCount ?? topoA.edges.length,
+      targetRawElements: rawTopoB.rawElementCount ?? topoB.edges.length,
+      sourceCanonicalElements: topoA.edges.length,
+      targetCanonicalElements: topoB.edges.length,
+      consumedSourceElements: rawTopoA.consumedRows?.length ?? 0,
+      consumedTargetElements: rawTopoB.consumedRows?.length ?? 0,
+      sourcePaths: pathsOf(topoA, rawTopoA),
+      targetPaths: pathsOf(topoB, rawTopoB),
+      matchedPaths: matchedPathIds.size,
+      matchedElements: matchedRows.length,
+      basisElements: diffRows.filter((r) => r.basis).length,
+      highConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.HIGH).length,
+      mediumConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.MEDIUM).length,
+      lowConfidenceElements: matchedRows.filter((r) => r.confidence === CONFIDENCE.LOW).length,
+      evidenceConflictElements: matchedRows.filter((r) => (r.conflicts ?? []).length > 0).length,
+      averageMatchScore: matchedRows.length
+        ? Number((matchedRows.reduce((sum, r) => sum + (Number(r.score) || 0), 0) / matchedRows.length).toFixed(2))
+        : 0,
+      registrationAnchorCount: registration.anchorPairs.length,
+      registrationResidualMaxMm: registration.residualMaxMm,
+      splitElements: count(DIFF_STATUS.SPLIT),
+      mergeElements: count(DIFF_STATUS.MERGE),
+      unchangedElements: count(DIFF_STATUS.MATCHED_UNCHANGED),
+      propertyChangedElements: count(DIFF_STATUS.PROPERTY_CHANGED),
+      geometryChangedElements: count(DIFF_STATUS.GEOMETRY_CHANGED),
+      missingInTarget: count(DIFF_STATUS.MISSING_IN_TARGET),
+      newInTarget: count(DIFF_STATUS.NEW_IN_TARGET),
+      ambiguousElements: count(DIFF_STATUS.AMBIGUOUS),
+      ambiguousPaths: 0,
+      conflictCount: conflictRows.length,
+    },
     objectDiff: { contract: CONTRACT_VERSIONS.ObjectDiff, rows: diffRows },
     conflictLedger: { contract: CONTRACT_VERSIONS.ConflictLedger, rows: conflictRows },
     matchCandidates: { contract: CONTRACT_VERSIONS.MatchCandidate, rows: candidateRows },
-    pathAudit: {
-      mappings: pathResult.mappings,
-      unmatchedSourcePaths: pathResult.unmatchedSourcePaths,
-      unmatchedTargetPaths: pathResult.unmatchedTargetPaths,
-      alignmentRows,
+    pathAudit: { mappings: [], unmatchedSourcePaths: [], unmatchedTargetPaths: [], alignmentRows: [] },
+    normalization: {
+      source: { rule: rawTopoA.normalizationRule ?? 'none', consumedRows: rawTopoA.consumedRows ?? [] },
+      target: { rule: rawTopoB.normalizationRule ?? 'none', consumedRows: rawTopoB.consumedRows ?? [] },
     },
     registration,
-    manualOverrides: { contract: CONTRACT_VERSIONS.ManualOverrideLedger, rows: manualOverrides },
-    normalization: {
-      source: { rule: graphA.normalizationRule, consumedRows: graphA.consumedRows },
-      target: { rule: graphB.normalizationRule, consumedRows: graphB.consumedRows },
-    },
   };
+}
+
+/**
+ * Registration from identity evidence: matched support tags plus the node
+ * endpoints of basis/high-confidence matches anchor a best-fit translation.
+ * Residuals stay honest — a reroute shows large residuals, never a silent
+ * bad overlay.
+ */
+function buildRegistrationFromBasis(topoA, topoB, matchRecords, nodesA, nodesB, config) {
+  const pairs = [];
+  const seen = new Set();
+  const addPair = (sourceNode, targetNode, tag) => {
+    const key = `${sourceNode}->${targetNode}`;
+    if (seen.has(key)) return;
+    const a = nodesA.get(sourceNode)?.position;
+    const b = nodesB.get(targetNode)?.position;
+    if (!a || !b) return;
+    seen.add(key);
+    pairs.push({ sourceNode, targetNode, tag: tag ?? null, source: [a.x, a.y, a.z], target: [b.x, b.y, b.z] });
+  };
+
+  for (const anchor of extractAnchorPairs(topoA, topoB)) addPair(anchor.sourceNode, anchor.targetNode, anchor.tag);
+  const edgesA = new Map(topoA.edges.map((e) => [e.id, e]));
+  const edgesB = new Map(topoB.edges.map((e) => [e.id, e]));
+  for (const record of matchRecords) {
+    if (!record.basis && !(record.pair?.score >= config.highConfidenceScore)) continue;
+    const source = edgesA.get(record.sourceObjectId);
+    const target = edgesB.get(record.targetObjectId);
+    if (!source || !target) continue;
+    addPair(source.fromNodeId, target.fromNodeId);
+    addPair(source.toNodeId, target.toNodeId);
+  }
+
+  if (!pairs.length) {
+    return {
+      contract: CONTRACT_VERSIONS.RegistrationAudit,
+      method: 'none', anchorCount: 0, translationMm: [0, 0, 0],
+      residualMaxMm: null, residualAvgMm: null,
+      warnings: ['No identity anchors available; source rendered without registration.'],
+      anchorPairs: [],
+    };
+  }
+
+  const centroid = (points) => points
+    .reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]], [0, 0, 0])
+    .map((v) => v / points.length);
+  const cA = centroid(pairs.map((p) => p.source));
+  const cB = centroid(pairs.map((p) => p.target));
+  const translation = [cB[0] - cA[0], cB[1] - cA[1], cB[2] - cA[2]];
+
+  let residualMax = 0;
+  let residualSum = 0;
+  for (const pair of pairs) {
+    pair.residualMm = Number(Math.hypot(
+      pair.source[0] + translation[0] - pair.target[0],
+      pair.source[1] + translation[1] - pair.target[1],
+      pair.source[2] + translation[2] - pair.target[2],
+    ).toFixed(3));
+    residualMax = Math.max(residualMax, pair.residualMm);
+    residualSum += pair.residualMm;
+  }
+  const warnings = [];
+  const tolerance = config.registrationResidualToleranceMm ?? 50;
+  if (residualMax > tolerance) {
+    warnings.push(`Registration residual ${residualMax.toFixed(1)} mm exceeds tolerance ${tolerance} mm — the route was re-run or partially rerouted; basis connectors remain trustworthy, spatial overlay is approximate.`);
+  }
+
+  return {
+    contract: CONTRACT_VERSIONS.RegistrationAudit,
+    method: 'identity-anchor-translation',
+    anchorCount: pairs.length,
+    translationMm: translation.map((v) => Number(v.toFixed(3))),
+    residualMaxMm: Number(residualMax.toFixed(3)),
+    residualAvgMm: Number((residualSum / pairs.length).toFixed(3)),
+    warnings,
+    anchorPairs: pairs.map((p) => ({ sourceNode: p.sourceNode, targetNode: p.targetNode, tag: p.tag, residualMm: p.residualMm })),
+  };
+}
+
+/** Length/direction change on a matched pair (position-independent). */
+function geometryChanged(source, target, nodesA, nodesB, config) {
+  const sLen = getEdgeLength(source, nodesA);
+  const tLen = getEdgeLength(target, nodesB);
+  if (Number.isFinite(sLen) && Number.isFinite(tLen) && Math.abs(sLen - tLen) > (config.lengthToleranceMm ?? 6)) {
+    return `length Δ=${Math.abs(sLen - tLen).toFixed(1)}mm`;
+  }
+  const direction = (edge, nodes) => {
+    const a = nodes.get(edge.fromNodeId)?.position;
+    const b = nodes.get(edge.toNodeId)?.position;
+    if (!a || !b) return null;
+    const v = [b.x - a.x, b.y - a.y, b.z - a.z];
+    const len = Math.hypot(v[0], v[1], v[2]);
+    return len > 1e-6 ? v.map((x) => x / len) : null;
+  };
+  const dirA = direction(source, nodesA);
+  const dirB = direction(target, nodesB);
+  if (dirA && dirB) {
+    const dot = Math.abs(dirA[0] * dirB[0] + dirA[1] * dirB[1] + dirA[2] * dirB[2]);
+    if (dot < 0.985) return `direction differs (cos=${dot.toFixed(3)})`;
+  }
+  return null;
+}
+
+/** Compare the selected field set on a matched pair. */
+function compareFields(source, target, nodesA, nodesB, config) {
+  const fields = config.compareFields ?? DEFAULT_COMPARE_FIELDS;
+  const changed = [];
+  const push = (property, sourceValue, targetValue) => changed.push({ property, sourceValue, targetValue });
+
+  if (source.segmentRole !== target.segmentRole) push('segmentRole', source.segmentRole, target.segmentRole);
+
+  const sDia = Number(source.diameterMm || 0);
+  const tDia = Number(target.diameterMm || 0);
+  if (sDia && tDia && Math.abs(sDia - tDia) > 1e-4) push('diameterMm', source.diameterMm, target.diameterMm);
+
+  const expanded = fields.includes('PROPERTIES')
+    ? [...fields.filter((f) => f !== 'PROPERTIES'),
+       ...new Set([...Object.keys(source.properties ?? {}), ...Object.keys(target.properties ?? {})])]
+    : fields;
+  for (const field of [...new Set(expanded)]) {
+    if (field === 'ELEMENT_LENGTH') {
+      const sLen = getEdgeLength(source, nodesA);
+      const tLen = getEdgeLength(target, nodesB);
+      if (Number.isFinite(sLen) && Number.isFinite(tLen) && Math.abs(sLen - tLen) > (config.lengthToleranceMm ?? 6)) {
+        push('ELEMENT_LENGTH', `${sLen.toFixed(1)}mm`, `${tLen.toFixed(1)}mm`);
+      }
+      continue;
+    }
+    if (field === 'NAME') {
+      const sName = source.name ?? '';
+      const tName = target.name ?? '';
+      if ((sName || tName) && sName !== tName) push('NAME', sName, tName);
+      continue;
+    }
+    if (field === 'RESTRAINTS') {
+      const signature = (edge) => (edge.packets ?? []).filter((p) => p.kind === 'RESTRAINT')
+        .map((p) => p.attrs?.TYPE ?? '').sort().join('+');
+      const sSig = signature(source);
+      const tSig = signature(target);
+      if ((sSig || tSig) && sSig !== tSig) push('RESTRAINTS', sSig || '(none)', tSig || '(none)');
+      continue;
+    }
+    const sValue = source.properties?.[field];
+    const tValue = target.properties?.[field];
+    if (sValue == null && tValue == null) continue;
+    if (String(sValue ?? '') === String(tValue ?? '')) continue;
+    const sNum = Number(sValue);
+    const tNum = Number(tValue);
+    if (Number.isFinite(sNum) && Number.isFinite(tNum) && Math.abs(sNum - tNum) < 1e-4) continue;
+    push(field, sValue ?? '', tValue ?? '');
+  }
+  return changed;
 }

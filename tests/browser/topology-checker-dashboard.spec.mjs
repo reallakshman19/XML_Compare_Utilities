@@ -44,3 +44,37 @@ test('TTV-C01 — modeless checker reconciles issues, filters, persists layout, 
   await expect(page.locator('[data-ttv-checker-panel]')).toHaveClass(/is-collapsed/);
   await page.locator('[data-ttv-checker-layout="reset"]').click();
 });
+
+test('TTV-C02 — settings policy and dedicated Auto fix produce audited outcomes', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/tests/browser/topology-checker-autofix-fixture.html');
+  await page.waitForFunction(() => document.body.dataset.topologyValidatorReady === '1');
+  await page.locator('[data-ttv-checker-open]').click();
+
+  const autoButton = page.locator('[data-ttv-checker-auto-fix]');
+  await expect(autoButton).toBeVisible();
+  const before = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence());
+  expect(before.policy.schema).toBe('TopologyCheckerPolicy.v1');
+  expect(before.policyHash).toMatch(/^fnv1a32:/);
+  expect(before.autoEligibleCount).toBeGreaterThan(0);
+  await expect(page.locator('[data-ttv-checker-auto-count]')).toHaveText(String(before.autoEligibleCount));
+
+  await page.locator('[data-ttv-checker-settings]').click();
+  const settings = page.locator('[data-ttv-checker-settings-panel]');
+  await expect(settings).toBeVisible();
+  await expect(settings.locator('[data-ttv-policy-rule]')).not.toHaveCount(0);
+  await expect(settings.locator('[data-ttv-policy-threshold="shortElementMm"]')).toHaveValue('6');
+  await settings.locator('[data-ttv-policy-save]').click();
+  await expect(settings).toBeHidden();
+
+  await expect(autoButton).toBeEnabled();
+  await autoButton.click();
+  await page.waitForFunction(() => window.__topologyValidatorHarness.controller.checker.evidence().autoFixRuns.length > 0, null, { timeout: 30_000 });
+  const after = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence());
+  const run = after.autoFixRuns.at(-1);
+  expect(run.schema).toBe('TopologyAutoFixRun.v1');
+  expect(run.applied.length + run.related.length + run.rejected.length).toBeGreaterThan(0);
+  expect(after.resolvedIssues.length).toBe(run.applied.length + run.related.length);
+  expect(errors).toEqual([]);
+});

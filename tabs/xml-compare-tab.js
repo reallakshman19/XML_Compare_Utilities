@@ -19,7 +19,7 @@ import { createXmlCompareWorkspaceModel } from '../xml-compare/XmlCompareWorkspa
 import { createXmlCompareValidationModel } from '../xml-compare/XmlCompareValidationModel.js';
 import { createValidationAudit, downloadValidationAuditCsv, downloadValidationAuditJson } from '../xml-compare/XmlCompareValidationAuditExport.js';
 import { applyCompareFieldPreset } from '../xml-compare/XmlCompareCompareFieldPresets.js';
-import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js?v=20260704-transfer-review-1';
+import { bytes, renderXmlCompareTabView } from '../xml-compare/XmlCompareTabView.js?v=20260717-psi-detect-1';
 import { installUniversalXmlCategorizerRuntime } from './xml-compare-universal-categorizer-runtime.js';
 import { publishUniversalViewportContext } from '../xml-compare/universal-categorizer/universal-viewport-context.js';
 import { buildInputReadinessGateSnapshot, serializeInputReadinessGateSnapshotJson } from '../xml-compare/input/build-input-readiness-gate-snapshot.js';

@@ -17,6 +17,7 @@ export const CONTRACT_VERSIONS = Object.freeze({
   RegistrationAudit: 'RegistrationAudit.v1',
   CompareAudit: 'CompareAudit.v1',
   ViewerStateSnapshot: 'ViewerStateSnapshot.v1',
+  ViewerNavigationState: 'ViewerNavigationState.v1',
   RollbackLedger: 'RollbackLedger.v1',
   BenchmarkResult: 'BenchmarkResult.v1',
   GeometryBufferStore: 'GeometryBufferStore.v1',
@@ -38,6 +39,7 @@ export const DRILLDOWN_DOMAINS = Object.freeze(['XML_ELEMENT', 'NODE_SUPPORT', '
  * hover, selection, conflict review, transfer preview, or registration audit.
  */
 export const CONNECTOR_TYPES = Object.freeze({
+  BASIS_CONNECTOR: 'BASIS_CONNECTOR',
   MATCH_CONNECTOR: 'MATCH_CONNECTOR',
   CANDIDATE_CONNECTOR: 'CANDIDATE_CONNECTOR',
   CONFLICT_CONNECTOR: 'CONFLICT_CONNECTOR',
@@ -194,6 +196,30 @@ export function validateViewerStateSnapshot(snapshot) {
   }
   if (!['overlay', 'side-by-side', 'diff-only'].includes(snapshot.mode)) fail(errors, `unknown mode ${snapshot.mode}`);
   if (!Array.isArray(snapshot.statusFilter)) fail(errors, 'statusFilter[] required');
+  return errors;
+}
+
+/** ViewerNavigationState.v1 validator for world-space camera restoration. */
+export function validateViewerNavigationState(snapshot) {
+  const errors = [];
+  if (!snapshot || typeof snapshot !== 'object') return fail(errors, 'navigation state missing');
+  if (snapshot.contract !== CONTRACT_VERSIONS.ViewerNavigationState) fail(errors, `contract must be ${CONTRACT_VERSIONS.ViewerNavigationState}`);
+  for (const key of ['cameraPositionWorld', 'cameraTargetWorld']) {
+    if (!Array.isArray(snapshot[key]) || snapshot[key].length !== 3 || snapshot[key].some((value) => !Number.isFinite(value))) {
+      fail(errors, `${key} must be [x,y,z] finite numbers`);
+    }
+  }
+  if (snapshot.pivotWorld !== null && (!Array.isArray(snapshot.pivotWorld)
+    || snapshot.pivotWorld.length !== 3 || snapshot.pivotWorld.some((value) => !Number.isFinite(value)))) {
+    fail(errors, 'pivotWorld must be null or [x,y,z] finite numbers');
+  }
+  if (!['Perspective', 'Orthographic'].includes(snapshot.cameraType)) fail(errors, `unknown cameraType ${snapshot.cameraType}`);
+  if (!['Y', 'Z'].includes(snapshot.verticalAxis)) fail(errors, `unknown verticalAxis ${snapshot.verticalAxis}`);
+  if (!Number.isFinite(snapshot.projectionScale) || snapshot.projectionScale <= 0) fail(errors, 'projectionScale must be positive');
+  if (errors.length === 0) {
+    const distance = Math.hypot(...snapshot.cameraPositionWorld.map((value, axis) => value - snapshot.cameraTargetWorld[axis]));
+    if (distance < 0.01) fail(errors, 'camera target distance must be at least 0.01');
+  }
   return errors;
 }
 

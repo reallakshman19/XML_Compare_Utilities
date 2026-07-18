@@ -17,15 +17,20 @@ export const DEFAULT_TRANSFER_CONFIG = Object.freeze({
   allowGeometryTransfer: false,
   transferPackets: true,
   transferProperties: true,
+  excludeProperties: [],
 });
+
+export const GLOBAL_OVERRIDE_REASON = 'excluded by global override';
 
 const CONFIDENCE_RANK = { HIGH: 3, MEDIUM: 2, LOW: 1, NONE: 0 };
 const TRANSFERABLE_STATUSES = [DIFF_STATUS.MATCHED_UNCHANGED, DIFF_STATUS.PROPERTY_CHANGED, DIFF_STATUS.GEOMETRY_CHANGED];
 
-export function buildTransferPlan(compareAudit, graphA, graphB, userConfig = {}) {
+export function buildTransferPlan(compareAudit, topoA, topoB, userConfig = {}) {
   const config = { ...DEFAULT_TRANSFER_CONFIG, ...userConfig };
-  const objA = new Map(graphA.objects.map((o) => [o.objectId, o]));
-  const objB = new Map(graphB.objects.map((o) => [o.objectId, o]));
+  const elementsOf = (topo) => topo?.edges ?? topo?.objects ?? [];
+  const idOf = (element) => element.id ?? element.objectId;
+  const objA = new Map(elementsOf(topoA).map((o) => [idOf(o), o]));
+  const objB = new Map(elementsOf(topoB).map((o) => [idOf(o), o]));
   const rows = [];
   let seq = 0;
 
@@ -33,6 +38,7 @@ export function buildTransferPlan(compareAudit, graphA, graphB, userConfig = {})
     seq += 1;
     const isGeometry = GEOMETRY_PROTECTED_FIELDS.includes(String(property).toUpperCase());
     let reason = blockedReason ?? null;
+    if (!reason && (config.excludeProperties ?? []).includes(String(property))) reason = GLOBAL_OVERRIDE_REASON;
     if (!reason && isGeometry && !config.allowGeometryTransfer) reason = 'geometry field protected (enable geometry transfer explicitly)';
     if (!reason && CONFIDENCE_RANK[diffRow.confidence] < CONFIDENCE_RANK[config.minConfidence]) {
       reason = `confidence ${diffRow.confidence} below required ${config.minConfidence}`;
@@ -66,15 +72,15 @@ export function buildTransferPlan(compareAudit, graphA, graphB, userConfig = {})
     const target = objB.get(diffRow.targetObjectId);
     if (!source || !target) continue;
 
-    if (config.transferProperties) {
+    if (config.transferProperties && source.properties) {
       for (const [property, value] of Object.entries(source.properties)) {
-        const targetValue = target.properties[property] ?? '';
+        const targetValue = target.properties?.[property] ?? '';
         if (String(targetValue) === String(value)) continue; // identical — nothing to transfer
         pushRow(diffRow, property, targetValue, value, 'attribute', null);
       }
     }
-    if (config.transferPackets) {
-      const targetKinds = new Set(target.packets.map((p) => p.kind));
+    if (config.transferPackets && source.packets) {
+      const targetKinds = new Set((target.packets || []).map((p) => p.kind));
       for (const packet of source.packets) {
         if (targetKinds.has(packet.kind)) continue; // packet kind already present on target
         pushRow(diffRow, `PACKET:${packet.kind}`, '', JSON.stringify(packet.attrs), 'packet', null);
