@@ -93,7 +93,7 @@ assert.match(staleImportBridge, /xml-compare-utilities-20260716/);
 assert.match(staleImportBridge, /searchParams\.set\('appBuild'/);
 const producerLoader = read('topology-producer-loader.js');
 assert.match(producerLoader, /vendor\/3d-converters\/topology-browser-core\.mjs/);
-assert.match(producerLoader, /support-deferral-v1/);
+assert.match(producerLoader, /cref-span-guard-v1/);
 assert.doesNotMatch(producerLoader, /\.\.\/\.\.\/\.\.\/3D_Converters/);
 await import('./topology-trace-native-svg-3d.test.js');
 await import('./topology-svg-editor-foundation.test.js');

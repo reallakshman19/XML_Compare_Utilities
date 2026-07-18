@@ -1,9 +1,9 @@
 {
   "schema": "TopologyBrowserCorePin.v1",
   "sourceRepository": "reallaksh19/3D_Converters",
-  "sourceCommit": "d0ac3b77659ccdf4517843f32ea911bbdcb0a37e",
+  "sourceCommit": "49316020e0841e11c620c3cf9c45a8c1025e5803",
   "entryPath": "tabs/model-converters/converters/component-topology/topology-browser-core.js",
   "bundleFile": "topology-browser-core.mjs",
-  "bundleSha256": "sha256:8d70e84639af7fb27ea075b7fb78798e4bfd55b43d7d4eb7b66f46b709bdecb8",
+  "bundleSha256": "sha256:2a94dd86fae713445ab2872677f88f69647b8e6f8f435610b596c4140e854c1c",
   "exportedContract": "TopologyBrowserCore.v1"
 }
