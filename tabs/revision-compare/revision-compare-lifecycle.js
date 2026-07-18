@@ -49,7 +49,11 @@ export function completeComparisonState(compare, token, audit) {
   });
 }
 export function cancelComparisonState(compare) {
-  return deepFreeze({ ...compare, status: compare.audit ? COMPARE_STATUS.COMPLETE : COMPARE_STATUS.CANCELLED, runId: null, progress: null, error: null, reviewVisible: Boolean(compare.audit) });
+  return deepFreeze({
+    ...compare, status: compare.audit ? COMPARE_STATUS.COMPLETE : COMPARE_STATUS.CANCELLED,
+    runGeneration: compare.runGeneration + 1, runId: null, progress: null, error: null,
+    reviewVisible: Boolean(compare.audit),
+  });
 }
 export function failComparisonState(compare, error) {
   return deepFreeze({ ...compare, status: COMPARE_STATUS.FAILED, runId: null, progress: null, error: String(error?.message ?? error), reviewVisible: Boolean(compare.audit) });
