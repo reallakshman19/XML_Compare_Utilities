@@ -1,4 +1,4 @@
-/** Pipeline CAD adapter preserving native table parsers and XML writer bytes. */
+/** Pipeline CAD adapter preserving native parsers and XML writer bytes. */
 
 import { buildSingleDocumentMigration } from '../../contracts/project-migration-contract.js';
 import {
@@ -7,12 +7,13 @@ import {
 import {
   buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml,
 } from './pipeline-3d-model-xml-builder.js';
+import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
+export const PIPELINE_PROFILE_SOURCE_SCHEMA = 'Pipeline3DModelProfileRaw.v1';
 
-/** Run the established native pipeline once and retain all UI/output values. */
-export function buildPipelineProjectOutputs(input) {
+function buildLegacyOutputs(input) {
   const table1Points = parseTable1(input.table1Text);
   const sheets = groupPointsIntoSheets(table1Points);
   const combined = buildCombinedCoordinateTable({
@@ -27,6 +28,13 @@ export function buildPipelineProjectOutputs(input) {
   });
 }
 
+/** Run the authoritative raw-profile pipeline when Table 2A/3A/3B/3C are supplied. */
+export function buildPipelineProjectOutputs(input) {
+  return input?.profileRaw
+    ? buildAuthoritativePipelineOutputs(input)
+    : buildLegacyOutputs(input);
+}
+
 /** Map native writer results to exact downloadable artifacts. */
 export function pipelineProjectArtifacts(output) {
   return Object.freeze([
@@ -38,8 +46,11 @@ export function pipelineProjectArtifacts(output) {
 
 function pipelineSourceText(input) {
   return JSON.stringify({
-    table1Text: input.table1Text, table2Text: input.table2Text,
-    table3Text: input.table3Text, branchInfo: input.branchInfo,
+    table1Text: input.table1Text,
+    table2Text: input.table2Text,
+    table3Text: input.table3Text,
+    profileRaw: input.profileRaw || null,
+    branchInfo: input.branchInfo,
   });
 }
 
@@ -50,12 +61,13 @@ export async function buildPipelineProjectMigration(input) {
   const blockers = segmentCount ? [] : ['At least two coordinate points are required for an XML segment.'];
   return buildSingleDocumentMigration({
     projectId: PIPELINE_CAD_PROJECT_ID, sourceName: input.sourceName,
-    sourceText: pipelineSourceText(input), sourceSchema: PIPELINE_CAD_SOURCE_SCHEMA,
-    rootShape: 'table1+table2+table3', unit: 'MM', verticalAxis: 'Z', coordinateFrame: 'GLOBAL',
+    sourceText: pipelineSourceText(input), sourceSchema: input.profileRaw ? PIPELINE_PROFILE_SOURCE_SCHEMA : PIPELINE_CAD_SOURCE_SCHEMA,
+    rootShape: input.profileRaw ? 'table1+table2a+table3a+table3b+table3c' : 'table1+table2+table3',
+    unit: 'MM', verticalAxis: 'Z', coordinateFrame: 'GLOBAL',
     stats: { branchCount: 1, componentCount: segmentCount, scanned: nativeOutput.table1Points.length, matched: nativeOutput.coordinateRows.length, filtered: 0 },
     scope: { wildcard: '', selectedIds: [] }, createdAt: input.createdAt, cryptoRef: input.cryptoRef,
     writerId: 'buildInputXmlPipingModelXml', outputs: pipelineProjectArtifacts(nativeOutput),
-    hierarchy: { branch: input.branchInfo.branchName, tables: ['table1', 'table2', 'table3'], coordinateRowCount: nativeOutput.coordinateRows.length },
+    hierarchy: { branch: input.branchInfo.branchName, tables: input.profileRaw ? ['table1', 'table2a', 'table3a', 'table3b', 'table3c'] : ['table1', 'table2', 'table3'], coordinateRowCount: nativeOutput.coordinateRows.length },
     calculations: { pointCount: nativeOutput.table1Points.length, coordinateRowCount: nativeOutput.coordinateRows.length, pipingElementCount: segmentCount },
     gate: { status: blockers.length ? 'BLOCKED' : 'READY', blockers },
   });
