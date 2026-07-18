@@ -6,7 +6,8 @@ const LAYER_PRIORITY = Object.freeze({
   authoritative: 10,
   ghost: 20,
   draft: 30,
-  diagnostic: 40,
+  difference: 40,
+  diagnostic: 45,
   selection: 50,
   handles: 60,
 });
