@@ -1,4 +1,4 @@
-/** RC-001 intake/scope actions plus RC-002 bounded visual comparison actions. */
+/** RC-001 intake, RC-002 compare, and RC-003 guided-review actions. */
 import { createRevisionComparisonBasis } from './revision-comparison-basis.js';
 import { createRevisionSessionManifest, createRevisionScopeManifest } from './revision-manifests.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
@@ -7,13 +7,17 @@ import { createRevisionScopeProposal, updateScopeDecision, updateScopeGroup } fr
 import { RevisionRequestSupersededError } from './revision-load-service.js';
 import { RevisionCompareSupersededError } from './revision-compare-service.js';
 import { RevisionComparisonCancelledError } from './revision-compare-engine.js';
+import { createReviewSessionExport, parseReviewSessionJson } from './revision-review-manifest.js';
+import { nextPriorityDifferenceId, previousPriorityDifferenceId, projectReviewPriority, selectionAfterReviewMutation } from './revision-review-priority.js';
+import { reviewSessionMatchesAudit, setReviewItemNote, setReviewItemState } from './revision-review-session.js';
 import {
   cancelWorkspaceComparison, completeWorkspaceComparison, failWorkspaceComparison, failWorkspaceLoad,
   finishWorkspaceLoad, finishWorkspaceScope, progressWorkspaceComparison, resetWorkspaceSlot,
   selectWorkspaceDifference, setWorkspaceBasis, setWorkspaceMessage, setWorkspaceNeedsDecision,
-  setWorkspacePresentation, setWorkspaceProposal, setWorkspaceQueueSearch, setWorkspaceReviewVisible,
-  setWorkspaceSearch, startWorkspaceComparison, startWorkspaceLoad, toggleWorkspaceCategory,
-  toggleWorkspaceChangedReason,
+  setWorkspacePresentation, setWorkspaceProposal, setWorkspaceQueueSearch, setWorkspaceReviewImportError,
+  setWorkspaceReviewSearch, setWorkspaceReviewSession, setWorkspaceReviewVisible, setWorkspaceSearch,
+  startWorkspaceComparison, startWorkspaceLoad, startWorkspaceNewReviewSession, toggleWorkspaceCategory,
+  toggleWorkspaceChangedReason, toggleWorkspaceReviewFilter,
 } from './revision-workspace-state.js';
 
 function labelFor(slotId) { return slotId === 'baseline' ? 'Rev A' : 'Rev B'; }
@@ -37,7 +41,7 @@ async function stopComparison(context) { await context.compareService?.cancel?.(
 async function refreshProposal(context, decisions) {
   const token = context.authority.capture(); const proposal = await proposalFor(context, context.readState(), decisions);
   if (!context.authority.isCurrent(token)) return false;
-  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions)); return true;
+  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions, context.now())); return true;
 }
 async function loadRevision(context, slotId, file) {
   await stopComparison(context); const generation = context.service.begin(slotId);
@@ -66,7 +70,7 @@ async function refineScope(context, decisions) {
   const token = context.authority.invalidate(); await stopComparison(context);
   const proposal = await proposalFor(context, context.readState(), decisions);
   if (!context.authority.isCurrent(token)) return;
-  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions));
+  commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions, context.now()));
 }
 async function setBranch(context, branchId, included) {
   const decisions = updateScopeDecision(context.readState().scopeDecisions, branchId, !included); await refineScope(context, decisions);
@@ -106,6 +110,15 @@ function ensureRunAuthority(context, basisId) {
   const state = context.readState();
   if (state.basisStatus !== 'CURRENT' || state.basis?.basisId !== basisId) throw new RevisionCompareSupersededError();
 }
+function combinedReviewFilters(state) {
+  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search || state.compare.queue.search,
+    needsDecisionOnly: state.compare.queue.needsDecisionOnly, changedReasons: state.compare.queue.changedReasons };
+}
+function reviewProjection(state) {
+  const audit = state.compare.audit; const session = state.review.session;
+  if (!audit || !reviewSessionMatchesAudit(session, audit)) return { all: [], visible: [], visibleCount: 0, hiddenCount: 0 };
+  return projectReviewPriority(audit, session, combinedReviewFilters(state));
+}
 async function runVisualComparison(context) {
   const initial = context.readState(); const readiness = revisionVisualReadiness(initial);
   if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
@@ -116,7 +129,10 @@ async function runVisualComparison(context) {
     const audit = await context.compareService.compare(token, { basis, ...projection }, (progress) => {
       if (context.readState().compare.runGeneration === token.generation) commit(context, progressWorkspaceComparison(context.readState(), token, progress));
     });
-    ensureRunAuthority(context, basis.basisId); commit(context, completeWorkspaceComparison(context.readState(), token, audit));
+    ensureRunAuthority(context, basis.basisId);
+    let completed = completeWorkspaceComparison(context.readState(), token, audit, context.now());
+    const first = reviewProjection(completed).visible[0]?.row.differenceId ?? completed.compare.selectedDifferenceId;
+    completed = selectWorkspaceDifference(completed, first); commit(context, completed);
     context.options?.showToast?.('Visual comparison complete.', 'success');
   } catch (error) {
     if (error instanceof RevisionCompareSupersededError) return;
@@ -125,30 +141,73 @@ async function runVisualComparison(context) {
   }
 }
 async function cancelComparison(context) { await context.compareService.cancel(); commit(context, cancelWorkspaceComparison(context.readState())); }
-function safe(context, operation) { return async (...args) => { try { await operation(...args); } catch (error) { report(context, error); } }; }
+function commitReviewMutation(context, session, before, currentId) {
+  let next = setWorkspaceReviewSession(context.readState(), session); const after = reviewProjection(next);
+  const selection = selectionAfterReviewMutation(before, after, currentId);
+  if (selection !== currentId) next = selectWorkspaceDifference(next, selection);
+  commit(context, next); context.viewerAdapter.selectDifference(selection);
+}
+function setReviewState(context, reviewState) {
+  const state = context.readState(); const id = state.compare.selectedDifferenceId; if (!id) return;
+  const before = reviewProjection(state); const session = setReviewItemState(state.review.session, state.compare.audit, id, reviewState, context.now());
+  if (session !== state.review.session) commitReviewMutation(context, session, before, id);
+}
+async function saveReviewNote(context) {
+  const state = context.readState(); const id = state.compare.selectedDifferenceId; if (!id) return;
+  const field = context.root.querySelector('[data-revc-review-note]'); const before = reviewProjection(state);
+  const session = await setReviewItemNote(state.review.session, state.compare.audit, id, field?.value ?? '', context.now(), context.cryptoRef);
+  if (session !== state.review.session) commitReviewMutation(context, session, before, id);
+}
+function navigateReview(context, direction) {
+  const state = context.readState(); const projection = reviewProjection(state); const current = state.compare.selectedDifferenceId;
+  const id = direction === 'previous' ? previousPriorityDifferenceId(projection, current) : nextPriorityDifferenceId(projection, current);
+  if (!id) return; commit(context, selectWorkspaceDifference(state, id)); context.viewerAdapter.selectDifference(id);
+}
+async function importReviewSession(context, file) {
+  const state = context.readState(); const audit = state.compare.audit;
+  if (!audit) throw new Error('Run the exact comparison audit before importing a review session.');
+  try {
+    const text = file.text ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
+    const session = await parseReviewSessionJson(text, audit, context.now(), context.cryptoRef);
+    commit(context, setWorkspaceReviewSession(setWorkspaceReviewImportError(context.readState(), null), session));
+    context.options?.showToast?.('Review session imported.', 'success');
+  } catch (error) {
+    commit(context, setWorkspaceReviewImportError(context.readState(), error)); report(context, error);
+  }
+}
+function startNewReview(context) {
+  let next = startWorkspaceNewReviewSession(context.readState(), context.now()); const first = reviewProjection(next).visible[0]?.row.differenceId ?? null;
+  next = selectWorkspaceDifference(next, first); commit(context, next); context.viewerAdapter.selectDifference(first);
+}
 function downloadSession(context) {
   const state = context.readState(); context.downloadArtifact(context.root, `${state.session.sessionId}.session.json`, createRevisionSessionManifest(state, preflight(context, state)));
 }
 function downloadScope(context) {
   const state = context.readState(); context.downloadArtifact(context.root, `${state.session.sessionId}.scope-basis.json`, createRevisionScopeManifest(state, preflight(context, state)));
 }
+function downloadReview(context) {
+  const session = createReviewSessionExport(context.readState().review.session);
+  context.downloadArtifact(context.root, `${session.reviewSessionId}.json`, session);
+}
+function safe(context, operation) { return async (...args) => { try { await operation(...args); } catch (error) { report(context, error); } }; }
 function updateAndRender(context, transition, ...args) { return commit(context, transition(context.readState(), ...args)); }
 export function createRevisionActions(context) {
   const guarded = { ...context, authority: createRevisionActionAuthority() };
   return Object.freeze({
     load: (slotId, file) => loadRevision(guarded, slotId, file), cancel: (slotId) => cancelRevision(guarded, slotId),
-    setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)),
-    setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
-    setSearch: (group, value) => updateAndRender(guarded, setWorkspaceSearch, group, value),
-    approveBasis: safe(guarded, () => approveBasis(guarded)), runVisualComparison: safe(guarded, () => runVisualComparison(guarded)),
-    cancelComparison: safe(guarded, () => cancelComparison(guarded)), selectDifference: (id) => updateAndRender(guarded, selectWorkspaceDifference, id),
+    setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)), setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
+    setSearch: (group, value) => updateAndRender(guarded, setWorkspaceSearch, group, value), approveBasis: safe(guarded, () => approveBasis(guarded)),
+    runVisualComparison: safe(guarded, () => runVisualComparison(guarded)), cancelComparison: safe(guarded, () => cancelComparison(guarded)),
+    selectDifference: (id) => updateAndRender(guarded, selectWorkspaceDifference, id),
     setPresentation: (mode) => { updateAndRender(guarded, setWorkspacePresentation, mode); guarded.viewerAdapter.setPresentationMode(mode); },
-    setQueueSearch: (value) => updateAndRender(guarded, setWorkspaceQueueSearch, value),
-    toggleCategory: (category) => updateAndRender(guarded, toggleWorkspaceCategory, category),
-    toggleChangedReason: (reason) => updateAndRender(guarded, toggleWorkspaceChangedReason, reason),
-    setNeedsDecision: (enabled) => updateAndRender(guarded, setWorkspaceNeedsDecision, enabled),
-    showSetup: () => updateAndRender(guarded, setWorkspaceReviewVisible, false), showReview: () => updateAndRender(guarded, setWorkspaceReviewVisible, true),
-    fitAll: () => guarded.viewerAdapter.fitAll(), fitSelected: () => guarded.viewerAdapter.fitSelected(),
+    setQueueSearch: (value) => updateAndRender(guarded, setWorkspaceQueueSearch, value), toggleCategory: (category) => updateAndRender(guarded, toggleWorkspaceCategory, category),
+    toggleChangedReason: (reason) => updateAndRender(guarded, toggleWorkspaceChangedReason, reason), setNeedsDecision: (enabled) => updateAndRender(guarded, setWorkspaceNeedsDecision, enabled),
+    toggleReviewFilter: (group, value) => updateAndRender(guarded, toggleWorkspaceReviewFilter, group, value), setReviewSearch: (value) => updateAndRender(guarded, setWorkspaceReviewSearch, value),
+    setReviewState: safe(guarded, (state) => setReviewState(guarded, state)), saveReviewNote: safe(guarded, () => saveReviewNote(guarded)),
+    nextPriority: () => navigateReview(guarded, 'next'), previousPriority: () => navigateReview(guarded, 'previous'),
+    importReviewSession: (file) => importReviewSession(guarded, file), startNewReviewSession: safe(guarded, () => startNewReview(guarded)),
+    downloadReviewSession: safe(guarded, () => downloadReview(guarded)), showSetup: () => updateAndRender(guarded, setWorkspaceReviewVisible, false),
+    showReview: () => updateAndRender(guarded, setWorkspaceReviewVisible, true), fitAll: () => guarded.viewerAdapter.fitAll(), fitSelected: () => guarded.viewerAdapter.fitSelected(),
     downloadSession: safe(guarded, () => downloadSession(guarded)), downloadScope: safe(guarded, () => downloadScope(guarded)),
     close: () => guarded.options?.close?.(), setMessage: (message) => updateAndRender(guarded, setWorkspaceMessage, message),
   });
