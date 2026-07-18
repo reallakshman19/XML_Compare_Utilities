@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('Support Steel exports become stale after input changes and recover after rebuild', async ({ page }) => {
   await page.goto('/index.html');
+  await expect(page.getByRole('navigation', { name: 'Application tabs' })).toBeVisible();
   await page.evaluate(async () => {
     const moduleUrl = new URL('/tabs/support-steel-relationship-builder/support-steel-relationship-tab.js?browser=stale-preview-1', location.href).href;
     const module = await import(moduleUrl);

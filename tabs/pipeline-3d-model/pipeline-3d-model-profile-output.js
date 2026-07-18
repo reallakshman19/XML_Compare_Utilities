@@ -37,6 +37,24 @@ export function buildTable2XText(profile) {
   return [header, ...rows].map((row) => row.join('\t')).join('\n');
 }
 
+function originEvidence(profile) {
+  const anchor = profile.coordinateMap.anchors[0];
+  if (!anchor) return [];
+  return [{
+    basis: anchor.absoluteH,
+    hRef: formatProfileValue(anchor.absoluteH),
+    hText: '0.0',
+    zRef: DASH,
+    zText: DASH,
+    markerRef: DASH,
+    markerText: DASH,
+    hLength: 0,
+    cumulative: anchor.cumulative,
+    cumulativeInt: anchor.cumulative,
+    order: 0,
+  }];
+}
+
 function lengthEvidence(profile) {
   let cumulative = 0;
   return profile.table3LengthRows.map((row) => {
@@ -95,7 +113,7 @@ function markerEvidence(profile) {
 }
 
 export function buildTable3EvidenceRows(profile) {
-  return [...lengthEvidence(profile), ...depthEvidence(profile), ...markerEvidence(profile)]
+  return [...originEvidence(profile), ...lengthEvidence(profile), ...depthEvidence(profile), ...markerEvidence(profile)]
     .sort((a, b) => a.cumulativeInt - b.cumulativeInt || a.order - b.order || a.markerText.localeCompare(b.markerText));
 }
 

@@ -11,6 +11,7 @@ import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 
 const EPSILON = 1e-6;
 const ROUTE_TOLERANCE = 0.5;
+const GRADE_RULE = Object.freeze({ zOffset: 0, mode: 'grade', zText: 'GRADE' });
 
 function event(type, distance, label, order = 50, depthRule = null, metadata = {}) {
   return { type, distance, label, order, depthRule, metadata };
@@ -44,6 +45,12 @@ export function buildTable3AnchorEvents(profile, context) {
   ));
 }
 
+function hasBoundaryPeer(rules, rule, key, peerKey) {
+  return rules.some((candidate) => candidate !== rule
+    && !candidate.pointOnly
+    && Math.abs(candidate[peerKey] - rule[key]) <= EPSILON);
+}
+
 export function buildDepthEvents(rules) {
   const events = [];
   for (const rule of rules) {
@@ -51,8 +58,14 @@ export function buildDepthEvents(rules) {
       events.push(event('depth', rule.start, rule.zText, 45, rule));
       continue;
     }
+    if (!hasBoundaryPeer(rules, rule, 'start', 'end')) {
+      events.push(event('grade-end', rule.start, 'GRADE END', 5, GRADE_RULE));
+    }
     events.push(event('depth-start', rule.start, `${rule.zText} START`, 60, rule));
     events.push(event('depth-end', rule.end, `${rule.zText} END`, 40, rule));
+    if (!hasBoundaryPeer(rules, rule, 'end', 'start')) {
+      events.push(event('grade-start', rule.end, 'GRADE START', 65, GRADE_RULE));
+    }
   }
   return events;
 }

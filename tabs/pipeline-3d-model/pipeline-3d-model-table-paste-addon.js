@@ -10,7 +10,7 @@ import {
 } from './pipeline-3d-model-table-paste-samples.js?v=20260716-table-paste-samples-1';
 import {
   installPipelineProfilePropagation,
-} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260718-warning-log-1';
+} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260718-profile-output-cleanup-1';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();
