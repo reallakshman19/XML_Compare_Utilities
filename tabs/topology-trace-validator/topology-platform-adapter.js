@@ -46,7 +46,8 @@ function artifactRole(schema) {
 function topologyCounts(built, commandJournal, files, auditLog) {
   const canonical = objectRecord(objectRecord(built).canonicalTopology);
   const supports = asArray(canonical.supports);
-  const auditSummary = objectRecord(auditLog.summary), findingStatuses = objectRecord(auditSummary.findingStatuses);
+  const safeAuditLog = objectRecord(auditLog);
+  const auditSummary = objectRecord(safeAuditLog.summary), findingStatuses = objectRecord(auditSummary.findingStatuses);
   const operationStatuses = objectRecord(auditSummary.operationStatuses);
   return Object.freeze({
     activeCommands: asArray(commandJournal.activeCommandIds).length, redoCommands: asArray(commandJournal.redoCommandIds).length,
@@ -99,7 +100,7 @@ export async function buildTopologyExportPlan(input) {
         editedCanonicalTopologyHash: input.built.canonicalTopology.canonicalTopologyHash,
         commandJournalHash, outputManifestHash },
       counts: topologyCounts(input.built, input.commandJournal, files, input.auditLog),
-      exportPolicy: { status: 'ALWAYS_ALLOWED', documentationSchema: cleanText(input.auditLog.schema) },
+      exportPolicy: { status: 'ALWAYS_ALLOWED', documentationSchema: cleanText(objectRecord(input.auditLog).schema) },
     },
     files, gate: { status: 'READY', blockers: [] },
   });
