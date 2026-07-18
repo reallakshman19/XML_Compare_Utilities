@@ -1,113 +1,86 @@
-/**
- * RC-001 workspace controller. It owns two independent staged-JSON clients,
- * updates immutable ProjectSession manifests, and exports that manifest. It
- * does not match objects, render geometry, transfer fields, or write JSON.
- */
+/** RC-001 workspace lifecycle: two worker-backed inputs and one approved scope basis. */
 
-import {
-  attachProjectDocument, createProjectSession, projectSessionPreflight, serializeProjectSession,
-} from './revision-session-contracts.js';
+import { createRevisionActions } from './revision-compare-actions.js';
+import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
+import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
-import {
-  renderRevisionPreflight, renderRevisionSlot, revisionCompareWorkspaceMarkup,
-} from './revision-compare-view.js';
+import { revisionComparisonPreflight } from './revision-preflight.js';
+import { createRevisionWorkspaceState } from './revision-workspace-state.js';
 
-function isoNow() { return new Date().toISOString(); }
-function sessionId() { return `revision-session-${Date.now().toString(36)}`; }
-
-function createState() {
-  const session = createProjectSession({ sessionId: sessionId(), createdAt: isoNow() });
-  return Object.freeze({ session, documents: Object.freeze({ baseline: null, candidate: null }) });
+function defaultNow() {
+  return new Date().toISOString();
 }
 
-function downloadManifest(root, session) {
-  const windowRef = root.ownerDocument.defaultView;
-  if (!windowRef?.Blob || !windowRef?.URL?.createObjectURL) throw new Error('Browser download APIs are unavailable.');
-  const blob = new windowRef.Blob([serializeProjectSession(session)], { type: 'application/json;charset=utf-8' });
-  const url = windowRef.URL.createObjectURL(blob);
-  const anchor = root.ownerDocument.createElement('a');
-  anchor.href = url;
-  anchor.download = `${session.sessionId}.json`;
-  anchor.click();
-  windowRef.URL.revokeObjectURL(url);
-}
-
-function withDocument(state, document) {
-  const documents = Object.freeze({ ...state.documents, [document.slotId]: document });
-  const session = attachProjectDocument(state.session, document, isoNow());
-  return Object.freeze({ session, documents });
-}
-
-function renderWorkspace(root, state, messages) {
-  for (const slotId of ['baseline', 'candidate']) {
-    const document = state.documents[slotId];
-    const message = messages?.[slotId] || (document ? 'Immutable revision manifest ready.' : 'Choose a staged JSON file.');
-    renderRevisionSlot(root, slotId, document, message);
-  }
-  renderRevisionPreflight(root, projectSessionPreflight(state.session));
-  const id = root.querySelector('[data-revc-session-id]');
-  if (id) id.textContent = state.session.sessionId;
-}
-
-function reportError(root, options, error) {
-  const message = error?.message || String(error);
-  const live = root.querySelector('[data-revc-live]');
-  if (live) live.textContent = message;
-  options?.showToast?.(message, 'error');
+function sessionId(now) {
+  return `revision-session-${String(now).replace(/[^0-9]/g, '')}`;
 }
 
 function trackedListener(cleanups, target, type, handler) {
-  if (!target) return;
   target.addEventListener(type, handler);
   cleanups.push(() => target.removeEventListener(type, handler));
 }
 
-function wireInputs(root, actions, cleanups) {
-  root.querySelectorAll('[data-revc-file]').forEach((input) => trackedListener(cleanups, input, 'change', async () => {
-    const file = input.files?.[0];
-    if (file) await actions.load(input.dataset.revcFile, file);
-  }));
-  root.querySelectorAll('[data-revc-apply-scope]').forEach((button) => trackedListener(cleanups, button, 'click', () => actions.scope(button.dataset.revcApplyScope)));
-  trackedListener(cleanups, root.querySelector('[data-revc-download]'), 'click', actions.download);
-  trackedListener(cleanups, root.querySelector('[data-revc-close]'), 'click', actions.close);
+function fileChange(actions, target) {
+  const file = target.files?.[0];
+  if (file) actions.load(target.dataset.revcFile, file);
 }
 
-function createActions(root, options, service, readState, writeState) {
-  const safe = (operation) => async (...args) => { try { await operation(...args); } catch (error) { reportError(root, options, error); } };
-  const load = safe(async (slotId, file) => {
-    renderWorkspace(root, readState(), { [slotId]: `Parsing ${file.name} and hashing exact input bytes…` });
-    const result = await service.loadFile(slotId, file, isoNow());
-    writeState(withDocument(readState(), result.document));
-    options?.showToast?.(`${slotId} revision loaded.`, 'success');
-    renderWorkspace(root, readState(), { [slotId]: `Loaded ${result.document.stats.branchCount} branch(es).` });
-  });
-  const scope = safe(async (slotId) => {
-    const wildcard = root.querySelector(`[data-revc-scope="${slotId}"]`)?.value || '';
-    const result = await service.applyScope(slotId, { wildcard, selectedIds: [] }, isoNow());
-    writeState(withDocument(readState(), result.document));
-    renderWorkspace(root, readState(), { [slotId]: `Scope retained ${result.document.stats.matched}/${result.document.stats.scanned} branch(es).` });
-  });
-  return Object.freeze({
-    load, scope,
-    download: () => { try { downloadManifest(root, readState().session); } catch (error) { reportError(root, options, error); } },
-    close: () => options?.close?.(),
-  });
+function actionClick(actions, target) {
+  const button = target.closest('button');
+  if (!button) return;
+  if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
+  if (button.dataset.revcGroup) actions.setGroupIncluded(button.dataset.revcGroup, button.dataset.revcInclude === 'all');
+  if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
+  if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
+  if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
+  if (button.hasAttribute('data-revc-close')) actions.close();
 }
 
-/** Mount the dual revision loader and return its explicit lifecycle handle. */
-export function mountRevisionCompareWorkspace(root, options) {
+function inputChange(actions, target) {
+  if (target.matches('[data-revc-file]')) fileChange(actions, target);
+  if (target.matches('[data-revc-search]')) actions.setSearch(target.dataset.revcSearch, target.value);
+  if (target.matches('[data-revc-branch-id]')) actions.setBranchIncluded(target.dataset.revcBranchId, target.checked);
+}
+
+function bindWorkspace(root, actions, cleanups) {
+  trackedListener(cleanups, root, 'click', (event) => actionClick(actions, event.target));
+  trackedListener(cleanups, root, 'change', (event) => inputChange(actions, event.target));
+}
+
+/** Mount the trusted Revision Compare intake and return explicit evidence/lifecycle APIs. */
+export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
-  const service = createRevisionLoadService(root.ownerDocument.defaultView?.crypto);
+  const now = options.now ?? defaultNow;
+  const cryptoRef = options.cryptoRef ?? root.ownerDocument.defaultView?.crypto;
+  const service = options.service ?? createRevisionLoadService(cryptoRef, options.loadServiceOptions);
+  const downloadArtifact = options.downloadArtifact ?? downloadRevisionArtifact;
   const cleanups = [];
-  let state = createState();
-  root.innerHTML = revisionCompareWorkspaceMarkup();
-  const actions = createActions(root, options, service, () => state, (next) => { state = next; });
-  wireInputs(root, actions, cleanups);
-  renderWorkspace(root, state, null);
+  let state = createRevisionWorkspaceState(options.sessionId ?? sessionId(now()), now());
+
+  function preflight() {
+    return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal);
+  }
+
+  function render(next = state) {
+    state = next;
+    root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight());
+  }
+
+  const actions = createRevisionActions({
+    root, options, service, cryptoRef, readState: () => state,
+    writeState: (next) => { state = next; }, render, now, downloadArtifact,
+  });
+  bindWorkspace(root, actions, cleanups);
+  render();
+
   return Object.freeze({
-    evidence: () => Object.freeze({ session: state.session, preflight: projectSessionPreflight(state.session) }),
-    destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); service.dispose(); root.innerHTML = ''; },
+    evidence: () => Object.freeze({ state, preflight: preflight() }),
+    destroy: () => {
+      cleanups.splice(0).reverse().forEach((cleanup) => cleanup());
+      service.dispose();
+      root.innerHTML = '';
+    },
   });
 }
 
-export const _test = Object.freeze({ downloadManifest });
+export const _test = Object.freeze({ sessionId, actionClick, inputChange });

@@ -39,12 +39,14 @@ export function checkerIssueRow(issue, suggestion, context) {
   const details = objectRecord(issue.details), objectIds = asArray(issue.objectIds).map(cleanText);
   const object = firstIndexedObject(context.indexes, objectIds);
   const branch = cleanText(details.branchId ?? object?.row.ownerBranchId ?? asArray(object?.row.branchIds)[0]);
-  const status = cleanText(context.reviewState.issueStates?.[issue.id]?.status) || 'OPEN';
+  const status = cleanText(context.statusOverride ?? context.reviewState.issueStates?.[issue.id]?.status) || 'OPEN';
   return Object.freeze({
     ...issue, branch, status, objectType: object?.kind?.toUpperCase() || 'EVIDENCE',
     measurement: checkerMeasurement(details), fixability: suggestion?.fixability ?? issue.fixability,
+    effectiveFixMode: cleanText(suggestion?.effectiveFixMode), executionState: cleanText(suggestion?.executionState),
+    autoFixFailure: context.autoFixFailure ?? null, resolution: context.resolution ?? null,
     baselineState: context.baselineIssueIds.has(issue.id) ? 'BASELINE' : 'NEW',
-    suggestionId: cleanText(suggestion?.id), searchText: [issue.code, issue.message, branch, ...objectIds].join(' ').toLowerCase(),
+    suggestionId: cleanText(suggestion?.id), searchText: [issue.code, issue.message, branch, context.autoFixFailure?.reasonCode, ...objectIds].join(' ').toLowerCase(),
   });
 }
 

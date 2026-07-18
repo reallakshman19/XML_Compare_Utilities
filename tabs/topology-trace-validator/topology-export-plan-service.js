@@ -5,6 +5,7 @@ import {
   buildExportPlanRowsMarkup, exportPlanInspectorRows, filterExportPlanInspectorRows, virtualExportPlanWindow,
 } from './topology-export-inspector-model.js';
 import { escapeMarkup } from './topology-validator-values.js';
+import { topologyExportAuditStateKey } from './topology-export-audit-log.js';
 
 function summaryMarkup(plan, rowCount) {
   const gate = plan.gate.status;
@@ -33,7 +34,7 @@ export function createTopologyExportPlanService(input) {
     const filter = input.host.querySelector('[data-ttv-export-filter]');
     viewport?.addEventListener('scroll', renderRows, { passive: true });
     filter?.addEventListener('input', (event) => { query = event.target.value; if (viewport) viewport.scrollTop = 0; renderRows(); });
-    renderRows(); input.exportButton.disabled = snapshot.plan.gate.status !== 'READY';
+    renderRows(); input.exportButton.disabled = false;
   }
 
   function renderPending() {
@@ -42,7 +43,7 @@ export function createTopologyExportPlanService(input) {
   }
 
   async function prepare(planInput) {
-    const key = topologyExportStateKey(planInput.draft, planInput.commandJournal);
+    const key = topologyExportStateKey(planInput.draft, planInput.commandJournal, topologyExportAuditStateKey(planInput));
     if (snapshot?.stateKey === key) return snapshot;
     if (pendingKey === key && pending) return pending;
     const request = ++token; pendingKey = key; renderPending();

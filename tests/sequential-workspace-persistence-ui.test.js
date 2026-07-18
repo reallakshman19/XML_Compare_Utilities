@@ -71,6 +71,6 @@ assert.match(tab, /persistenceController\?\.destroy\(\)/);
 assert.match(tab, /20260717-ssk-workspace-apply-receipts-1/);
 
 const utility = read('tabs/psnm-utility-tab.js');
-assert.match(utility, /20260717-ssk-continuity-geometry-1/);
+assert.match(utility, /20260718-ssk-geometry-order-1/);
 
 console.log('sequential workspace persistence UI tests passed');

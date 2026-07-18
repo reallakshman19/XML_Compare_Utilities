@@ -6,6 +6,7 @@ import { loadTopologyProducerCore } from './topology-producer-loader.js';
 import { loadStagedJsonScoped } from './topology-staged-load-flow.js';
 import { wireTopologyEnrichment } from './topology-enrichment-wiring.js';
 import { wireTopologyEditCommandRouter } from './topology-edit-command-router.js';
+import { wireTopologyLargeModelControls } from './topology-large-model-controls.js';
 
 // Trace SVG axis-compass geometry per projection (PR #363 native-SVG editor).
 const COMPASS_GEOMETRY = Object.freeze({
@@ -30,14 +31,8 @@ export function wireTopologyWorkspace(root, controller) {
     if (!file) return;
     try {
       if (input.dataset.ttvFile === 'source') {
-        const windowRef = root.ownerDocument.defaultView;
-        if (!windowRef?.fetch) throw new Error('Browser fetch is unavailable for automatic companion loading.');
-        try {
-          await loadTopologySourceFile(controller, file, root.ownerDocument.location.href, windowRef.fetch.bind(windowRef));
-        } catch (error) {
-          if (error.name === 'TopologyCompanionLoadError') setStatus(root, `${file.name} loaded. Build topology or load companion artifacts manually.`, 'ready');
-          else throw error;
-        }
+        await controller.loadArtifact('source', await file.text(), file.name);
+        await buildTopology(root, controller, null);
       } else await controller.loadFile(input.dataset.ttvFile, file);
       await refreshCheckerIfReady(controller);
     } catch (error) { showWorkspaceError(root, error); }
@@ -225,9 +220,10 @@ function wireEditControls(root, controller, listen) {
   listen(root.querySelector('[data-ttv-edit-load-staged]'), 'change', async (event) => {
     const input = event.target, file = input.files?.[0];
     if (!file) return;
-    try { await loadStagedJsonScoped(root, controller, file, refreshCheckerIfReady); }
+    try { await loadStagedJsonScoped(root, controller, file, { buildFullTopology: () => buildTopology(root, controller, null) }); }
     catch (error) { showEditError(root, error); } finally { input.value = ''; }
   });
+  wireTopologyLargeModelControls(root, controller, listen, (error) => showEditError(root, error));
   listen(root.querySelector('[data-ttv-edit-save]'), 'click', () => { try { controller.edit.saveDraft(); } catch (error) { showEditError(root, error); } });
   listen(root.querySelector('[data-ttv-edit-load]'), 'change', async (event) => {
     try { if (event.target.files?.[0]) await controller.edit.loadDraftFile(event.target.files[0]); }
@@ -254,11 +250,10 @@ function wireParityControls(root, controller, listen) {
 }
 
 async function buildTopology(root, controller, event) {
-  const button = event.currentTarget;
-  if (!(button instanceof HTMLButtonElement)) return;
-  const originalText = button.textContent;
+  const button = event?.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
+  const originalText = button?.textContent;
   try {
-    button.textContent = '⚙️ Building...'; button.disabled = true;
+    if (button) { button.textContent = '⚙️ Building...'; button.disabled = true; }
     const evidence = controller.evidence(), source = evidence.trace.artifacts.source;
     if (!source) throw new Error('A Source JSON must be loaded before building topology.');
     const rawObj = source.raw, sourceText = JSON.stringify(Array.isArray(rawObj) ? rawObj : (rawObj.hierarchy || rawObj.branches || rawObj.objects || []));
@@ -284,7 +279,9 @@ async function buildTopology(root, controller, event) {
   } catch (error) {
     showWorkspaceError(root, error);
     root.ownerDocument.defaultView?.alert(`Build Failed: ${error?.message || String(error)}`);
-  } finally { button.textContent = originalText; button.disabled = false; }
+  } finally {
+    if (button) { button.textContent = originalText; button.disabled = false; }
+  }
 }
 function setActiveButtons(root, attr, act) { root.querySelectorAll(`[${attr}]`).forEach((b) => b.classList.toggle('is-active', b === act)); }
 function setStatus(root, msg, status) { const t = root.querySelector('[data-ttv-status]'); if (t) { t.textContent = msg; t.setAttribute('data-status', status); } }

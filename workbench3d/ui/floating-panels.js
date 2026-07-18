@@ -9,6 +9,7 @@
 
 import { PANEL_COLUMNS } from '../core/wb3d-settings.js';
 import { distinctValues } from './panel-view-models.js';
+import { roleMapAuditModel } from './role-map-audit.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -74,17 +75,37 @@ function approvalActions(row) {
     <button class="wb3d-btn wb3d-btn-mini" data-action="approve-element" data-object="${esc(row.targetObjectId)}" data-approval="APPROVED" title="Approve all rows for this element">✔ all</button>`;
 }
 
+function rejectMatchAction(row) {
+  if (!row.sourceObjectId || !row.targetObjectId) return '';
+  return `<button class="wb3d-btn wb3d-btn-mini" data-action="manual-reject" data-source="${esc(row.sourceObjectId)}" data-target="${esc(row.targetObjectId)}" title="Reject this match and re-run the compare">✖</button>`;
+}
+
 function panelBodyHtml(panelId, panelCfg, rows) {
   const columnDefs = (PANEL_COLUMNS[panelId] ?? []).filter(([key]) => panelCfg.columns.includes(key));
-  const header = columnDefs.map(([, label]) => `<th>${esc(label)}</th>`).join('') + (panelId === 'approval' ? '<th>Override</th>' : '');
+  const header = columnDefs.map(([, label]) => `<th>${esc(label)}</th>`).join('')
+    + (panelId === 'approval' ? '<th>Override</th>' : '')
+    + (panelId === 'objectDiff' ? '<th>Reject</th>' : '');
   const body = rows.slice(0, 250).map((row) => {
     const cells = columnDefs.map(([key]) => `<td>${esc(row[key])}</td>`).join('');
-    const extra = panelId === 'approval' ? `<td class="wb3d-float-actions">${approvalActions(row)}</td>` : '';
+    const extra = panelId === 'approval' ? `<td class="wb3d-float-actions">${approvalActions(row)}</td>`
+      : panelId === 'objectDiff' ? `<td class="wb3d-float-actions">${rejectMatchAction(row)}</td>` : '';
     const clickable = row.objectId ? `class="wb3d-row-click" data-action="select-object" data-object="${esc(row.objectId)}"` : '';
     return `<tr ${clickable}>${cells}${extra}</tr>`;
   }).join('');
   return `<div class="wb3d-table-wrap wb3d-float-body"><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>
     ${rows.length > 250 ? `<p class="wb3d-muted">Showing 250 of ${rows.length}.</p>` : ''}${rows.length === 0 ? '<p class="wb3d-muted">No rows (check filters / run compare).</p>' : ''}</div>`;
+}
+
+/** Role map audit as a compact checkbox list inside the Object diff panel. */
+function roleAuditListHtml(state) {
+  const model = roleMapAuditModel(state);
+  if (!model.rows.length) return '';
+  return `<div class="wb3d-float-roleaudit">
+    <strong>Role map audit <span class="wb3d-muted">tick to exclude a field from change detection</span></strong>
+    ${model.rows.map((r) => `<label class="wb3d-check ${r.ignored ? 'wb3d-role-ignored' : ''}" title="${esc(r.role)} · sample ${esc(r.sample)}">
+      <input type="checkbox" data-action="role-ignore" data-field="${esc(r.field)}" ${r.ignored ? 'checked' : ''}> ${esc(r.field)} <span class="wb3d-muted">${esc(r.role)}</span>
+    </label>`).join('')}
+  </div>`;
 }
 
 /**
@@ -102,11 +123,13 @@ export function floatingPanelsHtml(state, rowsByPanel) {
         <strong>${PANEL_TITLES[panelId]}</strong>
         <span class="wb3d-muted">${rows.length}</span>
         <span class="wb3d-float-spacer"></span>
+        ${panelId === 'objectDiff' ? `<button class="wb3d-btn wb3d-btn-mini ${state.roleAuditOpen ? 'is-active' : ''}" data-action="panel-roleaudit" title="Role map audit — tick fields to exclude from change detection">☰</button>` : ''}
         <button class="wb3d-btn wb3d-btn-mini" data-action="panel-colpicker" data-panel="${panelId}" title="Choose columns">⚙</button>
         <button class="wb3d-btn wb3d-btn-mini" data-action="panel-collapse" data-panel="${panelId}" title="Collapse">${cfg.collapsed ? '▸' : '▾'}</button>
         <button class="wb3d-btn wb3d-btn-mini" data-action="toggle-panel" data-panel="${panelId}" title="Close">✕</button>
       </div>
       ${state.panelColumnPicker === panelId ? columnPickerHtml(panelId, cfg) : ''}
+      ${panelId === 'objectDiff' && state.roleAuditOpen && !cfg.collapsed ? roleAuditListHtml(state) : ''}
       ${cfg.collapsed ? '' : filterChipsHtml(panelId, cfg, rowsByPanel[`${panelId}Unfiltered`] ?? rows)}
       ${cfg.collapsed ? '' : panelBodyHtml(panelId, cfg, rows)}
     </div>`;

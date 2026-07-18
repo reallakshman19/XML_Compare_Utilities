@@ -7,7 +7,6 @@
  * keep the last valid draft and report an actionable error; no fallback edits
  * are applied.
  */
-
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
 import { createTopologyEditCanvasRuntime } from './topology-edit-3d-canvas.js?v=20260717-phase1-runtime';
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
@@ -24,23 +23,22 @@ import { dispatchTopologyEditOperation } from './topology-edit-operation-dispatc
 import { createTopologyEditUiState, normalizeTopologyEditUiState, syncTopologyEditUiControls } from './topology-edit-ui-state.js';
 import { createTopologyExportPlanService } from './topology-export-plan-service.js';
 import { syncTopologyEditCapabilityControls } from './topology-edit-capability-registry.js';
-import {
-  buildTopologyEditInspectorMarkup, buildTopologyEditMetricsMarkup,
-  buildTopologyEditTimelineMarkup, buildTopologyEditValidationMarkup,
-} from './topology-edit-panel.js?v=20260717-ttv-components-v1';
+import { renderTopologyEditCanvas } from './topology-edit-canvas-renderer.js';
+import { pointerSelection } from './topology-edit-selection-model.js';
+import { applyReviewedTopologyFixes, applySafeTopologyAutoFixes } from './topology-edit-autofix-service.js';
+import { buildTopologyEditInspectorMarkup, buildTopologyEditMetricsMarkup, buildTopologyEditTimelineMarkup, buildTopologyEditValidationMarkup } from './topology-edit-panel.js?v=20260717-ttv-components-v1';
 /** @param {Record<string, Element>} elements @param {{onSelectionChange:(selection:ReadonlyArray<Record<string,string>>)=>void}} dependencies @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyEditController(elements, dependencies) {
   if (typeof dependencies?.onSelectionChange !== 'function') throw new TypeError('Edit controller requires onSelectionChange().');
   const canvasRuntime = createTopologyEditCanvasRuntime();
   const exportPlanService = createTopologyExportPlanService({ host: elements.exportPlan, exportButton: elements.exportBundle });
   let core = null, sourceText = '', options = null, baseArtifacts = null, editedArtifacts = null, draft = null, sourceBranches = [];
-  let platformContext = null, baseDraft = null, journalService = null;
+  let platformContext = null, baseDraft = null, journalService = null, editScope = null;
   let attributeLedger = null, remarks = Object.freeze({});
   let selection = Object.freeze([]), projection = 'XY', tool = 'SELECT', contextEdgeId = '', ghostModel = null;
   let supportScale = 2.5;
   let selectionFilters = new Set(EDIT_KINDS), basisKey = '', busy = false, lastRegenerationMs = 0;
   const navigation = canvasRuntime.navigation();
-
   function persistentUiState() { return createTopologyEditUiState({ projection, tool, contextEdgeId, supportScale, selection }); }
   function applyPersistentUiState(state) {
     const next = normalizeTopologyEditUiState(state);
@@ -53,14 +51,15 @@ export function createTopologyEditController(elements, dependencies) {
   function exportPlanInput(createdAt) {
     return { core, built: editedArtifacts, options, context: platformContext, draft,
       commandJournal: journalService.evidence().journal, createdAt,
-      cryptoRef: elements.root.ownerDocument.defaultView?.crypto };
+      cryptoRef: elements.root.ownerDocument.defaultView?.crypto,
+      checkerEvidence: dependencies.reviewEvidence?.() ?? null,
+      modelMode: dependencies.modeEvidence?.() ?? null, editScope, attributeLedger, remarks };
   }
   function queueExportPlan() {
-    if (busy || !core || !editedArtifacts || !journalService) return;
-    exportPlanService.refresh(exportPlanInput(new Date().toISOString()))
+    if (busy || !core || !editedArtifacts || !journalService) return Promise.resolve(null);
+    return exportPlanService.refresh(exportPlanInput(new Date().toISOString()))
       .catch((error) => setStatus(`Export plan failed: ${error?.message || String(error)}`, 'error'));
   }
-
   /** @param {string} message @param {string} status @returns {void} */
   function setStatus(message, status) {
     elements.status.textContent = message; elements.status.setAttribute('data-status', status); elements.live.textContent = message;
@@ -79,15 +78,8 @@ export function createTopologyEditController(elements, dependencies) {
   /** @param {Record<string,string>} row @param {MouseEvent} event @returns {void} */
   function selectFromPointer(row, event) {
     if (!selectionFilters.has(row.kind)) return;
-    if (event.shiftKey && row.kind === 'node') {
-      const anchor = [...selection].reverse().find((item) => item.kind === 'node');
-      if (anchor && canonical()) { setSelection(shortestPathSelection(canonical(), anchor.id, row.id), true); return; }
-    }
-    if (event.ctrlKey || event.metaKey) {
-      const key = `${row.kind}:${row.id}`, retained = selection.filter((item) => `${item.kind}:${item.id}` !== key);
-      setSelection(retained.length === selection.length ? [...selection, row] : retained, true); return;
-    }
-    setSelection([row], true);
+    setSelection(pointerSelection(canonical(), selection, row,
+      { shiftKey: event.shiftKey, toggle: event.ctrlKey || event.metaKey }), true);
   }
   /** @param {Record<string, unknown>} traceEvidence @returns {Promise<void>} */
   async function initialize(traceEvidence) {
@@ -100,7 +92,7 @@ export function createTopologyEditController(elements, dependencies) {
       core = await loadTopologyProducerCore(); sourceText = producerSourceText(source.raw); options = producerOptions(traceEvidence);
       sourceBranches = Array.isArray(source.raw) ? source.raw : (source.raw.hierarchy ?? source.raw.branches ?? source.raw.objects ?? []);
       const started = performance.now(); baseArtifacts = await core.buildComponentTopologyArtifacts(sourceText, options); lastRegenerationMs = performance.now() - started;
-      const createdAt = new Date().toISOString(), verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Y';
+      const createdAt = new Date().toISOString(), verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Z';
       platformContext = await createTopologyPlatformContext({
         sourceText, sourceName: options.sourceName, sourceBranches,
         verticalAxis, createdAt, cryptoRef: elements.root.ownerDocument.defaultView?.crypto,
@@ -124,7 +116,6 @@ export function createTopologyEditController(elements, dependencies) {
         : `Edit Draft ready: ${baseArtifacts.canonicalTopology.edges.length} immutable base elements; no commands applied.`, 'pass');
     } finally { busy = false; renderBottom(); }
   }
-
   /** @param {string} type @param {Record<string, unknown>} payload @returns {Promise<void>} */
   async function executeCommand(type, payload) {
     if (busy) return;
@@ -141,12 +132,11 @@ export function createTopologyEditController(elements, dependencies) {
       const current = canonical(), ids = new Set([...asArray(current.nodes), ...asArray(current.edges), ...asArray(current.supports)].map((row) => cleanText(objectRecord(row).id)));
       selection = Object.freeze(selection.filter((row) => ids.has(row.id) || row.kind === 'issue' || row.kind === 'bend'));
       render(); dependencies.onSelectionChange(selection);
-      const blockers = Number(objectRecord(built.editValidation.summary).blockingCount ?? 0);
-      setStatus(`${type} committed as one transaction. ${blockers} blocking findings; regeneration ${lastRegenerationMs.toFixed(0)} ms.`, blockers ? 'error' : 'pass');
+      const findings = asArray(built.editValidation.findings).length;
+      setStatus(`${type} committed. ${findings} validation finding(s) documented; export remains available. Regeneration ${lastRegenerationMs.toFixed(0)} ms.`, 'pass');
     } catch (error) { setStatus(`${type} rejected: ${error?.message || String(error)}`, 'error'); throw error; }
     finally { busy = false; renderBottom(); }
   }
-
   /** @param {Record<string, unknown>} state @param {string} label @returns {Promise<void>} */
   async function rebuildJournalState(state, label) {
     if (!core || !sourceText || !options) throw new Error('Edit Draft has not been initialized.');
@@ -163,20 +153,26 @@ export function createTopologyEditController(elements, dependencies) {
   async function applyTopologyFixSuggestions(selectedSuggestions, approvedOnly) {
     if (busy) throw new Error('Another Edit Draft transaction is in progress.');
     if (!core || !draft) throw new Error('Edit Draft has not been initialized.');
-    if (!Array.isArray(selectedSuggestions) || !selectedSuggestions.length) throw new Error('At least one topology fix suggestion is required.');
-    if (!approvedOnly && selectedSuggestions.length !== 1) throw new Error('Reviewed fixes must be applied one suggestion at a time.');
-    const candidate = approvedOnly
-      ? core.applyApprovedTopologyFixes(draft, selectedSuggestions)
-      : core.applyTopologyFixSuggestion(draft, selectedSuggestions[0]);
-    if (candidate === draft) throw new Error('No approved topology fixes passed their deterministic preconditions.');
     const label = approvedOnly ? 'Apply approved topology fixes' : 'Apply topology fix', issuedAt = new Date().toISOString();
     busy = true; setStatus(`${label}: validating one atomic journal transaction…`, 'ready');
     try {
-      const built = await core.buildEditedComponentTopologyArtifacts(sourceText, candidate, options);
-      const commands = candidate.commands.slice(draft.commands.length);
-      const state = journalService.appendNativeBatch(commands, { kind: 'AUTOFIX', actorId: 'TOPOLOGY_CHECKER', issuedAt }, persistentUiState(), issuedAt);
-      if (state.draft.topologyEditDraftHash !== candidate.topologyEditDraftHash) throw new Error('Autofix journal replay differs from validated candidate.');
-      applyJournalState(state); editedArtifacts = built; render(); setStatus(`${label} complete.`, 'pass'); return evidence();
+      const result = await applyReviewedTopologyFixes({ core, draft, selectedSuggestions, approvedOnly, sourceText, options, journalService,
+        origin: { kind: 'AUTOFIX', actorId: 'TOPOLOGY_CHECKER', issuedAt }, uiState: persistentUiState() });
+      applyJournalState(result.state); editedArtifacts = result.built; render(); setStatus(`${label} complete.`, 'pass'); return evidence();
+    } finally { busy = false; renderBottom(); }
+  }
+  /** Execute the checker-planned Open + High + Auto safe subset as one transaction. */
+  async function applyTopologyAutoFixes(request) {
+    if (busy) throw new Error('Another Edit Draft transaction is in progress.');
+    if (!core || !draft || !baseArtifacts) throw new Error('Edit Draft has not been initialized.');
+    const issuedAt = new Date().toISOString(); busy = true; setStatus('Auto fix: preflighting candidates…', 'ready');
+    try {
+      const result = await applySafeTopologyAutoFixes({ ...request, core, draft, baseCanonical: baseArtifacts.canonicalTopology,
+        canonical: canonical(), sourceText, options, journalService, issuedAt,
+        origin: { kind: 'AUTOFIX', actorId: 'TOPOLOGY_CHECKER', issuedAt }, uiState: persistentUiState() });
+      if (result.state) { applyJournalState(result.state); editedArtifacts = result.built; render(); }
+      setStatus(`Auto fix complete: ${result.run.applied.length} applied, ${result.run.related.length} related, ${result.run.rejected.length} rejected.`, 'pass');
+      return result.run;
     } finally { busy = false; renderBottom(); }
   }
   function appendAttributeEditCommand(edit, origin) {
@@ -210,14 +206,9 @@ export function createTopologyEditController(elements, dependencies) {
     projection = nextProjection; elements.root.querySelectorAll('[data-ttv-edit-projection]').forEach((button) => button.classList.toggle('is-active', button.getAttribute('data-ttv-edit-projection') === projection));
     navigation.setStandardView?.({ XY: 'top', XZ: 'front', YZ: 'side' }[projection]);
   }
-  function toggleCameraType() {
-    const type = navigation.toggleCameraType?.() ?? 'Perspective';
-    const button = elements.root.querySelector('[data-ttv-edit-camera]');
-    if (button) button.textContent = type === 'Orthographic' ? 'Ortho' : 'Persp';
-  }
-  function setPivotToSelection() {
-    navigation.setPivotToSelection?.();
-  }
+  function syncProjectionFromView(view) { projection = { top: 'XY', bottom: 'XY', front: 'XZ', back: 'XZ', left: 'YZ', right: 'YZ' }[view] ?? projection; }
+  function toggleCameraType() { const type = navigation.toggleCameraType?.() ?? 'Perspective'; const button = elements.root.querySelector('[data-ttv-edit-camera]'); if (button) button.textContent = type === 'Orthographic' ? 'Ortho' : 'Persp'; }
+  function setPivotToSelection() { navigation.setPivotToSelection?.(); }
   function setSelectionFilter(kind, enabled) {
     if (!EDIT_KINDS.includes(kind)) throw new RangeError(`Unsupported selection filter ${kind}.`);
     const next = new Set(selectionFilters); if (enabled) next.add(kind); else next.delete(kind); selectionFilters = next; setSelection(selection, true);
@@ -226,20 +217,22 @@ export function createTopologyEditController(elements, dependencies) {
   function set3dVisible() {}
   /** Ghost fix-proposal model (VisualGeometryModel.v2 or null). */
   function setGhostModel(model) { ghostModel = model ?? null; canvasRuntime.setGhostModel(ghostModel); }
+  /** Scope affects only rendered/selectable Draft objects; commands and export retain the full canonical basis. */
+  function setEditScope(nextScope) { editScope = nextScope?.schema === 'TopologyEditScope.v1' ? nextScope : null; if (baseArtifacts) render(); }
   function renderCanvas() {
-    if (!baseArtifacts || !canonical()) { elements.svgHost.innerHTML = '<div class="ttv-empty">Load and build topology before editing.</div>'; return; }
-    const verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Y';
-    canvasRuntime.render(elements.svgHost, {
-      original: baseArtifacts.canonicalTopology, draft: canonical(), validation: editedArtifacts?.editValidation ?? null,
-      selection, verticalAxis, supportScale, ghost: ghostModel, sourceBranches, platformDocument: platformContext?.document,
+    renderTopologyEditCanvas({ canvasRuntime, elements, baseArtifacts, canonical: canonical(), editScope,
+      validation: editedArtifacts?.editValidation, selection,
+      verticalAxis: elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Z', supportScale, ghostModel,
+      sourceBranches, platformDocument: platformContext?.document,
       callbacks: {
         getTool: () => tool, getSelection: () => selection, getContextEdgeId: () => contextEdgeId,
         setSelection, selectFromPointer, executeCommand, runOperation, undo, redo,
         onGestureError: (error) => setStatus(error?.message || String(error), 'error'),
         onHint: (message) => setStatus(message, 'ready'),
+        onViewSelected: syncProjectionFromView,
         onGhostPick: (objectId) => dependencies.onGhostPick?.(objectId),
       },
-    }).catch((error) => setStatus(`3D canvas failed: ${error?.message || String(error)}`, 'error'));
+      onError: (error) => setStatus(`3D canvas failed: ${error?.message || String(error)}`, 'error') });
   }
   function renderInspector() {
     elements.inspector.innerHTML = buildTopologyEditInspectorMarkup({ canonical: canonical(), validation: objectRecord(editedArtifacts?.editValidation), selection, contextEdgeId });
@@ -257,7 +250,6 @@ export function createTopologyEditController(elements, dependencies) {
     elements.metrics.innerHTML = buildTopologyEditMetricsMarkup({ baseArtifacts, canonical: canonical(), draft, validation: objectRecord(editedArtifacts?.editValidation), lastRegenerationMs });
   }
   function render() { renderCanvas(); renderInspector(); renderBottom(); renderMetrics(); }
-
   /** @param {string} operation @returns {Promise<void>} */
   async function runOperation(operation) {
     await dispatchTopologyEditOperation({ operation, selection, contextEdgeId, inspector: elements.inspector, execute: executeCommand });
@@ -281,7 +273,8 @@ export function createTopologyEditController(elements, dependencies) {
     const result = await buildTopologyEditBundle({ snapshot, draft, commandJournal,
       cryptoRef: elements.root.ownerDocument.defaultView?.crypto });
     downloadText(elements.root.ownerDocument, `${result.stem}.topology-edit-bundle.json`, `${JSON.stringify(result.bundle, null, 2)}\n`, 'application/json;charset=utf-8');
-    setStatus(`Exported ${result.outputs.length} evidence files in one immutable edit bundle.`, 'pass');
+    const logOutput = result.outputs.find((row) => row.name.endsWith('.topology-export-log.json')); if (logOutput) downloadText(elements.root.ownerDocument, logOutput.name, logOutput.text, logOutput.mime);
+    setStatus(`Exported the immutable edit bundle and separate topology audit log (${result.outputs.length} documented files).`, 'pass');
   }
   function setContextEdge(edgeId) { contextEdgeId = cleanText(edgeId); renderInspector(); }
   /** @returns {Readonly<Record<string, unknown>>} */
@@ -291,19 +284,16 @@ export function createTopologyEditController(elements, dependencies) {
       supportScale, lastRegenerationMs, projectSession: platformContext?.session ?? null,
       projectDocument: platformContext?.document ?? null, commandJournal: journalEvidence?.journal ?? null,
       commandEnvelopes: journalEvidence?.commandEnvelopes ?? Object.freeze([]), attributeLedger, remarks,
-      exportPlan: exportPlanService.evidence().plan });
+      editScope, exportPlan: exportPlanService.evidence().plan, canvas: canvasRuntime.evidence() });
   }
   function destroy() { navigation.destroy(); canvasRuntime.dispose(); exportPlanService.destroy(); }
-
   return Object.freeze({
     initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale,
-    setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions,
-    appendAttributeEditCommand, setCommandRemark, addMeasurementPoint: canvasRuntime.addMeasurementPoint,
+    setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions, applyTopologyAutoFixes,
+    appendAttributeEditCommand, setCommandRemark, setEditScope, refreshExportPlan: queueExportPlan,
+    addMeasurementPoint: canvasRuntime.addMeasurementPoint,
     focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); },
-    fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(),
-    toggleCameraType, setPivotToSelection,
-    render, evidence, destroy,
+    fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), toggleCameraType, setPivotToSelection, render, evidence, destroy,
   });
 }
-
 export const _test = Object.freeze({ producerSourceText, producerOptions, outputStem, uniqueSelection, shortestPathSelection, selectionForObjectId, objectForSelection, uniqueContextEdges });

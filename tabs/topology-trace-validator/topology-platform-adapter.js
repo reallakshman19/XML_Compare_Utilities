@@ -36,23 +36,19 @@ function artifactSchema(output) {
 }
 
 function artifactRole(schema) {
+  if (/TopologyExportLog/i.test(schema)) return 'TOPOLOGY_EXPORT_LOG';
   if (/CanonicalTopology/i.test(schema)) return 'CANONICAL_TOPOLOGY';
   if (/Ledger/i.test(schema)) return 'TRACE_LEDGER';
   if (/InputXML/i.test(schema)) return 'INPUTXML';
   return 'AUXILIARY';
 }
 
-function blockingMessages(built) {
-  const validation = objectRecord(objectRecord(built).editValidation);
-  const messages = asArray(validation.findings).map(objectRecord)
-    .filter((row) => row.blocking).map((row) => `${cleanText(row.code) || 'BLOCKING'}: ${cleanText(row.message) || 'Export blocked'}`);
-  const count = Number(objectRecord(validation.summary).blockingCount ?? 0);
-  return count > 0 && !messages.length ? [`${count} blocking validation finding(s) require resolution.`] : messages;
-}
-
-function topologyCounts(built, commandJournal, files) {
+function topologyCounts(built, commandJournal, files, auditLog) {
   const canonical = objectRecord(objectRecord(built).canonicalTopology);
   const supports = asArray(canonical.supports);
+  const safeAuditLog = objectRecord(auditLog);
+  const auditSummary = objectRecord(safeAuditLog.summary), findingStatuses = objectRecord(auditSummary.findingStatuses);
+  const operationStatuses = objectRecord(auditSummary.operationStatuses);
   return Object.freeze({
     activeCommands: asArray(commandJournal.activeCommandIds).length, redoCommands: asArray(commandJournal.redoCommandIds).length,
     checkpoints: asArray(commandJournal.checkpoints).length, nodes: asArray(canonical.nodes).length,
@@ -60,6 +56,11 @@ function topologyCounts(built, commandJournal, files) {
     restraints: supports.reduce((sum, row) => sum + asArray(objectRecord(row).restraints).length, 0),
     rigidBodies: asArray(canonical.rigids).length, artifacts: files.length,
     outputBytes: files.reduce((sum, file) => sum + file.byteLength, 0),
+    documentedFindings: Number(auditSummary.findings ?? 0),
+    userConfirmationPending: Number(findingStatuses.USER_CONFIRMATION_PENDING ?? 0),
+    knownIssues: Number(findingStatuses.KNOWN_ISSUE ?? 0) + Number(findingStatuses.USER_SKIPPED ?? 0)
+      + Number(findingStatuses.UNKNOWN_FALLBACK ?? 0) + Number(auditSummary.validationWarnings ?? 0),
+    automaticFixesApplied: Number(operationStatuses.AUTO_FIX_APPLIED ?? 0),
   });
 }
 
@@ -86,9 +87,9 @@ async function plannedFile(output, index, cryptoRef) {
 export async function buildTopologyExportPlan(input) {
   const files = await Promise.all(input.outputs.map((output, index) => plannedFile(output, index, input.cryptoRef)));
   const commandJournalHash = await sha256Text(JSON.stringify(input.commandJournal), input.cryptoRef);
-  const blockers = blockingMessages(input.built);
+  const outputManifestHash = await sha256Text(JSON.stringify(files.map((file) => file.contentHash)), input.cryptoRef);
   return createExportPlan({
-    planId: `topology-export:${cleanText(input.draft.topologyEditDraftHash)}:${commandJournalHash.slice(0, 12)}`,
+    planId: `topology-export:${cleanText(input.draft.topologyEditDraftHash)}:${commandJournalHash.slice(0, 8)}:${outputManifestHash.slice(0, 8)}`,
     sessionId: input.context.session.sessionId, documentId: input.context.document.documentId,
     writerId: 'topologyArtifactOutputs', createdAt: input.createdAt,
     hierarchy: exportHierarchy(input, files),
@@ -96,9 +97,11 @@ export async function buildTopologyExportPlan(input) {
       hashes: { baseCanonicalTopologyHash: input.draft.baseCanonicalTopologyHash,
         topologyEditDraftHash: input.draft.topologyEditDraftHash,
         topologyEditLedgerHash: input.built.editLedger.topologyEditLedgerHash,
-        editedCanonicalTopologyHash: input.built.canonicalTopology.canonicalTopologyHash, commandJournalHash },
-      counts: topologyCounts(input.built, input.commandJournal, files),
+        editedCanonicalTopologyHash: input.built.canonicalTopology.canonicalTopologyHash,
+        commandJournalHash, outputManifestHash },
+      counts: topologyCounts(input.built, input.commandJournal, files, input.auditLog),
+      exportPolicy: { status: 'ALWAYS_ALLOWED', documentationSchema: cleanText(objectRecord(input.auditLog).schema) },
     },
-    files, gate: { status: blockers.length ? 'BLOCKED' : 'READY', blockers },
+    files, gate: { status: 'READY', blockers: [] },
   });
 }

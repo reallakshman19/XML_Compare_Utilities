@@ -236,3 +236,32 @@ button.wb3d-tile.is-active { outline: 2px solid #38bdf8; }
 .wb3d-table-wrap thead th { position: sticky; top: 0; background: #12233b; z-index: 1; }
 .wb3d-table-wrap tbody tr:hover { background: rgba(56, 189, 248, .07); }
 tr.wb3d-row-click { cursor: pointer; }
+
+/* ── Visual transfer workflow overlays ─────────────────────────────────── */
+.wb3d-arrow-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 7; pointer-events: none; }
+.wb3d-arrow-layer path.wb3d-arrow { pointer-events: stroke; cursor: pointer; }
+.wb3d-arrow-layer path.wb3d-arrow:hover { stroke-width: 4; opacity: 1; }
+.wb3d-preview-labels { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.wb3d-preview-label { position: absolute; transform: translate(-50%, -130%); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 9px; border: 1px solid rgba(148, 163, 184, .4); background: rgba(6, 17, 29, .92); color: #d6f5e2; font: 10px/1.4 ui-monospace, monospace; }
+.wb3d-arrow-popup { position: absolute; z-index: 12; width: 280px; max-height: 320px; overflow: auto; border: 1px solid rgba(148, 163, 184, .45); border-radius: 10px; background: #0b1524; box-shadow: 0 12px 30px rgba(0, 0, 0, .5); }
+.wb3d-arrow-popup .wb3d-float-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid rgba(148, 163, 184, .25); }
+.wb3d-arrow-popup-ids { display: grid; gap: 3px; padding: 7px 10px; font-size: 11px; color: #9fb3ca; }
+.wb3d-arrow-popup-ids b { color: #dbe7f5; margin-right: 6px; }
+.wb3d-arrow-popup table { width: 100%; font-size: 11px; }
+.wb3d-arrow-popup tr.is-rejected td, .wb3d-arrow-popup tr.is-blocked td { color: #64748b; text-decoration: line-through; }
+.wb3d-arrow-popup-approval { width: 20px; text-align: center; }
+.wb3d-preview-overlay { position: absolute; top: 8px; right: 8px; z-index: 11; display: flex; flex-direction: column; gap: 8px; max-width: 280px; }
+.wb3d-preview-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 7px 10px; border: 1px solid rgba(148, 163, 184, .4); border-radius: 10px; background: rgba(11, 21, 36, .95); font-size: 11px; }
+.wb3d-global-override { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid rgba(148, 163, 184, .4); border-radius: 10px; background: rgba(11, 21, 36, .95); font-size: 11px; max-height: 240px; overflow: auto; }
+.wb3d-global-override label.is-excluded { color: #64748b; text-decoration: line-through; }
+.wb3d-canvas-pivot { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 10; max-width: 70%; }
+.wb3d-canvas-tree { position: absolute; top: 46px; left: 8px; bottom: 8px; z-index: 10; width: 240px; overflow: auto; border: 1px solid rgba(148, 163, 184, .4); border-radius: 10px; background: rgba(11, 21, 36, .95); font-size: 11px; }
+.wb3d-canvas-tree.is-closed { width: auto; bottom: auto; overflow: visible; border: 0; background: transparent; }
+.wb3d-canvas-tree.is-closed .wb3d-canvas-tree-body { display: none; }
+.wb3d-canvas-tree-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px; }
+.wb3d-canvas-tree-body { padding: 0 8px 8px; }
+.wb3d-canvas-tree ul { list-style: none; margin: 2px 0; padding-left: 14px; }
+.wb3d-canvas-tree label { display: inline-flex; align-items: center; gap: 4px; }
+.wb3d-pivot-strip { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 10px; border: 1px solid rgba(148, 163, 184, .4); border-radius: 10px; background: rgba(11, 21, 36, .95); font-size: 11px; }
+.wb3d-pivot-strip .wb3d-link { padding: 0 3px; }
+.wb3d-float-roleaudit { max-height: 220px; overflow: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-bottom: 1px solid rgba(148, 163, 184, .2); font-size: 11px; }

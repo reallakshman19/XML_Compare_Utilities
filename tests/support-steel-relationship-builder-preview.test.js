@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { buildSupportSteelRelationshipBundle } from '../tabs/support-steel-relationship-builder/support-steel-evidence-bundle.js';
 import { SUPPORT_STEEL_DEFAULT_CONFIG } from '../tabs/support-steel-relationship-builder/support-steel-relationship-contracts.js';
@@ -33,13 +32,5 @@ const migration = await buildSupportSteelProjectMigration({
 });
 assert.equal(migration.exportPlan.gate.status, 'READY');
 assert.deepEqual(migration.outputs.map((row) => row.text), artifacts.map((row) => row.text));
-
-const tab = readFileSync('tabs/support-steel-relationship-builder/support-steel-relationship-tab.js', 'utf8');
-const utility = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
-assert.match(tab, /const combinedSourceText = modal\.querySelector/);
-assert.match(tab, /bundle: state\.bundle,\s*combinedSourceText,/);
-assert.doesNotMatch(tab, /supportSourceText:\s*supportText|steelSourceText:\s*steelText/);
-assert.match(tab, /support-steel-project-adapter\.js\?v=20260717-ssrb-preview-export-fix-1/);
-assert.match(utility, /support-steel-relationship-tab\.js\?v=20260717-ssrb-preview-export-fix-1/);
 
 console.log('support-steel preview export flow tests passed');

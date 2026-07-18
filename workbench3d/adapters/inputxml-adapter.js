@@ -13,6 +13,7 @@
  */
 
 import { parseXml } from '../core/simple-xml.js';
+import { parsePsiRecords, isPsiPipeStressText } from './psi-records-adapter.js';
 
 /** CAESAR II uses -1.0101 (and -nan) as "value not set". */
 export function isSentinel(value) {
@@ -52,6 +53,7 @@ export const XML_SCHEMA_KINDS = Object.freeze({
   INPUT_XML: 'input-xml',
   CATEGORIZED_XML: 'categorized-xml',
   NODESET_XML: 'nodeset-xml',
+  PSI_XML: 'psi-pipestress',
   UNKNOWN: 'unknown',
 });
 
@@ -62,6 +64,7 @@ export function detectSchema(xmlText) {
   if (/<NodeSet\b[^>]*schema\s*=\s*["']nodeset\/v1["']/i.test(raw)) return XML_SCHEMA_KINDS.NODESET_XML;
   if (/<CategorizedInputXML\b/i.test(raw) || /<Element\b[^>]*fromNode\s*=/i.test(raw)) return XML_SCHEMA_KINDS.CATEGORIZED_XML;
   if (/<PIPINGELEMENT\b/i.test(raw) && /FROM_NODE\s*=/i.test(raw)) return XML_SCHEMA_KINDS.INPUT_XML;
+  if (isPsiPipeStressText(raw)) return XML_SCHEMA_KINDS.PSI_XML;
   return XML_SCHEMA_KINDS.UNKNOWN;
 }
 
@@ -212,6 +215,9 @@ export function parseInputXmlRecords(xmlText) {
   if (schema === XML_SCHEMA_KINDS.NODESET_XML) {
     // NodeSet models are parsed by nodeset-adapter.js; this parser only reports the schema.
     return { schema, records: [], warnings: [] };
+  }
+  if (schema === XML_SCHEMA_KINDS.PSI_XML) {
+    return parsePsiRecords(xmlText);
   }
   const { documentElement } = parseXml(xmlText);
   const records = schema === XML_SCHEMA_KINDS.INPUT_XML

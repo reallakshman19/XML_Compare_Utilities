@@ -33,11 +33,11 @@ export function installTopologyTraceValidatorTile(container, context) {
 export async function openTopologyTraceValidator(documentRef, context) {
   const floatShell = documentRef.createElement('div');
   floatShell.className = 'ttv-float-shell';
-  floatShell.style.cssText = 'position:fixed; top:5vh; left:5vw; width:90vw; max-width:1800px; height:90vh; max-height:1200px; background:#040914; border:1px solid #1e293b; border-radius:8px; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; z-index:9999; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:#e2e8f0;';
+  floatShell.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:#040914; border:1px solid #1e293b; border-radius:0; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; z-index:9999; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:#e2e8f0;';
 
   const header = documentRef.createElement('div');
   header.className = 'ttv-float-header ttv-toolbar';
-  header.style.cssText = 'padding:6px 12px; user-select:none; border-bottom:1px solid #1e293b; background:#060b17; border-radius:8px 8px 0 0; display:flex; align-items:center; flex-shrink:0;';
+  header.style.cssText = 'padding:6px 12px; user-select:none; border-bottom:1px solid #1e293b; background:#060b17; border-radius:0; display:flex; align-items:center; flex-shrink:0;';
 
   const body = documentRef.createElement('div');
   body.className = 'ttv-float-body';
@@ -67,7 +67,7 @@ export async function openTopologyTraceValidator(documentRef, context) {
 
   header.insertBefore(fullscreenBtn, header.querySelector('[data-ttv-close]'));
 
-  let isFullscreen = false;
+  let isFullscreen = true;
   fullscreenBtn.addEventListener('click', () => {
     isFullscreen = !isFullscreen;
     if (isFullscreen) {
@@ -102,22 +102,38 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   const traceController = createTopologyValidatorController(collectTraceElements(shell));
   const editorController = createTopologySvgEditorController(traceController, collectEditorElements(shell));
   const parityController = createTopologyParityController(collectParityElements(shell));
-  let controller = null;
+  let controller = null, checkerController = null;
   let editExtensions = null;
   const editController = createTopologyEditController(collectEditElements(shell), {
     onSelectionChange: (selection) => controller?.synchronizeCanonicalSelection(selection, 'edit'),
     onRender: () => editExtensions?.onRender(),
     onGhostPick: (objectId) => editExtensions?.onGhostPick(objectId),
+    reviewEvidence: () => checkerController?.evidence() ?? null,
+    modeEvidence: () => workspaceController.modelMode(shell),
   });
   const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController, editorController);
-  const checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
+  checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
     evidence: () => workspaceController.evidence(),
     select: (selection) => workspaceController.synchronizeCanonicalSelection(selection, 'checker'),
     focus: (selection) => workspaceController.focusCanonicalSelection(selection),
     applySuggestions: async (suggestions, approvedOnly) => {
-      await editController.initialize(traceController.evidence());
-      return editController.applyTopologyFixSuggestions(suggestions, approvedOnly);
+      const scoped = await workspaceController.prepareEditForSuggestions(suggestions, shell);
+      if (!scoped.length) return null;
+      return editController.applyTopologyFixSuggestions(scoped, approvedOnly);
     },
+    applyAutoFixes: async (request) => {
+      const scoped = await workspaceController.prepareEditForSuggestions(request.suggestions, shell);
+      if (!scoped.length) return null;
+      const scopedIds = new Set(scoped.map((row) => row.issueId));
+      const run = await editController.applyTopologyAutoFixes({ ...request,
+        issueIds: request.issueIds.filter((id) => scopedIds.has(id)),
+        outOfScopeIssueIds: request.issueIds.filter((id) => !scopedIds.has(id)) });
+      editExtensions?.refreshLedger();
+      await editController.refreshExportPlan();
+      return run;
+    },
+    modeEvidence: () => workspaceController.modelMode(shell),
+    onReviewChange: () => editController.refreshExportPlan(),
   });
   controller = Object.freeze({
     ...workspaceController, checker: checkerController,
@@ -147,7 +163,10 @@ function collectCheckerElements(root) {
     live: query('[data-ttv-checker-live]'), kpis: query('[data-ttv-checker-kpis]'),
     buckets: query('[data-ttv-checker-buckets]'), scroll: query('[data-ttv-checker-scroll]'),
     spacer: query('[data-ttv-checker-spacer]'), rows: query('[data-ttv-checker-rows]'),
-    detail: query('[data-ttv-checker-detail]'),
+    detail: query('[data-ttv-checker-detail]'), settings: query('[data-ttv-checker-settings-panel]'),
+    autoFix: query('[data-ttv-checker-auto-fix]'), autoCount: query('[data-ttv-checker-auto-count]'),
+    toast: query('[data-ttv-autofix-toast]'), toastTitle: query('[data-ttv-autofix-toast-title]'),
+    toastDetail: query('[data-ttv-autofix-toast-detail]'),
   };
 }
 

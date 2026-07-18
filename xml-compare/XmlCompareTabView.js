@@ -4,6 +4,7 @@ import { renderXmlCompareLoadDiagnosticsPanelHtml } from './XmlCompareLoadDiagno
 import { renderLinewiseWorkflowPopupHtml, renderLinewiseWorkflowToolbarButtonHtml } from './XmlCompareLinewiseWorkflowView.js';
 import { renderUniversalXmlCategorizerButtonHtml } from './universal-categorizer/universal-xml-categorizer-shell.js';
 import { renderXmlCompareWorkspaceShellHtml } from './XmlCompareWorkspaceShell.js?v=20260704-transfer-review-1';
+import { detectXmlCompareProfile } from './XmlCompareProfileDetector.js';
 
 const clean = (value) => String(value ?? '').trim();
 const number = (value, fallback = 0) => { const next = Number(value); return Number.isFinite(next) ? next : fallback; };
@@ -17,10 +18,14 @@ function summary(report) { if (!report) return '<div class="xml-compare-empty">L
 function issueDetails(report, state) { const issue = (report?.topologyIssues?.issues || []).find((item) => item.componentId === state.selectedIssueId); if (!issue) return '<div class="xml-compare-empty">Select an issue to inspect it here.</div>'; return `<div class="xml-compare-detail-card"><div><b>Code</b><span>${esc(issue.code)}</span></div><div><b>Severity</b><span>${esc(issue.severity)}</span></div><div><b>Dataset</b><span>${esc(issue.datasetId)}</span></div><div><b>Component</b><span>${esc(issue.component?.label || issue.componentId)}</span></div><div><b>Message</b><span>${esc(issue.message || '')}</span></div></div>`; }
 function topologyPanel(issues, state) { const rows = issues.map((issue) => issueRow(issue, state)).join('') || '<tr><td colspan="5">No topology issues.</td></tr>'; return `<section class="xml-compare-panel"><div class="xml-compare-panel-title">Topology check</div>${filters(state)}<div class="xml-compare-topology-actions"><button type="button" data-xml-compare-topology-action="show-all">Show all</button><button type="button" data-xml-compare-topology-action="hide-filtered">Hide filtered</button><button type="button" data-xml-compare-action="export-filtered-csv" ${state.report ? '' : 'disabled'}>Export filtered CSV</button></div><div class="xml-compare-table-scroll"><table class="xml-compare-topology-table"><thead><tr><th>Severity</th><th>Code</th><th>Dataset</th><th>Component</th><th>Delta mm</th></tr></thead><tbody>${rows}</tbody></table></div></section>`; }
 function importSection(state) {
-  const schemaBadge = (label, xml) => {
+  const schemaBadge = (label, xml, fileName) => {
     if (!xml) return `<span class="wb3d-badge">Detected: none</span>`;
-    const detected = xml.includes('CAESAR') ? 'CAESAR' : (xml.includes('InputXML') ? 'InputXML' : 'XML');
-    return `<span class="wb3d-badge is-ok">${label}: ${detected}</span>`;
+    const detected = detectXmlCompareProfile({ name: fileName || '', text: xml });
+    if (detected.type === 'unknown') {
+      const psi = /<PipeStressExport\b/i.test(xml.slice(0, 4000));
+      return psi ? `<span class="wb3d-badge is-ok">${label}: psi-pipestress</span>` : `<span class="wb3d-badge">Detected: unknown</span>`;
+    }
+    return `<span class="wb3d-badge is-ok">${label}: ${esc(detected.type)}</span>`;
   };
   const sourceName = state.fileA?.name || '';
   const targetName = state.fileB?.name || '';
@@ -31,14 +36,14 @@ function importSection(state) {
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div>
           <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Source XML/InputXML <input type="file" data-xml-compare-load="a" accept=".xml,.XML,.json,.JSON"></label>
-          ${schemaBadge('Detected', state.textA)} ${sourceName ? `<span class="wb3d-muted">${esc(sourceName)}</span>` : ''}
+          ${schemaBadge('Detected', state.textA, sourceName)} ${sourceName ? `<span class="wb3d-muted">${esc(sourceName)}</span>` : ''}
         </div>
         <textarea data-xml-compare-field="textA" spellcheck="false" placeholder="…or paste source XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(state.textA.length > 400000 ? '' : state.textA)}</textarea>
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
         <div>
           <label class="wb3d-file" style="cursor: pointer; border: 1px dashed #334155; padding: 6px 12px; display: inline-block; border-radius: 4px;">Target XML/InputXML <input type="file" data-xml-compare-load="b" accept=".xml,.XML,.json,.JSON"></label>
-          ${schemaBadge('Detected', state.textB)} ${targetName ? `<span class="wb3d-muted">${esc(targetName)}</span>` : ''}
+          ${schemaBadge('Detected', state.textB, targetName)} ${targetName ? `<span class="wb3d-muted">${esc(targetName)}</span>` : ''}
         </div>
         <textarea data-xml-compare-field="textB" spellcheck="false" placeholder="…or paste target XML here" style="width: 100%; height: 120px; background: #020617; color: #cbd5e1; border: 1px solid #334155; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; resize: vertical;">${esc(state.textB.length > 400000 ? '' : state.textB)}</textarea>
       </div>

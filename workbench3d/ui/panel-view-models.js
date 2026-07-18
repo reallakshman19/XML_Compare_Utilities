@@ -24,6 +24,8 @@ export function objectDiffPanelRows(audit) {
     reasons: joinList(row.reasons),
     conflicts: joinList(row.conflicts),
     objectId: row.sourceObjectId || row.targetObjectId || null,
+    sourceObjectId: row.sourceObjectId ?? null,
+    targetObjectId: row.targetObjectId ?? null,
   }));
 }
 

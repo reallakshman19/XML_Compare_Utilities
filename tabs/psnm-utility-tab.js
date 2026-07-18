@@ -11,10 +11,10 @@ import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260717-ssrb-preview-export-fix-1';
+import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260717-ssrb-preview-stale-1';
 import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260717-ttv-components-v1';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260716-ssrb-layout-1';
-import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260717-ssk-continuity-geometry-1';
+import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260718-ssk-geometry-order-1';
 import { installRevisionCompareTile } from './revision-compare/revision-compare-tab.js?v=20260717-rc-001';
 import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
 
@@ -65,22 +65,28 @@ function mountRevisionCompare(container, ctx) {
 }
 
 export function renderPSNM_UtilityTab(container, ctx = {}) {
-  const destroyPSNM = renderPSNMCoreUtilityTab(container, ctx);
-  const destroyLayout = installPsnmUtilityLayoutStabilizer(container, ctx);
-  const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(container, ctx);
-  const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(container, ctx);
-  const destroyPsMapping = mountPsMappingLauncher(container, ctx);
-  const destroySupportSteelRelationshipBuilder = mountSupportSteelRelationshipBuilder(container, ctx);
-  const destroyPsFamilyClashAudit = mountPsFamilyClashAudit(container, ctx);
-  const destroyPipeline3dModel = mountPipeline3dModel(container, ctx);
-  const destroyPipeline3dTablePaste = installPipeline3dTablePasteAddon(container);
-  const destroyInputXmlWorkspace = mountInputXmlWorkspace(container, ctx);
-  const destroyXmlBuilder = mountXmlBuilder(container, ctx);
-  const destroyNavisTagIsonote = mountNavisTagIsonote(container, ctx);
-  const destroyTopologyTraceValidator = mountTopologyTraceValidator(container, ctx);
-  const destroySequentialSketcher = mountSequentialSketcher(container, ctx);
-  const destroyRevisionCompare = mountRevisionCompare(container, ctx);
-  const destroyBridge = installPsMappingModalBridge(container, ctx);
+  // 1. First, setup the layout dashboard grid. This returns the root where tiles should go.
+  const deckRoot = installPsnmUtilityLayoutStabilizer(container, ctx);
+  
+  // 2. Install PSNM Matcher directly into the deck (it now appends its launcher tile).
+  const destroyPSNM = renderPSNMCoreUtilityTab(deckRoot, ctx);
+  
+  // 3. Install all other utilities into the deck.
+  const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(deckRoot, ctx);
+  const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(deckRoot, ctx);
+  const destroyPsMapping = installPsMappingUtilityTile(deckRoot, ctx);
+  const destroySupportSteelRelationshipBuilder = installSupportSteelRelationshipBuilderTile(deckRoot, ctx);
+  const destroyPsFamilyClashAudit = installPsFamilyClashAuditTile(deckRoot, ctx);
+  const destroyPipeline3dModel = installPipeline3dModelTile(deckRoot, ctx);
+  const destroyPipeline3dTablePaste = installPipeline3dTablePasteAddon(deckRoot);
+  const destroyInputXmlWorkspace = installInputXmlWorkspaceTile(deckRoot, ctx);
+  const destroyXmlBuilder = installXmlBuilderUtilityTile(deckRoot, ctx);
+  const destroyNavisTagIsonote = installNavisTagIsonoteUtilityTile(deckRoot, ctx);
+  const destroyTopologyTraceValidator = installTopologyTraceValidatorTile(deckRoot, ctx);
+  const destroySequentialSketcher = installSequentialSketcherTile(deckRoot, ctx);
+  const destroyRevisionCompare = installRevisionCompareTile(deckRoot, ctx);
+  const destroyBridge = installPsMappingModalBridge(deckRoot, ctx);
+
   return () => {
     if (typeof destroyRevisionCompare === 'function') destroyRevisionCompare();
     if (typeof destroySequentialSketcher === 'function') destroySequentialSketcher();
@@ -96,8 +102,10 @@ export function renderPSNM_UtilityTab(container, ctx = {}) {
     if (typeof destroyPsMapping === 'function') destroyPsMapping();
     if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
     if (typeof destroyAxisAutoAnchor === 'function') destroyAxisAutoAnchor();
-    if (typeof destroyLayout === 'function') destroyLayout();
     if (typeof destroyPSNM === 'function') destroyPSNM();
+    // The layout stabilizer doesn't currently return a destructor in the refactored version,
+    // but we can clear the container to clean up the dashboard.
+    container.innerHTML = '';
   };
 }
 

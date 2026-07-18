@@ -8,6 +8,7 @@ const ICON_NAMES = new Set([
   'panel-bottom', 'minus', 'x', 'rotate-ccw', 'check-check', 'chevron-up',
   'chevron-down', 'grip', 'dock', 'maximize-2', 'filter', 'eye', 'eye-off',
   'wand-sparkles', 'shield-alert',
+  'settings',
 ]);
 
 /** @param {unknown} name @returns {string} */

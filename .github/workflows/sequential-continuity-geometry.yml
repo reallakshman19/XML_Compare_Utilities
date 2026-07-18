@@ -17,7 +17,7 @@ on:
   push:
     branches:
       - main
-      - agent/sequential-continuity-geometry-roundtrip
+      - agent/sequential-geometry-first-sequencing
     paths:
       - 'tabs/sequential-sketcher/continuity/**'
       - 'tabs/sequential-sketcher/source/sequential-evidence-model.js'

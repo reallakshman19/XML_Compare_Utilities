@@ -76,7 +76,8 @@ function consumeShortElements(records, toleranceMm) {
   const surviving = [];
   const orphanPackets = []; // packets awaiting re-attachment
   for (const record of records) {
-    const isShort = record.lengthMm <= toleranceMm;
+    const isExpectedShort = /VALVE|FLANGE|GASK|INST|WELD|REDUCER/i.test(record.componentType || '');
+    const isShort = record.lengthMm <= toleranceMm && !isExpectedShort;
     if (!isShort || !record.fromNode || !record.toNode || record.fromNode === record.toNode) {
       surviving.push(record);
       continue;
@@ -205,7 +206,8 @@ export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
       const endNode = forward ? record.toNode : record.fromNode;
       const object = {
         objectId,
-        kind: record.packets.some((p) => p.kind === 'RIGID') ? 'RIGID'
+        kind: record.componentType ? record.componentType :
+              record.packets.some((p) => p.kind === 'RIGID') ? 'RIGID'
           : record.packets.some((p) => p.kind === 'BEND') ? 'BEND' : 'PIPE',
         fromNode: startNode,
         toNode: endNode,
