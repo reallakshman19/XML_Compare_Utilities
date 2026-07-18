@@ -1,80 +1,166 @@
-/**
- * Dual staged-JSON load service. Each revision slot owns an independent worker
- * client/current document so applying scope to Rev A cannot alter Rev B.
- * Outputs are ProjectDocument manifests plus the filtered immutable input.
- */
+/** Two-slot worker-backed intake service with generation-safe load and scope state. */
 
-import { stagedDocumentStats } from '../../workbench3d/core/staged-json-core.js';
-import { createStagedJsonClient } from '../../workbench3d/workers/staged-json-worker-client.js';
 import { createProjectDocument, REVISION_SLOT_IDS } from './revision-session-contracts.js';
-import { stagedDocumentMetadata } from './revision-document-metadata.js';
-import { sha256Text } from './revision-hash.js';
+import { createRevisionWorkerClient } from './revision-intake-worker-client.js';
+import { sha256Bytes, sha256Text } from './revision-hash.js';
+import { cleanText, deepFreeze, frozenStrings } from './revision-contract-utils.js';
+
+const SLOT_ROLES = Object.freeze({ baseline: 'REFERENCE', candidate: 'CANDIDATE' });
+
+export class RevisionRequestSupersededError extends Error {
+  constructor(slotId) {
+    super(`${slotId} revision request was superseded.`);
+    this.name = 'RevisionRequestSupersededError';
+    this.code = 'REVISION_REQUEST_SUPERSEDED';
+  }
+}
 
 function assertSlot(slotId) {
   if (!REVISION_SLOT_IDS.includes(slotId)) throw new RangeError(`Unknown revision slot: ${slotId}`);
 }
 
-function normalizeScope(scope) {
-  const source = scope && typeof scope === 'object' ? scope : {};
-  return Object.freeze({
-    wildcard: String(source.wildcard ?? '').trim(),
-    selectedIds: Object.freeze(Array.isArray(source.selectedIds) ? [...source.selectedIds] : []),
+function branchSummary(branchIndex) {
+  return deepFreeze({
+    branchCount: branchIndex.length,
+    componentCount: branchIndex.reduce((sum, entry) => sum + entry.componentCount, 0),
+    recordCount: branchIndex.reduce((sum, entry) => sum + entry.recordCount, 0),
+    geometryEvidenceCount: branchIndex.reduce((sum, entry) => sum + entry.geometryEvidenceCount, 0),
   });
 }
 
-function documentId(slotId, hash) { return `${slotId}:${hash.slice(0, 16)}`; }
-
-/** Create a disposable two-slot loader using the provided Web Crypto object. */
-export function createRevisionLoadService(cryptoRef) {
-  const clients = new Map(REVISION_SLOT_IDS.map((slotId) => [slotId, createStagedJsonClient()]));
-  const sources = new Map();
-
-  async function buildDocument(slotId, filtered, filterStats, scope, now) {
-    const source = sources.get(slotId);
-    if (!source) throw new Error(`${slotId} revision has not been parsed.`);
-    const metadata = stagedDocumentMetadata(filtered);
-    const census = stagedDocumentStats(filtered);
-    const scopedHash = await sha256Text(JSON.stringify(filtered), cryptoRef);
-    return createProjectDocument({
-      documentId: documentId(slotId, source.sourceHash), slotId, fileName: source.fileName,
-      sourceHash: source.sourceHash, scopedHash, stagedSchema: metadata.stagedSchema,
-      rootShape: metadata.rootShape, unit: metadata.unit, verticalAxis: metadata.verticalAxis,
-      coordinateFrame: metadata.coordinateFrame, scope, createdAt: now,
-      stats: { ...census, ...filterStats },
-    });
+function intakeWarnings(metadata, summary) {
+  const warnings = [];
+  for (const [key, label] of [['unit', 'Units'], ['coordinateFrame', 'Coordinate frame'], ['verticalAxis', 'Vertical axis']]) {
+    if (metadata[key] === 'UNKNOWN') warnings.push(`${label} are not declared.`);
   }
-
-  async function applyScope(slotId, requestedScope, now) {
-    assertSlot(slotId);
-    if (!sources.has(slotId)) throw new Error(`${slotId} revision must be loaded before applying scope.`);
-    const scope = normalizeScope(requestedScope);
-    const { filtered, stats } = await clients.get(slotId).filter(scope);
-    if (!Number(stats.matched)) throw new Error(`${slotId} scope retained 0 branches.`);
-    const document = await buildDocument(slotId, filtered, stats, scope, now);
-    return Object.freeze({ document, filtered, branchTree: sources.get(slotId).branchTree });
-  }
-
-  async function loadText(slotId, fileName, sourceText, now) {
-    assertSlot(slotId);
-    const text = String(sourceText ?? '');
-    if (!text.trim()) throw new TypeError(`${slotId} revision text is empty.`);
-    const sourceHash = await sha256Text(text, cryptoRef);
-    const parsed = await clients.get(slotId).parse(text);
-    sources.set(slotId, Object.freeze({ fileName: String(fileName || `${slotId}.json`), sourceHash, branchTree: parsed.branchTree }));
-    return applyScope(slotId, { wildcard: '', selectedIds: [] }, now);
-  }
-
-  async function loadFile(slotId, file, now) {
-    if (!file?.text) throw new TypeError(`${slotId} revision file is required.`);
-    return loadText(slotId, file.name, await file.text(), now);
-  }
-
-  function dispose() {
-    for (const client of clients.values()) client.dispose();
-    clients.clear();
-    sources.clear();
-  }
-
-  return Object.freeze({ loadFile, loadText, applyScope, dispose });
+  if (!summary.geometryEvidenceCount) warnings.push('Geometry evidence is absent from the staged scope.');
+  if (summary.branchCount > 500 || summary.componentCount > 10000) warnings.push('Large revision detected; refine scope deliberately.');
+  return Object.freeze(warnings);
 }
 
+function normalizeScope(scope) {
+  return deepFreeze({ wildcard: cleanText(scope?.wildcard), selectedIds: frozenStrings(scope?.selectedIds) });
+}
+
+function decodeJsonBytes(bytes) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+  catch { throw new TypeError('Revision input must be valid UTF-8 staged JSON.'); }
+}
+
+function beginRequest(context, slotId) {
+  assertSlot(slotId);
+  if (context.disposed) throw new Error('Revision load service is disposed.');
+  const generation = context.generations.get(slotId) + 1;
+  context.generations.set(slotId, generation);
+  return generation;
+}
+
+function assertCurrent(context, slotId, generation) {
+  if (context.disposed || context.generations.get(slotId) !== generation) throw new RevisionRequestSupersededError(slotId);
+}
+
+async function buildDocument(context, slotId, source, filtered, scope, now) {
+  const scopedHash = await sha256Text(JSON.stringify(filtered.filtered), context.cryptoRef);
+  assertCurrent(context, slotId, source.generation);
+  return createProjectDocument({
+    documentId: `${slotId}:${source.sourceHash.slice(0, 20)}`, slotId, role: SLOT_ROLES[slotId],
+    fileName: source.fileName, fileSizeBytes: source.fileSizeBytes, sourceHash: source.sourceHash,
+    scopedHash, stagedSchema: source.metadata.stagedSchema, rootShape: source.rootShape,
+    unit: source.metadata.unit, verticalAxis: source.metadata.verticalAxis,
+    coordinateFrame: source.metadata.coordinateFrame, scope, createdAt: now, stats: filtered.stats,
+  });
+}
+
+function scopeResult(document, filtered) {
+  return deepFreeze({
+    selectedBranchIds: filtered.retainedBranchIds,
+    retainedBranchCount: document.stats.branchCount,
+    retainedComponentCount: document.stats.componentCount,
+    retainedRecordCount: document.stats.recordCount,
+    scopedHash: document.scopedHash,
+  });
+}
+
+function sourceRecord(generation, fileName, fileSizeBytes, sourceHash, parsed) {
+  const summary = branchSummary(parsed.branchIndex);
+  return deepFreeze({
+    generation, fileName, fileSizeBytes, sourceHash, rootShape: parsed.rootShape,
+    metadata: parsed.metadata, branchTree: parsed.branchTree, branchIndex: parsed.branchIndex,
+    branchIndexSummary: summary,
+  });
+}
+
+async function loadBytes(context, slotId, fileName, bytesValue, now, suppliedGeneration) {
+  assertSlot(slotId);
+  const generation = suppliedGeneration ?? beginRequest(context, slotId);
+  const bytes = bytesValue instanceof Uint8Array ? bytesValue : new Uint8Array(bytesValue);
+  if (!bytes.length) throw new TypeError(`${slotId} revision file is empty.`);
+  const sourceHash = await sha256Bytes(bytes, context.cryptoRef);
+  assertCurrent(context, slotId, generation);
+  const parsed = await context.clients.get(slotId).parse(decodeJsonBytes(bytes));
+  assertCurrent(context, slotId, generation);
+  const source = sourceRecord(generation, cleanText(fileName) || `${slotId}.json`, bytes.byteLength, sourceHash, parsed);
+  context.sources.set(slotId, source);
+  const filtered = await context.clients.get(slotId).filter({ selectedIds: [] });
+  assertCurrent(context, slotId, generation);
+  const document = await buildDocument(context, slotId, source, filtered, normalizeScope({}), now);
+  return deepFreeze({
+    generation, document, branchTree: source.branchTree, branchIndex: source.branchIndex,
+    branchIndexSummary: source.branchIndexSummary, scopeResult: scopeResult(document, filtered),
+    warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [],
+  });
+}
+
+async function applyScope(context, slotId, requestedScope, now) {
+  assertSlot(slotId);
+  const source = context.sources.get(slotId);
+  if (!source) throw new Error(`${slotId} revision must be loaded before scope can be applied.`);
+  const scope = normalizeScope(requestedScope);
+  const filtered = await context.clients.get(slotId).filter(scope);
+  assertCurrent(context, slotId, source.generation);
+  if (!filtered.stats.matched) throw new Error(`${slotId} scope retains no branches.`);
+  const document = await buildDocument(context, slotId, source, filtered, scope, now);
+  return deepFreeze({
+    generation: source.generation, document, scopeResult: scopeResult(document, filtered),
+    warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [],
+  });
+}
+
+async function cancelRequest(context, slotId) {
+  const generation = beginRequest(context, slotId);
+  context.sources.delete(slotId);
+  await context.clients.get(slotId).reset();
+  return generation;
+}
+
+function disposeService(context) {
+  if (context.disposed) return;
+  context.disposed = true;
+  for (const client of context.clients.values()) client.dispose();
+  context.clients.clear();
+  context.sources.clear();
+}
+
+/** Create the isolated two-slot intake service. */
+export function createRevisionLoadService(cryptoRef, options = {}) {
+  const clientFactory = options.clientFactory ?? createRevisionWorkerClient;
+  const context = {
+    cryptoRef,
+    clients: new Map(REVISION_SLOT_IDS.map((slotId) => [slotId, clientFactory(slotId)])),
+    sources: new Map(),
+    generations: new Map(REVISION_SLOT_IDS.map((slotId) => [slotId, 0])),
+    disposed: false,
+  };
+  return Object.freeze({
+    begin: (slotId) => beginRequest(context, slotId),
+    loadBytes: (slotId, name, bytes, now, generation) => loadBytes(context, slotId, name, bytes, now, generation),
+    loadText: (slotId, name, text, now, generation) => loadBytes(context, slotId, name, new TextEncoder().encode(String(text ?? '')), now, generation),
+    loadFile: async (slotId, file, now, generation) => {
+      if (!file?.arrayBuffer) throw new TypeError(`${slotId} revision file is required.`);
+      return loadBytes(context, slotId, file.name, new Uint8Array(await file.arrayBuffer()), now, generation);
+    },
+    applyScope: (slotId, scope, now) => applyScope(context, slotId, scope, now),
+    cancel: (slotId) => cancelRequest(context, slotId),
+    dispose: () => disposeService(context),
+  });
+}
