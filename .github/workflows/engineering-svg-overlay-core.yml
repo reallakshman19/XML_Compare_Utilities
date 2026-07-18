@@ -34,5 +34,6 @@ jobs:
       - name: Run overlay and inspector models
         run: |
           node tests/engineering-svg-overlay-scene.test.js
+          node tests/engineering-svg-overlay-zero-centroid.test.js
           node tests/engineering-svg-overlay-inspector.test.js
           node tests/engineering-svg-overlay-dependency-guard.test.js
