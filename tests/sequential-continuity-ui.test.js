@@ -25,9 +25,10 @@ assert.match(constructor, /JSON\.stringify\(geometry\.records/);
 assert.doesNotMatch(constructor, /SequentialWorkspacePackage\.v1/);
 assert.match(renderer, /data-ssk-network-svg/);
 assert.doesNotMatch(renderer, /canvas|getContext|WebGL/i);
+assert.match(tab, /sequential-sketcher-workspace\.js\?v=20260718-ssk-geometry-order-1/);
 assert.match(tab, /sequential-continuity-controller\.js\?v=20260717-ssk-continuity-geometry-1/);
 assert.match(tab, /sequential-continuity\.css\?v=20260717-ssk-continuity-geometry-1/);
-assert.match(utility, /sequential-sketcher-tab\.js\?v=20260717-ssk-continuity-geometry-1/);
+assert.match(utility, /sequential-sketcher-tab\.js\?v=20260718-ssk-geometry-order-1/);
 
 for (const path of [
   'tabs/sequential-sketcher/continuity/sequential-continuation-model.js',

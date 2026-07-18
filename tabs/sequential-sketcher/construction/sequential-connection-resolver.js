@@ -10,6 +10,9 @@ function samePoint(a, b, toleranceMm) {
 }
 function clonePoint(point) { return point ? { x: point.x, y: point.y, z: point.z } : null; }
 function dot(a, b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+function routeIndex(component) {
+  return Number.isFinite(component?.routeIndex) ? component.routeIndex : Number(component?.sourceIndex ?? -1);
+}
 function directionAngleDeg(active, candidate) {
   if (!active?.tangent || !candidate?.tangent) return null;
   const opposed = { x: -candidate.tangent.x, y: -candidate.tangent.y, z: -candidate.tangent.z };
@@ -54,8 +57,10 @@ function targetComponents(session, indexes) {
         targetKind: transition.targetKind || 'BRANCH',
       }));
   }
+  const active = indexes.components.get(session.activeComponentId);
+  const activeRouteIndex = routeIndex(active);
   const remaining = branch.components.filter((component) => (
-    component.sourceIndex > (session.activeSourceIndex ?? -1)
+    routeIndex(component) > activeRouteIndex
     && !session.confirmedComponentIds.includes(component.componentId)
   ));
   const expected = remaining[0] || null;
@@ -159,11 +164,13 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
         targetPortRole: port.role,
         targetKind: target.targetKind,
         targetComponentType: component.canonicalType,
+        targetRouteIndex: routeIndex(component),
         attachmentEvent,
         gapMm,
         directionAngleDeg: angle,
         boreCompatibility: bore,
         sourceAdjacent,
+        adjacencyBasis: sourceAdjacent ? 'GEOMETRY_ROUTE_ORDER' : null,
         referenceMatch,
         roleCompatible,
         directionCompatible,
@@ -176,6 +183,7 @@ export function buildConnectionCandidates(session, evidenceModel, indexes, optio
     Number(right.referenceMatch) - Number(left.referenceMatch)
     || Number(right.sourceAdjacent) - Number(left.sourceAdjacent)
     || left.gapMm - right.gapMm
+    || left.targetRouteIndex - right.targetRouteIndex
     || left.candidateId.localeCompare(right.candidateId)
   )));
 }
