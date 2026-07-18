@@ -1,0 +1,35 @@
+name: Engineering SVG Core
+
+on:
+  pull_request:
+    paths:
+      - 'core/engineering-scene/**'
+      - 'core/engineering-svg/**'
+      - 'tests/engineering-scene-*.test.js'
+      - 'tests/engineering-svg-*.test.js'
+      - '.github/workflows/engineering-svg-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-and-workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run engineering scene contracts
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-scene-dependency-guard.test.js
+      - name: Run engineering SVG workspace foundation
+        run: |
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-source-export.test.js
+          node tests/engineering-svg-workspace.test.js
+          node tests/engineering-svg-dependency-guard.test.js
