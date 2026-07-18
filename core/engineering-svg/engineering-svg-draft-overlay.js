@@ -93,6 +93,8 @@ function differenceEntity(source, original, draft) {
   const start = engineeringGeometryCentroid(original);
   const end = engineeringGeometryCentroid(draft);
   const delta = engineeringPointDelta(start, end);
+  const magnitude = engineeringDeltaMagnitude(delta);
+  if (magnitude === 0) return null;
   return createEngineeringSceneEntity({
     id: overlayId('difference', source.id),
     kind: 'difference-vector',
@@ -105,10 +107,7 @@ function differenceEntity(source, original, draft) {
     renderOrder: source.renderOrder,
     visible: true,
     selectable: false,
-    metadata: overlayMetadata(source, 'difference', 'changed', source.id, {
-      delta,
-      magnitude: engineeringDeltaMagnitude(delta),
-    }),
+    metadata: overlayMetadata(source, 'difference', 'changed', source.id, { delta, magnitude }),
   });
 }
 
@@ -123,7 +122,10 @@ function overlaysFor(mode, source, state, entry) {
     overlays.push(derivedEntity(source, 'ghost', state, entry.original));
   }
   if (['changed', 'added'].includes(state)) overlays.push(derivedEntity(source, 'draft', state, entry.draft));
-  if (showComparison && state === 'changed') overlays.push(differenceEntity(source, entry.original, entry.draft));
+  if (showComparison && state === 'changed') {
+    const difference = differenceEntity(source, entry.original, entry.draft);
+    if (difference) overlays.push(difference);
+  }
   return overlays;
 }
 
