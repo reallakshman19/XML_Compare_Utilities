@@ -1,11 +1,11 @@
 import {
   ENGINEERING_GEOMETRY_KIND,
-  ENGINEERING_PRECISION_EXPRESSION_SCHEMA,
   createEngineeringPoint3D,
   createPointGeometry,
   createPolylineGeometry,
   createSegmentGeometry,
   freezeJsonValue,
+  validateEngineeringPrecisionExpression,
 } from '../engineering-scene/index.js';
 import { engineeringGeometryCentroid, engineeringPointDelta } from './engineering-svg-geometry-analysis.js';
 
@@ -22,13 +22,6 @@ function precisionAxes(values, arity) {
   });
   if (new Set(axes).size !== axes.length) throw new TypeError('Precision movement axes must be unique.');
   return axes;
-}
-
-function assertPrecisionExpression(expression) {
-  if (expression?.schema !== ENGINEERING_PRECISION_EXPRESSION_SCHEMA) {
-    throw new TypeError('Precision movement requires EngineeringPrecisionExpression.v1.');
-  }
-  return expression;
 }
 
 function assertUnit(expression, unit) {
@@ -77,13 +70,13 @@ export function translateEngineeringGeometry(geometry, delta) {
 }
 
 export function applyEngineeringPrecisionExpression(point, axesValue, expressionValue) {
-  const expression = assertPrecisionExpression(expressionValue);
+  const expression = validateEngineeringPrecisionExpression(expressionValue);
   const axes = precisionAxes(axesValue, expression.values.length);
   return pointWithExpression(point, axes, expression);
 }
 
 export function createEngineeringSvgPrecisionMovement(input = {}) {
-  const expression = assertPrecisionExpression(input.expression);
+  const expression = validateEngineeringPrecisionExpression(input.expression);
   const axes = precisionAxes(input.axes, expression.values.length);
   assertUnit(expression, input.unit);
   const beforeCentroid = engineeringGeometryCentroid(input.geometry);
