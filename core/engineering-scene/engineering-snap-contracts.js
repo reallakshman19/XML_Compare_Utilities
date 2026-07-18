@@ -71,6 +71,21 @@ function providerErrors(values = []) {
   }));
 }
 
+function providerCountRecord(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('providerCounts must be a plain record.');
+  }
+  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+  return Object.fromEntries(entries.map(([providerId, count]) => {
+    const id = requiredText(providerId, 'providerCounts key');
+    const number = Number(count);
+    if (!Number.isInteger(number) || number < 0) {
+      throw new TypeError(`providerCounts.${id} must be a non-negative integer.`);
+    }
+    return [id, number];
+  }));
+}
+
 export function createEngineeringSnapCandidate(input = {}) {
   const priority = Number(input.priority);
   const screenDistance = Number(input.screenDistance);
@@ -106,8 +121,20 @@ export function createEngineeringSnapEvidence(input = {}) {
   const compatible = count(input.compatible, 'compatible');
   const inAperture = count(input.inAperture, 'inAperture');
   const deduplicated = count(input.deduplicated, 'deduplicated');
+  const orderedIds = uniqueStringList(input.orderedIds || [], 'orderedIds');
+  const winnerId = input.winnerId == null ? null : String(input.winnerId);
+  const counts = providerCountRecord(input.providerCounts);
   if (compatible > considered || inAperture > compatible || deduplicated > inAperture) {
     throw new TypeError('Snap evidence counts are inconsistent.');
+  }
+  if (orderedIds.length !== inAperture - deduplicated) {
+    throw new TypeError('Snap evidence orderedIds count is inconsistent.');
+  }
+  if ((winnerId == null) !== (orderedIds.length === 0) || (winnerId && winnerId !== orderedIds[0])) {
+    throw new TypeError('Snap evidence winnerId is inconsistent.');
+  }
+  if (Object.values(counts).reduce((sum, value) => sum + value, 0) !== considered) {
+    throw new TypeError('Snap evidence providerCounts total is inconsistent.');
   }
   return freezeJsonValue({
     schema: ENGINEERING_SNAP_EVIDENCE_SCHEMA,
@@ -115,9 +142,9 @@ export function createEngineeringSnapEvidence(input = {}) {
     compatible,
     inAperture,
     deduplicated,
-    winnerId: input.winnerId == null ? null : String(input.winnerId),
-    orderedIds: uniqueStringList(input.orderedIds || [], 'orderedIds'),
-    providerCounts: input.providerCounts ?? {},
+    winnerId,
+    orderedIds,
+    providerCounts: counts,
     providerErrors: providerErrors(input.providerErrors),
   });
 }
