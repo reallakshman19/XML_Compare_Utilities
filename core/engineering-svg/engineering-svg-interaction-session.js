@@ -36,6 +36,27 @@ function screenPoint(value, label) {
   return Object.freeze(point);
 }
 
+function fitRecord(value) {
+  const fit = {
+    scale: Number(value?.scale),
+    offsetX: Number(value?.offsetX),
+    offsetY: Number(value?.offsetY),
+  };
+  if (!Number.isFinite(fit.scale) || fit.scale <= 0
+    || !Number.isFinite(fit.offsetX) || !Number.isFinite(fit.offsetY)) {
+    throw new TypeError('Interaction fit must contain a positive scale and finite offsets.');
+  }
+  return Object.freeze(fit);
+}
+
+function supportedProjection(scene, value) {
+  const projection = String(value || 'ISO');
+  if (!scene.projections.includes(projection)) {
+    throw new TypeError(`Scene does not support interaction projection "${projection}".`);
+  }
+  return projection;
+}
+
 function initialState() {
   return {
     schema: ENGINEERING_SVG_INTERACTION_SCHEMA,
@@ -114,6 +135,8 @@ export function createEngineeringSvgInteractionSession(options = {}) {
     const entity = interactionEntity(scene, entityId);
     const constraint = createEngineeringGeometryConstraint(input.constraint);
     const start = screenPoint(input.startScreenPoint, 'Interaction startScreenPoint');
+    const projection = supportedProjection(scene, input.projection);
+    const fit = fitRecord(input.fit);
     editCoordinator.begin({ operationId, baseRevision });
     previewSequence = 0;
     state = {
@@ -123,8 +146,8 @@ export function createEngineeringSvgInteractionSession(options = {}) {
       entityId,
       baseRevision,
       constraint,
-      projection: String(input.projection || 'ISO'),
-      fit: input.fit,
+      projection,
+      fit,
       startScreenPoint: start,
       currentScreenPoint: start,
       originalGeometry: entity.geometry,
