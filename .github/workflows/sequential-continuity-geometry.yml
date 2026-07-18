@@ -1,0 +1,58 @@
+name: Sequential Continuity Geometry
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/sequential-sketcher/continuity/**'
+      - 'tabs/sequential-sketcher/sequential-sketcher-tab.js'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-continuity-*.test.js'
+      - 'tests/browser/sequential-continuity-geometry*'
+      - 'playwright.sequential-continuity.config.mjs'
+      - '.github/workflows/sequential-continuity-geometry.yml'
+  push:
+    branches:
+      - main
+      - agent/sequential-continuity-geometry-roundtrip
+    paths:
+      - 'tabs/sequential-sketcher/continuity/**'
+      - 'tabs/sequential-sketcher/sequential-sketcher-tab.js'
+      - 'tabs/psnm-utility-tab.js'
+      - 'tests/sequential-continuity-*.test.js'
+      - 'tests/browser/sequential-continuity-geometry*'
+      - 'playwright.sequential-continuity.config.mjs'
+      - '.github/workflows/sequential-continuity-geometry.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Same-schema source and continuity construction contracts
+        run: node tests/sequential-continuity-geometry.test.js
+      - name: Continuity UI and architecture contracts
+        run: node tests/sequential-continuity-ui.test.js
+      - name: Existing queue and package regressions
+        run: |
+          node tests/sequential-review-queue.test.js
+          node tests/sequential-workspace-persistence.test.js
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Constructed network browser acceptance
+        run: npx playwright test --config=playwright.sequential-continuity.config.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-continuity-geometry-${{ github.sha }}
+          path: test-results/
+          if-no-files-found: ignore
