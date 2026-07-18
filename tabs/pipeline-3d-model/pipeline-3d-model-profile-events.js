@@ -59,7 +59,7 @@ export function buildDepthEvents(rules) {
       continue;
     }
     if (!hasBoundaryPeer(rules, rule, 'start', 'end')) {
-      events.push(event('grade-end', rule.start, 'GRADE END', 35, GRADE_RULE));
+      events.push(event('grade-end', rule.start, 'GRADE END', 5, GRADE_RULE));
     }
     events.push(event('depth-start', rule.start, `${rule.zText} START`, 60, rule));
     events.push(event('depth-end', rule.end, `${rule.zText} END`, 40, rule));
