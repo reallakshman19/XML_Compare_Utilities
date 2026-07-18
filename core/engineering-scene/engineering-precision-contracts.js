@@ -47,3 +47,14 @@ export function createEngineeringPrecisionExpression(input = {}) {
     unit: text(input.unit),
   });
 }
+
+export function validateEngineeringPrecisionExpression(value) {
+  if (value?.schema !== ENGINEERING_PRECISION_EXPRESSION_SCHEMA) {
+    throw new TypeError(`Precision expression schema must be "${ENGINEERING_PRECISION_EXPRESSION_SCHEMA}".`);
+  }
+  const normalized = createEngineeringPrecisionExpression(value);
+  if (value.raw !== normalized.raw || value.unit !== normalized.unit) {
+    throw new TypeError('Precision expression raw and unit values must already be normalized strings.');
+  }
+  return value;
+}
