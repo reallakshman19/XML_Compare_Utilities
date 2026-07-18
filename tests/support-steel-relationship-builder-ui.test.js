@@ -61,7 +61,8 @@ const carrierAttachment = readFileSync('tabs/support-steel-relationship-builder/
 const chainEngine = readFileSync('tabs/support-steel-relationship-builder/support-member-chain-engine.js', 'utf8');
 assert.match(utilityTab, /installSupportSteelRelationshipBuilderTile/);
 assert.match(utilityTab, /destroySupportSteelRelationshipBuilder/);
-assert.match(layout, /data-ssrb-open/);
+assert.match(layout, /data-psnm-deck/);
+assert.match(layout, /app-dashboard-grid/);
 assert.match(relationshipTab, /supportSteelBuildInputSnapshot/);
 assert.match(relationshipTab, /data-ssrb-input=\"model\"/);
 assert.doesNotMatch(relationshipTab, /data-ssrb-input=\"support\"/);
