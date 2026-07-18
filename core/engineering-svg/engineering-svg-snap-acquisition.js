@@ -45,16 +45,22 @@ function normalizeCandidate(candidate, rawScreenPoint) {
 async function collectProviderResults(input, providerValues, errorMode) {
   const candidates = [];
   const errors = [];
+  const counts = Object.fromEntries(providerValues.map((provider) => [provider.id, 0]));
   for (const provider of providerValues) {
     try {
       const result = await provider.provide(input);
+      counts[provider.id] = result.candidates.length;
       result.candidates.forEach((candidate) => candidates.push(normalizeCandidate(candidate, input.screenPoint)));
     } catch (error) {
       if (errorMode === ENGINEERING_SVG_SNAP_ERROR_MODE.FAIL_CLOSED) throw error;
       errors.push(Object.freeze({ providerId: provider.id, message: String(error?.message || error) }));
     }
   }
-  return Object.freeze({ candidates: Object.freeze(candidates), errors: Object.freeze(errors) });
+  return Object.freeze({
+    candidates: Object.freeze(candidates),
+    errors: Object.freeze(errors),
+    providerCounts: Object.freeze(counts),
+  });
 }
 
 export async function acquireEngineeringSvgSnap(input = {}) {
@@ -89,6 +95,7 @@ export async function acquireEngineeringSvgSnap(input = {}) {
     screenTolerance: input.screenTolerance,
     worldTolerance: input.worldTolerance,
     providerErrors: collected.errors,
+    providerCounts: collected.providerCounts,
   });
   return createEngineeringSnapAcquisition({
     rawScreenPoint,
