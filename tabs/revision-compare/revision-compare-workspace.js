@@ -1,4 +1,4 @@
-/** RC-003 workspace lifecycle: trusted compare plus exact guided-review state. */
+/** RC-004 workspace lifecycle over trusted compare, guided review and decisions. */
 import { createRevisionActions } from './revision-compare-actions.js';
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
@@ -7,6 +7,8 @@ import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
 import { createRevisionWorkspaceState } from './revision-workspace-state.js';
+import { candidatePreview } from './revision-decision-projection.js';
+import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
 
 function defaultNow() { return new Date().toISOString(); }
 function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
@@ -32,6 +34,17 @@ function reviewButton(actions, button) {
   if (button.hasAttribute('data-revc-download-review')) actions.downloadReviewSession();
   if (button.hasAttribute('data-revc-start-new-review')) actions.startNewReviewSession();
 }
+function decisionButton(actions, button) {
+  if (button.dataset.revcPreviewCandidateIndex !== undefined) actions.previewCandidate(button.dataset.revcPreviewCandidateIndex);
+  if (button.hasAttribute('data-revc-previous-candidate')) actions.previousCandidate();
+  if (button.hasAttribute('data-revc-next-candidate')) actions.nextCandidate();
+  if (button.hasAttribute('data-revc-accept-candidate')) actions.acceptCandidate();
+  if (button.hasAttribute('data-revc-confirm-no-match')) actions.confirmNoMatch();
+  if (button.hasAttribute('data-revc-defer-decision')) actions.deferDecision();
+  if (button.hasAttribute('data-revc-revoke-decision')) actions.revokeDecision();
+  if (button.hasAttribute('data-revc-download-decision')) actions.downloadDecisionLedger();
+  if (button.hasAttribute('data-revc-start-new-decision')) actions.startNewDecisionLedger();
+}
 function actionClick(actions, target) {
   const button = target.closest('button'); if (!button) return;
   if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
@@ -40,13 +53,18 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
   if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
   if (button.hasAttribute('data-revc-close')) actions.close();
-  comparisonButton(actions, button); reviewButton(actions, button);
+  comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button);
 }
 function reviewInput(actions, target) {
   if (target.matches('[data-revc-review-search]')) actions.setReviewSearch(target.value);
   if (target.matches('[data-revc-review-state-filter]')) actions.toggleReviewFilter('reviewStates', target.dataset.revcReviewStateFilter);
   if (target.matches('[data-revc-certainty-filter]')) actions.toggleReviewFilter('certainties', target.dataset.revcCertaintyFilter);
   if (target.matches('[data-revc-review-import]')) { const file = target.files?.[0]; if (file) actions.importReviewSession(file); }
+}
+function decisionInput(actions, target) {
+  if (target.matches('[data-revc-decision-state-filter]')) actions.toggleDecisionFilter(target.dataset.revcDecisionStateFilter);
+  if (target.matches('[data-revc-unresolved-ambiguity]')) actions.setUnresolvedAmbiguity(target.checked);
+  if (target.matches('[data-revc-decision-import]')) { const file = target.files?.[0]; if (file) actions.importDecisionLedger(file); }
 }
 function inputChange(actions, target) {
   if (target.matches('[data-revc-file]')) fileChange(actions, target);
@@ -55,7 +73,13 @@ function inputChange(actions, target) {
   if (target.matches('[data-revc-queue-search]')) actions.setQueueSearch(target.value);
   if (target.matches('[data-revc-changed-reason]')) actions.toggleChangedReason(target.dataset.revcChangedReason);
   if (target.matches('[data-revc-needs-decision]')) actions.setNeedsDecision(target.checked);
-  reviewInput(actions, target);
+  reviewInput(actions, target); decisionInput(actions, target);
+}
+function syncDecisionButtons(root) {
+  const field = root.querySelector('[data-revc-decision-rationale]'); if (!field) return;
+  const hasRationale = Boolean(field.value.trim()); const count = root.querySelector('[data-revc-rationale-count]');
+  if (count) count.textContent = `Required · ${field.value.length} / ${field.maxLength}`;
+  root.querySelectorAll('[data-action-allowed]').forEach((button) => { button.disabled = button.dataset.actionAllowed !== 'true' || !hasRationale; });
 }
 function bindWorkspace(root, actions, cleanups) {
   trackedListener(cleanups, root, 'click', (event) => actionClick(actions, event.target));
@@ -63,7 +87,12 @@ function bindWorkspace(root, actions, cleanups) {
   trackedListener(cleanups, root, 'input', (event) => {
     if (event.target.matches('[data-revc-queue-search]')) actions.setQueueSearch(event.target.value);
     if (event.target.matches('[data-revc-review-search]')) actions.setReviewSearch(event.target.value);
+    if (event.target.matches('[data-revc-decision-rationale]')) syncDecisionButtons(root);
   });
+}
+function previewFor(state) {
+  const audit = state.compare.audit; const ledger = state.decision.ledger; const preview = state.decision.preview;
+  return audit && decisionLedgerMatchesAudit(ledger, audit) ? candidatePreview(audit, ledger, preview.differenceId, preview.candidateIndex) : null;
 }
 export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
@@ -84,21 +113,21 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     const host = root.querySelector('[data-revc-viewer-host]'); if (!host) return;
     const mounted = await viewerAdapter.render(host, state.compare.audit); if (sequence !== renderSequence) return;
     viewerAdapter.setPresentationMode(state.compare.presentationMode); viewerAdapter.selectDifference(state.compare.selectedDifferenceId);
+    const preview = previewFor(state);
+    if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId);
+    else viewerAdapter.clearPreview();
     if (!mounted) host.innerHTML = '<div class="revc-viewer-fallback"><b>3D viewer unavailable.</b><span>Use the queue and inspector to continue review.</span></div>';
   }
   function render(next = state) {
     state = next; renderSequence += 1; const sequence = renderSequence;
-    root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
+    root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence()); syncDecisionButtons(root);
     Promise.resolve().then(() => syncViewer(sequence));
   }
-  actions = createRevisionActions({
-    root, options, service, compareService, viewerAdapter, cryptoRef, clock,
-    readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact,
-  });
+  actions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
   bindWorkspace(root, actions, cleanups); render();
   return Object.freeze({
     evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), compareRunId: compareService.activeRunId() }),
     destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
   });
 }
-export const _test = Object.freeze({ sessionId, actionClick, inputChange });
+export const _test = Object.freeze({ actionClick, inputChange, sessionId, syncDecisionButtons });
