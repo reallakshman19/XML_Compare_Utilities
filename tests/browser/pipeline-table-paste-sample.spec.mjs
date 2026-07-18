@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test';
 
 const FIXTURE = '/tests/browser/pipeline-table-paste-sample-fixture.html';
+const PLACEHOLDER_TABLE_1 = [
+  'at point X= Y= Z=\t392.755\t-173.688\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t695.086\t-152.301\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t860.335\t-140.566\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t1117.081\t-122.414\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t1295.369\t-90.301\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t1381.772\t-214.552\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t1427.714\t-222.807\t0\t0\t0\t0\t0',
+  'at point X= Y= Z=\t1450.082\t-254.974\t0\t0\t0\t0\t0',
+].join('\n');
 
 async function open(page) {
   const errors = [];
@@ -87,12 +97,13 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(aboveEnd?.x).toBe(gradeStart?.x);
     expect(aboveEnd?.y).toBe(gradeStart?.y);
     expect((aboveEnd?.z || 0) - (gradeStart?.z || 0)).toBe(750);
-    expect(coordinate).toContain('T1-001');
+    expect(coordinate).toContain('Sheet 1 Pt 1');
+    expect(coordinate).not.toContain('T1-001');
     expect(coordinate).not.toContain('at point X= Y= Z=');
     expect(coordinate).not.toContain('8573374\t-10498846');
 
     const xml = await page.locator('[data-p3d="xml-output"]').textContent();
-    for (const value of ['T1-001', 'PMS-001', 'PMS-004', 'GRADE END', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'GRADE START']) {
+    for (const value of ['Sheet 1 Pt 1', 'PMS-001', 'PMS-004', 'GRADE END', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'GRADE START']) {
       expect(xml).toContain(value);
     }
     expect(xml).not.toContain('at point X= Y= Z=');
@@ -123,6 +134,20 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     await page.locator('[data-p3d="run"]').click();
     await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-001A');
     await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-001A');
+    expect(errors).toEqual([]);
+  });
+
+  test('P3D-PROP-B03 AutoCAD placeholder Table 1 names become deterministic T1 names', async ({ page }) => {
+    const errors = await open(page);
+    await loadSample(page);
+    await page.locator('[data-p3d="table1"]').fill(PLACEHOLDER_TABLE_1);
+    await page.locator('[data-p3d="run"]').click();
+    await expect(page.locator('[data-p3d="table1-output"]')).toContainText('T1-001');
+    await expect(page.locator('[data-p3d="table1-output"]')).not.toContainText('at point X= Y= Z=');
+    await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('T1-001');
+    await expect(page.locator('[data-p3d="coordinate-output"]')).not.toContainText('at point X= Y= Z=');
+    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('T1-001');
+    await expect(page.locator('[data-p3d="xml-output"]')).not.toContainText('at point X= Y= Z=');
     expect(errors).toEqual([]);
   });
 
