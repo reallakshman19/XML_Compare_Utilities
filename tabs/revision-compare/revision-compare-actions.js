@@ -1,4 +1,4 @@
-/** RC-001 intake, RC-002 compare, and RC-003 guided-review actions. */
+/** RC-001 intake, RC-002 compare, RC-003 review, and RC-004 decision actions. */
 import { createRevisionComparisonBasis } from './revision-comparison-basis.js';
 import { createRevisionSessionManifest, createRevisionScopeManifest } from './revision-manifests.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
@@ -10,6 +10,12 @@ import { RevisionComparisonCancelledError } from './revision-compare-engine.js';
 import { createReviewSessionExport, parseReviewSessionJson } from './revision-review-manifest.js';
 import { nextPriorityDifferenceId, previousPriorityDifferenceId, projectReviewPriority, selectionAfterReviewMutation } from './revision-review-priority.js';
 import { reviewSessionMatchesAudit, setReviewItemNote, setReviewItemState } from './revision-review-session.js';
+import { filterDecisionAwareProjection } from './revision-decision-projection.js';
+import {
+  acceptSelectedCandidate, confirmSelectedNoMatch, deferSelectedDecision, downloadDecisionLedger,
+  importDecisionLedger, previewDecisionCandidate, revokeSelectedDecision, selectDecisionDifference,
+  setUnresolvedAmbiguityFilter, startNewDecisionLedger, stepDecisionCandidate, toggleDecisionStateFilter,
+} from './revision-decision-actions.js';
 import {
   cancelWorkspaceComparison, completeWorkspaceComparison, failWorkspaceComparison, failWorkspaceLoad,
   finishWorkspaceLoad, finishWorkspaceScope, progressWorkspaceComparison, resetWorkspaceSlot,
@@ -48,10 +54,8 @@ async function loadRevision(context, slotId, file) {
   commitAuthoritative(context, startWorkspaceLoad(context.readState(), slotId, generation, file.name, file.size, context.now()));
   try {
     const result = await context.service.loadFile(slotId, file, context.now(), generation);
-    const loaded = finishWorkspaceLoad(context.readState(), slotId, result, context.now());
-    if (loaded === context.readState()) return;
-    commitAuthoritative(context, loaded); await refreshProposal(context, {});
-    context.options?.showToast?.(`${labelFor(slotId)} loaded.`, 'success');
+    const loaded = finishWorkspaceLoad(context.readState(), slotId, result, context.now()); if (loaded === context.readState()) return;
+    commitAuthoritative(context, loaded); await refreshProposal(context, {}); context.options?.showToast?.(`${labelFor(slotId)} loaded.`, 'success');
   } catch (error) {
     if (error instanceof RevisionRequestSupersededError) return;
     const failed = failWorkspaceLoad(context.readState(), slotId, generation, error);
@@ -61,15 +65,13 @@ async function loadRevision(context, slotId, file) {
 async function cancelRevision(context, slotId) {
   const token = context.authority.invalidate(); await stopComparison(context);
   try {
-    const generation = await context.service.cancel(slotId);
-    if (!context.authority.isCurrent(token)) return;
+    const generation = await context.service.cancel(slotId); if (!context.authority.isCurrent(token)) return;
     commitAuthoritative(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
   } catch (error) { report(context, error); }
 }
 async function refineScope(context, decisions) {
   const token = context.authority.invalidate(); await stopComparison(context);
-  const proposal = await proposalFor(context, context.readState(), decisions);
-  if (!context.authority.isCurrent(token)) return;
+  const proposal = await proposalFor(context, context.readState(), decisions); if (!context.authority.isCurrent(token)) return;
   commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions, context.now()));
 }
 async function setBranch(context, branchId, included) {
@@ -107,8 +109,7 @@ async function projectApprovedScope(context, token, basis) {
   return { revA, revB, projectionReceipt: { projectRevAMilliseconds, projectRevBMilliseconds } };
 }
 function ensureRunAuthority(context, basisId) {
-  const state = context.readState();
-  if (state.basisStatus !== 'CURRENT' || state.basis?.basisId !== basisId) throw new RevisionCompareSupersededError();
+  const state = context.readState(); if (state.basisStatus !== 'CURRENT' || state.basis?.basisId !== basisId) throw new RevisionCompareSupersededError();
 }
 function combinedReviewFilters(state) {
   return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search,
@@ -117,23 +118,19 @@ function combinedReviewFilters(state) {
 function reviewProjection(state) {
   const audit = state.compare.audit; const session = state.review.session;
   if (!audit || !reviewSessionMatchesAudit(session, audit)) return { all: [], visible: [], visibleCount: 0, hiddenCount: 0 };
-  return projectReviewPriority(audit, session, combinedReviewFilters(state));
+  return filterDecisionAwareProjection(projectReviewPriority(audit, session, combinedReviewFilters(state)), audit, state.decision);
 }
 async function runVisualComparison(context) {
-  const initial = context.readState(); const readiness = revisionVisualReadiness(initial);
-  if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
-  const basis = initial.basis; const token = await context.compareService.begin(basis.basisId);
-  commit(context, startWorkspaceComparison(context.readState(), token));
+  const initial = context.readState(); const readiness = revisionVisualReadiness(initial); if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
+  const basis = initial.basis; const token = await context.compareService.begin(basis.basisId); commit(context, startWorkspaceComparison(context.readState(), token));
   try {
     const projection = await projectApprovedScope(context, token, basis); ensureRunAuthority(context, basis.basisId);
     const audit = await context.compareService.compare(token, { basis, ...projection }, (progress) => {
       if (context.readState().compare.runGeneration === token.generation) commit(context, progressWorkspaceComparison(context.readState(), token, progress));
     });
-    ensureRunAuthority(context, basis.basisId);
-    let completed = completeWorkspaceComparison(context.readState(), token, audit, context.now());
+    ensureRunAuthority(context, basis.basisId); const completed = completeWorkspaceComparison(context.readState(), token, audit, context.now()); commit(context, completed);
     const first = reviewProjection(completed).visible[0]?.row.differenceId ?? completed.compare.selectedDifferenceId;
-    completed = selectWorkspaceDifference(completed, first); commit(context, completed);
-    context.options?.showToast?.('Visual comparison complete.', 'success');
+    selectDecisionDifference(decisionContext(context), first); context.options?.showToast?.('Visual comparison complete.', 'success');
   } catch (error) {
     if (error instanceof RevisionCompareSupersededError) return;
     if (error instanceof RevisionComparisonCancelledError || error?.code === 'REVISION_COMPARE_CANCELLED') { commit(context, cancelWorkspaceComparison(context.readState())); return; }
@@ -143,9 +140,8 @@ async function runVisualComparison(context) {
 async function cancelComparison(context) { await context.compareService.cancel(); commit(context, cancelWorkspaceComparison(context.readState())); }
 function commitReviewMutation(context, session, before, currentId) {
   let next = setWorkspaceReviewSession(context.readState(), session); const after = reviewProjection(next);
-  const selection = selectionAfterReviewMutation(before, after, currentId);
-  if (selection !== currentId) next = selectWorkspaceDifference(next, selection);
-  commit(context, next); context.viewerAdapter.selectDifference(selection);
+  const selection = selectionAfterReviewMutation(before, after, currentId); commit(context, next);
+  if (selection !== currentId) selectDecisionDifference(decisionContext(context), selection);
 }
 function setReviewState(context, reviewState) {
   const state = context.readState(); const id = state.compare.selectedDifferenceId; if (!id) return;
@@ -161,23 +157,19 @@ async function saveReviewNote(context) {
 function navigateReview(context, direction) {
   const state = context.readState(); const projection = reviewProjection(state); const current = state.compare.selectedDifferenceId;
   const id = direction === 'previous' ? previousPriorityDifferenceId(projection, current) : nextPriorityDifferenceId(projection, current);
-  if (!id) return; commit(context, selectWorkspaceDifference(state, id)); context.viewerAdapter.selectDifference(id);
+  if (id) selectDecisionDifference(decisionContext(context), id);
 }
 async function importReviewSession(context, file) {
-  const state = context.readState(); const audit = state.compare.audit;
-  if (!audit) throw new Error('Run the exact comparison audit before importing a review session.');
+  const state = context.readState(); const audit = state.compare.audit; if (!audit) throw new Error('Run the exact comparison audit before importing a review session.');
   try {
     const text = file.text ? await file.text() : new TextDecoder().decode(await file.arrayBuffer());
     const session = await parseReviewSessionJson(text, audit, context.now(), context.cryptoRef);
-    commit(context, setWorkspaceReviewSession(setWorkspaceReviewImportError(context.readState(), null), session));
-    context.options?.showToast?.('Review session imported.', 'success');
-  } catch (error) {
-    commit(context, setWorkspaceReviewImportError(context.readState(), error)); report(context, error);
-  }
+    commit(context, setWorkspaceReviewSession(setWorkspaceReviewImportError(context.readState(), null), session)); context.options?.showToast?.('Review session imported.', 'success');
+  } catch (error) { commit(context, setWorkspaceReviewImportError(context.readState(), error)); report(context, error); }
 }
 function startNewReview(context) {
-  let next = startWorkspaceNewReviewSession(context.readState(), context.now()); const first = reviewProjection(next).visible[0]?.row.differenceId ?? null;
-  next = selectWorkspaceDifference(next, first); commit(context, next); context.viewerAdapter.selectDifference(first);
+  const next = startWorkspaceNewReviewSession(context.readState(), context.now()); commit(context, next);
+  const first = reviewProjection(next).visible[0]?.row.differenceId ?? null; selectDecisionDifference(decisionContext(context), first);
 }
 function downloadSession(context) {
   const state = context.readState(); context.downloadArtifact(context.root, `${state.session.sessionId}.session.json`, createRevisionSessionManifest(state, preflight(context, state)));
@@ -186,19 +178,19 @@ function downloadScope(context) {
   const state = context.readState(); context.downloadArtifact(context.root, `${state.session.sessionId}.scope-basis.json`, createRevisionScopeManifest(state, preflight(context, state)));
 }
 function downloadReview(context) {
-  const session = createReviewSessionExport(context.readState().review.session);
-  context.downloadArtifact(context.root, `${session.reviewSessionId}.json`, session);
+  const session = createReviewSessionExport(context.readState().review.session); context.downloadArtifact(context.root, `${session.reviewSessionId}.json`, session);
 }
 function safe(context, operation) { return async (...args) => { try { await operation(...args); } catch (error) { report(context, error); } }; }
 function updateAndRender(context, transition, ...args) { return commit(context, transition(context.readState(), ...args)); }
+function decisionContext(context) { return { ...context, commit: (state) => commit(context, state), report: (error) => report(context, error) }; }
 export function createRevisionActions(context) {
-  const guarded = { ...context, authority: createRevisionActionAuthority() };
+  const guarded = { ...context, authority: createRevisionActionAuthority() }; const decisions = decisionContext(guarded);
   return Object.freeze({
     load: (slotId, file) => loadRevision(guarded, slotId, file), cancel: (slotId) => cancelRevision(guarded, slotId),
     setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)), setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
     setSearch: (group, value) => updateAndRender(guarded, setWorkspaceSearch, group, value), approveBasis: safe(guarded, () => approveBasis(guarded)),
     runVisualComparison: safe(guarded, () => runVisualComparison(guarded)), cancelComparison: safe(guarded, () => cancelComparison(guarded)),
-    selectDifference: (id) => updateAndRender(guarded, selectWorkspaceDifference, id),
+    selectDifference: (id) => selectDecisionDifference(decisions, id),
     setPresentation: (mode) => { updateAndRender(guarded, setWorkspacePresentation, mode); guarded.viewerAdapter.setPresentationMode(mode); },
     setQueueSearch: (value) => updateAndRender(guarded, setWorkspaceQueueSearch, value), toggleCategory: (category) => updateAndRender(guarded, toggleWorkspaceCategory, category),
     toggleChangedReason: (reason) => updateAndRender(guarded, toggleWorkspaceChangedReason, reason), setNeedsDecision: (enabled) => updateAndRender(guarded, setWorkspaceNeedsDecision, enabled),
@@ -206,9 +198,15 @@ export function createRevisionActions(context) {
     setReviewState: safe(guarded, (state) => setReviewState(guarded, state)), saveReviewNote: safe(guarded, () => saveReviewNote(guarded)),
     nextPriority: () => navigateReview(guarded, 'next'), previousPriority: () => navigateReview(guarded, 'previous'),
     importReviewSession: (file) => importReviewSession(guarded, file), startNewReviewSession: safe(guarded, () => startNewReview(guarded)),
-    downloadReviewSession: safe(guarded, () => downloadReview(guarded)), showSetup: () => updateAndRender(guarded, setWorkspaceReviewVisible, false),
-    showReview: () => updateAndRender(guarded, setWorkspaceReviewVisible, true), fitAll: () => guarded.viewerAdapter.fitAll(), fitSelected: () => guarded.viewerAdapter.fitSelected(),
-    downloadSession: safe(guarded, () => downloadSession(guarded)), downloadScope: safe(guarded, () => downloadScope(guarded)),
-    close: () => guarded.options?.close?.(), setMessage: (message) => updateAndRender(guarded, setWorkspaceMessage, message),
+    downloadReviewSession: safe(guarded, () => downloadReview(guarded)),
+    previewCandidate: (index) => previewDecisionCandidate(decisions, index), previousCandidate: () => stepDecisionCandidate(decisions, 'previous'), nextCandidate: () => stepDecisionCandidate(decisions, 'next'),
+    acceptCandidate: safe(guarded, () => acceptSelectedCandidate(decisions)), confirmNoMatch: safe(guarded, () => confirmSelectedNoMatch(decisions)),
+    deferDecision: safe(guarded, () => deferSelectedDecision(decisions)), revokeDecision: safe(guarded, () => revokeSelectedDecision(decisions)),
+    toggleDecisionFilter: (value) => toggleDecisionStateFilter(decisions, value), setUnresolvedAmbiguity: (enabled) => setUnresolvedAmbiguityFilter(decisions, enabled),
+    importDecisionLedger: (file) => importDecisionLedger(decisions, file), startNewDecisionLedger: safe(guarded, () => startNewDecisionLedger(decisions)),
+    downloadDecisionLedger: safe(guarded, () => downloadDecisionLedger(decisions)),
+    showSetup: () => updateAndRender(guarded, setWorkspaceReviewVisible, false), showReview: () => updateAndRender(guarded, setWorkspaceReviewVisible, true),
+    fitAll: () => guarded.viewerAdapter.fitAll(), fitSelected: () => guarded.viewerAdapter.fitSelected(), downloadSession: safe(guarded, () => downloadSession(guarded)),
+    downloadScope: safe(guarded, () => downloadScope(guarded)), close: () => guarded.options?.close?.(), setMessage: (message) => updateAndRender(guarded, setWorkspaceMessage, message),
   });
 }
