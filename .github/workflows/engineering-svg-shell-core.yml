@@ -1,0 +1,56 @@
+name: Engineering SVG Shell Core
+
+on:
+  pull_request:
+    paths:
+      - 'core/engineering-scene/**'
+      - 'core/engineering-svg/**'
+      - 'tests/engineering-svg-shell-*.test.js'
+      - 'tests/browser/engineering-svg-shell-*'
+      - 'playwright.engineering-svg-shell.config.mjs'
+      - '.github/workflows/engineering-svg-shell-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accessible-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run merged engineering SVG foundations
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-source-export.test.js
+          node tests/engineering-svg-workspace.test.js
+          node tests/engineering-svg-edit-command-gateway.test.js
+          node tests/engineering-svg-edit-properties.test.js
+          node tests/engineering-svg-edit-coordinator.test.js
+          node tests/engineering-svg-overlay-scene.test.js
+          node tests/engineering-svg-overlay-zero-centroid.test.js
+          node tests/engineering-svg-overlay-inspector.test.js
+          node tests/engineering-svg-precision-parser.test.js
+          node tests/engineering-svg-precision-geometry.test.js
+          node tests/engineering-svg-precision-constraint-solver.test.js
+          node tests/engineering-svg-snap-contracts.test.js
+          node tests/engineering-svg-snap-ranking.test.js
+          node tests/engineering-svg-snap-acquisition.test.js
+          node tests/engineering-svg-interaction-fit-contract.test.js
+          node tests/engineering-svg-interaction-session.test.js
+          node tests/engineering-svg-interaction-snap.test.js
+          node tests/engineering-svg-interaction-feedback.test.js
+      - name: Validate shell architecture
+        run: node tests/engineering-svg-shell-dependency-guard.test.js
+      - name: Install browser runtime
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Run accessible shell Chromium acceptance
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
