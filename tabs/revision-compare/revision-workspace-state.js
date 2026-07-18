@@ -72,8 +72,16 @@ export function resetWorkspaceSlot(state, slotId, generation, updatedAt) {
   });
 }
 export function startWorkspaceComparison(state, token) { return deepFreeze({ ...state, compare: startComparisonState(state.compare, token), message: 'Projecting approved revision scope.' }); }
-export function progressWorkspaceComparison(state, token, progress) { return deepFreeze({ ...state, compare: progressComparisonState(state.compare, token, progress), message: progress.stage }); }
-export function completeWorkspaceComparison(state, token, audit) { return deepFreeze({ ...state, compare: completeComparisonState(state.compare, token, audit), message: 'Visual comparison complete.' }); }
+export function progressWorkspaceComparison(state, token, progress) {
+  const compare = progressComparisonState(state.compare, token, progress);
+  if (compare === state.compare) return state;
+  return deepFreeze({ ...state, compare, message: progress.stage });
+}
+export function completeWorkspaceComparison(state, token, audit) {
+  const compare = completeComparisonState(state.compare, token, audit);
+  if (compare === state.compare) return state;
+  return deepFreeze({ ...state, compare, message: 'Visual comparison complete.' });
+}
 export function cancelWorkspaceComparison(state) { return deepFreeze({ ...state, compare: cancelComparisonState(state.compare), message: 'Visual comparison cancelled.' }); }
 export function failWorkspaceComparison(state, error) { return deepFreeze({ ...state, compare: failComparisonState(state.compare, error), message: String(error?.message ?? error) }); }
 export function selectWorkspaceDifference(state, id) { return deepFreeze({ ...state, compare: setComparisonSelection(state.compare, id) }); }
