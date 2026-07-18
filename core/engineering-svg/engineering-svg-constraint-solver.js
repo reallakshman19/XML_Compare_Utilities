@@ -22,6 +22,19 @@ function finitePoint(value, label) {
   return point;
 }
 
+function validFit(value) {
+  const fit = {
+    scale: Number(value?.scale),
+    offsetX: Number(value?.offsetX),
+    offsetY: Number(value?.offsetY),
+  };
+  if (!Number.isFinite(fit.scale) || fit.scale <= 0
+    || !Number.isFinite(fit.offsetX) || !Number.isFinite(fit.offsetY)) {
+    throw new TypeError('Constraint solving requires a finite positive SVG fit transform.');
+  }
+  return fit;
+}
+
 function normalizeDirection(value, label) {
   const direction = { x: Number(value?.x), y: Number(value?.y), z: Number(value?.z) };
   if (![direction.x, direction.y, direction.z].every(Number.isFinite)) {
@@ -36,28 +49,30 @@ function normalizeDirection(value, label) {
   });
 }
 
-function projectedDirection(direction, projection, fit) {
+export function projectEngineeringSvgDirection(directionValue, projection = 'ISO', fitValue) {
+  const direction = normalizeDirection(directionValue, 'Projected direction');
+  const fit = validFit(fitValue);
   const origin = applyEngineeringSvgFit(projectEngineeringPoint({ x: 0, y: 0, z: 0 }, projection), fit);
   const endpoint = applyEngineeringSvgFit(projectEngineeringPoint(direction, projection), fit);
   const vector = { x: endpoint.x - origin.x, y: endpoint.y - origin.y };
   const length = Math.hypot(vector.x, vector.y);
   if (length <= 1e-12) throw new Error(`Constraint direction is not visible in ${projection} projection.`);
-  return Object.freeze({ ...vector, length });
+  return Object.freeze({ ...vector, length, direction });
 }
 
 function screenDelta(start, current) {
   return Object.freeze({ x: current.x - start.x, y: current.y - start.y });
 }
 
-function directionSolution(delta, direction, vector) {
+function directionSolution(delta, vector) {
   const parameter = ((delta.x * vector.x) + (delta.y * vector.y)) / (vector.length * vector.length);
   const projected = { x: vector.x * parameter, y: vector.y * parameter };
   return {
     parameters: [parameter],
     worldDelta: {
-      x: direction.x * parameter,
-      y: direction.y * parameter,
-      z: direction.z * parameter,
+      x: vector.direction.x * parameter,
+      y: vector.direction.y * parameter,
+      z: vector.direction.z * parameter,
     },
     screenResidual: { x: delta.x - projected.x, y: delta.y - projected.y },
     projectedVectors: [vector],
@@ -97,24 +112,26 @@ function referenceDirection(constraint, resolver) {
 export function solveEngineeringSvgConstraintDrag(input = {}) {
   const constraint = createEngineeringGeometryConstraint(input.constraint);
   if (constraint.schema !== ENGINEERING_GEOMETRY_CONSTRAINT_SCHEMA) throw new TypeError('Invalid geometry constraint.');
+  const projection = input.projection || 'ISO';
+  const fit = validFit(input.fit);
   const start = finitePoint(input.start, 'Constraint drag start');
   const current = finitePoint(input.current, 'Constraint drag current');
   const delta = screenDelta(start, current);
   let solution;
   if (constraint.kind === 'plane') {
-    const directions = constraint.axes.map((axis) => AXIS_DIRECTIONS[axis]);
-    const vectors = directions.map((direction) => projectedDirection(direction, input.projection, input.fit));
+    const vectors = constraint.axes.map((axis) => projectEngineeringSvgDirection(
+      AXIS_DIRECTIONS[axis], projection, fit,
+    ));
     solution = planeSolution(delta, constraint.axes, vectors);
   } else {
     const direction = constraint.kind === 'axis'
       ? AXIS_DIRECTIONS[constraint.axis]
       : referenceDirection(constraint, input.resolveReferenceVector);
-    const vector = projectedDirection(direction, input.projection, input.fit);
-    solution = directionSolution(delta, direction, vector);
+    solution = directionSolution(delta, projectEngineeringSvgDirection(direction, projection, fit));
   }
   return freezeJsonValue({
     schema: ENGINEERING_SVG_CONSTRAINT_SOLUTION_SCHEMA,
-    projection: input.projection,
+    projection,
     constraint,
     screenDelta: delta,
     ...solution,
