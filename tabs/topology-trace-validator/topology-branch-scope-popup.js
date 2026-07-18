@@ -32,12 +32,12 @@ function descendantBranchIds(node, out = []) {
 /**
  * @param {Document} documentRef
  * @param {ReadonlyArray<Record<string, unknown>>} branchTree from buildBranchScopeTree
- * @param {{ defaultWildcard?: string, title?: string, confirmLabel?: string, stats?: Record<string, unknown> }} options
+ * @param {{ defaultWildcard?: string, initialSelectedIds?: string[], title?: string, confirmLabel?: string, stats?: Record<string, unknown> }} options
  * @returns {Promise<{ cancelled: boolean, wildcard: string, selectedIds: string[] }>}
  */
 export function openBranchScopePopup(documentRef, branchTree, options = {}) {
   return new Promise((resolve) => {
-    const selected = new Set();
+    const selected = new Set(Array.isArray(options.initialSelectedIds) ? options.initialSelectedIds : []);
     let wildcard = String(options.defaultWildcard ?? '');
 
     const overlay = documentRef.createElement('div');

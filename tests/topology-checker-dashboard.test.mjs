@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { topologyCheckerPanelMarkup } from '../tabs/topology-trace-validator/topology-checker-panel.js';
+import { checkerBucketMarkup, topologyCheckerPanelMarkup } from '../tabs/topology-trace-validator/topology-checker-panel.js';
 import {
   CHECKER_FILTER_DEFAULTS, checkerCategoryCounts, checkerIssueRow, checkerObjectIndexes,
   filterCheckerIssueRows,
@@ -41,9 +41,15 @@ assert.equal(Object.values(checkerCategoryCounts(rows)).reduce((sum, count) => s
 assert(filterCheckerIssueRows(rows, { ...CHECKER_FILTER_DEFAULTS, category: 'CONNECTIVITY' }, new Set()).every((row) => row.category === 'CONNECTIVITY'));
 
 const markup = topologyCheckerPanelMarkup();
-for (const token of ['data-ttv-checker-kpis', 'data-ttv-checker-buckets', 'data-ttv-checker-scroll', 'data-ttv-checker-detail', 'data-ttv-checker-apply-approved', 'data-ttv-checker-layout="right"', 'data-ttv-checker-layout="bottom"']) assert(markup.includes(token), token);
+for (const token of ['data-ttv-checker-kpis', 'data-ttv-checker-buckets', 'data-ttv-checker-scroll', 'data-ttv-checker-detail', 'data-ttv-checker-auto-fix', 'data-ttv-checker-settings', 'data-ttv-checker-layout="right"', 'data-ttv-checker-layout="bottom"']) assert(markup.includes(token), token);
+const bucketMarkup = checkerBucketMarkup({ GEOMETRY: 2 }, '');
+assert(bucketMarkup.includes('data-ttv-checker-skip-bucket="GEOMETRY"'), 'bucket Skip action is available');
+const controllerSource = readFileSync(new URL('../tabs/topology-trace-validator/topology-checker-controller.js', import.meta.url), 'utf8');
+assert(controllerSource.includes('USER_CONFIRMATION_PENDING'), 'large-model unconfirmed cases are persisted as pending');
+assert(controllerSource.includes("exportPolicy: 'ALWAYS_ALLOWED'"), 'checker report documents non-blocking export policy');
 assert(!markup.includes('⌁'));
 assert(existsSync(new URL('../vendor/lucide/icons/scan-search.svg', import.meta.url)));
+assert(existsSync(new URL('../vendor/lucide/icons/settings.svg', import.meta.url)));
 assert(topologyCheckerIconUrl('scan-search').endsWith('/vendor/lucide/icons/scan-search.svg'));
 
 const manifest = JSON.parse(readFileSync(new URL('../vendor/3d-converters/topology-browser-core.manifest.json', import.meta.url), 'utf8'));

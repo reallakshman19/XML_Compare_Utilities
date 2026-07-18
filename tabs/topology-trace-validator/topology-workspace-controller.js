@@ -1,6 +1,12 @@
 /** Composes Trace, the 3D Edit Draft, the SVG support-draft editor, and Parity. */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
+import { buildBranchScopeTree, readStagedBranches } from '../../workbench3d/core/staged-json-core.js';
+import { openBranchScopePopup } from './topology-branch-scope-popup.js';
+import {
+  branchSelectionIdsForIndexes, createTopologyEditScope, scopeContainsBranchIndexes,
+  suggestionBranchIndexes, topologyModelMode,
+} from './topology-edit-scope-model.js';
 
 const TRACE_KINDS = new Set(['source', 'canonical', 'ledger', 'inputXml']);
 const PARITY_KINDS = new Set(['canonical', 'ledger', 'scene', 'parsed', 'report', 'ciiProjection']);
@@ -37,11 +43,60 @@ function selectionRows(selection, requestedKey) {
 
 /** @param {Record<string, unknown>} traceController @param {Record<string, unknown>} editController 3D Edit Draft @param {Record<string, unknown>} parityController @param {Record<string, unknown>} editorController SVG support-draft editor @returns {Readonly<Record<string, unknown>>} */
 export function createTopologyWorkspaceController(traceController, editController, parityController, editorController) {
-  let activeTab = 'trace';
+  let activeTab = 'trace', editScope = null;
+
+  function configuredThreshold(root) {
+    return Number(root.querySelector('[data-ttv-large-model-threshold]')?.value ?? 200);
+  }
+
+  function currentModelMode(root) {
+    const canonical = objectRecord(objectRecord(traceController.evidence().artifacts).canonical);
+    return topologyModelMode(canonical, configuredThreshold(root));
+  }
+
+  function renderScopeStatus(root, mode) {
+    const target = root.querySelector('[data-ttv-edit-scope-status]');
+    if (!target) return;
+    target.textContent = mode.requiresScope
+      ? `${mode.elementCount.toLocaleString()} elements · ${editScope?.stats?.matched ?? 0} scoped branch(es) · full export`
+      : `${mode.elementCount.toLocaleString()} elements · full Draft Edit`;
+  }
+
+  async function requestEditScope(root, requiredIndexes) {
+    const evidence = traceController.evidence(), source = objectRecord(objectRecord(evidence.artifacts).source);
+    const branches = readStagedBranches(source.raw).branches;
+    if (!branches.length) throw new Error('Large-model Draft Edit requires managed source branches.');
+    const initialSelectedIds = branchSelectionIdsForIndexes(source.raw, requiredIndexes);
+    const result = await openBranchScopePopup(root.ownerDocument, buildBranchScopeTree(branches), {
+      title: `Select Draft Edit zone / branch · ${branches.length} branches · full Trace and export retained`, initialSelectedIds,
+    });
+    if (result.cancelled) return false;
+    if (!result.wildcard && !result.selectedIds.length) {
+      root.ownerDocument.defaultView?.alert('Select at least one zone or branch for large-model Draft Edit.');
+      return requestEditScope(root, requiredIndexes);
+    }
+    const next = createTopologyEditScope(source.raw, result);
+    if (!scopeContainsBranchIndexes(next, requiredIndexes)) {
+      root.ownerDocument.defaultView?.alert('The selected scope does not contain every object required by the proposed automatic fix.');
+      return requestEditScope(root, requiredIndexes);
+    }
+    editScope = next; editController.setEditScope(editScope); return true;
+  }
+
+  async function ensureEditScope(root, force, requiredIndexes) {
+    const mode = currentModelMode(root);
+    if (!mode.requiresScope) { editScope = null; editController.setEditScope(null); renderScopeStatus(root, mode); return true; }
+    const required = asArray(requiredIndexes).map(Number);
+    if (force || !editScope || !scopeContainsBranchIndexes(editScope, required)) {
+      if (!await requestEditScope(root, required)) return false;
+    }
+    renderScopeStatus(root, mode); return true;
+  }
 
   async function loadArtifact(kind, text, fileName) {
     const results = {};
     if (TRACE_KINDS.has(kind)) {
+      if (kind === 'source') { editScope = null; editController.setEditScope(null); }
       editorController.reset();
       results.trace = await traceController.loadArtifact(kind, text, fileName);
     }
@@ -94,6 +149,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
   async function activateTab(tab, root) {
     const next = cleanText(tab);
     if (!WORKSPACE_TABS.has(next)) throw new RangeError(`Unknown topology workspace tab ${next}.`);
+    if (next === 'edit' && !await ensureEditScope(root, false, [])) return false;
     activeTab = next;
     root.querySelectorAll('[data-ttv-workspace-tab]').forEach((button) => {
       const active = button.getAttribute('data-ttv-workspace-tab') === next;
@@ -110,6 +166,24 @@ export function createTopologyWorkspaceController(traceController, editControlle
     else traceController.render();
     const currentSelection = asArray(editController.evidence().selection);
     if (currentSelection.length) synchronizeCanonicalSelection(currentSelection, 'edit');
+    return true;
+  }
+
+  async function changeEditScope(root) {
+    if (!currentModelMode(root).requiresScope) { renderScopeStatus(root, currentModelMode(root)); return true; }
+    const changed = await ensureEditScope(root, true, []); if (changed) editController.render(); return changed;
+  }
+
+  async function prepareEditForSuggestions(suggestions, root) {
+    const canonical = objectRecord(objectRecord(traceController.evidence().artifacts).canonical);
+    const requested = asArray(suggestions), mode = currentModelMode(root);
+    const required = mode.requiresScope && requested.length === 1 ? suggestionBranchIndexes(canonical, requested) : [];
+    if (!await ensureEditScope(root, false, required)) return Object.freeze([]);
+    const scoped = mode.requiresScope && requested.length > 1 ? requested.filter((suggestion) => {
+      const indexes = suggestionBranchIndexes(canonical, [suggestion]);
+      return !indexes.length || scopeContainsBranchIndexes(editScope, indexes);
+    }) : requested;
+    await editController.initialize(traceController.evidence()); return Object.freeze(scoped);
   }
 
   function evidence() {
@@ -118,7 +192,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
       edit: editController.evidence(),
       editor: editorController.evidence(),
       parity: parityController.evidence(),
-      activeTab,
+      activeTab, modelMode: null, editScope,
     });
   }
 
@@ -136,6 +210,9 @@ export function createTopologyWorkspaceController(traceController, editControlle
     evidence,
     destroy,
     activateTab,
+    changeEditScope,
+    prepareEditForSuggestions,
+    modelMode: currentModelMode,
     synchronizeCanonicalSelection,
     focusCanonicalSelection,
     synchronizeSurfaceSelection,

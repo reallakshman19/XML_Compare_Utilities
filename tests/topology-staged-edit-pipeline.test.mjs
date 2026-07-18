@@ -19,6 +19,11 @@ import {
 import { buildUpdateLedgerRows, updateLedgerCsv } from '../tabs/topology-trace-validator/topology-update-ledger-model.js';
 import { buildGhostVisualModel, ghostSuggestionId } from '../tabs/topology-trace-validator/topology-fix-ghost-model.js';
 import { buildPositionRemaps, buildStagedExport } from '../tabs/topology-trace-validator/topology-staged-export.js';
+import {
+  branchSelectionIdsForIndexes, createTopologyEditScope, scopeCanonicalForDraft,
+  scopeContainsBranchIndexes, suggestionBranchIndexes, topologyModelMode,
+} from '../tabs/topology-trace-validator/topology-edit-scope-model.js';
+import { buildTopologyExportAuditLog } from '../tabs/topology-trace-validator/topology-export-audit-log.js';
 
 const point = (x, y, z) => ({ x, y, z });
 const NOW = '2026-07-17T11:11:44.000Z';
@@ -78,21 +83,31 @@ assert.throws(() => buildTraceEvidenceFromStagedJson({ objects: [] }), /no branc
 assert.equal(shouldOfferScopePopup(501, 0), true);
 assert.equal(shouldOfferScopePopup(10, 6 * 1024 * 1024), true);
 assert.equal(shouldOfferScopePopup(10, 1024), false);
+const editScope = createTopologyEditScope(stagedDoc, { wildcard: '', selectedIds: ['branch:/A/B1'] });
+assert.deepEqual(editScope.sourceBranchIndexes, [0]);
+assert.deepEqual(branchSelectionIdsForIndexes(stagedDoc, [0]), ['branch:/A/B1']);
+assert.equal(topologyModelMode({ edges: Array.from({ length: 200 }) }, 200).kind, 'SMALL_FULL');
+assert.equal(topologyModelMode({ edges: Array.from({ length: 201 }) }, 200).kind, 'LARGE_SCOPED');
 
 // ── extended fixes: gap bridge + attribute suggestions ────────────────────
 const canonical = {
   toleranceMm: 0.1,
   nodes: [
-    { id: 'CN-1', position: point(0, 0, 0) },
-    { id: 'CN-2', position: point(1000, 0, 0) },
-    { id: 'CN-3', position: point(1050, 0, 0) }, // 50 mm gap to CN-2
-    { id: 'CN-4', position: point(2050, 0, 0) },
+    { id: 'CN-1', position: point(0, 0, 0), sourcePaths: ['$[0].children[0]'] },
+    { id: 'CN-2', position: point(1000, 0, 0), sourcePaths: ['$[0].children[0]'] },
+    { id: 'CN-3', position: point(1050, 0, 0), sourcePaths: ['$[1].children[0]'] }, // 50 mm gap to CN-2
+    { id: 'CN-4', position: point(2050, 0, 0), sourcePaths: ['$[1].children[0]'] },
   ],
   edges: [
-    { id: 'CE-1', fromNodeId: 'CN-1', toNodeId: 'CN-2' },
-    { id: 'CE-2', fromNodeId: 'CN-3', toNodeId: 'CN-4' },
+    { id: 'CE-1', fromNodeId: 'CN-1', toNodeId: 'CN-2', sourcePaths: ['$[0].children[0]'] },
+    { id: 'CE-2', fromNodeId: 'CN-3', toNodeId: 'CN-4', sourcePaths: ['$[1].children[0]'] },
   ],
 };
+const scopedCanonical = scopeCanonicalForDraft(canonical, editScope);
+assert.deepEqual(scopedCanonical.edges.map((row) => row.id), ['CE-1'], 'Draft view filters while the canonical input stays complete');
+const scopedSuggestion = [{ operations: [{ type: 'MOVE_NODE', payload: { nodeId: 'CN-2' } }] }];
+assert.deepEqual(suggestionBranchIndexes(canonical, scopedSuggestion), [0]);
+assert.equal(scopeContainsBranchIndexes(editScope, suggestionBranchIndexes(canonical, scopedSuggestion)), true);
 const bridges = buildGapBridgeSuggestions(canonical, { snapToleranceMm: 25, maxBridgeGapMm: 100 });
 assert.equal(bridges.length, 1);
 assert.equal(bridges[0].schema, 'TopologyFixSuggestion.v1');
@@ -136,7 +151,7 @@ const draft = {
   baseCanonicalTopologyHash: 'hash:base', topologyEditDraftHash: 'hash:draft',
   commands: [
     { id: 'EC-000001', type: 'MOVE_NODE', payload: { nodeId: 'CN-2', position: point(1010, 0, 0) } },
-    { id: 'EC-000002', type: 'TRANSACTION', payload: { suggestionIds: ['TS-1'], operations: [
+    { id: 'EC-000002', type: 'TRANSACTION', payload: { metadata: { suggestionIds: ['TS-1'], issueIds: ['ISSUE-1'] }, operations: [
       { type: 'MERGE_NODES', payload: { sourceNodeId: 'CN-3', targetNodeId: 'CN-2' } },
     ] } },
   ],
@@ -146,6 +161,11 @@ const rows = buildUpdateLedgerRows({ draft, attributeLedger: ledger, remarks: { 
 assert.equal(rows.length, 3, 'MOVE + nested MERGE + attribute edit');
 assert.equal(rows[0].remark, 'checked');
 assert.match(rows[1].origin, /^AUTOFIX:TS-1/);
+const auditLog = buildTopologyExportAuditLog({ built: { canonicalTopology: { canonicalTopologyHash: 'hash:edited' }, editValidation: { findings: [] } },
+  draft, attributeLedger: ledger, remarks: {}, checkerEvidence: { report: { issues: [] }, suggestions: [], reviewState: {} },
+  modelMode: { kind: 'SMALL_FULL', elementCount: 2, threshold: 200 }, editScope: null, createdAt: NOW });
+assert.equal(auditLog.operations[1].status, 'AUTO_FIX_APPLIED');
+assert.deepEqual(auditLog.operations[1].issueIds, ['ISSUE-1'], 'producer transaction metadata links an autofix operation to its issue');
 assert.equal(rows[2].kind, 'ATTRIBUTE_EDIT · UNKNOWN_RESTRAINT_FAMILY');
 const csv = updateLedgerCsv(rows);
 assert.match(csv.split('\n')[0], /^#,Id,Kind/);

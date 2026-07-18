@@ -8520,6 +8520,35 @@ function suggestion(issue2, input) {
     preview: Object.freeze({ ...input.preview ?? {} })
   });
 }
+/**
+ * Creates a sentinel suggestion that carries no operations but is marked
+ * approvedByDefault so the controller's autoSuppressNoOpSuggestions() can
+ * route it to setTopologyIssueStatus instead of the draft engine.
+ * Only use for issues where suppression (not a geometry edit) is the right
+ * auto-approve action.
+ * @param {Record<string,unknown>} issue
+ * @param {string} rationale
+ * @returns {Readonly<Record<string,unknown>>}
+ */
+function suppressionSuggestion(issue2, rationale) {
+  const hash = deterministicHash({ issueId: issue2.id, action: "AUTO_SUPPRESS" });
+  return Object.freeze({
+    schema: "TopologyFixSuggestion.v1",
+    id: `TS-${hash.split(":")[1]}`,
+    issueId: issue2.id,
+    title: "Auto-suppress (review-state only)",
+    rationale,
+    confidence: issue2.confidence,
+    risk: "LOW",
+    fixability: "AUTO_APPROVED",
+    approvedByDefault: true,
+    operations: Object.freeze([]),
+    preconditions: Object.freeze([]),
+    affectedObjectIds: Object.freeze([...issue2.objectIds ?? []]),
+    preview: Object.freeze({ kind: "SUPPRESS" })
+  });
+}
+
 function snapSuggestion(canonical, issue2) {
   const [sourceNodeId, targetNodeId] = [...issue2.details.endpointIds ?? []].sort().reverse();
   const executable = issue2.fixability === "AUTO_APPROVED" && sourceNodeId && targetNodeId;
@@ -8607,6 +8636,86 @@ function trimSuggestion(canonical, issue2, graph) {
     preview: executable ? { kind: "TRIM_EDGE", ...trim } : { kind: "MANUAL_TRIM" }
   });
 }
+/**
+ * Priority rank for stretchable edge roles (lower = higher priority).
+ * PIPE (run) edges are not in INLINE_ROLES; they have role PIPE or no inline role.
+ * @param {string} role - edgeRole() result
+ * @returns {number} - 1=PIPE, 2=FLANGE, 3=VALVE, Infinity=not stretchable
+ */
+function stretchPriority(role) {
+  if (role === "PIPE" || !INLINE_ROLES.test(role)) return 1;
+  if (role === "FLANGE") return 2;
+  if (role === "VALVE") return 3;
+  return Infinity;
+}
+
+/**
+ * Build a MOVE_NODE suggestion that stretches the short inline component to
+ * exactly thresholdMm by displacing one endpoint node outward along the edge
+ * axis. The adjacent stretchable neighbour (PIPE > FLANGE > VALVE) absorbs
+ * the delta. fromPosition is stored in the payload so the Updates ledger can
+ * populate its Before column without a separate lookup.
+ * @param {Record<string,unknown>} canonical
+ * @param {Record<string,unknown>} issue
+ * @param {ReturnType<buildTopologyCheckGraph>} graph
+ * @returns {Record<string,unknown>}
+ */
+function shortInlineStretchSuggestion(canonical, issue, graph) {
+  const edgeId = (issue.objectIds ?? [])[0];
+  const edge = edgeById2(canonical, edgeId);
+  if (!edge) return suggestion(issue, { title: "Stretch short inline component", rationale: "Edge not found.", fixability: "MANUAL_ENGINEERING", operations: [] });
+
+  const fromNode = nodeById2(canonical, edge.fromNodeId);
+  const toNode = nodeById2(canonical, edge.toNodeId);
+  if (!fromNode || !toNode) return suggestion(issue, { title: "Stretch short inline component", rationale: "Endpoint node missing.", fixability: "MANUAL_ENGINEERING", operations: [] });
+
+  const deficit = Number(issue.details?.thresholdMm ?? 6) - Number(issue.details?.lengthMm ?? 0);
+  if (deficit <= 0) return suggestion(issue, { title: "Stretch short inline component", rationale: "No deficit to correct.", fixability: "MANUAL_ENGINEERING", operations: [] });
+
+  // Score each endpoint: find best stretchable neighbour on that side.
+  // Score: [stretchPriority of best neighbour, endpoint label for tiebreak]
+  const scoreEndpoint = (nodeId) => {
+    const neighbours = (graph.incident.get(nodeId) ?? []).filter((e) => e.id !== edgeId);
+    const best = neighbours.reduce((min, e) => Math.min(min, stretchPriority(edgeRole(e))), Infinity);
+    return best;
+  };
+
+  const fromScore = scoreEndpoint(edge.fromNodeId);
+  const toScore = scoreEndpoint(edge.toNodeId);
+
+  // Neither side has a stretchable neighbour — cannot auto-fix.
+  if (fromScore === Infinity && toScore === Infinity) {
+    return suggestion(issue, { title: "Stretch short inline component", rationale: "No adjacent stretchable element (PIPE/FLANGE/VALVE) found on either side.", fixability: "MANUAL_ENGINEERING", operations: [] });
+  }
+
+  // Pick the endpoint with the best (lowest) neighbour priority; prefer fromNode on tie.
+  const moveFrom = fromScore <= toScore;
+  const movingNodeId = moveFrom ? edge.fromNodeId : edge.toNodeId;
+  const fixedNodeId = moveFrom ? edge.toNodeId : edge.fromNodeId;
+  const movingNode = moveFrom ? fromNode : toNode;
+  const fixedNode = moveFrom ? toNode : fromNode;
+
+  // Direction: outward from fixed node through moving node.
+  const direction = unit(subtract(xyz(movingNode.position), xyz(fixedNode.position)));
+  if (!direction) return suggestion(issue, { title: "Stretch short inline component", rationale: "Edge has zero length; cannot determine axis.", fixability: "MANUAL_ENGINEERING", operations: [] });
+
+  const oldPos = xyz(movingNode.position);
+  const newPos = { x: oldPos[0] + direction[0] * deficit, y: oldPos[1] + direction[1] * deficit, z: oldPos[2] + direction[2] * deficit };
+  const thresholdMm = Number(issue.details?.thresholdMm ?? 6);
+
+  return suggestion(issue, {
+    title: "Stretch short inline component to threshold",
+    rationale: `Moves node ${movingNodeId} outward by ${deficit.toFixed(3)} mm so that ${edgeId} reaches the ${thresholdMm} mm threshold. Adjacent ${moveFrom ? fromScore : toScore === 1 ? 'PIPE' : toScore === 2 ? 'FLANGE' : 'VALVE'} absorbs the delta.`,
+    confidence: "HIGH",
+    risk: "LOW",
+    fixability: "AUTO_APPROVED",
+    approvedByDefault: true,
+    operations: [{ type: "MOVE_NODE", payload: { nodeId: movingNodeId, position: newPos, fromPosition: { x: oldPos[0], y: oldPos[1], z: oldPos[2] } } }],
+    preconditions: ["STRETCHABLE_NEIGHBOUR"],
+    preview: { kind: "MOVE_NODE", nodeId: movingNodeId, from: movingNode.position, to: newPos }
+  });
+}
+
 function buildTopologyFixSuggestions(canonical, report, options) {
   if (report?.schema !== "TopologyCheckReport.v1") throw new TypeError("Fix suggestions require TopologyCheckReport.v1.");
   const graph = buildTopologyCheckGraph(canonical), suggestions = [];
@@ -8614,6 +8723,8 @@ function buildTopologyFixSuggestions(canonical, report, options) {
     if (issue2.code === "SNAP_GAP") suggestions.push(snapSuggestion(canonical, issue2));
     else if (issue2.code === "RIGHT_ANGLE_WITHOUT_BEND") suggestions.push(bendSuggestion(canonical, issue2));
     else if (issue2.code === "MULTIWAY_WITHOUT_JUNCTION") suggestions.push(junctionSuggestion(canonical, issue2));
+    else if (issue2.code === "JUNCTION_WITHOUT_MULTIWAY") suggestions.push(suppressionSuggestion(issue2, `Junction defined at a degree-${issue2.details?.degree ?? '?'} node has no geometric fix; auto-suppressed in review state.`));
+    else if (issue2.code === "EXPECTED_SHORT_INLINE_COMPONENT") suggestions.push(shortInlineStretchSuggestion(canonical, issue2, graph));
     else if (["OVERLAPPING_ELEMENTS", "PIPE_BACKTRACK"].includes(issue2.code)) suggestions.push(trimSuggestion(canonical, issue2, graph));
   }
   return Object.freeze(suggestions);

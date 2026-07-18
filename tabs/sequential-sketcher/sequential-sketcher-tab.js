@@ -24,9 +24,11 @@ function ensureStylesheet(documentRef) {
 export function installSequentialSketcherTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
   if (container.querySelector('[data-ssk-open]')) return () => {};
-  const tile = container.ownerDocument.createElement('section');
-  tile.className = 'psmap-card psmap-tile ssk-launcher';
-  tile.innerHTML = '<button type="button" data-ssk-open="1"><span class="ssk-launcher-icon">✎</span><span><strong>Sequential Sketcher</strong><small>Compile pipe + fittings into an auditable pen sequence</small></span></button>';
+  const tile = container.ownerDocument.createElement('button');
+  tile.type = 'button';
+  tile.className = 'psmap-card psmap-tile';
+  tile.setAttribute('data-ssk-open', '1');
+  tile.innerHTML = '<span class="ssk-launcher-icon">✎</span><b>Sequential Sketcher</b><span>Compile pipe + fittings into an auditable pen sequence</span>';
   container.appendChild(tile);
   let active = null;
   let redoController = null;
@@ -60,7 +62,7 @@ export function installSequentialSketcherTile(container, context = {}) {
     persistenceController = mountSequentialWorkspacePersistenceController(overlay, active, context);
     continuityController = mountSequentialContinuityController(overlay, active, context);
   };
-  tile.querySelector('[data-ssk-open]').addEventListener('click', open);
+  tile.addEventListener('click', open);
   return () => {
     tile.querySelector('[data-ssk-open]')?.removeEventListener('click', open);
     continuityController?.destroy();

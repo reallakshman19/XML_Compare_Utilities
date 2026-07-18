@@ -219,6 +219,9 @@ function sourcePointFor(record, numericField, numericOptions) {
 function nameKeyOf(record = {}, nameField = 'nodeName', nameDelimiter = '', namePosition = 0) {
   const raw = clean(readFieldValue(record, nameField) ?? record.nodeName ?? record.nodeNumber);
   if (!raw) return '';
+  // Synthesized hierarchy labels ("Node 20") carry the node NUMBER, which is
+  // not identity-stable across renumbered revisions — never match on them.
+  if (nameField === 'nodeName' && /^Node\s/i.test(raw)) return '';
   const key = nameDelimiter && namePosition ? extractToken(raw, { delimiter: nameDelimiter, position: namePosition, stripLeadingSlash: false, stripTrailingBranch: false }) : raw;
   return clean(key).toUpperCase();
 }

@@ -10,7 +10,7 @@ import { buildTransferPlan, batchApprove } from '../workbench3d/compare/transfer
 import { buildConnectorModel, validateConnectorModel } from '../workbench3d/viewer/connector-model.js';
 import {
   CONTRACT_VERSIONS, CONNECTOR_TYPES, TRANSFER_RULES, CONFIDENCE,
-  validateGeometryBufferStore, validateViewerStateSnapshot, validateBenchmarkResult,
+  validateGeometryBufferStore, validateViewerStateSnapshot, validateViewerNavigationState, validateBenchmarkResult,
 } from '../workbench3d/contracts/contracts.js';
 
 // ── fixture: two-branch route with renumbered rev + property gap ──────────
@@ -55,9 +55,25 @@ assert.deepStrictEqual(validateConnectorModel(model, { compareAudit: audit, tran
 
 const byType = (type) => model.connectors.filter((c) => c.type === type);
 const matchedRows = audit.objectDiff.rows.filter((r) => r.sourceObjectId && r.targetObjectId);
-assert.strictEqual(byType(CONNECTOR_TYPES.MATCH_CONNECTOR).length, matchedRows.length, 'one MATCH_CONNECTOR per matched diff row');
+assert.strictEqual(
+  byType(CONNECTOR_TYPES.MATCH_CONNECTOR).length + byType(CONNECTOR_TYPES.BASIS_CONNECTOR).length,
+  matchedRows.length,
+  'one MATCH/BASIS connector per matched diff row',
+);
 assert.strictEqual(byType(CONNECTOR_TYPES.REGISTRATION_ANCHOR_CONNECTOR).length, audit.registration.anchorPairs.length, 'one anchor connector per registration pair');
 assert.ok(byType(CONNECTOR_TYPES.TRANSFER_CONNECTOR).length > 0, 'transfer connectors exist for planned pairs');
+
+// Transfer connectors carry the full per-property row list for overlays.
+for (const c of byType(CONNECTOR_TYPES.TRANSFER_CONNECTOR)) {
+  assert.strictEqual(c.pairKey, `${c.sourceObjectId}|${c.targetObjectId}`, 'transfer connector pairKey');
+  assert.ok(Array.isArray(c.properties) && c.properties.length > 0, 'transfer connector retains properties[]');
+  for (const p of c.properties) {
+    for (const field of ['rowId', 'property', 'approval']) assert.ok(p[field] !== undefined, `property row has ${field}`);
+  }
+}
+for (const c of [...byType(CONNECTOR_TYPES.MATCH_CONNECTOR), ...byType(CONNECTOR_TYPES.BASIS_CONNECTOR)]) {
+  assert.ok(c.score === null || Number.isFinite(c.score), 'match/basis connectors expose numeric score');
+}
 
 // Required per-connector fields.
 for (const c of model.connectors) {
@@ -72,7 +88,7 @@ for (const c of model.connectors) {
 // in node ids only — geometry is identical, so translation should be ~0; use a
 // synthetic check instead: source midpoints must equal visual midpoint + translation).
 const t = audit.registration.translationMm;
-const firstMatch = byType(CONNECTOR_TYPES.MATCH_CONNECTOR)[0];
+const firstMatch = byType(CONNECTOR_TYPES.MATCH_CONNECTOR)[0] ?? byType(CONNECTOR_TYPES.BASIS_CONNECTOR)[0];
 const seg = visualA.segments.find((s) => s.objectId === firstMatch.sourceObjectId);
 const expectedFrom = [(seg.start[0] + seg.end[0]) / 2 + t[0], (seg.start[1] + seg.end[1]) / 2 + t[1], (seg.start[2] + seg.end[2]) / 2 + t[2]];
 assert.deepStrictEqual(firstMatch.from.map((v) => Number(v.toFixed(3))), expectedFrom.map((v) => Number(v.toFixed(3))), 'source endpoint pre-shifted by registration translation');
@@ -117,6 +133,17 @@ assert.deepStrictEqual(validateViewerStateSnapshot({
 }), [], 'valid snapshot accepted');
 assert.ok(validateViewerStateSnapshot({ contract: CONTRACT_VERSIONS.ViewerStateSnapshot, mode: 'weird', cameraPosition: [1], cameraTarget: [0, 0, 0], statusFilter: [] }).length > 0, 'bad snapshot rejected');
 
+// ── ViewerNavigationState.v1: persisted coordinates are always world-space ─
+const navigationState = {
+  contract: CONTRACT_VERSIONS.ViewerNavigationState,
+  cameraPositionWorld: [438023.221, -1138222.202, 2184.15],
+  cameraTargetWorld: [438023.221, -1139222.202, 1184.15],
+  pivotWorld: null, cameraType: 'Perspective', verticalAxis: 'Z', projectionScale: 55,
+};
+assert.deepStrictEqual(validateViewerNavigationState(navigationState), [], 'valid world-space navigation state accepted');
+assert.ok(validateViewerNavigationState({ ...navigationState, cameraTargetWorld: [...navigationState.cameraPositionWorld] }).length > 0,
+  'coincident camera and target rejected');
+
 // ── BenchmarkResult.v1 — emit a result for this run and validate it ───────
 const benchmark = {
   contract: CONTRACT_VERSIONS.BenchmarkResult,
@@ -125,7 +152,7 @@ const benchmark = {
   metrics: { matched: matchedRows.length, connectors: model.connectors.length, transferRows: plan.rows.length },
   assertions: [
     { id: 'connectors-audit-linked', pass: validateConnectorModel(model, { compareAudit: audit, transferPlan: plan }).length === 0 },
-    { id: 'match-connector-count', pass: byType(CONNECTOR_TYPES.MATCH_CONNECTOR).length === matchedRows.length },
+    { id: 'match-connector-count', pass: byType(CONNECTOR_TYPES.MATCH_CONNECTOR).length + byType(CONNECTOR_TYPES.BASIS_CONNECTOR).length === matchedRows.length },
   ],
 };
 assert.deepStrictEqual(validateBenchmarkResult(benchmark), [], 'benchmark result contract valid');

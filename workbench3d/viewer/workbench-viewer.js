@@ -15,6 +15,13 @@
  */
 
 import { createGpuPicker, PICK_LAYER } from './gpu-picker.js';
+import { scoreBandColor, SCORE_BAND_COLORS } from '../ui/transfer-overlay-models.js';
+import { createWorkbenchNavigationControls } from './workbench-navigation-controls.js';
+import {
+  createViewerNavigationState, normalizeNavigationPreset, normalizeVerticalAxis,
+  sameViewerNavigationState, validateViewerNavigationState,
+  viewToWorldCoordinates, worldToViewCoordinates,
+} from './workbench-navigation-state.js';
 import { createSceneDerivationScheduler } from './scene-derivation-scheduler.js';
 import { diffSceneChunks, querySceneSpatialIndex, SCENE_CHUNK_SIZE } from './scene-runtime.js';
 
@@ -44,195 +51,9 @@ async function loadThree() {
   throw new Error(`Three.js unavailable: ${lastError?.message ?? 'no import source worked'}`);
 }
 
-/**
- * Minimal orbit controls: left-drag rotate, wheel dolly, right/shift-drag pan.
- * `getZoomAnchor(event)` may return a world-space Vector3 under the cursor;
- * the dolly then keeps that point stationary on screen (cursor-anchored zoom).
- */
-function attachOrbitControls(THREE, getCamera, dom, getVerticalAxis, onChange, getZoomAnchor) {
-  const target = new THREE.Vector3();
-  const toSphericalVec = (vec) => {
-    const verticalAxis = getVerticalAxis();
-    if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, vec.z, -vec.y);
-    return vec.clone();
-  };
-  const toWorldVec = (vec) => {
-    const verticalAxis = getVerticalAxis();
-    if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, -vec.z, vec.y);
-    return vec.clone();
-  };
-  
-  let spherical = new THREE.Spherical().setFromVector3(toSphericalVec(getCamera().position.clone().sub(target)));
-  let dragging = null;
-  let lastX = 0; let lastY = 0;
-
-  const velocity = { theta: 0, phi: 0, radius: 1, panRight: 0, panUp: 0 };
-  let rAF = null;
-  let pivot = null;
-  let transition = null;
-
-  const cancelTransition = () => { if (transition) transition = null; };
-
-  const apply = () => {
-    spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi));
-    spherical.radius = Math.max(0.01, spherical.radius);
-    const sphPos = new THREE.Vector3().setFromSpherical(spherical);
-    const cam = getCamera();
-    cam.position.copy(toWorldVec(sphPos).add(target));
-    cam.lookAt(target);
-    onChange();
-  };
-
-  const easeCubicOut = (t) => 1 - Math.pow(1 - t, 3);
-
-  const tick = () => {
-    let moved = false;
-    if (transition) {
-      const t = Math.min(1, (performance.now() - transition.start) / 300);
-      const eased = easeCubicOut(t);
-      target.lerpVectors(transition.startTarget, transition.endTarget, eased);
-      const pos = new THREE.Vector3().lerpVectors(transition.startPos, transition.endPos, eased);
-      spherical.setFromVector3(toSphericalVec(pos.clone().sub(target)));
-      apply();
-      if (t >= 1) transition = null;
-      moved = true;
-    } else {
-      if (Math.abs(velocity.theta) > 1e-4 || Math.abs(velocity.phi) > 1e-4 || Math.abs(velocity.radius - 1) > 1e-4 || Math.abs(velocity.panRight) > 1e-4 || Math.abs(velocity.panUp) > 1e-4) {
-        if (pivot && (velocity.theta !== 0 || velocity.phi !== 0)) {
-           const cam = getCamera();
-           const offset = cam.position.clone().sub(pivot);
-           const pivotSpherical = new THREE.Spherical().setFromVector3(toSphericalVec(offset));
-           pivotSpherical.theta -= velocity.theta;
-           pivotSpherical.phi -= velocity.phi;
-           pivotSpherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, pivotSpherical.phi));
-           const newPos = toWorldVec(new THREE.Vector3().setFromSpherical(pivotSpherical)).add(pivot);
-           target.add(newPos.clone().sub(cam.position));
-           spherical.setFromVector3(toSphericalVec(newPos.clone().sub(target)));
-        } else {
-           spherical.theta -= velocity.theta;
-           spherical.phi -= velocity.phi;
-        }
-        spherical.radius *= velocity.radius;
-        if (velocity.panRight !== 0 || velocity.panUp !== 0) {
-           const cam = getCamera();
-           const right = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 0).multiplyScalar(velocity.panRight);
-           const up = new THREE.Vector3().setFromMatrixColumn(cam.matrix, 1).multiplyScalar(velocity.panUp);
-           target.add(right).add(up);
-        }
-        velocity.theta *= 0.85;
-        velocity.phi *= 0.85;
-        velocity.radius = 1 + (velocity.radius - 1) * 0.85;
-        velocity.panRight *= 0.85;
-        velocity.panUp *= 0.85;
-        apply();
-        moved = true;
-      }
-    }
-    if (moved) rAF = requestAnimationFrame(tick);
-    else rAF = null;
-  };
-
-  const startTick = () => { if (!rAF) rAF = requestAnimationFrame(tick); };
-
-  const onPointerDown = (e) => {
-    cancelTransition();
-    dragging = (e.button === 2 || e.shiftKey) ? 'pan' : 'rotate';
-    lastX = e.clientX; lastY = e.clientY;
-    velocity.theta = 0; velocity.phi = 0; velocity.radius = 1; velocity.panRight = 0; velocity.panUp = 0;
-    dom.setPointerCapture?.(e.pointerId);
-  };
-  
-  const onPointerMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - lastX; const dy = e.clientY - lastY;
-    lastX = e.clientX; lastY = e.clientY;
-    
-    if (dragging === 'rotate') {
-      velocity.theta += dx * 0.003;
-      velocity.phi += dy * 0.003;
-    } else {
-      const cam = getCamera();
-      let panScale;
-      if (cam.isOrthographicCamera) panScale = (cam.top - cam.bottom) / dom.clientHeight / cam.zoom;
-      else panScale = 2 * Math.tan((cam.fov * Math.PI) / 360) * spherical.radius / dom.clientHeight;
-      velocity.panRight += -dx * panScale * 0.5;
-      velocity.panUp += dy * panScale * 0.5;
-    }
-    startTick();
-  };
-
-  const onPointerUp = () => { dragging = null; };
-
-  const onWheel = (e) => {
-    e.preventDefault();
-    cancelTransition();
-    let speed = e.shiftKey ? 0.0005 : 0.002;
-    if (typeof controls.zoomSpeed === 'number') speed *= controls.zoomSpeed;
-    const factor = Math.exp(e.deltaY * speed);
-    const anchor = getZoomAnchor ? getZoomAnchor(e) : null;
-    if (anchor) target.sub(anchor).multiplyScalar(factor).add(anchor);
-    velocity.radius = factor;
-    startTick();
-  };
-
-  const onContext = (e) => e.preventDefault();
-  dom.addEventListener('pointerdown', onPointerDown);
-  dom.addEventListener('pointermove', onPointerMove);
-  dom.addEventListener('pointerup', onPointerUp);
-  dom.addEventListener('wheel', onWheel, { passive: false });
-  dom.addEventListener('contextmenu', onContext);
-  apply();
-
-  const controls = {
-    target,
-    spherical,
-    zoomSpeed: 1,
-    get pivot() { return pivot; },
-    setPivot(worldPoint) { pivot = worldPoint ? worldPoint.clone() : null; onChange(); },
-    apply,
-    setView(position, lookAt) {
-      cancelTransition();
-      transition = {
-        start: performance.now(),
-        startTarget: target.clone(),
-        endTarget: lookAt.clone(),
-        startPos: getCamera().position.clone(),
-        endPos: position.clone(),
-      };
-      startTick();
-    },
-    setViewInstant(position, lookAt) {
-      cancelTransition();
-      target.copy(lookAt);
-      const offset = position.clone().sub(lookAt);
-      spherical.setFromVector3(toSphericalVec(offset));
-      apply();
-    },
-    orbitBy(dTheta, dPhi) {
-      cancelTransition();
-      velocity.theta += dTheta;
-      velocity.phi += dPhi;
-      startTick();
-    },
-    zoomBy(factor) {
-      cancelTransition();
-      velocity.radius = factor;
-      startTick();
-    },
-    dispose() {
-      if (rAF) cancelAnimationFrame(rAF);
-      dom.removeEventListener('pointerdown', onPointerDown);
-      dom.removeEventListener('pointermove', onPointerMove);
-      dom.removeEventListener('pointerup', onPointerUp);
-      dom.removeEventListener('wheel', onWheel);
-      dom.removeEventListener('contextmenu', onContext);
-    },
-  };
-  return controls;
-}
-
 /** Connector type/status → line color. */
 const CONNECTOR_COLORS = Object.freeze({
+  BASIS_CONNECTOR: 0xf59e0b,          // unique gold — identity/manual anchors
   MATCH_CONNECTOR: 0x22c55e,
   CANDIDATE_CONNECTOR: 0x60a5fa,
   CONFLICT_CONNECTOR: 0xa855f7,
@@ -242,6 +63,13 @@ const CONNECTOR_COLORS = Object.freeze({
   REGISTRATION_ANCHOR_CONNECTOR: 0x94a3b8,
 });
 
+/** Derived match connectors grade their colour by confidence. */
+const MATCH_CONFIDENCE_COLORS = Object.freeze({
+  HIGH: 0x22c55e,    // green — strong derived evidence
+  MEDIUM: 0x84cc16,  // lime
+  LOW: 0xef4444,     // red — review before trusting
+});
+
 const MARKER_COLORS = Object.freeze({
   RIGID: 0xf59e0b, BEND: 0x8b5cf6, SIF: 0x14b8a6, RESTRAINT: 0x22d3ee,
   RESTRAINT_ARROW: 0x06b6d4, HANGER: 0x22d3ee, SUPPORT: 0x22d3ee, NODE: 0x94a3b8,
@@ -249,10 +77,14 @@ const MARKER_COLORS = Object.freeze({
 
 const GHOST_PROPOSAL_COLOR = 0x22d3ee;
 
-export async function createWorkbenchViewer(container, { onPick, onHoverConnector, onHoverObject, onCameraChange, onRuntimeError } = {}) {
+export async function createWorkbenchViewer(container, {
+  onPick, onHoverConnector, onHoverObject, onCameraChange, onRuntimeError,
+  onNavigationError, navigationPreset,
+} = {}) {
   const THREE = await loadThree();
   if (typeof Worker !== 'function') throw new Error('Workbench viewer requires browser Worker support for scene derivation.');
-  let verticalAxis = 'Y';
+  let verticalAxis = 'Z';
+  const effectiveNavigationPreset = normalizeNavigationPreset(navigationPreset);
   let host = container; // reassigned by reattach() when the tab re-renders its DOM
   // preserveDrawingBuffer keeps readPixels/screenshots dependable.
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -313,7 +145,10 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   let activeCameraType = 'Perspective';
   const perspCamera = new THREE.PerspectiveCamera(55, 1, 1, 1e7);
   perspCamera.position.set(2500, 2200, 2500);
+  perspCamera.up.set(0, 0, 1);
   const orthoCamera = new THREE.OrthographicCamera(-100, 100, 100, -100, 1, 1e7);
+  orthoCamera.up.set(0, 0, 1);
+  axisCamera.up.set(0, 0, 1);
   let camera = perspCamera;
 
   const pivotMarker = new THREE.Group();
@@ -774,6 +609,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     rebuildConnectorLines();
     fullRebuildCount += 1;
     completePendingFit();
+    updateCameraClipPlanes();
     render();
   }
 
@@ -793,6 +629,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     refreshInstanceStates();
     incrementalRebuildCount += 1;
     completePendingFit();
+    updateCameraClipPlanes();
     render();
   }
 
@@ -868,7 +705,13 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   let connectorLines = []; // [{ line, records }] one per opacity bucket
 
   function connectorColor(connector) {
+    if (connector.basis) return SCORE_BAND_COLORS.basis;
     if (connector.type === 'TRANSFER_CONNECTOR' && CONNECTOR_COLORS[connector.status]) return CONNECTOR_COLORS[connector.status];
+    if (connector.type === 'MATCH_CONNECTOR') {
+      const banded = scoreBandColor(connector.score);
+      if (banded !== null) return banded;
+      if (MATCH_CONFIDENCE_COLORS[connector.confidence]) return MATCH_CONFIDENCE_COLORS[connector.confidence];
+    }
     return CONNECTOR_COLORS[connector.type] ?? 0xcbd5e1;
   }
 
@@ -1023,20 +866,6 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     return { record, point };
   }
 
-  function recalibrateOrbitDepth() {
-    const width = host.clientWidth || 800;
-    const height = host.clientHeight || 480;
-    const rect = renderer.domElement.getBoundingClientRect();
-    const hit = gpuPickAt(rect.left + width / 2, rect.top + height / 2);
-    if (hit) {
-      const distance = camera.position.distanceTo(hit.point);
-      if (distance > 1) {
-        controls.target.copy(hit.point);
-        controls.spherical.radius = distance;
-      }
-    }
-  }
-
   // Cursor-anchored zoom: reuse the last anchor during a wheel burst so we
   // don't run a pick per wheel tick.
   let zoomAnchor = null;
@@ -1045,22 +874,113 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     const now = Date.now();
     if (!zoomAnchor || now - zoomAnchorAt > 150) {
       const hit = gpuPickAt(event.clientX, event.clientY);
-      zoomAnchor = hit ? hit.point : null;
+      zoomAnchor = hit ? hit.point.clone().sub(sceneOrigin) : null;
     }
     zoomAnchorAt = now;
     return zoomAnchor;
   }
 
-  const controls = attachOrbitControls(THREE, () => camera, renderer.domElement, () => verticalAxis, () => {
-    if (controls && controls.pivot) {
-      pivotMarker.visible = true;
-      pivotMarker.position.copy(controls.pivot);
-    } else if (controls) {
-      pivotMarker.visible = false;
+  const navigationHistory = [];
+  let controls;
+  let gestureStartState = null;
+  let lastGoodNavigationState = null;
+  let recoveringNavigation = false;
+
+  function captureNavigationState() {
+    const origin = sceneOrigin.toArray();
+    return createViewerNavigationState({
+      cameraPositionWorld: viewToWorldCoordinates(camera.position.toArray(), origin),
+      cameraTargetWorld: viewToWorldCoordinates(controls.target.toArray(), origin),
+      pivotWorld: controls.pivot ? viewToWorldCoordinates(controls.pivot.toArray(), origin) : null,
+      cameraType: activeCameraType, verticalAxis,
+      projectionScale: camera.isOrthographicCamera ? camera.zoom : camera.fov,
+    });
+  }
+
+  function updateCameraClipPlanes() {
+    const box = boundsOf(null);
+    if (!box) return;
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    const distance = camera.position.distanceTo(sphere.center);
+    camera.near = Math.max(0.1, distance - sphere.radius * 2);
+    camera.far = Math.max(camera.near + 1000, distance + sphere.radius * 2, 10000);
+    camera.updateProjectionMatrix();
+  }
+
+  function chooseCameraForState(state) {
+    activeCameraType = state.cameraType;
+    camera = activeCameraType === 'Orthographic' ? orthoCamera : perspCamera;
+    camera.up.set(0, state.verticalAxis === 'Z' ? 0 : 1, state.verticalAxis === 'Z' ? 1 : 0);
+    axisCamera.up.copy(camera.up);
+    if (camera.isOrthographicCamera) camera.zoom = state.projectionScale;
+    else camera.fov = state.projectionScale;
+    camera.updateProjectionMatrix();
+  }
+
+  function restoreNavigationState(state) {
+    const errors = validateViewerNavigationState(state);
+    if (errors.length) throw new TypeError(`Cannot restore viewer navigation: ${errors.join('; ')}`);
+    verticalAxis = state.verticalAxis;
+    chooseCameraForState(state);
+    const origin = sceneOrigin.toArray();
+    const position = new THREE.Vector3(...worldToViewCoordinates(state.cameraPositionWorld, origin));
+    const target = new THREE.Vector3(...worldToViewCoordinates(state.cameraTargetWorld, origin));
+    const pivot = state.pivotWorld ? new THREE.Vector3(...worldToViewCoordinates(state.pivotWorld, origin)) : null;
+    controls.setPivot(pivot);
+    controls.setViewInstant(position, target);
+  }
+
+  function rememberNavigationState(state) {
+    if (!state) return;
+    const previous = navigationHistory.at(-1);
+    if (!previous || !sameViewerNavigationState(previous, state, 1e-6)) navigationHistory.push(state);
+    if (navigationHistory.length > 20) navigationHistory.shift();
+  }
+
+  function reportNavigationFailure(error) {
+    const wrapped = new Error(`Viewer navigation recovered: ${error.message}`, { cause: error });
+    if (typeof onNavigationError === 'function') onNavigationError(wrapped);
+    else console.error(wrapped);
+  }
+
+  function onNavigationChange() {
+    if (!controls) return;
+    try {
+      const state = captureNavigationState();
+      if (camera.position.distanceTo(controls.target) < 0.01) throw new RangeError('Camera target distance is too small.');
+      updateCameraClipPlanes();
+      lastGoodNavigationState = state;
+    } catch (error) {
+      if (!recoveringNavigation && lastGoodNavigationState) {
+        recoveringNavigation = true;
+        try { restoreNavigationState(lastGoodNavigationState); } finally { recoveringNavigation = false; }
+      }
+      reportNavigationFailure(error);
+      return;
     }
+    pivotMarker.visible = Boolean(controls.pivot);
+    if (controls.pivot) pivotMarker.position.copy(controls.pivot);
     render();
-    if (onCameraChange) onCameraChange();
-  }, getZoomAnchor);
+    onCameraChange?.();
+  }
+
+  function onNavigationGestureStart() {
+    gestureStartState = controls ? captureNavigationState() : null;
+  }
+
+  function onNavigationGestureEnd(changed, cancelled) {
+    if (cancelled && gestureStartState) restoreNavigationState(gestureStartState);
+    else if (changed) rememberNavigationState(gestureStartState);
+    gestureStartState = null;
+  }
+
+  controls = createWorkbenchNavigationControls({
+    THREE, getCamera: () => camera, dom: renderer.domElement, getVerticalAxis: () => verticalAxis,
+    onChange: onNavigationChange, getZoomAnchor,
+    onGestureStart: onNavigationGestureStart, onGestureEnd: onNavigationGestureEnd,
+    navigationPreset: effectiveNavigationPreset,
+  });
+  lastGoodNavigationState = captureNavigationState();
 
   function applySceneOrigin(origin, preserveView) {
     const next = new THREE.Vector3(...origin);
@@ -1068,6 +988,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       const shift = sceneOrigin.clone().sub(next);
       camera.position.add(shift);
       controls.target.add(shift);
+      controls.pivot?.add(shift);
+      controls.syncFromCamera();
     }
     sceneOrigin.copy(next);
   }
@@ -1083,6 +1005,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       skippedRebuildCount += 1;
       applyGroupOrigins();
       completePendingFit();
+      updateCameraClipPlanes();
       render();
     }
   }
@@ -1095,8 +1018,6 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
 
   const sceneWorker = new Worker(new URL('./scene-derivation-worker.js', import.meta.url), { type: 'module', name: 'workbench-scene-derivation' });
   const sceneScheduler = createSceneDerivationScheduler(sceneWorker, acceptRuntimeSnapshot, reportRuntimeError);
-
-  renderer.domElement.addEventListener('pointerup', recalibrateOrbitDepth);
 
   const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(render) : null;
   resizeObserver?.observe(host);
@@ -1153,7 +1074,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     }
   });
   let downAt = null;
-  let lastClickTime = 0;
+  let lastClick = { at: 0, objectId: '' };
   renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   renderer.domElement.addEventListener('click', (event) => {
     if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5) return; // drag, not click
@@ -1198,10 +1119,14 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     const hit = gpuPickAt(event.clientX, event.clientY);
     if (hit) {
       const now = Date.now();
-      if (now - lastClickTime < 300) {
-        controls.setView(camera.position, hit.point);
+      const objectId = String(hit.record.meta.objectId ?? '');
+      if (objectId && lastClick.objectId === objectId && now - lastClick.at < 300) {
+        rememberNavigationState(captureNavigationState());
+        const localPoint = hit.point.clone().sub(sceneOrigin);
+        controls.setPivot(localPoint);
+        controls.setView(camera.position.clone(), localPoint);
       }
-      lastClickTime = now;
+      lastClick = { at: now, objectId };
       if (onPick) {
         const meta = hit.record.meta;
         onPick({
@@ -1221,10 +1146,15 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
   // 'F' fits the current selection (or everything) while the cursor is over
   // the canvas — matches common CAD viewers.
   const onKeyDown = (event) => {
-    if (event.key !== 'f' && event.key !== 'F') return;
     if (!renderer.domElement.matches(':hover')) return;
-    if (selectedObjectId) fitBox(boundsOf(new Set([selectedObjectId])));
-    else fitBox(boundsOf(null));
+    const key = event.key.toLowerCase();
+    if (!['f', 'h', 'p', 'backspace'].includes(key)) return;
+    event.preventDefault();
+    if (key === 'f' && event.shiftKey) api.fitAll();
+    else if (key === 'f') api.fitSelection();
+    else if (key === 'h') api.fitAll();
+    else if (key === 'p') api.togglePivotToSelection();
+    else api.previousView();
   };
   window.addEventListener('keydown', onKeyDown);
 
@@ -1251,7 +1181,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     if (!box) return;
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3()).length() || 1000;
-    const dir = new THREE.Vector3(1, 0.8, 1).normalize();
+    const dir = new THREE.Vector3(...(verticalAxis === 'Z' ? [1, 1, 0.8] : [1, 0.8, 1])).normalize();
     controls.setView(center.clone().add(dir.multiplyScalar(size * 0.9 + 200)), center);
   }
 
@@ -1303,7 +1233,28 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     render();
   }
 
-  return {
+  function applyVerticalAxis(axis) {
+    verticalAxis = normalizeVerticalAxis(axis);
+    const up = verticalAxis === 'Z' ? [0, 0, 1] : [0, 1, 0];
+    for (const viewCamera of [camera, perspCamera, orthoCamera, axisCamera]) viewCamera.up.set(...up);
+    controls.syncFromCamera();
+    render();
+  }
+
+  function standardViewDirection(view) {
+    const zUp = {
+      top: [0, 0.001, 1], bottom: [0, -0.001, -1], front: [0, 1, 0.001], back: [0, -1, 0.001],
+      right: [1, 0.001, 0], side: [1, 0.001, 0], left: [-1, 0.001, 0], iso: [1, 1, 0.8],
+    };
+    const yUp = {
+      top: [0, 1, 0.001], bottom: [0, -1, 0.001], front: [0, 0.001, 1], back: [0, 0.001, -1],
+      right: [1, 0.001, 0], side: [1, 0.001, 0], left: [-1, 0.001, 0], iso: [1, 0.8, 1],
+    };
+    const directions = verticalAxis === 'Z' ? zUp : yUp;
+    return new THREE.Vector3(...(directions[view] ?? directions.iso)).normalize();
+  }
+
+  const api = {
     /**
      * Move the canvas into a freshly rendered host element. The tab re-renders
      * its HTML on file load; without this the canvas stays parented to dead DOM
@@ -1364,11 +1315,22 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     },
     get camera() { return camera; },
     get activeCameraType() { return activeCameraType; },
+    get navigationPreset() { return effectiveNavigationPreset; },
+    captureNavigationState,
+    restoreNavigationState,
+    acquireNavigationLock(owner) { return controls.acquireLock(owner); },
+    previousView() {
+      const previous = navigationHistory.pop();
+      if (!previous) return false;
+      restoreNavigationState(previous);
+      return true;
+    },
     toggleCameraType() {
+      rememberNavigationState(captureNavigationState());
       const distance = controls.target.distanceTo(camera.position);
       const aspect = (host.clientWidth || 800) / (host.clientHeight || 480);
       if (activeCameraType === 'Perspective') {
-        const frustumSize = 2 * Math.tan((55 * Math.PI) / 360) * distance;
+        const frustumSize = 2 * Math.tan((perspCamera.fov * Math.PI) / 360) * distance;
         orthoCamera.left = -frustumSize * aspect / 2;
         orthoCamera.right = frustumSize * aspect / 2;
         orthoCamera.top = frustumSize / 2;
@@ -1383,7 +1345,7 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         perspCamera.position.copy(orthoCamera.position);
         perspCamera.quaternion.copy(orthoCamera.quaternion);
         const frustumSize = orthoCamera.top - orthoCamera.bottom;
-        const targetDist = frustumSize / (2 * Math.tan((55 * Math.PI) / 360) * orthoCamera.zoom);
+        const targetDist = frustumSize / (2 * Math.tan((perspCamera.fov * Math.PI) / 360) * orthoCamera.zoom);
         const dir = new THREE.Vector3(0,0,1).applyQuaternion(orthoCamera.quaternion);
         perspCamera.position.copy(controls.target).add(dir.multiplyScalar(targetDist));
         perspCamera.aspect = aspect;
@@ -1434,6 +1396,22 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     },
     /** Alias of worldToScreen — HTML overlay anchoring. */
     projectPoint(xyz) { return this.worldToScreen(xyz); },
+    /**
+     * Project a world [x,y,z] into one pane of the canvas. In side-by-side
+     * mode 'source' maps into the left half and 'target' into the right half
+     * (the scissor split shares one camera, so NDC just re-maps per pane);
+     * otherwise identical to worldToScreen. Null when behind the camera.
+     */
+    projectPointForPane(xyz, pane = 'full') {
+      const v = new THREE.Vector3(...xyz).sub(sceneOrigin).project(camera);
+      if (v.z > 1) return null;
+      const width = host.clientWidth || 800;
+      const height = host.clientHeight || 480;
+      const y = (1 - v.y) / 2 * height;
+      if (pane === 'full' || mode !== 'side-by-side') return { x: (v.x + 1) / 2 * width, y };
+      const half = width / 2;
+      return { x: (v.x + 1) / 2 * half + (pane === 'target' ? half : 0), y };
+    },
     /** World-space ray under the given client coordinates (drag-plane math). */
     screenRay(clientX, clientY) {
       pointer.set(...pointerToNdc({ clientX, clientY }));
@@ -1442,8 +1420,10 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
     },
     /** Dolly by a factor (>1 zooms out). */
     zoomBy(factor) {
-      controls.spherical.radius *= Number(factor) > 0 ? Number(factor) : 1;
-      controls.apply();
+      const parsed = Number(factor);
+      if (!Number.isFinite(parsed) || parsed <= 0) throw new RangeError(`Zoom factor must be positive; received ${factor}.`);
+      rememberNavigationState(captureNavigationState());
+      controls.zoomBy(parsed);
     },
     /** Pick whatever is under the given client coordinates (GPU ID pass). */
     pickAt(clientX, clientY) {
@@ -1513,6 +1493,8 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
         visibleConnectorCount: connectorRecords.filter((rec) => connectorVisible(rec.connector)).length,
         instanceCount: batches.reduce((sum, batch) => sum + batch.records.length, 0),
         drawBatchCount: batches.length,
+        navigationState: captureNavigationState(),
+        navigationHistoryCount: navigationHistory.length,
       };
     },
     setSourceOpacity(value) {
@@ -1531,12 +1513,32 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       if (isolation) fitBox(boundsOf(isolation));
     },
     fitAll() {
+      rememberNavigationState(captureNavigationState());
       const box = boundsOf(null);
       if (box) fitBox(box); else pendingFit = true;
     },
-    fitObject(objectId) { fitBox(boundsOf(new Set([objectId]))); },
+    fitObject(objectId) {
+      const box = boundsOf(new Set([objectId]));
+      if (box) { rememberNavigationState(captureNavigationState()); fitBox(box); }
+    },
+    fitSelection() {
+      const box = selectedIds.size ? boundsOf(selectedIds) : boundsOf(null);
+      if (box) { rememberNavigationState(captureNavigationState()); fitBox(box); }
+    },
+    setPivotWorld(point) {
+      rememberNavigationState(captureNavigationState());
+      const local = point ? new THREE.Vector3(...worldToViewCoordinates(point, sceneOrigin.toArray())) : null;
+      controls.setPivot(local);
+    },
     setPivotToSelection() {
+      rememberNavigationState(captureNavigationState());
       if (!selectedIds.size) { controls.setPivot(null); return; }
+      const box = boundsOf(selectedIds);
+      if (box) controls.setPivot(box.getCenter(new THREE.Vector3()));
+    },
+    togglePivotToSelection() {
+      rememberNavigationState(captureNavigationState());
+      if (controls.pivot || !selectedIds.size) { controls.setPivot(null); return; }
       const box = boundsOf(selectedIds);
       if (box) controls.setPivot(box.getCenter(new THREE.Vector3()));
     },
@@ -1545,34 +1547,26 @@ export async function createWorkbenchViewer(container, { onPick, onHoverConnecto
       return querySceneSpatialIndex(sceneRuntime.spatialIndex, bounds);
     },
     setVerticalAxis(axis) {
-      const nextAxis = String(axis || '').trim().toUpperCase() === 'Z' ? 'Z' : 'Y';
+      const nextAxis = normalizeVerticalAxis(axis);
       if (verticalAxis === nextAxis) return;
-      verticalAxis = nextAxis;
-      if (verticalAxis === 'Z') {
-        camera.up.set(0, 0, 1);
-        axisCamera.up.set(0, 0, 1);
-      } else {
-        camera.up.set(0, 1, 0);
-        axisCamera.up.set(0, 1, 0);
-      }
-      const offset = camera.position.clone().sub(controls.target);
-      const toSphericalVec = (vec) => {
-        if (verticalAxis === 'Z') return new THREE.Vector3(vec.x, vec.z, -vec.y);
-        return vec.clone();
-      };
-      controls.spherical.setFromVector3(toSphericalVec(offset));
-      render();
+      applyVerticalAxis(nextAxis);
+    },
+    alignToVerticalAxis(axis) {
+      const nextAxis = normalizeVerticalAxis(axis);
+      if (verticalAxis === nextAxis) return;
+      rememberNavigationState(captureNavigationState());
+      const target = controls.target.clone();
+      const distance = Math.max(camera.position.distanceTo(target), 1);
+      applyVerticalAxis(nextAxis);
+      controls.setView(target.clone().add(standardViewDirection('iso').multiplyScalar(distance)), target);
     },
     setStandardView(view) {
       const box = boundsOf(null);
       if (!box) return;
+      rememberNavigationState(captureNavigationState());
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3()).length() || 1000;
-      const dirs = verticalAxis === 'Z'
-        ? { top: [0, 0.001, 1], front: [0, 1, 0.001], side: [1, 0.001, 0], iso: [1, 1, 0.8] }
-        : { top: [0, 1, 0.001], front: [0, 0.001, 1], side: [1, 0.001, 0], iso: [1, 0.8, 1] };
-      const d = new THREE.Vector3(...(dirs[view] ?? dirs.iso)).normalize();
-      controls.setView(center.clone().add(d.multiplyScalar(size * 0.95 + 200)), center);
+      controls.setView(center.clone().add(standardViewDirection(view).multiplyScalar(size * 0.95 + 200)), center);
     },
     render,
     dispose() {

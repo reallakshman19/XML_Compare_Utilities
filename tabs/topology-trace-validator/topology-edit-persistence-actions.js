@@ -31,7 +31,6 @@ export async function loadTopologySessionDraftFile(file, service, uiState, updat
 export async function buildTopologyEditBundle(input) {
   const snapshot = await verifyTopologyExportSnapshot(input.snapshot, input.draft, input.commandJournal, input.cryptoRef);
   const plan = snapshot.plan, outputs = snapshot.outputs;
-  if (plan.gate.status !== 'READY') throw new Error(`Export is blocked: ${plan.gate.blockers.join('; ')}`);
   const hashes = objectRecord(plan.calculations.hashes);
   const bundle = Object.freeze({
     schema: 'TopologyEditExportBundle.v1', exportPlan: plan,

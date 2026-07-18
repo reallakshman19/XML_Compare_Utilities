@@ -81,7 +81,7 @@ test('TTV-E01 — reversible Edit Draft commands regenerate evidence and preserv
   // Multi-selection is preserved in the evidence and drives the inspector.
   await selectRows(page, [{ kind: 'node', id: nodeIds[0] }, { kind: 'node', id: nodeIds[1] }]);
   await expect.poll(async () => (await evidence(page)).selection.length).toBe(2);
-  await page.locator('[data-ttv-edit-projection="XZ"]').click();
+  await page.locator('[data-ttv-nav-view="front"]').click();
   await expect.poll(async () => (await evidence(page)).projection).toBe('XZ');
 
   // Shared selection propagates to Trace and Parity surfaces.
@@ -93,4 +93,106 @@ test('TTV-E01 — reversible Edit Draft commands regenerate evidence and preserv
   await expect(page.locator('[data-ttv-workspace-panel="trace"]').locator(`[data-canonical-edge-id="${edgeId}"]`)).toHaveClass(/is-selected/);
   await page.locator('[data-ttv-workspace-tab="parity"]').click();
   await expect(page.locator(`[data-object-key="scene:edge:${edgeId}"]`).first()).toHaveClass(/is-selected/);
+});
+
+test('TTV-E02 — large-offset clicks cannot repivot or hide geometry; CAD navigation stays finite', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  await page.goto('/tests/browser/topology-edit-draft-large-offset-fixture.html');
+  await page.waitForFunction(() => document.body.dataset.topologyEditFixtureReady === '1');
+  await page.locator('[data-ttv-workspace-tab="edit"]').click();
+  const canvas = page.locator('[data-ttv-edit-svg-host] .ttv-edit-3d-canvas canvas');
+  await expect(canvas).toBeVisible();
+  await expect(page.locator('.ttv-edit-view-cube')).toBeVisible();
+  await expect(page.locator('.ttv-edit-navigation-dock')).toBeVisible();
+  await page.waitForTimeout(400);
+
+  const compactEvidence = () => page.evaluate(() => {
+    const edit = window.__topologyEditHarness.controller.evidence().edit;
+    return {
+      commands: edit.draft.commands.length,
+      topologyHash: edit.editedArtifacts.canonicalTopology.canonicalTopologyHash,
+      navigation: edit.canvas.navigation,
+      instances: edit.canvas.viewer.instanceCount,
+      history: edit.canvas.viewer.navigationHistoryCount,
+    };
+  });
+  const finite = (state) => [...state.cameraPositionWorld, ...state.cameraTargetWorld,
+    ...(state.pivotWorld ?? []), state.projectionScale].every(Number.isFinite);
+  const box = await canvas.boundingBox();
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const initial = await compactEvidence();
+  expect(finite(initial.navigation)).toBe(true);
+  expect(initial.instances).toBeGreaterThan(0);
+
+  await page.mouse.click(point.x, point.y);
+  await page.waitForTimeout(250);
+  const clicked = await compactEvidence();
+  expect(clicked.commands).toBe(initial.commands);
+  expect(clicked.topologyHash).toBe(initial.topologyHash);
+  expect(clicked.navigation).toEqual(initial.navigation);
+
+  await page.mouse.move(point.x + 12, point.y + 12);
+  await page.mouse.down({ button: 'left' });
+  await page.mouse.move(point.x + 16, point.y + 12);
+  await page.mouse.up({ button: 'left' });
+  const jittered = await compactEvidence();
+  expect(jittered.commands).toBe(initial.commands);
+  expect(jittered.navigation).toEqual(initial.navigation);
+
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(point.x + 55, point.y + 24, { steps: 4 });
+  await page.mouse.up({ button: 'middle' });
+  const orbited = await compactEvidence();
+  expect(orbited.commands).toBe(initial.commands);
+  expect(orbited.topologyHash).toBe(initial.topologyHash);
+  expect(orbited.navigation.cameraPositionWorld).not.toEqual(initial.navigation.cameraPositionWorld);
+  expect(finite(orbited.navigation)).toBe(true);
+
+  await page.mouse.down({ button: 'middle' });
+  await page.mouse.move(point.x + 25, point.y + 40, { steps: 3 });
+  await page.keyboard.press('Escape');
+  await page.mouse.up({ button: 'middle' });
+  expect((await compactEvidence()).navigation).toEqual(orbited.navigation);
+
+  const mappings = {
+    Z: { top: [2, 1], bottom: [2, -1], front: [1, 1], back: [1, -1], left: [0, -1], right: [0, 1] },
+    Y: { top: [1, 1], bottom: [1, -1], front: [2, 1], back: [2, -1], left: [0, -1], right: [0, 1] },
+  };
+  for (const [axis, views] of Object.entries(mappings)) {
+    await page.locator('[data-ttv-vertical-axis]').selectOption(axis);
+    await expect.poll(async () => (await compactEvidence()).navigation.verticalAxis).toBe(axis);
+    for (const [view, [component, sign]] of Object.entries(views)) {
+      await page.locator(`[data-ttv-nav-view="${view}"]`).click();
+      await page.waitForTimeout(300);
+      const navigation = (await compactEvidence()).navigation;
+      const direction = navigation.cameraPositionWorld.map((value, index) => value - navigation.cameraTargetWorld[index]);
+      expect(Math.sign(direction[component])).toBe(sign);
+      expect(finite(navigation)).toBe(true);
+    }
+    await page.locator('[data-ttv-nav-view="iso"]').click();
+    await page.waitForTimeout(300);
+    expect(finite((await compactEvidence()).navigation)).toBe(true);
+  }
+
+  const beforeProjection = await compactEvidence();
+  await page.locator('[data-ttv-nav-action="camera"]').click();
+  const afterProjection = await compactEvidence();
+  expect(afterProjection.navigation.cameraType).not.toBe(beforeProjection.navigation.cameraType);
+  expect(afterProjection.commands).toBe(initial.commands);
+  expect(afterProjection.history).toBeLessThanOrEqual(20);
+  expect(afterProjection.instances).toBeGreaterThan(0);
+  const beforeMoveNavigation = afterProjection.navigation;
+  await page.evaluate(async () => {
+    const edit = window.__topologyEditHarness.controller.edit;
+    const node = edit.evidence().editedArtifacts.canonicalTopology.nodes[0];
+    await edit.executeCommand('MOVE_NODE', {
+      nodeId: node.id, position: { x: node.position.x + 10, y: node.position.y, z: node.position.z },
+    });
+  });
+  await expect.poll(async () => (await compactEvidence()).commands).toBe(initial.commands + 1);
+  await page.waitForTimeout(300);
+  expect((await compactEvidence()).navigation).toEqual(beforeMoveNavigation);
+  expect(pageErrors).toEqual([]);
 });

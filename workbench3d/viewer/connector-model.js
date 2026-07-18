@@ -75,10 +75,16 @@ export function buildConnectorModel({ compareAudit, transferPlan = null, sourceV
 
   for (const row of compareAudit?.objectDiff?.rows ?? []) {
     if (row.sourceObjectId && row.targetObjectId) {
-      push(CONNECTOR_TYPES.MATCH_CONNECTOR, row.sourceObjectId, row.targetObjectId,
+      // Basis rows (identity or manual anchors) are their own connector class
+      // so the viewer can give them a unique colour and mode.
+      push(row.basis ? CONNECTOR_TYPES.BASIS_CONNECTOR : CONNECTOR_TYPES.MATCH_CONNECTOR,
+        row.sourceObjectId, row.targetObjectId,
         srcMid.get(row.sourceObjectId), tgtMid.get(row.targetObjectId), {
           status: row.status,
           confidence: row.confidence,
+          score: Number.isFinite(row.score) ? row.score : null,
+          basis: Boolean(row.basis),
+          via: row.via,
           reason: row.reasons?.[0] ?? `score ${row.score}`,
           auditRowId: row.diffId,
           auditSource: 'objectDiff',
@@ -112,21 +118,31 @@ export function buildConnectorModel({ compareAudit, transferPlan = null, sourceV
   }
 
   // Transfer connectors: one per source→target pair with aggregate approval.
+  // The full per-property row list rides on the connector so overlays (arrow
+  // edit popup, delta labels) never re-derive it from the plan themselves.
   const transferPairs = new Map();
   for (const row of transferPlan?.rows ?? []) {
     const key = `${row.sourceObjectId}|${row.targetObjectId}`;
-    if (!transferPairs.has(key)) transferPairs.set(key, { row, approvals: [], properties: [] });
+    if (!transferPairs.has(key)) transferPairs.set(key, { row, approvals: [], properties: [], rows: [] });
     const pair = transferPairs.get(key);
     pair.approvals.push(row.approval);
     pair.properties.push(row.property);
+    pair.rows.push({
+      rowId: row.rowId, property: row.property, kind: row.kind,
+      oldValue: row.oldValue, newValue: row.newValue,
+      approval: row.approval, blockedReason: row.blockedReason ?? null,
+    });
   }
-  for (const { row, approvals, properties } of transferPairs.values()) {
+  for (const [key, { row, approvals, properties, rows }] of transferPairs.entries()) {
     const status = approvals.includes(APPROVAL_STATUS.APPROVED) ? 'TRANSFER_READY'
       : approvals.every((a) => a === APPROVAL_STATUS.BLOCKED) ? 'TRANSFER_BLOCKED' : 'TRANSFER_PENDING';
     push(CONNECTOR_TYPES.TRANSFER_CONNECTOR, row.sourceObjectId, row.targetObjectId,
       srcMid.get(row.sourceObjectId), tgtMid.get(row.targetObjectId), {
         status,
         confidence: row.confidence,
+        score: Number.isFinite(row.score) ? row.score : null,
+        pairKey: key,
+        properties: rows,
         reason: `${properties.length} transferable propert${properties.length === 1 ? 'y' : 'ies'}: ${properties.slice(0, 4).join(', ')}${properties.length > 4 ? '…' : ''}`,
         auditRowId: row.rowId,
         auditSource: 'transferPlan',
@@ -151,6 +167,7 @@ export function buildConnectorModel({ compareAudit, transferPlan = null, sourceV
 
 /** Which viewer connector-modes each type participates in. */
 const VISIBLE_MODES = Object.freeze({
+  [CONNECTOR_TYPES.BASIS_CONNECTOR]: ['selection', 'matches', 'basis'],
   [CONNECTOR_TYPES.MATCH_CONNECTOR]: ['selection', 'matches'],
   [CONNECTOR_TYPES.CANDIDATE_CONNECTOR]: ['selection', 'candidates'],
   [CONNECTOR_TYPES.CONFLICT_CONNECTOR]: ['selection', 'conflicts'],
