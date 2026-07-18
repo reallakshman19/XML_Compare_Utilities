@@ -31,13 +31,10 @@ const specs = [
   spec('S2', 'PS-100.2', '/ASIM-1885-6"-CURRENT-31441C4-PP-01', 100, 1200, 1000),
   spec('T1', 'PS-200.1', '/ASIM-1885-8"-P8810204-31441C4-PP-01', 450, 200, 1500),
   spec('T2', 'PS-200.2', '/ASIM-1885-8"-P8810204-31441C4-PP-01', 450, 1200, 1500),
-  // Same line key as the exact target. Exact full-name preference must exclude this pipe.
   spec('TX1', 'PS-201.1', '/OTHER-8"-P8810204-ALTERNATE', 400, 200, 1500),
   spec('TX2', 'PS-201.2', '/OTHER-8"-P8810204-ALTERNATE', 400, 1200, 1500),
-  // The requested full name is absent, so this group is found by line-key fallback.
   spec('U1', 'PS-300.1', '/OTHER-4"-P8810306-ALTERNATE', -200, 200, 1600),
   spec('U2', 'PS-300.2', '/OTHER-4"-P8810306-ALTERNATE', -200, 1200, 1600),
-  // E-W pipe in the same coordinate window: rejected because it is not parallel.
   spec('V1', 'PS-400.1', '/ASIM-1885-4"-P9999999-31441C4-PP-01', 100, 300, 1200),
   spec('V2', 'PS-400.2', '/ASIM-1885-4"-P9999999-31441C4-PP-01', 1100, 300, 1200),
 ];
@@ -167,4 +164,5 @@ assert.match(evidenceSource, /Applies-to pipe propagation/);
 assert.match(evidenceSource, /FULL_PIPE_NAME_EXACT|Pipe match basis/);
 assert.match(evidenceSource, /propagationRows/);
 
+await import('./navis-tag-applies-to-all.test.js');
 console.log('navis-tag applies-to propagation tests passed');
