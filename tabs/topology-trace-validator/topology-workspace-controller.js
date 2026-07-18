@@ -1,6 +1,7 @@
 /** Composes Trace, the 3D Edit Draft, the SVG support-draft editor, and Parity. */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
+import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
 import { buildBranchScopeTree, readStagedBranches } from '../../workbench3d/core/staged-json-core.js';
 import { openBranchScopePopup } from './topology-branch-scope-popup.js';
 import {
@@ -209,6 +210,17 @@ export function createTopologyWorkspaceController(traceController, editControlle
     return requested;
   }
 
+  /** Download the current committed draft InputXML, or the immutable loaded artifact before a draft exists. */
+  function downloadCurrentInputXml(documentRef) {
+    const edited = objectRecord(objectRecord(editController.evidence()).editedArtifacts);
+    const xml = typeof edited.topologyInputXml === 'string' ? edited.topologyInputXml : '';
+    if (!xml) return traceController.downloadEnrichedInputXml();
+    const sourceName = cleanText(objectRecord(traceController.evidence().fileNames).source);
+    const fileName = `${outputStem(sourceName)}.topology.input.xml`;
+    downloadText(documentRef, fileName, xml, 'application/xml;charset=utf-8');
+    return Object.freeze({ source: 'EDIT_DRAFT', fileName });
+  }
+
   function evidence() {
     return Object.freeze({
       trace: traceController.evidence(),
@@ -236,6 +248,7 @@ export function createTopologyWorkspaceController(traceController, editControlle
     loadEditBranches,
     prepareEditForSuggestions,
     prepareEditForAutoFix,
+    downloadCurrentInputXml,
     modelMode: currentModelMode,
     synchronizeCanonicalSelection,
     focusCanonicalSelection,

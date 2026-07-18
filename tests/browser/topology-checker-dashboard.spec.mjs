@@ -92,6 +92,15 @@ test('TTV-C02 — settings policy and dedicated Auto fix produce audited outcome
   await expect(toast.locator('[data-ttv-autofix-toast-detail]')).toContainText('ID-wise change(s) recorded in Edit Draft');
   await expect(toast.locator('[data-ttv-autofix-toast-export="bundle"]')).toBeEnabled();
   await expect(toast.locator('[data-ttv-autofix-toast-export="staged"]')).toBeEnabled();
+  const editedInputXml = await page.evaluate(() => window.__topologyValidatorHarness.controller.evidence().edit.editedArtifacts.topologyInputXml);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('[data-ttv-download-inputxml]').click();
+  const inputXmlDownload = await downloadPromise;
+  expect(inputXmlDownload.suggestedFilename()).toMatch(/\.topology\.input\.xml$/);
+  const inputXmlStream = await inputXmlDownload.createReadStream();
+  let downloadedInputXml = '';
+  for await (const chunk of inputXmlStream) downloadedInputXml += chunk.toString('utf8');
+  expect(downloadedInputXml).toBe(editedInputXml);
 
   await page.locator('[data-ttv-workspace-tab="edit"]').click();
   const ledgerRows = page.locator('[data-ttv-edit-updates] [data-ledger-row]');
