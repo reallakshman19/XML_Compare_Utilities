@@ -1,6 +1,7 @@
 /** Edit Draft-only CAD view cube, navigation dock, and camera HUD. */
 
 const ICONS = Object.freeze({
+  select: 'mouse-pointer-2', orbit: 'orbit', rotate: 'rotate-3d',
   home: 'house', previous: 'undo-2', fitAll: 'maximize-2', fitSelection: 'scan-line',
   zoomIn: 'zoom-in', zoomOut: 'zoom-out', camera: 'camera', pivot: 'crosshair',
 });
@@ -25,6 +26,7 @@ export function topologyEditNavigationMarkup() {
     <button type="button" data-ttv-nav-view="bottom" title="Bottom view">BOTTOM</button>
   </div>
   <nav class="ttv-edit-navigation-dock" aria-label="Edit Draft navigation">
+    ${iconButton('select', 'Select tool', '')}${iconButton('orbit', 'Orbit view left', '')}${iconButton('rotate', 'Rotate view right', '')}
     ${iconButton('home', 'Home', 'H')}${iconButton('previous', 'Previous', 'Backspace')}
     ${iconButton('fitAll', 'Fit all', 'Shift+F')}${iconButton('fitSelection', 'Fit selection', 'F')}
     ${iconButton('zoomIn', 'Zoom in', '')}${iconButton('zoomOut', 'Zoom out', '')}
@@ -36,8 +38,11 @@ export function topologyEditNavigationMarkup() {
   </div>`;
 }
 
-function navigationActions(viewer) {
+function navigationActions(viewer, onSelect) {
   return Object.freeze({
+    select: onSelect,
+    orbit: () => viewer.orbitBy(Math.PI / 12, 0),
+    rotate: () => viewer.orbitBy(-Math.PI / 12, 0),
     home: () => viewer.fitAll(),
     previous: () => viewer.previousView(),
     fitAll: () => viewer.fitAll(),
@@ -50,8 +55,8 @@ function navigationActions(viewer) {
 }
 
 /** Bind controls to one viewer. Inputs are not mutated; destroy removes every listener. */
-export function bindTopologyEditNavigation({ host, viewer, onViewSelected }) {
-  const actions = navigationActions(viewer);
+export function bindTopologyEditNavigation({ host, viewer, onViewSelected, onSelect }) {
+  const actions = navigationActions(viewer, onSelect);
   const listeners = [];
   function listen(element, handler) {
     element.addEventListener('click', handler);

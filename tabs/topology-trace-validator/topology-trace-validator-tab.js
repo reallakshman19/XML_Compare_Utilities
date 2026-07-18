@@ -2,12 +2,12 @@
 import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260718-headless-autofix-v1';
 import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260718-headless-autofix-v1';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
-import { createTopologyEditController } from './topology-edit-controller.js?v=20260717-ttv-components-v1';
+import { createTopologyEditController } from './topology-edit-controller.js?v=20260718-edit-nav-icons-v3';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260718-headless-autofix-v1';
-import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260718-headless-autofix-v1';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260718-headless-autofix-v1';
+import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260718-headless-autofix-v2';
+import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260718-headless-autofix-v2';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260718-headless-autofix-v2';
 import { createTopologyEditExtensions } from './topology-edit-extensions.js';
 
 const STYLE_ID = 'topology-trace-validator-style';

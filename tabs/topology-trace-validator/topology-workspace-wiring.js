@@ -48,7 +48,7 @@ export function wireTopologyWorkspace(root, controller) {
   });
   wireTopologyEnrichment(root, controller, listen, showWorkspaceError);
   listen(root.querySelector('[data-ttv-download-inputxml]'), 'click', () => {
-    try { controller.downloadEnrichedInputXml(); } catch (error) { showWorkspaceError(root, error); }
+    try { controller.downloadCurrentInputXml(root.ownerDocument); } catch (error) { showWorkspaceError(root, error); }
   });
   listen(root.querySelector('[data-ttv-export-selection]'), 'click', () => {
     try { controller.downloadEnrichedInputXml(true); } catch (error) { showWorkspaceError(root, error); }

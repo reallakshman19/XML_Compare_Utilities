@@ -12,7 +12,7 @@ import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-work
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
 import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260717-ssrb-preview-stale-1';
-import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260718-headless-autofix-v1';
+import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260718-edit-nav-icons-v3';
 import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260716-ssrb-layout-1';
 import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260718-ssk-geometry-order-1';
 import { installRevisionCompareTile } from './revision-compare/revision-compare-tab.js?v=20260717-rc-001';

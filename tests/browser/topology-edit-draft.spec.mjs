@@ -183,7 +183,25 @@ test('TTV-E02 — large-offset clicks cannot repivot or hide geometry; CAD navig
   expect(afterProjection.commands).toBe(initial.commands);
   expect(afterProjection.history).toBeLessThanOrEqual(20);
   expect(afterProjection.instances).toBeGreaterThan(0);
-  const beforeMoveNavigation = afterProjection.navigation;
+  for (const action of ['select', 'orbit', 'rotate']) {
+    const button = page.locator(`[data-ttv-nav-action="${action}"]`);
+    await expect(button).toBeVisible();
+    await expect(button.locator('img')).toHaveJSProperty('naturalWidth', 24);
+  }
+  await page.locator('[data-ttv-edit-tool="MOVE"]').click();
+  await page.locator('[data-ttv-nav-action="select"]').click();
+  await expect(page.locator('[data-ttv-edit-tool="SELECT"]')).toHaveClass(/is-active/);
+  const beforeIconOrbit = await compactEvidence();
+  await page.locator('[data-ttv-nav-action="orbit"]').click();
+  const afterIconOrbit = await compactEvidence();
+  expect(afterIconOrbit.navigation.cameraPositionWorld).not.toEqual(beforeIconOrbit.navigation.cameraPositionWorld);
+  expect(afterIconOrbit.commands).toBe(initial.commands);
+  await page.locator('[data-ttv-nav-action="rotate"]').click();
+  const afterIconRotate = await compactEvidence();
+  expect(afterIconRotate.navigation.cameraPositionWorld).not.toEqual(afterIconOrbit.navigation.cameraPositionWorld);
+  expect(finite(afterIconRotate.navigation)).toBe(true);
+  expect(afterIconRotate.commands).toBe(initial.commands);
+  const beforeMoveNavigation = afterIconRotate.navigation;
   await page.evaluate(async () => {
     const edit = window.__topologyEditHarness.controller.edit;
     const node = edit.evidence().editedArtifacts.canonicalTopology.nodes[0];

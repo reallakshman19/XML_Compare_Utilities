@@ -225,7 +225,7 @@ export function createTopologyEditController(elements, dependencies) {
       verticalAxis: elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Z', supportScale, ghostModel,
       sourceBranches, platformDocument: platformContext?.document,
       callbacks: {
-        getTool: () => tool, getSelection: () => selection, getContextEdgeId: () => contextEdgeId,
+        getTool: () => tool, setTool, getSelection: () => selection, getContextEdgeId: () => contextEdgeId,
         setSelection, selectFromPointer, executeCommand, runOperation, undo, redo,
         onGestureError: (error) => setStatus(error?.message || String(error), 'error'),
         onHint: (message) => setStatus(message, 'ready'),
