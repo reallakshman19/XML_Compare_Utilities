@@ -90,7 +90,7 @@ function editMarkup() {
       </div>
       <div class="ttv-button-group ttv-edit-exports">
         <label class="ttv-file-button" title="Load a managed-stage / staged JSON directly (branch scope popup for large files)">Load Staged JSON<input type="file" data-ttv-edit-load-staged accept=".json" hidden></label>
-        <button type="button" data-ttv-edit-change-scope title="Choose the zones or branches rendered in large-model Draft Edit">Change scope</button>
+        <button type="button" data-ttv-edit-load-branches title="Load or change the JSON zones and branches rendered in large-model Draft Edit">Load JSON branches</button>
         <label class="ttv-toggle" title="Models above this canonical element count use scoped Draft Edit">Large model &gt; <input type="number" min="1" step="1" value="200" data-ttv-large-model-threshold style="width:64px"></label>
         <button type="button" data-ttv-edit-save>Save Draft</button>
         <label class="ttv-file-button">Load Draft<input type="file" data-ttv-edit-load accept=".json" hidden></label>

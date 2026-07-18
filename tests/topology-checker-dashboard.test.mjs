@@ -60,6 +60,8 @@ assert(tracePanel.includes('data-ttv-edit-export'), 'Bundle + Log is promoted to
 assert(tracePanel.includes('data-ttv-edit-export-staged'), 'staged JSON export is promoted to the Trace/main header');
 assert(!editPanel.includes('data-ttv-edit-export disabled'), 'Edit Draft no longer duplicates the Bundle + Log button');
 assert(!editPanel.includes('data-ttv-edit-export-staged'), 'Edit Draft no longer duplicates the staged JSON button');
+assert(editPanel.includes('data-ttv-edit-load-branches') && editPanel.includes('Load JSON branches'), 'Edit Draft exposes explicit JSON branch loading');
+assert(!editPanel.includes('data-ttv-edit-change-scope'), 'the ambiguous Change scope action is removed');
 assert(tracePanel.includes('<details class="ttv-manual-overrides">'), 'legacy loaders use a disclosure');
 assert(tracePanel.includes('Load Canonical Topology') && tracePanel.includes('Load Trace Ledger') && tracePanel.includes('Load Topology InputXML'));
 assert(workspace.includes('data-ttv-autofix-toast') && workspace.includes('data-ttv-autofix-toast-export="bundle"'));

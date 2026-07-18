@@ -1,13 +1,13 @@
 /** Mounts Trace, the 3D Edit Draft, the SVG support-draft editor, and Parity. */
-import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260717-ttv-editor-001';
-import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260717-ttv-editor-001';
+import { createTopologyValidatorController } from './topology-validator-controller.js?v=20260718-headless-autofix-v1';
+import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260718-headless-autofix-v1';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyEditController } from './topology-edit-controller.js?v=20260717-ttv-components-v1';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
-import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260717-ttv-editor-001';
-import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260717-ttv-components-v1';
-import { workspaceMarkup } from './topology-workspace-markup.js?v=20260717-ttv-editor-001';
+import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260718-headless-autofix-v1';
+import { wireTopologyWorkspace } from './topology-workspace-wiring.js?v=20260718-headless-autofix-v1';
+import { workspaceMarkup } from './topology-workspace-markup.js?v=20260718-headless-autofix-v1';
 import { createTopologyEditExtensions } from './topology-edit-extensions.js';
 
 const STYLE_ID = 'topology-trace-validator-style';
@@ -122,12 +122,8 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
       return editController.applyTopologyFixSuggestions(scoped, approvedOnly);
     },
     applyAutoFixes: async (request) => {
-      const scoped = await workspaceController.prepareEditForSuggestions(request.suggestions, shell);
-      if (!scoped.length) return null;
-      const scopedIds = new Set(scoped.map((row) => row.issueId));
-      const run = await editController.applyTopologyAutoFixes({ ...request,
-        issueIds: request.issueIds.filter((id) => scopedIds.has(id)),
-        outOfScopeIssueIds: request.issueIds.filter((id) => !scopedIds.has(id)) });
+      await workspaceController.prepareEditForAutoFix(request.suggestions, shell);
+      const run = await editController.applyTopologyAutoFixes({ ...request, outOfScopeIssueIds: [] });
       editExtensions?.refreshLedger();
       await editController.refreshExportPlan();
       return run;

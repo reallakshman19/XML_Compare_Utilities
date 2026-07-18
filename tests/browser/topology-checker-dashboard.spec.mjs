@@ -102,3 +102,36 @@ test('TTV-C02 — settings policy and dedicated Auto fix produce audited outcome
   await expect(ledgerRows.first().locator('[data-key="target"]')).toHaveText(/^CN-/);
   expect(errors).toEqual([]);
 });
+
+test('TTV-C03 — large-model Auto fix is headless and branch loading remains manual', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => localStorage.setItem('xml-compare.topology.large-model-element-threshold.v1', '1'));
+  await page.goto('/tests/browser/topology-checker-autofix-fixture.html');
+  await page.waitForFunction(() => document.body.dataset.topologyValidatorReady === '1');
+
+  await page.locator('[data-ttv-checker-open]').click();
+  const beforeRuns = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence().autoFixRuns.length);
+  await page.locator('[data-ttv-checker-auto-fix]').click();
+  await expect(page.locator('.ttv-scope-popup-overlay')).toHaveCount(0);
+  await page.waitForFunction((count) => window.__topologyValidatorHarness.controller.checker.evidence().autoFixRuns.length > count, beforeRuns, { timeout: 30_000 });
+  const run = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence().autoFixRuns.at(-1));
+  expect(run.operationCount).toBeGreaterThan(0);
+  expect(run.rejected.some((row) => row.reasonCode === 'OUTSIDE_EDIT_SCOPE')).toBe(false);
+  const resolvedCount = await page.evaluate(() => window.__topologyValidatorHarness.controller.checker.evidence().resolvedIssues.length);
+  expect(resolvedCount).toBe(run.applied.length + run.related.length);
+
+  await page.locator('[data-ttv-workspace-tab="edit"]').click();
+  await expect(page.locator('.ttv-scope-popup-overlay')).toHaveCount(0);
+  await expect(page.locator('[data-ttv-edit-status]')).toContainText('Load JSON branches');
+  await expect(page.locator('[data-ttv-edit-updates] [data-ledger-row]')).toHaveCount(run.operationCount);
+  await expect(page.locator('[data-ttv-edit-updates] [data-key="kind"]').first()).toHaveText('MOVE_NODE');
+  const loadBranches = page.locator('[data-ttv-edit-load-branches]');
+  await expect(loadBranches).toBeVisible();
+  await loadBranches.click();
+  const scopePopup = page.locator('.ttv-scope-popup-overlay');
+  await expect(scopePopup).toBeVisible();
+  await scopePopup.locator('button', { hasText: 'Cancel' }).click();
+  await expect(scopePopup).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
