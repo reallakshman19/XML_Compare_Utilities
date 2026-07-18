@@ -58,7 +58,9 @@ export function projectReviewPriority(audit, session, filters = createReviewFilt
 export function nextPriorityDifferenceId(projection, currentId) {
   const ids = projection.visible.map((entry) => entry.row.differenceId);
   if (!ids.length) return null; if (!currentId) return ids[0];
-  const index = ids.indexOf(currentId); return index < 0 ? ids[0] : ids[index + 1] ?? null;
+  const index = ids.indexOf(currentId);
+  if (index < 0) return ids[0];
+  return ids[index + 1] ?? (ids.length > 1 ? ids[0] : null);
 }
 export function previousPriorityDifferenceId(projection, currentId) {
   const ids = projection.visible.map((entry) => entry.row.differenceId);
