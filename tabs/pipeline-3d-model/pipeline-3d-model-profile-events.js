@@ -7,6 +7,7 @@ import {
   table3RouteDistance,
   validateRouteDistance,
 } from './pipeline-3d-model-profile-coordinate-map.js';
+import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 
 const EPSILON = 1e-6;
 const ROUTE_TOLERANCE = 0.5;
@@ -30,7 +31,12 @@ export function buildTable2Events(rows) {
 export function buildTable3AnchorEvents(profile, context) {
   return profile.coordinateMap.anchors.map((anchor, index) => event(
     'table3-anchor',
-    validateRouteDistance(context.table3OriginRoute + anchor.cumulative, context.total, `Table 3 cumulative ${anchor.cumulative}`),
+    validateRouteDistance(
+      context.table3OriginRoute + anchor.cumulative,
+      context.total,
+      `Table 3 cumulative ${anchor.cumulative}`,
+      context.warnings,
+    ),
     `HL ${Number(anchor.cumulative).toFixed(1)}`,
     30,
     null,
@@ -100,7 +106,7 @@ export function materializeProfileEvents(events, context, gradeRows, rules) {
   return points;
 }
 
-export function assertPlausibleProfileSegments(points, routeTotal) {
+export function assertPlausibleProfileSegments(points, routeTotal, warnings = []) {
   let maxSegment = 0;
   for (let index = 1; index < points.length; index += 1) {
     const a = points[index - 1];
@@ -108,7 +114,12 @@ export function assertPlausibleProfileSegments(points, routeTotal) {
     const distance = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
     maxSegment = Math.max(maxSegment, distance);
     if (distance > routeTotal + ROUTE_TOLERANCE) {
-      throw new Error(`Generated segment ${index} is ${formatProfileValue(distance)} m, exceeding the ${formatProfileValue(routeTotal)} m source route.`);
+      addPipelineWarning(
+        warnings,
+        'implausible_segment_length',
+        `Generated segment ${index} is ${formatProfileValue(distance)} m, exceeding the ${formatProfileValue(routeTotal)} m source route. Export remains available for review.`,
+        { segmentIndex: index, segmentLength: distance, routeLength: routeTotal },
+      );
     }
   }
   return maxSegment;
