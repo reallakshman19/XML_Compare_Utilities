@@ -78,13 +78,24 @@ function eventShapeErrors(event, sequence, reviewSessionId, itemIds, eventIds) {
   if (!validTimestamp(event?.occurredAt)) errors.push(`Event ${sequence} has an invalid timestamp.`);
   return errors;
 }
+function eventActionErrors(event) {
+  const errors = []; const stateChanged = event.previousState !== event.nextState;
+  const noteChanged = event.previousNoteHash !== event.nextNoteHash;
+  if (event.action === 'SET_NOTE' && stateChanged) errors.push(`${event.eventId} changes state during a note action.`);
+  if (event.action === 'SET_NOTE' && !noteChanged) errors.push(`${event.eventId} records a no-op note action.`);
+  if (event.action === 'SET_REVIEW_STATE' && (!stateChanged || event.nextState === 'UNREVIEWED')) errors.push(`${event.eventId} has invalid review-state action evidence.`);
+  if (event.action === 'SET_REVIEW_STATE' && noteChanged) errors.push(`${event.eventId} changes note evidence during a state action.`);
+  if (event.action === 'RESET_REVIEW' && (event.nextState !== 'UNREVIEWED' || event.previousState === 'UNREVIEWED')) errors.push(`${event.eventId} has invalid reset evidence.`);
+  if (event.action === 'RESET_REVIEW' && noteChanged) errors.push(`${event.eventId} changes note evidence during reset.`);
+  if (event.action === 'IMPORT_SESSION' && (stateChanged || noteChanged)) errors.push(`${event.eventId} changes item evidence during an import receipt.`);
+  return errors;
+}
 function eventChainErrors(events, items) {
   const errors = []; const current = new Map(items.map((item) => [item.differenceId, { state: 'UNREVIEWED', noteHash: EMPTY_NOTE_HASH, eventIds: [] }]));
   for (const event of events) {
     const cursor = current.get(event.differenceId); if (!cursor) continue;
     if (event.previousState !== cursor.state || event.previousNoteHash !== cursor.noteHash) errors.push(`${event.eventId} breaks the append-only evidence chain.`);
-    if (event.action === 'SET_NOTE' && event.previousState !== event.nextState) errors.push(`${event.eventId} changes state during a note action.`);
-    if (event.action === 'RESET_REVIEW' && event.nextState !== 'UNREVIEWED') errors.push(`${event.eventId} does not reset to UNREVIEWED.`);
+    errors.push(...eventActionErrors(event));
     cursor.state = event.nextState; cursor.noteHash = event.nextNoteHash; cursor.eventIds.push(event.eventId);
   }
   for (const item of items) {
