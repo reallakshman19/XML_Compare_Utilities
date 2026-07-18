@@ -5,13 +5,16 @@ import {
   createEngineeringEditIntent,
   createEngineeringPropertyAggregate,
   createEngineeringPropertyField,
+  createEngineeringPropertySet,
   createEngineeringRevisionToken,
   createEngineeringScene,
   createEngineeringSceneEntity,
   createSegmentGeometry,
   validateEngineeringCommandResult,
   validateEngineeringEditIntent,
+  validateEngineeringPropertyAggregate,
   validateEngineeringPropertyField,
+  validateEngineeringPropertySet,
   validateEngineeringScene,
 } from '../core/engineering-scene/index.js';
 
@@ -50,17 +53,37 @@ const field = createEngineeringPropertyField({
   scope: ENGINEERING_PROPERTY_SCOPE.SCENE,
   unit: 'bar',
   value: 12.5,
+  min: 0,
+  max: 500,
   editable: true,
 });
 assert.deepEqual(validateEngineeringPropertyField(roundTrip(field)), field);
 assert.equal(field.scope, 'SCENE');
+
+const referenceField = createEngineeringPropertyField({
+  key: 'materialRating',
+  type: 'enum',
+  scope: ENGINEERING_PROPERTY_SCOPE.REFERENCE,
+  value: '300',
+  options: ['150', '300', '600'],
+  editable: true,
+});
+assert.equal(referenceField.editable, false, 'REFERENCE properties are always read-only');
+
+const propertySet = createEngineeringPropertySet({
+  id: 'segment-1:engineering',
+  revision,
+  ownerIds: ['segment-1'],
+  fields: [field, referenceField],
+});
+assert.deepEqual(validateEngineeringPropertySet(roundTrip(propertySet)), propertySet);
 
 const mixed = createEngineeringPropertyAggregate({
   key: 'designPressure',
   state: 'mixed',
   selectedCount: 2,
 });
-assert.deepEqual(roundTrip(mixed), mixed);
+assert.deepEqual(validateEngineeringPropertyAggregate(roundTrip(mixed)), mixed);
 assert.equal(mixed.value, null);
 
 const intent = createEngineeringEditIntent({
@@ -69,12 +92,14 @@ const intent = createEngineeringEditIntent({
   baseRevision: revision,
   entityIds: ['segment-1'],
   changes: {
-    geometry: { delta: { x: 0, y: 0, z: 25 }, constraint: { kind: 'axis', axis: 'Z' } },
+    geometry: { delta: { x: 0, y: 0, z: 25 }, constraint: { kind: 'axis', axis: 'z' } },
     properties: { designPressure: 13 },
   },
   source: { interaction: 'pointer', surfaceId: 'synthetic' },
 });
 assert.deepEqual(validateEngineeringEditIntent(roundTrip(intent)), intent);
+assert.equal(intent.changes.geometry.constraint.axis, 'Z');
+assert.equal(intent.changes.geometry.constraint.schema, 'EngineeringGeometryConstraint.v1');
 
 const result = createEngineeringCommandResult({
   operationId: intent.operationId,
@@ -85,7 +110,9 @@ const result = createEngineeringCommandResult({
 assert.deepEqual(validateEngineeringCommandResult(roundTrip(result)), result);
 
 assert.throws(() => createEngineeringPropertyField({ key: 'rating', type: 'enum' }), /declares no options/);
-assert.throws(() => createEngineeringSceneEntity({ id: 'bad', kind: 'point' }), /domainRef is required/);
+assert.throws(() => createEngineeringPropertyField({ key: 'rating', type: 'enum', value: '900', options: ['150', '300'] }), /must be one of its options/);
+assert.throws(() => createEngineeringPropertyAggregate({ key: 'pressure', state: 'uniform' }), /requires a value/);
+assert.throws(() => createEngineeringSceneEntity({ id: 'bad', kind: 'point' }), /domainRef must be a plain object/);
 assert.throws(() => createEngineeringEditIntent({
   operationId: 'bad-pointer',
   baseRevision: revision,
@@ -93,5 +120,13 @@ assert.throws(() => createEngineeringEditIntent({
   changes: { geometry: { delta: { x: 1, y: 0, z: 0 } } },
   source: { interaction: 'pointer' },
 }), /explicit constraint/);
+assert.throws(() => createEngineeringEditIntent({
+  type: 'SET_PROPERTIES',
+  operationId: 'wrong-shape',
+  baseRevision: revision,
+  entityIds: ['segment-1'],
+  changes: { geometry: { delta: { x: 1, y: 0, z: 0 } } },
+  source: { interaction: 'typed' },
+}), /SET_PROPERTIES requires property changes only/);
 
 console.log('engineering scene contracts: ok');
