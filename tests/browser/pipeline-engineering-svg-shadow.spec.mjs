@@ -15,6 +15,15 @@ async function openFixture(page) {
   await page.waitForFunction(() => Boolean(globalThis.__pipelineEngineeringSvgShadowFixture));
 }
 
+async function requireMounted(page) {
+  const state = await page.evaluate(() => {
+    const fixture = globalThis.__pipelineEngineeringSvgShadowFixture;
+    return { initializationError: fixture.initializationError, mounted: Boolean(fixture.workspace) };
+  });
+  expect(state.initializationError, 'marker-rich Pipeline adapter initialization').toBe('');
+  expect(state.mounted).toBe(true);
+}
+
 function shell(page) {
   return page.locator('[data-engineering-svg-shell="pipeline-shadow-shell"]');
 }
@@ -39,6 +48,7 @@ async function categoryEntity(page, category) {
 
 test('PCAD-ESVG-SHADOW-B01 real fixture mount and complete parity', async ({ page }) => {
   await openFixture(page);
+  await requireMounted(page);
   const root = shell(page);
   await expect(root).toHaveAttribute('data-engineering-svg-shell-access', 'read-only');
   await expect(root).toHaveAttribute('aria-label', 'Pipeline engineering read-only viewer');
@@ -68,9 +78,9 @@ test('PCAD-ESVG-SHADOW-B01 real fixture mount and complete parity', async ({ pag
       categories: await fixture.categoryIds(),
       rowsExact: pointEntities.length === output.coordinateRows.length
         && pointEntities.every((entity, index) => samePoint(entity.geometry.position, output.coordinateRows[index])),
-      segmentsExact: segmentEntities.length === output.coordinateRows.length - 1
-        && segmentEntities.every((entity, index) => samePoint(entity.geometry.start, output.coordinateRows[index])
-          && samePoint(entity.geometry.end, output.coordinateRows[index + 1])),
+      segmentsExact: segmentEntities.length === output.inputXmlCoordinateRows.length - 1
+        && segmentEntities.every((entity, index) => samePoint(entity.geometry.start, output.inputXmlCoordinateRows[index])
+          && samePoint(entity.geometry.end, output.inputXmlCoordinateRows[index + 1])),
       continuityExact: segmentEntities.every((entity, index) => index === 0
         || samePoint(segmentEntities[index - 1].geometry.end, entity.geometry.start)),
       ownerEvidenceExact: pointEntities.every((entity) => entity.metadata.pipeline.elevationAuthority === 'TABLE_2'),
@@ -106,6 +116,7 @@ test('PCAD-ESVG-SHADOW-B01 real fixture mount and complete parity', async ({ pag
 
 test('PCAD-ESVG-SHADOW-B02 exact route, node and marker property evidence', async ({ page }) => {
   await openFixture(page);
+  await requireMounted(page);
   const root = shell(page);
   const segment = await categoryEntity(page, 'routeSegments');
   await root.locator(`[data-engineering-svg-entity-id="${segment.id}"]`).dispatchEvent('click');
@@ -150,6 +161,7 @@ test('PCAD-ESVG-SHADOW-B02 exact route, node and marker property evidence', asyn
 
 test('PCAD-ESVG-SHADOW-B03 read-only scene and process-scope boundaries', async ({ page }) => {
   await openFixture(page);
+  await requireMounted(page);
   const root = shell(page);
   const segment = await categoryEntity(page, 'routeSegments');
   await root.locator(`[data-engineering-svg-entity-id="${segment.id}"]`).dispatchEvent('click');
@@ -194,12 +206,13 @@ test('PCAD-ESVG-SHADOW-B03 read-only scene and process-scope boundaries', async 
 
 test('PCAD-ESVG-SHADOW-B04 revision refresh and projection invariance', async ({ page }) => {
   await openFixture(page);
+  await requireMounted(page);
   const root = shell(page);
   const segment = await categoryEntity(page, 'routeSegments');
   await root.locator(`[data-engineering-svg-entity-id="${segment.id}"]`).dispatchEvent('click');
   await expect(property(root, 'entityId')).toHaveText(segment.id);
 
-  const evidence = await page.evaluate(async (selectedId) => {
+  const evidence = await page.evaluate(async () => {
     const fixture = globalThis.__pipelineEngineeringSvgShadowFixture;
     const beforeScene = await fixture.workspace.adapter.getScene();
     const beforeLedger = fixture.geometryLedger(beforeScene);
@@ -229,9 +242,8 @@ test('PCAD-ESVG-SHADOW-B04 revision refresh and projection invariance', async ({
       finalProjection: fixture.workspace.shell.workspace.getProjection(),
       listenerCount: fixture.listenerCount(),
       mutationCount: fixture.mutationCount(),
-      selectedId,
     };
-  }, segment.id);
+  });
   expect(evidence.afterRevision).not.toEqual(evidence.beforeRevision);
   expect(evidence.afterLedger).toEqual(evidence.beforeLedger);
   for (const projection of ['ISO', 'XY', 'XZ', 'YZ']) expect(evidence.ledgers[projection]).toEqual(evidence.beforeLedger);
@@ -248,6 +260,7 @@ test('PCAD-ESVG-SHADOW-B04 revision refresh and projection invariance', async ({
 
 test('PCAD-ESVG-SHADOW-B05 deterministic failure, destroy and remount', async ({ page }) => {
   await openFixture(page);
+  await requireMounted(page);
   expect(await page.evaluate(() => globalThis.__pipelineEngineeringSvgShadowFixture.listenerCount())).toBe(1);
   const failures = await page.evaluate(async () => {
     const fixture = globalThis.__pipelineEngineeringSvgShadowFixture;
