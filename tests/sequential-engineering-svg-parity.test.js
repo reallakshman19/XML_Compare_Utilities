@@ -15,11 +15,26 @@ function geometryLedger(scene) {
 }
 
 const blocked = blockedSequentialFixture();
-const iso = buildSequentialEngineeringSvgScene(adapterState(blocked, 'ISO'), { sceneId: 'ssk-blocked', visibleProjection: 'ISO' });
-const xy = buildSequentialEngineeringSvgScene(adapterState(blocked, 'XY'), { sceneId: 'ssk-blocked', visibleProjection: 'XY' });
-
-assert.deepEqual(geometryLedger(iso.scene), geometryLedger(xy.scene), 'projection changes must not alter engineering XYZ');
-assert.deepEqual(iso.scene.entities.map((entity) => entity.id), xy.scene.entities.map((entity) => entity.id));
+const builds = Object.fromEntries(['ISO', 'XY', 'XZ', 'YZ'].map((projection) => [
+  projection,
+  buildSequentialEngineeringSvgScene(adapterState(blocked, projection), {
+    sceneId: 'ssk-blocked',
+    visibleProjection: projection,
+  }),
+]));
+const iso = builds.ISO;
+for (const projection of ['XY', 'XZ', 'YZ']) {
+  assert.deepEqual(
+    geometryLedger(iso.scene),
+    geometryLedger(builds[projection].scene),
+    `${projection} projection must not alter engineering XYZ`,
+  );
+  assert.deepEqual(
+    iso.scene.entities.map((entity) => entity.id),
+    builds[projection].scene.entities.map((entity) => entity.id),
+    `${projection} projection must not alter stable entity identity`,
+  );
+}
 assert.equal(iso.scene.capabilities.editing, false);
 assert.equal(iso.parity.confirmedComponentCount, 1);
 assert.equal(iso.parity.confirmedGeometryCount, 1);
