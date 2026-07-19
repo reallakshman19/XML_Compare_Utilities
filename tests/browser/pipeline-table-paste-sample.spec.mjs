@@ -134,7 +134,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     const depthCell = page.locator('[data-p3d-split-preview="table3b-raw"] [data-p3d-split-cell="0:3"]');
     await depthCell.fill('2.0M');
     await expect(page.locator('[data-p3d-split="table3b-raw"]')).toHaveValue(/2\.0M/);
-    await expect(page.locator('[data-p3d-split-preview="table3x-preview"]')).toContainText('2.0M');
+    await expect(page.locator('[data-p3d="table3x-output"]')).toContainText('2.0M');
 
     await page.locator('[data-p3d="run"]').click();
     const markerOnly = await page.locator('[data-p3d="coordinate-output"]').textContent();
