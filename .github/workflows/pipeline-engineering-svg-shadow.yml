@@ -36,7 +36,7 @@ jobs:
         run: |
           node tests/engineering-svg-shell-dependency-guard.test.js
           node tests/engineering-svg-readonly-shell-dependency-guard.test.js
-      - name: Record marker/InputXML adapter compatibility boundary
+      - name: Certify marker-rich dual-ledger compatibility
         run: node tests/pipeline-engineering-svg-shadow-compatibility.test.js
       - name: Pipeline project-output, propagation and InputXML regressions
         run: |
@@ -119,7 +119,7 @@ jobs:
         shell: bash
         run: |
           if [[ '${{ steps.merged_adapter.outcome }}' != 'success' ]]; then
-            echo 'Merged Pipeline adapter cannot mount the required marker-rich owner output after marker-only InputXML exclusion.'
+            echo 'Merged Pipeline adapter parity failed for the marker-rich dual-ledger owner output.'
             exit 1
           fi
           if [[ '${{ steps.shadow_browser.outcome }}' != 'success' ]]; then
