@@ -16,17 +16,7 @@ jobs:
         with:
           node-version: 24
       - name: Static tests
-        shell: bash
-        run: |
-          set -o pipefail
-          npm run test:static 2>&1 | tee static-tests.log
-      - name: Upload temporary static failure evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xml-compare-static-${{ github.sha }}
-          path: static-tests.log
-          if-no-files-found: error
+        run: npm run test:static
       - name: XML tests
         run: npm run test:xml
       - name: Table tests
