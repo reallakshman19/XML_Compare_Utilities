@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const names = [
   'pipeline-3d-model-bend-policy.js',
+  'pipeline-3d-model-bend-feasibility.js',
   'pipeline-3d-model-elastic-bend-settings.js',
   'pipeline-3d-model-elastic-bend.js',
   'pipeline-3d-model-elastic-bend-ui.js',
@@ -27,6 +28,13 @@ assert.match(policy, /if \(nps === 18\) return 27/);
 assert.match(policy, /if \(nps >= 20\) return 30/);
 assert.match(policy, /qualificationEvidenceRequired/);
 
+const feasibility = sources['pipeline-3d-model-bend-feasibility.js'];
+assert.match(feasibility, /requiredSide\(left\) \+ requiredSide\(right\)/);
+assert.match(feasibility, /left\.outgoingElementIndex !== right\.incomingElementIndex/);
+assert.match(feasibility, /sharedSegmentFits/);
+assert.match(feasibility, /availableLengthMm/);
+assert.match(feasibility, /requiredLengthMm/);
+
 const core = sources['pipeline-3d-model-elastic-bend.js'];
 assert.match(core, /youngsModulusMpa \* outsideDiameterMm/);
 assert.match(core, /2 \* settings\.allowableBendingStressMpa/);
@@ -36,8 +44,11 @@ assert.match(core, /values\.includes\('vertex'\) \|\| values\.includes\('table2'
 assert.doesNotMatch(core, /depthRule|zOffset/i);
 assert.match(core, /INPUTXML_NODE_START \+ geometryIndex \* INPUTXML_NODE_STEP/);
 assert.match(core, /retainedStraightAllowanceMm/);
+assert.match(core, /resolveSharedBendSegmentFeasibility/);
 assert.match(core, /BEND_GEOMETRY_INFEASIBLE/);
+assert.match(core, /BEND_SHARED_SEGMENT_INFEASIBLE/);
 assert.match(core, /COLD_FIELD_BEND_QUALIFICATION_REQUIRED/);
+assert.match(core, /sharedSegmentFailureCount/);
 assert.match(core, /PipelineElasticBendResolution\.v2/);
 assert.match(core, /markerRowsExcludedBefore/);
 assert.match(core, /role: 'NEAR_POINT'/);
@@ -79,11 +90,13 @@ assert.match(adapter, /if \(elasticBends\.hasBlockingErrors\) return ''/);
 assert.match(adapter, /PipelineElasticBendResolution\.v2/);
 assert.match(adapter, /markerRowsExcludedFromInputXml/);
 assert.match(adapter, /bendBlockingErrorCount/);
+assert.match(adapter, /sharedBendSegmentFailureCount/);
 
 const profile = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-profile-propagation.js', import.meta.url), 'utf8');
 assert.match(profile, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
 assert.match(profile, /\[BLOCKING\]/);
 assert.match(profile, /markerRowsExcludedFromInputXml/);
+assert.match(profile, /sharedBendSegmentFailures/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
 assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260719-bend-hardening-1/);
