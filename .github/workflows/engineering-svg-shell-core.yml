@@ -53,16 +53,7 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
       - name: B01 accessible pointer and keyboard selection
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/b01.json
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B01' --reporter=json
-      - name: Upload B01 failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: engineering-svg-shell-b01-failure
-          path: test-results
-          if-no-files-found: error
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B01'
       - name: B02 mixed selection and one-command apply
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B02'
       - name: B03 invalid and cancelled drafts
@@ -74,6 +65,15 @@ jobs:
       - name: B06 delayed selection response isolation
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B06'
       - name: B07 focused input preservation
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B07'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/b07.json
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B07' --reporter=json
+      - name: Upload B07 failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-svg-shell-b07-failure
+          path: test-results
+          if-no-files-found: error
       - name: B08 multi-shell isolation and remount
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B08'
