@@ -1,4 +1,5 @@
 import { resolveColdFieldBendPolicy } from './pipeline-3d-model-bend-policy.js';
+import { resolveSharedBendSegmentFeasibility } from './pipeline-3d-model-bend-feasibility.js';
 import { normalizeElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js';
 
 const DEG = 180 / Math.PI;
@@ -37,8 +38,7 @@ function isGeometryAuthority(point) {
 function authorityRole(point) {
   const values = sources(point);
   if (values.includes('vertex') && values.includes('table2')) return 'TABLE_1_AND_TABLE_2';
-  if (values.includes('table2')) return 'TABLE_2_PROFILE';
-  return 'TABLE_1_ROUTE';
+  return values.includes('table2') ? 'TABLE_2_PROFILE' : 'TABLE_1_ROUTE';
 }
 function classifyTurn(planAngle, profileAngle, settings) {
   const plan = planAngle >= settings.minimumTurnAngleDeg;
@@ -52,8 +52,8 @@ function diagnostic(severity, code, message, details = {}) {
   return Object.freeze({ severity, code, message, details: Object.freeze({ ...details }) });
 }
 function resolveOutsideDiameterMm(settings, branchInfo) {
-  if (settings.diameterSource === 'explicit-od') return positive(settings.explicitOutsideDiameterMm);
-  return positive(branchInfo?.boreMm);
+  return settings.diameterSource === 'explicit-od'
+    ? positive(settings.explicitOutsideDiameterMm) : positive(branchInfo?.boreMm);
 }
 function geometryNodeName(point, fallback) {
   const values = sources(point), evidence = Array.isArray(point?.markerEvidence) ? point.markerEvidence : [];
@@ -83,7 +83,6 @@ export function buildGeometryAuthorityRoute(points = [], coordinateRows = []) {
     entries: Object.freeze(entries),
     points: Object.freeze(entries.map((entry) => entry.point)),
     coordinateRows: Object.freeze(entries.map((entry) => entry.row)),
-    sourceIndexes: Object.freeze(entries.map((entry) => entry.sourceIndex)),
     excludedMarkerCount: Math.max(0, coordinateRows.length - entries.length),
   });
 }
@@ -100,22 +99,12 @@ function elasticCriteria(settings, outsideDiameterMm) {
 function screeningWarnings(settings, screening) {
   const warnings = [];
   if (settings.enabled && !screening.outsideDiameterMm) warnings.push(diagnostic('WARNING', 'bend_diameter_missing', 'Bend resolution needs a positive outside diameter.'));
-  if (settings.enabled && settings.diameterSource === 'branch-diameter' && !settings.diameterBasisConfirmed) {
-    warnings.push(diagnostic('WARNING', 'bend_diameter_basis_unconfirmed', 'Confirm that the Line / Branch Diameter field is the pipe outside diameter before bend emission.'));
-  }
-  if (settings.enabled && settings.bendClass === 'elastic' && settings.useFormulaMinimum && !settings.allowableBendingStressMpa) {
-    warnings.push(diagnostic('WARNING', 'elastic_bend_allowable_stress_missing', 'Formula screening R = E×D/(2×Sb) is unavailable until allowable bending stress Sb is entered.'));
-  }
-  if (settings.enabled && settings.bendClass === 'cold-field' && !screening.coldFieldPolicy?.normalCodeRadiusD) {
-    warnings.push(diagnostic('WARNING', 'cold_field_bend_code_size_unresolved', 'Cold-field bend emission requires a supported nominal pipe size for the ASME B31.4-2025 paragraph 404.2.2 radius band.'));
-  }
-  if (settings.enabled && screening.coldFieldPolicy?.qualificationEvidenceRequired) {
-    warnings.push(diagnostic('WARNING', 'cold_field_bend_qualification_evidence_missing', 'The qualified 18D alternative was requested but no eligible NPS 14+ qualification evidence reference was supplied.'));
-  }
+  if (settings.enabled && settings.diameterSource === 'branch-diameter' && !settings.diameterBasisConfirmed) warnings.push(diagnostic('WARNING', 'bend_diameter_basis_unconfirmed', 'Confirm that the Line / Branch Diameter field is the pipe outside diameter before bend emission.'));
+  if (settings.enabled && settings.bendClass === 'elastic' && settings.useFormulaMinimum && !settings.allowableBendingStressMpa) warnings.push(diagnostic('WARNING', 'elastic_bend_allowable_stress_missing', 'Formula screening R = E×D/(2×Sb) is unavailable until allowable bending stress Sb is entered.'));
+  if (settings.enabled && settings.bendClass === 'cold-field' && !screening.coldFieldPolicy?.normalCodeRadiusD) warnings.push(diagnostic('WARNING', 'cold_field_bend_code_size_unresolved', 'Cold-field bend emission requires a supported nominal pipe size for the ASME B31.4-2025 paragraph 404.2.2 radius band.'));
+  if (settings.enabled && screening.coldFieldPolicy?.qualificationEvidenceRequired) warnings.push(diagnostic('WARNING', 'cold_field_bend_qualification_evidence_missing', 'The qualified 18D alternative was requested but no eligible NPS 14+ qualification evidence reference was supplied.'));
   if (settings.enabled && screening.outsideDiameterMm && !screening.governingRadiusMm) warnings.push(diagnostic('WARNING', 'bend_radius_unresolved', 'No enabled bend-radius criterion produced a positive radius.'));
-  if (settings.enabled && settings.emitToInputXml && !settings.screeningOnlyAcknowledged) {
-    warnings.push(diagnostic('WARNING', 'bend_review_acknowledgement_missing', 'InputXML bend emission requires acknowledgement that this resolver does not prove combined-load compliance.'));
-  }
+  if (settings.enabled && settings.emitToInputXml && !settings.screeningOnlyAcknowledged) warnings.push(diagnostic('WARNING', 'bend_review_acknowledgement_missing', 'InputXML bend emission requires acknowledgement that this resolver does not prove combined-load compliance.'));
   return warnings;
 }
 
@@ -174,13 +163,13 @@ function buildCandidate(entries, geometryIndex, screening) {
   const outgoingLengthMm = rowDistanceMm(entry.row, next.row);
   const retainedStraightAllowanceMm = screening.settings.retainedStraightAllowanceMm;
   const requiredIncomingMm = tangentMm == null ? null : tangentMm + retainedStraightAllowanceMm;
-  const requiredOutgoingMm = requiredIncomingMm;
   const preferredRequiredMm = tangentMm == null ? null : tangentMm + screening.settings.preferredStraightTangentMm;
-  const geometryFits = Boolean(tangentMm && incomingLengthMm >= requiredIncomingMm && outgoingLengthMm >= requiredOutgoingMm);
-  const candidate = {
-    id: `bend:${entry.row.nodeNumber ?? geometryIndex}`, bendClass: screening.settings.bendClass,
+  const localGeometryFits = Boolean(tangentMm && incomingLengthMm >= requiredIncomingMm && outgoingLengthMm >= requiredIncomingMm);
+  return {
+    id: `bend:${entry.row.nodeNumber ?? geometryIndex}`,
+    bendClass: screening.settings.bendClass,
     sourceRole: authorityRole(entry.point), classification, pointIndex: entry.sourceIndex,
-    incomingElementIndex: geometryIndex - 1,
+    incomingElementIndex: geometryIndex - 1, outgoingElementIndex: geometryIndex,
     previousNode: previous.row.nodeNumber ?? null, cornerNode: entry.row.nodeNumber ?? null, nextNode: next.row.nodeNumber ?? null,
     previousAuthorityIndex: previous.sourceIndex, nextAuthorityIndex: next.sourceIndex,
     markerRowsExcludedBefore: Math.max(0, entry.sourceIndex - previous.sourceIndex - 1),
@@ -188,11 +177,11 @@ function buildCandidate(entries, geometryIndex, screening) {
     planAngleDeg: plan, profileAngleDeg: profile, turnAngleDeg,
     radiusMm, radiusD: radiusMm && screening.outsideDiameterMm ? radiusMm / screening.outsideDiameterMm : null,
     tangentMm, incomingLengthMm, outgoingLengthMm, retainedStraightAllowanceMm,
-    requiredIncomingMm, requiredOutgoingMm, preferredRequiredMm,
-    geometryFits, preferredStraightFits: Boolean(tangentMm && incomingLengthMm >= preferredRequiredMm && outgoingLengthMm >= preferredRequiredMm),
+    requiredIncomingMm, requiredOutgoingMm: requiredIncomingMm, preferredRequiredMm,
+    localGeometryFits, geometryFits: localGeometryFits,
+    preferredStraightFits: Boolean(tangentMm && incomingLengthMm >= preferredRequiredMm && outgoingLengthMm >= preferredRequiredMm),
     bendTypeCode: screening.settings.bendTypeCode,
   };
-  return { ...candidate, status: statusFor(candidate, screening), curvatureNodes: [] };
 }
 
 function nextAvailableNode(used, start) {
@@ -225,13 +214,14 @@ function candidateDetails(candidate) {
     classification: candidate.classification, turnAngleDeg: candidate.turnAngleDeg, radiusMm: candidate.radiusMm,
     tangentMm: candidate.tangentMm, retainedStraightAllowanceMm: candidate.retainedStraightAllowanceMm,
     requiredIncomingMm: candidate.requiredIncomingMm, requiredOutgoingMm: candidate.requiredOutgoingMm,
+    sharedIncomingRequiredMm: candidate.sharedIncomingRequiredMm, sharedOutgoingRequiredMm: candidate.sharedOutgoingRequiredMm,
     incomingLengthMm: candidate.incomingLengthMm, outgoingLengthMm: candidate.outgoingLengthMm,
   };
 }
 function candidateDiagnostic(candidate, settings) {
   if (!settings.enabled || !settings.emitToInputXml) return null;
   const details = candidateDetails(candidate);
-  if (candidate.status === 'INFEASIBLE') return diagnostic('BLOCKING', 'BEND_GEOMETRY_INFEASIBLE', `Node ${candidate.cornerNode} cannot fit the resolved radius plus retained-straight allowance on both authoritative adjacent spans.`, details);
+  if (candidate.status === 'INFEASIBLE' && !candidate.localGeometryFits) return diagnostic('BLOCKING', 'BEND_GEOMETRY_INFEASIBLE', `Node ${candidate.cornerNode} cannot fit the resolved radius plus retained-straight allowance on both authoritative adjacent spans.`, details);
   if (candidate.status === 'QUALIFICATION_REVIEW') return diagnostic('BLOCKING', 'COLD_FIELD_BEND_QUALIFICATION_REQUIRED', `Node ${candidate.cornerNode} requests the qualified 18D alternative without eligible qualification evidence.`, details);
   if (candidate.status === 'ANGLE_EXCLUDED') return diagnostic('WARNING', 'bend_angle_excluded', `Node ${candidate.cornerNode} exceeds the configured turn-angle limit; BEND output was omitted.`, details);
   if (candidate.status === 'UNRESOLVED') return diagnostic('WARNING', 'bend_inputxml_omitted', `Node ${candidate.cornerNode} has no resolved bend radius; BEND output was omitted.`, details);
@@ -240,20 +230,28 @@ function candidateDiagnostic(candidate, settings) {
   if (candidate.status === 'REVIEW_REQUIRED') return diagnostic('WARNING', 'bend_inputxml_omitted', `Node ${candidate.cornerNode} requires screening-only acknowledgement; BEND output was omitted.`, details);
   return null;
 }
+function sharedFailureDiagnostic(failure) {
+  return diagnostic('BLOCKING', 'BEND_SHARED_SEGMENT_INFEASIBLE', `The authoritative straight from node ${failure.fromNode} to ${failure.toNode} is too short for both adjacent bend tangent footprints.`, failure);
+}
 
 export function resolvePipelineElasticBends({ points = [], coordinateRows = [], branchInfo = {}, settings = {} } = {}) {
   const screening = calculateElasticBendScreening(settings, branchInfo);
   const geometryRoute = buildGeometryAuthorityRoute(points, coordinateRows);
-  const candidates = [];
+  const rawCandidates = [];
   for (let index = 1; index < geometryRoute.entries.length - 1; index += 1) {
     const candidate = buildCandidate(geometryRoute.entries, index, screening);
-    if (candidate) candidates.push(candidate);
+    if (candidate) rawCandidates.push(candidate);
   }
-  const resolvedCandidates = assignCurvatureNodes(candidates, geometryRoute.coordinateRows, screening.settings);
+  const shared = resolveSharedBendSegmentFeasibility(rawCandidates);
+  const statusCandidates = shared.candidates.map((candidate) => ({
+    ...candidate, status: statusFor(candidate, screening), curvatureNodes: [],
+  }));
+  const resolvedCandidates = assignCurvatureNodes(statusCandidates, geometryRoute.coordinateRows, screening.settings);
   const emitted = resolvedCandidates.filter((candidate) => candidate.status === 'EMITTED');
   const warnings = [...screening.warnings], errors = [];
+  if (screening.settings.enabled && screening.settings.emitToInputXml) errors.push(...shared.failures.map(sharedFailureDiagnostic));
   for (const candidate of resolvedCandidates) {
-    if (screening.settings.enabled && !candidate.preferredStraightFits && candidate.geometryFits) warnings.push(diagnostic('WARNING', 'bend_preferred_tangent_not_met', `Node ${candidate.cornerNode} fits the mandatory retained-straight allowance but not the configured preferred straight tangent.`, candidateDetails(candidate)));
+    if (screening.settings.enabled && !candidate.preferredStraightFits && candidate.geometryFits) warnings.push(diagnostic('WARNING', 'bend_preferred_tangent_not_met', `Node ${candidate.cornerNode} fits mandatory geometry but not the configured preferred straight tangent.`, candidateDetails(candidate)));
     const item = candidateDiagnostic(candidate, screening.settings);
     if (item?.severity === 'BLOCKING') errors.push(item); else if (item) warnings.push(item);
   }
@@ -263,12 +261,14 @@ export function resolvePipelineElasticBends({ points = [], coordinateRows = [], 
     candidateCount: resolvedCandidates.length, emittedCount: emitted.length,
     feasibleCount: resolvedCandidates.filter((candidate) => candidate.geometryFits).length,
     omittedCount: resolvedCandidates.filter((candidate) => !['EMITTED', 'READY_NOT_EMITTED', 'DISABLED'].includes(candidate.status)).length,
-    blockedCount: errors.length, excludedMarkerCount: geometryRoute.excludedMarkerCount,
+    blockedCount: errors.length, sharedSegmentFailureCount: shared.failures.length,
+    excludedMarkerCount: geometryRoute.excludedMarkerCount,
   });
   return Object.freeze({
     schema: 'PipelineElasticBendResolution.v2', screening,
     candidates: Object.freeze(resolvedCandidates), bendByIncomingElementIndex,
     geometryRows: geometryRoute.coordinateRows, geometryPoints: geometryRoute.points,
+    sharedSegmentFailures: shared.failures,
     warnings: Object.freeze(warnings), errors: Object.freeze(errors),
     hasBlockingErrors: errors.length > 0, diagnostics,
   });
@@ -276,11 +276,11 @@ export function resolvePipelineElasticBends({ points = [], coordinateRows = [], 
 
 function value(input, digits = 3) { return Number.isFinite(Number(input)) ? Number(input).toFixed(digits) : ''; }
 export function buildElasticBendLedgerText(resolution) {
-  const header = ['BendId', 'BendClass', 'PreviousNode', 'CornerNode', 'NextNode', 'SourceRole', 'Class', 'PlanAngleDeg', 'ProfileAngleDeg', 'TurnAngleDeg', 'RadiusMm', 'RadiusD', 'TangentMm', 'RetainedStraightMm', 'RequiredIncomingMm', 'RequiredOutgoingMm', 'IncomingLengthMm', 'OutgoingLengthMm', 'ExcludedMarkersBefore', 'ExcludedMarkersAfter', 'NearNode', 'MidNode', 'Status'];
+  const header = ['BendId', 'BendClass', 'PreviousNode', 'CornerNode', 'NextNode', 'SourceRole', 'Class', 'PlanAngleDeg', 'ProfileAngleDeg', 'TurnAngleDeg', 'RadiusMm', 'RadiusD', 'TangentMm', 'RetainedStraightMm', 'RequiredIncomingMm', 'RequiredOutgoingMm', 'SharedIncomingRequiredMm', 'SharedOutgoingRequiredMm', 'IncomingLengthMm', 'OutgoingLengthMm', 'ExcludedMarkersBefore', 'ExcludedMarkersAfter', 'NearNode', 'MidNode', 'Status'];
   const rows = (resolution?.candidates || []).map((item) => {
     const near = item.curvatureNodes?.find((node) => node.role === 'NEAR_POINT')?.nodeNumber ?? '';
     const mid = item.curvatureNodes?.find((node) => node.role === 'MIDPOINT')?.nodeNumber ?? '';
-    return [item.id, item.bendClass, item.previousNode, item.cornerNode, item.nextNode, item.sourceRole, item.classification, value(item.planAngleDeg), value(item.profileAngleDeg), value(item.turnAngleDeg), value(item.radiusMm), value(item.radiusD), value(item.tangentMm), value(item.retainedStraightAllowanceMm), value(item.requiredIncomingMm), value(item.requiredOutgoingMm), value(item.incomingLengthMm), value(item.outgoingLengthMm), item.markerRowsExcludedBefore, item.markerRowsExcludedAfter, near, mid, item.status];
+    return [item.id, item.bendClass, item.previousNode, item.cornerNode, item.nextNode, item.sourceRole, item.classification, value(item.planAngleDeg), value(item.profileAngleDeg), value(item.turnAngleDeg), value(item.radiusMm), value(item.radiusD), value(item.tangentMm), value(item.retainedStraightAllowanceMm), value(item.requiredIncomingMm), value(item.requiredOutgoingMm), value(item.sharedIncomingRequiredMm), value(item.sharedOutgoingRequiredMm), value(item.incomingLengthMm), value(item.outgoingLengthMm), item.markerRowsExcludedBefore, item.markerRowsExcludedAfter, near, mid, item.status];
   });
   return [header, ...rows].map((row) => row.join('\t')).join('\n');
 }
