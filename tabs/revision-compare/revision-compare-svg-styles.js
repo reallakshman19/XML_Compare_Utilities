@@ -48,7 +48,6 @@ export const REVISION_COMPARE_SVG_CSS = `
 .revc-viewer-host [data-revc-side="A"] > [data-engineering-svg-geometry] { mix-blend-mode: screen; }
 .revc-viewer-host [data-revc-marker-treatment="cross"] > circle,
 .revc-viewer-host [data-revc-marker-treatment="blocked"] > circle { fill: transparent; stroke-width: 5; }
-@media (max-width: 1100px) { .revc-svg-side-by-side { grid-template-columns: 1fr; } }
 `;
 
 export function revisionCompareSvgStatusStyle(status) {
