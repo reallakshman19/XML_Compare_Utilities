@@ -36,7 +36,35 @@ jobs:
         run: |
           node tests/engineering-svg-shell-dependency-guard.test.js
           node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: Record marker/InputXML adapter compatibility boundary
+        run: node tests/pipeline-engineering-svg-shadow-compatibility.test.js
+      - name: Pipeline project-output, propagation and InputXML regressions
+        run: |
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/project-migrations-phase6.test.mjs
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-3d-model-elastic-bend-static.test.js
+      - name: Shadow ownership and dependency contracts
+        run: |
+          node tests/pipeline-engineering-svg-shadow-ownership.test.js
+          node tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
+      - name: Production and test JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js
+          node --check tests/pipeline-engineering-svg-shadow-ownership.test.js
+          node --check tests/pipeline-engineering-svg-shadow-compatibility.test.js
+          node --check tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
+          node --check tests/browser/pipeline-engineering-svg-shadow.spec.mjs
+          node --check playwright.pipeline-engineering-svg-shadow.config.mjs
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
       - name: Merged Pipeline adapter and exact parity
+        id: merged_adapter
+        continue-on-error: true
         shell: bash
         run: |
           mkdir -p artifacts/pipeline-engineering-svg-shadow
@@ -55,40 +83,27 @@ jobs:
           if (( adapter_status != 0 || parity_status != 0 || dependency_status != 0 )); then
             exit 1
           fi
-      - name: Pipeline project-output, propagation and InputXML regressions
-        run: |
-          node tests/pipeline-3d-model-profile-propagation.test.js
-          node tests/project-migrations-phase6.test.mjs
-          node tests/pipeline-3d-model-elastic-bend.test.js
-          node tests/pipeline-3d-model-elastic-bend-static.test.js
-      - name: Shadow ownership and dependency contracts
-        run: |
-          node tests/pipeline-engineering-svg-shadow-ownership.test.js
-          node tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
-      - name: Production and test JavaScript syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js
-          node --check tests/pipeline-engineering-svg-shadow-ownership.test.js
-          node --check tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
-          node --check tests/browser/pipeline-engineering-svg-shadow.spec.mjs
-          node --check playwright.pipeline-engineering-svg-shadow.config.mjs
-          while IFS= read -r -d '' file; do
-            node --check "$file"
-          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
-          node --check main-rhbg-fitguard.js
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: PCAD-ESVG-SHADOW-B01 real fixture parity
+        id: b01
+        continue-on-error: true
         run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B01'
       - name: PCAD-ESVG-SHADOW-B02 exact properties
+        id: b02
+        continue-on-error: true
         run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B02'
       - name: PCAD-ESVG-SHADOW-B03 read-only boundaries
+        id: b03
+        continue-on-error: true
         run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B03'
       - name: PCAD-ESVG-SHADOW-B04 owner refresh and projection invariance
+        id: b04
+        continue-on-error: true
         run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B04'
       - name: PCAD-ESVG-SHADOW-B05 lifecycle and failure contracts
+        id: b05
+        continue-on-error: true
         run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B05'
       - name: Existing Pipeline browser acceptance
         run: npm run test:pipeline-cad-browser
@@ -104,8 +119,8 @@ jobs:
           node tests/browser/xml-compare-startup-smoke.mjs
       - name: Full repository tests
         run: npm test
-      - name: Upload exact-head shadow failure evidence
-        if: failure()
+      - name: Upload exact-head shadow evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pipeline-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
@@ -115,3 +130,14 @@ jobs:
             test-results/pipeline-cad
             /tmp/xml-compare-startup-server.log
           if-no-files-found: warn
+      - name: Enforce marker-rich adapter compatibility gate
+        if: always()
+        shell: bash
+        run: |
+          if [[ '${{ steps.merged_adapter.outcome }}' != 'success' ]]; then
+            echo 'Merged Pipeline adapter cannot mount the required marker-rich owner output after marker-only InputXML exclusion.'
+            exit 1
+          fi
+          for result in '${{ steps.b01.outcome }}' '${{ steps.b02.outcome }}' '${{ steps.b03.outcome }}' '${{ steps.b04.outcome }}' '${{ steps.b05.outcome }}'; do
+            [[ "$result" == 'success' ]] || exit 1
+          done
