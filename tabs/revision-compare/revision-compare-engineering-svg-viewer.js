@@ -27,7 +27,9 @@ function statusObject(value) {
 }
 
 function normalizedMode(value) { return value === 'side-by-side' ? 'side-by-side' : 'overlay'; }
-function fitIds(context) { return context.fitScope === 'selection' ? context.fitEntityIds : null; }
+function emptyFit() { return Object.freeze({ scope: 'all', entityIds: Object.freeze([]) }); }
+function activeFit(context) { return context.fitHistory[context.mode]; }
+function fitIds(context) { return activeFit(context).scope === 'selection' ? activeFit(context).entityIds : null; }
 function fitScene(context) { return createRevisionCompareSvgFitScene(context.baseScene, fitIds(context)); }
 
 function surfaceScene(context, side) {
@@ -80,9 +82,27 @@ function resetHistory(context) {
     overlay: normalizeRevisionCompareSvgViewportState(),
     'side-by-side': normalizeRevisionCompareSvgViewportState(),
   };
-  context.fitScope = 'all';
-  context.fitEntityIds = [];
+  context.fitHistory = { overlay: emptyFit(), 'side-by-side': emptyFit() };
   context.initialFitCount += 1;
+}
+
+function snapshotFitHistory(initial) {
+  const mode = normalizedMode(initial?.mode);
+  const legacy = Object.freeze({
+    scope: initial?.fitScope === 'selection' ? 'selection' : 'all',
+    entityIds: Object.freeze([...(initial?.fitEntityIds ?? [])]),
+  });
+  return {
+    overlay: initial?.fitHistory?.overlay ?? (mode === 'overlay' ? legacy : emptyFit()),
+    'side-by-side': initial?.fitHistory?.['side-by-side'] ?? (mode === 'side-by-side' ? legacy : emptyFit()),
+  };
+}
+
+function normalizeFit(value) {
+  return Object.freeze({
+    scope: value?.scope === 'selection' ? 'selection' : 'all',
+    entityIds: Object.freeze([...(value?.entityIds ?? [])].filter(Boolean)),
+  });
 }
 
 function applyCompatibleSnapshot(context, key) {
@@ -93,12 +113,13 @@ function applyCompatibleSnapshot(context, key) {
   }
   context.mode = normalizedMode(initial.mode);
   context.selectedIds = [...(initial.selectedIds ?? [])];
-  context.fitScope = initial.fitScope === 'selection' ? 'selection' : 'all';
   context.fitCounts = {
     all: initial.fitCounts?.all ?? 0,
     selection: initial.fitCounts?.selection ?? 0,
     noGeometry: initial.fitCounts?.noGeometry ?? 0,
   };
+  const fits = snapshotFitHistory(initial);
+  context.fitHistory = { overlay: normalizeFit(fits.overlay), 'side-by-side': normalizeFit(fits['side-by-side']) };
   context.viewportHistory = {
     overlay: normalizeRevisionCompareSvgViewportState(initial.viewportHistory?.overlay),
     'side-by-side': normalizeRevisionCompareSvgViewportState(initial.viewportHistory?.['side-by-side']),
@@ -154,17 +175,15 @@ function fit(context, scope) {
       context.lastFitResult = 'no-geometry';
       return false;
     }
-    context.fitScope = 'selection';
-    context.fitEntityIds = ids;
+    context.fitHistory[context.mode] = normalizeFit({ scope: 'selection', entityIds: ids });
     context.fitCounts.selection += 1;
   } else {
-    context.fitScope = 'all';
-    context.fitEntityIds = [];
+    context.fitHistory[context.mode] = emptyFit();
     context.fitCounts.all += 1;
   }
   context.lastFitResult = 'applied';
-  publishScene(context, `revision-compare-fit-${context.fitScope}`);
-  context.runtime?.resetViewport(`fit-${context.fitScope}`);
+  publishScene(context, `revision-compare-fit-${activeFit(context).scope}`);
+  context.runtime?.resetViewport(`fit-${activeFit(context).scope}`);
   return true;
 }
 
@@ -193,7 +212,8 @@ function snapshot(context) {
     sceneCompatibilityKey: context.sceneCompatibilityKey,
     verticalAxis: context.verticalAxis,
     selectedIds: Object.freeze([...context.selectedIds]),
-    fitScope: context.fitScope,
+    fitScope: activeFit(context).scope,
+    fitHistory: Object.freeze({ ...context.fitHistory }),
     fitCounts: Object.freeze({ ...context.fitCounts }),
     lastFitResult: context.lastFitResult,
     viewportHistory: Object.freeze({ ...context.viewportHistory }),
@@ -214,18 +234,10 @@ function snapshot(context) {
 export async function createRevisionCompareEngineeringSvgViewer(host, callbacks = {}) {
   const initial = jsonSnapshot(callbacks.initialSnapshot);
   const context = {
-    host: requiredHost(host),
-    callbacks,
-    initialSnapshot: initial,
-    models: null,
-    baseScene: null,
-    entityById: new Map(),
-    runtime: null,
-    statusByObjectId: {},
-    selectedIds: initial?.selectedIds ?? [],
+    host: requiredHost(host), callbacks, initialSnapshot: initial, models: null, baseScene: null,
+    entityById: new Map(), runtime: null, statusByObjectId: {}, selectedIds: initial?.selectedIds ?? [],
     mode: normalizedMode(initial?.mode),
-    fitScope: initial?.fitScope === 'selection' ? 'selection' : 'all',
-    fitEntityIds: [],
+    fitHistory: { overlay: emptyFit(), 'side-by-side': emptyFit() },
     fitCounts: {
       all: initial?.fitCounts?.all ?? 0,
       selection: initial?.fitCounts?.selection ?? 0,
@@ -235,12 +247,8 @@ export async function createRevisionCompareEngineeringSvgViewer(host, callbacks 
       overlay: normalizeRevisionCompareSvgViewportState(initial?.viewportHistory?.overlay),
       'side-by-side': normalizeRevisionCompareSvgViewportState(initial?.viewportHistory?.['side-by-side']),
     },
-    sceneCompatibilityKey: null,
-    verticalAxis: initial?.verticalAxis ?? 'Z',
-    omissions: [],
-    lastFitResult: null,
-    initialFitCount: 0,
-    disposed: false,
+    sceneCompatibilityKey: null, verticalAxis: initial?.verticalAxis ?? 'Z', omissions: [],
+    lastFitResult: null, initialFitCount: 0, disposed: false,
   };
   return Object.freeze({
     setModels: (models) => setModels(context, models),
