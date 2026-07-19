@@ -85,26 +85,10 @@ jobs:
           fi
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: PCAD-ESVG-SHADOW-B01 real fixture parity
-        id: b01
+      - name: PCAD-ESVG-SHADOW-B01 through B05 browser certification
+        id: shadow_browser
         continue-on-error: true
-        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B01'
-      - name: PCAD-ESVG-SHADOW-B02 exact properties
-        id: b02
-        continue-on-error: true
-        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B02'
-      - name: PCAD-ESVG-SHADOW-B03 read-only boundaries
-        id: b03
-        continue-on-error: true
-        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B03'
-      - name: PCAD-ESVG-SHADOW-B04 owner refresh and projection invariance
-        id: b04
-        continue-on-error: true
-        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B04'
-      - name: PCAD-ESVG-SHADOW-B05 lifecycle and failure contracts
-        id: b05
-        continue-on-error: true
-        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B05'
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs
       - name: Existing Pipeline browser acceptance
         run: npm run test:pipeline-cad-browser
       - name: Startup smoke
@@ -138,6 +122,7 @@ jobs:
             echo 'Merged Pipeline adapter cannot mount the required marker-rich owner output after marker-only InputXML exclusion.'
             exit 1
           fi
-          for result in '${{ steps.b01.outcome }}' '${{ steps.b02.outcome }}' '${{ steps.b03.outcome }}' '${{ steps.b04.outcome }}' '${{ steps.b05.outcome }}'; do
-            [[ "$result" == 'success' ]] || exit 1
-          done
+          if [[ '${{ steps.shadow_browser.outcome }}' != 'success' ]]; then
+            echo 'PCAD-ESVG-SHADOW-B01 through B05 did not pass.'
+            exit 1
+          fi
