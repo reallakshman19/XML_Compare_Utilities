@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { parseTable1 } from '../tabs/pipeline-3d-model/pipeline-3d-model-geometry.js';
 import { framesFromTable1, parseTable2Paste, parseTable3Paste } from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-parser.js';
 import { SAMPLE_TABLE_2_PASTE_MULTISHEET, SAMPLE_TABLE_3_PASTE_MULTISHEET } from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-samples.js';
@@ -91,6 +92,9 @@ badText.output.coordinateText = badText.output.coordinateText.replace(/\t(-?[\d.
 const textReport = buildPipelineEngineeringSvgParityReport(badText);
 assert.equal(textReport.passed, false);
 assert.equal(textReport.coordinateRowMismatches.length > 0, true);
+
+mkdirSync('artifacts', { recursive: true });
+writeFileSync('artifacts/pipeline-engineering-svg-parity.json', `${JSON.stringify(report, null, 2)}\n`);
 
 console.log(`PIPELINE_ESVG_COUNTS ${JSON.stringify(report.mappedByCategory)}`);
 console.log('Pipeline engineering SVG deterministic parity guards: ok');
