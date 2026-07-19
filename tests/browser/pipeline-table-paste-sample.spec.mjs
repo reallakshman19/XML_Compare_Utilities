@@ -40,6 +40,15 @@ function xyzRows(text) {
   return coordinateRows(text).map(({ x, y, z }) => ({ x, y, z }));
 }
 
+const TABLE3_MARKER_LABELS = Object.freeze([
+  'HL 0.0', 'HL 14.7', '1.5M START', '1.5M END',
+  'A/G START', 'A/G END', 'PMS-001', 'PMS-004',
+]);
+
+function expectMarkersExcludedFromXml(xml, labels = TABLE3_MARKER_LABELS) {
+  for (const label of labels) expect(xml).not.toContain(label);
+}
+
 test.describe('Pipeline Table Paste multi-sheet sample', () => {
   test('P3D-PASTE-B01 sample button loads paste data and propagates all raw previews', async ({ page }) => {
     const errors = await open(page);
@@ -69,7 +78,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-PROP-B01 Table 3 remains marker-only while Table 2 controls all Z output', async ({ page }) => {
+  test('P3D-PROP-B01 Table 3 remains review-only while Table 2 controls XML geometry', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
     await page.locator('[data-p3d="run"]').click();
@@ -87,9 +96,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(pms1?.z).toBeLessThan(242000);
     expect(pms4?.z).toBeGreaterThan(240000);
     expect(pms4?.z).toBeLessThan(242000);
-    for (const value of ['HL 0.0', 'HL 14.7', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
-      expect(coordinate).toContain(value);
-    }
+    for (const value of TABLE3_MARKER_LABELS) expect(coordinate).toContain(value);
     expect(coordinate).not.toMatch(/GRADE END|GRADE START/);
     const zByXy = new Map();
     for (const row of rows) {
@@ -103,9 +110,8 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(coordinate).not.toContain('8573374\t-10498846');
 
     const xml = await page.locator('[data-p3d="xml-output"]').textContent();
-    for (const value of ['Sheet 1 Pt 1', 'HL 0.0', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
-      expect(xml).toContain(value);
-    }
+    expect(xml).toContain('Sheet 1 Pt 1');
+    expectMarkersExcludedFromXml(xml);
     expect(xml).not.toMatch(/GRADE END|GRADE START/);
     expect(xml).not.toContain('at point X= Y= Z=');
     const deltas = [...String(xml).matchAll(/DELTA_X="(-?[\d.]+)"[^>]*DELTA_Y="(-?[\d.]+)"[^>]*DELTA_Z="(-?[\d.]+)"/g)]
@@ -119,12 +125,13 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-PROP-B02 Table 3 edits change labels only; Table 2 edits change elevation', async ({ page }) => {
+  test('P3D-PROP-B02 Table 3 edits preserve XML; Table 2 edits change elevation', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
     await page.locator('[data-p3d="run"]').click();
     const baseline = await page.locator('[data-p3d="coordinate-output"]').textContent();
     const baselineXyz = xyzRows(baseline || '');
+    const baselineXml = await page.locator('[data-p3d="xml-output"]').textContent();
 
     await page.locator('[data-p3d-raw-text-group="table3"]').evaluate((element) => { element.open = true; });
     const markerCell = page.locator('[data-p3d-split-preview="table3c-raw"] [data-p3d-split-cell="0:1"]');
@@ -141,8 +148,9 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(markerOnly).toContain('PMS-001A');
     expect(markerOnly).toContain('2.0M START');
     expect(xyzRows(markerOnly || '')).toEqual(baselineXyz);
-    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-001A');
-    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('2.0M START');
+    const markerOnlyXml = await page.locator('[data-p3d="xml-output"]').textContent();
+    expect(markerOnlyXml).toEqual(baselineXml);
+    expectMarkersExcludedFromXml(markerOnlyXml, ['PMS-001A', '2.0M START']);
 
     await page.locator('[data-p3d-raw-text-group="table2"]').evaluate((element) => { element.open = true; });
     const elevationCell = page.locator('[data-p3d-split-preview="table2a-raw"] [data-p3d-split-cell="0:4"]');
@@ -150,6 +158,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     await page.locator('[data-p3d="run"]').click();
     const table2Changed = await page.locator('[data-p3d="coordinate-output"]').textContent();
     expect(xyzRows(table2Changed || '')).not.toEqual(baselineXyz);
+    expect(await page.locator('[data-p3d="xml-output"]').textContent()).not.toEqual(baselineXml);
     expect(errors).toEqual([]);
   });
 
@@ -167,7 +176,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-WARN-B01 out-of-domain evidence warns without blocking downloads', async ({ page }) => {
+  test('P3D-WARN-B01 out-of-domain marker evidence warns without entering XML or blocking downloads', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
     const raw = page.locator('[data-p3d-split="table3c-raw"]');
@@ -184,7 +193,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     await expect(warningLog).toContainText('table3_h_clamped');
     await expect(warningLog).toContainText('was clamped for output');
     await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-OUTSIDE');
-    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-OUTSIDE');
+    await expect(page.locator('[data-p3d="xml-output"]')).not.toContainText('PMS-OUTSIDE');
 
     const coordinateDownload = page.waitForEvent('download');
     await page.locator('[data-p3d="download-coordinate"]').click();
