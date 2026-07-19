@@ -53,7 +53,16 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
       - name: B01 accessible pointer and keyboard selection
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B01'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/b01.json
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B01' --reporter=json
+      - name: Upload B01 failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-svg-shell-b01-failure
+          path: test-results
+          if-no-files-found: error
       - name: B02 mixed selection and one-command apply
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B02'
       - name: B03 invalid and cancelled drafts
