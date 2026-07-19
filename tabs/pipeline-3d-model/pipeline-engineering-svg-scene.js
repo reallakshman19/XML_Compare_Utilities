@@ -9,10 +9,10 @@ import { preparePipelineEngineeringSvgViewModel } from './pipeline-engineering-s
 
 export const PIPELINE_ENGINEERING_SVG_PARITY_SCHEMA = 'PipelineEngineeringSvgParityReport.v1';
 
-const ROW_CATEGORIES = Object.freeze([
+const REVIEW_CATEGORIES = Object.freeze([
   'routeVertices', 'gradeEvents', 'depthEvents', 'markers', 'referenceEvents', 'coordinateRows',
 ]);
-const CATEGORY_ORDER = Object.freeze(['routeSegments', ...ROW_CATEGORIES]);
+const CATEGORY_ORDER = Object.freeze(['routeSegments', ...REVIEW_CATEGORIES]);
 const DOMAIN_TYPES = Object.freeze({
   routeSegments: 'PIPELINE_ROUTE_SEGMENT',
   routeVertices: 'PIPELINE_ROUTE_VERTEX',
@@ -37,27 +37,45 @@ function duplicateValues(values) {
   return [...duplicates].sort();
 }
 
-function categoryTotals(viewModel) {
-  const expected = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0]));
-  expected.routeSegments = viewModel.routeSegments.length;
-  viewModel.coordinateRows.forEach((row) => { expected[row.category] += 1; });
-  return expected;
+function emptyCategoryTotals() {
+  return Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0]));
+}
+
+function reviewCategoryTotals(rows, mappedOnly = false) {
+  const totals = Object.fromEntries(REVIEW_CATEGORIES.map((category) => [category, 0]));
+  rows.forEach((row) => {
+    if (!mappedOnly || (row.id && row.point)) totals[row.category] += 1;
+  });
+  return totals;
+}
+
+function categoryTotals(viewModel, mappedOnly = false) {
+  const totals = emptyCategoryTotals();
+  totals.routeSegments = mappedOnly
+    ? viewModel.routeSegments.filter((segment) => segment.id && segment.start && segment.end).length
+    : viewModel.routeSegments.length;
+  Object.assign(totals, reviewCategoryTotals(viewModel.reviewRows, mappedOnly));
+  return totals;
 }
 
 function invalidCoordinates(viewModel) {
-  const rows = viewModel.coordinateRows.filter((row) => !row.point).map((row) => ({
-    id: row.id, sourceIndex: row.sourceIndex, category: row.category,
+  const review = viewModel.reviewRows.filter((row) => !row.point).map((row) => ({
+    reason: 'REVIEW_COORDINATE_INVALID', id: row.id, sourceIndex: row.sourceIndex, category: row.category,
+  }));
+  const geometry = viewModel.geometryRows.filter((row) => !row.point).map((row) => ({
+    reason: 'GEOMETRY_COORDINATE_INVALID', id: row.id, sourceIndex: row.sourceIndex,
   }));
   const segments = viewModel.routeSegments.filter((segment) => !segment.start || !segment.end).map((segment) => ({
-    id: segment.id, sourceIndex: segment.sourceIndex, category: segment.category,
+    reason: 'SEGMENT_COORDINATE_INVALID', id: segment.id, sourceIndex: segment.sourceIndex,
   }));
-  return [...rows, ...segments];
+  return [...review, ...geometry, ...segments];
 }
 
 function unresolvedReferences(viewModel) {
-  const rowIds = new Set(viewModel.coordinateRows.map((row) => row.id).filter(Boolean));
+  const geometryIds = new Set(viewModel.geometryRows.map((row) => row.id).filter(Boolean));
   return viewModel.routeSegments.flatMap((segment) => {
-    const missing = [segment.fromId, segment.toId].filter((id) => !id || !rowIds.has(id));
+    const missing = [segment.fromGeometryId, segment.toGeometryId]
+      .filter((id) => !id || !geometryIds.has(id));
     return missing.length ? [{ segmentId: segment.id, missing }] : [];
   });
 }
@@ -65,13 +83,17 @@ function unresolvedReferences(viewModel) {
 function routeDiscontinuities(viewModel) {
   const issues = [];
   viewModel.routeSegments.forEach((segment, index) => {
-    const from = viewModel.coordinateRows[index], to = viewModel.coordinateRows[index + 1];
-    if (!from || !to || segment.fromId !== from.id || segment.toId !== to.id
+    const from = viewModel.geometryRows[index], to = viewModel.geometryRows[index + 1];
+    if (!from || !to || segment.fromGeometryId !== from.id || segment.toGeometryId !== to.id
       || !samePoint(segment.start, from.point) || !samePoint(segment.end, to.point)) {
       issues.push({ segmentId: segment.id, reason: 'SEGMENT_ENDPOINT_PARITY' });
     }
+    if (from && to && from.branchName !== to.branchName) {
+      issues.push({ segmentId: segment.id, reason: 'GEOMETRY_BRANCH_DISCONTINUITY' });
+    }
     const previous = viewModel.routeSegments[index - 1];
-    if (previous && (previous.toId !== segment.fromId || !samePoint(previous.end, segment.start))) {
+    if (previous && (previous.toGeometryId !== segment.fromGeometryId
+      || !samePoint(previous.end, segment.start))) {
       issues.push({ segmentId: segment.id, reason: 'SEQUENTIAL_ROUTE_CONTINUITY' });
     }
   });
@@ -79,13 +101,16 @@ function routeDiscontinuities(viewModel) {
 }
 
 function coordinateRowMismatches(viewModel) {
-  const textRows = viewModel.coordinateTextRows;
   const mismatches = [];
-  if (textRows.length !== viewModel.coordinateRows.length) {
-    mismatches.push({ reason: 'COORDINATE_ROW_COUNT', expected: viewModel.coordinateRows.length, actual: textRows.length });
+  if (viewModel.coordinateTextRows.length !== viewModel.reviewRows.length) {
+    mismatches.push({
+      reason: 'COORDINATE_ROW_COUNT',
+      expected: viewModel.reviewRows.length,
+      actual: viewModel.coordinateTextRows.length,
+    });
   }
-  viewModel.coordinateRows.forEach((row, index) => {
-    const textRow = textRows[index];
+  viewModel.reviewRows.forEach((row, index) => {
+    const textRow = viewModel.coordinateTextRows[index];
     if (!textRow || textRow.branchName !== row.branchName || textRow.nodeNumber !== row.nodeNumber
       || !samePoint(textRow, row.point) || textRow.nodeName !== row.nodeName) {
       mismatches.push({ reason: 'COORDINATE_ROW_VALUE', sourceIndex: index, id: row.id });
@@ -94,78 +119,110 @@ function coordinateRowMismatches(viewModel) {
   return mismatches;
 }
 
-function xmlMismatches(viewModel) {
-  const mismatches = [];
-  if (viewModel.inputXmlElements.length !== viewModel.routeSegments.length) {
-    mismatches.push({ reason: 'INPUTXML_ELEMENT_COUNT', expected: viewModel.routeSegments.length, actual: viewModel.inputXmlElements.length });
-  }
-  viewModel.routeSegments.forEach((segment, index) => {
+function inputXmlCountMismatches(viewModel) {
+  return viewModel.inputXmlElements.length === viewModel.routeSegments.length ? [] : [{
+    reason: 'INPUTXML_ELEMENT_COUNT',
+    expected: viewModel.routeSegments.length,
+    actual: viewModel.inputXmlElements.length,
+  }];
+}
+
+function inputXmlValueMismatches(viewModel) {
+  return viewModel.routeSegments.flatMap((segment, index) => {
     const xml = viewModel.inputXmlElements[index];
-    const from = viewModel.coordinateRows[index], to = viewModel.coordinateRows[index + 1];
-    if (!xml || xml.fromNode !== segment.fromNode || xml.toNode !== segment.toNode
-      || !samePoint({ x: xml.deltaX, y: xml.deltaY, z: xml.deltaZ }, segment.delta)
-      || xml.fromName !== from?.nodeName || xml.toName !== to?.nodeName) {
-      mismatches.push({ reason: 'INPUTXML_ELEMENT_VALUE', sourceIndex: index, segmentId: segment.id });
-    }
+    const from = viewModel.geometryRows[index], to = viewModel.geometryRows[index + 1];
+    const matches = xml && xml.fromNode === segment.fromNode && xml.toNode === segment.toNode
+      && samePoint({ x: xml.deltaX, y: xml.deltaY, z: xml.deltaZ }, segment.delta)
+      && xml.fromName === from?.nodeName && xml.toName === to?.nodeName;
+    return matches ? [] : [{ reason: 'INPUTXML_ELEMENT_VALUE', sourceIndex: index, segmentId: segment.id }];
   });
-  return mismatches;
+}
+
+function reviewPropertyGaps(rows) {
+  return rows.flatMap((row) => (
+    row.id && row.category && row.branchName && row.nodeNumber !== null
+      && row.ledgerSource === 'coordinateRows'
+      ? [] : [{ reason: 'REVIEW_PROPERTY_COVERAGE', id: row.id, category: row.category }]
+  ));
+}
+
+function segmentPropertyGaps(segments) {
+  return segments.flatMap((segment) => (
+    segment.id && segment.branchName && segment.fromNode !== null && segment.toNode !== null
+      && segment.start && segment.end && segment.delta && segment.xmlElement
+      && ['inputXmlCoordinateRows', 'coordinateRows'].includes(segment.ledgerSource)
+      ? [] : [{ reason: 'SEGMENT_PROPERTY_COVERAGE', id: segment.id }]
+  ));
 }
 
 function propertyCoverageGaps(viewModel) {
-  const gaps = viewModel.coordinateRows.flatMap((row) => (
-    row.id && row.category && row.branchName && row.nodeNumber !== null ? [] : [{ id: row.id, category: row.category }]
-  ));
-  return gaps;
+  return [...reviewPropertyGaps(viewModel.reviewRows), ...segmentPropertyGaps(viewModel.routeSegments)];
 }
 
-function mappedTotals(viewModel) {
-  const mapped = Object.fromEntries(CATEGORY_ORDER.map((category) => [category, 0]));
-  viewModel.routeSegments.forEach((segment) => {
-    if (segment.id && segment.start && segment.end) mapped.routeSegments += 1;
+function omittedEntities(expected, mapped) {
+  return CATEGORY_ORDER.flatMap((category) => {
+    const omitted = expected[category] - mapped[category];
+    return omitted ? [{ category, omitted }] : [];
   });
-  viewModel.coordinateRows.forEach((row) => {
-    if (row.id && row.point) mapped[row.category] += 1;
-  });
-  return mapped;
 }
 
 export function buildPipelineEngineeringSvgParityReport(viewModelValue) {
   const viewModel = preparePipelineEngineeringSvgViewModel(viewModelValue);
-  const allIds = [...viewModel.routeSegments, ...viewModel.coordinateRows].map((value) => value.id);
+  const entityIds = [...viewModel.routeSegments, ...viewModel.reviewRows].map((value) => value.id);
+  const geometryIds = viewModel.geometryRows.map((value) => value.id);
   const expectedByCategory = categoryTotals(viewModel);
-  const mappedByCategory = mappedTotals(viewModel);
-  const omittedEntities = CATEGORY_ORDER.flatMap((category) => {
-    const omitted = expectedByCategory[category] - mappedByCategory[category];
-    return omitted ? [{ category, omitted }] : [];
-  });
+  const mappedByCategory = categoryTotals(viewModel, true);
+  const inputXmlCount = inputXmlCountMismatches(viewModel);
+  const inputXmlValues = inputXmlValueMismatches(viewModel);
   const report = {
     schema: PIPELINE_ENGINEERING_SVG_PARITY_SCHEMA,
     revision: viewModel.revision,
+    ledgerMode: viewModel.ledgerMode,
+    reviewRowCount: viewModel.reviewRows.length,
+    geometryRowCount: viewModel.geometryRows.length,
+    inputXmlElementCount: viewModel.inputXmlElements.length,
+    expectedReviewPointsByCategory: reviewCategoryTotals(viewModel.reviewRows),
+    mappedReviewPointsByCategory: reviewCategoryTotals(viewModel.reviewRows, true),
+    expectedRouteSegmentCount: viewModel.routeSegments.length,
+    mappedRouteSegmentCount: mappedByCategory.routeSegments,
     expectedByCategory,
     mappedByCategory,
-    omittedEntities,
-    duplicateIds: duplicateValues(allIds),
+    omittedEntities: omittedEntities(expectedByCategory, mappedByCategory),
+    ledgerErrors: viewModel.ledgerErrors,
+    duplicateIds: duplicateValues([...entityIds, ...geometryIds]),
     invalidCoordinates: invalidCoordinates(viewModel),
     unresolvedReferences: unresolvedReferences(viewModel),
     routeDiscontinuities: routeDiscontinuities(viewModel),
     coordinateRowMismatches: coordinateRowMismatches(viewModel),
-    inputXmlMismatches: xmlMismatches(viewModel),
+    inputXmlCountMismatches: inputXmlCount,
+    inputXmlValueMismatches: inputXmlValues,
+    inputXmlMismatches: [...inputXmlCount, ...inputXmlValues],
     propertyCoverageGaps: propertyCoverageGaps(viewModel),
+    markerReviewEntityCount: viewModel.reviewRows.filter((row) => row.category === 'markers').length,
+    reviewOnlyRowCount: Math.max(0, viewModel.reviewRows.length - viewModel.geometryRows.length),
     totalExpected: Object.values(expectedByCategory).reduce((sum, value) => sum + value, 0),
     totalMapped: Object.values(mappedByCategory).reduce((sum, value) => sum + value, 0),
   };
-  const issueKeys = ['omittedEntities', 'duplicateIds', 'invalidCoordinates', 'unresolvedReferences',
-    'routeDiscontinuities', 'coordinateRowMismatches', 'inputXmlMismatches', 'propertyCoverageGaps'];
-  report.passed = issueKeys.every((key) => report[key].length === 0) && report.totalMapped === report.totalExpected;
+  const issueKeys = [
+    'omittedEntities', 'ledgerErrors', 'duplicateIds', 'invalidCoordinates', 'unresolvedReferences',
+    'routeDiscontinuities', 'coordinateRowMismatches', 'inputXmlCountMismatches',
+    'inputXmlValueMismatches', 'propertyCoverageGaps',
+  ];
+  report.passed = issueKeys.every((key) => report[key].length === 0)
+    && report.totalMapped === report.totalExpected;
   return freezeJsonValue(report);
 }
 
 export function assertPipelineEngineeringSvgParity(report) {
-  if (report?.schema !== PIPELINE_ENGINEERING_SVG_PARITY_SCHEMA) throw new TypeError('Pipeline parity report is invalid.');
+  if (report?.schema !== PIPELINE_ENGINEERING_SVG_PARITY_SCHEMA) {
+    throw new TypeError('Pipeline parity report is invalid.');
+  }
   if (!report.passed) {
-    const first = ['duplicateIds', 'invalidCoordinates', 'unresolvedReferences', 'routeDiscontinuities',
-      'coordinateRowMismatches', 'inputXmlMismatches', 'propertyCoverageGaps', 'omittedEntities']
-      .find((key) => report[key]?.length);
+    const first = [
+      'ledgerErrors', 'duplicateIds', 'invalidCoordinates', 'unresolvedReferences',
+      'routeDiscontinuities', 'coordinateRowMismatches', 'inputXmlCountMismatches',
+      'inputXmlValueMismatches', 'propertyCoverageGaps', 'omittedEntities',
+    ].find((key) => report[key]?.length);
     throw new Error(`Pipeline engineering SVG parity failed: ${first || 'unknown parity failure'}.`);
   }
   return report;
@@ -177,7 +234,10 @@ function rowEntity(row) {
     kind: 'point',
     domainType: DOMAIN_TYPES[row.category],
     geometry: createPointGeometry(row.point),
-    domainRef: { owner: 'pipeline-3d-model', category: row.category, branchName: row.branchName, nodeNumber: row.nodeNumber },
+    domainRef: {
+      owner: 'pipeline-3d-model', category: row.category,
+      branchName: row.branchName, nodeNumber: row.nodeNumber,
+    },
     propertySetIds: [`pipeline:properties:${row.id}`],
     editCapabilities: [],
     layer: `pipeline-${row.category.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`,
@@ -186,13 +246,16 @@ function rowEntity(row) {
   });
 }
 
-function segmentEntity(segment, branchName) {
+function segmentEntity(segment) {
   return createEngineeringSceneEntity({
     id: segment.id,
     kind: 'segment',
     domainType: DOMAIN_TYPES.routeSegments,
     geometry: createSegmentGeometry(segment.start, segment.end),
-    domainRef: { owner: 'pipeline-3d-model', category: 'routeSegments', branchName, fromNode: segment.fromNode, toNode: segment.toNode },
+    domainRef: {
+      owner: 'pipeline-3d-model', category: 'routeSegments',
+      branchName: segment.branchName, fromNode: segment.fromNode, toNode: segment.toNode,
+    },
     propertySetIds: [`pipeline:properties:${segment.id}`],
     editCapabilities: [],
     layer: 'pipeline-route',
@@ -206,10 +269,9 @@ export function buildPipelineEngineeringSvgScene(snapshotValue, options = {}) {
   const sceneId = String(options.sceneId ?? '').trim();
   if (!sceneId) throw new TypeError('Pipeline engineering SVG requires an explicit sceneId.');
   const parity = assertPipelineEngineeringSvgParity(buildPipelineEngineeringSvgParityReport(viewModel));
-  const branchName = viewModel.coordinateRows[0]?.branchName || '';
   const entities = [
-    ...viewModel.routeSegments.map((segment) => segmentEntity(segment, branchName)),
-    ...viewModel.coordinateRows.map(rowEntity),
+    ...viewModel.routeSegments.map(segmentEntity),
+    ...viewModel.reviewRows.map(rowEntity),
   ];
   const scene = createEngineeringScene({
     sceneId,
@@ -230,4 +292,7 @@ export function buildPipelineEngineeringSvgScene(snapshotValue, options = {}) {
   return Object.freeze({ scene, parity, viewModel });
 }
 
-export const _test = Object.freeze({ samePoint, duplicateValues, coordinateRowMismatches, xmlMismatches });
+export const _test = Object.freeze({
+  samePoint, duplicateValues, coordinateRowMismatches,
+  inputXmlCountMismatches, inputXmlValueMismatches,
+});
