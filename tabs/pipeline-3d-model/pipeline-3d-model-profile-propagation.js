@@ -65,6 +65,7 @@ function diagnostics(context, profile, gradeRows, maxSegment, elasticBends) {
     elasticBendCandidates: elasticBends.diagnostics.candidateCount,
     elasticBendsEmitted: elasticBends.diagnostics.emittedCount,
     bendBlockingErrors: elasticBends.diagnostics.blockedCount,
+    sharedBendSegmentFailures: elasticBends.diagnostics.sharedSegmentFailureCount,
     markerRowsExcludedFromInputXml: elasticBends.diagnostics.excludedMarkerCount,
   });
 }
