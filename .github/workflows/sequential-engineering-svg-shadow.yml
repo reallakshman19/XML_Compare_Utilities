@@ -15,12 +15,52 @@ on:
 permissions:
   contents: read
 
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   shadow-contracts-regressions-and-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+      - name: Verify exact source head
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          sha_match=false
+          if [[ "$actual_sha" == "$EXPECTED_SHA" ]]; then
+            sha_match=true
+          fi
+          {
+            echo "actual_sha=$actual_sha"
+            echo "sha_match=$sha_match"
+          } >> "$GITHUB_OUTPUT"
+          mkdir -p test-results/sequential-engineering-svg-shadow
+          cat > test-results/sequential-engineering-svg-shadow/exact-head.json <<EOF
+          {
+            "schema": "SequentialEngineeringSvgShadowExactHead.v1",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${actual_sha}",
+            "match": ${sha_match}
+          }
+          EOF
+          {
+            echo "## Exact source head"
+            echo "- Expected: \`${EXPECTED_SHA}\`"
+            echo "- Actual: \`${actual_sha}\`"
+            echo "- Match: \`${sha_match}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$sha_match" != "true" ]]; then
+            echo "::error::Checked-out HEAD ${actual_sha} does not match expected source SHA ${EXPECTED_SHA}."
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -81,16 +121,22 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: SSK-ESVG-SHADOW-B01 blocked state
+        id: b01
         run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B01'
       - name: SSK-ESVG-SHADOW-B02 repair and rejection
+        id: b02
         run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B02'
       - name: SSK-ESVG-SHADOW-B03 support ownership
+        id: b03
         run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B03'
       - name: SSK-ESVG-SHADOW-B04 projection and immutability
+        id: b04
         run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B04'
       - name: SSK-ESVG-SHADOW-B05 failure and lifecycle
+        id: b05
         run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B05'
       - name: Startup smoke
+        id: startup_smoke
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/xml-compare-startup-server.log 2>&1 &
           server_pid=$!
@@ -101,11 +147,56 @@ jobs:
           done
           node tests/browser/xml-compare-startup-smoke.mjs
       - name: Full repository tests
+        id: full_tests
         run: npm test
+      - name: Write exact-head certification evidence
+        if: always()
+        shell: bash
+        env:
+          ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
+          B01_RESULT: ${{ steps.b01.outcome }}
+          B02_RESULT: ${{ steps.b02.outcome }}
+          B03_RESULT: ${{ steps.b03.outcome }}
+          B04_RESULT: ${{ steps.b04.outcome }}
+          B05_RESULT: ${{ steps.b05.outcome }}
+          STARTUP_RESULT: ${{ steps.startup_smoke.outcome }}
+          FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/sequential-engineering-svg-shadow
+          cat > test-results/sequential-engineering-svg-shadow/certification.json <<EOF
+          {
+            "schema": "SequentialEngineeringSvgShadowCertification.v1",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${ACTUAL_SHA}",
+            "shaMatch": ${SHA_MATCH:-false},
+            "results": {
+              "B01": "${B01_RESULT}",
+              "B02": "${B02_RESULT}",
+              "B03": "${B03_RESULT}",
+              "B04": "${B04_RESULT}",
+              "B05": "${B05_RESULT}",
+              "startupSmoke": "${STARTUP_RESULT}",
+              "fullRepositoryTests": "${FULL_TEST_RESULT}"
+            }
+          }
+          EOF
+      - name: Upload exact-head certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-engineering-svg-shadow-certification-${{ env.EXPECTED_SHA }}
+          path: |
+            test-results/sequential-engineering-svg-shadow/exact-head.json
+            test-results/sequential-engineering-svg-shadow/certification.json
+          if-no-files-found: error
       - name: Upload exact-head browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: sequential-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
+          name: sequential-engineering-svg-shadow-failure-${{ env.EXPECTED_SHA }}
           path: test-results/sequential-engineering-svg-shadow
           if-no-files-found: warn
