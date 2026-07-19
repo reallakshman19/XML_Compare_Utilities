@@ -17,7 +17,7 @@ permissions:
 jobs:
   accessible-shell:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,5 +52,46 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Run accessible shell Chromium acceptance
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
+      - name: B01 accessible pointer and keyboard selection
+        id: b01
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B01'
+      - name: B02 mixed selection and one-command apply
+        id: b02
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B02'
+      - name: B03 invalid and cancelled drafts
+        id: b03
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B03'
+      - name: B04 combined native-control property commit
+        id: b04
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B04'
+      - name: B05 stale revision rejection
+        id: b05
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B05'
+      - name: B06 delayed selection response isolation
+        id: b06
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B06'
+      - name: B07 focused input preservation
+        id: b07
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B07'
+      - name: B08 multi-shell isolation and remount
+        id: b08
+        continue-on-error: true
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B08'
+      - name: Require all shell browser acceptances
+        if: always()
+        run: |
+          test '${{ steps.b01.outcome }}' = 'success'
+          test '${{ steps.b02.outcome }}' = 'success'
+          test '${{ steps.b03.outcome }}' = 'success'
+          test '${{ steps.b04.outcome }}' = 'success'
+          test '${{ steps.b05.outcome }}' = 'success'
+          test '${{ steps.b06.outcome }}' = 'success'
+          test '${{ steps.b07.outcome }}' = 'success'
+          test '${{ steps.b08.outcome }}' = 'success'
