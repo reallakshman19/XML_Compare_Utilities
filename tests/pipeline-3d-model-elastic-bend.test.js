@@ -155,7 +155,7 @@ assert.equal(compound.candidates[0].classification, 'COMPOUND');
 const infeasiblePoints = [point(0, 0, 0), point(10, 0, 0), point(10, 10, 0)];
 const infeasible = resolvePipelineElasticBends({
   points: infeasiblePoints, coordinateRows: coordinateRows(infeasiblePoints),
-  settings: settings({ practicalRadiusMultiplierD: 50, retainedStraightAllowanceMm: 2000 }),
+  settings: settings({ practicalRadiusMultiplierD: 100, retainedStraightAllowanceMm: 2000 }),
 });
 assert.equal(infeasible.candidates[0].status, 'INFEASIBLE');
 assert.equal(infeasible.hasBlockingErrors, true);
