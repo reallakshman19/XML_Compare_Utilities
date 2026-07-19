@@ -148,7 +148,7 @@ test('SSK-ESVG-SHADOW-B03 accepted support retains fingerprint ownership and exa
   expect(evidence.domainRef.supportId).toBeTruthy();
   expect(evidence.domainRef.familyId).toBeTruthy();
   expect(evidence.domainRef.carrierId).toBeTruthy();
-  expect(evidence.geometry.position).toEqual({ x: 250, y: 0, z: 0 });
+  expect(evidence.geometry.position).toEqual({ schema: 'EngineeringPoint3D.v1', x: 250, y: 0, z: 0 });
   expect(evidence.revision.supportMatchesConfirmed).toBe(true);
   expect(evidence.revision.supportConstructionFingerprint)
     .toBe(evidence.revision.confirmedConstructionFingerprint);

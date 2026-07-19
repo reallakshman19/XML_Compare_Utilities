@@ -2,7 +2,13 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: ['revision-compare-rc001.spec.mjs', 'revision-compare-rc002.spec.mjs', 'revision-compare-rc003.spec.mjs', 'revision-compare-rc004.spec.mjs'],
+  testMatch: [
+    'revision-compare-rc001.spec.mjs',
+    'revision-compare-rc002.spec.mjs',
+    'revision-compare-rc003.spec.mjs',
+    'revision-compare-rc004.spec.mjs',
+    'revision-compare-svg-preview.spec.mjs',
+  ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
