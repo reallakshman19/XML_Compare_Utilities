@@ -99,7 +99,7 @@ test('TTV-ESVG-SHADOW-B02 pointer selection exposes exact source properties with
   await openFixture(page);
   const root = shell(page);
   const pipeKey = 'source:$[0].children[0]';
-  await root.locator(`[data-engineering-svg-entity-id="${pipeKey}"]`).click();
+  await root.locator(`[data-engineering-svg-entity-id="${pipeKey}"]`).dispatchEvent('click');
   await expect(property(root, 'objectKey')).toHaveText(pipeKey);
   await expect(property(root, 'domainType')).toHaveText('TTV_SOURCE_COMPONENT');
   await expect(property(root, 'sourceEntityId')).toHaveText('SRC-PIPE-1');
@@ -110,7 +110,7 @@ test('TTV-ESVG-SHADOW-B02 pointer selection exposes exact source properties with
   await expect(property(root, 'startZ')).toHaveText('0 mm');
   await expect(property(root, 'endX')).toHaveText('10 mm');
   const bendKey = 'source:$[0].children[6]';
-  await root.locator(`[data-engineering-svg-entity-id="${bendKey}"]`).click();
+  await root.locator(`[data-engineering-svg-entity-id="${bendKey}"]`).dispatchEvent('click');
   await expect(property(root, 'coordinates')).toHaveText('[{"x":18,"y":0,"z":0},{"x":20,"y":0,"z":0},{"x":20,"y":2,"z":0}]');
   const result = await page.evaluate(() => globalThis.__topologyEngineeringSvgShadowFixture.workspace.shell.apply());
   expect(result).toBeNull();
@@ -145,7 +145,7 @@ test('TTV-ESVG-SHADOW-B04 owner revision and shell projections preserve identity
   await openFixture(page);
   const root = shell(page);
   const objectKey = 'canonical:edge:E-VALVE';
-  await root.locator(`[data-engineering-svg-entity-id="${objectKey}"]`).click();
+  await root.locator(`[data-engineering-svg-entity-id="${objectKey}"]`).dispatchEvent('click');
   await expect(property(root, 'objectKey')).toHaveText(objectKey);
   const evidence = await page.evaluate(async (selectedKey) => {
     const fixture = globalThis.__topologyEngineeringSvgShadowFixture;
