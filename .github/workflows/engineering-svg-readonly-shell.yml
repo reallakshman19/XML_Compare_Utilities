@@ -45,5 +45,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run existing editable shell acceptance
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
-      - name: Run read-only shell acceptance
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs
+      - name: B01 viewer and output-only properties
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B01'
+      - name: B02 keyboard selection and refresh
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B02'
+      - name: B03 access-mode boundaries
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B03'
+      - name: B04 two-viewer isolation
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B04'
+      - name: B05 destroy and remount
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B05'
