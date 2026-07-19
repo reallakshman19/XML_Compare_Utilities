@@ -86,7 +86,7 @@ assert.match(profile, /\[BLOCKING\]/);
 assert.match(profile, /markerRowsExcludedFromInputXml/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
-assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260719-elastic-bend-2/);
+assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260719-bend-hardening-1/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 
 console.log('Pipeline authoritative bend static guards passed.');
