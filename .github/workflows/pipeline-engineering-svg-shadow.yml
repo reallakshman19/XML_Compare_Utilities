@@ -1,0 +1,102 @@
+name: Pipeline Engineering SVG Shadow Workspace
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js'
+      - 'tests/pipeline-engineering-svg-shadow-*.test.js'
+      - 'tests/browser/pipeline-engineering-svg-shadow-*'
+      - 'playwright.pipeline-engineering-svg-shadow.config.mjs'
+      - '.github/workflows/pipeline-engineering-svg-shadow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-contracts-browser-and-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: Engineering Scene and SVG adapter contracts
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+      - name: Read-only shared shell guards
+        run: |
+          node tests/engineering-svg-shell-dependency-guard.test.js
+          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: Merged Pipeline adapter and exact parity
+        run: |
+          node tests/pipeline-engineering-svg-adapter.test.js
+          node tests/pipeline-engineering-svg-parity.test.js
+          node tests/pipeline-engineering-svg-dependency-guard.test.js
+      - name: Pipeline project-output, propagation and InputXML regressions
+        run: |
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/project-migrations-phase6.test.mjs
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-3d-model-elastic-bend-static.test.js
+      - name: Shadow ownership and dependency contracts
+        run: |
+          node tests/pipeline-engineering-svg-shadow-ownership.test.js
+          node tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
+      - name: Production and test JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js
+          node --check tests/pipeline-engineering-svg-shadow-ownership.test.js
+          node --check tests/pipeline-engineering-svg-shadow-dependency-guard.test.js
+          node --check tests/browser/pipeline-engineering-svg-shadow.spec.mjs
+          node --check playwright.pipeline-engineering-svg-shadow.config.mjs
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: PCAD-ESVG-SHADOW-B01 real fixture parity
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B01'
+      - name: PCAD-ESVG-SHADOW-B02 exact properties
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B02'
+      - name: PCAD-ESVG-SHADOW-B03 read-only boundaries
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B03'
+      - name: PCAD-ESVG-SHADOW-B04 owner refresh and projection invariance
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B04'
+      - name: PCAD-ESVG-SHADOW-B05 lifecycle and failure contracts
+        run: npx playwright test --config=playwright.pipeline-engineering-svg-shadow.config.mjs --grep 'PCAD-ESVG-SHADOW-B05'
+      - name: Existing Pipeline browser acceptance
+        run: npm run test:pipeline-cad-browser
+      - name: Startup smoke
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/xml-compare-startup-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          node tests/browser/xml-compare-startup-smoke.mjs
+      - name: Full repository tests
+        run: npm test
+      - name: Upload exact-head shadow failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            test-results/pipeline-engineering-svg-shadow
+            test-results/pipeline-cad
+            /tmp/xml-compare-startup-server.log
+          if-no-files-found: warn
