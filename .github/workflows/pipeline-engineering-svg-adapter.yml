@@ -1,0 +1,51 @@
+name: Pipeline Engineering SVG Adapter
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/pipeline-3d-model/pipeline-engineering-svg-*.js'
+      - 'tests/pipeline-engineering-svg-*.test.js'
+      - '.github/workflows/pipeline-engineering-svg-adapter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-adapter-and-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run shared Engineering Scene and read-only adapter foundations
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-projection.test.js
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+          node tests/engineering-svg-shell-dependency-guard.test.js
+          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: Run authoritative Pipeline output regressions
+        run: |
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/project-migrations-phase6.test.mjs
+      - name: Run Pipeline shared-scene parity and dependency guards
+        run: |
+          node tests/pipeline-engineering-svg-adapter.test.js
+          node tests/pipeline-engineering-svg-parity.test.js
+          node tests/pipeline-engineering-svg-dependency-guard.test.js
+      - name: Parse changed JavaScript modules and startup graph
+        shell: bash
+        run: |
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-view-model.js
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-scene.js
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-properties.js
+          node --check tabs/pipeline-3d-model/pipeline-engineering-svg-adapter.js
+          node --check tests/pipeline-engineering-svg-adapter.test.js
+          node --check tests/pipeline-engineering-svg-parity.test.js
+          node --check tests/pipeline-engineering-svg-dependency-guard.test.js
+          node tests/startup-module-syntax.test.js
