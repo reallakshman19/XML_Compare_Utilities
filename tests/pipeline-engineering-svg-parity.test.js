@@ -26,75 +26,123 @@ function snapshot() {
   const branchInfo = { branchName: 'PL-PARITY', lineNo: 'PL-PARITY', p1: '42', t1: '65' };
   const output = buildPipelineProjectOutputs({
     table1Text: SAMPLE_TABLE_1_MULTISHEET, table2Text: '', table3Text: '', branchInfo,
-    profileRaw: { table2a: table2.rawText, table3a: table3.table3ARaw, table3b: table3.table3BRaw, table3c: table3.table3CRaw },
+    profileRaw: {
+      table2a: table2.rawText, table3a: table3.table3ARaw,
+      table3b: table3.table3BRaw, table3c: table3.table3CRaw,
+    },
   });
   return {
-    output, branchInfo,
-    revision: createPipelineEngineeringRevisionToken({ projectRevision: 'p1', geometryRevision: 'g1', processConfigRevision: 'c1' }),
+    output,
+    branchInfo,
+    revision: createPipelineEngineeringRevisionToken({
+      projectRevision: 'p1', geometryRevision: 'g1', processConfigRevision: 'c1',
+    }),
   };
 }
 
+function assertNoIssues(report) {
+  for (const key of [
+    'omittedEntities', 'ledgerErrors', 'duplicateIds', 'invalidCoordinates',
+    'unresolvedReferences', 'routeDiscontinuities', 'coordinateRowMismatches',
+    'inputXmlCountMismatches', 'inputXmlValueMismatches', 'propertyCoverageGaps',
+  ]) assert.deepEqual(report[key], [], key);
+}
+
 const authoritative = snapshot();
+const original = JSON.stringify(authoritative);
 const viewModel = preparePipelineEngineeringSvgViewModel(authoritative);
 const report = buildPipelineEngineeringSvgParityReport(viewModel);
+assert.equal(JSON.stringify(authoritative), original);
 assert.equal(report.passed, true);
-assert.equal(report.omittedEntities.length, 0);
-assert.equal(report.duplicateIds.length, 0);
-assert.equal(report.invalidCoordinates.length, 0);
-assert.equal(report.unresolvedReferences.length, 0);
-assert.equal(report.routeDiscontinuities.length, 0);
-assert.equal(report.coordinateRowMismatches.length, 0);
-assert.equal(report.inputXmlMismatches.length, 0);
-assert.equal(report.propertyCoverageGaps.length, 0);
-assert.equal(report.totalMapped, authoritative.output.coordinateRows.length * 2 - 1);
-assert.equal(report.mappedByCategory.routeSegments, authoritative.output.coordinateRows.length - 1);
-assert.equal(Object.values(report.mappedByCategory).reduce((sum, count) => sum + count, 0), report.totalMapped);
+assertNoIssues(report);
+assert.equal(report.ledgerMode, 'dual');
+assert.equal(report.reviewRowCount, 30);
+assert.equal(report.geometryRowCount, 19);
+assert.equal(report.inputXmlElementCount, 18);
+assert.equal(report.expectedRouteSegmentCount, 18);
+assert.equal(report.mappedRouteSegmentCount, 18);
+assert.equal(report.totalExpected, 48);
+assert.equal(report.totalMapped, 48);
+assert.equal(report.markerReviewEntityCount, 4);
+assert.equal(report.reviewOnlyRowCount, 11);
+assert.equal(report.mappedByCategory.routeSegments, authoritative.output.inputXmlCoordinateRows.length - 1);
+assert.equal(Object.values(report.mappedReviewPointsByCategory).reduce((sum, count) => sum + count, 0), 30);
 assert.equal(assertPipelineEngineeringSvgParity(report), report);
 
-const rows = viewModel.coordinateRows;
-assert(rows.every((row, index) => row.point.x === authoritative.output.coordinateRows[index].x
+assert.equal(viewModel.reviewRows.length, authoritative.output.coordinateRows.length);
+assert.equal(viewModel.geometryRows.length, authoritative.output.inputXmlCoordinateRows.length);
+assert(viewModel.reviewRows.every((row, index) => row.point.x === authoritative.output.coordinateRows[index].x
   && row.point.y === authoritative.output.coordinateRows[index].y
   && row.point.z === authoritative.output.coordinateRows[index].z));
-assert(rows.every((row) => row.grade === null || row.point.z === authoritative.output.coordinateRows[row.sourceIndex].z));
-assert(rows.filter((row) => row.category === 'markers').every((row) => row.eventSources.includes('marker')));
-assert(rows.filter((row) => row.category === 'depthEvents').every((row) => row.eventSources.some((source) => source.startsWith('table3-z-'))));
-assert(rows.filter((row) => ['markers', 'depthEvents', 'referenceEvents'].includes(row.category))
-  .every((row) => row.elevationAuthority === 'TABLE_2'));
+assert(viewModel.geometryRows.every((row, index) => row.point.x === authoritative.output.inputXmlCoordinateRows[index].x
+  && row.point.y === authoritative.output.inputXmlCoordinateRows[index].y
+  && row.point.z === authoritative.output.inputXmlCoordinateRows[index].z));
+assert(viewModel.reviewRows.filter((row) => row.category === 'markers')
+  .every((row) => row.eventSources.includes('marker') && row.ledgerSource === 'coordinateRows'));
+assert(viewModel.routeSegments.every((segment) => segment.ledgerSource === 'inputXmlCoordinateRows'));
 
-const malformed = clone(authoritative);
-malformed.output.coordinateRows[2].x = 'not-a-coordinate';
-const malformedReport = buildPipelineEngineeringSvgParityReport(malformed);
-assert.equal(malformedReport.passed, false);
-assert.equal(malformedReport.invalidCoordinates.length > 0, true);
-assert.throws(() => buildPipelineEngineeringSvgScene(malformed, { sceneId: 'malformed' }), /invalidCoordinates/);
+const malformedReview = clone(authoritative);
+malformedReview.output.coordinateRows[2].x = 'not-a-coordinate';
+const malformedReviewReport = buildPipelineEngineeringSvgParityReport(malformedReview);
+assert.equal(malformedReviewReport.passed, false);
+assert(malformedReviewReport.invalidCoordinates.some((item) => item.reason === 'REVIEW_COORDINATE_INVALID'));
+assert.throws(() => buildPipelineEngineeringSvgScene(malformedReview, { sceneId: 'malformed-review' }), /invalidCoordinates/);
 
-const duplicated = clone(authoritative);
-duplicated.output.coordinateRows[1].nodeNumber = duplicated.output.coordinateRows[0].nodeNumber;
-const duplicateReport = buildPipelineEngineeringSvgParityReport(duplicated);
-assert.equal(duplicateReport.passed, false);
-assert.equal(duplicateReport.duplicateIds.length > 0, true);
-assert.throws(() => buildPipelineEngineeringSvgScene(duplicated, { sceneId: 'duplicate' }), /duplicateIds/);
+const malformedGeometry = clone(authoritative);
+malformedGeometry.output.inputXmlCoordinateRows[2].z = 'not-a-coordinate';
+const malformedGeometryReport = buildPipelineEngineeringSvgParityReport(malformedGeometry);
+assert.equal(malformedGeometryReport.passed, false);
+assert(malformedGeometryReport.invalidCoordinates.some((item) => item.reason === 'GEOMETRY_COORDINATE_INVALID'));
+assert.throws(() => buildPipelineEngineeringSvgScene(malformedGeometry, { sceneId: 'malformed-geometry' }), /invalidCoordinates/);
+
+const duplicatedReview = clone(authoritative);
+duplicatedReview.output.coordinateRows[1].nodeNumber = duplicatedReview.output.coordinateRows[0].nodeNumber;
+const duplicateReviewReport = buildPipelineEngineeringSvgParityReport(duplicatedReview);
+assert.equal(duplicateReviewReport.passed, false);
+assert(duplicateReviewReport.duplicateIds.length > 0);
+
+const duplicatedGeometry = clone(authoritative);
+duplicatedGeometry.output.inputXmlCoordinateRows[1].nodeNumber = duplicatedGeometry.output.inputXmlCoordinateRows[0].nodeNumber;
+const duplicateGeometryReport = buildPipelineEngineeringSvgParityReport(duplicatedGeometry);
+assert.equal(duplicateGeometryReport.passed, false);
+assert(duplicateGeometryReport.duplicateIds.length > 0);
+assert.throws(() => buildPipelineEngineeringSvgScene(duplicatedGeometry, { sceneId: 'duplicate-geometry' }), /duplicateIds/);
 
 const badXml = clone(authoritative);
 badXml.output.xmlText = badXml.output.xmlText.replace(/DELTA_X="(-?[\d.]+)"/, (match, value) => `DELTA_X="${Number(value) + 1}"`);
 const xmlReport = buildPipelineEngineeringSvgParityReport(badXml);
 assert.equal(xmlReport.passed, false);
-assert.equal(xmlReport.inputXmlMismatches.length > 0, true);
+assert.equal(xmlReport.inputXmlCountMismatches.length, 0);
+assert(xmlReport.inputXmlValueMismatches.length > 0);
+
+const shortXml = clone(authoritative);
+shortXml.output.xmlText = shortXml.output.xmlText.replace(/<PIPINGELEMENT\b(?:[^>]*\/>|[^>]*>[\s\S]*?<\/PIPINGELEMENT>)\n?/, '');
+const shortXmlReport = buildPipelineEngineeringSvgParityReport(shortXml);
+assert.equal(shortXmlReport.passed, false);
+assert.deepEqual(shortXmlReport.inputXmlCountMismatches, [{
+  reason: 'INPUTXML_ELEMENT_COUNT', expected: 18, actual: 17,
+}]);
 
 const discontinuous = clone(viewModel);
 discontinuous.routeSegments[1].start.x += 1;
 const continuityReport = buildPipelineEngineeringSvgParityReport(discontinuous);
 assert.equal(continuityReport.passed, false);
-assert.equal(continuityReport.routeDiscontinuities.length > 0, true);
+assert(continuityReport.routeDiscontinuities.length > 0);
 
 const badText = clone(authoritative);
 badText.output.coordinateText = badText.output.coordinateText.replace(/\t(-?[\d.]+)\t(-?[\d.]+)\t(-?[\d.]+)\t/, '\t999\t$2\t$3\t');
 const textReport = buildPipelineEngineeringSvgParityReport(badText);
 assert.equal(textReport.passed, false);
-assert.equal(textReport.coordinateRowMismatches.length > 0, true);
+assert(textReport.coordinateRowMismatches.length > 0);
 
 mkdirSync('artifacts', { recursive: true });
 writeFileSync('artifacts/pipeline-engineering-svg-parity.json', `${JSON.stringify(report, null, 2)}\n`);
 
-console.log(`PIPELINE_ESVG_COUNTS ${JSON.stringify(report.mappedByCategory)}`);
-console.log('Pipeline engineering SVG deterministic parity guards: ok');
+console.log(`PIPELINE_ESVG_COUNTS ${JSON.stringify({
+  reviewRows: report.reviewRowCount,
+  geometryRows: report.geometryRowCount,
+  routeSegments: report.mappedRouteSegmentCount,
+  inputXmlElements: report.inputXmlElementCount,
+  total: report.totalMapped,
+})}`);
+console.log('Pipeline engineering SVG deterministic dual-ledger parity guards: ok');

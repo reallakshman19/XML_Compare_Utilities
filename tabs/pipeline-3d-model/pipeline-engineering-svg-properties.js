@@ -51,33 +51,51 @@ function optionalText(fields, key, label, value) {
   if (String(value ?? '')) fields.push(textField(key, label, value));
 }
 
-function rowFields(entity, evidence) {
+function rowFields(evidence) {
   const fields = [
-    numberField('nodeNumber', 'InputXML node', evidence.nodeNumber),
+    numberField('nodeNumber', 'Review node', evidence.nodeNumber),
+    textField('reviewLedgerSource', 'Review ledger source', evidence.ledgerSource),
     ...pointFields('', 'Position', evidence.point),
   ];
-  optionalText(fields, 'nodeName', 'Node name', evidence.nodeName);
+  optionalText(fields, 'nodeName', 'Review node name', evidence.nodeName);
   optionalNumber(fields, 'station', 'Route distance', evidence.horizontal, 'm');
   optionalNumber(fields, 'gradeElevation', 'Grade elevation', evidence.grade, 'm');
   optionalText(fields, 'elevationAuthority', 'Elevation authority', evidence.elevationAuthority);
-  if (evidence.eventSources?.length) fields.push(textField('eventSources', 'Propagation sources', evidence.eventSources.join(', ')));
+  if (evidence.eventSources?.length) {
+    fields.push(textField('eventSources', 'Propagation sources', evidence.eventSources.join(', ')));
+  }
   if (evidence.markerEvidence?.length) {
     fields.push(textField('markerEvidence', 'Marker evidence', JSON.stringify(evidence.markerEvidence)));
   }
   return fields;
 }
 
-function segmentFields(entity, evidence) {
+function bendFields(bend) {
+  if (!bend) return [];
+  const nodes = bend.nodes?.filter((node) => Number.isFinite(node.nodeNumber) && node.nodeNumber > 0) || [];
+  return [
+    numberField('bendRadiusMm', 'InputXML bend radius', bend.radius, 'mm'),
+    numberField('bendType', 'InputXML bend type', bend.type),
+    textField('bendNodes', 'InputXML bend nodes', JSON.stringify(nodes)),
+  ];
+}
+
+function segmentFields(evidence) {
   const fields = [
-    numberField('fromNode', 'From node', evidence.fromNode),
-    numberField('toNode', 'To node', evidence.toNode),
+    numberField('fromNode', 'Geometry from node', evidence.fromNode),
+    numberField('toNode', 'Geometry to node', evidence.toNode),
+    textField('geometryLedgerSource', 'Geometry ledger source', evidence.ledgerSource),
     ...pointFields('start', 'Start', evidence.start),
     ...pointFields('end', 'End', evidence.end),
     ...pointFields('delta', 'InputXML delta', evidence.delta),
   ];
   optionalNumber(fields, 'inputXmlElement', 'InputXML element', evidence.xmlElement?.elementNumber);
-  optionalText(fields, 'fromName', 'From name', evidence.xmlElement?.fromName);
-  optionalText(fields, 'toName', 'To name', evidence.xmlElement?.toName);
+  optionalText(fields, 'fromName', 'InputXML from name', evidence.xmlElement?.fromName);
+  optionalText(fields, 'toName', 'InputXML to name', evidence.xmlElement?.toName);
+  if (evidence.ownerLineage?.from || evidence.ownerLineage?.to) {
+    fields.push(textField('ownerLineage', 'Owner lineage', JSON.stringify(evidence.ownerLineage)));
+  }
+  fields.push(...bendFields(evidence.xmlElement?.bend));
   return fields;
 }
 
@@ -90,7 +108,7 @@ export function buildPipelineEngineeringSvgEntityPropertySet(entity, revision) {
     textField('geometryKind', 'Geometry kind', entity.geometry.kind),
     textField('branchName', 'Branch name', entity.domainRef.branchName),
     ...(entity.domainRef.category === 'routeSegments'
-      ? segmentFields(entity, evidence) : rowFields(entity, evidence)),
+      ? segmentFields(evidence) : rowFields(evidence)),
   ];
   return createEngineeringPropertySet({
     id: `pipeline:properties:${entity.id}`,
@@ -101,8 +119,21 @@ export function buildPipelineEngineeringSvgEntityPropertySet(entity, revision) {
   });
 }
 
+function sceneAuthorityFields(scene) {
+  const authority = scene.metadata?.pipeline?.authority || {};
+  return [
+    textField('ledgerMode', 'Ledger mode', authority.ledgerMode, 'SCENE'),
+    textField('reviewPointSource', 'Review point source', authority.reviewPointSource, 'SCENE'),
+    textField('routeGeometrySource', 'Route geometry source', authority.routeGeometrySource, 'SCENE'),
+    textField('inputXmlParitySource', 'InputXML parity source', authority.inputXmlParitySource, 'SCENE'),
+  ];
+}
+
 export function buildPipelineEngineeringSvgScenePropertySet(scene, branchInfo = {}) {
-  const fields = PROCESS_FIELDS.map(([key, label]) => textField(key, label, branchInfo[key], 'SCENE'));
+  const fields = [
+    ...PROCESS_FIELDS.map(([key, label]) => textField(key, label, branchInfo[key], 'SCENE')),
+    ...sceneAuthorityFields(scene),
+  ];
   return createEngineeringPropertySet({
     id: `pipeline:scene-properties:${scene.sceneId}`,
     revision: scene.revision,
@@ -126,4 +157,6 @@ export function buildPipelineEngineeringSvgPropertySets(scene, selectedIds, bran
   ]);
 }
 
-export const _test = Object.freeze({ PROCESS_FIELDS, pointFields, rowFields, segmentFields });
+export const _test = Object.freeze({
+  PROCESS_FIELDS, pointFields, rowFields, segmentFields, sceneAuthorityFields,
+});

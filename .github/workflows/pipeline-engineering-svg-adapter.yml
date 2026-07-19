@@ -1,8 +1,8 @@
 name: Pipeline Engineering SVG Adapter
 
-# Integration refresh: validate this exact adapter head against main after TTV-ESVG-002.
 on:
   pull_request:
+    branches: [main]
     paths:
       - 'tabs/pipeline-3d-model/pipeline-engineering-svg-*.js'
       - 'tests/pipeline-engineering-svg-*.test.js'
@@ -13,44 +13,69 @@ permissions:
   contents: read
 
 jobs:
-  readonly-adapter-and-parity:
+  dual-ledger-adapter-and-parity:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run shared Engineering Scene and read-only adapter foundations
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: Engineering Scene contracts
         run: |
           node tests/engineering-scene-contracts.test.js
           node tests/engineering-scene-validation.test.js
           node tests/engineering-svg-projection.test.js
+      - name: Engineering SVG adapter conformance
+        run: |
           node tests/engineering-svg-adapter-conformance.test.js
           node tests/engineering-svg-adapter-dependency-guard.test.js
+      - name: Read-only shared shell guards
+        run: |
           node tests/engineering-svg-shell-dependency-guard.test.js
           node tests/engineering-svg-readonly-shell-dependency-guard.test.js
-      - name: Run authoritative Pipeline output regressions
+      - name: Current Pipeline project-output and profile regressions
         run: |
           node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/pipeline-3d-model-profile-propagation-static.test.js
           node tests/project-migrations-phase6.test.mjs
-      - name: Run Pipeline shared-scene parity and dependency guards
+      - name: Current elastic-bend and InputXML hardening regressions
+        run: |
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-3d-model-elastic-bend-static.test.js
+      - name: Dual-ledger marker, bend and legacy contracts
+        run: |
+          node tests/pipeline-engineering-svg-dual-ledger-marker-invariance.test.js
+          node tests/pipeline-engineering-svg-dual-ledger-legacy.test.js
+      - name: Adapter parity, properties and dependency guards
         run: |
           node tests/pipeline-engineering-svg-adapter.test.js
           node tests/pipeline-engineering-svg-parity.test.js
           node tests/pipeline-engineering-svg-dependency-guard.test.js
-      - name: Parse changed JavaScript modules and startup graph
+      - name: JavaScript syntax and startup import smoke
         shell: bash
         run: |
+          set -euo pipefail
           node --check tabs/pipeline-3d-model/pipeline-engineering-svg-view-model.js
           node --check tabs/pipeline-3d-model/pipeline-engineering-svg-scene.js
           node --check tabs/pipeline-3d-model/pipeline-engineering-svg-properties.js
           node --check tabs/pipeline-3d-model/pipeline-engineering-svg-adapter.js
           node --check tests/pipeline-engineering-svg-adapter.test.js
           node --check tests/pipeline-engineering-svg-parity.test.js
+          node --check tests/pipeline-engineering-svg-dual-ledger-marker-invariance.test.js
+          node --check tests/pipeline-engineering-svg-dual-ledger-legacy.test.js
           node --check tests/pipeline-engineering-svg-dependency-guard.test.js
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
           node tests/startup-module-syntax.test.js
-      - name: Upload deterministic parity report
+      - name: Full repository tests
+        run: npm test
+      - name: Upload deterministic dual-ledger parity report
         if: always()
         uses: actions/upload-artifact@v4
         with:
