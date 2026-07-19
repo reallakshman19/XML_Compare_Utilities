@@ -37,10 +37,24 @@ jobs:
           node tests/engineering-svg-shell-dependency-guard.test.js
           node tests/engineering-svg-readonly-shell-dependency-guard.test.js
       - name: Merged Pipeline adapter and exact parity
+        shell: bash
         run: |
-          node tests/pipeline-engineering-svg-adapter.test.js
-          node tests/pipeline-engineering-svg-parity.test.js
-          node tests/pipeline-engineering-svg-dependency-guard.test.js
+          mkdir -p artifacts/pipeline-engineering-svg-shadow
+          set +e
+          node tests/pipeline-engineering-svg-adapter.test.js > artifacts/pipeline-engineering-svg-shadow/adapter.log 2>&1
+          adapter_status=$?
+          node tests/pipeline-engineering-svg-parity.test.js > artifacts/pipeline-engineering-svg-shadow/parity.log 2>&1
+          parity_status=$?
+          node tests/pipeline-engineering-svg-dependency-guard.test.js > artifacts/pipeline-engineering-svg-shadow/dependency.log 2>&1
+          dependency_status=$?
+          set -e
+          cat artifacts/pipeline-engineering-svg-shadow/adapter.log
+          cat artifacts/pipeline-engineering-svg-shadow/parity.log
+          cat artifacts/pipeline-engineering-svg-shadow/dependency.log
+          printf 'adapter=%s parity=%s dependency=%s\n' "$adapter_status" "$parity_status" "$dependency_status"
+          if (( adapter_status != 0 || parity_status != 0 || dependency_status != 0 )); then
+            exit 1
+          fi
       - name: Pipeline project-output, propagation and InputXML regressions
         run: |
           node tests/pipeline-3d-model-profile-propagation.test.js
@@ -96,6 +110,7 @@ jobs:
         with:
           name: pipeline-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
+            artifacts/pipeline-engineering-svg-shadow
             test-results/pipeline-engineering-svg-shadow
             test-results/pipeline-cad
             /tmp/xml-compare-startup-server.log
