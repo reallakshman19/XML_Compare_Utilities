@@ -26,7 +26,7 @@ function workspaceOptions(context, host, sceneSource) {
     sceneSource,
     projection: 'ISO',
     viewport: viewport(host),
-    selectedIds: context.selectedIds,
+    selectedIds: [],
     padding: 28,
   };
 }
@@ -54,12 +54,17 @@ function decorateSurface(context, surface) {
   }
 }
 
+function selectionForSurface(context, surface) {
+  if (!surface.side) return context.selectedIds;
+  return context.selectedIds.filter((id) => context.entitySideById.get(id) === surface.side);
+}
+
 function syncSelection(context, source = null) {
   if (context.syncingSelection) return;
   context.syncingSelection = true;
   try {
     for (const surface of context.surfaces) {
-      if (surface.workspace !== source) surface.workspace.setSelection(context.selectedIds, 'revision-compare');
+      if (surface.workspace !== source) surface.workspace.setSelection(selectionForSurface(context, surface), 'revision-compare');
     }
   } finally {
     context.syncingSelection = false;
@@ -170,6 +175,7 @@ function mount(context) {
     context.viewportController.attachSurface(surface.id, surface.workspace.root);
     decorateSurface(context, surface);
   }
+  syncSelection(context);
   context.resizeObserver = observe(context);
 }
 
@@ -189,11 +195,14 @@ function disposeContext(context) {
 }
 
 export function createRevisionCompareSvgSurfaceRuntime(options = {}) {
+  const entities = options.entities;
   const context = {
     host: requiredHost(options.host),
     mode: options.mode === 'side-by-side' ? 'side-by-side' : 'overlay',
     sceneForSide: options.sceneForSide,
-    entities: options.entities,
+    entities,
+    entitySideById: new Map(typeof entities === 'function'
+      ? entities().map((entity) => [entity.id, entity.domainRef.side]) : []),
     selectedIds: [...(options.selectedIds ?? [])],
     statusByObjectId: { ...(options.statusByObjectId ?? {}) },
     workspaceFactory: options.workspaceFactory,
