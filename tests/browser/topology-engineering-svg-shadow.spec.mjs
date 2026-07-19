@@ -98,7 +98,7 @@ test('TTV-ESVG-SHADOW-B01 mounts real fixture with complete parity and exact geo
 test('TTV-ESVG-SHADOW-B02 pointer selection exposes exact source properties without a draft path', async ({ page }) => {
   await openFixture(page);
   const root = shell(page);
-  const pipeKey = 'source:/B1:SRC-PIPE-1';
+  const pipeKey = 'source:$[0].children[0]';
   await root.locator(`[data-engineering-svg-entity-id="${pipeKey}"]`).click();
   await expect(property(root, 'objectKey')).toHaveText(pipeKey);
   await expect(property(root, 'domainType')).toHaveText('TTV_SOURCE_COMPONENT');
@@ -109,7 +109,7 @@ test('TTV-ESVG-SHADOW-B02 pointer selection exposes exact source properties with
   await expect(property(root, 'startY')).toHaveText('0 mm');
   await expect(property(root, 'startZ')).toHaveText('0 mm');
   await expect(property(root, 'endX')).toHaveText('10 mm');
-  const bendKey = 'source:/B1:SRC-BEND';
+  const bendKey = 'source:$[0].children[6]';
   await root.locator(`[data-engineering-svg-entity-id="${bendKey}"]`).click();
   await expect(property(root, 'coordinates')).toHaveText('[{"x":18,"y":0,"z":0},{"x":20,"y":0,"z":0},{"x":20,"y":2,"z":0}]');
   const result = await page.evaluate(() => globalThis.__topologyEngineeringSvgShadowFixture.workspace.shell.apply());
