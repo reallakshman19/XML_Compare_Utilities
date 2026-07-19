@@ -33,6 +33,9 @@ assert.match(propagation, /assertPlausibleProfileSegments\(combined, context\.to
 assert.match(propagation, /sanitizeTable1Label/);
 assert.match(propagation, /T1-\$\{String\(index \+ 1\)\.padStart\(3, '0'\)\}/);
 assert.match(propagation, /PLACEHOLDER_POINT_LABEL/);
+assert.match(propagation, /resolvePipelineElasticBends/);
+assert.match(propagation, /buildElasticBendLedgerText/);
+assert.match(propagation, /buildInputXmlPipingModelXml\(input\.branchInfo, coordinateRows, elasticBends\)/);
 
 const coordinateMap = sources.find((source) => source.name === 'pipeline-3d-model-profile-coordinate-map.js').text;
 assert.match(coordinateMap, /table3_h_clamped/);
@@ -76,19 +79,23 @@ assert.doesNotMatch(runtime, /MutationObserver/);
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
 assert.match(adapter, /input\?\.profileRaw/);
 assert.match(adapter, /buildAuthoritativePipelineOutputs/);
-assert.match(adapter, /20260719-table2-elevation-authority-1/);
+assert.match(adapter, /20260719-elastic-bend-2/);
 assert.match(adapter, /Pipeline3DModelTables\.v1/);
+assert.match(adapter, /pipeline-elastic-bends\.tsv/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
+assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 assert.match(addon, /Table 2 station\/elevation values are the sole generated-geometry Z authority/);
 assert.match(addon, /Table 3 HLength, Z text and PMS values are marker evidence only/);
-assert.match(addon, /20260719-table2-elevation-authority-1/);
+assert.match(addon, /20260719-elastic-bend-2/);
 
 const utilityTab = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260719-table2-elevation-authority-1/);
+assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260719-elastic-bend-2/);
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.match(packageJson.scripts['test:pipeline-table-paste'], /test:pipeline-profile-propagation/);
+assert.match(packageJson.scripts['test:pipeline-profile-propagation'], /pipeline-3d-model-elastic-bend\.test\.js/);
+assert.match(packageJson.scripts['test:pipeline-profile-propagation'], /pipeline-3d-model-elastic-bend-static\.test\.js/);
 
 console.log('Pipeline profile propagation static guards passed.');
