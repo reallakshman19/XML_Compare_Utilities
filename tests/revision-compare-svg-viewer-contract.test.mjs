@@ -10,25 +10,65 @@ class FakeClassList {
   add(value) { this.values.add(value); }
   remove(value) { this.values.delete(value); }
   toggle(value, force) { if (force) this.values.add(value); else this.values.delete(value); }
+  contains(value) { return this.values.has(value); }
 }
-class FakeStyle { constructor() { this.values = new Map(); } setProperty(name, value) { this.values.set(name, String(value)); } }
+class FakeStyle {
+  constructor() { this.values = new Map(); }
+  setProperty(name, value) { this.values.set(name, String(value)); }
+}
 class FakeElement {
   constructor(ownerDocument, localName) {
     this.ownerDocument = ownerDocument; this.localName = localName; this.children = []; this.parentNode = null;
     this.attributes = new Map(); this.listeners = new Map(); this.classList = new FakeClassList(); this.style = new FakeStyle();
-    this.clientWidth = 800; this.clientHeight = 500;
+    this.clientWidth = localName === 'div' ? 800 : 800; this.clientHeight = 500; this.textContent = ''; this.className = '';
   }
   get firstElementChild() { return this.children[0] ?? null; }
+  get parentElement() { return this.parentNode; }
   appendChild(child) { child.remove(); child.parentNode = this; this.children.push(child); return child; }
+  append(...children) { children.forEach((child) => this.appendChild(child)); }
   remove() { if (!this.parentNode) return; this.parentNode.children = this.parentNode.children.filter((item) => item !== this); this.parentNode = null; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   removeAttribute(name) { this.attributes.delete(name); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
-  addEventListener(type, listener) { if (!this.listeners.has(type)) this.listeners.set(type, new Set()); this.listeners.get(type).add(listener); }
-  removeEventListener(type, listener) { this.listeners.get(type)?.delete(listener); }
-  dispatch(type, target = this) { this.listeners.get(type)?.forEach((listener) => listener({ target, key: type === 'keydown' ? 'Enter' : undefined, preventDefault() {} })); }
+  addEventListener(type, listener, options) {
+    const capture = options === true || options?.capture === true;
+    const key = `${type}:${capture}`;
+    if (!this.listeners.has(key)) this.listeners.set(key, new Set());
+    this.listeners.get(key).add(listener);
+  }
+  removeEventListener(type, listener, options) {
+    const capture = options === true || options?.capture === true;
+    this.listeners.get(`${type}:${capture}`)?.delete(listener);
+  }
+  getBoundingClientRect() { return { left: 0, top: 0, width: this.clientWidth, height: this.clientHeight }; }
+  setPointerCapture() {}
+  releasePointerCapture() {}
+  dispatch(type, input = {}) {
+    const event = {
+      target: input.target ?? this, key: input.key, button: input.button ?? 0, pointerId: input.pointerId ?? 1,
+      clientX: input.clientX ?? 400, clientY: input.clientY ?? 250, deltaY: input.deltaY ?? 0,
+      preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {},
+    };
+    this.listeners.get(`${type}:true`)?.forEach((listener) => listener(event));
+    this.listeners.get(`${type}:false`)?.forEach((listener) => listener(event));
+  }
 }
-class FakeDocument { createElementNS(_namespace, name) { return new FakeElement(this, name); } createHost() { return new FakeElement(this, 'div'); } }
+class FakeDocument {
+  createElementNS(_namespace, name) { return new FakeElement(this, name); }
+  createElement(name) { return new FakeElement(this, name); }
+  createHost() { return new FakeElement(this, 'div'); }
+}
+
+function descendants(root) {
+  return root.children.flatMap((child) => [child, ...descendants(child)]);
+}
+function byAttribute(root, name, value = null) {
+  return descendants(root).filter((node) => node.getAttribute(name) != null
+    && (value == null || node.getAttribute(name) === value));
+}
+function entityNode(root, id) {
+  return byAttribute(root, 'data-engineering-svg-entity-id', id)[0] ?? null;
+}
 
 const documentRef = new FakeDocument();
 const host = documentRef.createHost();
@@ -36,28 +76,73 @@ let pick = null;
 const viewer = await createRevisionCompareEngineeringSvgViewer(host, { onPick: (value) => { pick = value; } });
 assertRevisionCompareViewer(viewer);
 assert(REVISION_COMPARE_VIEWER_METHODS.every((method) => typeof viewer[method] === 'function'));
-viewer.setStatuses(new Map([['source:1', 'AMBIGUOUS'], ['target:1', 'NEW_IN_TARGET']]));
+viewer.setStatuses(new Map([
+  ['source:1', 'AMBIGUOUS'], ['source:marker', 'MISSING_IN_TARGET'], ['target:1', 'NEW_IN_TARGET'],
+]));
 viewer.setModels({
-  source: { modelId: 'source', revisionId: 'r1', unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z', segments: [{ objectId: 'source:1', start: [0, 0, 0], end: [5, 0, 0] }], markers: [] },
-  target: { modelId: 'target', revisionId: 'r2', unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z', segments: [{ objectId: 'target:1', start: [0, 1, 0], end: [5, 1, 0] }], markers: [] },
+  source: {
+    modelId: 'source', revisionId: 'r1', unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z',
+    segments: [{ objectId: 'source:1', start: [0, 0, 0], end: [5, 0, 0] }],
+    markers: [{ objectId: 'source:marker', position: [2.5, 0, 0] }],
+  },
+  target: {
+    modelId: 'target', revisionId: 'r2', unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z',
+    segments: [{ objectId: 'target:1', start: [0, 1, 0], end: [5, 1, 0] }], markers: [],
+  },
 });
-assert.equal(host.children.length, 1);
+assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 1);
+assert.equal(byAttribute(host, 'data-revc-svg-pane-root').length, 0);
+assert.equal(viewer.getStateSnapshot().resources.roots, 1);
+
+viewer.setSelection('source:marker');
+const markerBefore = viewer.getStateSnapshot().fitCounts.selection;
+assert.equal(viewer.fitSelection(), true);
+assert.equal(viewer.getStateSnapshot().fitCounts.selection, markerBefore + 1);
+assert.equal(viewer.getStateSnapshot().fitHistory.overlay.entityIds[0], 'source:marker');
+
+viewer.setSelection('missing:geometry');
+const noGeometryBefore = viewer.getStateSnapshot();
+assert.equal(viewer.fitSelection(), false);
+const noGeometryAfter = viewer.getStateSnapshot();
+assert.equal(noGeometryAfter.fitCounts.noGeometry, noGeometryBefore.fitCounts.noGeometry + 1);
+assert.deepEqual(noGeometryAfter.viewportHistory.overlay, noGeometryBefore.viewportHistory.overlay);
+
 viewer.setSelection('source:1', ['target:1']);
-const before = viewer.getStateSnapshot().fitCounts.selection;
-assert.equal(viewer.getStateSnapshot().selectedIds.length, 2);
-viewer.fitSelection();
-assert.equal(viewer.getStateSnapshot().fitCounts.selection, before + 1);
-const svg = host.children[0];
-const sourceNode = svg.children.flatMap((layer) => layer.children).find((node) => node.getAttribute('data-engineering-svg-entity-id') === 'source:1');
-svg.dispatch('click', sourceNode);
+viewer.setMode('side-by-side');
+assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 0);
+assert.equal(byAttribute(host, 'data-revc-svg-pane-root').length, 2);
+assert.equal(viewer.getStateSnapshot().resources.roots, 2);
+assert.equal(viewer.getStateSnapshot().visibleEntityCounts.source, 2);
+assert.equal(viewer.getStateSnapshot().visibleEntityCounts.target, 1);
+assert.equal(byAttribute(host, 'data-revc-hidden-fit-authority').length, 3);
+assert.equal(byAttribute(host, 'data-revc-hidden-fit-authority').some((node) => node.classList.contains('is-selected')), false);
+const roots = byAttribute(host, 'data-revc-svg-pane-root');
+assert.equal(roots[0].getAttribute('viewBox'), roots[1].getAttribute('viewBox'));
+roots[0].dispatch('wheel', { clientX: 250, clientY: 300, deltaY: -400 });
+assert(viewer.getStateSnapshot().viewportHistory['side-by-side'].zoom > 1);
+assert.equal(roots[0].getAttribute('viewBox'), roots[1].getAttribute('viewBox'));
+roots[0].dispatch('pointerdown', { clientX: 200, clientY: 200 });
+roots[0].dispatch('pointermove', { clientX: 250, clientY: 225 });
+roots[0].dispatch('pointerup', { clientX: 250, clientY: 225 });
+assert.notEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'].panX, 0);
+
+const sourceNode = entityNode(host, 'source:1');
+roots[0].dispatch('click', { target: sourceNode });
 assert.deepEqual(pick, { objectId: 'source:1' });
+const sideTransform = viewer.getStateSnapshot().viewportHistory['side-by-side'];
+viewer.setMode('overlay');
+assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 1);
+viewer.setMode('side-by-side');
+assert.deepEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'], sideTransform);
+
+const snapshot = structuredClone(viewer.getStateSnapshot());
 const hostB = documentRef.createHost();
 viewer.reattach(hostB);
-assert.equal(host.children.length, 0);
-assert.equal(hostB.children.length, 1);
-assert.equal(viewer.getStateSnapshot().selectedIds[0], 'source:1');
+assert.equal(byAttribute(host, 'data-engineering-svg-root').length, 0);
+assert.equal(byAttribute(hostB, 'data-revc-svg-pane-root').length, 2);
+assert.deepEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'], snapshot.viewportHistory['side-by-side']);
 assert.doesNotThrow(() => JSON.stringify(viewer.getStateSnapshot()));
 assert.equal(viewer.dispose(), true);
 assert.equal(viewer.dispose(), false);
-assert.equal(hostB.children.length, 0);
+assert.equal(byAttribute(hostB, 'data-engineering-svg-root').length, 0);
 console.log('revision-compare-svg-viewer-contract.test.mjs passed');
