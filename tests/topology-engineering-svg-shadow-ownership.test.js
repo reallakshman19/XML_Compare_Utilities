@@ -25,7 +25,7 @@ const viewModel = buildTopologySvgViewModel({
   inputXml,
   validation,
   state: {
-    mode: 'spatial', projection: 'XY', branch: '/B1', types: [], disposition: '',
+    mode: 'spatial', projection: 'XY', branch: '', types: [], disposition: '',
     searchName: '', searchRef: '', searchPath: '', labels: true, showComponentSymbols: true,
     visibility: { source: true, canonical: true, pointFeatures: true, junctions: true, boundaries: true },
   },
