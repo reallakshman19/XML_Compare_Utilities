@@ -118,6 +118,7 @@ export async function buildPipelineProjectMigration(input) {
       pipingElementCount: segmentCount, elasticBendCandidateCount: bendDiagnostics.candidateCount || 0,
       elasticBendEmittedCount: bendDiagnostics.emittedCount || 0,
       bendBlockingErrorCount: bendDiagnostics.blockedCount || 0,
+      sharedBendSegmentFailureCount: bendDiagnostics.sharedSegmentFailureCount || 0,
       markerRowsExcludedFromInputXml: bendDiagnostics.excludedMarkerCount || 0,
     },
     gate: { status: blockers.length ? 'BLOCKED' : 'READY', blockers },
