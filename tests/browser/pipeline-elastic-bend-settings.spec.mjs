@@ -67,6 +67,7 @@ test.describe('Pipeline elastic bend settings', () => {
     const before = bendEvidence(await page.locator('[data-p3d="xml-output"]').textContent());
     expect(before.length).toBeGreaterThan(0);
 
+    await page.locator('[data-p3d-raw-text-group="table3"]').evaluate((element) => { element.open = true; });
     const markerCell = page.locator('[data-p3d-split-preview="table3c-raw"] [data-p3d-split-cell="0:1"]');
     await markerCell.fill('PMS-ELASTIC-RENAMED');
     await page.locator('[data-p3d="run"]').click();
