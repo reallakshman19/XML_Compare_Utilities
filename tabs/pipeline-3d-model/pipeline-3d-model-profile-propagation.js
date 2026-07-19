@@ -22,7 +22,7 @@ import {
   buildTable3AnchorEvents,
   buildVertexEvents,
   materializeProfileEvents,
-} from './pipeline-3d-model-profile-events.js';
+} from './pipeline-3d-model-profile-events.js?v=20260719-table2-elevation-authority-1';
 import {
   buildDerivedTable2Text,
   buildDerivedTable3Text,
@@ -51,6 +51,7 @@ function diagnostics(context, profile, gradeRows, maxSegment) {
     stationResidual: context.stationAlignment.maxResidual,
     maxSegment,
     warningCount: context.warnings.length,
+    elevationAuthority: 'TABLE_2',
     table2Rows: gradeRows.length,
     table3LengthRows: profile.table3LengthRows.length,
     table3DepthRows: profile.table3DepthRows.length,
@@ -80,15 +81,15 @@ export function buildAuthoritativePipelineOutputs(input) {
   const sheets = groupPointsIntoSheets(table1Points);
   const context = buildProfileRouteContext(table1Points, profile);
   const gradeRows = buildGradeProfile(profile, context);
-  const rules = buildDepthRules(profile, context);
+  const table3MarkerRules = buildDepthRules(profile, context);
   const events = [
     ...buildVertexEvents(table1Points, context.segments),
     ...buildTable2Events(gradeRows),
     ...buildTable3AnchorEvents(profile, context),
-    ...buildDepthEvents(rules),
+    ...buildDepthEvents(table3MarkerRules),
     ...buildMarkerEvents(profile, context),
   ];
-  const combined = materializeProfileEvents(events, context, gradeRows, rules);
+  const combined = materializeProfileEvents(events, context, gradeRows);
   const maxSegment = assertPlausibleProfileSegments(combined, context.total, context.warnings);
   return outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment);
 }
