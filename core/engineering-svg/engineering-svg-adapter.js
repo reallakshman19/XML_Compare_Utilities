@@ -72,12 +72,20 @@ export function createEngineeringSvgAdapter(options = {}) {
   function subscribeScene(listener) {
     if (typeof listener !== 'function') throw new TypeError('Engineering SVG adapter listener must be a function.');
     const unsubscribe = options.subscribeScene((value) => {
-      const scene = value?.scene ?? value;
-      listener(Object.freeze({
-        type: 'sceneChanged',
-        scene: assertSceneMatchesDescriptor(scene, descriptor),
-        reason: String(value?.reason || 'adapter-scene-update'),
-      }));
+      try {
+        const scene = assertSceneMatchesDescriptor(value?.scene ?? value, descriptor);
+        listener(Object.freeze({
+          type: 'sceneChanged',
+          scene,
+          reason: String(value?.reason || 'adapter-scene-update'),
+        }));
+      } catch (error) {
+        listener(Object.freeze({
+          type: 'sceneRejected',
+          reason: String(value?.reason || 'adapter-scene-rejected'),
+          message: String(error?.message || error),
+        }));
+      }
     });
     if (typeof unsubscribe !== 'function') throw new TypeError('Adapter subscribeScene must return an unsubscribe function.');
     return unsubscribe;
