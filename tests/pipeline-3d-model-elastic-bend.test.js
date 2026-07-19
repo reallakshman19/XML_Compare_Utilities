@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import {
+  b314NormalColdFieldRadiusD,
+  resolveColdFieldBendPolicy,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-bend-policy.js';
+import {
   buildElasticBendLedgerText,
   calculateElasticBendScreening,
   resolvePipelineElasticBends,
@@ -15,7 +19,7 @@ function point(x, y, z, source = 'vertex', label = '') {
 }
 function coordinateRows(points) {
   return points.map((item, index) => ({
-    branchName: 'PL-ELASTIC', nodeNumber: 100 + index * 10,
+    branchName: 'PL-BEND', nodeNumber: 100 + index * 10,
     x: item.x * 1000, y: item.y * 1000, z: item.z * 1000,
     nodeName: item.label || `${item.source}-${index + 1}`,
   }));
@@ -27,9 +31,28 @@ function settings(overrides = {}) {
     diameterSource: 'explicit-od', explicitOutsideDiameterMm: 100,
     useFormulaMinimum: false, usePracticalMinimum: true,
     practicalRadiusMultiplierD: 1.5, minimumTurnAngleDeg: 0.1,
-    maximumTurnAngleDeg: 179, maximumTangentUtilization: 0.45,
+    maximumTurnAngleDeg: 179, retainedStraightAllowanceMm: 0,
+    preferredStraightTangentMm: 0,
     ...overrides,
   });
+}
+function evidence(item) {
+  return {
+    bendClass: item.bendClass,
+    classification: item.classification,
+    planAngleDeg: item.planAngleDeg,
+    profileAngleDeg: item.profileAngleDeg,
+    turnAngleDeg: item.turnAngleDeg,
+    radiusMm: item.radiusMm,
+    tangentMm: item.tangentMm,
+    incomingLengthMm: item.incomingLengthMm,
+    outgoingLengthMm: item.outgoingLengthMm,
+    previousNode: item.previousNode,
+    cornerNode: item.cornerNode,
+    nextNode: item.nextNode,
+    curvatureNodes: item.curvatureNodes,
+    status: item.status,
+  };
 }
 
 const formula = calculateElasticBendScreening(settings({
@@ -39,6 +62,37 @@ assert.equal(formula.formulaRadiusMm, 50000);
 assert.equal(formula.practicalRadiusMm, 40000);
 assert.equal(formula.governingRadiusMm, 50000);
 assert.equal(formula.stressMpa, 207);
+
+for (const [nps, expectedD] of [[6, 18], [12, 18], [14, 21], [16, 24], [18, 27], [20, 30], [36, 30]]) {
+  assert.equal(b314NormalColdFieldRadiusD(nps), expectedD, `NPS ${nps}`);
+}
+assert.equal(b314NormalColdFieldRadiusD(15), null);
+
+const normalColdField = resolveColdFieldBendPolicy({
+  outsideDiameterMm: 500, nominalPipeSizeNps: 16,
+  projectMinimumRadiusD: 40, procedureMinimumRadiusD: 35,
+});
+assert.equal(normalColdField.normalCodeRadiusD, 24);
+assert.equal(normalColdField.selectedCodeRadiusD, 24);
+assert.equal(normalColdField.governingRadiusD, 40);
+assert.equal(normalColdField.governingRadiusMm, 20000);
+
+const unqualified18D = resolveColdFieldBendPolicy({
+  outsideDiameterMm: 500, nominalPipeSizeNps: 16,
+  useProjectMinimum: false, useQualified18DAlternative: true,
+});
+assert.equal(unqualified18D.qualifiedAlternativeApplied, false);
+assert.equal(unqualified18D.qualificationEvidenceRequired, true);
+assert.equal(unqualified18D.selectedCodeRadiusD, 24);
+
+const qualified18D = resolveColdFieldBendPolicy({
+  outsideDiameterMm: 500, nominalPipeSizeNps: 16,
+  useProjectMinimum: false, useQualified18DAlternative: true,
+  qualificationEvidenceId: 'BP-16-TEST-BEND-001',
+});
+assert.equal(qualified18D.qualifiedAlternativeApplied, true);
+assert.equal(qualified18D.selectedCodeRadiusD, 18);
+assert.equal(qualified18D.governingRadiusD, 18);
 
 const markerRoute = [
   point(0, 0, 0, 'vertex', 'A'),
@@ -50,23 +104,37 @@ const markerRows = coordinateRows(markerRoute);
 const horizontal = resolvePipelineElasticBends({
   points: markerRoute, coordinateRows: markerRows, branchInfo: {}, settings: settings(),
 });
+assert.equal(horizontal.schema, 'PipelineElasticBendResolution.v2');
+assert.equal(horizontal.geometryRows.length, 3);
+assert.equal(horizontal.diagnostics.excludedMarkerCount, 1);
 assert.equal(horizontal.diagnostics.candidateCount, 1);
 assert.equal(horizontal.diagnostics.emittedCount, 1);
 assert.equal(horizontal.candidates[0].classification, 'HORIZONTAL');
-assert.equal(horizontal.candidates[0].incomingElementIndex, 1);
-assert.equal(horizontal.candidates[0].previousNode, 110);
-assert.equal(horizontal.candidates[0].cornerNode, 120);
-assert.equal(horizontal.candidates[0].incomingLengthMm, 50000);
-assert.equal(horizontal.candidates[0].markerSplitBefore, true);
+assert.equal(horizontal.candidates[0].incomingElementIndex, 0);
+assert.equal(horizontal.candidates[0].previousNode, 100);
+assert.equal(horizontal.candidates[0].cornerNode, 110);
+assert.equal(horizontal.candidates[0].nextNode, 120);
+assert.equal(horizontal.candidates[0].incomingLengthMm, 100000);
+assert.equal(horizontal.candidates[0].markerRowsExcludedBefore, 1);
+assert.deepEqual(horizontal.candidates[0].curvatureNodes, [
+  { angleDeg: 0, nodeNumber: 130, role: 'NEAR_POINT' },
+  { angleDeg: 45, nodeNumber: 140, role: 'MIDPOINT' },
+]);
 assert.equal(horizontal.candidates[0].status, 'EMITTED');
-assert.ok(horizontal.warnings.some((item) => item.code === 'elastic_bend_screening_only'));
+assert.ok(horizontal.warnings.some((item) => item.code === 'bend_screening_only'));
 
-const renamedMarker = markerRoute.map((item, index) => index === 1 ? { ...item, label: 'PMS-RENAMED' } : item);
-const renamed = resolvePipelineElasticBends({
-  points: renamedMarker, coordinateRows: coordinateRows(renamedMarker), branchInfo: {}, settings: settings(),
+const markerVariant = [
+  point(0, 0, 0, 'vertex', 'A'),
+  point(25, 0, 0, 'marker', '1.5M START'),
+  point(50, 0, 0, 'marker', 'HL 14.7'),
+  point(100, 0, 0, 'vertex', 'IP-1'),
+  point(100, 100, 0, 'vertex', 'B'),
+];
+const variant = resolvePipelineElasticBends({
+  points: markerVariant, coordinateRows: coordinateRows(markerVariant), settings: settings(),
 });
-const evidence = ({ classification, planAngleDeg, profileAngleDeg, turnAngleDeg, radiusMm, tangentMm, status }) => ({ classification, planAngleDeg, profileAngleDeg, turnAngleDeg, radiusMm, tangentMm, status });
-assert.deepEqual(renamed.candidates.map(evidence), horizontal.candidates.map(evidence), 'Table 3 marker naming must not alter bend evidence');
+assert.deepEqual(variant.geometryRows, horizontal.geometryRows, 'Marker insertion must not renumber or relabel InputXML geometry');
+assert.deepEqual(variant.candidates.map(evidence), horizontal.candidates.map(evidence), 'Marker insertion must not alter bend evidence');
 
 const verticalPoints = [
   point(0, 0, 0, 'table2', 'EL-1'),
@@ -87,39 +155,79 @@ assert.equal(compound.candidates[0].classification, 'COMPOUND');
 const infeasiblePoints = [point(0, 0, 0), point(10, 0, 0), point(10, 10, 0)];
 const infeasible = resolvePipelineElasticBends({
   points: infeasiblePoints, coordinateRows: coordinateRows(infeasiblePoints),
-  settings: settings({ practicalRadiusMultiplierD: 500 }),
+  settings: settings({ practicalRadiusMultiplierD: 100, retainedStraightAllowanceMm: 2000 }),
 });
 assert.equal(infeasible.candidates[0].status, 'INFEASIBLE');
-assert.equal(infeasible.diagnostics.emittedCount, 0);
-assert.ok(infeasible.warnings.some((item) => item.code === 'elastic_bend_radius_does_not_fit'));
+assert.equal(infeasible.hasBlockingErrors, true);
+assert.equal(infeasible.errors[0].code, 'BEND_GEOMETRY_INFEASIBLE');
+assert.throws(
+  () => buildInputXmlPipingModelXml({}, infeasible.geometryRows, infeasible),
+  (error) => error.code === 'BEND_GEOMETRY_INFEASIBLE',
+);
 
-const unconfirmedPoints = [point(0, 0, 0), point(100, 0, 0), point(100, 100, 0)];
-const unconfirmed = resolvePipelineElasticBends({
-  points: unconfirmedPoints, coordinateRows: coordinateRows(unconfirmedPoints), branchInfo: { boreMm: '100' },
-  settings: settings({ diameterSource: 'branch-diameter', explicitOutsideDiameterMm: '', diameterBasisConfirmed: false }),
+const adjacentPoints = [
+  point(0, 0, 0), point(1, 0, 0),
+  point(1, 0.25, 0), point(2, 0.25, 0),
+];
+const overlapping = resolvePipelineElasticBends({
+  points: adjacentPoints, coordinateRows: coordinateRows(adjacentPoints), settings: settings(),
 });
-assert.equal(unconfirmed.candidates[0].status, 'DIAMETER_REVIEW');
-assert.equal(unconfirmed.diagnostics.emittedCount, 0);
-assert.ok(unconfirmed.warnings.some((item) => item.code === 'elastic_bend_diameter_basis_unconfirmed'));
+assert.equal(overlapping.candidates.length, 2);
+assert.ok(overlapping.candidates.every((candidate) => candidate.localGeometryFits));
+assert.ok(overlapping.candidates.every((candidate) => !candidate.sharedSegmentFits));
+assert.ok(overlapping.candidates.every((candidate) => candidate.status === 'INFEASIBLE'));
+assert.equal(overlapping.diagnostics.sharedSegmentFailureCount, 1);
+assert.equal(overlapping.errors[0].code, 'BEND_SHARED_SEGMENT_INFEASIBLE');
+assert.equal(overlapping.sharedSegmentFailures[0].availableLengthMm, 250);
+assert.ok(overlapping.sharedSegmentFailures[0].requiredLengthMm > 299);
+assert.throws(
+  () => buildInputXmlPipingModelXml({}, overlapping.geometryRows, overlapping),
+  (error) => error.code === 'BEND_SHARED_SEGMENT_INFEASIBLE',
+);
+
+const coldFieldPoints = [point(0, 0, 0), point(1000, 0, 0), point(1000, 1000, 0)];
+const coldField = resolvePipelineElasticBends({
+  points: coldFieldPoints, coordinateRows: coordinateRows(coldFieldPoints),
+  settings: settings({
+    bendClass: 'cold-field', nominalPipeSizeNps: 16,
+    useColdFieldProjectMinimum: true, coldFieldProjectRadiusMultiplierD: 40,
+  }),
+});
+assert.equal(coldField.screening.coldFieldPolicy.normalCodeRadiusD, 24);
+assert.equal(coldField.candidates[0].radiusD, 40);
+assert.equal(coldField.candidates[0].status, 'EMITTED');
+
+const missingQualification = resolvePipelineElasticBends({
+  points: coldFieldPoints, coordinateRows: coordinateRows(coldFieldPoints),
+  settings: settings({
+    bendClass: 'cold-field', nominalPipeSizeNps: 16,
+    useColdFieldProjectMinimum: false, useQualified18DAlternative: true,
+  }),
+});
+assert.equal(missingQualification.candidates[0].status, 'QUALIFICATION_REVIEW');
+assert.equal(missingQualification.errors[0].code, 'COLD_FIELD_BEND_QUALIFICATION_REQUIRED');
 
 const branchInfo = {
-  branchName: 'PL-ELASTIC', lineNo: 'PL-ELASTIC', boreMm: '100', wallThickness: '6',
+  branchName: 'PL-BEND', lineNo: 'PL-BEND', boreMm: '100', wallThickness: '6',
   insulationThickness: '0', corrosionAllowance: '0', t1: '120', t2: '90', t3: '5',
   p1: '10', materialCode: '106', fluidDensity: '100', insulationDensity: '0', hydroPressure: '15',
 };
-const xml = buildInputXmlPipingModelXml(branchInfo, markerRows, horizontal);
-assert.equal((xml.match(/<PIPINGELEMENT\b/g) || []).length, markerRows.length - 1);
+const xml = buildInputXmlPipingModelXml(branchInfo, horizontal.geometryRows, horizontal);
+assert.equal((xml.match(/<PIPINGELEMENT\b/g) || []).length, 2);
 assert.equal((xml.match(/<BEND\b/g) || []).length, 1);
 const blocks = [...xml.matchAll(/<PIPINGELEMENT\b(?:[^>]*\/>|[^>]*>[\s\S]*?<\/PIPINGELEMENT>)/g)].map((match) => match[0]);
-assert.equal(blocks.length, 3);
-assert.doesNotMatch(blocks[0], /<BEND\b/);
-assert.match(blocks[1], /FROM_NODE="110" TO_NODE="120"[\s\S]*?<BEND RADIUS="150" TYPE="0"/);
-assert.doesNotMatch(blocks[2], /<BEND\b/);
+assert.match(blocks[0], /FROM_NODE="100" TO_NODE="110"[\s\S]*?<BEND RADIUS="150" TYPE="0"/);
+assert.match(blocks[0], /ANGLE1="0" NODE1="130"/);
+assert.match(blocks[0], /ANGLE2="45" NODE2="140"/);
+assert.match(blocks[0], /ANGLE3="-1\.010100" NODE3="-1\.010100"/);
+assert.match(blocks[0], /NUM_MITER="0"/);
+assert.doesNotMatch(blocks[0], /NODE[123]="110"/);
+assert.doesNotMatch(blocks[1], /<BEND\b/);
 assert.equal(buildElasticBendLedgerText(horizontal).split('\n').length, 2);
 
 const disabled = resolvePipelineElasticBends({ points: markerRoute, coordinateRows: markerRows, settings: {} });
 assert.equal(disabled.candidates[0].status, 'DISABLED');
 assert.equal(disabled.diagnostics.emittedCount, 0);
-assert.doesNotMatch(buildInputXmlPipingModelXml(branchInfo, markerRows, disabled), /<BEND\b/);
+assert.doesNotMatch(buildInputXmlPipingModelXml(branchInfo, disabled.geometryRows, disabled), /<BEND\b/);
 
-console.log('Pipeline elastic bend core tests passed.');
+console.log('Pipeline authoritative bend core tests passed.');

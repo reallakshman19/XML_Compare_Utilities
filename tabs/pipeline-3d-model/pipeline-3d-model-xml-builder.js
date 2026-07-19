@@ -11,9 +11,6 @@ function toMm(meters) {
   return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000;
 }
 
-// Turns the combined coordinate list (from pipeline-3d-model-geometry.js) into
-// Coordinate-tab rows: one row per point, with sequential CII node numbers and
-// the marker/point label carried alongside as the node name.
 export function buildCoordinateRows(combinedPoints, branchName) {
   return combinedPoints.map((point, index) => ({
     branchName,
@@ -36,8 +33,6 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-// Sentinel used throughout 3D_Converters' InputXML->CII(2019) workflow to mean
-// "no value supplied".
 const SENTINEL_MISSING = '-1.010100';
 
 function num(value, fallback = SENTINEL_MISSING) {
@@ -50,27 +45,41 @@ function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
+function usableCurvatureNodes(bend) {
+  const turnAngleDeg = Number(bend?.turnAngleDeg);
+  return (bend?.curvatureNodes || []).filter((node) => {
+    const angle = Number(node?.angleDeg), nodeNumber = Number(node?.nodeNumber);
+    return Number.isFinite(angle) && angle >= 0
+      && Number.isFinite(nodeNumber) && nodeNumber > 0
+      && (!Number.isFinite(turnAngleDeg) || angle < turnAngleDeg - 1e-7);
+  }).slice(0, 3);
+}
+
+function bendNodeAttributes(bend) {
+  const nodes = usableCurvatureNodes(bend);
+  const attrs = [];
+  for (let slot = 1; slot <= 3; slot += 1) {
+    const node = nodes[slot - 1];
+    attrs.push(attr(`ANGLE${slot}`, node ? num(node.angleDeg) : SENTINEL_MISSING));
+    attrs.push(attr(`NODE${slot}`, node ? num(node.nodeNumber) : SENTINEL_MISSING));
+  }
+  return attrs;
+}
+
 function bendXml(bend) {
   const radius = Number(bend?.radiusMm);
   if (!Number.isFinite(radius) || radius <= 0) return '';
   const attrs = [
     attr('RADIUS', radius),
     attr('TYPE', num(bend.bendTypeCode, '0')),
-    attr('ANGLE1', SENTINEL_MISSING),
-    attr('NODE1', SENTINEL_MISSING),
-    attr('ANGLE2', SENTINEL_MISSING),
-    attr('NODE2', SENTINEL_MISSING),
-    attr('ANGLE3', SENTINEL_MISSING),
-    attr('NODE3', SENTINEL_MISSING),
-    attr('NUM_MITER', SENTINEL_MISSING),
+    ...bendNodeAttributes(bend),
+    attr('NUM_MITER', '0'),
     attr('FITTINGTHICKNESS', SENTINEL_MISSING),
     attr('KFACTOR', SENTINEL_MISSING),
   ];
   return `<BEND ${attrs.join(' ')}/>`;
 }
 
-// Builds one <PIPINGELEMENT> per consecutive node pair. A resolved bend is
-// nested on the immediate element entering the direction-change node.
 function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
   const attrs = [
     attr('FROM_NODE', fromRow.nodeNumber),
@@ -113,12 +122,20 @@ function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
   return `<PIPINGELEMENT ${attrs.join(' ')}>\n${child}\n</PIPINGELEMENT>`;
 }
 
-// Builds the CAESARII > PIPINGMODEL > PIPINGELEMENT XML that
-// InputXML->CII(2019) expects as its raw input (pre-enrichment).
-export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, elasticBends = null) {
+function assertBendExportReady(bendResolution) {
+  if (!bendResolution?.hasBlockingErrors) return;
+  const first = bendResolution.errors?.[0];
+  const error = new Error(first?.message || 'Bend geometry blocks InputXML serialization.');
+  error.code = first?.code || 'BEND_GEOMETRY_BLOCKED';
+  error.details = first?.details || {};
+  throw error;
+}
+
+export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, bendResolution = null) {
+  assertBendExportReady(bendResolution);
   const elements = [];
   for (let i = 1; i < coordinateRows.length; i += 1) {
-    const bend = elasticBends?.bendByIncomingElementIndex?.[i - 1] || null;
+    const bend = bendResolution?.bendByIncomingElementIndex?.[i - 1] || null;
     elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo, bend));
   }
   return [
@@ -131,4 +148,4 @@ export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, elasticB
   ].join('\n');
 }
 
-export const _internal = { toMm, SENTINEL_MISSING, bendXml };
+export const _internal = { toMm, SENTINEL_MISSING, bendXml, usableCurvatureNodes };
