@@ -92,9 +92,13 @@ async function zoom(page, locator, deltaY = -420) {
 
 async function rowEvidence(page, category) {
   return page.evaluate((value) => {
-    const row = window.rcHandle.evidence().state.compare.audit.differenceRows
-      .find((item) => item.differenceCategory === value);
-    return row ? { differenceId: row.differenceId, ids: [row.visualRefs.sourceObjectId, row.visualRefs.targetObjectId].filter(Boolean) } : null;
+    const rows = window.rcHandle.evidence().state.compare.audit.differenceRows
+      .filter((item) => item.differenceCategory === value);
+    const row = rows.find((item) => item.matchCertainty !== 'AMBIGUOUS') ?? rows[0];
+    return row ? {
+      differenceId: row.differenceId,
+      ids: [row.visualRefs.sourceObjectId, row.visualRefs.targetObjectId].filter(Boolean),
+    } : null;
   }, category);
 }
 
@@ -115,8 +119,9 @@ async function clickCandidate(page, index = 0) {
 async function acceptAndRevoke(page, differenceId) {
   await page.locator(`[data-revc-difference-id="${differenceId}"]`).click();
   await clickCandidate(page, 0);
-  await page.getByRole('button', { name: 'Mark reviewed' }).click();
   const ledgerBeforeReview = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state.decision.ledger.events));
+  await page.locator('[data-level="2"] summary').click();
+  await page.getByRole('button', { name: 'Mark reviewed' }).click();
   await expect.poll(() => page.evaluate((id) => window.rcHandle.evidence().state.review.session.items
     .find((item) => item.differenceId === id).reviewState, differenceId)).toBe('REVIEWED');
   expect(await page.evaluate(() => structuredClone(window.rcHandle.evidence().state.decision.ledger.events))).toEqual(ledgerBeforeReview);
@@ -221,7 +226,12 @@ test('RC-SVG-001B links panes, viewport history, exact evidence and backend life
   await expect(paneRoots).toHaveCount(2);
   expect(transform(await viewerSnapshot(page), 'side-by-side')).toEqual(restoredSide);
 
+  const evidenceView = transform(await viewerSnapshot(page), 'side-by-side');
+  const evidenceFits = (await viewerSnapshot(page)).fitCounts;
   await acceptAndRevoke(page, ambiguous.differenceId);
+  snapshot = await viewerSnapshot(page);
+  expect(transform(snapshot, 'side-by-side')).toEqual(evidenceView);
+  expect(snapshot.fitCounts).toEqual(evidenceFits);
   expect(await immutableAudit(page)).toEqual(authoritativeBefore);
   await page.getByRole('button', { name: 'Close Revision Compare' }).first().click();
   await expect(paneRoots).toHaveCount(0);
