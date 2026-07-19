@@ -12,42 +12,133 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   certify:
     runs-on: ubuntu-latest
-    env:
-      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    timeout-minutes: 150
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact source head
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
       - name: Verify exact checked-out SHA
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          sha_match=false
+          if [[ "$actual_sha" == "$EXPECTED_SHA" ]]; then sha_match=true; fi
+          {
+            echo "actual_sha=$actual_sha"
+            echo "sha_match=$sha_match"
+          } >> "$GITHUB_OUTPUT"
+          mkdir -p artifacts
+          cat > artifacts/revision-compare-exact-head.json <<EOF
+          {
+            "schema": "RevisionCompareExactHead.v1",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${actual_sha}",
+            "match": ${sha_match}
+          }
+          EOF
+          {
+            echo "## Revision Compare exact source head"
+            echo "- Expected: \`${EXPECTED_SHA}\`"
+            echo "- Actual: \`${actual_sha}\`"
+            echo "- Match: \`${sha_match}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$sha_match" != "true" ]]; then
+            echo "::error::Checked-out HEAD ${actual_sha} does not match expected source SHA ${EXPECTED_SHA}."
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - name: Run focused Revision Compare tests
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Focused Revision Compare tests
+        id: focused
         shell: bash
         run: |
-          mkdir -p artifacts
           set -o pipefail
           npm run test:revision-compare 2>&1 | tee artifacts/revision-compare-focused.log
-      - run: node --check tabs/revision-compare/*.js
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test --config=playwright.revision-compare.config.mjs
-      - name: Record certification SHA
+      - name: Workbench viewport regressions
+        id: viewport
+        run: npm run test:workbench-viewport
+      - name: Workbench3D regressions
+        id: workbench3d
+        run: npm run test:workbench3d
+      - name: Revision Compare JavaScript syntax
+        id: syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/revision-compare/*.js
+          node --check tests/browser/revision-compare-svg-preview.spec.mjs
+          node --check playwright.revision-compare.config.mjs
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Revision Compare Chromium acceptance
+        id: chromium
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Full repository tests
+        id: full_tests
+        run: npm test
+      - name: Write exact-head certification evidence
         if: always()
-        run: mkdir -p artifacts && printf '%s\n' "$EXPECTED_SHA" > artifacts/revision-compare-checked-sha.txt
-      - name: Upload browser certification evidence
+        shell: bash
+        env:
+          ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
+          FOCUSED_RESULT: ${{ steps.focused.outcome }}
+          VIEWPORT_RESULT: ${{ steps.viewport.outcome }}
+          WORKBENCH3D_RESULT: ${{ steps.workbench3d.outcome }}
+          SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
+          FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cat > artifacts/revision-compare-certification.json <<EOF
+          {
+            "schema": "RevisionCompareSvgCertification.v1",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${ACTUAL_SHA}",
+            "shaMatch": ${SHA_MATCH:-false},
+            "results": {
+              "revisionCompare": "${FOCUSED_RESULT}",
+              "workbenchViewport": "${VIEWPORT_RESULT}",
+              "workbench3d": "${WORKBENCH3D_RESULT}",
+              "syntax": "${SYNTAX_RESULT}",
+              "chromium": "${CHROMIUM_RESULT}",
+              "fullRepositoryTests": "${FULL_TEST_RESULT}"
+            }
+          }
+          EOF
+      - name: Upload exact-head certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: revision-compare-browser-evidence
+          name: revision-compare-svg-certification-${{ env.EXPECTED_SHA }}
           path: |
-            artifacts/revision-compare-checked-sha.txt
+            artifacts/revision-compare-exact-head.json
+            artifacts/revision-compare-certification.json
             artifacts/revision-compare-focused.log
-            artifacts/revision-compare-results.json
+            test-results/revision-compare
+          if-no-files-found: error
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-svg-failure-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts
             test-results/revision-compare
           if-no-files-found: warn
