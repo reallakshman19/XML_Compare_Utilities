@@ -65,7 +65,7 @@
     const listeners = new Set();
     let revisionNumber = 1;
     let designPressure = '55';
-    let mutationCount = 0;
+    let initializationError = '';
     let workspace = null;
     let currentSnapshot = null;
 
@@ -139,6 +139,7 @@
         },
         ariaLabel: 'Pipeline engineering read-only viewer',
       });
+      initializationError = '';
       renderEvidence();
       return workspace;
     }
@@ -195,20 +196,26 @@
     }
 
     currentSnapshot = buildOwnerSnapshot();
-    await mount();
     globalThis.__pipelineEngineeringSvgShadowFixture = {
       get workspace() { return workspace; },
       get snapshot() { return currentSnapshot; },
+      get initializationError() { return initializationError; },
       categoryIds,
       geometryLedger,
       emitOwnerUpdate,
       renderEvidence,
       listenerCount: () => listeners.size,
-      mutationCount: () => mutationCount,
+      mutationCount: () => 0,
       attemptInvalidMount,
       mount,
       destroy,
     };
+    try {
+      await mount();
+    } catch (error) {
+      initializationError = String(error?.message || error);
+      document.querySelector('#parity').textContent = initializationError;
+    }
   </script>
 </body>
 </html>
