@@ -46,6 +46,11 @@ function updateGeometryElement(group, geometry) {
   element.setAttribute('data-engineering-svg-geometry', geometry.kind);
 }
 
+function removeAttribute(element, name) {
+  if (typeof element.removeAttribute === 'function') element.removeAttribute(name);
+  else element.attributes?.delete?.(name);
+}
+
 function updateEntityAccessibility(group, entity) {
   if (entity.selectable) {
     setAttributes(group, {
@@ -55,9 +60,9 @@ function updateEntityAccessibility(group, entity) {
     });
     return;
   }
-  group.removeAttribute('role');
-  group.removeAttribute('tabindex');
-  group.removeAttribute('aria-label');
+  removeAttribute(group, 'role');
+  removeAttribute(group, 'tabindex');
+  removeAttribute(group, 'aria-label');
 }
 
 function updateEntityGroup(group, entity, selected) {
