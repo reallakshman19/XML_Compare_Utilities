@@ -1,5 +1,6 @@
 name: Pipeline Engineering SVG Adapter
 
+# Integration refresh: validate this exact adapter head against main after TTV-ESVG-002.
 on:
   pull_request:
     paths:
