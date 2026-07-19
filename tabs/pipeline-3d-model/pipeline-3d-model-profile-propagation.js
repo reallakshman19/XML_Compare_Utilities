@@ -5,6 +5,11 @@ import {
 } from './pipeline-3d-model-geometry.js';
 import { PipelineProfileModel } from './pipeline-3d-model-cad-model.js';
 import {
+  buildElasticBendLedgerText,
+  resolvePipelineElasticBends,
+} from './pipeline-3d-model-elastic-bend.js';
+import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js';
+import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
   coordinateRowsToTabText,
@@ -29,6 +34,7 @@ import {
   buildTable2XText,
   buildTable3XText,
 } from './pipeline-3d-model-profile-output.js';
+import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 
 const PLACEHOLDER_POINT_LABEL = /^at\s+point\s+X\s*=\s*Y\s*=\s*Z\s*=$/i;
 
@@ -42,7 +48,7 @@ function sanitizeTable1Points(points) {
   return points.map((point, index) => ({ ...point, label: sanitizeTable1Label(point.label, index) }));
 }
 
-function diagnostics(context, profile, gradeRows, maxSegment) {
+function diagnostics(context, profile, gradeRows, maxSegment, elasticBends) {
   return Object.freeze({
     routeLength: context.total,
     routeStartStation: context.routeStartStation,
@@ -56,22 +62,42 @@ function diagnostics(context, profile, gradeRows, maxSegment) {
     table3LengthRows: profile.table3LengthRows.length,
     table3DepthRows: profile.table3DepthRows.length,
     table3MarkerRows: profile.table3MarkerRows.length,
+    elasticBendCandidates: elasticBends.diagnostics.candidateCount,
+    elasticBendsEmitted: elasticBends.diagnostics.emittedCount,
   });
+}
+
+function elasticSettings(input) {
+  return input.elasticBendSettings || loadElasticBendSettings(globalThis.localStorage);
+}
+
+function appendElasticWarnings(context, elasticBends) {
+  for (const warning of elasticBends.warnings) {
+    addPipelineWarning(context.warnings, warning.code, warning.message, warning.details);
+  }
 }
 
 function outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment) {
   const coordinateRows = buildCoordinateRows(combined, input.branchInfo.branchName);
+  const elasticBends = resolvePipelineElasticBends({
+    points: combined,
+    coordinateRows,
+    branchInfo: input.branchInfo,
+    settings: elasticSettings(input),
+  });
+  appendElasticWarnings(context, elasticBends);
   return Object.freeze({
-    table1Points, sheets, combined, coordinateRows,
+    table1Points, sheets, combined, coordinateRows, elasticBends,
     table1OutputText: table1ToTabText(table1Points),
     table2Text: buildDerivedTable2Text(gradeRows),
     table3Text: buildDerivedTable3Text(combined),
     table2XText: buildTable2XText(profile),
     table3XText: buildTable3XText(profile),
     coordinateText: coordinateRowsToTabText(coordinateRows),
-    xmlText: buildInputXmlPipingModelXml(input.branchInfo, coordinateRows),
+    elasticBendText: buildElasticBendLedgerText(elasticBends),
+    xmlText: buildInputXmlPipingModelXml(input.branchInfo, coordinateRows, elasticBends),
     warnings: Object.freeze([...context.warnings]),
-    diagnostics: diagnostics(context, profile, gradeRows, maxSegment),
+    diagnostics: diagnostics(context, profile, gradeRows, maxSegment, elasticBends),
   });
 }
 

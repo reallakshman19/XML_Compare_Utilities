@@ -36,15 +36,8 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-function tag(name, value) {
-  return `<${name}>${esc(value)}</${name}>`;
-}
-
 // Sentinel used throughout 3D_Converters' InputXML->CII(2019) workflow to mean
-// "no value supplied" (converters/scripts/inputxml_to_cii2019.py /
-// xml-cii-inputxml-enrichment.js: isSentinel() checks abs(n + 1.0101) < 1e-6).
-// Using it here (rather than 0 or blank) so downstream enrichment treats these
-// exactly like any other un-supplied CAESAR II field.
+// "no value supplied".
 const SENTINEL_MISSING = '-1.010100';
 
 function num(value, fallback = SENTINEL_MISSING) {
@@ -57,29 +50,34 @@ function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
-// Builds one <PIPINGELEMENT> per consecutive node pair, matching the
-// attribute set read by 3D_Converters' InputXML->CII(2019) consumer
-// (converters/scripts/inputxml_to_cii2019.py). FROM_NODE/TO_NODE are
-// hard-required; DELTA_X/Y/Z default to 0.0 if absent/sentinel;
-// DIAMETER/WALL_THICK/INSUL_THICK/CORR_ALLOW/TEMP_EXP_C1-9/PRESSURE_C1-9/
-// MATERIAL_NUM/FLUID_DENSITY/INSUL_DENSITY/HYDRO_PRESSURE "carry forward"
-// from the previous element if absent/sentinel; FROM_NAME/TO_NAME are read
-// as plain text. TEMP_EXP_C4-9 and PRESSURE_C2-9 have no corresponding
-// config field in this tool (only one temperature triple and one design
-// pressure are collected), so they're always "0" — matching the CAESAR
-// spec's own "non-specified real values are assigned a value of 0.0" rule,
-// not a hidden default. LINE is emitted and mapped directly to the 
-// element line label by the consumer.
-function pipingElementXml(fromRow, toRow, branchInfo) {
-  const deltaX = num(toRow.x - fromRow.x);
-  const deltaY = num(toRow.y - fromRow.y);
-  const deltaZ = num(toRow.z - fromRow.z);
+function bendXml(bend) {
+  const radius = Number(bend?.radiusMm);
+  if (!Number.isFinite(radius) || radius <= 0) return '';
+  const attrs = [
+    attr('RADIUS', radius),
+    attr('TYPE', num(bend.bendTypeCode, '0')),
+    attr('ANGLE1', SENTINEL_MISSING),
+    attr('NODE1', SENTINEL_MISSING),
+    attr('ANGLE2', SENTINEL_MISSING),
+    attr('NODE2', SENTINEL_MISSING),
+    attr('ANGLE3', SENTINEL_MISSING),
+    attr('NODE3', SENTINEL_MISSING),
+    attr('NUM_MITER', SENTINEL_MISSING),
+    attr('FITTINGTHICKNESS', SENTINEL_MISSING),
+    attr('KFACTOR', SENTINEL_MISSING),
+  ];
+  return `<BEND ${attrs.join(' ')}/>`;
+}
+
+// Builds one <PIPINGELEMENT> per consecutive node pair. A resolved bend is
+// nested on the immediate element entering the direction-change node.
+function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
   const attrs = [
     attr('FROM_NODE', fromRow.nodeNumber),
     attr('TO_NODE', toRow.nodeNumber),
-    attr('DELTA_X', deltaX),
-    attr('DELTA_Y', deltaY),
-    attr('DELTA_Z', deltaZ),
+    attr('DELTA_X', num(toRow.x - fromRow.x)),
+    attr('DELTA_Y', num(toRow.y - fromRow.y)),
+    attr('DELTA_Z', num(toRow.z - fromRow.z)),
     attr('DIAMETER', num(branchInfo.boreMm)),
     attr('WALL_THICK', num(branchInfo.wallThickness)),
     attr('INSUL_THICK', num(branchInfo.insulationThickness)),
@@ -110,18 +108,18 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];
-  return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
+  const child = bendXml(bend);
+  if (!child) return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
+  return `<PIPINGELEMENT ${attrs.join(' ')}>\n${child}\n</PIPINGELEMENT>`;
 }
 
 // Builds the CAESARII > PIPINGMODEL > PIPINGELEMENT XML that
-// InputXML->CII(2019) expects as its raw input (pre-enrichment). We do not
-// modify that workflow — this only shapes our coordinate data to match its
-// documented schema (see converters/scripts/inputxml_to_cii2019.py and
-// tests/fixtures/xml-cii-standalone/inputxml-element-benchmark.xml).
-export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
+// InputXML->CII(2019) expects as its raw input (pre-enrichment).
+export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, elasticBends = null) {
   const elements = [];
   for (let i = 1; i < coordinateRows.length; i += 1) {
-    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo));
+    const bend = elasticBends?.bendByIncomingElementIndex?.[i - 1] || null;
+    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo, bend));
   }
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -133,4 +131,4 @@ export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
   ].join('\n');
 }
 
-export const _internal = { toMm, SENTINEL_MISSING };
+export const _internal = { toMm, SENTINEL_MISSING, bendXml };
