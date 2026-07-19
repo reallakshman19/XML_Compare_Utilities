@@ -55,7 +55,7 @@ jobs:
       - name: B01 accessible pointer and keyboard selection
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/b01.json
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B01' --reporter=json
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B01' --reporter=json
       - name: Upload B01 failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
@@ -64,16 +64,16 @@ jobs:
           path: test-results
           if-no-files-found: error
       - name: B02 mixed selection and one-command apply
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B02'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B02'
       - name: B03 invalid and cancelled drafts
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B03'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B03'
       - name: B04 combined native-control property commit
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B04'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B04'
       - name: B05 stale revision rejection
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B05'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B05'
       - name: B06 delayed selection response isolation
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B06'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B06'
       - name: B07 focused input preservation
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B07'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B07'
       - name: B08 multi-shell isolation and remount
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep '^ESVG-SHELL-B08'
+        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs --grep 'ESVG-SHELL-B08'
