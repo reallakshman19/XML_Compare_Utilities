@@ -46,7 +46,16 @@ jobs:
       - name: Run existing editable shell acceptance
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
       - name: B01 viewer and output-only properties
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B01'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/readonly-b01.json
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B01' --reporter=json
+      - name: Upload B01 failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-svg-readonly-shell-b01-failure
+          path: test-results
+          if-no-files-found: error
       - name: B02 keyboard selection and refresh
         run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B02'
       - name: B03 access-mode boundaries
