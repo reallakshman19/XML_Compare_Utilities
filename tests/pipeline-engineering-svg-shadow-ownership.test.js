@@ -1,44 +1,27 @@
 import assert from 'node:assert/strict';
-import { parseTable1 } from '../tabs/pipeline-3d-model/pipeline-3d-model-geometry.js';
 import {
-  framesFromTable1,
-  parseTable2Paste,
-  parseTable3Paste,
-} from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-parser.js';
-import {
-  SAMPLE_TABLE_2_PASTE_MULTISHEET,
-  SAMPLE_TABLE_3_PASTE_MULTISHEET,
-} from '../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-samples.js';
-import { SAMPLE_TABLE_1_MULTISHEET } from '../tabs/pipeline-3d-model/pipeline-3d-model-samples.js';
+  SAMPLE_TABLE_1,
+  SAMPLE_TABLE_2,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-samples.js';
 import { buildPipelineProjectOutputs } from '../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js';
 import { createPipelineEngineeringSvgShadowWorkspace } from '../tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js';
 import { createPipelineEngineeringRevisionToken } from '../tabs/pipeline-3d-model/pipeline-engineering-svg-view-model.js';
 
 function fixtureSnapshot() {
-  const frames = framesFromTable1(parseTable1(SAMPLE_TABLE_1_MULTISHEET));
-  const table2 = parseTable2Paste(SAMPLE_TABLE_2_PASTE_MULTISHEET, { frames });
-  const table3 = parseTable3Paste(SAMPLE_TABLE_3_PASTE_MULTISHEET, { frames });
   const branchInfo = Object.freeze({
-    branchName: 'PL-SHADOW', lineNo: 'PL-SHADOW', boreMm: '914.4', wallThickness: '12.7',
-    p1: '55', t1: '80', t2: '40', t3: '20', fluidDensity: '850', materialCode: '106',
-    corrosionAllowance: '3', insulationThickness: '50', insulationDensity: '120', hydroPressure: '82.5',
+    branchName: 'PL-SHADOW-OWNERSHIP', lineNo: 'PL-SHADOW-OWNERSHIP',
+    boreMm: '914.4', wallThickness: '12.7', p1: '55', t1: '80',
   });
   const output = buildPipelineProjectOutputs({
-    table1Text: SAMPLE_TABLE_1_MULTISHEET,
-    table2Text: '',
+    table1Text: SAMPLE_TABLE_1,
+    table2Text: SAMPLE_TABLE_2,
     table3Text: '',
-    profileRaw: {
-      table2a: table2.rawText,
-      table3a: table3.table3ARaw,
-      table3b: table3.table3BRaw,
-      table3c: table3.table3CRaw,
-    },
     branchInfo,
   });
   const revision = createPipelineEngineeringRevisionToken({
-    projectRevision: 'shadow-project-r1',
-    geometryRevision: 'shadow-geometry-r1',
-    processConfigRevision: 'shadow-process-r1',
+    projectRevision: 'shadow-ownership-project-r1',
+    geometryRevision: 'shadow-ownership-geometry-r1',
+    processConfigRevision: 'shadow-ownership-process-r1',
   });
   return Object.freeze({ output, branchInfo, revision });
 }
