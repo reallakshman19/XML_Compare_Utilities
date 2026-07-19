@@ -28,7 +28,7 @@ test('TTV-ESVG-SHADOW-B01 mounts real fixture with complete parity and exact geo
   const root = shell(page);
   await expect(root).toHaveAttribute('data-engineering-svg-shell-access', 'read-only');
   await expect(root).toHaveAttribute('aria-label', 'Topology Trace engineering viewer');
-  await expect(page.locator('#legacy [data-ttv-svg-root]')).toHaveCount(1);
+  await expect(page.locator('#legacy svg.ttv-svg[data-view-model-schema]')).toHaveCount(1);
   const evidence = await page.evaluate(async () => {
     const fixture = globalThis.__topologyEngineeringSvgShadowFixture;
     const scene = await fixture.workspace.adapter.getScene();
