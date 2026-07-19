@@ -8,13 +8,18 @@ function finite(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function positive(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : fallback;
+}
+
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
 function normalizedLimits(input = {}) {
-  const minimumZoom = Math.max(0.01, finite(input.minimumZoom, REVISION_COMPARE_SVG_MIN_ZOOM));
-  const maximumZoom = Math.max(minimumZoom, finite(input.maximumZoom, REVISION_COMPARE_SVG_MAX_ZOOM));
+  const minimumZoom = positive(input.minimumZoom, REVISION_COMPARE_SVG_MIN_ZOOM);
+  const maximumZoom = Math.max(minimumZoom, positive(input.maximumZoom, REVISION_COMPARE_SVG_MAX_ZOOM));
   return Object.freeze({ minimumZoom, maximumZoom });
 }
 
