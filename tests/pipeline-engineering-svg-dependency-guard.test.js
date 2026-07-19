@@ -28,8 +28,26 @@ for (const name of productionFiles) {
   assert.doesNotMatch(source, /toFixed|Math\.(round|floor|ceil|trunc)|parseInt/, `${name} rounds authoritative coordinates`);
   assert.doesNotMatch(source, /createEngineeringSvgCommandGateway|\.execute\s*\(|new\s+CommandHistory|undoStack|redoStack/, `${name} introduces command or history execution`);
   assert.doesNotMatch(source, /pipeline-3d-model-(table2x|table3x|preview|cad-|profile-propagation-runtime|tab)\.js/, `${name} imports Pipeline UI, renderer or editor ownership`);
+  assert.doesNotMatch(source, /pipeline-3d-model-(project-adapter|xml-builder|elastic-bend(?:-settings)?)\.js/, `${name} executes an owner writer or bend subsystem`);
   assert.doesNotMatch(source, /window\.dispatchEvent|globalThis\.dispatchEvent|new\s+Event\(/, `${name} introduces a global event bus`);
 }
+
+const viewModel = readFileSync(join(root, productionFiles[0]), 'utf8');
+assert.match(viewModel, /reviewRows/);
+assert.match(viewModel, /geometryRows/);
+assert.match(viewModel, /inputXmlCoordinateRows/);
+assert.match(viewModel, /ledgerMode/);
+assert.match(viewModel, /'dual'/);
+assert.match(viewModel, /'legacy-single'/);
+assert.match(viewModel, /reviewPointSource:\s*'coordinateRows'/);
+assert.match(viewModel, /inputXmlParitySource:\s*'xmlText'/);
+assert.doesNotMatch(viewModel, /samePoint\([^)]*review/i, 'cross-ledger identity must not use coordinate equality');
+
+const sceneSource = readFileSync(join(root, productionFiles[1]), 'utf8');
+assert.match(sceneSource, /viewModel\.geometryRows/);
+assert.match(sceneSource, /viewModel\.reviewRows/);
+assert.match(sceneSource, /inputXmlCountMismatches/);
+assert.match(sceneSource, /inputXmlValueMismatches/);
 
 const adapterSource = readFileSync(join(root, productionFiles[3]), 'utf8');
 assert.doesNotMatch(adapterSource, /commandGateway\s*:/, 'read-only Pipeline adapter must not pass a command gateway');
@@ -50,6 +68,10 @@ for (const path of pipelineFiles) {
 }
 
 const workflow = readFileSync(join(root, '.github/workflows/pipeline-engineering-svg-adapter.yml'), 'utf8');
-assert.doesNotMatch(workflow, /playwright|chromium|browser/i, 'PCAD-ESVG-001 must not add a browser shadow mount');
+assert.doesNotMatch(workflow, /playwright|chromium|browser|shadow/i, 'PCAD-ESVG-001B must not modify or mount the downstream shadow workflow');
+assert.match(workflow, /pipeline-engineering-svg-dual-ledger-marker-invariance\.test\.js/);
+assert.match(workflow, /pipeline-engineering-svg-dual-ledger-legacy\.test\.js/);
+assert.match(workflow, /pipeline-3d-model-elastic-bend\.test\.js/);
+assert.match(workflow, /npm test/);
 
-console.log('Pipeline engineering SVG dependency and deployment guards: ok');
+console.log('Pipeline engineering SVG dual-ledger dependency and deployment guards: ok');
