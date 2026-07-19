@@ -11,6 +11,7 @@ import {
 import {
   installPipelineProfilePropagation,
 } from './pipeline-3d-model-profile-propagation-runtime.js?v=20260719-table2-elevation-authority-1';
+import { installPipelineElasticBendSettingsUi } from './pipeline-3d-model-elastic-bend-ui.js?v=20260719-elastic-bend-2';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();
@@ -169,6 +170,7 @@ export function patchPipeline3dTablePasteDialog(dialog) {
   wireTransfers(dialog);
   wireMultiSheetSample(dialog);
   installPipelineProfilePropagation(dialog);
+  installPipelineElasticBendSettingsUi(dialog);
   return true;
 }
 
