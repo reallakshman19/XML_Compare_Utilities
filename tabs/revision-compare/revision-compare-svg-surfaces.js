@@ -73,22 +73,35 @@ function onSurfaceSelection(context, surface, event) {
   context.onSelection?.(context.selectedIds, event.reason);
 }
 
-function createSurface(context, host, id, side = null) {
-  const sceneSource = createEngineeringSvgSceneSource(context.sceneForSide(side));
-  const factory = context.workspaceFactory ?? createEngineeringSvgWorkspace;
-  const workspace = factory(workspaceOptions(context, host, sceneSource));
-  const surface = { id, side, host, sceneSource, workspace, unsubscribeSelection: null };
-  const root = workspace.root;
+function configureRoot(root, side) {
   if (side) {
     root.setAttribute('data-revc-svg-pane-root', '1');
     root.setAttribute('data-revc-svg-pane', side);
     root.setAttribute('aria-label', `Revision comparison Rev ${side} ${side === 'A' ? 'source' : 'target'} pane`);
-  } else {
-    root.setAttribute('data-revc-svg-overlay-root', '1');
-    root.setAttribute('aria-label', 'Revision comparison SVG overlay preview');
+    return;
   }
-  surface.unsubscribeSelection = workspace.subscribeSelection((event) => onSurfaceSelection(context, surface, event));
-  return surface;
+  root.setAttribute('data-revc-svg-overlay-root', '1');
+  root.setAttribute('aria-label', 'Revision comparison SVG overlay preview');
+}
+
+function createSurface(context, host, id, side = null) {
+  const sceneSource = createEngineeringSvgSceneSource(context.sceneForSide(side));
+  const factory = context.workspaceFactory ?? createEngineeringSvgWorkspace;
+  let workspace = null;
+  let unsubscribeSelection = null;
+  try {
+    workspace = factory(workspaceOptions(context, host, sceneSource));
+    const surface = { id, side, host, sceneSource, workspace, unsubscribeSelection: null };
+    configureRoot(workspace.root, side);
+    unsubscribeSelection = workspace.subscribeSelection((event) => onSurfaceSelection(context, surface, event));
+    surface.unsubscribeSelection = unsubscribeSelection;
+    return surface;
+  } catch (error) {
+    unsubscribeSelection?.();
+    workspace?.destroy?.();
+    sceneSource.dispose();
+    throw error;
+  }
 }
 
 function paneElement(documentRef, side) {
