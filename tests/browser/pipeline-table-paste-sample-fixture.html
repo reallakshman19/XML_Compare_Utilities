@@ -35,8 +35,8 @@
   </section>
 </main>
 <script type="module">
-const samples = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-samples.js?v=20260718-warning-log-browser-1');
-const addon = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260718-warning-log-browser-1');
+const samples = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-samples.js?v=20260719-table2-elevation-authority-1');
+const addon = await import('../../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260719-table2-elevation-authority-1');
 const dialog = document.querySelector('.pipeline-3d-model-dialog');
 dialog.querySelector('[data-p3d="table1"]').value = samples.SAMPLE_TABLE_1_MULTISHEET;
 addon.patchPipeline3dTablePasteDialog(dialog);

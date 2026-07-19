@@ -10,7 +10,7 @@ import {
 } from './pipeline-3d-model-table-paste-samples.js?v=20260716-table-paste-samples-1';
 import {
   installPipelineProfilePropagation,
-} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260718-profile-output-cleanup-1';
+} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260719-table2-elevation-authority-1';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();
@@ -38,9 +38,12 @@ function ensureStyle(doc = globalThis.document) {
 
 function pastePanelHtml(kind) {
   const number = kind === 'table2' ? '2' : '3';
+  const authority = kind === 'table2'
+    ? 'Table 2 station/elevation values are the sole generated-geometry Z authority.'
+    : 'Table 3 HLength, Z text and PMS values are marker evidence only; they do not alter generated geometry elevation.';
   return `<div class="p3d-input-panel p3d-table-paste-panel" data-p3d-table-paste-panel="${kind}">
 <label class="p3d-input-title" for="pipeline-3d-model-${kind}-paste">Table ${number} Paste</label>
-<div class="p3d-table-hint">Paste AutoCAD <code>_LIST</code> output. Local coordinates are used directly; global coordinates use the active Table 1 origin and angle.</div>
+<div class="p3d-table-hint">Paste AutoCAD <code>_LIST</code> output. Local coordinates are used directly; global coordinates use the active Table 1 origin and angle. ${authority}</div>
 <textarea id="pipeline-3d-model-${kind}-paste" data-p3d-table-paste="${kind}" spellcheck="false" placeholder="Paste AutoCAD _LIST output here"></textarea>
 <div class="p3d-table-paste-actions">
 <button type="button" data-p3d-table-transfer="${kind}">Transfer to Raw Table ${number} Text</button>

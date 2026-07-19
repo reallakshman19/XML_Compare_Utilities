@@ -1,6 +1,5 @@
 import { interpolateXY } from './pipeline-3d-model-geometry.js';
 import {
-  activeDepthRule,
   formatProfileValue,
   interpolateGrade,
   roundProfileValue,
@@ -11,22 +10,21 @@ import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 
 const EPSILON = 1e-6;
 const ROUTE_TOLERANCE = 0.5;
-const GRADE_RULE = Object.freeze({ zOffset: 0, mode: 'grade', zText: 'GRADE' });
 
-function event(type, distance, label, order = 50, depthRule = null, metadata = {}) {
-  return { type, distance, label, order, depthRule, metadata };
+function event(type, distance, label, order = 50, metadata = {}) {
+  return { type, distance, label, order, metadata };
 }
 
 export function buildVertexEvents(points, segments) {
   let cumulative = 0;
   return points.map((point, index) => {
     if (index > 0) cumulative = segments[index - 1].end;
-    return event('vertex', cumulative, point.label, 10, null, { point });
+    return event('vertex', cumulative, point.label, 10, { point });
   });
 }
 
 export function buildTable2Events(rows) {
-  return rows.map((row) => event('table2', row.distance, row.label, 20, null, row));
+  return rows.map((row) => event('table2', row.distance, row.label, 20, row));
 }
 
 export function buildTable3AnchorEvents(profile, context) {
@@ -40,32 +38,30 @@ export function buildTable3AnchorEvents(profile, context) {
     ),
     `HL ${Number(anchor.cumulative).toFixed(1)}`,
     30,
-    null,
-    { absoluteH: anchor.absoluteH, cumulative: anchor.cumulative, index },
+    { absoluteH: anchor.absoluteH, cumulative: anchor.cumulative, index, geometryRole: 'MARKER_ONLY' },
   ));
 }
 
-function hasBoundaryPeer(rules, rule, key, peerKey) {
-  return rules.some((candidate) => candidate !== rule
-    && !candidate.pointOnly
-    && Math.abs(candidate[peerKey] - rule[key]) <= EPSILON);
+function markerMetadata(rule, positionRole) {
+  return {
+    sourceId: rule.id,
+    zText: rule.zText,
+    zMode: rule.mode,
+    markerValue: rule.zOffset,
+    positionRole,
+    geometryRole: 'MARKER_ONLY',
+  };
 }
 
 export function buildDepthEvents(rules) {
   const events = [];
   for (const rule of rules) {
     if (rule.pointOnly) {
-      events.push(event('depth', rule.start, rule.zText, 45, rule));
+      events.push(event('table3-z-marker', rule.start, rule.zText, 45, markerMetadata(rule, 'POINT')));
       continue;
     }
-    if (!hasBoundaryPeer(rules, rule, 'start', 'end')) {
-      events.push(event('grade-end', rule.start, 'GRADE END', 5, GRADE_RULE));
-    }
-    events.push(event('depth-start', rule.start, `${rule.zText} START`, 60, rule));
-    events.push(event('depth-end', rule.end, `${rule.zText} END`, 40, rule));
-    if (!hasBoundaryPeer(rules, rule, 'end', 'start')) {
-      events.push(event('grade-start', rule.end, 'GRADE START', 65, GRADE_RULE));
-    }
+    events.push(event('table3-z-start-marker', rule.start, `${rule.zText} START`, 40, markerMetadata(rule, 'START')));
+    events.push(event('table3-z-end-marker', rule.end, `${rule.zText} END`, 60, markerMetadata(rule, 'END')));
   }
   return events;
 }
@@ -78,8 +74,7 @@ export function buildMarkerEvents(profile, context) {
       table3RouteDistance(row.absoluteH, profile, context),
       row.markerText,
       50,
-      null,
-      { absoluteH: row.absoluteH, sourceId: row.id },
+      { absoluteH: row.absoluteH, sourceId: row.id, geometryRole: 'MARKER_ONLY' },
     ));
 }
 
@@ -89,18 +84,18 @@ function mergeLabel(current, next) {
   return `${current} / ${next}`;
 }
 
-export function materializeProfileEvents(events, context, gradeRows, rules) {
+export function materializeProfileEvents(events, context, gradeRows) {
   const points = [];
   const sorted = [...events].sort((a, b) => a.distance - b.distance || a.order - b.order || a.type.localeCompare(b.type));
   for (const item of sorted) {
     const xy = interpolateXY(context.segments, item.distance);
     const grade = interpolateGrade(gradeRows, item.distance);
-    const rule = item.depthRule || activeDepthRule(rules, item.distance);
-    const z = grade + (rule?.zOffset ?? 0);
+    const z = grade;
     const previous = points.at(-1);
     if (previous && Math.abs(previous.horizontal - item.distance) <= EPSILON && Math.abs(previous.z - z) <= EPSILON) {
       previous.label = mergeLabel(previous.label, item.label);
       previous.sources.push(item.type);
+      previous.markerEvidence.push(item.metadata || {});
       continue;
     }
     points.push({
@@ -112,8 +107,8 @@ export function materializeProfileEvents(events, context, gradeRows, rules) {
       label: item.label || '',
       source: item.type,
       sources: [item.type],
-      depthMode: rule?.mode ?? null,
-      depthText: rule?.zText ?? null,
+      markerEvidence: [item.metadata || {}],
+      elevationAuthority: 'TABLE_2',
     });
   }
   return points;

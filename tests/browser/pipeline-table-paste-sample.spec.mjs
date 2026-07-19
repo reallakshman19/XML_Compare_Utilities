@@ -36,6 +36,10 @@ function coordinateRows(text) {
   });
 }
 
+function xyzRows(text) {
+  return coordinateRows(text).map(({ x, y, z }) => ({ x, y, z }));
+}
+
 test.describe('Pipeline Table Paste multi-sheet sample', () => {
   test('P3D-PASTE-B01 sample button loads paste data and propagates all raw previews', async ({ page }) => {
     const errors = await open(page);
@@ -65,7 +69,7 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-PROP-B01 raw profile reaches cleaned Table 3X, Coordinate Tab and InputXML', async ({ page }) => {
+  test('P3D-PROP-B01 Table 3 remains marker-only while Table 2 controls all Z output', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
     await page.locator('[data-p3d="run"]').click();
@@ -79,33 +83,30 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     const rows = coordinateRows(coordinate || '');
     const pms1 = rows.find((row) => row.name.includes('PMS-001'));
     const pms4 = rows.find((row) => row.name.includes('PMS-004'));
-    const gradeEnd = rows.find((row) => row.name.includes('GRADE END'));
-    const buriedStart = rows.find((row) => row.name.includes('1.5M START'));
-    const buriedEnd = rows.find((row) => row.name.includes('1.5M END'));
-    const aboveStart = rows.find((row) => row.name.includes('A/G START'));
-    const aboveEnd = rows.find((row) => row.name.includes('A/G END'));
-    const gradeStart = rows.find((row) => row.name.includes('GRADE START'));
-    expect(pms1?.z).toBeGreaterThan(238000);
-    expect(pms1?.z).toBeLessThan(240000);
+    expect(pms1?.z).toBeGreaterThan(240000);
+    expect(pms1?.z).toBeLessThan(242000);
     expect(pms4?.z).toBeGreaterThan(240000);
-    expect(gradeEnd?.x).toBe(buriedStart?.x);
-    expect(gradeEnd?.y).toBe(buriedStart?.y);
-    expect((gradeEnd?.z || 0) - (buriedStart?.z || 0)).toBe(1500);
-    expect(buriedEnd?.x).toBe(aboveStart?.x);
-    expect(buriedEnd?.y).toBe(aboveStart?.y);
-    expect((aboveStart?.z || 0) - (buriedEnd?.z || 0)).toBe(2250);
-    expect(aboveEnd?.x).toBe(gradeStart?.x);
-    expect(aboveEnd?.y).toBe(gradeStart?.y);
-    expect((aboveEnd?.z || 0) - (gradeStart?.z || 0)).toBe(750);
+    expect(pms4?.z).toBeLessThan(242000);
+    for (const value of ['HL 0.0', 'HL 14.7', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
+      expect(coordinate).toContain(value);
+    }
+    expect(coordinate).not.toMatch(/GRADE END|GRADE START/);
+    const zByXy = new Map();
+    for (const row of rows) {
+      const key = `${row.x}|${row.y}`;
+      if (zByXy.has(key)) expect(row.z).toBe(zByXy.get(key));
+      else zByXy.set(key, row.z);
+    }
     expect(coordinate).toContain('Sheet 1 Pt 1');
     expect(coordinate).not.toContain('T1-001');
     expect(coordinate).not.toContain('at point X= Y= Z=');
     expect(coordinate).not.toContain('8573374\t-10498846');
 
     const xml = await page.locator('[data-p3d="xml-output"]').textContent();
-    for (const value of ['Sheet 1 Pt 1', 'PMS-001', 'PMS-004', 'GRADE END', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'GRADE START']) {
+    for (const value of ['Sheet 1 Pt 1', 'HL 0.0', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
       expect(xml).toContain(value);
     }
+    expect(xml).not.toMatch(/GRADE END|GRADE START/);
     expect(xml).not.toContain('at point X= Y= Z=');
     const deltas = [...String(xml).matchAll(/DELTA_X="(-?[\d.]+)"[^>]*DELTA_Y="(-?[\d.]+)"[^>]*DELTA_Z="(-?[\d.]+)"/g)]
       .map((match) => Math.hypot(Number(match[1]), Number(match[2]), Number(match[3])));
@@ -118,9 +119,13 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     expect(errors).toEqual([]);
   });
 
-  test('P3D-PROP-B02 editable raw cells propagate bidirectionally and refresh SVG', async ({ page }) => {
+  test('P3D-PROP-B02 Table 3 edits change labels only; Table 2 edits change elevation', async ({ page }) => {
     const errors = await open(page);
     await loadSample(page);
+    await page.locator('[data-p3d="run"]').click();
+    const baseline = await page.locator('[data-p3d="coordinate-output"]').textContent();
+    const baselineXyz = xyzRows(baseline || '');
+
     await page.locator('[data-p3d-raw-text-group="table3"]').evaluate((element) => { element.open = true; });
     const markerCell = page.locator('[data-p3d-split-preview="table3c-raw"] [data-p3d-split-cell="0:1"]');
     await markerCell.fill('PMS-001A');
@@ -129,11 +134,22 @@ test.describe('Pipeline Table Paste multi-sheet sample', () => {
     const depthCell = page.locator('[data-p3d-split-preview="table3b-raw"] [data-p3d-split-cell="0:3"]');
     await depthCell.fill('2.0M');
     await expect(page.locator('[data-p3d-split="table3b-raw"]')).toHaveValue(/2\.0M/);
-    await expect(page.locator('[data-p3d-split="table3x-preview"]')).toContainText('2.0M');
+    await expect(page.locator('[data-p3d="table3x-output"]')).toContainText('2.0M');
 
     await page.locator('[data-p3d="run"]').click();
-    await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-001A');
+    const markerOnly = await page.locator('[data-p3d="coordinate-output"]').textContent();
+    expect(markerOnly).toContain('PMS-001A');
+    expect(markerOnly).toContain('2.0M START');
+    expect(xyzRows(markerOnly || '')).toEqual(baselineXyz);
     await expect(page.locator('[data-p3d="xml-output"]')).toContainText('PMS-001A');
+    await expect(page.locator('[data-p3d="xml-output"]')).toContainText('2.0M START');
+
+    await page.locator('[data-p3d-raw-text-group="table2"]').evaluate((element) => { element.open = true; });
+    const elevationCell = page.locator('[data-p3d-split-preview="table2a-raw"] [data-p3d-split-cell="0:4"]');
+    await elevationCell.fill('241.17');
+    await page.locator('[data-p3d="run"]').click();
+    const table2Changed = await page.locator('[data-p3d="coordinate-output"]').textContent();
+    expect(xyzRows(table2Changed || '')).not.toEqual(baselineXyz);
     expect(errors).toEqual([]);
   });
 

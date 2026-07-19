@@ -25,7 +25,10 @@ for (const source of sources) {
 const propagation = sources.find((source) => source.name === 'pipeline-3d-model-profile-propagation.js').text;
 assert.match(propagation, /PipelineProfileModel\.fromRaw/);
 assert.match(propagation, /buildDepthRules/);
+assert.match(propagation, /table3MarkerRules/);
 assert.match(propagation, /warnings: Object\.freeze/);
+assert.match(propagation, /elevationAuthority: 'TABLE_2'/);
+assert.match(propagation, /materializeProfileEvents\(events, context, gradeRows\)/);
 assert.match(propagation, /assertPlausibleProfileSegments\(combined, context\.total, context\.warnings\)/);
 assert.match(propagation, /sanitizeTable1Label/);
 assert.match(propagation, /T1-\$\{String\(index \+ 1\)\.padStart\(3, '0'\)\}/);
@@ -40,10 +43,14 @@ assert.match(coordinateMap, /warnGradeCoverage/);
 assert.doesNotMatch(coordinateMap, /throw new RangeError\(`Table 3 H/);
 
 const events = sources.find((source) => source.name === 'pipeline-3d-model-profile-events.js').text;
-assert.match(events, /GRADE END/);
-assert.match(events, /GRADE START/);
-assert.match(events, /event\('grade-end', rule\.start, 'GRADE END', 5, GRADE_RULE\)/);
-assert.match(events, /hasBoundaryPeer/);
+assert.match(events, /geometryRole: 'MARKER_ONLY'/);
+assert.match(events, /table3-z-start-marker/);
+assert.match(events, /table3-z-end-marker/);
+assert.match(events, /const z = grade;/);
+assert.match(events, /elevationAuthority: 'TABLE_2'/);
+assert.doesNotMatch(events, /GRADE END|GRADE START/);
+assert.doesNotMatch(events, /activeDepthRule/);
+assert.doesNotMatch(events, /grade \+ \(rule\?\.zOffset/);
 
 const output = sources.find((source) => source.name === 'pipeline-3d-model-profile-output.js').text;
 assert.match(output, /originEvidence/);
@@ -69,14 +76,17 @@ assert.doesNotMatch(runtime, /MutationObserver/);
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
 assert.match(adapter, /input\?\.profileRaw/);
 assert.match(adapter, /buildAuthoritativePipelineOutputs/);
+assert.match(adapter, /20260719-table2-elevation-authority-1/);
 assert.match(adapter, /Pipeline3DModelTables\.v1/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
-assert.match(addon, /20260718-profile-output-cleanup-1/);
+assert.match(addon, /Table 2 station\/elevation values are the sole generated-geometry Z authority/);
+assert.match(addon, /Table 3 HLength, Z text and PMS values are marker evidence only/);
+assert.match(addon, /20260719-table2-elevation-authority-1/);
 
 const utilityTab = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260718-profile-output-cleanup-1/);
+assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260719-table2-elevation-authority-1/);
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.match(packageJson.scripts['test:pipeline-table-paste'], /test:pipeline-profile-propagation/);
