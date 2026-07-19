@@ -67,7 +67,7 @@ assert(tracePanel.includes('Load Canonical Topology') && tracePanel.includes('Lo
 assert(workspace.includes('data-ttv-autofix-toast') && workspace.includes('data-ttv-autofix-toast-export="bundle"'));
 
 const manifest = JSON.parse(readFileSync(new URL('../vendor/3d-converters/topology-browser-core.manifest.json', import.meta.url), 'utf8'));
-assert.equal(manifest.sourceCommit, 'd0ac3b77659ccdf4517843f32ea911bbdcb0a37e');
+assert.equal(manifest.sourceCommit, '49316020e0841e11c620c3cf9c45a8c1025e5803');
 for (const name of ['runTopologyChecks', 'buildTopologyFixSuggestions', 'applyTopologyFixSuggestion', 'applyApprovedTopologyFixes']) assert.equal(typeof core[name], 'function', name);
 
 console.log('topology checker dashboard passed: pinned core, filters, reconciled KPIs, review state, local icons, and modeless controls verified.');

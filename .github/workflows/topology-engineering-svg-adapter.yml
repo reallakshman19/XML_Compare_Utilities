@@ -1,0 +1,35 @@
+name: Topology Engineering SVG Adapter
+
+on:
+  pull_request:
+    paths:
+      - 'tabs/topology-trace-validator/topology-engineering-svg-*.js'
+      - 'tabs/topology-trace-validator/topology-svg-view-model-core.js'
+      - 'tests/topology-engineering-svg-*.test.js'
+      - '.github/workflows/topology-engineering-svg-adapter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-adapter-and-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run shared adapter foundation
+        run: |
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+      - name: Run existing Topology Trace regression
+        run: |
+          node tests/topology-trace-validator.test.js
+          node tests/topology-trace-validator-1885-chain.test.js
+      - name: Run Topology Trace shared-scene parity
+        run: |
+          node tests/topology-engineering-svg-adapter.test.js
+          node tests/topology-engineering-svg-dependency-guard.test.js
