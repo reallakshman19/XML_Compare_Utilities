@@ -30,6 +30,10 @@ function assertSceneProjection(scene, projection) {
   return projection;
 }
 
+function isSelectionKey(event) {
+  return event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar';
+}
+
 export function createEngineeringSvgWorkspace(options = {}) {
   const { host, sceneSource } = options;
   if (!host || !sceneSource?.getSnapshot || !sceneSource?.subscribe) {
@@ -59,7 +63,15 @@ export function createEngineeringSvgWorkspace(options = {}) {
     if (id) selection.setSelection([id], 'pointer');
     else selection.clear('pointer-empty');
   };
+  const keydown = (event) => {
+    if (!isSelectionKey(event)) return;
+    const id = entityIdFromTarget(event.target, renderer.root);
+    if (!id) return;
+    event.preventDefault();
+    selection.setSelection([id], 'keyboard');
+  };
   renderer.root.addEventListener('click', click);
+  renderer.root.addEventListener('keydown', keydown);
   render();
 
   return Object.freeze({
@@ -99,6 +111,7 @@ export function createEngineeringSvgWorkspace(options = {}) {
       unsubscribeScene();
       unsubscribeSelection();
       renderer.root.removeEventListener('click', click);
+      renderer.root.removeEventListener('keydown', keydown);
       selection.dispose();
       renderer.destroy();
       return true;
