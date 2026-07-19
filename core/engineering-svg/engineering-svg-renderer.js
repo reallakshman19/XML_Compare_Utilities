@@ -46,6 +46,20 @@ function updateGeometryElement(group, geometry) {
   element.setAttribute('data-engineering-svg-geometry', geometry.kind);
 }
 
+function updateEntityAccessibility(group, entity) {
+  if (entity.selectable) {
+    setAttributes(group, {
+      role: 'button',
+      tabindex: '0',
+      'aria-label': `${entity.domainType} ${entity.id}`,
+    });
+    return;
+  }
+  group.removeAttribute('role');
+  group.removeAttribute('tabindex');
+  group.removeAttribute('aria-label');
+}
+
 function updateEntityGroup(group, entity, selected) {
   setAttributes(group, {
     'data-engineering-svg-entity-id': entity.id,
@@ -54,6 +68,7 @@ function updateEntityGroup(group, entity, selected) {
     'data-engineering-svg-layer-name': entity.layer,
     'aria-selected': selected ? 'true' : 'false',
   });
+  updateEntityAccessibility(group, entity);
   group.classList.toggle('is-selected', selected);
   group.style.pointerEvents = entity.selectable ? 'auto' : 'none';
   updateGeometryElement(group, entity.projectedGeometry);
@@ -66,6 +81,7 @@ export function createEngineeringSvgRenderer(host) {
   setAttributes(root, {
     xmlns: SVG_NS,
     role: 'img',
+    'aria-label': 'Engineering drawing',
     'data-engineering-svg-root': '1',
     preserveAspectRatio: 'xMidYMid meet',
   });
