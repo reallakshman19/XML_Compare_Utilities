@@ -86,7 +86,7 @@ function componentFields(trace) {
       fromPortId: row.fromPortId,
       toPortId: row.toPortId,
       gapMm: row.gapMm,
-    }))));
+    })))));
     fields.push(booleanField('repairBearing', 'Has repaired continuity', trace.connections.some((row) => row.status === 'AUTO_REPAIRED_SMALL_GAP' || row.status === 'USER_CONFIRMED')));
   }
   return fields;
