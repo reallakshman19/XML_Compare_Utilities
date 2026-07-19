@@ -64,6 +64,8 @@ function diagnostics(context, profile, gradeRows, maxSegment, elasticBends) {
     table3MarkerRows: profile.table3MarkerRows.length,
     elasticBendCandidates: elasticBends.diagnostics.candidateCount,
     elasticBendsEmitted: elasticBends.diagnostics.emittedCount,
+    bendBlockingErrors: elasticBends.diagnostics.blockedCount,
+    markerRowsExcludedFromInputXml: elasticBends.diagnostics.excludedMarkerCount,
   });
 }
 
@@ -71,10 +73,16 @@ function elasticSettings(input) {
   return input.elasticBendSettings || loadElasticBendSettings(globalThis.localStorage);
 }
 
-function appendElasticWarnings(context, elasticBends) {
-  for (const warning of elasticBends.warnings) {
-    addPipelineWarning(context.warnings, warning.code, warning.message, warning.details);
+function appendElasticDiagnostics(context, elasticBends) {
+  for (const item of [...elasticBends.warnings, ...elasticBends.errors]) {
+    const message = item.severity === 'BLOCKING' ? `[BLOCKING] ${item.message}` : item.message;
+    addPipelineWarning(context.warnings, item.code, message, item.details);
   }
+}
+
+function buildXmlText(branchInfo, elasticBends) {
+  if (elasticBends.hasBlockingErrors) return '';
+  return buildInputXmlPipingModelXml(branchInfo, elasticBends.geometryRows, elasticBends);
 }
 
 function outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment) {
@@ -85,9 +93,11 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     branchInfo: input.branchInfo,
     settings: elasticSettings(input),
   });
-  appendElasticWarnings(context, elasticBends);
+  appendElasticDiagnostics(context, elasticBends);
   return Object.freeze({
-    table1Points, sheets, combined, coordinateRows, elasticBends,
+    table1Points, sheets, combined, coordinateRows,
+    inputXmlCoordinateRows: elasticBends.geometryRows,
+    elasticBends,
     table1OutputText: table1ToTabText(table1Points),
     table2Text: buildDerivedTable2Text(gradeRows),
     table3Text: buildDerivedTable3Text(combined),
@@ -95,8 +105,9 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     table3XText: buildTable3XText(profile),
     coordinateText: coordinateRowsToTabText(coordinateRows),
     elasticBendText: buildElasticBendLedgerText(elasticBends),
-    xmlText: buildInputXmlPipingModelXml(input.branchInfo, coordinateRows, elasticBends),
+    xmlText: buildXmlText(input.branchInfo, elasticBends),
     warnings: Object.freeze([...context.warnings]),
+    errors: elasticBends.errors,
     diagnostics: diagnostics(context, profile, gradeRows, maxSegment, elasticBends),
   });
 }
