@@ -55,6 +55,10 @@ function coordinateRows(text) {
   });
 }
 
+function xyzRows(text) {
+  return coordinateRows(text).map(({ x, y, z }) => ({ x, y, z }));
+}
+
 function xmlDeltas(text) {
   return [...text.matchAll(/DELTA_X="(-?[\d.]+)"[^>]*DELTA_Y="(-?[\d.]+)"[^>]*DELTA_Z="(-?[\d.]+)"/g)]
     .map((match) => Math.hypot(Number(match[1]), Number(match[2]), Number(match[3])));
@@ -65,6 +69,7 @@ const before = JSON.stringify(raw);
 const output = build(raw);
 
 assert.equal(JSON.stringify(raw), before, 'raw profile evidence must remain immutable');
+assert.equal(output.diagnostics.elevationAuthority, 'TABLE_2');
 assert.equal(output.diagnostics.table2Rows, 10);
 assert.equal(output.diagnostics.table3LengthRows, 4);
 assert.equal(output.diagnostics.table3DepthRows, 2);
@@ -101,41 +106,50 @@ assert.ok(elPoint);
 assert.ok(elPoint.horizontal > 780 && elPoint.horizontal < 810);
 assert.ok(elPoint.horizontal < output.diagnostics.routeLength);
 assert.ok(!output.combined.some((point) => point.horizontal > output.diagnostics.routeLength + 0.001));
+assert.ok(output.combined.every((point) => point.z === point.grade), 'every generated Z must equal the Table 2 grade');
+assert.ok(output.combined.every((point) => point.elevationAuthority === 'TABLE_2'));
 
 const rows = coordinateRows(output.coordinateText);
 const pms1 = rows.find((row) => row.name.includes('PMS-001'));
 const pms4 = rows.find((row) => row.name.includes('PMS-004'));
 assert.ok(pms1 && pms4, 'PMS markers must reach Coordinate Tab');
-assert.ok(pms1.z > 238000 && pms1.z < 240000, 'PMS-001 must use buried centerline Z');
-assert.ok(pms4.z > 240000, 'PMS-004 must use A/G centerline Z');
+assert.ok(pms1.z > 240000 && pms1.z < 242000, 'PMS-001 must inherit Table 2 elevation');
+assert.ok(pms4.z > 240000 && pms4.z < 242000, 'PMS-004 must inherit Table 2 elevation');
 
-const gradeEnd = rows.find((row) => row.name.includes('GRADE END'));
-const buriedStart = rows.find((row) => row.name.includes('1.5M START'));
-assert.ok(gradeEnd && buriedStart, 'outer buried start must create two coordinate nodes');
-assert.equal(gradeEnd.x, buriedStart.x);
-assert.equal(gradeEnd.y, buriedStart.y);
-assert.equal(gradeEnd.z - buriedStart.z, 1500);
-
-const buriedEnd = rows.find((row) => row.name.includes('1.5M END'));
-const aboveStart = rows.find((row) => row.name.includes('A/G START'));
-assert.ok(buriedEnd && aboveStart, 'depth transition must create two coordinate nodes');
-assert.equal(buriedEnd.x, aboveStart.x);
-assert.equal(buriedEnd.y, aboveStart.y);
-assert.equal(aboveStart.z - buriedEnd.z, 2250);
-
-const aboveEnd = rows.find((row) => row.name.includes('A/G END'));
-const gradeStart = rows.find((row) => row.name.includes('GRADE START'));
-assert.ok(aboveEnd && gradeStart, 'outer A/G end must create two coordinate nodes');
-assert.equal(aboveEnd.x, gradeStart.x);
-assert.equal(aboveEnd.y, gradeStart.y);
-assert.equal(aboveEnd.z - gradeStart.z, 750);
-
-for (const expected of ['PMS-001', 'PMS-004', 'GRADE END', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'GRADE START']) {
-  assert.ok(output.xmlText.includes(expected), `InputXML must retain ${expected}`);
+for (const expected of ['HL 0.0', 'HL 14.7', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
+  assert.ok(output.coordinateText.includes(expected), `Coordinate Tab must retain marker ${expected}`);
+  assert.ok(output.xmlText.includes(expected), `InputXML must retain marker ${expected}`);
 }
+assert.doesNotMatch(output.coordinateText, /GRADE END|GRADE START/);
+assert.doesNotMatch(output.xmlText, /GRADE END|GRADE START/);
+
+const zByXy = new Map();
+for (const row of rows) {
+  const key = `${row.x}|${row.y}`;
+  if (zByXy.has(key)) assert.equal(row.z, zByXy.get(key), `Table 3 must not create a vertical element at ${key}`);
+  else zByXy.set(key, row.z);
+}
+
+const table3BChanged = {
+  ...raw,
+  table3b: raw.table3b.replace('1.5M', '2.0M'),
+};
+const markerOnlyOutput = build(table3BChanged);
+assert.deepEqual(xyzRows(markerOnlyOutput.coordinateText), xyzRows(output.coordinateText), 'Table 3B value changes must not alter XYZ');
+assert.match(markerOnlyOutput.coordinateText, /2\.0M START/);
+assert.match(markerOnlyOutput.xmlText, /2\.0M START/);
+
+const table2Changed = {
+  ...raw,
+  table2a: raw.table2a.replace('240.17', '241.17'),
+};
+const table2AuthorityOutput = build(table2Changed);
+assert.notDeepEqual(xyzRows(table2AuthorityOutput.coordinateText), xyzRows(output.coordinateText), 'Table 2 elevation changes must alter generated Z');
+
 const deltas = xmlDeltas(output.xmlText);
 assert.ok(deltas.length > 0);
 assert.ok(Math.max(...deltas) < 600000, 'InputXML must not contain the prior ~12.5 km extrapolation element');
+assert.equal((output.xmlText.match(/<PIPINGELEMENT\b/g) || []).length, rows.length - 1);
 assert.doesNotMatch(output.coordinateText, /8573374\t-10498846/);
 
 const invalidRaw = { ...raw, table3c: `${raw.table3c}\n2000.000\tPMS-OUTSIDE` };
@@ -146,5 +160,6 @@ assert.equal(warningOutput.diagnostics.warningCount, 2);
 assert.match(warningOutput.coordinateText, /PMS-OUTSIDE/);
 assert.match(warningOutput.xmlText, /PMS-OUTSIDE/);
 assert.ok(!warningOutput.combined.some((point) => point.horizontal > warningOutput.diagnostics.routeLength + 0.001));
+assert.ok(warningOutput.combined.every((point) => point.z === point.grade));
 
 console.log('Pipeline profile propagation tests passed.');
