@@ -1,0 +1,63 @@
+name: Sequential Engineering SVG Adapter
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/sequential-sketcher/sequential-engineering-svg-*.js'
+      - 'tests/helpers/sequential-engineering-svg-fixture.js'
+      - 'tests/sequential-engineering-svg-*.test.js'
+      - '.github/workflows/sequential-engineering-svg-adapter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-adapter-and-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check additive adapter boundary
+        run: |
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-authority.js
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-scene.js
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-properties.js
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-adapter.js
+          node --check tests/helpers/sequential-engineering-svg-fixture.js
+          node --check tests/sequential-engineering-svg-authority.test.js
+          node --check tests/sequential-engineering-svg-adapter.test.js
+          node --check tests/sequential-engineering-svg-parity.test.js
+          node --check tests/sequential-engineering-svg-dependency-guard.test.js
+      - name: Run shared Engineering Scene and adapter contracts
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: Run existing Sequential authority regressions
+        run: |
+          node tests/sequential-construction-engine.test.js
+          node tests/sequential-attachment-event.test.js
+          node tests/sequential-zero-length-inline.test.js
+          node tests/sequential-head-boundary-gate.test.js
+          node tests/sequential-construction-acceptance.test.js
+          node tests/sequential-supervised-transactions.test.js
+          node tests/sequential-confirmed-support-projection.test.js
+          node tests/sequential-continuity-geometry.test.js
+          node tests/support-carrier-attachment-geometry.test.js
+      - name: Run Sequential Engineering SVG authority and parity gates
+        run: |
+          node tests/sequential-engineering-svg-authority.test.js
+          node tests/sequential-engineering-svg-adapter.test.js
+          node tests/sequential-engineering-svg-parity.test.js
+          node tests/sequential-engineering-svg-dependency-guard.test.js
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Run full repository test suite
+        run: npm test
