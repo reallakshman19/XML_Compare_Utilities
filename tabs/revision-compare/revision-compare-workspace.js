@@ -22,6 +22,7 @@ function comparisonButton(actions, button) {
   if (button.hasAttribute('data-revc-edit-scope')) actions.showSetup();
   if (button.dataset.revcCategory) actions.toggleCategory(button.dataset.revcCategory);
   if (button.dataset.revcPresentation) actions.setPresentation(button.dataset.revcPresentation);
+  if (button.dataset.revcViewerBackend) actions.setViewerBackend(button.dataset.revcViewerBackend);
   if (button.hasAttribute('data-revc-fit-all')) actions.fitAll();
   if (button.hasAttribute('data-revc-fit-selected')) actions.fitSelected();
   if (button.dataset.revcDifferenceId) actions.selectDifference(button.dataset.revcDifferenceId);
@@ -111,12 +112,13 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (sequence !== renderSequence) return;
     if (!state.compare.reviewVisible || !state.compare.audit) { if (!state.compare.audit) viewerAdapter.clear(); return; }
     const host = root.querySelector('[data-revc-viewer-host]'); if (!host) return;
+    viewerAdapter.setBackend?.(state.compare.viewerBackend);
     const mounted = await viewerAdapter.render(host, state.compare.audit); if (sequence !== renderSequence) return;
     viewerAdapter.setPresentationMode(state.compare.presentationMode); viewerAdapter.selectDifference(state.compare.selectedDifferenceId);
     const preview = previewFor(state);
     if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId);
     else viewerAdapter.clearPreview();
-    if (!mounted) host.innerHTML = '<div class="revc-viewer-fallback"><b>3D viewer unavailable.</b><span>Use the queue and inspector to continue review.</span></div>';
+    if (!mounted) host.innerHTML = `<div class="revc-viewer-fallback"><b>${state.compare.viewerBackend === 'SVG' ? 'SVG preview' : '3D viewer'} unavailable.</b><span>Use the queue and inspector to continue review.</span>${state.compare.viewerBackend === 'SVG' ? '<button type="button" data-revc-viewer-backend="WEBGL">Return to 3D (WebGL)</button>' : ''}</div>`;
   }
   function render(next = state) {
     state = next; renderSequence += 1; const sequence = renderSequence;

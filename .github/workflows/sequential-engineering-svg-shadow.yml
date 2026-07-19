@@ -1,0 +1,110 @@
+name: Sequential Engineering SVG Shadow Workspace
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/sequential-sketcher/sequential-engineering-svg-shadow-workspace.js'
+      - 'tests/sequential-engineering-svg-shadow-*.test.js'
+      - 'tests/browser/sequential-engineering-svg-shadow-*'
+      - 'playwright.sequential-engineering-svg-shadow.config.mjs'
+      - '.github/workflows/sequential-engineering-svg-shadow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-contracts-regressions-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Engineering Scene contracts
+        run: |
+          node tests/engineering-scene-contracts.test.js
+          node tests/engineering-scene-validation.test.js
+      - name: Engineering SVG adapter conformance
+        run: |
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+      - name: Engineering SVG read-only shell guards
+        run: |
+          node tests/engineering-svg-shell-dependency-guard.test.js
+          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: Merged Sequential adapter authority and parity
+        run: |
+          node tests/sequential-engineering-svg-authority.test.js
+          node tests/sequential-engineering-svg-adapter.test.js
+          node tests/sequential-engineering-svg-parity.test.js
+          node tests/sequential-engineering-svg-dependency-guard.test.js
+      - name: Sequential construction regressions
+        run: |
+          node tests/sequential-construction-engine.test.js
+          node tests/sequential-attachment-event.test.js
+          node tests/sequential-zero-length-inline.test.js
+          node tests/sequential-head-boundary-gate.test.js
+          node tests/sequential-construction-acceptance.test.js
+          node tests/sequential-supervised-transactions.test.js
+      - name: Sequential continuity repair and support regressions
+        run: |
+          node tests/sequential-continuity-geometry.test.js
+          node tests/sequential-construction-tolerance-policy.test.js
+          node tests/sequential-confirmed-support-projection.test.js
+          node tests/support-carrier-attachment-geometry.test.js
+      - name: Shadow ownership parity and dependency guards
+        run: |
+          node tests/sequential-engineering-svg-shadow-ownership.test.js
+          node tests/sequential-engineering-svg-shadow-parity.test.js
+          node tests/sequential-engineering-svg-shadow-dependency-guard.test.js
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-shadow-workspace.js
+          node --check tests/sequential-engineering-svg-shadow-ownership.test.js
+          node --check tests/sequential-engineering-svg-shadow-parity.test.js
+          node --check tests/sequential-engineering-svg-shadow-dependency-guard.test.js
+          node --check tests/browser/sequential-engineering-svg-shadow.spec.mjs
+          node --check playwright.sequential-engineering-svg-shadow.config.mjs
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: SSK-ESVG-SHADOW-B01 blocked state
+        run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B01'
+      - name: SSK-ESVG-SHADOW-B02 repair and rejection
+        run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B02'
+      - name: SSK-ESVG-SHADOW-B03 support ownership
+        run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B03'
+      - name: SSK-ESVG-SHADOW-B04 projection and immutability
+        run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B04'
+      - name: SSK-ESVG-SHADOW-B05 failure and lifecycle
+        run: npx playwright test --config=playwright.sequential-engineering-svg-shadow.config.mjs --grep 'SSK-ESVG-SHADOW-B05'
+      - name: Startup smoke
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/xml-compare-startup-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          node tests/browser/xml-compare-startup-smoke.mjs
+      - name: Full repository tests
+        run: npm test
+      - name: Upload exact-head browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/sequential-engineering-svg-shadow
+          if-no-files-found: warn

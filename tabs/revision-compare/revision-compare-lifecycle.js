@@ -1,5 +1,9 @@
 /** Immutable RC-002 comparison lifecycle and visual-review UI state. */
 import { deepFreeze } from './revision-contract-utils.js';
+import {
+  REVISION_COMPARE_VIEWER_BACKEND,
+  normalizeRevisionCompareViewerBackend,
+} from './revision-compare-viewer-backend.js';
 
 export const COMPARE_STATUS = Object.freeze({
   IDLE: 'IDLE', READY: 'READY', PROJECTING: 'PROJECTING', COMPARING: 'COMPARING',
@@ -12,6 +16,7 @@ export function createComparisonLifecycleState() {
   return deepFreeze({
     schema: 'RevisionCompareLifecycle.v1', status: COMPARE_STATUS.IDLE, runGeneration: 0, runId: null,
     progress: null, audit: null, auditBasisId: null, error: null, presentationMode: 'overlay',
+    viewerBackend: REVISION_COMPARE_VIEWER_BACKEND.WEBGL,
     queue: defaultQueue(), selectedDifferenceId: null, reviewVisible: false,
   });
 }
@@ -63,6 +68,10 @@ export function setComparisonSelection(compare, differenceId) {
   return deepFreeze({ ...compare, selectedDifferenceId: differenceId });
 }
 export function setComparisonPresentation(compare, mode) { return deepFreeze({ ...compare, presentationMode: mode === 'side-by-side' ? 'side-by-side' : 'overlay' }); }
+export function setComparisonViewerBackend(compare, backend) {
+  const viewerBackend = normalizeRevisionCompareViewerBackend(backend);
+  return viewerBackend === compare.viewerBackend ? compare : deepFreeze({ ...compare, viewerBackend });
+}
 export function setComparisonQueueSearch(compare, value) { return deepFreeze({ ...compare, queue: { ...compare.queue, search: String(value ?? '') } }); }
 export function toggleComparisonCategory(compare, category) {
   const current = new Set(compare.queue.categories); if (current.has(category)) current.delete(category); else current.add(category);
