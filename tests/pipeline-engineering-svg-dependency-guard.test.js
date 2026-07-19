@@ -74,4 +74,11 @@ assert.match(workflow, /pipeline-engineering-svg-dual-ledger-legacy\.test\.js/);
 assert.match(workflow, /pipeline-3d-model-elastic-bend\.test\.js/);
 assert.match(workflow, /npm test/);
 
+for (const mergedBaseline of [
+  'tests/browser/revision-compare-svg-preview.spec.mjs',
+  'tests/browser/sequential-engineering-svg-shadow.spec.mjs',
+]) {
+  assert.equal(statSync(join(root, mergedBaseline)).isFile(), true, `current-main baseline is missing: ${mergedBaseline}`);
+}
+
 console.log('Pipeline engineering SVG dual-ledger dependency and deployment guards: ok');
