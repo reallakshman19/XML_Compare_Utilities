@@ -6,7 +6,7 @@ import {
   cancelComparisonState, completeComparisonState, createComparisonLifecycleState, failComparisonState,
   invalidateComparisonState, progressComparisonState, readyComparisonState, setComparisonPresentation,
   setComparisonQueueSearch, setComparisonReviewVisible, setComparisonSelection, setNeedsDecisionOnly,
-  startComparisonState, toggleChangedReason, toggleComparisonCategory,
+  setComparisonViewerBackend, startComparisonState, toggleChangedReason, toggleComparisonCategory,
 } from './revision-compare-lifecycle.js';
 import {
   attachReviewAudit, createReviewLifecycleState, setReviewImportError, setReviewLifecycleSession,
@@ -85,6 +85,7 @@ export function cancelWorkspaceComparison(state) { return deepFreeze({ ...state,
 export function failWorkspaceComparison(state, error) { return deepFreeze({ ...state, compare: failComparisonState(state.compare, error), message: String(error?.message ?? error) }); }
 export function selectWorkspaceDifference(state, id) { return deepFreeze({ ...state, compare: setComparisonSelection(state.compare, id) }); }
 export function setWorkspacePresentation(state, mode) { return deepFreeze({ ...state, compare: setComparisonPresentation(state.compare, mode) }); }
+export function setWorkspaceViewerBackend(state, backend) { return deepFreeze({ ...state, compare: setComparisonViewerBackend(state.compare, backend) }); }
 export function setWorkspaceQueueSearch(state, value) { return deepFreeze({ ...state, compare: setComparisonQueueSearch(state.compare, value) }); }
 export function toggleWorkspaceCategory(state, category) { return deepFreeze({ ...state, compare: toggleComparisonCategory(state.compare, category) }); }
 export function toggleWorkspaceChangedReason(state, reason) { return deepFreeze({ ...state, compare: toggleChangedReason(state.compare, reason) }); }
