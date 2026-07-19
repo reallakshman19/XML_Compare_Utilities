@@ -72,7 +72,8 @@ function updateControl(documentRef, record, row) {
     record.control.value = state === 'uniform' && row.display.value != null ? String(row.display.value) : '';
     record.control.placeholder = state === 'mixed' ? 'Mixed' : '';
   }
-  record.control.disabled = record.kind === 'readout' || row.valid === false && row.field.editable === false;
+  record.control.disabled = record.kind === 'readout';
+  record.control.setAttribute('aria-invalid', row.valid ? 'false' : 'true');
   record.root.setAttribute('data-engineering-svg-property-state', state);
   record.root.setAttribute('data-engineering-svg-property-dirty', row.dirty ? 'true' : 'false');
   record.root.setAttribute('data-engineering-svg-property-valid', row.valid ? 'true' : 'false');
@@ -84,16 +85,26 @@ function updateControl(documentRef, record, row) {
   });
 }
 
-function createRow(documentRef, row, onFieldEdit) {
+function safeId(value) {
+  return String(value).replace(/[^a-z0-9_-]/gi, '-');
+}
+
+function createRow(documentRef, row, onFieldEdit, idPrefix) {
   const root = element(documentRef, 'div', { 'data-engineering-svg-property-key': row.key });
   const label = element(documentRef, 'label');
-  const controlId = `engineering-svg-property-${row.key.replace(/[^a-z0-9_-]/gi, '-')}`;
+  const token = `${safeId(idPrefix)}-${safeId(row.key)}`;
+  const controlId = `${token}-control`;
+  const messagesId = `${token}-messages`;
   label.setAttribute('for', controlId);
   label.textContent = row.field.unit ? `${row.field.label} (${row.field.unit})` : row.field.label;
   const control = createControl(documentRef, row, onFieldEdit);
   control.id = controlId;
+  control.setAttribute('aria-describedby', messagesId);
   control.setAttribute('data-engineering-svg-property-control', row.key);
-  const messages = element(documentRef, 'ul', { 'data-engineering-svg-property-messages': row.key });
+  const messages = element(documentRef, 'ul', {
+    id: messagesId,
+    'data-engineering-svg-property-messages': row.key,
+  });
   root.append(label, control, messages);
   return { root, label, control, messages, kind: controlKind(row) };
 }
@@ -102,6 +113,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
   const host = options.host;
   if (!host?.ownerDocument?.createElement) throw new TypeError('Property inspector view requires a DOM host.');
   const documentRef = host.ownerDocument;
+  const idPrefix = String(options.idPrefix || 'engineering-svg-inspector');
   const rowsHost = element(documentRef, 'div', { 'data-engineering-svg-property-rows': '1' });
   const heading = element(documentRef, 'h2', { 'data-engineering-svg-inspector-heading': '1' });
   const summary = element(documentRef, 'p', { 'data-engineering-svg-inspector-summary': '1' });
@@ -133,7 +145,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
       let record = records.get(row.key);
       if (!record || record.kind !== expectedKind) {
         record?.root.remove();
-        record = createRow(documentRef, row, onFieldEdit);
+        record = createRow(documentRef, row, onFieldEdit, idPrefix);
         records.set(row.key, record);
       }
       updateControl(documentRef, record, row);
