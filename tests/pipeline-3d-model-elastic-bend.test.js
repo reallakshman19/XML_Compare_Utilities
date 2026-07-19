@@ -165,6 +165,26 @@ assert.throws(
   (error) => error.code === 'BEND_GEOMETRY_INFEASIBLE',
 );
 
+const adjacentPoints = [
+  point(0, 0, 0), point(1, 0, 0),
+  point(1, 0.25, 0), point(2, 0.25, 0),
+];
+const overlapping = resolvePipelineElasticBends({
+  points: adjacentPoints, coordinateRows: coordinateRows(adjacentPoints), settings: settings(),
+});
+assert.equal(overlapping.candidates.length, 2);
+assert.ok(overlapping.candidates.every((candidate) => candidate.localGeometryFits));
+assert.ok(overlapping.candidates.every((candidate) => !candidate.sharedSegmentFits));
+assert.ok(overlapping.candidates.every((candidate) => candidate.status === 'INFEASIBLE'));
+assert.equal(overlapping.diagnostics.sharedSegmentFailureCount, 1);
+assert.equal(overlapping.errors[0].code, 'BEND_SHARED_SEGMENT_INFEASIBLE');
+assert.equal(overlapping.sharedSegmentFailures[0].availableLengthMm, 250);
+assert.ok(overlapping.sharedSegmentFailures[0].requiredLengthMm > 299);
+assert.throws(
+  () => buildInputXmlPipingModelXml({}, overlapping.geometryRows, overlapping),
+  (error) => error.code === 'BEND_SHARED_SEGMENT_INFEASIBLE',
+);
+
 const coldFieldPoints = [point(0, 0, 0), point(1000, 0, 0), point(1000, 1000, 0)];
 const coldField = resolvePipelineElasticBends({
   points: coldFieldPoints, coordinateRows: coordinateRows(coldFieldPoints),
