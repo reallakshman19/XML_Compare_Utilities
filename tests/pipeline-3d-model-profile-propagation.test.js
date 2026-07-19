@@ -26,6 +26,11 @@ const PLACEHOLDER_TABLE_1 = [
   'at point X= Y= Z=\t1450.082\t-254.974\t0\t0\t0\t0\t0',
 ].join('\n');
 
+const TABLE3_MARKERS = Object.freeze([
+  'HL 0.0', 'HL 14.7', '1.5M START', '1.5M END',
+  'A/G START', 'A/G END', 'PMS-001', 'PMS-004',
+]);
+
 function profileRaw() {
   const frames = framesFromTable1(parseTable1(SAMPLE_TABLE_1_MULTISHEET));
   const table2 = parseTable2Paste(SAMPLE_TABLE_2_PASTE_MULTISHEET, { frames });
@@ -81,6 +86,7 @@ assert.ok(output.diagnostics.stationResidual < 0.05);
 assert.ok(output.diagnostics.routeStartStation > 12830 && output.diagnostics.routeStartStation < 12834);
 assert.ok(output.diagnostics.table3OriginRoute > 760 && output.diagnostics.table3OriginRoute < 780);
 assert.ok(output.diagnostics.maxSegment < 600);
+assert.ok(output.diagnostics.markerRowsExcludedFromInputXml > 0);
 
 assert.match(output.table2Text, /13621\.6\t240\.17/);
 assert.match(output.table2XText, /13\+621\.6/);
@@ -116,9 +122,9 @@ assert.ok(pms1 && pms4, 'PMS markers must reach Coordinate Tab');
 assert.ok(pms1.z > 240000 && pms1.z < 242000, 'PMS-001 must inherit Table 2 elevation');
 assert.ok(pms4.z > 240000 && pms4.z < 242000, 'PMS-004 must inherit Table 2 elevation');
 
-for (const expected of ['HL 0.0', 'HL 14.7', '1.5M START', '1.5M END', 'A/G START', 'A/G END', 'PMS-001', 'PMS-004']) {
+for (const expected of TABLE3_MARKERS) {
   assert.ok(output.coordinateText.includes(expected), `Coordinate Tab must retain marker ${expected}`);
-  assert.ok(output.xmlText.includes(expected), `InputXML must retain marker ${expected}`);
+  assert.ok(!output.xmlText.includes(expected), `InputXML must exclude marker ${expected}`);
 }
 assert.doesNotMatch(output.coordinateText, /GRADE END|GRADE START/);
 assert.doesNotMatch(output.xmlText, /GRADE END|GRADE START/);
@@ -137,7 +143,8 @@ const table3BChanged = {
 const markerOnlyOutput = build(table3BChanged);
 assert.deepEqual(xyzRows(markerOnlyOutput.coordinateText), xyzRows(output.coordinateText), 'Table 3B value changes must not alter XYZ');
 assert.match(markerOnlyOutput.coordinateText, /2\.0M START/);
-assert.match(markerOnlyOutput.xmlText, /2\.0M START/);
+assert.doesNotMatch(markerOnlyOutput.xmlText, /2\.0M START/);
+assert.equal(markerOnlyOutput.xmlText, output.xmlText, 'Table 3 marker edits must not alter InputXML');
 
 const table2Changed = {
   ...raw,
@@ -145,11 +152,13 @@ const table2Changed = {
 };
 const table2AuthorityOutput = build(table2Changed);
 assert.notDeepEqual(xyzRows(table2AuthorityOutput.coordinateText), xyzRows(output.coordinateText), 'Table 2 elevation changes must alter generated Z');
+assert.notEqual(table2AuthorityOutput.xmlText, output.xmlText, 'Table 2 elevation changes must alter InputXML geometry');
 
 const deltas = xmlDeltas(output.xmlText);
 assert.ok(deltas.length > 0);
 assert.ok(Math.max(...deltas) < 600000, 'InputXML must not contain the prior ~12.5 km extrapolation element');
-assert.equal((output.xmlText.match(/<PIPINGELEMENT\b/g) || []).length, rows.length - 1);
+assert.equal((output.xmlText.match(/<PIPINGELEMENT\b/g) || []).length, output.inputXmlCoordinateRows.length - 1);
+assert.ok(output.inputXmlCoordinateRows.length < rows.length, 'marker review rows must not become InputXML geometry rows');
 assert.doesNotMatch(output.coordinateText, /8573374\t-10498846/);
 
 const invalidRaw = { ...raw, table3c: `${raw.table3c}\n2000.000\tPMS-OUTSIDE` };
@@ -158,7 +167,8 @@ assert.ok(warningOutput.warnings.some((warning) => warning.code === 'table3_h_cl
 assert.ok(warningOutput.warnings.some((warning) => warning.code === 'grade_profile_extrapolated'));
 assert.equal(warningOutput.diagnostics.warningCount, 2);
 assert.match(warningOutput.coordinateText, /PMS-OUTSIDE/);
-assert.match(warningOutput.xmlText, /PMS-OUTSIDE/);
+assert.doesNotMatch(warningOutput.xmlText, /PMS-OUTSIDE/);
+assert.equal(warningOutput.xmlText, output.xmlText, 'out-of-domain marker evidence must not alter InputXML');
 assert.ok(!warningOutput.combined.some((point) => point.horizontal > warningOutput.diagnostics.routeLength + 0.001));
 assert.ok(warningOutput.combined.every((point) => point.z === point.grade));
 
