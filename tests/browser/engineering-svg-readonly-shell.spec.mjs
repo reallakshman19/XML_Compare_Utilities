@@ -49,3 +49,38 @@ test('ESVG-READONLY-B02 keyboard selection and scene refresh preserve selection 
   const draft = await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.domainA.shell.draftStore.getSnapshot());
   expect(draft.operationId).toBeNull();
 });
+
+test('ESVG-READONLY-B03 access-mode mismatches fail deterministically', async ({ page }) => {
+  await openFixture(page);
+  const errors = await page.evaluate(async () => {
+    const runtime = await import('/core/engineering-svg/shell-runtime.js');
+    const domain = globalThis.__engineeringSvgReadOnlyShellFixture.domainA;
+    const dependencies = domain.bridge.getDependencies();
+    const makeHost = () => document.createElement('div');
+    const messages = [];
+    try {
+      runtime.createEngineeringSvgWorkspaceShellFromAdapterBridge({
+        bridge: domain.bridge, accessMode: 'editable', shellId: 'mismatch', host: makeHost(),
+      });
+    } catch (error) { messages.push(String(error.message)); }
+    try {
+      runtime.createEngineeringSvgWorkspaceShell({
+        accessMode: 'read-only', shellId: 'read-only-gateway', host: makeHost(),
+        sceneSource: dependencies.sceneSource, propertyProvider: dependencies.propertyProvider,
+        commandGateway: { execute: () => null },
+      });
+    } catch (error) { messages.push(String(error.message)); }
+    try {
+      runtime.createEngineeringSvgWorkspaceShell({
+        accessMode: 'editable', shellId: 'editable-no-gateway', host: makeHost(),
+        sceneSource: dependencies.sceneSource, propertyProvider: dependencies.propertyProvider,
+      });
+    } catch (error) { messages.push(String(error.message)); }
+    return messages;
+  });
+  expect(errors).toEqual([
+    'Engineering SVG shell access mode must match the adapter descriptor.',
+    'Read-only engineering SVG shell cannot expose a commandGateway.',
+    'Editable engineering SVG shell requires a commandGateway.',
+  ]);
+});
