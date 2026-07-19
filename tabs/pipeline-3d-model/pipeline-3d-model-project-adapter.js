@@ -7,7 +7,7 @@ import {
 import {
   buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml,
 } from './pipeline-3d-model-xml-builder.js';
-import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js';
+import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js?v=20260719-table2-elevation-authority-1';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
