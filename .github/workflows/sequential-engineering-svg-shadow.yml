@@ -1,4 +1,5 @@
 name: Sequential Engineering SVG Shadow Workspace
+# Post-merge certification repair: rerun B01-B05 after the B03 contract assertion correction.
 
 on:
   pull_request:
