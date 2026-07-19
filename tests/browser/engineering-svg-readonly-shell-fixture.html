@@ -49,6 +49,7 @@
         sceneId: `${name}-scene`,
         revision: revision(),
         coordinateSystem: { unit: 'mm', verticalAxis: 'Z', frame: 'GLOBAL', handedness: 'right' },
+        projections: ['ISO', 'XY'],
         entities: [
           createEngineeringSceneEntity({
             id: 'a', kind: 'point', domainType: 'READ_ONLY_POINT',
