@@ -70,7 +70,24 @@ function attr(name, value) {
 // spec's own "non-specified real values are assigned a value of 0.0" rule,
 // not a hidden default. LINE is emitted and mapped directly to the 
 // element line label by the consumer.
-function pipingElementXml(fromRow, toRow, branchInfo) {
+function bendXml(bend) {
+  const attrs = [
+    attr('RADIUS', num(bend.radiusMm)),
+    attr('TYPE', num(bend.bendTypeCode, '0')),
+    attr('ANGLE1', SENTINEL_MISSING),
+    attr('NODE1', SENTINEL_MISSING),
+    attr('ANGLE2', SENTINEL_MISSING),
+    attr('NODE2', SENTINEL_MISSING),
+    attr('ANGLE3', SENTINEL_MISSING),
+    attr('NODE3', SENTINEL_MISSING),
+    attr('NUM_MITER', SENTINEL_MISSING),
+    attr('FITTINGTHICKNESS', SENTINEL_MISSING),
+    attr('KFACTOR', SENTINEL_MISSING),
+  ];
+  return `<BEND ${attrs.join(' ')}/>`;
+}
+
+function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
   const deltaX = num(toRow.x - fromRow.x);
   const deltaY = num(toRow.y - fromRow.y);
   const deltaZ = num(toRow.z - fromRow.z);
@@ -110,7 +127,8 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];
-  return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
+  if (!bend) return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
+  return `<PIPINGELEMENT ${attrs.join(' ')}>\n${bendXml(bend)}\n</PIPINGELEMENT>`;
 }
 
 // Builds the CAESARII > PIPINGMODEL > PIPINGELEMENT XML that
@@ -118,10 +136,11 @@ function pipingElementXml(fromRow, toRow, branchInfo) {
 // modify that workflow — this only shapes our coordinate data to match its
 // documented schema (see converters/scripts/inputxml_to_cii2019.py and
 // tests/fixtures/xml-cii-standalone/inputxml-element-benchmark.xml).
-export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
+export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, elasticBends = null) {
   const elements = [];
   for (let i = 1; i < coordinateRows.length; i += 1) {
-    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo));
+    const bend = elasticBends?.bendByIncomingElementIndex?.[i - 1] || null;
+    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo, bend));
   }
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -133,4 +152,4 @@ export function buildInputXmlPipingModelXml(branchInfo, coordinateRows) {
   ].join('\n');
 }
 
-export const _internal = { toMm, SENTINEL_MISSING };
+export const _internal = { toMm, SENTINEL_MISSING, bendXml };
