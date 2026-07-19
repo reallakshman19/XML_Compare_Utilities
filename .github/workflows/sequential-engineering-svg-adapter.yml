@@ -22,17 +22,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax-check additive adapter boundary
-        run: |
-          node --check tabs/sequential-sketcher/sequential-engineering-svg-authority.js
-          node --check tabs/sequential-sketcher/sequential-engineering-svg-scene.js
-          node --check tabs/sequential-sketcher/sequential-engineering-svg-properties.js
-          node --check tabs/sequential-sketcher/sequential-engineering-svg-adapter.js
-          node --check tests/helpers/sequential-engineering-svg-fixture.js
-          node --check tests/sequential-engineering-svg-authority.test.js
-          node --check tests/sequential-engineering-svg-adapter.test.js
-          node --check tests/sequential-engineering-svg-parity.test.js
-          node --check tests/sequential-engineering-svg-dependency-guard.test.js
+      - name: Syntax authority module
+        run: node --check tabs/sequential-sketcher/sequential-engineering-svg-authority.js
+      - name: Syntax scene module
+        run: node --check tabs/sequential-sketcher/sequential-engineering-svg-scene.js
+      - name: Syntax properties module
+        run: node --check tabs/sequential-sketcher/sequential-engineering-svg-properties.js
+      - name: Syntax adapter module
+        run: node --check tabs/sequential-sketcher/sequential-engineering-svg-adapter.js
+      - name: Syntax fixture helper
+        run: node --check tests/helpers/sequential-engineering-svg-fixture.js
+      - name: Syntax authority test
+        run: node --check tests/sequential-engineering-svg-authority.test.js
+      - name: Syntax adapter test
+        run: node --check tests/sequential-engineering-svg-adapter.test.js
+      - name: Syntax parity test
+        run: node --check tests/sequential-engineering-svg-parity.test.js
+      - name: Syntax dependency guard
+        run: node --check tests/sequential-engineering-svg-dependency-guard.test.js
       - name: Run shared Engineering Scene and adapter contracts
         run: |
           node tests/engineering-scene-contracts.test.js
