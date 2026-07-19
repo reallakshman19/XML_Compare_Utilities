@@ -1,0 +1,89 @@
+name: Topology Engineering SVG Shadow Workspace
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/topology-trace-validator/topology-engineering-svg-shadow-workspace.js'
+      - 'tests/topology-engineering-svg-shadow-*.test.js'
+      - 'tests/browser/topology-engineering-svg-shadow-*'
+      - 'playwright.topology-engineering-svg-shadow.config.mjs'
+      - '.github/workflows/topology-engineering-svg-shadow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shadow-contracts-and-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: ESVG adapter conformance
+        run: |
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-adapter-dependency-guard.test.js
+      - name: ESVG read-only shell guards
+        run: |
+          node tests/engineering-svg-shell-dependency-guard.test.js
+          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+      - name: TTV-ESVG-001 adapter and parity
+        run: |
+          node tests/topology-engineering-svg-adapter.test.js
+          node tests/topology-engineering-svg-dependency-guard.test.js
+      - name: Existing Topology Trace focused tests
+        run: npm run test:topology-validator
+      - name: Existing TTV SVG editor evidence
+        run: node tests/topology-svg-editor-foundation.test.js
+      - name: Shadow ownership and dependency tests
+        run: |
+          node tests/topology-engineering-svg-shadow-ownership.test.js
+          node tests/topology-engineering-svg-shadow-dependency-guard.test.js
+      - name: Production JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Existing TTV browser acceptance
+        run: npx playwright test --config=playwright.topology-validator.config.mjs
+      - name: TTV-ESVG-SHADOW-B01 complete fixture parity
+        run: npx playwright test --config=playwright.topology-engineering-svg-shadow.config.mjs --grep 'TTV-ESVG-SHADOW-B01'
+      - name: TTV-ESVG-SHADOW-B02 source properties
+        run: npx playwright test --config=playwright.topology-engineering-svg-shadow.config.mjs --grep 'TTV-ESVG-SHADOW-B02'
+      - name: TTV-ESVG-SHADOW-B03 canonical edge evidence
+        run: npx playwright test --config=playwright.topology-engineering-svg-shadow.config.mjs --grep 'TTV-ESVG-SHADOW-B03'
+      - name: TTV-ESVG-SHADOW-B04 projection invariance
+        run: npx playwright test --config=playwright.topology-engineering-svg-shadow.config.mjs --grep 'TTV-ESVG-SHADOW-B04'
+      - name: TTV-ESVG-SHADOW-B05 lifecycle
+        run: npx playwright test --config=playwright.topology-engineering-svg-shadow.config.mjs --grep 'TTV-ESVG-SHADOW-B05'
+      - name: Startup smoke
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/xml-compare-startup-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          node tests/browser/xml-compare-startup-smoke.mjs
+      - name: Full repository tests
+        run: npm test
+      - name: Upload shadow browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: topology-engineering-svg-shadow-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/topology-engineering-svg-shadow
+          if-no-files-found: warn
