@@ -109,6 +109,13 @@ function createRow(documentRef, row, onFieldEdit, idPrefix) {
   return { root, label, control, messages, kind: controlKind(row) };
 }
 
+function placeRows(rowsHost, orderedRecords) {
+  orderedRecords.forEach((record, index) => {
+    const current = rowsHost.children[index] || null;
+    if (current !== record.root) rowsHost.insertBefore(record.root, current);
+  });
+}
+
 export function createEngineeringSvgPropertyInspectorView(options = {}) {
   const host = options.host;
   if (!host?.ownerDocument?.createElement) throw new TypeError('Property inspector view requires a DOM host.');
@@ -139,7 +146,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
       : 'Properties — no selection';
     summary.textContent = `${model.rows.length} fields · ${model.dirtyCount} staged · ${model.invalidCount} invalid`;
     const present = new Set();
-    model.rows.forEach((row) => {
+    const orderedRecords = model.rows.map((row) => {
       present.add(row.key);
       const expectedKind = controlKind(row);
       let record = records.get(row.key);
@@ -149,7 +156,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
         records.set(row.key, record);
       }
       updateControl(documentRef, record, row);
-      rowsHost.appendChild(record.root);
+      return record;
     });
     records.forEach((record, key) => {
       if (!present.has(key)) {
@@ -157,6 +164,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
         records.delete(key);
       }
     });
+    placeRows(rowsHost, orderedRecords);
     apply.disabled = busy || !model.applyEligible;
     cancel.disabled = busy || model.dirtyCount === 0;
     return model;
