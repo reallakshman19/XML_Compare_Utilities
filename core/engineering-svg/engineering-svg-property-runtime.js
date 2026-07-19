@@ -43,6 +43,11 @@ function resolveField(propertySets, key, ownerId) {
   return candidates[0];
 }
 
+export function resolveEngineeringSvgPropertyField(propertySets, key, ownerId) {
+  if (!Array.isArray(propertySets)) throw new TypeError('Property field resolution requires property sets.');
+  return resolveField(propertySets, String(key), String(ownerId));
+}
+
 function aggregateState(fields) {
   if (fields.every((field) => field == null)) return 'not-applicable';
   if (fields.some((field) => field == null)) return 'unavailable';
