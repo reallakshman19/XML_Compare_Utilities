@@ -3,6 +3,8 @@ import { normalizeElasticBendSettings } from './pipeline-3d-model-elastic-bend-s
 
 const DEG = 180 / Math.PI;
 const EPSILON = 1e-9;
+const INPUTXML_NODE_START = 100;
+const INPUTXML_NODE_STEP = 10;
 
 function vec(a, b) { return { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z }; }
 function length(value) { return Math.hypot(value.x, value.y, value.z); }
@@ -53,11 +55,30 @@ function resolveOutsideDiameterMm(settings, branchInfo) {
   if (settings.diameterSource === 'explicit-od') return positive(settings.explicitOutsideDiameterMm);
   return positive(branchInfo?.boreMm);
 }
+function geometryNodeName(point, fallback) {
+  const values = sources(point), evidence = Array.isArray(point?.markerEvidence) ? point.markerEvidence : [];
+  const labels = values.map((source, index) => {
+    const item = evidence[index] || {};
+    if (source === 'vertex') return item.point?.label || '';
+    if (source === 'table2') return item.label || item.point?.label || '';
+    return '';
+  }).filter(Boolean);
+  return [...new Set(labels)].join(' / ') || fallback || '';
+}
 
 export function buildGeometryAuthorityRoute(points = [], coordinateRows = []) {
-  const entries = points.map((point, sourceIndex) => ({
-    point, sourceIndex, row: coordinateRows[sourceIndex] || null,
-  })).filter((entry) => entry.row && isGeometryAuthority(entry.point));
+  const authority = points.map((point, sourceIndex) => ({
+    point, sourceIndex, sourceRow: coordinateRows[sourceIndex] || null,
+  })).filter((entry) => entry.sourceRow && isGeometryAuthority(entry.point));
+  const entries = authority.map((entry, geometryIndex) => Object.freeze({
+    point: entry.point,
+    sourceIndex: entry.sourceIndex,
+    row: Object.freeze({
+      ...entry.sourceRow,
+      nodeNumber: INPUTXML_NODE_START + geometryIndex * INPUTXML_NODE_STEP,
+      nodeName: geometryNodeName(entry.point, entry.sourceRow.nodeName),
+    }),
+  }));
   return Object.freeze({
     entries: Object.freeze(entries),
     points: Object.freeze(entries.map((entry) => entry.point)),
@@ -176,22 +197,22 @@ function buildCandidate(entries, geometryIndex, screening) {
 
 function nextAvailableNode(used, start) {
   let candidate = start;
-  while (used.has(candidate)) candidate += 10;
+  while (used.has(candidate)) candidate += INPUTXML_NODE_STEP;
   used.add(candidate);
   return candidate;
 }
 function assignCurvatureNodes(candidates, rows, settings) {
   const used = new Set(rows.map((row) => Number(row.nodeNumber)).filter(Number.isFinite));
-  let nextNode = Math.ceil((Math.max(0, ...used) + 1) / 10) * 10;
+  let nextNode = Math.ceil((Math.max(0, ...used) + 1) / INPUTXML_NODE_STEP) * INPUTXML_NODE_STEP;
   return candidates.map((candidate) => {
     if (candidate.status !== 'EMITTED') return Object.freeze({ ...candidate, curvatureNodes: Object.freeze([]) });
     const nodes = [];
     if (settings.emitNearPointNode) {
-      const nodeNumber = nextAvailableNode(used, nextNode); nextNode = nodeNumber + 10;
+      const nodeNumber = nextAvailableNode(used, nextNode); nextNode = nodeNumber + INPUTXML_NODE_STEP;
       nodes.push(Object.freeze({ angleDeg: 0, nodeNumber, role: 'NEAR_POINT' }));
     }
     if (settings.emitMidpointNode) {
-      const nodeNumber = nextAvailableNode(used, nextNode); nextNode = nodeNumber + 10;
+      const nodeNumber = nextAvailableNode(used, nextNode); nextNode = nodeNumber + INPUTXML_NODE_STEP;
       nodes.push(Object.freeze({ angleDeg: candidate.turnAngleDeg / 2, nodeNumber, role: 'MIDPOINT' }));
     }
     return Object.freeze({ ...candidate, curvatureNodes: Object.freeze(nodes) });
