@@ -105,7 +105,7 @@ service.dispose();
 
 function fakeViewerFactory(log, fail = false) {
   return async (_host, callbacks) => {
-    if (fail) throw new Error('WebGL unavailable');
+    if (fail) throw new Error('Viewer unavailable');
     log.callbacks = callbacks;
     return {
       reattach: () => log.push('reattach'), setModels: (models) => { log.push('models'); log.models = structuredClone(models); },
@@ -118,7 +118,11 @@ function fakeViewerFactory(log, fail = false) {
 const host = {};
 const log = [];
 let picked = 'unset';
-const adapter = createRevisionCompareViewerAdapter({ viewerFactory: fakeViewerFactory(log), onPick: (value) => { picked = value; } });
+const viewerFactory = fakeViewerFactory(log);
+const adapter = createRevisionCompareViewerAdapter({
+  webglViewerFactory: viewerFactory, svgViewerFactory: viewerFactory,
+  onPick: (value) => { picked = value; },
+});
 await adapter.render(host, audit);
 const originalModels = structuredClone(audit.visualModels);
 adapter.setPresentationMode('side-by-side');
@@ -132,7 +136,10 @@ assert.equal(log.filter((item) => item === 'fitSelection').length, 1);
 log.callbacks.onPick(null);
 assert.equal(picked, null);
 adapter.dispose();
-const failed = createRevisionCompareViewerAdapter({ viewerFactory: fakeViewerFactory([], true) });
+const failedFactory = fakeViewerFactory([], true);
+const failed = createRevisionCompareViewerAdapter({
+  webglViewerFactory: failedFactory, svgViewerFactory: failedFactory,
+});
 assert.equal(await failed.render(host, audit), false);
 assert.equal(failed.evidence().failed, true);
 failed.dispose();

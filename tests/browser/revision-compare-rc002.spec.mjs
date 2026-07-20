@@ -18,7 +18,7 @@ async function installViewer(page, fail = false) {
     });
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
     const viewerFactory = async (host, callbacks) => {
-      if (shouldFail) throw new Error('Injected WebGL initialization failure');
+      if (shouldFail) throw new Error('Injected viewer initialization failure');
       window.rcViewerLog.callbacks = callbacks;
       const canvas = document.createElement('canvas'); canvas.dataset.rcFakeCanvas = 'true'; host.appendChild(canvas);
       return {
@@ -31,7 +31,7 @@ async function installViewer(page, fail = false) {
         dispose() { window.rcViewerLog.disposed += 1; canvas.remove(); },
       };
     };
-    window.rcMountOptions = { viewerAdapterOptions: { viewerFactory } };
+    window.rcMountOptions = { viewerAdapterOptions: { viewerFactory, svgViewerFactory: viewerFactory } };
   }, { shouldFail: fail });
 }
 async function openLoadApprove(page, options = {}) {
@@ -138,7 +138,7 @@ test('cancelled compare publishes no partial audit', async ({ page }) => {
 test('viewer initialization failure leaves queue and inspector usable', async ({ page }) => {
   await openLoadApprove(page, { viewerFailure: true });
   await runAndOpenReview(page);
-  await expect(page.getByText('3D viewer unavailable').first()).toBeVisible();
+  await expect(page.getByText('Engineering SVG unavailable').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Change queue' })).toBeVisible();
   await page.locator('[data-revc-difference-id]').first().click();
   await expect(page.locator('.revc-inspector')).toContainText('Engineering explanation');

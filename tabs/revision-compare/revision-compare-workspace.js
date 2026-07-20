@@ -2,6 +2,12 @@
 import { createRevisionActions } from './revision-compare-actions.js';
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
+import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-backend.js';
+import { createComparisonLifecycleState } from './revision-compare-lifecycle.js';
+import {
+  REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
+  createRevisionCompareViewerPolicy,
+} from './revision-compare-viewer-policy.js';
 import { createRevisionCompareService } from './revision-compare-service.js';
 import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
@@ -107,6 +113,22 @@ function preparePropertyHost(root, state) {
   section.appendChild(host);
   return host;
 }
+function initialWorkspaceState(session, createdAt, policy) {
+  const state = createRevisionWorkspaceState(session, createdAt);
+  return Object.freeze({ ...state, compare: createComparisonLifecycleState(policy) });
+}
+function syncBackendButtons(root, evidence) {
+  root.querySelectorAll('[data-revc-viewer-backend]').forEach((button) => button.setAttribute('aria-pressed', 'false'));
+  if (evidence.failed || !evidence.activeBackend) return;
+  root.querySelectorAll(`[data-revc-viewer-backend="${evidence.activeBackend}"]`)
+    .forEach((button) => button.setAttribute('aria-pressed', 'true'));
+}
+function recoveryMarkup(compare) {
+  const backend = compare.viewerBackend === 'SVG'
+    ? compare.viewerPolicy.recoveryBackendForSvgFailure
+    : compare.viewerPolicy.recoveryBackendForWebglFailure;
+  return `<button type="button" data-revc-viewer-backend="${backend}">Return to ${revisionCompareViewerBackendLabel(backend)}</button>`;
+}
 export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
   const now = options.now ?? defaultNow; const clock = options.clock ?? defaultClock;
@@ -114,11 +136,17 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const service = options.service ?? createRevisionLoadService(cryptoRef, options.loadServiceOptions);
   const compareService = options.compareService ?? createRevisionCompareService(options.compareServiceOptions);
   const downloadArtifact = options.downloadArtifact ?? downloadRevisionArtifact; const cleanups = [];
-  let state = createRevisionWorkspaceState(options.sessionId ?? sessionId(now()), now()); let actions = null; let renderSequence = 0;
-  const viewerAdapter = options.viewerAdapter ?? createRevisionCompareViewerAdapter({
-    ...options.viewerAdapterOptions, onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
-    onError: (error) => options.showToast?.(`3D viewer unavailable: ${error.message}`, 'warning'),
-  });
+  const policy = createRevisionCompareViewerPolicy(options.viewerPolicy
+    ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
+  let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
+  let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null;
+  if (!viewerAdapter) {
+    viewerAdapter = createRevisionCompareViewerAdapter({
+      ...options.viewerAdapterOptions, viewerPolicy: policy,
+      onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
+      onError: (error) => options.showToast?.(`${revisionCompareViewerBackendLabel(viewerAdapter?.evidence().viewerBackend)} unavailable: ${error.message}`, 'warning'),
+    });
+  }
   const propertyInspector = options.propertyInspector ?? createRevisionComparePropertyInspector(options.propertyInspectorOptions);
   function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
   async function syncViewer(sequence) {
@@ -131,7 +159,12 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     const preview = previewFor(state);
     if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId);
     else viewerAdapter.clearPreview();
-    if (!mounted) host.innerHTML = `<div class="revc-viewer-fallback"><b>${state.compare.viewerBackend === 'SVG' ? 'SVG preview' : '3D viewer'} unavailable.</b><span>Use the queue and inspector to continue review.</span>${state.compare.viewerBackend === 'SVG' ? '<button type="button" data-revc-viewer-backend="WEBGL">Return to 3D (WebGL)</button>' : ''}</div>`;
+    const evidence = viewerAdapter.evidence(); syncBackendButtons(root, evidence);
+    const renderedFailure = root.querySelector('.revc-viewer-failure');
+    if (mounted) renderedFailure?.remove();
+    else if (!renderedFailure) {
+      host.innerHTML = `<div class="revc-viewer-fallback"><b>${revisionCompareViewerBackendLabel(state.compare.viewerBackend)} unavailable.</b><span>Use the queue and inspector to continue review. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`;
+    }
   }
   async function syncPropertyInspector(sequence, host) {
     if (sequence !== renderSequence) return;
@@ -152,4 +185,4 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
   });
 }
-export const _test = Object.freeze({ actionClick, inputChange, preparePropertyHost, sessionId, syncDecisionButtons });
+export const _test = Object.freeze({ actionClick, initialWorkspaceState, inputChange, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });

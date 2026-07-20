@@ -85,12 +85,16 @@ jobs:
           node --check tests/browser/revision-compare-svg-preview.spec.mjs
           node --check tests/browser/revision-compare-property-evidence.spec.mjs
           node --check tests/browser/revision-compare-property-lifecycle.spec.mjs
+          node --check tests/browser/revision-compare-svg-first-policy.spec.mjs
           node --check playwright.revision-compare.config.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: RC-SVG-002-B01 authoritative shared property evidence
         id: property_b01
         run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-002-B01'
+      - name: RC-SVG-003-B01 SVG-first backend policy
+        id: svg_first_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-003-B01'
       - name: Revision Compare Chromium acceptance
         id: chromium
         run: npx playwright test --config=playwright.revision-compare.config.mjs
@@ -109,6 +113,7 @@ jobs:
           WORKBENCH3D_RESULT: ${{ steps.workbench3d.outcome }}
           SYNTAX_RESULT: ${{ steps.syntax.outcome }}
           PROPERTY_B01_RESULT: ${{ steps.property_b01.outcome }}
+          SVG_FIRST_B01_RESULT: ${{ steps.svg_first_b01.outcome }}
           CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
           FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
         run: |
@@ -129,6 +134,7 @@ jobs:
               "workbench3d": "${WORKBENCH3D_RESULT}",
               "syntax": "${SYNTAX_RESULT}",
               "propertyB01": "${PROPERTY_B01_RESULT}",
+              "svgFirstB01": "${SVG_FIRST_B01_RESULT}",
               "chromium": "${CHROMIUM_RESULT}",
               "fullRepositoryTests": "${FULL_TEST_RESULT}"
             }
