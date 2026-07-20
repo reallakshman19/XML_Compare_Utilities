@@ -16,7 +16,15 @@ export class SnapshotCommand {
   }
   execute() {
     if (this.after) { this.model.restore(this.after, `redo:${this.description}`); return; }
-    this.before = this.model.snapshot(); this.applyMutation(this.model); this.after = this.model.snapshot();
+    this.before = this.model.snapshot();
+    try {
+      this.applyMutation(this.model);
+      this.after = this.model.snapshot();
+    } catch (error) {
+      this.model.restore(this.before, `rollback:${this.description}`);
+      this.before = null; this.after = null;
+      throw error;
+    }
   }
   undo() {
     if (!this.before) throw new Error('Command has not been executed.');
@@ -75,8 +83,20 @@ export function addTable3DepthCommand(model, payload) {
 export function addTable3MarkerCommand(model, payload) {
   return new SnapshotCommand(model, 'Add Table 3 marker', (target) => target.addMarker(payload));
 }
+
+function validateSingleRowDeletion(model, id) {
+  const row = model?.findRow?.(id);
+  if (!row) throw new Error(`Unknown profile row: ${id}`);
+  if (row.sourceTable !== 'table2a') return id;
+  const remaining = (model.table2Rows || []).filter((candidate) => candidate.id !== id
+    && Number.isFinite(candidate.stationValue) && Number.isFinite(candidate.basisH));
+  if (remaining.length < 2) throw new Error('Delete would violate the Table 2 station authority minimum.');
+  return id;
+}
+
 export function deleteProfileRowCommand(model, id) {
-  return new SnapshotCommand(model, `Delete profile row ${id}`, (target) => target.deleteRow(id));
+  const rowId = validateSingleRowDeletion(model, id);
+  return new SnapshotCommand(model, `Delete profile row ${rowId}`, (target) => target.deleteRow(rowId));
 }
 
 function rebuildTable2StationMap(model) {
@@ -124,4 +144,4 @@ export function editTable3MarkerCommand(model, id, after = {}) {
   });
 }
 
-export const _precisionTest = Object.freeze({ rebuildTable2StationMap });
+export const _precisionTest = Object.freeze({ rebuildTable2StationMap, validateSingleRowDeletion });
