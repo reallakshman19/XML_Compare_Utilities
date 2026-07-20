@@ -84,6 +84,7 @@ const sets = [
     { key: 'status', label: 'Status', type: 'text', value: 'Ready', previousValue: 'Ready' },
     { key: 'comment', label: 'Comment', type: 'text', value: 'Current', previousValue: null },
     { key: 'legacy', label: 'Legacy', type: 'text', value: 'Legacy' },
+    { key: 'legacyPartial', label: 'Legacy Partial', type: 'text', value: 'A only' },
     { key: 'previousUniform', type: 'number', value: 6, previousValue: 5 },
     { key: 'previousMixed', type: 'number', value: 6, previousValue: 4 },
     { key: 'previousUnavailable', type: 'number', value: 6, previousValue: 5 },
@@ -104,6 +105,8 @@ assert.equal(view('pressure').aggregate.state, 'uniform');
 assert.equal(view('pressure').aggregate.value, 12);
 assert.equal(view('legacy').aggregate.state, 'uniform');
 assert.equal(view('legacy').previousAggregate.state, 'not-applicable');
+assert.equal(view('legacyPartial').aggregate.state, 'unavailable');
+assert.equal(view('legacyPartial').previousAggregate.state, 'not-applicable');
 assert.equal(view('previousUnavailable').previousAggregate.state, 'unavailable');
 assert.equal(view('previousUniform').previousAggregate.state, 'uniform');
 assert.equal(view('previousUniform').previousAggregate.value, 5);
@@ -118,6 +121,7 @@ for (const item of views) {
 const clean = buildEngineeringSvgInspectorModel({ selectedIds: ['a', 'b'], propertyViews: views, draft: {} });
 const row = (model, key) => model.rows.find((item) => item.key === key);
 assert.equal(row(clean, 'legacy').comparisonState, 'not-applicable');
+assert.equal(row(clean, 'legacyPartial').comparisonState, 'not-applicable');
 assert.equal(row(clean, 'previousUnavailable').comparisonState, 'unavailable');
 assert.equal(row(clean, 'previousMixed').comparisonState, 'mixed');
 assert.equal(row(clean, 'status').comparisonState, 'unchanged');
