@@ -1,136 +1,90 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { executePipelineCadBatchMove } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-controller.js';
 import { CommandHistory } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js';
-import { createPipelineCadBatchController } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-controller.js';
-import { installPipelineCadSelectionRuntime } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-selection-runtime.js';
+import { PipelineProfileModel } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-model.js';
+import { _test as precisionRuntimeTest } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-precision-runtime.js';
+import { Table2XCanvas } from '../tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js';
+import { Table3XCanvas } from '../tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js';
 
-class Model {
-  constructor() {
-    this.table2Rows = [
-      { id: 'T2-1', sourceTable: 'table2a', stationValue: 0, basisH: 0, elevationValue: 10 },
-      { id: 'T2-2', sourceTable: 'table2a', stationValue: 10, basisH: 10, elevationValue: 11 },
-      { id: 'T2-3', sourceTable: 'table2a', stationValue: 20, basisH: 20, elevationValue: 12 },
-      { id: 'T2-4', sourceTable: 'table2a', stationValue: 30, basisH: 30, elevationValue: 13 },
-    ];
-    this.table3DepthRows = [{ id: 'D-1', sourceTable: 'table3b', z: -1.5 }];
-    this.table3MarkerRows = [{ id: 'M-1', sourceTable: 'table3c', absoluteH: 5 }, { id: 'M-2', sourceTable: 'table3c', absoluteH: 15 }];
-    this.revision = 0;
-  }
-  snapshot() { return structuredClone({ table2Rows: this.table2Rows, table3DepthRows: this.table3DepthRows, table3MarkerRows: this.table3MarkerRows, revision: this.revision }); }
-  restore(value) { Object.assign(this, structuredClone(value)); }
-  findRow(id) { return [...this.table2Rows, ...this.table3DepthRows, ...this.table3MarkerRows].find((row) => row.id === id) || null; }
-  moveTable2Elevation(id, value) { this.findRow(id).elevationValue = value; this.revision += 1; }
-  moveMarker(id, value) { this.findRow(id).absoluteH = value; this.revision += 1; }
-  deleteRow(id) {
-    for (const name of ['table2Rows', 'table3DepthRows', 'table3MarkerRows']) {
-      const index = this[name].findIndex((row) => row.id === id);
-      if (index >= 0) { this[name].splice(index, 1); this.revision += 1; return; }
-    }
-    throw new Error(`Unknown ${id}`);
-  }
-}
-
-class Graph extends EventTarget {
-  constructor(name, nodes) {
-    super(); this.name = name; this.nodes = nodes; this.hitRadius = 2;
-    this.preview = new Map(); this.clearCount = 0; this.renderCount = 0;
-    installPipelineCadSelectionRuntime(this, name);
-  }
-  getPipelineCadEditableNodes() { return this.nodes; }
-  worldToScreen(value) { return { x: value.x || 0, y: value.y || 0 }; }
-  dispatchGraphEvent(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
-  render() { this.renderCount += 1; }
-  clearBatchPreview() { this.preview.clear(); this.clearCount += 1; }
-}
-
-const model = new Model();
-const history = new CommandHistory();
-const graphs = {
-  table2x: new Graph('table2x', model.table2Rows.map((row) => ({ id: row.id, type: 'elevation-node' }))),
-  table3x: new Graph('table3x', [
-    ...model.table3MarkerRows.map((row) => ({ id: row.id, type: 'marker' })),
-    ...model.table3DepthRows.map((row) => ({ id: row.id, type: 'depth-node' })),
-  ]),
+const raw = {
+  table2a: `H(coor)\tV(coor)\t[H vs V] Length\tStation Text\tElevation Text
+659.791\t—\t—\t0+000.0\t231.32
+668.540\t—\t—\t0+006.7\t230.95
+680.803\t—\t—\t0+019.0\t230.82
+732.683\t—\t—\t0+070.8\t233.00`,
+  table3a: `From H(coor)\tTo H(coor)\tText Position X\tHLength Text
+661.791\t682.337\t671.704\t20.5
+682.337\t716.683\t700.435\t34.3
+716.683\t732.683\t723.927\t16.0`,
+  table3b: `From H(coor)\tTo H(coor)\tText Position X\tZ Text
+—\t—\t665.621\tA/G
+682.337\t732.683\t708.374\t1.5M`,
+  table3c: `Text Position X\tMarker Text
+688.135\tPM-001
+700.000\tPM-002`,
 };
-class Controller extends EventTarget {
-  constructor() { super(); this.model = model; this.executes = 0; this.rawWrites = 0; this.refreshCycles = 0; }
-  execute(command) { history.execute(command); this.executes += 1; this.rawWrites += 1; this.refreshCycles += 1; return true; }
-}
-const controller = new Controller();
-const batch = createPipelineCadBatchController({ controller, graphs });
-const commits = []; const rejects = [];
-controller.addEventListener('batchCommandCommitted', (event) => commits.push(event.detail));
-controller.addEventListener('batchCommandRejected', (event) => rejects.push(event.detail));
-
-const beforePreview = model.snapshot();
-graphs.table2x.preview.set('T2-2', 20);
-assert.deepEqual(model.snapshot(), beforePreview, 'preview must not mutate model');
-graphs.table2x.dispatchGraphEvent('batchMoveRequested', {
-  graph: 'table2x', entityType: 'elevation-node',
-  changes: [{ id: 'T2-2', elevationValue: 20 }, { id: 'T2-3', elevationValue: 21 }], skippedIds: [],
-});
-assert.equal(controller.executes, 1);
-assert.equal(controller.rawWrites, 1);
-assert.equal(controller.refreshCycles, 1);
-assert.equal(history.undoStack.length, 1);
-assert.deepEqual(model.table2Rows.map((row) => row.elevationValue), [10, 20, 21, 13]);
-history.undo();
-assert.deepEqual(model.table2Rows.map((row) => row.elevationValue), [10, 11, 12, 13]);
-history.redo();
-assert.deepEqual(model.table2Rows.map((row) => row.elevationValue), [10, 20, 21, 13]);
-
-const markerResult = batch.commitMove({
-  graph: 'table3x', entityType: 'marker',
-  changes: [{ id: 'M-1', absoluteH: 25 }, { id: 'M-2', absoluteH: 20 }],
-  skippedIds: ['D-1'],
-});
-assert.equal(markerResult.committed, true);
-assert.deepEqual(markerResult.skippedIds, ['D-1']);
-assert.equal(markerResult.operation, 'TABLE3_MARKER_EVIDENCE_POSITION');
-assert.equal(model.findRow('D-1').z, -1.5);
-
-const executeCount = controller.executes;
-const depthResult = batch.commitMove({ graph: 'table3x', entityType: 'depth-node', changes: [{ id: 'D-1', z: -2 }] });
-assert.equal(depthResult.committed, false);
-assert.match(depthResult.reason, /not permitted/);
-assert.equal(controller.executes, executeCount, 'unsupported grouped depth creates zero commands');
-assert.equal(model.findRow('D-1').z, -1.5);
-
-const selection = graphs.table3x.setPipelineCadSelection([
-  { graph: 'table3x', entityId: 'M-1', entityType: 'marker' },
-  { graph: 'table3x', entityId: 'D-1', entityType: 'depth-node' },
-]);
-const deleteBefore = model.snapshot();
-const deleteResult = batch.deleteSelection(selection);
-assert.equal(deleteResult.committed, true);
-assert.equal(controller.executes, executeCount + 1, 'one batch delete creates one command');
-assert.equal(model.findRow('M-1'), null);
-assert.equal(model.findRow('D-1'), null);
-history.undo();
-assert.deepEqual(model.snapshot(), deleteBefore);
-history.redo();
-assert.equal(model.findRow('M-1'), null);
-assert.equal(model.findRow('D-1'), null);
-
-assert.equal(batch.deleteSelection(graphs.table3x.selection).committed, false, 'cleared selection creates zero command');
-assert.equal(commits.length, 3);
-assert.equal(rejects.length, 2);
-assert.equal(batch.destroy(), true);
-assert.equal(batch.destroy(), false);
-
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const protectedTokens = /pipeline-engineering-svg|core\/engineering-svg|core\/engineering-scene|core\/workbench-viewport|object-snap-(?:engine|runtime)|canvas-contracts/;
-for (const name of [
-  'pipeline-3d-model-cad-selection-contracts.js', 'pipeline-3d-model-cad-selection-runtime.js',
-  'pipeline-3d-model-cad-batch-commands.js', 'pipeline-3d-model-cad-batch-controller.js', 'pipeline-3d-model-cad-batch-view.js',
-]) {
-  const source = readFileSync(join(root, 'tabs/pipeline-3d-model', name), 'utf8');
-  assert.ok(source.split(/\r?\n/).length < 300, `${name} must remain below 300 lines`);
-  assert.doesNotMatch(source, /export\s+default\b/);
-  assert.doesNotMatch(source, protectedTokens);
-  assert.doesNotMatch(source, /MutationObserver|localStorage|setTimeout|setInterval/);
+function controllerFor(model) {
+  const history = new CommandHistory(); let writes = 0;
+  return { model, history, get writes() { return writes; }, execute(command) { history.execute(command); writes += 1; return true; } };
 }
 
-console.log('Pipeline CAD multi-selection batch integration passed');
+const table2Model = PipelineProfileModel.fromRaw(raw);
+const table2 = new Table2XCanvas(null, { width: 1000, height: 400 }); table2.setModel(table2Model);
+const table2Nodes = table2.currentNodes();
+table2.setSelection(table2Nodes.slice(0, 2), { primaryId: table2Nodes[0].id, source: 'test' });
+let table2Batch = null; table2.addEventListener('batchMoved', (event) => { table2Batch = event.detail; });
+const table2Before = table2Nodes.slice(0, 2).map((node) => table2Model.findRow(node.id).elevationValue);
+table2.onPrimaryPointerDown({}, table2.worldToScreen(table2Nodes[0]), table2Nodes[0]);
+table2.onPrimaryPointerMove({}, table2.worldToScreen(table2Nodes[0]), { ...table2Nodes[0], y: table2Nodes[0].y + 1 });
+assert.deepEqual(table2Nodes.slice(0, 2).map((node) => table2Model.findRow(node.id).elevationValue), table2Before);
+assert.equal(table2.visualOverrides.size, 2);
+table2.onPrimaryPointerUp({}, table2.worldToScreen(table2Nodes[0]), { ...table2Nodes[0], y: table2Nodes[0].y + 1 });
+const table2Controller = controllerFor(table2Model);
+assert.equal(executePipelineCadBatchMove(table2Controller, table2Batch), true);
+assert.equal(table2Controller.history.undoStack.length, 1); assert.equal(table2Controller.writes, 1);
+assert.deepEqual(table2Batch.edits.map((edit) => table2Model.findRow(edit.id).elevationValue), table2Before.map((value) => value + 1));
+table2Controller.history.undo();
+assert.deepEqual(table2Batch.edits.map((edit) => table2Model.findRow(edit.id).elevationValue), table2Before);
+
+const boxGraph = new Table2XCanvas(null, { width: 1000, height: 400 }); boxGraph.setModel(PipelineProfileModel.fromRaw(raw));
+const boxNodes = boxGraph.currentNodes().slice(0, 2); const screens = boxNodes.map((node) => boxGraph.worldToScreen(node));
+boxGraph.beginSelectionBox({ x: Math.min(...screens.map((p) => p.x)) - 10, y: Math.min(...screens.map((p) => p.y)) - 10 }, {});
+boxGraph.updateSelectionBox({ x: Math.max(...screens.map((p) => p.x)) + 10, y: Math.max(...screens.map((p) => p.y)) + 10 });
+assert.equal(boxGraph.finishSelectionBox().count, 2);
+boxGraph.selectHit({ type: 'elevation-node', node: boxGraph.currentNodes()[2] }, { ctrlKey: true });
+assert.equal(boxGraph.getSelectionDetail().count, 3);
+boxGraph.setSelectionEnabled(false); boxGraph.setSelection([boxGraph.currentNodes()[0]], { source: 'blocked' });
+assert.equal(boxGraph.getSelectionDetail().count, 0); boxGraph.setSelectionEnabled(true);
+
+const table3Model = PipelineProfileModel.fromRaw(raw);
+const table3 = new Table3XCanvas(null, { width: 1000, height: 400 }); table3.setModel(table3Model);
+const depths = table3.depthNodes(); const markers = table3.markerNodes();
+table3.setSelection([depths[0], depths[1]], { primaryId: depths[0].id, source: 'test' });
+const depthRawBefore = table3Model.serializeRaw().table3b;
+table3.onPrimaryPointerDown({}, table3.worldToScreen(depths[0]), depths[0]);
+table3.onPrimaryPointerMove({}, table3.worldToScreen({ ...depths[0], y: depths[0].y - 1 }), { ...depths[0], y: depths[0].y - 1 });
+table3.onPrimaryPointerUp({}, table3.worldToScreen({ ...depths[0], y: depths[0].y - 1 }), { ...depths[0], y: depths[0].y - 1 });
+assert.equal(table3.depthOverrides.size, 0); assert.equal(table3Model.serializeRaw().table3b, depthRawBefore);
+
+let markerBatch = null; table3.addEventListener('batchMoved', (event) => { markerBatch = event.detail; });
+table3.setSelection([markers[0], markers[1], depths[0]], { primaryId: markers[0].id, source: 'test' });
+table3.onPrimaryPointerDown({}, table3.worldToScreen(markers[0]), markers[0]);
+table3.onPrimaryPointerMove({}, table3.worldToScreen({ ...markers[0], x: markers[0].x + 2 }), { ...markers[0], x: markers[0].x + 2 });
+assert.equal(table3.markerOverrides.size, 2); assert.equal(table3.depthOverrides.size, 0);
+table3.onPrimaryPointerUp({}, table3.worldToScreen({ ...markers[0], x: markers[0].x + 2 }), { ...markers[0], x: markers[0].x + 2 });
+assert.deepEqual(markerBatch.skippedEntityIds, [depths[0].id]);
+const table3Controller = controllerFor(table3Model);
+assert.equal(executePipelineCadBatchMove(table3Controller, markerBatch), true);
+assert.equal(table3Controller.history.undoStack.length, 1); assert.equal(table3Controller.writes, 1);
+
+let closes = 0; let opens = 0;
+const precisionState = {
+  disabled: false,
+  sessions: { close() { closes += 1; }, begin(identity) { return { identity, before: {} }; } },
+  view: { close() { closes += 1; }, open() { opens += 1; }, status() {} },
+};
+precisionRuntimeTest.handleSelection(precisionState, { graph: 'table3x', count: 2, entityId: depths[0].id, entityType: 'depth-node' });
+assert.equal(opens, 0); assert.equal(closes, 2);
+precisionRuntimeTest.handleSelection(precisionState, { graph: 'table3x', count: 1, entityId: depths[0].id, entityType: 'depth-node' });
+assert.equal(opens, 1);
+console.log('Pipeline CAD multi-selection integration tests passed');

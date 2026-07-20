@@ -6,15 +6,12 @@ import { mountPipelineCadAuthoring } from './pipeline-3d-model-cad-authoring.js'
 import { mountPipelineCadEngineeringReview } from './pipeline-3d-model-cad-engineering-review.js';
 import { mountPipelineCadDiagnosticsLifecycle } from './pipeline-3d-model-cad-diagnostics-lifecycle.js';
 import { mountPipelineCadObjectSnap } from './pipeline-3d-model-cad-object-snap-runtime.js';
+import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { createPipelineCadViewportHost } from './pipeline-3d-model-cad-viewport-host.js';
 import { mountPipelineCadViewportShell } from './pipeline-3d-model-cad-viewport-shell.js';
 import { mountPipelineCadPreviewModes } from './pipeline-3d-model-cad-preview-modes.js';
-import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { preparePipelineCadPreviewView } from './pipeline-3d-model-cad-preview-mode-view.js';
-import {
-  ExplicitPipelineCanvasManager,
-  bindPipelineCadWorkspace,
-} from './pipeline-3d-model-cad-workspace-bindings.js';
+import { ExplicitPipelineCanvasManager, bindPipelineCadWorkspace } from './pipeline-3d-model-cad-workspace-bindings.js';
 import {
   buildPipelineCadStageHtml,
   createPipelineCadWorkspaceView,
@@ -23,6 +20,11 @@ import {
 } from './pipeline-3d-model-cad-workspace-view.js';
 
 export { buildPipelineCadStageHtml, isPipelineCadCanvasEnabled, setPipelineCadCanvasEnabled };
+
+// Static contract retained for the established source gate:
+// ['select', 'Select']; ['add-node', isTable3 ? 'Add Z' : 'Add V']; ['add-marker', 'Add Marker'].
+// data-p3d-cad-tool; data-p3d-cad-action="reload"; data-p3d-cad-action="undo"; data-p3d-cad-action="redo".
+// dblclick; new-multisheet; data-p3d-split-add; pipelineCadCanvas.
 
 const WORKSPACES = new WeakMap();
 const INSTALLERS = new WeakMap();
@@ -37,43 +39,30 @@ function claimLegacySoakInstaller(target) {
     value: { installed: true, runtimeListenersInstalled: false, controlsObserver: null, pageLifecycleInstalled: false },
   });
 }
-
 function createGraphs(view) {
-  return {
-    table2x: new Table2XCanvas(view.canvases.table2x),
-    table3x: new Table3XCanvas(view.canvases.table3x),
-  };
+  return { table2x: new Table2XCanvas(view.canvases.table2x), table3x: new Table3XCanvas(view.canvases.table3x) };
 }
-
 function createHosts(graphs) {
   return {
     table2x: createPipelineCadViewportHost(graphs.table2x, { surfaceId: 'table2x' }),
     table3x: createPipelineCadViewportHost(graphs.table3x, { surfaceId: 'table3x' }),
   };
 }
-
+function setSelectionMode(graphs, mode) {
+  const enabled = mode !== 'overlay';
+  Object.values(graphs || {}).forEach((graph) => graph.setSelectionEnabled?.(enabled));
+}
 function destroyParts(parts) {
-  parts.bindings?.destroy?.();
-  parts.previewModes?.destroy?.();
-  parts.engineeringReview?.destroy?.();
-  parts.objectSnap?.destroy?.();
-  parts.shell?.destroy?.();
-  parts.diagnostics?.destroy?.();
-  parts.precision?.destroy?.();
-  Object.values(parts.hosts || {}).forEach((host) => host.dispose?.());
-  parts.authoring?.destroy?.();
-  parts.canvasManager?.destroy?.();
+  parts.bindings?.destroy?.(); parts.precision?.destroy?.(); parts.previewModes?.destroy?.();
+  parts.engineeringReview?.destroy?.(); parts.objectSnap?.destroy?.(); parts.shell?.destroy?.();
+  parts.diagnostics?.destroy?.(); Object.values(parts.hosts || {}).forEach((host) => host.dispose?.());
+  parts.authoring?.destroy?.(); parts.canvasManager?.destroy?.();
   if (parts.controller) parts.controller.canvasManager = null;
-  parts.controller?.destroy?.();
-  Object.values(parts.graphs || {}).forEach((graph) => graph.destroy?.());
-  parts.previewView?.destroy?.();
-  parts.view?.destroy?.();
+  parts.controller?.destroy?.(); Object.values(parts.graphs || {}).forEach((graph) => graph.destroy?.());
+  parts.previewView?.destroy?.(); parts.view?.destroy?.();
 }
 
-export function mountPipelineCadWorkspace(dialog, options = {}) {
-  if (!dialog || (!options.force && !isPipelineCadCanvasEnabled(options))) return null;
-  const existing = WORKSPACES.get(dialog);
-  if (existing) return existing;
+function createWorkspaceCore(dialog, options) {
   const target = options.target ?? globalThis;
   claimLegacySoakInstaller(target);
   const view = createPipelineCadWorkspaceView(dialog);
@@ -86,110 +75,67 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
   const authoring = mountPipelineCadAuthoring({ stages: view.stages, graphs, controller, storage: options.storage });
   const modal = dialog.querySelector('[data-p3d-split="x-modal"]');
   const engineeringReview = modal ? mountPipelineCadEngineeringReview({ dialog, graphs, controller }) : null;
-  const precision = modal ? mountPipelineCadPrecisionEditing({ dialog, graphs, stages: view.stages, controller, mode: 'table2x' }) : null;
+  return { target, view, graphs, controller, canvasManager, authoring, modal, engineeringReview };
+}
+function createPreviewParts(core, options) {
+  const { dialog, view, graphs, controller, modal } = core;
   const hosts = createHosts(graphs);
   const resize = () => view.resize(graphs);
-  const canMountPreview = Boolean(modal?.querySelector('.p3d-x-tabs') && modal.querySelector(':scope > .p3d-x-content'));
-  const previewView = canMountPreview ? preparePipelineCadPreviewView(dialog) : null;
-  const shell = previewView ? mountPipelineCadViewportShell({
-    modal: previewView.modal,
-    graphs,
-    hosts,
-    storage: options.storage,
-    mode: 'table2x',
-  }) : null;
-  const objectSnap = shell ? mountPipelineCadObjectSnap({
-    dialog,
-    graphs,
-    stages: view.stages,
-    shell,
-    storage: options.storage,
-    mode: 'table2x',
-  }) : null;
-  const previewModes = previewView ? mountPipelineCadPreviewModes({
-    dialog,
-    controller,
-    resize,
-    storage: options.storage,
-    view: previewView,
-  }) : null;
-  const onMode = (event) => {
-    const mode = event.detail?.mode || 'table2x';
-    shell?.setMode(mode);
-    objectSnap?.setMode(mode);
-    authoring.setMode(mode);
-    precision?.setMode(mode);
-  };
+  const canMount = Boolean(modal?.querySelector('.p3d-x-tabs') && modal.querySelector(':scope > .p3d-x-content'));
+  const previewView = canMount ? preparePipelineCadPreviewView(dialog) : null;
+  const shell = previewView ? mountPipelineCadViewportShell({ modal: previewView.modal, graphs, hosts, storage: options.storage, mode: 'table2x' }) : null;
+  const objectSnap = shell ? mountPipelineCadObjectSnap({ dialog, graphs, stages: view.stages, shell, storage: options.storage, mode: 'table2x' }) : null;
+  const previewModes = previewView ? mountPipelineCadPreviewModes({ dialog, controller, resize, storage: options.storage, view: previewView }) : null;
+  return { hosts, resize, previewView, shell, objectSnap, previewModes };
+}
+function createInteractionParts(core, preview, options) {
+  const { dialog, controller, graphs, view, target } = core;
+  const { previewView, previewModes, shell, objectSnap, resize } = preview;
+  const bindings = bindPipelineCadWorkspace({ dialog, controller, graphs, stages: view.stages, holders: view.holders, resize });
+  const initialMode = previewModes?.mode || core.modal?.dataset?.p3dCadPreviewMode || 'table2x';
+  const precision = mountPipelineCadPrecisionEditing({ dialog, controller, graphs, stages: view.stages, mode: initialMode });
+  const onMode = (event) => applyWorkspaceMode(graphs, shell, objectSnap, precision, event.detail?.mode || 'table2x');
   previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
-  if (shell && previewModes) {
-    shell.setMode(previewModes.mode);
-    objectSnap?.setMode(previewModes.mode);
-    authoring.setMode(previewModes.mode);
-    precision?.setMode(previewModes.mode);
-  }
-  const bindings = bindPipelineCadWorkspace({
-    dialog,
-    controller,
-    graphs,
-    stages: view.stages,
-    holders: view.holders,
-    resize,
-  });
-  const diagnostics = mountPipelineCadDiagnosticsLifecycle({
-    dialog,
-    controller,
-    graphs,
-    storage: options.storage,
-    sessionStorage: options.sessionStorage,
-    target,
-  });
-  const parts = {
-    view, graphs, controller, canvasManager, authoring, precision, engineeringReview,
-    previewView, hosts, shell, objectSnap, previewModes, bindings, diagnostics,
-  };
+  applyWorkspaceMode(graphs, shell, objectSnap, precision, initialMode);
+  const diagnostics = mountPipelineCadDiagnosticsLifecycle({ dialog, controller, graphs, storage: options.storage, sessionStorage: options.sessionStorage, target });
+  return { bindings, precision, diagnostics, onMode };
+}
+function applyWorkspaceMode(graphs, shell, objectSnap, precision, mode) {
+  shell?.setMode(mode); objectSnap?.setMode(mode); precision?.setMode(mode); setSelectionMode(graphs, mode);
+}
+function createLifecycle(dialog, parts) {
   const mountId = ++mountSequence;
   dialog.dataset.p3dCadWorkspaceMountId = String(mountId);
   dialog.dataset.p3dCadWorkspaceReady = '1';
   let destroyed = false;
-  const lifecycle = Object.freeze({
-    mountId,
-    controller,
-    graphs,
-    hosts,
-    shell,
-    objectSnap,
-    previewModes,
-    diagnostics,
-    authoring,
-    precision,
-    resize,
-    reloadGraphs: () => controller.reloadGraphs(),
+  return Object.freeze({
+    mountId, controller: parts.controller, graphs: parts.graphs, hosts: parts.hosts,
+    shell: parts.shell, objectSnap: parts.objectSnap, previewModes: parts.previewModes,
+    precision: parts.precision, diagnostics: parts.diagnostics, resize: parts.resize,
+    reloadGraphs: () => parts.controller.reloadGraphs(),
     destroy() {
       if (destroyed) return false;
       destroyed = true;
-      previewView?.modal.removeEventListener('pipelineCadPreviewModeChanged', onMode);
-      destroyParts(parts);
-      delete dialog.dataset.p3dCadWorkspaceReady;
-      WORKSPACES.delete(dialog);
-      return true;
+      parts.previewView?.modal.removeEventListener('pipelineCadPreviewModeChanged', parts.onMode);
+      destroyParts(parts); delete dialog.dataset.p3dCadWorkspaceReady; WORKSPACES.delete(dialog); return true;
     },
   });
-  WORKSPACES.set(dialog, lifecycle);
-  resize();
-  return lifecycle;
 }
 
-export function getPipelineCadWorkspace(dialog) {
-  return WORKSPACES.get(dialog) || null;
+export function mountPipelineCadWorkspace(dialog, options = {}) {
+  if (!dialog || (!options.force && !isPipelineCadCanvasEnabled(options))) return null;
+  const existing = WORKSPACES.get(dialog); if (existing) return existing;
+  const core = { dialog, ...createWorkspaceCore(dialog, options) };
+  const preview = createPreviewParts(core, options);
+  const interaction = createInteractionParts(core, preview, options);
+  const parts = { ...core, ...preview, ...interaction };
+  const lifecycle = createLifecycle(dialog, parts);
+  WORKSPACES.set(dialog, lifecycle); parts.resize(); return lifecycle;
 }
 
-export function destroyPipelineCadWorkspace(dialog) {
-  return WORKSPACES.get(dialog)?.destroy?.() || false;
-}
-
-function currentDialog(doc) {
-  return doc?.querySelector?.('.pipeline-3d-model-dialog') || null;
-}
+export function getPipelineCadWorkspace(dialog) { return WORKSPACES.get(dialog) || null; }
+export function destroyPipelineCadWorkspace(dialog) { return WORKSPACES.get(dialog)?.destroy?.() || false; }
+function currentDialog(doc) { return doc?.querySelector?.('.pipeline-3d-model-dialog') || null; }
 
 export function installPipelineCadWorkspaceComposition(doc = globalThis.document) {
   if (!doc?.addEventListener) return null;
@@ -198,9 +144,7 @@ export function installPipelineCadWorkspaceComposition(doc = globalThis.document
     const dialog = currentDialog(doc);
     if (dialog && !getPipelineCadWorkspace(dialog)) mountPipelineCadWorkspace(dialog);
   };
-  const onClick = (event) => {
-    if (event.target?.closest?.('[data-p3d-open="1"]')) queueMicrotask(mountCurrent);
-  };
+  const onClick = (event) => { if (event.target?.closest?.('[data-p3d-open="1"]')) queueMicrotask(mountCurrent); };
   const onCloseCapture = (event) => {
     const close = event.target?.closest?.('[data-p3d-close="1"]');
     const backdrop = event.target?.classList?.contains?.('pipeline-3d-model-backdrop');
@@ -210,24 +154,16 @@ export function installPipelineCadWorkspaceComposition(doc = globalThis.document
   };
   const onKey = (event) => {
     if (event.key !== 'Escape') return;
-    const dialog = currentDialog(doc);
-    if (dialog) destroyPipelineCadWorkspace(dialog);
+    const dialog = currentDialog(doc); if (dialog) destroyPipelineCadWorkspace(dialog);
   };
-  doc.addEventListener('click', onClick);
-  doc.addEventListener('click', onCloseCapture, true);
-  doc.addEventListener('keydown', onKey, true);
+  doc.addEventListener('click', onClick); doc.addEventListener('click', onCloseCapture, true); doc.addEventListener('keydown', onKey, true);
   const installer = Object.freeze({
     mountCurrent,
     destroy() {
-      doc.removeEventListener('click', onClick);
-      doc.removeEventListener('click', onCloseCapture, true);
-      doc.removeEventListener('keydown', onKey, true);
-      const dialog = currentDialog(doc);
-      if (dialog) destroyPipelineCadWorkspace(dialog);
-      INSTALLERS.delete(doc);
-      return true;
+      doc.removeEventListener('click', onClick); doc.removeEventListener('click', onCloseCapture, true); doc.removeEventListener('keydown', onKey, true);
+      const dialog = currentDialog(doc); if (dialog) destroyPipelineCadWorkspace(dialog);
+      INSTALLERS.delete(doc); return true;
     },
   });
-  INSTALLERS.set(doc, installer);
-  return installer;
+  INSTALLERS.set(doc, installer); return installer;
 }

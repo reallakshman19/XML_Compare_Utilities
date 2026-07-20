@@ -1,60 +1,49 @@
 import { GraphTool, InteractiveGraph } from './pipeline-3d-model-interactive-graph.js';
 import { formatDepth, interpolateCumulativeFromAbsoluteH, interpolateAbsoluteHFromCumulative } from './pipeline-3d-model-cad-math.js';
-import { drawPipelineCadSelectedNode, drawPipelineCadSelectionBox } from './pipeline-3d-model-cad-batch-view.js';
-import { installPipelineCadSelectionRuntime } from './pipeline-3d-model-cad-selection-runtime.js';
+import { drawPipelineCadMarkerRail, drawPipelineCadSelectionNode } from './pipeline-3d-model-cad-batch-view.js';
+import { drawPipelineCadSelectionBox, installPipelineCadSelectionRuntime, selectedPipelineCadItems } from './pipeline-3d-model-cad-selection-runtime.js';
 
-function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function modifierActive(event = {}) { return event.shiftKey || event.ctrlKey || event.metaKey; }
+function clampX(graph, value) { return Math.max(graph.bounds.minX, Math.min(graph.bounds.maxX, Number(value))); }
+function precisionCancel(event) { return String(event.detail?.reason || '').startsWith('precision-'); }
 
 export class Table3XCanvas extends InteractiveGraph {
   constructor(canvas, options = {}) {
     super(canvas, options);
-    this.model = null;
-    this.depthSnapshot = [];
-    this.depthOverrides = new Map();
-    this.markerOverrides = new Map();
-    this.precisionOverrides = new Map();
-    this.precisionGripId = null;
-    this.selected = null;
-    this.dragging = null;
-    this.hitRadius = Number(options.hitRadius) || 10;
-    this.markerRailY = Number(options.markerRailY) || 0.75;
-    installPipelineCadSelectionRuntime(this, 'table3x');
-    const cancel = (event) => {
-      if (!String(event.detail?.reason || '').startsWith('precision-')) this.cancelActiveInteraction('escape');
-    };
+    this.model = null; this.depthSnapshot = []; this.depthOverrides = new Map();
+    this.markerOverrides = new Map(); this.precisionOverrides = new Map(); this.precisionGripId = null;
+    this.selected = null; this.dragging = null; this.groupDrag = null;
+    this.hitRadius = Number(options.hitRadius) || 10; this.markerRailY = Number(options.markerRailY) || 0.75;
+    installPipelineCadSelectionRuntime(this, {
+      graphName: 'table3x', candidates: () => [...this.depthNodes(), ...this.markerNodes()],
+      syncLegacy: (detail) => { this.selected = detail.primaryId ? { id: detail.primaryId, type: detail.primaryType } : null; },
+    });
+    const cancel = (event) => { if (!precisionCancel(event)) this.cancelActiveSelectionInteraction('escape'); };
     this.addEventListener('interactionCancelled', cancel);
     this.destroyCallbacks.push(() => this.removeEventListener('interactionCancelled', cancel));
   }
 
-  getPipelineCadEditableNodes() { return [...this.markerNodes(), ...this.depthNodes()]; }
-
   setModel(model, options = {}) {
-    this.model = model;
-    const preserve = options.preserveSnapshot === true;
-    if (!preserve) {
-      this.depthSnapshot = this.depthNodes(false);
-      this.depthOverrides.clear(); this.markerOverrides.clear(); this.precisionOverrides.clear();
-      this.precisionGripId = null; this.dragging = null;
-      this.clearPipelineCadSelection('model-reset', false);
+    this.model = model; const preserveSnapshot = options.preserveSnapshot === true;
+    if (!preserveSnapshot) {
+      this.depthSnapshot = this.depthNodes(false); this.depthOverrides.clear(); this.markerOverrides.clear();
+      this.precisionOverrides.clear(); this.precisionGripId = null; this.dragging = null; this.groupDrag = null;
+      this.setSelection([], { emit: false, source: 'model-reset' });
     } else if (!this.depthSnapshot.length) this.depthSnapshot = this.depthNodes(false);
-    const nodes = this.getPipelineCadEditableNodes(); const valid = new Set(nodes.map((node) => node.id));
-    if (preserve && this.selection.items.some((item) => !valid.has(item.entityId))) {
-      this.setPipelineCadSelection(this.selection.items.filter((item) => valid.has(item.entityId)), { source: 'model-reconcile' });
-    }
     const map = model?.coordinateMap; const ys = this.depthNodes(false).map((node) => node.y);
     const minY = Math.min(-2, ...ys); const maxY = Math.max(this.markerRailY + 0.5, ...ys);
-    if (map) this.setWorldBounds({ minX: map.cumulativeMin, maxX: map.cumulativeMax, minY, maxY }, { fit: !preserve });
+    if (map) this.setWorldBounds({ minX: map.cumulativeMin, maxX: map.cumulativeMax, minY, maxY }, { fit: !preserveSnapshot });
     else this.render();
   }
 
   depthNodes(includeOverrides = true) {
     if (!this.model?.coordinateMap) return [];
     return (this.model.table3DepthRows || []).filter((row) => Number.isFinite(row.absoluteH) && Number.isFinite(row.z)).map((row) => {
-      const baseX = interpolateCumulativeFromAbsoluteH(row.absoluteH, this.model.coordinateMap);
       const precision = this.precisionOverrides.get(row.id);
+      const cumulative = interpolateCumulativeFromAbsoluteH(row.absoluteH, this.model.coordinateMap);
       return {
         id: row.id, type: 'depth-node', absoluteH: row.absoluteH,
-        x: precision?.x ?? baseX,
+        x: includeOverrides ? (precision?.x ?? cumulative) : cumulative,
         y: includeOverrides ? (this.depthOverrides.get(row.id) ?? precision?.y ?? row.z) : row.z,
         text: row.zText,
       };
@@ -64,68 +53,57 @@ export class Table3XCanvas extends InteractiveGraph {
   markerNodes(includeOverrides = true) {
     if (!this.model?.coordinateMap) return [];
     return (this.model.table3MarkerRows || []).filter((row) => Number.isFinite(row.absoluteH)).map((row) => {
-      const baseX = interpolateCumulativeFromAbsoluteH(row.absoluteH, this.model.coordinateMap);
+      const cumulative = interpolateCumulativeFromAbsoluteH(row.absoluteH, this.model.coordinateMap);
       const precision = this.precisionOverrides.get(row.id);
       return {
         id: row.id, type: 'marker', absoluteH: row.absoluteH,
-        x: includeOverrides ? (this.markerOverrides.get(row.id) ?? precision?.x ?? baseX) : baseX,
+        x: includeOverrides ? (this.markerOverrides.get(row.id) ?? precision?.x ?? cumulative) : cumulative,
         y: this.markerRailY, text: precision?.label ?? row.markerText,
       };
     });
   }
 
   reloadGraph() {
-    this.depthSnapshot = this.depthNodes(false);
-    this.depthOverrides.clear(); this.markerOverrides.clear(); this.precisionOverrides.clear();
-    this.cancelActiveInteraction('reload'); this.model?.clearDirtyRows?.();
-    this.dispatchGraphEvent('reloadRequested', { graph: 'table3x' }); this.render();
+    this.depthSnapshot = this.depthNodes(false); this.depthOverrides.clear(); this.markerOverrides.clear();
+    this.precisionOverrides.clear(); this.setSelection([], { emit: false, source: 'reload' });
+    this.model?.clearDirtyRows?.(); this.dispatchGraphEvent('reloadRequested', { graph: 'table3x' }); this.render();
   }
-
   setPrecisionPreview(id, point = {}) {
     if (!id) return false;
-    this.precisionOverrides.set(id, { x: Number(point.x), y: Number(point.y), label: point.label });
-    this.render(); return true;
+    this.precisionOverrides.set(id, { x: Number(point.x), y: Number(point.y), label: point.label }); this.render(); return true;
   }
   clearPrecisionPreview() { this.precisionOverrides.clear(); this.render(); return true; }
   setPrecisionGrip(id) { this.precisionGripId = id || null; this.render(); }
-  clearBatchPreview() { this.depthOverrides.clear(); this.markerOverrides.clear(); this.dragging = null; this.selectionBox = null; this.render(); return true; }
-  cancelActiveInteraction(source) { this.clearBatchPreview(); this.cancelPipelineCadSelectionInteraction(source); }
 
   hitTest(screenPoint) {
     let best = null; let distance = this.hitRadius;
-    for (const node of this.getPipelineCadEditableNodes()) {
+    for (const node of [...this.markerNodes(), ...this.depthNodes()]) {
       const screen = this.worldToScreen(node); const next = Math.hypot(screen.x - screenPoint.x, screen.y - screenPoint.y);
       if (next < distance) { best = { type: node.type, node, screen }; distance = next; }
     }
     return best;
   }
 
-  addEntity(world) {
-    const cumulative = clamp(world.x, this.bounds.minX, this.bounds.maxX);
-    if (this.tool === GraphTool.ADD_MARKER) this.dispatchGraphEvent('nodeAdded', {
-      graph: 'table3x', entityType: 'marker', cumulative,
-      absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap),
-    });
-    else this.dispatchGraphEvent('nodeAdded', {
-      graph: 'table3x', entityType: 'depth-node', cumulative,
-      absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap), z: world.y, zText: formatDepth(world.y),
-    });
-  }
-
-  beginDrag(hit, world) {
-    const selectedItems = this.pipelineCadSelectionContains(hit.node.id) ? this.selection.items : [];
-    if (selectedItems.length > 1 && hit.type !== 'marker') {
-      this.dragging = { hit, ids: [hit.node.id], anchor: world, moved: false, replaceOnly: true, skippedIds: this.selection.selectedIds };
-      return;
+  beginGroupDrag(hit, event, world) {
+    if (modifierActive(event) || !this.isSelected(hit.node.id)) return false;
+    const selection = this.getSelectionDetail();
+    this.dragging = { id: hit.node.id, type: hit.type };
+    if (selection.count < 2) return false;
+    if (hit.type !== 'marker') {
+      this.dragging = null;
+      this.dispatchGraphEvent('batchMoveRejected', {
+        graph: 'table3x', entityType: hit.type, code: 'TABLE3_DEPTH_BATCH_NOT_AUTHORIZED',
+        entityIds: selection.entityIds,
+      });
+      return true;
     }
-    const subset = selectedItems.length > 1 ? selectedItems.filter((item) => item.entityType === hit.type) : [{ entityId: hit.node.id, entityType: hit.type }];
-    const allNodes = new Map(this.getPipelineCadEditableNodes().map((node) => [node.id, node]));
-    const origins = new Map(subset.map((item) => [item.entityId, allNodes.get(item.entityId)]));
-    this.dragging = {
-      hit, ids: subset.map((item) => item.entityId), entityType: hit.type, anchor: world,
-      origins, moved: false, preserveMulti: selectedItems.length > 1,
-      skippedIds: selectedItems.filter((item) => item.entityType !== hit.type).map((item) => item.entityId).sort(),
+    const items = selectedPipelineCadItems(this, 'marker');
+    const initial = new Map(this.markerNodes().map((node) => [node.id, node.x]));
+    const skippedEntityIds = selection.items.filter((item) => item.type !== 'marker').map((item) => item.id).sort();
+    this.groupDrag = {
+      type: 'marker', ids: items.map((item) => item.id), start: clampX(this, world.x), initial, skippedEntityIds,
     };
+    return true;
   }
 
   onPrimaryPointerDown(event, screen, world) {
@@ -133,84 +111,97 @@ export class Table3XCanvas extends InteractiveGraph {
     if (this.tool === GraphTool.DELETE && hit) {
       this.dispatchGraphEvent('nodeDeleted', { graph: 'table3x', entityId: hit.node.id, entityType: hit.type }); return;
     }
-    if ([GraphTool.ADD_MARKER, GraphTool.ADD_NODE].includes(this.tool)) { this.addEntity(world); return; }
-    if (this.tool !== GraphTool.SELECT || !this.selectionEnabled) return;
-    if (!hit) { this.beginPipelineCadSelectionBox(screen); return; }
-    if (event.shiftKey || event.ctrlKey || event.metaKey) { this.selectPipelineCadHit(hit, event); return; }
-    if (!this.pipelineCadSelectionContains(hit.node.id) || this.selection.count === 1) this.selectPipelineCadHit(hit, event);
-    this.clearPrecisionPreview(); this.beginDrag(hit, world);
+    if (this.tool === GraphTool.ADD_MARKER) {
+      const cumulative = clampX(this, world.x);
+      this.dispatchGraphEvent('nodeAdded', {
+        graph: 'table3x', entityType: 'marker', cumulative,
+        absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap),
+      });
+      return;
+    }
+    if (this.tool === GraphTool.ADD_NODE) {
+      const cumulative = clampX(this, world.x);
+      this.dispatchGraphEvent('nodeAdded', {
+        graph: 'table3x', entityType: 'depth-node', cumulative,
+        absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap), z: world.y, zText: formatDepth(world.y),
+      });
+      return;
+    }
+    if (this.tool !== GraphTool.SELECT) return;
+    this.clearPrecisionPreview();
+    if (!hit) { this.dragging = null; this.groupDrag = null; this.beginSelectionBox(screen, event); return; }
+    this.selectHit(hit, event);
+    if (modifierActive(event) || !this.isSelected(hit.node.id)) return;
+    this.beginGroupDrag(hit, event, world); this.render();
+  }
+
+  previewMarkerGroup(world) {
+    const drag = this.groupDrag; const delta = clampX(this, world.x) - drag.start;
+    for (const id of drag.ids) this.markerOverrides.set(id, clampX(this, drag.initial.get(id) + delta));
+    this.dispatchGraphEvent('batchPreviewMoved', {
+      graph: 'table3x', entityType: 'marker', entityIds: [...drag.ids], skippedEntityIds: [...drag.skippedEntityIds], delta: { x: delta },
+    });
   }
 
   onPrimaryPointerMove(event, screen, world) {
-    if (this.selectionBox) { this.updatePipelineCadSelectionBox(screen); return; }
+    if (this.pipelineCadSelectionState.box) { this.updateSelectionBox(screen); return; }
+    if (this.groupDrag) { this.previewMarkerGroup(world); this.render(); return; }
     if (!this.dragging) return;
-    const dx = world.x - this.dragging.anchor.x; const dy = world.y - this.dragging.anchor.y;
-    if (this.dragging.replaceOnly) {
-      this.dragging.moved ||= Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9;
-      return;
+    if (this.dragging.type === 'marker') {
+      const cumulative = clampX(this, world.x); this.markerOverrides.set(this.dragging.id, cumulative);
+      this.dispatchGraphEvent('nodePreviewMoved', { graph: 'table3x', entityId: this.dragging.id, entityType: 'marker', cumulative });
+    } else {
+      this.depthOverrides.set(this.dragging.id, world.y);
+      this.dispatchGraphEvent('nodePreviewMoved', {
+        graph: 'table3x', entityId: this.dragging.id, entityType: 'depth-node', z: world.y, zText: formatDepth(world.y),
+      });
     }
-    this.dragging.moved ||= Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9;
-    if (this.dragging.entityType === 'marker') this.dragging.origins.forEach((node, id) => {
-      this.markerOverrides.set(id, clamp(node.x + dx, this.bounds.minX, this.bounds.maxX));
-    });
-    else if (this.dragging.ids.length === 1) this.depthOverrides.set(this.dragging.ids[0], this.dragging.origins.get(this.dragging.ids[0]).y + dy);
-    if (this.dragging.ids.length === 1) this.dispatchGraphEvent('nodePreviewMoved', {
-      graph: 'table3x', entityId: this.dragging.ids[0], entityType: this.dragging.entityType,
-      ...(this.dragging.entityType === 'marker' ? { cumulative: this.markerOverrides.get(this.dragging.ids[0]) } : { z: this.depthOverrides.get(this.dragging.ids[0]) }),
-    });
-    else this.dispatchGraphEvent('batchPreviewMoved', { graph: 'table3x', entityType: 'marker', selectedIds: this.dragging.ids, skippedIds: this.dragging.skippedIds });
     this.render();
   }
 
-  markerChanges(drag) {
-    return drag.ids.map((id) => {
-      const cumulative = this.markerOverrides.get(id) ?? drag.origins.get(id).x;
+  finishMarkerGroup(world) {
+    const drag = this.groupDrag; const delta = clampX(this, world.x) - drag.start;
+    const edits = drag.ids.map((id) => {
+      const cumulative = clampX(this, drag.initial.get(id) + delta);
       return { id, cumulative, absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap) };
+    });
+    this.groupDrag = null; this.dragging = null;
+    this.dispatchGraphEvent('batchMoved', {
+      graph: 'table3x', entityType: 'marker', entityIds: edits.map((edit) => edit.id), edits,
+      skippedEntityIds: [...drag.skippedEntityIds], delta: { x: delta },
     });
   }
 
   onPrimaryPointerUp(event, screen, world) {
-    if (this.selectionBox) { this.commitPipelineCadSelectionBox(event); return; }
+    if (this.pipelineCadSelectionState.box) { this.finishSelectionBox(); return; }
+    if (this.groupDrag) { this.finishMarkerGroup(world); this.render(); return; }
     if (!this.dragging) return;
-    const drag = this.dragging; this.dragging = null;
-    if (drag.replaceOnly && drag.moved) {
-      this.dispatchGraphEvent('batchMoveRequested', {
-        graph: 'table3x', entityType: 'depth-node', selectedIds: this.selection.selectedIds,
-        changes: [{ id: drag.hit.node.id, z: drag.hit.node.y + world.y - drag.anchor.y }],
-        skippedIds: drag.skippedIds, operationClass: 'label or depth evidence change', commitReason: 'pointer-release',
+    const dragging = this.dragging; this.dragging = null;
+    if (dragging.type === 'marker') {
+      const cumulative = clampX(this, world.x); this.markerOverrides.set(dragging.id, cumulative);
+      this.dispatchGraphEvent('nodeMoved', {
+        graph: 'table3x', entityId: dragging.id, entityType: 'marker',
+        after: { cumulative, absoluteH: interpolateAbsoluteHFromCumulative(cumulative, this.model.coordinateMap) },
+        commitReason: 'pointer-release',
       });
-      return;
+    } else {
+      this.depthOverrides.set(dragging.id, world.y);
+      this.dispatchGraphEvent('nodeMoved', {
+        graph: 'table3x', entityId: dragging.id, entityType: 'depth-node',
+        after: { z: world.y, zText: formatDepth(world.y) }, commitReason: 'pointer-release',
+      });
     }
-    if (drag.replaceOnly || !drag.moved) {
-      this.clearBatchPreview();
-      if (drag.replaceOnly || drag.preserveMulti) this.selectPipelineCadHit(drag.hit, {});
-      return;
-    }
-    if (drag.preserveMulti || drag.skippedIds.length || drag.ids.length > 1) this.dispatchGraphEvent('batchMoveRequested', {
-      graph: 'table3x', entityType: 'marker', selectedIds: this.selection.selectedIds,
-      primaryId: this.selection.primaryId, changes: this.markerChanges(drag), skippedIds: drag.skippedIds,
-      operationClass: 'marker/evidence positioning', commitReason: 'pointer-release',
-    });
-    else if (drag.entityType === 'marker') {
-      const [change] = this.markerChanges(drag);
-      this.dispatchGraphEvent('nodeMoved', { graph: 'table3x', entityId: change.id, entityType: 'marker', after: change, commitReason: 'pointer-release' });
-    } else this.dispatchGraphEvent('nodeMoved', {
-      graph: 'table3x', entityId: drag.ids[0], entityType: 'depth-node',
-      after: { z: this.depthOverrides.get(drag.ids[0]), zText: formatDepth(this.depthOverrides.get(drag.ids[0])) }, commitReason: 'pointer-release',
-    });
+    this.render();
   }
 
-  drawPrecisionGrip(ctx, point, node) {
-    if (node.id !== this.precisionGripId || this.selection.count !== 1 || node.id !== this.selection.primaryId) return;
-    ctx.save(); ctx.fillStyle = '#0ea5e9'; ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 2;
+  cancelActiveSelectionInteraction(source = 'cancel') {
+    this.groupDrag = null; this.dragging = null; this.depthOverrides.clear(); this.markerOverrides.clear();
+    this.cancelSelectionBox(); this.clearSelection({ source });
+  }
+  drawGrip(ctx, point, node) {
+    if (node.id !== this.precisionGripId || node.id !== this.selected?.id) return;
+    ctx.save(); ctx.strokeStyle = '#f8fafc'; ctx.fillStyle = node.type === 'marker' ? '#10b981' : '#ec4899'; ctx.lineWidth = 2;
     ctx.fillRect(point.x - 5, point.y - 5, 10, 10); ctx.strokeRect(point.x - 7, point.y - 7, 14, 14); ctx.restore();
-  }
-
-  drawNode(ctx, node, fill, label, labelY) {
-    const point = this.worldToScreen(node); const selected = this.pipelineCadSelectionContains(node.id);
-    ctx.beginPath(); ctx.arc(point.x, point.y, selected ? 8 : 6, 0, Math.PI * 2); ctx.fillStyle = fill; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke();
-    drawPipelineCadSelectedNode(ctx, point, selected, node.id === this.selection.primaryId); this.drawPrecisionGrip(ctx, point, node);
-    ctx.fillStyle = labelY > 0 ? '#fbcfe8' : '#6ee7b7'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillText(label, point.x, point.y + labelY);
   }
 
   render() {
@@ -220,15 +211,26 @@ export class Table3XCanvas extends InteractiveGraph {
     ctx.beginPath(); ctx.moveTo(zeroA.x, zeroA.y); ctx.lineTo(zeroB.x, zeroB.y); ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5; ctx.stroke();
     if (this.depthSnapshot.length > 1) {
       ctx.beginPath(); const first = this.worldToScreen(this.depthSnapshot[0]); ctx.moveTo(first.x, first.y);
-      for (let index = 1; index < this.depthSnapshot.length; index += 1) { const point = this.worldToScreen(this.depthSnapshot[index]); ctx.lineTo(point.x, point.y); }
+      for (let index = 1; index < this.depthSnapshot.length; index += 1) {
+        const point = this.worldToScreen(this.depthSnapshot[index]); ctx.lineTo(point.x, point.y);
+      }
       ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke();
     }
-    this.depthNodes().forEach((node) => this.drawNode(ctx, node, '#f472b6', formatDepth(node.y), 18));
-    for (const marker of this.markerNodes()) {
-      const top = this.worldToScreen(marker); const bottom = this.worldToScreen({ x: marker.x, y: this.bounds.minY });
-      ctx.save(); ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bottom.x, bottom.y); ctx.strokeStyle = '#94a3b8'; ctx.stroke(); ctx.restore();
-      this.drawNode(ctx, marker, '#34d399', marker.text, -16);
+    for (const node of this.depthNodes()) {
+      drawPipelineCadSelectionNode(this, ctx, node, {
+        primaryId: this.selected?.id, fill: '#f472b6', labelColor: '#fbcfe8',
+        label: formatDepth(node.y), labelOffsetY: 18, drawGrip: (context, point, item) => this.drawGrip(context, point, item),
+      });
     }
-    drawPipelineCadSelectionBox(ctx, this.selectionBox);
+    for (const marker of this.markerNodes()) {
+      drawPipelineCadMarkerRail(this, ctx, marker);
+      drawPipelineCadSelectionNode(this, ctx, marker, {
+        primaryId: this.selected?.id, fill: '#34d399', labelColor: '#6ee7b7', font: 'bold 11px monospace',
+        label: marker.text, labelOffsetY: -16, drawGrip: (context, point, item) => this.drawGrip(context, point, item),
+      });
+      const top = this.worldToScreen(marker); ctx.fillStyle = '#fb923c'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`X: ${marker.x.toFixed(1)}`, top.x, top.y - 4);
+    }
+    drawPipelineCadSelectionBox(this, ctx);
   }
 }

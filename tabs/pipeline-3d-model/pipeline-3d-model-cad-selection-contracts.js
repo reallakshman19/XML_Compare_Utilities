@@ -1,98 +1,102 @@
 export const PIPELINE_CAD_SELECTION_SCHEMA = 'PipelineCadSelection.v1';
 export const PIPELINE_CAD_SELECTION_BOX_SCHEMA = 'PipelineCadSelectionBox.v1';
 
-function text(value, label) {
-  const result = String(value ?? '').trim();
-  if (!result) throw new TypeError(`${label} is required.`);
-  return result;
+function itemKey(item) { return `${item?.id ?? ''}:${item?.type ?? ''}`; }
+function freezeItem(item = {}) {
+  const id = String(item.id || '');
+  const type = String(item.type || '');
+  return id && type ? Object.freeze({ id, type }) : null;
 }
 
-function point(value, label) {
-  const x = Number(value?.x); const y = Number(value?.y);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError(`${label} must contain finite x and y.`);
-  return Object.freeze({ x, y });
+export function normalizePipelineCadSelectionItems(items = []) {
+  const unique = new Map();
+  for (const source of items || []) {
+    const item = freezeItem(source);
+    if (item) unique.set(itemKey(item), item);
+  }
+  return Object.freeze([...unique.values()]);
 }
 
-function item(value, graph) {
-  const entityGraph = text(value?.graph ?? graph, 'Selection item graph');
-  if (entityGraph !== graph) throw new Error('Pipeline CAD selection cannot span graphs.');
-  return Object.freeze({
-    graph,
-    entityId: text(value?.entityId, 'Selection entityId'),
-    entityType: text(value?.entityType, 'Selection entityType'),
-  });
+export function pipelineCadSelectionMode(event = {}) {
+  return event.shiftKey || event.ctrlKey || event.metaKey ? 'toggle' : 'replace';
 }
 
-function uniqueItems(values, graph) {
-  const seen = new Set();
-  return Object.freeze((values || []).map((value) => item(value, graph)).filter((value) => {
-    if (seen.has(value.entityId)) return false;
-    seen.add(value.entityId);
-    return true;
-  }));
+export function updatePipelineCadSelection(current = [], candidates = [], mode = 'replace') {
+  const incoming = normalizePipelineCadSelectionItems(candidates);
+  if (mode === 'replace') return incoming;
+  const next = new Map(normalizePipelineCadSelectionItems(current).map((item) => [itemKey(item), item]));
+  for (const item of incoming) {
+    const key = itemKey(item);
+    if (mode === 'remove') next.delete(key);
+    else if (mode === 'add') next.set(key, item);
+    else if (next.has(key)) next.delete(key);
+    else next.set(key, item);
+  }
+  return Object.freeze([...next.values()]);
 }
 
-export function createPipelineCadSelection(input = {}) {
-  const graph = text(input.graph, 'Selection graph');
-  const items = uniqueItems(input.items, graph);
-  const ids = new Set(items.map((value) => value.entityId));
-  const requested = String(input.primaryId ?? '').trim();
-  const primaryId = requested && ids.has(requested) ? requested : (items[0]?.entityId ?? null);
+export function createPipelineCadSelectionDetail(options = {}) {
+  const items = normalizePipelineCadSelectionItems(options.items);
+  const requested = String(options.primaryId || '');
+  const primary = items.find((item) => item.id === requested) || items.at(-1) || null;
+  const types = [...new Set(items.map((item) => item.type))];
   return Object.freeze({
     schema: PIPELINE_CAD_SELECTION_SCHEMA,
-    graph,
+    graph: options.graph || null,
     items,
-    selectedIds: Object.freeze(items.map((value) => value.entityId)),
-    primaryId,
+    entityIds: Object.freeze(items.map((item) => item.id)),
+    primaryId: primary?.id || null,
+    primaryType: primary?.type || null,
+    entityId: primary?.id || null,
+    entityType: primary?.type || null,
     count: items.length,
+    homogeneousType: types.length === 1 ? types[0] : null,
+    source: options.source || 'pointer',
+    mode: options.mode || 'replace',
   });
 }
 
-export function emptyPipelineCadSelection(graph) {
-  return createPipelineCadSelection({ graph, items: [] });
-}
-
-export function replacePipelineCadSelection(selection, value) {
-  return createPipelineCadSelection({ graph: selection.graph, items: [value], primaryId: value.entityId });
-}
-
-export function togglePipelineCadSelection(selection, value) {
-  const exists = selection.items.some((itemValue) => itemValue.entityId === value.entityId);
-  const items = exists
-    ? selection.items.filter((itemValue) => itemValue.entityId !== value.entityId)
-    : [...selection.items, value];
-  const primaryId = exists && selection.primaryId === value.entityId
-    ? items[0]?.entityId : value.entityId;
-  return createPipelineCadSelection({ graph: selection.graph, items, primaryId });
-}
-
-export function createPipelineCadSelectionBox(input = {}) {
-  const graph = text(input.graph, 'Selection box graph');
-  const start = point(input.start, 'Selection box start');
-  const current = point(input.current ?? start, 'Selection box current');
+export function normalizePipelineCadSelectionBox(start = {}, end = {}) {
+  const x1 = Number(start.x) || 0; const y1 = Number(start.y) || 0;
+  const x2 = Number(end.x) || 0; const y2 = Number(end.y) || 0;
   return Object.freeze({
     schema: PIPELINE_CAD_SELECTION_BOX_SCHEMA,
-    graph,
-    start,
-    current,
-    mode: current.x >= start.x ? 'window' : 'crossing',
-    active: input.active !== false,
+    start: Object.freeze({ x: x1, y: y1 }), end: Object.freeze({ x: x2, y: y2 }),
+    left: Math.min(x1, x2), right: Math.max(x1, x2),
+    top: Math.min(y1, y2), bottom: Math.max(y1, y2),
+    direction: x2 >= x1 ? 'window' : 'crossing',
   });
 }
 
-export function updatePipelineCadSelectionBox(box, current) {
-  return createPipelineCadSelectionBox({ ...box, current, active: box.active });
+function windowContains(box, point, radius) {
+  return point.x - radius >= box.left && point.x + radius <= box.right
+    && point.y - radius >= box.top && point.y + radius <= box.bottom;
+}
+function crossingTouches(box, point, radius) {
+  return point.x + radius >= box.left && point.x - radius <= box.right
+    && point.y + radius >= box.top && point.y - radius <= box.bottom;
 }
 
-export function pipelineCadSelectionBoxBounds(box) {
-  return Object.freeze({
-    left: Math.min(box.start.x, box.current.x),
-    right: Math.max(box.start.x, box.current.x),
-    top: Math.min(box.start.y, box.current.y),
-    bottom: Math.max(box.start.y, box.current.y),
-  });
+export function selectPipelineCadItemsInBox(candidates = [], boxInput = {}, options = {}) {
+  const box = boxInput.schema === PIPELINE_CAD_SELECTION_BOX_SCHEMA
+    ? boxInput : normalizePipelineCadSelectionBox(boxInput.start, boxInput.end);
+  const radius = Math.max(0, Number(options.radius) || 0);
+  const selected = [];
+  for (const candidate of candidates || []) {
+    const point = options.toScreen ? options.toScreen(candidate) : candidate.screen;
+    if (!point) continue;
+    const matches = box.direction === 'window'
+      ? windowContains(box, point, radius) : crossingTouches(box, point, radius);
+    if (matches) selected.push({ id: candidate.id, type: candidate.type });
+  }
+  return normalizePipelineCadSelectionItems(selected);
 }
 
-export function pipelineCadSelectionModifier(event = {}) {
-  return Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
+export function partitionPipelineCadSelection(items = []) {
+  const groups = new Map();
+  for (const item of normalizePipelineCadSelectionItems(items)) {
+    if (!groups.has(item.type)) groups.set(item.type, []);
+    groups.get(item.type).push(item);
+  }
+  return Object.freeze(Object.fromEntries([...groups].map(([type, values]) => [type, Object.freeze(values)])));
 }

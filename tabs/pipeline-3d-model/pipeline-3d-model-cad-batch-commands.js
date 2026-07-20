@@ -1,71 +1,52 @@
 import { SnapshotCommand } from './pipeline-3d-model-cad-commands.js';
 
-export const PIPELINE_CAD_BATCH_OPERATION = Object.freeze({
-  TABLE2_ELEVATION: 'TABLE2_GEOMETRY_ELEVATION',
-  TABLE3_MARKER_POSITION: 'TABLE3_MARKER_EVIDENCE_POSITION',
-  DELETE: 'DELETE_PROFILE_ROWS',
-});
-
-function uniqueChanges(changes, valueKey) {
-  const seen = new Set();
-  return Object.freeze((changes || []).map((change) => {
-    const id = String(change?.id ?? '').trim();
-    const value = Number(change?.[valueKey]);
-    if (!id || !Number.isFinite(value)) throw new TypeError(`Batch ${valueKey} changes require id and finite value.`);
-    if (seen.has(id)) throw new Error(`Duplicate batch entity: ${id}`);
-    seen.add(id);
-    return Object.freeze({ id, [valueKey]: value });
-  }));
+function uniqueIds(ids = []) { return [...new Set((ids || []).map(String).filter(Boolean))]; }
+function requireBatch(values, label) {
+  if (!values.length) throw new TypeError(`${label} requires at least one valid row.`);
+  return values;
 }
-
-function requireRows(model, changes, sourceTable) {
-  for (const change of changes) {
-    const row = model.findRow(change.id);
-    if (!row || row.sourceTable !== sourceTable) {
-      throw new Error(`Batch entity ${change.id} is not compatible with ${sourceTable}.`);
+function validateDeleteBatch(model, rowIds) {
+  const removed = new Set(rowIds);
+  const remainingTable2 = (model?.table2Rows || []).filter((row) => !removed.has(row.id)
+    && Number.isFinite(row.stationValue) && Number.isFinite(row.basisH));
+  if (remainingTable2.length < 2) {
+    throw new Error('Batch delete would violate the Table 2 station authority minimum.');
+  }
+  return rowIds;
+}
+function ownedEdits(model, edits, valueKey, sourceTable, label) {
+  const values = new Map();
+  for (const edit of edits || []) {
+    const id = String(edit?.id || ''); const value = Number(edit?.[valueKey]);
+    const row = id ? model?.findRow?.(id) : null;
+    if (row?.sourceTable === sourceTable && Number.isFinite(value)) {
+      values.set(id, Object.freeze({ id, [valueKey]: value }));
     }
   }
+  return requireBatch(Object.freeze([...values.values()]), label);
 }
 
-export function moveTable2ElevationRowsCommand(model, changes) {
-  const rows = uniqueChanges(changes, 'elevationValue');
-  if (!rows.length) throw new Error('Table 2 batch move requires at least one row.');
-  requireRows(model, rows, 'table2a');
-  return new SnapshotCommand(model, `Move ${rows.length} Table 2 elevations`, (target) => {
-    rows.forEach((row) => target.moveTable2Elevation(row.id, row.elevationValue));
-  });
-}
-
-export function moveTable3MarkerRowsCommand(model, changes) {
-  const rows = uniqueChanges(changes, 'absoluteH');
-  if (!rows.length) throw new Error('Table 3 marker batch move requires at least one row.');
-  requireRows(model, rows, 'table3c');
-  return new SnapshotCommand(model, `Move ${rows.length} Table 3 markers`, (target) => {
-    rows.forEach((row) => target.moveMarker(row.id, row.absoluteH));
-    target.table3MarkerRows.sort((left, right) => (left.absoluteH ?? Infinity) - (right.absoluteH ?? Infinity));
-  });
-}
-
-function validateDeleteRows(model, ids) {
-  const unique = [...new Set((ids || []).map(String).filter(Boolean))];
-  if (!unique.length) throw new Error('Batch deletion requires at least one entity.');
-  const rows = unique.map((id) => model.findRow(id));
-  if (rows.some((row) => !row)) throw new Error('Batch deletion contains an unknown profile row.');
-  if (rows.some((row) => !['table2a', 'table3b', 'table3c'].includes(row.sourceTable))) {
-    throw new Error('Batch deletion contains a non-editable authority row.');
-  }
-  const deleting = new Set(unique);
-  const anchors = model.table2Rows.filter((row) => !deleting.has(row.id)
-    && Number.isFinite(row.stationValue) && Number.isFinite(row.basisH));
-  if (anchors.length < 2) throw new Error('Batch deletion would invalidate Table 2 station authority.');
-  return Object.freeze(unique);
-}
-
-export function deleteProfileRowsCommand(model, ids) {
-  const rowIds = validateDeleteRows(model, ids);
+export function deleteProfileRowsCommand(model, ids = []) {
+  const rowIds = validateDeleteBatch(model, requireBatch(
+    uniqueIds(ids).filter((id) => model?.findRow?.(id)), 'Batch delete',
+  ));
   return new SnapshotCommand(model, `Delete ${rowIds.length} profile rows`, (target) => {
-    rowIds.forEach((id) => target.deleteRow(id));
+    for (const id of rowIds) target.deleteRow(id);
   });
 }
 
-export const _test = Object.freeze({ uniqueChanges, validateDeleteRows });
+export function moveTable2RowsCommand(model, edits = []) {
+  const rows = ownedEdits(model, edits, 'elevation', 'table2a', 'Table 2 batch move');
+  return new SnapshotCommand(model, `Move ${rows.length} Table 2 rows`, (target) => {
+    for (const row of rows) target.moveTable2Elevation(row.id, row.elevation);
+  });
+}
+
+export function moveTable3MarkerRowsCommand(model, edits = []) {
+  const rows = ownedEdits(model, edits, 'absoluteH', 'table3c', 'Table 3 marker batch move');
+  return new SnapshotCommand(model, `Move ${rows.length} Table 3 markers`, (target) => {
+    for (const row of rows) target.moveMarker(row.id, row.absoluteH);
+  });
+}
+
+export const _test = Object.freeze({ ownedEdits, uniqueIds, validateDeleteBatch });

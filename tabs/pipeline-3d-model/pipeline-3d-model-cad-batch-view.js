@@ -1,53 +1,23 @@
-import { pipelineCadSelectionBoxBounds } from './pipeline-3d-model-cad-selection-contracts.js';
-
-function aperture(node, graph) {
-  const center = graph.worldToScreen(node);
-  const radius = Number(graph.hitRadius) || 10;
-  return { id: node.id, entityType: node.type || 'elevation-node', center, radius };
+export function drawPipelineCadSelectionNode(graph, context, node, options = {}) {
+  const point = graph.worldToScreen(node);
+  const selected = graph.isSelected?.(node.id) === true;
+  const primary = options.primaryId === node.id;
+  context.beginPath(); context.arc(point.x, point.y, selected ? 8 : 6, 0, Math.PI * 2);
+  context.fillStyle = options.fill || '#f8fafc';
+  context.strokeStyle = primary ? '#ffffff' : selected ? '#22d3ee' : '#0f172a';
+  context.lineWidth = selected ? 2.5 : 2; context.fill(); context.stroke();
+  options.drawGrip?.(context, point, node);
+  context.fillStyle = options.labelColor || '#cbd5e1';
+  context.font = options.font || '11px monospace'; context.textAlign = 'center';
+  context.fillText(options.label || '', point.x, point.y + (Number(options.labelOffsetY) || 0));
+  return point;
 }
 
-function contained(item, bounds) {
-  return item.center.x - item.radius >= bounds.left
-    && item.center.x + item.radius <= bounds.right
-    && item.center.y - item.radius >= bounds.top
-    && item.center.y + item.radius <= bounds.bottom;
-}
-
-function intersects(item, bounds) {
-  return item.center.x + item.radius >= bounds.left
-    && item.center.x - item.radius <= bounds.right
-    && item.center.y + item.radius >= bounds.top
-    && item.center.y - item.radius <= bounds.bottom;
-}
-
-export function pipelineCadBoxCandidates(graph, nodes, box) {
-  const bounds = pipelineCadSelectionBoxBounds(box);
-  return Object.freeze(nodes.map((node) => aperture(node, graph))
-    .filter((item) => box.mode === 'window' ? contained(item, bounds) : intersects(item, bounds))
-    .map((item) => Object.freeze({ graph: box.graph, entityId: item.id, entityType: item.entityType })));
-}
-
-export function drawPipelineCadSelectionBox(context, box) {
-  if (!context || !box?.active) return false;
-  const bounds = pipelineCadSelectionBoxBounds(box);
-  context.save();
-  context.fillStyle = box.mode === 'window' ? '#38bdf822' : '#f59e0b22';
-  context.strokeStyle = box.mode === 'window' ? '#38bdf8' : '#f59e0b';
-  context.setLineDash(box.mode === 'window' ? [] : [6, 4]);
-  context.fillRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
-  context.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
-  context.restore();
-  return true;
-}
-
-export function drawPipelineCadSelectedNode(context, point, selected, primary) {
-  if (!selected) return false;
-  context.save();
-  context.strokeStyle = primary ? '#ffffff' : '#a78bfa';
-  context.lineWidth = primary ? 3 : 2;
-  context.beginPath();
-  context.arc(point.x, point.y, primary ? 10 : 9, 0, Math.PI * 2);
-  context.stroke();
-  context.restore();
-  return true;
+export function drawPipelineCadMarkerRail(graph, context, marker) {
+  const top = graph.worldToScreen(marker);
+  const bottom = graph.worldToScreen({ x: marker.x, y: graph.bounds.minY });
+  context.save(); context.setLineDash([4, 4]); context.beginPath();
+  context.moveTo(top.x, top.y); context.lineTo(bottom.x, bottom.y);
+  context.strokeStyle = '#94a3b8'; context.stroke(); context.restore();
+  return top;
 }

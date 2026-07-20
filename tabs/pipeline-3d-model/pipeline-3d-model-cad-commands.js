@@ -11,23 +11,13 @@ export class SnapshotCommand {
       throw new TypeError('SnapshotCommand requires a snapshot-capable model.');
     }
     if (typeof applyMutation !== 'function') throw new TypeError('applyMutation must be a function.');
-    this.model = model;
-    this.description = description || 'Pipeline profile mutation';
-    this.applyMutation = applyMutation;
-    this.before = null;
-    this.after = null;
+    this.model = model; this.description = description || 'Pipeline profile mutation';
+    this.applyMutation = applyMutation; this.before = null; this.after = null;
   }
-
   execute() {
-    if (this.after) {
-      this.model.restore(this.after, `redo:${this.description}`);
-      return;
-    }
-    this.before = this.model.snapshot();
-    this.applyMutation(this.model);
-    this.after = this.model.snapshot();
+    if (this.after) { this.model.restore(this.after, `redo:${this.description}`); return; }
+    this.before = this.model.snapshot(); this.applyMutation(this.model); this.after = this.model.snapshot();
   }
-
   undo() {
     if (!this.before) throw new Error('Command has not been executed.');
     this.model.restore(this.before, `undo:${this.description}`);
@@ -36,10 +26,7 @@ export class SnapshotCommand {
 
 export class CommandHistory extends EventTarget {
   constructor(limit = 100) {
-    super();
-    this.limit = Math.max(1, Number(limit) || 100);
-    this.undoStack = [];
-    this.redoStack = [];
+    super(); this.limit = Math.max(1, Number(limit) || 100); this.undoStack = []; this.redoStack = [];
   }
   get canUndo() { return this.undoStack.length > 0; }
   get canRedo() { return this.redoStack.length > 0; }
@@ -47,27 +34,17 @@ export class CommandHistory extends EventTarget {
     if (!command || typeof command.execute !== 'function' || typeof command.undo !== 'function') {
       throw new TypeError('Command must implement execute() and undo().');
     }
-    command.execute();
-    this.undoStack.push(command);
+    command.execute(); this.undoStack.push(command);
     if (this.undoStack.length > this.limit) this.undoStack.shift();
-    this.redoStack = [];
-    this.#emit('execute', command);
+    this.redoStack = []; this.#emit('execute', command);
   }
   undo() {
-    const command = this.undoStack.pop();
-    if (!command) return false;
-    command.undo();
-    this.redoStack.push(command);
-    this.#emit('undo', command);
-    return true;
+    const command = this.undoStack.pop(); if (!command) return false;
+    command.undo(); this.redoStack.push(command); this.#emit('undo', command); return true;
   }
   redo() {
-    const command = this.redoStack.pop();
-    if (!command) return false;
-    command.execute();
-    this.undoStack.push(command);
-    this.#emit('redo', command);
-    return true;
+    const command = this.redoStack.pop(); if (!command) return false;
+    command.execute(); this.undoStack.push(command); this.#emit('redo', command); return true;
   }
   clear() { this.undoStack = []; this.redoStack = []; this.#emit('clear', null); }
   #emit(action, command) {
@@ -112,7 +89,9 @@ function rebuildTable2StationMap(model) {
 export function editTable2NodeCommand(model, id, after = {}) {
   return new SnapshotCommand(model, `Precision edit Table 2 node ${id}`, (target) => {
     const station = Number(after.station); const elevation = Number(after.elevation);
-    if (!Number.isFinite(station) || !Number.isFinite(elevation)) throw new TypeError('Table 2 precision values must be finite.');
+    if (!Number.isFinite(station) || !Number.isFinite(elevation)) {
+      throw new TypeError('Table 2 precision values must be finite.');
+    }
     target.mutateRow(id, {
       stationValue: station, stationText: formatStation(station),
       elevationValue: elevation, elevationText: elevation.toFixed(2),
@@ -124,13 +103,15 @@ export function editTable2NodeCommand(model, id, after = {}) {
 export function editTable3DepthCommand(model, id, after = {}) {
   return new SnapshotCommand(model, `Precision edit Table 3 depth ${id}`, (target) => {
     const absoluteH = Number(after.absoluteH); const z = Number(after.z);
-    if (!Number.isFinite(absoluteH) || !Number.isFinite(z)) throw new TypeError('Table 3 depth precision values must be finite.');
+    if (!Number.isFinite(absoluteH) || !Number.isFinite(z)) {
+      throw new TypeError('Table 3 depth precision values must be finite.');
+    }
     const zText = formatDepth(z); const parsed = parseDepthText(zText);
     target.mutateRow(id, {
       absoluteH, textPositionH: absoluteH, z: parsed?.z ?? z, zText,
       zMode: parsed?.mode ?? 'DEPTH', depth: parsed?.depth ?? Math.max(0, -z),
     }, 'precision-edit-table3-depth');
-    target.table3DepthRows.sort((left, right) => (left.absoluteH ?? Infinity) - (right.absoluteH ?? Infinity));
+    target.table3DepthRows.sort((a, b) => (a.absoluteH ?? Infinity) - (b.absoluteH ?? Infinity));
   });
 }
 
@@ -139,7 +120,7 @@ export function editTable3MarkerCommand(model, id, after = {}) {
     const absoluteH = Number(after.absoluteH); const markerText = String(after.label ?? '').trim();
     if (!Number.isFinite(absoluteH) || !markerText) throw new TypeError('Marker position and label are required.');
     target.mutateRow(id, { absoluteH, markerText }, 'precision-edit-table3-marker');
-    target.table3MarkerRows.sort((left, right) => (left.absoluteH ?? Infinity) - (right.absoluteH ?? Infinity));
+    target.table3MarkerRows.sort((a, b) => (a.absoluteH ?? Infinity) - (b.absoluteH ?? Infinity));
   });
 }
 

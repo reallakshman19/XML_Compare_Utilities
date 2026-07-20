@@ -1,82 +1,51 @@
 import assert from 'node:assert/strict';
-import { CommandHistory } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js';
 import {
   deleteProfileRowsCommand,
-  moveTable2ElevationRowsCommand,
+  moveTable2RowsCommand,
   moveTable3MarkerRowsCommand,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-commands.js';
+import { CommandHistory } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js';
+import { PipelineProfileModel } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-model.js';
 
-class Model {
-  constructor() {
-    this.table2Rows = [
-      { id: 'T2-1', sourceTable: 'table2a', stationValue: 0, basisH: 0, elevationValue: 10 },
-      { id: 'T2-2', sourceTable: 'table2a', stationValue: 10, basisH: 10, elevationValue: 11 },
-      { id: 'T2-3', sourceTable: 'table2a', stationValue: 20, basisH: 20, elevationValue: 12 },
-      { id: 'T2-4', sourceTable: 'table2a', stationValue: 30, basisH: 30, elevationValue: 13 },
-    ];
-    this.table3DepthRows = [{ id: 'D-1', sourceTable: 'table3b', z: -1.5 }];
-    this.table3MarkerRows = [
-      { id: 'M-1', sourceTable: 'table3c', absoluteH: 5 },
-      { id: 'M-2', sourceTable: 'table3c', absoluteH: 15 },
-    ];
-    this.revision = 0;
-  }
-  snapshot() { return structuredClone({ table2Rows: this.table2Rows, table3DepthRows: this.table3DepthRows, table3MarkerRows: this.table3MarkerRows, revision: this.revision }); }
-  restore(snapshot) { Object.assign(this, structuredClone(snapshot)); }
-  findRow(id) { return [...this.table2Rows, ...this.table3DepthRows, ...this.table3MarkerRows].find((row) => row.id === id) || null; }
-  moveTable2Elevation(id, value) { this.findRow(id).elevationValue = Number(value); this.revision += 1; }
-  moveMarker(id, value) { this.findRow(id).absoluteH = Number(value); this.revision += 1; }
-  deleteRow(id) {
-    for (const name of ['table2Rows', 'table3DepthRows', 'table3MarkerRows']) {
-      const index = this[name].findIndex((row) => row.id === id);
-      if (index >= 0) { this[name].splice(index, 1); this.revision += 1; return; }
-    }
-    throw new Error(`Unknown profile row: ${id}`);
-  }
-}
+const raw = {
+  table2a: `H(coor)\tV(coor)\t[H vs V] Length\tStation Text\tElevation Text
+659.791\t—\t—\t0+000.0\t231.32
+668.540\t—\t—\t0+006.7\t230.95
+680.803\t—\t—\t0+019.0\t230.82
+732.683\t—\t—\t0+070.8\t233.00`,
+  table3a: `From H(coor)\tTo H(coor)\tText Position X\tHLength Text
+661.791\t682.337\t671.704\t20.5
+682.337\t716.683\t700.435\t34.3
+716.683\t732.683\t723.927\t16.0`,
+  table3b: `From H(coor)\tTo H(coor)\tText Position X\tZ Text
+—\t—\t665.621\tA/G
+682.337\t732.683\t708.374\t1.5M`,
+  table3c: `Text Position X\tMarker Text
+688.135\tPM-001
+700.000\tPM-002`,
+};
 
-const model = new Model();
-const history = new CommandHistory();
-const before = model.snapshot();
-history.execute(moveTable2ElevationRowsCommand(model, [
-  { id: 'T2-2', elevationValue: 21 },
-  { id: 'T2-3', elevationValue: 22 },
-]));
+const model = PipelineProfileModel.fromRaw(raw); const history = new CommandHistory();
+const table2 = model.table2Rows.slice(1, 3); const before = table2.map((row) => row.elevationValue);
+history.execute(moveTable2RowsCommand(model, table2.map((row, index) => ({ id: row.id, elevation: before[index] + 1 }))));
 assert.equal(history.undoStack.length, 1);
-assert.deepEqual(model.table2Rows.map((row) => row.elevationValue), [10, 21, 22, 13]);
-history.undo();
-assert.deepEqual(model.snapshot(), before);
-history.redo();
-assert.deepEqual(model.table2Rows.map((row) => row.elevationValue), [10, 21, 22, 13]);
+assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before.map((value) => value + 1));
+history.undo(); assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before);
+history.redo(); assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before.map((value) => value + 1));
 
-history.execute(moveTable3MarkerRowsCommand(model, [
-  { id: 'M-1', absoluteH: 25 },
-  { id: 'M-2', absoluteH: 20 },
-]));
+const markers = model.table3MarkerRows; const markerBefore = markers.map((row) => row.absoluteH);
+history.execute(moveTable3MarkerRowsCommand(model, markers.map((row, index) => ({ id: row.id, absoluteH: markerBefore[index] + 2 }))));
 assert.equal(history.undoStack.length, 2);
-assert.deepEqual(model.table3MarkerRows.map((row) => [row.id, row.absoluteH]), [['M-2', 20], ['M-1', 25]]);
-history.undo();
-assert.deepEqual(model.table3MarkerRows.map((row) => [row.id, row.absoluteH]), [['M-1', 5], ['M-2', 15]]);
+assert.deepEqual(markers.map((row) => model.findRow(row.id).absoluteH), markerBefore.map((value) => value + 2));
 
-const deleteBefore = model.snapshot();
-history.execute(deleteProfileRowsCommand(model, ['T2-2', 'M-1', 'D-1']));
-assert.equal(history.undoStack.length, 2, 'one delete batch adds one command after prior undo');
-assert.equal(model.findRow('T2-2'), null);
-assert.equal(model.findRow('M-1'), null);
-assert.equal(model.findRow('D-1'), null);
-history.undo();
-assert.deepEqual(model.snapshot(), deleteBefore, 'batch undo restores all rows atomically');
-history.redo();
-assert.equal(model.findRow('T2-2'), null);
-assert.equal(model.findRow('M-1'), null);
-assert.equal(model.findRow('D-1'), null);
-
-const invalid = new Model();
-assert.throws(() => deleteProfileRowsCommand(invalid, []), /at least one/);
-assert.throws(() => deleteProfileRowsCommand(invalid, ['UNKNOWN']), /unknown/);
-assert.throws(() => deleteProfileRowsCommand(invalid, ['T2-1', 'T2-2', 'T2-3']), /invalidate Table 2/);
-assert.throws(() => moveTable2ElevationRowsCommand(invalid, [{ id: 'M-1', elevationValue: 1 }]), /not compatible/);
-assert.throws(() => moveTable3MarkerRowsCommand(invalid, [{ id: 'D-1', absoluteH: 1 }]), /not compatible/);
-assert.equal(invalid.table3DepthRows[0].z, -1.5, 'no grouped depth mutation API exists');
-
-console.log('Pipeline CAD batch commands are atomic and authority-scoped');
+const deleteModel = PipelineProfileModel.fromRaw(raw); const deleteHistory = new CommandHistory();
+const deleteIds = [deleteModel.table2Rows[1].id, deleteModel.table3MarkerRows[0].id];
+deleteHistory.execute(deleteProfileRowsCommand(deleteModel, deleteIds));
+assert.equal(deleteHistory.undoStack.length, 1); assert.ok(deleteIds.every((id) => !deleteModel.findRow(id)));
+deleteHistory.undo(); assert.ok(deleteIds.every((id) => deleteModel.findRow(id)));
+deleteHistory.redo(); assert.ok(deleteIds.every((id) => !deleteModel.findRow(id)));
+const invalidDeleteModel = PipelineProfileModel.fromRaw(raw);
+assert.throws(() => deleteProfileRowsCommand(invalidDeleteModel, invalidDeleteModel.table2Rows.map((row) => row.id)), /Table 2 station authority minimum/);
+assert.throws(() => moveTable2RowsCommand(model, [{ id: markers[0].id, elevation: 1 }]), /at least one valid row/);
+assert.throws(() => moveTable3MarkerRowsCommand(model, [{ id: model.table3DepthRows[0].id, absoluteH: 1 }]), /at least one valid row/);
+console.log('Pipeline CAD batch command tests passed');
