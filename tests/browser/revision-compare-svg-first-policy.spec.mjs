@@ -68,6 +68,17 @@ async function panAndZoom(page, root) {
   await root.dispatchEvent('wheel', { deltaY: -360, clientX: x, clientY: y });
 }
 
+function persistentViewport(viewport) {
+  return {
+    schema: viewport.schema,
+    minimumZoom: viewport.minimumZoom,
+    maximumZoom: viewport.maximumZoom,
+    zoom: viewport.zoom,
+    panX: viewport.panX,
+    panY: viewport.panY,
+  };
+}
+
 async function catalog(page) {
   return page.evaluate(() => {
     const rows = window.rcHandle.evidence().state.compare.audit.differenceRows;
@@ -134,9 +145,9 @@ test('RC-SVG-003-B01 — SVG-first backend policy', async ({ page }) => {
   await expect(webglCanvas).toHaveCount(0);
   expect(await page.evaluate(() => window.rcHandle.evidence().viewer.mountRequests)).toEqual(['SVG']);
   await panAndZoom(page, overlayRoot);
-  const overlayHistory = await page.evaluate(() => structuredClone(
+  const overlayHistory = persistentViewport(await page.evaluate(() => structuredClone(
     window.rcHandle.evidence().viewer.viewer.viewportHistory.overlay,
-  ));
+  )));
   await page.getByRole('button', { name: 'Side-by-side' }).click();
   await expect(paneRoots).toHaveCount(2); await expect(webglCanvas).toHaveCount(0);
   const rows = await catalog(page);
@@ -159,9 +170,9 @@ test('RC-SVG-003-B01 — SVG-first backend policy', async ({ page }) => {
   await engineeringSvg.click();
   await expect(engineeringSvg).toHaveAttribute('aria-pressed', 'true');
   await expect(paneRoots).toHaveCount(2); await expect(webglCanvas).toHaveCount(0);
-  const restoredOverlay = await page.evaluate(() => structuredClone(
+  const restoredOverlay = persistentViewport(await page.evaluate(() => structuredClone(
     window.rcHandle.evidence().viewer.viewer.viewportHistory.overlay,
-  ));
+  )));
   expect(restoredOverlay).toEqual(overlayHistory);
   await closeWorkspace(page);
   await expect(page.locator('[data-engineering-svg-root], [data-revc-policy-webgl]')).toHaveCount(0);
