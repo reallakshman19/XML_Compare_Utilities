@@ -93,7 +93,11 @@ jobs:
 
       - name: Existing editable shell regressions
         id: editable_shell
-        run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: artifacts/editable-shell-results.json
+        run: |
+          mkdir -p artifacts
+          npx playwright test --config=playwright.engineering-svg-shell.config.mjs --reporter=json
 
       - name: B01 viewer and output-only properties
         id: b01
@@ -178,6 +182,8 @@ jobs:
         with:
           name: engineering-svg-property-history-failure-${{ env.EXPECTED_SHA }}
           path: |
+            artifacts/editable-shell-results.json
             test-results/engineering-svg-readonly-shell
+            test-results
             playwright-report
           if-no-files-found: warn
