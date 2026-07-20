@@ -35,6 +35,11 @@ export const REVISION_COMPARE_SVG_CSS = `
 .revc-svg-pane-host [data-revc-svg-pane-root] { width: 100%; height: 100%; min-height: 24rem; background: #0b1220; }
 .revc-viewer-host [data-engineering-svg-root] { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .revc-viewer-host [data-engineering-svg-root]:active { cursor: grabbing; }
+.revc-viewer-host [data-revc-svg-keyboard-surface]:focus-visible {
+  outline: 3px solid #f8fafc;
+  outline-offset: -5px;
+  box-shadow: inset 0 0 0 6px rgba(15, 23, 42, .85);
+}
 .revc-viewer-host [data-engineering-svg-geometry] { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .revc-viewer-host [data-engineering-svg-geometry="point"] { fill: var(--revc-svg-stroke); }
 .revc-viewer-host [data-revc-hidden-fit-authority] { opacity: 0 !important; pointer-events: none !important; }
