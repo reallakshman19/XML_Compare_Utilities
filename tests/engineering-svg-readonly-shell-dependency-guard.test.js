@@ -51,6 +51,9 @@ assert.match(propertyContracts, /EngineeringPropertyField\.v1/);
 assert.match(propertyContracts, /hasOwnProperty\.call\(input, 'previousValue'\)/);
 const propertyRuntime = readFileSync(join(root, 'core/engineering-svg/engineering-svg-property-runtime.js'), 'utf8');
 assert.match(propertyRuntime, /previousAggregate/);
-assert.doesNotMatch(propertyRuntime, /Rev A|Rev B|baseline|candidate|old revision|new revision/i);
+const propertyView = readFileSync(join(root, 'core/engineering-svg/engineering-svg-property-inspector-view.js'), 'utf8');
+const forbiddenVocabulary = /\b(?:Rev A|Rev B|baseline|candidate|old revision|new revision)\b/i;
+assert.doesNotMatch(propertyRuntime, forbiddenVocabulary);
+assert.doesNotMatch(propertyView, forbiddenVocabulary);
 
 console.log('engineering SVG read-only shell dependency guards: ok');
