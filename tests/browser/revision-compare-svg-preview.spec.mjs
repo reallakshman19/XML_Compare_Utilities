@@ -140,12 +140,12 @@ test('RC-SVG-001B links panes, viewport history, exact evidence and backend life
   let snapshot = await viewerSnapshot(page);
   expect(snapshot.resources).toEqual({
     roots: 2,
-    keyboardRoots: 2,
-    instructionNodes: 2,
     observers: 1,
     selectionSubscriptions: 2,
     viewportListeners: 14,
   });
+  await expect(page.locator('[data-revc-svg-keyboard-surface]')).toHaveCount(2);
+  await expect(page.locator('[data-revc-svg-keyboard-instructions]')).toHaveCount(2);
   expect(await paneRoots.nth(0).getAttribute('viewBox')).toBe(await paneRoots.nth(1).getAttribute('viewBox'));
   await pan(page, paneRoots.nth(0), 50, -20);
   await zoom(page, paneRoots.nth(1), -360);
