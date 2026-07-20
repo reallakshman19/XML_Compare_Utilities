@@ -22,13 +22,11 @@ function presentation(value) {
 
 function retainedBackends(values) {
   if (!Array.isArray(values)) throw new TypeError('retainedBackends must be an array.');
-  const result = [...values];
-  if (result.length !== 2 || new Set(result).size !== 2
-    || !result.includes(REVISION_COMPARE_VIEWER_BACKEND.SVG)
-    || !result.includes(REVISION_COMPARE_VIEWER_BACKEND.WEBGL)) {
-    throw new TypeError('retainedBackends must retain SVG and WEBGL exactly once.');
+  const canonical = [REVISION_COMPARE_VIEWER_BACKEND.SVG, REVISION_COMPARE_VIEWER_BACKEND.WEBGL];
+  if (values.length !== canonical.length || values.some((value, index) => value !== canonical[index])) {
+    throw new TypeError('retainedBackends must be [SVG, WEBGL] in canonical order.');
   }
-  return result;
+  return canonical;
 }
 
 export function createRevisionCompareViewerPolicy(input = {}) {
