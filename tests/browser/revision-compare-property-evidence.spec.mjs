@@ -198,7 +198,7 @@ test('RC-SVG-002-B01 — authoritative shared property evidence', async ({ page 
   await ensureLevel(page, 2);
   await expect(page.locator('[data-engineering-svg-property-key]').first()).toBeVisible();
   const propertyTextBeforeViewer = await page.locator('[data-revc-property-inspector-host]').innerText();
-  await page.getByRole('button', { name: 'SVG preview' }).click();
+  await page.getByRole('button', { name: 'Engineering SVG' }).click();
   const overlay = page.locator('[data-revc-svg-overlay-root="1"]');
   await expect(overlay).toHaveCount(1);
   await panAndZoom(page, overlay);
