@@ -6,10 +6,11 @@
   <title>Engineering SVG Read-only Shell Fixture</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 16px; }
-    .fixtures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    [data-engineering-svg-shell] { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; border: 1px solid #999; padding: 12px; }
+    .fixtures { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 20px; }
+    [data-engineering-svg-shell] { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; border: 1px solid #999; padding: 12px; }
     [data-engineering-svg-shell-canvas] { min-height: 300px; }
     [data-engineering-svg-property-key] { display: grid; gap: 4px; margin: 8px 0; }
+    [data-engineering-svg-property-previous], [data-engineering-svg-property-current] { display: grid; grid-template-columns: 84px 1fr; gap: 8px; }
     [data-engineering-svg-shell-status] { grid-column: 1 / -1; }
     svg { width: 100%; height: 300px; border: 1px solid #bbb; }
     [data-engineering-svg-entity-id] { stroke: currentColor; fill: white; }
@@ -20,6 +21,7 @@
   <main class="fixtures">
     <div id="viewer-a"></div>
     <div id="viewer-b"></div>
+    <div id="viewer-history"></div>
   </main>
   <script type="module">
     import {
@@ -124,10 +126,100 @@
       };
     }
 
+    function createHistoryDomain(name, host) {
+      let revisionNumber = 1;
+      let shell = null;
+      let bridge = null;
+      const sceneListeners = new Set();
+      const propertyListeners = new Set();
+      const ids = [
+        'changed', 'unchanged', 'explicit-null', 'legacy',
+        'uniform-a', 'uniform-b', 'mixed-a', 'mixed-b', 'unavailable-a', 'unavailable-b',
+      ];
+      const revision = () => createEngineeringRevisionToken({ domain: name, revision: revisionNumber });
+      const buildScene = () => createEngineeringScene({
+        sceneId: `${name}-scene`, revision: revision(),
+        coordinateSystem: { unit: 'mm', verticalAxis: 'Z', frame: 'GLOBAL', handedness: 'right' },
+        projections: ['ISO', 'XY'],
+        entities: ids.map((id, index) => createEngineeringSceneEntity({
+          id, kind: 'point', domainType: 'PROPERTY_HISTORY_POINT',
+          geometry: createPointGeometry({ x: (index % 5) * 100, y: Math.floor(index / 5) * 100, z: 0 }),
+          domainRef: { owner: name, id }, propertySetIds: [`${id}-properties`],
+        })),
+      });
+
+      function historyFields(id) {
+        const offset = revisionNumber === 1 ? 0 : 10;
+        if (id === 'changed') return [{ key: 'pressure', label: 'Pressure', type: 'number', unit: 'bar', previousValue: 10 + offset, value: 12 + offset }];
+        if (id === 'unchanged') return [{ key: 'status', label: 'Status', type: 'text', previousValue: revisionNumber === 1 ? 'Ready' : 'Refreshed', value: revisionNumber === 1 ? 'Ready' : 'Refreshed' }];
+        if (id === 'explicit-null') return [{ key: 'comment', label: 'Comment', type: 'text', previousValue: null, value: `Current ${revisionNumber}` }];
+        if (id === 'legacy') return [{ key: 'legacyNote', label: 'Legacy Note', type: 'text', value: `Legacy ${revisionNumber}` }];
+        if (id.startsWith('uniform-')) return [{ key: 'temperature', label: 'Temperature', type: 'number', unit: '°C', previousValue: 100 + offset, value: 110 + offset }];
+        if (id.startsWith('mixed-')) return [{ key: 'temperature', label: 'Temperature', type: 'number', unit: '°C', previousValue: (id.endsWith('a') ? 90 : 95) + offset, value: 110 + offset }];
+        const field = { key: 'temperature', label: 'Temperature', type: 'number', unit: '°C', value: 100 + offset };
+        if (id.endsWith('a')) field.previousValue = 80 + offset;
+        return [field];
+      }
+
+      const propertyProvider = createEngineeringSvgPropertyProvider({
+        getPropertySets({ selectedIds, revision: requestedRevision }) {
+          return selectedIds.map((id) => createEngineeringPropertySet({
+            id: `${id}-properties`, revision: requestedRevision, ownerIds: [id], fields: historyFields(id),
+          }));
+        },
+        subscribe(listener) {
+          propertyListeners.add(listener);
+          return () => propertyListeners.delete(listener);
+        },
+      });
+      const adapter = createEngineeringSvgAdapter({
+        descriptor: {
+          adapterId: `${name}-adapter`, domainType: 'PROPERTY_HISTORY_FIXTURE', accessMode: 'read-only',
+          projections: ['ISO', 'XY'], capabilities: { selection: true, properties: true, editing: false },
+        },
+        getScene: buildScene,
+        subscribeScene(listener) {
+          sceneListeners.add(listener);
+          return () => sceneListeners.delete(listener);
+        },
+        propertyProvider,
+      });
+
+      async function mount() {
+        shell?.destroy();
+        bridge?.dispose();
+        bridge = await createEngineeringSvgAdapterBridge(adapter);
+        shell = createEngineeringSvgWorkspaceShellFromAdapterBridge({
+          bridge, shellId: name, host, projection: 'XY', viewport: { width: 600, height: 300 }, padding: 24,
+        });
+        return shell;
+      }
+
+      function bumpProviderRevision() {
+        revisionNumber += 1;
+        const scene = buildScene();
+        sceneListeners.forEach((listener) => listener({ scene, reason: 'history-revision' }));
+        propertyListeners.forEach((listener) => listener({ reason: 'history-revision' }));
+      }
+
+      return {
+        get shell() { return shell; },
+        get bridge() { return bridge; },
+        listenerCounts: () => ({ scene: sceneListeners.size, property: propertyListeners.size }),
+        bumpProviderRevision,
+        mount,
+        destroy() {
+          shell?.destroy(); shell = null;
+          bridge?.dispose(); bridge = null;
+        },
+      };
+    }
+
     const domainA = createDomain('viewer-a', document.querySelector('#viewer-a'));
     const domainB = createDomain('viewer-b', document.querySelector('#viewer-b'));
-    await Promise.all([domainA.mount(), domainB.mount()]);
-    globalThis.__engineeringSvgReadOnlyShellFixture = { domainA, domainB };
+    const history = createHistoryDomain('viewer-history', document.querySelector('#viewer-history'));
+    await Promise.all([domainA.mount(), domainB.mount(), history.mount()]);
+    globalThis.__engineeringSvgReadOnlyShellFixture = { domainA, domainB, history };
   </script>
 </body>
 </html>

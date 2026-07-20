@@ -1,4 +1,5 @@
 import {
+  createEngineeringPropertyAggregate,
   createEngineeringPropertyField,
   freezeJsonValue,
 } from '../engineering-scene/index.js';
@@ -49,6 +50,35 @@ function validateDraftValues(field, changed, selectionCount) {
   return [...new Set(messages)].sort();
 }
 
+function previousAggregate(view) {
+  if (view.previousAggregate) return view.previousAggregate;
+  return createEngineeringPropertyAggregate({
+    key: view.field.key,
+    state: 'not-applicable',
+    selectedCount: view.aggregate.selectedCount,
+  });
+}
+
+function suppliedHistoryCount(view, previous, selectionCount) {
+  if (!Object.prototype.hasOwnProperty.call(view, 'previousEvidenceCount')) {
+    return previous.state === 'not-applicable' ? 0 : selectionCount;
+  }
+  const count = view.previousEvidenceCount;
+  if (!Number.isInteger(count) || count < 0 || count > selectionCount) {
+    throw new TypeError('Inspector previousEvidenceCount must be a valid selection count.');
+  }
+  return count;
+}
+
+function comparisonState(current, previous) {
+  if (previous.state === 'not-applicable') return 'not-applicable';
+  if (current.state === 'unavailable' || previous.state === 'unavailable') return 'unavailable';
+  if (current.state === 'not-applicable') return 'unavailable';
+  if (current.state === 'mixed' || previous.state === 'mixed') return 'mixed';
+  if (current.state !== 'uniform' || previous.state !== 'uniform') return 'unavailable';
+  return Object.is(current.value, previous.value) ? 'unchanged' : 'changed';
+}
+
 function inspectorRow(view, ids, draft) {
   if (!view?.field?.key || !view?.aggregate?.state) throw new TypeError('Inspector property view is invalid.');
   const entries = stagedEntries(ids, view.field.key, draft);
@@ -56,11 +86,15 @@ function inspectorRow(view, ids, draft) {
   const messages = validateDraftValues(view.field, changed, ids.length);
   const dirty = changed.length > 0;
   const display = displayValue(view, changed, ids.length);
+  const previous = previousAggregate(view);
   return {
     schema: ENGINEERING_SVG_INSPECTOR_ROW_SCHEMA,
     key: view.field.key,
     field: view.field,
     authoritative: view.aggregate,
+    previousAuthoritative: previous,
+    previousEvidenceCount: suppliedHistoryCount(view, previous, ids.length),
+    comparisonState: comparisonState(view.aggregate, previous),
     display,
     dirty,
     valid: messages.length === 0,

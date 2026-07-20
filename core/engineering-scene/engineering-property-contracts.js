@@ -43,16 +43,20 @@ function enumOptions(input, key) {
   return options;
 }
 
-function assertPropertyValue(type, value, input) {
-  if (value == null) return;
+function valueLabel(name) { return name === 'value' ? 'value' : 'previousValue'; }
+
+function assertPropertyValue(type, value, input, name = 'value') {
+  const label = valueLabel(name);
+  if (value === undefined) throw new TypeError(`Property "${input.key}" ${label} cannot be undefined.`);
+  if (value === null) return;
   if (type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) {
-    throw new TypeError(`Property "${input.key}" requires a finite numeric value.`);
+    throw new TypeError(`Property "${input.key}" ${label} requires a finite numeric value.`);
   }
-  if (type === 'boolean' && typeof value !== 'boolean') throw new TypeError(`Property "${input.key}" requires a boolean value.`);
-  if (['text', 'enum'].includes(type) && typeof value !== 'string') throw new TypeError(`Property "${input.key}" requires a string value.`);
-  if (type === 'enum' && !input.options.includes(value)) throw new TypeError(`Property "${input.key}" value must be one of its options.`);
-  if (type === 'number' && input.min != null && value < input.min) throw new RangeError(`Property "${input.key}" is below its minimum.`);
-  if (type === 'number' && input.max != null && value > input.max) throw new RangeError(`Property "${input.key}" is above its maximum.`);
+  if (type === 'boolean' && typeof value !== 'boolean') throw new TypeError(`Property "${input.key}" ${label} requires a boolean value.`);
+  if (['text', 'enum'].includes(type) && typeof value !== 'string') throw new TypeError(`Property "${input.key}" ${label} requires a string value.`);
+  if (type === 'enum' && !input.options.includes(value)) throw new TypeError(`Property "${input.key}" ${label} must be one of its options.`);
+  if (type === 'number' && input.min != null && value < input.min) throw new RangeError(`Property "${input.key}" ${label} is below its minimum.`);
+  if (type === 'number' && input.max != null && value > input.max) throw new RangeError(`Property "${input.key}" ${label} is above its maximum.`);
 }
 
 export function createEngineeringPropertyField(input = {}) {
@@ -69,7 +73,7 @@ export function createEngineeringPropertyField(input = {}) {
   const value = input.value ?? null;
   assertPropertyValue(type, value, { key, options, min, max });
   const editable = scope === 'REFERENCE' ? false : input.editable !== false;
-  return freezeJsonValue({
+  const field = {
     schema: ENGINEERING_PROPERTY_FIELD_SCHEMA,
     key,
     label,
@@ -82,7 +86,12 @@ export function createEngineeringPropertyField(input = {}) {
     max,
     editable,
     source: input.source == null ? null : String(input.source),
-  });
+  };
+  if (Object.prototype.hasOwnProperty.call(input, 'previousValue')) {
+    assertPropertyValue(type, input.previousValue, { key, options, min, max }, 'previousValue');
+    field.previousValue = input.previousValue;
+  }
+  return freezeJsonValue(field);
 }
 
 export function createEngineeringPropertyAggregate(input = {}) {
