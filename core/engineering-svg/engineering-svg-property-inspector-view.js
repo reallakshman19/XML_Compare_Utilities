@@ -32,6 +32,10 @@ function controlKind(row) {
   return row.field.type;
 }
 
+function hasComparisonLayout(row) {
+  return Number.isInteger(row.previousEvidenceCount) && row.previousEvidenceCount > 0;
+}
+
 function option(documentRef, value, label, disabled = false) {
   const node = element(documentRef, 'option');
   node.value = value;
@@ -168,7 +172,7 @@ function createRow(documentRef, row, onFieldEdit, idPrefix) {
   const root = element(documentRef, 'div', { 'data-engineering-svg-property-key': row.key });
   const token = `${safeId(idPrefix)}-${safeId(row.key)}`;
   const ids = { controlId: `${token}-control`, messagesId: `${token}-messages` };
-  const comparisonLayout = row.comparisonState !== 'not-applicable';
+  const comparisonLayout = hasComparisonLayout(row);
   const record = comparisonLayout
     ? createComparisonRow(documentRef, row, onFieldEdit, ids)
     : createLegacyRow(documentRef, row, onFieldEdit, ids);
@@ -218,7 +222,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
     const orderedRecords = model.rows.map((row) => {
       present.add(row.key);
       const expectedKind = controlKind(row);
-      const expectedComparison = row.comparisonState !== 'not-applicable';
+      const expectedComparison = hasComparisonLayout(row);
       let record = records.get(row.key);
       if (!record || record.kind !== expectedKind || record.comparisonLayout !== expectedComparison) {
         record?.root.remove();
