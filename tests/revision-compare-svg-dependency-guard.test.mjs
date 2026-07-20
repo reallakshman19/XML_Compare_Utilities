@@ -18,7 +18,7 @@ const forbidden = [
   'property-mutation', 'interaction-session', 'snap-acquisition', 'precision-geometry-mutation',
   'engineering-svg-workspace-shell', 'workbench3d/', 'localStorage', 'sessionStorage',
   'window.addEventListener', 'document.addEventListener', 'revision-compare-worker',
-  'revision-compare-service', 'revision-load-service',
+  'revision-compare-service', 'revision-load-service', 'MutationObserver', 'setInterval(', 'setTimeout(',
 ];
 for (const path of files) {
   const source = await readFile(path, 'utf8');
@@ -61,6 +61,33 @@ assert.match(reviewSource, /Return to \$\{revisionCompareViewerBackendLabel\(bac
 assert.match(workspaceSource, /Return to \$\{revisionCompareViewerBackendLabel\(backend\)\}/);
 assert.match(reviewSource, /recoveryBackendForSvgFailure/);
 assert.match(reviewSource, /recoveryBackendForWebglFailure/);
+
+const viewport = await readFile('tabs/revision-compare/revision-compare-svg-viewport.js', 'utf8');
+assert.match(viewport, /REVISION_COMPARE_SVG_FINE_PAN = 0\.05/);
+assert.match(viewport, /REVISION_COMPARE_SVG_COARSE_PAN = 0\.20/);
+assert.match(viewport, /REVISION_COMPARE_SVG_KEYBOARD_ZOOM_FACTOR = 1\.20/);
+assert.match(viewport, /Object\.freeze\(\{ x: 0\.5, y: 0\.5 \}\)/);
+assert.match(viewport, /normalizeRevisionCompareSvgViewportKey/);
+assert.match(viewport, /addEventListener\('keydown'/);
+assert.match(viewport, /removeEventListener\('keydown'/);
+assert.match(viewport, /listeners\.size \* 7/);
+assert.doesNotMatch(viewport, /case ['"]Enter|case ['"] |Home|End|PageUp|PageDown|Escape/);
+
+const surfaces = await readFile('tabs/revision-compare/revision-compare-svg-surfaces.js', 'utf8');
+assert.match(surfaces, /setAttribute\('role', 'group'\)/);
+assert.match(surfaces, /setAttribute\('tabindex', '0'\)/);
+assert.match(surfaces, /data-revc-svg-keyboard-surface/);
+assert.match(surfaces, /aria-describedby/);
+assert.match(surfaces, /aria-keyshortcuts/);
+assert.match(surfaces, /Revision comparison Engineering SVG overlay/);
+assert.match(surfaces, /Revision comparison Rev A source Engineering SVG pane/);
+assert.match(surfaces, /Revision comparison Rev B target Engineering SVG pane/);
+assert.match(surfaces, /data-revc-svg-keyboard-instructions/);
+assert.doesNotMatch(surfaces, /SVG preview/);
+
+const styles = await readFile('tabs/revision-compare/revision-compare-svg-styles.js', 'utf8');
+assert.match(styles, /data-revc-svg-keyboard-surface.*:focus-visible/s);
+assert.match(styles, /outline:\s*3px/);
 
 const evidence = await readFile('tabs/revision-compare/revision-compare-property-evidence.js', 'utf8');
 assert.match(evidence, /RevisionDifferenceRow\.v1\.changedProperties/);
