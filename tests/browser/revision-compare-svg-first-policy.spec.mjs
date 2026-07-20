@@ -135,8 +135,8 @@ async function closeWorkspace(page) {
 test('RC-SVG-003-B01 — SVG-first backend policy', async ({ page }) => {
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await installHarness(page); await openWorkspace(page); await compare(page);
-  const engineeringSvg = page.getByRole('button', { name: 'Engineering SVG' });
-  const webgl = page.getByRole('button', { name: '3D (WebGL)' });
+  const engineeringSvg = page.getByRole('button', { name: 'Engineering SVG', exact: true });
+  const webgl = page.getByRole('button', { name: '3D (WebGL)', exact: true });
   const overlayRoot = page.locator('[data-revc-svg-overlay-root="1"]');
   const paneRoots = page.locator('[data-revc-svg-pane-root="1"]');
   const webglCanvas = page.locator('[data-revc-policy-webgl="1"]');
