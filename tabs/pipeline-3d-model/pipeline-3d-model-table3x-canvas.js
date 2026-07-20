@@ -1,6 +1,7 @@
 import { GraphTool, InteractiveGraph } from './pipeline-3d-model-interactive-graph.js';
 import { formatDepth, interpolateCumulativeFromAbsoluteH, interpolateAbsoluteHFromCumulative } from './pipeline-3d-model-cad-math.js';
 import { drawPipelineCadMarkerRail, drawPipelineCadSelectionNode } from './pipeline-3d-model-cad-batch-view.js';
+import { emptyPipelineCadMarkupProjection, drawPipelineCadMarkupOverlay } from './pipeline-3d-model-cad-markup-renderer.js';
 import { drawPipelineCadSelectionBox, installPipelineCadSelectionRuntime, selectedPipelineCadItems } from './pipeline-3d-model-cad-selection-runtime.js';
 
 function modifierActive(event = {}) { return event.shiftKey || event.ctrlKey || event.metaKey; }
@@ -14,6 +15,7 @@ export class Table3XCanvas extends InteractiveGraph {
     this.markerOverrides = new Map(); this.precisionOverrides = new Map(); this.precisionGripId = null;
     this.selected = null; this.dragging = null; this.groupDrag = null;
     this.hitRadius = Number(options.hitRadius) || 10; this.markerRailY = Number(options.markerRailY) || 0.75;
+    this.pipelineCadMarkupGraph = 'table3x'; this.markupProjection = emptyPipelineCadMarkupProjection();
     installPipelineCadSelectionRuntime(this, {
       graphName: 'table3x', candidates: () => [...this.depthNodes(), ...this.markerNodes()],
       syncLegacy: (detail) => { this.selected = detail.primaryId ? { id: detail.primaryId, type: detail.primaryType } : null; },
@@ -67,6 +69,9 @@ export class Table3XCanvas extends InteractiveGraph {
     this.depthSnapshot = this.depthNodes(false); this.depthOverrides.clear(); this.markerOverrides.clear();
     this.precisionOverrides.clear(); this.setSelection([], { emit: false, source: 'reload' });
     this.model?.clearDirtyRows?.(); this.dispatchGraphEvent('reloadRequested', { graph: 'table3x' }); this.render();
+  }
+  setMarkupProjection(projection) {
+    this.markupProjection = projection || emptyPipelineCadMarkupProjection(); this.render(); return true;
   }
   setPrecisionPreview(id, point = {}) {
     if (!id) return false;
@@ -231,6 +236,7 @@ export class Table3XCanvas extends InteractiveGraph {
       const top = this.worldToScreen(marker); ctx.fillStyle = '#fb923c'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
       ctx.fillText(`X: ${marker.x.toFixed(1)}`, top.x, top.y - 4);
     }
+    drawPipelineCadMarkupOverlay(this, ctx, this.markupProjection);
     drawPipelineCadSelectionBox(this, ctx);
   }
 }

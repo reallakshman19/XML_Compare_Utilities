@@ -1,0 +1,196 @@
+name: Pipeline CAD Markup Foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-*.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js'
+      - 'tests/pipeline-3d-model-cad-markup-*.test.js'
+      - 'tests/browser/pipeline-cad-markup-*'
+      - 'playwright.pipeline-cad-markup.config.mjs'
+      - '.github/workflows/pipeline-cad-markup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markup-contracts-browser-and-invariance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact checked-out SHA
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_SHA" "$actual_sha"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          mkdir -p artifacts/pipeline-cad-markup
+          printf '{"schema":"PipelineCadMarkupExactHead.v1","expectedSha":"%s","actualSha":"%s","shaMatch":true}\n' \
+            "$EXPECTED_SHA" "$actual_sha" > artifacts/pipeline-cad-markup/exact-head.json
+
+      - name: Enforce PCAD-005A file allowlist
+        id: allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          base="${BASE_SHA:-$(git merge-base HEAD origin/main)}"
+          git diff --name-only "$base" "$EXPECTED_SHA" | sort > artifacts/pipeline-cad-markup/changed-files.txt
+          while IFS= read -r path; do
+            case "$path" in
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-*.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js|\
+              tests/pipeline-3d-model-cad-markup-contracts.test.js|\
+              tests/pipeline-3d-model-cad-markup-model.test.js|\
+              tests/pipeline-3d-model-cad-markup-commands.test.js|\
+              tests/pipeline-3d-model-cad-markup-reconciliation.test.js|\
+              tests/pipeline-3d-model-cad-markup-integration.test.js|\
+              tests/browser/pipeline-cad-markup-fixture.html|\
+              tests/browser/pipeline-cad-markup.spec.mjs|\
+              playwright.pipeline-cad-markup.config.mjs|\
+              .github/workflows/pipeline-cad-markup.yml) ;;
+              *) echo "Forbidden PCAD-005A path: $path"; exit 1 ;;
+            esac
+          done < artifacts/pipeline-cad-markup/changed-files.txt
+          ! grep -qx 'package.json' artifacts/pipeline-cad-markup/changed-files.txt
+          ! grep -qx 'package-lock.json' artifacts/pipeline-cad-markup/changed-files.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: PCAD-005A contracts and deterministic persistence
+        id: focused
+        run: |
+          node tests/pipeline-3d-model-cad-markup-contracts.test.js
+          node tests/pipeline-3d-model-cad-markup-model.test.js
+          node tests/pipeline-3d-model-cad-markup-commands.test.js
+          node tests/pipeline-3d-model-cad-markup-reconciliation.test.js
+          node tests/pipeline-3d-model-cad-markup-integration.test.js
+
+      - name: PCAD-001 through PCAD-004R regressions
+        id: pcad_regressions
+        run: |
+          node tests/pipeline-3d-model-cad-lifecycle-integration.test.js
+          node tests/pipeline-3d-model-cad-object-snap-integration.test.js
+          node tests/pipeline-3d-model-cad-precision-contracts.test.js
+          node tests/pipeline-3d-model-cad-precision-parser.test.js
+          node tests/pipeline-3d-model-cad-precision-adapters.test.js
+          node tests/pipeline-3d-model-cad-precision-integration.test.js
+          node tests/pipeline-3d-model-cad-selection-contracts.test.js
+          node tests/pipeline-3d-model-cad-batch-commands.test.js
+          node tests/pipeline-3d-model-cad-multi-selection-integration.test.js
+          node tests/pipeline-3d-model-cad-current-authority-regression.test.js
+
+      - name: Profile bend InputXML and Pipeline SVG parity gates
+        id: authority
+        run: |
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-engineering-svg-dual-ledger-marker-invariance.test.js
+          node tests/pipeline-engineering-svg-parity.test.js
+
+      - name: Production and test JavaScript syntax
+        id: syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-contracts.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-model.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-commands.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-reconciliation.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-renderer.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-view.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js
+          node --check tests/browser/pipeline-cad-markup.spec.mjs
+          node --check playwright.pipeline-cad-markup.config.mjs
+          node tests/startup-module-syntax.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: PCAD-005A-B01
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B01'
+      - name: PCAD-005A-B02
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B02'
+      - name: PCAD-005A-B03
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B03'
+      - name: PCAD-005A-B04
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B04'
+      - name: PCAD-005A-B05
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B05'
+      - name: PCAD-005A-B06
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B06'
+      - name: PCAD-005A-B07
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B07'
+      - name: PCAD-005A-B08
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B08'
+      - name: PCAD-005A-B09
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B09'
+      - name: PCAD-005A-B10
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B10'
+      - name: PCAD-005A-B11
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B11'
+      - name: PCAD-005A-B12
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B12'
+      - name: PCAD-005A-B13
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B13'
+      - name: PCAD-005A-B14
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B14'
+      - name: PCAD-005A-B15
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B15'
+      - name: PCAD-005A-B16
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B16'
+
+      - name: Startup smoke
+        id: startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/pcad-005a-startup.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          node tests/browser/xml-compare-startup-smoke.mjs
+
+      - name: Full repository tests
+        id: full_repository
+        run: npm test
+
+      - name: Upload exact-head markup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-cad-markup-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts/pipeline-cad-markup
+            test-results/pipeline-cad-markup
+            /tmp/pcad-005a-startup.log
+          if-no-files-found: error
+          retention-days: 90
