@@ -9,6 +9,7 @@ const files = [
   'tabs/revision-compare/revision-compare-svg-styles.js',
   'tabs/revision-compare/revision-compare-viewer-backend.js',
   'tabs/revision-compare/revision-compare-viewer-contract.js',
+  'tabs/revision-compare/revision-compare-viewer-policy.js',
   'tabs/revision-compare/revision-compare-property-evidence.js',
   'tabs/revision-compare/revision-compare-property-inspector.js',
 ];
@@ -25,6 +26,37 @@ for (const path of files) {
   assert.equal(/export\s+default/.test(source), false, `${path} must use named exports`);
   for (const token of forbidden) assert.equal(source.includes(token), false, `${path} reaches forbidden ${token}`);
 }
+
+const policyPaths = [
+  'tabs/revision-compare/revision-compare-viewer-policy.js',
+  'tabs/revision-compare/revision-compare-lifecycle.js',
+  'tabs/revision-compare/revision-compare-viewer-adapter.js',
+  'tabs/revision-compare/revision-compare-review-view.js',
+  'tabs/revision-compare/revision-compare-workspace.js',
+];
+for (const path of policyPaths) {
+  const source = await readFile(path, 'utf8');
+  for (const token of ['localStorage', 'sessionStorage', 'indexedDB', 'document.cookie', 'URLSearchParams']) {
+    assert.equal(source.includes(token), false, `${path} must not persist viewer preference through ${token}`);
+  }
+}
+
+const policy = await readFile('tabs/revision-compare/revision-compare-viewer-policy.js', 'utf8');
+assert.match(policy, /RevisionCompareViewerPolicy\.v1/);
+assert.match(policy, /defaultBackend.*SVG/s);
+assert.match(policy, /defaultSvgPresentation.*overlay/s);
+assert.match(policy, /EXPLICIT_USER_ACTION/);
+assert.match(policy, /WORKSPACE_ONLY/);
+
+const activeUi = [
+  await readFile('tabs/revision-compare/revision-compare-viewer-backend.js', 'utf8'),
+  await readFile('tabs/revision-compare/revision-compare-review-view.js', 'utf8'),
+  await readFile('tabs/revision-compare/revision-compare-workspace.js', 'utf8'),
+].join('\n');
+assert.doesNotMatch(activeUi, /SVG preview/, 'active Revision Compare terminology must use Engineering SVG');
+assert.match(activeUi, /Engineering SVG/);
+assert.match(activeUi, /Return to 3D \(WebGL\)/);
+assert.match(activeUi, /Return to Engineering SVG/);
 
 const evidence = await readFile('tabs/revision-compare/revision-compare-property-evidence.js', 'utf8');
 assert.match(evidence, /RevisionDifferenceRow\.v1\.changedProperties/);
