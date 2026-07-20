@@ -111,6 +111,18 @@ function surfaceCounts(context) {
   return Object.freeze({ surfaces: context.surfaces.size, listeners: context.listeners.size * 6 });
 }
 
+function dragGesture(id, event) {
+  return {
+    id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    moved: false,
+  };
+}
+
 export function createRevisionCompareSvgViewport(options = {}) {
   const context = {
     state: normalizeRevisionCompareSvgViewportState(options.initialState, options),
@@ -135,7 +147,7 @@ export function createRevisionCompareSvgViewport(options = {}) {
       if (event.button !== 0 || entityTarget(event.target, root)) return;
       const anchor = pointerAnchor(event, root);
       if (!anchor) return;
-      context.gesture = { id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+      context.gesture = dragGesture(id, event);
       root.setPointerCapture?.(event.pointerId);
     };
     const pointermove = (event) => {
@@ -143,20 +155,26 @@ export function createRevisionCompareSvgViewport(options = {}) {
       if (!gesture || gesture.pointerId !== event.pointerId) return;
       const anchor = pointerAnchor(event, root);
       if (!anchor) return;
-      const dx = event.clientX - gesture.x;
-      const dy = event.clientY - gesture.y;
-      gesture.x = event.clientX; gesture.y = event.clientY;
-      if (!gesture.moved && Math.hypot(dx, dy) < 4) return;
+      const totalX = event.clientX - gesture.startX;
+      const totalY = event.clientY - gesture.startY;
+      if (!gesture.moved && Math.hypot(totalX, totalY) < 4) return;
+      const dx = event.clientX - gesture.lastX;
+      const dy = event.clientY - gesture.lastY;
+      gesture.lastX = event.clientX;
+      gesture.lastY = event.clientY;
       gesture.moved = true;
       context.state = panState(context.state, -dx / (anchor.rect.width * context.state.zoom), -dy / (anchor.rect.height * context.state.zoom));
       apply('pan');
     };
-    const finish = (event) => {
-      if (!context.gesture || context.gesture.pointerId !== event.pointerId) return;
-      context.suppressClick = context.gesture.moved;
+    const finish = (event, suppressClick) => {
+      const gesture = context.gesture;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      context.suppressClick = Boolean(suppressClick && gesture.moved);
       root.releasePointerCapture?.(event.pointerId);
       context.gesture = null;
     };
+    const pointerup = (event) => finish(event, true);
+    const pointercancel = (event) => finish(event, false);
     const click = (event) => {
       if (!context.suppressClick) return;
       context.suppressClick = false;
@@ -172,19 +190,19 @@ export function createRevisionCompareSvgViewport(options = {}) {
     };
     root.addEventListener('pointerdown', pointerdown);
     root.addEventListener('pointermove', pointermove);
-    root.addEventListener('pointerup', finish);
-    root.addEventListener('pointercancel', finish);
+    root.addEventListener('pointerup', pointerup);
+    root.addEventListener('pointercancel', pointercancel);
     root.addEventListener('click', click, true);
     root.addEventListener('wheel', wheel, { passive: false });
-    context.listeners.set(id, { root, pointerdown, pointermove, finish, click, wheel });
+    context.listeners.set(id, { root, pointerdown, pointermove, pointerup, pointercancel, click, wheel });
   }
 
   function removeListeners() {
     for (const value of context.listeners.values()) {
       value.root.removeEventListener('pointerdown', value.pointerdown);
       value.root.removeEventListener('pointermove', value.pointermove);
-      value.root.removeEventListener('pointerup', value.finish);
-      value.root.removeEventListener('pointercancel', value.finish);
+      value.root.removeEventListener('pointerup', value.pointerup);
+      value.root.removeEventListener('pointercancel', value.pointercancel);
       value.root.removeEventListener('click', value.click, true);
       value.root.removeEventListener('wheel', value.wheel);
     }
