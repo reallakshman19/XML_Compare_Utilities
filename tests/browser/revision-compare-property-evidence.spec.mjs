@@ -62,8 +62,8 @@ async function openAndCompare(page) {
   await installHarness(page);
   await page.getByRole('button', { name: 'Open Revision Compare' }).click();
   await upload(page, 'baseline', 'rc004-rev-a.json');
-  await upload(page, 'candidate', 'rc004-rev-b.json');
   await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
+  await upload(page, 'candidate', 'rc004-rev-b.json');
   await expect(page.locator('[data-slot="candidate"] strong')).toContainText('ready');
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
   await page.getByRole('button', { name: 'Run visual comparison' }).click();
