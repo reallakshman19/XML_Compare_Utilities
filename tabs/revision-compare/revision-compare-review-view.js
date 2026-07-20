@@ -1,4 +1,4 @@
-/** Fixed 3D + queue + authoritative inspector markup for RC-002 and RC-003. */
+/** Fixed viewer + queue + authoritative inspector markup for RC-002 through RC-SVG-001B. */
 import { revisionReviewSideMarkup } from './revision-review-view.js';
 
 function escapeHtml(value) {
@@ -30,13 +30,15 @@ function summaryMarkup(audit) {
 function pressed(value) { return value ? 'aria-pressed="true"' : 'aria-pressed="false"'; }
 function viewerToolbar(compare) {
   const svg = compare.viewerBackend === 'SVG';
-  const explanation = 'Available in 3D (WebGL); linked SVG panes are planned for RC-SVG-001B';
-  return `<div class="revc-view-toolbar"><div><span class="revc-backend-selector" role="group" aria-label="Viewer backend"><button type="button" data-revc-viewer-backend="WEBGL" ${pressed(!svg)}>3D (WebGL)</button><button type="button" data-revc-viewer-backend="SVG" ${pressed(svg)}>SVG preview</button></span><button type="button" data-revc-presentation="overlay" ${pressed(svg || compare.presentationMode === 'overlay')}>Overlay</button><button type="button" data-revc-presentation="side-by-side" ${pressed(!svg && compare.presentationMode === 'side-by-side')} ${svg ? `disabled aria-disabled="true" title="${explanation}"` : ''}>Side-by-side</button>${svg ? `<span class="revc-backend-note">${explanation}</span>` : ''}</div><div><button type="button" data-revc-fit-all>Fit all</button><button type="button" data-revc-fit-selected>Fit selected</button><button type="button" data-revc-edit-scope>Change scope</button></div></div>`;
+  return `<div class="revc-view-toolbar"><div><span class="revc-backend-selector" role="group" aria-label="Viewer backend"><button type="button" data-revc-viewer-backend="WEBGL" ${pressed(!svg)}>3D (WebGL)</button><button type="button" data-revc-viewer-backend="SVG" ${pressed(svg)}>SVG preview</button></span><button type="button" data-revc-presentation="overlay" ${pressed(compare.presentationMode === 'overlay')}>Overlay</button><button type="button" data-revc-presentation="side-by-side" ${pressed(compare.presentationMode === 'side-by-side')}>Side-by-side</button></div><div><button type="button" data-revc-fit-all>Fit all</button><button type="button" data-revc-fit-selected>Fit selected</button><button type="button" data-revc-edit-scope>Change scope</button></div></div>`;
 }
 export function revisionCompareReviewMarkup(state, viewerEvidence = {}) {
   const audit = state.compare.audit;
   const svg = state.compare.viewerBackend === 'SVG';
   const recovery = svg ? '<button type="button" data-revc-viewer-backend="WEBGL">Return to 3D (WebGL)</button>' : '';
-  return `<main class="revc-review-workspace"><section class="revc-view-column"><header class="revc-review-context"><div><span>REV A ↔ REV B</span><h2>${escapeHtml(state.slots.baseline.fileName)} ↔ ${escapeHtml(state.slots.candidate.fileName)}</h2><p>${state.basis.scopeSummary.includedBranchCountA} Rev A branches · ${state.basis.scopeSummary.includedBranchCountB} Rev B branches · current basis</p></div></header>${viewerToolbar(state.compare)}${viewerEvidence.failed ? `<div class="revc-viewer-failure"><b>${svg ? 'SVG preview' : '3D viewer'} unavailable</b><p>${escapeHtml(viewerEvidence.error)}</p><span>The change queue and inspector remain available.</span>${recovery}</div>` : ''}<div class="revc-viewer-host" data-revc-viewer-host aria-label="Revision comparison ${svg ? 'SVG overlay preview' : '3D context'}"></div></section><aside class="revc-review-side">${summaryMarkup(audit)}${revisionReviewSideMarkup(state)}</aside></main>`;
+  const viewerLabel = svg
+    ? `Revision comparison SVG ${state.compare.presentationMode === 'side-by-side' ? 'linked panes' : 'overlay preview'}`
+    : 'Revision comparison 3D context';
+  return `<main class="revc-review-workspace"><section class="revc-view-column"><header class="revc-review-context"><div><span>REV A ↔ REV B</span><h2>${escapeHtml(state.slots.baseline.fileName)} ↔ ${escapeHtml(state.slots.candidate.fileName)}</h2><p>${state.basis.scopeSummary.includedBranchCountA} Rev A branches · ${state.basis.scopeSummary.includedBranchCountB} Rev B branches · current basis</p></div></header>${viewerToolbar(state.compare)}${viewerEvidence.failed ? `<div class="revc-viewer-failure"><b>${svg ? 'SVG preview' : '3D viewer'} unavailable</b><p>${escapeHtml(viewerEvidence.error)}</p><span>The change queue and inspector remain available.</span>${recovery}</div>` : ''}<div class="revc-viewer-host" data-revc-viewer-host aria-label="${viewerLabel}"></div></section><aside class="revc-review-side">${summaryMarkup(audit)}${revisionReviewSideMarkup(state)}</aside></main>`;
 }
 export const _test = Object.freeze({ rowSearchText });

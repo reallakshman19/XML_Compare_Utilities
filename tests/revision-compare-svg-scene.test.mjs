@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {
   createRevisionCompareEngineeringSvgScene,
   createRevisionCompareSvgFitScene,
+  createRevisionCompareSvgPaneScene,
+  revisionCompareSvgSceneCompatibilityKey,
 } from '../tabs/revision-compare/revision-compare-engineering-svg-scene.js';
 import { REVISION_COMPARE_SVG_STATUS_STYLES } from '../tabs/revision-compare/revision-compare-svg-styles.js';
 
@@ -37,9 +39,26 @@ assert.deepEqual(first.scene.entities.map((entity) => entity.id), [
 assert.equal(first.scene.entities[0].domainRef.side, 'A');
 assert.equal(first.scene.entities.at(-1).domainRef.side, 'B');
 assert.deepEqual(first.scene.entities[0].geometry.start, { schema: 'EngineeringPoint3D.v1', x: 0, y: 0, z: 0 });
+assert.match(revisionCompareSvgSceneCompatibilityKey(first.scene), /^revision-compare:model:A:model:B:/);
+
 const selectedFit = createRevisionCompareSvgFitScene(first.scene, ['B:segment:1']);
 assert.equal(selectedFit.entities.find((entity) => entity.id === 'B:segment:1').contributesToFit, true);
 assert.equal(selectedFit.entities.find((entity) => entity.id === 'A:segment:0').contributesToFit, false);
+
+const sourcePane = createRevisionCompareSvgPaneScene(first.scene, 'A');
+const targetPane = createRevisionCompareSvgPaneScene(first.scene, 'B');
+assert.equal(sourcePane.entities.length, first.scene.entities.length);
+assert.equal(targetPane.entities.length, first.scene.entities.length);
+for (const entity of first.scene.entities) {
+  const sourceEntity = sourcePane.entities.find((item) => item.id === entity.id);
+  const targetEntity = targetPane.entities.find((item) => item.id === entity.id);
+  assert.deepEqual(sourceEntity.geometry, entity.geometry, 'source pane must preserve engineering coordinates');
+  assert.deepEqual(targetEntity.geometry, entity.geometry, 'target pane must preserve engineering coordinates');
+  assert.equal(sourceEntity.selectable, entity.domainRef.side === 'A');
+  assert.equal(targetEntity.selectable, entity.domainRef.side === 'B');
+  assert.equal(Boolean(sourceEntity.metadata.revisionCompare.hiddenFitAuthority), entity.domainRef.side === 'B');
+  assert.equal(Boolean(targetEntity.metadata.revisionCompare.hiddenFitAuthority), entity.domainRef.side === 'A');
+}
 
 const missing = createRevisionCompareEngineeringSvgScene({
   models: { source: { ...model('A'), segments: [{ objectId: 'bad', start: null, end: [1, 2, 3] }] }, target: model('B') },
@@ -56,6 +75,12 @@ const large = createRevisionCompareEngineeringSvgScene({
   models: { source: { ...model('A', 2500), markers: [] }, target: { ...model('B', 2500), markers: [] } },
 });
 assert.equal(large.scene.entities.length, 5000);
+const largeA = createRevisionCompareSvgPaneScene(large.scene, 'A');
+const largeB = createRevisionCompareSvgPaneScene(large.scene, 'B');
+assert.equal(largeA.entities.filter((entity) => entity.selectable).length, 2500);
+assert.equal(largeB.entities.filter((entity) => entity.selectable).length, 2500);
+assert.equal(largeA.entities.filter((entity) => entity.metadata.revisionCompare.hiddenFitAuthority).length, 2500);
+assert.equal(largeB.entities.filter((entity) => entity.metadata.revisionCompare.hiddenFitAuthority).length, 2500);
 assert.equal(large.scene.revision.value.sourceModelId, 'model:A');
 assert.equal(JSON.stringify(large.scene.revision).includes('milliseconds'), false);
 console.log('revision-compare-svg-scene.test.mjs passed');

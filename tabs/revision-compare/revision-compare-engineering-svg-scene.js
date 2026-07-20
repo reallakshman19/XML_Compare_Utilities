@@ -93,9 +93,7 @@ function appendModel(output, model, side, status, omissions) {
 function assertUniqueIds(entities) {
   const seen = new Set();
   for (const entity of entities) {
-    if (seen.has(entity.id)) {
-      throw new TypeError(`Revision Compare visual object ID "${entity.id}" is not globally unique.`);
-    }
+    if (seen.has(entity.id)) throw new TypeError(`Revision Compare visual object ID "${entity.id}" is not globally unique.`);
     seen.add(entity.id);
   }
 }
@@ -133,10 +131,33 @@ export function createRevisionCompareEngineeringSvgScene(input = {}) {
     capabilities: { selectable: true, editable: false, overlay: true },
     metadata: { owner: 'revision-compare', sceneIdentity },
   });
-  return freezeJsonValue({
-    schema: REVISION_COMPARE_SVG_PROJECTION_SCHEMA,
-    scene,
-    omissions,
+  return freezeJsonValue({ schema: REVISION_COMPARE_SVG_PROJECTION_SCHEMA, scene, omissions });
+}
+
+export function revisionCompareSvgSceneCompatibilityKey(scene) {
+  if (!scene?.sceneId || !scene?.revision) return null;
+  return `${scene.sceneId}:${JSON.stringify(scene.revision)}`;
+}
+
+function paneEntity(entity, visibleSide) {
+  if (entity.domainRef.side === visibleSide) return entity;
+  return {
+    ...entity,
+    selectable: false,
+    metadata: {
+      ...entity.metadata,
+      revisionCompare: { ...entity.metadata.revisionCompare, hiddenFitAuthority: true, visiblePaneSide: visibleSide },
+    },
+  };
+}
+
+export function createRevisionCompareSvgPaneScene(scene, visibleSide) {
+  const side = visibleSide === 'A' ? 'A' : 'B';
+  return createEngineeringScene({
+    ...scene,
+    sceneId: `${scene.sceneId}:pane:${side}`,
+    entities: scene.entities.map((entity) => paneEntity(entity, side)),
+    metadata: { ...scene.metadata, presentationPane: side },
   });
 }
 

@@ -1,4 +1,4 @@
-/** RC-001 through RC-004 focused certification entrypoint retained for package-script compatibility. */
+/** RC-001 through RC-SVG-001B focused certification entrypoint retained for package-script compatibility. */
 
 await import('./revision-compare-contracts.test.mjs');
 await import('./revision-compare-load-service.test.mjs');
@@ -19,6 +19,7 @@ await import('./revision-compare-rc004-static.test.mjs');
 await import('./revision-compare-svg-scene.test.mjs');
 await import('./revision-compare-svg-viewer-contract.test.mjs');
 await import('./revision-compare-svg-backend.test.mjs');
+await import('./revision-compare-svg-viewport.test.mjs');
 await import('./revision-compare-svg-dependency-guard.test.mjs');
 
 console.log('revision-compare-foundation.test.mjs passed');

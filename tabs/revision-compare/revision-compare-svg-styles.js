@@ -27,11 +27,17 @@ export const REVISION_COMPARE_SVG_STATUS_STYLES = Object.freeze(Object.fromEntri
 
 export const REVISION_COMPARE_SVG_CSS = `
 .revc-backend-selector { display: inline-flex; gap: .35rem; margin-right: .75rem; }
-.revc-backend-note { display: block; max-width: 36rem; color: #94a3b8; font-size: .78rem; }
 .revc-viewer-host [data-revc-svg-overlay-root] { width: 100%; height: 100%; min-height: 26rem; background: #0b1220; }
-.revc-viewer-host [data-engineering-svg-root] { display: block; width: 100%; height: 100%; }
+.revc-svg-side-by-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .65rem; min-height: 26rem; }
+.revc-svg-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; border: 1px solid #334155; border-radius: .45rem; overflow: hidden; background: #0b1220; }
+.revc-svg-pane h3 { margin: 0; padding: .45rem .65rem; color: #cbd5e1; background: #111827; border-bottom: 1px solid #334155; font-size: .82rem; letter-spacing: .04em; }
+.revc-svg-pane-host { min-height: 24rem; min-width: 0; }
+.revc-svg-pane-host [data-revc-svg-pane-root] { width: 100%; height: 100%; min-height: 24rem; background: #0b1220; }
+.revc-viewer-host [data-engineering-svg-root] { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.revc-viewer-host [data-engineering-svg-root]:active { cursor: grabbing; }
 .revc-viewer-host [data-engineering-svg-geometry] { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .revc-viewer-host [data-engineering-svg-geometry="point"] { fill: var(--revc-svg-stroke); }
+.revc-viewer-host [data-revc-hidden-fit-authority] { opacity: 0 !important; pointer-events: none !important; }
 .revc-viewer-host [data-revc-diff-status] > [data-engineering-svg-geometry] {
   stroke: var(--revc-svg-stroke); stroke-width: var(--revc-svg-weight);
   stroke-dasharray: var(--revc-svg-dash); opacity: var(--revc-svg-opacity);
@@ -50,9 +56,7 @@ export function revisionCompareSvgStatusStyle(status) {
 
 export function applyRevisionCompareSvgStatus(node, status, side) {
   if (!node) return false;
-  for (const style of Object.values(REVISION_COMPARE_SVG_STATUS_STYLES)) {
-    node.classList.remove(style.className);
-  }
+  for (const style of Object.values(REVISION_COMPARE_SVG_STATUS_STYLES)) node.classList.remove(style.className);
   const style = revisionCompareSvgStatusStyle(status);
   if (!style) {
     node.removeAttribute('data-revc-diff-status');

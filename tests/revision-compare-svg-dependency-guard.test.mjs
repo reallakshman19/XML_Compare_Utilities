@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const files = [
   'tabs/revision-compare/revision-compare-engineering-svg-scene.js',
   'tabs/revision-compare/revision-compare-engineering-svg-viewer.js',
+  'tabs/revision-compare/revision-compare-svg-surfaces.js',
+  'tabs/revision-compare/revision-compare-svg-viewport.js',
   'tabs/revision-compare/revision-compare-svg-styles.js',
   'tabs/revision-compare/revision-compare-viewer-backend.js',
   'tabs/revision-compare/revision-compare-viewer-contract.js',
@@ -11,6 +13,7 @@ const files = [
 const forbidden = [
   'command-gateway', 'edit-runtime', 'edit-coordinator', 'draft-store', 'property-mutation',
   'interaction-session', 'snap-acquisition', 'precision-geometry-mutation', 'workbench3d/',
+  'localStorage', 'window.addEventListener', 'document.addEventListener',
 ];
 for (const path of files) {
   const source = await readFile(path, 'utf8');

@@ -1,29 +1,23 @@
 /** Read-only Engineering SVG implementation of RevisionCompareViewerFactory.v1. */
 import {
-  createEngineeringSvgSceneSource,
-  createEngineeringSvgWorkspace,
-} from '../../core/engineering-svg/index.js';
-import {
   createRevisionCompareEngineeringSvgScene,
   createRevisionCompareSvgFitScene,
+  createRevisionCompareSvgPaneScene,
+  revisionCompareSvgSceneCompatibilityKey,
 } from './revision-compare-engineering-svg-scene.js';
-import { applyRevisionCompareSvgStatus } from './revision-compare-svg-styles.js';
+import { createRevisionCompareSvgSurfaceRuntime } from './revision-compare-svg-surfaces.js';
+import { normalizeRevisionCompareSvgViewportState } from './revision-compare-svg-viewport.js';
 
-export const REVISION_COMPARE_SVG_VIEWER_SNAPSHOT_SCHEMA = 'RevisionCompareSvgViewerSnapshot.v1';
+export const REVISION_COMPARE_SVG_VIEWER_SNAPSHOT_SCHEMA = 'RevisionCompareSvgViewerSnapshot.v2';
+const LEGACY_SNAPSHOT_SCHEMA = 'RevisionCompareSvgViewerSnapshot.v1';
 
 function requiredHost(value) {
   if (!value?.ownerDocument?.createElementNS) throw new TypeError('Revision Compare SVG viewer requires a DOM host.');
   return value;
 }
 
-function viewport(host) {
-  const width = Number(host.clientWidth) > 0 ? Number(host.clientWidth) : 1200;
-  const height = Number(host.clientHeight) > 0 ? Number(host.clientHeight) : 720;
-  return Object.freeze({ width, height });
-}
-
 function jsonSnapshot(value) {
-  if (!value || value.schema !== REVISION_COMPARE_SVG_VIEWER_SNAPSHOT_SCHEMA) return null;
+  if (![REVISION_COMPARE_SVG_VIEWER_SNAPSHOT_SCHEMA, LEGACY_SNAPSHOT_SCHEMA].includes(value?.schema)) return null;
   try { return JSON.parse(JSON.stringify(value)); } catch { return null; }
 }
 
@@ -32,99 +26,164 @@ function statusObject(value) {
   return value && typeof value === 'object' ? { ...value } : {};
 }
 
-function fitIds(context) {
-  return context.fitScope === 'selection' && context.selectedIds.length ? context.selectedIds : null;
+function normalizedMode(value) { return value === 'side-by-side' ? 'side-by-side' : 'overlay'; }
+function emptyFit() { return Object.freeze({ scope: 'all', entityIds: Object.freeze([]) }); }
+function activeFit(context) { return context.fitHistory[context.mode]; }
+function fitIds(context) { return activeFit(context).scope === 'selection' ? activeFit(context).entityIds : null; }
+function fitScene(context) { return createRevisionCompareSvgFitScene(context.baseScene, fitIds(context)); }
+
+function surfaceScene(context, side) {
+  const scene = fitScene(context);
+  return side ? createRevisionCompareSvgPaneScene(scene, side) : scene;
 }
 
-function sceneForView(context) {
-  return createRevisionCompareSvgFitScene(context.baseScene, fitIds(context));
-}
-
-function decorate(context) {
-  if (!context.workspace || !context.baseScene) return;
-  for (const entity of context.baseScene.entities) {
-    const side = entity.domainRef.side;
-    applyRevisionCompareSvgStatus(context.workspace.getEntityNode(entity.id), context.statusByObjectId[entity.id], side);
-  }
-}
-
-function publishScene(context, reason) {
-  if (!context.baseScene) return;
-  const next = sceneForView(context);
-  if (context.sceneSource) context.sceneSource.setSnapshot(next, reason);
-  else context.sceneSource = createEngineeringSvgSceneSource(next);
-  decorate(context);
+function saveViewport(context) {
+  if (context.runtime) context.viewportHistory[context.mode] = context.runtime.getViewportState();
 }
 
 function disconnectRuntime(context) {
-  context.unsubscribeSelection?.();
-  context.unsubscribeSelection = null;
-  context.resizeObserver?.disconnect?.();
-  context.resizeObserver = null;
-  context.workspace?.destroy();
-  context.workspace = null;
+  if (!context.runtime) return false;
+  saveViewport(context);
+  context.runtime.dispose();
+  context.runtime = null;
+  return true;
 }
 
-function observeResize(context) {
-  const Observer = context.callbacks.resizeObserverFactory ?? globalThis.ResizeObserver;
-  if (typeof Observer !== 'function') return;
-  context.resizeObserver = new Observer(() => {
-    if (!context.workspace || context.disposed) return;
-    context.workspace.setViewport(viewport(context.host));
-    decorate(context);
-  });
-  context.resizeObserver.observe(context.host);
+function onRuntimeSelection(context, selectedIds, reason) {
+  context.selectedIds = [...selectedIds];
+  if (['pointer', 'keyboard', 'pointer-empty'].includes(reason)) {
+    context.callbacks.onPick?.({ objectId: selectedIds[0] ?? null });
+  }
 }
 
 function mount(context) {
-  if (!context.sceneSource || context.workspace) return;
-  context.workspace = createEngineeringSvgWorkspace({
+  if (!context.baseScene || context.runtime) return;
+  context.runtime = createRevisionCompareSvgSurfaceRuntime({
     host: context.host,
-    sceneSource: context.sceneSource,
-    projection: 'ISO',
-    viewport: viewport(context.host),
+    mode: context.mode,
+    sceneForSide: (side) => surfaceScene(context, side),
+    entities: () => context.baseScene.entities,
     selectedIds: context.selectedIds,
-    padding: 28,
+    statusByObjectId: context.statusByObjectId,
+    workspaceFactory: context.callbacks.workspaceFactory,
+    resizeObserverFactory: context.callbacks.resizeObserverFactory,
+    initialViewportState: context.viewportHistory[context.mode],
+    onViewportChange: (state) => { context.viewportHistory[context.mode] = state; },
+    onSelection: (ids, reason) => onRuntimeSelection(context, ids, reason),
   });
-  context.workspace.root.setAttribute('data-revc-svg-overlay-root', '1');
-  context.workspace.root.setAttribute('aria-label', 'Revision comparison SVG overlay preview');
-  context.unsubscribeSelection = context.workspace.subscribeSelection((event) => {
-    context.selectedIds = [...event.selectedIds];
-    if (event.reason === 'pointer' || event.reason === 'keyboard' || event.reason === 'pointer-empty') {
-      context.callbacks.onPick?.({ objectId: event.selectedIds[0] ?? null });
-    }
+}
+
+function publishScene(context, reason) {
+  context.runtime?.setSceneForSide((side) => surfaceScene(context, side), reason);
+}
+
+function resetHistory(context) {
+  context.viewportHistory = {
+    overlay: normalizeRevisionCompareSvgViewportState(),
+    'side-by-side': normalizeRevisionCompareSvgViewportState(),
+  };
+  context.fitHistory = { overlay: emptyFit(), 'side-by-side': emptyFit() };
+  context.initialFitCount += 1;
+}
+
+function snapshotFitHistory(initial) {
+  const mode = normalizedMode(initial?.mode);
+  const legacy = Object.freeze({
+    scope: initial?.fitScope === 'selection' ? 'selection' : 'all',
+    entityIds: Object.freeze([...(initial?.fitEntityIds ?? [])]),
   });
-  observeResize(context);
-  decorate(context);
+  return {
+    overlay: initial?.fitHistory?.overlay ?? (mode === 'overlay' ? legacy : emptyFit()),
+    'side-by-side': initial?.fitHistory?.['side-by-side'] ?? (mode === 'side-by-side' ? legacy : emptyFit()),
+  };
+}
+
+function normalizeFit(value) {
+  return Object.freeze({
+    scope: value?.scope === 'selection' ? 'selection' : 'all',
+    entityIds: Object.freeze([...(value?.entityIds ?? [])].filter(Boolean)),
+  });
+}
+
+function applyCompatibleSnapshot(context, key) {
+  const initial = context.initialSnapshot;
+  if (!initial || initial.sceneCompatibilityKey !== key) {
+    resetHistory(context);
+    return false;
+  }
+  context.mode = normalizedMode(initial.mode);
+  context.selectedIds = [...(initial.selectedIds ?? [])];
+  context.fitCounts = {
+    all: initial.fitCounts?.all ?? 0,
+    selection: initial.fitCounts?.selection ?? 0,
+    noGeometry: initial.fitCounts?.noGeometry ?? 0,
+  };
+  const fits = snapshotFitHistory(initial);
+  context.fitHistory = { overlay: normalizeFit(fits.overlay), 'side-by-side': normalizeFit(fits['side-by-side']) };
+  context.viewportHistory = {
+    overlay: normalizeRevisionCompareSvgViewportState(initial.viewportHistory?.overlay),
+    'side-by-side': normalizeRevisionCompareSvgViewportState(initial.viewportHistory?.['side-by-side']),
+  };
+  return true;
 }
 
 function setModels(context, nextModels) {
-  const projection = createRevisionCompareEngineeringSvgScene({
-    models: nextModels,
-    statusByObjectId: context.statusByObjectId,
-  });
+  const projection = createRevisionCompareEngineeringSvgScene({ models: nextModels, statusByObjectId: context.statusByObjectId });
+  const key = revisionCompareSvgSceneCompatibilityKey(projection.scene);
+  const first = context.sceneCompatibilityKey == null;
+  const changed = !first && key !== context.sceneCompatibilityKey;
+  if (changed) disconnectRuntime(context);
   context.models = nextModels;
   context.baseScene = projection.scene;
   context.omissions = projection.omissions;
-  publishScene(context, 'revision-compare-models');
+  context.entityById = new Map(context.baseScene.entities.map((entity) => [entity.id, entity]));
+  if (first) applyCompatibleSnapshot(context, key);
+  else if (changed) resetHistory(context);
+  context.sceneCompatibilityKey = key;
+  context.initialSnapshot = null;
   mount(context);
+  publishScene(context, 'revision-compare-models');
+  context.runtime?.setSelection(context.selectedIds);
 }
 
 function setStatuses(context, value) {
   context.statusByObjectId = statusObject(value);
-  decorate(context);
+  context.runtime?.setStatuses(context.statusByObjectId);
+}
+
+function setMode(context, value) {
+  const mode = normalizedMode(value);
+  if (mode === context.mode) return mode;
+  disconnectRuntime(context);
+  context.mode = mode;
+  mount(context);
+  context.runtime?.setSelection(context.selectedIds);
+  return mode;
 }
 
 function setSelection(context, primaryObjectId, relatedObjectIds = []) {
   context.selectedIds = [primaryObjectId, ...relatedObjectIds].filter(Boolean);
-  context.workspace?.setSelection(context.selectedIds, 'revision-compare');
+  context.runtime?.setSelection(context.selectedIds);
 }
 
 function fit(context, scope) {
   if (!context.baseScene) return false;
-  context.fitScope = scope === 'selection' && context.selectedIds.length ? 'selection' : 'all';
-  context.fitCounts[context.fitScope] += 1;
-  publishScene(context, `revision-compare-fit-${context.fitScope}`);
+  if (scope === 'selection') {
+    const ids = context.selectedIds.filter((id) => context.entityById.has(id));
+    if (!ids.length) {
+      context.fitCounts.noGeometry += 1;
+      context.lastFitResult = 'no-geometry';
+      return false;
+    }
+    context.fitHistory[context.mode] = normalizeFit({ scope: 'selection', entityIds: ids });
+    context.fitCounts.selection += 1;
+  } else {
+    context.fitHistory[context.mode] = emptyFit();
+    context.fitCounts.all += 1;
+  }
+  context.lastFitResult = 'applied';
+  publishScene(context, `revision-compare-fit-${activeFit(context).scope}`);
+  context.runtime?.resetViewport(`fit-${activeFit(context).scope}`);
   return true;
 }
 
@@ -134,38 +193,67 @@ function reattach(context, nextHost) {
   disconnectRuntime(context);
   context.host = host;
   mount(context);
+  context.runtime?.setSelection(context.selectedIds);
   return true;
 }
 
 function snapshot(context) {
+  saveViewport(context);
+  const runtimeEvidence = context.runtime?.getEvidence() ?? {
+    roots: 0, observers: 0, selectionSubscriptions: 0, viewportListeners: 0,
+    visibleEntityCounts: {}, hiddenFitAuthorityCounts: {},
+  };
   return Object.freeze({
     schema: REVISION_COMPARE_SVG_VIEWER_SNAPSHOT_SCHEMA,
     backend: 'SVG',
+    mode: context.mode,
     sceneId: context.baseScene?.sceneId ?? null,
     revision: context.baseScene?.revision ?? null,
-    mode: 'overlay',
+    sceneCompatibilityKey: context.sceneCompatibilityKey,
     verticalAxis: context.verticalAxis,
     selectedIds: Object.freeze([...context.selectedIds]),
-    fitScope: context.fitScope,
+    fitScope: activeFit(context).scope,
+    fitHistory: Object.freeze({ ...context.fitHistory }),
     fitCounts: Object.freeze({ ...context.fitCounts }),
+    lastFitResult: context.lastFitResult,
+    viewportHistory: Object.freeze({ ...context.viewportHistory }),
     entityCount: context.baseScene?.entities.length ?? 0,
+    visibleEntityCounts: runtimeEvidence.visibleEntityCounts,
+    hiddenFitAuthorityCounts: runtimeEvidence.hiddenFitAuthorityCounts,
     omissions: Object.freeze(context.omissions.map((item) => ({ ...item }))),
+    resources: Object.freeze({
+      roots: runtimeEvidence.roots,
+      observers: runtimeEvidence.observers,
+      selectionSubscriptions: runtimeEvidence.selectionSubscriptions,
+      viewportListeners: runtimeEvidence.viewportListeners,
+    }),
+    initialFitCount: context.initialFitCount,
   });
 }
 
 export async function createRevisionCompareEngineeringSvgViewer(host, callbacks = {}) {
   const initial = jsonSnapshot(callbacks.initialSnapshot);
   const context = {
-    host: requiredHost(host), callbacks, models: null, baseScene: null, sceneSource: null,
-    workspace: null, unsubscribeSelection: null, resizeObserver: null, statusByObjectId: {},
-    selectedIds: initial?.selectedIds ?? [], fitScope: initial?.fitScope === 'selection' ? 'selection' : 'all',
-    fitCounts: { all: initial?.fitCounts?.all ?? 0, selection: initial?.fitCounts?.selection ?? 0 },
-    verticalAxis: initial?.verticalAxis ?? 'Z', omissions: [], disposed: false,
+    host: requiredHost(host), callbacks, initialSnapshot: initial, models: null, baseScene: null,
+    entityById: new Map(), runtime: null, statusByObjectId: {}, selectedIds: initial?.selectedIds ?? [],
+    mode: normalizedMode(initial?.mode),
+    fitHistory: { overlay: emptyFit(), 'side-by-side': emptyFit() },
+    fitCounts: {
+      all: initial?.fitCounts?.all ?? 0,
+      selection: initial?.fitCounts?.selection ?? 0,
+      noGeometry: initial?.fitCounts?.noGeometry ?? 0,
+    },
+    viewportHistory: {
+      overlay: normalizeRevisionCompareSvgViewportState(initial?.viewportHistory?.overlay),
+      'side-by-side': normalizeRevisionCompareSvgViewportState(initial?.viewportHistory?.['side-by-side']),
+    },
+    sceneCompatibilityKey: null, verticalAxis: initial?.verticalAxis ?? 'Z', omissions: [],
+    lastFitResult: null, initialFitCount: 0, disposed: false,
   };
   return Object.freeze({
     setModels: (models) => setModels(context, models),
     setStatuses: (statuses) => setStatuses(context, statuses),
-    setMode: () => 'overlay',
+    setMode: (mode) => setMode(context, mode),
     setSelection: (primary, related) => setSelection(context, primary, related),
     setVerticalAxis: (axis) => { context.verticalAxis = ['X', 'Y', 'Z'].includes(axis) ? axis : context.verticalAxis; },
     fitAll: () => fit(context, 'all'),
@@ -176,8 +264,6 @@ export async function createRevisionCompareEngineeringSvgViewer(host, callbacks 
       if (context.disposed) return false;
       context.disposed = true;
       disconnectRuntime(context);
-      context.sceneSource?.dispose();
-      context.sceneSource = null;
       context.baseScene = null;
       return true;
     },
