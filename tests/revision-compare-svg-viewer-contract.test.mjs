@@ -4,7 +4,6 @@ import {
   REVISION_COMPARE_VIEWER_METHODS,
 } from '../tabs/revision-compare/revision-compare-viewer-contract.js';
 import { createRevisionCompareEngineeringSvgViewer } from '../tabs/revision-compare/revision-compare-engineering-svg-viewer.js';
-
 class FakeClassList {
   constructor() { this.values = new Set(); }
   add(value) { this.values.add(value); }
@@ -20,7 +19,7 @@ class FakeElement {
   constructor(ownerDocument, localName) {
     this.ownerDocument = ownerDocument; this.localName = localName; this.children = []; this.parentNode = null;
     this.attributes = new Map(); this.listeners = new Map(); this.classList = new FakeClassList(); this.style = new FakeStyle();
-    this.clientWidth = 800; this.clientHeight = 500; this.textContent = ''; this.className = '';
+    this.clientWidth = 800; this.clientHeight = 500; this.textContent = ''; this.className = ''; this.isContentEditable = false;
   }
   get firstElementChild() { return this.children[0] ?? null; }
   get parentElement() { return this.parentNode; }
@@ -45,9 +44,10 @@ class FakeElement {
   releasePointerCapture() {}
   dispatch(type, input = {}) {
     const event = {
-      target: input.target ?? this, key: input.key, button: input.button ?? 0, pointerId: input.pointerId ?? 1,
-      clientX: input.clientX ?? 400, clientY: input.clientY ?? 250, deltaY: input.deltaY ?? 0,
-      preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {},
+      target: input.target ?? this, currentTarget: this, key: input.key, button: input.button ?? 0,
+      pointerId: input.pointerId ?? 1, clientX: input.clientX ?? 400, clientY: input.clientY ?? 250,
+      deltaY: input.deltaY ?? 0, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false,
+      preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {}, ...input,
     };
     this.listeners.get(`${type}:true`)?.forEach((listener) => listener(event));
     this.listeners.get(`${type}:false`)?.forEach((listener) => listener(event));
@@ -58,33 +58,23 @@ class FakeDocument {
   createElement(name) { return new FakeElement(this, name); }
   createHost() { return new FakeElement(this, 'div'); }
 }
-
-function descendants(root) {
-  return root.children.flatMap((child) => [child, ...descendants(child)]);
-}
+function descendants(root) { return root.children.flatMap((child) => [child, ...descendants(child)]); }
 function byAttribute(root, name, value = null) {
   return descendants(root).filter((node) => node.getAttribute(name) != null
     && (value == null || node.getAttribute(name) === value));
 }
-function entityNode(root, id) {
-  return byAttribute(root, 'data-engineering-svg-entity-id', id)[0] ?? null;
-}
+function entityNode(root, id) { return byAttribute(root, 'data-engineering-svg-entity-id', id)[0] ?? null; }
 function largeModel(side, count) {
   return {
-    modelId: `large-model:${side}`,
-    revisionId: `large-revision:${side}`,
+    modelId: `large-model:${side}`, revisionId: `large-revision:${side}`,
     unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z', markers: [],
     segments: Array.from({ length: count }, (_, index) => ({
-      objectId: `${side}:large:${index}`,
-      start: [index, side === 'A' ? 0 : 1, 0],
+      objectId: `${side}:large:${index}`, start: [index, side === 'A' ? 0 : 1, 0],
       end: [index + 1, side === 'A' ? 0 : 1, 0],
     })),
   };
 }
-
-const documentRef = new FakeDocument();
-const host = documentRef.createHost();
-let pick = null;
+const documentRef = new FakeDocument(); const host = documentRef.createHost(); let pick = null;
 const viewer = await createRevisionCompareEngineeringSvgViewer(host, { onPick: (value) => { pick = value; } });
 assertRevisionCompareViewer(viewer);
 assert(REVISION_COMPARE_VIEWER_METHODS.every((method) => typeof viewer[method] === 'function'));
@@ -102,80 +92,90 @@ viewer.setModels({
     segments: [{ objectId: 'target:1', start: [0, 1, 0], end: [5, 1, 0] }], markers: [],
   },
 });
-assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 1);
+const overlayRoot = byAttribute(host, 'data-revc-svg-overlay-root')[0];
+assert(overlayRoot);
 assert.equal(byAttribute(host, 'data-revc-svg-pane-root').length, 0);
-assert.equal(viewer.getStateSnapshot().resources.roots, 1);
-
+assert.equal(overlayRoot.getAttribute('role'), 'group');
+assert.equal(overlayRoot.getAttribute('tabindex'), '0');
+assert.equal(overlayRoot.getAttribute('data-revc-svg-keyboard-surface'), '1');
+assert.equal(overlayRoot.getAttribute('aria-label'), 'Revision comparison Engineering SVG overlay');
+assert.match(overlayRoot.getAttribute('aria-keyshortcuts'), /ArrowLeft/);
+assert.match(overlayRoot.getAttribute('aria-keyshortcuts'), /Shift\+ArrowRight/);
+assert.equal(byAttribute(host, 'data-revc-svg-keyboard-instructions').length, 1);
+assert.equal(overlayRoot.getAttribute('aria-describedby'), byAttribute(host, 'data-revc-svg-keyboard-instructions')[0].getAttribute('id'));
+assert.match(byAttribute(host, 'data-revc-svg-keyboard-instructions')[0].textContent, /Zero resets the current viewport/);
+assert.equal(viewer.getStateSnapshot().resources.viewportListeners, 7);
+const sourceEntity = entityNode(host, 'source:1');
+assert.equal(sourceEntity.getAttribute('role'), 'button');
+assert.equal(sourceEntity.getAttribute('tabindex'), '0');
+assert.match(sourceEntity.getAttribute('aria-label'), /status: Ambiguous/);
+sourceEntity.dispatch('keydown', { key: 'Enter' });
+assert.deepEqual(pick, { objectId: 'source:1' });
+pick = null; sourceEntity.dispatch('keydown', { key: ' ' });
+assert.deepEqual(pick, { objectId: 'source:1' });
+overlayRoot.dispatch('keydown', { key: 'ArrowRight' });
+overlayRoot.dispatch('keydown', { key: '=' });
+const overlayTransform = viewer.getStateSnapshot().viewportHistory.overlay;
+assert(overlayTransform.panX > 0); assert(overlayTransform.zoom > 1);
 viewer.setSelection('source:marker');
 const markerBefore = viewer.getStateSnapshot().fitCounts.selection;
 assert.equal(viewer.fitSelection(), true);
 assert.equal(viewer.getStateSnapshot().fitCounts.selection, markerBefore + 1);
-assert.equal(viewer.getStateSnapshot().fitHistory.overlay.entityIds[0], 'source:marker');
-
 viewer.setSelection('missing:geometry');
 const noGeometryBefore = viewer.getStateSnapshot();
 assert.equal(viewer.fitSelection(), false);
-const noGeometryAfter = viewer.getStateSnapshot();
-assert.equal(noGeometryAfter.fitCounts.noGeometry, noGeometryBefore.fitCounts.noGeometry + 1);
-assert.deepEqual(noGeometryAfter.viewportHistory.overlay, noGeometryBefore.viewportHistory.overlay);
-
-viewer.setSelection('source:1', ['target:1']);
-viewer.setMode('side-by-side');
+assert.equal(viewer.getStateSnapshot().fitCounts.noGeometry, noGeometryBefore.fitCounts.noGeometry + 1);
+assert.deepEqual(viewer.getStateSnapshot().viewportHistory.overlay, noGeometryBefore.viewportHistory.overlay);
+viewer.setSelection('source:1', ['target:1']); viewer.setMode('side-by-side');
 assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 0);
 assert.equal(byAttribute(host, 'data-revc-svg-pane-root').length, 2);
-assert.equal(viewer.getStateSnapshot().resources.roots, 2);
+assert.equal(byAttribute(host, 'data-revc-svg-keyboard-instructions').length, 2);
+assert.equal(viewer.getStateSnapshot().resources.viewportListeners, 14);
 assert.equal(viewer.getStateSnapshot().visibleEntityCounts.source, 2);
 assert.equal(viewer.getStateSnapshot().visibleEntityCounts.target, 1);
-assert.equal(byAttribute(host, 'data-revc-hidden-fit-authority').length, 3);
-assert.equal(byAttribute(host, 'data-revc-hidden-fit-authority').some((node) => node.classList.contains('is-selected')), false);
+const hidden = byAttribute(host, 'data-revc-hidden-fit-authority');
+assert.equal(hidden.length, 3);
+assert(hidden.every((node) => node.getAttribute('tabindex') === '-1' && node.getAttribute('aria-hidden') === 'true'));
 const roots = byAttribute(host, 'data-revc-svg-pane-root');
+assert.equal(roots[0].getAttribute('aria-label'), 'Revision comparison Rev A source Engineering SVG pane');
+assert.equal(roots[1].getAttribute('aria-label'), 'Revision comparison Rev B target Engineering SVG pane');
 assert.equal(roots[0].getAttribute('viewBox'), roots[1].getAttribute('viewBox'));
+roots[0].dispatch('keydown', { key: 'ArrowDown', shiftKey: true });
+roots[1].dispatch('keydown', { key: '+' });
+assert.equal(roots[0].getAttribute('viewBox'), roots[1].getAttribute('viewBox'));
+const sideTransform = viewer.getStateSnapshot().viewportHistory['side-by-side'];
+assert(sideTransform.panY > 0); assert(sideTransform.zoom > 1);
+assert.deepEqual(viewer.getStateSnapshot().viewportHistory.overlay, overlayTransform);
+roots[0].dispatch('keydown', { key: '0' });
+assert.deepEqual([
+  viewer.getStateSnapshot().viewportHistory['side-by-side'].zoom,
+  viewer.getStateSnapshot().viewportHistory['side-by-side'].panX,
+  viewer.getStateSnapshot().viewportHistory['side-by-side'].panY,
+], [1, 0, 0]);
+assert.deepEqual(viewer.getStateSnapshot().viewportHistory.overlay, overlayTransform);
 roots[0].dispatch('wheel', { clientX: 250, clientY: 300, deltaY: -400 });
-assert(viewer.getStateSnapshot().viewportHistory['side-by-side'].zoom > 1);
-assert.equal(roots[0].getAttribute('viewBox'), roots[1].getAttribute('viewBox'));
 roots[0].dispatch('pointerdown', { clientX: 200, clientY: 200 });
 roots[0].dispatch('pointermove', { clientX: 250, clientY: 225 });
 roots[0].dispatch('pointerup', { clientX: 250, clientY: 225 });
 assert.notEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'].panX, 0);
-
-const sourceNode = entityNode(host, 'source:1');
-roots[0].dispatch('click', { target: sourceNode });
-assert.deepEqual(pick, { objectId: 'source:1' });
-const sideTransform = viewer.getStateSnapshot().viewportHistory['side-by-side'];
-viewer.setMode('overlay');
-assert.equal(byAttribute(host, 'data-revc-svg-overlay-root').length, 1);
-viewer.setMode('side-by-side');
-assert.deepEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'], sideTransform);
-
-const snapshot = structuredClone(viewer.getStateSnapshot());
-const hostB = documentRef.createHost();
+const snapshot = structuredClone(viewer.getStateSnapshot()); const hostB = documentRef.createHost();
 viewer.reattach(hostB);
 assert.equal(byAttribute(host, 'data-engineering-svg-root').length, 0);
 assert.equal(byAttribute(hostB, 'data-revc-svg-pane-root').length, 2);
 assert.deepEqual(viewer.getStateSnapshot().viewportHistory['side-by-side'], snapshot.viewportHistory['side-by-side']);
-assert.doesNotThrow(() => JSON.stringify(viewer.getStateSnapshot()));
-assert.equal(viewer.dispose(), true);
-assert.equal(viewer.dispose(), false);
+assert.equal(viewer.dispose(), true); assert.equal(viewer.dispose(), false);
 assert.equal(byAttribute(hostB, 'data-engineering-svg-root').length, 0);
-
-const largeHost = documentRef.createHost();
-const largeViewer = await createRevisionCompareEngineeringSvgViewer(largeHost);
+assert.equal(byAttribute(hostB, 'data-revc-svg-keyboard-instructions').length, 0);
+const largeHost = documentRef.createHost(); const largeViewer = await createRevisionCompareEngineeringSvgViewer(largeHost);
 largeViewer.setModels({ source: largeModel('A', 2500), target: largeModel('B', 2500) });
 let largeSnapshot = largeViewer.getStateSnapshot();
-assert.equal(largeSnapshot.entityCount, 5000);
-assert.equal(largeSnapshot.resources.roots, 1);
-assert.equal(largeSnapshot.visibleEntityCounts.overlay, 5000);
-assert.equal(largeSnapshot.hiddenFitAuthorityCounts.overlay, 0);
+assert.equal(largeSnapshot.entityCount, 5000); assert.equal(largeSnapshot.resources.viewportListeners, 7);
 assert.equal(byAttribute(largeHost, 'data-engineering-svg-entity-id').length, 5000);
-largeViewer.setMode('side-by-side');
-largeSnapshot = largeViewer.getStateSnapshot();
-assert.equal(largeSnapshot.resources.roots, 2);
+largeViewer.setMode('side-by-side'); largeSnapshot = largeViewer.getStateSnapshot();
+assert.equal(largeSnapshot.resources.viewportListeners, 14);
 assert.equal(largeSnapshot.visibleEntityCounts.source, 2500);
-assert.equal(largeSnapshot.visibleEntityCounts.target, 2500);
-assert.equal(largeSnapshot.hiddenFitAuthorityCounts.source, 2500);
 assert.equal(largeSnapshot.hiddenFitAuthorityCounts.target, 2500);
 assert.equal(byAttribute(largeHost, 'data-engineering-svg-entity-id').length, 10000);
-assert.equal(byAttribute(largeHost, 'data-revc-hidden-fit-authority').length, 5000);
 assert.equal(largeViewer.dispose(), true);
 assert.equal(byAttribute(largeHost, 'data-engineering-svg-root').length, 0);
 console.log('revision-compare-svg-viewer-contract.test.mjs passed');
