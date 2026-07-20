@@ -4,7 +4,11 @@ import {
   moveTable2RowsCommand,
   moveTable3MarkerRowsCommand,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-commands.js';
-import { CommandHistory } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js';
+import {
+  CommandHistory,
+  deleteProfileRowCommand,
+  SnapshotCommand,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-commands.js';
 import { PipelineProfileModel } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-model.js';
 
 const raw = {
@@ -25,27 +29,56 @@ const raw = {
 700.000\tPM-002`,
 };
 
-const model = PipelineProfileModel.fromRaw(raw); const history = new CommandHistory();
-const table2 = model.table2Rows.slice(1, 3); const before = table2.map((row) => row.elevationValue);
-history.execute(moveTable2RowsCommand(model, table2.map((row, index) => ({ id: row.id, elevation: before[index] + 1 }))));
-assert.equal(history.undoStack.length, 1);
-assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before.map((value) => value + 1));
-history.undo(); assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before);
-history.redo(); assert.deepEqual(table2.map((row) => model.findRow(row.id).elevationValue), before.map((value) => value + 1));
+function createModel() { return PipelineProfileModel.fromRaw(raw); }
 
-const markers = model.table3MarkerRows; const markerBefore = markers.map((row) => row.absoluteH);
-history.execute(moveTable3MarkerRowsCommand(model, markers.map((row, index) => ({ id: row.id, absoluteH: markerBefore[index] + 2 }))));
-assert.equal(history.undoStack.length, 2);
-assert.deepEqual(markers.map((row) => model.findRow(row.id).absoluteH), markerBefore.map((value) => value + 2));
+const moved = createModel(); const history = new CommandHistory();
+const rows = moved.table2Rows.slice(1, 3); const elevations = rows.map((row) => row.elevationValue);
+history.execute(moveTable2RowsCommand(moved, rows.map((row, index) => ({
+  id: row.id, elevation: elevations[index] + 1,
+}))));
+history.undo(); assert.deepEqual(rows.map((row) => moved.findRow(row.id).elevationValue), elevations);
+history.redo(); assert.deepEqual(rows.map((row) => moved.findRow(row.id).elevationValue), elevations.map((value) => value + 1));
 
-const deleteModel = PipelineProfileModel.fromRaw(raw); const deleteHistory = new CommandHistory();
-const deleteIds = [deleteModel.table2Rows[1].id, deleteModel.table3MarkerRows[0].id];
-deleteHistory.execute(deleteProfileRowsCommand(deleteModel, deleteIds));
-assert.equal(deleteHistory.undoStack.length, 1); assert.ok(deleteIds.every((id) => !deleteModel.findRow(id)));
-deleteHistory.undo(); assert.ok(deleteIds.every((id) => deleteModel.findRow(id)));
-deleteHistory.redo(); assert.ok(deleteIds.every((id) => !deleteModel.findRow(id)));
-const invalidDeleteModel = PipelineProfileModel.fromRaw(raw);
-assert.throws(() => deleteProfileRowsCommand(invalidDeleteModel, invalidDeleteModel.table2Rows.map((row) => row.id)), /Table 2 station authority minimum/);
-assert.throws(() => moveTable2RowsCommand(model, [{ id: markers[0].id, elevation: 1 }]), /at least one valid row/);
-assert.throws(() => moveTable3MarkerRowsCommand(model, [{ id: model.table3DepthRows[0].id, absoluteH: 1 }]), /at least one valid row/);
+const markers = moved.table3MarkerRows; const markerBefore = markers.map((row) => row.absoluteH);
+history.execute(moveTable3MarkerRowsCommand(moved, markers.map((row, index) => ({
+  id: row.id, absoluteH: markerBefore[index] + 2,
+}))));
+assert.deepEqual(markers.map((row) => moved.findRow(row.id).absoluteH), markerBefore.map((value) => value + 2));
+
+const deleted = createModel(); const deleteHistory = new CommandHistory();
+const deleteIds = [deleted.table2Rows[1].id, deleted.table3MarkerRows[0].id];
+deleteHistory.execute(deleteProfileRowsCommand(deleted, deleteIds));
+assert.ok(deleteIds.every((id) => !deleted.findRow(id)));
+deleteHistory.undo(); assert.ok(deleteIds.every((id) => deleted.findRow(id)));
+deleteHistory.redo(); assert.ok(deleteIds.every((id) => !deleted.findRow(id)));
+
+const twoAnchors = createModel();
+twoAnchors.table2Rows = twoAnchors.table2Rows.slice(0, 2);
+const beforeRaw = twoAnchors.serializeRaw(); const beforeRevision = twoAnchors.revision;
+assert.throws(() => deleteProfileRowCommand(twoAnchors, twoAnchors.table2Rows[0].id), /authority minimum/);
+assert.deepEqual(twoAnchors.serializeRaw(), beforeRaw);
+assert.equal(twoAnchors.revision, beforeRevision);
+
+const oneMarker = createModel(); const oneMarkerHistory = new CommandHistory();
+const markerId = oneMarker.table3MarkerRows[0].id;
+oneMarkerHistory.execute(deleteProfileRowCommand(oneMarker, markerId));
+assert.equal(oneMarker.findRow(markerId), null);
+oneMarkerHistory.undo(); assert(oneMarker.findRow(markerId));
+oneMarkerHistory.redo(); assert.equal(oneMarker.findRow(markerId), null);
+
+const rollback = createModel(); const rollbackHistory = new CommandHistory();
+const rollbackRaw = rollback.serializeRaw(); const rollbackRevision = rollback.revision;
+const rollbackMarker = rollback.table3MarkerRows[0];
+assert.throws(() => rollbackHistory.execute(new SnapshotCommand(rollback, 'rollback proof', (target) => {
+  target.moveMarker(rollbackMarker.id, rollbackMarker.absoluteH + 10);
+  throw new Error('incomplete command');
+})), /incomplete command/);
+assert.deepEqual(rollback.serializeRaw(), rollbackRaw);
+assert.equal(rollback.revision, rollbackRevision);
+assert.equal(rollbackHistory.undoStack.length, 0);
+
+const invalid = createModel();
+assert.throws(() => deleteProfileRowsCommand(invalid, invalid.table2Rows.map((row) => row.id)), /authority minimum/);
+assert.throws(() => moveTable2RowsCommand(moved, [{ id: markers[0].id, elevation: 1 }]), /valid row/);
+assert.throws(() => moveTable3MarkerRowsCommand(moved, [{ id: moved.table3DepthRows[0].id, absoluteH: 1 }]), /valid row/);
 console.log('Pipeline CAD batch command tests passed');
