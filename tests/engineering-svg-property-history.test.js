@@ -55,6 +55,11 @@ structurallyInvalid.previousValue = 'high';
 assert.throws(() => validateEngineeringPropertyField(structurallyInvalid), /previousValue must be finite.*pressure/);
 const structurallyOutOfRange = { ...structurallyInvalid, previousValue: 21 };
 assert.throws(() => validateEngineeringPropertyField(structurallyOutOfRange), /previousValue is above maximum.*pressure/);
+const structurallyUndefined = { ...structurallyInvalid, previousValue: undefined };
+assert.throws(
+  () => validateEngineeringPropertyField(structurallyUndefined),
+  /field\.previousValue cannot be undefined.*pressure/,
+);
 
 function set(id, ownerId, fields) {
   return createEngineeringPropertySet({ id, revision, ownerIds: [ownerId], fields });
@@ -64,6 +69,14 @@ const preservedSet = set('preserved', 'a', [explicitNull]);
 assert.equal(validateEngineeringPropertySet(preservedSet), preservedSet);
 assert.equal(owns(preservedSet.fields[0], 'previousValue'), true);
 assert.equal(preservedSet.fields[0].previousValue, null);
+const structurallyUndefinedSet = {
+  ...preservedSet,
+  fields: [{ ...preservedSet.fields[0], previousValue: undefined }],
+};
+assert.throws(
+  () => validateEngineeringPropertySet(structurallyUndefinedSet),
+  /fields\[0\]\.previousValue cannot be undefined.*comment/,
+);
 
 const conflictAbsent = set('conflict-absent', 'x', [{ key: 'pressure', type: 'number', value: 10 }]);
 const conflictNull = set('conflict-null', 'x', [{ key: 'pressure', type: 'number', value: 10, previousValue: null }]);
@@ -106,7 +119,7 @@ assert.equal(view('pressure').aggregate.value, 12);
 assert.equal(view('legacy').aggregate.state, 'uniform');
 assert.equal(view('legacy').previousAggregate.state, 'not-applicable');
 assert.equal(view('legacyPartial').aggregate.state, 'unavailable');
-assert.equal(view('legacyPartial').previousAggregate.state, 'not-applicable');
+assert.equal(view('legacyPartial').previousAggregate.state, 'unavailable');
 assert.equal(view('previousUnavailable').previousAggregate.state, 'unavailable');
 assert.equal(view('previousUniform').previousAggregate.state, 'uniform');
 assert.equal(view('previousUniform').previousAggregate.value, 5);
@@ -121,7 +134,7 @@ for (const item of views) {
 const clean = buildEngineeringSvgInspectorModel({ selectedIds: ['a', 'b'], propertyViews: views, draft: {} });
 const row = (model, key) => model.rows.find((item) => item.key === key);
 assert.equal(row(clean, 'legacy').comparisonState, 'not-applicable');
-assert.equal(row(clean, 'legacyPartial').comparisonState, 'not-applicable');
+assert.equal(row(clean, 'legacyPartial').comparisonState, 'unavailable');
 assert.equal(row(clean, 'previousUnavailable').comparisonState, 'unavailable');
 assert.equal(row(clean, 'previousMixed').comparisonState, 'mixed');
 assert.equal(row(clean, 'status').comparisonState, 'unchanged');
