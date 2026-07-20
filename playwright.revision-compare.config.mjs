@@ -10,6 +10,7 @@ export default defineConfig({
     'revision-compare-svg-preview.spec.mjs',
     'revision-compare-property-evidence.spec.mjs',
     'revision-compare-property-lifecycle.spec.mjs',
+    'revision-compare-svg-first-policy.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
