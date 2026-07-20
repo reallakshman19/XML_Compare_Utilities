@@ -1,0 +1,80 @@
+name: Sequential Engineering SVG Production Readiness
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/architecture/sequential-engineering-svg/**'
+      - 'tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js'
+      - 'tests/sequential-engineering-svg-production-readiness*.test.js'
+      - '.github/workflows/sequential-engineering-svg-production-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-adoption-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify branch currency and allowed scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          test "$(git rev-list --count HEAD..origin/main)" = 0
+          git diff --name-only origin/main...HEAD | while read -r file; do
+            case "$file" in
+              docs/architecture/sequential-engineering-svg/*|tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js|tests/sequential-engineering-svg-production-readiness.test.js|tests/sequential-engineering-svg-production-readiness-static.test.js|.github/workflows/sequential-engineering-svg-production-readiness.yml) ;;
+              *) echo "Forbidden changed file: $file"; exit 1 ;;
+            esac
+          done
+      - name: Readiness contracts
+        run: |
+          node tests/sequential-engineering-svg-production-readiness.test.js
+          node tests/sequential-engineering-svg-production-readiness-static.test.js
+      - name: Existing Sequential adapter and shadow contracts
+        run: |
+          node tests/sequential-engineering-svg-adapter.test.js
+          node tests/sequential-engineering-svg-parity.test.js
+          node tests/sequential-engineering-svg-shadow-ownership.test.js
+          node tests/sequential-engineering-svg-shadow-parity.test.js
+          node tests/sequential-engineering-svg-shadow-dependency-guard.test.js
+      - name: Focused Sequential regressions
+        run: |
+          node tests/sequential-sketcher-ui-static.test.js
+          node tests/sequential-sketcher-branch-switch-ui.test.js
+          node tests/sequential-construction-engine.test.js
+          node tests/sequential-attachment-event.test.js
+          node tests/sequential-zero-length-inline.test.js
+          node tests/sequential-head-boundary-gate.test.js
+          node tests/sequential-construction-acceptance.test.js
+          node tests/sequential-supervised-transactions.test.js
+          node tests/sequential-review-queue.test.js
+          node tests/sequential-workspace-persistence.test.js
+          node tests/sequential-continuity-geometry.test.js
+          node tests/sequential-construction-tolerance-policy.test.js
+          node tests/sequential-confirmed-support-projection.test.js
+      - name: Syntax and startup
+        run: |
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js
+          node --check tests/sequential-engineering-svg-production-readiness.test.js
+          node --check tests/sequential-engineering-svg-production-readiness-static.test.js
+          node tests/startup-module-syntax.test.js
+      - name: Full repository tests
+        run: npm test
+      - name: Upload readiness decision
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-engineering-svg-production-readiness
+          path: artifacts/sequential-engineering-svg-production-readiness
+          if-no-files-found: error

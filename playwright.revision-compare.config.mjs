@@ -8,6 +8,8 @@ export default defineConfig({
     'revision-compare-rc003.spec.mjs',
     'revision-compare-rc004.spec.mjs',
     'revision-compare-svg-preview.spec.mjs',
+    'revision-compare-property-evidence.spec.mjs',
+    'revision-compare-property-lifecycle.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
