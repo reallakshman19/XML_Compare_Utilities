@@ -10,14 +10,21 @@ function clearChildren(node) {
   while (node.firstChild) node.removeChild(node.firstChild);
 }
 
-function displayText(row) {
-  const { state, value } = row.display;
+function valueText(row, state, value) {
   if (state === 'mixed') return 'Mixed';
   if (state === 'unavailable') return 'Unavailable for full selection';
   if (state === 'not-applicable') return 'Not applicable';
   if (value == null || value === '') return '—';
   if (row.field.type === 'boolean') return value ? 'Yes' : 'No';
   return `${value}${row.field.unit ? ` ${row.field.unit}` : ''}`;
+}
+
+function displayText(row) {
+  return valueText(row, row.display.state, row.display.value);
+}
+
+function previousText(row) {
+  return valueText(row, row.previousAuthoritative.state, row.previousAuthoritative.value);
 }
 
 function controlKind(row) {
@@ -61,7 +68,7 @@ function createControl(documentRef, row, onFieldEdit) {
   return input;
 }
 
-function updateControl(documentRef, record, row) {
+function updateCurrentControl(documentRef, record, row) {
   const active = documentRef.activeElement === record.control;
   const state = row.display.state;
   if (record.kind === 'readout') record.control.textContent = displayText(row);
@@ -74,9 +81,31 @@ function updateControl(documentRef, record, row) {
   }
   record.control.disabled = record.kind === 'readout';
   record.control.setAttribute('aria-invalid', row.valid ? 'false' : 'true');
+}
+
+function comparisonText(state) {
+  return ({
+    'not-applicable': 'No previous evidence',
+    unavailable: 'Previous/current evidence unavailable',
+    mixed: 'Previous/current evidence is mixed',
+    unchanged: 'Previous and Current are unchanged',
+    changed: 'Previous and Current changed',
+  })[state] || 'Previous/current evidence unavailable';
+}
+
+function updateControl(documentRef, record, row) {
+  updateCurrentControl(documentRef, record, row);
+  const state = row.display.state;
   record.root.setAttribute('data-engineering-svg-property-state', state);
   record.root.setAttribute('data-engineering-svg-property-dirty', row.dirty ? 'true' : 'false');
   record.root.setAttribute('data-engineering-svg-property-valid', row.valid ? 'true' : 'false');
+  record.root.setAttribute('data-engineering-svg-property-comparison', row.comparisonState);
+  if (record.previousOutput) {
+    record.previousOutput.textContent = previousText(row);
+    record.previousGroup.setAttribute('data-engineering-svg-property-state', row.previousAuthoritative.state);
+    record.currentGroup.setAttribute('data-engineering-svg-property-state', row.display.state);
+    record.comparison.textContent = comparisonText(row.comparisonState);
+  }
   clearChildren(record.messages);
   row.messages.forEach((message) => {
     const item = element(documentRef, 'li');
@@ -89,24 +118,64 @@ function safeId(value) {
   return String(value).replace(/[^a-z0-9_-]/gi, '-');
 }
 
-function createRow(documentRef, row, onFieldEdit, idPrefix) {
-  const root = element(documentRef, 'div', { 'data-engineering-svg-property-key': row.key });
-  const label = element(documentRef, 'label');
-  const token = `${safeId(idPrefix)}-${safeId(row.key)}`;
-  const controlId = `${token}-control`;
-  const messagesId = `${token}-messages`;
-  label.setAttribute('for', controlId);
-  label.textContent = row.field.unit ? `${row.field.label} (${row.field.unit})` : row.field.label;
-  const control = createControl(documentRef, row, onFieldEdit);
-  control.id = controlId;
-  control.setAttribute('aria-describedby', messagesId);
-  control.setAttribute('data-engineering-svg-property-control', row.key);
-  const messages = element(documentRef, 'ul', {
+function fieldLabel(row) {
+  return row.field.unit ? `${row.field.label} (${row.field.unit})` : row.field.label;
+}
+
+function createMessages(documentRef, row, messagesId) {
+  return element(documentRef, 'ul', {
     id: messagesId,
     'data-engineering-svg-property-messages': row.key,
   });
-  root.append(label, control, messages);
-  return { root, label, control, messages, kind: controlKind(row) };
+}
+
+function createLegacyRow(documentRef, row, onFieldEdit, ids) {
+  const label = element(documentRef, 'label');
+  label.setAttribute('for', ids.controlId);
+  label.textContent = fieldLabel(row);
+  const control = createControl(documentRef, row, onFieldEdit);
+  control.id = ids.controlId;
+  control.setAttribute('aria-describedby', ids.messagesId);
+  control.setAttribute('data-engineering-svg-property-control', row.key);
+  return { label, control, kind: controlKind(row), comparisonLayout: false };
+}
+
+function createComparisonRow(documentRef, row, onFieldEdit, ids) {
+  const heading = element(documentRef, 'div', { 'data-engineering-svg-property-label': row.key });
+  heading.textContent = fieldLabel(row);
+  const comparison = element(documentRef, 'p', { 'data-engineering-svg-property-comparison-text': row.key });
+  const previousGroup = element(documentRef, 'div', { 'data-engineering-svg-property-previous': row.key });
+  const previousLabel = element(documentRef, 'span');
+  previousLabel.textContent = 'Previous';
+  const previousOutput = element(documentRef, 'output', { tabindex: '-1', 'aria-label': `Previous ${row.field.label}` });
+  previousGroup.append(previousLabel, previousOutput);
+  const currentGroup = element(documentRef, 'div', { 'data-engineering-svg-property-current': row.key });
+  const currentLabel = element(documentRef, 'label');
+  currentLabel.setAttribute('for', ids.controlId);
+  currentLabel.textContent = 'Current';
+  const control = createControl(documentRef, row, onFieldEdit);
+  control.id = ids.controlId;
+  control.setAttribute('aria-describedby', ids.messagesId);
+  control.setAttribute('data-engineering-svg-property-control', row.key);
+  currentGroup.append(currentLabel, control);
+  return {
+    heading, comparison, previousGroup, previousOutput, currentGroup,
+    control, kind: controlKind(row), comparisonLayout: true,
+  };
+}
+
+function createRow(documentRef, row, onFieldEdit, idPrefix) {
+  const root = element(documentRef, 'div', { 'data-engineering-svg-property-key': row.key });
+  const token = `${safeId(idPrefix)}-${safeId(row.key)}`;
+  const ids = { controlId: `${token}-control`, messagesId: `${token}-messages` };
+  const comparisonLayout = row.comparisonState !== 'not-applicable';
+  const record = comparisonLayout
+    ? createComparisonRow(documentRef, row, onFieldEdit, ids)
+    : createLegacyRow(documentRef, row, onFieldEdit, ids);
+  const messages = createMessages(documentRef, row, ids.messagesId);
+  if (comparisonLayout) root.append(record.heading, record.comparison, record.previousGroup, record.currentGroup, messages);
+  else root.append(record.label, record.control, messages);
+  return { root, messages, ...record };
 }
 
 function placeRows(rowsHost, orderedRecords) {
@@ -149,8 +218,9 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
     const orderedRecords = model.rows.map((row) => {
       present.add(row.key);
       const expectedKind = controlKind(row);
+      const expectedComparison = row.comparisonState !== 'not-applicable';
       let record = records.get(row.key);
-      if (!record || record.kind !== expectedKind) {
+      if (!record || record.kind !== expectedKind || record.comparisonLayout !== expectedComparison) {
         record?.root.remove();
         record = createRow(documentRef, row, onFieldEdit, idPrefix);
         records.set(row.key, record);
