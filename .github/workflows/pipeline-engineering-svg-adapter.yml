@@ -5,19 +5,41 @@ on:
     branches: [main]
     paths:
       - 'tabs/pipeline-3d-model/pipeline-engineering-svg-*.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-*.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js'
       - 'tests/pipeline-engineering-svg-*.test.js'
+      - 'tests/pipeline-3d-model-cad-*.test.js'
+      - 'tests/browser/pipeline-cad-*'
+      - 'playwright.pipeline-cad.config.mjs'
+      - 'package.json'
       - '.github/workflows/pipeline-engineering-svg-adapter.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   dual-ledger-adapter-and-parity:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+      - name: Verify exact checked-out SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          mkdir -p artifacts
+          printf '{"schema":"PipelineEngineeringSvgExactHead.v1","expectedSha":"%s","actualSha":"%s","match":true}\n' "$EXPECTED_SHA" "$actual_sha" > artifacts/pipeline-engineering-svg-exact-head.json
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -79,6 +101,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pipeline-engineering-svg-parity-${{ github.event.pull_request.head.sha || github.sha }}
-          path: artifacts/pipeline-engineering-svg-parity.json
+          name: pipeline-engineering-svg-parity-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts/pipeline-engineering-svg-parity.json
+            artifacts/pipeline-engineering-svg-exact-head.json
           if-no-files-found: error
