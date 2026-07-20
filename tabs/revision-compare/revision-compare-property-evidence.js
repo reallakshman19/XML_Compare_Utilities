@@ -32,6 +32,14 @@ function revisionIdentity(value) {
   });
 }
 
+export function revisionComparePropertyAuditIdentity(audit) {
+  return auditIdentity(audit);
+}
+
+export function revisionComparePropertyAuditKey(audit) {
+  return revisionIdentity(auditIdentity(audit));
+}
+
 function valueKind(value) {
   if (value === null) return 'null';
   if (typeof value === 'number') return Number.isFinite(value) ? 'number' : 'non-finite-number';
@@ -115,6 +123,14 @@ function classificationFor(row) {
       classified[index].supported ? 'SHARED_SCALAR_PAIR' : classified[index].fallback.reason,
     ))),
   });
+}
+
+export function rawRevisionDifferenceEvidence(audit, differenceId) {
+  const id = String(differenceId ?? '').trim();
+  if (!id || !Array.isArray(audit?.differenceRows)) return Object.freeze([]);
+  const row = audit.differenceRows.find((entry) => entry?.differenceId === id);
+  if (!row || !Array.isArray(row.changedProperties)) return Object.freeze([]);
+  return classificationFor(row).allRaw;
 }
 
 function propertySet(differenceId, revision, fields) {
