@@ -89,15 +89,27 @@ jobs:
           node tests/pipeline-3d-model-cad-markup-reconciliation.test.js
           node tests/pipeline-3d-model-cad-markup-integration.test.js
 
-      - name: PCAD-001 through PCAD-004R regressions
+      - name: PCAD-001 lifecycle regression
+        run: node tests/pipeline-3d-model-cad-lifecycle-integration.test.js
+
+      - name: PCAD-002 Object Snap regression
+        run: node tests/pipeline-3d-model-cad-object-snap-integration.test.js
+
+      - name: PCAD-003 precision contracts
+        run: node tests/pipeline-3d-model-cad-precision-contracts.test.js
+
+      - name: PCAD-003 precision parser
+        run: node tests/pipeline-3d-model-cad-precision-parser.test.js
+
+      - name: PCAD-003 precision adapters
+        run: node tests/pipeline-3d-model-cad-precision-adapters.test.js
+
+      - name: PCAD-003 precision integration
+        run: node tests/pipeline-3d-model-cad-precision-integration.test.js
+
+      - name: PCAD-004R selection and atomic batch regressions
         id: pcad_regressions
         run: |
-          node tests/pipeline-3d-model-cad-lifecycle-integration.test.js
-          node tests/pipeline-3d-model-cad-object-snap-integration.test.js
-          node tests/pipeline-3d-model-cad-precision-contracts.test.js
-          node tests/pipeline-3d-model-cad-precision-parser.test.js
-          node tests/pipeline-3d-model-cad-precision-adapters.test.js
-          node tests/pipeline-3d-model-cad-precision-integration.test.js
           node tests/pipeline-3d-model-cad-selection-contracts.test.js
           node tests/pipeline-3d-model-cad-batch-commands.test.js
           node tests/pipeline-3d-model-cad-multi-selection-integration.test.js
