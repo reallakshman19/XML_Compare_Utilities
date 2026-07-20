@@ -88,6 +88,21 @@ assert.notEqual(controller.getState().panX, beforePan.panX);
 assert.notEqual(controller.getState().panY, beforePan.panY);
 assert.equal(source.getAttribute('viewBox'), target.getAttribute('viewBox'));
 
+controller.reset('incremental-pan-baseline');
+const incrementalBefore = controller.getState();
+source.dispatch('pointerdown', { clientX: 100, clientY: 100 });
+for (let step = 1; step <= 6; step += 1) {
+  source.dispatch('pointermove', { clientX: 100 + step, clientY: 100 });
+}
+source.dispatch('pointerup', { clientX: 106, clientY: 100 });
+assert.equal(source.dispatch('click').prevented, true);
+assert.notEqual(controller.getState().panX, incrementalBefore.panX, 'incremental movement must cross the cumulative drag threshold');
+
+source.dispatch('pointerdown', { clientX: 300, clientY: 200 });
+source.dispatch('pointermove', { clientX: 320, clientY: 200 });
+source.dispatch('pointercancel', { clientX: 320, clientY: 200 });
+assert.equal(source.dispatch('click').prevented, false, 'pointer cancellation must not suppress the next unrelated click');
+
 const stable = controller.getState();
 source.dispatch('wheel', { deltaY: Number.NaN });
 assert.deepEqual(controller.getState(), stable);
