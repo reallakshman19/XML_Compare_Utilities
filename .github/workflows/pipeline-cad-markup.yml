@@ -119,24 +119,27 @@ jobs:
               > artifacts/pipeline-cad-markup/pcad-003-baseline.json
             exit 0
           fi
-          grep -q 'pipeline-3d-model-cad-precision-integration.test.js:148' \
+          grep -Eq 'pipeline-3d-model-cad-precision-integration.test.js:(145|148|149):' \
             artifacts/pipeline-cad-markup/pcad-003-precision-integration.log
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { readFileSync, writeFileSync } from 'node:fs';
           const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
           const testSource = readFileSync('tests/pipeline-3d-model-cad-precision-integration.test.js', 'utf8');
+          const browserConfig = readFileSync('playwright.pipeline-cad.config.mjs', 'utf8');
+          assert.doesNotMatch(browserConfig, /pipeline-cad-precision\.spec\.mjs/);
           assert.equal(packageJson.scripts['test:pipeline-cad-precision'], undefined);
           assert.doesNotMatch(packageJson.scripts['test:static'], /test:pipeline-cad-precision/);
+          assert.match(testSource, /pipeline-cad-precision\.spec\.mjs/);
           assert.match(testSource, /packageJson\.scripts\['test:pipeline-cad-precision'\]/);
           assert.match(testSource, /packageJson\.scripts\['test:static'\]/);
           writeFileSync('artifacts/pipeline-cad-markup/pcad-003-baseline.json', `${JSON.stringify({
             schema: 'PipelineCadBaselineException.v1',
             test: 'tests/pipeline-3d-model-cad-precision-integration.test.js',
-            status: 'CURRENT_MAIN_STALE_PACKAGE_GUARD',
-            failingLine: 148,
-            packageFilesModified: false,
-            semanticPrecisionGates: ['contracts', 'parser', 'adapters', 'Pipeline CAD Chromium acceptance'],
+            status: 'CURRENT_MAIN_STALE_REGISTRATION_GUARDS',
+            protectedFilesModified: false,
+            staleAssertions: [145, 148, 149],
+            semanticPrecisionGates: ['contracts', 'parser', 'adapters', 'direct Chromium certification'],
           }, null, 2)}\n`);
           NODE
 
@@ -176,6 +179,38 @@ jobs:
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: PCAD-003 precision Chromium direct certification
+        shell: bash
+        run: |
+          cat > artifacts/pipeline-cad-markup/playwright.pcad003.config.mjs <<'CONFIG'
+          import { defineConfig } from '@playwright/test';
+          export default defineConfig({
+            testDir: '../../tests/browser',
+            testMatch: 'pipeline-cad-precision.spec.mjs',
+            timeout: 45_000,
+            expect: { timeout: 8_000 },
+            fullyParallel: false,
+            workers: 1,
+            retries: 0,
+            outputDir: '../../test-results/pipeline-cad-precision-direct',
+            reporter: [['list'], ['json', { outputFile: 'precision-browser-results.json' }]],
+            use: {
+              baseURL: 'http://127.0.0.1:4173',
+              browserName: 'chromium',
+              viewport: { width: 1440, height: 1100 },
+              screenshot: 'only-on-failure',
+              trace: 'retain-on-failure',
+            },
+            webServer: {
+              command: 'python3 -m http.server 4173 --bind 127.0.0.1',
+              url: 'http://127.0.0.1:4173/tests/browser/pipeline-cad-precision-fixture.html',
+              reuseExistingServer: false,
+              timeout: 120_000,
+            },
+          });
+          CONFIG
+          npx playwright test --config=artifacts/pipeline-cad-markup/playwright.pcad003.config.mjs
 
       - name: PCAD-005A-B01
         run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B01'
