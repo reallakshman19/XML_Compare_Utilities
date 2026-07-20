@@ -12,7 +12,7 @@ export function normalizeRevisionCompareViewerBackend(value) {
 
 export function revisionCompareViewerBackendLabel(value) {
   return normalizeRevisionCompareViewerBackend(value) === REVISION_COMPARE_VIEWER_BACKEND.SVG
-    ? 'SVG preview'
+    ? 'Engineering SVG'
     : '3D (WebGL)';
 }
 
