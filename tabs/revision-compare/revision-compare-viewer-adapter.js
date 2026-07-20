@@ -6,6 +6,10 @@ import {
   normalizeRevisionCompareViewerBackend,
 } from './revision-compare-viewer-backend.js';
 import { createRevisionCompareViewerFactory } from './revision-compare-viewer-contract.js';
+import {
+  REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
+  createRevisionCompareViewerPolicy,
+} from './revision-compare-viewer-policy.js';
 
 function indexAudit(context, audit) {
   context.differenceByObjectId = new Map();
@@ -16,7 +20,6 @@ function indexAudit(context, audit) {
     if (row.visualRefs.targetObjectId) context.differenceByObjectId.set(row.visualRefs.targetObjectId, row.differenceId);
   }
 }
-
 function rowById(context, id) { return context.rowByDifferenceId.get(id) ?? null; }
 function relatedObjectIds(row) { return [row?.visualRefs?.sourceObjectId, row?.visualRefs?.targetObjectId].filter(Boolean); }
 function previewObjectIds(context) {
@@ -49,8 +52,13 @@ function disposeActive(context) {
   return true;
 }
 function factoryFor(context, backend) { return context.factories[backend]; }
+function recordMountRequest(context, backend) {
+  context.mountRequests.push(backend);
+  if (context.mountRequests.length > 12) context.mountRequests.shift();
+}
 async function createViewer(context, hostElement, generation) {
   const backend = context.requestedBackend;
+  recordMountRequest(context, backend);
   try {
     const created = await factoryFor(context, backend)(hostElement, {
       onPick: (pick) => { if (ownsGeneration(context, generation, backend)) picked(context, pick); },
@@ -112,6 +120,7 @@ function clearViewer(context) {
 }
 function setBackend(context, value) {
   const backend = normalizeRevisionCompareViewerBackend(value);
+  if (!context.policy.retainedBackends.includes(backend)) throw new TypeError(`Viewer backend ${backend} is not retained by policy.`);
   if (backend === context.requestedBackend) return false;
   context.requestedBackend = backend; context.generation += 1; disposeActive(context); context.failure = null;
   return true;
@@ -128,19 +137,22 @@ function evidence(context) {
     viewerBackend: context.requestedBackend, activeBackend: context.activeBackend,
     presentationMode: context.presentationMode, selectedDifferenceId: context.selectedDifferenceId,
     previewSourceDifferenceId: context.previewSourceDifferenceId, previewTargetDifferenceId: context.previewTargetDifferenceId,
-    viewer: context.viewer?.getStateSnapshot?.() ?? null,
+    policy: context.policy, mountRequests: Object.freeze([...context.mountRequests]),
+    snapshots: Object.freeze({ ...context.snapshots }), viewer: context.viewer?.getStateSnapshot?.() ?? null,
   });
 }
 export function createRevisionCompareViewerAdapter(options = {}) {
   const webglFactory = options.webglViewerFactory ?? options.viewerFactory ?? createWorkbenchViewer;
+  const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   const context = {
-    options,
+    options, policy,
     factories: {
       WEBGL: createRevisionCompareViewerFactory(webglFactory, 'Revision Compare WebGL viewer'),
-      SVG: createRevisionCompareViewerFactory(options.svgViewerFactory ?? createRevisionCompareEngineeringSvgViewer, 'Revision Compare SVG viewer'),
+      SVG: createRevisionCompareViewerFactory(options.svgViewerFactory ?? createRevisionCompareEngineeringSvgViewer, 'Revision Compare Engineering SVG viewer'),
     },
-    viewer: null, host: null, pending: null, failure: null, audit: null, presentationMode: 'overlay',
-    requestedBackend: REVISION_COMPARE_VIEWER_BACKEND.WEBGL, activeBackend: null, snapshots: {}, generation: 0,
+    viewer: null, host: null, pending: null, failure: null, audit: null,
+    presentationMode: policy.defaultSvgPresentation, requestedBackend: policy.defaultBackend,
+    activeBackend: null, snapshots: {}, mountRequests: [], generation: 0,
     selectedDifferenceId: null, previewSourceDifferenceId: null, previewTargetDifferenceId: null,
     differenceByObjectId: new Map(), rowByDifferenceId: new Map(), disposed: false,
   };
