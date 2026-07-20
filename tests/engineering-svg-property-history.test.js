@@ -98,6 +98,7 @@ const sets = [
     { key: 'comment', label: 'Comment', type: 'text', value: 'Current', previousValue: null },
     { key: 'legacy', label: 'Legacy', type: 'text', value: 'Legacy' },
     { key: 'legacyPartial', label: 'Legacy Partial', type: 'text', value: 'A only' },
+    { key: 'historyPartial', label: 'History Partial', type: 'number', value: 6, previousValue: 5 },
     { key: 'previousUniform', type: 'number', value: 6, previousValue: 5 },
     { key: 'previousMixed', type: 'number', value: 6, previousValue: 4 },
     { key: 'previousUnavailable', type: 'number', value: 6, previousValue: 5 },
@@ -118,14 +119,22 @@ assert.equal(view('pressure').aggregate.state, 'uniform');
 assert.equal(view('pressure').aggregate.value, 12);
 assert.equal(view('legacy').aggregate.state, 'uniform');
 assert.equal(view('legacy').previousAggregate.state, 'not-applicable');
+assert.equal(view('legacy').previousEvidenceCount, 0);
 assert.equal(view('legacyPartial').aggregate.state, 'unavailable');
 assert.equal(view('legacyPartial').previousAggregate.state, 'unavailable');
+assert.equal(view('legacyPartial').previousEvidenceCount, 0);
+assert.equal(view('historyPartial').aggregate.state, 'unavailable');
+assert.equal(view('historyPartial').previousAggregate.state, 'unavailable');
+assert.equal(view('historyPartial').previousEvidenceCount, 1);
 assert.equal(view('previousUnavailable').previousAggregate.state, 'unavailable');
+assert.equal(view('previousUnavailable').previousEvidenceCount, 1);
 assert.equal(view('previousUniform').previousAggregate.state, 'uniform');
 assert.equal(view('previousUniform').previousAggregate.value, 5);
+assert.equal(view('previousUniform').previousEvidenceCount, 2);
 assert.equal(view('previousMixed').previousAggregate.state, 'mixed');
 assert.equal(view('comment').previousAggregate.state, 'uniform');
 assert.equal(view('comment').previousAggregate.value, null);
+assert.equal(view('comment').previousEvidenceCount, 2);
 for (const item of views) {
   assert.equal(item.field.value, null);
   assert.equal(owns(item.field, 'previousValue'), false);
@@ -134,8 +143,13 @@ for (const item of views) {
 const clean = buildEngineeringSvgInspectorModel({ selectedIds: ['a', 'b'], propertyViews: views, draft: {} });
 const row = (model, key) => model.rows.find((item) => item.key === key);
 assert.equal(row(clean, 'legacy').comparisonState, 'not-applicable');
+assert.equal(row(clean, 'legacy').previousEvidenceCount, 0);
 assert.equal(row(clean, 'legacyPartial').comparisonState, 'unavailable');
+assert.equal(row(clean, 'legacyPartial').previousEvidenceCount, 0);
+assert.equal(row(clean, 'historyPartial').comparisonState, 'unavailable');
+assert.equal(row(clean, 'historyPartial').previousEvidenceCount, 1);
 assert.equal(row(clean, 'previousUnavailable').comparisonState, 'unavailable');
+assert.equal(row(clean, 'previousUnavailable').previousEvidenceCount, 1);
 assert.equal(row(clean, 'previousMixed').comparisonState, 'mixed');
 assert.equal(row(clean, 'status').comparisonState, 'unchanged');
 assert.equal(row(clean, 'pressure').comparisonState, 'changed');
@@ -152,6 +166,7 @@ const staged = buildEngineeringSvgInspectorModel({
 });
 assert.deepEqual(row(staged, 'pressure').display, { state: 'uniform', value: 15 });
 assert.equal(row(staged, 'pressure').previousAuthoritative.value, 10);
+assert.equal(row(staged, 'pressure').previousEvidenceCount, 2);
 assert.equal(row(staged, 'pressure').comparisonState, 'changed');
 drafts.clear('cancel');
 const cancelled = buildEngineeringSvgInspectorModel({
