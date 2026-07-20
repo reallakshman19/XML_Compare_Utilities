@@ -78,7 +78,7 @@ const sets = await evidence.provider.getPropertySets([differenceId], evidence.re
 assert.equal(sets.length, 1);
 assert.equal(sets[0].schema, ENGINEERING_PROPERTY_SET_SCHEMA);
 assert.deepEqual(sets[0].ownerIds, [differenceId]);
-assert.equal(sets[0].revision, evidence.revision);
+assert.deepEqual(sets[0].revision, evidence.revision);
 assert.equal(sets[0].fields.length, 10);
 assert.deepEqual(sets[0].fields.map((field) => field.key), tenProperties.map((item) => item.propertyKey));
 assert.deepEqual(sets[0].fields.map((field) => field.label), tenProperties.map((item) => item.propertyKey));
