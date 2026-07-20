@@ -86,6 +86,7 @@ jobs:
           node --check tests/browser/revision-compare-property-evidence.spec.mjs
           node --check tests/browser/revision-compare-property-lifecycle.spec.mjs
           node --check tests/browser/revision-compare-svg-first-policy.spec.mjs
+          node --check tests/browser/revision-compare-svg-keyboard.spec.mjs
           node --check playwright.revision-compare.config.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -95,6 +96,9 @@ jobs:
       - name: RC-SVG-003-B01 SVG-first backend policy
         id: svg_first_b01
         run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-003-B01'
+      - name: RC-SVG-004-B01 accessible keyboard SVG navigation
+        id: keyboard_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-004-B01'
       - name: Revision Compare Chromium acceptance
         id: chromium
         run: npx playwright test --config=playwright.revision-compare.config.mjs
@@ -114,6 +118,7 @@ jobs:
           SYNTAX_RESULT: ${{ steps.syntax.outcome }}
           PROPERTY_B01_RESULT: ${{ steps.property_b01.outcome }}
           SVG_FIRST_B01_RESULT: ${{ steps.svg_first_b01.outcome }}
+          KEYBOARD_B01_RESULT: ${{ steps.keyboard_b01.outcome }}
           CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
           FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
         run: |
@@ -135,6 +140,7 @@ jobs:
               "syntax": "${SYNTAX_RESULT}",
               "propertyB01": "${PROPERTY_B01_RESULT}",
               "svgFirstB01": "${SVG_FIRST_B01_RESULT}",
+              "keyboardB01": "${KEYBOARD_B01_RESULT}",
               "chromium": "${CHROMIUM_RESULT}",
               "fullRepositoryTests": "${FULL_TEST_RESULT}"
             }

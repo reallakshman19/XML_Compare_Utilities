@@ -13,16 +13,23 @@ async function installViewerHarness(page, failTargetPane = false) {
     window.rcSvgCertificationLog = { disposed: 0, modes: [] };
     const viewerFactory = async (host) => {
       const canvas = document.createElement('canvas');
-      canvas.dataset.revcSvgCertificationWebgl = '1'; host.appendChild(canvas);
-      let mode = 'overlay'; let selectedIds = [];
+      canvas.dataset.revcSvgCertificationWebgl = '1';
+      host.appendChild(canvas);
+      let mode = 'overlay';
+      let selectedIds = [];
       const fitCounts = { all: 0, selection: 0 };
       return {
         reattach(nextHost) { if (canvas.parentElement !== nextHost) nextHost.appendChild(canvas); },
-        setModels() {}, setStatuses() {}, setVerticalAxis() {},
+        setModels() {},
+        setStatuses() {},
+        setVerticalAxis() {},
         setMode(value) { mode = value; window.rcSvgCertificationLog.modes.push(value); },
         setSelection(primary, related = []) { selectedIds = [primary, ...related].filter(Boolean); },
-        fitAll() { fitCounts.all += 1; }, fitSelection() { fitCounts.selection += 1; },
-        getStateSnapshot() { return { backend: 'WEBGL', mode, selectedIds, fitCounts: { ...fitCounts } }; },
+        fitAll() { fitCounts.all += 1; },
+        fitSelection() { fitCounts.selection += 1; },
+        getStateSnapshot() {
+          return { backend: 'WEBGL', mode, selectedIds, fitCounts: { ...fitCounts } };
+        },
         dispose() { window.rcSvgCertificationLog.disposed += 1; canvas.remove(); },
       };
     };
@@ -60,34 +67,49 @@ async function openAndCompare(page, options = {}) {
 async function viewerSnapshot(page) {
   return page.evaluate(() => structuredClone(window.rcHandle.evidence().viewer.viewer));
 }
+
 async function auditEvidence(page) {
   return page.evaluate(() => structuredClone(window.rcHandle.evidence().state.compare.audit));
 }
+
 function transform(snapshot, mode) {
   const value = snapshot.viewportHistory[mode];
   return { zoom: value.zoom, panX: value.panX, panY: value.panY };
 }
+
 async function pan(page, locator, dx = 60, dy = 25) {
   const box = await locator.boundingBox();
-  const x = box.x + box.width / 2; const y = box.y + box.height / 2;
+  const x = box.x + (box.width / 2);
+  const y = box.y + (box.height / 2);
   await locator.dispatchEvent('pointerdown', { pointerId: 7, button: 0, clientX: x, clientY: y });
   await locator.dispatchEvent('pointermove', { pointerId: 7, button: 0, clientX: x + dx, clientY: y + dy });
   await locator.dispatchEvent('pointerup', { pointerId: 7, button: 0, clientX: x + dx, clientY: y + dy });
 }
+
 async function zoom(page, locator, deltaY = -420) {
   const box = await locator.boundingBox();
-  await locator.dispatchEvent('wheel', { deltaY, clientX: box.x + box.width * 0.35, clientY: box.y + box.height * 0.65 });
+  await locator.dispatchEvent('wheel', {
+    deltaY,
+    clientX: box.x + (box.width * 0.35),
+    clientY: box.y + (box.height * 0.65),
+  });
 }
+
 async function rowEvidence(page, category) {
   return page.evaluate((value) => {
-    const rows = window.rcHandle.evidence().state.compare.audit.differenceRows.filter((row) => row.differenceCategory === value);
+    const rows = window.rcHandle.evidence().state.compare.audit.differenceRows
+      .filter((row) => row.differenceCategory === value);
     const row = rows.find((item) => item.matchCertainty !== 'AMBIGUOUS') ?? rows[0];
-    return row ? { differenceId: row.differenceId,
-      ids: [row.visualRefs.sourceObjectId, row.visualRefs.targetObjectId].filter(Boolean) } : null;
+    return row ? {
+      differenceId: row.differenceId,
+      ids: [row.visualRefs.sourceObjectId, row.visualRefs.targetObjectId].filter(Boolean),
+    } : null;
   }, category);
 }
+
 async function selectAndProve(page, category) {
-  const evidence = await rowEvidence(page, category); expect(evidence).not.toBeNull();
+  const evidence = await rowEvidence(page, category);
+  expect(evidence).not.toBeNull();
   await page.locator(`[data-revc-difference-id="${evidence.differenceId}"]`).click();
   await expect.poll(() => viewerSnapshot(page).then((value) => value.selectedIds)).toEqual(evidence.ids);
   await expect(page.locator('[data-revc-hidden-fit-authority].is-selected')).toHaveCount(0);
@@ -103,20 +125,34 @@ test('RC-SVG-001B links panes, viewport history, exact evidence and backend life
   const overlayRoot = page.locator('[data-revc-svg-overlay-root="1"]');
   const paneRoots = page.locator('[data-revc-svg-pane-root="1"]');
   await expect(svg).toHaveAttribute('aria-pressed', 'true');
-  await expect(overlayRoot).toHaveCount(1); await expect(webglCanvas).toHaveCount(0);
+  await expect(overlayRoot).toHaveCount(1);
+  await expect(webglCanvas).toHaveCount(0);
   const authoritativeBefore = await auditEvidence(page);
   const fitsBeforeNavigation = (await viewerSnapshot(page)).fitCounts;
-  await pan(page, overlayRoot); await zoom(page, overlayRoot);
+  await pan(page, overlayRoot);
+  await zoom(page, overlayRoot);
   const overlayView = transform(await viewerSnapshot(page), 'overlay');
   expect(overlayView.zoom).toBeGreaterThan(1);
 
-  await sideButton.click(); await expect(overlayRoot).toHaveCount(0); await expect(paneRoots).toHaveCount(2);
+  await sideButton.click();
+  await expect(overlayRoot).toHaveCount(0);
+  await expect(paneRoots).toHaveCount(2);
   let snapshot = await viewerSnapshot(page);
-  expect(snapshot.resources).toEqual({ roots: 2, observers: 1, selectionSubscriptions: 2, viewportListeners: 12 });
+  expect(snapshot.resources).toEqual({
+    roots: 2,
+    observers: 1,
+    selectionSubscriptions: 2,
+    viewportListeners: 14,
+  });
+  await expect(page.locator('[data-revc-svg-keyboard-surface]')).toHaveCount(2);
+  await expect(page.locator('[data-revc-svg-keyboard-instructions]')).toHaveCount(2);
   expect(await paneRoots.nth(0).getAttribute('viewBox')).toBe(await paneRoots.nth(1).getAttribute('viewBox'));
-  await pan(page, paneRoots.nth(0), 50, -20); await zoom(page, paneRoots.nth(1), -360);
+  await pan(page, paneRoots.nth(0), 50, -20);
+  await zoom(page, paneRoots.nth(1), -360);
   expect(await paneRoots.nth(0).getAttribute('viewBox')).toBe(await paneRoots.nth(1).getAttribute('viewBox'));
-  await selectAndProve(page, 'CHANGED'); await selectAndProve(page, 'ADDED'); await selectAndProve(page, 'REMOVED');
+  await selectAndProve(page, 'CHANGED');
+  await selectAndProve(page, 'ADDED');
+  await selectAndProve(page, 'REMOVED');
 
   const ambiguous = await page.evaluate(() => window.rcHandle.evidence().state.compare.audit.differenceRows
     .find((row) => row.matchCertainty === 'AMBIGUOUS').differenceId);
@@ -133,13 +169,18 @@ test('RC-SVG-001B links panes, viewport history, exact evidence and backend life
   expect(snapshot.fitCounts.selection).toBe(fitsBeforeNavigation.selection + 1);
   expect(snapshot.fitCounts.all).toBe(fitsBeforeNavigation.all + 1);
 
-  await overlayButton.click(); await expect(overlayRoot).toHaveCount(1);
+  await overlayButton.click();
+  await expect(overlayRoot).toHaveCount(1);
   expect(transform(await viewerSnapshot(page), 'overlay')).toEqual(overlayView);
-  await sideButton.click(); await expect(paneRoots).toHaveCount(2);
+  await sideButton.click();
+  await expect(paneRoots).toHaveCount(2);
   await pan(page, paneRoots.nth(0), 35, 10);
   const restoredSide = transform(await viewerSnapshot(page), 'side-by-side');
-  await webgl.click(); await expect(webglCanvas).toHaveCount(1); await expect(paneRoots).toHaveCount(0);
-  await svg.click(); await expect(paneRoots).toHaveCount(2);
+  await webgl.click();
+  await expect(webglCanvas).toHaveCount(1);
+  await expect(paneRoots).toHaveCount(0);
+  await svg.click();
+  await expect(paneRoots).toHaveCount(2);
   expect(transform(await viewerSnapshot(page), 'side-by-side')).toEqual(restoredSide);
   expect(await auditEvidence(page)).toEqual(authoritativeBefore);
 
