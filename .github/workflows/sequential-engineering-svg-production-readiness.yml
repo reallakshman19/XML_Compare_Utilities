@@ -1,0 +1,218 @@
+name: Sequential Engineering SVG Production Readiness
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/architecture/sequential-engineering-svg/**'
+      - 'tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js'
+      - 'tests/sequential-engineering-svg-production-readiness.test.js'
+      - 'tests/sequential-engineering-svg-production-readiness-static.test.js'
+      - '.github/workflows/sequential-engineering-svg-production-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  production-adoption-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+      - name: Verify exact source head
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          sha_match=false
+          [[ "$actual_sha" == "$EXPECTED_SHA" ]] && sha_match=true
+          {
+            echo "actual_sha=$actual_sha"
+            echo "sha_match=$sha_match"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "$sha_match" != true ]]; then
+            echo "::error::Checked-out HEAD ${actual_sha} does not match ${EXPECTED_SHA}."
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Verify branch currency and allowed scope
+        id: scope
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --depth=1
+          behind="$(git rev-list --count HEAD..origin/main)"
+          [[ "$behind" == 0 ]] || { echo "::error::Branch is ${behind} commit(s) behind main."; exit 1; }
+          mapfile -t files < <(git diff --name-only origin/main...HEAD)
+          ((${#files[@]} > 0)) || { echo "::error::No readiness files changed."; exit 1; }
+          for file in "${files[@]}"; do
+            case "$file" in
+              docs/architecture/sequential-engineering-svg/*|\
+              tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js|\
+              tests/sequential-engineering-svg-production-readiness.test.js|\
+              tests/sequential-engineering-svg-production-readiness-static.test.js|\
+              .github/workflows/sequential-engineering-svg-production-readiness.yml) ;;
+              *) echo "::error::Forbidden changed file: $file"; exit 1 ;;
+            esac
+          done
+          printf '%s\n' "${files[@]}"
+      - name: Run readiness decision contracts
+        id: readiness
+        continue-on-error: true
+        run: |
+          node tests/sequential-engineering-svg-production-readiness.test.js
+          node tests/sequential-engineering-svg-production-readiness-static.test.js
+      - name: Run merged adapter and shadow contracts
+        id: shared
+        continue-on-error: true
+        run: |
+          node tests/sequential-engineering-svg-adapter.test.js
+          node tests/sequential-engineering-svg-parity.test.js
+          node tests/sequential-engineering-svg-shadow-ownership.test.js
+          node tests/sequential-engineering-svg-shadow-parity.test.js
+          node tests/sequential-engineering-svg-shadow-dependency-guard.test.js
+      - name: Run requested Sequential package script
+        id: requested_script
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts/sequential-engineering-svg-production-readiness
+          set +e
+          npm run test:sequential-sketcher \
+            > artifacts/sequential-engineering-svg-production-readiness/requested-package-script.log 2>&1
+          status=$?
+          set -e
+          cat artifacts/sequential-engineering-svg-production-readiness/requested-package-script.log
+          if (( status == 0 )); then
+            echo "result=success" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if grep -Eqi 'Missing script:.*test:sequential-sketcher' \
+            artifacts/sequential-engineering-svg-production-readiness/requested-package-script.log; then
+            echo "result=unavailable" >> "$GITHUB_OUTPUT"
+            echo "::notice::package.json does not define test:sequential-sketcher; running the authoritative focused suite directly."
+            exit 0
+          fi
+          echo "result=failed" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Run focused Sequential production regressions
+        id: focused_sequential
+        continue-on-error: true
+        run: |
+          node tests/sequential-sketcher-ui-static.test.js
+          node tests/sequential-sketcher-branch-switch-ui.test.js
+          node tests/sequential-construction-engine.test.js
+          node tests/sequential-attachment-event.test.js
+          node tests/sequential-zero-length-inline.test.js
+          node tests/sequential-head-boundary-gate.test.js
+          node tests/sequential-construction-acceptance.test.js
+          node tests/sequential-supervised-transactions.test.js
+          node tests/sequential-review-queue.test.js
+          node tests/sequential-workspace-persistence.test.js
+          node tests/sequential-continuity-geometry.test.js
+          node tests/sequential-construction-tolerance-policy.test.js
+          node tests/sequential-confirmed-support-projection.test.js
+      - name: Run JavaScript syntax and startup import checks
+        id: syntax
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/sequential-sketcher/sequential-engineering-svg-production-readiness.js
+          node --check tests/sequential-engineering-svg-production-readiness.test.js
+          node --check tests/sequential-engineering-svg-production-readiness-static.test.js
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+          done < <(find core tabs -type f -name '*.js' -print0 | sort -z)
+          node --check main-rhbg-fitguard.js
+          node tests/startup-module-syntax.test.js
+      - name: Run full repository tests
+        id: full_tests
+        continue-on-error: true
+        run: npm test
+      - name: Write exact-head readiness certification
+        if: always()
+        shell: bash
+        env:
+          ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
+          SCOPE_OUTCOME: ${{ steps.scope.outcome }}
+          READINESS_OUTCOME: ${{ steps.readiness.outcome }}
+          SHARED_OUTCOME: ${{ steps.shared.outcome }}
+          REQUESTED_SCRIPT_OUTCOME: ${{ steps.requested_script.outcome }}
+          REQUESTED_SCRIPT_RESULT: ${{ steps.requested_script.outputs.result }}
+          FOCUSED_OUTCOME: ${{ steps.focused_sequential.outcome }}
+          SYNTAX_OUTCOME: ${{ steps.syntax.outcome }}
+          FULL_OUTCOME: ${{ steps.full_tests.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/sequential-engineering-svg-production-readiness
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = 'artifacts/sequential-engineering-svg-production-readiness/decision.json';
+          const decision = JSON.parse(readFileSync(path, 'utf8'));
+          const certification = {
+            schema: 'SequentialEngineeringSvgProductionAdoptionCertification.v1',
+            workflowRunId: process.env.GITHUB_RUN_ID,
+            workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            expectedHeadSha: process.env.EXPECTED_SHA,
+            actualCheckedOutSha: process.env.ACTUAL_SHA,
+            shaMatch: process.env.SHA_MATCH === 'true',
+            readinessStatus: decision.status,
+            recommendedArchitecture: decision.recommendedArchitecture,
+            blockers: decision.blockers,
+            allowedProductionFiles: decision.allowedProductionFiles,
+            proposedNextMission: decision.proposedNextMission,
+            focusedTestOutcomes: {
+              allowedScope: process.env.SCOPE_OUTCOME,
+              readinessContracts: process.env.READINESS_OUTCOME,
+              existingAdapterAndShadow: process.env.SHARED_OUTCOME,
+              requestedSequentialPackageScriptStep: process.env.REQUESTED_SCRIPT_OUTCOME,
+              requestedSequentialPackageScriptResult: process.env.REQUESTED_SCRIPT_RESULT || 'unknown',
+              directSequentialRegressions: process.env.FOCUSED_OUTCOME,
+              syntaxAndStartup: process.env.SYNTAX_OUTCOME,
+            },
+            fullTestOutcome: process.env.FULL_OUTCOME,
+          };
+          writeFileSync(
+            'artifacts/sequential-engineering-svg-production-readiness/certification.json',
+            `${JSON.stringify(certification, null, 2)}\n`,
+          );
+          NODE
+      - name: Upload exact-head readiness artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequential-engineering-svg-production-readiness-${{ env.EXPECTED_SHA }}
+          path: artifacts/sequential-engineering-svg-production-readiness
+          if-no-files-found: error
+      - name: Enforce readiness evidence gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.scope.outcome }}' == success ]]
+          [[ '${{ steps.readiness.outcome }}' == success ]]
+          [[ '${{ steps.shared.outcome }}' == success ]]
+          [[ '${{ steps.requested_script.outcome }}' == success ]]
+          [[ '${{ steps.requested_script.outputs.result }}' == unavailable || \
+             '${{ steps.requested_script.outputs.result }}' == success ]]
+          [[ '${{ steps.focused_sequential.outcome }}' == success ]]
+          [[ '${{ steps.syntax.outcome }}' == success ]]
+          [[ '${{ steps.full_tests.outcome }}' == success ]]
