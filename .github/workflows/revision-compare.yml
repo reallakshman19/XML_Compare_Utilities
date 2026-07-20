@@ -84,6 +84,7 @@ jobs:
           node --check tabs/revision-compare/*.js
           node --check tests/browser/revision-compare-svg-preview.spec.mjs
           node --check tests/browser/revision-compare-property-evidence.spec.mjs
+          node --check tests/browser/revision-compare-property-lifecycle.spec.mjs
           node --check playwright.revision-compare.config.mjs
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
