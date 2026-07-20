@@ -181,8 +181,15 @@ test('RC-SVG-003-B01 — SVG-first backend policy', async ({ page }) => {
   await openWorkspace(page); await compare(page);
   await expect(page.getByText('Engineering SVG unavailable.').first()).toBeVisible();
   await expect(webglCanvas).toHaveCount(0);
+  const svgRecovery = page.getByRole('button', { name: 'Return to 3D (WebGL)' });
+  await expect(svgRecovery).toHaveCount(1);
   expect(await page.evaluate(() => window.rcHandle.evidence().viewer.mountRequests)).toEqual(['SVG']);
-  await page.getByRole('button', { name: 'Return to 3D (WebGL)' }).first().click();
+  await engineeringSvg.click();
+  await expect(page.getByText('Engineering SVG unavailable.').first()).toBeVisible();
+  await expect(svgRecovery).toHaveCount(1);
+  await expect(webglCanvas).toHaveCount(0);
+  expect(await page.evaluate(() => window.rcHandle.evidence().viewer.mountRequests)).toEqual(['SVG', 'SVG']);
+  await svgRecovery.click();
   await expect(webglCanvas).toHaveCount(1);
   await page.evaluate(() => { window.rcPolicyHarness.failSvg = false; });
   await engineeringSvg.click(); await expect(overlayRoot).toHaveCount(1);
@@ -190,7 +197,9 @@ test('RC-SVG-003-B01 — SVG-first backend policy', async ({ page }) => {
   await webgl.click();
   await expect(page.getByText('3D (WebGL) unavailable.').first()).toBeVisible();
   await expect(webglCanvas).toHaveCount(0); await expect(page.locator('[data-engineering-svg-root]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Return to Engineering SVG' }).first().click();
+  const webglRecovery = page.getByRole('button', { name: 'Return to Engineering SVG' });
+  await expect(webglRecovery).toHaveCount(1);
+  await webglRecovery.click();
   await expect(overlayRoot).toHaveCount(1); await expect(webglCanvas).toHaveCount(0);
   await closeWorkspace(page);
 
