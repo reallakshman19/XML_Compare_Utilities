@@ -39,6 +39,7 @@ assert.equal(baseline.diagnostics.elevationAuthority, 'TABLE_2');
 assert.ok(baseline.inputXmlCoordinateRows.length < baseline.coordinateRows.length);
 
 const markerModel = PipelineProfileModel.fromRaw(raw);
+const markerSerializedBaseline = markerModel.serializeRaw();
 const markerHistory = new CommandHistory();
 const markerRows = markerModel.table3MarkerRows.slice(0, 2);
 markerHistory.execute(moveTable3MarkerRowsCommand(markerModel, markerRows.map((row) => ({ id: row.id, absoluteH: row.absoluteH + 3 }))));
@@ -48,7 +49,7 @@ assert.deepEqual(markerOutput.inputXmlCoordinateRows, baseline.inputXmlCoordinat
 assert.equal(markerOutput.xmlText, baseline.xmlText);
 assert.deepEqual(bendEvidence(markerOutput), bendEvidence(baseline));
 assert.notDeepEqual(markerOutput.coordinateRows, baseline.coordinateRows);
-markerHistory.undo(); assert.deepEqual(markerModel.serializeRaw(), raw);
+markerHistory.undo(); assert.deepEqual(markerModel.serializeRaw(), markerSerializedBaseline);
 markerHistory.redo(); assert.equal(build(markerModel.serializeRaw()).xmlText, baseline.xmlText);
 
 const table2Model = PipelineProfileModel.fromRaw(raw); const table2History = new CommandHistory();

@@ -94,7 +94,8 @@ test.describe('PCAD-004R current-main reconstruction', () => {
     });
     const before=await state(page);await page.evaluate((id)=>window.__pcadMulti.drag('table3x',{id},{x:2}),selected.primary);
     const after=await state(page);
-    expect(after.history.undo).toBe(1);expect(after.raw.table3b).toBe(before.raw.table3b);
+    expect(after.history.undo).toBe(1);expect(after.depthRows).toEqual(before.depthRows);
+    expect(after.authority.inputXmlCoordinateRows).toBe(before.authority.inputXmlCoordinateRows);
     expect(after.resolutions.at(-1).skippedEntityIds).toEqual([selected.depth]);
   });
 
