@@ -1,9 +1,12 @@
 /** Immutable RC-002 comparison lifecycle and visual-review UI state. */
 import { deepFreeze } from './revision-contract-utils.js';
 import {
-  REVISION_COMPARE_VIEWER_BACKEND,
   normalizeRevisionCompareViewerBackend,
 } from './revision-compare-viewer-backend.js';
+import {
+  REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
+  createRevisionCompareViewerPolicy,
+} from './revision-compare-viewer-policy.js';
 
 export const COMPARE_STATUS = Object.freeze({
   IDLE: 'IDLE', READY: 'READY', PROJECTING: 'PROJECTING', COMPARING: 'COMPARING',
@@ -12,11 +15,12 @@ export const COMPARE_STATUS = Object.freeze({
 function defaultQueue() {
   return deepFreeze({ categories: ['CHANGED', 'ADDED', 'REMOVED'], needsDecisionOnly: false, changedReasons: ['GEOMETRY', 'PROPERTIES', 'CONNECTIVITY', 'SUPPORT_HIERARCHY'], search: '' });
 }
-export function createComparisonLifecycleState() {
+export function createComparisonLifecycleState(viewerPolicy = REVISION_COMPARE_DEFAULT_VIEWER_POLICY) {
+  const policy = createRevisionCompareViewerPolicy(viewerPolicy);
   return deepFreeze({
     schema: 'RevisionCompareLifecycle.v1', status: COMPARE_STATUS.IDLE, runGeneration: 0, runId: null,
-    progress: null, audit: null, auditBasisId: null, error: null, presentationMode: 'overlay',
-    viewerBackend: REVISION_COMPARE_VIEWER_BACKEND.WEBGL,
+    progress: null, audit: null, auditBasisId: null, error: null,
+    presentationMode: policy.defaultSvgPresentation, viewerBackend: policy.defaultBackend, viewerPolicy: policy,
     queue: defaultQueue(), selectedDifferenceId: null, reviewVisible: false,
   });
 }
