@@ -9,6 +9,7 @@ on:
       - 'core/engineering-svg/engineering-svg-inspector-model.js'
       - 'core/engineering-svg/engineering-svg-property-inspector-view.js'
       - 'core/engineering-svg/engineering-svg-workspace-shell.js'
+      - 'core/engineering-svg/shell-runtime.js'
       - 'tests/engineering-scene-contracts.test.js'
       - 'tests/engineering-scene-validation.test.js'
       - 'tests/engineering-svg-edit-properties.test.js'
@@ -77,6 +78,19 @@ jobs:
       - name: Read-only dependency guards
         id: dependency_guards
         run: node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+
+      - name: Preserve merged Engineering SVG foundations
+        id: merged_foundations
+        run: |
+          node tests/engineering-svg-workspace.test.js
+          node tests/engineering-svg-edit-command-gateway.test.js
+          node tests/engineering-svg-edit-coordinator.test.js
+          node tests/engineering-svg-precision-constraint-solver.test.js
+          node tests/engineering-svg-snap-acquisition.test.js
+          node tests/engineering-svg-interaction-session.test.js
+          node tests/engineering-svg-interaction-feedback.test.js
+          node tests/engineering-svg-adapter-conformance.test.js
+          node tests/engineering-svg-shell-dependency-guard.test.js
 
       - name: Changed property pipeline JavaScript syntax
         id: syntax
