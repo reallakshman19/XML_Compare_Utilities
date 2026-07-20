@@ -9,10 +9,13 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
+  outputDir: 'test-results/engineering-svg-readonly-shell',
   use: {
     baseURL: 'http://127.0.0.1:4189',
     browserName: 'chromium',
     headless: true,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   webServer: {
     command: 'python3 -m http.server 4189 --bind 127.0.0.1',
