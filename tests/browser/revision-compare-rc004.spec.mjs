@@ -27,7 +27,7 @@ async function installViewer(page) {
         dispose() { window.rcViewerLog.disposed += 1; canvas.remove(); },
       };
     };
-    window.rcMountOptions = { viewerAdapterOptions: { viewerFactory } };
+    window.rcMountOptions = { viewerAdapterOptions: { viewerFactory, svgViewerFactory: viewerFactory } };
   });
 }
 async function openAndCompare(page) {
