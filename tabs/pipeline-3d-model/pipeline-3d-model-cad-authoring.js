@@ -1,25 +1,15 @@
 import { GraphTool } from './pipeline-3d-model-interactive-graph.js';
 import { Table2XCanvas } from './pipeline-3d-model-table2x-canvas.js';
 import { Table3XCanvas } from './pipeline-3d-model-table3x-canvas.js';
-import { deleteProfileRowCommand } from './pipeline-3d-model-cad-commands.js';
+import { createPipelineCadBatchController } from './pipeline-3d-model-cad-batch-controller.js';
 import {
-  describePipelineCadSnapSettings,
-  loadPipelineCadSnapSettings,
-  normalizePipelineCadSnapSettings,
-  savePipelineCadSnapSettings,
-  snapTable2Elevation,
-  snapTable2Station,
-  snapTable3Cumulative,
-  snapTable3Depth,
+  describePipelineCadSnapSettings, loadPipelineCadSnapSettings, normalizePipelineCadSnapSettings,
+  savePipelineCadSnapSettings, snapTable2Elevation, snapTable2Station, snapTable3Cumulative, snapTable3Depth,
 } from './pipeline-3d-model-cad-snap.js';
-import {
-  PipelineCadShortcut,
-  pipelineCadShortcutLabel,
-  resolvePipelineCadShortcut,
-} from './pipeline-3d-model-cad-shortcuts.js';
+import { PipelineCadShortcut, pipelineCadShortcutLabel, resolvePipelineCadShortcut } from './pipeline-3d-model-cad-shortcuts.js';
 
-const TABLE2_PATCH = Symbol.for('pipeline3d.cad.authoring.table2.v2');
-const TABLE3_PATCH = Symbol.for('pipeline3d.cad.authoring.table3.v2');
+const TABLE2_PATCH = Symbol.for('pipeline3d.cad.authoring.table2.v3');
+const TABLE3_PATCH = Symbol.for('pipeline3d.cad.authoring.table3.v3');
 const STYLE_ID = 'pipeline-3d-cad-authoring-style';
 
 function ensureSnapState(graph) {
@@ -35,15 +25,12 @@ function setSnapSettings(settings) {
 }
 
 function composedWorld(graph, context, fallback) {
-  return typeof graph.composePipelineCadPointerWorld === 'function'
-    ? graph.composePipelineCadPointerWorld(context)
-    : fallback();
+  return typeof graph.composePipelineCadPointerWorld === 'function' ? graph.composePipelineCadPointerWorld(context) : fallback();
 }
 
 function table2World(graph, event, screen, world, phase) {
-  return composedWorld(graph, { graphName: 'table2x', event, screen, world, phase }, () => graph.draggingId
-    ? { ...world, y: snapTable2Elevation(world.y, ensureSnapState(graph)) }
-    : world);
+  return composedWorld(graph, { graphName: 'table2x', event, screen, world, phase }, () => graph.dragging
+    ? { ...world, y: snapTable2Elevation(world.y, ensureSnapState(graph)) } : world);
 }
 
 function table2Added(graph, detail) {
@@ -74,18 +61,16 @@ function patchTable2() {
   }
   const dispatch = prototype.dispatchGraphEvent;
   prototype.dispatchGraphEvent = function snappedDispatch(type, detail = {}) {
-    if (type === 'nodeAdded' && detail.graph === 'table2x') detail = table2Added(this, detail);
-    return dispatch.call(this, type, detail);
+    return dispatch.call(this, type, type === 'nodeAdded' && detail.graph === 'table2x' ? table2Added(this, detail) : detail);
   };
   return true;
 }
 
 function table3World(graph, event, screen, world, phase) {
   return composedWorld(graph, { graphName: 'table3x', event, screen, world, phase }, () => {
-    const settings = ensureSnapState(graph);
-    const next = { ...world };
-    const marker = graph.dragging?.type === 'marker' || graph.tool === GraphTool.ADD_MARKER;
-    const depth = graph.dragging?.type === 'depth-node' || graph.tool === GraphTool.ADD_NODE;
+    const settings = ensureSnapState(graph); const next = { ...world };
+    const marker = graph.dragging?.entityType === 'marker' || graph.tool === GraphTool.ADD_MARKER;
+    const depth = graph.dragging?.entityType === 'depth-node' || graph.tool === GraphTool.ADD_NODE;
     if (marker || depth) next.x = snapTable3Cumulative(world.x, graph.model, settings);
     if (depth) next.y = snapTable3Depth(world.y, settings);
     return next;
@@ -113,8 +98,7 @@ export function installPipelineCadAuthoringPatches() {
 
 function ensureStyle(doc) {
   if (!doc?.head || doc.getElementById(STYLE_ID)) return;
-  const style = doc.createElement('style');
-  style.id = STYLE_ID;
+  const style = doc.createElement('style'); style.id = STYLE_ID;
   style.textContent = `.p3d-cad-toolbar button[data-p3d-cad-snap][aria-pressed="true"]{background:#a78bfa;color:#2e1065;border-color:#c4b5fd;font-weight:700}.p3d-cad-context-menu{position:absolute;z-index:20;display:flex;min-width:120px;flex-direction:column;gap:3px;padding:5px;border:1px solid #475569;border-radius:7px;background:#0f172a;box-shadow:0 10px 28px #0008}.p3d-cad-context-menu[hidden]{display:none}.p3d-cad-context-menu button{background:#1e293b;color:#e2e8f0;border:1px solid #475569;padding:6px 9px;text-align:left}`;
   doc.head.appendChild(style);
 }
@@ -132,9 +116,7 @@ function updateSnapControls(stage, graph, storage) {
 
 function setTool(stage, graph, tool) {
   graph.setTool(tool);
-  stage.querySelectorAll('[data-p3d-cad-tool]').forEach((button) => {
-    button.setAttribute('aria-pressed', button.dataset.p3dCadTool === tool ? 'true' : 'false');
-  });
+  stage.querySelectorAll('[data-p3d-cad-tool]').forEach((button) => button.setAttribute('aria-pressed', button.dataset.p3dCadTool === tool ? 'true' : 'false'));
 }
 
 function executeShortcut(action, state) {
@@ -158,90 +140,72 @@ function executeShortcut(action, state) {
   return true;
 }
 
+function selectAllShortcut(event, graph) {
+  const key = String(event.key || '').toLowerCase();
+  if (!(event.ctrlKey || event.metaKey) || key !== 'a') return false;
+  graph.selectAllPipelineCad?.(); event.preventDefault(); return true;
+}
+
 function mountStage(state) {
-  const { stage, graph, storage } = state;
-  const canvas = graph.canvas;
+  const { stage, graph, storage } = state; const canvas = graph.canvas;
   graph.setSnapSettings(loadPipelineCadSnapSettings(state.name, storage));
-  const toolbar = stage.querySelector('.p3d-cad-toolbar');
-  const separator = toolbar?.querySelector('.p3d-cad-toolbar-separator');
-  if (separator && !toolbar.querySelector('[data-p3d-cad-snap]')) {
-    separator.insertAdjacentHTML('beforebegin', '<button type="button" data-p3d-cad-snap="grid" aria-pressed="false">Grid Snap</button><button type="button" data-p3d-cad-snap="station" aria-pressed="false">Station Snap</button><span data-p3d-cad-snap-hint></span>');
-  }
-  const menu = stage.ownerDocument.createElement('div');
-  menu.className = 'p3d-cad-context-menu';
-  menu.hidden = true;
-  menu.innerHTML = '<button type="button" data-p3d-cad-context-action="edit">Edit value / label</button><button type="button" data-p3d-cad-context-action="delete">Delete</button>';
-  stage.appendChild(menu);
-  let hit = null;
-  let contextClient = null;
+  const toolbar = stage.querySelector('.p3d-cad-toolbar'); const separator = toolbar?.querySelector('.p3d-cad-toolbar-separator');
+  if (separator && !toolbar.querySelector('[data-p3d-cad-snap]')) separator.insertAdjacentHTML('beforebegin', '<button type="button" data-p3d-cad-snap="grid" aria-pressed="false">Grid Snap</button><button type="button" data-p3d-cad-snap="station" aria-pressed="false">Station Snap</button><span data-p3d-cad-snap-hint></span>');
+  const menu = stage.ownerDocument.createElement('div'); menu.className = 'p3d-cad-context-menu'; menu.hidden = true;
+  menu.innerHTML = '<button type="button" data-p3d-cad-context-action="edit">Edit value / label</button><button type="button" data-p3d-cad-context-action="delete">Delete</button>'; stage.appendChild(menu);
+  let hit = null; let contextClient = null;
   const onToolbar = (event) => {
-    const button = event.target?.closest?.('[data-p3d-cad-snap]');
-    if (!button) return;
+    const button = event.target?.closest?.('[data-p3d-cad-snap]'); if (!button) return;
     const key = button.dataset.p3dCadSnap === 'grid' ? 'gridEnabled' : 'stationEnabled';
-    graph.setSnapSettings({ [key]: !ensureSnapState(graph)[key] });
-    updateSnapControls(stage, graph, storage);
+    graph.setSnapSettings({ [key]: !ensureSnapState(graph)[key] }); updateSnapControls(stage, graph, storage);
   };
   const onKey = (event) => {
+    if (selectAllShortcut(event, graph)) return;
     const action = resolvePipelineCadShortcut(event, state.name);
     if (action && executeShortcut(action, state)) event.preventDefault();
   };
   const onContext = (event) => {
-    const screen = graph.eventToScreen(event);
-    hit = graph.hitTest(screen);
-    if (!hit) return;
-    event.preventDefault();
-    contextClient = { x: event.clientX, y: event.clientY };
-    state.select({ graph: state.name, entityId: hit.node.id, entityType: hit.type });
+    const screen = graph.eventToScreen(event); hit = graph.hitTest(screen); if (!hit) return;
+    event.preventDefault(); contextClient = { x: event.clientX, y: event.clientY };
+    if (!graph.pipelineCadSelectionContains?.(hit.node.id)) graph.selectPipelineCadHit?.(hit, {}, 'context');
     menu.style.left = `${screen.x}px`; menu.style.top = `${screen.y}px`; menu.hidden = false;
   };
   const onMenu = (event) => {
     const action = event.target?.dataset?.p3dCadContextAction;
     if (action === 'delete') state.deleteSelection();
-    if (action === 'edit' && hit && contextClient) {
-      canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: contextClient.x, clientY: contextClient.y }));
-    }
+    if (action === 'edit' && hit && contextClient) canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: contextClient.x, clientY: contextClient.y }));
     hit = null; contextClient = null; menu.hidden = true;
   };
-  toolbar?.addEventListener('click', onToolbar);
-  canvas.addEventListener('keydown', onKey);
-  canvas.addEventListener('contextmenu', onContext);
-  menu.addEventListener('click', onMenu);
+  toolbar?.addEventListener('click', onToolbar); canvas.addEventListener('keydown', onKey); canvas.addEventListener('contextmenu', onContext); menu.addEventListener('click', onMenu);
   updateSnapControls(stage, graph, storage);
-  return () => {
-    toolbar?.removeEventListener('click', onToolbar);
-    canvas.removeEventListener('keydown', onKey);
-    canvas.removeEventListener('contextmenu', onContext);
-    menu.removeEventListener('click', onMenu);
-    menu.remove();
-  };
+  return () => { toolbar?.removeEventListener('click', onToolbar); canvas.removeEventListener('keydown', onKey); canvas.removeEventListener('contextmenu', onContext); menu.removeEventListener('click', onMenu); menu.remove(); };
 }
 
 export function mountPipelineCadAuthoring(options = {}) {
   installPipelineCadAuthoringPatches();
-  const { stages, graphs, controller } = options;
-  const storage = options.storage ?? globalThis.localStorage;
+  const { stages, graphs, controller } = options; const storage = options.storage ?? globalThis.localStorage;
   ensureStyle(stages.table2x.ownerDocument || globalThis.document);
-  let selection = null;
-  const select = (detail) => {
-    selection = detail;
-    if (detail.graph === 'table2x') graphs.table2x.selectedId = detail.entityId;
-    else graphs.table3x.selected = { id: detail.entityId, type: detail.entityType };
-    graphs[detail.graph]?.render?.();
+  const batch = createPipelineCadBatchController({ controller, graphs }); let selection = null; let activeGraph = null; let destroyed = false;
+  const deleteSelection = () => batch.deleteSelection(selection).committed;
+  const cleanups = Object.keys(graphs).map((name) => mountStage({ name, stage: stages[name], graph: graphs[name], controller, storage, deleteSelection }));
+  const onSelection = (event) => {
+    const detail = event.detail || {}; if (!detail.graph) return;
+    if (detail.count > 0 && activeGraph && activeGraph !== detail.graph) graphs[activeGraph].clearPipelineCadSelection?.('active-graph-change');
+    if (detail.count > 0) { activeGraph = detail.graph; selection = graphs[detail.graph].selection; }
+    else if (activeGraph === detail.graph) { selection = null; activeGraph = null; }
   };
-  const deleteSelection = () => {
-    if (!selection?.entityId || !controller.model?.findRow?.(selection.entityId)) return false;
-    const changed = controller.execute(deleteProfileRowCommand(controller.model, selection.entityId), 'delete-selected-profile-row');
-    selection = null;
-    return changed;
-  };
-  const cleanups = Object.keys(graphs).map((name) => mountStage({ name, stage: stages[name], graph: graphs[name], controller, storage, select, deleteSelection }));
-  const onSelection = (event) => { if (event.detail?.entityId) select(event.detail); };
   Object.values(graphs).forEach((graph) => graph.addEventListener('selectionChanged', onSelection));
+  const setMode = (mode) => {
+    const enabled = mode !== 'overlay'; Object.values(graphs).forEach((graph) => graph.setPipelineCadSelectionEnabled?.(enabled));
+    if (!enabled) { selection = null; activeGraph = null; }
+    return enabled;
+  };
   return Object.freeze({
+    batch, setMode, getSelection: () => selection, getActiveGraph: () => activeGraph, deleteSelection,
     destroy() {
+      if (destroyed) return false; destroyed = true;
       Object.values(graphs).forEach((graph) => graph.removeEventListener('selectionChanged', onSelection));
-      cleanups.splice(0).forEach((dispose) => dispose());
-      return true;
+      batch.destroy(); cleanups.splice(0).forEach((dispose) => dispose()); selection = null; activeGraph = null; return true;
     },
   });
 }

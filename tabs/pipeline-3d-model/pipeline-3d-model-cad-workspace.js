@@ -9,6 +9,7 @@ import { mountPipelineCadObjectSnap } from './pipeline-3d-model-cad-object-snap-
 import { createPipelineCadViewportHost } from './pipeline-3d-model-cad-viewport-host.js';
 import { mountPipelineCadViewportShell } from './pipeline-3d-model-cad-viewport-shell.js';
 import { mountPipelineCadPreviewModes } from './pipeline-3d-model-cad-preview-modes.js';
+import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { preparePipelineCadPreviewView } from './pipeline-3d-model-cad-preview-mode-view.js';
 import {
   ExplicitPipelineCanvasManager,
@@ -22,11 +23,6 @@ import {
 } from './pipeline-3d-model-cad-workspace-view.js';
 
 export { buildPipelineCadStageHtml, isPipelineCadCanvasEnabled, setPipelineCadCanvasEnabled };
-
-// Static contract retained for the established source gate:
-// ['select', 'Select']; ['add-node', isTable3 ? 'Add Z' : 'Add V']; ['add-marker', 'Add Marker'].
-// data-p3d-cad-tool; data-p3d-cad-action="reload"; data-p3d-cad-action="undo"; data-p3d-cad-action="redo".
-// dblclick; new-multisheet; data-p3d-split-add; pipelineCadCanvas.
 
 const WORKSPACES = new WeakMap();
 const INSTALLERS = new WeakMap();
@@ -63,6 +59,7 @@ function destroyParts(parts) {
   parts.objectSnap?.destroy?.();
   parts.shell?.destroy?.();
   parts.diagnostics?.destroy?.();
+  parts.precision?.destroy?.();
   Object.values(parts.hosts || {}).forEach((host) => host.dispose?.());
   parts.authoring?.destroy?.();
   parts.canvasManager?.destroy?.();
@@ -89,6 +86,7 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
   const authoring = mountPipelineCadAuthoring({ stages: view.stages, graphs, controller, storage: options.storage });
   const modal = dialog.querySelector('[data-p3d-split="x-modal"]');
   const engineeringReview = modal ? mountPipelineCadEngineeringReview({ dialog, graphs, controller }) : null;
+  const precision = modal ? mountPipelineCadPrecisionEditing({ dialog, graphs, stages: view.stages, controller, mode: 'table2x' }) : null;
   const hosts = createHosts(graphs);
   const resize = () => view.resize(graphs);
   const canMountPreview = Boolean(modal?.querySelector('.p3d-x-tabs') && modal.querySelector(':scope > .p3d-x-content'));
@@ -119,11 +117,15 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     const mode = event.detail?.mode || 'table2x';
     shell?.setMode(mode);
     objectSnap?.setMode(mode);
+    authoring.setMode(mode);
+    precision?.setMode(mode);
   };
   previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
   if (shell && previewModes) {
     shell.setMode(previewModes.mode);
     objectSnap?.setMode(previewModes.mode);
+    authoring.setMode(previewModes.mode);
+    precision?.setMode(previewModes.mode);
   }
   const bindings = bindPipelineCadWorkspace({
     dialog,
@@ -142,7 +144,7 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     target,
   });
   const parts = {
-    view, graphs, controller, canvasManager, authoring, engineeringReview,
+    view, graphs, controller, canvasManager, authoring, precision, engineeringReview,
     previewView, hosts, shell, objectSnap, previewModes, bindings, diagnostics,
   };
   const mountId = ++mountSequence;
@@ -158,6 +160,8 @@ export function mountPipelineCadWorkspace(dialog, options = {}) {
     objectSnap,
     previewModes,
     diagnostics,
+    authoring,
+    precision,
     resize,
     reloadGraphs: () => controller.reloadGraphs(),
     destroy() {

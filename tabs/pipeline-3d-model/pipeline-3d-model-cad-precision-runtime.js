@@ -7,9 +7,12 @@ function bind(target, type, listener, cleanup, options) {
 }
 
 function identityFromDetail(detail = {}) {
+  const count = Number(detail.count ?? (detail.entityId ? 1 : 0));
+  if (count !== 1) return null;
   const graph = detail.graph;
-  const entityId = detail.entityId;
-  const entityType = detail.entityType || (graph === 'table2x' ? 'elevation-node' : 'depth-node');
+  const entityId = detail.primaryId || detail.entityId;
+  const selected = detail.items?.find?.((item) => item.entityId === entityId);
+  const entityType = selected?.entityType || detail.entityType || (graph === 'table2x' ? 'elevation-node' : 'depth-node');
   if (!graph || !entityId) return null;
   return Object.freeze({ graph, entityId, entityType });
 }
@@ -92,16 +95,19 @@ function bindPanel(state, name) {
 
 function bindGraph(state, name) {
   const graph = state.graphs[name];
-  bind(graph, 'selectionChanged', (event) => openIdentity(state, identityFromDetail(event.detail), 'typed'), state.cleanup);
+  bind(graph, 'selectionChanged', (event) => {
+    const identity = identityFromDetail(event.detail);
+    if (!identity) { state.sessions.close(); state.view.close(); return; }
+    openIdentity(state, identity, 'typed');
+  }, state.cleanup);
   bind(graph.canvas, 'dblclick', (event) => {
     const hit = graph.hitTest(graph.eventToScreen(event));
     if (!hit || state.disabled) return;
     event.preventDefault();
-    const identity = { graph: name, entityId: hit.node.id, entityType: hit.type };
-    if (name === 'table2x') graph.selectedId = hit.node.id;
-    else graph.selected = { id: hit.node.id, type: hit.type };
-    graph.render();
-    openIdentity(state, identity, 'context');
+    graph.setPipelineCadSelection?.([{ graph: name, entityId: hit.node.id, entityType: hit.type }], {
+      primaryId: hit.node.id, source: 'precision-context',
+    });
+    openIdentity(state, { graph: name, entityId: hit.node.id, entityType: hit.type }, 'context');
   }, state.cleanup, true);
   bind(graph, 'nodePreviewMoved', (event) => {
     const identity = state.sessions.identity;
