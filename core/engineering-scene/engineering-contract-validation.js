@@ -95,8 +95,12 @@ function propertyValueErrors(field, path, name) {
   const value = field?.[name];
   const key = String(field?.key || 'unknown');
   const target = `${path}.${name}`;
-  if (value == null) return [];
   const errors = [];
+  if (value === undefined) {
+    errors.push(`${target} cannot be undefined for property "${key}"`);
+    return errors;
+  }
+  if (value === null) return errors;
   if (field?.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) errors.push(`${target} must be finite for property "${key}"`);
   if (field?.type === 'boolean' && typeof value !== 'boolean') errors.push(`${target} must be boolean for property "${key}"`);
   if (['text', 'enum'].includes(field?.type) && typeof value !== 'string') errors.push(`${target} must be text for property "${key}"`);
@@ -148,9 +152,9 @@ export function validateEngineeringScene(scene) {
 }
 
 export function validateEngineeringPropertyField(field) {
-  assertJsonValue(field);
   const errors = propertyFieldErrors(field);
   throwErrors('EngineeringPropertyField', errors);
+  assertJsonValue(field);
   return field;
 }
 
@@ -166,7 +170,6 @@ export function validateEngineeringPropertyAggregate(value) {
 }
 
 export function validateEngineeringPropertySet(value) {
-  assertJsonValue(value);
   const errors = [];
   if (value?.schema !== ENGINEERING_PROPERTY_SET_SCHEMA) errors.push('schema is invalid');
   if (!String(value?.id || '').trim()) errors.push('id is required');
@@ -182,6 +185,7 @@ export function validateEngineeringPropertySet(value) {
     });
   }
   throwErrors('EngineeringPropertySet', errors);
+  assertJsonValue(value);
   return value;
 }
 
