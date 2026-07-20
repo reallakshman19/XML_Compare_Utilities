@@ -3,11 +3,21 @@ name: Engineering SVG Read-only Shell
 on:
   pull_request:
     paths:
+      - 'core/engineering-scene/engineering-property-contracts.js'
+      - 'core/engineering-scene/engineering-contract-validation.js'
+      - 'core/engineering-svg/engineering-svg-property-runtime.js'
+      - 'core/engineering-svg/engineering-svg-inspector-model.js'
+      - 'core/engineering-svg/engineering-svg-property-inspector-view.js'
       - 'core/engineering-svg/engineering-svg-workspace-shell.js'
-      - 'core/engineering-svg/shell-runtime.js'
+      - 'tests/engineering-scene-contracts.test.js'
+      - 'tests/engineering-scene-validation.test.js'
+      - 'tests/engineering-svg-edit-properties.test.js'
+      - 'tests/engineering-svg-overlay-inspector.test.js'
+      - 'tests/engineering-svg-property-history.test.js'
       - 'tests/engineering-svg-readonly-shell-*.test.js'
       - 'tests/browser/engineering-svg-readonly-shell-*'
       - 'playwright.engineering-svg-readonly-shell.config.mjs'
+      - 'package.json'
       - '.github/workflows/engineering-svg-readonly-shell.yml'
   workflow_dispatch:
 
@@ -17,50 +27,157 @@ permissions:
 jobs:
   readonly-and-editable-shells:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact checked-out SHA
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          printf 'expected=%s\nactual=%s\n' "$EXPECTED_SHA" "$actual_sha"
+          echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
+          test "$actual_sha" = "$EXPECTED_SHA"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run merged engineering SVG foundations
+          cache: npm
+
+      - name: Install repository dependencies
+        id: dependencies
+        run: npm ci
+
+      - name: Engineering Scene contracts
+        id: contracts
+        run: node tests/engineering-scene-contracts.test.js
+
+      - name: Engineering Scene structural validation
+        id: validation
+        run: node tests/engineering-scene-validation.test.js
+
+      - name: Property runtime and inspector regressions
+        id: property_runtime
         run: |
-          node tests/engineering-scene-contracts.test.js
-          node tests/engineering-scene-validation.test.js
-          node tests/engineering-svg-workspace.test.js
-          node tests/engineering-svg-edit-command-gateway.test.js
           node tests/engineering-svg-edit-properties.test.js
-          node tests/engineering-svg-edit-coordinator.test.js
           node tests/engineering-svg-overlay-inspector.test.js
-          node tests/engineering-svg-precision-constraint-solver.test.js
-          node tests/engineering-svg-snap-acquisition.test.js
-          node tests/engineering-svg-interaction-session.test.js
-          node tests/engineering-svg-interaction-feedback.test.js
-          node tests/engineering-svg-adapter-conformance.test.js
-          node tests/engineering-svg-shell-dependency-guard.test.js
-          node tests/engineering-svg-readonly-shell-dependency-guard.test.js
-      - name: Install browser runtime
+
+      - name: Previous/current property history
+        id: property_history
+        run: node tests/engineering-svg-property-history.test.js
+
+      - name: Read-only dependency guards
+        id: dependency_guards
+        run: node tests/engineering-svg-readonly-shell-dependency-guard.test.js
+
+      - name: Changed property pipeline JavaScript syntax
+        id: syntax
         run: |
-          npm ci
-          npx playwright install --with-deps chromium
-      - name: Run existing editable shell acceptance
+          node --check core/engineering-scene/engineering-property-contracts.js
+          node --check core/engineering-scene/engineering-contract-validation.js
+          node --check core/engineering-svg/engineering-svg-property-runtime.js
+          node --check core/engineering-svg/engineering-svg-inspector-model.js
+          node --check core/engineering-svg/engineering-svg-property-inspector-view.js
+
+      - name: Install Chromium
+        id: chromium_install
+        run: npx playwright install --with-deps chromium
+
+      - name: Existing editable shell regressions
+        id: editable_shell
         run: npx playwright test --config=playwright.engineering-svg-shell.config.mjs
+
       - name: B01 viewer and output-only properties
+        id: b01
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B01'
+
+      - name: B02 keyboard selection and refresh
+        id: b02
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B02'
+
+      - name: B03 access-mode boundaries
+        id: b03
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B03'
+
+      - name: B04 two-viewer isolation
+        id: b04
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B04'
+
+      - name: B05 destroy and remount
+        id: b05
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B05'
+
+      - name: B06 previous/current property evidence
+        id: b06
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-PROP-B06'
+
+      - name: Full repository tests
+        id: full_repository
+        run: npm test
+
+      - name: Write exact-head certification evidence
+        if: always()
         env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/readonly-b01.json
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B01' --reporter=json
-      - name: Upload B01 failure evidence
+          ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          CONTRACTS: ${{ steps.contracts.outcome }}
+          VALIDATION: ${{ steps.validation.outcome }}
+          PROPERTY_RUNTIME: ${{ steps.property_runtime.outcome }}
+          PROPERTY_HISTORY: ${{ steps.property_history.outcome }}
+          EDITABLE_SHELL: ${{ steps.editable_shell.outcome }}
+          B01: ${{ steps.b01.outcome }}
+          B02: ${{ steps.b02.outcome }}
+          B03: ${{ steps.b03.outcome }}
+          B04: ${{ steps.b04.outcome }}
+          B05: ${{ steps.b05.outcome }}
+          B06: ${{ steps.b06.outcome }}
+          FULL_REPOSITORY: ${{ steps.full_repository.outcome }}
+        run: |
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const evidence = {
+            schema: 'EngineeringSvgPropertyHistoryCertification.v1',
+            expectedSha: process.env.EXPECTED_SHA,
+            actualSha: process.env.ACTUAL_SHA || null,
+            shaMatch: process.env.ACTUAL_SHA === process.env.EXPECTED_SHA,
+            contracts: process.env.CONTRACTS,
+            validation: process.env.VALIDATION,
+            propertyRuntime: process.env.PROPERTY_RUNTIME,
+            propertyHistory: process.env.PROPERTY_HISTORY,
+            editableShell: process.env.EDITABLE_SHELL,
+            B01: process.env.B01,
+            B02: process.env.B02,
+            B03: process.env.B03,
+            B04: process.env.B04,
+            B05: process.env.B05,
+            B06: process.env.B06,
+            fullRepositoryTests: process.env.FULL_REPOSITORY,
+          };
+          writeFileSync('artifacts/engineering-svg-property-history-certification.json', `${JSON.stringify(evidence, null, 2)}\n`);
+          NODE
+
+      - name: Upload exact-head certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineering-svg-property-history-certification-${{ env.EXPECTED_SHA }}
+          path: artifacts/engineering-svg-property-history-certification.json
+          if-no-files-found: error
+
+      - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: engineering-svg-readonly-shell-b01-failure
-          path: test-results
-          if-no-files-found: error
-      - name: B02 keyboard selection and refresh
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B02'
-      - name: B03 access-mode boundaries
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B03'
-      - name: B04 two-viewer isolation
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B04'
-      - name: B05 destroy and remount
-        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-READONLY-B05'
+          name: engineering-svg-property-history-failure-${{ env.EXPECTED_SHA }}
+          path: |
+            test-results/engineering-svg-readonly-shell
+            playwright-report
+          if-no-files-found: warn
