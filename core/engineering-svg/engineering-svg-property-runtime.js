@@ -20,6 +20,10 @@ function descriptorSignature(field) {
   });
 }
 
+function ownsPrevious(field) {
+  return Object.prototype.hasOwnProperty.call(field || {}, 'previousValue');
+}
+
 function fieldsForKey(propertySets, key, ownerId) {
   const owned = propertySets.flatMap((set) => (
     set.ownerIds.includes(ownerId) ? set.fields.filter((field) => field.key === key) : []
@@ -30,6 +34,19 @@ function fieldsForKey(propertySets, key, ownerId) {
   )));
 }
 
+function assertResolvedEvidence(candidates, key, ownerId) {
+  const first = candidates[0];
+  if (candidates.some((field) => !Object.is(field.value, first.value))) {
+    throw new TypeError(`Property "${key}" has conflicting values for owner "${ownerId}".`);
+  }
+  if (candidates.some((field) => ownsPrevious(field) !== ownsPrevious(first))) {
+    throw new TypeError(`Property "${key}" has conflicting previous-value presence for owner "${ownerId}".`);
+  }
+  if (ownsPrevious(first) && candidates.some((field) => !Object.is(field.previousValue, first.previousValue))) {
+    throw new TypeError(`Property "${key}" has conflicting previous values for owner "${ownerId}".`);
+  }
+}
+
 function resolveField(propertySets, key, ownerId) {
   const candidates = fieldsForKey(propertySets, key, ownerId);
   if (!candidates.length) return null;
@@ -37,9 +54,7 @@ function resolveField(propertySets, key, ownerId) {
   if (candidates.some((field) => descriptorSignature(field) !== signature)) {
     throw new TypeError(`Property "${key}" has conflicting descriptors for owner "${ownerId}".`);
   }
-  if (candidates.some((field) => !Object.is(field.value, candidates[0].value))) {
-    throw new TypeError(`Property "${key}" has conflicting values for owner "${ownerId}".`);
-  }
+  assertResolvedEvidence(candidates, key, ownerId);
   return candidates[0];
 }
 
@@ -48,18 +63,32 @@ export function resolveEngineeringSvgPropertyField(propertySets, key, ownerId) {
   return resolveField(propertySets, String(key), String(ownerId));
 }
 
-function aggregateState(fields) {
+function currentAggregateState(fields) {
   if (fields.every((field) => field == null)) return 'not-applicable';
   if (fields.some((field) => field == null)) return 'unavailable';
   return fields.every((field) => Object.is(field.value, fields[0].value)) ? 'uniform' : 'mixed';
 }
 
-function descriptorWithoutValue(field) {
-  return createEngineeringPropertyField({ ...field, value: null });
+function previousAggregateState(fields) {
+  if (fields.every((field) => field == null)) return 'not-applicable';
+  if (fields.every((field) => field != null && !ownsPrevious(field))) return 'not-applicable';
+  if (fields.some((field) => field == null || !ownsPrevious(field))) return 'unavailable';
+  return fields.every((field) => Object.is(field.previousValue, fields[0].previousValue)) ? 'uniform' : 'mixed';
+}
+
+function descriptorWithoutValues(field) {
+  const { value: _value, previousValue: _previousValue, ...descriptor } = field;
+  return createEngineeringPropertyField({ ...descriptor, value: null });
 }
 
 function propertyKeys(propertySets) {
   return [...new Set(propertySets.flatMap((set) => set.fields.map((field) => field.key)))].sort();
+}
+
+function aggregateFor(key, state, fields, selectedCount, valueName) {
+  const input = { key, state, selectedCount };
+  if (state === 'uniform') input.value = fields[0][valueName];
+  return createEngineeringPropertyAggregate(input);
 }
 
 export function aggregateEngineeringSvgProperties(selectedIds, propertySets) {
@@ -70,13 +99,13 @@ export function aggregateEngineeringSvgProperties(selectedIds, propertySets) {
   return freezeJsonValue(propertyKeys(propertySets).map((key) => {
     const fields = owners.map((ownerId) => resolveField(propertySets, key, ownerId));
     const representative = fields.find(Boolean) || propertySets.flatMap((set) => set.fields).find((field) => field.key === key);
-    const state = aggregateState(fields);
-    const aggregateInput = { key, state, selectedCount: selectedIds.length };
-    if (state === 'uniform') aggregateInput.value = fields[0].value;
+    const currentState = currentAggregateState(fields);
+    const previousState = previousAggregateState(fields);
     return {
       schema: ENGINEERING_SVG_PROPERTY_VIEW_SCHEMA,
-      field: descriptorWithoutValue(representative),
-      aggregate: createEngineeringPropertyAggregate(aggregateInput),
+      field: descriptorWithoutValues(representative),
+      aggregate: aggregateFor(key, currentState, fields, selectedIds.length, 'value'),
+      previousAggregate: aggregateFor(key, previousState, fields, selectedIds.length, 'previousValue'),
     };
   }));
 }
