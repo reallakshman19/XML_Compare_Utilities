@@ -8,6 +8,8 @@ import {
 import {
   classifyRevisionChangedProperty,
   createRevisionComparePropertyEvidence,
+  rawRevisionDifferenceEvidence,
+  revisionComparePropertyAuditKey,
 } from '../tabs/revision-compare/revision-compare-property-evidence.js';
 
 function property(propertyKey, revAValue, revBValue) {
@@ -71,6 +73,12 @@ assert.deepEqual(evidence.revision.value, {
   revBDocumentId: audit.revBDocumentId,
   engineVersion: audit.engineVersion,
 });
+const sameAuditIdDifferentAuthority = { ...audit, basisId: 'basis-property-evidence-2' };
+assert.notEqual(
+  revisionComparePropertyAuditKey(audit),
+  revisionComparePropertyAuditKey(sameAuditIdDifferentAuthority),
+  'adapter cache identity must use the complete audit authority, not auditId alone',
+);
 assert.equal(JSON.stringify(audit), auditBefore, 'adapter construction must not mutate the audit');
 
 const differenceId = `difference-${selectedIndex}`;
@@ -93,6 +101,11 @@ assert.equal(typeof sets[0].fields[2].value, 'string');
 assert.equal(Object.hasOwn(sets[0].fields[3], 'previousValue'), true);
 assert.equal(sets[0].fields[3].previousValue, null);
 assert.equal(sets[0].fields[4].value, null);
+assert.deepEqual(
+  rawRevisionDifferenceEvidence(audit, differenceId).map((item) => item.propertyKey),
+  tenProperties.map((item) => item.propertyKey),
+  'raw persisted audit evidence must remain available independently of adapter construction',
+);
 assert.equal(JSON.stringify(audit), auditBefore, 'provider resolution must not mutate the audit');
 
 const stale = createEngineeringRevisionToken({ ...evidence.revision.value, engineVersion: 'stale' });
