@@ -9,6 +9,7 @@ import { revisionComparisonPreflight } from './revision-preflight.js';
 import { createRevisionWorkspaceState } from './revision-workspace-state.js';
 import { candidatePreview } from './revision-decision-projection.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
+import { createRevisionComparePropertyInspector } from './revision-compare-property-inspector.js';
 
 function defaultNow() { return new Date().toISOString(); }
 function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
@@ -95,6 +96,17 @@ function previewFor(state) {
   const audit = state.compare.audit; const ledger = state.decision.ledger; const preview = state.decision.preview;
   return audit && decisionLedgerMatchesAudit(ledger, audit) ? candidatePreview(audit, ledger, preview.differenceId, preview.candidateIndex) : null;
 }
+function preparePropertyHost(root, state) {
+  if (!state.compare.reviewVisible || !state.compare.audit || !state.compare.selectedDifferenceId) return null;
+  const section = root.querySelector('.revc-inspector [data-level="2"] > section');
+  const heading = section?.querySelector('h3');
+  if (!section || heading?.textContent !== 'Changed properties') return null;
+  while (heading.nextSibling) heading.nextSibling.remove();
+  const host = root.ownerDocument.createElement('div');
+  host.setAttribute('data-revc-property-inspector-host', state.compare.selectedDifferenceId);
+  section.appendChild(host);
+  return host;
+}
 export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
   const now = options.now ?? defaultNow; const clock = options.clock ?? defaultClock;
@@ -107,6 +119,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     ...options.viewerAdapterOptions, onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
     onError: (error) => options.showToast?.(`3D viewer unavailable: ${error.message}`, 'warning'),
   });
+  const propertyInspector = options.propertyInspector ?? createRevisionComparePropertyInspector(options.propertyInspectorOptions);
   function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
   async function syncViewer(sequence) {
     if (sequence !== renderSequence) return;
@@ -120,16 +133,23 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     else viewerAdapter.clearPreview();
     if (!mounted) host.innerHTML = `<div class="revc-viewer-fallback"><b>${state.compare.viewerBackend === 'SVG' ? 'SVG preview' : '3D viewer'} unavailable.</b><span>Use the queue and inspector to continue review.</span>${state.compare.viewerBackend === 'SVG' ? '<button type="button" data-revc-viewer-backend="WEBGL">Return to 3D (WebGL)</button>' : ''}</div>`;
   }
+  async function syncPropertyInspector(sequence, host) {
+    if (sequence !== renderSequence) return;
+    if (!host || !state.compare.audit || !state.compare.selectedDifferenceId) { propertyInspector.clear(); return; }
+    await propertyInspector.render(host, state.compare.audit, state.compare.selectedDifferenceId);
+  }
   function render(next = state) {
     state = next; renderSequence += 1; const sequence = renderSequence;
-    root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence()); syncDecisionButtons(root);
+    root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
+    const propertyHost = preparePropertyHost(root, state); syncDecisionButtons(root);
     Promise.resolve().then(() => syncViewer(sequence));
+    Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   actions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
   bindWorkspace(root, actions, cleanups); render();
   return Object.freeze({
-    evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), compareRunId: compareService.activeRunId() }),
-    destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
+    evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), compareRunId: compareService.activeRunId() }),
+    destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
   });
 }
-export const _test = Object.freeze({ actionClick, inputChange, sessionId, syncDecisionButtons });
+export const _test = Object.freeze({ actionClick, inputChange, preparePropertyHost, sessionId, syncDecisionButtons });
