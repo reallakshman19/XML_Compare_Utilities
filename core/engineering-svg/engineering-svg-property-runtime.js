@@ -75,6 +75,11 @@ function previousAggregateState(fields) {
   return fields.every((field) => Object.is(field.previousValue, fields[0].previousValue)) ? 'uniform' : 'mixed';
 }
 
+function previousEvidenceCount(fields, selectedCount) {
+  if (!selectedCount) return 0;
+  return fields.filter((field) => field != null && ownsPrevious(field)).length;
+}
+
 function descriptorWithoutValues(field) {
   const { value: _value, previousValue: _previousValue, ...descriptor } = field;
   return createEngineeringPropertyField({ ...descriptor, value: null });
@@ -105,6 +110,7 @@ export function aggregateEngineeringSvgProperties(selectedIds, propertySets) {
       field: descriptorWithoutValues(representative),
       aggregate: aggregateFor(key, currentState, fields, selectedIds.length, 'value'),
       previousAggregate: aggregateFor(key, previousState, fields, selectedIds.length, 'previousValue'),
+      previousEvidenceCount: previousEvidenceCount(fields, selectedIds.length),
     };
   }));
 }
