@@ -90,6 +90,22 @@ function constraintErrors(value, path) {
   return errors;
 }
 
+function propertyValueErrors(field, path, name) {
+  if (name === 'previousValue' && !Object.prototype.hasOwnProperty.call(field || {}, name)) return [];
+  const value = field?.[name];
+  const key = String(field?.key || 'unknown');
+  const target = `${path}.${name}`;
+  if (value == null) return [];
+  const errors = [];
+  if (field?.type === 'number' && (typeof value !== 'number' || !Number.isFinite(value))) errors.push(`${target} must be finite for property "${key}"`);
+  if (field?.type === 'boolean' && typeof value !== 'boolean') errors.push(`${target} must be boolean for property "${key}"`);
+  if (['text', 'enum'].includes(field?.type) && typeof value !== 'string') errors.push(`${target} must be text for property "${key}"`);
+  if (field?.type === 'enum' && !field.options?.includes(value)) errors.push(`${target} must match an option for property "${key}"`);
+  if (field?.type === 'number' && field.min != null && value < field.min) errors.push(`${target} is below minimum for property "${key}"`);
+  if (field?.type === 'number' && field.max != null && value > field.max) errors.push(`${target} is above maximum for property "${key}"`);
+  return errors;
+}
+
 function propertyFieldErrors(field, path = 'field') {
   const errors = [];
   if (field?.schema !== ENGINEERING_PROPERTY_FIELD_SCHEMA) errors.push(`${path}.schema is invalid`);
@@ -97,13 +113,9 @@ function propertyFieldErrors(field, path = 'field') {
   if (!Object.values(ENGINEERING_PROPERTY_SCOPE).includes(field?.scope)) errors.push(`${path}.scope is invalid`);
   if (!Object.values(ENGINEERING_PROPERTY_TYPE).includes(field?.type)) errors.push(`${path}.type is invalid`);
   if (field?.scope === 'REFERENCE' && field?.editable !== false) errors.push(`${path}.editable must be false for REFERENCE scope`);
-  if (field?.type === 'number' && field.value != null && (typeof field.value !== 'number' || !Number.isFinite(field.value))) errors.push(`${path}.value must be finite`);
-  if (field?.type === 'boolean' && field.value != null && typeof field.value !== 'boolean') errors.push(`${path}.value must be boolean`);
-  if (['text', 'enum'].includes(field?.type) && field.value != null && typeof field.value !== 'string') errors.push(`${path}.value must be text`);
-  if (field?.type === 'enum') {
-    errors.push(...uniqueStringArrayErrors(field.options, `${path}.options`, false));
-    if (field.value != null && !field.options?.includes(field.value)) errors.push(`${path}.value must match an option`);
-  }
+  if (field?.type === 'enum') errors.push(...uniqueStringArrayErrors(field.options, `${path}.options`, false));
+  errors.push(...propertyValueErrors(field, path, 'value'));
+  errors.push(...propertyValueErrors(field, path, 'previousValue'));
   return errors;
 }
 
