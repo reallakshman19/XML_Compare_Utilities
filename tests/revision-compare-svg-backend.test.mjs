@@ -5,6 +5,7 @@ import { createComparisonLifecycleState, setComparisonViewerBackend } from '../t
 function fakeFactory(name, log, options = {}) {
   return async (_host, callbacks) => {
     if (options.failMount) throw new Error(`${name} unavailable`);
+    options.captureCallbacks?.push(callbacks);
     const state = { selected: [], mode: callbacks.initialSnapshot?.mode ?? null };
     log.push(`${name}:mount`);
     log.push(`${name}:initial:${state.mode ?? 'none'}`);
@@ -82,6 +83,24 @@ await failureAdapter.render({}, audit);
 assert.equal(failureAdapter.evidence().failed, false);
 assert.equal(failureAdapter.evidence().activeBackend, 'WEBGL');
 
+const staleLog = [];
+const staleCallbacks = [];
+const stalePicks = [];
+const staleAdapter = createRevisionCompareViewerAdapter({
+  onPick: (differenceId) => stalePicks.push(differenceId),
+  webglViewerFactory: fakeFactory('WEBGL-S', staleLog, { captureCallbacks: staleCallbacks }),
+  svgViewerFactory: fakeFactory('SVG-S', staleLog),
+});
+await staleAdapter.render({}, audit);
+assert.equal(staleCallbacks.length, 1);
+staleAdapter.setBackend('SVG');
+await staleAdapter.render({}, audit);
+staleCallbacks[0].onPick({ objectId: 'A1' });
+staleCallbacks[0].onRuntimeError(new Error('stale WebGL runtime error'));
+assert.deepEqual(stalePicks, [], 'disposed backend picks must not reach the current adapter');
+assert.equal(staleAdapter.evidence().failed, false, 'disposed backend errors must not replace current backend state');
+assert.equal(staleAdapter.evidence().activeBackend, 'SVG');
+
 const initial = createComparisonLifecycleState();
 const auditIdentity = { auditId: 'audit:1' };
 const reviewIdentity = { reviewSessionId: 'review:1' };
@@ -94,4 +113,5 @@ assert.equal(switched.reviewIdentity, reviewIdentity);
 assert.equal(switched.decisionIdentity, decisionIdentity);
 adapter.dispose();
 failureAdapter.dispose();
+staleAdapter.dispose();
 console.log('revision-compare-svg-backend.test.mjs passed');
