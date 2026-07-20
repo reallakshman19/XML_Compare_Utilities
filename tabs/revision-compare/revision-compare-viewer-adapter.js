@@ -1,6 +1,7 @@
 /** Sole Revision Compare bridge to interchangeable read-only viewer backends. */
 import { createWorkbenchViewer } from '../../workbench3d/viewer/workbench-viewer.js';
 import { createRevisionCompareEngineeringSvgViewer } from './revision-compare-engineering-svg-viewer.js';
+import { deepFreeze } from './revision-contract-utils.js';
 import {
   REVISION_COMPARE_VIEWER_BACKEND,
   normalizeRevisionCompareViewerBackend,
@@ -32,9 +33,10 @@ function picked(context, pick) {
   if (!pick?.objectId) { context.options.onPick?.(null); return; }
   context.options.onPick?.(context.differenceByObjectId.get(pick.objectId) ?? null);
 }
-function safeSnapshot(viewer) {
-  try { return JSON.parse(JSON.stringify(viewer?.getStateSnapshot?.() ?? null)); } catch { return null; }
+function jsonCopy(value) {
+  try { return JSON.parse(JSON.stringify(value)); } catch { return null; }
 }
+function safeSnapshot(viewer) { return jsonCopy(viewer?.getStateSnapshot?.() ?? null); }
 function reportFailure(context, error) {
   context.failure = error;
   context.options.onError?.(error);
@@ -132,13 +134,13 @@ function setPresentationMode(context, value) {
   catch (error) { return reportFailure(context, error); }
 }
 function evidence(context) {
-  return Object.freeze({
+  return deepFreeze({
     mounted: Boolean(context.viewer), failed: Boolean(context.failure), error: context.failure?.message ?? null,
     viewerBackend: context.requestedBackend, activeBackend: context.activeBackend,
     presentationMode: context.presentationMode, selectedDifferenceId: context.selectedDifferenceId,
     previewSourceDifferenceId: context.previewSourceDifferenceId, previewTargetDifferenceId: context.previewTargetDifferenceId,
-    policy: context.policy, mountRequests: Object.freeze([...context.mountRequests]),
-    snapshots: Object.freeze({ ...context.snapshots }), viewer: context.viewer?.getStateSnapshot?.() ?? null,
+    policy: context.policy, mountRequests: [...context.mountRequests],
+    snapshots: jsonCopy(context.snapshots) ?? {}, viewer: safeSnapshot(context.viewer),
   });
 }
 export function createRevisionCompareViewerAdapter(options = {}) {
@@ -170,4 +172,4 @@ export function createRevisionCompareViewerAdapter(options = {}) {
     evidence: () => evidence(context),
   });
 }
-export const _test = Object.freeze({ previewObjectIds, relatedObjectIds, safeSnapshot });
+export const _test = Object.freeze({ jsonCopy, previewObjectIds, relatedObjectIds, safeSnapshot });
