@@ -5,16 +5,9 @@ on:
     branches: [main]
     paths:
       - 'tabs/pipeline-3d-model/pipeline-engineering-svg-shadow-workspace.js'
-      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-*.js'
-      - 'tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js'
-      - 'tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js'
       - 'tests/pipeline-engineering-svg-shadow-*.test.js'
-      - 'tests/pipeline-3d-model-cad-*.test.js'
       - 'tests/browser/pipeline-engineering-svg-shadow-*'
-      - 'tests/browser/pipeline-cad-*'
       - 'playwright.pipeline-engineering-svg-shadow.config.mjs'
-      - 'playwright.pipeline-cad.config.mjs'
-      - 'package.json'
       - '.github/workflows/pipeline-engineering-svg-shadow.yml'
   workflow_dispatch:
 
