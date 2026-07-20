@@ -30,8 +30,6 @@ function comparisonButton(actions, button) {
   if (button.dataset.revcCategory) actions.toggleCategory(button.dataset.revcCategory);
   if (button.dataset.revcPresentation) actions.setPresentation(button.dataset.revcPresentation);
   if (button.dataset.revcViewerBackend) actions.setViewerBackend(button.dataset.revcViewerBackend);
-  if (button.hasAttribute('data-revc-fitAll')) actions.fitAll();
-  if (button.hasAttribute('data-revc-fitSelected')) actions.fitSelected();
   if (button.hasAttribute('data-revc-fit-all')) actions.fitAll();
   if (button.hasAttribute('data-revc-fit-selected')) actions.fitSelected();
   if (button.dataset.revcDifferenceId) actions.selectDifference(button.dataset.revcDifferenceId);
@@ -162,7 +160,11 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId);
     else viewerAdapter.clearPreview();
     const evidence = viewerAdapter.evidence(); syncBackendButtons(root, evidence);
-    if (!mounted) host.innerHTML = `<div class="revc-viewer-fallback"><b>${revisionCompareViewerBackendLabel(state.compare.viewerBackend)} unavailable.</b><span>Use the queue and inspector to continue review. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`;
+    const renderedFailure = root.querySelector('.revc-viewer-failure');
+    if (mounted) renderedFailure?.remove();
+    else if (!renderedFailure) {
+      host.innerHTML = `<div class="revc-viewer-fallback"><b>${revisionCompareViewerBackendLabel(state.compare.viewerBackend)} unavailable.</b><span>Use the queue and inspector to continue review. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`;
+    }
   }
   async function syncPropertyInspector(sequence, host) {
     if (sequence !== renderSequence) return;
