@@ -37,6 +37,9 @@ function reportFailure(context, error) {
   context.options.onError?.(error);
   return false;
 }
+function ownsGeneration(context, generation, backend) {
+  return !context.disposed && generation === context.generation && context.requestedBackend === backend;
+}
 function disposeActive(context) {
   if (!context.viewer) return false;
   const snapshot = safeSnapshot(context.viewer);
@@ -50,17 +53,17 @@ async function createViewer(context, hostElement, generation) {
   const backend = context.requestedBackend;
   try {
     const created = await factoryFor(context, backend)(hostElement, {
-      onPick: (pick) => picked(context, pick),
-      onRuntimeError: (error) => reportFailure(context, error),
+      onPick: (pick) => { if (ownsGeneration(context, generation, backend)) picked(context, pick); },
+      onRuntimeError: (error) => { if (ownsGeneration(context, generation, backend)) reportFailure(context, error); },
       initialSnapshot: context.snapshots[backend] ?? null,
     });
-    if (context.disposed || generation !== context.generation || context.requestedBackend !== backend) {
+    if (!ownsGeneration(context, generation, backend)) {
       created.dispose(); return null;
     }
     context.viewer = created; context.activeBackend = backend; context.host = hostElement; context.failure = null;
     return created;
   } catch (error) {
-    if (generation === context.generation) reportFailure(context, error);
+    if (ownsGeneration(context, generation, backend)) reportFailure(context, error);
     return null;
   }
 }
