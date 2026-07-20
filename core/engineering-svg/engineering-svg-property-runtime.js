@@ -70,8 +70,7 @@ function currentAggregateState(fields) {
 }
 
 function previousAggregateState(fields) {
-  if (fields.every((field) => field == null)) return 'not-applicable';
-  if (fields.every((field) => field != null && !ownsPrevious(field))) return 'not-applicable';
+  if (fields.every((field) => field == null || !ownsPrevious(field))) return 'not-applicable';
   if (fields.some((field) => field == null || !ownsPrevious(field))) return 'unavailable';
   return fields.every((field) => Object.is(field.previousValue, fields[0].previousValue)) ? 'uniform' : 'mixed';
 }
