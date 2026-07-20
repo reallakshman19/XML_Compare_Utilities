@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { createRevisionCompareViewerAdapter } from '../tabs/revision-compare/revision-compare-viewer-adapter.js';
 import { createComparisonLifecycleState, setComparisonViewerBackend } from '../tabs/revision-compare/revision-compare-lifecycle.js';
+import {
+  REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
+  REVISION_COMPARE_VIEWER_POLICY_SCHEMA,
+  createRevisionCompareViewerPolicy,
+} from '../tabs/revision-compare/revision-compare-viewer-policy.js';
 
 function fakeFactory(name, log, options = {}) {
   return async (_host, callbacks) => {
+    log.push(`${name}:request`);
     if (options.failMount) throw new Error(`${name} unavailable`);
     options.captureCallbacks?.push(callbacks);
     const state = { selected: [], mode: callbacks.initialSnapshot?.mode ?? null };
@@ -39,79 +45,123 @@ const audit = {
   ],
 };
 
+assert.equal(REVISION_COMPARE_DEFAULT_VIEWER_POLICY.schema, REVISION_COMPARE_VIEWER_POLICY_SCHEMA);
+assert.deepEqual(REVISION_COMPARE_DEFAULT_VIEWER_POLICY, {
+  schema: 'RevisionCompareViewerPolicy.v1',
+  defaultBackend: 'SVG',
+  defaultSvgPresentation: 'overlay',
+  retainedBackends: ['SVG', 'WEBGL'],
+  recoveryBackendForSvgFailure: 'WEBGL',
+  recoveryBackendForWebglFailure: 'SVG',
+  failoverMode: 'EXPLICIT_USER_ACTION',
+  persistence: 'WORKSPACE_ONLY',
+});
+assert(Object.isFrozen(REVISION_COMPARE_DEFAULT_VIEWER_POLICY));
+assert(Object.isFrozen(REVISION_COMPARE_DEFAULT_VIEWER_POLICY.retainedBackends));
+assert.deepEqual(JSON.parse(JSON.stringify(REVISION_COMPARE_DEFAULT_VIEWER_POLICY)), REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
+assert.throws(() => createRevisionCompareViewerPolicy({ failoverMode: 'AUTOMATIC' }), /EXPLICIT_USER_ACTION/);
+
+const initial = createComparisonLifecycleState();
+assert.equal(initial.viewerBackend, 'SVG');
+assert.equal(initial.presentationMode, 'overlay');
+assert.deepEqual(initial.viewerPolicy, REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
+const auditIdentity = { auditId: 'audit:1' };
+const reviewIdentity = { reviewSessionId: 'review:1' };
+const decisionIdentity = { decisionLedgerId: 'decision:1' };
+const state = Object.freeze({ ...initial, auditIdentity, reviewIdentity, decisionIdentity });
+const switchedState = setComparisonViewerBackend(state, 'WEBGL');
+assert.equal(switchedState.viewerBackend, 'WEBGL');
+assert.equal(switchedState.auditIdentity, auditIdentity);
+assert.equal(switchedState.reviewIdentity, reviewIdentity);
+assert.equal(switchedState.decisionIdentity, decisionIdentity);
+
 const log = [];
 const adapter = createRevisionCompareViewerAdapter({
   webglViewerFactory: fakeFactory('WEBGL', log),
   svgViewerFactory: fakeFactory('SVG', log),
 });
+assert.equal(adapter.evidence().viewerBackend, 'SVG');
+assert.equal(adapter.evidence().presentationMode, 'overlay');
 await adapter.render({}, audit);
+assert.deepEqual(adapter.evidence().mountRequests, ['SVG']);
+assert.equal(log.some((item) => item.startsWith('WEBGL:')), false, 'initial SVG mount must create no WebGL runtime');
 adapter.setPresentationMode('side-by-side');
 adapter.selectDifference('D1');
-assert.equal(adapter.evidence().viewerBackend, 'WEBGL');
-adapter.setBackend('SVG');
-await adapter.render({}, audit);
-assert(log.includes('WEBGL:dispose'));
-assert(log.includes('SVG:mode:side-by-side'), 'SVG must honor the shared setMode contract');
-adapter.previewPair('D1', 'D2');
-const beforeFit = log.filter((item) => item.endsWith(':fitSelection')).length;
-adapter.selectDifference('D1');
-assert.equal(log.filter((item) => item.endsWith(':fitSelection')).length, beforeFit);
-adapter.setPresentationMode('overlay');
-assert(log.includes('SVG:mode:overlay'));
+assert.equal(adapter.evidence().activeBackend, 'SVG');
 adapter.setBackend('WEBGL');
 await adapter.render({}, audit);
-assert(log.includes('WEBGL:mode:overlay'));
-adapter.setPresentationMode('side-by-side');
+assert(log.includes('SVG:dispose'));
+assert(log.includes('WEBGL:mode:side-by-side'));
+assert.equal(adapter.evidence().activeBackend, 'WEBGL');
+adapter.setPresentationMode('overlay');
 adapter.setBackend('SVG');
 await adapter.render({}, audit);
-assert(log.includes('SVG:initial:overlay'), 'SVG backend snapshot must be supplied on remount');
-assert.equal(adapter.evidence().presentationMode, 'side-by-side');
-assert.equal(adapter.evidence().viewer.mode, 'side-by-side');
+assert(log.includes('SVG:initial:side-by-side'), 'SVG snapshot must remain independent from WebGL');
+assert.equal(adapter.evidence().viewer.mode, 'overlay');
+assert.equal(adapter.evidence().snapshots.SVG.mode, 'side-by-side');
+assert.equal(adapter.evidence().snapshots.WEBGL.mode, 'overlay');
 
-const failureLog = [];
-const failureAdapter = createRevisionCompareViewerAdapter({
-  webglViewerFactory: fakeFactory('WEBGL-F', failureLog),
-  svgViewerFactory: fakeFactory('SVG-F', failureLog, { failMode: 'side-by-side' }),
+const svgFailureLog = [];
+const svgFailure = createRevisionCompareViewerAdapter({
+  webglViewerFactory: fakeFactory('WEBGL-F', svgFailureLog),
+  svgViewerFactory: fakeFactory('SVG-F', svgFailureLog, { failMount: true }),
 });
-failureAdapter.setBackend('SVG');
-await failureAdapter.render({}, audit);
-assert.equal(failureAdapter.setPresentationMode('side-by-side'), false);
-assert.equal(failureAdapter.evidence().failed, true);
-assert.match(failureAdapter.evidence().error, /side-by-side unavailable/);
-failureAdapter.setBackend('WEBGL');
-await failureAdapter.render({}, audit);
-assert.equal(failureAdapter.evidence().failed, false);
-assert.equal(failureAdapter.evidence().activeBackend, 'WEBGL');
+assert.equal(await svgFailure.render({}, audit), false);
+assert.deepEqual(svgFailure.evidence().mountRequests, ['SVG']);
+assert.equal(svgFailure.evidence().activeBackend, null);
+assert.equal(svgFailureLog.some((item) => item.startsWith('WEBGL-F:')), false, 'SVG failure must not mount WebGL silently');
+svgFailure.setBackend('WEBGL');
+assert.equal(await svgFailure.render({}, audit), true);
+assert.equal(svgFailure.evidence().activeBackend, 'WEBGL');
+
+const webglFailureLog = [];
+const webglFailure = createRevisionCompareViewerAdapter({
+  webglViewerFactory: fakeFactory('WEBGL-G', webglFailureLog, { failMount: true }),
+  svgViewerFactory: fakeFactory('SVG-G', webglFailureLog),
+});
+await webglFailure.render({}, audit);
+webglFailure.setBackend('WEBGL');
+assert.equal(await webglFailure.render({}, audit), false);
+assert.deepEqual(webglFailure.evidence().mountRequests, ['SVG', 'WEBGL']);
+assert.equal(webglFailure.evidence().activeBackend, null);
+assert.equal(webglFailureLog.filter((item) => item === 'SVG-G:request').length, 1, 'WebGL failure must not remount SVG silently');
+webglFailure.setBackend('SVG');
+assert.equal(await webglFailure.render({}, audit), true);
+assert.equal(webglFailure.evidence().activeBackend, 'SVG');
 
 const staleLog = [];
 const staleCallbacks = [];
 const stalePicks = [];
 const staleAdapter = createRevisionCompareViewerAdapter({
   onPick: (differenceId) => stalePicks.push(differenceId),
-  webglViewerFactory: fakeFactory('WEBGL-S', staleLog, { captureCallbacks: staleCallbacks }),
-  svgViewerFactory: fakeFactory('SVG-S', staleLog),
+  webglViewerFactory: fakeFactory('WEBGL-S', staleLog),
+  svgViewerFactory: fakeFactory('SVG-S', staleLog, { captureCallbacks: staleCallbacks }),
 });
 await staleAdapter.render({}, audit);
 assert.equal(staleCallbacks.length, 1);
-staleAdapter.setBackend('SVG');
+staleAdapter.setBackend('WEBGL');
 await staleAdapter.render({}, audit);
 staleCallbacks[0].onPick({ objectId: 'A1' });
-staleCallbacks[0].onRuntimeError(new Error('stale WebGL runtime error'));
-assert.deepEqual(stalePicks, [], 'disposed backend picks must not reach the current adapter');
-assert.equal(staleAdapter.evidence().failed, false, 'disposed backend errors must not replace current backend state');
-assert.equal(staleAdapter.evidence().activeBackend, 'SVG');
+staleCallbacks[0].onRuntimeError(new Error('stale SVG runtime error'));
+assert.deepEqual(stalePicks, []);
+assert.equal(staleAdapter.evidence().failed, false);
+assert.equal(staleAdapter.evidence().activeBackend, 'WEBGL');
 
-const initial = createComparisonLifecycleState();
-const auditIdentity = { auditId: 'audit:1' };
-const reviewIdentity = { reviewSessionId: 'review:1' };
-const decisionIdentity = { decisionLedgerId: 'decision:1' };
-const state = Object.freeze({ ...initial, auditIdentity, reviewIdentity, decisionIdentity });
-const switched = setComparisonViewerBackend(state, 'SVG');
-assert.equal(switched.viewerBackend, 'SVG');
-assert.equal(switched.auditIdentity, auditIdentity);
-assert.equal(switched.reviewIdentity, reviewIdentity);
-assert.equal(switched.decisionIdentity, decisionIdentity);
+const injected = createRevisionCompareViewerPolicy({ defaultBackend: 'WEBGL', defaultSvgPresentation: 'side-by-side' });
+assert.equal(createComparisonLifecycleState(injected).viewerBackend, 'WEBGL');
+const injectedLog = [];
+const injectedAdapter = createRevisionCompareViewerAdapter({
+  viewerPolicy: injected,
+  webglViewerFactory: fakeFactory('WEBGL-I', injectedLog),
+  svgViewerFactory: fakeFactory('SVG-I', injectedLog),
+});
+await injectedAdapter.render({}, audit);
+assert.deepEqual(injectedAdapter.evidence().mountRequests, ['WEBGL']);
+assert.equal(injectedAdapter.evidence().presentationMode, 'side-by-side');
+
 adapter.dispose();
-failureAdapter.dispose();
+svgFailure.dispose();
+webglFailure.dispose();
 staleAdapter.dispose();
+injectedAdapter.dispose();
 console.log('revision-compare-svg-backend.test.mjs passed');
