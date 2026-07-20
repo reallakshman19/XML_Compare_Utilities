@@ -60,6 +60,10 @@ assert(Object.isFrozen(REVISION_COMPARE_DEFAULT_VIEWER_POLICY));
 assert(Object.isFrozen(REVISION_COMPARE_DEFAULT_VIEWER_POLICY.retainedBackends));
 assert.deepEqual(JSON.parse(JSON.stringify(REVISION_COMPARE_DEFAULT_VIEWER_POLICY)), REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
 assert.throws(() => createRevisionCompareViewerPolicy({ failoverMode: 'AUTOMATIC' }), /EXPLICIT_USER_ACTION/);
+assert.throws(
+  () => createRevisionCompareViewerPolicy({ retainedBackends: ['WEBGL', 'SVG'] }),
+  /canonical order/,
+);
 
 const initial = createComparisonLifecycleState();
 assert.equal(initial.viewerBackend, 'SVG');
@@ -100,6 +104,12 @@ assert(log.includes('SVG:initial:side-by-side'), 'SVG snapshot must remain indep
 assert.equal(adapter.evidence().viewer.mode, 'overlay');
 assert.equal(adapter.evidence().snapshots.SVG.mode, 'side-by-side');
 assert.equal(adapter.evidence().snapshots.WEBGL.mode, 'overlay');
+const exposedEvidence = adapter.evidence();
+assert(Object.isFrozen(exposedEvidence.snapshots));
+assert(Object.isFrozen(exposedEvidence.snapshots.SVG));
+assert(Object.isFrozen(exposedEvidence.viewer));
+assert.throws(() => { exposedEvidence.snapshots.SVG.mode = 'tampered'; }, TypeError);
+assert.equal(adapter.evidence().snapshots.SVG.mode, 'side-by-side');
 
 const svgFailureLog = [];
 const svgFailure = createRevisionCompareViewerAdapter({
