@@ -20,7 +20,7 @@ class FakeElement {
   constructor(ownerDocument, localName) {
     this.ownerDocument = ownerDocument; this.localName = localName; this.children = []; this.parentNode = null;
     this.attributes = new Map(); this.listeners = new Map(); this.classList = new FakeClassList(); this.style = new FakeStyle();
-    this.clientWidth = localName === 'div' ? 800 : 800; this.clientHeight = 500; this.textContent = ''; this.className = '';
+    this.clientWidth = 800; this.clientHeight = 500; this.textContent = ''; this.className = '';
   }
   get firstElementChild() { return this.children[0] ?? null; }
   get parentElement() { return this.parentNode; }
@@ -68,6 +68,18 @@ function byAttribute(root, name, value = null) {
 }
 function entityNode(root, id) {
   return byAttribute(root, 'data-engineering-svg-entity-id', id)[0] ?? null;
+}
+function largeModel(side, count) {
+  return {
+    modelId: `large-model:${side}`,
+    revisionId: `large-revision:${side}`,
+    unit: 'mm', coordinateFrame: 'PLANT', verticalAxis: 'Z', markers: [],
+    segments: Array.from({ length: count }, (_, index) => ({
+      objectId: `${side}:large:${index}`,
+      start: [index, side === 'A' ? 0 : 1, 0],
+      end: [index + 1, side === 'A' ? 0 : 1, 0],
+    })),
+  };
 }
 
 const documentRef = new FakeDocument();
@@ -145,4 +157,25 @@ assert.doesNotThrow(() => JSON.stringify(viewer.getStateSnapshot()));
 assert.equal(viewer.dispose(), true);
 assert.equal(viewer.dispose(), false);
 assert.equal(byAttribute(hostB, 'data-engineering-svg-root').length, 0);
+
+const largeHost = documentRef.createHost();
+const largeViewer = await createRevisionCompareEngineeringSvgViewer(largeHost);
+largeViewer.setModels({ source: largeModel('A', 2500), target: largeModel('B', 2500) });
+let largeSnapshot = largeViewer.getStateSnapshot();
+assert.equal(largeSnapshot.entityCount, 5000);
+assert.equal(largeSnapshot.resources.roots, 1);
+assert.equal(largeSnapshot.visibleEntityCounts.overlay, 5000);
+assert.equal(largeSnapshot.hiddenFitAuthorityCounts.overlay, 0);
+assert.equal(byAttribute(largeHost, 'data-engineering-svg-entity-id').length, 5000);
+largeViewer.setMode('side-by-side');
+largeSnapshot = largeViewer.getStateSnapshot();
+assert.equal(largeSnapshot.resources.roots, 2);
+assert.equal(largeSnapshot.visibleEntityCounts.source, 2500);
+assert.equal(largeSnapshot.visibleEntityCounts.target, 2500);
+assert.equal(largeSnapshot.hiddenFitAuthorityCounts.source, 2500);
+assert.equal(largeSnapshot.hiddenFitAuthorityCounts.target, 2500);
+assert.equal(byAttribute(largeHost, 'data-engineering-svg-entity-id').length, 10000);
+assert.equal(byAttribute(largeHost, 'data-revc-hidden-fit-authority').length, 5000);
+assert.equal(largeViewer.dispose(), true);
+assert.equal(byAttribute(largeHost, 'data-engineering-svg-root').length, 0);
 console.log('revision-compare-svg-viewer-contract.test.mjs passed');
