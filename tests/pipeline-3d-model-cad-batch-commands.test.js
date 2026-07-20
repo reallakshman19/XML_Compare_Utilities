@@ -4,6 +4,7 @@ import {
   moveTable2RowsCommand,
   moveTable3MarkerRowsCommand,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-commands.js';
+import { _test as batchControllerTest } from '../tabs/pipeline-3d-model/pipeline-3d-model-cad-batch-controller.js';
 import {
   CommandHistory,
   deleteProfileRowCommand,
@@ -76,6 +77,10 @@ assert.throws(() => rollbackHistory.execute(new SnapshotCommand(rollback, 'rollb
 assert.deepEqual(rollback.serializeRaw(), rollbackRaw);
 assert.equal(rollback.revision, rollbackRevision);
 assert.equal(rollbackHistory.undoStack.length, 0);
+
+const immutableIds = batchControllerTest.frozenIds(['row-2', 'row-1']);
+assert.equal(Object.isFrozen(immutableIds), true);
+assert.throws(() => immutableIds.push('row-3'), TypeError);
 
 const invalid = createModel();
 assert.throws(() => deleteProfileRowsCommand(invalid, invalid.table2Rows.map((row) => row.id)), /authority minimum/);
