@@ -1,7 +1,11 @@
 import { aggregateEngineeringSvgProperties } from '../../core/engineering-svg/engineering-svg-property-runtime.js';
 import { buildEngineeringSvgInspectorModel } from '../../core/engineering-svg/engineering-svg-inspector-model.js';
 import { createEngineeringSvgPropertyInspectorView } from '../../core/engineering-svg/engineering-svg-property-inspector-view.js';
-import { createRevisionComparePropertyEvidence } from './revision-compare-property-evidence.js';
+import {
+  createRevisionComparePropertyEvidence,
+  rawRevisionDifferenceEvidence,
+  revisionComparePropertyAuditKey,
+} from './revision-compare-property-evidence.js';
 
 export const REVISION_COMPARE_PROPERTY_INSPECTOR_SCHEMA = 'RevisionComparePropertyInspector.v1';
 
@@ -90,6 +94,15 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function failureEvidence(adapter, audit, differenceId) {
+  try {
+    return adapter?.rawAuditEvidence(differenceId)
+      ?? rawRevisionDifferenceEvidence(audit, differenceId);
+  } catch {
+    try { return rawRevisionDifferenceEvidence(audit, differenceId); } catch { return Object.freeze([]); }
+  }
+}
+
 export function createRevisionComparePropertyInspector(options = {}) {
   const evidenceFactory = options.evidenceFactory ?? createRevisionComparePropertyEvidence;
   let generation = 0;
@@ -97,6 +110,7 @@ export function createRevisionComparePropertyInspector(options = {}) {
   let currentView = null;
   let currentEvidence = null;
   let currentAuditId = null;
+  let currentAuditKey = null;
   let currentDifferenceId = null;
   let failure = null;
   let disposed = false;
@@ -109,9 +123,12 @@ export function createRevisionComparePropertyInspector(options = {}) {
   }
 
   function adapterFor(audit) {
-    if (!currentEvidence || currentAuditId !== audit.auditId) {
-      currentEvidence = evidenceFactory(audit);
+    const nextKey = revisionComparePropertyAuditKey(audit);
+    if (!currentEvidence || currentAuditKey !== nextKey) {
+      currentEvidence = null;
+      currentAuditKey = nextKey;
       currentAuditId = audit.auditId;
+      currentEvidence = evidenceFactory(audit);
     }
     return currentEvidence;
   }
@@ -175,9 +192,7 @@ export function createRevisionComparePropertyInspector(options = {}) {
       failure = errorMessage(error);
       scaffold.status.setAttribute('data-revc-property-status', 'failed');
       scaffold.status.textContent = `Property evidence unavailable: ${failure}`;
-      let raw = [];
-      try { raw = adapter?.rawAuditEvidence(id) ?? []; } catch { raw = []; }
-      const fallback = fallbackTable(host.ownerDocument, raw, true);
+      const fallback = fallbackTable(host.ownerDocument, failureEvidence(adapter, audit, id), true);
       if (fallback) scaffold.fallback.appendChild(fallback);
       return false;
     }
@@ -188,6 +203,7 @@ export function createRevisionComparePropertyInspector(options = {}) {
       schema: REVISION_COMPARE_PROPERTY_INSPECTOR_SCHEMA,
       generation,
       auditId: currentAuditId,
+      auditKey: currentAuditKey,
       differenceId: currentDifferenceId,
       requests,
       staleResultsIgnored,
@@ -204,6 +220,7 @@ export function createRevisionComparePropertyInspector(options = {}) {
     clear();
     currentEvidence = null;
     currentAuditId = null;
+    currentAuditKey = null;
     disposed = true;
     return true;
   }
