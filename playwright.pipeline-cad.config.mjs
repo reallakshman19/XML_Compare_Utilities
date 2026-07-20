@@ -16,6 +16,7 @@ export default defineConfig({
     'pipeline-cad-preview-modes.spec.mjs',
     'pipeline-table-paste-sample.spec.mjs',
     'pipeline-elastic-bend-settings.spec.mjs',
+    'pipeline-cad-multi-selection.spec.mjs',
   ],
   timeout: 45_000,
   expect: { timeout: 8_000 },
