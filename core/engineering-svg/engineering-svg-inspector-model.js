@@ -59,6 +59,17 @@ function previousAggregate(view) {
   });
 }
 
+function suppliedHistoryCount(view, previous, selectionCount) {
+  if (!Object.prototype.hasOwnProperty.call(view, 'previousEvidenceCount')) {
+    return previous.state === 'not-applicable' ? 0 : selectionCount;
+  }
+  const count = view.previousEvidenceCount;
+  if (!Number.isInteger(count) || count < 0 || count > selectionCount) {
+    throw new TypeError('Inspector previousEvidenceCount must be a valid selection count.');
+  }
+  return count;
+}
+
 function comparisonState(current, previous) {
   if (previous.state === 'not-applicable') return 'not-applicable';
   if (current.state === 'unavailable' || previous.state === 'unavailable') return 'unavailable';
@@ -82,6 +93,7 @@ function inspectorRow(view, ids, draft) {
     field: view.field,
     authoritative: view.aggregate,
     previousAuthoritative: previous,
+    previousEvidenceCount: suppliedHistoryCount(view, previous, ids.length),
     comparisonState: comparisonState(view.aggregate, previous),
     display,
     dirty,
