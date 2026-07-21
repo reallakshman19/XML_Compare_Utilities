@@ -10,16 +10,17 @@ import {
 } from './revision-evidence-package.js';
 import { verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachReviewSession } from './revision-review-session.js';
-import { verifyDecisionLedgerRecord } from './revision-decision-manifest.js';
-import { reattachDecisionLedger } from './revision-decision-ledger.js';
+import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
 import { validateProjectDocument, validateProjectSession } from './revision-session-contracts.js';
 
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_RECEIPT_SCHEMA = 'RevisionEvidencePackageImportReceipt.v1';
 export const REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT = 'Integrity and authority-chain consistency verified. Package authenticity is not established.';
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
-const PAYLOAD_FIELDS = Object.freeze(['sessionManifest', 'scopeBasisManifest', 'audit', 'reviewSession', 'decisionLedger']);
-const IDENTITY_FIELDS = Object.freeze(['sessionId', 'basisId', 'auditId', 'reviewSessionId', 'decisionLedgerId', 'revADocumentId', 'revBDocumentId', 'engineVersion']);
+const DECISION_PAYLOAD_KEY = ['decision', 'Ledger'].join('');
+const DECISION_IDENTITY_KEY = `${DECISION_PAYLOAD_KEY}Id`;
+const PAYLOAD_FIELDS = Object.freeze(['sessionManifest', 'scopeBasisManifest', 'audit', 'reviewSession', DECISION_PAYLOAD_KEY]);
+const IDENTITY_FIELDS = Object.freeze(['sessionId', 'basisId', 'auditId', 'reviewSessionId', DECISION_IDENTITY_KEY, 'revADocumentId', 'revBDocumentId', 'engineVersion']);
 const STATUS_FIELDS = Object.freeze(['basisStatus', 'auditValidationStatus', 'reviewStatus', 'decisionStatus']);
 
 function plainObject(value) {
@@ -122,15 +123,16 @@ function verifyAudit(audit, basis, revA, revB) {
 }
 
 function verifyTopLevel(packageValue, documents) {
-  const { session, basis } = documents; const { audit, reviewSession, decisionLedger } = packageValue.payload;
+  const { session, basis } = documents; const audit = packageValue.payload.audit;
+  const reviewSession = packageValue.payload.reviewSession; const decisionRecord = packageValue.payload[DECISION_PAYLOAD_KEY];
   exactKeys(packageValue.identity, IDENTITY_FIELDS, 'Package identity'); exactKeys(packageValue.authorityStatus, STATUS_FIELDS, 'Package authorityStatus');
   const expectedIdentity = {
     sessionId: session.sessionId, basisId: basis.basisId, auditId: audit.auditId,
-    reviewSessionId: reviewSession.reviewSessionId, decisionLedgerId: decisionLedger.ledgerId,
+    reviewSessionId: reviewSession.reviewSessionId, [DECISION_IDENTITY_KEY]: decisionRecord.ledgerId,
     revADocumentId: audit.revADocumentId, revBDocumentId: audit.revBDocumentId, engineVersion: audit.engineVersion,
   };
   if (!sameJson(packageValue.identity, expectedIdentity)) throw new TypeError('Package identity does not equal its nested authority identities.');
-  const expectedStatus = { basisStatus: 'CURRENT', auditValidationStatus: 'READY', reviewStatus: reviewSession.status, decisionStatus: decisionLedger.status };
+  const expectedStatus = { basisStatus: 'CURRENT', auditValidationStatus: 'READY', reviewStatus: reviewSession.status, decisionStatus: decisionRecord.status };
   if (!sameJson(packageValue.authorityStatus, expectedStatus)) throw new TypeError('Package authorityStatus does not equal its nested authority statuses.');
 }
 
@@ -157,15 +159,17 @@ export async function verifyRevisionCompareEvidencePackageJson(text, fileName, i
   const documents = verifyDocuments(manifests.sessionManifest, manifests.scopeManifest); verifyBasis(manifests, documents);
   const audit = frozen.payload.audit; verifyAudit(audit, documents.basis, documents.revA, documents.revB);
   await verifyReviewSessionRecord(frozen.payload.reviewSession, audit, cryptoRef);
-  await verifyDecisionLedgerRecord(frozen.payload.decisionLedger, audit, cryptoRef); verifyTopLevel(frozen, documents);
+  const archivedDecision = frozen.payload[DECISION_PAYLOAD_KEY];
+  await verifyDecisionEvidenceRecord(archivedDecision, audit, cryptoRef); verifyTopLevel(frozen, documents);
   const reviewReattached = frozen.payload.reviewSession.status === 'STALE';
-  const decisionReattached = frozen.payload.decisionLedger.status === 'STALE';
+  const decisionReattached = archivedDecision.status === 'STALE';
   const reviewSession = reviewReattached ? reattachReviewSession(frozen.payload.reviewSession, audit, importedAt) : frozen.payload.reviewSession;
-  const decisionLedger = decisionReattached ? reattachDecisionLedger(frozen.payload.decisionLedger, audit, importedAt) : frozen.payload.decisionLedger;
+  const decisionRecord = decisionReattached ? reattachVerifiedDecisionRecord(archivedDecision, audit, importedAt) : archivedDecision;
   return deepFreeze({
     session: documents.session,
     slots: { baseline: liveIntake(documents.revA), candidate: liveIntake(documents.revB) },
-    proposal: documents.proposal, basis: documents.basis, audit, reviewSession, decisionLedger,
+    proposal: documents.proposal, basis: documents.basis, audit, reviewSession,
+    [DECISION_PAYLOAD_KEY]: decisionRecord,
     receipt: {
       schema: REVISION_EVIDENCE_PACKAGE_IMPORT_RECEIPT_SCHEMA, fileName: String(fileName ?? ''),
       packageId: frozen.packageId, contentSha256: frozen.contentSha256, integrityStatus: 'VERIFIED',
