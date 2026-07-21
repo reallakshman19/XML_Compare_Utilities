@@ -1,0 +1,203 @@
+name: Pipeline CAD Markup Interaction
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-*.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-renderer.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-view.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js'
+      - 'tests/pipeline-3d-model-cad-markup-interaction-*.test.js'
+      - 'tests/browser/pipeline-cad-markup-interaction-*'
+      - 'playwright.pipeline-cad-markup-interaction.config.mjs'
+      - '.github/workflows/pipeline-cad-markup-interaction.yml'
+      - '.github/workflows/pipeline-cad-markup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head-interaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      ARTIFACT_DIR: artifacts/pipeline-cad-markup-interaction
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact checked-out SHA
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          mkdir -p "$ARTIFACT_DIR"
+          printf '{"schema":"PipelineCadMarkupInteractionExactHead.v1","expectedSha":"%s","actualSha":"%s","shaMatch":true}\n' \
+            "$EXPECTED_SHA" "$actual" > "$ARTIFACT_DIR/exact-head.json"
+
+      - name: Enforce PCAD-005B scope
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          base="${BASE_SHA:-$(git merge-base HEAD origin/main)}"
+          git diff --check "$base" "$EXPECTED_SHA"
+          git diff --name-only "$base" "$EXPECTED_SHA" | sort > "$ARTIFACT_DIR/changed-files.txt"
+          while IFS= read -r path; do
+            case "$path" in
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-contracts.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-anchor-acquisition.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-session.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-view.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-runtime.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-interaction-renderer.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-renderer.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-view.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js|\
+              tests/pipeline-3d-model-cad-markup-interaction-contracts.test.js|\
+              tests/pipeline-3d-model-cad-markup-anchor-acquisition.test.js|\
+              tests/pipeline-3d-model-cad-markup-interaction-session.test.js|\
+              tests/pipeline-3d-model-cad-markup-interaction-integration.test.js|\
+              tests/pipeline-3d-model-cad-markup-interaction-static.test.js|\
+              tests/browser/pipeline-cad-markup-interaction-fixture.html|\
+              tests/browser/pipeline-cad-markup-interaction.spec.mjs|\
+              playwright.pipeline-cad-markup-interaction.config.mjs|\
+              .github/workflows/pipeline-cad-markup-interaction.yml|\
+              .github/workflows/pipeline-cad-markup.yml) ;;
+              *) echo "Forbidden PCAD-005B path: $path"; exit 1 ;;
+            esac
+          done < "$ARTIFACT_DIR/changed-files.txt"
+          ! grep -Eq '^(core/|workbench3d/|tabs/revision-compare/|tabs/sequential-sketcher/|tabs/topology-trace-validator/|xml-compare/|contracts/|config/|converters/|vendor/|index\.html$|package(-lock)?\.json$)' "$ARTIFACT_DIR/changed-files.txt"
+          ! grep -Eq 'pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation)\.js$' "$ARTIFACT_DIR/changed-files.txt"
+          ! grep -Eq 'pipeline-3d-model-cad-(object-snap-adapters|object-snap-engine|snap)\.js$' "$ARTIFACT_DIR/changed-files.txt"
+          ! grep -Eq 'pipeline-3d-model-(table2x-canvas|table3x-canvas|cad-controller|cad-model)\.js$' "$ARTIFACT_DIR/changed-files.txt"
+          grep -q 'retries:0' playwright.pipeline-cad-markup-interaction.config.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Changed JavaScript syntax
+        id: syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA" "$EXPECTED_SHA" | grep -E '\.(js|mjs)$' | while read -r file; do node --check "$file"; done
+
+      - name: PCAD-005B interaction contracts
+        id: focused_contracts
+        run: node tests/pipeline-3d-model-cad-markup-interaction-contracts.test.js
+
+      - name: PCAD-005B anchor acquisition
+        id: focused_anchor
+        run: node tests/pipeline-3d-model-cad-markup-anchor-acquisition.test.js
+
+      - name: PCAD-005B interaction session
+        id: focused_session
+        run: node tests/pipeline-3d-model-cad-markup-interaction-session.test.js
+
+      - name: PCAD-005B command integration
+        id: focused_integration
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/pipeline-3d-model-cad-markup-interaction-integration.test.js 2>&1 \
+            | tee "$ARTIFACT_DIR/focused-integration.log"
+
+      - name: PCAD-005B static guards
+        id: focused_static
+        run: node tests/pipeline-3d-model-cad-markup-interaction-static.test.js
+
+      - name: PCAD-005A inherited contracts
+        id: foundation
+        run: |
+          node tests/pipeline-3d-model-cad-markup-contracts.test.js
+          node tests/pipeline-3d-model-cad-markup-model.test.js
+          node tests/pipeline-3d-model-cad-markup-commands.test.js
+          node tests/pipeline-3d-model-cad-markup-reconciliation.test.js
+          node tests/pipeline-3d-model-cad-markup-integration.test.js
+
+      - name: Precision Object Snap and authority regressions
+        id: authority
+        run: |
+          npm run test:pipeline-cad-precision
+          node tests/pipeline-3d-model-cad-object-snap-integration.test.js
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-engineering-svg-dual-ledger-marker-invariance.test.js
+          node tests/pipeline-engineering-svg-parity.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: PCAD-005B B01-B14 individually
+        id: browser_individual
+        shell: bash
+        run: |
+          set -euo pipefail
+          for number in $(seq -w 1 14); do
+            npx playwright test --config=playwright.pipeline-cad-markup-interaction.config.mjs --grep "PCAD-005B-B${number}"
+          done
+
+      - name: Complete PCAD-005B Chromium
+        id: browser_complete
+        run: npx playwright test --config=playwright.pipeline-cad-markup-interaction.config.mjs
+
+      - name: PCAD-005A B01-B16
+        id: browser_foundation
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs
+
+      - name: Existing Pipeline CAD browser acceptance
+        id: browser_pipeline
+        run: npm run test:pipeline-cad-browser
+
+      - name: Startup validation
+        id: startup
+        run: node tests/startup-module-syntax.test.js
+
+      - name: Full repository tests
+        id: full
+        run: npm test
+
+      - name: Write exact-head certification
+        id: certification
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          ACTUAL_SHA="$actual" node --input-type=module <<'NODE'
+          import { mkdirSync, writeFileSync } from 'node:fs';
+          const directory=process.env.ARTIFACT_DIR;mkdirSync(directory,{recursive:true});
+          const evidence={
+            schema:'PipelineCadMarkupInteractionCertification.v1',
+            expectedSha:process.env.EXPECTED_SHA,actualSha:process.env.ACTUAL_SHA,
+            shaMatch:process.env.EXPECTED_SHA===process.env.ACTUAL_SHA,
+            mission:'PCAD-005B',browserCases:[...Array(14)].map((_,i)=>`PCAD-005B-B${String(i+1).padStart(2,'0')}`),
+            protectedPcad005aChanged:false,objectSnapImplementationChanged:false,
+            engineeringAuthorityChanged:false,packageLockChanged:false,browserRetries:0,
+            results:{scope:'success',syntax:'success',focused:'success',foundation:'success',authority:'success',browserIndividual:'success',browserComplete:'success',foundationBrowser:'success',pipelineBrowser:'success',startup:'success',fullRepositoryTests:'success'},
+          };
+          writeFileSync(`${directory}/certification.json`,`${JSON.stringify(evidence,null,2)}\n`);
+          NODE
+
+      - name: Upload PCAD-005B evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-cad-markup-interaction-${{ env.EXPECTED_SHA }}
+          path: artifacts/pipeline-cad-markup-interaction
+          if-no-files-found: error

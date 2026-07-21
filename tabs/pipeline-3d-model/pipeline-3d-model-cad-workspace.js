@@ -7,6 +7,7 @@ import { mountPipelineCadEngineeringReview } from './pipeline-3d-model-cad-engin
 import { mountPipelineCadDiagnosticsLifecycle } from './pipeline-3d-model-cad-diagnostics-lifecycle.js';
 import { createPipelineCadMarkupRuntime } from './pipeline-3d-model-cad-markup-commands.js';
 import { mountPipelineCadMarkupView } from './pipeline-3d-model-cad-markup-view.js';
+import { mountPipelineCadMarkupInteractionRuntime } from './pipeline-3d-model-cad-markup-interaction-runtime.js';
 import { mountPipelineCadObjectSnap } from './pipeline-3d-model-cad-object-snap-runtime.js';
 import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { createPipelineCadViewportHost } from './pipeline-3d-model-cad-viewport-host.js';
@@ -55,7 +56,8 @@ function setSelectionMode(graphs, mode) {
   Object.values(graphs || {}).forEach((graph) => graph.setSelectionEnabled?.(enabled));
 }
 function destroyParts(parts) {
-  parts.markupControllerCleanup?.(); parts.markupView?.destroy?.(); parts.markup?.destroy?.();
+  parts.markupControllerCleanup?.(); parts.markupInteraction?.destroy?.();
+  parts.markupView?.destroy?.(); parts.markup?.destroy?.();
   parts.bindings?.destroy?.(); parts.precision?.destroy?.(); parts.previewModes?.destroy?.();
   parts.engineeringReview?.destroy?.(); parts.objectSnap?.destroy?.(); parts.shell?.destroy?.();
   parts.diagnostics?.destroy?.(); Object.values(parts.hosts || {}).forEach((host) => host.dispose?.());
@@ -69,10 +71,15 @@ function createMarkupParts(dialog, controller, graphs, options) {
     getProfileModel: () => controller.model, graphs, initialDocument: options.initialMarkupDocument,
   });
   const markupView = mountPipelineCadMarkupView({ dialog, markup });
-  const onModelChanged = () => markup.reconcile();
+  let interaction = null;
+  const onModelChanged = () => {
+    interaction?.handleSourceReplacement?.();
+    markup.reconcile();
+  };
   controller.addEventListener('modelChanged', onModelChanged);
   const markupControllerCleanup = () => controller.removeEventListener('modelChanged', onModelChanged);
-  return { markup, markupView, markupControllerCleanup };
+  const setMarkupInteraction = (value) => { interaction = value; };
+  return { markup, markupView, markupControllerCleanup, setMarkupInteraction };
 }
 
 function createWorkspaceCore(dialog, options) {
@@ -108,14 +115,21 @@ function createInteractionParts(core, preview, options) {
   const bindings = bindPipelineCadWorkspace({ dialog, controller, graphs, stages: view.stages, holders: view.holders, resize });
   const initialMode = previewModes?.mode || core.modal?.dataset?.p3dCadPreviewMode || 'table2x';
   const precision = mountPipelineCadPrecisionEditing({ dialog, controller, graphs, stages: view.stages, mode: initialMode });
-  const onMode = (event) => applyWorkspaceMode(graphs, shell, objectSnap, precision, event.detail?.mode || 'table2x');
+  const markupInteraction = mountPipelineCadMarkupInteractionRuntime({
+    dialog, stages: view.stages, graphs, markup: core.markup, markupView: core.markupView,
+  });
+  core.setMarkupInteraction(markupInteraction);
+  const onMode = (event) => applyWorkspaceMode(
+    graphs, shell, objectSnap, precision, markupInteraction, event.detail?.mode || 'table2x',
+  );
   previewView?.modal.addEventListener('pipelineCadPreviewModeChanged', onMode);
-  applyWorkspaceMode(graphs, shell, objectSnap, precision, initialMode);
+  applyWorkspaceMode(graphs, shell, objectSnap, precision, markupInteraction, initialMode);
   const diagnostics = mountPipelineCadDiagnosticsLifecycle({ dialog, controller, graphs, storage: options.storage, sessionStorage: options.sessionStorage, target });
-  return { bindings, precision, diagnostics, onMode };
+  return { bindings, precision, markupInteraction, diagnostics, onMode };
 }
-function applyWorkspaceMode(graphs, shell, objectSnap, precision, mode) {
-  shell?.setMode(mode); objectSnap?.setMode(mode); precision?.setMode(mode); setSelectionMode(graphs, mode);
+function applyWorkspaceMode(graphs, shell, objectSnap, precision, markupInteraction, mode) {
+  shell?.setMode(mode); objectSnap?.setMode(mode); precision?.setMode(mode);
+  markupInteraction?.setWorkspaceMode(mode); setSelectionMode(graphs, mode);
 }
 function createLifecycle(dialog, parts) {
   const mountId = ++mountSequence;
@@ -125,7 +139,8 @@ function createLifecycle(dialog, parts) {
   return Object.freeze({
     mountId, controller: parts.controller, graphs: parts.graphs, hosts: parts.hosts,
     shell: parts.shell, objectSnap: parts.objectSnap, previewModes: parts.previewModes,
-    precision: parts.precision, diagnostics: parts.diagnostics, markup: parts.markup, resize: parts.resize,
+    precision: parts.precision, diagnostics: parts.diagnostics, markup: parts.markup,
+    markupInteraction: parts.markupInteraction, resize: parts.resize,
     reloadGraphs: () => parts.controller.reloadGraphs(),
     destroy() {
       if (destroyed) return false;
@@ -168,7 +183,13 @@ export function installPipelineCadWorkspaceComposition(doc = globalThis.document
   };
   const onKey = (event) => {
     if (event.key !== 'Escape') return;
-    const dialog = currentDialog(doc); if (dialog) destroyPipelineCadWorkspace(dialog);
+    const dialog = currentDialog(doc);
+    const workspace = dialog ? getPipelineCadWorkspace(dialog) : null;
+    if (workspace?.markupInteraction?.cancelTransient?.('escape')) {
+      event.preventDefault();
+      return;
+    }
+    if (dialog) destroyPipelineCadWorkspace(dialog);
   };
   doc.addEventListener('click', onClick); doc.addEventListener('click', onCloseCapture, true); doc.addEventListener('keydown', onKey, true);
   const installer = Object.freeze({
