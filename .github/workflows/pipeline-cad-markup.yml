@@ -14,6 +14,7 @@ on:
       - 'playwright.pipeline-cad.config.mjs'
       - 'package.json'
       - '.github/workflows/pipeline-cad-markup.yml'
+      - '.github/workflows/engineering-svg-readonly-shell.yml'
   workflow_dispatch:
 
 permissions:
@@ -70,7 +71,8 @@ jobs:
               playwright.pipeline-cad-markup.config.mjs|\
               playwright.pipeline-cad.config.mjs|\
               package.json|\
-              .github/workflows/pipeline-cad-markup.yml) ;;
+              .github/workflows/pipeline-cad-markup.yml|\
+              .github/workflows/engineering-svg-readonly-shell.yml) ;;
               *) echo "Forbidden PCAD-005A path: $path"; exit 1 ;;
             esac
           done < "$ARTIFACT_DIR/changed-files.txt"
