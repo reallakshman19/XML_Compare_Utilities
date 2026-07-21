@@ -65,7 +65,7 @@ test('SSK-ESVG-003C-B07 construction advance and branch-switch refresh', async (
 // SSK-ESVG-003C-B08
 test('SSK-ESVG-003C-B08 source reload null fallback and selection clear', async ({ page }) => {
   await ready(page); await open(page);
-  await page.evaluate(async () => { const f=globalThis.__sskPreview; await f.activatePreview(f.branches[1], true); });
+  await page.evaluate(async () => { const f=globalThis.__sskPreview; f.inspect(); f.openBranch(); f.run(); f.renderer('ENGINEERING_SVG_PREVIEW'); await f.tick(); await f.tick(); });
   await page.locator('[data-engineering-svg-entity-id]').first().click();
   expect(await page.evaluate(() => globalThis.__sskPreview.controller().getPreviewWorkspace().getSelection().length)).toBeGreaterThan(0);
   await page.evaluate(() => globalThis.__sskPreview.reloadSource());
