@@ -38,7 +38,11 @@ function requireReady(receipt, label) {
     throw new TypeError(`${label} must contain a READY validation receipt with no errors.`);
   }
 }
-function sameJson(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
+function sameJson(left, right) {
+  const canonicalLeft = canonicalRevisionCompareEvidenceValue(left, 'left');
+  const canonicalRight = canonicalRevisionCompareEvidenceValue(right, 'right');
+  return JSON.stringify(canonicalLeft) === JSON.stringify(canonicalRight);
+}
 function unique(values, label) {
   if (new Set(values).size !== values.length) throw new TypeError(`${label} must be unique.`);
 }
