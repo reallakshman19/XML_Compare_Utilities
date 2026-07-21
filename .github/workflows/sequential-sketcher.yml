@@ -24,6 +24,7 @@ jobs:
         run: |
           set +e
           mkdir -p artifacts/sequential-sketcher-diagnostic
+          cp tests/sequential-sketcher-1885-nc-fixture-matrix.mjs artifacts/sequential-sketcher-diagnostic/fixture-matrix.mjs
           node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs 2>&1 | tee artifacts/sequential-sketcher-diagnostic/fixture-matrix.log
           echo "${PIPESTATUS[0]}" > artifacts/sequential-sketcher-diagnostic/status.txt
           exit 0
