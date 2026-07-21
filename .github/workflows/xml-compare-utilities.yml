@@ -24,8 +24,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Pipeline table and profile diagnostic
-        run: npm run test:pipeline-table-paste
+      - name: Diagnostic — Pipeline table paste integration
+        run: node tests/pipeline-3d-model-table-paste.test.js
+      - name: Diagnostic — Pipeline table paste parser
+        run: node tests/pipeline-3d-model-table-paste-parser.test.js
+      - name: Diagnostic — Pipeline table paste static
+        run: node tests/pipeline-3d-model-table-paste-static.test.js
+      - name: Diagnostic — Pipeline table paste UI static
+        run: node tests/pipeline-3d-model-table-paste-ui-static.test.js
+      - name: Diagnostic — Pipeline profile propagation
+        run: node tests/pipeline-3d-model-profile-propagation.test.js
+      - name: Diagnostic — Pipeline profile propagation static
+        run: node tests/pipeline-3d-model-profile-propagation-static.test.js
+      - name: Diagnostic — Pipeline bend core
+        run: node tests/pipeline-3d-model-elastic-bend.test.js
+      - name: Diagnostic — Pipeline bend static
+        run: node tests/pipeline-3d-model-elastic-bend-static.test.js
       - name: Static tests
         run: npm run test:static
       - name: XML tests
