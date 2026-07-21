@@ -1,6 +1,6 @@
 /** Verify one archived RevisionCompareEvidencePackage.v1 without source replay. */
 import { deepFreeze } from './revision-contract-utils.js';
-import { validateRevisionComparisonBasis } from './revision-comparison-basis.js';
+import { createRevisionComparisonBasis, validateRevisionComparisonBasis } from './revision-comparison-basis.js';
 import {
   REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS,
   REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX,
@@ -11,6 +11,7 @@ import {
 import { reattachVerifiedReviewRecord, verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
+import { revisionComparisonPreflight } from './revision-preflight.js';
 import { validateProjectDocument, validateProjectSession } from './revision-session-contracts.js';
 
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_RECEIPT_SCHEMA = 'RevisionEvidencePackageImportReceipt.v1';
@@ -21,6 +22,12 @@ const DECISION_IDENTITY_KEY = `${DECISION_PAYLOAD_KEY}Id`;
 const PAYLOAD_FIELDS = Object.freeze(['sessionManifest', 'scopeBasisManifest', 'audit', 'reviewSession', DECISION_PAYLOAD_KEY]);
 const IDENTITY_FIELDS = Object.freeze(['sessionId', 'basisId', 'auditId', 'reviewSessionId', DECISION_IDENTITY_KEY, 'revADocumentId', 'revBDocumentId', 'engineVersion']);
 const STATUS_FIELDS = Object.freeze(['basisStatus', 'auditValidationStatus', 'reviewStatus', 'decisionStatus']);
+const SESSION_MANIFEST_FIELDS = Object.freeze(['schema', 'session', 'revisions', 'preflight', 'scopeProposalId', 'scopeSummary', 'basisStatus', 'basisId']);
+const SCOPE_MANIFEST_FIELDS = Object.freeze(['schema', 'sessionId', 'proposal', 'basisStatus', 'basis', 'preflight']);
+const INTAKE_FIELDS = Object.freeze(['schema', 'slotId', 'role', 'requestGeneration', 'status', 'fileName', 'fileSizeBytes', 'contentHash', 'document', 'branchIndexSummary', 'scopeResult', 'warnings', 'blockers', 'error']);
+const SESSION_FIELDS = Object.freeze(['schema', 'sessionId', 'createdAt', 'updatedAt', 'documents']);
+const DOCUMENT_FIELDS = Object.freeze(['schema', 'documentId', 'slotId', 'role', 'fileName', 'fileSizeBytes', 'sourceHash', 'scopedHash', 'stagedSchema', 'rootShape', 'unit', 'verticalAxis', 'coordinateFrame', 'stats', 'scope', 'createdAt']);
+const PROPOSAL_FIELDS = Object.freeze(['schema', 'revADocumentId', 'revBDocumentId', 'commonBranchIds', 'revAOnlyBranchIds', 'revBOnlyBranchIds', 'includedBranchIdsA', 'includedBranchIdsB', 'excludedBranches', 'proposalId', 'commonBranches', 'revAOnlyBranches', 'revBOnlyBranches', 'summary', 'warnings', 'validation']);
 
 function plainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -51,22 +58,29 @@ function requiredSchema(value, schema, label) {
 }
 
 function verifyDocuments(sessionManifest, scopeManifest) {
-  const session = sessionManifest.session; const revA = sessionManifest.revisions?.revA; const revB = sessionManifest.revisions?.revB;
+  exactKeys(sessionManifest, SESSION_MANIFEST_FIELDS, 'Session manifest');
+  exactKeys(scopeManifest, SCOPE_MANIFEST_FIELDS, 'Scope/basis manifest');
+  exactKeys(sessionManifest.revisions, ['revA', 'revB'], 'Session manifest revisions');
+  const session = sessionManifest.session; const revA = sessionManifest.revisions.revA; const revB = sessionManifest.revisions.revB;
+  exactKeys(session, SESSION_FIELDS, 'Project session'); exactKeys(session.documents, ['baseline', 'candidate'], 'Project session documents');
   requiredSchema(session, 'ProjectSession.v1', 'Project session');
   const sessionErrors = validateProjectSession(session); if (sessionErrors.length) throw new TypeError(`Invalid ProjectSession.v1: ${sessionErrors.join(' ')}`);
   for (const [slot, intake, role] of [['baseline', revA, 'REFERENCE'], ['candidate', revB, 'CANDIDATE']]) {
-    if (intake?.schema !== 'RevisionIntakeState.v1' || intake.slotId !== slot || intake.role !== role) throw new TypeError(`${slot} intake manifest is invalid.`);
+    exactKeys(intake, INTAKE_FIELDS, `${slot} intake manifest`); exactKeys(intake.document, DOCUMENT_FIELDS, `${slot} project document`);
+    if (intake.schema !== 'RevisionIntakeState.v1' || intake.slotId !== slot || intake.role !== role) throw new TypeError(`${slot} intake manifest is invalid.`);
     const errors = validateProjectDocument(intake.document); if (errors.length) throw new TypeError(`Invalid ${slot} ProjectDocument.v1: ${errors.join(' ')}`);
     if (intake.document.slotId !== slot || session.documents?.[slot]?.documentId !== intake.document.documentId) throw new TypeError(`${slot} document does not occupy its packaged session slot.`);
     if (!sameJson(session.documents[slot], intake.document)) throw new TypeError(`${slot} session document differs from its intake manifest.`);
+    if (intake.fileName !== intake.document.fileName || intake.fileSizeBytes !== intake.document.fileSizeBytes || intake.contentHash !== intake.document.sourceHash) throw new TypeError(`${slot} intake metadata does not match its project document.`);
   }
   const proposal = scopeManifest.proposal; const basis = scopeManifest.basis;
-  if (proposal?.schema !== 'RevisionScopeProposal.v1' || proposal.validation?.status !== 'READY') throw new TypeError('Scope proposal must be a READY RevisionScopeProposal.v1.');
+  exactKeys(proposal, PROPOSAL_FIELDS, 'Scope proposal');
+  if (proposal.schema !== 'RevisionScopeProposal.v1' || proposal.validation?.status !== 'READY') throw new TypeError('Scope proposal must be a READY RevisionScopeProposal.v1.');
   if (proposal.revADocumentId !== revA.document.documentId || proposal.revBDocumentId !== revB.document.documentId) throw new TypeError('Scope proposal document identities do not match the packaged revisions.');
   return { session, revA, revB, proposal, basis };
 }
 
-function verifyBasis(manifests, documents) {
+async function verifyBasis(manifests, documents, cryptoRef) {
   const { sessionManifest, scopeManifest } = manifests; const { session, revA, revB, proposal, basis } = documents;
   requiredSchema(sessionManifest, 'RevisionSessionManifest.v1', 'Session manifest');
   requiredSchema(scopeManifest, 'RevisionScopeBasisManifest.v1', 'Scope/basis manifest');
@@ -80,7 +94,10 @@ function verifyBasis(manifests, documents) {
   if (basis.revAContentHash !== revA.document.sourceHash || basis.revBContentHash !== revB.document.sourceHash) throw new TypeError('Basis source hashes do not match the packaged revisions.');
   if (basis.revAScopeIdentity !== revA.document.scopedHash || basis.revBScopeIdentity !== revB.document.scopedHash) throw new TypeError('Basis scope hashes do not match the packaged revisions.');
   if (!sameJson(basis.includedBranchesA, proposal.includedBranchIdsA) || !sameJson(basis.includedBranchesB, proposal.includedBranchIdsB)) throw new TypeError('Basis included branches do not match the packaged scope proposal.');
-  if (!sameJson(sessionManifest.preflight, scopeManifest.preflight)) throw new TypeError('Packaged preflight evidence does not reconcile.');
+  const recomputedPreflight = revisionComparisonPreflight(revA, revB, proposal);
+  if (!sameJson(sessionManifest.preflight, recomputedPreflight) || !sameJson(scopeManifest.preflight, recomputedPreflight)) throw new TypeError('Packaged preflight evidence does not match the packaged documents and scope proposal.');
+  const rebuiltBasis = await createRevisionComparisonBasis({ sessionId: session.sessionId, revA, revB, proposal, preflight: recomputedPreflight }, cryptoRef);
+  if (!sameJson(basis, rebuiltBasis)) throw new TypeError('Packaged comparison basis does not match the deterministic basis reconstructed from packaged authorities.');
 }
 
 function visualObjectIds(audit) {
@@ -155,7 +172,7 @@ export async function verifyRevisionCompareEvidencePackageJson(text, fileName, i
   const material = revisionCompareEvidencePackageHashMaterial(frozen);
   if (await sha256Text(JSON.stringify(material), cryptoRef) !== frozen.contentSha256) throw new TypeError('Evidence package canonical SHA-256 does not match contentSha256.');
   const manifests = { sessionManifest: frozen.payload.sessionManifest, scopeManifest: frozen.payload.scopeBasisManifest };
-  const documents = verifyDocuments(manifests.sessionManifest, manifests.scopeManifest); verifyBasis(manifests, documents);
+  const documents = verifyDocuments(manifests.sessionManifest, manifests.scopeManifest); await verifyBasis(manifests, documents, cryptoRef);
   const audit = frozen.payload.audit; verifyAudit(audit, documents.basis, documents.revA, documents.revB);
   await verifyReviewSessionRecord(frozen.payload.reviewSession, audit, cryptoRef);
   const archivedDecision = frozen.payload[DECISION_PAYLOAD_KEY];
