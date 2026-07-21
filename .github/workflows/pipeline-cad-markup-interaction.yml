@@ -12,6 +12,7 @@ on:
       - 'tests/browser/pipeline-cad-markup-interaction-*'
       - 'playwright.pipeline-cad-markup-interaction.config.mjs'
       - '.github/workflows/pipeline-cad-markup-interaction.yml'
+      - '.github/workflows/pipeline-cad-markup.yml'
   workflow_dispatch:
 
 permissions:
@@ -71,7 +72,8 @@ jobs:
               tests/browser/pipeline-cad-markup-interaction-fixture.html|\
               tests/browser/pipeline-cad-markup-interaction.spec.mjs|\
               playwright.pipeline-cad-markup-interaction.config.mjs|\
-              .github/workflows/pipeline-cad-markup-interaction.yml) ;;
+              .github/workflows/pipeline-cad-markup-interaction.yml|\
+              .github/workflows/pipeline-cad-markup.yml) ;;
               *) echo "Forbidden PCAD-005B path: $path"; exit 1 ;;
             esac
           done < "$ARTIFACT_DIR/changed-files.txt"
@@ -79,6 +81,7 @@ jobs:
           ! grep -Eq 'pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation)\.js$' "$ARTIFACT_DIR/changed-files.txt"
           ! grep -Eq 'pipeline-3d-model-cad-(object-snap-adapters|object-snap-engine|snap)\.js$' "$ARTIFACT_DIR/changed-files.txt"
           ! grep -Eq 'pipeline-3d-model-(table2x-canvas|table3x-canvas|cad-controller|cad-model)\.js$' "$ARTIFACT_DIR/changed-files.txt"
+          grep -q 'retries:0' playwright.pipeline-cad-markup-interaction.config.mjs
 
       - uses: actions/setup-node@v4
         with:
@@ -185,7 +188,7 @@ jobs:
             shaMatch:process.env.EXPECTED_SHA===process.env.ACTUAL_SHA,
             mission:'PCAD-005B',browserCases:[...Array(14)].map((_,i)=>`PCAD-005B-B${String(i+1).padStart(2,'0')}`),
             protectedPcad005aChanged:false,objectSnapImplementationChanged:false,
-            engineeringAuthorityChanged:false,packageLockChanged:false,
+            engineeringAuthorityChanged:false,packageLockChanged:false,browserRetries:0,
             results:{scope:'success',syntax:'success',focused:'success',foundation:'success',authority:'success',browserIndividual:'success',browserComplete:'success',foundationBrowser:'success',pipelineBrowser:'success',startup:'success',fullRepositoryTests:'success'},
           };
           writeFileSync(`${directory}/certification.json`,`${JSON.stringify(evidence,null,2)}\n`);
