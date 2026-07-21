@@ -77,6 +77,22 @@ async function downloadPackage(page) {
 async function importPackage(page, name, text) {
   await page.locator('[data-revc-evidence-package-import]').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(text) });
 }
+async function verifySourceLoadGate(page) {
+  await page.evaluate(() => {
+    const original = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function delayedSourceBytes() {
+      if (this.name === 'slow-source.json') return new Promise((resolve, reject) => setTimeout(() => original.call(this).then(resolve, reject), 400));
+      return original.call(this);
+    };
+  });
+  const buffer = await readFile(fixture('rc004-rev-a.json'));
+  await page.locator('[data-revc-file="baseline"]').setInputFiles({ name: 'slow-source.json', mimeType: 'application/json', buffer });
+  await expect(page.locator('[data-slot="baseline"] strong')).toContainText('Loading');
+  await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();
+  await expect(page.locator('[data-revc-evidence-package-import-status]')).toContainText('Cancel the active revision load');
+  await page.getByRole('button', { name: 'Cancel load' }).click();
+  await expect(page.locator('[data-revc-evidence-package-import]')).toBeEnabled();
+}
 async function rehash(value) {
   value.contentSha256 = await sha256Text(JSON.stringify(revisionCompareEvidencePackageHashMaterial(value)), webcrypto);
   value.packageId = `revision-evidence-package:${value.contentSha256}`;
@@ -134,7 +150,6 @@ async function verifyImportedWorkspaceB(page, source) {
   }
   await assertImportedRestrictions(page);
 }
-
 async function continueImportedReview(page, source) {
   const immediate = await downloadPackage(page); expect(immediate.text).toBe(source.downloaded.text);
   await selectRow(page, source.rows.review); await openLevel(page);
@@ -151,9 +166,9 @@ async function continueImportedReview(page, source) {
   await expect(page.locator('[data-revc-package-import-webgl="1"]')).toHaveCount(1);
   return changed;
 }
-
 async function verifyFailureAndRecoveryWorkspaceC(page, source, changed) {
-  await openWorkspace(page); const urls = await page.evaluate(() => window.rcPackageImportHarness.objectUrls);
+  await openWorkspace(page); await verifySourceLoadGate(page);
+  const urls = await page.evaluate(() => window.rcPackageImportHarness.objectUrls);
   const hashTampered = structuredClone(source.downloaded.value); hashTampered.payload.audit.engineVersion = 'tampered-without-hash';
   await importPackage(page, 'hash-tampered.json', JSON.stringify(hashTampered));
   await expect(page.locator('[data-revc-evidence-package-import-panel]')).toHaveAttribute('data-status', 'failed');
@@ -162,13 +177,11 @@ async function verifyFailureAndRecoveryWorkspaceC(page, source, changed) {
   expect(state.evidencePackageImport.status).toBe('FAILED'); expect(state.evidencePackageImport.error).toContain('canonical SHA-256');
   expect((await page.evaluate(() => window.rcHandle.evidence().viewer)).mounted).toBe(false);
   expect(await page.evaluate(() => window.rcPackageImportHarness.objectUrls)).toBe(urls);
-
   const semantic = structuredClone(source.downloaded.value);
   semantic.payload.scopeBasisManifest.basis.revAContentHash = 'f'.repeat(64);
   await importPackage(page, 'semantic-tampered.json', await rehash(semantic));
   await expect(page.locator('[data-revc-evidence-package-import-status]')).toContainText('source hashes');
   state = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state)); expect(state.compare.audit).toBeNull();
-
   await page.evaluate(() => {
     const original = File.prototype.text;
     File.prototype.text = function delayedText() {
@@ -196,7 +209,6 @@ test('RC-PKG-002-B01 — verify, import and resume an evidence package', async (
   const disposedB = await page.evaluate(() => ({ viewer: window.rcHandle.evidence().viewer, property: window.rcHandle.evidence().property }));
   expect(disposedB.viewer.mounted).toBe(false); expect(disposedB.property.disposed).toBe(true);
   expect(await page.evaluate(() => window.rcPackageImportHarness.webglDisposed)).toBe(await page.evaluate(() => window.rcPackageImportHarness.webglCreated));
-
   await verifyFailureAndRecoveryWorkspaceC(page, source, changed);
   await closeWorkspace(page);
   const disposedC = await page.evaluate(() => window.rcHandle.evidence().viewer); expect(disposedC.mounted).toBe(false);
