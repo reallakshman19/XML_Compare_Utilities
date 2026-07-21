@@ -14,6 +14,7 @@ import {
   renderConstructionInspector, renderConstructionMetrics, renderConstructionSequence,
   renderSequentialConstructionCanvas,
 } from './canvas/sequential-construction-svg.js';
+import { createSequentialEngineeringSvgOwnerBridge } from './sequential-engineering-svg-owner-bridge.js';
 
 function readFile(file) { return file ? file.text() : Promise.resolve(''); }
 function required(root, selector) { const element = root.querySelector(selector); if (!element) throw new Error(`Sequential Sketcher element missing: ${selector}`); return element; }
@@ -59,6 +60,22 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     branchRegistry: createSequentialBranchWorkspaceRegistry(),
   };
   let reviewController = null;
+  let publishOwner = () => null;
+  const ownerBridge = createSequentialEngineeringSvgOwnerBridge({
+    readOwnerState: () => ({
+      session: model.session,
+      evidenceModel: model.evidence,
+      indexes: model.indexes,
+      confirmedConstruction: model.confirmedConstruction,
+      supportProjection: model.supportProjection,
+      visibleProjection: model.mode,
+      constructionCandidateSelection: model.selectedCandidateId,
+      engineeringSceneSelection: null,
+      reviewQueueSelection: null,
+      inspectorSelection: model.selectedCandidateId,
+    }),
+    registerPublisher: (publish) => { publishOwner = publish; },
+  });
   const setStatus = (message, state = 'info') => { elements.status.textContent = message; elements.status.dataset.state = state; };
   const engineOptions = () => ({
     exactToleranceMm: numberValue(elements.exactTolerance, 1),
@@ -130,11 +147,14 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     syncBranchOptions();
   }
 
-  function inspect() {
-    model.records = parseStagedJson(elements.source.value);
-    model.evidence = buildSequentialEvidenceModel(model.records);
-    model.indexes = indexSequentialEvidence(model.evidence);
-    const ids = model.evidence.branches.map((branch) => branch.branchId).sort((a, b) => a.localeCompare(b));
+  function inspect(reason = 'source-inspected') {
+    const records = parseStagedJson(elements.source.value);
+    const evidence = buildSequentialEvidenceModel(records);
+    const indexes = indexSequentialEvidence(evidence);
+    const ids = evidence.branches.map((branch) => branch.branchId).sort((a, b) => a.localeCompare(b));
+    model.records = records;
+    model.evidence = evidence;
+    model.indexes = indexes;
     populateBranchOptions(ids);
     model.branchRegistry.reset(ids);
     model.session = null;
@@ -144,6 +164,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     reviewController?.reset();
     repaint();
     setStatus(`${ids.length} branches indexed as immutable evidence. Select a branch or explicitly build the blocked review queue.`, 'ok');
+    publishOwner(reason);
   }
 
   function repaint() {
@@ -202,7 +223,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     }
   }
 
-  function applyResult(result) {
+  function applyResult(result, reason = 'construction-advanced') {
     model.session = result.session;
     model.selectedCandidateId = '';
     refreshDownstream();
@@ -210,6 +231,10 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     reviewController?.refresh();
     repaint();
     reportOutcome(result.outcome);
+    const settledReason = model.session.state === 'ROUTE_COMPLETE'
+      ? 'route-complete'
+      : model.session.state === 'USER_DECISION_REQUIRED' ? 'decision-required' : reason;
+    publishOwner(settledReason);
   }
   function ensureEvidence() { if (!model.evidence || !model.indexes) inspect(); }
   function openBranch(branchId) {
@@ -232,6 +257,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       ? `Restored ${model.session.strokeLedger.length} committed operations, ${model.session.transactionLedger.length} transactions; state ${model.session.state}.`
       : 'Opened a clean workspace. No construction was committed by the branch switch.';
     setStatus(`Branch ${opened.index + 1} of ${opened.count}: ${branchId}. ${detail}`, opened.restored ? 'ok' : 'info');
+    publishOwner(opened.restored ? 'branch-restored' : 'branch-opened');
   }
   function navigateBranch(delta) {
     ensureEvidence();
@@ -282,7 +308,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       action,
       decisionPayload({ candidateId, ...extra }),
       engineOptions(),
-    ));
+    ), 'decision-applied');
   }
   function restorePackage(restoration) {
     if (restoration?.schema !== 'SequentialWorkspaceRestoration.v1') {
@@ -317,23 +343,29 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     }
     if (event.target?.dataset?.sskFile !== 'source') return;
     elements.source.value = await readFile(event.target.files?.[0]);
-    model.records = null;
-    model.evidence = null;
-    model.indexes = null;
-    model.session = null;
-    model.restoredDecisionRegister = null;
-    clearDownstream();
-    inspect();
+    inspect('source-reloaded');
   }
 
   function onClick(event) {
     if (event.target?.closest?.('[data-ssk-branch-prev]')) { navigateBranch(-1); return; }
     if (event.target?.closest?.('[data-ssk-branch-next]')) { navigateBranch(1); return; }
     const view = event.target?.closest?.('[data-ssk-view]')?.dataset?.sskView;
-    if (view) { model.mode = view; root.querySelectorAll('[data-ssk-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.sskView === view)); repaint(); return; }
+    if (view) {
+      model.mode = view;
+      root.querySelectorAll('[data-ssk-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.sskView === view));
+      repaint();
+      if (model.session) publishOwner('projection-changed');
+      return;
+    }
     const canvasCandidate = event.target?.closest?.('[data-ssk-candidate-id]')?.dataset?.sskCandidateId;
     const selected = event.target?.closest?.('[data-ssk-select-candidate]')?.dataset?.sskSelectCandidate;
-    if (canvasCandidate || selected) { model.selectedCandidateId = canvasCandidate || selected; saveActiveBranch(); repaint(); return; }
+    if (canvasCandidate || selected) {
+      model.selectedCandidateId = canvasCandidate || selected;
+      saveActiveBranch();
+      repaint();
+      if (model.session) publishOwner('selection-changed');
+      return;
+    }
     const connect = event.target?.closest?.('[data-ssk-connect-candidate]')?.dataset?.sskConnectCandidate;
     if (connect) { decide(DECISION_ACTIONS.CONNECT, connect); return; }
     const manualButton = event.target?.closest?.('[data-ssk-manual-connect]');
@@ -396,9 +428,12 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
   return Object.freeze({
     getModel: () => model,
     getReviewQueue: () => reviewController?.getQueue() || null,
+    getEngineeringSvgOwnerSnapshot: ownerBridge.getSnapshot,
+    subscribeEngineeringSvgOwnerState: ownerBridge.subscribe,
     saveActiveBranch,
     restorePackage,
     destroy: () => {
+      ownerBridge.destroy();
       reviewController?.destroy();
       root.removeEventListener('click', onClick);
       root.removeEventListener('change', onChange);
