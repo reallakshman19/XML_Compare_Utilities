@@ -32,16 +32,17 @@ function canonicalJson(value) {
   }
   return JSON.stringify(value);
 }
-function validationView(session) {
-  const expected = reviewSummary(session.items);
-  if (canonicalJson(session.summary) !== canonicalJson(expected)) {
+function expectedSummary(session) { return reviewSummary(session.items ?? []); }
+function validationView(session) { return { ...session, summary: expectedSummary(session) }; }
+function assertSummary(session) {
+  if (canonicalJson(session.summary) !== canonicalJson(expectedSummary(session))) {
     throw new TypeError('Review summary does not reconcile with items.');
   }
-  return { ...session, summary: expected };
 }
 
 export async function verifyReviewSessionRecord(session, audit, cryptoRef) {
   assertValidReviewSession(validationView(session), audit);
+  assertSummary(session);
   await validateNoteHashes(session, cryptoRef);
   return session;
 }
