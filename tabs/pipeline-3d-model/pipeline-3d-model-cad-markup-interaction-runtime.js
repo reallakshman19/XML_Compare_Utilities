@@ -188,13 +188,12 @@ export function mountPipelineCadMarkupInteractionRuntime(options = {}) {
       session.updateDrag(createPipelineCadMarkupDragPatch(record, state.drag, context.world), context.world);
       return;
     }
-    const needsAcquisition = [
-      PipelineCadMarkupStage.FIRST_ANCHOR,
-      PipelineCadMarkupStage.SECOND_ANCHOR,
-      PipelineCadMarkupStage.ANCHOR,
-    ].includes(state.stage);
-    const feedback = needsAcquisition ? acquire(graphName, context) : state.feedback;
-    session.updatePointer(context.world, feedback);
+    const acquisitionStages = [PipelineCadMarkupStage.FIRST_ANCHOR,
+      PipelineCadMarkupStage.SECOND_ANCHOR, PipelineCadMarkupStage.ANCHOR];
+    if (acquisitionStages.includes(state.stage)) {
+      session.updatePointer(context.world, acquire(graphName, context)); return;
+    }
+    if (state.stage === PipelineCadMarkupStage.OFFSET) session.updatePointer(context.world, state.feedback);
   }
   function onPointerUp() {
     const drag = session.finishDrag();
