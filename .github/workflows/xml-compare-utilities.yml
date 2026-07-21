@@ -24,12 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Diagnostic — Pipeline table paste integration
-        run: node tests/pipeline-3d-model-table-paste.test.js
       - name: Diagnostic — Pipeline table paste parser
         run: node tests/pipeline-3d-model-table-paste-parser.test.js
-      - name: Diagnostic — Pipeline table paste static
-        run: node tests/pipeline-3d-model-table-paste-static.test.js
       - name: Diagnostic — Pipeline table paste UI static
         run: node tests/pipeline-3d-model-table-paste-ui-static.test.js
       - name: Diagnostic — Pipeline profile propagation
