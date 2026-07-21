@@ -140,6 +140,7 @@ function previewOptions(state, captured) {
     sceneId: 'sequential-engineering-svg-preview-scene',
     shellId: 'sequential-engineering-svg-preview-shell',
     host: state.surface.previewHost,
+    viewport: state.surface.getViewport(),
     projection: captured.visibleProjection,
     getSnapshot: () => state.ownerSnapshot,
     subscribeSnapshot: (listener) => subscribeSnapshot(state, listener),
