@@ -82,7 +82,8 @@ export function normalizeRevisionCompareSignOffDeclarant(input = {}) {
   });
 }
 function validDeclaredAt(value) {
-  if (typeof value !== 'string' || !value || Number.isNaN(Date.parse(value))) throw new RangeError('declaredAt must be a valid ISO timestamp.');
+  const parsed = typeof value === 'string' && value ? new Date(value) : null;
+  if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) throw new RangeError('declaredAt must be a valid ISO timestamp.');
   return value;
 }
 function reportMaterial(evidencePackage, declarant, declaredAt) {
@@ -142,7 +143,8 @@ export function staleRevisionCompareSignOffState(signOff) {
 }
 export function revisionCompareSignOffAuthorityMatches(before, after) {
   return before?.basis === after?.basis && before?.compare?.audit === after?.compare?.audit
-    && before?.review?.session === after?.review?.session && before?.decision?.ledger === after?.decision?.ledger;
+    && before?.review?.session === after?.review?.session && before?.decision?.ledger === after?.decision?.ledger
+    && revisionCompareSignOffReadiness(after).status === 'READY';
 }
 function appendText(documentRef, parent, tag, text, attribute, value) {
   const node = documentRef.createElement(tag); node.textContent = text;
