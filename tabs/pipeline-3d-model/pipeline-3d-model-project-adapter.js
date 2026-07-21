@@ -58,7 +58,7 @@ export function buildPipelineProjectOutputs(input) {
 function bendArtifact(output) {
   if (!output.elasticBends?.screening?.settings?.enabled) return [];
   return [Object.freeze({
-    fileId: 'pipeline-bend-ledger', name: 'pipeline-bends.tsv',
+    fileId: 'pipeline-bend-ledger', name: 'pipeline-elastic-bends.tsv',
     mime: 'text/tab-separated-values', role: 'ENGINEERING_EVIDENCE',
     sourceSchema: 'PipelineBendResolution.v3', text: output.elasticBendText,
   })];
