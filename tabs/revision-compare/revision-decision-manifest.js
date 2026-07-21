@@ -79,7 +79,7 @@ export async function verifyDecisionEvidenceRecord(ledger, audit, cryptoRef) {
   return ledger;
 }
 export function reattachVerifiedDecisionRecord(ledger, audit, importedAt) {
-  return reattachDecisionLedger(ledger, audit, importedAt);
+  return reattachDecisionLedger(validationView(ledger), audit, importedAt);
 }
 export async function parseDecisionLedgerJson(text, audit, importedAt, cryptoRef) {
   let value;
