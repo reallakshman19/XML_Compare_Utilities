@@ -121,6 +121,11 @@ async function select(page, id) {
   if (!(await level.evaluate((node) => node.open))) await level.locator('summary').click();
 }
 
+async function ensureLevel(page, levelNumber) {
+  const level = page.locator(`[data-level="${levelNumber}"]`);
+  if (!(await level.evaluate((node) => node.open))) await level.locator('summary').click();
+}
+
 const authority = (page) => page.evaluate(() => {
   const value = window.rcHandle.evidence();
   return structuredClone({ audit: value.state.compare.audit, review: value.state.review.session,
@@ -211,6 +216,7 @@ test('RC-SVG-005-B01 — shared Rev A/Rev B property provenance', async ({ page 
   await page.getByRole('button', { name: 'Engineering SVG' }).click(); await page.getByRole('button', { name: 'Overlay' }).click();
   await expect(page.locator('[data-revc-svg-overlay-root="1"]')).toHaveCount(1);
   expect((await authority(page)).viewer).toMatchObject({ fitCounts: fits, selectedIds: selected, resources: { roots: 1, observers: 1, selectionSubscriptions: 1 } });
+  await ensureLevel(page, 2);
   await expect(propertyHost.locator('[data-engineering-svg-property-key]').first()).toBeVisible();
   expect(await propertyHost.innerText()).toBe(propertyText);
 
