@@ -1,4 +1,4 @@
-name: Revision Compare RC-004
+name: Revision Compare RC-SVG-005
 on:
   pull_request:
     paths:
@@ -14,6 +14,7 @@ permissions:
   contents: read
 env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
 jobs:
   certify:
     runs-on: ubuntu-latest
@@ -23,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_SHA }}
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Verify exact checked-out SHA
         id: exact_head
         shell: bash
@@ -37,33 +38,93 @@ jobs:
             echo "sha_match=$sha_match"
           } >> "$GITHUB_OUTPUT"
           mkdir -p artifacts
-          cat > artifacts/revision-compare-exact-head.json <<EOF
+          cat > artifacts/revision-compare-exact-head.json <<JSON
           {
             "schema": "RevisionCompareExactHead.v1",
             "expectedSha": "${EXPECTED_SHA}",
             "actualSha": "${actual_sha}",
             "match": ${sha_match}
           }
-          EOF
-          {
-            echo "## Revision Compare exact source head"
-            echo "- Expected: \`${EXPECTED_SHA}\`"
-            echo "- Actual: \`${actual_sha}\`"
-            echo "- Match: \`${sha_match}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$sha_match" != "true" ]]; then
-            echo "::error::Checked-out HEAD ${actual_sha} does not match expected source SHA ${EXPECTED_SHA}."
-            exit 1
+          JSON
+          test "$sha_match" = 'true'
+      - name: Collect RC-SVG-005 scope evidence
+        id: scope
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts
+          if [[ -z "$BASE_SHA" ]]; then
+            echo 'workflow_dispatch: PR scope comparison not applicable' > artifacts/rc-svg-005-scope.txt
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          set +e
+          git diff --check "$BASE_SHA" HEAD > artifacts/rc-svg-005-scope.txt 2>&1
+          diff_status=$?
+          python - "$BASE_SHA" >> artifacts/rc-svg-005-scope.txt 2>&1 <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          base = sys.argv[1]
+          paths = subprocess.check_output(
+              ['git', 'diff', '--name-only', base, 'HEAD'], text=True,
+          ).splitlines()
+          allowed = {
+              'tabs/revision-compare/revision-compare-property-evidence.js',
+              'tabs/revision-compare/revision-compare-property-inspector.js',
+              'tests/revision-compare-property-evidence.test.mjs',
+              'tests/browser/revision-compare-property-evidence.spec.mjs',
+              'tests/browser/revision-compare-property-lifecycle.spec.mjs',
+              'tests/revision-compare-svg-dependency-guard.test.mjs',
+              'playwright.revision-compare.config.mjs',
+              '.github/workflows/revision-compare.yml',
+              'package.json',
+          }
+          unexpected = [path for path in paths if path not in allowed]
+          print('changed paths:', *paths, sep='\n- ')
+          if unexpected:
+              raise SystemExit(f'Unauthorized RC-SVG-005 paths: {unexpected}')
+          if 'package.json' in paths:
+              before = json.loads(subprocess.check_output(
+                  ['git', 'show', f'{base}:package.json'], text=True,
+              ))
+              with open('package.json', encoding='utf-8') as stream:
+                  after = json.load(stream)
+              for key in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                  if before.get(key) != after.get(key):
+                      raise SystemExit(f'Dependency changes are not authorized: {key}')
+          PY
+          allowlist_status=$?
+          set -e
+          cat artifacts/rc-svg-005-scope.txt
+          if [[ $diff_status -eq 0 && $allowlist_status -eq 0 ]]; then
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'scope_ok=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload RC-SVG-005 scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-svg-005-scope-${{ env.EXPECTED_SHA }}
+          path: artifacts/rc-svg-005-scope.txt
+          if-no-files-found: error
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - name: Install repository dependencies
         run: npm ci
-      - name: Shared property history regression
-        id: shared_property_history
-        run: node tests/engineering-svg-property-history.test.js
+      - name: Shared property provenance regression
+        id: shared_property_provenance
+        run: node tests/engineering-svg-property-provenance.test.js
+      - name: RC-SVG-005 focused property evidence
+        id: property_provenance
+        run: node tests/revision-compare-property-evidence.test.mjs
+      - name: Revision Compare dependency guard
+        id: dependency_guard
+        run: node tests/revision-compare-svg-dependency-guard.test.mjs
       - name: Focused Revision Compare tests
         id: focused
         shell: bash
@@ -81,79 +142,110 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node --check tabs/revision-compare/*.js
-          node --check tests/browser/revision-compare-svg-preview.spec.mjs
+          node --check tabs/revision-compare/revision-compare-property-evidence.js
+          node --check tabs/revision-compare/revision-compare-property-inspector.js
+          node --check tests/revision-compare-property-evidence.test.mjs
           node --check tests/browser/revision-compare-property-evidence.spec.mjs
           node --check tests/browser/revision-compare-property-lifecycle.spec.mjs
-          node --check tests/browser/revision-compare-svg-first-policy.spec.mjs
-          node --check tests/browser/revision-compare-svg-keyboard.spec.mjs
           node --check playwright.revision-compare.config.mjs
+      - name: Startup and import smoke
+        id: startup
+        run: node tests/startup-module-syntax.test.js
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: RC-SVG-002-B01 authoritative shared property evidence
         id: property_b01
         run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-002-B01'
-      - name: RC-SVG-003-B01 SVG-first backend policy
-        id: svg_first_b01
-        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-003-B01'
-      - name: RC-SVG-004-B01 accessible keyboard SVG navigation
-        id: keyboard_b01
-        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-004-B01'
+      - name: RC-SVG-005-B01 shared Rev A and Rev B property provenance
+        id: provenance_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-005-B01'
       - name: Revision Compare Chromium acceptance
         id: chromium
         run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Reject retry-only Chromium success
+        id: retry_guard
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('artifacts/revision-compare-results.json', 'utf8'));
+          const retries = [];
+          const walk = (suite) => {
+            for (const spec of suite.specs ?? []) {
+              for (const test of spec.tests ?? []) {
+                for (const result of test.results ?? []) {
+                  if ((result.retry ?? 0) > 0) retries.push(`${spec.title}: retry ${result.retry}`);
+                }
+              }
+            }
+            for (const child of suite.suites ?? []) walk(child);
+          };
+          for (const suite of report.suites ?? []) walk(suite);
+          if (retries.length) throw new Error(`Retry-only Revision Compare success is forbidden: ${retries.join('; ')}`);
+          NODE
       - name: Full repository tests
         id: full_tests
         run: npm test
+      - name: Enforce collected RC-SVG-005 scope
+        id: scope_enforcement
+        run: test "${{ steps.scope.outputs.scope_ok }}" = 'true'
       - name: Write exact-head certification evidence
         if: always()
         shell: bash
         env:
           ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
           SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
-          SHARED_PROPERTY_HISTORY_RESULT: ${{ steps.shared_property_history.outcome }}
+          SCOPE_RESULT: ${{ steps.scope_enforcement.outcome }}
+          SHARED_PROPERTY_PROVENANCE_RESULT: ${{ steps.shared_property_provenance.outcome }}
+          PROPERTY_PROVENANCE_RESULT: ${{ steps.property_provenance.outcome }}
+          DEPENDENCY_GUARD_RESULT: ${{ steps.dependency_guard.outcome }}
           FOCUSED_RESULT: ${{ steps.focused.outcome }}
           VIEWPORT_RESULT: ${{ steps.viewport.outcome }}
           WORKBENCH3D_RESULT: ${{ steps.workbench3d.outcome }}
           SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          STARTUP_RESULT: ${{ steps.startup.outcome }}
           PROPERTY_B01_RESULT: ${{ steps.property_b01.outcome }}
-          SVG_FIRST_B01_RESULT: ${{ steps.svg_first_b01.outcome }}
-          KEYBOARD_B01_RESULT: ${{ steps.keyboard_b01.outcome }}
+          PROVENANCE_B01_RESULT: ${{ steps.provenance_b01.outcome }}
           CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
+          RETRY_GUARD_RESULT: ${{ steps.retry_guard.outcome }}
           FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          cat > artifacts/revision-compare-certification.json <<EOF
+          cat > artifacts/revision-compare-certification.json <<JSON
           {
-            "schema": "RevisionCompareSvgCertification.v1",
+            "schema": "RevisionComparePropertyProvenanceCertification.v1",
             "workflowRunId": "${GITHUB_RUN_ID}",
             "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "expectedSha": "${EXPECTED_SHA}",
             "actualSha": "${ACTUAL_SHA}",
             "shaMatch": ${SHA_MATCH:-false},
             "results": {
-              "sharedPropertyHistory": "${SHARED_PROPERTY_HISTORY_RESULT}",
+              "scope": "${SCOPE_RESULT}",
+              "sharedPropertyProvenance": "${SHARED_PROPERTY_PROVENANCE_RESULT}",
+              "propertyProvenance": "${PROPERTY_PROVENANCE_RESULT}",
+              "dependencyGuard": "${DEPENDENCY_GUARD_RESULT}",
               "revisionCompare": "${FOCUSED_RESULT}",
               "workbenchViewport": "${VIEWPORT_RESULT}",
               "workbench3d": "${WORKBENCH3D_RESULT}",
               "syntax": "${SYNTAX_RESULT}",
+              "startup": "${STARTUP_RESULT}",
               "propertyB01": "${PROPERTY_B01_RESULT}",
-              "svgFirstB01": "${SVG_FIRST_B01_RESULT}",
-              "keyboardB01": "${KEYBOARD_B01_RESULT}",
+              "provenanceB01": "${PROVENANCE_B01_RESULT}",
               "chromium": "${CHROMIUM_RESULT}",
+              "retryGuard": "${RETRY_GUARD_RESULT}",
               "fullRepositoryTests": "${FULL_TEST_RESULT}"
             }
           }
-          EOF
+          JSON
       - name: Upload exact-head certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: revision-compare-svg-certification-${{ env.EXPECTED_SHA }}
+          name: revision-compare-property-provenance-${{ env.EXPECTED_SHA }}
           path: |
             artifacts/revision-compare-exact-head.json
             artifacts/revision-compare-certification.json
+            artifacts/rc-svg-005-scope.txt
             artifacts/revision-compare-focused.log
             artifacts/revision-compare-results.json
             test-results/revision-compare
@@ -162,7 +254,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: revision-compare-svg-failure-${{ env.EXPECTED_SHA }}
+          name: revision-compare-property-provenance-failure-${{ env.EXPECTED_SHA }}
           path: |
             artifacts
             test-results/revision-compare
