@@ -17,7 +17,7 @@ async function placeAnnotation(page,{graph='table3x',anchor,text='Markup note',l
   await snap(page,graph);await mode(page,'ANNOTATION',graph);const a=await node(page,graph,anchor);await clickClient(page,a.client);
   await page.locator('[data-markup-field="annotationText"]').fill(text);
   if(leader)await page.locator('[data-markup-field="annotationLeaderEnabled"]').check();
-  await page.locator('[data-markup-field="annotationLeaderDx"]').fill('1');await page.locator('[data-markup-field="annotationLeaderDy"]').fill('0.5');
+  await page.locator('[data-markup-field="annotationLeaderDx"]').fill('1');await page.locator('[data-markup-field="annotationLeaderDy"]').fill('-0.5');
   await page.locator('[data-markup-annotation-action="commit"]').click();return (await state(page)).document.annotations.at(-1)
 }
 
