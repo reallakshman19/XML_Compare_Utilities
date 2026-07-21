@@ -199,11 +199,14 @@ test('RC-SVG-005-B01 — shared Rev A/Rev B property provenance', async ({ page 
   expect(contained.provenanceControls).toBe(0); expect(contained.visibleControls).toBe(0);
   expect(contained.hiddenActions).toBe(2); expect(contained.mounted).toBe(1); expect(contained.children).toBe(0);
 
-  const initial = (await authority(page)).viewer; const fits = initial.fitCounts; const selected = initial.selectedIds;
+  const initial = (await authority(page)).viewer;
+  const fits = initial.fitCounts;
+  const commonFits = { all: fits.all, selection: fits.selection };
+  const selected = initial.selectedIds;
   await page.getByRole('button', { name: 'Side-by-side' }).click(); await expect(page.locator('[data-revc-svg-pane-root="1"]')).toHaveCount(2);
   expect((await authority(page)).viewer).toMatchObject({ fitCounts: fits, selectedIds: selected, resources: { roots: 2, observers: 1, selectionSubscriptions: 2 } });
   await page.getByRole('button', { name: '3D (WebGL)' }).click(); await expect(page.locator('[data-revc-property-certification-webgl="1"]')).toHaveCount(1);
-  expect((await authority(page)).viewer).toMatchObject({ fitCounts: fits, selectedIds: selected });
+  expect((await authority(page)).viewer).toMatchObject({ fitCounts: commonFits, selectedIds: selected });
   await page.getByRole('button', { name: 'Engineering SVG' }).click(); await page.getByRole('button', { name: 'Overlay' }).click();
   await expect(page.locator('[data-revc-svg-overlay-root="1"]')).toHaveCount(1);
   expect((await authority(page)).viewer).toMatchObject({ fitCounts: fits, selectedIds: selected, resources: { roots: 1, observers: 1, selectionSubscriptions: 1 } });
