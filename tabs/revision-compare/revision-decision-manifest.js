@@ -58,14 +58,22 @@ async function rationaleHashErrors(ledger, cryptoRef) {
   for (const event of ledger.events) if (await sha256Text(event.rationale, cryptoRef) !== event.rationaleHash) errors.push(`${event.eventId} has a tampered rationale hash.`);
   return errors;
 }
+
+export async function verifyDecisionLedgerRecord(ledger, audit, cryptoRef) {
+  assertValidDecisionLedger(ledger, audit);
+  const errors = [...pairAuditErrors(ledger, audit), ...await rationaleHashErrors(ledger, cryptoRef)];
+  if (errors.length) throw new TypeError(`Invalid AmbiguityDecisionLedger.v1: ${errors.join(' ')}`);
+  const prohibited = prohibitedPayload(ledger);
+  if (prohibited) throw new TypeError(`Decision ledger contains prohibited payload ${prohibited}.`);
+  return ledger;
+}
+
 export async function parseDecisionLedgerJson(text, audit, importedAt, cryptoRef) {
   let value;
-  try { value = JSON.parse(String(text)); } catch (error) { throw new SyntaxError(`Decision ledger JSON is invalid: ${error.message}`); }
-  const ledger = deepFreeze(value); assertValidDecisionLedger(ledger, audit);
-  const evidenceErrors = pairAuditErrors(ledger, audit);
-  const hashErrors = await rationaleHashErrors(ledger, cryptoRef); const errors = [...evidenceErrors, ...hashErrors];
-  if (errors.length) throw new TypeError(`Invalid AmbiguityDecisionLedger.v1: ${errors.join(' ')}`);
-  const prohibited = prohibitedPayload(ledger); if (prohibited) throw new TypeError(`Decision ledger contains prohibited payload ${prohibited}.`);
+  try { value = JSON.parse(String(text)); }
+  catch (error) { throw new SyntaxError(`Decision ledger JSON is invalid: ${error.message}`); }
+  const ledger = deepFreeze(value);
+  await verifyDecisionLedgerRecord(ledger, audit, cryptoRef);
   return ledger.status === 'STALE' ? reattachDecisionLedger(ledger, audit, importedAt) : ledger;
 }
 export const _test = Object.freeze({ pairAuditErrors, prohibitedPayload, rationaleHashErrors });
