@@ -71,17 +71,29 @@ function rawEvidence(property, reason) {
     propertyKey: property?.propertyKey,
     revAValue: property?.revAValue,
     revBValue: property?.revBValue,
-    revAEvidencePath: property?.revAEvidencePath ?? null,
-    revBEvidencePath: property?.revBEvidencePath ?? null,
+    revAEvidencePath: property?.revAEvidencePath,
+    revBEvidencePath: property?.revBEvidencePath,
     normalizationRule: property?.normalizationRule ?? null,
     reason,
   });
+}
+
+function validEvidencePath(value) {
+  return value === null || typeof value === 'string';
+}
+
+function hasValidEvidencePaths(property) {
+  return validEvidencePath(property?.revAEvidencePath)
+    && validEvidencePath(property?.revBEvidencePath);
 }
 
 export function classifyRevisionChangedProperty(property) {
   const propertyKey = property?.propertyKey;
   if (typeof propertyKey !== 'string' || !propertyKey || propertyKey.trim() !== propertyKey) {
     return Object.freeze({ supported: false, fallback: rawEvidence(property, 'INVALID_PROPERTY_KEY') });
+  }
+  if (!hasValidEvidencePaths(property)) {
+    return Object.freeze({ supported: false, fallback: rawEvidence(property, 'INVALID_EVIDENCE_PATH') });
   }
   const type = pairType(property.revAValue, property.revBValue);
   if (!type) {
@@ -96,6 +108,8 @@ export function classifyRevisionChangedProperty(property) {
     type,
     previousValue: property.revAValue,
     value: property.revBValue,
+    previousSource: property.revAEvidencePath,
+    source: property.revBEvidencePath,
     editable: false,
   });
   return Object.freeze({ supported: true, field });
