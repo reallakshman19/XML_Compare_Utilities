@@ -120,7 +120,13 @@ jobs:
       - name: Complete Sequential preview Chromium suite
         run: npx playwright test --config=playwright.sequential-engineering-svg-preview.config.mjs
       - name: Full repository tests
-        run: npm test
+        shell: bash
+        run: |
+          set +e
+          npm test > artifacts/sequential-engineering-svg-preview/full-repository.log 2>&1
+          status=$?
+          tail -n 250 artifacts/sequential-engineering-svg-preview/full-repository.log
+          exit $status
       - name: Upload exact-head preview evidence
         if: always()
         uses: actions/upload-artifact@v4
