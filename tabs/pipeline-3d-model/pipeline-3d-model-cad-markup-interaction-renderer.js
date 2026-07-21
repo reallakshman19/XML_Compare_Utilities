@@ -42,9 +42,9 @@ export function hitTestPipelineCadMarkupProjection(graph, projection, screenPoin
   const graphName = graph.pipelineCadMarkupGraph;
   const candidates = [
     ...projection.dimensions.filter((item) => item.graph === graphName)
-      .map((item) => dimensionHit(graph, item)),
+      .map((item) => dimensionHit(graph, item, screenPoint)),
     ...projection.annotations.filter((item) => item.graph === graphName)
-      .map((item) => annotationHit(graph, item)),
+      .map((item) => annotationHit(graph, item, screenPoint)),
   ].filter((hit) => hit && hit.distance <= aperture)
     .sort((left, right) => left.distance - right.distance || left.item.id.localeCompare(right.item.id));
   const hit = candidates[0];
