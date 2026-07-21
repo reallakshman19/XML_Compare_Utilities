@@ -64,7 +64,9 @@ export function mountPipelineCadMarkupView({ dialog, markup }) {
       return true;
     },
     setSelectedId(id) {
-      selectedId = String(id || '');
+      const next = String(id || '');
+      if (next === selectedId) return selectedId;
+      selectedId = next;
       render();
       return selectedId;
     },
