@@ -165,6 +165,58 @@ function lineFields(family, member) {
   return { branchNode, fullLineTag, lineFamily, pipe, branchRoot: branchRoot(pipe), carrierIds: [...new Set(carrierIds)].sort().join('|') };
 }
 
+function traceCoreFields(member, line, position) {
+  return {
+    'Name of the element': text(member?.memberId),
+    TYPE: text(member?.sourceRecordType),
+    PIPE: line.pipe,
+    'Branch Root': line.branchRoot,
+    Position: position.label,
+    'Position Easting': position.point ? formatNumber(position.point.x) : '',
+    'Position Northing': position.point ? formatNumber(position.point.y) : '',
+    'Position Elevation': position.point ? formatNumber(position.point.z) : '',
+    'Position Source': position.source,
+  };
+}
+
+function traceDtxrFields(dtxr) {
+  return {
+    'RTEXT of detailing text': dtxr.dtxrPos,
+    'ISOMETRIC NOTES': dtxr.dtxrPs,
+    DTXR: dtxr.effective,
+    DTXR_POS: dtxr.dtxrPos,
+    DTXR_PS: dtxr.dtxrPs,
+    DTXR_SOURCE: dtxr.source,
+    DTXR_FALLBACK_USED: dtxr.fallbackUsed ? 'TRUE' : 'FALSE',
+    DTXR_STATUS: dtxr.status,
+  };
+}
+
+function traceAttributeFields(attributes) {
+  return {
+    'Reference of the element': attrValue(attributes, ['ComponentRefNo', 'COMPONENTREFNO', 'REF', 'RefNo']),
+    BORE: attrValue(attributes, ['ABORE', 'LBORE', 'HBORE', 'BORE']),
+    'OUTSIDE DIAMETER': attrValue(attributes, ['OD', 'OUTSIDE_DIAMETER', 'OUTSIDE DIAMETER']),
+    'SUPPORT GAP': attrValue(attributes, ['CMPSUPGAP', 'SUPPORT GAP']),
+    'ANCILIARY SUPPORT REFERENCE': attrValue(attributes, ['ANCILIARY SUPPORT REFERENCE', 'ANCILLARY_SUPPORT_REFERENCE', 'SUPPORT_REFERENCE', 'SREF']),
+    'Component spec reference': attrValue(attributes, ['Component spec reference', 'COMPONENT_SPEC_REFERENCE', 'COMPONENTSPEC', 'SPEC', 'SPRE']),
+    SITE: attrValue(attributes, ['SITE', 'SITE_AREA']),
+  };
+}
+
+function traceProvenanceFields(member, line, dtxr, sourceSchema, jsonNodeNo, sourcePath) {
+  return {
+    JsonNodeNo: jsonNodeNo,
+    'JSON Path': sourcePath,
+    'DTXR Source Node No': dtxr.source === 'NONE' ? '' : jsonNodeNo,
+    'DTXR Source Path': dtxr.source === 'NONE' ? '' : sourcePath,
+    'Line Family': line.lineFamily,
+    'Full Line Tag': line.fullLineTag,
+    'Carrier IDs': line.carrierIds,
+    'Source Schema': text(sourceSchema),
+  };
+}
+
 function memberRow(family, member, sourceSchema) {
   const attributes = member?.attributes || {};
   const supportFamily = familyName(family?.familyId || member?.memberId);
@@ -177,38 +229,10 @@ function memberRow(family, member, sourceSchema) {
   return {
     'Support Family Key': line.branchRoot && supportFamily ? `${line.branchRoot}::${supportFamily}` : '',
     'Support Family': supportFamily,
-    'Name of the element': text(member?.memberId),
-    'Reference of the element': attrValue(attributes, ['ComponentRefNo', 'COMPONENTREFNO', 'REF', 'RefNo']),
-    TYPE: text(member?.sourceRecordType),
-    PIPE: line.pipe,
-    'Branch Root': line.branchRoot,
-    Position: position.label,
-    'Position Easting': position.point ? formatNumber(position.point.x) : '',
-    'Position Northing': position.point ? formatNumber(position.point.y) : '',
-    'Position Elevation': position.point ? formatNumber(position.point.z) : '',
-    'Position Source': position.source,
-    BORE: attrValue(attributes, ['ABORE', 'LBORE', 'HBORE', 'BORE']),
-    'OUTSIDE DIAMETER': attrValue(attributes, ['OD', 'OUTSIDE_DIAMETER', 'OUTSIDE DIAMETER']),
-    'RTEXT of detailing text': dtxr.dtxrPos,
-    'ISOMETRIC NOTES': dtxr.dtxrPs,
-    DTXR: dtxr.effective,
-    DTXR_POS: dtxr.dtxrPos,
-    DTXR_PS: dtxr.dtxrPs,
-    DTXR_SOURCE: dtxr.source,
-    DTXR_FALLBACK_USED: dtxr.fallbackUsed ? 'TRUE' : 'FALSE',
-    DTXR_STATUS: dtxr.status,
-    'SUPPORT GAP': attrValue(attributes, ['CMPSUPGAP', 'SUPPORT GAP']),
-    'ANCILIARY SUPPORT REFERENCE': attrValue(attributes, ['ANCILIARY SUPPORT REFERENCE', 'ANCILLARY_SUPPORT_REFERENCE', 'SUPPORT_REFERENCE', 'SREF']),
-    'Component spec reference': attrValue(attributes, ['Component spec reference', 'COMPONENT_SPEC_REFERENCE', 'COMPONENTSPEC', 'SPEC', 'SPRE']),
-    SITE: attrValue(attributes, ['SITE', 'SITE_AREA']),
-    JsonNodeNo: jsonNodeNo,
-    'JSON Path': sourcePath,
-    'DTXR Source Node No': dtxr.source === 'NONE' ? '' : jsonNodeNo,
-    'DTXR Source Path': dtxr.source === 'NONE' ? '' : sourcePath,
-    'Line Family': line.lineFamily,
-    'Full Line Tag': line.fullLineTag,
-    'Carrier IDs': line.carrierIds,
-    'Source Schema': text(sourceSchema),
+    ...traceCoreFields(member, line, position),
+    ...traceAttributeFields(attributes),
+    ...traceDtxrFields(dtxr),
+    ...traceProvenanceFields(member, line, dtxr, sourceSchema, jsonNodeNo, sourcePath),
     'Resolution Status': diagnostics.length ? 'SOURCE_EVIDENCE_PARTIAL' : 'SOURCE_EVIDENCE_READY',
     Diagnostics: diagnostics.join('|'),
   };
