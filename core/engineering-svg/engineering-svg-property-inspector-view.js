@@ -19,10 +19,14 @@ function valueText(row, state, value) {
   return `${value}${row.field.unit ? ` ${row.field.unit}` : ''}`;
 }
 
-function displayText(row) {
-  return valueText(row, row.display.state, row.display.value);
+function provenanceText(aggregate) {
+  if (aggregate.state === 'mixed') return 'Mixed';
+  if (aggregate.state === 'unavailable') return 'Unavailable for full selection';
+  if (aggregate.state === 'not-applicable') return 'Not supplied';
+  return aggregate.value === null ? 'Explicitly unavailable' : String(aggregate.value);
 }
 
+function displayText(row) { return valueText(row, row.display.state, row.display.value); }
 function previousText(row) {
   return valueText(row, row.previousAuthoritative.state, row.previousAuthoritative.value);
 }
@@ -32,8 +36,20 @@ function controlKind(row) {
   return row.field.type;
 }
 
+function hasProvenance(row) {
+  return row.sourceEvidenceCount > 0 || row.previousSourceEvidenceCount > 0;
+}
+
 function hasComparisonLayout(row) {
-  return Number.isInteger(row.previousEvidenceCount) && row.previousEvidenceCount > 0;
+  return row.previousEvidenceCount > 0 || hasProvenance(row);
+}
+
+function combinedProvenanceState(row) {
+  const states = [row.previousSourceAuthoritative.state, row.sourceAuthoritative.state];
+  if (states.includes('mixed')) return 'mixed';
+  if (states.includes('unavailable')) return 'unavailable';
+  if (states.includes('uniform')) return 'uniform';
+  return 'not-applicable';
 }
 
 function option(documentRef, value, label, disabled = false) {
@@ -97,10 +113,20 @@ function comparisonText(state) {
   })[state] || 'Previous/current evidence unavailable';
 }
 
+function updateProvenance(record, row) {
+  if (!record.previousSource || !record.currentSource) return;
+  const previous = row.previousSourceAuthoritative;
+  const current = row.sourceAuthoritative;
+  record.previousSource.textContent = `Source: ${provenanceText(previous)}`;
+  record.currentSource.textContent = `Source: ${provenanceText(current)}`;
+  record.previousSource.setAttribute('data-engineering-svg-property-provenance-state', previous.state);
+  record.currentSource.setAttribute('data-engineering-svg-property-provenance-state', current.state);
+  record.root.setAttribute('data-engineering-svg-property-provenance-state', combinedProvenanceState(row));
+}
+
 function updateControl(documentRef, record, row) {
   updateCurrentControl(documentRef, record, row);
-  const state = row.display.state;
-  record.root.setAttribute('data-engineering-svg-property-state', state);
+  record.root.setAttribute('data-engineering-svg-property-state', row.display.state);
   record.root.setAttribute('data-engineering-svg-property-dirty', row.dirty ? 'true' : 'false');
   record.root.setAttribute('data-engineering-svg-property-valid', row.valid ? 'true' : 'false');
   record.root.setAttribute('data-engineering-svg-property-comparison', row.comparisonState);
@@ -110,6 +136,7 @@ function updateControl(documentRef, record, row) {
     record.currentGroup.setAttribute('data-engineering-svg-property-state', row.display.state);
     record.comparison.textContent = comparisonText(row.comparisonState);
   }
+  updateProvenance(record, row);
   clearChildren(record.messages);
   row.messages.forEach((message) => {
     const item = element(documentRef, 'li');
@@ -118,10 +145,7 @@ function updateControl(documentRef, record, row) {
   });
 }
 
-function safeId(value) {
-  return String(value).replace(/[^a-z0-9_-]/gi, '-');
-}
-
+function safeId(value) { return String(value).replace(/[^a-z0-9_-]/gi, '-'); }
 function fieldLabel(row) {
   return row.field.unit ? `${row.field.label} (${row.field.unit})` : row.field.label;
 }
@@ -141,7 +165,17 @@ function createLegacyRow(documentRef, row, onFieldEdit, ids) {
   control.id = ids.controlId;
   control.setAttribute('aria-describedby', ids.messagesId);
   control.setAttribute('data-engineering-svg-property-control', row.key);
-  return { label, control, kind: controlKind(row), comparisonLayout: false };
+  return { label, control, kind: controlKind(row), comparisonLayout: false, provenanceLayout: false };
+}
+
+function sourceOutput(documentRef, row, side) {
+  const attribute = side === 'previous'
+    ? 'data-engineering-svg-property-previous-source'
+    : 'data-engineering-svg-property-current-source';
+  return element(documentRef, 'output', {
+    [attribute]: row.key,
+    'aria-label': `${side === 'previous' ? 'Previous' : 'Current'} ${row.field.label} source`,
+  });
 }
 
 function createComparisonRow(documentRef, row, onFieldEdit, ids) {
@@ -162,9 +196,14 @@ function createComparisonRow(documentRef, row, onFieldEdit, ids) {
   control.setAttribute('aria-describedby', ids.messagesId);
   control.setAttribute('data-engineering-svg-property-control', row.key);
   currentGroup.append(currentLabel, control);
+  const provenanceLayout = hasProvenance(row);
+  const previousSource = provenanceLayout ? sourceOutput(documentRef, row, 'previous') : null;
+  const currentSource = provenanceLayout ? sourceOutput(documentRef, row, 'current') : null;
+  if (previousSource) previousGroup.appendChild(previousSource);
+  if (currentSource) currentGroup.appendChild(currentSource);
   return {
-    heading, comparison, previousGroup, previousOutput, currentGroup,
-    control, kind: controlKind(row), comparisonLayout: true,
+    heading, comparison, previousGroup, previousOutput, previousSource, currentGroup, currentSource,
+    control, kind: controlKind(row), comparisonLayout: true, provenanceLayout,
   };
 }
 
@@ -207,7 +246,6 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
   const records = new Map();
   let currentModel = null;
   let busy = false;
-
   const onFieldEdit = (key, value) => options.onFieldEdit?.(key, value);
   apply.addEventListener('click', () => options.onApply?.());
   cancel.addEventListener('click', () => options.onCancel?.());
@@ -223,8 +261,11 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
       present.add(row.key);
       const expectedKind = controlKind(row);
       const expectedComparison = hasComparisonLayout(row);
+      const expectedProvenance = hasProvenance(row);
       let record = records.get(row.key);
-      if (!record || record.kind !== expectedKind || record.comparisonLayout !== expectedComparison) {
+      if (!record || record.kind !== expectedKind
+        || record.comparisonLayout !== expectedComparison
+        || record.provenanceLayout !== expectedProvenance) {
         record?.root.remove();
         record = createRow(documentRef, row, onFieldEdit, idPrefix);
         records.set(row.key, record);
@@ -233,10 +274,7 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
       return record;
     });
     records.forEach((record, key) => {
-      if (!present.has(key)) {
-        record.root.remove();
-        records.delete(key);
-      }
+      if (!present.has(key)) { record.root.remove(); records.delete(key); }
     });
     placeRows(rowsHost, orderedRecords);
     apply.disabled = busy || !model.applyEligible;
@@ -251,16 +289,9 @@ export function createEngineeringSvgPropertyInspectorView(options = {}) {
     getControl: (key) => records.get(key)?.control || null,
     getApplyButton: () => apply,
     getCancelButton: () => cancel,
-    setBusy(value) {
-      busy = value === true;
-      if (currentModel) render(currentModel);
-    },
+    setBusy(value) { busy = value === true; if (currentModel) render(currentModel); },
     destroy() {
-      records.clear();
-      heading.remove();
-      summary.remove();
-      rowsHost.remove();
-      actions.remove();
+      records.clear(); heading.remove(); summary.remove(); rowsHost.remove(); actions.remove();
     },
   });
 }

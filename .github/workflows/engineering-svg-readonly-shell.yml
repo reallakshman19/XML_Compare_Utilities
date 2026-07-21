@@ -15,6 +15,7 @@ on:
       - 'tests/engineering-svg-edit-properties.test.js'
       - 'tests/engineering-svg-overlay-inspector.test.js'
       - 'tests/engineering-svg-property-history.test.js'
+      - 'tests/engineering-svg-property-provenance.test.js'
       - 'tests/engineering-svg-readonly-shell-*.test.js'
       - 'tests/browser/engineering-svg-readonly-shell-*'
       - 'playwright.engineering-svg-readonly-shell.config.mjs'
@@ -28,15 +29,16 @@ permissions:
 jobs:
   readonly-and-editable-shells:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - name: Check out exact source head
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Verify exact checked-out SHA
         id: exact_head
@@ -47,6 +49,87 @@ jobs:
           printf 'expected=%s\nactual=%s\n' "$EXPECTED_SHA" "$actual_sha"
           echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
           test "$actual_sha" = "$EXPECTED_SHA"
+
+      - name: Collect mission scope and diff evidence
+        id: scope
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts
+          if [[ -z "$BASE_SHA" ]]; then
+            printf 'workflow_dispatch: pull-request scope comparison is not applicable\n' | tee artifacts/esvg-prop-002-scope.txt
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          git diff --check "$BASE_SHA" HEAD > artifacts/esvg-prop-002-scope.txt 2>&1
+          diff_status=$?
+          python - "$BASE_SHA" >> artifacts/esvg-prop-002-scope.txt 2>&1 <<'PY'
+          import fnmatch
+          import json
+          import subprocess
+          import sys
+
+          base = sys.argv[1]
+          paths = subprocess.check_output(
+              ['git', 'diff', '--name-only', base, 'HEAD'], text=True,
+          ).splitlines()
+          exact = {
+              'core/engineering-scene/engineering-property-contracts.js',
+              'core/engineering-scene/engineering-contract-validation.js',
+              'core/engineering-svg/engineering-svg-property-runtime.js',
+              'core/engineering-svg/engineering-svg-inspector-model.js',
+              'core/engineering-svg/engineering-svg-property-inspector-view.js',
+              'core/engineering-svg/engineering-svg-workspace-shell.js',
+              'tests/engineering-scene-contracts.test.js',
+              'tests/engineering-scene-validation.test.js',
+              'tests/engineering-svg-edit-properties.test.js',
+              'tests/engineering-svg-overlay-inspector.test.js',
+              'tests/engineering-svg-property-history.test.js',
+              'tests/engineering-svg-property-provenance.test.js',
+              'tests/browser/engineering-svg-readonly-shell-fixture.html',
+              'tests/browser/engineering-svg-readonly-shell.spec.mjs',
+              'playwright.engineering-svg-readonly-shell.config.mjs',
+              '.github/workflows/engineering-svg-readonly-shell.yml',
+              'package.json',
+          }
+          patterns = [
+              'tests/engineering-svg-readonly-shell-*.test.js',
+              'tests/browser/engineering-svg-readonly-shell-*.spec.mjs',
+          ]
+          unexpected = [
+              path for path in paths
+              if path not in exact and not any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+          ]
+          print('changed paths:', *paths, sep='\n- ')
+          if unexpected:
+              raise SystemExit(f'Unauthorized ESVG-PROP-002 paths: {unexpected}')
+          if 'package.json' in paths:
+              before = json.loads(subprocess.check_output(
+                  ['git', 'show', f'{base}:package.json'], text=True,
+              ))
+              with open('package.json', encoding='utf-8') as stream:
+                  after = json.load(stream)
+              for key in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                  if before.get(key) != after.get(key):
+                      raise SystemExit(f'Dependency changes are not authorized: {key}')
+          PY
+          allowlist_status=$?
+          set -e
+          cat artifacts/esvg-prop-002-scope.txt
+          if [[ $diff_status -eq 0 && $allowlist_status -eq 0 ]]; then
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'scope_ok=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload mission scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esvg-prop-002-scope-${{ env.EXPECTED_SHA }}
+          path: artifacts/esvg-prop-002-scope.txt
+          if-no-files-found: error
 
       - uses: actions/setup-node@v4
         with:
@@ -75,6 +158,10 @@ jobs:
         id: property_history
         run: node tests/engineering-svg-property-history.test.js
 
+      - name: Previous/current property provenance
+        id: property_provenance
+        run: node tests/engineering-svg-property-provenance.test.js
+
       - name: Read-only dependency guards
         id: dependency_guards
         run: node tests/engineering-svg-readonly-shell-dependency-guard.test.js
@@ -100,6 +187,12 @@ jobs:
           node --check core/engineering-svg/engineering-svg-property-runtime.js
           node --check core/engineering-svg/engineering-svg-inspector-model.js
           node --check core/engineering-svg/engineering-svg-property-inspector-view.js
+          node --check tests/engineering-svg-property-provenance.test.js
+          node --check tests/browser/engineering-svg-readonly-shell.spec.mjs
+
+      - name: Startup and import smoke
+        id: startup
+        run: node tests/startup-module-syntax.test.js
 
       - name: Install Chromium
         id: chromium_install
@@ -137,18 +230,37 @@ jobs:
         id: b06
         run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-PROP-B06'
 
+      - name: B07 Previous/Current provenance evidence
+        id: b07
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs --grep 'ESVG-PROP-B07'
+
+      - name: Complete read-only Chromium acceptance
+        id: chromium
+        run: npx playwright test --config=playwright.engineering-svg-readonly-shell.config.mjs
+
       - name: Full repository tests
         id: full_repository
         run: npm test
+
+      - name: Enforce collected mission scope
+        id: scope_enforcement
+        shell: bash
+        run: test "${{ steps.scope.outputs.scope_ok }}" = 'true'
 
       - name: Write exact-head certification evidence
         if: always()
         env:
           ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          SCOPE: ${{ steps.scope_enforcement.outcome }}
           CONTRACTS: ${{ steps.contracts.outcome }}
           VALIDATION: ${{ steps.validation.outcome }}
           PROPERTY_RUNTIME: ${{ steps.property_runtime.outcome }}
           PROPERTY_HISTORY: ${{ steps.property_history.outcome }}
+          PROPERTY_PROVENANCE: ${{ steps.property_provenance.outcome }}
+          DEPENDENCY_GUARDS: ${{ steps.dependency_guards.outcome }}
+          MERGED_FOUNDATIONS: ${{ steps.merged_foundations.outcome }}
+          SYNTAX: ${{ steps.syntax.outcome }}
+          STARTUP: ${{ steps.startup.outcome }}
           EDITABLE_SHELL: ${{ steps.editable_shell.outcome }}
           B01: ${{ steps.b01.outcome }}
           B02: ${{ steps.b02.outcome }}
@@ -156,20 +268,28 @@ jobs:
           B04: ${{ steps.b04.outcome }}
           B05: ${{ steps.b05.outcome }}
           B06: ${{ steps.b06.outcome }}
+          B07: ${{ steps.b07.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
           FULL_REPOSITORY: ${{ steps.full_repository.outcome }}
         run: |
           mkdir -p artifacts
           node --input-type=module <<'NODE'
           import { writeFileSync } from 'node:fs';
           const evidence = {
-            schema: 'EngineeringSvgPropertyHistoryCertification.v1',
+            schema: 'EngineeringSvgPropertyProvenanceCertification.v1',
             expectedSha: process.env.EXPECTED_SHA,
             actualSha: process.env.ACTUAL_SHA || null,
             shaMatch: process.env.ACTUAL_SHA === process.env.EXPECTED_SHA,
+            scope: process.env.SCOPE,
             contracts: process.env.CONTRACTS,
             validation: process.env.VALIDATION,
             propertyRuntime: process.env.PROPERTY_RUNTIME,
             propertyHistory: process.env.PROPERTY_HISTORY,
+            propertyProvenance: process.env.PROPERTY_PROVENANCE,
+            dependencyGuards: process.env.DEPENDENCY_GUARDS,
+            mergedFoundations: process.env.MERGED_FOUNDATIONS,
+            syntax: process.env.SYNTAX,
+            startup: process.env.STARTUP,
             editableShell: process.env.EDITABLE_SHELL,
             B01: process.env.B01,
             B02: process.env.B02,
@@ -177,24 +297,31 @@ jobs:
             B04: process.env.B04,
             B05: process.env.B05,
             B06: process.env.B06,
+            B07: process.env.B07,
+            chromium: process.env.CHROMIUM,
             fullRepositoryTests: process.env.FULL_REPOSITORY,
           };
-          writeFileSync('artifacts/engineering-svg-property-history-certification.json', `${JSON.stringify(evidence, null, 2)}\n`);
+          writeFileSync(
+            'artifacts/engineering-svg-property-provenance-certification.json',
+            `${JSON.stringify(evidence, null, 2)}\n`,
+          );
           NODE
 
       - name: Upload exact-head certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: engineering-svg-property-history-certification-${{ env.EXPECTED_SHA }}
-          path: artifacts/engineering-svg-property-history-certification.json
+          name: engineering-svg-property-provenance-certification-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts/engineering-svg-property-provenance-certification.json
+            artifacts/esvg-prop-002-scope.txt
           if-no-files-found: error
 
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: engineering-svg-property-history-failure-${{ env.EXPECTED_SHA }}
+          name: engineering-svg-property-provenance-failure-${{ env.EXPECTED_SHA }}
           path: |
             artifacts/editable-shell-results.json
             test-results/engineering-svg-readonly-shell

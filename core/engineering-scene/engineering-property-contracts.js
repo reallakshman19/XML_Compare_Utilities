@@ -21,6 +21,10 @@ export const ENGINEERING_PROPERTY_AGGREGATE_STATE = Object.freeze({
   NOT_APPLICABLE: 'not-applicable',
 });
 
+function owns(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
 function requiredText(value, label) {
   const result = String(value ?? '').trim();
   if (!result) throw new TypeError(`${label} is required.`);
@@ -59,6 +63,15 @@ function assertPropertyValue(type, value, input, name = 'value') {
   if (type === 'number' && input.max != null && value > input.max) throw new RangeError(`Property "${input.key}" ${label} is above its maximum.`);
 }
 
+function provenanceValue(input, key, name, optional) {
+  if (!owns(input, name)) return optional ? { owned: false } : { owned: true, value: null };
+  const value = input[name];
+  if (value === undefined || (value !== null && typeof value !== 'string')) {
+    throw new TypeError(`Property "${key}" ${name} must be a string or null.`);
+  }
+  return { owned: true, value };
+}
+
 export function createEngineeringPropertyField(input = {}) {
   const key = requiredText(input.key, 'Property key');
   const label = requiredText(input.label ?? key, `Property "${key}" label`);
@@ -72,6 +85,8 @@ export function createEngineeringPropertyField(input = {}) {
   if (min != null && max != null && min > max) throw new RangeError(`Property "${key}" min cannot exceed max.`);
   const value = input.value ?? null;
   assertPropertyValue(type, value, { key, options, min, max });
+  const currentSource = provenanceValue(input, key, 'source', false);
+  const previousSource = provenanceValue(input, key, 'previousSource', true);
   const editable = scope === 'REFERENCE' ? false : input.editable !== false;
   const field = {
     schema: ENGINEERING_PROPERTY_FIELD_SCHEMA,
@@ -85,12 +100,13 @@ export function createEngineeringPropertyField(input = {}) {
     min,
     max,
     editable,
-    source: input.source == null ? null : String(input.source),
+    source: currentSource.value,
   };
   if (Object.prototype.hasOwnProperty.call(input, 'previousValue')) {
     assertPropertyValue(type, input.previousValue, { key, options, min, max }, 'previousValue');
     field.previousValue = input.previousValue;
   }
+  if (previousSource.owned) field.previousSource = previousSource.value;
   return freezeJsonValue(field);
 }
 
@@ -100,7 +116,7 @@ export function createEngineeringPropertyAggregate(input = {}) {
   if (!Object.values(ENGINEERING_PROPERTY_AGGREGATE_STATE).includes(state)) {
     throw new TypeError(`Property aggregate has unsupported state "${state}".`);
   }
-  if (state === 'uniform' && !Object.prototype.hasOwnProperty.call(input, 'value')) {
+  if (state === 'uniform' && !owns(input, 'value')) {
     throw new TypeError(`Uniform property aggregate "${key}" requires a value.`);
   }
   if (input.selectedCount != null && (!Number.isInteger(input.selectedCount) || input.selectedCount < 0)) {
