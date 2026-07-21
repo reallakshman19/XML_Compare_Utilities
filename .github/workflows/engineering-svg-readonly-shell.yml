@@ -50,17 +50,21 @@ jobs:
           echo "actual_sha=$actual_sha" >> "$GITHUB_OUTPUT"
           test "$actual_sha" = "$EXPECTED_SHA"
 
-      - name: Enforce mission file scope and clean diff
+      - name: Collect mission scope and diff evidence
         id: scope
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          mkdir -p artifacts
           if [[ -z "$BASE_SHA" ]]; then
-            echo 'workflow_dispatch: pull-request scope comparison is not applicable'
+            printf 'workflow_dispatch: pull-request scope comparison is not applicable\n' | tee artifacts/esvg-prop-002-scope.txt
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git diff --check "$BASE_SHA" HEAD
-          python - "$BASE_SHA" <<'PY'
+          set +e
+          git diff --check "$BASE_SHA" HEAD > artifacts/esvg-prop-002-scope.txt 2>&1
+          diff_status=$?
+          python - "$BASE_SHA" >> artifacts/esvg-prop-002-scope.txt 2>&1 <<'PY'
           import fnmatch
           import json
           import subprocess
@@ -109,6 +113,22 @@ jobs:
                   if before.get(key) != after.get(key):
                       raise SystemExit(f'Dependency changes are not authorized: {key}')
           PY
+          allowlist_status=$?
+          set -e
+          cat artifacts/esvg-prop-002-scope.txt
+          if [[ $diff_status -eq 0 && $allowlist_status -eq 0 ]]; then
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'scope_ok=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload mission scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: esvg-prop-002-scope-${{ env.EXPECTED_SHA }}
+          path: artifacts/esvg-prop-002-scope.txt
+          if-no-files-found: error
 
       - uses: actions/setup-node@v4
         with:
@@ -221,11 +241,16 @@ jobs:
         id: full_repository
         run: npm test
 
+      - name: Enforce collected mission scope
+        id: scope_enforcement
+        shell: bash
+        run: test "${{ steps.scope.outputs.scope_ok }}" = 'true'
+
       - name: Write exact-head certification evidence
         if: always()
         env:
           ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
-          SCOPE: ${{ steps.scope.outcome }}
+          SCOPE: ${{ steps.scope_enforcement.outcome }}
           CONTRACTS: ${{ steps.contracts.outcome }}
           VALIDATION: ${{ steps.validation.outcome }}
           PROPERTY_RUNTIME: ${{ steps.property_runtime.outcome }}
@@ -286,7 +311,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: engineering-svg-property-provenance-certification-${{ env.EXPECTED_SHA }}
-          path: artifacts/engineering-svg-property-provenance-certification.json
+          path: |
+            artifacts/engineering-svg-property-provenance-certification.json
+            artifacts/esvg-prop-002-scope.txt
           if-no-files-found: error
 
       - name: Upload browser failure evidence
