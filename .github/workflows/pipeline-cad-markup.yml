@@ -1,0 +1,267 @@
+name: Pipeline CAD Markup Foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-*.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js'
+      - 'tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js'
+      - 'tests/pipeline-3d-model-cad-markup-*.test.js'
+      - 'tests/browser/pipeline-cad-markup-*'
+      - 'playwright.pipeline-cad-markup.config.mjs'
+      - 'playwright.pipeline-cad.config.mjs'
+      - 'package.json'
+      - '.github/workflows/pipeline-cad-markup.yml'
+      - '.github/workflows/engineering-svg-readonly-shell.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markup-contracts-browser-and-invariance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      ARTIFACT_DIR: artifacts/pipeline-cad-markup
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact checked-out SHA
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$EXPECTED_SHA"
+          mkdir -p "$ARTIFACT_DIR"
+          printf '{"schema":"PipelineCadMarkupExactHead.v1","expectedSha":"%s","actualSha":"%s","shaMatch":true}\n' \
+            "$EXPECTED_SHA" "$actual_sha" > "$ARTIFACT_DIR/exact-head.json"
+
+      - name: Enforce PCAD-005A file allowlist
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          base="${BASE_SHA:-$(git merge-base HEAD origin/main)}"
+          git diff --check "$base" "$EXPECTED_SHA"
+          git diff --name-only "$base" "$EXPECTED_SHA" | sort > "$ARTIFACT_DIR/changed-files.txt"
+          while IFS= read -r path; do
+            case "$path" in
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-*.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js|\
+              tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js|\
+              tests/pipeline-3d-model-cad-markup-contracts.test.js|\
+              tests/pipeline-3d-model-cad-markup-model.test.js|\
+              tests/pipeline-3d-model-cad-markup-commands.test.js|\
+              tests/pipeline-3d-model-cad-markup-reconciliation.test.js|\
+              tests/pipeline-3d-model-cad-markup-integration.test.js|\
+              tests/browser/pipeline-cad-markup-fixture.html|\
+              tests/browser/pipeline-cad-markup.spec.mjs|\
+              playwright.pipeline-cad-markup.config.mjs|\
+              playwright.pipeline-cad.config.mjs|\
+              package.json|\
+              .github/workflows/pipeline-cad-markup.yml|\
+              .github/workflows/engineering-svg-readonly-shell.yml) ;;
+              *) echo "Forbidden PCAD-005A path: $path"; exit 1 ;;
+            esac
+          done < "$ARTIFACT_DIR/changed-files.txt"
+          ! grep -qx 'package-lock.json' "$ARTIFACT_DIR/changed-files.txt"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.match(pkg.scripts['test:pipeline-cad-precision'], /precision-contracts/);
+          assert.match(pkg.scripts['test:static'], /test:pipeline-cad-precision/);
+          assert.deepEqual(pkg.devDependencies, {
+            '@playwright/test': '1.54.1',
+            'lucide-static': '1.24.0',
+          });
+          NODE
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: PCAD-005A contracts and deterministic persistence
+        id: focused
+        run: |
+          node tests/pipeline-3d-model-cad-markup-contracts.test.js
+          node tests/pipeline-3d-model-cad-markup-model.test.js
+          node tests/pipeline-3d-model-cad-markup-commands.test.js
+          node tests/pipeline-3d-model-cad-markup-reconciliation.test.js
+          node tests/pipeline-3d-model-cad-markup-integration.test.js
+
+      - name: PCAD-003 precision registration and integration
+        id: precision
+        run: npm run test:pipeline-cad-precision
+
+      - name: PCAD-001 through PCAD-004R regressions
+        id: pcad_regressions
+        run: |
+          node tests/pipeline-3d-model-cad-lifecycle-integration.test.js
+          node tests/pipeline-3d-model-cad-object-snap-integration.test.js
+          node tests/pipeline-3d-model-cad-selection-contracts.test.js
+          node tests/pipeline-3d-model-cad-batch-commands.test.js
+          node tests/pipeline-3d-model-cad-multi-selection-integration.test.js
+          node tests/pipeline-3d-model-cad-current-authority-regression.test.js
+
+      - name: Profile bend InputXML and Pipeline SVG parity gates
+        id: authority
+        run: |
+          node tests/pipeline-3d-model-profile-propagation.test.js
+          node tests/pipeline-3d-model-elastic-bend.test.js
+          node tests/pipeline-engineering-svg-dual-ledger-marker-invariance.test.js
+          node tests/pipeline-engineering-svg-parity.test.js
+
+      - name: Production and test JavaScript syntax
+        id: syntax
+        run: |
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-contracts.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-model.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-commands.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-reconciliation.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-renderer.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-view.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js
+          node --check tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js
+          node --check tests/browser/pipeline-cad-markup.spec.mjs
+          node --check playwright.pipeline-cad-markup.config.mjs
+          node --check playwright.pipeline-cad.config.mjs
+          node tests/startup-module-syntax.test.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: PCAD-003 precision Chromium certification
+        run: npx playwright test --config=playwright.pipeline-cad.config.mjs --grep 'PCAD-PE-B'
+
+      - name: PCAD-005A-B01
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B01'
+      - name: PCAD-005A-B02
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B02'
+      - name: PCAD-005A-B03
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B03'
+      - name: PCAD-005A-B04
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B04'
+      - name: PCAD-005A-B05
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B05'
+      - name: PCAD-005A-B06
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B06'
+      - name: PCAD-005A-B07
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B07'
+      - name: PCAD-005A-B08
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B08'
+      - name: PCAD-005A-B09
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B09'
+      - name: PCAD-005A-B10
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B10'
+      - name: PCAD-005A-B11
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B11'
+      - name: PCAD-005A-B12
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B12'
+      - name: PCAD-005A-B13
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B13'
+      - name: PCAD-005A-B14
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B14'
+      - name: PCAD-005A-B15
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B15'
+      - name: PCAD-005A-B16 teardown ownership and remount isolation
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs --grep 'PCAD-005A-B16'
+
+      - name: Complete PCAD-005A Chromium suite
+        id: chromium
+        run: npx playwright test --config=playwright.pipeline-cad-markup.config.mjs
+
+      - name: Existing Pipeline CAD Chromium acceptance
+        id: existing_browser
+        run: npm run test:pipeline-cad-browser
+
+      - name: Startup smoke
+        id: startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/pcad-005a-startup.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:4173/ >/dev/null && break
+            sleep 1
+          done
+          node tests/browser/xml-compare-startup-smoke.mjs
+
+      - name: Full repository tests
+        id: full_repository
+        run: npm test
+
+      - name: Write machine-readable certification
+        if: always()
+        env:
+          SCOPE: ${{ steps.scope.outcome }}
+          FOCUSED: ${{ steps.focused.outcome }}
+          PRECISION: ${{ steps.precision.outcome }}
+          REGRESSIONS: ${{ steps.pcad_regressions.outcome }}
+          AUTHORITY: ${{ steps.authority.outcome }}
+          SYNTAX: ${{ steps.syntax.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
+          EXISTING_BROWSER: ${{ steps.existing_browser.outcome }}
+          STARTUP: ${{ steps.startup.outcome }}
+          FULL_REPOSITORY: ${{ steps.full_repository.outcome }}
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          ACTUAL_SHA="$actual_sha" node --input-type=module <<'NODE'
+          import { mkdirSync, writeFileSync } from 'node:fs';
+          const directory = process.env.ARTIFACT_DIR;
+          mkdirSync(directory, { recursive: true });
+          const evidence = {
+            schema: 'PipelineCadMarkupCertification.v1',
+            expectedSha: process.env.EXPECTED_SHA,
+            actualSha: process.env.ACTUAL_SHA,
+            shaMatch: process.env.EXPECTED_SHA === process.env.ACTUAL_SHA,
+            results: {
+              scope: process.env.SCOPE,
+              focused: process.env.FOCUSED,
+              precision: process.env.PRECISION,
+              regressions: process.env.REGRESSIONS,
+              authority: process.env.AUTHORITY,
+              syntax: process.env.SYNTAX,
+              chromium: process.env.CHROMIUM,
+              existingBrowser: process.env.EXISTING_BROWSER,
+              startup: process.env.STARTUP,
+              fullRepositoryTests: process.env.FULL_REPOSITORY,
+            },
+            staleRegistrationException: false,
+            destroyedRuntimeMutable: false,
+            dependencyChange: false,
+            packageLockChanged: false,
+          };
+          writeFileSync(`${directory}/certification.json`, `${JSON.stringify(evidence, null, 2)}\n`);
+          NODE
+
+      - name: Upload exact-head markup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-cad-markup-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts/pipeline-cad-markup
+            test-results/pipeline-cad-markup
+            /tmp/pcad-005a-startup.log
+          if-no-files-found: error
+          retention-days: 90

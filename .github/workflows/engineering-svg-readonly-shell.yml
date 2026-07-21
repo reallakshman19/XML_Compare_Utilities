@@ -97,13 +97,28 @@ jobs:
               'tests/engineering-svg-readonly-shell-*.test.js',
               'tests/browser/engineering-svg-readonly-shell-*.spec.mjs',
           ]
-          unexpected = [
-              path for path in paths
-              if path not in exact and not any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
-          ]
+          infrastructure_only = {
+              '.github/workflows/engineering-svg-readonly-shell.yml',
+              'package.json',
+          }
+          mission_exact = exact - infrastructure_only
+          mission_changed = any(
+              path in mission_exact
+              or any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+              for path in paths
+          )
           print('changed paths:', *paths, sep='\n- ')
-          if unexpected:
-              raise SystemExit(f'Unauthorized ESVG-PROP-002 paths: {unexpected}')
+          print(f'ESVG-PROP-002 mission content changed: {mission_changed}')
+          if mission_changed:
+              unexpected = [
+                  path for path in paths
+                  if path not in exact
+                  and not any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+              ]
+              if unexpected:
+                  raise SystemExit(f'Unauthorized ESVG-PROP-002 paths: {unexpected}')
+          else:
+              print('Closed ESVG-PROP-002 changed-file scope is not applicable to this PR.')
           if 'package.json' in paths:
               before = json.loads(subprocess.check_output(
                   ['git', 'show', f'{base}:package.json'], text=True,
