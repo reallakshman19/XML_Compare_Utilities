@@ -26,6 +26,16 @@ function setInteractiveSurface(element, visible) {
   else element.setAttribute('inert', '');
 }
 
+function measuredViewport(element) {
+  const bounds = element.getBoundingClientRect?.();
+  const width = Number(bounds?.width ?? element.clientWidth);
+  const height = Number(bounds?.height ?? element.clientHeight);
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    throw new Error('Sequential Engineering SVG preview requires a visible positive viewport.');
+  }
+  return Object.freeze({ width, height });
+}
+
 export function createSequentialEngineeringSvgPreviewSurface(root) {
   const construction = requiredElement(root, '[data-ssk-construction-surface]');
   const previewHost = requiredElement(root, '[data-ssk-engineering-svg-preview-host]');
@@ -42,6 +52,7 @@ export function createSequentialEngineeringSvgPreviewSurface(root) {
   return Object.freeze({
     previewHost,
     currentProjection: () => root.querySelector('[data-ssk-view].is-active')?.dataset?.sskView || 'ISO',
+    getViewport: () => measuredViewport(construction),
     setAvailability: (available) => { previewButton.disabled = !available; },
     setProjection(projection) { root.querySelectorAll('[data-ssk-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.sskView === projection)); },
     show(renderer) {
