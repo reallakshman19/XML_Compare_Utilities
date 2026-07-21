@@ -83,9 +83,35 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Detect private fixture-sensitive scope
+        id: fixture_scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PUSH_BEFORE_SHA: ${{ github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          base_sha="$PR_BASE_SHA"
+          if [[ "$EVENT_NAME" == 'push' ]]; then base_sha="$PUSH_BEFORE_SHA"; fi
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+            echo 'run_private_fixture=false' >> "$GITHUB_OUTPUT"
+            echo 'No comparable base SHA; private fixture probes are not authoritative for this run.'
+            exit 0
+          fi
+          changed_paths="$(git diff --name-only "$base_sha" HEAD)"
+          printf '%s\n' "$changed_paths"
+          if grep -Eq '^(tabs/sequential-sketcher/|contracts/pipe-support-projection/|tests/sequential-)' <<< "$changed_paths"; then
+            echo 'run_private_fixture=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'run_private_fixture=false' >> "$GITHUB_OUTPUT"
+            echo 'Only the shared PSNM host/workflow changed; private 1885_NC probes are out of scope.'
+          fi
       - name: Supervised sequential construction
         run: node tests/sequential-construction-engine.test.js
       - name: Source-ordered OLET attachment events
@@ -141,8 +167,10 @@ jobs:
       - name: Branch switching workspace UX
         run: node tests/sequential-sketcher-branch-switch-ui.test.js
       - name: Pinned fixture-wide feature matrix
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
       - name: Pinned complete S-line scope
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
       - name: Exact synthetic carrier shadows
         run: node tests/sequential-shadow-carrier.test.js
@@ -155,17 +183,22 @@ jobs:
       - name: Non-semantic ATTA placeholder isolation
         run: node tests/sequential-support-placeholder.test.js
       - name: Pinned 1885 NC branch probe
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
       - name: Pinned B3 support evidence
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-support-evidence.mjs
       - name: Pinned B3 support semantics
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-support-regression.mjs
       - name: Pinned B2 junction sequence probe
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-b2-probe.mjs
       - name: Pinned B2 component evidence
+        if: steps.fixture_scope.outputs.run_private_fixture == 'true'
         run: node tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs
       - name: Publish 1885 NC probe
-        if: always()
+        if: always() && steps.fixture_scope.outputs.run_private_fixture == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: sequential-sketcher-1885-nc-probe

@@ -6,12 +6,12 @@ import {
 } from './pipeline-3d-model-geometry.js';
 import {
   buildElasticBendLedgerText, resolvePipelineElasticBends,
-} from './pipeline-3d-model-elastic-bend.js';
-import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js';
+} from './pipeline-3d-model-elastic-bend.js?v=20260721-bend-policy-v3-1';
+import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
 import {
   buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml,
 } from './pipeline-3d-model-xml-builder.js';
-import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js?v=20260719-bend-hardening-1';
+import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js?v=20260721-bend-policy-v3-1';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
@@ -55,12 +55,12 @@ export function buildPipelineProjectOutputs(input) {
     : buildLegacyOutputs(input);
 }
 
-function elasticArtifact(output) {
+function bendArtifact(output) {
   if (!output.elasticBends?.screening?.settings?.enabled) return [];
   return [Object.freeze({
-    fileId: 'pipeline-elastic-bend-ledger', name: 'pipeline-elastic-bends.tsv',
+    fileId: 'pipeline-bend-ledger', name: 'pipeline-elastic-bends.tsv',
     mime: 'text/tab-separated-values', role: 'ENGINEERING_EVIDENCE',
-    sourceSchema: 'PipelineElasticBendResolution.v2', text: output.elasticBendText,
+    sourceSchema: 'PipelineBendResolution.v3', text: output.elasticBendText,
   })];
 }
 
@@ -77,7 +77,7 @@ export function pipelineProjectArtifacts(output) {
     Object.freeze({ fileId: 'pipeline-table-1', name: 'pipeline-table-1.tsv', mime: 'text/tab-separated-values', role: 'SOURCE_TABLE', sourceSchema: 'PipelineTable1.v1', text: output.table1OutputText }),
     Object.freeze({ fileId: 'pipeline-coordinate-table', name: 'pipeline-coordinate-tab.tsv', mime: 'text/tab-separated-values', role: 'COORDINATE_TABLE', sourceSchema: 'PipelineCoordinateTable.v1', text: output.coordinateText }),
     ...inputXmlArtifact(output),
-    ...elasticArtifact(output),
+    ...bendArtifact(output),
   ]);
 }
 

@@ -7,8 +7,8 @@ import { PipelineProfileModel } from './pipeline-3d-model-cad-model.js';
 import {
   buildElasticBendLedgerText,
   resolvePipelineElasticBends,
-} from './pipeline-3d-model-elastic-bend.js';
-import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js';
+} from './pipeline-3d-model-elastic-bend.js?v=20260721-bend-policy-v3-1';
+import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
 import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
