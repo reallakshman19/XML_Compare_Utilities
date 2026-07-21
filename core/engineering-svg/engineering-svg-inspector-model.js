@@ -50,8 +50,8 @@ function validateDraftValues(field, changed, selectionCount) {
   return [...new Set(messages)].sort();
 }
 
-function previousAggregate(view) {
-  if (view.previousAggregate) return view.previousAggregate;
+function fallbackAggregate(view, name) {
+  if (view[name]) return view[name];
   return createEngineeringPropertyAggregate({
     key: view.field.key,
     state: 'not-applicable',
@@ -59,13 +59,13 @@ function previousAggregate(view) {
   });
 }
 
-function suppliedHistoryCount(view, previous, selectionCount) {
-  if (!Object.prototype.hasOwnProperty.call(view, 'previousEvidenceCount')) {
-    return previous.state === 'not-applicable' ? 0 : selectionCount;
+function evidenceCount(view, name, aggregate, selectionCount) {
+  if (!Object.prototype.hasOwnProperty.call(view, name)) {
+    return aggregate.state === 'not-applicable' ? 0 : selectionCount;
   }
-  const count = view.previousEvidenceCount;
+  const count = view[name];
   if (!Number.isInteger(count) || count < 0 || count > selectionCount) {
-    throw new TypeError('Inspector previousEvidenceCount must be a valid selection count.');
+    throw new TypeError(`Inspector ${name} must be a valid selection count.`);
   }
   return count;
 }
@@ -79,6 +79,25 @@ function comparisonState(current, previous) {
   return Object.is(current.value, previous.value) ? 'unchanged' : 'changed';
 }
 
+function authoritativeEvidence(view, selectionCount) {
+  const previous = fallbackAggregate(view, 'previousAggregate');
+  const source = fallbackAggregate(view, 'sourceAggregate');
+  const previousSource = fallbackAggregate(view, 'previousSourceAggregate');
+  return {
+    previous,
+    source,
+    previousSource,
+    previousCount: evidenceCount(view, 'previousEvidenceCount', previous, selectionCount),
+    sourceCount: evidenceCount(view, 'sourceEvidenceCount', source, selectionCount),
+    previousSourceCount: evidenceCount(
+      view,
+      'previousSourceEvidenceCount',
+      previousSource,
+      selectionCount,
+    ),
+  };
+}
+
 function inspectorRow(view, ids, draft) {
   if (!view?.field?.key || !view?.aggregate?.state) throw new TypeError('Inspector property view is invalid.');
   const entries = stagedEntries(ids, view.field.key, draft);
@@ -86,15 +105,19 @@ function inspectorRow(view, ids, draft) {
   const messages = validateDraftValues(view.field, changed, ids.length);
   const dirty = changed.length > 0;
   const display = displayValue(view, changed, ids.length);
-  const previous = previousAggregate(view);
+  const evidence = authoritativeEvidence(view, ids.length);
   return {
     schema: ENGINEERING_SVG_INSPECTOR_ROW_SCHEMA,
     key: view.field.key,
     field: view.field,
     authoritative: view.aggregate,
-    previousAuthoritative: previous,
-    previousEvidenceCount: suppliedHistoryCount(view, previous, ids.length),
-    comparisonState: comparisonState(view.aggregate, previous),
+    previousAuthoritative: evidence.previous,
+    sourceAuthoritative: evidence.source,
+    previousSourceAuthoritative: evidence.previousSource,
+    previousEvidenceCount: evidence.previousCount,
+    sourceEvidenceCount: evidence.sourceCount,
+    previousSourceEvidenceCount: evidence.previousSourceCount,
+    comparisonState: comparisonState(view.aggregate, evidence.previous),
     display,
     dirty,
     valid: messages.length === 0,
