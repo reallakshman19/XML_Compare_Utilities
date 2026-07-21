@@ -28,8 +28,14 @@ const workspace = await createSequentialEngineeringSvgPreviewWorkspace({
   selectedCandidateId: 'candidate-1',
   factories: {
     createAdapter(options) {
+      const adapter = {
+        getScene: async () => scene,
+        subscribeScene(listener) {
+          return options.subscribeState((event) => listener({ scene, reason: event.reason }));
+        },
+      };
       return {
-        adapter: { getScene: async () => scene },
+        adapter,
         buildSnapshot: () => ({ parity: parity() }),
         getParityReport: () => parity(),
         options,
@@ -37,6 +43,7 @@ const workspace = await createSequentialEngineeringSvgPreviewWorkspace({
     },
     async createBridge(adapter) {
       let sceneListener;
+      const unsubscribeAdapter = adapter.subscribeScene(() => {});
       return {
         adapter,
         getDependencies: () => ({
@@ -44,7 +51,7 @@ const workspace = await createSequentialEngineeringSvgPreviewWorkspace({
           sceneSource: { subscribe(listener) { sceneListener = listener; return () => { sceneListener = null; }; } },
         }),
         getLastRejectedEvent: () => null,
-        dispose() { bridgeDisposed += 1; return true; },
+        dispose() { unsubscribeAdapter(); bridgeDisposed += 1; return true; },
       };
     },
     createShell() {
@@ -63,6 +70,7 @@ assert.deepEqual(workspace.getSelection(), ['scene-candidate'], 'mapping must us
 assert.equal(await workspace.apply(), null);
 assert.equal(typeof fanoutListener, 'function');
 assert.equal(workspace.destroy(), true);
+assert.equal(fanoutListener, null, 'destroy must unsubscribe the internal owner fanout');
 assert.equal(workspace.destroy(), false);
 assert.equal(shellDestroyed, 1);
 assert.equal(bridgeDisposed, 1);
