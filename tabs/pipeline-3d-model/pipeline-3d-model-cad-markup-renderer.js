@@ -1,3 +1,4 @@
+import { drawPipelineCadMarkupInteractionOverlay } from './pipeline-3d-model-cad-markup-interaction-renderer.js';
 import {
   derivePipelineCadDimensionEvidence,
   resolvePipelineCadMarkupAnchor,
@@ -125,6 +126,7 @@ export function drawPipelineCadMarkupOverlay(graph, ctx, projection) {
   dimensions.forEach((item) => { if (drawDimension(graph, ctx, item)) drawn += 1; });
   annotations.forEach((item) => { if (drawAnnotation(graph, ctx, item)) drawn += 1; });
   drawOrphans(ctx, [...dimensions, ...annotations].filter((item) => item.status === 'ORPHANED'));
+  drawPipelineCadMarkupInteractionOverlay(graph, ctx, graph.pipelineCadMarkupInteractionPreview);
   ctx.restore(); return drawn;
 }
 export const _markupRendererTest = Object.freeze({ anchorIdentity, authorityLabel, dimensionGeometry });
