@@ -182,7 +182,10 @@ export function renderRevisionCompareSignOffSection(root, state) {
   if (state.signOff.status === 'CREATED') {
     const button = appendText(documentRef, section, 'button', 'Download completion report', 'data-revc-download-sign-off'); button.type = 'button';
   } else {
-    if (state.signOff.report) appendText(documentRef, section, 'p', 'This historical completion report no longer matches the current evidence package.', 'data-revc-sign-off-stale');
+    if (state.signOff.report) {
+      appendText(documentRef, section, 'p', 'This historical completion report no longer matches the current evidence package.', 'data-revc-sign-off-stale');
+      const download = appendText(documentRef, section, 'button', 'Download completion report', 'data-revc-download-sign-off'); download.type = 'button'; download.disabled = true;
+    }
     appendDeclarationForm(documentRef, section, state.signOff.report ? 'Create new completion declaration' : 'Create completion declaration', state.signOff.report ? 'data-revc-create-new-sign-off' : 'data-revc-create-sign-off');
   }
   host.appendChild(section); return section;
