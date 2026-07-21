@@ -1,4 +1,4 @@
-import { bendCommonHtml, bendPolicyHtml } from './pipeline-3d-model-elastic-bend-ui-policy-view.js?v=20260721-bend-policy-v3-1';
+import { bendCommonHtml, bendPolicyHtml } from './pipeline-3d-model-elastic-bend-ui-policy-view.js?v=20260721-p3d-meta-phase1-2';
 
 export function bendField(page, key) {
   return page.querySelector(`[data-p3d-elastic-field="${key}"]`);
@@ -46,9 +46,9 @@ export function writeBendSettings(page, settings) {
 }
 
 export function readBendSettings(page, normalize) {
-  const values = {};
+  const value = {};
   for (const input of page.querySelectorAll('[data-p3d-elastic-field]')) {
-    values[input.dataset.p3dElasticField] = input.type === 'checkbox' ? input.checked : input.value;
+    value[input.dataset.p3dElasticField] = input.type === 'checkbox' ? input.checked : input.value;
   }
-  return normalize(values);
+  return normalize(value);
 }
