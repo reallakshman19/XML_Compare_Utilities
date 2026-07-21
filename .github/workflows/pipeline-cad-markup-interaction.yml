@@ -108,7 +108,11 @@ jobs:
 
       - name: PCAD-005B command integration
         id: focused_integration
-        run: node tests/pipeline-3d-model-cad-markup-interaction-integration.test.js
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/pipeline-3d-model-cad-markup-interaction-integration.test.js 2>&1 \
+            | tee "$ARTIFACT_DIR/focused-integration.log"
 
       - name: PCAD-005B static guards
         id: focused_static
@@ -188,6 +192,7 @@ jobs:
           NODE
 
       - name: Upload PCAD-005B evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pipeline-cad-markup-interaction-${{ env.EXPECTED_SHA }}
