@@ -126,7 +126,10 @@ jobs:
         run: node tests/revision-compare-evidence-package.test.mjs
       - name: RC-PKG-002 import unit proof
         id: package_import_unit
-        run: node tests/revision-compare-evidence-package-import.test.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/revision-compare-evidence-package-import.test.mjs 2>&1 | tee artifacts/revision-compare-import-unit.log
       - name: Shared property provenance regression
         id: shared_property_provenance
         run: node tests/engineering-svg-property-provenance.test.js
@@ -267,6 +270,7 @@ jobs:
             artifacts/revision-compare-exact-head.json
             artifacts/revision-compare-certification.json
             artifacts/rc-pkg-002-scope.txt
+            artifacts/revision-compare-import-unit.log
             artifacts/revision-compare-focused.log
             artifacts/revision-compare-results.json
             test-results/revision-compare
