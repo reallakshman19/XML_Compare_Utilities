@@ -45,7 +45,7 @@ assert.ok(mainEntry.includes(`./core/app.js?v=${startupToken}`), 'main entry mus
 assert.ok(appDelegate.includes(`./app-standalone-runtime.js?v=${startupToken}`), 'core app must refresh the standalone runtime with the current startup token');
 assert.ok(appDelegate.includes(`support-steel-relationship-bootstrap.js?v=${startupToken}`), 'core app must load the current relationship builder bootstrap');
 assert.ok(appDelegate.includes(`ps-family-evidence-audit-bootstrap.js?v=${startupToken}`), 'core app must load the current evidence audit bootstrap');
-assert.ok(runtime.includes("build: 'M23 transfer-tile-layout · 2026-07-08'"), 'runtime must expose visible M23 build stamp');
+assert.ok(runtime.includes("build: 'M24 Pipeline bend policy v3 · 2026-07-21'"), 'runtime must expose the visible M24 Pipeline bend policy build stamp');
 assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260717-psi-support-1"), 'runtime must cache-bust XML tab module for PSI support');
 assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');
 
