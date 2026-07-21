@@ -58,7 +58,13 @@ jobs:
           cat artifacts/sequential-engineering-svg-preview/workspace-contract.log
           exit $status
       - name: Preview controller contract
-        run: node tests/sequential-engineering-svg-preview-controller.test.js
+        shell: bash
+        run: |
+          set +e
+          node tests/sequential-engineering-svg-preview-controller.test.js > artifacts/sequential-engineering-svg-preview/controller-contract.log 2>&1
+          status=$?
+          cat artifacts/sequential-engineering-svg-preview/controller-contract.log
+          exit $status
       - name: Preview static boundaries
         run: node tests/sequential-engineering-svg-preview-static.test.js
       - name: Preview parity contract
