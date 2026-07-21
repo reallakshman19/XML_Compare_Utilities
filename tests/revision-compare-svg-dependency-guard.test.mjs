@@ -117,13 +117,41 @@ assert.match(packageSource, /createReviewSessionExport/);
 assert.match(packageSource, /createDecisionLedgerExport/);
 assert.match(packageSource, /sha256Text/);
 assert.match(packageSource, /Object\.keys\(value\)\.sort\(\)/);
-assert.match(packageSource, /packageId:\s*`\$\{PACKAGE_ID_PREFIX\}\$\{contentSha256\}`/);
+assert.match(packageSource, /REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX.*contentSha256/s);
 assert.doesNotMatch(packageSource, /Date\.now|Math\.random|randomUUID|crypto\.getRandomValues|global counter/i);
 assert.doesNotMatch(packageSource, /viewer|viewport|fitHistory|selectedDifference|queue|DOM|Blob|createObjectURL|THREE/);
 assert.doesNotMatch(packageSource, /source-document|revision-load-service|fileHandle|rawBytes|arrayBuffer\(|\.text\(\)/);
 assert.doesNotMatch(packageSource, /parseRevisionCompareEvidencePackage|importRevisionCompareEvidencePackage|restoreWorkspace/);
 assert.doesNotMatch(packageSource, /package (?:is )?(?:approved|signed|final|complete)|sign-off/i);
 assert.doesNotMatch(packageSource, /new Map|new Set/);
+
+const importSource = await readFile('tabs/revision-compare/revision-evidence-package-import.js', 'utf8');
+const stateSource = await readFile('tabs/revision-compare/revision-workspace-state.js', 'utf8');
+const viewSource = await readFile('tabs/revision-compare/revision-compare-view.js', 'utf8');
+for (const [path, source] of [
+  ['revision-evidence-package-import.js', importSource], ['revision-workspace-state.js', stateSource],
+  ['revision-compare-workspace.js', workspaceSource], ['revision-compare-view.js', viewSource],
+]) {
+  assert(source.split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
+}
+assert.match(importSource, /JSON\.parse/);
+assert.match(importSource, /canonicalRevisionCompareEvidenceValue/);
+assert.match(importSource, /revisionCompareEvidencePackageHashMaterial/);
+assert.match(importSource, /sha256Text/);
+assert.match(importSource, /verifyReviewSessionRecord/);
+assert.match(importSource, /verifyDecisionEvidenceRecord/);
+assert.match(importSource, /Package authenticity is not established\./);
+assert.doesNotMatch(importSource, /eval\s*\(|new Function|Function\s*\(|DOMParser|fetch\s*\(|XMLHttpRequest|WebSocket/);
+assert.doesNotMatch(importSource, /revision-load-service|revision-compare-service|revision-compare-worker|createRevisionCompareAudit|projectCompareRecords|matchBoundedCandidates/);
+assert.doesNotMatch(importSource, /source-document|rawUploadedBytes|fileHandle|arrayBuffer\(|createObjectURL|Blob|path\.resolve|readFile\(/);
+assert.doesNotMatch(importSource, /package (?:is )?(?:authenticated|signed|approved|certified|final|trusted)/i);
+assert.match(stateSource, /RevisionCompareWorkspaceState\.v5/);
+assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
+assert.match(workspaceSource, /data-revc-evidence-package-import/);
+assert.match(workspaceSource, /verifyRevisionCompareEvidencePackageJson/);
+assert.match(viewSource, /Import evidence package/);
+assert.match(viewSource, /Integrity and authority-chain consistency verified\. Package authenticity is not established\./);
 assert.match(workspaceSource, /data-revc-download-evidence-package/);
 assert.match(workspaceSource, /Download evidence package/);
 assert.match(workspaceSource, /revisionCompareEvidencePackageReadiness/);
