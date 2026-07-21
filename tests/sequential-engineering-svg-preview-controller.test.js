@@ -55,5 +55,5 @@ assert.equal(controller.getState().renderer, 'CONSTRUCTION_SVG');
 assert.equal(destroyed, 1);
 assert.equal(controller.destroy(), true);
 assert.equal(controller.destroy(), false);
-assert.equal(controller.switchRenderer('ENGINEERING_SVG_PREVIEW'), false);
+assert.equal(await controller.switchRenderer('ENGINEERING_SVG_PREVIEW'), false);
 console.log('Sequential Engineering SVG preview controller: ok');
