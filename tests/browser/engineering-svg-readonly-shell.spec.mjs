@@ -99,21 +99,21 @@ test('ESVG-PROP-B06 previous/current property evidence', async ({ page }) => {
   await expect(pressure).toHaveAttribute('data-engineering-svg-property-comparison', 'changed');
   await expect(pressure.getByText('Previous', { exact: true })).toBeVisible();
   await expect(pressure.getByText('Current', { exact: true })).toBeVisible();
-  await expect(pressure.locator('[data-engineering-svg-property-previous] output')).toHaveText('10 bar');
-  await expect(pressure.locator('[data-engineering-svg-property-current] output')).toHaveText('12 bar');
+  await expect(pressure.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('10 bar');
+  await expect(pressure.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('12 bar');
   await expect(pressure.locator('[data-engineering-svg-property-previous] input, [data-engineering-svg-property-previous] select')).toHaveCount(0);
 
   await root.locator('[data-engineering-svg-entity-id="unchanged"]').click();
   const status = property(root, 'status');
   await expect(status).toHaveAttribute('data-engineering-svg-property-comparison', 'unchanged');
-  await expect(status.locator('[data-engineering-svg-property-previous] output')).toHaveText('Ready');
-  await expect(status.locator('[data-engineering-svg-property-current] output')).toHaveText('Ready');
+  await expect(status.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('Ready');
+  await expect(status.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('Ready');
 
   await root.locator('[data-engineering-svg-entity-id="explicit-null"]').click();
   const comment = property(root, 'comment');
   await expect(comment).toHaveAttribute('data-engineering-svg-property-comparison', 'changed');
-  await expect(comment.locator('[data-engineering-svg-property-previous] output')).toHaveText('—');
-  await expect(comment.locator('[data-engineering-svg-property-current] output')).toHaveText('Current 1');
+  await expect(comment.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('—');
+  await expect(comment.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('Current 1');
 
   await root.locator('[data-engineering-svg-entity-id="legacy"]').click();
   const legacy = property(root, 'legacyNote');
@@ -124,25 +124,25 @@ test('ESVG-PROP-B06 previous/current property evidence', async ({ page }) => {
 
   await setHistorySelection(page, ['uniform-a', 'uniform-b']);
   let temperature = property(root, 'temperature');
-  await expect(temperature.locator('[data-engineering-svg-property-previous] output')).toHaveText('100 °C');
-  await expect(temperature.locator('[data-engineering-svg-property-current] output')).toHaveText('110 °C');
+  await expect(temperature.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('100 °C');
+  await expect(temperature.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('110 °C');
   await expect(temperature).toHaveAttribute('data-engineering-svg-property-comparison', 'changed');
 
   await setHistorySelection(page, ['mixed-a', 'mixed-b']);
   temperature = property(root, 'temperature');
-  await expect(temperature.locator('[data-engineering-svg-property-previous] output')).toHaveText('Mixed');
+  await expect(temperature.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('Mixed');
   await expect(temperature).toHaveAttribute('data-engineering-svg-property-comparison', 'mixed');
 
   await setHistorySelection(page, ['unavailable-a', 'unavailable-b']);
   temperature = property(root, 'temperature');
-  await expect(temperature.locator('[data-engineering-svg-property-previous] output')).toHaveText('Unavailable for full selection');
+  await expect(temperature.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('Unavailable for full selection');
   await expect(temperature).toHaveAttribute('data-engineering-svg-property-comparison', 'unavailable');
 
   await setHistorySelection(page, ['changed']);
-  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-previous] output')).toHaveText('10 bar');
+  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('10 bar');
   await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.bumpProviderRevision());
-  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-previous] output')).toHaveText('20 bar');
-  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-current] output')).toHaveText('22 bar');
+  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('20 bar');
+  await expect(property(root, 'pressure').locator('[data-engineering-svg-property-current] > output').first()).toHaveText('22 bar');
 
   const readOnlyEvidence = await page.evaluate(async () => {
     const history = globalThis.__engineeringSvgReadOnlyShellFixture.history;
@@ -171,6 +171,107 @@ test('ESVG-PROP-B06 previous/current property evidence', async ({ page }) => {
   await expect(remounted).toHaveCount(1);
   await expect(remounted.locator('[data-engineering-svg-inspector-actions]')).toHaveCount(1);
   await expect(remounted.locator('[data-engineering-svg-root]')).toHaveCount(1);
+  const after = await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.listenerCounts());
+  expect(after).toEqual({ scene: 1, property: 1 });
+});
+
+test('ESVG-PROP-B07 — Previous/Current provenance evidence', async ({ page }) => {
+  await openFixture(page);
+  const root = viewer(page, 'viewer-history');
+  await root.locator('[data-engineering-svg-entity-id="changed"]').click();
+  let pressure = property(root, 'pressure');
+  const previousSource = pressure.locator('[data-engineering-svg-property-previous-source]');
+  const currentSource = pressure.locator('[data-engineering-svg-property-current-source]');
+  await expect(pressure.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('10 bar');
+  await expect(pressure.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('12 bar');
+  expect(await previousSource.textContent()).toBe('Source:  /sources/previous/pressure.xml#/P-1 ');
+  expect(await currentSource.textContent()).toBe('Source:  /sources/current/pressure.xml#/P-1 ');
+  await expect(previousSource).toHaveAttribute('data-engineering-svg-property-provenance-state', 'uniform');
+  await expect(currentSource).toHaveAttribute('data-engineering-svg-property-provenance-state', 'uniform');
+  await expect(pressure.locator('[data-engineering-svg-property-previous-source] input, [data-engineering-svg-property-previous-source] button, [data-engineering-svg-property-previous-source] a')).toHaveCount(0);
+  await expect(pressure.locator('[data-engineering-svg-property-current-source] input, [data-engineering-svg-property-current-source] button, [data-engineering-svg-property-current-source] a')).toHaveCount(0);
+
+  await root.locator('[data-engineering-svg-entity-id="unchanged"]').click();
+  const status = property(root, 'status');
+  await expect(status.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: model://status/shared');
+  await expect(status.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: model://status/shared');
+
+  await root.locator('[data-engineering-svg-entity-id="explicit-null"]').click();
+  const comment = property(root, 'comment');
+  await expect(comment.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: Explicitly unavailable');
+  await expect(comment.locator('[data-engineering-svg-property-previous-source]')).toHaveAttribute('data-engineering-svg-property-provenance-state', 'uniform');
+
+  await root.locator('[data-engineering-svg-entity-id="previous-source-absent"]').click();
+  const flow = property(root, 'flow');
+  await expect(flow.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: Not supplied');
+  await expect(flow.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: model://flow/current');
+
+  await root.locator('[data-engineering-svg-entity-id="current-source-null"]').click();
+  const density = property(root, 'density');
+  await expect(density.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: model://density/previous');
+  await expect(density.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: Not supplied');
+
+  await root.locator('[data-engineering-svg-entity-id="legacy"]').click();
+  const legacy = property(root, 'legacyNote');
+  await expect(legacy.locator('[data-engineering-svg-property-previous-source]')).toHaveCount(0);
+  await expect(legacy.locator('[data-engineering-svg-property-current-source]')).toHaveCount(0);
+  await expect(legacy.locator('[data-engineering-svg-property-previous]')).toHaveCount(0);
+  await expect(legacy.locator('output')).toHaveText('Legacy 1');
+
+  await setHistorySelection(page, ['uniform-a', 'uniform-b']);
+  let temperature = property(root, 'temperature');
+  await expect(temperature.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: model://temperature/previous/common');
+  await expect(temperature.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: model://temperature/current/common');
+  await expect(temperature).toHaveAttribute('data-engineering-svg-property-provenance-state', 'uniform');
+
+  await setHistorySelection(page, ['mixed-a', 'mixed-b']);
+  temperature = property(root, 'temperature');
+  await expect(temperature.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: Mixed');
+  await expect(temperature.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: Mixed');
+  await expect(temperature).toHaveAttribute('data-engineering-svg-property-provenance-state', 'mixed');
+
+  await setHistorySelection(page, ['unavailable-a', 'unavailable-b']);
+  temperature = property(root, 'temperature');
+  await expect(temperature.locator('[data-engineering-svg-property-previous-source]')).toHaveText('Source: Unavailable for full selection');
+  await expect(temperature.locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: Unavailable for full selection');
+  await expect(temperature).toHaveAttribute('data-engineering-svg-property-provenance-state', 'unavailable');
+
+  await setHistorySelection(page, ['changed']);
+  pressure = property(root, 'pressure');
+  await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.bumpProviderRevision());
+  await expect(pressure.locator('[data-engineering-svg-property-previous] > output').first()).toHaveText('20 bar');
+  await expect(pressure.locator('[data-engineering-svg-property-current] > output').first()).toHaveText('22 bar');
+  expect(await pressure.locator('[data-engineering-svg-property-previous-source]').textContent()).toBe('Source:  /sources/previous/pressure-r2.xml#/P-1 ');
+  expect(await pressure.locator('[data-engineering-svg-property-current-source]').textContent()).toBe('Source:  /sources/current/pressure-r2.xml#/P-1 ');
+
+  const readOnly = await page.evaluate(async () => {
+    const history = globalThis.__engineeringSvgReadOnlyShellFixture.history;
+    return {
+      applyResult: await history.shell.apply(),
+      draft: history.shell.draftStore.getSnapshot(),
+      commandGateway: history.bridge.getDependencies().commandGateway,
+    };
+  });
+  expect(readOnly.applyResult).toBeNull();
+  expect(readOnly.commandGateway).toBeNull();
+  expect(readOnly.draft.operationId).toBeNull();
+  expect(readOnly.draft.properties).toEqual({});
+
+  const keyboardEntity = root.locator('[data-engineering-svg-entity-id="unchanged"]');
+  await keyboardEntity.focus();
+  await keyboardEntity.press('Enter');
+  await expect(keyboardEntity).toHaveAttribute('aria-selected', 'true');
+  await expect(property(root, 'status').locator('[data-engineering-svg-property-current-source]')).toHaveText('Source: model://status/shared');
+
+  const before = await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.listenerCounts());
+  expect(before).toEqual({ scene: 1, property: 1 });
+  await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.destroy());
+  await expect(root).toHaveCount(0);
+  await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.mount());
+  const remounted = viewer(page, 'viewer-history');
+  await expect(remounted).toHaveCount(1);
+  await expect(remounted.locator('[data-engineering-svg-property-rows]')).toHaveCount(1);
+  await expect(remounted.locator('[data-engineering-svg-inspector-actions]')).toHaveCount(1);
   const after = await page.evaluate(() => globalThis.__engineeringSvgReadOnlyShellFixture.history.listenerCounts());
   expect(after).toEqual({ scene: 1, property: 1 });
 });
