@@ -29,10 +29,12 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 function sameJson(left, right) { return canonicalJson(left) === canonicalJson(right); }
-function validationView(ledger) {
-  const expected = decisionSummary(ledger.decisions);
-  if (!sameJson(ledger.summary, expected)) throw new TypeError('Decision summary does not reconcile with items.');
-  return { ...ledger, summary: expected };
+function expectedSummary(ledger) { return decisionSummary(ledger.decisions ?? []); }
+function validationView(ledger) { return { ...ledger, summary: expectedSummary(ledger) }; }
+function assertSummary(ledger) {
+  if (!sameJson(ledger.summary, expectedSummary(ledger))) {
+    throw new TypeError('Decision summary does not reconcile with items.');
+  }
 }
 function pairAuditErrors(ledger, audit) {
   const errors = []; const items = decisionItemIndex(ledger); const pairs = selectedPairEvidenceIndex(ledger);
@@ -72,6 +74,7 @@ async function rationaleHashErrors(ledger, cryptoRef) {
 }
 export async function verifyDecisionEvidenceRecord(ledger, audit, cryptoRef) {
   assertValidDecisionLedger(validationView(ledger), audit);
+  assertSummary(ledger);
   const errors = [...pairAuditErrors(ledger, audit), ...await rationaleHashErrors(ledger, cryptoRef)];
   if (errors.length) throw new TypeError(`Invalid AmbiguityDecisionLedger.v1: ${errors.join(' ')}`);
   const prohibited = prohibitedPayload(ledger);
