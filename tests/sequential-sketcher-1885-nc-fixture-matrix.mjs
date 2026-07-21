@@ -10,7 +10,7 @@ import {
 } from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
 import { resolveSequentialReference } from '../tabs/sequential-sketcher/source/sequential-reference-resolver.js';
 
-const SOURCE_COMMIT = 'd5fda9c95fda9bba9b6b05171628ba16778a7667';
+const SOURCE_COMMIT = '7a51b626c16ce0ce982b275c2ccd6be5e2aea343';
 const SOURCE_URL = `https://raw.githubusercontent.com/reallaksh19/3D_Converters/${SOURCE_COMMIT}/Benchmarks/1885_NC/1885_NC.json`;
 const REPORT_PATH = 'artifacts/sequential-sketcher/1885-nc-fixture-matrix.json';
 const EXPECTED_S_LINE_KEYS = Object.freeze(['S8810101', 'S8810103', 'S8810111', 'S8810112', 'S8811951']);
