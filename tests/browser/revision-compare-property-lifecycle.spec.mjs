@@ -149,10 +149,10 @@ async function bounded(page) {
     const before = stringify(auditValue); const controller = createRevisionComparePropertyInspector();
     await controller.render(host, auditValue, 'bounded-row');
     const text = (selector) => host.querySelector(selector)?.textContent;
-    const provenanceSelector = [
+    const provenanceNodes = [...host.querySelectorAll([
       '[data-engineering-svg-property-previous-source]',
       '[data-engineering-svg-property-current-source]',
-    ].join(', ');
+    ].join(', '))];
     const result = { before, after: stringify(auditValue),
       shared: [...host.querySelectorAll('[data-engineering-svg-property-key]')].map((node) => node.dataset.engineeringSvgPropertyKey),
       fallback: [...host.querySelectorAll('[data-revc-property-fallback-key]')].map((node) => [node.dataset.revcPropertyFallbackKey, node.children[3]?.textContent]),
@@ -160,7 +160,10 @@ async function bounded(page) {
       validB: text('[data-engineering-svg-property-current-source="validSibling"]'),
       nullA: text('[data-engineering-svg-property-previous-source="nullPrevious"]'),
       nullB: text('[data-engineering-svg-property-current-source="nullCurrent"]'),
-      provenanceControls: host.querySelectorAll(`${provenanceSelector} input, ${provenanceSelector} select, ${provenanceSelector} button, ${provenanceSelector} a`).length,
+      provenanceControls: provenanceNodes.reduce(
+        (count, node) => count + node.querySelectorAll('input, select, button, a').length,
+        0,
+      ),
       visibleControls: [...host.querySelectorAll('input, select, button, a')]
         .filter((node) => !node.hidden && node.offsetParent !== null).length,
       hiddenActions: host.querySelectorAll('[data-engineering-svg-inspector-actions][hidden] button').length,
