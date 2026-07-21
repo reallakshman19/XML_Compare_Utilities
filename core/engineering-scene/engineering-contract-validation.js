@@ -22,6 +22,10 @@ import {
 } from './engineering-property-contracts.js';
 import { ENGINEERING_PROPERTY_SET_SCHEMA } from './engineering-property-set-contracts.js';
 
+function owns(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
 function pointErrors(point, path) {
   const errors = [];
   if (point?.schema !== ENGINEERING_POINT_SCHEMA) errors.push(`${path}.schema is invalid`);
@@ -91,7 +95,7 @@ function constraintErrors(value, path) {
 }
 
 function propertyValueErrors(field, path, name) {
-  if (name === 'previousValue' && !Object.prototype.hasOwnProperty.call(field || {}, name)) return [];
+  if (name === 'previousValue' && !owns(field, name)) return [];
   const value = field?.[name];
   const key = String(field?.key || 'unknown');
   const target = `${path}.${name}`;
@@ -110,6 +114,16 @@ function propertyValueErrors(field, path, name) {
   return errors;
 }
 
+function propertySourceErrors(field, path, name, optional) {
+  const key = String(field?.key || 'unknown');
+  const target = `${path}.${name}`;
+  if (!owns(field, name)) return optional ? [] : [`${target} is required for property "${key}"`];
+  const value = field[name];
+  if (value === undefined) return [`${target} cannot be undefined for property "${key}"`];
+  if (value !== null && typeof value !== 'string') return [`${target} must be a string or null for property "${key}"`];
+  return [];
+}
+
 function propertyFieldErrors(field, path = 'field') {
   const errors = [];
   if (field?.schema !== ENGINEERING_PROPERTY_FIELD_SCHEMA) errors.push(`${path}.schema is invalid`);
@@ -120,6 +134,8 @@ function propertyFieldErrors(field, path = 'field') {
   if (field?.type === 'enum') errors.push(...uniqueStringArrayErrors(field.options, `${path}.options`, false));
   errors.push(...propertyValueErrors(field, path, 'value'));
   errors.push(...propertyValueErrors(field, path, 'previousValue'));
+  errors.push(...propertySourceErrors(field, path, 'source', false));
+  errors.push(...propertySourceErrors(field, path, 'previousSource', true));
   return errors;
 }
 
