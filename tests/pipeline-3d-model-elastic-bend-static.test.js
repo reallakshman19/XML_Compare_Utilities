@@ -6,6 +6,7 @@ const names = [
   'pipeline-3d-model-bend-feasibility.js',
   'pipeline-3d-model-bend-classification.js',
   'pipeline-3d-model-bend-screening.js',
+  'pipeline-3d-model-gre-placeholder.js',
   'pipeline-3d-model-bend-route.js',
   'pipeline-3d-model-bend-resolution-status.js',
   'pipeline-3d-model-bend-resolution-nodes.js',
@@ -77,6 +78,8 @@ assert.match(core, /PipelineBendResolution\.v3/);
 assert.match(core, /markerRowsExcludedBefore/);
 assert.match(core, /role: 'NEAR_POINT'/);
 assert.match(core, /role: 'MIDPOINT'/);
+assert.match(core, /GreBendBreakBasis/);
+assert.match(core, /GreTeeBreakBasis/);
 
 const settings = sources['pipeline-3d-model-elastic-bend-settings.js'];
 assert.match(settings, /PipelineBendSettings\.v3/);
@@ -91,7 +94,21 @@ assert.match(settings, /retainedStraightAllowanceMm: 0/);
 assert.match(settings, /preferredStraightTangentMm: 2000/);
 assert.match(settings, /emitNearPointNode: true/);
 assert.match(settings, /emitMidpointNode: true/);
+assert.match(settings, /profileResolutionReason/);
+assert.match(settings, /greNominalBoreMm/);
+assert.match(settings, /greBendBreakMultiplierBore: 1\.5/);
+assert.match(settings, /greBendLocalThicknessMm/);
+assert.match(settings, /greTeeBreakLengthMm/);
+assert.match(settings, /greTeeLocalThicknessMm/);
 assert.doesNotMatch(settings, /maximumTangentUtilization/);
+
+const gre = sources['pipeline-3d-model-gre-placeholder.js'];
+assert.match(gre, /PipelineGreFittingPlaceholder\.v1/);
+assert.match(gre, /breakLengthBasis: 'NOMINAL_BORE'/);
+assert.match(gre, /breakLengthBasis: 'CUSTOM_LENGTH'/);
+assert.match(gre, /resolverReady: false/);
+assert.match(gre, /geometryApplied: false/);
+assert.match(gre, /inputXmlApplied: false/);
 
 const ui = [
   sources['pipeline-3d-model-elastic-bend-ui.js'],
@@ -104,6 +121,11 @@ assert.match(ui, /Pipeline Bend Settings/);
 assert.match(ui, /ASME B31\.4 — automatic classification/);
 assert.match(ui, /Table 1 plan turn → Cold field/);
 assert.match(ui, /GRE bend policy not implemented/);
+assert.match(ui, /Normal — default, standard 1\.5D/);
+assert.match(ui, /greNominalBoreMm/);
+assert.match(ui, /greBendLocalThicknessMm/);
+assert.match(ui, /greTeeBreakLengthMm/);
+assert.match(ui, /1\.5 × 100 = 150 mm even when OD is 114\.3 mm/);
 assert.match(ui, /Short elements remain in authoritative geometry/);
 assert.match(ui, /Mandatory retained straight/);
 assert.match(ui, /Preferred tangent/);
@@ -144,5 +166,7 @@ assert.match(psnm, /pipeline-3d-model-table-paste-addon\.js\?v=20260721-bend-pol
 const runtime = fs.readFileSync(new URL('../core/app-standalone-runtime.js', import.meta.url), 'utf8');
 assert.match(runtime, /standalone-20260721-bend-policy-v3-1/);
 assert.match(runtime, /M24 Pipeline bend policy v3/);
+
+await import('./pipeline-3d-model-gre-placeholder.test.js');
 
 console.log('Pipeline authoritative bend static guards passed.');

@@ -3,9 +3,9 @@ import {
   buildRawBendCandidates,
 } from './pipeline-3d-model-bend-route.js?v=20260721-bend-policy-v3-1';
 import { resolveBendCandidateSet } from './pipeline-3d-model-bend-resolution.js?v=20260721-bend-policy-v3-1';
-import { calculateElasticBendScreening } from './pipeline-3d-model-bend-screening.js?v=20260721-bend-policy-v3-1';
+import { calculateElasticBendScreening } from './pipeline-3d-model-bend-screening.js?v=20260721-p3d-meta-phase1-1';
 
-export { calculateElasticBendScreening } from './pipeline-3d-model-bend-screening.js?v=20260721-bend-policy-v3-1';
+export { calculateElasticBendScreening } from './pipeline-3d-model-bend-screening.js?v=20260721-p3d-meta-phase1-1';
 export { buildGeometryAuthorityRoute } from './pipeline-3d-model-bend-route.js?v=20260721-bend-policy-v3-1';
 
 export function resolvePipelineElasticBends({
@@ -59,18 +59,26 @@ function value(input, digits = 3) {
 
 export function buildElasticBendLedgerText(resolution) {
   const header = [
-    'BendId', 'DesignBasis', 'SourceBasis', 'GeometricClass', 'BendClass',
+    'BendId', 'RequestedDesignBasis', 'ResolvedDesignBasis', 'ProfileFallbackApplied',
+    'ProfileResolutionReason', 'SourceBasis', 'GeometricClass', 'BendClass',
     'ClassificationReason', 'RadiusBasis', 'PreviousNode', 'CornerNode', 'NextNode',
     'ClassificationPreviousNode', 'ClassificationNextNode', 'PlanAngleDeg',
     'ProfileAngleDeg', 'TurnAngleDeg', 'RadiusMm', 'RadiusD', 'TangentMm',
     'IncomingLengthMm', 'OutgoingLengthMm', 'IgnoredSegments', 'IgnoredNodes',
-    'IgnoredLengthMm', 'NearNode', 'MidNode', 'Status',
+    'IgnoredLengthMm', 'NearNode', 'MidNode', 'Status', 'GreNominalBoreMm',
+    'GreBendRadiusMm', 'GreBendBreakBasis', 'GreBendBreakMultiplierBore',
+    'GreBendBreakLengthMm', 'GreBendLocalThicknessMm', 'GreTeeBreakBasis',
+    'GreTeeBreakLengthMm', 'GreTeeLocalThicknessMm', 'GreRequirementReference',
+    'GreGeometryApplied', 'GreInputXmlApplied',
   ];
+  const settings = resolution?.screening?.settings || {};
+  const gre = resolution?.screening?.grePlaceholder || {};
   const rows = (resolution?.candidates || []).map((item) => {
     const near = item.curvatureNodes?.find((node) => node.role === 'NEAR_POINT')?.nodeNumber ?? '';
     const mid = item.curvatureNodes?.find((node) => node.role === 'MIDPOINT')?.nodeNumber ?? '';
     return [
-      item.id, item.designBasis, item.sourceBasis, item.classification, item.bendClass,
+      item.id, settings.requestedDesignBasis, item.designBasis, settings.profileFallbackApplied,
+      settings.profileResolutionReason, item.sourceBasis, item.classification, item.bendClass,
       item.classificationReason, item.radiusBasis, item.previousNode, item.cornerNode,
       item.nextNode, item.classificationPreviousNode, item.classificationNextNode,
       value(item.planAngleDeg), value(item.profileAngleDeg), value(item.turnAngleDeg),
@@ -78,6 +86,12 @@ export function buildElasticBendLedgerText(resolution) {
       value(item.incomingLengthMm), value(item.outgoingLengthMm),
       item.ignoredSegmentIndexes.join(','), item.ignoredNodeNumbers.join(','),
       value(item.ignoredTotalLengthMm), near, mid, item.status,
+      value(gre.bend?.nominalBoreMm), value(gre.bend?.radiusMm),
+      gre.bend?.breakLengthBasis || '', value(gre.bend?.breakMultiplierBore),
+      value(gre.bend?.breakLengthMm), value(gre.bend?.localThicknessMm),
+      gre.tee?.breakLengthBasis || '', value(gre.tee?.breakLengthMm),
+      value(gre.tee?.localThicknessMm), gre.requirementReference || '',
+      gre.geometryApplied ? 'YES' : 'NO', gre.inputXmlApplied ? 'YES' : 'NO',
     ];
   });
   return [header, ...rows].map((row) => row.join('\t')).join('\n');

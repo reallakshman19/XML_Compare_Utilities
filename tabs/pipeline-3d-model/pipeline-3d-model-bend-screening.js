@@ -1,5 +1,6 @@
 import { resolveColdFieldBendPolicy } from './pipeline-3d-model-bend-policy.js';
-import { normalizeElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
+import { normalizeElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-p3d-meta-phase1-1';
+import { resolveGreFittingPlaceholder } from './pipeline-3d-model-gre-placeholder.js?v=20260721-p3d-meta-phase1-1';
 
 function positive(value) {
   const number = Number(value);
@@ -61,13 +62,27 @@ function policyActivation(settings) {
   };
 }
 
+function profileWarning(settings) {
+  if (!settings.profileFallbackApplied) return null;
+  const unrecognized = settings.profileResolutionReason === 'UNRECOGNIZED_PROFILE_FALLBACK';
+  return bendDiagnostic(
+    'WARNING',
+    unrecognized ? 'pipeline_mode_unrecognized_fallback' : 'pipeline_mode_defaulted_to_normal',
+    unrecognized
+      ? `Pipeline mode ${settings.requestedDesignBasis} is not recognized; Normal was applied.`
+      : 'No Pipeline mode was specified; Normal was applied.',
+    settings,
+  );
+}
+
 function screeningWarnings(settings, screening) {
   const warnings = [];
   const { elasticActive, coldActive } = policyActivation(settings);
-  if (settings.enabled && !screening.outsideDiameterMm) {
+  if (settings.enabled && settings.designBasis !== 'gre' && !screening.outsideDiameterMm) {
     warnings.push(bendDiagnostic('WARNING', 'bend_diameter_missing', 'Bend resolution needs a positive outside diameter.'));
   }
-  if (settings.enabled && settings.diameterSource === 'branch-diameter' && !settings.diameterBasisConfirmed) {
+  if (settings.enabled && settings.designBasis !== 'gre'
+    && settings.diameterSource === 'branch-diameter' && !settings.diameterBasisConfirmed) {
     warnings.push(bendDiagnostic('WARNING', 'bend_diameter_basis_unconfirmed', 'Confirm that the Line / Branch Diameter field is the pipe outside diameter before bend emission.'));
   }
   if (settings.enabled && elasticActive && settings.useFormulaMinimum && !settings.allowableBendingStressMpa) {
@@ -80,8 +95,17 @@ function screeningWarnings(settings, screening) {
   if (settings.enabled && screening.coldFieldPolicy?.qualificationEvidenceRequired) {
     warnings.push(bendDiagnostic('WARNING', 'cold_field_bend_qualification_evidence_missing', 'The qualified 18D alternative requires eligible qualification evidence.'));
   }
+  if (settings.enabled) {
+    const fallback = profileWarning(settings);
+    if (fallback) warnings.push(fallback);
+  }
   if (settings.enabled && settings.designBasis === 'gre') {
-    warnings.push(bendDiagnostic('WARNING', 'gre_bend_policy_placeholder', 'GRE bend policy is a placeholder and cannot emit InputXML bends.'));
+    warnings.push(bendDiagnostic(
+      'WARNING',
+      'gre_bend_policy_placeholder',
+      'GRE bend/tee inputs are captured as future-resolver evidence only; geometry and InputXML emission remain blocked.',
+      screening.grePlaceholder,
+    ));
   }
   if (settings.enabled && settings.emitToInputXml && !settings.screeningOnlyAcknowledged) {
     warnings.push(bendDiagnostic('WARNING', 'bend_review_acknowledgement_missing', 'InputXML bend emission requires acknowledgement that combined-load compliance remains external.'));
@@ -94,6 +118,7 @@ export function calculateElasticBendScreening(settingsInput = {}, branchInfo = {
   const outsideDiameterMm = resolveOutsideDiameterMm(settings, branchInfo);
   const elastic = elasticCriteria(settings, outsideDiameterMm);
   const coldFieldPolicy = resolveSizeBandPolicy(settings, outsideDiameterMm);
+  const grePlaceholder = resolveGreFittingPlaceholder(settings);
   const governingRadiusMm = globalRadius(
     settings,
     outsideDiameterMm,
@@ -107,6 +132,7 @@ export function calculateElasticBendScreening(settingsInput = {}, branchInfo = {
     outsideDiameterMm,
     ...elastic,
     coldFieldPolicy,
+    grePlaceholder,
     governingRadiusMm,
     stressMpa,
     policyReady: settings.designBasis !== 'gre',
