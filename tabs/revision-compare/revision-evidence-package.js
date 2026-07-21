@@ -15,21 +15,38 @@ import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
 import { sha256Text } from './revision-hash.js';
 
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA = 'RevisionCompareEvidencePackage.v1';
-const PACKAGE_ID_PREFIX = 'revision-evidence-package:';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX = 'revision-evidence-package:';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS = Object.freeze([
+  'schema', 'packageId', 'contentSha256', 'identity', 'authorityStatus', 'payload', 'validation',
+]);
 
-function canonicalPlain(value, path = 'value') {
+export function canonicalRevisionCompareEvidenceValue(value, path = 'value') {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) throw new TypeError(`${path} must contain only finite JSON numbers.`);
     return value;
   }
-  if (Array.isArray(value)) return value.map((item, index) => canonicalPlain(item, `${path}[${index}]`));
+  if (Array.isArray(value)) {
+    return value.map((item, index) => canonicalRevisionCompareEvidenceValue(item, `${path}[${index}]`));
+  }
   if (!value || typeof value !== 'object') throw new TypeError(`${path} is not JSON-safe.`);
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`${path} must be a plain object.`);
   const output = {};
-  for (const key of Object.keys(value).sort()) output[key] = canonicalPlain(value[key], `${path}.${key}`);
+  for (const key of Object.keys(value).sort()) {
+    output[key] = canonicalRevisionCompareEvidenceValue(value[key], `${path}.${key}`);
+  }
   return output;
+}
+
+export function revisionCompareEvidencePackageHashMaterial(value) {
+  return deepFreeze(canonicalRevisionCompareEvidenceValue({
+    schema: value?.schema,
+    identity: value?.identity,
+    authorityStatus: value?.authorityStatus,
+    payload: value?.payload,
+    validation: value?.validation,
+  }, 'hashMaterial'));
 }
 
 function readinessErrors(state) {
@@ -91,7 +108,7 @@ function exactPayload(state, preflight) {
   const scopeBasisManifest = createRevisionScopeManifest(state, preflight);
   const errors = manifestErrors(state, sessionManifest, scopeBasisManifest);
   if (errors.length) throw new TypeError(`Evidence package manifest mismatch: ${errors.join(' ')}`);
-  return deepFreeze(canonicalPlain({
+  return deepFreeze(canonicalRevisionCompareEvidenceValue({
     sessionManifest,
     scopeBasisManifest,
     audit: state.compare.audit,
@@ -100,29 +117,33 @@ function exactPayload(state, preflight) {
   }, 'payload'));
 }
 
-function hashMaterial(state, payload) {
+function packageIdentity(state, payload) {
   const audit = payload.audit;
-  return deepFreeze(canonicalPlain({
+  return {
+    sessionId: state.session.sessionId,
+    basisId: audit.basisId,
+    auditId: audit.auditId,
+    reviewSessionId: payload.reviewSession.reviewSessionId,
+    decisionLedgerId: payload.decisionLedger.ledgerId,
+    revADocumentId: audit.revADocumentId,
+    revBDocumentId: audit.revBDocumentId,
+    engineVersion: audit.engineVersion,
+  };
+}
+
+function hashMaterial(state, payload) {
+  return revisionCompareEvidencePackageHashMaterial({
     schema: REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA,
-    identity: {
-      sessionId: state.session.sessionId,
-      basisId: audit.basisId,
-      auditId: audit.auditId,
-      reviewSessionId: payload.reviewSession.reviewSessionId,
-      decisionLedgerId: payload.decisionLedger.ledgerId,
-      revADocumentId: audit.revADocumentId,
-      revBDocumentId: audit.revBDocumentId,
-      engineVersion: audit.engineVersion,
-    },
+    identity: packageIdentity(state, payload),
     authorityStatus: {
       basisStatus: state.basisStatus,
-      auditValidationStatus: audit.validation.status,
+      auditValidationStatus: payload.audit.validation.status,
       reviewStatus: payload.reviewSession.status,
       decisionStatus: payload.decisionLedger.status,
     },
     payload,
     validation: { status: 'READY', errors: [] },
-  }, 'hashMaterial'));
+  });
 }
 
 export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef) {
@@ -130,9 +151,9 @@ export async function createRevisionCompareEvidencePackage(state, preflight, cry
   if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
   const material = hashMaterial(state, exactPayload(state, preflight));
   const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
-  const artifact = deepFreeze(canonicalPlain({
+  const artifact = deepFreeze(canonicalRevisionCompareEvidenceValue({
     ...material,
-    packageId: `${PACKAGE_ID_PREFIX}${contentSha256}`,
+    packageId: `${REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX}${contentSha256}`,
     contentSha256,
   }, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA));
   assertJsonSafe(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
@@ -140,8 +161,10 @@ export async function createRevisionCompareEvidencePackage(state, preflight, cry
 }
 
 export function serializeRevisionCompareEvidencePackage(artifact) {
-  if (artifact?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA) throw new TypeError('A RevisionCompareEvidencePackage.v1 artifact is required.');
-  const canonical = canonicalPlain(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  if (artifact?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA) {
+    throw new TypeError('A RevisionCompareEvidencePackage.v1 artifact is required.');
+  }
+  const canonical = canonicalRevisionCompareEvidenceValue(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
   assertJsonSafe(canonical, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
   return `${JSON.stringify(canonical, null, 2)}\n`;
 }
@@ -152,4 +175,9 @@ export function revisionCompareEvidencePackageFileName(sessionId) {
   return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.evidence-package.json`;
 }
 
-export const _test = Object.freeze({ canonicalPlain, hashMaterial, manifestErrors, readinessErrors });
+export const _test = Object.freeze({
+  canonicalPlain: canonicalRevisionCompareEvidenceValue,
+  hashMaterial,
+  manifestErrors,
+  readinessErrors,
+});
