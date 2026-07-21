@@ -15,6 +15,11 @@ function canonicalJson(value) {
 
 function revisionsEqual(left, right) { return canonicalJson(left) === canonicalJson(right); }
 
+function eventState(event, getState) {
+  if (event?.schema === 'SequentialEngineeringSvgOwnerEvent.v1') return event.snapshot;
+  return event?.state ?? event?.value ?? event ?? getState();
+}
+
 function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
   return value;
@@ -34,6 +39,7 @@ export function createSequentialEngineeringSvgAdapter(options = {}) {
   let lastBuild = null;
 
   function build(state = getState(), buildOptions = {}) {
+    if (!state) throw new Error('Sequential engineering SVG requires an active owner snapshot.');
     lastBuild = buildSequentialEngineeringSvgScene(state, {
       sceneId,
       coordinateSystem: options.coordinateSystem,
@@ -64,7 +70,8 @@ export function createSequentialEngineeringSvgAdapter(options = {}) {
     getScene: () => build().scene,
     subscribeScene(listener) {
       const unsubscribe = subscribeState((event) => {
-        const state = event?.state ?? event?.value ?? event ?? getState();
+        const state = eventState(event, getState);
+        if (!state) return;
         listener({
           scene: build(state, { visibleProjection: event?.visibleProjection }).scene,
           reason: String(event?.reason || 'sequential-domain-update'),
