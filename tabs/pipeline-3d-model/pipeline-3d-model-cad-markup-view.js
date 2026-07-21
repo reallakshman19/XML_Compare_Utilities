@@ -2,7 +2,7 @@ const STYLE_ID = 'pipeline-cad-markup-style';
 function ensureStyle(doc) {
   if (doc.getElementById(STYLE_ID)) return;
   const style = doc.createElement('style'); style.id = STYLE_ID;
-  style.textContent = `.p3d-cad-markup-panel{margin:8px 0;padding:8px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0}.p3d-cad-markup-panel h3{margin:0 0 6px;font-size:12px}.p3d-cad-markup-panel table{width:100%;border-collapse:collapse;font:10px ui-monospace,monospace}.p3d-cad-markup-panel th,.p3d-cad-markup-panel td{border:1px solid #334155;padding:4px 6px;text-align:left}.p3d-cad-markup-panel tr[data-status="ORPHANED"]{background:#451a1a;color:#fecaca}.p3d-cad-markup-panel tr[aria-selected="true"]{outline:2px solid #67e8f9;outline-offset:-2px}.p3d-cad-markup-empty{color:#94a3b8}`;
+  style.textContent = `.p3d-cad-markup-panel{margin:8px 0;padding:8px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0}.p3d-cad-markup-panel h3{margin:0 0 6px;font-size:12px}.p3d-cad-markup-panel table{width:100%;border-collapse:collapse;font:10px ui-monospace,monospace}.p3d-cad-markup-panel th,.p3d-cad-markup-panel td{border:1px solid #334155;padding:4px 6px;text-align:left}.p3d-cad-markup-panel tr[data-status="ORPHANED"]{background:#451a1a;color:#fecaca}.p3d-cad-markup-panel tr[aria-selected="true"]{outline:2px solid #67e8f9;outline-offset:-2px}.p3d-cad-markup-empty{color:#94a3b8}.p3d-cad-markup-property-panel{left:auto;right:12px}`;
   doc.head.appendChild(style);
 }
 function cell(doc, value) {
