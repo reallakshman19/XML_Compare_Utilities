@@ -50,7 +50,13 @@ jobs:
       - name: Preview policy contract
         run: node tests/sequential-engineering-svg-preview-policy.test.js
       - name: Preview workspace contract
-        run: node tests/sequential-engineering-svg-preview-workspace.test.js
+        shell: bash
+        run: |
+          set +e
+          node tests/sequential-engineering-svg-preview-workspace.test.js > artifacts/sequential-engineering-svg-preview/workspace-contract.log 2>&1
+          status=$?
+          cat artifacts/sequential-engineering-svg-preview/workspace-contract.log
+          exit $status
       - name: Preview controller contract
         run: node tests/sequential-engineering-svg-preview-controller.test.js
       - name: Preview static boundaries
