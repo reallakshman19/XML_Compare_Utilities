@@ -27,9 +27,11 @@ function slotCard(slot, label, subtitle, disabled = false) {
 }
 function packageImportMarkup(state) {
   const lifecycle = state.evidencePackageImport; const importing = lifecycle.status === 'IMPORTING';
+  const sourceLoading = state.slots.baseline.status === 'LOADING' || state.slots.candidate.status === 'LOADING';
   const detail = importing ? 'Canonical package integrity and nested authority evidence are being verified.'
-    : lifecycle.error || 'Import a RevisionCompareEvidencePackage.v1 into this fresh workspace.';
-  return `<section class="revc-preflight" data-revc-evidence-package-import-panel data-status="${escapeHtml(lifecycle.status.toLowerCase())}" aria-busy="${importing}"><header><div><span>EVIDENCE PACKAGE</span><h2>Resume archived review evidence</h2></div><strong data-status="${escapeHtml(lifecycle.status.toLowerCase())}">${escapeHtml(lifecycle.status)}</strong></header><p data-revc-evidence-package-import-status>${escapeHtml(detail)}</p><label class="revc-file-button">Import evidence package<input type="file" accept=".json,application/json" data-revc-evidence-package-import></label></section>`;
+    : sourceLoading ? 'Cancel the active revision load before importing an evidence package.'
+      : lifecycle.error || 'Import a RevisionCompareEvidencePackage.v1 into this fresh workspace.';
+  return `<section class="revc-preflight" data-revc-evidence-package-import-panel data-status="${escapeHtml(lifecycle.status.toLowerCase())}" aria-busy="${importing}"><header><div><span>EVIDENCE PACKAGE</span><h2>Resume archived review evidence</h2></div><strong data-status="${escapeHtml(lifecycle.status.toLowerCase())}">${escapeHtml(lifecycle.status)}</strong></header><p data-revc-evidence-package-import-status>${escapeHtml(detail)}</p><label class="revc-file-button">Import evidence package<input type="file" accept=".json,application/json" data-revc-evidence-package-import ${sourceLoading ? 'disabled' : ''}></label></section>`;
 }
 function importedPackageMarkup(state) {
   const lifecycle = state.evidencePackageImport; if (lifecycle.status !== 'VERIFIED') return '';
