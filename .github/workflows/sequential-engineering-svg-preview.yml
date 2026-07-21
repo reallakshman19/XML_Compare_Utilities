@@ -47,13 +47,16 @@ jobs:
         with: { node-version: '22', cache: npm }
       - name: Install dependencies
         run: npm ci
-      - name: Focused preview contracts
-        run: |
-          node tests/sequential-engineering-svg-preview-policy.test.js
-          node tests/sequential-engineering-svg-preview-workspace.test.js
-          node tests/sequential-engineering-svg-preview-controller.test.js
-          node tests/sequential-engineering-svg-preview-static.test.js
-          node tests/sequential-engineering-svg-preview-parity.test.js
+      - name: Preview policy contract
+        run: node tests/sequential-engineering-svg-preview-policy.test.js
+      - name: Preview workspace contract
+        run: node tests/sequential-engineering-svg-preview-workspace.test.js
+      - name: Preview controller contract
+        run: node tests/sequential-engineering-svg-preview-controller.test.js
+      - name: Preview static boundaries
+        run: node tests/sequential-engineering-svg-preview-static.test.js
+      - name: Preview parity contract
+        run: node tests/sequential-engineering-svg-preview-parity.test.js
       - name: Accepted owner adapter shadow and parity gates
         run: |
           node tests/sequential-engineering-svg-owner-bridge.test.js
