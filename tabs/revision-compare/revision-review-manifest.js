@@ -1,6 +1,6 @@
 /** Exact ReviewSession.v1 browser export/import without copied comparison payloads. */
 import { assertJsonSafe, deepFreeze } from './revision-contract-utils.js';
-import { assertValidReviewSession, REVIEW_SESSION_SCHEMA } from './revision-review-contracts.js';
+import { assertValidReviewSession, REVIEW_SESSION_SCHEMA, reviewSummary } from './revision-review-contracts.js';
 import { sha256Text } from './revision-hash.js';
 import { reattachReviewSession } from './revision-review-session.js';
 
@@ -25,9 +25,23 @@ async function validateNoteHashes(session, cryptoRef) {
     }
   }
 }
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+function validationView(session) {
+  const expected = reviewSummary(session.items);
+  if (canonicalJson(session.summary) !== canonicalJson(expected)) {
+    throw new TypeError('Review summary does not reconcile with items.');
+  }
+  return { ...session, summary: expected };
+}
 
 export async function verifyReviewSessionRecord(session, audit, cryptoRef) {
-  assertValidReviewSession(session, audit);
+  assertValidReviewSession(validationView(session), audit);
   await validateNoteHashes(session, cryptoRef);
   return session;
 }
