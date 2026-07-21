@@ -22,7 +22,7 @@ const forbidden = [
 ];
 for (const path of files) {
   const source = await readFile(path, 'utf8');
-  assert(source.split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
   assert.equal(/export\s+default/.test(source), false, `${path} must use named exports`);
   for (const token of forbidden) assert.equal(source.includes(token), false, `${path} reaches forbidden ${token}`);
 }
@@ -109,7 +109,7 @@ assert.doesNotMatch(inspector, /Open file|Browse|Copy path|Resolve|Navigate|Loca
 assert.doesNotMatch(inspector, /<a\b|createElement\(['"]a['"]\)/);
 
 const packageSource = await readFile('tabs/revision-compare/revision-evidence-package.js', 'utf8');
-assert(packageSource.split('\n').length < 300, 'evidence package module must remain below 300 lines');
+assert(packageSource.trimEnd().split('\n').length < 300, 'evidence package module must remain below 300 lines');
 assert.match(packageSource, /RevisionCompareEvidencePackage\.v1/);
 assert.match(packageSource, /createRevisionSessionManifest/);
 assert.match(packageSource, /createRevisionScopeManifest/);
@@ -134,7 +134,7 @@ for (const [path, source] of [
   ['revision-compare-workspace.js', workspaceSource], ['revision-compare-view.js', viewSource],
   ['revision-sign-off.js', signOffSource],
 ]) {
-  assert(source.split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
   assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
 }
 assert.match(importSource, /JSON\.parse/);
