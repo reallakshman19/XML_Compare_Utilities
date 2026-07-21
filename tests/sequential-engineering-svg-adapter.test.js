@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createEngineeringRevisionToken } from '../core/engineering-scene/index.js';
 import { runEngineeringSvgAdapterConformance } from '../core/engineering-svg/engineering-svg-adapter-conformance.js';
 import { createSequentialEngineeringSvgAdapter } from '../tabs/sequential-sketcher/sequential-engineering-svg-adapter.js';
+import { createSequentialEngineeringSvgOwnerBridge } from '../tabs/sequential-sketcher/sequential-engineering-svg-owner-bridge.js';
 import {
   adapterState,
   blockedSequentialFixture,
@@ -13,8 +14,25 @@ function geometryLedger(scene) {
     .sort((left, right) => left.id.localeCompare(right.id));
 }
 
+function bridgeSnapshot(fixture, visibleProjection = 'ISO') {
+  const legacy = adapterState(fixture, visibleProjection);
+  const bridge = createSequentialEngineeringSvgOwnerBridge({
+    readOwnerState: () => ({
+      ...legacy,
+      visibleProjection,
+      constructionCandidateSelection: '',
+      engineeringSceneSelection: '',
+      reviewQueueSelection: '',
+      inspectorSelection: '',
+    }),
+  });
+  const snapshot = bridge.getSnapshot();
+  bridge.destroy();
+  return snapshot;
+}
+
 const blocked = blockedSequentialFixture();
-let currentState = adapterState(blocked, 'ISO');
+let currentState = bridgeSnapshot(blocked, 'ISO');
 const listeners = new Set();
 const before = JSON.stringify(blocked.session);
 const sequentialAdapter = createSequentialEngineeringSvgAdapter({
@@ -60,16 +78,26 @@ await assert.rejects(
 const events = [];
 const unsubscribe = sequentialAdapter.adapter.subscribeScene((event) => events.push(event));
 assert.equal(listeners.size, 1);
-currentState = adapterState(blocked, 'XZ');
-for (const listener of listeners) listener({ state: currentState, visibleProjection: 'XZ', reason: 'projection-change' });
+currentState = bridgeSnapshot(blocked, 'XZ');
+for (const listener of listeners) listener({
+  schema: 'SequentialEngineeringSvgOwnerEvent.v1',
+  snapshot: currentState,
+  reason: 'projection-changed',
+});
 assert.equal(events.length, 1);
-assert.equal(events[0].reason, 'projection-change');
+assert.equal(events[0].reason, 'projection-changed');
 assert.deepEqual(geometryLedger(events[0].scene), geometryLedger(scene));
+for (const listener of listeners) listener({
+  schema: 'SequentialEngineeringSvgOwnerEvent.v1',
+  snapshot: null,
+  reason: 'source-reloaded',
+});
+assert.equal(events.length, 1, 'pre-session owner events must not emit an invalid scene');
 unsubscribe();
 assert.equal(listeners.size, 0);
 
 const rejected = rejectedSequentialFixture();
-currentState = adapterState(rejected);
+currentState = bridgeSnapshot(rejected);
 const rejectedScene = await sequentialAdapter.adapter.getScene();
 assert.notDeepEqual(rejectedScene.revision, scene.revision);
 assert(rejectedScene.entities.some((entity) => entity.domainRef.category === 'rejectedCandidate'));
