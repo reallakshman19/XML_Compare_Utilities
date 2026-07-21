@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
+import { createRevisionComparisonBasis } from '../tabs/revision-compare/revision-comparison-basis.js';
 import {
   createRevisionCompareEvidencePackage,
   revisionCompareEvidencePackageHashMaterial,
@@ -103,15 +104,7 @@ async function authorityState(stale = false) {
     warnings: Object.freeze([]), validation: Object.freeze({ status: 'READY', errors: Object.freeze([]) }),
   });
   const preflight = revisionComparisonPreflight(baseline, candidate, proposal);
-  const basis = Object.freeze({
-    schema: 'RevisionComparisonBasis.v1', basisId: 'basis:package-import', sessionId: session.sessionId,
-    revADocumentId: revA.documentId, revBDocumentId: revB.documentId, revAContentHash: revA.sourceHash, revBContentHash: revB.sourceHash,
-    revAScopeIdentity: revA.scopedHash, revBScopeIdentity: revB.scopedHash,
-    includedBranchesA: proposal.includedBranchIdsA, includedBranchesB: proposal.includedBranchIdsB, excludedBranches: proposal.excludedBranches,
-    unitCompatibility: preflight.compatibility.unitCompatibility, coordinateFrameCompatibility: preflight.compatibility.coordinateFrameCompatibility,
-    verticalAxisCompatibility: preflight.compatibility.verticalAxisCompatibility, scopeSummary: proposal.summary,
-    warnings: Object.freeze([]), blockers: Object.freeze([]), validation: Object.freeze({ status: 'READY', errors: Object.freeze([]) }),
-  });
+  const basis = await createRevisionComparisonBasis({ sessionId: session.sessionId, revA: baseline, revB: candidate, proposal, preflight }, webcrypto);
   const audit = auditFor(basis, revA, revB);
   let reviewSession = createReviewSession(audit, NOW);
   reviewSession = await setReviewItemNote(reviewSession, audit, 'difference:source-1:none', 'Persisted review note', LATER, webcrypto);
