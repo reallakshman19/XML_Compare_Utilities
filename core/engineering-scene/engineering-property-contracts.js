@@ -102,7 +102,7 @@ export function createEngineeringPropertyField(input = {}) {
     editable,
     source: currentSource.value,
   };
-  if (owns(input, 'previousValue')) {
+  if (Object.prototype.hasOwnProperty.call(input, 'previousValue')) {
     assertPropertyValue(type, input.previousValue, { key, options, min, max }, 'previousValue');
     field.previousValue = input.previousValue;
   }
