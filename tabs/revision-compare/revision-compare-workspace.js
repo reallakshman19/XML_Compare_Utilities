@@ -16,6 +16,11 @@ import { createRevisionWorkspaceState } from './revision-workspace-state.js';
 import { candidatePreview } from './revision-decision-projection.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
 import { createRevisionComparePropertyInspector } from './revision-compare-property-inspector.js';
+import {
+  createRevisionCompareEvidencePackage,
+  revisionCompareEvidencePackageFileName,
+  revisionCompareEvidencePackageReadiness,
+} from './revision-evidence-package.js';
 
 function defaultNow() { return new Date().toISOString(); }
 function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
@@ -60,6 +65,7 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
   if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
+  if (button.hasAttribute('data-revc-download-evidence-package')) actions.downloadEvidencePackage();
   if (button.hasAttribute('data-revc-close')) actions.close();
   comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button);
 }
@@ -113,6 +119,29 @@ function preparePropertyHost(root, state) {
   section.appendChild(host);
   return host;
 }
+function appendTextElement(documentRef, parent, tag, text) {
+  const element = documentRef.createElement(tag); element.textContent = text; parent.appendChild(element); return element;
+}
+function prepareEvidencePackageControl(root, state) {
+  const host = root.querySelector('.revc-review-side') ?? root.querySelector('.revc-body'); if (!host) return null;
+  const readiness = revisionCompareEvidencePackageReadiness(state); const documentRef = root.ownerDocument;
+  const section = documentRef.createElement('section'); section.className = 'revc-review-session';
+  section.setAttribute('data-revc-evidence-package', readiness.status.toLowerCase());
+  const header = documentRef.createElement('header'); const title = documentRef.createElement('div');
+  appendTextElement(documentRef, title, 'span', 'EVIDENCE PACKAGE');
+  appendTextElement(documentRef, title, 'h2', 'Authority chain export');
+  const status = appendTextElement(documentRef, header, 'strong', readiness.status);
+  status.setAttribute('data-status', readiness.status.toLowerCase()); header.appendChild(title); header.appendChild(status);
+  const message = appendTextElement(documentRef, section, 'p', readiness.status === 'READY'
+    ? 'Current session, scope, audit, review and decision authorities are ready for deterministic export.'
+    : readiness.blockers[0]);
+  message.setAttribute('data-revc-evidence-package-status', readiness.status);
+  const actions = documentRef.createElement('div'); actions.className = 'revc-session-actions';
+  const button = appendTextElement(documentRef, actions, 'button', 'Download evidence package');
+  button.type = 'button'; button.setAttribute('data-revc-download-evidence-package', '');
+  button.disabled = readiness.status !== 'READY'; section.prepend(header); section.appendChild(actions); host.appendChild(section);
+  return section;
+}
 function initialWorkspaceState(session, createdAt, policy) {
   const state = createRevisionWorkspaceState(session, createdAt);
   return Object.freeze({ ...state, compare: createComparisonLifecycleState(policy) });
@@ -128,6 +157,10 @@ function recoveryMarkup(compare) {
     ? compare.viewerPolicy.recoveryBackendForSvgFailure
     : compare.viewerPolicy.recoveryBackendForWebglFailure;
   return `<button type="button" data-revc-viewer-backend="${backend}">Return to ${revisionCompareViewerBackendLabel(backend)}</button>`;
+}
+function reportDownload(root, options, error) {
+  const message = error?.message || String(error); const live = root.querySelector('[data-revc-live]');
+  if (live) live.textContent = message; options.showToast?.(message, 'error');
 }
 export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
@@ -171,18 +204,29 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (!host || !state.compare.audit || !state.compare.selectedDifferenceId) { propertyInspector.clear(); return; }
     await propertyInspector.render(host, state.compare.audit, state.compare.selectedDifferenceId);
   }
+  async function downloadEvidencePackage() {
+    const captured = state;
+    try {
+      const artifact = await createRevisionCompareEvidencePackage(captured, revisionComparisonPreflight(
+        captured.slots.baseline, captured.slots.candidate, captured.proposal,
+      ), cryptoRef);
+      downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact);
+      options.showToast?.('Evidence package downloaded.', 'success');
+    } catch (error) { reportDownload(root, options, error); }
+  }
   function render(next = state) {
     state = next; renderSequence += 1; const sequence = renderSequence;
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); syncDecisionButtons(root);
+    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); syncDecisionButtons(root);
     Promise.resolve().then(() => syncViewer(sequence));
     Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
-  actions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
+  const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
+  actions = Object.freeze({ ...baseActions, downloadEvidencePackage });
   bindWorkspace(root, actions, cleanups); render();
   return Object.freeze({
     evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), compareRunId: compareService.activeRunId() }),
     destroy: () => { cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
   });
 }
-export const _test = Object.freeze({ actionClick, initialWorkspaceState, inputChange, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });
+export const _test = Object.freeze({ actionClick, initialWorkspaceState, inputChange, prepareEvidencePackageControl, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });

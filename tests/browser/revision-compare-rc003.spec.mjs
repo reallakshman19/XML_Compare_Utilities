@@ -102,7 +102,7 @@ test('guided review preserves comparison meaning and resumes exact review eviden
   await page.getByRole('button', { name: 'Change scope' }).click();
   const branch = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
   await branch.uncheck(); await branch.check();
-  await expect(page.locator('.revc-review-session')).toContainText('STALE');
+  await expect(page.locator('.revc-review-session').filter({ has: page.locator('[data-revc-download-review]') })).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.review.session.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download review session' })).toBeVisible();
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();

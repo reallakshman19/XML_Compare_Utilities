@@ -108,4 +108,24 @@ assert.doesNotMatch(inspector, /EngineeringSvgWorkspaceShell|commandGateway|crea
 assert.doesNotMatch(inspector, /Open file|Browse|Copy path|Resolve|Navigate|Locate source|Reveal in folder/i);
 assert.doesNotMatch(inspector, /<a\b|createElement\(['"]a['"]\)/);
 
+const packageSource = await readFile('tabs/revision-compare/revision-evidence-package.js', 'utf8');
+assert(packageSource.split('\n').length < 300, 'evidence package module must remain below 300 lines');
+assert.match(packageSource, /RevisionCompareEvidencePackage\.v1/);
+assert.match(packageSource, /createRevisionSessionManifest/);
+assert.match(packageSource, /createRevisionScopeManifest/);
+assert.match(packageSource, /createReviewSessionExport/);
+assert.match(packageSource, /createDecisionLedgerExport/);
+assert.match(packageSource, /sha256Text/);
+assert.match(packageSource, /Object\.keys\(value\)\.sort\(\)/);
+assert.match(packageSource, /packageId:\s*`\$\{PACKAGE_ID_PREFIX\}\$\{contentSha256\}`/);
+assert.doesNotMatch(packageSource, /Date\.now|Math\.random|randomUUID|crypto\.getRandomValues|global counter/i);
+assert.doesNotMatch(packageSource, /viewer|viewport|fitHistory|selectedDifference|queue|DOM|Blob|createObjectURL|THREE/);
+assert.doesNotMatch(packageSource, /source-document|revision-load-service|fileHandle|rawBytes|arrayBuffer\(|\.text\(\)/);
+assert.doesNotMatch(packageSource, /parseRevisionCompareEvidencePackage|importRevisionCompareEvidencePackage|restoreWorkspace/);
+assert.doesNotMatch(packageSource, /package (?:is )?(?:approved|signed|final|complete)|sign-off/i);
+assert.doesNotMatch(packageSource, /new Map|new Set/);
+assert.match(workspaceSource, /data-revc-download-evidence-package/);
+assert.match(workspaceSource, /Download evidence package/);
+assert.match(workspaceSource, /revisionCompareEvidencePackageReadiness/);
+
 console.log('revision-compare-svg-dependency-guard.test.mjs passed');
