@@ -59,22 +59,56 @@ jobs:
             echo 'workflow_dispatch: pull-request scope comparison is not applicable'
             exit 0
           fi
-          git diff --check "$BASE_SHA...HEAD"
-          mapfile -t changed < <(git diff --name-only "$BASE_SHA...HEAD")
-          printf '%s\n' "${changed[@]}"
-          for path in "${changed[@]}"; do
-            case "$path" in
-              core/engineering-scene/engineering-property-contracts.js|core/engineering-scene/engineering-contract-validation.js|core/engineering-svg/engineering-svg-property-runtime.js|core/engineering-svg/engineering-svg-inspector-model.js|core/engineering-svg/engineering-svg-property-inspector-view.js|core/engineering-svg/engineering-svg-workspace-shell.js) ;;
-              tests/engineering-scene-contracts.test.js|tests/engineering-scene-validation.test.js|tests/engineering-svg-edit-properties.test.js|tests/engineering-svg-overlay-inspector.test.js|tests/engineering-svg-property-history.test.js|tests/engineering-svg-property-provenance.test.js) ;;
-              tests/engineering-svg-readonly-shell-*.test.js|tests/browser/engineering-svg-readonly-shell-*.spec.mjs|tests/browser/engineering-svg-readonly-shell-fixture.html) ;;
-              playwright.engineering-svg-readonly-shell.config.mjs|.github/workflows/engineering-svg-readonly-shell.yml|package.json) ;;
-              *) echo "Unauthorized ESVG-PROP-002 path: $path" >&2; exit 1 ;;
-            esac
-          done
-          if git diff "$BASE_SHA...HEAD" -- package.json | grep -E '^[-+]\s*"(@|[A-Za-z0-9_-]+)"\s*:'; then
-            echo 'Dependency changes are not authorized.' >&2
-            exit 1
-          fi
+          git diff --check "$BASE_SHA" HEAD
+          python - "$BASE_SHA" <<'PY'
+          import fnmatch
+          import json
+          import subprocess
+          import sys
+
+          base = sys.argv[1]
+          paths = subprocess.check_output(
+              ['git', 'diff', '--name-only', base, 'HEAD'], text=True,
+          ).splitlines()
+          exact = {
+              'core/engineering-scene/engineering-property-contracts.js',
+              'core/engineering-scene/engineering-contract-validation.js',
+              'core/engineering-svg/engineering-svg-property-runtime.js',
+              'core/engineering-svg/engineering-svg-inspector-model.js',
+              'core/engineering-svg/engineering-svg-property-inspector-view.js',
+              'core/engineering-svg/engineering-svg-workspace-shell.js',
+              'tests/engineering-scene-contracts.test.js',
+              'tests/engineering-scene-validation.test.js',
+              'tests/engineering-svg-edit-properties.test.js',
+              'tests/engineering-svg-overlay-inspector.test.js',
+              'tests/engineering-svg-property-history.test.js',
+              'tests/engineering-svg-property-provenance.test.js',
+              'tests/browser/engineering-svg-readonly-shell-fixture.html',
+              'playwright.engineering-svg-readonly-shell.config.mjs',
+              '.github/workflows/engineering-svg-readonly-shell.yml',
+              'package.json',
+          }
+          patterns = [
+              'tests/engineering-svg-readonly-shell-*.test.js',
+              'tests/browser/engineering-svg-readonly-shell-*.spec.mjs',
+          ]
+          unexpected = [
+              path for path in paths
+              if path not in exact and not any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+          ]
+          print('changed paths:', *paths, sep='\n- ')
+          if unexpected:
+              raise SystemExit(f'Unauthorized ESVG-PROP-002 paths: {unexpected}')
+          if 'package.json' in paths:
+              before = json.loads(subprocess.check_output(
+                  ['git', 'show', f'{base}:package.json'], text=True,
+              ))
+              with open('package.json', encoding='utf-8') as stream:
+                  after = json.load(stream)
+              for key in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                  if before.get(key) != after.get(key):
+                      raise SystemExit(f'Dependency changes are not authorized: {key}')
+          PY
 
       - uses: actions/setup-node@v4
         with:
