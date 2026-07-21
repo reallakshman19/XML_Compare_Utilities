@@ -88,6 +88,7 @@ jobs:
               'tests/engineering-svg-property-history.test.js',
               'tests/engineering-svg-property-provenance.test.js',
               'tests/browser/engineering-svg-readonly-shell-fixture.html',
+              'tests/browser/engineering-svg-readonly-shell.spec.mjs',
               'playwright.engineering-svg-readonly-shell.config.mjs',
               '.github/workflows/engineering-svg-readonly-shell.yml',
               'package.json',
