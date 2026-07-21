@@ -174,7 +174,7 @@ function appendDeclarationForm(documentRef, section, buttonLabel, buttonSelector
   section.appendChild(form);
 }
 export function renderRevisionCompareSignOffSection(root, state) {
-  const host = root.querySelector('.revc-review-side') ?? root.querySelector('.revc-body'); if (!host) return null;
+  const host = root.querySelector('.revc-review-side'); if (!host) return null;
   const documentRef = root.ownerDocument; const section = documentRef.createElement('section'); section.className = 'revc-review-session'; section.setAttribute('data-revc-sign-off', state.signOff.status.toLowerCase());
   appendText(documentRef, section, 'h2', 'Review completion declaration');
   appendText(documentRef, section, 'p', REVISION_COMPARE_SIGN_OFF_TRUST_STATEMENT, 'data-revc-sign-off-trust');
