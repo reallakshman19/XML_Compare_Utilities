@@ -94,14 +94,25 @@ jobs:
           set -euo pipefail
           git diff --name-only "$BASE_SHA" "$EXPECTED_SHA" | grep -E '\.(js|mjs)$' | while read -r file; do node --check "$file"; done
 
-      - name: PCAD-005B focused contracts
-        id: focused
-        run: |
-          node tests/pipeline-3d-model-cad-markup-interaction-contracts.test.js
-          node tests/pipeline-3d-model-cad-markup-anchor-acquisition.test.js
-          node tests/pipeline-3d-model-cad-markup-interaction-session.test.js
-          node tests/pipeline-3d-model-cad-markup-interaction-integration.test.js
-          node tests/pipeline-3d-model-cad-markup-interaction-static.test.js
+      - name: PCAD-005B interaction contracts
+        id: focused_contracts
+        run: node tests/pipeline-3d-model-cad-markup-interaction-contracts.test.js
+
+      - name: PCAD-005B anchor acquisition
+        id: focused_anchor
+        run: node tests/pipeline-3d-model-cad-markup-anchor-acquisition.test.js
+
+      - name: PCAD-005B interaction session
+        id: focused_session
+        run: node tests/pipeline-3d-model-cad-markup-interaction-session.test.js
+
+      - name: PCAD-005B command integration
+        id: focused_integration
+        run: node tests/pipeline-3d-model-cad-markup-interaction-integration.test.js
+
+      - name: PCAD-005B static guards
+        id: focused_static
+        run: node tests/pipeline-3d-model-cad-markup-interaction-static.test.js
 
       - name: PCAD-005A inherited contracts
         id: foundation
