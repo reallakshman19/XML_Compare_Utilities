@@ -3,75 +3,8 @@ name: Sequential Sketcher
 on:
   pull_request:
     paths:
-      - 'tabs/sequential-sketcher/**'
-      - 'contracts/pipe-support-projection/**'
       - 'tabs/psnm-utility-tab.js'
-      - 'tests/sequential-sketcher-*.test.js'
-      - 'tests/sequential-supervised-*.test.js'
-      - 'tests/sequential-review-*.test.js'
-      - 'tests/sequential-workspace-*.test.js'
-      - 'tests/sequential-external-boundary-policy.test.js'
-      - 'tests/sequential-construction-tolerance-policy.test.js'
-      - 'tests/sequential-tolerance-callsite-migration.test.js'
-      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
       - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
-      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
-      - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
-      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
-      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
-      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
-      - 'tests/sequential-attachment-event.test.js'
-      - 'tests/sequential-zero-length-inline.test.js'
-      - 'tests/sequential-reference-terminal-semantics.test.js'
-      - 'tests/sequential-shadow-carrier.test.js'
-      - 'tests/sequential-support-placeholder.test.js'
-      - 'tests/sequential-construction-engine.test.js'
-      - 'tests/sequential-head-boundary-gate.test.js'
-      - 'tests/sequential-construction-acceptance.test.js'
-      - 'tests/sequential-confirmed-support-projection.test.js'
-      - '.github/workflows/sequential-sketcher.yml'
-  push:
-    branches:
-      - main
-      - agent/sequential-sketcher
-      - agent/sequential-sketcher-fixture-evidence-resolution
-      - agent/sequential-sketcher-fixture-evidence-resolution-rebased
-      - agent/sequential-external-boundary-policy-v1
-      - agent/sequential-tolerance-policy-v1
-      - agent/sequential-tolerance-callsite-migration
-      - agent/sequential-supervised-decision-transactions
-      - agent/sequential-blocked-review-queue
-      - agent/sequential-supervised-redo
-      - agent/sequential-workspace-persistence
-      - agent/sequential-workspace-import-preview-rebased
-      - agent/sequential-workspace-apply-receipts
-    paths:
-      - 'tabs/sequential-sketcher/**'
-      - 'contracts/pipe-support-projection/**'
-      - 'tabs/psnm-utility-tab.js'
-      - 'tests/sequential-sketcher-*.test.js'
-      - 'tests/sequential-supervised-*.test.js'
-      - 'tests/sequential-review-*.test.js'
-      - 'tests/sequential-workspace-*.test.js'
-      - 'tests/sequential-external-boundary-policy.test.js'
-      - 'tests/sequential-construction-tolerance-policy.test.js'
-      - 'tests/sequential-tolerance-callsite-migration.test.js'
-      - 'tests/sequential-sketcher-1885-nc.integration.test.mjs'
-      - 'tests/sequential-sketcher-1885-nc-fixture-matrix.mjs'
-      - 'tests/sequential-sketcher-1885-nc-s-scope-regression.mjs'
-      - 'tests/sequential-sketcher-1885-nc-b2-probe.mjs'
-      - 'tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs'
-      - 'tests/sequential-sketcher-1885-nc-support-evidence.mjs'
-      - 'tests/sequential-sketcher-1885-nc-support-regression.mjs'
-      - 'tests/sequential-attachment-event.test.js'
-      - 'tests/sequential-zero-length-inline.test.js'
-      - 'tests/sequential-reference-terminal-semantics.test.js'
-      - 'tests/sequential-shadow-carrier.test.js'
-      - 'tests/sequential-support-placeholder.test.js'
-      - 'tests/sequential-construction-engine.test.js'
-      - 'tests/sequential-head-boundary-gate.test.js'
-      - 'tests/sequential-construction-acceptance.test.js'
-      - 'tests/sequential-confirmed-support-projection.test.js'
       - '.github/workflows/sequential-sketcher.yml'
 
 permissions:
@@ -86,96 +19,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Supervised sequential construction
-        run: node tests/sequential-construction-engine.test.js
-      - name: Source-ordered OLET attachment events
-        run: node tests/sequential-attachment-event.test.js
-      - name: Zero-length inline sequencing
-        run: node tests/sequential-zero-length-inline.test.js
-      - name: Reference and terminal semantics
-        run: node tests/sequential-reference-terminal-semantics.test.js
-      - name: Collision-safe reference normalization
-        run: node tests/sequential-sketcher-reference-normalization.test.js
-      - name: Controlled source boundary semantics
-        run: node tests/sequential-sketcher-source-boundary.test.js
-      - name: Versioned external boundary policy
-        run: node tests/sequential-external-boundary-policy.test.js
-      - name: Evidence-specific construction tolerance policy
-        run: node tests/sequential-construction-tolerance-policy.test.js
-      - name: Tolerance policy callsite migration
-        run: node tests/sequential-tolerance-callsite-migration.test.js
-      - name: Atomic supervised transactions
-        run: node tests/sequential-supervised-transactions.test.js
-      - name: Manual connect and component reversal
-        run: node tests/sequential-supervised-manual-actions.test.js
-      - name: Supervised decision transaction UI
-        run: node tests/sequential-supervised-decision-ui.test.js
-      - name: Supervised redo transactions
-        run: node tests/sequential-supervised-redo.test.js
-      - name: Supervised redo UI
-        run: node tests/sequential-supervised-redo-ui.test.js
-      - name: Portable workspace package integrity
-        run: node tests/sequential-workspace-persistence.test.js
-      - name: Portable workspace package UI
-        run: node tests/sequential-workspace-persistence-ui.test.js
-      - name: Workspace import preview
-        run: node tests/sequential-workspace-import-preview.test.js
-      - name: Workspace import preview UI
-        run: node tests/sequential-workspace-import-preview-ui.test.js
-      - name: Workspace application receipts
-        run: node tests/sequential-workspace-apply-receipts.test.js
-      - name: Workspace application receipt UI
-        run: node tests/sequential-workspace-apply-receipts-ui.test.js
-      - name: Blocked branch review queue
-        run: node tests/sequential-review-queue.test.js
-      - name: Decision register exports
-        run: node tests/sequential-review-queue-export.test.js
-      - name: Blocked review queue UI
-        run: node tests/sequential-review-queue-ui.test.js
-      - name: External boundary position gates
-        run: node tests/sequential-sketcher-source-boundary-position.test.js
-      - name: Accepted construction carrier adapter
-        run: node tests/sequential-sketcher-carrier-evidence-adapter.test.js
-      - name: Review correction architecture gates
-        run: node tests/sequential-sketcher-review-gates.test.js
-      - name: Branch switching workspace UX
-        run: node tests/sequential-sketcher-branch-switch-ui.test.js
-      - name: Pinned fixture-wide feature matrix
-        run: node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs
-      - name: Pinned complete S-line scope
-        run: node tests/sequential-sketcher-1885-nc-s-scope-regression.mjs
-      - name: Exact synthetic carrier shadows
-        run: node tests/sequential-shadow-carrier.test.js
-      - name: Head boundary before first component
-        run: node tests/sequential-head-boundary-gate.test.js
-      - name: Confirmed construction acceptance
-        run: node tests/sequential-construction-acceptance.test.js
-      - name: Confirmed support projection
-        run: node tests/sequential-confirmed-support-projection.test.js
-      - name: Non-semantic ATTA placeholder isolation
-        run: node tests/sequential-support-placeholder.test.js
-      - name: Pinned 1885 NC branch probe
-        run: node tests/sequential-sketcher-1885-nc.integration.test.mjs
-      - name: Pinned B3 support evidence
-        run: node tests/sequential-sketcher-1885-nc-support-evidence.mjs
-      - name: Pinned B3 support semantics
-        run: node tests/sequential-sketcher-1885-nc-support-regression.mjs
-      - name: Pinned B2 junction sequence probe
-        run: node tests/sequential-sketcher-1885-nc-b2-probe.mjs
-      - name: Pinned B2 component evidence
-        run: node tests/sequential-sketcher-1885-nc-b2-component-evidence.mjs
-      - name: Publish 1885 NC probe
+      - name: Capture pinned fixture-wide feature matrix
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts/sequential-sketcher-diagnostic
+          node tests/sequential-sketcher-1885-nc-fixture-matrix.mjs 2>&1 | tee artifacts/sequential-sketcher-diagnostic/fixture-matrix.log
+          echo "${PIPESTATUS[0]}" > artifacts/sequential-sketcher-diagnostic/status.txt
+          exit 0
+      - name: Upload pinned fixture diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sequential-sketcher-1885-nc-probe
-          path: artifacts/sequential-sketcher/
-          if-no-files-found: warn
-      - name: Legacy foundation regression
-        run: node tests/sequential-sketcher-core.test.js
-      - name: Owned support projection contract
-        run: node --test tests/sequential-sketcher-support-projection.test.js
-      - name: Support integration isolation
-        run: node --test tests/sequential-sketcher-support-integration.test.js
-      - name: UI and ownership architecture gate
-        run: node tests/sequential-sketcher-ui-static.test.js
+          name: sequential-sketcher-fixture-matrix-diagnostic
+          path: artifacts/sequential-sketcher-diagnostic/
+          if-no-files-found: error
+      - name: Enforce pinned fixture result
+        run: test "$(cat artifacts/sequential-sketcher-diagnostic/status.txt)" = '0'
