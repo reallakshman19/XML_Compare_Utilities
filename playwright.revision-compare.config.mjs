@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
+  // Keep every individually blocking Revision Compare mission in the complete Chromium run.
   testMatch: [
     'revision-compare-rc001.spec.mjs',
     'revision-compare-rc002.spec.mjs',
