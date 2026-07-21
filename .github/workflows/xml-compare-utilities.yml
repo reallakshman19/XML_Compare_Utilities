@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Pipeline table and profile diagnostic
+        run: npm run test:pipeline-table-paste
       - name: Static tests
         run: npm run test:static
       - name: XML tests
