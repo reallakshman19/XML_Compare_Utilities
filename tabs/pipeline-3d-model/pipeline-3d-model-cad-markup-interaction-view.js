@@ -19,7 +19,7 @@ function ensureStyle(doc) {
   style.textContent = `
 .p3d-cad-markup-interaction-layer{position:absolute;z-index:2;inset:0;pointer-events:none;touch-action:none;outline:none}
 .p3d-cad-markup-interaction-layer[data-active="1"]{pointer-events:auto;cursor:crosshair}
-.p3d-cad-markup-interaction-panel{position:absolute;z-index:6;left:12px;bottom:34px;width:min(360px,42vw);padding:8px;border:1px solid #475569;border-radius:8px;background:rgba(2,6,23,.96);color:#e2e8f0;font:11px sans-serif}
+.p3d-cad-markup-interaction-panel{position:fixed;z-index:6;left:12px;bottom:34px;width:min(360px,42vw);padding:8px;border:1px solid #475569;border-radius:8px;background:rgba(2,6,23,.96);color:#e2e8f0;font:11px sans-serif}
 .p3d-cad-markup-interaction-panel[hidden]{display:none}.p3d-cad-markup-interaction-panel h3{margin:0 0 7px;font-size:12px}.p3d-cad-markup-interaction-panel label{display:grid;grid-template-columns:110px 1fr;gap:7px;align-items:center;margin:5px 0}.p3d-cad-markup-interaction-panel input,.p3d-cad-markup-interaction-panel select{min-width:0;border:1px solid #475569;border-radius:5px;background:#0f172a;color:#f8fafc;padding:4px 6px}.p3d-cad-markup-interaction-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.p3d-cad-markup-interaction-actions button{border:1px solid #475569;border-radius:5px;background:#1e293b;color:#e2e8f0;padding:4px 8px}.p3d-cad-markup-interaction-status{min-height:14px;margin-top:6px;overflow:hidden;color:#94a3b8;text-overflow:ellipsis;white-space:nowrap}.p3d-cad-markup-interaction-status[data-state="error"]{color:#fecaca}.p3d-cad-markup-tool-separator{width:1px;height:22px;background:#475569}
 `;
   doc.head.appendChild(style);
