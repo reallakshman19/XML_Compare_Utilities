@@ -2,7 +2,7 @@
 import { assertJsonSafe, deepFreeze } from './revision-contract-utils.js';
 import { sha256Text } from './revision-hash.js';
 import {
-  assertValidDecisionLedger, candidateEvidenceIndex, DECISION_LEDGER_SCHEMA,
+  assertValidDecisionLedger, candidateEvidenceIndex, DECISION_LEDGER_SCHEMA, decisionSummary,
   decisionItemIndex, selectedPairEvidenceIndex, targetDifferenceIndex,
 } from './revision-decision-contracts.js';
 import { reattachDecisionLedger } from './revision-decision-ledger.js';
@@ -21,7 +21,19 @@ function prohibitedPayload(value) {
   }
   return null;
 }
-function sameJson(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+function sameJson(left, right) { return canonicalJson(left) === canonicalJson(right); }
+function validationView(ledger) {
+  const expected = decisionSummary(ledger.decisions);
+  if (!sameJson(ledger.summary, expected)) throw new TypeError('Decision summary does not reconcile with items.');
+  return { ...ledger, summary: expected };
+}
 function pairAuditErrors(ledger, audit) {
   const errors = []; const items = decisionItemIndex(ledger); const pairs = selectedPairEvidenceIndex(ledger);
   const evidenceById = candidateEvidenceIndex(audit); const targets = targetDifferenceIndex(audit);
@@ -59,7 +71,7 @@ async function rationaleHashErrors(ledger, cryptoRef) {
   return errors;
 }
 export async function verifyDecisionEvidenceRecord(ledger, audit, cryptoRef) {
-  assertValidDecisionLedger(ledger, audit);
+  assertValidDecisionLedger(validationView(ledger), audit);
   const errors = [...pairAuditErrors(ledger, audit), ...await rationaleHashErrors(ledger, cryptoRef)];
   if (errors.length) throw new TypeError(`Invalid AmbiguityDecisionLedger.v1: ${errors.join(' ')}`);
   const prohibited = prohibitedPayload(ledger);
