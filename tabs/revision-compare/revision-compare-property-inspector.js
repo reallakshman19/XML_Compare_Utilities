@@ -1,3 +1,4 @@
+import { createEngineeringPropertyAggregate, freezeJsonValue } from '../../core/engineering-scene/index.js';
 import { aggregateEngineeringSvgProperties } from '../../core/engineering-svg/engineering-svg-property-runtime.js';
 import { buildEngineeringSvgInspectorModel } from '../../core/engineering-svg/engineering-svg-inspector-model.js';
 import { createEngineeringSvgPropertyInspectorView } from '../../core/engineering-svg/engineering-svg-property-inspector-view.js';
@@ -103,6 +104,29 @@ function failureEvidence(adapter, audit, differenceId) {
   }
 }
 
+function fieldForKey(propertySets, differenceId, key) {
+  return propertySets.flatMap((set) => (
+    set.ownerIds.includes(differenceId) ? set.fields : []
+  )).find((field) => field.key === key) ?? null;
+}
+
+function preserveExplicitCurrentSources(propertyViews, propertySets, differenceId) {
+  return freezeJsonValue(propertyViews.map((view) => {
+    const field = fieldForKey(propertySets, differenceId, view.field.key);
+    if (field?.source !== null || view.sourceAggregate.state !== 'not-applicable') return view;
+    return {
+      ...view,
+      sourceAggregate: createEngineeringPropertyAggregate({
+        key: view.field.key,
+        state: 'uniform',
+        value: null,
+        selectedCount: view.aggregate.selectedCount,
+      }),
+      sourceEvidenceCount: view.aggregate.selectedCount,
+    };
+  }));
+}
+
 export function createRevisionComparePropertyInspector(options = {}) {
   const evidenceFactory = options.evidenceFactory ?? createRevisionComparePropertyEvidence;
   let generation = 0;
@@ -163,7 +187,8 @@ export function createRevisionComparePropertyInspector(options = {}) {
         staleResultsIgnored += 1;
         return false;
       }
-      const propertyViews = aggregateEngineeringSvgProperties([id], sets);
+      const aggregated = aggregateEngineeringSvgProperties([id], sets);
+      const propertyViews = preserveExplicitCurrentSources(aggregated, sets, id);
       const model = buildEngineeringSvgInspectorModel({ selectedIds: [id], propertyViews, draft: {} });
       scaffold.status.remove();
       if (model.rows.length) {
@@ -228,4 +253,4 @@ export function createRevisionComparePropertyInspector(options = {}) {
   return Object.freeze({ render, clear, evidence, dispose });
 }
 
-export const _test = Object.freeze({ displayRawValue, fallbackTable });
+export const _test = Object.freeze({ displayRawValue, fallbackTable, preserveExplicitCurrentSources });
