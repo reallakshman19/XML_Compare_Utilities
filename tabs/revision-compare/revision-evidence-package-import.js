@@ -8,8 +8,7 @@ import {
   canonicalRevisionCompareEvidenceValue,
   revisionCompareEvidencePackageHashMaterial,
 } from './revision-evidence-package.js';
-import { verifyReviewSessionRecord } from './revision-review-manifest.js';
-import { reattachReviewSession } from './revision-review-session.js';
+import { reattachVerifiedReviewRecord, verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
 import { validateProjectDocument, validateProjectSession } from './revision-session-contracts.js';
@@ -163,7 +162,7 @@ export async function verifyRevisionCompareEvidencePackageJson(text, fileName, i
   await verifyDecisionEvidenceRecord(archivedDecision, audit, cryptoRef); verifyTopLevel(frozen, documents);
   const reviewReattached = frozen.payload.reviewSession.status === 'STALE';
   const decisionReattached = archivedDecision.status === 'STALE';
-  const reviewSession = reviewReattached ? reattachReviewSession(frozen.payload.reviewSession, audit, importedAt) : frozen.payload.reviewSession;
+  const reviewSession = reviewReattached ? reattachVerifiedReviewRecord(frozen.payload.reviewSession, audit, importedAt) : frozen.payload.reviewSession;
   const decisionRecord = decisionReattached ? reattachVerifiedDecisionRecord(archivedDecision, audit, importedAt) : archivedDecision;
   return deepFreeze({
     session: documents.session,
