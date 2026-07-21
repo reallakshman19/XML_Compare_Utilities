@@ -1,16 +1,13 @@
 import { createEngineeringSvgAdapterBridge } from '../../core/engineering-svg/engineering-svg-adapter-bridge.js';
 import { createEngineeringSvgWorkspaceShellFromAdapterBridge } from '../../core/engineering-svg/shell-runtime.js';
 import { createSequentialEngineeringSvgAdapter } from './sequential-engineering-svg-adapter.js';
+import { validateSequentialEngineeringSvgParity as validateSequentialEngineeringSvgShadowParity } from './sequential-engineering-svg-parity-validation.js';
+
+export { validateSequentialEngineeringSvgShadowParity };
 
 export const SEQUENTIAL_ENGINEERING_SVG_SHADOW_WORKSPACE_SCHEMA = 'SequentialEngineeringSvgShadowWorkspace.v1';
 
 const PROJECTIONS = Object.freeze(['ISO', 'XY', 'XZ', 'YZ']);
-const APPROVED_OMISSIONS = Object.freeze({
-  network: 'DERIVED_NETWORK_NOT_TRACEABLE_TO_CONFIRMED_CONSTRUCTION',
-  restraint: 'NO_STABLE_SEQUENTIAL_RESTRAINT_DIRECTION_OWNER',
-  analyticalSupportAttachment: 'NO_SEQUENTIAL_CONSTRUCTION_FINGERPRINT_BRIDGE',
-});
-
 function requiredHost(value) {
   if (!value?.ownerDocument?.createElement) {
     throw new TypeError('Sequential engineering SVG shadow workspace requires a DOM host.');
@@ -51,74 +48,6 @@ function ownerEvent(value) {
     throw new TypeError(`Sequential engineering SVG owner event has unsupported projection "${value.visibleProjection}".`);
   }
   return Object.freeze({ ...value, state: ownerState(value.state), reason });
-}
-
-function countOmissions(parity, category) {
-  return parity.omissions.filter((row) => row.category === category
-    && !Object.prototype.hasOwnProperty.call(APPROVED_OMISSIONS, category)).length;
-}
-
-function assertEmpty(values, label) {
-  if (values?.length) throw new Error(`Sequential engineering SVG shadow parity has ${label}: ${values.join(', ')}.`);
-}
-
-function assertMappedCounts(parity) {
-  const pairs = [
-    ['repair', 'repairCount'],
-    ['candidate', 'candidateCount'],
-    ['activePort', 'activePortCount'],
-    ['support', 'supportCount'],
-    ['rejectedCandidate', 'rejectedCandidateCount'],
-  ];
-  for (const [category, countKey] of pairs) {
-    const mapped = parity.mappedCountByCategory?.[category] ?? 0;
-    const omitted = countOmissions(parity, category);
-    if (mapped + omitted !== parity[countKey]) {
-      throw new Error(`Sequential engineering SVG shadow ${category} parity is inconsistent.`);
-    }
-  }
-  if (parity.confirmedGeometryCount !== parity.mappedCountByCategory?.confirmed) {
-    throw new Error('Sequential engineering SVG shadow confirmed geometry parity is inconsistent.');
-  }
-}
-
-export function validateSequentialEngineeringSvgShadowParity(parity) {
-  if (parity?.schema !== 'SequentialEngineeringSvgParityReport.v1') {
-    throw new TypeError('Sequential engineering SVG shadow requires SequentialEngineeringSvgParityReport.v1.');
-  }
-  const approved = parity.omissions.filter((row) => (
-    Object.prototype.hasOwnProperty.call(APPROVED_OMISSIONS, row.category)
-  ));
-  for (const [category, reason] of Object.entries(APPROVED_OMISSIONS)) {
-    const rows = approved.filter((row) => row.category === category && row.reason === reason);
-    if (rows.length !== 1) throw new Error(`Sequential engineering SVG shadow must preserve approved omission "${category}".`);
-  }
-  const unexplained = parity.omissions.filter((row) => !String(row?.category || '').trim()
-    || !String(row?.reason || '').trim());
-  if (unexplained.length) throw new Error('Sequential engineering SVG shadow contains an unexplained omission.');
-  assertMappedCounts(parity);
-  assertEmpty(parity.duplicateIds, 'duplicate entity IDs');
-  assertEmpty(parity.invalidGeometry, 'invalid geometry');
-  assertEmpty(parity.supportAttachmentsMissingCarrierEvidence, 'supports without carrier evidence');
-  if (parity.propertySetCoverage?.eligible !== parity.propertySetCoverage?.mapped) {
-    throw new Error('Sequential engineering SVG shadow property coverage is incomplete.');
-  }
-  if (parity.revisionConsistency?.supportMatchesConfirmed !== true) {
-    throw new Error('Sequential engineering SVG shadow support evidence is stale.');
-  }
-  const domainOmissions = parity.omissions.filter((row) => (
-    !Object.prototype.hasOwnProperty.call(APPROVED_OMISSIONS, row.category)
-  ));
-  return Object.freeze({
-    approvedOmissions: Object.freeze(approved),
-    domainOmissions: Object.freeze(domainOmissions),
-    unexplainedOmissions: Object.freeze(unexplained),
-    diagnostics: Object.freeze({
-      unresolvedPorts: parity.unresolvedPorts,
-      disconnectedConfirmedGeometry: parity.disconnectedConfirmedGeometry,
-      candidatesMissingContinuityEvidence: parity.candidatesMissingContinuityEvidence,
-    }),
-  });
 }
 
 function subscribeOwner(subscribe, sequential, listener) {
