@@ -45,6 +45,9 @@ export async function verifyReviewSessionRecord(session, audit, cryptoRef) {
   await validateNoteHashes(session, cryptoRef);
   return session;
 }
+export function reattachVerifiedReviewRecord(session, audit, importedAt) {
+  return reattachReviewSession(validationView(session), audit, importedAt);
+}
 
 export async function parseReviewSessionJson(text, audit, importedAt, cryptoRef) {
   let parsed;
@@ -52,5 +55,5 @@ export async function parseReviewSessionJson(text, audit, importedAt, cryptoRef)
   catch (error) { throw new TypeError(`Review session JSON is invalid: ${error.message}`); }
   const frozen = deepFreeze(parsed);
   await verifyReviewSessionRecord(frozen, audit, cryptoRef);
-  return frozen.status === 'STALE' ? reattachReviewSession(frozen, audit, importedAt) : frozen;
+  return frozen.status === 'STALE' ? reattachVerifiedReviewRecord(frozen, audit, importedAt) : frozen;
 }
