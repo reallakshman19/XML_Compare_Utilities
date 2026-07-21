@@ -120,7 +120,7 @@ function dtxrFields(member) {
   const attributes = member?.attributes || {};
   const rawDtxrPos = attrValue(attributes, ['DTXR_POS']);
   const dtxrPos = (rawDtxrPos && !pointFrom(rawDtxrPos) ? rawDtxrPos : '')
-    || attrValue(attributes, ['DTXR', 'DESC', 'DESCRIPTION', 'RTEXT', 'SPRE', 'CMPSUPTYPE', 'MDSSUPPTYPE']);
+    || attrValue(attributes, ['DTXR', 'DESC', 'DESCRIPTION', 'RTEXT', 'SPRE']);
   const dtxrPs = attrValue(attributes, ['DTXR_PS', 'DTXRPS', 'ISOMETRIC NOTES', 'ISONOTE']);
   const effective = dtxrPos || dtxrPs;
   const source = dtxrPos ? 'DTXR_POS' : (dtxrPs ? 'DTXR_PS_FALLBACK' : 'NONE');
