@@ -79,6 +79,7 @@ jobs:
               'tests/revision-compare-svg-dependency-guard.test.mjs',
               'tests/revision-compare-evidence-package-import.test.mjs',
               'tests/browser/revision-compare-evidence-package-import.spec.mjs',
+              'tests/revision-compare-rc003-static.test.mjs',
               'playwright.revision-compare.config.mjs',
               '.github/workflows/revision-compare.yml',
               'package.json',
@@ -165,6 +166,7 @@ jobs:
           node --check tests/revision-compare-sign-off.test.mjs
           node --check tests/browser/revision-compare-evidence-package-import.spec.mjs
           node --check tests/browser/revision-compare-sign-off.spec.mjs
+          node --check tests/revision-compare-rc003-static.test.mjs
           node --check tests/revision-compare-svg-dependency-guard.test.mjs
           node --check playwright.revision-compare.config.mjs
       - name: Startup and import smoke
