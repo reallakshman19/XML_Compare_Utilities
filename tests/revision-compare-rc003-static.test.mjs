@@ -10,6 +10,7 @@ const rc004Authority = /manualCandidate|acceptCandidate|resolveAmbiguity|decisio
 const rc004Files = new Set([
   'revision-compare-actions.js', 'revision-compare-view.js', 'revision-compare-viewer-adapter.js',
   'revision-compare-workspace.js', 'revision-review-view.js', 'revision-workspace-state.js',
+  'revision-evidence-package.js',
 ]);
 for (const name of names) if (name.startsWith('revision-decision-')) rc004Files.add(name);
 for (const [name, source] of sources) {

@@ -86,6 +86,7 @@ test('invalid JSON and unsupported roots remain blocked', async ({ page }) => {
 test('incompatible metadata blocks basis approval', async ({ page }) => {
   await openWorkspace(page);
   await upload(page, 'baseline', 'a.json', staged(['/COMMON']));
+  await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
   await upload(page, 'candidate', 'b.json', staged(['/COMMON'], { unit: 'in', verticalAxis: 'Y', coordinateFrame: 'LOCAL' }));
   await expect(page.getByText(/Unit mismatch/)).toBeVisible();
   await expect(page.getByText(/Coordinate frame mismatch/)).toBeVisible();

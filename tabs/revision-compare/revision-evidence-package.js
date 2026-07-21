@@ -1,0 +1,155 @@
+/** Deterministic binding of existing Revision Compare v1 authorities. */
+import { assertJsonSafe, deepFreeze } from './revision-contract-utils.js';
+import {
+  REVISION_SCOPE_MANIFEST_SCHEMA,
+  REVISION_SESSION_MANIFEST_SCHEMA,
+  createRevisionScopeManifest,
+  createRevisionSessionManifest,
+} from './revision-manifests.js';
+import { createReviewSessionExport } from './revision-review-manifest.js';
+import { REVIEW_SESSION_SCHEMA } from './revision-review-contracts.js';
+import { reviewSessionMatchesAudit } from './revision-review-session.js';
+import { createDecisionLedgerExport } from './revision-decision-manifest.js';
+import { DECISION_LEDGER_SCHEMA } from './revision-decision-contracts.js';
+import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
+import { sha256Text } from './revision-hash.js';
+
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA = 'RevisionCompareEvidencePackage.v1';
+const PACKAGE_ID_PREFIX = 'revision-evidence-package:';
+
+function canonicalPlain(value, path = 'value') {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError(`${path} must contain only finite JSON numbers.`);
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((item, index) => canonicalPlain(item, `${path}[${index}]`));
+  if (!value || typeof value !== 'object') throw new TypeError(`${path} is not JSON-safe.`);
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`${path} must be a plain object.`);
+  const output = {};
+  for (const key of Object.keys(value).sort()) output[key] = canonicalPlain(value[key], `${path}.${key}`);
+  return output;
+}
+
+function readinessErrors(state) {
+  const errors = [];
+  const sessionId = state?.session?.sessionId;
+  const basis = state?.basis;
+  const audit = state?.compare?.audit;
+  const review = state?.review?.session;
+  const decision = state?.decision?.ledger;
+  if (state?.basisStatus !== 'CURRENT') errors.push('Evidence package requires a current comparison basis.');
+  if (!basis) errors.push('Evidence package requires an approved comparison basis.');
+  if (!sessionId || !state?.proposal) errors.push('Evidence package requires the current revision session and scope proposal.');
+  if (!state?.slots?.baseline || !state?.slots?.candidate) {
+    errors.push('Evidence package requires both current revision intake records.');
+  }
+  if (basis && sessionId && basis.sessionId !== sessionId) {
+    errors.push('The comparison basis does not belong to the current revision session.');
+  }
+  if (!audit || audit.schema !== 'RevisionCompareAudit.v1' || audit.validation?.status !== 'READY') {
+    errors.push('Evidence package requires a READY RevisionCompareAudit.v1.');
+  }
+  if (basis && audit && audit.basisId !== basis.basisId) errors.push('The audit basis identity does not match the current basis.');
+  if (basis && audit && (audit.revADocumentId !== basis.revADocumentId || audit.revBDocumentId !== basis.revBDocumentId)) {
+    errors.push('The audit revision document identities do not match the current basis.');
+  }
+  if (!review || review.schema !== REVIEW_SESSION_SCHEMA || !reviewSessionMatchesAudit(review, audit)) {
+    errors.push('Evidence package requires a review session matching the current audit.');
+  } else if (review.validation?.status !== 'READY') errors.push('The review session is not export-ready.');
+  if (!decision || decision.schema !== DECISION_LEDGER_SCHEMA || !decisionLedgerMatchesAudit(decision, audit)) {
+    errors.push('Evidence package requires a decision ledger matching the current audit.');
+  } else if (decision.validation?.status !== 'READY') errors.push('The decision ledger is not export-ready.');
+  return errors;
+}
+
+export function revisionCompareEvidencePackageReadiness(state) {
+  const blockers = Object.freeze(readinessErrors(state));
+  return deepFreeze({ status: blockers.length ? 'BLOCKED' : 'READY', blockers });
+}
+
+function manifestErrors(state, sessionManifest, scopeBasisManifest) {
+  const errors = [];
+  if (sessionManifest.schema !== REVISION_SESSION_MANIFEST_SCHEMA) errors.push('Session manifest schema is invalid.');
+  if (scopeBasisManifest.schema !== REVISION_SCOPE_MANIFEST_SCHEMA) errors.push('Scope/basis manifest schema is invalid.');
+  if (sessionManifest.session?.sessionId !== state.session.sessionId
+      || scopeBasisManifest.sessionId !== state.session.sessionId
+      || state.basis?.sessionId !== state.session.sessionId) {
+    errors.push('Session and scope manifests do not share the current revision session identity.');
+  }
+  if (sessionManifest.basisStatus !== 'CURRENT' || scopeBasisManifest.basisStatus !== 'CURRENT'
+      || sessionManifest.basisId !== state.basis?.basisId
+      || scopeBasisManifest.basis?.basisId !== state.basis?.basisId) {
+    errors.push('Session and scope manifests do not share the current basis authority.');
+  }
+  return errors;
+}
+
+function exactPayload(state, preflight) {
+  const sessionManifest = createRevisionSessionManifest(state, preflight);
+  const scopeBasisManifest = createRevisionScopeManifest(state, preflight);
+  const errors = manifestErrors(state, sessionManifest, scopeBasisManifest);
+  if (errors.length) throw new TypeError(`Evidence package manifest mismatch: ${errors.join(' ')}`);
+  return deepFreeze(canonicalPlain({
+    sessionManifest,
+    scopeBasisManifest,
+    audit: state.compare.audit,
+    reviewSession: createReviewSessionExport(state.review.session),
+    decisionLedger: createDecisionLedgerExport(state.decision.ledger),
+  }, 'payload'));
+}
+
+function hashMaterial(state, payload) {
+  const audit = payload.audit;
+  return deepFreeze(canonicalPlain({
+    schema: REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA,
+    identity: {
+      sessionId: state.session.sessionId,
+      basisId: audit.basisId,
+      auditId: audit.auditId,
+      reviewSessionId: payload.reviewSession.reviewSessionId,
+      decisionLedgerId: payload.decisionLedger.ledgerId,
+      revADocumentId: audit.revADocumentId,
+      revBDocumentId: audit.revBDocumentId,
+      engineVersion: audit.engineVersion,
+    },
+    authorityStatus: {
+      basisStatus: state.basisStatus,
+      auditValidationStatus: audit.validation.status,
+      reviewStatus: payload.reviewSession.status,
+      decisionStatus: payload.decisionLedger.status,
+    },
+    payload,
+    validation: { status: 'READY', errors: [] },
+  }, 'hashMaterial'));
+}
+
+export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef) {
+  const readiness = revisionCompareEvidencePackageReadiness(state);
+  if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
+  const material = hashMaterial(state, exactPayload(state, preflight));
+  const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
+  const artifact = deepFreeze(canonicalPlain({
+    ...material,
+    packageId: `${PACKAGE_ID_PREFIX}${contentSha256}`,
+    contentSha256,
+  }, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA));
+  assertJsonSafe(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  return artifact;
+}
+
+export function serializeRevisionCompareEvidencePackage(artifact) {
+  if (artifact?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA) throw new TypeError('A RevisionCompareEvidencePackage.v1 artifact is required.');
+  const canonical = canonicalPlain(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  assertJsonSafe(canonical, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  return `${JSON.stringify(canonical, null, 2)}\n`;
+}
+
+export function revisionCompareEvidencePackageFileName(sessionId) {
+  const value = String(sessionId ?? '').trim();
+  if (!value) throw new TypeError('Revision session ID is required for the evidence package filename.');
+  return `${value.replace(/[^A-Za-z0-9._-]/g, '_')}.evidence-package.json`;
+}
+
+export const _test = Object.freeze({ canonicalPlain, hashMaterial, manifestErrors, readinessErrors });
