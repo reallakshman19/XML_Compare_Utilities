@@ -94,6 +94,9 @@ function importedComparison(compare, audit) {
 export function completeWorkspaceEvidencePackageImport(state, generation, verified) {
   if (state.evidencePackageImport.requestGeneration !== generation
       || state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING) return state;
+  if (!revisionWorkspaceIsFreshForEvidencePackageImport(state)) {
+    return failWorkspaceEvidencePackageImport(state, generation, REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR);
+  }
   const receipt = verified.receipt;
   return deepFreeze({
     ...state, session: verified.session, slots: verified.slots, scopeDecisions: {}, proposal: verified.proposal,
