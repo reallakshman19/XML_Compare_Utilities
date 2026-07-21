@@ -13,22 +13,23 @@ import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
 import {
-  REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS,
-  completeWorkspaceEvidencePackageImport,
-  createRevisionWorkspaceState,
-  failWorkspaceEvidencePackageImport,
-  startWorkspaceEvidencePackageImport,
+  REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
+  createRevisionWorkspaceState, failWorkspaceEvidencePackageImport, failWorkspaceSignOff,
+  setWorkspaceSignOffReport, startWorkspaceEvidencePackageImport,
 } from './revision-workspace-state.js';
 import { candidatePreview } from './revision-decision-projection.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
 import { createRevisionComparePropertyInspector } from './revision-compare-property-inspector.js';
 import {
-  createRevisionCompareEvidencePackage,
-  revisionCompareEvidencePackageFileName,
+  createRevisionCompareEvidencePackage, revisionCompareEvidencePackageFileName,
   revisionCompareEvidencePackageReadiness,
 } from './revision-evidence-package.js';
 import { verifyRevisionCompareEvidencePackageJson } from './revision-evidence-package-import.js';
-
+import {
+  createRevisionCompareSignOffReport, renderRevisionCompareSignOffSection,
+  revisionCompareSignOffAuthorityMatches, revisionCompareSignOffFileName,
+  revisionCompareSignOffInput, syncRevisionCompareSignOffControls,
+} from './revision-sign-off.js';
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
   '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]',
@@ -83,6 +84,8 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
   if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
   if (button.hasAttribute('data-revc-download-evidence-package')) actions.downloadEvidencePackage();
+  if (button.hasAttribute('data-revc-create-sign-off') || button.hasAttribute('data-revc-create-new-sign-off')) actions.createSignOff();
+  if (button.hasAttribute('data-revc-download-sign-off')) actions.downloadSignOff();
   if (button.hasAttribute('data-revc-close')) actions.close();
   comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button);
 }
@@ -105,7 +108,7 @@ function inputChange(actions, target) {
   if (target.matches('[data-revc-queue-search]')) actions.setQueueSearch(target.value);
   if (target.matches('[data-revc-changed-reason]')) actions.toggleChangedReason(target.dataset.revcChangedReason);
   if (target.matches('[data-revc-needs-decision]')) actions.setNeedsDecision(target.checked);
-  reviewInput(actions, target); decisionInput(actions, target);
+  reviewInput(actions, target); decisionInput(actions, target); actions.syncSignOffControls();
 }
 function syncDecisionButtons(root) {
   const field = root.querySelector('[data-revc-decision-rationale]'); if (!field) return;
@@ -120,6 +123,7 @@ function bindWorkspace(root, actions, cleanups) {
     if (event.target.matches('[data-revc-queue-search]')) actions.setQueueSearch(event.target.value);
     if (event.target.matches('[data-revc-review-search]')) actions.setReviewSearch(event.target.value);
     if (event.target.matches('[data-revc-decision-rationale]')) syncDecisionButtons(root);
+    actions.syncSignOffControls();
   });
 }
 function previewFor(state) {
@@ -197,7 +201,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy
     ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
-  let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false;
+  let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
   if (!viewerAdapter) {
     viewerAdapter = createRevisionCompareViewerAdapter({
       ...options.viewerAdapterOptions, viewerPolicy: policy,
@@ -237,6 +241,24 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
       options.showToast?.('Evidence package downloaded.', 'success');
     } catch (error) { reportFailure(root, options, error); }
   }
+  async function createSignOff() {
+    if (signOffBusy) return; const captured = state; const input = revisionCompareSignOffInput(root); signOffBusy = true; actions.syncSignOffControls();
+    try {
+      if (!input.confirmed) throw new Error('Confirm the fixed completion declaration before creating the report.');
+      const report = await createRevisionCompareSignOffReport(captured, revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal), input, now(), cryptoRef);
+      if (destroyed) return;
+      if (!revisionCompareSignOffAuthorityMatches(captured, state)) throw new Error('Review evidence changed while the completion report was being created. Create the declaration again.');
+      state = setWorkspaceSignOffReport(state, report); render(); options.showToast?.('Completion declaration created.', 'success');
+    } catch (error) { if (!destroyed) { state = failWorkspaceSignOff(state, error); render(); reportFailure(root, options, error); } }
+    finally { signOffBusy = false; if (!destroyed) actions.syncSignOffControls(); }
+  }
+  function downloadSignOff() {
+    try {
+      if (state.signOff.status !== 'CREATED' || !state.signOff.report) throw new Error('The current completion report is unavailable.');
+      downloadArtifact(root, revisionCompareSignOffFileName(state.session.sessionId, state.signOff.report.reportId), state.signOff.report);
+      options.showToast?.('Completion report downloaded.', 'success');
+    } catch (error) { reportFailure(root, options, error); }
+  }
   async function importEvidencePackage(file) {
     const generation = state.evidencePackageImport.requestGeneration + 1;
     state = startWorkspaceEvidencePackageImport(state, generation, file.name); render();
@@ -258,13 +280,16 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   function render(next = state) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state);
-    enforceImportedModeRestrictions(root, state); syncDecisionButtons(root);
+    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); renderRevisionCompareSignOffSection(root, state);
+    enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
     Promise.resolve().then(() => syncViewer(sequence));
     Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
-  actions = Object.freeze({ ...baseActions, downloadEvidencePackage, importEvidencePackage });
+  actions = Object.freeze({
+    ...baseActions, downloadEvidencePackage, importEvidencePackage, createSignOff, downloadSignOff,
+    syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
+  });
   bindWorkspace(root, actions, cleanups); render();
   return Object.freeze({
     evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), compareRunId: compareService.activeRunId() }),
