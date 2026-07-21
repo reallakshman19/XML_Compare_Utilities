@@ -5,6 +5,8 @@ import { PipelineCadController } from './pipeline-3d-model-cad-controller.js';
 import { mountPipelineCadAuthoring } from './pipeline-3d-model-cad-authoring.js';
 import { mountPipelineCadEngineeringReview } from './pipeline-3d-model-cad-engineering-review.js';
 import { mountPipelineCadDiagnosticsLifecycle } from './pipeline-3d-model-cad-diagnostics-lifecycle.js';
+import { createPipelineCadMarkupRuntime } from './pipeline-3d-model-cad-markup-commands.js';
+import { mountPipelineCadMarkupView } from './pipeline-3d-model-cad-markup-view.js';
 import { mountPipelineCadObjectSnap } from './pipeline-3d-model-cad-object-snap-runtime.js';
 import { mountPipelineCadPrecisionEditing } from './pipeline-3d-model-cad-precision-runtime.js';
 import { createPipelineCadViewportHost } from './pipeline-3d-model-cad-viewport-host.js';
@@ -53,6 +55,7 @@ function setSelectionMode(graphs, mode) {
   Object.values(graphs || {}).forEach((graph) => graph.setSelectionEnabled?.(enabled));
 }
 function destroyParts(parts) {
+  parts.markupControllerCleanup?.(); parts.markupView?.destroy?.(); parts.markup?.destroy?.();
   parts.bindings?.destroy?.(); parts.precision?.destroy?.(); parts.previewModes?.destroy?.();
   parts.engineeringReview?.destroy?.(); parts.objectSnap?.destroy?.(); parts.shell?.destroy?.();
   parts.diagnostics?.destroy?.(); Object.values(parts.hosts || {}).forEach((host) => host.dispose?.());
@@ -60,6 +63,16 @@ function destroyParts(parts) {
   if (parts.controller) parts.controller.canvasManager = null;
   parts.controller?.destroy?.(); Object.values(parts.graphs || {}).forEach((graph) => graph.destroy?.());
   parts.previewView?.destroy?.(); parts.view?.destroy?.();
+}
+function createMarkupParts(dialog, controller, graphs, options) {
+  const markup = createPipelineCadMarkupRuntime({
+    getProfileModel: () => controller.model, graphs, initialDocument: options.initialMarkupDocument,
+  });
+  const markupView = mountPipelineCadMarkupView({ dialog, markup });
+  const onModelChanged = () => markup.reconcile();
+  controller.addEventListener('modelChanged', onModelChanged);
+  const markupControllerCleanup = () => controller.removeEventListener('modelChanged', onModelChanged);
+  return { markup, markupView, markupControllerCleanup };
 }
 
 function createWorkspaceCore(dialog, options) {
@@ -72,10 +85,11 @@ function createWorkspaceCore(dialog, options) {
   controller.canvasManager = canvasManager;
   controller.attachGraphs(graphs);
   canvasManager.syncGeometry();
+  const markupParts = createMarkupParts(dialog, controller, graphs, options);
   const authoring = mountPipelineCadAuthoring({ stages: view.stages, graphs, controller, storage: options.storage });
   const modal = dialog.querySelector('[data-p3d-split="x-modal"]');
   const engineeringReview = modal ? mountPipelineCadEngineeringReview({ dialog, graphs, controller }) : null;
-  return { target, view, graphs, controller, canvasManager, authoring, modal, engineeringReview };
+  return { target, view, graphs, controller, canvasManager, authoring, modal, engineeringReview, ...markupParts };
 }
 function createPreviewParts(core, options) {
   const { dialog, view, graphs, controller, modal } = core;
@@ -111,7 +125,7 @@ function createLifecycle(dialog, parts) {
   return Object.freeze({
     mountId, controller: parts.controller, graphs: parts.graphs, hosts: parts.hosts,
     shell: parts.shell, objectSnap: parts.objectSnap, previewModes: parts.previewModes,
-    precision: parts.precision, diagnostics: parts.diagnostics, resize: parts.resize,
+    precision: parts.precision, diagnostics: parts.diagnostics, markup: parts.markup, resize: parts.resize,
     reloadGraphs: () => parts.controller.reloadGraphs(),
     destroy() {
       if (destroyed) return false;
