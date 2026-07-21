@@ -4,6 +4,7 @@ import { parsePsFamilyRegisterCsv } from './ps-family-register-csv-parser.js';
 import { parsePsFamilyElementDetailCsv } from './ps-family-element-detail-csv-parser.js';
 import { buildPsFamilyPosFamilies } from './ps-family-posfamily-engine.js';
 import { buildPsFamilyClashAudit } from './ps-family-clash-audit-engine.js';
+import { createPsFamilyJsonTraceRows } from './ps-family-json-trace-export.js';
 import {
   PS_FAMILY_EVIDENCE_MODE,
   buildPsFamilyEvidenceAudit,
@@ -116,10 +117,15 @@ export function createPsFamilyInputReadinessFromTextInputs(input) {
   return Object.freeze({ summary, diagnostics, blocking: diagnostics.some((item) => item.level === 'ERROR') });
 }
 
+function selectedGraphFamilies(bundle, audit) {
+  const selectedIds = new Set((audit.supportMemberRows || []).map((row) => row.supportFamilyId).filter(Boolean));
+  return (bundle.supportFamilies || []).filter((family) => selectedIds.has(family.familyId));
+}
+
 function createGraphAudit(input) {
   const shared = parseSharedInputs(input);
   const bundle = parsePsFamilyEvidenceBundle(input?.relationshipBundleText || '');
-  return buildPsFamilyEvidenceAudit({
+  const audit = buildPsFamilyEvidenceAudit({
     relationshipBundle: bundle,
     expectedRows: shared.expected.rows,
     elementDetailRows: shared.pos.rows,
@@ -127,6 +133,13 @@ function createGraphAudit(input) {
     config: shared.config,
     diagnostics: graphDiagnostics(shared),
   });
+  return {
+    ...audit,
+    jsonTraceSupportMemberRows: createPsFamilyJsonTraceRows(
+      selectedGraphFamilies(bundle, audit),
+      bundle.schema,
+    ),
+  };
 }
 
 export function createPsFamilyClashAuditFromTextInputs(input) {

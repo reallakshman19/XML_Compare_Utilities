@@ -1,3 +1,5 @@
+import { PS_FAMILY_JSON_TRACE_HEADERS } from './ps-family-json-trace-export.js';
+
 function csvEscape(value) {
   if (Array.isArray(value)) return csvEscape(value.join('; '));
   if (value && typeof value === 'object') return csvEscape(JSON.stringify(value));
@@ -85,6 +87,10 @@ export function exportSupportMembersCsv(audit) {
   return rowsToCsv(headers, (audit.supportMemberRows || []).map((row) => ({ SupportGroup: row.supportGroup, LineMembershipId: row.lineMembershipId, LineFamily: row.lineFamily, FullLineTag: row.fullLineTag, BranchNode: row.branchNode, CarrierIds: row.carrierIds, RepresentativeSupport: row.representativeSupport, Support: row.support, MemberType: row.memberType, ConnectedTo: row.connectedTo, EvidenceIds: evidenceList(row), CoverageRole: row.coverageRole, Remarks: row.remarks })));
 }
 
+export function exportPsFamilyJsonTraceCsv(audit) {
+  return rowsToCsv(PS_FAMILY_JSON_TRACE_HEADERS, audit.jsonTraceSupportMemberRows || []);
+}
+
 export function exportSupportExceptionsCsv(audit) {
   const headers = ['ExceptionCode', 'Severity', 'SupportGroup', 'LineFamily', 'FullLineTag', 'BranchNode', 'StructuralGroup', 'Support', 'SupportA', 'SupportB', 'SourceInput', 'EvidenceId', 'Reason'];
   return rowsToCsv(headers, (audit.supportExceptionRows || []).map((row) => ({ ExceptionCode: row.exceptionCode, Severity: row.severity, SupportGroup: row.supportGroup, LineFamily: row.lineFamily, FullLineTag: row.fullLineTag, BranchNode: row.branchNode, StructuralGroup: row.structuralGroup, Support: row.support, SupportA: row.supportA, SupportB: row.supportB, SourceInput: row.sourceInput, EvidenceId: row.evidenceId || row.evidenceClash, Reason: row.reason })));
@@ -140,6 +146,7 @@ export function createPsFamilyAuditExports(audit) {
     lineMembershipsCsv: exportLineMembershipsCsv(audit),
     supportChainCsv: exportSupportChainCsv(audit),
     supportMembersCsv: exportSupportMembersCsv(audit),
+    jsonTraceSupportMembersCsv: exportPsFamilyJsonTraceCsv(audit),
     structureLineProximityCsv: exportStructureLineProximityCsv(audit),
     structureContactsCsv: exportStructureContactsCsv(audit),
     lineSupportTreeText: exportLineSupportTreeText(audit),

@@ -36,11 +36,13 @@ assert.ok(config.reportTabs.some((tab) => tab.key === 'supportChain' && tab.labe
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureLineProximity' && tab.label === 'StructureGroup Line Support Basis'));
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureTree' && tab.label === 'Structure Tree' && tab.maturity === 'stable'));
 assert.ok(config.reportTabs.some((tab) => tab.key === 'structureContacts' && tab.label === 'Structure Terminals'));
-assert.equal(config.outputButtons.length, 6);
+assert.equal(config.outputButtons.length, 7);
+assert.ok(config.outputButtons.some((item) => item.key === 'json-trace-support-members' && item.exportKey === 'jsonTraceSupportMembersCsv'));
 assert.ok(config.info.some((item) => item.includes('XML-free production workflow')));
 assert.ok(config.info.some((item) => item.includes('LineFamily_PSRoot')));
 assert.ok(config.info.some((item) => item.includes('six task-oriented groups')));
 assert.ok(config.info.some((item) => item.includes('analytical support-member geometry')));
+assert.ok(config.info.some((item) => item.includes('Support Detail Report headers')));
 
 const launcher = _test.renderLauncher(config);
 assert.match(launcher, /XML-free relationship evidence graph/);
@@ -63,6 +65,7 @@ assert.match(html, /data-psfa-tab="supportSummary"/);
 assert.match(html, /data-psfa-tab="structureTree"/);
 assert.match(html, /data-psfa-tab="supportExceptions"/);
 assert.match(html, /Support Group Summary CSV/);
+assert.match(html, /JSON Trace Support Members CSV/);
 assert.match(html, /Structure Group Basis CSV/);
 assert.match(html, /Line Tree TXT/);
 assert.match(html, /Audit Outcome CSV/);
