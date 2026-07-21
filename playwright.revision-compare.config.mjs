@@ -14,6 +14,7 @@ export default defineConfig({
     'revision-compare-svg-keyboard.spec.mjs',
     'revision-compare-evidence-package.spec.mjs',
     'revision-compare-evidence-package-import.spec.mjs',
+    'revision-compare-sign-off.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
