@@ -1,5 +1,6 @@
 import { createEngineeringRevisionToken, freezeJsonValue } from '../../core/engineering-scene/index.js';
 import { sequentialSessionFingerprint } from './construction/sequential-session-fingerprint.js';
+import { SEQUENTIAL_ENGINEERING_SVG_INDEX_PROJECTION_SCHEMA } from './sequential-engineering-svg-index-projection.js';
 
 export const SEQUENTIAL_ENGINEERING_SVG_AUTHORITY_SCHEMA = 'SequentialEngineeringSvgAuthority.v1';
 
@@ -8,11 +9,24 @@ function requireSchema(value, schema, label) {
   return value;
 }
 
-function requireIndexes(indexes) {
-  if (!(indexes?.components instanceof Map) || !(indexes?.ports instanceof Map)) {
+function projectionIndexes(projection) {
+  requireSchema(
+    projection,
+    SEQUENTIAL_ENGINEERING_SVG_INDEX_PROJECTION_SCHEMA,
+    'Sequential index projection',
+  );
+  return {
+    components: new Map(projection.components.map((row) => [row.componentId, row.component])),
+    ports: new Map(projection.ports.map((row) => [row.portId, row.port])),
+  };
+}
+
+function requireIndexes(input) {
+  if (input.indexProjection) return projectionIndexes(input.indexProjection);
+  if (!(input.indexes?.components instanceof Map) || !(input.indexes?.ports instanceof Map)) {
     throw new TypeError('Sequential engineering SVG requires indexed components and ports.');
   }
-  return indexes;
+  return input.indexes;
 }
 
 function sameTextSequence(left = [], right = []) {
@@ -90,7 +104,7 @@ function revisionToken(session, confirmed, supportProjection) {
 export function classifySequentialEngineeringSvgAuthority(input = {}) {
   const session = requireSchema(input.session, 'SequentialConstructionSession.v1', 'Sequential session');
   requireSchema(input.evidenceModel, 'SequentialSourceEvidence.v1', 'Sequential evidence model');
-  const indexes = requireIndexes(input.indexes);
+  const indexes = requireIndexes(input);
   const confirmed = validateConfirmed(session, input.confirmedConstruction || null);
   const supportProjection = validateSupport(confirmed, input.supportProjection || null);
   const resolvedPositions = resolvedPortPositions(session);
