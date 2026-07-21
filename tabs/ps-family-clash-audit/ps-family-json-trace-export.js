@@ -46,6 +46,16 @@ function valueText(value) {
   return value && typeof value === 'object' ? '' : text(value);
 }
 
+function sourcePathText(value) {
+  if (!Array.isArray(value)) return text(value);
+  return value.reduce((path, segment) => {
+    if (Number.isInteger(segment)) return `${path}[${segment}]`;
+    const key = text(segment);
+    if (/^[A-Za-z_$][\w$]*$/u.test(key)) return `${path}.${key}`;
+    return `${path}[${JSON.stringify(key)}]`;
+  }, '$');
+}
+
 function attrValue(attributes, names) {
   const wanted = new Set(names.map((name) => name.toUpperCase()));
   for (const [key, value] of Object.entries(attributes || {})) {
@@ -224,7 +234,7 @@ function memberRow(family, member, sourceSchema) {
   const position = positionFields(member);
   const dtxr = dtxrFields(member);
   const jsonNodeNo = attrValue(attributes, ['JsonNodeNo', 'JSON_NODE_NO', 'NODE_NO', 'NodeNumber', 'NODE', 'SEQ', 'SEQUENCE']);
-  const sourcePath = text(member?.sourcePath);
+  const sourcePath = sourcePathText(member?.sourcePath);
   const diagnostics = diagnosticCodes(member, line, position, dtxr, supportFamily);
   return {
     'Support Family Key': line.branchRoot && supportFamily ? `${line.branchRoot}::${supportFamily}` : '',
@@ -245,7 +255,7 @@ function diagnosticCodes(member, line, position, dtxr, supportFamily) {
   if (!line.pipe) output.push('BRANCH_MISSING');
   if (!position.point) output.push('POSITION_MISSING');
   if (!dtxr.effective) output.push('DTXR_MISSING');
-  if (!text(member?.sourcePath)) output.push('SOURCE_PATH_MISSING');
+  if (!sourcePathText(member?.sourcePath)) output.push('SOURCE_PATH_MISSING');
   return output;
 }
 
