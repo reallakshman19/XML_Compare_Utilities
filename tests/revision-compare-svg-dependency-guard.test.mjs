@@ -151,7 +151,7 @@ assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
 assert.match(workspaceSource, /data-revc-evidence-package-import/);
 assert.match(workspaceSource, /verifyRevisionCompareEvidencePackageJson/);
 assert.match(viewSource, /Import evidence package/);
-assert.match(viewSource, /Integrity and authority-chain consistency verified\. Package authenticity is not established\./);
+assert.match(viewSource, /REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT/);
 assert.match(workspaceSource, /data-revc-download-evidence-package/);
 assert.match(workspaceSource, /Download evidence package/);
 assert.match(workspaceSource, /revisionCompareEvidencePackageReadiness/);
