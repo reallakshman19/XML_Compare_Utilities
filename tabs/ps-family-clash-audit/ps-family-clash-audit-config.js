@@ -89,6 +89,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
   ]),
   outputButtons: Object.freeze([
     Object.freeze({ key: 'support-summary', label: 'Support Group Summary CSV', exportKey: 'supportSummaryCsv', mime: 'text/csv', suffix: 'supportgroup-summary' }),
+    Object.freeze({ key: 'json-trace-support-members', label: 'JSON Trace Support Members CSV', exportKey: 'jsonTraceSupportMembersCsv', mime: 'text/csv', suffix: 'json-trace-support-members' }),
     Object.freeze({ key: 'line-support-tree', label: 'Line Tree TXT', exportKey: 'lineSupportTreeText', mime: 'text/plain', suffix: 'line-support-tree' }),
     Object.freeze({ key: 'structure-line-proximity', label: 'Structure Group Basis CSV', exportKey: 'structureLineProximityCsv', mime: 'text/csv', suffix: 'structure-line-proximity' }),
     Object.freeze({ key: 'support-exceptions', label: 'Audit Outcome CSV', exportKey: 'supportExceptionsCsv', mime: 'text/csv', suffix: 'audit-exceptions' }),
@@ -101,6 +102,7 @@ export const PS_FAMILY_CLASH_AUDIT_CONFIG = Object.freeze({
     'SupportGroup identity is LineFamily_PSRoot, for example S8810011_PS-14396.',
     'Reports are organized into six task-oriented groups in a two-row report catalog.',
     'Every visible report can be exported directly as CSV from the Reports workspace.',
+    'JSON Trace Support Members CSV uses the Support Detail Report headers accepted by XML→CII 2019 Standalone CSV/XLS Trace.',
     'Structural relationships, member-chain edges, symbolic references and analytical terminals remain distinct evidence classes.',
     'A support-family association alone does not prove a physical terminal; analytical support-member geometry is required.',
     'Zone classification and source-side settings apply only to legacy XML validation mode.',

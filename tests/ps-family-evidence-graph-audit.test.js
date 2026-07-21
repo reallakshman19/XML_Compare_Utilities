@@ -71,6 +71,28 @@ test('keeps evidence identifiers native in reports and exports', () => {
   assert.match(exports.auditJson, /ps-family-evidence-audit\/v1/);
 });
 
+test('exports support members with the XML CII JSON Trace table contract', () => {
+  const audit = createPsFamilyAuditFromTextInputs(graphInput());
+  const rows = audit.jsonTraceSupportMemberRows;
+  const shoe = rows.find((row) => row['Name of the element'] === '/PS-14259.1');
+  assert.ok(rows.length >= 4);
+  assert.ok(shoe);
+  assert.equal(shoe.PIPE, '/ASIM-1836-6"-P9001001/B1');
+  assert.equal(shoe['Support Family'], 'PS-14259');
+  assert.equal(shoe['RTEXT of detailing text'], 'PIPE SHOE SH-150');
+  assert.equal(shoe.DTXR, 'PIPE SHOE SH-150');
+  assert.equal(shoe.DTXR_SOURCE, 'DTXR_POS');
+  assert.equal(shoe.Position, 'E=437500 N=-1159000 EL=2181');
+  assert.match(shoe['JSON Path'], /^\$/);
+  const first = createPsFamilyAuditExports(audit).jsonTraceSupportMembersCsv;
+  const second = createPsFamilyAuditExports(audit).jsonTraceSupportMembersCsv;
+  assert.match(first, /^Report Row,Support Family Key,Support Family,Name of the element,Reference of the element,TYPE,PIPE,/);
+  assert.match(first, /RTEXT of detailing text/);
+  assert.match(first, /ISOMETRIC NOTES/);
+  assert.match(first, /PIPE SHOE SH-150/);
+  assert.equal(first, second);
+});
+
 test('invalid or incomplete relationship bundle blocks readiness', () => {
   const invalid = createPsFamilyInputReadinessFromTextInputs({
     evidenceMode: 'RELATIONSHIP_BUNDLE',
@@ -95,4 +117,6 @@ test('source-family filter limits the graph-native audit without changing source
   assert.equal(audit.supportSummaryRows.length, 1);
   assert.equal(audit.supportSummaryRows[0].psRoot, '/PS-14259');
   assert.equal(audit.summary.sourceFamily, '/PS-14259');
+  assert.ok(audit.jsonTraceSupportMemberRows.length > 0);
+  assert.ok(audit.jsonTraceSupportMemberRows.every((row) => row['Support Family'] === 'PS-14259'));
 });
