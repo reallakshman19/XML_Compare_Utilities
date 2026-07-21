@@ -14,6 +14,7 @@ import {
   createRevisionWorkspaceState,
   failWorkspaceEvidencePackageImport,
   startWorkspaceEvidencePackageImport,
+  startWorkspaceLoad,
 } from '../tabs/revision-compare/revision-workspace-state.js';
 import { revisionComparisonPreflight } from '../tabs/revision-compare/revision-preflight.js';
 import { attachProjectDocument, createProjectDocument, createProjectSession } from '../tabs/revision-compare/revision-session-contracts.js';
@@ -153,8 +154,14 @@ await assert.rejects(() => verifyRevisionCompareEvidencePackageJson(JSON.stringi
 await assert.rejects(() => verifyRevisionCompareEvidencePackageJson(JSON.stringify({ ...current.artifact, contentSha256: hash('0') }), 'hash.json', IMPORTED, webcrypto), /packageId does not match|canonical SHA-256/);
 await assert.rejects(() => verifyRevisionCompareEvidencePackageJson(JSON.stringify({ ...current.artifact, packageId: 'revision-evidence-package:bad' }), 'id.json', IMPORTED, webcrypto), /packageId/);
 await rejectsTamper(current.artifact, (value) => { value.payload.sessionManifest.schema = 'RevisionSessionManifest.v2'; }, /Session manifest schema/);
+await rejectsTamper(current.artifact, (value) => { value.payload.sessionManifest.revisions.revA.rawUploadedBytes = [1, 2, 3]; }, /unsupported or missing fields/);
 await rejectsTamper(current.artifact, (value) => { value.payload.scopeBasisManifest.basis.sessionId = 'other'; }, /Session and basis identities/);
 await rejectsTamper(current.artifact, (value) => { value.payload.scopeBasisManifest.basis.revAContentHash = hash('f'); }, /source hashes/);
+await rejectsTamper(current.artifact, (value) => {
+  value.payload.sessionManifest.preflight.compatibility.unitCompatibility.status = 'INCOMPATIBLE';
+  value.payload.scopeBasisManifest.preflight.compatibility.unitCompatibility.status = 'INCOMPATIBLE';
+  value.payload.scopeBasisManifest.basis.unitCompatibility.status = 'INCOMPATIBLE';
+}, /preflight evidence|deterministic basis/);
 await rejectsTamper(current.artifact, (value) => { value.payload.audit.differenceRows[1].differenceId = value.payload.audit.differenceRows[0].differenceId; }, /difference IDs/);
 await rejectsTamper(current.artifact, (value) => { value.payload.audit.visualModels.statusByObjectId.unknown = 'MATCHED'; }, /status map/);
 await rejectsTamper(current.artifact, (value) => { value.payload.reviewSession.items[0].note = 'tampered'; }, /note hash|event history/);
@@ -178,6 +185,13 @@ assert.equal(serializeRevisionCompareEvidencePackage(roundTrip), current.text);
 const nonFreshBefore = imported; const blocked = startWorkspaceEvidencePackageImport(nonFreshBefore, 2, 'other.json');
 assert.equal(blocked.evidencePackageImport.status, 'FAILED'); assert.deepEqual(blocked.compare.audit, nonFreshBefore.compare.audit);
 assert.match(blocked.evidencePackageImport.error, /Close this workspace/);
+const loading = startWorkspaceLoad(createRevisionWorkspaceState('loading-session', NOW), 'baseline', 1, 'slow.json', 10, NOW);
+const loadingBlocked = startWorkspaceEvidencePackageImport(loading, 1, 'current.json');
+assert.equal(loadingBlocked.evidencePackageImport.status, 'FAILED'); assert.match(loadingBlocked.evidencePackageImport.error, /Close this workspace/);
+let racing = createRevisionWorkspaceState('racing-session', NOW); racing = startWorkspaceEvidencePackageImport(racing, 1, 'current.json');
+racing = startWorkspaceLoad(racing, 'baseline', 1, 'slow.json', 10, NOW);
+const raceBlocked = completeWorkspaceEvidencePackageImport(racing, 1, verified);
+assert.equal(raceBlocked.evidencePackageImport.status, 'FAILED'); assert.equal(raceBlocked.compare.audit, null);
 let rapid = createRevisionWorkspaceState('rapid-session', NOW); rapid = startWorkspaceEvidencePackageImport(rapid, 1, 'old.json'); rapid = startWorkspaceEvidencePackageImport(rapid, 2, 'new.json');
 assert.equal(completeWorkspaceEvidencePackageImport(rapid, 1, verified), rapid);
 assert.equal(failWorkspaceEvidencePackageImport(rapid, 1, new Error('old failure')), rapid);
