@@ -36,8 +36,7 @@ const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
   '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
 ]);
-function defaultNow() { return new Date().toISOString(); }
-function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
+function defaultNow() { return new Date().toISOString(); } function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
 function sessionId(now) { return `revision-session-${String(now).replace(/[^0-9]/g, '')}`; }
 function trackedListener(cleanups, target, type, handler) { target.addEventListener(type, handler); cleanups.push(() => target.removeEventListener(type, handler)); }
 function fileChange(actions, target) { const file = target.files?.[0]; if (file) actions.load(target.dataset.revcFile, file); }
