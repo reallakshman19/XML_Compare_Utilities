@@ -46,7 +46,7 @@ jobs:
           printf '{"schema":"PipelineCadMarkupExactHead.v1","expectedSha":"%s","actualSha":"%s","shaMatch":true}\n' \
             "$EXPECTED_SHA" "$actual_sha" > "$ARTIFACT_DIR/exact-head.json"
 
-      - name: Enforce PCAD-005A file allowlist
+      - name: Enforce applicable PCAD-005A file scope
         id: scope
         shell: bash
         run: |
@@ -55,28 +55,40 @@ jobs:
           base="${BASE_SHA:-$(git merge-base HEAD origin/main)}"
           git diff --check "$base" "$EXPECTED_SHA"
           git diff --name-only "$base" "$EXPECTED_SHA" | sort > "$ARTIFACT_DIR/changed-files.txt"
-          while IFS= read -r path; do
-            case "$path" in
-              tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-*.js|\
-              tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js|\
-              tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js|\
-              tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js|\
-              tests/pipeline-3d-model-cad-markup-contracts.test.js|\
-              tests/pipeline-3d-model-cad-markup-model.test.js|\
-              tests/pipeline-3d-model-cad-markup-commands.test.js|\
-              tests/pipeline-3d-model-cad-markup-reconciliation.test.js|\
-              tests/pipeline-3d-model-cad-markup-integration.test.js|\
-              tests/browser/pipeline-cad-markup-fixture.html|\
-              tests/browser/pipeline-cad-markup.spec.mjs|\
-              playwright.pipeline-cad-markup.config.mjs|\
-              playwright.pipeline-cad.config.mjs|\
-              package.json|\
-              .github/workflows/pipeline-cad-markup.yml|\
-              .github/workflows/engineering-svg-readonly-shell.yml) ;;
-              *) echo "Forbidden PCAD-005A path: $path"; exit 1 ;;
-            esac
-          done < "$ARTIFACT_DIR/changed-files.txt"
           ! grep -qx 'package-lock.json' "$ARTIFACT_DIR/changed-files.txt"
+          foundation_pattern='^(tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation|renderer|view)\.js|tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace\.js|tabs/pipeline-3d-model/pipeline-3d-model-table(2x|3x)-canvas\.js|tests/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation|integration)\.test\.js|tests/browser/pipeline-cad-markup-(fixture\.html|spec\.mjs)|playwright\.pipeline-cad-markup\.config\.mjs|playwright\.pipeline-cad\.config\.mjs|package\.json|\.github/workflows/engineering-svg-readonly-shell\.yml)$'
+          if grep -Eq "$foundation_pattern" "$ARTIFACT_DIR/changed-files.txt"; then
+            echo 'scopeApplicable=true' >> "$ARTIFACT_DIR/scope-status.txt"
+            while IFS= read -r path; do
+              case "$path" in
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-contracts.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-model.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-commands.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-reconciliation.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-renderer.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-view.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-table2x-canvas.js|\
+                tabs/pipeline-3d-model/pipeline-3d-model-table3x-canvas.js|\
+                tests/pipeline-3d-model-cad-markup-contracts.test.js|\
+                tests/pipeline-3d-model-cad-markup-model.test.js|\
+                tests/pipeline-3d-model-cad-markup-commands.test.js|\
+                tests/pipeline-3d-model-cad-markup-reconciliation.test.js|\
+                tests/pipeline-3d-model-cad-markup-integration.test.js|\
+                tests/browser/pipeline-cad-markup-fixture.html|\
+                tests/browser/pipeline-cad-markup.spec.mjs|\
+                playwright.pipeline-cad-markup.config.mjs|\
+                playwright.pipeline-cad.config.mjs|\
+                package.json|\
+                .github/workflows/pipeline-cad-markup.yml|\
+                .github/workflows/engineering-svg-readonly-shell.yml) ;;
+                *) echo "Forbidden PCAD-005A path: $path"; exit 1 ;;
+              esac
+            done < "$ARTIFACT_DIR/changed-files.txt"
+          else
+            echo 'scopeApplicable=false' >> "$ARTIFACT_DIR/scope-status.txt"
+            echo 'Closed PCAD-005A changed-file scope is not applicable to this successor-only diff.'
+          fi
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { readFileSync } from 'node:fs';
@@ -226,14 +238,16 @@ jobs:
         run: |
           actual_sha="$(git rev-parse HEAD)"
           ACTUAL_SHA="$actual_sha" node --input-type=module <<'NODE'
-          import { mkdirSync, writeFileSync } from 'node:fs';
+          import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
           const directory = process.env.ARTIFACT_DIR;
           mkdirSync(directory, { recursive: true });
+          const scopeStatus = readFileSync(`${directory}/scope-status.txt`, 'utf8').trim();
           const evidence = {
             schema: 'PipelineCadMarkupCertification.v1',
             expectedSha: process.env.EXPECTED_SHA,
             actualSha: process.env.ACTUAL_SHA,
             shaMatch: process.env.EXPECTED_SHA === process.env.ACTUAL_SHA,
+            scopeStatus,
             results: {
               scope: process.env.SCOPE,
               focused: process.env.FOCUSED,
