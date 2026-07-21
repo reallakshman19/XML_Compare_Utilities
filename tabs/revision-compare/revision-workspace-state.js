@@ -36,8 +36,11 @@ export function createRevisionEvidencePackageImportState() {
     authenticityStatus: 'NOT_ESTABLISHED', error: null,
   });
 }
+function sourceIntakeActive(slot) { return slot?.status === 'LOADING'; }
 export function revisionWorkspaceIsFreshForEvidencePackageImport(state) {
-  return Boolean(state && !state.slots?.baseline?.document && !state.slots?.candidate?.document
+  return Boolean(state && !sourceIntakeActive(state.slots?.baseline) && !sourceIntakeActive(state.slots?.candidate)
+    && !state.slots?.baseline?.document && !state.slots?.candidate?.document
+    && !state.session?.documents?.baseline && !state.session?.documents?.candidate
     && !state.basis && !state.compare?.audit && !state.review?.session && !state.decision?.ledger);
 }
 export function createRevisionWorkspaceState(sessionId, createdAt) {
