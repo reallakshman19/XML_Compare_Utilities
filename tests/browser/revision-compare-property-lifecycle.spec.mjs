@@ -178,7 +178,8 @@ test('RC-SVG-005-B01 — shared Rev A/Rev B property provenance', async ({ page 
   const auditRow = await page.evaluate((id) => structuredClone(window.rcHandle.evidence().state.compare.audit.differenceRows
     .find((row) => row.differenceId === id)), rows.property);
   expect((await authority(page)).audit).toEqual(before.audit);
-  const propertyText = await page.locator('[data-revc-property-inspector-host]').innerText();
+  const propertyHost = page.locator(`[data-revc-property-inspector-host="${rows.property}"]`);
+  const propertyText = await propertyHost.innerText();
   for (const changed of auditRow.changedProperties) {
     const row = page.locator(`[data-engineering-svg-property-key="${changed.propertyKey}"]`);
     await expect(row.locator(`[data-engineering-svg-property-previous-source="${changed.propertyKey}"]`))
@@ -210,7 +211,8 @@ test('RC-SVG-005-B01 — shared Rev A/Rev B property provenance', async ({ page 
   await page.getByRole('button', { name: 'Engineering SVG' }).click(); await page.getByRole('button', { name: 'Overlay' }).click();
   await expect(page.locator('[data-revc-svg-overlay-root="1"]')).toHaveCount(1);
   expect((await authority(page)).viewer).toMatchObject({ fitCounts: fits, selectedIds: selected, resources: { roots: 1, observers: 1, selectionSubscriptions: 1 } });
-  expect(await page.locator('[data-revc-property-inspector-host]').innerText()).toBe(propertyText);
+  await expect(propertyHost.locator('[data-engineering-svg-property-key]').first()).toBeVisible();
+  expect(await propertyHost.innerText()).toBe(propertyText);
 
   const auditJson = JSON.stringify((await authority(page)).audit); const reviewBefore = (await authority(page)).review;
   await page.getByRole('button', { name: 'Mark reviewed' }).click(); expect(JSON.stringify((await authority(page)).audit)).toBe(auditJson);
