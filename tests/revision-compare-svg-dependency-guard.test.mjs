@@ -93,12 +93,19 @@ const evidence = await readFile('tabs/revision-compare/revision-compare-property
 assert.match(evidence, /RevisionDifferenceRow\.v1\.changedProperties/);
 assert.match(evidence, /previousValue:\s*property\.revAValue/);
 assert.match(evidence, /value:\s*property\.revBValue/);
+assert.match(evidence, /previousSource:\s*property\.revAEvidencePath/);
+assert.match(evidence, /source:\s*property\.revBEvidencePath/);
+assert.match(evidence, /INVALID_EVIDENCE_PATH/);
+assert.match(evidence, /validEvidencePath/);
 assert.match(evidence, /editable:\s*false/);
 assert.doesNotMatch(evidence, /unit:\s*['"`]/, 'Revision Compare must not infer property units');
-assert.doesNotMatch(evidence, /source:\s*.*revAEvidencePath|source:\s*.*revBEvidencePath/, 'dual evidence paths must not collapse');
+assert.doesNotMatch(evidence, /fetch\(|readFile\(|source-document|revision-load-service/);
+assert.match(evidence, /sourceDocumentLookups:\s*0/);
 
 const inspector = await readFile('tabs/revision-compare/revision-compare-property-inspector.js', 'utf8');
 assert.doesNotMatch(inspector, /setBackend|setPresentationMode|setSelection|fitAll|fitSelection|previewPair/);
 assert.doesNotMatch(inspector, /EngineeringSvgWorkspaceShell|commandGateway|createEngineeringSvgDraftStore/);
+assert.doesNotMatch(inspector, /Open file|Browse|Copy path|Resolve|Navigate|Locate source|Reveal in folder/i);
+assert.doesNotMatch(inspector, /<a\b|createElement\(['"]a['"]\)/);
 
 console.log('revision-compare-svg-dependency-guard.test.mjs passed');

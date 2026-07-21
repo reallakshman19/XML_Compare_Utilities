@@ -164,8 +164,8 @@ test('RC-SVG-002-B01 — authoritative shared property evidence', async ({ page 
     const row = page.locator(`[data-engineering-svg-property-key="${changed.propertyKey}"]`);
     const comparison = Object.is(changed.revAValue, changed.revBValue) ? 'unchanged' : 'changed';
     await expect(row).toHaveAttribute('data-engineering-svg-property-comparison', comparison);
-    const previous = row.locator(`[data-engineering-svg-property-previous="${changed.propertyKey}"] output`);
-    const current = row.locator(`[data-engineering-svg-property-current="${changed.propertyKey}"] output`);
+    const previous = row.locator(`[data-engineering-svg-property-previous="${changed.propertyKey}"]`).locator(':scope > output:first-of-type');
+    const current = row.locator(`[data-engineering-svg-property-current="${changed.propertyKey}"]`).locator(':scope > output:first-of-type');
     const type = typeof (changed.revAValue ?? changed.revBValue);
     await expect(previous).toHaveText(expectedText(changed.revAValue, type));
     await expect(current).toHaveText(expectedText(changed.revBValue, type));
