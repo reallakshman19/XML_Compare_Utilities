@@ -1,4 +1,4 @@
-name: Revision Compare RC-PKG-001
+name: Revision Compare RC-PKG-002
 on:
   pull_request:
     paths:
@@ -47,21 +47,21 @@ jobs:
           }
           JSON
           test "$sha_match" = 'true'
-      - name: Collect RC-PKG-001 scope evidence
+      - name: Collect RC-PKG-002 scope evidence
         id: scope
         shell: bash
         run: |
           set -uo pipefail
           mkdir -p artifacts
           if [[ -z "$BASE_SHA" ]]; then
-            echo 'workflow_dispatch: PR scope comparison not applicable' > artifacts/rc-pkg-001-scope.txt
+            echo 'workflow_dispatch: PR scope comparison not applicable' > artifacts/rc-pkg-002-scope.txt
             echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           set +e
-          git diff --check "$BASE_SHA" HEAD > artifacts/rc-pkg-001-scope.txt 2>&1
+          git diff --check "$BASE_SHA" HEAD > artifacts/rc-pkg-002-scope.txt 2>&1
           diff_status=$?
-          python - "$BASE_SHA" >> artifacts/rc-pkg-001-scope.txt 2>&1 <<'PY'
+          python - "$BASE_SHA" >> artifacts/rc-pkg-002-scope.txt 2>&1 <<'PY'
           import json
           import subprocess
           import sys
@@ -72,13 +72,16 @@ jobs:
           ).splitlines()
           allowed = {
               'tabs/revision-compare/revision-evidence-package.js',
+              'tabs/revision-compare/revision-evidence-package-import.js',
+              'tabs/revision-compare/revision-workspace-state.js',
               'tabs/revision-compare/revision-compare-workspace.js',
+              'tabs/revision-compare/revision-compare-view.js',
+              'tabs/revision-compare/revision-review-manifest.js',
+              'tabs/revision-compare/revision-decision-manifest.js',
+              'tests/revision-compare-evidence-package-import.test.mjs',
               'tests/revision-compare-evidence-package.test.mjs',
-              'tests/browser/revision-compare-evidence-package.spec.mjs',
               'tests/revision-compare-svg-dependency-guard.test.mjs',
-              'tests/revision-compare-rc003-static.test.mjs',
-              'tests/browser/revision-compare-rc001.spec.mjs',
-              'tests/browser/revision-compare-rc003.spec.mjs',
+              'tests/browser/revision-compare-evidence-package-import.spec.mjs',
               'playwright.revision-compare.config.mjs',
               '.github/workflows/revision-compare.yml',
               'package.json',
@@ -86,7 +89,7 @@ jobs:
           unexpected = [path for path in paths if path not in allowed]
           print('changed paths:', *paths, sep='\n- ')
           if unexpected:
-              raise SystemExit(f'Unauthorized RC-PKG-001 paths: {unexpected}')
+              raise SystemExit(f'Unauthorized RC-PKG-002 paths: {unexpected}')
           if 'package.json' in paths:
               before = json.loads(subprocess.check_output(
                   ['git', 'show', f'{base}:package.json'], text=True,
@@ -99,18 +102,18 @@ jobs:
           PY
           allowlist_status=$?
           set -e
-          cat artifacts/rc-pkg-001-scope.txt
+          cat artifacts/rc-pkg-002-scope.txt
           if [[ $diff_status -eq 0 && $allowlist_status -eq 0 ]]; then
             echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
           else
             echo 'scope_ok=false' >> "$GITHUB_OUTPUT"
           fi
-      - name: Upload RC-PKG-001 scope evidence
+      - name: Upload RC-PKG-002 scope evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rc-pkg-001-scope-${{ env.EXPECTED_SHA }}
-          path: artifacts/rc-pkg-001-scope.txt
+          name: rc-pkg-002-scope-${{ env.EXPECTED_SHA }}
+          path: artifacts/rc-pkg-002-scope.txt
           if-no-files-found: error
       - uses: actions/setup-node@v4
         with:
@@ -118,9 +121,15 @@ jobs:
           cache: npm
       - name: Install repository dependencies
         run: npm ci
-      - name: Focused evidence package unit proof
-        id: package_unit
+      - name: RC-PKG-001 export unit proof
+        id: package_export_unit
         run: node tests/revision-compare-evidence-package.test.mjs
+      - name: RC-PKG-002 import unit proof
+        id: package_import_unit
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/revision-compare-evidence-package-import.test.mjs 2>&1 | tee artifacts/revision-compare-import-unit.log
       - name: Shared property provenance regression
         id: shared_property_provenance
         run: node tests/engineering-svg-property-provenance.test.js
@@ -148,30 +157,28 @@ jobs:
         run: |
           set -euo pipefail
           node --check tabs/revision-compare/revision-evidence-package.js
-          node --check tabs/revision-compare/revision-compare-actions.js
+          node --check tabs/revision-compare/revision-evidence-package-import.js
+          node --check tabs/revision-compare/revision-workspace-state.js
           node --check tabs/revision-compare/revision-compare-workspace.js
-          node --check tabs/revision-compare/revision-review-view.js
+          node --check tabs/revision-compare/revision-compare-view.js
+          node --check tabs/revision-compare/revision-review-manifest.js
+          node --check tabs/revision-compare/revision-decision-manifest.js
           node --check tests/revision-compare-evidence-package.test.mjs
-          node --check tests/browser/revision-compare-evidence-package.spec.mjs
+          node --check tests/revision-compare-evidence-package-import.test.mjs
+          node --check tests/browser/revision-compare-evidence-package-import.spec.mjs
           node --check tests/revision-compare-svg-dependency-guard.test.mjs
-          node --check tests/revision-compare-rc003-static.test.mjs
-          node --check tests/browser/revision-compare-rc001.spec.mjs
-          node --check tests/browser/revision-compare-rc003.spec.mjs
           node --check playwright.revision-compare.config.mjs
       - name: Startup and import smoke
         id: startup
         run: node tests/startup-module-syntax.test.js
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: RC-SVG-002-B01 authoritative shared property evidence
-        id: property_b01
-        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-002-B01'
-      - name: RC-SVG-005-B01 shared Rev A and Rev B property provenance
-        id: provenance_b01
-        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SVG-005-B01'
       - name: RC-PKG-001-B01 deterministic complete evidence package export
-        id: package_b01
+        id: package_export_b01
         run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-PKG-001-B01'
+      - name: RC-PKG-002-B01 verify, import and resume evidence package
+        id: package_import_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-PKG-002-B01'
       - name: Revision Compare Chromium acceptance
         id: chromium
         run: npx playwright test --config=playwright.revision-compare.config.mjs
@@ -198,17 +205,18 @@ jobs:
       - name: Full repository tests
         id: full_tests
         run: npm test
-      - name: Enforce collected RC-PKG-001 scope
+      - name: Enforce collected RC-PKG-002 scope
         id: scope_enforcement
         run: test "${{ steps.scope.outputs.scope_ok }}" = 'true'
-      - name: Write exact-head package certification evidence
+      - name: Write exact-head import certification evidence
         if: always()
         shell: bash
         env:
           ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
           SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
           SCOPE_RESULT: ${{ steps.scope_enforcement.outcome }}
-          PACKAGE_UNIT_RESULT: ${{ steps.package_unit.outcome }}
+          PACKAGE_EXPORT_UNIT_RESULT: ${{ steps.package_export_unit.outcome }}
+          PACKAGE_IMPORT_UNIT_RESULT: ${{ steps.package_import_unit.outcome }}
           SHARED_PROPERTY_PROVENANCE_RESULT: ${{ steps.shared_property_provenance.outcome }}
           PROPERTY_PROVENANCE_RESULT: ${{ steps.property_provenance.outcome }}
           DEPENDENCY_GUARD_RESULT: ${{ steps.dependency_guard.outcome }}
@@ -217,9 +225,8 @@ jobs:
           WORKBENCH3D_RESULT: ${{ steps.workbench3d.outcome }}
           SYNTAX_RESULT: ${{ steps.syntax.outcome }}
           STARTUP_RESULT: ${{ steps.startup.outcome }}
-          PROPERTY_B01_RESULT: ${{ steps.property_b01.outcome }}
-          PROVENANCE_B01_RESULT: ${{ steps.provenance_b01.outcome }}
-          PACKAGE_B01_RESULT: ${{ steps.package_b01.outcome }}
+          PACKAGE_EXPORT_B01_RESULT: ${{ steps.package_export_b01.outcome }}
+          PACKAGE_IMPORT_B01_RESULT: ${{ steps.package_import_b01.outcome }}
           CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
           RETRY_GUARD_RESULT: ${{ steps.retry_guard.outcome }}
           FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
@@ -228,7 +235,7 @@ jobs:
           mkdir -p artifacts
           cat > artifacts/revision-compare-certification.json <<JSON
           {
-            "schema": "RevisionCompareEvidencePackageCertification.v1",
+            "schema": "RevisionCompareEvidencePackageImportCertification.v1",
             "workflowRunId": "${GITHUB_RUN_ID}",
             "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "expectedSha": "${EXPECTED_SHA}",
@@ -236,7 +243,8 @@ jobs:
             "shaMatch": ${SHA_MATCH:-false},
             "results": {
               "scope": "${SCOPE_RESULT}",
-              "packageUnit": "${PACKAGE_UNIT_RESULT}",
+              "packageExportUnit": "${PACKAGE_EXPORT_UNIT_RESULT}",
+              "packageImportUnit": "${PACKAGE_IMPORT_UNIT_RESULT}",
               "sharedPropertyProvenance": "${SHARED_PROPERTY_PROVENANCE_RESULT}",
               "propertyProvenance": "${PROPERTY_PROVENANCE_RESULT}",
               "dependencyGuard": "${DEPENDENCY_GUARD_RESULT}",
@@ -245,24 +253,24 @@ jobs:
               "workbench3d": "${WORKBENCH3D_RESULT}",
               "syntax": "${SYNTAX_RESULT}",
               "startup": "${STARTUP_RESULT}",
-              "propertyB01": "${PROPERTY_B01_RESULT}",
-              "provenanceB01": "${PROVENANCE_B01_RESULT}",
-              "packageB01": "${PACKAGE_B01_RESULT}",
+              "packageExportB01": "${PACKAGE_EXPORT_B01_RESULT}",
+              "packageImportB01": "${PACKAGE_IMPORT_B01_RESULT}",
               "chromium": "${CHROMIUM_RESULT}",
               "retryGuard": "${RETRY_GUARD_RESULT}",
               "fullRepositoryTests": "${FULL_TEST_RESULT}"
             }
           }
           JSON
-      - name: Upload exact-head package certification evidence
+      - name: Upload exact-head import certification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: revision-compare-evidence-package-${{ env.EXPECTED_SHA }}
+          name: revision-compare-evidence-package-import-${{ env.EXPECTED_SHA }}
           path: |
             artifacts/revision-compare-exact-head.json
             artifacts/revision-compare-certification.json
-            artifacts/rc-pkg-001-scope.txt
+            artifacts/rc-pkg-002-scope.txt
+            artifacts/revision-compare-import-unit.log
             artifacts/revision-compare-focused.log
             artifacts/revision-compare-results.json
             test-results/revision-compare
@@ -271,7 +279,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: revision-compare-evidence-package-failure-${{ env.EXPECTED_SHA }}
+          name: revision-compare-evidence-package-import-failure-${{ env.EXPECTED_SHA }}
           path: |
             artifacts
             test-results/revision-compare

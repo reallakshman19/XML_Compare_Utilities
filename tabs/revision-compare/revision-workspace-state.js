@@ -1,4 +1,4 @@
-/** Immutable workspace state for trusted compare, guided review and ambiguity decisions. */
+/** Immutable workspace state for trusted compare, guided review and decisions. */
 import { deepFreeze } from './revision-contract-utils.js';
 import { attachProjectDocument, createProjectSession, detachProjectDocument } from './revision-session-contracts.js';
 import { beginRevisionLoad, completeRevisionLoad, completeRevisionScope, createRevisionIntakeState, failRevisionLoad } from './revision-intake-state.js';
@@ -17,11 +17,31 @@ import {
   setDecisionPreview, setDecisionUnresolvedOnly, staleDecisionLifecycle, startNewDecisionForAudit, toggleDecisionFilter,
 } from './revision-decision-lifecycle.js';
 
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v4';
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v5';
+export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
+export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
+  IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
+});
+export const REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR = 'Close this workspace and open a new Revision Compare workspace before importing an evidence package.';
 export const BASIS_STATUS = Object.freeze({ NONE: 'NONE', CURRENT: 'CURRENT', STALE: 'STALE' });
 function staleStatus(state) { return state.basis ? BASIS_STATUS.STALE : BASIS_STATUS.NONE; }
 function invalidated(state, updatedAt) {
   return { compare: invalidateComparisonState(state.compare), review: staleReviewLifecycle(state.review, updatedAt), decision: staleDecisionLifecycle(state.decision, updatedAt) };
+}
+export function createRevisionEvidencePackageImportState() {
+  return deepFreeze({
+    schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IDLE,
+    requestGeneration: 0, fileName: '', packageId: null, contentSha256: null,
+    integrityStatus: 'NOT_VERIFIED', reviewReattached: false, decisionReattached: false,
+    authenticityStatus: 'NOT_ESTABLISHED', error: null,
+  });
+}
+function sourceIntakeActive(slot) { return slot?.status === 'LOADING'; }
+export function revisionWorkspaceIsFreshForEvidencePackageImport(state) {
+  return Boolean(state && !sourceIntakeActive(state.slots?.baseline) && !sourceIntakeActive(state.slots?.candidate)
+    && !state.slots?.baseline?.document && !state.slots?.candidate?.document
+    && !state.session?.documents?.baseline && !state.session?.documents?.candidate
+    && !state.basis && !state.compare?.audit && !state.review?.session && !state.decision?.ledger);
 }
 export function createRevisionWorkspaceState(sessionId, createdAt) {
   return deepFreeze({
@@ -30,6 +50,71 @@ export function createRevisionWorkspaceState(sessionId, createdAt) {
     scopeDecisions: {}, proposal: null, basis: null, basisStatus: BASIS_STATUS.NONE,
     search: { common: '', revAOnly: '', revBOnly: '' }, message: 'Load Rev A and Rev B staged JSON files.',
     compare: createComparisonLifecycleState(), review: createReviewLifecycleState(), decision: createDecisionLifecycleState(),
+    evidencePackageImport: createRevisionEvidencePackageImportState(),
+  });
+}
+export function startWorkspaceEvidencePackageImport(state, generation, fileName) {
+  const base = {
+    ...createRevisionEvidencePackageImportState(), requestGeneration: generation, fileName: String(fileName ?? ''),
+  };
+  if (!revisionWorkspaceIsFreshForEvidencePackageImport(state)) {
+    return deepFreeze({
+      ...state,
+      evidencePackageImport: deepFreeze({ ...base, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.FAILED, integrityStatus: 'FAILED', error: REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR }),
+      message: REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR,
+    });
+  }
+  return deepFreeze({
+    ...state,
+    evidencePackageImport: deepFreeze({ ...base, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING, integrityStatus: 'VERIFYING' }),
+    message: 'Importing and verifying evidence package…',
+  });
+}
+export function failWorkspaceEvidencePackageImport(state, generation, error) {
+  if (state.evidencePackageImport.requestGeneration !== generation) return state;
+  const message = String(error?.message ?? error);
+  return deepFreeze({
+    ...state,
+    evidencePackageImport: deepFreeze({
+      ...state.evidencePackageImport, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.FAILED,
+      packageId: null, contentSha256: null, integrityStatus: 'FAILED', reviewReattached: false,
+      decisionReattached: false, error: message,
+    }),
+    message,
+  });
+}
+function firstReviewable(audit) {
+  return audit.differenceRows.find((row) => row.differenceCategory !== 'UNCHANGED')?.differenceId
+    ?? audit.differenceRows[0]?.differenceId ?? null;
+}
+function importedComparison(compare, audit) {
+  return deepFreeze({
+    ...compare, status: 'COMPLETE', runGeneration: compare.runGeneration + 1, runId: null,
+    progress: null, audit, auditBasisId: audit.basisId, error: null,
+    selectedDifferenceId: firstReviewable(audit), reviewVisible: true,
+  });
+}
+export function completeWorkspaceEvidencePackageImport(state, generation, verified) {
+  if (state.evidencePackageImport.requestGeneration !== generation
+      || state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING) return state;
+  if (!revisionWorkspaceIsFreshForEvidencePackageImport(state)) {
+    return failWorkspaceEvidencePackageImport(state, generation, REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR);
+  }
+  const receipt = verified.receipt;
+  return deepFreeze({
+    ...state, session: verified.session, slots: verified.slots, scopeDecisions: {}, proposal: verified.proposal,
+    basis: verified.basis, basisStatus: BASIS_STATUS.CURRENT,
+    compare: importedComparison(state.compare, verified.audit),
+    review: deepFreeze({ ...state.review, session: verified.reviewSession, replacementRequired: false, importError: null }),
+    decision: deepFreeze({ ...state.decision, ledger: verified.decisionLedger, replacementRequired: false, importError: null, preview: { differenceId: null, candidateIndex: 0 } }),
+    evidencePackageImport: deepFreeze({
+      schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.VERIFIED,
+      requestGeneration: generation, fileName: receipt.fileName, packageId: receipt.packageId,
+      contentSha256: receipt.contentSha256, integrityStatus: receipt.integrityStatus,
+      reviewReattached: receipt.reviewReattached, decisionReattached: receipt.decisionReattached,
+      authenticityStatus: receipt.authenticityStatus, error: null,
+    }),
+    message: 'Evidence package imported and authority chain reopened.',
   });
 }
 export function startWorkspaceLoad(state, slotId, generation, fileName, fileSizeBytes, updatedAt) {
