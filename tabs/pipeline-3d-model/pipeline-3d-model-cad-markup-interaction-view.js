@@ -141,6 +141,11 @@ function finiteField(panel, name) {
   return value;
 }
 
+function propertyPanelVisible(state, record, canUndo, canRedo) {
+  if (state.stage === PipelineCadMarkupStage.PALETTE) return false;
+  return Boolean(record || canUndo || canRedo);
+}
+
 export function mountPipelineCadMarkupInteractionView(options = {}) {
   const { dialog, stages } = options;
   if (!dialog?.ownerDocument || !stages?.table2x || !stages?.table3x) {
@@ -191,7 +196,7 @@ export function mountPipelineCadMarkupInteractionView(options = {}) {
     annotation.section.hidden = state.stage !== PipelineCadMarkupStage.PALETTE;
     const record = recordById(documentValue, state.selected?.id);
     const nextKey = record ? `${record.dimensionId || record.annotationId}:${record.revision}` : '';
-    property.section.hidden = !record && !canUndo && !canRedo;
+    property.section.hidden = !propertyPanelVisible(state, record, canUndo, canRedo);
     property.apply.disabled = !record;
     property.remove.disabled = !record;
     property.undo.disabled = !canUndo;
@@ -257,4 +262,4 @@ export function mountPipelineCadMarkupInteractionView(options = {}) {
   });
 }
 
-export const _markupInteractionViewTest = Object.freeze({ recordById, finiteField });
+export const _markupInteractionViewTest = Object.freeze({ recordById, finiteField, propertyPanelVisible });
