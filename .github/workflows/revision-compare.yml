@@ -1,0 +1,292 @@
+name: Revision Compare RC-SIGN-001
+on:
+  pull_request:
+    paths:
+      - 'tabs/revision-compare/**'
+      - 'tests/revision-compare-*'
+      - 'tests/browser/revision-compare-*'
+      - 'tests/fixtures/revision-compare/**'
+      - 'playwright.revision-compare.config.mjs'
+      - 'package.json'
+      - '.github/workflows/revision-compare.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    steps:
+      - name: Check out exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+      - name: Verify exact checked-out SHA
+        id: exact_head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          sha_match=false
+          if [[ "$actual_sha" == "$EXPECTED_SHA" ]]; then sha_match=true; fi
+          {
+            echo "actual_sha=$actual_sha"
+            echo "sha_match=$sha_match"
+          } >> "$GITHUB_OUTPUT"
+          mkdir -p artifacts
+          cat > artifacts/revision-compare-exact-head.json <<JSON
+          {
+            "schema": "RevisionCompareExactHead.v1",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${actual_sha}",
+            "match": ${sha_match}
+          }
+          JSON
+          test "$sha_match" = 'true'
+      - name: Collect RC-SIGN-001 scope evidence
+        id: scope
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p artifacts
+          if [[ -z "$BASE_SHA" ]]; then
+            echo 'workflow_dispatch: PR scope comparison not applicable' > artifacts/rc-sign-001-scope.txt
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          git diff --check "$BASE_SHA" HEAD > artifacts/rc-sign-001-scope.txt 2>&1
+          diff_status=$?
+          python - "$BASE_SHA" >> artifacts/rc-sign-001-scope.txt 2>&1 <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          base = sys.argv[1]
+          paths = subprocess.check_output(
+              ['git', 'diff', '--name-only', base, 'HEAD'], text=True,
+          ).splitlines()
+          allowed = {
+              'tabs/revision-compare/revision-sign-off.js',
+              'tabs/revision-compare/revision-workspace-state.js',
+              'tabs/revision-compare/revision-compare-workspace.js',
+              'tests/revision-compare-sign-off.test.mjs',
+              'tests/browser/revision-compare-sign-off.spec.mjs',
+              'tests/revision-compare-svg-dependency-guard.test.mjs',
+              'tests/revision-compare-evidence-package-import.test.mjs',
+              'tests/browser/revision-compare-evidence-package-import.spec.mjs',
+              'playwright.revision-compare.config.mjs',
+              '.github/workflows/revision-compare.yml',
+              'package.json',
+          }
+          unexpected = [path for path in paths if path not in allowed]
+          print('changed paths:', *paths, sep='\n- ')
+          if unexpected:
+              raise SystemExit(f'Unauthorized RC-SIGN-001 paths: {unexpected}')
+          if 'package.json' in paths:
+              before = json.loads(subprocess.check_output(
+                  ['git', 'show', f'{base}:package.json'], text=True,
+              ))
+              with open('package.json', encoding='utf-8') as stream:
+                  after = json.load(stream)
+              for key in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                  if before.get(key) != after.get(key):
+                      raise SystemExit(f'Dependency changes are not authorized: {key}')
+          PY
+          allowlist_status=$?
+          set -e
+          cat artifacts/rc-sign-001-scope.txt
+          if [[ $diff_status -eq 0 && $allowlist_status -eq 0 ]]; then
+            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'scope_ok=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload RC-SIGN-001 scope evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-sign-001-scope-${{ env.EXPECTED_SHA }}
+          path: artifacts/rc-sign-001-scope.txt
+          if-no-files-found: error
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: RC-PKG-001 export unit proof
+        id: package_export_unit
+        run: node tests/revision-compare-evidence-package.test.mjs
+      - name: RC-PKG-002 import unit proof
+        id: package_import_unit
+        run: node tests/revision-compare-evidence-package-import.test.mjs
+      - name: RC-SIGN-001 sign-off unit proof
+        id: sign_off_unit
+        shell: bash
+        run: |
+          set -o pipefail
+          node tests/revision-compare-sign-off.test.mjs 2>&1 | tee artifacts/revision-compare-sign-off-unit.log
+      - name: Shared property provenance regression
+        id: shared_property_provenance
+        run: node tests/engineering-svg-property-provenance.test.js
+      - name: Revision Compare property provenance regression
+        id: property_provenance
+        run: node tests/revision-compare-property-evidence.test.mjs
+      - name: Revision Compare dependency guard
+        id: dependency_guard
+        run: node tests/revision-compare-svg-dependency-guard.test.mjs
+      - name: Focused Revision Compare tests
+        id: focused
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:revision-compare 2>&1 | tee artifacts/revision-compare-focused.log
+      - name: Workbench viewport regressions
+        id: viewport
+        run: npm run test:workbench-viewport
+      - name: Workbench3D regressions
+        id: workbench3d
+        run: npm run test:workbench3d
+      - name: Revision Compare JavaScript syntax
+        id: syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check tabs/revision-compare/revision-sign-off.js
+          node --check tabs/revision-compare/revision-workspace-state.js
+          node --check tabs/revision-compare/revision-compare-workspace.js
+          node --check tabs/revision-compare/revision-compare-view.js
+          node --check tests/revision-compare-evidence-package.test.mjs
+          node --check tests/revision-compare-evidence-package-import.test.mjs
+          node --check tests/revision-compare-sign-off.test.mjs
+          node --check tests/browser/revision-compare-evidence-package-import.spec.mjs
+          node --check tests/browser/revision-compare-sign-off.spec.mjs
+          node --check tests/revision-compare-svg-dependency-guard.test.mjs
+          node --check playwright.revision-compare.config.mjs
+      - name: Startup and import smoke
+        id: startup
+        run: node tests/startup-module-syntax.test.js
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: RC-PKG-001-B01 deterministic complete evidence package export
+        id: package_export_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-PKG-001-B01'
+      - name: RC-PKG-002-B01 verify, import and resume evidence package
+        id: package_import_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-PKG-002-B01'
+      - name: RC-SIGN-001-B01 complete review and create deterministic sign-off report
+        id: sign_off_b01
+        run: npx playwright test --config=playwright.revision-compare.config.mjs --grep 'RC-SIGN-001-B01'
+      - name: Revision Compare Chromium acceptance
+        id: chromium
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Reject retry-only Chromium success
+        id: retry_guard
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('artifacts/revision-compare-results.json', 'utf8'));
+          const retries = [];
+          const walk = (suite) => {
+            for (const spec of suite.specs ?? []) {
+              for (const test of spec.tests ?? []) {
+                for (const result of test.results ?? []) {
+                  if ((result.retry ?? 0) > 0) retries.push(`${spec.title}: retry ${result.retry}`);
+                }
+              }
+            }
+            for (const child of suite.suites ?? []) walk(child);
+          };
+          for (const suite of report.suites ?? []) walk(suite);
+          if (retries.length) throw new Error(`Retry-only Revision Compare success is forbidden: ${retries.join('; ')}`);
+          NODE
+      - name: Full repository tests
+        id: full_tests
+        run: npm test
+      - name: Enforce collected RC-SIGN-001 scope
+        id: scope_enforcement
+        run: test "${{ steps.scope.outputs.scope_ok }}" = 'true'
+      - name: Write exact-head sign-off certification evidence
+        if: always()
+        shell: bash
+        env:
+          ACTUAL_SHA: ${{ steps.exact_head.outputs.actual_sha }}
+          SHA_MATCH: ${{ steps.exact_head.outputs.sha_match }}
+          SCOPE_RESULT: ${{ steps.scope_enforcement.outcome }}
+          PACKAGE_EXPORT_UNIT_RESULT: ${{ steps.package_export_unit.outcome }}
+          PACKAGE_IMPORT_UNIT_RESULT: ${{ steps.package_import_unit.outcome }}
+          SIGN_OFF_UNIT_RESULT: ${{ steps.sign_off_unit.outcome }}
+          SHARED_PROPERTY_PROVENANCE_RESULT: ${{ steps.shared_property_provenance.outcome }}
+          PROPERTY_PROVENANCE_RESULT: ${{ steps.property_provenance.outcome }}
+          DEPENDENCY_GUARD_RESULT: ${{ steps.dependency_guard.outcome }}
+          FOCUSED_RESULT: ${{ steps.focused.outcome }}
+          VIEWPORT_RESULT: ${{ steps.viewport.outcome }}
+          WORKBENCH3D_RESULT: ${{ steps.workbench3d.outcome }}
+          SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          STARTUP_RESULT: ${{ steps.startup.outcome }}
+          PACKAGE_EXPORT_B01_RESULT: ${{ steps.package_export_b01.outcome }}
+          PACKAGE_IMPORT_B01_RESULT: ${{ steps.package_import_b01.outcome }}
+          SIGN_OFF_B01_RESULT: ${{ steps.sign_off_b01.outcome }}
+          CHROMIUM_RESULT: ${{ steps.chromium.outcome }}
+          RETRY_GUARD_RESULT: ${{ steps.retry_guard.outcome }}
+          FULL_TEST_RESULT: ${{ steps.full_tests.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cat > artifacts/revision-compare-certification.json <<JSON
+          {
+            "schema": "RevisionCompareSignOffCertification.v1",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "expectedSha": "${EXPECTED_SHA}",
+            "actualSha": "${ACTUAL_SHA}",
+            "shaMatch": ${SHA_MATCH:-false},
+            "results": {
+              "scope": "${SCOPE_RESULT}",
+              "packageExportUnit": "${PACKAGE_EXPORT_UNIT_RESULT}",
+              "packageImportUnit": "${PACKAGE_IMPORT_UNIT_RESULT}",
+              "signOffUnit": "${SIGN_OFF_UNIT_RESULT}",
+              "sharedPropertyProvenance": "${SHARED_PROPERTY_PROVENANCE_RESULT}",
+              "propertyProvenance": "${PROPERTY_PROVENANCE_RESULT}",
+              "dependencyGuard": "${DEPENDENCY_GUARD_RESULT}",
+              "revisionCompare": "${FOCUSED_RESULT}",
+              "workbenchViewport": "${VIEWPORT_RESULT}",
+              "workbench3d": "${WORKBENCH3D_RESULT}",
+              "syntax": "${SYNTAX_RESULT}",
+              "startup": "${STARTUP_RESULT}",
+              "packageExportB01": "${PACKAGE_EXPORT_B01_RESULT}",
+              "packageImportB01": "${PACKAGE_IMPORT_B01_RESULT}",
+              "signOffB01": "${SIGN_OFF_B01_RESULT}",
+              "chromium": "${CHROMIUM_RESULT}",
+              "retryGuard": "${RETRY_GUARD_RESULT}",
+              "fullRepositoryTests": "${FULL_TEST_RESULT}"
+            }
+          }
+          JSON
+      - name: Upload exact-head sign-off certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-sign-off-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts/revision-compare-exact-head.json
+            artifacts/revision-compare-certification.json
+            artifacts/rc-sign-001-scope.txt
+            artifacts/revision-compare-sign-off-unit.log
+            artifacts/revision-compare-focused.log
+            artifacts/revision-compare-results.json
+            test-results/revision-compare
+          if-no-files-found: error
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-sign-off-failure-${{ env.EXPECTED_SHA }}
+          path: |
+            artifacts
+            test-results/revision-compare
+          if-no-files-found: warn
