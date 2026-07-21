@@ -56,7 +56,7 @@ jobs:
           git diff --check "$base" "$EXPECTED_SHA"
           git diff --name-only "$base" "$EXPECTED_SHA" | sort > "$ARTIFACT_DIR/changed-files.txt"
           ! grep -qx 'package-lock.json' "$ARTIFACT_DIR/changed-files.txt"
-          foundation_pattern='^(tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation|renderer|view)\.js|tabs/pipeline-3d-model/pipeline-3d-model-cad-workspace\.js|tabs/pipeline-3d-model/pipeline-3d-model-table(2x|3x)-canvas\.js|tests/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation|integration)\.test\.js|tests/browser/pipeline-cad-markup-(fixture\.html|spec\.mjs)|playwright\.pipeline-cad-markup\.config\.mjs|playwright\.pipeline-cad\.config\.mjs|package\.json|\.github/workflows/engineering-svg-readonly-shell\.yml)$'
+          foundation_pattern='^(tabs/pipeline-3d-model/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation)\.js|tabs/pipeline-3d-model/pipeline-3d-model-table(2x|3x)-canvas\.js|tests/pipeline-3d-model/cad-markup-(contracts|model|commands|reconciliation|integration)\.test\.js|tests/pipeline-3d-model-cad-markup-(contracts|model|commands|reconciliation|integration)\.test\.js|tests/browser/pipeline-cad-markup-(fixture\.html|spec\.mjs)|playwright\.pipeline-cad-markup\.config\.mjs|playwright\.pipeline-cad\.config\.mjs|package\.json|\.github/workflows/engineering-svg-readonly-shell\.yml)$'
           if grep -Eq "$foundation_pattern" "$ARTIFACT_DIR/changed-files.txt"; then
             echo 'scopeApplicable=true' >> "$ARTIFACT_DIR/scope-status.txt"
             while IFS= read -r path; do
