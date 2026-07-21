@@ -6,6 +6,10 @@ import {
 
 export const ENGINEERING_SVG_PROPERTY_VIEW_SCHEMA = 'EngineeringSvgPropertyView.v1';
 
+function owns(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
 function descriptorSignature(field) {
   return JSON.stringify({
     key: field.key,
@@ -20,9 +24,8 @@ function descriptorSignature(field) {
   });
 }
 
-function ownsPrevious(field) {
-  return Object.prototype.hasOwnProperty.call(field || {}, 'previousValue');
-}
+function ownsPrevious(field) { return owns(field, 'previousValue'); }
+function ownsPreviousSource(field) { return owns(field, 'previousSource'); }
 
 function fieldsForKey(propertySets, key, ownerId) {
   const owned = propertySets.flatMap((set) => (
@@ -34,8 +37,7 @@ function fieldsForKey(propertySets, key, ownerId) {
   )));
 }
 
-function assertResolvedEvidence(candidates, key, ownerId) {
-  const first = candidates[0];
+function assertValueEvidence(candidates, first, key, ownerId) {
   if (candidates.some((field) => !Object.is(field.value, first.value))) {
     throw new TypeError(`Property "${key}" has conflicting values for owner "${ownerId}".`);
   }
@@ -45,6 +47,25 @@ function assertResolvedEvidence(candidates, key, ownerId) {
   if (ownsPrevious(first) && candidates.some((field) => !Object.is(field.previousValue, first.previousValue))) {
     throw new TypeError(`Property "${key}" has conflicting previous values for owner "${ownerId}".`);
   }
+}
+
+function assertProvenanceEvidence(candidates, first, key, ownerId) {
+  if (candidates.some((field) => !Object.is(field.source, first.source))) {
+    throw new TypeError(`Property "${key}" has conflicting current sources for owner "${ownerId}".`);
+  }
+  if (candidates.some((field) => ownsPreviousSource(field) !== ownsPreviousSource(first))) {
+    throw new TypeError(`Property "${key}" has conflicting previous-source presence for owner "${ownerId}".`);
+  }
+  if (ownsPreviousSource(first)
+    && candidates.some((field) => !Object.is(field.previousSource, first.previousSource))) {
+    throw new TypeError(`Property "${key}" has conflicting previous sources for owner "${ownerId}".`);
+  }
+}
+
+function assertResolvedEvidence(candidates, key, ownerId) {
+  const first = candidates[0];
+  assertValueEvidence(candidates, first, key, ownerId);
+  assertProvenanceEvidence(candidates, first, key, ownerId);
 }
 
 function resolveField(propertySets, key, ownerId) {
@@ -75,13 +96,34 @@ function previousAggregateState(fields) {
   return fields.every((field) => Object.is(field.previousValue, fields[0].previousValue)) ? 'uniform' : 'mixed';
 }
 
-function previousEvidenceCount(fields, selectedCount) {
+function sourceAggregateState(fields, selectedCount) {
+  if (!selectedCount) return 'not-applicable';
+  if (fields.some((field) => field == null)) return 'unavailable';
+  if (fields.every((field) => field.source === null)) return 'not-applicable';
+  if (fields.some((field) => field.source === null)) return 'unavailable';
+  return fields.every((field) => Object.is(field.source, fields[0].source)) ? 'uniform' : 'mixed';
+}
+
+function previousSourceAggregateState(fields, selectedCount) {
+  if (!selectedCount) return 'not-applicable';
+  if (fields.every((field) => field != null && !ownsPreviousSource(field))) return 'not-applicable';
+  if (fields.some((field) => field == null || !ownsPreviousSource(field))) return 'unavailable';
+  return fields.every((field) => Object.is(field.previousSource, fields[0].previousSource)) ? 'uniform' : 'mixed';
+}
+
+function evidenceCount(fields, predicate, selectedCount) {
   if (!selectedCount) return 0;
-  return fields.filter((field) => field != null && ownsPrevious(field)).length;
+  return fields.filter((field) => field != null && predicate(field)).length;
 }
 
 function descriptorWithoutValues(field) {
-  const { value: _value, previousValue: _previousValue, ...descriptor } = field;
+  const {
+    value: _value,
+    previousValue: _previousValue,
+    source: _source,
+    previousSource: _previousSource,
+    ...descriptor
+  } = field;
   return createEngineeringPropertyField({ ...descriptor, value: null });
 }
 
@@ -95,6 +137,24 @@ function aggregateFor(key, state, fields, selectedCount, valueName) {
   return createEngineeringPropertyAggregate(input);
 }
 
+function buildPropertyView(key, fields, representative, selectedCount) {
+  const currentState = currentAggregateState(fields);
+  const previousState = previousAggregateState(fields);
+  const sourceState = sourceAggregateState(fields, selectedCount);
+  const previousSourceState = previousSourceAggregateState(fields, selectedCount);
+  return {
+    schema: ENGINEERING_SVG_PROPERTY_VIEW_SCHEMA,
+    field: descriptorWithoutValues(representative),
+    aggregate: aggregateFor(key, currentState, fields, selectedCount, 'value'),
+    previousAggregate: aggregateFor(key, previousState, fields, selectedCount, 'previousValue'),
+    previousEvidenceCount: evidenceCount(fields, ownsPrevious, selectedCount),
+    sourceAggregate: aggregateFor(key, sourceState, fields, selectedCount, 'source'),
+    previousSourceAggregate: aggregateFor(key, previousSourceState, fields, selectedCount, 'previousSource'),
+    sourceEvidenceCount: evidenceCount(fields, (field) => field.source !== null, selectedCount),
+    previousSourceEvidenceCount: evidenceCount(fields, ownsPreviousSource, selectedCount),
+  };
+}
+
 export function aggregateEngineeringSvgProperties(selectedIds, propertySets) {
   if (!Array.isArray(selectedIds) || !Array.isArray(propertySets)) {
     throw new TypeError('Property aggregation requires selected IDs and property sets.');
@@ -102,16 +162,9 @@ export function aggregateEngineeringSvgProperties(selectedIds, propertySets) {
   const owners = selectedIds.length ? selectedIds : [''];
   return freezeJsonValue(propertyKeys(propertySets).map((key) => {
     const fields = owners.map((ownerId) => resolveField(propertySets, key, ownerId));
-    const representative = fields.find(Boolean) || propertySets.flatMap((set) => set.fields).find((field) => field.key === key);
-    const currentState = currentAggregateState(fields);
-    const previousState = previousAggregateState(fields);
-    return {
-      schema: ENGINEERING_SVG_PROPERTY_VIEW_SCHEMA,
-      field: descriptorWithoutValues(representative),
-      aggregate: aggregateFor(key, currentState, fields, selectedIds.length, 'value'),
-      previousAggregate: aggregateFor(key, previousState, fields, selectedIds.length, 'previousValue'),
-      previousEvidenceCount: previousEvidenceCount(fields, selectedIds.length),
-    };
+    const representative = fields.find(Boolean)
+      || propertySets.flatMap((set) => set.fields).find((field) => field.key === key);
+    return buildPropertyView(key, fields, representative, selectedIds.length);
   }));
 }
 
