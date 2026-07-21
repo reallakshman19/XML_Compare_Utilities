@@ -149,6 +149,10 @@ async function bounded(page) {
     const before = stringify(auditValue); const controller = createRevisionComparePropertyInspector();
     await controller.render(host, auditValue, 'bounded-row');
     const text = (selector) => host.querySelector(selector)?.textContent;
+    const provenanceSelector = [
+      '[data-engineering-svg-property-previous-source]',
+      '[data-engineering-svg-property-current-source]',
+    ].join(', ');
     const result = { before, after: stringify(auditValue),
       shared: [...host.querySelectorAll('[data-engineering-svg-property-key]')].map((node) => node.dataset.engineeringSvgPropertyKey),
       fallback: [...host.querySelectorAll('[data-revc-property-fallback-key]')].map((node) => [node.dataset.revcPropertyFallbackKey, node.children[3]?.textContent]),
@@ -156,7 +160,11 @@ async function bounded(page) {
       validB: text('[data-engineering-svg-property-current-source="validSibling"]'),
       nullA: text('[data-engineering-svg-property-previous-source="nullPrevious"]'),
       nullB: text('[data-engineering-svg-property-current-source="nullCurrent"]'),
-      controls: host.querySelectorAll('input, select, button, a').length, mounted: controller.evidence().mountedViews };
+      provenanceControls: host.querySelectorAll(`${provenanceSelector} input, ${provenanceSelector} select, ${provenanceSelector} button, ${provenanceSelector} a`).length,
+      visibleControls: [...host.querySelectorAll('input, select, button, a')]
+        .filter((node) => !node.hidden && node.offsetParent !== null).length,
+      hiddenActions: host.querySelectorAll('[data-engineering-svg-inspector-actions][hidden] button').length,
+      mounted: controller.evidence().mountedViews };
     controller.dispose(); result.children = host.childElementCount; host.remove(); return result;
   });
 }
@@ -185,7 +193,8 @@ test('RC-SVG-005-B01 — shared Rev A/Rev B property provenance', async ({ page 
   expect(contained.fallback).toEqual([['invalidPrevious', 'INVALID_EVIDENCE_PATH'], ['invalidCurrent', 'INVALID_EVIDENCE_PATH']]);
   expect(contained.validA).toBe('Source:   C:\\Rev A\\value  '); expect(contained.validB).toBe('Source: urn:rev-b/value?x=1#field');
   expect(contained.nullA).toBe('Source: Explicitly unavailable'); expect(contained.nullB).toBe('Source: Explicitly unavailable');
-  expect(contained.controls).toBe(0); expect(contained.mounted).toBe(1); expect(contained.children).toBe(0);
+  expect(contained.provenanceControls).toBe(0); expect(contained.visibleControls).toBe(0);
+  expect(contained.hiddenActions).toBe(2); expect(contained.mounted).toBe(1); expect(contained.children).toBe(0);
 
   const initial = (await authority(page)).viewer; const fits = initial.fitCounts; const selected = initial.selectedIds;
   await page.getByRole('button', { name: 'Side-by-side' }).click(); await expect(page.locator('[data-revc-svg-pane-root="1"]')).toHaveCount(2);
