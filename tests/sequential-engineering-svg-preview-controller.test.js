@@ -3,7 +3,7 @@ import { mountSequentialEngineeringSvgPreviewController } from '../tabs/sequenti
 
 class FakeClassList { constructor() { this.values = new Set(); } toggle(name, enabled) { if (enabled) this.values.add(name); else this.values.delete(name); } }
 class FakeElement {
-  constructor(dataset = {}) { this.dataset = dataset; this.classList = new FakeClassList(); this.attrs = {}; this.hidden = false; this.disabled = false; this.children = []; }
+  constructor(dataset = {}) { this.dataset = dataset; this.classList = new FakeClassList(); this.attrs = {}; this.hidden = false; this.disabled = false; this.children = []; this.clientWidth = 1000; this.clientHeight = 660; }
   setAttribute(k, v) { this.attrs[k] = String(v); } removeAttribute(k) { delete this.attrs[k]; }
   replaceChildren() { this.children = []; } closest() { return null; }
 }
