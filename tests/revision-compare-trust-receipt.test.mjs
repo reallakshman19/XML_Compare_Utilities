@@ -103,4 +103,8 @@ assert.equal(reconcileRevisionCompareTrustReceiptState(attached, { status: 'CREA
 const production = await readFile(new URL('../tabs/revision-compare/revision-trust-receipt.js', import.meta.url), 'utf8');
 assert.doesNotMatch(production, /generateKey\s*\(|\.sign\s*\(|privateKey|private-key material/i);
 assert.doesNotMatch(production, /default export|export default/);
+const workspace = await readFile(new URL('../tabs/revision-compare/revision-compare-workspace.js', import.meta.url), 'utf8');
+assert.match(workspace, /let trustImportGeneration = 0;/);
+assert.match(workspace, /const generation = \+\+trustImportGeneration;/);
+assert.doesNotMatch(workspace, /state\.trustReceipt\?\.requestGeneration[^\n]*\+ 1/);
 console.log('revision-compare-trust-receipt.test.mjs passed');
