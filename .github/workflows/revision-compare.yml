@@ -9,6 +9,8 @@ on:
       - 'playwright.revision-compare.config.mjs'
       - 'package.json'
       - '.github/workflows/revision-compare.yml'
+  push:
+    branches: [rc-sign-001-completion-report]
   workflow_dispatch:
 permissions:
   contents: read
@@ -53,15 +55,15 @@ jobs:
         run: |
           set -uo pipefail
           mkdir -p artifacts
-          if [[ -z "$BASE_SHA" ]]; then
-            echo 'workflow_dispatch: PR scope comparison not applicable' > artifacts/rc-sign-001-scope.txt
-            echo 'scope_ok=true' >> "$GITHUB_OUTPUT"
-            exit 0
+          base_sha="$BASE_SHA"
+          if [[ -z "$base_sha" ]]; then
+            git fetch --no-tags origin main
+            base_sha="$(git merge-base HEAD origin/main)"
           fi
           set +e
-          git diff --check "$BASE_SHA" HEAD > artifacts/rc-sign-001-scope.txt 2>&1
+          git diff --check "$base_sha" HEAD > artifacts/rc-sign-001-scope.txt 2>&1
           diff_status=$?
-          python - "$BASE_SHA" >> artifacts/rc-sign-001-scope.txt 2>&1 <<'PY'
+          python - "$base_sha" >> artifacts/rc-sign-001-scope.txt 2>&1 <<'PY'
           import json
           import subprocess
           import sys
@@ -89,6 +91,7 @@ jobs:
               'package.json',
           }
           unexpected = [path for path in paths if path not in allowed]
+          print('base:', base)
           print('changed paths:', *paths, sep='\n- ')
           if unexpected:
               raise SystemExit(f'Unauthorized RC-SIGN-001 paths: {unexpected}')
@@ -248,6 +251,7 @@ jobs:
             "schema": "RevisionCompareSignOffCertification.v1",
             "workflowRunId": "${GITHUB_RUN_ID}",
             "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "eventName": "${GITHUB_EVENT_NAME}",
             "expectedSha": "${EXPECTED_SHA}",
             "actualSha": "${ACTUAL_SHA}",
             "shaMatch": ${SHA_MATCH:-false},
