@@ -62,6 +62,8 @@ const verified = await verifyRevisionCompareTrustReceipt(source.receipt, report,
 assert.deepEqual(source.receipt, before); assert.deepEqual(verified, source.receipt);
 assert(Object.isFrozen(verified) && Object.isFrozen(verified.signature.publicKeyJwk));
 assert.equal((await verifyRevisionCompareTrustReceiptJson(JSON.stringify(source.receipt), report, webcrypto)).receiptId, verified.receiptId);
+await assert.rejects(() => verifyRevisionCompareTrustReceiptJson('{"schema":"RevisionCompareExternalSignatureReceipt.v1","schema":"RevisionCompareExternalSignatureReceipt.v1"}', report, webcrypto), /duplicate field/);
+await assert.rejects(() => verifyRevisionCompareTrustReceipt(source.receipt, null, webcrypto), /retained RevisionCompareSignOffReport/);
 assert.equal(verified.receiptId, `${REVISION_COMPARE_TRUST_RECEIPT_ID_PREFIX}${verified.contentSha256}`);
 
 for (const [mutate, pattern, shouldRehash = true] of [
@@ -76,6 +78,9 @@ for (const [mutate, pattern, shouldRehash = true] of [
   [(value) => { value.signature.publicKeyJwk.e = 'Aw'; }, /exponent must be 65537/],
   [(value) => { value.signature.signatureBase64Url = `${value.signature.signatureBase64Url}=`; }, /unpadded base64url/],
   [(value) => { value.subject.sessionId = 'other-session'; }, /does not match the retained/],
+  [(value) => { value.subject.evidencePackageId = 'other-package'; }, /does not match the retained/],
+  [(value) => { value.subject.evidencePackageContentSha256 = 'c'.repeat(64); }, /does not match the retained/],
+  [(value) => { value.signature.signedAt = 'not-an-iso-time'; }, /exact ISO timestamp/],
 ]) {
   const value = structuredClone(source.receipt); mutate(value);
   if (shouldRehash) await rehash(value);
