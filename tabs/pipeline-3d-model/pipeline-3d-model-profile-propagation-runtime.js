@@ -1,8 +1,8 @@
 import {
   buildPipelineProjectMigration,
   buildPipelineProjectOutputs,
-} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-property-sections-1';
-import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-base-039-1';
+import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260722-p3d-base-039-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';

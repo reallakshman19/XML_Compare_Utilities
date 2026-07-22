@@ -8,7 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'M26 Pipeline canonical InputXML · 2026-07-22',
+  build: 'M27 P3D-BASE-039 parseable Pipeline baseline · 2026-07-22',
   defaultTab: 'xml-compare',
 });
 
@@ -76,7 +76,7 @@ async function loadPsnmUtilityRenderer() {
     import('../tabs/psnm-utility/psnm-phase4c-hardening.js?v=standalone-1'),
     import('../tabs/psnm-utility/psnm-phase4d-persistence.js?v=standalone-1'),
   ]);
-  return import('../tabs/psnm-utility-tab.js?v=standalone-20260722-p3d-canonical-document-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
+  return import('../tabs/psnm-utility-tab.js?v=standalone-20260722-p3d-base-039-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
 }
 
 function createAppShell(root) {

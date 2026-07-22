@@ -40,7 +40,7 @@ assert.match(config, /Array\.from\(\{ length: 9 \}/);
 assert.match(config, /`p\$\{index \+ 1\}`/);
 assert.match(config, /`t\$\{index \+ 1\}`/);
 assert.match(runtime, /CONFIG_FIELDS\.map\(\(field\) => field\.key\)/);
-assert.match(runtime, /project-adapter\.js\?v=20260722-p3d-property-sections-1/);
+assert.match(runtime, /project-adapter\.js\?v=20260722-p3d-base-039-1/);
 
 await import('./pipeline-3d-model-property-sections.test.js');
 console.log('Pipeline property-section static guards passed.');
