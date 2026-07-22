@@ -165,7 +165,7 @@ test('RC-SIGN-001-B01 — complete review and create deterministic sign-off repo
 
   await closeWorkspace(page); await expect(page.locator('[data-revc-sign-off]')).toHaveCount(0);
   expect(await page.evaluate(() => window.rcSignOffHarness.webglDisposed)).toBe(await page.evaluate(() => window.rcSignOffHarness.webglCreated));
-  await openWorkspace(page); await expect(page.locator('[data-revc-sign-off]')).toHaveCount(1); await expect(page.locator('[data-revc-create-sign-off]')).toHaveCount(1);
+  await openWorkspace(page); await expect(page.locator('[data-revc-sign-off],[data-revc-create-sign-off]')).toHaveCount(0);
   await closeWorkspace(page);
 
   await openWorkspace(page); await importPackage(page, completedPackage); await assertImportedRestrictions(page);
