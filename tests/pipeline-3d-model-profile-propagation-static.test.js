@@ -7,6 +7,7 @@ const sources = [
   'pipeline-3d-model-profile-output.js',
   'pipeline-3d-model-profile-propagation.js',
   'pipeline-3d-model-profile-propagation-runtime.js',
+  'pipeline-3d-model-identity.js',
   'pipeline-3d-model-warning-log.js',
 ].map((name) => ({
   name,
@@ -35,6 +36,7 @@ assert.match(propagation, /T1-\$\{String\(index \+ 1\)\.padStart\(3, '0'\)\}/);
 assert.match(propagation, /PLACEHOLDER_POINT_LABEL/);
 assert.match(propagation, /resolvePipelineElasticBends/);
 assert.match(propagation, /buildElasticBendLedgerText/);
+assert.match(propagation, /buildPipelineIdentityLedgerText/);
 assert.match(propagation, /buildInputXmlPipingModelXml\(branchInfo, elasticBends\.geometryRows, elasticBends\)/);
 assert.match(propagation, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
 assert.match(propagation, /markerRowsExcludedFromInputXml/);
@@ -62,6 +64,11 @@ assert.match(output, /originEvidence/);
 assert.match(output, /hText: '0\.0'/);
 assert.match(output, /\.\.\.originEvidence\(profile\)/);
 
+const identity = sources.find((source) => source.name === 'pipeline-3d-model-identity.js').text;
+assert.match(identity, /PipelineIdentityContext\.v1/);
+assert.match(identity, /DEFAULT_PIPELINE_BRANCH_NAME = 'B1'/);
+assert.match(identity, /SOURCE_LABEL_PRESERVED/);
+
 const warningLog = sources.find((source) => source.name === 'pipeline-3d-model-warning-log.js').text;
 assert.match(warningLog, /createElement\('details'\)/);
 assert.match(warningLog, /data-p3d-warning-log/);
@@ -81,9 +88,10 @@ assert.doesNotMatch(runtime, /MutationObserver/);
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
 assert.match(adapter, /input\?\.profileRaw/);
 assert.match(adapter, /buildAuthoritativePipelineOutputs/);
-assert.match(adapter, /20260721-bend-policy-v3-1/);
+assert.match(adapter, /20260722-p3d-identity-1/);
 assert.match(adapter, /Pipeline3DModelTables\.v1/);
 assert.match(adapter, /pipeline-elastic-bends\.tsv/);
+assert.match(adapter, /pipeline-identity-ledger\.tsv/);
 assert.match(adapter, /if \(!output\.xmlText\) return \[\]/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
@@ -91,14 +99,17 @@ assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 assert.match(addon, /Table 2 station\/elevation values are the sole generated-geometry Z authority/);
 assert.match(addon, /Table 3 HLength, Z text and PMS values are marker evidence only/);
-assert.match(addon, /20260721-bend-policy-v3-1/);
+assert.match(addon, /20260721-p3d-meta-phase1-2/);
 
 const utilityTab = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260721-bend-policy-v3-1/);
+assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260721-p3d-meta-phase1-2/);
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.match(packageJson.scripts['test:pipeline-table-paste'], /test:pipeline-profile-propagation/);
 assert.match(packageJson.scripts['test:pipeline-profile-propagation'], /pipeline-3d-model-elastic-bend\.test\.js/);
 assert.match(packageJson.scripts['test:pipeline-profile-propagation'], /pipeline-3d-model-elastic-bend-static\.test\.js/);
+
+await import('./pipeline-3d-model-identity-static.test.js');
+await import('./pipeline-3d-model-identity.test.js');
 
 console.log('Pipeline profile propagation static guards passed.');

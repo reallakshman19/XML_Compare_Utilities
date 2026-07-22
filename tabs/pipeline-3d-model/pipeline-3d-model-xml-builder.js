@@ -1,7 +1,12 @@
 // Builds "Coordinate tab" rows and a CAESARII>PIPINGMODEL>PIPINGELEMENT XML
 // document matching the actual input schema read by 3D_Converters'
 // InputXML->CII(2019) converter, as a standalone (no-DOM) utility.
-// Coordinate tab schema: [branchName, nodeNumber, x, y, z]  (mm)
+// Coordinate row identity: branch, line, node number, node name, source and XYZ.
+
+import {
+  resolvePipelineIdentityContext,
+  resolvePipelineNodeIdentity,
+} from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
 
 const M_TO_MM = 1000;
 const NODE_NUMBER_START = 100;
@@ -11,21 +16,33 @@ function toMm(meters) {
   return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000;
 }
 
-export function buildCoordinateRows(combinedPoints, branchName) {
-  return combinedPoints.map((point, index) => ({
-    branchName,
-    nodeNumber: NODE_NUMBER_START + index * NODE_NUMBER_STEP,
-    x: toMm(point.x),
-    y: toMm(point.y),
-    z: toMm(point.z),
-    nodeName: point.label || '',
-    horizontal: point.horizontal,
-  }));
+export function buildCoordinateRows(combinedPoints, identityInput = {}) {
+  const identity = resolvePipelineIdentityContext(identityInput);
+  return combinedPoints.map((point, index) => {
+    const node = resolvePipelineNodeIdentity(point);
+    return {
+      branchName: identity.branchName,
+      lineNo: identity.lineNo,
+      nodeNumber: NODE_NUMBER_START + index * NODE_NUMBER_STEP,
+      x: toMm(point.x),
+      y: toMm(point.y),
+      z: toMm(point.z),
+      nodeName: node.nodeName,
+      nodeNameSource: node.nodeNameSource,
+      horizontal: point.horizontal,
+    };
+  });
 }
 
 export function coordinateRowsToTabText(rows) {
-  const header = ['BranchName', 'NodeNumber', 'X(mm)', 'Y(mm)', 'Z(mm)', 'NodeName'].join('\t');
-  const lines = rows.map((r) => [r.branchName, r.nodeNumber, r.x, r.y, r.z, r.nodeName].join('\t'));
+  const header = [
+    'BranchName', 'LineNo', 'NodeNumber', 'X(mm)', 'Y(mm)', 'Z(mm)',
+    'NodeName', 'NodeNameSource',
+  ].join('\t');
+  const lines = rows.map((row) => [
+    row.branchName, row.lineNo, row.nodeNumber, row.x, row.y, row.z,
+    row.nodeName, row.nodeNameSource,
+  ].join('\t'));
   return [header, ...lines].join('\n');
 }
 
@@ -113,7 +130,7 @@ function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
     attr('FLUID_DENSITY', num(branchInfo.fluidDensity)),
     attr('INSUL_DENSITY', num(branchInfo.insulationDensity)),
     attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
-    attr('LINE', branchInfo.lineNo || ''),
+    attr('LINE', branchInfo.lineNo || fromRow.lineNo || ''),
     attr('FROM_NAME', fromRow.nodeName),
     attr('TO_NAME', toRow.nodeName),
   ];
@@ -133,10 +150,12 @@ function assertBendExportReady(bendResolution) {
 
 export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, bendResolution = null) {
   assertBendExportReady(bendResolution);
+  const identity = resolvePipelineIdentityContext(branchInfo);
+  const resolvedBranchInfo = { ...branchInfo, branchName: identity.branchName, lineNo: identity.lineNo };
   const elements = [];
   for (let i = 1; i < coordinateRows.length; i += 1) {
     const bend = bendResolution?.bendByIncomingElementIndex?.[i - 1] || null;
-    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], branchInfo, bend));
+    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], resolvedBranchInfo, bend));
   }
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',

@@ -1,10 +1,11 @@
-import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260721-bend-policy-v3-1';
+import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-identity-1';
 import {
   DEFAULT_ELASTIC_BEND_SETTINGS,
   loadElasticBendSettings,
   normalizeElasticBendSettings,
   saveElasticBendSettings,
 } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-p3d-meta-phase1-2';
+import { resolvePipelineIdentityContext } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
 import { renderBendCandidates, renderBendSummary } from './pipeline-3d-model-elastic-bend-ui-results.js?v=20260721-bend-policy-v3-1';
 import { installBendSettingsStyle } from './pipeline-3d-model-elastic-bend-ui-style.js?v=20260721-bend-policy-v3-1';
 import {
@@ -21,12 +22,16 @@ function raw(dialog, name) {
   return dialog.querySelector(`[data-p3d-split="${name}"]`)?.value || '';
 }
 
-function buildInput(dialog, settings) {
-  const branchInfo = { branchName: 'B1' };
+function buildBranchInfo(dialog) {
+  const values = {};
   for (const input of dialog.querySelectorAll('[data-p3d-field]')) {
-    branchInfo[input.dataset.p3dField] = input.value?.trim() || '';
+    values[input.dataset.p3dField] = input.value?.trim() || '';
   }
-  branchInfo.branchName = branchInfo.lineNo || 'B1';
+  const identity = resolvePipelineIdentityContext(values);
+  return { ...values, branchName: identity.branchName, lineNo: identity.lineNo };
+}
+
+function buildInput(dialog, settings) {
   return {
     table1Text: dialog.querySelector('[data-p3d="table1"]')?.value || '',
     table2Text: dialog.querySelector('[data-p3d="table2"]')?.value || '',
@@ -37,7 +42,7 @@ function buildInput(dialog, settings) {
       table3b: raw(dialog, 'table3b-raw'),
       table3c: raw(dialog, 'table3c-raw'),
     },
-    branchInfo,
+    branchInfo: buildBranchInfo(dialog),
     elasticBendSettings: settings,
   };
 }
@@ -129,5 +134,6 @@ export const _test = Object.freeze({
   pageHtml: bendSettingsPageHtml,
   readSettings: (page) => readBendSettings(page, normalizeElasticBendSettings),
   buildInput,
+  buildBranchInfo,
   syncVisibility: syncBendSettingsVisibility,
 });
