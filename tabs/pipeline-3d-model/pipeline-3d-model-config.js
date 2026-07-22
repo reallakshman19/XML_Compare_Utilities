@@ -15,6 +15,20 @@ if (globalThis.document) installPipelineCadWorkspaceComposition(globalThis.docum
 
 export const STORAGE_KEY = 'pipeline-3d-model-config-v1';
 
+const pressureFields = Array.from({ length: 9 }, (_, index) => Object.freeze({
+  key: `p${index + 1}`,
+  label: `P${index + 1}${index === 0 ? ' (Design Pressure)' : ''}`,
+  unit: '',
+  default: '',
+}));
+
+const temperatureFields = Array.from({ length: 9 }, (_, index) => Object.freeze({
+  key: `t${index + 1}`,
+  label: `T${index + 1}`,
+  unit: 'Deg C',
+  default: index === 0 ? '120' : (index === 1 ? '90' : (index === 2 ? '5' : '')),
+}));
+
 export const CONFIG_FIELDS = Object.freeze([
   { key: 'jobName', label: 'Job Name', unit: '', default: 'PIPELINE_3D_MODEL' },
   { key: 'issueNo', label: 'Issue No', unit: '', default: '' },
@@ -23,10 +37,8 @@ export const CONFIG_FIELDS = Object.freeze([
   { key: 'lineNo', label: 'Line No', unit: '', default: 'PL-XX' },
   { key: 'boreMm', label: 'Bore', unit: 'mm', default: '' },
   { key: 'wallThickness', label: 'Wall Thickness', unit: 'mm', default: '' },
-  { key: 'p1', label: 'P1 (Design Pressure)', unit: '', default: '' },
-  { key: 't1', label: 'T1', unit: 'Deg C', default: '120' },
-  { key: 't2', label: 'T2', unit: 'Deg C', default: '90' },
-  { key: 't3', label: 'T3', unit: 'Deg C', default: '5' },
+  ...pressureFields,
+  ...temperatureFields,
   { key: 'fluidDensity', label: 'Fluid Density', unit: 'kg/m3', default: '100' },
   { key: 'materialCode', label: 'Material No (CAESAR MATERIAL_NUM)', unit: '', default: '106' },
   { key: 'corrosionAllowance', label: 'Corrosion Allowance', unit: 'mm', default: '0' },

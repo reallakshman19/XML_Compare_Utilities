@@ -1,7 +1,8 @@
 import {
   buildPipelineProjectMigration,
   buildPipelineProjectOutputs,
-} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-canonical-document-1';
+} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-property-sections-1';
+import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260722-p3d-property-sections-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -13,11 +14,7 @@ import {
 } from './pipeline-3d-model-warning-log.js?v=20260718-warning-log-1';
 
 const INSTANCES = new WeakMap();
-const CONFIG_KEYS = Object.freeze([
-  'jobName', 'issueNo', 'caesarVersion', 'branchName', 'lineNo', 'boreMm',
-  'wallThickness', 'p1', 't1', 't2', 't3', 'fluidDensity', 'materialCode',
-  'corrosionAllowance', 'insulationThickness', 'insulationDensity', 'hydroPressure',
-]);
+const CONFIG_KEYS = Object.freeze(CONFIG_FIELDS.map((field) => field.key));
 const RAW_HEADERS = Object.freeze({
   'table2a-raw': TABLE_HEADERS.table2a,
   'table3a-raw': TABLE_HEADERS.table3a,
@@ -54,9 +51,7 @@ function readProfileRaw(dialog) {
 
 function readBranchInfo(dialog) {
   const value = (key) => find(dialog, `[data-p3d-field="${key}"]`)?.value?.trim() || '';
-  const info = {};
-  CONFIG_KEYS.forEach((key) => { info[key] = value(key); });
-  return info;
+  return Object.fromEntries(CONFIG_KEYS.map((key) => [key, value(key)]));
 }
 
 function buildInput(dialog) {
@@ -280,4 +275,7 @@ export function installPipelineProfilePropagation(dialog) {
   return instance.destroy;
 }
 
-export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile, rawTextFromPreview, renderTsvGrid, setWarnings });
+export const _test = Object.freeze({
+  buildInput, readBranchInfo, hasAuthoritativeProfile, rawTextFromPreview,
+  renderTsvGrid, setWarnings,
+});
