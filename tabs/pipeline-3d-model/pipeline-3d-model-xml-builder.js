@@ -1,9 +1,10 @@
-// Builds "Coordinate tab" rows and a CAESARII>PIPINGMODEL>PIPINGELEMENT XML
-// document matching the actual input schema read by 3D_Converters'
-// InputXML->CII(2019) converter, as a standalone (no-DOM) utility.
+// Builds deterministic canonical CAESAR II InputXML from resolved Pipeline evidence.
 // Coordinate row identity: branch, line, node number, node name, source and XYZ.
 
-import { exportContextBranchInfo } from './pipeline-3d-model-export-context.js?v=20260722-p3d-export-context-1';
+import {
+  buildPipelineInputXmlDocumentPlan,
+  PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-canonical-document-1';
 import {
   resolvePipelineIdentityContext,
   resolvePipelineNodeIdentity,
@@ -48,129 +49,159 @@ export function coordinateRowsToTabText(rows) {
 }
 
 function esc(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-const SENTINEL_MISSING = '-1.010100';
-
-function num(value, fallback = SENTINEL_MISSING) {
-  if (value === '' || value == null) return fallback;
-  const n = Number(value);
-  return Number.isFinite(n) ? String(n) : fallback;
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
 }
 
 function attr(name, value) {
   return `${name}="${esc(value)}"`;
 }
 
+function optionalAttr(attrs, name, value) {
+  if (value === '' || value == null || !Number.isFinite(Number(value))) return;
+  attrs.push(attr(name, Number(value)));
+}
+
+function optionalTextAttr(attrs, name, value) {
+  const text = String(value ?? '').trim();
+  if (text) attrs.push(attr(name, text));
+}
+
 function usableCurvatureNodes(bend) {
   const turnAngleDeg = Number(bend?.turnAngleDeg);
   return (bend?.curvatureNodes || []).filter((node) => {
-    const angle = Number(node?.angleDeg), nodeNumber = Number(node?.nodeNumber);
+    const angle = Number(node?.angleDeg);
+    const nodeNumber = Number(node?.nodeNumber);
     return Number.isFinite(angle) && angle >= 0
-      && Number.isFinite(nodeNumber) && nodeNumber > 0
+      && Number.isInteger(nodeNumber) && nodeNumber > 0
       && (!Number.isFinite(turnAngleDeg) || angle < turnAngleDeg - 1e-7);
   }).slice(0, 3);
-}
-
-function bendNodeAttributes(bend) {
-  const nodes = usableCurvatureNodes(bend);
-  const attrs = [];
-  for (let slot = 1; slot <= 3; slot += 1) {
-    const node = nodes[slot - 1];
-    attrs.push(attr(`ANGLE${slot}`, node ? num(node.angleDeg) : SENTINEL_MISSING));
-    attrs.push(attr(`NODE${slot}`, node ? num(node.nodeNumber) : SENTINEL_MISSING));
-  }
-  return attrs;
 }
 
 function bendXml(bend) {
   const radius = Number(bend?.radiusMm);
   if (!Number.isFinite(radius) || radius <= 0) return '';
-  const attrs = [
-    attr('RADIUS', radius),
-    attr('TYPE', num(bend.bendTypeCode, '0')),
-    ...bendNodeAttributes(bend),
-    attr('NUM_MITER', '0'),
-    attr('FITTINGTHICKNESS', SENTINEL_MISSING),
-    attr('KFACTOR', SENTINEL_MISSING),
-  ];
+  const attrs = [attr('RADIUS', radius)];
+  const typeCode = Number(bend?.bendTypeCode);
+  if (Number.isInteger(typeCode)) attrs.push(attr('TYPE', typeCode));
+  usableCurvatureNodes(bend).forEach((node, index) => {
+    const slot = index + 1;
+    attrs.push(attr(`ANGLE${slot}`, Number(node.angleDeg)));
+    attrs.push(attr(`NODE${slot}`, Number(node.nodeNumber)));
+  });
+  attrs.push(attr('NUM_MITER', 0));
+  optionalAttr(attrs, 'FITTINGTHICKNESS', bend?.fittingThicknessMm);
+  optionalAttr(attrs, 'KFACTOR', bend?.kfactor);
   return `<BEND ${attrs.join(' ')}/>`;
 }
 
-function pipingElementXml(fromRow, toRow, branchInfo, bend = null) {
+function propertyAttributes(properties) {
+  const attrs = [];
+  optionalAttr(attrs, 'DIAMETER', properties?.diameter);
+  optionalAttr(attrs, 'WALL_THICK', properties?.wallThickness);
+  optionalAttr(attrs, 'INSUL_THICK', properties?.insulationThickness);
+  optionalAttr(attrs, 'CORR_ALLOW', properties?.corrosionAllowance);
+  (properties?.temperatures || []).forEach((value, index) =>
+    optionalAttr(attrs, `TEMP_EXP_C${index + 1}`, value));
+  (properties?.pressures || []).forEach((value, index) =>
+    optionalAttr(attrs, `PRESSURE_C${index + 1}`, value));
+  optionalAttr(attrs, 'HYDRO_PRESSURE', properties?.hydroPressure);
+  optionalAttr(attrs, 'INSUL_DENSITY', properties?.insulationDensity);
+  optionalAttr(attrs, 'FLUID_DENSITY', properties?.fluidDensity);
+  optionalAttr(attrs, 'MATERIAL_NUM', properties?.materialNumber);
+  return attrs;
+}
+
+function pipingElementXml(element) {
   const attrs = [
-    attr('FROM_NODE', fromRow.nodeNumber),
-    attr('TO_NODE', toRow.nodeNumber),
-    attr('DELTA_X', num(toRow.x - fromRow.x)),
-    attr('DELTA_Y', num(toRow.y - fromRow.y)),
-    attr('DELTA_Z', num(toRow.z - fromRow.z)),
-    attr('DIAMETER', num(branchInfo.boreMm)),
-    attr('WALL_THICK', num(branchInfo.wallThickness)),
-    attr('INSUL_THICK', num(branchInfo.insulationThickness)),
-    attr('CORR_ALLOW', num(branchInfo.corrosionAllowance)),
-    attr('TEMP_EXP_C1', num(branchInfo.t1)),
-    attr('TEMP_EXP_C2', num(branchInfo.t2)),
-    attr('TEMP_EXP_C3', num(branchInfo.t3)),
-    attr('TEMP_EXP_C4', '0'),
-    attr('TEMP_EXP_C5', '0'),
-    attr('TEMP_EXP_C6', '0'),
-    attr('TEMP_EXP_C7', '0'),
-    attr('TEMP_EXP_C8', '0'),
-    attr('TEMP_EXP_C9', '0'),
-    attr('PRESSURE_C1', num(branchInfo.p1)),
-    attr('PRESSURE_C2', '0'),
-    attr('PRESSURE_C3', '0'),
-    attr('PRESSURE_C4', '0'),
-    attr('PRESSURE_C5', '0'),
-    attr('PRESSURE_C6', '0'),
-    attr('PRESSURE_C7', '0'),
-    attr('PRESSURE_C8', '0'),
-    attr('PRESSURE_C9', '0'),
-    attr('MATERIAL_NUM', num(branchInfo.materialCode)),
-    attr('FLUID_DENSITY', num(branchInfo.fluidDensity)),
-    attr('INSUL_DENSITY', num(branchInfo.insulationDensity)),
-    attr('HYDRO_PRESSURE', num(branchInfo.hydroPressure)),
-    attr('LINE', branchInfo.lineNo || fromRow.lineNo || ''),
-    attr('FROM_NAME', fromRow.nodeName),
-    attr('TO_NAME', toRow.nodeName),
+    attr('ID', element.id),
+    attr('FROM_NODE', element.fromNode),
+    attr('TO_NODE', element.toNode),
+    attr('DELTA_X', element.deltaX),
+    attr('DELTA_Y', element.deltaY),
+    attr('DELTA_Z', element.deltaZ),
+    ...propertyAttributes(element.properties),
   ];
-  const child = bendXml(bend);
+  optionalTextAttr(attrs, 'FROM_NAME', element.fromName);
+  optionalTextAttr(attrs, 'TO_NAME', element.toName);
+  attrs.push(attr('LINE', element.line));
+  attrs.push(attr('FROM_X', element.fromX));
+  attrs.push(attr('FROM_Y', element.fromY));
+  attrs.push(attr('FROM_Z', element.fromZ));
+  attrs.push(attr('TO_X', element.toX));
+  attrs.push(attr('TO_Y', element.toY));
+  attrs.push(attr('TO_Z', element.toZ));
+  const child = bendXml(element.bend);
   if (!child) return `<PIPINGELEMENT ${attrs.join(' ')}/>`;
   return `<PIPINGELEMENT ${attrs.join(' ')}>\n${child}\n</PIPINGELEMENT>`;
 }
 
-function assertBendExportReady(bendResolution) {
-  if (!bendResolution?.hasBlockingErrors) return;
-  const first = bendResolution.errors?.[0];
-  const error = new Error(first?.message || 'Bend geometry blocks InputXML serialization.');
-  error.code = first?.code || 'BEND_GEOMETRY_BLOCKED';
+function modelAttributes(plan) {
+  const { metadata, counts } = plan;
+  const attrs = [attr('JOBNAME', metadata.jobName)];
+  optionalTextAttr(attrs, 'TIME', metadata.timeText);
+  optionalTextAttr(attrs, 'ISSUE_NO', metadata.issueNo);
+  attrs.push(
+    attr('NUMELT', counts.numElt),
+    attr('NUMNOZ', counts.numNoz),
+    attr('NOHGRS', counts.noHgrs),
+    attr('NUMBEND', counts.numBend),
+    attr('NUMRIGID', counts.numRigid),
+    attr('NUMEXPJNT', counts.numExpJnt),
+    attr('NUMREST', counts.numRest),
+    attr('NUMFORCMNT', counts.numForcMnt),
+    attr('NUMUNFLOAD', counts.numUnfLoad),
+    attr('NUMWIND', counts.numWind),
+    attr('NUMELEOFF', counts.numEleOff),
+    attr('NUMALLOW', counts.numAllow),
+    attr('NUMISECT', counts.numISect),
+    attr('NORTH_X', metadata.northX),
+    attr('NORTH_Y', metadata.northY),
+    attr('NORTH_Z', metadata.northZ),
+  );
+  return attrs;
+}
+
+function resolvedPlan(input, coordinateRows, bendResolution) {
+  if (input?.schema === PIPELINE_INPUTXML_DOCUMENT_SCHEMA) return input;
+  return buildPipelineInputXmlDocumentPlan({
+    exportContext: input,
+    coordinateRows,
+    bendResolution,
+  });
+}
+
+function assertDocumentReady(plan) {
+  if (plan.ready) return;
+  const first = plan.diagnostics?.[0];
+  const error = new Error(first?.message || 'Canonical InputXML document planning failed.');
+  error.code = first?.code || 'PIPELINE_INPUTXML_DOCUMENT_BLOCKED';
   error.details = first?.details || {};
+  error.blockerCodes = plan.blockerCodes || [];
   throw error;
 }
 
-export function buildInputXmlPipingModelXml(exportInput, coordinateRows, bendResolution = null) {
-  assertBendExportReady(bendResolution);
-  const sourceBranchInfo = exportContextBranchInfo(exportInput);
-  const identity = resolvePipelineIdentityContext(sourceBranchInfo);
-  const resolvedBranchInfo = {
-    ...sourceBranchInfo,
-    branchName: identity.branchName,
-    lineNo: identity.lineNo,
-  };
-  const elements = [];
-  for (let i = 1; i < coordinateRows.length; i += 1) {
-    const bend = bendResolution?.bendByIncomingElementIndex?.[i - 1] || null;
-    elements.push(pipingElementXml(coordinateRows[i - 1], coordinateRows[i], resolvedBranchInfo, bend));
-  }
+export function buildInputXmlPipingModelXml(input, coordinateRows = [], bendResolution = null) {
+  const plan = resolvedPlan(input, coordinateRows, bendResolution);
+  assertDocumentReady(plan);
+  const rootAttrs = [
+    attr('xmlns', plan.namespace),
+    attr('xmlns:ext', plan.extensionNamespace),
+    attr('VERSION', plan.version),
+    attr('XML_TYPE', plan.xmlType),
+  ];
+  const modelAttrs = [attr('xmlns', ''), ...modelAttributes(plan)];
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<CAESARII>',
-    `<PIPINGMODEL NUMELEMENTS="${elements.length}" NUMREST="0">`,
-    ...elements,
+    `<CAESARII ${rootAttrs.join(' ')}>`,
+    `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
+    ...plan.elements.map(pipingElementXml),
     '</PIPINGMODEL>',
     '</CAESARII>',
   ].join('\n');
 }
 
-export const _internal = { toMm, SENTINEL_MISSING, bendXml, usableCurvatureNodes };
+export const _internal = {
+  toMm, bendXml, usableCurvatureNodes, propertyAttributes, modelAttributes,
+};

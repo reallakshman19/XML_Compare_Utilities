@@ -1,7 +1,7 @@
 import {
   buildPipelineProjectMigration,
   buildPipelineProjectOutputs,
-} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-export-context-1';
+} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-canonical-document-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -14,9 +14,9 @@ import {
 
 const INSTANCES = new WeakMap();
 const CONFIG_KEYS = Object.freeze([
-  'branchName', 'lineNo', 'boreMm', 'wallThickness', 'p1', 't1', 't2', 't3',
-  'fluidDensity', 'materialCode', 'corrosionAllowance', 'insulationThickness',
-  'insulationDensity', 'hydroPressure',
+  'jobName', 'issueNo', 'caesarVersion', 'branchName', 'lineNo', 'boreMm',
+  'wallThickness', 'p1', 't1', 't2', 't3', 'fluidDensity', 'materialCode',
+  'corrosionAllowance', 'insulationThickness', 'insulationDensity', 'hydroPressure',
 ]);
 const RAW_HEADERS = Object.freeze({
   'table2a-raw': TABLE_HEADERS.table2a,
@@ -64,7 +64,7 @@ function buildInput(dialog) {
     table1Text: find(dialog, '[data-p3d="table1"]')?.value || '',
     table2Text: find(dialog, '[data-p3d="table2"]')?.value || '',
     table3Text: find(dialog, '[data-p3d="table3"]')?.value || '',
-    profileRaw: readProfileRaw(dialog),
+    profileRaw: hasAuthoritativeProfile(dialog) ? readProfileRaw(dialog) : null,
     branchInfo: readBranchInfo(dialog),
   };
 }
@@ -206,16 +206,9 @@ function download(dialog, instance, kind) {
     saveTextFile('pipeline-coordinate-tab.tsv', output.coordinateText, 'text/tab-separated-values');
     return;
   }
-  const branchInfo = readBranchInfo(dialog);
-  const blanks = CONFIG_KEYS.filter((key) => !branchInfo[key]);
-  if (blanks.length) {
-    logWarning(
-      dialog,
-      instance,
-      'missing_branch_fields',
-      `XML was downloaded with missing Line / Branch fields: ${blanks.join(', ')}.`,
-      { missingFields: blanks },
-    );
+  if (!output.xmlText) {
+    logWarning(dialog, instance, 'inputxml_blocked', `Canonical InputXML is blocked: ${output.exportQualification?.blockerCodes?.join(', ') || 'unknown blocker'}.`);
+    return;
   }
   saveTextFile('pipeline-3d-model.xml', output.xmlText, 'application/xml');
 }
@@ -264,7 +257,6 @@ function onClick(dialog, instance, event) {
   const target = event.target instanceof Element ? event.target.closest('button') : null;
   const action = target?.dataset.p3d;
   if (!['run', 'download-coordinate', 'download-xml'].includes(action)) return;
-  if (!hasAuthoritativeProfile(dialog) && !instance.output) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   if (action === 'run') run(dialog, instance);

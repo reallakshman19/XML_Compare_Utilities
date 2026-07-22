@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=20260722-p3d-export-context-1');
+  const module = await import('./core/app.js?v=20260722-p3d-canonical-document-1');
   await module.init(startupMount());
 }
 
