@@ -14,11 +14,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  issues: write
 env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
 jobs:
   certify:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 170
     steps:
@@ -300,3 +302,11 @@ jobs:
             artifacts
             test-results/revision-compare
           if-no-files-found: warn
+      - name: Publish push certification receipt
+        if: always() && github.event_name == 'push' && github.ref_name == 'rc-sign-001-completion-report'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          body="RC-SIGN-001 push certification receipt\n\nRun: ${GITHUB_RUN_ID}\nAttempt: ${GITHUB_RUN_ATTEMPT}\nHead: ${EXPECTED_SHA}\nJob status: ${JOB_STATUS}\nArtifact: revision-compare-sign-off-${EXPECTED_SHA}"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/510/comments" -f body="$body"
