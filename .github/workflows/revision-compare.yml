@@ -16,7 +16,6 @@ env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   certify:
-    if: github.event_name != 'pull_request' || github.event.pull_request.number != 512
     runs-on: ubuntu-latest
     timeout-minutes: 170
     steps:
