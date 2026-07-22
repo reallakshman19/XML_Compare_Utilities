@@ -19,23 +19,28 @@ import {
 import {
   createRevisionCompareSignOffState, signOffStateForReadiness, staleRevisionCompareSignOffState,
 } from './revision-sign-off.js';
+import {
+  REVISION_COMPARE_TRUST_STATUS, createRevisionCompareTrustReceiptState,
+  reconcileRevisionCompareTrustReceiptState,
+} from './revision-trust-receipt.js';
 
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v6';
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v7';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
 });
 export const REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR = 'Close this workspace and open a new Revision Compare workspace before importing an evidence package.';
+export const REVISION_TRUST_REPORT_REQUIRED_ERROR = 'Create or retain a completion report before importing an external signature receipt.';
 export const BASIS_STATUS = Object.freeze({ NONE: 'NONE', CURRENT: 'CURRENT', STALE: 'STALE' });
 function staleStatus(state) { return state.basis ? BASIS_STATUS.STALE : BASIS_STATUS.NONE; }
 function invalidated(state, updatedAt) {
   return { compare: invalidateComparisonState(state.compare), review: staleReviewLifecycle(state.review, updatedAt), decision: staleDecisionLifecycle(state.decision, updatedAt) };
 }
 function signOffAfterAuthorityChange(previous, next) {
-  const signOff = previous?.signOff?.report
-    ? staleRevisionCompareSignOffState(previous.signOff)
-    : signOffStateForReadiness({ ...next, signOff: previous?.signOff ?? createRevisionCompareSignOffState() });
-  return deepFreeze({ ...next, signOff });
+  const prior = previous?.signOff ?? createRevisionCompareSignOffState();
+  const signOff = prior.report ? staleRevisionCompareSignOffState(prior) : signOffStateForReadiness({ ...next, signOff: prior });
+  const trustReceipt = reconcileRevisionCompareTrustReceiptState(previous?.trustReceipt, signOff);
+  return deepFreeze({ ...next, signOff, trustReceipt });
 }
 export function createRevisionEvidencePackageImportState() {
   return deepFreeze({
@@ -60,6 +65,7 @@ export function createRevisionWorkspaceState(sessionId, createdAt) {
     search: { common: '', revAOnly: '', revBOnly: '' }, message: 'Load Rev A and Rev B staged JSON files.',
     compare: createComparisonLifecycleState(), review: createReviewLifecycleState(), decision: createDecisionLifecycleState(),
     evidencePackageImport: createRevisionEvidencePackageImportState(), signOff: createRevisionCompareSignOffState(),
+    trustReceipt: createRevisionCompareTrustReceiptState(),
   });
 }
 export function startWorkspaceEvidencePackageImport(state, generation, fileName) {
@@ -125,6 +131,38 @@ export function completeWorkspaceEvidencePackageImport(state, generation, verifi
   };
   return signOffAfterAuthorityChange(state, next);
 }
+function currentTrust(state) { return state.trustReceipt ?? createRevisionCompareTrustReceiptState(); }
+export function startWorkspaceTrustReceiptImport(state, generation, fileName) {
+  const current = currentTrust(state); const report = state.signOff?.report;
+  const next = deepFreeze({ ...current, status: REVISION_COMPARE_TRUST_STATUS.IMPORTING,
+    requestGeneration: generation, fileName: String(fileName ?? ''), error: null });
+  if (!report) return deepFreeze({ ...state, trustReceipt: deepFreeze({ ...next,
+    status: REVISION_COMPARE_TRUST_STATUS.FAILED, error: REVISION_TRUST_REPORT_REQUIRED_ERROR }), message: REVISION_TRUST_REPORT_REQUIRED_ERROR });
+  return deepFreeze({ ...state, trustReceipt: next, message: 'Importing and verifying external signature receipt…' });
+}
+export function failWorkspaceTrustReceiptImport(state, generation, error) {
+  const current = currentTrust(state); if (current.requestGeneration !== generation) return state;
+  const message = String(error?.message ?? error);
+  return deepFreeze({ ...state, trustReceipt: deepFreeze({ ...current,
+    status: REVISION_COMPARE_TRUST_STATUS.FAILED,
+    cryptographicStatus: current.receipt ? 'VALID' : 'INVALID', error: message }), message });
+}
+export function completeWorkspaceTrustReceiptImport(state, generation, receipt) {
+  const current = currentTrust(state);
+  if (current.requestGeneration !== generation || current.status !== REVISION_COMPARE_TRUST_STATUS.IMPORTING) return state;
+  const report = state.signOff?.report;
+  if (!report || receipt.subject.signOffReportId !== report.reportId || receipt.subject.signOffContentSha256 !== report.contentSha256) {
+    return failWorkspaceTrustReceiptImport(state, generation, 'The verified receipt no longer matches the retained completion report.');
+  }
+  const status = state.signOff.status === 'CREATED'
+    ? REVISION_COMPARE_TRUST_STATUS.VERIFIED_CURRENT : REVISION_COMPARE_TRUST_STATUS.VERIFIED_HISTORICAL;
+  return deepFreeze({ ...state, trustReceipt: deepFreeze({
+    schema: 'RevisionCompareTrustReceiptState.v1', status, requestGeneration: generation,
+    fileName: current.fileName, receipt, receiptId: receipt.receiptId, contentSha256: receipt.contentSha256,
+    publicKeySha256: receipt.signature.publicKeySha256, cryptographicStatus: 'VALID',
+    identityStatus: 'EXTERNALLY_ASSERTED', trustStatus: 'NOT_ESTABLISHED', error: null,
+  }), message: 'External signature receipt verified.' });
+}
 export function startWorkspaceLoad(state, slotId, generation, fileName, fileSizeBytes, updatedAt) {
   return signOffAfterAuthorityChange(state, {
     ...state, session: detachProjectDocument(state.session, slotId, updatedAt),
@@ -167,9 +205,7 @@ export function resetWorkspaceSlot(state, slotId, generation, updatedAt) {
   });
 }
 export function startWorkspaceComparison(state, token) { return signOffAfterAuthorityChange(state, { ...state, compare: startComparisonState(state.compare, token), message: 'Projecting approved revision scope.' }); }
-export function progressWorkspaceComparison(state, token, progress) {
-  const compare = progressComparisonState(state.compare, token, progress); return compare === state.compare ? state : deepFreeze({ ...state, compare, message: progress.stage });
-}
+export function progressWorkspaceComparison(state, token, progress) { const compare = progressComparisonState(state.compare, token, progress); return compare === state.compare ? state : deepFreeze({ ...state, compare, message: progress.stage }); }
 export function completeWorkspaceComparison(state, token, audit, updatedAt) {
   const compare = completeComparisonState(state.compare, token, audit); if (compare === state.compare) return state;
   return signOffAfterAuthorityChange(state, { ...state, compare, review: attachReviewAudit(state.review, audit, updatedAt), decision: attachDecisionAudit(state.decision, audit, updatedAt), message: 'Visual comparison complete.' });
@@ -202,8 +238,11 @@ export function setWorkspaceDecisionPreview(state, differenceId, candidateIndex)
 export function toggleWorkspaceDecisionFilter(state, value) { return deepFreeze({ ...state, decision: toggleDecisionFilter(state.decision, value) }); }
 export function setWorkspaceDecisionUnresolvedOnly(state, enabled) { return deepFreeze({ ...state, decision: setDecisionUnresolvedOnly(state.decision, enabled) }); }
 export function setWorkspaceSignOffReport(state, report) {
-  return deepFreeze({ ...state, signOff: deepFreeze({ schema: 'RevisionCompareSignOffState.v1', status: 'CREATED', report, sourcePackageId: report.sourceEvidence.packageId, sourcePackageContentSha256: report.sourceEvidence.packageContentSha256, error: null }) });
+  const signOff = deepFreeze({ schema: 'RevisionCompareSignOffState.v1', status: 'CREATED', report,
+    sourcePackageId: report.sourceEvidence.packageId, sourcePackageContentSha256: report.sourceEvidence.packageContentSha256, error: null });
+  return deepFreeze({ ...state, signOff, trustReceipt: createRevisionCompareTrustReceiptState() });
 }
 export function failWorkspaceSignOff(state, error) {
-  return deepFreeze({ ...state, signOff: deepFreeze({ ...state.signOff, status: 'FAILED', error: String(error?.message ?? error) }) });
+  const signOff = deepFreeze({ ...state.signOff, status: 'FAILED', error: String(error?.message ?? error) });
+  return deepFreeze({ ...state, signOff, trustReceipt: reconcileRevisionCompareTrustReceiptState(state.trustReceipt, signOff) });
 }

@@ -4,18 +4,16 @@ import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
 import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-backend.js';
 import { createComparisonLifecycleState } from './revision-compare-lifecycle.js';
-import {
-  REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
-  createRevisionCompareViewerPolicy,
-} from './revision-compare-viewer-policy.js';
+import { REVISION_COMPARE_DEFAULT_VIEWER_POLICY, createRevisionCompareViewerPolicy } from './revision-compare-viewer-policy.js';
 import { createRevisionCompareService } from './revision-compare-service.js';
 import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
 import {
   REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
-  createRevisionWorkspaceState, failWorkspaceEvidencePackageImport, failWorkspaceSignOff,
-  setWorkspaceSignOffReport, startWorkspaceEvidencePackageImport,
+  completeWorkspaceTrustReceiptImport, createRevisionWorkspaceState,
+  failWorkspaceEvidencePackageImport, failWorkspaceSignOff, failWorkspaceTrustReceiptImport,
+  setWorkspaceSignOffReport, startWorkspaceEvidencePackageImport, startWorkspaceTrustReceiptImport,
 } from './revision-workspace-state.js';
 import { candidatePreview } from './revision-decision-projection.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
@@ -30,20 +28,24 @@ import {
   revisionCompareSignOffAuthorityMatches, revisionCompareSignOffFileName,
   revisionCompareSignOffInput, syncRevisionCompareSignOffControls,
 } from './revision-sign-off.js';
+import {
+  REVISION_COMPARE_TRUST_MAX_BYTES, REVISION_COMPARE_TRUST_STATUS,
+  renderRevisionCompareTrustReceiptSection, verifyRevisionCompareTrustReceiptJson,
+} from './revision-trust-receipt.js';
+
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
   '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]',
   '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
   '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
 ]);
-function defaultNow() { return new Date().toISOString(); } function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
+function defaultNow() { return new Date().toISOString(); }
+function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
 function sessionId(now) { return `revision-session-${String(now).replace(/[^0-9]/g, '')}`; }
 function trackedListener(cleanups, target, type, handler) { target.addEventListener(type, handler); cleanups.push(() => target.removeEventListener(type, handler)); }
 function fileChange(actions, target) { const file = target.files?.[0]; if (file) actions.load(target.dataset.revcFile, file); }
-function packageFileChange(actions, target) {
-  const file = target.files?.[0]; target.value = '';
-  if (file) actions.importEvidencePackage(file);
-}
+function packageFileChange(actions, target) { const file = target.files?.[0]; target.value = ''; if (file) actions.importEvidencePackage(file); }
+function trustFileChange(actions, target) { const file = target.files?.[0]; target.value = ''; if (file) actions.importTrustReceipt(file); }
 function comparisonButton(actions, button) {
   if (button.hasAttribute('data-revc-run-compare')) actions.runVisualComparison();
   if (button.hasAttribute('data-revc-cancel-comparison')) actions.cancelComparison();
@@ -100,6 +102,7 @@ function decisionInput(actions, target) {
   if (target.matches('[data-revc-decision-import]')) { const file = target.files?.[0]; if (file) actions.importDecisionLedger(file); }
 }
 function inputChange(actions, target) {
+  if (target.matches('[data-revc-trust-import]')) trustFileChange(actions, target);
   if (target.matches('[data-revc-evidence-package-import]')) packageFileChange(actions, target);
   if (target.matches('[data-revc-file]')) fileChange(actions, target);
   if (target.matches('[data-revc-search]')) actions.setSearch(target.dataset.revcSearch, target.value);
@@ -131,59 +134,43 @@ function previewFor(state) {
 }
 function preparePropertyHost(root, state) {
   if (!state.compare.reviewVisible || !state.compare.audit || !state.compare.selectedDifferenceId) return null;
-  const section = root.querySelector('.revc-inspector [data-level="2"] > section');
-  const heading = section?.querySelector('h3');
+  const section = root.querySelector('.revc-inspector [data-level="2"] > section'); const heading = section?.querySelector('h3');
   if (!section || heading?.textContent !== 'Changed properties') return null;
   while (heading.nextSibling) heading.nextSibling.remove();
-  const host = root.ownerDocument.createElement('div');
-  host.setAttribute('data-revc-property-inspector-host', state.compare.selectedDifferenceId);
+  const host = root.ownerDocument.createElement('div'); host.setAttribute('data-revc-property-inspector-host', state.compare.selectedDifferenceId);
   section.appendChild(host); return host;
 }
-function appendTextElement(documentRef, parent, tag, text) {
-  const element = documentRef.createElement(tag); element.textContent = text; parent.appendChild(element); return element;
-}
+function appendTextElement(documentRef, parent, tag, text) { const element = documentRef.createElement(tag); element.textContent = text; parent.appendChild(element); return element; }
 function prepareEvidencePackageControl(root, state) {
   const host = root.querySelector('.revc-review-side') ?? root.querySelector('.revc-body'); if (!host) return null;
   const readiness = revisionCompareEvidencePackageReadiness(state); const documentRef = root.ownerDocument;
-  const section = documentRef.createElement('section'); section.className = 'revc-review-session';
-  section.setAttribute('data-revc-evidence-package', readiness.status.toLowerCase());
+  const section = documentRef.createElement('section'); section.className = 'revc-review-session'; section.setAttribute('data-revc-evidence-package', readiness.status.toLowerCase());
   const header = documentRef.createElement('header'); const title = documentRef.createElement('div');
-  appendTextElement(documentRef, title, 'span', 'EVIDENCE PACKAGE');
-  appendTextElement(documentRef, title, 'h2', 'Authority chain export');
-  const status = appendTextElement(documentRef, header, 'strong', readiness.status);
-  status.setAttribute('data-status', readiness.status.toLowerCase()); header.appendChild(title); header.appendChild(status);
+  appendTextElement(documentRef, title, 'span', 'EVIDENCE PACKAGE'); appendTextElement(documentRef, title, 'h2', 'Authority chain export');
+  const status = appendTextElement(documentRef, header, 'strong', readiness.status); status.setAttribute('data-status', readiness.status.toLowerCase());
+  header.appendChild(title); header.appendChild(status);
   const message = appendTextElement(documentRef, section, 'p', readiness.status === 'READY'
-    ? 'Current session, scope, audit, review and decision authorities are ready for deterministic export.'
-    : readiness.blockers[0]);
+    ? 'Current session, scope, audit, review and decision authorities are ready for deterministic export.' : readiness.blockers[0]);
   message.setAttribute('data-revc-evidence-package-status', readiness.status);
   const controls = documentRef.createElement('div'); controls.className = 'revc-session-actions';
-  const button = appendTextElement(documentRef, controls, 'button', 'Download evidence package');
-  button.type = 'button'; button.setAttribute('data-revc-download-evidence-package', '');
-  button.disabled = readiness.status !== 'READY'; section.prepend(header); section.appendChild(controls); host.appendChild(section);
-  return section;
+  const button = appendTextElement(documentRef, controls, 'button', 'Download evidence package'); button.type = 'button';
+  button.setAttribute('data-revc-download-evidence-package', ''); button.disabled = readiness.status !== 'READY';
+  section.prepend(header); section.appendChild(controls); host.appendChild(section); return section;
 }
 function enforceImportedModeRestrictions(root, state) {
   if (state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.VERIFIED) return;
-  for (const selector of IMPORTED_RESTRICTED_SELECTORS) {
-    root.querySelectorAll(selector).forEach((element) => {
-      if (element.matches('input[type="file"]')) element.closest('label')?.remove(); else element.remove();
-    });
-  }
+  for (const selector of IMPORTED_RESTRICTED_SELECTORS) root.querySelectorAll(selector).forEach((element) => {
+    if (element.matches('input[type="file"]')) element.closest('label')?.remove(); else element.remove();
+  });
 }
-function initialWorkspaceState(session, createdAt, policy) {
-  const state = createRevisionWorkspaceState(session, createdAt);
-  return Object.freeze({ ...state, compare: createComparisonLifecycleState(policy) });
-}
+function initialWorkspaceState(session, createdAt, policy) { const state = createRevisionWorkspaceState(session, createdAt); return Object.freeze({ ...state, compare: createComparisonLifecycleState(policy) }); }
 function syncBackendButtons(root, evidence) {
   root.querySelectorAll('[data-revc-viewer-backend]').forEach((button) => button.setAttribute('aria-pressed', 'false'));
   if (evidence.failed || !evidence.activeBackend) return;
-  root.querySelectorAll(`[data-revc-viewer-backend="${evidence.activeBackend}"]`)
-    .forEach((button) => button.setAttribute('aria-pressed', 'true'));
+  root.querySelectorAll(`[data-revc-viewer-backend="${evidence.activeBackend}"]`).forEach((button) => button.setAttribute('aria-pressed', 'true'));
 }
 function recoveryMarkup(compare) {
-  const backend = compare.viewerBackend === 'SVG'
-    ? compare.viewerPolicy.recoveryBackendForSvgFailure
-    : compare.viewerPolicy.recoveryBackendForWebglFailure;
+  const backend = compare.viewerBackend === 'SVG' ? compare.viewerPolicy.recoveryBackendForSvgFailure : compare.viewerPolicy.recoveryBackendForWebglFailure;
   return `<button type="button" data-revc-viewer-backend="${backend}">Return to ${revisionCompareViewerBackendLabel(backend)}</button>`;
 }
 function reportFailure(root, options, error) {
@@ -197,17 +184,15 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const service = options.service ?? createRevisionLoadService(cryptoRef, options.loadServiceOptions);
   const compareService = options.compareService ?? createRevisionCompareService(options.compareServiceOptions);
   const downloadArtifact = options.downloadArtifact ?? downloadRevisionArtifact; const cleanups = [];
-  const policy = createRevisionCompareViewerPolicy(options.viewerPolicy
-    ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
+  const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
   let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
-  if (!viewerAdapter) {
-    viewerAdapter = createRevisionCompareViewerAdapter({
-      ...options.viewerAdapterOptions, viewerPolicy: policy,
-      onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
-      onError: (error) => options.showToast?.(`${revisionCompareViewerBackendLabel(viewerAdapter?.evidence().viewerBackend)} unavailable: ${error.message}`, 'warning'),
-    });
-  }
+  let trustImportGeneration = 0;
+  if (!viewerAdapter) viewerAdapter = createRevisionCompareViewerAdapter({
+    ...options.viewerAdapterOptions, viewerPolicy: policy,
+    onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
+    onError: (error) => options.showToast?.(`${revisionCompareViewerBackendLabel(viewerAdapter?.evidence().viewerBackend)} unavailable: ${error.message}`, 'warning'),
+  });
   const propertyInspector = options.propertyInspector ?? createRevisionComparePropertyInspector(options.propertyInspectorOptions);
   function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
   async function syncViewer(sequence) {
@@ -218,10 +203,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     const mounted = await viewerAdapter.render(host, state.compare.audit); if (destroyed || sequence !== renderSequence) return;
     viewerAdapter.setPresentationMode(state.compare.presentationMode); viewerAdapter.selectDifference(state.compare.selectedDifferenceId);
     const preview = previewFor(state);
-    if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId);
-    else viewerAdapter.clearPreview();
-    const evidence = viewerAdapter.evidence(); syncBackendButtons(root, evidence);
-    const renderedFailure = root.querySelector('.revc-viewer-failure');
+    if (preview?.candidate && preview.differenceId === state.compare.selectedDifferenceId) viewerAdapter.previewPair(preview.differenceId, preview.targetDifferenceId); else viewerAdapter.clearPreview();
+    const evidence = viewerAdapter.evidence(); syncBackendButtons(root, evidence); const renderedFailure = root.querySelector('.revc-viewer-failure');
     if (mounted) renderedFailure?.remove();
     else if (!renderedFailure) host.innerHTML = `<div class="revc-viewer-fallback"><b>${revisionCompareViewerBackendLabel(state.compare.viewerBackend)} unavailable.</b><span>Use the queue and inspector to continue review. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`;
   }
@@ -233,11 +216,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   async function downloadEvidencePackage() {
     const captured = state;
     try {
-      const artifact = await createRevisionCompareEvidencePackage(captured, revisionComparisonPreflight(
-        captured.slots.baseline, captured.slots.candidate, captured.proposal,
-      ), cryptoRef);
-      downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact);
-      options.showToast?.('Evidence package downloaded.', 'success');
+      const artifact = await createRevisionCompareEvidencePackage(captured, revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal), cryptoRef);
+      downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact); options.showToast?.('Evidence package downloaded.', 'success');
     } catch (error) { reportFailure(root, options, error); }
   }
   async function createSignOff() {
@@ -259,34 +239,42 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     } catch (error) { reportFailure(root, options, error); }
   }
   async function importEvidencePackage(file) {
-    const generation = state.evidencePackageImport.requestGeneration + 1;
-    state = startWorkspaceEvidencePackageImport(state, generation, file.name); render();
-    if (state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING) {
-      reportFailure(root, options, state.evidencePackageImport.error); return;
-    }
+    const generation = state.evidencePackageImport.requestGeneration + 1; state = startWorkspaceEvidencePackageImport(state, generation, file.name); render();
+    if (state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING) { reportFailure(root, options, state.evidencePackageImport.error); return; }
     try {
-      const text = await file.text();
-      const verified = await verifyRevisionCompareEvidencePackageJson(text, file.name, now(), cryptoRef);
-      if (destroyed) return;
+      const text = await file.text(); const verified = await verifyRevisionCompareEvidencePackageJson(text, file.name, now(), cryptoRef); if (destroyed) return;
       const current = state; const next = completeWorkspaceEvidencePackageImport(current, generation, verified);
       if (next === current) return; state = next; render(); options.showToast?.('Evidence package imported.', 'success');
     } catch (error) {
-      if (destroyed) return;
-      const current = state; const next = failWorkspaceEvidencePackageImport(current, generation, error);
+      if (destroyed) return; const current = state; const next = failWorkspaceEvidencePackageImport(current, generation, error);
+      if (next === current) return; state = next; render(); reportFailure(root, options, error);
+    }
+  }
+  async function importTrustReceipt(file) {
+    const generation = ++trustImportGeneration; const report = state.signOff?.report;
+    state = startWorkspaceTrustReceiptImport(state, generation, file.name); render();
+    if (state.trustReceipt.status !== REVISION_COMPARE_TRUST_STATUS.IMPORTING) { reportFailure(root, options, state.trustReceipt.error); return; }
+    try {
+      if (file.size > REVISION_COMPARE_TRUST_MAX_BYTES) throw new RangeError('External signature receipt is limited to 256 KiB.');
+      const receipt = await verifyRevisionCompareTrustReceiptJson(await file.text(), report, cryptoRef); if (destroyed) return;
+      const current = state; const next = completeWorkspaceTrustReceiptImport(current, generation, receipt);
+      if (next === current) return; state = next; render(); options.showToast?.('External signature receipt verified.', 'success');
+    } catch (error) {
+      if (destroyed) return; const current = state; const next = failWorkspaceTrustReceiptImport(current, generation, error);
       if (next === current) return; state = next; render(); reportFailure(root, options, error);
     }
   }
   function render(next = state) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); renderRevisionCompareSignOffSection(root, state);
+    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state);
+    renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
     enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
-    Promise.resolve().then(() => syncViewer(sequence));
-    Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
+    Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
   actions = Object.freeze({
-    ...baseActions, downloadEvidencePackage, importEvidencePackage, createSignOff, downloadSignOff,
+    ...baseActions, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
   bindWorkspace(root, actions, cleanups); render();
