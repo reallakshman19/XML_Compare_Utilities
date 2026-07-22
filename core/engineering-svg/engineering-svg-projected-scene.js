@@ -75,7 +75,3 @@ export function buildEngineeringSvgProjectedScene(scene, options = {}) {
     entities: Object.freeze(entities),
   });
 }
-
-export function engineeringSvgLayerPriority(layer) {
-  return LAYER_PRIORITY[layer] ?? 100;
-}

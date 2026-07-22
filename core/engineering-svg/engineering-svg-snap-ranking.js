@@ -115,7 +115,3 @@ export function rankEngineeringSvgSnapCandidates(candidates = [], options = {}) 
     }),
   });
 }
-
-export function compareEngineeringSvgSnapCandidates(left, right) {
-  return compareCandidates(left, right);
-}

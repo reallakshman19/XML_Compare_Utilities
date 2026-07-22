@@ -123,4 +123,45 @@ assert.equal(hostA.children.length, 1, 'remount must create exactly one SVG root
 remounted.destroy();
 assert.equal(hostA.children.length, 0);
 
+const stateSource = createEngineeringSvgSceneSource(scene('state-r1', [entityA, entityB]));
+const stateHost = documentRef.createHost();
+const stateWorkspace = createEngineeringSvgWorkspace({ host: stateHost, sceneSource: stateSource });
+
+const initialState = stateWorkspace.getState();
+assert.equal(initialState.schema, 'EngineeringSvgWorkspaceState.v1');
+assert.equal(initialState.sequence, 0);
+assert.equal(initialState.reason, 'initial');
+assert.deepEqual(initialState.selectedIds, []);
+assert(Object.isFrozen(initialState));
+assert(Object.isFrozen(initialState.viewport));
+assert(Object.isFrozen(initialState.selectedIds));
+assert.equal(typeof initialState.revision, 'object');
+assert(!(initialState.viewport instanceof Map) && !(initialState.selectedIds instanceof Set));
+assert.doesNotThrow(() => JSON.stringify(initialState), 'owner state must be JSON-safe');
+
+const publications = [];
+const unsubscribeState = stateWorkspace.subscribeState((state) => publications.push(state));
+stateWorkspace.setSelection(['a'], 'test-select');
+assert.equal(publications.length, 1, 'one transition must generate exactly one publication');
+assert.equal(publications[0].reason, 'test-select');
+assert.equal(publications[0].sequence, 1);
+assert.deepEqual(publications[0].selectedIds, ['a']);
+
+stateSource.setSnapshot(scene('state-r2', [entityA, entityB]));
+assert.equal(publications.length, 2);
+assert.equal(publications[1].reason, 'scene-changed');
+assert.equal(publications[1].revision.value, 'state-r2');
+
+assert.equal(typeof unsubscribeState, 'function');
+unsubscribeState();
+stateWorkspace.setSelection(['b'], 'after-unsubscribe');
+assert.equal(publications.length, 2, 'unsubscribed listener must not receive further publications');
+assert.equal(stateWorkspace.getState().reason, 'after-unsubscribe', 'getState must reflect the latest transition regardless of subscriptions');
+
+let publishedAfterDestroy = false;
+stateWorkspace.subscribeState(() => { publishedAfterDestroy = true; });
+stateWorkspace.destroy();
+assert.throws(() => stateWorkspace.subscribeState(() => {}), /destroyed/);
+assert.equal(publishedAfterDestroy, false, 'destroy must not itself emit a publication');
+
 console.log('engineering SVG workspace: ok');

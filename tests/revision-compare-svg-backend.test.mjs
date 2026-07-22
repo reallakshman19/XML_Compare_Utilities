@@ -97,6 +97,10 @@ await adapter.render({}, audit);
 assert(log.includes('SVG:dispose'));
 assert(log.includes('WEBGL:mode:side-by-side'));
 assert.equal(adapter.evidence().activeBackend, 'WEBGL');
+assert.deepEqual(
+  adapter.evidence().viewer.selectedIds, ['A1'],
+  'selected difference must be reapplied to the newly mounted backend, not lost on switch',
+);
 adapter.setPresentationMode('overlay');
 adapter.setBackend('SVG');
 await adapter.render({}, audit);
