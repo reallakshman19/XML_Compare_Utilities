@@ -13,13 +13,17 @@ import {
   buildPipelineExportContextJson,
   qualifyPipelineUtilityExport,
   resolvePipelineUtilityExportContext,
-} from './pipeline-3d-model-export-context.js?v=20260722-p3d-export-context-1';
+} from './pipeline-3d-model-export-context.js?v=20260722-p3d-canonical-document-1';
 import { buildPipelineIdentityLedgerText } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
+import {
+  buildPipelineInputXmlDocumentPlan,
+  buildPipelineInputXmlDocumentPlanJson,
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-canonical-document-1';
 import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
   coordinateRowsToTabText,
-} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-export-context-1';
+} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-canonical-document-1';
 import {
   buildDepthRules,
   buildGradeProfile,
@@ -54,7 +58,7 @@ function sanitizeTable1Points(points) {
   return points.map((point, index) => ({ ...point, label: sanitizeTable1Label(point.label, index) }));
 }
 
-function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, qualification) {
+function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, qualification, plan) {
   return Object.freeze({
     routeLength: context.total,
     routeStartStation: context.routeStartStation,
@@ -69,6 +73,10 @@ function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, expo
     table3DepthRows: profile.table3DepthRows.length,
     table3MarkerRows: profile.table3MarkerRows.length,
     pipelineMode: exportContext.profile.resolvedMode,
+    inputXmlDocumentSchema: plan.schema,
+    inputXmlElementCount: plan.counts.numElt,
+    inputXmlBendCount: plan.counts.numBend,
+    inputXmlDocumentBlockerCount: plan.blockerCodes.length,
     exportInputXmlAllowed: qualification.inputXmlAllowed,
     elasticBendCandidates: elasticBends.diagnostics.candidateCount,
     elasticBendsEmitted: elasticBends.diagnostics.emittedCount,
@@ -89,6 +97,14 @@ function appendElasticDiagnostics(context, elasticBends) {
   }
 }
 
+function appendDocumentDiagnostics(context, plan, elasticBends) {
+  const bendCodes = new Set((elasticBends.errors || []).map((item) => item.code));
+  for (const item of plan.diagnostics) {
+    if (bendCodes.has(item.code)) continue;
+    addPipelineWarning(context.warnings, item.code, `[BLOCKING] ${item.message}`, item.details);
+  }
+}
+
 function resolvedExportContext(input) {
   return resolvePipelineUtilityExportContext({
     branchInfo: input.branchInfo || {},
@@ -96,9 +112,19 @@ function resolvedExportContext(input) {
   });
 }
 
-function buildXmlText(exportContext, qualification, elasticBends) {
-  if (!qualification.inputXmlAllowed) return '';
-  return buildInputXmlPipingModelXml(exportContext, elasticBends.geometryRows, elasticBends);
+function resolvedDocument(exportContext, elasticBends) {
+  const plan = buildPipelineInputXmlDocumentPlan({
+    exportContext,
+    coordinateRows: elasticBends.geometryRows,
+    bendResolution: elasticBends,
+  });
+  const qualification = qualifyPipelineUtilityExport(
+    exportContext,
+    elasticBends.geometryRows,
+    elasticBends,
+    plan,
+  );
+  return Object.freeze({ plan, qualification });
 }
 
 function outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment) {
@@ -110,15 +136,18 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     branchInfo: exportContext.branchInfo,
     settings: exportContext.settings,
   });
-  const qualification = qualifyPipelineUtilityExport(exportContext, elasticBends.geometryRows, elasticBends);
+  const document = resolvedDocument(exportContext, elasticBends);
   appendElasticDiagnostics(context, elasticBends);
+  appendDocumentDiagnostics(context, document.plan, elasticBends);
   return Object.freeze({
     table1Points, sheets, combined, coordinateRows,
     identity: exportContext.identity,
     identityText: buildPipelineIdentityLedgerText(exportContext.identity, coordinateRows),
     exportContext,
-    exportQualification: qualification,
-    exportContextText: buildPipelineExportContextJson(exportContext, qualification),
+    exportQualification: document.qualification,
+    exportContextText: buildPipelineExportContextJson(exportContext, document.qualification),
+    inputXmlDocumentPlan: document.plan,
+    inputXmlDocumentPlanText: buildPipelineInputXmlDocumentPlanJson(document.plan),
     inputXmlCoordinateRows: elasticBends.geometryRows,
     elasticBends,
     table1OutputText: table1ToTabText(table1Points),
@@ -128,10 +157,10 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     table3XText: buildTable3XText(profile),
     coordinateText: coordinateRowsToTabText(coordinateRows),
     elasticBendText: buildElasticBendLedgerText(elasticBends),
-    xmlText: buildXmlText(exportContext, qualification, elasticBends),
+    xmlText: document.qualification.inputXmlAllowed ? buildInputXmlPipingModelXml(document.plan) : '',
     warnings: Object.freeze([...context.warnings]),
-    errors: elasticBends.errors,
-    diagnostics: diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, qualification),
+    errors: document.plan.diagnostics,
+    diagnostics: diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, document.qualification, document.plan),
   });
 }
 
