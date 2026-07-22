@@ -34,6 +34,8 @@ function isSelectionKey(event) {
   return event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar';
 }
 
+export const ENGINEERING_SVG_WORKSPACE_STATE_SCHEMA = 'EngineeringSvgWorkspaceState.v1';
+
 export function createEngineeringSvgWorkspace(options = {}) {
   const { host, sceneSource } = options;
   if (!host || !sceneSource?.getSnapshot || !sceneSource?.subscribe) {
@@ -43,8 +45,34 @@ export function createEngineeringSvgWorkspace(options = {}) {
   let viewport = viewportSize(host, options.viewport);
   let padding = Number(options.padding ?? 24);
   let destroyed = false;
+  let sequence = 0;
+  let lastReason = 'initial';
   const renderer = createEngineeringSvgRenderer(host);
   const selection = createEngineeringSvgSelection(options.selectedIds || []);
+  const stateListeners = new Set();
+
+  function currentState(reason) {
+    const scene = sceneSource.getSnapshot();
+    return Object.freeze({
+      schema: ENGINEERING_SVG_WORKSPACE_STATE_SCHEMA,
+      sequence,
+      sceneId: scene.sceneId,
+      revision: scene.revision,
+      projection,
+      viewport,
+      padding,
+      selectedIds: selection.getSelection(),
+      reason: String(reason),
+    });
+  }
+
+  function publishState(reason) {
+    sequence += 1;
+    lastReason = String(reason);
+    const state = currentState(lastReason);
+    stateListeners.forEach((listener) => listener(state));
+    return state;
+  }
 
   function render() {
     if (destroyed) throw new Error('Engineering SVG workspace is destroyed.');
@@ -56,8 +84,11 @@ export function createEngineeringSvgWorkspace(options = {}) {
     return projected;
   }
 
-  const unsubscribeScene = sceneSource.subscribe(() => render());
-  const unsubscribeSelection = selection.subscribe((detail) => renderer.setSelection(detail.selectedIds));
+  const unsubscribeScene = sceneSource.subscribe(() => { render(); publishState('scene-changed'); });
+  const unsubscribeSelection = selection.subscribe((detail) => {
+    renderer.setSelection(detail.selectedIds);
+    publishState(detail.reason);
+  });
   const click = (event) => {
     const id = entityIdFromTarget(event.target, renderer.root);
     if (id) selection.setSelection([id], 'pointer');
@@ -80,20 +111,33 @@ export function createEngineeringSvgWorkspace(options = {}) {
     getProjection: () => projection,
     setProjection(value) {
       projection = assertSceneProjection(sceneSource.getSnapshot(), value);
-      return render();
+      const projected = render();
+      publishState('projection-changed');
+      return projected;
     },
     setViewport(value) {
       viewport = viewportSize(host, value);
-      return render();
+      const projected = render();
+      publishState('viewport-changed');
+      return projected;
     },
     setPadding(value) {
       padding = Math.max(0, Number(value) || 0);
-      return render();
+      const projected = render();
+      publishState('padding-changed');
+      return projected;
     },
     getSelection: selection.getSelection,
     setSelection: selection.setSelection,
     clearSelection: selection.clear,
     subscribeSelection: selection.subscribe,
+    getState: () => currentState(lastReason),
+    subscribeState(listener) {
+      if (destroyed) throw new Error('Engineering SVG workspace is destroyed.');
+      if (typeof listener !== 'function') throw new TypeError('Workspace state listener must be a function.');
+      stateListeners.add(listener);
+      return () => stateListeners.delete(listener);
+    },
     getEntityNode: renderer.getEntityNode,
     getEntityCount: renderer.getEntityCount,
     exportSvg(exportOptions = {}) {
@@ -114,6 +158,7 @@ export function createEngineeringSvgWorkspace(options = {}) {
       renderer.root.removeEventListener('keydown', keydown);
       selection.dispose();
       renderer.destroy();
+      stateListeners.clear();
       return true;
     },
   });
