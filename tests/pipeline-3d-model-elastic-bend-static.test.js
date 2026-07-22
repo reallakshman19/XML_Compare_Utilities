@@ -134,6 +134,7 @@ assert.match(ui, /installPipelineElasticBendSettingsUi/);
 assert.match(sources['pipeline-3d-model-elastic-bend.js'], /pipeline-3d-model-bend-route\.js\?v=20260721-bend-policy-v3-1/);
 assert.match(sources['pipeline-3d-model-bend-route.js'], /pipeline-3d-model-bend-classification\.js\?v=20260721-bend-policy-v3-1/);
 assert.match(sources['pipeline-3d-model-elastic-bend-ui-view.js'], /pipeline-3d-model-elastic-bend-ui-policy-view\.js\?v=20260721-p3d-meta-phase1-2/);
+assert.match(sources['pipeline-3d-model-elastic-bend-ui.js'], /pipeline-3d-model-project-adapter\.js\?v=20260722-p3d-export-context-1/);
 assert.match(sources['pipeline-3d-model-elastic-bend-ui.js'], /pipeline-3d-model-elastic-bend-settings\.js\?v=20260721-p3d-meta-phase1-2/);
 assert.match(sources['pipeline-3d-model-elastic-bend-ui.js'], /pipeline-3d-model-elastic-bend-ui-view\.js\?v=20260721-p3d-meta-phase1-2/);
 
@@ -144,10 +145,13 @@ assert.match(xml, /attr\('NUM_MITER', '0'\)/);
 assert.match(xml, /assertBendExportReady/);
 assert.match(xml, /bendByIncomingElementIndex/);
 assert.match(xml, /radius <= 0/);
+assert.match(xml, /exportContextBranchInfo/);
 
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
 assert.match(adapter, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
-assert.match(adapter, /if \(elasticBends\.hasBlockingErrors\) return ''/);
+assert.match(adapter, /qualifyPipelineUtilityExport/);
+assert.match(adapter, /exportQualification/);
+assert.match(adapter, /if \(!qualification\.inputXmlAllowed\) return ''/);
 assert.match(adapter, /PipelineBendResolution\.v3/);
 assert.match(adapter, /markerRowsExcludedFromInputXml/);
 assert.match(adapter, /bendBlockingErrorCount/);
@@ -158,17 +162,19 @@ assert.match(profile, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
 assert.match(profile, /\[BLOCKING\]/);
 assert.match(profile, /markerRowsExcludedFromInputXml/);
 assert.match(profile, /sharedBendSegmentFailures/);
+assert.match(profile, /qualifyPipelineUtilityExport/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
-assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260721-p3d-meta-phase1-2/);
+assert.match(addon, /pipeline-3d-model-profile-propagation-runtime\.js\?v=20260722-p3d-export-context-1/);
+assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260722-p3d-export-context-1/);
 assert.match(addon, /export function loadMultiSheetPasteSamples/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 
 const psnm = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(psnm, /pipeline-3d-model-table-paste-addon\.js\?v=20260721-p3d-meta-phase1-2/);
+assert.match(psnm, /pipeline-3d-model-table-paste-addon\.js\?v=20260722-p3d-export-context-1/);
 const runtime = fs.readFileSync(new URL('../core/app-standalone-runtime.js', import.meta.url), 'utf8');
-assert.match(runtime, /standalone-20260721-bend-policy-v3-1/);
-assert.match(runtime, /M24 Pipeline bend policy v3/);
+assert.match(runtime, /standalone-20260722-p3d-export-context-1/);
+assert.match(runtime, /M25 Pipeline export context/);
 
 await import('./pipeline-3d-model-gre-placeholder.test.js');
 

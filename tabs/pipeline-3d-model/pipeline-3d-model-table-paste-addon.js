@@ -10,8 +10,8 @@ import {
 } from './pipeline-3d-model-table-paste-samples.js?v=20260716-table-paste-samples-1';
 import {
   installPipelineProfilePropagation,
-} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260719-table2-elevation-authority-1';
-import { installPipelineElasticBendSettingsUi } from './pipeline-3d-model-elastic-bend-ui.js?v=20260721-p3d-meta-phase1-2';
+} from './pipeline-3d-model-profile-propagation-runtime.js?v=20260722-p3d-export-context-1';
+import { installPipelineElasticBendSettingsUi } from './pipeline-3d-model-elastic-bend-ui.js?v=20260722-p3d-export-context-1';
 
 const STYLE_ID = 'pipeline-3d-model-table-paste-style';
 const PATCHED = new WeakSet();

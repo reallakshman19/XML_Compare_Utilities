@@ -7,4 +7,4 @@ import '../tabs/ps-family-clash-audit/ps-family-evidence-audit-bootstrap.js?v=20
 
 installAppTabClickStateBridge();
 
-export { init, destroy } from './app-standalone-runtime.js?v=20260717-startup-parse-hotfix-1';
+export { init, destroy } from './app-standalone-runtime.js?v=20260722-p3d-export-context-1';

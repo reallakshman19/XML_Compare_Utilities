@@ -1,4 +1,4 @@
-import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-identity-1';
+import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-export-context-1';
 import {
   DEFAULT_ELASTIC_BEND_SETTINGS,
   loadElasticBendSettings,
