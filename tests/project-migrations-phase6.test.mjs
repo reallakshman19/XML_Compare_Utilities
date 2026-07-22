@@ -56,6 +56,7 @@ assert.equal(topology.exportPlan.gate.status, 'READY');
 assert.equal(topology.exportPlan.files[0].contentHash, await sha256Text(topologyOutput, globalThis.crypto));
 
 const branchInfo = Object.freeze({
+  jobName: 'PIPELINE_PHASE6', issueNo: 'A', caesarVersion: '11.00',
   branchName: 'PL-XX', lineNo: 'PL-XX', boreMm: '168.3', wallThickness: '7.1',
   insulationThickness: '50', corrosionAllowance: '3', t1: '120', t2: '90', t3: '5',
   p1: '12', materialCode: '106', fluidDensity: '100', insulationDensity: '120', hydroPressure: '18',
@@ -66,10 +67,15 @@ const pipelineInput = {
 };
 const pipelineNative = buildPipelineProjectOutputs(pipelineInput);
 const pipeline = await buildPipelineProjectMigration(pipelineInput);
+const pipelineOutputById = new Map(pipeline.outputs.map((row) => [row.fileId, row]));
 assert.equal(pipeline.exportPlan.gate.status, 'READY');
-assert.equal(pipeline.outputs[1].text, pipelineNative.coordinateText);
-assert.equal(pipeline.outputs[2].text, pipelineNative.xmlText);
-assert.match(pipelineNative.xmlText, /<PIPINGMODEL NUMELEMENTS="/);
+assert.equal(pipelineOutputById.get('pipeline-coordinate-table').text, pipelineNative.coordinateText);
+assert.equal(pipelineOutputById.get('pipeline-inputxml').text, pipelineNative.xmlText);
+assert.equal(pipelineOutputById.get('pipeline-inputxml-document-plan').text, pipelineNative.inputXmlDocumentPlanText);
+assert.match(pipelineNative.xmlText, /<CAESARII xmlns="COADE"/);
+assert.match(pipelineNative.xmlText, /<PIPINGMODEL xmlns="" JOBNAME="PIPELINE_PHASE6"/);
+assert.match(pipelineNative.xmlText, /NUMELT="\d+"/);
+assert.doesNotMatch(pipelineNative.xmlText, /NUMELEMENTS|-1\.010100|NaN|Infinity/);
 
 const realEvidence = buildSequentialEvidenceModel(realBranches);
 const realIndexes = indexSequentialEvidence(realEvidence);
@@ -114,7 +120,7 @@ const supportInput = {
 };
 const support = await buildSupportSteelProjectMigration(supportInput);
 assert.equal(support.exportPlan.gate.status, 'READY');
-assert.equal(support.outputs.length, 8); // json/csv/tree/chain/carrier + attachment/topology/structurePath (PR #363 carrier exports)
+assert.equal(support.outputs.length, 8);
 assert.deepEqual(support.outputs.map((row) => row.text), supportSteelProjectArtifacts(supportBundle).map((row) => row.text));
 
 const sourceXml = pipelineNative.xmlText;
@@ -151,4 +157,4 @@ for (const relative of [
   assert.doesNotMatch(source, /export\s+default/, `${relative} must use named exports`);
 }
 
-console.log('[REAL DATA] Phase 6 project adapters preserve native sources, gates, hierarchy, and exact output bytes.');
+console.log('[REAL DATA] Phase 6 project adapters preserve canonical Pipeline InputXML, gates, hierarchy, and exact output bytes.');

@@ -16,6 +16,9 @@ if (globalThis.document) installPipelineCadWorkspaceComposition(globalThis.docum
 export const STORAGE_KEY = 'pipeline-3d-model-config-v1';
 
 export const CONFIG_FIELDS = Object.freeze([
+  { key: 'jobName', label: 'Job Name', unit: '', default: 'PIPELINE_3D_MODEL' },
+  { key: 'issueNo', label: 'Issue No', unit: '', default: '' },
+  { key: 'caesarVersion', label: 'CAESAR Version', unit: '', default: '11.00' },
   { key: 'branchName', label: 'Branch Name', unit: '', default: 'B1' },
   { key: 'lineNo', label: 'Line No', unit: '', default: 'PL-XX' },
   { key: 'boreMm', label: 'Bore', unit: 'mm', default: '' },

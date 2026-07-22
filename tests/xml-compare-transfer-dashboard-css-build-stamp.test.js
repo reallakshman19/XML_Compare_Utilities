@@ -9,12 +9,11 @@ const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
 const appDelegate = readFileSync('core/app.js', 'utf8');
 const runtime = readFileSync('core/app-standalone-runtime.js', 'utf8');
 const actionButtonRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
-const startupToken = '20260717-startup-parse-hotfix-1';
-const pipelineStartupToken = '20260722-p3d-export-context-1';
+const startupToken = '20260722-p3d-canonical-document-1';
 
 assert.ok(transferCss.includes('.xmlc-transfer-output-dashboard'), 'dashboard panel CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-next-action'), 'next-action CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-dashboard-grid'), 'dashboard grid CSS must exist');
+assert.ok(transferCss.includes('.xmlc-transfer-dashboard-grid'), 'dashboard panel grid must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-ready'), 'ready dashboard card CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-blocked'), 'blocked dashboard card CSS must exist');
 assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-not-available'), 'not-available dashboard card CSS must exist');
@@ -41,14 +40,14 @@ assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer
 assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
 assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
 assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes(`main-rhbg-fitguard.js?v=${pipelineStartupToken}`), 'index must use the Pipeline M25 startup cache token');
-assert.ok(mainEntry.includes(`./core/app.js?v=${pipelineStartupToken}`), 'main entry must use the Pipeline M25 startup cache token');
-assert.ok(appDelegate.includes(`./app-standalone-runtime.js?v=${pipelineStartupToken}`), 'core app must refresh the standalone runtime with the Pipeline M25 token');
-assert.ok(appDelegate.includes(`support-steel-relationship-bootstrap.js?v=${startupToken}`), 'core app must keep the relationship builder bootstrap token');
-assert.ok(appDelegate.includes(`ps-family-evidence-audit-bootstrap.js?v=${startupToken}`), 'core app must keep the evidence audit bootstrap token');
-assert.ok(runtime.includes("build: 'M25 Pipeline export context · 2026-07-22'"), 'runtime must expose the visible M25 Pipeline export context build stamp');
-assert.ok(runtime.includes(`../tabs/psnm-utility-tab.js?v=standalone-${pipelineStartupToken}`), 'runtime must adopt the M25 Utilities module token');
-assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260717-psi-support-1"), 'runtime must cache-bust XML tab module for PSI support');
+assert.ok(indexHtml.includes(`main-rhbg-fitguard.js?v=${startupToken}`), 'index must use the current startup cache token');
+assert.ok(mainEntry.includes(`./core/app.js?v=${startupToken}`), 'main entry must use the current startup cache token');
+assert.ok(appDelegate.includes(`./app-standalone-runtime.js?v=${startupToken}`), 'core app must refresh the standalone runtime with the current startup token');
+assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-startup-parse-hotfix-1'), 'core app must retain relationship builder bootstrap token');
+assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-startup-parse-hotfix-1'), 'core app must retain evidence audit bootstrap token');
+assert.ok(runtime.includes("build: 'M26 Pipeline canonical InputXML · 2026-07-22'"), 'runtime must expose the visible M26 canonical InputXML build stamp');
+assert.ok(runtime.includes('standalone-20260722-p3d-canonical-document-1'), 'runtime must load Utilities with the M26 Pipeline cache token');
+assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260717-psi-support-1"), 'runtime must retain XML tab PSI support token');
 assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');
 
-console.log('XML Compare Transfer Tab 2 tile layout foundation and cache-bust tests passed');
+console.log('XML Compare Transfer Tab 2 tile layout foundation and M26 cache-bust tests passed');

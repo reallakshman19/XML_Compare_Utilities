@@ -1,4 +1,4 @@
-import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-export-context-1';
+import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-canonical-document-1';
 import {
   DEFAULT_ELASTIC_BEND_SETTINGS,
   loadElasticBendSettings,
@@ -54,7 +54,7 @@ function preview(dialog, page) {
     page._elasticOutput = output;
     renderBendSummary(page, output);
     renderBendCandidates(page, output);
-    page.querySelector('[data-p3d-elastic-status]').textContent = `${output.elasticBends.diagnostics.candidateCount} candidate(s), ${output.elasticBends.diagnostics.emittedCount} emitted, ${output.elasticBends.diagnostics.blockedCount} blocking error(s).`;
+    page.querySelector('[data-p3d-elastic-status]').textContent = `${output.elasticBends.diagnostics.candidateCount} candidate(s), ${output.elasticBends.diagnostics.emittedCount} emitted, ${output.exportQualification.blockerCodes.length} document blocker(s).`;
     return output;
   } catch (error) {
     page.querySelector('[data-p3d-elastic-status]').textContent = `Preview unavailable: ${error.message}`;

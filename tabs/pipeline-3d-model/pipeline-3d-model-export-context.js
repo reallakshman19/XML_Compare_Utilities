@@ -76,6 +76,12 @@ function resolutionCodes(bendResolution) {
     .filter(Boolean);
 }
 
+function documentCodes(documentPlan) {
+  return (documentPlan?.blockerCodes || [])
+    .map((code) => String(code || '').trim())
+    .filter(Boolean);
+}
+
 function uniqueCodes(values) {
   return Object.freeze([...new Set(values)]);
 }
@@ -84,16 +90,20 @@ export function qualifyPipelineUtilityExport(
   contextInput,
   coordinateRows = [],
   bendResolution = null,
+  documentPlan = null,
 ) {
   const context = contextInput?.schema === PIPELINE_EXPORT_CONTEXT_SCHEMA
     ? contextInput
     : resolvePipelineUtilityExportContext(contextInput);
   const segmentCount = Math.max(0, coordinateRows.length - 1);
+  const planCodes = documentCodes(documentPlan);
   const blockerCodes = uniqueCodes([
-    ...(segmentCount ? [] : ['PIPELINE_GEOMETRY_SEGMENT_REQUIRED']),
+    ...(documentPlan ? [] : (segmentCount ? [] : ['PIPELINE_GEOMETRY_SEGMENT_REQUIRED'])),
     ...context.readiness.blockerCodes,
+    ...planCodes,
     ...resolutionCodes(bendResolution),
   ]);
+  const documentReady = documentPlan ? documentPlan.ready === true : segmentCount > 0;
   return Object.freeze({
     schema: PIPELINE_EXPORT_QUALIFICATION_SCHEMA,
     resolvedMode: context.profile.resolvedMode,
@@ -101,7 +111,10 @@ export function qualifyPipelineUtilityExport(
     bendCandidateCount: bendResolution?.diagnostics?.candidateCount || 0,
     bendEmittedCount: bendResolution?.diagnostics?.emittedCount || 0,
     bendBlockingCount: bendResolution?.diagnostics?.blockedCount || 0,
-    preflightInputXmlAllowed: context.readiness.preflightInputXmlAllowed,
+    documentPlanSchema: documentPlan?.schema || '',
+    documentReady,
+    documentBlockerCount: planCodes.length,
+    preflightInputXmlAllowed: context.readiness.preflightInputXmlAllowed && documentReady,
     inputXmlAllowed: blockerCodes.length === 0,
     blockerCodes,
   });
