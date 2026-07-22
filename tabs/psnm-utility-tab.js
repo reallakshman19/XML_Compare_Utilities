@@ -7,7 +7,7 @@ import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-pr
 import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
 import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
 import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260712-marker-triangles-1';
-import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260721-p3d-meta-phase1-2';
+import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260722-p3d-export-context-1';
 import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
 import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
 import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';

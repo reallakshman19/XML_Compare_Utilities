@@ -1,7 +1,7 @@
 import {
   buildPipelineProjectMigration,
   buildPipelineProjectOutputs,
-} from './pipeline-3d-model-project-adapter.js?v=20260718-profile-propagation-1';
+} from './pipeline-3d-model-project-adapter.js?v=20260722-p3d-export-context-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -14,7 +14,7 @@ import {
 
 const INSTANCES = new WeakMap();
 const CONFIG_KEYS = Object.freeze([
-  'lineNo', 'boreMm', 'wallThickness', 'p1', 't1', 't2', 't3',
+  'branchName', 'lineNo', 'boreMm', 'wallThickness', 'p1', 't1', 't2', 't3',
   'fluidDensity', 'materialCode', 'corrosionAllowance', 'insulationThickness',
   'insulationDensity', 'hydroPressure',
 ]);
@@ -54,7 +54,7 @@ function readProfileRaw(dialog) {
 
 function readBranchInfo(dialog) {
   const value = (key) => find(dialog, `[data-p3d-field="${key}"]`)?.value?.trim() || '';
-  const info = { branchName: value('lineNo') || 'B1' };
+  const info = {};
   CONFIG_KEYS.forEach((key) => { info[key] = value(key); });
   return info;
 }
@@ -288,4 +288,4 @@ export function installPipelineProfilePropagation(dialog) {
   return instance.destroy;
 }
 
-export const _test = Object.freeze({ buildInput, hasAuthoritativeProfile, rawTextFromPreview, renderTsvGrid, setWarnings });
+export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile, rawTextFromPreview, renderTsvGrid, setWarnings });

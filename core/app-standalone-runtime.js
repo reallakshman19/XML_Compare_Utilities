@@ -8,7 +8,7 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'M24 Pipeline bend policy v3 · 2026-07-21',
+  build: 'M25 Pipeline export context · 2026-07-22',
   defaultTab: 'xml-compare',
 });
 
@@ -76,7 +76,7 @@ async function loadPsnmUtilityRenderer() {
     import('../tabs/psnm-utility/psnm-phase4c-hardening.js?v=standalone-1'),
     import('../tabs/psnm-utility/psnm-phase4d-persistence.js?v=standalone-1'),
   ]);
-  return import('../tabs/psnm-utility-tab.js?v=standalone-20260721-bend-policy-v3-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
+  return import('../tabs/psnm-utility-tab.js?v=standalone-20260722-p3d-export-context-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
 }
 
 function createAppShell(root) {

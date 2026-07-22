@@ -3,6 +3,7 @@
 // InputXML->CII(2019) converter, as a standalone (no-DOM) utility.
 // Coordinate row identity: branch, line, node number, node name, source and XYZ.
 
+import { exportContextBranchInfo } from './pipeline-3d-model-export-context.js?v=20260722-p3d-export-context-1';
 import {
   resolvePipelineIdentityContext,
   resolvePipelineNodeIdentity,
@@ -148,10 +149,15 @@ function assertBendExportReady(bendResolution) {
   throw error;
 }
 
-export function buildInputXmlPipingModelXml(branchInfo, coordinateRows, bendResolution = null) {
+export function buildInputXmlPipingModelXml(exportInput, coordinateRows, bendResolution = null) {
   assertBendExportReady(bendResolution);
-  const identity = resolvePipelineIdentityContext(branchInfo);
-  const resolvedBranchInfo = { ...branchInfo, branchName: identity.branchName, lineNo: identity.lineNo };
+  const sourceBranchInfo = exportContextBranchInfo(exportInput);
+  const identity = resolvePipelineIdentityContext(sourceBranchInfo);
+  const resolvedBranchInfo = {
+    ...sourceBranchInfo,
+    branchName: identity.branchName,
+    lineNo: identity.lineNo,
+  };
   const elements = [];
   for (let i = 1; i < coordinateRows.length; i += 1) {
     const bend = bendResolution?.bendByIncomingElementIndex?.[i - 1] || null;
