@@ -9,9 +9,13 @@ import {
 } from './pipeline-3d-model-elastic-bend.js?v=20260721-bend-policy-v3-1';
 import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
 import {
+  buildPipelineIdentityLedgerText,
+  resolvePipelineIdentityContext,
+} from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
+import {
   buildCoordinateRows, coordinateRowsToTabText, buildInputXmlPipingModelXml,
-} from './pipeline-3d-model-xml-builder.js';
-import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js?v=20260721-bend-policy-v3-1';
+} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-identity-1';
+import { buildAuthoritativePipelineOutputs } from './pipeline-3d-model-profile-propagation.js?v=20260722-p3d-identity-1';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
@@ -21,29 +25,44 @@ function effectiveElasticSettings(input) {
   return input?.elasticBendSettings || loadElasticBendSettings(globalThis.localStorage);
 }
 
+function resolvedIdentity(branchInfo = {}) {
+  const identity = resolvePipelineIdentityContext(branchInfo);
+  return Object.freeze({
+    identity,
+    branchInfo: Object.freeze({
+      ...branchInfo,
+      branchName: identity.branchName,
+      lineNo: identity.lineNo,
+    }),
+  });
+}
+
 function buildXmlText(branchInfo, elasticBends) {
   if (elasticBends.hasBlockingErrors) return '';
   return buildInputXmlPipingModelXml(branchInfo, elasticBends.geometryRows, elasticBends);
 }
 
 function buildLegacyOutputs(input) {
+  const resolved = resolvedIdentity(input.branchInfo);
   const table1Points = parseTable1(input.table1Text);
   const sheets = groupPointsIntoSheets(table1Points);
   const combined = buildCombinedCoordinateTable({
     table1Text: input.table1Text, table2Text: input.table2Text, table3Text: input.table3Text,
   });
-  const coordinateRows = buildCoordinateRows(combined, input.branchInfo.branchName);
+  const coordinateRows = buildCoordinateRows(combined, resolved.identity);
   const elasticBends = resolvePipelineElasticBends({
-    points: combined, coordinateRows, branchInfo: input.branchInfo, settings: effectiveElasticSettings(input),
+    points: combined, coordinateRows, branchInfo: resolved.branchInfo, settings: effectiveElasticSettings(input),
   });
   return Object.freeze({
     table1Points, sheets, combined, coordinateRows,
+    identity: resolved.identity,
+    identityText: buildPipelineIdentityLedgerText(resolved.identity, coordinateRows),
     inputXmlCoordinateRows: elasticBends.geometryRows,
     elasticBends,
     table1OutputText: table1ToTabText(table1Points),
     coordinateText: coordinateRowsToTabText(coordinateRows),
     elasticBendText: buildElasticBendLedgerText(elasticBends),
-    xmlText: buildXmlText(input.branchInfo, elasticBends),
+    xmlText: buildXmlText(resolved.branchInfo, elasticBends),
     warnings: elasticBends.warnings,
     errors: elasticBends.errors,
   });
@@ -64,6 +83,14 @@ function bendArtifact(output) {
   })];
 }
 
+function identityArtifact(output) {
+  return Object.freeze({
+    fileId: 'pipeline-identity-ledger', name: 'pipeline-identity-ledger.tsv',
+    mime: 'text/tab-separated-values', role: 'ENGINEERING_EVIDENCE',
+    sourceSchema: 'PipelineIdentityContext.v1', text: output.identityText,
+  });
+}
+
 function inputXmlArtifact(output) {
   if (!output.xmlText) return [];
   return [Object.freeze({
@@ -76,6 +103,7 @@ export function pipelineProjectArtifacts(output) {
   return Object.freeze([
     Object.freeze({ fileId: 'pipeline-table-1', name: 'pipeline-table-1.tsv', mime: 'text/tab-separated-values', role: 'SOURCE_TABLE', sourceSchema: 'PipelineTable1.v1', text: output.table1OutputText }),
     Object.freeze({ fileId: 'pipeline-coordinate-table', name: 'pipeline-coordinate-tab.tsv', mime: 'text/tab-separated-values', role: 'COORDINATE_TABLE', sourceSchema: 'PipelineCoordinateTable.v1', text: output.coordinateText }),
+    identityArtifact(output),
     ...inputXmlArtifact(output),
     ...bendArtifact(output),
   ]);
@@ -88,6 +116,7 @@ function pipelineSourceText(input, output) {
     table3Text: input.table3Text,
     profileRaw: input.profileRaw || null,
     branchInfo: input.branchInfo,
+    identity: output.identity,
     elasticBendSettings: output.elasticBends?.screening?.settings || null,
   });
 }
@@ -112,9 +141,10 @@ export async function buildPipelineProjectMigration(input) {
     stats: { branchCount: 1, componentCount: segmentCount, scanned: nativeOutput.table1Points.length, matched: nativeOutput.coordinateRows.length, filtered: bendDiagnostics.excludedMarkerCount || 0 },
     scope: { wildcard: '', selectedIds: [] }, createdAt: input.createdAt, cryptoRef: input.cryptoRef,
     writerId: 'buildInputXmlPipingModelXml', outputs: pipelineProjectArtifacts(nativeOutput),
-    hierarchy: { branch: input.branchInfo.branchName, tables: input.profileRaw ? ['table1', 'table2a', 'table3a', 'table3b', 'table3c'] : ['table1', 'table2', 'table3'], coordinateRowCount: nativeOutput.coordinateRows.length, inputXmlCoordinateRowCount: nativeOutput.inputXmlCoordinateRows.length },
+    hierarchy: { branch: nativeOutput.identity.branchName, lineNo: nativeOutput.identity.lineNo, tables: input.profileRaw ? ['table1', 'table2a', 'table3a', 'table3b', 'table3c'] : ['table1', 'table2', 'table3'], coordinateRowCount: nativeOutput.coordinateRows.length, inputXmlCoordinateRowCount: nativeOutput.inputXmlCoordinateRows.length },
     calculations: {
       pointCount: nativeOutput.table1Points.length, coordinateRowCount: nativeOutput.coordinateRows.length,
+      namedNodeCount: nativeOutput.coordinateRows.filter((row) => row.nodeName).length,
       pipingElementCount: segmentCount, elasticBendCandidateCount: bendDiagnostics.candidateCount || 0,
       elasticBendEmittedCount: bendDiagnostics.emittedCount || 0,
       bendBlockingErrorCount: bendDiagnostics.blockedCount || 0,

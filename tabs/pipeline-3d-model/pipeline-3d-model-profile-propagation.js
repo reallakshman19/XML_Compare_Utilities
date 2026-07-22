@@ -10,10 +10,14 @@ import {
 } from './pipeline-3d-model-elastic-bend.js?v=20260721-bend-policy-v3-1';
 import { loadElasticBendSettings } from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
 import {
+  buildPipelineIdentityLedgerText,
+  resolvePipelineIdentityContext,
+} from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
+import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
   coordinateRowsToTabText,
-} from './pipeline-3d-model-xml-builder.js';
+} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-identity-1';
 import {
   buildDepthRules,
   buildGradeProfile,
@@ -81,22 +85,33 @@ function appendElasticDiagnostics(context, elasticBends) {
   }
 }
 
+function resolvedIdentity(branchInfo = {}) {
+  const identity = resolvePipelineIdentityContext(branchInfo);
+  return Object.freeze({
+    identity,
+    branchInfo: Object.freeze({ ...branchInfo, branchName: identity.branchName, lineNo: identity.lineNo }),
+  });
+}
+
 function buildXmlText(branchInfo, elasticBends) {
   if (elasticBends.hasBlockingErrors) return '';
   return buildInputXmlPipingModelXml(branchInfo, elasticBends.geometryRows, elasticBends);
 }
 
 function outputBundle(input, profile, context, gradeRows, table1Points, sheets, combined, maxSegment) {
-  const coordinateRows = buildCoordinateRows(combined, input.branchInfo.branchName);
+  const resolved = resolvedIdentity(input.branchInfo);
+  const coordinateRows = buildCoordinateRows(combined, resolved.identity);
   const elasticBends = resolvePipelineElasticBends({
     points: combined,
     coordinateRows,
-    branchInfo: input.branchInfo,
+    branchInfo: resolved.branchInfo,
     settings: elasticSettings(input),
   });
   appendElasticDiagnostics(context, elasticBends);
   return Object.freeze({
     table1Points, sheets, combined, coordinateRows,
+    identity: resolved.identity,
+    identityText: buildPipelineIdentityLedgerText(resolved.identity, coordinateRows),
     inputXmlCoordinateRows: elasticBends.geometryRows,
     elasticBends,
     table1OutputText: table1ToTabText(table1Points),
@@ -106,7 +121,7 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     table3XText: buildTable3XText(profile),
     coordinateText: coordinateRowsToTabText(coordinateRows),
     elasticBendText: buildElasticBendLedgerText(elasticBends),
-    xmlText: buildXmlText(input.branchInfo, elasticBends),
+    xmlText: buildXmlText(resolved.branchInfo, elasticBends),
     warnings: Object.freeze([...context.warnings]),
     errors: elasticBends.errors,
     diagnostics: diagnostics(context, profile, gradeRows, maxSegment, elasticBends),
