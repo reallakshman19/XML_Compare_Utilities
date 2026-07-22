@@ -187,6 +187,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
   let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
+  let trustImportGeneration = 0;
   if (!viewerAdapter) viewerAdapter = createRevisionCompareViewerAdapter({
     ...options.viewerAdapterOptions, viewerPolicy: policy,
     onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
@@ -250,7 +251,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     }
   }
   async function importTrustReceipt(file) {
-    const generation = (state.trustReceipt?.requestGeneration ?? 0) + 1; const report = state.signOff?.report;
+    const generation = ++trustImportGeneration; const report = state.signOff?.report;
     state = startWorkspaceTrustReceiptImport(state, generation, file.name); render();
     if (state.trustReceipt.status !== REVISION_COMPARE_TRUST_STATUS.IMPORTING) { reportFailure(root, options, state.trustReceipt.error); return; }
     try {
