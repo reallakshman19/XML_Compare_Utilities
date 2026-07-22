@@ -4,7 +4,7 @@ import {
   loadElasticBendSettings,
   normalizeElasticBendSettings,
   saveElasticBendSettings,
-} from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-bend-policy-v3-1';
+} from './pipeline-3d-model-elastic-bend-settings.js?v=20260721-p3d-meta-phase1-2';
 import { renderBendCandidates, renderBendSummary } from './pipeline-3d-model-elastic-bend-ui-results.js?v=20260721-bend-policy-v3-1';
 import { installBendSettingsStyle } from './pipeline-3d-model-elastic-bend-ui-style.js?v=20260721-bend-policy-v3-1';
 import {
@@ -13,7 +13,7 @@ import {
   readBendSettings,
   syncBendSettingsVisibility,
   writeBendSettings,
-} from './pipeline-3d-model-elastic-bend-ui-view.js?v=20260721-bend-policy-v3-1';
+} from './pipeline-3d-model-elastic-bend-ui-view.js?v=20260721-p3d-meta-phase1-2';
 
 const INSTALLED = new WeakSet();
 
