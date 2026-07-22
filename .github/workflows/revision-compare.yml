@@ -83,6 +83,9 @@ jobs:
               'playwright.revision-compare.config.mjs',
               '.github/workflows/revision-compare.yml',
               '.github/workflows/deploy.yml',
+              '.github/workflows/pipeline-cad-browser-acceptance.yml',
+              '.github/workflows/xml-builder-viewport-browser.yml',
+              '.github/workflows/navis-tag-isonote-full-benchmark.yml',
               'package.json',
           }
           unexpected = [path for path in paths if path not in allowed]
