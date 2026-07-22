@@ -15,6 +15,7 @@ assert.deepEqual(imports.sort(), [
   '../../core/engineering-svg/engineering-svg-adapter-bridge.js',
   '../../core/engineering-svg/shell-runtime.js',
   './sequential-engineering-svg-adapter.js',
+  './sequential-engineering-svg-parity-validation.js',
 ].sort());
 assert.doesNotMatch(source, /sequential-(construction-engine|construction-runtime|supervised-decision|connection-resolver|tolerance-policy)/);
 assert.doesNotMatch(source, /sequential-(construction-svg|sketcher-projection|sketcher-workspace|sketcher-tab)/);
@@ -24,6 +25,7 @@ assert.doesNotMatch(source, /Math\.(round|floor|ceil|trunc)|toFixed|Date\.now|Ma
 assert.match(source, /createSequentialEngineeringSvgAdapter/);
 assert.match(source, /createEngineeringSvgAdapterBridge/);
 assert.match(source, /createEngineeringSvgWorkspaceShellFromAdapterBridge/);
+assert.match(source, /validateSequentialEngineeringSvgShadowParity/);
 assert.match(source, /if \(destroyed\) return false/);
 
 function javascriptFiles(directory) {

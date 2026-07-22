@@ -1,4 +1,5 @@
 import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspace.js?v=20260718-ssk-geometry-order-1';
+import { mountSequentialEngineeringSvgPreviewController } from './sequential-engineering-svg-preview-controller.js?v=20260721-ssk-esvg-preview-1';
 import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialProjectExportController } from './platform/sequential-project-export-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
@@ -35,6 +36,7 @@ export function installSequentialSketcherTile(container, context = {}) {
   let projectExportController = null;
   let persistenceController = null;
   let continuityController = null;
+  let previewController = null;
   const open = () => {
     if (active) return;
     const overlay = container.ownerDocument.createElement('div');
@@ -44,6 +46,8 @@ export function installSequentialSketcherTile(container, context = {}) {
     overlay.setAttribute('aria-label', 'Sequential Sketcher');
     container.ownerDocument.body.appendChild(overlay);
     const close = () => {
+      previewController?.destroy();
+      previewController = null;
       continuityController?.destroy();
       continuityController = null;
       persistenceController?.destroy();
@@ -57,6 +61,11 @@ export function installSequentialSketcherTile(container, context = {}) {
       overlay.remove();
     };
     active = mountSequentialSketcherWorkspace(overlay, { ...context, close });
+    previewController = mountSequentialEngineeringSvgPreviewController(overlay, {
+      workspace: active,
+      failureFactory: context.sequentialEngineeringSvgPreviewFailureFactory,
+      onFailure: context.onSequentialEngineeringSvgPreviewFailure,
+    });
     redoController = mountSequentialRedoController(overlay, active, context);
     projectExportController = mountSequentialProjectExportController(overlay, active, context);
     persistenceController = mountSequentialWorkspacePersistenceController(overlay, active, context);
@@ -64,7 +73,9 @@ export function installSequentialSketcherTile(container, context = {}) {
   };
   tile.addEventListener('click', open);
   return () => {
-    tile.querySelector('[data-ssk-open]')?.removeEventListener('click', open);
+    previewController?.destroy();
+    previewController = null;
+    tile.removeEventListener('click', open);
     continuityController?.destroy();
     continuityController = null;
     persistenceController?.destroy();
