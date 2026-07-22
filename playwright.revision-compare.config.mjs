@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
+  // Keep every individually blocking Revision Compare mission in the complete Chromium run.
   testMatch: [
     'revision-compare-rc001.spec.mjs',
     'revision-compare-rc002.spec.mjs',
@@ -14,6 +15,7 @@ export default defineConfig({
     'revision-compare-svg-keyboard.spec.mjs',
     'revision-compare-evidence-package.spec.mjs',
     'revision-compare-evidence-package-import.spec.mjs',
+    'revision-compare-sign-off.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },

@@ -131,7 +131,7 @@ async function verifyImportedWorkspaceB(page, source) {
   await expect(page.locator('[data-revc-imported-rev-b-file]')).toHaveText(source.downloaded.value.payload.sessionManifest.revisions.revB.fileName);
   await expect(page.locator('[data-revc-package-authenticity-boundary]')).toHaveText('Integrity and authority-chain consistency verified. Package authenticity is not established.');
   const state = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state));
-  expect(state.schema).toBe('RevisionCompareWorkspaceState.v5');
+  expect(state.schema).toBe('RevisionCompareWorkspaceState.v6');
   expect(state.evidencePackageImport.schema).toBe('RevisionEvidencePackageImportState.v1');
   expect(state.evidencePackageImport.status).toBe('VERIFIED'); expect(state.evidencePackageImport.authenticityStatus).toBe('NOT_ESTABLISHED');
   expect(state.compare.audit).toEqual(source.audit); expect(state.compare.status).toBe('COMPLETE'); expect(state.compare.reviewVisible).toBe(true);

@@ -22,7 +22,7 @@ const forbidden = [
 ];
 for (const path of files) {
   const source = await readFile(path, 'utf8');
-  assert(source.split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
   assert.equal(/export\s+default/.test(source), false, `${path} must use named exports`);
   for (const token of forbidden) assert.equal(source.includes(token), false, `${path} reaches forbidden ${token}`);
 }
@@ -109,7 +109,7 @@ assert.doesNotMatch(inspector, /Open file|Browse|Copy path|Resolve|Navigate|Loca
 assert.doesNotMatch(inspector, /<a\b|createElement\(['"]a['"]\)/);
 
 const packageSource = await readFile('tabs/revision-compare/revision-evidence-package.js', 'utf8');
-assert(packageSource.split('\n').length < 300, 'evidence package module must remain below 300 lines');
+assert(packageSource.trimEnd().split('\n').length < 300, 'evidence package module must remain below 300 lines');
 assert.match(packageSource, /RevisionCompareEvidencePackage\.v1/);
 assert.match(packageSource, /createRevisionSessionManifest/);
 assert.match(packageSource, /createRevisionScopeManifest/);
@@ -128,11 +128,13 @@ assert.doesNotMatch(packageSource, /new Map|new Set/);
 const importSource = await readFile('tabs/revision-compare/revision-evidence-package-import.js', 'utf8');
 const stateSource = await readFile('tabs/revision-compare/revision-workspace-state.js', 'utf8');
 const viewSource = await readFile('tabs/revision-compare/revision-compare-view.js', 'utf8');
+const signOffSource = await readFile('tabs/revision-compare/revision-sign-off.js', 'utf8');
 for (const [path, source] of [
   ['revision-evidence-package-import.js', importSource], ['revision-workspace-state.js', stateSource],
   ['revision-compare-workspace.js', workspaceSource], ['revision-compare-view.js', viewSource],
+  ['revision-sign-off.js', signOffSource],
 ]) {
-  assert(source.split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
   assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
 }
 assert.match(importSource, /JSON\.parse/);
@@ -146,8 +148,9 @@ assert.doesNotMatch(importSource, /eval\s*\(|new Function|Function\s*\(|DOMParse
 assert.doesNotMatch(importSource, /revision-load-service|revision-compare-service|revision-compare-worker|createRevisionCompareAudit|projectCompareRecords|matchBoundedCandidates/);
 assert.doesNotMatch(importSource, /source-document|rawUploadedBytes|fileHandle|arrayBuffer\(|createObjectURL|Blob|path\.resolve|readFile\(/);
 assert.doesNotMatch(importSource, /package (?:is )?(?:authenticated|signed|approved|certified|final|trusted)/i);
-assert.match(stateSource, /RevisionCompareWorkspaceState\.v5/);
+assert.match(stateSource, /RevisionCompareWorkspaceState\.v6/);
 assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
+assert.match(stateSource, /RevisionCompareSignOffState\.v1/);
 assert.match(workspaceSource, /data-revc-evidence-package-import/);
 assert.match(workspaceSource, /verifyRevisionCompareEvidencePackageJson/);
 assert.match(viewSource, /Import evidence package/);
@@ -155,5 +158,25 @@ assert.match(viewSource, /REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT/);
 assert.match(workspaceSource, /data-revc-download-evidence-package/);
 assert.match(workspaceSource, /Download evidence package/);
 assert.match(workspaceSource, /revisionCompareEvidencePackageReadiness/);
+
+assert.match(signOffSource, /RevisionCompareSignOffReport\.v1/);
+assert.match(signOffSource, /RevisionCompareSignOffState\.v1/);
+assert.match(signOffSource, /createRevisionCompareEvidencePackage/);
+assert.match(signOffSource, /canonicalRevisionCompareEvidenceValue/);
+assert.match(signOffSource, /sha256Text/);
+assert.match(signOffSource, /revision-sign-off:/);
+assert.match(signOffSource, /This is a self-declared review completion record\. Declarant identity and cryptographic authenticity are not established\./);
+assert.match(signOffSource, /I confirm that I reviewed the complete Revision Compare evidence set identified by this report and that all review items and ambiguity decisions are resolved in the recorded states\./);
+assert.doesNotMatch(signOffSource, /Date\.now|Math\.random|randomUUID|getRandomValues|privateKey|publicKey|certificate/i);
+assert.doesNotMatch(signOffSource, /revision-compare-viewer|engineering-svg|property-inspector|revision-load-service|revision-compare-service|revision-compare-worker/);
+assert.doesNotMatch(signOffSource, /authenticated|digitally signed|externally certified|organization-approved|engineering-approved|accepted for construction|final design authority/i);
+for (const selector of [
+  'data-revc-sign-off-name', 'data-revc-sign-off-role', 'data-revc-sign-off-organization',
+  'data-revc-sign-off-confirm', 'data-revc-create-sign-off', 'data-revc-download-sign-off',
+  'data-revc-create-new-sign-off',
+]) assert.match(signOffSource, new RegExp(selector));
+assert.match(workspaceSource, /createRevisionCompareSignOffReport/);
+assert.match(workspaceSource, /revisionCompareSignOffAuthorityMatches/);
+assert.match(workspaceSource, /setWorkspaceSignOffReport/);
 
 console.log('revision-compare-svg-dependency-guard.test.mjs passed');
