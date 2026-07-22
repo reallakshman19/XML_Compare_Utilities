@@ -4,7 +4,7 @@
 import {
   buildPipelineInputXmlDocumentPlan,
   PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
-} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-canonical-document-1';
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-property-sections-1';
 import {
   resolvePipelineIdentityContext,
   resolvePipelineNodeIdentity,
@@ -64,8 +64,8 @@ function optionalAttr(attrs, name, value) {
 }
 
 function optionalTextAttr(attrs, name, value) {
-  const text = String(value ?? '').trim();
-  if (text) attrs.push(attr(name, text));
+  const valueText = String(value ?? '').trim();
+  if (valueText) attrs.push(attr(name, valueText));
 }
 
 function usableCurvatureNodes(bend) {
@@ -121,10 +121,10 @@ function pipingElementXml(element) {
     attr('DELTA_X', element.deltaX),
     attr('DELTA_Y', element.deltaY),
     attr('DELTA_Z', element.deltaZ),
-    ...propertyAttributes(element.properties),
+    ...propertyAttributes(element.emittedProperties ?? element.properties),
   ];
   optionalTextAttr(attrs, 'FROM_NAME', element.fromName);
-  optionalTextAttr(attrs, 'TO_NAME', element.toName);
+  optionalTextAttr(attrs, 'TO_NAME", element.toName);
   attrs.push(attr('LINE', element.line));
   attrs.push(attr('FROM_X', element.fromX));
   attrs.push(attr('FROM_Y', element.fromY));

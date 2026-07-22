@@ -13,17 +13,21 @@ import {
   buildPipelineExportContextJson,
   qualifyPipelineUtilityExport,
   resolvePipelineUtilityExportContext,
-} from './pipeline-3d-model-export-context.js?v=20260722-p3d-canonical-document-1';
+} from './pipeline-3d-model-export-context.js?v=20260722-p3d-property-sections-1';
 import { buildPipelineIdentityLedgerText } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
 import {
   buildPipelineInputXmlDocumentPlan,
   buildPipelineInputXmlDocumentPlanJson,
-} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-canonical-document-1';
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-property-sections-1';
+import {
+  buildPipelinePropertySectionLedgerText,
+  buildPipelinePropertySectionPlanJson,
+} from './pipeline-3d-model-property-sections.js?v=20260722-p3d-property-sections-1';
 import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
   coordinateRowsToTabText,
-} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-canonical-document-1';
+} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-property-sections-1';
 import {
   buildDepthRules,
   buildGradeProfile,
@@ -61,7 +65,7 @@ function sanitizeTable1Points(points) {
 function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, qualification, plan) {
   return Object.freeze({
     routeLength: context.total,
-    routeStartStation: context.routeStartStation,
+    routeStartStation: context.routeStartStation: context.table3Count,
     table3OriginRoute: context.table3OriginRoute,
     stationSlope: context.stationAlignment.slope,
     stationResidual: context.stationAlignment.maxResidual,
@@ -76,6 +80,7 @@ function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, expo
     inputXmlDocumentSchema: plan.schema,
     inputXmlElementCount: plan.counts.numElt,
     inputXmlBendCount: plan.counts.numBend,
+    propertySectionCount: plan.propertySectionPlan.sectionCount,
     inputXmlDocumentBlockerCount: plan.blockerCodes.length,
     exportInputXmlAllowed: qualification.inputXmlAllowed,
     elasticBendCandidates: elasticBends.diagnostics.candidateCount,
@@ -107,22 +112,19 @@ function appendDocumentDiagnostics(context, plan, elasticBends) {
 
 function resolvedExportContext(input) {
   return resolvePipelineUtilityExportContext({
-    branchInfo: input.branchInfo || {},
-    settings: elasticSettings(input),
+    branchInfo: input.branchInfo || {}, settings: elasticSettings(input),
   });
 }
 
-function resolvedDocument(exportContext, elasticBends) {
+function resolvedDocument(exportContext, elasticBends, propertySections) {
   const plan = buildPipelineInputXmlDocumentPlan({
     exportContext,
     coordinateRows: elasticBends.geometryRows,
     bendResolution: elasticBends,
+    propertySections,
   });
   const qualification = qualifyPipelineUtilityExport(
-    exportContext,
-    elasticBends.geometryRows,
-    elasticBends,
-    plan,
+    exportContext, elasticBends.geometryRows, elasticBends, plan,
   );
   return Object.freeze({ plan, qualification });
 }
@@ -136,7 +138,8 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     branchInfo: exportContext.branchInfo,
     settings: exportContext.settings,
   });
-  const document = resolvedDocument(exportContext, elasticBends);
+  const document = resolvedDocument(exportContext, elasticBends, input.propertySections || []);
+  const propertyPlan = document.plan.propertySectionPlan;
   appendElasticDiagnostics(context, elasticBends);
   appendDocumentDiagnostics(context, document.plan, elasticBends);
   return Object.freeze({
@@ -148,6 +151,9 @@ function outputBundle(input, profile, context, gradeRows, table1Points, sheets, 
     exportContextText: buildPipelineExportContextJson(exportContext, document.qualification),
     inputXmlDocumentPlan: document.plan,
     inputXmlDocumentPlanText: buildPipelineInputXmlDocumentPlanJson(document.plan),
+    propertySectionPlan: propertyPlan,
+    propertySectionPlanText: buildPipelinePropertySectionPlanJson(propertyPlan),
+    propertySectionLedgerText: buildPipelinePropertySectionLedgerText(propertyPlan),
     inputXmlCoordinateRows: elasticBends.geometryRows,
     elasticBends,
     table1OutputText: table1ToTabText(table1Points),
