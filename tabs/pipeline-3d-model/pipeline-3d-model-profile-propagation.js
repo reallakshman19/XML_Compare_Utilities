@@ -13,21 +13,21 @@ import {
   buildPipelineExportContextJson,
   qualifyPipelineUtilityExport,
   resolvePipelineUtilityExportContext,
-} from './pipeline-3d-model-export-context.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-export-context.js?v=20260722-p3d-base-039-1';
 import { buildPipelineIdentityLedgerText } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1';
 import {
   buildPipelineInputXmlDocumentPlan,
   buildPipelineInputXmlDocumentPlanJson,
-} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-base-039-1';
 import {
   buildPipelinePropertySectionLedgerText,
   buildPipelinePropertySectionPlanJson,
-} from './pipeline-3d-model-property-sections.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-property-sections.js?v=20260722-p3d-base-039-1';
 import {
   buildCoordinateRows,
   buildInputXmlPipingModelXml,
   coordinateRowsToTabText,
-} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-base-039-1';
 import {
   buildDepthRules,
   buildGradeProfile,
@@ -65,7 +65,7 @@ function sanitizeTable1Points(points) {
 function diagnostics(context, profile, gradeRows, maxSegment, elasticBends, exportContext, qualification, plan) {
   return Object.freeze({
     routeLength: context.total,
-    routeStartStation: context.routeStartStation: context.table3Count,
+    routeStartStation: context.routeStartStation,
     table3OriginRoute: context.table3OriginRoute,
     stationSlope: context.stationAlignment.slope,
     stationResidual: context.stationAlignment.maxResidual,

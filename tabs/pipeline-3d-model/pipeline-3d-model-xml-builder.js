@@ -4,7 +4,7 @@
 import {
   buildPipelineInputXmlDocumentPlan,
   PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
-} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-property-sections-1';
+} from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-base-039-1';
 import {
   resolvePipelineIdentityContext,
   resolvePipelineNodeIdentity,
@@ -124,7 +124,7 @@ function pipingElementXml(element) {
     ...propertyAttributes(element.emittedProperties ?? element.properties),
   ];
   optionalTextAttr(attrs, 'FROM_NAME', element.fromName);
-  optionalTextAttr(attrs, 'TO_NAME", element.toName);
+  optionalTextAttr(attrs, 'TO_NAME', element.toName);
   attrs.push(attr('LINE', element.line));
   attrs.push(attr('FROM_X', element.fromX));
   attrs.push(attr('FROM_Y', element.fromY));

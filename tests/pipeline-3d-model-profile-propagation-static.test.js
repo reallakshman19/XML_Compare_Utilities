@@ -80,7 +80,7 @@ assert.match(runtime, /new AbortController\(\)/);
 assert.match(runtime, /'jobName', 'issueNo', 'caesarVersion'/);
 assert.match(runtime, /'branchName', 'lineNo'/);
 assert.doesNotMatch(runtime, /branchName: value\('lineNo'\)/);
-assert.match(runtime, /20260722-p3d-canonical-document-1/);
+assert.match(runtime, /20260722-p3d-base-039-1/);
 assert.match(runtime, /hasAuthoritativeProfile\(dialog\) \? readProfileRaw\(dialog\) : null/);
 assert.doesNotMatch(runtime, /!hasAuthoritativeProfile\(dialog\) && !instance\.output/);
 assert.match(runtime, /inputxml_blocked/);
@@ -90,7 +90,7 @@ assert.doesNotMatch(runtime, /MutationObserver/);
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
 assert.match(adapter, /input\?\.profileRaw/);
 assert.match(adapter, /buildAuthoritativePipelineOutputs/);
-assert.match(adapter, /20260722-p3d-canonical-document-1/);
+assert.match(adapter, /20260722-p3d-base-039-1/);
 assert.match(adapter, /pipeline-inputxml-document-plan\.json/);
 assert.match(adapter, /PipelineInputXmlDocumentPlan\.v1/);
 assert.match(adapter, /InputXML\.Canonical\.v1/);
@@ -100,10 +100,21 @@ const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-mod
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 assert.match(addon, /Table 2 station\/elevation values are the sole generated-geometry Z authority/);
-assert.match(addon, /20260722-p3d-canonical-document-1/);
+assert.match(addon, /20260722-p3d-base-039-1/);
+
+const pipelineTab = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-tab.js', import.meta.url), 'utf8');
+const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+assert.match(pipelineTab, /pipeline-3d-model-project-adapter\.js\?v=20260717-platform-1/);
+assert.match(pipelineTab, /pipeline-3d-model-config\.js\?v=20260711-collinear-1/);
+assert.match(indexHtml, /pipeline-3d-model-project-adapter\.js\?v=20260717-platform-1[^\n]+pipeline-3d-model-project-adapter\.js\?v=20260722-p3d-base-039-1/);
+assert.match(indexHtml, /pipeline-3d-model-config\.js\?v=20260711-collinear-1[^\n]+pipeline-3d-model-config\.js\?v=20260722-p3d-base-039-1/);
+assert.match(indexHtml, /pipeline-3d-model-property-sections\.js\?v=20260722-p3d-property-sections-1[^\n]+pipeline-3d-model-property-sections\.js\?v=20260722-p3d-base-039-1/);
+
+const elasticUi = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-elastic-bend-ui.js', import.meta.url), 'utf8');
+assert.match(elasticUi, /pipeline-3d-model-project-adapter\.js\?v=20260722-p3d-base-039-1/);
 
 const utilityTab = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260722-p3d-canonical-document-1/);
+assert.match(utilityTab, /pipeline-3d-model-table-paste-addon\.js\?v=20260722-p3d-base-039-1/);
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.match(packageJson.scripts['test:pipeline-table-paste'], /test:pipeline-profile-propagation/);

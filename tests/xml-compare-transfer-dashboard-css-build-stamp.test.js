@@ -1,53 +1,81 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const transferCss = readFileSync('tabs/xml-compare-transfer-output-ui.css', 'utf8');
-const noiseCss = readFileSync('tabs/xml-compare-transfer-noise-reduction.css', 'utf8');
-const buildCss = readFileSync('styles/app-build-stamp.css', 'utf8');
-const indexHtml = readFileSync('index.html', 'utf8');
-const mainEntry = readFileSync('main-rhbg-fitguard.js', 'utf8');
-const appDelegate = readFileSync('core/app.js', 'utf8');
-const runtime = readFileSync('core/app-standalone-runtime.js', 'utf8');
-const actionButtonRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
-const startupToken = '20260722-p3d-canonical-document-1';
+const read = (path) => readFileSync(path, 'utf8');
+const transferCss = read('tabs/xml-compare-transfer-output-ui.css');
+const noiseCss = read('tabs/xml-compare-transfer-noise-reduction.css');
+const buildCss = read('styles/app-build-stamp.css');
+const indexHtml = read('index.html');
+const mainEntry = read('main-rhbg-fitguard.js');
+const appDelegate = read('core/app.js');
+const runtime = read('core/app-standalone-runtime.js');
+const utilityTab = read('tabs/psnm-utility-tab.js');
+const pipelineTab = read('tabs/pipeline-3d-model/pipeline-3d-model-tab.js');
+const addon = read('tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js');
+const profileRuntime = read('tabs/pipeline-3d-model/pipeline-3d-model-profile-propagation-runtime.js');
+const adapter = read('tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js');
+const propagation = read('tabs/pipeline-3d-model/pipeline-3d-model-profile-propagation.js');
+const writer = read('tabs/pipeline-3d-model/pipeline-3d-model-xml-builder.js');
+const startupToken = '20260722-p3d-base-039-1';
+const actionRule = noiseCss.match(/\.xmlc-transfer-output-actions \.xmlc-transfer-action\s*\{[\s\S]*?\}/)?.[0] || '';
 
-assert.ok(transferCss.includes('.xmlc-transfer-output-dashboard'), 'dashboard panel CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-next-action'), 'next-action CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-dashboard-grid'), 'dashboard panel grid must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-ready'), 'ready dashboard card CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-blocked'), 'blocked dashboard card CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-dashboard-card.is-not-available'), 'not-available dashboard card CSS must exist');
-assert.ok(transferCss.includes('.xmlc-transfer-detail-group > summary'), 'collapsible detail group CSS must exist');
-assert.ok(transferCss.includes('@media (max-width: 900px)'), 'dashboard CSS must include responsive fallback');
-assert.ok(noiseCss.includes('M23: Transfer Tab 2 tile layout foundation'), 'M23 layout foundation CSS must be loaded');
-assert.ok(noiseCss.includes('.xmlc-transfer-review'), 'M23 must define a Tab 2 layout root');
-assert.ok(noiseCss.includes('box-sizing: border-box'), 'M23 must use border-box layout containment');
-assert.ok(noiseCss.includes('grid-template-columns: minmax(0, 1fr)'), 'M23 root must use a bounded single-column grid');
-assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr))'), 'dashboard tiles must use bounded auto-fit grid columns');
-assert.ok(noiseCss.includes('grid-template-areas:'), 'dashboard cards must have a stable internal grid contract');
-assert.ok(noiseCss.includes('grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr))'), 'action tiles must use bounded auto-fit grid columns');
-assert.ok(actionButtonRule.includes('white-space: normal'), 'action labels must wrap instead of blocking neighboring tiles');
-assert.ok(actionButtonRule.includes('overflow-wrap: anywhere'), 'long action labels must wrap safely');
-assert.ok(!actionButtonRule.includes('white-space: nowrap'), 'action tiles must not reintroduce nowrap pills');
-assert.ok(noiseCss.includes('@media (max-width: 1180px)'), 'M23 must include a medium-width fallback before mobile');
-assert.ok(noiseCss.includes('@media (max-width: 720px)'), 'M23 must include a narrow-width fallback');
-assert.ok(!noiseCss.includes('.xmlc-transfer-dashboard-grid {\n  display: flex'), 'M23 must not use flex dashboard tiles that can collide');
-assert.ok(!noiseCss.includes('.xmlc-transfer-output-actions {\n  display: flex'), 'M23 must not use flex action tiles that can collide');
-assert.ok(buildCss.includes('.app-build-stamp'), 'build stamp CSS must exist');
-assert.ok(buildCss.includes('text-overflow: ellipsis'), 'build stamp must not overflow header');
-assert.ok(!buildCss.includes('display: none'), 'build stamp must remain visible for cache verification');
-assert.ok(indexHtml.includes('styles/app-build-stamp.css?v=20260708-m23-transfer-tile-layout'), 'index must load build stamp CSS with M23 cache bust');
-assert.ok(indexHtml.includes('xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css'), 'index must keep dashboard base CSS loaded');
-assert.ok(indexHtml.includes('xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout'), 'index must load M23 transfer tile layout CSS cache bust');
-assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'), 'M23 layout CSS must load after base dashboard CSS');
-assert.ok(indexHtml.includes(`main-rhbg-fitguard.js?v=${startupToken}`), 'index must use the current startup cache token');
-assert.ok(mainEntry.includes(`./core/app.js?v=${startupToken}`), 'main entry must use the current startup cache token');
-assert.ok(appDelegate.includes(`./app-standalone-runtime.js?v=${startupToken}`), 'core app must refresh the standalone runtime with the current startup token');
-assert.ok(appDelegate.includes('support-steel-relationship-bootstrap.js?v=20260717-startup-parse-hotfix-1'), 'core app must retain relationship builder bootstrap token');
-assert.ok(appDelegate.includes('ps-family-evidence-audit-bootstrap.js?v=20260717-startup-parse-hotfix-1'), 'core app must retain evidence audit bootstrap token');
-assert.ok(runtime.includes("build: 'M26 Pipeline canonical InputXML · 2026-07-22'"), 'runtime must expose the visible M26 canonical InputXML build stamp');
-assert.ok(runtime.includes('standalone-20260722-p3d-canonical-document-1'), 'runtime must load Utilities with the M26 Pipeline cache token');
-assert.ok(runtime.includes("../tabs/xml-compare-tab.js?v=20260717-psi-support-1"), 'runtime must retain XML tab PSI support token');
-assert.ok(runtime.includes("className = 'app-build-stamp'"), 'runtime must render build stamp element');
+function includesAll(source, needles) {
+  for (const needle of needles) assert.ok(source.includes(needle), `Missing required text: ${needle}`);
+}
 
-console.log('XML Compare Transfer Tab 2 tile layout foundation and M26 cache-bust tests passed');
+includesAll(transferCss, [
+  '.xmlc-transfer-output-dashboard', '.xmlc-transfer-next-action',
+  '.xmlc-transfer-dashboard-grid', '.xmlc-transfer-dashboard-card.is-ready',
+  '.xmlc-transfer-dashboard-card.is-blocked', '.xmlc-transfer-dashboard-card.is-not-available',
+  '.xmlc-transfer-detail-group > summary', '@media (max-width: 900px)',
+]);
+includesAll(noiseCss, [
+  'M23: Transfer Tab 2 tile layout foundation', '.xmlc-transfer-review',
+  'box-sizing: border-box', 'grid-template-columns: minmax(0, 1fr)',
+  'grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+  'grid-template-areas:',
+  'grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr))',
+  '@media (max-width: 1180px)', '@media (max-width: 720px)',
+]);
+includesAll(actionRule, ['white-space: normal', 'overflow-wrap: anywhere']);
+assert.ok(!actionRule.includes('white-space: nowrap'));
+assert.ok(!noiseCss.includes('.xmlc-transfer-dashboard-grid {\n  display: flex'));
+assert.ok(!noiseCss.includes('.xmlc-transfer-output-actions {\n  display: flex'));
+includesAll(buildCss, ['.app-build-stamp', 'text-overflow: ellipsis']);
+assert.ok(!buildCss.includes('display: none'));
+includesAll(indexHtml, [
+  'styles/app-build-stamp.css?v=20260708-m23-transfer-tile-layout',
+  'xml-compare-transfer-output-ui.css?v=20260707-m18-dashboard-css',
+  'xml-compare-transfer-noise-reduction.css?v=20260708-m23-transfer-tile-layout',
+  `main-rhbg-fitguard.js?v=${startupToken}`,
+  `pipeline-3d-model-project-adapter.js?v=20260717-platform-1\": \"./tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js?v=${startupToken}`,
+  `pipeline-3d-model-config.js?v=20260711-collinear-1\": \"./tabs/pipeline-3d-model/pipeline-3d-model-config.js?v=${startupToken}`,
+  `pipeline-3d-model-property-sections.js?v=20260722-p3d-property-sections-1\": \"./tabs/pipeline-3d-model/pipeline-3d-model-property-sections.js?v=${startupToken}`,
+]);
+assert.ok(indexHtml.indexOf('xml-compare-transfer-output-ui.css') < indexHtml.indexOf('xml-compare-transfer-noise-reduction.css'));
+includesAll(mainEntry, [`./core/app.js?v=${startupToken}`]);
+includesAll(appDelegate, [
+  `./app-standalone-runtime.js?v=${startupToken}`,
+  'support-steel-relationship-bootstrap.js?v=20260717-startup-parse-hotfix-1',
+  'ps-family-evidence-audit-bootstrap.js?v=20260717-startup-parse-hotfix-1',
+]);
+includesAll(runtime, [
+  "build: 'M27 P3D-BASE-039 parseable Pipeline baseline · 2026-07-22'",
+  `standalone-${startupToken}`, '../tabs/xml-compare-tab.js?v=20260717-psi-support-1',
+  "className = 'app-build-stamp'",
+]);
+includesAll(utilityTab, [
+  `pipeline-3d-model-tab.js?v=${startupToken}`,
+  `pipeline-3d-model-table-paste-addon.js?v=${startupToken}`,
+]);
+includesAll(pipelineTab, [
+  'pipeline-3d-model-project-adapter.js?v=20260717-platform-1',
+  'pipeline-3d-model-config.js?v=20260711-collinear-1',
+]);
+includesAll(addon, [`pipeline-3d-model-profile-propagation-runtime.js?v=${startupToken}`]);
+includesAll(profileRuntime, [`pipeline-3d-model-project-adapter.js?v=${startupToken}`]);
+includesAll(adapter, [`pipeline-3d-model-profile-propagation.js?v=${startupToken}`]);
+includesAll(propagation, [`pipeline-3d-model-xml-builder.js?v=${startupToken}`]);
+includesAll(writer, [`pipeline-3d-model-inputxml-document.js?v=${startupToken}`]);
+
+console.log('XML Compare transfer layout and M27 P3D cache-lineage guards passed.');
