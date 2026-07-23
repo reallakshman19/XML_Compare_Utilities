@@ -25,11 +25,22 @@ for (const [name, source] of Object.entries(sources)) {
 
 const planner = sources[names[0]];
 assert.match(planner, /PipelineAnalysisSectionResolution\.v1/);
-assert.match(planner, /PipelineAnalysisSectionPlan\.v1/);
-assert.match(planner, /PipelineElementSectionResolution\.v1/);
+assert.match(planner, /pipeline-3d-model-engineering-profile-registry\.js/);
+assert.match(planner, /pipeline-3d-model-analysis-section-contracts\.js/);
+assert.match(planner, /PIPELINE_ENGINEERING_PROFILE_REGISTRY\.profiles/);
+assert.match(planner, /getPipelineEngineeringProfile/);
+assert.match(planner, /createPipelineAnalysisSection\(/);
+assert.match(planner, /createPipelineElementSectionResolution\(/);
+assert.match(planner, /createPipelineAnalysisSectionPlan\(/);
+assert.doesNotMatch(planner, /const\s+(PROFILES|LEGACY|PLAN_SCHEMA|SECTION_SCHEMA|ELEMENT_SCHEMA)\b/);
+assert.doesNotMatch(planner, /['"]PipelineAnalysisSectionPlan\.v1['"]/);
+assert.doesNotMatch(planner, /['"]PipelineAnalysisSection\.v1['"]/);
+assert.doesNotMatch(planner, /['"]PipelineElementSectionResolution\.v1['"]/);
 assert.match(planner, /PIPELINE_PROFILE_BOUNDARY_INTERSECTS_FITTING/);
 assert.match(planner, /bendByIncomingElementIndex/);
 assert.match(planner, /incomingElementIndex/);
+assert.match(planner, /INFEASIBLE/);
+assert.doesNotMatch(planner, /Number\(candidate\.radiusMm\)/);
 assert.match(planner, /sectionDisposition: isStart \? 'SECTION_START' : 'INHERITED'/);
 assert.match(planner, /buildPipelineAnalysisSectionResolutionJson/);
 assert.match(planner, /buildPipelineAnalysisSectionLedgerText/);
