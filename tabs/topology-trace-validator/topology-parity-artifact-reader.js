@@ -18,6 +18,11 @@ function requireText(record, field, schema) {
   return value;
 }
 
+function requireHashText(record, legacyField, shaField, schema) {
+  const field = cleanText(record[shaField]) ? shaField : legacyField;
+  return requireText(record, field, schema);
+}
+
 function validateScene(scene) {
   requireText(scene, 'canonicalTopologyHash', scene.schema);
   requireText(scene, 'svgSceneHash', scene.schema);
@@ -34,24 +39,31 @@ function validateScene(scene) {
 }
 
 function validateParsed(parsed) {
-  requireText(parsed, 'inputXmlHash', parsed.schema);
-  requireText(parsed, 'parsedInputXmlTopologyHash', parsed.schema);
+  requireHashText(parsed, 'inputXmlHash', 'inputXmlHashSha256', parsed.schema);
+  requireHashText(parsed, 'parsedInputXmlTopologyHash', 'parsedInputXmlTopologyHashSha256', parsed.schema);
+  const hashAnchoredShape = Boolean(cleanText(parsed.inputXmlHashSha256));
   for (const element of asArray(parsed.elements).map(objectRecord)) {
     requireText(element, 'id', 'ParsedInputXmlTopology.v1 element');
-    requireText(element, 'canonicalEdgeId', 'ParsedInputXmlTopology.v1 element');
-    requireText(element, 'fromCanonicalNodeId', 'ParsedInputXmlTopology.v1 element');
-    requireText(element, 'toCanonicalNodeId', 'ParsedInputXmlTopology.v1 element');
+    if (!hashAnchoredShape) {
+      requireText(element, 'canonicalEdgeId', 'ParsedInputXmlTopology.v1 element');
+      requireText(element, 'fromCanonicalNodeId', 'ParsedInputXmlTopology.v1 element');
+      requireText(element, 'toCanonicalNodeId', 'ParsedInputXmlTopology.v1 element');
+    } else {
+      requireText(element, 'fromNodeId', 'ParsedInputXmlTopology.v1 element');
+      requireText(element, 'toNodeId', 'ParsedInputXmlTopology.v1 element');
+    }
   }
 }
 
 function validateReport(report) {
-  requireText(report, 'canonicalTopologyHash', report.schema);
-  requireText(report, 'inputXmlHash', report.schema);
+  requireHashText(report, 'canonicalTopologyHash', 'canonicalTopologyHashSha256', report.schema);
+  requireHashText(report, 'inputXmlHash', 'inputXmlHashSha256', report.schema);
   requireText(report, 'svgSceneHash', report.schema);
-  requireText(report, 'topologyParityReportHash', report.schema);
-  if (!['PASS', 'FAIL'].includes(cleanText(report.status))) throw new TypeError(`TopologyParityReport.v1 status is invalid: ${report.status}.`);
-  if (typeof report.ok !== 'boolean') throw new TypeError('TopologyParityReport.v1.ok must be boolean.');
-  if (!Number.isInteger(Number(objectRecord(report.summary).topologyMismatchCount))) throw new TypeError('TopologyParityReport.v1.summary.topologyMismatchCount is required.');
+  requireHashText(report, 'topologyParityReportHash', 'topologyParityReportHashSha256', report.schema);
+  const allowed = report.schema === 'TopologyParityReport.v2' ? ['PASS', 'BLOCKED'] : ['PASS', 'FAIL'];
+  if (!allowed.includes(cleanText(report.status))) throw new TypeError(`${report.schema} status is invalid: ${report.status}.`);
+  if (report.schema === 'TopologyParityReport.v1' && typeof report.ok !== 'boolean') throw new TypeError('TopologyParityReport.v1.ok must be boolean.');
+  if (!Number.isInteger(Number(objectRecord(report.summary).topologyMismatchCount))) throw new TypeError(`${report.schema}.summary.topologyMismatchCount is required.`);
 }
 
 export function readTopologySvgScene(value) {
@@ -67,9 +79,15 @@ export function readParsedInputXmlTopology(value) {
 }
 
 export function readTopologyParityReport(value) {
-  const report = requireSchema(value, 'TopologyParityReport.v1');
+  const schema = cleanText(objectRecord(value).schema);
+  const report = requireSchema(value, schema === 'TopologyParityReport.v2' ? schema : 'TopologyParityReport.v1');
   validateReport(report);
   return deepFreeze(report);
 }
 
-export const _test = Object.freeze({ requireSchema, requireText, validateScene, validateParsed, validateReport });
+export function topologyEvidenceClassification(value) {
+  const schema = cleanText(objectRecord(value).schema);
+  return schema === 'TopologyParityReport.v2' ? 'RELEASE_EVIDENCE_V2' : 'LEGACY_UNVERIFIED';
+}
+
+export const _test = Object.freeze({ requireSchema, requireText, requireHashText, validateScene, validateParsed, validateReport });

@@ -10,19 +10,19 @@ function hashEvidence(artifacts) {
   const parsed = objectRecord(artifacts.parsed);
   const report = objectRecord(artifacts.report);
   return deepFreeze({
-    canonicalTopologyHash: cleanText(canonical.canonicalTopologyHash),
+    canonicalTopologyHash: cleanText(canonical.canonicalTopologyHashSha256 || canonical.canonicalTopologyHash),
     ledgerCanonicalTopologyHash: cleanText(ledger.canonicalTopologyHash),
     topologyTraceLedgerHash: cleanText(ledger.topologyTraceLedgerHash),
     sceneCanonicalTopologyHash: cleanText(scene.canonicalTopologyHash),
     svgSceneHash: cleanText(scene.svgSceneHash),
-    parsedCanonicalTopologyHash: cleanText(parsed.canonicalTopologyHash),
-    inputXmlHash: cleanText(parsed.inputXmlHash),
-    parsedInputXmlTopologyHash: cleanText(parsed.parsedInputXmlTopologyHash),
-    reportCanonicalTopologyHash: cleanText(report.canonicalTopologyHash),
+    parsedCanonicalTopologyHash: cleanText(parsed.canonicalTopologyHashSha256 || parsed.canonicalTopologyHash),
+    inputXmlHash: cleanText(parsed.inputXmlHashSha256 || parsed.inputXmlHash),
+    parsedInputXmlTopologyHash: cleanText(parsed.parsedInputXmlTopologyHashSha256 || parsed.parsedInputXmlTopologyHash),
+    reportCanonicalTopologyHash: cleanText(report.canonicalTopologyHashSha256 || report.canonicalTopologyHash),
     reportTopologyTraceLedgerHash: cleanText(report.topologyTraceLedgerHash),
     reportSvgSceneHash: cleanText(report.svgSceneHash),
-    reportInputXmlHash: cleanText(report.inputXmlHash),
-    reportParsedInputXmlTopologyHash: cleanText(report.parsedInputXmlTopologyHash),
+    reportInputXmlHash: cleanText(report.inputXmlHashSha256 || report.inputXmlHash),
+    reportParsedInputXmlTopologyHash: cleanText(report.parsedInputXmlTopologyHashSha256 || report.parsedInputXmlTopologyHash),
   });
 }
 
@@ -51,7 +51,10 @@ export function buildTopologyParityState(artifacts, options = {}) {
   const reasons = staleReasons(evidence);
   if (reasons.length) return deepFreeze({ status: 'STALE', stale: true, missing: [], reasons, evidence });
   const report = objectRecord(artifacts.report);
-  const status = report.ok === true && cleanText(report.status) === 'PASS' ? 'PASS' : 'FAIL';
+  const reportPass = report.schema === 'TopologyParityReport.v2'
+    ? cleanText(report.status) === 'PASS'
+    : report.ok === true && cleanText(report.status) === 'PASS';
+  const status = reportPass ? 'PASS' : 'FAIL';
   return deepFreeze({ status, stale: false, missing: [], reasons: [], evidence });
 }
 
