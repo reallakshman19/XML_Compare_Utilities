@@ -1,4 +1,7 @@
-import { PIPELINE_ENGINEERING_PROFILE_MODES } from './pipeline-3d-model-engineering-profile-registry.js';
+import {
+  PIPELINE_ENGINEERING_PROFILE_MODES,
+  getPipelineEngineeringProfile,
+} from './pipeline-3d-model-engineering-profile-registry.js';
 
 export const PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA = 'PipelineAnalysisSectionPlan.v1';
 export const PIPELINE_ANALYSIS_SECTION_SCHEMA = 'PipelineAnalysisSection.v1';
@@ -89,6 +92,18 @@ function safeInput(input, code) {
   return { source: {}, errors: [diagnostic(code, 'Input is not JSON-safe plain data.')] };
 }
 
+function exactProfile(profileId) {
+  return getPipelineEngineeringProfile(profileId);
+}
+
+function profileDiagnostic(profileId) {
+  return diagnostic(
+    'PIPELINE_PROFILE_ID_INVALID',
+    'profileId must be one of the exact canonical engineering profile identifiers.',
+    { profileId },
+  );
+}
+
 export function createPipelineAnalysisSection(input = {}) {
   const safe = safeInput(input, 'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID');
   const source = safe.source;
@@ -103,7 +118,7 @@ export function createPipelineAnalysisSection(input = {}) {
     'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'startElementIndex must be a nonnegative integer.',
     { startElementIndex: source.startElementIndex },
   ));
-  if (!profileId) errors.push(diagnostic('PIPELINE_PROFILE_ID_INVALID', 'profileId is required.'));
+  if (!exactProfile(profileId)) errors.push(profileDiagnostic(profileId));
   const final = finalize(source, errors);
   return deepFreeze({
     schema: PIPELINE_ANALYSIS_SECTION_SCHEMA,
@@ -130,6 +145,7 @@ export function createPipelineElementSectionResolution(input = {}) {
   const profileId = text(source.profileId);
   const resolvedMode = text(source.resolvedMode);
   const sectionDisposition = text(source.sectionDisposition);
+  const profile = exactProfile(profileId);
   if (!Number.isInteger(elementIndex) || elementIndex < 0 || !validE(elementId)) errors.push(diagnostic(
     'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID', 'elementIndex and E-prefixed elementId are required.',
     { elementIndex: source.elementIndex, elementId },
@@ -137,10 +153,15 @@ export function createPipelineElementSectionResolution(input = {}) {
   if (!validAS(analysisSectionId)) errors.push(diagnostic(
     'PIPELINE_ANALYSIS_SECTION_ID_INVALID', 'analysisSectionId must be AS-prefixed.', { analysisSectionId },
   ));
-  if (!profileId) errors.push(diagnostic('PIPELINE_PROFILE_ID_INVALID', 'profileId is required.'));
+  if (!profile) errors.push(profileDiagnostic(profileId));
   if (!MODES.includes(resolvedMode) || !sectionDisposition) errors.push(diagnostic(
     'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID', 'resolvedMode and sectionDisposition are required.',
     { resolvedMode, sectionDisposition },
+  ));
+  if (profile && MODES.includes(resolvedMode) && resolvedMode !== profile.resolvedMode) errors.push(diagnostic(
+    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID',
+    'resolvedMode does not match the canonical engineering profile.',
+    { profileId, expectedMode: profile.resolvedMode, actualMode: resolvedMode },
   ));
   const final = finalize(source, errors);
   return deepFreeze({
