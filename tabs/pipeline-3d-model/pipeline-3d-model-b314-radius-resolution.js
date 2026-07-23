@@ -1,1 +1,582 @@
-import{getPipelineEngineeringProfile as profile}from './pipeline-3d-model-engineering-profile-registry.js';import{PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA as AP,PIPELINE_ANALYSIS_SECTION_SCHEMA as AS,PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA as AE}from './pipeline-3d-model-analysis-section-contracts.js';import{PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA as DP,PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA as DS,PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA as DE,PIPELINE_DIAMETER_MIGRATION_SCHEMA as DM,PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA as PP,parsePipelinePositiveScalar as pos}from './pipeline-3d-model-diameter-contracts.js';import{PIPELINE_BEND_RESOLUTION_SCHEMA as BP,PIPELINE_B314_RADIUS_POLICY_IDS as P,createPipelineB314RadiusMigration as migration,createPipelineB314RadiusPlan as plan,createPipelineB314RadiusResolution as resolution,getPipelineB314RadiusPolicy as policy}from './pipeline-3d-model-b314-radius-contracts.js';const t=x=>String(x??'').trim(),cmp=(a,b)=>a<b?-1:a>b?1:0,obj=x=>!!x&&typeof x==='object'&&!Array.isArray(x);const c=s=>`PIPELINE_B314_RADIUS_${s}`,d=(s,m='Invalid.',x={})=>({severity:'BLOCKING',code:c(s),message:m,details:x});const blocked=x=>(Array.isArray(x?.blockerCodes)&&x.blockerCodes.length)||(Array.isArray(x?.diagnostics)&&x.diagnostics.some(q=>t(q?.severity)==='BLOCKING'));const rec=(x,s,r=true)=>obj(x)&&x.schema===s&&(!r||x.ready===true)&&Array.isArray(x.diagnostics)&&Array.isArray(x.blockerCodes)&&!blocked(x);const clone=x=>{try{return structuredClone(x)}catch{return null}},sig=x=>JSON.stringify(x,Object.keys(x).sort());function indexes(s,e){const a=s.analysisSectionPlan,z=s.analysisDiameterPlan,b=s.bendResolution,am={},ae={},dm={},de={};if(!obj(a)||a.schema!==AP||a.ready!==true||blocked(a)||!Array.isArray(a.diagnostics)||!Array.isArray(a.blockerCodes)||!Array.isArray(a.sections)||!a.sections.length||!Array.isArray(a.elementResolutions)||!a.elementResolutions.length)e.push(d('INPUT_INVALID','Analysis plan invalid.'));(a?.sections||[]).forEach((x,i,v)=>{let q=rec(x,AS,false)&&x.status!=='BLOCKED'&&x.analysisSectionId===`AS${i+1}`&&Number.isInteger(x.startElementIndex)&&(i?x.startElementIndex>v[i-1].startElementIndex:x.startElementIndex===0)&&!!profile(x.profileId);if(!q||am[x?.analysisSectionId])e.push(d('OWNERSHIP_INVALID'));if(obj(x))am[x.analysisSectionId]=x});(a?.elementResolutions||[]).forEach((x,i)=>{let o=[...(a.sections||[])].filter(q=>q.startElementIndex<=i).at(-1),q=rec(x,AE)&&o&&x.elementIndex===i&&x.elementId===`E${i+1}`&&x.analysisSectionId===o.analysisSectionId&&x.profileId===o.profileId&&x.resolvedMode===profile(o.profileId)?.resolvedMode&&x.sectionDisposition===(o.startElementIndex===i?'SECTION_START':'INHERITED');if(!q)e.push(d('OWNERSHIP_INVALID'));ae[i]=x});let m=z?.migration,mok=rec(m,DM)&&m.npsToOutsideDiameterConversionApplied===false&&m.greVendorBoreToOutsideDiameterConversionApplied===false&&!(m.legacyDiameterEvidenceObserved===true&&m.legacyDiameterBasisConfirmed!==true);if(!obj(z)||z.schema!==DP||z.ready!==true||blocked(z)||!Array.isArray(z.diagnostics)||!Array.isArray(z.blockerCodes)||z.analysisSectionPlanSchema!==AP||z.propertySectionPlanSchema!==PP||!mok||!Array.isArray(z.sectionResolutions)||z.sectionResolutions.length!==Object.keys(am).length||!Array.isArray(z.elementResolutions)||z.elementResolutions.length!==Object.keys(ae).length)e.push(d('DIAMETER_PLAN_INVALID'));(z?.sectionResolutions||[]).forEach((x,i)=>{let o=am[`AS${i+1}`],q=rec(x,DS)&&o&&x.analysisSectionId===o.analysisSectionId&&x.startElementIndex===o.startElementIndex&&x.profileId===o.profileId&&x.resolvedMode===profile(x.profileId)?.resolvedMode&&x.status==='RESOLVED'&&pos(x.outsideDiameterMm)&&x.caesarDiameterMm===x.outsideDiameterMm;if(!q||dm[x?.analysisSectionId])e.push(d('DIAMETER_PLAN_INVALID'));if(obj(x))dm[x.analysisSectionId]=x});(z?.elementResolutions||[]).forEach((x,i)=>{let y=ae[i],o=dm[y?.analysisSectionId],q=rec(x,DE)&&y&&o&&x.elementIndex===i&&x.elementId===`E${i+1}`&&x.analysisSectionId===y.analysisSectionId&&x.profileId===y.profileId&&x.diameterDisposition===(o.startElementIndex===i?'SECTION_START':'INHERITED')&&['outsideDiameterMm','nominalPipeSizeNps','greVendorNominalBoreMm','caesarDiameterMm'].every(k=>x[k]===o[k]);if(!q)e.push(d('DIAMETER_PLAN_INVALID'));de[i]=x});if(!obj(b)||b.schema!==BP||!Array.isArray(b.candidates))e.push(d('INPUT_INVALID','Bend plan invalid.'));return{a,am,ae,z,dm,de,b:obj(b)?b:{schema:'',candidates:[]}};}function owner(q,i){let x=i.ae[q.incomingElementIndex],y=i.ae[q.incomingElementIndex+1],s=x&&i.am[x.analysisSectionId],z=s&&i.dm[s.analysisSectionId],e=[];if(!x||!y||!s||x.analysisSectionId!==y.analysisSectionId||q.outgoingElementIndex!==q.incomingElementIndex+1)e.push(d('OWNERSHIP_INVALID'));let dx=i.de[q.incomingElementIndex],dy=i.de[q.incomingElementIndex+1];if(s?.profileId==='asme-b31.4'&&(!z||!dx||!dy||[z,dx,dy].some(v=>v.profileId!=='asme-b31.4')||dx.analysisSectionId!==s.analysisSectionId||dy.analysisSectionId!==s.analysisSectionId||[dx,dy].some(v=>v.outsideDiameterMm!==z.outsideDiameterMm||v.nominalPipeSizeNps!==z.nominalPipeSizeNps)))e.push(d('DIAMETER_PLAN_INVALID'));return{x,y,s,z,e}}function bool(r,k,f,e,code){if(r[k]===undefined||r[k]===null||t(r[k])==='')return f;if(typeof r[k]==='boolean')return r[k];if(/^(true|1|yes|on)$/i.test(t(r[k])))return true;if(/^(false|0|no|off)$/i.test(t(r[k])))return false;e.push(d(code));return f}function num(r,k,e,code){if(r[k]===undefined||r[k]===null||t(r[k])==='')return null;let v=pos(r[k]);if(!v)e.push(d(code));return v}function norm(r,cls=''){let e=[];if(!obj(r))return{v:{},e:[d('TARGET_INVALID')]};let id=t(r.radiusPolicyId),p=policy(id),bc=t(r.bendClass)||cls;if(!p)e.push(d('POLICY_INVALID'));if(!['elastic','cold-field'].includes(bc)||(cls&&bc!==cls)||(p&&p.bendClass!==bc))e.push(d('BEND_CLASS_INCOMPATIBLE'));let v={radiusPolicyId:id,bendClass:bc,sourceAuthority:t(r.sourceAuthority),sourceReference:t(r.sourceReference)};if(id===P.ELASTIC_SCREENING){v.formulaEnabled=bool(r,'formulaEnabled',false,e,'ELASTIC_INPUT_INVALID');v.youngsModulusMpa=num(r,'youngsModulusMpa',e,'ELASTIC_INPUT_INVALID');v.allowableBendingStressMpa=num(r,'allowableBendingStressMpa',e,'ELASTIC_INPUT_INVALID');v.practicalEnabled=bool(r,'practicalEnabled',false,e,'ELASTIC_INPUT_INVALID');v.practicalRadiusD=num(r,'practicalRadiusD',e,'ELASTIC_INPUT_INVALID');if(!v.formulaEnabled&&!v.practicalEnabled)e.push(d('CRITERIA_UNRESOLVED'));if(v.formulaEnabled&&(!v.youngsModulusMpa||!v.allowableBendingStressMpa))e.push(d('ELASTIC_INPUT_INVALID'));if(v.practicalEnabled&&!v.practicalRadiusD)e.push(d('ELASTIC_INPUT_INVALID'))}else if(id===P.COLD_FIELD_SIZE_BAND){v.qualifiedAlternativeRequested=bool(r,'qualifiedAlternativeRequested',false,e,'COLD_FIELD_INPUT_INVALID');v.qualificationEvidenceId=t(r.qualificationEvidenceId);v.projectMinimumEnabled=bool(r,'projectMinimumEnabled',false,e,'COLD_FIELD_INPUT_INVALID');v.projectMinimumRadiusD=num(r,'projectMinimumRadiusD',e,'COLD_FIELD_INPUT_INVALID');v.procedureMinimumRadiusD=num(r,'procedureMinimumRadiusD',e,'COLD_FIELD_INPUT_INVALID');if(v.projectMinimumEnabled&&!v.projectMinimumRadiusD)e.push(d('COLD_FIELD_INPUT_INVALID'))}else if(id===P.COLD_FIELD_PROJECT_RADIUS_D){v.projectRadiusD=num(r,'projectRadiusD',e,'COLD_FIELD_INPUT_INVALID');if(!v.projectRadiusD)e.push(d('COLD_FIELD_INPUT_INVALID'))}return{v,e}}function group(a,cls){let n=a.map(x=>norm(x,cls)),e=n.flatMap(x=>x.e),v=n.map(x=>x.v).sort((x,y)=>cmp(sig(x),sig(y)));if(new Set(v.map(sig)).size>1)e.push(d('SOURCE_CONFLICT','Policy conflict after normalization, including provenance.'));return{v:v[0]||null,e}}function inventory(s,qs,i){let e=[],o={},x={},g={};for(let k of['b314RadiusOverrides','b314RadiusSections','b314RadiusPolicies'])if(s[k]!==undefined&&!Array.isArray(s[k]))e.push(d('INPUT_INVALID'));for(let r of s.b314RadiusOverrides||[]){let f=['candidateId','incomingElementIndex','cornerNode'].filter(k=>r?.[k]!==undefined),m=qs.filter(q=>f.length&&f.every(k=>k==='candidateId'?t(q.id)===t(r[k]):q[k]===r[k]));if(m.length!==1){e.push(d('TARGET_INVALID'));continue}let w=owner(m[0],i);if(w.s?.profileId!=='asme-b31.4')e.push(d('TARGET_INVALID','Candidate overrides may target only exact B31.4 candidates.'));(o[t(m[0].id)]??=[]).push(r)}for(let r of s.b314RadiusSections||[]){let a=i.am[t(r?.analysisSectionId)];if(!a||a.profileId!=='asme-b31.4'||!['elastic','cold-field'].includes(t(r.bendClass))){e.push(d('TARGET_INVALID'));continue}(x[`${a.analysisSectionId}:${t(r.bendClass)}`]??=[]).push(r)}for(let r of s.b314RadiusPolicies||[]){if(!obj(r)||!['elastic','cold-field'].includes(t(r.bendClass))){e.push(d('TARGET_INVALID'));continue}(g[t(r.bendClass)]??=[]).push(r)}let pack=(m,c)=>Object.fromEntries(Object.entries(m).map(([k,a])=>{let n=group(a,c(k));e.push(...n.e);return[k,n.v]}));return{o:pack(o,k=>t(qs.find(q=>t(q.id)===k)?.bendClass)),x:pack(x,k=>k.split(':').at(-1)),g:pack(g,k=>k),e}}function legacy(s,c){let z=obj(s.settings)?s.settings:{};if(z.designBasis!=='asme-b31.4')return{v:null,e:z.designBasis?[d('LEGACY_AUTHORITY_UNCONFIRMED')]:[],seen:!!z.designBasis};if(s.legacyB314RadiusBasisConfirmed!==true)return{v:null,e:[d('LEGACY_AUTHORITY_UNCONFIRMED')],seen:true};let base={bendClass:c,sourceAuthority:t(s.sourceAuthority),sourceReference:t(s.sourceReference)};if(c==='elastic')return{v:{...base,radiusPolicyId:P.ELASTIC_SCREENING,formulaEnabled:z.useFormulaMinimum===true,youngsModulusMpa:pos(z.youngsModulusMpa),allowableBendingStressMpa:pos(z.allowableBendingStressMpa),practicalEnabled:z.usePracticalMinimum===true,practicalRadiusD:pos(z.practicalRadiusMultiplierD)},e:[],seen:true};if(z.coldFieldRadiusMode==='project-multiplier')return{v:{...base,radiusPolicyId:P.COLD_FIELD_PROJECT_RADIUS_D,projectRadiusD:pos(z.coldFieldRadiusMultiplierD)},e:[],seen:true};if(z.coldFieldRadiusMode==='b31.4-size-band')return{v:{...base,radiusPolicyId:P.COLD_FIELD_SIZE_BAND,qualifiedAlternativeRequested:z.useQualified18DAlternative===true,qualificationEvidenceId:t(z.qualificationEvidenceId),projectMinimumEnabled:z.useColdFieldProjectMinimum===true,projectMinimumRadiusD:pos(z.coldFieldProjectRadiusMultiplierD),procedureMinimumRadiusD:pos(z.coldFieldProcedureMinimumRadiusD)},e:[],seen:true};return{v:null,e:[d('LEGACY_AUTHORITY_UNCONFIRMED')],seen:true}}function select(s,q,as,r){let v=r.o[t(q.id)],k='EXPLICIT_CANDIDATE_OVERRIDE';if(!v){v=r.x[`${as}:${q.bendClass}`];k='EXPLICIT_ANALYSIS_SECTION_POLICY'}if(!v){v=r.g[q.bendClass];k='EXPLICIT_GLOBAL_B31_4_POLICY'}if(v)return{v,k,e:[],seen:false};let l=legacy(s,q.bendClass);return{v:l.v,k:l.v?'CONFIRMED_LEGACY_B31_4':'UNRESOLVED',e:l.v?norm(l.v,q.bendClass).e:l.e,seen:l.seen}}const band=n=>!n?null:n<=12?18:n===14?21:n===16?24:n===18?27:n>=20?30:null;function criteria(p,z,s,k){let e=[],od=pos(z?.outsideDiameterMm),n=pos(z?.nominalPipeSizeNps),v={...p,outsideDiameterMm:od,nominalPipeSizeNps:n,sizeBandInputReady:z?.sizeBandInputReady===true};if(k==='CONFIRMED_LEGACY_B31_4'&&s.settings?.nominalPipeSizeNps!==undefined){let l=pos(s.settings.nominalPipeSizeNps);if(!l||!n||l!==n)e.push(d('NPS_CONFLICT'))}if(p.radiusPolicyId===P.ELASTIC_SCREENING){v.formulaRadiusD=p.formulaEnabled?p.youngsModulusMpa/(2*p.allowableBendingStressMpa):null;v.formulaRadiusMm=v.formulaRadiusD*od||null;v.practicalRadiusMm=p.practicalEnabled?p.practicalRadiusD*od:null;let a=[v.formulaRadiusMm,v.practicalRadiusMm].filter(Boolean);v.governingRadiusMm=a.length?Math.max(...a):null;v.governingRadiusD=v.governingRadiusMm/od||null;v.radiusBasis='B31_4_ELASTIC_GOVERNING'}else if(p.radiusPolicyId===P.COLD_FIELD_PROJECT_RADIUS_D){v.projectMinimumEnabled=false;v.governingRadiusD=p.projectRadiusD;v.governingRadiusMm=p.projectRadiusD*od;v.radiusBasis='B31_4_COLD_FIELD_PROJECT_RADIUS_D'}else{v.normalCodeRadiusD=band(n);if(!n||!v.sizeBandInputReady)e.push(d('NPS_REQUIRED'));if(n&&!v.normalCodeRadiusD)e.push(d('NPS_UNSUPPORTED'));v.qualificationEligible=!!(n&&n>=14);v.qualifiedAlternativeApplied=!!(p.qualifiedAlternativeRequested&&v.qualificationEligible&&p.qualificationEvidenceId);if(p.qualifiedAlternativeRequested&&!v.qualifiedAlternativeApplied)e.push(d('QUALIFICATION_EVIDENCE_REQUIRED'));v.selectedCodeRadiusD=v.qualifiedAlternativeApplied?18:v.normalCodeRadiusD;let a=[v.selectedCodeRadiusD,p.projectMinimumEnabled?p.projectMinimumRadiusD:null,p.procedureMinimumRadiusD].filter(Boolean);v.governingRadiusD=a.length?Math.max(...a):null;v.governingRadiusMm=v.governingRadiusD*od||null;v.radiusBasis='B31_4_COLD_FIELD_SIZE_BAND_GOVERNING'}return{v,e}}function observed(q,od,a){let hd=q.radiusD!=null,hm=q.radiusMm!=null,rd=hd?pos(q.radiusD):null,rm=hm?pos(q.radiusMm):null,e=[];if((hd&&!rd)||(hm&&!rm))e.push(d('INPUT_INVALID'));let observedD=rd||(rm&&od?rm/od:null),observedMm=rm||(rd&&od?rd*od:null),conf=!!(rd&&rm&&Math.abs(rm-rd*od)>1e-6);if(conf)e.push(d('OBSERVED_BASIS_CONFLICT'));let miss=conf||!!(rd&&a&&Math.abs(rd*od-a)>1e-6)||!!(rm&&a&&Math.abs(rm-a)>1e-6);return{e,observedD,observedMm,disposition:miss?'REQUIRES_RECOMPUTE':!observedMm||!a?'NOT_AVAILABLE':'MATCHES_AUTHORITY'}}function evidence(q,w,z){let i=q.incomingElementIndex,o=i+1;return{candidateId:t(q.id),incomingElementIndex:i,incomingElementId:`E${i+1}`,outgoingElementIndex:o,outgoingElementId:`E${o+1}`,analysisSectionId:t(w.s?.analysisSectionId),profileId:t(w.s?.profileId),cornerNode:q.cornerNode,previousNode:q.previousNode,nextNode:q.nextNode,geometricClass:t(q.classification),turnAngleDeg:q.turnAngleDeg,sourceBasis:t(q.sourceBasis),bendClass:t(q.bendClass),outsideDiameterMm:z?.outsideDiameterMm,nominalPipeSizeNps:z?.nominalPipeSizeNps,sizeBandInputReady:z?.sizeBandInputReady===true,candidateStatus:t(q.status)}}function blockedResolution(q,w,z,k,e){let o=observed(q,pos(z?.outsideDiameterMm),null);return resolution({...evidence(q,w,z),radiusPolicyId:'',radiusBasis:'',sourceKind:k,sourceAuthority:'',sourceReference:'',observedCandidateRadiusD:o.observedD,observedCandidateRadiusMm:o.observedMm,candidateRadiusDisposition:o.disposition,geometryRecheckRequired:o.disposition==='REQUIRES_RECOMPUTE',status:'BLOCKED',diagnostics:[...e,...o.e]})}function resolve(q,i,s,r){let w=owner(q,i),z=w.z;if(!w.s)return{r:blockedResolution(q,w,z,'UNRESOLVED',w.e),seen:false};if(w.s.profileId!=='asme-b31.4')return{na:t(q.id),seen:false};let e=[...w.e];if(!['elastic','cold-field'].includes(t(q.bendClass)))e.push(d('BEND_CLASS_INCOMPATIBLE'));let p=select(s,q,w.s.analysisSectionId,r);e.push(...p.e);if(!p.v||e.length)return{r:blockedResolution(q,w,z,p.k,e),seen:p.seen};let a=criteria(p.v,z,s,p.k);e.push(...a.e);if(e.length)return{r:blockedResolution(q,w,z,p.k,e),seen:p.seen};let o=observed(q,a.v.outsideDiameterMm,a.v.governingRadiusMm);return{r:resolution({...evidence(q,w,z),...a.v,observedCandidateRadiusD:o.observedD,observedCandidateRadiusMm:o.observedMm,candidateRadiusDisposition:o.disposition,geometryRecheckRequired:o.disposition==='REQUIRES_RECOMPUTE',sourceKind:p.k,sourceAuthority:p.v.sourceAuthority||t(s.sourceAuthority),sourceReference:p.v.sourceReference||t(s.sourceReference),diagnostics:o.e}),seen:p.seen}}export function resolvePipelineB314RadiusPlan(input={}){let s=clone(input),e=[];if(!obj(s))return plan({diagnostics:[d('INPUT_INVALID')]});let i=indexes(s,e),raw=Array.isArray(i.b?.candidates)?i.b.candidates:[];if(raw.some(q=>!obj(q)))e.push(d('INPUT_INVALID'));let qs=raw.filter(obj).sort((a,b)=>a.incomingElementIndex-b.incomingElementIndex||cmp(t(a.id),t(b.id))),r=inventory(s,qs,i);e.push(...r.e);for(let f of['id','incomingElementIndex','cornerNode']){let seen=new Set;for(let q of qs){if(seen.has(q[f]))e.push(d('CANDIDATE_COVERAGE_INVALID'));seen.add(q[f])}}let out=qs.map(q=>resolve(q,i,s,r)),rr=out.map(x=>x.r).filter(Boolean),na=out.map(x=>x.na).filter(Boolean),covered=[...rr.map(x=>x.candidateId),...na];if(covered.length!==qs.length||new Set(covered).size!==qs.length)e.push(d('CANDIDATE_COVERAGE_INVALID'));let kinds=rr.map(x=>x.sourceKind),legacy=kinds.includes('CONFIRMED_LEGACY_B31_4'),ln=legacy?s.settings?.nominalPipeSizeNps:null,l=pos(ln),cn=rr.filter(x=>x.sourceKind==='CONFIRMED_LEGACY_B31_4').map(x=>x.nominalPipeSizeNps).filter(Boolean),m=migration({sourceKinds:kinds,legacyEvidenceObserved:out.some(x=>x.seen),legacyB314RadiusBasisConfirmed:s.legacyB314RadiusBasisConfirmed===true,legacySettingsNpsObserved:ln,legacySettingsNpsMatchedCanonical:!ln||!!(l&&cn.every(x=>x===l)),sourceAuthority:t(s.sourceAuthority),sourceReference:t(s.sourceReference)});return plan({analysisSectionPlanSchema:i.a?.schema,analysisDiameterPlanSchema:i.z?.schema,bendResolutionSchema:i.b?.schema,migration:m,radiusResolutions:rr,notApplicableCandidateIds:na,diagnostics:e,blockerCodes:e.map(x=>x.code)})}export const buildPipelineB314RadiusPlanJson=p=>`${JSON.stringify(p,null,2)}\n`;export function buildPipelineB314RadiusLedgerText(p){let h='CandidateId\tIncomingElementId\tOutgoingElementId\tAnalysisSectionId\tBendClass\tRadiusPolicyId\tRadiusBasis\tOutsideDiameterMm\tNominalPipeSizeNps\tGoverningRadiusD\tGoverningRadiusMm\tObservedRadiusD\tObservedRadiusMm\tCandidateStatus\tRadiusDisposition\tGeometryRecheckRequired\tSourceKind\tStatus\tBlockerCodes',r=(p?.radiusResolutions||[]).map(x=>[x.candidateId,x.incomingElementId,x.outgoingElementId,x.analysisSectionId,x.bendClass,x.radiusPolicyId,x.radiusBasis,x.outsideDiameterMm??'',x.nominalPipeSizeNps??'',x.governingRadiusD??'',x.governingRadiusMm??'',x.observedCandidateRadiusD??'',x.observedCandidateRadiusMm??'',x.candidateStatus,x.candidateRadiusDisposition,x.geometryRecheckRequired?'YES':'NO',x.sourceKind,x.status,x.blockerCodes.join(',')].join('\t'));return[h,...r].join('\n')}export const buildPipelineB314RadiusResolutionJson=buildPipelineB314RadiusPlanJson;
+import { getPipelineEngineeringProfile } from './pipeline-3d-model-engineering-profile-registry.js';
+import {
+  PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA,
+  PIPELINE_ANALYSIS_SECTION_SCHEMA,
+  PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA,
+} from './pipeline-3d-model-analysis-section-contracts.js';
+import {
+  PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA,
+  PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA,
+  PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA,
+  PIPELINE_DIAMETER_MIGRATION_SCHEMA,
+  PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
+  parsePipelinePositiveScalar,
+} from './pipeline-3d-model-diameter-contracts.js';
+import {
+  PIPELINE_BEND_RESOLUTION_SCHEMA,
+  PIPELINE_B314_RADIUS_POLICY_IDS,
+  createPipelineB314RadiusMigration,
+  createPipelineB314RadiusPlan,
+  createPipelineB314RadiusResolution,
+  getPipelineB314RadiusPolicy,
+} from './pipeline-3d-model-b314-radius-contracts.js';
+
+const text = (value) => String(value ?? '').trim();
+const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value)
+  && [Object.prototype, null].includes(Object.getPrototypeOf(value)));
+const supplied = (source, field) => plain(source) && Object.hasOwn(source, field)
+  && source[field] !== null && !(typeof source[field] === 'string' && !source[field].trim());
+const meaningful = (source, field) => supplied(source, field) && source[field] !== false;
+const code = (suffix) => `PIPELINE_B314_RADIUS_${suffix}`;
+const diagnostic = (suffix, message = 'Invalid B31.4 radius evidence.', details = {}) => ({
+  severity: 'BLOCKING', code: code(suffix), message, details,
+});
+
+function cloneJson(value) {
+  if (value === undefined) return null;
+  if (value === null || ['string', 'boolean'].includes(typeof value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(cloneJson);
+  if (!plain(value)) throw new TypeError('Resolver input must be JSON-safe plain data.');
+  return Object.fromEntries(Object.keys(value).sort(compare).map((key) => [key, cloneJson(value[key])]));
+}
+function safeInput(input, diagnostics) {
+  try { const source = cloneJson(input); if (plain(source)) return source; } catch { /* blocked */ }
+  diagnostics.push(diagnostic('INPUT_INVALID', 'Resolver input must be JSON-safe plain data.'));
+  return {};
+}
+function blocked(record) {
+  return (Array.isArray(record?.blockerCodes) && record.blockerCodes.length > 0)
+    || (Array.isArray(record?.diagnostics)
+      && record.diagnostics.some((item) => text(item?.severity) === 'BLOCKING'));
+}
+function exactRecord(record, schema, requireReady = true) {
+  return plain(record) && record.schema === schema && (!requireReady || record.ready === true)
+    && Array.isArray(record.diagnostics) && Array.isArray(record.blockerCodes) && !blocked(record);
+}
+function stable(value) {
+  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
+  if (plain(value)) return `{${Object.keys(value).sort(compare)
+    .map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+function positiveField(record, field, errors, suffix) {
+  if (!supplied(record, field)) return null;
+  const value = parsePipelinePositiveScalar(record[field]);
+  if (!value) errors.push(diagnostic(suffix, `${field} must be a positive scalar when supplied.`,
+    { field, value: record[field] }));
+  return value;
+}
+
+function authenticateAnalysisPlan(source, errors) {
+  const plan = source.analysisSectionPlan;
+  const sections = Array.isArray(plan?.sections) ? plan.sections : [];
+  const elements = Array.isArray(plan?.elementResolutions) ? plan.elementResolutions : [];
+  const rootValid = plain(plan) && plan.schema === PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA
+    && plan.ready === true && Array.isArray(plan.diagnostics) && Array.isArray(plan.blockerCodes)
+    && !blocked(plan) && sections.length > 0 && elements.length > 0;
+  if (!rootValid) errors.push(diagnostic('INPUT_INVALID', 'Analysis-section plan is not authentic and ready.'));
+  const sectionById = Object.create(null), elementByIndex = Object.create(null);
+  sections.forEach((section, index) => {
+    const previousStart = index ? sections[index - 1]?.startElementIndex : null;
+    const validStart = Number.isInteger(section?.startElementIndex) && section.startElementIndex >= 0
+      && section.startElementIndex < elements.length
+      && (index === 0 ? section.startElementIndex === 0 : section.startElementIndex > previousStart);
+    const profile = getPipelineEngineeringProfile(section?.profileId);
+    const valid = exactRecord(section, PIPELINE_ANALYSIS_SECTION_SCHEMA, false)
+      && section.status !== 'BLOCKED' && section.analysisSectionId === `AS${index + 1}`
+      && validStart && Boolean(profile) && !Object.hasOwn(sectionById, section.analysisSectionId);
+    if (!valid) errors.push(diagnostic('OWNERSHIP_INVALID',
+      'Analysis sections require canonical nonempty intervals within the element range.',
+      { analysisSectionId: text(section?.analysisSectionId), startElementIndex: section?.startElementIndex,
+        elementCount: elements.length }));
+    if (plain(section)) sectionById[section.analysisSectionId] = section;
+  });
+  elements.forEach((element, index) => {
+    const owner = [...sections].filter((section) => section.startElementIndex <= index).at(-1);
+    const profile = getPipelineEngineeringProfile(owner?.profileId);
+    const valid = exactRecord(element, PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA)
+      && owner && element.elementIndex === index && element.elementId === `E${index + 1}`
+      && element.analysisSectionId === owner.analysisSectionId && element.profileId === owner.profileId
+      && element.resolvedMode === profile?.resolvedMode
+      && element.sectionDisposition === (owner.startElementIndex === index ? 'SECTION_START' : 'INHERITED');
+    if (!valid) errors.push(diagnostic('OWNERSHIP_INVALID',
+      'Analysis element identity, profile, mode and interval ownership must be canonical.', { elementIndex: index }));
+    if (plain(element)) elementByIndex[index] = element;
+  });
+  return { plan, sections, elements, sectionById, elementByIndex };
+}
+
+function authenticateDiameterMigration(migration) {
+  return exactRecord(migration, PIPELINE_DIAMETER_MIGRATION_SCHEMA)
+    && Array.isArray(migration.outsideDiameterSourceKinds)
+    && Array.isArray(migration.nominalPipeSizeSourceKinds)
+    && Array.isArray(migration.greVendorNominalBoreSourceKinds)
+    && migration.npsToOutsideDiameterConversionApplied === false
+    && migration.greVendorBoreToOutsideDiameterConversionApplied === false
+    && !(migration.legacyDiameterEvidenceObserved === true
+      && migration.legacyDiameterBasisConfirmed !== true);
+}
+function validateSectionQuantities(record, errors) {
+  const profile = getPipelineEngineeringProfile(record?.profileId);
+  const outside = positiveField(record, 'outsideDiameterMm', errors, 'DIAMETER_PLAN_INVALID');
+  const nps = positiveField(record, 'nominalPipeSizeNps', errors, 'DIAMETER_PLAN_INVALID');
+  const vendorBore = positiveField(record, 'greVendorNominalBoreMm', errors, 'DIAMETER_PLAN_INVALID');
+  const caesar = positiveField(record, 'caesarDiameterMm', errors, 'DIAMETER_PLAN_INVALID');
+  const metallic = profile?.materialState === 'METALLIC';
+  if (!profile || (metallic && !outside) || (!metallic && !vendorBore)
+    || (metallic && vendorBore) || caesar !== outside
+    || record.physicalDiameterReady !== Boolean(outside)
+    || record.sizeBandInputReady !== Boolean(nps)
+    || record.vendorSeriesInputReady !== Boolean(vendorBore)
+    || !text(record.sourceKind) || !plain(record.quantitySources)) errors.push(diagnostic(
+    'DIAMETER_PLAN_INVALID', 'Diameter section quantities and readiness flags must match canonical semantics.',
+    { analysisSectionId: text(record?.analysisSectionId) }));
+  return { outside, nps, vendorBore, caesar };
+}
+function validateElementQuantities(record, owner, errors) {
+  const profile = getPipelineEngineeringProfile(record?.profileId);
+  const outside = positiveField(record, 'outsideDiameterMm', errors, 'DIAMETER_PLAN_INVALID');
+  const nps = positiveField(record, 'nominalPipeSizeNps', errors, 'DIAMETER_PLAN_INVALID');
+  const vendorBore = positiveField(record, 'greVendorNominalBoreMm', errors, 'DIAMETER_PLAN_INVALID');
+  const caesar = positiveField(record, 'caesarDiameterMm', errors, 'DIAMETER_PLAN_INVALID');
+  positiveField(record, 'propertyDiameterMm', errors, 'DIAMETER_PLAN_INVALID');
+  const metallic = profile?.materialState === 'METALLIC';
+  const quantitiesMatch = owner && ['outsideDiameterMm', 'nominalPipeSizeNps',
+    'greVendorNominalBoreMm', 'caesarDiameterMm'].every((field) => record[field] === owner[field]);
+  if (!profile || (metallic && !outside) || (!metallic && !vendorBore)
+    || (metallic && vendorBore) || caesar !== outside || !text(record.sourceKind) || !quantitiesMatch
+    || Boolean(nps) !== Boolean(parsePipelinePositiveScalar(owner?.nominalPipeSizeNps))) errors.push(diagnostic(
+    'DIAMETER_PLAN_INVALID', 'Diameter element quantities must be canonical and equal the owning section.',
+    { elementIndex: record?.elementIndex }));
+}
+function authenticateDiameterPlan(source, analysis, errors) {
+  const plan = source.analysisDiameterPlan;
+  const sections = Array.isArray(plan?.sectionResolutions) ? plan.sectionResolutions : [];
+  const elements = Array.isArray(plan?.elementResolutions) ? plan.elementResolutions : [];
+  const rootValid = plain(plan) && plan.schema === PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA
+    && plan.ready === true && Array.isArray(plan.diagnostics) && Array.isArray(plan.blockerCodes)
+    && !blocked(plan) && plan.analysisSectionPlanSchema === PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA
+    && plan.propertySectionPlanSchema === PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA
+    && authenticateDiameterMigration(plan.migration)
+    && sections.length === analysis.sections.length && elements.length === analysis.elements.length;
+  if (!rootValid) errors.push(diagnostic('DIAMETER_PLAN_INVALID', 'Diameter plan is not authentic and ready.'));
+  const sectionById = Object.create(null), elementByIndex = Object.create(null);
+  sections.forEach((section, index) => {
+    const owner = analysis.sections[index], profile = getPipelineEngineeringProfile(section?.profileId);
+    const valid = exactRecord(section, PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA)
+      && section.status === 'RESOLVED' && owner
+      && section.analysisSectionId === owner.analysisSectionId
+      && section.startElementIndex === owner.startElementIndex && section.profileId === owner.profileId
+      && section.resolvedMode === profile?.resolvedMode && !Object.hasOwn(sectionById, section.analysisSectionId);
+    validateSectionQuantities(section, errors);
+    if (!valid) errors.push(diagnostic('DIAMETER_PLAN_INVALID',
+      'Diameter section identity, profile and interval start must match the analysis plan.',
+      { analysisSectionId: text(section?.analysisSectionId) }));
+    if (plain(section)) sectionById[section.analysisSectionId] = section;
+  });
+  elements.forEach((element, index) => {
+    const analysisElement = analysis.elementByIndex[index];
+    const owner = sectionById[analysisElement?.analysisSectionId];
+    const valid = exactRecord(element, PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA)
+      && analysisElement && owner && element.elementIndex === index && element.elementId === `E${index + 1}`
+      && element.analysisSectionId === analysisElement.analysisSectionId
+      && element.profileId === analysisElement.profileId
+      && element.diameterDisposition === (owner.startElementIndex === index ? 'SECTION_START' : 'INHERITED');
+    validateElementQuantities(element, owner, errors);
+    if (!valid) errors.push(diagnostic('DIAMETER_PLAN_INVALID',
+      'Diameter element identity and disposition must match analysis ownership.', { elementIndex: index }));
+    if (plain(element)) elementByIndex[index] = element;
+  });
+  return { plan, sections, elements, sectionById, elementByIndex };
+}
+function authenticateBendResolution(source, errors) {
+  const plan = source.bendResolution;
+  if (!plain(plan) || plan.schema !== PIPELINE_BEND_RESOLUTION_SCHEMA
+    || !Array.isArray(plan.candidates) || !plan.candidates.every(plain)) errors.push(diagnostic(
+    'INPUT_INVALID', 'A canonical PipelineBendResolution.v3 candidate array is required.'));
+  return plain(plan) && Array.isArray(plan.candidates) ? plan : { schema: '', candidates: [] };
+}
+function authenticatePlans(source, errors) {
+  const analysis = authenticateAnalysisPlan(source, errors);
+  const diameter = authenticateDiameterPlan(source, analysis, errors);
+  const bend = authenticateBendResolution(source, errors);
+  return { analysis, diameter, bend };
+}
+
+function candidateOwner(candidate, plans) {
+  const incoming = plans.analysis.elementByIndex[candidate.incomingElementIndex];
+  const outgoing = plans.analysis.elementByIndex[candidate.outgoingElementIndex];
+  const section = incoming && plans.analysis.sectionById[incoming.analysisSectionId];
+  const diameterSection = section && plans.diameter.sectionById[section.analysisSectionId];
+  const incomingDiameter = plans.diameter.elementByIndex[candidate.incomingElementIndex];
+  const outgoingDiameter = plans.diameter.elementByIndex[candidate.outgoingElementIndex];
+  const errors = [];
+  if (!incoming || !outgoing || !section || candidate.outgoingElementIndex !== candidate.incomingElementIndex + 1
+    || incoming.analysisSectionId !== outgoing.analysisSectionId) errors.push(diagnostic(
+    'OWNERSHIP_INVALID', 'Candidate incoming and outgoing elements must occupy one analysis section.',
+    { candidateId: text(candidate.id) }));
+  if (section?.profileId === 'asme-b31.4' && (!diameterSection || !incomingDiameter || !outgoingDiameter
+    || incomingDiameter.analysisSectionId !== section.analysisSectionId
+    || outgoingDiameter.analysisSectionId !== section.analysisSectionId)) errors.push(diagnostic(
+    'DIAMETER_PLAN_INVALID', 'B31.4 candidate requires authenticated section and element diameter evidence.',
+    { candidateId: text(candidate.id) }));
+  return { incoming, outgoing, section, diameterSection, incomingDiameter, outgoingDiameter, errors };
+}
+function validateCandidateSet(candidates, errors) {
+  const ids = Object.create(null), owners = Object.create(null), corners = Object.create(null);
+  candidates.forEach((candidate) => {
+    const candidateId = text(candidate.id), owner = candidate.incomingElementIndex;
+    const valid = candidateId && Number.isInteger(owner) && owner >= 0
+      && candidate.outgoingElementIndex === owner + 1 && Number.isInteger(candidate.cornerNode)
+      && Number.isInteger(candidate.previousNode) && Number.isInteger(candidate.nextNode)
+      && Number.isFinite(candidate.turnAngleDeg) && text(candidate.classification)
+      && text(candidate.sourceBasis) && text(candidate.status);
+    if (!valid) errors.push(diagnostic('INPUT_INVALID', 'Bend candidate identity and evidence are invalid.'));
+    if (ids[candidateId] || owners[owner] || corners[candidate.cornerNode]) errors.push(diagnostic(
+      'CANDIDATE_COVERAGE_INVALID', 'Candidate ID, incoming owner and corner node must be unique.',
+      { candidateId, incomingElementIndex: owner, cornerNode: candidate.cornerNode }));
+    ids[candidateId] = true; owners[owner] = true; corners[candidate.cornerNode] = true;
+  });
+}
+
+const POLICY_FIELDS = Object.freeze({
+  elastic: Object.freeze(['formulaEnabled', 'youngsModulusMpa', 'allowableBendingStressMpa',
+    'practicalEnabled', 'practicalRadiusD']),
+  sizeBand: Object.freeze(['qualifiedAlternativeRequested', 'qualificationEvidenceId',
+    'projectMinimumEnabled', 'projectMinimumRadiusD', 'procedureMinimumRadiusD']),
+  project: Object.freeze(['projectRadiusD']),
+});
+function booleanField(record, field, fallback, errors, suffix) {
+  if (!supplied(record, field)) return fallback;
+  if (typeof record[field] === 'boolean') return record[field];
+  if (/^(true|1|yes|on)$/i.test(text(record[field]))) return true;
+  if (/^(false|0|no|off)$/i.test(text(record[field]))) return false;
+  errors.push(diagnostic(suffix, `${field} must be boolean-compatible.`, { field, value: record[field] }));
+  return fallback;
+}
+function rejectIncompatible(record, allowedFields, errors) {
+  const all = [...POLICY_FIELDS.elastic, ...POLICY_FIELDS.sizeBand, ...POLICY_FIELDS.project];
+  const incompatible = [...new Set(all.filter((field) => !allowedFields.includes(field)))]
+    .filter((field) => meaningful(record, field));
+  if (incompatible.length) errors.push(diagnostic('POLICY_INVALID',
+    'Explicit policy contains fields incompatible with its radiusPolicyId.', { fields: incompatible }));
+}
+function normalizePolicy(record, requiredClass = '') {
+  const errors = [];
+  if (!plain(record)) return { value: null, errors: [diagnostic('TARGET_INVALID', 'Policy must be a plain object.')] };
+  const radiusPolicyId = text(record.radiusPolicyId), descriptor = getPipelineB314RadiusPolicy(radiusPolicyId);
+  const bendClass = text(record.bendClass) || requiredClass;
+  if (!descriptor) errors.push(diagnostic('POLICY_INVALID', 'radiusPolicyId must be exact and canonical.'));
+  if (!['elastic', 'cold-field'].includes(bendClass) || (requiredClass && bendClass !== requiredClass)
+    || (descriptor && descriptor.bendClass !== bendClass)) errors.push(diagnostic(
+    'BEND_CLASS_INCOMPATIBLE', 'Policy bendClass must match its target and canonical descriptor.'));
+  const value = { radiusPolicyId, bendClass, sourceAuthority: text(record.sourceAuthority),
+    sourceReference: text(record.sourceReference) };
+  if (radiusPolicyId === PIPELINE_B314_RADIUS_POLICY_IDS.ELASTIC_SCREENING) {
+    rejectIncompatible(record, POLICY_FIELDS.elastic, errors);
+    value.formulaEnabled = booleanField(record, 'formulaEnabled', false, errors, 'ELASTIC_INPUT_INVALID');
+    value.youngsModulusMpa = positiveField(record, 'youngsModulusMpa', errors, 'ELASTIC_INPUT_INVALID');
+    value.allowableBendingStressMpa = positiveField(record, 'allowableBendingStressMpa', errors,
+      'ELASTIC_INPUT_INVALID');
+    value.practicalEnabled = booleanField(record, 'practicalEnabled', false, errors, 'ELASTIC_INPUT_INVALID');
+    value.practicalRadiusD = positiveField(record, 'practicalRadiusD', errors, 'ELASTIC_INPUT_INVALID');
+    if (!value.formulaEnabled && !value.practicalEnabled) errors.push(diagnostic(
+      'CRITERIA_UNRESOLVED', 'Elastic policy must enable formula or practical criteria.'));
+    if (value.formulaEnabled && (!value.youngsModulusMpa || !value.allowableBendingStressMpa)) errors.push(diagnostic(
+      'ELASTIC_INPUT_INVALID', 'Enabled formula authority requires E and allowable bending stress.'));
+    if (value.practicalEnabled && !value.practicalRadiusD) errors.push(diagnostic(
+      'ELASTIC_INPUT_INVALID', 'Enabled practical authority requires practicalRadiusD.'));
+  } else if (radiusPolicyId === PIPELINE_B314_RADIUS_POLICY_IDS.COLD_FIELD_SIZE_BAND) {
+    rejectIncompatible(record, POLICY_FIELDS.sizeBand, errors);
+    value.qualifiedAlternativeRequested = booleanField(record, 'qualifiedAlternativeRequested', false,
+      errors, 'COLD_FIELD_INPUT_INVALID');
+    value.qualificationEvidenceId = text(record.qualificationEvidenceId);
+    value.projectMinimumEnabled = booleanField(record, 'projectMinimumEnabled', false,
+      errors, 'COLD_FIELD_INPUT_INVALID');
+    value.projectMinimumRadiusD = positiveField(record, 'projectMinimumRadiusD', errors,
+      'COLD_FIELD_INPUT_INVALID');
+    value.procedureMinimumRadiusD = positiveField(record, 'procedureMinimumRadiusD', errors,
+      'COLD_FIELD_INPUT_INVALID');
+    if (value.qualifiedAlternativeRequested && !value.qualificationEvidenceId) errors.push(diagnostic(
+      'QUALIFICATION_EVIDENCE_REQUIRED', 'Requested qualified alternative requires nonblank evidence.'));
+    if (value.projectMinimumEnabled && !value.projectMinimumRadiusD) errors.push(diagnostic(
+      'COLD_FIELD_INPUT_INVALID', 'Enabled project minimum requires projectMinimumRadiusD.'));
+  } else if (radiusPolicyId === PIPELINE_B314_RADIUS_POLICY_IDS.COLD_FIELD_PROJECT_RADIUS_D) {
+    rejectIncompatible(record, POLICY_FIELDS.project, errors);
+    value.projectRadiusD = positiveField(record, 'projectRadiusD', errors, 'COLD_FIELD_INPUT_INVALID');
+    if (!value.projectRadiusD) errors.push(diagnostic(
+      'COLD_FIELD_INPUT_INVALID', 'Project-radius policy requires positive projectRadiusD.'));
+  }
+  return { value, errors };
+}
+function groupPolicies(records, requiredClass) {
+  const normalized = records.map((record) => normalizePolicy(record, requiredClass));
+  const errors = normalized.flatMap((item) => item.errors);
+  if (errors.length) return { present: true, value: null, errors };
+  const values = normalized.map((item) => item.value).sort((a, b) => compare(stable(a), stable(b)));
+  if (new Set(values.map(stable)).size > 1) errors.push(diagnostic(
+    'SOURCE_CONFLICT', 'Policy conflict after normalization, including provenance.'));
+  return { present: true, value: errors.length ? null : values[0], errors };
+}
+function inventory(source, candidates, plans, errors) {
+  const overrides = Object.create(null), sections = Object.create(null), globals = Object.create(null);
+  for (const field of ['b314RadiusOverrides', 'b314RadiusSections', 'b314RadiusPolicies']) {
+    if (source[field] !== undefined && !Array.isArray(source[field])) errors.push(diagnostic(
+      'INPUT_INVALID', `${field} must be an array when supplied.`));
+  }
+  for (const record of Array.isArray(source.b314RadiusOverrides) ? source.b314RadiusOverrides : []) {
+    if (!plain(record)) { errors.push(diagnostic('TARGET_INVALID', 'Candidate override must be a plain object.')); continue; }
+    const identityFields = ['candidateId', 'incomingElementIndex', 'cornerNode'].filter((field) => supplied(record, field));
+    const matches = candidates.filter((candidate) => identityFields.length && identityFields.every((field) =>
+      field === 'candidateId' ? text(candidate.id) === text(record[field]) : candidate[field] === record[field]));
+    if (matches.length !== 1) {
+      errors.push(diagnostic('TARGET_INVALID', 'Candidate override must target exactly one candidate.'));
+      continue;
+    }
+    const ownership = candidateOwner(matches[0], plans);
+    if (ownership.section?.profileId !== 'asme-b31.4') {
+      errors.push(diagnostic('TARGET_INVALID', 'Candidate overrides may target only exact B31.4 candidates.'));
+      continue;
+    }
+    (overrides[text(matches[0].id)] ??= []).push(record);
+  }
+  for (const record of Array.isArray(source.b314RadiusSections) ? source.b314RadiusSections : []) {
+    const section = plain(record) ? plans.analysis.sectionById[text(record.analysisSectionId)] : null;
+    if (!section || section.profileId !== 'asme-b31.4' || !['elastic', 'cold-field'].includes(text(record?.bendClass))) {
+      errors.push(diagnostic('TARGET_INVALID', 'Section policy must target an existing B31.4 section and bend class.'));
+      continue;
+    }
+    (sections[`${section.analysisSectionId}:${text(record.bendClass)}`] ??= []).push(record);
+  }
+  for (const record of Array.isArray(source.b314RadiusPolicies) ? source.b314RadiusPolicies : []) {
+    if (!plain(record) || !['elastic', 'cold-field'].includes(text(record.bendClass))) {
+      errors.push(diagnostic('TARGET_INVALID', 'Global policy requires an exact bendClass.'));
+      continue;
+    }
+    (globals[text(record.bendClass)] ??= []).push(record);
+  }
+  const pack = (groups, classForKey) => Object.fromEntries(Object.keys(groups).sort(compare).map((key) => {
+    const group = groupPolicies(groups[key], classForKey(key));
+    errors.push(...group.errors);
+    return [key, group];
+  }));
+  return {
+    overrides: pack(overrides, (key) => text(candidates.find((candidate) => text(candidate.id) === key)?.bendClass)),
+    sections: pack(sections, (key) => key.split(':').at(-1)),
+    globals: pack(globals, (key) => key),
+  };
+}
+
+function legacyPolicy(source, bendClass) {
+  const settings = plain(source.settings) ? source.settings : {};
+  if (!supplied(settings, 'designBasis')) return { seen: false, value: null, errors: [] };
+  if (settings.designBasis !== 'asme-b31.4' || source.legacyB314RadiusBasisConfirmed !== true) return {
+    seen: true, value: null, errors: [diagnostic('LEGACY_AUTHORITY_UNCONFIRMED',
+      'Observed legacy B31.4 authority requires explicit confirmation.')],
+  };
+  const base = { bendClass, sourceAuthority: text(source.sourceAuthority),
+    sourceReference: text(source.sourceReference) };
+  let raw = null;
+  if (bendClass === 'elastic') raw = { ...base,
+    radiusPolicyId: PIPELINE_B314_RADIUS_POLICY_IDS.ELASTIC_SCREENING,
+    formulaEnabled: settings.useFormulaMinimum === true,
+    youngsModulusMpa: settings.youngsModulusMpa,
+    allowableBendingStressMpa: settings.allowableBendingStressMpa,
+    practicalEnabled: settings.usePracticalMinimum === true,
+    practicalRadiusD: settings.practicalRadiusMultiplierD };
+  else if (settings.coldFieldRadiusMode === 'project-multiplier') raw = { ...base,
+    radiusPolicyId: PIPELINE_B314_RADIUS_POLICY_IDS.COLD_FIELD_PROJECT_RADIUS_D,
+    projectRadiusD: settings.coldFieldRadiusMultiplierD };
+  else if (settings.coldFieldRadiusMode === 'b31.4-size-band') raw = { ...base,
+    radiusPolicyId: PIPELINE_B314_RADIUS_POLICY_IDS.COLD_FIELD_SIZE_BAND,
+    qualifiedAlternativeRequested: settings.useQualified18DAlternative === true,
+    qualificationEvidenceId: settings.qualificationEvidenceId,
+    projectMinimumEnabled: settings.useColdFieldProjectMinimum === true,
+    projectMinimumRadiusD: settings.coldFieldProjectRadiusMultiplierD,
+    procedureMinimumRadiusD: settings.coldFieldProcedureMinimumRadiusD };
+  if (!raw) return { seen: true, value: null,
+    errors: [diagnostic('LEGACY_AUTHORITY_UNCONFIRMED', 'Legacy B31.4 radius mode is unsupported.')] };
+  const normalized = normalizePolicy(raw, bendClass);
+  return { seen: true, value: normalized.errors.length ? null : normalized.value, errors: normalized.errors };
+}
+function selectPolicy(source, candidate, sectionId, records) {
+  const priorities = [
+    [records.overrides[text(candidate.id)], 'EXPLICIT_CANDIDATE_OVERRIDE'],
+    [records.sections[`${sectionId}:${candidate.bendClass}`], 'EXPLICIT_ANALYSIS_SECTION_POLICY'],
+    [records.globals[candidate.bendClass], 'EXPLICIT_GLOBAL_B31_4_POLICY'],
+  ];
+  for (const [group, sourceKind] of priorities) {
+    if (group?.present) return { authority: group.value, sourceKind, legacySeen: false, errors: [] };
+  }
+  const legacy = legacyPolicy(source, candidate.bendClass);
+  return { authority: legacy.value, sourceKind: legacy.value ? 'CONFIRMED_LEGACY_B31_4' : 'UNRESOLVED',
+    legacySeen: legacy.seen, errors: legacy.errors };
+}
+const sizeBandRadiusD = (nps) => !nps ? null : nps <= 12 ? 18 : nps === 14 ? 21
+  : nps === 16 ? 24 : nps === 18 ? 27 : nps >= 20 ? 30 : null;
+function resolveCriteria(authority, diameter, source, sourceKind) {
+  const errors = [], outsideDiameterMm = parsePipelinePositiveScalar(diameter?.outsideDiameterMm);
+  const nominalPipeSizeNps = parsePipelinePositiveScalar(diameter?.nominalPipeSizeNps);
+  const value = { ...authority, outsideDiameterMm, nominalPipeSizeNps,
+    sizeBandInputReady: diameter?.sizeBandInputReady === true };
+  let legacyNpsObserved = null, legacyNpsMatchedCanonical = true;
+  if (sourceKind === 'CONFIRMED_LEGACY_B31_4' && supplied(source.settings || {}, 'nominalPipeSizeNps')) {
+    legacyNpsObserved = parsePipelinePositiveScalar(source.settings.nominalPipeSizeNps);
+    legacyNpsMatchedCanonical = Boolean(legacyNpsObserved && nominalPipeSizeNps
+      && legacyNpsObserved === nominalPipeSizeNps);
+    if (!legacyNpsMatchedCanonical) errors.push(diagnostic(
+      'NPS_CONFLICT', 'Legacy settings NPS must match canonical diameter-plan NPS.'));
+  }
+  if (authority.radiusPolicyId === PIPELINE_B314_RADIUS_POLICY_IDS.ELASTIC_SCREENING) {
+    value.formulaRadiusD = authority.formulaEnabled
+      ? authority.youngsModulusMpa / (2 * authority.allowableBendingStressMpa) : null;
+    value.formulaRadiusMm = value.formulaRadiusD ? value.formulaRadiusD * outsideDiameterMm : null;
+    value.practicalRadiusMm = authority.practicalEnabled ? authority.practicalRadiusD * outsideDiameterMm : null;
+    const criteria = [value.formulaRadiusMm, value.practicalRadiusMm].filter(Boolean);
+    value.governingRadiusMm = criteria.length ? Math.max(...criteria) : null;
+    value.governingRadiusD = value.governingRadiusMm && outsideDiameterMm
+      ? value.governingRadiusMm / outsideDiameterMm : null;
+    value.radiusBasis = 'B31_4_ELASTIC_GOVERNING';
+  } else if (authority.radiusPolicyId === PIPELINE_B314_RADIUS_POLICY_IDS.COLD_FIELD_PROJECT_RADIUS_D) {
+    value.projectMinimumEnabled = false;
+    value.governingRadiusD = authority.projectRadiusD;
+    value.governingRadiusMm = authority.projectRadiusD * outsideDiameterMm;
+    value.radiusBasis = 'B31_4_COLD_FIELD_PROJECT_RADIUS_D';
+  } else {
+    value.normalCodeRadiusD = sizeBandRadiusD(nominalPipeSizeNps);
+    if (!nominalPipeSizeNps || !value.sizeBandInputReady) errors.push(diagnostic(
+      'NPS_REQUIRED', 'Size-band policy requires canonical ready NPS evidence.'));
+    if (nominalPipeSizeNps && !value.normalCodeRadiusD) errors.push(diagnostic(
+      'NPS_UNSUPPORTED', 'Canonical NPS is unsupported by the B31.4 size bands.'));
+    value.qualificationEligible = Boolean(nominalPipeSizeNps && nominalPipeSizeNps >= 14);
+    value.qualifiedAlternativeApplied = Boolean(authority.qualifiedAlternativeRequested
+      && value.qualificationEligible && authority.qualificationEvidenceId);
+    if (authority.qualifiedAlternativeRequested && !value.qualifiedAlternativeApplied) errors.push(diagnostic(
+      'QUALIFICATION_EVIDENCE_REQUIRED', 'Requested qualified alternative must be eligible and evidenced.'));
+    value.selectedCodeRadiusD = value.qualifiedAlternativeApplied ? 18 : value.normalCodeRadiusD;
+    const criteria = [value.selectedCodeRadiusD,
+      authority.projectMinimumEnabled ? authority.projectMinimumRadiusD : null,
+      authority.procedureMinimumRadiusD].filter(Boolean);
+    value.governingRadiusD = criteria.length ? Math.max(...criteria) : null;
+    value.governingRadiusMm = value.governingRadiusD ? value.governingRadiusD * outsideDiameterMm : null;
+    value.radiusBasis = 'B31_4_COLD_FIELD_SIZE_BAND_GOVERNING';
+  }
+  return { value, errors, legacyNpsObserved, legacyNpsMatchedCanonical };
+}
+function candidateDisposition(candidate, outsideDiameterMm, authorityRadiusMm) {
+  const hasD = supplied(candidate, 'radiusD'), hasMm = supplied(candidate, 'radiusMm');
+  const observedD = hasD ? parsePipelinePositiveScalar(candidate.radiusD) : null;
+  const observedMm = hasMm ? parsePipelinePositiveScalar(candidate.radiusMm) : null;
+  const normalizedMm = observedMm || (observedD && outsideDiameterMm ? observedD * outsideDiameterMm : null);
+  const dualConflict = Boolean(observedD && observedMm && outsideDiameterMm
+    && Math.abs(observedMm - observedD * outsideDiameterMm) > 0.000001);
+  const mismatch = dualConflict
+    || Boolean(observedD && authorityRadiusMm
+      && Math.abs(observedD * outsideDiameterMm - authorityRadiusMm) > 0.000001)
+    || Boolean(observedMm && authorityRadiusMm && Math.abs(observedMm - authorityRadiusMm) > 0.000001);
+  return mismatch ? 'REQUIRES_RECOMPUTE' : !normalizedMm || !authorityRadiusMm
+    ? 'NOT_AVAILABLE' : 'MATCHES_AUTHORITY';
+}
+function resolutionBase(candidate, ownership, sourceKind) {
+  return { candidateId: text(candidate.id), incomingElementIndex: candidate.incomingElementIndex,
+    incomingElementId: `E${candidate.incomingElementIndex + 1}`,
+    outgoingElementIndex: candidate.outgoingElementIndex,
+    outgoingElementId: `E${candidate.outgoingElementIndex + 1}`,
+    analysisSectionId: text(ownership.section?.analysisSectionId), profileId: text(ownership.section?.profileId),
+    cornerNode: candidate.cornerNode, previousNode: candidate.previousNode, nextNode: candidate.nextNode,
+    geometricClass: text(candidate.classification), turnAngleDeg: candidate.turnAngleDeg,
+    sourceBasis: text(candidate.sourceBasis), bendClass: text(candidate.bendClass),
+    outsideDiameterMm: parsePipelinePositiveScalar(ownership.diameterSection?.outsideDiameterMm),
+    observedCandidateRadiusD: candidate.radiusD, observedCandidateRadiusMm: candidate.radiusMm,
+    candidateStatus: text(candidate.status), sourceKind };
+}
+function blockedResolution(candidate, ownership, selection, localErrors) {
+  const base = resolutionBase(candidate, ownership, selection.sourceKind || 'UNRESOLVED');
+  const disposition = candidateDisposition(candidate, base.outsideDiameterMm, null);
+  return createPipelineB314RadiusResolution({ ...base, radiusPolicyId: '', radiusBasis: '', status: 'BLOCKED',
+    candidateRadiusDisposition: disposition, geometryRecheckRequired: disposition === 'REQUIRES_RECOMPUTE',
+    diagnostics: localErrors.length ? localErrors : [diagnostic(
+      'AUTHORITY_UNRESOLVED', 'No explicit or confirmed legacy B31.4 radius authority resolved.')],
+  });
+}
+function resolveCandidate(source, candidate, ownership, selection) {
+  const localErrors = [...ownership.errors, ...selection.errors];
+  if (!selection.authority) return { resolution: blockedResolution(candidate, ownership, selection, localErrors),
+    legacyNpsObserved: null, legacyNpsMatchedCanonical: true };
+  const criteria = resolveCriteria(selection.authority, ownership.diameterSection, source, selection.sourceKind);
+  localErrors.push(...criteria.errors);
+  const base = resolutionBase(candidate, ownership, selection.sourceKind);
+  const disposition = candidateDisposition(candidate, base.outsideDiameterMm, criteria.value.governingRadiusMm);
+  return { resolution: createPipelineB314RadiusResolution({ ...base, ...criteria.value,
+    candidateRadiusDisposition: disposition, geometryRecheckRequired: disposition === 'REQUIRES_RECOMPUTE',
+    sourceAuthority: selection.authority.sourceAuthority, sourceReference: selection.authority.sourceReference,
+    diagnostics: localErrors }), legacyNpsObserved: criteria.legacyNpsObserved,
+    legacyNpsMatchedCanonical: criteria.legacyNpsMatchedCanonical };
+}
+
+export function resolvePipelineB314RadiusPlan(input = {}) {
+  const diagnostics = [], source = safeInput(input, diagnostics);
+  const plans = authenticatePlans(source, diagnostics);
+  const candidates = plans.bend.candidates.slice().sort((a, b) =>
+    a.incomingElementIndex - b.incomingElementIndex || compare(text(a.id), text(b.id)));
+  validateCandidateSet(candidates, diagnostics);
+  const records = inventory(source, candidates, plans, diagnostics);
+  const radiusResolutions = [], notApplicableCandidateIds = [], legacyStates = [];
+  for (const candidate of candidates) {
+    const ownership = candidateOwner(candidate, plans);
+    diagnostics.push(...ownership.errors);
+    if (!ownership.section) continue;
+    if (ownership.section.profileId !== 'asme-b31.4') {
+      notApplicableCandidateIds.push(text(candidate.id));
+      continue;
+    }
+    const selection = selectPolicy(source, candidate, ownership.section.analysisSectionId, records);
+    const result = resolveCandidate(source, candidate, ownership, selection);
+    radiusResolutions.push(result.resolution);
+    legacyStates.push({ seen: selection.legacySeen, nps: result.legacyNpsObserved,
+      matched: result.legacyNpsMatchedCanonical });
+  }
+  const b314Count = candidates.filter((candidate) => {
+    const incoming = plans.analysis.elementByIndex[candidate.incomingElementIndex];
+    return plans.analysis.sectionById[incoming?.analysisSectionId]?.profileId === 'asme-b31.4';
+  }).length;
+  if (radiusResolutions.length !== b314Count) diagnostics.push(diagnostic(
+    'CANDIDATE_COVERAGE_INVALID', 'Every B31.4 candidate must receive exactly one radius resolution.',
+    { b314CandidateCount: b314Count, resolutionCount: radiusResolutions.length }));
+  const observedLegacy = legacyStates.some((state) => state.seen);
+  const legacyNps = legacyStates.map((state) => state.nps).filter(Boolean)[0] || null;
+  const migration = createPipelineB314RadiusMigration({
+    sourceKinds: radiusResolutions.map((item) => item.sourceKind),
+    legacyEvidenceObserved: observedLegacy,
+    legacyB314RadiusBasisConfirmed: observedLegacy && source.legacyB314RadiusBasisConfirmed === true,
+    legacySettingsNpsObserved: legacyNps,
+    legacySettingsNpsMatchedCanonical: legacyNps ? legacyStates.filter((state) => state.nps)
+      .every((state) => state.matched) : false,
+    sourceAuthority: source.sourceAuthority, sourceReference: source.sourceReference,
+  });
+  return createPipelineB314RadiusPlan({
+    analysisSectionPlanSchema: plans.analysis.plan?.schema,
+    analysisDiameterPlanSchema: plans.diameter.plan?.schema,
+    bendResolutionSchema: plans.bend.schema,
+    migration, radiusResolutions, notApplicableCandidateIds, diagnostics,
+    blockerCodes: diagnostics.map((item) => item.code),
+  });
+}
+
+export const buildPipelineB314RadiusPlanJson = (plan) => JSON.stringify(plan, null, 2);
+const cell = (value) => value == null ? '' : String(value).replace(/[\t\r\n]/g, ' ');
+export function buildPipelineB314RadiusLedgerText(plan) {
+  const header = ['Schema', 'CandidateId', 'IncomingElementId', 'OutgoingElementId', 'AnalysisSectionId',
+    'BendClass', 'RadiusPolicyId', 'RadiusBasis', 'OutsideDiameterMm', 'NominalPipeSizeNps',
+    'GoverningRadiusD', 'GoverningRadiusMm', 'ObservedCandidateRadiusD', 'ObservedCandidateRadiusMm',
+    'CandidateRadiusDisposition', 'GeometryRecheckRequired', 'SourceKind', 'Ready'];
+  const rows = (plan?.radiusResolutions || []).map((item) => [item.schema, item.candidateId,
+    item.incomingElementId, item.outgoingElementId, item.analysisSectionId, item.bendClass,
+    item.radiusPolicyId, item.radiusBasis, item.outsideDiameterMm, item.nominalPipeSizeNps,
+    item.governingRadiusD, item.governingRadiusMm, item.observedCandidateRadiusD,
+    item.observedCandidateRadiusMm, item.candidateRadiusDisposition,
+    item.geometryRecheckRequired ? 'YES' : 'NO', item.sourceKind, item.ready ? 'YES' : 'NO']);
+  return [header, ...rows].map((row) => row.map(cell).join('\t')).join('\n');
+}
