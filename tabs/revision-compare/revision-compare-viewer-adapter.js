@@ -1,4 +1,5 @@
 /** Sole Revision Compare bridge to interchangeable read-only viewer backends. */
+import { createEngineeringViewerController } from '../../core/engineering-viewer/index.js';
 import { createWorkbenchViewer } from '../../workbench3d/viewer/workbench-viewer.js';
 import { createRevisionCompareEngineeringSvgViewer } from './revision-compare-engineering-svg-viewer.js';
 import { deepFreeze } from './revision-contract-utils.js';
@@ -37,127 +38,85 @@ function jsonCopy(value) {
   try { return JSON.parse(JSON.stringify(value)); } catch { return null; }
 }
 function safeSnapshot(viewer) { return jsonCopy(viewer?.getStateSnapshot?.() ?? null); }
-function reportFailure(context, error) {
-  context.failure = error;
-  context.options.onError?.(error);
-  return false;
-}
-function ownsGeneration(context, generation, backend) {
-  return !context.disposed && generation === context.generation && context.requestedBackend === backend;
-}
-function disposeActive(context) {
-  if (!context.viewer) return false;
-  const snapshot = safeSnapshot(context.viewer);
-  if (snapshot) context.snapshots[context.activeBackend] = snapshot;
-  context.viewer.dispose();
-  Object.assign(context, { viewer: null, activeBackend: null, host: null });
-  return true;
-}
-function factoryFor(context, backend) { return context.factories[backend]; }
-function recordMountRequest(context, backend) {
-  context.mountRequests.push(backend);
-  if (context.mountRequests.length > 12) context.mountRequests.shift();
-}
-async function createViewer(context, hostElement, generation) {
-  const backend = context.requestedBackend;
-  recordMountRequest(context, backend);
-  try {
-    const created = await factoryFor(context, backend)(hostElement, {
-      onPick: (pick) => { if (ownsGeneration(context, generation, backend)) picked(context, pick); },
-      onRuntimeError: (error) => { if (ownsGeneration(context, generation, backend)) reportFailure(context, error); },
-      initialSnapshot: context.snapshots[backend] ?? null,
-    });
-    if (!ownsGeneration(context, generation, backend)) {
-      created.dispose(); return null;
-    }
-    context.viewer = created; context.activeBackend = backend; context.host = hostElement; context.failure = null;
-    return created;
-  } catch (error) {
-    if (ownsGeneration(context, generation, backend)) reportFailure(context, error);
-    return null;
-  }
-}
-async function ensureViewer(context, hostElement) {
-  if (context.disposed) return null;
-  if (context.viewer && context.activeBackend !== context.requestedBackend) disposeActive(context);
-  if (context.viewer) {
-    try { context.viewer.reattach(hostElement); context.host = hostElement; return context.viewer; }
-    catch (error) { reportFailure(context, error); return null; }
-  }
-  if (context.pending?.generation === context.generation) return context.pending.promise;
-  const generation = context.generation;
-  const record = { generation, promise: null };
-  record.promise = createViewer(context, hostElement, generation).finally(() => {
-    if (context.pending === record) context.pending = null;
-  });
-  context.pending = record;
-  return record.promise;
-}
+
 function applySelection(context) {
-  if (!context.viewer) return;
   const ids = previewObjectIds(context) ?? relatedObjectIds(rowById(context, context.selectedDifferenceId));
-  context.viewer.setSelection(ids[0] ?? null, ids.slice(1));
+  context.controller.setSelection(ids[0] ?? null, ids.slice(1));
 }
-function applyAudit(context) {
-  if (!context.viewer || !context.audit) return;
-  context.viewer.setModels({ source: context.audit.visualModels.revA, target: context.audit.visualModels.revB });
-  context.viewer.setStatuses(new Map(Object.entries(context.audit.visualModels.statusByObjectId)));
-  context.viewer.setMode(context.presentationMode);
-  context.viewer.setVerticalAxis(context.audit.visualModels.revA.verticalAxis);
-  applySelection(context);
+
+function presentation(context) {
+  return Object.freeze({ audit: context.audit, mode: context.presentationMode });
 }
+
+function applyPresentation(viewer, value) {
+  viewer.setModels({ source: value.audit.visualModels.revA, target: value.audit.visualModels.revB });
+  viewer.setStatuses(new Map(Object.entries(value.audit.visualModels.statusByObjectId)));
+  viewer.setMode(value.mode);
+  viewer.setVerticalAxis(value.audit.visualModels.revA.verticalAxis);
+}
+
 async function renderViewer(context, hostElement, audit) {
   context.audit = audit; indexAudit(context, audit);
-  try {
-    const active = await ensureViewer(context, hostElement);
-    if (!active) return false;
-    applyAudit(context); context.failure = null; return true;
-  } catch (error) { return reportFailure(context, error); }
+  context.host = hostElement;
+  applySelection(context);
+  return context.controller.render(hostElement, presentation(context));
 }
+
 function clearViewer(context) {
-  context.generation += 1; context.pending = null; disposeActive(context);
-  Object.assign(context, { audit: null, failure: null, selectedDifferenceId: null,
+  context.controller.clear();
+  Object.assign(context, { audit: null, host: null, selectedDifferenceId: null,
     previewSourceDifferenceId: null, previewTargetDifferenceId: null });
   context.differenceByObjectId.clear(); context.rowByDifferenceId.clear();
 }
+
 function setBackend(context, value) {
   const backend = normalizeRevisionCompareViewerBackend(value);
   if (!context.policy.retainedBackends.includes(backend)) throw new TypeError(`Viewer backend ${backend} is not retained by policy.`);
-  if (backend === context.requestedBackend) return false;
-  context.requestedBackend = backend; context.generation += 1; disposeActive(context); context.failure = null;
-  return true;
+  return context.controller.setBackend(backend);
 }
+
 function setPresentationMode(context, value) {
   context.presentationMode = value === 'side-by-side' ? 'side-by-side' : 'overlay';
-  if (!context.viewer) return true;
-  try { context.viewer.setMode(context.presentationMode); context.failure = null; return true; }
-  catch (error) { return reportFailure(context, error); }
+  if (!context.audit || !context.host || !context.controller.evidence().mounted) return true;
+  context.controller.render(context.host, presentation(context));
+  return !context.controller.evidence().failed;
 }
+
 function evidence(context) {
+  const lifecycle = context.controller.evidence();
   return deepFreeze({
-    mounted: Boolean(context.viewer), failed: Boolean(context.failure), error: context.failure?.message ?? null,
-    viewerBackend: context.requestedBackend, activeBackend: context.activeBackend,
+    mounted: lifecycle.mounted, failed: lifecycle.failed, error: lifecycle.error,
+    viewerBackend: lifecycle.requestedBackend, activeBackend: lifecycle.activeBackend,
     presentationMode: context.presentationMode, selectedDifferenceId: context.selectedDifferenceId,
     previewSourceDifferenceId: context.previewSourceDifferenceId, previewTargetDifferenceId: context.previewTargetDifferenceId,
-    policy: context.policy, mountRequests: [...context.mountRequests],
-    snapshots: jsonCopy(context.snapshots) ?? {}, viewer: safeSnapshot(context.viewer),
+    policy: context.policy, mountRequests: lifecycle.mountRequests,
+    snapshots: lifecycle.snapshots, viewer: lifecycle.viewer,
   });
 }
+
 export function createRevisionCompareViewerAdapter(options = {}) {
   const webglFactory = options.webglViewerFactory ?? options.viewerFactory ?? createWorkbenchViewer;
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   const context = {
-    options, policy,
-    factories: {
-      WEBGL: createRevisionCompareViewerFactory(webglFactory, 'Revision Compare WebGL viewer'),
-      SVG: createRevisionCompareViewerFactory(options.svgViewerFactory ?? createRevisionCompareEngineeringSvgViewer, 'Revision Compare Engineering SVG viewer'),
-    },
-    viewer: null, host: null, pending: null, failure: null, audit: null,
-    presentationMode: policy.defaultSvgPresentation, requestedBackend: policy.defaultBackend,
-    activeBackend: null, snapshots: {}, mountRequests: [], generation: 0,
+    options, policy, controller: null, host: null, audit: null,
+    presentationMode: policy.defaultSvgPresentation,
     selectedDifferenceId: null, previewSourceDifferenceId: null, previewTargetDifferenceId: null,
     differenceByObjectId: new Map(), rowByDifferenceId: new Map(), disposed: false,
   };
+  context.controller = createEngineeringViewerController({
+    backendIds: policy.retainedBackends,
+    initialBackend: policy.defaultBackend,
+    factories: {
+      WEBGL: createRevisionCompareViewerFactory(webglFactory, 'Revision Compare WebGL viewer'),
+      SVG: createRevisionCompareViewerFactory(
+        options.svgViewerFactory ?? createRevisionCompareEngineeringSvgViewer,
+        'Revision Compare Engineering SVG viewer',
+      ),
+    },
+    applyPresentation,
+    onPick: (pick) => picked(context, pick),
+    onError: options.onError ?? null,
+  });
   return Object.freeze({
     render: (host, audit) => renderViewer(context, host, audit),
     setBackend: (backend) => setBackend(context, backend),
@@ -165,10 +124,15 @@ export function createRevisionCompareViewerAdapter(options = {}) {
     selectDifference: (id) => { context.selectedDifferenceId = id ?? null; if (context.previewSourceDifferenceId !== context.selectedDifferenceId) { context.previewSourceDifferenceId = null; context.previewTargetDifferenceId = null; } applySelection(context); },
     previewPair: (sourceDifferenceId, targetDifferenceId) => { context.previewSourceDifferenceId = sourceDifferenceId ?? null; context.previewTargetDifferenceId = targetDifferenceId ?? null; applySelection(context); },
     clearPreview: () => { context.previewSourceDifferenceId = null; context.previewTargetDifferenceId = null; applySelection(context); },
-    fitSelected: () => { if (context.viewer && context.selectedDifferenceId) return context.viewer.fitSelection(); return false; },
-    fitAll: () => context.viewer?.fitAll() ?? false,
+    fitSelected: () => (context.selectedDifferenceId ? context.controller.fitSelection() : false),
+    fitAll: () => context.controller.fitAll(),
     clear: () => clearViewer(context),
-    dispose: () => { if (context.disposed) return false; clearViewer(context); context.disposed = true; return true; },
+    dispose: () => {
+      if (context.disposed) return false;
+      clearViewer(context);
+      context.disposed = true;
+      return context.controller.dispose();
+    },
     evidence: () => evidence(context),
   });
 }
