@@ -26,6 +26,16 @@ function mutableDescriptors() {
   return PIPELINE_ENGINEERING_PROFILE_REGISTRY.profiles.map((profile) => JSON.parse(JSON.stringify(profile)));
 }
 
+function assertCanonicalMutationBlocked(profileIndex, mutate, expectedCode) {
+  const inputs = mutableDescriptors();
+  mutate(inputs[profileIndex]);
+  const registry = createPipelineEngineeringProfileRegistry(inputs);
+  assert.equal(registry.ready, false);
+  assert.ok(registry.blockerCodes.includes('PIPELINE_PROFILE_REGISTRY_INCOMPLETE'));
+  assert.ok(registry.blockerCodes.includes(expectedCode));
+  return registry;
+}
+
 assert.equal(PIPELINE_ENGINEERING_PROFILE_REGISTRY.schema, 'PipelineEngineeringProfileRegistry.v1');
 assert.equal(PIPELINE_ENGINEERING_PROFILE_REGISTRY.ready, true);
 assert.deepEqual(PIPELINE_ENGINEERING_PROFILE_REGISTRY.profiles.map((profile) => profile.profileId), IDS);
@@ -111,6 +121,31 @@ assert.deepEqual(mixed.blockerCodes, [
   'PIPELINE_PROFILE_MODE_INVALID',
 ]);
 assert.equal(JSON.stringify(mixed), JSON.stringify(createPipelineEngineeringProfileRegistry(mixedInputs)));
+
+const wrongSchema = assertCanonicalMutationBlocked(
+  0, (profile) => { profile.schema = 'PipelineEngineeringProfile.v9'; },
+  'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+);
+assert.deepEqual(wrongSchema.diagnostics.find(
+  (item) => item.code === 'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+).details.mismatchedFields, ['schema']);
+
+assertCanonicalMutationBlocked(
+  0, (profile) => { profile.resolvedMode = 'GRE'; },
+  'PIPELINE_PROFILE_MODE_INVALID',
+);
+assertCanonicalMutationBlocked(
+  2, (profile) => { profile.materialState = 'METALLIC'; },
+  'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+);
+assertCanonicalMutationBlocked(
+  1, (profile) => { profile.pipingCode = 'PROJECT_DEFINED'; },
+  'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+);
+assertCanonicalMutationBlocked(
+  2, (profile) => { profile.fittingPolicyId = 'NORMAL_METALLIC_FITTING_POLICY'; },
+  'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+);
 
 const callerInputs = mutableDescriptors();
 const isolated = createPipelineEngineeringProfileRegistry(callerInputs);
