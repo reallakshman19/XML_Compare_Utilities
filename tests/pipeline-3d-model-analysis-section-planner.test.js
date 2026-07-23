@@ -67,6 +67,8 @@ const duplicate = resolvePipelineAnalysisSectionPlan({
 });
 assert.equal(duplicate.ready, false);
 assert.ok(duplicate.blockerCodes.includes('PIPELINE_ANALYSIS_SECTION_DUPLICATE_BOUNDARY'));
+assert.equal(duplicate.migration.resolutionReason, 'EXPLICIT_ANALYSIS_SECTIONS_BLOCKED');
+assert.equal(duplicate.migration.resolvedProfileId, '');
 
 const outOfRange = resolvePipelineAnalysisSectionPlan({
   coordinateRows: rows,
@@ -83,6 +85,8 @@ const missingFirst = resolvePipelineAnalysisSectionPlan({
 });
 assert.ok(missingFirst.blockerCodes.includes('PIPELINE_ANALYSIS_SECTION_FIRST_BOUNDARY_REQUIRED'));
 assert.ok(missingFirst.blockerCodes.includes('PIPELINE_ELEMENT_SECTION_COVERAGE_INVALID'));
+assert.equal(missingFirst.migration.resolutionReason, 'EXPLICIT_ANALYSIS_SECTIONS_BLOCKED');
+assert.equal(missingFirst.migration.resolvedMode, '');
 
 const noChange = resolvePipelineAnalysisSectionPlan({
   coordinateRows: rows,
@@ -126,6 +130,8 @@ assert.equal(fittingBlocked.analysisSectionPlan.elementResolutions[0].analysisSe
 assert.equal(fittingBlocked.analysisSectionPlan.elementResolutions[1].analysisSectionId, 'AS2');
 assert.equal(emittedBend.incomingElementIndex, 0);
 assert.equal(fittingBlocked.analysisSectionPlan.sections[1].startElementIndex, 1);
+assert.equal(fittingBlocked.migration.resolutionReason, 'EXPLICIT_ANALYSIS_SECTIONS_BLOCKED');
+assert.equal(fittingBlocked.migration.resolvedProfileId, '');
 
 const candidateBlocked = resolvePipelineAnalysisSectionPlan({
   coordinateRows: rows,
@@ -151,6 +157,30 @@ const disabled = resolvePipelineAnalysisSectionPlan({
   },
 });
 assert.equal(disabled.ready, true);
+
+
+const infeasible = resolvePipelineAnalysisSectionPlan({
+  coordinateRows: rows,
+  analysisSections: [
+    { startElementIndex: 0, profileId: 'normal-metallic' },
+    { startElementIndex: 1, profileId: 'gre' },
+  ],
+  bendResolution: {
+    candidates: [{ status: 'INFEASIBLE', geometryFits: false, radiusMm: 1500,
+      incomingElementIndex: 0, cornerNode: 110 }],
+  },
+});
+assert.equal(infeasible.ready, true);
+assert.equal(infeasible.blockerCodes.includes('PIPELINE_PROFILE_BOUNDARY_INTERSECTS_FITTING'), false);
+
+const invalidSectionProfile = resolvePipelineAnalysisSectionPlan({
+  coordinateRows: rows,
+  analysisSections: [{ startElementIndex: 0, profileId: 'Normal-Metallic' }],
+});
+assert.equal(invalidSectionProfile.ready, false);
+assert.equal(invalidSectionProfile.migration.resolutionReason, 'EXPLICIT_ANALYSIS_SECTIONS_BLOCKED');
+assert.equal(invalidSectionProfile.migration.resolvedProfileId, '');
+assert.ok(invalidSectionProfile.blockerCodes.includes('PIPELINE_PROFILE_ID_INVALID'));
 
 const away = resolvePipelineAnalysisSectionPlan({
   coordinateRows: rows,
