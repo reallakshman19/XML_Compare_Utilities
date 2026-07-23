@@ -69,7 +69,7 @@ const rank = (code) => {
 };
 function normalizedDiagnostics(values = []) {
   const keyed = Object.create(null);
-  values.filter(plain).filter((item) => text(item.code)).forEach((item) => {
+  (Array.isArray(values) ? values : []).filter(plain).filter((item) => text(item.code)).forEach((item) => {
     const value = deepFreeze({ severity: text(item.severity) || 'BLOCKING', code: text(item.code),
       message: text(item.message), details: plain(item.details) ? cloneJson(item.details) : {} });
     keyed[`${value.code}:${JSON.stringify(value.details)}`] = value;
@@ -79,27 +79,23 @@ function normalizedDiagnostics(values = []) {
 }
 function orderedCodes(diagnostics, supplied = []) {
   const keyed = Object.create(null);
-  [...supplied, ...diagnostics.map((item) => item.code)].map(text).filter(Boolean)
-    .forEach((code) => { keyed[code] = true; });
+  [...(Array.isArray(supplied) ? supplied : []), ...diagnostics.map((item) => item.code)]
+    .map(text).filter(Boolean).forEach((code) => { keyed[code] = true; });
   return Object.freeze(Object.keys(keyed).sort((a, b) => rank(a) - rank(b) || compareText(a, b)));
 }
 function safeInput(input, code) {
   try {
-    const source = cloneJson(input || {});
+    const source = cloneJson(input);
     if (plain(source)) return { source, errors: [] };
   } catch { /* Deterministic blocked contract. */ }
-  return { source: {}, errors: [diagnostic(code, 'Input is not JSON-safe plain data.')] };
+  return { source: {}, errors: [diagnostic(code, 'Input must be JSON-safe plain data.')] };
 }
 function finalState(source, generated, extraCodes = []) {
-  const supplied = Array.isArray(source.diagnostics) ? source.diagnostics : [];
-  const diagnostics = normalizedDiagnostics([...supplied, ...generated]);
-  const codes = orderedCodes(diagnostics, [...(Array.isArray(source.blockerCodes) ? source.blockerCodes : []), ...extraCodes]);
-  return { diagnostics, blockerCodes: codes, ready: codes.length === 0 };
-}
-function uniqueText(values) {
-  const keyed = Object.create(null);
-  (Array.isArray(values) ? values : []).map(text).filter(Boolean).forEach((value) => { keyed[value] = true; });
-  return Object.freeze(Object.keys(keyed).sort(compareText));
+  const diagnostics = normalizedDiagnostics([...(Array.isArray(source.diagnostics) ? source.diagnostics : []), ...generated]);
+  const blockerCodes = orderedCodes(diagnostics, [
+    ...(Array.isArray(source.blockerCodes) ? source.blockerCodes : []), ...extraCodes,
+  ]);
+  return { diagnostics, blockerCodes, ready: blockerCodes.length === 0 };
 }
 export function parsePipelinePositiveScalar(value) {
   if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? value : null;
@@ -109,56 +105,69 @@ export function parsePipelinePositiveScalar(value) {
   const number = Number(trimmed);
   return Number.isFinite(number) && number > 0 ? number : null;
 }
-
+function canonical(value) {
+  return JSON.stringify(Object.fromEntries(Object.keys(value || {}).sort(compareText).map((key) => [key, value[key]])));
+}
 export function createPipelineDiameterSemanticRegistry(descriptors = DESCRIPTORS) {
   const safe = safeInput({ descriptors }, 'PIPELINE_DIAMETER_BASIS_INVALID');
   const values = Array.isArray(safe.source.descriptors) ? safe.source.descriptors : [];
-  const expected = Object.values(PIPELINE_DIAMETER_BASIS_IDS);
-  const ordered = expected.map((id) => values.find((item) => item?.basisId === id)).filter(Boolean);
-  const canonical = (item) => JSON.stringify(Object.fromEntries(Object.keys(item || {}).sort(compareText)
-    .map((key) => [key, item[key]])));
-  const invalid = values.length !== expected.length || ordered.length !== expected.length
-    || ordered.some((item, index) => canonical(item) !== canonical(DESCRIPTORS[index]));
-  const generated = [...safe.errors];
-  if (invalid) generated.push(diagnostic('PIPELINE_DIAMETER_BASIS_INVALID',
-    'Diameter semantic registry must contain exactly the canonical descriptors in canonical order.'));
-  const final = finalState({}, generated);
+  const valid = values.length === DESCRIPTORS.length && values.every((item, index) =>
+    plain(item) && item.basisId === DESCRIPTORS[index].basisId && canonical(item) === canonical(DESCRIPTORS[index]));
+  const errors = [...safe.errors];
+  if (!valid) errors.push(diagnostic('PIPELINE_DIAMETER_BASIS_INVALID',
+    'Diameter semantic registry must contain the exact canonical descriptors in canonical order.'));
+  const final = finalState({}, errors);
   return deepFreeze({ schema: PIPELINE_DIAMETER_SEMANTIC_REGISTRY_SCHEMA,
-    descriptors: Object.freeze(ordered.map(cloneJson).map(deepFreeze)),
+    descriptors: Object.freeze((valid ? values : []).map(cloneJson).map(deepFreeze)),
     diagnostics: final.diagnostics, blockerCodes: final.blockerCodes, ready: final.ready });
 }
 export const PIPELINE_DIAMETER_SEMANTIC_REGISTRY = createPipelineDiameterSemanticRegistry();
 export function getPipelineDiameterSemanticDescriptor(basisId, registry = PIPELINE_DIAMETER_SEMANTIC_REGISTRY) {
-  return (registry?.descriptors || []).find((item) => item.basisId === text(basisId)) || null;
+  if (registry?.schema !== PIPELINE_DIAMETER_SEMANTIC_REGISTRY_SCHEMA || registry?.ready !== true) return null;
+  return (registry.descriptors || []).find((item) => item.basisId === text(basisId)) || null;
+}
+function uniqueText(values) {
+  const keyed = Object.create(null);
+  (Array.isArray(values) ? values : []).map(text).filter(Boolean).forEach((value) => { keyed[value] = true; });
+  return Object.freeze(Object.keys(keyed).sort(compareText));
 }
 export function createPipelineDiameterMigration(input = {}) {
-  const safe = safeInput(input, 'PIPELINE_DIAMETER_INPUT_INVALID');
-  const final = finalState(safe.source, safe.errors);
+  const safe = safeInput(input, 'PIPELINE_DIAMETER_INPUT_INVALID'), source = safe.source;
+  const errors = [...safe.errors];
+  for (const field of ['outsideDiameterSourceKinds', 'nominalPipeSizeSourceKinds', 'greVendorNominalBoreSourceKinds']) {
+    if (source[field] !== undefined && !Array.isArray(source[field])) errors.push(diagnostic(
+      'PIPELINE_DIAMETER_INPUT_INVALID', `${field} must be an array when supplied.`));
+  }
+  if (source.npsToOutsideDiameterConversionApplied === true || source.greVendorBoreToOutsideDiameterConversionApplied === true) {
+    errors.push(diagnostic('PIPELINE_DIAMETER_BASIS_INVALID', 'Forbidden diameter conversion evidence cannot be accepted.'));
+  }
+  if (source.legacyDiameterEvidenceObserved === true && source.legacyDiameterBasisConfirmed !== true) {
+    errors.push(diagnostic('PIPELINE_DIAMETER_BASIS_UNCONFIRMED', 'Observed legacy diameter evidence is not confirmed as physical OD.'));
+  }
+  const final = finalState(source, errors);
   return deepFreeze({ schema: PIPELINE_DIAMETER_MIGRATION_SCHEMA,
-    outsideDiameterSourceKinds: uniqueText(safe.source.outsideDiameterSourceKinds),
-    nominalPipeSizeSourceKinds: uniqueText(safe.source.nominalPipeSizeSourceKinds),
-    greVendorNominalBoreSourceKinds: uniqueText(safe.source.greVendorNominalBoreSourceKinds),
-    legacyDiameterEvidenceObserved: safe.source.legacyDiameterEvidenceObserved === true,
-    legacyDiameterBasisConfirmed: safe.source.legacyDiameterBasisConfirmed === true,
+    outsideDiameterSourceKinds: uniqueText(source.outsideDiameterSourceKinds),
+    nominalPipeSizeSourceKinds: uniqueText(source.nominalPipeSizeSourceKinds),
+    greVendorNominalBoreSourceKinds: uniqueText(source.greVendorNominalBoreSourceKinds),
+    legacyDiameterEvidenceObserved: source.legacyDiameterEvidenceObserved === true,
+    legacyDiameterBasisConfirmed: source.legacyDiameterBasisConfirmed === true,
     npsToOutsideDiameterConversionApplied: false, greVendorBoreToOutsideDiameterConversionApplied: false,
-    sourceAuthority: text(safe.source.sourceAuthority), sourceReference: text(safe.source.sourceReference),
+    sourceAuthority: text(source.sourceAuthority), sourceReference: text(source.sourceReference),
     diagnostics: final.diagnostics, blockerCodes: final.blockerCodes, ready: final.ready });
 }
 function quantityValues(source, includeProperty = false) {
-  return {
-    outsideDiameterMm: parsePipelinePositiveScalar(source.outsideDiameterMm),
+  return { outsideDiameterMm: parsePipelinePositiveScalar(source.outsideDiameterMm),
     nominalPipeSizeNps: parsePipelinePositiveScalar(source.nominalPipeSizeNps),
     greVendorNominalBoreMm: parsePipelinePositiveScalar(source.greVendorNominalBoreMm),
     caesarDiameterMm: parsePipelinePositiveScalar(source.caesarDiameterMm),
-    propertyDiameterMm: includeProperty ? parsePipelinePositiveScalar(source.propertyDiameterMm) : null,
-  };
+    propertyDiameterMm: includeProperty ? parsePipelinePositiveScalar(source.propertyDiameterMm) : null };
 }
 function quantityErrors(source, includeProperty = false) {
   const pairs = [['outsideDiameterMm', 'PIPELINE_OUTSIDE_DIAMETER_INVALID'],
     ['nominalPipeSizeNps', 'PIPELINE_NPS_INVALID'], ['greVendorNominalBoreMm', 'PIPELINE_GRE_VENDOR_BORE_INVALID'],
     ['caesarDiameterMm', 'PIPELINE_OUTSIDE_DIAMETER_INVALID']];
   if (includeProperty) pairs.push(['propertyDiameterMm', 'PIPELINE_OUTSIDE_DIAMETER_INVALID']);
-  return pairs.filter(([field]) => source[field] != null && source[field] !== '')
+  return pairs.filter(([field]) => source[field] !== undefined && source[field] !== null)
     .filter(([field]) => parsePipelinePositiveScalar(source[field]) == null)
     .map(([field, code]) => diagnostic(code, `${field} must be a finite positive scalar when supplied.`, { value: source[field] }));
 }
@@ -184,8 +193,8 @@ export function createPipelineAnalysisDiameterResolution(input = {}) {
   const safe = safeInput(input, 'PIPELINE_DIAMETER_INPUT_INVALID'), source = safe.source;
   const values = quantityValues(source), errors = [...safe.errors, ...quantityErrors(source)];
   if (!/^AS[1-9]\d*$/.test(text(source.analysisSectionId)) || !Number.isInteger(source.startElementIndex)
-    || source.startElementIndex < 0) errors.push(diagnostic('PIPELINE_DIAMETER_INPUT_INVALID',
-    'Valid AS identity and nonnegative startElementIndex are required.'));
+    || source.startElementIndex < 0 || !text(source.sourceKind)) errors.push(diagnostic(
+    'PIPELINE_DIAMETER_INPUT_INVALID', 'Valid AS identity, start index and sourceKind are required.'));
   errors.push(...profileErrors(source, values, true));
   const final = finalState(source, errors);
   return deepFreeze({ schema: PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA,
@@ -193,20 +202,21 @@ export function createPipelineAnalysisDiameterResolution(input = {}) {
     resolvedMode: text(source.resolvedMode), startElementIndex: Number.isInteger(source.startElementIndex) ? source.startElementIndex : null,
     outsideDiameterMm: values.outsideDiameterMm, nominalPipeSizeNps: values.nominalPipeSizeNps,
     greVendorNominalBoreMm: values.greVendorNominalBoreMm, caesarDiameterMm: values.caesarDiameterMm,
-    physicalDiameterReady: values.outsideDiameterMm != null,
-    sizeBandInputReady: values.nominalPipeSizeNps != null, vendorSeriesInputReady: values.greVendorNominalBoreMm != null,
-    sourceKind: text(source.sourceKind) || 'UNRESOLVED', sourceAuthority: text(source.sourceAuthority),
-    sourceReference: text(source.sourceReference), quantitySources: deepFreeze(plain(source.quantitySources) ? cloneJson(source.quantitySources) : {}),
+    physicalDiameterReady: values.outsideDiameterMm != null, sizeBandInputReady: values.nominalPipeSizeNps != null,
+    vendorSeriesInputReady: values.greVendorNominalBoreMm != null, sourceKind: text(source.sourceKind) || 'UNRESOLVED',
+    sourceAuthority: text(source.sourceAuthority), sourceReference: text(source.sourceReference),
+    quantitySources: deepFreeze(plain(source.quantitySources) ? cloneJson(source.quantitySources) : {}),
     status: final.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: final.diagnostics,
     blockerCodes: final.blockerCodes, ready: final.ready });
 }
 export function createPipelineElementDiameterResolution(input = {}) {
   const safe = safeInput(input, 'PIPELINE_DIAMETER_INPUT_INVALID'), source = safe.source;
   const values = quantityValues(source, true), errors = [...safe.errors, ...quantityErrors(source, true)];
-  if (!Number.isInteger(source.elementIndex) || source.elementIndex < 0 || !/^E[1-9]\d*$/.test(text(source.elementId))
-    || !/^AS[1-9]\d*$/.test(text(source.analysisSectionId))
-    || !['SECTION_START', 'INHERITED'].includes(text(source.diameterDisposition))) errors.push(diagnostic(
-    'PIPELINE_DIAMETER_INPUT_INVALID', 'Valid E/AS identity and diameter disposition are required.'));
+  if (!Number.isInteger(source.elementIndex) || source.elementIndex < 0
+    || text(source.elementId) !== `E${source.elementIndex + 1}` || !/^AS[1-9]\d*$/.test(text(source.analysisSectionId))
+    || !['SECTION_START', 'INHERITED'].includes(text(source.diameterDisposition)) || !text(source.sourceKind)) {
+    errors.push(diagnostic('PIPELINE_DIAMETER_INPUT_INVALID', 'Canonical E/AS identity, disposition and sourceKind are required.'));
+  }
   errors.push(...profileErrors(source, values, false));
   const final = finalState(source, errors);
   return deepFreeze({ schema: PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA,
@@ -216,40 +226,34 @@ export function createPipelineElementDiameterResolution(input = {}) {
     diagnostics: final.diagnostics, blockerCodes: final.blockerCodes, ready: final.ready });
 }
 function coverageErrors(sections, elements) {
-  const errors = [], byId = Object.create(null), starts = Object.create(null), indexes = Object.create(null), elementIds = Object.create(null);
+  const errors = [], byId = Object.create(null), starts = Object.create(null), indexes = Object.create(null);
   if (!sections.length || !elements.length) errors.push(diagnostic('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
     'At least one section and one element diameter resolution are required.'));
-  sections.forEach((section) => {
-    if (byId[section.analysisSectionId] || starts[section.startElementIndex]) errors.push(diagnostic(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Section identities and start indexes must be unique.',
+  sections.forEach((section, index) => {
+    if (section.analysisSectionId !== `AS${index + 1}` || section.startElementIndex !== (index ? section.startElementIndex : 0)
+      || byId[section.analysisSectionId] || starts[section.startElementIndex]) errors.push(diagnostic(
+      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Sections require canonical AS order, unique starts and AS1 at element zero.',
       { analysisSectionId: section.analysisSectionId, startElementIndex: section.startElementIndex }));
     byId[section.analysisSectionId] = section; starts[section.startElementIndex] = true;
   });
-  elements.forEach((element) => {
-    if (indexes[element.elementIndex] || elementIds[element.elementId]) errors.push(diagnostic(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Element indexes and IDs must be unique.',
-      { elementIndex: element.elementIndex, elementId: element.elementId }));
-    indexes[element.elementIndex] = true; elementIds[element.elementId] = true;
-    const owner = byId[element.analysisSectionId];
-    if (!owner || owner.profileId !== element.profileId) errors.push(diagnostic(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Element profile and owning section must agree.',
-      { elementIndex: element.elementIndex, analysisSectionId: element.analysisSectionId }));
-    const quantityMismatch = owner && ['outsideDiameterMm', 'nominalPipeSizeNps', 'greVendorNominalBoreMm', 'caesarDiameterMm']
-      .some((field) => owner[field] !== element[field]);
-    if (quantityMismatch) errors.push(diagnostic('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
+  elements.forEach((element, index) => {
+    indexes[element.elementIndex] = true;
+    if (element.elementIndex !== index || element.elementId !== `E${index + 1}`) errors.push(diagnostic(
+      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Elements require canonical contiguous E identity.', { elementIndex: element.elementIndex }));
+    const expected = sections.filter((section) => section.startElementIndex <= element.elementIndex).at(-1);
+    if (!expected || expected.analysisSectionId !== element.analysisSectionId || expected.profileId !== element.profileId) errors.push(diagnostic(
+      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Element ownership must follow analysis-section intervals.', { elementIndex: element.elementIndex }));
+    const mismatch = expected && ['outsideDiameterMm', 'nominalPipeSizeNps', 'greVendorNominalBoreMm', 'caesarDiameterMm']
+      .some((field) => expected[field] !== element[field]);
+    if (mismatch) errors.push(diagnostic('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
       'Element diameter quantities must match the owning section.', { elementIndex: element.elementIndex }));
-    const shouldStart = owner?.startElementIndex === element.elementIndex;
+    const shouldStart = expected?.startElementIndex === element.elementIndex;
     if ((element.diameterDisposition === 'SECTION_START') !== shouldStart) errors.push(diagnostic(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Diameter disposition must match the owning section start.',
-      { elementIndex: element.elementIndex, analysisSectionId: element.analysisSectionId }));
+      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Diameter disposition must match the owning section start.', { elementIndex: element.elementIndex }));
   });
-  for (let index = 0; index < elements.length; index += 1) if (!indexes[index]) errors.push(diagnostic(
-    'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Element coverage must be contiguous from index zero.', { missingElementIndex: index }));
   sections.forEach((section) => {
-    const owners = elements.filter((element) => element.analysisSectionId === section.analysisSectionId);
-    if (!owners.length || !owners.some((element) => element.elementIndex === section.startElementIndex)) errors.push(diagnostic(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Every section must own its start element.',
-      { analysisSectionId: section.analysisSectionId, startElementIndex: section.startElementIndex }));
+    if (section.startElementIndex >= elements.length) errors.push(diagnostic('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
+      'Section start must identify an existing element.', { analysisSectionId: section.analysisSectionId }));
   });
   return errors;
 }
@@ -257,21 +261,24 @@ export function createPipelineAnalysisDiameterPlan(input = {}) {
   const safe = safeInput(input, 'PIPELINE_DIAMETER_INPUT_INVALID'), source = safe.source;
   const sectionInputs = Array.isArray(source.sectionResolutions) ? source.sectionResolutions : [];
   const elementInputs = Array.isArray(source.elementResolutions) ? source.elementResolutions : [];
-  const sections = Object.freeze(sectionInputs.map(createPipelineAnalysisDiameterResolution));
-  const elements = Object.freeze(elementInputs.map(createPipelineElementDiameterResolution));
+  const sections = Object.freeze(sectionInputs.map(createPipelineAnalysisDiameterResolution)
+    .sort((a, b) => a.startElementIndex - b.startElementIndex || compareText(a.analysisSectionId, b.analysisSectionId)));
+  const elements = Object.freeze(elementInputs.map(createPipelineElementDiameterResolution)
+    .sort((a, b) => a.elementIndex - b.elementIndex || compareText(a.elementId, b.elementId)));
   const migration = createPipelineDiameterMigration(source.migration || {}), errors = [...safe.errors];
   if (source.analysisSectionPlanSchema !== PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA
     || source.propertySectionPlanSchema !== PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA) errors.push(diagnostic(
-    'PIPELINE_DIAMETER_INPUT_INVALID', 'Exact analysis-section and property-plan schemas are required.',
-    { analysisSectionPlanSchema: text(source.analysisSectionPlanSchema), propertySectionPlanSchema: text(source.propertySectionPlanSchema) }));
+    'PIPELINE_DIAMETER_INPUT_INVALID', 'Exact analysis-section and property-plan schemas are required.'));
   if (!Array.isArray(source.sectionResolutions) || !Array.isArray(source.elementResolutions)) errors.push(diagnostic(
     'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'sectionResolutions and elementResolutions must be arrays.'));
   errors.push(...coverageErrors(sections, elements));
-  const nested = [...migration.diagnostics, ...sections.flatMap((item) => item.diagnostics), ...elements.flatMap((item) => item.diagnostics)];
-  const final = finalState(source, [...errors, ...nested], migration.blockerCodes);
+  const records = [migration, ...sections, ...elements];
+  const nestedDiagnostics = records.flatMap((item) => item.diagnostics);
+  const nestedCodes = records.flatMap((item) => item.blockerCodes);
+  const final = finalState(source, [...errors, ...nestedDiagnostics], nestedCodes);
   return deepFreeze({ schema: PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA,
     analysisSectionPlanSchema: text(source.analysisSectionPlanSchema), propertySectionPlanSchema: text(source.propertySectionPlanSchema),
     migration, sectionResolutions: sections, elementResolutions: elements,
     diagnostics: final.diagnostics, blockerCodes: final.blockerCodes,
-    ready: final.ready && migration.ready && sections.every((item) => item.ready) && elements.every((item) => item.ready) });
+    ready: final.ready && records.every((item) => item.ready) });
 }
