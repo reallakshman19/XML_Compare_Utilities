@@ -4,31 +4,30 @@ export const PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA = 'PipelineAnalysisSectionPla
 export const PIPELINE_ANALYSIS_SECTION_SCHEMA = 'PipelineAnalysisSection.v1';
 export const PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA = 'PipelineElementSectionResolution.v1';
 
-const ALLOWED_MODES = Object.freeze(Object.values(PIPELINE_ENGINEERING_PROFILE_MODES));
-const BLOCKER_ORDER = Object.freeze([
+const MODES = Object.freeze(Object.values(PIPELINE_ENGINEERING_PROFILE_MODES));
+const ORDER = Object.freeze([
   'PIPELINE_PROFILE_ID_INVALID',
   'PIPELINE_ANALYSIS_SECTION_ID_INVALID',
   'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID',
   'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID',
 ]);
+const text = (value) => String(value ?? '').trim();
+const validAS = (value) => /^AS[1-9]\d*$/.test(value);
+const validE = (value) => /^E[1-9]\d*$/.test(value);
 
-function text(value) {
-  return String(value ?? '').trim();
-}
-
-function plainObject(value) {
+function plain(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
 
-function cloneJson(value) {
+function clone(value) {
   if (value === undefined) return null;
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (Array.isArray(value)) return value.map(cloneJson);
-  if (!plainObject(value)) throw new TypeError('Contract input must be JSON-safe plain data.');
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneJson(item)]));
+  if (Array.isArray(value)) return value.map(clone);
+  if (!plain(value)) throw new TypeError('Input must be JSON-safe plain data.');
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
 }
 
 function deepFreeze(value) {
@@ -37,101 +36,75 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-function compareText(left, right) {
-  return left < right ? -1 : left > right ? 1 : 0;
+function rank(code) {
+  const index = ORDER.indexOf(code);
+  return index < 0 ? ORDER.length : index;
+}
+
+function compare(left, right) {
+  return rank(left) - rank(right) || (left < right ? -1 : left > right ? 1 : 0);
 }
 
 function diagnostic(code, message, details = {}) {
-  return deepFreeze({ severity: 'BLOCKING', code, message, details: cloneJson(details) });
+  return deepFreeze({ severity: 'BLOCKING', code, message, details: clone(details) });
 }
 
-function blockerRank(code) {
-  const index = BLOCKER_ORDER.indexOf(code);
-  return index < 0 ? BLOCKER_ORDER.length : index;
-}
-
-function normalizeDiagnostics(items = []) {
-  const result = [];
-  for (const item of Array.isArray(items) ? items : []) {
-    try {
-      const source = cloneJson(item);
-      if (plainObject(source) && text(source.code)) result.push(deepFreeze({
-        severity: text(source.severity) || 'BLOCKING',
-        code: text(source.code),
-        message: text(source.message),
-        details: deepFreeze(plainObject(source.details) ? source.details : {}),
-      }));
-    } catch { /* Invalid caller diagnostics are replaced by factory diagnostics. */ }
-  }
+function normalizeDiagnostics(values) {
   const keyed = Object.create(null);
-  for (const item of result) keyed[`${item.code}:${JSON.stringify(item.details)}`] = item;
-  return Object.freeze(Object.values(keyed).sort((left, right) =>
-    blockerRank(left.code) - blockerRank(right.code)
-    || compareText(left.code, right.code)
-    || compareText(JSON.stringify(left.details), JSON.stringify(right.details))));
-}
-
-function normalizeCodes(codes = []) {
-  const result = [];
-  for (const code of Array.isArray(codes) ? codes : []) {
-    const normalized = text(code);
-    if (normalized && !result.includes(normalized)) result.push(normalized);
+  for (const value of values) {
+    if (!plain(value) || !text(value.code)) continue;
+    const item = deepFreeze({
+      severity: text(value.severity) || 'BLOCKING',
+      code: text(value.code),
+      message: text(value.message),
+      details: deepFreeze(plain(value.details) ? clone(value.details) : {}),
+    });
+    keyed[`${item.code}:${JSON.stringify(item.details)}`] = item;
   }
-  return Object.freeze(result.sort((left, right) =>
-    blockerRank(left) - blockerRank(right) || compareText(left, right)));
+  return Object.freeze(Object.values(keyed).sort((left, right) => {
+    const codeOrder = compare(left.code, right.code);
+    if (codeOrder) return codeOrder;
+    const a = JSON.stringify(left.details);
+    const b = JSON.stringify(right.details);
+    return a < b ? -1 : a > b ? 1 : 0;
+  }));
 }
 
-function combineDiagnostics(...groups) {
-  return normalizeDiagnostics(groups.flat());
+function finalize(source, generated) {
+  const supplied = Array.isArray(source.diagnostics) ? source.diagnostics : [];
+  const diagnostics = normalizeDiagnostics([...supplied, ...generated]);
+  const suppliedCodes = Array.isArray(source.blockerCodes) ? source.blockerCodes : [];
+  const blockerCodes = Object.freeze([...new Set([
+    ...suppliedCodes.map(text).filter(Boolean),
+    ...diagnostics.map((item) => item.code),
+  ])].sort(compare));
+  return { diagnostics, blockerCodes };
 }
 
-function codesFrom(diagnostics, supplied = []) {
-  return normalizeCodes([...supplied, ...diagnostics.map((item) => item.code)]);
-}
-
-function safeInput(input, code, message) {
+function safeInput(input, code) {
   try {
-    const source = cloneJson(input || {});
-    if (plainObject(source)) return { source, diagnostics: [] };
-  } catch { /* Return a blocked JSON-safe contract below. */ }
-  return { source: {}, diagnostics: [diagnostic(code, message)] };
-}
-
-function analysisSectionIdValid(value) {
-  return /^AS[1-9]\d*$/.test(value);
-}
-
-function elementIdValid(value) {
-  return /^E[1-9]\d*$/.test(value);
+    const source = clone(input || {});
+    if (plain(source)) return { source, errors: [] };
+  } catch { /* Return a deterministic blocked contract. */ }
+  return { source: {}, errors: [diagnostic(code, 'Input is not JSON-safe plain data.')] };
 }
 
 export function createPipelineAnalysisSection(input = {}) {
-  const safe = safeInput(
-    input,
-    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID',
-    'Analysis-section input must be JSON-safe plain data.',
-  );
+  const safe = safeInput(input, 'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID');
   const source = safe.source;
-  const generated = [...safe.diagnostics];
+  const errors = [...safe.errors];
   const analysisSectionId = text(source.analysisSectionId);
-  const profileId = text(source.profileId);
   const startElementIndex = source.startElementIndex;
-  if (!analysisSectionIdValid(analysisSectionId)) generated.push(diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_ID_INVALID',
-    'Analysis-section ID must use the independent AS1, AS2, ... namespace.',
-    { analysisSectionId },
+  const profileId = text(source.profileId);
+  if (!validAS(analysisSectionId)) errors.push(diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_ID_INVALID', 'analysisSectionId must use AS1, AS2, ...', { analysisSectionId },
   ));
-  if (!Number.isInteger(startElementIndex) || startElementIndex < 0) generated.push(diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID',
-    'Analysis-section startElementIndex must be a nonnegative integer.',
+  if (!Number.isInteger(startElementIndex) || startElementIndex < 0) errors.push(diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'startElementIndex must be a nonnegative integer.',
     { startElementIndex: source.startElementIndex },
   ));
-  if (!profileId) generated.push(diagnostic(
-    'PIPELINE_PROFILE_ID_INVALID',
-    'Analysis section requires a nonblank engineering profile ID.',
-  ));
-  const diagnostics = combineDiagnostics(source.diagnostics, generated);
-  const blockerCodes = codesFrom(diagnostics, source.blockerCodes);
+  if (!profileId) errors.push(diagnostic('PIPELINE_PROFILE_ID_INVALID', 'profileId is required.'));
+  const final = finalize(source, errors);
   return deepFreeze({
     schema: PIPELINE_ANALYSIS_SECTION_SCHEMA,
     analysisSectionId,
@@ -141,47 +114,35 @@ export function createPipelineAnalysisSection(input = {}) {
     boundarySourceReference: text(source.boundarySourceReference),
     sourceAuthority: text(source.sourceAuthority),
     sourceReference: text(source.sourceReference),
-    status: blockerCodes.length ? 'BLOCKED' : (text(source.status) || 'CONTRACT_ONLY'),
-    diagnostics,
-    blockerCodes,
+    status: final.blockerCodes.length ? 'BLOCKED' : (text(source.status) || 'CONTRACT_ONLY'),
+    diagnostics: final.diagnostics,
+    blockerCodes: final.blockerCodes,
   });
 }
 
 export function createPipelineElementSectionResolution(input = {}) {
-  const safe = safeInput(
-    input,
-    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID',
-    'Element-section resolution input must be JSON-safe plain data.',
-  );
+  const safe = safeInput(input, 'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID');
   const source = safe.source;
-  const generated = [...safe.diagnostics];
+  const errors = [...safe.errors];
   const elementIndex = source.elementIndex;
   const elementId = text(source.elementId);
   const analysisSectionId = text(source.analysisSectionId);
   const profileId = text(source.profileId);
   const resolvedMode = text(source.resolvedMode);
   const sectionDisposition = text(source.sectionDisposition);
-  if (!Number.isInteger(elementIndex) || elementIndex < 0 || !elementIdValid(elementId)) generated.push(diagnostic(
-    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID',
-    'Element-section resolution requires a nonnegative elementIndex and an independent E1, E2, ... elementId.',
+  if (!Number.isInteger(elementIndex) || elementIndex < 0 || !validE(elementId)) errors.push(diagnostic(
+    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID', 'elementIndex and E-prefixed elementId are required.',
     { elementIndex: source.elementIndex, elementId },
   ));
-  if (!analysisSectionIdValid(analysisSectionId)) generated.push(diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_ID_INVALID',
-    'Element-section resolution requires an AS-prefixed analysisSectionId.',
-    { analysisSectionId },
+  if (!validAS(analysisSectionId)) errors.push(diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_ID_INVALID', 'analysisSectionId must be AS-prefixed.', { analysisSectionId },
   ));
-  if (!profileId) generated.push(diagostic(
-    'PIPELINE_PROFILE_ID_INVALID',
-    'Element-section resolution requires a nonblank engineering profile ID.',
-  ));
-  if (!ALLOWED_MODES.includes(resolvedMode) || !sectionDisposition) generated.push(diagnostic(
-    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID',
-    'Element-section resolution requires a supported resolvedMode and nonblank sectionDisposition.',
+  if (!profileId) errors.push(diagnostic('PIPELINE_PROFILE_ID_INVALID', 'profileId is required.'));
+  if (!MODES.includes(resolvedMode) || !sectionDisposition) errors.push(diagnostic(
+    'PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID', 'resolvedMode and sectionDisposition are required.',
     { resolvedMode, sectionDisposition },
   ));
-  const diagnostics = combineDiagnostics(source.diagnostics, generated);
-  const blockerCodes = codesFrom(diagnostics, source.blockerCodes);
+  const final = finalize(source, errors);
   return deepFreeze({
     schema: PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA,
     elementIndex: Number.isInteger(elementIndex) ? elementIndex : null,
@@ -190,38 +151,76 @@ export function createPipelineElementSectionResolution(input = {}) {
     profileId,
     resolvedMode,
     sectionDisposition,
-    boundaryNode: source.boundaryNode === undefined ? null : cloneJson(source.boundaryNode),
+    boundaryNode: source.boundaryNode === undefined ? null : clone(source.boundaryNode),
     sourceAuthority: text(source.sourceAuthority),
     sourceReference: text(source.sourceReference),
-    diagnostics,
-    blockerCodes,
-    ready: blockerCodes.length === 0,
+    diagnostics: final.diagnostics,
+    blockerCodes: final.blockerCodes,
+    ready: final.blockerCodes.length === 0,
   });
 }
 
-function duplicateSectionDiagnostics(sections) {
+function duplicateDiagnostics(sections) {
   const counts = Object.create(null);
   for (const section of sections) {
     const id = section.analysisSectionId;
     if (id) counts[id] = (counts[id] || 0) + 1;
   }
-  return Object.keys(counts).sort(compareText).filter((id) => counts[id] > 1).map((id) => diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID',
-    'Analysis-section plan contains a duplicate analysisSectionId.',
+  return Object.keys(counts).sort().filter((id) => counts[id] > 1).map((id) => diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'Duplicate analysisSectionId.',
     { analysisSectionId: id, count: counts[id] },
   ));
 }
 
 export function createPipelineAnalysisSectionPlan(input = {}) {
-  const safe = safeInput(
-    input,
-   'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID',
-    'Analysis-section plan input must be JSON-safe plain data.',
-  );
+  const safe = safeInput(input, 'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID');
   const source = safe.source;
-  const generated = [...safe.diagnostics];
-  if (source.sections !== undefined && !Array.isArray(source.sections)) generated.push(diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'Analysis-section plan sections must be an array.',
+  const errors = [...safe.errors];
+  if (source.sections !== undefined && !Array.isArray(source.sections)) errors.push(diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'sections must be an array.',
   ));
-  if (source.elementResolutions !== undefined && !Array.isArray(source.elementResolutions)) generated.push(diagnostic(
-    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'Analysis-section plan elementResolutions must be an arrax¸œ°(€€¤¤ì(€½¹ÍÐÍ•Ñ¥½¹Ì€ô=‰©•Ð¹™É••é” ¡ÉÉ…ä¹¥ÍÉÉ…ä¡Í½ÕÉ”¹Í•Ñ¥½¹Ì¤€üÍ½ÕÉ”¹Í•Ñ¥½¹Ì€èmt¤(€€€€¹µ…À¡É•…Ñ•A¥Á•±¥¹•¹…±åÍ¥ÍM•Ñ¥½¸¤¤ì(€½¹ÍÐ•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì€ô=‰©•Ð¹™É••é” ¡ÉÉ…ä¹¥ÍÉÉ…ä¡Í½ÕÉ”¹•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì¤€üÍ½ÕÉ”¹•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì€èmt¤(€€€€¹µ…À¡É•…Ñ•A¥Á•±¥¹•±•µ•¹ÑM•Ñ¥½¹I•Í½±ÕÑ¥½¸¤¤ì(€½¹ÍÐ‘¥…¹½ÍÑ¥Ì€ô½µ‰¥¹•¥…¹½ÍÑ¥Ì (€€€Í½ÕÉ”¹‘¥…¹½ÍÑ¥Ì°(€€€•¹•É…Ñ•°(€€€‘ÕÁ±¥…Ñ•M•Ñ¥½¹¥…¹½ÍÑ¥Ì¡Í•Ñ¥½¹Ì¤°(€€€Í•Ñ¥½¹Ì¹™±…Ñ5…À ¡Í•Ñ¥½¸¤€ôøÍ•Ñ¥½¸¹‘¥…¹½ÍÑ¥Ì¤°(€€€•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì¹™±…Ñ5…À ¡É•Í½±ÕÑ¥½¸¤€ôøÉ•Í½±ÕÑ¥½¸¹‘¥…¹½ÍÑ¥Ì¤°(€€¤ì(€½¹ÍÐ‰±½­•É½‘•Ì€ô½‘•ÍÉ½´ (€€€‘¥…¹½ÍÑ¥Ì°(€€€l¸¸¸¡ÉÉ…ä¹¥ÍÉÉ…ä¡Í½ÕÉ”¹‰±½­•É½‘•Ì¤€üÍ½ÕÉ”¹‰±½­•É½‘•Ì€èmt¤°(€€€€€€¸¸¹Í•Ñ¥½¹Ì¹™±…Ñ5…À ¡Í•Ñ¥½¸¤€ôøÍ•Ñ¥½¸¹‰±½­•É½‘•Ì¤°(€€€€€€¸¸¹•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì¹™±…Ñ5…À ¡É•Í½±ÕÑ¥½¸¤€ôøÉ•Í½±ÕÑ¥½¸¹‰±½­•É½‘•Ì¥t°(€€¤ì(€É•ÑÕÉ¸‘••ÁÉ••é”¡ì(€€€Í¡•µ„èA%A1%9}91eM%M}MQ%=9}A19}M!5°(€€€Í•Ñ¥½¹Ì°(€€€•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì°(€€€‘¥…¹½ÍÑ¥Ì°(€€€‰±½­•É½‘•Ì°(€€€É•…‘äè‰±½­•É½‘•Ì¹±•¹Ñ €ôôô€À(€€€€€€˜˜Í•Ñ¥½¹Ì¹•Ù•Éä ¡Í•Ñ¥½¸¤€ôøÍ•Ñ¥½¸¹ÍÑ…ÑÕÌ€„ôô€	1=-œ¤(€€€€€€˜˜•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì¹•Ù•Éä ¡É•Í½±ÕÑ¥½¸¤€ôøÉ•Í½±ÕÑ¥½¸¹É•…‘ä¤°(€ô¤ì)ô()•áÁ½ÉÐ™Õ¹Ñ¥½¸¥ÍA¥Á•±¥¹•¹…±åÍ¥ÍM•Ñ¥½¸¡Ù…±Õ”¤ì(€É•ÑÕÉ¸Á±…¥¹=‰©•Ð¡Ù…±Õ”¤(€€€€˜˜Ù…±Õ”¹Í¡•µ„€ôôôA%A1%9}91eM%M}MQ%=9}M!5(€€€€˜˜ÑåÁ•½˜Ù…±Õ”¹…¹…±åÍ¥ÍM•Ñ¥½¹%€ôôô€ÍÑÉ¥¹œœ(€€€€˜˜ÉÉ…ä¹¥ÍÉÉ…ä¡Ù…±Õ”¹‘¥…¹½ÍÑ¥Ì¤(€€€€˜˜ÉÉ…ä¹¥ÍÉÉ…ä¡Ù…±Õ”¹‰±½­•É½‘•Ì¤ì)ô()•áÁ½ÉÐ™Õ¹Ñ¥½¸¥ÍA¥Á•±¥¹•¹…±åÍ¥ÍM•Ñ¥½¹A±…¸¡Ù…±Õ”¤ì(€É•ÑÕÉ¸Á±…¥¹=‰©•Ð¡Ù…±Õ”¤(€€€€˜˜Ù…±Õ”¹Í¡•µ„€ôôôA%A1%9}91eM%M}MQ%=9}A19}M!5(€€€€˜˜ÉÉ…ä¹¥ÍÉÉ…ä¡Ù…±Õ”¹Í•Ñ¥½¹Ì¤(€€€€˜˜ÉÉ…ä¹¥ÍÉÉ…ä¡Ù…±Õ”¹•±•µ•¹ÑI•Í½±ÕÑ¥½¹Ì¤(€€€€˜˜ÑåÁ•½˜Ù…±Õ”¹É•…‘ä€ôôô€‰½½±•…¸œì)ô()•áÁ½ÉÐ™Õ¹Ñ¥½¸¥ÍA¥Á•±¥¹•±•µ•¹ÑM•Ñ¥½¹I•Í½±ÕÑ¥½¸¡Ù…±Õ”¤ì(€É•ÑÕÉ¸Á±…¥¹=‰©•Ð¡Ù…±Õ”¤(€€€€˜˜Ù…±Õ”¹Í¡•µ„€ôôôA%A1%9}159Q}MQ%=9}IM=1UQ%=9}M!5(€€€€˜˜ÑåÁ•½˜Ù…±Õ”¹•±•µ•¹Ñ%€ôôô€ÍÑÉ¥¹œœ(€€€€˜˜ÑåÁ•½˜Ù…±Õ”¹É•…‘ä€ôôô€‰½½±•…¸œì)ô(
+  if (source.elementResolutions !== undefined && !Array.isArray(source.elementResolutions)) errors.push(diagnostic(
+    'PIPELINE_ANALYSIS_SECTION_CONTRACT_INVALID', 'elementResolutions must be an array.',
+  ));
+  const sections = Object.freeze((Array.isArray(source.sections) ? source.sections : []).map(createPipelineAnalysisSection));
+  const elementResolutions = Object.freeze((Array.isArray(source.elementResolutions) ? source.elementResolutions : [])
+    .map(createPipelineElementSectionResolution));
+  const final = finalize(source, [
+    ...errors,
+    ...duplicateDiagnostics(sections),
+    ...sections.flatMap((section) => section.diagnostics),
+    ...elementResolutions.flatMap((resolution) => resolution.diagnostics),
+  ]);
+  const blockerCodes = Object.freeze([...new Set([
+    ...final.blockerCodes,
+    ...sections.flatMap((section) => section.blockerCodes),
+    ...elementResolutions.flatMap((resolution) => resolution.blockerCodes),
+  ])].sort(compare));
+  return deepFreeze({
+    schema: PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA,
+    sections,
+    elementResolutions,
+    diagnostics: final.diagnostics,
+    blockerCodes,
+    ready: blockerCodes.length === 0
+      && sections.every((section) => section.status !== 'BLOCKED')
+      && elementResolutions.every((resolution) => resolution.ready),
+  });
+}
+
+export function isPipelineAnalysisSection(value) {
+  return plain(value) && value.schema === PIPELINE_ANALYSIS_SECTION_SCHEMA
+    && typeof value.analysisSectionId === 'string'
+    && Array.isArray(value.diagnostics) && Array.isArray(value.blockerCodes);
+}
+
+export function isPipelineAnalysisSectionPlan(value) {
+  return plain(value) && value.schema === PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA
+    && Array.isArray(value.sections) && Array.isArray(value.elementResolutions)
+    && typeof value.ready === 'boolean';
+}
+
+export function isPipelineElementSectionResolution(value) {
+  return plain(value) && value.schema === PIPELINE_ELEMENT_SECTION_RESOLUTION_SCHEMA
+    && typeof value.elementId === 'string' && typeof value.ready === 'boolean';
+}
