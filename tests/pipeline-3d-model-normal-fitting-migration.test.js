@@ -1,22 +1,21 @@
 import assert from 'node:assert/strict';
 import { resolvePipelineNormalFittingPlan } from '../tabs/pipeline-3d-model/pipeline-3d-model-normal-fitting-resolution.js';
 
-const analysisSectionPlan = Object.freeze({
-  schema: 'PipelineAnalysisSectionPlan.v1', ready: true,
-  sections: Object.freeze([{ analysisSectionId: 'AS1', startElementIndex: 0, profileId: 'normal-metallic' }]),
-  elementResolutions: Object.freeze([
-    { elementIndex: 0, elementId: 'E1', analysisSectionId: 'AS1', profileId: 'normal-metallic' },
-    { elementIndex: 1, elementId: 'E2', analysisSectionId: 'AS1', profileId: 'normal-metallic' },
-  ]),
-});
-const analysisDiameterPlan = Object.freeze({
-  schema: 'PipelineAnalysisDiameterPlan.v1', ready: true,
-  sectionResolutions: Object.freeze([{ analysisSectionId: 'AS1', profileId: 'normal-metallic', outsideDiameterMm: 100, ready: true }]),
-  elementResolutions: Object.freeze([
-    { elementIndex: 0, elementId: 'E1', analysisSectionId: 'AS1', profileId: 'normal-metallic', outsideDiameterMm: 100, ready: true },
-    { elementIndex: 1, elementId: 'E2', analysisSectionId: 'AS1', profileId: 'normal-metallic', outsideDiameterMm: 100, ready: true },
-  ]),
-});
+const clean = { diagnostics: [], blockerCodes: [] };
+const analysisSectionPlan = Object.freeze({ schema: 'PipelineAnalysisSectionPlan.v1', ready: true, ...clean,
+  sections: Object.freeze([{ schema: 'PipelineAnalysisSection.v1', analysisSectionId: 'AS1',
+    startElementIndex: 0, profileId: 'normal-metallic', status: 'CONTRACT_ONLY', ...clean }]),
+  elementResolutions: Object.freeze([0, 1].map((elementIndex) => ({ schema: 'PipelineElementSectionResolution.v1',
+    elementIndex, elementId: `E${elementIndex + 1}`, analysisSectionId: 'AS1', profileId: 'normal-metallic',
+    ready: true, ...clean }))) });
+const analysisDiameterPlan = Object.freeze({ schema: 'PipelineAnalysisDiameterPlan.v1', ready: true, ...clean,
+  analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1', propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1',
+  migration: Object.freeze({ schema: 'PipelineDiameterMigration.v1', ready: true, ...clean }),
+  sectionResolutions: Object.freeze([{ schema: 'PipelineAnalysisDiameterResolution.v1', analysisSectionId: 'AS1',
+    startElementIndex: 0, profileId: 'normal-metallic', outsideDiameterMm: 100, status: 'RESOLVED', ready: true, ...clean }]),
+  elementResolutions: Object.freeze([0, 1].map((elementIndex) => ({ schema: 'PipelineElementDiameterResolution.v1',
+    elementIndex, elementId: `E${elementIndex + 1}`, analysisSectionId: 'AS1', profileId: 'normal-metallic',
+    outsideDiameterMm: 100, ready: true, ...clean }))) });
 const candidate = Object.freeze({ id: 'bend:110', incomingElementIndex: 0, outgoingElementIndex: 1,
   previousNode: 100, cornerNode: 110, nextNode: 120, classification: 'HORIZONTAL', turnAngleDeg: 30,
   sourceBasis: 'GEOMETRY_AUTHORITY', bendClass: 'standard', radiusBasis: 'DEFAULT_MULTIPLIER',
@@ -62,7 +61,6 @@ const unconfirmed = resolvePipelineNormalFittingPlan(input({
 }));
 assert.equal(unconfirmed.ready, false);
 assert.ok(unconfirmed.blockerCodes.includes('PIPELINE_NORMAL_FITTING_LEGACY_AUTHORITY_UNCONFIRMED'));
-
 const candidateOnly = resolvePipelineNormalFittingPlan(input());
 assert.equal(candidateOnly.ready, false);
 assert.ok(candidateOnly.blockerCodes.includes('PIPELINE_NORMAL_FITTING_LEGACY_AUTHORITY_UNCONFIRMED'));
@@ -74,18 +72,19 @@ const invalidHigh = resolvePipelineNormalFittingPlan(input({
   legacyNormalFittingBasisConfirmed: true,
 }));
 assert.equal(invalidHigh.ready, false);
-assert.ok(invalidHigh.blockerCodes.includes('PIPELINE_NORMAL_FITTING_RADIUS_INVALID'));
+assert.deepEqual(invalidHigh.fittingResolutions[0].blockerCodes, ['PIPELINE_NORMAL_FITTING_RADIUS_INVALID']);
 assert.equal(invalidHigh.fittingResolutions[0].sourceKind, 'UNRESOLVED');
+assert.equal(invalidHigh.fittingResolutions[0].cornerNode, 110);
+assert.equal(invalidHigh.fittingResolutions[0].geometricClass, 'HORIZONTAL');
+assert.equal(invalidHigh.fittingResolutions[0].observedCandidateRadiusD, 1.5);
+assert.equal(invalidHigh.fittingResolutions[0].observedCandidateRadiusMm, 150);
 
-const conflict = resolvePipelineNormalFittingPlan(input({
-  normalFittingSections: [
-    { analysisSectionId: 'AS1', fittingPolicyId: 'normal-standard-elbow', radiusD: 1.5 },
-    { analysisSectionId: 'AS1', fittingPolicyId: 'normal-standard-elbow', radiusD: 2 },
-  ],
-}));
+const conflict = resolvePipelineNormalFittingPlan(input({ normalFittingSections: [
+  { analysisSectionId: 'AS1', fittingPolicyId: 'normal-standard-elbow', radiusD: 1.5 },
+  { analysisSectionId: 'AS1', fittingPolicyId: 'normal-standard-elbow', radiusD: 2 },
+] }));
 assert.equal(conflict.ready, false);
 assert.ok(conflict.blockerCodes.includes('PIPELINE_NORMAL_FITTING_SOURCE_CONFLICT'));
-
 const contradictoryTarget = resolvePipelineNormalFittingPlan(input({
   normalFittingOverrides: [{ candidateId: 'bend:110', incomingElementIndex: 9,
     fittingPolicyId: 'normal-standard-elbow', radiusD: 2 }],
@@ -94,12 +93,10 @@ const contradictoryTarget = resolvePipelineNormalFittingPlan(input({
 assert.equal(contradictoryTarget.ready, false);
 assert.ok(contradictoryTarget.blockerCodes.includes('PIPELINE_NORMAL_FITTING_TARGET_INVALID'));
 assert.equal(contradictoryTarget.fittingResolutions[0].sourceKind, 'UNRESOLVED');
-
 const invalidLegacyRadius = resolvePipelineNormalFittingPlan(input({
   settings: { designBasis: 'default-metallic', bendClass: 'standard', standardRadiusMultiplierD: true },
   legacyNormalFittingBasisConfirmed: true,
 }));
 assert.equal(invalidLegacyRadius.ready, false);
 assert.ok(invalidLegacyRadius.blockerCodes.includes('PIPELINE_NORMAL_FITTING_RADIUS_INVALID'));
-
 console.log('Pipeline Normal fitting migration tests passed.');

@@ -126,11 +126,37 @@ function radiusErrors(source, policy, outsideDiameterMm) {
   }
   return errors;
 }
+function observedEvidence(source, outsideDiameterMm, authorityRadiusMm) {
+  const errors = [], rawD = source.observedCandidateRadiusD, rawMm = source.observedCandidateRadiusMm;
+  const hasD = rawD !== undefined && rawD !== null, hasMm = rawMm !== undefined && rawMm !== null;
+  const suppliedD = hasD ? parsePipelinePositiveScalar(rawD) : null;
+  const suppliedMm = hasMm ? parsePipelinePositiveScalar(rawMm) : null;
+  if ((hasD && !suppliedD) || (hasMm && !suppliedMm)) errors.push(diagnostic(
+    'PIPELINE_NORMAL_FITTING_RADIUS_INVALID', 'Observed candidate radii must be positive scalars when supplied.'));
+  let observedD = suppliedD, observedMm = suppliedMm;
+  if (outsideDiameterMm && suppliedD && !hasMm) observedMm = suppliedD * outsideDiameterMm;
+  if (outsideDiameterMm && suppliedMm && !hasD) observedD = suppliedMm / outsideDiameterMm;
+  const inconsistent = Boolean(outsideDiameterMm && suppliedD && suppliedMm
+    && Math.abs(suppliedMm - suppliedD * outsideDiameterMm) > 0.000001);
+  if (inconsistent) errors.push(diagnostic('PIPELINE_NORMAL_FITTING_RADIUS_BASIS_CONFLICT',
+    'Observed radiusD and radiusMm are inconsistent with physical OD.'));
+  const available = Boolean(observedD && observedMm), mismatch = Boolean(authorityRadiusMm && available && (
+    inconsistent || (hasD && suppliedD && Math.abs(suppliedD * outsideDiameterMm - authorityRadiusMm) > 0.000001)
+    || (hasMm && suppliedMm && Math.abs(suppliedMm - authorityRadiusMm) > 0.000001)));
+  return { errors, observedD, observedMm, disposition: !authorityRadiusMm || !available ? 'NOT_AVAILABLE'
+    : mismatch ? 'REQUIRES_RECOMPUTE' : 'MATCHES_AUTHORITY', mismatch };
+}
+function suppliedBlockingCodes(source) {
+  return codes((Array.isArray(source.diagnostics) ? source.diagnostics : []).filter((item) => text(item.severity) === 'BLOCKING'),
+    Array.isArray(source.blockerCodes) ? source.blockerCodes : []);
+}
 export function createPipelineNormalFittingResolution(input = {}) {
   const safeValue = safe(input, 'PIPELINE_NORMAL_FITTING_INPUT_INVALID'), source = safeValue.source;
+  const declaredBlockers = suppliedBlockingCodes(source), blockedAuthority = text(source.status) === 'BLOCKED'
+    && declaredBlockers.length > 0 && !text(source.fittingPolicyId);
   const policy = getPipelineNormalFittingPolicy(source.fittingPolicyId), profile = getPipelineEngineeringProfile(source.profileId);
   const outsideDiameterMm = parsePipelinePositiveScalar(source.outsideDiameterMm), errors = [...safeValue.errors];
-  if (!policy) errors.push(diagnostic('PIPELINE_NORMAL_FITTING_POLICY_INVALID', 'fittingPolicyId must be exact and canonical.'));
+  if (!policy && !blockedAuthority) errors.push(diagnostic('PIPELINE_NORMAL_FITTING_POLICY_INVALID', 'fittingPolicyId must be exact and canonical.'));
   if (!profile || profile.profileId !== 'normal-metallic') errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_PROFILE_INCOMPATIBLE', 'Normal fitting resolution requires profileId normal-metallic.'));
   if (!text(source.candidateId) || !Number.isInteger(source.incomingElementIndex) || source.incomingElementIndex < 0
@@ -139,28 +165,23 @@ export function createPipelineNormalFittingResolution(input = {}) {
     || text(source.outgoingElementId) !== `E${source.outgoingElementIndex + 1}`
     || !/^AS[1-9]\d*$/.test(text(source.analysisSectionId))) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_OWNERSHIP_INVALID', 'Canonical candidate, incoming/outgoing E identity and AS identity are required.'));
-  errors.push(...radiusErrors(source, policy, outsideDiameterMm));
-  const expectedKind = policy?.fittingKind || '';
-  if (text(source.fittingKind) !== expectedKind) errors.push(diagnostic(
-    'PIPELINE_NORMAL_FITTING_POLICY_INVALID', 'fittingKind must match the canonical fitting policy.'));
+  if (!blockedAuthority) {
+    errors.push(...radiusErrors(source, policy, outsideDiameterMm));
+    if (text(source.fittingKind) !== (policy?.fittingKind || '')) errors.push(diagnostic(
+      'PIPELINE_NORMAL_FITTING_POLICY_INVALID', 'fittingKind must match the canonical fitting policy.'));
+  } else if (!outsideDiameterMm) errors.push(diagnostic('PIPELINE_NORMAL_FITTING_DIAMETER_PLAN_INVALID',
+    'A canonical positive outsideDiameterMm is required.'));
   const requiredEvidence = [text(source.candidateStatus), text(source.geometricClass), text(source.sourceBasis), text(source.sourceKind)];
-  const nodesValid = [source.previousNode, source.cornerNode, source.nextNode]
-    .every((value) => Number.isInteger(value) && value > 0);
+  const nodesValid = [source.previousNode, source.cornerNode, source.nextNode].every((value) => Number.isInteger(value) && value > 0);
   if (requiredEvidence.some((value) => !value) || !nodesValid || !Number.isFinite(source.turnAngleDeg)) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_INPUT_INVALID', 'Candidate status, geometric evidence, nodes, angle and sourceKind are required.'));
-  const observedRaw = source.observedCandidateRadiusMm, observedDRaw = source.observedCandidateRadiusD;
-  const observed = parsePipelinePositiveScalar(observedRaw), observedD = parsePipelinePositiveScalar(observedDRaw);
-  if ((observedRaw !== undefined && observedRaw !== null && !observed)
-    || (observedDRaw !== undefined && observedDRaw !== null && !observedD)) errors.push(diagnostic(
-    'PIPELINE_NORMAL_FITTING_RADIUS_INVALID', 'Observed candidate radii must be positive scalars when supplied.'));
-  const authorityRadius = parsePipelinePositiveScalar(source.radiusMm);
-  const expectedDisposition = !observed ? 'NOT_AVAILABLE'
-    : Math.abs(observed - authorityRadius) <= 0.000001 ? 'MATCHES_AUTHORITY' : 'REQUIRES_RECOMPUTE';
-  if (text(source.candidateRadiusDisposition) !== expectedDisposition) errors.push(diagnostic(
+  const authorityRadius = blockedAuthority ? null : parsePipelinePositiveScalar(source.radiusMm);
+  const observed = observedEvidence(source, outsideDiameterMm, authorityRadius); errors.push(...observed.errors);
+  if (text(source.candidateRadiusDisposition) !== observed.disposition) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_INPUT_INVALID', 'candidateRadiusDisposition does not match observed radius evidence.'));
-  if (source.geometryRecheckRequired !== (expectedDisposition === 'REQUIRES_RECOMPUTE')) errors.push(diagnostic(
+  if (source.geometryRecheckRequired !== (observed.disposition === 'REQUIRES_RECOMPUTE')) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_INPUT_INVALID', 'geometryRecheckRequired must match candidate radius disposition.'));
-  if (text(source.candidateStatus) === 'EMITTED' && expectedDisposition === 'REQUIRES_RECOMPUTE') errors.push(diagnostic(
+  if (text(source.candidateStatus) === 'EMITTED' && observed.mismatch) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_EMITTED_RADIUS_CONFLICT', 'Emitted candidate radius conflicts with authoritative radius.'));
   const state = final(source, errors);
   return freeze({ schema: PIPELINE_NORMAL_FITTING_RESOLUTION_SCHEMA,
@@ -171,8 +192,8 @@ export function createPipelineNormalFittingResolution(input = {}) {
     geometricClass: text(source.geometricClass), turnAngleDeg: Number.isFinite(source.turnAngleDeg) ? source.turnAngleDeg : null,
     sourceBasis: text(source.sourceBasis), fittingPolicyId: text(source.fittingPolicyId), fittingKind: text(source.fittingKind),
     radiusBasis: text(source.radiusBasis), outsideDiameterMm, radiusD: parsePipelinePositiveScalar(source.radiusD),
-    radiusMm: parsePipelinePositiveScalar(source.radiusMm), observedCandidateRadiusD: observedD,
-    observedCandidateRadiusMm: parsePipelinePositiveScalar(source.observedCandidateRadiusMm), candidateStatus: text(source.candidateStatus),
+    radiusMm: parsePipelinePositiveScalar(source.radiusMm), observedCandidateRadiusD: observed.observedD,
+    observedCandidateRadiusMm: observed.observedMm, candidateStatus: text(source.candidateStatus),
     candidateRadiusDisposition: text(source.candidateRadiusDisposition), geometryRecheckRequired: source.geometryRecheckRequired === true,
     sourceKind: text(source.sourceKind), sourceAuthority: text(source.sourceAuthority), sourceReference: text(source.sourceReference),
     status: state.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready });
@@ -189,13 +210,14 @@ export function createPipelineNormalFittingPlan(input = {}) {
     'PIPELINE_NORMAL_FITTING_INPUT_INVALID', 'Exact analysis, diameter and bend schemas are required.'));
   if (!Array.isArray(source.fittingResolutions) || !Array.isArray(source.notApplicableCandidateIds)) errors.push(diagnostic(
     'PIPELINE_NORMAL_FITTING_CANDIDATE_COVERAGE_INVALID', 'Resolution and not-applicable candidate arrays are required.'));
-  const ids = Object.create(null), owners = Object.create(null), notApplicable = Array.isArray(source.notApplicableCandidateIds)
+  const ids = Object.create(null), owners = Object.create(null), corners = Object.create(null);
+  const notApplicable = Array.isArray(source.notApplicableCandidateIds)
     ? source.notApplicableCandidateIds.map(text).filter(Boolean) : [], excluded = Object.create(null);
   resolutions.forEach((item) => {
-    if (ids[item.candidateId] || owners[item.incomingElementIndex]) errors.push(diagnostic(
-      'PIPELINE_NORMAL_FITTING_CANDIDATE_COVERAGE_INVALID', 'Candidate IDs and incoming ownership must be unique.',
-      { candidateId: item.candidateId, incomingElementIndex: item.incomingElementIndex }));
-    ids[item.candidateId] = true; owners[item.incomingElementIndex] = true;
+    if (ids[item.candidateId] || owners[item.incomingElementIndex] || corners[item.cornerNode]) errors.push(diagnostic(
+      'PIPELINE_NORMAL_FITTING_CANDIDATE_COVERAGE_INVALID', 'Candidate IDs, incoming ownership and corner nodes must be unique.',
+      { candidateId: item.candidateId, incomingElementIndex: item.incomingElementIndex, cornerNode: item.cornerNode }));
+    ids[item.candidateId] = true; owners[item.incomingElementIndex] = true; corners[item.cornerNode] = true;
   });
   notApplicable.forEach((candidateId) => {
     if (excluded[candidateId] || ids[candidateId]) errors.push(diagnostic('PIPELINE_NORMAL_FITTING_CANDIDATE_COVERAGE_INVALID',

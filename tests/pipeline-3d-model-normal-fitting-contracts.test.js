@@ -18,63 +18,90 @@ const base = {
   outgoingElementIndex: 1, outgoingElementId: 'E2', analysisSectionId: 'AS1',
   profileId: 'normal-metallic', cornerNode: 110, previousNode: 100, nextNode: 120,
   geometricClass: 'HORIZONTAL', turnAngleDeg: 45, sourceBasis: 'GEOMETRY_AUTHORITY',
-  outsideDiameterMm: 114.3, candidateStatus: 'READY_NOT_EMITTED',
+  outsideDiameterMm: 100, candidateStatus: 'READY_NOT_EMITTED',
   candidateRadiusDisposition: 'MATCHES_AUTHORITY', geometryRecheckRequired: false,
   sourceKind: 'EXPLICIT_GLOBAL_NORMAL_POLICY', sourceAuthority: 'TEST', sourceReference: 'C-1',
 };
 const standard = createPipelineNormalFittingResolution({ ...base,
   fittingPolicyId: 'normal-standard-elbow', fittingKind: 'STANDARD_ELBOW',
-  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: 1.5, radiusMm: 171.45,
-  observedCandidateRadiusD: 1.5, observedCandidateRadiusMm: 171.45,
+  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: 1.5, radiusMm: 150,
+  observedCandidateRadiusD: 1.5, observedCandidateRadiusMm: 150,
 });
 assert.equal(standard.ready, true);
-assert.equal(standard.radiusMm, 171.45);
-const explicitMm = createPipelineNormalFittingResolution({ ...base,
-  fittingPolicyId: 'normal-explicit-radius-bend', fittingKind: 'EXPLICIT_RADIUS_BEND',
-  radiusBasis: 'NORMAL_EXPLICIT_RADIUS_MM', radiusD: 2, radiusMm: 228.6,
-  observedCandidateRadiusMm: 228.6,
+assert.equal(standard.radiusMm, 150);
+
+const radiusDOnly = createPipelineNormalFittingResolution({ ...base,
+  fittingPolicyId: 'normal-standard-elbow', fittingKind: 'STANDARD_ELBOW',
+  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: 1.5, radiusMm: 150,
+  observedCandidateRadiusD: 1.5,
 });
-assert.equal(explicitMm.ready, true);
-const explicitD = createPipelineNormalFittingResolution({ ...base,
-  fittingPolicyId: 'normal-explicit-radius-bend', fittingKind: 'EXPLICIT_RADIUS_BEND',
-  radiusBasis: 'NORMAL_EXPLICIT_RADIUS_D', radiusD: 2, radiusMm: 228.6,
-  observedCandidateRadiusMm: 228.6,
+assert.equal(radiusDOnly.ready, true);
+assert.equal(radiusDOnly.observedCandidateRadiusMm, 150);
+assert.equal(radiusDOnly.candidateRadiusDisposition, 'MATCHES_AUTHORITY');
+
+const inconsistentObserved = createPipelineNormalFittingResolution({ ...base,
+  fittingPolicyId: 'normal-standard-elbow', fittingKind: 'STANDARD_ELBOW',
+  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: 1.5, radiusMm: 150,
+  observedCandidateRadiusD: 9, observedCandidateRadiusMm: 150,
+  candidateRadiusDisposition: 'REQUIRES_RECOMPUTE', geometryRecheckRequired: true,
 });
-assert.equal(explicitD.ready, true);
+assert.equal(inconsistentObserved.ready, false);
+assert.ok(inconsistentObserved.blockerCodes.includes('PIPELINE_NORMAL_FITTING_RADIUS_BASIS_CONFLICT'));
+assert.equal(inconsistentObserved.observedCandidateRadiusD, 9);
+assert.equal(inconsistentObserved.observedCandidateRadiusMm, 150);
+
+const blocked = createPipelineNormalFittingResolution({ ...base,
+  fittingPolicyId: '', fittingKind: '', radiusBasis: '', radiusD: null, radiusMm: null,
+  observedCandidateRadiusD: 1.5, observedCandidateRadiusMm: 150,
+  candidateRadiusDisposition: 'NOT_AVAILABLE', geometryRecheckRequired: false,
+  sourceKind: 'UNRESOLVED', status: 'BLOCKED',
+  diagnostics: [{ severity: 'BLOCKING', code: 'PIPELINE_NORMAL_FITTING_AUTHORITY_UNRESOLVED',
+    message: 'No authority.', details: { candidateId: 'bend:110' } }],
+});
+assert.equal(blocked.ready, false);
+assert.equal(blocked.status, 'BLOCKED');
+assert.deepEqual(blocked.blockerCodes, ['PIPELINE_NORMAL_FITTING_AUTHORITY_UNRESOLVED']);
+assert.equal(blocked.cornerNode, 110);
+assert.equal(blocked.observedCandidateRadiusD, 1.5);
+assert.equal(blocked.observedCandidateRadiusMm, 150);
+
 const emittedMismatch = createPipelineNormalFittingResolution({ ...standard, candidateStatus: 'EMITTED',
-  observedCandidateRadiusMm: 150, candidateRadiusDisposition: 'REQUIRES_RECOMPUTE', geometryRecheckRequired: true });
+  observedCandidateRadiusD: 1.4, observedCandidateRadiusMm: null,
+  candidateRadiusDisposition: 'REQUIRES_RECOMPUTE', geometryRecheckRequired: true });
 assert.ok(emittedMismatch.blockerCodes.includes('PIPELINE_NORMAL_FITTING_EMITTED_RADIUS_CONFLICT'));
-const both = createPipelineNormalFittingResolution({ ...base,
-  fittingPolicyId: 'normal-explicit-radius-bend', fittingKind: 'EXPLICIT_RADIUS_BEND',
-  radiusBasis: 'NORMAL_EXPLICIT_RADIUS_MM', radiusD: 2, radiusMm: 228.6,
-  blockerCodes: ['PIPELINE_NORMAL_FITTING_RADIUS_BASIS_CONFLICT'],
-});
-assert.equal(both.ready, false);
 const wrongProfile = createPipelineNormalFittingResolution({ ...standard, profileId: 'asme-b31.4' });
 assert.ok(wrongProfile.blockerCodes.includes('PIPELINE_NORMAL_FITTING_PROFILE_INCOMPATIBLE'));
 const booleanRadius = createPipelineNormalFittingResolution({ ...base,
   fittingPolicyId: 'normal-standard-elbow', fittingKind: 'STANDARD_ELBOW',
-  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: true, radiusMm: 171.45,
+  radiusBasis: 'NORMAL_STANDARD_ELBOW_RADIUS_D', radiusD: true, radiusMm: 150,
 });
 assert.ok(booleanRadius.blockerCodes.includes('PIPELINE_NORMAL_FITTING_RADIUS_INVALID'));
 
-const plan = createPipelineNormalFittingPlan({
+const planInput = (fittingResolutions) => ({
   analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
   analysisDiameterPlanSchema: 'PipelineAnalysisDiameterPlan.v1',
   bendResolutionSchema: 'PipelineBendResolution.v3',
   migration: { sourceKinds: ['EXPLICIT_GLOBAL_NORMAL_POLICY'] },
-  fittingResolutions: [standard], notApplicableCandidateIds: [],
+  fittingResolutions, notApplicableCandidateIds: [],
 });
+const plan = createPipelineNormalFittingPlan(planInput([standard]));
 assert.equal(plan.ready, true);
 assert.ok(Object.isFrozen(plan));
 assert.ok(Object.isFrozen(plan.fittingResolutions));
 assert.ok(Object.isFrozen(plan.fittingResolutions[0]));
 assert.doesNotThrow(() => JSON.stringify(plan));
-const blockedMigration = createPipelineNormalFittingPlan({
-  analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
-  analysisDiameterPlanSchema: 'PipelineAnalysisDiameterPlan.v1', bendResolutionSchema: 'PipelineBendResolution.v3',
+
+const sameCorner = createPipelineNormalFittingResolution({ ...standard,
+  candidateId: 'bend:210', incomingElementIndex: 2, incomingElementId: 'E3',
+  outgoingElementIndex: 3, outgoingElementId: 'E4', analysisSectionId: 'AS2',
+  previousNode: 200, cornerNode: 110, nextNode: 220,
+});
+const duplicateCornerPlan = createPipelineNormalFittingPlan(planInput([standard, sameCorner]));
+assert.equal(duplicateCornerPlan.ready, false);
+assert.ok(duplicateCornerPlan.blockerCodes.includes('PIPELINE_NORMAL_FITTING_CANDIDATE_COVERAGE_INVALID'));
+
+const blockedMigration = createPipelineNormalFittingPlan({ ...planInput([standard]),
   migration: { blockerCodes: ['PIPELINE_NORMAL_FITTING_LEGACY_AUTHORITY_UNCONFIRMED'] },
-  fittingResolutions: [standard], notApplicableCandidateIds: [],
 });
 assert.equal(blockedMigration.ready, false);
 assert.ok(blockedMigration.blockerCodes.includes('PIPELINE_NORMAL_FITTING_LEGACY_AUTHORITY_UNCONFIRMED'));
