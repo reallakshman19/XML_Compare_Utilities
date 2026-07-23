@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(SCRIPT_DIR);
-const DEFAULT_SOURCE = resolve(ROOT, '..', '3D_Converters', 'dist', 'inputxml-release', 'inputxml-v2');
+const SIBLING_SOURCE = resolve(ROOT, '..', '3D_Converters', 'dist', 'inputxml-release', 'inputxml-v2');
+const DEFAULT_SOURCE = resolve(process.env.INPUTXML_RELEASE_BUNDLE_DIR || SIBLING_SOURCE);
 const DEFAULT_TARGET = resolve(ROOT, 'vendor', '3d-converters', 'inputxml-v2');
 
 function sha256(bytes) {

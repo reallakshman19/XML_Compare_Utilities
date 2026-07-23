@@ -16,6 +16,9 @@ function difference(label, baseline, candidate) {
 
 function normalizedComparison(baseline, candidate) {
   return Object.freeze([
+    difference('compatibility request', selectedHash(baseline, 'compatibilityRequest'), selectedHash(candidate, 'compatibilityRequest')),
+    difference('diagnostic report', selectedHash(baseline, 'diagnosticReport'), selectedHash(candidate, 'diagnosticReport')),
+    difference('resolver trace', selectedHash(baseline, 'resolverTrace'), selectedHash(candidate, 'resolverTrace')),
     difference('normalization plan', selectedHash(baseline, 'normalizationPlan'), selectedHash(candidate, 'normalizationPlan')),
     difference('canonical InputXML bytes', selectedHash(baseline, 'canonicalInputXml'), selectedHash(candidate, 'canonicalInputXml')),
   ].filter(Boolean));
