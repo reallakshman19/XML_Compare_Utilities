@@ -53,6 +53,14 @@ assert.deepEqual(numericString.blockerCodes, ['PIPELINE_ANALYSIS_SECTION_CONTRAC
 const blankProfile = createPipelineAnalysisSection({ ...validSectionInput, profileId: ' ' });
 assert.deepEqual(blankProfile.blockerCodes, ['PIPELINE_PROFILE_ID_INVALID']);
 
+const unknownProfile = createPipelineAnalysisSection({ ...validSectionInput, profileId: 'unknown-profile' });
+assert.equal(unknownProfile.status, 'BLOCKED');
+assert.deepEqual(unknownProfile.blockerCodes, ['PIPELINE_PROFILE_ID_INVALID']);
+
+const caseAlteredProfile = createPipelineAnalysisSection({ ...validSectionInput, profileId: 'GRE' });
+assert.equal(caseAlteredProfile.status, 'BLOCKED');
+assert.deepEqual(caseAlteredProfile.blockerCodes, ['PIPELINE_PROFILE_ID_INVALID']);
+
 const duplicatePlan = createPipelineAnalysisSectionPlan({
   sections: [validSectionInput, { ...validSectionInput, startElementIndex: 3 }],
 });
@@ -92,6 +100,26 @@ const independentIdentities = createPipelineElementSectionResolution({
 assert.equal(independentIdentities.elementId, 'E3');
 assert.equal(independentIdentities.analysisSectionId, 'AS2');
 assert.notEqual(independentIdentities.elementId, independentIdentities.analysisSectionId);
+
+const unknownResolutionProfile = createPipelineElementSectionResolution({
+  ...validResolutionInput, profileId: 'unknown-profile',
+});
+assert.equal(unknownResolutionProfile.ready, false);
+assert.deepEqual(unknownResolutionProfile.blockerCodes, ['PIPELINE_PROFILE_ID_INVALID']);
+
+const caseAlteredResolutionProfile = createPipelineElementSectionResolution({
+  ...validResolutionInput, profileId: 'Normal-Metallic',
+});
+assert.equal(caseAlteredResolutionProfile.ready, false);
+assert.deepEqual(caseAlteredResolutionProfile.blockerCodes, ['PIPELINE_PROFILE_ID_INVALID']);
+
+const mismatchedMode = createPipelineElementSectionResolution({
+  ...validResolutionInput, profileId: 'gre', resolvedMode: 'NORMAL',
+});
+assert.equal(mismatchedMode.ready, false);
+assert.deepEqual(mismatchedMode.blockerCodes, ['PIPELINE_ELEMENT_SECTION_RESOLUTION_INVALID']);
+assert.equal(mismatchedMode.diagnostics[0].details.expectedMode, 'GRE');
+assert.equal(mismatchedMode.diagnostics[0].details.actualMode, 'NORMAL');
 
 const missingIdentity = createPipelineElementSectionResolution({
   profileId: 'normal-metallic', resolvedMode: 'NORMAL', sectionDisposition: 'INHERITED',
