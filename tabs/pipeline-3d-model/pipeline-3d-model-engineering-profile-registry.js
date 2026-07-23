@@ -1,23 +1,13 @@
 export const PIPELINE_ENGINEERING_PROFILE_REGISTRY_SCHEMA = 'PipelineEngineeringProfileRegistry.v1';
 export const PIPELINE_ENGINEERING_PROFILE_SCHEMA = 'PipelineEngineeringProfile.v1';
 export const PIPELINE_ENGINEERING_PROFILE_RESOLUTION_SCHEMA = 'PipelineEngineeringProfileResolution.v1';
-
 export const PIPELINE_ENGINEERING_PROFILE_IDS = Object.freeze({
-  NORMAL_METALLIC: 'normal-metallic',
-  ASME_B31_4: 'asme-b31.4',
-  GRE: 'gre',
+  NORMAL_METALLIC: 'normal-metallic', ASME_B31_4: 'asme-b31.4', GRE: 'gre',
 });
-
 export const PIPELINE_ENGINEERING_PROFILE_MODES = Object.freeze({
-  NORMAL: 'NORMAL',
-  ASME_B31_4: 'ASME_B31_4',
-  GRE: 'GRE',
+  NORMAL: 'NORMAL', ASME_B31_4: 'ASME_B31_4', GRE: 'GRE',
 });
-const PROFILE_ORDER = Object.freeze([
-  PIPELINE_ENGINEERING_PROFILE_IDS.NORMAL_METALLIC,
-  PIPELINE_ENGINEERING_PROFILE_IDS.ASME_B31_4,
-  PIPELINE_ENGINEERING_PROFILE_IDS.GRE,
-]);
+const PROFILE_ORDER = Object.freeze(Object.values(PIPELINE_ENGINEERING_PROFILE_IDS));
 const MODE_ORDER = Object.freeze(Object.values(PIPELINE_ENGINEERING_PROFILE_MODES));
 const BLOCKER_ORDER = Object.freeze([
   'PIPELINE_PROFILE_ID_INVALID',
@@ -32,7 +22,7 @@ const REQUIRED_FIELDS = Object.freeze([
   'fittingPolicyId', 'fittingResolverId', 'allowedDiameterBases',
   'requiredPropertySeedNames', 'sourceAuthority', 'status',
 ]);
-
+const CANONICAL_FIELDS = Object.freeze(['schema', 'resolvedMode', 'legacyDesignBasis', 'materialState', 'materialFamilyPolicy', 'pipingCode', 'codeEditionPolicy', 'fittingPolicyId', 'fittingResolverId', 'status']);
 const DEFAULT_DESCRIPTORS = Object.freeze([
   Object.freeze({
     schema: PIPELINE_ENGINEERING_PROFILE_SCHEMA,
@@ -59,7 +49,7 @@ const DEFAULT_DESCRIPTORS = Object.freeze([
     legacyDesignBasis: 'asme-b31.4',
     materialState: 'METALLIC',
     materialFamilyPolicy: 'PROJECT_DEFINED',
-    pipingCode: 'ASME_B31.4',
+    pipingCode: 'ASME B31.4',
     codeEditionPolicy: 'EXPLICIT_OR_APPROVED_LEGACY',
     fittingPolicyId: 'ASME_B31_4_FITTING_POLICY',
     fittingResolverId: 'NOT_BOUND',
@@ -86,17 +76,14 @@ const DEFAULT_DESCRIPTORS = Object.freeze([
     status: 'CONTRACT_ONLY',
   }),
 ]);
-
 function text(value) {
   return String(value ?? '').trim();
 }
-
 function plainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
 }
-
 function cloneJson(value) {
   if (value === undefined) return null;
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
@@ -105,26 +92,21 @@ function cloneJson(value) {
   if (!plainObject(value)) throw new TypeError('Contract input must be JSON-safe plain data.');
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneJson(item)]));
 }
-
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.values(value).forEach(deepFreeze);
   return Object.freeze(value);
 }
-
 function compareText(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
-
 function diagnostic(code, message, details = {}) {
   return deepFreeze({ severity: 'BLOCKING', code, message, details: cloneJson(details) });
 }
-
 function blockerRank(code) {
   const index = BLOCKER_ORDER.indexOf(code);
   return index < 0 ? BLOCKER_ORDER.length : index;
 }
-
 function orderedDiagnostics(items) {
   const keyed = new Map();
   for (const item of items) keyed.set(`${item.code}:${JSON.stringify(item.details)}`, item);
@@ -133,17 +115,36 @@ function orderedDiagnostics(items) {
     || compareText(left.code, right.code)
     || compareText(JSON.stringify(left.details), JSON.stringify(right.details))));
 }
-
 function orderedCodes(diagnostics) {
   const codes = [...new Set(diagnostics.map((item) => item.code))];
   return Object.freeze(codes.sort((left, right) =>
     blockerRank(left) - blockerRank(right) || compareText(left, right)));
 }
-
 function validStringArray(value) {
   return Array.isArray(value) && value.every((item) => typeof item === 'string' && text(item));
 }
-
+function canonicalDescriptor(profileId) {
+  return DEFAULT_DESCRIPTORS.find((profile) => profile.profileId === profileId) || null;
+}
+function canonicalDiagnostics(source) {
+  const canonical = canonicalDescriptor(source.profileId);
+  if (!canonical) return [];
+  const differences = CANONICAL_FIELDS.filter((field) =>
+    JSON.stringify(source[field]) !== JSON.stringify(canonical[field]));
+  const diagnostics = [];
+  if (differences.includes('resolvedMode')) diagnostics.push(diagnostic(
+    'PIPELINE_PROFILE_MODE_INVALID',
+    'Engineering profile resolved mode does not match its canonical profile ID.',
+    { profileId: source.profileId, expectedMode: canonical.resolvedMode, actualMode: source.resolvedMode },
+  ));
+  const descriptorFields = differences.filter((field) => field !== 'resolvedMode');
+  if (descriptorFields.length) diagnostics.push(diagnostic(
+    'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+    'Engineering profile descriptor does not match canonical profile semantics.',
+    { profileId: source.profileId, mismatchedFields: descriptorFields },
+  ));
+  return diagnostics;
+}
 function descriptorDiagnostics(source) {
   const diagnostics = [];
   const missing = REQUIRED_FIELDS.filter((field) => source[field] === undefined || source[field] === null);
@@ -162,23 +163,27 @@ function descriptorDiagnostics(source) {
     'Engineering profile resolved mode is unsupported.',
     { profileId: text(source.profileId), resolvedMode: text(source.resolvedMode) },
   ));
-  const stringFields = REQUIRED_FIELDS.filter((field) => !['allowedDiameterBases', 'requiredPropertySeedNames'].includes(field));
+  const stringFields = REQUIRED_FIELDS.filter((field) =>
+    !['allowedDiameterBases', 'requiredPropertySeedNames'].includes(field));
   const blank = stringFields.filter((field) => typeof source[field] !== 'string' || !text(source[field]));
   if (blank.length) diagnostics.push(diagnostic(
     'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
     'Engineering profile descriptor contains blank or non-string required values.',
     { profileId: text(source.profileId), invalidFields: blank },
   ));
-  if (!validStringArray(source.allowedDiameterBases) || !validStringArray(source.requiredPropertySeedNames)) {
-    diagnostics.push(diagnostic(
-      'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
-      'Engineering profile descriptor array fields must contain only nonblank strings.',
-      { profileId: text(source.profileId) },
-    ));
+  const arraysValid = validStringArray(source.allowedDiameterBases)
+    && validStringArray(source.requiredPropertySeedNames);
+  if (!arraysValid) diagnostics.push(diagnostic(
+    'PIPELINE_PROFILE_DESCRIPTOR_INVALID',
+    'Engineering profile descriptor array fields must contain only nonblank strings.',
+    { profileId: text(source.profileId) },
+  ));
+  if (!missing.length && !blank.length && arraysValid
+    && PROFILE_ORDER.includes(source.profileId) && MODE_ORDER.includes(source.resolvedMode)) {
+    diagnostics.push(...canonicalDiagnostics(source));
   }
   return diagnostics;
 }
-
 function normalizeDescriptor(input) {
   let source;
   try { source = cloneJson(input); }
@@ -196,7 +201,6 @@ function normalizeDescriptor(input) {
   const profile = Object.fromEntries(REQUIRED_FIELDS.map((field) => [field, cloneJson(source[field])]));
   return { profile: deepFreeze(profile), diagnostics: [] };
 }
-
 export function createPipelineEngineeringProfileRegistry(descriptors = DEFAULT_DESCRIPTORS) {
   const inputs = Array.isArray(descriptors) ? descriptors : [];
   const diagnostics = [];
@@ -221,8 +225,7 @@ export function createPipelineEngineeringProfileRegistry(descriptors = DEFAULT_D
   }
   const byId = Object.create(null);
   for (const profileId of PROFILE_ORDER) {
-    const matches = profiles.filter((profile) => profile.profileId === profileId)
-      .sort((left, right) => compareText(JSON.stringify(left), JSON.stringify(right)));
+    const matches = profiles.filter((profile) => profile.profileId === profileId);
     if (matches.length) byId[profileId] = matches[0];
   }
   const orderedProfiles = Object.freeze(PROFILE_ORDER.filter((id) => byId[id]).map((id) => byId[id]));
@@ -241,14 +244,11 @@ export function createPipelineEngineeringProfileRegistry(descriptors = DEFAULT_D
     ready: frozenDiagnostics.length === 0,
   });
 }
-
 export const PIPELINE_ENGINEERING_PROFILE_REGISTRY = createPipelineEngineeringProfileRegistry();
-
 export function getPipelineEngineeringProfile(profileId, registry = PIPELINE_ENGINEERING_PROFILE_REGISTRY) {
   const requested = text(profileId);
   return (registry?.profiles || []).find((profile) => profile.profileId === requested) || null;
 }
-
 function resolutionBase(requestedProfileId, options) {
   return {
     schema: PIPELINE_ENGINEERING_PROFILE_RESOLUTION_SCHEMA,
@@ -258,7 +258,6 @@ function resolutionBase(requestedProfileId, options) {
     fallbackApplied: false,
   };
 }
-
 export function resolvePipelineEngineeringProfile(requestedProfileId, options = {}) {
   const registry = options.registry || PIPELINE_ENGINEERING_PROFILE_REGISTRY;
   const base = resolutionBase(requestedProfileId, options);
