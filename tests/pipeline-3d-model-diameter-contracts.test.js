@@ -1,103 +1,90 @@
 import assert from 'node:assert/strict';
 import {
-  PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA,
-  PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA,
-  PIPELINE_DIAMETER_BASIS_IDS,
-  PIPELINE_DIAMETER_BLOCKER_ORDER,
-  PIPELINE_DIAMETER_MIGRATION_SCHEMA,
   PIPELINE_DIAMETER_SEMANTIC_REGISTRY,
-  PIPELINE_DIAMETER_SEMANTIC_REGISTRY_SCHEMA,
-  PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA,
-  createPipelineAnalysisDiameterPlan,
-  createPipelineAnalysisDiameterResolution,
+  PIPELINE_DIAMETER_BASIS_IDS,
   createPipelineDiameterMigration,
+  createPipelineAnalysisDiameterResolution,
   createPipelineElementDiameterResolution,
-  getPipelineDiameterSemanticDescriptor,
+  createPipelineAnalysisDiameterPlan,
+  parsePipelinePositiveScalar,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-diameter-contracts.js';
 
-const IDS = ['outside-diameter-mm', 'nominal-pipe-size-nps', 'gre-vendor-nominal-bore-mm'];
-function deepFrozen(value) {
-  if (!value || typeof value !== 'object') return true;
-  return Object.isFrozen(value) && Object.values(value).every(deepFrozen);
-}
-
-assert.equal(PIPELINE_DIAMETER_SEMANTIC_REGISTRY.schema, PIPELINE_DIAMETER_SEMANTIC_REGISTRY_SCHEMA);
-assert.equal(PIPELINE_DIAMETER_SEMANTIC_REGISTRY.ready, true);
-assert.deepEqual(Object.values(PIPELINE_DIAMETER_BASIS_IDS), IDS);
-assert.deepEqual(PIPELINE_DIAMETER_SEMANTIC_REGISTRY.descriptors.map((item) => item.basisId), IDS);
-assert.equal(getPipelineDiameterSemanticDescriptor('outside-diameter-mm').physicalMeasurement, true);
-assert.equal(getPipelineDiameterSemanticDescriptor('outside-diameter-mm').caesarDiameterEligible, true);
-assert.equal(getPipelineDiameterSemanticDescriptor('nominal-pipe-size-nps').sizeBandInputEligible, true);
-assert.equal(getPipelineDiameterSemanticDescriptor('nominal-pipe-size-nps').physicalMeasurement, false);
-assert.equal(getPipelineDiameterSemanticDescriptor('gre-vendor-nominal-bore-mm').vendorSeriesInputEligible, true);
-assert.equal(getPipelineDiameterSemanticDescriptor('Outside-Diameter-MM'), null);
-assert.equal(getPipelineDiameterSemanticDescriptor('NOMINAL-PIPE-SIZE-NPS'), null);
-assert.deepEqual(PIPELINE_DIAMETER_BLOCKER_ORDER, [
-  'PIPELINE_DIAMETER_INPUT_INVALID', 'PIPELINE_DIAMETER_BASIS_INVALID',
-  'PIPELINE_DIAMETER_BASIS_UNCONFIRMED', 'PIPELINE_OUTSIDE_DIAMETER_REQUIRED',
-  'PIPELINE_OUTSIDE_DIAMETER_INVALID', 'PIPELINE_OUTSIDE_DIAMETER_CONFLICT',
-  'PIPELINE_NPS_INVALID', 'PIPELINE_GRE_VENDOR_BORE_REQUIRED',
-  'PIPELINE_GRE_VENDOR_BORE_INVALID', 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE',
-  'PIPELINE_DIAMETER_SOURCE_CONFLICT', 'PIPELINE_DIAMETER_CHANGE_REQUIRES_ANALYSIS_SECTION',
-  'PIPELINE_DIAMETER_PROPERTY_MISMATCH', 'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
-]);
-
-const migration = createPipelineDiameterMigration({
-  outsideDiameterSourceKinds: ['EXPLICIT_GLOBAL', 'EXPLICIT_GLOBAL'],
-  nominalPipeSizeSourceKinds: ['SETTINGS_SEMANTIC_INPUT'],
-  greVendorNominalBoreSourceKinds: [], legacyDiameterEvidenceObserved: true,
-  legacyDiameterBasisConfirmed: false, sourceAuthority: 'TEST', sourceReference: 'case-1',
+const frozen = (v) => !v || typeof v !== 'object'
+  || (Object.isFrozen(v) && Object.values(v).every(frozen));
+const migration = createPipelineDiameterMigration();
+const section = (patch = {}) => createPipelineAnalysisDiameterResolution({
+  analysisSectionId: 'AS1', startElementIndex: 0, profileId: 'normal-metallic', resolvedMode: 'NORMAL',
+  outsideDiameterMm: 114.3, caesarDiameterMm: 114.3, ...patch,
 });
-assert.equal(migration.schema, PIPELINE_DIAMETER_MIGRATION_SCHEMA);
-assert.deepEqual(migration.outsideDiameterSourceKinds, ['EXPLICIT_GLOBAL']);
+const element = (patch = {}) => createPipelineElementDiameterResolution({
+  elementIndex: 0, elementId: 'E1', analysisSectionId: 'AS1', profileId: 'normal-metallic',
+  outsideDiameterMm: 114.3, caesarDiameterMm: 114.3, diameterDisposition: 'SECTION_START', ...patch,
+});
+const blocked = (value, code) => {
+  assert.equal(value.ready, false);
+  assert.ok(value.blockerCodes.includes(code), `${code} expected in ${value.blockerCodes}`);
+};
+
+assert.deepEqual(Object.values(PIPELINE_DIAMETER_BASIS_IDS), [
+  'outside-diameter-mm', 'nominal-pipe-size-nps', 'gre-vendor-nominal-bore-mm',
+]);
+assert.equal(PIPELINE_DIAMETER_SEMANTIC_REGISTRY.ready, true);
+assert.ok(frozen(PIPELINE_DIAMETER_SEMANTIC_REGISTRY));
 assert.equal(migration.npsToOutsideDiameterConversionApplied, false);
 assert.equal(migration.greVendorBoreToOutsideDiameterConversionApplied, false);
 
-const section = createPipelineAnalysisDiameterResolution({
-  analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL',
-  startElementIndex: 0, outsideDiameterMm: 114.3, nominalPipeSizeNps: 4,
-  greVendorNominalBoreMm: null, caesarDiameterMm: 114.3,
-  sourceKind: 'EXPLICIT_GLOBAL', quantitySources: {},
-});
-assert.equal(section.schema, PIPELINE_ANALYSIS_DIAMETER_RESOLUTION_SCHEMA);
-assert.equal(section.physicalDiameterReady, true);
-assert.equal(section.sizeBandInputReady, true);
-assert.equal(section.vendorSeriesInputReady, false);
-assert.equal(section.ready, true);
+assert.equal(parsePipelinePositiveScalar(114.3), 114.3);
+assert.equal(parsePipelinePositiveScalar(' 114.3 '), 114.3);
+for (const value of [true, false, [114.3], { value: 114.3 }, '', ' ', 0, -1, NaN, Infinity]) {
+  assert.equal(parsePipelinePositiveScalar(value), null);
+}
 
-const element = createPipelineElementDiameterResolution({
-  elementIndex: 0, elementId: 'E1', analysisSectionId: 'AS1', profileId: 'normal-metallic',
-  outsideDiameterMm: 114.3, nominalPipeSizeNps: 4, caesarDiameterMm: 114.3,
-  propertyDiameterMm: 114.3, diameterDisposition: 'SECTION_START', sourceKind: 'EXPLICIT_GLOBAL',
-});
-assert.equal(element.schema, PIPELINE_ELEMENT_DIAMETER_RESOLUTION_SCHEMA);
-assert.equal(element.ready, true);
+assert.equal(section().ready, true);
+blocked(section({ profileId: 'unknown-profile' }), 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE');
+blocked(section({ profileId: 'Normal-Metallic' }), 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE');
+blocked(section({ resolvedMode: 'GRE' }), 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE');
+blocked(section({ outsideDiameterMm: null, caesarDiameterMm: null }), 'PIPELINE_OUTSIDE_DIAMETER_REQUIRED');
+blocked(section({ profileId: 'asme-b31.4', resolvedMode: 'ASME_B31_4', outsideDiameterMm: null,
+  caesarDiameterMm: null }), 'PIPELINE_OUTSIDE_DIAMETER_REQUIRED');
+blocked(section({ profileId: 'gre', resolvedMode: 'GRE', outsideDiameterMm: null,
+  caesarDiameterMm: null }), 'PIPELINE_GRE_VENDOR_BORE_REQUIRED');
+blocked(section({ greVendorNominalBoreMm: 100 }), 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE');
+blocked(section({ outsideDiameterMm: true, caesarDiameterMm: null }), 'PIPELINE_OUTSIDE_DIAMETER_INVALID');
+blocked(section({ nominalPipeSizeNps: [8] }), 'PIPELINE_NPS_INVALID');
+blocked(element({ profileId: 'UNKNOWN' }), 'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE');
+blocked(element({ profileId: 'gre', outsideDiameterMm: null, caesarDiameterMm: null }),
+  'PIPELINE_GRE_VENDOR_BORE_REQUIRED');
 
-const plan = createPipelineAnalysisDiameterPlan({
+const readyPlan = createPipelineAnalysisDiameterPlan({
   analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
   propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1', migration,
-  sectionResolutions: [section], elementResolutions: [element],
+  sectionResolutions: [section()], elementResolutions: [element()],
 });
-assert.equal(plan.schema, PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA);
-assert.equal(plan.ready, true);
-assert.ok(deepFrozen(plan));
-assert.doesNotThrow(() => JSON.parse(JSON.stringify(plan)));
-
-const mismatch = createPipelineAnalysisDiameterResolution({
-  analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL',
-  startElementIndex: 0, outsideDiameterMm: 114.3, caesarDiameterMm: 100,
-});
-assert.equal(mismatch.ready, false);
-assert.deepEqual(mismatch.blockerCodes, ['PIPELINE_DIAMETER_BASIS_INVALID']);
-
-const unsafe = createPipelineAnalysisDiameterPlan({ invalid: new Date(0) });
-assert.equal(unsafe.ready, false);
-assert.ok(unsafe.blockerCodes.includes('PIPELINE_DIAMETER_INPUT_INVALID'));
-assert.ok(deepFrozen(PIPELINE_DIAMETER_SEMANTIC_REGISTRY));
-assert.equal(JSON.stringify(plan), JSON.stringify(createPipelineAnalysisDiameterPlan({
+assert.equal(readyPlan.ready, true);
+assert.ok(frozen(readyPlan));
+blocked(createPipelineAnalysisDiameterPlan({
+  analysisSectionPlanSchema: 'Wrong.v1', propertySectionPlanSchema: 'Wrong.v1', migration,
+  sectionResolutions: [section()], elementResolutions: [element()],
+}), 'PIPELINE_DIAMETER_INPUT_INVALID');
+const blockedMigration = createPipelineDiameterMigration({ blockerCodes: ['PIPELINE_DIAMETER_BASIS_UNCONFIRMED'] });
+blocked(createPipelineAnalysisDiameterPlan({
+  analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
+  propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1', migration: blockedMigration,
+  sectionResolutions: [section()], elementResolutions: [element()],
+}), 'PIPELINE_DIAMETER_BASIS_UNCONFIRMED');
+for (const partial of [{ sectionResolutions: [], elementResolutions: [] },
+  { sectionResolutions: [section()] }, { elementResolutions: [element()] }]) {
+  blocked(createPipelineAnalysisDiameterPlan({
+    analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
+    propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1', migration, ...partial,
+  }), 'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID');
+}
+const greElement = element({ profileId: 'gre', outsideDiameterMm: null, caesarDiameterMm: null,
+  greVendorNominalBoreMm: 100 });
+blocked(createPipelineAnalysisDiameterPlan({
   analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
   propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1', migration,
-  sectionResolutions: [section], elementResolutions: [element],
-})));
+  sectionResolutions: [section()], elementResolutions: [greElement],
+}), 'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID');
 
 console.log('Pipeline diameter semantic contract tests passed.');

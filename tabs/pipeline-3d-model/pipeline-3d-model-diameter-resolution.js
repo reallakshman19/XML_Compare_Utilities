@@ -1,299 +1,263 @@
-import { getPipelineEngineeringProfile } from './pipeline-3d-model-engineering-profile-registry.js';
-import { PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA } from './pipeline-3d-model-analysis-section-contracts.js';
-import { PIPELINE_DIAMETER_BASIS_IDS, createPipelineAnalysisDiameterPlan, createPipelineAnalysisDiameterResolution, createPipelineDiameterMigration, createPipelineElementDiameterResolution } from './pipeline-3d-model-diameter-contracts.js';
-const PROPERTY_PLAN_SCHEMA = 'PipelinePropertySectionPlan.v1', RESEED_PLAN_SCHEMA = 'PipelineAnalysisPropertyReseedPlan.v1';
-const text = (value) => String(value ?? '').trim();
-const compareText = (a, b) => a < b ? -1 : a > b ? 1 : 0;
-const own = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
-function plain(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const prototype = Object.getPrototypeOf(value); return prototype === Object.prototype || prototype === null;
+import { getPipelineEngineeringProfile as profile } from './pipeline-3d-model-engineering-profile-registry.js';
+import { PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA as AS_SCHEMA } from './pipeline-3d-model-analysis-section-contracts.js';
+import { PIPELINE_DIAMETER_BASIS_IDS as BASIS, PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA as PS_SCHEMA,
+  createPipelineAnalysisDiameterPlan as planContract, createPipelineAnalysisDiameterResolution as sectionContract,
+  createPipelineDiameterMigration as migrationContract, createPipelineElementDiameterResolution as elementContract,
+  parsePipelinePositiveScalar as scalar } from './pipeline-3d-model-diameter-contracts.js';
+
+const RESEED = 'PipelineAnalysisPropertyReseedPlan.v1';
+const txt = (v) => String(v ?? '').trim();
+const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+const obj = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v)
+  && [Object.prototype, null].includes(Object.getPrototypeOf(v));
+function copy(v) {
+  if (v === undefined) return null;
+  if (v === null || ['string', 'boolean'].includes(typeof v)) return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (Array.isArray(v)) return v.map(copy);
+  if (!obj(v)) throw new TypeError('JSON-safe plain data required.');
+  return Object.fromEntries(Object.keys(v).sort(cmp).map((k) => [k, copy(v[k])]));
 }
-function cloneJson(value) {
-  if (value === undefined) return null;
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (Array.isArray(value)) return value.map(cloneJson);
-  if (!plain(value)) throw new TypeError('Diameter resolver input must be JSON-safe plain data.');
-  return Object.fromEntries(Object.keys(value).sort(compareText).map((key) => [key, cloneJson(value[key])]));
+const diag = (code, details = {}) => ({ severity: 'BLOCKING', code, message: code, details: copy(details) });
+const has = (v, k) => obj(v) && Object.hasOwn(v, k) && v[k] != null
+  && !(typeof v[k] === 'string' && !txt(v[k]));
+const ev = (sourceKind, value, sourceAuthority = '', sourceReference = '') => ({
+  sourceKind, value, sourceAuthority: txt(sourceAuthority), sourceReference: txt(sourceReference),
+});
+function uniq(values, sort = cmp) {
+  const found = Object.create(null);
+  values.forEach((v) => { found[`${typeof v}:${String(v)}`] = v; });
+  return Object.values(found).sort(sort);
 }
-const diag = (code, message, details = {}) => ({ severity: 'BLOCKING', code, message, details: cloneJson(details) });
-function positive(value) {
-  if (value === null || value === undefined || text(value) === '') return null;
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
+function bad(raw, code, field, ds) {
+  ds.push(diag(code, { field, value: raw }));
+  return ev('INVALID_EXPLICIT_SOURCE', null);
 }
-const supplied = (source, key) => own(source, key) && source[key] !== null && text(source[key]) !== '';
-const source = (kind, value, authority, reference) => ({ sourceKind: kind, value, sourceAuthority: text(authority), sourceReference: text(reference) });
-function unique(values, compare = compareText) {
-  const keyed = Object.create(null); values.forEach((value) => { keyed[`${typeof value}:${String(value)}`] = value; });
-  return Object.values(keyed).sort(compare);
+function explicit(owner, key, kind, code, ds, authority, reference) {
+  if (!has(owner, key)) return null;
+  const value = scalar(owner[key]);
+  return value == null ? bad(owner[key], code, key, ds)
+    : ev(kind, value, owner.sourceAuthority || authority, owner.sourceReference || reference);
 }
-function invalidQuantity(raw, code, field, diagnostics) {
-  diagnostics.push(diag(code, `${field} must be finite and positive when supplied.`, { value: raw }));
-  return source('INVALID_EXPLICIT_SOURCE', null, '', '');
-}
-function explicitCandidate(owner, key, kind, code, diagnostics, authority, reference) {
-  if (!owner || !supplied(owner, key)) return null;
-  const value = positive(owner[key]);
-  return value == null ? invalidQuantity(owner[key], code, key, diagnostics)
-    : source(kind, value, owner.sourceAuthority || authority, owner.sourceReference || reference);
-}
-function canonicalSections(analysis, diagnostics) {
-  if (analysis?.schema !== PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA || analysis?.ready !== true
-    || !Array.isArray(analysis.sections) || !Array.isArray(analysis.elementResolutions)) {
-    diagnostics.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', 'A ready PipelineAnalysisSectionPlan.v1 is required.'));
-    return [];
+function analysis(value, ds) {
+  if (!obj(value) || value.schema !== AS_SCHEMA || value.ready !== true
+    || !Array.isArray(value.sections) || !Array.isArray(value.elementResolutions)) {
+    ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { source: 'analysisSectionPlan' }));
+    return { schema: txt(value?.schema), sections: [], elementResolutions: [], ready: false };
   }
-  const sections = analysis.sections.slice().sort((a, b) => a.startElementIndex - b.startElementIndex
-    || compareText(text(a.analysisSectionId), text(b.analysisSectionId)));
-  const seen = Object.create(null);
-  for (const section of sections) {
-    const profile = getPipelineEngineeringProfile(text(section.profileId));
-    const bad = !/^AS[1-9]\d*$/.test(text(section.analysisSectionId))
-      || !Number.isInteger(section.startElementIndex) || !profile || seen[section.analysisSectionId];
-    if (bad) diagnostics.push(diag('PIPELINE_DIAMETER_INPUT_INVALID',
-      'Analysis section identity, profile or start index is invalid.', { analysisSectionId: section.analysisSectionId }));
-    seen[section.analysisSectionId] = true;
-  }
-  return sections;
-}
-function selectedPropertyPlan(input, diagnostics) {
-  const direct = input.propertySectionPlan;
-  const reseed = input.analysisPropertyReseedPlan;
-  const derivative = reseed?.schema === RESEED_PLAN_SCHEMA && reseed.ready === true ? reseed.propertySectionPlan : null;
-  if (reseed !== undefined && !derivative) diagnostics.push(diag(
-    'PIPELINE_DIAMETER_INPUT_INVALID', 'analysisPropertyReseedPlan must be a ready PipelineAnalysisPropertyReseedPlan.v1.'));
-  const shape = (plan) => (plan?.elements || []).map((item) => [item.elementIndex, item.elementId,
-    item.sectionId, item.properties?.diameter]);
-  if (direct && derivative && JSON.stringify(shape(direct)) !== JSON.stringify(shape(derivative))) diagnostics.push(diag(
-    'PIPELINE_DIAMETER_SOURCE_CONFLICT', 'Property and reseeded property plans disagree on diameter evidence.'));
-  const plan = derivative || direct;
-  if (plan?.schema !== PROPERTY_PLAN_SCHEMA || plan?.ready !== true || !Array.isArray(plan.elements)) {
-    diagnostics.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', 'A ready PipelinePropertySectionPlan.v1 is required.'));
-    return {};
-  }
-  return plan;
-}
-function propertyIndex(plan, analysis, diagnostics) {
-  const grouped = Object.create(null);
-  for (const item of plan.elements || []) {
-    const key = String(item.elementIndex);
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(item);
-  }
-  for (const item of analysis?.elementResolutions || []) {
-    const matches = grouped[String(item.elementIndex)] || [];
-    if (matches.length !== 1 || text(matches[0].elementId) !== text(item.elementId)) diagnostics.push(diag(
-      'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Property element identity does not match analysis ownership.',
-      { elementIndex: item.elementIndex, elementId: item.elementId }));
-  }
-  if (Object.values(grouped).flat().length !== (analysis?.elementResolutions || []).length) diagnostics.push(diag(
-    'PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', 'Property and analysis element counts differ.'));
-  return grouped;
-}
-function diameterTargets(entries, sections, diagnostics) {
-  const byId = Object.fromEntries(sections.map((item) => [item.analysisSectionId, item]));
-  const byStart = Object.fromEntries(sections.map((item) => [String(item.startElementIndex), item]));
-  const result = Object.create(null);
-  if (entries !== undefined && !Array.isArray(entries)) diagnostics.push(diag(
-    'PIPELINE_DIAMETER_INPUT_INVALID', 'diameterSections must be an array when supplied.'));
-  for (const entry of Array.isArray(entries) ? entries : []) {
-    const idTarget = text(entry.analysisSectionId) ? byId[text(entry.analysisSectionId)] : null;
-    const indexTarget = Number.isInteger(entry.startElementIndex) ? byStart[String(entry.startElementIndex)] : null;
-    if ((idTarget && indexTarget && idTarget !== indexTarget) || (!idTarget && !indexTarget)) {
-      diagnostics.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', 'Diameter target must resolve to one existing AS.',
-        { analysisSectionId: entry.analysisSectionId, startElementIndex: entry.startElementIndex }));
-      continue;
+  const sections = value.sections.filter((v, i) => {
+    if (obj(v)) return true;
+    ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { sectionIndex: i })); return false;
+  }).sort((a, b) => Number(a.startElementIndex) - Number(b.startElementIndex)
+    || cmp(txt(a.analysisSectionId), txt(b.analysisSectionId)));
+  const elements = value.elementResolutions.filter((v, i) => {
+    if (obj(v)) return true;
+    ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { elementEntryIndex: i })); return false;
+  });
+  const ids = Object.create(null), starts = Object.create(null), indexes = Object.create(null);
+  sections.forEach((s) => {
+    if (!/^AS[1-9]\d*$/.test(txt(s.analysisSectionId)) || !Number.isInteger(s.startElementIndex)
+      || s.startElementIndex < 0 || !profile(txt(s.profileId)) || ids[s.analysisSectionId] || starts[s.startElementIndex]) {
+      ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { analysisSectionId: s.analysisSectionId }));
     }
-    const target = idTarget || indexTarget;
-    if (!result[target.analysisSectionId]) result[target.analysisSectionId] = [];
-    result[target.analysisSectionId].push(entry);
-  }
-  return result;
+    ids[s.analysisSectionId] = true; starts[s.startElementIndex] = true;
+  });
+  elements.forEach((e) => {
+    const p = profile(txt(e.profileId));
+    if (!Number.isInteger(e.elementIndex) || e.elementIndex < 0 || !/^E[1-9]\d*$/.test(txt(e.elementId))
+      || !/^AS[1-9]\d*$/.test(txt(e.analysisSectionId)) || !p
+      || txt(e.resolvedMode) !== p?.resolvedMode || indexes[e.elementIndex]) {
+      ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { elementIndex: e.elementIndex }));
+    }
+    indexes[e.elementIndex] = true;
+  });
+  return { ...value, sections, elementResolutions: elements };
 }
-function sectionOverride(entries, key, code, diagnostics, authority, reference) {
-  const candidates = (entries || []).filter((item) => supplied(item, key));
+const validProperty = (v) => obj(v) && v.schema === PS_SCHEMA && v.ready === true
+  && Array.isArray(v.elements) && v.elements.every(obj);
+const propertyKey = (p) => p.elements.map((e) => [e.elementIndex, e.elementId, e.sectionId, e.properties?.diameter]);
+function properties(input, ds) {
+  const direct = input.propertySectionPlan, reseed = input.analysisPropertyReseedPlan;
+  const directOk = direct !== undefined && validProperty(direct);
+  if (direct !== undefined && !directOk) ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { source: 'propertySectionPlan' }));
+  let derived = null;
+  if (reseed !== undefined) {
+    if (!obj(reseed) || reseed.schema !== RESEED || reseed.ready !== true || !validProperty(reseed.propertySectionPlan)) {
+      ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { source: 'analysisPropertyReseedPlan' }));
+    } else derived = reseed.propertySectionPlan;
+  }
+  if (directOk && derived && JSON.stringify(propertyKey(direct)) !== JSON.stringify(propertyKey(derived))) {
+    ds.push(diag('PIPELINE_DIAMETER_SOURCE_CONFLICT'));
+  }
+  return derived || (directOk ? direct : { schema: txt(direct?.schema), ready: false, elements: [] });
+}
+function propertyMap(p, a, ds) {
+  const map = Object.create(null);
+  p.elements.forEach((e) => { const k = String(e.elementIndex); (map[k] ||= []).push(e); });
+  a.elementResolutions.forEach((e) => {
+    const m = map[String(e.elementIndex)] || [];
+    if (m.length !== 1 || txt(m[0]?.elementId) !== txt(e.elementId)) {
+      ds.push(diag('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', { elementIndex: e.elementIndex }));
+    }
+  });
+  if (p.elements.length !== a.elementResolutions.length) ds.push(diag('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID'));
+  return map;
+}
+function targetMap(entries, sections, ds) {
+  const out = Object.create(null), ids = Object.fromEntries(sections.map((s) => [s.analysisSectionId, s]));
+  const starts = Object.fromEntries(sections.map((s) => [String(s.startElementIndex), s]));
+  if (entries !== undefined && !Array.isArray(entries)) ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { source: 'diameterSections' }));
+  (Array.isArray(entries) ? entries : []).forEach((e, i) => {
+    if (!obj(e)) { ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { diameterEntryIndex: i })); return; }
+    const byId = txt(e.analysisSectionId) ? ids[txt(e.analysisSectionId)] : null;
+    const byStart = Number.isInteger(e.startElementIndex) ? starts[String(e.startElementIndex)] : null;
+    if ((byId && byStart && byId !== byStart) || (!byId && !byStart)) {
+      ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', { diameterEntryIndex: i })); return;
+    }
+    const section = byId || byStart;
+    (out[section.analysisSectionId] ||= []).push(e);
+  });
+  return out;
+}
+function sectionValue(entries, key, code, ds, authority, reference) {
+  const candidates = entries.filter((e) => has(e, key));
   if (!candidates.length) return null;
-  const values = candidates.map((item) => positive(item[key]));
-  if (values.some((value) => value == null)) return invalidQuantity(
-    candidates.find((item) => positive(item[key]) == null)?.[key], code, key, diagnostics);
-  const distinct = unique(values, (a, b) => a - b);
-  if (distinct.length > 1) {
-    diagnostics.push(diag('PIPELINE_DIAMETER_SOURCE_CONFLICT', 'Same-authority section evidence conflicts.',
-      { field: key, values: distinct }));
-    return source('CONFLICTING_EXPLICIT_SECTION', null, '', '');
-  }
-  const chosen = candidates.slice().sort((a, b) => compareText(JSON.stringify(a), JSON.stringify(b)))[0];
-  return source('EXPLICIT_ANALYSIS_SECTION', distinct[0], chosen.sourceAuthority || authority, chosen.sourceReference || reference);
+  const values = candidates.map((e) => scalar(e[key]));
+  if (values.some((v) => v == null)) return bad(candidates.find((e) => scalar(e[key]) == null)?.[key], code, key, ds);
+  const distinct = uniq(values, (a, b) => a - b);
+  if (distinct.length > 1) { ds.push(diag('PIPELINE_DIAMETER_SOURCE_CONFLICT', { field: key, values: distinct })); return ev('CONFLICTING_EXPLICIT_SECTION', null); }
+  const chosen = candidates.slice().sort((a, b) => cmp(JSON.stringify(a), JSON.stringify(b)))[0];
+  return ev('EXPLICIT_ANALYSIS_SECTION', distinct[0], chosen.sourceAuthority || authority, chosen.sourceReference || reference);
 }
-const branchEvidence = (branchInfo) => ['boreMm', 'diameter'].filter((key) => supplied(branchInfo, key)).map((key) => ({ key, raw: branchInfo[key] }));
-function legacyOutside(section, property, branchInfo, settings, diagnostics, authority, reference) {
-  const element = property[String(section.startElementIndex)]?.[0];
-  const propertyPresent = supplied(element?.properties, 'diameter');
-  const branch = branchEvidence(branchInfo), observed = propertyPresent || branch.length > 0;
-  if (!observed) return { candidate: null, observed: false };
-  const confirmed = settings?.diameterSource === 'branch-diameter' && settings?.diameterBasisConfirmed === true;
-  if (!confirmed) {
-    diagnostics.push(diag('PIPELINE_DIAMETER_BASIS_UNCONFIRMED',
-      'Legacy Line/Branch/property diameter is not confirmed as physical outside diameter.',
-      { analysisSectionId: section.analysisSectionId }));
-    return { candidate: source('UNCONFIRMED_LEGACY_DIAMETER', null, authority, reference), observed: true };
+function legacy(section, map, input, ds, authority, reference) {
+  const element = map[String(section.startElementIndex)]?.[0];
+  const propertyPresent = has(element?.properties, 'diameter');
+  const branch = ['boreMm', 'diameter'].filter((k) => has(input.branchInfo, k)).map((k) => input.branchInfo[k]);
+  if (!propertyPresent && !branch.length) return { candidate: null, observed: false };
+  if (input.settings?.diameterSource !== 'branch-diameter' || input.settings?.diameterBasisConfirmed !== true) {
+    ds.push(diag('PIPELINE_DIAMETER_BASIS_UNCONFIRMED', { analysisSectionId: section.analysisSectionId }));
+    return { candidate: ev('UNCONFIRMED_LEGACY_DIAMETER', null, authority, reference), observed: true };
   }
   if (propertyPresent) {
-    const value = positive(element.properties.diameter);
-    const candidate = value == null ? invalidQuantity(element.properties.diameter,
-      'PIPELINE_OUTSIDE_DIAMETER_INVALID', 'property diameter', diagnostics)
-      : source('CONFIRMED_LEGACY_PROPERTY_DIAMETER', value,
-        element.effectiveSources?.diameter || authority, `E${section.startElementIndex + 1}`);
-    return { candidate, observed: true };
+    const value = scalar(element.properties.diameter);
+    return { candidate: value == null ? bad(element.properties.diameter, 'PIPELINE_OUTSIDE_DIAMETER_INVALID', 'propertyDiameter', ds)
+      : ev('CONFIRMED_LEGACY_PROPERTY_DIAMETER', value, element.effectiveSources?.diameter || authority,
+        `E${section.startElementIndex + 1}`), observed: true };
   }
-  const values = branch.map((item) => positive(item.raw));
-  if (values.some((value) => value == null)) return { candidate: invalidQuantity(
-    branch.find((item) => positive(item.raw) == null)?.raw, 'PIPELINE_OUTSIDE_DIAMETER_INVALID',
-    'legacy branch diameter', diagnostics), observed: true };
-  const distinct = unique(values, (a, b) => a - b);
-  if (distinct.length > 1) diagnostics.push(diag('PIPELINE_OUTSIDE_DIAMETER_CONFLICT',
-    'Confirmed branch boreMm and diameter values conflict.', { values: distinct }));
-  return { candidate: source(distinct.length > 1 ? 'CONFLICTING_LEGACY_DIAMETER'
-    : 'CONFIRMED_LEGACY_BRANCH_DIAMETER', distinct.length === 1 ? distinct[0] : null, authority, reference),
-  observed: true };
+  const values = branch.map(scalar);
+  if (values.some((v) => v == null)) return { candidate: bad(branch.find((v) => scalar(v) == null),
+    'PIPELINE_OUTSIDE_DIAMETER_INVALID', 'branchDiameter', ds), observed: true };
+  const distinct = uniq(values, (a, b) => a - b);
+  if (distinct.length > 1) ds.push(diag('PIPELINE_OUTSIDE_DIAMETER_CONFLICT', { values: distinct }));
+  return { candidate: ev(distinct.length > 1 ? 'CONFLICTING_LEGACY_DIAMETER'
+    : 'CONFIRMED_LEGACY_BRANCH_DIAMETER', distinct.length === 1 ? distinct[0] : null, authority, reference), observed: true };
 }
-function outsideCandidate(section, entries, input, property, diagnostics) {
-  const authority = text(input.sourceAuthority) || 'CALLER', reference = text(input.sourceReference);
-  const explicit = sectionOverride(entries, 'outsideDiameterMm', 'PIPELINE_OUTSIDE_DIAMETER_INVALID',
-    diagnostics, authority, reference);
-  if (explicit) return { ...explicit, legacyObserved: false };
-  const global = explicitCandidate(input, 'outsideDiameterMm', 'EXPLICIT_GLOBAL',
-    'PIPELINE_OUTSIDE_DIAMETER_INVALID', diagnostics, authority, reference);
+function outside(section, entries, input, map, ds) {
+  const authority = txt(input.sourceAuthority) || 'CALLER', reference = txt(input.sourceReference);
+  const local = sectionValue(entries, 'outsideDiameterMm', 'PIPELINE_OUTSIDE_DIAMETER_INVALID', ds, authority, reference);
+  if (local) return { ...local, legacyObserved: false };
+  const global = explicit(input, 'outsideDiameterMm', 'EXPLICIT_GLOBAL', 'PIPELINE_OUTSIDE_DIAMETER_INVALID', ds, authority, reference);
   if (global) return { ...global, legacyObserved: false };
-  const settings = input.settings || {};
+  const settings = obj(input.settings) ? input.settings : {};
   if (settings.diameterSource === 'explicit-od') {
-    const selected = explicitCandidate(settings, 'explicitOutsideDiameterMm', 'SETTINGS_EXPLICIT_OD',
-      'PIPELINE_OUTSIDE_DIAMETER_INVALID', diagnostics, authority, reference)
-      || invalidQuantity(settings.explicitOutsideDiameterMm, 'PIPELINE_OUTSIDE_DIAMETER_INVALID',
-        'explicitOutsideDiameterMm', diagnostics);
+    const selected = explicit(settings, 'explicitOutsideDiameterMm', 'SETTINGS_EXPLICIT_OD',
+      'PIPELINE_OUTSIDE_DIAMETER_INVALID', ds, authority, reference)
+      || bad(settings.explicitOutsideDiameterMm, 'PIPELINE_OUTSIDE_DIAMETER_INVALID', 'explicitOutsideDiameterMm', ds);
     return { ...selected, legacyObserved: false };
   }
-  if (text(settings.diameterSource) && !['branch-diameter', 'explicit-od'].includes(text(settings.diameterSource))) {
-    diagnostics.push(diag('PIPELINE_DIAMETER_BASIS_INVALID', 'settings.diameterSource is not recognized.',
-      { diameterSource: settings.diameterSource }));
-    return { ...source('INVALID_DIAMETER_BASIS', null, authority, reference), legacyObserved: false };
+  if (txt(settings.diameterSource) && !['branch-diameter', 'explicit-od'].includes(txt(settings.diameterSource))) {
+    ds.push(diag('PIPELINE_DIAMETER_BASIS_INVALID', { diameterSource: settings.diameterSource }));
+    return { ...ev('INVALID_DIAMETER_BASIS', null, authority, reference), legacyObserved: false };
   }
-  const legacy = legacyOutside(section, property, input.branchInfo || {}, settings,
-    diagnostics, authority, reference);
-  return { ...(legacy.candidate || source('UNRESOLVED', null, authority, reference)), legacyObserved: legacy.observed };
+  const found = legacy(section, map, { ...input, settings, branchInfo: obj(input.branchInfo) ? input.branchInfo : {} }, ds, authority, reference);
+  return { ...(found.candidate || ev('UNRESOLVED', null, authority, reference)), legacyObserved: found.observed };
 }
-function independentCandidate(entries, input, key, settingsKey, code, diagnostics) {
-  const authority = text(input.sourceAuthority) || 'CALLER', reference = text(input.sourceReference);
-  return sectionOverride(entries, key, code, diagnostics, authority, reference)
-    || explicitCandidate(input, key, 'EXPLICIT_GLOBAL', code, diagnostics, authority, reference)
-    || explicitCandidate(input.settings || {}, settingsKey, 'SETTINGS_SEMANTIC_INPUT', code,
-      diagnostics, authority, reference) || source('UNRESOLVED', null, authority, reference);
+function independent(entries, input, key, settingsKey, code, ds) {
+  const authority = txt(input.sourceAuthority) || 'CALLER', reference = txt(input.sourceReference);
+  return sectionValue(entries, key, code, ds, authority, reference)
+    || explicit(input, key, 'EXPLICIT_GLOBAL', code, ds, authority, reference)
+    || explicit(obj(input.settings) ? input.settings : {}, settingsKey, 'SETTINGS_SEMANTIC_INPUT', code, ds, authority, reference)
+    || ev('UNRESOLVED', null, authority, reference);
 }
-function resolvedSourceKind(quantities) {
-  const kinds = unique(Object.values(quantities).filter((item) => item.value != null)
-    .map((item) => item.sourceKind));
-  return kinds.length === 0 ? 'UNRESOLVED' : kinds.length === 1 ? kinds[0] : 'MIXED_SEMANTIC_SOURCES';
-}
-function propertyDiagnostics(section, analysis, property, outside, settings, diagnostics) {
-  const confirmed = settings?.diameterSource === 'branch-diameter' && settings?.diameterBasisConfirmed === true;
-  if (!confirmed) return;
-  const elements = (analysis.elementResolutions || []).filter((item) => item.analysisSectionId === section.analysisSectionId);
+function propertyChecks(section, a, map, od, settings, ds) {
+  if (settings?.diameterSource !== 'branch-diameter' || settings?.diameterBasisConfirmed !== true) return;
   let previous = null;
-  for (const item of elements) {
-    const value = positive(property[String(item.elementIndex)]?.[0]?.properties?.diameter);
-    if (value == null) continue;
-    if (previous != null && value !== previous) diagnostics.push(diag(
-      'PIPELINE_DIAMETER_CHANGE_REQUIRES_ANALYSIS_SECTION',
-      'A confirmed physical diameter change must coincide with an analysis-section start.',
-      { elementIndex: item.elementIndex, elementId: item.elementId, analysisSectionId: section.analysisSectionId }));
-    if (outside.value != null && value !== outside.value) diagnostics.push(diag(
-      'PIPELINE_DIAMETER_PROPERTY_MISMATCH', 'Confirmed property diameter differs from resolved outside diameter.',
-      { elementIndex: item.elementIndex, propertyDiameterMm: value, outsideDiameterMm: outside.value }));
+  a.elementResolutions.filter((e) => e.analysisSectionId === section.analysisSectionId).forEach((e) => {
+    const value = scalar(map[String(e.elementIndex)]?.[0]?.properties?.diameter);
+    if (value == null) return;
+    if (previous != null && value !== previous) ds.push(diag('PIPELINE_DIAMETER_CHANGE_REQUIRES_ANALYSIS_SECTION', { elementIndex: e.elementIndex }));
+    if (od != null && value !== od) ds.push(diag('PIPELINE_DIAMETER_PROPERTY_MISMATCH', { elementIndex: e.elementIndex, propertyDiameterMm: value, outsideDiameterMm: od }));
     previous = value;
-  }
+  });
 }
-function resolvedSection(section, entries, input, analysis, property, planDiagnostics) {
-  const diagnostics = [];
-  const outside = outsideCandidate(section, entries, input, property, diagnostics);
-  const nps = independentCandidate(entries, input, 'nominalPipeSizeNps', 'nominalPipeSizeNps',
-    'PIPELINE_NPS_INVALID', diagnostics);
-  const vendor = independentCandidate(entries, input, 'greVendorNominalBoreMm', 'greNominalBoreMm',
-    'PIPELINE_GRE_VENDOR_BORE_INVALID', diagnostics);
-  const profile = getPipelineEngineeringProfile(section.profileId), mode = profile?.resolvedMode || '';
-  if (mode !== 'GRE' && outside.value == null) diagnostics.push(diag(
-    'PIPELINE_OUTSIDE_DIAMETER_REQUIRED', 'Metallic analysis sections require physical outside diameter.',
-    { analysisSectionId: section.analysisSectionId }));
-  if (mode === 'GRE' && vendor.value == null) diagnostics.push(diag(
-    'PIPELINE_GRE_VENDOR_BORE_REQUIRED', 'GRE analysis sections require vendor nominal-bore evidence.',
-    { analysisSectionId: section.analysisSectionId }));
-  if (mode !== 'GRE' && vendor.value != null) diagnostics.push(diag(
-    'PIPELINE_DIAMETER_PROFILE_INCOMPATIBLE', 'GRE vendor nominal bore is incompatible with a metallic profile.',
-    { analysisSectionId: section.analysisSectionId, profileId: section.profileId }));
-  propertyDiagnostics(section, analysis, property, outside, input.settings || {}, diagnostics);
-  const quantities = { outsideDiameterMm: { ...outside, basisId: PIPELINE_DIAMETER_BASIS_IDS.OUTSIDE_DIAMETER_MM },
-    nominalPipeSizeNps: { ...nps, basisId: PIPELINE_DIAMETER_BASIS_IDS.NOMINAL_PIPE_SIZE_NPS },
-    greVendorNominalBoreMm: { ...vendor, basisId: PIPELINE_DIAMETER_BASIS_IDS.GRE_VENDOR_NOMINAL_BORE_MM } };
-  const authoritySource = [outside, nps, vendor].find((item) => item.value != null) || outside;
-  planDiagnostics.push(...diagnostics);
-  return createPipelineAnalysisDiameterResolution({ analysisSectionId: section.analysisSectionId,
-    profileId: section.profileId, resolvedMode: mode, startElementIndex: section.startElementIndex,
-    outsideDiameterMm: outside.value, nominalPipeSizeNps: nps.value, greVendorNominalBoreMm: vendor.value,
-    caesarDiameterMm: outside.value, sourceKind: resolvedSourceKind(quantities),
-    sourceAuthority: authoritySource.sourceAuthority, sourceReference: authoritySource.sourceReference,
-    quantitySources: quantities, diagnostics });
+function resolveSection(section, entries, input, a, map, all) {
+  const ds = [], od = outside(section, entries, input, map, ds);
+  const nps = independent(entries, input, 'nominalPipeSizeNps', 'nominalPipeSizeNps', 'PIPELINE_NPS_INVALID', ds);
+  const vendor = independent(entries, input, 'greVendorNominalBoreMm', 'greNominalBoreMm', 'PIPELINE_GRE_VENDOR_BORE_INVALID', ds);
+  propertyChecks(section, a, map, od.value, obj(input.settings) ? input.settings : {}, ds);
+  const sources = {
+    outsideDiameterMm: { ...od, basisId: BASIS.OUTSIDE_DIAMETER_MM },
+    nominalPipeSizeNps: { ...nps, basisId: BASIS.NOMINAL_PIPE_SIZE_NPS },
+    greVendorNominalBoreMm: { ...vendor, basisId: BASIS.GRE_VENDOR_NOMINAL_BORE_MM },
+  };
+  const kinds = uniq(Object.values(sources).filter((v) => v.value != null).map((v) => v.sourceKind));
+  const authority = [od, nps, vendor].find((v) => v.value != null) || od;
+  all.push(...ds);
+  return sectionContract({ analysisSectionId: section.analysisSectionId, profileId: section.profileId,
+    resolvedMode: profile(section.profileId)?.resolvedMode || '', startElementIndex: section.startElementIndex,
+    outsideDiameterMm: od.value, nominalPipeSizeNps: nps.value, greVendorNominalBoreMm: vendor.value,
+    caesarDiameterMm: od.value, sourceKind: kinds.length === 0 ? 'UNRESOLVED'
+      : kinds.length === 1 ? kinds[0] : 'MIXED_SEMANTIC_SOURCES',
+    sourceAuthority: authority.sourceAuthority, sourceReference: authority.sourceReference,
+    quantitySources: sources, diagnostics: ds });
 }
-function elementRecords(analysis, sections, property, diagnostics) {
-  const bySection = Object.fromEntries(sections.map((item) => [item.analysisSectionId, item]));
-  return (analysis.elementResolutions || []).slice().sort((a, b) => a.elementIndex - b.elementIndex).map((item) => {
-    const section = bySection[item.analysisSectionId], matches = property[String(item.elementIndex)] || [];
-    if (!section || matches.length !== 1) diagnostics.push(diag('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID',
-      'Every analysis element requires exactly one section and property resolution.', { elementIndex: item.elementIndex }));
-    return createPipelineElementDiameterResolution({ elementIndex: item.elementIndex, elementId: item.elementId,
-      analysisSectionId: item.analysisSectionId, profileId: item.profileId,
+function resolveElements(a, sections, map, ds) {
+  const bySection = Object.fromEntries(sections.map((s) => [s.analysisSectionId, s]));
+  return a.elementResolutions.slice().sort((x, y) => x.elementIndex - y.elementIndex).map((e) => {
+    const section = bySection[e.analysisSectionId], properties = map[String(e.elementIndex)] || [];
+    if (!section || properties.length !== 1) ds.push(diag('PIPELINE_DIAMETER_SECTION_COVERAGE_INVALID', { elementIndex: e.elementIndex }));
+    return elementContract({ elementIndex: e.elementIndex, elementId: e.elementId,
+      analysisSectionId: e.analysisSectionId, profileId: e.profileId,
       outsideDiameterMm: section?.outsideDiameterMm, nominalPipeSizeNps: section?.nominalPipeSizeNps,
       greVendorNominalBoreMm: section?.greVendorNominalBoreMm, caesarDiameterMm: section?.caesarDiameterMm,
-      propertyDiameterMm: positive(matches[0]?.properties?.diameter), diameterDisposition: item.sectionDisposition,
+      propertyDiameterMm: scalar(properties[0]?.properties?.diameter), diameterDisposition: e.sectionDisposition,
       sourceKind: section?.sourceKind, diagnostics: section?.diagnostics || [] });
   });
 }
 export function resolvePipelineAnalysisDiameterPlan(input = {}) {
-  const diagnostics = []; let sourceInput;
-  try { sourceInput = cloneJson(input); } catch {
-    sourceInput = {}; diagnostics.push(diag('PIPELINE_DIAMETER_INPUT_INVALID', 'Resolver input is not JSON-safe plain data.'));
-  }
-  const analysis = sourceInput.analysisSectionPlan || {}, sections = canonicalSections(analysis, diagnostics);
-  const propertyPlan = selectedPropertyPlan(sourceInput, diagnostics);
-  const property = propertyIndex(propertyPlan, analysis, diagnostics);
-  const targets = diameterTargets(sourceInput.diameterSections, sections, diagnostics);
-  const sectionResolutions = sections.map((section) => resolvedSection(section,
-    targets[section.analysisSectionId] || [], sourceInput, analysis, property, diagnostics));
-  const elementResolutions = elementRecords(analysis, sectionResolutions, property, diagnostics);
-  const migration = createPipelineDiameterMigration({
-    outsideDiameterSourceKinds: sectionResolutions.map((item) => item.quantitySources.outsideDiameterMm.sourceKind),
-    nominalPipeSizeSourceKinds: sectionResolutions.map((item) => item.quantitySources.nominalPipeSizeNps.sourceKind),
-    greVendorNominalBoreSourceKinds: sectionResolutions.map((item) => item.quantitySources.greVendorNominalBoreMm.sourceKind),
-    legacyDiameterEvidenceObserved: sectionResolutions.some((item) => item.quantitySources.outsideDiameterMm.legacyObserved === true),
-    legacyDiameterBasisConfirmed: sourceInput.settings?.diameterSource === 'branch-diameter'
-      && sourceInput.settings?.diameterBasisConfirmed === true,
-    sourceAuthority: sourceInput.sourceAuthority, sourceReference: sourceInput.sourceReference,
+  const ds = []; let source;
+  try { source = copy(input); if (!obj(source)) throw new TypeError(); }
+  catch { source = {}; ds.push(diag('PIPELINE_DIAMETER_INPUT_INVALID')); }
+  const a = analysis(source.analysisSectionPlan, ds), p = properties(source, ds), map = propertyMap(p, a, ds);
+  const t = targetMap(source.diameterSections, a.sections, ds);
+  const sections = a.sections.map((s) => resolveSection(s, t[s.analysisSectionId] || [], source, a, map, ds));
+  const elements = resolveElements(a, sections, map, ds);
+  const migration = migrationContract({
+    outsideDiameterSourceKinds: sections.map((s) => s.quantitySources.outsideDiameterMm?.sourceKind),
+    nominalPipeSizeSourceKinds: sections.map((s) => s.quantitySources.nominalPipeSizeNps?.sourceKind),
+    greVendorNominalBoreSourceKinds: sections.map((s) => s.quantitySources.greVendorNominalBoreMm?.sourceKind),
+    legacyDiameterEvidenceObserved: sections.some((s) => s.quantitySources.outsideDiameterMm?.legacyObserved === true),
+    legacyDiameterBasisConfirmed: source.settings?.diameterSource === 'branch-diameter'
+      && source.settings?.diameterBasisConfirmed === true,
+    sourceAuthority: source.sourceAuthority, sourceReference: source.sourceReference,
   });
-  return createPipelineAnalysisDiameterPlan({ analysisSectionPlanSchema: analysis.schema,
-    propertySectionPlanSchema: propertyPlan.schema, migration, sectionResolutions, elementResolutions,
-    diagnostics, blockerCodes: diagnostics.map((item) => item.code) });
+  return planContract({ analysisSectionPlanSchema: a.schema, propertySectionPlanSchema: p.schema,
+    migration, sectionResolutions: sections, elementResolutions: elements,
+    diagnostics: ds, blockerCodes: ds.map((d) => d.code) });
 }
 export const buildPipelineAnalysisDiameterPlanJson = (plan) => JSON.stringify(plan, null, 2);
-const cell = (value) => value == null ? '' : String(value).replace(/[\t\r\n]/g, ' ');
+const cell = (v) => v == null ? '' : String(v).replace(/[\t\r\n]/g, ' ');
 export function buildPipelineAnalysisDiameterLedgerText(plan) {
-  const header = ['RecordType', 'Schema', 'AnalysisSectionId', 'ElementIndex', 'ElementId', 'ProfileId', 'OutsideDiameterMm',
-    'NominalPipeSizeNps', 'GreVendorNominalBoreMm', 'CaesarDiameterMm', 'PropertyDiameterMm', 'Disposition', 'SourceKind', 'Ready'];
-  const sections = (plan?.sectionResolutions || []).map((item) => ['SECTION', item.schema, item.analysisSectionId,
-    item.startElementIndex, '', item.profileId, item.outsideDiameterMm, item.nominalPipeSizeNps,
-    item.greVendorNominalBoreMm, item.caesarDiameterMm, '', 'SECTION_START', item.sourceKind, item.ready ? 'YES' : 'NO']);
-  const elements = (plan?.elementResolutions || []).map((item) => ['ELEMENT', item.schema, item.analysisSectionId,
-    item.elementIndex, item.elementId, item.profileId, item.outsideDiameterMm, item.nominalPipeSizeNps,
-    item.greVendorNominalBoreMm, item.caesarDiameterMm, item.propertyDiameterMm, item.diameterDisposition,
-    item.sourceKind, item.ready ? 'YES' : 'NO']);
+  const header = ['RecordType', 'Schema', 'AnalysisSectionId', 'ElementIndex', 'ElementId', 'ProfileId',
+    'OutsideDiameterMm', 'NominalPipeSizeNps', 'GreVendorNominalBoreMm', 'CaesarDiameterMm',
+    'PropertyDiameterMm', 'Disposition', 'SourceKind', 'Ready'];
+  const sections = (plan?.sectionResolutions || []).map((s) => ['SECTION', s.schema,
+    s.analysisSectionId, s.startElementIndex, '', s.profileId, s.outsideDiameterMm,
+    s.nominalPipeSizeNps, s.greVendorNominalBoreMm, s.caesarDiameterMm, '',
+    'SECTION_START', s.sourceKind, s.ready ? 'YES' : 'NO']);
+  const elements = (plan?.elementResolutions || []).map((e) => ['ELEMENT', e.schema,
+    e.analysisSectionId, e.elementIndex, e.elementId, e.profileId, e.outsideDiameterMm,
+    e.nominalPipeSizeNps, e.greVendorNominalBoreMm, e.caesarDiameterMm,
+    e.propertyDiameterMm, e.diameterDisposition, e.sourceKind, e.ready ? 'YES' : 'NO']);
   return [header, ...sections, ...elements].map((row) => row.map(cell).join('\t')).join('\n');
 }
