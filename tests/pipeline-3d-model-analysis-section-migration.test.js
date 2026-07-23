@@ -57,10 +57,14 @@ assert.equal(unsafe.analysisSectionPlan.sections.length, 0);
 assert.ok(unsafe.blockerCodes.includes('PIPELINE_LEGACY_PROFILE_FALLBACK_BLOCKED'));
 
 for (const profileId of ['invalid', 'Normal-Metallic']) {
-  const invalid = resolvePipelineAnalysisSectionPlan({ coordinateRows, profileId, greEvidencePresent: false });
+  const invalid = resolvePipelineAnalysisSectionPlan({
+    coordinateRows, profileId, legacyDesignBasis: 'gre', greEvidencePresent: false,
+  });
   assert.equal(invalid.ready, false);
   assert.equal(invalid.migration.sourceKind, 'UNRESOLVED');
+  assert.equal(invalid.migration.resolvedProfileId, '');
   assert.equal(invalid.migration.fallbackApplied, false);
+  assert.equal(invalid.analysisSectionPlan.sections.length, 0);
   assert.ok(invalid.blockerCodes.includes('PIPELINE_PROFILE_ID_INVALID'));
 }
 
@@ -82,6 +86,8 @@ const sectionConflict = resolvePipelineAnalysisSectionPlan({
 });
 assert.equal(sectionConflict.ready, false);
 assert.equal(sectionConflict.migration.sourceKind, 'EXPLICIT_SECTIONS');
+assert.equal(sectionConflict.migration.resolutionReason, 'EXPLICIT_ANALYSIS_SECTIONS_BLOCKED');
+assert.equal(sectionConflict.migration.resolvedProfileId, '');
 assert.ok(sectionConflict.blockerCodes.includes('PIPELINE_SECTION_PROFILE_CONFLICT'));
 
 const matchingGlobal = resolvePipelineAnalysisSectionPlan({
@@ -92,13 +98,38 @@ const matchingGlobal = resolvePipelineAnalysisSectionPlan({
 });
 assert.equal(matchingGlobal.ready, true);
 
-const contradictoryGlobal = resolvePipelineAnalysisSectionPlan({
+const explicitSectionWinsStaleLegacy = resolvePipelineAnalysisSectionPlan({
   coordinateRows,
   profileId: 'normal-metallic',
   legacyDesignBasis: 'gre',
+  analysisSections: [{ startElementIndex: 0, profileId: 'normal-metallic' }],
 });
-assert.equal(contradictoryGlobal.ready, false);
-assert.ok(contradictoryGlobal.blockerCodes.includes('PIPELINE_SECTION_PROFILE_CONFLICT'));
+assert.equal(explicitSectionWinsStaleLegacy.ready, true);
+assert.equal(explicitSectionWinsStaleLegacy.blockerCodes.includes('PIPELINE_SECTION_PROFILE_CONFLICT'), false);
+
+const explicitSectionWinsInvalidLegacy = resolvePipelineAnalysisSectionPlan({
+  coordinateRows,
+  profileId: 'normal-metallic',
+  legacyDesignBasis: 'vendor-special',
+  analysisSections: [{ startElementIndex: 0, profileId: 'normal-metallic' }],
+});
+assert.equal(explicitSectionWinsInvalidLegacy.ready, true);
+assert.equal(explicitSectionWinsInvalidLegacy.blockerCodes.includes('PIPELINE_LEGACY_PROFILE_INVALID'), false);
+
+const explicitWinsStaleLegacy = resolvePipelineAnalysisSectionPlan({
+  coordinateRows, profileId: 'normal-metallic', legacyDesignBasis: 'gre',
+});
+assert.equal(explicitWinsStaleLegacy.ready, true);
+assert.equal(explicitWinsStaleLegacy.migration.sourceKind, 'EXPLICIT_PROFILE');
+assert.equal(explicitWinsStaleLegacy.migration.resolvedProfileId, 'normal-metallic');
+assert.equal(explicitWinsStaleLegacy.migration.legacyDesignBasis, '');
+
+const explicitWinsInvalidLegacy = resolvePipelineAnalysisSectionPlan({
+  coordinateRows, profileId: 'asme-b31.4', legacyDesignBasis: 'vendor-special',
+});
+assert.equal(explicitWinsInvalidLegacy.ready, true);
+assert.equal(explicitWinsInvalidLegacy.migration.resolvedProfileId, 'asme-b31.4');
+assert.equal(explicitWinsInvalidLegacy.blockerCodes.includes('PIPELINE_LEGACY_PROFILE_INVALID'), false);
 
 const contextLegacy = resolvePipelineAnalysisSectionPlan({
   coordinateRows,
@@ -106,6 +137,14 @@ const contextLegacy = resolvePipelineAnalysisSectionPlan({
 });
 assert.equal(contextLegacy.ready, true);
 assert.equal(contextLegacy.migration.resolvedProfileId, 'asme-b31.4');
+
+const contextModeMismatch = resolvePipelineAnalysisSectionPlan({
+  coordinateRows,
+  exportContext: { profile: { requestedDesignBasis: 'asme-b31.4', resolvedDesignBasis: 'asme-b31.4', resolvedMode: 'GRE', fallbackApplied: false } },
+});
+assert.equal(contextModeMismatch.ready, false);
+assert.equal(contextModeMismatch.analysisSectionPlan.sections.length, 0);
+assert.ok(contextModeMismatch.blockerCodes.includes('PIPELINE_LEGACY_PROFILE_INVALID'));
 
 const deterministicA = resolvePipelineAnalysisSectionPlan({
   coordinateRows,
