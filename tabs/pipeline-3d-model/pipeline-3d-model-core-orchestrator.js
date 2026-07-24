@@ -10,6 +10,11 @@ import {
   buildPipelineEngineeringConfigurationPlan,
   buildPipelineEngineeringConfigurationTsv,
 } from './pipeline-3d-model-engineering-configuration.js';
+import {
+  buildPipelineSectionPropertyAssignmentJson,
+  buildPipelineSectionPropertyAssignmentTsv,
+} from './pipeline-3d-model-section-property-assignment.js';
+import { buildPipelineSectionProfileRoutingJson } from './pipeline-3d-model-section-profile-routing.js';
 
 const text = (value) => typeof value === 'string' ? value.trim() : '';
 const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -19,7 +24,7 @@ const freeze = (value) => {
 };
 const json = (value) => JSON.stringify(value, null, 2);
 const requiredFunctions = Object.freeze([
-  'resolvePropertySectionPlan', 'resolveBends', 'resolveAnalysisSectionPlan',
+  'buildGeometryRoute', 'resolveSectionAwareBends', 'resolvePropertySectionPlan',
   'resolvePropertyReseedPlan', 'resolveDiameterPlan', 'resolveNormalFittingPlan',
   'resolveB314RadiusPlan', 'resolveGreVendorSeriesPlan', 'buildInputXmlDocumentPlan',
   'buildInputXmlXml',
@@ -60,50 +65,64 @@ function b314Settings(plan, settings) {
     qualificationEvidenceId: cold.qualificationEvidenceId,
   });
 }
-function geometrySettings(plan) {
-  const section = plan.analysisSections[0], profiles = new Set(plan.analysisSections.map((item) => item.profileId));
-  const settings = { ...plan.bendSettings, explicitOutsideDiameterMm: section?.outsideDiameterMm ?? null };
-  if (profiles.size === 1) settings.designBasis = profileBasis(section.profileId);
-  if (section?.profileId === 'normal-metallic' && plan.normalFittingPolicy) {
-    settings.bendClass = 'standard';
-    settings.standardRadiusMultiplierD = plan.normalFittingPolicy.radiusD
-      ?? (plan.normalFittingPolicy.radiusMm / section.outsideDiameterMm);
-  }
-  if (section?.profileId === 'asme-b31.4') {
-    settings.nominalPipeSizeNps = section.nominalPipeSizeNps; b314Settings(plan, settings);
-  }
-  const gre = plan.greVendorSeries[0];
-  if (section?.profileId === 'gre' && gre) Object.assign(settings, {
-    greNominalBoreMm: gre.greVendorNominalBoreMm, greBendRadiusMm: gre.bendRadiusMm,
-    greBendBreakMultiplierBore: gre.bendBreakMultiplierBore,
-    greBendLocalThicknessMm: gre.bendLocalThicknessMm,
-    greTeeBreakLengthMm: gre.teeBreakLengthMm, greTeeLocalThicknessMm: gre.teeLocalThicknessMm,
-    greRequirementReference: gre.requirementReference,
-  });
-  return freeze(settings);
+function greSettings(plan, section, settings) {
+  const gre = plan.greVendorSeries.find((item) => item.greVendorNominalBoreMm === section.greVendorNominalBoreMm)
+    || plan.greVendorSeries[0];
+  if (!gre) return;
+  Object.assign(settings, { greNominalBoreMm: gre.greVendorNominalBoreMm,
+    greBendRadiusMm: gre.bendRadiusMm, greBendBreakLengthBasis: gre.bendBreakLengthBasis,
+    greBendBreakMultiplierBore: gre.bendBreakMultiplierBore, greBendBreakLengthMm: gre.bendBreakLengthMm,
+    greBendLocalThicknessMm: gre.bendLocalThicknessMm, greTeeBreakLengthMm: gre.teeBreakLengthMm,
+    greTeeLocalThicknessMm: gre.teeLocalThicknessMm, greRequirementReference: gre.requirementReference });
 }
-function propertySections(plan) {
-  return plan.analysisSections.slice(1).map((section) => ({
+function sectionSettings(plan) {
+  return freeze(Object.fromEntries(plan.analysisSections.map((section) => {
+    const settings = { ...plan.bendSettings, designBasis: profileBasis(section.profileId),
+      requestedDesignBasis: profileBasis(section.profileId), profileFallbackApplied: false,
+      profileResolutionReason: 'CANONICAL_SECTION_OWNERSHIP',
+      explicitOutsideDiameterMm: section.outsideDiameterMm,
+      nominalPipeSizeNps: section.nominalPipeSizeNps };
+    if (section.profileId === 'normal-metallic' && plan.normalFittingPolicy) {
+      settings.bendClass = 'standard';
+      settings.standardRadiusMultiplierD = plan.normalFittingPolicy.radiusD
+        ?? (plan.normalFittingPolicy.radiusMm / section.outsideDiameterMm);
+    }
+    if (section.profileId === 'asme-b31.4') b314Settings(plan, settings);
+    if (section.profileId === 'gre') greSettings(plan, section, settings);
+    return [section.analysisSectionId, freeze(settings)];
+  })));
+}
+function assignedPropertySections(configuration) {
+  const assignment = configuration.sectionPropertyAssignmentPlan;
+  const bySection = Object.create(null);
+  for (const item of assignment?.propertyResolutions || []) {
+    if (!bySection[item.analysisSectionId]) bySection[item.analysisSectionId] = { values: {}, sources: {} };
+    bySection[item.analysisSectionId].values[item.fieldId] = item.value;
+    bySection[item.analysisSectionId].sources[item.fieldId] = item.transactionId
+      ? `AUTHENTICATED_ASSIGNMENT:${item.transactionId}`
+      : `${item.sourceKind}:${item.sourceReference}`;
+  }
+  return configuration.analysisSections.slice(1).map((section) => ({
     startElementIndex: section.startElementIndex, diameter: section.outsideDiameterMm,
+    ...(bySection[section.analysisSectionId]?.values || {}), forceSection: true,
+    analysisSectionId: section.analysisSectionId,
+    propertySources: { diameter: `ANALYSIS_SECTION_INPUT:${section.sourceReference}`,
+      ...(bySection[section.analysisSectionId]?.sources || {}) },
     sourceAuthority: section.sourceAuthority, sourceReference: section.sourceReference,
   }));
 }
 function grePlaceholder(plan) {
-  const gre = plan.greVendorSeries[0];
-  const multiplier = gre?.bendBreakLengthBasis === 'NOMINAL_BORE_MULTIPLIER';
+  const gre = plan.greVendorSeries[0], multiplier = gre?.bendBreakLengthBasis === 'NOMINAL_BORE_MULTIPLIER';
   return freeze({ schema: 'PipelineGreFittingPlaceholder.v1', active: Boolean(gre),
     policyReady: false, resolverReady: false, geometryApplied: false, inputXmlApplied: false,
-    requirementReference: gre?.requirementReference || '', bend: freeze({
-      radiusBasis: 'GRE_PLACEHOLDER', radiusMm: gre?.bendRadiusMm ?? null,
-      breakLengthBasis: gre?.bendBreakLengthBasis || 'EXPLICIT_LENGTH',
+    requirementReference: gre?.requirementReference || '', bend: freeze({ radiusBasis: 'GRE_PLACEHOLDER',
+      radiusMm: gre?.bendRadiusMm ?? null, breakLengthBasis: gre?.bendBreakLengthBasis || 'EXPLICIT_LENGTH',
       nominalBoreMm: gre?.greVendorNominalBoreMm ?? null,
       breakMultiplierBore: multiplier ? gre.bendBreakMultiplierBore : null,
-      breakLengthMm: gre?.bendBreakLengthMm ?? null,
-      localThicknessMm: gre?.bendLocalThicknessMm ?? null, resolverReady: false,
-    }), tee: freeze({ breakLengthBasis: 'EXPLICIT_LENGTH',
-      breakLengthMm: gre?.teeBreakLengthMm ?? null,
-      localThicknessMm: gre?.teeLocalThicknessMm ?? null, resolverReady: false }),
-  });
+      breakLengthMm: gre?.bendBreakLengthMm ?? null, localThicknessMm: gre?.bendLocalThicknessMm ?? null,
+      resolverReady: false }), tee: freeze({ breakLengthBasis: 'EXPLICIT_LENGTH',
+      breakLengthMm: gre?.teeBreakLengthMm ?? null, localThicknessMm: gre?.teeLocalThicknessMm ?? null,
+      resolverReady: false }) });
 }
 function artifact(fileId, name, sourceSchema, content, mime = 'application/json') {
   return freeze({ fileId, name, sourceSchema, mime, role: 'ENGINEERING_EVIDENCE', text: content });
@@ -117,8 +136,17 @@ function artifacts(configuration, plans, xmlText) {
     artifact('pipeline-engineering-configuration-blockers', 'pipeline-engineering-configuration-blockers.tsv',
       configuration.schema, buildPipelineEngineeringConfigurationBlockerText(configuration), 'text/tab-separated-values'),
   ];
+  if (plans.sectionPropertyAssignmentPlan) result.push(
+    artifact('sectionPropertyAssignmentPlan', 'pipeline-section-property-assignments.json',
+      plans.sectionPropertyAssignmentPlan.schema, buildPipelineSectionPropertyAssignmentJson(plans.sectionPropertyAssignmentPlan)),
+    artifact('sectionPropertyAssignmentPlanTsv', 'pipeline-section-property-assignments.tsv',
+      plans.sectionPropertyAssignmentPlan.schema, buildPipelineSectionPropertyAssignmentTsv(plans.sectionPropertyAssignmentPlan),
+      'text/tab-separated-values'));
+  if (plans.sectionProfileRoutingPlan) result.push(artifact('sectionProfileRoutingPlan',
+    'pipeline-section-profile-routing.json', plans.sectionProfileRoutingPlan.schema,
+    buildPipelineSectionProfileRoutingJson(plans.sectionProfileRoutingPlan)));
   const records = [
-    ['analysisSectionPlan', 'pipeline-analysis-section-plan.json'],
+    ['canonicalAnalysisSectionPlan', 'pipeline-analysis-section-plan.json'],
     ['analysisDiameterPlan', 'pipeline-analysis-diameter-plan.json'],
     ['normalFittingPlan', 'pipeline-normal-fitting-plan.json'],
     ['b314RadiusPlan', 'pipeline-b314-radius-plan.json'],
@@ -136,73 +164,64 @@ function finalResult(configuration, plans, diagnostics, xmlText) {
   const ordered = orderPipelineConfigurationDiagnostics([
     ...configuration.diagnostics, ...diagnostics,
     ...Object.values(plans).filter(plain).flatMap((plan) => plan.diagnostics || []),
-  ]);
-  const blockerCodes = pipelineConfigurationBlockerCodes(ordered);
-  return freeze({ schema: PIPELINE_CORE_ORCHESTRATION_SCHEMA, configuration,
-    ...plans, artifacts: artifacts(configuration, plans, xmlText), xmlText,
-    diagnostics: ordered, blockerCodes, ready: blockerCodes.length === 0 && Boolean(xmlText) });
+  ]), blockerCodes = pipelineConfigurationBlockerCodes(ordered);
+  return freeze({ schema: PIPELINE_CORE_ORCHESTRATION_SCHEMA, configuration, ...plans,
+    artifacts: artifacts(configuration, plans, xmlText), xmlText, diagnostics: ordered, blockerCodes,
+    ready: blockerCodes.length === 0 && Boolean(xmlText) });
 }
 export function buildPipelineCoreOrchestration(input = {}, dependencies = {}) {
   const diagnostics = dependencyDiagnostics(dependencies);
   const configuration = input.configurationPlan?.schema === 'PipelineEngineeringConfigurationPlan.v1'
-    ? input.configurationPlan : buildPipelineEngineeringConfigurationPlan(input.configurationDraft || {});
-  const plans = {};
+    ? input.configurationPlan : buildPipelineEngineeringConfigurationPlan(input.configurationDraft || {}, {
+      canonicalAnalysisSectionPlan: input.canonicalAnalysisSectionPlan });
+  const plans = { canonicalAnalysisSectionPlan: configuration.canonicalAnalysisSectionPlan || null,
+    analysisSectionPlan: configuration.canonicalAnalysisSectionPlan || null,
+    sectionPropertyAssignmentPlan: configuration.sectionPropertyAssignmentPlan || null };
   if (!configuration.ready || diagnostics.length) return finalResult(configuration, plans, diagnostics, '');
-  const settings = geometrySettings(configuration);
-  const bends = step('bendResolution', () => dependencies.resolveBends({
-    points: input.points || [], coordinateRows: input.coordinateRows || [],
-    branchInfo: configuration.branchInfo, settings,
-  }), diagnostics);
-  const rows = bends?.geometryRows || input.coordinateRows || [];
-  const properties = step('propertySectionPlan', () => dependencies.resolvePropertySectionPlan({
+  const geometryRoute = step('geometryRoute', () => dependencies.buildGeometryRoute(
+    input.points || [], input.coordinateRows || []), diagnostics);
+  const bendBundle = step('bendResolution', () => dependencies.resolveSectionAwareBends({ geometryRoute,
+    canonicalAnalysisSectionPlan: plans.canonicalAnalysisSectionPlan,
+    sectionSettingsById: sectionSettings(configuration), branchInfo: configuration.branchInfo }), diagnostics);
+  plans.bendResolution = bendBundle?.bendResolution || null;
+  plans.sectionProfileRoutingPlan = bendBundle?.sectionProfileRoutingPlan || null;
+  if (plans.sectionProfileRoutingPlan?.ready !== true) return finalResult(configuration, plans, diagnostics, '');
+  const rows = geometryRoute?.coordinateRows || input.coordinateRows || [];
+  plans.propertySectionPlan = step('propertySectionPlan', () => dependencies.resolvePropertySectionPlan({
     branchInfo: configuration.branchInfo, coordinateRows: rows,
-    propertySections: input.propertySections || propertySections(configuration),
-  }), diagnostics);
-  const analysisResolution = step('analysisSectionPlan', () => dependencies.resolveAnalysisSectionPlan({
-    coordinateRows: rows, analysisSections: configuration.analysisSections,
-    bendResolution: bends, sourceAuthority: 'ENGINEERING_CONFIGURATION',
-    sourceReference: 'pipeline-engineering-configuration-v1',
-  }), diagnostics);
-  plans.analysisSectionPlan = analysisResolution?.analysisSectionPlan || null;
-  plans.propertySectionPlan = properties;
+    propertySections: assignedPropertySections(configuration) }), diagnostics);
   plans.analysisPropertyReseedPlan = step('propertyReseed', () => dependencies.resolvePropertyReseedPlan({
-    analysisSectionPlan: plans.analysisSectionPlan, propertySectionPlan: properties,
-  }), diagnostics);
+    analysisSectionPlan: plans.canonicalAnalysisSectionPlan, propertySectionPlan: plans.propertySectionPlan }), diagnostics);
   plans.analysisDiameterPlan = step('diameterPlan', () => dependencies.resolveDiameterPlan({
-    analysisSectionPlan: plans.analysisSectionPlan, analysisPropertyReseedPlan: plans.analysisPropertyReseedPlan,
+    analysisSectionPlan: plans.canonicalAnalysisSectionPlan,
+    analysisPropertyReseedPlan: plans.analysisPropertyReseedPlan,
     diameterSections: configuration.diameterSections, branchInfo: configuration.branchInfo,
-    settings, sourceAuthority: 'ENGINEERING_CONFIGURATION',
-    sourceReference: 'pipeline-engineering-configuration-v1',
-  }), diagnostics);
-  plans.bendResolution = bends;
+    settings: configuration.bendSettings, sourceAuthority: 'ENGINEERING_CONFIGURATION',
+    sourceReference: 'pipeline-engineering-configuration-v1' }), diagnostics);
   plans.normalFittingPlan = step('normalFittingPlan', () => dependencies.resolveNormalFittingPlan({
-    analysisSectionPlan: plans.analysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
-    bendResolution: bends, normalFittingPolicy: configuration.normalFittingPolicy,
+    analysisSectionPlan: plans.canonicalAnalysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
+    bendResolution: plans.bendResolution, normalFittingPolicy: configuration.normalFittingPolicy,
     normalFittingSections: configuration.normalFittingSections,
     normalFittingOverrides: configuration.normalFittingOverrides,
-    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1',
-  }), diagnostics);
+    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1' }), diagnostics);
   plans.b314RadiusPlan = step('b314RadiusPlan', () => dependencies.resolveB314RadiusPlan({
-    analysisSectionPlan: plans.analysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
-    bendResolution: bends, b314RadiusPolicies: configuration.b314RadiusPolicies,
-    b314RadiusSections: configuration.b314RadiusSections,
-    b314RadiusOverrides: configuration.b314RadiusOverrides,
-    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1',
-  }), diagnostics);
+    analysisSectionPlan: plans.canonicalAnalysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
+    bendResolution: plans.bendResolution, b314RadiusPolicies: configuration.b314RadiusPolicies,
+    b314RadiusSections: configuration.b314RadiusSections, b314RadiusOverrides: configuration.b314RadiusOverrides,
+    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1' }), diagnostics);
   plans.greVendorSeriesPlan = step('greVendorSeriesPlan', () => dependencies.resolveGreVendorSeriesPlan({
-    analysisSectionPlan: plans.analysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
+    analysisSectionPlan: plans.canonicalAnalysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
     grePlaceholder: grePlaceholder(configuration), greVendorSeries: configuration.greVendorSeries,
     greVendorSeriesSections: configuration.greVendorSeriesSections,
-    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1',
-  }), diagnostics);
+    sourceAuthority: 'ENGINEERING_CONFIGURATION', sourceReference: 'pipeline-engineering-configuration-v1' }), diagnostics);
   plans.inputXmlDocumentPlan = step('inputXmlDocumentPlan', () => dependencies.buildInputXmlDocumentPlan({
-    exportContext: input.exportContext || {}, coordinateRows: rows, bendResolution: bends,
-    propertySections: input.propertySections || propertySections(configuration), profileAuthorityPlans: {
-      analysisSectionPlan: plans.analysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
+    exportContext: input.exportContext || {}, coordinateRows: rows, bendResolution: plans.bendResolution,
+    propertySections: assignedPropertySections(configuration), sectionPropertyAssignmentPlan: plans.sectionPropertyAssignmentPlan,
+    sectionProfileRoutingPlan: plans.sectionProfileRoutingPlan, profileAuthorityPlans: {
+      analysisSectionPlan: plans.canonicalAnalysisSectionPlan, analysisDiameterPlan: plans.analysisDiameterPlan,
       normalFittingPlan: plans.normalFittingPlan, b314RadiusPlan: plans.b314RadiusPlan,
-      greVendorSeriesPlan: plans.greVendorSeriesPlan,
-    },
-  }), diagnostics);
+      greVendorSeriesPlan: plans.greVendorSeriesPlan, sectionPropertyAssignmentPlan: plans.sectionPropertyAssignmentPlan,
+      sectionProfileRoutingPlan: plans.sectionProfileRoutingPlan } }), diagnostics);
   plans.inputXmlProfileAuthorityPlan = plans.inputXmlDocumentPlan?.profileAuthorityPlan || null;
   const xmlText = plans.inputXmlDocumentPlan?.ready === true
     ? step('inputXmlWriter', () => dependencies.buildInputXmlXml(plans.inputXmlDocumentPlan), diagnostics) || '' : '';
