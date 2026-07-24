@@ -93,4 +93,15 @@ assert.equal(hash(buildPipelineInputXmlDocumentPlanJson(legacyPlan)),
 assert.equal(hash(buildInputXmlPipingModelXml(legacyPlan)),
   '936819d07151f665facb6cad778ec226b80f047e93fde7901c754df97515d759');
 assert.equal(Object.hasOwn(legacyPlan, 'profileAuthorityPlan'), false);
+
+const typoContext = structuredClone(legacyContext);
+typoContext.readiness = { blockerCodes: ['GRE_BEND_POLICY_NOT_IMPLEMEMTED'] };
+const typoPlan = buildPipelineInputXmlDocumentPlan({
+  exportContext: typoContext, coordinateRows: legacyRows, bendResolution: noBends,
+});
+assert.equal(typoPlan.ready, false);
+assert.deepEqual(typoPlan.blockerCodes, ['GRE_BEND_POLICY_NOT_IMPLEMEMTED']);
+assert.equal(typoPlan.diagnostics[0].code, 'GRE_BEND_POLICY_NOT_IMPLEMEMTED');
+assert.equal(typoPlan.diagnostics[0].message, 'The resolved Pipeline export context blocks canonical InputXML.');
+
 console.log('pipeline-3d-model InputXML profile document: PASS');
