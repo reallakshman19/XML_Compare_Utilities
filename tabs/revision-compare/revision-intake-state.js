@@ -1,6 +1,7 @@
 /** Immutable RevisionIntakeState.v1 transitions. */
 
 import { cleanText, deepFreeze } from './revision-contract-utils.js';
+import { revisionCompareJsonSnapshotMatchesDocument } from './revision-json-document.js';
 
 export const REVISION_INTAKE_STATE_SCHEMA = 'RevisionIntakeState.v1';
 export const REVISION_INTAKE_STATUS = Object.freeze({
@@ -27,6 +28,7 @@ export function createRevisionIntakeState(slotId, role) {
     fileSizeBytes: 0,
     contentHash: '',
     document: null,
+    jsonSnapshot: null,
     branchTree: [],
     branchIndex: [],
     branchIndexSummary: null,
@@ -50,27 +52,34 @@ export function beginRevisionLoad(state, generation, fileName, fileSizeBytes) {
 
 export function completeRevisionLoad(state, result) {
   if (result.generation !== state.requestGeneration) return state;
-  const blocked = result.blockers?.length > 0;
+  const blockers = [...(result.blockers ?? [])];
+  if (!revisionCompareJsonSnapshotMatchesDocument(result.jsonSnapshot, result.document)) {
+    blockers.push('Lossless staged-JSON snapshot does not match the loaded document authority.');
+  }
   return deepFreeze({
     ...state,
-    status: blocked ? REVISION_INTAKE_STATUS.BLOCKED : REVISION_INTAKE_STATUS.READY,
+    status: blockers.length ? REVISION_INTAKE_STATUS.BLOCKED : REVISION_INTAKE_STATUS.READY,
     fileName: result.document.fileName,
     fileSizeBytes: result.document.fileSizeBytes,
     contentHash: result.document.sourceHash,
     document: result.document,
+    jsonSnapshot: result.jsonSnapshot,
     branchTree: result.branchTree,
     branchIndex: result.branchIndex,
     branchIndexSummary: result.branchIndexSummary,
     scopeDraft: emptyScope(),
     scopeResult: result.scopeResult,
     warnings: result.warnings ?? [],
-    blockers: result.blockers ?? [],
+    blockers: Object.freeze(blockers),
     error: null,
   });
 }
 
 export function completeRevisionScope(state, result, scopeDraft) {
   if (result.generation !== state.requestGeneration) return state;
+  if (!revisionCompareJsonSnapshotMatchesDocument(state.jsonSnapshot, result.document)) {
+    throw new Error('Scoped document identity does not match the retained lossless staged-JSON snapshot.');
+  }
   return deepFreeze({
     ...state,
     status: REVISION_INTAKE_STATUS.SCOPED,

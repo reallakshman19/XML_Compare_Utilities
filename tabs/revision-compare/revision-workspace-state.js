@@ -1,4 +1,4 @@
-/** Immutable workspace state for trusted compare, guided review and decisions. */
+/** Immutable workspace state for trusted compare, guided review, decisions and transfer planning. */
 import { deepFreeze } from './revision-contract-utils.js';
 import { attachProjectDocument, createProjectSession, detachProjectDocument } from './revision-session-contracts.js';
 import { beginRevisionLoad, completeRevisionLoad, completeRevisionScope, createRevisionIntakeState, failRevisionLoad } from './revision-intake-state.js';
@@ -23,8 +23,15 @@ import {
   REVISION_COMPARE_TRUST_STATUS, createRevisionCompareTrustReceiptState,
   reconcileRevisionCompareTrustReceiptState,
 } from './revision-trust-receipt.js';
+import {
+  captureRevisionCompareTransferAuthority, completeRevisionCompareTransferPlanRequest,
+  createRevisionCompareTransferState, failRevisionCompareTransferPlanRequest,
+  invalidateRevisionCompareTransferAuthority, reconcileRevisionCompareTransferAuthority,
+  setRevisionCompareTransferPolicyVersion,
+  setRevisionCompareTransferSelection, startRevisionCompareTransferPlanRequest,
+} from './revision-transfer-contracts.js';
 
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v7';
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v8';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
@@ -42,6 +49,13 @@ function signOffAfterAuthorityChange(previous, next) {
   const trustReceipt = reconcileRevisionCompareTrustReceiptState(previous?.trustReceipt, signOff);
   return deepFreeze({ ...next, signOff, trustReceipt });
 }
+function transferAfterAuthorityChange(previous, next) {
+  const prior = previous?.transfer ?? createRevisionCompareTransferState();
+  return deepFreeze({ ...next, transfer: invalidateRevisionCompareTransferAuthority(prior, next) });
+}
+function authorityAfterChange(previous, next) {
+  return transferAfterAuthorityChange(previous, signOffAfterAuthorityChange(previous, next));
+}
 export function createRevisionEvidencePackageImportState() {
   return deepFreeze({
     schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IDLE,
@@ -58,7 +72,7 @@ export function revisionWorkspaceIsFreshForEvidencePackageImport(state) {
     && !state.basis && !state.compare?.audit && !state.review?.session && !state.decision?.ledger);
 }
 export function createRevisionWorkspaceState(sessionId, createdAt) {
-  return deepFreeze({
+  const state = {
     schema: REVISION_WORKSPACE_STATE_SCHEMA, session: createProjectSession({ sessionId, createdAt }),
     slots: { baseline: createRevisionIntakeState('baseline', 'REFERENCE'), candidate: createRevisionIntakeState('candidate', 'CANDIDATE') },
     scopeDecisions: {}, proposal: null, basis: null, basisStatus: BASIS_STATUS.NONE,
@@ -66,35 +80,31 @@ export function createRevisionWorkspaceState(sessionId, createdAt) {
     compare: createComparisonLifecycleState(), review: createReviewLifecycleState(), decision: createDecisionLifecycleState(),
     evidencePackageImport: createRevisionEvidencePackageImportState(), signOff: createRevisionCompareSignOffState(),
     trustReceipt: createRevisionCompareTrustReceiptState(),
-  });
+  };
+  return deepFreeze({ ...state, transfer: createRevisionCompareTransferState(undefined, captureRevisionCompareTransferAuthority(state)) });
 }
 export function startWorkspaceEvidencePackageImport(state, generation, fileName) {
   const base = { ...createRevisionEvidencePackageImportState(), requestGeneration: generation, fileName: String(fileName ?? '') };
-  if (!revisionWorkspaceIsFreshForEvidencePackageImport(state)) {
-    return deepFreeze({
-      ...state,
-      evidencePackageImport: deepFreeze({ ...base, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.FAILED, integrityStatus: 'FAILED', error: REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR }),
-      message: REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR,
-    });
-  }
-  return deepFreeze({
+  const failed = !revisionWorkspaceIsFreshForEvidencePackageImport(state);
+  const next = deepFreeze({
     ...state,
-    evidencePackageImport: deepFreeze({ ...base, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING, integrityStatus: 'VERIFYING' }),
-    message: 'Importing and verifying evidence package…',
+    evidencePackageImport: deepFreeze({ ...base, status: failed ? 'FAILED' : 'IMPORTING',
+      integrityStatus: failed ? 'FAILED' : 'VERIFYING', error: failed ? REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR : null }),
+    message: failed ? REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR : 'Importing and verifying evidence package…',
   });
+  return transferAfterAuthorityChange(state, next);
 }
 export function failWorkspaceEvidencePackageImport(state, generation, error) {
   if (state.evidencePackageImport.requestGeneration !== generation) return state;
   const message = String(error?.message ?? error);
-  return deepFreeze({
+  return transferAfterAuthorityChange(state, deepFreeze({
     ...state,
     evidencePackageImport: deepFreeze({
-      ...state.evidencePackageImport, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.FAILED,
-      packageId: null, contentSha256: null, integrityStatus: 'FAILED', reviewReattached: false,
-      decisionReattached: false, error: message,
+      ...state.evidencePackageImport, status: 'FAILED', packageId: null, contentSha256: null,
+      integrityStatus: 'FAILED', reviewReattached: false, decisionReattached: false, error: message,
     }),
     message,
-  });
+  }));
 }
 function firstReviewable(audit) {
   return audit.differenceRows.find((row) => row.differenceCategory !== 'UNCHANGED')?.differenceId
@@ -109,27 +119,25 @@ function importedComparison(compare, audit) {
 }
 export function completeWorkspaceEvidencePackageImport(state, generation, verified) {
   if (state.evidencePackageImport.requestGeneration !== generation
-      || state.evidencePackageImport.status !== REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IMPORTING) return state;
+      || state.evidencePackageImport.status !== 'IMPORTING') return state;
   if (!revisionWorkspaceIsFreshForEvidencePackageImport(state)) {
     return failWorkspaceEvidencePackageImport(state, generation, REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR);
   }
   const receipt = verified.receipt;
   const next = {
     ...state, session: verified.session, slots: verified.slots, scopeDecisions: {}, proposal: verified.proposal,
-    basis: verified.basis, basisStatus: BASIS_STATUS.CURRENT,
-    compare: importedComparison(state.compare, verified.audit),
+    basis: verified.basis, basisStatus: BASIS_STATUS.CURRENT, compare: importedComparison(state.compare, verified.audit),
     review: deepFreeze({ ...state.review, session: verified.reviewSession, replacementRequired: false, importError: null }),
     decision: deepFreeze({ ...state.decision, ledger: verified.decisionLedger, replacementRequired: false, importError: null, preview: { differenceId: null, candidateIndex: 0 } }),
     evidencePackageImport: deepFreeze({
-      schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.VERIFIED,
-      requestGeneration: generation, fileName: receipt.fileName, packageId: receipt.packageId,
-      contentSha256: receipt.contentSha256, integrityStatus: receipt.integrityStatus,
-      reviewReattached: receipt.reviewReattached, decisionReattached: receipt.decisionReattached,
-      authenticityStatus: receipt.authenticityStatus, error: null,
+      schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: 'VERIFIED', requestGeneration: generation,
+      fileName: receipt.fileName, packageId: receipt.packageId, contentSha256: receipt.contentSha256,
+      integrityStatus: receipt.integrityStatus, reviewReattached: receipt.reviewReattached,
+      decisionReattached: receipt.decisionReattached, authenticityStatus: receipt.authenticityStatus, error: null,
     }),
     message: 'Evidence package imported and authority chain reopened.',
   };
-  return signOffAfterAuthorityChange(state, next);
+  return authorityAfterChange(state, next);
 }
 function currentTrust(state) { return state.trustReceipt ?? createRevisionCompareTrustReceiptState(); }
 export function startWorkspaceTrustReceiptImport(state, generation, fileName) {
@@ -164,7 +172,7 @@ export function completeWorkspaceTrustReceiptImport(state, generation, receipt) 
   }), message: 'External signature receipt verified.' });
 }
 export function startWorkspaceLoad(state, slotId, generation, fileName, fileSizeBytes, updatedAt) {
-  return signOffAfterAuthorityChange(state, {
+  return authorityAfterChange(state, {
     ...state, session: detachProjectDocument(state.session, slotId, updatedAt),
     slots: { ...state.slots, [slotId]: beginRevisionLoad(state.slots[slotId], generation, fileName, fileSizeBytes) },
     proposal: null, scopeDecisions: {}, basisStatus: staleStatus(state), ...invalidated(state, updatedAt),
@@ -173,42 +181,49 @@ export function startWorkspaceLoad(state, slotId, generation, fileName, fileSize
 }
 export function finishWorkspaceLoad(state, slotId, result, updatedAt) {
   const slot = completeRevisionLoad(state.slots[slotId], result); if (slot === state.slots[slotId]) return state;
-  return signOffAfterAuthorityChange(state, {
-    ...state, session: attachProjectDocument(state.session, result.document, updatedAt), slots: { ...state.slots, [slotId]: slot },
-    proposal: null, scopeDecisions: {}, basisStatus: staleStatus(state), ...invalidated(state, updatedAt), message: `${slotId === 'baseline' ? 'Rev A' : 'Rev B'} is ready.`,
+  return authorityAfterChange(state, {
+    ...state, session: attachProjectDocument(state.session, result.document, updatedAt),
+    slots: { ...state.slots, [slotId]: slot }, proposal: null, scopeDecisions: {}, basisStatus: staleStatus(state),
+    ...invalidated(state, updatedAt), message: `${slotId === 'baseline' ? 'Rev A' : 'Rev B'} is ready.`,
   });
 }
 export function failWorkspaceLoad(state, slotId, generation, error) {
   const slot = failRevisionLoad(state.slots[slotId], generation, error); if (slot === state.slots[slotId]) return state;
-  return signOffAfterAuthorityChange(state, { ...state, slots: { ...state.slots, [slotId]: slot }, proposal: null, basisStatus: staleStatus(state), ...invalidated(state, state.session.updatedAt), message: slot.error });
+  return authorityAfterChange(state, { ...state, slots: { ...state.slots, [slotId]: slot }, proposal: null,
+    basisStatus: staleStatus(state), ...invalidated(state, state.session.updatedAt), message: slot.error });
 }
 export function setWorkspaceProposal(state, proposal, decisions = state.scopeDecisions, updatedAt = state.session.updatedAt) {
-  return signOffAfterAuthorityChange(state, {
-    ...state, scopeDecisions: decisions, proposal, basisStatus: state.basisStatus === BASIS_STATUS.CURRENT ? BASIS_STATUS.STALE : state.basisStatus,
+  return authorityAfterChange(state, {
+    ...state, scopeDecisions: decisions, proposal,
+    basisStatus: state.basisStatus === BASIS_STATUS.CURRENT ? BASIS_STATUS.STALE : state.basisStatus,
     ...invalidated(state, updatedAt), message: proposal ? 'Review the proposed common and one-sided branch scope.' : state.message,
   });
 }
 export function finishWorkspaceScope(state, results, scopeDrafts, updatedAt) {
   const baseline = completeRevisionScope(state.slots.baseline, results.baseline, scopeDrafts.baseline);
   const candidate = completeRevisionScope(state.slots.candidate, results.candidate, scopeDrafts.candidate);
-  let session = attachProjectDocument(state.session, baseline.document, updatedAt); session = attachProjectDocument(session, candidate.document, updatedAt);
-  return signOffAfterAuthorityChange(state, { ...state, session, slots: { baseline, candidate } });
+  let session = attachProjectDocument(state.session, baseline.document, updatedAt);
+  session = attachProjectDocument(session, candidate.document, updatedAt);
+  return authorityAfterChange(state, { ...state, session, slots: { baseline, candidate } });
 }
-export function setWorkspaceBasis(state, basis) { return signOffAfterAuthorityChange(state, { ...state, basis, basisStatus: BASIS_STATUS.CURRENT, compare: readyComparisonState(state.compare), message: 'Comparison basis approved and ready for visual comparison.' }); }
+export function setWorkspaceBasis(state, basis) {
+  return authorityAfterChange(state, { ...state, basis, basisStatus: BASIS_STATUS.CURRENT,
+    compare: readyComparisonState(state.compare), message: 'Comparison basis approved and ready for visual comparison.' });
+}
 export function setWorkspaceSearch(state, group, value) { return Object.hasOwn(state.search, group) ? deepFreeze({ ...state, search: { ...state.search, [group]: String(value ?? '') } }) : state; }
 export function setWorkspaceMessage(state, message) { return deepFreeze({ ...state, message: String(message ?? '') }); }
 export function resetWorkspaceSlot(state, slotId, generation, updatedAt) {
-  return signOffAfterAuthorityChange(state, {
-    ...state, session: detachProjectDocument(state.session, slotId, updatedAt),
+  return authorityAfterChange(state, { ...state, session: detachProjectDocument(state.session, slotId, updatedAt),
     slots: { ...state.slots, [slotId]: deepFreeze({ ...createRevisionIntakeState(slotId, state.slots[slotId].role), requestGeneration: generation }) },
-    proposal: null, scopeDecisions: {}, basisStatus: staleStatus(state), ...invalidated(state, updatedAt), message: `${slotId === 'baseline' ? 'Rev A' : 'Rev B'} load cancelled.`,
-  });
+    proposal: null, scopeDecisions: {}, basisStatus: staleStatus(state), ...invalidated(state, updatedAt),
+    message: `${slotId === 'baseline' ? 'Rev A' : 'Rev B'} load cancelled.` });
 }
-export function startWorkspaceComparison(state, token) { return signOffAfterAuthorityChange(state, { ...state, compare: startComparisonState(state.compare, token), message: 'Projecting approved revision scope.' }); }
+export function startWorkspaceComparison(state, token) { return authorityAfterChange(state, { ...state, compare: startComparisonState(state.compare, token), message: 'Projecting approved revision scope.' }); }
 export function progressWorkspaceComparison(state, token, progress) { const compare = progressComparisonState(state.compare, token, progress); return compare === state.compare ? state : deepFreeze({ ...state, compare, message: progress.stage }); }
 export function completeWorkspaceComparison(state, token, audit, updatedAt) {
   const compare = completeComparisonState(state.compare, token, audit); if (compare === state.compare) return state;
-  return signOffAfterAuthorityChange(state, { ...state, compare, review: attachReviewAudit(state.review, audit, updatedAt), decision: attachDecisionAudit(state.decision, audit, updatedAt), message: 'Visual comparison complete.' });
+  return authorityAfterChange(state, { ...state, compare, review: attachReviewAudit(state.review, audit, updatedAt),
+    decision: attachDecisionAudit(state.decision, audit, updatedAt), message: 'Visual comparison complete.' });
 }
 export function cancelWorkspaceComparison(state) { return deepFreeze({ ...state, compare: cancelComparisonState(state.compare), message: 'Visual comparison cancelled.' }); }
 export function failWorkspaceComparison(state, error) { return deepFreeze({ ...state, compare: failComparisonState(state.compare, error), message: String(error?.message ?? error) }); }
@@ -220,19 +235,19 @@ export function toggleWorkspaceCategory(state, category) { return deepFreeze({ .
 export function toggleWorkspaceChangedReason(state, reason) { return deepFreeze({ ...state, compare: toggleChangedReason(state.compare, reason) }); }
 export function setWorkspaceNeedsDecision(state, enabled) { return deepFreeze({ ...state, compare: setNeedsDecisionOnly(state.compare, enabled) }); }
 export function setWorkspaceReviewVisible(state, visible) { return deepFreeze({ ...state, compare: setComparisonReviewVisible(state.compare, visible) }); }
-export function setWorkspaceReviewSession(state, session) { return signOffAfterAuthorityChange(state, { ...state, review: setReviewLifecycleSession(state.review, session) }); }
-export function setWorkspaceReviewImportError(state, error) { return deepFreeze({ ...state, review: setReviewImportError(state.review, error) }); }
+export function setWorkspaceReviewSession(state, session) { return authorityAfterChange(state, { ...state, review: setReviewLifecycleSession(state.review, session) }); }
+export function setWorkspaceReviewImportError(state, error) { return authorityAfterChange(state, { ...state, review: setReviewImportError(state.review, error) }); }
 export function startWorkspaceNewReviewSession(state, createdAt) {
   if (!state.compare.audit) throw new Error('A current comparison audit is required.');
-  return signOffAfterAuthorityChange(state, { ...state, review: startNewReviewForAudit(state.review, state.compare.audit, createdAt), compare: setComparisonSelection(state.compare, null) });
+  return authorityAfterChange(state, { ...state, review: startNewReviewForAudit(state.review, state.compare.audit, createdAt), compare: setComparisonSelection(state.compare, null) });
 }
 export function setWorkspaceReviewSearch(state, value) { return deepFreeze({ ...state, review: setReviewSearch(state.review, value) }); }
 export function toggleWorkspaceReviewFilter(state, group, value) { return deepFreeze({ ...state, review: toggleReviewFilter(state.review, group, value) }); }
-export function setWorkspaceDecisionLedger(state, ledger) { return signOffAfterAuthorityChange(state, { ...state, decision: setDecisionLifecycleLedger(state.decision, ledger) }); }
-export function setWorkspaceDecisionImportError(state, error) { return deepFreeze({ ...state, decision: setDecisionImportError(state.decision, error) }); }
+export function setWorkspaceDecisionLedger(state, ledger) { return authorityAfterChange(state, { ...state, decision: setDecisionLifecycleLedger(state.decision, ledger) }); }
+export function setWorkspaceDecisionImportError(state, error) { return authorityAfterChange(state, { ...state, decision: setDecisionImportError(state.decision, error) }); }
 export function startWorkspaceNewDecisionLedger(state, createdAt) {
   if (!state.compare.audit) throw new Error('A current comparison audit is required.');
-  return signOffAfterAuthorityChange(state, { ...state, decision: startNewDecisionForAudit(state.decision, state.compare.audit, createdAt) });
+  return authorityAfterChange(state, { ...state, decision: startNewDecisionForAudit(state.decision, state.compare.audit, createdAt) });
 }
 export function setWorkspaceDecisionPreview(state, differenceId, candidateIndex) { return deepFreeze({ ...state, decision: setDecisionPreview(state.decision, differenceId, candidateIndex) }); }
 export function toggleWorkspaceDecisionFilter(state, value) { return deepFreeze({ ...state, decision: toggleDecisionFilter(state.decision, value) }); }
@@ -246,3 +261,14 @@ export function failWorkspaceSignOff(state, error) {
   const signOff = deepFreeze({ ...state.signOff, status: 'FAILED', error: String(error?.message ?? error) });
   return deepFreeze({ ...state, signOff, trustReceipt: reconcileRevisionCompareTrustReceiptState(state.trustReceipt, signOff) });
 }
+export function setWorkspaceTransferSelection(state, selection) { return deepFreeze({ ...state, transfer: setRevisionCompareTransferSelection(state.transfer, selection) }); }
+export function startWorkspaceTransferPlan(state, selection) { return deepFreeze({ ...state, transfer: startRevisionCompareTransferPlanRequest(state.transfer, selection, captureRevisionCompareTransferAuthority(state)) }); }
+export function completeWorkspaceTransferPlan(state, generation, plan) {
+  const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
+  return deepFreeze({ ...state, transfer: completeRevisionCompareTransferPlanRequest(current, generation, plan) });
+}
+export function failWorkspaceTransferPlan(state, generation, error) {
+  const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
+  return deepFreeze({ ...state, transfer: failRevisionCompareTransferPlanRequest(current, generation, error) });
+}
+export function setWorkspaceTransferPolicyVersion(state, policyVersion) { return deepFreeze({ ...state, transfer: setRevisionCompareTransferPolicyVersion(state.transfer, policyVersion) }); }
