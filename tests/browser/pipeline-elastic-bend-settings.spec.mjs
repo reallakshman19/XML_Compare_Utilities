@@ -1,82 +1,157 @@
 import { expect, test } from '@playwright/test';
 
 const FIXTURE = '/tests/browser/pipeline-table-paste-sample-fixture.html';
-
-async function open(page) {
+const selector = (fieldId) => `[data-p3d-config-field="${fieldId}"]`;
+async function open(page, storage = null) {
   const errors = [];
+  await page.addInitScript((stored) => {
+    localStorage.clear();
+    if (stored !== null) localStorage.setItem('pipeline-engineering-configuration-v1', stored);
+  }, storage);
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto(FIXTURE);
   await page.waitForFunction(() => document.body.dataset.pipelineTablePasteSampleReady === '1');
-  await expect(page.locator('[data-p3d-elastic-open]')).toHaveText('Bend Settings');
+  await expect(page.locator('[data-p3d-engineering-config-open]')).toHaveText('Engineering Configuration');
   return errors;
 }
-
-async function configureForFixture(page) {
-  await page.locator('[data-p3d-elastic-open]').click();
-  const settings = page.locator('[data-p3d-elastic-page]');
-  await expect(settings).toBeVisible();
-  await expect(settings).toContainText('Explicit policy, classification and geometry evidence only');
-  await expect(settings).toContainText('Short elements remain in authoritative geometry');
-  await settings.locator('[data-p3d-elastic-field="enabled"]').check();
-  await settings.locator('[data-p3d-elastic-field="emitToInputXml"]').check();
-  await settings.locator('[data-p3d-elastic-field="screeningOnlyAcknowledged"]').check();
-  await settings.locator('[data-p3d-elastic-field="diameterBasisConfirmed"]').check();
-  await settings.locator('[data-p3d-elastic-field="designBasis"]').selectOption('default-metallic');
-  await settings.locator('[data-p3d-elastic-field="standardRadiusMultiplierD"]').fill('1.5');
-  await settings.locator('[data-p3d-elastic-field="maximumTurnAngleDeg"]').fill('179');
-  await settings.locator('[data-p3d-elastic-field="retainedStraightAllowanceMm"]').fill('0');
-  await settings.locator('[data-p3d-elastic-field="preferredStraightTangentMm"]').fill('0');
-  await settings.locator('[data-p3d-elastic-action="preview"]').click();
-  await expect(settings.locator('[data-p3d-elastic-status]')).toContainText('candidate(s)');
-  await expect(settings.locator('[data-p3d-elastic-status]')).toContainText('0 blocking error(s)');
-  await expect(settings.locator('[data-p3d-elastic-result] tbody tr').first()).not.toContainText('No direction-change candidates');
-  return settings;
+async function modal(page) {
+  await page.locator('[data-p3d-engineering-config-open]').click();
+  const dialog = page.locator('[data-p3d-engineering-config]');
+  await expect(dialog).toBeVisible(); return dialog;
 }
-
+async function fill(dialog, fieldId, value) {
+  await dialog.locator(selector(fieldId)).fill(String(value));
+}
+async function choose(dialog, fieldId, value) {
+  await dialog.locator(selector(fieldId)).selectOption(String(value));
+}
+async function setBoolean(dialog, fieldId, value) {
+  const control = dialog.locator(selector(fieldId));
+  if (value) await control.check();
+  else { await control.check(); await control.uncheck(); }
+}
+async function configureBranch(dialog) {
+  for (const [fieldId, value] of Object.entries({ jobName: 'P3D-CORE-050', issueNo: 'A',
+    caesarVersion: '11.00', branchName: 'P3D-TEST', lineNo: 'P3D-TEST',
+    outsideDiameterMm: 100, wallThickness: 6, materialNumber: 106,
+    corrosionAllowance: 0, insulationThickness: 0, insulationDensity: 0,
+    fluidDensity: 100, hydroPressure: 15, pressure1: 10, temperature1: 120 })) {
+    await fill(dialog, fieldId, value);
+  }
+}
+async function configureSection(dialog, profileId, extras = {}) {
+  await fill(dialog, 'section:0:startElementIndex', 0);
+  await choose(dialog, 'section:0:profileId', profileId);
+  await fill(dialog, 'section:0:outsideDiameterMm', 100);
+  for (const [key, value] of Object.entries(extras)) await fill(dialog, `section:0:${key}`, value);
+}
+async function configureGeometry(dialog) {
+  for (const id of ['bendScreeningEnabled', 'emitToInputXml', 'screeningOnlyAcknowledged',
+    'detectHorizontal', 'detectVertical', 'detectCompound', 'emitNearPointNode', 'emitMidpointNode']) {
+    await setBoolean(dialog, id, true);
+  }
+  for (const [fieldId, value] of Object.entries({ minimumPlanTurnAngleDeg: 0.1,
+    minimumProfileTurnAngleDeg: 0.1, maximumTurnAngleDeg: 179,
+    minimumAngleElementLengthMm: 0, retainedStraightAllowanceMm: 0,
+    preferredStraightTangentMm: 0 })) await fill(dialog, fieldId, value);
+  await choose(dialog, 'shortElementAnglePolicy', 'include-all');
+  await choose(dialog, 'bendTypeCode', '0');
+}
+async function validateReady(dialog) {
+  await dialog.locator('[data-p3d-config-action="validate"]').click();
+  await expect(dialog.locator('[data-p3d-config-summary]')).toContainText('Ready');
+  await expect(dialog.locator('[data-p3d-config-action="apply"]')).toBeEnabled();
+}
+async function apply(dialog) {
+  await dialog.locator('[data-p3d-config-action="save"]').click();
+  await dialog.locator('[data-p3d-config-action="apply"]').click();
+  await dialog.locator('[data-p3d-config-action="close"]').click();
+}
 function bendEvidence(xml) {
   return [...String(xml).matchAll(/<BEND RADIUS="([\d.]+)" TYPE="([\d.-]+)"[\s\S]*?NUM_MITER="([\d.-]+)"/g)]
     .map((match) => ({ radius: Number(match[1]), type: Number(match[2]), numMiter: Number(match[3]) }));
 }
 
-test.describe('Pipeline authoritative bend settings', () => {
-  test('P3D-BEND-B01 settings page emits resolved bends with explicit internal nodes', async ({ page }) => {
-    const errors = await open(page);
-    await page.locator('[data-p3d="new-multisheet"]').click();
-    const settings = await configureForFixture(page);
-    await settings.locator('[data-p3d-elastic-action="save"]').click();
-    await settings.locator('[data-p3d-elastic-action="close"]').click();
-
-    const xml = await page.locator('[data-p3d="xml-output"]').textContent();
-    const bends = bendEvidence(xml);
-    expect(bends.length).toBeGreaterThan(0);
-    expect(bends.every((bend) => bend.radius > 0 && bend.type === 0 && bend.numMiter === 0)).toBe(true);
-    expect((String(xml).match(/<PIPINGELEMENT\b/g) || []).length).toBeGreaterThan(bends.length);
-    expect(String(xml)).toMatch(/ANGLE1="0" NODE1="\d+"/);
-    expect(String(xml)).toMatch(/ANGLE2="[\d.]+" NODE2="\d+"/);
-
-    const warningLog = page.locator('[data-p3d-warning-log]');
-    await warningLog.evaluate((element) => { element.open = true; });
-    await expect(warningLog).toContainText('bend_screening_only');
+test.describe('Pipeline Engineering Configuration', () => {
+  test('P3D-CORE-B01 empty configuration remains visible and blocked', async ({ page }) => {
+    const errors = await open(page); const dialog = await modal(page);
+    await expect(dialog.locator('[data-p3d-config-summary]')).toContainText('Blocked');
+    await expect(dialog.locator(selector('section:0:profileId'))).toHaveValue('');
+    await expect(dialog.locator(selector('outsideDiameterMm'))).toHaveValue('');
+    await expect(dialog.locator('[data-p3d-config-action="apply"]')).toBeDisabled();
+    await expect(dialog).not.toContainText('Normal — default');
     expect(errors).toEqual([]);
   });
 
-  test('P3D-BEND-B02 Table 3 marker edits cannot alter InputXML geometry or bends', async ({ page }) => {
-    const errors = await open(page);
-    await page.locator('[data-p3d="new-multisheet"]').click();
-    const settings = await configureForFixture(page);
-    await settings.locator('[data-p3d-elastic-action="save"]').click();
-    await settings.locator('[data-p3d-elastic-action="close"]').click();
-    const beforeXml = await page.locator('[data-p3d="xml-output"]').textContent();
-    expect(bendEvidence(beforeXml).length).toBeGreaterThan(0);
+  test('P3D-CORE-B02 corrupt storage exposes deterministic blocker', async ({ page }) => {
+    const errors = await open(page, '{bad'); const dialog = await modal(page);
+    await expect(dialog.locator('[data-p3d-config-preview]')).toContainText('PIPELINE_CONFIGURATION_STORAGE_INVALID');
+    await expect(dialog.locator('[data-p3d-config-action="apply"]')).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
 
+  test('P3D-CORE-B03 explicit Normal configuration emits bends, artifacts and preserves marker invariance', async ({ page }) => {
+    const errors = await open(page); await page.locator('[data-p3d="new-multisheet"]').click();
+    const dialog = await modal(page); await configureBranch(dialog);
+    await configureSection(dialog, 'normal-metallic'); await configureGeometry(dialog);
+    await choose(dialog, 'normalFittingPolicyId', 'normal-standard-elbow');
+    await fill(dialog, 'normalRadiusD', 1.5); await validateReady(dialog);
+    await expect(dialog.locator('[data-p3d-config-status="corrosionAllowance"]')).toContainText('User-entered');
+    await apply(dialog);
+    await expect.poll(async () => page.locator('[data-p3d="xml-output"]').textContent()).toContain('<PIPINGELEMENT');
+    const beforeXml = await page.locator('[data-p3d="xml-output"]').textContent();
+    const bends = bendEvidence(beforeXml);
+    expect(bends.length).toBeGreaterThan(0);
+    expect(bends.every((bend) => bend.radius > 0 && bend.type === 0 && bend.numMiter === 0)).toBe(true);
+    await expect(page.locator('[data-p3d-core-artifacts]')).toContainText('pipeline-engineering-configuration.json');
+    await expect(page.locator('[data-p3d-core-artifacts]')).toContainText('pipeline-3d-model.xml');
     await page.locator('[data-p3d-raw-text-group="table3"]').evaluate((element) => { element.open = true; });
     const markerCell = page.locator('[data-p3d-split-preview="table3c-raw"] [data-p3d-split-cell="0:1"]');
-    await markerCell.fill('PMS-BEND-RENAMED');
-    await page.locator('[data-p3d="run"]').click();
-    const afterXml = await page.locator('[data-p3d="xml-output"]').textContent();
-    expect(afterXml).toEqual(beforeXml);
-    await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-BEND-RENAMED');
+    await markerCell.fill('PMS-CORE-RENAMED'); await page.locator('[data-p3d="run"]').click();
+    await expect(page.locator('[data-p3d="xml-output"]')).toHaveText(beforeXml);
+    await expect(page.locator('[data-p3d="coordinate-output"]')).toContainText('PMS-CORE-RENAMED');
+    expect(errors).toEqual([]);
+  });
+
+  test('P3D-CORE-B04 explicit B31.4 criteria produce authority without prefilled E or radius', async ({ page }) => {
+    const errors = await open(page); await page.locator('[data-p3d="new-multisheet"]').click();
+    const dialog = await modal(page); await configureBranch(dialog);
+    await configureSection(dialog, 'asme-b31.4', { nominalPipeSizeNps: 6 });
+    await configureGeometry(dialog); await setBoolean(dialog, 'b314ElasticFormulaEnabled', true);
+    await fill(dialog, 'b314YoungsModulusMpa', 207000);
+    await fill(dialog, 'b314AllowableBendingStressMpa', 207);
+    await setBoolean(dialog, 'b314ElasticPracticalEnabled', false);
+    await choose(dialog, 'b314ColdPolicyId', 'b31.4-cold-field-project-radius-d');
+    await fill(dialog, 'b314ProjectRadiusD', 40);
+    await setBoolean(dialog, 'b314ProjectMinimumEnabled', false);
+    await setBoolean(dialog, 'b314QualifiedAlternativeRequested', false);
+    await validateReady(dialog); await apply(dialog);
+    await expect.poll(async () => page.locator('[data-p3d="xml-output"]').textContent()).toContain('<PIPINGELEMENT');
+    await expect(page.locator('[data-p3d-core-artifacts]')).toContainText('pipeline-b314-radius-plan.json');
+    expect(errors).toEqual([]);
+  });
+
+  test('P3D-CORE-B05 qualified GRE evidence remains geometry-blocked without emitting XML', async ({ page }) => {
+    const errors = await open(page); await page.locator('[data-p3d="new-multisheet"]').click();
+    const dialog = await modal(page); await configureBranch(dialog);
+    await configureSection(dialog, 'gre', { greVendorNominalBoreMm: 100 });
+    await configureGeometry(dialog);
+    for (const [fieldId, value] of Object.entries({ greVendorId: 'VENDOR-A',
+      greSeriesId: 'SERIES-100', greQualificationEvidenceId: 'QUAL-1',
+      greRequirementReference: 'REQ-1', greSourceAuthority: 'VENDOR',
+      greSourceReference: 'CATALOG-1', greVendorNominalBoreMm: 100,
+      greBendRadiusMm: 300, greBendBreakMultiplierBore: 1.5,
+      greBendLocalThicknessMm: 12, greTeeBreakLengthMm: 250,
+      greTeeLocalThicknessMm: 14 })) await fill(dialog, fieldId, value);
+    await choose(dialog, 'greBendBreakLengthBasis', 'NOMINAL_BORE_MULTIPLIER');
+    await validateReady(dialog); await apply(dialog);
+    await expect(page.locator('[data-p3d="xml-output"]')).toHaveText('');
+    await expect(page.locator('[data-p3d-core-artifacts]')).toContainText('pipeline-gre-vendor-series-plan.json');
+    await expect(page.locator('[data-p3d-core-artifacts]')).not.toContainText('pipeline-3d-model.xml');
+    const warningLog = page.locator('[data-p3d-warning-log]');
+    await warningLog.evaluate((element) => { element.open = true; });
+    await expect(warningLog).toContainText('PIPELINE_INPUTXML_GRE_BEND_GEOMETRY_REQUIRED');
     expect(errors).toEqual([]);
   });
 });
