@@ -10,8 +10,10 @@ import {
 import {
   REVISION_WORKSPACE_STATE_SCHEMA, failWorkspaceSignOff, setWorkspaceBasis,
   setWorkspaceDecisionLedger, setWorkspacePresentation, setWorkspaceQueueSearch,
-  setWorkspaceReviewSession, setWorkspaceSignOffReport, setWorkspaceViewerBackend,
+  setWorkspaceReviewSession, setWorkspaceSignOffReport, setWorkspaceTransferSelection,
+  setWorkspaceViewerBackend,
 } from '../tabs/revision-compare/revision-workspace-state.js';
+import { createRevisionCompareTransferSelection } from '../tabs/revision-compare/revision-transfer-contracts.js';
 import { canonicalRevisionCompareEvidenceValue, createRevisionCompareEvidencePackage } from '../tabs/revision-compare/revision-evidence-package.js';
 import { sha256Text } from '../tabs/revision-compare/revision-hash.js';
 import { reviewSummary } from '../tabs/revision-compare/revision-review-contracts.js';
@@ -98,7 +100,7 @@ function blocked(value, pattern) {
   assert(result.blockers.some((item) => pattern.test(item)), `${pattern} not found in ${result.blockers.join(' | ')}`);
 }
 
-assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v9');
+assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v10');
 assert.equal(REVISION_COMPARE_SIGN_OFF_STATE_SCHEMA, 'RevisionCompareSignOffState.v1');
 assert.deepEqual(revisionCompareSignOffReadiness(state()), { status: 'READY', blockers: [] });
 blocked(Object.freeze({ ...state(), basisStatus: 'STALE' }), /CURRENT comparison basis/);
@@ -154,6 +156,13 @@ assert.equal(Object.isFrozen(stale.signOff.report), true);
 const changedDecision = Object.freeze({ ...authority.decision.ledger, revision: authority.decision.ledger.revision + 1 });
 stale = setWorkspaceDecisionLedger(setWorkspaceSignOffReport(authority, report), changedDecision); assert.equal(stale.signOff.status, 'STALE');
 stale = setWorkspaceBasis(setWorkspaceSignOffReport(authority, report), Object.freeze({ ...authority.basis, basisId: 'basis:new' })); assert.equal(stale.signOff.status, 'STALE');
+const selection = createRevisionCompareTransferSelection({ selectionRevision: 1, items: [{
+  differenceId: 'difference:review', sourceRecordId: 'source:1', targetRecordId: 'target:1',
+  fields: [{ propertyKey: 'description', revAEvidencePath: '$.description', revBEvidencePath: '$.description', targetFieldPath: '/description' }],
+}] });
+stale = setWorkspaceTransferSelection(setWorkspaceSignOffReport(authority, report), selection);
+assert.equal(stale.signOff.status, 'STALE'); assert.equal(stale.signOff.report, report);
+blocked(stale, /does not cover transfer intent/);
 const failed = failWorkspaceSignOff(setWorkspaceSignOffReport(authority, report), new Error('failure')); assert.equal(failed.signOff.status, 'FAILED'); assert.equal(failed.signOff.report, report);
 const later = await createRevisionCompareSignOffReport(replace(authority, 'review', { session: Object.freeze({ ...authority.review.session, revision: 3 }) }), preflight, { declarantName: 'Lakshman', declarantRole: 'Reviewer' }, '2026-07-21T12:22:33.000Z', webcrypto);
 assert.notEqual(later.reportId, report.reportId); assert.deepEqual(authority.compare.audit, before.compare.audit);

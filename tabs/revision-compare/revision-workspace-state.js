@@ -1,4 +1,4 @@
-/** Immutable workspace state for trusted compare, guided review, decisions and transfer planning. */
+/** Immutable workspace state for trusted compare, guided review, decisions and transfer execution. */
 import { deepFreeze } from './revision-contract-utils.js';
 import { attachProjectDocument, createProjectSession, detachProjectDocument } from './revision-session-contracts.js';
 import { beginRevisionLoad, completeRevisionLoad, completeRevisionScope, createRevisionIntakeState, failRevisionLoad } from './revision-intake-state.js';
@@ -35,8 +35,7 @@ import {
   failRevisionCompareTransferApplyRequest, reconcileRevisionCompareTransferApplyAuthority,
   startRevisionCompareTransferApplyRequest,
 } from './revision-transfer-apply-state.js';
-
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v9';
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v10';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
@@ -45,9 +44,7 @@ export const REVISION_EVIDENCE_PACKAGE_FRESH_WORKSPACE_ERROR = 'Close this works
 export const REVISION_TRUST_REPORT_REQUIRED_ERROR = 'Create or retain a completion report before importing an external signature receipt.';
 export const BASIS_STATUS = Object.freeze({ NONE: 'NONE', CURRENT: 'CURRENT', STALE: 'STALE' });
 function staleStatus(state) { return state.basis ? BASIS_STATUS.STALE : BASIS_STATUS.NONE; }
-function invalidated(state, updatedAt) {
-  return { compare: invalidateComparisonState(state.compare), review: staleReviewLifecycle(state.review, updatedAt), decision: staleDecisionLifecycle(state.decision, updatedAt) };
-}
+function invalidated(state, updatedAt) { return { compare: invalidateComparisonState(state.compare), review: staleReviewLifecycle(state.review, updatedAt), decision: staleDecisionLifecycle(state.decision, updatedAt) }; }
 function signOffAfterAuthorityChange(previous, next) {
   const prior = previous?.signOff ?? createRevisionCompareSignOffState();
   const signOff = prior.report ? staleRevisionCompareSignOffState(prior) : signOffStateForReadiness({ ...next, signOff: prior });
@@ -61,6 +58,7 @@ function transferAfterAuthorityChange(previous, next) {
 function authorityAfterChange(previous, next) {
   return transferAfterAuthorityChange(previous, signOffAfterAuthorityChange(previous, next));
 }
+function transferLifecycleChange(previous, transfer) { return transfer === previous.transfer ? previous : signOffAfterAuthorityChange(previous, deepFreeze({ ...previous, transfer })); }
 export function createRevisionEvidencePackageImportState() {
   return deepFreeze({
     schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IDLE,
@@ -266,29 +264,34 @@ export function failWorkspaceSignOff(state, error) {
   const signOff = deepFreeze({ ...state.signOff, status: 'FAILED', error: String(error?.message ?? error) });
   return deepFreeze({ ...state, signOff, trustReceipt: reconcileRevisionCompareTrustReceiptState(state.trustReceipt, signOff) });
 }
-export function setWorkspaceTransferSelection(state, selection) { return deepFreeze({ ...state, transfer: setRevisionCompareTransferSelection(state.transfer, selection) }); }
-export function startWorkspaceTransferPlan(state, selection) { return deepFreeze({ ...state, transfer: startRevisionCompareTransferPlanRequest(state.transfer, selection, captureRevisionCompareTransferAuthority(state)) }); }
+export function setWorkspaceTransferSelection(state, selection) {
+  return transferLifecycleChange(state, setRevisionCompareTransferSelection(state.transfer, selection));
+}
+export function startWorkspaceTransferPlan(state, selection) {
+  return transferLifecycleChange(state, startRevisionCompareTransferPlanRequest(state.transfer, selection, captureRevisionCompareTransferAuthority(state)));
+}
 export function completeWorkspaceTransferPlan(state, generation, plan) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
-  return deepFreeze({ ...state, transfer: completeRevisionCompareTransferPlanRequest(current, generation, plan) });
+  return transferLifecycleChange(state, completeRevisionCompareTransferPlanRequest(current, generation, plan));
 }
 export function failWorkspaceTransferPlan(state, generation, error) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
-  return deepFreeze({ ...state, transfer: failRevisionCompareTransferPlanRequest(current, generation, error) });
+  return transferLifecycleChange(state, failRevisionCompareTransferPlanRequest(current, generation, error));
 }
-export function setWorkspaceTransferPolicyVersion(state, policyVersion) { return deepFreeze({ ...state, transfer: setRevisionCompareTransferPolicyVersion(state.transfer, policyVersion) }); }
-
+export function setWorkspaceTransferPolicyVersion(state, policyVersion) {
+  return transferLifecycleChange(state, setRevisionCompareTransferPolicyVersion(state.transfer, policyVersion));
+}
 export function startWorkspaceTransferApply(state, createdAt) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
   const workspace = current === state.transfer ? state : deepFreeze({ ...state, transfer: current });
   const authority = captureRevisionCompareTransferApplyAuthority(workspace);
-  return deepFreeze({ ...workspace, transfer: startRevisionCompareTransferApplyRequest(current, authority, createdAt) });
+  return transferLifecycleChange(workspace, startRevisionCompareTransferApplyRequest(current, authority, createdAt));
 }
 export function completeWorkspaceTransferApply(state, generation, application) {
   const current = reconcileRevisionCompareTransferApplyAuthority(state.transfer, state);
-  return deepFreeze({ ...state, transfer: completeRevisionCompareTransferApplyRequest(current, generation, application) });
+  return transferLifecycleChange(state, completeRevisionCompareTransferApplyRequest(current, generation, application));
 }
 export function failWorkspaceTransferApply(state, generation, error) {
   const current = reconcileRevisionCompareTransferApplyAuthority(state.transfer, state);
-  return deepFreeze({ ...state, transfer: failRevisionCompareTransferApplyRequest(current, generation, error) });
+  return transferLifecycleChange(state, failRevisionCompareTransferApplyRequest(current, generation, error));
 }
