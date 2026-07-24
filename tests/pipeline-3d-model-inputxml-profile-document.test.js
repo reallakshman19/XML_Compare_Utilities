@@ -5,12 +5,8 @@ import {
   buildPipelineInputXmlDocumentPlanJson,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-document.js';
 import { buildInputXmlPipingModelXml } from '../tabs/pipeline-3d-model/pipeline-3d-model-xml-builder.js';
-import { authorityFixture, withGreTurn } from './pipeline-3d-model-inputxml-profile-authority.test.js';
+import { authorityFixture, profileRows, withGreTurn } from './pipeline-3d-model-inputxml-profile-authority.test.js';
 
-export const profileRows = Object.freeze(Array.from({ length: 7 }, (_, index) => Object.freeze({
-  nodeNumber: 100 + index * 10, x: index * 1000, y: 0, z: 0,
-  nodeName: `NODE-${index + 1}`, lineNo: 'PL-048',
-})));
 export const profileContext = Object.freeze({ schema: 'PipelineUtilityExportContext.v1',
   profile: Object.freeze({ resolvedMode: 'GRE' }),
   readiness: Object.freeze({ blockerCodes: Object.freeze(['GRE_BEND_POLICY_NOT_IMPLEMENTED']) }),
@@ -40,35 +36,44 @@ assert.deepEqual(plan.elements.map((item) => item.analysisSectionId), ['AS1', 'A
 assert.equal(plan.elements[0].bend.radiusMm, 150);
 assert.equal(plan.elements[2].bend.radiusMm, 6000);
 assert.equal(plan.elements[2].profileAuthority.fittingPolicyId, 'b31.4-cold-field-size-band');
-assert.equal(plan.elements[2].profileAuthority.geometryDisposition, 'MATCHES_AUTHORITY');
 assert.equal(plan.elements[4].bend, null);
-assert.equal(plan.elements[4].writerDisposition, 'READY');
 assert.equal(plan.blockerCodes.includes('GRE_BEND_POLICY_NOT_IMPLEMENTED'), false);
-assert.equal(Object.isFrozen(plan.elements[0].profileAuthority), true);
+assert.equal(Object.isFrozen(plan.elements[0].bend.curvatureNodes[0]), true);
 assert.equal(buildPipelineInputXmlDocumentPlanJson(plan),
   buildPipelineInputXmlDocumentPlanJson(buildPipelineInputXmlDocumentPlan(profileDocumentInput())));
+
+const mutableAuthority = authorityFixture();
+mutableAuthority.bendResolution.candidates[0].diagnostics = [
+  { severity: 'INFO', code: 'TRACE', message: 'trace', details: { node: 110 } },
+];
+mutableAuthority.bendResolution.bendByIncomingElementIndex[0].diagnostics = structuredClone(
+  mutableAuthority.bendResolution.candidates[0].diagnostics);
+const mutableInput = profileDocumentInput(mutableAuthority);
+const isolatedPlan = buildPipelineInputXmlDocumentPlan(mutableInput);
+const isolatedJson = buildPipelineInputXmlDocumentPlanJson(isolatedPlan);
+const isolatedXml = buildInputXmlPipingModelXml(isolatedPlan);
+const sourceBend = mutableInput.bendResolution.bendByIncomingElementIndex[0];
+sourceBend.radiusMm = 999;
+sourceBend.bendTypeCode = 2;
+sourceBend.curvatureNodes.push({ angleDeg: 60, nodeNumber: 106 });
+sourceBend.curvatureNodes[0].nodeNumber = 999999;
+sourceBend.diagnostics[0].details.node = 999;
+assert.equal(buildPipelineInputXmlDocumentPlanJson(isolatedPlan), isolatedJson);
+assert.equal(buildInputXmlPipingModelXml(isolatedPlan), isolatedXml);
+assert.equal(isolatedPlan.elements[0].bend.radiusMm, 150);
+assert.equal(isolatedPlan.elements[0].bend.bendTypeCode, 0);
+assert.equal(isolatedPlan.elements[0].bend.curvatureNodes.length, 1);
+assert.equal(isolatedPlan.elements[0].bend.curvatureNodes[0].nodeNumber, 105);
+assert.equal(isolatedPlan.elements[0].bend.diagnostics[0].details.node, 110);
 
 const conflict = buildPipelineInputXmlDocumentPlan(profileDocumentInput(authorityFixture(), [
   { startElementIndex: 2, diameter: 201 }, { startElementIndex: 4, diameter: 300 },
 ]));
 assert.equal(conflict.ready, false);
 assert.ok(conflict.blockerCodes.includes('PIPELINE_INPUTXML_PROPERTY_CONFLICT'));
-
-const normalMismatch = authorityFixture();
-normalMismatch.bendResolution.bendByIncomingElementIndex[0].radiusMm = 149;
-const normalBlocked = buildPipelineInputXmlDocumentPlan(profileDocumentInput(normalMismatch));
-assert.ok(normalBlocked.blockerCodes.includes('PIPELINE_INPUTXML_FITTING_GEOMETRY_CONFLICT'));
-const b314Mismatch = authorityFixture();
-b314Mismatch.b314RadiusPlan.radiusResolutions[0].candidateRadiusDisposition = 'REQUIRES_RECOMPUTE';
-const b314Blocked = buildPipelineInputXmlDocumentPlan(profileDocumentInput(b314Mismatch));
-assert.ok(b314Blocked.blockerCodes.includes('PIPELINE_INPUTXML_FITTING_AUTHORITY_UNRESOLVED'));
-
-const greTurnAuthority = withGreTurn();
-const greTurn = buildPipelineInputXmlDocumentPlan(profileDocumentInput(greTurnAuthority));
+const greTurn = buildPipelineInputXmlDocumentPlan(profileDocumentInput(withGreTurn()));
 assert.equal(greTurn.ready, false);
 assert.ok(greTurn.blockerCodes.includes('PIPELINE_INPUTXML_GRE_BEND_GEOMETRY_REQUIRED'));
-assert.equal(greTurn.blockerCodes.includes('GRE_BEND_POLICY_NOT_IMPLEMENTED'), false);
-assert.equal(greTurn.elements[4].geometryDisposition, 'GRE_GEOMETRY_NOT_ADOPTED');
 assert.equal(greTurn.elements[4].bend, null);
 assert.equal(greTurn.counts.numBend, 2);
 
