@@ -7,8 +7,20 @@ import { revisionCompareTransferMarkup } from '../tabs/revision-compare/revision
 
 const sourceId = 'record:A:doc:A:$.branches[0].children[0]';
 const targetId = 'record:B:doc:B:$.branches[0].children[0]';
-const sourceEntity = Object.freeze({ entityId: sourceId, canonicalPath: '/branches/0/children/0' });
-const targetEntity = Object.freeze({ entityId: targetId, canonicalPath: '/branches/0/children/0' });
+const sourceEntity = Object.freeze({ entityId: sourceId, canonicalPath: '/branches/0/children/0', entitySha256: 'a'.repeat(64) });
+const targetEntity = Object.freeze({ entityId: targetId, canonicalPath: '/branches/0/children/0', entitySha256: 'b'.repeat(64) });
+const sourceValue = Object.freeze({ branches: Object.freeze([{ children: Object.freeze([Object.freeze({
+  description: '<script>donor</script>', id: 'new-id', supportType: 'GUIDE',
+  attributes: Object.freeze({ DESCRIPTION: 'Nested donor description' }),
+})]) }]) });
+const targetValue = Object.freeze({ branches: Object.freeze([{ children: Object.freeze([Object.freeze({
+  description: 'old', id: 'old-id', supportType: 'STOP',
+})]) }]) });
+const snapshot = (side, documentId, contentSha256, parsedValue, entity) => Object.freeze({
+  schema: 'RevisionCompareJsonDocumentSnapshot.v1', side,
+  sourceDocumentId: documentId, sourceContentSha256: contentSha256,
+  parsedValue, errors: Object.freeze([]), entityIndex: Object.freeze([entity]),
+});
 function property(propertyKey, revAValue, revBValue, target = true) {
   return Object.freeze({
     propertyKey, revAValue, revBValue,
@@ -16,6 +28,10 @@ function property(propertyKey, revAValue, revBValue, target = true) {
     revBEvidencePath: target ? `$.branches[0].children[0].${propertyKey}` : null,
   });
 }
+const missingParentProperty = Object.freeze({
+  propertyKey: 'description', revAValue: 'Nested donor description', revBValue: undefined,
+  revAEvidencePath: '$.branches[0].children[0].attributes.DESCRIPTION', revBEvidencePath: null,
+});
 const rows = Object.freeze([
   Object.freeze({
     differenceId: 'difference:eligible', differenceCategory: 'CHANGED', matchCertainty: 'EXACT',
@@ -23,6 +39,7 @@ const rows = Object.freeze([
     changedProperties: Object.freeze([
       property('description', '<script>donor</script>', 'old'),
       property('id', 'new-id', 'old-id'), property('supportType', 'GUIDE', 'STOP'),
+      missingParentProperty,
     ]),
   }),
   Object.freeze({
@@ -39,8 +56,8 @@ const rows = Object.freeze([
 const state = Object.freeze({
   basisStatus: 'CURRENT',
   slots: Object.freeze({
-    baseline: Object.freeze({ jsonSnapshot: Object.freeze({ entityIndex: Object.freeze([sourceEntity]) }) }),
-    candidate: Object.freeze({ jsonSnapshot: Object.freeze({ entityIndex: Object.freeze([targetEntity]) }) }),
+    baseline: Object.freeze({ jsonSnapshot: snapshot('REV_A', 'doc:A', '1'.repeat(64), sourceValue, sourceEntity) }),
+    candidate: Object.freeze({ jsonSnapshot: snapshot('REV_B', 'doc:B', '2'.repeat(64), targetValue, targetEntity) }),
   }),
   compare: Object.freeze({ audit: Object.freeze({ validation: Object.freeze({ status: 'READY' }), differenceRows: rows }) }),
   review: Object.freeze({ session: Object.freeze({
@@ -62,9 +79,13 @@ const candidates = deriveRevisionCompareTransferCandidates(state);
 assert.equal(Object.isFrozen(candidates), true);
 const eligible = candidates.find((candidate) => candidate.differenceId === 'difference:eligible');
 assert.equal(eligible.eligible, true);
-assert.equal(eligible.fields.find((field) => field.propertyKey === 'description').eligible, true);
+assert.equal(eligible.fields.find((field) => field.targetFieldPath === '/description').eligible, true);
 assert.equal(eligible.fields.find((field) => field.propertyKey === 'id').policy.classification, 'PROTECTED');
 assert.equal(eligible.fields.find((field) => field.propertyKey === 'supportType').policy.classification, 'CONTROLLED');
+const missingParent = eligible.fields.find((field) => field.targetFieldPath === '/attributes/DESCRIPTION');
+assert.equal(missingParent.policy.classification, 'ALLOWED');
+assert.equal(missingParent.eligible, false);
+assert.match(missingParent.blockers.join(' '), /parent path resolves to zero objects/);
 assert.equal(candidates.find((candidate) => candidate.differenceId === 'difference:unreviewed').eligible, false);
 assert.match(candidates.find((candidate) => candidate.differenceId === 'difference:ambiguous').blockers.join(' '), /UNDECIDED|ACCEPTED_CANDIDATE/);
 
@@ -72,7 +93,7 @@ let draft = createRevisionCompareTransferDraft();
 draft = updateRevisionCompareTransferDraft(draft, candidates, { kind: 'PAIR', differenceId: eligible.differenceId, checked: true });
 assert.equal(draft.pairs.length, 1); assert.equal(draft.pairs[0].fieldKeys.length, 0);
 assert.equal(createRevisionCompareTransferSelectionFromDraft(draft, candidates), null, 'pair selection alone is not field intent');
-const description = eligible.fields.find((field) => field.propertyKey === 'description');
+const description = eligible.fields.find((field) => field.targetFieldPath === '/description');
 draft = updateRevisionCompareTransferDraft(draft, candidates, { kind: 'FIELD', differenceId: eligible.differenceId, fieldKey: description.fieldKey, checked: true });
 const selection = createRevisionCompareTransferSelectionFromDraft(draft, candidates);
 assert.equal(selection.schema, 'RevisionCompareTransferSelection.v1');
@@ -91,6 +112,7 @@ for (const selector of [
 assert.match(markup, /Rev A — donor/); assert.match(markup, /Rev B — receiver/);
 assert.match(markup, /Create transfer plan/); assert.match(markup, /Apply transfer plan/);
 assert.doesNotMatch(markup, /<script>donor<\/script>/); assert.match(markup, /&lt;script&gt;donor&lt;\/script&gt;/);
+assert.match(markup, /Target field parent path resolves to zero objects/);
 assert.doesNotMatch(markup, /Import evidence package|Resume archived review evidence/);
 console.log('revision-compare-transfer-workspace.test.mjs passed');
 
