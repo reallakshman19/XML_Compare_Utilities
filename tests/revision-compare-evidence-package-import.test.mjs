@@ -163,7 +163,7 @@ await rejectsTamper(current.artifact, (value) => { value.identity.auditId = 'aud
 await rejectsTamper(current.artifact, (value) => { value.authorityStatus.reviewStatus = 'STALE'; }, /authorityStatus/);
 
 let fresh = createRevisionWorkspaceState('fresh-session', NOW);
-assert.equal(fresh.schema, 'RevisionCompareWorkspaceState.v8');
+assert.equal(fresh.schema, 'RevisionCompareWorkspaceState.v9');
 assert.equal(fresh.evidencePackageImport.schema, 'RevisionEvidencePackageImportState.v1');
 fresh = startWorkspaceEvidencePackageImport(fresh, 1, 'current.json');
 assert.equal(fresh.evidencePackageImport.status, 'IMPORTING');
