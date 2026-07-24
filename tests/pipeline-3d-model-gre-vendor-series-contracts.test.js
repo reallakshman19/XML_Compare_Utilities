@@ -124,6 +124,37 @@ const orphan = createPipelineGreVendorSeriesPlan({ ...planInput,
   elementResolutions: [{ ...elementInput, analysisSectionId: 'AS9' }] });
 assert.equal(orphan.ready, false);
 
+const wrongMigration = createPipelineGreVendorSeriesMigration({
+  sourceKinds: ['EXPLICIT_GLOBAL_GRE_VENDOR_SERIES'], legacyEvidenceObserved: false,
+});
+const migrationMismatch = createPipelineGreVendorSeriesPlan({ ...planInput, migration: wrongMigration });
+assert.equal(migrationMismatch.ready, false);
+assert.ok(migrationMismatch.blockerCodes.includes('PIPELINE_GRE_VENDOR_SOURCE_CONFLICT'));
+const falseLegacy = createPipelineGreVendorSeriesMigration({
+  sourceKinds: ['CONFIRMED_LEGACY_GRE_PLACEHOLDER'], legacyAnalysisSectionIds: ['AS1'],
+  legacyEvidenceObserved: true, legacyGreVendorSeriesBasisConfirmed: true,
+});
+assert.equal(createPipelineGreVendorSeriesPlan({ ...planInput, migration: falseLegacy }).ready, false);
+
+const sectionAtTwo = { ...sectionInput, startElementIndex: 2 };
+const sectionTwoAtZero = { ...sectionInput, analysisSectionId: 'AS2', startElementIndex: 0 };
+const as2Start = { ...elementInput, analysisSectionId: 'AS2' };
+const as2Inherited = { ...as2Start, elementIndex: 1, elementId: 'E2', sectionDisposition: 'INHERITED' };
+const as1StartAtTwo = { ...elementInput, elementIndex: 2, elementId: 'E3' };
+const reversed = createPipelineGreVendorSeriesPlan({ ...planInput, notApplicableAnalysisSectionIds: [],
+  sectionResolutions: [sectionAtTwo, sectionTwoAtZero],
+  elementResolutions: [as2Start, as2Inherited, as1StartAtTwo],
+});
+assert.equal(reversed.ready, false);
+assert.ok(reversed.blockerCodes.includes('PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID'));
+const preStart = createPipelineGreVendorSeriesPlan({ ...planInput, notApplicableAnalysisSectionIds: [],
+  sectionResolutions: [sectionAtTwo], elementResolutions: [
+    { ...elementInput, sectionDisposition: 'INHERITED' }, as1StartAtTwo,
+  ],
+});
+assert.equal(preStart.ready, false);
+assert.ok(preStart.blockerCodes.includes('PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID'));
+
 assert.doesNotThrow(() => createPipelineGreVendorSeriesPlan({ sectionResolutions: [null], elementResolutions: {},
   notApplicableAnalysisSectionIds: [] }));
 assert.equal(createPipelineGreVendorSeriesPlan({ sectionResolutions: [null], elementResolutions: {},
