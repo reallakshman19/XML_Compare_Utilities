@@ -69,7 +69,7 @@ function commonOutput(input, source, profileOutput = {}) {
   const exportContext = resolvePipelineUtilityExportContext({ branchInfo: plan.branchInfo, settings });
   const coordinateRows = buildCoordinateRows(source.combined, exportContext.identity);
   const core = buildPipelineCoreOutputs({ configurationPlan: plan, points: source.combined,
-    coordinateRows, propertySections: input.propertySections || [], exportContext });
+    coordinateRows, propertySections: input.propertySections, exportContext });
   const propertySectionPlan = blockedProperty(core), inputXmlDocumentPlan = blockedDocument(core, propertySectionPlan);
   const inputXmlRows = core.bendResolution?.geometryRows || coordinateRows;
   const exportQualification = qualifyPipelineUtilityExport(exportContext,
@@ -92,12 +92,14 @@ function commonOutput(input, source, profileOutput = {}) {
     elasticBendText: core.bendResolution ? buildElasticBendLedgerText(core.bendResolution) : '',
     xmlText: core.xmlText, warnings: Object.freeze([...source.warnings]),
     errors: core.diagnostics, diagnostics: Object.freeze({
+      ...(profileOutput.profileDiagnostics || {}),
       pipelineMode: exportContext.profile.resolvedMode,
       configurationReady: plan.ready, orchestrationReady: core.ready,
       inputXmlElementCount: inputXmlDocumentPlan.counts?.numElt || 0,
       inputXmlBendCount: inputXmlDocumentPlan.counts?.numBend || 0,
       inputXmlDocumentBlockerCount: inputXmlDocumentPlan.blockerCodes?.length || 0,
       exportInputXmlAllowed: exportQualification.inputXmlAllowed,
+      markerRowsExcludedFromInputXml: core.bendResolution?.diagnostics?.excludedMarkerCount || 0,
     }) });
 }
 export function buildPipelineNativeOutputBundle(input, source, profileOutput = {}) {
@@ -113,9 +115,17 @@ export function buildAuthoritativePipelineOutputs(input) {
     ...buildTable3AnchorEvents(profile, context), ...buildDepthEvents(table3MarkerRules),
     ...buildMarkerEvents(profile, context)];
   const combined = materializeProfileEvents(events, context, gradeRows);
-  assertPlausibleProfileSegments(combined, context.total, context.warnings);
+  const maxSegment = assertPlausibleProfileSegments(combined, context.total, context.warnings);
   return commonOutput(input, { table1Points, sheets, combined, warnings: context.warnings }, {
     table2Text: buildDerivedTable2Text(gradeRows), table3Text: buildDerivedTable3Text(combined),
     table2XText: buildTable2XText(profile), table3XText: buildTable3XText(profile),
+    profileDiagnostics: Object.freeze({ routeLength: context.total,
+      routeStartStation: context.routeStartStation, table3OriginRoute: context.table3OriginRoute,
+      stationSlope: context.stationAlignment.slope,
+      stationResidual: context.stationAlignment.maxResidual, maxSegment,
+      warningCount: context.warnings.length, elevationAuthority: 'TABLE_2',
+      table2Rows: gradeRows.length, table3LengthRows: profile.table3LengthRows.length,
+      table3DepthRows: profile.table3DepthRows.length,
+      table3MarkerRows: profile.table3MarkerRows.length }),
   });
 }
