@@ -176,16 +176,83 @@ export function createPipelineEngineeringConfigurationMigration(input = {}) {
       ? [...new Set(source.rejectedFieldIds.map(text).filter(Boolean))].sort(compare) : []),
   });
 }
+function optionalScalar(value) {
+  if (value === null || value === undefined || value === '') return null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+export function createPipelineEngineeringSectionConfiguration(input = {}) {
+  const source = plain(input) ? input : {};
+  const diagnostics = [...(Array.isArray(source.diagnostics) ? source.diagnostics : [])];
+  const startElementIndex = source.startElementIndex;
+  const outsideDiameterMm = optionalScalar(source.outsideDiameterMm);
+  const nominalPipeSizeNps = optionalScalar(source.nominalPipeSizeNps);
+  const greVendorNominalBoreMm = optionalScalar(source.greVendorNominalBoreMm);
+  if (!/^AS[1-9]\d*$/.test(text(source.analysisSectionId))
+    || !Number.isInteger(startElementIndex) || startElementIndex < 0
+    || !['normal-metallic', 'asme-b31.4', 'gre'].includes(text(source.profileId))) diagnostics.push(
+    createPipelineConfigurationDiagnostic('PIPELINE_CONFIGURATION_SECTION_COVERAGE_INVALID',
+      'Section identity, start and profile must be canonical.', { analysisSectionId: source.analysisSectionId }));
+  if (!(outsideDiameterMm > 0)) diagnostics.push(createPipelineConfigurationDiagnostic(
+    'PIPELINE_CONFIGURATION_DIAMETER_REQUIRED', 'Physical outside diameter is required.',
+    { analysisSectionId: source.analysisSectionId }));
+  const ordered = orderPipelineConfigurationDiagnostics(diagnostics);
+  const blockerCodes = pipelineConfigurationBlockerCodes(ordered);
+  return freeze({ schema: PIPELINE_ENGINEERING_SECTION_CONFIGURATION_SCHEMA,
+    analysisSectionId: text(source.analysisSectionId), startElementIndex,
+    profileId: text(source.profileId), outsideDiameterMm, nominalPipeSizeNps,
+    greVendorNominalBoreMm, sourceAuthority: text(source.sourceAuthority),
+    sourceReference: text(source.sourceReference), boundaryAuthority: text(source.boundaryAuthority),
+    diagnostics: ordered, blockerCodes, ready: blockerCodes.length === 0 });
+}
+export function createPipelineInputXmlBranchConfiguration(input = {}) {
+  const source = plain(input) ? input : {};
+  const diagnostics = [...(Array.isArray(source.diagnostics) ? source.diagnostics : [])];
+  for (const fieldId of ['jobName', 'caesarVersion', 'branchName', 'lineNo']) if (!text(source[fieldId])) {
+    diagnostics.push(createPipelineConfigurationDiagnostic('PIPELINE_CONFIGURATION_FIELD_REQUIRED',
+      'Required branch/InputXML field is missing.', { fieldId }));
+  }
+  const numeric = (key) => optionalScalar(source[key]);
+  const arrays = (key) => freeze(Array.from({ length: 9 }, (_, index) => optionalScalar(source[key]?.[index])));
+  const ordered = orderPipelineConfigurationDiagnostics(diagnostics);
+  const blockerCodes = pipelineConfigurationBlockerCodes(ordered);
+  return freeze({ schema: PIPELINE_INPUTXML_BRANCH_CONFIGURATION_SCHEMA,
+    jobName: text(source.jobName), issueNo: text(source.issueNo), caesarVersion: text(source.caesarVersion),
+    branchName: text(source.branchName), lineNo: text(source.lineNo),
+    outsideDiameterMm: numeric('outsideDiameterMm'), diameter: numeric('outsideDiameterMm'),
+    wallThickness: numeric('wallThickness'), materialNumber: numeric('materialNumber'),
+    corrosionAllowance: numeric('corrosionAllowance'), insulationThickness: numeric('insulationThickness'),
+    insulationDensity: numeric('insulationDensity'), fluidDensity: numeric('fluidDensity'),
+    hydroPressure: numeric('hydroPressure'), temperatures: arrays('temperatures'), pressures: arrays('pressures'),
+    diagnostics: ordered, blockerCodes, ready: blockerCodes.length === 0 });
+}
+export function createPipelineEngineeringConfiguration(input = {}) {
+  const source = plain(input) ? input : {};
+  const draft = createPipelineEngineeringConfigurationDraft(source.draft || {});
+  const plan = createPipelineEngineeringConfigurationPlan(source.plan || {});
+  const diagnostics = orderPipelineConfigurationDiagnostics([
+    ...(Array.isArray(source.diagnostics) ? source.diagnostics : []),
+    ...draft.diagnostics, ...plan.diagnostics,
+  ]);
+  const blockerCodes = pipelineConfigurationBlockerCodes(diagnostics);
+  return freeze({ schema: PIPELINE_ENGINEERING_CONFIGURATION_SCHEMA, draft, plan,
+    diagnostics, blockerCodes, ready: blockerCodes.length === 0 && plan.ready });
+}
 export function createPipelineEngineeringConfigurationPlan(input = {}) {
   const source = plain(input) ? input : {};
-  const diagnostics = orderPipelineConfigurationDiagnostics(Array.isArray(source.diagnostics)
-    ? source.diagnostics : []);
+  const fields = normalizedFields(source.fields);
+  const branchInfo = createPipelineInputXmlBranchConfiguration(source.branchInfo || {});
+  const analysisSections = freeze((Array.isArray(source.analysisSections) ? source.analysisSections : [])
+    .map(createPipelineEngineeringSectionConfiguration));
+  const diagnostics = orderPipelineConfigurationDiagnostics([
+    ...(Array.isArray(source.diagnostics) ? source.diagnostics : []),
+    ...Object.values(fields).flatMap((field) => field.diagnostics),
+    ...branchInfo.diagnostics, ...analysisSections.flatMap((section) => section.diagnostics),
+  ]);
   const blockerCodes = pipelineConfigurationBlockerCodes(diagnostics);
   return freeze({
     schema: PIPELINE_ENGINEERING_CONFIGURATION_PLAN_SCHEMA,
     draftSchema: text(source.draftSchema), migration: source.migration ? freeze(clone(source.migration)) : null,
-    fields: normalizedFields(source.fields), branchInfo: freeze(clone(source.branchInfo || {})),
-    analysisSections: freeze(clone(source.analysisSections || [])),
+    fields, branchInfo, analysisSections,
     diameterSections: freeze(clone(source.diameterSections || [])),
     bendSettings: freeze(clone(source.bendSettings || {})),
     normalFittingPolicy: source.normalFittingPolicy ? freeze(clone(source.normalFittingPolicy)) : null,
