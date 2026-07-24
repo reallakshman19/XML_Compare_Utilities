@@ -30,8 +30,8 @@ function sectionProjection(draft, diagnostics) {
   const profiles = new Set(['normal-metallic', 'asme-b31.4', 'gre']);
   const sections = raw.map((item, index) => ({
     analysisSectionId: `AS${index + 1}`, startElementIndex: Number(item.startElementIndex),
-    profileId: text(item.profileId), sourceAuthority: text(item.sourceAuthority) || 'USER_SETTINGS_UI',
-    sourceReference: text(item.sourceReference) || `engineering-configuration:AS${index + 1}`,
+    profileId: text(item.profileId), sourceAuthority: text(item.sourceAuthority) || 'ENGINEERING_CONFIGURATION',
+    sourceReference: text(item.sourceReference) || `configuration:AS${index + 1}`,
     boundaryAuthority: 'EXPLICIT_START_ELEMENT_INDEX', outsideDiameterMm: optionalNumber(item.outsideDiameterMm),
     nominalPipeSizeNps: optionalNumber(item.nominalPipeSizeNps),
     greVendorNominalBoreMm: optionalNumber(item.greVendorNominalBoreMm),
@@ -84,6 +84,7 @@ function bendProjection(draft, profiles, diagnostics) {
   if (enabled === true) {
     for (const fieldId of ['minimumPlanTurnAngleDeg', 'minimumProfileTurnAngleDeg', 'maximumTurnAngleDeg',
       'shortElementAnglePolicy', 'minimumAngleElementLengthMm', 'retainedStraightAllowanceMm',
+      'detectHorizontal', 'detectVertical', 'detectCompound',
       'preferredStraightTangentMm', 'emitNearPointNode', 'emitMidpointNode', 'bendTypeCode']) {
       value[fieldId] = requiredField(draft, fieldId, diagnostics);
     }
@@ -152,9 +153,12 @@ function greProjection(draft, diagnostics) {
     createPipelineConfigurationDiagnostic('PIPELINE_CONFIGURATION_GRE_VENDOR_REQUIRED'));
   const multiplier = value.bendBreakLengthBasis === 'NOMINAL_BORE_MULTIPLIER';
   const explicit = value.bendBreakLengthBasis === 'EXPLICIT_LENGTH';
-  const derived = value.greVendorNominalBoreMm * value.bendBreakMultiplierBore;
+  const suppliedLength = value.bendBreakLengthMm;
+  const derived = multiplier && value.greVendorNominalBoreMm && value.bendBreakMultiplierBore
+    ? value.greVendorNominalBoreMm * value.bendBreakMultiplierBore : null;
+  if (multiplier && derived) value.bendBreakLengthMm = derived;
   if (!value.bendRadiusMm || !value.bendLocalThicknessMm || (!multiplier && !explicit)
-    || (multiplier && (!value.bendBreakMultiplierBore || value.bendBreakLengthMm !== derived))
+    || (multiplier && (!derived || (suppliedLength !== null && suppliedLength !== derived)))
     || (explicit && (!value.bendBreakLengthMm || value.bendBreakMultiplierBore !== null))) diagnostics.push(
     createPipelineConfigurationDiagnostic('PIPELINE_CONFIGURATION_GRE_BEND_REQUIRED'));
   if (!value.teeBreakLengthMm || !value.teeLocalThicknessMm) diagnostics.push(
