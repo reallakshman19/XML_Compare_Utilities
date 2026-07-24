@@ -2,21 +2,21 @@ import {
   PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
   resolvePipelinePropertySectionPlan,
 } from './pipeline-3d-model-property-sections.js?v=20260722-p3d-property-sections-1';
-
+import {
+  buildPipelineInputXmlProfileAuthorityPlan,
+  PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
+} from './pipeline-3d-model-inputxml-profile-authority.js';
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
 export const PIPELINE_CANONICAL_NAMESPACE = 'COADE';
 export const PIPELINE_EXTENSION_NAMESPACE = 'urn:reallaksh19:inputxml:extension:v1';
-
 export const DEFAULT_PIPELINE_INPUTXML_METADATA = Object.freeze({
   caesarVersion: '11.00', jobName: 'PIPELINE_3D_MODEL', issueNo: '',
   northX: 0, northY: 1, northZ: 0,
 });
-
 function text(value) {
   return String(value ?? '').trim();
 }
-
 function branchInfoFrom(input = {}) {
   if (input?.schema === 'PipelineUtilityExportContext.v1') return input.branchInfo || {};
   if (input?.exportContext?.schema === 'PipelineUtilityExportContext.v1') {
@@ -24,13 +24,11 @@ function branchInfoFrom(input = {}) {
   }
   return input?.branchInfo || input || {};
 }
-
 function diagnostic(code, message, details = {}) {
   return Object.freeze({
     severity: 'BLOCKING', code, message, details: Object.freeze({ ...details }),
   });
 }
-
 function normalizedMetadata(branchInfo) {
   const defaults = DEFAULT_PIPELINE_INPUTXML_METADATA;
   return Object.freeze({
@@ -41,18 +39,15 @@ function normalizedMetadata(branchInfo) {
     northX: defaults.northX, northY: defaults.northY, northZ: defaults.northZ,
   });
 }
-
 function nodePairValid(fromRow, toRow) {
   const from = Number(fromRow?.nodeNumber);
   const to = Number(toRow?.nodeNumber);
   return Number.isInteger(from) && from > 0
     && Number.isInteger(to) && to > 0 && from !== to;
 }
-
 function coordinateValues(row) {
   return [Number(row?.x), Number(row?.y), Number(row?.z)];
 }
-
 function elementDiagnostics(fromRow, toRow, index) {
   const messages = [];
   if (!nodePairValid(fromRow, toRow)) {
@@ -81,11 +76,9 @@ function elementDiagnostics(fromRow, toRow, index) {
   }
   return messages;
 }
-
 function bendForIndex(bendResolution, index) {
   return bendResolution?.bendByIncomingElementIndex?.[index] || null;
 }
-
 function buildElement(fromRow, toRow, index, lineNo, propertyResolution, bendResolution) {
   const [fromX, fromY, fromZ] = coordinateValues(fromRow);
   const [toX, toY, toZ] = coordinateValues(toRow);
@@ -110,7 +103,6 @@ function buildElement(fromRow, toRow, index, lineNo, propertyResolution, bendRes
     diagnostics: Object.freeze(elementDiagnostics(fromRow, toRow, index)),
   });
 }
-
 function globalDiagnostics(branchInfo, coordinateRows) {
   const messages = [];
   if (coordinateRows.length < 2) messages.push(diagnostic(
@@ -122,7 +114,6 @@ function globalDiagnostics(branchInfo, coordinateRows) {
   ));
   return messages;
 }
-
 function contextDiagnostics(exportContext) {
   return (exportContext?.readiness?.blockerCodes || []).map((code) => diagnostic(
     text(code) || 'PIPELINE_EXPORT_CONTEXT_BLOCKED',
@@ -132,7 +123,6 @@ function contextDiagnostics(exportContext) {
     { resolvedMode: text(exportContext?.profile?.resolvedMode) },
   ));
 }
-
 function bendDiagnostics(bendResolution) {
   return (bendResolution?.errors || []).map((item) => diagnostic(
     text(item?.code) || 'BEND_GEOMETRY_BLOCKED',
@@ -140,7 +130,6 @@ function bendDiagnostics(bendResolution) {
     item?.details || {},
   ));
 }
-
 function uniqueDiagnostics(items) {
   const keys = new Set();
   return items.filter((item) => {
@@ -150,11 +139,9 @@ function uniqueDiagnostics(items) {
     return true;
   });
 }
-
 function uniqueCodes(diagnostics) {
   return Object.freeze([...new Set(diagnostics.map((item) => item.code))]);
 }
-
 function modelCounts(elements) {
   return Object.freeze({
     numElt: elements.length, numNoz: 0, noHgrs: 0,
@@ -163,14 +150,113 @@ function modelCounts(elements) {
     numUnfLoad: 0, numWind: 0, numEleOff: 0, numAllow: 0, numISect: 0,
   });
 }
-
+function profileAuthorityAuthenticated(plan) {
+  if (plan?.schema !== PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA) return false;
+  const invalid = new Set([
+    'PIPELINE_INPUTXML_AUTHORITY_INPUT_INVALID', 'PIPELINE_INPUTXML_AUTHORITY_SCHEMA_INVALID',
+    'PIPELINE_INPUTXML_AUTHORITY_OWNERSHIP_INVALID', 'PIPELINE_INPUTXML_AUTHORITY_COVERAGE_INVALID',
+    'PIPELINE_INPUTXML_DIAMETER_CONFLICT', 'PIPELINE_INPUTXML_PROPERTY_CONFLICT',
+  ]);
+  return !(plan.blockerCodes || []).some((code) => invalid.has(code));
+}
+function profileElement(element, authority, bendResolution) {
+  const matched = authority?.geometryDisposition === 'MATCHES_AUTHORITY'
+    && authority?.writerDisposition === 'READY';
+  const currentBend = matched ? bendForIndex(bendResolution, element.index) : null;
+  const bend = currentBend ? Object.freeze({
+    ...currentBend, radiusMm: authority.governingRadiusMm,
+    fittingThicknessMm: authority.fittingThicknessMm,
+  }) : null;
+  const emittedProperties = Object.freeze({
+    ...element.emittedProperties, diameter: authority?.caesarDiameterMm ?? null,
+  });
+  return Object.freeze({
+    ...element,
+    emittedProperties,
+    bend,
+    analysisSectionId: authority?.analysisSectionId || '',
+    profileId: authority?.profileId || '',
+    resolvedMode: authority?.resolvedMode || '',
+    caesarDiameterMm: authority?.caesarDiameterMm ?? null,
+    diameterSourceKind: authority?.diameterSourceKind || '',
+    fittingCandidateId: authority?.fittingCandidateId || '',
+    fittingAuthorityKind: authority?.fittingAuthorityKind || '',
+    fittingPolicyId: authority?.fittingPolicyId || '',
+    governingRadiusMm: authority?.governingRadiusMm ?? null,
+    fittingThicknessMm: authority?.fittingThicknessMm ?? null,
+    geometryDisposition: authority?.geometryDisposition || 'NOT_A_TURN',
+    writerDisposition: authority?.writerDisposition || 'BLOCKED',
+    profileAuthority: authority || null,
+    diagnostics: Object.freeze([
+      ...element.diagnostics,
+      ...(authority?.diagnostics || []),
+    ]),
+  });
+}
+function profileDocumentPlan({
+  exportContext, coordinateRows, bendResolution, propertySectionPlan,
+  profileAuthorityPlans, branchInfo, lineNo,
+}) {
+  const profileAuthorityPlan = buildPipelineInputXmlProfileAuthorityPlan({
+    ...(profileAuthorityPlans || {}), bendResolution, propertySectionPlan,
+  });
+  const baseElements = coordinateRows.slice(1).map((toRow, index) => buildElement(
+    coordinateRows[index], toRow, index, lineNo,
+    propertySectionPlan.elements[index], bendResolution,
+  ));
+  const elements = Object.freeze(baseElements.map((element, index) =>
+    profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
+  const replaceGreBlocker = profileAuthorityAuthenticated(profileAuthorityPlan);
+  const context = contextDiagnostics(exportContext).filter((item) =>
+    !(replaceGreBlocker && item.code === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'));
+  const propertyDiagnostics = propertySectionPlan.diagnostics.filter((item) =>
+    item.code !== 'PIPELINE_DIAMETER_REQUIRED');
+  const diagnostics = Object.freeze(uniqueDiagnostics([
+    ...profileAuthorityPlan.diagnostics,
+    ...context,
+    ...globalDiagnostics(branchInfo, coordinateRows),
+    ...propertyDiagnostics,
+    ...elements.flatMap((element) => element.diagnostics),
+    ...bendDiagnostics(bendResolution),
+  ]));
+  const metadata = normalizedMetadata(branchInfo);
+  return Object.freeze({
+    schema: PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
+    namespace: PIPELINE_CANONICAL_NAMESPACE,
+    extensionNamespace: PIPELINE_EXTENSION_NAMESPACE,
+    xmlType: 'Input',
+    version: metadata.caesarVersion,
+    metadata,
+    counts: modelCounts(elements),
+    propertySectionPlan,
+    propertySectionPlanSchema: PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
+    profileAuthorityPlan,
+    profileAuthorityPlanSchema: PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
+    analysisSectionPlanSchema: profileAuthorityPlan.analysisSectionPlanSchema,
+    analysisDiameterPlanSchema: profileAuthorityPlan.analysisDiameterPlanSchema,
+    normalFittingPlanSchema: profileAuthorityPlan.normalFittingPlanSchema,
+    b314RadiusPlanSchema: profileAuthorityPlan.b314RadiusPlanSchema,
+    greVendorSeriesPlanSchema: profileAuthorityPlan.greVendorSeriesPlanSchema,
+    bendResolutionSchema: profileAuthorityPlan.bendResolutionSchema,
+    elements,
+    diagnostics,
+    blockerCodes: uniqueCodes(diagnostics),
+    ready: diagnostics.length === 0,
+    resolvedMode: text(exportContext?.profile?.resolvedMode),
+  });
+}
 export function buildPipelineInputXmlDocumentPlan({
   exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
+  profileAuthorityPlans,
 } = {}) {
   const branchInfo = branchInfoFrom(exportContext);
   const lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
     branchInfo, coordinateRows, propertySections,
+  });
+  if (profileAuthorityPlans !== undefined) return profileDocumentPlan({
+    exportContext, coordinateRows, bendResolution, propertySectionPlan,
+    profileAuthorityPlans, branchInfo, lineNo,
   });
   const elements = Object.freeze(coordinateRows.slice(1).map((toRow, index) =>
     buildElement(
@@ -202,7 +288,6 @@ export function buildPipelineInputXmlDocumentPlan({
     resolvedMode: text(exportContext?.profile?.resolvedMode),
   });
 }
-
 export function buildPipelineInputXmlDocumentPlanJson(plan) {
   return JSON.stringify(plan, null, 2);
 }

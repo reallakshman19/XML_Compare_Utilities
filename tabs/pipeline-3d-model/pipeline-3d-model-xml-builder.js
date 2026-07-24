@@ -172,9 +172,36 @@ function resolvedPlan(input, coordinateRows, bendResolution) {
   });
 }
 
+function profileWriterDiagnostic(plan) {
+  if (!plan.profileAuthorityPlan) return null;
+  if (plan.profileAuthorityPlan.schema !== 'PipelineInputXmlProfileAuthorityPlan.v1'
+    || plan.profileAuthorityPlan.ready !== true) return {
+    code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
+    message: 'Profile-aware InputXML authority plan is not writer-ready.', details: {},
+  };
+  const authorities = plan.profileAuthorityPlan.elementAuthorities;
+  const invalid = !Array.isArray(authorities) || authorities.length !== plan.elements.length
+    || plan.elements.some((element, index) => {
+      const authority = authorities[index];
+      if (authority?.writerDisposition !== 'READY' || JSON.stringify(element.profileAuthority) !== JSON.stringify(authority)
+        || element.id !== authority.elementId || element.index !== authority.elementIndex
+        || element.caesarDiameterMm !== authority.caesarDiameterMm
+        || element.emittedProperties?.diameter !== authority.caesarDiameterMm) return true;
+      if (authority.geometryDisposition === 'MATCHES_AUTHORITY') return !element.bend
+        || Number(element.bend.radiusMm) !== Number(authority.governingRadiusMm)
+        || (element.bend.fittingThicknessMm ?? null) !== (authority.fittingThicknessMm ?? null);
+      return authority.geometryDisposition !== 'NOT_A_TURN' || element.bend != null;
+    });
+  return invalid ? {
+    code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
+    message: 'Profile-aware document authority does not match writer input.', details: {},
+  } : null;
+}
+
 function assertDocumentReady(plan) {
-  if (plan.ready) return;
-  const first = plan.diagnostics?.[0];
+  const writerDiagnostic = profileWriterDiagnostic(plan);
+  if (plan.ready && !writerDiagnostic) return;
+  const first = plan.diagnostics?.[0] || writerDiagnostic;
   const error = new Error(first?.message || 'Canonical InputXML document planning failed.');
   error.code = first?.code || 'PIPELINE_INPUTXML_DOCUMENT_BLOCKED';
   error.details = first?.details || {};
