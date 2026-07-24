@@ -62,7 +62,8 @@ function readinessErrors(state) {
   if (activeSourceLoad(state)) errors.push('Wait for active revision source loading to finish.');
   if (activeComparison(state)) errors.push('Wait for the active comparison run to finish.');
   if (state?.evidencePackageImport?.status === 'IMPORTING') errors.push('Wait for evidence-package import verification to finish.');
-  if (state?.transfer?.selection || state?.transfer?.plan || ['APPLYING', 'APPLIED', 'STALE'].includes(state?.transfer?.status)) {
+  if (state?.transferReview?.draft?.pairs?.length || state?.transfer?.selection || state?.transfer?.plan
+      || ['APPLYING', 'APPLIED', 'STALE'].includes(state?.transfer?.status)) {
     errors.push('Completion declaration does not cover transfer intent, plans, or patched target output; use the retained transfer result and proof.');
   }
   return errors;
