@@ -74,16 +74,14 @@ function bendEvidence(xml) {
 }
 
 test.describe('Pipeline Engineering Configuration', () => {
-  test('P3D-CORE-B01 empty and corrupt storage remain visible and blocked', async ({ page }) => {
+  test('P3D-CORE-B01 empty configuration remains visible and blocked', async ({ page }) => {
     const errors = await open(page); const dialog = await modal(page);
     await expect(dialog.locator('[data-p3d-config-summary]')).toContainText('Blocked');
-    await expect(dialog.locator(selector('profileId'))).toHaveValue('');
+    await expect(dialog.locator(selector('section:0:profileId'))).toHaveValue('');
     await expect(dialog.locator(selector('outsideDiameterMm'))).toHaveValue('');
     await expect(dialog.locator('[data-p3d-config-action="apply"]')).toBeDisabled();
     await expect(dialog).not.toContainText('Normal — default');
     expect(errors).toEqual([]);
-    await page.reload();
-    await page.addInitScript(() => localStorage.setItem('pipeline-engineering-configuration-v1', '{bad'));
   });
 
   test('P3D-CORE-B02 corrupt storage exposes deterministic blocker', async ({ page }) => {
