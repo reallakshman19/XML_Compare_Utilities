@@ -1,10 +1,12 @@
-/** Two-slot worker-backed intake service with approved-scope compare projection. */
+/** Two-slot worker-backed intake service with lossless transfer snapshots and compare projection. */
 import { createProjectDocument, REVISION_SLOT_IDS } from './revision-session-contracts.js';
 import { createRevisionWorkerClient } from './revision-intake-worker-client.js';
+import { createRevisionCompareJsonDocumentSnapshot } from './revision-json-document.js';
 import { sha256Bytes, sha256Text } from './revision-hash.js';
 import { cleanText, deepFreeze, frozenStrings } from './revision-contract-utils.js';
 
 const SLOT_ROLES = Object.freeze({ baseline: 'REFERENCE', candidate: 'CANDIDATE' });
+const SNAPSHOT_SIDES = Object.freeze({ baseline: 'REV_A', candidate: 'REV_B' });
 export class RevisionRequestSupersededError extends Error {
   constructor(slotId) { super(`${slotId} revision request was superseded.`); this.name = 'RevisionRequestSupersededError'; this.code = 'REVISION_REQUEST_SUPERSEDED'; }
 }
@@ -26,6 +28,10 @@ function normalizeScope(scope) { return deepFreeze({ wildcard: cleanText(scope?.
 function decodeJsonBytes(bytes) {
   try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
   catch { throw new TypeError('Revision input must be valid UTF-8 staged JSON.'); }
+}
+function parseLosslessJson(text) {
+  try { return JSON.parse(text); }
+  catch (error) { throw new TypeError(`Revision input must be valid staged JSON: ${error.message}`); }
 }
 function beginRequest(context, slotId) {
   assertSlot(slotId); if (context.disposed) throw new Error('Revision load service is disposed.');
@@ -50,16 +56,25 @@ function sourceRecord(generation, fileName, fileSizeBytes, sourceHash, parsed) {
   const summary = branchSummary(parsed.branchIndex);
   return deepFreeze({ generation, fileName, fileSizeBytes, sourceHash, rootShape: parsed.rootShape, metadata: parsed.metadata, branchTree: parsed.branchTree, branchIndex: parsed.branchIndex, branchIndexSummary: summary });
 }
+async function losslessSnapshot(context, slotId, source, document, parsedValue) {
+  const snapshot = await createRevisionCompareJsonDocumentSnapshot({
+    side: SNAPSHOT_SIDES[slotId], sourceDocumentId: document.documentId, sourceContentSha256: source.sourceHash,
+    fileName: source.fileName, profile: source.metadata.stagedSchema, parsedValue,
+  }, context.cryptoRef);
+  assertCurrent(context, slotId, source.generation); return snapshot;
+}
 async function loadBytes(context, slotId, fileName, bytesValue, now, suppliedGeneration) {
   assertSlot(slotId); const generation = suppliedGeneration ?? beginRequest(context, slotId);
   const bytes = bytesValue instanceof Uint8Array ? bytesValue : new Uint8Array(bytesValue);
   if (!bytes.length) throw new TypeError(`${slotId} revision file is empty.`);
   const sourceHash = await sha256Bytes(bytes, context.cryptoRef); assertCurrent(context, slotId, generation);
-  const parsed = await context.clients.get(slotId).parse(decodeJsonBytes(bytes), sourceHash); assertCurrent(context, slotId, generation);
+  const text = decodeJsonBytes(bytes); const parsedValue = parseLosslessJson(text);
+  const parsed = await context.clients.get(slotId).parse(text, sourceHash); assertCurrent(context, slotId, generation);
   const source = sourceRecord(generation, cleanText(fileName) || `${slotId}.json`, bytes.byteLength, sourceHash, parsed); context.sources.set(slotId, source);
   const filtered = await context.clients.get(slotId).filter({ selectedIds: [] }); assertCurrent(context, slotId, generation);
   const document = await buildDocument(context, slotId, source, filtered, normalizeScope({}), now);
-  return deepFreeze({ generation, document, branchTree: source.branchTree, branchIndex: source.branchIndex, branchIndexSummary: source.branchIndexSummary, scopeResult: scopeResult(document, filtered), warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [] });
+  const jsonSnapshot = await losslessSnapshot(context, slotId, source, document, parsedValue);
+  return deepFreeze({ generation, document, jsonSnapshot, branchTree: source.branchTree, branchIndex: source.branchIndex, branchIndexSummary: source.branchIndexSummary, scopeResult: scopeResult(document, filtered), warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [] });
 }
 async function applyScope(context, slotId, requestedScope, now) {
   assertSlot(slotId); const source = context.sources.get(slotId);

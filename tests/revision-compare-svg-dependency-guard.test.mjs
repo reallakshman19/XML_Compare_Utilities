@@ -148,7 +148,7 @@ assert.doesNotMatch(importSource, /eval\s*\(|new Function|Function\s*\(|DOMParse
 assert.doesNotMatch(importSource, /revision-load-service|revision-compare-service|revision-compare-worker|createRevisionCompareAudit|projectCompareRecords|matchBoundedCandidates/);
 assert.doesNotMatch(importSource, /source-document|rawUploadedBytes|fileHandle|arrayBuffer\(|createObjectURL|Blob|path\.resolve|readFile\(/);
 assert.doesNotMatch(importSource, /package (?:is )?(?:authenticated|signed|approved|certified|final|trusted)/i);
-assert.match(stateSource, /RevisionCompareWorkspaceState\.v6/);
+assert.match(stateSource, /RevisionCompareWorkspaceState\.v8/);
 assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
 assert.match(stateSource, /RevisionCompareSignOffState\.v1/);
 assert.match(workspaceSource, /data-revc-evidence-package-import/);
@@ -178,5 +178,46 @@ for (const selector of [
 assert.match(workspaceSource, /createRevisionCompareSignOffReport/);
 assert.match(workspaceSource, /revisionCompareSignOffAuthorityMatches/);
 assert.match(workspaceSource, /setWorkspaceSignOffReport/);
+
+const transferPaths = [
+  'tabs/revision-compare/revision-json-document.js',
+  'tabs/revision-compare/revision-transfer-contracts.js',
+  'tabs/revision-compare/revision-transfer-policy.js',
+  'tabs/revision-compare/revision-transfer-address.js',
+  'tabs/revision-compare/revision-transfer-plan.js',
+];
+for (const path of transferPaths) {
+  const source = await readFile(path, 'utf8');
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
+  assert.doesNotMatch(source, /xml-compare\/|tabs\/xml-compare-tab|createObjectURL|Blob|File\b|DOMParser|document\.|window\.|renderer|THREE/);
+  assert.doesNotMatch(source, /applyTransfer|patched JSON|transfer result|transfer audit|transfer proof|transfer manifest|download/i);
+}
+const jsonDocumentSource = await readFile(transferPaths[0], 'utf8');
+const transferContractsSource = await readFile(transferPaths[1], 'utf8');
+const transferPolicySource = await readFile(transferPaths[2], 'utf8');
+const transferAddressSource = await readFile(transferPaths[3], 'utf8');
+const transferPlanSource = await readFile(transferPaths[4], 'utf8');
+const intakeSource = await readFile('tabs/revision-compare/revision-intake-state.js', 'utf8');
+const loadSource = await readFile('tabs/revision-compare/revision-load-service.js', 'utf8');
+assert.match(jsonDocumentSource, /RevisionCompareJsonDocumentSnapshot\.v1/);
+assert.match(transferContractsSource, /RevisionCompareTransferSelection\.v1/);
+assert.match(transferContractsSource, /RevisionCompareTransferOperation\.v1/);
+assert.match(transferContractsSource, /RevisionCompareTransferPlan\.v1/);
+assert.match(transferContractsSource, /RevisionCompareTransferState\.v1/);
+assert.match(transferPolicySource, /revision-transfer-field-policy\.v1/);
+assert.match(transferAddressSource, /Target entity address resolves to zero entities/);
+assert.match(transferAddressSource, /Target entity address resolves to multiple entities/);
+assert.match(transferPlanSource, /revision-transfer-plan:/);
+assert.match(transferPlanSource, /REV_A_TO_REV_B/);
+assert.match(loadSource, /createRevisionCompareJsonDocumentSnapshot/);
+assert.match(intakeSource, /jsonSnapshot/);
+assert.match(stateSource, /transfer:\s*createRevisionCompareTransferState\(\)/);
+assert.match(stateSource, /function authorityAfterChange/);
+assert.match(stateSource, /setWorkspaceReviewSession.*authorityAfterChange/);
+assert.match(stateSource, /setWorkspaceDecisionLedger.*authorityAfterChange/);
+assert.match(stateSource, /startWorkspaceLoad.*authorityAfterChange/s);
+assert.match(stateSource, /setWorkspacePresentation\(state, mode\).*deepFreeze/s);
+assert.doesNotMatch(stateSource.match(/export function setWorkspacePresentation[^\n]+/)?.[0] ?? '', /authorityAfterChange/);
 
 console.log('revision-compare-svg-dependency-guard.test.mjs passed');
