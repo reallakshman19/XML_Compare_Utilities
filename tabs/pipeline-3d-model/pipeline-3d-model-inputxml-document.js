@@ -114,17 +114,13 @@ function globalDiagnostics(branchInfo, coordinateRows) {
   return messages;
 }
 function contextDiagnostics(exportContext) {
-  return (exportContext?.readiness?.blockerCodes || []).map((code) => {
-    const value = text(code) === 'GRE_BEND_POLICY_NOT_IMPLEMEMTED'
-      ? 'GRE_BEND_POLICY_NOT_IMPLEMENTED' : text(code);
-    return diagnostic(
-      value || 'PIPELINE_EXPORT_CONTEXT_BLOCKED',
-      value === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'
-        ? 'GRE fitting emission requires the future independent resolver.'
-        : 'The resolved Pipeline export context blocks canonical InputXML.',
-      { resolvedMode: text(exportContext?.profile?.resolvedMode) },
-    );
-  });
+  return (exportContext?.readiness?.blockerCodes || []).map((code) => diagnostic(
+    text(code) || 'PIPELINE_EXPORT_CONTEXT_BLOCKED',
+    code === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'
+      ? 'GRE fitting emission requires the future independent resolver.'
+      : 'The resolved Pipeline export context blocks canonical InputXML.',
+    { resolvedMode: text(exportContext?.profile?.resolvedMode) },
+  ));
 }
 function bendDiagnostics(bendResolution) {
   return (bendResolution?.errors || []).map((item) => diagnostic(
@@ -211,8 +207,11 @@ function profileDocumentPlan({
   const elements = Object.freeze(baseElements.map((element, index) =>
     profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
   const replaceGreBlocker = profileAuthorityAuthenticated(profileAuthorityPlan);
+  const replaceableGreCodes = new Set([
+    'GRE_BEND_POLICY_NOT_IMPLEMENTED', 'GRE_BEND_POLICY_NOT_IMPLEMEMTED',
+  ]);
   const context = contextDiagnostics(exportContext).filter((item) =>
-    !(replaceGreBlocker && item.code === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'));
+    !(replaceGreBlocker && replaceableGreCodes.has(item.code)));
   const propertyDiagnostics = propertySectionPlan.diagnostics.filter((item) =>
     item.code !== 'PIPELINE_DIAMETER_REQUIRED');
   const diagnostics = deepFreeze(deepClone(uniqueDiagnostics([
