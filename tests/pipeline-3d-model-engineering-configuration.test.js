@@ -50,6 +50,9 @@ const confirmed = confirmPipelineEngineeringConfigurationFields(migrated, ['prof
 assert.equal(confirmed.fields.profileId.state, 'CONFIRMED');
 assert.equal(confirmed.fields.profileId.value, 'normal-metallic');
 const rejected = rejectPipelineEngineeringConfigurationFields(migrated, ['normalRadiusD']);
-assert.equal(rejected.fields.normalRadiusD.state, 'UNSET');
+assert.equal(rejected.fields.normalRadiusD.state, 'NOT_APPLICABLE');
+assert.equal(rejected.fields.normalRadiusD.value, null);
+assert.equal(rejected.fields.normalRadiusD.originalLegacyValue, 1.5);
+assert.equal(rejected.fields.normalRadiusD.originalStorageKey, 'pipeline-3d-model-bend-settings-v3');
 assert.equal(rejected.legacyRejectedFields.includes('normalRadiusD'), true);
 console.log('pipeline-3d-model engineering configuration: PASS');
