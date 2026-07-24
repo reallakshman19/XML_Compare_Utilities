@@ -75,6 +75,7 @@ function commonOutput(input, source, profileOutput = {}) {
   const exportQualification = qualifyPipelineUtilityExport(exportContext,
     inputXmlRows, core.bendResolution, inputXmlDocumentPlan);
   appendDiagnostics(source.warnings, core);
+  const bendDiagnostics = core.bendResolution?.diagnostics || {};
   return Object.freeze({ ...source, ...profileOutput, coordinateRows,
     identity: exportContext.identity,
     identityText: buildPipelineIdentityLedgerText(exportContext.identity, coordinateRows),
@@ -93,13 +94,20 @@ function commonOutput(input, source, profileOutput = {}) {
     xmlText: core.xmlText, warnings: Object.freeze([...source.warnings]),
     errors: core.diagnostics, diagnostics: Object.freeze({
       ...(profileOutput.profileDiagnostics || {}),
+      warningCount: source.warnings.length,
       pipelineMode: exportContext.profile.resolvedMode,
       configurationReady: plan.ready, orchestrationReady: core.ready,
+      inputXmlDocumentSchema: inputXmlDocumentPlan.schema,
       inputXmlElementCount: inputXmlDocumentPlan.counts?.numElt || 0,
       inputXmlBendCount: inputXmlDocumentPlan.counts?.numBend || 0,
+      propertySectionCount: propertySectionPlan.sectionCount || 0,
       inputXmlDocumentBlockerCount: inputXmlDocumentPlan.blockerCodes?.length || 0,
       exportInputXmlAllowed: exportQualification.inputXmlAllowed,
-      markerRowsExcludedFromInputXml: core.bendResolution?.diagnostics?.excludedMarkerCount || 0,
+      elasticBendCandidates: bendDiagnostics.candidateCount || 0,
+      elasticBendsEmitted: bendDiagnostics.emittedCount || 0,
+      bendBlockingErrors: bendDiagnostics.blockedCount || 0,
+      sharedBendSegmentFailures: bendDiagnostics.sharedSegmentFailureCount || 0,
+      markerRowsExcludedFromInputXml: bendDiagnostics.excludedMarkerCount || 0,
     }) });
 }
 export function buildPipelineNativeOutputBundle(input, source, profileOutput = {}) {
@@ -123,8 +131,8 @@ export function buildAuthoritativePipelineOutputs(input) {
       routeStartStation: context.routeStartStation, table3OriginRoute: context.table3OriginRoute,
       stationSlope: context.stationAlignment.slope,
       stationResidual: context.stationAlignment.maxResidual, maxSegment,
-      warningCount: context.warnings.length, elevationAuthority: 'TABLE_2',
-      table2Rows: gradeRows.length, table3LengthRows: profile.table3LengthRows.length,
+      elevationAuthority: 'TABLE_2', table2Rows: gradeRows.length,
+      table3LengthRows: profile.table3LengthRows.length,
       table3DepthRows: profile.table3DepthRows.length,
       table3MarkerRows: profile.table3MarkerRows.length }),
   });
