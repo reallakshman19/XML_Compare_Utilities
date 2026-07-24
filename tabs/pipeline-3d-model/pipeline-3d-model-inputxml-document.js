@@ -6,6 +6,7 @@ import {
   buildPipelineInputXmlProfileAuthorityPlan,
   PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
 } from './pipeline-3d-model-inputxml-profile-authority.js';
+
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
 export const PIPELINE_CANONICAL_NAMESPACE = 'COADE';
@@ -14,8 +15,23 @@ export const DEFAULT_PIPELINE_INPUTXML_METADATA = Object.freeze({
   caesarVersion: '11.00', jobName: 'PIPELINE_3D_MODEL', issueNo: '',
   northX: 0, northY: 1, northZ: 0,
 });
-function text(value) {
-  return String(value ?? '').trim();
+
+function text(value) { return String(value ?? '').trim(); }
+function plain(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && [Object.prototype, null].includes(Object.getPrototypeOf(value)));
+}
+function deepClone(value) {
+  if (value === undefined) return null;
+  if (value === null || ['string', 'boolean'].includes(typeof value)) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (Array.isArray(value)) return value.map(deepClone);
+  if (!plain(value)) throw new TypeError('Document evidence must be JSON-safe plain data.');
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, deepClone(item)]));
+}
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(deepFreeze); return Object.freeze(value);
 }
 function branchInfoFrom(input = {}) {
   if (input?.schema === 'PipelineUtilityExportContext.v1') return input.branchInfo || {};
@@ -25,9 +41,7 @@ function branchInfoFrom(input = {}) {
   return input?.branchInfo || input || {};
 }
 function diagnostic(code, message, details = {}) {
-  return Object.freeze({
-    severity: 'BLOCKING', code, message, details: Object.freeze({ ...details }),
-  });
+  return Object.freeze({ severity: 'BLOCKING', code, message, details: Object.freeze({ ...details }) });
 }
 function normalizedMetadata(branchInfo) {
   const defaults = DEFAULT_PIPELINE_INPUTXML_METADATA;
@@ -40,40 +54,28 @@ function normalizedMetadata(branchInfo) {
   });
 }
 function nodePairValid(fromRow, toRow) {
-  const from = Number(fromRow?.nodeNumber);
-  const to = Number(toRow?.nodeNumber);
-  return Number.isInteger(from) && from > 0
-    && Number.isInteger(to) && to > 0 && from !== to;
+  const from = Number(fromRow?.nodeNumber), to = Number(toRow?.nodeNumber);
+  return Number.isInteger(from) && from > 0 && Number.isInteger(to) && to > 0 && from !== to;
 }
-function coordinateValues(row) {
-  return [Number(row?.x), Number(row?.y), Number(row?.z)];
-}
+function coordinateValues(row) { return [Number(row?.x), Number(row?.y), Number(row?.z)]; }
 function elementDiagnostics(fromRow, toRow, index) {
   const messages = [];
-  if (!nodePairValid(fromRow, toRow)) {
-    messages.push(diagnostic(
-      'PIPELINE_NODE_PAIR_INVALID',
-      `Element E${index + 1} requires distinct positive integer node identifiers.`,
-      { fromNode: fromRow?.nodeNumber, toNode: toRow?.nodeNumber },
-    ));
-  }
+  if (!nodePairValid(fromRow, toRow)) messages.push(diagnostic(
+    'PIPELINE_NODE_PAIR_INVALID',
+    `Element E${index + 1} requires distinct positive integer node identifiers.`,
+    { fromNode: fromRow?.nodeNumber, toNode: toRow?.nodeNumber },
+  ));
   const coordinates = [...coordinateValues(fromRow), ...coordinateValues(toRow)];
   if (!coordinates.every(Number.isFinite)) {
-    messages.push(diagnostic(
-      'PIPELINE_GEOMETRY_NONFINITE',
-      `Element E${index + 1} contains a non-finite endpoint coordinate.`,
-      { fromRow, toRow },
-    ));
+    messages.push(diagnostic('PIPELINE_GEOMETRY_NONFINITE',
+      `Element E${index + 1} contains a non-finite endpoint coordinate.`, { fromRow, toRow }));
     return messages;
   }
   const delta = coordinates.slice(3).map((value, axis) => value - coordinates[axis]);
-  if (delta.every((value) => value === 0)) {
-    messages.push(diagnostic(
-      'PIPELINE_ZERO_LENGTH_ELEMENT',
-      `Element E${index + 1} has zero-length geometry.`,
-      { fromNode: fromRow?.nodeNumber, toNode: toRow?.nodeNumber },
-    ));
-  }
+  if (delta.every((value) => value === 0)) messages.push(diagnostic(
+    'PIPELINE_ZERO_LENGTH_ELEMENT', `Element E${index + 1} has zero-length geometry.`,
+    { fromNode: fromRow?.nodeNumber, toNode: toRow?.nodeNumber },
+  ));
   return messages;
 }
 function bendForIndex(bendResolution, index) {
@@ -106,37 +108,35 @@ function buildElement(fromRow, toRow, index, lineNo, propertyResolution, bendRes
 function globalDiagnostics(branchInfo, coordinateRows) {
   const messages = [];
   if (coordinateRows.length < 2) messages.push(diagnostic(
-    'PIPELINE_GEOMETRY_SEGMENT_REQUIRED',
-    'At least two coordinate rows are required for a PIPINGELEMENT.',
-  ));
+    'PIPELINE_GEOMETRY_SEGMENT_REQUIRED', 'At least two coordinate rows are required for a PIPINGELEMENT.'));
   if (!text(branchInfo.lineNo)) messages.push(diagnostic(
-    'PIPELINE_LINE_NUMBER_REQUIRED', 'Canonical InputXML requires a nonblank LINE value.',
-  ));
+    'PIPELINE_LINE_NUMBER_REQUIRED', 'Canonical InputXML requires a nonblank LINE value.'));
   return messages;
 }
 function contextDiagnostics(exportContext) {
-  return (exportContext?.readiness?.blockerCodes || []).map((code) => diagnostic(
-    text(code) || 'PIPELINE_EXPORT_CONTEXT_BLOCKED',
-    code === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'
-      ? 'GRE fitting emission requires the future independent resolver.'
-      : 'The resolved Pipeline export context blocks canonical InputXML.',
-    { resolvedMode: text(exportContext?.profile?.resolvedMode) },
-  ));
+  return (exportContext?.readiness?.blockerCodes || []).map((code) => {
+    const value = text(code) === 'GRE_BEND_POLICY_NOT_IMPLEMEMTED'
+      ? 'GRE_BEND_POLICY_NOT_IMPLEMENTED' : text(code);
+    return diagnostic(
+      value || 'PIPELINE_EXPORT_CONTEXT_BLOCKED',
+      value === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'
+        ? 'GRE fitting emission requires the future independent resolver.'
+        : 'The resolved Pipeline export context blocks canonical InputXML.',
+      { resolvedMode: text(exportContext?.profile?.resolvedMode) },
+    );
+  });
 }
 function bendDiagnostics(bendResolution) {
   return (bendResolution?.errors || []).map((item) => diagnostic(
     text(item?.code) || 'BEND_GEOMETRY_BLOCKED',
-    text(item?.message) || 'Bend resolution blocks canonical InputXML.',
-    item?.details || {},
+    text(item?.message) || 'Bend resolution blocks canonical InputXML.', item?.details || {},
   ));
 }
 function uniqueDiagnostics(items) {
   const keys = new Set();
   return items.filter((item) => {
     const key = `${item.code}:${JSON.stringify(item.details)}`;
-    if (keys.has(key)) return false;
-    keys.add(key);
-    return true;
+    if (keys.has(key)) return false; keys.add(key); return true;
   });
 }
 function uniqueCodes(diagnostics) {
@@ -159,18 +159,25 @@ function profileAuthorityAuthenticated(plan) {
   ]);
   return !(plan.blockerCodes || []).some((code) => invalid.has(code));
 }
+function adoptedProfileBend(currentBend, authority) {
+  if (!currentBend) return null;
+  const cloned = deepClone(currentBend);
+  cloned.radiusMm = authority.governingRadiusMm;
+  cloned.fittingThicknessMm = authority.fittingThicknessMm;
+  return deepFreeze(cloned);
+}
 function profileElement(element, authority, bendResolution) {
   const matched = authority?.geometryDisposition === 'MATCHES_AUTHORITY'
     && authority?.writerDisposition === 'READY';
-  const currentBend = matched ? bendForIndex(bendResolution, element.index) : null;
-  const bend = currentBend ? Object.freeze({
-    ...currentBend, radiusMm: authority.governingRadiusMm,
-    fittingThicknessMm: authority.fittingThicknessMm,
-  }) : null;
+  const bend = matched
+    ? adoptedProfileBend(bendForIndex(bendResolution, element.index), authority) : null;
   const emittedProperties = Object.freeze({
     ...element.emittedProperties, diameter: authority?.caesarDiameterMm ?? null,
   });
-  return Object.freeze({
+  const diagnostics = deepFreeze(deepClone([
+    ...element.diagnostics, ...(authority?.diagnostics || []),
+  ]));
+  return deepFreeze({
     ...element,
     emittedProperties,
     bend,
@@ -186,11 +193,8 @@ function profileElement(element, authority, bendResolution) {
     fittingThicknessMm: authority?.fittingThicknessMm ?? null,
     geometryDisposition: authority?.geometryDisposition || 'NOT_A_TURN',
     writerDisposition: authority?.writerDisposition || 'BLOCKED',
-    profileAuthority: authority || null,
-    diagnostics: Object.freeze([
-      ...element.diagnostics,
-      ...(authority?.diagnostics || []),
-    ]),
+    profileAuthority: authority ? deepFreeze(deepClone(authority)) : null,
+    diagnostics,
   });
 }
 function profileDocumentPlan({
@@ -211,16 +215,16 @@ function profileDocumentPlan({
     !(replaceGreBlocker && item.code === 'GRE_BEND_POLICY_NOT_IMPLEMENTED'));
   const propertyDiagnostics = propertySectionPlan.diagnostics.filter((item) =>
     item.code !== 'PIPELINE_DIAMETER_REQUIRED');
-  const diagnostics = Object.freeze(uniqueDiagnostics([
+  const diagnostics = deepFreeze(deepClone(uniqueDiagnostics([
     ...profileAuthorityPlan.diagnostics,
     ...context,
     ...globalDiagnostics(branchInfo, coordinateRows),
     ...propertyDiagnostics,
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
-  ]));
+  ])));
   const metadata = normalizedMetadata(branchInfo);
-  return Object.freeze({
+  return deepFreeze({
     schema: PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
     namespace: PIPELINE_CANONICAL_NAMESPACE,
     extensionNamespace: PIPELINE_EXTENSION_NAMESPACE,
@@ -249,8 +253,7 @@ export function buildPipelineInputXmlDocumentPlan({
   exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
   profileAuthorityPlans,
 } = {}) {
-  const branchInfo = branchInfoFrom(exportContext);
-  const lineNo = text(branchInfo.lineNo);
+  const branchInfo = branchInfoFrom(exportContext), lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
     branchInfo, coordinateRows, propertySections,
   });
@@ -259,10 +262,8 @@ export function buildPipelineInputXmlDocumentPlan({
     profileAuthorityPlans, branchInfo, lineNo,
   });
   const elements = Object.freeze(coordinateRows.slice(1).map((toRow, index) =>
-    buildElement(
-      coordinateRows[index], toRow, index, lineNo,
-      propertySectionPlan.elements[index], bendResolution,
-    )));
+    buildElement(coordinateRows[index], toRow, index, lineNo,
+      propertySectionPlan.elements[index], bendResolution)));
   const diagnostics = Object.freeze(uniqueDiagnostics([
     ...contextDiagnostics(exportContext),
     ...globalDiagnostics(branchInfo, coordinateRows),
