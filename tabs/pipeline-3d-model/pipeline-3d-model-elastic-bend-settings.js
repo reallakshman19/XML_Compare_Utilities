@@ -1,251 +1,124 @@
-export const ELASTIC_BEND_SETTINGS_SCHEMA = 'PipelineBendSettings.v3';
+export const ELASTIC_BEND_SETTINGS_SCHEMA = 'PipelineBendSettings.v4';
 export const ELASTIC_BEND_STORAGE_KEY = 'pipeline-3d-model-bend-settings-v3';
 export const V2_ELASTIC_BEND_STORAGE_KEY = 'pipeline-3d-model-elastic-bend-settings-v2';
 export const LEGACY_ELASTIC_BEND_STORAGE_KEY = 'pipeline-3d-model-elastic-bend-settings-v1';
 
 export const DEFAULT_ELASTIC_BEND_SETTINGS = Object.freeze({
   schema: ELASTIC_BEND_SETTINGS_SCHEMA,
-  enabled: false,
-  emitToInputXml: false,
-  screeningOnlyAcknowledged: false,
-  designBasis: 'default-metallic',
-  requestedDesignBasis: '',
-  profileFallbackApplied: true,
-  profileResolutionReason: 'PROFILE_NOT_SPECIFIED',
-  classificationMode: 'source-authority-auto',
-  bendClass: 'standard',
-  standardRadiusMultiplierD: 1.5,
-  coldFieldRadiusMode: 'project-multiplier',
-  coldFieldRadiusMultiplierD: 40,
-  detectHorizontal: true,
-  detectVertical: true,
-  detectCompound: true,
-  diameterSource: 'branch-diameter',
-  diameterBasisConfirmed: false,
-  explicitOutsideDiameterMm: '',
-  youngsModulusMpa: 207000,
-  allowableBendingStressMpa: '',
-  useFormulaMinimum: true,
-  usePracticalMinimum: true,
-  practicalRadiusMultiplierD: 500,
-  nominalPipeSizeNps: '',
-  useColdFieldProjectMinimum: true,
-  coldFieldProjectRadiusMultiplierD: 40,
-  coldFieldProcedureMinimumRadiusD: '',
-  useQualified18DAlternative: false,
-  qualificationEvidenceId: '',
-  minimumTurnAngleDeg: 0.25,
-  minimumPlanTurnAngleDeg: 0.25,
-  minimumProfileTurnAngleDeg: 0.25,
-  maximumTurnAngleDeg: 45,
-  shortElementAnglePolicy: 'include-all',
-  minimumAngleElementLengthMm: 0,
-  retainedStraightAllowanceMm: 0,
-  preferredStraightTangentMm: 2000,
-  emitNearPointNode: true,
-  emitMidpointNode: true,
-  hardFailOnInfeasibleEmission: true,
-  bendTypeCode: 0,
-  greNominalBoreMm: '',
-  greBendRadiusMm: '',
-  greBendBreakMultiplierBore: 1.5,
-  greBendLocalThicknessMm: '',
-  greTeeBreakLengthMm: '',
-  greTeeLocalThicknessMm: '',
-  greRequirementReference: '',
+  enabled: null, emitToInputXml: null, screeningOnlyAcknowledged: null,
+  designBasis: '', requestedDesignBasis: '', profileFallbackApplied: false,
+  profileResolutionReason: 'PROFILE_NOT_SPECIFIED', classificationMode: '', bendClass: '',
+  standardRadiusMultiplierD: null, coldFieldRadiusMode: '', coldFieldRadiusMultiplierD: null,
+  detectHorizontal: null, detectVertical: null, detectCompound: null,
+  diameterSource: '', diameterBasisConfirmed: null, explicitOutsideDiameterMm: null,
+  youngsModulusMpa: null, allowableBendingStressMpa: null,
+  useFormulaMinimum: null, usePracticalMinimum: null, practicalRadiusMultiplierD: null,
+  nominalPipeSizeNps: null, useColdFieldProjectMinimum: null,
+  coldFieldProjectRadiusMultiplierD: null, coldFieldProcedureMinimumRadiusD: null,
+  useQualified18DAlternative: null, qualificationEvidenceId: '',
+  minimumTurnAngleDeg: null, minimumPlanTurnAngleDeg: null,
+  minimumProfileTurnAngleDeg: null, maximumTurnAngleDeg: null,
+  shortElementAnglePolicy: '', minimumAngleElementLengthMm: null,
+  retainedStraightAllowanceMm: null, preferredStraightTangentMm: null,
+  emitNearPointNode: null, emitMidpointNode: null,
+  hardFailOnInfeasibleEmission: true, bendTypeCode: null,
+  greNominalBoreMm: null, greBendRadiusMm: null, greBendBreakLengthBasis: '',
+  greBendBreakMultiplierBore: null, greBendBreakLengthMm: null,
+  greBendLocalThicknessMm: null, greTeeBreakLengthMm: null,
+  greTeeLocalThicknessMm: null, greRequirementReference: '',
 });
 
-function bool(value, fallback) {
+const text = (value) => typeof value === 'string' ? value.trim() : '';
+function bool(value) {
   if (typeof value === 'boolean') return value;
   if (/^(1|true|yes|on)$/i.test(String(value ?? ''))) return true;
   if (/^(0|false|no|off)$/i.test(String(value ?? ''))) return false;
-  return fallback;
+  return null;
 }
-
-function positive(value, fallback, min = Number.EPSILON, max = Number.MAX_SAFE_INTEGER) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < min) return fallback;
-  return Math.min(max, number);
+function positive(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const number = Number(value); return Number.isFinite(number) && number > 0 ? number : null;
 }
-
-function nonNegative(value, fallback, max = Number.MAX_SAFE_INTEGER) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < 0) return fallback;
-  return Math.min(max, number);
+function nonNegative(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const number = Number(value); return Number.isFinite(number) && number >= 0 ? number : null;
 }
-
-function optionalPositive(value) {
-  if (value === '' || value == null) return null;
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
+function exact(value, allowed) {
+  const normalized = text(value); return allowed.includes(normalized) ? normalized : '';
 }
-
-function enumValue(value, allowed, fallback) {
-  const normalized = String(value || '').trim();
-  return allowed.includes(normalized) ? normalized : fallback;
+function profile(seed) {
+  const requestedDesignBasis = text(seed.designBasis || seed.requestedDesignBasis);
+  const allowed = ['default-metallic', 'asme-b31.4', 'gre'];
+  const designBasis = allowed.includes(requestedDesignBasis) ? requestedDesignBasis : '';
+  const reasons = { 'default-metallic': 'EXPLICIT_NORMAL',
+    'asme-b31.4': 'EXPLICIT_ASME_B31_4', gre: 'EXPLICIT_GRE' };
+  return { requestedDesignBasis, designBasis, profileFallbackApplied: false,
+    profileResolutionReason: designBasis ? reasons[designBasis]
+      : requestedDesignBasis ? 'PROFILE_INVALID' : 'PROFILE_NOT_SPECIFIED' };
 }
-
-function migrationSeed(input) {
-  if (input?.designBasis || input?.schema === ELASTIC_BEND_SETTINGS_SCHEMA) return input;
-  const legacy = [V2_ELASTIC_BEND_STORAGE_KEY, LEGACY_ELASTIC_BEND_STORAGE_KEY]
-    .some((key) => input?.schema?.includes(key.split('-').at(-1)))
-    || Object.hasOwn(input || {}, 'bendClass');
-  if (!legacy) return input;
-  const bendClass = enumValue(input?.bendClass, ['elastic', 'cold-field'], 'elastic');
-  return {
-    ...input,
-    designBasis: 'asme-b31.4',
-    classificationMode: 'legacy-global',
-    bendClass,
-    coldFieldRadiusMode: 'b31.4-size-band',
-    profileResolutionReason: 'LEGACY_B31_4_MIGRATION',
-  };
+function basis(seed) {
+  const resolved = profile(seed);
+  const classificationMode = exact(seed.classificationMode,
+    ['source-authority-auto', 'legacy-global']);
+  const bendClass = exact(seed.bendClass,
+    ['standard', 'auto', 'elastic', 'cold-field', 'gre-placeholder']);
+  return { ...resolved, classificationMode, bendClass };
 }
-
-function profileResolution(seed, defaults) {
-  const preservedFallback = seed.profileFallbackApplied === true
-    && String(seed.profileResolutionReason || '').trim();
-  if (preservedFallback && seed.designBasis === defaults.designBasis) {
-    return {
-      requestedDesignBasis: String(seed.requestedDesignBasis ?? '').trim(),
-      designBasis: defaults.designBasis,
-      profileFallbackApplied: true,
-      profileResolutionReason: String(seed.profileResolutionReason).trim(),
-    };
-  }
-  const requestedDesignBasis = String(seed.designBasis ?? '').trim();
-  const reasons = {
-    'default-metallic': 'EXPLICIT_NORMAL',
-    'asme-b31.4': 'EXPLICIT_ASME_B31_4',
-    gre: 'EXPLICIT_GRE',
-  };
-  if (!requestedDesignBasis) {
-    return {
-      requestedDesignBasis,
-      designBasis: defaults.designBasis,
-      profileFallbackApplied: true,
-      profileResolutionReason: 'PROFILE_NOT_SPECIFIED',
-    };
-  }
-  if (reasons[requestedDesignBasis]) {
-    return {
-      requestedDesignBasis,
-      designBasis: requestedDesignBasis,
-      profileFallbackApplied: false,
-      profileResolutionReason: seed.profileResolutionReason || reasons[requestedDesignBasis],
-    };
-  }
-  return {
-    requestedDesignBasis,
-    designBasis: defaults.designBasis,
-    profileFallbackApplied: true,
-    profileResolutionReason: 'UNRECOGNIZED_PROFILE_FALLBACK',
-  };
-}
-
-function normalizedBasis(seed, defaults) {
-  const profile = profileResolution(seed, defaults);
-  const classificationMode = profile.designBasis === 'asme-b31.4'
-    ? enumValue(seed.classificationMode, ['source-authority-auto', 'legacy-global'], defaults.classificationMode)
-    : defaults.classificationMode;
-  let bendClass = 'standard';
-  if (profile.designBasis === 'gre') bendClass = 'gre-placeholder';
-  if (profile.designBasis === 'asme-b31.4') {
-    bendClass = classificationMode === 'source-authority-auto'
-      ? 'auto'
-      : enumValue(seed.bendClass, ['elastic', 'cold-field'], 'elastic');
-  }
-  return { ...profile, classificationMode, bendClass };
-}
-
 export function normalizeElasticBendSettings(input = {}) {
-  const defaults = DEFAULT_ELASTIC_BEND_SETTINGS;
-  const seed = migrationSeed(input) || {};
-  const basis = normalizedBasis(seed, defaults);
-  const legacyMinimum = seed.minimumTurnAngleDeg;
-  const minimumPlanTurnAngleDeg = positive(
-    seed.minimumPlanTurnAngleDeg ?? legacyMinimum,
-    defaults.minimumPlanTurnAngleDeg,
-    0.01,
-    30,
-  );
-  const minimumProfileTurnAngleDeg = positive(
-    seed.minimumProfileTurnAngleDeg ?? legacyMinimum,
-    defaults.minimumProfileTurnAngleDeg,
-    0.01,
-    30,
-  );
-  const maximumTurnAngleDeg = Math.max(
-    minimumPlanTurnAngleDeg,
-    minimumProfileTurnAngleDeg,
-    positive(seed.maximumTurnAngleDeg, defaults.maximumTurnAngleDeg, 0.1, 179),
-  );
+  const seed = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
+  const minimumPlanTurnAngleDeg = positive(seed.minimumPlanTurnAngleDeg ?? seed.minimumTurnAngleDeg);
+  const minimumProfileTurnAngleDeg = positive(seed.minimumProfileTurnAngleDeg ?? seed.minimumTurnAngleDeg);
+  const minimumTurnAngleDeg = minimumPlanTurnAngleDeg && minimumProfileTurnAngleDeg
+    ? Math.min(minimumPlanTurnAngleDeg, minimumProfileTurnAngleDeg) : null;
   return Object.freeze({
     schema: ELASTIC_BEND_SETTINGS_SCHEMA,
-    enabled: bool(seed.enabled, defaults.enabled),
-    emitToInputXml: bool(seed.emitToInputXml, defaults.emitToInputXml),
-    screeningOnlyAcknowledged: bool(seed.screeningOnlyAcknowledged, defaults.screeningOnlyAcknowledged),
-    ...basis,
-    standardRadiusMultiplierD: positive(seed.standardRadiusMultiplierD, defaults.standardRadiusMultiplierD, 0.1, 5000),
-    coldFieldRadiusMode: enumValue(seed.coldFieldRadiusMode, ['project-multiplier', 'b31.4-size-band'], defaults.coldFieldRadiusMode),
-    coldFieldRadiusMultiplierD: positive(seed.coldFieldRadiusMultiplierD ?? seed.coldFieldProjectRadiusMultiplierD, defaults.coldFieldRadiusMultiplierD, 1, 5000),
-    detectHorizontal: bool(seed.detectHorizontal, defaults.detectHorizontal),
-    detectVertical: bool(seed.detectVertical, defaults.detectVertical),
-    detectCompound: bool(seed.detectCompound, defaults.detectCompound),
-    diameterSource: enumValue(seed.diameterSource, ['branch-diameter', 'explicit-od'], defaults.diameterSource),
-    diameterBasisConfirmed: bool(seed.diameterBasisConfirmed, defaults.diameterBasisConfirmed),
-    explicitOutsideDiameterMm: optionalPositive(seed.explicitOutsideDiameterMm),
-    youngsModulusMpa: positive(seed.youngsModulusMpa, defaults.youngsModulusMpa, 1, 1e7),
-    allowableBendingStressMpa: optionalPositive(seed.allowableBendingStressMpa),
-    useFormulaMinimum: bool(seed.useFormulaMinimum, defaults.useFormulaMinimum),
-    usePracticalMinimum: bool(seed.usePracticalMinimum, defaults.usePracticalMinimum),
-    practicalRadiusMultiplierD: positive(seed.practicalRadiusMultiplierD, defaults.practicalRadiusMultiplierD, 1, 5000),
-    nominalPipeSizeNps: optionalPositive(seed.nominalPipeSizeNps),
-    useColdFieldProjectMinimum: bool(seed.useColdFieldProjectMinimum, defaults.useColdFieldProjectMinimum),
-    coldFieldProjectRadiusMultiplierD: positive(seed.coldFieldProjectRadiusMultiplierD, defaults.coldFieldProjectRadiusMultiplierD, 1, 5000),
-    coldFieldProcedureMinimumRadiusD: optionalPositive(seed.coldFieldProcedureMinimumRadiusD),
-    useQualified18DAlternative: bool(seed.useQualified18DAlternative, defaults.useQualified18DAlternative),
-    qualificationEvidenceId: String(seed.qualificationEvidenceId ?? '').trim(),
-    minimumTurnAngleDeg: Math.min(minimumPlanTurnAngleDeg, minimumProfileTurnAngleDeg),
-    minimumPlanTurnAngleDeg,
-    minimumProfileTurnAngleDeg,
-    maximumTurnAngleDeg,
-    shortElementAnglePolicy: enumValue(seed.shortElementAnglePolicy, ['include-all', 'ignore-below-length'], defaults.shortElementAnglePolicy),
-    minimumAngleElementLengthMm: nonNegative(seed.minimumAngleElementLengthMm, defaults.minimumAngleElementLengthMm),
-    retainedStraightAllowanceMm: nonNegative(seed.retainedStraightAllowanceMm, defaults.retainedStraightAllowanceMm),
-    preferredStraightTangentMm: nonNegative(seed.preferredStraightTangentMm, defaults.preferredStraightTangentMm),
-    emitNearPointNode: bool(seed.emitNearPointNode, defaults.emitNearPointNode),
-    emitMidpointNode: bool(seed.emitMidpointNode, defaults.emitMidpointNode),
+    enabled: bool(seed.enabled), emitToInputXml: bool(seed.emitToInputXml),
+    screeningOnlyAcknowledged: bool(seed.screeningOnlyAcknowledged), ...basis(seed),
+    standardRadiusMultiplierD: positive(seed.standardRadiusMultiplierD),
+    coldFieldRadiusMode: exact(seed.coldFieldRadiusMode,
+      ['project-multiplier', 'b31.4-size-band']),
+    coldFieldRadiusMultiplierD: positive(seed.coldFieldRadiusMultiplierD),
+    detectHorizontal: bool(seed.detectHorizontal), detectVertical: bool(seed.detectVertical),
+    detectCompound: bool(seed.detectCompound),
+    diameterSource: exact(seed.diameterSource, ['branch-diameter', 'explicit-od']),
+    diameterBasisConfirmed: bool(seed.diameterBasisConfirmed),
+    explicitOutsideDiameterMm: positive(seed.explicitOutsideDiameterMm),
+    youngsModulusMpa: positive(seed.youngsModulusMpa),
+    allowableBendingStressMpa: positive(seed.allowableBendingStressMpa),
+    useFormulaMinimum: bool(seed.useFormulaMinimum),
+    usePracticalMinimum: bool(seed.usePracticalMinimum),
+    practicalRadiusMultiplierD: positive(seed.practicalRadiusMultiplierD),
+    nominalPipeSizeNps: positive(seed.nominalPipeSizeNps),
+    useColdFieldProjectMinimum: bool(seed.useColdFieldProjectMinimum),
+    coldFieldProjectRadiusMultiplierD: positive(seed.coldFieldProjectRadiusMultiplierD),
+    coldFieldProcedureMinimumRadiusD: positive(seed.coldFieldProcedureMinimumRadiusD),
+    useQualified18DAlternative: bool(seed.useQualified18DAlternative),
+    qualificationEvidenceId: text(seed.qualificationEvidenceId), minimumTurnAngleDeg,
+    minimumPlanTurnAngleDeg, minimumProfileTurnAngleDeg,
+    maximumTurnAngleDeg: positive(seed.maximumTurnAngleDeg),
+    shortElementAnglePolicy: exact(seed.shortElementAnglePolicy,
+      ['include-all', 'ignore-below-length']),
+    minimumAngleElementLengthMm: nonNegative(seed.minimumAngleElementLengthMm),
+    retainedStraightAllowanceMm: nonNegative(seed.retainedStraightAllowanceMm),
+    preferredStraightTangentMm: nonNegative(seed.preferredStraightTangentMm),
+    emitNearPointNode: bool(seed.emitNearPointNode), emitMidpointNode: bool(seed.emitMidpointNode),
     hardFailOnInfeasibleEmission: true,
-    bendTypeCode: [0, 1, 2].includes(Number(seed.bendTypeCode)) ? Number(seed.bendTypeCode) : defaults.bendTypeCode,
-    greNominalBoreMm: optionalPositive(seed.greNominalBoreMm),
-    greBendRadiusMm: optionalPositive(seed.greBendRadiusMm),
-    greBendBreakMultiplierBore: positive(seed.greBendBreakMultiplierBore, defaults.greBendBreakMultiplierBore, 0.1, 100),
-    greBendLocalThicknessMm: optionalPositive(seed.greBendLocalThicknessMm),
-    greTeeBreakLengthMm: optionalPositive(seed.greTeeBreakLengthMm),
-    greTeeLocalThicknessMm: optionalPositive(seed.greTeeLocalThicknessMm),
-    greRequirementReference: String(seed.greRequirementReference ?? '').trim(),
+    bendTypeCode: [0, 1, 2].includes(Number(seed.bendTypeCode)) ? Number(seed.bendTypeCode) : null,
+    greNominalBoreMm: positive(seed.greNominalBoreMm),
+    greBendRadiusMm: positive(seed.greBendRadiusMm),
+    greBendBreakLengthBasis: exact(seed.greBendBreakLengthBasis,
+      ['NOMINAL_BORE_MULTIPLIER', 'EXPLICIT_LENGTH']),
+    greBendBreakMultiplierBore: positive(seed.greBendBreakMultiplierBore),
+    greBendBreakLengthMm: positive(seed.greBendBreakLengthMm),
+    greBendLocalThicknessMm: positive(seed.greBendLocalThicknessMm),
+    greTeeBreakLengthMm: positive(seed.greTeeBreakLengthMm),
+    greTeeLocalThicknessMm: positive(seed.greTeeLocalThicknessMm),
+    greRequirementReference: text(seed.greRequirementReference),
   });
 }
-
-function readStoredSettings(storage) {
-  for (const key of [ELASTIC_BEND_STORAGE_KEY, V2_ELASTIC_BEND_STORAGE_KEY, LEGACY_ELASTIC_BEND_STORAGE_KEY]) {
-    const value = storage.getItem(key);
-    if (value) return JSON.parse(value);
-  }
-  return {};
+export function loadElasticBendSettings() {
+  return normalizeElasticBendSettings();
 }
-
-export function loadElasticBendSettings(storage = globalThis.localStorage) {
-  if (!storage?.getItem) return normalizeElasticBendSettings();
-  try { return normalizeElasticBendSettings(readStoredSettings(storage)); }
-  catch { return normalizeElasticBendSettings(); }
-}
-
-export function saveElasticBendSettings(settings, storage = globalThis.localStorage) {
-  const normalized = normalizeElasticBendSettings(settings);
-  if (!storage?.setItem) return normalized;
-  try { storage.setItem(ELASTIC_BEND_STORAGE_KEY, JSON.stringify(normalized)); }
-  catch { /* Persistence is best-effort; normalized settings remain usable in memory. */ }
-  return normalized;
+export function saveElasticBendSettings(settings) {
+  return normalizeElasticBendSettings(settings);
 }
