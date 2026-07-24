@@ -2,8 +2,9 @@
 import { deepFreeze } from './revision-contract-utils.js';
 import { sha256Text } from './revision-hash.js';
 import {
-  findRevisionCompareEntity, findRevisionCompareEntityForEvidencePath,
-  revisionCompareRelativeFieldPath,
+  createRevisionCompareTransferAddress, findRevisionCompareEntity,
+  findRevisionCompareEntityForEvidencePath, resolveRevisionCompareTransferAddress,
+  revisionCompareRelativeFieldPath, REVISION_COMPARE_TARGET_STATE,
 } from './revision-transfer-address.js';
 import { createRevisionCompareTransferSelection } from './revision-transfer-contracts.js';
 import { classifyRevisionCompareTransferField } from './revision-transfer-policy.js';
@@ -39,23 +40,43 @@ function globalBlockers(state) {
   if (!state?.slots?.baseline?.jsonSnapshot || !state?.slots?.candidate?.jsonSnapshot) blockers.push('Lossless Rev A and Rev B snapshots are required.');
   return blockers;
 }
-function targetFieldPath(state, row, target, property, blockers) {
+function resolvedFieldEvidence(state, row, target, property, blockers) {
   const revA = state?.slots?.baseline?.jsonSnapshot; const revB = state?.slots?.candidate?.jsonSnapshot;
   let targetEntity;
   try { targetEntity = findRevisionCompareEntity(revB, target.targetRecordId); }
-  catch (error) { blockers.push(error.message); return null; }
+  catch (error) { blockers.push(error.message); return { path: '' }; }
+  let path = '';
   try {
     const source = findRevisionCompareEntityForEvidencePath(revA, row.sourceRecordId, property.revAEvidencePath);
     const sourcePath = revisionCompareRelativeFieldPath(source.canonicalPath, property.revAEvidencePath);
-    if (!property.revBEvidencePath) return sourcePath;
-    const owner = findRevisionCompareEntityForEvidencePath(revB, target.targetRecordId, property.revBEvidencePath);
-    if (owner.canonicalPath !== targetEntity.canonicalPath) blockers.push('Rev B evidence path does not belong to the selected target entity.');
-    return revisionCompareRelativeFieldPath(owner.canonicalPath, property.revBEvidencePath);
-  } catch (error) { blockers.push(error.message); return null; }
+    if (!property.revBEvidencePath) path = sourcePath;
+    else {
+      const owner = findRevisionCompareEntityForEvidencePath(revB, target.targetRecordId, property.revBEvidencePath);
+      if (owner.canonicalPath !== targetEntity.canonicalPath) blockers.push('Rev B evidence path does not belong to the selected target entity.');
+      path = revisionCompareRelativeFieldPath(owner.canonicalPath, property.revBEvidencePath);
+    }
+  } catch (error) { blockers.push(error.message); return { path: '', targetEntity }; }
+  try {
+    const present = Boolean(property.revBEvidencePath);
+    const address = createRevisionCompareTransferAddress({
+      targetDocumentId: revB.sourceDocumentId,
+      targetDocumentSha256: revB.sourceContentSha256,
+      targetEntityId: target.targetRecordId,
+      entityCanonicalPath: targetEntity.canonicalPath,
+      fieldPath: path,
+      expectedTargetState: present ? REVISION_COMPARE_TARGET_STATE.PRESENT : REVISION_COMPARE_TARGET_STATE.ABSENT,
+      expectedEntitySha256: targetEntity.entitySha256,
+      ...(present ? { expectedCurrentValue: property.revBValue } : {}),
+    });
+    const resolution = resolveRevisionCompareTransferAddress(revB, address);
+    blockers.push(...resolution.blockers);
+    return { path, targetEntity, address, resolution };
+  } catch (error) { blockers.push(error.message); return { path, targetEntity }; }
 }
 function fieldCandidate(state, row, target, property, pairBlockers) {
   const blockers = [...pairBlockers];
-  const path = targetFieldPath(state, row, target, property, blockers) ?? '';
+  const evidence = resolvedFieldEvidence(state, row, target, property, blockers);
+  const path = evidence.path ?? '';
   const policy = classifyRevisionCompareTransferField({ propertyKey: property.propertyKey, fieldPath: path });
   blockers.push(...policy.blockers);
   const field = {
@@ -184,4 +205,4 @@ export function createRevisionCompareTransferController(options) {
   return Object.freeze({ model, handleChange, handleClick, destroy: () => { destroyed = true; draft = createRevisionCompareTransferDraft(); } });
 }
 
-export const _test = Object.freeze({ artifactFor, fieldCandidate, globalBlockers, targetRelationship });
+export const _test = Object.freeze({ artifactFor, fieldCandidate, globalBlockers, resolvedFieldEvidence, targetRelationship });
