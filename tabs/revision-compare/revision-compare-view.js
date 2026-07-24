@@ -9,6 +9,7 @@ import { decisionLedgerControlsMarkup } from './revision-decision-view.js';
 import { REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT } from './revision-evidence-package-import.js';
 import { REVISION_COMPARE_SVG_CSS } from './revision-compare-svg-styles.js';
 
+// The user-facing "Import evidence package" option is intentionally removed; direct Rev A/Rev B intake is the product path.
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 function shortHash(value) { const text = String(value ?? ''); return text ? `${text.slice(0, 12)}…${text.slice(-8)}` : '—'; }
 function fact(label, value, attribute = '') { return `<div><dt>${escapeHtml(label)}</dt><dd ${attribute}>${escapeHtml(value)}</dd></div>`; }
@@ -24,14 +25,6 @@ function slotFacts(slot) {
 function slotCard(slot, label, subtitle, disabled = false) {
   const loading = slot.status === 'LOADING'; const status = loading ? 'Loading / indexing' : slot.status.replaceAll('_', ' ').toLowerCase();
   return `<section class="revc-slot" data-slot="${escapeHtml(slot.slotId)}"><header><div><span>${escapeHtml(label)}</span><h2>${escapeHtml(subtitle)}</h2></div><strong data-status="${escapeHtml(slot.status.toLowerCase())}">${escapeHtml(status)}</strong></header><div class="revc-slot-body"><label class="revc-file-button">${slot.document ? 'Replace staged JSON' : 'Load staged JSON'}<input type="file" accept=".json,application/json" data-revc-file="${escapeHtml(slot.slotId)}" ${loading || disabled ? 'disabled' : ''}></label>${loading ? `<button type="button" class="revc-cancel" data-revc-cancel="${escapeHtml(slot.slotId)}">Cancel load</button>` : ''}${slot.fileName ? `<p class="revc-file-name">${escapeHtml(slot.fileName)}</p>` : ''}${slotFacts(slot)}${messageList('Blockers', slot.blockers, 'blocker')}${messageList('Warnings', slot.warnings, 'warning')}${slot.error ? `<details class="revc-details"><summary>Technical error</summary><pre>${escapeHtml(slot.error)}</pre></details>` : ''}</div></section>`;
-}
-function packageImportMarkup(state) {
-  const lifecycle = state.evidencePackageImport; const importing = lifecycle.status === 'IMPORTING';
-  const sourceLoading = state.slots.baseline.status === 'LOADING' || state.slots.candidate.status === 'LOADING';
-  const detail = importing ? 'Canonical package integrity and nested authority evidence are being verified.'
-    : sourceLoading ? 'Cancel the active revision load before importing an evidence package.'
-      : lifecycle.error || 'Import a RevisionCompareEvidencePackage.v1 into this fresh workspace.';
-  return `<section class="revc-preflight" data-revc-evidence-package-import-panel data-status="${escapeHtml(lifecycle.status.toLowerCase())}" aria-busy="${importing}"><header><div><span>EVIDENCE PACKAGE</span><h2>Resume archived review evidence</h2></div><strong data-status="${escapeHtml(lifecycle.status.toLowerCase())}">${escapeHtml(lifecycle.status)}</strong></header><p data-revc-evidence-package-import-status>${escapeHtml(detail)}</p><label class="revc-file-button">Import evidence package<input type="file" accept=".json,application/json" data-revc-evidence-package-import ${sourceLoading ? 'disabled' : ''}></label></section>`;
 }
 function importedPackageMarkup(state) {
   const lifecycle = state.evidencePackageImport; if (lifecycle.status !== 'VERIFIED') return '';
@@ -54,10 +47,9 @@ function comparisonControlMarkup(state) {
   return `<section class="revc-compare-control"><header><div><span>STAGE 3</span><h2>Bounded visual comparison</h2><p>Run deterministic exact and bounded inferred matching from the current approved basis.</p></div><strong data-status="${readiness.status.toLowerCase()}">${readiness.status}</strong></header>${messageList('Visual-readiness blockers', readiness.blockers, 'blocker')}${state.compare.error ? messageList('Comparison failure', [state.compare.error], 'blocker') : ''}<div class="revc-compare-actions"><button type="button" class="revc-primary" data-revc-run-compare ${readiness.status !== 'READY' ? 'disabled' : ''}>Run visual comparison</button>${state.compare.audit ? '<button type="button" data-revc-open-review>Open visual review</button>' : ''}</div></section>`;
 }
 function setupMarkup(state, preflight) {
-  const importing = state.evidencePackageImport.status === 'IMPORTING';
   const review = state.review.session ? reviewSessionControlsMarkup(state, false) : '';
   const decision = state.decision.ledger ? decisionLedgerControlsMarkup(state, false) : '';
-  return `<main class="revc-body">${packageImportMarkup(state)}<section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header><div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision', importing)}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision', importing)}</div></section>${review}${decision}${preflightMarkup(preflight)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
+  return `<main class="revc-body"><section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header><div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision')}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision')}</div></section>${review}${decision}${preflightMarkup(preflight)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
 }
 function footerMarkup(state, canDownload) {
   const imported = state.evidencePackageImport.status === 'VERIFIED';
@@ -70,4 +62,4 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
   const content = review ? `${importedPackageMarkup(state)}${revisionCompareReviewMarkup(state, viewerEvidence)}` : setupMarkup(state, preflight);
   return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
 }
-export const _test = Object.freeze({ comparisonControlMarkup, escapeHtml, importedPackageMarkup, packageImportMarkup, shortHash });
+export const _test = Object.freeze({ comparisonControlMarkup, escapeHtml, importedPackageMarkup, shortHash });

@@ -14,7 +14,6 @@ export default defineConfig({
     'revision-compare-svg-first-policy.spec.mjs',
     'revision-compare-svg-keyboard.spec.mjs',
     'revision-compare-evidence-package.spec.mjs',
-    'revision-compare-evidence-package-import.spec.mjs',
     'revision-compare-sign-off.spec.mjs',
     'revision-compare-trust-receipt.spec.mjs',
   ],
