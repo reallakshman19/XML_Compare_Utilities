@@ -2,10 +2,10 @@ import {
   PIPELINE_ENGINEERING_CONFIGURATION_DRAFT_SCHEMA,
   createPipelineConfigurationDiagnostic,
   createPipelineEngineeringConfigurationDraft,
+  createPipelineEngineeringConfigurationField,
 } from './pipeline-3d-model-engineering-configuration-contracts.js';
 import {
   createEmptyPipelineEngineeringConfigurationDraft,
-  emptyPipelineEngineeringConfigurationField,
   setPipelineEngineeringConfigurationField,
   updatePipelineEngineeringConfigurationDraftCollections,
 } from './pipeline-3d-model-engineering-configuration-fields.js';
@@ -86,14 +86,22 @@ export function confirmPipelineEngineeringConfigurationFields(draftInput, fieldI
   }
   return draft;
 }
+function rejectedField(current) {
+  return createPipelineEngineeringConfigurationField({ fieldId: current.fieldId,
+    value: null, valueType: current.valueType, unit: current.unit,
+    state: 'NOT_APPLICABLE', sourceKind: 'NONE', sourceReference: current.sourceReference,
+    userConfirmed: true, legacyObserved: current.legacyObserved,
+    legacyConfirmed: false, originalLegacyValue: current.originalLegacyValue ?? current.value,
+    originalStorageKey: current.originalStorageKey });
+}
 export function rejectPipelineEngineeringConfigurationFields(draftInput, fieldIds = []) {
   let draft = createPipelineEngineeringConfigurationDraft(draftInput);
   const rejected = new Set(draft.legacyRejectedFields);
   for (const fieldId of [...new Set(fieldIds)].sort(compare)) {
-    if (!draft.fields[fieldId]) continue;
+    const current = draft.fields[fieldId]; if (!current) continue;
     rejected.add(fieldId);
     draft = updatePipelineEngineeringConfigurationDraftCollections(draft, {
-      fields: { ...draft.fields, [fieldId]: emptyPipelineEngineeringConfigurationField(fieldId) },
+      fields: { ...draft.fields, [fieldId]: rejectedField(current) },
     });
   }
   return updatePipelineEngineeringConfigurationDraftCollections(draft, {
