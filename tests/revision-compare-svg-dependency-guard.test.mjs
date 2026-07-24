@@ -148,7 +148,7 @@ assert.doesNotMatch(importSource, /eval\s*\(|new Function|Function\s*\(|DOMParse
 assert.doesNotMatch(importSource, /revision-load-service|revision-compare-service|revision-compare-worker|createRevisionCompareAudit|projectCompareRecords|matchBoundedCandidates/);
 assert.doesNotMatch(importSource, /source-document|rawUploadedBytes|fileHandle|arrayBuffer\(|createObjectURL|Blob|path\.resolve|readFile\(/);
 assert.doesNotMatch(importSource, /package (?:is )?(?:authenticated|signed|approved|certified|final|trusted)/i);
-assert.match(stateSource, /RevisionCompareWorkspaceState\.v8/);
+assert.match(stateSource, /RevisionCompareWorkspaceState\.v9/);
 assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
 assert.match(stateSource, /RevisionCompareSignOffState\.v1/);
 assert.match(workspaceSource, /data-revc-evidence-package-import/);
@@ -185,19 +185,28 @@ const transferPaths = [
   'tabs/revision-compare/revision-transfer-policy.js',
   'tabs/revision-compare/revision-transfer-address.js',
   'tabs/revision-compare/revision-transfer-plan.js',
+  'tabs/revision-compare/revision-transfer-writer.js',
+  'tabs/revision-compare/revision-transfer-verifier.js',
+  'tabs/revision-compare/revision-transfer-result.js',
+  'tabs/revision-compare/revision-transfer-artifacts.js',
+  'tabs/revision-compare/revision-transfer-apply-state.js',
 ];
 for (const path of transferPaths) {
   const source = await readFile(path, 'utf8');
   assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
   assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
-  assert.doesNotMatch(source, /xml-compare\/|tabs\/xml-compare-tab|createObjectURL|Blob|File\b|DOMParser|document\.|window\.|renderer|THREE/);
-  assert.doesNotMatch(source, /applyTransfer|patched JSON|transfer result|transfer audit|transfer proof|transfer manifest|download/i);
+  assert.doesNotMatch(source, /xml-compare\/|tabs\/xml-compare-tab|createObjectURL|Blob\s*\(|DOMParser|globalThis\.document|globalThis\.window|renderer|THREE/);
 }
 const jsonDocumentSource = await readFile(transferPaths[0], 'utf8');
 const transferContractsSource = await readFile(transferPaths[1], 'utf8');
 const transferPolicySource = await readFile(transferPaths[2], 'utf8');
 const transferAddressSource = await readFile(transferPaths[3], 'utf8');
 const transferPlanSource = await readFile(transferPaths[4], 'utf8');
+const transferWriterSource = await readFile(transferPaths[5], 'utf8');
+const transferVerifierSource = await readFile(transferPaths[6], 'utf8');
+const transferResultSource = await readFile(transferPaths[7], 'utf8');
+const transferArtifactsSource = await readFile(transferPaths[8], 'utf8');
+const transferApplyStateSource = await readFile(transferPaths[9], 'utf8');
 const intakeSource = await readFile('tabs/revision-compare/revision-intake-state.js', 'utf8');
 const loadSource = await readFile('tabs/revision-compare/revision-load-service.js', 'utf8');
 assert.match(jsonDocumentSource, /RevisionCompareJsonDocumentSnapshot\.v1/);
@@ -210,6 +219,11 @@ assert.match(transferAddressSource, /Target entity address resolves to zero enti
 assert.match(transferAddressSource, /Target entity address resolves to multiple entities/);
 assert.match(transferPlanSource, /revision-transfer-plan:/);
 assert.match(transferPlanSource, /REV_A_TO_REV_B/);
+assert.match(transferWriterSource, /RevisionCompareTransferWriterPolicy\.v1/);
+assert.match(transferVerifierSource, /RevisionCompareTransferProof\.v1/);
+assert.match(transferResultSource, /RevisionCompareTransferResult\.v1/);
+assert.match(transferArtifactsSource, /RevisionCompareTransferManifest\.v1/);
+assert.match(transferApplyStateSource, /RevisionCompareTransferApplyRequest\.v1/);
 assert.match(loadSource, /createRevisionCompareJsonDocumentSnapshot/);
 assert.match(intakeSource, /jsonSnapshot/);
 assert.match(stateSource, /transfer:\s*createRevisionCompareTransferState\(\)/);

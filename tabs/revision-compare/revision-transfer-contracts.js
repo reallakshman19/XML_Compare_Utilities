@@ -13,7 +13,8 @@ export const REVISION_COMPARE_TRANSFER_AUTHORITY_SCHEMA = 'RevisionCompareTransf
 export const REVISION_COMPARE_TRANSFER_PLAN_ID_PREFIX = 'revision-transfer-plan:';
 export const REVISION_COMPARE_TRANSFER_OPERATION_ID_PREFIX = 'revision-transfer-operation:';
 export const REVISION_COMPARE_TRANSFER_STATE_STATUS = Object.freeze({
-  IDLE: 'IDLE', PLANNED: 'PLANNED', STALE: 'STALE', FAILED: 'FAILED',
+  IDLE: 'IDLE', PLANNED: 'PLANNED', APPLYING: 'APPLYING', APPLIED: 'APPLIED',
+  STALE: 'STALE', FAILED: 'FAILED',
 });
 export const REVISION_COMPARE_TRANSFER_OPERATION_TYPE = Object.freeze({
   REPLACE_EXISTING_PROPERTY: 'REPLACE_EXISTING_PROPERTY',
@@ -156,13 +157,15 @@ export function revisionCompareTransferPlanAuthority(plan) {
     activity: plan?.activity ?? activityAuthority(null),
   });
 }
-function nextGeneration(state) {
-  const current = Number(state?.requestGeneration ?? 0);
+function nextCounter(state, key, label) {
+  const current = Number(state?.[key] ?? 0);
   if (!Number.isSafeInteger(current) || current < 0 || current === Number.MAX_SAFE_INTEGER) {
-    throw new RangeError('Transfer-plan request generation is invalid or exhausted.');
+    throw new RangeError(`${label} generation is invalid or exhausted.`);
   }
   return current + 1;
 }
+function nextGeneration(state) { return nextCounter(state, 'requestGeneration', 'Transfer-plan request'); }
+function nextApplyGeneration(state) { return nextCounter(state, 'applyGeneration', 'Transfer apply request'); }
 export function createRevisionCompareTransferState(
   policyVersion = REVISION_COMPARE_TRANSFER_POLICY_VERSION,
   authority = captureRevisionCompareTransferAuthority(null),
@@ -178,9 +181,10 @@ export function createRevisionCompareTransferState(
     targetDocumentSha256: null,
     policyVersion,
     authority,
-    requestGeneration: 0,
-    request: null,
-    error: null,
+    requestGeneration: 0, request: null,
+    applyGeneration: 0, applyAuthority: null, applyRequest: null,
+    result: null, audit: null, proof: null, manifest: null,
+    artifacts: Object.freeze([]), patchedSnapshot: null, error: null,
   });
 }
 function invalidatedStatus(state) {
@@ -193,9 +197,8 @@ export function invalidateRevisionCompareTransferRequest(state, authority = stat
     ...current,
     status: invalidatedStatus(current),
     authority: authority ?? captureRevisionCompareTransferAuthority(null),
-    requestGeneration: nextGeneration(current),
-    request: null,
-    error: null,
+    requestGeneration: nextGeneration(current), request: null,
+    applyGeneration: nextApplyGeneration(current), applyRequest: null, error: null,
   });
 }
 export function staleRevisionCompareTransferState(state) {
@@ -206,7 +209,8 @@ export function resetRevisionCompareTransferState(state) {
     state?.policyVersion ?? REVISION_COMPARE_TRANSFER_POLICY_VERSION,
     state?.authority ?? captureRevisionCompareTransferAuthority(null),
   );
-  return deepFreeze({ ...reset, requestGeneration: nextGeneration(state ?? reset) });
+  return deepFreeze({ ...reset, requestGeneration: nextGeneration(state ?? reset),
+    applyGeneration: nextApplyGeneration(state ?? reset) });
 }
 export function invalidateRevisionCompareTransferAuthority(state, workspace) {
   const authority = captureRevisionCompareTransferAuthority(workspace);
@@ -277,9 +281,10 @@ export function completeRevisionCompareTransferPlanRequest(state, generation, pl
     sourceDocumentSha256: plan.sourceDocument.contentSha256,
     targetDocumentId: plan.receiverDocument.documentId,
     targetDocumentSha256: plan.receiverDocument.contentSha256,
-    policyVersion: plan.policyVersion,
-    request: null,
-    error: null,
+    policyVersion: plan.policyVersion, request: null,
+    applyGeneration: nextApplyGeneration(state), applyAuthority: null, applyRequest: null,
+    result: null, audit: null, proof: null, manifest: null,
+    artifacts: Object.freeze([]), patchedSnapshot: null, error: null,
   });
 }
 export function failRevisionCompareTransferPlanRequest(state, generation, error) {
