@@ -153,20 +153,27 @@ function buildCandidate(entries, lengths, window, classification, screening) {
   };
 }
 
-export function buildRawBendCandidates(entries, screening) {
+export function buildRawBendCandidateWindows(entries, settings) {
   const lengths = buildSegmentLengths(entries);
-  const candidates = [];
+  const windows = [];
   const seen = new Set();
   for (let index = 1; index < entries.length - 1; index += 1) {
-    const window = buildAngleWindow(entries, lengths, index, screening.settings);
+    const window = buildAngleWindow(entries, lengths, index, settings);
     if (!window) continue;
     const key = `${window.leftSegment}:${window.rightSegment}`;
     if (seen.has(key)) continue;
-    seen.add(key);
-    const classification = classifyAngleWindow(entries, window, screening.settings);
-    if (classification) {
-      candidates.push(buildCandidate(entries, lengths, window, classification, screening));
-    }
+    seen.add(key); windows.push(window);
   }
-  return Object.freeze(candidates);
+  return Object.freeze({ lengths: Object.freeze(lengths), windows: Object.freeze(windows) });
+}
+
+export function materializeRawBendCandidate(entries, lengths, window, screening) {
+  const classification = classifyAngleWindow(entries, window, screening.settings);
+  return classification ? Object.freeze(buildCandidate(entries, lengths, window, classification, screening)) : null;
+}
+
+export function buildRawBendCandidates(entries, screening) {
+  const evidence = buildRawBendCandidateWindows(entries, screening.settings);
+  return Object.freeze(evidence.windows.map((window) => materializeRawBendCandidate(
+    entries, evidence.lengths, window, screening)).filter(Boolean));
 }
