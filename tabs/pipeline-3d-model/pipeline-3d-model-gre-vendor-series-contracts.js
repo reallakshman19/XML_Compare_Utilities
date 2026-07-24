@@ -5,7 +5,6 @@ import {
   parsePipelinePositiveScalar,
 } from './pipeline-3d-model-diameter-contracts.js';
 import { GRE_PLACEHOLDER_SCHEMA } from './pipeline-3d-model-gre-placeholder.js';
-
 export const PIPELINE_GRE_VENDOR_POLICY_REGISTRY_SCHEMA = 'PipelineGreVendorSeriesPolicyRegistry.v1';
 export const PIPELINE_GRE_VENDOR_POLICY_DESCRIPTOR_SCHEMA = 'PipelineGreVendorSeriesPolicyDescriptor.v1';
 export const PIPELINE_GRE_VENDOR_MIGRATION_SCHEMA = 'PipelineGreVendorSeriesMigration.v1';
@@ -27,7 +26,6 @@ export const PIPELINE_GRE_VENDOR_BLOCKER_ORDER = Object.freeze([
   'PIPELINE_GRE_VENDOR_DIAMETER_PLAN_INVALID', 'PIPELINE_GRE_VENDOR_OWNERSHIP_INVALID',
   'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID',
 ]);
-
 const DESCRIPTORS = Object.freeze([
   Object.freeze({ schema: PIPELINE_GRE_VENDOR_POLICY_DESCRIPTOR_SCHEMA,
     componentPolicyId: PIPELINE_GRE_VENDOR_POLICY_IDS.BEND, componentKind: 'BEND',
@@ -36,13 +34,14 @@ const DESCRIPTORS = Object.freeze([
     componentPolicyId: PIPELINE_GRE_VENDOR_POLICY_IDS.TEE, componentKind: 'TEE',
     dimensionalAuthority: 'QUALIFIED_VENDOR_SERIES', sourceAuthority: 'P3D-PROF-045', status: 'CONTRACT_ONLY' }),
 ]);
-const text = (value) => String(value ?? '').trim();
+const text = (value) => typeof value === 'string' ? value.trim() : '';
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value)
   && [Object.prototype, null].includes(Object.getPrototypeOf(value)));
 const supplied = (source, field) => Object.hasOwn(source, field) && source[field] !== null
-  && !(typeof source[field] === 'string' && !source[field].trim());
-
+  && source[field] !== undefined && !(typeof source[field] === 'string' && !source[field].trim());
+const strictStrings = (source, fields) => fields.filter((field) => supplied(source, field)
+  && typeof source[field] !== 'string');
 function clone(value) {
   if (value === undefined) return null;
   if (value === null || ['string', 'boolean'].includes(typeof value)) return value;
@@ -77,7 +76,7 @@ function normalizedDiagnostics(values = []) {
 function finalState(source, generated = [], extraCodes = []) {
   const diagnostics = normalizedDiagnostics([...(Array.isArray(source.diagnostics) ? source.diagnostics : []), ...generated]);
   const codes = [...(Array.isArray(source.blockerCodes) ? source.blockerCodes : []), ...extraCodes,
-    ...diagnostics.map((item) => item.code)].map(text).filter(Boolean);
+    ...diagnostics.map((item) => item.code)].filter((code) => typeof code === 'string').map(text).filter(Boolean);
   const blockerCodes = Object.freeze([...new Set(codes)].sort((a, b) => rank(a) - rank(b) || compare(a, b)));
   return { diagnostics, blockerCodes, ready: blockerCodes.length === 0 };
 }
@@ -87,7 +86,6 @@ function safe(input, code) {
 }
 const canonical = (value) => JSON.stringify(Object.fromEntries(Object.keys(value || {}).sort(compare)
   .map((key) => [key, value[key]])));
-
 export function createPipelineGreVendorSeriesPolicyRegistry(descriptors = DESCRIPTORS) {
   const safeValue = safe({ descriptors }, 'PIPELINE_GRE_VENDOR_POLICY_INVALID');
   const values = Array.isArray(safeValue.source.descriptors) ? safeValue.source.descriptors : [];
@@ -103,53 +101,64 @@ export function createPipelineGreVendorSeriesPolicyRegistry(descriptors = DESCRI
     diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready });
 }
 export const PIPELINE_GRE_VENDOR_SERIES_POLICY_REGISTRY = createPipelineGreVendorSeriesPolicyRegistry();
-
 export function createPipelineGreVendorSeriesMigration(input = {}) {
   const safeValue = safe(input, 'PIPELINE_GRE_VENDOR_INPUT_INVALID'), source = safeValue.source;
-  const errors = [...safeValue.errors];
+  const errors = [...safeValue.errors], kinds = Array.isArray(source.sourceKinds) ? source.sourceKinds : [];
+  const ids = Array.isArray(source.legacyAnalysisSectionIds) ? source.legacyAnalysisSectionIds : [];
   if (source.schema !== undefined && source.schema !== PIPELINE_GRE_VENDOR_MIGRATION_SCHEMA) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Migration schema must be exact.'));
   if (source.sourceKinds !== undefined && (!Array.isArray(source.sourceKinds)
-    || source.sourceKinds.some((value) => typeof value !== 'string' || !text(value)))) errors.push(
+    || kinds.some((value) => typeof value !== 'string' || !text(value)))) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_INPUT_INVALID', 'sourceKinds must contain nonblank strings.'));
-  if (source.legacyAnalysisSectionIds !== undefined && (!Array.isArray(source.legacyAnalysisSectionIds)
-    || source.legacyAnalysisSectionIds.some((value) => !/^AS[1-9]\d*$/.test(text(value))))) errors.push(
+  const invalidIds = ids.some((value) => typeof value !== 'string' || !/^AS[1-9]\d*$/.test(text(value)));
+  if (source.legacyAnalysisSectionIds !== undefined && (!Array.isArray(source.legacyAnalysisSectionIds) || invalidIds)) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_INPUT_INVALID', 'legacyAnalysisSectionIds must contain canonical AS IDs.'));
-  if (Array.isArray(source.legacyAnalysisSectionIds) && source.legacyAnalysisSectionIds.length > 0
-    && source.legacyEvidenceObserved !== true) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Legacy section IDs require observed legacy evidence.'));
-  if (source.legacyEvidenceObserved === true && source.legacyGreVendorSeriesBasisConfirmed !== true) errors.push(
-    createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_LEGACY_AUTHORITY_UNCONFIRMED',
-      'Observed legacy GRE vendor-series evidence requires explicit confirmation.'));
-  const state = finalState(source, errors);
-  const unique = (values) => Object.freeze([...new Set((Array.isArray(values) ? values : [])
-    .map(text).filter(Boolean))].sort(compare));
-  return freeze({ schema: PIPELINE_GRE_VENDOR_MIGRATION_SCHEMA, sourceKinds: unique(source.sourceKinds),
-    legacyAnalysisSectionIds: unique(source.legacyAnalysisSectionIds),
-    legacyEvidenceObserved: source.legacyEvidenceObserved === true,
-    legacyGreVendorSeriesBasisConfirmed: source.legacyGreVendorSeriesBasisConfirmed === true,
-    sourceAuthority: text(source.sourceAuthority), sourceReference: text(source.sourceReference),
-    diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready });
+  if (new Set(ids.map(text)).size !== ids.length) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'legacyAnalysisSectionIds must be unique before normalization.'));
+  const observed = source.legacyEvidenceObserved === true, confirmed = source.legacyGreVendorSeriesBasisConfirmed === true;
+  const confirmedKind = kinds.includes('CONFIRMED_LEGACY_GRE_PLACEHOLDER'), hasIds = ids.length > 0;
+  if (observed && !hasIds) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Observed legacy evidence requires at least one legacy analysis section ID.'));
+  if (hasIds && !observed) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Legacy analysis section IDs require observed legacy evidence.'));
+  if (confirmed && !observed) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Legacy confirmation cannot exist without observed legacy evidence.'));
+  if (observed && !confirmed) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_LEGACY_AUTHORITY_UNCONFIRMED', 'Observed legacy GRE vendor-series evidence requires confirmation.'));
+  if (confirmedKind && (!observed || !confirmed || !hasIds)) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_LEGACY_AUTHORITY_UNCONFIRMED', 'Confirmed legacy source requires observed, confirmed section evidence.'));
+  if (hasIds && !confirmedKind) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_INPUT_INVALID', 'Legacy section IDs require a selected confirmed-legacy source kind.'));
+  const state = finalState(source, errors), unique = (values) => Object.freeze([...new Set(values.map(text).filter(Boolean))].sort(compare));
+  return freeze({ schema: PIPELINE_GRE_VENDOR_MIGRATION_SCHEMA, sourceKinds: unique(kinds),
+    legacyAnalysisSectionIds: unique(ids), legacyEvidenceObserved: observed,
+    legacyGreVendorSeriesBasisConfirmed: confirmed, sourceAuthority: text(source.sourceAuthority),
+    sourceReference: text(source.sourceReference), diagnostics: state.diagnostics,
+    blockerCodes: state.blockerCodes, ready: state.ready });
 }
-
+const SERIES_TEXT_FIELDS = Object.freeze(['vendorId', 'seriesId', 'qualificationEvidenceId',
+  'requirementReference', 'bendPolicyId', 'bendBreakLengthBasis', 'teePolicyId', 'teeBreakLengthBasis',
+  'sourceKind', 'sourceAuthority', 'sourceReference']);
 function seriesErrors(source, bore) {
-  const errors = [], required = ['vendorId', 'seriesId', 'sourceKind', 'sourceAuthority', 'sourceReference'];
-  if (required.some((field) => !text(source[field]))) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_IDENTITY_INVALID', 'Vendor, series and provenance identity must be nonblank.'));
+  const errors = [], invalidTypes = strictStrings(source, SERIES_TEXT_FIELDS);
+  if (invalidTypes.length) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_IDENTITY_INVALID', 'Identity, evidence and provenance fields must be strings.', { fields: invalidTypes }));
+  if (['vendorId', 'seriesId', 'sourceKind', 'sourceAuthority', 'sourceReference'].some((field) => !text(source[field]))) errors.push(
+    createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_IDENTITY_INVALID', 'Vendor, series and provenance identity must be nonblank strings.'));
   if (!text(source.qualificationEvidenceId)) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_QUALIFICATION_REQUIRED', 'qualificationEvidenceId is required.'));
+    'PIPELINE_GRE_VENDOR_QUALIFICATION_REQUIRED', 'qualificationEvidenceId must be a nonblank string.'));
   if (!text(source.requirementReference)) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_REQUIREMENT_REFERENCE_REQUIRED', 'requirementReference is required.'));
+    'PIPELINE_GRE_VENDOR_REQUIREMENT_REFERENCE_REQUIRED', 'requirementReference must be a nonblank string.'));
   if (!bore) errors.push(createPipelineGreVendorDiagnostic(
     'PIPELINE_GRE_VENDOR_NOMINAL_BORE_REQUIRED', 'A positive GRE vendor nominal bore is required.'));
-  const bendD = ['bendRadiusMm', 'bendBreakLengthMm', 'bendLocalThicknessMm'].map((field) => parsePipelinePositiveScalar(source[field]));
+  const bend = ['bendRadiusMm', 'bendBreakLengthMm', 'bendLocalThicknessMm'].map((field) => parsePipelinePositiveScalar(source[field]));
   const basis = text(source.bendBreakLengthBasis), multiplier = parsePipelinePositiveScalar(source.bendBreakMultiplierBore);
-  if (source.bendPolicyId !== PIPELINE_GRE_VENDOR_POLICY_IDS.BEND || bendD.some((value) => !value)
+  if (source.bendPolicyId !== PIPELINE_GRE_VENDOR_POLICY_IDS.BEND || bend.some((value) => !value)
     || !['NOMINAL_BORE_MULTIPLIER', 'EXPLICIT_LENGTH'].includes(basis)) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_BEND_INPUT_INVALID', 'Qualified bend dimensions are invalid.'));
   if (basis === 'NOMINAL_BORE_MULTIPLIER' && (!multiplier || !bore
-    || Math.abs(bendD[1] - bore * multiplier) > 0.000001)) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_BEND_INPUT_INVALID', 'Multiplier bend break length must equal nominal bore times multiplier.'));
+    || Math.abs(bend[1] - bore * multiplier) > 0.000001)) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_BEND_INPUT_INVALID', 'Multiplier bend break length must equal bore * multiplier.'));
   if (basis === 'EXPLICIT_LENGTH' && supplied(source, 'bendBreakMultiplierBore')) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_BEND_INPUT_INVALID', 'Explicit bend break length cannot include a multiplier.'));
   if (source.teePolicyId !== PIPELINE_GRE_VENDOR_POLICY_IDS.TEE || text(source.teeBreakLengthBasis) !== 'EXPLICIT_LENGTH'
@@ -157,28 +166,32 @@ function seriesErrors(source, bore) {
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_TEE_INPUT_INVALID', 'Qualified tee dimensions are invalid.'));
   return errors;
 }
-function resolutionIdentityErrors(source, element = false) {
-  const errors = [], profile = getPipelineEngineeringProfile(text(source.profileId));
-  if (!profile || profile.profileId !== 'gre') errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_PROFILE_INCOMPATIBLE', 'GRE vendor-series resolution requires profileId gre.'));
-  if (!/^AS[1-9]\d*$/.test(text(source.analysisSectionId))) errors.push(createPipelineGreVendorDiagnostic(
-    'PIPELINE_GRE_VENDOR_OWNERSHIP_INVALID', 'Canonical analysis-section identity is required.'));
+function identityErrors(source, element = false) {
+  const errors = [], profileId = text(source.profileId), sectionId = text(source.analysisSectionId);
+  if (strictStrings(source, ['profileId', 'analysisSectionId']).length
+    || getPipelineEngineeringProfile(profileId)?.profileId !== 'gre') errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_PROFILE_INCOMPATIBLE', 'GRE resolution requires exact string profileId gre.'));
+  if (!/^AS[1-9]\d*$/.test(sectionId)) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_OWNERSHIP_INVALID', 'Canonical string analysis-section identity is required.'));
   if (element && (!Number.isInteger(source.elementIndex) || source.elementIndex < 0
-    || text(source.elementId) !== `E${source.elementIndex + 1}`
+    || typeof source.elementId !== 'string' || text(source.elementId) !== `E${source.elementIndex + 1}`
+    || typeof source.sectionDisposition !== 'string'
     || !['SECTION_START', 'INHERITED'].includes(text(source.sectionDisposition)))) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_OWNERSHIP_INVALID', 'Canonical element identity and disposition are required.'));
   if (!element && (!Number.isInteger(source.startElementIndex) || source.startElementIndex < 0)) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_OWNERSHIP_INVALID', 'A nonnegative section start is required.'));
   return errors;
 }
-const blockedAuthority = (source) => text(source.status) === 'BLOCKED'
+const blockedAuthority = (source) => source.status === 'BLOCKED'
   && ((Array.isArray(source.blockerCodes) && source.blockerCodes.length)
-    || (Array.isArray(source.diagnostics) && source.diagnostics.some((item) => text(item?.severity) === 'BLOCKING')));
-
+    || (Array.isArray(source.diagnostics) && source.diagnostics.some((item) => item?.severity === 'BLOCKING')));
 export function createPipelineGreVendorSeriesSectionResolution(input = {}) {
   const safeValue = safe(input, 'PIPELINE_GRE_VENDOR_INPUT_INVALID'), source = safeValue.source;
-  const bore = parsePipelinePositiveScalar(source.greVendorNominalBoreMm), errors = [...safeValue.errors,
-    ...resolutionIdentityErrors(source)];
+  const bore = parsePipelinePositiveScalar(source.greVendorNominalBoreMm);
+  const errors = [...safeValue.errors, ...identityErrors(source)];
+  const suppliedTypeErrors = strictStrings(source, SERIES_TEXT_FIELDS);
+  if (blockedAuthority(source) && suppliedTypeErrors.length) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_IDENTITY_INVALID', 'Supplied identity fields must be strings.', { fields: suppliedTypeErrors }));
   if (!blockedAuthority(source)) errors.push(...seriesErrors(source, bore));
   const state = finalState(source, errors), scalar = (field) => parsePipelinePositiveScalar(source[field]);
   return freeze({ schema: PIPELINE_GRE_VENDOR_SECTION_SCHEMA, analysisSectionId: text(source.analysisSectionId),
@@ -191,43 +204,60 @@ export function createPipelineGreVendorSeriesSectionResolution(input = {}) {
     teePolicyId: text(source.teePolicyId), teeBreakLengthBasis: text(source.teeBreakLengthBasis),
     teeBreakLengthMm: scalar('teeBreakLengthMm'), teeLocalThicknessMm: scalar('teeLocalThicknessMm'),
     sourceKind: text(source.sourceKind), sourceAuthority: text(source.sourceAuthority), sourceReference: text(source.sourceReference),
-    status: state.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready });
+    status: state.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: state.diagnostics,
+    blockerCodes: state.blockerCodes, ready: state.ready });
 }
 export function createPipelineGreVendorSeriesElementResolution(input = {}) {
   const safeValue = safe(input, 'PIPELINE_GRE_VENDOR_INPUT_INVALID'), source = safeValue.source;
-  const bore = parsePipelinePositiveScalar(source.greVendorNominalBoreMm), errors = [...safeValue.errors,
-    ...resolutionIdentityErrors(source, true)];
-  if (!blockedAuthority(source) && (!text(source.vendorId) || !text(source.seriesId) || !bore || !text(source.sourceKind))) errors.push(
+  const bore = parsePipelinePositiveScalar(source.greVendorNominalBoreMm);
+  const errors = [...safeValue.errors, ...identityErrors(source, true)];
+  const fields = ['vendorId', 'seriesId', 'sourceKind'], invalidTypes = strictStrings(source, fields);
+  if (invalidTypes.length) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_IDENTITY_INVALID', 'Element identity and provenance fields must be strings.', { fields: invalidTypes }));
+  if (!blockedAuthority(source) && (fields.some((field) => !text(source[field])) || !bore)) errors.push(
     createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID', 'Resolved elements require vendor-series identity.'));
   const state = finalState(source, errors);
-  return freeze({ schema: PIPELINE_GRE_VENDOR_ELEMENT_SCHEMA, elementIndex: Number.isInteger(source.elementIndex) ? source.elementIndex : null,
+  return freeze({ schema: PIPELINE_GRE_VENDOR_ELEMENT_SCHEMA,
+    elementIndex: Number.isInteger(source.elementIndex) ? source.elementIndex : null,
     elementId: text(source.elementId), analysisSectionId: text(source.analysisSectionId), profileId: text(source.profileId),
     vendorId: text(source.vendorId), seriesId: text(source.seriesId), greVendorNominalBoreMm: bore,
     sectionDisposition: text(source.sectionDisposition), sourceKind: text(source.sourceKind),
-    status: state.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready });
+    status: state.ready ? 'RESOLVED' : 'BLOCKED', diagnostics: state.diagnostics,
+    blockerCodes: state.blockerCodes, ready: state.ready });
 }
 function coverageErrors(sections, elements, notApplicable) {
-  const errors = [], sectionIds = Object.create(null), starts = Object.create(null);
-  const elementIndexes = Object.create(null), elementIds = Object.create(null), excluded = Object.create(null);
+  const errors = [], byId = Object.create(null), starts = Object.create(null), excluded = Object.create(null);
+  if (sections.length + notApplicable.length === 0) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'The represented section and not-applicable union must be nonempty.'));
   sections.forEach((item) => {
-    if (sectionIds[item.analysisSectionId] || starts[item.startElementIndex]) errors.push(createPipelineGreVendorDiagnostic(
+    if (byId[item.analysisSectionId] || starts[item.startElementIndex]) errors.push(createPipelineGreVendorDiagnostic(
       'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'GRE section identity and starts must be unique.'));
-    sectionIds[item.analysisSectionId] = true; starts[item.startElementIndex] = true;
+    byId[item.analysisSectionId] = item; starts[item.startElementIndex] = true;
   });
+  const seenIndexes = Object.create(null), seenIds = Object.create(null);
   elements.forEach((item) => {
-    const owner = sections.filter((section) => section.startElementIndex <= item.elementIndex).at(-1);
-    const disposition = owner?.startElementIndex === item.elementIndex ? 'SECTION_START' : 'INHERITED';
-    if (elementIndexes[item.elementIndex] || elementIds[item.elementId] || !owner
-      || item.analysisSectionId !== owner.analysisSectionId || item.sectionDisposition !== disposition) errors.push(
-      createPipelineGreVendorDiagnostic('PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID',
-        'GRE element coverage must be unique and follow resolved section ownership.'));
-    elementIndexes[item.elementIndex] = true; elementIds[item.elementId] = true;
+    const owner = byId[item.analysisSectionId], expected = owner?.startElementIndex === item.elementIndex ? 'SECTION_START' : 'INHERITED';
+    const conserved = owner && ['profileId', 'vendorId', 'seriesId', 'greVendorNominalBoreMm', 'sourceKind']
+      .every((field) => item[field] === owner[field]);
+    if (seenIndexes[item.elementIndex] || seenIds[item.elementId] || !owner
+      || item.sectionDisposition !== expected || !conserved) errors.push(createPipelineGreVendorDiagnostic(
+      'PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID', 'Element identity must exactly conserve its owning section assignment.'));
+    seenIndexes[item.elementIndex] = true; seenIds[item.elementId] = true;
+  });
+  sections.forEach((section) => {
+    const owned = elements.filter((item) => item.analysisSectionId === section.analysisSectionId);
+    if (!owned.length || !owned.some((item) => item.elementIndex === section.startElementIndex
+      && item.sectionDisposition === 'SECTION_START')) errors.push(createPipelineGreVendorDiagnostic(
+      'PIPELINE_GRE_VENDOR_ELEMENT_COVERAGE_INVALID', 'Every GRE section must own its exact section-start element.'));
   });
   notApplicable.forEach((id) => {
-    if (excluded[id] || sectionIds[id] || !/^AS[1-9]\d*$/.test(id)) errors.push(createPipelineGreVendorDiagnostic(
+    if (excluded[id] || byId[id] || !/^AS[1-9]\d*$/.test(id)) errors.push(createPipelineGreVendorDiagnostic(
       'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'Not-applicable sections must be canonical, unique and disjoint.'));
     excluded[id] = true;
   });
+  const union = [...Object.keys(byId), ...Object.keys(excluded)].sort((a, b) => Number(a.slice(2)) - Number(b.slice(2)));
+  if (union.some((id, index) => id !== `AS${index + 1}`)) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'Represented section coverage must be canonical and complete.'));
   return errors;
 }
 export function createPipelineGreVendorSeriesPlan(input = {}) {
@@ -245,8 +275,11 @@ export function createPipelineGreVendorSeriesPlan(input = {}) {
     .map(createPipelineGreVendorSeriesSectionResolution).sort((a, b) => a.startElementIndex - b.startElementIndex));
   const elements = Object.freeze((Array.isArray(source.elementResolutions) ? source.elementResolutions : [])
     .map(createPipelineGreVendorSeriesElementResolution).sort((a, b) => a.elementIndex - b.elementIndex));
-  const notApplicable = Object.freeze((Array.isArray(source.notApplicableAnalysisSectionIds)
-    ? source.notApplicableAnalysisSectionIds : []).map(text).filter(Boolean).sort(compare));
+  const rawNotApplicable = Array.isArray(source.notApplicableAnalysisSectionIds) ? source.notApplicableAnalysisSectionIds : [];
+  if (rawNotApplicable.some((id) => typeof id !== 'string')
+    || new Set(rawNotApplicable.map(text)).size !== rawNotApplicable.length) errors.push(createPipelineGreVendorDiagnostic(
+    'PIPELINE_GRE_VENDOR_SECTION_COVERAGE_INVALID', 'Not-applicable IDs must be unique canonical strings.'));
+  const notApplicable = Object.freeze(rawNotApplicable.map(text).filter(Boolean).sort(compare));
   errors.push(...coverageErrors(sections, elements, notApplicable));
   const nested = [migration, ...sections, ...elements];
   const state = finalState(source, [...errors, ...nested.flatMap((item) => item.diagnostics)],
@@ -255,6 +288,6 @@ export function createPipelineGreVendorSeriesPlan(input = {}) {
     analysisSectionPlanSchema: text(source.analysisSectionPlanSchema),
     analysisDiameterPlanSchema: text(source.analysisDiameterPlanSchema), grePlaceholderSchema: text(source.grePlaceholderSchema),
     migration, sectionResolutions: sections, elementResolutions: elements,
-    notApplicableAnalysisSectionIds: notApplicable, diagnostics: state.diagnostics, blockerCodes: state.blockerCodes,
-    ready: state.ready && nested.every((item) => item.ready) });
+    notApplicableAnalysisSectionIds: notApplicable, diagnostics: state.diagnostics,
+    blockerCodes: state.blockerCodes, ready: state.ready && nested.every((item) => item.ready) });
 }
