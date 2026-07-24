@@ -18,25 +18,24 @@ for (const [name, source] of Object.entries(sources)) {
   assert.doesNotMatch(source, /pipeline-3d-model-(profile-propagation|project-adapter|export-context|tab)\.js/);
 }
 const authority = sources[names[0]], document = sources[names[1]], writer = sources[names[2]];
-assert.match(authority, /PipelineInputXmlProfileAuthorityPlan\.v1/);
-assert.match(authority, /PipelineInputXmlProfileSectionAuthority\.v1/);
-assert.match(authority, /PipelineInputXmlProfileElementAuthority\.v1/);
-assert.match(authority, /PipelineInputXmlFittingAuthority\.v1/);
-for (const code of ['AUTHORITY_INPUT_INVALID', 'AUTHORITY_SCHEMA_INVALID', 'AUTHORITY_OWNERSHIP_INVALID',
-  'AUTHORITY_COVERAGE_INVALID', 'DIAMETER_CONFLICT', 'PROPERTY_CONFLICT',
-  'FITTING_AUTHORITY_UNRESOLVED', 'FITTING_GEOMETRY_CONFLICT', 'GRE_BEND_GEOMETRY_REQUIRED', 'WRITER_BLOCKED']) {
-  assert.match(authority, new RegExp(`PIPELINE_INPUTXML_${code}`));
-}
-assert.match(document, /profileAuthorityPlans/);
-assert.match(document, /profileAuthorityPlans !== undefined/);
-assert.match(document, /GRE_BEND_POLICY_NOT_IMPLEMENTED/);
-assert.match(document, /caesarDiameterMm/);
-assert.match(writer, /profileWriterDiagnostic/);
-assert.match(writer, /PIPELINE_INPUTXML_WRITER_BLOCKED/);
+assert.match(authority, /createPipelineAnalysisSectionPlan/);
+assert.match(authority, /createPipelineAnalysisDiameterPlan/);
+assert.match(authority, /createPipelineNormalFittingPlan/);
+assert.match(authority, /createPipelineB314RadiusPlan/);
+assert.match(authority, /createPipelineGreVendorSeriesPlan/);
+assert.match(authority, /bendGeometry/);
+assert.match(authority, /greVendorSeriesAuthority/);
+assert.match(document, /adoptedProfileBend/);
+assert.match(document, /deepClone/);
+assert.match(writer, /authorityStructureValid/);
+assert.match(writer, /fittingStructureValid/);
+assert.match(writer, /countStructureValid/);
+assert.match(writer, /bendMatchesAuthority/);
 assert.doesNotMatch(writer, /\b(PROFILE|PIPING_CODE|VENDOR|SERIES|QUALIFICATION|ANALYSIS_SECTION)\b.*attr\(/);
 for (const runtimeName of ['pipeline-3d-model-profile-propagation.js', 'pipeline-3d-model-project-adapter.js',
   'pipeline-3d-model-export-context.js', 'pipeline-3d-model-tab.js']) {
   const runtimePath = path.join(production, runtimeName);
-  if (fs.existsSync(runtimePath)) assert.equal(fs.readFileSync(runtimePath, 'utf8').includes('pipeline-3d-model-inputxml-profile-authority.js'), false);
+  if (fs.existsSync(runtimePath)) assert.equal(
+    fs.readFileSync(runtimePath, 'utf8').includes('pipeline-3d-model-inputxml-profile-authority.js'), false);
 }
 console.log('pipeline-3d-model InputXML profile static: PASS');
