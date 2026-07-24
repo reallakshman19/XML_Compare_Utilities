@@ -1,4 +1,4 @@
-/** RC-004 workspace lifecycle over trusted compare, guided review and decisions. */
+/** Revision Compare workspace lifecycle over trusted compare, review, decisions and transfer. */
 import { createRevisionActions } from './revision-compare-actions.js';
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
@@ -32,6 +32,7 @@ import {
   REVISION_COMPARE_TRUST_MAX_BYTES, REVISION_COMPARE_TRUST_STATUS,
   renderRevisionCompareTrustReceiptSection, verifyRevisionCompareTrustReceiptJson,
 } from './revision-trust-receipt.js';
+import { createRevisionCompareTransferWorkspaceBindings } from './revision-transfer-workspace-bindings.js';
 
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
@@ -88,7 +89,7 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-create-sign-off') || button.hasAttribute('data-revc-create-new-sign-off')) actions.createSignOff();
   if (button.hasAttribute('data-revc-download-sign-off')) actions.downloadSignOff();
   if (button.hasAttribute('data-revc-close')) actions.close();
-  comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button);
+  comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button); actions.transferClick(button);
 }
 function reviewInput(actions, target) {
   if (target.matches('[data-revc-review-search]')) actions.setReviewSearch(target.value);
@@ -110,7 +111,7 @@ function inputChange(actions, target) {
   if (target.matches('[data-revc-queue-search]')) actions.setQueueSearch(target.value);
   if (target.matches('[data-revc-changed-reason]')) actions.toggleChangedReason(target.dataset.revcChangedReason);
   if (target.matches('[data-revc-needs-decision]')) actions.setNeedsDecision(target.checked);
-  reviewInput(actions, target); decisionInput(actions, target); actions.syncSignOffControls();
+  reviewInput(actions, target); decisionInput(actions, target); actions.transferChange(target); actions.syncSignOffControls();
 }
 function syncDecisionButtons(root) {
   const field = root.querySelector('[data-revc-decision-rationale]'); if (!field) return;
@@ -146,7 +147,7 @@ function prepareEvidencePackageControl(root, state) {
   const readiness = revisionCompareEvidencePackageReadiness(state); const documentRef = root.ownerDocument;
   const section = documentRef.createElement('section'); section.className = 'revc-review-session'; section.setAttribute('data-revc-evidence-package', readiness.status.toLowerCase());
   const header = documentRef.createElement('header'); const title = documentRef.createElement('div');
-  appendTextElement(documentRef, title, 'span', 'EVIDENCE PACKAGE'); appendTextElement(documentRef, title, 'h2', 'Authority chain export');
+  appendTextElement(documentRef, title, 'span', 'REVIEW EVIDENCE EXPORT'); appendTextElement(documentRef, title, 'h2', 'Authority chain export');
   const status = appendTextElement(documentRef, header, 'strong', readiness.status); status.setAttribute('data-status', readiness.status.toLowerCase());
   header.appendChild(title); header.appendChild(status);
   const message = appendTextElement(documentRef, section, 'p', readiness.status === 'READY'
@@ -187,7 +188,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
   let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
-  let trustImportGeneration = 0;
+  let trustImportGeneration = 0; let transferBindings = null;
   if (!viewerAdapter) viewerAdapter = createRevisionCompareViewerAdapter({
     ...options.viewerAdapterOptions, viewerPolicy: policy,
     onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
@@ -267,20 +268,22 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   function render(next = state) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state);
+    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); transferBindings?.render(state);
     renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
     enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
     Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
+  transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
     ...baseActions, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
+    transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
   bindWorkspace(root, actions, cleanups); render();
   return Object.freeze({
-    evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), compareRunId: compareService.activeRunId() }),
-    destroy: () => { destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
+    evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), transfer: transferBindings.model(), compareRunId: compareService.activeRunId() }),
+    destroy: () => { destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
   });
 }
 export const _test = Object.freeze({ actionClick, enforceImportedModeRestrictions, initialWorkspaceState, inputChange, prepareEvidencePackageControl, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });

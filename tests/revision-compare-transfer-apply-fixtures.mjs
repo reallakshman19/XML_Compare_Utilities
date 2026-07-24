@@ -133,7 +133,7 @@ export async function workspaceFixture(options = {}) {
     manifest: null, artifacts: Object.freeze([]), patchedSnapshot: null, error: null,
   });
   return deepFreeze({
-    schema: 'RevisionCompareWorkspaceState.v9', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
+    schema: 'RevisionCompareWorkspaceState.v10', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
     basis: plan.comparisonBasis, slots: { baseline: { status: 'SCOPED', jsonSnapshot: revA }, candidate: { status: 'SCOPED', jsonSnapshot: revB } },
     compare: { status: 'COMPLETE', audit: plan.audit, presentationMode: 'overlay' },
     review: { session: plan.reviewSession, importError: null, replacementRequired: false },

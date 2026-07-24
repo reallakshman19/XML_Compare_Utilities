@@ -148,7 +148,7 @@ assert.doesNotMatch(importSource, /eval\s*\(|new Function|Function\s*\(|DOMParse
 assert.doesNotMatch(importSource, /revision-load-service|revision-compare-service|revision-compare-worker|createRevisionCompareAudit|projectCompareRecords|matchBoundedCandidates/);
 assert.doesNotMatch(importSource, /source-document|rawUploadedBytes|fileHandle|arrayBuffer\(|createObjectURL|Blob|path\.resolve|readFile\(/);
 assert.doesNotMatch(importSource, /package (?:is )?(?:authenticated|signed|approved|certified|final|trusted)/i);
-assert.match(stateSource, /RevisionCompareWorkspaceState\.v9/);
+assert.match(stateSource, /RevisionCompareWorkspaceState\.v10/);
 assert.match(stateSource, /RevisionEvidencePackageImportState\.v1/);
 assert.match(stateSource, /RevisionCompareSignOffState\.v1/);
 assert.match(workspaceSource, /data-revc-evidence-package-import/);
@@ -167,6 +167,7 @@ assert.match(signOffSource, /sha256Text/);
 assert.match(signOffSource, /revision-sign-off:/);
 assert.match(signOffSource, /This is a self-declared review completion record\. Declarant identity and cryptographic authenticity are not established\./);
 assert.match(signOffSource, /I confirm that I reviewed the complete Revision Compare evidence set identified by this report and that all review items and ambiguity decisions are resolved in the recorded states\./);
+assert.match(signOffSource, /does not cover transfer intent, plans, or patched target output/);
 assert.doesNotMatch(signOffSource, /Date\.now|Math\.random|randomUUID|getRandomValues|privateKey|publicKey|certificate/i);
 assert.doesNotMatch(signOffSource, /revision-compare-viewer|engineering-svg|property-inspector|revision-load-service|revision-compare-service|revision-compare-worker/);
 assert.doesNotMatch(signOffSource, /authenticated|digitally signed|externally certified|organization-approved|engineering-approved|accepted for construction|final design authority/i);
@@ -197,6 +198,28 @@ for (const path of transferPaths) {
   assert.doesNotMatch(source, /export\s+default\b/, `${path} must use named exports`);
   assert.doesNotMatch(source, /xml-compare\/|tabs\/xml-compare-tab|createObjectURL|Blob\s*\(|DOMParser|globalThis\.document|globalThis\.window|renderer|THREE/);
 }
+const transferUiPaths = [
+  'tabs/revision-compare/revision-transfer-controller.js',
+  'tabs/revision-compare/revision-transfer-view.js',
+  'tabs/revision-compare/revision-transfer-workspace-bindings.js',
+];
+const transferUiSources = [];
+for (const path of transferUiPaths) {
+  const source = await readFile(path, 'utf8'); transferUiSources.push(source);
+  assert(source.trimEnd().split('\n').length < 300, `${path} must remain below 300 lines`);
+  assert.doesNotMatch(source, /export\s+default|xml-compare\/|tabs\/xml-compare-tab|DOMParser|revision-compare-viewer|viewerAdapter|THREE|Date\.now|Math\.random/);
+}
+const transferUi = transferUiSources.join('\n');
+for (const selector of [
+  'data-revc-transfer-section', 'data-revc-transfer-pair', 'data-revc-transfer-field',
+  'data-revc-create-transfer-plan', 'data-revc-apply-transfer', 'data-revc-download-patched-json',
+  'data-revc-download-transfer-audit', 'data-revc-download-transfer-proof', 'data-revc-download-transfer-manifest',
+]) assert.match(transferUi, new RegExp(selector));
+assert.match(transferUi, /createRevisionCompareTransferSelection/);
+assert.match(transferUi, /validateRevisionCompareTransferArtifact/);
+assert.match(transferUi, /revokeObjectURL/);
+assert.match(workspaceSource, /createRevisionCompareTransferWorkspaceBindings/);
+
 const jsonDocumentSource = await readFile(transferPaths[0], 'utf8');
 const transferContractsSource = await readFile(transferPaths[1], 'utf8');
 const transferPolicySource = await readFile(transferPaths[2], 'utf8');
@@ -226,8 +249,9 @@ assert.match(transferArtifactsSource, /RevisionCompareTransferManifest\.v1/);
 assert.match(transferApplyStateSource, /RevisionCompareTransferApplyRequest\.v1/);
 assert.match(loadSource, /createRevisionCompareJsonDocumentSnapshot/);
 assert.match(intakeSource, /jsonSnapshot/);
-assert.match(stateSource, /transfer:\s*createRevisionCompareTransferState\(\)/);
+assert.match(stateSource, /transfer:\s*createRevisionCompareTransferState\(/);
 assert.match(stateSource, /function authorityAfterChange/);
+assert.match(stateSource, /function transferLifecycleChange/);
 assert.match(stateSource, /setWorkspaceReviewSession.*authorityAfterChange/);
 assert.match(stateSource, /setWorkspaceDecisionLedger.*authorityAfterChange/);
 assert.match(stateSource, /startWorkspaceLoad.*authorityAfterChange/s);
