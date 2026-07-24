@@ -45,11 +45,13 @@ function analysisPlan() {
   }));
   const elementResolutions = Array.from({ length: 6 }, (_, elementIndex) => {
     const owner = profiles.filter((item) => item[1] <= elementIndex).at(-1);
-    return { elementIndex, elementId: `E${elementIndex + 1}`, analysisSectionId: owner[0],
+    return {
+      elementIndex, elementId: `E${elementIndex + 1}`, analysisSectionId: owner[0],
       profileId: owner[2], resolvedMode: owner[3],
       sectionDisposition: owner[1] === elementIndex ? 'SECTION_START' : 'INHERITED',
       boundaryNode: owner[1] === elementIndex ? 100 + elementIndex * 10 : null,
-      sourceAuthority: 'TEST', sourceReference: 'FIXTURE', diagnostics: [], blockerCodes: [], ready: true };
+      sourceAuthority: 'TEST', sourceReference: 'FIXTURE', diagnostics: [], blockerCodes: [], ready: true,
+    };
   });
   return createPipelineAnalysisSectionPlan({ sections, elementResolutions, diagnostics: [], blockerCodes: [] });
 }
@@ -64,21 +66,25 @@ function diameterPlan(analysis) {
   }));
   const elementResolutions = analysis.elementResolutions.map((item) => {
     const owner = sectionResolutions.find((section) => section.analysisSectionId === item.analysisSectionId);
-    return { elementIndex: item.elementIndex, elementId: item.elementId,
+    return {
+      elementIndex: item.elementIndex, elementId: item.elementId,
       analysisSectionId: item.analysisSectionId, profileId: item.profileId,
       outsideDiameterMm: owner.outsideDiameterMm, nominalPipeSizeNps: owner.nominalPipeSizeNps,
       greVendorNominalBoreMm: owner.greVendorNominalBoreMm, caesarDiameterMm: owner.caesarDiameterMm,
       propertyDiameterMm: owner.caesarDiameterMm, diameterDisposition: item.sectionDisposition,
-      sourceKind: 'EXPLICIT', diagnostics: [], blockerCodes: [] };
+      sourceKind: 'EXPLICIT', diagnostics: [], blockerCodes: [],
+    };
   });
   return createPipelineAnalysisDiameterPlan({
     analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
     propertySectionPlanSchema: 'PipelinePropertySectionPlan.v1',
-    migration: { outsideDiameterSourceKinds: ['EXPLICIT'], nominalPipeSizeSourceKinds: ['EXPLICIT'],
+    migration: {
+      outsideDiameterSourceKinds: ['EXPLICIT'], nominalPipeSizeSourceKinds: ['EXPLICIT'],
       greVendorNominalBoreSourceKinds: ['EXPLICIT'], legacyDiameterEvidenceObserved: false,
       legacyDiameterBasisConfirmed: false, npsToOutsideDiameterConversionApplied: false,
       greVendorBoreToOutsideDiameterConversionApplied: false,
-      sourceAuthority: 'TEST', sourceReference: 'FIXTURE', diagnostics: [], blockerCodes: [] },
+      sourceAuthority: 'TEST', sourceReference: 'FIXTURE', diagnostics: [], blockerCodes: [],
+    },
     sectionResolutions, elementResolutions, diagnostics: [], blockerCodes: [],
   });
 }
@@ -89,7 +95,8 @@ function normalPlan() {
     bendResolutionSchema: 'PipelineBendResolution.v3',
     migration: { ...cleanMigration(['EXPLICIT_GLOBAL_NORMAL_POLICY']),
       legacyNormalFittingBasisConfirmed: false },
-    fittingResolutions: [{ candidateId: 'bend:110', incomingElementIndex: 0, incomingElementId: 'E1',
+    fittingResolutions: [{
+      candidateId: 'bend:110', incomingElementIndex: 0, incomingElementId: 'E1',
       outgoingElementIndex: 1, outgoingElementId: 'E2', analysisSectionId: 'AS1',
       profileId: 'normal-metallic', previousNode: 100, cornerNode: 110, nextNode: 120,
       geometricClass: 'HORIZONTAL', turnAngleDeg: 90, sourceBasis: 'GEOMETRY',
@@ -99,7 +106,8 @@ function normalPlan() {
       observedCandidateRadiusMm: 150, candidateStatus: 'EMITTED',
       candidateRadiusDisposition: 'MATCHES_AUTHORITY', geometryRecheckRequired: false,
       sourceKind: 'EXPLICIT_GLOBAL_NORMAL_POLICY', sourceAuthority: 'TEST', sourceReference: 'NORMAL',
-      diagnostics: [], blockerCodes: [] }],
+      diagnostics: [], blockerCodes: [],
+    }],
     notApplicableCandidateIds: ['bend:130'], diagnostics: [], blockerCodes: [],
   });
 }
@@ -111,7 +119,8 @@ function b314Plan() {
     migration: { ...cleanMigration(['EXPLICIT_GLOBAL_B31_4_POLICY']),
       legacyB314RadiusBasisConfirmed: false, legacySettingsNpsObserved: null,
       legacySettingsNpsMatchedCanonical: false },
-    radiusResolutions: [{ candidateId: 'bend:130', incomingElementIndex: 2, incomingElementId: 'E3',
+    radiusResolutions: [{
+      candidateId: 'bend:130', incomingElementIndex: 2, incomingElementId: 'E3',
       outgoingElementIndex: 3, outgoingElementId: 'E4', analysisSectionId: 'AS2',
       profileId: 'asme-b31.4', previousNode: 120, cornerNode: 130, nextNode: 140,
       geometricClass: 'HORIZONTAL', turnAngleDeg: 90, sourceBasis: 'GEOMETRY', bendClass: 'cold-field',
@@ -127,12 +136,14 @@ function b314Plan() {
       observedCandidateRadiusD: 30, observedCandidateRadiusMm: 6000,
       candidateStatus: 'EMITTED', candidateRadiusDisposition: 'MATCHES_AUTHORITY',
       geometryRecheckRequired: false, sourceKind: 'EXPLICIT_GLOBAL_B31_4_POLICY',
-      sourceAuthority: 'TEST', sourceReference: 'B314', diagnostics: [], blockerCodes: [] }],
+      sourceAuthority: 'TEST', sourceReference: 'B314', diagnostics: [], blockerCodes: [],
+    }],
     notApplicableCandidateIds: ['bend:110'], diagnostics: [], blockerCodes: [],
   });
 }
 function grePlan(analysis) {
-  const section = { analysisSectionId: 'AS3', startElementIndex: 4, profileId: 'gre',
+  const section = {
+    analysisSectionId: 'AS3', startElementIndex: 4, profileId: 'gre',
     vendorId: 'VENDOR-A', seriesId: 'SERIES-254', qualificationEvidenceId: 'QUAL-1',
     requirementReference: 'REQ-1', greVendorNominalBoreMm: 254,
     bendPolicyId: 'gre-vendor-qualified-bend', bendRadiusMm: 762,
@@ -141,7 +152,8 @@ function grePlan(analysis) {
     teePolicyId: 'gre-vendor-qualified-tee', teeBreakLengthBasis: 'EXPLICIT_LENGTH',
     teeBreakLengthMm: 508, teeLocalThicknessMm: 16,
     sourceKind: 'EXPLICIT_GLOBAL_GRE_VENDOR_SERIES', sourceAuthority: 'TEST',
-    sourceReference: 'GRE', diagnostics: [], blockerCodes: [] };
+    sourceReference: 'GRE', diagnostics: [], blockerCodes: [],
+  };
   const elementResolutions = analysis.elementResolutions.slice(4).map((item) => ({
     elementIndex: item.elementIndex, elementId: item.elementId, analysisSectionId: 'AS3',
     profileId: 'gre', vendorId: section.vendorId, seriesId: section.seriesId,
@@ -152,9 +164,11 @@ function grePlan(analysis) {
     analysisSectionPlanSchema: 'PipelineAnalysisSectionPlan.v1',
     analysisDiameterPlanSchema: 'PipelineAnalysisDiameterPlan.v1',
     grePlaceholderSchema: 'PipelineGrePlaceholder.v1',
-    migration: { sourceKinds: ['EXPLICIT_GLOBAL_GRE_VENDOR_SERIES'], legacyAnalysisSectionIds: [],
+    migration: {
+      sourceKinds: ['EXPLICIT_GLOBAL_GRE_VENDOR_SERIES'], legacyAnalysisSectionIds: [],
       legacyEvidenceObserved: false, legacyGreVendorSeriesBasisConfirmed: false,
-      sourceAuthority: 'TEST', sourceReference: 'GRE', diagnostics: [], blockerCodes: [] },
+      sourceAuthority: 'TEST', sourceReference: 'GRE', diagnostics: [], blockerCodes: [],
+    },
     sectionResolutions: [section], elementResolutions,
     notApplicableAnalysisSectionIds: ['AS1', 'AS2'], diagnostics: [], blockerCodes: [],
   });
@@ -162,21 +176,29 @@ function grePlan(analysis) {
 export function authorityFixture() {
   const analysisSectionPlan = analysisPlan(), analysisDiameterPlan = diameterPlan(analysisSectionPlan);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
-    branchInfo: { lineNo: 'PL-048', diameter: 100, wallThickness: 6,
+    branchInfo: {
+      lineNo: 'PL-048', diameter: 100, wallThickness: 6,
       insulationThickness: 0, corrosionAllowance: 0, insulationDensity: 0,
-      fluidDensity: 0, materialNumber: 1 },
+      fluidDensity: 0, materialNumber: 1,
+    },
     coordinateRows: profileRows,
     propertySections: [{ startElementIndex: 2, diameter: 200 },
       { startElementIndex: 4, diameter: 300 }],
   });
   const normalCandidate = candidate('bend:110', 0, [100, 110, 120], 'standard', 1.5, 150);
   const b314Candidate = candidate('bend:130', 2, [120, 130, 140], 'cold-field', 30, 6000);
-  return { analysisSectionPlan, analysisDiameterPlan, propertySectionPlan,
-    bendResolution: { schema: 'PipelineBendResolution.v3', candidates: [normalCandidate, b314Candidate],
-      bendByIncomingElementIndex: { 0: structuredClone(normalCandidate), 2: structuredClone(b314Candidate) },
-      errors: [], hasBlockingErrors: false },
+  return {
+    analysisSectionPlan, analysisDiameterPlan, propertySectionPlan,
+    bendResolution: {
+      schema: 'PipelineBendResolution.v3', candidates: [normalCandidate, b314Candidate],
+      bendByIncomingElementIndex: {
+        0: structuredClone(normalCandidate), 2: structuredClone(b314Candidate),
+      },
+      errors: [], hasBlockingErrors: false,
+    },
     normalFittingPlan: normalPlan(), b314RadiusPlan: b314Plan(),
-    greVendorSeriesPlan: grePlan(analysisSectionPlan) };
+    greVendorSeriesPlan: grePlan(analysisSectionPlan),
+  };
 }
 export function withGreTurn(input = authorityFixture()) {
   const value = structuredClone(input);
@@ -207,6 +229,17 @@ function blocked(mutator, code) {
   const result = buildPipelineInputXmlProfileAuthorityPlan(input);
   assert.equal(result.ready, false); assert.ok(result.blockerCodes.includes(code), JSON.stringify(result.blockerCodes));
 }
+blocked((v) => { v.analysisSectionPlan.elementResolutions[0].analysisSectionId = 'AS2'; },
+  'PIPELINE_INPUTXML_AUTHORITY_OWNERSHIP_INVALID');
+blocked((v) => { v.analysisSectionPlan.sections[1].startElementIndex = 1; },
+  'PIPELINE_INPUTXML_AUTHORITY_OWNERSHIP_INVALID');
+blocked((v) => { v.propertySectionPlan.blockerCodes = ['PIPELINE_DIAMETER_REQUIRED']; },
+  'PIPELINE_INPUTXML_PROPERTY_CONFLICT');
+blocked((v) => {
+  v.propertySectionPlan.diagnostics = [{ severity: 'BLOCKING', code: 'PIPELINE_DIAMETER_REQUIRED',
+    message: 'The first element of the LINE scope requires a positive DIAMETER.', details: {} }];
+  v.propertySectionPlan.ready = false;
+}, 'PIPELINE_INPUTXML_PROPERTY_CONFLICT');
 blocked((v) => { delete v.greVendorSeriesPlan.sectionResolutions[0].teePolicyId; }, 'PIPELINE_INPUTXML_AUTHORITY_COVERAGE_INVALID');
 blocked((v) => { delete v.greVendorSeriesPlan.sectionResolutions[0].bendBreakLengthMm; }, 'PIPELINE_INPUTXML_AUTHORITY_COVERAGE_INVALID');
 blocked((v) => { v.greVendorSeriesPlan.sectionResolutions[0].bendPolicyId = 'invalid'; }, 'PIPELINE_INPUTXML_AUTHORITY_COVERAGE_INVALID');
@@ -225,6 +258,8 @@ for (const mutate of [
   (g) => { g.curvatureNodes[0].nodeNumber = 999999; },
   (g) => { g.previousNode = 999; },
   (g) => { g.nextNode = 999; },
+  (g) => { g.sourceBasis = 'FORGED'; },
+  (g) => { g.classification = 'VERTICAL'; },
   (g) => { g.curvatureNodes.push({ angleDeg: 60, nodeNumber: 106 }); },
 ]) blocked((v) => mutate(v.bendResolution.bendByIncomingElementIndex[0]),
   'PIPELINE_INPUTXML_AUTHORITY_OWNERSHIP_INVALID');
