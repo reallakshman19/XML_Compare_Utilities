@@ -113,19 +113,12 @@ async function verifyReport(report, sourcePackage, state) {
   const json = JSON.stringify(report);
   for (const forbidden of ['payload', 'differenceRows', 'visualModels', 'selectedPairEvidence', 'rawUploadedBytes']) expect(json).not.toContain(`"${forbidden}"`);
 }
-async function importPackage(page, source) {
-  await page.locator('[data-revc-evidence-package-import]').setInputFiles({ name: source.name, mimeType: 'application/json', buffer: Buffer.from(source.text) });
-  await expect(page.getByRole('heading', { name: 'Imported evidence package' })).toBeVisible({ timeout: 20_000 });
-}
-async function assertImportedRestrictions(page) {
-  for (const selector of [
-    '[data-revc-file]', '[data-revc-cancel]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
-    '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]', '[data-revc-download-scope]',
-  ]) await expect(page.locator(selector)).toHaveCount(0);
-}
 
 test('RC-SIGN-001-B01 — complete review and create deterministic sign-off report', async ({ page }) => {
-  await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page); await compare(page);
+  await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page);
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-file]')).toHaveCount(2);
+  await compare(page);
   await expect(page.locator('[data-revc-sign-off]')).toHaveCount(1);
   await expect(page.locator('[data-revc-sign-off-blockers]')).toContainText('Every review item');
   const rows = await rowCatalog(page); expect(rows.reviewable.length).toBeGreaterThan(0); expect(rows.ambiguous.length).toBeGreaterThan(0);
@@ -161,19 +154,14 @@ test('RC-SIGN-001-B01 — complete review and create deterministic sign-off repo
   const second = await downloadJson(page, '[data-revc-download-sign-off]');
   expect(second.value.reportId).not.toBe(first.value.reportId); expect(second.value.sourceEvidence.packageId).toBe(packageChanged.value.packageId);
   expect((await page.evaluate(() => structuredClone(window.rcHandle.evidence().state.compare.audit)))).toEqual(audit);
-  const completedPackage = packageChanged;
 
   await closeWorkspace(page); await expect(page.locator('[data-revc-sign-off]')).toHaveCount(0);
   expect(await page.evaluate(() => window.rcSignOffHarness.webglDisposed)).toBe(await page.evaluate(() => window.rcSignOffHarness.webglCreated));
-  await openWorkspace(page); await expect(page.locator('[data-revc-sign-off],[data-revc-create-sign-off]')).toHaveCount(0);
+  await openWorkspace(page);
+  await expect(page.locator('[data-revc-sign-off],[data-revc-create-sign-off]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-file]')).toHaveCount(2);
   await closeWorkspace(page);
-
-  await openWorkspace(page); await importPackage(page, completedPackage); await assertImportedRestrictions(page);
-  await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.signOff.status)).toBe('READY');
-  await createDeclaration(page, 'Create completion declaration', ' Imported');
-  const imported = await downloadJson(page, '[data-revc-download-sign-off]');
-  expect(imported.value.sourceEvidence.packageId).toBe(completedPackage.value.packageId);
-  await assertImportedRestrictions(page); await closeWorkspace(page);
   await expect(page.locator('[data-revc-sign-off],[data-revc-download-sign-off],[data-revc-sign-off-webgl]')).toHaveCount(0);
   expect(await page.evaluate(() => window.rcSignOffHarness.webglDisposed)).toBe(await page.evaluate(() => window.rcSignOffHarness.webglCreated));
 });

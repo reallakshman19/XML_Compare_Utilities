@@ -76,10 +76,6 @@ async function createSignOff(page, label = 'Create completion declaration', suff
   await page.getByRole('button', { name: label, exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.signOff.status)).toBe('CREATED');
 }
-async function downloadPackage(page) {
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('[data-revc-download-evidence-package]').click()]);
-  const text = await readFile(await download.path(), 'utf8'); return { text, name: download.suggestedFilename() };
-}
 const base64Url = (bytes) => Buffer.from(bytes).toString('base64url');
 async function receiptFor(report) {
   const keys = await webcrypto.subtle.generateKey({ name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
@@ -115,18 +111,12 @@ async function assertReadOnlyTrustUi(page) {
   await expect(section.locator('[data-revc-trust-signer-claim]')).toContainText('External Reviewer');
 }
 
-async function importedCompatibility(page, sourcePackage) {
-  await openWorkspace(page); await page.locator('[data-revc-evidence-package-import]').setInputFiles({ name: sourcePackage.name, mimeType: 'application/json', buffer: Buffer.from(sourcePackage.text) });
-  await expect(page.getByRole('heading', { name: 'Imported evidence package' })).toBeVisible({ timeout: 20_000 });
-  await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.signOff.status)).toBe('READY');
-  await createSignOff(page, 'Create completion declaration', ' Imported');
-  const report = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state.signOff.report)); const receipt = await receiptFor(report);
-  await importReceipt(page, 'imported-receipt.json', receipt); await expectCurrent(page, receipt); await closeWorkspace(page);
-}
-
 test('RC-TRUST-001-B01 — Verify detached signature for current and historical sign-off reports', async ({ page }) => {
-  await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page); await compare(page);
-  const rows = await rowCatalog(page); await completeAuthorities(page, rows); const sourcePackage = await downloadPackage(page);
+  await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page);
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-file]')).toHaveCount(2);
+  await compare(page);
+  const rows = await rowCatalog(page); await completeAuthorities(page, rows);
   await expect(page.locator('[data-revc-trust-import]')).toBeDisabled(); await createSignOff(page);
   const firstReport = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state.signOff.report)); const firstReceipt = await receiptFor(firstReport);
   await importReceipt(page, 'valid-receipt.json', firstReceipt); await expectCurrent(page, firstReceipt); await assertReadOnlyTrustUi(page);
@@ -162,7 +152,11 @@ test('RC-TRUST-001-B01 — Verify detached signature for current and historical 
   await page.waitForTimeout(450); await expectCurrent(page, secondReceipt);
   expect(await page.evaluate(() => window.rcHandle.evidence().state.trustReceipt.requestGeneration)).toBeGreaterThan(2);
 
-  await closeWorkspace(page); await importedCompatibility(page, sourcePackage);
-  await openWorkspace(page); await expect(page.locator('[data-revc-trust-status]')).toHaveCount(0); await closeWorkspace(page);
+  await closeWorkspace(page);
+  await openWorkspace(page);
+  await expect(page.locator('[data-revc-trust-status]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
+  await expect(page.locator('[data-revc-file]')).toHaveCount(2);
+  await closeWorkspace(page);
   expect(await page.evaluate(() => window.rcTrustHarness.webglDisposed)).toBe(await page.evaluate(() => window.rcTrustHarness.webglCreated));
 });
