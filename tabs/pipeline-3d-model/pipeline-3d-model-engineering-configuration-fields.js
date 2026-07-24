@@ -13,6 +13,7 @@ const values = {
   corrosionAllowance: field('number', 'mm'), insulationThickness: field('number', 'mm'),
   insulationDensity: field('number'), fluidDensity: field('number'), hydroPressure: field('number'),
   bendScreeningEnabled: field('boolean'), emitToInputXml: field('boolean'), screeningOnlyAcknowledged: field('boolean'),
+  detectHorizontal: field('boolean'), detectVertical: field('boolean'), detectCompound: field('boolean'),
   minimumPlanTurnAngleDeg: field('number', 'deg'), minimumProfileTurnAngleDeg: field('number', 'deg'),
   maximumTurnAngleDeg: field('number', 'deg'), shortElementAnglePolicy: field('string'),
   minimumAngleElementLengthMm: field('number', 'mm'), retainedStraightAllowanceMm: field('number', 'mm'),
