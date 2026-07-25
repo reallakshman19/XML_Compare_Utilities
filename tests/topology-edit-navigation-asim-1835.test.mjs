@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { canonicalInteractionDistance, solveEditDrag } from '../core/edit-3d/drag-solver.js';
+import { canonicalInteractionDistance, solveEditDrag } from '../tabs/topology-trace-validator/topology-edit-drag-solver.js';
 import { viewToWorldCoordinates, worldToViewCoordinates } from '../workbench3d/viewer/workbench-navigation-state.js';
 import { deriveFloatingOrigin } from '../workbench3d/viewer/scene-runtime.js';
 
