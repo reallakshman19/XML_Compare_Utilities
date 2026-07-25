@@ -1,4 +1,4 @@
-/** Bounded bridge from the Revision Compare workspace shell to transfer and completion engines. */
+/** Bounded bridge from the Revision Compare shell to transfer, completion, and archive engines. */
 import { createRevisionCompareTransferController } from './revision-transfer-controller.js';
 import { renderRevisionCompareTransferSection } from './revision-transfer-view.js';
 import { createRevisionCompareTransferPlan } from './revision-transfer-plan.js';
@@ -9,6 +9,9 @@ import { captureRevisionCompareTransferAuthority, revisionCompareTransferPlanAut
 import { createRevisionCompareTransferCompletionController } from './revision-transfer-completion-controller.js';
 import { renderRevisionCompareTransferCompletionSection } from './revision-transfer-completion-view.js';
 import { completeWorkspaceTransferCompletion, failWorkspaceTransferCompletion } from './revision-transfer-completion-workspace-state.js';
+import { createRevisionCompareTransferArchiveController } from './revision-transfer-archive-controller.js';
+import { renderRevisionCompareTransferArchiveSection } from './revision-transfer-archive-view.js';
+import { adoptRevisionCompareTransferArchiveWorkspace, completeWorkspaceTransferArchive, failWorkspaceTransferArchive } from './revision-transfer-archive-workspace-state.js';
 import {
   completeWorkspaceTransferApply, completeWorkspaceTransferPlan,
   failWorkspaceTransferApply, failWorkspaceTransferPlan,
@@ -43,18 +46,27 @@ export function createRevisionCompareTransferWorkspaceBindings(options) {
       complete: completeWorkspaceTransferCompletion, fail: failWorkspaceTransferCompletion,
     },
   });
+  const archive = createRevisionCompareTransferArchiveController({
+    root: options.root, readState: options.readState, writeState: options.writeState,
+    render: options.render, cryptoRef: options.cryptoRef, showToast: options.showToast,
+    reportFailure: options.reportFailure, isCompletionBusy: completion.busy,
+    dependencies: { complete: completeWorkspaceTransferArchive, fail: failWorkspaceTransferArchive },
+  });
   const inputHandler = (event) => { transfer.handleInput(event.target); completion.handleInput(event.target); };
   options.root.addEventListener('input', inputHandler);
   return Object.freeze({
-    handleClick: (button) => { transfer.handleClick(button); return completion.handleClick(button); },
+    handleClick: (button) => { transfer.handleClick(button); completion.handleClick(button); return archive.handleClick(button); },
     handleChange: (target) => { transfer.handleChange(target); completion.handleInput(target); },
     handleInput: inputHandler,
     render: (state) => {
-      const reconciled = transfer.reconcileState(state); if (reconciled !== state) options.writeState(reconciled);
+      const migrated = adoptRevisionCompareTransferArchiveWorkspace(state); if (migrated !== state) options.writeState(migrated);
+      const reconciled = transfer.reconcileState(migrated); if (reconciled !== migrated) options.writeState(reconciled);
       const section = renderRevisionCompareTransferSection(options.root, reconciled, transfer.model(reconciled));
-      renderRevisionCompareTransferCompletionSection(options.root, reconciled); completion.sync(); return section;
+      renderRevisionCompareTransferCompletionSection(options.root, reconciled);
+      renderRevisionCompareTransferArchiveSection(options.root, reconciled);
+      completion.sync(); archive.sync(); return section;
     },
-    destroy: () => { options.root.removeEventListener('input', inputHandler); completion.destroy(); transfer.destroy(); },
+    destroy: () => { options.root.removeEventListener('input', inputHandler); archive.destroy(); completion.destroy(); transfer.destroy(); },
     model: () => transfer.model(),
   });
 }
