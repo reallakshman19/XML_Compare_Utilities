@@ -132,11 +132,13 @@ export function validateEdit3DDragResult(input) {
   if (!value.valid && !FAILURE_REASONS.includes(value.reason)) {
     throw new TypeError(`Unknown Edit 3D failure reason: ${String(value.reason)}.`);
   }
+  const point = optionalPoint(value.point, 'result.point');
+  if (value.valid && point === null) throw new TypeError('A valid result must contain a point.');
   return Object.freeze({
     schema: EDIT_3D_DRAG_RESULT_V1,
     valid: value.valid,
     reason: value.reason,
-    point: optionalPoint(value.point, 'result.point'),
+    point,
     constraint: activeConstraint(value.constraint),
   });
 }
