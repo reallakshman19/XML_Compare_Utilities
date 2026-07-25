@@ -45,12 +45,13 @@ export async function validateRevisionCompareTransferArchiveAuthority(workspace,
   const readiness = revisionCompareTransferArchiveReadiness(workspace); if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
   const completion = workspace.transferCompletion; const report = completion.report; const bundle = completion.bundle;
   await validateRevisionCompareTransferCompletionReportIdentity(report, cryptoRef);
-  await validateRevisionCompareTransferHandoverBundleIdentity(bundle, cryptoRef);
-  validateRevisionCompareTransferCompletionApplication({ report, bundle, reportArtifact: completion.reportArtifact, bundleArtifact: completion.bundleArtifact }, workspace);
   await validateJsonArtifact(completion.reportArtifact, report, serializeRevisionCompareTransferCompletionReport(report), 'Transfer completion report', cryptoRef);
+  await validateEmbeddedArtifacts(bundle, cryptoRef);
+  await validateRevisionCompareTransferHandoverBundleIdentity(bundle, cryptoRef);
   await validateJsonArtifact(completion.bundleArtifact, bundle, serializeRevisionCompareTransferHandoverBundle(bundle), 'Transfer handover bundle', cryptoRef);
+  validateRevisionCompareTransferCompletionApplication({ report, bundle, reportArtifact: completion.reportArtifact, bundleArtifact: completion.bundleArtifact }, workspace);
   if (!same(bundle.payload?.completionReport, report)) throw new Error('Handover bundle does not contain the exact current completion report.');
-  await validateEmbeddedArtifacts(bundle, cryptoRef); return bundle;
+  return bundle;
 }
 function safe(value) { return String(value ?? '').trim().replace(/[^A-Za-z0-9._-]/g, '_'); }
 export function revisionCompareTransferArchiveFileName(sessionId, bundleId) {
