@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { immutableJson } from '../contracts/contract-values.js';
 import {
   assertScopedEditHostContract,
 } from '../core/scoped-edit-runtime/index.js';
@@ -114,4 +115,50 @@ assert.throws(() => pureTx.host.appendEditCommand({
 assert.throws(() => pureTx.host.entityGeometry('missing-reference-entity'), /does not exist/);
 checked += 2;
 
-console.log(`[PASS] scoped-edit reference host: ${checked} host, scope, and purity cases.`);
+function assertAuthorizationFailure(store, tx, reasonCode) {
+  const before = store.getSnapshot();
+  const failure = store.acceptCommitResult({
+    expectedSnapshotId: tx.snapshot.snapshotId,
+    result: tx.result,
+    acceptedAt: tx.issuedAt,
+  });
+  assert.equal(failure.accepted, false);
+  assert.equal(failure.reasonCode, reasonCode);
+  assert.equal(store.getSnapshot(), before);
+  checked += 3;
+}
+
+const unauthorizedStore = fixture.createStore();
+const unauthorizedTx = fixture.createRuntimeCandidate(unauthorizedStore, {
+  payload: { targetId: fixture.excludedIds[0], position: [5, 0, 0] },
+  targetIds: [fixture.editableIds[0]],
+  issuedAt: '2026-07-25T14:04:00.000Z',
+});
+assertAuthorizationFailure(unauthorizedStore, unauthorizedTx, 'UNAUTHORIZED_PAYLOAD_TARGET');
+
+const commandNameStore = fixture.createStore();
+const commandNameTx = fixture.createRuntimeCandidate(commandNameStore, {
+  issuedAt: '2026-07-25T14:05:00.000Z',
+});
+const commandNameResult = immutableJson({
+  ...commandNameTx.result,
+  boundaryDecision: { ...commandNameTx.result.boundaryDecision, commandName: 'REFERENCE_REMARK_SET' },
+}, 'Command-name mismatch result');
+assertAuthorizationFailure(commandNameStore, { ...commandNameTx, result: commandNameResult }, 'COMMAND_NAME_MISMATCH');
+
+const entityMismatchStore = fixture.createStore();
+const entityMismatchTx = fixture.createRuntimeCandidate(entityMismatchStore, {
+  targetIds: [fixture.editableIds[0], fixture.editableIds[1]],
+  payload: { targetId: fixture.editableIds[1], position: [25, 0, 0] },
+  issuedAt: '2026-07-25T14:06:00.000Z',
+});
+assertAuthorizationFailure(entityMismatchStore, entityMismatchTx, 'POSITION_ENTITY_MISMATCH');
+
+const resultMismatchStore = fixture.createStore();
+const resultMismatchTx = fixture.createRuntimeCandidate(resultMismatchStore, {
+  payload: { targetId: fixture.editableIds[0], position: [99, 0, 0] },
+  issuedAt: '2026-07-25T14:07:00.000Z',
+});
+assertAuthorizationFailure(resultMismatchStore, resultMismatchTx, 'POSITION_RESULT_MISMATCH');
+
+console.log(`[PASS] scoped-edit reference host: ${checked} host, scope, purity, and authorization cases.`);
