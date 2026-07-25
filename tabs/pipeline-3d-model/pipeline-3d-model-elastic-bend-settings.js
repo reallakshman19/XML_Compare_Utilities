@@ -48,20 +48,19 @@ function exact(value, allowed) {
 }
 function profile(seed) {
   const requestedDesignBasis = text(seed.designBasis || seed.requestedDesignBasis);
-  const allowed = ['default-metallic', 'asme-b31.4', 'gre'];
+  const allowed = ['default-metallic', 'asme-b31.4', 'gre', 'section-routed'];
   const designBasis = allowed.includes(requestedDesignBasis) ? requestedDesignBasis : '';
   const reasons = { 'default-metallic': 'EXPLICIT_NORMAL',
-    'asme-b31.4': 'EXPLICIT_ASME_B31_4', gre: 'EXPLICIT_GRE' };
+    'asme-b31.4': 'EXPLICIT_ASME_B31_4', gre: 'EXPLICIT_GRE',
+    'section-routed': 'CANONICAL_SECTION_PROFILE_ROUTING' };
   return { requestedDesignBasis, designBasis, profileFallbackApplied: false,
     profileResolutionReason: designBasis ? reasons[designBasis]
       : requestedDesignBasis ? 'PROFILE_INVALID' : 'PROFILE_NOT_SPECIFIED' };
 }
 function basis(seed) {
   const resolved = profile(seed);
-  const classificationMode = exact(seed.classificationMode,
-    ['source-authority-auto', 'legacy-global']);
-  const bendClass = exact(seed.bendClass,
-    ['standard', 'auto', 'elastic', 'cold-field', 'gre-placeholder']);
+  const classificationMode = exact(seed.classificationMode, ['source-authority-auto', 'legacy-global']);
+  const bendClass = exact(seed.bendClass, ['standard', 'auto', 'elastic', 'cold-field', 'gre-placeholder']);
   return { ...resolved, classificationMode, bendClass };
 }
 export function normalizeElasticBendSettings(input = {}) {
@@ -70,13 +69,11 @@ export function normalizeElasticBendSettings(input = {}) {
   const minimumProfileTurnAngleDeg = positive(seed.minimumProfileTurnAngleDeg ?? seed.minimumTurnAngleDeg);
   const minimumTurnAngleDeg = minimumPlanTurnAngleDeg && minimumProfileTurnAngleDeg
     ? Math.min(minimumPlanTurnAngleDeg, minimumProfileTurnAngleDeg) : null;
-  return Object.freeze({
-    schema: ELASTIC_BEND_SETTINGS_SCHEMA,
+  return Object.freeze({ schema: ELASTIC_BEND_SETTINGS_SCHEMA,
     enabled: bool(seed.enabled), emitToInputXml: bool(seed.emitToInputXml),
     screeningOnlyAcknowledged: bool(seed.screeningOnlyAcknowledged), ...basis(seed),
     standardRadiusMultiplierD: positive(seed.standardRadiusMultiplierD),
-    coldFieldRadiusMode: exact(seed.coldFieldRadiusMode,
-      ['project-multiplier', 'b31.4-size-band']),
+    coldFieldRadiusMode: exact(seed.coldFieldRadiusMode, ['project-multiplier', 'b31.4-size-band']),
     coldFieldRadiusMultiplierD: positive(seed.coldFieldRadiusMultiplierD),
     detectHorizontal: bool(seed.detectHorizontal), detectVertical: bool(seed.detectVertical),
     detectCompound: bool(seed.detectCompound),
@@ -85,8 +82,7 @@ export function normalizeElasticBendSettings(input = {}) {
     explicitOutsideDiameterMm: positive(seed.explicitOutsideDiameterMm),
     youngsModulusMpa: positive(seed.youngsModulusMpa),
     allowableBendingStressMpa: positive(seed.allowableBendingStressMpa),
-    useFormulaMinimum: bool(seed.useFormulaMinimum),
-    usePracticalMinimum: bool(seed.usePracticalMinimum),
+    useFormulaMinimum: bool(seed.useFormulaMinimum), usePracticalMinimum: bool(seed.usePracticalMinimum),
     practicalRadiusMultiplierD: positive(seed.practicalRadiusMultiplierD),
     nominalPipeSizeNps: positive(seed.nominalPipeSizeNps),
     useColdFieldProjectMinimum: bool(seed.useColdFieldProjectMinimum),
@@ -96,29 +92,21 @@ export function normalizeElasticBendSettings(input = {}) {
     qualificationEvidenceId: text(seed.qualificationEvidenceId), minimumTurnAngleDeg,
     minimumPlanTurnAngleDeg, minimumProfileTurnAngleDeg,
     maximumTurnAngleDeg: positive(seed.maximumTurnAngleDeg),
-    shortElementAnglePolicy: exact(seed.shortElementAnglePolicy,
-      ['include-all', 'ignore-below-length']),
+    shortElementAnglePolicy: exact(seed.shortElementAnglePolicy, ['include-all', 'ignore-below-length']),
     minimumAngleElementLengthMm: nonNegative(seed.minimumAngleElementLengthMm),
     retainedStraightAllowanceMm: nonNegative(seed.retainedStraightAllowanceMm),
     preferredStraightTangentMm: nonNegative(seed.preferredStraightTangentMm),
     emitNearPointNode: bool(seed.emitNearPointNode), emitMidpointNode: bool(seed.emitMidpointNode),
     hardFailOnInfeasibleEmission: true,
     bendTypeCode: [0, 1, 2].includes(Number(seed.bendTypeCode)) ? Number(seed.bendTypeCode) : null,
-    greNominalBoreMm: positive(seed.greNominalBoreMm),
-    greBendRadiusMm: positive(seed.greBendRadiusMm),
-    greBendBreakLengthBasis: exact(seed.greBendBreakLengthBasis,
-      ['NOMINAL_BORE_MULTIPLIER', 'EXPLICIT_LENGTH']),
+    greNominalBoreMm: positive(seed.greNominalBoreMm), greBendRadiusMm: positive(seed.greBendRadiusMm),
+    greBendBreakLengthBasis: exact(seed.greBendBreakLengthBasis, ['NOMINAL_BORE_MULTIPLIER', 'EXPLICIT_LENGTH']),
     greBendBreakMultiplierBore: positive(seed.greBendBreakMultiplierBore),
     greBendBreakLengthMm: positive(seed.greBendBreakLengthMm),
     greBendLocalThicknessMm: positive(seed.greBendLocalThicknessMm),
     greTeeBreakLengthMm: positive(seed.greTeeBreakLengthMm),
     greTeeLocalThicknessMm: positive(seed.greTeeLocalThicknessMm),
-    greRequirementReference: text(seed.greRequirementReference),
-  });
+    greRequirementReference: text(seed.greRequirementReference) });
 }
-export function loadElasticBendSettings() {
-  return normalizeElasticBendSettings();
-}
-export function saveElasticBendSettings(settings) {
-  return normalizeElasticBendSettings(settings);
-}
+export function loadElasticBendSettings() { return normalizeElasticBendSettings(); }
+export function saveElasticBendSettings(settings) { return normalizeElasticBendSettings(settings); }

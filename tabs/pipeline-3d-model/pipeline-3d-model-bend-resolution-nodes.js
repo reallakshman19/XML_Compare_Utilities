@@ -7,20 +7,21 @@ function nextAvailableNode(used, start) {
   return candidate;
 }
 
-export function assignBendCurvatureNodes(candidates, rows, settings) {
+export function assignBendCurvatureNodes(candidates, rows, settingsInput) {
   const used = new Set(rows.map((row) => Number(row.nodeNumber)).filter(Number.isFinite));
   let nextNode = Math.ceil((Math.max(0, ...used) + 1) / NODE_STEP) * NODE_STEP;
   return candidates.map((candidate) => {
     if (candidate.status !== 'EMITTED') {
       return Object.freeze({ ...candidate, curvatureNodes: Object.freeze([]) });
     }
+    const settings = typeof settingsInput === 'function' ? settingsInput(candidate) : settingsInput;
     const nodes = [];
-    if (settings.emitNearPointNode) {
+    if (settings?.emitNearPointNode === true) {
       const nodeNumber = nextAvailableNode(used, nextNode);
       nextNode = nodeNumber + NODE_STEP;
       nodes.push(Object.freeze({ angleDeg: 0, nodeNumber, role: 'NEAR_POINT' }));
     }
-    if (settings.emitMidpointNode) {
+    if (settings?.emitMidpointNode === true) {
       const nodeNumber = nextAvailableNode(used, nextNode);
       nextNode = nodeNumber + NODE_STEP;
       nodes.push(Object.freeze({

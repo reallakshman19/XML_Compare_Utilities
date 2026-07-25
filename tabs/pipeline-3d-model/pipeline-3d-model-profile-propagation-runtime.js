@@ -1,4 +1,4 @@
-import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260724-p3d-core-050-1';
+import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260724-p3d-hard-051-1';
 import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core-050-1';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -34,7 +34,8 @@ function buildInput(dialog) {
     table2Text: find(dialog, '[data-p3d="table2"]')?.value || '',
     table3Text: find(dialog, '[data-p3d="table3"]')?.value || '',
     profileRaw: hasAuthoritativeProfile(dialog) ? readProfileRaw(dialog) : null,
-    branchInfo: readBranchInfo(dialog) };
+    branchInfo: readBranchInfo(dialog),
+    canonicalAnalysisSectionPlan: dialog.pipelineCanonicalAnalysisSectionPlan || null };
 }
 function setTextArea(dialog, name, value) {
   const element = find(dialog, `[data-p3d="${name}"]`); if (!element) return;
@@ -104,10 +105,17 @@ function logWarning(dialog, instance, code, error, details = null) {
   addPipelineWarning(instance.warnings, warning.code, warning.message, details);
   renderPipelineWarningLog(dialog, instance.warnings);
 }
+function publishCanonicalPlan(dialog, output) {
+  if (!output?.canonicalAnalysisSectionPlan) return;
+  dialog.pipelineCanonicalAnalysisSectionPlan = output.canonicalAnalysisSectionPlan;
+  dialog.dispatchEvent(new CustomEvent('pipeline-canonical-analysis-section-plan', {
+    bubbles: false, detail: { plan: output.canonicalAnalysisSectionPlan } }));
+}
 function run(dialog, instance) {
   try {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
-    instance.output = output; renderOutputs(dialog, output); renderKeyPlan(dialog, output);
+    instance.output = output; publishCanonicalPlan(dialog, output);
+    renderOutputs(dialog, output); renderKeyPlan(dialog, output);
     const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
     setWarnings(dialog, instance, output.warnings || []); return output;
   } catch (error) { logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
@@ -164,8 +172,7 @@ function onClick(dialog, instance, event) {
 }
 export function installPipelineProfilePropagation(dialog) {
   if (!dialog || INSTANCES.has(dialog)) return INSTANCES.get(dialog)?.destroy || null;
-  const controller = new AbortController();
-  const instance = { output: null, refreshQueued: false, warnings: [] };
+  const controller = new AbortController(), instance = { output: null, refreshQueued: false, warnings: [] };
   ensurePipelineWarningLog(dialog); renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
@@ -173,4 +180,4 @@ export function installPipelineProfilePropagation(dialog) {
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
-  rawTextFromPreview, renderTsvGrid, setWarnings });
+  rawTextFromPreview, renderTsvGrid, setWarnings, publishCanonicalPlan });
