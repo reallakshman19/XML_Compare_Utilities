@@ -66,8 +66,8 @@ function b314Settings(plan, settings) {
   });
 }
 function greSettings(plan, section, settings) {
-  const gre = plan.greVendorSeries.find((item) => item.greVendorNominalBoreMm === section.greVendorNominalBoreMm)
-    || plan.greVendorSeries[0];
+  const gre = plan.greVendorSeries.find((item) =>
+    item.greVendorNominalBoreMm === section.greVendorNominalBoreMm);
   if (!gre) return;
   Object.assign(settings, { greNominalBoreMm: gre.greVendorNominalBoreMm,
     greBendRadiusMm: gre.bendRadiusMm, greBendBreakLengthBasis: gre.bendBreakLengthBasis,
