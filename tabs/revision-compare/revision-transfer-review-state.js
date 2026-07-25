@@ -107,6 +107,16 @@ export function applyRevisionCompareTransferDraftAction(draft, candidates, actio
   else return current;
   return changedDraft(current, pairs);
 }
+export function reconcileRevisionCompareTransferDraft(draft, candidates) {
+  const current = draft ?? createRevisionCompareTransferReviewState().draft;
+  const indexed = candidateMap(candidates); const pairs = new Map();
+  for (const pair of current.pairs) {
+    const candidate = indexed.get(pair.differenceId); if (!candidate?.eligible) continue;
+    const allowed = new Set(candidate.fields.filter(eligibleField).map((field) => field.fieldKey));
+    pairs.set(pair.differenceId, { differenceId: pair.differenceId, fieldKeys: pair.fieldKeys.filter((key) => allowed.has(key)) });
+  }
+  return changedDraft(current, pairs);
+}
 export function revisionCompareTransferDraftCounts(draft) {
   return deepFreeze({
     pairCount: draft?.pairs?.length ?? 0,
