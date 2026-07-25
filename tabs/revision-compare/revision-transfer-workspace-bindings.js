@@ -9,6 +9,7 @@ import {
   setWorkspaceTransferReviewDraft, setWorkspaceTransferReviewPresentation,
   startWorkspaceTransferApply, startWorkspaceTransferPlan,
 } from './revision-workspace-state.js';
+import { reconcileWorkspaceTransferReviewState } from './revision-transfer-review-workspace-state.js';
 
 export function createRevisionCompareTransferWorkspaceBindings(options) {
   const controller = createRevisionCompareTransferController({
@@ -17,6 +18,7 @@ export function createRevisionCompareTransferWorkspaceBindings(options) {
     showToast: options.showToast, reportFailure: options.reportFailure,
     dependencies: {
       setReviewDraft: setWorkspaceTransferReviewDraft,
+      reconcileReview: reconcileWorkspaceTransferReviewState,
       setPresentation: setWorkspaceTransferReviewPresentation,
       startPlan: startWorkspaceTransferPlan, createPlan: createRevisionCompareTransferPlan,
       completePlan: completeWorkspaceTransferPlan, failPlan: failWorkspaceTransferPlan,
@@ -30,7 +32,11 @@ export function createRevisionCompareTransferWorkspaceBindings(options) {
     handleClick: (button) => controller.handleClick(button),
     handleChange: (target) => controller.handleChange(target),
     handleInput: (target) => controller.handleInput(target),
-    render: (state) => renderRevisionCompareTransferSection(options.root, state, controller.model(state)),
+    render: (state) => {
+      const reconciled = controller.reconcileState(state);
+      if (reconciled !== state) options.writeState(reconciled);
+      return renderRevisionCompareTransferSection(options.root, reconciled, controller.model(reconciled));
+    },
     destroy: () => { options.root.removeEventListener('input', inputHandler); controller.destroy(); }, model: () => controller.model(),
   });
 }
