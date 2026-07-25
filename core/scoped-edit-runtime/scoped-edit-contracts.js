@@ -47,6 +47,10 @@ function schema(value, expected, label) {
   if (value !== expected) throw new TypeError(`${label} schema must be ${expected}.`);
 }
 
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 function finiteVector(value, label) {
   if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isFinite)) {
     throw new TypeError(`${label} must contain three finite coordinates.`);
@@ -101,6 +105,25 @@ function replayRecord(value) {
   return immutableJson({ state: record(input.state, 'Replay state.state'), appliedCommandIds }, 'Replay state');
 }
 
+function assertAppliedIdsMatch(replayState, appliedCommandIds, label) {
+  if (!sameJson(appliedCommandIds, replayState.appliedCommandIds)) {
+    throw new TypeError(`${label} appliedCommandIds must match replayState.appliedCommandIds.`);
+  }
+}
+
+function assertLastCommitMatches(lastCommitResult, journalProjection, replayState, appliedCommandIds) {
+  if (!lastCommitResult) return;
+  if (!sameJson(lastCommitResult.journalProjection, journalProjection)) {
+    throw new TypeError('runtime.lastCommitResult journalProjection must match runtime.journalProjection.');
+  }
+  if (!sameJson(lastCommitResult.replayState, replayState)) {
+    throw new TypeError('runtime.lastCommitResult replayState must match runtime.replayState.');
+  }
+  if (!sameJson(lastCommitResult.appliedCommandIds, appliedCommandIds)) {
+    throw new TypeError('runtime.lastCommitResult appliedCommandIds must match runtime.appliedCommandIds.');
+  }
+}
+
 export function validateScopedEditEntityGeometry(input) {
   const value = record(input, 'Scoped edit entity geometry');
   schema(value.schema, SCOPED_EDIT_ENTITY_GEOMETRY_V1, 'Scoped edit entity geometry');
@@ -132,7 +155,7 @@ export function validateScopedEditCommitProposal(input) {
   const decision = boundaryDecision(value.boundaryDecision);
   if (!decision.allowed) throw new TypeError('A prepared proposal requires an allowed boundary decision.');
   const targetIds = uniqueTexts(value.targetIds, 'proposal.targetIds');
-  if (JSON.stringify(targetIds) !== JSON.stringify(decision.targetIds)) {
+  if (!sameJson(targetIds, decision.targetIds)) {
     throw new TypeError('Proposal targetIds must match the boundary decision.');
   }
   const dragResult = validateEdit3DDragResult(value.dragResult);
@@ -151,7 +174,7 @@ export function validateScopedEditCommitProposal(input) {
   }, 'Scoped edit commit proposal');
 }
 
-function committedEvidence(value, journalProjection, replayState, appliedCommandIds) {
+function committedEvidence(value, journalProjection, replayState) {
   const entityId = requiredContractText(value.entityId, 'result.entityId');
   const commandId = requiredContractText(value.commandId, 'result.commandId');
   const dragResult = validateEdit3DDragResult(value.dragResult);
@@ -163,8 +186,8 @@ function committedEvidence(value, journalProjection, replayState, appliedCommand
   if (!journalProjection.activeCommandIds.includes(commandId)) {
     throw new TypeError('Committed commandId must be active in journalProjection.');
   }
-  if (JSON.stringify(appliedCommandIds) !== JSON.stringify(replayState.appliedCommandIds)) {
-    throw new TypeError('Committed appliedCommandIds must match replayState.appliedCommandIds.');
+  if (!replayState.appliedCommandIds.includes(commandId)) {
+    throw new TypeError('Committed commandId must be present in replayState.appliedCommandIds.');
   }
   return { entityId, commandId, dragResult, boundaryDecision: decision };
 }
@@ -178,8 +201,9 @@ export function validateScopedEditCommitResult(input) {
   const journalProjection = validateScopedEditJournalProjection(value.journalProjection);
   const replayState = replayRecord(value.replayState);
   const appliedCommandIds = uniqueTexts(value.appliedCommandIds, 'result.appliedCommandIds', true);
+  assertAppliedIdsMatch(replayState, appliedCommandIds, 'Commit result');
   const committed = value.status === SCOPED_EDIT_COMMIT_STATUS.COMMITTED;
-  const evidence = committed ? committedEvidence(value, journalProjection, replayState, appliedCommandIds) : {
+  const evidence = committed ? committedEvidence(value, journalProjection, replayState) : {
     entityId: value.entityId == null ? null : requiredContractText(value.entityId, 'result.entityId'),
     commandId: value.commandId == null ? null : requiredContractText(value.commandId, 'result.commandId'),
     dragResult: optionalDragResult(value.dragResult),
@@ -209,7 +233,12 @@ export function validateScopedEditRuntimeState(input) {
   }
   const scope = assertEngineeringScope(value.scope);
   if (value.scopedScene?.schema !== SCOPED_ENGINEERING_SCENE_SCHEMA) throw new TypeError('runtime.scopedScene schema is invalid.');
+  const journalProjection = validateScopedEditJournalProjection(value.journalProjection);
   const replayState = replayRecord(value.replayState);
+  const appliedCommandIds = uniqueTexts(value.appliedCommandIds, 'runtime.appliedCommandIds', true);
+  assertAppliedIdsMatch(replayState, appliedCommandIds, 'Runtime state');
+  const lastCommitResult = value.lastCommitResult == null ? null : validateScopedEditCommitResult(value.lastCommitResult);
+  assertLastCommitMatches(lastCommitResult, journalProjection, replayState, appliedCommandIds);
   return immutableJson({
     schema: SCOPED_EDIT_RUNTIME_STATE_V1,
     status: value.status,
@@ -219,12 +248,12 @@ export function validateScopedEditRuntimeState(input) {
     activeEntityId: value.activeEntityId == null ? null : requiredContractText(value.activeEntityId, 'runtime.activeEntityId'),
     dragState: optionalDragState(value.dragState),
     lastDragResult: optionalDragResult(value.lastDragResult),
-    journalProjection: validateScopedEditJournalProjection(value.journalProjection),
+    journalProjection,
     replayState,
-    appliedCommandIds: uniqueTexts(value.appliedCommandIds, 'runtime.appliedCommandIds', true),
+    appliedCommandIds,
     lastBoundaryDecision: boundaryDecision(value.lastBoundaryDecision, true),
     preparedCommit: value.preparedCommit == null ? null : validateScopedEditCommitProposal(value.preparedCommit),
-    lastCommitResult: value.lastCommitResult == null ? null : validateScopedEditCommitResult(value.lastCommitResult),
+    lastCommitResult,
     sequence: value.sequence,
   }, 'Scoped edit runtime state');
 }
