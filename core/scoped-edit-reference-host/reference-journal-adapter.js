@@ -106,7 +106,11 @@ export function replayReferenceJournal({ initialState, commandJournal, reducerRe
 
 export function certifyReferenceJournalCheckpoints({ initialState, commandJournal, reducerRegistry }) {
   const journal = validJournal(commandJournal);
+  const maxSequence = Math.max(0, ...journal.entries.map((entry) => entry.sequence));
   for (const checkpoint of journal.checkpoints) {
+    if (checkpoint.sequence > maxSequence) {
+      throw new TypeError(`Reference checkpoint ${checkpoint.checkpointId} sequence exceeds the journal.`);
+    }
     const envelopes = journal.entries.filter((entry) => entry.sequence <= checkpoint.sequence);
     const available = new Set(envelopes.map((entry) => entry.commandId));
     if (checkpoint.activeCommandIds.some((id) => !available.has(id))) {
@@ -128,8 +132,11 @@ export function certifyReferenceJournalCheckpoints({ initialState, commandJourna
 export function certifyScopedEditReferenceSnapshot(snapshotInput, options = {}) {
   const snapshot = assertScopedEditReferenceSnapshot(snapshotInput);
   const reducerRegistry = options.reducerRegistry ?? createReferenceReducerRegistry();
+  const documentAdapter = options.documentAdapter ?? deriveReferenceDocument;
   const sceneAdapter = options.sceneAdapter ?? deriveReferenceEngineeringScene;
-  if (typeof sceneAdapter !== 'function') throw new TypeError('Reference snapshot sceneAdapter must be a function.');
+  if (typeof documentAdapter !== 'function' || typeof sceneAdapter !== 'function') {
+    throw new TypeError('Reference snapshot adapters must be functions.');
+  }
   const replay = replayReferenceJournal({
     initialState: snapshot.journalProjection.initialState,
     commandJournal: snapshot.commandJournal,
@@ -138,7 +145,7 @@ export function certifyScopedEditReferenceSnapshot(snapshotInput, options = {}) 
   if (!sameJson(replay, snapshot.replayState)) {
     throw new TypeError('Reference snapshot replay ancestry is inconsistent with its journal.');
   }
-  const document = deriveReferenceDocument(replay.state);
+  const document = documentAdapter(replay.state);
   if (!sameJson(document, snapshot.document)) {
     throw new TypeError('Reference snapshot document is inconsistent with certified replay.');
   }
