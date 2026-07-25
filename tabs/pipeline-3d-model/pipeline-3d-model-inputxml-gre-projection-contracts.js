@@ -11,6 +11,7 @@ export const PIPELINE_INPUTXML_GRE_PROJECTION_BLOCKER_ORDER = Object.freeze([
   'PIPELINE_INPUTXML_GRE_INACTIVE_CORNER_REAPPEARED',
   'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID',
   'PIPELINE_INPUTXML_GRE_LINEAGE_CONSERVATION_INVALID',
+  'PIPELINE_INPUTXML_GRE_ZERO_LENGTH_ELEMENT_UNRESOLVED',
   'PIPELINE_INPUTXML_GRE_PROJECTION_COVERAGE_INVALID',
   'PIPELINE_INPUTXML_GRE_WRITER_ADMISSION_BLOCKED',
 ]);
@@ -85,7 +86,9 @@ export function createPipelineInputXmlGreProjectionPlan(input = {}, diagnostics 
       ? clonePipelineInputXmlGreProjectionValue(input.notApplicableCandidateIds || []) : [],
     coverage: clonePipelineInputXmlGreProjectionValue(input.coverage || {}),
     coordinateRouteAdopted: false, canvasAdopted: false,
-    writerAdmission: state.ready ? 'READY' : 'BLOCKED',
+    projectionStatus: state.ready ? 'READY' : 'BLOCKED',
+    documentAuthorityAdopted: false,
+    writerAdmission: state.ready ? 'NOT_ADOPTED' : 'BLOCKED',
     diagnostics: state.diagnostics, blockerCodes: state.blockerCodes, ready: state.ready,
   });
 }
