@@ -10,6 +10,13 @@ import {
   buildPipelineGreBendGeometryPlanTsv,
 } from './pipeline-3d-model-gre-bend-geometry-contracts.js';
 import { resolvePipelineGreBendGeometryPlan } from './pipeline-3d-model-gre-bend-geometry-plan.js';
+import {
+  buildPipelineGreBendElementLineageTsv,
+  buildPipelineGreBendMaterializationPlanJson,
+  buildPipelineGreBendMaterializedModelJson,
+  buildPipelineGreBendNodeAllocationTsv,
+} from './pipeline-3d-model-gre-bend-materialization-contracts.js';
+import { resolvePipelineGreBendMaterializationPlan } from './pipeline-3d-model-gre-bend-materialization.js';
 import { resolvePipelinePropertySectionPlan } from './pipeline-3d-model-property-sections.js?v=20260724-p3d-hard-051-1';
 import { buildExplicitPipelineInputXmlDocumentPlan } from './pipeline-3d-model-explicit-inputxml.js';
 import { buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-base-039-1';
@@ -40,6 +47,29 @@ function adoptGreBendGeometry(base, input) {
   return freeze({ ...base, greBendGeometryPlan: plan, artifacts, diagnostics, blockerCodes,
     ready: base.ready === true && plan.ready === true });
 }
+function adoptGreBendMaterialization(base, input) {
+  const plan = resolvePipelineGreBendMaterializationPlan({
+    greBendGeometryPlan: base.greBendGeometryPlan,
+    bendResolution: base.bendResolution,
+    sectionProfileRoutingPlan: base.sectionProfileRoutingPlan,
+    nodeAllocationPolicy: input.greBendNodeAllocationPolicy,
+  });
+  const evidence = [artifact('greBendMaterializationPlan',
+    'pipeline-gre-bend-materialization-plan.json', plan.schema,
+    buildPipelineGreBendMaterializationPlanJson(plan), 'application/json')];
+  if (plan.materializedModel) evidence.push(artifact('greBendMaterializedModel',
+    'pipeline-gre-bend-materialized-model.json', plan.materializedModel.schema,
+    buildPipelineGreBendMaterializedModelJson(plan.materializedModel), 'application/json'));
+  evidence.push(artifact('greBendElementLineage', 'pipeline-gre-bend-element-lineage.tsv', plan.schema,
+    buildPipelineGreBendElementLineageTsv(plan), 'text/tab-separated-values'),
+  artifact('greBendNodeAllocation', 'pipeline-gre-bend-node-allocation.tsv', plan.nodeAllocationPlan?.schema || plan.schema,
+    buildPipelineGreBendNodeAllocationTsv(plan), 'text/tab-separated-values'));
+  const artifacts = Object.freeze([...(base.artifacts || []), ...evidence]);
+  const diagnostics = Object.freeze([...(base.diagnostics || []), ...plan.diagnostics]);
+  const blockerCodes = Object.freeze([...new Set([...(base.blockerCodes || []), ...plan.blockerCodes])]);
+  return freeze({ ...base, greBendMaterializationPlan: plan, artifacts, diagnostics, blockerCodes,
+    ready: base.ready === true && plan.ready === true });
+}
 
 export const PIPELINE_CORE_RUNTIME_DEPENDENCIES = Object.freeze({
   buildGeometryRoute: buildGeometryAuthorityRoute,
@@ -55,8 +85,7 @@ export const PIPELINE_CORE_RUNTIME_DEPENDENCIES = Object.freeze({
 });
 
 export function buildPipelineCoreOutputs(input = {}) {
-  return adoptGreBendGeometry(
-    buildPipelineCoreOrchestration(input, PIPELINE_CORE_RUNTIME_DEPENDENCIES),
-    input,
-  );
+  const geometry = adoptGreBendGeometry(
+    buildPipelineCoreOrchestration(input, PIPELINE_CORE_RUNTIME_DEPENDENCIES), input);
+  return adoptGreBendMaterialization(geometry, input);
 }
