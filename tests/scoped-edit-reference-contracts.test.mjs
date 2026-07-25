@@ -8,8 +8,12 @@ import {
   assertScopedEditReferenceDocument,
   assertScopedEditReferenceSnapshot,
   canonicalReferenceJson,
+  certifyScopedEditReferenceSnapshot,
   createReferenceInitialState,
+  createReferenceSnapshotId,
   createScopedEditReferenceDocument,
+  deriveReferenceDocument,
+  deriveReferenceEngineeringScene,
   hashReferenceValue,
   isReferenceDeeplyFrozen,
 } from '../core/scoped-edit-reference-host/index.js';
@@ -63,6 +67,7 @@ checked += 4;
 const store = fixture.createStore();
 const snapshot = store.getSnapshot();
 assert.equal(assertScopedEditReferenceSnapshot(snapshot), snapshot);
+assert.equal(certifyScopedEditReferenceSnapshot(snapshot, { reducerRegistry: fixture.reducerRegistry }), snapshot);
 assert.equal(snapshot.version, 0);
 assert.equal(snapshot.commandJournal.schema, 'CommandJournal.v1');
 assert.deepEqual(snapshot.journalProjection.envelopes, snapshot.commandJournal.entries);
@@ -84,7 +89,36 @@ const sceneCorruption = immutableJson({
   engineeringScene: { ...snapshot.engineeringScene, sceneId: 'reference-scene:corrupt' },
 }, 'Corrupt scene snapshot');
 assert.throws(() => assertScopedEditReferenceSnapshot(sceneCorruption), /sceneId/);
-checked += 10;
+checked += 11;
+
+const forgedReplay = immutableJson({
+  ...snapshot.replayState,
+  state: {
+    ...snapshot.replayState.state,
+    revision: 1,
+    entities: snapshot.replayState.state.entities.map((entity, index) => index === 0
+      ? { ...entity, anchor: [999, 0, 0] } : entity),
+  },
+}, 'Forged replay evidence');
+const forgedDocument = deriveReferenceDocument(forgedReplay.state);
+const forgedScene = deriveReferenceEngineeringScene(forgedDocument);
+const forgedBase = {
+  ...snapshot,
+  document: forgedDocument,
+  replayState: forgedReplay,
+  engineeringScene: forgedScene,
+  documentHash: hashReferenceValue(forgedDocument),
+  replayHash: hashReferenceValue(forgedReplay),
+};
+const forgedSnapshot = immutableJson({
+  ...forgedBase,
+  snapshotId: createReferenceSnapshotId(forgedBase),
+}, 'Forged replay-ancestry snapshot');
+assert.equal(assertScopedEditReferenceSnapshot(forgedSnapshot), forgedSnapshot);
+assert.throws(() => certifyScopedEditReferenceSnapshot(forgedSnapshot, {
+  reducerRegistry: fixture.reducerRegistry,
+}), /replay ancestry/);
+checked += 2;
 
 const reordered = { b: 2, a: { d: 4, c: 3 } };
 const canonical = { a: { c: 3, d: 4 }, b: 2 };
