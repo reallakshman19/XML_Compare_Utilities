@@ -5,7 +5,7 @@ import { selectionForObjectId } from './topology-edit-controller-helpers.js';
 import {
   canonicalInteractionDistance, closestLineParameter, EDIT_DRAG_THRESHOLD_PX, pointerTravel, positionRecord,
   solveEditDrag, vAdd, vLen, vScale, vSub,
-} from '../../core/edit-3d/drag-solver.js';
+} from './topology-edit-drag-solver.js';
 
 const AXES = Object.freeze({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
 
@@ -24,7 +24,7 @@ function neighborPositions(canonical, nodeId) {
   return asArray(canonical.edges).map(objectRecord).flatMap((edge) => {
     const from = cleanText(edge.fromNodeId), to = cleanText(edge.toNodeId);
     if (from !== nodeId && to !== nodeId) return [];
-    const other = nodePosition(canonical, from === nodeId ? to : from);
+    const other = nodePosition(canonical(), from === nodeId ? to : from);
     return other ? [other] : [];
   });
 }
