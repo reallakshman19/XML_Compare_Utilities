@@ -23,6 +23,9 @@ export function setWorkspaceTransferReviewDraft(state, transferReview, selection
   const transfer = transferAfterDraftChange(state, selection);
   return signOffAfterDraftChange(state, deepFreeze({ ...state, transferReview, transfer }));
 }
+export function reconcileWorkspaceTransferReviewState(state, transferReview) {
+  return transferReview === state.transferReview ? state : deepFreeze({ ...state, transferReview });
+}
 export function setWorkspaceTransferReviewPresentation(state, transferReview) {
   return transferReview === state.transferReview ? state : deepFreeze({ ...state, transferReview });
 }
