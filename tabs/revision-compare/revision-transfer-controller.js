@@ -10,8 +10,8 @@ import {
 } from './revision-transfer-candidates.js';
 import {
   applyRevisionCompareTransferDraftAction, createRevisionCompareTransferReviewState,
-  replaceRevisionCompareTransferDraft, revisionCompareTransferDraftCounts,
-  updateRevisionCompareTransferPresentation,
+  reconcileRevisionCompareTransferDraft, replaceRevisionCompareTransferDraft,
+  revisionCompareTransferDraftCounts, updateRevisionCompareTransferPresentation,
 } from './revision-transfer-review-state.js';
 import { queryRevisionCompareTransferCandidates } from './revision-transfer-query.js';
 
@@ -41,16 +41,7 @@ export function createRevisionCompareTransferDraft() { return createRevisionComp
 export function updateRevisionCompareTransferDraft(draft, candidates, change) {
   return applyRevisionCompareTransferDraftAction(draft, candidates, change);
 }
-export function reconcileRevisionCompareTransferDraft(draft, candidates) {
-  const valid = candidateMap(candidates); const pairs = [];
-  for (const pair of draft?.pairs ?? []) {
-    const candidate = valid.get(pair.differenceId); if (!candidate?.eligible) continue;
-    const allowed = new Set(candidate.fields.filter((field) => field.eligible).map((field) => field.fieldKey));
-    pairs.push({ differenceId: pair.differenceId, fieldKeys: pair.fieldKeys.filter((key) => allowed.has(key)) });
-  }
-  return deepFreeze({ revision: draft?.revision ?? 0, pairs: Object.freeze(pairs.map((pair) => deepFreeze({ ...pair, fieldKeys: Object.freeze(pair.fieldKeys) }))) });
-}
-export { deriveRevisionCompareTransferCandidates, deriveRevisionCompareTransferCandidatesScanning, revisionCompareTransferDraftCounts };
+export { deriveRevisionCompareTransferCandidates, deriveRevisionCompareTransferCandidatesScanning, reconcileRevisionCompareTransferDraft, revisionCompareTransferDraftCounts };
 function artifactFor(state, kind) { return state?.transfer?.artifacts?.[ARTIFACT_INDEX[kind]] ?? null; }
 export async function validateRevisionCompareTransferArtifact(artifact, cryptoRef) {
   if (artifact?.descriptorSchema !== ARTIFACT_SCHEMA) throw new TypeError('A retained RevisionCompareTransferArtifact.v1 descriptor is required.');
@@ -70,6 +61,10 @@ export async function downloadRevisionCompareTransferArtifact(root, artifact, op
   return artifact;
 }
 function currentReview(state) { return state?.transferReview ?? createRevisionCompareTransferReviewState(); }
+function reconciledReview(state, candidates) {
+  const review = currentReview(state); const draft = reconcileRevisionCompareTransferDraft(review.draft, candidates);
+  return draft === review.draft ? review : replaceRevisionCompareTransferDraft(review, draft);
+}
 function attribute(target, name) { return Boolean(target?.hasAttribute?.(name)); }
 function sortPatch(value) {
   const [sortKey, sortDirection] = String(value ?? '').split(':'); return { sortKey, sortDirection, page: 1 };
@@ -90,10 +85,13 @@ export function createRevisionCompareTransferController(options) {
   const deps = options.dependencies; let destroyed = false;
   const cache = createRevisionCompareTransferCandidateCache((state, index) => deriveRevisionCompareTransferCandidates(state, index));
   function model(state = options.readState()) {
-    const cached = cache.get(state); const review = currentReview(state);
+    const cached = cache.get(state); const review = reconciledReview(state, cached.candidates);
     const query = queryRevisionCompareTransferCandidates(cached.candidates, review.draft, review.presentation);
     return deepFreeze({ candidates: cached.candidates, index: cached.index, cache: cache.evidence(), review,
       draft: review.draft, presentation: query.presentation, query, counts: revisionCompareTransferDraftCounts(review.draft) });
+  }
+  function reconcileState(state = options.readState()) {
+    const current = model(state); return current.review === currentReview(state) ? state : deps.reconcileReview(state, current.review);
   }
   function commit(next) { if (!destroyed && next !== options.readState()) { options.writeState(next); options.render(next); } }
   function commitDraft(action) {
@@ -150,6 +148,6 @@ export function createRevisionCompareTransferController(options) {
       else for (const [kind, selector] of Object.entries({ patched: 'data-revc-download-patched-json', audit: 'data-revc-download-transfer-audit', proof: 'data-revc-download-transfer-proof', manifest: 'data-revc-download-transfer-manifest' })) if (attribute(button, selector)) await download(kind);
     } catch (error) { options.reportFailure(error); }
   }
-  return Object.freeze({ model, handleChange, handleInput, handleClick, destroy: () => { destroyed = true; cache.clear(); } });
+  return Object.freeze({ model, reconcileState, handleChange, handleInput, handleClick, destroy: () => { destroyed = true; cache.clear(); } });
 }
-export const _test = Object.freeze({ artifactFor, attribute, candidateMap, currentReview, presentationPatch, selectedFields, sortPatch });
+export const _test = Object.freeze({ artifactFor, attribute, candidateMap, currentReview, presentationPatch, reconciledReview, selectedFields, sortPatch });
