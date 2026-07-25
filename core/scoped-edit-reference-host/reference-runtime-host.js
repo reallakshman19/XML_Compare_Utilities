@@ -1,15 +1,16 @@
 /** Pure reference implementation of the existing scoped-edit host seam. */
 import { validateCommandEnvelope } from '../../contracts/command-envelope.js';
 import { appendJournalCommand } from '../../contracts/command-journal.js';
-import { immutableJson } from '../../contracts/contract-values.js';
 import { resolveEngineeringScope } from '../engineering-scope/index.js';
 import {
   SCOPED_EDIT_ENTITY_GEOMETRY_V1,
   validateScopedEditEntityGeometry,
   validateScopedEditJournalProjection,
 } from '../scoped-edit-runtime/index.js';
-import { assertScopedEditReferenceSnapshot } from './reference-document-contracts.js';
-import { projectReferenceJournal } from './reference-journal-adapter.js';
+import {
+  certifyScopedEditReferenceSnapshot,
+  projectReferenceJournal,
+} from './reference-journal-adapter.js';
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
@@ -59,8 +60,8 @@ export function createReferenceScopeAdapters() {
   return Object.freeze({ resolveStructural: structuralResolver, referencesOf, boundsOf });
 }
 
-export function createScopedEditReferenceRuntimeHost(snapshotInput) {
-  const snapshot = assertScopedEditReferenceSnapshot(snapshotInput);
+export function createScopedEditReferenceRuntimeHost(snapshotInput, options = {}) {
+  const snapshot = certifyScopedEditReferenceSnapshot(snapshotInput, options);
   const entityMap = new Map(snapshot.document.entities.map((entity) => [entity.entityId, entity]));
   const scopeAdapters = createReferenceScopeAdapters();
 
