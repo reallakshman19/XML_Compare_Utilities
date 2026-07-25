@@ -5,7 +5,7 @@ import { selectionForObjectId } from './topology-edit-controller-helpers.js';
 import {
   canonicalInteractionDistance, closestLineParameter, EDIT_DRAG_THRESHOLD_PX, pointerTravel, positionRecord,
   solveEditDrag, vAdd, vLen, vScale, vSub,
-} from './topology-edit-drag-solver.js';
+} from '../../core/edit-3d/drag-solver.js';
 
 const AXES = Object.freeze({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
 
