@@ -25,11 +25,15 @@ function sourceIndexes(element, count, errors) {
 }
 export function buildPipelineGreBendElementLineage({ sourceRows = [], materializedElements = [] } = {}) {
   const errors = [], sourceCount = Math.max(0, sourceRows.length - 1), ordered = orderedElements(materializedElements);
-  const bySource = Array.from({ length: sourceCount }, () => []), successorOwners = Object.create(null);
+  const bySource = Array.from({ length: sourceCount }, () => []), successorSources = Object.create(null);
+  const successorIds = ordered.map((item) => text(item.materializedElementId));
+  if (successorIds.some((id) => !id) || new Set(successorIds).size !== successorIds.length) errors.push(diagnostic(
+    'PIPELINE_GRE_BEND_MATERIALIZATION_LINEAGE_INVALID',
+    'Every successor element requires one unique materialized identity.', { successorElementIds: successorIds }));
   for (const element of ordered) {
-    const indexes = sourceIndexes(element, sourceCount, errors), primary = indexes[0];
-    successorOwners[element.materializedElementId] = primary;
-    if (primary !== undefined) bySource[primary].push(element);
+    const indexes = sourceIndexes(element, sourceCount, errors);
+    successorSources[element.materializedElementId] = indexes;
+    indexes.forEach((index) => bySource[index].push(element));
   }
   const lineage = bySource.map((items, sourceElementIndex) => {
     const ids = items.map((item) => item.materializedElementId);
@@ -47,14 +51,13 @@ export function buildPipelineGreBendElementLineage({ sourceRows = [], materializ
   });
   const coveredSuccessors = new Set(lineage.flatMap((item) => item.successorElementIds));
   const missing = ordered.map((item) => item.materializedElementId).filter((id) => !coveredSuccessors.has(id));
-  if (missing.length || Object.values(successorOwners).some((owner) => owner === undefined)) errors.push(diagnostic(
+  if (missing.length || Object.values(successorSources).some((indexes) => !indexes.length)) errors.push(diagnostic(
     'PIPELINE_GRE_BEND_MATERIALIZATION_LINEAGE_INVALID',
     'Every successor element must participate in source lineage.', { missingSuccessorElementIds: missing }));
   return freezePipelineGreMaterializationValue({ elementLineage: Object.freeze(lineage), diagnostics: Object.freeze(errors),
     sourceElementCount: sourceCount, coveredSourceElementCount: lineage.filter((item) => item.successorElementIds.length).length,
     successorElementCount: ordered.length, coveredSuccessorElementCount: coveredSuccessors.size });
 }
-
 
 export function validatePipelineGreBendSharedSegments(candidateContexts = []) {
   const errors = [], ordered = [...candidateContexts].sort((a, b) =>
@@ -116,6 +119,10 @@ function topologyIdentityErrors(nodes, elements, components) {
     { duplicateNodes, duplicateElements, duplicateComponents }));
   return errors;
 }
+function samePoint(left, right) {
+  return ['x', 'y', 'z'].every((axis) => Number.isFinite(Number(left?.[axis]))
+    && Number.isFinite(Number(right?.[axis])) && Math.abs(Number(left[axis]) - Number(right[axis])) <= EPSILON_MM);
+}
 function referenceErrors(nodes, elements, components) {
   const errors = [], nodeIndex = new Map(nodes.map((node) => [node.materializedNodeId, node]));
   const used = new Set();
@@ -129,6 +136,12 @@ function referenceErrors(nodes, elements, components) {
     const length = Number(element.lengthMm);
     const coincident = ['COINCIDENT_ZERO_LENGTH_AUTHORIZED', 'COINCIDENT_ENVELOPE_CONTACT']
       .includes(element.lineageDisposition);
+    if (element.lineageDisposition === 'COINCIDENT_ENVELOPE_CONTACT'
+      && (!from || !to || from.nodeRole !== 'GRE_OUTGOING_BREAK' || to.nodeRole !== 'GRE_INCOMING_BREAK'
+        || from.candidateId === to.candidateId || !samePoint(from.coordinates, to.coordinates))) errors.push(diagnostic(
+      'PIPELINE_GRE_BEND_MATERIALIZATION_ZERO_LENGTH_INVALID',
+      'Coincident envelope contact requires exact adjacent candidate break-node evidence.',
+      { materializedElementId: element.materializedElementId }));
     if (!Number.isFinite(length) || length < -EPSILON_MM || (Math.abs(length) <= EPSILON_MM && !coincident)) errors.push(
       diagnostic('PIPELINE_GRE_BEND_MATERIALIZATION_ZERO_LENGTH_INVALID',
         'Zero-length materialized elements require an explicit coincident disposition.',
@@ -139,10 +152,14 @@ function referenceErrors(nodes, elements, components) {
   if (orphanNodes.length) errors.push(diagnostic('PIPELINE_GRE_BEND_MATERIALIZATION_TOPOLOGY_INVALID',
     'Active materialized nodes must not be isolated.', { orphanNodeIds: orphanNodes }));
   for (const component of components) {
-    if (!nodeIndex.has(component.incomingTangencyNodeId) || !nodeIndex.has(component.outgoingTangencyNodeId)
-      || !nodeIndex.has(component.inactiveCornerReferenceId)) errors.push(diagnostic(
+    const incoming = nodeIndex.get(component.incomingTangencyNodeId);
+    const outgoing = nodeIndex.get(component.outgoingTangencyNodeId);
+    const corner = nodeIndex.get(component.inactiveCornerReferenceId);
+    if (!incoming || !outgoing || !corner || incoming.active !== true || outgoing.active !== true
+      || incoming.nodeRole !== 'GRE_INCOMING_TANGENCY' || outgoing.nodeRole !== 'GRE_OUTGOING_TANGENCY'
+      || corner.active !== false || corner.nodeRole !== 'INACTIVE_CORNER_REFERENCE') errors.push(diagnostic(
       'PIPELINE_GRE_BEND_MATERIALIZATION_TOPOLOGY_INVALID',
-      'GRE bend components must reference known tangency nodes and inactive corner evidence.',
+      'GRE bend components must reference active tangency nodes and one inactive corner evidence node.',
       { componentId: component.componentId }));
   }
   return errors;
