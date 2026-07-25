@@ -15,6 +15,7 @@ import {
   validateScopedEditCommitResult,
   validateScopedEditEntityGeometry,
   validateScopedEditJournalProjection,
+  validateScopedEditRuntimeState,
 } from '../core/scoped-edit-runtime/index.js';
 import { createEditDragSession } from '../core/edit-3d/index.js';
 import {
@@ -136,6 +137,7 @@ assert.throws(() => validateScopedEditCommitProposal({ ...prepared, dragResult: 
 checked += 2;
 
 const committed = proposalRuntime.commitPrepared();
+const committedState = proposalRuntime.getState();
 assertContractValue(validateScopedEditCommitResult(committed));
 for (const name of ['entityId', 'commandId', 'dragResult', 'boundaryDecision']) {
   assert.throws(() => validateScopedEditCommitResult({ ...committed, [name]: null }), TypeError);
@@ -153,7 +155,12 @@ assert.throws(() => validateScopedEditCommitResult({
 }), /must be active in journalProjection/);
 assert.throws(() => validateScopedEditCommitResult({ ...committed, appliedCommandIds: [] }),
   /must match replayState.appliedCommandIds/);
-checked += 5;
+assert.throws(() => validateScopedEditCommitResult({
+  ...committed,
+  replayState: { ...committed.replayState, appliedCommandIds: [] },
+  appliedCommandIds: [],
+}), /must be present in replayState.appliedCommandIds/);
+checked += 6;
 
 const rejected = validateScopedEditCommitResult({
   schema: SCOPED_EDIT_COMMIT_RESULT_V1,
@@ -169,6 +176,26 @@ const rejected = validateScopedEditCommitResult({
   appliedCommandIds: [],
 });
 assertContractValue(rejected);
+assert.throws(() => validateScopedEditCommitResult({ ...rejected, appliedCommandIds: ['SER-000001'] }),
+  /Commit result appliedCommandIds must match replayState.appliedCommandIds/);
+checked += 1;
 
+assert.throws(() => validateScopedEditRuntimeState({ ...committedState, appliedCommandIds: [] }),
+  /Runtime state appliedCommandIds must match replayState.appliedCommandIds/);
+const divergentProjectionResult = validateScopedEditCommitResult({
+  ...committed,
+  journalProjection: { ...committed.journalProjection, initialState: { divergent: true } },
+});
+assert.throws(() => validateScopedEditRuntimeState({
+  ...committedState, lastCommitResult: divergentProjectionResult,
+}), /lastCommitResult journalProjection must match/);
+const divergentReplayResult = validateScopedEditCommitResult({
+  ...committed,
+  replayState: { ...committed.replayState, state: { ...committed.replayState.state, divergent: true } },
+});
+assert.throws(() => validateScopedEditRuntimeState({
+  ...committedState, lastCommitResult: divergentReplayResult,
+}), /lastCommitResult replayState must match/);
+checked += 3;
 
 console.log(`[PASS] scoped-edit runtime contracts: ${checked} contract and host-shape cases.`);
