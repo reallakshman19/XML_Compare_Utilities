@@ -5,10 +5,41 @@ import { resolvePipelineAnalysisDiameterPlan } from './pipeline-3d-model-diamete
 import { resolvePipelineNormalFittingPlan } from './pipeline-3d-model-normal-fitting-resolution.js';
 import { resolvePipelineB314RadiusPlan } from './pipeline-3d-model-b314-radius-resolution.js';
 import { resolvePipelineGreVendorSeriesPlan } from './pipeline-3d-model-gre-vendor-series-resolution.js';
+import {
+  buildPipelineGreBendGeometryPlanJson,
+  buildPipelineGreBendGeometryPlanTsv,
+} from './pipeline-3d-model-gre-bend-geometry-contracts.js';
+import { resolvePipelineGreBendGeometryPlan } from './pipeline-3d-model-gre-bend-geometry-plan.js';
 import { resolvePipelinePropertySectionPlan } from './pipeline-3d-model-property-sections.js?v=20260724-p3d-hard-051-1';
 import { buildExplicitPipelineInputXmlDocumentPlan } from './pipeline-3d-model-explicit-inputxml.js';
 import { buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-base-039-1';
 import { buildPipelineCoreOrchestration } from './pipeline-3d-model-core-orchestrator.js';
+
+function freeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  Object.values(value).forEach(freeze);
+  return Object.freeze(value);
+}
+function artifact(fileId, name, sourceSchema, text, mime) {
+  return freeze({ fileId, name, sourceSchema, mime, role: 'ENGINEERING_EVIDENCE', text });
+}
+function adoptGreBendGeometry(base, input) {
+  const plan = resolvePipelineGreBendGeometryPlan({
+    bendResolution: base.bendResolution,
+    sectionProfileRoutingPlan: base.sectionProfileRoutingPlan,
+    greVendorSeriesPlan: base.greVendorSeriesPlan,
+    bendBreakApplications: input.greBendBreakApplications,
+  });
+  const artifacts = Object.freeze([...(base.artifacts || []),
+    artifact('greBendGeometryPlan', 'pipeline-gre-bend-geometry-plan.json', plan.schema,
+      buildPipelineGreBendGeometryPlanJson(plan), 'application/json'),
+    artifact('greBendGeometryPlanTsv', 'pipeline-gre-bend-geometry-plan.tsv', plan.schema,
+      buildPipelineGreBendGeometryPlanTsv(plan), 'text/tab-separated-values')]);
+  const diagnostics = Object.freeze([...(base.diagnostics || []), ...plan.diagnostics]);
+  const blockerCodes = Object.freeze([...new Set([...(base.blockerCodes || []), ...plan.blockerCodes])]);
+  return freeze({ ...base, greBendGeometryPlan: plan, artifacts, diagnostics, blockerCodes,
+    ready: base.ready === true && plan.ready === true });
+}
 
 export const PIPELINE_CORE_RUNTIME_DEPENDENCIES = Object.freeze({
   buildGeometryRoute: buildGeometryAuthorityRoute,
@@ -24,5 +55,8 @@ export const PIPELINE_CORE_RUNTIME_DEPENDENCIES = Object.freeze({
 });
 
 export function buildPipelineCoreOutputs(input = {}) {
-  return buildPipelineCoreOrchestration(input, PIPELINE_CORE_RUNTIME_DEPENDENCIES);
+  return adoptGreBendGeometry(
+    buildPipelineCoreOrchestration(input, PIPELINE_CORE_RUNTIME_DEPENDENCIES),
+    input,
+  );
 }
