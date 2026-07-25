@@ -24,7 +24,7 @@ function neighborPositions(canonical, nodeId) {
   return asArray(canonical.edges).map(objectRecord).flatMap((edge) => {
     const from = cleanText(edge.fromNodeId), to = cleanText(edge.toNodeId);
     if (from !== nodeId && to !== nodeId) return [];
-    const other = nodePosition(canonical(), from === nodeId ? to : from);
+    const other = nodePosition(canonical, from === nodeId ? to : from);
     return other ? [other] : [];
   });
 }
