@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { deepFreeze } from '../tabs/revision-compare/revision-contract-utils.js';
 import { createRevisionCompareTransferArchiveArtifact } from '../tabs/revision-compare/revision-transfer-archive.js';
 import { completeRevisionCompareTransferArchiveState, failRevisionCompareTransferArchiveState } from '../tabs/revision-compare/revision-transfer-archive-state.js';
-import { completeWorkspaceTransferArchive, reconcileRevisionCompareTransferArchiveAfterAuthorityChange } from '../tabs/revision-compare/revision-transfer-archive-workspace-state.js';
+import { completeWorkspaceTransferArchive, failWorkspaceTransferArchive, reconcileRevisionCompareTransferArchiveAfterAuthorityChange } from '../tabs/revision-compare/revision-transfer-archive-workspace-state.js';
 import { downloadRevisionCompareTransferArchive, printRevisionCompareTransferArchive } from '../tabs/revision-compare/revision-transfer-archive-controller.js';
 import { clone, cryptoRef, transferArchiveFixture } from './revision-compare-transfer-archive-fixtures.mjs';
 const fixture = await transferArchiveFixture(); const artifact = await createRevisionCompareTransferArchiveArtifact(fixture.workspace, { cryptoRef });
@@ -16,6 +16,15 @@ const stale = reconcileRevisionCompareTransferArchiveAfterAuthorityChange(create
 assert.equal(stale.transferArchive.status, 'STALE'); assert.equal(stale.transferArchive.artifact, artifact);
 const restored = deepFreeze({ ...stale, review: created.review });
 assert.equal(reconcileRevisionCompareTransferArchiveAfterAuthorityChange(stale, restored).transferArchive.status, 'STALE');
+
+const failedHistorical = failWorkspaceTransferArchive(stale, new Error('replacement failed'));
+assert.equal(failedHistorical.transferArchive.status, 'STALE');
+assert.equal(failedHistorical.transferArchive.artifact, artifact);
+assert.equal(failedHistorical.transferArchive.error, 'replacement failed');
+const historicalRace = completeWorkspaceTransferArchive(stale, fixture.workspace, artifact);
+assert.equal(historicalRace.transferArchive.status, 'STALE');
+assert.equal(historicalRace.transferArchive.artifact, artifact);
+
 const race = clone(fixture.workspace); race.transferCompletion.bundle.contentSha256 = 'f'.repeat(64);
 assert.equal(completeWorkspaceTransferArchive(deepFreeze(race), fixture.workspace, artifact).transferArchive.status, 'FAILED');
 assert.equal(failRevisionCompareTransferArchiveState(new Error('failed')).artifact, null);
