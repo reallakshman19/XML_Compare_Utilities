@@ -73,14 +73,16 @@ function authenticateAllocationPlan(plan, errors) {
     errors.push(diagnostic('PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID'));
     return null;
   }
-  const policy = authenticateRecord(plan.policy, PIPELINE_GRE_BEND_NODE_ALLOCATION_POLICY_SCHEMA,
-    createPipelineGreBendNodeAllocationPolicy, 'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID', errors);
+  const noCandidates = plan.candidateCount === 0 && plan.policy === null;
+  const policy = noCandidates ? null : authenticateRecord(plan.policy,
+    PIPELINE_GRE_BEND_NODE_ALLOCATION_POLICY_SCHEMA, createPipelineGreBendNodeAllocationPolicy,
+    'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID', errors);
   const allocations = authenticateList(plan.allocations, PIPELINE_GRE_BEND_NODE_ALLOCATION_SCHEMA,
     createPipelineGreBendNodeAllocation, 'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID', errors);
   unique(allocations, 'materializedNodeId', 'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID', errors);
   unique(allocations, 'nodeNumber', 'PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID', errors);
   const rebuilt = createPipelineGreBendNodeAllocationPlan({ ...plan, policy, allocations });
-  if (!policy || rebuilt.ready !== true || !same(plan, rebuilt)) {
+  if ((!noCandidates && !policy) || rebuilt.ready !== true || !same(plan, rebuilt)) {
     errors.push(diagnostic('PIPELINE_INPUTXML_GRE_NODE_ALLOCATION_INVALID'));
     return null;
   }
