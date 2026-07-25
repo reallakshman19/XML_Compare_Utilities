@@ -106,6 +106,15 @@ const state = validateEdit3DDragSession(sessionRecord());
 assertDeepFrozen(state);
 checked += 1;
 
+assert.throws(() => validateEdit3DDragResult({
+  schema: EDIT_3D_DRAG_RESULT_V1,
+  valid: true,
+  reason: '',
+  point: null,
+  constraint: { kind: EDIT_3D_CONSTRAINT_KIND.AXIS, axis: [1, 0, 0] },
+}), /valid result must contain a point/);
+checked += 1;
+
 const result = validateEdit3DDragResult({
   schema: EDIT_3D_DRAG_RESULT_V1,
   valid: false,
