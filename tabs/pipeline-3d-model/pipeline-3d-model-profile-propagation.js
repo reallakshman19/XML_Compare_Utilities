@@ -18,8 +18,6 @@ import { buildDerivedTable2Text, buildDerivedTable3Text,
 import { addPipelineWarning } from './pipeline-3d-model-warning-log.js';
 import { loadPipelineEngineeringConfigurationDraft } from './pipeline-3d-model-engineering-configuration-storage.js';
 import { buildPipelineEngineeringConfigurationPlan } from './pipeline-3d-model-engineering-configuration.js';
-import { createPipelineAnalysisSectionPlan } from './pipeline-3d-model-analysis-section-contracts.js';
-import { getPipelineEngineeringProfile } from './pipeline-3d-model-engineering-profile-registry.js';
 import { resolvePipelineAnalysisSectionPlan } from './pipeline-3d-model-analysis-section-planner.js';
 import { buildPipelineCoreOutputs } from './pipeline-3d-model-core-runtime.js';
 
@@ -36,27 +34,13 @@ export function sanitizeTable1Label(label, index) {
 }
 const sanitizeTable1Points = (points) => points.map((point, index) =>
   ({ ...point, label: sanitizeTable1Label(point.label, index) }));
-function defaultBoundaryPlan(coordinateRows) {
-  const profile = getPipelineEngineeringProfile('normal-metallic');
-  const section = { analysisSectionId: 'AS1', startElementIndex: 0, profileId: profile.profileId,
-    boundaryAuthority: 'GEOMETRY_ROOT', boundarySourceReference: 'canonical-geometry:E1',
-    sourceAuthority: 'PIPELINE_ANALYSIS_SECTION_PLAN', sourceReference: 'canonical-geometry:E1',
-    status: 'BOUNDARY_ONLY', diagnostics: [], blockerCodes: [] };
-  const elementResolutions = Array.from({ length: Math.max(0, coordinateRows.length - 1) }, (_, index) => ({
-    elementIndex: index, elementId: `E${index + 1}`, analysisSectionId: 'AS1', profileId: profile.profileId,
-    resolvedMode: profile.resolvedMode, sectionDisposition: index === 0 ? 'SECTION_START' : 'INHERITED',
-    boundaryNode: index === 0 ? coordinateRows[0]?.nodeNumber ?? null : null,
-    sourceAuthority: 'PIPELINE_ANALYSIS_SECTION_PLAN', sourceReference: 'canonical-geometry:E1',
-    diagnostics: [], blockerCodes: [], ready: true }));
-  return createPipelineAnalysisSectionPlan({ sections: [section], elementResolutions });
-}
 function canonicalBoundaryPlan(input, coordinateRows) {
   if (input.canonicalAnalysisSectionPlan?.schema === 'PipelineAnalysisSectionPlan.v1') {
     return input.canonicalAnalysisSectionPlan;
   }
   if (Array.isArray(input.analysisSections) && input.analysisSections.length) return resolvePipelineAnalysisSectionPlan({
     coordinateRows, analysisSections: input.analysisSections }).analysisSectionPlan;
-  return defaultBoundaryPlan(coordinateRows);
+  return null;
 }
 function configuration(input, canonicalAnalysisSectionPlan) {
   if (input.configurationPlan?.schema === 'PipelineEngineeringConfigurationPlan.v1') return input.configurationPlan;
@@ -91,8 +75,7 @@ function appendDiagnostics(warnings, core) {
 }
 function commonOutput(input, source, profileOutput = {}) {
   const coordinateRows = buildCoordinateRows(source.combined,
-    resolvePipelineUtilityExportContext({ branchInfo: input.branchInfo || {},
-      settings: { designBasis: 'default-metallic' } }).identity);
+    resolvePipelineUtilityExportContext({ branchInfo: input.branchInfo || {}, settings: {} }).identity);
   const boundaryPlan = canonicalBoundaryPlan(input, coordinateRows);
   const plan = configuration(input, boundaryPlan), settings = exportSettings(plan);
   const exportContext = resolvePipelineUtilityExportContext({ branchInfo: plan.branchInfo, settings });
