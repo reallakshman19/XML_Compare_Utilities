@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {
   applyRevisionCompareTransferDraftAction, createRevisionCompareTransferReviewState,
-  replaceRevisionCompareTransferDraft, updateRevisionCompareTransferPresentation,
+  reconcileRevisionCompareTransferDraft, replaceRevisionCompareTransferDraft,
+  updateRevisionCompareTransferPresentation,
 } from '../tabs/revision-compare/revision-transfer-review-state.js';
 import { deriveRevisionCompareTransferCandidates } from '../tabs/revision-compare/revision-transfer-candidates.js';
 import { createRevisionCompareTransferSelectionFromDraft } from '../tabs/revision-compare/revision-transfer-controller.js';
@@ -39,6 +40,12 @@ for (const field of [controlled, protectedField, missingParent, arrayField]) ass
 const offPage = applyRevisionCompareTransferDraftAction(batched, candidates, { kind: 'PAIR', differenceId: candidates[3].differenceId, checked: true });
 const offField = candidates[3].fields.find((field) => field.eligible);
 const withOffPage = applyRevisionCompareTransferDraftAction(offPage, candidates, { kind: 'FIELD', differenceId: candidates[3].differenceId, fieldKey: offField.fieldKey, checked: true });
+const authorityCandidates = candidates.filter((candidate) => candidate.differenceId !== first.differenceId);
+const reconciled = reconcileRevisionCompareTransferDraft(withOffPage, authorityCandidates);
+assert.equal(reconciled.revision, withOffPage.revision + 1, 'authority reconciliation advances draft revision once');
+assert.equal(reconciled.pairs.some((pair) => pair.differenceId === first.differenceId), false, 'obsolete authority intent is removed');
+assert(reconciled.pairs.some((pair) => pair.differenceId === candidates[3].differenceId), 'still-valid off-page intent is preserved');
+assert.equal(reconcileRevisionCompareTransferDraft(reconciled, authorityCandidates), reconciled, 'stable authority reconciliation is a no-op');
 const clearedVisible = applyRevisionCompareTransferDraftAction(withOffPage, candidates, { kind: 'CLEAR_VISIBLE', entries: pageEntries });
 assert.equal(clearedVisible.revision, withOffPage.revision + 1); assert(clearedVisible.pairs.some((pair) => pair.differenceId === candidates[3].differenceId));
 const clearedAll = applyRevisionCompareTransferDraftAction(clearedVisible, candidates, { kind: 'CLEAR_ALL' });
@@ -50,7 +57,7 @@ console.log('revision-compare-transfer-review-state.test.mjs passed');
 const { createRevisionCompareTransferController } = await import('../tabs/revision-compare/revision-transfer-controller.js');
 let controllerState = structuredClone(state); controllerState.transferReview = createRevisionCompareTransferReviewState();
 controllerState.transfer = { ...controllerState.transfer, status: 'PLANNED', plan: { planId: 'plan:old' } };
-let draftTransitions = 0; let presentationTransitions = 0; let renders = 0;
+let draftTransitions = 0; let presentationTransitions = 0; let reconciliationTransitions = 0; let renders = 0;
 const target = (attributes, values = {}) => ({
   ...values, dataset: values.dataset ?? {}, hasAttribute: (name) => attributes.includes(name),
 });
@@ -62,6 +69,7 @@ const controller = createRevisionCompareTransferController({
       draftTransitions += 1; return { ...current, transferReview: nextReview,
         transfer: { ...current.transfer, status: current.transfer.plan ? 'STALE' : 'IDLE', selection: nextSelection } };
     },
+    reconcileReview(current, nextReview) { reconciliationTransitions += 1; return { ...current, transferReview: nextReview }; },
     setPresentation(current, nextReview) { presentationTransitions += 1; return { ...current, transferReview: nextReview }; },
     startPlan: (current) => current, createPlan: async () => null, completePlan: (current) => current, failPlan: (current) => current,
     startApply: (current) => current, createApplication: async () => null, completeApply: (current) => current, failApply: (current) => current,
@@ -74,4 +82,11 @@ controller.handleInput(target(['data-revc-transfer-search'], { value: 'PIPE-3' }
 assert.equal(presentationTransitions, 1); assert.equal(controllerState.transfer, staleTransfer, 'search does not stale or replace transfer evidence');
 controller.handleChange(target(['data-revc-transfer-page-size'], { value: '25' }));
 assert.equal(presentationTransitions, 2); assert.equal(controllerState.transfer, staleTransfer);
+controllerState = { ...controllerState, review: { ...controllerState.review, session: {
+  ...controllerState.review.session,
+  items: controllerState.review.session.items.map((item) => item.differenceId === first.differenceId ? { ...item, reviewState: 'UNREVIEWED' } : item),
+} } };
+const reconciledState = controller.reconcileState(controllerState);
+assert.equal(reconciliationTransitions, 1); assert.equal(reconciledState.transferReview.draft.pairs.length, 0);
+assert.equal(reconciledState.transfer, staleTransfer, 'authority reconciliation does not stale transfer evidence a second time');
 assert(renders >= 3); controller.destroy();
