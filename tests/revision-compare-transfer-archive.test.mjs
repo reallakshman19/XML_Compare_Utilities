@@ -23,6 +23,13 @@ for (const [mutate, pattern] of [
   const value = clone(fixture.workspace); mutate(value);
   await assert.rejects(() => validateRevisionCompareTransferArchiveAuthority(value, cryptoRef), pattern);
 }
+
+const noncanonical = clone(fixture.workspace);
+noncanonical.transferCompletion.reportArtifact.text = JSON.stringify(noncanonical.transferCompletion.report);
+noncanonical.transferCompletion.reportArtifact.contentSha256 = await sha256Text(noncanonical.transferCompletion.reportArtifact.text, cryptoRef);
+noncanonical.transferCompletion.reportArtifact.sizeBytes = new TextEncoder().encode(noncanonical.transferCompletion.reportArtifact.text).byteLength;
+await assert.rejects(() => validateRevisionCompareTransferArchiveAuthority(noncanonical, cryptoRef), /canonical serialization/);
+
 const broken = clone(artifact); broken.text += ' ';
 await assert.rejects(() => validateRevisionCompareTransferArchiveArtifact(broken, cryptoRef), /SHA-256/);
 console.log('revision-compare-transfer-archive.test.mjs passed');

@@ -5,7 +5,7 @@ import { stableStringify } from './revision-contract-utils.js';
 export const REVISION_COMPARE_TRANSFER_ARCHIVE_BOUNDARY = 'This offline archive is a deterministic human-readable projection of the embedded Revision Compare transfer handover bundle. The HTML file and any browser-generated PDF do not replace, modify or authenticate the embedded JSON authorities.';
 export const REVISION_COMPARE_TRANSFER_ARCHIVE_TRUST = 'The embedded patched-target completion is self-declared. Declarant identity, organizational authority and cryptographic authenticity are not established.';
 const MISSING = '—';
-const CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+const CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'";
 
 export function escapeRevisionCompareTransferArchiveHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({

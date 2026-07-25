@@ -18,7 +18,10 @@ export function completeRevisionCompareTransferArchiveState(artifact, workspace)
   const state = deepFreeze({ schema: REVISION_COMPARE_TRANSFER_ARCHIVE_STATE_SCHEMA, status: 'CREATED', artifact, sourceBundleId: artifact.sourceBundleId, sourceBundleContentSha256: artifact.sourceBundleContentSha256, sourceCompletionReportId: artifact.sourceCompletionReportId, sourceCompletionReportContentSha256: artifact.sourceCompletionReportContentSha256, sourcePatchedTargetSha256: artifact.sourcePatchedTargetSha256, error: null });
   assertJsonSafe(state, REVISION_COMPARE_TRANSFER_ARCHIVE_STATE_SCHEMA); return state;
 }
-export function failRevisionCompareTransferArchiveState(error) { return deepFreeze({ ...blank('FAILED'), error: String(error?.message ?? error) }); }
+export function failRevisionCompareTransferArchiveState(error, prior) {
+  const message = String(error?.message ?? error);
+  return prior?.artifact ? deepFreeze({ ...prior, error: message }) : deepFreeze({ ...blank('FAILED'), error: message });
+}
 export function staleRevisionCompareTransferArchiveState(state) { if (!state?.artifact || state.status === 'STALE') return state ?? createRevisionCompareTransferArchiveState(); return deepFreeze({ ...state, status: 'STALE', error: null }); }
 export function captureRevisionCompareTransferArchiveAuthority(workspace) {
   const completion = workspace?.transferCompletion;
