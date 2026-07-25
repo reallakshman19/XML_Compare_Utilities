@@ -60,6 +60,7 @@ function constructSnapshot({ version, document, commandJournal, projection, repl
 function certifySnapshot(snapshot, configuration) {
   return certifyScopedEditReferenceSnapshot(snapshot, {
     reducerRegistry: configuration.reducerRegistry,
+    documentAdapter: configuration.documentAdapter,
     sceneAdapter: configuration.sceneAdapter,
   });
 }
@@ -257,6 +258,7 @@ function createStoreApi(cell, configuration) {
       if (cell.destroyed) throw codedError('REFERENCE_STORE_DESTROYED', 'Runtime host creation is unavailable after destroy().');
       return createScopedEditReferenceRuntimeHost(cell.snapshot, {
         reducerRegistry: configuration.reducerRegistry,
+        documentAdapter: configuration.documentAdapter,
         sceneAdapter: configuration.sceneAdapter,
       });
     },
