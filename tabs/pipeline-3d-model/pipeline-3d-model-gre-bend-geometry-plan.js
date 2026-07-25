@@ -15,15 +15,19 @@ const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const diagnostic = (suffix, message, details = {}) => createPipelineGreBendGeometryDiagnostic(
   `PIPELINE_GRE_BEND_GEOMETRY_${suffix}`, message, details);
 function vector(from, to) {
-  const dx = finite(to?.x) - finite(from?.x), dy = finite(to?.y) - finite(from?.y), dz = finite(to?.z) - finite(from?.z);
-  const length = Math.hypot(dx, dy, dz);
+  const values = [finite(from?.x), finite(from?.y), finite(from?.z),
+    finite(to?.x), finite(to?.y), finite(to?.z)];
+  if (values.some((value) => value === null)) return null;
+  const [fx, fy, fz, tx, ty, tz] = values;
+  const dx = tx - fx, dy = ty - fy, dz = tz - fz, length = Math.hypot(dx, dy, dz);
   return Number.isFinite(length) && length > 0 ? { x: dx / length, y: dy / length, z: dz / length, length } : null;
 }
-const point = (origin, direction, distance) => ({
-  x: finite(origin.x) + direction.x * distance,
-  y: finite(origin.y) + direction.y * distance,
-  z: finite(origin.z) + direction.z * distance,
-});
+function point(origin, direction, distance) {
+  const values = [finite(origin?.x), finite(origin?.y), finite(origin?.z), finite(distance)];
+  if (values.some((value) => value === null) || !direction) return { x: null, y: null, z: null };
+  return { x: values[0] + direction.x * values[3], y: values[1] + direction.y * values[3],
+    z: values[2] + direction.z * values[3] };
+}
 function authenticate(input, errors) {
   const bend = input.bendResolution, routing = input.sectionProfileRoutingPlan, vendor = input.greVendorSeriesPlan;
   const bendValid = plain(bend) && bend.schema === 'PipelineBendResolution.v3'
@@ -60,6 +64,13 @@ function indexes(source, applicationsInput, errors) {
       'VENDOR_IDENTITY_CONFLICT', 'Break-length application authority must be unique per GRE section.',
       { analysisSectionId: item.analysisSectionId }));
     else applications[item.analysisSectionId] = item;
+  }
+  for (const item of Object.values(applications)) {
+    const vendor = vendors[item.analysisSectionId];
+    if (!vendor || item.vendorId !== vendor.vendorId || item.seriesId !== vendor.seriesId
+      || item.qualificationEvidenceId !== vendor.qualificationEvidenceId) errors.push(diagnostic(
+      'VENDOR_IDENTITY_CONFLICT', 'Every application authority must match one qualified GRE vendor section.',
+      { analysisSectionId: item.analysisSectionId }));
   }
   return { ownership, vendors, applications };
 }
@@ -177,8 +188,18 @@ export function resolvePipelineGreBendGeometryPlan(input = {}) {
     || compare(text(a.id), text(b.id)));
   const plans = [], notApplicable = [];
   for (const candidate of candidates) {
-    const owner = index.ownership[text(candidate?.id)];
-    if (owner?.profileId !== 'gre') { notApplicable.push(text(candidate?.id)); continue; }
+    const candidateId = text(candidate?.id), owner = index.ownership[candidateId];
+    if (!owner) {
+      errors.push(diagnostic('CANDIDATE_UNOWNED', 'Every bend candidate requires canonical routing ownership.',
+        { candidateId }));
+      continue;
+    }
+    if (owner.profileId !== 'gre') {
+      if (!['normal-metallic', 'asme-b31.4'].includes(owner.profileId)) errors.push(diagnostic(
+        'PROFILE_INVALID', 'Candidate routing profile is invalid.', { candidateId, profileId: owner.profileId }));
+      else notApplicable.push(candidateId);
+      continue;
+    }
     plans.push(candidatePlan(candidate, owner, index.vendors[owner.analysisSectionId],
       index.applications[owner.analysisSectionId], source.bend.geometryRows));
   }
