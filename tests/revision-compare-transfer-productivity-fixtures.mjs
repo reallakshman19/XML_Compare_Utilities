@@ -46,7 +46,7 @@ export function productivityState(count = 6, options = {}) {
     parsedValue, entityIndex: Object.freeze(entityIndex), errors: Object.freeze([]),
   });
   return deepFreeze({
-    schema: 'RevisionCompareWorkspaceState.v11', basisStatus: 'CURRENT',
+    schema: 'RevisionCompareWorkspaceState.v12', basisStatus: 'CURRENT',
     slots: { baseline: { jsonSnapshot: snapshot('REV_A', 'doc:A', documentHash('1'), sourceValue, sourceEntities) }, candidate: { jsonSnapshot: snapshot('REV_B', 'doc:B', documentHash('2'), targetValue, targetEntities) } },
     compare: { audit: { validation: { status: 'READY' }, differenceRows: Object.freeze(rows) } },
     review: { session: { status: 'CURRENT', items: Object.freeze(reviewItems) } },

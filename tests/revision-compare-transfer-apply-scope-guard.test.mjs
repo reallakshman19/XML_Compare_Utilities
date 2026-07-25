@@ -8,6 +8,12 @@ const production = [
   'tabs/revision-compare/revision-transfer-artifacts.js',
   'tabs/revision-compare/revision-transfer-apply-state.js',
   'tabs/revision-compare/revision-transfer-contracts.js',
+  'tabs/revision-compare/revision-transfer-completion.js',
+  'tabs/revision-compare/revision-transfer-handover.js',
+  'tabs/revision-compare/revision-transfer-completion-state.js',
+  'tabs/revision-compare/revision-transfer-completion-controller.js',
+  'tabs/revision-compare/revision-transfer-completion-view.js',
+  'tabs/revision-compare/revision-transfer-completion-workspace-state.js',
   'tabs/revision-compare/revision-workspace-state.js',
 ];
 const sources = new Map();
@@ -35,6 +41,8 @@ const writer = sources.get('tabs/revision-compare/revision-transfer-writer.js');
 const verifier = sources.get('tabs/revision-compare/revision-transfer-verifier.js');
 const applyState = sources.get('tabs/revision-compare/revision-transfer-apply-state.js');
 const contracts = sources.get('tabs/revision-compare/revision-transfer-contracts.js');
+const completion = sources.get('tabs/revision-compare/revision-transfer-completion.js');
+const handover = sources.get('tabs/revision-compare/revision-transfer-handover.js');
 const workspace = sources.get('tabs/revision-compare/revision-workspace-state.js');
 assert.match(writer, /plan\.operations\.map\([^\n]*validateOperation/);
 assert.match(writer, /const mutable = cloneJson\(revB\.parsedValue\)/);
@@ -49,8 +57,10 @@ assert.match(applyState, /applyGeneration/);
 assert.match(applyState, /result: null, audit: null, proof: null, manifest: null/);
 assert.match(contracts, /APPLYING: 'APPLYING'/);
 assert.match(contracts, /APPLIED: 'APPLIED'/);
-assert.match(workspace, /RevisionCompareWorkspaceState\.v9/);
-assert.doesNotMatch(workspace.match(/export function setWorkspacePresentation[^\n]+/)?.[0] ?? '', /Authority|Apply/);
-assert.doesNotMatch(workspace.match(/export function setWorkspaceViewerBackend[^\n]+/)?.[0] ?? '', /Authority|Apply/);
+assert.match(completion, /RevisionCompareTransferCompletionReport\.v1/);
+assert.match(handover, /RevisionCompareTransferHandoverBundle\.v1/);
+assert.match(workspace, /RevisionCompareWorkspaceState\.v12/);
+assert.doesNotMatch(workspace.match(/export function setWorkspacePresentation[^\n]+/)?.[0] ?? '', /Authority|Apply|Completion/);
+assert.doesNotMatch(workspace.match(/export function setWorkspaceViewerBackend[^\n]+/)?.[0] ?? '', /Authority|Apply|Completion/);
 
 console.log('revision-compare-transfer-apply-scope-guard.test.mjs passed');

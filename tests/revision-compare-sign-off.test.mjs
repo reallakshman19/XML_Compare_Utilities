@@ -103,7 +103,7 @@ function blocked(value, pattern) {
   assert(result.blockers.some((item) => pattern.test(item)), `${pattern} not found in ${result.blockers.join(' | ')}`);
 }
 
-assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v11');
+assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v12');
 assert.equal(REVISION_COMPARE_SIGN_OFF_STATE_SCHEMA, 'RevisionCompareSignOffState.v1');
 assert.deepEqual(revisionCompareSignOffReadiness(state()), { status: 'READY', blockers: [] });
 blocked(Object.freeze({ ...state(), basisStatus: 'STALE' }), /CURRENT comparison basis/);

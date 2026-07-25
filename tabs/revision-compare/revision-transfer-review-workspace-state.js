@@ -7,6 +7,7 @@ import { reconcileRevisionCompareTrustReceiptState } from './revision-trust-rece
 import {
   invalidateRevisionCompareTransferRequest, setRevisionCompareTransferSelection,
 } from './revision-transfer-contracts.js';
+import { reconcileRevisionCompareTransferCompletionAfterAuthorityChange } from './revision-transfer-completion-workspace-state.js';
 
 function signOffAfterDraftChange(previous, next) {
   const prior = previous?.signOff ?? createRevisionCompareSignOffState();
@@ -21,7 +22,8 @@ function transferAfterDraftChange(state, selection) {
 export function setWorkspaceTransferReviewDraft(state, transferReview, selection) {
   if (transferReview === state.transferReview) return state;
   const transfer = transferAfterDraftChange(state, selection);
-  return signOffAfterDraftChange(state, deepFreeze({ ...state, transferReview, transfer }));
+  const next = signOffAfterDraftChange(state, deepFreeze({ ...state, transferReview, transfer }));
+  return reconcileRevisionCompareTransferCompletionAfterAuthorityChange(state, next);
 }
 export function reconcileWorkspaceTransferReviewState(state, transferReview) {
   return transferReview === state.transferReview ? state : deepFreeze({ ...state, transferReview });

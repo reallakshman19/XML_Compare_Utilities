@@ -31,9 +31,7 @@ function documents(rootKind, target) {
     revBValue: { schema: 'stage/v1', metadata: { owner: 'fixture', unknown: [3, 1, 2] }, branches: [branchB], future: { keep: true } },
   };
 }
-function sourceValue(propertyKey) {
-  return propertyKey === 'weight' ? 12 : propertyKey === 'material' ? 'CS' : 'New';
-}
+function sourceValue(propertyKey) { return propertyKey === 'weight' ? 12 : propertyKey === 'material' ? 'CS' : 'New'; }
 function selectionFor(specs, sourceEntity, targetEntity) {
   return deepFreeze({
     schema: 'RevisionCompareTransferSelection.v1', direction: 'REV_A_TO_REV_B', selectionRevision: 1,
@@ -134,7 +132,7 @@ export async function workspaceFixture(options = {}) {
     manifest: null, artifacts: Object.freeze([]), patchedSnapshot: null, error: null,
   });
   return deepFreeze({
-    schema: 'RevisionCompareWorkspaceState.v11', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
+    schema: 'RevisionCompareWorkspaceState.v12', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
     basis: plan.comparisonBasis, slots: { baseline: { status: 'SCOPED', jsonSnapshot: revA }, candidate: { status: 'SCOPED', jsonSnapshot: revB } },
     compare: { status: 'COMPLETE', audit: plan.audit, presentationMode: 'overlay' },
     review: { session: plan.reviewSession, importError: null, replacementRequired: false },
