@@ -72,7 +72,8 @@ assert.deepEqual(notApplicable.notApplicableCandidateIds, ['bend:110']);
 const noFit = resolvePipelineGreBendGeometryPlan({
   ...input, greVendorSeriesPlan: vendor(1200) });
 assert.equal(noFit.ready, false);
-assert.ok(noFit.candidatePlans[0].blockerCodes.includes('PIPELINE_GRE_BEND_GEOMETRY_BREAK_ENVELOPE_INFEASIBLE'));
+assert.ok(noFit.candidatePlans[0].blockerCodes.includes(
+  'PIPELINE_GRE_BEND_GEOMETRY_BREAK_ENVELOPE_INFEASIBLE'));
 
 const sharedBends = { schema: 'PipelineBendResolution.v3',
   candidates: [candidate('bend:110', 0), candidate('bend:120', 1)], geometryRows: rows };
@@ -91,6 +92,21 @@ assert.equal(overlap.sharedSegmentConflicts[0].conflictId,
   'GRE-BEND-SHARED:1:bend:110|bend:120');
 assert.ok(overlap.candidatePlans.every((item) =>
   item.blockerCodes.includes('PIPELINE_GRE_BEND_GEOMETRY_SHARED_SEGMENT_CONFLICT')));
+
+const unowned = resolvePipelineGreBendGeometryPlan({
+  bendResolution, sectionProfileRoutingPlan: { ...routing, candidateOwnership: [] },
+  greVendorSeriesPlan: vendor(), bendBreakApplications: application(),
+});
+assert.equal(unowned.ready, false);
+assert.ok(unowned.blockerCodes.includes('PIPELINE_GRE_BEND_GEOMETRY_CANDIDATE_UNOWNED'));
+
+const nonFiniteRows = rows.map((row) => ({ ...row }));
+nonFiniteRows[1].x = Number.NaN;
+const nonFinite = resolvePipelineGreBendGeometryPlan({
+  ...input, bendResolution: { ...bendResolution, geometryRows: nonFiniteRows },
+});
+assert.equal(nonFinite.ready, false);
+assert.ok(nonFinite.blockerCodes.includes('PIPELINE_GRE_BEND_GEOMETRY_INPUT_INVALID'));
 
 const cyclic = {}; cyclic.self = cyclic;
 assert.doesNotThrow(() => resolvePipelineGreBendGeometryPlan(cyclic));
