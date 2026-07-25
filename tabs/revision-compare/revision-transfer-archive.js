@@ -1,8 +1,8 @@
 /** Deterministic offline archive artifact and fail-closed source validation. */
 import { assertJsonSafe, deepFreeze, stableStringify } from './revision-contract-utils.js';
 import { sha256Text } from './revision-hash.js';
-import { validateRevisionCompareTransferCompletionReportIdentity } from './revision-transfer-completion.js';
-import { validateRevisionCompareTransferHandoverBundleIdentity } from './revision-transfer-handover.js';
+import { serializeRevisionCompareTransferCompletionReport, validateRevisionCompareTransferCompletionReportIdentity } from './revision-transfer-completion.js';
+import { serializeRevisionCompareTransferHandoverBundle, validateRevisionCompareTransferHandoverBundleIdentity } from './revision-transfer-handover.js';
 import { validateRevisionCompareTransferCompletionApplication } from './revision-transfer-completion-state.js';
 import { extractRevisionCompareTransferArchiveBundle, renderRevisionCompareTransferArchiveHtml } from './revision-transfer-archive-html.js';
 
@@ -22,10 +22,11 @@ export function revisionCompareTransferArchiveReadiness(state) {
   if (state?.transfer?.applyRequest) blockers.push('Wait for the active transfer apply request to finish.');
   return deepFreeze({ status: blockers.length ? 'BLOCKED' : 'READY', blockers: Object.freeze(blockers) });
 }
-async function validateJsonArtifact(artifact, value, label, cryptoRef) {
+async function validateJsonArtifact(artifact, value, expectedText, label, cryptoRef) {
   if (!artifact || artifact.mimeType !== 'application/json' || typeof artifact.text !== 'string') throw new TypeError(`${label} retained JSON artifact is required.`);
   if (await sha256Text(artifact.text, cryptoRef) !== artifact.contentSha256) throw new Error(`${label} retained SHA-256 does not match.`);
   if (byteSize(artifact.text) !== artifact.sizeBytes) throw new Error(`${label} retained byte size does not match.`);
+  if (artifact.text !== expectedText) throw new Error(`${label} retained text does not match the canonical serialization.`);
   let parsed; try { parsed = JSON.parse(artifact.text); } catch (error) { throw new Error(`${label} retained JSON is invalid: ${error.message}`); }
   if (!same(parsed, value)) throw new Error(`${label} retained JSON does not match its authority.`);
 }
@@ -46,8 +47,8 @@ export async function validateRevisionCompareTransferArchiveAuthority(workspace,
   await validateRevisionCompareTransferCompletionReportIdentity(report, cryptoRef);
   await validateRevisionCompareTransferHandoverBundleIdentity(bundle, cryptoRef);
   validateRevisionCompareTransferCompletionApplication({ report, bundle, reportArtifact: completion.reportArtifact, bundleArtifact: completion.bundleArtifact }, workspace);
-  await validateJsonArtifact(completion.reportArtifact, report, 'Transfer completion report', cryptoRef);
-  await validateJsonArtifact(completion.bundleArtifact, bundle, 'Transfer handover bundle', cryptoRef);
+  await validateJsonArtifact(completion.reportArtifact, report, serializeRevisionCompareTransferCompletionReport(report), 'Transfer completion report', cryptoRef);
+  await validateJsonArtifact(completion.bundleArtifact, bundle, serializeRevisionCompareTransferHandoverBundle(bundle), 'Transfer handover bundle', cryptoRef);
   if (!same(bundle.payload?.completionReport, report)) throw new Error('Handover bundle does not contain the exact current completion report.');
   await validateEmbeddedArtifacts(bundle, cryptoRef); return bundle;
 }
