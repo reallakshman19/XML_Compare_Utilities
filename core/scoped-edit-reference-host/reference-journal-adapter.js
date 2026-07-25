@@ -10,11 +10,18 @@ import {
 import {
   SCOPED_EDIT_REFERENCE_REPLAY_STATE_V1,
   assertScopedEditReferenceSnapshot,
+  deriveReferenceDocument,
+  hashReferenceValue,
 } from './reference-document-contracts.js';
+import { deriveReferenceEngineeringScene } from './reference-scene-adapter.js';
 
 export const REFERENCE_POSITION_SET = 'REFERENCE_POSITION_SET';
 export const REFERENCE_ATTRIBUTE_SET = 'REFERENCE_ATTRIBUTE_SET';
 export const REFERENCE_REMARK_SET = 'REFERENCE_REMARK_SET';
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 
 function validJournal(journal) {
   const errors = validateCommandJournal(journal);
@@ -95,6 +102,55 @@ export function replayReferenceJournal({ initialState, commandJournal, reducerRe
     activeCommandIds: projection.activeCommandIds,
     registry: reducerRegistry,
   });
+}
+
+export function certifyReferenceJournalCheckpoints({ initialState, commandJournal, reducerRegistry }) {
+  const journal = validJournal(commandJournal);
+  for (const checkpoint of journal.checkpoints) {
+    const envelopes = journal.entries.filter((entry) => entry.sequence <= checkpoint.sequence);
+    const available = new Set(envelopes.map((entry) => entry.commandId));
+    if (checkpoint.activeCommandIds.some((id) => !available.has(id))) {
+      throw new TypeError(`Reference checkpoint ${checkpoint.checkpointId} exceeds its sequence authority.`);
+    }
+    const replay = replayEditJournal({
+      initialState: immutableJson(initialState, 'Reference checkpoint initial state'),
+      envelopes,
+      activeCommandIds: checkpoint.activeCommandIds,
+      registry: reducerRegistry,
+    });
+    if (hashReferenceValue(replay) !== checkpoint.stateHash) {
+      throw new TypeError(`Reference checkpoint ${checkpoint.checkpointId} stateHash is inconsistent.`);
+    }
+  }
+  return journal;
+}
+
+export function certifyScopedEditReferenceSnapshot(snapshotInput, options = {}) {
+  const snapshot = assertScopedEditReferenceSnapshot(snapshotInput);
+  const reducerRegistry = options.reducerRegistry ?? createReferenceReducerRegistry();
+  const sceneAdapter = options.sceneAdapter ?? deriveReferenceEngineeringScene;
+  if (typeof sceneAdapter !== 'function') throw new TypeError('Reference snapshot sceneAdapter must be a function.');
+  const replay = replayReferenceJournal({
+    initialState: snapshot.journalProjection.initialState,
+    commandJournal: snapshot.commandJournal,
+    reducerRegistry,
+  });
+  if (!sameJson(replay, snapshot.replayState)) {
+    throw new TypeError('Reference snapshot replay ancestry is inconsistent with its journal.');
+  }
+  const document = deriveReferenceDocument(replay.state);
+  if (!sameJson(document, snapshot.document)) {
+    throw new TypeError('Reference snapshot document is inconsistent with certified replay.');
+  }
+  if (!sameJson(sceneAdapter(document), snapshot.engineeringScene)) {
+    throw new TypeError('Reference snapshot scene is inconsistent with certified replay.');
+  }
+  certifyReferenceJournalCheckpoints({
+    initialState: snapshot.journalProjection.initialState,
+    commandJournal: snapshot.commandJournal,
+    reducerRegistry,
+  });
+  return snapshot;
 }
 
 export function createReferenceScopedEditEnvelope(snapshotInput, input = {}) {
