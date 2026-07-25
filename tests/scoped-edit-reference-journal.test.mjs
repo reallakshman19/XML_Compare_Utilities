@@ -7,6 +7,7 @@ import {
   undoCommandJournal,
 } from '../contracts/command-journal.js';
 import {
+  certifyReferenceJournalCheckpoints,
   deriveReferenceDocument,
   projectReferenceJournal,
   replayReferenceJournal,
@@ -51,6 +52,11 @@ for (let index = 0; index < 100; index += 1) {
   assert.deepEqual(parsed.activeCommandIds, checkpointed.activeCommandIds);
   assert.deepEqual(parsed.redoCommandIds, checkpointed.redoCommandIds);
   assert.deepEqual(parsed.checkpoints, checkpointed.checkpoints);
+  assert.equal(certifyReferenceJournalCheckpoints({
+    initialState: s0.journalProjection.initialState,
+    commandJournal: parsed,
+    reducerRegistry: fixture.reducerRegistry,
+  }), parsed);
   const projection = projectReferenceJournal({
     initialState: s0.journalProjection.initialState,
     commandJournal: parsed,
@@ -95,10 +101,22 @@ for (let index = 0; index < 100; index += 1) {
   checkpointRoundTrips += 1;
 }
 
+const corruptedCheckpoint = checkpointCommandJournal(
+  s3.commandJournal,
+  'RH1-0000000000000000',
+  '2026-07-25T17:13:00.000Z',
+);
+const parsedCorruption = parseCommandJournal(serializeCommandJournal(corruptedCheckpoint));
+assert.throws(() => certifyReferenceJournalCheckpoints({
+  initialState: s0.journalProjection.initialState,
+  commandJournal: parsedCorruption,
+  reducerRegistry: fixture.reducerRegistry,
+}), /stateHash is inconsistent/);
+
 assert.deepEqual({ roundTrips, undoRedoCycles, checkpointRoundTrips }, {
   roundTrips: 100,
   undoRedoCycles: 100,
   checkpointRoundTrips: 100,
 });
 
-console.log('[PASS] scoped-edit reference journal: 100 round-trips, 100 undo/redo cycles, and 100 checkpoint round-trips.');
+console.log('[PASS] scoped-edit reference journal: 100 round-trips, 100 undo/redo cycles, 100 checkpoint round-trips, and corrupted-checkpoint rejection.');
