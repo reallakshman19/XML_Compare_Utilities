@@ -46,4 +46,8 @@ await import('./pipeline-3d-model-identity.test.js');
 await import('./pipeline-3d-model-export-context-static.test.js');
 await import('./pipeline-3d-model-export-context.test.js');
 await import('./pipeline-3d-model-inputxml-document-static.test.js');
+await import('./pipeline-3d-model-inputxml-gre-projection-contracts.test.js');
+await import('./pipeline-3d-model-inputxml-gre-projection.test.js');
+await import('./pipeline-3d-model-inputxml-gre-projection-adversarial.test.js');
+await import('./pipeline-3d-model-inputxml-gre-projection-static.test.js');
 console.log('Pipeline profile propagation explicit-authority static guards passed.');
