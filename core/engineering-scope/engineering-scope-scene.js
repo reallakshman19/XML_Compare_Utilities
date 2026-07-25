@@ -1,5 +1,5 @@
+import { validateEngineeringScene } from '../engineering-scene/engineering-contract-validation.js';
 import { freezeJsonValue } from '../engineering-scene/engineering-json-value.js';
-import { ENGINEERING_SCENE_SCHEMA } from '../engineering-scene/engineering-scene-contracts.js';
 import { assertEngineeringScope } from './engineering-scope-contracts.js';
 
 export const SCOPED_ENGINEERING_SCENE_SCHEMA = 'ScopedEngineeringScene.v1';
@@ -10,14 +10,18 @@ function requiredFunction(value, label) {
   return value;
 }
 
+function isDeeplyFrozen(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object') return true;
+  if (seen.has(value)) return true;
+  if (!Object.isFrozen(value)) return false;
+  seen.add(value);
+  return Object.values(value).every((child) => isDeeplyFrozen(child, seen));
+}
+
 function sceneIndex(scene) {
-  if (scene?.schema !== ENGINEERING_SCENE_SCHEMA || !Array.isArray(scene.entities)) {
-    throw new TypeError(`scene must use schema "${ENGINEERING_SCENE_SCHEMA}".`);
-  }
-  const entries = scene.entities.map((entity) => [entity?.id, entity]);
-  if (entries.some(([id]) => typeof id !== 'string' || !id.trim())) throw new TypeError('Scene entity ids must be non-empty strings.');
-  if (new Set(entries.map(([id]) => id)).size !== entries.length) throw new TypeError('Scene entity ids must be unique.');
-  return new Map(entries);
+  validateEngineeringScene(scene);
+  if (!isDeeplyFrozen(scene)) throw new TypeError('scene must be deeply immutable.');
+  return new Map(scene.entities.map((entity) => [entity.id, entity]));
 }
 
 function frozenMount(scope) {
