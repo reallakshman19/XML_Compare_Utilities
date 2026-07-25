@@ -161,4 +161,22 @@ const resultMismatchTx = fixture.createRuntimeCandidate(resultMismatchStore, {
 });
 assertAuthorizationFailure(resultMismatchStore, resultMismatchTx, 'POSITION_RESULT_MISMATCH');
 
+const attributeTargetStore = fixture.createStore();
+const attributeTargetTx = fixture.createRuntimeCandidate(attributeTargetStore, {
+  commandType: 'REFERENCE_ATTRIBUTE_SET',
+  payload: { targetId: fixture.excludedIds[0], key: 'status', value: 'changed' },
+  targetIds: [fixture.editableIds[0]],
+  issuedAt: '2026-07-25T14:08:00.000Z',
+});
+assertAuthorizationFailure(attributeTargetStore, attributeTargetTx, 'UNAUTHORIZED_PAYLOAD_TARGET');
+
+const remarkTargetStore = fixture.createStore();
+const remarkTargetTx = fixture.createRuntimeCandidate(remarkTargetStore, {
+  commandType: 'REFERENCE_REMARK_SET',
+  payload: { targetId: fixture.excludedIds[0], value: 'changed' },
+  targetIds: [fixture.editableIds[0]],
+  issuedAt: '2026-07-25T14:09:00.000Z',
+});
+assertAuthorizationFailure(remarkTargetStore, remarkTargetTx, 'UNAUTHORIZED_PAYLOAD_TARGET');
+
 console.log(`[PASS] scoped-edit reference host: ${checked} host, scope, purity, and authorization cases.`);
