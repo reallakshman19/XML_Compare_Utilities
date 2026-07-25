@@ -31,13 +31,26 @@ function parsedDomExpression() {
       active:active.map(e=>e.tagName), events, external, embedded:script?JSON.parse(script.textContent):null,
       csp:document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content ?? '' }; })()`;
 }
+async function heapUsed(page) {
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send('Performance.enable'); const output = await session.send('Performance.getMetrics');
+    return output.metrics.find((item) => item.name === 'JSHeapUsedSize')?.value ?? null;
+  } finally { await session.detach(); }
+}
 async function navigateNative(page, archive) {
-  const requests = []; const errors = [];
-  page.on('request', (request) => requests.push(request.url()));
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  const started = performance.now(); await page.goto(archive.url, { waitUntil: 'load' });
-  const result = await page.evaluate(parsedDomExpression());
-  return { ...result, requests, errors, durationMs: performance.now() - started };
+  const requests = []; const errors = []; const started = performance.now();
+  let domContentLoadedMs = null; let loadMs = null;
+  const request = (item) => requests.push(item.url());
+  const consoleError = (message) => { if (message.type() === 'error') errors.push(message.text()); };
+  page.on('request', request); page.on('console', consoleError);
+  page.once('domcontentloaded', () => { domContentLoadedMs = performance.now() - started; });
+  page.once('load', () => { loadMs = performance.now() - started; });
+  try {
+    await page.goto(archive.url, { waitUntil: 'load' }); const result = await page.evaluate(parsedDomExpression());
+    return { ...result, requests, errors, domContentLoadedMs, loadMs,
+      durationMs: performance.now() - started, jsHeapUsedBytes: await heapUsed(page) };
+  } finally { page.off('request', request); page.off('console', consoleError); }
 }
 function hostileBundle(bundle) {
   const copy = structuredClone(bundle); const text = hostileValues.join('\n');
@@ -60,47 +73,70 @@ async function mountDownloadHarness(page, workspace, status) {
   await page.evaluate(async ({ workspace, status }) => {
     const archive = await import('/tabs/revision-compare/revision-transfer-archive.js');
     const state = await import('/tabs/revision-compare/revision-transfer-archive-state.js');
-    const controllerModule = await import('/tabs/revision-compare/revision-transfer-archive-controller.js');
+    const controllers = await import('/tabs/revision-compare/revision-transfer-archive-controller.js');
     const artifact = await archive.createRevisionCompareTransferArchiveArtifact(workspace, { cryptoRef: crypto });
     const archiveState = { ...state.completeRevisionCompareTransferArchiveState(artifact, workspace), status };
     let current = { ...workspace, transferArchive: archiveState }; const root = document.body;
     const originalCreate = URL.createObjectURL.bind(URL); const originalRevoke = URL.revokeObjectURL.bind(URL);
-    window.__rc8 = { artifact, current, created:0, revoked:0, failures:[], blobType:null };
+    window.__rc8 = { artifact, current, created:0, revoked:0, failures:[], blobType:null, actions:0 };
     URL.createObjectURL = (blob) => { window.__rc8.created += 1; window.__rc8.blobType = blob.type; return originalCreate(blob); };
     URL.revokeObjectURL = (url) => { window.__rc8.revoked += 1; return originalRevoke(url); };
-    const controller = controllerModule.createRevisionCompareTransferArchiveController({ root, readState:()=>current,
+    const controller = controllers.createRevisionCompareTransferArchiveController({ root, readState:()=>current,
       writeState:(next)=>{ current=next; window.__rc8.current=next; }, render:()=>{}, cryptoRef:crypto,
       reportFailure:(error)=>window.__rc8.failures.push(error.message), dependencies:{ complete:()=>current, fail:()=>current } });
     const button = document.createElement('button'); button.setAttribute('data-revc-download-transfer-archive','');
-    button.addEventListener('click', () => controller.handleClick(button)); root.appendChild(button);
-    window.__rc8.controller = controller; window.__rc8.button = button;
+    button.addEventListener('click', () => { window.__rc8.actions += 1; void controller.handleClick(button); }); root.appendChild(button);
+    window.__rc8.controller = controller;
   }, { workspace: structuredClone(workspace), status });
 }
 async function downloadOnce(page) {
-  const pending = page.waitForEvent('download'); await page.locator('[data-revc-download-transfer-archive]').click();
-  const download = await pending; return { download, bytes: await readFile(await download.path()) };
+  const started = performance.now(); const pending = page.waitForEvent('download');
+  await page.locator('[data-revc-download-transfer-archive]').click(); const download = await pending;
+  return { download, bytes: await readFile(await download.path()), durationMs: performance.now() - started };
 }
 
-async function printHarness(page, workspace, blocked = false) {
+async function mountPrintHarness(page, workspace, mode) {
   await page.goto('/tests/browser/revision-compare-rc001.html');
-  return page.evaluate(async ({ workspace, blocked }) => {
+  await page.evaluate(async ({ workspace, mode }) => {
     const archive = await import('/tabs/revision-compare/revision-transfer-archive.js');
     const state = await import('/tabs/revision-compare/revision-transfer-archive-state.js');
-    const module = await import('/tabs/revision-compare/revision-transfer-archive-controller.js');
+    const controllers = await import('/tabs/revision-compare/revision-transfer-archive-controller.js');
     const artifact = await archive.createRevisionCompareTransferArchiveArtifact(workspace, { cryptoRef: crypto });
     let current = { ...workspace, transferArchive: state.completeRevisionCompareTransferArchiveState(artifact, workspace) };
-    const record = { source:'', order:[], failures:[], opened:0, closed:false, before:JSON.stringify(current.transferArchive) };
-    const openWindow = blocked ? () => null : () => { record.opened += 1; const popup = window.open('', '_blank');
-      const write = popup.document.write.bind(popup.document); popup.document.write = (value) => { record.source=value; record.order.push('write'); write(value); };
-      popup.print = () => record.order.push('print'); const close = popup.close.bind(popup); popup.close = () => { record.closed=true; close(); }; return popup; };
-    const controller = module.createRevisionCompareTransferArchiveController({ root:document.body, readState:()=>current,
-      writeState:(next)=>{current=next;}, render:()=>{}, cryptoRef:crypto, openWindow,
-      reportFailure:(error)=>record.failures.push(error.message), dependencies:{complete:()=>current,fail:()=>current} });
+    const record = { source:'', order:[], failures:[], opened:0, closeCount:0, userActivation:false,
+      completed:false, before:JSON.stringify(current.transferArchive), startedAt:0, completedAt:0 };
+    const instrumentedOpen = () => {
+      record.userActivation = navigator.userActivation?.isActive === true; record.opened += 1;
+      const popup = window.open('', '_blank'); if (!popup) return null;
+      const write = popup.document.write.bind(popup.document); const close = popup.close.bind(popup);
+      popup.document.write = (value) => { record.source=value; record.order.push('write'); return write(value); };
+      popup.focus = () => record.order.push('focus');
+      popup.print = () => { record.order.push('print'); if (mode === 'afterprint') popup.dispatchEvent(new popup.Event('afterprint')); };
+      popup.close = () => { record.closeCount += 1; return close(); }; return popup;
+    };
+    if (mode === 'blocked') {
+      window.open = () => { record.userActivation = navigator.userActivation?.isActive === true; return null; };
+    }
+    const options = { root:document.body, readState:()=>current, writeState:(next)=>{current=next;},
+      render:()=>{}, cryptoRef:crypto, reportFailure:(error)=>record.failures.push(error.message),
+      dependencies:{complete:()=>current,fail:()=>current} };
+    if (mode !== 'blocked') options.openWindow = instrumentedOpen;
+    const controller = controllers.createRevisionCompareTransferArchiveController(options);
     const button=document.createElement('button'); button.setAttribute('data-revc-print-transfer-archive','');
-    button.addEventListener('click',()=>controller.handleClick(button)); document.body.appendChild(button); button.click();
-    await new Promise((resolve)=>setTimeout(resolve,50)); controller.destroy();
-    return { ...record, exact:record.source===artifact.text, after:JSON.stringify(current.transferArchive), pdfState:JSON.stringify(current).includes('pdf') };
-  }, { workspace: structuredClone(workspace), blocked });
+    button.addEventListener('click', () => { record.startedAt=performance.now(); void controller.handleClick(button)
+      .finally(() => { record.completedAt=performance.now(); record.completed=true; }); });
+    document.body.appendChild(button); window.__rc8Print={artifact,controller,current:()=>current,record};
+  }, { workspace: structuredClone(workspace), mode });
+}
+async function runPrint(page, workspace, mode, destroy = false) {
+  await mountPrintHarness(page, workspace, mode); await page.locator('[data-revc-print-transfer-archive]').click();
+  await expect.poll(() => page.evaluate(() => window.__rc8Print.record.completed)).toBeTruthy();
+  return page.evaluate((destroyNow) => {
+    const value=window.__rc8Print; if (destroyNow) value.controller.destroy();
+    const current=value.current(); return { ...value.record, exact:value.record.source===value.artifact.text,
+      after:JSON.stringify(current.transferArchive), pdfState:JSON.stringify(current).toLowerCase().includes('pdf'),
+      durationMs:value.record.completedAt-value.record.startedAt };
+  }, destroy);
 }
 
 test('RC-XFER-008 native file navigation and hostile evidence remain inert', async ({ page }) => {
@@ -125,19 +161,25 @@ test('RC-XFER-008 current and historical downloads preserve exact retained bytes
   const fixture = await transferArchiveFixture();
   for (const status of ['CREATED','STALE']) {
     await mountDownloadHarness(page, fixture.workspace, status); const one=await downloadOnce(page); const two=await downloadOnce(page);
-    const facts=await page.evaluate(()=>({artifact:window.__rc8.artifact,created:window.__rc8.created,revoked:window.__rc8.revoked,blobType:window.__rc8.blobType,anchors:document.querySelectorAll('a[download]').length,failures:window.__rc8.failures}));
+    const facts=await page.evaluate(()=>({artifact:window.__rc8.artifact,created:window.__rc8.created,revoked:window.__rc8.revoked,
+      blobType:window.__rc8.blobType,anchors:document.querySelectorAll('a[download]').length,failures:window.__rc8.failures,actions:window.__rc8.actions}));
     expect(one.download.suggestedFilename()).toBe(facts.artifact.filename); expect(one.bytes.equals(two.bytes)).toBeTruthy();
     expect(one.bytes.equals(Buffer.from(facts.artifact.text,'utf8'))).toBeTruthy(); expect(digest(one.bytes)).toBe(facts.artifact.contentSha256);
-    expect(one.bytes.byteLength).toBe(facts.artifact.sizeBytes); expect(facts).toMatchObject({created:2,revoked:2,blobType:'text/html',anchors:0,failures:[]});
+    expect(one.bytes.byteLength).toBe(facts.artifact.sizeBytes); expect(facts).toMatchObject({created:2,revoked:2,blobType:'text/html',anchors:0,failures:[],actions:2});
+    console.log(JSON.stringify({status,downloadOneMs:one.durationMs,downloadTwoMs:two.durationMs,bytes:one.bytes.byteLength}));
   }
 });
 
-test('RC-XFER-008 print source, popup failure, and destroy cleanup are contained', async ({ page }) => {
-  const fixture = await transferArchiveFixture(); const printed=await printHarness(page,fixture.workspace,false);
-  expect(printed.opened).toBe(1); expect(printed.exact).toBeTruthy(); expect(printed.order).toEqual(['write','print']);
-  expect(printed.closed).toBeTruthy(); expect(printed.before).toBe(printed.after); expect(printed.pdfState).toBeFalsy();
-  const blocked=await printHarness(page,fixture.workspace,true); expect(blocked.opened).toBe(0);
+test('RC-XFER-008 print source, popup failure, and cleanup use trusted activation', async ({ page }) => {
+  const fixture = await transferArchiveFixture(); const printed=await runPrint(page,fixture.workspace,'afterprint');
+  expect(printed.userActivation).toBeTruthy(); expect(printed.opened).toBe(1); expect(printed.exact).toBeTruthy();
+  expect(printed.order).toEqual(['write','focus','print']); expect(printed.closeCount).toBe(1);
+  expect(printed.before).toBe(printed.after); expect(printed.pdfState).toBeFalsy();
+  const retained=await runPrint(page,fixture.workspace,'destroy',true); expect(retained.userActivation).toBeTruthy();
+  expect(retained.opened).toBe(1); expect(retained.closeCount).toBe(1); expect(retained.exact).toBeTruthy();
+  const blocked=await runPrint(page,fixture.workspace,'blocked'); expect(blocked.userActivation).toBeTruthy(); expect(blocked.opened).toBe(0);
   expect(blocked.failures).toEqual(['The print window could not be opened.']); expect(blocked.before).toBe(blocked.after);
+  console.log(JSON.stringify({printSourceInstallMs:printed.durationMs,popupBlocked:true,destroyClosed:true}));
 });
 
 test('RC-XFER-008 large native archive smoke retains first and last rows', async ({ page }) => {
@@ -146,6 +188,7 @@ test('RC-XFER-008 large native archive smoke retains first and last rows', async
   try { const result=await navigateNative(page,archive); const body=await page.locator('body').innerText();
     expect(body).toContain('difference:0'); expect(body).toContain('difference:7999'); expect(body).toContain('operation:0'); expect(body).toContain('operation:5999');
     expect(result.requests.filter((url)=>url!==archive.url)).toEqual([]); expect(result.errors).toEqual([]);
-    console.log(JSON.stringify({htmlBytes:Buffer.byteLength(text),fileNavigationMs:result.durationMs,sha256:digest(text)}));
+    console.log(JSON.stringify({htmlBytes:Buffer.byteLength(text),fileNavigationMs:result.durationMs,
+      domContentLoadedMs:result.domContentLoadedMs,loadMs:result.loadMs,jsHeapUsedBytes:result.jsHeapUsedBytes,sha256:digest(text)}));
   } finally { await rm(archive.directory,{recursive:true,force:true}); }
 });
