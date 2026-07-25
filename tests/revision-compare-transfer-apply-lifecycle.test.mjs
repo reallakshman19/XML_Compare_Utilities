@@ -159,7 +159,7 @@ assert.equal(failed.patchedSnapshot, null);
 assert.equal(failed.error, 'deterministic failure');
 
 const workspaceSource = await readFile('tabs/revision-compare/revision-workspace-state.js', 'utf8');
-assert.match(workspaceSource, /RevisionCompareWorkspaceState\.v9/);
+assert.match(workspaceSource, /RevisionCompareWorkspaceState\.v12/);
 assert.match(workspaceSource, /startWorkspaceTransferApply/);
 assert.match(workspaceSource, /completeWorkspaceTransferApply/);
 assert.match(workspaceSource, /failWorkspaceTransferApply/);

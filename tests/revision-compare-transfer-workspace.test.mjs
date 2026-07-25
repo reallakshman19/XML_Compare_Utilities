@@ -77,7 +77,7 @@ for (const path of [
   assert.doesNotMatch(source, /export\s+default|xml-compare\/|tabs\/xml-compare-tab|DOMParser|revision-compare-viewer|viewerAdapter|THREE|Math\.random|Date\.now/);
 }
 const workspaceStateSource = await readFile(new URL('../tabs/revision-compare/revision-workspace-state.js', import.meta.url), 'utf8');
-assert.match(workspaceStateSource, /RevisionCompareWorkspaceState\.v11/); assert.match(workspaceStateSource, /createRevisionCompareTransferReviewState/);
+assert.match(workspaceStateSource, /RevisionCompareWorkspaceState\.v12/); assert.match(workspaceStateSource, /createRevisionCompareTransferReviewState/);
 const signOffSource = await readFile(new URL('../tabs/revision-compare/revision-sign-off.js', import.meta.url), 'utf8');
 assert.match(signOffSource, /transferReview\?\.draft\?\.pairs/);
 console.log('revision-compare-transfer-workspace.test.mjs passed');

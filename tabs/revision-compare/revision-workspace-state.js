@@ -36,10 +36,12 @@ import {
   startRevisionCompareTransferApplyRequest,
 } from './revision-transfer-apply-state.js';
 import { createRevisionCompareTransferReviewState } from './revision-transfer-review-state.js';
+import { createRevisionCompareTransferCompletionState } from './revision-transfer-completion-state.js';
+import { reconcileRevisionCompareTransferCompletionAfterAuthorityChange } from './revision-transfer-completion-workspace-state.js';
 export { setWorkspaceTransferReviewDraft, setWorkspaceTransferReviewPresentation } from './revision-transfer-review-workspace-state.js';
 
-// Workspace transition: RevisionCompareWorkspaceState.v10 -> RevisionCompareWorkspaceState.v11.
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v11';
+// Workspace transition: RevisionCompareWorkspaceState.v11 -> RevisionCompareWorkspaceState.v12.
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v12';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
@@ -59,10 +61,8 @@ function transferAfterAuthorityChange(previous, next) {
   const prior = previous?.transfer ?? createRevisionCompareTransferState();
   return deepFreeze({ ...next, transfer: invalidateRevisionCompareTransferAuthority(prior, next) });
 }
-function authorityAfterChange(previous, next) {
-  return transferAfterAuthorityChange(previous, signOffAfterAuthorityChange(previous, next));
-}
-function transferLifecycleChange(previous, transfer) { return transfer === previous.transfer ? previous : signOffAfterAuthorityChange(previous, deepFreeze({ ...previous, transfer })); }
+function authorityAfterChange(previous, next) { return reconcileRevisionCompareTransferCompletionAfterAuthorityChange(previous, transferAfterAuthorityChange(previous, signOffAfterAuthorityChange(previous, next))); }
+function transferLifecycleChange(previous, transfer) { return transfer === previous.transfer ? previous : reconcileRevisionCompareTransferCompletionAfterAuthorityChange(previous, signOffAfterAuthorityChange(previous, deepFreeze({ ...previous, transfer }))); }
 export function createRevisionEvidencePackageImportState() {
   return deepFreeze({
     schema: REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA, status: REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS.IDLE,
@@ -87,6 +87,7 @@ export function createRevisionWorkspaceState(sessionId, createdAt) {
     compare: createComparisonLifecycleState(), review: createReviewLifecycleState(), decision: createDecisionLifecycleState(),
     evidencePackageImport: createRevisionEvidencePackageImportState(), signOff: createRevisionCompareSignOffState(),
     trustReceipt: createRevisionCompareTrustReceiptState(), transferReview: createRevisionCompareTransferReviewState(),
+    transferCompletion: createRevisionCompareTransferCompletionState(),
   };
   return deepFreeze({ ...state, transfer: createRevisionCompareTransferState(undefined, captureRevisionCompareTransferAuthority(state)) });
 }

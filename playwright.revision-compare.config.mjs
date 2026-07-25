@@ -18,6 +18,7 @@ export default defineConfig({
     'revision-compare-trust-receipt.spec.mjs',
     'revision-compare-transfer.spec.mjs',
     'revision-compare-transfer-productivity.spec.mjs',
+    'revision-compare-transfer-completion.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
