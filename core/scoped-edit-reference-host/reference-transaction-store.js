@@ -13,6 +13,8 @@ import {
   hashReferenceValue,
 } from './reference-document-contracts.js';
 import {
+  REFERENCE_POSITION_SET,
+  certifyScopedEditReferenceSnapshot,
   createReferenceReducerRegistry,
   projectReferenceJournal,
   replayReferenceJournal,
@@ -55,13 +57,23 @@ function constructSnapshot({ version, document, commandJournal, projection, repl
   return assertScopedEditReferenceSnapshot(snapshot);
 }
 
+function certifySnapshot(snapshot, configuration) {
+  return certifyScopedEditReferenceSnapshot(snapshot, {
+    reducerRegistry: configuration.reducerRegistry,
+    sceneAdapter: configuration.sceneAdapter,
+  });
+}
+
 function buildSnapshot(configuration) {
   const { version, initialState, commandJournal, reducerRegistry, documentAdapter, sceneAdapter } = configuration;
   const projection = projectReferenceJournal({ initialState, commandJournal });
   const replayState = replayReferenceJournal({ initialState, commandJournal, reducerRegistry });
   const document = documentAdapter(replayState.state);
   const scene = sceneAdapter(document);
-  return constructSnapshot({ version, document, commandJournal, projection, replayState, scene });
+  return certifySnapshot(
+    constructSnapshot({ version, document, commandJournal, projection, replayState, scene }),
+    configuration,
+  );
 }
 
 function assertPrefix(current, result) {
@@ -88,6 +100,24 @@ function assertIdentity(current, result, envelope) {
   if (envelope.documentId !== journal.documentId) throw codedError('WRONG_DOCUMENT_ID', 'Appended documentId is invalid.');
   if (!result.journalProjection.activeCommandIds.includes(envelope.commandId)) {
     throw codedError('INACTIVE_COMMITTED_COMMAND', 'The committed command must be active.');
+  }
+}
+
+function assertCommandAuthorization(result, envelope) {
+  const decision = result.boundaryDecision;
+  if (decision.commandName !== envelope.commandType) {
+    throw codedError('COMMAND_NAME_MISMATCH', 'Boundary commandName must match the appended command type.');
+  }
+  const targetId = String(envelope.payload?.targetId ?? '').trim();
+  if (!targetId || !decision.targetIds.includes(targetId)) {
+    throw codedError('UNAUTHORIZED_PAYLOAD_TARGET', 'Envelope payload target is outside the authorized target set.');
+  }
+  if (envelope.commandType !== REFERENCE_POSITION_SET) return;
+  if (targetId !== result.entityId) {
+    throw codedError('POSITION_ENTITY_MISMATCH', 'Position command target must match the dragged entity.');
+  }
+  if (!sameJson(envelope.payload?.position, result.dragResult.point)) {
+    throw codedError('POSITION_RESULT_MISMATCH', 'Position command payload must match the solved drag result.');
   }
 }
 
@@ -185,6 +215,7 @@ function computeAcceptedSnapshot(current, rawResult, acceptedAt, configuration) 
   if (!isIsoTimestamp(acceptedAt)) throw codedError('INVALID_ACCEPTED_AT', 'acceptedAt must be an exact ISO timestamp.');
   const envelope = assertPrefix(current, result);
   assertIdentity(current, result, envelope);
+  assertCommandAuthorization(result, envelope);
   const { candidate, projection } = canonicalCandidate(
     current, result, envelope, acceptedAt, configuration.initialState,
   );
@@ -193,14 +224,14 @@ function computeAcceptedSnapshot(current, rawResult, acceptedAt, configuration) 
   );
   const document = reconstructDocument(configuration, replayState);
   const scene = reconstructScene(configuration, document);
-  return constructSnapshot({
+  return certifySnapshot(constructSnapshot({
     version: current.version + 1,
     document,
     commandJournal: candidate,
     projection,
     replayState,
     scene,
-  });
+  }), configuration);
 }
 
 function acceptStoreCommit(cell, configuration, input = {}) {
@@ -224,7 +255,10 @@ function createStoreApi(cell, configuration) {
     },
     createRuntimeHost() {
       if (cell.destroyed) throw codedError('REFERENCE_STORE_DESTROYED', 'Runtime host creation is unavailable after destroy().');
-      return createScopedEditReferenceRuntimeHost(cell.snapshot);
+      return createScopedEditReferenceRuntimeHost(cell.snapshot, {
+        reducerRegistry: configuration.reducerRegistry,
+        sceneAdapter: configuration.sceneAdapter,
+      });
     },
     acceptCommitResult(input) {
       return acceptStoreCommit(cell, configuration, input);
