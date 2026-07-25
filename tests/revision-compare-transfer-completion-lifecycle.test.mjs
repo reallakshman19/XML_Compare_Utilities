@@ -13,7 +13,7 @@ const fixture = await completionFixture();
 assert.equal(createRevisionCompareTransferCompletionState().schema, 'RevisionCompareTransferCompletionState.v1');
 assert.equal(revisionCompareTransferCompletionStateForReadiness(fixture.workspace).status, 'READY');
 const application = await createRevisionCompareTransferCompletionApplication(fixture.workspace, fixture.input, declaredAt, { cryptoRef, createEvidencePackage: async () => fixture.evidencePackage });
-const createdState = completeRevisionCompareTransferCompletionState(application);
+const createdState = completeRevisionCompareTransferCompletionState(application, fixture.workspace);
 assert.equal(createdState.status, 'CREATED'); assert.equal(createdState.report, application.report); assert.equal(createdState.bundle, application.bundle);
 assert.equal(createdState.reportArtifact.text, application.reportArtifact.text); assert.equal(createdState.bundleArtifact.text, application.bundleArtifact.text);
 const createdWorkspace = deepFreeze({ ...fixture.workspace, transferCompletion: createdState });
@@ -27,9 +27,21 @@ const restored = deepFreeze({ ...stale, review: fixture.workspace.review, transf
 assert.equal(reconcileRevisionCompareTransferCompletionAfterAuthorityChange(stale, restored).transferCompletion.status, 'STALE', 'replacement requires explicit action');
 const failed = failRevisionCompareTransferCompletionState(new Error('deterministic failure'));
 assert.equal(failed.status, 'FAILED'); assert.equal(failed.report, null); assert.equal(failed.bundle, null); assert.equal(failed.reportArtifact, null); assert.equal(failed.bundleArtifact, null);
+
+const tamperedApplication = clone(application);
+tamperedApplication.bundle.payload.transferResult.resultId = 'revision-transfer-result:wrong';
+assert.throws(() => completeRevisionCompareTransferCompletionState(deepFreeze(tamperedApplication), fixture.workspace), /exact current authorities/);
+const tamperedReportText = clone(application);
+tamperedReportText.reportArtifact.text = '{}\n';
+assert.throws(() => completeRevisionCompareTransferCompletionState(deepFreeze(tamperedReportText), fixture.workspace), /report text/);
+
 const race = clone(fixture.workspace); race.transfer.result.resultId = 'revision-transfer-result:changed';
 const raceResult = completeWorkspaceTransferCompletion(deepFreeze(race), fixture.workspace, application);
 assert.equal(raceResult.transferCompletion.status, 'FAILED'); assert.equal(raceResult.transferCompletion.report, null);
+const artifactRace = clone(fixture.workspace); artifactRace.transfer.artifacts[0].mimeType = 'text/plain';
+assert.equal(completeWorkspaceTransferCompletion(deepFreeze(artifactRace), fixture.workspace, application).transferCompletion.status, 'FAILED', 'artifact metadata changes reject old completion');
+const snapshotRace = clone(fixture.workspace); snapshotRace.transfer.patchedSnapshot.sourceDocumentId = 'revision-document:changed';
+assert.equal(completeWorkspaceTransferCompletion(deepFreeze(snapshotRace), fixture.workspace, application).transferCompletion.status, 'FAILED', 'patched snapshot identity changes reject old completion');
 
 let workspace = clone(fixture.workspace); let nowCalls = 0; let renderCalls = 0;
 const fields = { '[data-revc-transfer-completion-name]': { value: 'Lakshman' }, '[data-revc-transfer-completion-role]': { value: 'Engineer' }, '[data-revc-transfer-completion-organization]': { value: 'Org' }, '[data-revc-transfer-completion-confirm]': { checked: true } };
