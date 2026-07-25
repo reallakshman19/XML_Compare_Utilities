@@ -13,6 +13,8 @@ import {
   setWorkspaceReviewSession, setWorkspaceSignOffReport, setWorkspaceTransferSelection,
   setWorkspaceViewerBackend,
 } from '../tabs/revision-compare/revision-workspace-state.js';
+import { setWorkspaceTransferReviewDraft } from '../tabs/revision-compare/revision-transfer-review-workspace-state.js';
+import { createRevisionCompareTransferReviewState, replaceRevisionCompareTransferDraft } from '../tabs/revision-compare/revision-transfer-review-state.js';
 import { createRevisionCompareTransferSelection } from '../tabs/revision-compare/revision-transfer-contracts.js';
 import { canonicalRevisionCompareEvidenceValue, createRevisionCompareEvidencePackage } from '../tabs/revision-compare/revision-evidence-package.js';
 import { sha256Text } from '../tabs/revision-compare/revision-hash.js';
@@ -90,7 +92,8 @@ function state(overrides = {}) {
     review: Object.freeze({ session: review, filters: Object.freeze({ search: '', reviewStates: Object.freeze([]), certainties: Object.freeze([]) }) }),
     decision: Object.freeze({ ledger: decision, preview: Object.freeze({ differenceId: null, candidateIndex: 0 }) }),
     evidencePackageImport: Object.freeze({ schema: 'RevisionEvidencePackageImportState.v1', status: 'VERIFIED' }),
-    signOff: createRevisionCompareSignOffState(), search: Object.freeze({ common: '', revAOnly: '', revBOnly: '' }),
+    signOff: createRevisionCompareSignOffState(), transferReview: createRevisionCompareTransferReviewState(),
+    search: Object.freeze({ common: '', revAOnly: '', revBOnly: '' }),
     ...overrides,
   });
 }
@@ -100,7 +103,7 @@ function blocked(value, pattern) {
   assert(result.blockers.some((item) => pattern.test(item)), `${pattern} not found in ${result.blockers.join(' | ')}`);
 }
 
-assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v10');
+assert.equal(REVISION_WORKSPACE_STATE_SCHEMA, 'RevisionCompareWorkspaceState.v11');
 assert.equal(REVISION_COMPARE_SIGN_OFF_STATE_SCHEMA, 'RevisionCompareSignOffState.v1');
 assert.deepEqual(revisionCompareSignOffReadiness(state()), { status: 'READY', blockers: [] });
 blocked(Object.freeze({ ...state(), basisStatus: 'STALE' }), /CURRENT comparison basis/);
@@ -163,6 +166,10 @@ const selection = createRevisionCompareTransferSelection({ selectionRevision: 1,
 stale = setWorkspaceTransferSelection(setWorkspaceSignOffReport(authority, report), selection);
 assert.equal(stale.signOff.status, 'STALE'); assert.equal(stale.signOff.report, report);
 blocked(stale, /does not cover transfer intent/);
+const pairOnlyDraft = Object.freeze({ revision: 1, pairs: Object.freeze([Object.freeze({ differenceId: 'difference:review', fieldKeys: Object.freeze([]) })]) });
+const pairOnlyReview = replaceRevisionCompareTransferDraft(authority.transferReview, pairOnlyDraft);
+stale = setWorkspaceTransferReviewDraft(setWorkspaceSignOffReport(authority, report), pairOnlyReview, null);
+assert.equal(stale.signOff.status, 'STALE'); blocked(stale, /does not cover transfer intent/);
 const failed = failWorkspaceSignOff(setWorkspaceSignOffReport(authority, report), new Error('failure')); assert.equal(failed.signOff.status, 'FAILED'); assert.equal(failed.signOff.report, report);
 const later = await createRevisionCompareSignOffReport(replace(authority, 'review', { session: Object.freeze({ ...authority.review.session, revision: 3 }) }), preflight, { declarantName: 'Lakshman', declarantRole: 'Reviewer' }, '2026-07-21T12:22:33.000Z', webcrypto);
 assert.notEqual(later.reportId, report.reportId); assert.deepEqual(authority.compare.audit, before.compare.audit);

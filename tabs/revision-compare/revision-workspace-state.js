@@ -35,7 +35,11 @@ import {
   failRevisionCompareTransferApplyRequest, reconcileRevisionCompareTransferApplyAuthority,
   startRevisionCompareTransferApplyRequest,
 } from './revision-transfer-apply-state.js';
-export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v10';
+import { createRevisionCompareTransferReviewState } from './revision-transfer-review-state.js';
+export { setWorkspaceTransferReviewDraft, setWorkspaceTransferReviewPresentation } from './revision-transfer-review-workspace-state.js';
+
+// Workspace transition: RevisionCompareWorkspaceState.v10 -> RevisionCompareWorkspaceState.v11.
+export const REVISION_WORKSPACE_STATE_SCHEMA = 'RevisionCompareWorkspaceState.v11';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATE_SCHEMA = 'RevisionEvidencePackageImportState.v1';
 export const REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS = Object.freeze({
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
@@ -82,7 +86,7 @@ export function createRevisionWorkspaceState(sessionId, createdAt) {
     search: { common: '', revAOnly: '', revBOnly: '' }, message: 'Load Rev A and Rev B staged JSON files.',
     compare: createComparisonLifecycleState(), review: createReviewLifecycleState(), decision: createDecisionLifecycleState(),
     evidencePackageImport: createRevisionEvidencePackageImportState(), signOff: createRevisionCompareSignOffState(),
-    trustReceipt: createRevisionCompareTrustReceiptState(),
+    trustReceipt: createRevisionCompareTrustReceiptState(), transferReview: createRevisionCompareTransferReviewState(),
   };
   return deepFreeze({ ...state, transfer: createRevisionCompareTransferState(undefined, captureRevisionCompareTransferAuthority(state)) });
 }
@@ -264,12 +268,8 @@ export function failWorkspaceSignOff(state, error) {
   const signOff = deepFreeze({ ...state.signOff, status: 'FAILED', error: String(error?.message ?? error) });
   return deepFreeze({ ...state, signOff, trustReceipt: reconcileRevisionCompareTrustReceiptState(state.trustReceipt, signOff) });
 }
-export function setWorkspaceTransferSelection(state, selection) {
-  return transferLifecycleChange(state, setRevisionCompareTransferSelection(state.transfer, selection));
-}
-export function startWorkspaceTransferPlan(state, selection) {
-  return transferLifecycleChange(state, startRevisionCompareTransferPlanRequest(state.transfer, selection, captureRevisionCompareTransferAuthority(state)));
-}
+export function setWorkspaceTransferSelection(state, selection) { return transferLifecycleChange(state, setRevisionCompareTransferSelection(state.transfer, selection)); }
+export function startWorkspaceTransferPlan(state, selection) { return transferLifecycleChange(state, startRevisionCompareTransferPlanRequest(state.transfer, selection, captureRevisionCompareTransferAuthority(state))); }
 export function completeWorkspaceTransferPlan(state, generation, plan) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
   return transferLifecycleChange(state, completeRevisionCompareTransferPlanRequest(current, generation, plan));
@@ -278,9 +278,7 @@ export function failWorkspaceTransferPlan(state, generation, error) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
   return transferLifecycleChange(state, failRevisionCompareTransferPlanRequest(current, generation, error));
 }
-export function setWorkspaceTransferPolicyVersion(state, policyVersion) {
-  return transferLifecycleChange(state, setRevisionCompareTransferPolicyVersion(state.transfer, policyVersion));
-}
+export function setWorkspaceTransferPolicyVersion(state, policyVersion) { return transferLifecycleChange(state, setRevisionCompareTransferPolicyVersion(state.transfer, policyVersion)); }
 export function startWorkspaceTransferApply(state, createdAt) {
   const current = reconcileRevisionCompareTransferAuthority(state.transfer, state);
   const workspace = current === state.transfer ? state : deepFreeze({ ...state, transfer: current });

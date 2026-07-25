@@ -3,6 +3,7 @@ import { deepFreeze, stableStringify } from '../tabs/revision-compare/revision-c
 import { sha256Text } from '../tabs/revision-compare/revision-hash.js';
 import { createRevisionCompareJsonDocumentSnapshot } from '../tabs/revision-compare/revision-json-document.js';
 import { createRevisionCompareTransferAddress, REVISION_COMPARE_TARGET_STATE } from '../tabs/revision-compare/revision-transfer-address.js';
+import { createRevisionCompareTransferReviewState } from '../tabs/revision-compare/revision-transfer-review-state.js';
 import {
   REVISION_COMPARE_TRANSFER_OPERATION_TYPE,
   REVISION_COMPARE_TRANSFER_PLAN_ID_PREFIX,
@@ -133,13 +134,13 @@ export async function workspaceFixture(options = {}) {
     manifest: null, artifacts: Object.freeze([]), patchedSnapshot: null, error: null,
   });
   return deepFreeze({
-    schema: 'RevisionCompareWorkspaceState.v10', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
+    schema: 'RevisionCompareWorkspaceState.v11', proposal: { proposalId: 'proposal:1' }, basisStatus: 'CURRENT',
     basis: plan.comparisonBasis, slots: { baseline: { status: 'SCOPED', jsonSnapshot: revA }, candidate: { status: 'SCOPED', jsonSnapshot: revB } },
     compare: { status: 'COMPLETE', audit: plan.audit, presentationMode: 'overlay' },
     review: { session: plan.reviewSession, importError: null, replacementRequired: false },
     decision: { ledger: plan.decisionLedger, importError: null, replacementRequired: false },
     evidencePackageImport: options.packageState ?? { status: 'IDLE', packageId: null, contentSha256: null },
-    transfer,
+    transferReview: createRevisionCompareTransferReviewState(), transfer,
   });
 }
 
