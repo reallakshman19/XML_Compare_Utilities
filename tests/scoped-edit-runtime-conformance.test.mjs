@@ -19,7 +19,8 @@ function runReport() {
   const fixture = createScopedEditRuntimeFixture();
   return runScopedEditRuntimeConformance({
     host: fixture.host, scopeRequest: fixture.scopeRequest,
-    reducerRegistry: fixture.reducerRegistry, fixtures: fixture,
+    reducerRegistry: fixture.reducerRegistry, journalProjection: fixture.journalProjection,
+    fixtures: fixture,
   });
 }
 
@@ -32,6 +33,27 @@ assert.deepEqual(first, second);
 assert.equal(isScopedEditDeeplyFrozen(first), true);
 assert.doesNotThrow(() => JSON.stringify(first));
 assert.throws(() => runScopedEditRuntimeConformance({ fixtures: {} }), /synthetic fixture/);
+
+const corruptPrimaryFixture = createScopedEditRuntimeFixture();
+const corruptPrimaryHost = Object.freeze({
+  scene: corruptPrimaryFixture.host.scene,
+  resolveScope: corruptPrimaryFixture.host.resolveScope,
+  entityGeometry: corruptPrimaryFixture.host.entityGeometry,
+  appendEditCommand(projection) { return projection; },
+});
+assert.throws(() => runScopedEditRuntimeConformance({
+  host: corruptPrimaryHost,
+  scopeRequest: corruptPrimaryFixture.scopeRequest,
+  reducerRegistry: corruptPrimaryFixture.reducerRegistry,
+  journalProjection: corruptPrimaryFixture.journalProjection,
+  fixtures: corruptPrimaryFixture,
+}), /Scoped-edit conformance failed:.*primaryTransactionCommitted/);
+assert.throws(() => runScopedEditRuntimeConformance({
+  host: corruptPrimaryFixture.host,
+  scopeRequest: corruptPrimaryFixture.scopeRequest,
+  reducerRegistry: corruptPrimaryFixture.reducerRegistry,
+  fixtures: corruptPrimaryFixture,
+}), /journal projection/);
 
 const fixture = createScopedEditRuntimeFixture();
 assert.deepEqual({

@@ -135,6 +135,8 @@ export function validateScopedEditCommitProposal(input) {
   if (JSON.stringify(targetIds) !== JSON.stringify(decision.targetIds)) {
     throw new TypeError('Proposal targetIds must match the boundary decision.');
   }
+  const dragResult = validateEdit3DDragResult(value.dragResult);
+  if (!dragResult.valid) throw new TypeError('A prepared commit requires a valid drag result.');
   return immutableJson({
     schema: SCOPED_EDIT_COMMIT_PROPOSAL_V1,
     status: SCOPED_EDIT_COMMIT_STATUS.PREPARED,
@@ -142,11 +144,29 @@ export function validateScopedEditCommitProposal(input) {
     commandName: requiredContractText(value.commandName, 'proposal.commandName'),
     targetIds,
     envelope: envelope(value.envelope),
-    dragResult: validateEdit3DDragResult(value.dragResult),
+    dragResult,
     boundaryDecision: decision,
     baseSequence: Number.isSafeInteger(value.baseSequence) && value.baseSequence >= 0
       ? value.baseSequence : (() => { throw new TypeError('proposal.baseSequence must be non-negative.'); })(),
   }, 'Scoped edit commit proposal');
+}
+
+function committedEvidence(value, journalProjection, replayState, appliedCommandIds) {
+  const entityId = requiredContractText(value.entityId, 'result.entityId');
+  const commandId = requiredContractText(value.commandId, 'result.commandId');
+  const dragResult = validateEdit3DDragResult(value.dragResult);
+  if (!dragResult.valid) throw new TypeError('A committed result requires a valid drag result.');
+  const decision = boundaryDecision(value.boundaryDecision);
+  if (!decision.allowed) throw new TypeError('A committed result requires an allowed boundary decision.');
+  const envelopeIds = journalProjection.envelopes.map((entry) => entry.commandId);
+  if (!envelopeIds.includes(commandId)) throw new TypeError('Committed commandId must exist in journalProjection.');
+  if (!journalProjection.activeCommandIds.includes(commandId)) {
+    throw new TypeError('Committed commandId must be active in journalProjection.');
+  }
+  if (JSON.stringify(appliedCommandIds) !== JSON.stringify(replayState.appliedCommandIds)) {
+    throw new TypeError('Committed appliedCommandIds must match replayState.appliedCommandIds.');
+  }
+  return { entityId, commandId, dragResult, boundaryDecision: decision };
 }
 
 export function validateScopedEditCommitResult(input) {
@@ -155,21 +175,25 @@ export function validateScopedEditCommitResult(input) {
   if (![SCOPED_EDIT_COMMIT_STATUS.COMMITTED, SCOPED_EDIT_COMMIT_STATUS.REJECTED].includes(value.status)) {
     throw new TypeError('Commit result status must be COMMITTED or REJECTED.');
   }
+  const journalProjection = validateScopedEditJournalProjection(value.journalProjection);
+  const replayState = replayRecord(value.replayState);
+  const appliedCommandIds = uniqueTexts(value.appliedCommandIds, 'result.appliedCommandIds', true);
   const committed = value.status === SCOPED_EDIT_COMMIT_STATUS.COMMITTED;
-  const rejectionCode = committed ? null : requiredContractText(value.rejectionCode, 'rejectionCode');
-  const message = committed ? null : requiredContractText(value.message, 'rejection message');
+  const evidence = committed ? committedEvidence(value, journalProjection, replayState, appliedCommandIds) : {
+    entityId: value.entityId == null ? null : requiredContractText(value.entityId, 'result.entityId'),
+    commandId: value.commandId == null ? null : requiredContractText(value.commandId, 'result.commandId'),
+    dragResult: optionalDragResult(value.dragResult),
+    boundaryDecision: boundaryDecision(value.boundaryDecision, true),
+  };
   return immutableJson({
     schema: SCOPED_EDIT_COMMIT_RESULT_V1,
     status: value.status,
-    entityId: value.entityId == null ? null : requiredContractText(value.entityId, 'result.entityId'),
-    commandId: value.commandId == null ? null : requiredContractText(value.commandId, 'result.commandId'),
-    rejectionCode,
-    message,
-    dragResult: optionalDragResult(value.dragResult),
-    boundaryDecision: boundaryDecision(value.boundaryDecision, true),
-    journalProjection: validateScopedEditJournalProjection(value.journalProjection),
-    replayState: replayRecord(value.replayState),
-    appliedCommandIds: uniqueTexts(value.appliedCommandIds, 'result.appliedCommandIds', true),
+    ...evidence,
+    rejectionCode: committed ? null : requiredContractText(value.rejectionCode, 'rejectionCode'),
+    message: committed ? null : requiredContractText(value.message, 'rejection message'),
+    journalProjection,
+    replayState,
+    appliedCommandIds,
   }, 'Scoped edit commit result');
 }
 

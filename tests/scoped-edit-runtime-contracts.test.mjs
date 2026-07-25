@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   SCOPED_EDIT_COMMIT_PROPOSAL_V1,
   SCOPED_EDIT_COMMIT_RESULT_V1,
+  SCOPED_EDIT_COMMIT_STATUS,
   SCOPED_EDIT_ENTITY_GEOMETRY_V1,
   SCOPED_EDIT_HOST_CONTRACT_V1,
   SCOPED_EDIT_JOURNAL_PROJECTION_V1,
@@ -10,9 +11,12 @@ import {
   SCOPED_EDIT_RUNTIME_STATUS,
   assertScopedEditHostContract,
   createScopedEditRuntime,
+  validateScopedEditCommitProposal,
+  validateScopedEditCommitResult,
   validateScopedEditEntityGeometry,
   validateScopedEditJournalProjection,
 } from '../core/scoped-edit-runtime/index.js';
+import { createEditDragSession } from '../core/edit-3d/index.js';
 import {
   SCOPED_EDIT_FIXTURE_COUNTS,
   createScopedEditRuntimeFixture,
@@ -109,5 +113,62 @@ assert.equal(state.status, SCOPED_EDIT_RUNTIME_STATUS.READY);
 assertContractValue(state);
 assert.equal(state.scope.entityIds.length, 8);
 assert.equal(state.scope.boundaryIds.length, 4);
+
+const proposalFixture = createScopedEditRuntimeFixture();
+const proposalRuntime = createScopedEditRuntime({
+  host: proposalFixture.host, scopeRequest: proposalFixture.scopeRequest,
+  reducerRegistry: proposalFixture.reducerRegistry, journalProjection: proposalFixture.journalProjection,
+});
+const entityId = proposalFixture.editableIds[0];
+proposalRuntime.beginDrag({ entityId, dragRequest: proposalFixture.dragRequest(entityId) });
+const validDrag = proposalRuntime.solveDrag(proposalFixture.validRay(entityId));
+const proposalEnvelope = proposalFixture.envelope(1, 'ENTITY_POSITION_SET', entityId, validDrag.point);
+const prepared = proposalRuntime.prepareCommit({
+  commandName: 'ENTITY_POSITION_SET', targetIds: [entityId], envelope: proposalEnvelope,
+});
+assertContractValue(validateScopedEditCommitProposal(prepared));
+const invalidDragSession = createEditDragSession(proposalFixture.dragRequest(entityId));
+const invalidDrag = invalidDragSession.solve(proposalFixture.invalidRay(entityId));
+assert.equal(invalidDrag.valid, false);
+assert.throws(() => validateScopedEditCommitProposal({ ...prepared, dragResult: invalidDrag }),
+  /prepared commit requires a valid drag result/);
+assert.throws(() => validateScopedEditCommitProposal({ ...prepared, dragResult: undefined }), TypeError);
+checked += 2;
+
+const committed = proposalRuntime.commitPrepared();
+assertContractValue(validateScopedEditCommitResult(committed));
+for (const name of ['entityId', 'commandId', 'dragResult', 'boundaryDecision']) {
+  assert.throws(() => validateScopedEditCommitResult({ ...committed, [name]: null }), TypeError);
+  checked += 1;
+}
+assert.throws(() => validateScopedEditCommitResult({ ...committed, dragResult: invalidDrag }),
+  /committed result requires a valid drag result/);
+assert.throws(() => validateScopedEditCommitResult({
+  ...committed, boundaryDecision: { ...committed.boundaryDecision, allowed: false, reason: 'BOUNDARY_FROZEN' },
+}), /committed result requires an allowed boundary decision/);
+assert.throws(() => validateScopedEditCommitResult({ ...committed, commandId: 'SER-999999' }),
+  /must exist in journalProjection/);
+assert.throws(() => validateScopedEditCommitResult({
+  ...committed, journalProjection: { ...committed.journalProjection, activeCommandIds: [] },
+}), /must be active in journalProjection/);
+assert.throws(() => validateScopedEditCommitResult({ ...committed, appliedCommandIds: [] }),
+  /must match replayState.appliedCommandIds/);
+checked += 5;
+
+const rejected = validateScopedEditCommitResult({
+  schema: SCOPED_EDIT_COMMIT_RESULT_V1,
+  status: SCOPED_EDIT_COMMIT_STATUS.REJECTED,
+  entityId: null,
+  commandId: null,
+  rejectionCode: 'EARLY_REJECTION',
+  message: 'Rejected before drag or command evidence existed.',
+  dragResult: null,
+  boundaryDecision: null,
+  journalProjection: projection,
+  replayState: { state: projection.initialState, appliedCommandIds: [] },
+  appliedCommandIds: [],
+});
+assertContractValue(rejected);
+
 
 console.log(`[PASS] scoped-edit runtime contracts: ${checked} contract and host-shape cases.`);
