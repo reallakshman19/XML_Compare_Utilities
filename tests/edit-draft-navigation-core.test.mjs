@@ -7,7 +7,7 @@ import {
 } from '../workbench3d/viewer/workbench-navigation-state.js';
 import {
   closestLineParameter, EDIT_DRAG_THRESHOLD_PX, pointerTravel, rayPlaneIntersection, solveEditDrag,
-} from '../tabs/topology-trace-validator/topology-edit-drag-solver.js';
+} from '../core/edit-3d/drag-solver.js';
 
 const origin = [438000, -1139000, 1000];
 const world = [438023.221, -1139222.202, 1184.15];
