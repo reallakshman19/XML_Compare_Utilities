@@ -6,6 +6,12 @@ import { ENGINEERING_SCOPE_REQUEST_SCHEMA, createEngineeringScope } from '../cor
 import { resolveEngineeringScope } from '../core/engineering-scope/engineering-scope-resolvers.js';
 import { scopeScene, validateScopeClosure } from '../core/engineering-scope/engineering-scope-scene.js';
 
+function assertDeepFrozen(value) {
+  if (!value || typeof value !== 'object') return;
+  assert.equal(Object.isFrozen(value), true);
+  for (const child of Object.values(value)) assertDeepFrozen(child);
+}
+
 const ids = ['A', 'B', 'C', 'D'];
 const scene = createEngineeringScene({
   sceneId: 'closure-scene', revision: createEngineeringRevisionToken('r1'),
@@ -46,6 +52,7 @@ for (const scope of validScopes) {
   assert.equal(scoped.entityRoles.A, 'EDITABLE');
   assert.equal(scoped.entityRoles.B, 'BOUNDARY');
   assert.equal(scoped.entityRoles.C, 'BOUNDARY');
+  assertDeepFrozen(scoped);
   for (const entity of scoped.entities) assert.equal(entity, sourceEntities.get(entity.id));
 }
 assert.equal(validScopes.filter((scope) => validateScopeClosure(scopeScene(scene, scope), { referencesOf }).closed).length, validScopes.length);
@@ -74,5 +81,7 @@ const invalidScope = createEngineeringScope({
   stats: { matched: 1, boundary: 1, mounted: 2, budget: 4, consumed: 2, remaining: 2 },
 });
 assert.throws(() => scopeScene(scene, invalidScope), /missing scene ids/);
+const mutableScene = JSON.parse(JSON.stringify(scene));
+assert.throws(() => scopeScene(mutableScene, validScopes[0]), /deeply immutable/);
 assert.equal(JSON.stringify(scene), before);
-console.log(`[PASS] closure matrix=${validScopes.length}, boundary closure depth and missing-reference detection verified.`);
+console.log(`[PASS] closure matrix=${validScopes.length}, immutable boundary closure and missing-reference detection verified.`);
