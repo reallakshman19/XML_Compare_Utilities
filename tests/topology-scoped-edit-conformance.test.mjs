@@ -63,8 +63,7 @@ async function acquire(storage, locks, documentId) {
 }
 async function releaseThroughService(recovery) {
   let destroys = 0;
-  releaseTopologyDraftAuthority(Object.freeze({ destroy() { destroys += 1; recovery.releaseWriter(); } }), recovery);
-  await tick();
+  await releaseTopologyDraftAuthority(Object.freeze({ destroy() { destroys += 1; recovery.releaseWriter(); } }), recovery);
   return destroys;
 }
 
@@ -72,17 +71,17 @@ const sameStorage = memoryStorage(), sameLocks = new FakeLockManager();
 const sameFirst = await acquire(sameStorage, sameLocks, 'topology-document:same');
 assert.equal(await releaseThroughService(sameFirst), 1);
 const sameSecond = await acquire(sameStorage, sameLocks, 'topology-document:same');
-sameSecond.releaseWriter(); await tick(); assert.equal(sameLocks.held.size, 0);
+await sameSecond.releaseWriter(); assert.equal(sameLocks.held.size, 0);
 
 const differentStorage = memoryStorage(), differentLocks = new FakeLockManager();
 const oldDocument = await acquire(differentStorage, differentLocks, 'topology-document:old');
 assert.equal(await releaseThroughService(oldDocument), 1);
 const newDocument = await acquire(differentStorage, differentLocks, 'topology-document:new');
-newDocument.releaseWriter(); await tick(); assert.equal(differentLocks.held.size, 0);
+await newDocument.releaseWriter(); assert.equal(differentLocks.held.size, 0);
 
 const failedStorage = memoryStorage(), failedLocks = new FakeLockManager();
 const failedInitialization = await acquire(failedStorage, failedLocks, 'topology-document:failed');
-releaseTopologyDraftAuthority(null, failedInitialization); await tick();
+await releaseTopologyDraftAuthority(null, failedInitialization);
 assert.equal(failedLocks.held.size, 0, 'failed initialization must release its acquired writer');
 
 const files = ['topology-scoped-edit-authority-contracts.js', 'topology-scoped-edit-command-targets.js',
@@ -97,9 +96,9 @@ for (const file of files) {
   assert.doesNotMatch(source, /export\s+default/, `${file} uses default export`);
   assert.doesNotMatch(source, /core\/scoped-edit-runtime|core\/edit-3d/, `${file} mounts shared runtime or Edit 3D`);
 }
-assert.match(controllerSource, /releaseJournalAuthority\(\);\s*clearAcceptedEditState\(\);[\s\S]*await recoveryStore\.acquireWriter/,
-  'changed-basis initialization must release the previous writer before acquiring the replacement');
-assert.match(controllerSource, /catch \(error\) \{\s*releaseJournalAuthority\(\);\s*clearAcceptedEditState\(\);/,
+assert.match(controllerSource, /await releaseJournalAuthority\(\);\s*clearAcceptedEditState\(\);[\s\S]*await recoveryStore\.acquireWriter/,
+  'changed-basis initialization must await previous writer release before acquiring the replacement');
+assert.match(controllerSource, /catch \(error\) \{\s*await releaseJournalAuthority\(\);\s*clearAcceptedEditState\(\);/,
   'failed replacement initialization must release its newly acquired writer');
 
 console.log(`[PASS] behavioral conformance checks=${report.checkCount} scenarios=11 remount=${remounts} forged=${forged} writerReplacements=3`);
