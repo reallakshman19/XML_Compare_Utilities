@@ -3,16 +3,25 @@ import { readFile } from 'node:fs/promises';
 import { sha256Text } from '../tabs/revision-compare/revision-hash.js';
 import { stableStringify } from '../tabs/revision-compare/revision-contract-utils.js';
 import { canonicalRevisionCompareEvidenceValue, revisionCompareEvidencePackageHashMaterial } from '../tabs/revision-compare/revision-evidence-package.js';
+import { createReviewSession, setReviewItemNote } from '../tabs/revision-compare/revision-review-session.js';
 import { revisionCompareTransferHandoverHashMaterial, serializeRevisionCompareTransferHandoverBundle } from '../tabs/revision-compare/revision-transfer-handover.js';
 import { verifyRevisionCompareTransferHandoverText } from '../tabs/revision-compare/revision-transfer-handover-inspection.js';
-import { clone, cryptoRef, handoverInspectionFixture } from './revision-compare-transfer-handover-inspection-fixtures.mjs';
+import { clone, createdAt, cryptoRef, handoverInspectionFixture } from './revision-compare-transfer-handover-inspection-fixtures.mjs';
 
 const fixture = await handoverInspectionFixture();
 const text = serializeRevisionCompareTransferHandoverBundle(fixture.bundle);
+function materialWithout(value, keys) {
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
+}
 async function identity(value, idKey, prefix) {
   delete value[idKey]; delete value.contentSha256;
   value.contentSha256 = await sha256Text(stableStringify(value), cryptoRef);
   value[idKey] = `${prefix}${value.contentSha256}`;
+}
+async function operationIdentity(operation) {
+  operation.operationId = `revision-transfer-operation:${await sha256Text(
+    stableStringify(materialWithout(operation, ['operationId', 'status', 'blockers'])), cryptoRef,
+  )}`;
 }
 async function completionIdentity(report) {
   delete report.reportId; delete report.contentSha256;
@@ -70,13 +79,30 @@ await assert.rejects(() => verifyRevisionCompareTransferHandoverText(
   serializeRevisionCompareTransferHandoverBundle(brokenBundleIdentity), { cryptoRef },
 ), /identity does not recompute/);
 await rejects(async (value) => {
-  value.payload.evidencePackage.payload.reviewSession.items[0].reviewState = 'UNREVIEWED';
+  const audit = value.payload.evidencePackage.payload.audit;
+  let review = createReviewSession(audit, createdAt);
+  review = await setReviewItemNote(review, audit, audit.differenceRows[0].differenceId, 'Still unreviewed', createdAt, cryptoRef);
+  value.payload.evidencePackage.payload.reviewSession = review;
   await packageIdentity(value.payload.evidencePackage);
-}, /summary|review/i);
+}, /fully reviewed and resolved/i);
 await rejects(async (value) => {
   value.payload.transferPlan.status = 'BLOCKED';
   await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
 }, /plan must be READY/i);
+await rejects(async (value) => {
+  value.payload.transferPlan.activity.comparisonStatus = 'IDLE';
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /packaged source authorities/i);
+await rejects(async (value) => {
+  const operation = value.payload.transferPlan.operations[0];
+  operation.evidenceReferences.reviewRevision += 1; await operationIdentity(operation);
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /operation evidence authority/i);
+await rejects(async (value) => {
+  const operation = value.payload.transferPlan.operations[0];
+  operation.targetAddress.expectedCurrentValue = 'wrong'; await operationIdentity(operation);
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /expected target value/i);
 await rejects(async (value) => {
   value.payload.transferPlan.operations[0].operationId = 'revision-transfer-operation:bad';
   await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
