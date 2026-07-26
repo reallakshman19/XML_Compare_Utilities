@@ -5,7 +5,7 @@ import { asArray, cleanText, objectRecord } from './topology-validator-values.js
 import { EDIT_KINDS, downloadText, objectForSelection, outputStem, producerOptions, producerSourceText,
   selectionForObjectId, shortestPathSelection, uniqueContextEdges, uniqueSelection } from './topology-edit-controller-helpers.js';
 import { createTopologyPlatformContext } from './topology-platform-adapter.js';
-import { createTopologyDraftRecovery } from './topology-draft-recovery.js';
+import { createTopologyDraftRecovery, releaseTopologyDraftAuthority } from './topology-draft-recovery.js';
 import { createTopologyEditJournalService } from './topology-edit-journal-service.js';
 import { buildTopologyEditBundle, saveTopologySessionDraft } from './topology-edit-persistence-actions.js';
 import { parseTopologyEditSessionDraft, TOPOLOGY_EDIT_SESSION_DRAFT_SCHEMA } from './topology-edit-session-draft.js';
@@ -32,6 +32,14 @@ export function createTopologyEditController(elements, dependencies) {
   function persistentUiState() { return createTopologyEditUiState({ projection, tool, contextEdgeId, supportScale, selection }); }
   function applyPersistentUiState(state) { const next = normalizeTopologyEditUiState(state); ({ projection, tool, contextEdgeId, supportScale, selection } = next); syncTopologyEditUiControls(elements.root, next, canvasRuntime.setMeasurementActive); }
   function applyJournalState(state) { draft = state.draft; attributeLedger = state.attributeLedger; remarks = state.remarks; }
+  function releaseJournalAuthority() {
+    releaseTopologyDraftAuthority(journalService, recoveryStore);
+    journalService = null; recoveryStore = null;
+  }
+  function clearAcceptedEditState() {
+    draft = null; editedArtifacts = null; attributeLedger = null; remarks = Object.freeze({});
+    basisKey = '';
+  }
   function exportPlanInput(createdAt) { return { core, built: editedArtifacts, options, context: platformContext, draft,
     commandJournal: journalService.evidence().journal, createdAt, cryptoRef: elements.root.ownerDocument.defaultView?.crypto,
     checkerEvidence: dependencies.reviewEvidence?.() ?? null, modelMode: dependencies.modeEvidence?.() ?? null,
@@ -52,17 +60,25 @@ export function createTopologyEditController(elements, dependencies) {
     const artifacts = objectRecord(traceEvidence?.artifacts), source = objectRecord(artifacts.source);
     if (!source.raw) throw new Error('Load a managed source JSON before opening Edit Draft.');
     const nextBasis = `${objectRecord(traceEvidence.hashes).source}:${objectRecord(traceEvidence.hashes).canonical}`;
-    if (nextBasis && nextBasis === basisKey && baseArtifacts) { render(); return; }
+    if (nextBasis && nextBasis === basisKey && baseArtifacts && journalService) { render(); return; }
     busy = true; setStatus('Building immutable edit basis with the pinned topology core…', 'ready');
     try {
-      core = await loadTopologyProducerCore(); sourceText = producerSourceText(source.raw); options = producerOptions(traceEvidence);
-      sourceBranches = Array.isArray(source.raw) ? source.raw : (source.raw.hierarchy ?? source.raw.branches ?? source.raw.objects ?? []);
-      const started = performance.now(); baseArtifacts = await core.buildComponentTopologyArtifacts(sourceText, options); lastRegenerationMs = performance.now() - started;
+      const nextCore = await loadTopologyProducerCore();
+      const nextSourceText = producerSourceText(source.raw), nextOptions = producerOptions(traceEvidence);
+      const nextSourceBranches = Array.isArray(source.raw) ? source.raw : (source.raw.hierarchy ?? source.raw.branches ?? source.raw.objects ?? []);
+      const started = performance.now();
+      const nextBaseArtifacts = await nextCore.buildComponentTopologyArtifacts(nextSourceText, nextOptions);
+      lastRegenerationMs = performance.now() - started;
       const createdAt = new Date().toISOString(), verticalAxis = elements.root.querySelector('[data-ttv-vertical-axis]')?.value || 'Z';
-      platformContext = await createTopologyPlatformContext({ sourceText, sourceName: options.sourceName, sourceBranches, verticalAxis, createdAt, cryptoRef: elements.root.ownerDocument.defaultView?.crypto });
+      const nextPlatformContext = await createTopologyPlatformContext({ sourceText: nextSourceText, sourceName: nextOptions.sourceName,
+        sourceBranches: nextSourceBranches, verticalAxis, createdAt, cryptoRef: elements.root.ownerDocument.defaultView?.crypto });
       const loadedHash = cleanText(objectRecord(artifacts.canonical).canonicalTopologyHash);
-      if (loadedHash && loadedHash !== baseArtifacts.canonicalTopology.canonicalTopologyHash) throw new Error(`Loaded canonical hash ${loadedHash} does not match pinned producer hash ${baseArtifacts.canonicalTopology.canonicalTopologyHash}. Rebuild topology before editing.`);
-      baseDraft = core.createTopologyEditDraft(baseArtifacts.canonicalTopology, { projection: 'XY', snapToleranceMm: Number(options.toleranceMm), showOriginal: true });
+      if (loadedHash && loadedHash !== nextBaseArtifacts.canonicalTopology.canonicalTopologyHash) throw new Error(`Loaded canonical hash ${loadedHash} does not match pinned producer hash ${nextBaseArtifacts.canonicalTopology.canonicalTopologyHash}. Rebuild topology before editing.`);
+      const nextBaseDraft = nextCore.createTopologyEditDraft(nextBaseArtifacts.canonicalTopology,
+        { projection: 'XY', snapToleranceMm: Number(nextOptions.toleranceMm), showOriginal: true });
+      releaseJournalAuthority(); clearAcceptedEditState();
+      core = nextCore; sourceText = nextSourceText; options = nextOptions; sourceBranches = nextSourceBranches;
+      baseArtifacts = nextBaseArtifacts; platformContext = nextPlatformContext; baseDraft = nextBaseDraft;
       const windowRef = elements.root.ownerDocument.defaultView;
       recoveryStore = createTopologyDraftRecovery(windowRef?.localStorage, { lockManager: windowRef?.navigator?.locks });
       await recoveryStore.acquireWriter(platformContext.document.documentId);
@@ -77,7 +93,7 @@ export function createTopologyEditController(elements, dependencies) {
       basisKey = nextBasis; selection = recovered ? selection : Object.freeze([]); contextEdgeId = recovered ? contextEdgeId : '';
       canvasRuntime.clearMeasurement(); render();
       setStatus(recovered ? `Recovered ${recovered.commandCount} journal command(s) from the exact source basis.` : `Edit Draft ready: ${baseArtifacts.canonicalTopology.edges.length} immutable base elements; no commands applied.`, 'pass');
-    } catch (error) { journalService?.destroy(); if (!journalService) recoveryStore?.releaseWriter(); journalService = null; throw error; }
+    } catch (error) { releaseJournalAuthority(); clearAcceptedEditState(); throw error; }
     finally { busy = false; renderBottom(); }
   }
   function acceptanceState(acceptance) { if (!acceptance.accepted) { const error = new Error(acceptance.message); error.code = acceptance.reasonCode; throw error; } return acceptance.state; }
@@ -163,7 +179,7 @@ export function createTopologyEditController(elements, dependencies) {
   async function exportBundle() { if (busy) throw new Error('Wait for the active Edit Draft transaction to complete.'); if (!core || !draft || !options || !journalService) throw new Error('No edit draft is available.'); const commandJournal = journalService.evidence().journal; const snapshot = await exportPlanService.prepare(exportPlanInput(new Date().toISOString())); const result = await buildTopologyEditBundle({ snapshot, draft, commandJournal, cryptoRef: elements.root.ownerDocument.defaultView?.crypto }); downloadText(elements.root.ownerDocument, `${result.stem}.topology-edit-bundle.json`, `${JSON.stringify(result.bundle, null, 2)}\n`, 'application/json;charset=utf-8'); const logOutput = result.outputs.find((row) => row.name.endsWith('.topology-export-log.json')); if (logOutput) downloadText(elements.root.ownerDocument, logOutput.name, logOutput.text, logOutput.mime); setStatus(`Exported the immutable edit bundle and separate topology audit log (${result.outputs.length} documented files).`, 'pass'); }
   function setContextEdge(edgeId) { contextEdgeId = cleanText(edgeId); renderInspector(); }
   function evidence() { const journalEvidence = journalService?.evidence(); return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, busy, supportScale, lastRegenerationMs, projectSession: platformContext?.session ?? null, projectDocument: platformContext?.document ?? null, commandJournal: journalEvidence?.journal ?? null, commandEnvelopes: journalEvidence?.commandEnvelopes ?? Object.freeze([]), commandAuthority: journalEvidence?.authority ?? null, attributeLedger, remarks, editScope, exportPlan: exportPlanService.evidence().plan, canvas: canvasRuntime.evidence() }); }
-  function destroy() { journalService?.destroy(); if (!journalService) recoveryStore?.releaseWriter(); navigation.destroy(); canvasRuntime.dispose(); exportPlanService.destroy(); }
+  function destroy() { releaseJournalAuthority(); clearAcceptedEditState(); navigation.destroy(); canvasRuntime.dispose(); exportPlanService.destroy(); }
   return Object.freeze({ initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale, setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions, applyTopologyAutoFixes, appendAttributeEditCommand, setCommandRemark, setEditScope, refreshExportPlan: queueExportPlan, addMeasurementPoint: canvasRuntime.addMeasurementPoint, focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); }, fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), toggleCameraType, setPivotToSelection, render, evidence, destroy });
 }
 export const _test = Object.freeze({ producerSourceText, producerOptions, outputStem, uniqueSelection, shortestPathSelection, selectionForObjectId, objectForSelection, uniqueContextEdges });
