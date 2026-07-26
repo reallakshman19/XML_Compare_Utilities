@@ -1,0 +1,49 @@
+name: RC-XFER-009 aggregate release diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-aggregate-release-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+  CERTIFICATION_BRANCH: owner/rc-xfer-009-certification-release
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Replay exact owner patch
+        run: |
+          git show "origin/${CERTIFICATION_BRANCH}:.github/workflows/rc-xfer-009-owner-release.yml" > /tmp/owner-release.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/owner-release.yml \
+            | sed '1d;$d;s/^          //' > /tmp/owner-patch.py
+          python /tmp/owner-patch.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture aggregate output
+        id: aggregate
+        continue-on-error: true
+        run: |
+          mkdir -p diagnostic
+          npm run test:revision-compare > diagnostic/revision-compare-aggregate.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-aggregate-release-diagnostic
+          path: diagnostic/revision-compare-aggregate.log
+          if-no-files-found: error
+      - if: steps.aggregate.outcome != 'success'
+        run: exit 1
