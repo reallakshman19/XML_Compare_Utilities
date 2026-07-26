@@ -1,0 +1,88 @@
+name: Profile propagation fixture diagnostic v3
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-propagation-fixture-diagnostic-v3.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: e010b3cb993f43ab71daf6d39be27a2dd3771790
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Apply derived-authority fixture repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('tests/pipeline-3d-model-profile-propagation.test.js')
+          text = path.read_text()
+          text = text.replace(
+              "import { buildPipelineEngineeringConfigurationPlan } from '../tabs/pipeline-3d-model/pipeline-3d-model-engineering-configuration.js';\n",
+              '',
+          )
+          text = text.replace('function explicitConfiguration() {', 'function explicitConfigurationDraft() {', 1)
+          pattern = re.compile(
+              r"  draft = updatePipelineEngineeringConfigurationDraftCollections\(draft, \{\n"
+              r"    sections: \[\{ startElementIndex: 0, profileId: 'normal-metallic',\n"
+              r"      outsideDiameterMm: 100, sourceAuthority: 'TEST', sourceReference: 'profile-fixture' \}\],\n"
+              r"  \}\);\n"
+              r"  const plan = buildPipelineEngineeringConfigurationPlan\(draft\);\n"
+              r"  assert\.equal\(plan\.ready, true, JSON\.stringify\(plan\.blockerCodes\)\);\n"
+              r"  return plan;"
+          )
+          replacement = """  draft = updatePipelineEngineeringConfigurationDraftCollections(draft, {
+            sections: [{ analysisSectionId: 'AS1', startElementIndex: 0, profileId: 'normal-metallic',
+              outsideDiameterMm: 100, boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture',
+              sourceAuthority: 'TEST', sourceReference: 'profile-fixture' }],
+          });
+          return draft;"""
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'expected one configuration block, replaced {count}')
+          text = text.replace(
+              'const CONFIGURATION = explicitConfiguration();',
+              'const CONFIGURATION_DRAFT = explicitConfigurationDraft();',
+              1,
+          )
+          old_build = """  return buildAuthoritativePipelineOutputs({ table1Text, table2Text: '', table3Text: '',
+            profileRaw: raw, configurationPlan: CONFIGURATION });"""
+          new_build = """  return buildAuthoritativePipelineOutputs({ table1Text, table2Text: '', table3Text: '',
+            profileRaw: raw, configurationDraft: CONFIGURATION_DRAFT,
+            analysisSections: [{ startElementIndex: 0, profileId: 'normal-metallic',
+              boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture',
+              sourceAuthority: 'TEST', sourceReference: 'profile-fixture' }] });"""
+          if text.count(old_build) != 1:
+              raise SystemExit(f'expected one build block, found {text.count(old_build)}')
+          text = text.replace(old_build, new_build, 1)
+          text = text.replace(
+              'assert.equal(output.configurationPlan, CONFIGURATION);',
+              "assert.equal(output.configurationPlan.ready, true, JSON.stringify(output.configurationPlan.blockerCodes));\nassert.equal(output.configurationPlan.draftSchema, CONFIGURATION_DRAFT.schema);",
+              1,
+          )
+          path.write_text(text)
+          PY
+      - name: Capture focused output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/profile-fixture
+          node tests/pipeline-3d-model-profile-propagation.test.js > /tmp/profile-fixture/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-propagation-fixture-output-v3
+          path: /tmp/profile-fixture/output.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
