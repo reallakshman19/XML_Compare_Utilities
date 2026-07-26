@@ -5,9 +5,9 @@ export const TOPOLOGY_RECOVERY_WRITER_PREFIX = 'topology-edit-writer.v1:';
 function coded(code, message, Constructor = Error) { const error = new Constructor(message); error.code = code; return error; }
 function recoveryKey(documentId) { const value = String(documentId ?? '').trim(); if (!value) throw new TypeError('Recovery documentId is required.'); return `${TOPOLOGY_RECOVERY_KEY_PREFIX}${value}`; }
 function writerName(documentId) { return `${TOPOLOGY_RECOVERY_WRITER_PREFIX}${String(documentId ?? '').trim()}`; }
-export function releaseTopologyDraftAuthority(service, recovery) {
-  if (service) service.destroy();
-  else recovery?.releaseWriter();
+export async function releaseTopologyDraftAuthority(service, recovery) {
+  service?.destroy();
+  await recovery?.releaseWriter();
 }
 export function createTopologyDraftRecovery(storage, options = {}) {
   if (!storage || !['getItem', 'setItem', 'removeItem'].every((key) => typeof storage[key] === 'function')) throw new TypeError('Topology crash recovery requires a Storage-compatible adapter.');
@@ -46,7 +46,7 @@ export function createTopologyDraftRecovery(storage, options = {}) {
     return Object.freeze({ accepted: true, currentAuthorityId: input.nextAuthorityId });
   }
   function clear(documentId) { requireWriter(documentId); storage.removeItem(recoveryKey(documentId)); }
-  function releaseWriter() { const release = releaseHold; releaseHold = null; heldDocumentId = ''; release?.(); }
+  async function releaseWriter() { const task = leaseTask, release = releaseHold; releaseHold = null; heldDocumentId = ''; release?.(); await task?.catch(() => {}); }
   function writerEvidence() { return Object.freeze({ documentId: heldDocumentId || null, exclusive: Boolean(heldDocumentId) }); }
   return Object.freeze({ load, acquireWriter, accept, clear, releaseWriter, writerEvidence });
 }
