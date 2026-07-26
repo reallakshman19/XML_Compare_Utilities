@@ -125,7 +125,7 @@ const finalRows = buildFinalOutputRows(audit);
 const finalA1 = finalRows.find((row) => row['Name of the element'] === '/PS-A1');
 assert.equal(finalA1?.Tag, 'R+G+LS');
 assert.equal(finalA1?.['Navis Tag ID'], '8');
-assert.equal(finalA1?.['Support ISONOTE'], ':/PS-A1 REST, GUIDE, LINE STOP');
+assert.equal(finalA1?.['Support ISONOTE'], ':/PS-A1 REST, GUIDE, LINE STOP (C=P)');
 assert.match(finalA1?.Basis || '', /ALL_PARALLEL_PIPE_GROUPS/);
 
 const limited = applyAppliesToPropagation({ decisions, augmentedRows: decisions.map(() => ({})), diagnostics: [], summary: {} }, { ...config, appliesToAllMaxTargetRows: 1 });
