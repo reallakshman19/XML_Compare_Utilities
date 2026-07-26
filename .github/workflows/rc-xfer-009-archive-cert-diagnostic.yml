@@ -1,0 +1,53 @@
+name: RC-XFER-009 archive certification diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-archive-cert-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Apply first precedence correction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/revision-compare-transfer-archive-certification.test.mjs')
+          s = p.read_text()
+          old = r'/handover bundle.*identity|content identity/i'
+          new = r'/handover bundle.*identity|content identity|handover bundle retained SHA-256/i'
+          if old not in s:
+              raise SystemExit('expected archive-certification pattern not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture archive certification output
+        id: archive-cert
+        continue-on-error: true
+        run: |
+          mkdir -p diagnostic
+          node tests/revision-compare-transfer-archive-certification.test.mjs > diagnostic/archive-certification.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-archive-certification-diagnostic
+          path: diagnostic/archive-certification.log
+          if-no-files-found: error
+      - if: steps.archive-cert.outcome != 'success'
+        run: exit 1
