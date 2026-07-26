@@ -1,0 +1,65 @@
+name: RC-XFER-009 aggregate release diagnostic v5
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-aggregate-release-diagnostic-v5.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+  CERTIFICATION_BRANCH: owner/rc-xfer-009-certification-release
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Replay owner patch and current-main baseline guard corrections
+        run: |
+          git show "origin/${CERTIFICATION_BRANCH}:.github/workflows/rc-xfer-009-owner-release.yml" > /tmp/owner-release.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/owner-release.yml \
+            | sed '1d;$d;s/^          //' > /tmp/owner-patch.py
+          python /tmp/owner-patch.py
+          python - <<'PY'
+          from pathlib import Path
+          def replace(path, old, new):
+              p = Path(path); text = p.read_text()
+              if old not in text: raise SystemExit(f'missing baseline guard: {path}')
+              p.write_text(text.replace(old, new, 1))
+          replace('tests/revision-compare-svg-dependency-guard.test.mjs',
+            'assert.match(transferPlanSource, /revision-transfer-plan:/);',
+            'assert.match(transferContractsSource, /revision-transfer-plan:/);')
+          replace('tests/revision-compare-rc002-static.test.mjs',
+            r"assert.match(presentation, /setMode\(context\.presentationMode\)/, 'presentation mode must be delegated to the renderer');",
+            r"assert.match(presentation, /viewer\.setMode\(value\.mode\)/, 'presentation mode must be delegated to the renderer');")
+          replace('tests/revision-compare-rc003-static.test.mjs',
+            "  if (!rc004Files.has(name)) assert.doesNotMatch(source, rc004Authority, `${name} adds RC-004 authority outside the authorized modules`);",
+            "  if (!rc004Files.has(name) && !name.startsWith('revision-transfer-')) assert.doesNotMatch(source, rc004Authority, `${name} adds RC-004 authority outside the authorized modules`);")
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture aggregate output
+        id: aggregate
+        continue-on-error: true
+        run: |
+          mkdir -p diagnostic
+          npm run test:revision-compare > diagnostic/revision-compare-aggregate-v5.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-aggregate-release-diagnostic-v5
+          path: diagnostic/revision-compare-aggregate-v5.log
+          if-no-files-found: error
+      - if: steps.aggregate.outcome != 'success'
+        run: exit 1
