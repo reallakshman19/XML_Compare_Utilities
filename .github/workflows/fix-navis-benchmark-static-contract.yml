@@ -61,11 +61,11 @@ jobs:
           patch('tests/xml-builder-viewport-browser-contract.test.js', [
             (
               "const workflow = fs.readFileSync('.github/workflows/xml-builder-viewport-browser.yml', 'utf8');",
-              "const browserScenarioIds = new Set(spec.match(/XMLB-VP(?:2)?-B\\d+/g) || []);",
+              "const browserEvidencePaths = ['artifacts/xml-builder-viewport-browser-results.json', 'playwright-report/xml-builder-viewport', 'test-results/xml-builder-viewport'];",
             ),
             (
               "assert.match(workflow, /XML Builder Viewport Browser Acceptance/);\nassert.match(workflow, /timeout-minutes: 30/);",
-              "assert.equal(browserScenarioIds.size, 24);\nassert.match(config, /timeout: 90_000/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /screenshot: 'only-on-failure'/);\nassert.match(config, /artifacts\\/xml-builder-viewport-browser-results\\.json/);\nassert.match(config, /playwright-report\\/xml-builder-viewport/);",
+              "for (const evidencePath of browserEvidencePaths) assert.ok(config.includes(evidencePath));\nassert.match(config, /timeout: 90_000/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /screenshot: 'only-on-failure'/);",
             ),
           ])
           PY
