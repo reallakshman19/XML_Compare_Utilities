@@ -15,17 +15,46 @@ const requiredRoles = Object.freeze(['enteringElementFromRole', 'enteringElement
   'leavingElementFromRole', 'leavingElementToRole', 'nearPointRole', 'farPointRole',
   'sharedLogicalNodeRole', 'inactiveCornerDisposition', 'incomingTangencyDisposition',
   'outgoingTangencyDisposition', 'continuityRequirement']);
+const roleProfiles = Object.freeze({
+  TANGENCY_SEPARATED_BRIDGE: Object.freeze({ enteringElementFromRole: 'UPSTREAM_ROUTE_NODE',
+    enteringElementToRole: 'INCOMING_TANGENCY', leavingElementFromRole: 'OUTGOING_TANGENCY',
+    leavingElementToRole: 'DOWNSTREAM_ROUTE_NODE', nearPointRole: 'INCOMING_TANGENCY',
+    farPointRole: 'OUTGOING_TANGENCY', sharedLogicalNodeRole: 'NONE',
+    inactiveCornerDisposition: 'NOT_SERIALIZED', incomingTangencyDisposition: 'ENTERING_ELEMENT_TO',
+    outgoingTangencyDisposition: 'LEAVING_ELEMENT_FROM',
+    continuityRequirement: 'BEND_BRIDGES_DISTINCT_TANGENCIES' }),
+  CONSECUTIVE_SHARED_LOGICAL_NODE: Object.freeze({ enteringElementFromRole: 'UPSTREAM_ROUTE_NODE',
+    enteringElementToRole: 'CAESAR_LOGICAL_BEND_NODE', leavingElementFromRole: 'CAESAR_LOGICAL_BEND_NODE',
+    leavingElementToRole: 'DOWNSTREAM_ROUTE_NODE', nearPointRole: 'CAESAR_DERIVED_NEAR_POINT',
+    farPointRole: 'CAESAR_LOGICAL_BEND_NODE', sharedLogicalNodeRole: 'ENTERING_TO_AND_LEAVING_FROM',
+    inactiveCornerDisposition: 'NOT_SERIALIZED', incomingTangencyDisposition: 'CAESAR_DERIVED_NEAR_POINT',
+    outgoingTangencyDisposition: 'CAESAR_FAR_POINT', continuityRequirement: 'ENTERING_TO_EQUALS_LEAVING_FROM' }),
+  CAESAR_FAR_POINT_SHARED_NODE: Object.freeze({ enteringElementFromRole: 'UPSTREAM_ROUTE_NODE',
+    enteringElementToRole: 'CAESAR_FAR_POINT', leavingElementFromRole: 'CAESAR_FAR_POINT',
+    leavingElementToRole: 'DOWNSTREAM_ROUTE_NODE', nearPointRole: 'CAESAR_DERIVED_NEAR_POINT',
+    farPointRole: 'CAESAR_FAR_POINT', sharedLogicalNodeRole: 'ENTERING_TO_AND_LEAVING_FROM',
+    inactiveCornerDisposition: 'NOT_SERIALIZED', incomingTangencyDisposition: 'CAESAR_DERIVED_NEAR_POINT',
+    outgoingTangencyDisposition: 'CAESAR_FAR_POINT', continuityRequirement: 'ENTERING_TO_EQUALS_LEAVING_FROM' }),
+});
+
+function acceptedRoundTrip(fixture) {
+  return fixture?.ready === true && fixture.importEvidence?.result === 'ACCEPTED'
+    && fixture.importEvidence?.cleanImport === true
+    && fixture.roundTripEvidence?.semanticEquivalent === true;
+}
 
 function selectedFixtures(source, errors) {
   const fixtures = Array.isArray(source.fixtures) ? source.fixtures : [];
   const ids = Array.isArray(source.fixtureIds) ? source.fixtureIds.map(text).filter(Boolean) : [];
   const unique = [...new Set(ids)], byId = Object.fromEntries(fixtures.map((item) => [item.fixtureId, item]));
-  const selected = unique.map((id) => byId[id]).filter(Boolean);
+  const selected = unique.map((id) => byId[id]).filter(Boolean), mode = text(source.caesarTopologyMode);
+  const expectedCase = mode === 'TANGENCY_SEPARATED_BRIDGE' ? 'F6'
+    : ['CONSECUTIVE_SHARED_LOGICAL_NODE', 'CAESAR_FAR_POINT_SHARED_NODE'].includes(mode) ? 'F7' : '';
   if (!unique.length || unique.length !== ids.length) errors.push(diagnostic(
     'PIPELINE_GRE_CAESAR_FIXTURE_REQUIRED', { topologyMappingId: text(source.topologyMappingId) }));
-  if (selected.length !== unique.length || selected.some((item) => item.ready !== true)) errors.push(
-    diagnostic('PIPELINE_GRE_CAESAR_FIXTURE_UNAUTHENTICATED', {
-      topologyMappingId: text(source.topologyMappingId) }));
+  if (selected.length !== unique.length || selected.some((item) => !acceptedRoundTrip(item)
+    || item.fixtureCaseId !== expectedCase)) errors.push(diagnostic(
+    'PIPELINE_GRE_CAESAR_FIXTURE_UNAUTHENTICATED', { topologyMappingId: text(source.topologyMappingId) }));
   return selected;
 }
 
@@ -33,38 +62,50 @@ function observedModeMatches(mode, fixtures) {
   const records = fixtures.flatMap((fixture) => fixture.continuityRecords || []);
   if (!records.length) return false;
   return records.every((record) => record.observedTopologyMode === mode
-    && (mode === 'TANGENCY_SEPARATED_BRIDGE' ? record.sharedLogicalNode === false
-      : record.sharedLogicalNode === true));
+    && record.bendOwnerElementId === record.enteringElementId
+    && record.inactiveCornerSerialized === false
+    && (mode === 'TANGENCY_SEPARATED_BRIDGE'
+      ? record.sharedLogicalNode === false && record.enteringToNode !== record.leavingFromNode
+        && record.enteringToNode === record.incomingTangencyNode
+        && record.leavingFromNode === record.outgoingTangencyNode
+      : record.sharedLogicalNode === true && record.enteringToNode === record.leavingFromNode));
 }
 
-function compatibilityFor(source, authenticated) {
+function rolesMatch(mode, source) {
+  const profile = roleProfiles[mode];
+  return Boolean(profile && requiredRoles.every((field) => text(source[field]) === profile[field]));
+}
+
+function compatibilityFor(mode, authenticated) {
   if (!authenticated) return 'UNRESOLVED';
-  if (source.caesarTopologyMode === 'TANGENCY_SEPARATED_BRIDGE') return 'DIRECTLY_WRITER_COMPATIBLE';
-  if (source.caesarTopologyMode === 'CAESAR_SPECIFIC_REPROJECTED_TOPOLOGY') {
-    return 'COMPATIBLE_AFTER_IDENTITY_REMAP';
+  if (mode === 'TANGENCY_SEPARATED_BRIDGE') return 'DIRECTLY_WRITER_COMPATIBLE';
+  if (['CONSECUTIVE_SHARED_LOGICAL_NODE', 'CAESAR_FAR_POINT_SHARED_NODE'].includes(mode)) {
+    return 'REQUIRES_CAESAR_TOPOLOGY_REPROJECTION';
   }
-  if (['CONSECUTIVE_SHARED_LOGICAL_NODE', 'CAESAR_FAR_POINT_SHARED_NODE']
-    .includes(source.caesarTopologyMode)) return 'REQUIRES_CAESAR_TOPOLOGY_REPROJECTION';
   return 'INCOMPATIBLE';
 }
 
 export function createPipelineGreCaesarBendTopologyMapping(input = {}) {
   const safeValue = safe(input), source = safeValue.source, errors = [...safeValue.diagnostics];
-  const fixtures = selectedFixtures(source, errors), mode = text(source.caesarTopologyMode);
+  const mode = text(source.caesarTopologyMode), fixtures = selectedFixtures(source, errors);
   if (!text(source.topologyMappingId) || !PIPELINE_GRE_CAESAR_TOPOLOGY_MODES.includes(mode)
-    || requiredRoles.some((field) => !text(source[field])) || !text(source.sourceAuthority)
-    || !Array.isArray(source.sourceReferences) || source.sourceReferences.some((item) => !text(item))) errors.push(
-    diagnostic('PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', {
+    || !text(source.sourceAuthority) || !Array.isArray(source.sourceReferences)
+    || source.sourceReferences.some((item) => !text(item))) errors.push(diagnostic(
+    'PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', {
       topologyMappingId: text(source.topologyMappingId), reason: 'CONTRACT_FIELDS' }));
-  const observed = observedModeMatches(mode, fixtures);
-  if (!observed) errors.push(diagnostic('PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', {
-    topologyMappingId: text(source.topologyMappingId), reason: 'FIXTURE_MODE_CONFLICT' }));
-  const authenticated = errors.length === 0;
-  const compatibility = compatibilityFor(source, authenticated);
+  if (mode === 'CAESAR_SPECIFIC_REPROJECTED_TOPOLOGY') errors.push(diagnostic(
+    'PIPELINE_GRE_CAESAR_SUCCESSOR_NOT_AUTHORIZED', { topologyMappingId: text(source.topologyMappingId) }));
+  if (!rolesMatch(mode, source)) errors.push(diagnostic('PIPELINE_GRE_CAESAR_ROLE_SEMANTICS_UNRESOLVED', {
+    topologyMappingId: text(source.topologyMappingId), mode }));
+  if (!observedModeMatches(mode, fixtures)) errors.push(diagnostic('PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', {
+    topologyMappingId: text(source.topologyMappingId), reason: 'FIXTURE_RELATIONSHIP_CONFLICT' }));
+  const authenticated = errors.length === 0, compatibility = compatibilityFor(mode, authenticated);
   if (!PIPELINE_GRE_CAESAR_COMPATIBILITY.includes(compatibility)) errors.push(diagnostic(
     'PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', { topologyMappingId: text(source.topologyMappingId) }));
   return createPipelineGreCaesarBendTopologyMappingRecord({
     topologyMappingId: text(source.topologyMappingId), caesarTopologyMode: mode,
+    caesarVersion: text(fixtures[0]?.caesarVersion), caesarBuild: text(fixtures[0]?.caesarBuild),
+    unitFileId: text(fixtures[0]?.unitFileId), unitFileSha256: text(fixtures[0]?.unitFileSha256),
     enteringElementFromRole: text(source.enteringElementFromRole),
     enteringElementToRole: text(source.enteringElementToRole),
     leavingElementFromRole: text(source.leavingElementFromRole),
@@ -73,8 +114,7 @@ export function createPipelineGreCaesarBendTopologyMapping(input = {}) {
     inactiveCornerDisposition: text(source.inactiveCornerDisposition),
     incomingTangencyDisposition: text(source.incomingTangencyDisposition),
     outgoingTangencyDisposition: text(source.outgoingTangencyDisposition),
-    continuityRequirement: text(source.continuityRequirement),
-    currentP3dGre055Compatibility: compatibility,
+    continuityRequirement: text(source.continuityRequirement), currentP3dGre055Compatibility: compatibility,
     currentP3dGre055Questions: clone({ incomingTangencyCanRemainEnteringTo:
       compatibility === 'DIRECTLY_WRITER_COMPATIBLE', outgoingTangencyCanRemainLeavingFrom:
       compatibility === 'DIRECTLY_WRITER_COMPATIBLE', distinctTangencyNodeNumbersAllowed:
