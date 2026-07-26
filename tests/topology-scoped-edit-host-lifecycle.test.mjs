@@ -1,5 +1,16 @@
 import assert from 'node:assert/strict';
 import { createTopologyScopedEditReadOnlyHostFixture } from './fixtures/topology-scoped-edit-read-only-host-fixture.js';
-import { STALE_TOPOLOGY_HOST_AUTHORITY, TOPOLOGY_READ_ONLY_HOST_DESTROYED } from '../tabs/topology-trace-validator/topology-scoped-edit-read-only-host.js';
-import { STALE_TOPOLOGY_SCOPE_AUTHORITY } from '../tabs/topology-trace-validator/topology-scoped-edit-scope-adapter.js';
-const f=createTopologyScopedEditReadOnlyHostFixture();for(let i=0;i<100;i++){f.authoritySet(f.readModelA0.authorityId);const host=f.hostFactory({readModel:f.readModelA0,core:f.core,authorityProvider:f.authorityGet}),scene=JSON.stringify(host.scene());f.authoritySet(f.readModelA1.authorityId);assert.throws(()=>host.scene(),e=>e.code===STALE_TOPOLOGY_HOST_AUTHORITY);assert.throws(()=>host.resolveScope(f.selectionRequests[0]),e=>e.code===STALE_TOPOLOGY_SCOPE_AUTHORITY);f.authoritySet(f.readModelA0.authorityId);const first=host.destroy(),second=host.destroy();assert.deepEqual(first,second);for(const action of [()=>host.scene(),()=>host.resolveScope(f.selectionRequests[0]),()=>host.entityGeometry('N01'),()=>host.appendEditCommand(f.readModelA0.journalProjection.projection,f.envelopes.authorized)])assert.throws(action,e=>e.code===TOPOLOGY_READ_ONLY_HOST_DESTROYED);const remount=f.hostFactory({readModel:f.readModelA0,core:f.core,authorityProvider:f.authorityGet});assert.equal(JSON.stringify(remount.scene()),scene);remount.destroy();}console.log('[PASS] stale authority, terminal destroy, remount cycles=100');
+const f = await createTopologyScopedEditReadOnlyHostFixture();
+const original = await f.hostFactory({ readModel: f.readModelA0, core: f.core,
+  authorityProvider: f.authorityGet, effects: f.effectBoundaryFactory() });
+const scene = JSON.stringify(original.scene());
+f.authoritySet(f.readModelA1.authorityId);
+assert.throws(() => original.scene(), (error) => error.code === f.expectedCodes.stale);
+f.authoritySet(f.readModelA0.authorityId);
+for (let index = 0; index < 100; index += 1) {
+  const host = await f.hostFactory({ readModel: f.readModelA0, core: f.core,
+    authorityProvider: f.authorityGet, effects: f.effectBoundaryFactory() });
+  assert.equal(JSON.stringify(host.scene()), scene); host.destroy();
+  assert.throws(() => host.scene(), (error) => error.code === 'TOPOLOGY_READ_ONLY_HOST_DESTROYED');
+}
+console.log('[PASS] stale authority, terminal destroy, and deterministic remount cycles=100');
