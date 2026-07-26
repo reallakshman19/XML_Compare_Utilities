@@ -15,8 +15,8 @@ const newFiles = [
   'tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-bend-topology-mapping.js',
   'tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-bend-qualification.js',
 ];
-for (const path of newFiles) {
-  const source = read(path).toString('utf8');
+const sources = Object.fromEntries(newFiles.map((path) => [path, read(path).toString('utf8')]));
+for (const [path, source] of Object.entries(sources)) {
   assert.ok(source.split(/\r?\n/).length < 300, `${path} must stay below 300 lines`);
   assert.doesNotMatch(source, /export\s+default|localeCompare|\bDate\b|Math\.random|performance\.now/);
   assert.doesNotMatch(source, /pipeline-3d-model-xml-builder|pipeline-3d-model-core-runtime|canvas|cad-/i);
@@ -35,7 +35,20 @@ const protectedBlobs = {
   'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-projection.js': '468aa56b375c7510c3ca96d23bff1487b49c8ec7',
 };
 for (const [path, expected] of Object.entries(protectedBlobs)) assert.equal(gitBlobSha1(path), expected, path);
-const allSource = newFiles.map((path) => read(path).toString('utf8')).join('\n');
+const allSource = Object.values(sources).join('\n');
 assert.doesNotMatch(allSource, /turnAngleDeg\s*(?:\?\?|\|\||=).*ANGLE1|inactiveCorner.*curvatureNode|outgoingTangency.*curvatureNode/i);
-assert.match(read('docs/pipeline-gre-caesar/pipeline-gre-caesar-fixture-request.md').toString('utf8'), /F6/);
+const fixtureSource = sources['tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-fixture-evidence.js'];
+for (const token of ['caesarBuild', 'unitFileSha256', 'nativeJobSha256', 'operatorLogSha256',
+  'sourceCommitSha', 'cleanImport', 'comparisonFields']) assert.match(fixtureSource, new RegExp(token));
+const qualificationSource = sources['tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-bend-qualification.js'];
+for (const token of ['PIPELINE_GRE_CAESAR_FIXTURE_MATRIX_INCOMPLETE', 'F6_ACCEPTED_DIRECT',
+  'F6_REJECTED_F7_ACCEPTED', 'PIPELINE_GRE_CAESAR_F6_F7_DECISION_UNRESOLVED']) {
+  assert.match(qualificationSource, new RegExp(token));
+}
+const fieldSource = sources['tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-bend-field-mapping.js'];
+assert.match(fieldSource, /bendTypeLexicalValue/); assert.match(fieldSource, /curvatureNodeRoles/);
+const topologySource = sources['tabs/pipeline-3d-model/pipeline-3d-model-gre-caesar-bend-topology-mapping.js'];
+assert.match(topologySource, /roleProfiles/); assert.match(topologySource, /bendOwnerElementId/);
+const request = read('docs/pipeline-gre-caesar/pipeline-gre-caesar-fixture-request.md').toString('utf8');
+assert.match(request, /F6/); assert.match(request, /warning-free/); assert.match(request, /repository commit/);
 console.log('pipeline GRE CAESAR bend qualification static guards: PASS');
