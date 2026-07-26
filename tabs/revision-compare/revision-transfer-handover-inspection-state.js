@@ -56,4 +56,3 @@ export function failRevisionCompareHandoverInspection(state, generation, error) 
 export function clearRevisionCompareHandoverInspection(state) {
   return deepFreeze(blank((state?.requestGeneration ?? 0) + 1));
 }
-export const _test = Object.freeze({ blank, verifiedFields });
