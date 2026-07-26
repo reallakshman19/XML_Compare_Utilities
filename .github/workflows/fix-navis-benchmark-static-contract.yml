@@ -1,4 +1,4 @@
-name: Navis benchmark local static contract
+name: Deleted workflow local contract repair
 
 on:
   pull_request:
@@ -22,13 +22,21 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
       - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
-      - name: Replace stale workflow dependency with local benchmark contract
+      - name: Replace stale workflow dependencies with local executable contracts
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('tests/navis-tag-isonote-static.test.js')
-          text = path.read_text()
-          replacements = [
+
+          def patch(path, replacements):
+              file = Path(path)
+              text = file.read_text()
+              for old, new in replacements:
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{path}: expected exactly one source block, found {text.count(old)}: {old[:100]!r}')
+                  text = text.replace(old, new, 1)
+              file.write_text(text)
+
+          patch('tests/navis-tag-isonote-static.test.js', [
             (
               "const benchmarkWorkflow = readFileSync('.github/workflows/navis-tag-isonote-full-benchmark.yml', 'utf8');",
               "const benchmarkExpected = JSON.parse(readFileSync('fixtures/navis-tag-isonote/asim1836-benchmark-expected.json', 'utf8'));",
@@ -37,20 +45,28 @@ jobs:
               "assert.match(benchmarkWorkflow, /asim1836-benchmark-expected\\.json/);\nassert.match(benchmarkWorkflow, /Frozen benchmark verified/);",
               "assert.match(benchmarkRunner, /const expectedPath = options\\.expected \\|\\| '';/);\nassert.match(benchmarkRunner, /coverage\\.expectations = verifyExpectations/);\nassert.equal(benchmarkExpected.schema, 'navis-tag-isonote-benchmark-expectations/v1');\nassert.equal(benchmarkExpected.profileId, 'asim1836-managed-stage-2/v1');\nassert.equal(benchmarkExpected.sourceCounts.tableRows, 163);\nassert.equal(benchmarkExpected.identityTrace.resolvedCount, 163);\nassert.equal(benchmarkExpected.coordinateFrame.status, 'DISJOINT_COORDINATE_EXTENTS');\nassert.equal(benchmarkExpected.resolution.unresolvedCount, 163);",
             ),
-          ]
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f'expected exactly one source block, found {text.count(old)}: {old[:100]!r}')
-              text = text.replace(old, new, 1)
-          path.write_text(text)
+          ])
+
+          patch('tests/pipeline-3d-model-cad-browser-contract.test.js', [
+            (
+              "const workflow = readFileSync(new URL('../.github/workflows/pipeline-cad-browser-acceptance.yml', import.meta.url), 'utf8');",
+              "const browserSpecCount = (config.match(/pipeline[^']*\\.spec\\.mjs/g) || []).length;",
+            ),
+            (
+              "assert.match(workflow, /@playwright\\/test@1\\.54\\.1/);\nassert.match(workflow, /playwright install --with-deps chromium/);\nassert.match(workflow, /actions\\/upload-artifact@v4/);",
+              "assert.ok(browserSpecCount >= 15);\nassert.match(config, /screenshot: 'only-on-failure'/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /video: 'retain-on-failure'/);\nassert.match(config, /playwright-report\\/pipeline-cad-browser/);\nassert.match(config, /test-results\\/pipeline-cad-browser/);",
+            ),
+          ])
           PY
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
       - run: npm ci
-      - name: Focused Navis static contract
-        run: node tests/navis-tag-isonote-static.test.js
+      - name: Focused local contracts
+        run: |
+          node tests/navis-tag-isonote-static.test.js
+          node tests/pipeline-3d-model-cad-browser-contract.test.js
       - name: Repository-wide validation
         id: npm_test
         continue-on-error: true
@@ -60,7 +76,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: navis-static-contract-npm-test
+          name: local-static-contract-npm-test
           path: /tmp/npm-test/npm-test.log
           if-no-files-found: error
       - if: steps.npm_test.outcome != 'success'
@@ -68,12 +84,16 @@ jobs:
       - name: Enforce scope and exact head
         run: |
           git diff --check
-          test "$(git diff --name-only | tr -d '\r')" = 'tests/navis-tag-isonote-static.test.js'
+          git diff --name-only | sort > /tmp/actual
+          printf '%s\n' \
+            tests/navis-tag-isonote-static.test.js \
+            tests/pipeline-3d-model-cad-browser-contract.test.js | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
           test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
       - name: Commit and push certified static repair
         run: |
           git config user.name 'Repository Baseline Owner'
           git config user.email 'actions@users.noreply.github.com'
-          git add tests/navis-tag-isonote-static.test.js
-          git commit -m 'test: align Navis benchmark static contract'
+          git add tests/navis-tag-isonote-static.test.js tests/pipeline-3d-model-cad-browser-contract.test.js
+          git commit -m 'test: align deleted workflow contracts'
           git push origin HEAD:${TARGET_BRANCH}
