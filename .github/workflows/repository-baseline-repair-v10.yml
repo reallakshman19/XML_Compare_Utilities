@@ -1,0 +1,98 @@
+name: Repository baseline repair v10
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/repository-baseline-repair-v10.yml']
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: e010b3cb993f43ab71daf6d39be27a2dd3771790
+
+jobs:
+  certify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Replay reviewed baseline repairs
+        run: |
+          git fetch origin owner/fix-navis-benchmark-static-harness
+          git show origin/owner/fix-navis-benchmark-static-harness:.github/workflows/fix-navis-benchmark-static-contract.yml > /tmp/baseline.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/baseline.yml | sed '1d;$d;s/^          //' > /tmp/baseline.py
+          python /tmp/baseline.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/pipeline-3d-model-profile-propagation.test.js')
+          text = path.read_text()
+          old = """    sections: Object.freeze([Object.freeze({ analysisSectionId: 'AS1', startElementIndex: 0,
+              boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture' })]),
+            });"""
+          new = """    sections: Object.freeze([Object.freeze({ analysisSectionId: 'AS1', startElementIndex: 0,
+              boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture' })]),
+              elementResolutions: Object.freeze([]),
+            });"""
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one canonical plan block, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Focused profile fixture regression
+        run: node tests/pipeline-3d-model-profile-propagation.test.js
+      - name: Focused repaired contracts
+        run: |
+          node tests/navis-tag-isonote-static.test.js
+          node tests/pipeline-3d-model-cad-browser-contract.test.js
+          node tests/xml-builder-viewport-browser-contract.test.js
+          node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+          node tests/pipeline-3d-model-hard-051-ui-static.test.js
+      - name: Repository-wide validation
+        id: npm_test
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/npm-test
+          npm test > /tmp/npm-test/npm-test.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repository-baseline-repair-v10-npm-test
+          path: /tmp/npm-test/npm-test.log
+          if-no-files-found: error
+      - if: steps.npm_test.outcome != 'success'
+        run: exit 1
+      - name: Enforce scope and exact head
+        run: |
+          git diff --check
+          git diff --name-only | sort > /tmp/actual
+          printf '%s\n' \
+            tests/navis-tag-isonote-static.test.js \
+            tests/pipeline-3d-model-cad-browser-contract.test.js \
+            tests/xml-builder-viewport-browser-contract.test.js \
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
+            tests/pipeline-3d-model-hard-051-ui-static.test.js \
+            tests/pipeline-3d-model-profile-propagation.test.js | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Commit and push certified baseline repair
+        run: |
+          git config user.name 'Repository Baseline Owner'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tests/navis-tag-isonote-static.test.js \
+            tests/pipeline-3d-model-cad-browser-contract.test.js \
+            tests/xml-builder-viewport-browser-contract.test.js \
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
+            tests/pipeline-3d-model-hard-051-ui-static.test.js \
+            tests/pipeline-3d-model-profile-propagation.test.js
+          git commit -m 'test: repair stale repository baseline contracts'
+          git push origin HEAD:${TARGET_BRANCH}
