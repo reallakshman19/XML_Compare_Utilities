@@ -1,0 +1,7 @@
+/** Workspace v14 adoption and fresh-workspace isolation for imported handovers. */
+import { deepFreeze } from './revision-contract-utils.js';
+import { createRevisionCompareHandoverInspectionState } from './revision-transfer-handover-inspection-state.js';
+export const REVISION_COMPARE_HANDOVER_INSPECTION_WORKSPACE_SCHEMA = 'RevisionCompareWorkspaceState.v14';
+export function revisionCompareWorkspaceIsFreshForHandoverInspection(state) { return Boolean(state && !state.slots?.baseline?.document && !state.slots?.candidate?.document && !state.session?.documents?.baseline && !state.session?.documents?.candidate && !state.basis && !state.compare?.audit && !state.review?.session && !state.decision?.ledger && !state.transfer?.plan && !state.transfer?.result && !state.transferCompletion?.report && !state.transferArchive?.artifact); }
+export function adoptRevisionCompareHandoverInspectionWorkspace(state) { if (state?.schema === REVISION_COMPARE_HANDOVER_INSPECTION_WORKSPACE_SCHEMA && state.handoverInspection) return state; return deepFreeze({ ...state, schema: REVISION_COMPARE_HANDOVER_INSPECTION_WORKSPACE_SCHEMA, handoverInspection: state?.handoverInspection ?? createRevisionCompareHandoverInspectionState() }); }
+export function setWorkspaceHandoverInspection(state, inspection) { const adopted = adoptRevisionCompareHandoverInspectionWorkspace(state); return deepFreeze({ ...adopted, handoverInspection: inspection }); }
