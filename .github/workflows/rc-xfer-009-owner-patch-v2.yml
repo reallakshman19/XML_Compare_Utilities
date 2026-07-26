@@ -1,0 +1,113 @@
+name: RC-XFER-009 owner patch v2
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/rc-xfer-009-owner-patch-v2.yml'
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Apply minimal owner corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def replace(path, old, new):
+              file = Path(path); text = file.read_text()
+              if old not in text: raise SystemExit(f"Expected source block not found in {path}")
+              file.write_text(text.replace(old, new, 1))
+          path = 'tabs/revision-compare/revision-transfer-handover-inspection.js'
+          replace(path,
+          """  const schemas = [payload.transferPlan.receiverDocument.profile, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
+              REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];""",
+          """  const revB = payload.evidencePackage?.payload?.sessionManifest?.revisions?.revB;
+            const targetFileName = revB?.fileName; const patchedTargetSchema = revB?.document?.stagedSchema;
+            if (typeof targetFileName !== 'string' || !targetFileName || typeof patchedTargetSchema !== 'string' || !patchedTargetSchema) throw new Error('Embedded Rev B artifact authority is invalid.');
+            const schemas = [patchedTargetSchema, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
+              REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];""")
+          replace(path,
+          """    targetFileName: payload.transferPlan.receiverDocument.fileName,
+              patchedTargetSchema: payload.transferPlan.receiverDocument.profile,""",
+          """    targetFileName, patchedTargetSchema,""")
+          Path('tests/revision-compare-transfer-handover-inspection-scale.test.mjs').write_text("""import assert from 'node:assert/strict';
+          import { performance } from 'node:perf_hooks';
+          import { REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES } from '../tabs/revision-compare/revision-transfer-handover-inspection.js';
+          import { serializeRevisionCompareTransferHandoverBundle } from '../tabs/revision-compare/revision-transfer-handover.js';
+          import { handoverInspectionFixture } from './revision-compare-transfer-handover-inspection-fixtures.mjs';
+
+          const COUNTS = Object.freeze({ differences: 180_000, reviews: 95_000, decisions: 40_000,
+            operations: 120_000, auditRows: 120_000 });
+          function elapsed(start) { return Number((performance.now() - start).toFixed(1)); }
+          function heapMiB() { return Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)); }
+          const started = performance.now(); const fixture = await handoverInspectionFixture();
+          const fixtureDurationMs = elapsed(started); const operation = fixture.bundle.payload.transferPlan.operations[0];
+          const operationBytes = Buffer.byteLength(JSON.stringify(operation));
+          const operationArrayLowerBoundBytes = operationBytes * COUNTS.operations;
+          const baseBytes = Buffer.byteLength(serializeRevisionCompareTransferHandoverBundle(fixture.bundle));
+          const outOfProfile = operationArrayLowerBoundBytes > REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES;
+          const measurements = {
+            counts: COUNTS, baseBytes, operationBytes, operationArrayLowerBoundBytes,
+            maximumSourceBytes: REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES,
+            admissionQualification: outOfProfile ? 'FAIL_CLOSED_OUT_OF_PROFILE' : 'WITHIN_PROFILE',
+            fixtureDurationMs, heapAfterFixtureMiB: heapMiB(),
+          };
+          console.log(JSON.stringify(measurements, null, 2));
+          assert.equal(outOfProfile, true,
+            'The established 120,000-operation scale must remain explicitly outside the bounded browser-import profile.');
+          console.log('revision-compare-transfer-handover-inspection-scale.test.mjs passed');
+          """)
+          replace('tabs/revision-compare/revision-transfer-archive.js',
+            '`${label} retained SHA-256 does not match.`',
+            '`${label} retained content identity SHA-256 does not match.`')
+          replace('tests/revision-compare-svg-dependency-guard.test.mjs',
+            r'/RevisionCompareWorkspaceState\.v10/',
+            r'/RevisionCompareWorkspaceState\.v12/')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Syntax
+        run: |
+          node --check tabs/revision-compare/revision-transfer-handover-inspection.js
+          node --check tabs/revision-compare/revision-transfer-archive.js
+      - name: Focused verifier
+        run: node tests/revision-compare-transfer-handover-inspection.test.mjs
+      - name: Lifecycle
+        run: node tests/revision-compare-transfer-handover-inspection-lifecycle.test.mjs
+      - name: Controller
+        run: node tests/revision-compare-transfer-handover-inspection-controller.test.mjs
+      - name: Scale boundary
+        run: node --expose-gc tests/revision-compare-transfer-handover-inspection-scale.test.mjs
+      - name: Archive certification
+        run: node tests/revision-compare-transfer-archive-certification.test.mjs
+      - name: Revision Compare aggregate
+        run: npm run test:revision-compare
+      - name: Commit exact corrections
+        run: |
+          git config user.name 'RC-XFER-009 Owner'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tabs/revision-compare/revision-transfer-handover-inspection.js \
+            tabs/revision-compare/revision-transfer-archive.js \
+            tests/revision-compare-transfer-handover-inspection-scale.test.mjs \
+            tests/revision-compare-svg-dependency-guard.test.mjs
+          git diff --cached --check
+          git commit -m 'fix: certify transfer handover inspection'
+          git push origin HEAD:${FEATURE_BRANCH}
