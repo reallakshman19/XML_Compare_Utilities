@@ -55,7 +55,6 @@ for (let index = 0; index < 100; index += 1) {
   forgedService.service.destroy(); await new Promise((resolve) => setTimeout(resolve, 0)); forged += 1;
 }
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function acquire(storage, locks, documentId) {
   const recovery = createTopologyDraftRecovery(storage, { lockManager: locks });
   await recovery.acquireWriter(documentId);
