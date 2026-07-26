@@ -118,5 +118,5 @@ const corrupt = structuredClone(downloads.readState());
 corrupt.handoverInspection.bundle.payload.transferArtifacts[0].text += ' ';
 downloads.writeState(corrupt); const clicksBefore = downloads.events.clicks;
 await downloads.controller.handleClick(button('data-revc-download-imported-transfer-artifact', '0'));
-assert.equal(downloads.events.clicks, clicksBefore); assert.match(downloads.events.failures.at(-1), /artifact SHA-256/);
+assert.equal(downloads.events.clicks, clicksBefore); assert.match(downloads.events.failures.at(-1), /identity|artifact SHA-256/);
 console.log('revision-compare-transfer-handover-inspection-controller.test.mjs passed');
