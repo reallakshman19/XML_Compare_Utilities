@@ -1,4 +1,4 @@
-name: Repository static baseline repair
+name: Repository baseline repair
 
 on:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
       - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
-      - name: Apply static baseline repairs
+      - name: Apply repository baseline repairs
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -78,6 +78,27 @@ jobs:
           patch('tests/pipeline-3d-model-hard-051-ui-static.test.js', [
             ("assert.match(controller, /action === 'clear'/);", "assert.match(controller, /name === 'clear'/);\nassert.match(controller, /clearDraft\\(instance\\)/);"),
           ])
+
+          patch('tests/pipeline-3d-model-profile-propagation.test.js', [
+            (
+              """  draft = updatePipelineEngineeringConfigurationDraftCollections(draft, {
+              sections: [{ startElementIndex: 0, profileId: 'normal-metallic',
+                outsideDiameterMm: 100, sourceAuthority: 'TEST', sourceReference: 'profile-fixture' }],
+            });
+            const plan = buildPipelineEngineeringConfigurationPlan(draft);""",
+              """  const canonicalAnalysisSectionPlan = Object.freeze({
+              schema: 'PipelineAnalysisSectionPlan.v1', ready: true,
+              sections: Object.freeze([Object.freeze({ analysisSectionId: 'AS1', startElementIndex: 0,
+                boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture' })]),
+            });
+            draft = updatePipelineEngineeringConfigurationDraftCollections(draft, {
+              sections: [{ analysisSectionId: 'AS1', startElementIndex: 0, profileId: 'normal-metallic',
+                outsideDiameterMm: 100, boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture',
+                sourceAuthority: 'TEST', sourceReference: 'profile-fixture' }],
+            });
+            const plan = buildPipelineEngineeringConfigurationPlan(draft, { canonicalAnalysisSectionPlan });""",
+            ),
+          ])
           PY
       - uses: actions/setup-node@v4
         with:
@@ -91,6 +112,7 @@ jobs:
           node tests/xml-builder-viewport-browser-contract.test.js
           node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
           node tests/pipeline-3d-model-hard-051-ui-static.test.js
+          node tests/pipeline-3d-model-profile-propagation.test.js
       - name: Repository-wide validation
         id: npm_test
         continue-on-error: true
@@ -100,7 +122,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: repository-static-repair-npm-test
+          name: repository-baseline-repair-npm-test
           path: /tmp/npm-test/npm-test.log
           if-no-files-found: error
       - if: steps.npm_test.outcome != 'success'
@@ -114,10 +136,11 @@ jobs:
             tests/pipeline-3d-model-cad-browser-contract.test.js \
             tests/xml-builder-viewport-browser-contract.test.js \
             tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
-            tests/pipeline-3d-model-hard-051-ui-static.test.js | sort > /tmp/expected
+            tests/pipeline-3d-model-hard-051-ui-static.test.js \
+            tests/pipeline-3d-model-profile-propagation.test.js | sort > /tmp/expected
           diff -u /tmp/expected /tmp/actual
           test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
-      - name: Commit and push certified static repair
+      - name: Commit and push certified baseline repair
         run: |
           git config user.name 'Repository Baseline Owner'
           git config user.email 'actions@users.noreply.github.com'
@@ -125,6 +148,7 @@ jobs:
             tests/pipeline-3d-model-cad-browser-contract.test.js \
             tests/xml-builder-viewport-browser-contract.test.js \
             tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
-            tests/pipeline-3d-model-hard-051-ui-static.test.js
-          git commit -m 'test: repair stale repository static contracts'
+            tests/pipeline-3d-model-hard-051-ui-static.test.js \
+            tests/pipeline-3d-model-profile-propagation.test.js
+          git commit -m 'test: repair stale repository baseline contracts'
           git push origin HEAD:${TARGET_BRANCH}
