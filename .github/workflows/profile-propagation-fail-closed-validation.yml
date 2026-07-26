@@ -1,0 +1,24 @@
+name: Fail-closed profile propagation validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-propagation-fail-closed-validation.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: 24888c4e1f03c6930b623a3d88159e4550a9d9dc
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - run: node tests/pipeline-3d-model-profile-propagation.test.js
+      - run: test -z "$(git status --short)"
