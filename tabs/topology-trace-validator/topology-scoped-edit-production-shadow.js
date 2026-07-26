@@ -165,7 +165,12 @@ function createWithFactories(input, dependencies, factories) {
       if (destroyed) return evidence();
       let snapshot;
       try { snapshot = await input.snapshotProvider(); }
-      catch (error) { publish('SNAPSHOT', TOPOLOGY_PRODUCTION_SHADOW_STATUS.DEGRADED, '', { error: errorEvidence(error) }); return evidence(); }
+      catch (error) {
+        if (destroyed) return evidence();
+        publish('SNAPSHOT', TOPOLOGY_PRODUCTION_SHADOW_STATUS.DEGRADED, '', { error: errorEvidence(error) });
+        return evidence();
+      }
+      if (destroyed) return evidence();
       if (!snapshot) { releaseComposition(current); current = null;
         publish('MOUNT', TOPOLOGY_PRODUCTION_SHADOW_STATUS.IDLE, '', { reason: 'Edit authority is not initialized.' }); return evidence(); }
       const key = semanticHash({ authorityId: snapshot.authority?.authorityId ?? snapshot.authorityId,
@@ -175,6 +180,7 @@ function createWithFactories(input, dependencies, factories) {
       try {
         next = await buildMount(snapshot, input.authorityProvider, dependencies, factories,
           snapshot.selectionSnapshot?.entityIds ?? []);
+        if (destroyed) { releaseComposition(next); return evidence(); }
         let transition = immutableJson({ status: 'SKIPPED', reason: 'Initial production shadow mount.' },
           'Topology production shadow transition diagnostic');
         if (current) {
@@ -183,6 +189,7 @@ function createWithFactories(input, dependencies, factories) {
           catch (error) { transition = immutableJson({ status: 'FAIL', error: errorEvidence(error) },
             'Topology production shadow transition diagnostic'); }
         }
+        if (destroyed) { releaseComposition(next); return evidence(); }
         releaseComposition(current); current = Object.freeze({ ...next, key });
         const nextStatus = transition.status === 'FAIL'
           ? TOPOLOGY_PRODUCTION_SHADOW_STATUS.DEGRADED
@@ -191,6 +198,7 @@ function createWithFactories(input, dependencies, factories) {
           { mount: next.mountEvidence, transition });
       } catch (error) {
         releaseComposition(next);
+        if (destroyed) return evidence();
         if (current && current.readModel.authorityId !== snapshot.authority?.authorityId) {
           releaseComposition(current); current = null;
         }

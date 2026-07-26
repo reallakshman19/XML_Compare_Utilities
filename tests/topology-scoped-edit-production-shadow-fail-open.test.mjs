@@ -17,4 +17,16 @@ assert.equal(shadow.evidence().mounted, false);
 assert.equal(diagnostics.at(-1).error.code, 'BAD');
 assert.doesNotThrow(() => shadow.destroy());
 assert.equal(shadow.evidence().status, 'DESTROYED');
+
+let releaseSnapshot;
+const pendingSnapshot = new Promise((resolve) => { releaseSnapshot = resolve; });
+const lifecycleShadow = shadowTest.createWithFactories({ snapshotProvider: () => pendingSnapshot,
+  authorityProvider: () => 'A0' }, {}, factories);
+const pendingObserve = lifecycleShadow.observe();
+await Promise.resolve();
+lifecycleShadow.destroy();
+releaseSnapshot(snapshot);
+await pendingObserve;
+assert.equal(lifecycleShadow.evidence().status, 'DESTROYED');
+assert.equal(lifecycleShadow.evidence().mounted, false);
 console.log('[PASS] P4B diagnostics fail open without mutating or blocking the native editor');
