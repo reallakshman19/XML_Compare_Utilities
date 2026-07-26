@@ -1,0 +1,67 @@
+name: Profile propagation fixture diagnostic v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-propagation-fixture-diagnostic-v2.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: e010b3cb993f43ab71daf6d39be27a2dd3771790
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Apply canonical fixture repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('tests/pipeline-3d-model-profile-propagation.test.js')
+          text = path.read_text()
+          pattern = re.compile(
+              r"  draft = updatePipelineEngineeringConfigurationDraftCollections\(draft, \{\n"
+              r"    sections: \[\{ startElementIndex: 0, profileId: 'normal-metallic',\n"
+              r"      outsideDiameterMm: 100, sourceAuthority: 'TEST', sourceReference: 'profile-fixture' \}\],\n"
+              r"  \}\);\n"
+              r"  const plan = buildPipelineEngineeringConfigurationPlan\(draft\);"
+          )
+          replacement = """  const canonicalAnalysisSectionPlan = Object.freeze({
+            schema: 'PipelineAnalysisSectionPlan.v1', ready: true,
+            sections: Object.freeze([Object.freeze({ analysisSectionId: 'AS1', startElementIndex: 0,
+              boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture' })]),
+            elementResolutions: Object.freeze([]),
+          });
+          draft = updatePipelineEngineeringConfigurationDraftCollections(draft, {
+            sections: [{ analysisSectionId: 'AS1', startElementIndex: 0, profileId: 'normal-metallic',
+              outsideDiameterMm: 100, boundaryAuthority: 'TEST', boundarySourceReference: 'profile-fixture',
+              sourceAuthority: 'TEST', sourceReference: 'profile-fixture' }],
+          });
+          const plan = buildPipelineEngineeringConfigurationPlan(draft, { canonicalAnalysisSectionPlan });"""
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'expected one fixture block, replaced {count}')
+          path.write_text(text)
+          PY
+      - name: Capture focused output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/profile-fixture
+          node tests/pipeline-3d-model-profile-propagation.test.js > /tmp/profile-fixture/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-propagation-fixture-output-v2
+          path: /tmp/profile-fixture/output.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
