@@ -1,0 +1,56 @@
+name: RC-XFER-009 focused diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-focused-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Apply verifier correction in working tree
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tabs/revision-compare/revision-transfer-handover-inspection.js')
+          s = p.read_text()
+          s = s.replace("""  const schemas = [payload.transferPlan.receiverDocument.profile, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
+              REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];""", """  const revB = payload.evidencePackage?.payload?.sessionManifest?.revisions?.revB;
+            const targetFileName = revB?.fileName; const patchedTargetSchema = revB?.document?.stagedSchema;
+            if (typeof targetFileName !== 'string' || !targetFileName || typeof patchedTargetSchema !== 'string' || !patchedTargetSchema) throw new Error('Embedded Rev B artifact authority is invalid.');
+            const schemas = [patchedTargetSchema, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
+              REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];""", 1)
+          s = s.replace("""    targetFileName: payload.transferPlan.receiverDocument.fileName,
+              patchedTargetSchema: payload.transferPlan.receiverDocument.profile,""", """    targetFileName, patchedTargetSchema,""", 1)
+          p.write_text(s)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture focused output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir diagnostic
+          node tests/revision-compare-transfer-handover-inspection.test.mjs > diagnostic/focused.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-focused-diagnostic
+          path: diagnostic/focused.log
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
