@@ -21,7 +21,7 @@ export const TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1 = 'TopologyScopedEditReadModel.v
 export const TOPOLOGY_SCOPED_EDIT_SELECTION_SNAPSHOT_V1 = 'TopologyScopedEditSelectionSnapshot.v1';
 export const TOPOLOGY_SCOPED_EDIT_REGENERATION_CERTIFICATION_V1 =
   'TopologyScopedEditRegenerationCertification.v1';
-export const TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_V1 = 'TopologyScopedEditProducerProfile.v1';
+export const TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_V1 = 'TopologyReadOnlyProducerProfile.v1';
 export const TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_ID = 'topology-read-only-default-v1';
 export const TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION = Object.freeze({
   AUTHORITY_MISMATCH: 'READ_MODEL_AUTHORITY_MISMATCH',
@@ -250,12 +250,12 @@ async function createWithCore(input = {}, coreInput, dependencies = {}) {
     canonicalContentHash: regenerated.certification.canonicalContentHash,
     artifactsHash: regenerated.certification.artifactsHash,
     producerProfileId: regenerated.producerProfile.profileId,
-    producerProfileHash: regenerated.certification.producerProfileHash }, 'Topology canonical ancestry');
+    producerProfileHash: regenerated.certification.producerProfileHash, producerOptionsHash: regenerated.certification.producerOptionsHash }, 'Topology canonical ancestry');
   return immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1,
     authorityId: authority.authorityId, documentId: identity.documentId, sessionId: identity.sessionId,
     sourceHash: identity.sourceHash, sourceText: regenerated.sourceText,
     producerProfile: regenerated.producerProfile, producerOptions: regenerated.producerProfile.options,
-    producerProfileHash: regenerated.certification.producerProfileHash,
+    producerProfileHash: regenerated.certification.producerProfileHash, producerOptionsHash: regenerated.certification.producerOptionsHash,
     canonicalTopologyHash: canonical.canonicalHash,
     canonicalContentHash: regenerated.certification.canonicalContentHash,
     artifactsHash: regenerated.certification.artifactsHash, draftHash: draft.topologyEditDraftHash,
