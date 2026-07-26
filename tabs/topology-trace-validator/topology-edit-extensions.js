@@ -1,8 +1,7 @@
 /**
  * Edit Draft extensions: ghost-mode autofix proposals with Apply/Reject UI,
- * the bottom "Updates" ledger grid, and the staged JSON export. Runs beside
- * the edit controller through its onRender/onGhostPick hooks so the
- * controller itself stays lean.
+ * the bottom "Updates" ledger grid, the staged JSON export, and the P4B
+ * read-only production shadow observer. Runs beside the edit controller.
  */
 
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
@@ -13,6 +12,10 @@ import { buildUpdateLedgerRows, UPDATE_LEDGER_COLUMNS } from './topology-update-
 import { createUpdateLedgerGrid } from './topology-update-ledger-grid.js';
 import { buildStagedExport } from './topology-staged-export.js';
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
+import {
+  createTopologyScopedEditProductionShadow,
+  createTopologyScopedEditProductionSnapshot,
+} from './topology-scoped-edit-production-shadow-index.js';
 
 export function createTopologyEditExtensions(root, controller) {
   const dismissed = new Set();
@@ -21,6 +24,26 @@ export function createTopologyEditExtensions(root, controller) {
   let attributeById = new Map();
   let refreshing = false;
   const documentRef = root.ownerDocument;
+
+  function editEvidence() { return objectRecord(controller.edit.evidence()); }
+  function stagedSource() { return objectRecord(objectRecord(objectRecord(objectRecord(controller.evidence()).trace).artifacts).source).raw ?? null; }
+  function currentCanonical() {
+    const evidence = editEvidence();
+    return objectRecord(evidence.editedArtifacts).canonicalTopology ?? objectRecord(evidence.baseArtifacts).canonicalTopology ?? null;
+  }
+
+  const shadowTarget = root.querySelector('[data-ttv-edit-root]') ?? root;
+  const productionShadow = createTopologyScopedEditProductionShadow({
+    snapshotProvider: () => createTopologyScopedEditProductionSnapshot({ controller, root }),
+    authorityProvider: () => cleanText(objectRecord(editEvidence().commandAuthority).authorityId),
+    onDiagnostic: (diagnostic) => {
+      shadowTarget.setAttribute('data-ttv-shadow-status', cleanText(diagnostic.status));
+      shadowTarget.setAttribute('data-ttv-shadow-authority', cleanText(diagnostic.authorityId));
+      const EventCtor = documentRef.defaultView?.CustomEvent;
+      if (EventCtor) shadowTarget.dispatchEvent(new EventCtor('topology-shadow-diagnostic',
+        { detail: diagnostic }));
+    },
+  }, { cryptoRef: documentRef.defaultView?.crypto });
 
   const updatesHost = root.querySelector('[data-ttv-edit-updates]');
   const grid = updatesHost ? createUpdateLedgerGrid(updatesHost, {
@@ -31,13 +54,6 @@ export function createTopologyEditExtensions(root, controller) {
       if (row.source === 'COMMAND' && target) controller.edit.setExternalSelection([{ kind: target.startsWith('CN-') ? 'node' : 'edge', id: target }]);
     },
   }) : null;
-
-  function editEvidence() { return objectRecord(controller.edit.evidence()); }
-  function stagedSource() { return objectRecord(objectRecord(objectRecord(objectRecord(controller.evidence()).trace).artifacts).source).raw ?? null; }
-  function currentCanonical() {
-    const evidence = editEvidence();
-    return objectRecord(evidence.editedArtifacts).canonicalTopology ?? objectRecord(evidence.baseArtifacts).canonicalTopology ?? null;
-  }
 
   function refreshLedger() {
     const evidence = editEvidence();
@@ -159,7 +175,11 @@ export function createTopologyEditExtensions(root, controller) {
   });
 
   return Object.freeze({
-    onRender() { refreshLedger(); if (ghostsEnabled) refreshGhosts(); },
+    onRender() {
+      refreshLedger();
+      if (ghostsEnabled) refreshGhosts();
+      productionShadow.observe();
+    },
     refreshLedger,
     onGhostPick(objectId) {
       const id = ghostSuggestionId(objectId);
@@ -168,6 +188,7 @@ export function createTopologyEditExtensions(root, controller) {
       else if (attributeById.has(id)) showOverlay(attributeById.get(id), true);
     },
     getAttributeLedger: () => editEvidence().attributeLedger,
-    destroy() { closeOverlay(); grid?.destroy(); },
+    shadowEvidence: productionShadow.evidence,
+    destroy() { productionShadow.destroy(); closeOverlay(); grid?.destroy(); },
   });
 }
