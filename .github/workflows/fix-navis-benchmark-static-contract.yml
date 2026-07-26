@@ -74,6 +74,10 @@ jobs:
             ("assert.match(propagationRuntime, /sectionProfileRoutingPlan/);", "assert.match(propagation, /sectionProfileRoutingPlan/);"),
             ("assert.match(propagationRuntime, /inputXmlProfileAuthorityPlan/);", "assert.match(propagation, /inputXmlProfileAuthorityPlan/);"),
           ])
+
+          patch('tests/pipeline-3d-model-hard-051-ui-static.test.js', [
+            ("assert.match(controller, /action === 'clear'/);", "assert.match(controller, /name === 'clear'/);\nassert.match(controller, /clearDraft\\(instance\\)/);"),
+          ])
           PY
       - uses: actions/setup-node@v4
         with:
@@ -86,6 +90,7 @@ jobs:
           node tests/pipeline-3d-model-cad-browser-contract.test.js
           node tests/xml-builder-viewport-browser-contract.test.js
           node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+          node tests/pipeline-3d-model-hard-051-ui-static.test.js
       - name: Repository-wide validation
         id: npm_test
         continue-on-error: true
@@ -108,7 +113,8 @@ jobs:
             tests/navis-tag-isonote-static.test.js \
             tests/pipeline-3d-model-cad-browser-contract.test.js \
             tests/xml-builder-viewport-browser-contract.test.js \
-            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js | sort > /tmp/expected
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
+            tests/pipeline-3d-model-hard-051-ui-static.test.js | sort > /tmp/expected
           diff -u /tmp/expected /tmp/actual
           test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
       - name: Commit and push certified static repair
@@ -118,6 +124,7 @@ jobs:
           git add tests/navis-tag-isonote-static.test.js \
             tests/pipeline-3d-model-cad-browser-contract.test.js \
             tests/xml-builder-viewport-browser-contract.test.js \
-            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
+            tests/pipeline-3d-model-hard-051-ui-static.test.js
           git commit -m 'test: repair stale repository static contracts'
           git push origin HEAD:${TARGET_BRANCH}
