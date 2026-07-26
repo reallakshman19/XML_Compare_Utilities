@@ -1,0 +1,48 @@
+name: Profile propagation diagnostics dump
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-propagation-diagnostics-dump.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: 7cb5ca5ab6790dba50af28e32af032e2c54d0509
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Instrument diagnostics
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/pipeline-3d-model-profile-propagation.test.js')
+          text = path.read_text()
+          old = 'assert.equal(output.diagnostics.warningCount, 1);'
+          new = "console.log('PROFILE_DIAGNOSTICS=' + JSON.stringify({ warningCount: output.diagnostics.warningCount, warnings: output.warnings, errors: output.errors, orchestrationBlockerCodes: output.orchestration?.blockerCodes, documentBlockerCodes: output.inputXmlDocumentPlan?.blockerCodes }, null, 2));"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected warning assertion once, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Capture diagnostic output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/profile-diagnostics
+          node tests/pipeline-3d-model-profile-propagation.test.js > /tmp/profile-diagnostics/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-propagation-diagnostics
+          path: /tmp/profile-diagnostics/output.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
