@@ -32,16 +32,31 @@ export const REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS = Object.freeze([
   '[data-revc-create-transfer-archive]', '[data-revc-create-new-transfer-archive]',
   '[data-revc-create-sign-off]', '[data-revc-create-new-sign-off]', '[data-revc-trust-import]',
 ]);
+const authorityControlState = new WeakMap();
 export function revisionCompareHandoverTargetCreatesAuthority(target) {
   return Boolean(target?.closest?.(REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS.join(',')));
 }
+function restoreAttribute(control, name, value) {
+  if (value === null) control.removeAttribute(name); else control.setAttribute(name, value);
+}
 function syncAuthorityControls(root, locked) {
   root.querySelectorAll(REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS.join(',')).forEach((control) => {
-    if (locked && 'disabled' in control) control.disabled = true;
     if (locked) {
+      if (!authorityControlState.has(control)) {
+        authorityControlState.set(control, {
+          disabled: 'disabled' in control ? control.disabled : null,
+          ariaDisabled: control.getAttribute('aria-disabled'), title: control.getAttribute('title'),
+        });
+      }
+      if ('disabled' in control) control.disabled = true;
       control.setAttribute('aria-disabled', 'true');
       control.setAttribute('title', 'Clear the transfer handover inspection before changing Revision Compare authority.');
-    } else { control.removeAttribute('aria-disabled'); control.removeAttribute('title'); }
+      return;
+    }
+    const prior = authorityControlState.get(control); if (!prior) return;
+    if (prior.disabled !== null) control.disabled = prior.disabled;
+    restoreAttribute(control, 'aria-disabled', prior.ariaDisabled);
+    restoreAttribute(control, 'title', prior.title); authorityControlState.delete(control);
   });
 }
 function transferController(options) {
