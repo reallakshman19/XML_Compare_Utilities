@@ -290,6 +290,41 @@ function bindFilters(root) {
     const query = input.value.toLowerCase().trim();
     root.querySelectorAll(input.dataset.ntiFilterTarget).forEach((node) => node.classList.toggle('is-filtered', Boolean(query && !node.textContent.toLowerCase().includes(query))));
   }));
+  root.querySelectorAll('[data-nti-copy-filtered]').forEach((btn) => btn.addEventListener('click', async () => {
+    const filterId = btn.dataset.ntiCopyFiltered;
+    const table = root.querySelector(`.nti-filter-table-${filterId}`);
+    if (!table) return;
+    const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim().replace(/\s+/g, ' '));
+    const visibleRows = Array.from(table.querySelectorAll('tbody tr')).filter((tr) => !tr.classList.contains('is-filtered') && tr.style.display !== 'none');
+    const lines = [headers.join('\t')];
+    for (const tr of visibleRows) {
+      const cells = Array.from(tr.querySelectorAll('td')).map((td) => td.textContent.trim().replace(/\s+/g, ' '));
+      if (cells.length) lines.push(cells.join('\t'));
+    }
+    const text = lines.join('\n');
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      const orig = btn.innerHTML;
+      btn.innerHTML = `<span aria-hidden="true">✓</span><span>Copied (${visibleRows.length})</span>`;
+      btn.style.borderColor = 'var(--ok-color, #28a745)';
+      setTimeout(() => {
+        btn.innerHTML = orig;
+        btn.style.borderColor = '';
+      }, 2000);
+    } catch {
+      btn.innerHTML = `<span aria-hidden="true">!</span><span>Copy failed</span>`;
+      setTimeout(() => { btn.innerHTML = `<span aria-hidden="true">📋</span><span>Copy filtered</span>`; }, 2000);
+    }
+  }));
 }
 function downloadAudit(state) {
   const replacer = (key, value) => {

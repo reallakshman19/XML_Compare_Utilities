@@ -1,6 +1,6 @@
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
 import { DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
-import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown } from './navis-tag-isonote-ui-view.js';
+import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown, renderFilterBar } from './navis-tag-isonote-ui-view.js';
 
 const STYLE_ID = 'navis-tag-isonote-workflow-style';
 
@@ -214,7 +214,7 @@ function renderFinal(state) {
   const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Basis'];
   return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>The Tag column retains the original Tag code. Support ISONOTE uses the selected support identity and configurable expanded instructions.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
   <section class="nti-card"><div class="nti-section-head"><div><h3>Final table</h3><p>Identity preference: grouped /DATUM first; otherwise smallest numeric support suffix.</p></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="download-final-csv" ${rows.length ? '' : 'disabled'}>Export final CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Audit JSON</button></div></div>
-    <input class="nti-filter" data-nti-table-filter="final-output" placeholder="Filter support, pipe, Tag, confidence or basis...">
+    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence or basis...')}
     ${renderTable(headers, rows, 'nti-filter-table-final-output')}
   </section>
   <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain the complete direct, rejected and propagation evidence behind the final delivery table.</div><div class="nti-actions">
