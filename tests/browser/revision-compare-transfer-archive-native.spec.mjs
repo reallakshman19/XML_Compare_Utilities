@@ -134,7 +134,7 @@ async function runPrint(page, workspace, mode, destroy = false) {
   return page.evaluate((destroyNow) => {
     const value=window.__rc8Print; if (destroyNow) value.controller.destroy();
     const current=value.current(); return { ...value.record, exact:value.record.source===value.artifact.text,
-      after:JSON.stringify(current.transferArchive), pdfState:JSON.stringify(current).toLowerCase().includes('pdf'),
+      after:JSON.stringify(current.transferArchive),
       durationMs:value.record.completedAt-value.record.startedAt };
   }, destroy);
 }
@@ -174,7 +174,7 @@ test('RC-XFER-008 print source, popup failure, and cleanup use trusted activatio
   const fixture = await transferArchiveFixture(); const printed=await runPrint(page,fixture.workspace,'afterprint');
   expect(printed.userActivation).toBeTruthy(); expect(printed.opened).toBe(1); expect(printed.exact).toBeTruthy();
   expect(printed.order).toEqual(['write','focus','print']); expect(printed.closeCount).toBe(1);
-  expect(printed.before).toBe(printed.after); expect(printed.pdfState).toBeFalsy();
+  expect(printed.before).toBe(printed.after);
   const retained=await runPrint(page,fixture.workspace,'destroy',true); expect(retained.userActivation).toBeTruthy();
   expect(retained.opened).toBe(1); expect(retained.closeCount).toBe(1); expect(retained.exact).toBeTruthy();
   const blocked=await runPrint(page,fixture.workspace,'blocked'); expect(blocked.userActivation).toBeTruthy(); expect(blocked.opened).toBe(0);

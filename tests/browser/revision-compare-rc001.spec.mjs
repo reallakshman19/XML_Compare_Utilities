@@ -98,9 +98,9 @@ test('no-common scope keeps one-sided additions and removals visible', async ({ 
   await openWorkspace(page);
   await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
   await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));
-  await expect(page.getByRole('heading', { name: /^Common branches 0$/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /^Rev A only 1$/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /^Rev B only 1$/ })).toBeVisible();
+  await expect(page.locator('[data-revc-scope-group="common"] h3 span')).toHaveText('0');
+  await expect(page.locator('[data-revc-scope-group="revAOnly"] h3 span')).toHaveText('1');
+  await expect(page.locator('[data-revc-scope-group="revBOnly"] h3 span')).toHaveText('1');
   await expect(page.locator('[data-revc-branch-id="branch:/A-ONLY"]')).toBeChecked();
   await expect(page.locator('[data-revc-branch-id="branch:/B-ONLY"]')).toBeChecked();
 });

@@ -49,6 +49,8 @@ export const DEFAULT_NAVIS_TAG_ISONOTE_CONFIG = Object.freeze({
   boreToOdLookupEnabled: false,
   boreToOdLookupName: '',
   boreToOdLookup: {},
+  navisAnchorTagId: '',
+  navisAnchorSupportIdentity: '',
 });
 
 export function text(value) { return String(value ?? '').trim(); }
@@ -228,6 +230,8 @@ export function normalizeConfig(input = {}) {
     boreToOdLookupEnabled: input.boreToOdLookupEnabled === true || input.boreToOdLookupEnabled === 'true',
     boreToOdLookupName: text(input.boreToOdLookupName),
     boreToOdLookup: normalizeLookup(input.boreToOdLookup),
+    navisAnchorTagId: text(input.navisAnchorTagId),
+    navisAnchorSupportIdentity: text(input.navisAnchorSupportIdentity),
   };
 }
 function signedFiniteNumber(value, fallback = 0) {

@@ -209,7 +209,7 @@ function buildAll(state) {
   state.stagedIndex = refineStagedSupportIndex(state.rawStagedIndex, state.tree, state.config);
   state.resolutionBuild = buildResolutionSupportRecords(state.tableBuild, state.stagedIndex, state.config);
   state.identityTrace = buildIdentityNodeTrace(state.resolutionBuild.records, state.stagedIndex, state.config);
-  state.navisParse = parseNavisTagXml(state.navisText, state.config);
+  state.navisParse = parseNavisTagXml(state.navisText, state.config, state.identityTrace);
   state.readiness = buildNavisTagIsonoteReadiness({
     config: state.config,
     tableBuild: state.tableBuild,

@@ -1,4 +1,4 @@
-import { NAVIS_TAG_EVIDENCE_SCHEMA, coordinateProfileOptions, normalizeConfig, parseCoordinate } from './navis-tag-isonote-contracts.js';
+import { NAVIS_TAG_EVIDENCE_SCHEMA, coordinateProfileOptions, normalizeConfig, parseCoordinate, text, unitScaleToMm } from './navis-tag-isonote-contracts.js';
 
 function decodeXml(value) {
   return String(value ?? '')
@@ -51,7 +51,7 @@ function rootUnit(source, override) {
 }
 function diagnostic(severity, code, message, context = {}) { return { severity, code, message, ...context }; }
 
-export function parseNavisTagXml(xmlText, inputConfig = {}) {
+export function parseNavisTagXml(xmlText, inputConfig = {}, identityTrace = null) {
   const source = String(xmlText || '');
   const config = normalizeConfig(inputConfig);
   const diagnostics = [];
@@ -105,7 +105,7 @@ export function parseNavisTagXml(xmlText, inputConfig = {}) {
 
   if (!viewBlocks.length) diagnostics.push(diagnostic('ERROR', 'NAVIS_VIEWS_NOT_FOUND', 'No <view> records were found.'));
   if (!tags.length) diagnostics.push(diagnostic('ERROR', 'NAVIS_TAGS_NOT_FOUND', 'No <rltag> records were found.'));
-  return {
+  const result = {
     tags, diagnostics,
     summary: {
       viewCount: viewBlocks.length, tagCount: tags.length, validTagCount: tags.filter((tag) => tag.position && tag.commentBody).length,
@@ -117,4 +117,110 @@ export function parseNavisTagXml(xmlText, inputConfig = {}) {
       datumOffsetMm: coordinateProfileOptions(config, 'navis'),
     },
   };
+  return applyAnchorTransformation(result, identityTrace, config);
+}
+
+export function applyAnchorTransformation(navisParse, identityTrace, inputConfig = {}) {
+  if (!navisParse || !Array.isArray(navisParse.tags)) return navisParse;
+  const config = normalizeConfig(inputConfig);
+  const tagId = text(config.navisAnchorTagId);
+  const supportId = text(config.navisAnchorSupportIdentity);
+  if (!tagId || !supportId || !identityTrace) {
+    navisParse.anchor = {
+      active: false,
+      tagId: '',
+      supportIdentity: '',
+      deltaEMm: 0,
+      deltaNMm: 0,
+      deltaElMm: 0,
+      summaryText: '',
+    };
+    return navisParse;
+  }
+
+  const anchorTag = navisParse.tags.find((t) =>
+    text(t.tagId) === tagId ||
+    text(t.commentId) === tagId ||
+    text(t.viewIndex) === tagId
+  );
+  const targetId = supportId.toLowerCase().replace(/^\//, '');
+  const anchorRow = (identityTrace.rows || []).find((row) => {
+    const canonical = text(row.canonicalIdentity).toLowerCase().replace(/^\//, '');
+    const raw = text(row.tableIdentityRaw).toLowerCase().replace(/^\//, '');
+    if (canonical === targetId || raw === targetId) return true;
+    if ((row.groupedIdentities || []).some((id) => text(id).toLowerCase().replace(/^\//, '') === targetId)) return true;
+    return false;
+  });
+
+  if (!anchorTag || !anchorRow || !anchorTag.rawPosition || !anchorRow.position) {
+    navisParse.anchor = {
+      active: false,
+      tagId,
+      supportIdentity: supportId,
+      deltaEMm: 0,
+      deltaNMm: 0,
+      deltaElMm: 0,
+      summaryText: `Anchor configured (Tag ${tagId} -> PS ${supportId}) but target was not found.`,
+    };
+    return navisParse;
+  }
+
+  const units = anchorTag.units || 'm';
+  const scale = unitScaleToMm(units, [anchorTag.rawPosition.x, anchorTag.rawPosition.y, anchorTag.rawPosition.z]);
+  const rawE = anchorTag.rawPosition.x * scale;
+  const rawN = anchorTag.rawPosition.y * scale;
+  const rawEL = anchorTag.rawPosition.z * scale;
+
+  const jsonE = Number(anchorRow.position?.x);
+  const jsonN = Number(anchorRow.position?.y);
+  const jsonEL = Number(anchorRow.position?.z);
+
+  if (![rawE, rawN, rawEL, jsonE, jsonN, jsonEL].every(Number.isFinite)) {
+    navisParse.anchor = {
+      active: false,
+      tagId,
+      supportIdentity: supportId,
+      deltaEMm: 0,
+      deltaNMm: 0,
+      deltaElMm: 0,
+      summaryText: `Anchor configured (Tag ${tagId} -> PS ${supportId}) but coordinates were invalid.`,
+    };
+    return navisParse;
+  }
+
+  const deltaE = jsonE - rawE;
+  const deltaN = jsonN - rawN;
+  const deltaEL = jsonEL - rawEL;
+
+  const effectiveConfig = {
+    ...config,
+    navisEastingDatumMm: deltaE,
+    navisNorthingDatumMm: deltaN,
+    navisElevationDatumMm: deltaEL,
+  };
+  const options = coordinateProfileOptions(effectiveConfig, 'navis');
+
+  for (const tag of navisParse.tags) {
+    if (!tag.rawPosition) continue;
+    const newPos = parseCoordinate(tag.rawPosition, tag.units, options);
+    tag.position = newPos;
+    tag.datumOffsetMm = newPos?.datumOffsetMm || { x: deltaE, y: deltaN, z: deltaEL };
+    tag.transformBasis = `ANCHOR_OVERRIDE: Tag ${anchorTag.tagId} -> ${anchorRow.canonicalIdentity} (ΔE=${deltaE.toFixed(3)}, ΔN=${deltaN.toFixed(3)}, ΔEL=${deltaEL.toFixed(3)} mm)`;
+  }
+
+  navisParse.anchor = {
+    active: true,
+    tagId: anchorTag.tagId,
+    commentId: anchorTag.commentId,
+    supportIdentity: anchorRow.canonicalIdentity,
+    deltaEMm: deltaE,
+    deltaNMm: deltaN,
+    deltaElMm: deltaEL,
+    summaryText: `ANCHOR OVERRIDE: Tag ${anchorTag.tagId} -> ${anchorRow.canonicalIdentity} (ΔE=${deltaE.toFixed(3)}, ΔN=${deltaN.toFixed(3)}, ΔEL=${deltaEL.toFixed(3)} mm)`,
+  };
+  if (navisParse.summary) {
+    navisParse.summary.datumOffsetMm = { x: deltaE, y: deltaN, z: deltaEL };
+  }
+
+  return navisParse;
 }

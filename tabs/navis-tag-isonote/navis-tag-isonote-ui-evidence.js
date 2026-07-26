@@ -91,7 +91,9 @@ export function navisCoordinateRows(state) {
     const transformed = tag.position || {};
     const applied = transformed.datumOffsetMm || {};
     const valid = Boolean(tag.position && tag.commentBody);
-    const datumStatus = !state.inputsDirty
+    const datumStatus = state.navisParse?.anchor?.active
+      ? 'ANCHOR_OVERRIDE'
+      : !state.inputsDirty
       && sameNumber(applied.x, configured.x)
       && sameNumber(applied.y, configured.y)
       && sameNumber(applied.z, configured.z)
@@ -126,7 +128,7 @@ export function navisCoordinateRows(state) {
       elFormula: axisFormula(raw.z, transformed.unitScale, applied.z, transformed.z),
       coordinateProfile: transformed.profileName || tag.coordinateProfileName || '',
       axisBasis: transformed.axisBasis || '',
-      transform: tag.position ? `raw XYZ × ${transformed.unitScale} + applied datum offsets` : '',
+      transform: tag.transformBasis || (tag.position ? `raw XYZ × ${transformed.unitScale} + applied datum offsets` : ''),
       coordinateStatus: valid ? 'VALID_FOR_MATCHING' : tag.position ? 'COORDINATE_ONLY' : 'INVALID',
       diagnostics: (tag.diagnostics || []).join(' | '),
     };
