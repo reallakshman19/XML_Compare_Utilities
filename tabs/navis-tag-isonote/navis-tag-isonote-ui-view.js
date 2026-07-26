@@ -66,7 +66,7 @@ function compactNumber(value, digits = 3) {
   const number = Number(value);
   return Number.isFinite(number) ? Number(number.toFixed(digits)) : '';
 }
-function renderAnchorPreview(state) {
+export function renderAnchorPreview(state) {
   const cfg = state.config || {};
   const tagId = (cfg.navisAnchorTagId || '').trim();
   const supportId = (cfg.navisAnchorSupportIdentity || '').trim();
