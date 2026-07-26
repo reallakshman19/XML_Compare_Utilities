@@ -1,0 +1,54 @@
+name: RC-XFER-009 focused Playwright diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-focused-playwright-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+  PATCH_SOURCE_COMMIT: b3efa4d46e836cc3ef6b778943047c9e21a90e70
+  CI: 'true'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Replay pinned owner patch
+        run: |
+          git fetch origin owner/rc-xfer-009-certification-release
+          git show "${PATCH_SOURCE_COMMIT}:.github/workflows/rc-xfer-009-owner-release.yml" > /tmp/owner-release.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/owner-release.yml | sed '1d;$d;s/^          //' > /tmp/owner-patch.py
+          python /tmp/owner-patch.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Capture focused Playwright output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p diagnostic
+          npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs \
+            --config=playwright.revision-compare.config.mjs \
+            --reporter=line > diagnostic/focused-playwright.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-focused-playwright-diagnostic
+          path: diagnostic/focused-playwright.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
