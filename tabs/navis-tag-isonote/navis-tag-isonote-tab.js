@@ -401,8 +401,8 @@ function render(root, state) {
     markInputsDirty(state);
     render(root, state);
   }));
-  root.querySelector('[data-nti-action="clear-session"]')?.addEventListener(ACTIVATE, () => { resetRememberedSources(state); render(root, state); });
-  root.querySelector('[data-nti-action="build"]')?.addEventListener(ACTIVATE, () => {
+  root.querySelectorAll('[data-nti-action="clear-session"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => { resetRememberedSources(state); render(root, state); }));
+  root.querySelectorAll('[data-nti-action="build"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => {
     try {
       collectConfig(root, state);
       buildAll(state);
@@ -412,8 +412,8 @@ function render(root, state) {
       state.status = error?.message || String(error);
     }
     render(root, state);
-  });
-  root.querySelector('[data-nti-action="run"]')?.addEventListener(ACTIVATE, () => {
+  }));
+  root.querySelectorAll('[data-nti-action="run"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => {
     try {
       collectConfig(root, state);
       runResolution(state);
@@ -424,13 +424,13 @@ function render(root, state) {
       state.activeTab = 'inputs';
     }
     render(root, state);
-  });
-  root.querySelector('[data-nti-action="download-final-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-final-isonote.csv', rowsToCsv(state.audit?.finalRows || []), 'text/csv'));
-  root.querySelector('[data-nti-action="download-csv"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-audit.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv'));
-  root.querySelector('[data-nti-action="download-trace"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-end-to-end-identity-trace.csv', rowsToCsv(state.identityTrace?.rows || []), 'text/csv'));
-  root.querySelector('[data-nti-action="download-audit"]')?.addEventListener(ACTIVATE, () => downloadAudit(state));
-  root.querySelector('[data-nti-action="download-ambiguous"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-ambiguous.csv', rowsToCsv(state.audit?.ambiguousRows || []), 'text/csv'));
-  root.querySelector('[data-nti-action="download-rejected"]')?.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-rejected.csv', rowsToCsv(state.audit?.rejectedRows || []), 'text/csv'));
+  }));
+  root.querySelectorAll('[data-nti-action="download-final-csv"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-final-isonote.csv', rowsToCsv(state.audit?.finalRows || []), 'text/csv')));
+  root.querySelectorAll('[data-nti-action="download-csv"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-audit.csv', rowsToCsv(state.audit?.augmentedRows || []), 'text/csv')));
+  root.querySelectorAll('[data-nti-action="download-trace"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-end-to-end-identity-trace.csv', rowsToCsv(state.identityTrace?.rows || []), 'text/csv')));
+  root.querySelectorAll('[data-nti-action="download-audit"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadAudit(state)));
+  root.querySelectorAll('[data-nti-action="download-ambiguous"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-ambiguous.csv', rowsToCsv(state.audit?.ambiguousRows || []), 'text/csv')));
+  root.querySelectorAll('[data-nti-action="download-rejected"]').forEach((btn) => btn.addEventListener(ACTIVATE, () => downloadNavisTagFile('navis-tag-support-isonote-rejected.csv', rowsToCsv(state.audit?.rejectedRows || []), 'text/csv')));
   root.querySelectorAll('[data-nti-file]').forEach((input) => input.addEventListener('change', async () => {
     const file = input.files?.[0];
     if (!file) return;
