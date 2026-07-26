@@ -27,99 +27,154 @@ env:
 jobs:
   focused-node:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
-      - name: Check out pinned source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_SOURCE_SHA }}
-      - name: Verify exact source
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Focused verifier
-        run: node tests/revision-compare-transfer-handover-inspection.test.mjs
-      - name: Lifecycle
-        run: node tests/revision-compare-transfer-handover-inspection-lifecycle.test.mjs
-      - name: Controller
-        run: node tests/revision-compare-transfer-handover-inspection-controller.test.mjs
-      - name: Scale
-        run: node --expose-gc tests/revision-compare-transfer-handover-inspection-scale.test.mjs
-      - name: Transfer compatibility
+      - run: npm ci
+      - name: Run focused and compatibility suites
+        id: focused
+        continue-on-error: true
+        shell: bash
         run: |
-          node tests/revision-compare-transfer-handover.test.mjs
-          node tests/revision-compare-transfer-completion.test.mjs
-          node tests/revision-compare-transfer-completion-lifecycle.test.mjs
-          node tests/revision-compare-transfer-archive.test.mjs
-          node tests/revision-compare-transfer-archive-html.test.mjs
-          node tests/revision-compare-transfer-archive-lifecycle.test.mjs
-          node tests/revision-compare-transfer-archive-certification.test.mjs
+          mkdir -p certification
+          status=0
+          run_case() {
+            name="$1"
+            shift
+            set +e
+            "$@" >"certification/${name}.log" 2>&1
+            rc=$?
+            set -e
+            cat "certification/${name}.log"
+            if [ "$rc" -ne 0 ]; then status=1; fi
+          }
+          run_case focused-verifier node tests/revision-compare-transfer-handover-inspection.test.mjs
+          run_case lifecycle node tests/revision-compare-transfer-handover-inspection-lifecycle.test.mjs
+          run_case controller node tests/revision-compare-transfer-handover-inspection-controller.test.mjs
+          run_case scale node --expose-gc tests/revision-compare-transfer-handover-inspection-scale.test.mjs
+          run_case transfer-handover node tests/revision-compare-transfer-handover.test.mjs
+          run_case completion node tests/revision-compare-transfer-completion.test.mjs
+          run_case completion-lifecycle node tests/revision-compare-transfer-completion-lifecycle.test.mjs
+          run_case archive node tests/revision-compare-transfer-archive.test.mjs
+          run_case archive-html node tests/revision-compare-transfer-archive-html.test.mjs
+          run_case archive-lifecycle node tests/revision-compare-transfer-archive-lifecycle.test.mjs
+          run_case archive-certification node tests/revision-compare-transfer-archive-certification.test.mjs
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-focused-logs
+          path: certification/*.log
+          if-no-files-found: error
+      - name: Enforce focused result
+        if: steps.focused.outcome != 'success'
+        run: exit 1
 
   revision-compare-aggregate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
-      - name: Check out pinned source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_SOURCE_SHA }}
-      - name: Verify exact source
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Revision Compare aggregate
-        run: npm run test:revision-compare
+      - run: npm ci
+      - name: Run Revision Compare aggregate
+        id: aggregate
+        continue-on-error: true
+        run: |
+          mkdir -p certification
+          npm run test:revision-compare >certification/revision-compare-aggregate.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-aggregate-log
+          path: certification/revision-compare-aggregate.log
+          if-no-files-found: error
+      - name: Enforce aggregate result
+        if: steps.aggregate.outcome != 'success'
+        run: exit 1
 
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
-      - name: Check out pinned source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_SOURCE_SHA }}
-      - name: Verify exact source
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Focused Playwright
-        run: npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs --config=playwright.revision-compare.config.mjs
-      - name: Complete Revision Compare Playwright
-        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run browser suites
+        id: browser-tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p certification
+          status=0
+          set +e
+          npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs --config=playwright.revision-compare.config.mjs >certification/focused-playwright.log 2>&1
+          rc=$?
+          set -e
+          cat certification/focused-playwright.log
+          if [ "$rc" -ne 0 ]; then status=1; fi
+          set +e
+          npx playwright test --config=playwright.revision-compare.config.mjs >certification/complete-playwright.log 2>&1
+          rc=$?
+          set -e
+          cat certification/complete-playwright.log
+          if [ "$rc" -ne 0 ]; then status=1; fi
+          exit "$status"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-browser-logs
+          path: certification/*playwright.log
+          if-no-files-found: error
+      - name: Enforce browser result
+        if: steps.browser-tests.outcome != 'success'
+        run: exit 1
 
   repository-wide:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
-      - name: Check out pinned source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.EXPECTED_SOURCE_SHA }}
-      - name: Verify exact source
-        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Repository-wide suite
-        run: npm test
+      - run: npm ci
+      - name: Run repository-wide suite
+        id: repository-tests
+        continue-on-error: true
+        run: |
+          mkdir -p certification
+          npm test >certification/repository-wide.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-repository-wide-log
+          path: certification/repository-wide.log
+          if-no-files-found: error
+      - name: Enforce repository result
+        if: steps.repository-tests.outcome != 'success'
+        run: exit 1
