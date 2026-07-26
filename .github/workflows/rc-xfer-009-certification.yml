@@ -1,0 +1,125 @@
+name: RC-XFER-009 exact-head certification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/rc-xfer-009-certification.yml'
+      - 'tabs/revision-compare/**'
+      - 'tests/revision-compare-transfer-handover-inspection*.mjs'
+      - 'tests/browser/revision-compare-transfer-handover-inspection.spec.mjs'
+      - 'playwright.revision-compare.config.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc-xfer-009-certification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SOURCE_SHA: 47d33e441d04ff2435ee7d4e3e8e7ffc8da7b4ef
+  CI: 'true'
+
+jobs:
+  focused-node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SOURCE_SHA }}
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Focused verifier
+        run: node tests/revision-compare-transfer-handover-inspection.test.mjs
+      - name: Lifecycle
+        run: node tests/revision-compare-transfer-handover-inspection-lifecycle.test.mjs
+      - name: Controller
+        run: node tests/revision-compare-transfer-handover-inspection-controller.test.mjs
+      - name: Scale
+        run: node --expose-gc tests/revision-compare-transfer-handover-inspection-scale.test.mjs
+      - name: Transfer compatibility
+        run: |
+          node tests/revision-compare-transfer-handover.test.mjs
+          node tests/revision-compare-transfer-completion.test.mjs
+          node tests/revision-compare-transfer-completion-lifecycle.test.mjs
+          node tests/revision-compare-transfer-archive.test.mjs
+          node tests/revision-compare-transfer-archive-html.test.mjs
+          node tests/revision-compare-transfer-archive-lifecycle.test.mjs
+          node tests/revision-compare-transfer-archive-certification.test.mjs
+
+  revision-compare-aggregate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SOURCE_SHA }}
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Revision Compare aggregate
+        run: npm run test:revision-compare
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SOURCE_SHA }}
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Focused Playwright
+        run: npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs --config=playwright.revision-compare.config.mjs
+      - name: Complete Revision Compare Playwright
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+
+  repository-wide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_SOURCE_SHA }}
+      - name: Verify exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Repository-wide suite
+        run: npm test
