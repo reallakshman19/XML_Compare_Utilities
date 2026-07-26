@@ -1,12 +1,6 @@
 /** File intake, exact downloads, race containment and explicit clear. */
-import {
-  REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES, REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES,
-  verifyRevisionCompareTransferHandoverText,
-} from './revision-transfer-handover-inspection.js';
-import {
-  clearRevisionCompareHandoverInspection, completeRevisionCompareHandoverInspection,
-  failRevisionCompareHandoverInspection, startRevisionCompareHandoverInspection,
-} from './revision-transfer-handover-inspection-state.js';
+import { REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES, REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES, verifyRevisionCompareTransferHandoverText } from './revision-transfer-handover-inspection.js';
+import { clearRevisionCompareHandoverInspection, completeRevisionCompareHandoverInspection, failRevisionCompareHandoverInspection, startRevisionCompareHandoverInspection } from './revision-transfer-handover-inspection-state.js';
 import { revisionCompareTransferHandoverFileName, serializeRevisionCompareTransferHandoverBundle } from './revision-transfer-handover.js';
 import { revisionCompareHandoverInspectionReadiness, setWorkspaceHandoverInspection } from './revision-transfer-handover-inspection-workspace-state.js';
 
@@ -46,17 +40,20 @@ function emitDownload(root, text, filename, mimeType) {
   const anchor = root.ownerDocument.createElement('a'); anchor.href = url; anchor.download = filename;
   try { root.appendChild(anchor); anchor.click(); } finally { anchor.remove(); view.URL.revokeObjectURL(url); }
 }
-async function verifiedDownloadBundle(root, bundle, cryptoRef) {
+async function verifiedBundleDownload(bundle, cryptoRef) {
   const text = serializeRevisionCompareTransferHandoverBundle(bundle);
   const verified = await verifyRevisionCompareTransferHandoverText(text, { cryptoRef });
-  emitDownload(root, text, revisionCompareTransferHandoverFileName(verified.identity.sessionId, verified.bundleId), 'application/json');
-  return verified;
+  return Object.freeze({
+    text, filename: revisionCompareTransferHandoverFileName(verified.identity.sessionId, verified.bundleId),
+    mimeType: 'application/json', verified,
+  });
 }
-async function verifiedDownloadArtifact(root, bundle, index, cryptoRef) {
-  const verified = await verifyRevisionCompareTransferHandoverText(serializeRevisionCompareTransferHandoverBundle(bundle), { cryptoRef });
-  const item = verified.payload.transferArtifacts[index]; const role = REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES[index];
-  if (!item || !role) throw new Error('Embedded transfer artifact is unavailable.');
-  emitDownload(root, item.text, item.filename, item.mimeType); return Object.freeze({ role, artifact: item });
+async function verifiedArtifactDownload(bundle, index, cryptoRef) {
+  const text = serializeRevisionCompareTransferHandoverBundle(bundle);
+  const verified = await verifyRevisionCompareTransferHandoverText(text, { cryptoRef });
+  const artifact = verified.payload.transferArtifacts[index]; const role = REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES[index];
+  if (!artifact || !role) throw new Error('Embedded transfer artifact is unavailable.');
+  return Object.freeze({ text: artifact.text, filename: artifact.filename, mimeType: artifact.mimeType, role, artifact });
 }
 function controllerContext(options) {
   const readers = new Set();
@@ -78,9 +75,15 @@ function requireReadiness(context, state) {
   const result = revisionCompareHandoverInspectionReadiness(state, activity(context, { allowImportSupersede: true }));
   if (result.status !== 'READY') throw new Error(result.blockers[0]);
 }
+function failImport(context, generation, error) {
+  if (context.destroyed) return false; const current = context.options.readState();
+  const failed = failRevisionCompareHandoverInspection(current.handoverInspection, generation, error);
+  if (failed === current.handoverInspection || !commit(context, setWorkspaceHandoverInspection(current, failed))) return false;
+  throw error;
+}
 async function importFiles(context, fileList) {
   const initial = context.options.readState(); requireReadiness(context, initial); const file = admitFiles(fileList);
-  const inspection = startRevisionCompareHandoverInspection(initial.handoverInspection, file);
+  abortReads(context); const inspection = startRevisionCompareHandoverInspection(initial.handoverInspection, file);
   const generation = inspection.requestGeneration;
   if (!commit(context, setWorkspaceHandoverInspection(initial, inspection))) return false;
   try {
@@ -92,17 +95,16 @@ async function importFiles(context, fileList) {
     context.options.showToast?.('Transfer handover verified.', 'success'); return true;
   } catch (error) { return failImport(context, generation, error); }
 }
-function failImport(context, generation, error) {
-  if (context.destroyed) return false; const current = context.options.readState();
-  const failed = failRevisionCompareHandoverInspection(current.handoverInspection, generation, error);
-  if (failed === current.handoverInspection || !commit(context, setWorkspaceHandoverInspection(current, failed))) return false;
-  throw error;
-}
 async function handleChange(context, target) {
   if (!selected(target, 'data-revc-handover-file')) return false;
   try { return await importFiles(context, target.files); }
   catch (error) { if (!context.destroyed) context.options.reportFailure(error); return false; }
   finally { target.value = ''; }
+}
+async function emitVerifiedDownload(context, descriptorPromise) {
+  const descriptor = await descriptorPromise;
+  if (context.destroyed) return false;
+  emitDownload(context.options.root, descriptor.text, descriptor.filename, descriptor.mimeType); return true;
 }
 async function handleClick(context, button) {
   try {
@@ -111,11 +113,11 @@ async function handleClick(context, button) {
       abortReads(context); return commit(context, setWorkspaceHandoverInspection(state, clearRevisionCompareHandoverInspection(inspection)));
     }
     if (selected(button, 'data-revc-download-imported-handover')) {
-      await verifiedDownloadBundle(context.options.root, inspection?.bundle, context.options.cryptoRef); return true;
+      return emitVerifiedDownload(context, verifiedBundleDownload(inspection?.bundle, context.options.cryptoRef));
     }
     if (selected(button, 'data-revc-download-imported-transfer-artifact')) {
       const index = Number(button.getAttribute('data-revc-download-imported-transfer-artifact'));
-      await verifiedDownloadArtifact(context.options.root, inspection?.bundle, index, context.options.cryptoRef); return true;
+      return emitVerifiedDownload(context, verifiedArtifactDownload(inspection?.bundle, index, context.options.cryptoRef));
     }
     return false;
   } catch (error) { if (!context.destroyed) context.options.reportFailure(error); return false; }
@@ -124,12 +126,11 @@ function destroy(context) { context.destroyed = true; abortReads(context); }
 export function createRevisionCompareHandoverInspectionController(options) {
   const context = controllerContext(options);
   return Object.freeze({
-    handleChange: (target) => handleChange(context, target),
-    handleClick: (button) => handleClick(context, button),
+    handleChange: (target) => handleChange(context, target), handleClick: (button) => handleClick(context, button),
     destroy: () => destroy(context),
   });
 }
 export const _test = Object.freeze({
-  admitFiles, decodeHandoverBytes, emitDownload, fileMetadataIsCompatible,
-  fileReaderBytes, selected, verifiedDownloadArtifact, verifiedDownloadBundle,
+  admitFiles, decodeHandoverBytes, emitDownload, fileMetadataIsCompatible, fileReaderBytes,
+  selected, verifiedArtifactDownload, verifiedBundleDownload,
 });
