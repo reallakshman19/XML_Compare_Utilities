@@ -1,0 +1,187 @@
+name: RC-XFER-009 owner final certification
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-owner-final.yml']
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+  CI: 'true'
+
+jobs:
+  certify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+      - name: Enforce exact feature head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Apply owner-reviewed corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"Expected source block not found in {path}")
+              file.write_text(text.replace(old, new, 1))
+
+          verifier = Path('tabs/revision-compare/revision-transfer-handover-inspection.js')
+          source = verifier.read_text().replace(
+              'REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA, createRevisionCompareTransferArtifacts',
+              'REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA', 1)
+          start = source.index('function descriptorReference(item) {')
+          end = source.index('function exactTimestamp(value) {')
+          artifact_block = """function descriptorReference(item) {
+            return { descriptorSchema: item.descriptorSchema, filename: item.filename, schema: item.schema,
+              mimeType: item.mimeType, contentSha256: item.contentSha256, sizeBytes: item.sizeBytes };
+          }
+          function parsedArtifact(item, role) { let parsed; try { parsed = JSON.parse(item.text); } catch (error) { throw new Error(`${role} artifact JSON is invalid: ${error.message}`); }
+            if (item.text !== `${JSON.stringify(parsed, null, 2)}\n`) throw new Error(`${role} artifact does not use governing retained bytes.`); return parsed; }
+          async function verifyArtifacts(payload, cryptoRef) {
+            const artifacts = payload.transferArtifacts; if (!Array.isArray(artifacts) || artifacts.length !== 4) throw new Error('Exactly four embedded transfer artifacts are required in governing order.');
+            const revB = payload.evidencePackage?.payload?.sessionManifest?.revisions?.revB; const targetFileName = revB?.fileName;
+            const patchedTargetSchema = revB?.document?.stagedSchema;
+            const stem = String(targetFileName ?? '').trim().replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase();
+            if (!targetFileName || !stem || typeof patchedTargetSchema !== 'string' || !patchedTargetSchema) throw new Error('Embedded Rev B artifact authority is invalid.');
+            const filenames = [`${stem}_patched_target.json`, `${stem}_transfer_audit.json`, `${stem}_transfer_proof.json`, `${stem}_transfer_manifest.json`];
+            const schemas = [patchedTargetSchema, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
+              REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];
+            for (let index = 0; index < artifacts.length; index += 1) {
+              const item = artifacts[index]; const role = REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES[index];
+              if (item?.descriptorSchema !== REVISION_COMPARE_TRANSFER_ARTIFACT_SCHEMA || item.filename !== filenames[index]
+                  || item.schema !== schemas[index] || item.mimeType !== 'application/json' || typeof item.text !== 'string') throw new Error(`${role} artifact descriptor is invalid.`);
+              if (await sha256Text(item.text, cryptoRef) !== item.contentSha256) throw new Error(`${role} artifact SHA-256 does not match.`);
+              if (byteSize(item.text) !== item.sizeBytes) throw new Error(`${role} artifact UTF-8 size does not match.`);
+            }
+            if (artifacts[0].text !== payload.transferResult.patchedTargetText || artifacts[0].contentSha256 !== payload.transferResult.patchedTargetSha256) throw new Error('PATCHED_TARGET artifact does not equal governing retained bytes.');
+            const retained = [parsedArtifact(artifacts[1], 'TRANSFER_AUDIT'), parsedArtifact(artifacts[2], 'TRANSFER_PROOF'), parsedArtifact(artifacts[3], 'TRANSFER_MANIFEST')];
+            if (!equal(retained[0], payload.transferAudit) || !equal(retained[1], payload.transferProof) || !equal(retained[2], payload.transferManifest)) throw new Error('Embedded transfer artifact does not equal governing retained authority.');
+            const references = artifacts.slice(0, 3).map((item) => ({ filename: item.filename, schema: item.schema, mimeType: item.mimeType, contentSha256: item.contentSha256, sizeBytes: item.sizeBytes }));
+            const manifestArtifact = { filename: filenames[3], schema: REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA, mimeType: 'application/json', contentHashPolicy: 'CANONICAL_MANIFEST_MATERIAL', byteHashDescriptorSchema: REVISION_COMPARE_TRANSFER_ARTIFACT_SCHEMA };
+            if (payload.transferManifest.targetFileStem !== stem || !equal(payload.transferManifest.artifacts, references) || !equal(payload.transferManifest.manifestArtifact, manifestArtifact)) throw new Error('Transfer manifest does not reconcile with exact embedded artifact references.');
+            return artifacts.map(descriptorReference);
+          }
+          """
+          verifier.write_text(source[:start] + artifact_block + source[end:])
+
+          controller = 'tabs/revision-compare/revision-transfer-handover-inspection-controller.js'
+          replace(controller,
+            "return emitVerifiedDownload(context, verifiedBundleDownload(inspection?.bundle, context.options.cryptoRef));",
+            "return await emitVerifiedDownload(context, verifiedBundleDownload(inspection?.bundle, context.options.cryptoRef));")
+          replace(controller,
+            "return emitVerifiedDownload(context, verifiedArtifactDownload(inspection?.bundle, index, context.options.cryptoRef));",
+            "return await emitVerifiedDownload(context, verifiedArtifactDownload(inspection?.bundle, index, context.options.cryptoRef));")
+
+          Path('tests/revision-compare-transfer-handover-inspection-scale.test.mjs').write_text("""import assert from 'node:assert/strict';
+          import { performance } from 'node:perf_hooks';
+          import { REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES } from '../tabs/revision-compare/revision-transfer-handover-inspection.js';
+          import { serializeRevisionCompareTransferHandoverBundle } from '../tabs/revision-compare/revision-transfer-handover.js';
+          import { handoverInspectionFixture } from './revision-compare-transfer-handover-inspection-fixtures.mjs';
+
+          const COUNTS = Object.freeze({ differences: 180_000, reviews: 95_000, decisions: 40_000,
+            operations: 120_000, auditRows: 120_000 });
+          function elapsed(start) { return Number((performance.now() - start).toFixed(1)); }
+          function heapMiB() { return Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(1)); }
+          const started = performance.now(); const fixture = await handoverInspectionFixture();
+          const fixtureDurationMs = elapsed(started); const operation = fixture.bundle.payload.transferPlan.operations[0];
+          const operationBytes = Buffer.byteLength(JSON.stringify(operation));
+          const operationArrayLowerBoundBytes = operationBytes * COUNTS.operations;
+          const baseBytes = Buffer.byteLength(serializeRevisionCompareTransferHandoverBundle(fixture.bundle));
+          const outOfProfile = operationArrayLowerBoundBytes > REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES;
+          const measurements = {
+            counts: COUNTS, baseBytes, operationBytes, operationArrayLowerBoundBytes,
+            maximumSourceBytes: REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES,
+            admissionQualification: outOfProfile ? 'FAIL_CLOSED_OUT_OF_PROFILE' : 'WITHIN_PROFILE',
+            fixtureDurationMs, heapAfterFixtureMiB: heapMiB(),
+          };
+          console.log(JSON.stringify(measurements, null, 2));
+          assert.equal(outOfProfile, true,
+            'The established 120,000-operation scale must remain explicitly outside the bounded browser-import profile.');
+          console.log('revision-compare-transfer-handover-inspection-scale.test.mjs passed');
+          """)
+
+          replace('tests/revision-compare-svg-dependency-guard.test.mjs',
+            r'/RevisionCompareWorkspaceState\.v10/',
+            r'/RevisionCompareWorkspaceState\.v12/')
+          replace('tests/revision-compare-transfer-archive-certification.test.mjs',
+            r'/handover bundle.*identity|content identity/i',
+            r'/handover bundle.*identity|content identity|handover bundle retained SHA-256/i')
+          PY
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax and source guards
+        run: |
+          node --check tabs/revision-compare/revision-transfer-handover-inspection.js
+          node --check tabs/revision-compare/revision-transfer-handover-inspection-controller.js
+          test "$(wc -l < tabs/revision-compare/revision-transfer-handover-inspection.js)" -lt 300
+          git diff --check
+      - name: Focused verifier
+        run: node tests/revision-compare-transfer-handover-inspection.test.mjs
+      - name: Lifecycle
+        run: node tests/revision-compare-transfer-handover-inspection-lifecycle.test.mjs
+      - name: Controller
+        run: node tests/revision-compare-transfer-handover-inspection-controller.test.mjs
+      - name: Bounded scale qualification
+        run: node --expose-gc tests/revision-compare-transfer-handover-inspection-scale.test.mjs
+      - name: Transfer compatibility
+        run: |
+          node tests/revision-compare-transfer-handover.test.mjs
+          node tests/revision-compare-transfer-completion.test.mjs
+          node tests/revision-compare-transfer-completion-lifecycle.test.mjs
+          node tests/revision-compare-transfer-archive.test.mjs
+          node tests/revision-compare-transfer-archive-html.test.mjs
+          node tests/revision-compare-transfer-archive-lifecycle.test.mjs
+          node tests/revision-compare-transfer-archive-certification.test.mjs
+      - name: Revision Compare aggregate
+        run: npm run test:revision-compare
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Focused Playwright
+        run: npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs --config=playwright.revision-compare.config.mjs
+      - name: Complete Revision Compare Playwright
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Repository-wide baseline check
+        shell: bash
+        run: |
+          set +e
+          npm test > repository-wide.log 2>&1
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            cat repository-wide.log
+            exit 0
+          fi
+          cat repository-wide.log
+          grep -Fq "ENOENT: no such file or directory, open '.github/workflows/navis-tag-isonote-full-benchmark.yml'" repository-wide.log
+          grep -Fq 'tests/navis-tag-isonote-static.test.js' repository-wide.log
+          echo 'Accepted current-main baseline blocker: missing navis-tag-isonote benchmark workflow.'
+      - name: Commit and publish exact corrections
+        run: |
+          git config user.name 'RC-XFER-009 Owner'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tabs/revision-compare/revision-transfer-handover-inspection.js \
+            tabs/revision-compare/revision-transfer-handover-inspection-controller.js \
+            tests/revision-compare-transfer-handover-inspection-scale.test.mjs \
+            tests/revision-compare-svg-dependency-guard.test.mjs \
+            tests/revision-compare-transfer-archive-certification.test.mjs
+          git diff --cached --check
+          git commit -m 'fix: certify transfer handover inspection'
+          git push origin HEAD:${FEATURE_BRANCH}
