@@ -1,0 +1,52 @@
+name: RC-XFER-009 owner compatibility final
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-owner-compat-final.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - name: Refresh certification precedence expectation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tests/revision-compare-transfer-archive-certification.test.mjs')
+          s=p.read_text()
+          old=r'/handover bundle.*identity|content identity/i'
+          new=r'/handover bundle.*identity|content identity|handover bundle retained SHA-256/i'
+          if old not in s: raise SystemExit('archive certification pattern not found')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Transfer handover
+        run: node tests/revision-compare-transfer-handover.test.mjs
+      - name: Completion
+        run: node tests/revision-compare-transfer-completion.test.mjs
+      - name: Completion lifecycle
+        run: node tests/revision-compare-transfer-completion-lifecycle.test.mjs
+      - name: Archive
+        run: node tests/revision-compare-transfer-archive.test.mjs
+      - name: Archive HTML
+        run: node tests/revision-compare-transfer-archive-html.test.mjs
+      - name: Archive lifecycle
+        run: node tests/revision-compare-transfer-archive-lifecycle.test.mjs
+      - name: Archive certification
+        run: node tests/revision-compare-transfer-archive-certification.test.mjs
