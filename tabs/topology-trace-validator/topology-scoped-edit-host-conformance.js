@@ -87,7 +87,7 @@ export function certifyTopologyScopedEditSourceBoundary(sourceFiles = {}) {
   'Topology scoped-edit source-boundary certification');
 }
 function fixture(input) {
-  const required = ['hostFactory', 'authorityGet', 'authoritySet', 'sentinelSnapshot', 'effectBoundaryFactory'];
+  const required = ['hostFactory', 'authorityGet', 'authoritySet', 'sentinelSnapshot', 'denialSnapshot', 'effectBoundaryFactory'];
   required.forEach((name) => requiredFunction(input[name], name));
   if (input.readModelA0?.schema !== TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1
     || input.readModelA1?.schema !== TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1) {
@@ -222,7 +222,7 @@ function certifySentinels(before, after) {
 export async function runTopologyScopedEditReadOnlyHostConformance(input = {}) {
   const f = fixture(input), scales = Object.freeze({ ...DEFAULT_SCALES, ...input.scales });
   const sourceBoundary = certifyTopologyScopedEditSourceBoundary(f.sourceFiles);
-  const defective = await defectiveChecks(f);
+  const defective = await defectiveChecks(f), effectDenialAttempts = f.denialSnapshot();
   if (!isScopedEditDeeplyFrozen(f.readModelA0) || !isScopedEditDeeplyFrozen(f.readModelA1)) {
     throw new TypeError('Conformance read models must be deeply immutable.');
   }
@@ -264,6 +264,8 @@ export async function runTopologyScopedEditReadOnlyHostConformance(input = {}) {
       unknownGeometry: unknownGeometryCode, boundary: [...boundaryCodes], excluded: [...excludedCodes],
       mismatch: [...mismatchCodes], unsupported: [...unsupportedCodes], mixedTransaction: [...mixedCodes],
       stale: [...staleCodes], projectionCorruption: [...corruptionCodes] },
-    sideEffects: afterSentinels, sourceMutations: 0, inputMutations: 0,
+    sideEffects: Object.fromEntries(Object.entries(afterSentinels).filter(([key]) => key !== 'readOnlyOperation')),
+    readOnlyOperations: afterSentinels.readOnlyOperation, effectDenialAttempts,
+    sourceMutations: 0, inputMutations: 0,
   }, 'Topology scoped-edit read-only host conformance report');
 }
