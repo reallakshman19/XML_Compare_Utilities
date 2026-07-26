@@ -18,5 +18,8 @@ assert.throws(() => certifyTopologyScopedEditSourceBoundary(forgedSources),
   (error) => error.code === TOPOLOGY_SCOPED_EDIT_SOURCE_BOUNDARY_REJECTED);
 assert.equal(report.variants.scene, 1); assert.equal(report.variants.candidate, 1);
 for (const key of ['storageAccess', 'recoveryAcceptance', 'writerAcquisition', 'controllerMutation',
-  'rendererRefresh', 'selectionPublication', 'productionAcceptance']) assert.equal(report.sideEffects[key], 1);
+  'rendererRefresh', 'selectionPublication', 'productionAcceptance']) {
+  assert.equal(report.sideEffects[key], 0);
+  assert.equal(report.effectDenialAttempts[key], 1);
+}
 console.log(`[PASS] conformance source=${report.sourceBoundary.inspectedFiles.length} defective=${report.defectiveHostRejections} scene=${report.counts.scene} selection=${report.counts.selection} structural=${report.counts.structural} authorized=${report.counts.authorizedDryRun} boundary=${report.counts.boundaryRejection} excluded=${report.counts.excludedRejection} stale=${report.counts.staleRejection} corrupt=${report.counts.projectionCorruption} remount=${report.counts.destroyRemount}`);
