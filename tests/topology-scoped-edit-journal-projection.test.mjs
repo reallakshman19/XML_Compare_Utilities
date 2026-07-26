@@ -1,4 +1,13 @@
 import assert from 'node:assert/strict';
 import { createTopologyScopedEditReadOnlyHostFixture } from './fixtures/topology-scoped-edit-read-only-host-fixture.js';
-import { createTopologyScopedEditDryRun, assertTopologyScopedEditCurrentProjection, TOPOLOGY_SCOPED_EDIT_DRY_RUN_REJECTION } from '../tabs/topology-trace-validator/topology-scoped-edit-journal-projection.js';
-const f=createTopologyScopedEditReadOnlyHostFixture(),m=f.readModelA0,p=m.journalProjection.projection,before=JSON.stringify(m);assert.equal(p.envelopes.length,4);assert.deepEqual(p.activeCommandIds,['CJ-000001','CJ-000002','CJ-000003']);assert.deepEqual(m.journalProjection.redoCommandIds,['CJ-000004']);assert.doesNotThrow(()=>assertTopologyScopedEditCurrentProjection(m,p));const dry=createTopologyScopedEditDryRun({readModel:m,currentProjection:p,envelope:f.envelopes.authorized,core:f.core});assert.equal(dry.accepted,false);assert.equal(dry.persistencePerformed,false);assert.equal(dry.productionAcceptancePerformed,false);assert.equal(dry.candidateProjection.envelopes.length,5);assert.deepEqual(dry.candidateProjection.activeCommandIds,['CJ-000001','CJ-000002','CJ-000003','CJ-000005']);assert.deepEqual(dry.candidateProjectionEvidence.redoCommandIds,[]);assert.equal(JSON.stringify(m),before);for(const corruption of f.corruptedProjections)assert.throws(()=>createTopologyScopedEditDryRun({readModel:m,currentProjection:corruption,envelope:f.envelopes.authorized,core:f.core}),e=>e.code===TOPOLOGY_SCOPED_EDIT_DRY_RUN_REJECTION.PROJECTION_MISMATCH);console.log('[PASS] exact journal projection, redo evidence, pure dry-run history preservation');
+const f = await createTopologyScopedEditReadOnlyHostFixture();
+const host = await f.hostFactory({ readModel: f.readModelA0, core: f.core,
+  authorityProvider: f.authorityGet, effects: f.effectBoundaryFactory() });
+const current = f.readModelA0.journalProjection.projection;
+const result = host.dryRun(current, f.envelopes.authorized);
+assert.equal(result.accepted, false); assert.equal(result.persistencePerformed, false);
+assert.equal(result.productionAcceptancePerformed, false);
+assert.deepEqual(result.currentRedoCommandIds, ['CJ-000004']);
+assert.equal(result.candidateProjection.envelopes.length, current.envelopes.length + 1);
+assert.deepEqual(result.candidateProjection.envelopes.slice(0, -1), current.envelopes);
+console.log('[PASS] exact journal projection, redo evidence, and pure dry-run history preservation');
