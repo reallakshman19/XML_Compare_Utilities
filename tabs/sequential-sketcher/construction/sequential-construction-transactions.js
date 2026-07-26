@@ -1,3 +1,4 @@
+import { isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { stableToken } from '../sequential-sketcher-contract.js';
 import { SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY } from '../policy/sequential-external-boundary-policy.js';
 import { SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY } from '../policy/sequential-construction-tolerance-policy.js';
@@ -9,27 +10,23 @@ import { sequentialSessionFingerprint } from './sequential-session-fingerprint.j
 
 export const SEQUENTIAL_CONSTRUCTION_TRANSACTION_SCHEMA = 'SequentialConstructionTransaction.v1';
 
+function requiredOperationTime(value, label) {
+  if (!isIsoTimestamp(value)) throw new TypeError(`${label} must be an exact ISO timestamp.`);
+  return value;
+}
 function nextTransactionId(session, action, beforeFingerprint, afterFingerprint) {
   const sequence = (session?.transactionLedger?.length || 0) + 1;
   const token = stableToken(`${sequence}|${action}|${beforeFingerprint}|${afterFingerprint}`);
   return `TXN-${String(sequence).padStart(5, '0')}-${token}`;
 }
-
 function withoutHistory(session) {
-  const {
-    transactionLedger,
-    undoStack,
-    redoStack,
-    ...snapshot
-  } = session || {};
+  const { transactionLedger, undoStack, redoStack, ...snapshot } = session || {};
   return Object.freeze(snapshot);
 }
-
 function addedValues(beforeRows = [], afterRows = [], identity) {
   const before = new Set(beforeRows.map(identity));
   return Object.freeze(afterRows.filter((row) => !before.has(identity(row))).map(identity));
 }
-
 function affectedEvidence(previousSession, nextSession, payload = {}) {
   const addedConnections = addedValues(
     previousSession?.committedConnections,
@@ -41,11 +38,7 @@ function affectedEvidence(previousSession, nextSession, payload = {}) {
     nextSession?.confirmedComponentIds,
     (row) => row,
   );
-  const ports = new Set([
-    payload.fromPortId,
-    payload.toPortId,
-    payload.entryPortId,
-  ].filter(Boolean));
+  const ports = new Set([payload.fromPortId, payload.toPortId, payload.entryPortId].filter(Boolean));
   for (const connection of nextSession?.committedConnections || []) {
     if (!addedConnections.includes(connection.connectionId)) continue;
     if (connection.fromPortId) ports.add(connection.fromPortId);
@@ -57,7 +50,6 @@ function affectedEvidence(previousSession, nextSession, payload = {}) {
     portIds: Object.freeze([...ports]),
   });
 }
-
 function transactionRecord(previousSession, nextSession, context = {}) {
   const beforeFingerprint = sequentialSessionFingerprint(previousSession);
   const afterFingerprint = sequentialSessionFingerprint(nextSession);
@@ -82,7 +74,7 @@ function transactionRecord(previousSession, nextSession, context = {}) {
     afterFingerprint,
     externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
     tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
-    createdAt: new Date().toISOString(),
+    createdAt: requiredOperationTime(context.createdAt, 'Sequential transaction createdAt'),
   });
 }
 
@@ -132,7 +124,7 @@ export function deferSequentialConstructionDecision(session, payload = {}) {
       provenance: 'USER_MANUAL',
       reason,
       evidenceNote,
-      deferredAt: new Date().toISOString(),
+      deferredAt: requiredOperationTime(payload.issuedAt, 'Sequential decision deferredAt'),
     }),
   });
   return Object.freeze({
@@ -145,7 +137,7 @@ export function deferSequentialConstructionDecision(session, payload = {}) {
   });
 }
 
-export function resumeSequentialConstructionDecision(session) {
+export function resumeSequentialConstructionDecision(session, payload = {}) {
   const request = session?.currentDecisionRequest;
   if (session?.state !== CONSTRUCTION_STATES.USER_DECISION_REQUIRED || !request) {
     return Object.freeze({ session, outcome: 'NO_OPEN_DECISION' });
@@ -154,7 +146,11 @@ export function resumeSequentialConstructionDecision(session) {
   return Object.freeze({
     session: freezeConstructionSession({
       ...session,
-      currentDecisionRequest: Object.freeze({ ...request, state: 'OPEN', resumedAt: new Date().toISOString() }),
+      currentDecisionRequest: Object.freeze({
+        ...request,
+        state: 'OPEN',
+        resumedAt: requiredOperationTime(payload.issuedAt, 'Sequential decision resumedAt'),
+      }),
       deferredDecisionIds: (session.deferredDecisionIds || []).filter((id) => id !== request.decisionId),
     }),
     outcome: 'DECISION_RESUMED',
@@ -187,7 +183,7 @@ export function undoLastSequentialConstructionTransaction(session, payload = {})
     undoneTransactionId: undone.transactionId,
     externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
     tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
-    createdAt: new Date().toISOString(),
+    createdAt: requiredOperationTime(payload.issuedAt, 'Sequential undo createdAt'),
   });
   return Object.freeze({
     session: freezeConstructionSession({
@@ -232,7 +228,7 @@ export function redoLastSequentialConstructionTransaction(session, payload = {})
     redoneTransactionId: redone.transactionId,
     externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
     tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
-    createdAt: new Date().toISOString(),
+    createdAt: requiredOperationTime(payload.issuedAt, 'Sequential redo createdAt'),
   });
   return Object.freeze({
     session: freezeConstructionSession({
