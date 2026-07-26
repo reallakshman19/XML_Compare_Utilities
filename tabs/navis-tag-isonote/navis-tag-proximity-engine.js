@@ -1,5 +1,6 @@
 import { NAVIS_TAG_ISONOTE_AUDIT_SCHEMA, normalizeConfig, text } from './navis-tag-isonote-contracts.js';
 import { applyAppliesToPropagation } from './navis-tag-applies-to.js';
+import { applyAnchorTransformation } from './navis-tag-xml-parser.js';
 
 function chooseSupportPosition(trace, config) {
   const tablePoint = trace.tableRecord?.position || null;
@@ -140,7 +141,18 @@ function nearestRejectedMessage(candidate, config) {
 }
 
 export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, inputConfig = {}) {
-  const config = normalizeConfig({ ...(tableBuild?.config || {}), ...(identityTrace?.config || {}), ...inputConfig });
+  let config = normalizeConfig({ ...(tableBuild?.config || {}), ...(identityTrace?.config || {}), ...inputConfig });
+  if (navisParse && identityTrace) {
+    applyAnchorTransformation(navisParse, identityTrace, config);
+    if (navisParse.anchor?.active) {
+      config = {
+        ...config,
+        navisEastingDatumMm: navisParse.anchor.deltaEMm,
+        navisNorthingDatumMm: navisParse.anchor.deltaNMm,
+        navisElevationDatumMm: navisParse.anchor.deltaElMm,
+      };
+    }
+  }
   const traceByRow = new Map((identityTrace?.rows || []).map((row) => [row.tableRowId, row]));
   const candidateLedger = [];
   const decisions = [];

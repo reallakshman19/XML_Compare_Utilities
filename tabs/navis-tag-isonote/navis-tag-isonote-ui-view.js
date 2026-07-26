@@ -66,6 +66,16 @@ function compactNumber(value, digits = 3) {
   const number = Number(value);
   return Number.isFinite(number) ? Number(number.toFixed(digits)) : '';
 }
+function renderAnchorPreview(state) {
+  const cfg = state.config || {};
+  const tagId = (cfg.navisAnchorTagId || '').trim();
+  const supportId = (cfg.navisAnchorSupportIdentity || '').trim();
+  if (!tagId || !supportId) {
+    return `<div class="nti-help" data-nti-anchor-preview><b>Anchor-based coordinate transformation (optional)</b><br>Match a known Navis Tag No. in XML (e.g. <code>1</code>) with a known PS No. in JSON (e.g. <code>/PS-11167.4</code>) to automatically compute 3D translation deltas (ΔE, ΔN, ΔEL) and overrule default/user-configured datum offsets.</div>`;
+  }
+  const anchorSummary = state.navisParse?.anchor?.summaryText || `Configured Anchor: Tag [${esc(tagId)}] → PS [${esc(supportId)}]. Will calculate transformation deltas upon parsing.`;
+  return `<div class="nti-help" data-nti-anchor-preview style="border-left: 4px solid var(--accent-primary, #0078d4); padding-left: 10px;"><b>Anchor-based coordinate transformation ACTIVE</b><br>${esc(anchorSummary)}<br><i>Overruling default transformation and user-configured datum offsets.</i></div>`;
+}
 function renderNavisDatumPreview(state) {
   const cfg = state.config || {};
   const offset = Number(cfg.navisElevationDatumMm) || 0;
@@ -125,6 +135,8 @@ function renderInputs(state) {
     <label class="nti-field">JSON bore paths<textarea data-nti-config="jsonBorePaths">${esc(joinList(cfg.jsonBorePaths))}</textarea></label>
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
     <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b><input data-nti-config="navisAnchorTagId" value="${esc(cfg.navisAnchorTagId || '')}" placeholder="e.g. 1"></label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b><input data-nti-config="navisAnchorSupportIdentity" value="${esc(cfg.navisAnchorSupportIdentity || '')}" placeholder="e.g. /PS-11167.4"></label>
     <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
     <label class="nti-field">Navis Easting datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
     <label class="nti-field">Navis Northing datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>
@@ -148,7 +160,7 @@ function renderInputs(state) {
     <label class="nti-field">Enable explicit bore→OD lookup<input type="checkbox" data-nti-config="boreToOdLookupEnabled" ${cfg.boreToOdLookupEnabled ? 'checked' : ''}></label>
     <label class="nti-field">Bore→OD lookup name<input data-nti-config="boreToOdLookupName" value="${esc(cfg.boreToOdLookupName)}" placeholder="ASME B36.10 profile"></label>
     <label class="nti-field">Explicit bore→OD lookup JSON<textarea data-nti-config="boreToOdLookup" placeholder='{"50":60.3,"80":88.9}'>${esc(JSON.stringify(cfg.boreToOdLookup || {}, null, 2))}</textarea></label>
-  </div>${renderNavisDatumPreview(state)}${renderAppliesToConfigPreview(state)}${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
+  </div>${renderAnchorPreview(state)}${renderNavisDatumPreview(state)}${renderAppliesToConfigPreview(state)}${state.tree ? `<h4>Discovered staged JSON paths</h4><div class="nti-grid">${renderPathPicker(state, 'jsonIdentityPaths', 'Identity paths')}${renderPathPicker(state, 'jsonReferencePaths', 'Reference paths')}${renderPathPicker(state, 'jsonPositionPaths', 'Position paths')}${renderPathPicker(state, 'jsonBranchPaths', 'Branch paths')}${renderPathPicker(state, 'jsonPipePaths', 'Pipe paths')}${renderPathPicker(state, 'jsonZonePaths', 'Zone paths')}${renderPathPicker(state, 'jsonOdPaths', 'OD paths')}${renderPathPicker(state, 'jsonBorePaths', 'Bore paths')}</div>` : '<div class="nti-help">Build the hierarchy to populate discovered path selectors and recommendations.</div>'}<div class="nti-actions"><button class="nti-btn" data-nti-action="save-config">Save mapping config</button></div></section>${renderMetrics(state)}${renderReadiness(state)}`;
 }
 function renderTreeNode(tree, nodeId, depth = 0) {
   const node = tree.byId.get(nodeId);

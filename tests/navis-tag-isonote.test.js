@@ -142,6 +142,18 @@ assert.equal(stagedAudit.summary.resolvedCount, 1);
 assert.equal(stagedAudit.augmentedRows[0]['Support ISONOTE'], 'Model monofl ball valve (typ)');
 assert.equal(stagedAudit.augmentedRows[0]['Match Source'], 'STAGED_JSON');
 
+const anchorConfig = {
+  ...config,
+  navisAnchorTagId: '1',
+  navisAnchorSupportIdentity: 'PS-14416.2',
+  navisEastingDatumMm: 99999, // Should be ignored when anchor is active
+};
+const anchoredNavis = parseNavisTagXml(navisXml, anchorConfig, stagedIdentityTrace);
+assert.equal(anchoredNavis.anchor.active, true);
+assert.equal(anchoredNavis.anchor.tagId, '1');
+assert.equal(anchoredNavis.anchor.supportIdentity, 'PS-14416.2');
+assert.match(anchoredNavis.tags[0].transformBasis, /ANCHOR_OVERRIDE/);
+
 await import('./navis-tag-isonote-coordinate-grouping.test.js');
 
 console.log('navis-tag-isonote core tests passed');
