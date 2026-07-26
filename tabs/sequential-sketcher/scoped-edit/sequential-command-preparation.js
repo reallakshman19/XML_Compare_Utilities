@@ -10,6 +10,7 @@ import { createConfirmedSequentialConstruction } from '../construction/sequentia
 import { buildConfirmedConstructionSupportProjection } from '../support/sequential-confirmed-support-projection.js';
 import {
   SEQUENTIAL_COMMAND_REJECTION,
+  SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES,
   createSequentialPreparedCommand,
   sameSequentialContractValue,
   sequentialCommandCodedError,
@@ -147,6 +148,13 @@ export function prepareSequentialCommand(input = {}) {
     fail(SEQUENTIAL_COMMAND_REJECTION.COMMAND_AUTHORITY_MISMATCH, 'Sequential preparation authority does not match expected authority.', RangeError);
   }
   verifyEnvelope(input.envelope, input.nativeCommand, authority, input.journalState);
+  if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(input.nativeCommand.commandType)) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC,
+      `Sequential command ${input.nativeCommand.commandType} is blocked until its native decision path accepts issuedAt.`,
+      RangeError,
+    );
+  }
   const scope = deriveSequentialCommandScope({ ...input, authority });
   const targets = resolveSequentialCommandTargets({
     command: input.nativeCommand,
