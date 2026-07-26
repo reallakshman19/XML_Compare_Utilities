@@ -19,8 +19,11 @@ assert.equal(m.commandScopeBasis.boundaryEntityIds.length, 12);
 assert.equal(m.commandScopeBasis.excludedEntityIds.length, 20);
 assert.deepEqual(m.journalProjection.redoCommandIds, ['CJ-000004']);
 assert.equal(m.regenerationCertification.artifactsHash, m.artifactsHash);
+assert.equal(m.producerProfile.schema, 'TopologyReadOnlyProducerProfile.v1');
 assert.equal(m.producerProfile.profileId, TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_ID);
 assert.equal(m.producerProfile.optionsHash, semanticHash(m.producerOptions));
+assert.equal(m.producerOptionsHash, m.regenerationCertification.producerOptionsHash);
+assert.equal(m.canonicalAncestry.producerOptionsHash, m.producerOptionsHash);
 assert.doesNotThrow(() => JSON.stringify(m));
 async function rejects(mutator, code) {
   const input = structuredClone(f.inputA0); mutator(input);
