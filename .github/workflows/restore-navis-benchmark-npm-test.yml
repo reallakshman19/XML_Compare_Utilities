@@ -1,0 +1,35 @@
+name: Restored Navis benchmark repository validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/restore-navis-benchmark-npm-test.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/restore-navis-benchmark-workflow
+  EXPECTED_TARGET_SHA: c4bc368e7df98b109b8955070f6ea6a68ad7b7c9
+
+jobs:
+  npm-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Repository-wide validation
+        run: npm test
+      - name: Clean exact-head reconciliation
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+          test -z "$(git status --short)"
