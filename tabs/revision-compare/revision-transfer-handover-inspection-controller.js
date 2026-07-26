@@ -5,10 +5,11 @@ import { revisionCompareTransferHandoverFileName, serializeRevisionCompareTransf
 import { revisionCompareHandoverInspectionReadiness, setWorkspaceHandoverInspection } from './revision-transfer-handover-inspection-workspace-state.js';
 
 const JSON_MIME = /^(application|text)\/(?:[a-z0-9.+-]*\+)?json$/i;
+const GENERIC_BINARY_MIME = /^(?:application|binary)\/octet-stream$/i;
 function selected(target, name) { return Boolean(target?.hasAttribute?.(name)); }
 function fileMetadataIsCompatible(file) {
   const nameIsJson = /\.json$/i.test(String(file?.name ?? '')); const mime = String(file?.type ?? '').trim();
-  return !mime || nameIsJson || JSON_MIME.test(mime);
+  return !mime || JSON_MIME.test(mime) || (nameIsJson && GENERIC_BINARY_MIME.test(mime));
 }
 function admitFiles(fileList) {
   const files = Array.from(fileList ?? []);
@@ -130,7 +131,3 @@ export function createRevisionCompareHandoverInspectionController(options) {
     destroy: () => destroy(context),
   });
 }
-export const _test = Object.freeze({
-  admitFiles, decodeHandoverBytes, emitDownload, fileMetadataIsCompatible, fileReaderBytes,
-  selected, verifiedArtifactDownload, verifiedBundleDownload,
-});
