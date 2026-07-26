@@ -73,12 +73,17 @@ for (const [files, pattern] of [
   [[new File([], 'empty.json', { type: 'application/json' })], /non-empty/],
   [[{ name: 'huge.json', type: 'application/json', size: 134_217_729 }], /128 MiB/],
   [[new File([bytes], 'image.png', { type: 'image/png' })], /metadata/],
+  [[new File([bytes], 'handover.json', { type: 'image/png' })], /metadata/],
 ]) {
   const admission = harness(); await admission.controller.handleChange(fileInput(files));
   assert.match(admission.events.failures[0], pattern); assert.equal(admission.readState().handoverInspection.status, 'IDLE');
 }
 const blankMime = harness();
 assert.equal(await blankMime.controller.handleChange(fileInput([new File([bytes], 'handover.json')])), true);
+const genericMime = harness();
+assert.equal(await genericMime.controller.handleChange(fileInput([
+  new File([bytes], 'handover.json', { type: 'application/octet-stream' }),
+])), true);
 
 const pending = { A: deferred(), B: deferred() };
 const race = harness({ readFileBytes: (file) => pending[file.name[0]].promise });
