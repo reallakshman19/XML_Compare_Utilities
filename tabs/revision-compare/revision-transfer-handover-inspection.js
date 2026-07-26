@@ -291,4 +291,3 @@ export async function verifyRevisionCompareTransferHandoverText(text, options = 
   if (text !== serializeRevisionCompareTransferHandoverBundle(bundle)) throw new Error('Transfer handover JSON is not the exact canonical serialization.');
   return verifyRevisionCompareTransferHandoverBundle(bundle, options);
 }
-export const _test = Object.freeze({ byteSize, descriptorReference, equal, expectedChange, expectedPlanAuthority, operationPath });
