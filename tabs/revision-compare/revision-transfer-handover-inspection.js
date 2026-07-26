@@ -33,12 +33,17 @@ async function verifyEvidencePackage(value, cryptoRef) {
   if (value?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA) throw new TypeError('Embedded RevisionCompareEvidencePackage.v1 is required.');
   const hash = await sha256Text(JSON.stringify(revisionCompareEvidencePackageHashMaterial(value)), cryptoRef);
   if (value.contentSha256 !== hash || value.packageId !== `revision-evidence-package:${hash}`) throw new Error('Embedded evidence-package identity does not recompute.');
+  const identity = value.identity; const payload = value.payload; const audit = payload?.audit;
+  if (identity?.sessionId !== payload?.sessionManifest?.session?.sessionId || identity?.basisId !== payload?.scopeBasisManifest?.basis?.basisId || identity?.auditId !== audit?.auditId || identity?.reviewSessionId !== payload?.reviewSession?.reviewSessionId || identity?.decisionLedgerId !== payload?.decisionLedger?.ledgerId) throw new Error('Evidence-package payload identities do not reconcile.');
+  if (identity?.revADocumentId !== audit?.revADocumentId || identity?.revBDocumentId !== audit?.revBDocumentId || identity?.engineVersion !== audit?.engineVersion) throw new Error('Evidence-package audit identities do not reconcile.');
+  if (value.validation?.status !== 'READY' || value.validation?.errors?.length || value.authorityStatus?.basisStatus !== 'CURRENT') throw new Error('Evidence package is not current and READY.');
 }
 function operationPath(operation) { const parent = operation.targetCanonicalPath === '/' ? '' : operation.targetCanonicalPath; return `${parent}${operation.fieldPath}` || '/'; }
 function verifyOperations(plan, result, audit, proof) {
-  const planIds = plan.operations.map((item) => item.operationId);
-  const auditIds = audit.rows.map((item) => item.operationId);
+  const planIds = plan.operations.map((item) => item.operationId); const auditIds = audit.rows.map((item) => item.operationId);
   if (new Set(planIds).size !== planIds.length || !equal(planIds, result.appliedOperations) || !equal(planIds, auditIds)) throw new Error('Operation IDs do not reconcile.');
+  if (result.summary?.planOperationCount !== planIds.length || result.summary?.appliedOperationCount !== planIds.length || result.summary?.skippedOperationCount !== 0 || result.summary?.blockedOperationCount !== 0) throw new Error('Transfer-result operation counts do not reconcile.');
+  if (audit.summary?.operationCount !== planIds.length || audit.summary?.appliedCount !== planIds.length || audit.summary?.skippedCount !== 0 || audit.summary?.blockedCount !== 0) throw new Error('Transfer-audit operation counts do not reconcile.');
   const expected = plan.operations.map(operationPath).sort(); const actual = (proof.actualChanges ?? []).map((item) => item.path).sort();
   if (!equal(expected, actual)) throw new Error('Proof mutation paths do not reconcile with the transfer plan.');
   if (Object.values(proof.invariants ?? {}).length === 0 || Object.values(proof.invariants).some((value) => value !== true)) throw new Error('Every transfer-proof invariant must be true.');
@@ -57,15 +62,20 @@ async function verifyArtifacts(payload, cryptoRef) {
     let parsed; try { parsed = JSON.parse(artifact.text); } catch { throw new Error(`Embedded ${label} artifact is not valid JSON.`); }
     if (!equal(parsed, value)) throw new Error(`Embedded ${label} artifact does not match retained evidence.`);
   }
-  if (!equal(payload.transferManifest.artifacts, artifacts.slice(0, 3).map(reference))) throw new Error('Transfer manifest descriptors do not match embedded artifacts.');
+  const manifest = payload.transferManifest;
+  if (!equal(manifest.artifacts, artifacts.slice(0, 3).map(reference))) throw new Error('Transfer manifest descriptors do not match embedded artifacts.');
+  const self = manifest.manifestArtifact;
+  if (self?.filename !== manifestArtifact.filename || self?.schema !== manifestArtifact.schema || self?.mimeType !== manifestArtifact.mimeType || self?.contentHashPolicy !== 'CANONICAL_MANIFEST_MATERIAL' || self?.byteHashDescriptorSchema !== 'RevisionCompareTransferArtifact.v1') throw new Error('Transfer manifest self-reference does not match its artifact.');
   return artifacts;
 }
 function verifyCrossLinks(bundle) {
   const { identity, payload } = bundle; const { transferPlan: plan, transferResult: result, transferAudit: audit, transferProof: proof, transferManifest: manifest, completionReport: report, evidencePackage: evidence } = payload;
   if (identity.sessionId !== evidence.identity?.sessionId || identity.evidencePackageId !== evidence.packageId || identity.completionReportId !== report.reportId || identity.planId !== plan.planId || identity.resultId !== result.resultId) throw new Error('Handover container identities do not match embedded authorities.');
   if (identity.originalTargetSha256 !== result.originalTargetSha256 || identity.patchedTargetSha256 !== result.patchedTargetSha256) throw new Error('Handover target hashes do not match the transfer result.');
-  if (result.planId !== plan.planId || result.planContentSha256 !== plan.contentSha256 || audit.planId !== plan.planId || proof.planId !== plan.planId || manifest.planId !== plan.planId || manifest.resultId !== result.resultId) throw new Error('Transfer authorities do not reconcile with the plan and result.');
-  if (report.sourceEvidence?.packageId !== evidence.packageId || report.sourceEvidence?.packageContentSha256 !== evidence.contentSha256 || report.transferEvidence?.planId !== plan.planId || report.transferEvidence?.resultId !== result.resultId) throw new Error('Completion report does not reconcile with embedded evidence.');
+  if (result.planId !== plan.planId || result.planContentSha256 !== plan.contentSha256 || audit.planId !== plan.planId || audit.planContentSha256 !== plan.contentSha256 || proof.planId !== plan.planId || proof.planContentSha256 !== plan.contentSha256 || manifest.planId !== plan.planId || manifest.resultId !== result.resultId) throw new Error('Transfer authorities do not reconcile with the plan and result.');
+  const reportTransfer = report.transferEvidence;
+  if (report.sourceEvidence?.packageId !== evidence.packageId || report.sourceEvidence?.packageContentSha256 !== evidence.contentSha256 || reportTransfer?.planId !== plan.planId || reportTransfer?.planContentSha256 !== plan.contentSha256 || reportTransfer?.resultId !== result.resultId || reportTransfer?.resultContentSha256 !== result.contentSha256) throw new Error('Completion report does not reconcile with embedded evidence.');
+  if (reportTransfer?.originalTargetSha256 !== result.originalTargetSha256 || reportTransfer?.patchedTargetSha256 !== result.patchedTargetSha256 || reportTransfer?.transferAuditContentSha256 !== audit.contentSha256 || reportTransfer?.transferProofContentSha256 !== proof.contentSha256 || reportTransfer?.transferManifestContentSha256 !== manifest.contentSha256) throw new Error('Completion report transfer hashes do not reconcile.');
   if (report.declaration?.statement !== REVISION_COMPARE_TRANSFER_COMPLETION_DECLARATION || report.trustBoundary?.statement !== REVISION_COMPARE_TRANSFER_COMPLETION_TRUST_STATEMENT) throw new Error('Completion fixed statements do not match the governing contract.');
   if (report.completion?.status !== 'COMPLETE' || report.validation?.status !== 'READY' || report.completion?.blockers?.length) throw new Error('Completion report is not READY and COMPLETE.');
   verifyOperations(plan, result, audit, proof);
