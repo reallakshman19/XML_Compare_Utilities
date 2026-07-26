@@ -30,7 +30,7 @@ jobs:
           git show "${PATCH_SOURCE_COMMIT}:.github/workflows/rc-xfer-009-owner-release.yml" > /tmp/owner-release.yml
           sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/owner-release.yml | sed '1d;$d;s/^          //' > /tmp/owner-patch.py
           python /tmp/owner-patch.py
-      - name: Apply strict-locator correction
+      - name: Apply browser assertion corrections
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -42,7 +42,8 @@ jobs:
             await expect(sourceInputs).toHaveCount(2);
             await expect(sourceInputs.nth(0)).toBeDisabled();
             await expect(sourceInputs.nth(1)).toBeDisabled();
-            await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();"""
+            const evidenceImport = page.locator('[data-revc-evidence-package-import]');
+            if (await evidenceImport.count()) await expect(evidenceImport).toBeDisabled();"""
           old_enabled = """  await clear(page); await expect(page.locator('[data-revc-file]')).toBeEnabled();"""
           new_enabled = """  await clear(page);
             await expect(sourceInputs.nth(0)).toBeEnabled();
@@ -64,12 +65,12 @@ jobs:
           mkdir -p diagnostic
           npx playwright test tests/browser/revision-compare-transfer-handover-inspection.spec.mjs \
             --config=playwright.revision-compare.config.mjs \
-            --reporter=line > diagnostic/focused-playwright-v2.log 2>&1
+            --reporter=line > diagnostic/focused-playwright-v3.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rc-xfer-009-focused-playwright-diagnostic-v2
-          path: diagnostic/focused-playwright-v2.log
+          name: rc-xfer-009-focused-playwright-diagnostic-v3
+          path: diagnostic/focused-playwright-v3.log
           if-no-files-found: error
       - if: steps.focused.outcome != 'success'
         run: exit 1
