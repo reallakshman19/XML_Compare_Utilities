@@ -5,6 +5,10 @@ export const TOPOLOGY_RECOVERY_WRITER_PREFIX = 'topology-edit-writer.v1:';
 function coded(code, message, Constructor = Error) { const error = new Constructor(message); error.code = code; return error; }
 function recoveryKey(documentId) { const value = String(documentId ?? '').trim(); if (!value) throw new TypeError('Recovery documentId is required.'); return `${TOPOLOGY_RECOVERY_KEY_PREFIX}${value}`; }
 function writerName(documentId) { return `${TOPOLOGY_RECOVERY_WRITER_PREFIX}${String(documentId ?? '').trim()}`; }
+export function releaseTopologyDraftAuthority(service, recovery) {
+  if (service) service.destroy();
+  else recovery?.releaseWriter();
+}
 export function createTopologyDraftRecovery(storage, options = {}) {
   if (!storage || !['getItem', 'setItem', 'removeItem'].every((key) => typeof storage[key] === 'function')) throw new TypeError('Topology crash recovery requires a Storage-compatible adapter.');
   const lockManager = options.lockManager;
@@ -15,7 +19,6 @@ export function createTopologyDraftRecovery(storage, options = {}) {
     if (!value) throw new TypeError('Writer documentId is required.');
     if (heldDocumentId === value) return Object.freeze({ documentId: value, lockName: writerName(value), exclusive: true });
     if (leaseTask) throw coded('TOPOLOGY_EDIT_WRITER_UNAVAILABLE', `Another document writer is already held by this recovery adapter.`, RangeError);
-    if (typeof lockManager?.request !== 'function') throw coded('TOPOLOGY_EDIT_WRITER_UNAVAILABLE', 'Web Locks API is required for Topology edit mutation authority.', RangeError);
     let resolveAcquired, rejectAcquired, acquiredSettled = false;
     const acquired = new Promise((resolve, reject) => { resolveAcquired = resolve; rejectAcquired = reject; });
     const hold = new Promise((resolve) => { releaseHold = resolve; });
