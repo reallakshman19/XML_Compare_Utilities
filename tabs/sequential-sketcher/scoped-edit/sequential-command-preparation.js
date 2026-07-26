@@ -11,6 +11,7 @@ import { buildConfirmedConstructionSupportProjection } from '../support/sequenti
 import {
   SEQUENTIAL_COMMAND_REJECTION,
   SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES,
+  createSequentialNativeCommand,
   createSequentialPreparedCommand,
   sameSequentialContractValue,
   sequentialCommandCodedError,
@@ -39,6 +40,17 @@ const SUPPORT_OPTIONS = Object.freeze({
 
 function fail(code, message, Constructor = Error) {
   throw sequentialCommandCodedError(code, message, Constructor);
+}
+function verifiedNativeCommand(value) {
+  const normalized = createSequentialNativeCommand(value);
+  if (!sameSequentialContractValue(normalized, value)) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID,
+      'Sequential native command identity does not match its complete contents.',
+      TypeError,
+    );
+  }
+  return normalized;
 }
 function verifyEnvelope(envelope, nativeCommand, authority, journalState) {
   const errors = validateCommandEnvelope(envelope);
@@ -147,21 +159,22 @@ export function prepareSequentialCommand(input = {}) {
   if (!sameSequentialContractValue(authority, input.expectedAuthority)) {
     fail(SEQUENTIAL_COMMAND_REJECTION.COMMAND_AUTHORITY_MISMATCH, 'Sequential preparation authority does not match expected authority.', RangeError);
   }
-  verifyEnvelope(input.envelope, input.nativeCommand, authority, input.journalState);
-  if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(input.nativeCommand.commandType)) {
+  const nativeCommand = verifiedNativeCommand(input.nativeCommand);
+  verifyEnvelope(input.envelope, nativeCommand, authority, input.journalState);
+  if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(nativeCommand.commandType)) {
     fail(
       SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC,
-      `Sequential command ${input.nativeCommand.commandType} is blocked until its native decision path accepts issuedAt.`,
+      `Sequential command ${nativeCommand.commandType} is blocked until its native decision path accepts issuedAt.`,
       RangeError,
     );
   }
   const scope = deriveSequentialCommandScope({ ...input, authority });
   const targets = resolveSequentialCommandTargets({
-    command: input.nativeCommand,
+    command: nativeCommand,
     session: input.session,
     indexes: input.indexes,
   }).evidence;
-  const result = executeNativeCommand(input, input.nativeCommand, input.envelope.origin.issuedAt);
+  const result = executeNativeCommand(input, nativeCommand, input.envelope.origin.issuedAt);
   const transactionIds = newTransactionIds(input.session, result.session);
   const envelope = acceptedEnvelope(input.envelope, transactionIds);
   const projections = downstream(result.session, input.indexes);
@@ -182,7 +195,7 @@ export function prepareSequentialCommand(input = {}) {
   });
   return createSequentialPreparedCommand({
     envelope,
-    nativeCommand: input.nativeCommand,
+    nativeCommand,
     expectedAuthority: authority,
     scope,
     targets,
