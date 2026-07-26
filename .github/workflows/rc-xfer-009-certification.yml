@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EXPECTED_SOURCE_SHA: 47d33e441d04ff2435ee7d4e3e8e7ffc8da7b4ef
+  EXPECTED_SOURCE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
   CI: 'true'
 
 jobs:
