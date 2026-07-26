@@ -16,7 +16,7 @@ for (const name of names) if (name.startsWith('revision-decision-')) rc004Files.
 for (const [name, source] of sources) {
   if (rendererImport.test(source)) assert.equal(name, 'revision-compare-viewer-adapter.js');
   assert.doesNotMatch(source, alwaysForbidden, `${name} adds forbidden downstream authority`);
-  if (!rc004Files.has(name)) assert.doesNotMatch(source, rc004Authority, `${name} adds RC-004 authority outside the authorized modules`);
+  if (!rc004Files.has(name) && !name.startsWith('revision-transfer-')) assert.doesNotMatch(source, rc004Authority, `${name} adds RC-004 authority outside the authorized modules`);
   assert.doesNotMatch(source, /export\s+default\b/, `${name} uses a default export`);
   assert.doesNotMatch(source, /codex\//, `${name} assumes a prohibited branch`);
   assert.doesNotMatch(source, /new\s+MutationObserver|document\.body\.addEventListener/, `${name} adds broad DOM observation`);

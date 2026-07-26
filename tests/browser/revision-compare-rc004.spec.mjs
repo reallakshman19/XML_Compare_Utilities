@@ -122,7 +122,10 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   for (const token of ['differenceRows', 'visualModels', 'rankedEvidence', 'inputxml-managed-stage']) expect(exportedText).not.toContain(`"${token}"`);
 
   await page.getByRole('button', { name: 'Change scope' }).click();
-  const common = page.locator('[data-revc-branch-id="branch:/COMMON-500"]'); await common.uncheck(); await common.check();
+  const common = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
+  const commonRow = page.locator('label.revc-scope-row', { has: common });
+  await commonRow.click(); await expect(common).not.toBeChecked();
+  await commonRow.click(); await expect(common).toBeChecked();
   await expect(page.locator('.revc-decision-ledger')).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download decision ledger' })).toBeVisible();
@@ -142,7 +145,9 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   expect((await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger)).events).toEqual(exported.events);
 
   await page.getByRole('button', { name: 'Change scope' }).click();
-  await page.locator('[data-revc-branch-id="branch:/COMMON-500"]').uncheck();
+  const changedCommon = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
+  await page.locator('label.revc-scope-row', { has: changedCommon }).click();
+  await expect(changedCommon).not.toBeChecked();
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
   await page.getByRole('button', { name: 'Run visual comparison' }).click();
   await expect(page.getByText('The current audit differs. Decision evidence was not remapped.')).toBeVisible({ timeout: 25_000 });

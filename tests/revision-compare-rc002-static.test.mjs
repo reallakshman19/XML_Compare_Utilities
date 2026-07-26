@@ -24,7 +24,7 @@ for (const name of deterministic) {
 }
 const presentation = sources.get(adapter);
 assert.doesNotMatch(presentation, /translate|rotation|offset|registration/i, 'presentation adapter must not alter engineering coordinates');
-assert.match(presentation, /setMode\(context\.presentationMode\)/, 'presentation mode must be delegated to the renderer');
+assert.match(presentation, /viewer\.setMode\(value\.mode\)/, 'presentation mode must be delegated to the renderer');
 const selectionLine = presentation.split('\n').find((line) => line.includes('selectDifference:'));
 assert(selectionLine && !selectionLine.includes('fit'), 'queue selection must not auto-fit');
 
