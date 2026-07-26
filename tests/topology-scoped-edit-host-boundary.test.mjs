@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict';
 import { createTopologyScopedEditReadOnlyHostFixture } from './fixtures/topology-scoped-edit-read-only-host-fixture.js';
-import { TOPOLOGY_SCOPED_EDIT_REJECTION } from '../tabs/topology-trace-validator/topology-scoped-edit-authority-contracts.js';
-import { TOPOLOGY_SCOPED_EDIT_DRY_RUN_REJECTION } from '../tabs/topology-trace-validator/topology-scoped-edit-journal-projection.js';
-const f=createTopologyScopedEditReadOnlyHostFixture(),host=f.hostFactory({readModel:f.readModelA0,core:f.core,authorityProvider:f.authorityGet}),p=f.readModelA0.journalProjection.projection;assert.throws(()=>host.appendEditCommand(p,f.envelopes.boundary),e=>e.code===TOPOLOGY_SCOPED_EDIT_REJECTION.BOUNDARY_TARGET_NOT_EDITABLE);assert.throws(()=>host.appendEditCommand(p,f.envelopes.excluded),e=>e.code===TOPOLOGY_SCOPED_EDIT_REJECTION.EXCLUDED_TARGET_NOT_EDITABLE);assert.throws(()=>host.appendEditCommand(p,f.envelopes.mismatch),e=>e.code===TOPOLOGY_SCOPED_EDIT_DRY_RUN_REJECTION.COMMAND_UNSUPPORTED);assert.throws(()=>host.appendEditCommand(p,f.envelopes.unsupported),e=>e.code==='UNSUPPORTED_COMMAND_TARGET_RESOLVER');assert.throws(()=>host.appendEditCommand(p,f.envelopes.mixedTransaction),e=>e.code===TOPOLOGY_SCOPED_EDIT_REJECTION.BOUNDARY_TARGET_NOT_EDITABLE);console.log('[PASS] boundary excluded mismatch unsupported and mixed transaction rejected');
+const f = await createTopologyScopedEditReadOnlyHostFixture();
+const host = await f.hostFactory({ readModel: f.readModelA0, core: f.core,
+  authorityProvider: f.authorityGet, effects: f.effectBoundaryFactory() });
+const current = f.readModelA0.journalProjection.projection;
+for (const [name, envelope, code] of [
+  ['boundary', f.envelopes.boundary, f.expectedCodes.boundary],
+  ['excluded', f.envelopes.excluded, f.expectedCodes.excluded],
+  ['mismatch', f.envelopes.mismatch, f.expectedCodes.mismatch],
+  ['unsupported', f.envelopes.unsupported, f.expectedCodes.unsupported],
+  ['mixed', f.envelopes.mixedTransaction, f.expectedCodes.mixed],
+]) assert.throws(() => host.appendEditCommand(current, envelope),
+  (error) => error.code === code, name);
+console.log('[PASS] boundary, excluded, mismatch, unsupported, and mixed transactions reject');
