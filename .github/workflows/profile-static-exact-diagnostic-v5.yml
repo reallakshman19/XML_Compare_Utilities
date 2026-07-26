@@ -1,0 +1,41 @@
+name: Profile static exact diagnostic v5
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-static-exact-diagnostic-v5.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: 62c79173a2a251f4c298eb86478a2096c676ab82
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture profile static chain
+        id: profile_static_chain
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/profile-static-v5
+          node tests/pipeline-3d-model-profile-propagation-static.test.js > /tmp/profile-static-v5/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-static-exact-output-v5
+          path: /tmp/profile-static-v5/output.log
+          if-no-files-found: error
+      - if: steps.profile_static_chain.outcome != 'success'
+        run: exit 1
