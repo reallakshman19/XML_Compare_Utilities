@@ -49,3 +49,4 @@ console.log('[SIMULATED] Phase 2 journal, regeneration-before-acceptance, writer
 await import('./sequential-command-authority-foundation.test.mjs');
 await import('./sequential-redo-head-authority.test.mjs');
 await import('./sequential-native-command-identity.test.mjs');
+await import('./sequential-command-time-normalization.test.mjs');
