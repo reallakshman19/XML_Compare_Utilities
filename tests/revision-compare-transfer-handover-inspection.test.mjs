@@ -182,6 +182,7 @@ for (const name of productionFiles) {
   const source = await readFile(new URL(`../tabs/revision-compare/${name}`, import.meta.url), 'utf8');
   assert.ok(source.split(/\r?\n/).length - 1 < 300, `${name} must remain below 300 physical lines`);
   assert.doesNotMatch(source, /export\s+default/);
+  assert.doesNotMatch(source, /export\s+(?:const|let|var|function|class)\s+_test\b/);
   assert.doesNotMatch(source, /import\s+(?:\{[^}]*\b_test\b[^}]*\}|\*\s+as\s+_test)\s+from/);
 }
 const viewSource = await readFile(new URL('../tabs/revision-compare/revision-transfer-handover-inspection-view.js', import.meta.url), 'utf8');
