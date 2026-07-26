@@ -28,7 +28,7 @@ const nextProjection = Object.freeze({ initialState: Object.freeze({}), envelope
   activeCommandIds: Object.freeze(['C1']) });
 const replay0 = Object.freeze({ state: 'A0' }), replay1 = Object.freeze({ state: 'A1' });
 const a0 = model('A0', [], baseProjection, replay0), a1 = model('A1', [envelope()], nextProjection, replay1);
-let current = a0, liveAuthority = 'A0', mountCount = 0, destroyCount = 0;
+let current = a0, liveAuthority = 'A0', mountCount = 0, destroyCount = 0, snapshotCalls = 0;
 function composition(readModel, request) {
   mountCount += 1;
   return Object.freeze({ scopeRequest: request,
@@ -47,10 +47,13 @@ const factories = Object.freeze({ createReadModel: async (value) => value,
   runPositive: () => Object.freeze({ direct: Object.freeze({ evidence: Object.freeze({
     candidateProjection: nextProjection, candidateReplay: replay1,
     projectionHash: 'PH', candidateReplayHash: 'RH' }) }) }) });
-const shadow = shadowTest.createWithFactories({ snapshotProvider: async () => current,
+const shadow = shadowTest.createWithFactories({ snapshotKeyProvider: () => liveAuthority,
+  snapshotProvider: async () => { snapshotCalls += 1; return current; },
   authorityProvider: () => liveAuthority }, {}, factories);
 await shadow.observe();
 assert.equal(shadow.evidence().status, 'MOUNTED');
+await shadow.observe();
+assert.equal(snapshotCalls, 1, 'unchanged renders must not rebuild the authority snapshot');
 current = a1; liveAuthority = 'A1';
 await shadow.observe();
 assert.equal(shadow.evidence().lastDiagnostic.transition.status, 'PASS');

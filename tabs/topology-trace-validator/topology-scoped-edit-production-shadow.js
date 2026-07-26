@@ -141,6 +141,9 @@ function defaultFactories() {
 function createWithFactories(input, dependencies, factories) {
   if (typeof input.snapshotProvider !== 'function') throw new TypeError('Production shadow requires snapshotProvider().');
   if (typeof input.authorityProvider !== 'function') throw new TypeError('Production shadow requires authorityProvider().');
+  if (input.snapshotKeyProvider != null && typeof input.snapshotKeyProvider !== 'function') {
+    throw new TypeError('snapshotKeyProvider must be a function when supplied.');
+  }
   let current = null, destroyed = false, status = TOPOLOGY_PRODUCTION_SHADOW_STATUS.IDLE;
   let lastDiagnostic = null, history = Object.freeze([]), queue = Promise.resolve(), sequence = 0;
   function publish(kind, nextStatus, authorityId, detail = {}) {
@@ -163,6 +166,13 @@ function createWithFactories(input, dependencies, factories) {
   async function observe() {
     return schedule(async () => {
       if (destroyed) return evidence();
+      let sourceKey = '';
+      try { sourceKey = cleanText(input.snapshotKeyProvider?.()); }
+      catch (error) {
+        publish('KEY', TOPOLOGY_PRODUCTION_SHADOW_STATUS.DEGRADED, '', { error: errorEvidence(error) });
+        return evidence();
+      }
+      if (sourceKey && current?.key === sourceKey) return evidence();
       let snapshot;
       try { snapshot = await input.snapshotProvider(); }
       catch (error) {
@@ -171,9 +181,13 @@ function createWithFactories(input, dependencies, factories) {
         return evidence();
       }
       if (destroyed) return evidence();
-      if (!snapshot) { releaseComposition(current); current = null;
-        publish('MOUNT', TOPOLOGY_PRODUCTION_SHADOW_STATUS.IDLE, '', { reason: 'Edit authority is not initialized.' }); return evidence(); }
-      const key = semanticHash({ authorityId: snapshot.authority?.authorityId ?? snapshot.authorityId,
+      if (!snapshot) {
+        if (!current && status === TOPOLOGY_PRODUCTION_SHADOW_STATUS.IDLE) return evidence();
+        releaseComposition(current); current = null;
+        publish('MOUNT', TOPOLOGY_PRODUCTION_SHADOW_STATUS.IDLE, '', { reason: 'Edit authority is not initialized.' });
+        return evidence();
+      }
+      const key = sourceKey || semanticHash({ authorityId: snapshot.authority?.authorityId ?? snapshot.authorityId,
         selection: snapshot.selectionSnapshot?.entityIds, scope: snapshot.commandScopeBasis });
       if (current?.key === key) return evidence();
       let next = null;

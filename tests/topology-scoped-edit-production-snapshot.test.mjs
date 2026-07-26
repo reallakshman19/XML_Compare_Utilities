@@ -32,6 +32,9 @@ const workspaceEvidence = Object.freeze({ trace: Object.freeze({ artifacts: Obje
 const controller = Object.freeze({ evidence: () => workspaceEvidence,
   edit: Object.freeze({ evidence: () => edit }), modelMode: () => Object.freeze({ kind: 'SMALL_FULL' }) });
 const core = Object.freeze({ createTopologyEditDraft: () => draft });
+const sourceKey = (await import('../tabs/topology-trace-validator/topology-scoped-edit-production-snapshot.js'))
+  .topologyProductionShadowSourceKey({ controller, root: {} });
+assert(sourceKey);
 const snapshot = await snapshotTest.createWithCore({ controller, root: {} }, core);
 assert.equal(snapshot.schema, 'TopologyProductionShadowSnapshot.v1');
 assert.equal(snapshot.authority.authorityId, 'A0');

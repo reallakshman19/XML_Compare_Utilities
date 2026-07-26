@@ -15,6 +15,7 @@ import { downloadText, outputStem } from './topology-edit-controller-helpers.js'
 import {
   createTopologyScopedEditProductionShadow,
   createTopologyScopedEditProductionSnapshot,
+  topologyProductionShadowSourceKey,
 } from './topology-scoped-edit-production-shadow-index.js';
 
 export function createTopologyEditExtensions(root, controller) {
@@ -34,6 +35,7 @@ export function createTopologyEditExtensions(root, controller) {
 
   const shadowTarget = root.querySelector('[data-ttv-edit-root]') ?? root;
   const productionShadow = createTopologyScopedEditProductionShadow({
+    snapshotKeyProvider: () => topologyProductionShadowSourceKey({ controller, root }),
     snapshotProvider: () => createTopologyScopedEditProductionSnapshot({ controller, root }),
     authorityProvider: () => cleanText(objectRecord(editEvidence().commandAuthority).authorityId),
     onDiagnostic: (diagnostic) => {

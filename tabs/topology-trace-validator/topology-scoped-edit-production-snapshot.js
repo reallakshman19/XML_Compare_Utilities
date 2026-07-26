@@ -63,6 +63,22 @@ function artifactHash(evidence, canonical) {
     editValidation: objectRecord(evidence.editedArtifacts).editValidation });
 }
 
+
+function selectionKey(evidence) {
+  return asArray(evidence.selection).map((row) => {
+    const record = objectRecord(row);
+    return `${cleanText(record.kind)}:${cleanText(record.id)}`;
+  }).filter((value) => !value.endsWith(':')).sort();
+}
+
+export function topologyProductionShadowSourceKey(input = {}) {
+  const evidence = editEvidence(input.controller);
+  const authorityId = cleanText(objectRecord(evidence.commandAuthority).authorityId);
+  if (!authorityId) return '';
+  return semanticHash({ authorityId, selection: selectionKey(evidence),
+    editScope: evidence.editScope ?? null, modelMode: input.controller.modelMode(input.root)?.kind ?? '' });
+}
+
 function requireReady(evidence, raw, canonical) {
   const ready = raw && canonical && evidence.draft && evidence.commandJournal
     && evidence.commandAuthority && evidence.projectDocument && evidence.projectSession
@@ -106,4 +122,4 @@ export async function createTopologyScopedEditProductionSnapshot(input = {}) {
   return createWithCore(input, await loadTopologyProducerCore());
 }
 
-export const _test = Object.freeze({ createWithCore, entityPopulation, selectedEntityIds, artifactHash });
+export const _test = Object.freeze({ createWithCore, entityPopulation, selectedEntityIds, artifactHash, selectionKey });
