@@ -1,0 +1,71 @@
+name: RC-XFER-009 manifest diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-manifest-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: 79e3ceee5353afe9a3b7d84079356d6bb7e653dd
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Compare artifact authorities
+        run: |
+          node --input-type=module <<'JS' > manifest-diagnostic.log
+          import { handoverInspectionFixture, cryptoRef } from './tests/revision-compare-transfer-handover-inspection-fixtures.mjs';
+          import { createRevisionCompareTransferArtifacts } from './tabs/revision-compare/revision-transfer-artifacts.js';
+          import { stableStringify } from './tabs/revision-compare/revision-contract-utils.js';
+          const fixture = await handoverInspectionFixture();
+          const payload = fixture.bundle.payload;
+          const revB = payload.evidencePackage.payload.sessionManifest.revisions.revB;
+          const actual = payload.transferManifest;
+          const candidates = [
+            { label: 'manifest-revB-document', targetFileName: revB.fileName, patchedTargetSchema: revB.document.stagedSchema },
+            { label: 'artifact-descriptor', targetFileName: payload.transferArtifacts[0].filename.replace(/_patched_target\.json$/, '.json'), patchedTargetSchema: payload.transferArtifacts[0].schema },
+            { label: 'fixture-workspace-snapshot', targetFileName: fixture.workspace.slots.candidate.jsonSnapshot.fileName, patchedTargetSchema: fixture.workspace.slots.candidate.jsonSnapshot.profile },
+          ];
+          console.log(JSON.stringify({
+            revBFileName: revB.fileName,
+            stagedSchema: revB.document.stagedSchema,
+            snapshotFileName: fixture.workspace.slots.candidate.jsonSnapshot.fileName,
+            snapshotProfile: fixture.workspace.slots.candidate.jsonSnapshot.profile,
+            artifact0: payload.transferArtifacts[0],
+            actualManifest: actual,
+          }, null, 2));
+          for (const candidate of candidates) {
+            const built = await createRevisionCompareTransferArtifacts({
+              result: payload.transferResult,
+              audit: payload.transferAudit,
+              proof: payload.transferProof,
+              targetFileName: candidate.targetFileName,
+              patchedTargetSchema: candidate.patchedTargetSchema,
+            }, { cryptoRef });
+            console.log(JSON.stringify({
+              candidate,
+              equal: stableStringify(actual) === stableStringify(built.manifest),
+              manifest: built.manifest,
+            }, null, 2));
+          }
+          JS
+          cat manifest-diagnostic.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rc-xfer-009-manifest-diagnostic
+          path: manifest-diagnostic.log
