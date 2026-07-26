@@ -6,10 +6,20 @@ import {
 } from '../../core/scoped-edit-runtime/scoped-edit-contracts.js';
 import { assertScopedEditHostContract } from '../../core/scoped-edit-runtime/scoped-edit-host.js';
 import { loadTopologyProducerCore } from './topology-producer-loader.js';
-import { _test as readModelTest } from './topology-scoped-edit-read-model.js';
-import { _test as sceneTest } from './topology-scoped-edit-scene-adapter.js';
+import {
+  assertTopologyScopedEditReadModel,
+  _test as readModelTest,
+} from './topology-scoped-edit-read-model.js';
+import {
+  buildTopologyScopedEditEngineeringScene,
+  _test as sceneTest,
+} from './topology-scoped-edit-scene-adapter.js';
 import { createTopologyScopedEditDryRun } from './topology-scoped-edit-journal-projection.js';
-import { _test as scopeTest, STALE_TOPOLOGY_SCOPE_AUTHORITY } from './topology-scoped-edit-scope-adapter.js';
+import {
+  createTopologyScopedEditScopeResolver,
+  _test as scopeTest,
+  STALE_TOPOLOGY_SCOPE_AUTHORITY,
+} from './topology-scoped-edit-scope-adapter.js';
 
 export const TOPOLOGY_READ_ONLY_HOST_DESTROYED = 'TOPOLOGY_READ_ONLY_HOST_DESTROYED';
 export const STALE_TOPOLOGY_HOST_AUTHORITY = 'STALE_TOPOLOGY_HOST_AUTHORITY';
@@ -41,14 +51,23 @@ function requiredEffects(value) {
   }
   return effects;
 }
-async function hostState(input, core, dependencies = {}) {
-  const readModel = await readModelTest.assertWithCore(input.readModel, core, dependencies);
-  const scene = await sceneTest.createWithCore(readModel, core, dependencies);
-  const resolveScope = await scopeTest.resolverWithCore({ readModel, scene }, core, dependencies);
+function completeState(input, core, readModel, scene, resolveScope) {
   const provider = input.authorityProvider ?? (() => readModel.authorityId);
   if (typeof provider !== 'function') throw new TypeError('authorityProvider must be a function.');
   return { readModel, core, provider, effects: requiredEffects(input.effects), scene, resolveScope,
     entityIndex: new Map(scene.entities.map((entity) => [entity.id, entity])), destroyed: false };
+}
+async function hostStateWithCore(input, core, dependencies = {}) {
+  const readModel = await readModelTest.assertWithCore(input.readModel, core, dependencies);
+  const scene = await sceneTest.createWithCore(readModel, core, dependencies);
+  const resolveScope = await scopeTest.resolverWithCore({ readModel, scene }, core, dependencies);
+  return completeState(input, core, readModel, scene, resolveScope);
+}
+async function publicHostState(input, core, dependencies = {}) {
+  const readModel = await assertTopologyScopedEditReadModel(input.readModel, dependencies);
+  const scene = await buildTopologyScopedEditEngineeringScene(readModel, dependencies);
+  const resolveScope = await createTopologyScopedEditScopeResolver({ readModel, scene }, dependencies);
+  return completeState(input, core, readModel, scene, resolveScope);
 }
 function assertLive(state, staleCode = STALE_TOPOLOGY_HOST_AUTHORITY) {
   if (state.destroyed) fail(TOPOLOGY_READ_ONLY_HOST_DESTROYED,
@@ -92,8 +111,7 @@ function destroy(state) {
   return immutableJson({ destroyed: true, authorityId: state.readModel.authorityId },
     'Topology read-only host destroy evidence');
 }
-async function createWithCore(input, core, dependencies = {}) {
-  const state = await hostState(input, core, dependencies);
+function hostFromState(state) {
   const host = Object.freeze({
     scene() { return observed(state, 'scene', () => state.scene); },
     resolveScope(request) { return scopeEvidence(state, request).scope; },
@@ -107,7 +125,11 @@ async function createWithCore(input, core, dependencies = {}) {
   });
   assertScopedEditHostContract(host); return host;
 }
+async function createWithCore(input, core, dependencies = {}) {
+  return hostFromState(await hostStateWithCore(input, core, dependencies));
+}
 export async function createTopologyScopedEditReadOnlyHost(input = {}, dependencies = {}) {
-  return createWithCore(input, await loadTopologyProducerCore(), dependencies);
+  const core = await loadTopologyProducerCore();
+  return hostFromState(await publicHostState(input, core, dependencies));
 }
 export const _test = Object.freeze({ createWithCore, FORBIDDEN_EFFECTS });
