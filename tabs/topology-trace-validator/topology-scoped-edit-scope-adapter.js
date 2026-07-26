@@ -1,4 +1,4 @@
-/** Topology-specific selection and structural semantics over EngineeringScope.v1. */
+/** Certified Topology selection and structural semantics over EngineeringScope.v1. */
 import { immutableJson } from '../../contracts/contract-values.js';
 import {
   ENGINEERING_SCOPE_BOUNDARY_POLICY,
@@ -7,6 +7,8 @@ import {
   createEngineeringScopeRequest,
 } from '../../core/engineering-scope/engineering-scope-contracts.js';
 import { semanticHash } from './topology-validator-values.js';
+import { assertTopologyScopedEditReadModel, _test as readModelTest } from './topology-scoped-edit-read-model.js';
+import { assertTopologyScopedEditSceneAncestry } from './topology-scoped-edit-scene-adapter.js';
 
 export const TOPOLOGY_SCOPED_EDIT_SCOPE_RESOLUTION_V1 = 'TopologyScopedEditScopeResolution.v1';
 export const TOPOLOGY_SECTIONAL_SCOPE_UNSUPPORTED = 'TOPOLOGY_SECTIONAL_SCOPE_UNSUPPORTED';
@@ -26,49 +28,37 @@ export const TOPOLOGY_SCOPED_EDIT_SCOPE_SUPPORT = Object.freeze({
   SECTIONAL: Object.freeze({ status: 'UNSUPPORTED', resolver: null,
     failureCode: TOPOLOGY_SECTIONAL_SCOPE_UNSUPPORTED }),
 });
-
 function fail(code, message, Constructor = RangeError, evidence = {}) {
-  const error = new Constructor(message);
-  error.code = code;
-  Object.assign(error, evidence);
-  throw error;
+  const error = new Constructor(message); error.code = code; Object.assign(error, evidence); throw error;
 }
-
 function sceneIndex(scene) {
   const entries = scene.entities.map((entity) => [entity.id, entity]);
   if (new Set(entries.map(([id]) => id)).size !== entries.length) throw new TypeError('Scene IDs must be unique.');
   return new Map(entries);
 }
-
 function graphOf(scene, index) {
   const graph = new Map([...index.keys()].map((id) => [id, new Set()]));
   for (const entity of scene.entities) for (const ref of entity.domainRef.references ?? []) {
     if (!index.has(ref)) fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.UNKNOWN_ENTITY,
       `Scene relationship ${entity.id} references unknown entity ${ref}.`);
-    graph.get(entity.id).add(ref);
-    graph.get(ref).add(entity.id);
+    graph.get(entity.id).add(ref); graph.get(ref).add(entity.id);
   }
   return graph;
 }
-
 function requireIds(ids, index, label) {
   for (const id of ids) if (!index.has(id)) fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.UNKNOWN_ENTITY,
     `${label} references unknown scene entity ${id}.`);
   return ids;
 }
-
 function expandDepth(seedIds, graph, depth) {
-  const visited = new Set(seedIds);
-  let frontier = [...seedIds].sort();
+  const visited = new Set(seedIds); let frontier = [...seedIds].sort();
   for (let level = 0; level < depth && frontier.length; level += 1) {
     const next = new Set();
     for (const id of frontier) for (const ref of [...graph.get(id)].sort()) if (!visited.has(ref)) next.add(ref);
-    frontier = [...next].sort();
-    frontier.forEach((id) => visited.add(id));
+    frontier = [...next].sort(); frontier.forEach((id) => visited.add(id));
   }
   return visited;
 }
-
 function connected(seedIds, graph) {
   const visited = new Set(seedIds), queue = [...seedIds].sort();
   for (let cursor = 0; cursor < queue.length; cursor += 1) {
@@ -78,34 +68,28 @@ function connected(seedIds, graph) {
   }
   return visited;
 }
-
 function classification(readModel) {
   return { editable: new Set(readModel.commandScopeBasis.editableEntityIds),
     boundary: new Set(readModel.commandScopeBasis.boundaryEntityIds),
     excluded: new Set(readModel.commandScopeBasis.excludedEntityIds) };
 }
-
 function selectionClosure(readModel, request, graph, index) {
   const seeds = requireIds(request.selection.entityIds, index, 'Selection scope');
   const evidence = new Set(readModel.selectionSnapshot.entityIds);
-  if (evidence.size && seeds.some((id) => !evidence.has(id))) {
-    fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.SELECTION_EVIDENCE_MISMATCH,
-      'Selection request is not contained in the current authority-bound selection snapshot.');
-  }
+  if (evidence.size && seeds.some((id) => !evidence.has(id))) fail(
+    TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.SELECTION_EVIDENCE_MISMATCH,
+    'Selection request is not contained in the current authority-bound selection snapshot.');
   const closure = expandDepth(seeds, graph, request.selection.closureDepth);
   const classes = classification(readModel);
   const editable = new Set([...closure].filter((id) => classes.editable.has(id)));
   for (const id of [...editable]) for (const ref of graph.get(id)) if (classes.boundary.has(ref)) closure.add(ref);
   return { closure, editable, classes };
 }
-
 function structuralClosure(readModel, request, graph, index) {
   const seeds = requireIds(request.structural.identifiers, index, 'Structural scope');
   const closure = connected(seeds, graph), classes = classification(readModel);
-  const editable = new Set([...closure].filter((id) => classes.editable.has(id)));
-  return { closure, editable, classes };
+  return { closure, editable: new Set([...closure].filter((id) => classes.editable.has(id))), classes };
 }
-
 function resolvedSets(scene, result) {
   const editable = [...result.editable].sort();
   if (!editable.length) fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.NO_EDITABLE_ENTITY,
@@ -115,20 +99,17 @@ function resolvedSets(scene, result) {
   const excluded = scene.entities.map((entity) => entity.id).filter((id) => !occupied.has(id)).sort();
   return { editable, boundary, excluded };
 }
-
 function enforceBudget(request, sets, authorityId) {
   const resolvedCount = sets.editable.length + sets.boundary.length;
   if (resolvedCount > request.elementBudget) fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.BUDGET_EXCEEDED,
     `Resolved ${request.kind} scope exceeds elementBudget ${request.elementBudget}.`, RangeError,
     { requestedBudget: request.elementBudget, resolvedCount, scopeKind: request.kind, authorityId });
 }
-
 function stats(sets, budget) {
   const mounted = sets.editable.length + sets.boundary.length;
   return { matched: sets.editable.length, boundary: sets.boundary.length, mounted,
     budget, consumed: mounted, remaining: budget - mounted };
 }
-
 function assertPartition(scene, sets) {
   const all = scene.entities.map((entity) => entity.id).sort();
   const combined = [...sets.editable, ...sets.boundary, ...sets.excluded].sort();
@@ -136,30 +117,45 @@ function assertPartition(scene, sets) {
     throw new TypeError('Topology scope partition must be complete and pairwise disjoint.');
   }
 }
-
-export function resolveTopologyScopedEditScope(input = {}) {
-  const request = createEngineeringScopeRequest(input.request);
-  if (request.boundaryPolicy === ENGINEERING_SCOPE_BOUNDARY_POLICY.PROPAGATE) {
-    fail(TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.PROPAGATE_UNSUPPORTED,
-      'Topology P3.1B does not permit propagating boundary mutation.');
-  }
+function resolveCertified(input, requestInput) {
+  const request = createEngineeringScopeRequest(requestInput);
+  if (request.boundaryPolicy === ENGINEERING_SCOPE_BOUNDARY_POLICY.PROPAGATE) fail(
+    TOPOLOGY_SCOPED_EDIT_SCOPE_REJECTION.PROPAGATE_UNSUPPORTED,
+    'Topology P3.1B does not permit propagating boundary mutation.');
   if (request.kind === ENGINEERING_SCOPE_KIND.SECTIONAL) fail(TOPOLOGY_SECTIONAL_SCOPE_UNSUPPORTED,
     'Topology has no source-proven engineering sectional scope.');
   if (input.scene.revision.value !== input.readModel.authorityId) fail(STALE_TOPOLOGY_SCOPE_AUTHORITY,
     'Engineering scene revision does not match current Topology authority.');
+  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
   const index = sceneIndex(input.scene), graph = graphOf(input.scene, index);
   const result = request.kind === ENGINEERING_SCOPE_KIND.SELECTION
     ? selectionClosure(input.readModel, request, graph, index)
     : structuralClosure(input.readModel, request, graph, index);
   const sets = resolvedSets(input.scene, result);
-  enforceBudget(request, sets, input.readModel.authorityId);
-  assertPartition(input.scene, sets);
+  enforceBudget(request, sets, input.readModel.authorityId); assertPartition(input.scene, sets);
   const scope = createEngineeringScope({ schema: 'EngineeringScope.v1', request, kind: request.kind,
     boundaryPolicy: request.boundaryPolicy, elementBudget: request.elementBudget,
     entityIds: sets.editable, boundaryIds: sets.boundary, stats: stats(sets, request.elementBudget) });
   return immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_SCOPE_RESOLUTION_V1,
     authorityId: input.readModel.authorityId, sceneId: input.scene.sceneId,
+    canonicalTopologyHash: input.readModel.canonicalTopologyHash,
+    canonicalContentHash: input.readModel.canonicalContentHash,
     requestHash: semanticHash(request), scope, editableEntityIds: sets.editable,
     boundaryEntityIds: sets.boundary, excludedEntityIds: sets.excluded },
   'Topology scoped-edit scope resolution');
 }
+async function resolverWithCore(input, core, dependencies = {}) {
+  await readModelTest.assertWithCore(input.readModel, core, dependencies);
+  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
+  return Object.freeze((request) => resolveCertified(input, request));
+}
+export async function createTopologyScopedEditScopeResolver(input = {}, dependencies = {}) {
+  await assertTopologyScopedEditReadModel(input.readModel, dependencies);
+  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
+  return Object.freeze((request) => resolveCertified(input, request));
+}
+export async function resolveTopologyScopedEditScope(input = {}, dependencies = {}) {
+  const resolver = await createTopologyScopedEditScopeResolver(input, dependencies);
+  return resolver(input.request);
+}
+export const _test = Object.freeze({ resolveCertified, resolverWithCore });
