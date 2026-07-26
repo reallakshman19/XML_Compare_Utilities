@@ -76,6 +76,44 @@ export function renderAnchorPreview(state) {
   const anchorSummary = state.navisParse?.anchor?.summaryText || `Configured Anchor: Tag [${esc(tagId)}] → PS [${esc(supportId)}]. Will calculate transformation deltas upon parsing.`;
   return `<div class="nti-help" data-nti-anchor-preview style="border-left: 4px solid var(--accent-primary, #0078d4); padding-left: 10px;"><b>Anchor-based coordinate transformation ACTIVE</b><br>${esc(anchorSummary)}<br><i>Overruling default transformation and user-configured datum offsets.</i></div>`;
 }
+export function renderAnchorTagDropdown(state, key = 'navisAnchorTagId') {
+  const cfg = state.config || {};
+  const selectedValue = String(cfg[key] || '').trim();
+  const tags = state.navisParse?.tags || [];
+  const hasSelectedInList = tags.some((t) => String(t.tagId || '').trim() === selectedValue);
+  const configuredOption = selectedValue && !hasSelectedInList
+    ? `<option value="${esc(selectedValue)}" selected>${esc(selectedValue)} (configured)</option>`
+    : '';
+  const tagOptions = tags.map((t) => {
+    const val = String(t.tagId || '').trim();
+    const isSelected = val === selectedValue;
+    const label = `Tag ${val}${t.commentBody ? ` — ${t.commentBody}` : ''}${t.viewName ? ` (${t.viewName})` : ''}`;
+    return `<option value="${esc(val)}" ${isSelected ? 'selected' : ''}>${esc(label)}</option>`;
+  }).join('');
+  return `<select data-nti-config="${esc(key)}" class="nti-select"><option value="">-- Select Anchor Tag in XML (full list, ${tags.length} tags) --</option>${configuredOption}${tagOptions}</select>`;
+}
+export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIdentity', limit = 50) {
+  const cfg = state.config || {};
+  const selectedValue = String(cfg[key] || '').trim();
+  const rows = (state.identityTrace?.rows?.length ? state.identityTrace.rows : (state.stagedIndex?.entries || []));
+  const topRows = rows.slice(0, limit);
+  const hasSelectedInList = topRows.some((r) => {
+    const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();
+    return val === selectedValue || val.replace(/^\//, '') === selectedValue.replace(/^\//, '');
+  });
+  const configuredOption = selectedValue && !hasSelectedInList
+    ? `<option value="${esc(selectedValue)}" selected>${esc(selectedValue)} (configured)</option>`
+    : '';
+  const rowOptions = topRows.map((r) => {
+    const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();
+    const isSelected = val === selectedValue || (selectedValue && val.replace(/^\//, '') === selectedValue.replace(/^\//, ''));
+    const display = String(r.canonicalIdentity || r.identity || val).trim();
+    const branch = String(r.resolvedBranch || r.inputPipe || '').trim();
+    const label = `${display}${branch ? ` — ${branch}` : ''}`;
+    return `<option value="${esc(val)}" ${isSelected ? 'selected' : ''}>${esc(label)}</option>`;
+  }).join('');
+  return `<select data-nti-config="${esc(key)}" class="nti-select"><option value="">-- Select Anchor Support in JSON (top ${Math.min(limit, topRows.length)} of ${rows.length}) --</option>${configuredOption}${rowOptions}</select>`;
+}
 function renderNavisDatumPreview(state) {
   const cfg = state.config || {};
   const offset = Number(cfg.navisElevationDatumMm) || 0;
@@ -135,8 +173,8 @@ function renderInputs(state) {
     <label class="nti-field">JSON bore paths<textarea data-nti-config="jsonBorePaths">${esc(joinList(cfg.jsonBorePaths))}</textarea></label>
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
     <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
-    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b><input data-nti-config="navisAnchorTagId" value="${esc(cfg.navisAnchorTagId || '')}" placeholder="e.g. 1"></label>
-    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b><input data-nti-config="navisAnchorSupportIdentity" value="${esc(cfg.navisAnchorSupportIdentity || '')}" placeholder="e.g. /PS-11167.4"></label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b>${renderAnchorTagDropdown(state, 'navisAnchorTagId')}</label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b>${renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 50)}</label>
     <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
     <label class="nti-field">Navis Easting datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
     <label class="nti-field">Navis Northing datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>

@@ -1,6 +1,6 @@
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
 import { DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
-import { renderAnchorPreview } from './navis-tag-isonote-ui-view.js';
+import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown } from './navis-tag-isonote-ui-view.js';
 
 const STYLE_ID = 'navis-tag-isonote-workflow-style';
 
@@ -90,8 +90,8 @@ function renderHome(state) {
       </div>
     </div>
     <div class="nti-grid-2" style="margin-top: 10px;">
-      ${field('Anchor Tag ID in XML', textInput('navisAnchorTagId', cfg.navisAnchorTagId, 'text', 'placeholder="e.g. 1"'))}
-      ${field('Anchor Support ID in JSON', textInput('navisAnchorSupportIdentity', cfg.navisAnchorSupportIdentity, 'text', 'placeholder="e.g. /PS-11167.4"'))}
+      ${field('Anchor Tag ID in XML (full list)', renderAnchorTagDropdown(state, 'navisAnchorTagId'))}
+      ${field('Anchor Support ID in JSON (top 50)', renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 50))}
     </div>
     <div style="margin-top: 10px;">
       ${renderAnchorPreview(state)}
