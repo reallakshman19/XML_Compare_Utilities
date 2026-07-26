@@ -91,19 +91,18 @@ export function renderAnchorTagDropdown(state, key = 'navisAnchorTagId') {
       else state.navisParse = parsed;
     } catch {}
   }
-  const hasSelectedInList = tags.some((t) => String(t.tagId || '').trim() === selectedValue);
-  const configuredOption = selectedValue && !hasSelectedInList
-    ? `<option value="${esc(selectedValue)}" selected>${esc(selectedValue)} (configured)</option>`
-    : '';
+  const datalistId = `nti-datalist-${esc(key)}`;
   const tagOptions = tags.map((t) => {
     const val = String(t.tagId || '').trim();
-    const isSelected = val === selectedValue;
-    const label = `Tag ${val}${t.commentBody ? ` — ${t.commentBody}` : ''}${t.viewName ? ` (${t.viewName})` : ''}`;
-    return `<option value="${esc(val)}" ${isSelected ? 'selected' : ''}>${esc(label)}</option>`;
+    const desc = [t.commentBody ? String(t.commentBody).trim() : '', t.viewName ? `(${String(t.viewName).trim()})` : ''].filter(Boolean).join(' ');
+    return `<option value="${esc(val)}">${esc(desc)}</option>`;
   }).join('');
-  return `<select data-nti-config="${esc(key)}" class="nti-select"><option value="">-- Select Anchor Tag in XML (full list, ${tags.length} tags) --</option>${configuredOption}${tagOptions}</select>`;
+  const placeholder = tags.length
+    ? `Type or search all ${tags.length} XML tags (e.g. 1)...`
+    : 'Type or search XML tags...';
+  return `<input type="text" list="${datalistId}" data-nti-config="${esc(key)}" class="nti-input" style="width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-color, #ccc);" value="${esc(selectedValue)}" placeholder="${esc(placeholder)}" autocomplete="off"><datalist id="${datalistId}">${tagOptions}</datalist>`;
 }
-export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIdentity', limit = 50) {
+export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIdentity', limit = 0) {
   const cfg = state.config || {};
   const selectedValue = String(cfg[key] || '').trim();
   let rows = (state.identityTrace?.rows?.length ? state.identityTrace.rows : (state.stagedIndex?.entries || []));
@@ -117,23 +116,20 @@ export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIden
       else state.stagedIndex = idx;
     } catch {}
   }
-  const topRows = rows.slice(0, limit);
-  const hasSelectedInList = topRows.some((r) => {
-    const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();
-    return val === selectedValue || val.replace(/^\//, '') === selectedValue.replace(/^\//, '');
-  });
-  const configuredOption = selectedValue && !hasSelectedInList
-    ? `<option value="${esc(selectedValue)}" selected>${esc(selectedValue)} (configured)</option>`
-    : '';
+  const maxRows = (!limit || limit <= 0) ? rows.length : limit;
+  const topRows = rows.slice(0, maxRows);
+  const datalistId = `nti-datalist-${esc(key)}`;
   const rowOptions = topRows.map((r) => {
     const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();
-    const isSelected = val === selectedValue || (selectedValue && val.replace(/^\//, '') === selectedValue.replace(/^\//, ''));
     const display = String(r.canonicalIdentity || r.identity || val).trim();
     const branch = String(r.resolvedBranch || r.inputPipe || '').trim();
-    const label = `${display}${branch ? ` — ${branch}` : ''}`;
-    return `<option value="${esc(val)}" ${isSelected ? 'selected' : ''}>${esc(label)}</option>`;
+    const desc = [display && display !== val ? display : '', branch].filter(Boolean).join(' — ');
+    return `<option value="${esc(val)}">${esc(desc)}</option>`;
   }).join('');
-  return `<select data-nti-config="${esc(key)}" class="nti-select"><option value="">-- Select Anchor Support in JSON (top ${Math.min(limit, topRows.length)} of ${rows.length}) --</option>${configuredOption}${rowOptions}</select>`;
+  const placeholder = rows.length
+    ? `Type or search all ${rows.length} JSON supports (e.g. /PS-11167.4)...`
+    : 'Type or search JSON supports...';
+  return `<input type="text" list="${datalistId}" data-nti-config="${esc(key)}" class="nti-input" style="width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-color, #ccc);" value="${esc(selectedValue)}" placeholder="${esc(placeholder)}" autocomplete="off"><datalist id="${datalistId}">${rowOptions}</datalist>`;
 }
 function renderNavisDatumPreview(state) {
   const cfg = state.config || {};
@@ -195,7 +191,7 @@ function renderInputs(state) {
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
     <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
     <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b>${renderAnchorTagDropdown(state, 'navisAnchorTagId')}</label>
-    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b>${renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 50)}</label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b>${renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 0)}</label>
     <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
     <label class="nti-field">Navis Easting datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
     <label class="nti-field">Navis Northing datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>

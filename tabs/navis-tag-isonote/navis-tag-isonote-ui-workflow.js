@@ -90,8 +90,8 @@ function renderHome(state) {
       </div>
     </div>
     <div class="nti-grid-2" style="margin-top: 10px;">
-      ${field('Anchor Tag ID in XML (full list)', renderAnchorTagDropdown(state, 'navisAnchorTagId'))}
-      ${field('Anchor Support ID in JSON (top 50)', renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 50))}
+      ${field('Anchor Tag ID in XML (type & search all)', renderAnchorTagDropdown(state, 'navisAnchorTagId'))}
+      ${field('Anchor Support ID in JSON (type & search all)', renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 0))}
     </div>
     <div style="margin-top: 10px;">
       ${renderAnchorPreview(state)}
