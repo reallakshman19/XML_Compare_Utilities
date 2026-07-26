@@ -17,6 +17,7 @@ assert.equal(scene.coordinateSystem.verticalAxis, 'Y');
 assert.equal(scene.coordinateSystem.frame, 'ManagedStage.XYZ.v1');
 assert.equal(scene.metadata.excludedKinds.rigids.includes('no independent'), true);
 assert.equal(scene.metadata.producerProfileHash, f.readModelA0.producerProfileHash);
+assert.equal(scene.metadata.producerOptionsHash, f.readModelA0.producerOptionsHash);
 assert.equal(new Set(scene.entities.map((entity) => entity.id)).size, 48);
 assert(scene.entities.every((entity) => !entity.id.startsWith('RIGID:')));
 const expected = JSON.stringify(scene);
@@ -35,6 +36,7 @@ function forged(mutator) {
 forged((candidate) => { candidate.entities[0].domainRef.references = ['N02']; });
 forged((candidate) => { candidate.entities.pop(); candidate.metadata.candidateEntityIds.pop(); });
 forged((candidate) => { candidate.entities.find((entity) => entity.id === 'E01').domainRef.references = ['N01']; });
+forged((candidate) => { candidate.metadata.producerOptionsHash = 'fnv1a32:deadbeef'; });
 const mutableScene = structuredClone(scene);
 const certifiedScene = assertTopologyScopedEditSceneAncestry(mutableScene, f.readModelA0);
 mutableScene.entities.pop();
@@ -50,6 +52,7 @@ relabelled.metadata.canonicalTopologyHash = f.readModelA0.canonicalTopologyHash;
 relabelled.metadata.canonicalContentHash = f.readModelA0.canonicalContentHash;
 relabelled.metadata.artifactsHash = f.readModelA0.artifactsHash;
 relabelled.metadata.producerProfileHash = f.readModelA0.producerProfileHash;
+relabelled.metadata.producerOptionsHash = f.readModelA0.producerOptionsHash;
 assert.throws(() => assertTopologyScopedEditSceneAncestry(immutableJson(relabelled, 'relabelled scene'),
   f.readModelA0), (error) => error.code === TOPOLOGY_SCOPED_EDIT_SCENE_REJECTION.ANCESTRY_MISMATCH);
 console.log('[PASS] scene ancestry returns immutable certified projection and rejects caller mutation');
