@@ -78,7 +78,10 @@ function createFixture(records, branchId, suppliedSession = null, publisher = nu
       })),
     };
     publicationCount += 1;
-    return Object.freeze({ schema: 'SequentialCommandPublication.v1', committed: true, preparedId });
+    return Object.freeze({
+      schema: 'SequentialCommandPublication.v1', committed: true, preparedId,
+      expectedAuthorityId: expectedAuthority.authorityId,
+    });
   }
   return Object.freeze({
     read: () => state,
@@ -108,6 +111,8 @@ function prepareAdvance(fixture) {
   const acceptance = service.accept(prepared);
   assert.equal(acceptance.accepted, true);
   assert.equal(acceptance.publication.committed, true);
+  assert.equal(acceptance.publicationState, 'COMMITTED');
+  assert.equal(acceptance.containmentRequired, false);
   assert.equal(fixture.publications(), 1);
   assert.equal(fixture.read().journalState.journal.entries.length, 1);
 }
@@ -132,11 +137,10 @@ for (const [label, mutate] of [
     undoStack: [{ transactionId: 'TXN-STALE-UNDO' }],
   }) })],
 ]) {
-  const branchId = `/AUTH/STALE/${label.replaceAll(' ', '-')}`;
-  const fixture = createFixture(completeRecords(branchId), branchId);
+  const fixture = createFixture(completeRecords(`/AUTH/STALE/${label}`), `/AUTH/STALE/${label}`);
   const service = fixture.service();
   const prepared = service.prepare({
-    command: { commandType: 'ADVANCE_ONE', branchId },
+    command: { commandType: 'ADVANCE_ONE', branchId: fixture.read().session.rootBranchId },
     origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
   });
   mutate(fixture, prepared);
@@ -217,13 +221,40 @@ for (const [label, mutate] of [
   }));
   assert.equal(acceptance.accepted, false);
   assert.equal(acceptance.reasonCode, 'PERSISTENCE_FAILED');
+  assert.equal(acceptance.publicationState, 'ABORTED');
+  assert.equal(acceptance.containmentRequired, false);
   assert.equal(attempted, 1);
   assert(sameSequentialContractValue(deriveSequentialEditAuthority(fixture.read()), before));
 }
 
 {
+  const fixture = createFixture(completeRecords('/AUTH/PARTIAL'), '/AUTH/PARTIAL', null, ({ candidate, state }) => {
+    state.branchRegistry.replace(state.branchRegistry.ids(), candidate.branchEntries);
+    throw Object.assign(new Error('Failure after branch publication.'), { code: 'PARTIAL_WRITE' });
+  });
+  const service = fixture.service();
+  const acceptance = service.accept(service.prepare({
+    command: { commandType: 'ADVANCE_ONE', branchId: '/AUTH/PARTIAL' },
+    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  }));
+  assert.equal(acceptance.accepted, false);
+  assert.equal(acceptance.reasonCode, 'PARTIAL_WRITE');
+  assert.equal(acceptance.publicationState, 'PARTIAL_PUBLICATION');
+  assert.equal(acceptance.containmentRequired, true);
+}
+
+{
+  const fixture = createFixture(completeRecords('/AUTH/CLOCK-BLOCK'), '/AUTH/CLOCK-BLOCK');
+  assert.throws(() => fixture.service().prepare({
+    command: { commandType: 'CONNECT_CANDIDATE', branchId: '/AUTH/CLOCK-BLOCK' },
+    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  }), (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC);
+}
+
+{
   const fixture = createFixture(completeRecords('/AUTH/JOURNAL'), '/AUTH/JOURNAL');
   assert.deepEqual(validateSequentialCommandJournalState(fixture.read().journalState), []);
+  assert.match(sequentialSemanticFingerprint('TEST', { b: 2, a: 1 }), /^fnv1a32-canonical-json-v1:TEST:[0-9a-f]{8}$/);
   const corrupt = structuredClone(fixture.read().journalState);
   corrupt.adoptionCheckpoint.checkpointId = 'SADOPT-CORRUPTED';
   assert.match(validateSequentialCommandJournalState(corrupt).join('; '), /checkpoint fingerprint|journal identity/);
