@@ -126,18 +126,18 @@ function resolveCertified(input, requestInput) {
     'Topology has no source-proven engineering sectional scope.');
   if (input.scene.revision.value !== input.readModel.authorityId) fail(STALE_TOPOLOGY_SCOPE_AUTHORITY,
     'Engineering scene revision does not match current Topology authority.');
-  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
-  const index = sceneIndex(input.scene), graph = graphOf(input.scene, index);
+  const scene = assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
+  const index = sceneIndex(scene), graph = graphOf(scene, index);
   const result = request.kind === ENGINEERING_SCOPE_KIND.SELECTION
     ? selectionClosure(input.readModel, request, graph, index)
     : structuralClosure(input.readModel, request, graph, index);
-  const sets = resolvedSets(input.scene, result);
-  enforceBudget(request, sets, input.readModel.authorityId); assertPartition(input.scene, sets);
+  const sets = resolvedSets(scene, result);
+  enforceBudget(request, sets, input.readModel.authorityId); assertPartition(scene, sets);
   const scope = createEngineeringScope({ schema: 'EngineeringScope.v1', request, kind: request.kind,
     boundaryPolicy: request.boundaryPolicy, elementBudget: request.elementBudget,
     entityIds: sets.editable, boundaryIds: sets.boundary, stats: stats(sets, request.elementBudget) });
   return immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_SCOPE_RESOLUTION_V1,
-    authorityId: input.readModel.authorityId, sceneId: input.scene.sceneId,
+    authorityId: input.readModel.authorityId, sceneId: scene.sceneId,
     canonicalTopologyHash: input.readModel.canonicalTopologyHash,
     canonicalContentHash: input.readModel.canonicalContentHash,
     requestHash: semanticHash(request), scope, editableEntityIds: sets.editable,
@@ -145,14 +145,16 @@ function resolveCertified(input, requestInput) {
   'Topology scoped-edit scope resolution');
 }
 async function resolverWithCore(input, core, dependencies = {}) {
-  await readModelTest.assertWithCore(input.readModel, core, dependencies);
-  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
-  return Object.freeze((request) => resolveCertified(input, request));
+  const readModel = await readModelTest.assertWithCore(input.readModel, core, dependencies);
+  const scene = assertTopologyScopedEditSceneAncestry(input.scene, readModel);
+  const certified = Object.freeze({ readModel, scene });
+  return Object.freeze((request) => resolveCertified(certified, request));
 }
 export async function createTopologyScopedEditScopeResolver(input = {}, dependencies = {}) {
-  await assertTopologyScopedEditReadModel(input.readModel, dependencies);
-  assertTopologyScopedEditSceneAncestry(input.scene, input.readModel);
-  return Object.freeze((request) => resolveCertified(input, request));
+  const readModel = await assertTopologyScopedEditReadModel(input.readModel, dependencies);
+  const scene = assertTopologyScopedEditSceneAncestry(input.scene, readModel);
+  const certified = Object.freeze({ readModel, scene });
+  return Object.freeze((request) => resolveCertified(certified, request));
 }
 export async function resolveTopologyScopedEditScope(input = {}, dependencies = {}) {
   const resolver = await createTopologyScopedEditScopeResolver(input, dependencies);
