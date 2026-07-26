@@ -72,6 +72,3 @@ export function setWorkspaceHandoverInspection(state, inspection) {
   const adopted = adoptRevisionCompareHandoverInspectionWorkspace(state);
   return deepFreeze({ ...adopted, handoverInspection: inspection });
 }
-export const _test = Object.freeze({
-  activeOperationBlocker, inspectionBlocker, sourceAuthorityBlocker, transferAuthorityBlocker,
-});
