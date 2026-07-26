@@ -1,0 +1,110 @@
+name: Navis Tag to ISONOTE Full Benchmark
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tabs/navis-tag-isonote/**'
+      - 'scripts/navis-tag-isonote-full-benchmark.mjs'
+      - 'fixtures/navis-tag-isonote/**'
+      - '.github/workflows/navis-tag-isonote-full-benchmark.yml'
+      - 'package.json'
+  push:
+    branches: [main]
+    paths:
+      - 'tabs/navis-tag-isonote/**'
+      - 'scripts/navis-tag-isonote-full-benchmark.mjs'
+      - 'fixtures/navis-tag-isonote/**'
+      - '.github/workflows/navis-tag-isonote-full-benchmark.yml'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asim1836-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Assemble exact support table fixture
+        run: |
+          mkdir -p .benchmark-input
+          cat fixtures/navis-tag-isonote/asim1836-support-table/part-*.tsv > .benchmark-input/support-table.tsv
+          test "$(awk 'END { print NR }' .benchmark-input/support-table.tsv)" -eq 164
+          node --input-type=module - <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { parseSupportTableText } from './tabs/navis-tag-isonote/navis-tag-table-source.js';
+          const parsed = parseSupportTableText(readFileSync('.benchmark-input/support-table.tsv', 'utf8'));
+          if (parsed.rows.length !== 163) throw new Error(`Expected 163 support rows, received ${parsed.rows.length}`);
+          console.log(`Support table rows: ${parsed.rows.length}`);
+          NODE
+
+      - name: Download pinned external benchmark sources
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/reallaksh19/3D_Converters/d1dff4187b1f236c55f97847392d76cf39ecfe62/Benchmarks/ASIM-1836_managed_stage-2.zip' \
+            --output .benchmark-input/ASIM-1836_managed_stage-2.zip
+          curl --fail --location --retry 5 --retry-all-errors \
+            'https://raw.githubusercontent.com/reallaksh19/3D_Viewer/c1536e256bc4e0a320a1f6ca38d419bf358affc5/Benchmarks/Navis%20XML/Benchmark%20Tag%20xml%20file.xml' \
+            --output .benchmark-input/benchmark-navis-tags.xml
+          test -s .benchmark-input/ASIM-1836_managed_stage-2.zip
+          test -s .benchmark-input/benchmark-navis-tags.xml
+          sha256sum .benchmark-input/ASIM-1836_managed_stage-2.zip .benchmark-input/benchmark-navis-tags.xml .benchmark-input/support-table.tsv
+
+      - name: Extract all staged JSON documents
+        run: |
+          mkdir -p .benchmark-input/staged
+          unzip -q .benchmark-input/ASIM-1836_managed_stage-2.zip -d .benchmark-input/staged
+          JSON_COUNT="$(find .benchmark-input/staged -type f -iname '*.json' | wc -l)"
+          test "$JSON_COUNT" -gt 0
+          echo "Extracted staged JSON files: $JSON_COUNT"
+
+      - name: Run frozen hierarchy and ISONOTE acceptance
+        run: |
+          node scripts/navis-tag-isonote-full-benchmark.mjs \
+            --table .benchmark-input/support-table.tsv \
+            --navis .benchmark-input/benchmark-navis-tags.xml \
+            --staged-dir .benchmark-input/staged \
+            --staged-zip .benchmark-input/ASIM-1836_managed_stage-2.zip \
+            --expected fixtures/navis-tag-isonote/asim1836-benchmark-expected.json \
+            --out artifacts/navis-tag-isonote/asim1836
+
+      - name: Verify frozen expectations and artifact set
+        run: |
+          test -s artifacts/navis-tag-isonote/asim1836/01-coverage-and-calibration.json
+          test -s artifacts/navis-tag-isonote/asim1836/02-path-catalogue.json
+          test -s artifacts/navis-tag-isonote/asim1836/03-navis-tag-index.csv
+          test -s artifacts/navis-tag-isonote/asim1836/04-end-to-end-identity-trace.csv
+          test -e artifacts/navis-tag-isonote/asim1836/05-candidate-evidence-ledger.csv
+          test -e artifacts/navis-tag-isonote/asim1836/06-matched-decisions.csv
+          test -e artifacts/navis-tag-isonote/asim1836/07-ambiguous-decisions.csv
+          test -e artifacts/navis-tag-isonote/asim1836/08-rejected-decisions.csv
+          test -s artifacts/navis-tag-isonote/asim1836/09-augmented-support-table.csv
+          test -s artifacts/navis-tag-isonote/asim1836/10-full-audit.json
+          node --input-type=module - <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const coverage = JSON.parse(readFileSync('artifacts/navis-tag-isonote/asim1836/01-coverage-and-calibration.json', 'utf8'));
+          if (coverage.expectations?.verified !== true) throw new Error('Frozen benchmark expectations were not verified.');
+          if (coverage.identityTrace?.resolvedCount !== 163) throw new Error('All 163 table identities must resolve.');
+          if (coverage.coordinateFrame?.status !== 'DISJOINT_COORDINATE_EXTENTS') throw new Error('Expected coordinate-frame incompatibility finding is missing.');
+          if (coverage.resolution?.unresolvedCount !== 163) throw new Error('All 163 rows must remain proximity-unresolved for these pinned, spatially incompatible sources.');
+          console.log('Frozen benchmark verified.');
+          NODE
+
+      - name: Upload full ASIM-1836 acceptance ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: navis-tag-isonote-asim1836-acceptance
+          path: artifacts/navis-tag-isonote/asim1836
+          if-no-files-found: error
+          retention-days: 30
