@@ -48,3 +48,4 @@ for (const relative of modules) { const source = readFileSync(fileURLToPath(new 
 console.log('[SIMULATED] Phase 2 journal, regeneration-before-acceptance, writer lease, checkpoints, replay, and recovery passed.');
 await import('./sequential-command-authority-foundation.test.mjs');
 await import('./sequential-redo-head-authority.test.mjs');
+await import('./sequential-native-command-identity.test.mjs');
