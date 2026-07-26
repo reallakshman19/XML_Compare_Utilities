@@ -1,12 +1,15 @@
 /** Exact authority derivation for one Sequential branch and its workspace-global journal. */
 import { sequentialSessionFingerprint } from '../construction/sequential-session-fingerprint.js';
 import {
-  SEQUENTIAL_NATIVE_COMMAND_TYPES,
+  SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES,
   createSequentialCommandScope,
   createSequentialEditAuthorityBasis,
   sequentialSemanticFingerprint,
 } from './sequential-command-contracts.js';
-import { sequentialCommandJournalHeadFingerprint } from './sequential-command-journal.js';
+import {
+  assertSequentialJournalAdoptionBasis,
+  sequentialCommandJournalHeadFingerprint,
+} from './sequential-command-journal.js';
 
 function text(value) { return String(value ?? '').trim(); }
 function completeFingerprint(prefix, value, declared = '') {
@@ -61,6 +64,11 @@ export function deriveSequentialEditAuthority(input = {}) {
   if (session?.schema !== 'SequentialConstructionSession.v1') {
     throw new TypeError('Sequential authority requires SequentialConstructionSession.v1.');
   }
+  assertSequentialJournalAdoptionBasis(
+    input.journalState,
+    input.sourceFingerprint,
+    input.branchRegistry,
+  );
   const transactionHead = session.transactionLedger?.at(-1) || null;
   const undoHead = session.undoStack?.at(-1) || null;
   const redoHead = session.redoStack?.at(0) || null;
@@ -92,7 +100,7 @@ export function deriveSequentialCommandScope(input = {}) {
   return createSequentialCommandScope({
     branchId: authority.branchId,
     authorityId: authority.authorityId,
-    allowedCommandTypes: SEQUENTIAL_NATIVE_COMMAND_TYPES,
+    allowedCommandTypes: SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES,
     currentDecisionId: authority.currentDecisionId,
   });
 }
