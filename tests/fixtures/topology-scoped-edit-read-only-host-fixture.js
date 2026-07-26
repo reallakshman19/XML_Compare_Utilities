@@ -1,3 +1,5 @@
+import { webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createCommandEnvelope } from '../../contracts/command-envelope.js';
 import { immutableJson } from '../../contracts/contract-values.js';
 import { appendJournalCommand, undoCommandJournal } from '../../contracts/command-journal.js';
@@ -16,39 +18,38 @@ import {
   replayTopologyCommandJournal,
   topologyReplayStateHash,
 } from '../../tabs/topology-trace-validator/topology-command-replay.js';
-import { createTopologyScopedEditReadModel } from '../../tabs/topology-trace-validator/topology-scoped-edit-read-model.js';
-import { createTopologyScopedEditReadOnlyHost,
+import { _test as readModelTest } from '../../tabs/topology-trace-validator/topology-scoped-edit-read-model.js';
+import {
+  createTopologyScopedEditEffectBoundary,
+  _test as hostTest,
   STALE_TOPOLOGY_HOST_AUTHORITY,
-  TOPOLOGY_READ_ONLY_HOST_REJECTION } from '../../tabs/topology-trace-validator/topology-scoped-edit-read-only-host.js';
+  TOPOLOGY_READ_ONLY_HOST_REJECTION,
+} from '../../tabs/topology-trace-validator/topology-scoped-edit-read-only-host.js';
 import { TOPOLOGY_SCOPED_EDIT_DRY_RUN_REJECTION } from '../../tabs/topology-trace-validator/topology-scoped-edit-journal-projection.js';
 import { semanticHash } from '../../tabs/topology-trace-validator/topology-validator-values.js';
 
 export const NOW = '2026-07-26T02:00:00.000Z';
-const SOURCE_HASH = 'a'.repeat(64);
+export const SOURCE_TEXT = '{"fixture":"topology-read-only"}';
+const SOURCE_HASH = '8a625dc075123f96aa451ac99ea033c7e2b5dedd26c318e3be535965ea45d4a4';
 const DOCUMENT_ID = `topology-document:${SOURCE_HASH.slice(0, 20)}`;
 const SESSION_ID = `topology-session:${SOURCE_HASH.slice(0, 20)}`;
 const BASE_HASH = 'canonical-base';
-
 const later = (seconds) => new Date(Date.parse(NOW) + seconds * 1000).toISOString();
 const pathFor = (branch, index) => `$[${branch}].children[${index}]`;
 const source = (branch, index, id) => ({ sourcePaths: [pathFor(branch, index)],
   sourceEntityIds: [`SRC-${id}`], branchIds: [`BR-${branch}`] });
 const position = (index) => ({ x: index * 100, y: (index % 4) * 50, z: (index % 3) * 25 });
-
 function node(id, index, branch) {
   return Object.freeze({ id, position: position(index), inputXmlNodeIds: [String(10000 + index * 10)],
     ...source(branch, index, id) });
 }
-
 function edge(id, fromNodeId, toNodeId, index, branch) {
   return Object.freeze({ id, fromNodeId, toNodeId, inputXmlElementIds: [`PE-${id}`],
     segmentRole: 'PIPE', sourceTypes: ['PIPE'], ...source(branch, index, id) });
 }
-
 function pointEntity(id, nodeId, index, branch, extra = {}) {
   return Object.freeze({ id, nodeId, position: position(index), ...source(branch, index, id), ...extra });
 }
-
 function canonical(version = 'A0') {
   const nodes = [node('N01', 1, 0), node('N02', 2, 0), node('N03', 3, 0), node('N04', 4, 0),
     node('N05', 5, 1), node('N06', 6, 1), node('N07', 7, 1), node('N08', 8, 1),
@@ -89,8 +90,14 @@ function canonical(version = 'A0') {
     rigids: Object.freeze([]), junctions: Object.freeze(junctions), boundaries: Object.freeze(boundaries),
     bends: Object.freeze(bends), pointFeatures: Object.freeze(points), buildIssues: Object.freeze([]) });
 }
-
+function builtFor(draft) {
+  const version = draft.commands.length > 1 ? 'A1' : 'A0';
+  return Object.freeze({ editDraft: draft, canonicalTopology: canonical(version),
+    editLedger: Object.freeze({ schema: 'TopologyEditLedger.v1', entries: Object.freeze([]) }),
+    editValidation: Object.freeze({ schema: 'TopologyEditValidation.v1', findings: Object.freeze([]) }) });
+}
 export const topologyReadOnlyTestCore = Object.freeze({
+  TOPOLOGY_BROWSER_CORE_CONTRACT: Object.freeze({ schema: 'TopologyBrowserCore.v1' }),
   appendTopologyEditCommand(draft, type, payload) {
     const commandType = String(type).toUpperCase();
     if (!['MOVE_NODE', 'TRANSACTION'].includes(commandType)) throw new RangeError(`Unsupported ${commandType}.`);
@@ -101,8 +108,15 @@ export const topologyReadOnlyTestCore = Object.freeze({
       redoCommands: Object.freeze([]), nextCommandSequence: sequence + 1 };
     return Object.freeze({ ...material, topologyEditDraftHash: semanticHash(material) });
   },
+  buildEditedComponentTopologyArtifacts(sourceText, draft) {
+    if (sourceText !== SOURCE_TEXT) throw new TypeError('Unexpected fixture source text.');
+    return builtFor(draft);
+  },
 });
-
+function artifactsHash(built) {
+  return semanticHash({ editDraft: built.editDraft, canonicalTopology: built.canonicalTopology,
+    editLedger: built.editLedger, editValidation: built.editValidation });
+}
 function projectContext() {
   const document = createProjectDocument({ documentId: DOCUMENT_ID, slotId: 'baseline',
     fileName: 'topology.json', sourceHash: SOURCE_HASH, scopedHash: SOURCE_HASH,
@@ -114,16 +128,13 @@ function projectContext() {
     document, NOW);
   return Object.freeze({ document, session });
 }
-
 const baseDraft = Object.freeze({ schema: 'TopologyEditDraft.v1', baseCanonicalTopologyHash: BASE_HASH,
   commands: Object.freeze([]), redoCommands: Object.freeze([]), engineeringOverrides: Object.freeze({}),
   settings: Object.freeze({}), nextCommandSequence: 1, topologyEditDraftHash: 'draft-base' });
 const origin = Object.freeze({ kind: 'USER', actorId: 'LOCAL_USER', issuedAt: later(1) });
-
 function native(id, type, payload) {
   return Object.freeze({ schema: 'TopologyEditCommand.v1', id, type, payload: Object.freeze(payload) });
 }
-
 function acceptedJournal(context) {
   let journal = createTopologyCommandJournal(context, NOW);
   journal = appendTopologyNativeJournalCommand(journal, baseDraft,
@@ -136,7 +147,6 @@ function acceptedJournal(context) {
     native('EC-000002', 'MOVE_NODE', { nodeId: 'N03', position: { x: 999, y: 0, z: 0 } }), origin, later(4));
   return undoCommandJournal(journal, later(5));
 }
-
 function authorityFor(context, journal, replay) {
   return createTopologyScopedEditAuthorityBasis({ documentId: context.document.documentId,
     sourceHash: context.document.sourceHash, baseCanonicalTopologyHash: baseDraft.baseCanonicalTopologyHash,
@@ -144,11 +154,9 @@ function authorityFor(context, journal, replay) {
     replayHash: topologyReplayStateHash(replay), activeCommandIds: journal.activeCommandIds,
     redoCommandIds: journal.redoCommandIds });
 }
-
 function exactEnvelope(journal, targetId, options = {}) {
   const nativeType = options.nativeType ?? 'MOVE_NODE';
-  const payload = nativeType === 'TRANSACTION'
-    ? { operations: options.operations }
+  const payload = nativeType === 'TRANSACTION' ? { operations: options.operations }
     : { nodeId: targetId, position: options.position ?? { x: 225, y: 100, z: 50 } };
   return createCommandEnvelope({ commandId: `CJ-${String(journal.nextSequence).padStart(6, '0')}`,
     sessionId: journal.sessionId, documentId: journal.documentId, sequence: journal.nextSequence,
@@ -158,31 +166,28 @@ function exactEnvelope(journal, targetId, options = {}) {
     origin: { ...origin, issuedAt: later(10) }, transactionId: null,
     inverse: { operation: 'REMOVE_NATIVE_COMMAND', nativeCommandId: 'EC-000002' } });
 }
-
 function appendAccepted(journal, envelope) {
   return appendJournalCommand(journal, { commandType: envelope.commandType, payload: envelope.payload,
     basis: envelope.basis, origin: envelope.origin, transactionId: envelope.transactionId,
     inverse: envelope.inverse }, envelope.origin.issuedAt);
 }
-
-function readModelInput(context, journal, canonicalTopology) {
+function readModelInput(context, journal, canonicalTopology = null) {
   const replayState = replayTopologyCommandJournal(journal, baseDraft, topologyReadOnlyTestCore);
-  const authority = authorityFor(context, journal, replayState);
-  const selectionIds = ['N01', 'N02', 'E01', 'S01'];
+  const authority = authorityFor(context, journal, replayState), built = builtFor(replayState.draft);
+  const canonicalValue = canonicalTopology ?? built.canonicalTopology;
   return immutableJson({ authority, projectDocument: context.document, sessionId: context.session.sessionId,
-    canonicalTopology, canonicalAncestry: { authorityId: authority.authorityId,
-      documentId: context.document.documentId, sourceHash: context.document.sourceHash,
-      draftHash: replayState.draft.topologyEditDraftHash,
-      canonicalTopologyHash: canonicalTopology.canonicalTopologyHash },
+    sourceText: SOURCE_TEXT, producerOptions: {}, canonicalTopology: canonicalValue,
+    canonicalAncestry: { authorityId: authority.authorityId, documentId: context.document.documentId,
+      sourceHash: context.document.sourceHash, draftHash: replayState.draft.topologyEditDraftHash,
+      canonicalTopologyHash: canonicalValue.canonicalTopologyHash, artifactsHash: artifactsHash(built) },
     coordinateSystemEvidence: { frame: 'ManagedStage.XYZ.v1', handedness: 'right',
       authority: 'CanonicalTopology.v1' }, baseDraft, editDraft: replayState.draft,
     commandJournal: journal, replayState, attributeLedger: replayState.attributeLedger,
     remarks: replayState.remarks, commandScopeInput: { authorityMode: TOPOLOGY_COMMAND_AUTHORITY_MODE.LARGE_SCOPED,
       editScope: { sourceBranchIndexes: [0] }, originKind: 'USER', modelWideGrant: null },
-    selectionSnapshot: { authorityId: authority.authorityId, entityIds: selectionIds } },
+    selectionSnapshot: { authorityId: authority.authorityId, entityIds: ['N01', 'N02', 'E01', 'S01'] } },
   'Topology read-only fixture input');
 }
-
 function corruptions(projection) {
   const variants = [];
   const changed = structuredClone(projection); changed.envelopes[0].payload.nativeCommand.payload.position.x += 1; variants.push(changed);
@@ -194,26 +199,39 @@ function corruptions(projection) {
   const sequence = structuredClone(projection); sequence.envelopes[0].sequence = 99; variants.push(sequence);
   return Object.freeze(variants.map(Object.freeze));
 }
-
-export function createTopologyScopedEditReadOnlyHostFixture() {
+const PRODUCTION_FILES = Object.freeze([
+  'topology-scoped-edit-read-model.js', 'topology-scoped-edit-scene-adapter.js',
+  'topology-scoped-edit-scope-adapter.js', 'topology-scoped-edit-journal-projection.js',
+  'topology-scoped-edit-read-only-host.js', 'topology-scoped-edit-host-conformance.js',
+  'topology-scoped-edit-host-index.js',
+]);
+function sourceFiles() {
+  return Object.freeze(Object.fromEntries(PRODUCTION_FILES.map((name) => [
+    `tabs/topology-trace-validator/${name}`,
+    readFileSync(new URL(`../../tabs/topology-trace-validator/${name}`, import.meta.url), 'utf8'),
+  ])));
+}
+export async function createTopologyScopedEditReadOnlyHostFixture() {
   const context = projectContext(), journalA0 = acceptedJournal(context);
-  const inputA0 = readModelInput(context, journalA0, canonical('A0'));
-  const readModelA0 = createTopologyScopedEditReadModel(inputA0, { core: topologyReadOnlyTestCore });
-  const authorized = exactEnvelope(journalA0, 'N02');
-  const journalA1 = appendAccepted(journalA0, authorized);
-  const inputA1 = readModelInput(context, journalA1, canonical('A1'));
-  const readModelA1 = createTopologyScopedEditReadModel(inputA1, { core: topologyReadOnlyTestCore });
+  const inputA0 = readModelInput(context, journalA0);
+  const readModelA0 = await readModelTest.createWithCore(inputA0, topologyReadOnlyTestCore, { cryptoRef: webcrypto });
+  const authorized = exactEnvelope(journalA0, 'N02'), journalA1 = appendAccepted(journalA0, authorized);
+  const inputA1 = readModelInput(context, journalA1);
+  const readModelA1 = await readModelTest.createWithCore(inputA1, topologyReadOnlyTestCore, { cryptoRef: webcrypto });
   let authorityId = readModelA0.authorityId;
-  const sideEffects = { storageAccess: 0, recoveryAcceptance: 0, writerAcquisition: 0,
-    controllerMutation: 0, rendererRefresh: 0, selectionPublication: 0, productionAcceptance: 0 };
-  const sentinels = Object.freeze(Object.fromEntries(Object.keys(sideEffects).map((key) => [key, () => {
-    sideEffects[key] += 1; throw new Error(`Forbidden ${key}.`);
-  }])));
-  return Object.freeze({ inputA0, inputA1,
-    readModelA0, readModelA1, core: topologyReadOnlyTestCore,
-    hostFactory: ({ readModel, core, authorityProvider, sentinels }) => createTopologyScopedEditReadOnlyHost({
-      readModel, core, authorityProvider, sentinels }), authorityGet: () => authorityId,
-    authoritySet: (value) => { authorityId = value; }, sentinels,
+  const sideEffects = { readOnlyOperation: 0, storageAccess: 0, recoveryAcceptance: 0,
+    writerAcquisition: 0, controllerMutation: 0, rendererRefresh: 0,
+    selectionPublication: 0, productionAcceptance: 0 };
+  const effectBoundaryFactory = () => createTopologyScopedEditEffectBoundary(Object.freeze(
+    Object.fromEntries(Object.keys(sideEffects).map((key) => [key, () => { sideEffects[key] += 1; }]))));
+  const defectiveHostFactories = Object.freeze(['storageAccess', 'recoveryAcceptance', 'writerAcquisition',
+    'controllerMutation', 'rendererRefresh', 'selectionPublication', 'productionAcceptance']
+    .map((name) => async ({ effects }) => effects[name]()));
+  return Object.freeze({ inputA0, inputA1, readModelA0, readModelA1, core: topologyReadOnlyTestCore,
+    hostFactory: ({ readModel, core, authorityProvider, effects }) => hostTest.createWithCore({
+      readModel, authorityProvider, effects }, core, { cryptoRef: webcrypto }),
+    authorityGet: () => authorityId, authoritySet: (value) => { authorityId = value; },
+    effectBoundaryFactory, defectiveHostFactories, sourceFiles: sourceFiles(), certificationDependencies: Object.freeze({ cryptoRef: webcrypto }),
     sentinelSnapshot: () => Object.freeze({ ...sideEffects }),
     selectionRequests: Object.freeze(['N01', 'N02', 'E01', 'S01'].map((id) => Object.freeze({
       schema: 'EngineeringScopeRequest.v1', kind: 'SELECTION', boundaryPolicy: 'FROZEN',
@@ -227,8 +245,7 @@ export function createTopologyScopedEditReadOnlyHostFixture() {
       boundaryPolicy: 'FROZEN', elementBudget: 48,
       sectional: { kind: 'box', min: { x: 0, y: 0, z: 0 }, max: { x: 1000, y: 1000, z: 1000 } } }),
     geometryIds: Object.freeze(['N01', 'S01', 'J01', 'BD01', 'BN01', 'P01']),
-    unknownGeometryId: 'MISSING-ENTITY',
-    envelopes: Object.freeze({ authorized,
+    unknownGeometryId: 'MISSING-ENTITY', envelopes: Object.freeze({ authorized,
       boundary: exactEnvelope(journalA0, 'N05'), excluded: exactEnvelope(journalA0, 'N09'),
       mismatch: exactEnvelope(journalA0, 'N02', { commandType: 'ATTRIBUTE_EDIT' }),
       unsupported: exactEnvelope(journalA0, 'N02', { nativeType: 'UNSUPPORTED' }),
@@ -247,3 +264,4 @@ export function createTopologyScopedEditReadOnlyHostFixture() {
       unsupported: TOPOLOGY_SCOPED_EDIT_REJECTION.UNSUPPORTED_COMMAND_TARGET_RESOLVER }),
   });
 }
+export const _test = Object.freeze({ canonical, builtFor, artifactsHash, readModelInput });
