@@ -1,4 +1,4 @@
-name: Deleted workflow local contract repair
+name: Repository static baseline repair
 
 on:
   pull_request:
@@ -22,7 +22,7 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
       - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
-      - name: Replace stale workflow dependencies with local executable contracts
+      - name: Apply static baseline repairs
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -68,17 +68,24 @@ jobs:
               "for (const evidencePath of browserEvidencePaths) assert.ok(config.includes(evidencePath));\nassert.match(config, /timeout: 90_000/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /screenshot: 'only-on-failure'/);",
             ),
           ])
+
+          patch('tests/pipeline-3d-model-hard-051-no-fallback-static.test.js', [
+            ("assert.match(propagationRuntime, /sectionPropertyAssignmentPlan/);", "assert.match(propagation, /sectionPropertyAssignmentPlan/);"),
+            ("assert.match(propagationRuntime, /sectionProfileRoutingPlan/);", "assert.match(propagation, /sectionProfileRoutingPlan/);"),
+            ("assert.match(propagationRuntime, /inputXmlProfileAuthorityPlan/);", "assert.match(propagation, /inputXmlProfileAuthorityPlan/);"),
+          ])
           PY
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
       - run: npm ci
-      - name: Focused local contracts
+      - name: Focused repaired contracts
         run: |
           node tests/navis-tag-isonote-static.test.js
           node tests/pipeline-3d-model-cad-browser-contract.test.js
           node tests/xml-builder-viewport-browser-contract.test.js
+          node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
       - name: Repository-wide validation
         id: npm_test
         continue-on-error: true
@@ -88,7 +95,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: local-static-contract-npm-test
+          name: repository-static-repair-npm-test
           path: /tmp/npm-test/npm-test.log
           if-no-files-found: error
       - if: steps.npm_test.outcome != 'success'
@@ -100,7 +107,8 @@ jobs:
           printf '%s\n' \
             tests/navis-tag-isonote-static.test.js \
             tests/pipeline-3d-model-cad-browser-contract.test.js \
-            tests/xml-builder-viewport-browser-contract.test.js | sort > /tmp/expected
+            tests/xml-builder-viewport-browser-contract.test.js \
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js | sort > /tmp/expected
           diff -u /tmp/expected /tmp/actual
           test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
       - name: Commit and push certified static repair
@@ -109,6 +117,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add tests/navis-tag-isonote-static.test.js \
             tests/pipeline-3d-model-cad-browser-contract.test.js \
-            tests/xml-builder-viewport-browser-contract.test.js
-          git commit -m 'test: align deleted workflow contracts'
+            tests/xml-builder-viewport-browser-contract.test.js \
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+          git commit -m 'test: repair stale repository static contracts'
           git push origin HEAD:${TARGET_BRANCH}
