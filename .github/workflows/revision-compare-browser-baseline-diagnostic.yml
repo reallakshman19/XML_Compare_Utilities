@@ -1,0 +1,52 @@
+name: Revision Compare browser baseline diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/revision-compare-browser-baseline-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/revision-compare-browser-baseline-fix
+  EXPECTED_TARGET_SHA: dcd77e74ec05bf339c210f45b11e027240c87ba0
+  CI: 'true'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Replay baseline repair patch
+        run: |
+          git fetch origin owner/revision-compare-browser-baseline-harness
+          git show origin/owner/revision-compare-browser-baseline-harness:.github/workflows/revision-compare-browser-baseline-publish-v2.yml > /tmp/publish.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/publish.yml | sed '1d;$d;s/^          //' > /tmp/baseline-patch.py
+          python /tmp/baseline-patch.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Capture complete Playwright output
+        id: browser
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/revision-compare-browser
+          npx playwright test --config=playwright.revision-compare.config.mjs --reporter=line \
+            > /tmp/revision-compare-browser/playwright.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: revision-compare-browser-residual-failures
+          path: /tmp/revision-compare-browser/playwright.log
+          if-no-files-found: error
+      - if: steps.browser.outcome != 'success'
+        run: exit 1
