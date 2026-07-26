@@ -1,0 +1,50 @@
+name: XML Builder local contract diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/xml-builder-local-contract-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: e010b3cb993f43ab71daf6d39be27a2dd3771790
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Apply XML Builder local contract patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/xml-builder-viewport-browser-contract.test.js')
+          text = path.read_text()
+          old_read = "const workflow = fs.readFileSync('.github/workflows/xml-builder-viewport-browser.yml', 'utf8');"
+          new_read = "const browserEvidencePaths = ['artifacts/xml-builder-viewport-browser-results.json', 'playwright-report/xml-builder-viewport', 'test-results/xml-builder-viewport'];"
+          old_assert = "assert.match(workflow, /XML Builder Viewport Browser Acceptance/);\nassert.match(workflow, /timeout-minutes: 30/);"
+          new_assert = "for (const evidencePath of browserEvidencePaths) assert.ok(config.includes(evidencePath));\nassert.match(config, /timeout: 90_000/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /screenshot: 'only-on-failure'/);"
+          if text.count(old_read) != 1 or text.count(old_assert) != 1:
+              raise SystemExit('XML Builder source blocks not found')
+          path.write_text(text.replace(old_read, new_read, 1).replace(old_assert, new_assert, 1))
+          PY
+      - name: Capture focused output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/xml-builder-contract
+          node tests/xml-builder-viewport-browser-contract.test.js > /tmp/xml-builder-contract/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xml-builder-local-contract-output
+          path: /tmp/xml-builder-contract/output.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
