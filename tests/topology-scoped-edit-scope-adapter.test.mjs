@@ -19,4 +19,13 @@ const forgedScene = structuredClone(host.scene()); forgedScene.entities.pop();
 await assert.rejects(() => scopeTest.resolverWithCore({ readModel: f.readModelA0,
   scene: immutableJson(forgedScene, 'forged scope scene') }, f.core, f.certificationDependencies),
 (error) => error.code === 'TOPOLOGY_SCENE_ANCESTRY_MISMATCH');
-console.log('[PASS] selection and structural scopes require certified scene ancestry and complete partitions');
+const mutableReadModel = structuredClone(f.readModelA0), mutableScene = structuredClone(host.scene());
+const resolver = await scopeTest.resolverWithCore({ readModel: mutableReadModel, scene: mutableScene },
+  f.core, f.certificationDependencies);
+mutableReadModel.commandScopeBasis.editableEntityIds.length = 0;
+mutableScene.entities.length = 0;
+const certifiedEvidence = resolver(f.selectionRequests[0]);
+assert.equal(certifiedEvidence.editableEntityIds.includes('N01'), true);
+assert.equal(certifiedEvidence.editableEntityIds.length + certifiedEvidence.boundaryEntityIds.length
+  + certifiedEvidence.excludedEntityIds.length, 48);
+console.log('[PASS] scope resolver captures immutable recertified read model and scene');
