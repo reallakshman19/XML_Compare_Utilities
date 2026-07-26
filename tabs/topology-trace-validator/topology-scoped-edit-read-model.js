@@ -21,6 +21,8 @@ export const TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1 = 'TopologyScopedEditReadModel.v
 export const TOPOLOGY_SCOPED_EDIT_SELECTION_SNAPSHOT_V1 = 'TopologyScopedEditSelectionSnapshot.v1';
 export const TOPOLOGY_SCOPED_EDIT_REGENERATION_CERTIFICATION_V1 =
   'TopologyScopedEditRegenerationCertification.v1';
+export const TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_V1 = 'TopologyScopedEditProducerProfile.v1';
+export const TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_ID = 'topology-read-only-default-v1';
 export const TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION = Object.freeze({
   AUTHORITY_MISMATCH: 'READ_MODEL_AUTHORITY_MISMATCH',
   DOCUMENT_MISMATCH: 'READ_MODEL_DOCUMENT_MISMATCH',
@@ -32,6 +34,7 @@ export const TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION = Object.freeze({
   COORDINATE_MISMATCH: 'READ_MODEL_COORDINATE_MISMATCH',
   COMMAND_SCOPE_MISMATCH: 'READ_MODEL_COMMAND_SCOPE_MISMATCH',
   REGENERATION_MISMATCH: 'READ_MODEL_REGENERATION_MISMATCH',
+  PRODUCER_PROFILE_MISMATCH: 'READ_MODEL_PRODUCER_PROFILE_MISMATCH',
 });
 
 function fail(code, message, Constructor = TypeError) {
@@ -60,6 +63,24 @@ async function sourceHashOf(sourceText, dependencies) {
   try { return await sha256Text(sourceText, dependencies.cryptoRef ?? globalThis.crypto); }
   catch (error) { fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.SOURCE_BASIS_MISMATCH, error.message); }
 }
+function fileStem(value) { return requiredContractText(value, 'project fileName').replace(/\.json$/i, ''); }
+function closedProducerProfile(input, document) {
+  const sourceName = requiredContractText(document.fileName, 'project fileName');
+  const options = immutableJson({ sourceName, jobName: `${fileStem(sourceName)}-EDIT-DRAFT`,
+    toleranceMm: 0.1, supportProjectionToleranceMm: 50, enrichmentConfig: {} },
+  'Topology closed producer options');
+  const profile = immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_V1,
+    profileId: TOPOLOGY_SCOPED_EDIT_PRODUCER_PROFILE_ID, optionsHash: semanticHash(options), options },
+  'Topology closed producer profile');
+  const hasOptions = input.producerOptions && Object.keys(input.producerOptions).length;
+  const hasProfile = input.producerProfile && Object.keys(input.producerProfile).length;
+  if (hasOptions && !same(input.producerOptions, options)
+    || hasProfile && !same(input.producerProfile, profile)) {
+    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.PRODUCER_PROFILE_MISMATCH,
+      'Caller-supplied producer options do not match the closed P3.1B producer profile.');
+  }
+  return profile;
+}
 function coordinateSystem(input, projectDocument, canonical) {
   const evidence = record(input, 'coordinateSystemEvidence',
     TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH);
@@ -67,19 +88,16 @@ function coordinateSystem(input, projectDocument, canonical) {
   const authority = requiredContractText(evidence.authority, 'coordinate authority');
   const canonicalFrame = requiredContractText(canonical.coordinateFrame?.schema, 'canonical coordinate frame');
   const projectFrame = requiredContractText(projectDocument.coordinateFrame, 'project coordinate frame');
-  if (frame !== canonicalFrame || (projectFrame !== 'UNKNOWN' && projectFrame !== frame)) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
-      'Project, canonical and supplied coordinate-frame evidence disagree.');
-  }
-  if (projectFrame === 'UNKNOWN' && authority !== 'CanonicalTopology.v1') {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
-      'UNKNOWN project coordinate frame requires explicit CanonicalTopology.v1 evidence.');
-  }
+  if (frame !== canonicalFrame || (projectFrame !== 'UNKNOWN' && projectFrame !== frame)) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
+    'Project, canonical and supplied coordinate-frame evidence disagree.');
+  if (projectFrame === 'UNKNOWN' && authority !== 'CanonicalTopology.v1') fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
+    'UNKNOWN project coordinate frame requires explicit CanonicalTopology.v1 evidence.');
   const verticalAxis = requiredContractText(projectDocument.verticalAxis, 'vertical axis').toUpperCase();
-  if (!['X', 'Y', 'Z'].includes(verticalAxis) || !['left', 'right'].includes(evidence.handedness)) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
-      'Topology vertical axis or handedness is unsupported.');
-  }
+  if (!['X', 'Y', 'Z'].includes(verticalAxis) || !['left', 'right'].includes(evidence.handedness)) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
+    'Topology vertical axis or handedness is unsupported.');
   const unit = normalizedUnit(projectDocument.unit);
   if (normalizedUnit(canonical.coordinateFrame?.unit) !== unit) fail(
     TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.COORDINATE_MISMATCH,
@@ -97,10 +115,9 @@ function validateDocument(input, journal, authority) {
   const sourceHash = requiredContractText(document.sourceHash, 'project sourceHash');
   const sessionId = requiredContractText(input.sessionId, 'project sessionId');
   if (journal.documentId !== documentId || journal.sessionId !== sessionId
-    || authority.documentId !== documentId || authority.sourceHash !== sourceHash) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DOCUMENT_MISMATCH,
-      'Project, journal and Topology authority document identities disagree.');
-  }
+    || authority.documentId !== documentId || authority.sourceHash !== sourceHash) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DOCUMENT_MISMATCH,
+    'Project, journal and Topology authority document identities disagree.');
   return { document, documentId, sourceHash, sessionId };
 }
 function replayEvidence(input, core, journal) {
@@ -114,18 +131,15 @@ function replayEvidence(input, core, journal) {
   return { baseDraft, replay };
 }
 function validateDraft(input, baseDraft, replay, authority) {
-  const draft = record(input.editDraft, 'editDraft',
-    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DRAFT_MISMATCH);
+  const draft = record(input.editDraft, 'editDraft', TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DRAFT_MISMATCH);
   if (draft.schema !== 'TopologyEditDraft.v1' || baseDraft.schema !== 'TopologyEditDraft.v1'
     || !same(draft, replay.draft) || draft.topologyEditDraftHash !== authority.currentDraftHash
-    || baseDraft.baseCanonicalTopologyHash !== authority.baseCanonicalTopologyHash) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DRAFT_MISMATCH,
-      'Base, replayed, supplied draft and authority hashes disagree.');
-  }
-  if (!same(input.attributeLedger, replay.attributeLedger) || !same(input.remarks, replay.remarks)) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REPLAY_MISMATCH,
-      'Attribute ledger or remarks do not match accepted journal replay.');
-  }
+    || baseDraft.baseCanonicalTopologyHash !== authority.baseCanonicalTopologyHash) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.DRAFT_MISMATCH,
+    'Base, replayed, supplied draft and authority hashes disagree.');
+  if (!same(input.attributeLedger, replay.attributeLedger) || !same(input.remarks, replay.remarks)) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REPLAY_MISMATCH,
+    'Attribute ledger or remarks do not match accepted journal replay.');
   return draft;
 }
 function validateAuthority(input, journal, replay) {
@@ -152,10 +166,9 @@ function canonicalBasics(input, authority, documentId, sourceHash, draft) {
   if (canonical.schema !== 'CanonicalTopology.v1' || ancestry.authorityId !== authority.authorityId
     || ancestry.documentId !== documentId || ancestry.sourceHash !== sourceHash
     || ancestry.draftHash !== draft.topologyEditDraftHash || ancestry.canonicalTopologyHash !== canonicalHash
-    || (canonical.topologyEditDraftHash && canonical.topologyEditDraftHash !== draft.topologyEditDraftHash)) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.CANONICAL_MISMATCH,
-      'Canonical topology does not match accepted authority ancestry.');
-  }
+    || (canonical.topologyEditDraftHash && canonical.topologyEditDraftHash !== draft.topologyEditDraftHash)) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.CANONICAL_MISMATCH,
+    'Canonical topology does not match accepted authority ancestry.');
   if (canonical.sourceIdentity?.sourceHash && canonical.sourceIdentity.sourceHash !== sourceHash) fail(
     TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.SOURCE_BASIS_MISMATCH,
     'Canonical source identity does not match the project source hash.');
@@ -166,9 +179,9 @@ async function certifyRegeneration(input, dependencies, core, replay, document, 
   const sourceHash = await sourceHashOf(sourceText, dependencies);
   if (sourceHash !== document.sourceHash) fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.SOURCE_BASIS_MISMATCH,
     'Exact source bytes do not match the accepted project source hash.');
-  const producerOptions = immutableJson(input.producerOptions ?? {}, 'Topology producer options');
+  const profile = closedProducerProfile(input, document);
   let built;
-  try { built = await core.buildEditedComponentTopologyArtifacts(sourceText, replay.draft, producerOptions); }
+  try { built = await core.buildEditedComponentTopologyArtifacts(sourceText, replay.draft, profile.options); }
   catch (error) { fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REGENERATION_MISMATCH,
     `Pinned producer regeneration failed: ${error.message}`); }
   const regenerated = record(built, 'regenerated artifacts',
@@ -178,20 +191,20 @@ async function certifyRegeneration(input, dependencies, core, replay, document, 
     editValidation: regenerated.editValidation });
   if (!same(regenerated.editDraft, replay.draft)
     || !same(regenerated.canonicalTopology, canonicalEvidence.canonical)
-    || artifactsHash !== canonicalEvidence.artifactsHash) {
-    fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REGENERATION_MISMATCH,
-      'Accepted canonical or artifact ancestry differs from independent pinned-producer regeneration.');
-  }
+    || artifactsHash !== canonicalEvidence.artifactsHash) fail(
+    TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REGENERATION_MISMATCH,
+    'Accepted canonical or artifact ancestry differs from independent pinned-producer regeneration.');
   const canonicalContentHash = semanticHash(regenerated.canonicalTopology);
   if (canonicalEvidence.ancestry.canonicalContentHash
     && canonicalEvidence.ancestry.canonicalContentHash !== canonicalContentHash) fail(
     TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.CANONICAL_MISMATCH,
     'Declared canonical content hash differs from regenerated canonical contents.');
   const certification = immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_REGENERATION_CERTIFICATION_V1,
-    sourceHash, draftHash: replay.draft.topologyEditDraftHash,
-    canonicalTopologyHash: canonicalEvidence.canonicalHash, canonicalContentHash, artifactsHash },
+    sourceHash, draftHash: replay.draft.topologyEditDraftHash, canonicalTopologyHash: canonicalEvidence.canonicalHash,
+    canonicalContentHash, artifactsHash, producerProfileId: profile.profileId,
+    producerProfileHash: semanticHash(profile), producerOptionsHash: profile.optionsHash },
   'Topology independent regeneration certification');
-  return { sourceText, producerOptions, certification };
+  return { sourceText, producerProfile: profile, certification };
 }
 function commandScope(input, canonical) {
   const scopeInput = record(input.commandScopeInput, 'commandScopeInput',
@@ -235,11 +248,15 @@ async function createWithCore(input = {}, coreInput, dependencies = {}) {
     documentId: identity.documentId, sourceHash: identity.sourceHash, draftHash: draft.topologyEditDraftHash,
     canonicalTopologyHash: canonical.canonicalHash,
     canonicalContentHash: regenerated.certification.canonicalContentHash,
-    artifactsHash: regenerated.certification.artifactsHash }, 'Topology canonical ancestry');
+    artifactsHash: regenerated.certification.artifactsHash,
+    producerProfileId: regenerated.producerProfile.profileId,
+    producerProfileHash: regenerated.certification.producerProfileHash }, 'Topology canonical ancestry');
   return immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1,
     authorityId: authority.authorityId, documentId: identity.documentId, sessionId: identity.sessionId,
     sourceHash: identity.sourceHash, sourceText: regenerated.sourceText,
-    producerOptions: regenerated.producerOptions, canonicalTopologyHash: canonical.canonicalHash,
+    producerProfile: regenerated.producerProfile, producerOptions: regenerated.producerProfile.options,
+    producerProfileHash: regenerated.certification.producerProfileHash,
+    canonicalTopologyHash: canonical.canonicalHash,
     canonicalContentHash: regenerated.certification.canonicalContentHash,
     artifactsHash: regenerated.certification.artifactsHash, draftHash: draft.topologyEditDraftHash,
     journalHash: semanticHash(journal), replayHash: topologyReplayStateHash(replay),
@@ -254,8 +271,8 @@ async function createWithCore(input = {}, coreInput, dependencies = {}) {
 function inputFromReadModel(readModel) {
   return { authority: readModel.authority, projectDocument: readModel.projectDocument,
     sessionId: readModel.sessionId, sourceText: readModel.sourceText,
-    producerOptions: readModel.producerOptions, canonicalTopology: readModel.canonicalTopology,
-    canonicalAncestry: readModel.canonicalAncestry,
+    producerProfile: readModel.producerProfile, producerOptions: readModel.producerOptions,
+    canonicalTopology: readModel.canonicalTopology, canonicalAncestry: readModel.canonicalAncestry,
     coordinateSystemEvidence: { frame: readModel.coordinateSystem.frame,
       handedness: readModel.coordinateSystem.handedness, authority: readModel.coordinateSystem.authority },
     baseDraft: readModel.baseDraft, editDraft: readModel.editDraft,
@@ -271,7 +288,7 @@ async function assertWithCore(readModel, core, dependencies = {}) {
   const rebuilt = await createWithCore(inputFromReadModel(readModel), core, dependencies);
   if (!same(rebuilt, readModel)) fail(TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
     'Schema-labelled read model does not recertify to identical accepted evidence.');
-  return readModel;
+  return rebuilt;
 }
 export async function createTopologyScopedEditReadModel(input = {}, dependencies = {}) {
   return createWithCore(input, await loadTopologyProducerCore(), dependencies);
@@ -279,4 +296,4 @@ export async function createTopologyScopedEditReadModel(input = {}, dependencies
 export async function assertTopologyScopedEditReadModel(readModel, dependencies = {}) {
   return assertWithCore(readModel, await loadTopologyProducerCore(), dependencies);
 }
-export const _test = Object.freeze({ createWithCore, assertWithCore, inputFromReadModel });
+export const _test = Object.freeze({ createWithCore, assertWithCore, inputFromReadModel, closedProducerProfile });
