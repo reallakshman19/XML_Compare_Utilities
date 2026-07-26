@@ -106,6 +106,7 @@ const publicHost = await createTopologyScopedEditReadOnlyHost({ readModel: mutab
 assert.equal(assertScopedEditHostContract(publicHost).valid, true);
 assert(publicHost.scene().entities.length > 0);
 assert.equal(publicHost.scene().metadata.authorityId, readModel.authorityId);
+assert.equal(publicHost.scene().metadata.producerOptionsHash, readModel.producerOptionsHash);
 const publicSceneBefore = JSON.stringify(publicHost.scene());
 mutablePublicModel.canonicalTopology.nodes[0].position.x += 1000;
 mutablePublicModel.commandScopeBasis.editableEntityIds.length = 0;
@@ -118,10 +119,18 @@ await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
   effects: createTopologyScopedEditEffectBoundary(),
 }, { cryptoRef: webcrypto }),
 (error) => error.code === TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REGENERATION_MISMATCH);
-const alternateOptions = structuredClone(readModel);
-alternateOptions.producerOptions.toleranceMm = 0.25;
+const alternateProducerOptions = Object.freeze({ ...producerOptions, toleranceMm: 0.25 });
+const alternateRegenerated = await pinnedCore.buildEditedComponentTopologyArtifacts(sourceText,
+  replayState.draft, alternateProducerOptions);
+const matchingAlternate = structuredClone(readModel);
+matchingAlternate.producerOptions = structuredClone(alternateProducerOptions);
+matchingAlternate.canonicalTopology = structuredClone(alternateRegenerated.canonicalTopology);
+matchingAlternate.canonicalAncestry.canonicalTopologyHash = alternateRegenerated.canonicalTopology.canonicalTopologyHash;
+matchingAlternate.canonicalAncestry.artifactsHash = semanticHash({ editDraft: alternateRegenerated.editDraft,
+  canonicalTopology: alternateRegenerated.canonicalTopology, editLedger: alternateRegenerated.editLedger,
+  editValidation: alternateRegenerated.editValidation });
 await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
-  readModel: alternateOptions, authorityProvider: () => readModel.authorityId,
+  readModel: matchingAlternate, authorityProvider: () => readModel.authorityId,
   effects: createTopologyScopedEditEffectBoundary(),
 }, { cryptoRef: webcrypto }),
 (error) => error.code === TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.PRODUCER_PROFILE_MISMATCH);
