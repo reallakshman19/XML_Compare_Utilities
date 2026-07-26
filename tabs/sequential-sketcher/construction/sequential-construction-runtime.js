@@ -63,6 +63,28 @@ function rawDecision(session, evidenceModel, indexes, action, payload = {}, opti
     indexes,
   );
 }
+function withIssuedAt(value, issuedAt) {
+  if (!value?.confirmedAt || value.confirmedAt === issuedAt) return value;
+  return Object.freeze({ ...value, confirmedAt: issuedAt });
+}
+function normalizeCommandEvidenceTimes(previousSession, result, issuedAt) {
+  const session = result?.session;
+  if (!session) return result;
+  const decisionOffset = previousSession?.decisionLedger?.length || 0;
+  const overrideOffset = previousSession?.componentTraversalOverrides?.length || 0;
+  const decisionLedger = (session.decisionLedger || []).map((decision, index) => (
+    index < decisionOffset || !decision?.resolution
+      ? decision
+      : Object.freeze({ ...decision, resolution: withIssuedAt(decision.resolution, issuedAt) })
+  ));
+  const componentTraversalOverrides = (session.componentTraversalOverrides || []).map((row, index) => (
+    index < overrideOffset ? row : withIssuedAt(row, issuedAt)
+  ));
+  return Object.freeze({
+    ...result,
+    session: freezeConstructionSession({ ...session, decisionLedger, componentTraversalOverrides }),
+  });
+}
 
 export function advanceConstruction(session, evidenceModel, indexes, options = {}) {
   const result = rawAdvance(session, evidenceModel, indexes, options);
@@ -106,6 +128,7 @@ export function applyConstructionDecision(session, evidenceModel, indexes, actio
   } else {
     result = rawDecision(session, evidenceModel, indexes, action, timedPayload, options);
   }
+  result = normalizeCommandEvidenceTimes(session, result, issuedAt);
   return recordSequentialConstructionTransaction(session, result, {
     action,
     actorProvenance: 'USER_MANUAL',
