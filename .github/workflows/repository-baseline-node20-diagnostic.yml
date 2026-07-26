@@ -1,0 +1,74 @@
+name: Repository baseline Node 20 diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/repository-baseline-node20-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: 2401a75d78045583c394ba4551de8dbba1125a18
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Apply Navis local contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/navis-tag-isonote-static.test.js')
+          text = path.read_text()
+          old_read = "const benchmarkWorkflow = readFileSync('.github/workflows/navis-tag-isonote-full-benchmark.yml', 'utf8');"
+          new_read = "const benchmarkExpected = JSON.parse(readFileSync('fixtures/navis-tag-isonote/asim1836-benchmark-expected.json', 'utf8'));"
+          old_assert = "assert.match(benchmarkWorkflow, /asim1836-benchmark-expected\\.json/);\nassert.match(benchmarkWorkflow, /Frozen benchmark verified/);"
+          new_assert = "assert.match(benchmarkRunner, /const expectedPath = options\\.expected \\|\\| '';/);\nassert.match(benchmarkRunner, /coverage\\.expectations = verifyExpectations/);\nassert.equal(benchmarkExpected.schema, 'navis-tag-isonote-benchmark-expectations/v1');\nassert.equal(benchmarkExpected.profileId, 'asim1836-managed-stage-2/v1');\nassert.equal(benchmarkExpected.sourceCounts.tableRows, 163);\nassert.equal(benchmarkExpected.identityTrace.resolvedCount, 163);\nassert.equal(benchmarkExpected.coordinateFrame.status, 'DISJOINT_COORDINATE_EXTENTS');\nassert.equal(benchmarkExpected.resolution.unresolvedCount, 163);"
+          path.write_text(text.replace(old_read, new_read, 1).replace(old_assert, new_assert, 1))
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Navis contract
+        id: navis
+        continue-on-error: true
+        run: node tests/navis-tag-isonote-static.test.js
+      - name: Pipeline CAD contract
+        id: cad
+        continue-on-error: true
+        run: node tests/pipeline-3d-model-cad-browser-contract.test.js
+      - name: XML Builder contract
+        id: xmlb
+        continue-on-error: true
+        run: node tests/xml-builder-viewport-browser-contract.test.js
+      - name: No-fallback ownership contract
+        id: no_fallback
+        continue-on-error: true
+        run: node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+      - name: Configuration UI contract
+        id: ui
+        continue-on-error: true
+        run: node tests/pipeline-3d-model-hard-051-ui-static.test.js
+      - name: Profile propagation behavior
+        id: profile
+        continue-on-error: true
+        run: node tests/pipeline-3d-model-profile-propagation.test.js
+      - name: Profile propagation static ownership
+        id: profile_static
+        continue-on-error: true
+        run: node tests/pipeline-3d-model-profile-propagation-static.test.js
+      - name: Print outcomes
+        run: |
+          echo "navis=${{ steps.navis.outcome }}"
+          echo "cad=${{ steps.cad.outcome }}"
+          echo "xmlb=${{ steps.xmlb.outcome }}"
+          echo "no_fallback=${{ steps.no_fallback.outcome }}"
+          echo "ui=${{ steps.ui.outcome }}"
+          echo "profile=${{ steps.profile.outcome }}"
+          echo "profile_static=${{ steps.profile_static.outcome }}"
