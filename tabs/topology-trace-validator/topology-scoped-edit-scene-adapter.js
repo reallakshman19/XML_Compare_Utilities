@@ -101,7 +101,7 @@ function projectCertifiedScene(readModel) {
     entities, capabilities: { readOnly: true, dryRunAppend: true, productionMutation: false },
     metadata: { authorityId: readModel.authorityId, canonicalTopologyHash: readModel.canonicalTopologyHash,
       canonicalContentHash: readModel.canonicalContentHash, artifactsHash: readModel.artifactsHash,
-      producerProfileHash: readModel.producerProfileHash,
+      producerProfileHash: readModel.producerProfileHash, producerOptionsHash: readModel.producerOptionsHash,
       includedKinds: TOPOLOGY_SCOPED_EDIT_SCENE_KINDS,
       excludedKinds: TOPOLOGY_SCOPED_EDIT_SCENE_EXCLUDED_KINDS,
       candidateEntityIds: rows.map((row) => row.id) },
@@ -118,6 +118,7 @@ export function assertTopologyScopedEditSceneAncestry(scene, readModel) {
     || scene.metadata?.canonicalContentHash !== readModel.canonicalContentHash
     || scene.metadata?.artifactsHash !== readModel.artifactsHash
     || scene.metadata?.producerProfileHash !== readModel.producerProfileHash
+    || scene.metadata?.producerOptionsHash !== readModel.producerOptionsHash
     || !same(scene.metadata?.candidateEntityIds, expected.metadata.candidateEntityIds)
     || new Set(ids).size !== expected.entities.length || !same(scene, expected)) {
     fail('EngineeringScene does not exactly match the deterministic certified Topology projection.');
