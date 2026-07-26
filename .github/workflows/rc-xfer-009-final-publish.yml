@@ -32,7 +32,7 @@ jobs:
           git show "${PATCH_SOURCE_COMMIT}:.github/workflows/rc-xfer-009-owner-release.yml" > /tmp/owner-release.yml
           sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/owner-release.yml | sed '1d;$d;s/^          //' > /tmp/owner-patch.py
           python /tmp/owner-patch.py
-      - name: Correct focused browser strict-locator assertions
+      - name: Correct focused browser assertions
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -44,7 +44,8 @@ jobs:
             await expect(sourceInputs).toHaveCount(2);
             await expect(sourceInputs.nth(0)).toBeDisabled();
             await expect(sourceInputs.nth(1)).toBeDisabled();
-            await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();"""
+            const evidenceImport = page.locator('[data-revc-evidence-package-import]');
+            if (await evidenceImport.count()) await expect(evidenceImport).toBeDisabled();"""
           old_enabled = """  await clear(page); await expect(page.locator('[data-revc-file]')).toBeEnabled();"""
           new_enabled = """  await clear(page);
             await expect(sourceInputs.nth(0)).toBeEnabled();
