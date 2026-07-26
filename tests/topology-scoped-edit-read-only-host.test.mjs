@@ -31,6 +31,17 @@ const candidate = host.appendEditCommand(f.readModelA0.journalProjection.project
   f.envelopes.authorized);
 assert.equal(candidate.envelopes.at(-1).commandId, 'CJ-000005');
 assert.deepEqual(f.sentinelSnapshot(), before);
+const mutableFixtureModel = structuredClone(f.readModelA0);
+const mutationProofHost = await f.hostFactory({ readModel: mutableFixtureModel, core: f.core,
+  authorityProvider: f.authorityGet, effects: f.effectBoundaryFactory() });
+const mutationProofScene = JSON.stringify(mutationProofHost.scene());
+mutableFixtureModel.commandScopeBasis.editableEntityIds.length = 0;
+mutableFixtureModel.commandJournal.activeCommandIds.length = 0;
+mutableFixtureModel.canonicalTopology.nodes[0].position.x += 500;
+assert.equal(JSON.stringify(mutationProofHost.scene()), mutationProofScene);
+assert(mutationProofHost.resolveScope(f.selectionRequests[0]).entityIds.includes('N01'));
+assert.equal(mutationProofHost.appendEditCommand(f.readModelA0.journalProjection.projection,
+  f.envelopes.authorized).envelopes.at(-1).commandId, 'CJ-000005');
 
 const NOW = '2026-07-26T02:00:00.000Z';
 const point = (x, y, z) => ({ x, y, z });
@@ -48,7 +59,7 @@ children: [
 ] }];
 const sourceText = JSON.stringify(source);
 const producerOptions = Object.freeze({ sourceName: 'public-host-fixture.json',
-  jobName: 'Public Host Fixture', toleranceMm: 0.1, supportProjectionToleranceMm: 50,
+  jobName: 'public-host-fixture-EDIT-DRAFT', toleranceMm: 0.1, supportProjectionToleranceMm: 50,
   enrichmentConfig: Object.freeze({}) });
 const baseArtifacts = await pinnedCore.buildComponentTopologyArtifacts(sourceText, producerOptions);
 const baseDraft = pinnedCore.createTopologyEditDraft(baseArtifacts.canonicalTopology,
@@ -88,12 +99,17 @@ const readModel = await createTopologyScopedEditReadModel({ authority, projectDo
     editScope: null, originKind: 'USER', modelWideGrant: null },
   selectionSnapshot: { authorityId: authority.authorityId, entityIds: [] },
 }, { cryptoRef: webcrypto });
-const publicHost = await createTopologyScopedEditReadOnlyHost({ readModel,
+const mutablePublicModel = structuredClone(readModel);
+const publicHost = await createTopologyScopedEditReadOnlyHost({ readModel: mutablePublicModel,
   authorityProvider: () => readModel.authorityId,
   effects: createTopologyScopedEditEffectBoundary() }, { cryptoRef: webcrypto });
 assert.equal(assertScopedEditHostContract(publicHost).valid, true);
 assert(publicHost.scene().entities.length > 0);
 assert.equal(publicHost.scene().metadata.authorityId, readModel.authorityId);
+const publicSceneBefore = JSON.stringify(publicHost.scene());
+mutablePublicModel.canonicalTopology.nodes[0].position.x += 1000;
+mutablePublicModel.commandScopeBasis.editableEntityIds.length = 0;
+assert.equal(JSON.stringify(publicHost.scene()), publicSceneBefore);
 const forged = structuredClone(readModel);
 forged.canonicalTopology.nodes[0].position.x += 20;
 await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
@@ -102,4 +118,11 @@ await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
   effects: createTopologyScopedEditEffectBoundary(),
 }, { cryptoRef: webcrypto }),
 (error) => error.code === TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.REGENERATION_MISMATCH);
-console.log('[PASS] public host constructor recertifies pinned-producer ancestry and remains read-only');
+const alternateOptions = structuredClone(readModel);
+alternateOptions.producerOptions.toleranceMm = 0.25;
+await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
+  readModel: alternateOptions, authorityProvider: () => readModel.authorityId,
+  effects: createTopologyScopedEditEffectBoundary(),
+}, { cryptoRef: webcrypto }),
+(error) => error.code === TOPOLOGY_SCOPED_EDIT_READ_MODEL_REJECTION.PRODUCER_PROFILE_MISMATCH);
+console.log('[PASS] public host retains immutable certified authority and closed producer profile');
