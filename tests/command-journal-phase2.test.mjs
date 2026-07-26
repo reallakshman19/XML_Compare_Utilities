@@ -47,3 +47,4 @@ const modules = ['contracts/command-journal.js', 'tabs/topology-trace-validator/
 for (const relative of modules) { const source = readFileSync(fileURLToPath(new URL(`../${relative}`, import.meta.url)), 'utf8'); assert(source.split(/\r?\n/).length <= 300); assert.doesNotMatch(source, /export\s+default/); }
 console.log('[SIMULATED] Phase 2 journal, regeneration-before-acceptance, writer lease, checkpoints, replay, and recovery passed.');
 await import('./sequential-command-authority-foundation.test.mjs');
+await import('./sequential-redo-head-authority.test.mjs');
