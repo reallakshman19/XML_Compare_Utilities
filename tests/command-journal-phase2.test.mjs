@@ -46,3 +46,4 @@ assert.equal(acceptPrepared(batchService, prepared).accepted, true); const batch
 const modules = ['contracts/command-journal.js', 'tabs/topology-trace-validator/topology-command-replay.js', 'tabs/topology-trace-validator/topology-edit-session-draft.js', 'tabs/topology-trace-validator/topology-draft-recovery.js', 'tabs/topology-trace-validator/topology-edit-journal-service.js', 'tabs/topology-trace-validator/topology-edit-persistence-actions.js', 'tabs/topology-trace-validator/topology-edit-ui-state.js'];
 for (const relative of modules) { const source = readFileSync(fileURLToPath(new URL(`../${relative}`, import.meta.url)), 'utf8'); assert(source.split(/\r?\n/).length <= 300); assert.doesNotMatch(source, /export\s+default/); }
 console.log('[SIMULATED] Phase 2 journal, regeneration-before-acceptance, writer lease, checkpoints, replay, and recovery passed.');
+await import('./sequential-command-authority-foundation.test.mjs');
