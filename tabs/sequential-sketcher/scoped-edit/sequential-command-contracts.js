@@ -1,6 +1,5 @@
 /** Immutable contracts for Sequential accepted-command authority. */
 import { immutableJson, requiredContractText } from '../../../contracts/contract-values.js';
-import { stableToken } from '../sequential-sketcher-contract.js';
 
 export const SEQUENTIAL_EDIT_AUTHORITY_BASIS_SCHEMA = 'SequentialEditAuthorityBasis.v1';
 export const SEQUENTIAL_NATIVE_COMMAND_SCHEMA = 'SequentialNativeCommand.v1';
@@ -10,6 +9,7 @@ export const SEQUENTIAL_COMMAND_TARGET_EVIDENCE_SCHEMA = 'SequentialCommandTarge
 export const SEQUENTIAL_COMMAND_SCOPE_SCHEMA = 'SequentialCommandScope.v1';
 export const SEQUENTIAL_COMMAND_JOURNAL_STATE_SCHEMA = 'SequentialCommandJournalState.v1';
 export const SEQUENTIAL_JOURNAL_ADOPTION_CHECKPOINT_SCHEMA = 'SequentialJournalAdoptionCheckpoint.v1';
+export const SEQUENTIAL_SEMANTIC_HASH_PROFILE = 'fnv1a32-canonical-json-v1';
 
 export const SEQUENTIAL_NATIVE_COMMAND_TYPES = Object.freeze([
   'ADVANCE_ONE',
@@ -52,13 +52,24 @@ function canonicalValue(value) {
   if (!value || typeof value !== 'object') return value;
   return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]));
 }
+function fnv1a32(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
 
 export function sequentialCanonicalStringify(value) {
-  return JSON.stringify(canonicalValue(value));
+  const validated = immutableJson(value, 'Sequential canonical value');
+  return JSON.stringify(canonicalValue(validated));
 }
 
 export function sequentialSemanticFingerprint(prefix, value) {
-  return `${requiredContractText(prefix, 'fingerprint prefix')}-${stableToken(sequentialCanonicalStringify(value))}`;
+  const domain = requiredContractText(prefix, 'fingerprint prefix');
+  const digest = fnv1a32(`${SEQUENTIAL_SEMANTIC_HASH_PROFILE}|${domain}|${sequentialCanonicalStringify(value)}`);
+  return `${SEQUENTIAL_SEMANTIC_HASH_PROFILE}:${domain}:${digest}`;
 }
 
 export function sameSequentialContractValue(left, right) {
