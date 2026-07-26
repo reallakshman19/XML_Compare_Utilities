@@ -75,7 +75,7 @@ async function selectOne(page, offset = 0) {
   }, offset);
   expect(item.differenceId).toBeTruthy();
   await page.locator(`[data-revc-transfer-pair="${item.differenceId}"]`).check();
-  await page.locator(`[data-revc-transfer-field="${item.fieldKey}"]`).check();
+  await page.locator(`[data-revc-transfer-field="${item.fieldKey}"][data-revc-transfer-difference-id="${item.differenceId}"]`).check();
   return item;
 }
 

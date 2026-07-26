@@ -105,7 +105,16 @@ async function download(page, selector) {
   return { text, value: JSON.parse(text), descriptor };
 }
 
-for (const rootKind of ['ARRAY', 'ENVELOPE']) {
+test('RC-XFER-003 bare-array intake remains fail-closed without engineering metadata', async ({ page }) => {
+  await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page);
+  await uploadValue(page, 'baseline', documentValue('ARRAY', true), 'rev-a-array.json');
+  await uploadValue(page, 'candidate', documentValue('ARRAY', false), 'rev-b-array.json');
+  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
+  await expect(page.getByText('Unit is UNKNOWN.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run visual comparison' })).toBeDisabled();
+});
+
+for (const rootKind of ['ENVELOPE']) {
   test(`RC-XFER-003 direct transfer — ${rootKind}`, async ({ page }) => {
     await page.goto('/tests/browser/revision-compare-rc001.html'); await installHarness(page); await openWorkspace(page);
     await test.step(rootKind === 'ARRAY' ? 'RC-XFER-003-B01 direct bare-array load and eligible transfer' : 'RC-XFER-003-B02 hierarchy/envelope load and root preservation', async () => { await compare(page, rootKind); });

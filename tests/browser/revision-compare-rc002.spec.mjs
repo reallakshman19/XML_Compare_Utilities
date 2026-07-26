@@ -86,7 +86,9 @@ test('bounded visual compare synchronizes 3D, queue, inspector, evidence, and in
   await expect(page.locator('[data-revc-difference-id]').first()).toContainText('Ambiguous');
 
   await page.getByRole('button', { name: 'Change scope' }).click();
-  await page.locator('[data-revc-branch-id="branch:/COMMON-500"]').uncheck();
+  const scopeBranch = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
+  await page.locator('label.revc-scope-row', { has: scopeBranch }).click();
+  await expect(scopeBranch).not.toBeChecked();
   await expect(page.locator('footer [data-status="stale"]')).toBeVisible();
   expect(await page.evaluate(() => window.rcHandle.evidence().state.compare.audit)).toBeNull();
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();

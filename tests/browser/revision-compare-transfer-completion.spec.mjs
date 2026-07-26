@@ -12,7 +12,7 @@ async function mountFixture(page) {
     const view = await import('/tabs/revision-compare/revision-transfer-completion-view.js');
     const stateModule = await import('/tabs/revision-compare/revision-transfer-completion-state.js');
     const application = await controller.createRevisionCompareTransferCompletionApplication(workspace, input, timestamp, { cryptoRef: crypto, preflight: {}, createEvidencePackage: async () => evidencePackage });
-    workspace.transferCompletion = stateModule.completeRevisionCompareTransferCompletionState(application);
+    workspace.transferCompletion = stateModule.completeRevisionCompareTransferCompletionState(application, workspace);
     let host = document.querySelector('.revc-review-side');
     if (!host) { host = document.createElement('div'); host.className = 'revc-review-side'; document.body.appendChild(host); }
     host.innerHTML = ''; view.renderRevisionCompareTransferCompletionSection(document.body, workspace);
@@ -64,7 +64,7 @@ test('RC-XFER-005-B08..B10 presentation stays current and authority changes stal
     const presentation = { ...data.workspace, compare: { ...data.workspace.compare, presentationMode: 'side-by-side', queue: { search: 'filter' } } };
     const changed = structuredClone(data.workspace); changed.review.session.revision += 1;
     const stale = workspaceModule.reconcileRevisionCompareTransferCompletionAfterAuthorityChange(data.workspace, changed);
-    const explicit = data.stateModule.completeRevisionCompareTransferCompletionState(data.application);
+    const explicit = data.stateModule.completeRevisionCompareTransferCompletionState(data.application, data.workspace);
     return { presentation: presentation.transferCompletion.status, stale: stale.transferCompletion.status, historicalId: stale.transferCompletion.report.reportId, explicit: explicit.status };
   });
   expect(result.presentation).toBe('CREATED'); expect(result.stale).toBe('STALE'); expect(result.historicalId).toContain('revision-transfer-completion:'); expect(result.explicit).toBe('CREATED');
