@@ -219,11 +219,14 @@ export async function createTopologyScopedEditReadOnlyHostFixture() {
   const inputA1 = readModelInput(context, journalA1);
   const readModelA1 = await readModelTest.createWithCore(inputA1, topologyReadOnlyTestCore, { cryptoRef: webcrypto });
   let authorityId = readModelA0.authorityId;
-  const sideEffects = { readOnlyOperation: 0, storageAccess: 0, recoveryAcceptance: 0,
-    writerAcquisition: 0, controllerMutation: 0, rendererRefresh: 0,
-    selectionPublication: 0, productionAcceptance: 0 };
-  const effectBoundaryFactory = () => createTopologyScopedEditEffectBoundary(Object.freeze(
-    Object.fromEntries(Object.keys(sideEffects).map((key) => [key, () => { sideEffects[key] += 1; }]))));
+  const performedEffects = { storageAccess: 0, recoveryAcceptance: 0, writerAcquisition: 0,
+    controllerMutation: 0, rendererRefresh: 0, selectionPublication: 0, productionAcceptance: 0 };
+  const deniedEffects = { ...performedEffects };
+  let readOnlyOperations = 0;
+  const effectBoundaryFactory = () => createTopologyScopedEditEffectBoundary(Object.freeze({
+    readOnlyOperation: () => { readOnlyOperations += 1; },
+    ...Object.fromEntries(Object.keys(deniedEffects).map((key) => [key, () => { deniedEffects[key] += 1; }])),
+  }));
   const defectiveHostFactories = Object.freeze(['storageAccess', 'recoveryAcceptance', 'writerAcquisition',
     'controllerMutation', 'rendererRefresh', 'selectionPublication', 'productionAcceptance']
     .map((name) => async ({ effects }) => effects[name]()));
@@ -232,7 +235,8 @@ export async function createTopologyScopedEditReadOnlyHostFixture() {
       readModel, authorityProvider, effects }, core, { cryptoRef: webcrypto }),
     authorityGet: () => authorityId, authoritySet: (value) => { authorityId = value; },
     effectBoundaryFactory, defectiveHostFactories, sourceFiles: sourceFiles(), certificationDependencies: Object.freeze({ cryptoRef: webcrypto }),
-    sentinelSnapshot: () => Object.freeze({ ...sideEffects }),
+    sentinelSnapshot: () => Object.freeze({ readOnlyOperation: readOnlyOperations, ...performedEffects }),
+    denialSnapshot: () => Object.freeze({ ...deniedEffects }),
     selectionRequests: Object.freeze(['N01', 'N02', 'E01', 'S01'].map((id) => Object.freeze({
       schema: 'EngineeringScopeRequest.v1', kind: 'SELECTION', boundaryPolicy: 'FROZEN',
       elementBudget: 48, selection: { entityIds: [id], closureDepth: 1 } }))),
