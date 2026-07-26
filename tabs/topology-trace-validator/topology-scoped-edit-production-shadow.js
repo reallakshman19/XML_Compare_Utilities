@@ -88,9 +88,6 @@ function targetIds(readModel, envelope, factories) {
   if (!command.id || !command.type) return null;
   return factories.resolveTargets(command, readModel.canonicalTopology).entityIds;
 }
-function requestEntityIds(request) {
-  return request.kind === 'STRUCTURAL' ? request.structural.identifiers : request.selection.entityIds;
-}
 function dragEntity(composition, ids) {
   for (const id of ids) {
     try { composition.directHost.entityGeometry(id); return id; } catch {}
@@ -120,7 +117,8 @@ async function compareTransition(previous, next, authorityProvider, dependencies
   try {
     temporary = await buildMount(previous.readModel, () => previous.readModel.authorityId,
       dependencies, factories, ids, 'STRUCTURAL');
-    const dragId = dragEntity(temporary.composition, requestEntityIds(temporary.request));
+    const dragId = dragEntity(temporary.composition,
+      temporary.composition.runtime.getState().scope.entityIds);
     const result = factories.runPositive(temporary.composition, { envelope, targetIds: ids,
       dragEntityId: dragId, commandName: envelope.commandType });
     const candidate = result.direct.evidence;
@@ -216,4 +214,4 @@ export function createTopologyScopedEditProductionShadow(input = {}, dependencie
 }
 
 export const _test = Object.freeze({ createWithFactories, scopeSeeds, scopeRequest, journalSuffix,
-  exactMountEvidence, compareTransition, releaseComposition, requestEntityIds });
+  exactMountEvidence, compareTransition, releaseComposition, dragEntity });
