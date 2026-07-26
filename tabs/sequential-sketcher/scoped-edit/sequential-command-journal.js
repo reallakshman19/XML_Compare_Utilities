@@ -6,6 +6,7 @@ import {
   SEQUENTIAL_COMMAND_JOURNAL_STATE_SCHEMA,
   SEQUENTIAL_COMMAND_REJECTION,
   SEQUENTIAL_JOURNAL_ADOPTION_CHECKPOINT_SCHEMA,
+  sameSequentialContractValue,
   sequentialCommandCodedError,
   sequentialSemanticFingerprint,
 } from './sequential-command-contracts.js';
@@ -14,6 +15,7 @@ function fail(code, message, Constructor = Error) {
   throw sequentialCommandCodedError(code, message, Constructor);
 }
 function text(value) { return String(value ?? '').trim(); }
+function sortedIds(values = []) { return [...values].sort((left, right) => left.localeCompare(right)); }
 function historyEntryEvidence(entry, context) {
   if (entry?.schema !== 'SequentialConstructionUndoEntry.v1') {
     fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, `${context} has an unsupported history schema.`, TypeError);
@@ -78,14 +80,22 @@ function branchLegacyEvidence(entry) {
     previousAfter = result.afterFingerprint;
     return result;
   });
-  if (transactions.length && transactions.at(-1).afterFingerprint !== sequentialSessionFingerprint(session)) {
+  const sessionFingerprint = sequentialSessionFingerprint(session);
+  if (transactions.length && transactions.at(-1).afterFingerprint !== sessionFingerprint) {
     fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, `Legacy branch ${branchId} final transaction does not match current session.`, RangeError);
   }
   const undo = (session.undoStack || []).map((row, index) => historyEntryEvidence(row, `${branchId} undo ${index}`));
   const redo = (session.redoStack || []).map((row, index) => historyEntryEvidence(row, `${branchId} redo ${index}`));
   validateHistoryMapping(undo, transactions, `${branchId} undo history`);
   validateHistoryMapping(redo, transactions, `${branchId} redo history`);
-  return { branchId, sessionFingerprint: sequentialSessionFingerprint(session), transactions, undo, redo };
+  return { branchId, sessionFingerprint, sessionSnapshot: session, transactions, undo, redo };
+}
+function legacyMaterial(sourceFingerprint, branchIds, branches) {
+  return {
+    sourceFingerprint: requiredContractText(sourceFingerprint, 'legacy sourceFingerprint'),
+    branchIds: sortedIds(branchIds),
+    branches: [...branches].sort((left, right) => left.branchId.localeCompare(right.branchId)),
+  };
 }
 
 export function createSequentialLegacyHistoryEvidence(input = {}) {
@@ -94,21 +104,18 @@ export function createSequentialLegacyHistoryEvidence(input = {}) {
   if (!Array.isArray(branchIds) || !Array.isArray(entries)) {
     fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, 'Sequential branch registry ids and entries are required.', TypeError);
   }
-  const branches = entries.map(branchLegacyEvidence).sort((left, right) => left.branchId.localeCompare(right.branchId));
-  const material = {
-    sourceFingerprint: requiredContractText(input.sourceFingerprint, 'legacy sourceFingerprint'),
-    branchIds: [...branchIds].sort((left, right) => left.localeCompare(right)),
-    branches,
-  };
+  const entryIds = sortedIds(entries.map((entry) => requiredContractText(entry?.branchId, 'legacy branchId')));
+  if (!sameSequentialContractValue(sortedIds(branchIds), entryIds)) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID,
+      'Journal adoption requires one materialized workspace snapshot for every Sequential branch.',
+      RangeError,
+    );
+  }
+  const material = legacyMaterial(input.sourceFingerprint, branchIds, entries.map(branchLegacyEvidence));
   return immutableJson({
     branchIds: material.branchIds,
-    branches: branches.map((row) => ({
-      branchId: row.branchId,
-      sessionFingerprint: row.sessionFingerprint,
-      transactionCount: row.transactions.length,
-      undoCount: row.undo.length,
-      redoCount: row.redo.length,
-    })),
+    branches: material.branches,
     legacyHistoryFingerprint: sequentialSemanticFingerprint('SLEGACY', material),
   }, 'Sequential legacy history evidence');
 }
@@ -148,6 +155,23 @@ export function createSequentialCommandJournalState(input = {}) {
     journal,
   }, 'Sequential command journal state');
 }
+function validateLegacyCheckpoint(checkpoint, errors) {
+  const branchIds = checkpoint.branchIds || [];
+  const branches = checkpoint.branchEvidence || [];
+  const evidenceIds = sortedIds(branches.map((branch) => String(branch?.branchId || '')));
+  if (!sameSequentialContractValue(sortedIds(branchIds), evidenceIds)) {
+    errors.push('legacy branch evidence does not cover the checkpoint branch set');
+  }
+  const material = legacyMaterial(checkpoint.sourceFingerprint, branchIds, branches);
+  if (checkpoint.legacyHistoryFingerprint !== sequentialSemanticFingerprint('SLEGACY', material)) {
+    errors.push('legacy history fingerprint is invalid');
+  }
+  for (const branch of checkpoint.branchEvidence || []) {
+    if (sequentialSessionFingerprint(branch.sessionSnapshot) !== branch.sessionFingerprint) {
+      errors.push(`legacy branch ${branch.branchId || '(missing)'} session fingerprint is invalid`);
+    }
+  }
+}
 function validateCheckpoint(value, errors) {
   const checkpoint = value?.adoptionCheckpoint;
   if (checkpoint?.schema !== SEQUENTIAL_JOURNAL_ADOPTION_CHECKPOINT_SCHEMA) {
@@ -155,6 +179,7 @@ function validateCheckpoint(value, errors) {
     return;
   }
   if (!isIsoTimestamp(checkpoint.adoptedAt)) errors.push('journal adoption timestamp is invalid');
+  validateLegacyCheckpoint(checkpoint, errors);
   const { checkpointId, ...material } = checkpoint;
   if (checkpointId !== sequentialSemanticFingerprint('SADOPT', material)) {
     errors.push('journal adoption checkpoint fingerprint is invalid');
@@ -172,9 +197,43 @@ function validateCheckpoint(value, errors) {
 export function validateSequentialCommandJournalState(value) {
   const errors = [];
   if (value?.schema !== SEQUENTIAL_COMMAND_JOURNAL_STATE_SCHEMA) errors.push(`schema must be ${SEQUENTIAL_COMMAND_JOURNAL_STATE_SCHEMA}`);
-  validateCheckpoint(value, errors);
+  try { validateCheckpoint(value, errors); } catch (error) { errors.push(error.message); }
   errors.push(...validateCommandJournal(value?.journal).map((error) => `journal: ${error}`));
   return Object.freeze(errors);
+}
+function currentBranchEntry(branchRegistry, branchId) {
+  return (branchRegistry?.entries?.() || []).find((row) => row.branchId === branchId) || null;
+}
+function assertLegacyBranchPrefix(branchRegistry, legacyBranch) {
+  const current = currentBranchEntry(branchRegistry, legacyBranch.branchId);
+  const session = current?.snapshot?.session;
+  if (session?.rootBranchId !== legacyBranch.branchId) {
+    fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, `Legacy branch ${legacyBranch.branchId} is missing.`, RangeError);
+  }
+  const prefix = (session.transactionLedger || []).slice(0, legacyBranch.transactions.length);
+  if (prefix.length !== legacyBranch.transactions.length
+    || !sameSequentialContractValue(prefix, legacyBranch.transactions)) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID,
+      `Legacy transaction prefix for ${legacyBranch.branchId} no longer matches the adoption checkpoint.`,
+      RangeError,
+    );
+  }
+}
+
+export function assertSequentialJournalAdoptionBasis(state, sourceFingerprint, branchRegistry) {
+  const errors = validateSequentialCommandJournalState(state);
+  if (errors.length) fail(SEQUENTIAL_COMMAND_REJECTION.JOURNAL_NOT_ADOPTED, errors.join('; '), TypeError);
+  const checkpoint = state.adoptionCheckpoint;
+  if (checkpoint.sourceFingerprint !== sourceFingerprint) {
+    fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, 'Journal adoption source fingerprint does not match current source evidence.', RangeError);
+  }
+  const currentIds = branchRegistry?.ids?.();
+  if (!Array.isArray(currentIds) || !sameSequentialContractValue(sortedIds(currentIds), checkpoint.branchIds)) {
+    fail(SEQUENTIAL_COMMAND_REJECTION.LEGACY_HISTORY_INVALID, 'Journal adoption branch set no longer matches current branches.', RangeError);
+  }
+  for (const branch of checkpoint.branchEvidence) assertLegacyBranchPrefix(branchRegistry, branch);
+  return true;
 }
 
 export function sequentialCommandJournalHeadFingerprint(state) {
