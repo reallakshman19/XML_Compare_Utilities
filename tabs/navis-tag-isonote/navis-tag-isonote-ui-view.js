@@ -1,4 +1,7 @@
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
+import { parseNavisTagXml } from './navis-tag-xml-parser.js';
+import { buildStagedJsonHierarchy, buildStagedSupportIndex } from './navis-tag-staged-tree.js';
+import { refineStagedSupportIndex } from './navis-tag-index-refinement.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -79,7 +82,15 @@ export function renderAnchorPreview(state) {
 export function renderAnchorTagDropdown(state, key = 'navisAnchorTagId') {
   const cfg = state.config || {};
   const selectedValue = String(cfg[key] || '').trim();
-  const tags = state.navisParse?.tags || [];
+  let tags = state.navisParse?.tags || [];
+  if (!tags.length && state.navisText?.trim()) {
+    try {
+      const parsed = parseNavisTagXml(state.navisText, state.config || {}, state.identityTrace || {});
+      tags = parsed.tags || [];
+      if (state.navisParse) state.navisParse.tags = tags;
+      else state.navisParse = parsed;
+    } catch {}
+  }
   const hasSelectedInList = tags.some((t) => String(t.tagId || '').trim() === selectedValue);
   const configuredOption = selectedValue && !hasSelectedInList
     ? `<option value="${esc(selectedValue)}" selected>${esc(selectedValue)} (configured)</option>`
@@ -95,7 +106,17 @@ export function renderAnchorTagDropdown(state, key = 'navisAnchorTagId') {
 export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIdentity', limit = 50) {
   const cfg = state.config || {};
   const selectedValue = String(cfg[key] || '').trim();
-  const rows = (state.identityTrace?.rows?.length ? state.identityTrace.rows : (state.stagedIndex?.entries || []));
+  let rows = (state.identityTrace?.rows?.length ? state.identityTrace.rows : (state.stagedIndex?.entries || []));
+  if (!rows.length && state.stagedDocuments?.length) {
+    try {
+      const tree = buildStagedJsonHierarchy(state.stagedDocuments, state.config || {});
+      const rawIdx = buildStagedSupportIndex(tree, state.config || {});
+      const idx = refineStagedSupportIndex(rawIdx, tree, state.config || {});
+      rows = idx.entries || [];
+      if (state.stagedIndex) state.stagedIndex.entries = rows;
+      else state.stagedIndex = idx;
+    } catch {}
+  }
   const topRows = rows.slice(0, limit);
   const hasSelectedInList = topRows.some((r) => {
     const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();

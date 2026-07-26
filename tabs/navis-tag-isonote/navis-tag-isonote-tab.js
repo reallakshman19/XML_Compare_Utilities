@@ -138,6 +138,10 @@ function createState() {
       : 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.',
     running: false,
   };
+  if (state.tableText || state.navisText || state.stagedDocuments.length) {
+    try { buildAll(state); } catch {}
+  }
+  return state;
 }
 function collectConfig(root, state) {
   const previousConfigSignature = configSignature(state.config);
@@ -430,6 +434,11 @@ function render(root, state) {
         markInputsDirty(state);
         state.status = `${file.name} loaded. Build evidence to create the JSON trace.`;
       }
+      try {
+        if (state.tableText || state.navisText || state.stagedDocuments.length) {
+          buildAll(state);
+        }
+      } catch {}
       saveSession(state);
     } catch (error) {
       state.status = `Load failed: ${error?.message || error}`;
