@@ -26,9 +26,19 @@ export const SEQUENTIAL_NATIVE_COMMAND_TYPES = Object.freeze([
   'REDO_LAST_TRANSACTION',
 ]);
 
+export const SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES = Object.freeze([
+  'ADVANCE_ONE',
+  'RUN_UNTIL_BLOCKED',
+  'DEFER_DECISION',
+  'RESUME_DECISION',
+  'UNDO_LAST_TRANSACTION',
+  'REDO_LAST_TRANSACTION',
+]);
+
 export const SEQUENTIAL_COMMAND_REJECTION = Object.freeze({
   COMMAND_SCHEMA_INVALID: 'COMMAND_SCHEMA_INVALID',
   COMMAND_AUTHORITY_MISMATCH: 'COMMAND_AUTHORITY_MISMATCH',
+  COMMAND_RUNTIME_NOT_DETERMINISTIC: 'COMMAND_RUNTIME_NOT_DETERMINISTIC',
   COMMAND_BRANCH_MISMATCH: 'COMMAND_BRANCH_MISMATCH',
   COMMAND_TARGET_MISSING: 'COMMAND_TARGET_MISSING',
   CURRENT_DECISION_MISMATCH: 'CURRENT_DECISION_MISMATCH',
@@ -185,7 +195,9 @@ export function createSequentialCommandAcceptance(input = {}) {
     expectedAuthorityId: requiredContractText(input.expectedAuthorityId, 'expectedAuthorityId'),
     currentAuthorityId: requiredContractText(input.currentAuthorityId, 'currentAuthorityId'),
     preparedId: requiredContractText(input.preparedId, 'preparedId'),
-    publication: accepted ? input.publication : null,
+    publicationState: accepted ? 'COMMITTED' : optionalText(input.publicationState) || 'NOT_PUBLISHED',
+    containmentRequired: accepted ? false : input.containmentRequired === true,
+    publication: input.publication ? immutableJson(input.publication, 'Sequential publication evidence') : null,
   }, 'Sequential command acceptance');
 }
 
