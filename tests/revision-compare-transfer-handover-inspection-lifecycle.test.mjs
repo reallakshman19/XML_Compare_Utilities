@@ -15,11 +15,13 @@ import { handoverInspectionFixture } from './revision-compare-transfer-handover-
 const fixture = await handoverInspectionFixture();
 function freshWorkspace() {
   return deepFreeze({
-    schema: 'RevisionCompareWorkspaceState.v13', session: { documents: {} },
+    schema: 'RevisionCompareWorkspaceState.v13', session: { documents: {} }, proposal: null, basis: null,
     slots: { baseline: { status: 'EMPTY' }, candidate: { status: 'EMPTY' } },
-    compare: { status: 'IDLE' }, review: { session: null }, decision: { ledger: null },
-    evidencePackageImport: { status: 'IDLE' }, transfer: { request: null, applyRequest: null,
-      plan: null, result: null, patchedSnapshot: null }, transferCompletion: { report: null },
+    compare: { status: 'IDLE', audit: null }, review: { session: null }, decision: { ledger: null },
+    evidencePackageImport: { status: 'IDLE' }, signOff: { status: 'IDLE', report: null },
+    trustReceipt: { status: 'IDLE', receipt: null }, transfer: { request: null, applyRequest: null,
+      plan: null, result: null, patchedSnapshot: null, artifacts: [] },
+    transferCompletion: { report: null, bundle: null, reportArtifact: null, bundleArtifact: null },
     transferArchive: { artifact: null },
   });
 }
@@ -66,6 +68,7 @@ const blockers = [
   ['baseline document', (state) => { state.slots.baseline.document = {}; }],
   ['candidate document', (state) => { state.slots.candidate.document = {}; }],
   ['session source', (state) => { state.session.documents.baseline = {}; }],
+  ['proposal', (state) => { state.proposal = {}; }],
   ['basis', (state) => { state.basis = {}; }],
   ['audit', (state) => { state.compare.audit = {}; }],
   ['review', (state) => { state.review.session = {}; }],
@@ -73,8 +76,14 @@ const blockers = [
   ['plan', (state) => { state.transfer.plan = {}; }],
   ['result', (state) => { state.transfer.result = {}; }],
   ['patched snapshot', (state) => { state.transfer.patchedSnapshot = {}; }],
-  ['completion', (state) => { state.transferCompletion.report = {}; }],
+  ['transfer artifact', (state) => { state.transfer.artifacts = [{}]; }],
+  ['completion report', (state) => { state.transferCompletion.report = {}; }],
+  ['completion bundle', (state) => { state.transferCompletion.bundle = {}; }],
+  ['completion report artifact', (state) => { state.transferCompletion.reportArtifact = {}; }],
+  ['completion bundle artifact', (state) => { state.transferCompletion.bundleArtifact = {}; }],
   ['archive', (state) => { state.transferArchive.artifact = {}; }],
+  ['sign-off', (state) => { state.signOff.report = {}; }],
+  ['trust receipt', (state) => { state.trustReceipt.receipt = {}; }],
   ['source load', (state) => { state.slots.baseline.status = 'LOADING'; }],
   ['comparison', (state) => { state.compare.status = 'COMPARING'; }],
   ['package import', (state) => { state.evidencePackageImport.status = 'IMPORTING'; }],
