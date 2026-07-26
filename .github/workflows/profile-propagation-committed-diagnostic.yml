@@ -1,0 +1,36 @@
+name: Committed profile fixture diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/profile-propagation-committed-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: 7cb5ca5ab6790dba50af28e32af032e2c54d0509
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Capture committed fixture output
+        id: focused
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/profile-committed
+          node tests/pipeline-3d-model-profile-propagation.test.js > /tmp/profile-committed/output.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: committed-profile-fixture-output
+          path: /tmp/profile-committed/output.log
+          if-no-files-found: error
+      - if: steps.focused.outcome != 'success'
+        run: exit 1
