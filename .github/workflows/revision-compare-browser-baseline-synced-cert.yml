@@ -1,0 +1,47 @@
+name: Revision Compare synchronized baseline certification
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/revision-compare-browser-baseline-synced-cert.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/revision-compare-browser-baseline-fix
+  EXPECTED_TARGET_SHA: 3f14ef3ed2ae0abee88efa64042195874594c738
+  CI: 'true'
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Static and aggregate qualification
+        run: |
+          node tests/revision-compare-svg-dependency-guard.test.mjs
+          node tests/revision-compare-rc002-static.test.mjs
+          node tests/revision-compare-rc003-static.test.mjs
+          npm run test:revision-compare
+          git diff --check
+          test -z "$(git status --short)"
+      - run: npx playwright install --with-deps chromium
+      - name: Complete Revision Compare Playwright
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Reconcile exact branch relation
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+          test "$(git rev-list --count HEAD..origin/main)" = '0'
+          test -z "$(git status --short)"
