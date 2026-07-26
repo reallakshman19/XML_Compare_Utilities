@@ -118,4 +118,3 @@ export function renderRevisionCompareHandoverInspectionSection(root, state, opti
   actionControls(documentRef, section, inspection); host.appendChild(section);
   section.querySelector('[data-revc-handover-error]')?.focus(); return section;
 }
-export const _test = Object.freeze({ artifactTable, inspectionFacts });
