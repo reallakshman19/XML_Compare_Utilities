@@ -28,7 +28,7 @@ function branchRow(entry) {
     completeSessionFingerprint: session ? sequentialSemanticFingerprint('SBRANCHSESSION', session) : null,
     transactionHeadId: session?.transactionLedger?.at(-1)?.transactionId || null,
     undoHeadTransactionId: session?.undoStack?.at(-1)?.transactionId || null,
-    redoHeadTransactionId: session?.redoStack?.at(0)?.transactionId || null,
+    redoHeadTransactionId: session?.redoStack?.at(-1)?.transactionId || null,
     confirmedConstructionFingerprint: completeFingerprint(
       'SCONFIRMED', snapshot.confirmedConstruction,
       snapshot.confirmedConstruction?.constructionFingerprint,
@@ -71,7 +71,7 @@ export function deriveSequentialEditAuthority(input = {}) {
   );
   const transactionHead = session.transactionLedger?.at(-1) || null;
   const undoHead = session.undoStack?.at(-1) || null;
-  const redoHead = session.redoStack?.at(0) || null;
+  const redoHead = session.redoStack?.at(-1) || null;
   return createSequentialEditAuthorityBasis({
     sourceFingerprint: input.sourceFingerprint,
     branchId: session.rootBranchId,
