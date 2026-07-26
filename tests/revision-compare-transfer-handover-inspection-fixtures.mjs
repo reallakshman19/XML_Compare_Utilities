@@ -87,8 +87,8 @@ function auditFor(basis, sourceId, targetId, properties) {
   });
 }
 async function authorityState() {
-  const sourceValue = { schema: 'stage/v1', branches: [{ name: 'B-1', children: [{ id: 'S-1', description: 'New', status: 'ACTIVE' }] }] };
-  const targetValue = { schema: 'stage/v1', branches: [{ name: 'B-1', children: [{ id: 'T-1', description: 'Old', status: 'INACTIVE' }] }] };
+  const sourceValue = { schema: 'stage/v1', branches: [{ name: 'B-1', children: [{ id: 'S-1', description: 'New', material: 'CS' }] }] };
+  const targetValue = { schema: 'stage/v1', branches: [{ name: 'B-1', children: [{ id: 'T-1', description: 'Old', material: 'SS' }] }] };
   const revADocument = projectDocument('baseline', 'REFERENCE', 'doc:A', 'a', 'rev-a.json');
   const revBDocument = projectDocument('candidate', 'CANDIDATE', 'doc:B', 'b', 'rev-b.json');
   const revA = await createRevisionCompareJsonDocumentSnapshot({ side: 'REV_A', sourceDocumentId: 'doc:A',
@@ -107,9 +107,9 @@ async function authorityState() {
     { propertyKey: 'description', revAValue: 'New', revBValue: 'Old',
       revAEvidencePath: '$.branches[0].children[0].description',
       revBEvidencePath: '$.branches[0].children[0].description', normalizationRule: 'trim-preserve-scalar' },
-    { propertyKey: 'status', revAValue: 'ACTIVE', revBValue: 'INACTIVE',
-      revAEvidencePath: '$.branches[0].children[0].status',
-      revBEvidencePath: '$.branches[0].children[0].status', normalizationRule: 'trim-preserve-scalar' },
+    { propertyKey: 'material', revAValue: 'CS', revBValue: 'SS',
+      revAEvidencePath: '$.branches[0].children[0].material',
+      revBEvidencePath: '$.branches[0].children[0].material', normalizationRule: 'trim-preserve-scalar' },
   ];
   const audit = auditFor(basis, sourceId, targetId, properties);
   let reviewSession = createReviewSession(audit, createdAt);
