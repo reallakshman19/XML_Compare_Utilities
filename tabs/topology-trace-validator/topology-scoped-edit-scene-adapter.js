@@ -101,6 +101,7 @@ function projectCertifiedScene(readModel) {
     entities, capabilities: { readOnly: true, dryRunAppend: true, productionMutation: false },
     metadata: { authorityId: readModel.authorityId, canonicalTopologyHash: readModel.canonicalTopologyHash,
       canonicalContentHash: readModel.canonicalContentHash, artifactsHash: readModel.artifactsHash,
+      producerProfileHash: readModel.producerProfileHash,
       includedKinds: TOPOLOGY_SCOPED_EDIT_SCENE_KINDS,
       excludedKinds: TOPOLOGY_SCOPED_EDIT_SCENE_EXCLUDED_KINDS,
       candidateEntityIds: rows.map((row) => row.id) },
@@ -116,20 +117,19 @@ export function assertTopologyScopedEditSceneAncestry(scene, readModel) {
     || scene.metadata?.canonicalTopologyHash !== readModel.canonicalTopologyHash
     || scene.metadata?.canonicalContentHash !== readModel.canonicalContentHash
     || scene.metadata?.artifactsHash !== readModel.artifactsHash
+    || scene.metadata?.producerProfileHash !== readModel.producerProfileHash
     || !same(scene.metadata?.candidateEntityIds, expected.metadata.candidateEntityIds)
     || new Set(ids).size !== expected.entities.length || !same(scene, expected)) {
     fail('EngineeringScene does not exactly match the deterministic certified Topology projection.');
   }
-  return scene;
+  return expected;
 }
 async function createWithCore(readModel, core, dependencies = {}) {
-  await readModelTest.assertWithCore(readModel, core, dependencies);
-  const scene = projectCertifiedScene(readModel);
-  return assertTopologyScopedEditSceneAncestry(scene, readModel);
+  const certified = await readModelTest.assertWithCore(readModel, core, dependencies);
+  return assertTopologyScopedEditSceneAncestry(projectCertifiedScene(certified), certified);
 }
 export async function buildTopologyScopedEditEngineeringScene(readModel, dependencies = {}) {
-  await assertTopologyScopedEditReadModel(readModel, dependencies);
-  const scene = projectCertifiedScene(readModel);
-  return assertTopologyScopedEditSceneAncestry(scene, readModel);
+  const certified = await assertTopologyScopedEditReadModel(readModel, dependencies);
+  return assertTopologyScopedEditSceneAncestry(projectCertifiedScene(certified), certified);
 }
 export const _test = Object.freeze({ projectCertifiedScene, createWithCore });
