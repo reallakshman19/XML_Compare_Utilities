@@ -57,6 +57,17 @@ jobs:
               "assert.ok(browserSpecCount >= 15);\nassert.match(config, /screenshot: 'only-on-failure'/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /video: 'retain-on-failure'/);\nassert.match(config, /playwright-report\\/pipeline-cad-browser/);\nassert.match(config, /test-results\\/pipeline-cad-browser/);",
             ),
           ])
+
+          patch('tests/xml-builder-viewport-browser-contract.test.js', [
+            (
+              "const workflow = fs.readFileSync('.github/workflows/xml-builder-viewport-browser.yml', 'utf8');",
+              "const browserScenarioCount = (spec.match(/XMLB-VP(?:2)?-B\\d+/g) || []).length;",
+            ),
+            (
+              "assert.match(workflow, /XML Builder Viewport Browser Acceptance/);\nassert.match(workflow, /timeout-minutes: 30/);",
+              "assert.equal(browserScenarioCount, 24);\nassert.match(config, /timeout: 90_000/);\nassert.match(config, /trace: 'retain-on-failure'/);\nassert.match(config, /screenshot: 'only-on-failure'/);\nassert.match(config, /artifacts\\/xml-builder-viewport-browser-results\\.json/);\nassert.match(config, /playwright-report\\/xml-builder-viewport/);",
+            ),
+          ])
           PY
       - uses: actions/setup-node@v4
         with:
@@ -67,6 +78,7 @@ jobs:
         run: |
           node tests/navis-tag-isonote-static.test.js
           node tests/pipeline-3d-model-cad-browser-contract.test.js
+          node tests/xml-builder-viewport-browser-contract.test.js
       - name: Repository-wide validation
         id: npm_test
         continue-on-error: true
@@ -87,13 +99,16 @@ jobs:
           git diff --name-only | sort > /tmp/actual
           printf '%s\n' \
             tests/navis-tag-isonote-static.test.js \
-            tests/pipeline-3d-model-cad-browser-contract.test.js | sort > /tmp/expected
+            tests/pipeline-3d-model-cad-browser-contract.test.js \
+            tests/xml-builder-viewport-browser-contract.test.js | sort > /tmp/expected
           diff -u /tmp/expected /tmp/actual
           test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
       - name: Commit and push certified static repair
         run: |
           git config user.name 'Repository Baseline Owner'
           git config user.email 'actions@users.noreply.github.com'
-          git add tests/navis-tag-isonote-static.test.js tests/pipeline-3d-model-cad-browser-contract.test.js
+          git add tests/navis-tag-isonote-static.test.js \
+            tests/pipeline-3d-model-cad-browser-contract.test.js \
+            tests/xml-builder-viewport-browser-contract.test.js
           git commit -m 'test: align deleted workflow contracts'
           git push origin HEAD:${TARGET_BRANCH}
