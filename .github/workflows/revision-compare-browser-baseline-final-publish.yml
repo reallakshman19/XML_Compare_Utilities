@@ -1,0 +1,90 @@
+name: Revision Compare browser baseline final publish
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/revision-compare-browser-baseline-final-publish.yml']
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: owner/revision-compare-browser-baseline-fix
+  EXPECTED_TARGET_SHA: dcd77e74ec05bf339c210f45b11e027240c87ba0
+  CI: 'true'
+
+jobs:
+  certify-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - name: Replay reviewed baseline patch
+        run: |
+          git fetch origin owner/revision-compare-browser-baseline-harness
+          git show origin/owner/revision-compare-browser-baseline-harness:.github/workflows/revision-compare-browser-baseline-publish-v2.yml > /tmp/publish.yml
+          sed -n "/python - <<'PY'/,/^          PY$/p" /tmp/publish.yml | sed '1d;$d;s/^          //' > /tmp/baseline-patch.py
+          python /tmp/baseline-patch.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/browser/revision-compare-transfer-completion.spec.mjs')
+          text = path.read_text()
+          old = 'const explicit = data.stateModule.completeRevisionCompareTransferCompletionState(data.application);'
+          new = 'const explicit = data.stateModule.completeRevisionCompareTransferCompletionState(data.application, data.workspace);'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one explicit completion-state call, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Static and aggregate qualification
+        run: |
+          node --check tests/browser/revision-compare-transfer-completion.spec.mjs
+          node tests/revision-compare-svg-dependency-guard.test.mjs
+          node tests/revision-compare-rc002-static.test.mjs
+          node tests/revision-compare-rc003-static.test.mjs
+          npm run test:revision-compare
+          git diff --check
+      - run: npx playwright install --with-deps chromium
+      - name: Focused completion regression
+        run: npx playwright test tests/browser/revision-compare-transfer-completion.spec.mjs --config=playwright.revision-compare.config.mjs
+      - name: Complete Revision Compare Playwright
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Enforce test-only repair scope
+        run: |
+          git diff --name-only | sort > /tmp/actual
+          cat > /tmp/expected <<'EOF'
+          tests/browser/revision-compare-rc001.spec.mjs
+          tests/browser/revision-compare-rc002.spec.mjs
+          tests/browser/revision-compare-rc003.spec.mjs
+          tests/browser/revision-compare-rc004.spec.mjs
+          tests/browser/revision-compare-transfer-archive-native.spec.mjs
+          tests/browser/revision-compare-transfer-archive.spec.mjs
+          tests/browser/revision-compare-transfer-completion.spec.mjs
+          tests/browser/revision-compare-transfer-productivity.spec.mjs
+          tests/browser/revision-compare-transfer.spec.mjs
+          tests/revision-compare-rc002-static.test.mjs
+          tests/revision-compare-rc003-static.test.mjs
+          tests/revision-compare-svg-dependency-guard.test.mjs
+          EOF
+          sort -o /tmp/expected /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+      - name: Commit and push certified baseline repair
+        run: |
+          git config user.name 'Revision Compare Owner'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tests/browser/revision-compare-rc001.spec.mjs tests/browser/revision-compare-rc002.spec.mjs \
+            tests/browser/revision-compare-rc003.spec.mjs tests/browser/revision-compare-rc004.spec.mjs \
+            tests/browser/revision-compare-transfer-archive-native.spec.mjs tests/browser/revision-compare-transfer-archive.spec.mjs \
+            tests/browser/revision-compare-transfer-completion.spec.mjs tests/browser/revision-compare-transfer-productivity.spec.mjs \
+            tests/browser/revision-compare-transfer.spec.mjs tests/revision-compare-rc002-static.test.mjs \
+            tests/revision-compare-rc003-static.test.mjs tests/revision-compare-svg-dependency-guard.test.mjs
+          git commit -m 'test: repair revision compare browser baseline'
+          git push origin HEAD:${TARGET_BRANCH}
