@@ -1,4 +1,4 @@
-/** Behavioral and source-boundary certification for a supplied Topology host factory. */
+/** Behavioral and source-boundary certification for the repository Topology host. */
 import { immutableJson } from '../../contracts/contract-values.js';
 import { validateEngineeringScene } from '../../core/engineering-scene/engineering-contract-validation.js';
 import { assertEngineeringScope } from '../../core/engineering-scope/engineering-scope-contracts.js';
@@ -9,12 +9,14 @@ import { TOPOLOGY_SECTIONAL_SCOPE_UNSUPPORTED } from './topology-scoped-edit-sco
 import {
   TOPOLOGY_READ_ONLY_EFFECT_DENIED,
   TOPOLOGY_READ_ONLY_HOST_DESTROYED,
+  _test as repositoryHostTest,
 } from './topology-scoped-edit-read-only-host.js';
 
 export const TOPOLOGY_SCOPED_EDIT_READ_ONLY_HOST_CONFORMANCE_V1 =
   'TopologyScopedEditReadOnlyHostConformance.v1';
 export const TOPOLOGY_SCOPED_EDIT_SOURCE_BOUNDARY_V1 = 'TopologyScopedEditSourceBoundary.v1';
 export const TOPOLOGY_SCOPED_EDIT_SOURCE_BOUNDARY_REJECTED = 'TOPOLOGY_SCOPED_EDIT_SOURCE_BOUNDARY_REJECTED';
+export const TOPOLOGY_SCOPED_EDIT_CONFORMANCE_SUBJECT = 'CERTIFIED_REPOSITORY_TOPOLOGY_HOST';
 const DEFAULT_SCALES = Object.freeze({ scene: 1000, selection: 500, structural: 500,
   sectional: 250, geometry: 1000, authorized: 1000, boundary: 1000, excluded: 1000,
   stale: 500, mismatch: 500, corruption: 250, remount: 100 });
@@ -87,20 +89,21 @@ export function certifyTopologyScopedEditSourceBoundary(sourceFiles = {}) {
   'Topology scoped-edit source-boundary certification');
 }
 function fixture(input) {
-  const required = ['hostFactory', 'authorityGet', 'authoritySet', 'sentinelSnapshot', 'denialSnapshot', 'effectBoundaryFactory'];
+  const required = ['authorityGet', 'authoritySet', 'sentinelSnapshot', 'denialSnapshot', 'effectBoundaryFactory'];
   required.forEach((name) => requiredFunction(input[name], name));
+  if (!input.core || typeof input.core !== 'object') throw new TypeError('Conformance requires the pinned/test Topology core.');
   if (input.readModelA0?.schema !== TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1
     || input.readModelA1?.schema !== TOPOLOGY_SCOPED_EDIT_READ_MODEL_V1) {
     throw new TypeError('Conformance requires A0 and A1 Topology read models.');
   }
   if (!Array.isArray(input.defectiveHostFactories) || !input.defectiveHostFactories.length) {
-    throw new TypeError('Conformance requires deliberately defective supplied-host factories.');
+    throw new TypeError('Conformance requires effect-boundary probe factories.');
   }
   return input;
 }
-async function hostFor(f, readModel = f.readModelA0, factory = f.hostFactory) {
-  return factory({ readModel, core: f.core, authorityProvider: f.authorityGet,
-    effects: f.effectBoundaryFactory() });
+async function hostFor(f, readModel = f.readModelA0) {
+  return repositoryHostTest.createWithCore({ readModel, authorityProvider: f.authorityGet,
+    effects: f.effectBoundaryFactory() }, f.core, f.certificationDependencies ?? {});
 }
 function inputSnapshot(f) {
   return semanticHash({ readModelA0: f.readModelA0, readModelA1: f.readModelA1,
@@ -181,11 +184,11 @@ function corruptionChecks(f, host, count) {
   }
   return codes;
 }
-async function defectiveChecks(f) {
+async function effectBoundaryChecks(f) {
   const codes = new Set();
   for (const [index, factory] of f.defectiveHostFactories.entries()) codes.add(await expectAsyncCode(
-    () => hostFor(f, f.readModelA0, factory), TOPOLOGY_READ_ONLY_EFFECT_DENIED,
-    `defective supplied host ${index + 1}`));
+    () => factory({ effects: f.effectBoundaryFactory() }), TOPOLOGY_READ_ONLY_EFFECT_DENIED,
+    `effect-boundary probe ${index + 1}`));
   return { codes, count: f.defectiveHostFactories.length };
 }
 async function destroyChecks(f, count, sceneJson) {
@@ -222,7 +225,7 @@ function certifySentinels(before, after) {
 export async function runTopologyScopedEditReadOnlyHostConformance(input = {}) {
   const f = fixture(input), scales = Object.freeze({ ...DEFAULT_SCALES, ...input.scales });
   const sourceBoundary = certifyTopologyScopedEditSourceBoundary(f.sourceFiles);
-  const defective = await defectiveChecks(f), effectDenialAttempts = f.denialSnapshot();
+  const boundaryProbes = await effectBoundaryChecks(f), effectDenialAttempts = f.denialSnapshot();
   if (!isScopedEditDeeplyFrozen(f.readModelA0) || !isScopedEditDeeplyFrozen(f.readModelA1)) {
     throw new TypeError('Conformance read models must be deeply immutable.');
   }
@@ -250,7 +253,8 @@ export async function runTopologyScopedEditReadOnlyHostConformance(input = {}) {
   const afterSentinels = f.sentinelSnapshot(); certifySentinels(beforeSentinels, afterSentinels);
   if (!sourceUnchanged || beforeInputs !== inputSnapshot(f)) throw new Error('Conformance mutated source inputs.');
   return immutableJson({ schema: TOPOLOGY_SCOPED_EDIT_READ_ONLY_HOST_CONFORMANCE_V1,
-    valid: true, sourceBoundary, defectiveHostRejections: defective.count, scales,
+    subject: TOPOLOGY_SCOPED_EDIT_CONFORMANCE_SUBJECT, valid: true, sourceBoundary,
+    effectBoundaryProbeRejections: boundaryProbes.count, defectiveHostRejections: boundaryProbes.count, scales,
     counts: { scene: scales.scene, selection: scales.selection, structural: scales.structural,
       sectional: scales.sectional, geometry: scales.geometry, authorizedDryRun: scales.authorized,
       boundaryRejection: scales.boundary, excludedRejection: scales.excluded,
@@ -260,10 +264,11 @@ export async function runTopologyScopedEditReadOnlyHostConformance(input = {}) {
     variants: { scene: sceneVariants.size, selectionPerRequest: scopeVariants.selection,
       structuralPerRequest: scopeVariants.structural, candidate: candidateVariants.size,
       replayOrder: replayOrders.size },
-    rejections: { defectiveHost: [...defective.codes], sectional: [...sectionalCodes], budget: budgetCode,
-      unknownGeometry: unknownGeometryCode, boundary: [...boundaryCodes], excluded: [...excludedCodes],
-      mismatch: [...mismatchCodes], unsupported: [...unsupportedCodes], mixedTransaction: [...mixedCodes],
-      stale: [...staleCodes], projectionCorruption: [...corruptionCodes] },
+    rejections: { effectBoundaryProbe: [...boundaryProbes.codes], defectiveHost: [...boundaryProbes.codes],
+      sectional: [...sectionalCodes], budget: budgetCode, unknownGeometry: unknownGeometryCode,
+      boundary: [...boundaryCodes], excluded: [...excludedCodes], mismatch: [...mismatchCodes],
+      unsupported: [...unsupportedCodes], mixedTransaction: [...mixedCodes], stale: [...staleCodes],
+      projectionCorruption: [...corruptionCodes] },
     sideEffects: Object.fromEntries(Object.entries(afterSentinels).filter(([key]) => key !== 'readOnlyOperation')),
     readOnlyOperations: afterSentinels.readOnlyOperation, effectDenialAttempts,
     sourceMutations: 0, inputMutations: 0,
