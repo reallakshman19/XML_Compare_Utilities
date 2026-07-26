@@ -1,6 +1,6 @@
 # CAESAR GRE bend qualification fixture request
 
-Create each fixture in the same documented CAESAR II build and unit file. Preserve the native job, exported InputXML, re-imported job, re-exported InputXML, screenshots, and operator log.
+Create every fixture in one documented CAESAR II version/build and unit file. Preserve and SHA-256 hash the native job, original InputXML, imported job, re-exported InputXML, unit file, screenshots, and operator log. Bind the package to the generating repository commit.
 
 | ID | Required case |
 |---|---|
@@ -12,4 +12,4 @@ Create each fixture in the same documented CAESAR II build and unit file. Preser
 | F6 | P3D tangency-separated topology import attempt |
 | F7 | CAESAR-native consecutive entering/leaving-element control |
 
-For every fixture record CAESAR version/build, XML version, unit file, numeric piping-code ID, authoritative code name and edition, laminate classification, element and bend counts, exact BEND attributes, logical node continuity, and SHA-256 hashes. Import the exported XML into a clean job, record acceptance or every diagnostic, then re-export and compare semantic bend ownership, TYPE, NUM_MITER, curvature nodes, radius, fitting thickness, element count, bend count, and node continuity. Do not normalize sentinel values or edit XML between steps.
+Record every import warning and error verbatim. An accepted import must be warning-free. Re-export comparisons must contain structured evidence for bend ownership, connectivity, semantic node roles, radius, fitting thickness, TYPE numeric and lexical values, NUM_MITER numeric and lexical values, curvature-node roles, NUMELT, NUMBEND, units, code/edition, and laminate. Do not edit or normalize XML between steps.
