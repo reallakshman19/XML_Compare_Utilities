@@ -93,6 +93,7 @@ const publicHost = await createTopologyScopedEditReadOnlyHost({ readModel,
   effects: createTopologyScopedEditEffectBoundary() }, { cryptoRef: webcrypto });
 assert.equal(assertScopedEditHostContract(publicHost).valid, true);
 assert(publicHost.scene().entities.length > 0);
+assert.equal(publicHost.scene().metadata.authorityId, readModel.authorityId);
 const forged = structuredClone(readModel);
 forged.canonicalTopology.nodes[0].position.x += 20;
 await assert.rejects(() => createTopologyScopedEditReadOnlyHost({
