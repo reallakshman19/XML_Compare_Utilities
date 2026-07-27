@@ -13,7 +13,6 @@ import {
 import { sequentialSourceRecordsFingerprint } from '../tabs/sequential-sketcher/persistence/sequential-workspace-package.js';
 import { createSequentialJournalAdoption } from '../tabs/sequential-sketcher/scoped-edit/sequential-command-service.js';
 import { appendSequentialCommandJournal } from '../tabs/sequential-sketcher/scoped-edit/sequential-command-journal.js';
-import { appendJournalCommand } from '../contracts/command-journal.js';
 
 function records(branchIds) {
   return branchIds.map((branchId) => ({ type: 'BRANCH', name: branchId, attributes: { NAME: branchId }, children: [] }));
@@ -128,12 +127,13 @@ assert.equal(removal.journalImpact, 'REMOVE');
 assert.equal(removal.hasDestructiveChanges, true);
 
 const initialFingerprint = sequentialWorkspaceCurrentStateFingerprint(currentAdopted);
-const changedHead = JSON.parse(JSON.stringify(journal));
-changedHead.journal = appendJournalCommand(changedHead.journal, {
-  commandId: 'PREVIEW-COMMAND-1',
-  commandType: 'TEST',
-  payload: {},
-  issuedAt: '2026-07-27T09:12:00.000Z',
+const changedHead = appendSequentialCommandJournal(journal, {
+  commandType: 'ADVANCE_ONE',
+  payload: { branchId: '/PREVIEW/J' },
+  basis: { documentHash: sourceFingerprint, revision: 'preview-revision-1' },
+  origin: { kind: 'USER', actorId: 'PREVIEW_TEST', issuedAt: '2026-07-27T09:12:00.000Z' },
+  transactionId: null,
+  inverse: null,
 }, '2026-07-27T09:12:00.000Z');
 assert.notEqual(
   sequentialWorkspaceCurrentStateFingerprint({ ...currentAdopted, journalState: changedHead }),
