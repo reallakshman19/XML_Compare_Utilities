@@ -27,6 +27,14 @@ function scopeRequest(readModel, scene) {
     selection: { entityIds, closureDepth: 0 } });
 }
 
+function mountKey(readModel) {
+  return sequentialSemanticFingerprint('SSK3DMOUNT', {
+    authorityId: readModel.authorityId,
+    selection: readModel.selectionSnapshot.entityIds,
+    visibleProjection: readModel.ownerSnapshot.visibleProjection,
+  });
+}
+
 function mountEvidence(readModel, host) {
   const scene = host.scene();
   const request = scopeRequest(readModel, scene);
@@ -59,7 +67,7 @@ export function createSequentialScopedEditProductionShadow(input = {}) {
   function evidence() {
     return freezeJsonValue({ schema: SEQUENTIAL_PRODUCTION_SHADOW_V1, status, destroyed,
       mounted: Boolean(current), authorityId: current?.readModel.authorityId || '',
-      lastDiagnostic, history });
+      mountKey: current?.key || '', lastDiagnostic, history });
   }
 
   function authorityProvider() {
@@ -79,11 +87,12 @@ export function createSequentialScopedEditProductionShadow(input = {}) {
     }
     try {
       const readModel = createSequentialScopedEditReadModel(snapshot);
-      if (current?.readModel.authorityId === readModel.authorityId) return evidence();
+      const key = mountKey(readModel);
+      if (current?.key === key) return evidence();
       const host = createSequentialScopedEditReadOnlyHost({ readModel, authorityProvider });
       const mount = mountEvidence(readModel, host);
       release(current);
-      current = Object.freeze({ readModel, host, mount });
+      current = Object.freeze({ readModel, host, mount, key });
       publish('MOUNT', SEQUENTIAL_PRODUCTION_SHADOW_STATUS.MOUNTED, { mount });
     } catch (error) {
       release(current); current = null;
@@ -111,4 +120,4 @@ export function createSequentialScopedEditProductionShadow(input = {}) {
   });
 }
 
-export const _test = Object.freeze({ scopeRequest, mountEvidence, release });
+export const _test = Object.freeze({ scopeRequest, mountKey, mountEvidence, release });
