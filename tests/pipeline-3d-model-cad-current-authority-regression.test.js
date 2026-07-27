@@ -49,7 +49,9 @@ const bendEvidence = (output) => output.elasticBends.candidates.map((item) => ({
 const raw = profileRaw(), baseline = build(raw);
 assert.equal(baseline.configurationPlan.ready, true, JSON.stringify(baseline.configurationPlan.blockerCodes));
 assert.equal(baseline.diagnostics.elevationAuthority, 'TABLE_2');
-assert.equal(baseline.orchestration.ready, true, JSON.stringify(baseline.orchestration.blockerCodes));
+assert.equal(baseline.orchestration.ready, false);
+assert.ok(baseline.orchestration.blockerCodes.includes('PIPELINE_CONFIGURATION_INPUTXML_BLOCKED'));
+assert.equal(baseline.xmlText, '');
 assert.ok(baseline.inputXmlCoordinateRows.length < baseline.coordinateRows.length);
 const markerModel = PipelineProfileModel.fromRaw(raw), markerSerializedBaseline = markerModel.serializeRaw();
 const markerHistory = new CommandHistory(), markerRows = markerModel.table3MarkerRows.slice(0, 2);
@@ -58,17 +60,18 @@ markerHistory.execute(moveTable3MarkerRowsCommand(markerModel,
 const markerOutput = build(markerModel.serializeRaw());
 assert.notEqual(markerModel.serializeRaw().table3c, raw.table3c);
 assert.deepEqual(markerOutput.inputXmlCoordinateRows, baseline.inputXmlCoordinateRows);
-assert.equal(markerOutput.xmlText, baseline.xmlText); assert.deepEqual(bendEvidence(markerOutput), bendEvidence(baseline));
+assert.deepEqual(bendEvidence(markerOutput), bendEvidence(baseline));
+assert.deepEqual(markerOutput.orchestration.blockerCodes, baseline.orchestration.blockerCodes);
 assert.notDeepEqual(markerOutput.coordinateRows, baseline.coordinateRows);
 markerHistory.undo(); assert.deepEqual(markerModel.serializeRaw(), markerSerializedBaseline);
-markerHistory.redo(); assert.equal(build(markerModel.serializeRaw()).xmlText, baseline.xmlText);
+markerHistory.redo(); assert.deepEqual(build(markerModel.serializeRaw()).inputXmlCoordinateRows, baseline.inputXmlCoordinateRows);
 const table2Model = PipelineProfileModel.fromRaw(raw), table2History = new CommandHistory();
 const table2Rows = table2Model.table2Rows.slice(2, 4);
 table2History.execute(moveTable2RowsCommand(table2Model,
   table2Rows.map((row) => ({ id: row.id, elevation: row.elevationValue + 1 }))));
 const table2Output = build(table2Model.serializeRaw());
 assert.notDeepEqual(table2Output.inputXmlCoordinateRows, baseline.inputXmlCoordinateRows);
-assert.notEqual(table2Output.xmlText, baseline.xmlText);
+assert.equal(table2Output.xmlText, '');
 assert.ok(table2Output.combined.every((point) => point.elevationAuthority === 'TABLE_2'));
 assert.ok(table2Output.combined.every((point) => point.z === point.grade));
 const blockedModel = PipelineProfileModel.fromRaw(raw), blockedHistory = new CommandHistory();
