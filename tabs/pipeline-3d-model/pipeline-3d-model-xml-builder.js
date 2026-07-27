@@ -3,6 +3,7 @@ buildPipelineInputXmlDocumentPlan, PIPELINE_INPUTXML_DOCUMENT_SCHEMA, } from './
 PIPELINE_INPUTXML_FITTING_AUTHORITY_SCHEMA, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA, PIPELINE_INPUTXML_PROFILE_ELEMENT_AUTHORITY_SCHEMA,
 PIPELINE_INPUTXML_PROFILE_SECTION_AUTHORITY_SCHEMA, } from './pipeline-3d-model-inputxml-profile-authority.js';
 import { PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-piping-code-authority.js';
+import { PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-allowable-value-authority.js';
 import { PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA } from './pipeline-3d-model-analysis-section-contracts.js'; import { PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA,
 PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA, } from './pipeline-3d-model-diameter-contracts.js'; import { PIPELINE_BEND_RESOLUTION_SCHEMA, PIPELINE_NORMAL_FITTING_PLAN_SCHEMA,
 } from './pipeline-3d-model-normal-fitting-contracts.js'; import { PIPELINE_B314_RADIUS_PLAN_SCHEMA } from './pipeline-3d-model-b314-radius-contracts.js';
@@ -144,15 +145,64 @@ return plain(authority) && Number.isInteger(code) && code > 0 && text(authority.
 && authority.analysisSectionId === element.analysisSectionId && authority.profileId === element.profileId
 && authority.resolvedMode === element.resolvedMode && binding.analysisSectionId === element.analysisSectionId
 && binding.profileId === element.profileId && binding.resolvedMode === element.resolvedMode
-&& same(binding.authority, authority) && same(binding.allowableStress, element.allowableStress)
+&& same(binding.authority, authority) && same(binding.allowableStress?.pipingCodeAuthority, authority)
+&& Number(binding.allowableStress?.attributes?.PIPING_CODE) === code
 && same(element.allowableStress.pipingCodeAuthority, authority)
 && Number(element.allowableStress.attributes?.PIPING_CODE) === code; }); }
+function positiveNumber(value) { const number = Number(value); return Number.isFinite(number) && number > 0 ? number : null; }
+function materialIdentity(element) { return { materialNumber: positiveNumber(element?.properties?.materialNumber),
+materialName: text(element?.mechanicalProperties?.materialName ?? element?.emittedMechanicalProperties?.materialName
+?? element?.properties?.materialName ?? element?.emittedProperties?.materialName), }; }
+function temperatureSlots(element) { const values = element?.properties?.temperatures ?? element?.emittedProperties?.temperatures ?? [];
+return Array.from({ length: 9 }, (_, index) => Number.isFinite(Number(values?.[index])) ? Number(values[index]) : null); }
+function authorityValueValid(evidence) { if (!plain(evidence) || !['VALUE', 'ZERO', 'SENTINEL'].includes(evidence.disposition)) return false;
+if (evidence.disposition === 'SENTINEL') return evidence.value == null; if (evidence.disposition === 'ZERO') return Number(evidence.value) === 0;
+return Number.isFinite(Number(evidence.value)) && Number(evidence.value) > 0; }
+function authorityScalarMatches(value, evidence) { return evidence.value == null ? value == null : Number(value) === Number(evidence.value); }
+function allowableValueAuthorityStructureValid(plan) { const required = plan.elements.filter((element) => element.allowableStress != null);
+if (!required.length) return plan.allowableValueAuthorityPlan == null && plan.allowableValueAuthorityPlanSchema == null;
+const authorityPlan = plan.allowableValueAuthorityPlan; if (!plain(authorityPlan)
+|| authorityPlan.schema !== PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA
+|| plan.allowableValueAuthorityPlanSchema !== PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA
+|| authorityPlan.ready !== true || blocking(authorityPlan) || !Array.isArray(authorityPlan.authorities)
+|| !Array.isArray(authorityPlan.elements) || authorityPlan.elements.length !== plan.elements.length) return false;
+const requiredSections = new Set(required.map((element) => element.analysisSectionId));
+if (authorityPlan.authorityCount !== authorityPlan.authorities.length
+|| authorityPlan.requiredSectionCount !== requiredSections.size
+|| authorityPlan.authorities.length !== requiredSections.size) return false;
+const authorityBySection = new Map(authorityPlan.authorities.map((item) => [item.analysisSectionId, item]));
+if (authorityBySection.size !== authorityPlan.authorities.length) return false;
+return plan.elements.every((element, index) => { const binding = authorityPlan.elements[index];
+if (!plain(binding) || binding.elementId !== element.id || binding.elementIndex !== element.index) return false;
+if (element.allowableStress == null) return binding.allowableStress == null && binding.authority == null;
+const authority = authorityBySection.get(element.analysisSectionId), material = materialIdentity(element);
+if (!plain(authority) || authority.analysisSectionId !== element.analysisSectionId
+|| authority.profileId !== element.profileId || authority.resolvedMode !== element.resolvedMode
+|| material.materialNumber !== authority.materialNumber || material.materialName !== authority.materialName
+|| !text(authority.sourceAuthority) || !plain(authority.values)
+|| !['COLD_ALLOW', 'SY', 'SU'].every((field) => authorityValueValid(authority.values[field])
+&& authorityScalarMatches(element.allowableStress.attributes?.[field], authority.values[field]))
+|| binding.analysisSectionId !== element.analysisSectionId || !same(binding.authority, authority)
+|| !same(binding.allowableStress, element.allowableStress)
+|| !same(element.allowableStress.allowableValueAuthority, authority) || !Array.isArray(authority.cases)) return false;
+const caseByNumber = new Map(authority.cases.map((item) => [item.num, item]));
+if (caseByNumber.size !== authority.cases.length) return false;
+return temperatureSlots(element).every((temperature, caseIndex) => { const num = caseIndex + 1;
+const caseAuthority = caseByNumber.get(num), caseItem = element.allowableStress.cases?.[caseIndex];
+if (temperature == null) return caseAuthority == null && caseItem?.allowableValueCaseAuthority == null
+&& ['HOT_ALLOW', 'HOT_SY', 'HOT_SU'].every((field) => caseItem?.attributes?.[field] == null || caseItem.attributes[field] === '');
+return plain(caseAuthority) && caseAuthority.num === num && caseAuthority.temperature === temperature
+&& text(caseAuthority.sourceAuthority) && plain(caseAuthority.values)
+&& ['HOT_ALLOW', 'HOT_SY', 'HOT_SU'].every((field) => authorityValueValid(caseAuthority.values[field])
+&& authorityScalarMatches(caseItem?.attributes?.[field], caseAuthority.values[field]))
+&& same(caseItem?.allowableValueCaseAuthority, caseAuthority); }); }); }
 function countStructureValid(plan, authority) { if (!plain(plan.counts) || plan.counts.numElt !== plan.elements.length) return false;
 const bendCount = plan.elements.filter((element) => element.bend != null).length; const fittingCount = authority.fittingAuthorities.filter((item) =>
 item.geometryDisposition === 'MATCHES_AUTHORITY' && item.writerDisposition === 'READY').length;
 const zeroFields = ['numNoz', 'noHgrs', 'numExpJnt', 'numForcMnt', 'numUnfLoad', 'numWind', 'numEleOff', 'numISect'];
 return plan.counts.numBend === bendCount && bendCount === fittingCount && restraintStructureValid(plan) && rigidStructureValid(plan)
-&& allowableStructureValid(plan) && pipingCodeAuthorityStructureValid(plan) && zeroFields.every((key) => plan.counts[key] === 0); } function profileWriterDiagnostic(plan) {
+&& allowableStructureValid(plan) && pipingCodeAuthorityStructureValid(plan) && allowableValueAuthorityStructureValid(plan)
+&& zeroFields.every((key) => plan.counts[key] === 0); } function profileWriterDiagnostic(plan) {
 if (!plan.profileAuthorityPlan) return null; const authority = plan.profileAuthorityPlan; const documentState = plan.ready === true && Array.isArray(plan.diagnostics)
 && Array.isArray(plan.blockerCodes) && plan.diagnostics.length === 0 && plan.blockerCodes.length === 0; const valid = documentState && authorityStructureValid(plan, authority)
 && fittingStructureValid(plan, authority) && countStructureValid(plan, authority); return valid ? null : { code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
@@ -165,4 +215,4 @@ assertDocumentReady(plan); const profile = resolvePipelineCaesarWriterProfile(pl
 ? attrs(caesar14RootAttributeEntries(plan)) : [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace), attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ];
 const modelAttrs = modelAttributes(plan, profile); return [ '<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
 ...plan.elements.map((element) => pipingElementXml(element, profile)), '</PIPINGMODEL>', '</CAESARII>', ].join('\n'); }
-export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, pipingCodeAuthorityStructureValid, };
+export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, pipingCodeAuthorityStructureValid, allowableValueAuthorityStructureValid, };

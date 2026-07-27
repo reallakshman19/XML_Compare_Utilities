@@ -11,16 +11,31 @@ const authorities = [
   { analysisSectionId: 'AS3', profileId: 'gre', resolvedMode: 'GRE',
     caesarPipingCode: 303, sourceAuthority: 'VENDOR-QUALIFICATION' },
 ];
+const allowableValueAuthorities = authorities.map((item, index) => ({
+  analysisSectionId: item.analysisSectionId, profileId: item.profileId,
+  resolvedMode: item.resolvedMode, materialNumber: 1, materialName: 'TEST MATERIAL',
+  coldAllow: 1000 + index * 1000, sy: 1100 + index * 1000, su: 1200 + index * 1000,
+  sourceAuthority: 'APPROVED-MATERIAL-SHEET', cases: [
+    { num: 1, temperature: 100, hotAllow: 900 + index * 1000,
+      hotSy: 1000 + index * 1000, hotSu: 1100 + index * 1000 },
+    { num: 2, temperature: 200, hotAllow: 800 + index * 1000,
+      hotSy: 900 + index * 1000, hotSu: 1000 + index * 1000 },
+  ],
+}));
 
 function profileInput() {
   const input = structuredClone(profileDocumentInput());
   input.exportContext.branchInfo.caesarVersion = '14.00';
+  input.exportContext.branchInfo.materialName = 'TEST MATERIAL';
+  input.exportContext.branchInfo.t1 = 100;
+  input.exportContext.branchInfo.t2 = 200;
   input.allowableStresses = [
     { elementIndex: 0, cases: [] },
     { elementIndex: 2, PIPING_CODE: 202, cases: [] },
     { elementIndex: 4, cases: [] },
   ];
   input.pipingCodeAuthorities = structuredClone(authorities);
+  input.allowableValueAuthorities = structuredClone(allowableValueAuthorities);
   return input;
 }
 

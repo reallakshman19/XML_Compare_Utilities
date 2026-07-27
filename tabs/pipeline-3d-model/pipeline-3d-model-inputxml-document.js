@@ -4,6 +4,7 @@ import { PIPELINE_RESTRAINT_PLAN_SCHEMA, resolvePipelineRestraintPlan } from './
 import { PIPELINE_RIGID_PLAN_SCHEMA, resolvePipelineRigidPlan } from './pipeline-3d-model-rigid-plan.js';
 import { PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA, resolvePipelineAllowableStressPlan } from './pipeline-3d-model-allowable-stress-plan.js';
 import { PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA, resolvePipelinePipingCodeAuthorityPlan } from './pipeline-3d-model-piping-code-authority.js';
+import { PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA, resolvePipelineAllowableValueAuthorityPlan } from './pipeline-3d-model-allowable-value-authority.js';
 import { buildPipelineInputXmlProfileAuthorityPlan, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-inputxml-profile-authority.js';
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
@@ -247,10 +248,20 @@ function profileElement(element, authority, bendResolution) {
     diagnostics,
   });
 }
+function adoptedAllowableValueElements(elements, plan) {
+  if (!plan?.active) return elements;
+  return deepFreeze(elements.map((element, index) => {
+    const allowableStress = plan.elements[index]?.allowableStress || null;
+    const next = { ...element };
+    if (allowableStress) next.allowableStress = allowableStress;
+    else delete next.allowableStress;
+    return next;
+  }));
+}
 function profileDocumentPlan({
   exportContext, coordinateRows, bendResolution, propertySectionPlan,
   mechanicalPropertyPlan, restraintPlan, rigidPlan, allowableStressPlan,
-  pipingCodeAuthorities, profileAuthorityPlans, branchInfo, lineNo,
+  pipingCodeAuthorities, allowableValueAuthorities, profileAuthorityPlans, branchInfo, lineNo,
 }) {
   const profileAuthorityPlan = buildPipelineInputXmlProfileAuthorityPlan({
     ...(profileAuthorityPlans || {}), bendResolution, propertySectionPlan,
@@ -267,8 +278,13 @@ function profileDocumentPlan({
     rigidPlan.active ? rigidPlan.elements[index] : null,
     allowableStressPlan.active ? allowableElements[index] : null, bendResolution,
   ));
-  const elements = Object.freeze(baseElements.map((element, index) =>
+  const profileElements = Object.freeze(baseElements.map((element, index) =>
     profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
+  const allowableValueAuthorityPlan = resolvePipelineAllowableValueAuthorityPlan({
+    profileAuthorityPlan, pipingCodeAuthorityPlan, elements: profileElements,
+    allowableValueAuthorities,
+  });
+  const elements = adoptedAllowableValueElements(profileElements, allowableValueAuthorityPlan);
   const replaceGreBlocker = profileAuthorityAuthenticated(profileAuthorityPlan);
   const replaceableGreCodes = new Set([
     'GRE_BEND_POLICY_NOT_IMPLEMENTED', 'GRE_BEND_POLICY_NOT_IMPLEMEMTED',
@@ -288,6 +304,7 @@ function profileDocumentPlan({
     ...rigidDiagnostics(rigidPlan, metadata),
     ...allowableDiagnostics(allowableStressPlan, metadata),
     ...pipingCodeAuthorityPlan.diagnostics,
+    ...allowableValueAuthorityPlan.diagnostics,
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ])));
@@ -306,6 +323,7 @@ function profileDocumentPlan({
     ...(rigidPlan.active ? { rigidPlan, rigidPlanSchema: PIPELINE_RIGID_PLAN_SCHEMA } : {}),
     ...(allowableStressPlan.active ? { allowableStressPlan, allowableStressPlanSchema: PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA } : {}),
     ...(pipingCodeAuthorityPlan.active ? { pipingCodeAuthorityPlan, pipingCodeAuthorityPlanSchema: PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } : {}),
+    ...(allowableValueAuthorityPlan.active ? { allowableValueAuthorityPlan, allowableValueAuthorityPlanSchema: PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA } : {}),
     profileAuthorityPlan,
     profileAuthorityPlanSchema: PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
     analysisSectionPlanSchema: profileAuthorityPlan.analysisSectionPlanSchema,
@@ -324,7 +342,7 @@ function profileDocumentPlan({
 export function buildPipelineInputXmlDocumentPlan({
   exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
   restraints = [], rigids = [], allowableStresses = [], pipingCodeAuthorities = [],
-  profileAuthorityPlans,
+  allowableValueAuthorities = [], profileAuthorityPlans,
 } = {}) {
   const branchInfo = branchInfoFrom(exportContext), lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
@@ -341,7 +359,7 @@ export function buildPipelineInputXmlDocumentPlan({
   if (profileAuthorityPlans !== undefined) return profileDocumentPlan({
     exportContext, coordinateRows, bendResolution, propertySectionPlan,
     mechanicalPropertyPlan, restraintPlan, rigidPlan, allowableStressPlan,
-    pipingCodeAuthorities, profileAuthorityPlans, branchInfo, lineNo,
+    pipingCodeAuthorities, allowableValueAuthorities, profileAuthorityPlans, branchInfo, lineNo,
   });
   const pipingCodeAuthorityPlan = resolvePipelinePipingCodeAuthorityPlan({
     profileAuthorityPlan: null, allowableStressPlan, pipingCodeAuthorities,
@@ -352,6 +370,9 @@ export function buildPipelineInputXmlDocumentPlan({
       restraintPlan.active ? restraintPlan.elements[index] : null,
       rigidPlan.active ? rigidPlan.elements[index] : null,
       allowableStressPlan.active ? allowableStressPlan.elements[index] : null, bendResolution)));
+  const allowableValueAuthorityPlan = resolvePipelineAllowableValueAuthorityPlan({
+    profileAuthorityPlan: null, pipingCodeAuthorityPlan, elements, allowableValueAuthorities,
+  });
   const metadata = normalizedMetadata(branchInfo);
   const diagnostics = Object.freeze(uniqueDiagnostics([
     ...contextDiagnostics(exportContext),
@@ -362,6 +383,7 @@ export function buildPipelineInputXmlDocumentPlan({
     ...rigidDiagnostics(rigidPlan, metadata),
     ...allowableDiagnostics(allowableStressPlan, metadata),
     ...pipingCodeAuthorityPlan.diagnostics,
+    ...allowableValueAuthorityPlan.diagnostics,
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ]));
@@ -380,6 +402,7 @@ export function buildPipelineInputXmlDocumentPlan({
     ...(rigidPlan.active ? { rigidPlan, rigidPlanSchema: PIPELINE_RIGID_PLAN_SCHEMA } : {}),
     ...(allowableStressPlan.active ? { allowableStressPlan, allowableStressPlanSchema: PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA } : {}),
     ...(pipingCodeAuthorityPlan.active ? { pipingCodeAuthorityPlan, pipingCodeAuthorityPlanSchema: PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } : {}),
+    ...(allowableValueAuthorityPlan.active ? { allowableValueAuthorityPlan, allowableValueAuthorityPlanSchema: PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA } : {}),
     elements,
     diagnostics,
     blockerCodes: uniqueCodes(diagnostics),
