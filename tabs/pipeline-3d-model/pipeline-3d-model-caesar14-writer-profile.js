@@ -55,6 +55,26 @@ export const PIPELINE_CAESAR_14_RESTRAINT_ATTRIBUTE_ORDER = Object.freeze([
 export const PIPELINE_CAESAR_14_RIGID_ATTRIBUTE_ORDER = Object.freeze([
   'WEIGHT', 'TYPE',
 ]);
+export const PIPELINE_CAESAR_14_ALLOWABLE_ATTRIBUTE_ORDER = Object.freeze([
+  'ALLOWBL_STRESS_INDICATOR', 'DESIGN_FACTOR', 'HOOP_STRESS_FACTOR',
+  'COLD_ALLOW', 'EFF', 'SY', 'SU', 'FAC', 'PMAX', 'PIPING_CODE',
+  'SUPP_RQR', 'MAT_LP', 'ALPHA_H', 'ALPHA_FAB', 'BURST_OPE',
+  'BURST_TEST', 'COLLAPSE', 'PROPBUCK', 'LCC', 'DCC', 'GAMMA_C', 'R',
+  'ALPHA_GW', 'DESIGN_LT', 'CHEMICAL_RES', 'CURVE_RADIUS', 'BURIED',
+  'EHB', 'DF', 'YD', 'Y_COEFF', 'Mf', 'Hf', 'F_DSGN_FACTOR', 'EXP_ALLOW',
+]);
+export const PIPELINE_CAESAR_14_CASE_ATTRIBUTE_ORDER = Object.freeze([
+  'NUM', 'HOT_ALLOW', 'HOT_SY', 'HOT_SU', 'CYC_RED_FACTOR',
+  'BUTTWELDCYCLES', 'BUTTWELDSTRESS', 'FILLETWELDCYCLES',
+  'FILLETWELDSTRESS', 'APP_P_OPE_ALL_REDUCTION', 'CLASSWCYCLES',
+  'CLASSWSTRESS', 'CLASSGCYCLES', 'CLASSGSTRESS', 'CLASSFCYCLES',
+  'CLASSFSTRESS', 'T_DERATING',
+]);
+const ALLOWABLE_TEXT_FIELDS = new Set(['ALLOWBL_STRESS_INDICATOR', 'DESIGN_FACTOR']);
+const ALLOWABLE_INTEGER_FIELDS = new Set([
+  'SUPP_RQR', 'MAT_LP', 'BURST_OPE', 'BURST_TEST', 'COLLAPSE',
+  'PROPBUCK', 'LCC', 'DCC', 'BURIED', 'EXP_ALLOW',
+]);
 
 const freeze = (value) => {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -83,6 +103,12 @@ export function formatCaesar14Number(value, disposition = 'VALUE') {
   return cleanFixed(value);
 }
 
+export function formatCaesar14Integer(value, sentinel = -1) {
+  if (value === null || value === undefined || value === '') return String(sentinel);
+  const number = Number(value);
+  return Number.isInteger(number) ? String(number) : String(sentinel);
+}
+
 export function resolvePipelineCaesarWriterProfile(version) {
   const versionText = text(version);
   const isCaesar14 = versionText === PIPELINE_CAESAR_14_VERSION;
@@ -98,6 +124,8 @@ export function resolvePipelineCaesarWriterProfile(version) {
     elementAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_ELEMENT_ATTRIBUTE_ORDER : Object.freeze([]),
     restraintAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_RESTRAINT_ATTRIBUTE_ORDER : Object.freeze([]),
     rigidAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_RIGID_ATTRIBUTE_ORDER : Object.freeze([]),
+    allowableAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_ALLOWABLE_ATTRIBUTE_ORDER : Object.freeze([]),
+    caseAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_CASE_ATTRIBUTE_ORDER : Object.freeze([]),
     suppressExtensionAttributes: isCaesar14,
     ready: Boolean(versionText),
   });
@@ -111,6 +139,10 @@ function numericEntry(name, value, disposition = 'VALUE') {
 function numericValueEntry(name, value) {
   const present = hasNumber(value);
   return numericEntry(name, value, present ? 'VALUE' : 'SENTINEL');
+}
+
+function integerValueEntry(name, value) {
+  return pair(name, formatCaesar14Integer(value));
 }
 
 function arrayEntries(prefix, values, count) {
@@ -214,4 +246,20 @@ export function caesar14RigidAttributeEntries(rigid) {
     numericValueEntry('WEIGHT', rigid?.weight),
     pair('TYPE', rigid?.type ?? ''),
   ]);
+}
+
+export function caesar14AllowableStressAttributeEntries(allowable) {
+  const attributes = allowable?.attributes ?? allowable ?? {};
+  return freeze(PIPELINE_CAESAR_14_ALLOWABLE_ATTRIBUTE_ORDER.map((name) => {
+    if (ALLOWABLE_TEXT_FIELDS.has(name)) return pair(name, attributes[name] ?? '');
+    if (ALLOWABLE_INTEGER_FIELDS.has(name)) return integerValueEntry(name, attributes[name]);
+    return numericValueEntry(name, attributes[name]);
+  }));
+}
+
+export function caesar14AllowableCaseAttributeEntries(caseItem) {
+  const attributes = caseItem?.attributes ?? caseItem ?? {};
+  return freeze(PIPELINE_CAESAR_14_CASE_ATTRIBUTE_ORDER.map((name) =>
+    name === 'NUM' ? pair(name, formatCaesar14Integer(caseItem?.num, 1))
+      : numericValueEntry(name, attributes[name])));
 }
