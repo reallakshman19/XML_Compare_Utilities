@@ -150,9 +150,10 @@ function buildReport({ sourceCommitSha, baseSchema, baseReady, cases, packageDia
       && counts.ADMITTED === PIPELINE_GRE_CAESAR_CASES.length };
 }
 
-export async function verifyOperatorEvidencePackage(root, sourceCommitSha) {
+export async function verifyOperatorEvidencePackage(root, sourceCommitSha, dependencies = {}) {
+  const verifyBase = dependencies.verifyEvidencePackage || verifyEvidencePackage;
   let base;
-  try { base = await verifyEvidencePackage(root, sourceCommitSha); }
+  try { base = await verifyBase(root, sourceCommitSha); }
   catch (error) { return baseFailureReport(sourceCommitSha,
     `BASE_VERIFIER_FAILED:${text(error.code) || text(error.name) || 'ERROR'}`); }
   const cases = [];
@@ -162,11 +163,13 @@ export async function verifyOperatorEvidencePackage(root, sourceCommitSha) {
     cases, packageDiagnostics, session });
 }
 
-export async function scaffoldOperatorEvidencePackage(root, sourceCommitSha) {
-  await scaffoldEvidencePackage(root, sourceCommitSha);
+export async function scaffoldOperatorEvidencePackage(root, sourceCommitSha, dependencies = {}) {
+  const scaffoldBase = dependencies.scaffoldEvidencePackage || scaffoldEvidencePackage;
+  await scaffoldBase(root, sourceCommitSha);
   await scaffoldOperatorSessions(root);
-  return verifyOperatorEvidencePackage(root, sourceCommitSha);
+  return verifyOperatorEvidencePackage(root, sourceCommitSha, dependencies);
 }
+
 
 async function runCli() {
   const [command, root = 'pipeline-gre-caesar-evidence', sourceCommitSha = '', reportPath = ''] =
