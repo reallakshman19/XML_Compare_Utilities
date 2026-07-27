@@ -155,7 +155,7 @@ function candidateRows(state) {
     runnerUpScore: compactNumber(row.runnerUpScore, 6), scoreGap: compactNumber(row.scoreGap, 6),
     requiredScoreGap: compactNumber(row.requiredScoreGap, 6), failedAxesDisplay: (row.failedAxes || []).join(' | '),
     rejectionReasonsDisplay: (row.rejectionReasons || []).join(' | '),
-    confidenceReasonCodesDisplay: joined(row.confidenceReasonCodes),
+    auditRemark: row.auditRemark || '', confidenceReasonCodesDisplay: joined(row.confidenceReasons),
     comparisonOutcome: row.accepted ? 'SELECTED_MATCH'
       : row.ledgerKind === 'NEAREST_REJECTED' ? 'NEAREST_REJECTED'
         : row.decisionStatus === 'AMBIGUOUS' ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP',
@@ -224,7 +224,7 @@ function renderMatch(state) {
     ['normalizedGeometryRms','Normalized geometry RMS'], ['scoringModel','Score model'], ['score','Candidate score (0–100, not percentage)'],
     ['decisionStatus','Decision status',true], ['decisionReason','Decision reason code',true], ['topCandidateTagId','Top candidate Tag ID'], ['topCandidateScore','Top score'],
     ['runnerUpTagId','Runner-up Tag ID'], ['runnerUpScore','Runner-up score'], ['scoreGap','Score gap'], ['requiredScoreGap','Required score gap'],
-    ['distinctCommentCount','Distinct comments'], ['confidenceReasons','Audit remarks'], ['confidenceReasonCodesDisplay','Machine scoring codes'], ['comparisonOutcome','Outcome',true],
+    ['distinctCommentCount','Distinct comments'], ['auditRemark','Audit remark'], ['confidenceReasonCodesDisplay','Machine scoring codes'], ['comparisonOutcome','Outcome',true],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
   const propagationHeaders = [
     ['sourceTagId','Source Tag ID'], ['sourceTableRowId','Source resolution row'], ['sourcePipe','Source pipe'], ['sourceAxis','Source pipe axis'], ['sourceAxisBasis','Source axis basis'],
