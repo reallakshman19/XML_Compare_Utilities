@@ -32,20 +32,29 @@ function validatedJournalState(value) {
   return value;
 }
 
+function reconstructedNativeCommand(payload, index) {
+  try {
+    return createSequentialNativeCommand(payload);
+  } catch {
+    fail('WORKSPACE_COMMAND_NATIVE_IDENTITY_INVALID', String(index));
+  }
+}
+
 function validateJournalEntry(entry, sourceFingerprint, registry, index) {
   if (entry.basis?.documentHash !== sourceFingerprint) {
     fail('WORKSPACE_COMMAND_SOURCE_BASIS_MISMATCH', String(index));
   }
-  const normalized = createSequentialNativeCommand(entry.payload);
-  if (!sameSequentialContractValue(normalized, entry.payload) || entry.commandType !== normalized.commandType) {
+  const normalized = reconstructedNativeCommand(entry.payload, index);
+  if (!sameSequentialContractValue(normalized, entry.payload)
+    || entry.commandType !== normalized.commandType) {
     fail('WORKSPACE_COMMAND_NATIVE_IDENTITY_INVALID', String(index));
   }
   const snapshot = registry.get(normalized.branchId);
   if (!snapshot?.session) fail('WORKSPACE_COMMAND_BRANCH_UNKNOWN', normalized.branchId);
-  if (!entry.transactionId) return;
+  if (entry.transactionId === null) return;
   const exists = snapshot.session.transactionLedger
     .some((transaction) => transaction.transactionId === entry.transactionId);
-  if (!exists) fail('WORKSPACE_COMMAND_TRANSACTION_UNKNOWN', entry.transactionId);
+  if (!exists) fail('WORKSPACE_COMMAND_TRANSACTION_UNKNOWN', String(entry.transactionId));
 }
 
 function authorityMaterial(input, registry) {
@@ -55,14 +64,13 @@ function authorityMaterial(input, registry) {
   journalState.journal.entries.forEach((entry, index) => validateJournalEntry(
     entry, sourceFingerprint, registry, index,
   ));
-  const branchSetFingerprint = sequentialBranchSetFingerprint(registry);
   return {
     schema: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_SCHEMA,
     readerRevision: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_READER_REVISION,
     minimumReaderRevision: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_READER_REVISION,
     sourceFingerprint,
     adoptionBranchSetFingerprint: journalState.adoptionCheckpoint.branchSetFingerprint,
-    branchSetFingerprint,
+    currentBranchSetFingerprint: sequentialBranchSetFingerprint(registry),
     checkpointId: journalState.adoptionCheckpoint.checkpointId,
     journalHeadFingerprint: sequentialCommandJournalHeadFingerprint(journalState),
     journalState,
@@ -94,8 +102,8 @@ export function restoreSequentialWorkspaceCommandAuthority(value, context = {}) 
     journalState: value.journalState,
     sourceFingerprint: context.sourceFingerprint,
   }, registry);
-  for (const key of ['sourceFingerprint', 'adoptionBranchSetFingerprint', 'branchSetFingerprint',
-    'checkpointId', 'journalHeadFingerprint']) {
+  for (const key of ['sourceFingerprint', 'adoptionBranchSetFingerprint',
+    'currentBranchSetFingerprint', 'checkpointId', 'journalHeadFingerprint']) {
     if (value[key] !== material[key]) fail('WORKSPACE_COMMAND_AUTHORITY_EVIDENCE_MISMATCH', key);
   }
   const expected = sequentialSemanticFingerprint('SWPKGAUTH', material);
