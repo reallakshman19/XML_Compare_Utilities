@@ -52,3 +52,4 @@ await import('./sequential-native-command-identity.test.mjs');
 await import('./sequential-command-time-normalization.test.mjs');
 await import('./scoped-edit-command-runtime.test.mjs');
 await import('./scoped-edit-command-runtime-static.test.mjs');
+await import('./sequential-workspace-command-authority-package.test.js');
