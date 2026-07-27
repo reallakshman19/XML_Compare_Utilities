@@ -21,6 +21,7 @@ export default defineConfig({
     'revision-compare-transfer-completion.spec.mjs',
     'revision-compare-transfer-archive.spec.mjs',
     'revision-compare-transfer-archive-native.spec.mjs',
+    'revision-compare-transfer-handover-inspection.spec.mjs',
   ],
   timeout: 110_000,
   expect: { timeout: 15_000 },
