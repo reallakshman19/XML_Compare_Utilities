@@ -1,5 +1,6 @@
 import { NAVIS_TAG_ISONOTE_AUDIT_SCHEMA, normalizeConfig } from './navis-tag-isonote-contracts.js';
 import { applyAppliesToPropagation } from './navis-tag-applies-to.js';
+import { buildAnchorConsistencyDiagnostics } from './navis-tag-anchor-diagnostics.js';
 import {
   NAVIS_CANDIDATE_SCORE_MODEL,
   axisFailures,
@@ -65,6 +66,21 @@ function appendCoordinateSourceDiagnostic(diagnostics, navisParse, configuredSou
   });
 }
 
+function appendAnchorConsistencyDiagnostic(diagnostics, anchorDiagnostics) {
+  if (!anchorDiagnostics?.summary?.validAnchorCount) return;
+  diagnostics.push({
+    severity: 'INFO',
+    code: 'ANCHOR_CONSISTENCY_SUMMARY',
+    authorityEffect: anchorDiagnostics.authorityEffect,
+    diagnosticCodes: anchorDiagnostics.diagnosticCodes,
+    validAnchorCount: anchorDiagnostics.summary.validAnchorCount,
+    usedAsBestBasisCount: anchorDiagnostics.summary.usedAsBestBasisCount,
+    equivalentBestCandidateCount: anchorDiagnostics.summary.equivalentBestCandidateCount,
+    maxPairwiseSeparationMm: anchorDiagnostics.summary.maxPairwiseSeparationMm,
+    message: `${anchorDiagnostics.summary.summaryText} This diagnostic is evidence-only and does not change matching authority.`,
+  });
+}
+
 function positionChoiceFor(record, trace, config) {
   if (trace) return chooseSupportPosition(trace, config);
   return {
@@ -122,7 +138,7 @@ function anchorUsage(candidateLedger) {
   return Object.values(byAnchor).sort((a, b) => a.anchorBasisId.localeCompare(b.anchorBasisId));
 }
 
-function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger) {
+function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorDiagnostics) {
   return {
     tableRowCount: tableBuild?.records?.length || 0,
     identityResolvedCount: identityTrace?.summary?.resolvedCount || 0,
@@ -135,6 +151,9 @@ function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidat
     anchorPolicy: navisParse?.anchor?.policy || 'NONE',
     configuredAnchorCount: navisParse?.anchor?.configuredCount || 0,
     validAnchorCount: navisParse?.anchor?.validCount || 0,
+    anchorUsedAsBestBasisCount: anchorDiagnostics.summary.usedAsBestBasisCount,
+    anchorEquivalentBestCandidateCount: anchorDiagnostics.summary.equivalentBestCandidateCount,
+    maxAnchorTranslationSeparationMm: anchorDiagnostics.summary.maxPairwiseSeparationMm,
     scoringModel: NAVIS_CANDIDATE_SCORE_MODEL,
   };
 }
@@ -153,6 +172,8 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     decisions.push(resolved.decisionRow);
     augmentedRows.push(resolved.augmentedRow);
   }
+  const anchorDiagnostics = buildAnchorConsistencyDiagnostics(navisParse?.anchor || {}, candidateLedger);
+  appendAnchorConsistencyDiagnostic(diagnostics, anchorDiagnostics);
   const matchedRows = decisions.filter((row) => row.status === 'RESOLVED');
   const ambiguousRows = decisions.filter((row) => row.status === 'AMBIGUOUS');
   const rejectedRows = decisions.filter((row) => row.status === 'UNRESOLVED');
@@ -161,7 +182,8 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     config,
     anchor: navisParse?.anchor || null,
     anchorUsage: anchorUsage(candidateLedger),
-    summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger),
+    anchorDiagnostics,
+    summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorDiagnostics),
     augmentedRows,
     decisions,
     matchedRows,
