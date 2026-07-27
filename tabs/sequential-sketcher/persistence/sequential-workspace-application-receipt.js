@@ -19,13 +19,18 @@ function fingerprintPayload(value) {
 function frozenStrings(values = []) {
   return Object.freeze([...values].map(text).filter(Boolean));
 }
-function validPackageSchema(value) {
-  return ['SequentialWorkspacePackage.v1', 'SequentialWorkspacePackage.v2'].includes(value);
+function expectedPackageRevision(schema) {
+  if (schema === 'SequentialWorkspacePackage.v1') return 1;
+  if (schema === 'SequentialWorkspacePackage.v2') return 2;
+  return null;
+}
+function validPackageIdentity(schema, revision) {
+  return expectedPackageRevision(schema) === revision;
 }
 function packageIdentity(options) {
   const packageSchema = text(options.restoration?.packageSchema || options.preview?.packageSchema);
   const packageRevision = Number(options.restoration?.packageRevision || options.preview?.packageRevision);
-  if (!validPackageSchema(packageSchema) || !Number.isSafeInteger(packageRevision) || packageRevision < 1) {
+  if (!validPackageIdentity(packageSchema, packageRevision)) {
     fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
   }
   return { packageSchema, packageRevision };
@@ -35,8 +40,8 @@ function validateReceiptPackageIdentity(receipt, index) {
   const hasRevision = receipt.packageRevision !== undefined;
   const hasImpact = receipt.impact?.journalImpact !== undefined;
   if (!hasSchema && !hasRevision && !hasImpact) return;
-  if (!hasSchema || !hasRevision || !hasImpact || !validPackageSchema(receipt.packageSchema)
-    || !Number.isSafeInteger(receipt.packageRevision) || receipt.packageRevision < 1) {
+  if (!hasSchema || !hasRevision || !hasImpact
+    || !validPackageIdentity(receipt.packageSchema, receipt.packageRevision)) {
     fail(`WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:${index}`);
   }
   if (!SEQUENTIAL_WORKSPACE_JOURNAL_IMPACTS.includes(receipt.impact.journalImpact)) {
