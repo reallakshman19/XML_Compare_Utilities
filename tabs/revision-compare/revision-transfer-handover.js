@@ -54,7 +54,7 @@ function validatePlan(plan) {
   if (!Array.isArray(plan.operations)) throw new TypeError('Transfer plan operations must be an array.');
   plan.operations.forEach(validateOperation);
 }
-export function validateRevisionCompareTransferHandoverContractShapes(bundle) {
+function validateRevisionCompareTransferHandoverContractShapes(bundle) {
   exactKeys(bundle, ROOT_KEYS, 'Transfer handover bundle');
   exactKeys(bundle.identity, IDENTITY_KEYS, 'Transfer handover identity');
   exactKeys(bundle.payload, PAYLOAD_KEYS, 'Transfer handover payload');
