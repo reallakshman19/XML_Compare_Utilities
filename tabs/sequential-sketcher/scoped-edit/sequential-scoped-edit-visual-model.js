@@ -69,6 +69,7 @@ function marker(entity) {
   const position = xyz(entity.geometry.position);
   if (!position) return null;
   const visual = style(entity);
+  const rejected = category(entity) === 'rejectedCandidate';
   return {
     primitiveId: `ssk3d:marker:${entity.id}`,
     objectId: entity.id,
@@ -77,7 +78,7 @@ function marker(entity) {
     position,
     sizeMm: category(entity) === 'support' ? 28 : 22,
     colorInt: visual.colorInt,
-    label: category(entity) === 'rejectedCandidate' ? 'REJECTED' : undefined,
+    ...(rejected ? { label: 'REJECTED' } : {}),
     isObjectMarker: true,
   };
 }
