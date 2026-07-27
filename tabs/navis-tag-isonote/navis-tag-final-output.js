@@ -108,11 +108,23 @@ export function pointLabel(point) {
   return `E=${compact(point.x)};N=${compact(point.y)};EL=${compact(point.z)}`;
 }
 
-function finalIsonote(identity, tags, config) {
+function finalIsonote(identity, tags, config, confidence = '') {
   const expanded = unique(tags.flatMap((tag) => expandTagKeywords(tag, config)));
   if (!identity || !expanded.length) return '';
   const prefix = text(config?.isonoteOutputPrefix) || ':/';
-  return `${prefix}${identity.replace(/^\/+/, '')} ${expanded.join(', ')}`;
+  let isonote = `${prefix}${identity.replace(/^\/+/, '')} ${expanded.join(', ')}`;
+  const confStr = text(confidence).trim();
+  if (confStr && !/\(C=[^)]+\)$/.test(isonote)) {
+    let code = confStr.charAt(0).toUpperCase();
+    const upper = confStr.toUpperCase();
+    if (upper.includes('HIGH') || upper.startsWith('H')) code = 'H';
+    else if (upper.includes('MEDIUM') || upper.startsWith('M')) code = 'M';
+    else if (upper.includes('LOW') || upper.startsWith('L')) code = 'L';
+    if (code) {
+      isonote += ` (C=${code})`;
+    }
+  }
+  return isonote;
 }
 
 function evidenceKey(record = {}) {
@@ -283,6 +295,7 @@ export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null)
     basis.push(...propagationBasis(propagationRows));
 
     const identity = selectOutputSupportIdentity(decision);
+    const confidenceValue = unique(confidence).join('|') || (propagationRows.length ? 'PROPAGATED' : decision.confidence || '');
     output.push({
       'Name of the element': identity,
       PIPE: decision.resolvedPipe || decision.inputPipe || '',
@@ -290,8 +303,8 @@ export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null)
       'Navis Tag ID': tagIds.join('|'),
       'Navis Tag POS': unique(navisPositions).join(' | '),
       Tag: tags.join(' | '),
-      'Support ISONOTE': finalIsonote(identity, tags, config),
-      confidence: unique(confidence).join('|') || (propagationRows.length ? 'PROPAGATED' : decision.confidence || ''),
+      'Support ISONOTE': finalIsonote(identity, tags, config, confidenceValue),
+      confidence: confidenceValue,
       Basis: unique(basis).join(' | '),
     });
   }

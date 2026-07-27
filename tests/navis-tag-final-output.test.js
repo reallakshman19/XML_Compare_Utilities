@@ -102,13 +102,13 @@ assert.deepEqual(Object.keys(rows[0]), [
 ]);
 assert.equal(rows[0]['Name of the element'], '/PS-12244/DATUM');
 assert.equal(rows[0].Tag, 'R+G+LS');
-assert.equal(rows[0]['Support ISONOTE'], ':/PS-12244/DATUM REST, GUIDE, LINE STOP');
+assert.equal(rows[0]['Support ISONOTE'], ':/PS-12244/DATUM REST, GUIDE, LINE STOP (C=H)');
 assert.equal(rows[0]['Navis Tag ID'], '8');
 assert.match(rows[0].Basis, /DIRECT_TAG_PROXIMITY/);
 
 assert.equal(rows[1]['Name of the element'], '/PS-12123.1');
 assert.equal(rows[1].Tag, 'R+G+LS');
-assert.equal(rows[1]['Support ISONOTE'], ':/PS-12123.1 REST, GUIDE, LINE STOP');
+assert.equal(rows[1]['Support ISONOTE'], ':/PS-12123.1 REST, GUIDE, LINE STOP (C=H)');
 assert.equal(rows[1]['Navis Tag ID'], '8');
 assert.equal(rows[1].confidence, 'HIGH');
 assert.match(rows[1].Basis, /FULL_PIPE_NAME_EXACT/);
@@ -134,7 +134,7 @@ const customRows = buildFinalOutputRows(audit, {
     { key: 'LS', value: 'AXIAL STOP' },
   ],
 });
-assert.equal(customRows[0]['Support ISONOTE'], ':/PS-12244/DATUM RESTRAINT, GUIDED, AXIAL STOP');
+assert.equal(customRows[0]['Support ISONOTE'], ':/PS-12244/DATUM RESTRAINT, GUIDED, AXIAL STOP (C=H)');
 
 const configHtml = workflowTest.renderConfig({
   config: {

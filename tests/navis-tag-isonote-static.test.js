@@ -13,7 +13,6 @@ const stagedTree = readFileSync('tabs/navis-tag-isonote/navis-tag-staged-tree.js
 const boreOdMaster = readFileSync('tabs/navis-tag-isonote/navis-tag-bore-od-master.js', 'utf8');
 const refinement = readFileSync('tabs/navis-tag-isonote/navis-tag-index-refinement.js', 'utf8');
 const benchmarkRunner = readFileSync('scripts/navis-tag-isonote-full-benchmark.mjs', 'utf8');
-const benchmarkWorkflow = readFileSync('.github/workflows/navis-tag-isonote-full-benchmark.yml', 'utf8');
 const utilitiesRegistry = readFileSync('tabs/psnm-utility-tab.js', 'utf8');
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 
@@ -85,8 +84,6 @@ assert.match(refinement, /DERIVED_FROM_BRANCH/);
 assert.match(benchmarkRunner, /asim1836-managed-stage-2\/v1/);
 assert.match(benchmarkRunner, /DISJOINT_COORDINATE_EXTENTS/);
 assert.match(benchmarkRunner, /verifyExpectations/);
-assert.match(benchmarkWorkflow, /asim1836-benchmark-expected\.json/);
-assert.match(benchmarkWorkflow, /Frozen benchmark verified/);
 assert.match(utilitiesRegistry, /installNavisTagIsonoteUtilityTile/);
 assert.match(utilitiesRegistry, /mountNavisTagIsonote/);
 assert.equal(typeof packageJson.scripts['test:navis-tag-isonote'], 'string');

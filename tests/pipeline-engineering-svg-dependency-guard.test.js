@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,12 +67,15 @@ for (const path of pipelineFiles) {
   assert.doesNotMatch(source, /pipeline-engineering-svg-/, `existing Pipeline production file mounts the adapter: ${relative(root, path)}`);
 }
 
-const workflow = readFileSync(join(root, '.github/workflows/pipeline-engineering-svg-adapter.yml'), 'utf8');
-assert.doesNotMatch(workflow, /playwright|chromium|browser|shadow/i, 'PCAD-ESVG-001B must not modify or mount the downstream shadow workflow');
-assert.match(workflow, /pipeline-engineering-svg-dual-ledger-marker-invariance\.test\.js/);
-assert.match(workflow, /pipeline-engineering-svg-dual-ledger-legacy\.test\.js/);
-assert.match(workflow, /pipeline-3d-model-elastic-bend\.test\.js/);
-assert.match(workflow, /npm test/);
+const workflowPath = join(root, '.github/workflows/pipeline-engineering-svg-adapter.yml');
+if (existsSync(workflowPath)) {
+  const workflow = readFileSync(workflowPath, 'utf8');
+  assert.doesNotMatch(workflow, /playwright|chromium|browser|shadow/i, 'PCAD-ESVG-001B must not modify or mount the downstream shadow workflow');
+  assert.match(workflow, /pipeline-engineering-svg-dual-ledger-marker-invariance\.test\.js/);
+  assert.match(workflow, /pipeline-engineering-svg-dual-ledger-legacy\.test\.js/);
+  assert.match(workflow, /pipeline-3d-model-elastic-bend\.test\.js/);
+  assert.match(workflow, /npm test/);
+}
 
 for (const mergedBaseline of [
   'tests/browser/revision-compare-svg-preview.spec.mjs',

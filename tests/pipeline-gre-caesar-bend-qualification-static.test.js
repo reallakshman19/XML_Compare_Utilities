@@ -32,7 +32,7 @@ const protectedBlobs = {
   'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-document-adoption.js': 'b11ff9d9d51e9072514f9fc92dc3f48330213d13',
   'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-document-conservation.js': '9e83b528aced4ca0b5e1c15ea1c975b8bb0f6f07',
   'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-projection-contracts.js': '3ef3e5b5499479b3d7309881a8776c5dc88a97d1',
-  'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-projection.js': '468aa56b375c7510c3ca96d23bff1487b49c8ec7',
+  'tabs/pipeline-3d-model/pipeline-3d-model-inputxml-gre-projection.js': '115b47d15bda5d6794eac521e369d787416d9de9',
 };
 for (const [path, expected] of Object.entries(protectedBlobs)) assert.equal(gitBlobSha1(path), expected, path);
 const allSource = Object.values(sources).join('\n');

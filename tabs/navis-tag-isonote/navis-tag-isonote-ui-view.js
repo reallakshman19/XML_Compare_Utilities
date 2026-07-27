@@ -1,4 +1,7 @@
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
+import { parseNavisTagXml } from './navis-tag-xml-parser.js';
+import { buildStagedJsonHierarchy, buildStagedSupportIndex } from './navis-tag-staged-tree.js';
+import { refineStagedSupportIndex } from './navis-tag-index-refinement.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -66,7 +69,7 @@ function compactNumber(value, digits = 3) {
   const number = Number(value);
   return Number.isFinite(number) ? Number(number.toFixed(digits)) : '';
 }
-function renderAnchorPreview(state) {
+export function renderAnchorPreview(state) {
   const cfg = state.config || {};
   const tagId = (cfg.navisAnchorTagId || '').trim();
   const supportId = (cfg.navisAnchorSupportIdentity || '').trim();
@@ -75,6 +78,58 @@ function renderAnchorPreview(state) {
   }
   const anchorSummary = state.navisParse?.anchor?.summaryText || `Configured Anchor: Tag [${esc(tagId)}] → PS [${esc(supportId)}]. Will calculate transformation deltas upon parsing.`;
   return `<div class="nti-help" data-nti-anchor-preview style="border-left: 4px solid var(--accent-primary, #0078d4); padding-left: 10px;"><b>Anchor-based coordinate transformation ACTIVE</b><br>${esc(anchorSummary)}<br><i>Overruling default transformation and user-configured datum offsets.</i></div>`;
+}
+export function renderAnchorTagDropdown(state, key = 'navisAnchorTagId') {
+  const cfg = state.config || {};
+  const selectedValue = String(cfg[key] || '').trim();
+  let tags = state.navisParse?.tags || [];
+  if (!tags.length && state.navisText?.trim()) {
+    try {
+      const parsed = parseNavisTagXml(state.navisText, state.config || {}, state.identityTrace || {});
+      tags = parsed.tags || [];
+      if (state.navisParse) state.navisParse.tags = tags;
+      else state.navisParse = parsed;
+    } catch {}
+  }
+  const datalistId = `nti-datalist-${esc(key)}`;
+  const tagOptions = tags.map((t) => {
+    const val = String(t.tagId || '').trim();
+    const desc = [t.commentBody ? String(t.commentBody).trim() : '', t.viewName ? `(${String(t.viewName).trim()})` : ''].filter(Boolean).join(' ');
+    return `<option value="${esc(val)}">${esc(desc)}</option>`;
+  }).join('');
+  const placeholder = tags.length
+    ? `Type or search all ${tags.length} XML tags (e.g. 1)...`
+    : 'Type or search XML tags...';
+  return `<input type="text" list="${datalistId}" data-nti-config="${esc(key)}" class="nti-input" style="width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-color, #ccc);" value="${esc(selectedValue)}" placeholder="${esc(placeholder)}" autocomplete="off"><datalist id="${datalistId}">${tagOptions}</datalist>`;
+}
+export function renderAnchorSupportDropdown(state, key = 'navisAnchorSupportIdentity', limit = 0) {
+  const cfg = state.config || {};
+  const selectedValue = String(cfg[key] || '').trim();
+  let rows = (state.identityTrace?.rows?.length ? state.identityTrace.rows : (state.stagedIndex?.entries || []));
+  if (!rows.length && state.stagedDocuments?.length) {
+    try {
+      const tree = buildStagedJsonHierarchy(state.stagedDocuments, state.config || {});
+      const rawIdx = buildStagedSupportIndex(tree, state.config || {});
+      const idx = refineStagedSupportIndex(rawIdx, tree, state.config || {});
+      rows = idx.entries || [];
+      if (state.stagedIndex) state.stagedIndex.entries = rows;
+      else state.stagedIndex = idx;
+    } catch {}
+  }
+  const maxRows = (!limit || limit <= 0) ? rows.length : limit;
+  const topRows = rows.slice(0, maxRows);
+  const datalistId = `nti-datalist-${esc(key)}`;
+  const rowOptions = topRows.map((r) => {
+    const val = String(r.tableIdentityRaw || r.canonicalIdentity || r.identityRaw || r.identity || '').trim();
+    const display = String(r.canonicalIdentity || r.identity || val).trim();
+    const branch = String(r.resolvedBranch || r.inputPipe || '').trim();
+    const desc = [display && display !== val ? display : '', branch].filter(Boolean).join(' — ');
+    return `<option value="${esc(val)}">${esc(desc)}</option>`;
+  }).join('');
+  const placeholder = rows.length
+    ? `Type or search all ${rows.length} JSON supports (e.g. /PS-11167.4)...`
+    : 'Type or search JSON supports...';
+  return `<input type="text" list="${datalistId}" data-nti-config="${esc(key)}" class="nti-input" style="width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--border-color, #ccc);" value="${esc(selectedValue)}" placeholder="${esc(placeholder)}" autocomplete="off"><datalist id="${datalistId}">${rowOptions}</datalist>`;
 }
 function renderNavisDatumPreview(state) {
   const cfg = state.config || {};
@@ -135,8 +190,8 @@ function renderInputs(state) {
     <label class="nti-field">JSON bore paths<textarea data-nti-config="jsonBorePaths">${esc(joinList(cfg.jsonBorePaths))}</textarea></label>
     <label class="nti-field">JSON bore units${unitsSelect('jsonBoreUnits', cfg.jsonBoreUnits, false)}</label>
     <label class="nti-field">Navis coordinate units${unitsSelect('navisUnits', cfg.navisUnits, true)}</label>
-    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b><input data-nti-config="navisAnchorTagId" value="${esc(cfg.navisAnchorTagId || '')}" placeholder="e.g. 1"></label>
-    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b><input data-nti-config="navisAnchorSupportIdentity" value="${esc(cfg.navisAnchorSupportIdentity || '')}" placeholder="e.g. /PS-11167.4"></label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Tag No. in XML (optional)</b>${renderAnchorTagDropdown(state, 'navisAnchorTagId')}</label>
+    <label class="nti-field" style="border: 1px solid var(--accent-primary, #0078d4); padding: 4px 8px; border-radius: 4px;"><b>Anchor Known PS No. in JSON (optional)</b>${renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 0)}</label>
     <label class="nti-field">Navis coordinate profile<input data-nti-config="navisCoordinateProfileName" value="${esc(cfg.navisCoordinateProfileName)}"></label>
     <label class="nti-field">Navis Easting datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisEastingDatumMm" value="${esc(cfg.navisEastingDatumMm)}"></label>
     <label class="nti-field">Navis Northing datum offset (mm, added after unit conversion)<input type="number" data-nti-config="navisNorthingDatumMm" value="${esc(cfg.navisNorthingDatumMm)}"></label>
@@ -193,7 +248,15 @@ const IDENTITY_HEADERS = [
   { key: 'verticalBasis', label: 'Vertical Basis' }, { key: 'verticalResidualMm', label: 'Vertical Residual mm' }, { key: 'navisAmbiguity', label: 'Ambiguity' },
   { key: 'navisConfidence', label: 'Navis Confidence', badge: true }, { key: 'supportIsonote', label: 'Selected Support ISONOTE' },
 ];
-function renderIdentityRows(title, help, rows, filterId) { return `<section class="nti-card"><h3>${esc(title)}</h3><div class="nti-help">${esc(help)}</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-trace" ${rows.length ? '' : 'disabled'}>Download end-to-end trace CSV</button></div><input class="nti-filter" data-nti-table-filter="${esc(filterId)}" placeholder="Filter by identity, reference, root, branch, pipe, zone, JSON path, Navis tag/comment or status...">${renderTable(IDENTITY_HEADERS, rows, `nti-filter-table-${filterId}`)}</section>`; }
+export function renderFilterBar(filterId, placeholder = 'Filter...') {
+  return `<div class="nti-filter-bar" style="display: flex; gap: 8px; align-items: center; margin: 8px 0;">
+    <input class="nti-filter" data-nti-table-filter="${esc(filterId)}" placeholder="${esc(placeholder)}" style="flex: 1; margin: 0;">
+    <button type="button" class="nti-btn nti-btn-copy-filter" data-nti-copy-filtered="${esc(filterId)}" title="Copy visible/filtered table rows to clipboard" style="display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer; padding: 6px 12px;">
+      <span aria-hidden="true" style="font-size: 15px;">📋</span><span>Copy filtered</span>
+    </button>
+  </div>`;
+}
+function renderIdentityRows(title, help, rows, filterId) { return `<section class="nti-card"><h3>${esc(title)}</h3><div class="nti-help">${esc(help)}</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-trace" ${rows.length ? '' : 'disabled'}>Download end-to-end trace CSV</button></div>${renderFilterBar(filterId, 'Filter by identity, reference, root, branch, pipe, zone, JSON path, Navis tag/comment or status...')}${renderTable(IDENTITY_HEADERS, rows, `nti-filter-table-${filterId}`)}</section>`; }
 function renderIdentityTrace(state) { return renderIdentityRows('End-to-End Identity Node Trace', 'Identity selection evidence is separated from trace-only hierarchy evidence and later Navis proximity evidence. The end-to-end row remains table identity/reference → canonical identity → JSON node/path/reference → branch/pipe/zone and normalized coordinate profile → Navis tag/comment → selected Support ISONOTE.', state.identityTrace?.rows || [], 'identity'); }
 function renderIdentityPartition(state, kind) {
   const map = {
@@ -206,21 +269,21 @@ function renderIdentityPartition(state, kind) {
 function renderAugmented(state) {
   const rows = state.audit?.augmentedRows || [];
   const headers = rows.length ? Object.keys(rows[0]) : [];
-  return `<section class="nti-card"><h3>Augmented Support Table</h3><div class="nti-help">Support ISONOTE is a separate traceable column and never overwrites the imported ISOMETRIC NOTES value.</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-csv" ${rows.length ? '' : 'disabled'}>Download augmented CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Download audit JSON</button><button class="nti-btn" data-nti-action="download-ambiguous" ${state.audit?.ambiguousRows?.length ? '' : 'disabled'}>Download ambiguous CSV</button><button class="nti-btn" data-nti-action="download-rejected" ${state.audit?.rejectedRows?.length ? '' : 'disabled'}>Download rejected CSV</button></div><input class="nti-filter" data-nti-table-filter="augmented" placeholder="Filter augmented rows...">${renderTable(headers, rows, 'nti-filter-table-augmented')}</section>`;
+  return `<section class="nti-card"><h3>Augmented Support Table</h3><div class="nti-help">Support ISONOTE is a separate traceable column and never overwrites the imported ISOMETRIC NOTES value.</div><div class="nti-actions"><button class="nti-btn" data-nti-action="download-csv" ${rows.length ? '' : 'disabled'}>Download augmented CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Download audit JSON</button><button class="nti-btn" data-nti-action="download-ambiguous" ${state.audit?.ambiguousRows?.length ? '' : 'disabled'}>Download ambiguous CSV</button><button class="nti-btn" data-nti-action="download-rejected" ${state.audit?.rejectedRows?.length ? '' : 'disabled'}>Download rejected CSV</button></div>${renderFilterBar('augmented', 'Filter augmented rows...')}${renderTable(headers, rows, 'nti-filter-table-augmented')}</section>`;
 }
 function renderCandidates(state) {
   const headers = ['tableRowIndex','canonicalIdentity','jsonSourceFile','jsonPath','jsonAncestorIds','jsonIdentityPath','jsonPositionPath','resolvedBranch','resolvedPipe','resolvedZone','supportPositionSource','supportPositionPath','viewName','viewGuid','tagId','commentId','commentBody','positionSource','deltaEMm','deltaNMm','deltaElMm','verticalBasis','verticalResidualMm','boreNominalMm','odMm','odSource','score','confidenceReasons','accepted'];
-  return `<section class="nti-card"><h3>Candidate Evidence Ledger</h3><input class="nti-filter" data-nti-table-filter="candidates" placeholder="Filter candidate evidence...">${renderTable(headers, state.audit?.candidateLedger || [], 'nti-filter-table-candidates')}</section>`;
+  return `<section class="nti-card"><h3>Candidate Evidence Ledger</h3>${renderFilterBar('candidates', 'Filter candidate evidence...')}${renderTable(headers, state.audit?.candidateLedger || [], 'nti-filter-table-candidates')}</section>`;
 }
 function renderDecisionPartition(state, kind) {
   const rows = kind === 'matched' ? state.audit?.matchedRows || [] : kind === 'ambiguous' ? state.audit?.ambiguousRows || [] : state.audit?.rejectedRows || [];
   const title = kind === 'matched' ? 'Matched ISONOTE Decisions' : kind === 'ambiguous' ? 'Ambiguous ISONOTE Decisions' : 'Rejected ISONOTE Decisions';
   const headers = ['tableRowIndex','canonicalIdentity','supportRoot','identityStatus','resolvedBranch','resolvedPipe','resolvedZone','supportPositionSource','supportPositionPath','candidateCount','status','ambiguity','confidence','confidenceScore','confidenceReasons','isonoteSource','propagatedFromTagIds','supportIsonote','selectedViewName','selectedViewGuid','selectedTagId','selectedCommentId','selectedEvidenceId'];
-  return `<section class="nti-card"><h3>${title}</h3><input class="nti-filter" data-nti-table-filter="decision-${kind}" placeholder="Filter decision rows...">${renderTable(headers, rows, `nti-filter-table-decision-${kind}`)}</section>`;
+  return `<section class="nti-card"><h3>${title}</h3>${renderFilterBar(`decision-${kind}`, 'Filter decision rows...')}${renderTable(headers, rows, `nti-filter-table-decision-${kind}`)}</section>`;
 }
 function renderDiagnostics(state) {
   const diagnostics = [...(state.tableBuild?.diagnostics || []), ...(state.identityTrace?.diagnostics || []), ...(state.navisParse?.diagnostics || []), ...(state.audit?.diagnostics || [])];
-  return `<section class="nti-card"><h3>Diagnostics / Rejected Evidence</h3><input class="nti-filter" data-nti-table-filter="diagnostics" placeholder="Filter diagnostics...">${renderTable(['severity','code','rowId','identity','evidenceId','message'], diagnostics, 'nti-filter-table-diagnostics')}</section>`;
+  return `<section class="nti-card"><h3>Diagnostics / Rejected Evidence</h3>${renderFilterBar('diagnostics', 'Filter diagnostics...')}${renderTable(['severity','code','rowId','identity','evidenceId','message'], diagnostics, 'nti-filter-table-diagnostics')}</section>`;
 }
 export function renderNavisTagIsonotePane(state) {
   if (state.activeTab === 'hierarchy') return renderHierarchy(state);

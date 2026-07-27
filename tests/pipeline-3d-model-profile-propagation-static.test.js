@@ -5,7 +5,7 @@ const names = ['pipeline-3d-model-profile-coordinate-map.js', 'pipeline-3d-model
   'pipeline-3d-model-profile-propagation-runtime.js', 'pipeline-3d-model-export-context.js',
   'pipeline-3d-model-inputxml-document.js', 'pipeline-3d-model-identity.js',
   'pipeline-3d-model-warning-log.js', 'pipeline-3d-model-core-orchestrator.js',
-  'pipeline-3d-model-core-runtime.js'];
+  'pipeline-3d-model-core-runtime.js', 'pipeline-3d-model-explicit-analysis-section-planner.js'];
 const sources = Object.fromEntries(names.map((name) => [name, read(name)]));
 for (const [name, source] of Object.entries(sources)) {
   assert.ok(source.split(/\r?\n/).length < 300, `${name} must stay below 300 lines`);
@@ -27,12 +27,14 @@ const runtime = sources['pipeline-3d-model-profile-propagation-runtime.js'];
 assert.match(runtime, /new AbortController\(\)/); assert.match(runtime, /buildPipelineProjectOutputs/);
 assert.match(runtime, /data-p3d-core-artifacts/); assert.match(runtime, /inputxml_blocked/);
 assert.doesNotMatch(runtime, /new Date|pipeline-3d-model-config-v1|MutationObserver/);
+const explicitSectionPlanner = sources['pipeline-3d-model-explicit-analysis-section-planner.js'];
+assert.match(explicitSectionPlanner, /resolveExplicitPipelineAnalysisSectionPlan/);
 const coreRuntime = sources['pipeline-3d-model-core-runtime.js'];
-assert.match(coreRuntime, /resolveExplicitPipelineAnalysisSectionPlan/);
 assert.match(coreRuntime, /buildExplicitPipelineInputXmlDocumentPlan/);
 const adapter = read('pipeline-3d-model-project-adapter.js');
 assert.match(adapter, /buildPipelineNativeOutputBundle/);
-assert.match(adapter, /pipeline-engineering-configuration/);
+assert.match(adapter, /configuration: output\.configurationPlan/);
+assert.match(adapter, /configurationSchema: output\.configurationPlan\.schema/);
 assert.match(adapter, /orchestrationBlockerCount/);
 const addon = read('pipeline-3d-model-table-paste-addon.js');
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);

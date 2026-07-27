@@ -1,5 +1,6 @@
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
 import { DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
+import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown, renderFilterBar } from './navis-tag-isonote-ui-view.js';
 
 const STYLE_ID = 'navis-tag-isonote-workflow-style';
 
@@ -76,10 +77,26 @@ function mappingRows(state) {
   </div>`).join('');
 }
 function renderHome(state) {
+  const cfg = state.config || {};
   const readiness = state.readiness?.status || (state.inputsDirty ? 'STALE / NOT BUILT' : 'NOT BUILT');
   const remembered = state.sessionMeta?.restoredAt
     ? `<div class="nti-memory-note"><b>Restored from this browser</b><span>Saved ${esc(state.sessionMeta.restoredAt)}. File names, source types, configuration, and source text that fit local-storage limits were restored.</span></div>`
     : `<div class="nti-memory-note"><b>Browser memory enabled</b><span>The last loaded names, source types, configuration, and restorable source values are saved locally on this device.</span></div>`;
+  const anchorCard = `<section class="nti-card" style="border-left: 4px solid var(--accent-primary, #0078d4);">
+    <div class="nti-section-head">
+      <div>
+        <h3>Anchor-based coordinate matching (optional override)</h3>
+        <p>Match a known Tag No. in Navis XML (e.g. <code>1</code>) with a known Support / PS No. in JSON (e.g. <code>/PS-11167.4</code>) to automatically compute 3D translation deltas (ΔE, ΔN, ΔEL) and overrule default/user datum offsets.</p>
+      </div>
+    </div>
+    <div class="nti-grid-2" style="margin-top: 10px;">
+      ${field('Anchor Tag ID in XML (type & search all)', renderAnchorTagDropdown(state, 'navisAnchorTagId'))}
+      ${field('Anchor Support ID in JSON (type & search all)', renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 0))}
+    </div>
+    <div style="margin-top: 10px;">
+      ${renderAnchorPreview(state)}
+    </div>
+  </section>`;
   return `<section class="nti-workflow-hero">
     <div><span class="nti-eyebrow">NAVIS TAG → ISONOTE</span><h2>Build traceable support notes from Tag evidence</h2><p>Load the model sources, verify the coordinate frame, resolve direct Tags, propagate applies-to directives, and export the final support-note table.</p></div>
     <div class="nti-hero-status"><span>Readiness</span>${statusBadge(readiness)}</div>
@@ -97,6 +114,7 @@ function renderHome(state) {
       ${field('Navis Tag XML preview / paste', `<textarea data-nti-field="navisText" placeholder="&lt;exchange units=&quot;m&quot;&gt;...">${esc(state.navisText)}</textarea>`)}
     </div></details>
   </section>
+  ${anchorCard}
   <section class="nti-card">
     <div class="nti-section-head"><div><h3>2. Build and resolve</h3><p>Build refreshes hierarchy and coordinate evidence. Run automatically rebuilds stale inputs before matching.</p></div><button class="nti-btn" data-nti-action="open-config">Open Config</button></div>
     <div class="nti-step-grid">
@@ -196,7 +214,7 @@ function renderFinal(state) {
   const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Basis'];
   return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>The Tag column retains the original Tag code. Support ISONOTE uses the selected support identity and configurable expanded instructions.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
   <section class="nti-card"><div class="nti-section-head"><div><h3>Final table</h3><p>Identity preference: grouped /DATUM first; otherwise smallest numeric support suffix.</p></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="download-final-csv" ${rows.length ? '' : 'disabled'}>Export final CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Audit JSON</button></div></div>
-    <input class="nti-filter" data-nti-table-filter="final-output" placeholder="Filter support, pipe, Tag, confidence or basis...">
+    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence or basis...')}
     ${renderTable(headers, rows, 'nti-filter-table-final-output')}
   </section>
   <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain the complete direct, rejected and propagation evidence behind the final delivery table.</div><div class="nti-actions">

@@ -15,6 +15,8 @@ const requiredRoles = Object.freeze(['enteringElementFromRole', 'enteringElement
   'leavingElementFromRole', 'leavingElementToRole', 'nearPointRole', 'farPointRole',
   'sharedLogicalNodeRole', 'inactiveCornerDisposition', 'incomingTangencyDisposition',
   'outgoingTangencyDisposition', 'continuityRequirement']);
+const sessionFields = Object.freeze(['caesarVersion', 'caesarBuild', 'unitFileId', 'unitFileSha256',
+  'sourceCommitSha', 'pipingCodeId', 'pipingCodeName', 'pipingCodeEdition', 'laminateClassification']);
 const roleProfiles = Object.freeze({
   TANGENCY_SEPARATED_BRIDGE: Object.freeze({ enteringElementFromRole: 'UPSTREAM_ROUTE_NODE',
     enteringElementToRole: 'INCOMING_TANGENCY', leavingElementFromRole: 'OUTGOING_TANGENCY',
@@ -58,6 +60,17 @@ function selectedFixtures(source, errors) {
   return selected;
 }
 
+function fixtureSession(fixtures, errors, topologyMappingId) {
+  const observed = Object.fromEntries(sessionFields.map((field) => [field,
+    [...new Set(fixtures.map((fixture) => text(fixture?.[field])).filter(Boolean))].sort()]));
+  const consistent = fixtures.length > 0
+    && sessionFields.every((field) => observed[field].length === 1);
+  if (!consistent) errors.push(diagnostic('PIPELINE_GRE_CAESAR_FIXTURE_UNAUTHENTICATED', {
+    topologyMappingId, reason: 'FIXTURE_SESSION_CONFLICT', observed }));
+  return Object.freeze(Object.fromEntries(sessionFields.map((field) => [field,
+    consistent ? observed[field].at(0) : ''])));
+}
+
 function observedModeMatches(mode, fixtures) {
   const records = fixtures.flatMap((fixture) => fixture.continuityRecords || []);
   if (!records.length) return false;
@@ -88,6 +101,7 @@ function compatibilityFor(mode, authenticated) {
 export function createPipelineGreCaesarBendTopologyMapping(input = {}) {
   const safeValue = safe(input), source = safeValue.source, errors = [...safeValue.diagnostics];
   const mode = text(source.caesarTopologyMode), fixtures = selectedFixtures(source, errors);
+  const session = fixtureSession(fixtures, errors, text(source.topologyMappingId));
   if (!text(source.topologyMappingId) || !PIPELINE_GRE_CAESAR_TOPOLOGY_MODES.includes(mode)
     || !text(source.sourceAuthority) || !Array.isArray(source.sourceReferences)
     || source.sourceReferences.some((item) => !text(item))) errors.push(diagnostic(
@@ -104,8 +118,8 @@ export function createPipelineGreCaesarBendTopologyMapping(input = {}) {
     'PIPELINE_GRE_CAESAR_TOPOLOGY_UNRESOLVED', { topologyMappingId: text(source.topologyMappingId) }));
   return createPipelineGreCaesarBendTopologyMappingRecord({
     topologyMappingId: text(source.topologyMappingId), caesarTopologyMode: mode,
-    caesarVersion: text(fixtures[0]?.caesarVersion), caesarBuild: text(fixtures[0]?.caesarBuild),
-    unitFileId: text(fixtures[0]?.unitFileId), unitFileSha256: text(fixtures[0]?.unitFileSha256),
+    caesarVersion: session.caesarVersion, caesarBuild: session.caesarBuild,
+    unitFileId: session.unitFileId, unitFileSha256: session.unitFileSha256,
     enteringElementFromRole: text(source.enteringElementFromRole),
     enteringElementToRole: text(source.enteringElementToRole),
     leavingElementFromRole: text(source.leavingElementFromRole),
