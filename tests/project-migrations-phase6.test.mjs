@@ -73,7 +73,7 @@ assert.equal(pipeline.exportPlan.gate.status, 'BLOCKED');
 assert.ok(pipeline.exportPlan.gate.blockers.includes('PIPELINE_CONFIGURATION_SECTION_PLAN_INVALID'));
 assert.equal(pipelineOutputById.get('pipeline-coordinate-table').text, pipelineNative.coordinateText);
 assert.equal(pipelineOutputById.has('pipeline-inputxml'), false);
-assert.equal(pipelineOutputById.get('pipeline-inputxml-document-plan').text, pipelineNative.inputXmlDocumentPlanText);
+assert.equal(pipelineOutputById.has('pipeline-inputxml-document-plan'), false);
 assert.equal(pipelineNative.xmlText, '');
 assert.equal(pipelineNative.inputXmlDocumentPlan.ready, false);
 
