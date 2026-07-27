@@ -4,15 +4,15 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  certify-and-publish:
+  certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: b4c34e24e00209a3db2b87d4ed03a802c4b500a1
+      EXPECTED_TARGET_SHA: 1ad5933a58f9e4b8af24a5ca97c2120fac9fbeaa
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -23,19 +23,6 @@ jobs:
       - name: Verify exact target head
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
 
-      - name: Correct blocked Pipeline artifact expectation
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('tests/project-migrations-phase6.test.mjs')
-          text = path.read_text()
-          old = "assert.equal(pipelineOutputById.get('pipeline-inputxml-document-plan').text, pipelineNative.inputXmlDocumentPlanText);"
-          new = "assert.equal(pipelineOutputById.has('pipeline-inputxml-document-plan'), false);"
-          if text.count(old) != 1:
-              raise SystemExit('expected exact Phase 6 assertion once')
-          path.write_text(text.replace(old, new))
-          PY
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -45,14 +32,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Phase 6
-        run: node tests/project-migrations-phase6.test.mjs
-
-      - name: Commit and push tested correction
+      - name: Capture repository-wide validation
+        id: repository_validation
+        continue-on-error: true
+        shell: bash
         run: |
-          test "$(git diff --name-only)" = "tests/project-migrations-phase6.test.mjs"
-          git config user.name "Owner Release Bot"
-          git config user.email "owner-release-bot@users.noreply.github.com"
-          git add tests/project-migrations-phase6.test.mjs
-          git commit -m "test: align blocked Pipeline migration artifacts"
-          git push origin HEAD:$TARGET_BRANCH
+          set +e
+          npm test > npm-test.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload repository-wide output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synchronized-baseline-npm-test-output
+          path: npm-test.log
+
+      - name: Require repository-wide pass
+        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
+
+      - name: Verify clean worktree
+        run: test -z "$(git status --short)"
