@@ -104,6 +104,21 @@ await rejects(async (value) => {
   await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
 }, /policy evidence.*governing field-policy/i);
 await rejects(async (value) => {
+  const plan = value.payload.transferPlan;
+  plan.selection.items[0].fields[0].unsupported = true;
+  await identity(plan, 'planId', 'revision-transfer-plan:');
+}, /Transfer selection field.*unsupported or missing fields/i);
+await rejects(async (value) => {
+  const operation = value.payload.transferPlan.operations[0];
+  operation.targetAddress.unsupported = true; await operationIdentity(operation);
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /Transfer operation 0 address.*unsupported or missing fields/i);
+await rejects(async (value) => {
+  const operation = value.payload.transferPlan.operations[0];
+  delete operation.evidenceReferences.decisionEventId; await operationIdentity(operation);
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /Transfer operation 0 evidence references.*unsupported or missing fields/i);
+await rejects(async (value) => {
   const operation = value.payload.transferPlan.operations[0];
   operation.targetAddress.expectedCurrentValue = 'wrong'; await operationIdentity(operation);
   await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
