@@ -210,6 +210,26 @@ function destroy(state) {
   CONTROLLERS.delete(state.root);
   return true;
 }
+function installCommandPanel(state, commandBoundary) {
+  try {
+    state.commandPanel = createSequentialDraftEditCommandPanel({
+      root: state.root, gateway: state.gateway,
+      readCurrentState: commandBoundary.readCurrentState,
+      now: state.options.commandIssuedAtProvider,
+      onAccepted: state.options.onCommandAccepted,
+      onFailure: state.options.onCommandFailure,
+    });
+    state.onClick = (event) => handleClick(state, event);
+    state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
+    if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
+    state.root.addEventListener('click', state.onClick, true);
+  } catch (error) {
+    try { state.unsubscribe?.(); } catch {}
+    try { state.commandPanel?.destroy(); } catch {}
+    try { state.gateway.destroy(); } catch {}
+    throw error;
+  }
+}
 
 export function getSequentialScopedEdit3dController(root) {
   return CONTROLLERS.get(root) || null;
@@ -229,18 +249,7 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
     viewer: null, pending: null, mountKey: '', active: false,
     destroyed: false, failureCount: 0, unsubscribe: null, commandPanel: null,
   };
-  state.commandPanel = createSequentialDraftEditCommandPanel({
-    root,
-    gateway,
-    readCurrentState: commandBoundary.readCurrentState,
-    now: options.commandIssuedAtProvider,
-    onAccepted: options.onCommandAccepted,
-    onFailure: options.onCommandFailure,
-  });
-  state.onClick = (event) => handleClick(state, event);
-  state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
-  if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
-  state.root.addEventListener('click', state.onClick, true);
+  installCommandPanel(state, commandBoundary);
   syncAvailability(state);
   const controller = Object.freeze({
     schema: SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1,
