@@ -125,9 +125,10 @@ assert.match(ui, /greBendLocalThicknessMm/);
 assert.match(ui, /greTeeBreakLengthMm/);
 assert.match(ui, /1\.5 × 100 = 150 mm even when OD is 114\.3 mm/);
 assert.match(ui, /Short elements remain in authoritative geometry/);
-assert.match(ui, /pipeline-bends\.tsv/);
+assert.match(ui, /installPipelineEngineeringConfigurationUi/);
+assert.match(ui, /savePipelineEngineeringConfigurationDraft/);
 assert.match(ui, /installPipelineElasticBendSettingsUi/);
-assert.match(sources['pipeline-3d-model-elastic-bend-ui.js'], /project-adapter\.js\?v=20260722-p3d-canonical-document-1/);
+assert.match(sources['pipeline-3d-model-elastic-bend-ui.js'], /PIPELINE_ENGINEERING_CONFIGURATION_STORAGE_KEY/);
 
 const xml = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-xml-builder.js', import.meta.url), 'utf8');
 assert.match(xml, /function usableCurvatureNodes/);
@@ -140,30 +141,31 @@ assert.match(xml, /bendByIncomingElementIndex|element\.bend/);
 assert.doesNotMatch(xml, /SENTINEL_MISSING|-1\.010100|NUMELEMENTS/);
 
 const adapter = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js', import.meta.url), 'utf8');
-assert.match(adapter, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
-assert.match(adapter, /buildPipelineInputXmlDocumentPlan/);
-assert.match(adapter, /pipeline-inputxml-document-plan\.json/);
-assert.match(adapter, /InputXML\.Canonical\.v1/);
-assert.match(adapter, /markerRowsExcludedFromInputXml/);
-assert.match(adapter, /bendBlockingErrorCount/);
-assert.match(adapter, /sharedBendSegmentFailureCount/);
+assert.match(adapter, /output\.artifacts/);
+assert.match(adapter, /pipeline-elastic-bends\.tsv/);
+assert.match(adapter, /excludedMarkerCount/);
+assert.match(adapter, /orchestrationBlockerCount/);
+assert.match(adapter, /elasticBendCandidateCount/);
+assert.match(adapter, /elasticBendEmittedCount/);
+assert.match(adapter, /inputXmlDocumentBlockerCount/);
 
 const profile = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-profile-propagation.js', import.meta.url), 'utf8');
-assert.match(profile, /inputXmlCoordinateRows: elasticBends\.geometryRows/);
-assert.match(profile, /appendDocumentDiagnostics/);
+assert.match(profile, /inputXmlCoordinateRows: inputXmlRows/);
+assert.match(profile, /appendDiagnostics/);
 assert.match(profile, /inputXmlDocumentPlanText/);
 assert.match(profile, /markerRowsExcludedFromInputXml/);
+assert.match(profile, /elasticBendText/);
 
 const addon = fs.readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', import.meta.url), 'utf8');
-assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260722-p3d-canonical-document-1/);
+assert.match(addon, /pipeline-3d-model-elastic-bend-ui\.js\?v=20260722-p3d-base-039-1/);
 assert.match(addon, /export function loadMultiSheetPasteSamples/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
 
 const psnm = fs.readFileSync(new URL('../tabs/psnm-utility-tab.js', import.meta.url), 'utf8');
-assert.match(psnm, /pipeline-3d-model-table-paste-addon\.js\?v=20260722-p3d-canonical-document-1/);
+assert.match(psnm, /pipeline-3d-model-table-paste-addon\.js\?v=20260722-p3d-base-039-1/);
 const runtime = fs.readFileSync(new URL('../core/app-standalone-runtime.js', import.meta.url), 'utf8');
-assert.match(runtime, /standalone-20260722-p3d-canonical-document-1/);
-assert.match(runtime, /M26 Pipeline canonical InputXML/);
+assert.match(runtime, /export const STANDALONE_APP/);
+assert.match(runtime, /M27 P3D-BASE-039/);
 
 await import('./pipeline-3d-model-gre-placeholder.test.js');
 await import('./pipeline-3d-model-inputxml-document-static.test.js');
