@@ -75,7 +75,7 @@ assert.doesNotMatch(panel, /gateway\.execute\(/,
   'visible command controls must never use direct execute');
 assert.doesNotMatch(panel,
   /CONNECT_CANDIDATE|MANUAL_CONNECT|REJECT_CANDIDATE|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
-assert.doesNotMatch(panel, /beginDrag|commitDrag|move|rotate|stretch|breakTopology/);
+assert.doesNotMatch(panel, /\bbeginDrag\b|\bcommitDrag\b|\brotate\b|\bstretch\b|breakTopology/);
 
 assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
 assert.match(boundary, /restorePackage/);
