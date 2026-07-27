@@ -6,6 +6,7 @@ import {
   buildSequentialWorkspaceImportPreview,
   formatSequentialWorkspaceImportPreview,
   sequentialWorkspaceCurrentStateFingerprint,
+  sequentialWorkspaceRestorationStateFingerprint,
 } from './sequential-workspace-import-preview.js';
 import {
   createSequentialWorkspaceApplicationReceipt,
@@ -32,9 +33,8 @@ function downloadText(documentRef, filename, content) {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-function timestamp() {
-  return new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/u, 'Z');
-}
+function timestamp() { return new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/u, 'Z'); }
+function createdAt() { return new Date().toISOString(); }
 
 export function mountSequentialWorkspacePersistenceController(root, workspace, context = {}) {
   const exportButton = required(root, '[data-ssk-workspace-export]');
@@ -57,9 +57,7 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
   }
   function clearPending() { setPending(null, null); }
   function clearApproval() { reasonInput.value = ''; evidenceInput.value = ''; }
-  function applicationReceipts() {
-    return workspace?.getModel?.()?.workspaceApplicationReceipts || [];
-  }
+  function applicationReceipts() { return workspace?.getModel?.()?.workspaceApplicationReceipts || []; }
 
   function exportPackage() {
     const model = workspace?.getModel?.();
@@ -74,12 +72,15 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       branchRegistry: model.branchRegistry,
       activeBranchId: model.session?.rootBranchId || null,
       reviewQueue: workspace?.getReviewQueue?.() || null,
+      journalState: model.journalState,
+      createdAt: createdAt(),
       applicationReceipts: applicationReceipts(),
     });
+    const packageValue = JSON.parse(json);
     downloadText(root.ownerDocument, `sequential-workspace-${timestamp()}.json`, json);
     const saved = model.branchRegistry.savedCount();
-    setSummary(summary, `Exported ${saved} saved branch workspace${saved === 1 ? '' : 's'} with ${applicationReceipts().length} application receipt${applicationReceipts().length === 1 ? '' : 's'}.`, 'ok');
-    context.showToast?.('Sequential workspace package exported.', 'success');
+    setSummary(summary, `Exported ${packageValue.schema} revision ${packageValue.revision}: ${saved} saved branch workspaces, journal authority ${model.journalState ? 'present' : 'absent'}, and ${applicationReceipts().length} application receipts.`, 'ok');
+    context.showToast?.(`${packageValue.schema} exported.`, 'success');
     return json;
   }
 
@@ -89,8 +90,8 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
     const restoration = restoreSequentialWorkspacePackageWithReceipts(await file.text());
     const preview = buildSequentialWorkspaceImportPreview(restoration, workspace?.getModel?.() || {});
     setPending(restoration, preview);
-    setSummary(summary, `${formatSequentialWorkspaceImportPreview(preview)} Package history contains ${restoration.applicationReceipts.length} application receipt${restoration.applicationReceipts.length === 1 ? '' : 's'}.`, preview.hasDestructiveChanges ? 'warning' : 'ok');
-    context.showToast?.('Sequential workspace package verified. Review and apply explicitly.', 'success');
+    setSummary(summary, `${formatSequentialWorkspaceImportPreview(preview)} Package history contains ${restoration.applicationReceipts.length} application receipts.`, preview.hasDestructiveChanges ? 'warning' : 'ok');
+    context.showToast?.(`${preview.packageSchema} verified; journal impact ${preview.journalImpact}.`, 'success');
     return Object.freeze({ restoration, preview });
   }
 
@@ -98,6 +99,18 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
     return validateSequentialWorkspaceApplicationApproval(pendingPreview, {
       reason: reasonInput.value,
       evidenceNote: evidenceInput.value,
+    });
+  }
+  function preparedReceipt(restoration, preview, beforeFingerprint, approved) {
+    const afterFingerprint = sequentialWorkspaceRestorationStateFingerprint(restoration);
+    return createSequentialWorkspaceApplicationReceipt({
+      preview,
+      restoration,
+      beforeFingerprint,
+      afterFingerprint,
+      reason: approved.reason,
+      evidenceNote: approved.evidenceNote,
+      sequence: restoration.applicationReceipts.length + 1,
     });
   }
 
@@ -110,32 +123,26 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
     const beforeFingerprint = sequentialWorkspaceCurrentStateFingerprint(workspace?.getModel?.() || {});
     if (beforeFingerprint !== pendingPreview.currentStateFingerprint) {
       clearPending();
-      const message = 'WORKSPACE_IMPORT_PREVIEW_STALE: current source or branch work changed after preview. Select the package again to create a fresh preview.';
+      const message = 'WORKSPACE_IMPORT_PREVIEW_STALE: current source, branch, selection, or journal work changed after preview.';
       setSummary(summary, message, 'error');
       context.showToast?.(message, 'error');
       return Object.freeze({ outcome: 'WORKSPACE_IMPORT_PREVIEW_STALE' });
     }
     const approved = approval();
     const restoration = pendingRestoration;
-    workspace?.restorePackage?.(restoration);
-    const afterFingerprint = sequentialWorkspaceCurrentStateFingerprint(workspace?.getModel?.() || {});
-    const receipt = createSequentialWorkspaceApplicationReceipt({
-      preview: pendingPreview,
-      restoration,
-      beforeFingerprint,
-      afterFingerprint,
-      reason: approved.reason,
-      evidenceNote: approved.evidenceNote,
-      sequence: restoration.applicationReceipts.length + 1,
-    });
+    const preview = pendingPreview;
+    const receipt = preparedReceipt(restoration, preview, beforeFingerprint, approved);
     const receipts = Object.freeze([...restoration.applicationReceipts, receipt]);
-    workspace.getModel().workspaceApplicationReceipts = receipts;
+    workspace?.restorePackage?.(restoration, {
+      applicationReceipts: receipts,
+      expectedJournalImpact: preview.journalImpact,
+    });
     lastReceipt = receipt;
     receiptButton.disabled = false;
     clearPending();
     clearApproval();
-    setSummary(summary, `Applied verified package ${restoration.packageFingerprint}; receipt ${receipt.receiptId} records ${receipt.impact.hasDestructiveChanges ? 'destructive' : 'non-destructive'} impact and before/after workspace fingerprints.`, 'ok');
-    context.showToast?.('Sequential workspace package applied and receipt recorded.', 'success');
+    setSummary(summary, `Applied ${preview.packageSchema} revision ${preview.packageRevision}; journal impact ${preview.journalImpact}; receipt ${receipt.receiptId}.`, 'ok');
+    context.showToast?.(`${preview.packageSchema} applied and receipt recorded.`, 'success');
     return Object.freeze({ restoration, receipt });
   }
 
@@ -146,17 +153,15 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
     }
     clearPending();
     clearApproval();
-    setSummary(summary, 'Verified package preview cancelled. No source or branch workspace was changed.', 'info');
+    setSummary(summary, 'Verified package preview cancelled. No workspace or journal authority was changed.', 'info');
     return true;
   }
-
   function exportLastReceipt() {
     if (!lastReceipt) return null;
     const json = JSON.stringify(lastReceipt, null, 2);
     downloadText(root.ownerDocument, `sequential-workspace-apply-receipt-${timestamp()}.json`, json);
     return json;
   }
-
   function onClick(event) {
     try {
       if (event.target?.closest?.('[data-ssk-workspace-export]')) exportPackage();
