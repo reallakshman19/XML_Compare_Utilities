@@ -97,7 +97,9 @@ test('incompatible metadata blocks basis approval', async ({ page }) => {
 test('no-common scope keeps one-sided additions and removals visible', async ({ page }) => {
   await openWorkspace(page);
   await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
+  await expect(page.locator('[data-slot="baseline"] strong')).toContainText('ready');
   await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));
+  await expect(page.getByRole('heading', { name: 'Confirm branch scope' })).toBeVisible();
   await expect(page.locator('[data-revc-scope-group="common"] h3 span')).toHaveText('0');
   await expect(page.locator('[data-revc-scope-group="revAOnly"] h3 span')).toHaveText('1');
   await expect(page.locator('[data-revc-scope-group="revBOnly"] h3 span')).toHaveText('1');
