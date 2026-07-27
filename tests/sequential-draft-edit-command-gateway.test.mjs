@@ -14,6 +14,7 @@ import { createSequentialDraftEditCommandGateway } from '../tabs/sequential-sket
 import { createSequentialWorkspaceCommandBoundary } from '../tabs/sequential-sketcher/scoped-edit/sequential-workspace-command-boundary.js';
 
 const ISSUED_AT = '2026-07-27T14:40:00.000Z';
+const LATER_ISSUED_AT = '2026-07-27T14:41:00.000Z';
 const ADOPTED_AT = '2026-07-27T14:39:00.000Z';
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function records(branchId) {
@@ -103,10 +104,10 @@ function fixture(branchId, options = {}) {
   });
   return Object.freeze({ model, gateway, boundary, syncCount: () => syncCount });
 }
-function request(branchId, commandType = 'ADVANCE_ONE') {
+function request(branchId, commandType = 'ADVANCE_ONE', issuedAt = ISSUED_AT) {
   return {
     command: { commandType, branchId },
-    origin: { kind: 'USER', actorId: 'DRAFT_EDIT_GATEWAY_TEST', issuedAt: ISSUED_AT },
+    origin: { kind: 'USER', actorId: 'DRAFT_EDIT_GATEWAY_TEST', issuedAt },
   };
 }
 
@@ -175,6 +176,20 @@ for (const invalidJournal of [null, false]) {
   const after = test.boundary.readCurrentState().ownerSnapshot.revision;
   assert.notDeepEqual(after, before,
     'command owner revision must advance when only the journal head advances');
+}
+
+{
+  const test = fixture('/GATEWAY/JOURNAL-ONLY-COMMIT');
+  const first = test.gateway.execute(request('/GATEWAY/JOURNAL-ONLY-COMMIT', 'RUN_UNTIL_BLOCKED'));
+  assert.equal(first.acceptance.accepted, true);
+  const settledSession = sequentialSessionFingerprint(test.model.session);
+  const second = test.gateway.execute(request(
+    '/GATEWAY/JOURNAL-ONLY-COMMIT', 'RUN_UNTIL_BLOCKED', LATER_ISSUED_AT,
+  ));
+  assert.equal(second.acceptance.accepted, true,
+    'a no-change native result with an appended journal command must remain a committed acceptance');
+  assert.equal(sequentialSessionFingerprint(test.model.session), settledSession);
+  assert.equal(test.model.journalState.journal.entries.length, 2);
 }
 
 {
