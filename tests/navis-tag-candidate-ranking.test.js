@@ -5,7 +5,10 @@ import {
   _test as proximityTest,
   resolveNavisTagIsonotes,
 } from '../tabs/navis-tag-isonote/navis-tag-proximity-engine.js';
-import { _test as evidenceUiTest } from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js';
+import {
+  _test as evidenceUiTest,
+  renderNavisTagIsonoteEvidencePane,
+} from '../tabs/navis-tag-isonote/navis-tag-isonote-ui-evidence.js';
 
 const config = normalizeConfig({
   supportCoordinateSource: 'json-only',
@@ -99,7 +102,8 @@ const identityTrace = {
   diagnostics: [],
   summary: { resolvedCount: 1 },
   rows: [{
-    tableRowId: 'ROW-72', traceId: 'TRACE-72', status: 'RESOLVED_EXACT_PIPE',
+    tableRowId: 'ROW-72', tableRowIndex: 72, tableIdentityRaw: '/PS-11171.5|/PS-11171.3',
+    canonicalIdentity: 'PS-11171.5', supportRoot: 'PS-11171', traceId: 'TRACE-72', status: 'RESOLVED_EXACT_PIPE',
     position: supportPosition, positionSourcePath: 'attributes.POSI', selectedNodeId: 'SJ-3374',
     selectedSourceFile: 'ATTRIBUTE-AML_ASIM-1835_managed_stage.json', selectedJsonPath: '$[38].children[28]',
     selectedAncestorIds: [], selectedIdentityPath: 'attributes.NAME', resolvedBranch: '/ASIM-1835-4"-P8810203-31441C4-PP/B1',
@@ -125,5 +129,12 @@ assert.equal(uiRows[1].comparisonOutcome, 'IN_TOLERANCE_RUNNER_UP');
 assert.equal(uiRows[1].decisionReason, 'RUNNER_UP_REJECTED_BY_SCORE_GAP');
 assert.equal(uiRows[1].topCandidateTagId, '164');
 assert.equal(uiRows[1].runnerUpTagId, '165');
+
+const evidenceHtml = renderNavisTagIsonoteEvidencePane({ activeTab: 'candidates', audit, identityTrace, config });
+assert.match(evidenceHtml, /Candidate score is not a percentage/);
+assert.match(evidenceHtml, /Candidate rank/);
+assert.match(evidenceHtml, /Required score gap/);
+assert.match(evidenceHtml, /IN_TOLERANCE_RUNNER_UP/);
+assert.match(evidenceHtml, /RUNNER_UP_REJECTED_BY_SCORE_GAP/);
 
 console.log('navis-tag-candidate-ranking tests passed');
