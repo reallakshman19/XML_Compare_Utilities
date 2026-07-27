@@ -107,6 +107,7 @@ function fixture(options = {}) {
   };
   const panel = createSequentialDraftEditCommandPanel({
     root: dom.root, gateway, readCurrentState: () => model,
+    readCurrentAuthorityId: options.readCurrentAuthorityId || (() => 'SAUTH-CURRENT'),
     now: options.now || (() => { nowCount += 1; return ISSUED_AT; }),
   });
   return Object.freeze({
@@ -147,6 +148,18 @@ function evidence(test) {
   assert.equal(commandButton(test, 'REJECT_CANDIDATE').disabled, false);
   assert.match(test.elements.target.textContent, /CANDIDATE-001/);
   assert.equal(test.panel.getState().candidateId, CANDIDATE_ID);
+  assert.equal(test.panel.getState().currentAuthorityId, 'SAUTH-CURRENT');
+}
+
+{
+  let authorityId = 'SAUTH-CURRENT';
+  const test = fixture({ session: candidateSession(), readCurrentAuthorityId: () => authorityId });
+  test.panel.setActive(true); test.panel.setCandidateTarget(target());
+  authorityId = 'SAUTH-CHANGED';
+  test.panel.refresh();
+  assert.equal(test.panel.getState().candidateId, null);
+  assert.equal(test.panel.getState().pendingPreparedId, null);
+  assert.match(test.elements.status.textContent, /authority changed/i);
 }
 
 for (const commandType of ['CONNECT_CANDIDATE', 'REJECT_CANDIDATE']) {
