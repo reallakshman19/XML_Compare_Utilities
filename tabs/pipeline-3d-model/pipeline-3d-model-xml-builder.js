@@ -6,7 +6,9 @@ import { PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA } from './pipeline-3d-model-analy
 PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA, } from './pipeline-3d-model-diameter-contracts.js'; import { PIPELINE_BEND_RESOLUTION_SCHEMA, PIPELINE_NORMAL_FITTING_PLAN_SCHEMA,
 } from './pipeline-3d-model-normal-fitting-contracts.js'; import { PIPELINE_B314_RADIUS_PLAN_SCHEMA } from './pipeline-3d-model-b314-radius-contracts.js';
 import { PIPELINE_GRE_VENDOR_PLAN_SCHEMA } from './pipeline-3d-model-gre-vendor-series-contracts.js'; import { resolvePipelineIdentityContext, resolvePipelineNodeIdentity,
-} from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1'; const M_TO_MM = 1000; const NODE_NUMBER_START = 100; const NODE_NUMBER_STEP = 10;
+} from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1'; import { caesar14BendAttributeEntries, caesar14ElementAttributeEntries,
+caesar14ModelAttributeEntries, caesar14RootAttributeEntries, resolvePipelineCaesarWriterProfile, } from './pipeline-3d-model-caesar14-writer-profile.js';
+const M_TO_MM = 1000; const NODE_NUMBER_START = 100; const NODE_NUMBER_STEP = 10;
 const text = (value) => String(value ?? '').trim(); const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right); function toMm(meters) { return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000; }
 export function buildCoordinateRows(combinedPoints, identityInput = {}) { const identity = resolvePipelineIdentityContext(identityInput);
@@ -16,33 +18,36 @@ horizontal: point.horizontal, }; }); } export function coordinateRowsToTabText(r
 'NodeName', 'NodeNameSource', ].join('\t'); const lines = rows.map((row) => [ row.branchName, row.lineNo, row.nodeNumber, row.x, row.y, row.z, row.nodeName, row.nodeNameSource,
 ].join('\t')); return [header, ...lines].join('\n'); } function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', }[ch])); } function attr(name, value) { return `${name}="${esc(value)}"`; }
-function optionalAttr(attrs, name, value) { if (value === '' || value == null || !Number.isFinite(Number(value))) return; attrs.push(attr(name, Number(value))); }
-function optionalTextAttr(attrs, name, value) { const valueText = String(value ?? '').trim(); if (valueText) attrs.push(attr(name, valueText)); }
+function attrs(entries) { return entries.map(([name, value]) => attr(name, value)); }
+function optionalAttr(values, name, value) { if (value === '' || value == null || !Number.isFinite(Number(value))) return; values.push(attr(name, Number(value))); }
+function optionalTextAttr(values, name, value) { const valueText = String(value ?? '').trim(); if (valueText) values.push(attr(name, valueText)); }
 function usableCurvatureNodes(bend) { const turnAngleDeg = Number(bend?.turnAngleDeg); return (bend?.curvatureNodes || []).filter((node) => {
 const angle = Number(node?.angleDeg), nodeNumber = Number(node?.nodeNumber); return Number.isFinite(angle) && angle >= 0 && Number.isInteger(nodeNumber) && nodeNumber > 0
-&& (!Number.isFinite(turnAngleDeg) || angle < turnAngleDeg - 1e-7); }).slice(0, 3); } function bendXml(bend) { const radius = Number(bend?.radiusMm);
-if (!Number.isFinite(radius) || radius <= 0) return ''; const attrs = [attr('RADIUS', radius)], typeCode = Number(bend?.bendTypeCode);
-if (Number.isInteger(typeCode)) attrs.push(attr('TYPE', typeCode)); usableCurvatureNodes(bend).forEach((node, index) => { const slot = index + 1;
-attrs.push(attr(`ANGLE${slot}`, Number(node.angleDeg))); attrs.push(attr(`NODE${slot}`, Number(node.nodeNumber))); }); attrs.push(attr('NUM_MITER', 0));
-optionalAttr(attrs, 'FITTINGTHICKNESS', bend?.fittingThicknessMm); optionalAttr(attrs, 'KFACTOR', bend?.kfactor); return `<BEND ${attrs.join(' ')}/>`; }
-function propertyAttributes(properties) { const attrs = []; optionalAttr(attrs, 'DIAMETER', properties?.diameter); optionalAttr(attrs, 'WALL_THICK', properties?.wallThickness);
-optionalAttr(attrs, 'INSUL_THICK', properties?.insulationThickness); optionalAttr(attrs, 'CORR_ALLOW', properties?.corrosionAllowance);
-(properties?.temperatures || []).forEach((value, index) => optionalAttr(attrs, `TEMP_EXP_C${index + 1}`, value)); (properties?.pressures || []).forEach((value, index) =>
-optionalAttr(attrs, `PRESSURE_C${index + 1}`, value)); optionalAttr(attrs, 'HYDRO_PRESSURE', properties?.hydroPressure);
-optionalAttr(attrs, 'INSUL_DENSITY', properties?.insulationDensity); optionalAttr(attrs, 'FLUID_DENSITY', properties?.fluidDensity);
-optionalAttr(attrs, 'MATERIAL_NUM', properties?.materialNumber); return attrs; } function pipingElementXml(element) { const attrs = [
-attr('ID', element.id), attr('FROM_NODE', element.fromNode), attr('TO_NODE', element.toNode),
+&& (!Number.isFinite(turnAngleDeg) || angle < turnAngleDeg - 1e-7); }).slice(0, 3); } function legacyBendXml(bend) { const radius = Number(bend?.radiusMm);
+if (!Number.isFinite(radius) || radius <= 0) return ''; const values = [attr('RADIUS', radius)], typeCode = Number(bend?.bendTypeCode);
+if (Number.isInteger(typeCode)) values.push(attr('TYPE', typeCode)); usableCurvatureNodes(bend).forEach((node, index) => { const slot = index + 1;
+values.push(attr(`ANGLE${slot}`, Number(node.angleDeg))); values.push(attr(`NODE${slot}`, Number(node.nodeNumber))); }); values.push(attr('NUM_MITER', 0));
+optionalAttr(values, 'FITTINGTHICKNESS', bend?.fittingThicknessMm); optionalAttr(values, 'KFACTOR', bend?.kfactor); return `<BEND ${values.join(' ')}/>`; }
+function bendXml(bend, profile = resolvePipelineCaesarWriterProfile('')) { if (profile.mode !== 'CAESAR_14') return legacyBendXml(bend);
+const values = caesar14BendAttributeEntries(bend, usableCurvatureNodes(bend)); return values.length ? `<BEND ${attrs(values).join(' ')}/>` : ''; }
+function propertyAttributes(properties) { const values = []; optionalAttr(values, 'DIAMETER', properties?.diameter); optionalAttr(values, 'WALL_THICK', properties?.wallThickness);
+optionalAttr(values, 'INSUL_THICK', properties?.insulationThickness); optionalAttr(values, 'CORR_ALLOW', properties?.corrosionAllowance);
+(properties?.temperatures || []).forEach((value, index) => optionalAttr(values, `TEMP_EXP_C${index + 1}`, value)); (properties?.pressures || []).forEach((value, index) =>
+optionalAttr(values, `PRESSURE_C${index + 1}`, value)); optionalAttr(values, 'HYDRO_PRESSURE', properties?.hydroPressure);
+optionalAttr(values, 'INSUL_DENSITY', properties?.insulationDensity); optionalAttr(values, 'FLUID_DENSITY', properties?.fluidDensity);
+optionalAttr(values, 'MATERIAL_NUM', properties?.materialNumber); return values; } function pipingElementXml(element, profile) { const values = profile.mode === 'CAESAR_14'
+? attrs(caesar14ElementAttributeEntries(element)) : [ attr('ID', element.id), attr('FROM_NODE', element.fromNode), attr('TO_NODE', element.toNode),
 attr('DELTA_X', element.deltaX), attr('DELTA_Y', element.deltaY), attr('DELTA_Z', element.deltaZ), ...propertyAttributes(element.emittedProperties ?? element.properties), ];
-optionalTextAttr(attrs, 'FROM_NAME', element.fromName); optionalTextAttr(attrs, 'TO_NAME', element.toName); attrs.push(attr('LINE', element.line));
-attrs.push(attr('FROM_X', element.fromX), attr('FROM_Y', element.fromY), attr('FROM_Z', element.fromZ));
-attrs.push(attr('TO_X', element.toX), attr('TO_Y', element.toY), attr('TO_Z', element.toZ)); const child = bendXml(element.bend);
-if (!child) return `<PIPINGELEMENT ${attrs.join(' ')}/>`; return `<PIPINGELEMENT ${attrs.join(' ')}>\n${child}\n</PIPINGELEMENT>`; } function modelAttributes(plan) {
-const { metadata, counts } = plan, attrs = [attr('JOBNAME', metadata.jobName)]; optionalTextAttr(attrs, 'TIME', metadata.timeText);
-optionalTextAttr(attrs, 'ISSUE_NO', metadata.issueNo); attrs.push( attr('NUMELT', counts.numElt), attr('NUMNOZ', counts.numNoz), attr('NOHGRS', counts.noHgrs),
+if (profile.mode !== 'CAESAR_14') { optionalTextAttr(values, 'FROM_NAME', element.fromName); optionalTextAttr(values, 'TO_NAME', element.toName); values.push(attr('LINE', element.line));
+values.push(attr('FROM_X', element.fromX), attr('FROM_Y', element.fromY), attr('FROM_Z', element.fromZ)); values.push(attr('TO_X', element.toX), attr('TO_Y', element.toY), attr('TO_Z', element.toZ)); }
+const child = bendXml(element.bend, profile); if (!child) return `<PIPINGELEMENT ${values.join(' ')}/>`; return `<PIPINGELEMENT ${values.join(' ')}>\n${child}\n</PIPINGELEMENT>`; }
+function modelAttributes(plan, profile = resolvePipelineCaesarWriterProfile('')) { if (profile.mode === 'CAESAR_14') return attrs(caesar14ModelAttributeEntries(plan));
+const { metadata, counts } = plan, values = [attr('JOBNAME', metadata.jobName)]; optionalTextAttr(values, 'TIME', metadata.timeText);
+optionalTextAttr(values, 'ISSUE_NO', metadata.issueNo); values.push( attr('NUMELT', counts.numElt), attr('NUMNOZ', counts.numNoz), attr('NOHGRS', counts.noHgrs),
 attr('NUMBEND', counts.numBend), attr('NUMRIGID', counts.numRigid), attr('NUMEXPJNT', counts.numExpJnt), attr('NUMREST', counts.numRest),
 attr('NUMFORCMNT', counts.numForcMnt), attr('NUMUNFLOAD', counts.numUnfLoad), attr('NUMWIND', counts.numWind), attr('NUMELEOFF', counts.numEleOff),
 attr('NUMALLOW', counts.numAllow), attr('NUMISECT', counts.numISect), attr('NORTH_X', metadata.northX), attr('NORTH_Y', metadata.northY), attr('NORTH_Z', metadata.northZ), );
-return attrs; } function resolvedPlan(input, coordinateRows, bendResolution) { if (input?.schema === PIPELINE_INPUTXML_DOCUMENT_SCHEMA) return input;
+return values; } function resolvedPlan(input, coordinateRows, bendResolution) { if (input?.schema === PIPELINE_INPUTXML_DOCUMENT_SCHEMA) return input;
 return buildPipelineInputXmlDocumentPlan({ exportContext: input, coordinateRows, bendResolution }); } function blocking(value) {
 return (Array.isArray(value?.blockerCodes) && value.blockerCodes.length > 0) || (Array.isArray(value?.diagnostics)
 && value.diagnostics.some((item) => text(item?.severity) === 'BLOCKING')); } function exactSchemaReferences(plan, authority) { const references = {
@@ -103,8 +108,8 @@ const writerDiagnostic = profileWriterDiagnostic(plan); if (plan.ready && !write
 const error = new Error(first?.message || 'Canonical InputXML document planning failed.'); error.code = first?.code || 'PIPELINE_INPUTXML_DOCUMENT_BLOCKED';
 error.details = first?.details || {}; error.blockerCodes = plan.blockerCodes || []; throw error; }
 export function buildInputXmlPipingModelXml(input, coordinateRows = [], bendResolution = null) { const plan = resolvedPlan(input, coordinateRows, bendResolution);
-assertDocumentReady(plan); const rootAttrs = [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace),
-attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ]; const modelAttrs = [attr('xmlns', ''), ...modelAttributes(plan)]; return [
-'<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`, ...plan.elements.map(pipingElementXml), '</PIPINGMODEL>',
-'</CAESARII>', ].join('\n'); } export const _internal = { toMm, bendXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority,
-};
+assertDocumentReady(plan); const profile = resolvePipelineCaesarWriterProfile(plan.version); const rootAttrs = profile.mode === 'CAESAR_14'
+? attrs(caesar14RootAttributeEntries(plan)) : [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace), attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ];
+const modelAttrs = modelAttributes(plan, profile); return [ '<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
+...plan.elements.map((element) => pipingElementXml(element, profile)), '</PIPINGMODEL>', '</CAESARII>', ].join('\n'); }
+export const _internal = { toMm, bendXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, };
