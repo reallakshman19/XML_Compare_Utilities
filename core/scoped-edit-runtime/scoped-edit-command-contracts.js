@@ -100,7 +100,7 @@ export function validateScopedEditCommandProposal(input) {
   if (!decision.allowed) throw new TypeError('A prepared scoped command requires an allowed boundary decision.');
   const targetIds = uniqueTexts(value.targetIds, 'proposal.targetIds');
   if (!sameJson(targetIds, decision.targetIds)) {
-    throw new TypeError(Proposal targetIds must match the boundary decision.);
+    throw new TypeError('Proposal targetIds must match the boundary decision.');
   }
   return immutableJson({
     schema: SCOPED_EDIT_COMMAND_PROPOSAL_V1,
