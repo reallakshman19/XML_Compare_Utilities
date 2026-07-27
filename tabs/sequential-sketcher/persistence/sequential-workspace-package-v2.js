@@ -1,5 +1,5 @@
 /** Backward-compatible workspace package v2 carrying accepted-command authority. */
-import { immutableJson } from '../../../contracts/contract-values.js';
+import { immutableJson, isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { createConfirmedSequentialConstruction } from '../construction/sequential-construction-acceptance.js';
 import { createSequentialBranchWorkspaceRegistry } from '../sequential-branch-workspace-state.js';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../source/sequential-evidence-model.js';
@@ -33,6 +33,10 @@ function fail(code, detail = '') {
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
+function requiredCreatedAt(value) {
+  if (!isIsoTimestamp(value)) fail('WORKSPACE_PACKAGE_V2_CREATED_AT_INVALID');
+  return value;
+}
 function parsedPackage(input) {
   if (typeof input !== 'string') return cloneJson(input);
   try { return JSON.parse(input); }
@@ -65,6 +69,16 @@ function normalizedRegistry(branchIds, workspaces, indexes) {
   registry.replace(branchIds, rows);
   return registry;
 }
+function explicitV1Package(options) {
+  const createdAt = requiredCreatedAt(options.createdAt);
+  const generated = createSequentialWorkspacePackage(options);
+  const { packageFingerprint: ignored, ...payload } = cloneJson(generated);
+  void ignored;
+  const explicit = { ...payload, createdAt };
+  const result = { ...explicit, packageFingerprint: sequentialWorkspacePackageFingerprint(explicit) };
+  restoreSequentialWorkspacePackage(result);
+  return result;
+}
 function registryForCreate(options, base) {
   const evidence = options.evidence || buildSequentialEvidenceModel(base.source.records);
   const indexes = indexSequentialEvidence(evidence);
@@ -87,7 +101,7 @@ function v1Payload(value) {
 }
 
 export function createSequentialWorkspacePackageV2(options = {}) {
-  const base = createSequentialWorkspacePackage(options);
+  const base = explicitV1Package(options);
   const authorityRegistry = registryForCreate(options, base);
   const commandAuthority = createSequentialWorkspaceCommandAuthority({
     journalState: options.journalState,
