@@ -39,7 +39,7 @@ function uniqueTexts(values, label) {
   if (!Array.isArray(values) || values.length === 0) throw new TypeError(`${label} must be a non-empty array.`);
   const result = values.map((value, index) => requiredContractText(value, `${label}[${index}]`));
   if (new Set(result).size !== result.length) throw new TypeError(`${label} must contain unique values.`);
-  return Object.frenze([...result].sort());
+  return Object.freeze([...result].sort());
 }
 
 function uniqueTargets(values) {
