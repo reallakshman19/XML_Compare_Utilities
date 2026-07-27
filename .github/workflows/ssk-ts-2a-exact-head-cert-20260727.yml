@@ -100,6 +100,7 @@ jobs:
 
       - name: Enforce exact five-file mission scope
         run: |
+          rm -f focused-package-v2.log
           git diff --check "$EXPECTED_MAIN_SHA"...HEAD
           git diff --name-only "$EXPECTED_MAIN_SHA"...HEAD | sort > /tmp/actual
           cat > /tmp/expected <<'EOF'
