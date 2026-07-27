@@ -1,5 +1,5 @@
 import { configuredAnchorSlots } from './navis-tag-anchor-policy.js';
-import { NAVIS_TAG_EVIDENCE_SCHEMA, coordinateProfileOptions, normalizeConfig, parseCoordinate, text, unitScaleToMm } from './navis-tag-isonote-contracts.js';
+import { NAVIS_TAG_EVIDENCE_SCHEMA, coordinateProfileOptions, normalizeConfig, parseCoordinate, text } from './navis-tag-isonote-contracts.js';
 
 function decodeXml(value) {
   return String(value ?? '')
@@ -133,47 +133,50 @@ function findAnchorRow(rows, supportIdentity) {
   }) || null;
 }
 function failedAttempt(anchor, status, reason) {
-  return { ...anchor, valid: false, status, reason, resolvedTagId: '', resolvedSupportIdentity: '', deltaEMm: null, deltaNMm: null, deltaElMm: null };
+  return { ...anchor, valid: false, status, reason, anchorId: '', resolvedTagId: '', resolvedSupportIdentity: '', deltaEMm: null, deltaNMm: null, deltaElMm: null };
 }
-function evaluateAnchor(anchor, navisParse, identityTrace) {
+function zeroDatumConfig(config) {
+  return { ...config, navisEastingDatumMm: 0, navisNorthingDatumMm: 0, navisElevationDatumMm: 0 };
+}
+function stableAnchorId(tagId, supportIdentity) {
+  return `TAG:${text(tagId)}|SUPPORT:${normalizedIdentity(supportIdentity).toUpperCase()}`;
+}
+function evaluateAnchor(anchor, navisParse, identityTrace, config) {
   if (!anchor.complete) return failedAttempt(anchor, 'INCOMPLETE_CONFIG', 'Both Tag ID and Support ID are required.');
   const anchorTag = findAnchorTag(navisParse.tags, anchor.tagId);
   if (!anchorTag) return failedAttempt(anchor, 'TAG_NOT_FOUND', `Navis Tag ${anchor.tagId} was not found.`);
   const anchorRow = findAnchorRow(identityTrace?.rows || [], anchor.supportIdentity);
   if (!anchorRow) return failedAttempt(anchor, 'SUPPORT_NOT_FOUND', `JSON support ${anchor.supportIdentity} was not found.`);
   if (!anchorTag.rawPosition || !anchorRow.position) return failedAttempt(anchor, 'COORDINATE_MISSING', 'Anchor Tag or JSON support has no usable coordinate.');
-  const scale = unitScaleToMm(anchorTag.units || 'm', [anchorTag.rawPosition.x, anchorTag.rawPosition.y, anchorTag.rawPosition.z]);
-  const raw = [anchorTag.rawPosition.x * scale, anchorTag.rawPosition.y * scale, anchorTag.rawPosition.z * scale];
-  const json = [Number(anchorRow.position.x), Number(anchorRow.position.y), Number(anchorRow.position.z)];
-  if (![...raw, ...json].every(Number.isFinite)) return failedAttempt(anchor, 'COORDINATE_INVALID', 'Anchor coordinates are not finite numbers.');
+  const base = parseCoordinate(anchorTag.rawPosition, anchorTag.units, coordinateProfileOptions(zeroDatumConfig(config), 'navis'));
+  const json = anchorRow.position;
+  if (![base?.x, base?.y, base?.z, json?.x, json?.y, json?.z].every(Number.isFinite)) return failedAttempt(anchor, 'COORDINATE_INVALID', 'Anchor coordinates are not finite numbers.');
+  const resolvedSupportIdentity = anchorRow.canonicalIdentity;
   return {
-    ...anchor, valid: true, status: 'VALID', reason: 'Exact configured Tag and support identity resolved with coordinates.',
-    resolvedTagId: anchorTag.tagId, commentId: anchorTag.commentId, anchorTag, anchorRow,
-    resolvedSupportIdentity: anchorRow.canonicalIdentity, groupedSourceIdentities: anchorRow.tableIdentityRaw || (anchorRow.groupedIdentities || []).join('|'),
-    selectedNodeId: anchorRow.selectedNodeId || '', selectedJsonPath: anchorRow.selectedJsonPath || '', selectedBranch: anchorRow.resolvedBranch || '',
-    deltaEMm: json[0] - raw[0], deltaNMm: json[1] - raw[1], deltaElMm: json[2] - raw[2],
+    ...anchor,
+    valid: true,
+    status: 'VALID_HYPOTHESIS',
+    reason: 'Configured Tag and JSON support identity resolved with finite coordinates.',
+    anchorId: stableAnchorId(anchorTag.tagId, resolvedSupportIdentity),
+    resolvedTagId: anchorTag.tagId,
+    commentId: anchorTag.commentId,
+    anchorTag,
+    anchorRow,
+    resolvedSupportIdentity,
+    groupedSourceIdentities: anchorRow.tableIdentityRaw || (anchorRow.groupedIdentities || []).join('|'),
+    selectedNodeId: anchorRow.selectedNodeId || '',
+    selectedJsonPath: anchorRow.selectedJsonPath || '',
+    selectedBranch: anchorRow.resolvedBranch || '',
+    deltaEMm: Number(json.x) - Number(base.x),
+    deltaNMm: Number(json.y) - Number(base.y),
+    deltaElMm: Number(json.z) - Number(base.z),
   };
 }
-function deltaDifference(left, right) {
-  if (!left?.valid || !right?.valid) return null;
-  const values = [left.deltaEMm - right.deltaEMm, left.deltaNMm - right.deltaNMm, left.deltaElMm - right.deltaElMm];
-  return Math.sqrt(values.reduce((sum, value) => sum + (value * value), 0));
-}
-function classifyAttempts(attempts, selected, tolerance) {
-  return attempts.map((attempt) => {
-    if (!attempt.valid) return attempt;
-    if (attempt.priority === selected.priority) return { ...attempt, status: selected.priority === 1 ? 'SELECTED_PRIMARY' : 'SELECTED_FALLBACK', deltaDifferenceMm: 0 };
-    const difference = deltaDifference(attempt, selected);
-    return { ...attempt, status: difference <= tolerance ? 'AVAILABLE_FALLBACK_AGREES' : 'AVAILABLE_FALLBACK_CONFLICT', deltaDifferenceMm: difference };
-  });
-}
 function inactiveAnchor(attempts = [], summaryText = '') {
-  return { active: false, policy: 'PRIORITY_FALLBACK', selectedPriority: 0, fallbackUsed: false, tagId: '', supportIdentity: '', deltaEMm: 0, deltaNMm: 0, deltaElMm: 0, attempts, summaryText };
+  return { active: false, policy: 'EQUAL_AUTHORITY', configuredCount: attempts.length, validCount: 0, hypotheses: [], attempts, globalTransformApplied: false, summaryText };
 }
-function anchorSummary(selected) {
-  const mode = selected.priority === 1 ? 'ANCHOR OVERRIDE' : 'ANCHOR FALLBACK';
-  const requested = selected.supportIdentity === selected.resolvedSupportIdentity ? '' : `; requested ${selected.supportIdentity}`;
-  return `${mode}: Priority ${selected.priority} Tag ${selected.resolvedTagId} -> selected authority ${selected.resolvedSupportIdentity}${requested} (ΔE=${selected.deltaEMm.toFixed(3)}, ΔN=${selected.deltaNMm.toFixed(3)}, ΔEL=${selected.deltaElMm.toFixed(3)} mm)`;
+function anchorSummary(valid) {
+  return `${valid.length} equal-authority anchor transform ${valid.length === 1 ? 'hypothesis' : 'hypotheses'} available. Candidate matching may use whichever hypothesis gives the best tolerance-normalized result.`;
 }
 
 export function applyAnchorTransformation(navisParse, identityTrace, inputConfig = {}) {
@@ -184,38 +187,46 @@ export function applyAnchorTransformation(navisParse, identityTrace, inputConfig
     navisParse.anchor = inactiveAnchor([], '');
     return navisParse;
   }
-  const evaluated = anchors.map((anchor) => evaluateAnchor(anchor, navisParse, identityTrace));
-  const selected = evaluated.find((attempt) => attempt.valid);
-  if (!selected) {
-    const reasons = evaluated.map((attempt) => `P${attempt.priority} ${attempt.status}`).join('; ');
-    navisParse.anchor = inactiveAnchor(evaluated, `No configured anchor could be selected. ${reasons}`);
+  const attempts = anchors.map((anchor) => evaluateAnchor(anchor, navisParse, identityTrace, config));
+  const hypotheses = attempts.filter((attempt) => attempt.valid).sort((a, b) => a.anchorId.localeCompare(b.anchorId));
+  if (!hypotheses.length) {
+    const reasons = attempts.map((attempt) => `Anchor ${attempt.slot || attempt.priority}: ${attempt.status}`).join('; ');
+    navisParse.anchor = inactiveAnchor(attempts, `No configured anchor hypothesis is usable. ${reasons}`);
     return navisParse;
   }
-  const tolerance = Number(config.coordinateDisagreementToleranceMm) || 0;
-  const attempts = classifyAttempts(evaluated, selected, tolerance);
-  const summaryText = anchorSummary(selected);
-  const effectiveConfig = { ...config, navisEastingDatumMm: selected.deltaEMm, navisNorthingDatumMm: selected.deltaNMm, navisElevationDatumMm: selected.deltaElMm };
-  const options = coordinateProfileOptions(effectiveConfig, 'navis');
-  for (const tag of navisParse.tags) {
-    if (!tag.rawPosition) continue;
-    const newPos = parseCoordinate(tag.rawPosition, tag.units, options);
-    tag.position = newPos;
-    tag.datumOffsetMm = newPos?.datumOffsetMm || { x: selected.deltaEMm, y: selected.deltaNMm, z: selected.deltaElMm };
-    tag.transformBasis = summaryText;
+  const single = hypotheses.length === 1 ? hypotheses[0] : null;
+  if (single) {
+    const effectiveConfig = { ...config, navisEastingDatumMm: single.deltaEMm, navisNorthingDatumMm: single.deltaNMm, navisElevationDatumMm: single.deltaElMm };
+    const options = coordinateProfileOptions(effectiveConfig, 'navis');
+    for (const tag of navisParse.tags) {
+      if (!tag.rawPosition) continue;
+      const newPos = parseCoordinate(tag.rawPosition, tag.units, options);
+      tag.position = newPos;
+      tag.datumOffsetMm = newPos?.datumOffsetMm || { x: single.deltaEMm, y: single.deltaNMm, z: single.deltaElMm };
+      tag.transformBasis = `Single anchor: Tag ${single.resolvedTagId} ↔ /${single.resolvedSupportIdentity}`;
+    }
   }
   navisParse.anchor = {
-    active: true, policy: 'PRIORITY_FALLBACK', selectedPriority: selected.priority, fallbackUsed: selected.priority > 1,
-    configuredCount: anchors.length, tagId: selected.resolvedTagId, commentId: selected.commentId,
-    requestedSupportIdentity: selected.supportIdentity, supportIdentity: selected.resolvedSupportIdentity,
-    groupedSourceIdentities: selected.groupedSourceIdentities, selectedNodeId: selected.selectedNodeId,
-    selectedJsonPath: selected.selectedJsonPath, selectedBranch: selected.selectedBranch,
-    deltaEMm: selected.deltaEMm, deltaNMm: selected.deltaNMm, deltaElMm: selected.deltaElMm,
-    anchorResidualMm: 0, attempts, summaryText,
+    active: true,
+    policy: 'EQUAL_AUTHORITY',
+    configuredCount: anchors.length,
+    validCount: hypotheses.length,
+    hypotheses,
+    attempts,
+    globalTransformApplied: Boolean(single),
+    tagId: single?.resolvedTagId || '',
+    commentId: single?.commentId || '',
+    supportIdentity: single?.resolvedSupportIdentity || '',
+    deltaEMm: single?.deltaEMm ?? null,
+    deltaNMm: single?.deltaNMm ?? null,
+    deltaElMm: single?.deltaElMm ?? null,
+    summaryText: anchorSummary(hypotheses),
   };
   if (navisParse.summary) {
-    navisParse.summary.datumOffsetMm = { x: selected.deltaEMm, y: selected.deltaNMm, z: selected.deltaElMm };
-    navisParse.summary.anchorSelectedPriority = selected.priority;
-    navisParse.summary.anchorFallbackUsed = selected.priority > 1;
+    navisParse.summary.anchorPolicy = 'EQUAL_AUTHORITY';
+    navisParse.summary.anchorValidCount = hypotheses.length;
+    navisParse.summary.anchorGlobalTransformApplied = Boolean(single);
+    if (single) navisParse.summary.datumOffsetMm = { x: single.deltaEMm, y: single.deltaNMm, z: single.deltaElMm };
   }
   return navisParse;
 }

@@ -17,6 +17,7 @@ import {
   buildDecisionRow,
   createLedgerBase,
 } from './navis-tag-candidate-evidence.js';
+import { evaluateCandidatesAcrossAnchors } from './navis-tag-multi-anchor-ranking.js';
 import { applyAnchorTransformation } from './navis-tag-xml-parser.js';
 
 export { NAVIS_CANDIDATE_SCORE_MODEL } from './navis-tag-candidate-ranking.js';
@@ -38,13 +39,15 @@ function effectiveConfig(tableBuild, identityTrace, navisParse, inputConfig) {
   const configuredSupportCoordinateSource = config.supportCoordinateSource;
   if (navisParse && identityTrace) {
     applyAnchorTransformation(navisParse, identityTrace, config);
-    if (navisParse.anchor?.active) config = {
-      ...config,
-      navisEastingDatumMm: navisParse.anchor.deltaEMm,
-      navisNorthingDatumMm: navisParse.anchor.deltaNMm,
-      navisElevationDatumMm: navisParse.anchor.deltaElMm,
-      supportCoordinateSource: 'prefer-json-fallback-table',
-    };
+    if (navisParse.anchor?.active) {
+      config = { ...config, supportCoordinateSource: 'prefer-json-fallback-table' };
+      if (navisParse.anchor.globalTransformApplied) config = {
+        ...config,
+        navisEastingDatumMm: navisParse.anchor.deltaEMm,
+        navisNorthingDatumMm: navisParse.anchor.deltaNMm,
+        navisElevationDatumMm: navisParse.anchor.deltaElMm,
+      };
+    }
   }
   return { config, configuredSupportCoordinateSource };
 }
@@ -54,11 +57,11 @@ function appendCoordinateSourceDiagnostic(diagnostics, navisParse, configuredSou
   diagnostics.push({
     severity: 'INFO',
     code: 'ANCHOR_JSON_COORDINATE_SOURCE_OVERRIDE',
-    anchorTagId: navisParse.anchor.tagId,
-    anchorSupportIdentity: navisParse.anchor.supportIdentity,
+    anchorPolicy: navisParse.anchor.policy,
+    validAnchorCount: navisParse.anchor.validCount,
     configuredSupportCoordinateSource: configuredSource,
     appliedSupportCoordinateSource: appliedSource,
-    message: `Anchor mode changed the Stage 3 support coordinate source from ${configuredSource} to ${appliedSource} so matching uses the staged JSON frame that defined the anchor.`,
+    message: `Equal-authority anchor mode changed the Stage 3 support coordinate source from ${configuredSource} to ${appliedSource}; each Tag candidate is evaluated under every valid anchor transform.`,
   });
 }
 
@@ -84,12 +87,17 @@ function appendCoordinateDisagreement(diagnostics, record, positionChoice, confi
   });
 }
 
+function candidateEvaluation(trace, positionChoice, navisParse, config) {
+  if (!positionChoice.point) return { candidates: [], nearestRejected: null };
+  const anchors = navisParse?.anchor?.hypotheses || [];
+  if (anchors.length) return evaluateCandidatesAcrossAnchors(trace || {}, positionChoice.point, navisParse?.tags || [], anchors, config);
+  return evaluateCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config);
+}
+
 function resolveRecord(record, trace, navisParse, config, candidateLedger, diagnostics) {
   const positionChoice = positionChoiceFor(record, trace, config);
   appendCoordinateDisagreement(diagnostics, record, positionChoice, config);
-  const evaluation = positionChoice.point
-    ? evaluateCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config)
-    : { candidates: [], nearestRejected: null };
+  const evaluation = candidateEvaluation(trace, positionChoice, navisParse, config);
   const result = positionChoice.point ? decision(evaluation.candidates, config, evaluation.nearestRejected) : {
     ...unresolvedDecision(null, config),
     ambiguity: trace?.status || 'SUPPORT_POSITION_UNAVAILABLE',
@@ -103,6 +111,17 @@ function resolveRecord(record, trace, navisParse, config, candidateLedger, diagn
   return { decisionRow, augmentedRow: buildAugmentedRow(record, decisionRow, result, evaluation.candidates) };
 }
 
+function anchorUsage(candidateLedger) {
+  const byAnchor = {};
+  for (const row of candidateLedger) {
+    if (!row.anchorBasisId) continue;
+    if (!byAnchor[row.anchorBasisId]) byAnchor[row.anchorBasisId] = { anchorBasisId: row.anchorBasisId, anchorBasisLabel: row.anchorBasisLabel, candidateCount: 0, selectedCount: 0 };
+    byAnchor[row.anchorBasisId].candidateCount += 1;
+    if (row.accepted) byAnchor[row.anchorBasisId].selectedCount += 1;
+  }
+  return Object.values(byAnchor).sort((a, b) => a.anchorBasisId.localeCompare(b.anchorBasisId));
+}
+
 function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger) {
   return {
     tableRowCount: tableBuild?.records?.length || 0,
@@ -113,6 +132,9 @@ function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidat
     unresolvedCount: decisions.filter((row) => row.status === 'UNRESOLVED').length,
     nearestRejectedCount: decisions.filter((row) => row.nearestRejectedTagId).length,
     candidateLedgerCount: candidateLedger.length,
+    anchorPolicy: navisParse?.anchor?.policy || 'NONE',
+    configuredAnchorCount: navisParse?.anchor?.configuredCount || 0,
+    validAnchorCount: navisParse?.anchor?.validCount || 0,
     scoringModel: NAVIS_CANDIDATE_SCORE_MODEL,
   };
 }
@@ -137,6 +159,8 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   const directAudit = {
     schema: NAVIS_TAG_ISONOTE_AUDIT_SCHEMA,
     config,
+    anchor: navisParse?.anchor || null,
+    anchorUsage: anchorUsage(candidateLedger),
     summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger),
     augmentedRows,
     decisions,
@@ -156,5 +180,6 @@ export const _test = Object.freeze({
   chooseSupportPosition,
   decision,
   evaluateCandidates,
+  evaluateCandidatesAcrossAnchors,
   verticalResidual,
 });
