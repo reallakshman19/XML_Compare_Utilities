@@ -74,10 +74,15 @@ function elementDiagnostics(fromRow, toRow, index) {
 function bendForIndex(bendResolution, index) {
   return bendResolution?.bendByIncomingElementIndex?.[index] || null;
 }
-function buildElement(fromRow, toRow, index, lineNo, propertyResolution,
-  mechanicalResolution, bendResolution) {
+function buildElement(fromRow, toRow, index, lineNo, propertyResolution, mechanicalResolution, bendResolution) {
   const [fromX, fromY, fromZ] = coordinateValues(fromRow);
   const [toX, toY, toZ] = coordinateValues(toRow);
+  const mechanical = mechanicalResolution ? {
+    mechanicalPropertySectionId: mechanicalResolution.sectionId || '',
+    mechanicalPropertyDisposition: mechanicalResolution.propertyDisposition || '',
+    mechanicalProperties: mechanicalResolution.properties || Object.freeze({}),
+    emittedMechanicalProperties: mechanicalResolution.emittedProperties || Object.freeze({}),
+  } : {};
   return Object.freeze({
     schema: PIPELINE_INPUTXML_ELEMENT_SCHEMA,
     id: `E${index + 1}`,
@@ -95,10 +100,7 @@ function buildElement(fromRow, toRow, index, lineNo, propertyResolution,
     propertyDisposition: propertyResolution?.propertyDisposition || '',
     properties: propertyResolution?.properties || Object.freeze({}),
     emittedProperties: propertyResolution?.emittedProperties || Object.freeze({}),
-    mechanicalPropertySectionId: mechanicalResolution?.sectionId || '',
-    mechanicalPropertyDisposition: mechanicalResolution?.propertyDisposition || '',
-    mechanicalProperties: mechanicalResolution?.properties || Object.freeze({}),
-    emittedMechanicalProperties: mechanicalResolution?.emittedProperties || Object.freeze({}),
+    ...mechanical,
     bend: bendForIndex(bendResolution, index),
     diagnostics: Object.freeze(elementDiagnostics(fromRow, toRow, index)),
   });
@@ -200,7 +202,7 @@ function profileDocumentPlan({
   });
   const baseElements = coordinateRows.slice(1).map((toRow, index) => buildElement(
     coordinateRows[index], toRow, index, lineNo,
-    propertySectionPlan.elements[index], mechanicalPropertyPlan.elements[index], bendResolution,
+    propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null, bendResolution,
   ));
   const elements = Object.freeze(baseElements.map((element, index) =>
     profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
@@ -232,8 +234,7 @@ function profileDocumentPlan({
     counts: modelCounts(elements),
     propertySectionPlan,
     propertySectionPlanSchema: PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
-    mechanicalPropertyPlan,
-    mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA,
+    ...(mechanicalPropertyPlan.active ? { mechanicalPropertyPlan, mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA } : {}),
     profileAuthorityPlan,
     profileAuthorityPlanSchema: PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
     analysisSectionPlanSchema: profileAuthorityPlan.analysisSectionPlanSchema,
@@ -266,7 +267,7 @@ export function buildPipelineInputXmlDocumentPlan({
   });
   const elements = Object.freeze(coordinateRows.slice(1).map((toRow, index) =>
     buildElement(coordinateRows[index], toRow, index, lineNo,
-      propertySectionPlan.elements[index], mechanicalPropertyPlan.elements[index], bendResolution)));
+      propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null, bendResolution)));
   const diagnostics = Object.freeze(uniqueDiagnostics([
     ...contextDiagnostics(exportContext),
     ...globalDiagnostics(branchInfo, coordinateRows),
@@ -286,8 +287,7 @@ export function buildPipelineInputXmlDocumentPlan({
     counts: modelCounts(elements),
     propertySectionPlan,
     propertySectionPlanSchema: PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
-    mechanicalPropertyPlan,
-    mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA,
+    ...(mechanicalPropertyPlan.active ? { mechanicalPropertyPlan, mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA } : {}),
     elements,
     diagnostics,
     blockerCodes: uniqueCodes(diagnostics),
