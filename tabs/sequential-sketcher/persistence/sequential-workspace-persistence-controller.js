@@ -35,6 +35,7 @@ function downloadText(documentRef, filename, content) {
 }
 function timestamp() { return new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/u, 'Z'); }
 function createdAt() { return new Date().toISOString(); }
+function postCommit(action) { try { action(); } catch {} }
 
 export function mountSequentialWorkspacePersistenceController(root, workspace, context = {}) {
   const exportButton = required(root, '[data-ssk-workspace-export]');
@@ -113,6 +114,17 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       sequence: restoration.applicationReceipts.length + 1,
     });
   }
+  function settleApplied(restoration, preview, receipt) {
+    lastReceipt = receipt;
+    pendingRestoration = null;
+    pendingPreview = null;
+    postCommit(() => { receiptButton.disabled = false; });
+    postCommit(() => { applyButton.disabled = true; cancelButton.disabled = true; });
+    postCommit(clearApproval);
+    postCommit(() => setSummary(summary, `Applied ${preview.packageSchema} revision ${preview.packageRevision}; journal impact ${preview.journalImpact}; receipt ${receipt.receiptId}.`, 'ok'));
+    postCommit(() => context.showToast?.(`${preview.packageSchema} applied and receipt recorded.`, 'success'));
+    return Object.freeze({ restoration, receipt });
+  }
 
   function applyPending() {
     if (!pendingRestoration || !pendingPreview) {
@@ -137,13 +149,7 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       applicationReceipts: receipts,
       expectedJournalImpact: preview.journalImpact,
     });
-    lastReceipt = receipt;
-    receiptButton.disabled = false;
-    clearPending();
-    clearApproval();
-    setSummary(summary, `Applied ${preview.packageSchema} revision ${preview.packageRevision}; journal impact ${preview.journalImpact}; receipt ${receipt.receiptId}.`, 'ok');
-    context.showToast?.(`${preview.packageSchema} applied and receipt recorded.`, 'success');
-    return Object.freeze({ restoration, receipt });
+    return settleApplied(restoration, preview, receipt);
   }
 
   function cancelPending() {
