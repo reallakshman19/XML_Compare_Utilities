@@ -122,6 +122,7 @@ assert.notEqual(packageV2.commandAuthority.adoptionBranchSetFingerprint,
 
 const restored = restoreSequentialWorkspacePackageV2(JSON.stringify(packageV2));
 assert.equal(restored.schema, 'SequentialWorkspaceRestoration.v2');
+assert.equal(restored.packageFingerprint, packageV2.packageFingerprint);
 assert.equal(restored.journalState.journal.entries.length, 1);
 assert.equal(restored.commandAuthority.journalHeadFingerprint,
   packageV2.commandAuthority.journalHeadFingerprint);
