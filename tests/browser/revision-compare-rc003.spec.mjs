@@ -101,9 +101,11 @@ test('guided review preserves comparison meaning and resumes exact review eviden
 
   await page.getByRole('button', { name: 'Change scope' }).click();
   const branch = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
-  const branchRow = page.locator('label.revc-scope-row', { has: branch });
-  await branchRow.click(); await expect(branch).not.toBeChecked();
-  await branchRow.click(); await expect(branch).toBeChecked();
+  await expect(branch).toBeEnabled();
+  await branch.focus(); await page.keyboard.press('Space');
+  await expect(branch).not.toBeChecked();
+  await branch.focus(); await page.keyboard.press('Space');
+  await expect(branch).toBeChecked();
   await expect(page.locator('.revc-review-session').filter({ has: page.locator('[data-revc-download-review]') })).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.review.session.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download review session' })).toBeVisible();
