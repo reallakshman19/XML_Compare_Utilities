@@ -33,10 +33,16 @@ The gateway delegates command preparation and acceptance to `createSequentialCom
 A gateway is ready only when:
 
 - an active `SequentialConstructionSession.v1` branch exists;
-- journal authority is present;
-- `validateSequentialCommandJournalState()` reports no error.
+- source evidence is initialized;
+- persisted journal authority is present and structurally valid;
+- the journal adoption source fingerprint matches current source evidence;
+- the adoption branch set matches the current registry;
+- every adopted legacy transaction prefix remains intact;
+- a valid current SVG owner revision exists.
 
-Only `null` and `undefined` mean journal authority is absent. Invalid present authority fails closed.
+The gateway proves the complete condition by deriving the same exact `SequentialEditAuthorityBasis.v1` used by command preparation. It does not equate a structurally valid journal with live authority readiness.
+
+Only `null` and `undefined` mean journal authority is absent. Invalid present authority, stale adoption evidence, uninitialized source, or missing owner revision fails closed. Readiness remains safely inspectable before a branch is opened.
 
 Readiness reports the exact active branch and the existing `SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES` allowlist.
 
@@ -50,7 +56,7 @@ Each request requires:
 - non-empty `actorId`;
 - exact round-tripping ISO `issuedAt`.
 
-The gateway JSON-validates, copies, and freezes caller command and origin values before delegation. It never mutates caller input.
+The gateway JSON-validates, copies, and freezes caller command and origin values before delegation. It never mutates caller input. Malformed command and origin failures are coded as `COMMAND_SCHEMA_INVALID`.
 
 Commands outside the deterministic allowlist fail as `COMMAND_RUNTIME_NOT_DETERMINISTIC`. Branch disagreement fails as `COMMAND_BRANCH_MISMATCH`.
 
@@ -58,7 +64,14 @@ Commands outside the deterministic allowlist fail as `COMMAND_RUNTIME_NOT_DETERM
 
 `SequentialWorkspaceCommandBoundary.v1` derives the exact current authority again immediately before publication. Stale authority fails before workspace mutation.
 
-Before commit, it:
+The command-boundary owner revision combines:
+
+- the actual current SVG owner revision; and
+- the exact current journal-head fingerprint.
+
+This ensures that an accepted no-change native result which still appends a journal command advances command publication authority. It cannot be misclassified as partial publication merely because the visual session revision is unchanged.
+
+Before commit, the boundary:
 
 1. validates the complete candidate branch-entry set using a fresh registry;
 2. verifies that the candidate active branch snapshot contains the exact candidate session;
@@ -67,7 +80,7 @@ Before commit, it:
 
 Commit reuses the merged `workspace.restorePackage()` boundary with expected journal impact `REPLACE`. This preserves its fresh-registry validation, downstream regeneration, coherent state assignment, 2D repaint containment, and receipt-history preservation.
 
-After commit, the tab explicitly observes the new owner snapshot through the production shadow and schedules a Draft Edit 3D refresh. Synchronization failure is recorded as a publication warning but does not reverse or misreport an already committed accepted command.
+After commit, the tab explicitly observes the new owner snapshot through the production shadow and schedules a Draft Edit 3D refresh. Draft Edit activation has already returned the Engineering SVG preview to Construction SVG. Synchronization failure is recorded as a publication warning but does not reverse or misreport an already committed accepted command.
 
 ## Controller surface
 
@@ -99,14 +112,18 @@ This Work Pack does not enable candidate, manual-connect, reject, terminal, exte
 
 The additive dynamic test covers:
 
-- valid readiness;
+- uninitialized readiness;
+- valid complete authority readiness;
+- structurally valid but adoption-stale authority;
 - deterministic preparation;
 - successful coherent publication;
 - absent and invalid journal authority;
 - active-branch mismatch;
 - non-deterministic command rejection;
-- invalid origin time;
+- malformed command/origin evidence;
 - stale prepared-command rejection;
+- journal-only owner-revision advancement;
+- repeated `RUN_UNTIL_BLOCKED` with a no-change native result and committed journal append;
 - injected pre-commit failure with unchanged authority;
 - post-commit synchronization failure with committed acceptance;
 - caller-input immutability.
@@ -116,6 +133,8 @@ The static test proves:
 - no visible command markup;
 - no topology gesture or drag path;
 - no implicit journal-adoption creator;
+- complete authority derivation during readiness;
+- journal-bound command owner revision;
 - use of the existing workspace restoration boundary;
 - named exports;
 - all edited production modules remain below 300 lines;
