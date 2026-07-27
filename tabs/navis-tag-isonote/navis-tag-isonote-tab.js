@@ -17,8 +17,8 @@ import { downloadNavisTagFile, readNavisTagStagedFile, readNavisTagTableFile } f
 const POPUP_TITLE_ID = 'navis-tag-isonote-title';
 const CONFIG_STORE = 'navisTagIsonote.config.v4';
 const SESSION_STORE = 'navisTagIsonote.session.v1';
+const STAGED_STORE = 'navisTagIsonote.staged.v1';
 const MAX_SOURCE_TEXT_CHARS = 900000;
-const MAX_STAGED_JSON_CHARS = 1400000;
 const MAX_SESSION_CHARS = 3600000;
 const ACTIVATE = 'click';
 
@@ -38,6 +38,46 @@ function readSession() {
     return {};
   }
 }
+function readStoredStagedDocuments(legacyDocuments = []) {
+  try {
+    const serialized = storage()?.getItem(STAGED_STORE) || '';
+    if (serialized) {
+      const documents = JSON.parse(serialized);
+      if (Array.isArray(documents)) return { documents, source: 'DEDICATED_STORE', serializedSize: serialized.length };
+    }
+  } catch {}
+  const documents = Array.isArray(legacyDocuments) ? legacyDocuments : [];
+  let serializedSize = 0;
+  try { serializedSize = documents.length ? JSON.stringify(documents).length : 0; } catch {}
+  return { documents, source: documents.length ? 'LEGACY_SESSION' : 'NONE', serializedSize };
+}
+function saveStagedDocuments(state) {
+  if (!state.stagedStorageDirty) return state.stagedStorageMeta || { stored: Boolean(state.stagedDocuments?.length), count: state.stagedDocuments?.length || 0, serializedSize: 0 };
+  const documents = Array.isArray(state.stagedDocuments) ? state.stagedDocuments : [];
+  if (!documents.length) {
+    try { storage()?.removeItem(STAGED_STORE); } catch {}
+    state.stagedStorageDirty = false;
+    state.stagedStorageMeta = { stored: false, count: 0, serializedSize: 0, savedAt: new Date().toISOString() };
+    return state.stagedStorageMeta;
+  }
+  let serialized = '';
+  try {
+    serialized = JSON.stringify(documents);
+    storage()?.setItem(STAGED_STORE, serialized);
+    state.stagedStorageDirty = false;
+    state.stagedStorageMeta = { stored: true, count: documents.length, serializedSize: serialized.length, savedAt: new Date().toISOString() };
+  } catch (error) {
+    try { storage()?.removeItem(STAGED_STORE); } catch {}
+    state.stagedStorageMeta = {
+      stored: false,
+      count: documents.length,
+      serializedSize: serialized.length,
+      storageError: true,
+      message: `Staged JSON could not be retained in browser storage: ${error?.message || error || 'storage quota exceeded'}`,
+    };
+  }
+  return state.stagedStorageMeta;
+}
 function compactTableImport(value) {
   if (!value || typeof value !== 'object') return null;
   return {
@@ -46,40 +86,27 @@ function compactTableImport(value) {
     diagnostics: Array.isArray(value.diagnostics) ? value.diagnostics.slice(0, 100) : [],
   };
 }
-function sourceSnapshot(state) {
+function sourceSnapshot(state, stagedMeta = state.stagedStorageMeta || {}) {
   const omitted = {};
   const tableText = String(state.tableText || '');
   const navisText = String(state.navisText || '');
-  let stagedDocuments = [];
-  let stagedSize = 0;
-  try {
-    const serialized = JSON.stringify(state.stagedDocuments || []);
-    stagedSize = serialized.length;
-    if (stagedSize <= MAX_STAGED_JSON_CHARS) stagedDocuments = state.stagedDocuments || [];
-    else omitted.staged = `Staged documents exceeded ${MAX_STAGED_JSON_CHARS} characters and must be reloaded.`;
-  } catch {
-    omitted.staged = 'Staged documents could not be serialized and must be reloaded.';
-  }
+  if (stagedMeta.storageError) omitted.staged = stagedMeta.message || 'Staged documents could not be retained and must be reloaded.';
   if (tableText.length > MAX_SOURCE_TEXT_CHARS) omitted.table = `Support table exceeded ${MAX_SOURCE_TEXT_CHARS} characters and must be reloaded.`;
   if (navisText.length > MAX_SOURCE_TEXT_CHARS) omitted.navis = `Navis XML exceeded ${MAX_SOURCE_TEXT_CHARS} characters and must be reloaded.`;
   const payload = {
-    version: 1,
+    version: 2,
     savedAt: new Date().toISOString(),
     tableText: omitted.table ? '' : tableText,
     navisText: omitted.navis ? '' : navisText,
-    stagedDocuments,
     tableImport: compactTableImport(state.tableImport),
     sourceNames: { ...(state.sourceNames || {}) },
     sourceTypes: { ...(state.sourceTypes || {}) },
     omitted,
-    stagedSize,
+    stagedDocumentCount: Number(stagedMeta.count ?? state.stagedDocuments?.length ?? 0),
+    stagedSize: Number(stagedMeta.serializedSize || 0),
+    stagedStored: Boolean(stagedMeta.stored),
   };
   let serialized = JSON.stringify(payload);
-  if (serialized.length > MAX_SESSION_CHARS && payload.stagedDocuments.length) {
-    payload.stagedDocuments = [];
-    payload.omitted.staged = `Session exceeded ${MAX_SESSION_CHARS} characters; staged documents must be reloaded.`;
-    serialized = JSON.stringify(payload);
-  }
   if (serialized.length > MAX_SESSION_CHARS && payload.navisText) {
     payload.navisText = '';
     payload.omitted.navis = `Session exceeded ${MAX_SESSION_CHARS} characters; Navis XML must be reloaded.`;
@@ -94,34 +121,46 @@ function sourceSnapshot(state) {
 }
 function saveSession(state) {
   try {
-    const snapshot = sourceSnapshot(state);
+    const stagedMeta = saveStagedDocuments(state);
+    const snapshot = sourceSnapshot(state, stagedMeta);
     storage()?.setItem(SESSION_STORE, snapshot.serialized);
-    state.sessionMeta = { restoredAt: snapshot.payload.savedAt, omitted: snapshot.payload.omitted };
+    state.sessionMeta = { restoredAt: snapshot.payload.savedAt, omitted: snapshot.payload.omitted, staged: stagedMeta };
   } catch {
     state.sessionMeta = { ...(state.sessionMeta || {}), storageError: true };
   }
 }
 function clearSessionStorage() {
-  try { storage()?.removeItem(SESSION_STORE); } catch {}
+  try {
+    storage()?.removeItem(SESSION_STORE);
+    storage()?.removeItem(STAGED_STORE);
+  } catch {}
 }
 function configSignature(config) { return JSON.stringify(normalizeConfig(config || {})); }
 function markInputsDirty(state) { state.inputsDirty = true; state.audit = null; }
-function hasRestoredSources(session) {
-  return Boolean(session.tableText || session.navisText || session.stagedDocuments?.length || Object.values(session.sourceNames || {}).some(Boolean));
+function hasRestoredSources(session, stagedDocuments = []) {
+  return Boolean(session.tableText || session.navisText || stagedDocuments.length || Object.values(session.sourceNames || {}).some(Boolean));
 }
 function createState() {
   const session = readSession();
-  const restored = hasRestoredSources(session);
-  return {
+  const stagedRestore = readStoredStagedDocuments(session.stagedDocuments);
+  const restored = hasRestoredSources(session, stagedRestore.documents);
+  const state = {
     config: readConfig(),
     activeTab: 'inputs',
     tableText: String(session.tableText || ''),
     tableImport: session.tableImport || null,
     navisText: String(session.navisText || ''),
-    stagedDocuments: Array.isArray(session.stagedDocuments) ? session.stagedDocuments : [],
+    stagedDocuments: stagedRestore.documents,
+    stagedStorageDirty: stagedRestore.source === 'LEGACY_SESSION',
+    stagedStorageMeta: {
+      stored: stagedRestore.source === 'DEDICATED_STORE',
+      count: stagedRestore.documents.length,
+      serializedSize: stagedRestore.serializedSize,
+      restoredFrom: stagedRestore.source,
+    },
     sourceNames: { table: '', navis: '', staged: '', ...(session.sourceNames || {}) },
     sourceTypes: { table: '', navis: '', staged: '', ...(session.sourceTypes || {}) },
-    sessionMeta: { restoredAt: session.savedAt || '', omitted: session.omitted || {} },
+    sessionMeta: { restoredAt: session.savedAt || '', omitted: session.omitted || {}, staged: { restoredFrom: stagedRestore.source } },
     tableParsed: null,
     tableBuild: null,
     resolutionBuild: null,
@@ -134,7 +173,7 @@ function createState() {
     audit: null,
     inputsDirty: true,
     status: restored
-      ? 'Previous source names, types and restorable values were loaded from browser storage. Build evidence to validate them.'
+      ? 'Previous source names, types, anchor configuration and restorable source values were loaded from browser storage.'
       : 'Load Navis Tag XML and managed staged JSON/ZIP. The support table is optional unless table-only mode is selected.',
     running: false,
   };
@@ -163,7 +202,10 @@ function collectConfig(root, state) {
     }));
   }
   state.config = normalizeConfig(next);
-  if (configSignature(state.config) !== previousConfigSignature) markInputsDirty(state);
+  if (configSignature(state.config) !== previousConfigSignature) {
+    markInputsDirty(state);
+    saveConfig(state.config);
+  }
   const table = root.querySelector('[data-nti-field="tableText"]');
   const navis = root.querySelector('[data-nti-field="navisText"]');
   if (table) {
@@ -255,6 +297,8 @@ function resetRememberedSources(state) {
   state.tableImport = null;
   state.navisText = '';
   state.stagedDocuments = [];
+  state.stagedStorageDirty = false;
+  state.stagedStorageMeta = { stored: false, count: 0, serializedSize: 0 };
   state.sourceNames = { table: '', navis: '', staged: '' };
   state.sourceTypes = { table: '', navis: '', staged: '' };
   state.sessionMeta = { restoredAt: '', omitted: {} };
@@ -362,6 +406,12 @@ function render(root, state) {
   ];
   const pane = renderNavisTagWorkflowPane(state) ?? renderNavisTagIsonoteEvidencePane(state) ?? renderNavisTagIsonotePane(state);
   root.innerHTML = `<div class="nti-tabs">${tabs.map(([id, label]) => `<button class="nti-tab ${state.activeTab === id ? 'is-active' : ''} ${tabDataState(state, id)}" data-nti-tab="${id}">${label}</button>`).join('')}</div><div class="nti-body">${pane}</div>`;
+  root.querySelectorAll('[data-nti-config="navisAnchorTagId"], [data-nti-config="navisAnchorSupportIdentity"]').forEach((input) => input.addEventListener('change', () => {
+    collectConfig(root, state);
+    saveSession(state);
+    state.status = 'Anchor selection saved in browser storage. Build or Run to refresh the coordinate transformation.';
+    render(root, state);
+  }));
   root.querySelectorAll('[data-nti-tab]').forEach((button) => button.addEventListener(ACTIVATE, () => {
     collectConfig(root, state);
     saveSession(state);
@@ -464,10 +514,11 @@ function render(root, state) {
       }
       if (input.dataset.ntiFile === 'staged') {
         state.stagedDocuments = await readNavisTagStagedFile(file);
+        state.stagedStorageDirty = true;
         state.sourceNames.staged = file.name;
         state.sourceTypes.staged = `${file.name.toLowerCase().endsWith('.zip') ? 'ZIP' : 'JSON'} · ${state.stagedDocuments.length} document(s)`;
         markInputsDirty(state);
-        state.status = `${file.name} loaded. Build evidence to create the JSON trace.`;
+        state.status = `${file.name} loaded and queued for browser-storage persistence. Build evidence to create the JSON trace.`;
       }
       try {
         if (state.tableText || state.navisText || state.stagedDocuments.length) {
@@ -475,6 +526,7 @@ function render(root, state) {
         }
       } catch {}
       saveSession(state);
+      if (state.stagedStorageMeta?.storageError) state.status += ` ${state.stagedStorageMeta.message}`;
     } catch (error) {
       state.status = `Load failed: ${error?.message || error}`;
     }
@@ -541,7 +593,9 @@ export const _test = Object.freeze({
   markInputsDirty,
   needsRebuild,
   readSession,
+  readStoredStagedDocuments,
   saveSession,
+  saveStagedDocuments,
   sourceSnapshot,
   resetRememberedSources,
 });
