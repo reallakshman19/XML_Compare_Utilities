@@ -1,0 +1,40 @@
+name: InputXML static diagnostic v9
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/inputxml-static-diagnostic-v9.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: bd31f357c386f54e26d28a870f31ebf2e8da45c4
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+      - run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Capture InputXML static output
+        id: inputxml_gate
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/inputxml
+          set -o pipefail
+          node tests/pipeline-3d-model-inputxml-document-static.test.js 2>&1 | tee /tmp/inputxml/output.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inputxml-static-v9-output
+          path: /tmp/inputxml/output.log
+      - if: steps.inputxml_gate.outcome != 'success'
+        run: exit 1
