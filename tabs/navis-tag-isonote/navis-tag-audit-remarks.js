@@ -10,10 +10,10 @@ function signed(value, digits = 3) {
   return `${parsed > 0 ? '+' : ''}${compact(parsed, digits)}`;
 }
 function identity(row = {}) {
-  const value = text(row.canonicalIdentity || row.identity || row.targetIdentity || row.supportRoot);
+  const value = text(row.canonicalIdentity || row.identity || row.targetIdentity || row.resolvedSupportIdentity || row.supportRoot);
   return value ? `/${value.replace(/^\/+/, '')}` : 'the support';
 }
-function tag(row = {}) { return text(row.tagId || row.sourceTagId || row.topCandidateTagId) || 'the Navis Tag'; }
+function tag(row = {}) { return text(row.tagId || row.sourceTagId || row.resolvedTagId || row.topCandidateTagId) || 'the Navis Tag'; }
 function list(values) { return (Array.isArray(values) ? values : []).filter(Boolean); }
 function codeSuffix(codes) {
   const values = list(codes).map(text).filter(Boolean);
@@ -134,8 +134,27 @@ export function nearestRejectedFinalBasis(row = {}, config = {}) {
   return `${candidateAuditRemark({ ...row, ledgerKind: 'NEAREST_REJECTED' }, config)}${codeSuffix(['NEAREST_REJECTED', ...(row.rejectionReasons || [])])}`;
 }
 
+export function anchorFinalBasis(row = {}) {
+  const status = text(row.status);
+  const selected = status === 'SELECTED_PRIMARY' || status === 'SELECTED_FALLBACK';
+  const conflict = status === 'AVAILABLE_FALLBACK_CONFLICT';
+  const residual = [
+    `ΔE ${signed(row.selectedFrameDeltaEMm)} mm`,
+    `ΔN ${signed(row.selectedFrameDeltaNMm)} mm`,
+    `ΔEL ${signed(row.selectedFrameDeltaElMm)} mm`,
+  ].join(', ');
+  const difference = compact(row.deltaDifferenceMm, 6);
+  if (selected) {
+    return `Configured anchor pair links Tag ${tag(row)} to ${identity(row)} and is the active coordinate authority. This row records the explicit anchor relationship; it is not a proximity-derived Support ISONOTE.${codeSuffix([status, `ANCHOR_PRIORITY=${row.priority}`])}`;
+  }
+  if (conflict) {
+    return `Configured anchor pair links Tag ${tag(row)} to ${identity(row)}, but a higher-priority anchor remains the coordinate authority. This anchor requires a translation differing by ${difference || 'an unrecorded amount'} mm; under the selected frame its residual is ${residual}. The identity link is retained, but no proximity-derived Support ISONOTE was issued.${codeSuffix([status, `ANCHOR_PRIORITY=${row.priority}`, difference ? `OFFSET_DIFFERENCE=${difference}mm` : ''])}`;
+  }
+  return `Configured fallback anchor links Tag ${tag(row)} to ${identity(row)} and agrees with the selected coordinate authority within the configured disagreement tolerance. It remains available only as fallback evidence; no proximity-derived Support ISONOTE was issued.${codeSuffix([status, `ANCHOR_PRIORITY=${row.priority}`, difference ? `OFFSET_DIFFERENCE=${difference}mm` : ''])}`;
+}
+
 export function unmatchedFinalBasis() {
-  return `No accepted, in-tolerance or nearest-rejected support relationship was recorded for this Tag. Locate it in the Navis model and review the source evidence.${codeSuffix(['NO_PS_MATCH', 'REFER_NAVIS_FILE_TO_LOCATE_TAG'])}`;
+  return `No accepted, in-tolerance, configured-anchor or nearest-rejected support relationship was recorded for this Tag. Locate it in the Navis model and review the source evidence.${codeSuffix(['NO_PS_MATCH', 'REFER_NAVIS_FILE_TO_LOCATE_TAG'])}`;
 }
 
 export function resolvedFinalBasis({ direct = false, decision = {}, propagationRows = [] } = {}) {
