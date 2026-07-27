@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 25
     env:
       TARGET_BRANCH: owner/fix-gre-topology-fixture-consensus
-      EXPECTED_TARGET_SHA: dff3dbfc53d293c0d1a821de1ad7875069e1f593
+      EXPECTED_TARGET_SHA: 08460adc630571d76bddc5d051ea56082d912ae8
     steps:
       - name: Check out exact fix branch
         uses: actions/checkout@v4
