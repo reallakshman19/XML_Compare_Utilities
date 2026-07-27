@@ -95,8 +95,26 @@ jobs:
             tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js \
             tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
 
-      - name: Focused package-v2 qualification
-        run: node tests/sequential-workspace-command-authority-package.test.js
+      - name: Run focused package-v2 qualification
+        id: focused
+        continue-on-error: true
+        run: |
+          set +e
+          node tests/sequential-workspace-command-authority-package.test.js > focused-package-v2.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload focused failure log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssk-ts-2a-focused-log
+          path: focused-package-v2.log
+          if-no-files-found: error
+
+      - name: Enforce focused package-v2 qualification
+        run: test "${{ steps.focused.outputs.status }}" = "0"
 
       - name: Command-journal aggregate
         run: npm run test:command-journal
