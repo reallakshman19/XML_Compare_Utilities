@@ -2,6 +2,7 @@ import {
 buildPipelineInputXmlDocumentPlan, PIPELINE_INPUTXML_DOCUMENT_SCHEMA, } from './pipeline-3d-model-inputxml-document.js?v=20260722-p3d-base-039-1'; import {
 PIPELINE_INPUTXML_FITTING_AUTHORITY_SCHEMA, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA, PIPELINE_INPUTXML_PROFILE_ELEMENT_AUTHORITY_SCHEMA,
 PIPELINE_INPUTXML_PROFILE_SECTION_AUTHORITY_SCHEMA, } from './pipeline-3d-model-inputxml-profile-authority.js';
+import { PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-piping-code-authority.js';
 import { PIPELINE_ANALYSIS_SECTION_PLAN_SCHEMA } from './pipeline-3d-model-analysis-section-contracts.js'; import { PIPELINE_ANALYSIS_DIAMETER_PLAN_SCHEMA,
 PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA, } from './pipeline-3d-model-diameter-contracts.js'; import { PIPELINE_BEND_RESOLUTION_SCHEMA, PIPELINE_NORMAL_FITTING_PLAN_SCHEMA,
 } from './pipeline-3d-model-normal-fitting-contracts.js'; import { PIPELINE_B314_RADIUS_PLAN_SCHEMA } from './pipeline-3d-model-b314-radius-contracts.js';
@@ -122,12 +123,36 @@ return allowable.elementId === element.id && allowable.elementIndex === element.
 && plain(allowable.attributes) && Array.isArray(allowable.cases) && allowable.cases.length === 9
 && allowable.cases.every((item, index) => item?.num === index + 1 && plain(item.attributes)); });
 return valid && plan.counts.numAllow === allowableCount; }
+function pipingCodeAuthorityStructureValid(plan) { const required = plan.elements.filter((element) => element.allowableStress != null);
+if (!required.length) return plan.pipingCodeAuthorityPlan == null && plan.pipingCodeAuthorityPlanSchema == null;
+const authorityPlan = plan.pipingCodeAuthorityPlan; if (!plain(authorityPlan)
+|| authorityPlan.schema !== PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA
+|| plan.pipingCodeAuthorityPlanSchema !== PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA
+|| authorityPlan.ready !== true || blocking(authorityPlan) || !Array.isArray(authorityPlan.authorities)
+|| !Array.isArray(authorityPlan.elements) || authorityPlan.elements.length !== plan.elements.length) return false;
+const requiredSections = new Set(required.map((element) => element.analysisSectionId));
+if (authorityPlan.authorityCount !== authorityPlan.authorities.length
+|| authorityPlan.requiredSectionCount !== requiredSections.size
+|| authorityPlan.authorities.length !== requiredSections.size) return false;
+const authorityBySection = new Map(authorityPlan.authorities.map((item) => [item.analysisSectionId, item]));
+if (authorityBySection.size !== authorityPlan.authorities.length) return false;
+return plan.elements.every((element, index) => { const binding = authorityPlan.elements[index];
+if (!plain(binding) || binding.elementId !== element.id || binding.elementIndex !== element.index) return false;
+if (element.allowableStress == null) return binding.allowableStress == null && binding.authority == null;
+const authority = authorityBySection.get(element.analysisSectionId); const code = Number(authority?.caesarPipingCode);
+return plain(authority) && Number.isInteger(code) && code > 0 && text(authority.sourceAuthority)
+&& authority.analysisSectionId === element.analysisSectionId && authority.profileId === element.profileId
+&& authority.resolvedMode === element.resolvedMode && binding.analysisSectionId === element.analysisSectionId
+&& binding.profileId === element.profileId && binding.resolvedMode === element.resolvedMode
+&& same(binding.authority, authority) && same(binding.allowableStress, element.allowableStress)
+&& same(element.allowableStress.pipingCodeAuthority, authority)
+&& Number(element.allowableStress.attributes?.PIPING_CODE) === code; }); }
 function countStructureValid(plan, authority) { if (!plain(plan.counts) || plan.counts.numElt !== plan.elements.length) return false;
 const bendCount = plan.elements.filter((element) => element.bend != null).length; const fittingCount = authority.fittingAuthorities.filter((item) =>
 item.geometryDisposition === 'MATCHES_AUTHORITY' && item.writerDisposition === 'READY').length;
 const zeroFields = ['numNoz', 'noHgrs', 'numExpJnt', 'numForcMnt', 'numUnfLoad', 'numWind', 'numEleOff', 'numISect'];
 return plan.counts.numBend === bendCount && bendCount === fittingCount && restraintStructureValid(plan) && rigidStructureValid(plan)
-&& allowableStructureValid(plan) && zeroFields.every((key) => plan.counts[key] === 0); } function profileWriterDiagnostic(plan) {
+&& allowableStructureValid(plan) && pipingCodeAuthorityStructureValid(plan) && zeroFields.every((key) => plan.counts[key] === 0); } function profileWriterDiagnostic(plan) {
 if (!plan.profileAuthorityPlan) return null; const authority = plan.profileAuthorityPlan; const documentState = plan.ready === true && Array.isArray(plan.diagnostics)
 && Array.isArray(plan.blockerCodes) && plan.diagnostics.length === 0 && plan.blockerCodes.length === 0; const valid = documentState && authorityStructureValid(plan, authority)
 && fittingStructureValid(plan, authority) && countStructureValid(plan, authority); return valid ? null : { code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
@@ -140,4 +165,4 @@ assertDocumentReady(plan); const profile = resolvePipelineCaesarWriterProfile(pl
 ? attrs(caesar14RootAttributeEntries(plan)) : [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace), attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ];
 const modelAttrs = modelAttributes(plan, profile); return [ '<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
 ...plan.elements.map((element) => pipingElementXml(element, profile)), '</PIPINGMODEL>', '</CAESARII>', ].join('\n'); }
-export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, };
+export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, pipingCodeAuthorityStructureValid, };
