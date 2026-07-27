@@ -15,6 +15,7 @@ The approved baseline blob for `sequential-sketcher-workspace.js` is `7274b817b7
 - A present journal is validated by `validateSequentialCommandJournalState()` before package creation.
 - A valid present journal dispatches to `createSequentialWorkspacePackageV2()` and requires explicit ISO `createdAt`.
 - An invalid present journal fails as `WORKSPACE_COMMAND_JOURNAL_INVALID`; it never falls back to v1.
+- Falsey values such as `false`, `0`, and `''` are present invalid authority, not absence.
 - Neither the wrapper, controller, preview, receipt, nor workspace restoration imports or calls a journal-adoption creator.
 
 Application receipts are validated, cloned, included in either package schema, and authenticated by the package fingerprint.
@@ -48,7 +49,7 @@ When `model.journalState` exists, identity additionally contains:
 - `adoptionCheckpointId`;
 - `journalHeadFingerprint`.
 
-Absent authority adds no property, preserving deterministic non-adopted v1 identity. Invalid current authority fails as `WORKSPACE_IMPORT_JOURNAL_STATE_INVALID`.
+Only `null` and `undefined` represent absent authority. Absent authority adds no property, preserving deterministic non-adopted v1 identity. Any other invalid value fails as `WORKSPACE_IMPORT_JOURNAL_STATE_INVALID`; invalid package authority fails as `WORKSPACE_IMPORT_PACKAGE_JOURNAL_INVALID`.
 
 `SequentialWorkspaceImportPreview.v1` exposes package schema/revision, current and package authority presence, journal schemas, checkpoint IDs, journal heads, and one journal impact:
 
@@ -67,13 +68,14 @@ The persistence controller validates the pending preview and approval, computes 
 `restorePackage()` then:
 
 1. accepts only restoration v1 or v2;
-2. compares current and incoming journal schema, adoption checkpoint ID, and journal-head fingerprint to verify the expected impact;
-3. rejects unapproved v1 journal removal;
-4. regenerates `confirmedConstruction` and support projection for every restored `ROUTE_COMPLETE` branch, including package-v1 rows;
-5. builds and validates a fresh branch registry;
-6. derives the candidate active snapshot, freezes the candidate receipt history, and serializes source text before mutation;
-7. commits source, evidence, runtime indexes, branch registry, active session, derived active state, selected candidate, decision register, journal authority, and receipts through one non-validating assignment boundary;
-8. performs post-commit UI synchronization in a contained non-throwing section, so a rendering or DOM failure cannot be reported as a failed application after live state changed.
+2. treats only `null` or `undefined` as absent journal authority and rejects other invalid values as `WORKSPACE_RESTORE_JOURNAL_IDENTITY_INVALID`;
+3. compares current and incoming journal schema, adoption checkpoint ID, and journal-head fingerprint to verify the expected impact;
+4. rejects unapproved v1 journal removal;
+5. regenerates `confirmedConstruction` and support projection for every restored `ROUTE_COMPLETE` branch, including package-v1 rows;
+6. builds and validates a fresh branch registry;
+7. derives the candidate active snapshot, freezes the candidate receipt history, and serializes source text before mutation;
+8. commits source, evidence, runtime indexes, branch registry, active session, derived active state, selected candidate, decision register, journal authority, and receipts through one non-validating assignment boundary;
+9. performs post-commit UI synchronization in contained non-throwing steps, so rendering, DOM, approval-field, summary, button, or toast failure cannot be reported as a failed application after live state changed.
 
 A failed parse, preview, approval, receipt construction, journal-identity check, derived-state preparation, source serialization, or fresh-registry validation occurs before live mutation. Cancellation clears only pending controller state.
 
@@ -85,13 +87,13 @@ New `SequentialWorkspaceApplicationReceipt.v1` values include:
 - `packageRevision`;
 - `impact.journalImpact`.
 
-Schema and revision form exact pairs: `SequentialWorkspacePackage.v1` requires revision `1`, and `SequentialWorkspacePackage.v2` requires revision `2`. Authenticated legacy receipts without all three additive values remain valid. A partially populated or mismatched package identity fails as `WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:<index>`. An unknown journal impact fails as `WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:<index>`.
+Schema and revision form exact pairs: `SequentialWorkspacePackage.v1` requires revision `1`, and `SequentialWorkspacePackage.v2` requires revision `2`. Receipt creation validates restoration and preview identities independently, never masks an explicitly invalid restoration value with preview fallback, and requires both valid sources to agree exactly. Invalid identity fails as `WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED`; disagreement fails as `WORKSPACE_APPLY_PACKAGE_IDENTITY_MISMATCH`. Authenticated legacy receipts without all three additive values remain valid. A partially populated or mismatched stored receipt identity fails as `WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:<index>`. An unknown journal impact fails as `WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:<index>`.
 
 ## Mutation and proof boundary
 
 Creation and parsing clone JSON-owned package, receipt, and journal values. Runtime `Map` indexes come from authoritative package restoration and are not JSON-cloned. The fresh registry is prepared independently before replacing the model registry. Caller-owned package, receipt, journal, and model values are read-only inputs.
 
-The additive tests preserve the original policy, hydration, preview-total, matching/empty-state, source/branch/active-state staleness, destructive-evidence, markup, CSS, tab-wiring, and receipt-field assertions. Dynamic production-boundary proof exercises package-v1 derived regeneration, package-v2 install, unchanged authority, replacement, explicit removal, journal-head staleness, cancellation, injected preparation/restoration failure, receipt-history preservation, `lastReceipt` ordering, and caller-input immutability.
+The additive tests preserve the original policy, hydration, preview-total, matching/empty-state, source/branch/active-state staleness, destructive-evidence, markup, CSS, tab-wiring, and receipt-field assertions. Dynamic production-boundary proof exercises package-v1 derived regeneration, package-v2 install, unchanged authority, replacement, explicit removal, journal-head staleness, falsey authority rejection, cancellation, injected preparation/restoration failure, receipt-history preservation, `lastReceipt` ordering, caller-input immutability, invalid restoration identity without preview fallback, and restoration/preview identity disagreement.
 
 ## Line and export controls
 
