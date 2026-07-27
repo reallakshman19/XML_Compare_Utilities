@@ -38,7 +38,8 @@ function statusBadge(value) {
 }
 function anchorBadge(value) {
   const normalized = String(value || 'NOT_CONFIGURED');
-  const css = /SELECTED|AGREES/.test(normalized) ? 'nti-ok' : /PENDING|NOT_CONFIGURED|INCOMPLETE|CONFLICT/.test(normalized) ? 'nti-warn' : 'nti-error';
+  const css = /VALID_HYPOTHESIS/.test(normalized) ? 'nti-ok'
+    : /PENDING|NOT_CONFIGURED|INCOMPLETE/.test(normalized) ? 'nti-warn' : 'nti-error';
   return `<span class="nti-badge ${css}">${esc(normalized)}</span>`;
 }
 function metric(label, value) {
@@ -51,6 +52,7 @@ function homeMetrics(state) {
   return `<div class="nti-metrics">
     ${metric('JSON support rows', trace.rowCount || state.resolutionBuild?.summary?.rowCount || 0)}
     ${metric('Valid Navis tags', navis.validTagCount || 0)}
+    ${metric('Valid anchor pairs', audit.validAnchorCount || navis.anchorValidCount || 0)}
     ${metric('Direct matches', audit.resolvedCount || 0)}
     ${metric('Propagated rows', audit.propagatedTargetRowCount || 0)}
     ${metric('Final output rows', audit.finalOutputCount || state.audit?.finalRows?.length || 0)}
@@ -82,28 +84,40 @@ function mappingRows(state) {
     <button class="nti-icon-btn" type="button" data-nti-action="remove-keyword" data-nti-keyword-index="${index}" title="Remove mapping">×</button>
   </div>`).join('');
 }
-function anchorAttempt(state, priority) {
-  return (state.navisParse?.anchor?.attempts || []).find((row) => Number(row.priority) === Number(priority)) || null;
+function anchorAttempt(state, slot) {
+  return (state.navisParse?.anchor?.attempts || []).find((row) => Number(row.slot || row.priority) === Number(slot)) || null;
 }
-function anchorAttemptDetail(attempt, configured) {
-  if (!attempt) return configured ? 'Build or Run to evaluate this anchor.' : 'Optional slot.';
-  const selected = attempt.resolvedSupportIdentity ? ` Selected authority: ${attempt.resolvedSupportIdentity}.` : '';
-  const difference = Number.isFinite(Number(attempt.deltaDifferenceMm)) ? ` Offset difference from selected: ${Number(attempt.deltaDifferenceMm).toFixed(3)} mm.` : '';
-  return `${attempt.reason || ''}${selected}${difference}`.trim();
+function anchorUsage(state, attempt) {
+  if (!attempt?.anchorId) return null;
+  return (state.audit?.anchorUsage || []).find((row) => row.anchorBasisId === attempt.anchorId) || null;
+}
+function anchorAttemptDetail(state, attempt, configured) {
+  if (!attempt) return configured ? 'Build or Run to evaluate this anchor.' : 'Optional equal-authority slot.';
+  const authority = attempt.resolvedSupportIdentity ? ` Resolved pair: Tag ${attempt.resolvedTagId} ↔ /${String(attempt.resolvedSupportIdentity).replace(/^\/+/, '')}.` : '';
+  const delta = attempt.valid ? ` Translation: ΔE=${Number(attempt.deltaEMm).toFixed(3)}, ΔN=${Number(attempt.deltaNMm).toFixed(3)}, ΔEL=${Number(attempt.deltaElMm).toFixed(3)} mm.` : '';
+  const usage = anchorUsage(state, attempt);
+  const usageText = usage ? ` Best basis for ${usage.candidateCount} candidate relationships; selected in ${usage.selectedCount} final decisions.` : '';
+  return `${attempt.reason || ''}${authority}${delta}${usageText}`.trim();
 }
 function renderAnchorPriorityRows(state) {
   return `<div class="nti-anchor-priority-list">${configuredAnchorSlots(state.config || {}, true).map((slot) => {
-    const attempt = anchorAttempt(state, slot.priority);
+    const attempt = anchorAttempt(state, slot.slot);
     const status = attempt?.status || (slot.configured ? 'PENDING_BUILD' : 'NOT_CONFIGURED');
-    return `<article class="nti-anchor-priority-row" data-nti-anchor-priority="${slot.priority}">
-      <div class="nti-anchor-priority"><strong>P${slot.priority}</strong><span>${esc(anchorPriorityLabel(slot.priority))}</span></div>
+    return `<article class="nti-anchor-priority-row" data-nti-anchor-priority="${slot.slot}">
+      <div class="nti-anchor-priority"><strong>A${slot.slot}</strong><span>${esc(anchorPriorityLabel(slot.slot))}</span></div>
       <div class="nti-anchor-pair">
         ${field('Navis Tag ID', renderAnchorTagDropdown(state, slot.tagKey))}
         ${field('JSON Support ID', renderAnchorSupportDropdown(state, slot.supportKey, 0))}
       </div>
-      <div class="nti-anchor-result">${anchorBadge(status)}<small>${esc(anchorAttemptDetail(attempt, slot.configured))}</small></div>
+      <div class="nti-anchor-result">${anchorBadge(status)}<small>${esc(anchorAttemptDetail(state, attempt, slot.configured))}</small></div>
     </article>`;
   }).join('')}</div>`;
+}
+function renderAnchorSummary(state) {
+  const anchor = state.navisParse?.anchor;
+  if (!anchor?.active) return '<div class="nti-help">Configure at least one complete Tag ↔ JSON support pair, then Build or Run.</div>';
+  if (anchor.validCount === 1 && anchor.globalTransformApplied) return renderAnchorPreview(state);
+  return `<div class="nti-help"><b>${esc(anchor.summaryText)}</b><br>Anchor entry order has no engineering effect. The candidate audit and final output record the winning anchor pair basis.</div>`;
 }
 function renderHome(state) {
   const readiness = state.readiness?.status || (state.inputsDirty ? 'STALE / NOT BUILT' : 'NOT BUILT');
@@ -112,15 +126,15 @@ function renderHome(state) {
     : `<div class="nti-memory-note"><b>Browser memory enabled</b><span>The last loaded names, source types, configuration, and restorable source values are saved locally on this device.</span></div>`;
   const anchorCard = `<section class="nti-card nti-anchor-card">
     <div class="nti-section-head"><div>
-      <h3>Multi-anchor coordinate matching (priority fallback)</h3>
-      <p>Configure anchors from P1 downward. The first valid Tag ↔ JSON support pair becomes the only coordinate authority. Lower rows are fallback options only; offsets are never averaged or blended.</p>
+      <h3>Multi-anchor coordinate matching</h3>
+      <p>Each valid Tag ↔ JSON support pair defines an independent translation hypothesis. Every Tag candidate is evaluated under every valid anchor, and the mathematically best in-tolerance basis is retained.</p>
     </div></div>
-    <div class="nti-anchor-policy"><b>Priority rule:</b> P1 → P2 → P3 → P4 → P5. A lower anchor is selected only when every higher-priority pair is incomplete, missing, or has invalid coordinates.</div>
+    <div class="nti-anchor-policy"><b>Equal-authority rule:</b> no primary anchor, no fallback order, and no averaging. Anchor entry order does not affect matching. Existing E/N/EL tolerances, scoring, and comment ambiguity rules apply after the best anchor basis is chosen for each candidate.</div>
     ${renderAnchorPriorityRows(state)}
-    <div class="nti-anchor-preview-wrap">${renderAnchorPreview(state)}</div>
+    <div class="nti-anchor-preview-wrap">${renderAnchorSummary(state)}</div>
   </section>`;
   return `<section class="nti-workflow-hero">
-    <div><span class="nti-eyebrow">NAVIS TAG → ISONOTE</span><h2>Build traceable support notes from Tag evidence</h2><p>Load the model sources, verify the coordinate frame, resolve direct Tags, propagate applies-to directives, and export the final support-note table.</p></div>
+    <div><span class="nti-eyebrow">NAVIS TAG → ISONOTE</span><h2>Build traceable support notes from Tag evidence</h2><p>Load the model sources, verify coordinate hypotheses, resolve direct Tags, propagate applies-to directives, and export the final support-note table.</p></div>
     <div class="nti-hero-status"><span>Readiness</span>${statusBadge(readiness)}</div>
   </section>
   ${remembered}
@@ -138,12 +152,12 @@ function renderHome(state) {
   </section>
   ${anchorCard}
   <section class="nti-card">
-    <div class="nti-section-head"><div><h3>2. Build and resolve</h3><p>Build refreshes hierarchy and coordinate evidence. Run automatically rebuilds stale inputs before matching.</p></div><button class="nti-btn" data-nti-action="open-config">Open Config</button></div>
+    <div class="nti-section-head"><div><h3>2. Build and resolve</h3><p>Build refreshes hierarchy and anchor hypotheses. Run automatically rebuilds stale inputs before matching.</p></div><button class="nti-btn" data-nti-action="open-config">Open Config</button></div>
     <div class="nti-step-grid">
       <div><b>JSON Trace</b><span>Resolve support families, pipe names and canonical positions.</span></div>
-      <div><b>Navis Coordinates</b><span>Apply units and datum offsets to each Tag position.</span></div>
-      <div><b>Match and propagate</b><span>Resolve direct Tags and applies-to pipe instructions.</span></div>
-      <div><b>Final Output</b><span>Expand Tag keys and export the required CSV columns.</span></div>
+      <div><b>Anchor hypotheses</b><span>Derive an independent translation from every valid anchor pair.</span></div>
+      <div><b>Match and propagate</b><span>Choose the best anchor basis per Tag candidate, then apply normal ranking.</span></div>
+      <div><b>Final Output</b><span>Export support notes with explicit anchor-pair provenance.</span></div>
     </div>
     <div class="nti-actions nti-primary-actions">
       <button class="nti-btn" data-nti-action="build">Build evidence</button>
@@ -233,13 +247,13 @@ function renderTable(headers, rows, tableClass) {
 }
 function renderFinal(state) {
   const rows = state.audit?.finalRows || [];
-  const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Basis'];
-  return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>The Tag column retains the original Tag code. Support ISONOTE uses the selected support identity and configurable expanded instructions.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
+  const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Anchor pair basis','Basis'];
+  return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>The Tag column retains the original Tag code. Anchor pair basis identifies the transform hypothesis used for the direct or propagated evidence.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
   <section class="nti-card"><div class="nti-section-head"><div><h3>Final table</h3><p>Identity preference: grouped /DATUM first; otherwise smallest numeric support suffix.</p></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="download-final-csv" ${rows.length ? '' : 'disabled'}>Export final CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Audit JSON</button></div></div>
-    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence or basis...')}
+    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence, anchor pair or basis...')}
     ${renderTable(headers, rows, 'nti-filter-table-final-output')}
   </section>
-  <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain the complete direct, rejected and propagation evidence behind the final delivery table.</div><div class="nti-actions">
+  <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain complete direct, rejected, anchor-hypothesis and propagation evidence behind the final delivery table.</div><div class="nti-actions">
     <button class="nti-btn" data-nti-action="download-csv" ${state.audit?.augmentedRows?.length ? '' : 'disabled'}>Augmented audit CSV</button>
     <button class="nti-btn" data-nti-action="download-ambiguous" ${state.audit?.ambiguousRows?.length ? '' : 'disabled'}>Ambiguous CSV</button>
     <button class="nti-btn" data-nti-action="download-rejected" ${state.audit?.rejectedRows?.length ? '' : 'disabled'}>Rejected CSV</button>

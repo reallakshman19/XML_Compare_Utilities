@@ -202,7 +202,7 @@ function unmatchedNavisRows(audit, navisParse, config) {
       'Name of the element': UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
       PIPE: '', POS: '', 'Navis Tag ID': tagId, 'Navis Tag POS': pointLabel(tag.position),
       Tag: baseTagText(tag.commentBody, config), 'Support ISONOTE': '', confidence: 'UNRESOLVED',
-      Basis: unmatchedFinalBasis(),
+      'Anchor pair basis': '', Basis: unmatchedFinalBasis(),
     });
   }
   return rows;
@@ -255,6 +255,7 @@ function candidateReviewRows(audit, config) {
       Tag: baseTagText(candidate.commentBody, config),
       'Support ISONOTE': '',
       confidence: candidate.decisionStatus === 'AMBIGUOUS' ? 'AMBIGUOUS' : 'NOT_SELECTED',
+      'Anchor pair basis': candidate.anchorBasisLabel || '',
       Basis: candidateFinalBasis(candidate, config),
     });
   }
@@ -283,7 +284,15 @@ function nearestRejectedRows(audit, config) {
     Tag: baseTagText(row.commentBody, config),
     'Support ISONOTE': '',
     confidence: 'OUTSIDE_TOLERANCE',
+    'Anchor pair basis': row.anchorBasisLabel || '',
     Basis: nearestRejectedFinalBasis(row, config),
+  }));
+}
+
+function sourceAnchorBases(propagationRows, sources) {
+  return unique((propagationRows || []).map((row) => {
+    const source = sources.byRow.get(row.sourceTableRowId) || sources.byTag.get(String(row.sourceTagId));
+    return source?.selectedAnchorBasis || source?.selectedCandidate?.anchorBasisLabel || '';
   }));
 }
 
@@ -308,12 +317,14 @@ function resolvedOutputRows(audit, config) {
     }
     const identity = selectOutputSupportIdentity(decision);
     const confidenceValue = unique(confidence).join('|') || (propagationRows.length ? 'PROPAGATED' : decision.confidence || '');
+    const anchorBases = unique([direct ? decision.selectedAnchorBasis : '', ...sourceAnchorBases(propagationRows, sources)]);
     output.push({
       'Name of the element': identity, PIPE: decision.resolvedPipe || decision.inputPipe || '',
       POS: pointLabel(decision.supportPosition), 'Navis Tag ID': tagIds.join('|'),
       'Navis Tag POS': unique(navisPositions).join(' | '), Tag: tags.join(' | '),
       'Support ISONOTE': finalIsonote(identity, tags, config, confidenceValue),
       confidence: confidenceValue,
+      'Anchor pair basis': anchorBases.join(' | '),
       Basis: resolvedFinalBasis({ direct: Boolean(direct), decision, propagationRows }),
     });
   }
@@ -335,5 +346,5 @@ export const _test = Object.freeze({
   baseTagText, finalIsonote, identityCandidates, evidenceKey,
   directlyMatchedNavisEvidence, accountedNavisEvidence, unmatchedNavisRows,
   candidateLedgerNavisParse, navisParseForOutput, candidateReviewRows,
-  nearestRejectedRows, exactCandidateIdentity,
+  nearestRejectedRows, exactCandidateIdentity, sourceAnchorBases,
 });
