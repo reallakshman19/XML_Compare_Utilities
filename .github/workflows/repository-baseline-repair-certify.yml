@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: acbf322b4b3272b4088396c52a21411bcd7c6d7b
+      EXPECTED_TARGET_SHA: e31d8ce78276d2f2898e6444d29d14495b840507
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cad-current-authority-output
+          name: cad-current-authority-output-v2
           path: cad-current-authority.log
 
       - name: Require CAD current-authority pass
