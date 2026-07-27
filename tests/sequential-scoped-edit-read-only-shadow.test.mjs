@@ -50,8 +50,8 @@ assert.equal(shadow.evidence().status, 'MOUNTED');
 assert.equal(shadow.readModel().schema, 'SequentialScopedEditReadModel.v1');
 assert.deepEqual(shadow.readModel().selectionSnapshot.entityIds, [`ssk:candidate:${candidateId}`]);
 
-const host = shadow.host();
-const scene = host.scene();
+const firstHost = shadow.host();
+const scene = firstHost.scene();
 assert.equal(scene.sceneId, shadow.readModel().sceneId);
 assert(scene.entities.some((entity) => entity.id === `ssk:candidate:${candidateId}`));
 const request = createEngineeringScopeRequest({
@@ -61,10 +61,17 @@ const request = createEngineeringScopeRequest({
   elementBudget: scene.entities.length,
   selection: { entityIds: [`ssk:candidate:${candidateId}`], closureDepth: 0 },
 });
-const scope = host.resolveScope(request);
+const scope = firstHost.resolveScope(request);
 assert.deepEqual(scope.entityIds, [`ssk:candidate:${candidateId}`]);
-assert.equal(host.entityGeometry(`ssk:candidate:${candidateId}`).entityId, `ssk:candidate:${candidateId}`);
-assert.throws(() => host.appendEditCommand(), (error) => error.code === SEQUENTIAL_READ_ONLY_COMMAND_DENIED);
+assert.equal(firstHost.entityGeometry(`ssk:candidate:${candidateId}`).entityId, `ssk:candidate:${candidateId}`);
+assert.throws(() => firstHost.appendEditCommand(), (error) => error.code === SEQUENTIAL_READ_ONLY_COMMAND_DENIED);
+
+current = ownerState(blocked);
+publish('selection-changed');
+const host = shadow.host();
+assert.notEqual(host, firstHost, 'selection-only owner changes must remount the read-only shadow');
+assert.deepEqual(shadow.readModel().selectionSnapshot.entityIds, []);
+assert.throws(() => firstHost.scene(), /destroyed/);
 
 const supported = confirmedSupportSequentialFixture();
 current = ownerState(supported);
