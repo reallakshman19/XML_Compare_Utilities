@@ -53,22 +53,22 @@ function assertPopulation(bundle) {
   assert.equal(payload.transferPlan.operations.at(-1).operationId, id('OP', COUNTS.operations - 1));
 }
 
-const fixtureStart = performance.now(); const fixture = await handoverInspectionFixture();
+const fixtureStart = performance.now(); let fixture = await handoverInspectionFixture();
 const fixtureDurationMs = elapsed(fixtureStart); const populateStart = performance.now();
-let bundle = populate(clone(fixture.bundle)); const populateDurationMs = elapsed(populateStart);
-assertPopulation(bundle); const serializeStart = performance.now();
-let sourceText = serializeRevisionCompareTransferHandoverBundle(bundle);
+let bundle = populate(clone(fixture.bundle)); fixture = null;
+const populateDurationMs = elapsed(populateStart); assertPopulation(bundle);
+const serializeStart = performance.now(); let sourceText = serializeRevisionCompareTransferHandoverBundle(bundle);
 const serializeDurationMs = elapsed(serializeStart); const sourceBytes = encoder.encode(sourceText).byteLength;
 assert.ok(sourceBytes <= REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES,
   `Complete mandatory handover fixture is ${sourceBytes} bytes and exceeds the 128 MiB import boundary.`);
-const parseStart = performance.now(); let reparsed = JSON.parse(sourceText); const parseDurationMs = elapsed(parseStart);
-assertPopulation(reparsed); assert.equal(serializeRevisionCompareTransferHandoverBundle(reparsed), sourceText);
 const digestStart = performance.now(); const firstHash = await sha256Text(sourceText, cryptoRef);
-const digestDurationMs = elapsed(digestStart); sourceText = null; reparsed = null; globalThis.gc?.();
-const repeatStart = performance.now(); const repeated = serializeRevisionCompareTransferHandoverBundle(bundle);
-const repeatDurationMs = elapsed(repeatStart); const repeatedHash = await sha256Text(repeated, cryptoRef);
+const digestDurationMs = elapsed(digestStart); bundle = null; globalThis.gc?.();
+const parseStart = performance.now(); let reparsed = JSON.parse(sourceText); const parseDurationMs = elapsed(parseStart);
+assertPopulation(reparsed); sourceText = null; globalThis.gc?.();
+const repeatStart = performance.now(); const repeated = serializeRevisionCompareTransferHandoverBundle(reparsed);
+const repeatDurationMs = elapsed(repeatStart); reparsed = null; globalThis.gc?.();
+const repeatedHash = await sha256Text(repeated, cryptoRef);
 assert.equal(repeatedHash, firstHash); assert.equal(encoder.encode(repeated).byteLength, sourceBytes);
-bundle = null; globalThis.gc?.();
 console.log(JSON.stringify({
   counts: COUNTS, sourceBytes, maximumSourceBytes: REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES,
   fixtureDurationMs, populateDurationMs, serializeDurationMs, parseDurationMs,
