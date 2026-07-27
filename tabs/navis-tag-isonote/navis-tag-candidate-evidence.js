@@ -1,3 +1,5 @@
+import { candidateAuditRemark, decisionAuditRemark } from './navis-tag-audit-remarks.js';
+
 function positionLabel(point) { return point ? `E=${point.x};N=${point.y};EL=${point.z}` : ''; }
 
 function nearestRejectedMessage(candidate, config) {
@@ -30,20 +32,30 @@ function resultEvidence(result) {
   };
 }
 
+function readableCandidate(row, config = {}) {
+  const confidenceReasonCodes = [...(row.confidenceReasons || [])];
+  const auditRemark = candidateAuditRemark(row, config);
+  return { ...row, confidenceReasonCodes, confidenceReasons: [auditRemark], auditRemark };
+}
+
 export function appendCandidateLedger(candidateLedger, base, candidates, result) {
-  candidates.forEach((candidate, index) => candidateLedger.push({
-    ledgerId: `${base.tableRowId}:C${index + 1}`, ledgerKind: 'ACCEPTED_CANDIDATE', ...base,
-    candidateRank: index + 1, accepted: result.selected?.evidenceId === candidate.evidenceId,
-    ...resultEvidence(result), ...candidate,
-  }));
+  candidates.forEach((candidate, index) => {
+    const row = {
+      ledgerId: `${base.tableRowId}:C${index + 1}`, ledgerKind: 'ACCEPTED_CANDIDATE', ...base,
+      candidateRank: index + 1, accepted: result.selected?.evidenceId === candidate.evidenceId,
+      ...resultEvidence(result), ...candidate,
+    };
+    candidateLedger.push(readableCandidate(row));
+  });
 }
 
 export function appendNearestRejected(candidateLedger, diagnostics, base, result, config) {
   if (result.selected || !result.nearestRejected || result.topCandidateTagId) return;
-  candidateLedger.push({
+  const row = {
     ledgerId: `${base.tableRowId}:NEAREST-REJECTED`, ledgerKind: 'NEAREST_REJECTED', ...base,
     candidateRank: 1, accepted: false, ...resultEvidence(result), ...result.nearestRejected,
-  });
+  };
+  candidateLedger.push(readableCandidate(row, config));
   diagnostics.push({
     severity: 'WARN', code: 'NAVIS_NEAREST_TAG_OUTSIDE_TOLERANCE', rowId: base.tableRowId,
     identity: base.canonicalIdentity, evidenceId: result.nearestRejected.evidenceId,
@@ -61,13 +73,20 @@ export function createLedgerBase(record, trace, positionChoice) {
 
 export function buildDecisionRow(record, trace, positionChoice, candidates, result, config) {
   const nearest = result.nearestRejected || null;
+  const auditRemark = decisionAuditRemark({
+    ...result,
+    canonicalIdentity: record.identity,
+    selectedTagId: result.selected?.tagId || '',
+    confidenceScore: result.score,
+    nearestRejectedCandidate: nearest,
+  }, config);
   return {
     decisionId: `DECISION-${record.rowId}`, ...ledgerBase(record, trace, positionChoice),
     identityStatus: trace?.status || 'UNRESOLVED', identityTraceId: trace?.traceId || '',
     odPath: trace?.odPath || '', odLookupName: trace?.odLookupName || '', borePath: trace?.borePath || '',
     boreUnits: trace?.boreUnits || config.jsonBoreUnits, candidateCount: candidates.length,
     status: result.status, ambiguity: result.ambiguity, confidence: result.confidence,
-    confidenceScore: result.score, confidenceReasons: result.confidenceReasons, ...resultEvidence(result),
+    confidenceScore: result.score, confidenceReasons: result.confidenceReasons, auditRemark, ...resultEvidence(result),
     supportIsonote: result.selected?.commentBody || '', selectedEvidenceId: result.selected?.evidenceId || '',
     selectedViewName: result.selected?.viewName || '', selectedViewGuid: result.selected?.viewGuid || '',
     selectedTagId: result.selected?.tagId || '', selectedCommentId: result.selected?.commentId || '',
@@ -96,6 +115,7 @@ export function buildAugmentedRow(record, decisionRow, result, candidates) {
     'OD Lookup Name': decisionRow.odLookupName, 'Vertical Basis': result.selected?.verticalBasis || '',
     'Vertical Residual mm': result.selected?.verticalResidualMm ?? '', 'Candidate Count': candidates.length,
     'Candidate Score Model': decisionRow.scoringModel, 'Decision Reason': decisionRow.decisionReason,
+    'Audit Remark': decisionRow.auditRemark,
     'Top Candidate Tag ID': decisionRow.topCandidateTagId, 'Top Candidate Score': decisionRow.topCandidateScore ?? '',
     'Runner-up Tag ID': decisionRow.runnerUpTagId, 'Runner-up Score': decisionRow.runnerUpScore ?? '',
     'Score Gap': decisionRow.scoreGap ?? '', 'Required Score Gap': decisionRow.requiredScoreGap,
