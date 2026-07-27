@@ -83,6 +83,7 @@ function exactTarget(state) {
   const target = state.target;
   const request = state.current?.session?.currentDecisionRequest;
   if (!target || !request || state.current.session.state !== 'USER_DECISION_REQUIRED'
+    || target.authorityId !== state.currentAuthorityId
     || target.branchId !== state.current.session.rootBranchId
     || target.decisionId !== request.decisionId
     || !(request.candidates || []).some((row) => row.candidateId === target.candidateId)) return null;
@@ -153,7 +154,11 @@ function render(state) {
   state.elements.status.textContent = activeNotice?.message || defaultMessage;
   state.elements.status.dataset.state = activeNotice?.kind || (ready ? 'ready' : 'blocked');
 }
-function readState(state) { state.gatewayState = state.gateway.getState(); state.current = state.readCurrentState(); }
+function readState(state) {
+  state.gatewayState = state.gateway.getState();
+  state.current = state.readCurrentState();
+  state.currentAuthorityId = state.readCurrentAuthorityId();
+}
 function invalidate(state, options = {}) {
   const hadEvidence = Boolean(state.pending || state.target);
   state.pending = null; state.target = null;
@@ -162,10 +167,14 @@ function invalidate(state, options = {}) {
 function refresh(state, options = {}) {
   if (state.destroyed) return stateSnapshot(state);
   if (options.invalidatePending || options.invalidateTarget) invalidate(state, options);
-  try { readState(state); }
-  catch (error) {
+  try {
+    readState(state);
+    if (state.target && !exactTarget(state)) invalidate(state, {
+      reason: 'Candidate target invalidated because exact command authority changed.',
+    });
+  } catch (error) {
     state.gatewayState = Object.freeze({ ready: false, branchId: null, reasonCode: error.code || 'COMMAND_AUTHORITY_UNAVAILABLE' });
-    state.current = null; state.target = null; state.pending = null;
+    state.current = null; state.currentAuthorityId = null; state.target = null; state.pending = null;
     notice(state, error.message || String(error), 'error');
   }
   render(state); return stateSnapshot(state);
@@ -207,6 +216,7 @@ function stateSnapshot(state) {
   return Object.freeze({
     schema: SEQUENTIAL_DRAFT_EDIT_COMMAND_PANEL_SCHEMA, active: state.active, destroyed: state.destroyed,
     ready: state.gatewayState?.ready === true, branchId: state.gatewayState?.branchId || null,
+    currentAuthorityId: state.currentAuthorityId || null,
     candidateId: exactTarget(state)?.candidateId || null,
     targetSelectionId: exactTarget(state)?.targetSelectionId || null,
     pendingPreparedId: state.pending?.preparedId || null, notice: state.notice,
@@ -222,10 +232,11 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
   const state = {
     root, gateway, elements: panelElements,
     readCurrentState: requiredFunction(options.readCurrentState, 'readCurrentState'),
+    readCurrentAuthorityId: requiredFunction(options.readCurrentAuthorityId, 'readCurrentAuthorityId'),
     now: requiredFunction(options.now || (() => new Date().toISOString()), 'issuedAt provider'),
     onAccepted: options.onAccepted || (() => {}), onFailure: options.onFailure || (() => {}),
     active: false, destroyed: false, pending: null, target: null, notice: null,
-    gatewayState: null, current: null, onClick: null,
+    gatewayState: null, current: null, currentAuthorityId: null, onClick: null,
   };
   state.onClick = (event) => handleClick(state, event);
   root.addEventListener('click', state.onClick); refresh(state);
