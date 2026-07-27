@@ -72,6 +72,6 @@ const xml = buildInputXmlPipingModelXml(branchInfo, horizontal.geometryRows, hor
 assert.equal((xml.match(/<BEND\b/g) || []).length, 1); assert.match(xml, /BEND RADIUS="150" TYPE="0"/);
 assert.equal(buildElasticBendLedgerText(horizontal).split('\n').length, 2);
 const disabled = resolvePipelineElasticBends({ points: markerRoute,
-  coordinateRows: rows(markerRoute), settings: {} });
+  coordinateRows: rows(markerRoute), settings: settings({ enabled: false, emitToInputXml: false }) });
 assert.equal(disabled.candidates[0].status, 'DISABLED'); assert.equal(disabled.diagnostics.emittedCount, 0);
 console.log('Pipeline explicit bend core tests passed.');
