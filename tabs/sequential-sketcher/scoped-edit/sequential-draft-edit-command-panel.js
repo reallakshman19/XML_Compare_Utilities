@@ -34,15 +34,21 @@ function elements(root) {
     commands: [...root.querySelectorAll('[data-ssk-draft-edit-command]')],
   };
 }
-function installPanelStyle(element) {
-  if (!element.style) return;
-  element.style.cssText = [
+function style(element, cssText) { if (element?.style) element.style.cssText = cssText; }
+function installPanelStyle(value) {
+  style(value.panel, [
     'position:absolute', 'top:12px', 'right:12px', 'z-index:8',
     'width:min(360px,calc(100% - 24px))', 'max-height:calc(100% - 24px)',
     'overflow:auto', 'box-sizing:border-box', 'padding:12px',
     'border:1px solid rgba(94,234,212,.38)', 'border-radius:12px',
     'background:rgba(7,16,31,.96)', 'box-shadow:0 18px 50px rgba(0,0,0,.38)',
-  ].join(';');
+  ].join(';'));
+  const field = 'box-sizing:border-box;width:100%;margin-top:4px;padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#07101f;color:#e2e8f0';
+  [value.actor, value.reason, value.evidence].forEach((element) => style(element, field));
+  style(value.evidence, `${field};min-height:54px;resize:vertical`);
+  style(value.preview, 'white-space:pre-wrap;overflow-wrap:anywhere;padding:8px;border-radius:7px;background:#020617;color:#bae6fd;font:10px ui-monospace,monospace');
+  [...value.commands, value.accept, value.cancel].forEach((element) => style(element, 'padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#172337;color:#dbeafe;cursor:pointer'));
+  style(value.status, 'display:block;margin:6px 0 9px;color:#99f6e4;font-size:10px;line-height:1.4');
 }
 function setHidden(element, hidden) {
   element.hidden = hidden;
@@ -76,7 +82,7 @@ function meaningful(state, commandType) {
   if (!session) return false;
   const request = session.currentDecisionRequest;
   if (commandType === 'DEFER_DECISION') {
-    return session.state === 'USER_DECISION_REQUIRED' && request && request.state !== 'DEFERRED';
+    return Boolean(session.state === 'USER_DECISION_REQUIRED' && request && request.state !== 'DEFERRED');
   }
   if (commandType === 'RESUME_DECISION') {
     return session.state === 'USER_DECISION_REQUIRED' && request?.state === 'DEFERRED';
@@ -226,7 +232,7 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
   const gateway = options.gateway;
   for (const name of ['getState', 'prepare', 'accept']) requiredFunction(gateway?.[name], `gateway.${name}`);
   const panelElements = elements(root);
-  installPanelStyle(panelElements.panel);
+  installPanelStyle(panelElements);
   const state = {
     root, gateway, elements: panelElements,
     readCurrentState: requiredFunction(options.readCurrentState, 'readCurrentState'),
