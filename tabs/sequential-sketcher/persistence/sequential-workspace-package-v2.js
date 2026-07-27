@@ -2,7 +2,6 @@
 import { immutableJson, isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { createConfirmedSequentialConstruction } from '../construction/sequential-construction-acceptance.js';
 import { createSequentialBranchWorkspaceRegistry } from '../sequential-branch-workspace-state.js';
-import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../source/sequential-evidence-model.js';
 import { buildConfirmedConstructionSupportProjection } from '../support/sequential-confirmed-support-projection.js';
 import {
   SEQUENTIAL_WORKSPACE_PACKAGE_SCHEMA,
@@ -76,15 +75,8 @@ function explicitV1Package(options) {
   void ignored;
   const explicit = { ...payload, createdAt };
   const result = { ...explicit, packageFingerprint: sequentialWorkspacePackageFingerprint(explicit) };
-  restoreSequentialWorkspacePackage(result);
-  return result;
-}
-function registryForCreate(options, base) {
-  const evidence = options.evidence || buildSequentialEvidenceModel(base.source.records);
-  const indexes = indexSequentialEvidence(evidence);
-  const entries = options.branchRegistry?.entries?.();
-  if (!Array.isArray(entries)) fail('WORKSPACE_PACKAGE_V2_BRANCH_REGISTRY_REQUIRED');
-  return normalizedRegistry(base.branchIds, entries, indexes);
+  const restoration = restoreSequentialWorkspacePackage(result);
+  return Object.freeze({ packageValue: result, restoration });
 }
 function v1Payload(value) {
   const {
@@ -101,8 +93,13 @@ function v1Payload(value) {
 }
 
 export function createSequentialWorkspacePackageV2(options = {}) {
-  const base = explicitV1Package(options);
-  const authorityRegistry = registryForCreate(options, base);
+  const prepared = explicitV1Package(options);
+  const base = prepared.packageValue;
+  const authorityRegistry = normalizedRegistry(
+    prepared.restoration.branchIds,
+    prepared.restoration.workspaces,
+    prepared.restoration.indexes,
+  );
   const commandAuthority = createSequentialWorkspaceCommandAuthority({
     journalState: options.journalState,
     sourceFingerprint: base.source.sourceFingerprint,
