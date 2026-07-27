@@ -84,5 +84,5 @@ export async function validateRevisionCompareTransferHandoverBundleIdentity(bund
   return bundle;
 }
 export function serializeRevisionCompareTransferHandoverBundle(bundle) { if (bundle?.schema !== REVISION_COMPARE_TRANSFER_HANDOVER_BUNDLE_SCHEMA) throw new TypeError(`A ${REVISION_COMPARE_TRANSFER_HANDOVER_BUNDLE_SCHEMA} is required.`); return `${JSON.stringify(canonicalRevisionCompareEvidenceValue(bundle), null, 2)}\n`; }
-export function revisionCompareTransferHandoverFileName(sessionId, bundleId) { const safe = (value) => String(value ?? '').trim().replace(/[^A-Za-z0-9._-]/g, '_'); if (!safe(sessionId) || !safe(reportId)) throw new TypeError('Session ID and bundle ID are required.'); return `${safe(sessionId)}.${safe(bundleId)}.json`; }
+export function revisionCompareTransferHandoverFileName(sessionId, bundleId) { const safe = (value) => String(value ?? '').trim().replace(/[^A-Za-z0-9._-]/g, '_'); if (!safe(sessionId) || !safe(bundleId)) throw new TypeError('Session ID and bundle ID are required.'); return `${safe(sessionId)}.${safe(bundleId)}.json`; }
 export const _test = Object.freeze({ copy });
