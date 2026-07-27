@@ -56,7 +56,8 @@ export function candidateAuditRemark(row = {}, config = {}) {
   }
   if (status === 'AMBIGUOUS') {
     const role = rank === 1 ? 'is the best coordinate candidate' : `ranks ${rank} behind Tag ${top || 'the leading candidate'}`;
-    return `Review required. Tag ${tag(row)} ${role} for ${identity(row)} and passed all coordinate tolerances with score ${score}. No Support ISONOTE was issued because ${runner ? `Tag ${runner} carries a different comment and ` : 'another in-tolerance Tag carries a different comment and '}the score lead ${gap || '0'} is below the required ${required || 'configured'} gap.`;
+    const competingTag = rank === 1 ? runner : top;
+    return `Review required. Tag ${tag(row)} ${role} for ${identity(row)} and passed all coordinate tolerances with score ${score}. No Support ISONOTE was issued because ${competingTag ? `Tag ${competingTag} carries a different comment and ` : 'another in-tolerance Tag carries a different comment and '}the score lead ${gap || '0'} is below the required ${required || 'configured'} gap.`;
   }
   return `Not selected. Tag ${tag(row)} passed all coordinate tolerances for ${identity(row)} but ranked ${rank || 'below the selected candidate'}${top ? ` behind Tag ${top}` : ''} with score ${score}.`;
 }
@@ -95,9 +96,18 @@ export function resolvedFinalBasis({ direct = false, decision = {}, propagationR
   }
   if (propagationRows.length) {
     const sourceTags = [...new Set(propagationRows.map((row) => text(row.sourceTagId)).filter(Boolean))];
-    const bases = [...new Set(propagationRows.map((row) => text(row.pipeMatchBasis)).filter(Boolean))];
-    parts.push(`ISONOTE propagation was accepted from Tag${sourceTags.length > 1 ? 's' : ''} ${sourceTags.join(', ') || 'unknown'} because the target pipe, axis and coordinate window checks passed.`);
-    codes.push(...bases);
+    parts.push(`ISONOTE propagation was accepted from Tag${sourceTags.length > 1 ? 's' : ''} ${sourceTags.join(', ') || 'unknown'} because the target pipe, axis and coordinate-window checks passed.`);
+    for (const row of propagationRows) {
+      codes.push(
+        `APPLIES_TO_TAG_${text(row.sourceTagId) || 'UNKNOWN'}`,
+        text(row.pipeMatchBasis),
+        row.sourceAxis ? `SOURCE_AXIS=${row.sourceAxis}` : '',
+        row.targetPipeAxis ? `TARGET_AXIS=${row.targetPipeAxis}` : '',
+        Number.isFinite(Number(row.alongAxisDeltaMm)) ? `STATION=${compact(row.alongAxisDeltaMm)}mm` : '',
+        Number.isFinite(Number(row.parallelOffsetMm)) ? `OFFSET=${compact(row.parallelOffsetMm)}mm` : '',
+        Number.isFinite(Number(row.elevationDeltaMm)) ? `EL=${compact(row.elevationDeltaMm)}mm` : '',
+      );
+    }
   }
   return `${parts.join(' ')}${codeSuffix(codes)}`.trim();
 }
