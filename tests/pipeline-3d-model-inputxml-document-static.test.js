@@ -11,8 +11,9 @@ const adapter = read('pipeline-3d-model-project-adapter.js');
 const profile = read('pipeline-3d-model-profile-propagation.js');
 const config = read('pipeline-3d-model-config.js');
 const runtime = read('pipeline-3d-model-profile-propagation-runtime.js');
+const orchestrator = read('pipeline-3d-model-core-orchestrator.js');
 
-for (const [name, source] of Object.entries({ planner, sections, writer, context, adapter, profile, runtime })) {
+for (const [name, source] of Object.entries({ planner, sections, writer, context, adapter, profile, runtime, orchestrator })) {
   assert.ok(source.split(/\r?\n/).length < 300, `${name} must remain below 300 lines`);
   assert.doesNotMatch(source, /export\s+default/);
   assert.doesNotMatch(source, /inputxml_to_cii2019|converters\/scripts/);
@@ -39,9 +40,9 @@ assert.doesNotMatch(writer, /NUMELEMENTS/);
 assert.doesNotMatch(writer, /SENTINEL_MISSING|-1\.010100/);
 assert.match(context, /documentPlan = null/);
 assert.match(context, /documentBlockerCount/);
-assert.match(adapter, /pipeline-inputxml-document-plan\.json/);
-assert.match(adapter, /pipeline-property-sections\.json/);
-assert.match(adapter, /InputXML\.Canonical\.v1/);
+assert.match(adapter, /output\.artifacts/);
+assert.match(orchestrator, /pipeline-inputxml-document-plan\.json/);
+assert.match(orchestrator, /InputXML\.Canonical\.v1/);
 assert.match(profile, /propertySectionPlanText/);
 assert.match(config, /key: 'jobName'/);
 assert.match(config, /default: 'PIPELINE_3D_MODEL'/);
