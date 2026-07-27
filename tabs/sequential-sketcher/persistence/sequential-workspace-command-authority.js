@@ -56,14 +56,12 @@ function authorityMaterial(input, registry) {
     entry, sourceFingerprint, registry, index,
   ));
   const branchSetFingerprint = sequentialBranchSetFingerprint(registry);
-  if (journalState.adoptionCheckpoint.branchSetFingerprint !== branchSetFingerprint) {
-    fail('WORKSPACE_COMMAND_BRANCH_SET_FINGERPRINT_MISMATCH');
-  }
   return {
     schema: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_SCHEMA,
     readerRevision: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_READER_REVISION,
     minimumReaderRevision: SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_READER_REVISION,
     sourceFingerprint,
+    adoptionBranchSetFingerprint: journalState.adoptionCheckpoint.branchSetFingerprint,
     branchSetFingerprint,
     checkpointId: journalState.adoptionCheckpoint.checkpointId,
     journalHeadFingerprint: sequentialCommandJournalHeadFingerprint(journalState),
@@ -96,7 +94,8 @@ export function restoreSequentialWorkspaceCommandAuthority(value, context = {}) 
     journalState: value.journalState,
     sourceFingerprint: context.sourceFingerprint,
   }, registry);
-  for (const key of ['sourceFingerprint', 'branchSetFingerprint', 'checkpointId', 'journalHeadFingerprint']) {
+  for (const key of ['sourceFingerprint', 'adoptionBranchSetFingerprint', 'branchSetFingerprint',
+    'checkpointId', 'journalHeadFingerprint']) {
     if (value[key] !== material[key]) fail('WORKSPACE_COMMAND_AUTHORITY_EVIDENCE_MISMATCH', key);
   }
   const expected = sequentialSemanticFingerprint('SWPKGAUTH', material);
