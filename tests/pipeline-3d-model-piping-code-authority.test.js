@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA,
+  PIPELINE_PIPING_CODE_CATALOG_ENTRY_SCHEMA,
   resolvePipelinePipingCodeAuthorityPlan,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-piping-code-authority.js';
 
@@ -42,10 +43,33 @@ const allowableStressPlan = Object.freeze({
   ]),
 });
 
+const catalog = (catalogEntryId, codeFamily, codeEdition, code, sourceAuthority) => Object.freeze({
+  catalogEntryId,
+  codeFamily,
+  codeEdition,
+  caesarVersion: '14.00',
+  caesarPipingCode: code,
+  sourceAuthority,
+  sourceReference: `${sourceAuthority}@${codeEdition}`,
+});
+const entries = Object.freeze([
+  catalog('CODE-NORMAL-R1', 'PROJECT-CODE', 'DB-R1', 101, 'PROJECT-BASIS'),
+  catalog('CODE-B314-2022', 'ASME B31.4', '2022', 202, 'APPROVED-CODE-SELECTION'),
+  catalog('CODE-GRE-R2', 'GRE VENDOR BASIS', 'R2', 303, 'VENDOR-QUALIFICATION'),
+]);
+const authority = (analysisSectionId, profileId, resolvedMode, entry) => Object.freeze({
+  analysisSectionId,
+  profileId,
+  resolvedMode,
+  caesarPipingCode: entry.caesarPipingCode,
+  sourceAuthority: entry.sourceAuthority,
+  sourceReference: entry.sourceReference,
+  catalogEntry: entry,
+});
 const authorities = Object.freeze([
-  Object.freeze({ analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL', caesarPipingCode: 101, sourceAuthority: 'PROJECT-BASIS' }),
-  Object.freeze({ analysisSectionId: 'AS2', profileId: 'asme-b31.4', resolvedMode: 'ASME_B31_4', caesarPipingCode: 202, sourceAuthority: 'APPROVED-CODE-SELECTION' }),
-  Object.freeze({ analysisSectionId: 'AS3', profileId: 'gre', resolvedMode: 'GRE', caesarPipingCode: 303, sourceAuthority: 'VENDOR-QUALIFICATION' }),
+  authority('AS1', 'normal-metallic', 'NORMAL', entries[0]),
+  authority('AS2', 'asme-b31.4', 'ASME_B31_4', entries[1]),
+  authority('AS3', 'gre', 'GRE', entries[2]),
 ]);
 
 const plan = resolvePipelinePipingCodeAuthorityPlan({
@@ -58,12 +82,15 @@ assert.equal(plan.ready, true);
 assert.equal(plan.authorityCount, 3);
 assert.equal(plan.requiredSectionCount, 3);
 assert.deepEqual(plan.elements.map((item) => item.allowableStress.attributes.PIPING_CODE), [101, 202, 303]);
+assert.equal(plan.authorities[1].catalogEntry.schema, PIPELINE_PIPING_CODE_CATALOG_ENTRY_SCHEMA);
+assert.equal(plan.authorities[1].catalogEntryId, 'CODE-B314-2022');
+assert.equal(plan.authorities[1].catalogEntry.codeEdition, '2022');
 assert.equal(plan.elements[0].allowableStress.pipingCodeAuthority.sourceAuthority, 'PROJECT-BASIS');
-assert.equal(Object.isFrozen(plan.elements[0].allowableStress.attributes), true);
+assert.equal(Object.isFrozen(plan.authorities[0].catalogEntry), true);
 assert.deepEqual(plan, resolvePipelinePipingCodeAuthorityPlan({
   profileAuthorityPlan,
   allowableStressPlan,
-  pipingCodeAuthorities: authorities,
+  pipingCodeAuthorities: structuredClone(authorities),
 }));
 
 function blocked(pipingCodeAuthorities, expectedCode, stressPlan = allowableStressPlan, profilePlan = profileAuthorityPlan) {
@@ -84,6 +111,16 @@ blocked([{ ...authorities[0], caesarPipingCode: 0 }, authorities[1], authorities
   'PIPELINE_PIPING_CODE_VALUE_INVALID');
 blocked([{ ...authorities[0], sourceAuthority: '' }, authorities[1], authorities[2]],
   'PIPELINE_PIPING_CODE_SOURCE_REQUIRED');
+blocked([{ ...authorities[0], catalogEntry: null }, authorities[1], authorities[2]],
+  'PIPELINE_PIPING_CODE_CATALOG_ENTRY_REQUIRED');
+blocked([{ ...authorities[0], catalogEntry: { ...entries[0], caesarVersion: '' } }, authorities[1], authorities[2]],
+  'PIPELINE_PIPING_CODE_CATALOG_ENTRY_INVALID');
+blocked([{ ...authorities[0], catalogEntry: { ...entries[0], caesarVersion: '13.00' } }, authorities[1], authorities[2]],
+  'PIPELINE_PIPING_CODE_CATALOG_VERSION_INVALID');
+blocked([{ ...authorities[0], catalogEntry: { ...entries[0], caesarPipingCode: 999 } }, authorities[1], authorities[2]],
+  'PIPELINE_PIPING_CODE_CATALOG_CONFLICT');
+blocked([authorities[0], { ...authorities[1], catalogEntry: { ...entries[1], catalogEntryId: entries[0].catalogEntryId } }, authorities[2]],
+  'PIPELINE_PIPING_CODE_CATALOG_ID_DUPLICATE');
 blocked(authorities, 'PIPELINE_PIPING_CODE_CONFLICT', Object.freeze({
   ...allowableStressPlan,
   elements: Object.freeze([
