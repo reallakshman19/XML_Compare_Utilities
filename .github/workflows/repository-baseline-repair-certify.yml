@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 45
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: 677534d5a10b956c174884494bc6492b2231167b
+      EXPECTED_TARGET_SHA: 6b1b14187bc42b66b42b386abbad4a4915931474
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -62,6 +62,9 @@ jobs:
       - name: Pipeline property-section behavior
         run: node tests/pipeline-3d-model-property-sections.test.js
 
+      - name: Pipeline elastic-bend behavior
+        run: node tests/pipeline-3d-model-elastic-bend.test.js
+
       - name: XML Builder viewport browser contract
         run: node tests/xml-builder-viewport-browser-contract.test.js
 
@@ -80,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-baseline-final-npm-test-output
+          name: clean-baseline-final-npm-test-output-v2
           path: npm-test.log
 
       - name: Require repository-wide pass
