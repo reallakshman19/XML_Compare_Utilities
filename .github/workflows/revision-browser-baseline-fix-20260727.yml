@@ -10,7 +10,7 @@ permissions:
 
 env:
   TARGET_BRANCH: owner/fix-revision-scope-keyboard-20260727
-  EXPECTED_TARGET_SHA: 505ae226a8544917c5c4ae813d215e55453a5814
+  EXPECTED_TARGET_SHA: 448bb7135c9d3a7414783e3b48e50b941d9ad5c3
   CI: 'true'
 
 jobs:
@@ -26,48 +26,6 @@ jobs:
 
       - name: Enforce exact baseline head
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
-
-      - name: Apply keyboard-stable scope toggles
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace(path, old, new):
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f'Expected block not found in {path}')
-              file.write_text(text.replace(old, new, 1))
-
-          replace('tests/browser/revision-compare-rc002.spec.mjs',
-            """  await expect(scopeBranch).toBeEnabled();
-            await scopeBranch.uncheck();
-            await expect(scopeBranch).not.toBeChecked();""",
-            """  await expect(scopeBranch).toBeEnabled();
-            await scopeBranch.focus();
-            await page.keyboard.press('Space');
-            await expect(scopeBranch).not.toBeChecked();""")
-
-          replace('tests/browser/revision-compare-rc003.spec.mjs',
-            """  await expect(branch).toBeEnabled();
-            await branch.uncheck(); await expect(branch).not.toBeChecked();
-            await branch.check(); await expect(branch).toBeChecked();""",
-            """  await expect(branch).toBeEnabled();
-            await branch.focus(); await page.keyboard.press('Space');
-            await expect(branch).not.toBeChecked();
-            await branch.focus(); await page.keyboard.press('Space');
-            await expect(branch).toBeChecked();""")
-
-          replace('tests/browser/revision-compare-rc004.spec.mjs',
-            """  await expect(common).toBeEnabled();
-            await common.uncheck(); await expect(common).not.toBeChecked();
-            await common.check(); await expect(common).toBeChecked();""",
-            """  await expect(common).toBeEnabled();
-            await common.focus(); await page.keyboard.press('Space');
-            await expect(common).not.toBeChecked();
-            await common.focus(); await page.keyboard.press('Space');
-            await expect(common).toBeChecked();""")
-          PY
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -97,10 +55,10 @@ jobs:
       - name: Repository-wide validation
         run: npm test
 
-      - name: Enforce three-file scope
+      - name: Verify exact three-file diff against main
         run: |
-          git diff --check
-          git diff --name-only | sort > /tmp/actual
+          git diff --check origin/main...HEAD
+          git diff --name-only origin/main...HEAD | sort > /tmp/actual
           cat > /tmp/expected <<'EOF'
           tests/browser/revision-compare-rc002.spec.mjs
           tests/browser/revision-compare-rc003.spec.mjs
@@ -108,13 +66,3 @@ jobs:
           EOF
           sort -o /tmp/expected /tmp/expected
           diff -u /tmp/expected /tmp/actual
-
-      - name: Commit and publish tested baseline repair
-        run: |
-          git config user.name 'Owner Release Bot'
-          git config user.email 'owner-release-bot@users.noreply.github.com'
-          git add tests/browser/revision-compare-rc002.spec.mjs \
-            tests/browser/revision-compare-rc003.spec.mjs \
-            tests/browser/revision-compare-rc004.spec.mjs
-          git commit -m 'test: use keyboard scope toggles in browser qualification'
-          git push origin HEAD:${TARGET_BRANCH}
