@@ -51,6 +51,15 @@ assert.match(controller, /journalState: model\.journalState/);
 assert.match(controller, /expectedJournalImpact: preview\.journalImpact/);
 assert.match(controller, /sequentialWorkspaceRestorationStateFingerprint/);
 assert.match(controller, /WORKSPACE_IMPORT_PREVIEW_STALE/);
+assert.match(controller, /function postCommit\(action\)/);
+assert.match(controller, /function settleApplied\(restoration, preview, receipt\)/);
+assert.match(controller, /postCommit\(clearApproval\)/);
+assert.match(controller, /postCommit\(\(\) => context\.showToast/);
+assert.ok(
+  controller.indexOf('workspace?.restorePackage?.(restoration')
+    < controller.indexOf('return settleApplied(restoration, preview, receipt)'),
+  'post-commit controller state and UI synchronization must occur only after restoration succeeds',
+);
 assert.match(controller, /data-ssk-workspace-export/);
 assert.match(controller, /data-ssk-workspace-import/);
 assert.match(controller, /data-ssk-workspace-apply/);
