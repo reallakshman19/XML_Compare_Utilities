@@ -1,4 +1,4 @@
-name: RC-XFER-009 complete browser diagnostic
+name: RC-XFER-009 final integration diagnostic
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_FEATURE_SHA: defdc0a64ac9f5a8cd53c4bd0375250b71345d36
+  EXPECTED_FEATURE_SHA: d5a3ec716e88f420a9d7d4bcf031afc7c54721de
   FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
   PATCH_BRANCH: owner/rc-xfer-009-final-20260727
   CI: 'true'
@@ -65,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rc-xfer-009-complete-playwright-synchronized-20260727
+          name: rc-xfer-009-final-integration-playwright-20260727
           path: diagnostic/complete-playwright.log
           if-no-files-found: error
 
