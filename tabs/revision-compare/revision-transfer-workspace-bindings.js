@@ -90,6 +90,16 @@ function archiveController(options, completion) {
     dependencies: { complete: completeWorkspaceTransferArchive, fail: failWorkspaceTransferArchive },
   });
 }
+function importBusy(value) {
+  return Boolean(value?.request || value?.importRequest || value?.importing || value?.status === 'IMPORTING');
+}
+function bindingActivity(options, completion, archive) {
+  const state = options.readState();
+  return {
+    reviewImportBusy: importBusy(state?.review), decisionImportBusy: importBusy(state?.decision),
+    completionBusy: completion.busy(), archiveBusy: archive.busy(),
+  };
+}
 function bindingContext(options) {
   const common = {
     root: options.root, readState: options.readState, writeState: options.writeState,
@@ -98,7 +108,7 @@ function bindingContext(options) {
   };
   const transfer = transferController(common); const completion = completionController(common);
   const archive = archiveController(common, completion);
-  const activity = () => ({ completionBusy: completion.busy(), archiveBusy: archive.busy() });
+  const activity = () => bindingActivity(options, completion, archive);
   const inspection = createRevisionCompareHandoverInspectionController({ ...common, readActivity: activity });
   return { options, transfer, completion, archive, inspection, activity };
 }
