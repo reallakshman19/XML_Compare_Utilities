@@ -34,6 +34,16 @@ function elements(root) {
     commands: [...root.querySelectorAll('[data-ssk-draft-edit-command]')],
   };
 }
+function installPanelStyle(element) {
+  if (!element.style) return;
+  element.style.cssText = [
+    'position:absolute', 'top:12px', 'right:12px', 'z-index:8',
+    'width:min(360px,calc(100% - 24px))', 'max-height:calc(100% - 24px)',
+    'overflow:auto', 'box-sizing:border-box', 'padding:12px',
+    'border:1px solid rgba(94,234,212,.38)', 'border-radius:12px',
+    'background:rgba(7,16,31,.96)', 'box-shadow:0 18px 50px rgba(0,0,0,.38)',
+  ].join(';');
+}
 function setHidden(element, hidden) {
   element.hidden = hidden;
   element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
@@ -117,8 +127,10 @@ function render(state) {
   const defaultMessage = ready
     ? `Gateway ready · branch ${state.gatewayState.branchId}. Prepare does not publish authority.`
     : `Gateway unavailable${state.gatewayState?.reasonCode ? ` · ${state.gatewayState.reasonCode}` : ''}.`;
-  state.elements.status.textContent = state.notice?.message || defaultMessage;
-  state.elements.status.dataset.state = state.notice?.kind || (ready ? 'ready' : 'blocked');
+  const activeNotice = state.notice
+    && (ready || ['error', 'warning'].includes(state.notice.kind)) ? state.notice : null;
+  state.elements.status.textContent = activeNotice?.message || defaultMessage;
+  state.elements.status.dataset.state = activeNotice?.kind || (ready ? 'ready' : 'blocked');
 }
 function readState(state) {
   state.gatewayState = state.gateway.getState();
@@ -213,10 +225,12 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
   if (!root?.querySelector) throw new TypeError('Draft Edit command panel requires a root.');
   const gateway = options.gateway;
   for (const name of ['getState', 'prepare', 'accept']) requiredFunction(gateway?.[name], `gateway.${name}`);
+  const panelElements = elements(root);
+  installPanelStyle(panelElements.panel);
   const state = {
-    root, gateway, elements: elements(root),
+    root, gateway, elements: panelElements,
     readCurrentState: requiredFunction(options.readCurrentState, 'readCurrentState'),
-    now: options.now || (() => new Date().toISOString()),
+    now: requiredFunction(options.now || (() => new Date().toISOString()), 'issuedAt provider'),
     onAccepted: options.onAccepted || (() => {}), onFailure: options.onFailure || (() => {}),
     active: false, destroyed: false, pending: null, notice: null,
     gatewayState: null, current: null, onClick: null,
