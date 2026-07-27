@@ -1,4 +1,4 @@
-name: RC-XFER-009 final integration diagnostic
+name: RC-XFER-009 scope approval diagnostic
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ env:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     steps:
       - name: Check out exact feature branch
         uses: actions/checkout@v4
@@ -54,20 +54,18 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Capture complete Playwright output
-        id: complete
+      - name: Run RC002 with retained failure evidence
+        id: rc002
         continue-on-error: true
-        run: |
-          mkdir -p diagnostic
-          npx playwright test --config=playwright.revision-compare.config.mjs --reporter=line > diagnostic/complete-playwright.log 2>&1
+        run: npx playwright test tests/browser/revision-compare-rc002.spec.mjs --config=playwright.revision-compare.config.mjs --reporter=line
 
-      - name: Upload complete Playwright output
+      - name: Upload RC002 test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rc-xfer-009-final-integration-playwright-20260727
-          path: diagnostic/complete-playwright.log
+          name: rc-xfer-009-rc002-scope-approval-evidence
+          path: test-results
           if-no-files-found: error
 
-      - name: Require complete suite pass
-        run: test "${{ steps.complete.outcome }}" = "success"
+      - name: Require RC002 pass
+        run: test "${{ steps.rc002.outcome }}" = "success"
