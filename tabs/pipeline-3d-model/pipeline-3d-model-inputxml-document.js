@@ -1,5 +1,6 @@
 import { PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA, resolvePipelinePropertySectionPlan } from './pipeline-3d-model-property-sections.js?v=20260722-p3d-property-sections-1';
 import { PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA, resolvePipelineMechanicalPropertyPlan } from './pipeline-3d-model-mechanical-property-sections.js';
+import { PIPELINE_RESTRAINT_PLAN_SCHEMA, resolvePipelineRestraintPlan } from './pipeline-3d-model-restraint-plan.js';
 import { buildPipelineInputXmlProfileAuthorityPlan, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-inputxml-profile-authority.js';
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
@@ -74,7 +75,15 @@ function elementDiagnostics(fromRow, toRow, index) {
 function bendForIndex(bendResolution, index) {
   return bendResolution?.bendByIncomingElementIndex?.[index] || null;
 }
-function buildElement(fromRow, toRow, index, lineNo, propertyResolution, mechanicalResolution, bendResolution) {
+function restraintFields(restraintResolution) {
+  if (!restraintResolution?.realRestraintCount) return {};
+  return {
+    restraintCount: restraintResolution.realRestraintCount,
+    restraintSlots: restraintResolution.slots || Object.freeze([]),
+  };
+}
+function buildElement(fromRow, toRow, index, lineNo, propertyResolution,
+  mechanicalResolution, restraintResolution, bendResolution) {
   const [fromX, fromY, fromZ] = coordinateValues(fromRow);
   const [toX, toY, toZ] = coordinateValues(toRow);
   const mechanical = mechanicalResolution ? {
@@ -101,6 +110,7 @@ function buildElement(fromRow, toRow, index, lineNo, propertyResolution, mechani
     properties: propertyResolution?.properties || Object.freeze({}),
     emittedProperties: propertyResolution?.emittedProperties || Object.freeze({}),
     ...mechanical,
+    ...restraintFields(restraintResolution),
     bend: bendForIndex(bendResolution, index),
     diagnostics: Object.freeze(elementDiagnostics(fromRow, toRow, index)),
   });
@@ -128,6 +138,15 @@ function bendDiagnostics(bendResolution) {
     text(item?.message) || 'Bend resolution blocks canonical InputXML.', item?.details || {},
   ));
 }
+function restraintDiagnostics(restraintPlan, metadata) {
+  const diagnostics = [...(restraintPlan?.diagnostics || [])];
+  if (restraintPlan?.active && metadata.caesarVersion !== '14.00') diagnostics.push(diagnostic(
+    'PIPELINE_RESTRAINT_CAESAR14_REQUIRED',
+    'The common restraint payload is admitted only by the CAESAR 14 writer profile.',
+    { caesarVersion: metadata.caesarVersion },
+  ));
+  return diagnostics;
+}
 function uniqueDiagnostics(items) {
   const keys = new Set();
   return items.filter((item) => {
@@ -142,8 +161,9 @@ function modelCounts(elements) {
   return Object.freeze({
     numElt: elements.length, numNoz: 0, noHgrs: 0,
     numBend: elements.filter((element) => Number(element.bend?.radiusMm) > 0).length,
-    numRigid: 0, numExpJnt: 0, numRest: 0, numForcMnt: 0,
-    numUnfLoad: 0, numWind: 0, numEleOff: 0, numAllow: 0, numISect: 0,
+    numRigid: 0, numExpJnt: 0,
+    numRest: elements.reduce((sum, element) => sum + Number(element.restraintCount || 0), 0),
+    numForcMnt: 0, numUnfLoad: 0, numWind: 0, numEleOff: 0, numAllow: 0, numISect: 0,
   });
 }
 function profileAuthorityAuthenticated(plan) {
@@ -195,14 +215,15 @@ function profileElement(element, authority, bendResolution) {
 }
 function profileDocumentPlan({
   exportContext, coordinateRows, bendResolution, propertySectionPlan,
-  mechanicalPropertyPlan, profileAuthorityPlans, branchInfo, lineNo,
+  mechanicalPropertyPlan, restraintPlan, profileAuthorityPlans, branchInfo, lineNo,
 }) {
   const profileAuthorityPlan = buildPipelineInputXmlProfileAuthorityPlan({
     ...(profileAuthorityPlans || {}), bendResolution, propertySectionPlan,
   });
   const baseElements = coordinateRows.slice(1).map((toRow, index) => buildElement(
     coordinateRows[index], toRow, index, lineNo,
-    propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null, bendResolution,
+    propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null,
+    restraintPlan.active ? restraintPlan.elements[index] : null, bendResolution,
   ));
   const elements = Object.freeze(baseElements.map((element, index) =>
     profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
@@ -214,16 +235,17 @@ function profileDocumentPlan({
     !(replaceGreBlocker && replaceableGreCodes.has(item.code)));
   const propertyDiagnostics = propertySectionPlan.diagnostics.filter((item) =>
     item.code !== 'PIPELINE_DIAMETER_REQUIRED');
+  const metadata = normalizedMetadata(branchInfo);
   const diagnostics = deepFreeze(deepClone(uniqueDiagnostics([
     ...profileAuthorityPlan.diagnostics,
     ...context,
     ...globalDiagnostics(branchInfo, coordinateRows),
     ...propertyDiagnostics,
     ...mechanicalPropertyPlan.diagnostics,
+    ...restraintDiagnostics(restraintPlan, metadata),
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ])));
-  const metadata = normalizedMetadata(branchInfo);
   return deepFreeze({
     schema: PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
     namespace: PIPELINE_CANONICAL_NAMESPACE,
@@ -235,6 +257,7 @@ function profileDocumentPlan({
     propertySectionPlan,
     propertySectionPlanSchema: PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
     ...(mechanicalPropertyPlan.active ? { mechanicalPropertyPlan, mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA } : {}),
+    ...(restraintPlan.active ? { restraintPlan, restraintPlanSchema: PIPELINE_RESTRAINT_PLAN_SCHEMA } : {}),
     profileAuthorityPlan,
     profileAuthorityPlanSchema: PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
     analysisSectionPlanSchema: profileAuthorityPlan.analysisSectionPlanSchema,
@@ -252,7 +275,7 @@ function profileDocumentPlan({
 }
 export function buildPipelineInputXmlDocumentPlan({
   exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
-  profileAuthorityPlans,
+  restraints = [], profileAuthorityPlans,
 } = {}) {
   const branchInfo = branchInfoFrom(exportContext), lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
@@ -261,22 +284,25 @@ export function buildPipelineInputXmlDocumentPlan({
   const mechanicalPropertyPlan = resolvePipelineMechanicalPropertyPlan({
     branchInfo, propertySections, propertySectionPlan,
   });
+  const restraintPlan = resolvePipelineRestraintPlan({ restraints, coordinateRows });
   if (profileAuthorityPlans !== undefined) return profileDocumentPlan({
     exportContext, coordinateRows, bendResolution, propertySectionPlan,
-    mechanicalPropertyPlan, profileAuthorityPlans, branchInfo, lineNo,
+    mechanicalPropertyPlan, restraintPlan, profileAuthorityPlans, branchInfo, lineNo,
   });
   const elements = Object.freeze(coordinateRows.slice(1).map((toRow, index) =>
     buildElement(coordinateRows[index], toRow, index, lineNo,
-      propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null, bendResolution)));
+      propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null,
+      restraintPlan.active ? restraintPlan.elements[index] : null, bendResolution)));
+  const metadata = normalizedMetadata(branchInfo);
   const diagnostics = Object.freeze(uniqueDiagnostics([
     ...contextDiagnostics(exportContext),
     ...globalDiagnostics(branchInfo, coordinateRows),
     ...propertySectionPlan.diagnostics,
     ...mechanicalPropertyPlan.diagnostics,
+    ...restraintDiagnostics(restraintPlan, metadata),
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ]));
-  const metadata = normalizedMetadata(branchInfo);
   return Object.freeze({
     schema: PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
     namespace: PIPELINE_CANONICAL_NAMESPACE,
@@ -288,6 +314,7 @@ export function buildPipelineInputXmlDocumentPlan({
     propertySectionPlan,
     propertySectionPlanSchema: PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA,
     ...(mechanicalPropertyPlan.active ? { mechanicalPropertyPlan, mechanicalPropertyPlanSchema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA } : {}),
+    ...(restraintPlan.active ? { restraintPlan, restraintPlanSchema: PIPELINE_RESTRAINT_PLAN_SCHEMA } : {}),
     elements,
     diagnostics,
     blockerCodes: uniqueCodes(diagnostics),
