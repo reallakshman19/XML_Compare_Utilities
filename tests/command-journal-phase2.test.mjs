@@ -50,3 +50,5 @@ await import('./sequential-command-authority-foundation.test.mjs');
 await import('./sequential-redo-head-authority.test.mjs');
 await import('./sequential-native-command-identity.test.mjs');
 await import('./sequential-command-time-normalization.test.mjs');
+await import('./scoped-edit-command-runtime.test.mjs');
+await import('./scoped-edit-command-runtime-static.test.mjs');
