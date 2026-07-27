@@ -102,8 +102,8 @@ assert.match(settings, /greTeeLocalThicknessMm/);
 
 const gre = sources['pipeline-3d-model-gre-placeholder.js'];
 assert.match(gre, /PipelineGreFittingPlaceholder\.v1/);
-assert.match(gre, /breakLengthBasis: 'NOMINAL_BORE'/);
-assert.match(gre, /breakLengthBasis: 'CUSTOM_LENGTH'/);
+assert.match(gre, /NOMINAL_BORE_MULTIPLIER/);
+assert.match(gre, /EXPLICIT_LENGTH/);
 assert.match(gre, /resolverReady: false/);
 assert.match(gre, /geometryApplied: false/);
 assert.match(gre, /inputXmlApplied: false/);
