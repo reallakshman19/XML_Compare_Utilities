@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { buildPipelineInputXmlDocumentPlan } from '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-document.js';
 import {
   PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA,
   resolvePipelineMechanicalPropertyPlan,
@@ -53,6 +54,37 @@ assert.ok(invalid.blockerCodes.includes('PIPELINE_MECHANICAL_PROPERTY_VALUE_INVA
 assert.equal(invalid.active, true);
 const inactive = resolvePipelineMechanicalPropertyPlan({ propertySectionPlan });
 assert.equal(inactive.active, false);
+
+const coordinates = [
+  { nodeNumber: 100, x: 0, y: 0, z: 0 },
+  { nodeNumber: 110, x: 1000, y: 0, z: 0 },
+  { nodeNumber: 120, x: 2000, y: 0, z: 0 },
+];
+const exportContext = { schema: 'PipelineUtilityExportContext.v1', branchInfo: {
+  lineNo: 'PL-1B', jobName: 'TRI-1B', caesarVersion: '14.00', diameter: 100,
+  wallThickness: 6, materialNumber: 106, modulus: 202705856,
+  hotModuli: [181538944], poissons: 0.292, pipeDensity: 0.007833,
+  materialName: 'A106 Grade B',
+} };
+const documentPlan = buildPipelineInputXmlDocumentPlan({
+  exportContext, coordinateRows: coordinates, bendResolution: { errors: [], bendByIncomingElementIndex: {} },
+});
+assert.equal(documentPlan.ready, true);
+assert.equal(documentPlan.mechanicalPropertyPlan.active, true);
+assert.equal(documentPlan.elements[0].emittedMechanicalProperties.modulus, 202705856);
+assert.equal(documentPlan.elements[1].emittedMechanicalProperties.materialName, 'A106 Grade B');
+const inactiveContext = structuredClone(exportContext);
+delete inactiveContext.branchInfo.modulus;
+delete inactiveContext.branchInfo.hotModuli;
+delete inactiveContext.branchInfo.poissons;
+delete inactiveContext.branchInfo.pipeDensity;
+delete inactiveContext.branchInfo.materialName;
+const inactiveDocument = buildPipelineInputXmlDocumentPlan({
+  exportContext: inactiveContext, coordinateRows: coordinates,
+  bendResolution: { errors: [], bendByIncomingElementIndex: {} },
+});
+assert.equal(Object.hasOwn(inactiveDocument, 'mechanicalPropertyPlan'), false);
+assert.equal(Object.hasOwn(inactiveDocument.elements[0], 'emittedMechanicalProperties'), false);
 
 const documentSource = fs.readFileSync(new URL(
   '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-document.js', import.meta.url), 'utf8');
