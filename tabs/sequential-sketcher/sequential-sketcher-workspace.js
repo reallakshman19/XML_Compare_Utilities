@@ -315,7 +315,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     ), 'decision-applied');
   }
   function journalIdentity(state) {
-    if (!state) return null;
+    if (state === null || state === undefined) return null;
     try {
       return `${state.schema}|${state.adoptionCheckpoint?.checkpointId}|${sequentialCommandJournalHeadFingerprint(state)}`;
     } catch { throw new Error('WORKSPACE_RESTORE_JOURNAL_IDENTITY_INVALID'); }
@@ -340,7 +340,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     if (!['SequentialWorkspaceRestoration.v1', 'SequentialWorkspaceRestoration.v2'].includes(restoration?.schema)) {
       throw new Error('WORKSPACE_RESTORE_SCHEMA_INVALID');
     }
-    journalImpactAllowed(model.journalState, restoration.journalState || null, options.expectedJournalImpact);
+    const incomingJournal = restoration.journalState ?? null;
+    journalImpactAllowed(model.journalState, incomingJournal, options.expectedJournalImpact);
     const registry = preparedRegistry(restoration);
     const active = restoration.activeBranchId ? registry.get(restoration.activeBranchId) : null;
     const receipts = Object.freeze([...(options.applicationReceipts || restoration.applicationReceipts || [])]);
@@ -352,7 +353,7 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       supportProjection: active?.supportProjection || null,
       selectedCandidateId: active?.selectedCandidateId || '',
       restoredDecisionRegister: restoration.decisionRegister || null,
-      journalState: restoration.journalState || null, workspaceApplicationReceipts: receipts,
+      journalState: incomingJournal, workspaceApplicationReceipts: receipts,
     };
     Object.assign(model, nextState);
     try {
