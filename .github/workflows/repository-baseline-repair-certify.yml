@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: 1cad04e68271815c72a3964f338e60589389a44c
+      EXPECTED_TARGET_SHA: 3ec48b8ffe0eed149eba4b848308703c1e2bc4b8
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: elastic-bend-static-output
+          name: elastic-bend-static-output-v2
           path: elastic-bend-static.log
 
       - name: Require elastic-bend static pass
