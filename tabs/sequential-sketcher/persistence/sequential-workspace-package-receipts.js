@@ -1,17 +1,49 @@
 import {
+  SEQUENTIAL_WORKSPACE_PACKAGE_SCHEMA,
   createSequentialWorkspacePackage,
   restoreSequentialWorkspacePackage,
   sequentialWorkspacePackageFingerprint,
 } from './sequential-workspace-package.js';
+import {
+  SEQUENTIAL_WORKSPACE_PACKAGE_V2_SCHEMA,
+  createSequentialWorkspacePackageV2,
+  restoreSequentialWorkspacePackageV2,
+} from './sequential-workspace-package-v2.js';
 import { validateSequentialWorkspaceApplicationReceipt } from './sequential-workspace-application-receipt.js';
+import { validateSequentialCommandJournalState } from '../scoped-edit/sequential-command-journal.js';
 
-function cloneJson(value) { return JSON.parse(JSON.stringify(value)); }
+function fail(code, detail = '') { throw new Error(`${code}${detail ? `: ${detail}` : ''}`); }
+function cloneJson(value) { return value === undefined ? undefined : JSON.parse(JSON.stringify(value)); }
 function validatedReceipts(values = []) {
   return Object.freeze(values.map((receipt, index) => validateSequentialWorkspaceApplicationReceipt(receipt, index)));
 }
+function validatedJournalState(value) {
+  const errors = validateSequentialCommandJournalState(value);
+  if (errors.length) fail('WORKSPACE_COMMAND_JOURNAL_INVALID', errors.join('; '));
+  return value;
+}
+function basePackage(options) {
+  if (options.journalState === null || options.journalState === undefined) {
+    return createSequentialWorkspacePackage(options);
+  }
+  return createSequentialWorkspacePackageV2({
+    ...options,
+    journalState: validatedJournalState(options.journalState),
+  });
+}
+function parsedPackage(input) {
+  if (typeof input !== 'string') return cloneJson(input);
+  try { return JSON.parse(input); }
+  catch (error) { fail('WORKSPACE_PACKAGE_RECEIPTS_JSON_INVALID', error.message); }
+}
+function authoritativeRestoration(raw) {
+  if (raw?.schema === SEQUENTIAL_WORKSPACE_PACKAGE_SCHEMA) return restoreSequentialWorkspacePackage(raw);
+  if (raw?.schema === SEQUENTIAL_WORKSPACE_PACKAGE_V2_SCHEMA) return restoreSequentialWorkspacePackageV2(raw);
+  fail('WORKSPACE_PACKAGE_SCHEMA_UNSUPPORTED');
+}
 
 export function createSequentialWorkspacePackageWithReceipts(options = {}) {
-  const base = createSequentialWorkspacePackage(options);
+  const base = basePackage(options);
   const receipts = validatedReceipts(options.applicationReceipts || []);
   const { packageFingerprint: ignored, ...payload } = cloneJson(base);
   void ignored;
@@ -27,8 +59,13 @@ export function serializeSequentialWorkspacePackageWithReceipts(options = {}) {
 }
 
 export function restoreSequentialWorkspacePackageWithReceipts(input) {
-  const raw = typeof input === 'string' ? JSON.parse(input) : cloneJson(input);
-  const restoration = restoreSequentialWorkspacePackage(raw);
+  const raw = parsedPackage(input);
+  const restoration = authoritativeRestoration(raw);
   const applicationReceipts = validatedReceipts(raw.applicationReceipts || []);
-  return Object.freeze({ ...restoration, applicationReceipts });
+  return Object.freeze({
+    ...restoration,
+    packageSchema: raw.schema,
+    packageRevision: raw.revision,
+    applicationReceipts,
+  });
 }

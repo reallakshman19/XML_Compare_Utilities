@@ -15,6 +15,7 @@ import {
   renderSequentialConstructionCanvas,
 } from './canvas/sequential-construction-svg.js';
 import { createSequentialEngineeringSvgOwnerBridge } from './sequential-engineering-svg-owner-bridge.js';
+import { sequentialCommandJournalHeadFingerprint } from './scoped-edit/sequential-command-journal.js';
 
 function readFile(file) { return file ? file.text() : Promise.resolve(''); }
 function required(root, selector) { const element = root.querySelector(selector); if (!element) throw new Error(`Sequential Sketcher element missing: ${selector}`); return element; }
@@ -31,6 +32,14 @@ function candidatePorts(candidate) {
     fromPortId: candidate?.fromPortId || candidate?.targetPortId || '',
     toPortId: candidate?.toPortId || candidate?.connectedPortId || '',
   };
+}
+function restoredDownstream(session, indexes) {
+  if (session?.state !== 'ROUTE_COMPLETE') return { confirmedConstruction: null, supportProjection: null };
+  const confirmedConstruction = createConfirmedSequentialConstruction(session, indexes);
+  const supportProjection = buildConfirmedConstructionSupportProjection(confirmedConstruction, indexes, {
+    projectionToleranceMm: 50, onCenterlineToleranceMm: 0.001, ambiguityToleranceMm: 1,
+  });
+  return { confirmedConstruction, supportProjection };
 }
 
 export function mountSequentialSketcherWorkspace(root, context = {}) {
@@ -55,6 +64,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     confirmedConstruction: null,
     supportProjection: null,
     restoredDecisionRegister: null,
+    journalState: null,
+    workspaceApplicationReceipts: Object.freeze([]),
     mode: 'ISO',
     selectedCandidateId: '',
     branchRegistry: createSequentialBranchWorkspaceRegistry(),
@@ -88,18 +99,9 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.supportProjection = null;
   }
   function refreshDownstream() {
-    clearDownstream();
-    if (model.session?.state !== 'ROUTE_COMPLETE') return;
-    model.confirmedConstruction = createConfirmedSequentialConstruction(model.session, model.indexes);
-    model.supportProjection = buildConfirmedConstructionSupportProjection(
-      model.confirmedConstruction,
-      model.indexes,
-      {
-        projectionToleranceMm: 50,
-        onCenterlineToleranceMm: 0.001,
-        ambiguityToleranceMm: 1,
-      },
-    );
+    const downstream = restoredDownstream(model.session, model.indexes);
+    model.confirmedConstruction = downstream.confirmedConstruction;
+    model.supportProjection = downstream.supportProjection;
   }
 
   function branchSnapshot() {
@@ -160,6 +162,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.session = null;
     model.selectedCandidateId = '';
     model.restoredDecisionRegister = null;
+    model.journalState = null;
+    model.workspaceApplicationReceipts = Object.freeze([]);
     clearDownstream();
     reviewController?.reset();
     repaint();
@@ -310,28 +314,57 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       engineOptions(),
     ), 'decision-applied');
   }
-  function restorePackage(restoration) {
-    if (restoration?.schema !== 'SequentialWorkspaceRestoration.v1') {
-      throw new Error('Sequential workspace restoration schema is invalid.');
+  function journalIdentity(state) {
+    if (state === null || state === undefined) return null;
+    try {
+      return `${state.schema}|${state.adoptionCheckpoint?.checkpointId}|${sequentialCommandJournalHeadFingerprint(state)}`;
+    } catch { throw new Error('WORKSPACE_RESTORE_JOURNAL_IDENTITY_INVALID'); }
+  }
+  function journalImpactAllowed(current, incoming, expected) {
+    const currentId = journalIdentity(current), incomingId = journalIdentity(incoming);
+    if (!incomingId && currentId && expected !== 'REMOVE') throw new Error('WORKSPACE_RESTORE_JOURNAL_DOWNGRADE_UNAPPROVED');
+    const actual = !currentId && !incomingId ? 'ABSENT' : !currentId ? 'INSTALL'
+      : !incomingId ? 'REMOVE' : currentId === incomingId ? 'UNCHANGED' : 'REPLACE';
+    if (actual !== expected) throw new Error('WORKSPACE_RESTORE_JOURNAL_IMPACT_MISMATCH');
+  }
+  function preparedRegistry(restoration) {
+    const rows = (restoration.workspaces || []).map(({ branchId, snapshot }) => ({
+      branchId,
+      snapshot: { ...snapshot, ...restoredDownstream(snapshot?.session, restoration.indexes) },
+    }));
+    const registry = createSequentialBranchWorkspaceRegistry();
+    registry.replace(restoration.branchIds, rows);
+    return registry;
+  }
+  function restorePackage(restoration, options = {}) {
+    if (!['SequentialWorkspaceRestoration.v1', 'SequentialWorkspaceRestoration.v2'].includes(restoration?.schema)) {
+      throw new Error('WORKSPACE_RESTORE_SCHEMA_INVALID');
     }
-    model.records = restoration.records;
-    model.evidence = restoration.evidence;
-    model.indexes = restoration.indexes;
-    model.session = null;
-    model.selectedCandidateId = '';
-    model.restoredDecisionRegister = restoration.decisionRegister || null;
-    clearDownstream();
-    elements.source.value = JSON.stringify(restoration.records, null, 2);
-    populateBranchOptions(restoration.branchIds);
-    model.branchRegistry.replace(restoration.branchIds, restoration.workspaces);
-    reviewController?.reset();
-    if (restoration.activeBranchId) openBranch(restoration.activeBranchId);
-    else repaint();
-    const register = restoration.decisionRegister?.summary;
-    setStatus(
-      `Verified workspace package restored: ${restoration.workspaces.length} saved branches${register ? `; ${register.unresolvedCount || 0} unresolved and ${register.manualResolutionCount || 0} manual register rows retained` : ''}.`,
-      'ok',
-    );
+    const incomingJournal = restoration.journalState ?? null;
+    journalImpactAllowed(model.journalState, incomingJournal, options.expectedJournalImpact);
+    const registry = preparedRegistry(restoration);
+    const active = restoration.activeBranchId ? registry.get(restoration.activeBranchId) : null;
+    const receipts = Object.freeze([...(options.applicationReceipts || restoration.applicationReceipts || [])]);
+    const sourceText = JSON.stringify(restoration.records, null, 2);
+    const nextState = {
+      records: restoration.records, evidence: restoration.evidence, indexes: restoration.indexes,
+      branchRegistry: registry, session: active?.session || null,
+      confirmedConstruction: active?.confirmedConstruction || null,
+      supportProjection: active?.supportProjection || null,
+      selectedCandidateId: active?.selectedCandidateId || '',
+      restoredDecisionRegister: restoration.decisionRegister || null,
+      journalState: incomingJournal, workspaceApplicationReceipts: receipts,
+    };
+    Object.assign(model, nextState);
+    try {
+      elements.source.value = sourceText;
+      populateBranchOptions(restoration.branchIds);
+      if (restoration.activeBranchId) elements.branch.value = restoration.activeBranchId;
+      reviewController?.reset(); repaint();
+      setStatus(`Verified ${restoration.packageSchema || restoration.schema} restored with journal authority ${model.journalState ? 'present' : 'absent'}.`, 'ok');
+    } catch (error) {
+      try { context.showToast?.(`Workspace restored; UI synchronization blocked: ${error.message || String(error)}`, 'warning'); } catch {}
+    }
     return restoration;
   }
 
