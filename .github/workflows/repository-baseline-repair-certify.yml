@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: 883a34439dbcda901800140352def1f2f8133fee
+      EXPECTED_TARGET_SHA: ee142801b70123d97e3abf15f8aafe288fd3d40b
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
