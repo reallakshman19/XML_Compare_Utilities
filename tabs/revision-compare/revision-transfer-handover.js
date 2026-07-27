@@ -16,10 +16,11 @@ const AUDIT_AUTHORITY_KEYS = Object.freeze(['auditId', 'basisId', 'revADocumentI
 const REVIEW_AUTHORITY_KEYS = Object.freeze(['reviewSessionId', 'auditId', 'basisId', 'revision', 'status', 'importError', 'replacementRequired']);
 const DECISION_AUTHORITY_KEYS = Object.freeze(['ledgerId', 'auditId', 'basisId', 'revision', 'status', 'importError', 'replacementRequired']);
 const OPERATION_KEYS = Object.freeze(['schema', 'operationType', 'expectedTargetState', 'sourceDocumentId', 'sourceDocumentSha256', 'targetDocumentId', 'targetDocumentSha256', 'sourceEntityId', 'targetEntityId', 'sourceCanonicalPath', 'targetCanonicalPath', 'fieldPath', 'afterValue', 'valueType', 'transferPolicy', 'targetAddress', 'evidenceReferences', 'operationId', 'status', 'blockers']);
+const ADDRESS_KEYS = Object.freeze(['schema', 'targetDocumentId', 'targetDocumentSha256', 'targetEntityId', 'entityCanonicalPath', 'fieldPath', 'expectedTargetState', 'expectedEntitySha256']);
 function copy(value, path) { return deepFreeze(canonicalRevisionCompareEvidenceValue(JSON.parse(JSON.stringify(value)), path)); }
-function exactKeys(value, required, label, optional = []) {
+function exactKeys(value, required, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${label} must be a plain JSON object.`);
-  const keys = Object.keys(value); const allowed = new Set([...required, ...optional]);
+  const keys = Object.keys(value); const allowed = new Set(required);
   if (required.some((key) => !Object.hasOwn(value, key)) || keys.some((key) => !allowed.has(key))) throw new TypeError(`${label} contains unsupported or missing fields.`);
 }
 function validateSelection(selection) {
@@ -32,10 +33,10 @@ function validateSelection(selection) {
   });
 }
 function validateOperation(operation, index) {
-  const present = operation?.expectedTargetState === 'PRESENT'; const optional = present ? ['beforeValue'] : [];
-  exactKeys(operation, OPERATION_KEYS, `Transfer operation ${index}`, optional);
+  const present = operation?.expectedTargetState === 'PRESENT';
+  exactKeys(operation, present ? [...OPERATION_KEYS, 'beforeValue'] : OPERATION_KEYS, `Transfer operation ${index}`);
   exactKeys(operation.transferPolicy, ['schema', 'policyVersion', 'propertyKey', 'fieldPath', 'classification', 'ruleId', 'writable', 'blockers'], `Transfer operation ${index} policy`);
-  exactKeys(operation.targetAddress, ['schema', 'targetDocumentId', 'targetDocumentSha256', 'targetEntityId', 'entityCanonicalPath', 'fieldPath', 'expectedTargetState', 'expectedEntitySha256'], `Transfer operation ${index} address`, present ? ['expectedCurrentValue'] : []);
+  exactKeys(operation.targetAddress, present ? [...ADDRESS_KEYS, 'expectedCurrentValue'] : ADDRESS_KEYS, `Transfer operation ${index} address`);
   exactKeys(operation.evidenceReferences, ['differenceId', 'auditId', 'reviewSessionId', 'reviewRevision', 'decisionLedgerId', 'decisionRevision', 'decisionEventId', 'revAEvidencePath', 'revBEvidencePath'], `Transfer operation ${index} evidence references`);
 }
 function validatePlan(plan) {
