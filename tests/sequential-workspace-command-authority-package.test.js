@@ -29,6 +29,7 @@ const BASE_SHA = '0e92c7d02c28352adf66e25d31e4dbd5df2b4674';
 const CREATED_AT = '2026-07-27T04:29:00.000Z';
 const ADOPTED_AT = '2026-07-27T04:30:00.000Z';
 const ISSUED_AT = '2026-07-27T04:31:00.000Z';
+const COMPLETED_AT = '2026-07-27T04:32:00.000Z';
 const BRANCH_ID = '/PKG/V2/AUTHORITY';
 const ALLOWED_PATHS = Object.freeze([
   'docs/ssk-ts-2a-journal-package-v2.md',
@@ -113,6 +114,12 @@ function buildAcceptedFixture() {
     origin: { kind: 'USER', actorId: 'PACKAGE_V2_TEST', issuedAt: ISSUED_AT },
   });
   assert.equal(execution.acceptance.accepted, true);
+  const completion = service.execute({
+    command: { commandType: 'RUN_UNTIL_BLOCKED', branchId: BRANCH_ID },
+    origin: { kind: 'USER', actorId: 'PACKAGE_V2_TEST', issuedAt: COMPLETED_AT },
+  });
+  assert.equal(completion.acceptance.accepted, true);
+  assert.equal(state.session.state, 'ROUTE_COMPLETE');
   return { records, evidence, indexes, branchRegistry, state };
 }
 function tamper(packageValue, mutate, refreshAuthority = false) {
@@ -144,9 +151,12 @@ assert.equal(packageV2.minimumReaderRevision, 2);
 assert.equal(Object.hasOwn(packageV2.commandAuthority, 'branchSetFingerprint'), false);
 assert.notEqual(packageV2.commandAuthority.adoptionBranchSetFingerprint,
   packageV2.commandAuthority.currentBranchSetFingerprint);
-assert.equal(packageV2.commandAuthority.journalState.journal.entries.length, 1);
+assert.equal(packageV2.commandAuthority.journalState.journal.entries.length, 2);
+assert.equal(packageV2.commandAuthority.journalState.journal.entries[0].commandType, 'ADVANCE_ONE');
 assert.equal(first.state.journalState.journal.entries[0].transactionId,
-  first.state.session.transactionLedger.at(-1).transactionId);
+  first.state.session.transactionLedger[0].transactionId);
+assert.equal(Object.hasOwn(packageV2.workspaces[0], 'confirmedConstruction'), false);
+assert.equal(Object.hasOwn(packageV2.workspaces[0], 'supportProjection'), false);
 assert.deepEqual(first.records, firstInputs.records);
 assert.deepEqual(first.state.journalState, firstInputs.journalState);
 assert.deepEqual(first.branchRegistry.entries(), firstInputs.registryEntries);
@@ -160,8 +170,12 @@ assert.equal(restored.packageFingerprint, packageV2.packageFingerprint);
 assert.deepEqual(restored.journalState, packageV2.commandAuthority.journalState);
 assert.equal(restored.commandAuthority.journalHeadFingerprint,
   packageV2.commandAuthority.journalHeadFingerprint);
-assert.equal(restored.workspaces[0].snapshot.session.transactionLedger.at(-1).transactionId,
-  restored.journalState.journal.entries[0].transactionId);
+const restoredLedger = restored.workspaces[0].snapshot.session.transactionLedger;
+for (const entry of restored.journalState.journal.entries) {
+  assert(restoredLedger.some((transaction) => transaction.transactionId === entry.transactionId));
+}
+assert(restored.workspaces[0].snapshot.confirmedConstruction);
+assert(restored.workspaces[0].snapshot.supportProjection);
 assert(restored.indexes.branches instanceof Map);
 assert(restored.indexes.components instanceof Map);
 assert(restored.indexes.ports instanceof Map);
