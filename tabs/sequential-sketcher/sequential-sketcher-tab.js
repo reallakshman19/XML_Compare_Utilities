@@ -5,7 +5,8 @@ import { mountSequentialProjectExportController } from './platform/sequential-pr
 import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialContinuityController } from './continuity/sequential-continuity-controller.js?v=20260717-ssk-continuity-geometry-1';
 import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequential-scoped-edit-production-shadow.js?v=20260727-ssk-ts-1b-shadow-1';
-import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260727-ssk-ts-1b-3d-2';
+import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260727-ssk-ts-3a-gateway-1';
+import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -18,10 +19,20 @@ function ensureLink(documentRef, id, href) {
   link.href = href;
   documentRef.head.appendChild(link);
 }
-
 function ensureStylesheet(documentRef) {
   ensureLink(documentRef, STYLE_ID, './tabs/sequential-sketcher/sequential-sketcher.css?v=20260717-ssk-workspace-apply-receipts-1');
   ensureLink(documentRef, CONTINUITY_STYLE_ID, './tabs/sequential-sketcher/continuity/sequential-continuity.css?v=20260717-ssk-continuity-geometry-1');
+}
+function numeric(root, selector, fallback) {
+  const value = Number(root.querySelector(selector)?.value);
+  return Number.isFinite(value) ? value : fallback;
+}
+function commandEngineOptions(root) {
+  return {
+    exactToleranceMm: numeric(root, '[data-ssk-exact-tolerance]', 1),
+    autoRepairToleranceMm: Math.min(25, numeric(root, '[data-ssk-repair-tolerance]', 25)),
+    candidateSearchRadiusMm: numeric(root, '[data-ssk-candidate-radius]', 250),
+  };
 }
 
 export function installSequentialSketcherTile(container, context = {}) {
@@ -81,9 +92,19 @@ export function installSequentialSketcherTile(container, context = {}) {
     }
     if (scopedEditShadow) {
       try {
+        const commandBoundary = createSequentialWorkspaceCommandBoundary({
+          readModel: active.getModel,
+          readOwnerSnapshot: active.getEngineeringSvgOwnerSnapshot,
+          readEngineOptions: () => commandEngineOptions(overlay),
+          restorePackage: active.restorePackage,
+          failureFactory: context.sequentialDraftEditCommandPublicationFailureFactory,
+          onSynchronizationFailure: context.onSequentialDraftEditCommandSynchronizationFailure,
+          syncAfterCommit: () => { scopedEditShadow?.observe(); draftEdit3dController?.refresh(); },
+        });
         draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
           shadow: scopedEditShadow,
           workspace: active,
+          commandBoundary,
           createViewer: context.createSequentialScopedEdit3dViewer,
           failureFactory: context.sequentialScopedEdit3dFailureFactory,
           onActivate: () => previewController?.switchRenderer('CONSTRUCTION_SVG'),
