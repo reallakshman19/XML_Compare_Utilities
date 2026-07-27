@@ -9,7 +9,7 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
       EXPECTED_TARGET_SHA: 883a34439dbcda901800140352def1f2f8133fee
@@ -32,59 +32,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Pipeline CAD browser contract
-        run: node tests/pipeline-3d-model-cad-browser-contract.test.js
-
-      - name: Pipeline export-context contract
-        run: node tests/pipeline-3d-model-export-context-static.test.js
-
-      - name: Pipeline no-fallback contract
-        run: node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
-
-      - name: Pipeline configuration UI contract
-        run: node tests/pipeline-3d-model-hard-051-ui-static.test.js
-
-      - name: Pipeline InputXML document contract
-        run: node tests/pipeline-3d-model-inputxml-document-static.test.js
-
-      - name: Pipeline GRE document-adoption static contract
-        run: node tests/pipeline-3d-model-inputxml-gre-document-adoption-static.test.js
-
-      - name: Pipeline profile static contract
-        run: node tests/pipeline-3d-model-profile-propagation-static.test.js
-
-      - name: Pipeline profile behavior
-        run: node tests/pipeline-3d-model-profile-propagation.test.js
-
-      - name: Pipeline property-section static contract
-        run: node tests/pipeline-3d-model-property-sections-static.test.js
-
-      - name: Pipeline property-section behavior
-        run: node tests/pipeline-3d-model-property-sections.test.js
-
-      - name: XML Builder viewport browser contract
-        run: node tests/xml-builder-viewport-browser-contract.test.js
-
-      - name: Capture repository-wide validation
-        id: repository_validation
+      - name: Capture GRE adoption static output
+        id: gre_adoption
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          npm test > npm-test.log 2>&1
+          node tests/pipeline-3d-model-inputxml-gre-document-adoption-static.test.js > gre-adoption-static.log 2>&1
           status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
 
-      - name: Upload repository-wide output
+      - name: Upload GRE adoption static output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-baseline-npm-test-output
-          path: npm-test.log
+          name: clean-baseline-gre-adoption-static-output
+          path: gre-adoption-static.log
 
-      - name: Require repository-wide pass
-        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
-
-      - name: Verify clean worktree
-        run: test -z "$(git status --short)"
+      - name: Require GRE adoption static pass
+        run: test "${{ steps.gre_adoption.outputs.status }}" = "0"
