@@ -51,6 +51,16 @@ const allowableValueAuthorities = authorities.map((item, index) => ({
       hotSy: 900 + index * 1000, hotSu: 1000 + index * 1000 },
   ],
 }));
+allowableValueAuthorities.forEach((item, index) => {
+  item.catalogEntry = {
+    catalogEntryId: ['ALLOW-NORMAL-R4', 'ALLOW-B314-R4', 'ALLOW-GRE-R4'][index],
+    catalogRevision: 'R4', codeFamily: item.codeFamily, codeEdition: item.codeEdition,
+    materialNumber: item.materialNumber, materialName: item.materialName,
+    coldAllow: structuredClone(item.coldAllow), sy: structuredClone(item.sy),
+    su: structuredClone(item.su), sourceAuthority: item.sourceAuthority,
+    sourceReference: item.sourceReference, cases: structuredClone(item.cases),
+  };
+});
 
 function profileInput() {
   const input = structuredClone(profileDocumentInput());
@@ -77,11 +87,14 @@ assert.deepEqual(plan.elements.filter((item) => item.allowableStress)
   .map((item) => item.allowableStress.attributes.PIPING_CODE), [101, 202, 303]);
 assert.equal(plan.pipingCodeAuthorityPlan.authorities[1].catalogEntryId, 'CODE-B314-2022');
 assert.equal(plan.elements[2].allowableStress.pipingCodeAuthority.catalogEntry.codeEdition, '2022');
+assert.equal(plan.elements[2].allowableStress.allowableValueAuthority.catalogEntryId,
+  'ALLOW-B314-R4');
 assert.equal(plan.elements[0].allowableStress.pipingCodeAuthority.sourceAuthority,
   'PROJECT-DESIGN-BASIS');
 assert.equal(plan.elements[0].allowableStress.pipingCodeAuthority.sourceReference,
   approvedSourceReferenceKey(codeSources[0]));
 assert.equal(Object.isFrozen(plan.pipingCodeAuthorityPlan.authorities[0].catalogEntry), true);
+assert.equal(Object.isFrozen(plan.allowableValueAuthorityPlan.authorities[0].catalogEntry), true);
 
 const xml = buildInputXmlPipingModelXml(plan);
 assert.match(xml, /NUMALLOW="3"/);
@@ -108,6 +121,9 @@ writerBlocked((value) => { delete value.elements[0].allowableStress.pipingCodeAu
 writerBlocked((value) => { value.pipingCodeAuthorityPlan.authorities[0].catalogEntry.codeEdition = 'FORGED'; });
 writerBlocked((value) => { value.pipingCodeAuthorityPlan.elements[0]
   .allowableStress.pipingCodeAuthority.catalogEntry.catalogEntryId = 'FORGED'; });
+writerBlocked((value) => { delete value.elements[0].allowableStress.allowableValueAuthority.catalogEntry; });
+writerBlocked((value) => { value.allowableValueAuthorityPlan.authorities[0]
+  .catalogEntry.values.COLD_ALLOW.value = 999; });
 
 const missingInput = profileInput();
 missingInput.pipingCodeAuthorities.pop();
@@ -135,6 +151,12 @@ conflictInput.allowableStresses[0].PIPING_CODE = 999;
 const conflict = buildPipelineInputXmlDocumentPlan(conflictInput);
 assert.equal(conflict.ready, false);
 assert.ok(conflict.blockerCodes.includes('PIPELINE_PIPING_CODE_CONFLICT'));
+const missingAllowableCatalogInput = profileInput();
+delete missingAllowableCatalogInput.allowableValueAuthorities[0].catalogEntry;
+const missingAllowableCatalog = buildPipelineInputXmlDocumentPlan(missingAllowableCatalogInput);
+assert.equal(missingAllowableCatalog.ready, false);
+assert.ok(missingAllowableCatalog.blockerCodes
+  .includes('PIPELINE_ALLOWABLE_VALUE_CATALOG_ENTRY_REQUIRED'));
 const noAllowable = buildPipelineInputXmlDocumentPlan(profileDocumentInput());
 assert.equal(Object.hasOwn(noAllowable, 'pipingCodeAuthorityPlan'), false);
 const nonProfile = buildPipelineInputXmlDocumentPlan({
