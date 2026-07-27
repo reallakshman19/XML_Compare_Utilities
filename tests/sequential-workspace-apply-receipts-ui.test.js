@@ -339,12 +339,14 @@ setApproval(failingRoot, 'Attempt an injected failing restore.');
 const failureState = {
   records: workspace.getModel().records,
   registry: workspace.getModel().branchRegistry,
+  registryEntries: clone(workspace.getModel().branchRegistry.entries()),
   journalState: workspace.getModel().journalState,
   receipts: workspace.getModel().workspaceApplicationReceipts,
 };
 assert.throws(() => failingController.applyPending(), /INJECTED_RESTORE_FAILURE/);
 assert.strictEqual(workspace.getModel().records, failureState.records);
 assert.strictEqual(workspace.getModel().branchRegistry, failureState.registry);
+assert.deepEqual(workspace.getModel().branchRegistry.entries(), failureState.registryEntries);
 assert.strictEqual(workspace.getModel().journalState, failureState.journalState);
 assert.strictEqual(workspace.getModel().workspaceApplicationReceipts, failureState.receipts);
 assert.equal(failingController.getLastReceipt(), null,
