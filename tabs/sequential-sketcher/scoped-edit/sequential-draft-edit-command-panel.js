@@ -1,9 +1,7 @@
 /** Supervised two-step command UX for the Sequential Draft Edit 3D surface. */
 import { isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES } from './sequential-command-contracts.js';
-
 export const SEQUENTIAL_DRAFT_EDIT_COMMAND_PANEL_SCHEMA = 'SequentialDraftEditCommandPanel.v1';
-
 const CANDIDATE_COMMANDS = new Set(['CONNECT_CANDIDATE', 'REJECT_CANDIDATE']);
 const BOUNDARY_COMMANDS = new Set(['MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY']);
 const EVIDENCE_POLICY = Object.freeze({
@@ -16,7 +14,6 @@ const EVIDENCE_POLICY = Object.freeze({
   UNDO_LAST_TRANSACTION: Object.freeze({ reason: true, evidence: true }),
   REDO_LAST_TRANSACTION: Object.freeze({ reason: true, evidence: true }),
 });
-
 function text(value) { return String(value ?? '').trim(); }
 function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
@@ -263,7 +260,6 @@ function stateSnapshot(state) {
     pendingPreparedId: state.pending?.preparedId || null, notice: state.notice,
   });
 }
-
 export function createSequentialDraftEditCommandPanel(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Draft Edit command panel requires a root.');
