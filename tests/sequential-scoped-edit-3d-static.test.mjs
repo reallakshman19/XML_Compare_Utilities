@@ -8,8 +8,10 @@ function source(relative) {
 
 const visual = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js');
 const controller = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-3d-controller.js');
+const contracts = source('tabs/sequential-sketcher/scoped-edit/sequential-command-contracts.js');
 const gateway = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-gateway.js');
 const panel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-panel.js');
+const target = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-target-selection.js');
 const boundary = source('tabs/sequential-sketcher/scoped-edit/sequential-workspace-command-boundary.js');
 const index = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-index.js');
 const markup = source('tabs/sequential-sketcher/sequential-sketcher-markup.js');
@@ -22,8 +24,8 @@ const workbenchSpec = source('tests/browser/sequential-scoped-edit-3d-workbench.
 const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
-  ['visual model', visual], ['3D controller', controller],
-  ['command gateway', gateway], ['command panel', panel],
+  ['visual model', visual], ['3D controller', controller], ['command contracts', contracts],
+  ['command gateway', gateway], ['command panel', panel], ['candidate target resolver', target],
   ['workspace command boundary', boundary],
 ]) {
   assert(value.split(/\r?\n/).length <= 300, `${name} must remain under 300 lines`);
@@ -36,21 +38,33 @@ assert.match(visual, /createVisualGeometryModelV2/);
 assert.match(visual, /assertSequentialScopedEditSceneAncestry/);
 assert.match(controller, /workbench-viewer\.js/);
 assert.match(controller, /setMode\('target-only'\)/);
-assert.match(controller, /Selection does not issue a command/);
+assert.match(controller, /selectSequentialDraftEditCandidateTarget/);
+assert.match(controller, /onPick: \(pick\) => selectPick/);
+assert.match(controller, /Pick alone does not issue a command/);
 assert.match(controller, /getSequentialScopedEdit3dController/);
 assert.match(controller, /getCommandGatewayState/);
 assert.match(controller, /getCommandPanelState/);
 assert.match(controller, /prepareCommand: gateway\.prepare/);
 assert.match(controller, /acceptCommand: gateway\.accept/);
 assert.match(controller, /executeCommand: gateway\.execute/);
-assert.match(controller, /createSequentialDraftEditCommandPanel/);
+assert.match(controller, /setCandidateTarget/);
+assert.match(controller, /clearCandidateTarget/);
+assert.match(controller, /invalidateTarget: true/);
 assert.match(controller, /commandPanel\?\.setActive\(false\)/);
-assert.match(controller, /invalidatePending: true/);
 assert.match(controller, /requiredCommandBoundary/);
 assert.match(controller, /options\.createViewer/);
 assert.match(controller, /failureFactory/);
 assert.match(controller, /viewerState/);
 assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|appendEditCommand/);
+
+const enabledBlock = contracts.match(/SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES[\s\S]*?\]\);/)?.[0] || '';
+for (const commandType of [
+  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'CONNECT_CANDIDATE', 'REJECT_CANDIDATE',
+  'DEFER_DECISION', 'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
+]) assert.match(enabledBlock, new RegExp(`'${commandType}'`));
+for (const commandType of ['MANUAL_CONNECT', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT']) {
+  assert.doesNotMatch(enabledBlock, new RegExp(`'${commandType}'`));
+}
 
 assert.match(gateway, /createSequentialCommandService/);
 assert.match(gateway, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
@@ -63,18 +77,31 @@ assert.match(gateway, /function gatewayState\(\)/);
 assert.doesNotMatch(gateway, /createSequentialJournalAdoption|createSequentialCommandJournalState/);
 assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
 
+assert.match(target, /assertSequentialScopedEditReadModel/);
+assert.match(target, /assertSequentialScopedEditSceneAncestry/);
+assert.match(target, /deriveSequentialEditAuthority/);
+assert.match(target, /entity\.domainRef\?\.category !== 'candidate'/);
+assert.match(target, /request\.candidates/);
+assert.match(target, /targetSelectionId/);
+assert.match(target, /validateSequentialDraftEditCandidateTarget/);
+assert.doesNotMatch(target, /Math\.hypot|distance\s*\(|nearest|raycast|screenPosition|coordinateTolerance/,
+  'candidate targeting must not use positional or nearest-object inference');
+assert.doesNotMatch(target, /querySelector|addEventListener|onPick|gateway\./);
+
 assert.match(panel, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
+assert.match(panel, /TARGET_COMMANDS/);
 assert.match(panel, /gateway\.prepare\(/);
 assert.match(panel, /gateway\.accept\(/);
-assert.match(panel, /exactIssuedAt/);
-assert.match(panel, /validateEvidence/);
-assert.match(panel, /invalidatePending/);
+assert.match(panel, /exactTarget/);
+assert.match(panel, /targetEntityId/);
+assert.match(panel, /targetSelectionId/);
+assert.match(panel, /setCandidateTarget/);
+assert.match(panel, /Pick.*does not|Selection does not prepare|Selection does not/);
 assert.match(panel, /Prepared command cancelled without authority mutation/);
 assert.match(panel, /Prepare does not publish authority/);
 assert.doesNotMatch(panel, /gateway\.execute\(/,
   'visible command controls must never use direct execute');
-assert.doesNotMatch(panel,
-  /CONNECT_CANDIDATE|MANUAL_CONNECT|REJECT_CANDIDATE|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
+assert.doesNotMatch(panel, /MANUAL_CONNECT|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
 assert.doesNotMatch(panel, /\bbeginDrag\b|\bcommitDrag\b|\brotate\b|\bstretch\b|breakTopology/);
 
 assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
@@ -93,21 +120,22 @@ assert.doesNotMatch(boundary, /Object\.assign\(model/,
 
 assert.match(index, /sequential-draft-edit-command-gateway/);
 assert.match(index, /sequential-draft-edit-command-panel/);
+assert.match(index, /sequential-draft-edit-target-selection/);
 assert.match(index, /sequential-workspace-command-boundary/);
 assert.match(markup, /data-ssk-draft-edit-3d/);
 assert.match(markup, /data-ssk-draft-edit-3d-host/);
 assert.match(markup, /data-ssk-draft-edit-command-panel hidden aria-hidden="true" inert/);
-assert.match(markup, /Prepare → review → accept/);
+assert.match(markup, /data-ssk-draft-edit-target/);
+assert.match(markup, /Pick → prepare → review → accept/);
 assert.match(markup, /Accept prepared command/);
 assert.match(markup, /Cancel prepared command/);
-assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 6,
-  'SSK-TS-3B must expose exactly six qualified command-selection buttons');
+assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 8,
+  'SSK-TS-3C must expose exactly eight qualified command-selection buttons');
 for (const commandType of [
-  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'DEFER_DECISION',
-  'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
+  'CONNECT_CANDIDATE', 'REJECT_CANDIDATE', 'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED',
+  'DEFER_DECISION', 'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(markup, new RegExp(`data-ssk-draft-edit-command="${commandType}"`));
-assert.doesNotMatch(markup,
-  /CONNECT_CANDIDATE|MANUAL_CONNECT|REJECT_CANDIDATE|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
+assert.doesNotMatch(markup, /MANUAL_CONNECT|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
 assert.doesNotMatch(markup, /data-ssk-command-execute|data-ssk-draft-edit-drag|data-ssk-coordinate-edit/);
 
 assert.match(tab, /createSequentialWorkspaceCommandBoundary/);
@@ -137,4 +165,4 @@ assert.match(workbenchSpec, /runtimePending/);
 assert.match(workbenchSpec, /instanceCount/);
 assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3B supervised Draft Edit 3D static containment: ok');
+console.log('Sequential SSK-TS-3C exact candidate Draft Edit 3D static containment: ok');
