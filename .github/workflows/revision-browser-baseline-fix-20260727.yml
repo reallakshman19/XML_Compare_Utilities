@@ -1,4 +1,4 @@
-name: Revision Compare browser baseline repair
+name: Revision Compare browser baseline diagnostic
 
 on:
   pull_request:
@@ -6,17 +6,18 @@ on:
     paths: ['.github/workflows/revision-browser-baseline-fix-20260727.yml']
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   TARGET_BRANCH: owner/fix-revision-compare-browser-baseline-20260727
   EXPECTED_TARGET_SHA: 0e92c7d02c28352adf66e25d31e4dbd5df2b4674
+  PATCH_SOURCE_COMMIT: 21f23b8b65fc3d9d38c85ad259c419030acfd3dc
   CI: 'true'
 
 jobs:
-  certify-and-publish:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 120
     steps:
       - name: Check out exact baseline branch
         uses: actions/checkout@v4
@@ -27,56 +28,19 @@ jobs:
       - name: Enforce exact baseline head
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
 
-      - name: Apply four browser-test corrections
+      - name: Replay four browser-test corrections
         run: |
+          git show "$PATCH_SOURCE_COMMIT:.github/workflows/revision-browser-baseline-fix-20260727.yml" > /tmp/publisher.yml
           python3 - <<'PY'
           from pathlib import Path
-
-          def replace(path, old, new):
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f'Expected block not found in {path}')
-              file.write_text(text.replace(old, new, 1))
-
-          replace('tests/browser/revision-compare-evidence-package.spec.mjs',
-            """  await page.getByRole('button', { name: 'Confirm no match' }).click();
-            const state = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state));""",
-            """  await page.getByRole('button', { name: 'Confirm no match' }).click();
-            await expect.poll(() => page.evaluate((differenceId) => window.rcHandle.evidence().state.decision.ledger.decisions
-              .find((item) => item.differenceId === differenceId)?.decisionState, rows.ambiguous))
-              .toBe('CONFIRMED_NO_MATCH');
-            const state = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state));""")
-
-          replace('tests/browser/revision-compare-rc002.spec.mjs',
-            """  const scopeBranch = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            await page.locator('label.revc-scope-row', { has: scopeBranch }).click();
-            await expect(scopeBranch).not.toBeChecked();""",
-            """  const scopeBranch = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            await expect(scopeBranch).toBeEnabled();
-            await scopeBranch.uncheck();
-            await expect(scopeBranch).not.toBeChecked();""")
-
-          replace('tests/browser/revision-compare-rc003.spec.mjs',
-            """  const branch = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            const branchRow = page.locator('label.revc-scope-row', { has: branch });
-            await branchRow.click(); await expect(branch).not.toBeChecked();
-            await branchRow.click(); await expect(branch).toBeChecked();""",
-            """  const branch = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            await expect(branch).toBeEnabled();
-            await branch.uncheck(); await expect(branch).not.toBeChecked();
-            await branch.check(); await expect(branch).toBeChecked();""")
-
-          replace('tests/browser/revision-compare-rc004.spec.mjs',
-            """  const common = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            const commonRow = page.locator('label.revc-scope-row', { has: common });
-            await commonRow.click(); await expect(common).not.toBeChecked();
-            await commonRow.click(); await expect(common).toBeChecked();""",
-            """  const common = page.locator('[data-revc-branch-id=\"branch:/COMMON-500\"]');
-            await expect(common).toBeEnabled();
-            await common.uncheck(); await expect(common).not.toBeChecked();
-            await common.check(); await expect(common).toBeChecked();""")
+          text = Path('/tmp/publisher.yml').read_text()
+          marker = "          python3 - <<'PY'\n"
+          start = text.index(marker) + len(marker)
+          end = text.index("          PY\n", start)
+          lines = text[start:end].splitlines()
+          Path('/tmp/browser-patch.py').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
           PY
+          python3 /tmp/browser-patch.py
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -89,44 +53,20 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Focused browser regressions
+      - name: Capture complete Revision Compare Playwright
+        id: complete
+        continue-on-error: true
         run: |
-          npx playwright test \
-            tests/browser/revision-compare-evidence-package.spec.mjs \
-            tests/browser/revision-compare-rc002.spec.mjs \
-            tests/browser/revision-compare-rc003.spec.mjs \
-            tests/browser/revision-compare-rc004.spec.mjs \
-            --config=playwright.revision-compare.config.mjs
+          mkdir -p diagnostic
+          npx playwright test --config=playwright.revision-compare.config.mjs --reporter=line > diagnostic/complete-playwright.log 2>&1
 
-      - name: Complete Revision Compare Playwright
-        run: npx playwright test --config=playwright.revision-compare.config.mjs
+      - name: Upload complete browser output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-browser-baseline-residual-20260727
+          path: diagnostic/complete-playwright.log
+          if-no-files-found: error
 
-      - name: Revision Compare aggregate
-        run: npm run test:revision-compare
-
-      - name: Repository-wide validation
-        run: npm test
-
-      - name: Enforce four-file scope
-        run: |
-          git diff --check
-          git diff --name-only | sort > /tmp/actual
-          cat > /tmp/expected <<'EOF'
-          tests/browser/revision-compare-evidence-package.spec.mjs
-          tests/browser/revision-compare-rc002.spec.mjs
-          tests/browser/revision-compare-rc003.spec.mjs
-          tests/browser/revision-compare-rc004.spec.mjs
-          EOF
-          sort -o /tmp/expected /tmp/expected
-          diff -u /tmp/expected /tmp/actual
-
-      - name: Commit and publish tested baseline repair
-        run: |
-          git config user.name 'Owner Release Bot'
-          git config user.email 'owner-release-bot@users.noreply.github.com'
-          git add tests/browser/revision-compare-evidence-package.spec.mjs \
-            tests/browser/revision-compare-rc002.spec.mjs \
-            tests/browser/revision-compare-rc003.spec.mjs \
-            tests/browser/revision-compare-rc004.spec.mjs
-          git commit -m 'test: stabilize Revision Compare browser authority checks'
-          git push origin HEAD:${TARGET_BRANCH}
+      - name: Require complete suite pass
+        run: test "${{ steps.complete.outcome }}" = "success"
