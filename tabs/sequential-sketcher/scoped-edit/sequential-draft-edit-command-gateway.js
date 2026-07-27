@@ -24,6 +24,10 @@ function jsonContract(value, label) {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, error.message || String(error), TypeError);
   }
 }
+function requiredText(value, label) {
+  try { return requiredContractText(value, label); }
+  catch (error) { coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, error.message, TypeError); }
+}
 function current(reader) {
   const value = reader();
   if (!value || typeof value !== 'object') throw new TypeError('Sequential Draft Edit command state is unavailable.');
@@ -54,7 +58,7 @@ function validatedOrigin(value) {
   if (String(origin?.kind || '').toUpperCase() !== 'USER') {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, 'Draft Edit commands require USER origin.', TypeError);
   }
-  requiredContractText(origin.actorId, 'Draft Edit command origin actorId');
+  requiredText(origin.actorId, 'Draft Edit command origin actorId');
   if (!isIsoTimestamp(origin.issuedAt)) {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, 'Draft Edit command issuedAt must be an exact ISO timestamp.', TypeError);
   }
@@ -62,9 +66,7 @@ function validatedOrigin(value) {
 }
 function validatedCommand(value, branchId) {
   const command = jsonContract(value, 'Sequential Draft Edit command');
-  let commandType;
-  try { commandType = requiredContractText(command.commandType, 'Draft Edit commandType').toUpperCase(); }
-  catch (error) { coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, error.message, TypeError); }
+  const commandType = requiredText(command.commandType, 'Draft Edit commandType').toUpperCase();
   if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(commandType)) {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC,
       `Draft Edit command ${commandType} is not enabled for deterministic preparation.`, RangeError);
@@ -99,10 +101,16 @@ export function createSequentialDraftEditCommandGateway(options = {}) {
     const prepared = prepare(input);
     return Object.freeze({ prepared, acceptance: accept(prepared) });
   }
+  function gatewayState() {
+    if (destroyed) return Object.freeze({ destroyed, ready: false, branchId: null,
+      reasonCode: SEQUENTIAL_COMMAND_REJECTION.PREPARED_COMMAND_INVALID,
+      allowedCommandTypes: SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES });
+    return Object.freeze({ destroyed, ...authorityStatus(current(readCurrentState)),
+      allowedCommandTypes: SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES });
+  }
   return Object.freeze({
     schema: SEQUENTIAL_DRAFT_EDIT_COMMAND_GATEWAY_SCHEMA,
-    getState: () => Object.freeze({ destroyed, ...authorityStatus(current(readCurrentState)),
-      allowedCommandTypes: SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES }),
+    getState: gatewayState,
     prepare, accept, execute,
     destroy() { if (destroyed) return false; destroyed = true; service.destroy(); return true; },
   });
