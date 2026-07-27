@@ -1,4 +1,4 @@
-/** Workspace-owned read and publication boundary for accepted Sequential command candidates. */
+/** Workspace-owned read and restoration publication boundary for accepted command candidates. */
 import { createSequentialBranchWorkspaceRegistry } from '../sequential-branch-workspace-state.js';
 import { sequentialSourceRecordsFingerprint } from '../persistence/sequential-workspace-package.js';
 import {
@@ -28,7 +28,7 @@ function injectFailure(factory, stage) {
   if (result instanceof Error) throw result;
   if (result) throw new Error(String(result));
 }
-function preparedRegistry(model, candidate) {
+function preparedEntries(model, candidate) {
   if (!Array.isArray(candidate?.branchEntries)) {
     fail(SEQUENTIAL_COMMAND_REJECTION.PREPARED_COMMAND_INVALID,
       'Accepted candidate branch entries are unavailable.', TypeError);
@@ -40,15 +40,29 @@ function preparedRegistry(model, candidate) {
     fail(SEQUENTIAL_COMMAND_REJECTION.COMPLETE_RESULT_MISMATCH,
       'Accepted candidate does not contain the exact active branch session.', RangeError);
   }
-  return registry;
+  return registry.entries();
+}
+function restoration(model, candidate, branchEntries) {
+  return Object.freeze({
+    schema: 'SequentialWorkspaceRestoration.v2',
+    packageSchema: 'SequentialWorkspacePackage.v2',
+    packageRevision: 2,
+    records: model.records,
+    evidence: model.evidence,
+    indexes: model.indexes,
+    sourceFingerprint: sequentialSourceRecordsFingerprint(model.records),
+    branchIds: model.branchRegistry.ids(),
+    activeBranchId: candidate.session.rootBranchId,
+    workspaces: branchEntries,
+    decisionRegister: model.restoredDecisionRegister || null,
+    journalState: candidate.journalState,
+    applicationReceipts: model.workspaceApplicationReceipts || Object.freeze([]),
+  });
 }
 function publicationEvidence(preparedId, authority, syncFailure) {
   return Object.freeze({
-    schema: 'SequentialCommandPublication.v1',
-    committed: true,
-    preparedId,
-    expectedAuthorityId: authority.authorityId,
-    synchronizationWarning: syncFailure || null,
+    schema: 'SequentialCommandPublication.v1', committed: true, preparedId,
+    expectedAuthorityId: authority.authorityId, synchronizationWarning: syncFailure || null,
   });
 }
 
@@ -56,20 +70,17 @@ export function createSequentialWorkspaceCommandBoundary(options = {}) {
   const readModel = requiredFunction(options.readModel, 'readModel');
   const readOwnerSnapshot = requiredFunction(options.readOwnerSnapshot, 'readOwnerSnapshot');
   const readEngineOptions = requiredFunction(options.readEngineOptions, 'readEngineOptions');
+  const restorePackage = requiredFunction(options.restorePackage, 'restorePackage');
   const syncAfterCommit = requiredFunction(options.syncAfterCommit, 'syncAfterCommit');
   function readCurrentState() {
     const model = modelFrom(readModel);
     return {
       sourceFingerprint: sequentialSourceRecordsFingerprint(model.records),
-      evidence: model.evidence,
-      indexes: model.indexes,
-      session: model.session,
+      evidence: model.evidence, indexes: model.indexes, session: model.session,
       confirmedConstruction: model.confirmedConstruction,
       supportProjection: model.supportProjection,
-      branchRegistry: model.branchRegistry,
-      journalState: model.journalState,
-      ownerSnapshot: readOwnerSnapshot(),
-      engineOptions: { ...readEngineOptions() },
+      branchRegistry: model.branchRegistry, journalState: model.journalState,
+      ownerSnapshot: readOwnerSnapshot(), engineOptions: { ...readEngineOptions() },
     };
   }
   function publishCandidate(input = {}) {
@@ -80,17 +91,13 @@ export function createSequentialWorkspaceCommandBoundary(options = {}) {
         'Sequential workspace authority changed before publication.', RangeError);
     }
     const model = modelFrom(readModel);
-    const registry = preparedRegistry(model, input.candidate);
+    const branchEntries = preparedEntries(model, input.candidate);
+    const next = restoration(model, input.candidate, branchEntries);
     injectFailure(options.failureFactory, 'before-commit');
-    const nextState = {
-      branchRegistry: registry,
-      session: input.candidate.session,
-      confirmedConstruction: input.candidate.confirmedConstruction,
-      supportProjection: input.candidate.supportProjection,
-      journalState: input.candidate.journalState,
-      selectedCandidateId: '',
-    };
-    Object.assign(model, nextState);
+    restorePackage(next, {
+      expectedJournalImpact: 'REPLACE',
+      applicationReceipts: next.applicationReceipts,
+    });
     let syncFailure = null;
     try { syncAfterCommit({ preparedId: input.preparedId, envelope: input.envelope }); }
     catch (error) {
