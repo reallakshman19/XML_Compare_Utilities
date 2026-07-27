@@ -5,3 +5,5 @@ export * from './sequential-edit-authority.js';
 export * from './sequential-command-preparation.js';
 export * from './sequential-command-acceptance.js';
 export * from './sequential-command-service.js';
+export * from './sequential-draft-edit-command-gateway.js';
+export * from './sequential-workspace-command-boundary.js';
