@@ -14,6 +14,10 @@ function identity(row = {}) {
   return value ? `/${value.replace(/^\/+/, '')}` : 'the support';
 }
 function tag(row = {}) { return text(row.tagId || row.sourceTagId || row.topCandidateTagId) || 'the Navis Tag'; }
+function anchorPhrase(row = {}) {
+  const basis = text(row.anchorBasisLabel || row.selectedAnchorBasis || row.nearestRejectedAnchorBasis);
+  return basis ? ` using anchor basis ${basis}` : '';
+}
 function list(values) { return (Array.isArray(values) ? values : []).filter(Boolean); }
 function codeSuffix(codes) {
   const values = list(codes).map(text).filter(Boolean);
@@ -75,6 +79,7 @@ export function candidateAuditRemark(row = {}, config = {}) {
   const passed = row.withinTolerance === true;
   const status = text(row.decisionStatus);
   const selected = row.accepted === true;
+  const anchor = anchorPhrase(row);
   if (row.ledgerKind === 'NEAREST_REJECTED' || !passed) {
     const failed = list(row.failedAxes).map(axisName);
     const checks = [
@@ -82,26 +87,30 @@ export function candidateAuditRemark(row = {}, config = {}) {
       toleranceText('N', row.deltaNMm, config.northingToleranceMm),
       `${verticalDescription(row)} ${compact(row.verticalResidualMm)} mm${number(config.elevationToleranceMm) != null ? ` versus ${compact(config.elevationToleranceMm)} mm` : ''}`,
     ].join('; ');
-    return `Not matched. Tag ${tag(row)} is the closest recorded candidate for ${identity(row)}, but ${failed.length ? `${failed.join(' and ')} exceeded the configured tolerance` : 'one or more coordinate checks failed'}. ${checks}.`;
+    return `Not matched. Tag ${tag(row)} is the closest recorded candidate for ${identity(row)}${anchor}, but ${failed.length ? `${failed.join(' and ')} exceeded the configured tolerance` : 'one or more coordinate checks failed'}. ${checks}.`;
   }
   if (selected) {
-    return `Selected. Tag ${tag(row)} ranked ${rank || 1} for ${identity(row)}, passed all coordinate tolerances and was accepted with evidence score ${score}.`;
+    return `Selected. Tag ${tag(row)} ranked ${rank || 1} for ${identity(row)}${anchor}, passed all coordinate tolerances and was accepted with evidence score ${score}.`;
   }
   if (status === 'AMBIGUOUS') {
     const role = rank === 1 ? 'is the best coordinate candidate' : `ranks ${rank} behind Tag ${top || 'the leading candidate'}`;
     const competingTag = rank === 1 ? runner : top;
-    return `Review required. Tag ${tag(row)} ${role} for ${identity(row)} and passed all coordinate tolerances with score ${score}. No Support ISONOTE was issued because ${competingTag ? `Tag ${competingTag} carries a different comment and ` : 'another in-tolerance Tag carries a different comment and '}the score lead ${gap || '0'} is below the required ${required || 'configured'} gap.`;
+    return `Review required. Tag ${tag(row)} ${role} for ${identity(row)}${anchor} and passed all coordinate tolerances with score ${score}. No Support ISONOTE was issued because ${competingTag ? `Tag ${competingTag} carries a different comment and ` : 'another in-tolerance Tag carries a different comment and '}the score lead ${gap || '0'} is below the required ${required || 'configured'} gap.`;
   }
-  return `Not selected. Tag ${tag(row)} passed all coordinate tolerances for ${identity(row)} but ranked ${rank || 'below the selected candidate'}${top ? ` behind Tag ${top}` : ''} with score ${score}.`;
+  return `Not selected. Tag ${tag(row)} passed all coordinate tolerances for ${identity(row)}${anchor} but ranked ${rank || 'below the selected candidate'}${top ? ` behind Tag ${top}` : ''} with score ${score}.`;
 }
 
 export function decisionAuditRemark(row = {}, config = {}) {
   const status = text(row.status || row.decisionStatus);
   if (status === 'AMBIGUOUS') {
-    return `No Support ISONOTE was issued. Tag ${text(row.topCandidateTagId) || 'the top candidate'} scored ${compact(row.topCandidateScore, 6)}, but Tag ${text(row.runnerUpTagId) || 'the runner-up'} has a different comment and the score lead ${compact(row.scoreGap, 6) || '0'} is below the required ${compact(row.requiredScoreGap, 6) || 'configured'} gap.`;
+    const topBasis = text(row.topCandidateAnchorBasis);
+    const runnerBasis = text(row.runnerUpCandidateAnchorBasis);
+    const topAnchor = topBasis ? ` using ${topBasis}` : '';
+    const runnerAnchor = runnerBasis ? ` using ${runnerBasis}` : '';
+    return `No Support ISONOTE was issued. Tag ${text(row.topCandidateTagId) || 'the top candidate'}${topAnchor} scored ${compact(row.topCandidateScore, 6)}, but Tag ${text(row.runnerUpTagId) || 'the runner-up'}${runnerAnchor} has a different comment and the score lead ${compact(row.scoreGap, 6) || '0'} is below the required ${compact(row.requiredScoreGap, 6) || 'configured'} gap.`;
   }
   if (status === 'RESOLVED') {
-    return `Resolved to Tag ${text(row.selectedTagId || row.topCandidateTagId) || 'the selected candidate'} with confidence ${text(row.confidence) || 'recorded'} and score ${compact(row.confidenceScore ?? row.topCandidateScore, 6)}.`;
+    return `Resolved to Tag ${text(row.selectedTagId || row.topCandidateTagId) || 'the selected candidate'}${anchorPhrase(row)} with confidence ${text(row.confidence) || 'recorded'} and score ${compact(row.confidenceScore ?? row.topCandidateScore, 6)}.`;
   }
   const nearest = row.nearestRejectedCandidate || row;
   return candidateAuditRemark({ ...nearest, ledgerKind: 'NEAREST_REJECTED', canonicalIdentity: row.canonicalIdentity || nearest.canonicalIdentity }, config);
@@ -123,6 +132,7 @@ export function candidateFinalBasis(row = {}, config = {}) {
     row.decisionReason,
     `CANDIDATE_RANK=${row.candidateRank}`,
     `SCORE=${compact(row.score, 6)}`,
+    row.anchorBasisId ? `ANCHOR_BASIS=${row.anchorBasisId}` : '',
     row.topCandidateTagId ? `TOP_TAG=${row.topCandidateTagId}` : '',
     row.runnerUpTagId ? `RUNNER_UP_TAG=${row.runnerUpTagId}` : '',
     row.scoreGap == null ? '' : `SCORE_GAP=${compact(row.scoreGap, 6)}${gapOperator}${compact(row.requiredScoreGap, 6)}`,
@@ -131,7 +141,7 @@ export function candidateFinalBasis(row = {}, config = {}) {
 }
 
 export function nearestRejectedFinalBasis(row = {}, config = {}) {
-  return `${candidateAuditRemark({ ...row, ledgerKind: 'NEAREST_REJECTED' }, config)}${codeSuffix(['NEAREST_REJECTED', ...(row.rejectionReasons || [])])}`;
+  return `${candidateAuditRemark({ ...row, ledgerKind: 'NEAREST_REJECTED' }, config)}${codeSuffix(['NEAREST_REJECTED', row.anchorBasisId ? `ANCHOR_BASIS=${row.anchorBasisId}` : '', ...(row.rejectionReasons || [])])}`;
 }
 
 export function unmatchedFinalBasis() {
@@ -142,8 +152,8 @@ export function resolvedFinalBasis({ direct = false, decision = {}, propagationR
   const parts = [];
   const codes = [];
   if (direct) {
-    parts.push(`Direct match accepted from Tag ${text(decision.selectedTagId) || 'unknown'} for ${identity(decision)}.`);
-    codes.push('DIRECT_TAG_PROXIMITY');
+    parts.push(`Direct match accepted from Tag ${text(decision.selectedTagId) || 'unknown'} for ${identity(decision)}${anchorPhrase(decision)}.`);
+    codes.push('DIRECT_TAG_PROXIMITY', decision.selectedAnchorBasisId ? `ANCHOR_BASIS=${decision.selectedAnchorBasisId}` : '');
   }
   if (propagationRows.length) {
     const sourceTags = [...new Set(propagationRows.map((row) => text(row.sourceTagId)).filter(Boolean))];
@@ -163,4 +173,4 @@ export function resolvedFinalBasis({ direct = false, decision = {}, propagationR
   return `${parts.join(' ')}${codeSuffix(codes)}`.trim();
 }
 
-export const _test = Object.freeze({ compact, signed, codeSuffix, identity, verticalDescription, rejectionPhrase });
+export const _test = Object.freeze({ compact, signed, codeSuffix, identity, anchorPhrase, verticalDescription, rejectionPhrase });

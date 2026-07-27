@@ -99,7 +99,9 @@ function decisionMeta(candidates, config, distinctCommentCount = 0) {
   return {
     scoringModel: NAVIS_CANDIDATE_SCORE_MODEL,
     topCandidateTagId: top?.tagId || '', topCandidateScore: top?.score ?? null,
+    topCandidateAnchorBasis: top?.anchorBasisLabel || '',
     runnerUpTagId: runnerUp?.tagId || '', runnerUpScore: runnerUp?.score ?? null,
+    runnerUpCandidateAnchorBasis: runnerUp?.anchorBasisLabel || '',
     scoreGap: runnerUp ? fixed(top.score - runnerUp.score) : null,
     requiredScoreGap: config.ambiguityScoreGap, distinctCommentCount,
   };

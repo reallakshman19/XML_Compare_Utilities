@@ -4,7 +4,8 @@ function positionLabel(point) { return point ? `E=${point.x};N=${point.y};EL=${p
 
 function nearestRejectedMessage(candidate, config) {
   const label = candidate?.tagId ? `Tag ${candidate.tagId}` : candidate?.evidenceId || 'Nearest Navis tag';
-  return `${label} (${candidate?.viewName || 'unnamed view'}) is the nearest rejected tag: ΔE ${candidate.deltaEMm.toFixed(3)} mm, ΔN ${candidate.deltaNMm.toFixed(3)} mm, ΔEL ${candidate.deltaElMm.toFixed(3)} mm, vertical residual ${candidate.verticalResidualMm.toFixed(3)} mm. Failed axes: ${candidate.failedAxes.join(', ') || '(none)'}. Tolerances: E ${config.eastingToleranceMm} mm, N ${config.northingToleranceMm} mm, EL ${config.elevationToleranceMm} mm.`;
+  const anchor = candidate?.anchorBasisLabel ? ` Anchor basis: ${candidate.anchorBasisLabel}.` : '';
+  return `${label} (${candidate?.viewName || 'unnamed view'}) is the nearest rejected tag: ΔE ${candidate.deltaEMm.toFixed(3)} mm, ΔN ${candidate.deltaNMm.toFixed(3)} mm, ΔEL ${candidate.deltaElMm.toFixed(3)} mm, vertical residual ${candidate.verticalResidualMm.toFixed(3)} mm. Failed axes: ${candidate.failedAxes.join(', ') || '(none)'}. Tolerances: E ${config.eastingToleranceMm} mm, N ${config.northingToleranceMm} mm, EL ${config.elevationToleranceMm} mm.${anchor}`;
 }
 
 function ledgerBase(record, trace, positionChoice) {
@@ -26,7 +27,9 @@ function resultEvidence(result) {
   return {
     scoringModel: result.scoringModel, decisionStatus: result.status, decisionReason: result.decisionReason,
     topCandidateTagId: result.topCandidateTagId, topCandidateScore: result.topCandidateScore,
+    topCandidateAnchorBasis: result.topCandidateAnchorBasis || '',
     runnerUpTagId: result.runnerUpTagId, runnerUpScore: result.runnerUpScore,
+    runnerUpCandidateAnchorBasis: result.runnerUpCandidateAnchorBasis || '',
     scoreGap: result.scoreGap, requiredScoreGap: result.requiredScoreGap,
     distinctCommentCount: result.distinctCommentCount,
   };
@@ -61,6 +64,7 @@ export function appendNearestRejected(candidateLedger, diagnostics, base, result
     failedAxes: result.nearestRejected.failedAxes, deltaEMm: result.nearestRejected.deltaEMm,
     deltaNMm: result.nearestRejected.deltaNMm, deltaElMm: result.nearestRejected.deltaElMm,
     verticalResidualMm: result.nearestRejected.verticalResidualMm,
+    anchorBasis: result.nearestRejected.anchorBasisLabel || '',
     message: nearestRejectedMessage(result.nearestRejected, config),
   });
 }
@@ -70,11 +74,13 @@ export function createLedgerBase(record, trace, positionChoice) {
 }
 
 export function buildDecisionRow(record, trace, positionChoice, candidates, result, config) {
+  const selected = result.selected || null;
   const nearest = result.nearestRejected || null;
   const auditRemark = decisionAuditRemark({
     ...result,
     canonicalIdentity: record.identity,
-    selectedTagId: result.selected?.tagId || '',
+    selectedTagId: selected?.tagId || '',
+    selectedAnchorBasis: selected?.anchorBasisLabel || '',
     confidenceScore: result.score,
     nearestRejectedCandidate: nearest,
   }, config);
@@ -85,18 +91,24 @@ export function buildDecisionRow(record, trace, positionChoice, candidates, resu
     boreUnits: trace?.boreUnits || config.jsonBoreUnits, candidateCount: candidates.length,
     status: result.status, ambiguity: result.ambiguity, confidence: result.confidence,
     confidenceScore: result.score, confidenceReasons: result.confidenceReasons, auditRemark, ...resultEvidence(result),
-    supportIsonote: result.selected?.commentBody || '', selectedEvidenceId: result.selected?.evidenceId || '',
-    selectedViewName: result.selected?.viewName || '', selectedViewGuid: result.selected?.viewGuid || '',
-    selectedTagId: result.selected?.tagId || '', selectedCommentId: result.selected?.commentId || '',
-    selectedNavisPosition: result.selected?.tagPosition || null,
-    selectedNavisPositionSource: result.selected?.positionSource || '', selectedCandidate: result.selected,
+    supportIsonote: selected?.commentBody || '', selectedEvidenceId: selected?.evidenceId || '',
+    selectedViewName: selected?.viewName || '', selectedViewGuid: selected?.viewGuid || '',
+    selectedTagId: selected?.tagId || '', selectedCommentId: selected?.commentId || '',
+    selectedNavisPosition: selected?.tagPosition || null,
+    selectedNavisPositionSource: selected?.positionSource || '', selectedCandidate: selected,
+    selectedAnchorBasis: selected?.anchorBasisLabel || '', selectedAnchorBasisId: selected?.anchorBasisId || '',
+    selectedAnchorTagId: selected?.anchorBasisTagId || '', selectedAnchorSupportIdentity: selected?.anchorBasisSupportIdentity || '',
+    selectedAnchorDeltaEMm: selected?.anchorTransformDeltaEMm ?? null,
+    selectedAnchorDeltaNMm: selected?.anchorTransformDeltaNMm ?? null,
+    selectedAnchorDeltaElMm: selected?.anchorTransformDeltaElMm ?? null,
     nearestRejectedEvidenceId: nearest?.evidenceId || '', nearestRejectedViewName: nearest?.viewName || '',
     nearestRejectedViewGuid: nearest?.viewGuid || '', nearestRejectedTagId: nearest?.tagId || '',
     nearestRejectedCommentId: nearest?.commentId || '', nearestRejectedCommentBody: nearest?.commentBody || '',
     nearestRejectedNavisPosition: nearest?.tagPosition || null, nearestRejectedAxes: nearest?.failedAxes || [],
     nearestRejectedDeltaEMm: nearest?.deltaEMm ?? null, nearestRejectedDeltaNMm: nearest?.deltaNMm ?? null,
     nearestRejectedDeltaElMm: nearest?.deltaElMm ?? null,
-    nearestRejectedVerticalResidualMm: nearest?.verticalResidualMm ?? null, nearestRejectedCandidate: nearest,
+    nearestRejectedVerticalResidualMm: nearest?.verticalResidualMm ?? null,
+    nearestRejectedAnchorBasis: nearest?.anchorBasisLabel || '', nearestRejectedCandidate: nearest,
   };
 }
 
@@ -108,6 +120,8 @@ export function buildAugmentedRow(record, decisionRow, result, candidates) {
     'Support Position Path': decisionRow.supportPositionPath, 'Navis Tag POS': positionLabel(result.selected?.tagPosition),
     'Navis Position Source': result.selected?.positionSource || '', 'Delta E mm': result.selected?.deltaEMm ?? '',
     'Delta N mm': result.selected?.deltaNMm ?? '', 'Delta EL mm': result.selected?.deltaElMm ?? '',
+    'Anchor pair basis': decisionRow.selectedAnchorBasis || decisionRow.nearestRejectedAnchorBasis || '',
+    'Anchor Selection Reason': result.selected?.anchorSelectionReason || result.nearestRejected?.anchorSelectionReason || '',
     'Bore Nominal mm': decisionRow.boreNominalMm ?? '', 'Bore Source Path': decisionRow.borePath,
     'OD mm': decisionRow.odMm ?? '', 'OD Source Path': decisionRow.odPath, 'OD Source': decisionRow.odSource,
     'OD Lookup Name': decisionRow.odLookupName, 'Vertical Basis': result.selected?.verticalBasis || '',
@@ -115,7 +129,9 @@ export function buildAugmentedRow(record, decisionRow, result, candidates) {
     'Candidate Score Model': decisionRow.scoringModel, 'Decision Reason': decisionRow.decisionReason,
     'Audit Remark': decisionRow.auditRemark,
     'Top Candidate Tag ID': decisionRow.topCandidateTagId, 'Top Candidate Score': decisionRow.topCandidateScore ?? '',
+    'Top Candidate Anchor Basis': decisionRow.topCandidateAnchorBasis,
     'Runner-up Tag ID': decisionRow.runnerUpTagId, 'Runner-up Score': decisionRow.runnerUpScore ?? '',
+    'Runner-up Anchor Basis': decisionRow.runnerUpCandidateAnchorBasis,
     'Score Gap': decisionRow.scoreGap ?? '', 'Required Score Gap': decisionRow.requiredScoreGap,
     'Distinct Comment Count': decisionRow.distinctCommentCount, Ambiguities: decisionRow.ambiguity,
     Confidence: decisionRow.confidence, 'Confidence Score': decisionRow.confidenceScore,

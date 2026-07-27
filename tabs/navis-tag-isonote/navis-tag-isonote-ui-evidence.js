@@ -10,7 +10,7 @@ function esc(value) {
 }
 function badge(status) {
   const value = String(status || '');
-  const css = /RESOLVED|READY|HIGH|MEDIUM|VALID|SELECTED_MATCH|WITHIN_TOLERANCE|CURRENT|APPLIED|DIRECT|PROPAGATED/.test(value) && !/UNRESOLVED|INVALID|NOT_SELECTED|OUTSIDE|REBUILD_REQUIRED|REJECTED|NONE/.test(value)
+  const css = /RESOLVED|READY|HIGH|MEDIUM|VALID|SELECTED_MATCH|WITHIN_TOLERANCE|CURRENT|APPLIED|DIRECT|PROPAGATED|HYPOTHESES/.test(value) && !/UNRESOLVED|INVALID|NOT_SELECTED|OUTSIDE|REBUILD_REQUIRED|REJECTED|NONE/.test(value)
     ? 'nti-ok'
     : /AMBIGUOUS|WARN|PENDING|PARTIAL|NOT_SELECTED|RUNNER_UP|NEAREST_REJECTED|OUTSIDE|REBUILD_REQUIRED|STALE|REJECTED/.test(value) ? 'nti-warn' : 'nti-error';
   return `<span class="nti-badge ${css}">${esc(value)}</span>`;
@@ -69,15 +69,16 @@ export function jsonTraceRows(state) {
 }
 export function navisCoordinateRows(state) {
   const configured = { x: configuredDatum(state, 'x'), y: configuredDatum(state, 'y'), z: configuredDatum(state, 'z') };
+  const multiAnchor = state.navisParse?.anchor?.active && Number(state.navisParse?.anchor?.validCount) > 1;
   return (state.navisParse?.tags || []).map((tag) => {
     const raw = tag.rawPosition || {};
     const transformed = tag.position || {};
     const applied = transformed.datumOffsetMm || {};
-    const valid = Boolean(tag.position && tag.commentBody);
-    const datumStatus = state.navisParse?.anchor?.active
-      ? 'ANCHOR_OVERRIDE'
-      : !state.inputsDirty && sameNumber(applied.x, configured.x) && sameNumber(applied.y, configured.y) && sameNumber(applied.z, configured.z)
-        ? 'CURRENT' : 'REBUILD_REQUIRED';
+    const valid = Boolean(tag.rawPosition && tag.commentBody);
+    const datumStatus = multiAnchor ? 'MULTI_ANCHOR_HYPOTHESES'
+      : state.navisParse?.anchor?.active ? 'SINGLE_ANCHOR_APPLIED'
+        : !state.inputsDirty && sameNumber(applied.x, configured.x) && sameNumber(applied.y, configured.y) && sameNumber(applied.z, configured.z)
+          ? 'CURRENT' : 'REBUILD_REQUIRED';
     return {
       viewIndex: tag.viewIndex, viewName: tag.viewName, viewGuid: tag.viewGuid, tagId: tag.tagId,
       commentId: tag.commentId, commentBody: tag.commentBody, commentUser: tag.commentUser,
@@ -91,8 +92,8 @@ export function navisCoordinateRows(state) {
       nFormula: axisFormula(raw.y, transformed.unitScale, applied.y, transformed.y),
       elFormula: axisFormula(raw.z, transformed.unitScale, applied.z, transformed.z),
       coordinateProfile: transformed.profileName || tag.coordinateProfileName || '', axisBasis: transformed.axisBasis || '',
-      transform: tag.transformBasis || (tag.position ? `raw XYZ × ${transformed.unitScale} + applied datum offsets` : ''),
-      coordinateStatus: valid ? 'VALID_FOR_MATCHING' : tag.position ? 'COORDINATE_ONLY' : 'INVALID',
+      transform: multiAnchor ? `${state.navisParse.anchor.validCount} equal-authority transforms evaluated during Stage 3` : tag.transformBasis || (tag.position ? `raw XYZ × ${transformed.unitScale} + applied datum offsets` : ''),
+      coordinateStatus: valid ? (multiAnchor ? 'VALID_FOR_MULTI_ANCHOR_MATCHING' : 'VALID_FOR_MATCHING') : tag.position ? 'COORDINATE_ONLY' : 'INVALID',
       diagnostics: (tag.diagnostics || []).join(' | '),
     };
   });
@@ -126,6 +127,12 @@ export function matchRows(state) {
       navisView: displayed?.viewName || decision?.selectedViewName || decision?.nearestRejectedViewName || '',
       navisCommentId: displayed?.commentId || decision?.selectedCommentId || decision?.nearestRejectedCommentId || '',
       navisComment: displayed?.commentBody || decision?.nearestRejectedCommentBody || '', ...pointColumns(displayedPoint, 'navis'),
+      anchorPairBasis: displayed?.anchorBasisLabel || decision?.selectedAnchorBasis || decision?.nearestRejectedAnchorBasis || '',
+      anchorSelectionReason: displayed?.anchorSelectionReason || '',
+      eligibleAnchorCount: displayed?.eligibleAnchorCount ?? '', equivalentAnchorCount: displayed?.equivalentAnchorCount ?? '',
+      anchorDeltaE: compactNumber(displayed?.anchorTransformDeltaEMm, 6),
+      anchorDeltaN: compactNumber(displayed?.anchorTransformDeltaNMm, 6),
+      anchorDeltaEL: compactNumber(displayed?.anchorTransformDeltaElMm, 6),
       deltaE: compactNumber(displayed?.deltaEMm ?? decision?.nearestRejectedDeltaEMm),
       deltaN: compactNumber(displayed?.deltaNMm ?? decision?.nearestRejectedDeltaNMm),
       deltaEL: compactNumber(displayed?.deltaElMm ?? decision?.nearestRejectedDeltaElMm),
@@ -135,7 +142,9 @@ export function matchRows(state) {
       auditRemark: decision?.auditRemark || (decision ? decisionAuditRemark(decision, state.audit?.config || state.config || {}) : 'Run Stage 3 to generate a direct-match conclusion.'),
       scoringModel: decision?.scoringModel || '',
       topCandidateTagId: decision?.topCandidateTagId || '', topCandidateScore: compactNumber(decision?.topCandidateScore, 6),
+      topCandidateAnchorBasis: decision?.topCandidateAnchorBasis || '',
       runnerUpTagId: decision?.runnerUpTagId || '', runnerUpScore: compactNumber(decision?.runnerUpScore, 6),
+      runnerUpCandidateAnchorBasis: decision?.runnerUpCandidateAnchorBasis || '',
       scoreGap: compactNumber(decision?.scoreGap, 6), requiredScoreGap: compactNumber(decision?.requiredScoreGap, 6),
       distinctCommentCount: decision?.distinctCommentCount ?? '', ambiguity: decision?.ambiguity || row.navisAmbiguity,
       confidence: decision?.confidence || row.navisConfidence, isonoteSource: decision?.isonoteSource || row.isonoteSource || '',
@@ -156,6 +165,10 @@ function candidateRows(state) {
     requiredScoreGap: compactNumber(row.requiredScoreGap, 6), failedAxesDisplay: (row.failedAxes || []).join(' | '),
     rejectionReasonsDisplay: (row.rejectionReasons || []).join(' | '),
     auditRemark: row.auditRemark || '', confidenceReasonCodesDisplay: joined(row.confidenceReasons),
+    anchorTransformDeltaE: compactNumber(row.anchorTransformDeltaEMm, 6),
+    anchorTransformDeltaN: compactNumber(row.anchorTransformDeltaNMm, 6),
+    anchorTransformDeltaEL: compactNumber(row.anchorTransformDeltaElMm, 6),
+    anchorEvaluationsDisplay: (row.anchorEvaluations || []).map((item) => `${item.anchorBasisLabel}: ${item.withinTolerance ? 'IN' : 'OUT'} RMS=${item.normalizedGeometryRms ?? ''}`).join(' | '),
     comparisonOutcome: row.accepted ? 'SELECTED_MATCH'
       : row.ledgerKind === 'NEAREST_REJECTED' ? 'NEAREST_REJECTED'
         : row.decisionStatus === 'AMBIGUOUS' ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP',
@@ -190,16 +203,20 @@ function renderNavisCoordinates(state) {
     ['commentBody','Comment / candidate ISONOTE'], ['commentUser','Comment author'], ['positionSource','XML coordinate source'],
     ['xmlX','XML X raw'], ['xmlY','XML Y raw'], ['xmlZ','XML Z raw'], ['sourceUnit','XML source unit'], ['unitScaleToMm','Unit scale → mm'],
     ['configuredDatumE','Configured E offset mm'], ['configuredDatumN','Configured N offset mm'], ['configuredDatumEL','Configured EL offset mm'],
-    ['appliedDatumE','Applied E offset mm'], ['appliedDatumN','Applied N offset mm'], ['appliedDatumEL','Applied EL offset mm'], ['datumStatus','Configured offsets applied?',true],
-    ['navisToJsonE','Transformed E (JSON comparison mm)'], ['navisToJsonN','Transformed N (JSON comparison mm)'], ['navisToJsonEL','Transformed EL (JSON comparison mm)'],
-    ['eFormula','E transformation formula'], ['nFormula','N transformation formula'], ['elFormula','EL transformation formula'],
+    ['appliedDatumE','Displayed E offset mm'], ['appliedDatumN','Displayed N offset mm'], ['appliedDatumEL','Displayed EL offset mm'], ['datumStatus','Anchor transform mode',true],
+    ['navisToJsonE','Displayed E mm'], ['navisToJsonN','Displayed N mm'], ['navisToJsonEL','Displayed EL mm'],
+    ['eFormula','Displayed E formula'], ['nFormula','Displayed N formula'], ['elFormula','Displayed EL formula'],
     ['coordinateProfile','Navis coordinate profile'], ['axisBasis','Axis interpretation'], ['transform','Transformation basis'], ['coordinateStatus','Ready for Stage 3?',true], ['diagnostics','Coordinate / comment issues'],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
   const cfg = state.config || {};
+  const multiAnchor = state.navisParse?.anchor?.active && Number(state.navisParse?.anchor?.validCount) > 1;
+  const modeHelp = multiAnchor
+    ? `<div class="nti-help"><b>${esc(state.navisParse.anchor.validCount)} equal-authority anchor transforms are active.</b> The displayed coordinate is only the base/configured frame. Stage 3 evaluates every Tag under every anchor and records the winning Anchor pair basis.</div>`
+    : `<div class="nti-help">Transformation: raw XML XYZ × unit scale + displayed datum offsets. Current configured offsets: E ${esc(cfg.navisEastingDatumMm ?? 0)} mm; N ${esc(cfg.navisNorthingDatumMm ?? 0)} mm; EL ${esc(cfg.navisElevationDatumMm ?? 0)} mm.</div>`;
   const freshness = state.inputsDirty
-    ? '<div class="nti-help"><b>Configuration/source changes are pending.</b> These rows show the last applied offsets. Run resolution to rebuild automatically with the configured values.</div>'
-    : '<div class="nti-help">Configured and applied offsets are current for these parsed Navis coordinates.</div>';
-  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag Coordinate Resolution — one row per Tag ID</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(2, 'Navis Tag Coordinate Resolution', 'Shows the original XML coordinates, configured datum offsets, offsets actually applied during parsing, and the exact transformed coordinates used against JSON.')}<div class="nti-help">Transformation: raw XML XYZ × detected/configured unit scale + configured Navis datum offsets = JSON comparison-frame E/N/EL in millimetres. Current configured offsets: E ${esc(cfg.navisEastingDatumMm ?? 0)} mm; N ${esc(cfg.navisNorthingDatumMm ?? 0)} mm; EL ${esc(cfg.navisElevationDatumMm ?? 0)} mm.</div>${freshness}${renderFilterBar('navis-coordinate', 'Filter Tag ID, view, comment, offset status, formula or coordinate...')}${renderTable(headers, navisCoordinateRows(state), 'nti-filter-table-navis-coordinate', 'Parse Navis Tag XML to list Tag ID coordinate transformations.')}</section>`;
+    ? '<div class="nti-help"><b>Configuration/source changes are pending.</b> Run resolution to rebuild the anchor hypotheses and candidate evidence.</div>'
+    : '<div class="nti-help">The displayed source coordinates and current anchor-hypothesis set are up to date.</div>';
+  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag Coordinate Resolution — one row per Tag ID</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(2, 'Navis Tag Coordinate Resolution', 'Shows raw XML coordinates and whether matching uses one applied anchor or multiple independent anchor hypotheses.')}${modeHelp}${freshness}${renderFilterBar('navis-coordinate', 'Filter Tag ID, view, comment, anchor mode, formula or coordinate...')}${renderTable(headers, navisCoordinateRows(state), 'nti-filter-table-navis-coordinate', 'Parse Navis Tag XML to list Tag coordinates.')}</section>`;
 }
 function renderMatch(state) {
   const matchHeaders = [
@@ -207,9 +224,12 @@ function renderMatch(state) {
     ['jsonE','Resolved JSON E mm'], ['jsonN','Resolved JSON N mm'], ['jsonEL','Resolved JSON EL mm'], ['comparisonSource','Actual comparison source',true], ['comparisonPath','Actual comparison coordinate path'],
     ['comparisonE','Actual comparison E mm'], ['comparisonN','Actual comparison N mm'], ['comparisonEL','Actual comparison EL mm'], ['tableJsonCoordinateDelta','Table ↔ JSON distance mm'],
     ['navisStatus','Direct match result',true], ['decisionReason','Decision reason code',true], ['auditRemark','Direct-match audit remark'], ['scoringModel','Candidate score model'],
-    ['topCandidateTagId','Top candidate Tag ID'], ['topCandidateScore','Top score'], ['runnerUpTagId','Runner-up Tag ID'], ['runnerUpScore','Runner-up score'],
+    ['topCandidateTagId','Top candidate Tag ID'], ['topCandidateScore','Top score'], ['topCandidateAnchorBasis','Top candidate anchor basis'],
+    ['runnerUpTagId','Runner-up Tag ID'], ['runnerUpScore','Runner-up score'], ['runnerUpCandidateAnchorBasis','Runner-up anchor basis'],
     ['scoreGap','Score gap'], ['requiredScoreGap','Required gap'], ['distinctCommentCount','Distinct comments'], ['displayedNavisRole','Displayed Navis evidence',true],
     ['toleranceResult','Direct tolerance result',true], ['navisTagId','Direct / nearest Navis Tag ID'], ['navisView','Navis view'], ['navisCommentId','Comment ID'], ['navisComment','Navis comment'],
+    ['anchorPairBasis','Anchor pair basis'], ['anchorSelectionReason','Anchor selection reason'], ['eligibleAnchorCount','In-tolerance anchors'], ['equivalentAnchorCount','Equivalent best anchors'],
+    ['anchorDeltaE','Anchor transform ΔE mm'], ['anchorDeltaN','Anchor transform ΔN mm'], ['anchorDeltaEL','Anchor transform ΔEL mm'],
     ['navisE','Navis transformed E mm'], ['navisN','Navis transformed N mm'], ['navisEL','Navis transformed EL mm'], ['deltaE','ΔE mm'], ['deltaN','ΔN mm'], ['deltaEL','ΔEL mm'],
     ['verticalBasis','Vertical comparison basis'], ['verticalResidual','Vertical residual mm'], ['failedAxes','Failed tolerance axes (direct)'], ['candidateCount','Direct candidates within tolerance'],
     ['ambiguity','Direct decision / rejection code'], ['confidence','Direct match confidence',true], ['isonoteSource','Final ISONOTE source',true], ['directIsonote','Direct ISONOTE'],
@@ -219,11 +239,13 @@ function renderMatch(state) {
     ['tableRowIndex','Resolution row'], ['canonicalIdentity','JSON identity'], ['jsonSourceFile','JSON source'], ['jsonPath','JSON path'], ['ledgerKind','Comparison type'],
     ['supportPositionSource','Actual comparison source'], ['supportPositionPath','Actual comparison path'], ['comparisonE','Comparison E mm'], ['comparisonN','Comparison N mm'], ['comparisonEL','Comparison EL mm'],
     ['candidateRank','Candidate rank'], ['tagId','Navis Tag ID'], ['viewName','Navis view'], ['commentBody','Navis comment'], ['withinTolerance','Within tolerance?'],
+    ['anchorBasisLabel','Anchor pair basis'], ['anchorSelectionReason','Anchor selection reason'], ['eligibleAnchorCount','In-tolerance anchors'], ['equivalentAnchorCount','Equivalent best anchors'],
+    ['anchorTransformDeltaE','Anchor ΔE mm'], ['anchorTransformDeltaN','Anchor ΔN mm'], ['anchorTransformDeltaEL','Anchor ΔEL mm'], ['anchorEvaluationsDisplay','All anchor evaluations'],
     ['failedAxesDisplay','Failed axes'], ['rejectionReasonsDisplay','Rejection reason codes'], ['deltaEMm','ΔE mm'], ['deltaNMm','ΔN mm'], ['deltaElMm','ΔEL mm'],
     ['verticalResidualMm','Vertical residual mm'], ['normalizedResidualE','E / tolerance'], ['normalizedResidualN','N / tolerance'], ['normalizedResidualEL','EL / tolerance'],
     ['normalizedGeometryRms','Normalized geometry RMS'], ['scoringModel','Score model'], ['score','Candidate score (0–100, not percentage)'],
-    ['decisionStatus','Decision status',true], ['decisionReason','Decision reason code',true], ['topCandidateTagId','Top candidate Tag ID'], ['topCandidateScore','Top score'],
-    ['runnerUpTagId','Runner-up Tag ID'], ['runnerUpScore','Runner-up score'], ['scoreGap','Score gap'], ['requiredScoreGap','Required score gap'],
+    ['decisionStatus','Decision status',true], ['decisionReason','Decision reason code',true], ['topCandidateTagId','Top candidate Tag ID'], ['topCandidateScore','Top score'], ['topCandidateAnchorBasis','Top anchor basis'],
+    ['runnerUpTagId','Runner-up Tag ID'], ['runnerUpScore','Runner-up score'], ['runnerUpCandidateAnchorBasis','Runner-up anchor basis'], ['scoreGap','Score gap'], ['requiredScoreGap','Required score gap'],
     ['distinctCommentCount','Distinct comments'], ['auditRemark','Audit remark'], ['confidenceReasonCodesDisplay','Machine scoring codes'], ['comparisonOutcome','Outcome',true],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
   const propagationHeaders = [
@@ -232,11 +254,11 @@ function renderMatch(state) {
     ['targetPipeAxis','Target pipe axis'], ['targetAxisBasis','Target axis basis'], ['targetTableRowIndex','Target resolution row'], ['targetIdentity','Target support identity'], ['targetSupportRoot','Target support root'],
     ['sourceE','Source E mm'], ['sourceN','Source N mm'], ['sourceEL','Source EL mm'], ['targetE','Target E mm'], ['targetN','Target N mm'], ['targetEL','Target EL mm'],
     ['deltaE','ΔE mm'], ['deltaN','ΔN mm'], ['deltaEL','ΔEL mm'], ['alongAxisDelta','Along-axis delta mm'], ['alongAxisTolerance','Along-axis tolerance mm'],
-    ['parallelOffset','Parallel offset mm'], ['parallelOffsetTolerance','Parallel offset tolerance mm'], ['elevationDelta','Elevation delta mm'], ['elevationTolerance','Elevation tolerance mm'],
+    ['parallelOffset','Parallel offset mm'], ['parallelOffsetTolerance','Parallel offset mm'], ['elevationDelta','Elevation delta mm'], ['elevationTolerance','Elevation tolerance mm'],
     ['baseIsonote','Base ISONOTE'], ['derivedIsonote','Derived target ISONOTE'], ['propagationResult','Propagation result',true], ['auditRemark','Propagation audit remark'], ['rejectionReasonsDisplay','Rejection reason codes'],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
-  const scoreHelp = '<div class="nti-help"><b>Candidate score is not a percentage.</b> Hard E/N/EL tolerances determine admission. Audit remarks explain the operator conclusion in plain language; machine codes are retained in separate columns for filtering and exported evidence.</div>';
-  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag ↔ JSON Node Match — final decisions</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(3, 'Navis Tag vs JSON Node Match', 'The resolved JSON point and the actual support coordinate used for tolerance checks are shown separately. In anchor mode the actual comparison source is forced to staged JSON.')} ${renderFilterBar('json-navis-match', 'Filter JSON identity, coordinate source, Tag ID, ISONOTE source, comment, status, failed axis or delta...')}${renderTable(matchHeaders, matchRows(state), 'nti-filter-table-json-navis-match', 'Run proximity resolution to generate final JSON ↔ Navis decisions.')}</section><section class="nti-card"><h3>Applies-to pipe propagation</h3><div class="nti-help">The full requested pipe name is matched first. Only when that fails is the configured line-key regex used. Source and target pipes must have the same proven N–S or E–W axis, and the target support must pass the configured along-axis, parallel-offset and elevation windows.</div>${renderFilterBar('pipe-propagation', 'Filter source Tag, requested or matched pipe, line key, support, axis, result or rejection reason...')}${renderTable(propagationHeaders, propagationRows(state), 'nti-filter-table-pipe-propagation', 'No applies-to directives were resolved or no propagation candidates were produced.')}</section><section class="nti-card"><h3>Candidate and nearest-rejected coordinate comparisons</h3>${scoreHelp}${renderFilterBar('candidate-comparison', 'Filter Tag ID, JSON identity, comparison source, decision reason, score gap or delta...')}${renderTable(candidateHeaders, candidateRows(state), 'nti-filter-table-candidate-comparison', 'Run proximity resolution to create candidate and nearest-rejected comparisons.')}</section>`;
+  const scoreHelp = '<div class="nti-help"><b>Candidate score is not a percentage.</b> Each Tag is first evaluated under every valid equal-authority anchor. Only its mathematically best anchor evaluation enters normal Tag ranking. Hard E/N/EL tolerances and comment ambiguity remain unchanged.</div>';
+  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag ↔ JSON Node Match — final decisions</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(3, 'Navis Tag vs JSON Node Match', 'Each Tag candidate records the anchor pair that produced its best tolerance-normalized comparison. Anchor entry order has no engineering effect.')} ${renderFilterBar('json-navis-match', 'Filter JSON identity, Tag ID, anchor pair, comment, status, failed axis or delta...')}${renderTable(matchHeaders, matchRows(state), 'nti-filter-table-json-navis-match', 'Run proximity resolution to generate final JSON ↔ Navis decisions.')}</section><section class="nti-card"><h3>Applies-to pipe propagation</h3><div class="nti-help">Propagation retains the selected source Tag and its anchor pair basis through the final output. The target-pipe, axis and coordinate-window rules are unchanged.</div>${renderFilterBar('pipe-propagation', 'Filter source Tag, requested or matched pipe, line key, support, axis, result or rejection reason...')}${renderTable(propagationHeaders, propagationRows(state), 'nti-filter-table-pipe-propagation', 'No applies-to directives were resolved or no propagation candidates were produced.')}</section><section class="nti-card"><h3>Candidate and nearest-rejected coordinate comparisons</h3>${scoreHelp}${renderFilterBar('candidate-comparison', 'Filter Tag ID, JSON identity, anchor pair, decision reason, score gap or delta...')}${renderTable(candidateHeaders, candidateRows(state), 'nti-filter-table-candidate-comparison', 'Run proximity resolution to create candidate and nearest-rejected comparisons.')}</section>`;
 }
 export function renderNavisTagIsonoteEvidencePane(state) {
   if (state.activeTab === 'hierarchy') return renderJsonTrace(state);
