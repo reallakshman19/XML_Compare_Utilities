@@ -239,13 +239,15 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
   const existing = CONTROLLERS.get(root);
   if (existing) return existing;
   const commandBoundary = requiredCommandBoundary(options.commandBoundary);
+  const shadow = requiredShadow(options.shadow);
+  const workspace = requiredWorkspace(options.workspace);
+  const viewElements = elements(root);
   const gateway = createSequentialDraftEditCommandGateway({
     readCurrentState: commandBoundary.readCurrentState,
     publishCandidate: commandBoundary.publishCandidate,
   });
   const state = {
-    root, options, gateway, shadow: requiredShadow(options.shadow),
-    workspace: requiredWorkspace(options.workspace), elements: elements(root),
+    root, options, gateway, shadow, workspace, elements: viewElements,
     viewer: null, pending: null, mountKey: '', active: false,
     destroyed: false, failureCount: 0, unsubscribe: null, commandPanel: null,
   };
