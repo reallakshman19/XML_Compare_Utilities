@@ -7,7 +7,7 @@ PIPELINE_PROPERTY_SECTION_PLAN_SCHEMA, } from './pipeline-3d-model-diameter-cont
 } from './pipeline-3d-model-normal-fitting-contracts.js'; import { PIPELINE_B314_RADIUS_PLAN_SCHEMA } from './pipeline-3d-model-b314-radius-contracts.js';
 import { PIPELINE_GRE_VENDOR_PLAN_SCHEMA } from './pipeline-3d-model-gre-vendor-series-contracts.js'; import { resolvePipelineIdentityContext, resolvePipelineNodeIdentity,
 } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1'; import { caesar14BendAttributeEntries, caesar14ElementAttributeEntries,
-caesar14ModelAttributeEntries, caesar14RestraintAttributeEntries, caesar14RootAttributeEntries, resolvePipelineCaesarWriterProfile, } from './pipeline-3d-model-caesar14-writer-profile.js';
+caesar14ModelAttributeEntries, caesar14RestraintAttributeEntries, caesar14RigidAttributeEntries, caesar14RootAttributeEntries, resolvePipelineCaesarWriterProfile, } from './pipeline-3d-model-caesar14-writer-profile.js';
 const M_TO_MM = 1000; const NODE_NUMBER_START = 100; const NODE_NUMBER_STEP = 10;
 const text = (value) => String(value ?? '').trim(); const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right); function toMm(meters) { return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000; }
@@ -32,6 +32,8 @@ function bendXml(bend, profile = resolvePipelineCaesarWriterProfile('')) { if (p
 const values = caesar14BendAttributeEntries(bend, usableCurvatureNodes(bend)); return values.length ? `<BEND ${attrs(values).join(' ')}/>` : ''; }
 function restraintXml(restraint, profile) { if (profile.mode !== 'CAESAR_14') return '';
 return `<RESTRAINT ${attrs(caesar14RestraintAttributeEntries(restraint)).join(' ')}/>`; }
+function rigidXml(rigid, profile) { if (profile.mode !== 'CAESAR_14' || !rigid) return '';
+return `<RIGID ${attrs(caesar14RigidAttributeEntries(rigid)).join(' ')}/>`; }
 function propertyAttributes(properties) { const values = []; optionalAttr(values, 'DIAMETER', properties?.diameter); optionalAttr(values, 'WALL_THICK', properties?.wallThickness);
 optionalAttr(values, 'INSUL_THICK', properties?.insulationThickness); optionalAttr(values, 'CORR_ALLOW', properties?.corrosionAllowance);
 (properties?.temperatures || []).forEach((value, index) => optionalAttr(values, `TEMP_EXP_C${index + 1}`, value)); (properties?.pressures || []).forEach((value, index) =>
@@ -42,7 +44,7 @@ optionalAttr(values, 'MATERIAL_NUM', properties?.materialNumber); return values;
 attr('DELTA_X', element.deltaX), attr('DELTA_Y', element.deltaY), attr('DELTA_Z', element.deltaZ), ...propertyAttributes(element.emittedProperties ?? element.properties), ];
 if (profile.mode !== 'CAESAR_14') { optionalTextAttr(values, 'FROM_NAME', element.fromName); optionalTextAttr(values, 'TO_NAME', element.toName); values.push(attr('LINE', element.line));
 values.push(attr('FROM_X', element.fromX), attr('FROM_Y', element.fromY), attr('FROM_Z', element.fromZ)); values.push(attr('TO_X', element.toX), attr('TO_Y', element.toY), attr('TO_Z', element.toZ)); }
-const children = [bendXml(element.bend, profile), ...(element.restraintSlots || []).map((item) => restraintXml(item, profile))].filter(Boolean);
+const children = [rigidXml(element.rigid, profile), bendXml(element.bend, profile), ...(element.restraintSlots || []).map((item) => restraintXml(item, profile))].filter(Boolean);
 if (!children.length) return `<PIPINGELEMENT ${values.join(' ')}/>`; return `<PIPINGELEMENT ${values.join(' ')}>\n${children.join('\n')}\n</PIPINGELEMENT>`; }
 function modelAttributes(plan, profile = resolvePipelineCaesarWriterProfile('')) { if (profile.mode === 'CAESAR_14') return attrs(caesar14ModelAttributeEntries(plan));
 const { metadata, counts } = plan, values = [attr('JOBNAME', metadata.jobName)]; optionalTextAttr(values, 'TIME', metadata.timeText);
@@ -103,11 +105,16 @@ const count = Number(element.restraintCount || 0), slots = element.restraintSlot
 if (!Array.isArray(slots) || slots.length !== 6) return false; const real = slots.filter((item) => item?.placeholder !== true); restraintCount += real.length;
 return real.length === count && slots.every((item, index) => item?.slot === index + 1 && (item.placeholder === true || item.node === element.toNode)); });
 return valid && plan.counts.numRest === restraintCount; }
+function rigidStructureValid(plan) { let rigidCount = 0; const valid = plan.elements.every((element) => {
+const rigid = element.rigid; if (rigid == null) return true; rigidCount += 1;
+return rigid.elementId === element.id && rigid.elementIndex === element.index && rigid.node === element.toNode
+&& Number.isFinite(Number(rigid.weight)) && Number(rigid.weight) >= 0 && ['Flange', 'Flange Pair', 'Valve', 'Rigid'].includes(rigid.type); });
+return valid && plan.counts.numRigid === rigidCount; }
 function countStructureValid(plan, authority) { if (!plain(plan.counts) || plan.counts.numElt !== plan.elements.length) return false;
 const bendCount = plan.elements.filter((element) => element.bend != null).length; const fittingCount = authority.fittingAuthorities.filter((item) =>
 item.geometryDisposition === 'MATCHES_AUTHORITY' && item.writerDisposition === 'READY').length;
-const zeroFields = ['numNoz', 'noHgrs', 'numRigid', 'numExpJnt', 'numForcMnt', 'numUnfLoad', 'numWind', 'numEleOff', 'numAllow', 'numISect'];
-return plan.counts.numBend === bendCount && bendCount === fittingCount && restraintStructureValid(plan)
+const zeroFields = ['numNoz', 'noHgrs', 'numExpJnt', 'numForcMnt', 'numUnfLoad', 'numWind', 'numEleOff', 'numAllow', 'numISect'];
+return plan.counts.numBend === bendCount && bendCount === fittingCount && restraintStructureValid(plan) && rigidStructureValid(plan)
 && zeroFields.every((key) => plan.counts[key] === 0); } function profileWriterDiagnostic(plan) {
 if (!plan.profileAuthorityPlan) return null; const authority = plan.profileAuthorityPlan; const documentState = plan.ready === true && Array.isArray(plan.diagnostics)
 && Array.isArray(plan.blockerCodes) && plan.diagnostics.length === 0 && plan.blockerCodes.length === 0; const valid = documentState && authorityStructureValid(plan, authority)
@@ -121,4 +128,4 @@ assertDocumentReady(plan); const profile = resolvePipelineCaesarWriterProfile(pl
 ? attrs(caesar14RootAttributeEntries(plan)) : [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace), attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ];
 const modelAttrs = modelAttributes(plan, profile); return [ '<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
 ...plan.elements.map((element) => pipingElementXml(element, profile)), '</PIPINGMODEL>', '</CAESARII>', ].join('\n'); }
-export const _internal = { toMm, bendXml, restraintXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, };
+export const _internal = { toMm, bendXml, restraintXml, rigidXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, };
