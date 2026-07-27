@@ -26,6 +26,10 @@ function modelFrom(reader) {
 function sourceFingerprint(records) {
   return Array.isArray(records) ? sequentialSourceRecordsFingerprint(records) : null;
 }
+function journalHead(journalState) {
+  if (journalState === null || journalState === undefined) return null;
+  try { return sequentialCommandJournalHeadFingerprint(journalState); } catch { return null; }
+}
 function commandOwnerSnapshot(ownerSnapshot, journalState) {
   if (!ownerSnapshot?.revision) return ownerSnapshot || null;
   return Object.freeze({
@@ -33,7 +37,7 @@ function commandOwnerSnapshot(ownerSnapshot, journalState) {
     revision: Object.freeze({
       schema: 'SequentialCommandOwnerRevision.v1',
       ownerRevision: ownerSnapshot.revision,
-      journalHeadFingerprint: sequentialCommandJournalHeadFingerprint(journalState),
+      journalHeadFingerprint: journalHead(journalState),
     }),
   });
 }
