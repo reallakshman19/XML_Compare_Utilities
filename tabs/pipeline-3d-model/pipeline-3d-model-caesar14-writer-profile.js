@@ -16,12 +16,14 @@ const ELEMENT_PREFIX_FIELDS = Object.freeze([
   ['DIAMETER', 'diameter'], ['WALL_THICK', 'wallThickness'],
   ['INSUL_THICK', 'insulationThickness'], ['CORR_ALLOW', 'corrosionAllowance'],
 ]);
-const ELEMENT_MATERIAL_FIELDS = Object.freeze([
+const ELEMENT_REPEATED_MECHANICAL_FIELDS = Object.freeze([
   ['POISSONS', 'poissons'], ['PIPE_DENSITY', 'pipeDensity'],
+]);
+const ELEMENT_EMITTED_MATERIAL_FIELDS = Object.freeze([
   ['INSUL_DENSITY', 'insulationDensity'], ['FLUID_DENSITY', 'fluidDensity'],
   ['REFRACTORY_DENSITY', 'refractoryDensity'], ['REFRACTORY_THK', 'refractoryThickness'],
   ['CLADDING_DEN', 'claddingDensity'], ['CLADDING_THK', 'claddingThickness'],
-  ['INSUL_CLAD_UNIT_WEIGHT', 'insulationCladUnitWeight'], ['MATERIAL_NUM', 'materialNumber'],
+  ['INSUL_CLAD_UNIT_WEIGHT', 'insulationCladUnitWeight'],
 ]);
 const ELEMENT_SUFFIX_FIELDS = Object.freeze([
   ['MILL_TOL_PLUS', 'millTolerancePlus'], ['MILL_TOL_MINUS', 'millToleranceMinus'],
@@ -41,7 +43,9 @@ export const PIPELINE_CAESAR_14_ELEMENT_ATTRIBUTE_ORDER = Object.freeze([
   ...Array.from({ length: 9 }, (_, index) => `PRESSURE${index + 1}`),
   'HYDRO_PRESSURE', 'MODULUS',
   ...Array.from({ length: 9 }, (_, index) => `HOT_MOD${index + 1}`),
-  ...ELEMENT_MATERIAL_FIELDS.map(([name]) => name), 'MATERIAL_NAME',
+  ...ELEMENT_REPEATED_MECHANICAL_FIELDS.map(([name]) => name),
+  ...ELEMENT_EMITTED_MATERIAL_FIELDS.map(([name]) => name),
+  'MATERIAL_NUM', 'MATERIAL_NAME',
   ...ELEMENT_SUFFIX_FIELDS.map(([name]) => name), 'NAME',
 ]);
 
@@ -132,23 +136,28 @@ export function caesar14ModelAttributeEntries(plan) {
 }
 
 export function caesar14ElementAttributeEntries(element) {
-  const properties = element?.emittedProperties ?? element?.properties ?? {};
+  const emitted = element?.emittedProperties ?? element?.properties ?? {};
+  const effective = element?.properties ?? emitted;
+  const mechanical = element?.emittedMechanicalProperties
+    ?? element?.mechanicalProperties ?? emitted;
   const result = [
     numericValueEntry('FROM_NODE', element?.fromNode),
     numericValueEntry('TO_NODE', element?.toNode),
     numericValueEntry('DELTA_X', element?.deltaX),
     numericValueEntry('DELTA_Y', element?.deltaY),
     numericValueEntry('DELTA_Z', element?.deltaZ),
-    ...fieldEntries(ELEMENT_PREFIX_FIELDS, properties),
-    ...arrayEntries('TEMP_EXP_C', properties.temperatures, 9),
-    ...arrayEntries('PRESSURE', properties.pressures, 9),
-    numericValueEntry('HYDRO_PRESSURE', properties.hydroPressure),
-    numericValueEntry('MODULUS', properties.modulus),
-    ...arrayEntries('HOT_MOD', properties.hotModuli, 9),
-    ...fieldEntries(ELEMENT_MATERIAL_FIELDS, properties),
-    pair('MATERIAL_NAME', properties.materialName ?? ''),
-    ...fieldEntries(ELEMENT_SUFFIX_FIELDS, properties),
-    pair('NAME', properties.name ?? element?.name ?? ''),
+    ...fieldEntries(ELEMENT_PREFIX_FIELDS, emitted),
+    ...arrayEntries('TEMP_EXP_C', emitted.temperatures, 9),
+    ...arrayEntries('PRESSURE', emitted.pressures, 9),
+    numericValueEntry('HYDRO_PRESSURE', emitted.hydroPressure),
+    numericValueEntry('MODULUS', mechanical.modulus),
+    ...arrayEntries('HOT_MOD', mechanical.hotModuli, 9),
+    ...fieldEntries(ELEMENT_REPEATED_MECHANICAL_FIELDS, mechanical),
+    ...fieldEntries(ELEMENT_EMITTED_MATERIAL_FIELDS, emitted),
+    numericValueEntry('MATERIAL_NUM', effective.materialNumber),
+    pair('MATERIAL_NAME', mechanical.materialName ?? emitted.materialName ?? ''),
+    ...fieldEntries(ELEMENT_SUFFIX_FIELDS, emitted),
+    pair('NAME', emitted.name ?? element?.name ?? ''),
   ].filter(Boolean);
   return freeze(result);
 }
