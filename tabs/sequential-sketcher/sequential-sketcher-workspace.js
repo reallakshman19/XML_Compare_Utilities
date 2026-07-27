@@ -15,6 +15,7 @@ import {
   renderSequentialConstructionCanvas,
 } from './canvas/sequential-construction-svg.js';
 import { createSequentialEngineeringSvgOwnerBridge } from './sequential-engineering-svg-owner-bridge.js';
+import { sequentialCommandJournalHeadFingerprint } from './scoped-edit/sequential-command-journal.js';
 
 function readFile(file) { return file ? file.text() : Promise.resolve(''); }
 function required(root, selector) { const element = root.querySelector(selector); if (!element) throw new Error(`Sequential Sketcher element missing: ${selector}`); return element; }
@@ -31,6 +32,14 @@ function candidatePorts(candidate) {
     fromPortId: candidate?.fromPortId || candidate?.targetPortId || '',
     toPortId: candidate?.toPortId || candidate?.connectedPortId || '',
   };
+}
+function restoredDownstream(session, indexes) {
+  if (session?.state !== 'ROUTE_COMPLETE') return { confirmedConstruction: null, supportProjection: null };
+  const confirmedConstruction = createConfirmedSequentialConstruction(session, indexes);
+  const supportProjection = buildConfirmedConstructionSupportProjection(confirmedConstruction, indexes, {
+    projectionToleranceMm: 50, onCenterlineToleranceMm: 0.001, ambiguityToleranceMm: 1,
+  });
+  return { confirmedConstruction, supportProjection };
 }
 
 export function mountSequentialSketcherWorkspace(root, context = {}) {
@@ -90,18 +99,9 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.supportProjection = null;
   }
   function refreshDownstream() {
-    clearDownstream();
-    if (model.session?.state !== 'ROUTE_COMPLETE') return;
-    model.confirmedConstruction = createConfirmedSequentialConstruction(model.session, model.indexes);
-    model.supportProjection = buildConfirmedConstructionSupportProjection(
-      model.confirmedConstruction,
-      model.indexes,
-      {
-        projectionToleranceMm: 50,
-        onCenterlineToleranceMm: 0.001,
-        ambiguityToleranceMm: 1,
-      },
-    );
+    const downstream = restoredDownstream(model.session, model.indexes);
+    model.confirmedConstruction = downstream.confirmedConstruction;
+    model.supportProjection = downstream.supportProjection;
   }
 
   function branchSnapshot() {
@@ -314,15 +314,26 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       engineOptions(),
     ), 'decision-applied');
   }
+  function journalIdentity(state) {
+    if (!state) return null;
+    try {
+      return `${state.schema}|${state.adoptionCheckpoint?.checkpointId}|${sequentialCommandJournalHeadFingerprint(state)}`;
+    } catch { throw new Error('WORKSPACE_RESTORE_JOURNAL_IDENTITY_INVALID'); }
+  }
   function journalImpactAllowed(current, incoming, expected) {
-    const actual = !current && !incoming ? 'ABSENT' : !current ? 'INSTALL' : !incoming ? 'REMOVE' : 'REPLACE';
-    if (expected === 'UNCHANGED' && current && incoming) return;
+    const currentId = journalIdentity(current), incomingId = journalIdentity(incoming);
+    if (!incomingId && currentId && expected !== 'REMOVE') throw new Error('WORKSPACE_RESTORE_JOURNAL_DOWNGRADE_UNAPPROVED');
+    const actual = !currentId && !incomingId ? 'ABSENT' : !currentId ? 'INSTALL'
+      : !incomingId ? 'REMOVE' : currentId === incomingId ? 'UNCHANGED' : 'REPLACE';
     if (actual !== expected) throw new Error('WORKSPACE_RESTORE_JOURNAL_IMPACT_MISMATCH');
-    if (!incoming && current && expected !== 'REMOVE') throw new Error('WORKSPACE_RESTORE_JOURNAL_DOWNGRADE_UNAPPROVED');
   }
   function preparedRegistry(restoration) {
+    const rows = (restoration.workspaces || []).map(({ branchId, snapshot }) => ({
+      branchId,
+      snapshot: { ...snapshot, ...restoredDownstream(snapshot?.session, restoration.indexes) },
+    }));
     const registry = createSequentialBranchWorkspaceRegistry();
-    registry.replace(restoration.branchIds, restoration.workspaces);
+    registry.replace(restoration.branchIds, rows);
     return registry;
   }
   function restorePackage(restoration, options = {}) {
@@ -333,23 +344,26 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     const registry = preparedRegistry(restoration);
     const active = restoration.activeBranchId ? registry.get(restoration.activeBranchId) : null;
     const receipts = Object.freeze([...(options.applicationReceipts || restoration.applicationReceipts || [])]);
-    model.records = restoration.records;
-    model.evidence = restoration.evidence;
-    model.indexes = restoration.indexes;
-    model.branchRegistry = registry;
-    model.session = active?.session || null;
-    model.confirmedConstruction = active?.confirmedConstruction || null;
-    model.supportProjection = active?.supportProjection || null;
-    model.selectedCandidateId = active?.selectedCandidateId || '';
-    model.restoredDecisionRegister = restoration.decisionRegister || null;
-    model.journalState = restoration.journalState || null;
-    model.workspaceApplicationReceipts = receipts;
-    elements.source.value = JSON.stringify(restoration.records, null, 2);
-    populateBranchOptions(restoration.branchIds);
-    if (restoration.activeBranchId) elements.branch.value = restoration.activeBranchId;
-    reviewController?.reset();
-    repaint();
-    setStatus(`Verified ${restoration.packageSchema || restoration.schema} restored with journal authority ${model.journalState ? 'present' : 'absent'}.`, 'ok');
+    const sourceText = JSON.stringify(restoration.records, null, 2);
+    const nextState = {
+      records: restoration.records, evidence: restoration.evidence, indexes: restoration.indexes,
+      branchRegistry: registry, session: active?.session || null,
+      confirmedConstruction: active?.confirmedConstruction || null,
+      supportProjection: active?.supportProjection || null,
+      selectedCandidateId: active?.selectedCandidateId || '',
+      restoredDecisionRegister: restoration.decisionRegister || null,
+      journalState: restoration.journalState || null, workspaceApplicationReceipts: receipts,
+    };
+    Object.assign(model, nextState);
+    try {
+      elements.source.value = sourceText;
+      populateBranchOptions(restoration.branchIds);
+      if (restoration.activeBranchId) elements.branch.value = restoration.activeBranchId;
+      reviewController?.reset(); repaint();
+      setStatus(`Verified ${restoration.packageSchema || restoration.schema} restored with journal authority ${model.journalState ? 'present' : 'absent'}.`, 'ok');
+    } catch (error) {
+      try { context.showToast?.(`Workspace restored; UI synchronization blocked: ${error.message || String(error)}`, 'warning'); } catch {}
+    }
     return restoration;
   }
 
