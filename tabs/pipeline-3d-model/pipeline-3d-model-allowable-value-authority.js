@@ -4,12 +4,14 @@ export const PIPELINE_ALLOWABLE_VALUE_CASE_AUTHORITY_SCHEMA = 'PipelineAllowable
 export const PIPELINE_ELEMENT_ALLOWABLE_VALUE_BINDING_SCHEMA = 'PipelineElementAllowableValueBinding.v1';
 export const PIPELINE_CODE_SOURCE_AUTHORITY_SCHEMA = 'PipelineCodeSourceAuthority.v1';
 export const PIPELINE_APPROVED_SOURCE_IDENTITY_SCHEMA = 'PipelineApprovedSourceIdentity.v1';
+export const PIPELINE_ALLOWABLE_VALUE_CATALOG_ENTRY_SCHEMA = 'PipelineAllowableValueCatalogEntry.v1';
 export const PIPELINE_ALLOWABLE_VALUE_DISPOSITIONS = Object.freeze(['VALUE', 'ZERO', 'SENTINEL']);
 
 const PROFILE_PLAN_SCHEMA = 'PipelineInputXmlProfileAuthorityPlan.v1';
 const PIPING_CODE_PLAN_SCHEMA = 'PipelinePipingCodeAuthorityPlan.v1';
 const SHA256 = /^[a-f0-9]{64}$/i;
 const text = (value) => String(value ?? '').trim();
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 function freeze(value) { if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value; Object.values(value).forEach(freeze); return Object.freeze(value); }
 function plain(value) { return Boolean(value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))); }
 function diagnostic(code, message, details = {}) { return freeze({ severity: 'BLOCKING', code, message, details: freeze({ ...details }) }); }
@@ -71,24 +73,60 @@ function effectiveMaterial(element) { return { materialNumber: positive(element?
 function effectiveTemperatures(element) { const source = element?.properties?.temperatures ?? element?.emittedProperties?.temperatures ?? []; return Array.from({ length: 9 }, (_, index) => finite(source?.[index])); }
 function requiredSections(elements) { return new Set(elements.filter((element) => element?.allowableStress).map((element) => text(element.analysisSectionId)).filter(Boolean)); }
 
-function normalizedCase(source, authorityIndex, caseIndex, expectedSource, diagnostics) {
-  if (!plain(source)) { diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_INVALID', 'An allowable-value case authority must be a plain object.', { authorityIndex, caseIndex })); return null; }
+function normalizedCase(source, authorityIndex, caseIndex, expectedSource, diagnostics, context = {}) {
+  if (!plain(source)) { diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_INVALID', 'An allowable-value case authority must be a plain object.', { authorityIndex, caseIndex, ...context })); return null; }
   const num = Number(source.num ?? source.caseNumber), temperature = finite(source.temperature);
   const sourceAuthority = text(source.sourceAuthority) || expectedSource?.sourceId;
   const sourceReference = text(source.sourceReference) || expectedSource?.referenceKey;
-  if (!Number.isInteger(num) || num < 1 || num > 9) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_NUMBER_INVALID', 'Case authority number must be 1 through 9.', { authorityIndex, caseIndex, num: source.num ?? source.caseNumber }));
-  if (temperature == null) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_TEMPERATURE_INVALID', 'Case authority temperature must be finite.', { authorityIndex, caseIndex, num }));
-  if (sourceAuthority !== expectedSource?.sourceId || sourceReference !== expectedSource?.referenceKey) diagnostics.push(diagnostic('PIPELINE_CODE_SOURCE_ALLOWABLE_PROVENANCE_MISMATCH', 'Case allowable provenance must match the approved allowable source identity.', { authorityIndex, caseIndex, num }));
-  const values = freeze({ HOT_ALLOW: authorityValue(source, ['hotAllow', 'HOT_ALLOW'], diagnostics, { authorityIndex, caseIndex, num }), HOT_SY: authorityValue(source, ['hotSy', 'HOT_SY'], diagnostics, { authorityIndex, caseIndex, num }), HOT_SU: authorityValue(source, ['hotSu', 'HOT_SU'], diagnostics, { authorityIndex, caseIndex, num }) });
+  if (!Number.isInteger(num) || num < 1 || num > 9) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_NUMBER_INVALID', 'Case authority number must be 1 through 9.', { authorityIndex, caseIndex, num: source.num ?? source.caseNumber, ...context }));
+  if (temperature == null) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_TEMPERATURE_INVALID', 'Case authority temperature must be finite.', { authorityIndex, caseIndex, num, ...context }));
+  if (sourceAuthority !== expectedSource?.sourceId || sourceReference !== expectedSource?.referenceKey) diagnostics.push(diagnostic('PIPELINE_CODE_SOURCE_ALLOWABLE_PROVENANCE_MISMATCH', 'Case allowable provenance must match the approved allowable source identity.', { authorityIndex, caseIndex, num, ...context }));
+  const values = freeze({ HOT_ALLOW: authorityValue(source, ['hotAllow', 'HOT_ALLOW'], diagnostics, { authorityIndex, caseIndex, num, ...context }), HOT_SY: authorityValue(source, ['hotSy', 'HOT_SY'], diagnostics, { authorityIndex, caseIndex, num, ...context }), HOT_SU: authorityValue(source, ['hotSu', 'HOT_SU'], diagnostics, { authorityIndex, caseIndex, num, ...context }) });
   if (!Number.isInteger(num) || num < 1 || num > 9 || temperature == null || sourceAuthority !== expectedSource?.sourceId || sourceReference !== expectedSource?.referenceKey || Object.values(values).some((item) => !item)) return null;
   return freeze({ schema: PIPELINE_ALLOWABLE_VALUE_CASE_AUTHORITY_SCHEMA, num, temperature, values,
     sourceAuthority, sourceReference });
 }
-function normalizedCases(source, authorityIndex, expectedSource, diagnostics) {
+function normalizedCases(source, authorityIndex, expectedSource, diagnostics, context = {}) {
   const byNumber = new Map(), inputs = Array.isArray(source.cases) ? source.cases : [];
-  if (!Array.isArray(source.cases)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASES_INVALID', 'Allowable-value authority cases must be an array.', { authorityIndex }));
-  inputs.forEach((item, caseIndex) => { const normalized = normalizedCase(item, authorityIndex, caseIndex, expectedSource, diagnostics); if (!normalized) return; if (byNumber.has(normalized.num)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_DUPLICATE', 'Case authority numbers must be unique.', { authorityIndex, num: normalized.num })); else byNumber.set(normalized.num, normalized); });
+  if (!Array.isArray(source.cases)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASES_INVALID', 'Allowable-value authority cases must be an array.', { authorityIndex, ...context }));
+  inputs.forEach((item, caseIndex) => { const normalized = normalizedCase(item, authorityIndex, caseIndex, expectedSource, diagnostics, context); if (!normalized) return; if (byNumber.has(normalized.num)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_DUPLICATE', 'Case authority numbers must be unique.', { authorityIndex, num: normalized.num, ...context })); else byNumber.set(normalized.num, normalized); });
   return byNumber;
+}
+function normalizedCatalogEntry(source, authorityIndex, codeSource, diagnostics) {
+  const raw = source?.catalogEntry;
+  if (!plain(raw)) { diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CATALOG_ENTRY_REQUIRED', 'An allowable-value authority requires one selected catalog entry.', { authorityIndex })); return null; }
+  const catalogEntryId = text(raw.catalogEntryId ?? raw.id), catalogRevision = text(raw.catalogRevision ?? raw.revision);
+  const codeFamily = text(raw.codeFamily), codeEdition = text(raw.codeEdition);
+  const materialNumber = positive(raw.materialNumber), materialName = text(raw.materialName);
+  const sourceAuthority = text(raw.sourceAuthority), sourceReference = text(raw.sourceReference);
+  if (!catalogEntryId || !catalogRevision || !codeFamily || !codeEdition || materialNumber == null
+    || !materialName || !sourceAuthority || !sourceReference) diagnostics.push(diagnostic(
+    'PIPELINE_ALLOWABLE_VALUE_CATALOG_ENTRY_INVALID', 'Selected allowable-value catalog fields must be complete and valid.',
+    { authorityIndex, catalogEntryId, catalogRevision, codeFamily, codeEdition, materialNumber: raw.materialNumber,
+      materialName, sourceAuthority, sourceReference }));
+  const codeMismatch = codeSource && (codeFamily !== codeSource.codeFamily || codeEdition !== codeSource.codeEdition);
+  if (codeMismatch) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CATALOG_CODE_MISMATCH',
+    'Allowable-value catalog code family and edition must match approved code-source authority.',
+    { authorityIndex, catalogEntryId, codeFamily, codeEdition }));
+  const provenanceMismatch = codeSource && (sourceAuthority !== codeSource.allowableSource.sourceId
+    || sourceReference !== codeSource.allowableSource.referenceKey);
+  if (provenanceMismatch) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CATALOG_PROVENANCE_MISMATCH',
+    'Allowable-value catalog provenance must match the approved allowable source identity.',
+    { authorityIndex, catalogEntryId, sourceAuthority, sourceReference }));
+  const values = freeze({ COLD_ALLOW: authorityValue(raw, ['coldAllow', 'COLD_ALLOW'], diagnostics, { authorityIndex, catalogEntryId }), SY: authorityValue(raw, ['sy', 'SY'], diagnostics, { authorityIndex, catalogEntryId }), SU: authorityValue(raw, ['su', 'SU'], diagnostics, { authorityIndex, catalogEntryId }) });
+  const cases = normalizedCases(raw, authorityIndex, codeSource?.allowableSource, diagnostics, { catalogEntryId });
+  const invalid = !catalogEntryId || !catalogRevision || !codeFamily || !codeEdition || materialNumber == null
+    || !materialName || !sourceAuthority || !sourceReference || !codeSource || codeMismatch || provenanceMismatch
+    || Object.values(values).some((item) => !item);
+  if (invalid) return null;
+  return freeze({ schema: PIPELINE_ALLOWABLE_VALUE_CATALOG_ENTRY_SCHEMA, catalogEntryId,
+    catalogRevision, codeFamily, codeEdition, materialNumber, materialName, values,
+    sourceAuthority, sourceReference, cases: freeze([...cases.values()].sort((left, right) => left.num - right.num)) });
+}
+function pipingCatalogMatches(codeSource, pipingAuthority) {
+  const entry = pipingAuthority?.catalogEntry;
+  return plain(entry) && text(entry.codeFamily) === codeSource?.codeFamily
+    && text(entry.codeEdition) === codeSource?.codeEdition;
 }
 function normalizedAuthority(source, authorityIndex, sectionById, pipingBySection, diagnostics) {
   if (!plain(source)) { diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_INVALID', 'An allowable-value authority record must be a plain object.', { authorityIndex })); return null; }
@@ -102,19 +140,46 @@ function normalizedAuthority(source, authorityIndex, sectionById, pipingBySectio
   if (materialNumber == null || !materialName) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_MATERIAL_INVALID', 'Allowable-value authority requires positive materialNumber and nonblank materialName.', { authorityIndex, analysisSectionId }));
   const pipingAuthority = pipingBySection.get(analysisSectionId);
   if (codeSource && !provenanceMatches(pipingAuthority, codeSource.codeSource)) diagnostics.push(diagnostic('PIPELINE_CODE_SOURCE_PIPING_PROVENANCE_MISMATCH', 'Piping-code provenance must match the approved code source identity.', { authorityIndex, analysisSectionId }));
+  if (codeSource && !pipingCatalogMatches(codeSource, pipingAuthority)) diagnostics.push(diagnostic('PIPELINE_CODE_SOURCE_CATALOG_MISMATCH', 'Approved code-source family and edition must match the selected piping-code catalog entry.', { authorityIndex, analysisSectionId }));
   if (codeSource && (sourceAuthority !== codeSource.allowableSource.sourceId || sourceReference !== codeSource.allowableSource.referenceKey)) diagnostics.push(diagnostic('PIPELINE_CODE_SOURCE_ALLOWABLE_PROVENANCE_MISMATCH', 'Allowable-value provenance must match the approved allowable source identity.', { authorityIndex, analysisSectionId }));
   const values = freeze({ COLD_ALLOW: authorityValue(source, ['coldAllow', 'COLD_ALLOW'], diagnostics, { authorityIndex, analysisSectionId }), SY: authorityValue(source, ['sy', 'SY'], diagnostics, { authorityIndex, analysisSectionId }), SU: authorityValue(source, ['su', 'SU'], diagnostics, { authorityIndex, analysisSectionId }) });
   const cases = normalizedCases(source, authorityIndex, codeSource?.allowableSource, diagnostics);
+  const catalogEntry = normalizedCatalogEntry(source, authorityIndex, codeSource, diagnostics);
+  const catalogConflict = catalogEntry && (catalogEntry.materialNumber !== materialNumber
+    || catalogEntry.materialName !== materialName || catalogEntry.sourceAuthority !== sourceAuthority
+    || catalogEntry.sourceReference !== sourceReference || !same(catalogEntry.values, values)
+    || !same(catalogEntry.cases, [...cases.values()].sort((left, right) => left.num - right.num)));
+  if (catalogConflict) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CATALOG_CONFLICT',
+    'Allowable-value authority material, values, cases, and provenance must match the selected catalog entry.',
+    { authorityIndex, analysisSectionId, catalogEntryId: catalogEntry.catalogEntryId }));
   const invalid = !section || profileId !== section.profileId || resolvedMode !== section.resolvedMode
     || materialNumber == null || !materialName || !codeSource || !provenanceMatches(pipingAuthority, codeSource.codeSource)
+    || !pipingCatalogMatches(codeSource, pipingAuthority)
     || sourceAuthority !== codeSource.allowableSource.sourceId || sourceReference !== codeSource.allowableSource.referenceKey
-    || Object.values(values).some((item) => !item);
+    || Object.values(values).some((item) => !item) || !catalogEntry || catalogConflict;
   if (invalid) return null;
   return freeze({ schema: PIPELINE_ALLOWABLE_VALUE_AUTHORITY_SCHEMA, authorityIndex, analysisSectionId,
-    profileId, resolvedMode, materialNumber, materialName, values, sourceAuthority, sourceReference,
+    profileId, resolvedMode, catalogEntryId: catalogEntry.catalogEntryId, catalogEntry,
+    materialNumber, materialName, values, sourceAuthority, sourceReference,
     codeSourceAuthority: codeSource, cases: freeze([...cases.values()].sort((left, right) => left.num - right.num)) });
 }
-function authorityMap(inputs, sectionById, pipingBySection, required, diagnostics) { const bySection = new Map(); inputs.forEach((source, authorityIndex) => { const item = normalizedAuthority(source, authorityIndex, sectionById, pipingBySection, diagnostics); if (!item) return; if (bySection.has(item.analysisSectionId)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_DUPLICATE', 'An analysis section may have only one allowable-value authority record.', { analysisSectionId: item.analysisSectionId })); else bySection.set(item.analysisSectionId, item); }); for (const id of required) if (!bySection.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_REQUIRED', 'Every section containing ALLOWABLESTRESS requires allowable-value authority.', { analysisSectionId: id })); for (const id of bySection.keys()) if (!required.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_UNUSED', 'Allowable-value authority cannot target a section without ALLOWABLESTRESS.', { analysisSectionId: id })); return bySection; }
+function authorityMap(inputs, sectionById, pipingBySection, required, diagnostics) {
+  const bySection = new Map(), catalogById = new Map();
+  inputs.forEach((source, authorityIndex) => {
+    const item = normalizedAuthority(source, authorityIndex, sectionById, pipingBySection, diagnostics);
+    if (!item) return;
+    if (bySection.has(item.analysisSectionId)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_DUPLICATE', 'An analysis section may have only one allowable-value authority record.', { analysisSectionId: item.analysisSectionId }));
+    else bySection.set(item.analysisSectionId, item);
+    const existing = catalogById.get(item.catalogEntryId);
+    if (existing && !same(existing, item.catalogEntry)) diagnostics.push(diagnostic(
+      'PIPELINE_ALLOWABLE_VALUE_CATALOG_ID_CONFLICT', 'A reused allowable-value catalog ID must resolve to identical normalized content.',
+      { catalogEntryId: item.catalogEntryId, analysisSectionId: item.analysisSectionId }));
+    else if (!existing) catalogById.set(item.catalogEntryId, item.catalogEntry);
+  });
+  for (const id of required) if (!bySection.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_REQUIRED', 'Every section containing ALLOWABLESTRESS requires allowable-value authority.', { analysisSectionId: id }));
+  for (const id of bySection.keys()) if (!required.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_UNUSED', 'Allowable-value authority cannot target a section without ALLOWABLESTRESS.', { analysisSectionId: id }));
+  return bySection;
+}
 function validateSectionContext(authority, sectionElements, diagnostics) { const caseByNumber = new Map(authority.cases.map((item) => [item.num, item])); sectionElements.forEach((element) => { const material = effectiveMaterial(element); if (material.materialNumber !== authority.materialNumber || material.materialName !== authority.materialName) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_MATERIAL_MISMATCH', 'Authority material identity must match every governed element.', { elementId: element.id, analysisSectionId: authority.analysisSectionId, materialNumber: material.materialNumber, materialName: material.materialName })); effectiveTemperatures(element).forEach((temperature, index) => { const num = index + 1, caseAuthority = caseByNumber.get(num); if (temperature == null && caseAuthority) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CASE_UNUSED', 'Case authority cannot target an inactive effective temperature slot.', { elementId: element.id, analysisSectionId: authority.analysisSectionId, num })); if (temperature != null && (!caseAuthority || caseAuthority.temperature !== temperature)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_TEMPERATURE_MISMATCH', 'Every active temperature slot requires an exact matching case authority.', { elementId: element.id, analysisSectionId: authority.analysisSectionId, num, temperature })); }); }); }
 function conflict(value, expected) { return expected == null ? value != null && value !== '' : value != null && value !== '' && Number(value) !== expected; }
 function boundAllowable(allowable, authority, diagnostics) { if (!allowable || !authority) return allowable || null; Object.entries(authority.values).forEach(([field, evidence]) => { if (conflict(allowable.attributes?.[field], evidence.value)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CONFLICT', 'Raw allowable value conflicts with approved authority.', { elementId: allowable.elementId, field, supplied: allowable.attributes[field], expected: evidence.value })); }); const caseByNumber = new Map(authority.cases.map((item) => [item.num, item])); const cases = freeze((allowable.cases || []).map((caseItem) => { const caseAuthority = caseByNumber.get(caseItem.num) || null; if (!caseAuthority) { ['HOT_ALLOW', 'HOT_SY', 'HOT_SU'].forEach((field) => { const supplied = caseItem.attributes?.[field]; if (supplied != null && supplied !== '') diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_UNGOVERNED_CASE_VALUE', 'An inactive temperature slot cannot carry governed hot allowable values.', { elementId: allowable.elementId, num: caseItem.num, field, supplied })); }); return caseItem; } const expected = Object.fromEntries(Object.entries(caseAuthority.values).map(([field, evidence]) => [field, evidence.value])); Object.entries(expected).forEach(([field, value]) => { if (conflict(caseItem.attributes?.[field], value)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_CONFLICT', 'Raw case value conflicts with approved authority.', { elementId: allowable.elementId, num: caseItem.num, field, supplied: caseItem.attributes[field], expected: value })); }); return freeze({ ...caseItem, attributes: freeze({ ...(caseItem.attributes || {}), ...expected }), allowableValueCaseAuthority: caseAuthority }); })); const cold = Object.fromEntries(Object.entries(authority.values).map(([field, evidence]) => [field, evidence.value])); return freeze({ ...allowable, attributes: freeze({ ...(allowable.attributes || {}), ...cold }), cases, allowableValueAuthority: authority }); }
