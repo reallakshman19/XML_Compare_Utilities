@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 const spec = readFileSync(new URL('./browser/pipeline-3d-model-cad-browser.spec.mjs', import.meta.url), 'utf8');
 const fixture = readFileSync(new URL('./browser/pipeline-cad-fixture.html', import.meta.url), 'utf8');
 const config = readFileSync(new URL('../playwright.pipeline-cad.config.mjs', import.meta.url), 'utf8');
+const browserSpecCount = (config.match(/pipeline[^']*\.spec\.mjs/g) || []).length;
 const workflowPath = new URL('../.github/workflows/pipeline-cad-browser-acceptance.yml', import.meta.url);
 const workflow = existsSync(workflowPath) ? readFileSync(workflowPath, 'utf8') : '';
 const layout = readFileSync(new URL('../tabs/pipeline-3d-model/pipeline-3d-model-cad-layout-hardening.js', import.meta.url), 'utf8');
@@ -35,8 +36,14 @@ assert.match(layout, /contain:layout paint/);
 assert.match(layout, /MutationObserver/);
 assert.match(runtimeConfig, /pipeline-3d-model-cad-layout-hardening\.js/);
 
+assert.ok(browserSpecCount >= 15);
 assert.match(config, /browserName: 'chromium'/);
 assert.match(config, /deviceScaleFactor: 1\.5/);
+assert.match(config, /screenshot: 'only-on-failure'/);
+assert.match(config, /trace: 'retain-on-failure'/);
+assert.match(config, /video: 'retain-on-failure'/);
+assert.match(config, /playwright-report\/pipeline-cad-browser/);
+assert.match(config, /test-results\/pipeline-cad-browser/);
 assert.match(config, /pipeline-cad-browser-results\.json/);
 if (workflow) {
   assert.match(workflow, /@playwright\/test@1\.54\.1/);
