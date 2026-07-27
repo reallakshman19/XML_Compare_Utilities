@@ -26,6 +26,7 @@ export { PIPELINE_GRE_CAESAR_BEND_QUALIFICATION_PLAN_SCHEMA,
 
 const text = (value) => typeof value === 'string' ? value.trim() : '';
 const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+const exactlyOne = (values) => values.length === 1 ? values.at(0) : null;
 
 function indexed(values, key, errors) {
   const map = Object.create(null);
@@ -101,15 +102,16 @@ function topologyDecision(cases, topologies) {
   const f6 = cases.F6 || [], f7 = cases.F7 || [];
   const f6Accepted = f6.filter(accepted), f6Rejected = f6.filter((fixture) => fixture.ready === true
     && fixture.importEvidence?.result === 'REJECTED');
-  const direct = f6Accepted.length === 1 && f6Rejected.length === 0
+  const acceptedF6 = exactlyOne(f6Accepted);
+  const direct = Boolean(acceptedF6) && f6Rejected.length === 0
     && topologies.some((item) => item.ready === true
       && item.currentP3dGre055Compatibility === 'DIRECTLY_WRITER_COMPATIBLE'
-      && item.fixtureIds.includes(f6Accepted[0].fixtureId));
-  const f7Accepted = f7.filter(accepted);
-  const reconciliation = f6Rejected.length === 1 && f6Accepted.length === 0 && f7Accepted.length === 1
+      && item.fixtureIds.includes(acceptedF6.fixtureId));
+  const f7Accepted = f7.filter(accepted), acceptedF7 = exactlyOne(f7Accepted);
+  const reconciliation = f6Rejected.length === 1 && f6Accepted.length === 0 && Boolean(acceptedF7)
     && topologies.some((item) => item.ready === true
       && item.currentP3dGre055Compatibility === 'REQUIRES_CAESAR_TOPOLOGY_REPROJECTION'
-      && item.fixtureIds.includes(f7Accepted[0].fixtureId));
+      && item.fixtureIds.includes(acceptedF7.fixtureId));
   return direct ? 'F6_ACCEPTED_DIRECT' : reconciliation ? 'F6_REJECTED_F7_ACCEPTED' : 'UNRESOLVED';
 }
 
