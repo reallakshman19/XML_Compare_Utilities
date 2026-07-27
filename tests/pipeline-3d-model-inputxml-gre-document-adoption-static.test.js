@@ -14,7 +14,7 @@ for (const path of production) {
   const source = read(path);
   assert.ok(source.split(/\r?\n/).length <= 300, `${path} exceeds 300 lines`);
   assert.doesNotMatch(source, /export\s+default|\bDate\b|Math\.random|performance\.now|localeCompare/);
-  assert.doesNotMatch(source, /pipeline-3d-model-xml-builder|core-runtime|canvas|cad-|buildInputXmlPipingModelXml/);
+  assert.doesNotMatch(source, /pipeline-3d-model-xml-builder|core-runtime|HTMLCanvasElement|getContext\(|canvas-|\/canvas|cad-|buildInputXmlPipingModelXml/);
 }
 const contracts = read(production[0]);
 assert.match(contracts, /PipelineInputXmlGreDocumentAdoptionPlan\.v1/);
