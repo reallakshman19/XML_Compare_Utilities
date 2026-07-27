@@ -13,7 +13,7 @@ permissions:
 env:
   FEATURE_BRANCH: agent/ssk-ts-2a-journal-package-v2-clean
   EXPECTED_FEATURE_SHA: e32946869e9bb5d2eb8472ea76a76341fd927028
-  EXPECTED_MAIN_SHA: 9859283b00c0e70d4f28ffc83ebb04156b972702
+  EXPECTED_MAIN_SHA: 8f5c2a5ce5c53d0a1e5e91234537d80368b1a554
   CI: 'true'
 
 jobs:
