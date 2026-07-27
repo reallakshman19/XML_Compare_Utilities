@@ -6,6 +6,7 @@ import {
   sameSequentialContractValue,
   sequentialCommandCodedError,
 } from './sequential-command-contracts.js';
+import { sequentialCommandJournalHeadFingerprint } from './sequential-command-journal.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 
 export const SEQUENTIAL_WORKSPACE_COMMAND_BOUNDARY_SCHEMA = 'SequentialWorkspaceCommandBoundary.v1';
@@ -21,6 +22,20 @@ function modelFrom(reader) {
   const model = reader();
   if (!model || typeof model !== 'object') throw new TypeError('Sequential workspace command model is unavailable.');
   return model;
+}
+function sourceFingerprint(records) {
+  return Array.isArray(records) ? sequentialSourceRecordsFingerprint(records) : null;
+}
+function commandOwnerSnapshot(ownerSnapshot, journalState) {
+  if (!ownerSnapshot?.revision) return ownerSnapshot || null;
+  return Object.freeze({
+    ...ownerSnapshot,
+    revision: Object.freeze({
+      schema: 'SequentialCommandOwnerRevision.v1',
+      ownerRevision: ownerSnapshot.revision,
+      journalHeadFingerprint: sequentialCommandJournalHeadFingerprint(journalState),
+    }),
+  });
 }
 function injectFailure(factory, stage) {
   if (typeof factory !== 'function') return;
@@ -75,12 +90,13 @@ export function createSequentialWorkspaceCommandBoundary(options = {}) {
   function readCurrentState() {
     const model = modelFrom(readModel);
     return {
-      sourceFingerprint: sequentialSourceRecordsFingerprint(model.records),
+      sourceFingerprint: sourceFingerprint(model.records),
       evidence: model.evidence, indexes: model.indexes, session: model.session,
       confirmedConstruction: model.confirmedConstruction,
       supportProjection: model.supportProjection,
       branchRegistry: model.branchRegistry, journalState: model.journalState,
-      ownerSnapshot: readOwnerSnapshot(), engineOptions: { ...readEngineOptions() },
+      ownerSnapshot: commandOwnerSnapshot(readOwnerSnapshot(), model.journalState),
+      engineOptions: { ...readEngineOptions() },
     };
   }
   function publishCandidate(input = {}) {
