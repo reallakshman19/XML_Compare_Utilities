@@ -36,7 +36,7 @@ function currentWorkspaceRows(model) {
   })).sort((left, right) => left.branchId.localeCompare(right.branchId));
 }
 function journalIdentity(state, failureCode) {
-  if (!state) return null;
+  if (state === null || state === undefined) return null;
   const errors = validateSequentialCommandJournalState(state);
   if (errors.length) fail(failureCode);
   return Object.freeze({
@@ -75,7 +75,7 @@ export function sequentialWorkspaceRestorationStateFingerprint(restoration = {})
     evidence: restoration.evidence,
     branchRegistry: registry,
     session: restoration.workspaces?.find((row) => row.branchId === restoration.activeBranchId)?.snapshot?.session || null,
-    journalState: restoration.journalState || null,
+    journalState: restoration.journalState ?? null,
   });
 }
 
