@@ -75,7 +75,16 @@ export function decisionAuditRemark(row = {}, config = {}) {
 }
 
 export function candidateFinalBasis(row = {}, config = {}) {
-  const codes = [row.decisionStatus === 'AMBIGUOUS' ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP', row.decisionReason];
+  const gapOperator = Number(row.scoreGap) < Number(row.requiredScoreGap) ? '<' : '>=';
+  const codes = [
+    row.decisionStatus === 'AMBIGUOUS' ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP',
+    row.decisionReason,
+    `CANDIDATE_RANK=${row.candidateRank}`,
+    `SCORE=${compact(row.score, 6)}`,
+    row.topCandidateTagId ? `TOP_TAG=${row.topCandidateTagId}` : '',
+    row.runnerUpTagId ? `RUNNER_UP_TAG=${row.runnerUpTagId}` : '',
+    row.scoreGap == null ? '' : `SCORE_GAP=${compact(row.scoreGap, 6)}${gapOperator}${compact(row.requiredScoreGap, 6)}`,
+  ];
   return `${candidateAuditRemark(row, config)}${codeSuffix(codes)}`;
 }
 
