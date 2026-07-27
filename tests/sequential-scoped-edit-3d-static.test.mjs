@@ -9,6 +9,7 @@ function source(relative) {
 const visual = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js');
 const controller = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-3d-controller.js');
 const gateway = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-gateway.js');
+const panel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-panel.js');
 const boundary = source('tabs/sequential-sketcher/scoped-edit/sequential-workspace-command-boundary.js');
 const index = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-index.js');
 const markup = source('tabs/sequential-sketcher/sequential-sketcher-markup.js');
@@ -22,7 +23,8 @@ const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
   ['visual model', visual], ['3D controller', controller],
-  ['command gateway', gateway], ['workspace command boundary', boundary],
+  ['command gateway', gateway], ['command panel', panel],
+  ['workspace command boundary', boundary],
 ]) {
   assert(value.split(/\r?\n/).length <= 300, `${name} must remain under 300 lines`);
   assert.doesNotMatch(value, /export\s+default|module\.exports|exports\./);
@@ -34,17 +36,21 @@ assert.match(visual, /createVisualGeometryModelV2/);
 assert.match(visual, /assertSequentialScopedEditSceneAncestry/);
 assert.match(controller, /workbench-viewer\.js/);
 assert.match(controller, /setMode\('target-only'\)/);
-assert.match(controller, /Read-only; no command issued/);
+assert.match(controller, /Selection does not issue a command/);
 assert.match(controller, /getSequentialScopedEdit3dController/);
 assert.match(controller, /getCommandGatewayState/);
+assert.match(controller, /getCommandPanelState/);
 assert.match(controller, /prepareCommand: gateway\.prepare/);
 assert.match(controller, /acceptCommand: gateway\.accept/);
 assert.match(controller, /executeCommand: gateway\.execute/);
+assert.match(controller, /createSequentialDraftEditCommandPanel/);
+assert.match(controller, /commandPanel\?\.setActive\(false\)/);
+assert.match(controller, /invalidatePending: true/);
 assert.match(controller, /requiredCommandBoundary/);
 assert.match(controller, /options\.createViewer/);
 assert.match(controller, /failureFactory/);
 assert.match(controller, /viewerState/);
-assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|appendEditCommand|data-ssk-command/);
+assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|appendEditCommand/);
 
 assert.match(gateway, /createSequentialCommandService/);
 assert.match(gateway, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
@@ -56,6 +62,20 @@ assert.match(gateway, /COMMAND_AUTHORITY_MISMATCH/);
 assert.match(gateway, /function gatewayState\(\)/);
 assert.doesNotMatch(gateway, /createSequentialJournalAdoption|createSequentialCommandJournalState/);
 assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
+
+assert.match(panel, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
+assert.match(panel, /gateway\.prepare\(/);
+assert.match(panel, /gateway\.accept\(/);
+assert.match(panel, /exactIssuedAt/);
+assert.match(panel, /validateEvidence/);
+assert.match(panel, /invalidatePending/);
+assert.match(panel, /Prepared command cancelled without authority mutation/);
+assert.match(panel, /Prepare does not publish authority/);
+assert.doesNotMatch(panel, /gateway\.execute\(/,
+  'visible command controls must never use direct execute');
+assert.doesNotMatch(panel,
+  /CONNECT_CANDIDATE|MANUAL_CONNECT|REJECT_CANDIDATE|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
+assert.doesNotMatch(panel, /\bbeginDrag\b|\bcommitDrag\b|\brotate\b|\bstretch\b|breakTopology/);
 
 assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
 assert.match(boundary, /restorePackage/);
@@ -72,11 +92,24 @@ assert.doesNotMatch(boundary, /Object\.assign\(model/,
   'command boundary must use the existing workspace restoration commit boundary');
 
 assert.match(index, /sequential-draft-edit-command-gateway/);
+assert.match(index, /sequential-draft-edit-command-panel/);
 assert.match(index, /sequential-workspace-command-boundary/);
 assert.match(markup, /data-ssk-draft-edit-3d/);
 assert.match(markup, /data-ssk-draft-edit-3d-host/);
-assert.doesNotMatch(markup, /data-ssk-draft-edit-command|data-ssk-command-execute/,
-  'SSK-TS-3A must not add visible command controls');
+assert.match(markup, /data-ssk-draft-edit-command-panel hidden aria-hidden="true" inert/);
+assert.match(markup, /Prepare → review → accept/);
+assert.match(markup, /Accept prepared command/);
+assert.match(markup, /Cancel prepared command/);
+assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 6,
+  'SSK-TS-3B must expose exactly six qualified command-selection buttons');
+for (const commandType of [
+  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'DEFER_DECISION',
+  'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
+]) assert.match(markup, new RegExp(`data-ssk-draft-edit-command="${commandType}"`));
+assert.doesNotMatch(markup,
+  /CONNECT_CANDIDATE|MANUAL_CONNECT|REJECT_CANDIDATE|MARK_TERMINAL|MARK_EXTERNAL_BOUNDARY|REVERSE_COMPONENT/);
+assert.doesNotMatch(markup, /data-ssk-command-execute|data-ssk-draft-edit-drag|data-ssk-coordinate-edit/);
+
 assert.match(tab, /createSequentialWorkspaceCommandBoundary/);
 assert.match(tab, /commandBoundary/);
 assert.match(tab, /restorePackage: active\.restorePackage/);
@@ -104,4 +137,4 @@ assert.match(workbenchSpec, /runtimePending/);
 assert.match(workbenchSpec, /instanceCount/);
 assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3A Draft Edit 3D static containment: ok');
+console.log('Sequential SSK-TS-3B supervised Draft Edit 3D static containment: ok');

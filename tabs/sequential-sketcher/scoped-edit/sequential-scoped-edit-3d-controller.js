@@ -1,6 +1,7 @@
-/** Sequential Draft Edit 3D view with a non-visual guarded command gateway. */
+/** Sequential Draft Edit 3D view with guarded supervised command controls. */
 import { createSequentialScopedEditVisualModel } from './sequential-scoped-edit-visual-model.js';
 import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit-command-gateway.js';
+import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
 export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
@@ -68,8 +69,10 @@ function show3dSurface(state) {
   setHidden(state.elements.preview, true);
   setHidden(state.elements.host, false);
   set3dPressed(state, true);
+  state.commandPanel?.setActive(true);
 }
 function hide3dSurface(state) {
+  state.commandPanel?.setActive(false);
   setHidden(state.elements.host, true);
   set3dPressed(state, false);
 }
@@ -80,7 +83,7 @@ function syncAvailability(state) {
   const next = available(state);
   state.elements.button.disabled = !next;
   state.elements.button.title = next
-    ? 'Open the certified read-only Draft Edit 3D view'
+    ? 'Open the certified Draft Edit 3D view'
     : 'Draft Edit 3D requires an open Sequential branch';
   if (!next && state.active) {
     state.active = false;
@@ -114,7 +117,7 @@ function applyScene(state) {
     state.viewer.fitAll();
   }
   applyProjection(state, readModel);
-  announce(state, `Draft Edit 3D active · ${scene.entities.length} read-only entities.`, 'ready');
+  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · supervised commands available when authority is ready.`, 'ready');
 }
 function viewerOptions(state) {
   return {
@@ -122,7 +125,7 @@ function viewerOptions(state) {
     onPick: (pick) => {
       const id = pick?.objectId || null;
       state.viewer?.setSelection(id, []);
-      if (id) announce(state, `Draft Edit 3D selected ${id}. Read-only; no command issued.`, 'ready');
+      if (id) announce(state, `Draft Edit 3D selected ${id}. Selection does not issue a command.`, 'ready');
     },
     onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
     onNavigationError: (error) => containFailure(state, error, 'navigation'),
@@ -173,6 +176,10 @@ async function show3d(state) {
 function scheduleRefresh(state) {
   queueMicrotask(() => {
     if (state.destroyed) return;
+    state.commandPanel?.refresh({
+      invalidatePending: true,
+      reason: 'Prepared command invalidated because Sequential owner authority changed.',
+    });
     syncAvailability(state);
     if (!state.active) return;
     try { applyScene(state); } catch (error) { containFailure(state, error, 'owner refresh'); }
@@ -195,12 +202,33 @@ function destroy(state) {
   state.destroyed = true;
   state.root.removeEventListener('click', state.onClick, true);
   try { state.unsubscribe?.(); } catch {}
+  try { state.commandPanel?.destroy(); } catch {}
   try { state.gateway?.destroy(); } catch {}
   try { state.viewer?.dispose(); } catch {}
   state.viewer = null;
   state.elements.host.innerHTML = '';
   CONTROLLERS.delete(state.root);
   return true;
+}
+function installCommandPanel(state, commandBoundary) {
+  try {
+    state.commandPanel = createSequentialDraftEditCommandPanel({
+      root: state.root, gateway: state.gateway,
+      readCurrentState: commandBoundary.readCurrentState,
+      now: state.options.commandIssuedAtProvider,
+      onAccepted: state.options.onCommandAccepted,
+      onFailure: state.options.onCommandFailure,
+    });
+    state.onClick = (event) => handleClick(state, event);
+    state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
+    if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
+    state.root.addEventListener('click', state.onClick, true);
+  } catch (error) {
+    try { state.unsubscribe?.(); } catch {}
+    try { state.commandPanel?.destroy(); } catch {}
+    try { state.gateway.destroy(); } catch {}
+    throw error;
+  }
 }
 
 export function getSequentialScopedEdit3dController(root) {
@@ -211,33 +239,33 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
   const existing = CONTROLLERS.get(root);
   if (existing) return existing;
   const commandBoundary = requiredCommandBoundary(options.commandBoundary);
+  const shadow = requiredShadow(options.shadow);
+  const workspace = requiredWorkspace(options.workspace);
+  const viewElements = elements(root);
   const gateway = createSequentialDraftEditCommandGateway({
     readCurrentState: commandBoundary.readCurrentState,
     publishCandidate: commandBoundary.publishCandidate,
   });
   const state = {
-    root, options, gateway, shadow: requiredShadow(options.shadow),
-    workspace: requiredWorkspace(options.workspace), elements: elements(root),
+    root, options, gateway, shadow, workspace, elements: viewElements,
     viewer: null, pending: null, mountKey: '', active: false,
-    destroyed: false, failureCount: 0, unsubscribe: null,
+    destroyed: false, failureCount: 0, unsubscribe: null, commandPanel: null,
   };
-  state.onClick = (event) => handleClick(state, event);
-  state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
-  if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
-  state.root.addEventListener('click', state.onClick, true);
+  installCommandPanel(state, commandBoundary);
   syncAvailability(state);
   const controller = Object.freeze({
     schema: SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1,
     show: () => show3d(state),
     refresh: () => { scheduleRefresh(state); return true; },
     getCommandGatewayState: gateway.getState,
+    getCommandPanelState: state.commandPanel.getState,
     prepareCommand: gateway.prepare,
     acceptCommand: gateway.accept,
     executeCommand: gateway.execute,
     getState: () => Object.freeze({ active: state.active, available: available(state),
       mounted: Boolean(state.viewer), mountKey: state.mountKey,
       failureCount: state.failureCount, destroyed: state.destroyed,
-      commandGateway: gateway.getState(),
+      commandGateway: gateway.getState(), commandPanel: state.commandPanel.getState(),
       viewerState: state.viewer?.getStateSnapshot?.() ?? null }),
     destroy: () => destroy(state),
   });
