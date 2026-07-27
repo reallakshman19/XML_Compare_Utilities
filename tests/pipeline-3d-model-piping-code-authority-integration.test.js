@@ -1,21 +1,39 @@
 import assert from 'node:assert/strict';
 import { buildPipelineInputXmlDocumentPlan } from '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-document.js';
 import { buildInputXmlPipingModelXml } from '../tabs/pipeline-3d-model/pipeline-3d-model-xml-builder.js';
+import { approvedSourceReferenceKey } from '../tabs/pipeline-3d-model/pipeline-3d-model-allowable-value-authority.js';
 import { profileDocumentInput } from './pipeline-3d-model-inputxml-profile-document.test.js';
 
+const digest = (character) => character.repeat(64);
+const source = (sourceId, title, revision, character) => ({ sourceId, title, revision,
+  approvalReference: `APPROVAL-${sourceId}-${revision}`, sha256: digest(character) });
+const codeSources = [
+  source('PROJECT-DESIGN-BASIS', 'Project Design Basis', 'R1', 'a'),
+  source('APPROVED-CODE-SELECTION', 'ASME B31.4 Code Selection', '2022', 'b'),
+  source('VENDOR-QUALIFICATION', 'GRE Vendor Qualification', 'R2', 'c'),
+];
+const allowableSource = source('APPROVED-MATERIAL-SHEET', 'Approved Material Sheet', 'R4', 'd');
 const authorities = [
   { analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL',
-    caesarPipingCode: 101, sourceAuthority: 'PROJECT-DESIGN-BASIS' },
+    caesarPipingCode: 101, sourceAuthority: codeSources[0].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[0]) },
   { analysisSectionId: 'AS2', profileId: 'asme-b31.4', resolvedMode: 'ASME_B31_4',
-    caesarPipingCode: 202, sourceAuthority: 'APPROVED-CODE-SELECTION' },
+    caesarPipingCode: 202, sourceAuthority: codeSources[1].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[1]) },
   { analysisSectionId: 'AS3', profileId: 'gre', resolvedMode: 'GRE',
-    caesarPipingCode: 303, sourceAuthority: 'VENDOR-QUALIFICATION' },
+    caesarPipingCode: 303, sourceAuthority: codeSources[2].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[2]) },
 ];
 const allowableValueAuthorities = authorities.map((item, index) => ({
   analysisSectionId: item.analysisSectionId, profileId: item.profileId,
   resolvedMode: item.resolvedMode, materialNumber: 1, materialName: 'TEST MATERIAL',
   coldAllow: 1000 + index * 1000, sy: 1100 + index * 1000, su: 1200 + index * 1000,
-  sourceAuthority: 'APPROVED-MATERIAL-SHEET', cases: [
+  sourceAuthority: allowableSource.sourceId,
+  sourceReference: approvedSourceReferenceKey(allowableSource),
+  codeFamily: index === 0 ? 'PROJECT-CODE' : index === 1 ? 'ASME B31.4' : 'GRE VENDOR BASIS',
+  codeEdition: index === 0 ? 'DB-R1' : index === 1 ? '2022' : 'R2',
+  codeSource: structuredClone(codeSources[index]), allowableSource: structuredClone(allowableSource),
+  cases: [
     { num: 1, temperature: 100, hotAllow: 900 + index * 1000,
       hotSy: 1000 + index * 1000, hotSu: 1100 + index * 1000 },
     { num: 2, temperature: 200, hotAllow: 800 + index * 1000,
@@ -48,6 +66,8 @@ assert.deepEqual(plan.elements.filter((item) => item.allowableStress)
   .map((item) => item.allowableStress.attributes.PIPING_CODE), [101, 202, 303]);
 assert.equal(plan.elements[0].allowableStress.pipingCodeAuthority.sourceAuthority,
   'PROJECT-DESIGN-BASIS');
+assert.equal(plan.elements[0].allowableStress.pipingCodeAuthority.sourceReference,
+  approvedSourceReferenceKey(codeSources[0]));
 assert.equal(Object.isFrozen(plan.pipingCodeAuthorityPlan.authorities[0]), true);
 
 const xml = buildInputXmlPipingModelXml(plan);
@@ -70,22 +90,20 @@ writerBlocked((value) => { value.elements[0].allowableStress.pipingCodeAuthority
 writerBlocked((value) => { value.pipingCodeAuthorityPlan.authorities[0].caesarPipingCode = 999; });
 writerBlocked((value) => { value.pipingCodeAuthorityPlan.elements[0].analysisSectionId = 'AS2'; });
 writerBlocked((value) => { delete value.pipingCodeAuthorityPlan; delete value.pipingCodeAuthorityPlanSchema; });
+writerBlocked((value) => { value.elements[0].allowableStress.pipingCodeAuthority.sourceReference = 'FORGED'; });
 
 const missingInput = profileInput();
 missingInput.pipingCodeAuthorities.pop();
 const missing = buildPipelineInputXmlDocumentPlan(missingInput);
 assert.equal(missing.ready, false);
 assert.ok(missing.blockerCodes.includes('PIPELINE_PIPING_CODE_AUTHORITY_REQUIRED'));
-
 const conflictInput = profileInput();
 conflictInput.allowableStresses[0].PIPING_CODE = 999;
 const conflict = buildPipelineInputXmlDocumentPlan(conflictInput);
 assert.equal(conflict.ready, false);
 assert.ok(conflict.blockerCodes.includes('PIPELINE_PIPING_CODE_CONFLICT'));
-
 const noAllowable = buildPipelineInputXmlDocumentPlan(profileDocumentInput());
 assert.equal(Object.hasOwn(noAllowable, 'pipingCodeAuthorityPlan'), false);
-
 const nonProfile = buildPipelineInputXmlDocumentPlan({
   exportContext: { branchInfo: { lineNo: 'PL-1', caesarVersion: '14.00' } },
   coordinateRows: [
