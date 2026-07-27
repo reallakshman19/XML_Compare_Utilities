@@ -67,14 +67,15 @@ The persistence controller validates the pending preview and approval, computes 
 `restorePackage()` then:
 
 1. accepts only restoration v1 or v2;
-2. verifies the expected journal impact;
+2. compares current and incoming journal schema, adoption checkpoint ID, and journal-head fingerprint to verify the expected impact;
 3. rejects unapproved v1 journal removal;
-4. builds and validates a fresh branch registry;
-5. derives the candidate active snapshot and freezes the candidate receipt history;
-6. commits source, evidence, runtime indexes, branch registry, active session, derived active state, selected candidate, decision register, journal authority, and receipts as one non-validating assignment boundary;
-7. updates UI state only after the commit.
+4. regenerates `confirmedConstruction` and support projection for every restored `ROUTE_COMPLETE` branch, including package-v1 rows;
+5. builds and validates a fresh branch registry;
+6. derives the candidate active snapshot, freezes the candidate receipt history, and serializes source text before mutation;
+7. commits source, evidence, runtime indexes, branch registry, active session, derived active state, selected candidate, decision register, journal authority, and receipts through one non-validating assignment boundary;
+8. performs post-commit UI synchronization in a contained non-throwing section, so a rendering or DOM failure cannot be reported as a failed application after live state changed.
 
-A failed parse, preview, approval, receipt construction, journal-impact check, or fresh-registry validation occurs before live mutation. Cancellation clears only pending controller state.
+A failed parse, preview, approval, receipt construction, journal-identity check, derived-state preparation, source serialization, or fresh-registry validation occurs before live mutation. Cancellation clears only pending controller state.
 
 ## Application receipts
 
@@ -84,15 +85,21 @@ New `SequentialWorkspaceApplicationReceipt.v1` values include:
 - `packageRevision`;
 - `impact.journalImpact`.
 
-Authenticated legacy receipts without all three additive values remain valid. A partially populated package identity fails as `WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:<index>`. An unknown journal impact fails as `WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:<index>`.
+Schema and revision form exact pairs: `SequentialWorkspacePackage.v1` requires revision `1`, and `SequentialWorkspacePackage.v2` requires revision `2`. Authenticated legacy receipts without all three additive values remain valid. A partially populated or mismatched package identity fails as `WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:<index>`. An unknown journal impact fails as `WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:<index>`.
 
-## Mutation boundary
+## Mutation and proof boundary
 
 Creation and parsing clone JSON-owned package, receipt, and journal values. Runtime `Map` indexes come from authoritative package restoration and are not JSON-cloned. The fresh registry is prepared independently before replacing the model registry. Caller-owned package, receipt, journal, and model values are read-only inputs.
 
+The additive tests preserve the original policy, hydration, preview-total, matching/empty-state, source/branch/active-state staleness, destructive-evidence, markup, CSS, tab-wiring, and receipt-field assertions. Dynamic production-boundary proof exercises package-v1 derived regeneration, package-v2 install, unchanged authority, replacement, explicit removal, journal-head staleness, cancellation, injected preparation/restoration failure, receipt-history preservation, `lastReceipt` ordering, and caller-input immutability.
+
 ## Line and export controls
 
-All edited production modules use named exports only. The four persistence modules remain below 300 lines. The Owner-approved workspace exception records a 446-line baseline and permits at most 40 net new lines; the implementation is 464 lines, a net increase of 18. New and materially changed functions remain below 40 lines.
+All edited production modules use named exports only. The four persistence modules remain below 300 lines. The Owner-approved workspace exception records a 446-line baseline and permits at most 40 net new lines; the corrected implementation is 478 lines, a net increase of 32. New and materially changed functions remain below 40 lines where practical.
+
+## Main synchronization
+
+The Owner-authorized synchronization target is `42b54c7619b4d63300dce3ffdfc736d30e221fb3`. Its only changes are the disjoint Pipeline 3D CAESAR writer files; they are incorporated through branch synchronization and do not appear in the SSK-TS-2B pull-request diff.
 
 ## Non-goals retained
 
