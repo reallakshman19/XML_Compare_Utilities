@@ -108,7 +108,7 @@ const missing = resolvePipelinePropertySectionPlan({
 assert.deepEqual(missing.blockerCodes, ['PIPELINE_DIAMETER_REQUIRED', 'PIPELINE_WALL_THICKNESS_REQUIRED']);
 
 const greBlocked = buildPipelineInputXmlDocumentPlan({
-  exportContext: context(branchInfo, ['GRE_BEND_POLICY_NOT_IMPLEMEMTED']), coordinateRows: rows,
+  exportContext: context(branchInfo, ['GRE_BEND_POLICY_NOT_IMPLEMENTED']), coordinateRows: rows,
 });
 assert.equal(greBlocked.ready, false);
 assert.ok(greBlocked.blockerCodes.includes('GRE_BEND_POLICY_NOT_IMPLEMENTED'));

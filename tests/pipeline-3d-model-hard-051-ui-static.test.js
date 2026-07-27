@@ -13,5 +13,6 @@ assert.match(view, /data-p3d-config-assignment-confirm/);
 assert.match(view, /Derived break length/);
 assert.match(view, /Source-derived/);
 assert.match(controller, /savePipelineEngineeringConfigurationDraft/);
-assert.match(controller, /action === 'clear'/);
+assert.match(controller, /name === 'clear'/);
+assert.match(controller, /clearDraft\(instance\)/);
 console.log('pipeline-3d-model P3D-HARD-051 UI static: PASS');
