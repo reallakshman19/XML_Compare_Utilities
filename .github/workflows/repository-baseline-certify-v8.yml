@@ -1,0 +1,72 @@
+name: Repository baseline certify v8
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/repository-baseline-certify-v8.yml']
+
+permissions:
+  contents: read
+
+env:
+  TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
+  EXPECTED_TARGET_SHA: bd31f357c386f54e26d28a870f31ebf2e8da45c4
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+      - name: Verify exact head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Pipeline CAD browser contract
+        run: node tests/pipeline-3d-model-cad-browser-contract.test.js
+      - name: XML Builder browser contract
+        run: node tests/xml-builder-viewport-browser-contract.test.js
+      - name: No-fallback ownership contract
+        run: node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
+      - name: Configuration UI contract
+        run: node tests/pipeline-3d-model-hard-051-ui-static.test.js
+      - name: Export-context authority contract
+        run: node tests/pipeline-3d-model-export-context-static.test.js
+      - name: InputXML artifact ownership contract
+        run: node tests/pipeline-3d-model-inputxml-document-static.test.js
+      - name: Profile propagation behavior
+        run: node tests/pipeline-3d-model-profile-propagation.test.js
+      - name: Profile propagation static ownership
+        run: node tests/pipeline-3d-model-profile-propagation-static.test.js
+      - name: Repository-wide validation
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/npm-test
+          npm test 2>&1 | tee /tmp/npm-test/npm-test.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repository-baseline-v8-npm-test
+          path: /tmp/npm-test/npm-test.log
+          if-no-files-found: warn
+      - name: Enforce exact containment
+        run: |
+          git diff --check
+          test -z "$(git status --short)"
+          git diff --name-only origin/main...HEAD | sort > /tmp/actual
+          printf '%s\n' \
+            tests/pipeline-3d-model-cad-browser-contract.test.js \
+            tests/pipeline-3d-model-export-context-static.test.js \
+            tests/pipeline-3d-model-hard-051-no-fallback-static.test.js \
+            tests/pipeline-3d-model-hard-051-ui-static.test.js \
+            tests/pipeline-3d-model-inputxml-document-static.test.js \
+            tests/pipeline-3d-model-profile-propagation-static.test.js \
+            tests/pipeline-3d-model-profile-propagation.test.js \
+            tests/xml-builder-viewport-browser-contract.test.js | sort > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
