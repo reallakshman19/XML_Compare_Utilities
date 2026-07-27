@@ -10,7 +10,7 @@ permissions:
 
 env:
   TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
-  EXPECTED_TARGET_SHA: 077896d6d3d78b1eac5aaaa8f5724715c41c2fd1
+  EXPECTED_TARGET_SHA: 08e1a56e3edd9c8fdd85cf0288fd11327e8af58c
 
 jobs:
   certify:
@@ -40,6 +40,10 @@ jobs:
         run: node tests/pipeline-3d-model-export-context-static.test.js
       - name: InputXML artifact ownership contract
         run: node tests/pipeline-3d-model-inputxml-document-static.test.js
+      - name: Property-section static contract
+        run: node tests/pipeline-3d-model-property-sections-static.test.js
+      - name: Property-section behavior
+        run: node tests/pipeline-3d-model-property-sections.test.js
       - name: Profile propagation behavior
         run: node tests/pipeline-3d-model-profile-propagation.test.js
       - name: Profile propagation static ownership
@@ -68,5 +72,7 @@ jobs:
             tests/pipeline-3d-model-inputxml-document-static.test.js \
             tests/pipeline-3d-model-profile-propagation-static.test.js \
             tests/pipeline-3d-model-profile-propagation.test.js \
+            tests/pipeline-3d-model-property-sections-static.test.js \
+            tests/pipeline-3d-model-property-sections.test.js \
             tests/xml-builder-viewport-browser-contract.test.js | sort > /tmp/expected
           diff -u /tmp/expected /tmp/actual
