@@ -23,7 +23,10 @@ assert.doesNotMatch(contracts, /writerAdmission: ready \? 'READY'/);
 const adoption = read(production[2]);
 assert.match(adoption, /incomingOwnerProjectedElementId/);
 assert.match(adoption, /semanticGreBendElementId/);
-assert.match(adoption, /documentAuthorityAdopted/);
+assert.match(adoption, /adoptedProfileAuthorityPlan/);
+assert.match(adoption, /adoptedElements/);
+assert.match(adoption, /greBendAuthorities/);
+assert.match(adoption, /removedSourceBlockerCodes/);
 assert.doesNotMatch(adoption, /<BEND|PIPINGELEMENT|pipeline-3d-model\.xml/);
 
 const documentSource = read('../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-document.js');
