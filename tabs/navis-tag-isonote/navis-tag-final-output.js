@@ -91,6 +91,11 @@ export function selectOutputSupportIdentity(decision = {}) {
   return numbered[0]?.value || candidates[0];
 }
 
+function exactCandidateIdentity(candidate = {}) {
+  const identity = text(candidate.canonicalIdentity).replace(/\s+/g, '');
+  return identity ? `/${identity.replace(/^\/+/, '')}` : selectOutputSupportIdentity(candidate);
+}
+
 export function pointLabel(point) {
   if (![point?.x, point?.y, point?.z].every((value) => Number.isFinite(Number(value)))) return '';
   return `E=${compact(point.x)};N=${compact(point.y)};EL=${compact(point.z)}`;
@@ -177,7 +182,7 @@ function unmatchedNavisRows(audit, navisParse, config) {
   for (const tag of navisParse?.tags || []) {
     const key = evidenceKey(tag);
     const tagId = text(tag.tagId);
-    const isAccounted = key ? accounted.keys.has(key) : Boolean(tagId && accounted.tagIds.has(tagId));
+    const isAccounted = Boolean((key && accounted.keys.has(key)) || (tagId && accounted.tagIds.has(tagId)));
     if (isAccounted) continue;
     rows.push({
       'Name of the element': UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
@@ -229,8 +234,10 @@ function propagationBasis(rows) {
 }
 
 function candidateReviewBasis(row) {
-  const outcome = row.decisionStatus === 'AMBIGUOUS' ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP';
-  const scoreGap = row.scoreGap == null ? '' : `SCORE_GAP=${compact(row.scoreGap, 6)}<${compact(row.requiredScoreGap, 6)}`;
+  const ambiguous = row.decisionStatus === 'AMBIGUOUS';
+  const outcome = ambiguous ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP';
+  const operator = Number(row.scoreGap) < Number(row.requiredScoreGap) ? '<' : '>=';
+  const scoreGap = row.scoreGap == null ? '' : `SCORE_GAP=${compact(row.scoreGap, 6)}${operator}${compact(row.requiredScoreGap, 6)}`;
   return unique([
     outcome, row.decisionReason, `CANDIDATE_RANK=${row.candidateRank}`,
     `SCORE=${compact(row.score, 6)}`, row.topCandidateTagId ? `TOP_TAG=${row.topCandidateTagId}` : '',
@@ -247,7 +254,7 @@ function candidateReviewRows(audit, config) {
     if (seen.has(key)) continue;
     seen.add(key);
     rows.push({
-      'Name of the element': selectOutputSupportIdentity(candidate),
+      'Name of the element': exactCandidateIdentity(candidate),
       PIPE: candidate.resolvedPipe || candidate.inputPipe || '',
       POS: pointLabel(candidate.supportPosition),
       'Navis Tag ID': text(candidate.tagId),
@@ -306,5 +313,5 @@ export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null)
 export const _test = Object.freeze({
   baseTagText, finalIsonote, identityCandidates, propagationBasis, evidenceKey,
   matchedNavisEvidence, unmatchedNavisRows, candidateLedgerNavisParse,
-  navisParseForOutput, candidateReviewBasis, candidateReviewRows,
+  navisParseForOutput, candidateReviewBasis, candidateReviewRows, exactCandidateIdentity,
 });
