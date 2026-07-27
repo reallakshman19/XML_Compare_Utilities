@@ -2,7 +2,7 @@
 
 ## Status
 
-This document records the contained first implementation batch for the Sequential SVG-to-3D migration.
+This document records the contained read-only production-shadow slice for the Sequential SVG-to-3D migration.
 
 ```text
 Sequential owner snapshot
@@ -10,7 +10,7 @@ Sequential owner snapshot
 → deterministic EngineeringScene.v1
 → EngineeringScope.v1
 → read-only four-method Draft Edit host
-→ fail-open shadow lifecycle
+→ fail-open production subscription
 ```
 
 ## Included
@@ -20,12 +20,13 @@ Sequential owner snapshot
 - deterministic selection and structural scopes;
 - finite read-only geometry anchors for point, segment, and polyline entities;
 - explicit denial of every edit command;
-- fail-open mount, stale-authority rejection, remount, invalidation, and destroy evidence;
+- stale-authority rejection and same-authority selection/projection remounting;
+- fail-open subscription from the existing Sequential owner bridge;
+- diagnostics, invalidation, remount, and destroy evidence;
 - integration and static containment tests.
 
 ## Excluded
 
-- workspace production subscription;
 - visible 3D renderer mounting;
 - shared drag runtime;
 - command routing or acceptance;
@@ -36,4 +37,4 @@ Sequential owner snapshot
 
 ## Next controlled batch
 
-Mount the fail-open shadow from the existing Sequential owner bridge, expose diagnostics/read-only host access through the workspace API, and prove that owner publication remains unaffected when the shadow degrades.
+Expose the mounted read-only host to a dedicated 3D Draft Edit view controller and prove visual scene, selection, support, branch-switch, and lifecycle parity against the existing SVG surface. No command routing is permitted in that batch.
