@@ -1,0 +1,73 @@
+name: RC-XFER-009 complete browser diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/rc-xfer-009-complete-diagnostic-20260727.yml']
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_FEATURE_SHA: b7b6c7bf719e6fdc73c7af4851e3a1488767897b
+  FEATURE_BRANCH: agent/rc-xfer-009-handover-inspection
+  PATCH_BRANCH: owner/rc-xfer-009-final-20260727
+  CI: 'true'
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out exact feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Enforce exact feature head
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+
+      - name: Replay exact five-file patch
+        run: |
+          git fetch origin "$PATCH_BRANCH"
+          git show "origin/$PATCH_BRANCH:.github/workflows/rc-xfer-009-final-20260727.yml" > /tmp/publisher.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/publisher.yml').read_text()
+          marker = "          python3 - <<'PY'\n"
+          start = text.index(marker) + len(marker)
+          end = text.index("          PY\n", start)
+          lines = text[start:end].splitlines()
+          Path('/tmp/owner-patch.py').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
+          PY
+          python3 /tmp/owner-patch.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Capture complete Playwright output
+        id: complete
+        continue-on-error: true
+        run: |
+          mkdir -p diagnostic
+          npx playwright test --config=playwright.revision-compare.config.mjs --reporter=line > diagnostic/complete-playwright.log 2>&1
+
+      - name: Upload complete Playwright output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-xfer-009-complete-playwright-20260727
+          path: diagnostic/complete-playwright.log
+          if-no-files-found: error
+
+      - name: Require complete suite pass
+        run: test "${{ steps.complete.outcome }}" = "success"
