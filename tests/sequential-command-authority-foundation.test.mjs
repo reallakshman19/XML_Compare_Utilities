@@ -7,9 +7,7 @@ import {
   createSequentialConstructionSession,
   runConstructionUntilBlocked,
 } from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
-import {
-  freezeConstructionSession,
-} from '../tabs/sequential-sketcher/construction/sequential-construction-contract.js';
+import { freezeConstructionSession } from '../tabs/sequential-sketcher/construction/sequential-construction-contract.js';
 import { sequentialSessionFingerprint } from '../tabs/sequential-sketcher/construction/sequential-session-fingerprint.js';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
 import {
@@ -40,6 +38,43 @@ function blockedRecords(branchId) {
   return [branch(branchId, {
     HPOS: { x: 0, y: 100, z: 0 }, TREF: '/AUTH/MISSING/TARGET',
   }, [pipe('P2', { x: 0, y: 100, z: 0 }, { x: 100, y: 100, z: 0 })])];
+}
+function candidateSession(branchId, candidateId = 'CANDIDATE-AUTH-001') {
+  const base = createSequentialConstructionSession(branchId);
+  const zero = Object.freeze({ x: 0, y: 0, z: 0 });
+  const candidate = Object.freeze({
+    candidateId, referenceTarget: '/AUTH/TARGET', referenceKind: 'BRANCH',
+    targetPortId: '/AUTH/TARGET/P9:LPOS', connectedPortId: `${branchId}/P1:APOS`,
+    fromPortId: '/AUTH/TARGET/P9:LPOS', toPortId: `${branchId}/P1:APOS`,
+    targetBranchId: '/AUTH/TARGET', targetComponentId: '/AUTH/TARGET/P9',
+    targetSourceComponentId: '/AUTH/TARGET/P9', targetPortRole: 'END',
+    targetPosition: zero, connectedPosition: zero,
+    targetSourcePosition: zero, connectedSourcePosition: zero,
+    targetPositionBasis: 'TEST_EXACT', connectedPositionBasis: 'TEST_EXACT',
+    boundaryPosition: zero, totalGapMm: 0, targetToBoundaryGapMm: 0,
+    boundaryToConnectedGapMm: 0, derivedBranchLegLengthMm: 0,
+  });
+  return freezeConstructionSession({
+    ...base,
+    state: 'USER_DECISION_REQUIRED',
+    currentDecisionRequest: Object.freeze({
+      schema: 'SequentialConnectionDecision.v1', decisionId: 'DECISION-00001',
+      state: 'OPEN', reason: 'AMBIGUOUS_HEAD_REFERENCE', activePortId: null,
+      candidates: Object.freeze([candidate]), resolution: null,
+      decisionScope: 'HEAD_BOUNDARY', branchId,
+      startComponentId: `${branchId}/P1`, startEntryPortId: `${branchId}/P1:APOS`,
+    }),
+  });
+}
+function candidateCommand(commandType, branchId, candidateId = 'CANDIDATE-AUTH-001') {
+  return {
+    commandType, branchId, decisionId: 'DECISION-00001', candidateId,
+    payload: {
+      reason: 'Reviewed exact current candidate authority.',
+      evidenceNote: 'Candidate identity and current decision were independently verified.',
+      targetEntityId: `ssk:candidate:${candidateId}`,
+    },
+  };
 }
 function createFixture(records, branchId, suppliedSession = null, publisher = null) {
   const evidence = buildSequentialEvidenceModel(records);
@@ -243,12 +278,63 @@ for (const [label, mutate] of [
   assert.equal(acceptance.containmentRequired, true);
 }
 
+for (const commandType of ['CONNECT_CANDIDATE', 'REJECT_CANDIDATE']) {
+  const branchId = `/AUTH/${commandType}`;
+  const records = completeRecords(branchId);
+  const left = createFixture(records, branchId, candidateSession(branchId));
+  const right = createFixture(records, branchId, candidateSession(branchId));
+  const leftPrepared = left.service().prepare({
+    command: candidateCommand(commandType, branchId),
+    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  });
+  const rightPrepared = right.service().prepare({
+    command: candidateCommand(commandType, branchId),
+    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  });
+  assert(sameSequentialContractValue(leftPrepared, rightPrepared), `${commandType} preparation must be deterministic`);
+  assert.equal(leftPrepared.targets.decisionId, 'DECISION-00001');
+  assert.equal(leftPrepared.targets.candidateId, 'CANDIDATE-AUTH-001');
+  assert.equal(leftPrepared.candidate.session.transactionLedger.at(-1).createdAt, ISSUED_AT);
+  assert.equal(leftPrepared.candidate.session.decisionLedger.at(-1).resolution.confirmedAt, ISSUED_AT);
+  const acceptance = left.service().accept(leftPrepared);
+  assert.equal(acceptance.accepted, true, `${commandType} must publish through accepted-command authority`);
+  assert.equal(left.publications(), 1);
+  assert.equal(left.read().journalState.journal.entries.at(-1).commandType, commandType);
+  if (commandType === 'REJECT_CANDIDATE') {
+    assert.equal(leftPrepared.candidate.outcome, 'CANDIDATE_REJECTED');
+    assert.equal(leftPrepared.candidate.session.currentDecisionRequest.candidates.length, 0);
+  }
+}
+
+{
+  const branchId = '/AUTH/CANDIDATE-STALE';
+  const fixture = createFixture(completeRecords(branchId), branchId, candidateSession(branchId));
+  const service = fixture.service();
+  const prepared = service.prepare({
+    command: candidateCommand('CONNECT_CANDIDATE', branchId),
+    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  });
+  fixture.set({ session: freezeConstructionSession({
+    ...fixture.read().session,
+    currentDecisionRequest: Object.freeze({
+      ...fixture.read().session.currentDecisionRequest,
+      candidates: Object.freeze([]),
+    }),
+  }) });
+  const acceptance = service.accept(prepared);
+  assert.equal(acceptance.accepted, false);
+  assert.equal(acceptance.reasonCode, SEQUENTIAL_COMMAND_REJECTION.PREPARED_COMMAND_STALE);
+  assert.equal(fixture.publications(), 0);
+}
+
 {
   const fixture = createFixture(completeRecords('/AUTH/CLOCK-BLOCK'), '/AUTH/CLOCK-BLOCK');
-  assert.throws(() => fixture.service().prepare({
-    command: { commandType: 'CONNECT_CANDIDATE', branchId: '/AUTH/CLOCK-BLOCK' },
-    origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
-  }), (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC);
+  for (const commandType of ['MANUAL_CONNECT', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT']) {
+    assert.throws(() => fixture.service().prepare({
+      command: { commandType, branchId: '/AUTH/CLOCK-BLOCK' },
+      origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+    }), (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC);
+  }
 }
 
 {
@@ -274,4 +360,4 @@ for (const relative of modules) {
   assert(source.split(/\r?\n/).length <= 300, `${relative} must remain under 300 lines`);
   assert.doesNotMatch(source, /export\s+default/);
 }
-console.log('Sequential SSK-TS-1A command authority foundation tests passed');
+console.log('Sequential SSK-TS-3C command authority foundation tests passed');
