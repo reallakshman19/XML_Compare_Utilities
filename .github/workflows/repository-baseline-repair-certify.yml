@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 45
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: 6b1b14187bc42b66b42b386abbad4a4915931474
+      EXPECTED_TARGET_SHA: 1cad04e68271815c72a3964f338e60589389a44c
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -32,41 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Pipeline CAD browser contract
-        run: node tests/pipeline-3d-model-cad-browser-contract.test.js
-
-      - name: Pipeline export-context contract
-        run: node tests/pipeline-3d-model-export-context-static.test.js
-
-      - name: Pipeline no-fallback contract
-        run: node tests/pipeline-3d-model-hard-051-no-fallback-static.test.js
-
-      - name: Pipeline configuration UI contract
-        run: node tests/pipeline-3d-model-hard-051-ui-static.test.js
-
-      - name: Pipeline InputXML document contract
-        run: node tests/pipeline-3d-model-inputxml-document-static.test.js
-
-      - name: Pipeline GRE document-adoption static contract
-        run: node tests/pipeline-3d-model-inputxml-gre-document-adoption-static.test.js
-
-      - name: Pipeline profile static contract
-        run: node tests/pipeline-3d-model-profile-propagation-static.test.js
-
-      - name: Pipeline profile behavior
-        run: node tests/pipeline-3d-model-profile-propagation.test.js
-
-      - name: Pipeline property-section static contract
-        run: node tests/pipeline-3d-model-property-sections-static.test.js
-
-      - name: Pipeline property-section behavior
-        run: node tests/pipeline-3d-model-property-sections.test.js
-
       - name: Pipeline elastic-bend behavior
         run: node tests/pipeline-3d-model-elastic-bend.test.js
 
-      - name: XML Builder viewport browser contract
-        run: node tests/xml-builder-viewport-browser-contract.test.js
+      - name: Pipeline elastic-bend static contract
+        run: node tests/pipeline-3d-model-elastic-bend-static.test.js
 
       - name: Capture repository-wide validation
         id: repository_validation
@@ -83,7 +53,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-baseline-final-npm-test-output-v2
+          name: clean-baseline-final-npm-test-output-v3
           path: npm-test.log
 
       - name: Require repository-wide pass
