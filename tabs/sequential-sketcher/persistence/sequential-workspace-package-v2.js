@@ -141,6 +141,7 @@ export function restoreSequentialWorkspacePackageV2(input) {
   return Object.freeze({
     ...restoration,
     schema: SEQUENTIAL_WORKSPACE_RESTORATION_V2_SCHEMA,
+    packageFingerprint: value.packageFingerprint,
     packageSchema: value.schema,
     packageRevision: value.revision,
     minimumReaderRevision: value.minimumReaderRevision,
