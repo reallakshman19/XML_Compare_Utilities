@@ -158,6 +158,7 @@ export function matchRows(state) {
     const propagated = decision?.propagatedIsonotes || row.propagatedIsonotes || [];
     const displayedRole = selected || rowSelected ? 'SELECTED_MATCH' : nearest ? 'NEAREST_REJECTED' : propagated.length ? 'PROPAGATED_NOTE_ONLY' : '';
     const displayedPoint = displayed?.tagPosition || null;
+    const comparisonPoint = decision?.supportPosition || row.position || null;
     const failedAxes = nearest?.failedAxes || decision?.nearestRejectedAxes || [];
     return {
       resolutionRow: row.tableRowIndex,
@@ -166,6 +167,10 @@ export function matchRows(state) {
       jsonNodeId: row.selectedNodeId,
       jsonPath: row.selectedJsonPath,
       ...pointColumns(row.position, 'json'),
+      comparisonSource: decision?.supportPositionSource || (row.position ? 'STAGED_JSON' : ''),
+      comparisonPath: decision?.supportPositionPath || row.positionSourcePath || '',
+      ...pointColumns(comparisonPoint, 'comparison'),
+      tableJsonCoordinateDelta: compactNumber(decision?.tableJsonCoordinateDeltaMm),
       navisStatus: decision?.status || row.navisResolutionStatus,
       displayedNavisRole: displayedRole,
       toleranceResult: selected || rowSelected ? 'WITHIN_TOLERANCE' : nearest ? 'OUTSIDE_TOLERANCE' : '',
@@ -195,6 +200,7 @@ export function matchRows(state) {
 function candidateRows(state) {
   return (state.audit?.candidateLedger || []).map((row) => ({
     ...row,
+    ...pointColumns(row.supportPosition, 'comparison'),
     failedAxesDisplay: (row.failedAxes || []).join(' | '),
     rejectionReasonsDisplay: (row.rejectionReasons || []).join(' | '),
     comparisonOutcome: row.accepted
@@ -225,7 +231,7 @@ function renderJsonTrace(state) {
     ['resolutionRow','Resolution row'], ['groupedIdentityRaw','Grouped source identities'], ['canonicalIdentity','Resolver anchor identity'], ['supportRoot','Support root'],
     ['identityStatus','JSON identity result',true], ['selectionReason','Why this JSON node was selected'], ['candidateCount','JSON candidates'], ['jsonNodeId','Selected JSON node ID'],
     ['jsonSourceFile','JSON source file'], ['jsonPath','Selected JSON object path'], ['rawType','JSON node type'], ['rawName','JSON node name'],
-    ['identityPath','Identity attribute path'], ['referenceRaw','JSON reference value'], ['referencePath','Reference attribute path'], ['positionPath','Coordinate attribute path'],
+    ['identityPath','Identity attribute path'], ['referenceRaw','JSON reference value'], ['referencePath','JSON reference path'], ['positionPath','Coordinate attribute path'],
     ['jsonE','JSON E (comparison mm)'], ['jsonN','JSON N (comparison mm)'], ['jsonEL','JSON EL (comparison mm)'], ['sourceUnit','JSON source unit'],
     ['unitScale','JSON unit scale → mm'], ['datumOffsets','JSON datum offsets mm'], ['coordinateProfile','JSON coordinate profile'],
     ['resolvedBranch','Resolved branch'], ['resolvedPipe','Resolved pipe'], ['resolvedZone','Resolved zone'], ['identityConfidence','JSON identity confidence',true],
@@ -252,7 +258,10 @@ function renderNavisCoordinates(state) {
 function renderMatch(state) {
   const matchHeaders = [
     ['resolutionRow','Resolution row'], ['groupedJsonIdentities','Grouped JSON identities'], ['jsonAnchorIdentity','JSON resolver anchor'], ['jsonNodeId','JSON node ID'], ['jsonPath','JSON path'],
-    ['jsonE','JSON E mm'], ['jsonN','JSON N mm'], ['jsonEL','JSON EL mm'], ['navisStatus','Direct match result',true], ['displayedNavisRole','Displayed Navis evidence',true],
+    ['jsonE','Resolved JSON E mm'], ['jsonN','Resolved JSON N mm'], ['jsonEL','Resolved JSON EL mm'],
+    ['comparisonSource','Actual comparison source',true], ['comparisonPath','Actual comparison coordinate path'],
+    ['comparisonE','Actual comparison E mm'], ['comparisonN','Actual comparison N mm'], ['comparisonEL','Actual comparison EL mm'], ['tableJsonCoordinateDelta','Table ↔ JSON distance mm'],
+    ['navisStatus','Direct match result',true], ['displayedNavisRole','Displayed Navis evidence',true],
     ['toleranceResult','Direct tolerance result',true], ['navisTagId','Direct / nearest Navis Tag ID'], ['navisView','Navis view'], ['navisCommentId','Comment ID'], ['navisComment','Navis comment'],
     ['navisE','Navis transformed E mm'], ['navisN','Navis transformed N mm'], ['navisEL','Navis transformed EL mm'],
     ['deltaE','ΔE mm'], ['deltaN','ΔN mm'], ['deltaEL','ΔEL mm'], ['verticalBasis','Vertical comparison basis'], ['verticalResidual','Vertical residual mm'],
@@ -262,6 +271,7 @@ function renderMatch(state) {
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
   const candidateHeaders = [
     ['tableRowIndex','Resolution row'], ['canonicalIdentity','JSON identity'], ['jsonSourceFile','JSON source'], ['jsonPath','JSON path'], ['ledgerKind','Comparison type'],
+    ['supportPositionSource','Actual comparison source'], ['supportPositionPath','Actual comparison path'], ['comparisonE','Comparison E mm'], ['comparisonN','Comparison N mm'], ['comparisonEL','Comparison EL mm'],
     ['tagId','Navis Tag ID'], ['viewName','Navis view'], ['commentBody','Navis comment'], ['withinTolerance','Within tolerance?'],
     ['failedAxesDisplay','Failed axes'], ['rejectionReasonsDisplay','Rejection reasons'], ['deltaEMm','ΔE mm'], ['deltaNMm','ΔN mm'], ['deltaElMm','ΔEL mm'],
     ['verticalResidualMm','Vertical residual mm'], ['score','Candidate score'], ['confidenceReasons','Scoring / rejection reasons'], ['comparisonOutcome','Outcome',true],
@@ -275,7 +285,7 @@ function renderMatch(state) {
     ['parallelOffset','Parallel offset mm'], ['parallelOffsetTolerance','Parallel offset tolerance mm'], ['elevationDelta','Elevation delta mm'], ['elevationTolerance','Elevation tolerance mm'],
     ['baseIsonote','Base ISONOTE'], ['derivedIsonote','Derived target ISONOTE'], ['propagationResult','Propagation result',true], ['rejectionReasonsDisplay','Rejection reasons'],
   ].map(([key,label,isBadge]) => ({ key, label, badge: Boolean(isBadge) }));
-  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag ↔ JSON Node Match — final decisions</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(3, 'Navis Tag vs JSON Node Match', 'Direct Tag proximity and applies-to pipe propagation are separate evidence channels. A support may remain unresolved by direct proximity while receiving a traceable propagated ISONOTE.')}${renderFilterBar('json-navis-match', 'Filter JSON identity, Tag ID, ISONOTE source, comment, status, failed axis or delta...')}${renderTable(matchHeaders, matchRows(state), 'nti-filter-table-json-navis-match', 'Run proximity resolution to generate final JSON ↔ Navis decisions.')}</section><section class="nti-card"><h3>Applies-to pipe propagation</h3><div class="nti-help">The full requested pipe name is matched first. Only when that fails is the configured line-key regex used. Source and target pipes must have the same proven N–S or E–W axis, and the target support must pass the configured along-axis, parallel-offset and elevation windows.</div>${renderFilterBar('pipe-propagation', 'Filter source Tag, requested or matched pipe, line key, support, axis, result or rejection reason...')}${renderTable(propagationHeaders, propagationRows(state), 'nti-filter-table-pipe-propagation', 'No applies-to directives were resolved or no propagation candidates were produced.')}</section><section class="nti-card"><h3>Candidate and nearest-rejected coordinate comparisons</h3><div class="nti-help">Accepted candidates passed every configured direct-proximity tolerance and reached scoring. When none passed, the nearest rejected Navis tag is retained with its failed axes and rejection reasons.</div>${renderFilterBar('candidate-comparison', 'Filter Tag ID, JSON identity, comparison type, rejection reason, score or delta...')}${renderTable(candidateHeaders, candidateRows(state), 'nti-filter-table-candidate-comparison', 'Run proximity resolution to create candidate and nearest-rejected comparisons.')}</section>`;
+  return `<section class="nti-card"><div class="nti-section-head"><div><h3>Navis Tag ↔ JSON Node Match — final decisions</h3></div><div class="nti-actions" style="margin-top:0"><button class="nti-btn nti-btn-primary" data-nti-action="run">Run ISONOTE resolution</button></div></div>${stageIntro(3, 'Navis Tag vs JSON Node Match', 'The resolved JSON point and the actual support coordinate used for tolerance checks are shown separately. In anchor mode the actual comparison source is forced to staged JSON.')} ${renderFilterBar('json-navis-match', 'Filter JSON identity, coordinate source, Tag ID, ISONOTE source, comment, status, failed axis or delta...')}${renderTable(matchHeaders, matchRows(state), 'nti-filter-table-json-navis-match', 'Run proximity resolution to generate final JSON ↔ Navis decisions.')}</section><section class="nti-card"><h3>Applies-to pipe propagation</h3><div class="nti-help">The full requested pipe name is matched first. Only when that fails is the configured line-key regex used. Source and target pipes must have the same proven N–S or E–W axis, and the target support must pass the configured along-axis, parallel-offset and elevation windows.</div>${renderFilterBar('pipe-propagation', 'Filter source Tag, requested or matched pipe, line key, support, axis, result or rejection reason...')}${renderTable(propagationHeaders, propagationRows(state), 'nti-filter-table-pipe-propagation', 'No applies-to directives were resolved or no propagation candidates were produced.')}</section><section class="nti-card"><h3>Candidate and nearest-rejected coordinate comparisons</h3><div class="nti-help">Accepted candidates passed every configured direct-proximity tolerance and reached scoring. Each row now identifies the exact support coordinate source and point used for its deltas.</div>${renderFilterBar('candidate-comparison', 'Filter Tag ID, JSON identity, comparison source, rejection reason, score or delta...')}${renderTable(candidateHeaders, candidateRows(state), 'nti-filter-table-candidate-comparison', 'Run proximity resolution to create candidate and nearest-rejected comparisons.')}</section>`;
 }
 export function renderNavisTagIsonoteEvidencePane(state) {
   if (state.activeTab === 'hierarchy') return renderJsonTrace(state);

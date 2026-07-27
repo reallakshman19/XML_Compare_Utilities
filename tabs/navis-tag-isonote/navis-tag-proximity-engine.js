@@ -142,6 +142,7 @@ function nearestRejectedMessage(candidate, config) {
 
 export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, inputConfig = {}) {
   let config = normalizeConfig({ ...(tableBuild?.config || {}), ...(identityTrace?.config || {}), ...inputConfig });
+  const configuredSupportCoordinateSource = config.supportCoordinateSource;
   if (navisParse && identityTrace) {
     applyAnchorTransformation(navisParse, identityTrace, config);
     if (navisParse.anchor?.active) {
@@ -150,6 +151,9 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
         navisEastingDatumMm: navisParse.anchor.deltaEMm,
         navisNorthingDatumMm: navisParse.anchor.deltaNMm,
         navisElevationDatumMm: navisParse.anchor.deltaElMm,
+        // The anchor target is a staged JSON support. Use the same coordinate
+        // authority for Stage 3 so a table POS cannot invalidate its own anchor.
+        supportCoordinateSource: 'prefer-json-fallback-table',
       };
     }
   }
@@ -158,6 +162,17 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   const decisions = [];
   const augmentedRows = [];
   const diagnostics = [...(tableBuild?.diagnostics || []), ...(identityTrace?.diagnostics || []), ...(navisParse?.diagnostics || [])];
+  if (navisParse?.anchor?.active && configuredSupportCoordinateSource !== config.supportCoordinateSource) {
+    diagnostics.push({
+      severity: 'INFO',
+      code: 'ANCHOR_JSON_COORDINATE_SOURCE_OVERRIDE',
+      anchorTagId: navisParse.anchor.tagId,
+      anchorSupportIdentity: navisParse.anchor.supportIdentity,
+      configuredSupportCoordinateSource,
+      appliedSupportCoordinateSource: config.supportCoordinateSource,
+      message: `Anchor mode changed the Stage 3 support coordinate source from ${configuredSupportCoordinateSource} to ${config.supportCoordinateSource} so matching uses the staged JSON frame that defined the anchor.`,
+    });
+  }
   for (const record of tableBuild?.records || []) {
     const trace = traceByRow.get(record.rowId);
     const positionChoice = trace ? chooseSupportPosition(trace, config) : { point: record.position, source: record.position ? 'TABLE' : 'NONE', comparison: null, sourcePath: record.positionColumn || '' };
@@ -356,4 +371,4 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   return applyAppliesToPropagation(directAudit, inputConfig);
 }
 
-export const _test = Object.freeze({ axisFailures, candidateFromTag, evaluateCandidates, verticalResidual });
+export const _test = Object.freeze({ axisFailures, candidateFromTag, chooseSupportPosition, evaluateCandidates, verticalResidual });
