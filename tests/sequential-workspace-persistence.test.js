@@ -13,6 +13,7 @@ import {
   restoreSequentialWorkspacePackage,
   sequentialWorkspacePackageFingerprint,
 } from '../tabs/sequential-sketcher/persistence/sequential-workspace-package.js';
+import { mountSequentialSketcherWorkspace } from '../tabs/sequential-sketcher/sequential-sketcher-workspace.js';
 
 function pipe(name, start, end) {
   return { type: 'PIPE', name, attributes: { APOS: start, LPOS: end } };
@@ -24,6 +25,50 @@ function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function refreshPackageFingerprint(value) {
   value.packageFingerprint = sequentialWorkspacePackageFingerprint(value);
   return value;
+}
+class FakeElement {
+  constructor() {
+    this._innerHTML = '';
+    this._value = '';
+    this.options = [];
+    this.dataset = {};
+    this.disabled = false;
+    this.textContent = '';
+    this.title = '';
+    this.classList = { toggle() {} };
+    this.throwOnValueSet = false;
+  }
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    const count = (this._innerHTML.match(/<option\b/gu) || []).length;
+    if (count) this.options = Array.from({ length: count }, () => ({ value: '', textContent: '', title: '' }));
+  }
+  get innerHTML() { return this._innerHTML; }
+  set value(value) {
+    if (this.throwOnValueSet) throw new Error('INJECTED_UI_SYNC_FAILURE');
+    this._value = value;
+  }
+  get value() { return this._value; }
+  addEventListener() {}
+  removeEventListener() {}
+  appendChild() {}
+  click() {}
+  remove() {}
+}
+function fakeRoot() {
+  const elements = new Map();
+  return {
+    ownerDocument: { createElement: () => new FakeElement(), body: { appendChild() {} } },
+    set innerHTML(value) { this._innerHTML = value; },
+    get innerHTML() { return this._innerHTML || ''; },
+    querySelector(selector) {
+      if (!elements.has(selector)) elements.set(selector, new FakeElement());
+      return elements.get(selector);
+    },
+    querySelectorAll() { return []; },
+    addEventListener() {},
+    removeEventListener() {},
+  };
 }
 
 const completeBranchId = '/PKG/COMPLETE';
@@ -186,5 +231,62 @@ assert.equal(sequentialSessionFingerprint(redone.session), sequentialSessionFing
   assert.throws(() => restoreSequentialWorkspacePackage(tampered), /WORKSPACE_PACKAGE_FINGERPRINT_MISMATCH/);
 }
 assert.throws(() => restoreSequentialWorkspacePackage('{broken'), /WORKSPACE_PACKAGE_JSON_INVALID/);
+
+const completedRegistry = createSequentialBranchWorkspaceRegistry();
+completedRegistry.reset([completeBranchId]);
+completedRegistry.save(completeBranchId, { session: completed.session, selectedCandidateId: 'COMPLETE-CANDIDATE' });
+const completedPackage = createSequentialWorkspacePackage({
+  records,
+  evidence,
+  branchRegistry: completedRegistry,
+  activeBranchId: completeBranchId,
+});
+const completedRestoration = restoreSequentialWorkspacePackage(completedPackage);
+assert.equal(completedRestoration.workspaces[0].snapshot.confirmedConstruction, undefined);
+const workspaceRoot = fakeRoot();
+const workspace = mountSequentialSketcherWorkspace(workspaceRoot);
+workspace.restorePackage(completedRestoration, { expectedJournalImpact: 'ABSENT', applicationReceipts: [] });
+const restoredModel = workspace.getModel();
+assert.equal(restoredModel.session.state, 'ROUTE_COMPLETE');
+assert.ok(restoredModel.confirmedConstruction, 'completed v1 active branch must regenerate confirmed construction');
+assert.ok(restoredModel.supportProjection, 'completed v1 active branch must regenerate support projection');
+assert.ok(restoredModel.branchRegistry.get(completeBranchId).confirmedConstruction,
+  'completed v1 registry row must contain regenerated confirmed construction');
+assert.ok(restoredModel.branchRegistry.get(completeBranchId).supportProjection,
+  'completed v1 registry row must contain regenerated support projection');
+
+const beforeFailure = {
+  records: restoredModel.records,
+  registry: restoredModel.branchRegistry,
+  session: restoredModel.session,
+  confirmedConstruction: restoredModel.confirmedConstruction,
+  supportProjection: restoredModel.supportProjection,
+  journalState: restoredModel.journalState,
+  receipts: restoredModel.workspaceApplicationReceipts,
+};
+const invalidRestoration = {
+  ...completedRestoration,
+  workspaces: [{ branchId: '/UNKNOWN', snapshot: completedRestoration.workspaces[0].snapshot }],
+};
+assert.throws(
+  () => workspace.restorePackage(invalidRestoration, { expectedJournalImpact: 'ABSENT', applicationReceipts: [] }),
+  /Invalid Sequential Sketcher workspace entry/,
+);
+assert.strictEqual(restoredModel.records, beforeFailure.records);
+assert.strictEqual(restoredModel.branchRegistry, beforeFailure.registry);
+assert.strictEqual(restoredModel.session, beforeFailure.session);
+assert.strictEqual(restoredModel.confirmedConstruction, beforeFailure.confirmedConstruction);
+assert.strictEqual(restoredModel.supportProjection, beforeFailure.supportProjection);
+assert.strictEqual(restoredModel.journalState, beforeFailure.journalState);
+assert.strictEqual(restoredModel.workspaceApplicationReceipts, beforeFailure.receipts);
+
+const uiFaultRoot = fakeRoot();
+const uiFaultWorkspace = mountSequentialSketcherWorkspace(uiFaultRoot);
+uiFaultRoot.querySelector('[data-ssk-source]').throwOnValueSet = true;
+assert.doesNotThrow(
+  () => uiFaultWorkspace.restorePackage(completedRestoration, { expectedJournalImpact: 'ABSENT', applicationReceipts: [] }),
+  'post-commit UI synchronization failures must not surface as failed restoration',
+);
+assert.equal(uiFaultWorkspace.getModel().session.state, 'ROUTE_COMPLETE');
 
 console.log('sequential workspace persistence tests passed');
