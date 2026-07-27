@@ -72,7 +72,9 @@ const commitIndex = workspaceSource.indexOf('Object.assign(model, nextState)');
 assert.ok(prepareIndex >= 0 && commitIndex > prepareIndex,
   'fresh registry validation must complete before live workspace mutation');
 assert.match(workspaceSource, /workspaceApplicationReceipts: receipts/);
-assert.match(workspaceSource, /journalState: restoration\.journalState \|\| null/);
+assert.match(workspaceSource, /const incomingJournal = restoration\.journalState \?\? null/);
+assert.match(workspaceSource, /journalState: incomingJournal/);
+assert.doesNotMatch(workspaceSource, /restoration\.journalState \|\| null/);
 assert.match(workspaceSource, /sequentialCommandJournalHeadFingerprint/);
 assert.match(workspaceSource, /currentId === incomingId \? 'UNCHANGED' : 'REPLACE'/);
 assert.match(workspaceSource, /expected !== 'REMOVE'/);
@@ -254,6 +256,20 @@ assert.strictEqual(workspace.getModel().records, stateBeforeIdentityMismatch.rec
 assert.strictEqual(workspace.getModel().branchRegistry, stateBeforeIdentityMismatch.registry);
 assert.strictEqual(workspace.getModel().journalState, stateBeforeIdentityMismatch.journalState);
 assert.strictEqual(workspace.getModel().workspaceApplicationReceipts, stateBeforeIdentityMismatch.receipts);
+for (const invalidJournalState of [false, 0, '']) {
+  assert.throws(
+    () => workspace.restorePackage({ ...staleRestoration, journalState: invalidJournalState }, {
+      expectedJournalImpact: 'REMOVE',
+      applicationReceipts: staleRestoration.applicationReceipts,
+    }),
+    /WORKSPACE_RESTORE_JOURNAL_IDENTITY_INVALID/,
+    'falsey-but-present restoration authority must fail closed',
+  );
+  assert.strictEqual(workspace.getModel().records, stateBeforeIdentityMismatch.records);
+  assert.strictEqual(workspace.getModel().branchRegistry, stateBeforeIdentityMismatch.registry);
+  assert.strictEqual(workspace.getModel().journalState, stateBeforeIdentityMismatch.journalState);
+  assert.strictEqual(workspace.getModel().workspaceApplicationReceipts, stateBeforeIdentityMismatch.receipts);
+}
 
 const journalTwo = createSequentialJournalAdoption({
   documentId: 'dynamic-document-2',
