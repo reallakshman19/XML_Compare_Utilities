@@ -100,6 +100,11 @@ await rejects(async (value) => {
 }, /operation evidence authority/i);
 await rejects(async (value) => {
   const operation = value.payload.transferPlan.operations[0];
+  operation.transferPolicy.ruleId = 'ALLOW_UNVERIFIED'; await operationIdentity(operation);
+  await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
+}, /policy evidence.*governing field-policy/i);
+await rejects(async (value) => {
+  const operation = value.payload.transferPlan.operations[0];
   operation.targetAddress.expectedCurrentValue = 'wrong'; await operationIdentity(operation);
   await identity(value.payload.transferPlan, 'planId', 'revision-transfer-plan:');
 }, /expected target value/i);
@@ -140,6 +145,11 @@ await rejects(async (value) => {
   await completionIdentity(value.payload.completionReport);
   value.identity.completionReportId = value.payload.completionReport.reportId;
 }, /fixed statements|declaration/i);
+await rejects(async (value) => {
+  value.payload.completionReport.declaration.declarantName = ' Lakshman ';
+  await completionIdentity(value.payload.completionReport);
+  value.identity.completionReportId = value.payload.completionReport.reportId;
+}, /declarant fields.*normalized/i);
 await rejects(async (value) => {
   value.payload.transferResult.planId = 'revision-transfer-plan:other';
   await identity(value.payload.transferResult, 'resultId', 'revision-transfer-result:');

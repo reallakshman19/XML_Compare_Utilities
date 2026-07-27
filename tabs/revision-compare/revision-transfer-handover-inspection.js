@@ -4,7 +4,7 @@ import { REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA, serializeRevisionCompareEvide
 import { verifyRevisionCompareEvidencePackageJson } from './revision-evidence-package-import.js';
 import { sha256Text } from './revision-hash.js';
 import { REVISION_COMPARE_TRANSFER_OPERATION_ID_PREFIX, REVISION_COMPARE_TRANSFER_OPERATION_SCHEMA, REVISION_COMPARE_TRANSFER_PLAN_ID_PREFIX, REVISION_COMPARE_TRANSFER_PLAN_SCHEMA, REVISION_COMPARE_TRANSFER_SELECTION_SCHEMA, revisionCompareTransferPlanAuthority, serializeRevisionCompareTransferPlan } from './revision-transfer-contracts.js';
-import { REVISION_COMPARE_TRANSFER_DIRECTION } from './revision-transfer-policy.js';
+import { REVISION_COMPARE_TRANSFER_DIRECTION, classifyRevisionCompareTransferField } from './revision-transfer-policy.js';
 import { REVISION_COMPARE_TRANSFER_RESULT_SCHEMA, createRevisionCompareTransferResult } from './revision-transfer-result.js';
 import { REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA, REVISION_COMPARE_TRANSFER_PROOF_SCHEMA } from './revision-transfer-verifier.js';
 import { REVISION_COMPARE_TRANSFER_ARTIFACT_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA, createRevisionCompareTransferArtifacts } from './revision-transfer-artifacts.js';
@@ -102,6 +102,8 @@ function verifyOperationReferences(operation, plan) {
     && (entry.revBEvidencePath ?? null) === (refs.revBEvidencePath ?? null)
     && entry.targetFieldPath === operation.fieldPath);
   if (!field || operation.transferPolicy?.propertyKey !== field.propertyKey) throw new Error('Transfer operation does not reconcile with the explicit selection.');
+  const policy = classifyRevisionCompareTransferField({ propertyKey: field.propertyKey, fieldPath: operation.fieldPath });
+  if (!equal(operation.transferPolicy, policy)) throw new Error('Transfer operation policy evidence does not equal the governing field-policy decision.');
   if (address?.schema !== REVISION_COMPARE_TRANSFER_ADDRESS_SCHEMA || !HASH.test(address.expectedEntitySha256 ?? '')
       || address.targetDocumentId !== operation.targetDocumentId || address.targetDocumentSha256 !== operation.targetDocumentSha256) {
     throw new Error('Transfer operation target-address authority is invalid.');
@@ -220,8 +222,10 @@ function exactTimestamp(value) {
 async function verifyCompletion(report, payload, cryptoRef) {
   if (report.schema !== REVISION_COMPARE_TRANSFER_COMPLETION_REPORT_SCHEMA) throw new TypeError(`A ${REVISION_COMPARE_TRANSFER_COMPLETION_REPORT_SCHEMA} is required.`);
   await validateRevisionCompareTransferCompletionReportIdentity(report, cryptoRef);
-  normalizeRevisionCompareTransferCompletionDeclarant(report.declaration); exactTimestamp(report.declaration.declaredAt);
-  if (report.declaration.statement !== REVISION_COMPARE_TRANSFER_COMPLETION_DECLARATION
+  const declaration = report.declaration; const normalized = normalizeRevisionCompareTransferCompletionDeclarant(declaration);
+  if (!equal(normalized, { declarantName: declaration.declarantName, declarantRole: declaration.declarantRole, organization: declaration.organization })) throw new Error('Completion declarant fields must equal their exact normalized values.');
+  exactTimestamp(declaration.declaredAt);
+  if (declaration.statement !== REVISION_COMPARE_TRANSFER_COMPLETION_DECLARATION
       || report.trustBoundary.statement !== REVISION_COMPARE_TRANSFER_COMPLETION_TRUST_STATEMENT
       || report.trustBoundary.identityStatus !== 'SELF_DECLARED' || report.trustBoundary.authorityStatus !== 'NOT_ESTABLISHED'
       || report.trustBoundary.authenticityStatus !== 'NOT_ESTABLISHED') throw new Error('Completion declaration or trust boundary is invalid.');
