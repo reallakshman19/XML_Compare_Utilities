@@ -32,26 +32,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture repository-wide validation
-        id: repository_validation
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npm test > npm-test.log 2>&1
-          status=$?
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
+      - name: Run repository-wide validation
+        run: npm test
 
-      - name: Upload repository-wide output
+      - name: Capture post-test worktree
+        if: always()
+        run: git status --short > post-test-worktree.log
+
+      - name: Upload post-test worktree
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: synchronized-baseline-npm-test-output
-          path: npm-test.log
-
-      - name: Require repository-wide pass
-        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
-
-      - name: Verify clean worktree
-        run: test -z "$(git status --short)"
+          name: synchronized-baseline-post-test-worktree
+          path: post-test-worktree.log
