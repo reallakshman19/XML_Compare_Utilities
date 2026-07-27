@@ -37,13 +37,13 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git merge --no-ff --no-edit "$EXPECTED_MAIN_SHA"
 
-      - name: Move scope enforcement out of permanent test
+      - name: Apply Owner corrections
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('tests/sequential-workspace-command-authority-package.test.js')
-          lines = path.read_text().splitlines(keepends=True)
+          test_path = Path('tests/sequential-workspace-command-authority-package.test.js')
+          lines = test_path.read_text().splitlines(keepends=True)
           output = []
           index = 0
           while index < len(lines):
@@ -68,10 +68,51 @@ jobs:
                   continue
               output.append(line)
               index += 1
-          path.write_text(''.join(output))
+          test_path.write_text(''.join(output))
+
+          package_path = Path('tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js')
+          source = package_path.read_text()
+          source = source.replace(
+              "import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../source/sequential-evidence-model.js';\n",
+              '',
+          )
+          old_authority_source = """  restoreSequentialWorkspacePackage(result);
+          return result;
+        }
+        function registryForCreate(options, base) {
+          const evidence = options.evidence || buildSequentialEvidenceModel(base.source.records);
+          const indexes = indexSequentialEvidence(evidence);
+          const entries = options.branchRegistry?.entries?.();
+          if (!Array.isArray(entries)) fail('WORKSPACE_PACKAGE_V2_BRANCH_REGISTRY_REQUIRED');
+          return normalizedRegistry(base.branchIds, entries, indexes);
+        }
+        """
+          new_authority_source = """  const restoration = restoreSequentialWorkspacePackage(result);
+          return Object.freeze({ packageValue: result, restoration });
+        }
+        """
+          if old_authority_source not in source:
+              raise SystemExit('expected authority-source block not found')
+          source = source.replace(old_authority_source, new_authority_source)
+          old_create = """  const base = explicitV1Package(options);
+          const authorityRegistry = registryForCreate(options, base);
+        """
+          new_create = """  const prepared = explicitV1Package(options);
+          const base = prepared.packageValue;
+          const authorityRegistry = normalizedRegistry(
+            prepared.restoration.branchIds,
+            prepared.restoration.workspaces,
+            prepared.restoration.indexes,
+          );
+        """
+          if old_create not in source:
+              raise SystemExit('expected create block not found')
+          package_path.write_text(source.replace(old_create, new_create))
           PY
-          git add tests/sequential-workspace-command-authority-package.test.js
-          git commit -m 'test: enforce SSK-TS-2A scope in certification runner'
+          git add \
+            tests/sequential-workspace-command-authority-package.test.js \
+            tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
+          git commit -m 'fix: canonicalize Sequential package v2 authority'
           echo "TESTED_HEAD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Set up Node
@@ -105,7 +146,7 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Upload focused failure log
+      - name: Upload focused qualification log
         if: always()
         uses: actions/upload-artifact@v4
         with:
