@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { deepFreeze } from '../tabs/revision-compare/revision-contract-utils.js';
+import { adoptRevisionCompareTransferArchiveWorkspace } from '../tabs/revision-compare/revision-transfer-archive-workspace-state.js';
 import {
   clearRevisionCompareHandoverInspection, completeRevisionCompareHandoverInspection,
   createRevisionCompareHandoverInspectionState, failRevisionCompareHandoverInspection,
@@ -31,6 +32,12 @@ assert.equal(adopted.schema, 'RevisionCompareWorkspaceState.v14');
 assert.equal(adopted.handoverInspection.status, 'IDLE');
 assert.equal(revisionCompareWorkspaceIsFreshForHandoverInspection(adopted), true);
 assert.equal(adoptRevisionCompareHandoverInspectionWorkspace(adopted), adopted);
+const legacyV12 = deepFreeze({ ...freshWorkspace(), schema: 'RevisionCompareWorkspaceState.v12' });
+const adoptedV13 = adoptRevisionCompareTransferArchiveWorkspace(legacyV12);
+const adoptedV14 = adoptRevisionCompareHandoverInspectionWorkspace(adoptedV13);
+assert.equal(adoptedV13.schema, 'RevisionCompareWorkspaceState.v13');
+assert.equal(adoptedV14.schema, 'RevisionCompareWorkspaceState.v14');
+assert.strictEqual(adoptedV14.transferArchive, adoptedV13.transferArchive);
 
 const initial = createRevisionCompareHandoverInspectionState();
 const importing = startRevisionCompareHandoverInspection(initial, { name: 'one.json', size: 100 });
@@ -101,8 +108,22 @@ for (const [label, mutate] of blockers) {
 }
 
 const before = structuredClone(fixture.workspace);
-const inspectionOnly = setWorkspaceHandoverInspection(adoptRevisionCompareHandoverInspectionWorkspace(fixture.workspace), verified);
+const sourceWorkspace = adoptRevisionCompareHandoverInspectionWorkspace(fixture.workspace);
+const authorityReferences = {
+  session: sourceWorkspace.session, slots: sourceWorkspace.slots, proposal: sourceWorkspace.proposal,
+  basis: sourceWorkspace.basis, compare: sourceWorkspace.compare, review: sourceWorkspace.review,
+  decision: sourceWorkspace.decision, transfer: sourceWorkspace.transfer,
+  transferCompletion: sourceWorkspace.transferCompletion, transferArchive: sourceWorkspace.transferArchive,
+  signOff: sourceWorkspace.signOff, trustReceipt: sourceWorkspace.trustReceipt,
+};
+const inspectionOnly = setWorkspaceHandoverInspection(sourceWorkspace, verified);
 assert.deepEqual(inspectionOnly.transfer, before.transfer);
 assert.deepEqual(inspectionOnly.transferCompletion, before.transferCompletion);
 assert.deepEqual(inspectionOnly.transferArchive, before.transferArchive);
+for (const [name, reference] of Object.entries(authorityReferences)) {
+  assert.strictEqual(inspectionOnly[name], reference, `${name} authority must remain reference-identical`);
+}
+assert.equal(inspectionOnly.schema, 'RevisionCompareWorkspaceState.v14');
+assert.equal(Object.hasOwn(inspectionOnly.handoverInspection, 'rawText'), false);
+assert.equal(Object.hasOwn(inspectionOnly.handoverInspection, 'file'), false);
 console.log('revision-compare-transfer-handover-inspection-lifecycle.test.mjs passed');
