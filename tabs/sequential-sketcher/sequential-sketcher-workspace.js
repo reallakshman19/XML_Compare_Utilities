@@ -55,6 +55,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     confirmedConstruction: null,
     supportProjection: null,
     restoredDecisionRegister: null,
+    journalState: null,
+    workspaceApplicationReceipts: Object.freeze([]),
     mode: 'ISO',
     selectedCandidateId: '',
     branchRegistry: createSequentialBranchWorkspaceRegistry(),
@@ -160,6 +162,8 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
     model.session = null;
     model.selectedCandidateId = '';
     model.restoredDecisionRegister = null;
+    model.journalState = null;
+    model.workspaceApplicationReceipts = Object.freeze([]);
     clearDownstream();
     reviewController?.reset();
     repaint();
@@ -310,28 +314,42 @@ export function mountSequentialSketcherWorkspace(root, context = {}) {
       engineOptions(),
     ), 'decision-applied');
   }
-  function restorePackage(restoration) {
-    if (restoration?.schema !== 'SequentialWorkspaceRestoration.v1') {
-      throw new Error('Sequential workspace restoration schema is invalid.');
+  function journalImpactAllowed(current, incoming, expected) {
+    const actual = !current && !incoming ? 'ABSENT' : !current ? 'INSTALL' : !incoming ? 'REMOVE' : 'REPLACE';
+    if (expected === 'UNCHANGED' && current && incoming) return;
+    if (actual !== expected) throw new Error('WORKSPACE_RESTORE_JOURNAL_IMPACT_MISMATCH');
+    if (!incoming && current && expected !== 'REMOVE') throw new Error('WORKSPACE_RESTORE_JOURNAL_DOWNGRADE_UNAPPROVED');
+  }
+  function preparedRegistry(restoration) {
+    const registry = createSequentialBranchWorkspaceRegistry();
+    registry.replace(restoration.branchIds, restoration.workspaces);
+    return registry;
+  }
+  function restorePackage(restoration, options = {}) {
+    if (!['SequentialWorkspaceRestoration.v1', 'SequentialWorkspaceRestoration.v2'].includes(restoration?.schema)) {
+      throw new Error('WORKSPACE_RESTORE_SCHEMA_INVALID');
     }
+    journalImpactAllowed(model.journalState, restoration.journalState || null, options.expectedJournalImpact);
+    const registry = preparedRegistry(restoration);
+    const active = restoration.activeBranchId ? registry.get(restoration.activeBranchId) : null;
+    const receipts = Object.freeze([...(options.applicationReceipts || restoration.applicationReceipts || [])]);
     model.records = restoration.records;
     model.evidence = restoration.evidence;
     model.indexes = restoration.indexes;
-    model.session = null;
-    model.selectedCandidateId = '';
+    model.branchRegistry = registry;
+    model.session = active?.session || null;
+    model.confirmedConstruction = active?.confirmedConstruction || null;
+    model.supportProjection = active?.supportProjection || null;
+    model.selectedCandidateId = active?.selectedCandidateId || '';
     model.restoredDecisionRegister = restoration.decisionRegister || null;
-    clearDownstream();
+    model.journalState = restoration.journalState || null;
+    model.workspaceApplicationReceipts = receipts;
     elements.source.value = JSON.stringify(restoration.records, null, 2);
     populateBranchOptions(restoration.branchIds);
-    model.branchRegistry.replace(restoration.branchIds, restoration.workspaces);
+    if (restoration.activeBranchId) elements.branch.value = restoration.activeBranchId;
     reviewController?.reset();
-    if (restoration.activeBranchId) openBranch(restoration.activeBranchId);
-    else repaint();
-    const register = restoration.decisionRegister?.summary;
-    setStatus(
-      `Verified workspace package restored: ${restoration.workspaces.length} saved branches${register ? `; ${register.unresolvedCount || 0} unresolved and ${register.manualResolutionCount || 0} manual register rows retained` : ''}.`,
-      'ok',
-    );
+    repaint();
+    setStatus(`Verified ${restoration.packageSchema || restoration.schema} restored with journal authority ${model.journalState ? 'present' : 'absent'}.`, 'ok');
     return restoration;
   }
 
