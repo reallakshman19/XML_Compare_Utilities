@@ -1,4 +1,4 @@
-name: Revision Compare browser baseline diagnostic
+name: Revision Compare browser baseline final publisher
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     paths: ['.github/workflows/revision-browser-baseline-fix-20260727.yml']
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   TARGET_BRANCH: owner/fix-revision-compare-browser-baseline-20260727
@@ -15,9 +15,9 @@ env:
   CI: 'true'
 
 jobs:
-  diagnose:
+  certify-and-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - name: Check out exact baseline branch
         uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
       - name: Enforce exact baseline head
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
 
-      - name: Replay four browser-test corrections
+      - name: Replay four proven browser corrections
         run: |
           git show "$PATCH_SOURCE_COMMIT:.github/workflows/revision-browser-baseline-fix-20260727.yml" > /tmp/publisher.yml
           python3 - <<'PY'
@@ -42,6 +42,23 @@ jobs:
           PY
           python3 /tmp/browser-patch.py
 
+      - name: Add no-common intake barrier
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/browser/revision-compare-rc001.spec.mjs')
+          text = path.read_text()
+          old = """  await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
+            await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));"""
+          new = """  await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
+            await expect(page.locator('[data-slot=\"baseline\"] strong')).toContainText('ready');
+            await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));
+            await expect(page.getByRole('heading', { name: 'Confirm branch scope' })).toBeVisible();"""
+          if old not in text:
+              raise SystemExit('Expected no-common upload block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -53,20 +70,47 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Capture complete Revision Compare Playwright
-        id: complete
-        continue-on-error: true
+      - name: Focused browser regressions
         run: |
-          mkdir -p diagnostic
-          npx playwright test --config=playwright.revision-compare.config.mjs --reporter=line > diagnostic/complete-playwright.log 2>&1
+          npx playwright test \
+            tests/browser/revision-compare-rc001.spec.mjs \
+            tests/browser/revision-compare-evidence-package.spec.mjs \
+            tests/browser/revision-compare-rc002.spec.mjs \
+            tests/browser/revision-compare-rc003.spec.mjs \
+            tests/browser/revision-compare-rc004.spec.mjs \
+            --config=playwright.revision-compare.config.mjs
 
-      - name: Upload complete browser output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: revision-browser-baseline-residual-20260727
-          path: diagnostic/complete-playwright.log
-          if-no-files-found: error
+      - name: Complete Revision Compare Playwright
+        run: npx playwright test --config=playwright.revision-compare.config.mjs
 
-      - name: Require complete suite pass
-        run: test "${{ steps.complete.outcome }}" = "success"
+      - name: Revision Compare aggregate
+        run: npm run test:revision-compare
+
+      - name: Repository-wide validation
+        run: npm test
+
+      - name: Enforce five-file scope
+        run: |
+          git diff --check
+          git diff --name-only | sort > /tmp/actual
+          cat > /tmp/expected <<'EOF'
+          tests/browser/revision-compare-evidence-package.spec.mjs
+          tests/browser/revision-compare-rc001.spec.mjs
+          tests/browser/revision-compare-rc002.spec.mjs
+          tests/browser/revision-compare-rc003.spec.mjs
+          tests/browser/revision-compare-rc004.spec.mjs
+          EOF
+          sort -o /tmp/expected /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+
+      - name: Commit and publish tested baseline repair
+        run: |
+          git config user.name 'Owner Release Bot'
+          git config user.email 'owner-release-bot@users.noreply.github.com'
+          git add tests/browser/revision-compare-rc001.spec.mjs \
+            tests/browser/revision-compare-evidence-package.spec.mjs \
+            tests/browser/revision-compare-rc002.spec.mjs \
+            tests/browser/revision-compare-rc003.spec.mjs \
+            tests/browser/revision-compare-rc004.spec.mjs
+          git commit -m 'test: stabilize Revision Compare browser authority checks'
+          git push origin HEAD:${TARGET_BRANCH}
