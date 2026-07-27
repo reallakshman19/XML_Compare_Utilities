@@ -123,9 +123,9 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
 
   await page.getByRole('button', { name: 'Change scope' }).click();
   const common = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
-  const commonRow = page.locator('label.revc-scope-row', { has: common });
-  await commonRow.click(); await expect(common).not.toBeChecked();
-  await commonRow.click(); await expect(common).toBeChecked();
+  await expect(common).toBeEnabled();
+  await common.uncheck(); await expect(common).not.toBeChecked();
+  await common.check(); await expect(common).toBeChecked();
   await expect(page.locator('.revc-decision-ledger')).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download decision ledger' })).toBeVisible();

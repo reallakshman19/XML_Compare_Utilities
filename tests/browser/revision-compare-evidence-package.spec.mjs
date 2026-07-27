@@ -132,6 +132,9 @@ test('RC-PKG-001-B01 — deterministic complete evidence package export', async 
   await selectDifference(page, rows.ambiguous);
   await page.locator('[data-revc-decision-rationale]').fill('Package decision evidence');
   await page.getByRole('button', { name: 'Confirm no match' }).click();
+  await expect.poll(() => page.evaluate((differenceId) => window.rcHandle.evidence().state.decision.ledger.decisions
+    .find((item) => item.differenceId === differenceId)?.decisionState, rows.ambiguous))
+    .toBe('CONFIRMED_NO_MATCH');
   const state = await page.evaluate(() => structuredClone(window.rcHandle.evidence().state));
   const audit = structuredClone(state.compare.audit);
   const first = await downloadPackage(page); verifyPackage(first.value, state);
