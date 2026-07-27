@@ -27,13 +27,30 @@ function expectedPackageRevision(schema) {
 function validPackageIdentity(schema, revision) {
   return expectedPackageRevision(schema) === revision;
 }
+function normalizedPackageIdentity(value) {
+  return {
+    present: value?.packageSchema !== undefined || value?.packageRevision !== undefined,
+    packageSchema: text(value?.packageSchema),
+    packageRevision: Number(value?.packageRevision),
+  };
+}
+function samePackageIdentity(left, right) {
+  return left.packageSchema === right.packageSchema && left.packageRevision === right.packageRevision;
+}
 function packageIdentity(options) {
-  const packageSchema = text(options.restoration?.packageSchema || options.preview?.packageSchema);
-  const packageRevision = Number(options.restoration?.packageRevision || options.preview?.packageRevision);
-  if (!validPackageIdentity(packageSchema, packageRevision)) {
-    fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
+  const restoration = normalizedPackageIdentity(options.restoration);
+  const preview = normalizedPackageIdentity(options.preview);
+  for (const identity of [restoration, preview]) {
+    if (identity.present && !validPackageIdentity(identity.packageSchema, identity.packageRevision)) {
+      fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
+    }
   }
-  return { packageSchema, packageRevision };
+  if (restoration.present && preview.present && !samePackageIdentity(restoration, preview)) {
+    fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_MISMATCH');
+  }
+  const identity = restoration.present ? restoration : preview;
+  if (!identity.present) fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
+  return { packageSchema: identity.packageSchema, packageRevision: identity.packageRevision };
 }
 function validateReceiptPackageIdentity(receipt, index) {
   const hasSchema = receipt.packageSchema !== undefined;
