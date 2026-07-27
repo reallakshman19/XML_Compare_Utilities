@@ -1,5 +1,9 @@
 /** Backward-compatible workspace package v2 carrying accepted-command authority. */
 import { immutableJson } from '../../../contracts/contract-values.js';
+import { createConfirmedSequentialConstruction } from '../construction/sequential-construction-acceptance.js';
+import { createSequentialBranchWorkspaceRegistry } from '../sequential-branch-workspace-state.js';
+import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../source/sequential-evidence-model.js';
+import { buildConfirmedConstructionSupportProjection } from '../support/sequential-confirmed-support-projection.js';
 import {
   SEQUENTIAL_WORKSPACE_PACKAGE_SCHEMA,
   createSequentialWorkspacePackage,
@@ -17,20 +21,57 @@ export const SEQUENTIAL_WORKSPACE_RESTORATION_V2_SCHEMA = 'SequentialWorkspaceRe
 export const SEQUENTIAL_WORKSPACE_PACKAGE_V2_REVISION = 2;
 export const SEQUENTIAL_WORKSPACE_PACKAGE_V2_READER_REVISION = 2;
 
+const SUPPORT_OPTIONS = Object.freeze({
+  projectionToleranceMm: 50,
+  onCenterlineToleranceMm: 0.001,
+  ambiguityToleranceMm: 1,
+});
+
 function fail(code, detail = '') {
   throw new Error(`${code}${detail ? `: ${detail}` : ''}`);
 }
-
 function cloneJson(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
-
 function parsedPackage(input) {
   if (typeof input !== 'string') return cloneJson(input);
   try { return JSON.parse(input); }
   catch (error) { fail('WORKSPACE_PACKAGE_V2_JSON_INVALID', error.message); }
 }
-
+function downstream(session, indexes) {
+  if (session?.state !== 'ROUTE_COMPLETE') {
+    return Object.freeze({ confirmedConstruction: null, supportProjection: null });
+  }
+  const confirmedConstruction = createConfirmedSequentialConstruction(session, indexes);
+  const supportProjection = buildConfirmedConstructionSupportProjection(
+    confirmedConstruction, indexes, SUPPORT_OPTIONS,
+  );
+  return Object.freeze({ confirmedConstruction, supportProjection });
+}
+function normalizedRegistry(branchIds, workspaces, indexes) {
+  const registry = createSequentialBranchWorkspaceRegistry();
+  const rows = workspaces.map((row) => {
+    const session = row?.snapshot?.session;
+    if (!session) fail('WORKSPACE_PACKAGE_V2_SESSION_MISSING', row?.branchId);
+    return Object.freeze({
+      branchId: row.branchId,
+      snapshot: Object.freeze({
+        session,
+        ...downstream(session, indexes),
+        selectedCandidateId: row.snapshot.selectedCandidateId || '',
+      }),
+    });
+  });
+  registry.replace(branchIds, rows);
+  return registry;
+}
+function registryForCreate(options, base) {
+  const evidence = options.evidence || buildSequentialEvidenceModel(base.source.records);
+  const indexes = indexSequentialEvidence(evidence);
+  const entries = options.branchRegistry?.entries?.();
+  if (!Array.isArray(entries)) fail('WORKSPACE_PACKAGE_V2_BRANCH_REGISTRY_REQUIRED');
+  return normalizedRegistry(base.branchIds, entries, indexes);
+}
 function v1Payload(value) {
   const {
     commandAuthority: ignoredAuthority,
@@ -47,10 +88,11 @@ function v1Payload(value) {
 
 export function createSequentialWorkspacePackageV2(options = {}) {
   const base = createSequentialWorkspacePackage(options);
+  const authorityRegistry = registryForCreate(options, base);
   const commandAuthority = createSequentialWorkspaceCommandAuthority({
     journalState: options.journalState,
     sourceFingerprint: base.source.sourceFingerprint,
-    branchRegistry: options.branchRegistry,
+    branchRegistry: authorityRegistry,
   });
   const { packageFingerprint: ignored, ...basePayload } = cloneJson(base);
   void ignored;
@@ -87,7 +129,12 @@ export function restoreSequentialWorkspacePackageV2(input) {
   const expected = sequentialWorkspacePackageFingerprint(value);
   if (value.packageFingerprint !== expected) fail('WORKSPACE_PACKAGE_V2_FINGERPRINT_MISMATCH');
   const restoration = restoreSequentialWorkspacePackage(v1Payload(value));
-  const commandAuthority = restoreSequentialWorkspaceCommandAuthority(value.commandAuthority, restoration);
+  const registry = normalizedRegistry(restoration.branchIds, restoration.workspaces, restoration.indexes);
+  const workspaces = registry.entries();
+  const commandAuthority = restoreSequentialWorkspaceCommandAuthority(value.commandAuthority, {
+    ...restoration,
+    workspaces,
+  });
   if (commandAuthority.readerRevision !== SEQUENTIAL_WORKSPACE_COMMAND_AUTHORITY_READER_REVISION) {
     fail('WORKSPACE_PACKAGE_V2_COMMAND_AUTHORITY_REVISION_INVALID');
   }
@@ -97,6 +144,7 @@ export function restoreSequentialWorkspacePackageV2(input) {
     packageSchema: value.schema,
     packageRevision: value.revision,
     minimumReaderRevision: value.minimumReaderRevision,
+    workspaces,
     commandAuthority,
     journalState: commandAuthority.journalState,
   });
