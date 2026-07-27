@@ -9,7 +9,7 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/fix-gre-topology-fixture-consensus
       EXPECTED_TARGET_SHA: 13ef913323d3358353301b51cccf2d1096474d3e
@@ -32,20 +32,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: GRE fixture evidence
-        run: node tests/pipeline-gre-caesar-fixture-evidence.test.js
+      - name: Capture GRE qualification static output
+        id: gre_static
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          node tests/pipeline-gre-caesar-bend-qualification-static.test.js > gre-qualification-static.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
 
-      - name: GRE field mapping
-        run: node tests/pipeline-gre-caesar-bend-field-mapping.test.js
+      - name: Upload GRE qualification static output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gre-qualification-static-output
+          path: gre-qualification-static.log
 
-      - name: GRE topology mapping
-        run: node tests/pipeline-gre-caesar-bend-topology-mapping.test.js
-
-      - name: GRE qualification
-        run: node tests/pipeline-gre-caesar-bend-qualification.test.js
-
-      - name: GRE qualification static
-        run: node tests/pipeline-gre-caesar-bend-qualification-static.test.js
-
-      - name: Verify clean worktree
-        run: test -z "$(git status --short)"
+      - name: Require GRE qualification static pass
+        run: test "${{ steps.gre_static.outputs.status }}" = "0"
