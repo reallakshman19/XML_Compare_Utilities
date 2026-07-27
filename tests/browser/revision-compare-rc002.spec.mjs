@@ -88,7 +88,8 @@ test('bounded visual compare synchronizes 3D, queue, inspector, evidence, and in
   await page.getByRole('button', { name: 'Change scope' }).click();
   const scopeBranch = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
   await expect(scopeBranch).toBeEnabled();
-  await scopeBranch.uncheck();
+  await scopeBranch.focus();
+  await page.keyboard.press('Space');
   await expect(scopeBranch).not.toBeChecked();
   await expect(page.locator('footer [data-status="stale"]')).toBeVisible();
   expect(await page.evaluate(() => window.rcHandle.evidence().state.compare.audit)).toBeNull();
