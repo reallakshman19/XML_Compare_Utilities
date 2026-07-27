@@ -7,4 +7,5 @@ export * from './sequential-command-acceptance.js';
 export * from './sequential-command-service.js';
 export * from './sequential-draft-edit-command-gateway.js';
 export * from './sequential-draft-edit-command-panel.js';
+export * from './sequential-draft-edit-target-selection.js';
 export * from './sequential-workspace-command-boundary.js';
