@@ -5,6 +5,7 @@ import { mountSequentialProjectExportController } from './platform/sequential-pr
 import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialContinuityController } from './continuity/sequential-continuity-controller.js?v=20260717-ssk-continuity-geometry-1';
 import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequential-scoped-edit-production-shadow.js?v=20260727-ssk-ts-1b-shadow-1';
+import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260727-ssk-ts-1b-3d-1';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -39,6 +40,7 @@ export function installSequentialSketcherTile(container, context = {}) {
   let continuityController = null;
   let previewController = null;
   let scopedEditShadow = null;
+  let draftEdit3dController = null;
   const open = () => {
     if (active) return;
     const overlay = container.ownerDocument.createElement('div');
@@ -48,6 +50,8 @@ export function installSequentialSketcherTile(container, context = {}) {
     overlay.setAttribute('aria-label', 'Sequential Sketcher');
     container.ownerDocument.body.appendChild(overlay);
     const close = () => {
+      draftEdit3dController?.destroy();
+      draftEdit3dController = null;
       scopedEditShadow?.destroy();
       scopedEditShadow = null;
       previewController?.destroy();
@@ -75,6 +79,19 @@ export function installSequentialSketcherTile(container, context = {}) {
       scopedEditShadow = null;
       try { context.onSequentialScopedEditShadowFailure?.(error); } catch {}
     }
+    if (scopedEditShadow) {
+      try {
+        draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
+          shadow: scopedEditShadow,
+          workspace: active,
+          onActivate: () => previewController?.switchRenderer('CONSTRUCTION_SVG'),
+          onFailure: context.onSequentialScopedEdit3dFailure,
+        });
+      } catch (error) {
+        draftEdit3dController = null;
+        try { context.onSequentialScopedEdit3dFailure?.({ stage: 'controller mount', message: error?.message || String(error) }); } catch {}
+      }
+    }
     previewController = mountSequentialEngineeringSvgPreviewController(overlay, {
       workspace: active,
       failureFactory: context.sequentialEngineeringSvgPreviewFailureFactory,
@@ -87,6 +104,8 @@ export function installSequentialSketcherTile(container, context = {}) {
   };
   tile.addEventListener('click', open);
   return () => {
+    draftEdit3dController?.destroy();
+    draftEdit3dController = null;
     scopedEditShadow?.destroy();
     scopedEditShadow = null;
     previewController?.destroy();
