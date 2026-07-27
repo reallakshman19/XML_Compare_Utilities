@@ -73,8 +73,8 @@ includesAll(pipelineTab, [
   'pipeline-3d-model-config.js?v=20260711-collinear-1',
 ]);
 includesAll(addon, [`pipeline-3d-model-profile-propagation-runtime.js?v=${startupToken}`]);
-includesAll(profileRuntime, [`pipeline-3d-model-project-adapter.js?v=${startupToken}`]);
-includesAll(adapter, [`pipeline-3d-model-profile-propagation.js?v=${startupToken}`]);
+includesAll(profileRuntime, ['pipeline-3d-model-project-adapter.js?v=20260724-p3d-hard-051-1']);
+includesAll(adapter, ['pipeline-3d-model-profile-propagation.js?v=20260724-p3d-core-050-1']);
 includesAll(propagation, [`pipeline-3d-model-xml-builder.js?v=${startupToken}`]);
 includesAll(writer, [`pipeline-3d-model-inputxml-document.js?v=${startupToken}`]);
 
