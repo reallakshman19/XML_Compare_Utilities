@@ -1,0 +1,251 @@
+/** Read-only Sequential Draft Edit 3D view over the certified production shadow. */
+import { createSequentialScopedEditVisualModel } from './sequential-scoped-edit-visual-model.js';
+
+export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
+export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
+
+const CONTROLLERS = new WeakMap();
+const VIEW_BY_PROJECTION = Object.freeze({ ISO: 'iso', XY: 'top', XZ: 'front', YZ: 'side' });
+
+function requiredFunction(value, label) {
+  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
+  return value;
+}
+
+function requiredShadow(value) {
+  for (const name of ['host', 'readModel', 'evidence']) requiredFunction(value?.[name], `shadow.${name}`);
+  return value;
+}
+
+function requiredWorkspace(value) {
+  requiredFunction(value?.subscribeEngineeringSvgOwnerState, 'workspace.subscribeEngineeringSvgOwnerState');
+  return value;
+}
+
+function injectFailure(factory, stage) {
+  if (typeof factory !== 'function') return;
+  const result = factory(stage);
+  if (result instanceof Error) throw result;
+  if (result) throw new Error(String(result));
+}
+
+function elements(root) {
+  const find = (selector) => {
+    const value = root.querySelector(selector);
+    if (!value) throw new Error(`Sequential Draft Edit 3D element missing: ${selector}`);
+    return value;
+  };
+  return {
+    button: find('[data-ssk-draft-edit-3d]'),
+    host: find('[data-ssk-draft-edit-3d-host]'),
+    construction: find('[data-ssk-construction-surface]'),
+    preview: find('[data-ssk-engineering-svg-preview-host]'),
+    status: find('[data-ssk-preview-status]'),
+  };
+}
+
+function setHidden(element, hidden) {
+  element.hidden = hidden;
+  element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert');
+}
+
+function announce(state, message, status = 'ready') {
+  state.elements.status.textContent = message;
+  state.elements.status.dataset.state = status;
+}
+
+function set3dPressed(state, pressed) {
+  state.elements.button.classList.toggle('is-active', pressed);
+  state.elements.button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  if (!pressed) return;
+  state.root.querySelectorAll('[data-ssk-renderer]').forEach((button) => {
+    button.classList.remove('is-active');
+    button.setAttribute('aria-pressed', 'false');
+  });
+}
+
+function show3dSurface(state) {
+  setHidden(state.elements.construction, true);
+  setHidden(state.elements.preview, true);
+  setHidden(state.elements.host, false);
+  set3dPressed(state, true);
+}
+
+function hide3dSurface(state) {
+  setHidden(state.elements.host, true);
+  set3dPressed(state, false);
+}
+
+function available(state) {
+  return Boolean(state.shadow.host() && state.shadow.readModel());
+}
+
+function syncAvailability(state) {
+  const next = available(state);
+  state.elements.button.disabled = !next;
+  state.elements.button.title = next
+    ? 'Open the certified read-only Draft Edit 3D view'
+    : 'Draft Edit 3D requires an open Sequential branch';
+  if (!next && state.active) {
+    state.active = false;
+    hide3dSurface(state);
+    setHidden(state.elements.construction, false);
+  }
+  return next;
+}
+
+function selectedIds(readModel) {
+  return readModel?.selectionSnapshot?.entityIds || [];
+}
+
+function applyProjection(state, readModel) {
+  const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO';
+  state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
+}
+
+function applyScene(state) {
+  injectFailure(state.options.failureFactory, 'scene-apply');
+  const host = state.shadow.host();
+  const readModel = state.shadow.readModel();
+  if (!host || !readModel) throw new Error('Sequential Draft Edit 3D authority is unavailable.');
+  const scene = host.scene();
+  const model = createSequentialScopedEditVisualModel({ readModel, scene });
+  state.viewer.setVerticalAxis(scene.coordinateSystem.verticalAxis);
+  state.viewer.setModels({ source: null, target: model, registrationTranslation: [0, 0, 0] });
+  state.viewer.setMode('target-only');
+  const ids = selectedIds(readModel);
+  state.viewer.setSelection(ids.at(-1) || null, ids.slice(0, -1));
+  const mountKey = state.shadow.evidence().mountKey;
+  if (state.mountKey !== mountKey) {
+    state.mountKey = mountKey;
+    state.viewer.fitAll();
+  }
+  applyProjection(state, readModel);
+  announce(state, `Draft Edit 3D active · ${scene.entities.length} read-only entities.`, 'ready');
+}
+
+function viewerOptions(state) {
+  return {
+    navigationPreset: 'CAD_EDIT',
+    onPick: (pick) => {
+      const id = pick?.objectId || null;
+      state.viewer?.setSelection(id, []);
+      if (id) announce(state, `Draft Edit 3D selected ${id}. Read-only; no command issued.`, 'ready');
+    },
+    onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
+    onNavigationError: (error) => containFailure(state, error, 'navigation'),
+  };
+}
+
+async function createViewer(state, canvas) {
+  injectFailure(state.options.failureFactory, 'viewer-mount');
+  if (typeof state.options.createViewer === 'function') {
+    return state.options.createViewer(canvas, viewerOptions(state));
+  }
+  const { createWorkbenchViewer } = await import('../../../workbench3d/viewer/workbench-viewer.js?v=20260727-ssk-ts-1b-3d-1');
+  return createWorkbenchViewer(canvas, viewerOptions(state));
+}
+
+async function ensureViewer(state) {
+  if (state.viewer) return state.viewer;
+  if (state.pending) return state.pending;
+  state.elements.host.innerHTML = '<div data-ssk-draft-edit-3d-canvas style="position:absolute;inset:0"></div>';
+  const canvas = state.elements.host.querySelector('[data-ssk-draft-edit-3d-canvas]');
+  state.pending = createViewer(state, canvas)
+    .then((viewer) => { state.viewer = viewer; return viewer; })
+    .finally(() => { state.pending = null; });
+  return state.pending;
+}
+
+function containFailure(state, error, stage) {
+  const message = error?.message || String(error);
+  state.failureCount += 1;
+  state.active = false;
+  hide3dSurface(state);
+  setHidden(state.elements.construction, false);
+  announce(state, `Draft Edit 3D failed during ${stage}: ${message}. Construction SVG retained.`, 'error');
+  try { state.options.onFailure?.({ stage, message }); } catch {}
+  return false;
+}
+
+async function show3d(state) {
+  if (state.destroyed || !syncAvailability(state)) return false;
+  try {
+    await ensureViewer(state);
+    if (state.destroyed) return false;
+    try { state.options.onActivate?.(); } catch {}
+    state.active = true;
+    show3dSurface(state);
+    applyScene(state);
+    return true;
+  } catch (error) {
+    return containFailure(state, error, 'view mount');
+  }
+}
+
+function scheduleRefresh(state) {
+  queueMicrotask(() => {
+    if (state.destroyed) return;
+    syncAvailability(state);
+    if (!state.active) return;
+    try { applyScene(state); } catch (error) { containFailure(state, error, 'owner refresh'); }
+  });
+}
+
+function handleClick(state, event) {
+  if (event.target?.closest?.('[data-ssk-draft-edit-3d]')) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    show3d(state);
+    return;
+  }
+  if (event.target?.closest?.('[data-ssk-renderer]') && state.active) {
+    state.active = false;
+    hide3dSurface(state);
+  }
+}
+
+function destroy(state) {
+  if (state.destroyed) return false;
+  state.destroyed = true;
+  state.root.removeEventListener('click', state.onClick, true);
+  try { state.unsubscribe?.(); } catch {}
+  try { state.viewer?.dispose(); } catch {}
+  state.viewer = null;
+  state.elements.host.innerHTML = '';
+  CONTROLLERS.delete(state.root);
+  return true;
+}
+
+export function getSequentialScopedEdit3dController(root) {
+  return CONTROLLERS.get(root) || null;
+}
+
+export function mountSequentialScopedEdit3dController(root, options = {}) {
+  if (!root?.querySelector) throw new TypeError('Sequential Draft Edit 3D controller requires a root.');
+  const existing = CONTROLLERS.get(root);
+  if (existing) return existing;
+  const state = {
+    root, options, shadow: requiredShadow(options.shadow), workspace: requiredWorkspace(options.workspace),
+    elements: elements(root), viewer: null, pending: null, mountKey: '', active: false,
+    destroyed: false, failureCount: 0, unsubscribe: null,
+  };
+  state.onClick = (event) => handleClick(state, event);
+  state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
+  if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
+  state.root.addEventListener('click', state.onClick, true);
+  syncAvailability(state);
+  const controller = Object.freeze({
+    schema: SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1,
+    show: () => show3d(state),
+    refresh: () => { scheduleRefresh(state); return true; },
+    getState: () => Object.freeze({ active: state.active, available: available(state),
+      mounted: Boolean(state.viewer), mountKey: state.mountKey,
+      failureCount: state.failureCount, destroyed: state.destroyed,
+      viewerState: state.viewer?.getStateSnapshot?.() ?? null }),
+    destroy: () => destroy(state),
+  });
+  CONTROLLERS.set(root, controller);
+  return controller;
+}
