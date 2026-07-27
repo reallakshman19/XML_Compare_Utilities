@@ -49,8 +49,11 @@ assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|a
 assert.match(gateway, /createSequentialCommandService/);
 assert.match(gateway, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
 assert.match(gateway, /validateSequentialCommandJournalState/);
+assert.match(gateway, /deriveSequentialEditAuthority/);
 assert.match(gateway, /COMMAND_BRANCH_MISMATCH/);
 assert.match(gateway, /COMMAND_RUNTIME_NOT_DETERMINISTIC/);
+assert.match(gateway, /COMMAND_AUTHORITY_MISMATCH/);
+assert.match(gateway, /function gatewayState\(\)/);
 assert.doesNotMatch(gateway, /createSequentialJournalAdoption|createSequentialCommandJournalState/);
 assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
 
@@ -60,6 +63,11 @@ assert.match(boundary, /expectedJournalImpact: 'REPLACE'/);
 assert.match(boundary, /preparedEntries/);
 assert.match(boundary, /before-commit/);
 assert.match(boundary, /synchronizationWarning/);
+assert.match(boundary, /SequentialCommandOwnerRevision\.v1/);
+assert.match(boundary, /journalHeadFingerprint/);
+assert.match(boundary, /sequentialCommandJournalHeadFingerprint/);
+assert.match(boundary, /Array\.isArray\(records\)/,
+  'uninitialized readiness must not fingerprint non-array source input');
 assert.doesNotMatch(boundary, /Object\.assign\(model/,
   'command boundary must use the existing workspace restoration commit boundary');
 
