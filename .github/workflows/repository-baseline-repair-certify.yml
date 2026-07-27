@@ -9,7 +9,7 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
       EXPECTED_TARGET_SHA: e31d8ce78276d2f2898e6444d29d14495b840507
@@ -32,23 +32,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture CAD current-authority output
-        id: cad_authority
+      - name: Capture repository-wide validation
+        id: repository_validation
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          node tests/pipeline-3d-model-cad-current-authority-regression.test.js > cad-current-authority.log 2>&1
+          npm test > npm-test.log 2>&1
           status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
 
-      - name: Upload CAD current-authority output
+      - name: Upload repository-wide output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cad-current-authority-output-v2
-          path: cad-current-authority.log
+          name: clean-baseline-final-npm-test-output-v5
+          path: npm-test.log
 
-      - name: Require CAD current-authority pass
-        run: test "${{ steps.cad_authority.outputs.status }}" = "0"
+      - name: Require repository-wide pass
+        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
+
+      - name: Verify clean worktree
+        run: test -z "$(git status --short)"
