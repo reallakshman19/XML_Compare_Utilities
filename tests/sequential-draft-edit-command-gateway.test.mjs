@@ -32,7 +32,6 @@ function ownerSnapshot(model) {
       schema: 'EngineeringRevisionToken.v1',
       token: sequentialSemanticFingerprint('GATEWAYREV', {
         session: model.session ? sequentialSessionFingerprint(model.session) : null,
-        journalSequence: model.journalState?.journal?.nextSequence || 0,
       }),
     }),
   });
@@ -58,6 +57,16 @@ function restoreModel(model, restoration, options) {
   });
   return restoration;
 }
+function commandBoundary(model, options = {}) {
+  return createSequentialWorkspaceCommandBoundary({
+    readModel: () => model,
+    readOwnerSnapshot: () => model.session ? ownerSnapshot(model) : null,
+    readEngineOptions: () => ({}),
+    restorePackage: (restoration, restoreOptions) => restoreModel(model, restoration, restoreOptions),
+    failureFactory: options.failureFactory,
+    syncAfterCommit: options.syncAfterCommit || (() => {}),
+  });
+}
 function fixture(branchId, options = {}) {
   const source = records(branchId);
   const evidence = buildSequentialEvidenceModel(source);
@@ -81,11 +90,7 @@ function fixture(branchId, options = {}) {
     restoredDecisionRegister: null, workspaceApplicationReceipts: Object.freeze([]),
   };
   let syncCount = 0;
-  const boundary = createSequentialWorkspaceCommandBoundary({
-    readModel: () => model,
-    readOwnerSnapshot: () => ownerSnapshot(model),
-    readEngineOptions: () => ({}),
-    restorePackage: (restoration, restoreOptions) => restoreModel(model, restoration, restoreOptions),
+  const boundary = commandBoundary(model, {
     failureFactory: options.failureFactory,
     syncAfterCommit: () => {
       syncCount += 1;
@@ -103,6 +108,20 @@ function request(branchId, commandType = 'ADVANCE_ONE') {
     command: { commandType, branchId },
     origin: { kind: 'USER', actorId: 'DRAFT_EDIT_GATEWAY_TEST', issuedAt: ISSUED_AT },
   };
+}
+
+{
+  const model = {
+    records: null, evidence: null, indexes: null, session: null,
+    branchRegistry: createSequentialBranchWorkspaceRegistry(), journalState: null,
+  };
+  const boundary = commandBoundary(model);
+  const gateway = createSequentialDraftEditCommandGateway({
+    readCurrentState: boundary.readCurrentState,
+    publishCandidate: boundary.publishCandidate,
+  });
+  assert.equal(gateway.getState().ready, false,
+    'uninitialized workspace readiness must be inspectable and fail closed');
 }
 
 {
@@ -138,6 +157,27 @@ for (const invalidJournal of [null, false]) {
 }
 
 {
+  const test = fixture('/GATEWAY/ADOPTION-STALE');
+  test.model.records = [...test.model.records, { type: 'COMMENT', name: 'SOURCE-CHANGED' }];
+  assert.equal(test.gateway.getState().ready, false,
+    'structurally valid journal with stale adoption basis must not be ready');
+  assert.throws(
+    () => test.gateway.prepare(request('/GATEWAY/ADOPTION-STALE')),
+    (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_AUTHORITY_MISMATCH,
+  );
+}
+
+{
+  const test = fixture('/GATEWAY/JOURNAL-REVISION');
+  const prepared = test.gateway.prepare(request('/GATEWAY/JOURNAL-REVISION'));
+  const before = clone(test.boundary.readCurrentState().ownerSnapshot.revision);
+  test.model.journalState = prepared.candidate.journalState;
+  const after = test.boundary.readCurrentState().ownerSnapshot.revision;
+  assert.notDeepEqual(after, before,
+    'command owner revision must advance when only the journal head advances');
+}
+
+{
   const test = fixture('/GATEWAY/BRANCH');
   assert.throws(
     () => test.gateway.prepare(request('/GATEWAY/OTHER')),
@@ -151,6 +191,10 @@ for (const invalidJournal of [null, false]) {
   badTime.origin.issuedAt = 'not-an-iso-time';
   assert.throws(
     () => test.gateway.prepare(badTime),
+    (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID,
+  );
+  assert.throws(
+    () => test.gateway.prepare({}),
     (error) => error.code === SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID,
   );
 }
