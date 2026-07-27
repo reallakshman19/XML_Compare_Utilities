@@ -1,12 +1,10 @@
 import { parseAppliesToDirective } from './navis-tag-applies-to.js';
 import {
-  candidateAuditRemark,
   candidateFinalBasis,
   nearestRejectedFinalBasis,
   resolvedFinalBasis,
   unmatchedFinalBasis,
 } from './navis-tag-audit-remarks.js';
-import { candidateFromTag } from './navis-tag-candidate-ranking.js';
 import { parseNavisTagXml } from './navis-tag-xml-parser.js';
 
 export const UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE = 'Refer Navis file to locate Tag';
@@ -192,35 +190,6 @@ function navisParseForOutput(audit, config, explicitNavisParse) {
   return Array.isArray(browser?.tags) ? browser : candidateLedgerNavisParse(audit);
 }
 
-function closestSupportCandidate(audit, tag, config) {
-  if (!tag?.position) return null;
-  let selected = null;
-  for (const decision of audit?.decisions || []) {
-    if (!decision?.supportPosition) continue;
-    const candidate = candidateFromTag(decision, decision.supportPosition, tag, config);
-    const row = {
-      ...candidate,
-      canonicalIdentity: decision.canonicalIdentity,
-      groupedIdentities: decision.groupedIdentities,
-      tableIdentityRaw: decision.tableIdentityRaw,
-      resolvedPipe: decision.resolvedPipe,
-      inputPipe: decision.inputPipe,
-      supportPosition: decision.supportPosition,
-      supportPositionSource: decision.supportPositionSource,
-      supportPositionPath: decision.supportPositionPath,
-      decisionStatus: 'UNRESOLVED',
-      decisionReason: candidate.withinTolerance ? 'IN_TOLERANCE_RELATIONSHIP_NOT_RECORDED' : 'NO_IN_TOLERANCE_CANDIDATE',
-      candidateRank: 1,
-      accepted: false,
-      ledgerKind: candidate.withinTolerance ? 'ACCEPTED_CANDIDATE' : 'NEAREST_REJECTED',
-    };
-    const distance = Number(row.normalizedToleranceDistance);
-    const selectedDistance = Number(selected?.normalizedToleranceDistance);
-    if (!selected || distance < selectedDistance || (distance === selectedDistance && row.spatialDistanceMm < selected.spatialDistanceMm)) selected = row;
-  }
-  return selected;
-}
-
 function unmatchedNavisRows(audit, navisParse, config) {
   const accounted = accountedNavisEvidence(audit);
   const rows = [];
@@ -229,20 +198,6 @@ function unmatchedNavisRows(audit, navisParse, config) {
     const tagId = text(tag.tagId);
     const isAccounted = Boolean((key && accounted.keys.has(key)) || (tagId && accounted.tagIds.has(tagId)));
     if (isAccounted) continue;
-    const closest = closestSupportCandidate(audit, tag, config);
-    if (closest) {
-      rows.push({
-        'Name of the element': exactCandidateIdentity(closest),
-        PIPE: closest.resolvedPipe || closest.inputPipe || '', POS: pointLabel(closest.supportPosition),
-        'Navis Tag ID': tagId, 'Navis Tag POS': pointLabel(tag.position),
-        Tag: baseTagText(tag.commentBody, config), 'Support ISONOTE': '',
-        confidence: closest.withinTolerance ? 'REVIEW_REQUIRED' : 'OUTSIDE_TOLERANCE',
-        Basis: closest.withinTolerance
-          ? `${candidateAuditRemark(closest, config)} [Audit codes: IN_TOLERANCE_RELATIONSHIP_NOT_RECORDED]`
-          : nearestRejectedFinalBasis(closest, config),
-      });
-      continue;
-    }
     rows.push({
       'Name of the element': UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
       PIPE: '', POS: '', 'Navis Tag ID': tagId, 'Navis Tag POS': pointLabel(tag.position),
@@ -380,5 +335,5 @@ export const _test = Object.freeze({
   baseTagText, finalIsonote, identityCandidates, evidenceKey,
   directlyMatchedNavisEvidence, accountedNavisEvidence, unmatchedNavisRows,
   candidateLedgerNavisParse, navisParseForOutput, candidateReviewRows,
-  nearestRejectedRows, closestSupportCandidate, exactCandidateIdentity,
+  nearestRejectedRows, exactCandidateIdentity,
 });
