@@ -1,3 +1,4 @@
+import { anchorPriorityLabel, configuredAnchorSlots } from './navis-tag-anchor-policy.js';
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
 import { DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
 import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown, renderFilterBar } from './navis-tag-isonote-ui-view.js';
@@ -33,6 +34,11 @@ function sourceCard(state, key, title, detail, accept) {
 function statusBadge(value) {
   const normalized = String(value || 'NOT BUILT');
   const css = /READY|COMPLETE|CURRENT/.test(normalized) ? 'nti-ok' : /WARN|STALE|PENDING/.test(normalized) ? 'nti-warn' : 'nti-error';
+  return `<span class="nti-badge ${css}">${esc(normalized)}</span>`;
+}
+function anchorBadge(value) {
+  const normalized = String(value || 'NOT_CONFIGURED');
+  const css = /SELECTED|AGREES/.test(normalized) ? 'nti-ok' : /PENDING|NOT_CONFIGURED|INCOMPLETE|CONFLICT/.test(normalized) ? 'nti-warn' : 'nti-error';
   return `<span class="nti-badge ${css}">${esc(normalized)}</span>`;
 }
 function metric(label, value) {
@@ -76,26 +82,42 @@ function mappingRows(state) {
     <button class="nti-icon-btn" type="button" data-nti-action="remove-keyword" data-nti-keyword-index="${index}" title="Remove mapping">×</button>
   </div>`).join('');
 }
+function anchorAttempt(state, priority) {
+  return (state.navisParse?.anchor?.attempts || []).find((row) => Number(row.priority) === Number(priority)) || null;
+}
+function anchorAttemptDetail(attempt, configured) {
+  if (!attempt) return configured ? 'Build or Run to evaluate this anchor.' : 'Optional slot.';
+  const selected = attempt.resolvedSupportIdentity ? ` Selected authority: ${attempt.resolvedSupportIdentity}.` : '';
+  const difference = Number.isFinite(Number(attempt.deltaDifferenceMm)) ? ` Offset difference from selected: ${Number(attempt.deltaDifferenceMm).toFixed(3)} mm.` : '';
+  return `${attempt.reason || ''}${selected}${difference}`.trim();
+}
+function renderAnchorPriorityRows(state) {
+  return `<div class="nti-anchor-priority-list">${configuredAnchorSlots(state.config || {}, true).map((slot) => {
+    const attempt = anchorAttempt(state, slot.priority);
+    const status = attempt?.status || (slot.configured ? 'PENDING_BUILD' : 'NOT_CONFIGURED');
+    return `<article class="nti-anchor-priority-row" data-nti-anchor-priority="${slot.priority}">
+      <div class="nti-anchor-priority"><strong>P${slot.priority}</strong><span>${esc(anchorPriorityLabel(slot.priority))}</span></div>
+      <div class="nti-anchor-pair">
+        ${field('Navis Tag ID', renderAnchorTagDropdown(state, slot.tagKey))}
+        ${field('JSON Support ID', renderAnchorSupportDropdown(state, slot.supportKey, 0))}
+      </div>
+      <div class="nti-anchor-result">${anchorBadge(status)}<small>${esc(anchorAttemptDetail(attempt, slot.configured))}</small></div>
+    </article>`;
+  }).join('')}</div>`;
+}
 function renderHome(state) {
-  const cfg = state.config || {};
   const readiness = state.readiness?.status || (state.inputsDirty ? 'STALE / NOT BUILT' : 'NOT BUILT');
   const remembered = state.sessionMeta?.restoredAt
     ? `<div class="nti-memory-note"><b>Restored from this browser</b><span>Saved ${esc(state.sessionMeta.restoredAt)}. File names, source types, configuration, and source text that fit local-storage limits were restored.</span></div>`
     : `<div class="nti-memory-note"><b>Browser memory enabled</b><span>The last loaded names, source types, configuration, and restorable source values are saved locally on this device.</span></div>`;
-  const anchorCard = `<section class="nti-card" style="border-left: 4px solid var(--accent-primary, #0078d4);">
-    <div class="nti-section-head">
-      <div>
-        <h3>Anchor-based coordinate matching (optional override)</h3>
-        <p>Match a known Tag No. in Navis XML (e.g. <code>1</code>) with a known Support / PS No. in JSON (e.g. <code>/PS-11167.4</code>) to automatically compute 3D translation deltas (ΔE, ΔN, ΔEL) and overrule default/user datum offsets.</p>
-      </div>
-    </div>
-    <div class="nti-grid-2" style="margin-top: 10px;">
-      ${field('Anchor Tag ID in XML (type & search all)', renderAnchorTagDropdown(state, 'navisAnchorTagId'))}
-      ${field('Anchor Support ID in JSON (type & search all)', renderAnchorSupportDropdown(state, 'navisAnchorSupportIdentity', 0))}
-    </div>
-    <div style="margin-top: 10px;">
-      ${renderAnchorPreview(state)}
-    </div>
+  const anchorCard = `<section class="nti-card nti-anchor-card">
+    <div class="nti-section-head"><div>
+      <h3>Multi-anchor coordinate matching (priority fallback)</h3>
+      <p>Configure anchors from P1 downward. The first valid Tag ↔ JSON support pair becomes the only coordinate authority. Lower rows are fallback options only; offsets are never averaged or blended.</p>
+    </div></div>
+    <div class="nti-anchor-policy"><b>Priority rule:</b> P1 → P2 → P3 → P4 → P5. A lower anchor is selected only when every higher-priority pair is incomplete, missing, or has invalid coordinates.</div>
+    ${renderAnchorPriorityRows(state)}
+    <div class="nti-anchor-preview-wrap">${renderAnchorPreview(state)}</div>
   </section>`;
   return `<section class="nti-workflow-hero">
     <div><span class="nti-eyebrow">NAVIS TAG → ISONOTE</span><h2>Build traceable support notes from Tag evidence</h2><p>Load the model sources, verify the coordinate frame, resolve direct Tags, propagate applies-to directives, and export the final support-note table.</p></div>
@@ -236,8 +258,8 @@ export function ensureNavisTagWorkflowStyle(doc = document) {
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-  .nti-workflow-hero,.nti-config-intro{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:22px;border:1px solid rgba(56,189,248,.28);border-radius:14px;background:linear-gradient(135deg,rgba(29,78,216,.20),rgba(15,23,42,.88));margin-bottom:12px}.nti-workflow-hero h2,.nti-config-intro h2{margin:4px 0 8px;color:#f8fafc;font-size:24px}.nti-workflow-hero p,.nti-config-intro p,.nti-section-head p{margin:0;color:#9fb3ca;font-size:12px;line-height:1.5}.nti-eyebrow{font-size:10px;font-weight:700;letter-spacing:.16em;color:#7dd3fc}.nti-hero-status{min-width:120px;text-align:center;padding:14px;border-radius:12px;background:rgba(7,16,31,.78);border:1px solid rgba(148,163,184,.2)}.nti-hero-status>span{display:block;color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}.nti-hero-status>strong{font-size:28px;color:#f8fafc}.nti-memory-note{display:flex;gap:12px;align-items:center;padding:10px 12px;margin-bottom:12px;border-radius:10px;background:rgba(14,116,144,.12);border:1px solid rgba(34,211,238,.2)}.nti-memory-note b{color:#a5f3fc;font-size:12px}.nti-memory-note span{color:#94a3b8;font-size:11px}.nti-section-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px}.nti-section-head h3{margin:0 0 4px}.nti-source-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:10px}.nti-source-card{display:grid;gap:10px;padding:14px;border:1px dashed rgba(148,163,184,.32);border-radius:12px;background:#0b1424}.nti-source-card.is-ready{border-style:solid;border-color:rgba(52,211,153,.45);background:rgba(6,78,59,.12)}.nti-source-card-head{display:flex;gap:9px;align-items:flex-start}.nti-source-card-head b{display:block;color:#e0f2fe;font-size:13px}.nti-source-card-head span{display:block;color:#94a3b8;font-size:10px;margin-top:3px}.nti-source-icon{display:grid!important;place-items:center;width:24px;height:24px;border-radius:50%;background:#172033;color:#7dd3fc;font-size:14px!important;margin:0!important}.nti-source-file{color:#e5eefb;font:11px ui-monospace,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nti-source-type{color:#94a3b8;font-size:10px}.nti-file-button{display:inline-flex!important;justify-content:center;position:relative;overflow:hidden}.nti-file-button input{position:absolute;inset:0;opacity:0;cursor:pointer}.nti-paste-panel{margin-top:12px;border-top:1px solid rgba(148,163,184,.15);padding-top:10px}.nti-paste-panel summary,.nti-config-section summary{cursor:pointer;color:#bfdbfe;font-weight:700;font-size:12px}.nti-step-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px}.nti-step-grid>div{padding:12px;border-radius:10px;background:#07101f;border:1px solid rgba(148,163,184,.16)}.nti-step-grid b{display:block;color:#dbeafe;font-size:12px;margin-bottom:5px}.nti-step-grid span{color:#94a3b8;font-size:10px;line-height:1.4}.nti-primary-actions{margin-top:14px}.nti-run-status{margin-top:10px;padding:9px 11px;border-radius:8px;background:#07101f;color:#fbbf24;font-size:11px}.nti-config-section>summary{font-size:14px;padding:2px 0 10px}.nti-config-section[open]>summary{border-bottom:1px solid rgba(148,163,184,.14);margin-bottom:12px}.nti-field small{color:#64748b;font-size:10px}.nti-keyword-editor{margin-top:12px;padding:12px;border-radius:10px;background:#07101f;border:1px solid rgba(148,163,184,.16)}.nti-keyword-row{display:grid;grid-template-columns:minmax(80px,.35fr) 24px minmax(180px,1fr) 34px;gap:7px;align-items:center;margin-top:7px}.nti-keyword-row input{width:100%;box-sizing:border-box;background:#0b1424;color:#e5eefb;border:1px solid rgba(148,163,184,.34);border-radius:7px;padding:7px;font:12px ui-monospace,Consolas,monospace}.nti-keyword-row>span{text-align:center;color:#7dd3fc}.nti-icon-btn,.nti-icon-add{border:1px solid rgba(148,163,184,.3);background:#172033;color:#e5eefb;border-radius:8px;cursor:pointer}.nti-icon-btn{height:32px}.nti-icon-add{width:34px;height:34px;font-size:22px;color:#7dd3fc}.nti-sticky-actions{position:sticky;bottom:0;padding:10px;background:rgba(15,23,42,.95);border-top:1px solid rgba(148,163,184,.18);z-index:3}.nti-empty-output{padding:28px;text-align:center;color:#94a3b8}.nti-output-hero{background:linear-gradient(135deg,rgba(5,150,105,.16),rgba(15,23,42,.9))}
-  @media(max-width:1100px){.nti-source-grid,.nti-step-grid{grid-template-columns:1fr 1fr}.nti-workflow-hero,.nti-config-intro{align-items:flex-start}.nti-keyword-row{grid-template-columns:80px 20px 1fr 34px}}@media(max-width:700px){.nti-source-grid,.nti-step-grid{grid-template-columns:1fr}.nti-workflow-hero,.nti-config-intro,.nti-section-head,.nti-memory-note{flex-direction:column}.nti-hero-status{width:100%;box-sizing:border-box}}
+  .nti-workflow-hero,.nti-config-intro{display:flex;justify-content:space-between;gap:24px;align-items:center;padding:22px;border:1px solid rgba(56,189,248,.28);border-radius:14px;background:linear-gradient(135deg,rgba(29,78,216,.20),rgba(15,23,42,.88));margin-bottom:12px}.nti-workflow-hero h2,.nti-config-intro h2{margin:4px 0 8px;color:#f8fafc;font-size:24px}.nti-workflow-hero p,.nti-config-intro p,.nti-section-head p{margin:0;color:#9fb3ca;font-size:12px;line-height:1.5}.nti-eyebrow{font-size:10px;font-weight:700;letter-spacing:.16em;color:#7dd3fc}.nti-hero-status{min-width:120px;text-align:center;padding:14px;border-radius:12px;background:rgba(7,16,31,.78);border:1px solid rgba(148,163,184,.2)}.nti-hero-status>span{display:block;color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:7px}.nti-hero-status>strong{font-size:28px;color:#f8fafc}.nti-memory-note{display:flex;gap:12px;align-items:center;padding:10px 12px;margin-bottom:12px;border-radius:10px;background:rgba(14,116,144,.12);border:1px solid rgba(34,211,238,.2)}.nti-memory-note b{color:#a5f3fc;font-size:12px}.nti-memory-note span{color:#94a3b8;font-size:11px}.nti-section-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px}.nti-section-head h3{margin:0 0 4px}.nti-source-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:10px}.nti-source-card{display:grid;gap:10px;padding:14px;border:1px dashed rgba(148,163,184,.32);border-radius:12px;background:#0b1424}.nti-source-card.is-ready{border-style:solid;border-color:rgba(52,211,153,.45);background:rgba(6,78,59,.12)}.nti-source-card-head{display:flex;gap:9px;align-items:flex-start}.nti-source-card-head b{display:block;color:#e0f2fe;font-size:13px}.nti-source-card-head span{display:block;color:#94a3b8;font-size:10px;margin-top:3px}.nti-source-icon{display:grid!important;place-items:center;width:24px;height:24px;border-radius:50%;background:#172033;color:#7dd3fc;font-size:14px!important;margin:0!important}.nti-source-file{color:#e5eefb;font:11px ui-monospace,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nti-source-type{color:#94a3b8;font-size:10px}.nti-file-button{display:inline-flex!important;justify-content:center;position:relative;overflow:hidden}.nti-file-button input{position:absolute;inset:0;opacity:0;cursor:pointer}.nti-paste-panel{margin-top:12px;border-top:1px solid rgba(148,163,184,.15);padding-top:10px}.nti-paste-panel summary,.nti-config-section summary{cursor:pointer;color:#bfdbfe;font-weight:700;font-size:12px}.nti-step-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px}.nti-step-grid>div{padding:12px;border-radius:10px;background:#07101f;border:1px solid rgba(148,163,184,.16)}.nti-step-grid b{display:block;color:#dbeafe;font-size:12px;margin-bottom:5px}.nti-step-grid span{color:#94a3b8;font-size:10px;line-height:1.4}.nti-primary-actions{margin-top:14px}.nti-run-status{margin-top:10px;padding:9px 11px;border-radius:8px;background:#07101f;color:#fbbf24;font-size:11px}.nti-config-section>summary{font-size:14px;padding:2px 0 10px}.nti-config-section[open]>summary{border-bottom:1px solid rgba(148,163,184,.14);margin-bottom:12px}.nti-field small{color:#64748b;font-size:10px}.nti-keyword-editor{margin-top:12px;padding:12px;border-radius:10px;background:#07101f;border:1px solid rgba(148,163,184,.16)}.nti-keyword-row{display:grid;grid-template-columns:minmax(80px,.35fr) 24px minmax(180px,1fr) 34px;gap:7px;align-items:center;margin-top:7px}.nti-keyword-row input{width:100%;box-sizing:border-box;background:#0b1424;color:#e5eefb;border:1px solid rgba(148,163,184,.34);border-radius:7px;padding:7px;font:12px ui-monospace,Consolas,monospace}.nti-keyword-row>span{text-align:center;color:#7dd3fc}.nti-icon-btn,.nti-icon-add{border:1px solid rgba(148,163,184,.3);background:#172033;color:#e5eefb;border-radius:8px;cursor:pointer}.nti-icon-btn{height:32px}.nti-icon-add{width:34px;height:34px;font-size:22px;color:#7dd3fc}.nti-sticky-actions{position:sticky;bottom:0;padding:10px;background:rgba(15,23,42,.95);border-top:1px solid rgba(148,163,184,.18);z-index:3}.nti-empty-output{padding:28px;text-align:center;color:#94a3b8}.nti-output-hero{background:linear-gradient(135deg,rgba(5,150,105,.16),rgba(15,23,42,.9))}.nti-anchor-card{border-left:4px solid var(--accent-primary,#0078d4)}.nti-anchor-policy{padding:10px 12px;border-radius:9px;background:rgba(30,64,175,.13);border:1px solid rgba(96,165,250,.22);color:#bfdbfe;font-size:11px}.nti-anchor-priority-list{display:grid;gap:8px;margin-top:10px}.nti-anchor-priority-row{display:grid;grid-template-columns:120px minmax(420px,1fr) minmax(210px,.45fr);gap:10px;align-items:center;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:10px;background:#07101f}.nti-anchor-priority{display:grid;gap:3px}.nti-anchor-priority strong{color:#7dd3fc;font-size:18px}.nti-anchor-priority span{color:#94a3b8;font-size:10px}.nti-anchor-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}.nti-anchor-result{display:grid;gap:5px;justify-items:start}.nti-anchor-result small{color:#94a3b8;font-size:10px;line-height:1.35}.nti-anchor-preview-wrap{margin-top:10px}
+  @media(max-width:1100px){.nti-source-grid,.nti-step-grid{grid-template-columns:1fr 1fr}.nti-workflow-hero,.nti-config-intro{align-items:flex-start}.nti-keyword-row{grid-template-columns:80px 20px 1fr 34px}.nti-anchor-priority-row{grid-template-columns:90px 1fr}.nti-anchor-result{grid-column:2}.nti-anchor-pair{grid-template-columns:1fr 1fr}}@media(max-width:700px){.nti-source-grid,.nti-step-grid{grid-template-columns:1fr}.nti-workflow-hero,.nti-config-intro,.nti-section-head,.nti-memory-note{flex-direction:column}.nti-hero-status{width:100%;box-sizing:border-box}.nti-anchor-priority-row,.nti-anchor-pair{grid-template-columns:1fr}.nti-anchor-result{grid-column:auto}}
   `;
   doc.head?.appendChild(style);
 }
@@ -248,5 +270,6 @@ export const _test = Object.freeze({
   renderFinal,
   mappingRows,
   sourceState,
+  renderAnchorPriorityRows,
   DEFAULT_ISONOTE_KEYWORD_MAPPINGS,
 });
