@@ -3,6 +3,7 @@ import { createSequentialScopedEditVisualModel } from './sequential-scoped-edit-
 import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit-command-gateway.js';
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
+import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
 export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
@@ -185,6 +186,9 @@ function installCommandPanel(state) {
     state.commandPanel = createSequentialDraftEditCommandPanel({
       root: state.root, gateway: state.gateway,
       readCurrentState: state.commandBoundary.readCurrentState,
+      readCurrentAuthorityId: () => deriveSequentialEditAuthority(
+        state.commandBoundary.readCurrentState(),
+      ).authorityId,
       now: state.options.commandIssuedAtProvider,
       onAccepted: state.options.onCommandAccepted, onFailure: state.options.onCommandFailure,
     });
