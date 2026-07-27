@@ -7,6 +7,7 @@ import {
 } from './sequential-command-contracts.js';
 import { validateSequentialCommandJournalState } from './sequential-command-journal.js';
 import { createSequentialCommandService } from './sequential-command-service.js';
+import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_COMMAND_GATEWAY_SCHEMA = 'SequentialDraftEditCommandGateway.v1';
 
@@ -16,6 +17,12 @@ function requiredFunction(value, label) {
 }
 function coded(code, message, Constructor = Error) {
   throw sequentialCommandCodedError(code, message, Constructor);
+}
+function jsonContract(value, label) {
+  try { return immutableJson(value, label); }
+  catch (error) {
+    coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, error.message || String(error), TypeError);
+  }
 }
 function current(reader) {
   const value = reader();
@@ -30,16 +37,20 @@ function authorityStatus(state) {
   }
   const errors = validateSequentialCommandJournalState(state.journalState);
   if (errors.length) return Object.freeze({ ready: false, branchId, reasonCode: SEQUENTIAL_COMMAND_REJECTION.COMMAND_AUTHORITY_MISMATCH });
+  try { deriveSequentialEditAuthority(state); }
+  catch {
+    return Object.freeze({ ready: false, branchId, reasonCode: SEQUENTIAL_COMMAND_REJECTION.COMMAND_AUTHORITY_MISMATCH });
+  }
   return Object.freeze({ ready: true, branchId, reasonCode: null });
 }
 function requireReady(reader) {
   const state = current(reader);
   const status = authorityStatus(state);
   if (!status.ready) coded(status.reasonCode, 'Sequential Draft Edit command authority is not ready.', RangeError);
-  return Object.freeze({ state, status });
+  return status;
 }
 function validatedOrigin(value) {
-  const origin = immutableJson(value, 'Sequential Draft Edit command origin');
+  const origin = jsonContract(value, 'Sequential Draft Edit command origin');
   if (String(origin?.kind || '').toUpperCase() !== 'USER') {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, 'Draft Edit commands require USER origin.', TypeError);
   }
@@ -50,8 +61,10 @@ function validatedOrigin(value) {
   return origin;
 }
 function validatedCommand(value, branchId) {
-  const command = immutableJson(value, 'Sequential Draft Edit command');
-  const commandType = requiredContractText(command.commandType, 'Draft Edit commandType').toUpperCase();
+  const command = jsonContract(value, 'Sequential Draft Edit command');
+  let commandType;
+  try { commandType = requiredContractText(command.commandType, 'Draft Edit commandType').toUpperCase(); }
+  catch (error) { coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_SCHEMA_INVALID, error.message, TypeError); }
   if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(commandType)) {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC,
       `Draft Edit command ${commandType} is not enabled for deterministic preparation.`, RangeError);
@@ -61,7 +74,7 @@ function validatedCommand(value, branchId) {
     coded(SEQUENTIAL_COMMAND_REJECTION.COMMAND_BRANCH_MISMATCH,
       'Draft Edit command branch does not match the active Sequential branch.', RangeError);
   }
-  return immutableJson({ ...command, commandType, branchId }, 'Bound Sequential Draft Edit command');
+  return jsonContract({ ...command, commandType, branchId }, 'Bound Sequential Draft Edit command');
 }
 
 export function createSequentialDraftEditCommandGateway(options = {}) {
@@ -75,7 +88,7 @@ export function createSequentialDraftEditCommandGateway(options = {}) {
   }
   function prepare(input = {}) {
     requireLive();
-    const { status } = requireReady(readCurrentState);
+    const status = requireReady(readCurrentState);
     return service.prepare({
       command: validatedCommand(input.command, status.branchId),
       origin: validatedOrigin(input.origin),
