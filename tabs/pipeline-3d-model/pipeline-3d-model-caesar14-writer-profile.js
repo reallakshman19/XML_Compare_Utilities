@@ -48,6 +48,10 @@ export const PIPELINE_CAESAR_14_ELEMENT_ATTRIBUTE_ORDER = Object.freeze([
   'MATERIAL_NUM', 'MATERIAL_NAME',
   ...ELEMENT_SUFFIX_FIELDS.map(([name]) => name), 'NAME',
 ]);
+export const PIPELINE_CAESAR_14_RESTRAINT_ATTRIBUTE_ORDER = Object.freeze([
+  'NUM', 'NODE', 'TYPE', 'STIFFNESS', 'GAP', 'FRIC_COEF', 'CNODE',
+  'XCOSINE', 'YCOSINE', 'ZCOSINE', 'TAG', 'GUID',
+]);
 
 const freeze = (value) => {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -89,6 +93,7 @@ export function resolvePipelineCaesarWriterProfile(version) {
     rootAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_ROOT_ATTRIBUTE_ORDER : Object.freeze([]),
     modelAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_MODEL_ATTRIBUTE_ORDER : Object.freeze([]),
     elementAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_ELEMENT_ATTRIBUTE_ORDER : Object.freeze([]),
+    restraintAttributeOrder: isCaesar14 ? PIPELINE_CAESAR_14_RESTRAINT_ATTRIBUTE_ORDER : Object.freeze([]),
     suppressExtensionAttributes: isCaesar14,
     ready: Boolean(versionText),
   });
@@ -179,4 +184,23 @@ export function caesar14BendAttributeEntries(bend, curvatureNodes = []) {
   }
   if (hasNumber(bend?.kfactor)) result.push(numericValueEntry('KFACTOR', bend.kfactor));
   return freeze(result.filter(Boolean));
+}
+
+export function caesar14RestraintAttributeEntries(restraint) {
+  const slot = Number(restraint?.slot);
+  const placeholder = restraint?.placeholder === true;
+  return freeze([
+    pair('NUM', Number.isInteger(slot) && slot > 0 ? slot : 1),
+    numericValueEntry('NODE', restraint?.node),
+    numericValueEntry('TYPE', restraint?.type),
+    numericValueEntry('STIFFNESS', restraint?.stiffness),
+    numericValueEntry('GAP', restraint?.gap),
+    numericValueEntry('FRIC_COEF', restraint?.frictionCoefficient),
+    numericValueEntry('CNODE', restraint?.cnode),
+    numericEntry('XCOSINE', restraint?.xCosine, placeholder ? 'ZERO' : 'VALUE'),
+    numericEntry('YCOSINE', restraint?.yCosine, placeholder ? 'ZERO' : 'VALUE'),
+    numericEntry('ZCOSINE', restraint?.zCosine, placeholder ? 'ZERO' : 'VALUE'),
+    pair('TAG', restraint?.tag ?? ''),
+    pair('GUID', restraint?.guid ?? ''),
+  ]);
 }
