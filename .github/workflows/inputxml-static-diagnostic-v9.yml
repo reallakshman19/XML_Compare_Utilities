@@ -10,7 +10,7 @@ permissions:
 
 env:
   TARGET_BRANCH: owner/fix-navis-benchmark-static-contract
-  EXPECTED_TARGET_SHA: 077896d6d3d78b1eac5aaaa8f5724715c41c2fd1
+  EXPECTED_TARGET_SHA: fcc525e51b8be2853af965d90c91e5b98826e207
 
 jobs:
   diagnose:
