@@ -46,13 +46,24 @@ function candidate() {
     connectedPosition: Object.freeze({ x: 120, y: 0, z: 0 }),
   });
 }
-function session(branchId = BRANCH_ID) {
+function session(branchId, evidence) {
+  const component = evidence.branches[0].components[0];
+  const positioned = component.ports.filter((port) => port.sourcePosition);
+  const entry = positioned[0]; const exit = positioned.at(-1);
   return freezeConstructionSession({
     ...createEmptyConstructionSession(branchId),
     state: CONSTRUCTION_STATES.USER_DECISION_REQUIRED,
+    activeComponentId: component.componentId,
+    activeEntryPortId: entry.portId,
+    activeExitPortId: exit.portId,
+    confirmedComponentIds: [component.componentId],
+    strokeLedger: [Object.freeze({
+      op: 'DRAW_PIPE', componentId: component.componentId,
+      entryPosition: entry.sourcePosition, exitPosition: exit.sourcePosition,
+    })],
     currentDecisionRequest: Object.freeze({
       schema: 'SequentialConnectionDecision.v1', decisionId: DECISION_ID,
-      state: 'OPEN', reason: 'AMBIGUOUS_CONNECTION', activePortId: `${branchId}/P1:LPOS`,
+      state: 'OPEN', reason: 'AMBIGUOUS_CONNECTION', activePortId: exit.portId,
       candidates: Object.freeze([candidate()]), resolution: null, decisionScope: 'CONNECTION',
     }),
   });
@@ -61,7 +72,7 @@ function fixture(branchId = BRANCH_ID) {
   const source = records(branchId);
   const evidence = buildSequentialEvidenceModel(source);
   const indexes = indexSequentialEvidence(evidence);
-  const currentSession = session(branchId);
+  const currentSession = session(branchId, evidence);
   const branchRegistry = createSequentialBranchWorkspaceRegistry();
   branchRegistry.reset([branchId]); branchRegistry.save(branchId, { session: currentSession });
   const sourceFingerprint = `SOURCE-${stableToken(JSON.stringify(source))}`;
@@ -83,7 +94,7 @@ function fixture(branchId = BRANCH_ID) {
     ownerSnapshot: Object.freeze({ revision: Object.freeze({ schema: 'EngineeringRevisionToken.v1', token: 'REV-3C' }) }),
     engineOptions: {},
   };
-  return Object.freeze({ readModel, scene, currentState, ownerBridge });
+  return Object.freeze({ readModel, scene, currentState, ownerBridge, evidence });
 }
 
 {
@@ -107,6 +118,7 @@ function fixture(branchId = BRANCH_ID) {
 {
   const test = fixture();
   const componentId = test.scene.entities.find((row) => row.domainRef.category === 'confirmed')?.id;
+  assert(componentId, 'fixture must contain one certified non-candidate scene entity');
   assert.throws(() => selectSequentialDraftEditCandidateTarget({
     objectId: componentId, readModel: test.readModel, scene: test.scene, currentState: test.currentState,
   }), (error) => error.code === SEQUENTIAL_DRAFT_EDIT_TARGET_REJECTION.ENTITY_NOT_CANDIDATE);
@@ -138,10 +150,11 @@ function fixture(branchId = BRANCH_ID) {
 
 {
   const test = fixture();
+  const otherEvidence = buildSequentialEvidenceModel(records('/OTHER/BRANCH'));
   assert.throws(() => selectSequentialDraftEditCandidateTarget({
     objectId: `ssk:candidate:${CANDIDATE_ID}`,
     readModel: test.readModel, scene: test.scene,
-    currentState: { ...test.currentState, session: session('/OTHER/BRANCH') },
+    currentState: { ...test.currentState, session: session('/OTHER/BRANCH', otherEvidence) },
   }), (error) => error.code === SEQUENTIAL_DRAFT_EDIT_TARGET_REJECTION.BRANCH_MISMATCH);
   test.ownerBridge.destroy();
 }
