@@ -23,6 +23,9 @@ import {
 
 export { createSequentialConstructionSession };
 
+function operationIssuedAt(options = {}, payload = {}) {
+  return payload.issuedAt || options.commandIssuedAt || new Date().toISOString();
+}
 function enrichPendingBranchBoundary(session, indexes) {
   const transition = session?.transitionContext;
   if (!transition || transition.targetKind !== 'BRANCH' || transition.boundaryPosition) return session;
@@ -39,7 +42,6 @@ function enrichPendingBranchBoundary(session, indexes) {
     }),
   });
 }
-
 function finalizeRuntimeResult(previousSession, result, indexes) {
   const withBoundary = enrichPendingBranchBoundary(result.session, indexes);
   return Object.freeze({
@@ -47,7 +49,6 @@ function finalizeRuntimeResult(previousSession, result, indexes) {
     session: enrichCommittedConnectionEvidence(previousSession, withBoundary, indexes),
   });
 }
-
 function rawAdvance(session, evidenceModel, indexes, options = {}) {
   return finalizeRuntimeResult(
     session,
@@ -55,13 +56,34 @@ function rawAdvance(session, evidenceModel, indexes, options = {}) {
     indexes,
   );
 }
-
 function rawDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
   return finalizeRuntimeResult(
     session,
     applyGatedConstructionDecision(session, evidenceModel, indexes, action, payload, options),
     indexes,
   );
+}
+function withIssuedAt(value, issuedAt) {
+  if (!value?.confirmedAt || value.confirmedAt === issuedAt) return value;
+  return Object.freeze({ ...value, confirmedAt: issuedAt });
+}
+function normalizeCommandEvidenceTimes(previousSession, result, issuedAt) {
+  const session = result?.session;
+  if (!session) return result;
+  const decisionOffset = previousSession?.decisionLedger?.length || 0;
+  const overrideOffset = previousSession?.componentTraversalOverrides?.length || 0;
+  const decisionLedger = (session.decisionLedger || []).map((decision, index) => (
+    index < decisionOffset || !decision?.resolution
+      ? decision
+      : Object.freeze({ ...decision, resolution: withIssuedAt(decision.resolution, issuedAt) })
+  ));
+  const componentTraversalOverrides = (session.componentTraversalOverrides || []).map((row, index) => (
+    index < overrideOffset ? row : withIssuedAt(row, issuedAt)
+  ));
+  return Object.freeze({
+    ...result,
+    session: freezeConstructionSession({ ...session, decisionLedger, componentTraversalOverrides }),
+  });
 }
 
 export function advanceConstruction(session, evidenceModel, indexes, options = {}) {
@@ -70,15 +92,18 @@ export function advanceConstruction(session, evidenceModel, indexes, options = {
     action: 'ADVANCE_ONE',
     actorProvenance: 'USER_COMMAND',
     outcome: result.outcome,
+    createdAt: operationIssuedAt(options),
   });
 }
 
 export function applyConstructionDecision(session, evidenceModel, indexes, action, payload = {}, options = {}) {
+  const issuedAt = operationIssuedAt(options, payload);
+  const timedPayload = { ...payload, issuedAt };
   if (action === DECISION_ACTIONS.UNDO_LAST_TRANSACTION) {
-    return undoLastSequentialConstructionTransaction(session, payload);
+    return undoLastSequentialConstructionTransaction(session, timedPayload);
   }
   if (action === DECISION_ACTIONS.REDO_LAST_TRANSACTION) {
-    return redoLastSequentialConstructionTransaction(session, payload);
+    return redoLastSequentialConstructionTransaction(session, timedPayload);
   }
   const deferred = session?.currentDecisionRequest?.state === 'DEFERRED';
   if (deferred && action !== DECISION_ACTIONS.RESUME_DECISION) {
@@ -86,31 +111,33 @@ export function applyConstructionDecision(session, evidenceModel, indexes, actio
   }
   let result;
   if (action === DECISION_ACTIONS.DEFER_DECISION) {
-    result = deferSequentialConstructionDecision(session, payload);
+    result = deferSequentialConstructionDecision(session, timedPayload);
   } else if (action === DECISION_ACTIONS.RESUME_DECISION) {
-    result = resumeSequentialConstructionDecision(session);
+    result = resumeSequentialConstructionDecision(session, timedPayload);
   } else if (action === DECISION_ACTIONS.MANUAL_CONNECT) {
     result = applyManualConnectionDecision(
       session,
       evidenceModel,
       indexes,
-      payload,
+      timedPayload,
       options,
       rawDecision,
     );
   } else if (action === DECISION_ACTIONS.REVERSE_COMPONENT) {
-    result = applyReverseComponentDecision(session, indexes, payload);
+    result = applyReverseComponentDecision(session, indexes, timedPayload);
   } else {
-    result = rawDecision(session, evidenceModel, indexes, action, payload, options);
+    result = rawDecision(session, evidenceModel, indexes, action, timedPayload, options);
   }
+  result = normalizeCommandEvidenceTimes(session, result, issuedAt);
   return recordSequentialConstructionTransaction(session, result, {
     action,
     actorProvenance: 'USER_MANUAL',
     reason: payload.reason,
     evidenceNote: payload.evidenceNote,
     decisionId: session.currentDecisionRequest?.decisionId || null,
-    payload,
+    payload: timedPayload,
     outcome: result.outcome,
+    createdAt: issuedAt,
   });
 }
 
@@ -134,6 +161,7 @@ export function runConstructionUntilBlocked(session, evidenceModel, indexes, opt
     action: 'RUN_UNTIL_BLOCKED',
     actorProvenance: 'USER_COMMAND',
     outcome: outcomes.at(-1) || 'NO_CHANGE',
+    createdAt: operationIssuedAt(options),
   });
   return Object.freeze({
     ...finalResult,
