@@ -144,6 +144,31 @@ assert.throws(
   }),
   /WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED/,
 );
+assert.throws(
+  () => createReceipt({
+    restoration: {
+      packageFingerprint: 'source-package-001',
+      sourceFingerprint: 'source-records-001',
+      packageSchema: 'SequentialWorkspacePackage.v2',
+      packageRevision: 0,
+    },
+  }),
+  /WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED/,
+  'an explicitly invalid restoration revision must not fall back to preview identity',
+);
+assert.throws(
+  () => createReceipt({
+    restoration: {
+      packageFingerprint: 'source-package-001',
+      sourceFingerprint: 'source-records-001',
+      packageSchema: 'SequentialWorkspacePackage.v1',
+      packageRevision: 1,
+    },
+    preview: preview(),
+  }),
+  /WORKSPACE_APPLY_PACKAGE_IDENTITY_MISMATCH/,
+  'valid restoration and preview identities must agree exactly',
+);
 
 const legacyReceipt = clone(receipt);
 delete legacyReceipt.packageSchema;
