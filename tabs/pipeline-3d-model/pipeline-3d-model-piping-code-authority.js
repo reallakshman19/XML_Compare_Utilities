@@ -1,6 +1,7 @@
 export const PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA = 'PipelinePipingCodeAuthorityPlan.v1';
 export const PIPELINE_PIPING_CODE_AUTHORITY_SCHEMA = 'PipelinePipingCodeAuthority.v1';
 export const PIPELINE_ELEMENT_PIPING_CODE_BINDING_SCHEMA = 'PipelineElementPipingCodeBinding.v1';
+export const PIPELINE_PIPING_CODE_CATALOG_ENTRY_SCHEMA = 'PipelinePipingCodeCatalogEntry.v1';
 
 const PROFILE_PLAN_SCHEMA = 'PipelineInputXmlProfileAuthorityPlan.v1';
 const ALLOWABLE_PLAN_SCHEMA = 'PipelineAllowableStressPlan.v1';
@@ -54,6 +55,47 @@ function requiredSectionIds(allowableStressPlan, profileAuthorityPlan, diagnosti
   return required;
 }
 
+function normalizedCatalogEntry(source, authorityIndex, diagnostics) {
+  const raw = source?.catalogEntry;
+  if (!plain(raw)) {
+    diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ENTRY_REQUIRED',
+      'A piping-code authority requires one selected catalog entry.', { authorityIndex }));
+    return null;
+  }
+  const catalogEntryId = text(raw.catalogEntryId ?? raw.id);
+  const codeFamily = text(raw.codeFamily);
+  const codeEdition = text(raw.codeEdition);
+  const caesarVersion = text(raw.caesarVersion);
+  const caesarPipingCode = positiveInteger(raw.caesarPipingCode ?? raw.pipingCode);
+  const sourceAuthority = text(raw.sourceAuthority);
+  const sourceReference = text(raw.sourceReference);
+  if (!catalogEntryId || !codeFamily || !codeEdition || !caesarVersion
+    || caesarPipingCode == null || !sourceAuthority || !sourceReference) {
+    diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ENTRY_INVALID',
+      'Selected catalog entry fields must be complete and valid.',
+      { authorityIndex, catalogEntryId, codeFamily, codeEdition, caesarVersion,
+        caesarPipingCode: raw.caesarPipingCode ?? raw.pipingCode,
+        sourceAuthority, sourceReference }));
+    return null;
+  }
+  if (caesarVersion !== '14.00') {
+    diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_VERSION_INVALID',
+      'Selected catalog entry must target the CAESAR 14 writer profile.',
+      { authorityIndex, catalogEntryId, caesarVersion }));
+    return null;
+  }
+  return freeze({
+    schema: PIPELINE_PIPING_CODE_CATALOG_ENTRY_SCHEMA,
+    catalogEntryId,
+    codeFamily,
+    codeEdition,
+    caesarVersion,
+    caesarPipingCode,
+    sourceAuthority,
+    sourceReference,
+  });
+}
+
 function normalizedAuthority(source, authorityIndex, sectionById, diagnostics) {
   if (!plain(source)) {
     diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_AUTHORITY_INVALID',
@@ -66,6 +108,8 @@ function normalizedAuthority(source, authorityIndex, sectionById, diagnostics) {
   const resolvedMode = text(source.resolvedMode);
   const caesarPipingCode = positiveInteger(source.caesarPipingCode ?? source.pipingCode);
   const sourceAuthority = text(source.sourceAuthority);
+  const sourceReference = text(source.sourceReference);
+  const catalogEntry = normalizedCatalogEntry(source, authorityIndex, diagnostics);
   const mismatched = section && (profileId !== section.profileId || resolvedMode !== section.resolvedMode);
   if (!section) diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_SECTION_INVALID',
     'A piping-code authority must reference an existing analysis section.',
@@ -77,24 +121,35 @@ function normalizedAuthority(source, authorityIndex, sectionById, diagnostics) {
   if (caesarPipingCode == null) diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_VALUE_INVALID',
     'A piping-code authority requires a positive integer CAESAR PIPING_CODE.',
     { authorityIndex, analysisSectionId, caesarPipingCode: source.caesarPipingCode ?? source.pipingCode }));
-  if (!sourceAuthority) diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_SOURCE_REQUIRED',
-    'A piping-code authority requires nonblank provenance.',
+  if (!sourceAuthority || !sourceReference) diagnostics.push(diagnostic(
+    'PIPELINE_PIPING_CODE_SOURCE_REQUIRED',
+    'A piping-code authority requires nonblank source authority and source reference.',
     { authorityIndex, analysisSectionId }));
-  if (!section || mismatched || caesarPipingCode == null || !sourceAuthority) return null;
+  const catalogConflict = catalogEntry && (caesarPipingCode !== catalogEntry.caesarPipingCode
+    || sourceAuthority !== catalogEntry.sourceAuthority
+    || sourceReference !== catalogEntry.sourceReference);
+  if (catalogConflict) diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_CONFLICT',
+    'Piping-code authority value and provenance must match the selected catalog entry.',
+    { authorityIndex, analysisSectionId, catalogEntryId: catalogEntry.catalogEntryId }));
+  if (!section || mismatched || caesarPipingCode == null || !sourceAuthority || !sourceReference
+    || !catalogEntry || catalogConflict) return null;
   return freeze({
     schema: PIPELINE_PIPING_CODE_AUTHORITY_SCHEMA,
     authorityIndex,
     analysisSectionId,
     profileId,
     resolvedMode,
+    catalogEntryId: catalogEntry.catalogEntryId,
+    catalogEntry,
     caesarPipingCode,
     sourceAuthority,
-    sourceReference: text(source.sourceReference),
+    sourceReference,
   });
 }
 
 function authorityMap(inputs, sectionById, required, diagnostics) {
   const bySection = new Map();
+  const catalogOwners = new Map();
   inputs.forEach((source, authorityIndex) => {
     const item = normalizedAuthority(source, authorityIndex, sectionById, diagnostics);
     if (!item) return;
@@ -105,7 +160,15 @@ function authorityMap(inputs, sectionById, required, diagnostics) {
           authorityIndexes: [bySection.get(item.analysisSectionId).authorityIndex, authorityIndex] }));
       return;
     }
+    if (catalogOwners.has(item.catalogEntryId)) {
+      diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ID_DUPLICATE',
+        'Selected catalog entry IDs must be unique across admitted section authorities.',
+        { catalogEntryId: item.catalogEntryId,
+          analysisSectionIds: [catalogOwners.get(item.catalogEntryId), item.analysisSectionId] }));
+      return;
+    }
     bySection.set(item.analysisSectionId, item);
+    catalogOwners.set(item.catalogEntryId, item.analysisSectionId);
   });
   for (const analysisSectionId of required) if (!bySection.has(analysisSectionId)) {
     diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_AUTHORITY_REQUIRED',

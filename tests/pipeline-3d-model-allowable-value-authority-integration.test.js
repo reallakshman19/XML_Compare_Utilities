@@ -13,16 +13,27 @@ const codeSources = [
   source('VENDOR-QUALIFICATION', 'GRE Vendor Qualification', 'R2', 'c'),
 ];
 const allowableSource = source('APPROVED-MATERIAL-SHEET', 'Approved Material Sheet', 'R4', 'd');
+const catalogEntries = [
+  { catalogEntryId: 'CODE-NORMAL-R1', codeFamily: 'PROJECT-CODE', codeEdition: 'DB-R1',
+    caesarVersion: '14.00', caesarPipingCode: 101, sourceAuthority: codeSources[0].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[0]) },
+  { catalogEntryId: 'CODE-B314-2022', codeFamily: 'ASME B31.4', codeEdition: '2022',
+    caesarVersion: '14.00', caesarPipingCode: 202, sourceAuthority: codeSources[1].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[1]) },
+  { catalogEntryId: 'CODE-GRE-R2', codeFamily: 'GRE VENDOR BASIS', codeEdition: 'R2',
+    caesarVersion: '14.00', caesarPipingCode: 303, sourceAuthority: codeSources[2].sourceId,
+    sourceReference: approvedSourceReferenceKey(codeSources[2]) },
+];
 const pipingCodeAuthorities = [
   { analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL',
     caesarPipingCode: 101, sourceAuthority: codeSources[0].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[0]) },
+    sourceReference: approvedSourceReferenceKey(codeSources[0]), catalogEntry: catalogEntries[0] },
   { analysisSectionId: 'AS2', profileId: 'asme-b31.4', resolvedMode: 'ASME_B31_4',
     caesarPipingCode: 202, sourceAuthority: codeSources[1].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[1]) },
+    sourceReference: approvedSourceReferenceKey(codeSources[1]), catalogEntry: catalogEntries[1] },
   { analysisSectionId: 'AS3', profileId: 'gre', resolvedMode: 'GRE',
     caesarPipingCode: 303, sourceAuthority: codeSources[2].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[2]) },
+    sourceReference: approvedSourceReferenceKey(codeSources[2]), catalogEntry: catalogEntries[2] },
 ];
 const caseValues = (num, temperature, hotAllow, hotSy, hotSu) => ({
   num, temperature, hotAllow, hotSy, hotSu,
@@ -33,8 +44,8 @@ const authority = (analysisSectionId, profileId, resolvedMode, base, index) => (
   coldAllow: base, sy: base + 100, su: base + 200,
   sourceAuthority: allowableSource.sourceId,
   sourceReference: approvedSourceReferenceKey(allowableSource),
-  codeFamily: index === 0 ? 'PROJECT-CODE' : index === 1 ? 'ASME B31.4' : 'GRE VENDOR BASIS',
-  codeEdition: index === 0 ? 'DB-R1' : index === 1 ? '2022' : 'R2',
+  codeFamily: catalogEntries[index].codeFamily,
+  codeEdition: catalogEntries[index].codeEdition,
   codeSource: structuredClone(codeSources[index]),
   allowableSource: structuredClone(allowableSource),
   cases: [
@@ -85,8 +96,11 @@ assert.equal(plan.elements[0].allowableStress.allowableValueAuthority
   .codeSourceAuthority.codeEdition, 'DB-R1');
 assert.equal(plan.elements[2].allowableStress.allowableValueAuthority
   .codeSourceAuthority.codeSource.referenceKey, approvedSourceReferenceKey(codeSources[1]));
+assert.equal(plan.elements[2].allowableStress.pipingCodeAuthority.catalogEntry.codeFamily,
+  'ASME B31.4');
 assert.equal(Object.isFrozen(plan.allowableValueAuthorityPlan.authorities[0]
   .codeSourceAuthority.allowableSource), true);
+assert.equal(Object.isFrozen(plan.pipingCodeAuthorityPlan.authorities[0].catalogEntry), true);
 
 const xml = buildInputXmlPipingModelXml(plan);
 assert.match(xml, /NUMALLOW="3"/);
@@ -119,6 +133,9 @@ writerBlocked((value) => { delete value.elements[0].allowableStress.allowableVal
 writerBlocked((value) => { value.elements[0].allowableStress.pipingCodeAuthority.sourceReference = 'FORGED'; });
 writerBlocked((value) => { value.elements[0].allowableStress.allowableValueAuthority
   .codeSourceAuthority.allowableSource.sha256 = digest('e'); });
+writerBlocked((value) => { delete value.elements[0].allowableStress.pipingCodeAuthority.catalogEntry; });
+writerBlocked((value) => { value.pipingCodeAuthorityPlan.authorities[0]
+  .catalogEntry.codeFamily = 'FORGED'; });
 
 const missingInput = profileInput();
 missingInput.allowableValueAuthorities.pop();
@@ -139,8 +156,12 @@ const wrongProvenanceInput = profileInput();
 wrongProvenanceInput.pipingCodeAuthorities[0].sourceReference = 'WRONG';
 const wrongProvenance = buildPipelineInputXmlDocumentPlan(wrongProvenanceInput);
 assert.equal(wrongProvenance.ready, false);
-assert.ok(wrongProvenance.blockerCodes
-  .includes('PIPELINE_CODE_SOURCE_PIPING_PROVENANCE_MISMATCH'));
+assert.ok(wrongProvenance.blockerCodes.includes('PIPELINE_PIPING_CODE_CATALOG_CONFLICT'));
+const missingCatalogInput = profileInput();
+delete missingCatalogInput.pipingCodeAuthorities[0].catalogEntry;
+const missingCatalog = buildPipelineInputXmlDocumentPlan(missingCatalogInput);
+assert.equal(missingCatalog.ready, false);
+assert.ok(missingCatalog.blockerCodes.includes('PIPELINE_PIPING_CODE_CATALOG_ENTRY_REQUIRED'));
 const noAllowable = buildPipelineInputXmlDocumentPlan(profileDocumentInput());
 assert.equal(Object.hasOwn(noAllowable, 'allowableValueAuthorityPlan'), false);
 const nonProfile = buildPipelineInputXmlDocumentPlan({
