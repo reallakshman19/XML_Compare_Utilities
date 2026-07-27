@@ -33,9 +33,7 @@ function resultEvidence(result) {
 }
 
 function readableCandidate(row, config = {}) {
-  const confidenceReasonCodes = [...(row.confidenceReasons || [])];
-  const auditRemark = candidateAuditRemark(row, config);
-  return { ...row, confidenceReasonCodes, confidenceReasons: [auditRemark], auditRemark };
+  return { ...row, auditRemark: candidateAuditRemark(row, config) };
 }
 
 export function appendCandidateLedger(candidateLedger, base, candidates, result) {
