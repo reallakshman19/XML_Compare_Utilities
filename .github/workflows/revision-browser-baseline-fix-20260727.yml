@@ -1,4 +1,4 @@
-name: Revision Compare browser baseline final publisher
+name: Revision Compare keyboard scope certification
 
 on:
   pull_request:
@@ -9,9 +9,8 @@ permissions:
   contents: write
 
 env:
-  TARGET_BRANCH: owner/fix-revision-compare-browser-baseline-20260727
-  EXPECTED_TARGET_SHA: 0e92c7d02c28352adf66e25d31e4dbd5df2b4674
-  PATCH_SOURCE_COMMIT: 21f23b8b65fc3d9d38c85ad259c419030acfd3dc
+  TARGET_BRANCH: owner/fix-revision-scope-keyboard-20260727
+  EXPECTED_TARGET_SHA: 505ae226a8544917c5c4ae813d215e55453a5814
   CI: 'true'
 
 jobs:
@@ -28,35 +27,46 @@ jobs:
       - name: Enforce exact baseline head
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_TARGET_SHA"
 
-      - name: Replay four proven browser corrections
+      - name: Apply keyboard-stable scope toggles
         run: |
-          git show "$PATCH_SOURCE_COMMIT:.github/workflows/revision-browser-baseline-fix-20260727.yml" > /tmp/publisher.yml
           python3 - <<'PY'
           from pathlib import Path
-          text = Path('/tmp/publisher.yml').read_text()
-          marker = "          python3 - <<'PY'\n"
-          start = text.index(marker) + len(marker)
-          end = text.index("          PY\n", start)
-          lines = text[start:end].splitlines()
-          Path('/tmp/browser-patch.py').write_text('\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n')
-          PY
-          python3 /tmp/browser-patch.py
 
-      - name: Add no-common intake barrier
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('tests/browser/revision-compare-rc001.spec.mjs')
-          text = path.read_text()
-          old = """  await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
-            await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));"""
-          new = """  await upload(page, 'baseline', 'a.json', staged(['/A-ONLY']));
-            await expect(page.locator('[data-slot=\"baseline\"] strong')).toContainText('ready');
-            await upload(page, 'candidate', 'b.json', staged(['/B-ONLY']));
-            await expect(page.getByRole('heading', { name: 'Confirm branch scope' })).toBeVisible();"""
-          if old not in text:
-              raise SystemExit('Expected no-common upload block not found')
-          path.write_text(text.replace(old, new, 1))
+          def replace(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected block not found in {path}')
+              file.write_text(text.replace(old, new, 1))
+
+          replace('tests/browser/revision-compare-rc002.spec.mjs',
+            """  await expect(scopeBranch).toBeEnabled();
+            await scopeBranch.uncheck();
+            await expect(scopeBranch).not.toBeChecked();""",
+            """  await expect(scopeBranch).toBeEnabled();
+            await scopeBranch.focus();
+            await page.keyboard.press('Space');
+            await expect(scopeBranch).not.toBeChecked();""")
+
+          replace('tests/browser/revision-compare-rc003.spec.mjs',
+            """  await expect(branch).toBeEnabled();
+            await branch.uncheck(); await expect(branch).not.toBeChecked();
+            await branch.check(); await expect(branch).toBeChecked();""",
+            """  await expect(branch).toBeEnabled();
+            await branch.focus(); await page.keyboard.press('Space');
+            await expect(branch).not.toBeChecked();
+            await branch.focus(); await page.keyboard.press('Space');
+            await expect(branch).toBeChecked();""")
+
+          replace('tests/browser/revision-compare-rc004.spec.mjs',
+            """  await expect(common).toBeEnabled();
+            await common.uncheck(); await expect(common).not.toBeChecked();
+            await common.check(); await expect(common).toBeChecked();""",
+            """  await expect(common).toBeEnabled();
+            await common.focus(); await page.keyboard.press('Space');
+            await expect(common).not.toBeChecked();
+            await common.focus(); await page.keyboard.press('Space');
+            await expect(common).toBeChecked();""")
           PY
 
       - name: Set up Node
@@ -70,11 +80,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: Focused browser regressions
+      - name: Focused scope regressions
         run: |
           npx playwright test \
-            tests/browser/revision-compare-rc001.spec.mjs \
-            tests/browser/revision-compare-evidence-package.spec.mjs \
             tests/browser/revision-compare-rc002.spec.mjs \
             tests/browser/revision-compare-rc003.spec.mjs \
             tests/browser/revision-compare-rc004.spec.mjs \
@@ -89,13 +97,11 @@ jobs:
       - name: Repository-wide validation
         run: npm test
 
-      - name: Enforce five-file scope
+      - name: Enforce three-file scope
         run: |
           git diff --check
           git diff --name-only | sort > /tmp/actual
           cat > /tmp/expected <<'EOF'
-          tests/browser/revision-compare-evidence-package.spec.mjs
-          tests/browser/revision-compare-rc001.spec.mjs
           tests/browser/revision-compare-rc002.spec.mjs
           tests/browser/revision-compare-rc003.spec.mjs
           tests/browser/revision-compare-rc004.spec.mjs
@@ -107,10 +113,8 @@ jobs:
         run: |
           git config user.name 'Owner Release Bot'
           git config user.email 'owner-release-bot@users.noreply.github.com'
-          git add tests/browser/revision-compare-rc001.spec.mjs \
-            tests/browser/revision-compare-evidence-package.spec.mjs \
-            tests/browser/revision-compare-rc002.spec.mjs \
+          git add tests/browser/revision-compare-rc002.spec.mjs \
             tests/browser/revision-compare-rc003.spec.mjs \
             tests/browser/revision-compare-rc004.spec.mjs
-          git commit -m 'test: stabilize Revision Compare browser authority checks'
+          git commit -m 'test: use keyboard scope toggles in browser qualification'
           git push origin HEAD:${TARGET_BRANCH}
