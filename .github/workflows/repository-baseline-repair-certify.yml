@@ -9,7 +9,7 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
       EXPECTED_TARGET_SHA: fd4e7a773ec5650c9a51d828511f8530f3fd1c39
@@ -32,23 +32,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture elastic-bend static output
-        id: bend_static
+      - name: Capture repository-wide validation
+        id: repository_validation
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          node tests/pipeline-3d-model-elastic-bend-static.test.js > elastic-bend-static.log 2>&1
+          npm test > npm-test.log 2>&1
           status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
 
-      - name: Upload elastic-bend static output
+      - name: Upload repository-wide output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: elastic-bend-static-output-v3
-          path: elastic-bend-static.log
+          name: clean-baseline-final-npm-test-output-v4
+          path: npm-test.log
 
-      - name: Require elastic-bend static pass
-        run: test "${{ steps.bend_static.outputs.status }}" = "0"
+      - name: Require repository-wide pass
+        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
+
+      - name: Verify clean worktree
+        run: test -z "$(git status --short)"
