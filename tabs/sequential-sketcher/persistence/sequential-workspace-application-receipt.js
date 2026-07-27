@@ -1,6 +1,7 @@
 import { stableToken } from '../sequential-sketcher-contract.js';
 import { SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY } from '../policy/sequential-external-boundary-policy.js';
 import { SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY } from '../policy/sequential-construction-tolerance-policy.js';
+import { SEQUENTIAL_WORKSPACE_JOURNAL_IMPACTS } from './sequential-workspace-import-preview.js';
 
 export const SEQUENTIAL_WORKSPACE_APPLICATION_RECEIPT_SCHEMA = 'SequentialWorkspaceApplicationReceipt.v1';
 
@@ -17,6 +18,30 @@ function fingerprintPayload(value) {
 }
 function frozenStrings(values = []) {
   return Object.freeze([...values].map(text).filter(Boolean));
+}
+function validPackageSchema(value) {
+  return ['SequentialWorkspacePackage.v1', 'SequentialWorkspacePackage.v2'].includes(value);
+}
+function packageIdentity(options) {
+  const packageSchema = text(options.restoration?.packageSchema || options.preview?.packageSchema);
+  const packageRevision = Number(options.restoration?.packageRevision || options.preview?.packageRevision);
+  if (!validPackageSchema(packageSchema) || !Number.isSafeInteger(packageRevision) || packageRevision < 1) {
+    fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
+  }
+  return { packageSchema, packageRevision };
+}
+function validateReceiptPackageIdentity(receipt, index) {
+  const hasSchema = receipt.packageSchema !== undefined;
+  const hasRevision = receipt.packageRevision !== undefined;
+  const hasImpact = receipt.impact?.journalImpact !== undefined;
+  if (!hasSchema && !hasRevision && !hasImpact) return;
+  if (!hasSchema || !hasRevision || !hasImpact || !validPackageSchema(receipt.packageSchema)
+    || !Number.isSafeInteger(receipt.packageRevision) || receipt.packageRevision < 1) {
+    fail(`WORKSPACE_APPLY_RECEIPT_PACKAGE_IDENTITY_INVALID:${index}`);
+  }
+  if (!SEQUENTIAL_WORKSPACE_JOURNAL_IMPACTS.includes(receipt.impact.journalImpact)) {
+    fail(`WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:${index}`);
+  }
 }
 
 export function sequentialWorkspaceApplicationReceiptFingerprint(value) {
@@ -47,12 +72,14 @@ function impact(preview) {
     packageTotals: Object.freeze({ ...(preview.packageTotals || {}) }),
     decisionRegisterSummary: preview.decisionRegisterSummary
       ? Object.freeze({ ...preview.decisionRegisterSummary }) : null,
+    journalImpact: preview.journalImpact,
     hasDestructiveChanges: Boolean(preview.hasDestructiveChanges),
   });
 }
 
 export function createSequentialWorkspaceApplicationReceipt(options = {}) {
   const approval = validateSequentialWorkspaceApplicationApproval(options.preview, options);
+  const identity = packageIdentity(options);
   const packageFingerprint = text(options.packageFingerprint || options.restoration?.packageFingerprint);
   const beforeFingerprint = text(options.beforeFingerprint);
   const afterFingerprint = text(options.afterFingerprint);
@@ -68,6 +95,7 @@ export function createSequentialWorkspaceApplicationReceipt(options = {}) {
     reason: approval.reason,
     evidenceNote: approval.evidenceNote,
     packageFingerprint,
+    ...identity,
     packageSourceFingerprint: options.restoration?.sourceFingerprint || options.preview?.packageSourceFingerprint || null,
     beforeWorkspaceFingerprint: beforeFingerprint,
     afterWorkspaceFingerprint: afterFingerprint,
@@ -94,6 +122,7 @@ export function validateSequentialWorkspaceApplicationReceipt(receipt, index = 0
     || !text(receipt.beforeWorkspaceFingerprint) || !text(receipt.afterWorkspaceFingerprint)) {
     fail(`WORKSPACE_APPLY_RECEIPT_EVIDENCE_INVALID:${index}`);
   }
+  validateReceiptPackageIdentity(receipt, index);
   if (receipt.impact?.hasDestructiveChanges && !text(receipt.evidenceNote)) {
     fail(`WORKSPACE_APPLY_RECEIPT_DESTRUCTIVE_EVIDENCE_MISSING:${index}`);
   }
