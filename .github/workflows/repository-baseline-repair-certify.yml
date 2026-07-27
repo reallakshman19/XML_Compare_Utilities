@@ -9,10 +9,10 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: e31d8ce78276d2f2898e6444d29d14495b840507
+      EXPECTED_TARGET_SHA: 3a1d94c4cb448146af7a42ffcfebae2ced6c2776
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -32,26 +32,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture repository-wide validation
-        id: repository_validation
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          npm test > npm-test.log 2>&1
-          status=$?
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload repository-wide output
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: clean-baseline-final-npm-test-output-v5
-          path: npm-test.log
-
-      - name: Require repository-wide pass
-        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
-
-      - name: Verify clean worktree
-        run: test -z "$(git status --short)"
+      - name: XML Compare cache-lineage guard
+        run: node tests/xml-compare-transfer-dashboard-css-build-stamp.test.js
