@@ -253,6 +253,23 @@ assert.throws(
   () => buildSequentialWorkspaceImportPreview({ ...adoptedRestoration, journalState: { schema: 'Wrong' } }, currentAdopted),
   /WORKSPACE_IMPORT_PACKAGE_JOURNAL_INVALID/,
 );
+for (const invalidJournalState of [false, 0, '']) {
+  assert.throws(
+    () => sequentialWorkspaceCurrentStateFingerprint({ ...currentAdopted, journalState: invalidJournalState }),
+    /WORKSPACE_IMPORT_JOURNAL_STATE_INVALID/,
+    'falsey-but-present current authority must fail closed',
+  );
+  assert.throws(
+    () => buildSequentialWorkspaceImportPreview({ ...v1Restoration, journalState: invalidJournalState }, currentModel),
+    /WORKSPACE_IMPORT_PACKAGE_JOURNAL_INVALID/,
+    'falsey-but-present package authority must fail closed',
+  );
+  assert.throws(
+    () => sequentialWorkspaceRestorationStateFingerprint({ ...v1Restoration, journalState: invalidJournalState }),
+    /WORKSPACE_IMPORT_JOURNAL_STATE_INVALID/,
+    'falsey-but-present restoration authority must not collapse to absent',
+  );
+}
 assert.throws(
   () => buildSequentialWorkspaceImportPreview({ schema: 'WrongSchema' }, currentModel),
   /WORKSPACE_IMPORT_PREVIEW_RESTORATION_INVALID/,
