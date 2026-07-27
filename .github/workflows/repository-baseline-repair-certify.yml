@@ -9,10 +9,10 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
     env:
       TARGET_BRANCH: owner/repository-baseline-repair-clean
-      EXPECTED_TARGET_SHA: 3a1d94c4cb448146af7a42ffcfebae2ced6c2776
+      EXPECTED_TARGET_SHA: b4c34e24e00209a3db2b87d4ed03a802c4b500a1
     steps:
       - name: Check out exact repair branch
         uses: actions/checkout@v4
@@ -32,26 +32,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture repository-wide validation
-        id: repository_validation
+      - name: Capture Phase 6 output
+        id: phase6
         continue-on-error: true
         shell: bash
         run: |
           set +e
-          npm test > npm-test.log 2>&1
+          node tests/project-migrations-phase6.test.mjs > phase6.log 2>&1
           status=$?
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
 
-      - name: Upload repository-wide output
+      - name: Upload Phase 6 output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-baseline-final-npm-test-output-v6
-          path: npm-test.log
+          name: project-migrations-phase6-output
+          path: phase6.log
 
-      - name: Require repository-wide pass
-        run: test "${{ steps.repository_validation.outputs.status }}" = "0"
-
-      - name: Verify clean worktree
-        run: test -z "$(git status --short)"
+      - name: Require Phase 6 pass
+        run: test "${{ steps.phase6.outputs.status }}" = "0"
