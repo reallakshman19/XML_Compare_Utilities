@@ -15,6 +15,7 @@ class FakeElement {
     this.value = '';
     this.textContent = '';
     this.attributes = new Map();
+    this.style = { cssText: '' };
   }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   removeAttribute(name) { this.attributes.delete(name); }
@@ -111,7 +112,7 @@ function fixture(options = {}) {
     root: dom.root,
     gateway,
     readCurrentState: () => model,
-    now: () => { nowCount += 1; return ISSUED_AT; },
+    now: options.now || (() => { nowCount += 1; return ISSUED_AT; }),
   });
   return Object.freeze({
     ...dom, model, gateway, panel, preparedInputs,
@@ -130,6 +131,9 @@ function commandButton(test, commandType) {
   assert.equal(test.panel.getState().active, false);
   assert.equal(test.elements.panel.hidden, true);
   assert.equal(test.elements.panel.attributes.get('inert'), '');
+  assert.match(test.elements.panel.style.cssText, /position:absolute/);
+  assert.match(test.elements.panel.style.cssText, /z-index:8/);
+  assert.match(test.elements.actor.style.cssText, /width:100%/);
   assert(test.elements.commands.every((button) => button.disabled));
   test.panel.setActive(true);
   assert.equal(test.elements.panel.hidden, false);
@@ -153,6 +157,14 @@ function commandButton(test, commandType) {
   assert.match(test.elements.preview.textContent, /Prepared ID: SPREP-1/);
   assert(test.elements.commands.every((button) => button.disabled));
   assert.equal(test.elements.accept.disabled, false);
+}
+
+{
+  const test = fixture({ now: () => 'not-an-iso-time' });
+  test.panel.setActive(true);
+  test.elements.actor.value = 'operator';
+  assert.throws(() => test.panel.prepare('ADVANCE_ONE'), /exact ISO timestamp/);
+  assert.equal(test.prepareCount(), 0);
 }
 
 {
