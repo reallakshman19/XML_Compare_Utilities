@@ -1,4 +1,10 @@
 import { parseAppliesToDirective } from './navis-tag-applies-to.js';
+import {
+  candidateFinalBasis,
+  nearestRejectedFinalBasis,
+  resolvedFinalBasis,
+  unmatchedFinalBasis,
+} from './navis-tag-audit-remarks.js';
 import { parseNavisTagXml } from './navis-tag-xml-parser.js';
 
 export const UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE = 'Refer Navis file to locate Tag';
@@ -133,7 +139,7 @@ function addEvidence(record, keys, tagIds) {
   if (tagId) tagIds.add(tagId);
 }
 
-function matchedNavisEvidence(audit) {
+function directlyMatchedNavisEvidence(audit) {
   const keys = new Set();
   const tagIds = new Set();
   for (const decision of audit?.decisions || []) addEvidence(decision, keys, tagIds);
@@ -141,6 +147,14 @@ function matchedNavisEvidence(audit) {
     if (row.ledgerKind === 'ACCEPTED_CANDIDATE' && row.withinTolerance) addEvidence(row, keys, tagIds);
   }
   return { keys, tagIds };
+}
+
+function accountedNavisEvidence(audit) {
+  const accounted = directlyMatchedNavisEvidence(audit);
+  for (const row of audit?.candidateLedger || []) {
+    if (row.ledgerKind === 'NEAREST_REJECTED') addEvidence(row, accounted.keys, accounted.tagIds);
+  }
+  return accounted;
 }
 
 function candidateLedgerNavisParse(audit) {
@@ -177,7 +191,7 @@ function navisParseForOutput(audit, config, explicitNavisParse) {
 }
 
 function unmatchedNavisRows(audit, navisParse, config) {
-  const accounted = matchedNavisEvidence(audit);
+  const accounted = accountedNavisEvidence(audit);
   const rows = [];
   for (const tag of navisParse?.tags || []) {
     const key = evidenceKey(tag);
@@ -188,7 +202,7 @@ function unmatchedNavisRows(audit, navisParse, config) {
       'Name of the element': UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE,
       PIPE: '', POS: '', 'Navis Tag ID': tagId, 'Navis Tag POS': pointLabel(tag.position),
       Tag: baseTagText(tag.commentBody, config), 'Support ISONOTE': '', confidence: 'UNRESOLVED',
-      Basis: 'NO_PS_MATCH | REFER_NAVIS_FILE_TO_LOCATE_TAG',
+      Basis: unmatchedFinalBasis(),
     });
   }
   return rows;
@@ -223,27 +237,6 @@ function directTag(decision, config) {
 function propagatedBaseTags(decision) {
   return unique((decision?.propagatedIsonotes || []).map((item) => item.baseIsonote || item.note));
 }
-function propagationBasis(rows) {
-  return unique((rows || []).map((row) => [
-    `APPLIES_TO_TAG_${text(row.sourceTagId) || 'UNKNOWN'}`, row.pipeMatchBasis,
-    row.sourceAxis ? `SOURCE_AXIS=${row.sourceAxis}` : '', row.targetPipeAxis ? `TARGET_AXIS=${row.targetPipeAxis}` : '',
-    Number.isFinite(Number(row.alongAxisDeltaMm)) ? `STATION=${compact(row.alongAxisDeltaMm)}mm` : '',
-    Number.isFinite(Number(row.parallelOffsetMm)) ? `OFFSET=${compact(row.parallelOffsetMm)}mm` : '',
-    Number.isFinite(Number(row.elevationDeltaMm)) ? `EL=${compact(row.elevationDeltaMm)}mm` : '',
-  ].filter(Boolean).join('; ')));
-}
-
-function candidateReviewBasis(row) {
-  const ambiguous = row.decisionStatus === 'AMBIGUOUS';
-  const outcome = ambiguous ? 'IN_TOLERANCE_AMBIGUOUS' : 'IN_TOLERANCE_RUNNER_UP';
-  const operator = Number(row.scoreGap) < Number(row.requiredScoreGap) ? '<' : '>=';
-  const scoreGap = row.scoreGap == null ? '' : `SCORE_GAP=${compact(row.scoreGap, 6)}${operator}${compact(row.requiredScoreGap, 6)}`;
-  return unique([
-    outcome, row.decisionReason, `CANDIDATE_RANK=${row.candidateRank}`,
-    `SCORE=${compact(row.score, 6)}`, row.topCandidateTagId ? `TOP_TAG=${row.topCandidateTagId}` : '',
-    row.runnerUpTagId ? `RUNNER_UP_TAG=${row.runnerUpTagId}` : '', scoreGap,
-  ]).join(' | ');
-}
 
 function candidateReviewRows(audit, config) {
   const rows = [];
@@ -262,10 +255,36 @@ function candidateReviewRows(audit, config) {
       Tag: baseTagText(candidate.commentBody, config),
       'Support ISONOTE': '',
       confidence: candidate.decisionStatus === 'AMBIGUOUS' ? 'AMBIGUOUS' : 'NOT_SELECTED',
-      Basis: candidateReviewBasis(candidate),
+      Basis: candidateFinalBasis(candidate, config),
     });
   }
   return rows;
+}
+
+function nearestRejectedRows(audit, config) {
+  const matched = directlyMatchedNavisEvidence(audit);
+  const selected = new Map();
+  for (const row of audit?.candidateLedger || []) {
+    if (row.ledgerKind !== 'NEAREST_REJECTED') continue;
+    const key = evidenceKey(row) || `TAG:${text(row.tagId)}`;
+    const tagId = text(row.tagId);
+    if ((key && matched.keys.has(key)) || (tagId && matched.tagIds.has(tagId))) continue;
+    const current = selected.get(key);
+    const distance = Number(row.normalizedToleranceDistance ?? row.spatialDistanceMm);
+    const currentDistance = Number(current?.normalizedToleranceDistance ?? current?.spatialDistanceMm);
+    if (!current || (Number.isFinite(distance) && (!Number.isFinite(currentDistance) || distance < currentDistance))) selected.set(key, row);
+  }
+  return [...selected.values()].map((row) => ({
+    'Name of the element': exactCandidateIdentity(row),
+    PIPE: row.resolvedPipe || row.inputPipe || '',
+    POS: pointLabel(row.supportPosition),
+    'Navis Tag ID': text(row.tagId),
+    'Navis Tag POS': pointLabel(row.tagPosition),
+    Tag: baseTagText(row.commentBody, config),
+    'Support ISONOTE': '',
+    confidence: 'OUTSIDE_TOLERANCE',
+    Basis: nearestRejectedFinalBasis(row, config),
+  }));
 }
 
 function resolvedOutputRows(audit, config) {
@@ -287,7 +306,6 @@ function resolvedOutputRows(audit, config) {
       const source = sources.byRow.get(row.sourceTableRowId) || sources.byTag.get(String(row.sourceTagId));
       if (source?.confidence) confidence.push(source.confidence);
     }
-    const basis = direct ? ['DIRECT_TAG_PROXIMITY', ...propagationBasis(propagationRows)] : propagationBasis(propagationRows);
     const identity = selectOutputSupportIdentity(decision);
     const confidenceValue = unique(confidence).join('|') || (propagationRows.length ? 'PROPAGATED' : decision.confidence || '');
     output.push({
@@ -295,23 +313,27 @@ function resolvedOutputRows(audit, config) {
       POS: pointLabel(decision.supportPosition), 'Navis Tag ID': tagIds.join('|'),
       'Navis Tag POS': unique(navisPositions).join(' | '), Tag: tags.join(' | '),
       'Support ISONOTE': finalIsonote(identity, tags, config, confidenceValue),
-      confidence: confidenceValue, Basis: unique(basis).join(' | '),
+      confidence: confidenceValue,
+      Basis: resolvedFinalBasis({ direct: Boolean(direct), decision, propagationRows }),
     });
   }
   return output;
 }
 
 export function buildFinalOutputRows(audit, inputConfig = {}, navisParse = null) {
-  const config = { ...(audit?.config || {}), ...inputConfig };
+  const config = { ...inputConfig, ...(audit?.config || {}) };
+  const parsed = navisParseForOutput(audit, config, navisParse);
   return [
     ...resolvedOutputRows(audit, config),
     ...candidateReviewRows(audit, config),
-    ...unmatchedNavisRows(audit, navisParseForOutput(audit, config, navisParse), config),
+    ...nearestRejectedRows(audit, config),
+    ...unmatchedNavisRows(audit, parsed, config),
   ];
 }
 
 export const _test = Object.freeze({
-  baseTagText, finalIsonote, identityCandidates, propagationBasis, evidenceKey,
-  matchedNavisEvidence, unmatchedNavisRows, candidateLedgerNavisParse,
-  navisParseForOutput, candidateReviewBasis, candidateReviewRows, exactCandidateIdentity,
+  baseTagText, finalIsonote, identityCandidates, evidenceKey,
+  directlyMatchedNavisEvidence, accountedNavisEvidence, unmatchedNavisRows,
+  candidateLedgerNavisParse, navisParseForOutput, candidateReviewRows,
+  nearestRejectedRows, exactCandidateIdentity,
 });
