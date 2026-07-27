@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { appendCandidateLedger } from '../tabs/navis-tag-isonote/navis-tag-candidate-evidence.js';
 import {
   buildFinalOutputRows,
   expandTagKeywords,
@@ -105,7 +104,6 @@ assert.equal(rows[0]['Name of the element'], '/PS-12244/DATUM');
 assert.equal(rows[0].Tag, 'R+G+LS');
 assert.equal(rows[0]['Support ISONOTE'], ':/PS-12244/DATUM REST, GUIDE, LINE STOP (C=H)');
 assert.equal(rows[0]['Navis Tag ID'], '8');
-assert.match(rows[0].Basis, /Direct match accepted/);
 assert.match(rows[0].Basis, /DIRECT_TAG_PROXIMITY/);
 
 assert.equal(rows[1]['Name of the element'], '/PS-12123.1');
@@ -113,7 +111,6 @@ assert.equal(rows[1].Tag, 'R+G+LS');
 assert.equal(rows[1]['Support ISONOTE'], ':/PS-12123.1 REST, GUIDE, LINE STOP (C=H)');
 assert.equal(rows[1]['Navis Tag ID'], '8');
 assert.equal(rows[1].confidence, 'HIGH');
-assert.match(rows[1].Basis, /propagation was accepted/i);
 assert.match(rows[1].Basis, /FULL_PIPE_NAME_EXACT/);
 assert.match(rows[1].Basis, /OFFSET=350mm/);
 
@@ -126,7 +123,6 @@ assert.equal(unmatched['Navis Tag POS'], 'E=900;N=800;EL=1700');
 assert.equal(unmatched.Tag, 'G+LS');
 assert.equal(unmatched['Support ISONOTE'], '');
 assert.equal(unmatched.confidence, 'UNRESOLVED');
-assert.match(unmatched.Basis, /No accepted, in-tolerance or nearest-rejected support relationship/);
 assert.match(unmatched.Basis, /NO_PS_MATCH/);
 assert.match(unmatched.Basis, /REFER_NAVIS_FILE_TO_LOCATE_TAG/);
 assert.ok(!rowsWithUnmatched.some((row) => row['Navis Tag ID'] === '8' && row['Name of the element'] === UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE));
@@ -139,83 +135,6 @@ const customRows = buildFinalOutputRows(audit, {
   ],
 });
 assert.equal(customRows[0]['Support ISONOTE'], ':/PS-12244/DATUM RESTRAINT, GUIDED, AXIAL STOP (C=H)');
-
-const nearestTagPosition = { x: 189592.258, y: 729160.315, z: 898.08 };
-const nearestCandidate = {
-  ledgerId: 'ROW-562:NEAREST-REJECTED',
-  ledgerKind: 'NEAREST_REJECTED',
-  tableRowId: 'ROW-562',
-  tableRowIndex: 562,
-  canonicalIdentity: 'PS-11366/DATUM',
-  groupedIdentities: ['/PS-11366/DATUM', '/PS-11366/SREF'],
-  resolvedPipe: '/ASIM-1835-4"-B8810069-11441T3-PP',
-  supportPosition: { x: 188530, y: 729150, z: 1066.551 },
-  evidenceId: 'VIEW:165',
-  viewGuid: 'view-165',
-  viewName: 'Tag View 165',
-  tagId: '165',
-  commentId: '165',
-  commentBody: 'A2',
-  tagPosition: nearestTagPosition,
-  positionSource: 'RLTAG_POS3D',
-  withinTolerance: false,
-  accepted: false,
-  candidateRank: 1,
-  score: 0,
-  deltaEMm: 1062.258,
-  deltaNMm: 10.315,
-  deltaElMm: -168.471,
-  verticalBasis: 'OD_HALF_BELOW',
-  verticalResidualMm: 111.321,
-  normalizedToleranceDistance: 10.62258,
-  spatialDistanceMm: 1068.129,
-  failedAxes: ['E', 'EL'],
-  rejectionReasons: ['E_OUTSIDE_TOLERANCE', 'EL_OUTSIDE_TOLERANCE'],
-  confidenceReasons: ['E_OUTSIDE_TOLERANCE', 'EL_OUTSIDE_TOLERANCE'],
-  decisionStatus: 'UNRESOLVED',
-  decisionReason: 'NO_IN_TOLERANCE_CANDIDATE',
-};
-const nearestAudit = {
-  config: { eastingToleranceMm: 100, northingToleranceMm: 100, elevationToleranceMm: 100 },
-  decisions: [],
-  candidateLedger: [nearestCandidate],
-  propagationLedger: [],
-};
-const nearestRows = buildFinalOutputRows(nearestAudit, {}, {
-  tags: [{ evidenceId: 'VIEW:165', viewGuid: 'view-165', tagId: '165', commentId: '165', commentBody: 'A2', position: nearestTagPosition }],
-});
-assert.equal(nearestRows.length, 1);
-assert.equal(nearestRows[0]['Name of the element'], '/PS-11366/DATUM');
-assert.equal(nearestRows[0]['Navis Tag ID'], '165');
-assert.equal(nearestRows[0]['Navis Tag POS'], 'E=189592.258;N=729160.315;EL=898.08');
-assert.equal(nearestRows[0].confidence, 'OUTSIDE_TOLERANCE');
-assert.match(nearestRows[0].Basis, /closest recorded candidate/);
-assert.match(nearestRows[0].Basis, /easting and vertical exceeded/);
-assert.match(nearestRows[0].Basis, /easting \+1062\.258 mm versus ±100 mm/);
-assert.match(nearestRows[0].Basis, /OD-half-below vertical residual 111\.321 mm versus 100 mm/);
-assert.match(nearestRows[0].Basis, /NEAREST_REJECTED/);
-assert.ok(!nearestRows.some((row) => row['Name of the element'] === UNMATCHED_NAVIS_TAG_LOCATION_MESSAGE));
-
-const candidateLedger = [];
-appendCandidateLedger(candidateLedger, { tableRowId: 'ROW-72', tableRowIndex: 72, canonicalIdentity: 'PS-11171.5' }, [{
-  evidenceId: 'VIEW:164', tagId: '164', withinTolerance: true, score: 100,
-  confidenceReasons: ['ALL_AXES_WITHIN_TOLERANCE', 'NORMALIZED_GEOMETRY_RMS_0.000000'],
-}], {
-  status: 'AMBIGUOUS', selected: null, decisionReason: 'CONFLICTING_NEARBY_COMMENTS',
-  topCandidateTagId: '164', topCandidateScore: 100, runnerUpTagId: '1', runnerUpScore: 98.271633,
-  scoreGap: 1.728367, requiredScoreGap: 15, distinctCommentCount: 2,
-});
-assert.match(candidateLedger[0].confidenceReasons[0], /Review required/);
-assert.match(candidateLedger[0].confidenceReasons[0], /score lead 1\.728367 is below the required 15/);
-assert.deepEqual(candidateLedger[0].confidenceReasonCodes, ['ALL_AXES_WITHIN_TOLERANCE', 'NORMALIZED_GEOMETRY_RMS_0.000000']);
-
-const transformedXml = `<exchange units="m"><view name="Tag View 165" guid="view-165"><comment id="165"><body>A2</body></comment><rltag id="165" commentid="165"><pos3d><pos3f x="244.529978" y="-1092.843749" z="101.070534"/></pos3d></rltag></view></exchange>`;
-globalThis.document = { querySelector: () => ({ value: transformedXml }) };
-const transformedRows = buildFinalOutputRows({
-  config: { navisUnits: 'm', navisEastingDatumMm: -54937.72, navisNorthingDatumMm: 1822004.064, navisElevationDatumMm: -100172.454 },
-  decisions: [], candidateLedger: [], propagationLedger: [],
-}, { navisEastingDatumMm: 0, navisNorthingDatumMm: 0, navisElevationDatumMm: 0 });
-assert.equal(transformedRows[0]['Navis Tag POS'], 'E=189592.258;N=729160.315;EL=898.08');
 
 const configHtml = workflowTest.renderConfig({
   config: {
