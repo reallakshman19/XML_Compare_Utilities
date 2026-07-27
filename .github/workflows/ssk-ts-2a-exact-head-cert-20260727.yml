@@ -1,0 +1,120 @@
+name: SSK-TS-2A exact-head certification
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/ssk-ts-2a-exact-head-cert-20260727.yml']
+
+permissions:
+  contents: write
+
+env:
+  FEATURE_BRANCH: agent/ssk-ts-2a-journal-package-v2-clean
+  EXPECTED_FEATURE_SHA: e32946869e9bb5d2eb8472ea76a76341fd927028
+  EXPECTED_MAIN_SHA: 9859283b00c0e70d4f28ffc83ebb04156b972702
+  CI: 'true'
+
+jobs:
+  certify-correct-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FEATURE_BRANCH }}
+          fetch-depth: 0
+
+      - name: Enforce exact starting heads
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE_SHA"
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN_SHA"
+
+      - name: Restack on exact current main
+        run: |
+          git config user.name 'SSK-TS-2A Owner'
+          git config user.email 'actions@users.noreply.github.com'
+          git merge --no-ff --no-edit "$EXPECTED_MAIN_SHA"
+
+      - name: Move scope enforcement out of permanent test
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('tests/sequential-workspace-command-authority-package.test.js')
+          lines = path.read_text().splitlines(keepends=True)
+          output = []
+          index = 0
+          while index < len(lines):
+              line = lines[index]
+              if line == "import { execFileSync } from 'node:child_process';\n":
+                  index += 1
+                  continue
+              if line.startswith("const BASE_SHA = '"):
+                  index += 1
+                  continue
+              if line.startswith('const ALLOWED_PATHS = Object.freeze(['):
+                  index += 1
+                  while index < len(lines) and lines[index].strip() != ']);':
+                      index += 1
+                  index += 1
+                  continue
+              if line.startswith('const changedPaths = execFileSync('):
+                  index += 1
+                  while index < len(lines) and not lines[index].startswith('assert(changedPaths.every('):
+                      index += 1
+                  index += 1
+                  continue
+              output.append(line)
+              index += 1
+          path.write_text(''.join(output))
+          PY
+          git add tests/sequential-workspace-command-authority-package.test.js
+          git commit -m 'test: enforce SSK-TS-2A scope in certification runner'
+          echo "TESTED_HEAD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Focused static and behavioral qualification
+        run: |
+          node --check tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js
+          node --check tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
+          node --check tests/sequential-workspace-command-authority-package.test.js
+          test "$(wc -l < tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js)" -lt 300
+          test "$(wc -l < tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js)" -lt 300
+          test "$(wc -l < tests/sequential-workspace-command-authority-package.test.js)" -lt 300
+          ! grep -RE "export[[:space:]]+default|module\.exports" \
+            tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js \
+            tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
+          node tests/sequential-workspace-command-authority-package.test.js
+          npm run test:command-journal
+
+      - name: Repository-wide validation
+        run: npm test
+
+      - name: Enforce exact five-file mission scope
+        run: |
+          git diff --check "$EXPECTED_MAIN_SHA"...HEAD
+          git diff --name-only "$EXPECTED_MAIN_SHA"...HEAD | sort > /tmp/actual
+          cat > /tmp/expected <<'EOF'
+          docs/ssk-ts-2a-journal-package-v2.md
+          tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js
+          tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
+          tests/command-journal-phase2.test.mjs
+          tests/sequential-workspace-command-authority-package.test.js
+          EOF
+          sort -o /tmp/expected /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+          test -z "$(git status --short)"
+          test "$(git rev-parse HEAD)" = "$TESTED_HEAD_SHA"
+
+      - name: Publish exact tested feature head
+        run: git push origin HEAD:"$FEATURE_BRANCH"
