@@ -10,10 +10,10 @@ function signed(value, digits = 3) {
   return `${parsed > 0 ? '+' : ''}${compact(parsed, digits)}`;
 }
 function identity(row = {}) {
-  const value = text(row.canonicalIdentity || row.identity || row.supportRoot);
+  const value = text(row.canonicalIdentity || row.identity || row.targetIdentity || row.supportRoot);
   return value ? `/${value.replace(/^\/+/, '')}` : 'the support';
 }
-function tag(row = {}) { return text(row.tagId || row.topCandidateTagId) || 'the Navis Tag'; }
+function tag(row = {}) { return text(row.tagId || row.sourceTagId || row.topCandidateTagId) || 'the Navis Tag'; }
 function list(values) { return (Array.isArray(values) ? values : []).filter(Boolean); }
 function codeSuffix(codes) {
   const values = list(codes).map(text).filter(Boolean);
@@ -30,6 +30,39 @@ function toleranceText(axis, value, tolerance) {
   const delta = signed(value);
   const limit = compact(tolerance);
   return `${axisName(axis)} ${delta || value} mm${limit ? ` versus ±${limit} mm` : ''}`;
+}
+function rejectionPhrase(code) {
+  return ({
+    E_OUTSIDE_TOLERANCE: 'easting exceeded tolerance',
+    N_OUTSIDE_TOLERANCE: 'northing exceeded tolerance',
+    EL_OUTSIDE_TOLERANCE: 'vertical residual exceeded tolerance',
+    TARGET_PIPE_NOT_PARALLEL: 'source and target pipe axes are not parallel',
+    SOURCE_ROW_EXCLUDED: 'the source support row cannot receive its own propagated note',
+    TARGET_PIPE_NOT_FOUND: 'the requested target pipe was not found',
+    SOURCE_PIPE_AXIS_UNPROVEN: 'the source pipe axis could not be proven',
+    APPLIES_TO_ALL_DISABLED: 'all-pipe propagation is disabled',
+    ALL_SCOPE_LIMIT_EXCEEDED: 'the all-pipe target-row limit was exceeded',
+    ALONG_AXIS_OUTSIDE_TOLERANCE: 'along-axis station exceeded tolerance',
+    PARALLEL_OFFSET_OUTSIDE_TOLERANCE: 'parallel offset exceeded tolerance',
+    ELEVATION_OUTSIDE_TOLERANCE: 'elevation difference exceeded tolerance',
+  })[text(code)] || text(code).toLowerCase().replace(/_/g, ' ');
+}
+
+export function identitySelectionAuditRemark(row = {}) {
+  const status = text(row.status);
+  const reason = text(row.selectionReason);
+  const count = Number(row.candidateCount) || 0;
+  if (row.selectedNodeId) {
+    const exact = reason.startsWith('EXACT_FULL_IDENTITY');
+    const pipe = status.includes('PIPE');
+    const reference = status.includes('REFERENCE');
+    const evidence = [exact ? 'the complete support identity matched exactly' : 'the support root matched', reference ? 'the reference value also matched' : '', pipe ? 'the selected node belongs to the resolved source pipe' : ''].filter(Boolean).join(', and ');
+    return `Selected JSON node ${text(row.selectedNodeId)} because ${evidence || 'it was the highest-ranked staged candidate'}. ${count} candidate${count === 1 ? '' : 's'} were evaluated.${codeSuffix([status, reason])}`;
+  }
+  if (status.startsWith('AMBIGUOUS')) {
+    return `No JSON node was selected because ${count} staged candidates remained too close in rank to prove one authority.${codeSuffix([status, reason])}`;
+  }
+  return `No staged JSON node matched the configured support identity or support root.${codeSuffix([status || 'UNRESOLVED', reason || 'NO_JSON_IDENTITY_CANDIDATE'])}`;
 }
 
 export function candidateAuditRemark(row = {}, config = {}) {
@@ -72,6 +105,15 @@ export function decisionAuditRemark(row = {}, config = {}) {
   }
   const nearest = row.nearestRejectedCandidate || row;
   return candidateAuditRemark({ ...nearest, ledgerKind: 'NEAREST_REJECTED', canonicalIdentity: row.canonicalIdentity || nearest.canonicalIdentity }, config);
+}
+
+export function propagationAuditRemark(row = {}) {
+  const codes = row.rejectionReasons || [];
+  if (row.applied) {
+    return `Propagation accepted from Tag ${tag(row)} to ${identity(row)} because the target pipe matched by ${text(row.pipeMatchBasis) || 'the configured rule'}, the pipe axes were compatible, and all coordinate-window checks passed.${codeSuffix(['APPLIED', row.pipeMatchBasis])}`;
+  }
+  const reasons = list(codes).map(rejectionPhrase);
+  return `Propagation not applied from Tag ${tag(row)} to ${identity(row)} because ${reasons.join('; ') || text(row.outcome) || 'the configured propagation checks failed'}.${codeSuffix([row.outcome || 'REJECTED', ...codes])}`;
 }
 
 export function candidateFinalBasis(row = {}, config = {}) {
@@ -121,4 +163,4 @@ export function resolvedFinalBasis({ direct = false, decision = {}, propagationR
   return `${parts.join(' ')}${codeSuffix(codes)}`.trim();
 }
 
-export const _test = Object.freeze({ compact, signed, codeSuffix, identity, verticalDescription });
+export const _test = Object.freeze({ compact, signed, codeSuffix, identity, verticalDescription, rejectionPhrase });
