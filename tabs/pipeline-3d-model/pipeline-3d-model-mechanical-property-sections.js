@@ -16,7 +16,6 @@ const TEXT_FIELDS = Object.freeze([
 ]);
 const FIELD_DEFS = Object.freeze([...NUMBER_FIELDS, ...TEXT_FIELDS]);
 const text = (value) => String(value ?? '').trim();
-const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.values(value).forEach(freeze);
