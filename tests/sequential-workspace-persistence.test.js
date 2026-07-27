@@ -242,7 +242,7 @@ const completedPackage = createSequentialWorkspacePackage({
   activeBranchId: completeBranchId,
 });
 const completedRestoration = restoreSequentialWorkspacePackage(completedPackage);
-assert.equal(completedRestoration.workspaces[0].snapshot.confirmedConstruction, undefined);
+assert.equal(completedRestoration.workspaces[0].snapshot.confirmedConstruction, null);
 const workspaceRoot = fakeRoot();
 const workspace = mountSequentialSketcherWorkspace(workspaceRoot);
 workspace.restorePackage(completedRestoration, { expectedJournalImpact: 'ABSENT', applicationReceipts: [] });
