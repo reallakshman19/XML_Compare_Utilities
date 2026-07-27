@@ -83,7 +83,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Focused static and behavioral qualification
+      - name: Syntax, line and export guards
         run: |
           node --check tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js
           node --check tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
@@ -94,8 +94,12 @@ jobs:
           ! grep -RE "export[[:space:]]+default|module\.exports" \
             tabs/sequential-sketcher/persistence/sequential-workspace-command-authority.js \
             tabs/sequential-sketcher/persistence/sequential-workspace-package-v2.js
-          node tests/sequential-workspace-command-authority-package.test.js
-          npm run test:command-journal
+
+      - name: Focused package-v2 qualification
+        run: node tests/sequential-workspace-command-authority-package.test.js
+
+      - name: Command-journal aggregate
+        run: npm run test:command-journal
 
       - name: Repository-wide validation
         run: npm test
