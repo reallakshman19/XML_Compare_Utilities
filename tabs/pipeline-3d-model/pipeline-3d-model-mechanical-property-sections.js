@@ -147,9 +147,12 @@ export function resolvePipelineMechanicalPropertyPlan({
     : buildSections(branchInfo, propertySections, propertySectionPlan, diagnostics);
   const elements = elementResolutions(sections, propertySectionPlan?.elements?.length || 0);
   const frozenDiagnostics = freeze(diagnostics);
+  const active = sections.some((section) => section.explicitPropertyNames.length > 0)
+    || frozenDiagnostics.some((item) => item.code === 'PIPELINE_MECHANICAL_PROPERTY_VALUE_INVALID');
   return freeze({
     schema: PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA,
     propertySectionPlanSchema: propertySectionPlan?.schema || '',
+    active,
     sectionCount: sections.length,
     sections,
     elements,
