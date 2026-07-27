@@ -3,6 +3,7 @@ import { PIPELINE_MECHANICAL_PROPERTY_PLAN_SCHEMA, resolvePipelineMechanicalProp
 import { PIPELINE_RESTRAINT_PLAN_SCHEMA, resolvePipelineRestraintPlan } from './pipeline-3d-model-restraint-plan.js';
 import { PIPELINE_RIGID_PLAN_SCHEMA, resolvePipelineRigidPlan } from './pipeline-3d-model-rigid-plan.js';
 import { PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA, resolvePipelineAllowableStressPlan } from './pipeline-3d-model-allowable-stress-plan.js';
+import { PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA, resolvePipelinePipingCodeAuthorityPlan } from './pipeline-3d-model-piping-code-authority.js';
 import { buildPipelineInputXmlProfileAuthorityPlan, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-inputxml-profile-authority.js';
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
@@ -249,17 +250,22 @@ function profileElement(element, authority, bendResolution) {
 function profileDocumentPlan({
   exportContext, coordinateRows, bendResolution, propertySectionPlan,
   mechanicalPropertyPlan, restraintPlan, rigidPlan, allowableStressPlan,
-  profileAuthorityPlans, branchInfo, lineNo,
+  pipingCodeAuthorities, profileAuthorityPlans, branchInfo, lineNo,
 }) {
   const profileAuthorityPlan = buildPipelineInputXmlProfileAuthorityPlan({
     ...(profileAuthorityPlans || {}), bendResolution, propertySectionPlan,
   });
+  const pipingCodeAuthorityPlan = resolvePipelinePipingCodeAuthorityPlan({
+    profileAuthorityPlan, allowableStressPlan, pipingCodeAuthorities,
+  });
+  const allowableElements = pipingCodeAuthorityPlan.active
+    ? pipingCodeAuthorityPlan.elements : allowableStressPlan.elements;
   const baseElements = coordinateRows.slice(1).map((toRow, index) => buildElement(
     coordinateRows[index], toRow, index, lineNo,
     propertySectionPlan.elements[index], mechanicalPropertyPlan.active ? mechanicalPropertyPlan.elements[index] : null,
     restraintPlan.active ? restraintPlan.elements[index] : null,
     rigidPlan.active ? rigidPlan.elements[index] : null,
-    allowableStressPlan.active ? allowableStressPlan.elements[index] : null, bendResolution,
+    allowableStressPlan.active ? allowableElements[index] : null, bendResolution,
   ));
   const elements = Object.freeze(baseElements.map((element, index) =>
     profileElement(element, profileAuthorityPlan.elementAuthorities[index], bendResolution)));
@@ -281,6 +287,7 @@ function profileDocumentPlan({
     ...restraintDiagnostics(restraintPlan, metadata),
     ...rigidDiagnostics(rigidPlan, metadata),
     ...allowableDiagnostics(allowableStressPlan, metadata),
+    ...pipingCodeAuthorityPlan.diagnostics,
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ])));
@@ -298,6 +305,7 @@ function profileDocumentPlan({
     ...(restraintPlan.active ? { restraintPlan, restraintPlanSchema: PIPELINE_RESTRAINT_PLAN_SCHEMA } : {}),
     ...(rigidPlan.active ? { rigidPlan, rigidPlanSchema: PIPELINE_RIGID_PLAN_SCHEMA } : {}),
     ...(allowableStressPlan.active ? { allowableStressPlan, allowableStressPlanSchema: PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA } : {}),
+    ...(pipingCodeAuthorityPlan.active ? { pipingCodeAuthorityPlan, pipingCodeAuthorityPlanSchema: PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } : {}),
     profileAuthorityPlan,
     profileAuthorityPlanSchema: PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA,
     analysisSectionPlanSchema: profileAuthorityPlan.analysisSectionPlanSchema,
@@ -315,7 +323,8 @@ function profileDocumentPlan({
 }
 export function buildPipelineInputXmlDocumentPlan({
   exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
-  restraints = [], rigids = [], allowableStresses = [], profileAuthorityPlans,
+  restraints = [], rigids = [], allowableStresses = [], pipingCodeAuthorities = [],
+  profileAuthorityPlans,
 } = {}) {
   const branchInfo = branchInfoFrom(exportContext), lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
@@ -332,7 +341,10 @@ export function buildPipelineInputXmlDocumentPlan({
   if (profileAuthorityPlans !== undefined) return profileDocumentPlan({
     exportContext, coordinateRows, bendResolution, propertySectionPlan,
     mechanicalPropertyPlan, restraintPlan, rigidPlan, allowableStressPlan,
-    profileAuthorityPlans, branchInfo, lineNo,
+    pipingCodeAuthorities, profileAuthorityPlans, branchInfo, lineNo,
+  });
+  const pipingCodeAuthorityPlan = resolvePipelinePipingCodeAuthorityPlan({
+    profileAuthorityPlan: null, allowableStressPlan, pipingCodeAuthorities,
   });
   const elements = Object.freeze(coordinateRows.slice(1).map((toRow, index) =>
     buildElement(coordinateRows[index], toRow, index, lineNo,
@@ -349,6 +361,7 @@ export function buildPipelineInputXmlDocumentPlan({
     ...restraintDiagnostics(restraintPlan, metadata),
     ...rigidDiagnostics(rigidPlan, metadata),
     ...allowableDiagnostics(allowableStressPlan, metadata),
+    ...pipingCodeAuthorityPlan.diagnostics,
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ]));
@@ -366,6 +379,7 @@ export function buildPipelineInputXmlDocumentPlan({
     ...(restraintPlan.active ? { restraintPlan, restraintPlanSchema: PIPELINE_RESTRAINT_PLAN_SCHEMA } : {}),
     ...(rigidPlan.active ? { rigidPlan, rigidPlanSchema: PIPELINE_RIGID_PLAN_SCHEMA } : {}),
     ...(allowableStressPlan.active ? { allowableStressPlan, allowableStressPlanSchema: PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA } : {}),
+    ...(pipingCodeAuthorityPlan.active ? { pipingCodeAuthorityPlan, pipingCodeAuthorityPlanSchema: PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA } : {}),
     elements,
     diagnostics,
     blockerCodes: uniqueCodes(diagnostics),
