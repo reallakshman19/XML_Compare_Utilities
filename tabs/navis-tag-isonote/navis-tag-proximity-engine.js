@@ -62,60 +62,6 @@ function appendCoordinateSourceDiagnostic(diagnostics, navisParse, configuredSou
   });
 }
 
-function finitePoint(point) {
-  return point && [point.x, point.y, point.z].every((value) => Number.isFinite(Number(value)))
-    ? { x: Number(point.x), y: Number(point.y), z: Number(point.z) }
-    : null;
-}
-
-function anchorAttemptSnapshot(attempt = {}) {
-  const supportPosition = finitePoint(attempt.anchorRow?.position);
-  const tagPosition = finitePoint(attempt.anchorTag?.position);
-  return {
-    priority: attempt.priority,
-    role: attempt.role,
-    valid: Boolean(attempt.valid),
-    status: attempt.status || '',
-    reason: attempt.reason || '',
-    requestedTagId: attempt.tagId || '',
-    requestedSupportIdentity: attempt.supportIdentity || '',
-    resolvedTagId: attempt.resolvedTagId || '',
-    resolvedSupportIdentity: attempt.resolvedSupportIdentity || '',
-    selectedNodeId: attempt.selectedNodeId || '',
-    selectedJsonPath: attempt.selectedJsonPath || '',
-    selectedBranch: attempt.selectedBranch || '',
-    resolvedPipe: attempt.anchorRow?.resolvedPipe || '',
-    viewName: attempt.anchorTag?.viewName || '',
-    viewGuid: attempt.anchorTag?.viewGuid || '',
-    commentId: attempt.anchorTag?.commentId || '',
-    commentBody: attempt.anchorTag?.commentBody || '',
-    supportPosition,
-    tagPosition,
-    deltaEMm: attempt.deltaEMm ?? null,
-    deltaNMm: attempt.deltaNMm ?? null,
-    deltaElMm: attempt.deltaElMm ?? null,
-    deltaDifferenceMm: attempt.deltaDifferenceMm ?? null,
-    selectedFrameDeltaEMm: tagPosition && supportPosition ? tagPosition.x - supportPosition.x : null,
-    selectedFrameDeltaNMm: tagPosition && supportPosition ? tagPosition.y - supportPosition.y : null,
-    selectedFrameDeltaElMm: tagPosition && supportPosition ? tagPosition.z - supportPosition.z : null,
-  };
-}
-
-function anchorAuditSnapshot(navisParse) {
-  const anchor = navisParse?.anchor;
-  if (!anchor) return null;
-  return {
-    active: Boolean(anchor.active),
-    policy: anchor.policy || '',
-    selectedPriority: anchor.selectedPriority || 0,
-    fallbackUsed: Boolean(anchor.fallbackUsed),
-    selectedTagId: anchor.tagId || '',
-    selectedSupportIdentity: anchor.supportIdentity || '',
-    summaryText: anchor.summaryText || '',
-    attempts: (anchor.attempts || []).map(anchorAttemptSnapshot),
-  };
-}
-
 function positionChoiceFor(record, trace, config) {
   if (trace) return chooseSupportPosition(trace, config);
   return {
@@ -158,7 +104,6 @@ function resolveRecord(record, trace, navisParse, config, candidateLedger, diagn
 }
 
 function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger) {
-  const anchorAttempts = navisParse?.anchor?.attempts || [];
   return {
     tableRowCount: tableBuild?.records?.length || 0,
     identityResolvedCount: identityTrace?.summary?.resolvedCount || 0,
@@ -168,8 +113,6 @@ function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidat
     unresolvedCount: decisions.filter((row) => row.status === 'UNRESOLVED').length,
     nearestRejectedCount: decisions.filter((row) => row.nearestRejectedTagId).length,
     candidateLedgerCount: candidateLedger.length,
-    configuredAnchorPairCount: anchorAttempts.filter((row) => row.valid).length,
-    conflictingAnchorPairCount: anchorAttempts.filter((row) => row.status === 'AVAILABLE_FALLBACK_CONFLICT').length,
     scoringModel: NAVIS_CANDIDATE_SCORE_MODEL,
   };
 }
@@ -194,7 +137,6 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   const directAudit = {
     schema: NAVIS_TAG_ISONOTE_AUDIT_SCHEMA,
     config,
-    anchor: anchorAuditSnapshot(navisParse),
     summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger),
     augmentedRows,
     decisions,
@@ -208,8 +150,6 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
 }
 
 export const _test = Object.freeze({
-  anchorAttemptSnapshot,
-  anchorAuditSnapshot,
   axisFailures,
   candidateFromTag,
   candidateScore,
