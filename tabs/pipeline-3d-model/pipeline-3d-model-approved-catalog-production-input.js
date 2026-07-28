@@ -27,10 +27,11 @@ function freeze(value) {
 }
 
 export function pipelineApprovedCatalogProductionInputs(source = {}) {
+  const input = plain(source) ? source : {};
   return Object.freeze(Object.fromEntries(
     PIPELINE_APPROVED_CATALOG_PRODUCTION_INPUT_FIELDS
-      .filter((field) => Object.hasOwn(source, field))
-      .map((field) => [field, source[field]]),
+      .filter((field) => Object.hasOwn(input, field))
+      .map((field) => [field, input[field]]),
   ));
 }
 
