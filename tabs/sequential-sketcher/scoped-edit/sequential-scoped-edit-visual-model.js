@@ -10,6 +10,7 @@ const CATEGORY_STYLE = Object.freeze({
   confirmed: Object.freeze({ colorInt: 0x64748b, radiusMm: 12, markerKind: 'NODE' }),
   repair: Object.freeze({ colorInt: 0xf59e0b, radiusMm: 7, markerKind: 'NODE' }),
   candidate: Object.freeze({ colorInt: 0x60a5fa, radiusMm: 5, markerKind: 'NODE' }),
+  reversalCandidate: Object.freeze({ colorInt: 0xa78bfa, radiusMm: 6, markerKind: 'ISSUE_BADGE' }),
   support: Object.freeze({ colorInt: 0x22d3ee, radiusMm: 8, markerKind: 'SUPPORT' }),
   activePort: Object.freeze({ colorInt: 0x22c55e, radiusMm: 7, markerKind: 'NODE' }),
   rejectedCandidate: Object.freeze({ colorInt: 0xef4444, radiusMm: 4, markerKind: 'ISSUE_BADGE' }),
@@ -69,16 +70,18 @@ function marker(entity) {
   const position = xyz(entity.geometry.position);
   if (!position) return null;
   const visual = style(entity);
-  const rejected = category(entity) === 'rejectedCandidate';
+  const entityCategory = category(entity);
+  const label = entityCategory === 'rejectedCandidate' ? 'REJECTED'
+    : entityCategory === 'reversalCandidate' ? 'REVERSE ENTRY' : null;
   return {
     primitiveId: `ssk3d:marker:${entity.id}`,
     objectId: entity.id,
     nodeId: entity.id,
     kind: visual.markerKind,
     position,
-    sizeMm: category(entity) === 'support' ? 28 : 22,
+    sizeMm: entityCategory === 'support' ? 28 : entityCategory === 'reversalCandidate' ? 26 : 22,
     colorInt: visual.colorInt,
-    ...(rejected ? { label: 'REJECTED' } : {}),
+    ...(label ? { label } : {}),
     isObjectMarker: true,
   };
 }
