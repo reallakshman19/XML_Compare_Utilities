@@ -2,9 +2,14 @@ import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { serializeRevisionCompareTransferHandoverBundle } from '../../tabs/revision-compare/revision-transfer-handover.js';
+import { REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS } from '../../tabs/revision-compare/revision-transfer-workspace-bindings.js';
 import { handoverInspectionFixture } from '../revision-compare-transfer-handover-inspection-fixtures.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const AUTHORITY_KEYS = Object.freeze([
+  'session', 'slots', 'proposal', 'basis', 'compare', 'review', 'decision',
+  'evidencePackageImport', 'transfer', 'transferCompletion', 'transferArchive', 'signOff', 'trustReceipt',
+]);
 async function openWorkspace(page) {
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await page.evaluate(() => {
@@ -25,6 +30,39 @@ async function downloadedBytes(page, locator) {
 async function clear(page) {
   await page.locator('[data-revc-clear-handover-inspection]').click();
   await expect(page.locator('[data-revc-handover-status]')).toHaveText('IDLE');
+}
+async function authoritySnapshot(page) {
+  return page.evaluate((keys) => {
+    const state = window.rcHandle.evidence().state;
+    return Object.fromEntries(keys.map((key) => [key, state[key] ?? null]));
+  }, AUTHORITY_KEYS);
+}
+async function renderedAuthorityControls(page) {
+  return page.evaluate((selectors) => [...document.querySelectorAll(selectors.join(','))].map((control) => ({
+    disabled: 'disabled' in control ? control.disabled : null,
+    ariaDisabled: control.getAttribute('aria-disabled'), title: control.getAttribute('title'),
+  })), REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS);
+}
+async function exerciseAuthorityGuardMatrix(page) {
+  return page.evaluate((selectors) => {
+    const inspection = document.querySelector('[data-revc-handover-inspection]');
+    let root = document.querySelector('[data-revc-file]');
+    while (root?.parentElement && !root.contains(inspection)) root = root.parentElement;
+    root = root ?? document.body; window.__rc9GuardEscapes = 0; window.__rc9Toasts.length = 0;
+    selectors.forEach((selector) => {
+      const attribute = /^\[([^\]]+)\]$/.exec(selector)?.[1];
+      if (!attribute) throw new Error(`Unsupported authority selector ${selector}`);
+      const control = document.createElement('button'); control.type = 'button'; control.setAttribute(attribute, '');
+      control.addEventListener('click', () => { window.__rc9GuardEscapes += 1; });
+      control.addEventListener('change', () => { window.__rc9GuardEscapes += 1; });
+      root.appendChild(control); control.click();
+      control.dispatchEvent(new Event('change', { bubbles: true, cancelable: true })); control.remove();
+    });
+    return {
+      escapes: window.__rc9GuardEscapes,
+      failures: window.__rc9Toasts.filter((item) => item[1] === 'error').map((item) => item[0]),
+    };
+  }, REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS);
 }
 
 // RC-XFER-009-B01 — verify and inspect an imported transfer handover.
@@ -66,6 +104,17 @@ test('RC-XFER-009-B01 canonical File import, isolation, downloads and lifecycle'
     expect(download.filename).toBe(descriptor.filename); expect(download.bytes.toString()).toBe(descriptor.text);
     expect(sha256(download.bytes)).toBe(descriptor.contentSha256); expect(download.bytes.byteLength).toBe(descriptor.sizeBytes);
   }
+
+  const controls = await renderedAuthorityControls(page); expect(controls.length).toBeGreaterThan(0);
+  for (const control of controls) {
+    if (control.disabled !== null) expect(control.disabled).toBeTruthy();
+    expect(control.ariaDisabled).toBe('true');
+    expect(control.title).toBe('Clear the transfer handover inspection before changing Revision Compare authority.');
+  }
+  const beforeMatrix = await authoritySnapshot(page); const matrix = await exerciseAuthorityGuardMatrix(page);
+  expect(matrix.escapes).toBe(0); expect(matrix.failures.length).toBeGreaterThanOrEqual(REVISION_COMPARE_HANDOVER_AUTHORITY_SELECTORS.length);
+  expect(matrix.failures.every((message) => message.includes('Clear the transfer handover inspection'))).toBeTruthy();
+  expect(await authoritySnapshot(page)).toEqual(beforeMatrix);
 
   await expect(page.locator('[data-revc-file]')).toBeDisabled();
   await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();
