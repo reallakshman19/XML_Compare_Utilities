@@ -1,6 +1,7 @@
 /** Pure EngineeringScene.v1 to VisualGeometryModel.v2 projection for Sequential Draft Edit 3D. */
 import { createVisualGeometryModelV2 } from '../../../contracts/visual-geometry-model.js';
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
+import { composeSequentialSupportMoveDraftScene } from './sequential-draft-edit-support-move-draft.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -15,16 +16,21 @@ const CATEGORY_STYLE = Object.freeze({
   activePort: Object.freeze({ colorInt: 0x22c55e, radiusMm: 7, markerKind: 'NODE' }),
   rejectedCandidate: Object.freeze({ colorInt: 0xef4444, radiusMm: 4, markerKind: 'ISSUE_BADGE' }),
 });
+const OVERLAY_STYLE = Object.freeze({
+  ghost: Object.freeze({ colorInt: 0x94a3b8, radiusMm: 7, markerKind: 'SUPPORT' }),
+  draft: Object.freeze({ colorInt: 0xfacc15, radiusMm: 10, markerKind: 'SUPPORT' }),
+});
 
 function xyz(point) {
   return [point?.x, point?.y, point?.z].every(Number.isFinite)
     ? [point.x, point.y, point.z] : null;
 }
-
 function category(entity) {
   return String(entity.domainRef?.category || entity.metadata?.sequential?.category || '').trim();
 }
-
+function overlayType(entity) {
+  return String(entity.metadata?.engineeringSvgOverlay?.type || '').trim();
+}
 function componentKind(entity) {
   const value = entity.metadata?.sequential?.component?.canonicalType;
   const kind = String(value || '').trim().toUpperCase();
@@ -35,11 +41,9 @@ function componentKind(entity) {
   }
   return 'PIPE';
 }
-
 function style(entity) {
-  return CATEGORY_STYLE[category(entity)] || CATEGORY_STYLE.confirmed;
+  return OVERLAY_STYLE[overlayType(entity)] || CATEGORY_STYLE[category(entity)] || CATEGORY_STYLE.confirmed;
 }
-
 function segmentRecord(entity, start, end, suffix = '0') {
   const visual = style(entity);
   return {
@@ -53,7 +57,6 @@ function segmentRecord(entity, start, end, suffix = '0') {
     pathId: String(entity.domainRef?.componentId || entity.domainRef?.connectionId || ''),
   };
 }
-
 function segments(entity) {
   const geometry = entity.geometry;
   if (geometry?.kind === 'segment') {
@@ -64,28 +67,30 @@ function segments(entity) {
   const points = (geometry.points || []).map(xyz).filter(Boolean);
   return points.slice(1).map((end, index) => segmentRecord(entity, points[index], end, String(index)));
 }
-
 function marker(entity) {
   if (entity.geometry?.kind !== 'point') return null;
   const position = xyz(entity.geometry.position);
   if (!position) return null;
   const visual = style(entity);
   const entityCategory = category(entity);
-  const label = entityCategory === 'rejectedCandidate' ? 'REJECTED'
-    : entityCategory === 'reversalCandidate' ? 'REVERSE ENTRY' : null;
+  const overlay = overlayType(entity);
+  const label = overlay === 'ghost' ? 'ORIGINAL SUPPORT'
+    : overlay === 'draft' ? 'DRAFT SUPPORT'
+      : entityCategory === 'rejectedCandidate' ? 'REJECTED'
+        : entityCategory === 'reversalCandidate' ? 'REVERSE ENTRY' : null;
   return {
     primitiveId: `ssk3d:marker:${entity.id}`,
     objectId: entity.id,
     nodeId: entity.id,
     kind: visual.markerKind,
     position,
-    sizeMm: entityCategory === 'support' ? 28 : entityCategory === 'reversalCandidate' ? 26 : 22,
+    sizeMm: overlay === 'draft' ? 34 : overlay === 'ghost' ? 24
+      : entityCategory === 'support' ? 28 : entityCategory === 'reversalCandidate' ? 26 : 22,
     colorInt: visual.colorInt,
     ...(label ? { label } : {}),
     isObjectMarker: true,
   };
 }
-
 function bounds(segmentsInput, markersInput) {
   const points = [
     ...segmentsInput.flatMap((row) => [row.start, row.end]),
@@ -100,20 +105,22 @@ function bounds(segmentsInput, markersInput) {
 
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
-  const scene = assertSequentialScopedEditSceneAncestry(
+  const authoritative = assertSequentialScopedEditSceneAncestry(
     validateEngineeringScene(input.scene),
     readModel,
   );
+  const scene = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
   const visible = scene.entities.filter((entity) => entity.visible !== false);
   const fitVisible = visible.filter((entity) => category(entity) !== 'reversalCandidate');
   const segmentRows = visible.flatMap(segments);
   const markerRows = visible.map(marker).filter(Boolean);
   const fitSegments = fitVisible.flatMap(segments);
   const fitMarkers = fitVisible.map(marker).filter(Boolean);
+  const draftId = input.draft?.operationId || null;
   return createVisualGeometryModelV2({
-    modelId: `sequential-draft-edit:${readModel.authorityId}`,
+    modelId: `sequential-draft-edit:${readModel.authorityId}${draftId ? `:${draftId}` : ''}`,
     documentId: `sequential-document:${readModel.branchId}`,
-    revisionId: readModel.authorityId,
+    revisionId: draftId ? `${readModel.authorityId}:${draftId}` : readModel.authorityId,
     unit: scene.coordinateSystem.unit,
     coordinateFrame: scene.coordinateSystem.frame,
     verticalAxis: scene.coordinateSystem.verticalAxis,
@@ -124,4 +131,6 @@ export function createSequentialScopedEditVisualModel(input = {}) {
   });
 }
 
-export const _test = Object.freeze({ xyz, category, componentKind, segments, marker, bounds });
+export const _test = Object.freeze({
+  xyz, category, overlayType, componentKind, style, segments, marker, bounds,
+});
