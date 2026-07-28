@@ -68,6 +68,7 @@ function reversalEntity(candidate, omissions) {
       candidateId: candidate.candidateId, componentId: candidate.componentId,
       sourceComponentId: candidate.sourceComponentId, branchId: candidate.branchId,
       entryPortId: candidate.entryPortId, portRole: candidate.portRole,
+      sourcePosition: candidate.sourcePosition,
     },
     propertySetIds: [propertyId(id)],
     editCapabilities: [],
