@@ -83,6 +83,8 @@ const active = iso.scene.entities.find((entity) => entity.layer === 'sequential-
 assert(confirmed.every((entity) => entity.contributesToFit));
 assert(candidates.every((entity) => !entity.contributesToFit));
 assert(candidates.every((entity) => entity.metadata.sequential.status === 'NOT_CONFIRMED'));
+assert(candidates.every((entity) => visualModelTest.contributesToVisualFit(entity)),
+  'SSK-TS-3F must not change established connection-candidate fit behavior');
 assert.equal(active.domainRef.portId, blocked.session.activeExitPortId);
 assert.equal(active.contributesToFit, false);
 assert.deepEqual(plainPoint(active.geometry.position), blocked.indexes.ports.get(blocked.session.activeExitPortId).sourcePosition);
@@ -112,8 +114,10 @@ for (const candidate of reversalRows) {
   assert.equal(entity.domainRef.branchId, candidate.branchId);
   assert.equal(entity.domainRef.entryPortId, candidate.entryPortId);
   assert.equal(entity.domainRef.portRole, candidate.portRole);
+  assert.deepEqual(plainPoint(entity.domainRef.sourcePosition), plainPoint(candidate.sourcePosition));
   assert.deepEqual(plainPoint(entity.geometry.position), plainPoint(candidate.sourcePosition));
   assert.equal(entity.contributesToFit, false);
+  assert.equal(visualModelTest.contributesToVisualFit(entity), false);
   assert.deepEqual(entity.editCapabilities, []);
   const marker = visualModelTest.marker(entity);
   assert.equal(marker.objectId, entity.id);
