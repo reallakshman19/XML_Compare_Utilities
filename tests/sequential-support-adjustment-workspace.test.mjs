@@ -46,12 +46,12 @@ function branchFixture(branchId, length = 1000, supportX = 250) {
     confirmedConstruction, supportProjection,
     ownerSnapshot: Object.freeze({ revision: ownerBridge.getSnapshot().revision }), engineOptions: {},
   };
-  return { branchId, source, supportProjection, state, ownerBridge };
+  return { branchId, source, confirmedConstruction, supportProjection, state, ownerBridge };
 }
 
 const branchA = branchFixture('/SSK/3I/BRANCH-A');
 const branchB = branchFixture('/SSK/3I/BRANCH-B', 1200, 400);
-const branchAChanged = branchFixture('/SSK/3I/BRANCH-A', 1400, 350);
+const branchAChanged = branchFixture('/SSK/3I/BRANCH-A', 1000, 350);
 let active = branchA;
 let publications = 0;
 const boundary = createSequentialSupportAdjustmentBoundary({
@@ -93,10 +93,13 @@ assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].cent
 assert.equal(boundary.readCurrentState().supportAdjustmentRegister.entries.length, 1);
 
 active = branchAChanged;
-assert.notEqual(branchAChanged.supportProjection.constructionFingerprint,
-  branchA.supportProjection.constructionFingerprint);
+assert.equal(branchAChanged.confirmedConstruction.constructionFingerprint,
+  branchA.confirmedConstruction.constructionFingerprint,
+  'support-only source changes must not alter confirmed pipe construction');
+assert.notDeepEqual(branchAChanged.supportProjection, branchA.supportProjection,
+  'support-only source changes must alter the complete base support projection');
 assert.equal(boundary.readCurrentState().supportAdjustmentRegister.entries.length, 0,
-  'changed confirmed construction must clear incompatible adjustment register');
+  'changed support evidence must clear the incompatible adjustment register');
 assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 350);
 
 boundary.destroy();
