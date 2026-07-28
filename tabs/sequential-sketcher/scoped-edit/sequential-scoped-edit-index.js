@@ -14,4 +14,6 @@ export * from './sequential-draft-edit-support-move-target.js';
 export * from './sequential-draft-edit-support-move-draft.js';
 export * from './sequential-draft-edit-support-move-panel.js';
 export * from './sequential-draft-edit-support-move-feature.js';
+export * from './sequential-draft-edit-support-move-apply.js';
+export * from './sequential-support-adjustment-boundary.js';
 export * from './sequential-workspace-command-boundary.js';
