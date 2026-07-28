@@ -1,5 +1,16 @@
 import assert from 'node:assert/strict';
 import { buildSequentialEngineeringSvgScene } from '../tabs/sequential-sketcher/sequential-engineering-svg-scene.js';
+import { validateSequentialEngineeringSvgParity } from '../tabs/sequential-sketcher/sequential-engineering-svg-parity-validation.js';
+import {
+  buildSequentialReversalSceneEntities,
+  projectSequentialReversalCandidates,
+} from '../tabs/sequential-sketcher/sequential-engineering-svg-reversal-scene.js';
+import { _test as visualModelTest } from '../tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js';
+import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
+import {
+  advanceConstruction,
+  createSequentialConstructionSession,
+} from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
 import {
   adapterState,
   blockedSequentialFixture,
@@ -12,6 +23,23 @@ function plainPoint(value) { return { x: value.x, y: value.y, z: value.z }; }
 function geometryLedger(scene) {
   return scene.entities.map((entity) => ({ id: entity.id, geometry: entity.geometry }))
     .sort((left, right) => left.id.localeCompare(right.id));
+}
+function reversalFixture() {
+  const branchId = '/ESVG/REVERSE';
+  const records = [{
+    type: 'BRANCH', name: branchId,
+    attributes: { NAME: branchId, HPOS: { x: 0, y: 0, z: 0 } },
+    children: [{
+      type: 'PIPE', name: 'P1',
+      attributes: { NAME: 'P1', APOS: { x: -1, y: 0, z: 0 }, LPOS: { x: 1, y: 0, z: 0 } },
+    }],
+  }];
+  const evidenceModel = buildSequentialEvidenceModel(records);
+  const indexes = indexSequentialEvidence(evidenceModel);
+  const initial = createSequentialConstructionSession(branchId);
+  const result = advanceConstruction(initial, evidenceModel, indexes, {});
+  assert.equal(result.session.currentDecisionRequest.reason, 'AMBIGUOUS_BRANCH_START');
+  return { records, evidenceModel, indexes, initial, session: result.session };
 }
 
 const blocked = blockedSequentialFixture();
@@ -39,6 +67,7 @@ assert.equal(iso.scene.capabilities.editing, false);
 assert.equal(iso.parity.confirmedComponentCount, 1);
 assert.equal(iso.parity.confirmedGeometryCount, 1);
 assert.equal(iso.parity.candidateCount, blocked.session.currentDecisionRequest.candidates.length);
+assert.equal(iso.parity.reversalCandidateCount, 0);
 assert.equal(iso.parity.activePortCount, 1);
 assert.equal(iso.parity.mappedCountByCategory.candidate, iso.parity.candidateCount);
 assert.equal(iso.parity.duplicateIds.length, 0);
@@ -57,6 +86,60 @@ assert(candidates.every((entity) => entity.metadata.sequential.status === 'NOT_C
 assert.equal(active.domainRef.portId, blocked.session.activeExitPortId);
 assert.equal(active.contributesToFit, false);
 assert.deepEqual(plainPoint(active.geometry.position), blocked.indexes.ports.get(blocked.session.activeExitPortId).sourcePosition);
+
+const reversed = reversalFixture();
+const reversalBuilds = Object.fromEntries(['ISO', 'XY', 'XZ', 'YZ'].map((projection) => [
+  projection,
+  buildSequentialEngineeringSvgScene(adapterState(reversed, projection), {
+    sceneId: 'ssk-reversal', visibleProjection: projection,
+  }),
+]));
+const reversalIso = reversalBuilds.ISO;
+const reversalRows = projectSequentialReversalCandidates(reversed.session, reversed.indexes);
+assert.equal(reversalRows.length, 2);
+assert.equal(reversalIso.parity.reversalCandidateCount, reversalRows.length);
+assert.equal(reversalIso.parity.mappedCountByCategory.reversalCandidate, reversalRows.length);
+validateSequentialEngineeringSvgParity(reversalIso.parity);
+for (const projection of ['XY', 'XZ', 'YZ']) {
+  assert.deepEqual(geometryLedger(reversalIso.scene), geometryLedger(reversalBuilds[projection].scene));
+}
+for (const candidate of reversalRows) {
+  const entity = reversalIso.scene.entities.find((row) => row.id === `ssk:reversal:${candidate.candidateId}`);
+  assert.ok(entity);
+  assert.equal(entity.domainRef.category, 'reversalCandidate');
+  assert.equal(entity.domainRef.componentId, candidate.componentId);
+  assert.equal(entity.domainRef.sourceComponentId, candidate.sourceComponentId);
+  assert.equal(entity.domainRef.branchId, candidate.branchId);
+  assert.equal(entity.domainRef.entryPortId, candidate.entryPortId);
+  assert.equal(entity.domainRef.portRole, candidate.portRole);
+  assert.deepEqual(plainPoint(entity.geometry.position), plainPoint(candidate.sourcePosition));
+  assert.equal(entity.contributesToFit, false);
+  assert.deepEqual(entity.editCapabilities, []);
+  const marker = visualModelTest.marker(entity);
+  assert.equal(marker.objectId, entity.id);
+  assert.equal(marker.label, 'REVERSE ENTRY');
+  assert.deepEqual(marker.position, [candidate.sourcePosition.x, candidate.sourcePosition.y, candidate.sourcePosition.z]);
+}
+const first = reversalRows[0];
+const stalePort = { ...reversed.indexes.ports.get(first.entryPortId), role: 'STALE_ROLE' };
+const staleIndexes = {
+  ...reversed.indexes,
+  components: new Map(reversed.indexes.components),
+  ports: new Map(reversed.indexes.ports).set(first.entryPortId, stalePort),
+};
+assert.throws(
+  () => projectSequentialReversalCandidates(reversed.session, staleIndexes),
+  /differs from current indexed entry-port evidence/,
+);
+const omissions = [];
+const missing = buildSequentialReversalSceneEntities({
+  reversalCandidates: [{ ...first, sourcePosition: null }],
+}, omissions);
+assert.equal(missing.length, 0);
+assert.deepEqual(omissions, [{
+  category: 'reversalCandidate', id: first.candidateId,
+  reason: 'REVERSAL_ENTRY_PORT_POSITION_MISSING',
+}]);
 
 const repaired = repairedSequentialFixture();
 const repairedBuild = buildSequentialEngineeringSvgScene(adapterState(repaired), { sceneId: 'ssk-repaired' });
