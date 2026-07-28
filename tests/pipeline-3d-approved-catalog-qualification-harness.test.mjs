@@ -43,7 +43,7 @@ assert.deepEqual(PIPELINE_APPROVED_CATALOG_QUALIFICATION_TESTS.map((item) => ite
   'TRI-2E-A-PRODUCTION-TRANSPORT',
 ]);
 
-const success = runWith({ status: 0, signal: null, stdout: 'fixture PASS\n', stderr: '' });
+const success = runWith({ status: 0, signal: null, stdout: 'fixture: PASS\n', stderr: '' });
 assert.equal(success.schema, PIPELINE_APPROVED_CATALOG_QUALIFICATION_SCHEMA);
 assert.equal(success.harnessVersion, PIPELINE_APPROVED_CATALOG_QUALIFICATION_HARNESS_VERSION);
 assert.equal(success.baselineCommit, baselineCommit);
@@ -53,7 +53,7 @@ assert.equal(success.results.length, 1);
 assert.equal(success.results[0].ready, true);
 assert.equal(success.results[0].durationMs, 5);
 assert.deepEqual(success.results[0].command, ['node', 'tests/fake.test.js']);
-assert.equal(success.results[0].stdoutExcerpt, 'fixture PASS\n');
+assert.equal(success.results[0].stdoutExcerpt, 'fixture: PASS\n');
 assert.equal(success.results[0].stderrExcerpt, '');
 assert.match(success.results[0].stdoutSha256, /^[a-f0-9]{64}$/);
 assert.match(success.results[0].stderrSha256, /^[a-f0-9]{64}$/);
@@ -66,7 +66,7 @@ const successWithDifferentDuration = runPipelineApprovedCatalogQualification({
   repoRoot: '/repo',
   testPlan,
   exists,
-  runner: () => ({ status: 0, signal: null, stdout: 'fixture PASS\n', stderr: '' }),
+  runner: () => ({ status: 0, signal: null, stdout: 'fixture: PASS\n', stderr: '' }),
   clock: clock(100, 250),
 });
 assert.notEqual(success.results[0].durationMs, successWithDifferentDuration.results[0].durationMs);
@@ -75,7 +75,7 @@ assert.deepEqual(
   deterministicPipelineApprovedCatalogQualificationProjection(successWithDifferentDuration),
 );
 
-const invalidBaseline = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+const invalidBaseline = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   baselineCommit: 'main',
 });
 assert.equal(invalidBaseline.ready, false);
@@ -83,7 +83,7 @@ assert.equal(invalidBaseline.results.length, 0);
 assert.ok(invalidBaseline.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_INVALID'));
 
-const invalidTimeout = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+const invalidTimeout = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   timeoutMs: Number.NaN,
 });
 assert.equal(invalidTimeout.ready, false);
@@ -91,7 +91,7 @@ assert.equal(invalidTimeout.results.length, 0);
 assert.ok(invalidTimeout.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TIMEOUT_INVALID'));
 
-const missing = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+const missing = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   exists: () => false,
 });
 assert.equal(missing.ready, false);
@@ -99,7 +99,7 @@ assert.equal(missing.results.length, 0);
 assert.ok(missing.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_MISSING'));
 
-const existenceError = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+const existenceError = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   exists: () => { throw new Error('filesystem unavailable'); },
 });
 assert.equal(existenceError.ready, false);
@@ -130,6 +130,16 @@ assert.equal(failed.results[0].stderrExcerpt, 'failure');
 const noSentinel = runWith({ status: 0, signal: null, stdout: 'completed', stderr: '' });
 assert.equal(noSentinel.ready, false);
 assert.ok(noSentinel.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_PASS_SENTINEL_MISSING'));
+
+const nonterminalSentinel = runWith({
+  status: 0,
+  signal: null,
+  stdout: 'fixture: PASS\nadditional output\n',
+  stderr: '',
+});
+assert.equal(nonterminalSentinel.ready, false);
+assert.ok(nonterminalSentinel.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_PASS_SENTINEL_MISSING'));
 
 const timeoutError = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
