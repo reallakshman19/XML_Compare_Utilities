@@ -1,6 +1,6 @@
 import { anchorPriorityLabel, configuredAnchorSlots } from './navis-tag-anchor-policy.js';
 import { DEFAULT_APPLIES_TO_CONFIG } from './navis-tag-applies-to.js';
-import { DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
+import { ALTERNATE_MATCH_COLUMN, DEFAULT_ISONOTE_KEYWORD_MAPPINGS, keywordMappingRows } from './navis-tag-final-output.js';
 import { renderAnchorPreview, renderAnchorTagDropdown, renderAnchorSupportDropdown, renderFilterBar } from './navis-tag-isonote-ui-view.js';
 
 const STYLE_ID = 'navis-tag-isonote-workflow-style';
@@ -117,7 +117,7 @@ function renderAnchorSummary(state) {
   const anchor = state.navisParse?.anchor;
   if (!anchor?.active) return '<div class="nti-help">Configure at least one complete Tag ↔ JSON support pair, then Build or Run.</div>';
   if (anchor.validCount === 1 && anchor.globalTransformApplied) return renderAnchorPreview(state);
-  return `<div class="nti-help"><b>${esc(anchor.summaryText)}</b><br>Anchor entry order has no engineering effect. The candidate audit and final output record the winning anchor pair basis.</div>`;
+  return `<div class="nti-help"><b>${esc(anchor.summaryText)}</b><br>Each valid anchor runs a complete Tag-matching loop. Only each loop winner enters the cross-loop comparison, and the selected basis is recorded in the audit and final output.</div>`;
 }
 function renderHome(state) {
   const readiness = state.readiness?.status || (state.inputsDirty ? 'STALE / NOT BUILT' : 'NOT BUILT');
@@ -127,9 +127,9 @@ function renderHome(state) {
   const anchorCard = `<section class="nti-card nti-anchor-card">
     <div class="nti-section-head"><div>
       <h3>Multi-anchor coordinate matching</h3>
-      <p>Each valid Tag ↔ JSON support pair defines an independent translation hypothesis. Every Tag candidate is evaluated under every valid anchor, and the mathematically best in-tolerance basis is retained.</p>
+      <p>Each valid Tag ↔ JSON support pair defines an independent complete matching loop. Every loop transforms all Tags and contributes only its closest in-tolerance winner for each support.</p>
     </div></div>
-    <div class="nti-anchor-policy"><b>Equal-authority rule:</b> no primary anchor, no fallback order, and no averaging. Anchor entry order does not affect matching. Existing E/N/EL tolerances, scoring, and comment ambiguity rules apply after the best anchor basis is chosen for each candidate.</div>
+    <div class="nti-anchor-policy"><b>Equal-authority rule:</b> no primary anchor, no fallback order, and no averaging. Anchor-loop winners are compared geometrically; lower-ranked Tags remain audit evidence and cannot create final duplicate rows.</div>
     ${renderAnchorPriorityRows(state)}
     <div class="nti-anchor-preview-wrap">${renderAnchorSummary(state)}</div>
   </section>`;
@@ -155,9 +155,9 @@ function renderHome(state) {
     <div class="nti-section-head"><div><h3>2. Build and resolve</h3><p>Build refreshes hierarchy and anchor hypotheses. Run automatically rebuilds stale inputs before matching.</p></div><button class="nti-btn" data-nti-action="open-config">Open Config</button></div>
     <div class="nti-step-grid">
       <div><b>JSON Trace</b><span>Resolve support families, pipe names and canonical positions.</span></div>
-      <div><b>Anchor hypotheses</b><span>Derive an independent translation from every valid anchor pair.</span></div>
-      <div><b>Match and propagate</b><span>Choose the best anchor basis per Tag candidate, then apply normal ranking.</span></div>
-      <div><b>Final Output</b><span>Export support notes with explicit anchor-pair provenance.</span></div>
+      <div><b>Anchor loops</b><span>Run complete matching independently under every valid anchor translation.</span></div>
+      <div><b>Match and propagate</b><span>Compare only the closest winner from each anchor loop, then apply propagation.</span></div>
+      <div><b>Final Output</b><span>Retain one highest-score direct owner per Tag and summarize alternates in one column.</span></div>
     </div>
     <div class="nti-actions nti-primary-actions">
       <button class="nti-btn" data-nti-action="build">Build evidence</button>
@@ -247,13 +247,13 @@ function renderTable(headers, rows, tableClass) {
 }
 function renderFinal(state) {
   const rows = state.audit?.finalRows || [];
-  const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Anchor pair basis','Basis'];
-  return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>The Tag column retains the original Tag code. Anchor pair basis identifies the transform hypothesis used for the direct or propagated evidence.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
-  <section class="nti-card"><div class="nti-section-head"><div><h3>Final table</h3><p>Identity preference: grouped /DATUM first; otherwise smallest numeric support suffix.</p></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="download-final-csv" ${rows.length ? '' : 'disabled'}>Export final CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Audit JSON</button></div></div>
-    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence, anchor pair or basis...')}
+  const headers = ['Name of the element','PIPE','POS','Navis Tag ID','Navis Tag POS','Tag','Support ISONOTE','confidence','Anchor pair basis',ALTERNATE_MATCH_COLUMN,'Basis'];
+  return `<section class="nti-workflow-hero nti-output-hero"><div><span class="nti-eyebrow">FINAL OUTPUT</span><h2>Support ISONOTE delivery table</h2><p>Only the highest-score direct owner for each Navis Tag is retained. Other candidate or support relationships are summarized in ${esc(ALTERNATE_MATCH_COLUMN)} while complete evidence remains in the audit exports.</p></div><div class="nti-hero-status"><span>Rows</span><strong>${esc(rows.length)}</strong></div></section>
+  <section class="nti-card"><div class="nti-section-head"><div><h3>Final table</h3><p>There are no separate NOT_SELECTED rows. Ambiguous supports retain only their highest-ranked candidate and leave Support ISONOTE blank.</p></div><div class="nti-actions"><button class="nti-btn nti-btn-primary" data-nti-action="download-final-csv" ${rows.length ? '' : 'disabled'}>Export final CSV</button><button class="nti-btn" data-nti-action="download-audit" ${state.audit ? '' : 'disabled'}>Audit JSON</button></div></div>
+    ${renderFilterBar('final-output', 'Filter support, pipe, Tag, confidence, anchor pair, alternate match or basis...')}
     ${renderTable(headers, rows, 'nti-filter-table-final-output')}
   </section>
-  <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain complete direct, rejected, anchor-hypothesis and propagation evidence behind the final delivery table.</div><div class="nti-actions">
+  <section class="nti-card"><h3>Additional audit exports</h3><div class="nti-help">These files retain complete direct, rejected, anchor-loop, alternate-candidate and propagation evidence behind the consolidated final delivery table.</div><div class="nti-actions">
     <button class="nti-btn" data-nti-action="download-csv" ${state.audit?.augmentedRows?.length ? '' : 'disabled'}>Augmented audit CSV</button>
     <button class="nti-btn" data-nti-action="download-ambiguous" ${state.audit?.ambiguousRows?.length ? '' : 'disabled'}>Ambiguous CSV</button>
     <button class="nti-btn" data-nti-action="download-rejected" ${state.audit?.rejectedRows?.length ? '' : 'disabled'}>Rejected CSV</button>
