@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 const BENCHMARK_SHA256 = '38c6080c73f84e55581ad75dcbfb6b580ea587fc287ecf1861d9dc8e793b5cd3';
 const REPRESENTABLE_OPERATIONS = new Set(['MOVE_NODE', 'MERGE_NODES', 'TRIM_EDGE']);
 
-test('TTV-C06 — exact 1885 staged export serializes all committed moves and rebuilds the edited topology', async ({ page }, testInfo) => {
+test('TTV-C06 — exact 1885 staged export preserves hierarchy shape and rebuilds the edited topology', async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -48,22 +48,49 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   const exported = JSON.parse(text);
   const exportSha256 = createHash('sha256').update(bytes).digest('hex');
 
-  expect(exported.schema).toBe('inputxml-managed-stage/v1');
-  expect(exported.objects).toHaveLength(23);
-  expect(exported.provenance.schema).toBe('StagedEditProvenance.v1');
-  expect(exported.provenance.baseCanonicalTopologyHash).toBe(committed.run.beforeTopologyHash);
-  expect(exported.provenance.topologyEditDraftHash).toBe(committed.draftHash);
-  expect(exported.provenance.editedCanonicalTopologyHash).toBe(committed.editedCanonicalTopologyHash);
-  expect(exported.provenance.commandJournal.activeCommandIds).toEqual(committed.activeCommandIds);
-  expect(exported.provenance.positionIdentityToleranceMm).toBe(1e-6);
-  expect(exported.provenance.positionRemaps).toHaveLength(60);
-  expect(exported.provenance.ledger).toHaveLength(60);
+  expect(Array.isArray(exported)).toBe(true);
+  expect(exported).toHaveLength(23);
+  expect(Object.hasOwn(exported, 'provenance')).toBe(false);
 
-  const operations = flattenOperations(exported.provenance.commands);
+  const directExport = await page.evaluate(async () => {
+    const exporter = await import('/tabs/topology-trace-validator/topology-staged-export.js');
+    const ledger = await import('/tabs/topology-trace-validator/topology-update-ledger-model.js');
+    const harness = window.__topologyValidatorHarness;
+    const controllerEvidence = harness.controller.evidence();
+    const edit = controllerEvidence.edit;
+    const rows = ledger.buildUpdateLedgerRows({
+      draft: edit.draft,
+      attributeLedger: edit.attributeLedger,
+      remarks: edit.remarks,
+    });
+    return exporter.buildStagedExport({
+      baseStagedJson: controllerEvidence.trace.artifacts.source.raw,
+      baseCanonical: edit.baseArtifacts.canonicalTopology,
+      draft: edit.draft,
+      editedCanonicalHash: edit.editedArtifacts.canonicalTopology.canonicalTopologyHash,
+      attributeLedger: edit.attributeLedger,
+      commandJournal: edit.commandJournal,
+      exportedAt: '2026-07-28T08:00:00.000Z',
+      ledgerRows: rows,
+    });
+  });
+  const provenance = directExport.provenance;
+  expect(JSON.parse(directExport.text)).toEqual(exported);
+  expect(provenance.schema).toBe('StagedEditProvenance.v1');
+  expect(provenance.baseCanonicalTopologyHash).toBe(committed.run.beforeTopologyHash);
+  expect(provenance.topologyEditDraftHash).toBe(committed.draftHash);
+  expect(provenance.editedCanonicalTopologyHash).toBe(committed.editedCanonicalTopologyHash);
+  expect(provenance.commandJournal.activeCommandIds).toEqual(committed.activeCommandIds);
+  expect(provenance.positionIdentityToleranceMm).toBe(1e-6);
+  expect(provenance.positionRemaps).toHaveLength(60);
+  expect(provenance.ledger).toHaveLength(60);
+  expect(directExport.summary.rootShape).toBe('array');
+
+  const operations = flattenOperations(provenance.commands);
   expect(operations).toHaveLength(60);
   expect(new Set(operations.map((row) => row.type))).toEqual(new Set(['MOVE_NODE']));
   expect(operations.every((row) => REPRESENTABLE_OPERATIONS.has(row.type))).toBe(true);
-  const remapsByNode = new Map(exported.provenance.positionRemaps.map((row) => [row.nodeId, row]));
+  const remapsByNode = new Map(provenance.positionRemaps.map((row) => [row.nodeId, row]));
   expect(remapsByNode.size).toBe(60);
   for (const operation of operations) {
     const remap = remapsByNode.get(operation.payload.nodeId);
@@ -84,7 +111,6 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       supportProjectionToleranceMm: 50,
       enrichmentConfig: {},
     };
-    const rawEnvelopeBuilt = await core.buildComponentTopologyArtifacts(stagedText, options);
     const built = await core.buildComponentTopologyArtifacts(producerText, options);
     const report = core.runTopologyChecks(built.canonicalTopology, {
       shortElementMm: 6, toleranceMm: 0.1, snapToleranceMm: 25,
@@ -97,9 +123,8 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     const normalizedProjection = engineeringProjection(built.canonicalTopology);
     const editedProjection = engineeringProjection(editedCanonical);
     return {
-      rootKey: root.rootKey,
+      rootShape: Array.isArray(parsed) ? 'array' : root.rootKey,
       branchCount: root.branches.length,
-      rawEnvelopeCanonicalTopologyHash: rawEnvelopeBuilt.canonicalTopology.canonicalTopologyHash,
       normalizedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
       editedCanonicalTopologyHash: editedCanonical.canonicalTopologyHash,
       normalizedEngineeringSignature: await sha256(JSON.stringify(normalizedProjection)),
@@ -201,6 +226,10 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     body: bytes,
     contentType: 'application/json',
   });
+  await testInfo.attach('topology-staged-export-1885-provenance.json', {
+    body: Buffer.from(directExport.provenanceText),
+    contentType: 'application/json',
+  });
   await testInfo.attach('topology-staged-export-1885-evidence.json', {
     body: Buffer.from(`${JSON.stringify({
       benchmarkSha256: BENCHMARK_SHA256,
@@ -208,22 +237,21 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       exportByteLength: bytes.length,
       committed,
       export: {
-        schema: exported.schema,
-        branchCount: exported.objects.length,
-        positionIdentityToleranceMm: exported.provenance.positionIdentityToleranceMm,
-        remapCount: exported.provenance.positionRemaps.length,
+        rootShape: directExport.summary.rootShape,
+        branchCount: exported.length,
+        positionIdentityToleranceMm: provenance.positionIdentityToleranceMm,
+        remapCount: provenance.positionRemaps.length,
         operationCount: operations.length,
         operationTypes: [...new Set(operations.map((row) => row.type))],
-        ledgerCount: exported.provenance.ledger.length,
+        ledgerCount: provenance.ledger.length,
       },
       roundTrip,
     }, null, 2)}\n`),
     contentType: 'application/json',
   });
 
-  expect(roundTrip.rootKey).toBe('objects');
+  expect(roundTrip.rootShape).toBe('array');
   expect(roundTrip.branchCount).toBe(23);
-  expect(roundTrip.rawEnvelopeCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedEngineeringSignature).toBe(roundTrip.editedEngineeringSignature);
   expect(roundTrip.normalizedCollectionSignatures).toEqual(roundTrip.editedCollectionSignatures);
