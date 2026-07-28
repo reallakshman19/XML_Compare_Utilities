@@ -36,7 +36,7 @@ export const PIPELINE_APPROVED_CATALOG_QUALIFICATION_TESTS = Object.freeze([
 ]);
 
 const SHA40 = /^[a-f0-9]{40}$/i;
-const PASS_SENTINEL = /(?:^|\s)PASS(?:\s|$)/;
+const PASS_SENTINEL = /:\s*PASS\s*$/;
 const MAX_EXCERPT = 4096;
 
 function plain(value) {
@@ -164,7 +164,7 @@ function executionDiagnostics(test, execution) {
   ));
   if (execution.status === 0 && !PASS_SENTINEL.test(text(execution.stdout))) diagnostics.push(diagnostic(
     'PIPELINE_APPROVED_CATALOG_QUALIFICATION_PASS_SENTINEL_MISSING',
-    'Qualification test completed without an explicit PASS sentinel.',
+    'Qualification test completed without an explicit terminal : PASS sentinel.',
     { id: test.id, path: test.path },
   ));
   return diagnostics;
