@@ -51,7 +51,7 @@ async function openLoadApprove(page, options = {}) {
   await expect(page.locator('footer [data-status="current"]')).toBeVisible();
 }
 async function runAndOpenReview(page) {
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Visual revision review' })).toBeVisible({ timeout: 20_000 });
 }
 
