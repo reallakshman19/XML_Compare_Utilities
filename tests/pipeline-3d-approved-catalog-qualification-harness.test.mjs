@@ -83,6 +83,14 @@ assert.equal(invalidBaseline.results.length, 0);
 assert.ok(invalidBaseline.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_INVALID'));
 
+const invalidTimeout = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+  timeoutMs: Number.NaN,
+});
+assert.equal(invalidTimeout.ready, false);
+assert.equal(invalidTimeout.results.length, 0);
+assert.ok(invalidTimeout.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TIMEOUT_INVALID'));
+
 const missing = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
   exists: () => false,
 });
@@ -90,6 +98,14 @@ assert.equal(missing.ready, false);
 assert.equal(missing.results.length, 0);
 assert.ok(missing.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_MISSING'));
+
+const existenceError = runWith({ status: 0, signal: null, stdout: 'PASS', stderr: '' }, {
+  exists: () => { throw new Error('filesystem unavailable'); },
+});
+assert.equal(existenceError.ready, false);
+assert.equal(existenceError.results.length, 0);
+assert.ok(existenceError.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_EXISTENCE_CHECK_ERROR'));
 
 const duplicate = runPipelineApprovedCatalogQualification({
   baselineCommit,
@@ -142,6 +158,15 @@ const executionError = runWith({
 assert.equal(executionError.ready, false);
 assert.ok(executionError.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_EXECUTION_ERROR'));
+
+const thrownRunner = runWith(null, {
+  runner: () => { throw Object.assign(new Error('runner threw'), { code: 'ERUNNER' }); },
+});
+assert.equal(thrownRunner.ready, false);
+assert.ok(thrownRunner.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_EXECUTION_ERROR'));
+assert.ok(thrownRunner.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_FAILED'));
 
 assert.equal(_internal.excerpt('x'.repeat(5000)).length <= 4096, true);
 assert.deepEqual(_internal.cliArguments(['--baseline', baselineCommit, '--timeout-ms', '25']), {
