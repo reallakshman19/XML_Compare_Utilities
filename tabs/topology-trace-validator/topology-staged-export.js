@@ -1,14 +1,18 @@
 /**
- * Staged JSON export: the loaded inputxml-managed-stage/v1 document with the
- * draft's geometry mutations and the attribute ledger applied, plus an
- * embedded StagedEditProvenance.v1 block mirroring the update-ledger table.
+ * Staged JSON export: the loaded staged hierarchy with the draft's geometry
+ * mutations and attribute ledger applied. The primary engineering interchange
+ * document preserves the source root shape exactly: a bare hierarchy remains a
+ * bare array, and an existing hierarchy/branches/objects envelope retains its
+ * original keys. Audit provenance is returned separately and must never change
+ * the staged hierarchy contract consumed by 3D Converters and other modules.
  *
  * Geometry mapping is a deterministic position remap derived from the
  * command payloads themselves (MOVE_NODE / MERGE_NODES / TRIM_EDGE move
  * existing nodes; other commands create or remove elements and are recorded
- * in provenance only). Any staged coordinate within tolerance of a moved
- * node's original position is rewritten to the new position — no entity-id
- * guessing.
+ * in provenance only). Staged coordinates are rewritten only when they match
+ * the moved node's original position at coordinate-identity precision. A
+ * topology snap tolerance must never be used as an identity tolerance because
+ * nearby but distinct source ports may otherwise be moved and merged.
  */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
@@ -16,6 +20,7 @@ import { applyAttributeLedgerToStaged } from './topology-attribute-edit-ledger.j
 import { isIsoTimestamp } from '../../contracts/contract-values.js';
 
 const COORD_FIELDS = Object.freeze(['APOS', 'LPOS', 'POS', 'BPOS', 'HPOS', 'TPOS']);
+export const STAGED_POSITION_IDENTITY_TOLERANCE_MM = 1e-6;
 
 const xyz = (value) => {
   const record = objectRecord(value);
@@ -24,10 +29,6 @@ const xyz = (value) => {
 };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
-/**
- * Replay command payloads over the base canonical node positions and emit
- * [{ from:[x,y,z], to:[x,y,z] }] remaps for every node that ended up moved.
- */
 export function buildPositionRemaps(baseCanonical, draft) {
   const positions = new Map(asArray(baseCanonical.nodes).map(objectRecord)
     .map((node) => [cleanText(node.id), xyz(node.position)]));
@@ -50,12 +51,19 @@ export function buildPositionRemaps(baseCanonical, draft) {
   const remaps = [];
   for (const [nodeId, current] of positions) {
     const base = original.get(nodeId);
-    if (base && current && dist(base, current) > 1e-6) remaps.push({ nodeId, from: base, to: current });
+    if (base && current && dist(base, current) > STAGED_POSITION_IDENTITY_TOLERANCE_MM) remaps.push({ nodeId, from: base, to: current });
   }
   return Object.freeze(remaps);
 }
 
-function remapDocumentPositions(doc, remaps, toleranceMm) {
+function positionIdentityTolerance(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return STAGED_POSITION_IDENTITY_TOLERANCE_MM;
+  if (parsed > 1e-4) throw new RangeError('Staged position identity tolerance must not exceed 0.0001 mm.');
+  return parsed;
+}
+
+function remapDocumentPositions(doc, remaps, identityToleranceMm) {
   if (!remaps.length) return 0;
   let touched = 0;
   const branches = Array.isArray(doc) ? doc : (doc.hierarchy ?? doc.branches ?? doc.objects ?? []);
@@ -64,7 +72,7 @@ function remapDocumentPositions(doc, remaps, toleranceMm) {
       const coords = attributes && xyz(attributes[field]);
       if (!coords) continue;
       for (const remap of remaps) {
-        if (dist(coords, remap.from) <= toleranceMm) {
+        if (dist(coords, remap.from) <= identityToleranceMm) {
           attributes[field] = { x: remap.to[0], y: remap.to[1], z: remap.to[2] };
           touched += 1;
           break;
@@ -79,26 +87,19 @@ function remapDocumentPositions(doc, remaps, toleranceMm) {
   return touched;
 }
 
-/**
- * @param {{ baseStagedJson: unknown, baseCanonical: Record<string, unknown>,
- *           draft: Record<string, unknown>, editedCanonicalHash: string,
- *           attributeLedger: Record<string, unknown>, commandJournal: Record<string, unknown>, exportedAt: string,
- *           ledgerRows: ReadonlyArray<Record<string, unknown>>,
- *           toleranceMm?: number }} input
- * @returns {{ text: string, summary: { remaps: number, coordinatesTouched: number, attributeEdits: number } }}
- */
 export function buildStagedExport(input) {
   if (!isIsoTimestamp(input.exportedAt)) throw new TypeError('Staged export requires an exact ISO exportedAt timestamp.');
-  const toleranceMm = Number(input.toleranceMm) > 0 ? Number(input.toleranceMm) : 0.5;
+  const identityToleranceMm = positionIdentityTolerance(input.positionIdentityToleranceMm);
   const withAttributes = applyAttributeLedgerToStaged(input.baseStagedJson, input.attributeLedger);
   const remaps = buildPositionRemaps(input.baseCanonical, input.draft);
-  const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, toleranceMm);
+  const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, identityToleranceMm);
   const provenance = {
     schema: 'StagedEditProvenance.v1',
     exportedAt: input.exportedAt,
     baseCanonicalTopologyHash: cleanText(objectRecord(input.draft).baseCanonicalTopologyHash),
     topologyEditDraftHash: cleanText(objectRecord(input.draft).topologyEditDraftHash),
     editedCanonicalTopologyHash: cleanText(input.editedCanonicalHash),
+    positionIdentityToleranceMm: identityToleranceMm,
     positionRemaps: remaps,
     commands: asArray(objectRecord(input.draft).commands),
     attributeEdits: asArray(objectRecord(input.attributeLedger).edits),
@@ -108,11 +109,21 @@ export function buildStagedExport(input) {
       before: row.before, after: row.after, origin: row.origin, remark: row.remark,
     })),
   };
-  const doc = Array.isArray(withAttributes)
-    ? { schema: 'inputxml-managed-stage/v1', objects: withAttributes, provenance }
-    : { ...withAttributes, provenance };
+  const rootShape = Array.isArray(withAttributes)
+    ? 'array'
+    : ['hierarchy', 'branches', 'objects'].find((key) => Array.isArray(withAttributes?.[key])) ?? 'object';
   return {
-    text: `${JSON.stringify(doc, null, 2)}\n`,
-    summary: { remaps: remaps.length, coordinatesTouched, attributeEdits: provenance.attributeEdits.length },
+    text: `${JSON.stringify(withAttributes, null, 2)}\n`,
+    provenanceText: `${JSON.stringify(provenance, null, 2)}\n`,
+    provenance,
+    summary: {
+      remaps: remaps.length,
+      coordinatesTouched,
+      attributeEdits: provenance.attributeEdits.length,
+      positionIdentityToleranceMm: identityToleranceMm,
+      rootShape,
+    },
   };
 }
+
+export const _test = Object.freeze({ positionIdentityTolerance, remapDocumentPositions });
