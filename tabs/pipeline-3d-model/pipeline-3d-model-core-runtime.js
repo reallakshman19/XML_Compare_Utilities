@@ -21,6 +21,7 @@ import { resolvePipelinePropertySectionPlan } from './pipeline-3d-model-property
 import { buildExplicitPipelineInputXmlDocumentPlan } from './pipeline-3d-model-explicit-inputxml.js';
 import { buildInputXmlPipingModelXml } from './pipeline-3d-model-xml-builder.js?v=20260722-p3d-base-039-1';
 import { buildPipelineCoreOrchestration } from './pipeline-3d-model-core-orchestrator.js';
+import { withPipelineApprovedCatalogProductionInputs } from './pipeline-3d-model-approved-catalog-production-input.js';
 
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -84,8 +85,18 @@ export const PIPELINE_CORE_RUNTIME_DEPENDENCIES = Object.freeze({
   buildInputXmlXml: buildInputXmlPipingModelXml,
 });
 
+export function buildPipelineCoreRuntimeDependencies(input = {},
+  dependencies = PIPELINE_CORE_RUNTIME_DEPENDENCIES) {
+  const baseBuilder = dependencies.buildInputXmlDocumentPlan;
+  return Object.freeze({
+    ...dependencies,
+    buildInputXmlDocumentPlan: (documentInput) => baseBuilder(
+      withPipelineApprovedCatalogProductionInputs(documentInput, input)),
+  });
+}
+
 export function buildPipelineCoreOutputs(input = {}) {
   const geometry = adoptGreBendGeometry(
-    buildPipelineCoreOrchestration(input, PIPELINE_CORE_RUNTIME_DEPENDENCIES), input);
+    buildPipelineCoreOrchestration(input, buildPipelineCoreRuntimeDependencies(input)), input);
   return adoptGreBendMaterialization(geometry, input);
 }
