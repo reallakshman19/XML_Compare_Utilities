@@ -76,6 +76,19 @@ function candidateCommand(commandType, branchId, candidateId = 'CANDIDATE-AUTH-0
     },
   };
 }
+function boundaryCommand(commandType, branchId, decisionId) {
+  return {
+    commandType, branchId, decisionId,
+    payload: {
+      reason: 'Reviewed unresolved boundary evidence and classified the current boundary.',
+      evidenceNote: 'Current zero-candidate decision and source reference evidence were verified.',
+      decisionTargetId: 'SSK3DDECISION-TEST',
+      targetDecisionReason: 'REFERENCE_TARGET_MISSING',
+      targetDecisionScope: 'HEAD_BOUNDARY',
+      targetReference: '/AUTH/MISSING/TARGET',
+    },
+  };
+}
 function createFixture(records, branchId, suppliedSession = null, publisher = null) {
   const evidence = buildSequentialEvidenceModel(records);
   const indexes = indexSequentialEvidence(evidence);
@@ -306,6 +319,37 @@ for (const commandType of ['CONNECT_CANDIDATE', 'REJECT_CANDIDATE']) {
   }
 }
 
+for (const commandType of ['MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY']) {
+  const branchId = `/AUTH/${commandType}`;
+  const records = blockedRecords(branchId);
+  const evidence = buildSequentialEvidenceModel(records);
+  const indexes = indexSequentialEvidence(evidence);
+  const blocked = runConstructionUntilBlocked(
+    createSequentialConstructionSession(branchId), evidence, indexes, { commandIssuedAt: ADOPTED_AT },
+  ).session;
+  assert.equal(blocked.currentDecisionRequest.reason, 'REFERENCE_TARGET_MISSING');
+  assert.equal(blocked.currentDecisionRequest.candidates.length, 0);
+  const left = createFixture(records, branchId, blocked);
+  const right = createFixture(records, branchId, blocked);
+  const command = boundaryCommand(commandType, branchId, blocked.currentDecisionRequest.decisionId);
+  const leftPrepared = left.service().prepare({
+    command, origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  });
+  const rightPrepared = right.service().prepare({
+    command, origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
+  });
+  assert(sameSequentialContractValue(leftPrepared, rightPrepared), `${commandType} preparation must be deterministic`);
+  assert.equal(leftPrepared.targets.decisionId, blocked.currentDecisionRequest.decisionId);
+  assert.equal(leftPrepared.targets.candidateId, null);
+  assert.equal(leftPrepared.candidate.outcome, 'HEAD_BOUNDARY_USER_CLASSIFIED');
+  assert.equal(leftPrepared.candidate.session.transactionLedger.at(-1).createdAt, ISSUED_AT);
+  assert.equal(leftPrepared.candidate.session.decisionLedger.at(-1).resolution.confirmedAt, ISSUED_AT);
+  const acceptance = left.service().accept(leftPrepared);
+  assert.equal(acceptance.accepted, true, `${commandType} must publish through accepted-command authority`);
+  assert.equal(left.publications(), 1);
+  assert.equal(left.read().journalState.journal.entries.at(-1).commandType, commandType);
+}
+
 {
   const branchId = '/AUTH/CANDIDATE-STALE';
   const fixture = createFixture(completeRecords(branchId), branchId, candidateSession(branchId));
@@ -329,7 +373,7 @@ for (const commandType of ['CONNECT_CANDIDATE', 'REJECT_CANDIDATE']) {
 
 {
   const fixture = createFixture(completeRecords('/AUTH/CLOCK-BLOCK'), '/AUTH/CLOCK-BLOCK');
-  for (const commandType of ['MANUAL_CONNECT', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT']) {
+  for (const commandType of ['MANUAL_CONNECT', 'REVERSE_COMPONENT']) {
     assert.throws(() => fixture.service().prepare({
       command: { commandType, branchId: '/AUTH/CLOCK-BLOCK' },
       origin: { kind: 'USER', actorId: 'AUTHORITY_TEST', issuedAt: ISSUED_AT },
@@ -360,4 +404,4 @@ for (const relative of modules) {
   assert(source.split(/\r?\n/).length <= 300, `${relative} must remain under 300 lines`);
   assert.doesNotMatch(source, /export\s+default/);
 }
-console.log('Sequential SSK-TS-3C command authority foundation tests passed');
+console.log('Sequential SSK-TS-3D command authority foundation tests passed');

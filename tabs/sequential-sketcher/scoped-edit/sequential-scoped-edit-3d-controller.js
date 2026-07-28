@@ -3,6 +3,7 @@ import { createSequentialScopedEditVisualModel } from './sequential-scoped-edit-
 import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit-command-gateway.js';
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
+import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
@@ -83,6 +84,14 @@ function applyProjection(state, readModel) {
   const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO';
   state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
 }
+function syncDecisionTarget(state, scene, readModel) {
+  try {
+    const target = createSequentialDraftEditDecisionTarget({
+      readModel, scene, currentState: state.commandBoundary.readCurrentState(),
+    });
+    state.commandPanel?.setDecisionTarget(target);
+  } catch { state.commandPanel?.clearDecisionTarget(); }
+}
 function applyScene(state) {
   injectFailure(state.options.failureFactory, 'scene-apply');
   const host = state.shadow.host(); const readModel = state.shadow.readModel();
@@ -95,8 +104,8 @@ function applyScene(state) {
   const ids = selectedIds(readModel); state.viewer.setSelection(ids.at(-1) || null, ids.slice(0, -1));
   const mountKey = state.shadow.evidence().mountKey;
   if (state.mountKey !== mountKey) { state.mountKey = mountKey; state.viewer.fitAll(); }
-  applyProjection(state, readModel);
-  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · pick a blue current candidate for connect/reject.`, 'ready');
+  applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
+  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · exact candidate and boundary decisions are supervised.`, 'ready');
 }
 function selectPick(state, objectId) {
   state.viewer?.setSelection(objectId, []);
@@ -157,7 +166,7 @@ function scheduleRefresh(state) {
     if (state.destroyed) return;
     state.commandPanel?.refresh({
       invalidatePending: true, invalidateTarget: true,
-      reason: 'Prepared command and candidate target invalidated because Sequential owner authority changed.',
+      reason: 'Prepared command and command targets invalidated because Sequential owner authority changed.',
     });
     syncAvailability(state); if (!state.active) return;
     try { applyScene(state); } catch (error) { containFailure(state, error, 'owner refresh'); }
@@ -203,7 +212,6 @@ function installCommandPanel(state) {
     throw error;
   }
 }
-
 export function getSequentialScopedEdit3dController(root) { return CONTROLLERS.get(root) || null; }
 export function mountSequentialScopedEdit3dController(root, options = {}) {
   if (!root?.querySelector) throw new TypeError('Sequential Draft Edit 3D controller requires a root.');
