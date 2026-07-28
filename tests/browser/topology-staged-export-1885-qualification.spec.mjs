@@ -74,7 +74,6 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   const roundTrip = await page.evaluate(async (stagedText) => {
     const core = await import('/vendor/3d-converters/topology-browser-core.mjs');
     const staged = await import('/workbench3d/core/staged-json-core.js');
-    const autoFix = await import('/tabs/topology-trace-validator/topology-checker-auto-fix.js');
     const parsed = JSON.parse(stagedText);
     const root = staged.readStagedBranches(parsed);
     const producerText = JSON.stringify(root.branches);
@@ -91,7 +90,9 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       shortElementMm: 6, toleranceMm: 0.1, snapToleranceMm: 25,
       angleToleranceDeg: 5, originToleranceMm: 0.1, clearanceMm: 0,
     });
-    const edit = window.__topologyValidatorHarness.controller.evidence().edit;
+    const harness = window.__topologyValidatorHarness;
+    const edit = harness.controller.evidence().edit;
+    const checker = harness.controller.checker.evidence();
     const editedCanonical = edit.editedArtifacts.canonicalTopology;
     return {
       rootKey: root.rootKey,
@@ -99,9 +100,10 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       rawEnvelopeCanonicalTopologyHash: rawEnvelopeBuilt.canonicalTopology.canonicalTopologyHash,
       normalizedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
       editedCanonicalTopologyHash: editedCanonical.canonicalTopologyHash,
-      rawEnvelopeGeometryHash: autoFix.topologyGeometryHash(rawEnvelopeBuilt.canonicalTopology),
-      normalizedGeometryHash: autoFix.topologyGeometryHash(built.canonicalTopology),
-      editedGeometryHash: autoFix.topologyGeometryHash(editedCanonical),
+      normalizedEngineeringSignature: await engineeringSignature(built.canonicalTopology),
+      editedEngineeringSignature: await engineeringSignature(editedCanonical),
+      normalizedFindingSignature: await findingSignature(report),
+      editedFindingSignature: await findingSignature(checker.report),
       activeFindingCount: report.issues.length,
       expectedShortCount: report.issues.filter((row) => row.code === 'EXPECTED_SHORT_INLINE_COMPONENT').length,
       nodeCount: built.canonicalTopology.nodes.length,
@@ -109,6 +111,47 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       editedNodeCount: editedCanonical.nodes.length,
       editedEdgeCount: editedCanonical.edges.length,
     };
+
+    async function engineeringSignature(canonical) {
+      const material = {};
+      for (const key of ['nodes', 'edges', 'pointFeatures', 'junctions', 'boundaries', 'supports', 'rigids', 'bends']) {
+        material[key] = normalize(canonical?.[key] ?? []);
+      }
+      return sha256(stableStringify(material));
+    }
+
+    async function findingSignature(value) {
+      const issues = (value?.issues ?? []).map((issue) => normalize({
+        code: issue.code,
+        category: issue.category,
+        severity: issue.severity,
+        blocking: issue.blocking,
+        message: issue.message,
+        objectIds: issue.objectIds,
+        details: issue.details,
+        location: issue.location,
+      }));
+      return sha256(stableStringify(issues));
+    }
+
+    function normalize(value) {
+      if (Array.isArray(value)) return value.map(normalize);
+      if (!value || typeof value !== 'object') return value;
+      const excluded = new Set([
+        'canonicalTopologyHash', 'sourceIdentity', 'sourcePath', 'sourcePaths', 'sourceRef',
+        'sourceEntityId', 'sourceEntityIds', 'sourcePortId', 'sourcePortIds',
+        'viewKey', 'recordId', 'inputHash', 'contentHash', 'createdAt', 'updatedAt',
+        'generatedAt', 'sourceName', 'jobName',
+      ]);
+      return Object.fromEntries(Object.keys(value).sort().filter((key) => !excluded.has(key))
+        .map((key) => [key, normalize(value[key])]));
+    }
+
+    function stableStringify(value) { return JSON.stringify(value); }
+    async function sha256(value) {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+      return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    }
   }, text);
 
   await testInfo.attach('ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json', {
@@ -139,7 +182,8 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   expect(roundTrip.branchCount).toBe(23);
   expect(roundTrip.rawEnvelopeCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
-  expect(roundTrip.normalizedGeometryHash).toBe(roundTrip.editedGeometryHash);
+  expect(roundTrip.normalizedEngineeringSignature).toBe(roundTrip.editedEngineeringSignature);
+  expect(roundTrip.normalizedFindingSignature).toBe(roundTrip.editedFindingSignature);
   expect(roundTrip.nodeCount).toBe(roundTrip.editedNodeCount);
   expect(roundTrip.edgeCount).toBe(roundTrip.editedEdgeCount);
   expect(roundTrip.expectedShortCount).toBe(0);
