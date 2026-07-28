@@ -4,6 +4,7 @@ import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
 import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
+import { selectSequentialDraftEditReversalTarget } from './sequential-draft-edit-reversal-target.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
@@ -105,21 +106,42 @@ function applyScene(state) {
   const mountKey = state.shadow.evidence().mountKey;
   if (state.mountKey !== mountKey) { state.mountKey = mountKey; state.viewer.fitAll(); }
   applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
-  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · exact candidate and boundary decisions are supervised.`, 'ready');
+  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · connection, boundary and reversal commands are supervised.`, 'ready');
+}
+function selectionCategory(state, objectId) {
+  return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null;
+}
+function selectCandidatePick(state, objectId) {
+  const target = selectSequentialDraftEditCandidateTarget({
+    objectId, readModel: state.readModel, scene: state.scene,
+    currentState: state.commandBoundary.readCurrentState(),
+  });
+  state.commandPanel.setCandidateTarget(target);
+  announce(state, `Candidate ${target.candidateId} selected. Pick alone does not issue a command.`);
+}
+function selectReversalPick(state, objectId) {
+  const target = selectSequentialDraftEditReversalTarget({
+    objectId, readModel: state.readModel, scene: state.scene,
+    currentState: state.commandBoundary.readCurrentState(),
+  });
+  state.commandPanel.setReversalTarget(target);
+  announce(state, `Reversal entry ${target.entryPortId} selected for ${target.componentId}. Pick alone does not issue a command.`);
+}
+function clearPickTargets(state, reason = null) {
+  state.commandPanel?.clearCandidateTarget();
+  state.commandPanel?.clearReversalTarget(reason);
 }
 function selectPick(state, objectId) {
   state.viewer?.setSelection(objectId, []);
-  if (!objectId) { state.commandPanel?.clearCandidateTarget(); return; }
+  if (!objectId) { clearPickTargets(state); return; }
   try {
-    const target = selectSequentialDraftEditCandidateTarget({
-      objectId, readModel: state.readModel, scene: state.scene,
-      currentState: state.commandBoundary.readCurrentState(),
-    });
-    state.commandPanel.setCandidateTarget(target);
-    announce(state, `Candidate ${target.candidateId} selected. Pick alone does not issue a command.`, 'ready');
+    const category = selectionCategory(state, objectId);
+    if (category === 'candidate') selectCandidatePick(state, objectId);
+    else if (category === 'reversalCandidate') selectReversalPick(state, objectId);
+    else throw new RangeError('Selected scene entity is not a command candidate.');
   } catch (error) {
-    state.commandPanel?.clearCandidateTarget(`Selection ${objectId} is non-authoritative: ${error.code || error.message}.`);
-    announce(state, `Draft Edit 3D selected ${objectId}. No candidate command target was established.`, 'ready');
+    clearPickTargets(state, `Selection ${objectId} is non-authoritative: ${error.code || error.message}.`);
+    announce(state, `Draft Edit 3D selected ${objectId}. No command target was established.`);
   }
 }
 function viewerOptions(state) {
