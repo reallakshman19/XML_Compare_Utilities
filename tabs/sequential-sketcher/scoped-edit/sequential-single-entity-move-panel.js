@@ -1,4 +1,6 @@
-/** Contained preview/cancel UI for one confirmed Sequential component translation. */
+/** Contained preview/cancel and explicit snap-review UI for one component translation. */
+import { SEQUENTIAL_MOVE_SNAP_MODE } from './sequential-move-snap-contracts.js';
+
 export const SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA =
   'SequentialSingleEntityMovePanel.v1';
 
@@ -18,7 +20,7 @@ function setHidden(element, hidden) {
 }
 function markup() {
   return `<section data-ssk-single-move-panel hidden aria-hidden="true" inert>
-<header><strong>Component move preview</strong><span>Preview / cancel only</span></header>
+<header><strong>Component move preview</strong><span>Preview / explicit snap / cancel</span></header>
 <output data-ssk-single-move-target>No confirmed pipe or fitting selected.</output>
 <label>Constraint<select data-ssk-single-move-constraint>
 <option value="X">Axis X</option><option value="Y">Axis Y</option><option value="Z">Axis Z</option>
@@ -31,6 +33,21 @@ function markup() {
 </div>
 <div><button type="button" data-ssk-single-move-preview disabled>Preview numeric</button>
 <button type="button" data-ssk-single-move-cancel disabled>Cancel preview</button></div>
+<fieldset data-ssk-move-snap-controls><legend>Explicit snap evidence</legend>
+<label><input type="checkbox" data-ssk-move-snap-mode="endpoint" checked>Endpoint</label>
+<label><input type="checkbox" data-ssk-move-snap-mode="midpoint" checked>Midpoint</label>
+<label><input type="checkbox" data-ssk-move-snap-mode="centerline" checked>Centerline</label>
+<label><input type="checkbox" data-ssk-move-snap-mode="axis" checked>Axis</label>
+<label><input type="checkbox" data-ssk-move-snap-mode="intersection" checked>Intersection</label>
+<label><input type="checkbox" data-ssk-move-snap-mode="grid">Grid</label>
+<label>Aperture px<input type="number" min="1" step="1" value="18" data-ssk-move-snap-aperture></label>
+<label>Grid spacing<input type="number" min="0.000001" step="any" value="100" data-ssk-move-snap-grid-spacing></label>
+<select data-ssk-move-snap-candidates size="5" aria-label="Snap candidates"></select>
+<div><button type="button" data-ssk-move-snap-previous disabled>Previous</button>
+<button type="button" data-ssk-move-snap-next disabled>Next</button>
+<button type="button" data-ssk-move-snap-use disabled>Use candidate</button>
+<button type="button" data-ssk-move-snap-clear disabled>Clear snap</button></div>
+<output data-ssk-move-snap-status>No snap acquisition is active.</output></fieldset>
 <pre data-ssk-single-move-diagnosis>No move preview is active.</pre>
 <output data-ssk-single-move-status role="status" aria-live="polite">Select a confirmed component, then drag it or enter an exact delta.</output>
 </section>`;
@@ -41,14 +58,13 @@ function install(root) {
   const panel = required(root, '[data-ssk-single-move-panel]');
   panel.style.cssText = [
     'position:absolute', 'right:12px', 'top:12px', 'z-index:9',
-    'width:min(390px,calc(100% - 24px))', 'padding:12px',
-    'border:1px solid rgba(56,189,248,.5)', 'border-radius:12px',
-    'background:rgba(7,16,31,.96)', 'color:#e2e8f0',
-    'box-shadow:0 18px 50px rgba(0,0,0,.38)',
+    'width:min(430px,calc(100% - 24px))', 'padding:12px', 'max-height:calc(100% - 24px)',
+    'overflow:auto', 'border:1px solid rgba(56,189,248,.5)', 'border-radius:12px',
+    'background:rgba(7,16,31,.96)', 'color:#e2e8f0', 'box-shadow:0 18px 50px rgba(0,0,0,.38)',
   ].join(';');
   panel.querySelector('[data-ssk-single-move-delta]').style.cssText =
     'display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0';
-  panel.querySelectorAll('input,select').forEach((element) => {
+  panel.querySelectorAll('input[type="number"],select').forEach((element) => {
     element.style.cssText = 'box-sizing:border-box;width:100%;padding:6px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#07101f;color:#e2e8f0';
   });
   panel.querySelectorAll('button').forEach((button) => {
@@ -58,8 +74,7 @@ function install(root) {
 }
 function numericDelta(elements) {
   return Object.freeze(Object.fromEntries(['x', 'y', 'z'].map((axis) => [
-    axis,
-    elements.axes[axis].value,
+    axis, elements.axes[axis].value,
   ])));
 }
 function diagnosisText(preview) {
@@ -70,7 +85,9 @@ function diagnosisText(preview) {
   return [
     `Operation: ${preview.operationId}`,
     `Constraint: ${preview.constraint.kind === 'axis' ? preview.constraint.axis : preview.constraint.plane}`,
-    `Delta: ${preview.delta.x}, ${preview.delta.y}, ${preview.delta.z}`,
+    `Raw delta: ${preview.rawDelta.x}, ${preview.rawDelta.y}, ${preview.rawDelta.z}`,
+    `Effective delta: ${preview.delta.x}, ${preview.delta.y}, ${preview.delta.z}`,
+    `Snap: ${preview.snapApplied ? preview.snapSelection.candidate.label : 'not applied'}`,
     `Disposition: ${preview.previewDisposition}`,
     ...(rows.length ? rows : ['No stationary topology boundary cuts.']),
   ].join('\n');
@@ -78,106 +95,180 @@ function diagnosisText(preview) {
 function targetText(target) {
   if (!target) return 'No confirmed pipe or fitting selected.';
   return [
-    `Component: ${target.componentId}`,
-    `Type: ${target.canonicalType}`,
-    `Parts: ${target.geometryPartIds.length}`,
-    `Boundary cuts: ${target.boundaryCuts.length}`,
+    `Component: ${target.componentId}`, `Type: ${target.canonicalType}`,
+    `Parts: ${target.geometryPartIds.length}`, `Boundary cuts: ${target.boundaryCuts.length}`,
     `Application evidence: ${target.rigidMoveEligible ? 'RIGID_MOVE_ELIGIBLE' : 'PREVIEW_DIAGNOSIS_ONLY'}`,
   ].join('\n');
+}
+function snapStatus(state) {
+  const acquisition = state.acquisition;
+  if (!acquisition) return 'No snap acquisition is active.';
+  const selected = state.review?.selectedCandidateId;
+  return [
+    `Candidates: ${acquisition.candidates.length}`,
+    `Suggestion: ${acquisition.suggestedCandidateId || 'none'} (not automatically selected)`,
+    `Selected: ${selected || 'none'}`,
+    `Acquisition: ${acquisition.acquisitionFingerprint}`,
+  ].join('\n');
+}
+function renderCandidates(state) {
+  const list = state.elements.candidates;
+  list.replaceChildren(...(state.acquisition?.candidates || []).map((candidate) => {
+    const option = list.ownerDocument.createElement('option');
+    option.value = candidate.id;
+    option.textContent = `${candidate.label} · ${candidate.screenDistance.toFixed(2)} px`;
+    option.selected = candidate.id === state.review?.selectedCandidateId;
+    return option;
+  }));
 }
 function render(state) {
   setHidden(state.elements.panel, !state.active);
   state.elements.preview.disabled = !state.active || !state.target || state.destroyed;
   state.elements.cancel.disabled = !state.preview || state.destroyed;
+  const hasCandidates = Boolean(state.acquisition?.candidates.length);
+  const hasSelection = Boolean(state.review?.selectedCandidateId);
+  state.elements.previous.disabled = !hasCandidates || state.destroyed;
+  state.elements.next.disabled = !hasCandidates || state.destroyed;
+  state.elements.use.disabled = !hasSelection || state.destroyed;
+  state.elements.clearSnap.disabled = !state.preview?.snapApplied || state.destroyed;
   state.elements.target.textContent = targetText(state.target);
   state.elements.diagnosis.textContent = diagnosisText(state.preview);
-  state.elements.status.textContent = state.notice
-    || (state.preview
-      ? 'Draft overlay is active. Pointer release did not publish geometry.'
-      : 'Select a confirmed component, then drag it or enter an exact delta.');
+  state.elements.snapStatus.textContent = snapStatus(state);
+  renderCandidates(state);
+  state.elements.status.textContent = state.notice || (state.preview
+    ? 'Draft overlay is active. Snap suggestion is evidence only until Use candidate.'
+    : 'Select a confirmed component, then drag it or enter an exact delta.');
 }
 function elements(root, panel) {
+  const snap = (name) => required(root, `[data-ssk-move-snap-${name}]`);
   return {
-    panel,
-    target: required(root, '[data-ssk-single-move-target]'),
+    panel, target: required(root, '[data-ssk-single-move-target]'),
     constraint: required(root, '[data-ssk-single-move-constraint]'),
     preview: required(root, '[data-ssk-single-move-preview]'),
     cancel: required(root, '[data-ssk-single-move-cancel]'),
     diagnosis: required(root, '[data-ssk-single-move-diagnosis]'),
     status: required(root, '[data-ssk-single-move-status]'),
+    aperture: snap('aperture'), gridSpacing: snap('grid-spacing'), candidates: snap('candidates'),
+    previous: snap('previous'), next: snap('next'), use: snap('use'), clearSnap: snap('clear'),
+    snapStatus: snap('status'),
+    modes: [...root.querySelectorAll('[data-ssk-move-snap-mode]')],
     axes: Object.fromEntries(['x', 'y', 'z'].map((axis) => [
-      axis,
-      required(root, `[data-ssk-single-move-axis="${axis}"]`),
+      axis, required(root, `[data-ssk-single-move-axis="${axis}"]`),
     ])),
   };
 }
-function previewNumeric(state) {
-  try {
-    state.preview = state.onPreview({
-      constraint: state.elements.constraint.value,
-      delta: numericDelta(state.elements),
-    });
-    state.notice = 'Exact numeric draft created. Nothing was published.';
-  } catch (error) {
-    state.notice = `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`;
+function enabledModes(elementsValue) {
+  const selected = new Set(elementsValue.modes.filter((row) => row.checked).map((row) => row.dataset.sskMoveSnapMode));
+  return [
+    ...(selected.has('endpoint') ? [SEQUENTIAL_MOVE_SNAP_MODE.ENDPOINT] : []),
+    ...(selected.has('midpoint') ? [SEQUENTIAL_MOVE_SNAP_MODE.MIDPOINT] : []),
+    ...(selected.has('centerline') ? [SEQUENTIAL_MOVE_SNAP_MODE.CENTERLINE] : []),
+    ...(selected.has('axis') ? [SEQUENTIAL_MOVE_SNAP_MODE.AXIS_X,
+      SEQUENTIAL_MOVE_SNAP_MODE.AXIS_Y, SEQUENTIAL_MOVE_SNAP_MODE.AXIS_Z] : []),
+    ...(selected.has('intersection') ? [SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION] : []),
+    ...(selected.has('grid') ? [SEQUENTIAL_MOVE_SNAP_MODE.GRID] : []),
+  ];
+}
+function snapProfile(state) {
+  const modes = enabledModes(state.elements);
+  return {
+    enabledModes: modes,
+    aperturePx: state.elements.aperture.value,
+    grid: {
+      enabled: modes.includes(SEQUENTIAL_MOVE_SNAP_MODE.GRID),
+      spacing: state.elements.gridSpacing.value,
+      origin: { x: 0, y: 0, z: 0 },
+    },
+  };
+}
+function invoke(state, callback, success) {
+  try { callback(); state.notice = success; }
+  catch (error) { state.notice = `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`; }
+  render(state);
+}
+function bind(state) {
+  state.handlers = {
+    preview: () => invoke(state, () => { state.preview = state.onPreview({
+      constraint: state.elements.constraint.value, delta: numericDelta(state.elements),
+    }); }, 'Exact numeric draft and snap evidence created. Nothing was published.'),
+    cancel: () => invoke(state, () => { state.onCancel('operator-cancel'); state.preview = null; },
+      'Move preview cancelled without authority mutation.'),
+    select: () => invoke(state, () => state.onSnapSelect(state.elements.candidates.value),
+      'Snap candidate selected for review. Geometry is unchanged.'),
+    previous: () => invoke(state, state.onSnapPrevious, 'Previous snap candidate selected. Geometry is unchanged.'),
+    next: () => invoke(state, state.onSnapNext, 'Next snap candidate selected. Geometry is unchanged.'),
+    use: () => invoke(state, () => { state.preview = state.onSnapUse(); },
+      'Selected candidate explicitly applied to the preview only.'),
+    clearSnap: () => invoke(state, () => { state.preview = state.onSnapClear(); },
+      'Snap cleared; raw preview restored.'),
+  };
+  state.elements.preview.addEventListener('click', state.handlers.preview);
+  state.elements.cancel.addEventListener('click', state.handlers.cancel);
+  state.elements.candidates.addEventListener('change', state.handlers.select);
+  for (const name of ['previous', 'next', 'use', 'clearSnap']) {
+    state.elements[name].addEventListener('click', state.handlers[name]);
   }
-  render(state);
-}
-function cancelPreview(state) {
-  state.onCancel('operator-cancel');
-  state.preview = null;
-  state.notice = 'Move preview cancelled without authority mutation.';
-  render(state);
-}
-function setPanelTarget(state, target) {
-  state.target = target;
-  state.preview = null;
-  state.notice = 'Target selected. Drag the selected component or preview an exact delta.';
-  ['x', 'y', 'z'].forEach((axis) => { state.elements.axes[axis].value = '0'; });
-  render(state);
 }
 function destroyPanel(state) {
   if (state.destroyed) return false;
   state.destroyed = true;
-  state.elements.preview.removeEventListener('click', state.previewHandler);
-  state.elements.cancel.removeEventListener('click', state.cancelHandler);
-  state.elements.panel.remove();
-  return true;
+  state.elements.preview.removeEventListener('click', state.handlers.preview);
+  state.elements.cancel.removeEventListener('click', state.handlers.cancel);
+  state.elements.candidates.removeEventListener('change', state.handlers.select);
+  for (const name of ['previous', 'next', 'use', 'clearSnap']) {
+    state.elements[name].removeEventListener('click', state.handlers[name]);
+  }
+  state.elements.panel.remove(); return true;
+}
+
+function createPanelState(options, root) {
+  return {
+    elements: elements(root, install(root)),
+    onPreview: requiredFunction(options.onPreview, 'onPreview'),
+    onCancel: requiredFunction(options.onCancel, 'onCancel'),
+    onSnapSelect: requiredFunction(options.onSnapSelect, 'onSnapSelect'),
+    onSnapPrevious: requiredFunction(options.onSnapPrevious, 'onSnapPrevious'),
+    onSnapNext: requiredFunction(options.onSnapNext, 'onSnapNext'),
+    onSnapUse: requiredFunction(options.onSnapUse, 'onSnapUse'),
+    onSnapClear: requiredFunction(options.onSnapClear, 'onSnapClear'),
+    active: false, destroyed: false, target: null, preview: null,
+    acquisition: null, review: null, notice: null,
+  };
+}
+
+function panelApi(state) {
+  return Object.freeze({
+    schema: SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA,
+    setActive(value) { state.active = value === true && !state.destroyed; render(state); },
+    setTarget(target) {
+      state.target = target; state.preview = null; state.acquisition = null; state.review = null;
+      state.notice = 'Target selected. Drag or preview an exact delta.';
+      ['x', 'y', 'z'].forEach((axis) => { state.elements.axes[axis].value = '0'; }); render(state);
+    },
+    clearTarget(reason = null) {
+      state.target = null; state.preview = null; state.acquisition = null;
+      state.review = null; state.notice = reason; render(state);
+    },
+    setPreview(preview, notice = null) { state.preview = preview; state.notice = notice; render(state); },
+    setSnapState(acquisition, review) { state.acquisition = acquisition; state.review = review; render(state); },
+    getConstraint: () => state.elements.constraint.value,
+    getSnapProfile: () => snapProfile(state),
+    getState: () => Object.freeze({
+      active: state.active, targetId: state.target?.moveTargetId || null,
+      operationId: state.preview?.operationId || null,
+      constraint: state.elements.constraint.value,
+      acquisitionFingerprint: state.acquisition?.acquisitionFingerprint || null,
+      selectedCandidateId: state.review?.selectedCandidateId || null,
+      destroyed: state.destroyed,
+    }),
+    destroy: () => destroyPanel(state),
+  });
 }
 
 export function createSequentialSingleEntityMovePanel(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Single-entity move panel requires a root.');
-  const panel = install(root);
-  const state = {
-    elements: elements(root, panel),
-    onPreview: requiredFunction(options.onPreview, 'onPreview'),
-    onCancel: requiredFunction(options.onCancel, 'onCancel'),
-    active: false, destroyed: false, target: null, preview: null, notice: null,
-  };
-  state.previewHandler = () => previewNumeric(state);
-  state.cancelHandler = () => cancelPreview(state);
-  state.elements.preview.addEventListener('click', state.previewHandler);
-  state.elements.cancel.addEventListener('click', state.cancelHandler);
-  render(state);
-  return Object.freeze({
-    schema: SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA,
-    setActive(value) { state.active = value === true && !state.destroyed; render(state); },
-    setTarget: (target) => setPanelTarget(state, target),
-    clearTarget(reason = null) {
-      state.target = null; state.preview = null; state.notice = reason; render(state);
-    },
-    setPreview(preview, notice = null) {
-      state.preview = preview; state.notice = notice; render(state);
-    },
-    getConstraint: () => state.elements.constraint.value,
-    getState: () => Object.freeze({
-      active: state.active,
-      targetId: state.target?.moveTargetId || null,
-      operationId: state.preview?.operationId || null,
-      constraint: state.elements.constraint.value,
-      destroyed: state.destroyed,
-    }),
-    destroy: () => destroyPanel(state),
-  });
+  const state = createPanelState(options, root);
+  bind(state); render(state);
+  return panelApi(state);
 }
