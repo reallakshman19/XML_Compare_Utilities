@@ -9,6 +9,10 @@ import {
   assertSequentialEditableTopologySnapshot,
   SEQUENTIAL_EDITABLE_TOPOLOGY_SNAPSHOT_SCHEMA,
 } from '../tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-snapshot.js';
+import {
+  resolveSequentialPortTopology,
+  SEQUENTIAL_EDITABLE_TOPOLOGY_IDENTITY_REJECTION,
+} from '../tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-identity.js';
 import { createSequentialScopedEditReadModel } from '../tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-read-model.js';
 import { createSequentialEngineeringSvgOwnerBridge } from '../tabs/sequential-sketcher/sequential-engineering-svg-owner-bridge.js';
 import {
@@ -173,6 +177,25 @@ const stale = { ...tee.model, sessionFingerprint: 'stale-session' };
 assert.throws(
   () => createSequentialEditableTopologySnapshot(stale),
   /differs from independent owner-snapshot regeneration/,
+);
+
+const conflictingPortAuthority = {
+  confirmedComponents: [{
+    componentId: 'COMP-CONFLICT', branchId: '/CONFLICT',
+    ports: [{ portId: 'PORT-CONFLICT', sourcePosition: { x: 0, y: 0, z: 0 } }],
+  }],
+  committedConnections: [
+    { connectionId: 'CONNECTION-A', fromPortId: 'PORT-CONFLICT', toPortId: 'PORT-A',
+      fromPosition: { x: 0, y: 0, z: 0 }, toPosition: { x: 0, y: 0, z: 0 } },
+    { connectionId: 'CONNECTION-B', fromPortId: 'PORT-CONFLICT', toPortId: 'PORT-B',
+      fromPosition: { x: 1, y: 0, z: 0 }, toPosition: { x: 1, y: 0, z: 0 } },
+  ],
+  repairs: [],
+};
+assert.throws(
+  () => resolveSequentialPortTopology(conflictingPortAuthority),
+  (error) => error.code
+    === SEQUENTIAL_EDITABLE_TOPOLOGY_IDENTITY_REJECTION.PORT_POSITION_CONFLICT,
 );
 
 console.log('Sequential editable topology snapshot: ok');
