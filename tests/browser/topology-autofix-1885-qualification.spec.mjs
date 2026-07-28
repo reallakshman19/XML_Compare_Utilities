@@ -71,6 +71,11 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
   await page.waitForFunction(() => document.body.dataset.topologyValidatorReady === '1'
     || Boolean(document.body.dataset.topologyValidatorError), null, { timeout: 180_000 });
   expect(await page.evaluate(() => document.body.dataset.topologyValidatorError || '')).toBe('');
+  await page.evaluate(async () => {
+    const harness = window.__topologyValidatorHarness;
+    await harness.controller.edit.initialize(harness.controller.evidence().trace);
+    await harness.controller.checker.refresh();
+  });
   await page.locator('[data-ttv-checker-open]').click();
   const reloaded = await qualificationSnapshot(page);
   const reloadedRun = reloaded.checker.autoFixRuns.find((row) => row.runId === run.runId);
