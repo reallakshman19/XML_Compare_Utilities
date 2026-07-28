@@ -31,7 +31,7 @@ The snapshot contains:
 - authority and exact source/session/construction/scene fingerprints;
 - branch identity and construction state;
 - canonical nodes and resolved ports;
-- confirmed components and geometry-part ownership;
+- confirmed components, canonical selection groups, and geometry-part ownership;
 - internal component edges;
 - committed inter-component connections;
 - repair-mediated continuity evidence;
@@ -39,6 +39,7 @@ The snapshot contains:
 - external, intentional, and open boundary records;
 - support carriers and support attachments;
 - source, stroke, session, confirmed-construction, and scene ancestry;
+- deterministic component selection groups and geometry-part selection handles;
 - descriptive component, geometry-part, and node eligibility;
 - non-editable candidate and rejected-candidate evidence;
 - topology, geometry, ancestry, and whole-snapshot fingerprints.
@@ -99,8 +100,8 @@ No edit capability is granted for that target in this slice.
 
 ### Support containment
 
-Every support attachment must resolve to an explicit carrier and finite global
-position. Incomplete support attachment evidence fails snapshot creation rather than
+Every support attachment must resolve to a confirmed carrier, a resolved support family,
+and a finite global position. Incomplete support attachment evidence fails snapshot creation rather than
 being omitted or guessed.
 
 ## Determinism
@@ -129,9 +130,10 @@ Snapshot creation fails closed for:
 - missing confirmed construction;
 - duplicate topology identities;
 - missing confirmed port positions;
+- conflicting committed coordinates for the same port;
 - committed connections referencing unresolved ports;
 - confirmed components without owned scene geometry;
-- incomplete support carrier or position evidence;
+- unresolved support families or incomplete carrier/family/position evidence;
 - stale or non-canonical certified read models;
 - tampered snapshots that differ from independent regeneration.
 
@@ -141,6 +143,7 @@ New production modules are responsibility-separated and remain below 300 lines:
 
 ```text
 tabs/sequential-sketcher/scoped-edit/sequential-edit-eligibility.js
+tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-identity.js
 tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-projection.js
 tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-snapshot.js
 ```
@@ -158,6 +161,7 @@ Focused tests cover:
 - tee run/branch geometry-part ownership;
 - olet host/branch port resolution;
 - exact committed connection node mapping;
+- conflicting multi-connection port-coordinate rejection;
 - coincident but unconnected node separation;
 - intentional terminal and external boundary classification;
 - component boundary-cut evidence;
