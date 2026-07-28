@@ -1,5 +1,31 @@
 /** Presentation-only helpers for the supervised Draft Edit command panel. */
 function style(element, cssText) { if (element?.style) element.style.cssText = cssText; }
+function requiredElement(root, selector) {
+  const value = root.querySelector(selector);
+  if (!value) throw new Error(`Sequential Draft Edit command element missing: ${selector}`);
+  return value;
+}
+
+export function sequentialDraftEditCommandPanelElements(root) {
+  return {
+    panel: requiredElement(root, '[data-ssk-draft-edit-command-panel]'),
+    status: requiredElement(root, '[data-ssk-draft-edit-command-state]'),
+    target: requiredElement(root, '[data-ssk-draft-edit-target]'),
+    actor: requiredElement(root, '[data-ssk-draft-edit-actor]'),
+    reason: requiredElement(root, '[data-ssk-draft-edit-reason]'),
+    evidence: requiredElement(root, '[data-ssk-draft-edit-evidence]'),
+    preview: requiredElement(root, '[data-ssk-draft-edit-command-preview]'),
+    accept: requiredElement(root, '[data-ssk-draft-edit-command-accept]'),
+    cancel: requiredElement(root, '[data-ssk-draft-edit-command-cancel]'),
+    commands: [...root.querySelectorAll('[data-ssk-draft-edit-command]')],
+  };
+}
+
+export function setSequentialDraftEditPanelHidden(element, hidden) {
+  element.hidden = hidden;
+  element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert');
+}
 
 export function installSequentialDraftEditCommandPanelStyle(value) {
   style(value.panel, [
