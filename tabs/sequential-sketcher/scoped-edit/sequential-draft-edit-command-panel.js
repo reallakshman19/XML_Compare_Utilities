@@ -1,6 +1,11 @@
 /** Supervised two-step command UX for the Sequential Draft Edit 3D surface. */
 import { isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES } from './sequential-command-contracts.js';
+import {
+  installSequentialDraftEditCommandPanelStyle,
+  sequentialDraftEditPreparedPreview,
+  sequentialDraftEditTargetText,
+} from './sequential-draft-edit-command-presentation.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_COMMAND_PANEL_SCHEMA = 'SequentialDraftEditCommandPanel.v1';
 
@@ -41,23 +46,6 @@ function elements(root) {
     cancel: requiredElement(root, '[data-ssk-draft-edit-command-cancel]'),
     commands: [...root.querySelectorAll('[data-ssk-draft-edit-command]')],
   };
-}
-function style(element, cssText) { if (element?.style) element.style.cssText = cssText; }
-function installPanelStyle(value) {
-  style(value.panel, [
-    'position:absolute', 'top:12px', 'right:12px', 'z-index:8',
-    'width:min(390px,calc(100% - 24px))', 'max-height:calc(100% - 24px)',
-    'overflow:auto', 'box-sizing:border-box', 'padding:12px',
-    'border:1px solid rgba(94,234,212,.38)', 'border-radius:12px',
-    'background:rgba(7,16,31,.96)', 'box-shadow:0 18px 50px rgba(0,0,0,.38)',
-  ].join(';'));
-  const field = 'box-sizing:border-box;width:100%;margin-top:4px;padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#07101f;color:#e2e8f0';
-  [value.actor, value.reason, value.evidence].forEach((element) => style(element, field));
-  style(value.evidence, `${field};min-height:54px;resize:vertical`);
-  const evidenceStyle = 'white-space:pre-wrap;overflow-wrap:anywhere;padding:8px;border-radius:7px;background:#020617;color:#bae6fd;font:10px ui-monospace,monospace';
-  style(value.target, evidenceStyle); style(value.preview, evidenceStyle);
-  [...value.commands, value.accept, value.cancel].forEach((element) => style(element, 'padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#172337;color:#dbeafe;cursor:pointer'));
-  style(value.status, 'display:block;margin:6px 0 9px;color:#99f6e4;font-size:10px;line-height:1.4');
 }
 function setHidden(element, hidden) {
   element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
@@ -121,7 +109,7 @@ function meaningful(state, commandType) {
   const session = state.current?.session;
   if (!session) return false;
   const request = session.currentDecisionRequest;
-  if (commandType === 'MANUAL_CONNECT') return Boolean(exactCandidateTarget(state) && exactManualPorts(state) && request?.state !== 'DEFERRED');
+  if (commandType === 'MANUAL_CONNECT') return Boolean(exactManualPorts(state) && request?.state !== 'DEFERRED');
   if (CANDIDATE_COMMANDS.has(commandType)) return Boolean(exactCandidateTarget(state) && request?.state !== 'DEFERRED');
   if (BOUNDARY_COMMANDS.has(commandType)) return Boolean(exactDecisionTarget(state));
   if (commandType === 'DEFER_DECISION') return Boolean(session.state === 'USER_DECISION_REQUIRED' && request && request.state !== 'DEFERRED');
@@ -144,7 +132,9 @@ function requestFor(state, commandType) {
     throw new RangeError(`${commandType} requires one exact current target.`);
   }
   const manualPorts = commandType === 'MANUAL_CONNECT' ? exactManualPorts(state) : null;
-  if (commandType === 'MANUAL_CONNECT' && !manualPorts) throw new RangeError('MANUAL_CONNECT requires one exact current indexed candidate port pair.');
+  if (commandType === 'MANUAL_CONNECT' && !manualPorts) {
+    throw new RangeError('MANUAL_CONNECT requires one exact current indexed candidate port pair.');
+  }
   return Object.freeze({
     command: Object.freeze({
       commandType, branchId, decisionId: target?.decisionId || null,
@@ -162,42 +152,14 @@ function requestFor(state, commandType) {
     origin: Object.freeze({ kind: 'USER', actorId: values.actorId, issuedAt: exactIssuedAt(state.now) }),
   });
 }
-function previewText(prepared) {
-  const transactions = prepared.candidate.transactionIds.length
-    ? prepared.candidate.transactionIds.join(', ') : 'Journal-only accepted command';
-  const payload = prepared.nativeCommand.payload || {};
-  const target = prepared.targets?.candidateId ? [
-    `Decision: ${prepared.targets.decisionId}`, `Candidate: ${prepared.targets.candidateId}`,
-    `Scene entity: ${payload.targetEntityId}`,
-    ...(prepared.nativeCommand.fromPortId ? [`From port: ${prepared.nativeCommand.fromPortId}`, `To port: ${prepared.nativeCommand.toPortId}`] : []),
-  ] : prepared.targets?.decisionId ? [
-    `Decision: ${prepared.targets.decisionId}`, `Decision reason: ${payload.targetDecisionReason}`,
-    `Decision scope: ${payload.targetDecisionScope || 'unspecified'}`,
-    `Active port: ${payload.targetActivePortId || 'none'}`, `Junction: ${payload.targetJunctionId || 'none'}`,
-    `Reference: ${payload.targetReference || 'none'}`,
-  ] : [];
-  return [
-    `Command: ${prepared.nativeCommand.commandType}`, `Branch: ${prepared.nativeCommand.branchId}`,
-    ...target, `Issued: ${prepared.envelope.origin.issuedAt}`,
-    `Predicted outcome: ${prepared.candidate.outcome}`, `Prepared ID: ${prepared.preparedId}`,
-    `Authority ID: ${prepared.expectedAuthority.authorityId}`, `Transaction mapping: ${transactions}`,
-  ].join('\n');
-}
-function targetText(state) {
-  const candidate = exactCandidateTarget(state);
-  if (candidate) {
-    const ports = exactManualPorts(state);
-    return `Selected candidate: ${candidate.candidateId}\nDecision: ${candidate.decisionId}\nScene entity: ${candidate.entityId}`
-      + (ports ? `\nFrom port: ${ports.fromPortId}\nTo port: ${ports.toPortId}` : '\nManual port pair: unavailable');
-  }
-  const decision = exactDecisionTarget(state);
-  if (decision) return `Boundary decision: ${decision.decisionId}\nReason: ${decision.reason}\nScope: ${decision.decisionScope || 'unspecified'}\nActive port: ${decision.activePortId || 'none'}\nJunction: ${decision.junctionId || 'none'}\nReference: ${decision.referenceTarget || 'none'}`;
-  return 'No authoritative command target. Pick a blue candidate or open a supported zero-candidate boundary decision.';
-}
 function render(state) {
+  const candidate = exactCandidateTarget(state); const decision = exactDecisionTarget(state);
   setHidden(state.elements.panel, !state.active);
-  state.elements.target.textContent = targetText(state);
-  state.elements.preview.textContent = state.pending ? previewText(state.pending)
+  state.elements.target.textContent = sequentialDraftEditTargetText({
+    candidate, decision, manualPorts: exactManualPorts(state),
+  });
+  state.elements.preview.textContent = state.pending
+    ? sequentialDraftEditPreparedPreview(state.pending)
     : 'No command is prepared. Select a supervised command to create review evidence.';
   const ready = state.active && state.gatewayState?.ready === true && !state.destroyed;
   for (const button of state.elements.commands) {
@@ -242,10 +204,15 @@ function prepare(state, commandTypeValue) {
   if (state.destroyed || !state.active) throw new RangeError('Draft Edit command panel is not active.');
   refresh(state);
   const commandType = text(commandTypeValue).toUpperCase();
-  if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(commandType)) throw new RangeError(`Draft Edit command ${commandType} is not enabled.`);
-  if (!state.gatewayState?.ready || !meaningful(state, commandType)) throw new RangeError(`Draft Edit command ${commandType} is not available for the current authority.`);
+  if (!SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES.includes(commandType)) {
+    throw new RangeError(`Draft Edit command ${commandType} is not enabled.`);
+  }
+  if (!state.gatewayState?.ready || !meaningful(state, commandType)) {
+    throw new RangeError(`Draft Edit command ${commandType} is not available for the current authority.`);
+  }
   const prepared = state.gateway.prepare(requestFor(state, commandType));
-  state.pending = prepared; notice(state, `${commandType} prepared. Review the immutable evidence before acceptance.`, 'review');
+  state.pending = prepared;
+  notice(state, `${commandType} prepared. Review the immutable evidence before acceptance.`, 'review');
   render(state); return prepared;
 }
 function cancel(state, reason = 'Prepared command cancelled without authority mutation.') {
@@ -257,19 +224,32 @@ function accept(state) {
   if (!state.pending) throw new RangeError('No prepared Draft Edit command is pending.');
   const prepared = state.pending; const acceptance = state.gateway.accept(prepared);
   state.pending = null; state.candidateTarget = null; state.decisionTarget = null;
-  if (acceptance.accepted) { notice(state, `${prepared.nativeCommand.commandType} accepted and published.`, 'accepted'); try { state.onAccepted(acceptance); } catch {} }
-  else { notice(state, `${acceptance.reasonCode}: ${acceptance.message}`, 'error'); try { state.onFailure(acceptance); } catch {} }
+  if (acceptance.accepted) {
+    notice(state, `${prepared.nativeCommand.commandType} accepted and published.`, 'accepted');
+    try { state.onAccepted(acceptance); } catch {}
+  } else {
+    notice(state, `${acceptance.reasonCode}: ${acceptance.message}`, 'error');
+    try { state.onFailure(acceptance); } catch {}
+  }
   refresh(state); return acceptance;
 }
 function safeAction(state, action) {
   try { return action(); }
-  catch (error) { notice(state, `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`, 'error'); try { state.onFailure(error); } catch {} refresh(state); return null; }
+  catch (error) {
+    notice(state, `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`, 'error');
+    try { state.onFailure(error); } catch {}
+    refresh(state); return null;
+  }
 }
 function handleClick(state, event) {
   const command = event.target?.closest?.('[data-ssk-draft-edit-command]')?.dataset?.sskDraftEditCommand;
   if (command) { event.preventDefault(); safeAction(state, () => prepare(state, command)); return; }
-  if (event.target?.closest?.('[data-ssk-draft-edit-command-accept]')) { event.preventDefault(); safeAction(state, () => accept(state)); return; }
-  if (event.target?.closest?.('[data-ssk-draft-edit-command-cancel]')) { event.preventDefault(); cancel(state); }
+  if (event.target?.closest?.('[data-ssk-draft-edit-command-accept]')) {
+    event.preventDefault(); safeAction(state, () => accept(state)); return;
+  }
+  if (event.target?.closest?.('[data-ssk-draft-edit-command-cancel]')) {
+    event.preventDefault(); cancel(state);
+  }
 }
 function stateSnapshot(state) {
   const manual = exactManualPorts(state);
@@ -291,7 +271,7 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
   if (!root?.querySelector) throw new TypeError('Draft Edit command panel requires a root.');
   const gateway = options.gateway;
   for (const name of ['getState', 'prepare', 'accept']) requiredFunction(gateway?.[name], `gateway.${name}`);
-  const panelElements = elements(root); installPanelStyle(panelElements);
+  const panelElements = elements(root); installSequentialDraftEditCommandPanelStyle(panelElements);
   const state = {
     root, gateway, elements: panelElements,
     readCurrentState: requiredFunction(options.readCurrentState, 'readCurrentState'),
@@ -310,12 +290,27 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
       if (!next) invalidate(state, { reason: 'Prepared command and command target invalidated because Draft Edit 3D closed.' });
       state.active = next && !state.destroyed; return refresh(state);
     },
-    setCandidateTarget(target) { state.pending = null; state.candidateTarget = target; state.decisionTarget = null; notice(state, `Candidate ${target.candidateId} selected. Selection does not prepare a command.`, 'ready'); return refresh(state); },
-    clearCandidateTarget(reason) { state.candidateTarget = null; state.pending = null; if (reason) notice(state, reason, 'warning'); return refresh(state); },
-    setDecisionTarget(target) { state.pending = null; state.decisionTarget = target; state.candidateTarget = null; notice(state, `Boundary decision ${target.decisionId} certified. Certification does not prepare a command.`, 'ready'); return refresh(state); },
-    clearDecisionTarget(reason) { state.decisionTarget = null; state.pending = null; if (reason) notice(state, reason, 'warning'); return refresh(state); },
+    setCandidateTarget(target) {
+      state.pending = null; state.candidateTarget = target; state.decisionTarget = null;
+      notice(state, `Candidate ${target.candidateId} selected. Selection does not prepare a command.`, 'ready');
+      return refresh(state);
+    },
+    clearCandidateTarget(reason) {
+      state.candidateTarget = null; state.pending = null;
+      if (reason) notice(state, reason, 'warning'); return refresh(state);
+    },
+    setDecisionTarget(target) {
+      state.pending = null; state.decisionTarget = target; state.candidateTarget = null;
+      notice(state, `Boundary decision ${target.decisionId} certified. Certification does not prepare a command.`, 'ready');
+      return refresh(state);
+    },
+    clearDecisionTarget(reason) {
+      state.decisionTarget = null; state.pending = null;
+      if (reason) notice(state, reason, 'warning'); return refresh(state);
+    },
     refresh: (optionsValue = {}) => refresh(state, optionsValue),
-    prepare: (commandType) => prepare(state, commandType), accept: () => accept(state), cancel: () => cancel(state),
+    prepare: (commandType) => prepare(state, commandType),
+    accept: () => accept(state), cancel: () => cancel(state),
     invalidate(reason) { invalidate(state, { reason }); return refresh(state); },
     getState: () => stateSnapshot(state),
     destroy() {
