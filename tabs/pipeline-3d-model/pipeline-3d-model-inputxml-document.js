@@ -6,6 +6,7 @@ import { PIPELINE_ALLOWABLE_STRESS_PLAN_SCHEMA, resolvePipelineAllowableStressPl
 import { PIPELINE_PIPING_CODE_AUTHORITY_PLAN_SCHEMA, resolvePipelinePipingCodeAuthorityPlan } from './pipeline-3d-model-piping-code-authority.js';
 import { PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA, resolvePipelineAllowableValueAuthorityPlan } from './pipeline-3d-model-allowable-value-authority.js';
 import { buildPipelineInputXmlProfileAuthorityPlan, PIPELINE_INPUTXML_PROFILE_AUTHORITY_PLAN_SCHEMA } from './pipeline-3d-model-inputxml-profile-authority.js';
+import { adoptPipelineApprovedCatalogRegistryIntoInputXmlDocumentPlan } from './pipeline-3d-model-approved-catalog-document.js';
 export const PIPELINE_INPUTXML_DOCUMENT_SCHEMA = 'PipelineInputXmlDocumentPlan.v1';
 export const PIPELINE_INPUTXML_ELEMENT_SCHEMA = 'PipelineInputXmlElementPlan.v1';
 export const PIPELINE_CANONICAL_NAMESPACE = 'COADE';
@@ -339,11 +340,18 @@ function profileDocumentPlan({
     resolvedMode: text(exportContext?.profile?.resolvedMode),
   });
 }
-export function buildPipelineInputXmlDocumentPlan({
-  exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
-  restraints = [], rigids = [], allowableStresses = [], pipingCodeAuthorities = [],
-  allowableValueAuthorities = [], profileAuthorityPlans,
-} = {}) {
+export function buildPipelineInputXmlDocumentPlan(input = {}) {
+  const registrySupplied = Object.hasOwn(input, 'approvedCatalogRegistry');
+  const {
+    exportContext = {}, coordinateRows = [], bendResolution = null, propertySections = [],
+    restraints = [], rigids = [], allowableStresses = [], pipingCodeAuthorities = [],
+    allowableValueAuthorities = [], profileAuthorityPlans, approvedCatalogRegistry,
+  } = input;
+  const adoptIfSupplied = (documentPlan) => registrySupplied
+    ? adoptPipelineApprovedCatalogRegistryIntoInputXmlDocumentPlan({
+      documentPlan, approvedCatalogRegistry,
+    })
+    : documentPlan;
   const branchInfo = branchInfoFrom(exportContext), lineNo = text(branchInfo.lineNo);
   const propertySectionPlan = resolvePipelinePropertySectionPlan({
     branchInfo, coordinateRows, propertySections,
@@ -356,11 +364,11 @@ export function buildPipelineInputXmlDocumentPlan({
   const allowableStressPlan = resolvePipelineAllowableStressPlan({
     allowableStresses, coordinateRows,
   });
-  if (profileAuthorityPlans !== undefined) return profileDocumentPlan({
+  if (profileAuthorityPlans !== undefined) return adoptIfSupplied(profileDocumentPlan({
     exportContext, coordinateRows, bendResolution, propertySectionPlan,
     mechanicalPropertyPlan, restraintPlan, rigidPlan, allowableStressPlan,
     pipingCodeAuthorities, allowableValueAuthorities, profileAuthorityPlans, branchInfo, lineNo,
-  });
+  }));
   const pipingCodeAuthorityPlan = resolvePipelinePipingCodeAuthorityPlan({
     profileAuthorityPlan: null, allowableStressPlan, pipingCodeAuthorities,
   });
@@ -387,7 +395,7 @@ export function buildPipelineInputXmlDocumentPlan({
     ...elements.flatMap((element) => element.diagnostics),
     ...bendDiagnostics(bendResolution),
   ]));
-  return Object.freeze({
+  return adoptIfSupplied(Object.freeze({
     schema: PIPELINE_INPUTXML_DOCUMENT_SCHEMA,
     namespace: PIPELINE_CANONICAL_NAMESPACE,
     extensionNamespace: PIPELINE_EXTENSION_NAMESPACE,
@@ -408,7 +416,7 @@ export function buildPipelineInputXmlDocumentPlan({
     blockerCodes: uniqueCodes(diagnostics),
     ready: diagnostics.length === 0,
     resolvedMode: text(exportContext?.profile?.resolvedMode),
-  });
+  }));
 }
 export function buildPipelineInputXmlDocumentPlanJson(plan) {
   return JSON.stringify(plan, null, 2);
