@@ -1,0 +1,78 @@
+name: Pin Topology Browser Core
+
+on:
+  push:
+    branches:
+      - 'agent/topology-staged-export-1885-qualification-main'
+    paths:
+      - '.github/workflows/pin-topology-browser-core.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  pin:
+    name: Build and commit exact upstream browser core
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout XML Utilities branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/topology-staged-export-1885-qualification-main
+          fetch-depth: 0
+
+      - name: Checkout merged 3D Converters authority
+        uses: actions/checkout@v6
+        with:
+          repository: reallaksh19/3D_Converters
+          ref: 423ed7920dcfbd57dae94855f7f9f895e26b48c6
+          path: upstream-3d-converters
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install upstream build dependencies
+        working-directory: upstream-3d-converters
+        run: npm ci
+
+      - name: Build exact pinned browser core
+        run: |
+          rm -rf /tmp/topology-browser-core
+          mkdir -p /tmp/topology-browser-core vendor/3d-converters
+          cd upstream-3d-converters
+          node scripts/build-topology-browser-core.mjs \
+            /tmp/topology-browser-core/topology-browser-core.mjs \
+            /tmp/topology-browser-core/topology-browser-core.manifest.json
+          cd "$GITHUB_WORKSPACE"
+          cp /tmp/topology-browser-core/topology-browser-core.mjs vendor/3d-converters/topology-browser-core.mjs
+          cp /tmp/topology-browser-core/topology-browser-core.manifest.json vendor/3d-converters/topology-browser-core.manifest.json
+
+      - name: Verify durable source pin and deterministic bundle
+        run: |
+          test "$(sha256sum vendor/3d-converters/topology-browser-core.mjs | cut -d' ' -f1)" = "f6f12aac922a6a77fc5a530289956b2c9f1057ceb07c25e124d81363bc7e0a4a"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('vendor/3d-converters/topology-browser-core.manifest.json', 'utf8'));
+          if (manifest.sourceCommit !== '423ed7920dcfbd57dae94855f7f9f895e26b48c6') {
+            throw new Error(`Unexpected source commit ${manifest.sourceCommit}`);
+          }
+          if (manifest.bundleSha256 !== 'sha256:f6f12aac922a6a77fc5a530289956b2c9f1057ceb07c25e124d81363bc7e0a4a') {
+            throw new Error(`Unexpected bundle digest ${manifest.bundleSha256}`);
+          }
+          NODE
+
+      - name: Commit pin and remove bootstrap workflow
+        run: |
+          rm .github/workflows/pin-topology-browser-core.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add vendor/3d-converters/topology-browser-core.mjs \
+            vendor/3d-converters/topology-browser-core.manifest.json \
+            .github/workflows/pin-topology-browser-core.yml
+          git commit -m "Pin support reprojection browser core"
+          git push origin HEAD:agent/topology-staged-export-1885-qualification-main
