@@ -4,6 +4,8 @@ function frozenSnapshot(snapshot = {}) {
   return Object.freeze({
     session: snapshot.session || null,
     confirmedConstruction: snapshot.confirmedConstruction || null,
+    baseSupportProjection: snapshot.baseSupportProjection || null,
+    supportAdjustmentRegister: snapshot.supportAdjustmentRegister || null,
     supportProjection: snapshot.supportProjection || null,
     selectedCandidateId: text(snapshot.selectedCandidateId),
   });
