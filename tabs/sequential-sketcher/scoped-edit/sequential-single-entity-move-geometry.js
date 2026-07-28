@@ -19,7 +19,11 @@ const PLANES = Object.freeze({
 
 function vector(value, label) {
   const result = Object.fromEntries(['x', 'y', 'z'].map((axis) => {
-    const number = Number(value?.[axis]);
+    const raw = value?.[axis];
+    if (raw == null || (typeof raw === 'string' && !raw.trim())) {
+      throw new TypeError(`${label} ${axis.toUpperCase()} is required.`);
+    }
+    const number = Number(raw);
     if (!Number.isFinite(number)) throw new TypeError(`${label} ${axis.toUpperCase()} must be finite.`);
     return [axis, number];
   }));
