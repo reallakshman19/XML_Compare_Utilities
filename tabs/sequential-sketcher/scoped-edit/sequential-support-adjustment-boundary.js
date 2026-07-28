@@ -50,14 +50,18 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     const id = branchId(snapshot);
     const base = snapshot?.supportProjection || null;
     if (!id || !base) return null;
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
     const stored = byBranch.get(id);
-    if (stored?.constructionFingerprint === base.constructionFingerprint) {
-      return assertSequentialSupportAdjustmentRegister(stored, base.constructionFingerprint);
+    if (stored?.baseProjectionFingerprint === baseProjectionFingerprint) {
+      return assertSequentialSupportAdjustmentRegister(
+        stored.register,
+        base.constructionFingerprint,
+      );
     }
     const register = createSequentialSupportAdjustmentRegister({
       constructionFingerprint: base.constructionFingerprint,
     });
-    byBranch.set(id, register);
+    byBranch.set(id, Object.freeze({ baseProjectionFingerprint, register }));
     return register;
   }
   function effectiveOwnerSnapshot() {
@@ -106,12 +110,12 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
       throw new TypeError('Support adjustment publication requires a prepared candidate.');
     }
     const base = before.baseSupportProjection;
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
     const current = assertSequentialSupportAdjustmentRegister(
       before.supportAdjustmentRegister,
       base.constructionFingerprint,
     );
-    if (candidate.expectedBaseProjectionFingerprint
-        !== sequentialSupportProjectionFingerprint(base)
+    if (candidate.expectedBaseProjectionFingerprint !== baseProjectionFingerprint
       || candidate.expectedRegisterHeadFingerprint !== current.headFingerprint) {
       throw new RangeError('Prepared support adjustment base or register authority is stale.');
     }
@@ -124,7 +128,7 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
       throw new RangeError('Prepared support adjustment entry is not the canonical register tail.');
     }
     assertSequentialAdjustedSupportProjection(base, register, candidate.supportProjection);
-    byBranch.set(authority.branchId, register);
+    byBranch.set(authority.branchId, Object.freeze({ baseProjectionFingerprint, register }));
     const publication = Object.freeze({
       schema: 'SequentialSupportAdjustmentPublication.v1',
       committed: true,
@@ -147,11 +151,12 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     publishCandidate,
     getState: () => Object.freeze({
       branchCount: byBranch.size,
-      branches: Object.freeze([...byBranch.entries()].map(([id, register]) => Object.freeze({
+      branches: Object.freeze([...byBranch.entries()].map(([id, stored]) => Object.freeze({
         branchId: id,
-        constructionFingerprint: register.constructionFingerprint,
-        registerHeadFingerprint: register.headFingerprint,
-        adjustmentCount: register.entries.length,
+        constructionFingerprint: stored.register.constructionFingerprint,
+        baseProjectionFingerprint: stored.baseProjectionFingerprint,
+        registerHeadFingerprint: stored.register.headFingerprint,
+        adjustmentCount: stored.register.entries.length,
       }))),
       destroyed,
     }),
