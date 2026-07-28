@@ -1,5 +1,6 @@
 /** Exact confirmed-support target for non-publishing move drafts. */
 import { immutableJson, requiredContractText } from '../../../contracts/contract-values.js';
+import { createSequentialSupportAdjustmentRegister } from '../support/sequential-support-adjustment-register.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
@@ -45,14 +46,24 @@ function supportFamilies(projection) {
     bundle.resolvedSupportFamilies || []
   )).map((family) => [family.familyId, family]));
 }
+function adjustmentFingerprint(state) {
+  if (state?.supportAdjustmentRegister?.headFingerprint) {
+    return state.supportAdjustmentRegister.headFingerprint;
+  }
+  const projection = state?.baseSupportProjection || state?.supportProjection;
+  return projection?.constructionFingerprint
+    ? createSequentialSupportAdjustmentRegister({
+      constructionFingerprint: projection.constructionFingerprint,
+    }).headFingerprint
+    : null;
+}
 function authorityAgreement(readModel, state) {
   const authority = deriveSequentialEditAuthority(state);
   if (readModel.branchId !== authority.branchId
     || readModel.sessionFingerprint !== authority.sessionFingerprint
     || readModel.supportConstructionFingerprint
       !== (state?.supportProjection?.constructionFingerprint || null)
-    || readModel.supportAdjustmentRegisterFingerprint
-      !== (state?.supportAdjustmentRegister?.headFingerprint || null)) {
+    || readModel.supportAdjustmentRegisterFingerprint !== adjustmentFingerprint(state)) {
     fail(
       readModel.branchId === authority.branchId
         ? SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE
