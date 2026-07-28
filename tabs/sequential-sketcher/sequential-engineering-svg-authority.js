@@ -1,6 +1,7 @@
 import { createEngineeringRevisionToken, freezeJsonValue } from '../../core/engineering-scene/index.js';
 import { sequentialSessionFingerprint } from './construction/sequential-session-fingerprint.js';
 import { SEQUENTIAL_ENGINEERING_SVG_INDEX_PROJECTION_SCHEMA } from './sequential-engineering-svg-index-projection.js';
+import { projectSequentialReversalCandidates } from './sequential-engineering-svg-reversal-scene.js';
 
 export const SEQUENTIAL_ENGINEERING_SVG_AUTHORITY_SCHEMA = 'SequentialEngineeringSvgAuthority.v1';
 
@@ -16,6 +17,7 @@ function projectionIndexes(projection) {
     'Sequential index projection',
   );
   return {
+    branches: new Map(projection.branches.map((row) => [row.branchId, row.branch])),
     components: new Map(projection.components.map((row) => [row.componentId, row.component])),
     ports: new Map(projection.ports.map((row) => [row.portId, row.port])),
   };
@@ -130,6 +132,7 @@ export function classifySequentialEngineeringSvgAuthority(input = {}) {
     committedConnections: session.committedConnections || [],
     repairs: session.repairLedger || [],
     candidates: session.currentDecisionRequest?.candidates || [],
+    reversalCandidates: projectSequentialReversalCandidates(session, indexes),
     candidateReason: session.currentDecisionRequest?.reason || null,
     activePort: activePort ? {
       ...activePort,
