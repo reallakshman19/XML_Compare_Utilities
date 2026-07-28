@@ -17,31 +17,28 @@ function rows(count, build) { return Array.from({ length: count }, (_, index) =>
 function populate(bundle) {
   const evidence = bundle.payload.evidencePackage.payload;
   evidence.audit.differenceRows = rows(COUNTS.differences, (index) => ({
-    differenceId: id('D', index), differenceCategory: 'MODIFIED', changeReason: 'C',
-    sourceRecordId: id('A', index), targetRecordId: id('B', index), changedProperties: ['p'],
+    differenceId: id('D', index), differenceCategory: 'MODIFIED',
   }));
   evidence.reviewSession.items = rows(COUNTS.reviews, (index) => ({
-    differenceId: id('D', index), reviewState: 'REVIEWED', note: 'N',
-    updatedAt: '2026-07-25T00:00:00.000Z',
+    differenceId: id('D', index), reviewState: 'REVIEWED',
   }));
   evidence.decisionLedger.decisions = rows(COUNTS.decisions, (index) => ({
     differenceId: id('D', index), decisionState: 'ACCEPTED_CANDIDATE',
-    acceptedTargetDifferenceId: id('T', index), rationale: 'R',
-    updatedAt: '2026-07-25T00:00:00.000Z',
   }));
   bundle.payload.transferPlan.operations = rows(COUNTS.operations, (index) => ({
-    operationId: id('OP', index), operationType: 'REPLACE_FIELD', sourceEntityId: id('A', index),
-    targetEntityId: id('B', index), targetCanonicalPath: '/', fieldPath: '/p',
-    beforeValue: 0, afterValue: 1, status: 'READY',
+    operationId: id('OP', index), status: 'READY',
   }));
   bundle.payload.transferAudit.rows = rows(COUNTS.auditRows, (index) => ({
-    operationId: id('OP', index), status: 'APPLIED', sourceEntityId: id('A', index),
-    targetEntityId: id('B', index), fieldPath: '/p', reason: '',
+    operationId: id('OP', index), status: 'APPLIED',
   }));
   return bundle;
 }
 function assertPopulation(bundle) {
   const payload = bundle.payload; const evidence = payload.evidencePackage.payload;
+  assert.deepEqual(COUNTS, {
+    differences: 180_000, reviews: 95_000, decisions: 40_000,
+    operations: 120_000, auditRows: 120_000,
+  });
   assert.equal(evidence.audit.differenceRows.length, COUNTS.differences);
   assert.equal(evidence.reviewSession.items.length, COUNTS.reviews);
   assert.equal(evidence.decisionLedger.decisions.length, COUNTS.decisions);

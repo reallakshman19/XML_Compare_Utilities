@@ -31,6 +31,11 @@ async function clear(page) {
   await page.locator('[data-revc-clear-handover-inspection]').click();
   await expect(page.locator('[data-revc-handover-status]')).toHaveText('IDLE');
 }
+async function expectSourceFiles(page, matcher) {
+  for (const slot of ['baseline', 'candidate']) {
+    await expect(page.locator(`[data-revc-file="${slot}"]`))[matcher]();
+  }
+}
 async function authoritySnapshot(page) {
   return page.evaluate((keys) => {
     const state = window.rcHandle.evidence().state;
@@ -116,8 +121,8 @@ test('RC-XFER-009-B01 canonical File import, isolation, downloads and lifecycle'
   expect(matrix.failures.every((message) => message.includes('Clear the transfer handover inspection'))).toBeTruthy();
   expect(await authoritySnapshot(page)).toEqual(beforeMatrix);
 
-  await expect(page.locator('[data-revc-file]')).toBeDisabled();
-  await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();
+  await expectSourceFiles(page, 'toBeDisabled');
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
   await page.evaluate(() => {
     const input = document.querySelector('[data-revc-file="baseline"]'); input.disabled = false;
   });
@@ -132,7 +137,7 @@ test('RC-XFER-009-B01 canonical File import, isolation, downloads and lifecycle'
     await planButton.evaluate((item) => { item.disabled = false; }); await planButton.click();
     expect((await page.evaluate(() => window.rcHandle.evidence().state.transfer.plan))).toBeNull();
   }
-  await clear(page); await expect(page.locator('[data-revc-file]')).toBeEnabled();
+  await clear(page); await expectSourceFiles(page, 'toBeEnabled');
 
   await selectBytes(page, Buffer.concat([Buffer.from([0xEF, 0xBB, 0xBF]), bytes]), 'bom.json');
   await expect(page.locator('[data-revc-handover-status]')).toHaveText('FAILED');

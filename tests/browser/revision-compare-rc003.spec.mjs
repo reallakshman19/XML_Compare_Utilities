@@ -6,6 +6,11 @@ async function upload(page, slot, name) {
   const buffer = await readFile(fixture(name));
   await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
 }
+async function keyboardActivate(page, name) {
+  const button = page.getByRole('button', { name });
+  await expect(button).toBeVisible(); await expect(button).toBeEnabled();
+  await button.focus(); await page.keyboard.press('Enter');
+}
 async function installViewer(page) {
   await page.evaluate(() => {
     window.rcViewerLog = { selections: [], fitAll: 0, fitSelected: 0, disposed: 0, modes: [] };
@@ -40,7 +45,7 @@ async function openAndCompare(page) {
   await expect(page.locator('[data-slot="candidate"] strong')).toContainText('ready');
   await expect(page.getByRole('heading', { name: 'Confirm branch scope' })).toBeVisible();
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 20_000 });
 }
 async function downloadReview(page) {
@@ -109,8 +114,8 @@ test('guided review preserves comparison meaning and resumes exact review eviden
   await expect(page.locator('.revc-review-session').filter({ has: page.locator('[data-revc-download-review]') })).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.review.session.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download review session' })).toBeVisible();
-  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Approve comparison basis');
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 20_000 });
   const reattached = await page.evaluate(() => window.rcHandle.evidence().state.review.session);
   expect(reattached.status).toBe('CURRENT'); expect(reattached.reviewSessionId).toBe(sessionBeforeExport.reviewSessionId);
@@ -126,10 +131,10 @@ test('guided review preserves comparison meaning and resumes exact review eviden
 
   await page.getByRole('button', { name: 'Change scope' }).click();
   const changedBranch = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
-  await page.locator('label.revc-scope-row', { has: changedBranch }).click();
+  await changedBranch.focus(); await page.keyboard.press('Space');
   await expect(changedBranch).not.toBeChecked();
-  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Approve comparison basis');
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByText('The current comparison audit differs')).toBeVisible({ timeout: 20_000 });
   expect(await page.evaluate(() => window.rcHandle.evidence().state.review.replacementRequired)).toBe(true);
   await page.getByRole('button', { name: 'Start new review session' }).click();

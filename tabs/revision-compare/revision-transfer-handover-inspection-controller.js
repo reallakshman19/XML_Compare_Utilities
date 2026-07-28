@@ -114,11 +114,11 @@ async function handleClick(context, button) {
       abortReads(context); return commit(context, setWorkspaceHandoverInspection(state, clearRevisionCompareHandoverInspection(inspection)));
     }
     if (selected(button, 'data-revc-download-imported-handover')) {
-      return emitVerifiedDownload(context, verifiedBundleDownload(inspection?.bundle, context.options.cryptoRef));
+      return await emitVerifiedDownload(context, verifiedBundleDownload(inspection?.bundle, context.options.cryptoRef));
     }
     if (selected(button, 'data-revc-download-imported-transfer-artifact')) {
       const index = Number(button.getAttribute('data-revc-download-imported-transfer-artifact'));
-      return emitVerifiedDownload(context, verifiedArtifactDownload(inspection?.bundle, index, context.options.cryptoRef));
+      return await emitVerifiedDownload(context, verifiedArtifactDownload(inspection?.bundle, index, context.options.cryptoRef));
     }
     return false;
   } catch (error) { if (!context.destroyed) context.options.reportFailure(error); return false; }

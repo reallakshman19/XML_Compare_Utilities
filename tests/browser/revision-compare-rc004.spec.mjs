@@ -6,6 +6,11 @@ async function upload(page, slot, name) {
   const buffer = await readFile(fixture(name));
   await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
 }
+async function keyboardActivate(page, name) {
+  const button = page.getByRole('button', { name });
+  await expect(button).toBeVisible(); await expect(button).toBeEnabled();
+  await button.focus(); await page.keyboard.press('Enter');
+}
 async function installViewer(page) {
   await page.evaluate(() => {
     window.rcViewerLog = { selections: [], fitAll: 0, fitSelected: 0, disposed: 0, modes: [] };
@@ -38,7 +43,7 @@ async function openAndCompare(page) {
   await upload(page, 'candidate', 'rc004-rev-b.json');
   await expect(page.locator('[data-slot="candidate"] strong')).toContainText('ready');
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
 }
 async function clickCandidate(page, targetRecordId) {
@@ -131,8 +136,8 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await expect(page.locator('.revc-decision-ledger')).toContainText('STALE');
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download decision ledger' })).toBeVisible();
-  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Approve comparison basis');
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
   await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('CURRENT');
   const reattached = await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger);
@@ -148,10 +153,10 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
 
   await page.getByRole('button', { name: 'Change scope' }).click();
   const changedCommon = page.locator('[data-revc-branch-id="branch:/COMMON-500"]');
-  await page.locator('label.revc-scope-row', { has: changedCommon }).click();
+  await changedCommon.focus(); await page.keyboard.press('Space');
   await expect(changedCommon).not.toBeChecked();
-  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Approve comparison basis');
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByText('The current audit differs. Decision evidence was not remapped.')).toBeVisible({ timeout: 25_000 });
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.replacementRequired)).toBe(true);
   await page.getByRole('button', { name: 'Start new decision ledger' }).click();
