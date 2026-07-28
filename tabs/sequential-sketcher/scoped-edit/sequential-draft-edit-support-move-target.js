@@ -50,7 +50,9 @@ function authorityAgreement(readModel, state) {
   if (readModel.branchId !== authority.branchId
     || readModel.sessionFingerprint !== authority.sessionFingerprint
     || readModel.supportConstructionFingerprint
-      !== (state?.supportProjection?.constructionFingerprint || null)) {
+      !== (state?.supportProjection?.constructionFingerprint || null)
+    || readModel.supportAdjustmentRegisterFingerprint
+      !== (state?.supportAdjustmentRegister?.headFingerprint || null)) {
     fail(
       readModel.branchId === authority.branchId
         ? SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE
