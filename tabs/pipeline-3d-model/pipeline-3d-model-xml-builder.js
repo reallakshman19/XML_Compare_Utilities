@@ -11,6 +11,7 @@ import { PIPELINE_GRE_VENDOR_PLAN_SCHEMA } from './pipeline-3d-model-gre-vendor-
 } from './pipeline-3d-model-identity.js?v=20260722-p3d-identity-1'; import { caesar14AllowableCaseAttributeEntries, caesar14AllowableStressAttributeEntries,
 caesar14BendAttributeEntries, caesar14ElementAttributeEntries, caesar14ModelAttributeEntries, caesar14RestraintAttributeEntries,
 caesar14RigidAttributeEntries, caesar14RootAttributeEntries, resolvePipelineCaesarWriterProfile, } from './pipeline-3d-model-caesar14-writer-profile.js';
+import { resolvePipelineApprovedCatalogAttachedAuthentication } from './pipeline-3d-model-approved-catalog-attached-authentication.js';
 const M_TO_MM = 1000; const NODE_NUMBER_START = 100; const NODE_NUMBER_STEP = 10;
 const text = (value) => String(value ?? '').trim(); const plain = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right); function toMm(meters) { return Math.round(Number(meters || 0) * M_TO_MM * 1000) / 1000; }
@@ -206,13 +207,18 @@ return plan.counts.numBend === bendCount && bendCount === fittingCount && restra
 if (!plan.profileAuthorityPlan) return null; const authority = plan.profileAuthorityPlan; const documentState = plan.ready === true && Array.isArray(plan.diagnostics)
 && Array.isArray(plan.blockerCodes) && plan.diagnostics.length === 0 && plan.blockerCodes.length === 0; const valid = documentState && authorityStructureValid(plan, authority)
 && fittingStructureValid(plan, authority) && countStructureValid(plan, authority); return valid ? null : { code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
-message: 'Profile-aware document authority does not match writer input.', details: {}, }; } function assertDocumentReady(plan) {
-const writerDiagnostic = profileWriterDiagnostic(plan); if (plan.ready && !writerDiagnostic) return; const first = plan.ready && writerDiagnostic ? writerDiagnostic : plan.diagnostics?.[0] || writerDiagnostic;
+message: 'Profile-aware document authority does not match writer input.', details: {}, }; }
+function approvedCatalogWriterDiagnostic(plan) { const authentication = resolvePipelineApprovedCatalogAttachedAuthentication(plan);
+if (!authentication.active || authentication.ready) return null; return { code: 'PIPELINE_INPUTXML_WRITER_BLOCKED',
+message: 'Attached approved-catalog ancestry does not match writer input.', details: { blockerCodes: authentication.blockerCodes }, }; }
+function assertDocumentReady(plan) {
+const writerDiagnostic = approvedCatalogWriterDiagnostic(plan) || profileWriterDiagnostic(plan); if (plan.ready && !writerDiagnostic) return;
+const first = plan.ready && writerDiagnostic ? writerDiagnostic : plan.diagnostics?.[0] || writerDiagnostic;
 const error = new Error(first?.message || 'Canonical InputXML document planning failed.'); error.code = first?.code || 'PIPELINE_INPUTXML_DOCUMENT_BLOCKED';
-error.details = first?.details || {}; error.blockerCodes = plan.blockerCodes || []; throw error; }
+error.details = first?.details || {}; error.blockerCodes = [...new Set([...(plan.blockerCodes || []), ...(first?.details?.blockerCodes || [])])]; throw error; }
 export function buildInputXmlPipingModelXml(input, coordinateRows = [], bendResolution = null) { const plan = resolvedPlan(input, coordinateRows, bendResolution);
 assertDocumentReady(plan); const profile = resolvePipelineCaesarWriterProfile(plan.version); const rootAttrs = profile.mode === 'CAESAR_14'
 ? attrs(caesar14RootAttributeEntries(plan)) : [ attr('xmlns', plan.namespace), attr('xmlns:ext', plan.extensionNamespace), attr('VERSION', plan.version), attr('XML_TYPE', plan.xmlType), ];
 const modelAttrs = modelAttributes(plan, profile); return [ '<?xml version="1.0" encoding="UTF-8"?>', `<CAESARII ${rootAttrs.join(' ')}>`, `<PIPINGMODEL ${modelAttrs.join(' ')}>`,
 ...plan.elements.map((element) => pipingElementXml(element, profile)), '</PIPINGMODEL>', '</CAESARII>', ].join('\n'); }
-export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, pipingCodeAuthorityStructureValid, allowableValueAuthorityStructureValid, };
+export const _internal = { toMm, bendXml, restraintXml, rigidXml, allowableCaseXml, allowableXml, usableCurvatureNodes, propertyAttributes, modelAttributes, profileWriterDiagnostic, approvedCatalogWriterDiagnostic, bendMatchesAuthority, restraintStructureValid, rigidStructureValid, allowableStructureValid, pipingCodeAuthorityStructureValid, allowableValueAuthorityStructureValid, };
