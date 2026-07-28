@@ -75,13 +75,16 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     const staged = await import('/workbench3d/core/staged-json-core.js');
     const parsed = JSON.parse(stagedText);
     const root = staged.readStagedBranches(parsed);
-    const built = await core.buildComponentTopologyArtifacts(stagedText, {
+    const producerText = JSON.stringify(root.branches);
+    const options = {
       sourceName: 'ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json',
       jobName: '1885 Steam Staged Export Round Trip',
       toleranceMm: 0.1,
       supportProjectionToleranceMm: 50,
       enrichmentConfig: {},
-    });
+    };
+    const rawEnvelopeBuilt = await core.buildComponentTopologyArtifacts(stagedText, options);
+    const built = await core.buildComponentTopologyArtifacts(producerText, options);
     const report = core.runTopologyChecks(built.canonicalTopology, {
       shortElementMm: 6, toleranceMm: 0.1, snapToleranceMm: 25,
       angleToleranceDeg: 5, originToleranceMm: 0.1, clearanceMm: 0,
@@ -90,7 +93,8 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     return {
       rootKey: root.rootKey,
       branchCount: root.branches.length,
-      rebuiltCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
+      rawEnvelopeCanonicalTopologyHash: rawEnvelopeBuilt.canonicalTopology.canonicalTopologyHash,
+      normalizedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
       editedCanonicalTopologyHash: edit.editedArtifacts.canonicalTopology.canonicalTopologyHash,
       activeFindingCount: report.issues.length,
       expectedShortCount: report.issues.filter((row) => row.code === 'EXPECTED_SHORT_INLINE_COMPONENT').length,
@@ -98,13 +102,6 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       edgeCount: built.canonicalTopology.edges.length,
     };
   }, text);
-
-  expect(roundTrip.rootKey).toBe('objects');
-  expect(roundTrip.branchCount).toBe(23);
-  expect(roundTrip.rebuiltCanonicalTopologyHash).toBe(roundTrip.editedCanonicalTopologyHash);
-  expect(roundTrip.expectedShortCount).toBe(0);
-  expect(roundTrip.activeFindingCount).toBe(8);
-  expect(pageErrors).toEqual([]);
 
   await testInfo.attach('ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json', {
     body: bytes,
@@ -128,6 +125,14 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     }, null, 2)}\n`),
     contentType: 'application/json',
   });
+
+  expect(roundTrip.rootKey).toBe('objects');
+  expect(roundTrip.branchCount).toBe(23);
+  expect(roundTrip.rawEnvelopeCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
+  expect(roundTrip.normalizedCanonicalTopologyHash).toBe(roundTrip.editedCanonicalTopologyHash);
+  expect(roundTrip.expectedShortCount).toBe(0);
+  expect(roundTrip.activeFindingCount).toBe(8);
+  expect(pageErrors).toEqual([]);
 });
 
 function flattenOperations(commands) {
