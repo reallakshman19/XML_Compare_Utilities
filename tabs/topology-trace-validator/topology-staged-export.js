@@ -1,7 +1,10 @@
 /**
- * Staged JSON export: the loaded inputxml-managed-stage/v1 document with the
- * draft's geometry mutations and the attribute ledger applied, plus an
- * embedded StagedEditProvenance.v1 block mirroring the update-ledger table.
+ * Staged JSON export: the loaded staged hierarchy with the draft's geometry
+ * mutations and attribute ledger applied. The primary engineering interchange
+ * document preserves the source root shape exactly: a bare hierarchy remains a
+ * bare array, and an existing hierarchy/branches/objects envelope retains its
+ * original keys. Audit provenance is returned separately and must never change
+ * the staged hierarchy contract consumed by 3D Converters and other modules.
  *
  * Geometry mapping is a deterministic position remap derived from the
  * command payloads themselves (MOVE_NODE / MERGE_NODES / TRIM_EDGE move
@@ -94,8 +97,9 @@ function remapDocumentPositions(doc, remaps, identityToleranceMm) {
  *           attributeLedger: Record<string, unknown>, commandJournal: Record<string, unknown>, exportedAt: string,
  *           ledgerRows: ReadonlyArray<Record<string, unknown>>,
  *           positionIdentityToleranceMm?: number }} input
- * @returns {{ text: string, summary: { remaps: number, coordinatesTouched: number, attributeEdits: number,
- *                                      positionIdentityToleranceMm: number } }}
+ * @returns {{ text: string, provenanceText: string, provenance: Record<string, unknown>,
+ *             summary: { remaps: number, coordinatesTouched: number, attributeEdits: number,
+ *                        positionIdentityToleranceMm: number, rootShape: string } }}
  */
 export function buildStagedExport(input) {
   if (!isIsoTimestamp(input.exportedAt)) throw new TypeError('Staged export requires an exact ISO exportedAt timestamp.');
@@ -119,14 +123,15 @@ export function buildStagedExport(input) {
       before: row.before, after: row.after, origin: row.origin, remark: row.remark,
     })),
   };
-  const doc = Array.isArray(withAttributes)
-    ? { schema: 'inputxml-managed-stage/v1', objects: withAttributes, provenance }
-    : { ...withAttributes, provenance };
+  const rootShape = Array.isArray(withAttributes)
+    ? 'array'
+    : ['hierarchy', 'branches', 'objects'].find((key) => Array.isArray(withAttributes?.[key])) ?? 'object';
   return {
-    text: `${JSON.stringify(doc, null, 2)}
-`,
+    text: `${JSON.stringify(withAttributes, null, 2)}\n`,
+    provenanceText: `${JSON.stringify(provenance, null, 2)}\n`,
+    provenance,
     summary: { remaps: remaps.length, coordinatesTouched, attributeEdits: provenance.attributeEdits.length,
-      positionIdentityToleranceMm: identityToleranceMm },
+      positionIdentityToleranceMm: identityToleranceMm, rootShape },
   };
 }
 
