@@ -130,7 +130,7 @@ function render(state) {
   state.elements.previous.disabled = !hasCandidates || state.destroyed;
   state.elements.next.disabled = !hasCandidates || state.destroyed;
   state.elements.use.disabled = !hasSelection || state.destroyed;
-  state.elements.clearSnap.disabled = !state.preview?.snapApplied || state.destroyed;
+  state.elements.clearSnap.disabled = (!hasSelection && !state.preview?.snapApplied) || state.destroyed;
   state.elements.target.textContent = targetText(state.target);
   state.elements.diagnosis.textContent = diagnosisText(state.preview);
   state.elements.snapStatus.textContent = snapStatus(state);
