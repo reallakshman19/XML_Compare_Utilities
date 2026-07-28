@@ -1,4 +1,4 @@
-/** Immutable branch-local geometry edit journal for accepted Sequential moves. */
+/** Immutable branch-local geometry edit journal for accepted Sequential edits. */
 import { immutableJson, isIsoTimestamp } from '../../../contracts/contract-values.js';
 import {
   sameSequentialContractValue,
@@ -9,12 +9,18 @@ export const SEQUENTIAL_GEOMETRY_EDIT_JOURNAL_SCHEMA =
   'SequentialGeometryEditJournal.v1';
 export const SEQUENTIAL_GEOMETRY_EDIT_ENTRY_SCHEMA =
   'SequentialGeometryEditEntry.v1';
+export const SEQUENTIAL_GEOMETRY_EDIT_TYPE = Object.freeze({
+  MOVE_COMPONENT: 'MOVE_COMPONENT',
+  STRETCH_NODE: 'STRETCH_NODE',
+});
 export const SEQUENTIAL_GEOMETRY_EDIT_REJECTION = Object.freeze({
   JOURNAL_INVALID: 'SEQUENTIAL_GEOMETRY_EDIT_JOURNAL_INVALID',
   BASE_STALE: 'SEQUENTIAL_GEOMETRY_EDIT_BASE_STALE',
   ENTRY_INVALID: 'SEQUENTIAL_GEOMETRY_EDIT_ENTRY_INVALID',
   OPERATION_REPLAY: 'SEQUENTIAL_GEOMETRY_EDIT_OPERATION_REPLAY',
 });
+
+const EDIT_TYPES = new Set(Object.values(SEQUENTIAL_GEOMETRY_EDIT_TYPE));
 
 function fail(code, message, Constructor = RangeError) {
   const error = new Constructor(message); error.code = code; throw error;
@@ -47,11 +53,23 @@ function positionRows(values, key, label) {
     position: finitePoint(row.position, `${label} position`),
   }));
 }
+function nodeIds(value, label) {
+  if (value == null) return null;
+  if (!Array.isArray(value) || !value.length) fail(
+    SEQUENTIAL_GEOMETRY_EDIT_REJECTION.ENTRY_INVALID,
+    `${label} nodeIds must be a non-empty array.`, TypeError,
+  );
+  return value.map((row) => text(row, `${label} nodeId`));
+}
 function geometryRows(values, label) {
-  return sortedRows(values, 'geometryPartId', label).map((row) => ({
-    geometryPartId: text(row.geometryPartId, `${label} geometryPartId`),
-    geometry: row.geometry,
-  }));
+  return sortedRows(values, 'geometryPartId', label).map((row) => {
+    const binding = nodeIds(row.nodeIds, `${label} ${row.geometryPartId}`);
+    return {
+      geometryPartId: text(row.geometryPartId, `${label} geometryPartId`),
+      geometry: row.geometry,
+      ...(binding ? { nodeIds: binding } : {}),
+    };
+  });
 }
 function sameRowIds(left, right, key) {
   return left.length === right.length
@@ -122,13 +140,51 @@ export function sequentialGeometryEditBaseFingerprint(snapshot) {
 function journalHead(material) {
   return sequentialSemanticFingerprint('SSKGEOMETRYJOURNAL', material);
 }
+function entryType(value) {
+  const type = String(value || SEQUENTIAL_GEOMETRY_EDIT_TYPE.MOVE_COMPONENT).trim().toUpperCase();
+  if (!EDIT_TYPES.has(type)) fail(SEQUENTIAL_GEOMETRY_EDIT_REJECTION.ENTRY_INVALID,
+    `Unsupported geometry edit type: ${type}`, TypeError);
+  return type;
+}
+function uniqueText(values, label) {
+  if (!Array.isArray(values) || !values.length) fail(
+    SEQUENTIAL_GEOMETRY_EDIT_REJECTION.ENTRY_INVALID,
+    `${label} must be a non-empty array.`, TypeError,
+  );
+  return [...new Set(values.map((value) => text(value, label)))].sort();
+}
+function stretchMaterial(input, state) {
+  const beforeNodeIds = state.before.nodes.map((row) => row.nodeId);
+  const nodeId = text(input.nodeId, 'nodeId');
+  if (beforeNodeIds.length !== 1 || beforeNodeIds[0] !== nodeId) fail(
+    SEQUENTIAL_GEOMETRY_EDIT_REJECTION.ENTRY_INVALID,
+    'STRETCH_NODE must record exactly the selected node.',
+  );
+  const bindingsValid = state.before.geometryParts.every((row, index) => (
+    row.nodeIds?.includes(nodeId)
+      && sameSequentialContractValue(row.nodeIds, state.after.geometryParts[index]?.nodeIds)
+  ));
+  if (!bindingsValid) fail(
+    SEQUENTIAL_GEOMETRY_EDIT_REJECTION.ENTRY_INVALID,
+    'STRETCH_NODE geometry parts require stable selected-node bindings.',
+  );
+  return {
+    nodeId,
+    affectedComponentIds: uniqueText(input.affectedComponentIds, 'affectedComponentId'),
+    targetPosition: finitePoint(input.targetPosition, 'targetPosition'),
+    profile: input.profile,
+  };
+}
 function entryMaterial(input, journal) {
   const state = pairedState(input.before || {}, input.after || {});
+  const type = entryType(input.type);
+  const stretch = type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE
+    ? stretchMaterial(input, state) : {};
   return {
     schema: SEQUENTIAL_GEOMETRY_EDIT_ENTRY_SCHEMA,
     sequence: journal.entries.length + 1,
     previousHeadFingerprint: journal.headFingerprint,
-    type: 'MOVE_COMPONENT',
+    type,
     componentId: text(input.componentId, 'componentId'),
     targetId: text(input.targetId, 'targetId'),
     operationId: text(input.operationId, 'operationId'),
@@ -136,6 +192,7 @@ function entryMaterial(input, journal) {
     rawDelta: finitePoint(input.rawDelta, 'rawDelta'),
     delta: finitePoint(input.delta, 'delta'),
     snapSelection: input.snapSelection || null,
+    ...stretch,
     before: state.before,
     after: state.after,
     ancestry: input.ancestry || {},
@@ -168,8 +225,7 @@ export function assertSequentialGeometryEditJournal(value, snapshot = null) {
     fail(SEQUENTIAL_GEOMETRY_EDIT_REJECTION.JOURNAL_INVALID,
       `Geometry journal must use ${SEQUENTIAL_GEOMETRY_EDIT_JOURNAL_SCHEMA}.`, TypeError);
   }
-  const seed = createSequentialGeometryEditJournal(value);
-  let rebuilt = seed;
+  let rebuilt = createSequentialGeometryEditJournal(value);
   value.entries.forEach((entry) => {
     rebuilt = appendSequentialGeometryEdit(rebuilt, entry, null).journal;
   });

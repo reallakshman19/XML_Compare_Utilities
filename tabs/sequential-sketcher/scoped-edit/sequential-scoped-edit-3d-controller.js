@@ -3,13 +3,12 @@ import { createSequentialScopedEditVisualModel } from './sequential-scoped-edit-
 import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit-command-gateway.js';
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { createSequentialDraftEditSupportMoveFeature } from './sequential-draft-edit-support-move-feature.js';
-import { createSequentialSingleEntityMoveFeature } from './sequential-single-entity-move-feature.js';
+import { createSequentialComponentEditOperations } from './sequential-component-edit-operations.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
 import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
 import { selectSequentialDraftEditReversalTarget } from './sequential-draft-edit-reversal-target.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
-export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
-export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
+export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1'; export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
 const CONTROLLERS = new WeakMap();
 const VIEW_BY_PROJECTION = Object.freeze({ ISO: 'iso', XY: 'top', XZ: 'front', YZ: 'side' });
 function requiredFunction(value, label) { if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value; }
@@ -45,7 +44,8 @@ function set3dPressed(state, pressed) {
   });
 }
 function setFeatureActivity(state, active) {
-  state.commandPanel?.setActive(active); state.supportMove?.setActive(active); state.movePreview?.setActive(active);
+  state.commandPanel?.setActive(active); state.supportMove?.setActive(active);
+  state.componentEdit?.setActive(active);
 }
 function show3dSurface(state) {
   setHidden(state.elements.construction, true); setHidden(state.elements.preview, true);
@@ -62,9 +62,9 @@ function syncAvailability(state) {
   }
   return next;
 }
-function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; }
-function applyProjection(state, readModel) {
-  const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO'; state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
+function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; } function applyProjection(state, readModel) {
+  const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO';
+  state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
 }
 function syncDecisionTarget(state, scene, readModel) {
   try {
@@ -82,7 +82,8 @@ function applyScene(state) {
   }
   const model = createSequentialScopedEditVisualModel({
     readModel, scene, draft: state.supportMove?.getDraft(),
-    moveDraft: state.movePreview?.getDraft(),
+    moveDraft: state.componentEdit?.getMoveDraft(),
+    nodeStretchDraft: state.componentEdit?.getStretchDraft(),
   });
   state.scene = scene; state.readModel = readModel;
   state.viewer.setVerticalAxis(scene.coordinateSystem.verticalAxis);
@@ -94,9 +95,8 @@ function applyScene(state) {
   applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
   announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · supervised geometry authority enabled.`);
 }
-function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; }
-function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
-function clearNonCommandTargets(state, reason = null) { state.supportMove?.clearTarget(reason); state.movePreview?.clearTarget(reason); }
+function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; } function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
+function clearNonCommandTargets(state, reason = null) { state.supportMove?.clearTarget(reason); state.componentEdit?.clear(reason); }
 function selectCandidatePick(state, objectId) {
   clearNonCommandTargets(state);
   const target = selectSequentialDraftEditCandidateTarget({
@@ -116,12 +116,22 @@ function selectReversalPick(state, objectId) {
   announce(state, `Reversal entry ${target.entryPortId} selected for ${target.componentId}.`);
 }
 function selectSupportPick(state, objectId) {
-  clearCommandTargets(state, 'Construction command target cleared for support adjustment.'); state.movePreview?.clearTarget();
-  const target = state.supportMove.select(objectId); announce(state, `Support ${target.supportId} selected. Review exact XYZ before Apply.`);
+  clearCommandTargets(state, 'Construction command target cleared for support adjustment.');
+  state.componentEdit?.clear();
+  const target = state.supportMove.select(objectId);
+  announce(state, `Support ${target.supportId} selected. Review exact XYZ before Apply.`);
+}
+function componentPickNotice(state, result) {
+  if (result.mode === 'STRETCH_NODE') {
+    return `Stretch node mode · ${result.target.nodes.length} qualified node(s) for ${result.target.canonicalType} ${result.target.componentId}.`;
+  }
+  return `${result.target.canonicalType} ${result.target.componentId} selected. Preview, prepare and apply only when topology-preserving.`;
 }
 function selectComponentPick(state, objectId) {
-  clearCommandTargets(state, 'Construction command target cleared for component move.'); state.supportMove?.clearTarget();
-  const target = state.movePreview.select(objectId); announce(state, `${target.canonicalType} ${target.componentId} selected. Preview, prepare and apply only when topology-preserving.`);
+  clearCommandTargets(state, 'Construction command target cleared for component edit.');
+  state.supportMove?.clearTarget();
+  const result = state.componentEdit.select(objectId);
+  announce(state, componentPickNotice(state, result));
 }
 function clearAllTargets(state, reason = null) { clearCommandTargets(state, reason); clearNonCommandTargets(state, reason); }
 function selectPick(state, objectId) {
@@ -142,8 +152,7 @@ function selectPick(state, objectId) {
 function viewerOptions(state) {
   return { navigationPreset: 'CAD_EDIT', onPick: (pick) => selectPick(state, pick?.objectId || null),
     onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
-    onNavigationError: (error) => containFailure(state, error, 'navigation'),
-  };
+    onNavigationError: (error) => containFailure(state, error, 'navigation'), };
 }
 async function createViewer(state, canvas) {
   injectFailure(state.options.failureFactory, 'viewer-mount');
@@ -182,14 +191,11 @@ async function show3d(state) {
 function scheduleRefresh(state) {
   queueMicrotask(() => {
     if (state.destroyed) return;
-    state.commandPanel?.refresh({
-      invalidatePending: true, invalidateTarget: true,
-      reason: 'Prepared command and targets invalidated because owner authority changed.',
-    });
+    state.commandPanel?.refresh({ invalidatePending: true, invalidateTarget: true,
+      reason: 'Prepared command and targets invalidated because owner authority changed.' });
     state.supportMove?.invalidate('Support adjustment invalidated because owner authority changed.');
-    state.movePreview?.invalidate('Component move invalidated because owner authority changed.');
-    syncAvailability(state);
-    if (!state.active) return;
+    state.componentEdit?.invalidate('Component edit invalidated because owner authority changed.');
+    syncAvailability(state); if (!state.active) return;
     try { applyScene(state); } catch (error) { containFailure(state, error, 'owner refresh'); }
   });
 }
@@ -205,7 +211,7 @@ function destroy(state) {
   if (state.destroyed) return false;
   state.destroyed = true; state.root.removeEventListener('click', state.onClick, true);
   try { state.unsubscribe?.(); } catch {}
-  try { state.movePreview?.destroy(); } catch {}
+  try { state.componentEdit?.destroy(); } catch {}
   try { state.supportMove?.destroy(); } catch {}
   try { state.commandPanel?.destroy(); } catch {}
   try { state.gateway?.destroy(); } catch {}
@@ -223,8 +229,7 @@ function installFeatures(state) {
         state.commandBoundary.readCurrentState(),
       ).authorityId,
       now: state.options.commandIssuedAtProvider,
-      onAccepted: state.options.onCommandAccepted,
-      onFailure: state.options.onCommandFailure,
+      onAccepted: state.options.onCommandAccepted, onFailure: state.options.onCommandFailure,
     });
     state.supportMove = createSequentialDraftEditSupportMoveFeature({
       root: state.root, readScene: () => state.scene, readModel: () => state.readModel,
@@ -232,22 +237,20 @@ function installFeatures(state) {
       now: state.options.supportAdjustmentAppliedAtProvider || state.options.commandIssuedAtProvider,
       onDraftChanged: () => draftRefresh(state),
     });
-    state.movePreview = createSequentialSingleEntityMoveFeature({
+    state.componentEdit = createSequentialComponentEditOperations({
       root: state.root, readScene: () => state.scene, readModel: () => state.readModel,
       readViewer: () => state.viewer, onDraftChanged: () => draftRefresh(state),
       geometryEditBoundary: state.geometryEditBoundary,
-      applicationNow: state.options.geometryMoveAppliedAtProvider
-        || state.options.commandIssuedAtProvider,
+      applicationNow: state.options.geometryMoveAppliedAtProvider || state.options.commandIssuedAtProvider,
+      onModeChanged: (mode) => announce(state, `Component operation mode: ${mode}.`),
     });
     state.onClick = (event) => handleClick(state, event);
     state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
-    if (typeof state.unsubscribe !== 'function') {
-      throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
-    }
+    if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
     state.root.addEventListener('click', state.onClick, true);
   } catch (error) {
     try { state.unsubscribe?.(); } catch {}
-    try { state.movePreview?.destroy(); } catch {}
+    try { state.componentEdit?.destroy(); } catch {}
     try { state.supportMove?.destroy(); } catch {}
     try { state.commandPanel?.destroy(); } catch {}
     try { state.gateway.destroy(); } catch {}
@@ -270,11 +273,11 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
     readCurrentState: commandBoundary.readCurrentState, publishCandidate: commandBoundary.publishCandidate,
   });
   const state = {
-    root, options, gateway, commandBoundary, supportAdjustmentBoundary,
-    geometryEditBoundary, shadow, workspace,
-    elements: elements(root), viewer: null, pending: null, scene: null, readModel: null,
-    mountKey: '', active: false, destroyed: false, failureCount: 0,
-    unsubscribe: null, commandPanel: null, supportMove: null, movePreview: null,
+    root, options, gateway, commandBoundary, supportAdjustmentBoundary, geometryEditBoundary,
+    shadow, workspace, elements: elements(root), viewer: null, pending: null,
+    scene: null, readModel: null, mountKey: '', active: false, destroyed: false,
+    failureCount: 0, unsubscribe: null, commandPanel: null, supportMove: null,
+    componentEdit: null,
   };
   installFeatures(state); syncAvailability(state);
   const controller = Object.freeze({
@@ -286,7 +289,7 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
       active: state.active, available: available(state), mounted: Boolean(state.viewer),
       mountKey: state.mountKey, failureCount: state.failureCount, destroyed: state.destroyed,
       commandGateway: gateway.getState(), commandPanel: state.commandPanel.getState(),
-      supportMove: state.supportMove.getState(), movePreview: state.movePreview.getState(),
+      supportMove: state.supportMove.getState(), componentEdit: state.componentEdit.getState(),
       supportAdjustmentBoundary: supportAdjustmentBoundary.getState?.() || null,
       geometryEditBoundary: geometryEditBoundary.getState?.() || null,
       viewerState: state.viewer?.getStateSnapshot?.() ?? null,
