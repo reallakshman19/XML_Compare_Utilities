@@ -50,6 +50,7 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
   );
   const onPublished = requiredFunction(options.onPublished, 'onPublished');
   const byBranch = new Map();
+  const consumedHistoryPreparedIdsByBranch = new Map();
   let destroyed = false;
 
   function currentHistory(snapshot) {
@@ -59,6 +60,9 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
     const stored = byBranch.get(id);
     if (stored?.baseProjectionFingerprint === baseProjectionFingerprint) {
+      if (!consumedHistoryPreparedIdsByBranch.has(id)) {
+        consumedHistoryPreparedIdsByBranch.set(id, new Set());
+      }
       return assertSequentialSupportAdjustmentHistory(stored.history, {
         constructionFingerprint: base.constructionFingerprint,
         baseProjectionFingerprint,
@@ -69,6 +73,7 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
       baseProjectionFingerprint,
     });
     byBranch.set(id, Object.freeze({ baseProjectionFingerprint, history }));
+    consumedHistoryPreparedIdsByBranch.set(id, new Set());
     return history;
   }
   function readHistory() {
@@ -172,6 +177,11 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     if (candidate?.schema !== 'SequentialPreparedSupportAdjustmentHistoryCandidate.v1') {
       throw new TypeError('Support history publication requires a prepared history candidate.');
     }
+    const consumed = consumedHistoryPreparedIdsByBranch.get(current.authority.branchId)
+      || new Set();
+    if (consumed.has(input.preparedId)) {
+      throw new RangeError('Prepared support history has already been consumed.');
+    }
     const preparedMaterial = {
       schema: 'SequentialPreparedSupportAdjustmentHistory.v1',
       expectedAuthority: input.expectedAuthority,
@@ -201,6 +211,8 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
       candidate.supportProjection,
     );
     store(current.authority, current.base, transition.history);
+    consumed.add(input.preparedId);
+    consumedHistoryPreparedIdsByBranch.set(current.authority.branchId, consumed);
     const publication = Object.freeze({
       schema: 'SequentialSupportAdjustmentHistoryPublication.v1',
       committed: true,
@@ -232,12 +244,15 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
         constructionFingerprint: stored.history.constructionFingerprint,
         baseProjectionFingerprint: stored.baseProjectionFingerprint,
         ...sequentialSupportAdjustmentHistoryCapabilities(stored.history),
+        consumedHistoryPreparedCount:
+          consumedHistoryPreparedIdsByBranch.get(id)?.size || 0,
       }))),
       destroyed,
     }),
     destroy() {
       if (destroyed) return false;
-      destroyed = true; byBranch.clear(); return true;
+      destroyed = true; byBranch.clear();
+      consumedHistoryPreparedIdsByBranch.clear(); return true;
     },
   });
 }
