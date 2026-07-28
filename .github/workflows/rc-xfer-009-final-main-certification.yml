@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 90
     env:
       CI: 'true'
+      EXPECTED_PRODUCT_MAIN: '2541c44aba0e108ae42a96b17a7b5931d1d91463'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -29,8 +30,11 @@ jobs:
       - name: Record exact environment
         run: |
           set -euxo pipefail
-          git rev-parse HEAD
-          git rev-parse HEAD^1
+          merge_head=$(git rev-parse HEAD)
+          product_main=$(git rev-parse HEAD^1)
+          test "$product_main" = "$EXPECTED_PRODUCT_MAIN"
+          echo "MERGE_HEAD=$merge_head"
+          echo "PRODUCT_MAIN=$product_main"
           node --version
           npm --version
       - name: Install dependencies
