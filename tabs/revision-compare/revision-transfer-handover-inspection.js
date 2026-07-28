@@ -7,10 +7,11 @@ import { REVISION_COMPARE_TRANSFER_OPERATION_ID_PREFIX, REVISION_COMPARE_TRANSFE
 import { REVISION_COMPARE_TRANSFER_DIRECTION, classifyRevisionCompareTransferField } from './revision-transfer-policy.js';
 import { REVISION_COMPARE_TRANSFER_RESULT_SCHEMA, createRevisionCompareTransferResult } from './revision-transfer-result.js';
 import { REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA, REVISION_COMPARE_TRANSFER_PROOF_SCHEMA } from './revision-transfer-verifier.js';
-import { REVISION_COMPARE_TRANSFER_ARTIFACT_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA, createRevisionCompareTransferArtifacts } from './revision-transfer-artifacts.js';
+import { REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA } from './revision-transfer-artifacts.js';
 import { REVISION_COMPARE_TARGET_STATE, REVISION_COMPARE_TRANSFER_ADDRESS_SCHEMA } from './revision-transfer-address.js';
 import { REVISION_COMPARE_TRANSFER_COMPLETION_DECLARATION, REVISION_COMPARE_TRANSFER_COMPLETION_REPORT_SCHEMA, REVISION_COMPARE_TRANSFER_COMPLETION_TRUST_STATEMENT, normalizeRevisionCompareTransferCompletionDeclarant, validateRevisionCompareTransferCompletionReportIdentity } from './revision-transfer-completion.js';
 import { REVISION_COMPARE_TRANSFER_HANDOVER_BUNDLE_SCHEMA, serializeRevisionCompareTransferHandoverBundle, validateRevisionCompareTransferHandoverBundleIdentity } from './revision-transfer-handover.js';
+import { verifyRevisionCompareRetainedTransferArtifacts } from './revision-transfer-handover-artifact-verification.js';
 export const REVISION_COMPARE_HANDOVER_MAX_SOURCE_BYTES = 134_217_728;
 export const REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES = Object.freeze([
   'PATCHED_TARGET', 'TRANSFER_AUDIT', 'TRANSFER_PROOF', 'TRANSFER_MANIFEST',
@@ -187,34 +188,6 @@ async function verifyProof(proof, plan, result, cryptoRef) {
       || proof.patchedTargetDocumentId !== result.patchedTargetDocumentId || proof.patchedTargetSha256 !== result.patchedTargetSha256
       || !equal(actual, expected)) throw new Error('Transfer proof does not reconcile with the plan and result.');
 }
-function descriptorReference(item) {
-  return { descriptorSchema: item.descriptorSchema, filename: item.filename, schema: item.schema,
-    mimeType: item.mimeType, contentSha256: item.contentSha256, sizeBytes: item.sizeBytes };
-}
-async function verifyArtifacts(payload, cryptoRef) {
-  const artifacts = payload.transferArtifacts;
-  if (!Array.isArray(artifacts) || artifacts.length !== 4) throw new Error('Exactly four embedded transfer artifacts are required in governing order.');
-  const schemas = [payload.transferPlan.receiverDocument.profile, REVISION_COMPARE_TRANSFER_AUDIT_SCHEMA,
-    REVISION_COMPARE_TRANSFER_PROOF_SCHEMA, REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA];
-  for (let index = 0; index < artifacts.length; index += 1) {
-    const item = artifacts[index]; const role = REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES[index];
-    if (item?.descriptorSchema !== REVISION_COMPARE_TRANSFER_ARTIFACT_SCHEMA || item.schema !== schemas[index]
-        || item.mimeType !== 'application/json' || typeof item.filename !== 'string' || !item.filename
-        || typeof item.text !== 'string') throw new Error(`${role} artifact descriptor is invalid.`);
-    if (await sha256Text(item.text, cryptoRef) !== item.contentSha256) throw new Error(`${role} artifact SHA-256 does not match.`);
-    if (byteSize(item.text) !== item.sizeBytes) throw new Error(`${role} artifact UTF-8 size does not match.`);
-  }
-  const expected = await createRevisionCompareTransferArtifacts({
-    result: payload.transferResult, audit: payload.transferAudit, proof: payload.transferProof,
-    targetFileName: payload.transferPlan.receiverDocument.fileName,
-    patchedTargetSchema: payload.transferPlan.receiverDocument.profile,
-  }, { cryptoRef });
-  if (!equal(payload.transferManifest, expected.manifest)) throw new Error('Transfer manifest does not equal deterministic manifest material.');
-  for (let index = 0; index < artifacts.length; index += 1) {
-    if (!equal(artifacts[index], expected.artifacts[index])) throw new Error(`${REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES[index]} artifact does not equal governing retained bytes.`);
-  }
-  return expected.artifacts.map(descriptorReference);
-}
 function exactTimestamp(value) {
   const parsed = typeof value === 'string' && value ? new Date(value) : null;
   if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) throw new Error('Completion declaredAt must be an exact ISO timestamp.');
@@ -280,7 +253,9 @@ export async function verifyRevisionCompareTransferHandoverBundle(bundle, option
   if (payload.transferManifest?.schema !== REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA) throw new TypeError(`A ${REVISION_COMPARE_TRANSFER_MANIFEST_SCHEMA} is required.`);
   await verifyIdentity(payload.transferManifest, 'manifestId', PREFIX.manifest, cryptoRef);
   await verifyCompletion(payload.completionReport, payload, cryptoRef); verifyCrossLinks(bundle);
-  const descriptors = await verifyArtifacts(payload, cryptoRef);
+  const descriptors = await verifyRevisionCompareRetainedTransferArtifacts(
+    payload, REVISION_COMPARE_HANDOVER_ARTIFACT_ROLES, cryptoRef,
+  );
   if (!equal(payload.completionReport.transferEvidence?.artifactDescriptors, descriptors)) throw new Error('Completion artifact descriptors do not match the exact embedded artifacts.');
   const output = deepFreeze(JSON.parse(JSON.stringify(bundle))); assertJsonSafe(output, REVISION_COMPARE_TRANSFER_HANDOVER_BUNDLE_SCHEMA);
   return output;
