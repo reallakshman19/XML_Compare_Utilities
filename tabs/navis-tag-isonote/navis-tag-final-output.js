@@ -154,13 +154,14 @@ function accountedNavisEvidence(audit) {
   for (const row of audit?.candidateLedger || []) {
     if (row.ledgerKind === 'NEAREST_REJECTED') addEvidence(row, accounted.keys, accounted.tagIds);
   }
+  for (const row of audit?.anchorLoopLedger || []) addEvidence(row, accounted.keys, accounted.tagIds);
   return accounted;
 }
 
 function candidateLedgerNavisParse(audit) {
   const tags = [];
   const seen = new Set();
-  for (const row of audit?.candidateLedger || []) {
+  for (const row of [...(audit?.candidateLedger || []), ...(audit?.anchorLoopLedger || [])]) {
     const key = evidenceKey(row);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -243,7 +244,7 @@ function candidateReviewRows(audit, config) {
   const seen = new Set();
   for (const candidate of audit?.candidateLedger || []) {
     if (candidate.ledgerKind !== 'ACCEPTED_CANDIDATE' || !candidate.withinTolerance || candidate.accepted) continue;
-    const key = `${candidate.tableRowId}|${evidenceKey(candidate)}`;
+    const key = `${candidate.tableRowId}|${candidate.candidateKey || evidenceKey(candidate)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     rows.push({

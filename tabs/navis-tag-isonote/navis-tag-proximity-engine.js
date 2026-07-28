@@ -18,7 +18,10 @@ import {
   buildDecisionRow,
   createLedgerBase,
 } from './navis-tag-candidate-evidence.js';
-import { evaluateCandidatesAcrossAnchors } from './navis-tag-multi-anchor-ranking.js';
+import {
+  decisionAcrossAnchorLoops,
+  evaluateCandidatesAcrossAnchors,
+} from './navis-tag-multi-anchor-ranking.js';
 import { applyAnchorTransformation } from './navis-tag-xml-parser.js';
 
 export { NAVIS_CANDIDATE_SCORE_MODEL } from './navis-tag-candidate-ranking.js';
@@ -62,7 +65,7 @@ function appendCoordinateSourceDiagnostic(diagnostics, navisParse, configuredSou
     validAnchorCount: navisParse.anchor.validCount,
     configuredSupportCoordinateSource: configuredSource,
     appliedSupportCoordinateSource: appliedSource,
-    message: `Equal-authority anchor mode changed the Stage 3 support coordinate source from ${configuredSource} to ${appliedSource}; each Tag candidate is evaluated under every valid anchor transform.`,
+    message: `Equal-authority anchor mode changed the Stage 3 support coordinate source from ${configuredSource} to ${appliedSource}; one complete matching loop is executed per valid anchor and only each loop's closest in-tolerance candidate enters cross-loop selection.`,
   });
 }
 
@@ -104,23 +107,44 @@ function appendCoordinateDisagreement(diagnostics, record, positionChoice, confi
 }
 
 function candidateEvaluation(trace, positionChoice, navisParse, config) {
-  if (!positionChoice.point) return { candidates: [], nearestRejected: null };
+  if (!positionChoice.point) return { mode: 'DIRECT', candidates: [], nearestRejected: null, anchorLoopLedger: [] };
   const anchors = navisParse?.anchor?.hypotheses || [];
   if (anchors.length) return evaluateCandidatesAcrossAnchors(trace || {}, positionChoice.point, navisParse?.tags || [], anchors, config);
-  return evaluateCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config);
+  return { mode: 'DIRECT', ...evaluateCandidates(trace || {}, positionChoice.point, navisParse?.tags || [], config), anchorLoopLedger: [] };
 }
 
-function resolveRecord(record, trace, navisParse, config, candidateLedger, diagnostics) {
+function appendAnchorLoopLedger(target, base, evaluation, result) {
+  for (const row of evaluation.anchorLoopLedger || []) {
+    target.push({
+      ledgerId: `${base.tableRowId}:LOOP:${row.anchorBasisId}:${row.anchorLoopCandidateKind}:${row.anchorLoopRank}:${row.tagId}`,
+      ledgerKind: 'ANCHOR_LOOP_CANDIDATE',
+      ...base,
+      decisionStatus: result.status,
+      decisionReason: result.decisionReason,
+      selectedCandidateKey: result.selected?.candidateKey || '',
+      topCandidateTagId: result.topCandidateTagId || '',
+      runnerUpTagId: result.runnerUpTagId || '',
+      ...row,
+    });
+  }
+}
+
+function resolveRecord(record, trace, navisParse, config, candidateLedger, anchorLoopLedger, diagnostics) {
   const positionChoice = positionChoiceFor(record, trace, config);
   appendCoordinateDisagreement(diagnostics, record, positionChoice, config);
   const evaluation = candidateEvaluation(trace, positionChoice, navisParse, config);
-  const result = positionChoice.point ? decision(evaluation.candidates, config, evaluation.nearestRejected) : {
-    ...unresolvedDecision(null, config),
-    ambiguity: trace?.status || 'SUPPORT_POSITION_UNAVAILABLE',
-    decisionReason: 'SUPPORT_POSITION_UNAVAILABLE',
-    confidenceReasons: ['SUPPORT_POSITION_UNAVAILABLE'],
-  };
+  const result = positionChoice.point
+    ? evaluation.mode === 'ANCHOR_LOOPS'
+      ? decisionAcrossAnchorLoops(evaluation.candidates, config, evaluation.nearestRejected)
+      : decision(evaluation.candidates, config, evaluation.nearestRejected)
+    : {
+      ...unresolvedDecision(null, config),
+      ambiguity: trace?.status || 'SUPPORT_POSITION_UNAVAILABLE',
+      decisionReason: 'SUPPORT_POSITION_UNAVAILABLE',
+      confidenceReasons: ['SUPPORT_POSITION_UNAVAILABLE'],
+    };
   const base = createLedgerBase(record, trace, positionChoice);
+  appendAnchorLoopLedger(anchorLoopLedger, base, evaluation, result);
   appendCandidateLedger(candidateLedger, base, evaluation.candidates, result);
   appendNearestRejected(candidateLedger, diagnostics, base, result, config);
   const decisionRow = buildDecisionRow(record, trace, positionChoice, evaluation.candidates, result, config);
@@ -138,7 +162,7 @@ function anchorUsage(candidateLedger) {
   return Object.values(byAnchor).sort((a, b) => a.anchorBasisId.localeCompare(b.anchorBasisId));
 }
 
-function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorDiagnostics) {
+function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorLoopLedger, anchorDiagnostics) {
   return {
     tableRowCount: tableBuild?.records?.length || 0,
     identityResolvedCount: identityTrace?.summary?.resolvedCount || 0,
@@ -148,6 +172,7 @@ function auditSummary(tableBuild, identityTrace, navisParse, decisions, candidat
     unresolvedCount: decisions.filter((row) => row.status === 'UNRESOLVED').length,
     nearestRejectedCount: decisions.filter((row) => row.nearestRejectedTagId).length,
     candidateLedgerCount: candidateLedger.length,
+    anchorLoopLedgerCount: anchorLoopLedger.length,
     anchorPolicy: navisParse?.anchor?.policy || 'NONE',
     configuredAnchorCount: navisParse?.anchor?.configuredCount || 0,
     validAnchorCount: navisParse?.anchor?.validCount || 0,
@@ -163,16 +188,17 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
   const config = resolvedConfig.config;
   const traceByRow = new Map((identityTrace?.rows || []).map((row) => [row.tableRowId, row]));
   const candidateLedger = [];
+  const anchorLoopLedger = [];
   const decisions = [];
   const augmentedRows = [];
   const diagnostics = [...(tableBuild?.diagnostics || []), ...(identityTrace?.diagnostics || []), ...(navisParse?.diagnostics || [])];
   appendCoordinateSourceDiagnostic(diagnostics, navisParse, resolvedConfig.configuredSupportCoordinateSource, config.supportCoordinateSource);
   for (const record of tableBuild?.records || []) {
-    const resolved = resolveRecord(record, traceByRow.get(record.rowId), navisParse, config, candidateLedger, diagnostics);
+    const resolved = resolveRecord(record, traceByRow.get(record.rowId), navisParse, config, candidateLedger, anchorLoopLedger, diagnostics);
     decisions.push(resolved.decisionRow);
     augmentedRows.push(resolved.augmentedRow);
   }
-  const anchorDiagnostics = buildAnchorConsistencyDiagnostics(navisParse?.anchor || {}, candidateLedger);
+  const anchorDiagnostics = buildAnchorConsistencyDiagnostics(navisParse?.anchor || {}, candidateLedger, anchorLoopLedger);
   appendAnchorConsistencyDiagnostic(diagnostics, anchorDiagnostics);
   const matchedRows = decisions.filter((row) => row.status === 'RESOLVED');
   const ambiguousRows = decisions.filter((row) => row.status === 'AMBIGUOUS');
@@ -183,13 +209,14 @@ export function resolveNavisTagIsonotes(tableBuild, identityTrace, navisParse, i
     anchor: navisParse?.anchor || null,
     anchorUsage: anchorUsage(candidateLedger),
     anchorDiagnostics,
-    summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorDiagnostics),
+    summary: auditSummary(tableBuild, identityTrace, navisParse, decisions, candidateLedger, anchorLoopLedger, anchorDiagnostics),
     augmentedRows,
     decisions,
     matchedRows,
     ambiguousRows,
     rejectedRows,
     candidateLedger,
+    anchorLoopLedger,
     diagnostics,
   };
   return applyAppliesToPropagation(directAudit, inputConfig);
@@ -201,6 +228,7 @@ export const _test = Object.freeze({
   candidateScore,
   chooseSupportPosition,
   decision,
+  decisionAcrossAnchorLoops,
   evaluateCandidates,
   evaluateCandidatesAcrossAnchors,
   verticalResidual,
