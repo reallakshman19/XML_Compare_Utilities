@@ -26,22 +26,10 @@ const EVIDENCE_POLICY = Object.freeze({
 });
 
 function text(value) { return String(value ?? '').trim(); }
-function requiredFunction(value, label) {
-  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
-  return value;
-}
+function requiredFunction(value, label) { if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value; }
 function notice(state, message, kind = 'ready') { state.notice = Object.freeze({ message, kind }); }
-function exactIssuedAt(now) {
-  const value = now();
-  if (!isIsoTimestamp(value)) throw new TypeError('Draft Edit command issuedAt provider must return an exact ISO timestamp.');
-  return value;
-}
-function evidenceValues(state) {
-  return Object.freeze({
-    actorId: text(state.elements.actor.value), reason: text(state.elements.reason.value),
-    evidenceNote: text(state.elements.evidence.value),
-  });
-}
+function exactIssuedAt(now) { const value = now(); if (!isIsoTimestamp(value)) throw new TypeError('Draft Edit command issuedAt provider must return an exact ISO timestamp.'); return value; }
+function evidenceValues(state) { return Object.freeze({ actorId: text(state.elements.actor.value), reason: text(state.elements.reason.value), evidenceNote: text(state.elements.evidence.value) }); }
 function validateEvidence(commandType, values) {
   if (!values.actorId) throw new TypeError('Operator actor ID is required.');
   const policy = EVIDENCE_POLICY[commandType] || {};
