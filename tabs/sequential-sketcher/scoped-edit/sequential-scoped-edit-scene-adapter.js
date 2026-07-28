@@ -1,10 +1,16 @@
-/** Deterministic EngineeringScene.v1 projection of a certified Sequential read model. */
+/** Deterministic EngineeringScene.v1 projection of certified Sequential read authority. */
 import {
   createEngineeringScene,
   validateEngineeringScene,
 } from '../../../core/engineering-scene/index.js';
 import { buildSequentialEngineeringSvgScene } from '../sequential-engineering-svg-scene.js';
 import { sameSequentialContractValue } from './sequential-command-contracts.js';
+import {
+  applySequentialGeometryEditJournalToScene,
+} from './sequential-geometry-edit-projection.js';
+import {
+  isSequentialEffectiveGeometryReadModel,
+} from './sequential-effective-geometry-read-model.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_SCENE_REJECTION = Object.freeze({
@@ -16,7 +22,6 @@ function fail(message) {
   error.code = SEQUENTIAL_SCOPED_EDIT_SCENE_REJECTION.ANCESTRY_MISMATCH;
   throw error;
 }
-
 function scopedEditScene(sceneInput) {
   const scene = validateEngineeringScene(sceneInput);
   return createEngineeringScene({
@@ -33,15 +38,22 @@ function scopedEditScene(sceneInput) {
     },
   });
 }
-
-function project(readModel) {
+function baseProject(readModel) {
   const built = buildSequentialEngineeringSvgScene(readModel.ownerSnapshot, {
     sceneId: readModel.sceneId,
     visibleProjection: readModel.ownerSnapshot.visibleProjection,
   });
   return scopedEditScene(built.scene);
 }
-
+function project(readModel) {
+  if (!isSequentialEffectiveGeometryReadModel(readModel)) return baseProject(readModel);
+  const base = baseProject(readModel.baseReadModel);
+  return applySequentialGeometryEditJournalToScene(
+    base,
+    readModel.geometryEditJournal,
+    { revision: readModel.revision, sceneId: readModel.sceneId },
+  );
+}
 export function assertSequentialScopedEditSceneAncestry(sceneInput, readModelInput) {
   const readModel = assertSequentialScopedEditReadModel(readModelInput);
   const scene = validateEngineeringScene(sceneInput);
@@ -53,10 +65,9 @@ export function assertSequentialScopedEditSceneAncestry(sceneInput, readModelInp
   }
   return expected;
 }
-
 export function buildSequentialScopedEditEngineeringScene(readModelInput) {
   const readModel = assertSequentialScopedEditReadModel(readModelInput);
   return assertSequentialScopedEditSceneAncestry(project(readModel), readModel);
 }
 
-export const _test = Object.freeze({ scopedEditScene });
+export const _test = Object.freeze({ scopedEditScene, project });
