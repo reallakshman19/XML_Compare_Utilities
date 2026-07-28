@@ -130,7 +130,7 @@ function bindingCoverageDiagnostics(plan, registryPlan, bindingPlan) {
       && item.authorityIndex === binding?.authorityIndex);
     const registryEntry = (registryEntriesForKind(registryPlan, binding?.kind) || [])
       .find((item) => item?.catalogEntryId === binding?.catalogEntryId);
-    const valid = bindingStructureValid(binding, registryPlan.registryReference)
+    const valid = bindingStructureValid(binding, registryPlan?.registryReference)
       && expectedBinding
       && binding.analysisSectionId === expectedBinding.analysisSectionId
       && binding.catalogEntryId === expectedBinding.catalogEntryId
