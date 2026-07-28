@@ -21,35 +21,29 @@ function fail(code, message, Constructor = TypeError) {
   error.code = code;
   throw error;
 }
-
 function requiredSnapshot(value) {
   if (value?.schema !== 'SequentialEngineeringSvgOwnerSnapshot.v1') {
-    fail(
-      SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SNAPSHOT_INVALID,
-      'Sequential read model requires SequentialEngineeringSvgOwnerSnapshot.v1.',
-    );
+    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SNAPSHOT_INVALID,
+      'Sequential read model requires SequentialEngineeringSvgOwnerSnapshot.v1.');
   }
   return value;
 }
-
 function authorityMaterial(snapshot) {
   const authority = classifySequentialEngineeringSvgAuthority(snapshot);
   const matches = sameSequentialContractValue(authority.revision, snapshot.revision)
     && authority.sessionFingerprint === snapshot.sessionFingerprint
     && authority.confirmedConstructionFingerprint === snapshot.confirmedConstructionFingerprint
     && authority.supportConstructionFingerprint === snapshot.supportConstructionFingerprint
+    && authority.supportProjectionFingerprint === snapshot.supportProjectionFingerprint
     && authority.supportAdjustmentRegisterFingerprint
       === snapshot.supportAdjustmentRegisterFingerprint;
   if (!matches) {
-    fail(
-      SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
+    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
       'Sequential owner snapshot does not match independently derived construction authority.',
-      RangeError,
-    );
+      RangeError);
   }
   return authority;
 }
-
 function deriveAuthorityId(snapshot, authority) {
   return sequentialSemanticFingerprint('SSK3DREAD', {
     revision: snapshot.revision,
@@ -57,28 +51,20 @@ function deriveAuthorityId(snapshot, authority) {
     sessionFingerprint: authority.sessionFingerprint,
     confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
     supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportProjectionFingerprint: authority.supportProjectionFingerprint,
     supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
   });
 }
-
 function sceneId(snapshot, authorityId) {
   return `sequential-scoped-edit:${snapshot.session.rootBranchId}:${authorityId}`;
 }
-
 function selectionCandidates(value) {
   const text = String(value || '').trim();
   if (!text) return [];
-  return [
-    text,
-    `ssk:candidate:${text}`,
-    `ssk:reversal:${text}`,
-    `ssk:component:${text}`,
-    `ssk:support:${text}`,
-    `ssk:repair:${text}`,
-    `ssk:port:${text}`,
-  ];
+  return [text, `ssk:candidate:${text}`, `ssk:reversal:${text}`,
+    `ssk:component:${text}`, `ssk:support:${text}`, `ssk:repair:${text}`,
+    `ssk:port:${text}`];
 }
-
 function selectionSnapshot(snapshot, scene, authorityId) {
   const available = new Set(scene.entities.map((entity) => entity.id));
   const sourceValues = [
@@ -95,7 +81,6 @@ function selectionSnapshot(snapshot, scene, authorityId) {
     entityIds,
   });
 }
-
 function buildCertified(snapshotInput) {
   const snapshot = requiredSnapshot(snapshotInput);
   const authority = authorityMaterial(snapshot);
@@ -108,11 +93,8 @@ function buildCertified(snapshotInput) {
   const scene = validateEngineeringScene(built.scene);
   if (scene.sceneId !== id || !sameSequentialContractValue(scene.revision, snapshot.revision)
     || !sameSequentialContractValue(built.authority, authority)) {
-    fail(
-      SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SCENE_MISMATCH,
-      'Sequential scene does not match the certified owner-snapshot authority.',
-      RangeError,
-    );
+    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SCENE_MISMATCH,
+      'Sequential scene does not match the certified owner-snapshot authority.', RangeError);
   }
   return freezeJsonValue({
     schema: SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1,
@@ -124,6 +106,7 @@ function buildCertified(snapshotInput) {
     sessionFingerprint: authority.sessionFingerprint,
     confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
     supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportProjectionFingerprint: authority.supportProjectionFingerprint,
     supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
     ownerSnapshot: snapshot,
     selectionSnapshot: selectionSnapshot(snapshot, scene, authorityId),
@@ -135,25 +118,18 @@ export function deriveSequentialScopedEditAuthorityId(snapshotInput) {
   const snapshot = requiredSnapshot(snapshotInput);
   return deriveAuthorityId(snapshot, authorityMaterial(snapshot));
 }
-
 export function createSequentialScopedEditReadModel(snapshot) {
   return buildCertified(snapshot);
 }
-
 export function assertSequentialScopedEditReadModel(value) {
   if (value?.schema !== SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1) {
-    fail(
-      SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SNAPSHOT_INVALID,
-      `Sequential read model must use ${SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1}.`,
-    );
+    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SNAPSHOT_INVALID,
+      `Sequential read model must use ${SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1}.`);
   }
   const rebuilt = buildCertified(value.ownerSnapshot);
   if (!sameSequentialContractValue(rebuilt, value)) {
-    fail(
-      SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
-      'Sequential read model differs from independent owner-snapshot regeneration.',
-      RangeError,
-    );
+    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
+      'Sequential read model differs from independent owner-snapshot regeneration.', RangeError);
   }
   return rebuilt;
 }
