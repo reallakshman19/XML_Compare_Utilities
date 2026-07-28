@@ -21,7 +21,7 @@ function retainedJson(item, role) {
   let parsed;
   try { parsed = JSON.parse(item.text); } catch (error) { throw new Error(`${role} artifact JSON is invalid: ${error.message}`); }
   if (item.text !== `${JSON.stringify(parsed, null, 2)}\n`) {
-    throw new Error(`${role} artifact text is not exact retained deterministic JSON.`);
+    throw new Error(`${role} artifact text does not equal governing retained bytes.`);
   }
   return parsed;
 }
