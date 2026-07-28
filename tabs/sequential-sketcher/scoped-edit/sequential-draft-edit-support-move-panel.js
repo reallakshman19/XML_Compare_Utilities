@@ -1,4 +1,4 @@
-/** Contained numeric UI for non-publishing support move drafts. */
+/** Contained numeric UI for previewing and explicitly applying one support adjustment. */
 export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_PANEL_SCHEMA =
   'SequentialDraftEditSupportMovePanel.v1';
 
@@ -18,14 +18,15 @@ function setHidden(element, hidden) {
 }
 function panelMarkup() {
   return `<section data-ssk-support-move-panel hidden aria-hidden="true" inert>
-<header><strong>Support move draft</strong><span>Exact XYZ preview only</span></header>
+<header><strong>Support adjustment</strong><span>Exact same-carrier XYZ</span></header>
 <output data-ssk-support-move-target>No confirmed support selected.</output>
 <div data-ssk-support-move-coordinates>
 <label>X<input type="number" step="any" data-ssk-support-move-coordinate="x"></label>
 <label>Y<input type="number" step="any" data-ssk-support-move-coordinate="y"></label>
 <label>Z<input type="number" step="any" data-ssk-support-move-coordinate="z"></label>
 </div>
-<div><button type="button" data-ssk-support-move-preview disabled>Preview move draft</button><button type="button" data-ssk-support-move-cancel disabled>Cancel draft</button></div>
+<div><button type="button" data-ssk-support-move-preview disabled>Preview move draft</button><button type="button" data-ssk-support-move-apply disabled>Apply adjustment</button><button type="button" data-ssk-support-move-cancel disabled>Cancel</button></div>
+<pre data-ssk-support-move-review>No support adjustment is prepared.</pre>
 <output data-ssk-support-move-status role="status" aria-live="polite">Preview does not publish authority.</output>
 </section>`;
 }
@@ -37,7 +38,7 @@ function install(root) {
   const panel = required(root, '[data-ssk-support-move-panel]');
   panel.style.cssText = [
     'position:absolute', 'left:12px', 'top:12px', 'z-index:8',
-    'width:min(330px,calc(100% - 24px))', 'padding:12px',
+    'width:min(350px,calc(100% - 24px))', 'padding:12px',
     'border:1px solid rgba(250,204,21,.45)', 'border-radius:12px',
     'background:rgba(7,16,31,.96)', 'color:#e2e8f0',
     'box-shadow:0 18px 50px rgba(0,0,0,.38)',
@@ -57,13 +58,34 @@ function pointFromInputs(elements) {
     axis, elements.coordinates[axis].value,
   ])));
 }
+function pointText(value) {
+  return value ? `(${value.x}, ${value.y}, ${value.z})` : '(none)';
+}
+function reviewText(prepared) {
+  if (!prepared) return 'No support adjustment is prepared.';
+  const entry = prepared.candidate.entry;
+  return [
+    `Prepared ID: ${prepared.preparedId}`,
+    `Adjustment ID: ${entry.adjustmentId}`,
+    `Support: ${entry.supportId}`,
+    `Carrier: ${entry.carrierId}`,
+    `From: ${pointText(entry.fromPosition)}`,
+    `To: ${pointText(entry.toPosition)}`,
+    `Position status: ${entry.resolvedPosition.positionStatus}`,
+    `Authority ID: ${prepared.expectedAuthority.authorityId}`,
+    `Next register: ${prepared.candidate.register.headFingerprint}`,
+    'Apply is the only publication action.',
+  ].join('\n');
+}
 function render(state) {
   setHidden(state.elements.panel, !state.active);
   state.elements.preview.disabled = !state.active || !state.target || state.destroyed;
-  state.elements.cancel.disabled = !state.preview;
+  state.elements.apply.disabled = !state.active || !state.prepared || state.destroyed;
+  state.elements.cancel.disabled = !state.preview && !state.prepared;
   state.elements.target.textContent = state.target
     ? `Support: ${state.target.supportId}\nFamily: ${state.target.familyId}\nCarrier: ${state.target.carrierId}\nEntity: ${state.target.entityId}`
     : 'No confirmed support selected.';
+  state.elements.review.textContent = reviewText(state.prepared);
   state.elements.status.textContent = state.notice
     || (state.preview
       ? `Draft ${state.preview.operationId}\nDelta: ${state.preview.delta.magnitude}`
@@ -78,7 +100,9 @@ export function createSequentialDraftEditSupportMovePanel(options = {}) {
     panel,
     target: required(root, '[data-ssk-support-move-target]'),
     status: required(root, '[data-ssk-support-move-status]'),
+    review: required(root, '[data-ssk-support-move-review]'),
     preview: required(root, '[data-ssk-support-move-preview]'),
+    apply: required(root, '[data-ssk-support-move-apply]'),
     cancel: required(root, '[data-ssk-support-move-cancel]'),
     actor: required(root, '[data-ssk-draft-edit-actor]'),
     reason: required(root, '[data-ssk-draft-edit-reason]'),
@@ -90,18 +114,37 @@ export function createSequentialDraftEditSupportMovePanel(options = {}) {
   const state = {
     elements,
     onPreview: requiredFunction(options.onPreview, 'onPreview'),
+    onApply: requiredFunction(options.onApply, 'onApply'),
     onCancel: requiredFunction(options.onCancel, 'onCancel'),
-    active: false, destroyed: false, target: null, preview: null, notice: null,
+    active: false, destroyed: false, target: null, preview: null,
+    prepared: null, acceptance: null, notice: null,
   };
   async function preview() {
     try {
-      state.preview = await state.onPreview({
+      const result = await state.onPreview({
         position: pointFromInputs(elements),
         actorId: elements.actor.value,
         reason: elements.reason.value,
         evidenceNote: elements.evidence.value,
       });
-      state.notice = `Draft preview created. Nothing has been applied or published.`;
+      state.preview = result.preview; state.prepared = result.prepared;
+      state.acceptance = null;
+      state.notice = 'Adjustment prepared for review. Nothing has been applied.';
+    } catch (error) {
+      state.prepared = null;
+      state.notice = `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`;
+    }
+    render(state);
+  }
+  async function apply() {
+    try {
+      state.acceptance = await state.onApply();
+      state.notice = state.acceptance.accepted
+        ? `Adjustment ${state.acceptance.publication.adjustmentId} applied.`
+        : `${state.acceptance.reasonCode}: prepared adjustment was not published.`;
+      if (state.acceptance.accepted) {
+        state.preview = null; state.prepared = null; state.target = null;
+      }
     } catch (error) {
       state.notice = `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`;
     }
@@ -109,34 +152,42 @@ export function createSequentialDraftEditSupportMovePanel(options = {}) {
   }
   function cancel() {
     state.onCancel('operator-cancel');
-    state.preview = null; state.notice = 'Draft cancelled without authority mutation.';
+    state.preview = null; state.prepared = null; state.acceptance = null;
+    state.notice = 'Draft and prepared adjustment cancelled without authority mutation.';
     render(state);
   }
   elements.preview.addEventListener('click', preview);
+  elements.apply.addEventListener('click', apply);
   elements.cancel.addEventListener('click', cancel);
   render(state);
   return Object.freeze({
     schema: SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_PANEL_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; render(state); },
     setTarget(target) {
-      state.target = target; state.preview = null; state.notice = null;
+      state.target = target; state.preview = null; state.prepared = null;
+      state.acceptance = null; state.notice = null;
       for (const axis of ['x', 'y', 'z']) elements.coordinates[axis].value = String(target.originalPosition[axis]);
       render(state);
     },
     clearTarget(reason = null) {
-      state.target = null; state.preview = null; state.notice = reason; render(state);
+      state.target = null; state.preview = null; state.prepared = null;
+      state.acceptance = null; state.notice = reason; render(state);
     },
     setPreview(value) { state.preview = value; render(state); },
+    setPrepared(value) { state.prepared = value; render(state); },
     getState: () => Object.freeze({
       active: state.active, targetId: state.target?.supportMoveTargetId || null,
       supportId: state.target?.supportId || null,
       operationId: state.preview?.operationId || null,
+      preparedId: state.prepared?.preparedId || null,
+      accepted: state.acceptance?.accepted ?? null,
       destroyed: state.destroyed,
     }),
     destroy() {
       if (state.destroyed) return false;
       state.destroyed = true;
       elements.preview.removeEventListener('click', preview);
+      elements.apply.removeEventListener('click', apply);
       elements.cancel.removeEventListener('click', cancel);
       panel.remove();
       return true;
