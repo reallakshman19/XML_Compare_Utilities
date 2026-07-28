@@ -9,6 +9,7 @@ on:
       - 'workbench3d/core/staged-json-core.js'
       - 'vendor/3d-converters/**'
       - 'tests/topology-checker-report-binding.test.mjs'
+      - 'tests/topology-staged-export-identity.test.mjs'
       - 'tests/browser/topology-autofix-1885-qualification.spec.mjs'
       - 'tests/browser/topology-staged-export-1885-qualification.spec.mjs'
       - 'tests/browser/topology-checker-autofix-1885-fixture.html'
@@ -41,6 +42,9 @@ jobs:
 
       - name: Verify checker report authority binding
         run: node tests/topology-checker-report-binding.test.mjs
+
+      - name: Verify staged coordinate identity
+        run: node tests/topology-staged-export-identity.test.mjs
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
