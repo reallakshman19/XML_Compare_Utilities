@@ -16,7 +16,11 @@ function text(value) { return String(value ?? '').trim(); }
 function finitePoint(value, label = 'Support move position') {
   const source = value || {};
   const point = Object.fromEntries(['x', 'y', 'z'].map((axis) => {
-    const number = Number(source[axis]);
+    const raw = source[axis];
+    if (raw == null || (typeof raw === 'string' && !raw.trim())) {
+      throw new TypeError(`${label} ${axis.toUpperCase()} is required.`);
+    }
+    const number = Number(raw);
     if (!Number.isFinite(number)) throw new TypeError(`${label} ${axis.toUpperCase()} must be finite.`);
     return [axis, number];
   }));
