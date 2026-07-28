@@ -43,9 +43,16 @@ const nearestCandidate = {
   confidenceReasons: ['E_OUTSIDE_TOLERANCE', 'EL_OUTSIDE_TOLERANCE'],
   decisionStatus: 'UNRESOLVED', decisionReason: 'NO_IN_TOLERANCE_CANDIDATE',
 };
+const nearestDecision = {
+  tableRowId: 'ROW-562', tableRowIndex: 562, canonicalIdentity: 'PS-11366/DATUM',
+  groupedIdentities: ['/PS-11366/DATUM', '/PS-11366/SREF'],
+  tableIdentityRaw: '/PS-11366/DATUM|/PS-11366/SREF',
+  resolvedPipe: '/ASIM-1835-4"-B8810069-11441T3-PP', supportPosition,
+  status: 'UNRESOLVED', confidence: 'UNRESOLVED', nearestRejectedCandidate: nearestCandidate,
+};
 const nearestAudit = {
   config: { eastingToleranceMm: 100, northingToleranceMm: 100, elevationToleranceMm: 100 },
-  decisions: [], candidateLedger: [nearestCandidate], propagationLedger: [],
+  decisions: [nearestDecision], candidateLedger: [nearestCandidate], propagationLedger: [],
 };
 const nearestRows = buildFinalOutputRows(nearestAudit, {}, {
   tags: [{ evidenceId: 'VIEW:165', viewGuid: 'view-165', tagId: '165', commentId: '165', commentBody: 'A2', position: tagPosition }],
