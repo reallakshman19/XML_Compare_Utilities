@@ -8,6 +8,7 @@ import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequen
 import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260728-ssk-ts-3i';
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
 import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260728-ssk-ts-3i';
+import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260728-ssk-ts-3n';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -15,9 +16,7 @@ const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
 function ensureLink(documentRef, id, href) {
   if (documentRef.getElementById(id)) return;
   const link = documentRef.createElement('link');
-  link.id = id;
-  link.rel = 'stylesheet';
-  link.href = href;
+  link.id = id; link.rel = 'stylesheet'; link.href = href;
   documentRef.head.appendChild(link);
 }
 function ensureStylesheet(documentRef) {
@@ -38,115 +37,141 @@ function commandEngineOptions(root) {
 function exactClock(provider) {
   return typeof provider === 'function' ? provider : () => new Date().toISOString();
 }
+function createTile(container) {
+  const tile = container.ownerDocument.createElement('button');
+  tile.type = 'button'; tile.className = 'psmap-card psmap-tile';
+  tile.setAttribute('data-ssk-open', '1');
+  tile.innerHTML = '<span class="ssk-launcher-icon">✎</span><b>Sequential Sketcher</b><span>Compile pipe + fittings into an auditable pen sequence</span>';
+  container.appendChild(tile);
+  return tile;
+}
+function createOverlay(runtime) {
+  const overlay = runtime.container.ownerDocument.createElement('div');
+  overlay.className = 'ssk-modal'; overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true'); overlay.setAttribute('aria-label', 'Sequential Sketcher');
+  runtime.container.ownerDocument.body.appendChild(overlay);
+  runtime.overlay = overlay;
+  return overlay;
+}
+function destroyScoped(runtime) {
+  runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
+  runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
+  runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
+  runtime.scopedEditShadow?.destroy(); runtime.scopedEditShadow = null;
+}
+function destroyWorkspace(runtime, removeTile = false) {
+  destroyScoped(runtime);
+  runtime.previewController?.destroy(); runtime.previewController = null;
+  runtime.continuityController?.destroy(); runtime.continuityController = null;
+  runtime.persistenceController?.destroy(); runtime.persistenceController = null;
+  runtime.projectExportController?.destroy(); runtime.projectExportController = null;
+  runtime.redoController?.destroy(); runtime.redoController = null;
+  runtime.active?.destroy(); runtime.active = null;
+  runtime.overlay?.remove(); runtime.overlay = null;
+  if (removeTile) {
+    runtime.tile.removeEventListener('click', runtime.open);
+    runtime.tile.remove();
+  }
+}
+function mountShadow(runtime) {
+  try {
+    runtime.scopedEditShadow = createSequentialScopedEditProductionShadow({
+      snapshotProvider: runtime.active.getEngineeringSvgOwnerSnapshot,
+      subscribe: runtime.active.subscribeEngineeringSvgOwnerState,
+      onDiagnostic: runtime.context.onSequentialScopedEditShadowDiagnostic,
+    });
+  } catch (error) {
+    runtime.scopedEditShadow = null;
+    try { runtime.context.onSequentialScopedEditShadowFailure?.(error); } catch {}
+  }
+}
+function createBoundaries(runtime, overlay) {
+  const commandBoundary = createSequentialWorkspaceCommandBoundary({
+    readModel: runtime.active.getModel,
+    readOwnerSnapshot: runtime.active.getEngineeringSvgOwnerSnapshot,
+    readEngineOptions: () => commandEngineOptions(overlay),
+    restorePackage: runtime.active.restorePackage,
+    failureFactory: runtime.context.sequentialDraftEditCommandPublicationFailureFactory,
+    onSynchronizationFailure: runtime.context.onSequentialDraftEditCommandSynchronizationFailure,
+    syncAfterCommit: () => {
+      runtime.scopedEditShadow?.observe(); runtime.draftEdit3dController?.refresh();
+    },
+  });
+  runtime.supportAdjustmentBoundary = createSequentialSupportAdjustmentBoundary({
+    readBaseState: commandBoundary.readCurrentState,
+    readBaseOwnerSnapshot: runtime.active.getEngineeringSvgOwnerSnapshot,
+    onPublished: () => runtime.draftEdit3dController?.refresh(),
+  });
+  runtime.geometryEditBoundary = createSequentialGeometryEditBoundary({
+    readBaseState: runtime.supportAdjustmentBoundary.readCurrentState,
+    readBaseView: runtime.supportAdjustmentBoundary.readView,
+    onPublished: () => runtime.draftEdit3dController?.refresh(),
+  });
+  return commandBoundary;
+}
+function mountDraftEdit(runtime, overlay, commandBoundary) {
+  const context = runtime.context;
+  runtime.draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
+    shadow: runtime.scopedEditShadow, workspace: runtime.active, commandBoundary,
+    supportAdjustmentBoundary: runtime.supportAdjustmentBoundary,
+    geometryEditBoundary: runtime.geometryEditBoundary,
+    createViewer: context.createSequentialScopedEdit3dViewer,
+    commandIssuedAtProvider: exactClock(context.sequentialDraftEditCommandIssuedAtProvider),
+    supportAdjustmentAppliedAtProvider: exactClock(context.sequentialSupportAdjustmentAppliedAtProvider),
+    geometryMoveAppliedAtProvider: exactClock(context.sequentialGeometryMoveAppliedAtProvider),
+    failureFactory: context.sequentialScopedEdit3dFailureFactory,
+    onActivate: () => runtime.previewController?.switchRenderer('CONSTRUCTION_SVG'),
+    onFailure: context.onSequentialScopedEdit3dFailure,
+  });
+}
+function mountScoped(runtime, overlay) {
+  if (!runtime.scopedEditShadow) return;
+  try {
+    mountDraftEdit(runtime, overlay, createBoundaries(runtime, overlay));
+  } catch (error) {
+    runtime.draftEdit3dController = null;
+    runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
+    runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
+    try { runtime.context.onSequentialScopedEdit3dFailure?.({
+      stage: 'controller mount', message: error?.message || String(error),
+    }); } catch {}
+  }
+}
+function mountSecondary(runtime, overlay) {
+  runtime.previewController = mountSequentialEngineeringSvgPreviewController(overlay, {
+    workspace: runtime.active,
+    failureFactory: runtime.context.sequentialEngineeringSvgPreviewFailureFactory,
+    onFailure: runtime.context.onSequentialEngineeringSvgPreviewFailure,
+  });
+  runtime.redoController = mountSequentialRedoController(overlay, runtime.active, runtime.context);
+  runtime.projectExportController = mountSequentialProjectExportController(overlay, runtime.active, runtime.context);
+  runtime.persistenceController = mountSequentialWorkspacePersistenceController(overlay, runtime.active, runtime.context);
+  runtime.continuityController = mountSequentialContinuityController(overlay, runtime.active, runtime.context);
+}
+function openWorkspace(runtime) {
+  if (runtime.active) return;
+  const overlay = createOverlay(runtime);
+  runtime.active = mountSequentialSketcherWorkspace(overlay, {
+    ...runtime.context, close: () => destroyWorkspace(runtime),
+  });
+  mountShadow(runtime);
+  mountScoped(runtime, overlay);
+  mountSecondary(runtime, overlay);
+}
 
 export function installSequentialSketcherTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
   if (container.querySelector('[data-ssk-open]')) return () => {};
-  const tile = container.ownerDocument.createElement('button');
-  tile.type = 'button';
-  tile.className = 'psmap-card psmap-tile';
-  tile.setAttribute('data-ssk-open', '1');
-  tile.innerHTML = '<span class="ssk-launcher-icon">✎</span><b>Sequential Sketcher</b><span>Compile pipe + fittings into an auditable pen sequence</span>';
-  container.appendChild(tile);
-  let active = null;
-  let redoController = null;
-  let projectExportController = null;
-  let persistenceController = null;
-  let continuityController = null;
-  let previewController = null;
-  let scopedEditShadow = null;
-  let supportAdjustmentBoundary = null;
-  let draftEdit3dController = null;
-  const open = () => {
-    if (active) return;
-    const overlay = container.ownerDocument.createElement('div');
-    overlay.className = 'ssk-modal';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Sequential Sketcher');
-    container.ownerDocument.body.appendChild(overlay);
-    const close = () => {
-      draftEdit3dController?.destroy(); draftEdit3dController = null;
-      supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
-      scopedEditShadow?.destroy(); scopedEditShadow = null;
-      previewController?.destroy(); previewController = null;
-      continuityController?.destroy(); continuityController = null;
-      persistenceController?.destroy(); persistenceController = null;
-      projectExportController?.destroy(); projectExportController = null;
-      redoController?.destroy(); redoController = null;
-      active?.destroy(); active = null; overlay.remove();
-    };
-    active = mountSequentialSketcherWorkspace(overlay, { ...context, close });
-    try {
-      scopedEditShadow = createSequentialScopedEditProductionShadow({
-        snapshotProvider: active.getEngineeringSvgOwnerSnapshot,
-        subscribe: active.subscribeEngineeringSvgOwnerState,
-        onDiagnostic: context.onSequentialScopedEditShadowDiagnostic,
-      });
-    } catch (error) {
-      scopedEditShadow = null;
-      try { context.onSequentialScopedEditShadowFailure?.(error); } catch {}
-    }
-    if (scopedEditShadow) {
-      try {
-        const commandBoundary = createSequentialWorkspaceCommandBoundary({
-          readModel: active.getModel,
-          readOwnerSnapshot: active.getEngineeringSvgOwnerSnapshot,
-          readEngineOptions: () => commandEngineOptions(overlay),
-          restorePackage: active.restorePackage,
-          failureFactory: context.sequentialDraftEditCommandPublicationFailureFactory,
-          onSynchronizationFailure: context.onSequentialDraftEditCommandSynchronizationFailure,
-          syncAfterCommit: () => { scopedEditShadow?.observe(); draftEdit3dController?.refresh(); },
-        });
-        supportAdjustmentBoundary = createSequentialSupportAdjustmentBoundary({
-          readBaseState: commandBoundary.readCurrentState,
-          readBaseOwnerSnapshot: active.getEngineeringSvgOwnerSnapshot,
-          onPublished: () => draftEdit3dController?.refresh(),
-        });
-        const issuedAtProvider = exactClock(context.sequentialDraftEditCommandIssuedAtProvider);
-        draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
-          shadow: scopedEditShadow,
-          workspace: active,
-          commandBoundary,
-          supportAdjustmentBoundary,
-          createViewer: context.createSequentialScopedEdit3dViewer,
-          commandIssuedAtProvider: issuedAtProvider,
-          supportAdjustmentAppliedAtProvider: exactClock(
-            context.sequentialSupportAdjustmentAppliedAtProvider,
-          ),
-          failureFactory: context.sequentialScopedEdit3dFailureFactory,
-          onActivate: () => previewController?.switchRenderer('CONSTRUCTION_SVG'),
-          onFailure: context.onSequentialScopedEdit3dFailure,
-        });
-      } catch (error) {
-        draftEdit3dController = null;
-        supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
-        try { context.onSequentialScopedEdit3dFailure?.({ stage: 'controller mount', message: error?.message || String(error) }); } catch {}
-      }
-    }
-    previewController = mountSequentialEngineeringSvgPreviewController(overlay, {
-      workspace: active,
-      failureFactory: context.sequentialEngineeringSvgPreviewFailureFactory,
-      onFailure: context.onSequentialEngineeringSvgPreviewFailure,
-    });
-    redoController = mountSequentialRedoController(overlay, active, context);
-    projectExportController = mountSequentialProjectExportController(overlay, active, context);
-    persistenceController = mountSequentialWorkspacePersistenceController(overlay, active, context);
-    continuityController = mountSequentialContinuityController(overlay, active, context);
+  const runtime = {
+    container, context, tile: createTile(container), overlay: null, active: null,
+    redoController: null, projectExportController: null, persistenceController: null,
+    continuityController: null, previewController: null, scopedEditShadow: null,
+    supportAdjustmentBoundary: null, geometryEditBoundary: null,
+    draftEdit3dController: null, open: null,
   };
-  tile.addEventListener('click', open);
-  return () => {
-    draftEdit3dController?.destroy(); draftEdit3dController = null;
-    supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
-    scopedEditShadow?.destroy(); scopedEditShadow = null;
-    previewController?.destroy(); previewController = null;
-    tile.removeEventListener('click', open);
-    continuityController?.destroy(); continuityController = null;
-    persistenceController?.destroy(); persistenceController = null;
-    projectExportController?.destroy(); projectExportController = null;
-    redoController?.destroy(); redoController = null;
-    active?.destroy(); active = null; tile.remove();
-  };
+  runtime.open = () => openWorkspace(runtime);
+  runtime.tile.addEventListener('click', runtime.open);
+  return () => destroyWorkspace(runtime, true);
 }
 
 export { mountSequentialSketcherWorkspace };

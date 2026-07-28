@@ -20,11 +20,8 @@ const SUPPORTED_TYPES = new Set([
 ]);
 
 function fail(code, message, Constructor = RangeError) {
-  const error = new Constructor(message);
-  error.code = code;
-  throw error;
+  const error = new Constructor(message); error.code = code; throw error;
 }
-
 function selectionEvidence(snapshot, objectId) {
   const candidate = snapshot.selectionCandidates.find((row) => row.sceneEntityId === objectId);
   if (!candidate) fail(
@@ -46,7 +43,6 @@ function selectionEvidence(snapshot, objectId) {
   );
   return { candidate, group, component, eligibility };
 }
-
 function assertEligible(component, eligibility) {
   if (!SUPPORTED_TYPES.has(component.canonicalType)) fail(
     SEQUENTIAL_SINGLE_ENTITY_MOVE_TARGET_REJECTION.TYPE_UNSUPPORTED,
@@ -57,7 +53,6 @@ function assertEligible(component, eligibility) {
     `Move-preview target is locked: ${eligibility.locks.join(', ')}.`,
   );
 }
-
 function geometryParts(scene, group, componentId) {
   const byId = new Map(scene.entities.map((row) => [row.id, row]));
   const parts = group.geometryPartIds.map((geometryPartId) => byId.get(geometryPartId));
@@ -71,7 +66,6 @@ function geometryParts(scene, group, componentId) {
     geometry: entity.geometry,
   }));
 }
-
 function boundaryCuts(snapshot, componentId) {
   const ports = new Map(snapshot.ports.map((row) => [row.portId, row]));
   return snapshot.componentBoundaryCuts
@@ -82,7 +76,6 @@ function boundaryCuts(snapshot, componentId) {
       stationaryPosition: ports.get(row.stationaryPortId)?.position || null,
     }));
 }
-
 function targetMaterial(input, snapshot, scene) {
   const objectId = requiredContractText(input.objectId, 'move-preview objectId');
   const selected = selectionEvidence(snapshot, objectId);
@@ -98,6 +91,8 @@ function targetMaterial(input, snapshot, scene) {
     geometryPartIds: selected.group.geometryPartIds,
     geometryParts: parts,
     componentPortIds: selected.component.portIds,
+    componentNodeIds: selected.component.nodeIds,
+    supportAttachmentIds: selected.component.supportAttachmentIds,
     boundaryCuts: cuts,
     authorityId: input.readModel.authorityId,
     sceneRevision: scene.revision,
@@ -111,7 +106,6 @@ function targetMaterial(input, snapshot, scene) {
       : 'RIGID_MOVE_PREVIEW_CLEAR',
   };
 }
-
 function targetIdentity(material) {
   return {
     componentId: material.componentId,
@@ -122,7 +116,6 @@ function targetIdentity(material) {
     eligibilityId: material.eligibilityId,
   };
 }
-
 export function selectSequentialSingleEntityMoveTarget(input = {}) {
   const snapshot = createSequentialEditableTopologySnapshot(input.readModel);
   const scene = assertSequentialScopedEditSceneAncestry(
@@ -135,7 +128,6 @@ export function selectSequentialSingleEntityMoveTarget(input = {}) {
     moveTargetId: sequentialSemanticFingerprint('SSK3LMOVETARGET', targetIdentity(material)),
   }, 'Sequential single-entity move target');
 }
-
 export function validateSequentialSingleEntityMoveTarget(target, input = {}) {
   if (target?.schema !== SEQUENTIAL_SINGLE_ENTITY_MOVE_TARGET_SCHEMA) {
     throw new TypeError(`Move-preview target must use ${SEQUENTIAL_SINGLE_ENTITY_MOVE_TARGET_SCHEMA}.`);

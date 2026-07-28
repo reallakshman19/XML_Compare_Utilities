@@ -7,6 +7,8 @@ import {
 } from './sequential-command-contracts.js';
 import { createSequentialEditEligibility, inheritSequentialEditEligibility } from './sequential-edit-eligibility.js';
 import { projectSequentialEditableTopology } from './sequential-editable-topology-projection.js';
+import { applySequentialGeometryEditJournalToTopology } from './sequential-geometry-edit-projection.js';
+import { isSequentialEffectiveGeometryReadModel } from './sequential-effective-geometry-read-model.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -18,9 +20,7 @@ export const SEQUENTIAL_EDITABLE_TOPOLOGY_REJECTION = Object.freeze({
 });
 
 function fail(code, message, Constructor = Error) {
-  const error = new Constructor(message);
-  error.code = code;
-  throw error;
+  const error = new Constructor(message); error.code = code; throw error;
 }
 function assertUnique(rows, key, label) {
   const values = rows.map((row) => row[key]);
@@ -67,10 +67,7 @@ function nodeEligibility(authority, node) {
     completeAncestry: true,
     capabilities: node.incidentComponentIds.length ? ['STRETCH_ELIGIBLE'] : [],
     locks: locked,
-    evidence: {
-      incidentComponentIds: node.incidentComponentIds,
-      boundaryClass: node.boundaryClass,
-    },
+    evidence: { incidentComponentIds: node.incidentComponentIds, boundaryClass: node.boundaryClass },
   });
 }
 function eligibilityRecords(authority, projection) {
@@ -112,7 +109,7 @@ function selectionCandidates(parts, cuts, eligibility) {
   }));
 }
 function selectionGroups(components, candidates, cuts, eligibility) {
-  const componentEligibility = new Map(eligibility
+  const componentEligibilityMap = new Map(eligibility
     .filter((row) => row.targetKind === 'COMPONENT')
     .map((row) => [row.componentId, row.eligibilityId]));
   return components.map((component) => ({
@@ -123,7 +120,7 @@ function selectionGroups(components, candidates, cuts, eligibility) {
       .map((row) => row.selectionCandidateId),
     boundaryCutIds: cuts.filter((row) => row.componentId === component.componentId)
       .map((row) => row.boundaryCutId),
-    eligibilityId: componentEligibility.get(component.componentId),
+    eligibilityId: componentEligibilityMap.get(component.componentId),
   }));
 }
 function openBoundaries(nodes, classifications) {
@@ -158,6 +155,7 @@ function fingerprintMaterial(base) {
       nodes: base.nodes.map((row) => [row.nodeId, row.position]),
       geometryParts: base.geometryParts,
       supports: base.supportAttachments.map((row) => [row.supportAttachmentId, row.position]),
+      geometryEditJournalFingerprint: base.geometryEditJournalFingerprint || null,
     },
     ancestry: {
       authority: base.authority,
@@ -179,19 +177,27 @@ function authorityRecord(readModel, authority, scene) {
   return {
     authorityId: readModel.authorityId,
     revision: readModel.revision,
-    sourceEvidenceFingerprint: sequentialSemanticFingerprint(
-      'SSKSOURCEEVIDENCE', authority.evidenceModel,
-    ),
+    sourceEvidenceFingerprint: sequentialSemanticFingerprint('SSKSOURCEEVIDENCE', authority.evidenceModel),
     sessionFingerprint: readModel.sessionFingerprint,
     confirmedConstructionFingerprint: readModel.confirmedConstructionFingerprint,
     supportProjectionFingerprint: readModel.supportProjectionFingerprint,
     supportAdjustmentRegisterFingerprint: readModel.supportAdjustmentRegisterFingerprint,
+    geometryEditJournalFingerprint: readModel.geometryEditJournalFingerprint || null,
     sceneId: scene.sceneId,
     sceneFingerprint: sequentialSemanticFingerprint('SSKEDITSCENE', scene),
   };
 }
-export function createSequentialEditableTopologySnapshot(readModelInput) {
-  const readModel = assertSequentialScopedEditReadModel(readModelInput);
+function finalize(base) {
+  const fingerprints = fingerprintSet(base);
+  return immutableJson({
+    ...base,
+    ...fingerprints,
+    snapshotFingerprint: sequentialSemanticFingerprint(
+      'SSKEDITABLESNAPSHOT', { ...base, ...fingerprints },
+    ),
+  }, 'Sequential editable topology snapshot');
+}
+function createBaseSnapshot(readModel) {
   const authority = classifySequentialEngineeringSvgAuthority(readModel.ownerSnapshot);
   const confirmed = authority.confirmedConstruction;
   if (!confirmed) fail(SEQUENTIAL_EDITABLE_TOPOLOGY_REJECTION.AUTHORITY_MISSING,
@@ -206,7 +212,7 @@ export function createSequentialEditableTopologySnapshot(readModelInput) {
   const groups = selectionGroups(
     projection.components, candidates, projection.componentBoundaryCuts, eligibility,
   );
-  const base = {
+  return finalize({
     schema: SEQUENTIAL_EDITABLE_TOPOLOGY_SNAPSHOT_SCHEMA,
     authority: authorityRecord(readModel, authority, scene),
     branch: { branchId: readModel.branchId, branchIds: confirmed.branchIds, state: authority.state },
@@ -218,15 +224,33 @@ export function createSequentialEditableTopologySnapshot(readModelInput) {
     selectionCandidates: candidates,
     eligibility,
     nonEditableEvidence: nonEditableEvidence(authority),
+  });
+}
+function createEffectiveSnapshot(readModel) {
+  const base = createBaseSnapshot(readModel.baseReadModel);
+  const projected = applySequentialGeometryEditJournalToTopology(
+    base,
+    readModel.geometryEditJournal,
+  );
+  const authority = classifySequentialEngineeringSvgAuthority(readModel.baseReadModel.ownerSnapshot);
+  const scene = buildSequentialScopedEditEngineeringScene(readModel);
+  const effective = {
+    ...projected,
+    authority: authorityRecord(readModel, authority, scene),
+    geometryEditJournalFingerprint: readModel.geometryEditJournalFingerprint,
   };
-  const fingerprints = fingerprintSet(base);
-  return immutableJson({
-    ...base,
-    ...fingerprints,
-    snapshotFingerprint: sequentialSemanticFingerprint(
-      'SSKEDITABLESNAPSHOT', { ...base, ...fingerprints },
-    ),
-  }, 'Sequential editable topology snapshot');
+  delete effective.topologyFingerprint;
+  delete effective.geometryFingerprint;
+  delete effective.ancestryFingerprint;
+  delete effective.snapshotFingerprint;
+  delete effective.effectiveGeometryFingerprint;
+  return finalize(effective);
+}
+export function createSequentialEditableTopologySnapshot(readModelInput) {
+  const readModel = assertSequentialScopedEditReadModel(readModelInput);
+  return isSequentialEffectiveGeometryReadModel(readModel)
+    ? createEffectiveSnapshot(readModel)
+    : createBaseSnapshot(readModel);
 }
 export function assertSequentialEditableTopologySnapshot(value, readModelInput) {
   if (value?.schema !== SEQUENTIAL_EDITABLE_TOPOLOGY_SNAPSHOT_SCHEMA) {

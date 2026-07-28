@@ -1,4 +1,4 @@
-/** Certified immutable Sequential owner snapshot for the read-only Draft Edit host. */
+/** Certified immutable Sequential owner snapshot for the Draft Edit host. */
 import { freezeJsonValue } from '../../../core/engineering-scene/engineering-json-value.js';
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
 import { classifySequentialEngineeringSvgAuthority } from '../sequential-engineering-svg-authority.js';
@@ -7,6 +7,10 @@ import {
   sameSequentialContractValue,
   sequentialSemanticFingerprint,
 } from './sequential-command-contracts.js';
+import {
+  assertSequentialEffectiveGeometryReadModel,
+  isSequentialEffectiveGeometryReadModel,
+} from './sequential-effective-geometry-read-model.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1 = 'SequentialScopedEditReadModel.v1';
 export const SEQUENTIAL_SCOPED_EDIT_SELECTION_V1 = 'SequentialScopedEditSelection.v1';
@@ -17,9 +21,7 @@ export const SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION = Object.freeze({
 });
 
 function fail(code, message, Constructor = TypeError) {
-  const error = new Constructor(message);
-  error.code = code;
-  throw error;
+  const error = new Constructor(message); error.code = code; throw error;
 }
 function requiredSnapshot(value) {
   if (value?.schema !== 'SequentialEngineeringSvgOwnerSnapshot.v1') {
@@ -37,11 +39,8 @@ function authorityMaterial(snapshot) {
     && authority.supportProjectionFingerprint === snapshot.supportProjectionFingerprint
     && authority.supportAdjustmentRegisterFingerprint
       === snapshot.supportAdjustmentRegisterFingerprint;
-  if (!matches) {
-    fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
-      'Sequential owner snapshot does not match independently derived construction authority.',
-      RangeError);
-  }
+  if (!matches) fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
+    'Sequential owner snapshot does not match independently derived construction authority.', RangeError);
   return authority;
 }
 function deriveAuthorityId(snapshot, authority) {
@@ -122,6 +121,9 @@ export function createSequentialScopedEditReadModel(snapshot) {
   return buildCertified(snapshot);
 }
 export function assertSequentialScopedEditReadModel(value) {
+  if (isSequentialEffectiveGeometryReadModel(value)) {
+    return assertSequentialEffectiveGeometryReadModel(value);
+  }
   if (value?.schema !== SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1) {
     fail(SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.SNAPSHOT_INVALID,
       `Sequential read model must use ${SEQUENTIAL_SCOPED_EDIT_READ_MODEL_V1}.`);
