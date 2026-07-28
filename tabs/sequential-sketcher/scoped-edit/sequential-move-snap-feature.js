@@ -90,6 +90,7 @@ function clearSnap(state) {
   const preview = state.readPreview();
   if (!preview) return null;
   state.review.clearSelection();
+  if (!preview.snapApplied) { notify(state); return preview; }
   const raw = state.stageRaw({
     constraint: preview.constraint,
     delta: preview.rawDelta,
