@@ -135,6 +135,11 @@ const acceptedRedo = left.historyService.accept(preparedRedo);
 assert.equal(acceptedRedo.accepted, true);
 assert.equal(left.boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 300);
 assert.equal(left.boundary.readHistory().redoStack.length, 0);
+assert.throws(() => left.historyService.accept(leftPrepared),
+  (error) => error.code === SEQUENTIAL_SUPPORT_HISTORY_REJECTION.PUBLICATION_FAILED
+    && /already been consumed/.test(error.message),
+  'accepted history preparation must remain single-shot after an undo-redo round trip');
+assert.equal(left.publications.length, 3);
 
 const stale = fixture();
 stale.applyMove(300);
