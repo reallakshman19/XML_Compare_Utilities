@@ -2,6 +2,7 @@
 import { createVisualGeometryModelV2 } from '../../../contracts/visual-geometry-model.js';
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
 import { composeSequentialSupportMoveDraftScene } from './sequential-draft-edit-support-move-draft.js';
+import { composeSequentialSingleEntityMoveDraftScene } from './sequential-single-entity-move-draft.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -17,8 +18,8 @@ const CATEGORY_STYLE = Object.freeze({
   rejectedCandidate: Object.freeze({ colorInt: 0xef4444, radiusMm: 4, markerKind: 'ISSUE_BADGE' }),
 });
 const OVERLAY_STYLE = Object.freeze({
-  ghost: Object.freeze({ colorInt: 0x94a3b8, radiusMm: 7, markerKind: 'SUPPORT' }),
-  draft: Object.freeze({ colorInt: 0xfacc15, radiusMm: 10, markerKind: 'SUPPORT' }),
+  ghost: Object.freeze({ colorInt: 0x94a3b8, radiusMm: 7, markerKind: 'NODE' }),
+  draft: Object.freeze({ colorInt: 0xfacc15, radiusMm: 10, markerKind: 'NODE' }),
 });
 
 function xyz(point) {
@@ -42,7 +43,9 @@ function componentKind(entity) {
   return 'PIPE';
 }
 function style(entity) {
-  return OVERLAY_STYLE[overlayType(entity)] || CATEGORY_STYLE[category(entity)] || CATEGORY_STYLE.confirmed;
+  const overlay = OVERLAY_STYLE[overlayType(entity)];
+  if (overlay && category(entity) === 'support') return { ...overlay, markerKind: 'SUPPORT' };
+  return overlay || CATEGORY_STYLE[category(entity)] || CATEGORY_STYLE.confirmed;
 }
 function segmentRecord(entity, start, end, suffix = '0') {
   const visual = style(entity);
@@ -67,6 +70,13 @@ function segments(entity) {
   const points = (geometry.points || []).map(xyz).filter(Boolean);
   return points.slice(1).map((end, index) => segmentRecord(entity, points[index], end, String(index)));
 }
+function overlayLabel(entity, overlay, entityCategory) {
+  if (overlay === 'ghost') return entityCategory === 'support' ? 'ORIGINAL SUPPORT' : 'ORIGINAL COMPONENT';
+  if (overlay === 'draft') return entityCategory === 'support' ? 'DRAFT SUPPORT' : 'DRAFT COMPONENT';
+  if (entityCategory === 'rejectedCandidate') return 'REJECTED';
+  if (entityCategory === 'reversalCandidate') return 'REVERSE ENTRY';
+  return null;
+}
 function marker(entity) {
   if (entity.geometry?.kind !== 'point') return null;
   const position = xyz(entity.geometry.position);
@@ -74,10 +84,7 @@ function marker(entity) {
   const visual = style(entity);
   const entityCategory = category(entity);
   const overlay = overlayType(entity);
-  const label = overlay === 'ghost' ? 'ORIGINAL SUPPORT'
-    : overlay === 'draft' ? 'DRAFT SUPPORT'
-      : entityCategory === 'rejectedCandidate' ? 'REJECTED'
-        : entityCategory === 'reversalCandidate' ? 'REVERSE ENTRY' : null;
+  const label = overlayLabel(entity, overlay, entityCategory);
   return {
     primitiveId: `ssk3d:marker:${entity.id}`,
     objectId: entity.id,
@@ -102,6 +109,13 @@ function bounds(segmentsInput, markersInput) {
     max: [0, 1, 2].map((axis) => Math.max(...values.map((point) => point[axis]))),
   };
 }
+function composedScene(authoritative, input) {
+  const supportScene = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
+  return composeSequentialSingleEntityMoveDraftScene(supportScene, input.moveDraft);
+}
+function combinedDraftId(input) {
+  return [input.draft?.operationId, input.moveDraft?.operationId].filter(Boolean).join(':') || null;
+}
 
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
@@ -109,14 +123,14 @@ export function createSequentialScopedEditVisualModel(input = {}) {
     validateEngineeringScene(input.scene),
     readModel,
   );
-  const scene = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
+  const scene = composedScene(authoritative, input);
   const visible = scene.entities.filter((entity) => entity.visible !== false);
   const fitVisible = visible.filter((entity) => category(entity) !== 'reversalCandidate');
   const segmentRows = visible.flatMap(segments);
   const markerRows = visible.map(marker).filter(Boolean);
   const fitSegments = fitVisible.flatMap(segments);
   const fitMarkers = fitVisible.map(marker).filter(Boolean);
-  const draftId = input.draft?.operationId || null;
+  const draftId = combinedDraftId(input);
   return createVisualGeometryModelV2({
     modelId: `sequential-draft-edit:${readModel.authorityId}${draftId ? `:${draftId}` : ''}`,
     documentId: `sequential-document:${readModel.branchId}`,
