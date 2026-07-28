@@ -20,6 +20,8 @@ import { loadPipelineEngineeringConfigurationDraft } from './pipeline-3d-model-e
 import { buildPipelineEngineeringConfigurationPlan } from './pipeline-3d-model-engineering-configuration.js';
 import { resolvePipelineAnalysisSectionPlan } from './pipeline-3d-model-analysis-section-planner.js';
 import { buildPipelineCoreOutputs } from './pipeline-3d-model-core-runtime.js';
+import { resolvePipelineApprovedCatalogProductionOutputState,
+  withPipelineApprovedCatalogProductionInputs } from './pipeline-3d-model-approved-catalog-production-input.js';
 
 const PLACEHOLDER_POINT_LABEL = /^at\s+point\s+X\s*=\s*Y\s*=\s*Z\s*=$/i;
 const MODES = Object.freeze({ 'normal-metallic': 'default-metallic',
@@ -80,9 +82,11 @@ function commonOutput(input, source, profileOutput = {}) {
   const plan = configuration(input, boundaryPlan), settings = exportSettings(plan);
   const exportContext = resolvePipelineUtilityExportContext({ branchInfo: plan.branchInfo, settings });
   const identityRows = buildCoordinateRows(source.combined, exportContext.identity);
-  const core = buildPipelineCoreOutputs({ configurationPlan: plan,
+  const core = buildPipelineCoreOutputs(withPipelineApprovedCatalogProductionInputs({
+    configurationPlan: plan,
     canonicalAnalysisSectionPlan: plan.canonicalAnalysisSectionPlan, points: source.combined,
-    coordinateRows: identityRows, propertySections: input.propertySections, exportContext });
+    coordinateRows: identityRows, propertySections: input.propertySections, exportContext,
+  }, input));
   const propertySectionPlan = blockedProperty(core), inputXmlDocumentPlan = blockedDocument(core, propertySectionPlan);
   const inputXmlRows = core.bendResolution?.geometryRows || identityRows;
   const exportQualification = qualifyPipelineUtilityExport(exportContext,
@@ -121,6 +125,7 @@ function commonOutput(input, source, profileOutput = {}) {
       propertySectionCount: propertySectionPlan.sectionCount || 0,
       inputXmlDocumentBlockerCount: inputXmlDocumentPlan.blockerCodes?.length || 0,
       exportInputXmlAllowed: exportQualification.inputXmlAllowed,
+      ...resolvePipelineApprovedCatalogProductionOutputState(inputXmlDocumentPlan),
       elasticBendCandidates: bendDiagnostics.candidateCount || 0,
       elasticBendsEmitted: bendDiagnostics.emittedCount || 0,
       bendBlockingErrors: bendDiagnostics.blockedCount || 0,

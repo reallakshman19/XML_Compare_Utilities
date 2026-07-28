@@ -4,6 +4,7 @@ import { buildCombinedCoordinateTable, parseTable1, table1ToTabText,
   groupPointsIntoSheets } from './pipeline-3d-model-geometry.js';
 import { buildAuthoritativePipelineOutputs,
   buildPipelineNativeOutputBundle } from './pipeline-3d-model-profile-propagation.js?v=20260724-p3d-core-050-1';
+import { buildPipelineApprovedCatalogProductionSourceEvidence } from './pipeline-3d-model-approved-catalog-production-input.js';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
@@ -48,7 +49,9 @@ export function pipelineProjectArtifacts(output) {
 function pipelineSourceText(input, output) {
   return JSON.stringify({ table1Text: input.table1Text, table2Text: input.table2Text,
     table3Text: input.table3Text, profileRaw: input.profileRaw || null,
-    propertySections: input.propertySections || [], configuration: output.configurationPlan,
+    propertySections: input.propertySections || [],
+    approvedCatalogProductionInputs: buildPipelineApprovedCatalogProductionSourceEvidence(input),
+    configuration: output.configurationPlan,
     identity: output.identity, exportContext: output.exportContext,
     orchestration: output.orchestration });
 }
@@ -72,6 +75,8 @@ export async function buildPipelineProjectMigration(input) {
       jobName: plan.metadata?.jobName || '', pipelineMode: output.exportContext.profile.resolvedMode,
       inputXmlDocumentSchema: plan.schema, configurationSchema: output.configurationPlan.schema,
       orchestrationSchema: output.orchestration.schema,
+      approvedCatalogRegistryReference: output.diagnostics.approvedCatalogRegistryReference,
+      approvedCatalogBindingCount: output.diagnostics.approvedCatalogBindingCount,
       tables: input.profileRaw ? ['table1', 'table2a', 'table3a', 'table3b', 'table3c']
         : ['table1', 'table2', 'table3'], coordinateRowCount: output.coordinateRows.length,
       inputXmlCoordinateRowCount: output.inputXmlCoordinateRows.length },
@@ -85,6 +90,9 @@ export async function buildPipelineProjectMigration(input) {
       elasticBendCandidateCount: bendDiagnostics.candidateCount || 0,
       elasticBendEmittedCount: bendDiagnostics.emittedCount || 0,
       inputXmlDocumentBlockerCount: plan.blockerCodes?.length || 0,
+      approvedCatalogAdoptionActive: output.diagnostics.approvedCatalogAdoptionActive,
+      approvedCatalogAdoptionReady: output.diagnostics.approvedCatalogAdoptionReady,
+      approvedCatalogBindingCount: output.diagnostics.approvedCatalogBindingCount,
       exportInputXmlAllowed: output.exportQualification.inputXmlAllowed },
     gate: { status: blockers.length ? 'BLOCKED' : 'READY', blockers },
   });
