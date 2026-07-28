@@ -55,6 +55,15 @@ function decisionSession(component, reason) {
   });
 }
 
+function branchFallbackSession(component, reason) {
+  const session = decisionSession(component, reason);
+  const { componentId, startComponentId, ...request } = session.currentDecisionRequest;
+  return freezeConstructionSession({
+    ...session,
+    currentDecisionRequest: Object.freeze(request),
+  });
+}
+
 const base = fixture();
 for (const reason of REASONS) {
   const session = decisionSession(base.component, reason);
@@ -74,20 +83,32 @@ for (const reason of REASONS) {
   assert(reversal.every((row) => row.geometry.kind === 'point'));
   assert(reversal.every((row) => row.editCapabilities.length === 0));
   assert(reversal.every((row) => row.contributesToFit === false));
+  assert(reversal.every((row) => (
+    row.domainRef.sourcePosition.x === row.geometry.position.x
+      && row.domainRef.sourcePosition.y === row.geometry.position.y
+      && row.domainRef.sourcePosition.z === row.geometry.position.z
+  )));
   assert.equal(built.parity.reversalCandidateCount, 2);
   assert.equal(built.parity.mappedCountByCategory.reversalCandidate, 2);
   assert.equal(built.parity.propertySetCoverage.eligible, built.parity.propertySetCoverage.mapped);
 }
 
 {
-  const session = decisionSession(base.component, 'AMBIGUOUS_BRANCH_START');
+  const session = branchFallbackSession(base.component, 'AMBIGUOUS_BRANCH_START');
+  const authority = classifySequentialEngineeringSvgAuthority({
+    session, evidenceModel: base.evidenceModel, indexes: base.indexes,
+  });
+  const selectedCandidateId = authority.reversalCandidates[0].candidateId;
   const bridge = createSequentialEngineeringSvgOwnerBridge({
     readOwnerState: () => ({
       session, evidenceModel: base.evidenceModel, indexes: base.indexes,
-      visibleProjection: 'ISO', engineeringSceneSelection: null,
+      visibleProjection: 'ISO', engineeringSceneSelection: selectedCandidateId,
     }),
   });
   const readModel = createSequentialScopedEditReadModel(bridge.getSnapshot());
+  const selectedEntityId = `ssk:reversal:${selectedCandidateId}`;
+  assert(readModel.selectionSnapshot.entityIds.includes(selectedEntityId),
+    'certified owner-snapshot regeneration must retain exact reversal selection identity');
   const scene = buildSequentialScopedEditEngineeringScene(readModel);
   const visual = createSequentialScopedEditVisualModel({ readModel, scene });
   assert.equal(visual.markers.filter((row) => row.label === 'REVERSE ENTRY').length, 2);
