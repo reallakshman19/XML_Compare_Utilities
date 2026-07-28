@@ -162,14 +162,14 @@ assert.match(workbenchSpec, /SSK-TS-1B-W04/);
 assert.match(lifecycleFixture, /createSequentialDraftEditCommandPanel/);
 assert.match(lifecycleFixture, /projectSequentialReversalCandidates/);
 assert.equal([...lifecycleFixture.matchAll(/data-ssk-draft-edit-command="/g)].length, 12,
-  'SSK-TS-3H-Q fixture must expose exactly twelve supervised command controls');
+  'browser qualification fixture must expose exactly twelve supervised command controls');
 assert.doesNotMatch(lifecycleFixture,
   /data-ssk-(?:candidate|component|connection|entry-port|from-port|to-port)-id/,
   'browser qualification must not expose free-form authority inputs');
 assert.match(lifecycleFixture, /setMode\('candidate'\)/);
 assert.match(lifecycleFixture, /panel\.setActive\(false\)/);
-assert.match(lifecycleSpec, /SSK-TS-3H-B01/);
-assert.match(lifecycleSpec, /SSK-TS-3H-B07/);
+assert.match(lifecycleSpec, /SSK-TS-3H-Q-B01/);
+assert.match(lifecycleSpec, /SSK-TS-3H-Q-B07/);
 assert.match(lifecycleSpec, /\.locator\([^\n]+\)\.click\(\)/);
 assert.match(lifecycleSpec, /data-ssk-draft-edit-command-accept/);
 assert.match(lifecycleSpec, /data-ssk-draft-edit-command-cancel/);
@@ -177,9 +177,9 @@ assert.doesNotMatch(lifecycleSpec,
   /panel\.(?:prepare|accept)\(|gateway\.(?:prepare|accept|execute)\(|prepareCommand\(|acceptCommand\(|executeCommand\(/,
   'primary browser lifecycle proof must use visible DOM controls');
 assert.doesNotMatch(lifecycleSpec, /appendEditCommand|commitDrag|beginDrag|rotate|stretch|breakTopology/);
-assert.match(lifecycleDoc, /Browser-qualified supervised command lifecycle/);
+assert.match(lifecycleDoc, /SSK-TS-3H-Q/);
 assert.match(lifecycleDoc, /Exact-head Playwright execution: not available/);
 assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 assert.match(config, /sequential-draft-edit-command-lifecycle\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3H-Q browser lifecycle plus support move containment: ok');
+console.log('Sequential SSK-TS-3H support-move and SSK-TS-3H-Q browser lifecycle containment: ok');

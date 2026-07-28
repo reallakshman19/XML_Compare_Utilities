@@ -7,25 +7,25 @@ Authority issue: #703
 Dependencies:
   - merged SSK-TS-3G / PR #702
   - merged SSK-TS-3H support move preview / PR #708
-Baseline: bc8737181b68b8866cffac408f52e30a2745ebbd
-Implementation branch: agent/ssk-ts-3h-q-browser-command-lifecycle-clean
-Superseded PR: #706
+Browser implementation merge: PR #706
+Browser implementation merge SHA: 193446815924042d5286a4661d2ca4d25312b0ec
+Normalization branch: agent/ssk-ts-3h-q-browser-command-lifecycle-clean
 ```
 
-SSK-TS-3H-Q adds browser qualification only. It changes no production command, target, controller, support-move, scene, markup, CSS, persistence, transaction, journal, or construction-runtime module.
+SSK-TS-3H-Q is the browser-qualification companion to SSK-TS-3H. It changes no production command, target, controller, support-move, scene, markup, CSS, persistence, transaction, journal, or construction-runtime module.
 
 ## Qualification boundary
 
-The dedicated browser fixture imports the production:
+The dedicated fixture imports the production:
 
 ```text
 createSequentialDraftEditCommandPanel()
 projectSequentialReversalCandidates()
 ```
 
-It supplies deterministic immutable current-state evidence and a recording gateway. The gateway does not grant authority; it records the request produced by the production panel and returns deterministic prepared and acceptance evidence for browser assertions.
+It supplies deterministic immutable current-state evidence and a recording gateway. The gateway records requests produced by the production panel and returns deterministic prepared and acceptance evidence for browser assertions; it grants no authority.
 
-The primary lifecycle proof uses actual DOM operations:
+Primary lifecycle proof uses actual DOM operations:
 
 ```text
 select fixture authority
@@ -35,13 +35,13 @@ select fixture authority
 → click visible cancel or accept control
 ```
 
-The browser specification does not call `panel.prepare()`, `panel.accept()`, or `gateway.execute()` directly.
+The browser specification does not call `panel.prepare()`, `panel.accept()`, or any gateway execution method directly.
 
 ## Covered target classes
 
 ### Candidate
 
-Browser proof confirms that selection alone creates no preparation, acceptance, or publication; actor, reason, and evidence are mandatory; prepared evidence retains exact target and transaction identities; and cancellation clears prepared evidence without publication.
+Selection alone creates no preparation, acceptance, or publication. Actor, reason, and evidence are mandatory. Prepared evidence retains exact target, issued-time, authority, outcome, prepared-ID, and transaction identities. Cancellation clears prepared evidence without publication.
 
 ### Candidate-bound manual connection
 
@@ -60,13 +60,13 @@ One open zero-candidate boundary decision proves exact decision identity, reason
 
 ### Component reversal
 
-The fixture creates one indexed two-port component and derives the native candidate through `projectSequentialReversalCandidates()`. Browser proof retains exact decision, reversal candidate, component, entry port, target, outcome, prepared authority, and transaction evidence.
+The fixture creates one indexed two-port component and derives the native candidate through `projectSequentialReversalCandidates()`. Browser proof retains exact decision, reversal candidate, component, entry port, target, predicted outcome, prepared authority, and transaction evidence.
 
 Selection remains non-publishing. Publication occurs only after a separate visible accept click.
 
 ## Failure and lifecycle containment
 
-The browser proof covers missing actor, missing reason, missing evidence, stale acceptance, authority refresh, panel closure, single-shot acceptance, and zero publication after cancellation or stale rejection.
+Browser proof covers missing actor, missing reason, missing evidence, stale acceptance, authority refresh, panel closure, single-shot acceptance, and zero publication after cancellation or stale rejection.
 
 Existing SSK-TS-1B browser coverage continues to qualify renderer exit, source reload, contained viewer failure, and controller destruction. The merged SSK-TS-3H support-move target, draft, overlay, and non-publication safeguards remain unchanged.
 
@@ -84,7 +84,7 @@ The static suite verifies:
 - primary tests use DOM clicks and inputs;
 - no direct panel prepare/accept or gateway path appears;
 - no free-form target fields or geometry gesture paths are introduced;
-- every post-#708 support-move static assertion remains present;
+- every post-PR-708 support-move static assertion remains present;
 - production files remain unchanged.
 
 ## Validation status
