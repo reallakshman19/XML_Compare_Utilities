@@ -1,7 +1,7 @@
 /** Deterministic prepare/accept service for one exact same-carrier support adjustment. */
 import { immutableJson, isIsoTimestamp } from '../../../contracts/contract-values.js';
-import { pointDistance } from '../support/sj-pipe-support-geometry.js';
 import { locateSupportOnCarrier, POSITION_STATUS } from '../support/sj-pipe-support-geometry.js';
+import { pointDistance } from '../support/sj-pipe-support-utils.js';
 import {
   appendSequentialSupportAdjustment,
   assertSequentialSupportAdjustmentRegister,
