@@ -1,14 +1,14 @@
-/** Deterministic explicit move-snap acquisition; suggestion never changes geometry. */
+/** Deterministic explicit acquisition of reviewable Sequential move snap candidates. */
 import {
   createEngineeringSnapCandidate,
   validateEngineeringScene,
 } from '../../../core/engineering-scene/index.js';
 import { rankEngineeringSvgSnapCandidates } from '../../../core/engineering-svg/engineering-svg-snap-ranking.js';
-import { immutableJson } from '../../../contracts/contract-values.js';
+import { sameSequentialContractValue } from './sequential-command-contracts.js';
 import { createSequentialEditableTopologySnapshot } from './sequential-editable-topology-snapshot.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
-import { validateSequentialSingleEntityMoveTarget } from './sequential-single-entity-move-target.js';
 import {
+  SEQUENTIAL_MOVE_SNAP_ACQUISITION_SCHEMA,
   createSequentialMoveSnapAcquisition,
   createSequentialMoveSnapProfile,
   normalizeSequentialSnapPoint,
@@ -16,123 +16,141 @@ import {
 import { deriveSequentialMoveSnapIntersectionCandidates } from './sequential-move-snap-intersections.js';
 import { deriveSequentialMoveSnapSourceCandidates } from './sequential-move-snap-sources.js';
 import { createSequentialMoveConstraint } from './sequential-single-entity-move-geometry.js';
+import { validateSequentialSingleEntityMoveTarget } from './sequential-single-entity-move-target.js';
 
-function screenPoint(viewer, point, label) {
-  const projected = viewer.worldToScreen?.([point.x, point.y, point.z]);
-  if (!projected || !Number.isFinite(projected.x) || !Number.isFinite(projected.y)) {
-    throw new RangeError(`${label} cannot be projected into the active viewer.`);
+function requiredFunction(value, label) {
+  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
+  return value;
+}
+
+function finiteScreenPoint(value, label) {
+  const point = { x: Number(value?.x), y: Number(value?.y) };
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new TypeError(`${label} must contain finite x and y values.`);
   }
-  return { x: projected.x, y: projected.y };
+  return point;
 }
 
-function completeCandidates(rows, rawScreenPoint, viewer) {
-  return rows.map((row) => createEngineeringSnapCandidate({
-    ...row,
-    screenPoint: screenPoint(viewer, row.worldPoint, `Snap candidate ${row.id}`),
-    screenDistance: Math.hypot(
-      screenPoint(viewer, row.worldPoint, `Snap candidate ${row.id}`).x - rawScreenPoint.x,
-      screenPoint(viewer, row.worldPoint, `Snap candidate ${row.id}`).y - rawScreenPoint.y,
-    ),
-  }));
+function projectWorld(projectPoint, worldPoint) {
+  const projected = projectPoint([worldPoint.x, worldPoint.y, worldPoint.z]);
+  if (projected == null) return null;
+  return finiteScreenPoint(projected, 'Projected snap point');
 }
 
-function rankingOptions(input, profile, target) {
-  return {
-    aperture: profile.aperturePx,
-    enabledModes: profile.enabledModes,
-    excludeSourceEntityIds: target.geometryPartIds,
-    constraint: createSequentialMoveConstraint(input.constraint),
-    screenTolerance: profile.screenTolerancePx,
-    worldTolerance: profile.worldTolerance,
-  };
+function engineeringCandidate(raw, rawScreen, screenPoint, context) {
+  const distance = Math.hypot(screenPoint.x - rawScreen.x, screenPoint.y - rawScreen.y);
+  return createEngineeringSnapCandidate({
+    ...raw,
+    screenPoint,
+    screenDistance: distance,
+    metadata: {
+      ...raw.metadata,
+      profileFingerprint: context.profile.profileFingerprint,
+      topologyFingerprint: context.snapshot.topologyFingerprint,
+      geometryFingerprint: context.snapshot.geometryFingerprint,
+    },
+  });
 }
 
-function currentAuthority(input) {
+function projectCandidates(rawCandidates, rawScreen, projectPoint, context) {
+  const candidates = [];
+  const unprojectableCandidateIds = [];
+  rawCandidates.forEach((raw) => {
+    const screenPoint = projectWorld(projectPoint, raw.worldPoint);
+    if (!screenPoint) { unprojectableCandidateIds.push(raw.id); return; }
+    candidates.push(engineeringCandidate(raw, rawScreen, screenPoint, context));
+  });
+  return { candidates, unprojectableCandidateIds };
+}
+
+function acquisitionContext(input) {
   const target = validateSequentialSingleEntityMoveTarget(input.target, {
     readModel: input.readModel,
     scene: input.scene,
   });
+  const snapshot = createSequentialEditableTopologySnapshot(input.readModel);
   const scene = assertSequentialScopedEditSceneAncestry(
     validateEngineeringScene(input.scene), input.readModel,
   );
-  const snapshot = createSequentialEditableTopologySnapshot(input.readModel);
-  return { target, scene, snapshot };
-}
-
-function rawPoints(input, profile, viewer) {
-  const rawWorldPoint = normalizeSequentialSnapPoint(input.rawWorldPoint, profile);
-  const supplied = input.rawScreenPoint;
-  const rawScreenPoint = supplied && Number.isFinite(Number(supplied.x))
-    && Number.isFinite(Number(supplied.y))
-    ? { x: Number(supplied.x), y: Number(supplied.y) }
-    : screenPoint(viewer, rawWorldPoint, 'Raw snap point');
-  return { rawWorldPoint, rawScreenPoint };
-}
-
-export function acquireSequentialMoveSnap(input = {}) {
   const profile = createSequentialMoveSnapProfile(input.profile);
-  const viewer = input.viewer;
-  if (!viewer || typeof viewer.worldToScreen !== 'function') {
-    throw new TypeError('Move snap acquisition requires viewer.worldToScreen.');
-  }
-  const authority = currentAuthority(input);
-  const raw = rawPoints(input, profile, viewer);
+  const constraint = createSequentialMoveConstraint(input.constraint);
+  return { target, snapshot, scene, profile, constraint };
+}
+
+function rawCandidateProjection(context, rawWorldPoint) {
   const source = deriveSequentialMoveSnapSourceCandidates({
-    scene: authority.scene,
-    snapshot: authority.snapshot,
-    target: authority.target,
-    constraint: input.constraint,
-    rawWorldPoint: raw.rawWorldPoint,
-    profile,
+    snapshot: context.snapshot,
+    scene: context.scene,
+    target: context.target,
+    rawWorldPoint,
+    constraint: context.constraint,
+    profile: context.profile,
   });
   const intersections = deriveSequentialMoveSnapIntersectionCandidates({
     segments: source.segments,
-    constraint: input.constraint,
-    profile,
+    rawWorldPoint,
+    constraint: context.constraint,
+    profile: context.profile,
   });
-  const candidates = completeCandidates(
-    [...source.candidates, ...intersections.candidates], raw.rawScreenPoint, viewer,
-  );
-  const ranked = rankEngineeringSvgSnapCandidates(candidates, rankingOptions(
-    input, profile, authority.target,
-  ));
+  const candidates = [...source.candidates, ...intersections]
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const ids = candidates.map((row) => row.id);
+  if (new Set(ids).size !== ids.length) throw new RangeError('Raw snap candidate IDs are not unique.');
+  return { source, candidates };
+}
+
+export function acquireSequentialMoveSnapCandidates(input = {}) {
+  const context = acquisitionContext(input);
+  const rawWorldPoint = normalizeSequentialSnapPoint(input.rawWorldPoint, context.profile);
+  const rawScreenPoint = finiteScreenPoint(input.rawScreenPoint, 'Raw snap screen point');
+  const projectPoint = requiredFunction(input.projectPoint, 'projectPoint');
+  const raw = rawCandidateProjection(context, rawWorldPoint);
+  const projected = projectCandidates(raw.candidates, rawScreenPoint, projectPoint, context);
+  const ranked = rankEngineeringSvgSnapCandidates(projected.candidates, {
+    aperture: context.profile.aperturePx,
+    enabledModes: context.profile.enabledModes,
+    excludeSourceEntityIds: context.target.geometryPartIds,
+    constraint: context.constraint,
+    screenTolerance: context.profile.screenTolerancePx,
+    worldTolerance: context.profile.worldTolerance,
+  });
   return createSequentialMoveSnapAcquisition({
-    profile,
-    targetId: authority.target.moveTargetId,
-    topologyFingerprint: authority.target.topologyFingerprint,
-    geometryFingerprint: authority.target.geometryFingerprint,
-    sceneRevision: authority.target.sceneRevision,
-    constraint: createSequentialMoveConstraint(input.constraint),
-    rawWorldPoint: raw.rawWorldPoint,
-    rawScreenPoint: raw.rawScreenPoint,
+    targetId: context.target.moveTargetId,
+    topologyFingerprint: context.snapshot.topologyFingerprint,
+    geometryFingerprint: context.snapshot.geometryFingerprint,
+    sceneRevision: context.scene.revision,
+    constraint: context.constraint,
+    rawWorldPoint,
+    rawScreenPoint,
+    profile: context.profile,
     candidates: ranked.candidates,
     suggestedCandidateId: ranked.candidate?.id || null,
     rankingEvidence: ranked.evidence,
     derivationEvidence: {
-      anchorCount: source.anchors.length,
-      segmentCount: source.segments.length,
-      intersectionPairs: intersections.consideredPairs,
-      rejectedIntersectionPairs: intersections.rejectedPairs,
+      rawCandidateCount: raw.candidates.length,
+      projectedCandidateCount: projected.candidates.length,
+      unprojectableCandidateIds: projected.unprojectableCandidateIds.sort(),
+      segmentCount: raw.source.segments.length,
+      anchorCount: raw.source.anchors.length,
     },
   });
 }
 
 export function validateSequentialMoveSnapAcquisition(acquisition, input = {}) {
-  if (acquisition?.schema !== 'SequentialMoveSnapAcquisition.v1') {
-    throw new TypeError('Move snap acquisition must use SequentialMoveSnapAcquisition.v1.');
+  if (acquisition?.schema !== SEQUENTIAL_MOVE_SNAP_ACQUISITION_SCHEMA) {
+    throw new TypeError(`Snap acquisition must use ${SEQUENTIAL_MOVE_SNAP_ACQUISITION_SCHEMA}.`);
   }
-  const rebuilt = acquireSequentialMoveSnap({
+  const rebuilt = acquireSequentialMoveSnapCandidates({
     ...input,
-    profile: acquisition.profile,
-    constraint: acquisition.constraint,
     rawWorldPoint: acquisition.rawWorldPoint,
     rawScreenPoint: acquisition.rawScreenPoint,
+    constraint: acquisition.constraint,
+    profile: acquisition.profile,
   });
-  if (rebuilt.acquisitionFingerprint !== acquisition.acquisitionFingerprint
-    || JSON.stringify(rebuilt) !== JSON.stringify(acquisition)) {
-    const error = new RangeError('Move snap acquisition differs from current authority.');
+  if (!sameSequentialContractValue(rebuilt, acquisition)) {
+    const error = new RangeError('Snap acquisition differs from current topology, scene or view evidence.');
     error.code = 'SEQUENTIAL_MOVE_SNAP_ACQUISITION_STALE';
     throw error;
   }
-  return immutableJson(rebuilt, 'Validated Sequential move snap acquisition');
+  return rebuilt;
 }
