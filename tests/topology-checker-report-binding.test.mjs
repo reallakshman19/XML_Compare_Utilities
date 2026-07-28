@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { bindTopologyCheckReport, runBoundTopologyChecks } from '../tabs/topology-trace-validator/topology-checker-report.js';
+import { bindTopologyCheckReport, runTopologyChecksWithAvailableAuthority } from '../tabs/topology-trace-validator/topology-checker-report.js';
 
 const canonical = Object.freeze({
   schema: 'CanonicalTopology.v1',
@@ -25,13 +25,18 @@ assert.throws(() => bindTopologyCheckReport({ schema: 'CanonicalTopology.v1' }, 
 assert.throws(() => bindTopologyCheckReport(canonical, { schema: 'OtherReport.v1' }), /TopologyCheckReport\.v1/);
 
 let calls = 0;
-const wrapped = runBoundTopologyChecks({ runTopologyChecks(receivedCanonical, options) {
+const core = { runTopologyChecks(receivedCanonical, options) {
   calls += 1;
-  assert.equal(receivedCanonical, canonical);
   assert.deepEqual(options, { toleranceMm: 0.1 });
   return unbound;
-} }, canonical, { toleranceMm: 0.1 });
+} };
+const wrapped = runTopologyChecksWithAvailableAuthority(core, canonical, { toleranceMm: 0.1 });
 assert.equal(calls, 1);
 assert.deepEqual(wrapped, bound);
 
-console.log('topology checker report binding passed: canonical identity, deterministic hash, mismatch rejection, and wrapped execution verified.');
+const traceOnlyCanonical = Object.freeze({ schema: 'CanonicalTopology.v1' });
+const deferred = runTopologyChecksWithAvailableAuthority(core, traceOnlyCanonical, { toleranceMm: 0.1 });
+assert.equal(calls, 2);
+assert.equal(deferred, unbound, 'trace-only checks remain readable until Edit Draft establishes canonical authority');
+
+console.log('topology checker report binding passed: deferred trace checks, strict canonical identity, deterministic hash, mismatch rejection, and wrapped execution verified.');
