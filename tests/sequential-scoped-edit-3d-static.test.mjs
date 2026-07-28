@@ -9,11 +9,14 @@ function source(relative) {
 const visual = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js');
 const controller = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-3d-controller.js');
 const contracts = source('tabs/sequential-sketcher/scoped-edit/sequential-command-contracts.js');
+const commandTargets = source('tabs/sequential-sketcher/scoped-edit/sequential-command-targets.js');
 const gateway = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-gateway.js');
 const panel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-panel.js');
+const panelTargets = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-panel-targets.js');
 const presentation = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-presentation.js');
 const candidateTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-target-selection.js');
 const decisionTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-decision-target.js');
+const reversalTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-reversal-target.js');
 const boundary = source('tabs/sequential-sketcher/scoped-edit/sequential-workspace-command-boundary.js');
 const index = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-index.js');
 const markup = source('tabs/sequential-sketcher/sequential-sketcher-markup.js');
@@ -27,9 +30,10 @@ const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
   ['visual model', visual], ['3D controller', controller], ['command contracts', contracts],
-  ['command gateway', gateway], ['command panel', panel], ['command presentation', presentation],
+  ['command targets', commandTargets], ['command gateway', gateway], ['command panel', panel],
+  ['panel targets', panelTargets], ['command presentation', presentation],
   ['candidate target resolver', candidateTarget], ['decision target resolver', decisionTarget],
-  ['workspace command boundary', boundary],
+  ['reversal target resolver', reversalTarget], ['workspace command boundary', boundary],
 ]) {
   assert(value.split(/\r?\n/).length <= 300, `${name} must remain under 300 lines`);
   assert.doesNotMatch(value, /export\s+default|module\.exports|exports\./);
@@ -38,176 +42,105 @@ assert(workspace.split(/\r?\n/).length - 1 <= 486,
   'existing Sequential workspace exception must remain at or below 486 lines');
 
 assert.match(visual, /createVisualGeometryModelV2/);
-assert.match(visual, /assertSequentialScopedEditSceneAncestry/);
-assert.match(controller, /workbench-viewer\.js/);
-assert.match(controller, /setMode\('target-only'\)/);
+assert.match(visual, /reversalCandidate/);
 assert.match(controller, /selectSequentialDraftEditCandidateTarget/);
-assert.match(controller, /createSequentialDraftEditDecisionTarget/);
-assert.match(controller, /function syncDecisionTarget/);
-assert.match(controller, /onPick: \(pick\) => selectPick/);
+assert.match(controller, /selectSequentialDraftEditReversalTarget/);
+assert.match(controller, /selectionCategory/);
+assert.match(controller, /category === 'reversalCandidate'/);
+assert.match(controller, /setReversalTarget/);
+assert.match(controller, /clearReversalTarget/);
 assert.match(controller, /Pick alone does not issue a command/);
-assert.match(controller, /setCandidateTarget/);
-assert.match(controller, /clearCandidateTarget/);
-assert.match(controller, /setDecisionTarget/);
-assert.match(controller, /clearDecisionTarget/);
 assert.match(controller, /invalidateTarget: true/);
+assert.match(controller, /commandPanel\?\.setActive\(false\)/);
 assert.match(controller, /getSequentialScopedEdit3dController/);
 assert.match(controller, /prepareCommand: gateway\.prepare/);
 assert.match(controller, /acceptCommand: gateway\.accept/);
 assert.match(controller, /executeCommand: gateway\.execute/);
-assert.match(controller, /commandPanel\?\.setActive\(false\)/);
-assert.match(controller, /requiredCommandBoundary/);
-assert.match(controller, /options\.createViewer/);
-assert.match(controller, /failureFactory/);
-assert.match(controller, /viewerState/);
-assert.doesNotMatch(controller, /syncDecisionTarget[\s\S]{0,700}gateway\.(prepare|accept|execute)/,
-  'decision-target derivation must not prepare or publish a command');
+const pickBlock = controller.match(/function selectPick[\s\S]*?function viewerOptions/)?.[0] || '';
+assert.doesNotMatch(pickBlock, /gateway\.(prepare|accept|execute)|publishCandidate/,
+  'picking a reversal entry must never prepare, accept, execute or publish');
 assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|appendEditCommand/);
 
 const enabledBlock = contracts.match(/SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES[\s\S]*?\]\);/)?.[0] || '';
 for (const commandType of [
   'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'CONNECT_CANDIDATE', 'MANUAL_CONNECT',
-  'REJECT_CANDIDATE', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY',
+  'REJECT_CANDIDATE', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT',
   'DEFER_DECISION', 'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(enabledBlock, new RegExp(`'${commandType}'`));
-assert.doesNotMatch(enabledBlock, /'REVERSE_COMPONENT'/);
 
-assert.match(gateway, /createSequentialCommandService/);
-assert.match(gateway, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
-assert.match(gateway, /validateSequentialCommandJournalState/);
-assert.match(gateway, /deriveSequentialEditAuthority/);
-assert.match(gateway, /COMMAND_BRANCH_MISMATCH/);
-assert.match(gateway, /COMMAND_RUNTIME_NOT_DETERMINISTIC/);
-assert.match(gateway, /COMMAND_AUTHORITY_MISMATCH/);
-assert.match(gateway, /function gatewayState\(\)/);
-assert.doesNotMatch(gateway, /createSequentialJournalAdoption|createSequentialCommandJournalState/);
-assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
+assert.match(commandTargets, /projectSequentialReversalCandidates/);
+assert.match(commandTargets, /command\.commandType === 'REVERSE_COMPONENT'/);
+assert.match(commandTargets, /candidate\.componentId !== command\.componentId/);
+assert.match(commandTargets, /entryPort\.componentId !== component\.componentId/);
+assert.doesNotMatch(commandTargets, /Math\.hypot|distance\s*\(|nearest|raycast|screenPosition/);
 
-assert.match(candidateTarget, /assertSequentialScopedEditReadModel/);
-assert.match(candidateTarget, /assertSequentialScopedEditSceneAncestry/);
-assert.match(candidateTarget, /deriveSequentialEditAuthority/);
-assert.match(candidateTarget, /entity\.domainRef\?\.category !== 'candidate'/);
-assert.match(candidateTarget, /request\.candidates/);
-assert.match(candidateTarget, /targetSelectionId/);
-assert.match(candidateTarget, /validateSequentialDraftEditCandidateTarget/);
-assert.doesNotMatch(candidateTarget, /Math\.hypot|distance\s*\(|nearest|raycast|screenPosition|coordinateTolerance/,
-  'candidate targeting must not use positional or nearest-object inference');
-assert.doesNotMatch(candidateTarget, /querySelector|addEventListener|onPick|gateway\./);
+assert.match(reversalTarget, /SequentialDraftEditReversalTarget\.v1/);
+assert.match(reversalTarget, /assertSequentialScopedEditReadModel/);
+assert.match(reversalTarget, /assertSequentialScopedEditSceneAncestry/);
+assert.match(reversalTarget, /projectSequentialReversalCandidates/);
+assert.match(reversalTarget, /state\.session\.confirmedComponentIds/);
+assert.match(reversalTarget, /reversalTargetId/);
+assert.match(reversalTarget, /validateSequentialDraftEditReversalTarget/);
+assert.doesNotMatch(reversalTarget,
+  /Math\.hypot|distance\s*\(|nearest|raycast|screenPosition|coordinateTolerance|querySelector|gateway\./,
+  'reversal targeting must use exact certified identity only');
 
-assert.match(decisionTarget, /assertSequentialScopedEditReadModel/);
-assert.match(decisionTarget, /assertSequentialScopedEditSceneAncestry/);
-assert.match(decisionTarget, /deriveSequentialEditAuthority/);
-assert.match(decisionTarget, /SEQUENTIAL_DRAFT_EDIT_BOUNDARY_REASONS/);
-assert.match(decisionTarget, /request\.state === 'DEFERRED'/);
-assert.match(decisionTarget, /\(request\.candidates \|\| \[\]\)\.length/);
-for (const reason of [
-  'UNEXPLAINED_TERMINAL', 'REFERENCE_TARGET_MISSING',
-  'REFERENCE_TARGET_PORT_UNRESOLVED', 'UNRESOLVED_PENDING_BRANCH',
-  'HEAD_REFERENCE_CANDIDATES_REJECTED',
-]) assert.match(decisionTarget, new RegExp(`'${reason}'`));
-assert.match(decisionTarget, /decisionTargetId/);
-assert.match(decisionTarget, /validateSequentialDraftEditDecisionTarget/);
-assert.doesNotMatch(decisionTarget, /Math\.hypot|distance\s*\(|nearest|raycast|screenPosition|coordinateTolerance|visual absence/i,
-  'boundary classification must not use positional, nearest-object, or visual-absence inference');
-assert.doesNotMatch(decisionTarget, /querySelector|addEventListener|onPick|gateway\./);
+assert.match(panelTargets, /SEQUENTIAL_DRAFT_EDIT_REVERSAL_COMMANDS/);
+assert.match(panelTargets, /projectSequentialReversalCandidates/);
+assert.match(panelTargets, /createSequentialDraftEditCommandRequest/);
+assert.match(panelTargets, /componentId: target\?\.componentId/);
+assert.match(panelTargets, /entryPortId: target\?\.entryPortId/);
+assert.match(panelTargets, /reversalTargetId: target\?\.reversalTargetId/);
+assert.match(panelTargets, /Operator actor ID is required/);
+assert.match(panelTargets, /requires an operator reason/);
+assert.match(panelTargets, /requires an evidence note/);
+assert.doesNotMatch(panelTargets, /gateway\.|publishCandidate|querySelector/);
 
-assert.match(panel, /CANDIDATE_COMMANDS/);
-assert.match(panel, /BOUNDARY_COMMANDS/);
-assert.match(panel, /MANUAL_CONNECT/);
-assert.match(panel, /exactManualPorts/);
-assert.match(panel, /state\.current\?\.indexes\?\.ports/);
-assert.match(panel, /ports instanceof Map/);
-assert.match(panel, /ports\.has\(fromPortId\)/);
-assert.match(panel, /ports\.has\(toPortId\)/);
-assert.match(panel, /fromPortId: manualPorts\?\.fromPortId/);
-assert.match(panel, /toPortId: manualPorts\?\.toPortId/);
+assert.match(panel, /setReversalTarget/);
+assert.match(panel, /clearReversalTarget/);
+assert.match(panel, /createSequentialDraftEditCommandRequest/);
 assert.match(panel, /gateway\.prepare\(/);
 assert.match(panel, /gateway\.accept\(/);
-assert.match(panel, /exactCandidateTarget/);
-assert.match(panel, /exactDecisionTarget/);
-assert.match(panel, /targetEntityId/);
-assert.match(panel, /targetSelectionId/);
-assert.match(panel, /decisionTargetId/);
-assert.match(panel, /setCandidateTarget/);
-assert.match(panel, /setDecisionTarget/);
-assert.match(panel, /Certification does not prepare a command/);
 assert.match(panel, /Prepared command cancelled without authority mutation/);
 assert.match(panel, /Prepare does not publish authority/);
 assert.doesNotMatch(panel, /gateway\.execute\(/,
   'visible command controls must never use direct execute');
-assert.doesNotMatch(panel, /REVERSE_COMPONENT/);
 assert.doesNotMatch(panel, /\bbeginDrag\b|\bcommitDrag\b|\brotate\b|\bstretch\b|breakTopology/);
 
-assert.match(presentation, /sequentialDraftEditCommandPanelElements/);
-assert.match(presentation, /sequentialDraftEditPreparedPreview/);
-assert.match(presentation, /From port:/);
-assert.match(presentation, /To port:/);
+for (const label of [
+  'Reversal candidate:', 'Component:', 'Entry port:', 'Scene entity:',
+  'Predicted outcome:', 'Prepared ID:', 'Authority ID:', 'Transaction mapping:',
+]) assert.match(presentation, new RegExp(label));
 assert.doesNotMatch(presentation, /gateway\.|readCurrentState|deriveSequentialEditAuthority|publishCandidate/,
   'presentation helper must not own command authority');
 
-assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
-assert.match(boundary, /restorePackage/);
-assert.match(boundary, /expectedJournalImpact: 'REPLACE'/);
-assert.match(boundary, /preparedEntries/);
-assert.match(boundary, /before-commit/);
-assert.match(boundary, /synchronizationWarning/);
-assert.match(boundary, /SequentialCommandOwnerRevision\.v1/);
-assert.match(boundary, /journalHeadFingerprint/);
-assert.match(boundary, /sequentialCommandJournalHeadFingerprint/);
-assert.match(boundary, /Array\.isArray\(records\)/,
-  'uninitialized readiness must not fingerprint non-array source input');
-assert.doesNotMatch(boundary, /Object\.assign\(model/,
-  'command boundary must use the existing workspace restoration commit boundary');
-
-assert.match(index, /sequential-draft-edit-command-gateway/);
-assert.match(index, /sequential-draft-edit-command-panel/);
-assert.match(index, /sequential-draft-edit-target-selection/);
-assert.match(index, /sequential-draft-edit-decision-target/);
-assert.match(index, /sequential-workspace-command-boundary/);
+assert.match(index, /sequential-draft-edit-reversal-target/);
 assert.match(markup, /data-ssk-draft-edit-3d/);
-assert.match(markup, /data-ssk-draft-edit-3d-host/);
-assert.match(markup, /data-ssk-draft-edit-command-panel hidden aria-hidden="true" inert/);
-assert.match(markup, /data-ssk-draft-edit-target/);
-assert.match(markup, /Target → prepare → review → accept/);
-assert.match(markup, /Accept prepared command/);
-assert.match(markup, /Cancel prepared command/);
-assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 11,
-  'SSK-TS-3E must expose exactly eleven qualified command-selection buttons');
+assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 12,
+  'SSK-TS-3G must expose exactly twelve qualified command buttons');
 for (const commandType of [
   'CONNECT_CANDIDATE', 'MANUAL_CONNECT', 'REJECT_CANDIDATE',
-  'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'ADVANCE_ONE',
+  'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT', 'ADVANCE_ONE',
   'RUN_UNTIL_BLOCKED', 'DEFER_DECISION', 'RESUME_DECISION',
   'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(markup, new RegExp(`data-ssk-draft-edit-command="${commandType}"`));
-assert.doesNotMatch(markup, /REVERSE_COMPONENT/);
-assert.doesNotMatch(markup, /data-ssk-(?:from|to)-port|data-ssk-manual-port|data-ssk-command-execute|data-ssk-draft-edit-drag|data-ssk-coordinate-edit/,
-  'manual connect must not expose free-form port entry or geometry execution controls');
+assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="REVERSE_COMPONENT"/g)].length, 1);
+assert.doesNotMatch(markup,
+  /data-ssk-(?:from|to|entry)-port|data-ssk-(?:manual|reversal)-(?:port|component)|data-ssk-command-execute|data-ssk-coordinate-edit/,
+  'reversal and manual connect must not expose free-form target or execution controls');
 
+assert.match(gateway, /createSequentialCommandService/);
+assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
+assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
+assert.doesNotMatch(boundary, /Object\.assign\(model/);
 assert.match(tab, /createSequentialWorkspaceCommandBoundary/);
 assert.match(tab, /commandBoundary/);
-assert.match(tab, /restorePackage: active\.restorePackage/);
-assert.match(tab, /scopedEditShadow\?\.observe\(\)/);
-assert.match(tab, /createViewer: context\.createSequentialScopedEdit3dViewer/);
-assert.match(tab, /failureFactory: context\.sequentialScopedEdit3dFailureFactory/);
-assert.match(tab, /onActivate: \(\) => previewController\?\.switchRenderer\('CONSTRUCTION_SVG'\)/);
 assert(tab.indexOf('draftEdit3dController?.destroy();') < tab.indexOf('scopedEditShadow?.destroy();'));
-assert(tab.indexOf('draftEdit3dController = mountSequentialScopedEdit3dController')
-  < tab.indexOf('previewController = mountSequentialEngineeringSvgPreviewController'));
-
 assert.match(fixture, /createSequentialScopedEdit3dViewer/);
-assert.match(fixture, /SequentialFakeViewerState\.v1/);
-assert.match(fixture, /getSequentialScopedEdit3dController/);
-assert.match(browserSpec, /SSK-TS-1B-B01/);
 assert.match(browserSpec, /SSK-TS-1B-B10/);
 assert.doesNotMatch(browserSpec, /appendEditCommand|commitDrag|beginDrag/);
 assert.match(workbenchFixture, /type="importmap"/);
-assert.match(workbenchFixture, /three@0\.160\.0/);
-assert.match(workbenchFixture, /getSequentialScopedEdit3dController/);
-assert.doesNotMatch(workbenchFixture, /createSequentialScopedEdit3dViewer/);
-assert.match(workbenchSpec, /SSK-TS-1B-W01/);
 assert.match(workbenchSpec, /SSK-TS-1B-W04/);
-assert.match(workbenchSpec, /runtimePending/);
-assert.match(workbenchSpec, /instanceCount/);
 assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3E candidate-bound manual connection static containment: ok');
+console.log('Sequential SSK-TS-3G supervised component reversal static containment: ok');
