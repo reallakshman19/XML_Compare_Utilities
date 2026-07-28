@@ -82,6 +82,8 @@ function eligibilityRecords(authority, projection) {
       targetKind: 'GEOMETRY_PART', targetId: part.geometryPartId,
       evidence: {
         sceneEntityId: part.sceneEntityId, role: part.role,
+        sourceStrokeId: part.sourceStrokeId,
+        ownerEligibilityId: byComponent.get(part.componentId).eligibilityId,
         selectionResolution: 'WHOLE_COMPONENT',
       },
     },
@@ -101,11 +103,27 @@ function selectionCandidates(parts, cuts, eligibility) {
   return parts.map((part) => ({
     selectionCandidateId: `ssk:selection:${part.geometryPartId}`,
     topologyEntityId: part.geometryPartId,
+    selectionGroupId: `ssk:selection-group:${part.componentId}`,
     resolvedComponentId: part.componentId,
     sceneEntityId: part.sceneEntityId,
     boundaryCutIds: cuts.filter((row) => row.componentId === part.componentId)
       .map((row) => row.boundaryCutId),
     eligibilityId: byTarget.get(part.geometryPartId)?.eligibilityId || null,
+  }));
+}
+function selectionGroups(components, candidates, cuts, eligibility) {
+  const componentEligibility = new Map(eligibility
+    .filter((row) => row.targetKind === 'COMPONENT')
+    .map((row) => [row.componentId, row.eligibilityId]));
+  return components.map((component) => ({
+    selectionGroupId: `ssk:selection-group:${component.componentId}`,
+    componentId: component.componentId,
+    geometryPartIds: component.geometryPartIds,
+    selectionCandidateIds: candidates.filter((row) => row.resolvedComponentId === component.componentId)
+      .map((row) => row.selectionCandidateId),
+    boundaryCutIds: cuts.filter((row) => row.componentId === component.componentId)
+      .map((row) => row.boundaryCutId),
+    eligibilityId: componentEligibility.get(component.componentId),
   }));
 }
 function openBoundaries(nodes, classifications) {
@@ -133,7 +151,7 @@ function fingerprintMaterial(base) {
       committedConnections: base.committedConnections,
       componentBoundaryCuts: base.componentBoundaryCuts,
       repairs: base.repairs, openBoundaries: base.openBoundaries,
-      supportCarriers: base.supportCarriers,
+      selectionGroups: base.selectionGroups, supportCarriers: base.supportCarriers,
       supportAttachments: base.supportAttachments,
     },
     geometry: {
@@ -182,6 +200,12 @@ export function createSequentialEditableTopologySnapshot(readModelInput) {
   const projection = validateProjection(projectSequentialEditableTopology(authority, scene));
   const eligibility = eligibilityRecords(authority, projection);
   const boundaryClassifications = confirmed.boundaryClassifications;
+  const candidates = selectionCandidates(
+    projection.geometryParts, projection.componentBoundaryCuts, eligibility,
+  );
+  const groups = selectionGroups(
+    projection.components, candidates, projection.componentBoundaryCuts, eligibility,
+  );
   const base = {
     schema: SEQUENTIAL_EDITABLE_TOPOLOGY_SNAPSHOT_SCHEMA,
     authority: authorityRecord(readModel, authority, scene),
@@ -190,9 +214,8 @@ export function createSequentialEditableTopologySnapshot(readModelInput) {
     boundaryClassifications,
     openBoundaries: openBoundaries(projection.nodes, boundaryClassifications),
     supportCarriers: supportCarriers(projection.components),
-    selectionCandidates: selectionCandidates(
-      projection.geometryParts, projection.componentBoundaryCuts, eligibility,
-    ),
+    selectionGroups: groups,
+    selectionCandidates: candidates,
     eligibility,
     nonEditableEvidence: nonEditableEvidence(authority),
   };
