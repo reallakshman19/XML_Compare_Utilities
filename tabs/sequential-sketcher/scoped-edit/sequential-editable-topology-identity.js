@@ -42,16 +42,29 @@ export function sequentialInternalNodeId(componentId, position) {
   return `ssk:node:internal:${componentId}:${digest}`;
 }
 
-function connectionPositions(portId, connections) {
+function connectionPositionEvidence(portId, connections) {
   return connections.flatMap((row) => {
-    if (row.fromPortId === portId) return [copySequentialTopologyPoint(row.fromPosition)];
-    if (row.toPortId === portId) return [copySequentialTopologyPoint(row.toPosition)];
+    if (row.fromPortId === portId) {
+      return [{ connectionId: row.connectionId,
+        position: copySequentialTopologyPoint(row.fromPosition) }];
+    }
+    if (row.toPortId === portId) {
+      return [{ connectionId: row.connectionId,
+        position: copySequentialTopologyPoint(row.toPosition) }];
+    }
     return [];
-  }).filter(Boolean);
+  });
 }
 
 function resolvedPortPosition(port, connections) {
-  const positions = connectionPositions(port.portId, connections);
+  const evidence = connectionPositionEvidence(port.portId, connections);
+  const invalid = evidence.find((row) => !row.position);
+  if (invalid) fail(
+    SEQUENTIAL_EDITABLE_TOPOLOGY_IDENTITY_REJECTION.PORT_POSITION_MISSING,
+    `Committed connection position is missing: ${invalid.connectionId} / ${port.portId}`,
+    RangeError,
+  );
+  const positions = evidence.map((row) => row.position);
   const first = positions[0] || copySequentialTopologyPoint(port.sourcePosition);
   if (!first) fail(
     SEQUENTIAL_EDITABLE_TOPOLOGY_IDENTITY_REJECTION.PORT_POSITION_MISSING,
