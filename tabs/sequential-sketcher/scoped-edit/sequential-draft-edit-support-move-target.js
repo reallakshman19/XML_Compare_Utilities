@@ -1,7 +1,10 @@
 /** Exact confirmed-support target for non-publishing move drafts. */
 import { immutableJson, requiredContractText } from '../../../contracts/contract-values.js';
 import { createSequentialSupportAdjustmentRegister } from '../support/sequential-support-adjustment-register.js';
-import { sequentialSupportProjectionFingerprint } from '../support/sequential-support-adjusted-projection.js';
+import {
+  applySequentialSupportAdjustmentRegister,
+  sequentialSupportProjectionFingerprint,
+} from '../support/sequential-support-adjusted-projection.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
@@ -42,27 +45,28 @@ function supportFamilies(projection) {
     bundle.resolvedSupportFamilies || []
   )).map((family) => [family.familyId, family]));
 }
-function adjustmentFingerprint(state) {
-  if (state?.supportAdjustmentRegister?.headFingerprint) {
-    return state.supportAdjustmentRegister.headFingerprint;
-  }
-  const projection = state?.baseSupportProjection || state?.supportProjection;
-  return projection?.constructionFingerprint
-    ? createSequentialSupportAdjustmentRegister({
-      constructionFingerprint: projection.constructionFingerprint,
-    }).headFingerprint
-    : null;
+function normalizedSupportAuthority(state) {
+  const base = state?.baseSupportProjection || state?.supportProjection || null;
+  if (!base) return Object.freeze({ projection: null, register: null });
+  const register = state?.supportAdjustmentRegister
+    || createSequentialSupportAdjustmentRegister({
+      constructionFingerprint: base.constructionFingerprint,
+    });
+  const projection = state?.baseSupportProjection
+    ? state.supportProjection
+    : applySequentialSupportAdjustmentRegister(base, register);
+  return Object.freeze({ projection, register });
 }
 function authorityAgreement(readModel, state) {
   const authority = deriveSequentialEditAuthority(state);
-  const supportProjection = state?.supportProjection || null;
+  const support = normalizedSupportAuthority(state);
   if (readModel.branchId !== authority.branchId
     || readModel.sessionFingerprint !== authority.sessionFingerprint
     || readModel.supportConstructionFingerprint
-      !== (supportProjection?.constructionFingerprint || null)
+      !== (support.projection?.constructionFingerprint || null)
     || readModel.supportProjectionFingerprint
-      !== (supportProjection ? sequentialSupportProjectionFingerprint(supportProjection) : null)
-    || readModel.supportAdjustmentRegisterFingerprint !== adjustmentFingerprint(state)) {
+      !== (support.projection ? sequentialSupportProjectionFingerprint(support.projection) : null)
+    || readModel.supportAdjustmentRegisterFingerprint !== support.register?.headFingerprint) {
     fail(readModel.branchId === authority.branchId
       ? SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE
       : SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.BRANCH_MISMATCH,
