@@ -1,11 +1,13 @@
-/** Lifecycle owner for exact support selection, preview, prepared adjustment and explicit apply. */
+/** Lifecycle owner for support selection, move preparation and supervised history transitions. */
 import { createSequentialDraftEditSupportMoveApplyService } from './sequential-draft-edit-support-move-apply.js';
 import { createSequentialDraftEditSupportMoveDraftStore } from './sequential-draft-edit-support-move-draft.js';
 import { createSequentialDraftEditSupportMovePanel } from './sequential-draft-edit-support-move-panel.js';
+import { createSequentialSupportAdjustmentHistoryService } from './sequential-support-adjustment-history-service.js';
 import {
   selectSequentialDraftEditSupportMoveTarget,
   validateSequentialDraftEditSupportMoveTarget,
 } from './sequential-draft-edit-support-move-target.js';
+import { sequentialSupportAdjustmentHistoryCapabilities } from '../support/sequential-support-adjustment-history.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_FEATURE_SCHEMA =
   'SequentialDraftEditSupportMoveFeature.v1';
@@ -15,9 +17,9 @@ function requiredFunction(value, label) {
   return value;
 }
 function requiredBoundary(value) {
-  for (const name of ['readCurrentState', 'publishCandidate']) {
-    requiredFunction(value?.[name], `supportAdjustmentBoundary.${name}`);
-  }
+  for (const name of [
+    'readCurrentState', 'readHistory', 'publishCandidate', 'publishHistoryCandidate',
+  ]) requiredFunction(value?.[name], `supportAdjustmentBoundary.${name}`);
   return value;
 }
 
@@ -26,17 +28,29 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   const readModel = requiredFunction(options.readModel, 'readModel');
   const adjustmentBoundary = requiredBoundary(options.supportAdjustmentBoundary);
   const onDraftChanged = requiredFunction(options.onDraftChanged, 'onDraftChanged');
+  const now = requiredFunction(options.now, 'support adjustment now');
   const draftStore = createSequentialDraftEditSupportMoveDraftStore();
   const applyService = createSequentialDraftEditSupportMoveApplyService({
     readCurrentState: adjustmentBoundary.readCurrentState,
     publishCandidate: adjustmentBoundary.publishCandidate,
-    now: requiredFunction(options.now, 'support adjustment now'),
+    now,
+  });
+  const historyService = createSequentialSupportAdjustmentHistoryService({
+    readCurrentState: adjustmentBoundary.readCurrentState,
+    readHistory: adjustmentBoundary.readHistory,
+    publishHistoryCandidate: adjustmentBoundary.publishHistoryCandidate,
+    now,
   });
   let target = null;
   let prepared = null;
   let active = false;
   let destroyed = false;
 
+  function historyState() {
+    const history = adjustmentBoundary.readHistory();
+    return history ? sequentialSupportAdjustmentHistoryCapabilities(history) : null;
+  }
+  function syncHistory() { panel.setHistoryState(historyState()); }
   function targetInput() {
     return {
       readModel: readModel(),
@@ -52,7 +66,7 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   function cancel(reason = 'cancelled') {
     if (destroyed) return null;
     draftStore.cancel(reason); prepared = null;
-    panel.setPreview(null); panel.setPrepared(null);
+    panel.setPreview(null); panel.setPrepared(null); syncHistory();
     onDraftChanged(null);
     return null;
   }
@@ -60,15 +74,25 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
     const current = exactTarget();
     const draftPreview = draftStore.stage({ ...input, target: current });
     prepared = applyService.prepare(draftPreview);
-    panel.setPreview(draftPreview); panel.setPrepared(prepared);
+    panel.setPreview(draftPreview); panel.setPrepared(prepared); syncHistory();
     onDraftChanged(draftPreview);
     return Object.freeze({ preview: draftPreview, prepared });
   }
+  function prepareHistory(input = {}) {
+    draftStore.cancel('support-history-prepare');
+    target = null; panel.clearTarget(); onDraftChanged(null);
+    prepared = historyService.prepare(input);
+    panel.setPrepared(prepared); syncHistory();
+    return prepared;
+  }
   function apply() {
-    if (!prepared) throw new RangeError('Preview and review one exact support adjustment before Apply.');
-    const acceptance = applyService.accept(prepared);
+    if (!prepared) throw new RangeError('Prepare and review one exact support operation before Apply.');
+    const acceptance = prepared.schema === 'SequentialPreparedSupportAdjustmentHistory.v1'
+      ? historyService.accept(prepared)
+      : applyService.accept(prepared);
     if (acceptance.accepted) {
-      draftStore.cancel('adjustment-applied'); prepared = null; target = null;
+      draftStore.cancel('support-operation-applied'); prepared = null; target = null;
+      panel.setPreview(null); panel.setPrepared(null); syncHistory();
       onDraftChanged(null);
     }
     return acceptance;
@@ -76,28 +100,30 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   const panel = createSequentialDraftEditSupportMovePanel({
     root: options.root,
     onPreview: preview,
+    onPrepareHistory: prepareHistory,
     onApply: apply,
     onCancel: cancel,
   });
+  syncHistory();
 
   function select(objectId) {
     if (destroyed) throw new Error('Support move feature is destroyed.');
     cancel('target-change');
     target = selectSequentialDraftEditSupportMoveTarget({ objectId, ...targetInput() });
-    panel.setTarget(target);
+    panel.setTarget(target); syncHistory();
     return target;
   }
   function clearTarget(reason = null) {
     if (destroyed) return null;
     cancel(reason || 'target-cleared');
     target = null;
-    panel.clearTarget(reason);
+    panel.clearTarget(reason); syncHistory();
     return null;
   }
   function setActive(value) {
     active = value === true && !destroyed;
-    if (!active) clearTarget('Support move target and draft cleared because Draft Edit 3D closed.');
-    panel.setActive(active);
+    if (!active) clearTarget('Support operation cleared because Draft Edit 3D closed.');
+    panel.setActive(active); syncHistory();
     return active;
   }
   return Object.freeze({
@@ -106,6 +132,7 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
     select,
     clearTarget,
     cancel,
+    prepareHistory,
     apply,
     invalidate: clearTarget,
     getDraft: draftStore.getDraft,
@@ -117,6 +144,7 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
       supportId: target?.supportId || null,
       operationId: draftStore.getPreview()?.operationId || null,
       preparedId: prepared?.preparedId || null,
+      history: historyState(),
       panel: panel.getState(),
       destroyed,
     }),
