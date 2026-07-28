@@ -4,7 +4,7 @@
  * no runtime path to a sibling 3D_Converters checkout is used or attempted.
  */
 
-import { runBoundTopologyChecks } from './topology-checker-report.js';
+import { runTopologyChecksWithAvailableAuthority } from './topology-checker-report.js';
 
 const CORE_URL = new URL('../../vendor/3d-converters/topology-browser-core.mjs?v=20260718-cref-span-guard-v1', import.meta.url).href;
 let corePromise = null;
@@ -36,7 +36,7 @@ function assertCoreContract(core) {
   }
   return Object.freeze({
     ...core,
-    runTopologyChecks: (canonical, options) => runBoundTopologyChecks(core, canonical, options),
+    runTopologyChecks: (canonical, options) => runTopologyChecksWithAvailableAuthority(core, canonical, options),
   });
 }
 
