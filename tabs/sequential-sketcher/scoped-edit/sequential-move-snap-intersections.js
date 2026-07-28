@@ -1,4 +1,4 @@
-/** Qualified segment intersections for explicit Sequential move snap evidence. */
+/** Qualified active-plane intersections for explicit Sequential move snap evidence. */
 import { immutableJson } from '../../../contracts/contract-values.js';
 import {
   SEQUENTIAL_MOVE_SNAP_MODE,
@@ -10,132 +10,120 @@ import {
 } from './sequential-move-snap-contracts.js';
 import { createSequentialMoveConstraint } from './sequential-single-entity-move-geometry.js';
 
-function planeAxes(constraintInput) {
-  const constraint = createSequentialMoveConstraint(constraintInput);
-  if (constraint.kind !== 'plane') return null;
-  return constraint.axes.map((axis) => axis.toLowerCase());
-}
+const PLANE_AXES = Object.freeze({
+  XY: Object.freeze({ axes: ['x', 'y'], omitted: 'z' }),
+  XZ: Object.freeze({ axes: ['x', 'z'], omitted: 'y' }),
+  YZ: Object.freeze({ axes: ['y', 'z'], omitted: 'x' }),
+});
 
-function remainingAxis(axes) {
-  return ['x', 'y', 'z'].find((axis) => !axes.includes(axis));
-}
+function pairCount(length) { return length * (length - 1) / 2; }
 
-function cross(left, right) {
-  return left.x * right.y - left.y * right.x;
-}
-
-function projected(segment, axes) {
-  const [u, v] = axes;
-  return {
-    start: { x: segment.start[u], y: segment.start[v] },
-    end: { x: segment.end[u], y: segment.end[v] },
-  };
-}
-
-function parameterIntersection(left, right, tolerance) {
-  const p = left.start;
-  const q = right.start;
-  const r = { x: left.end.x - p.x, y: left.end.y - p.y };
-  const s = { x: right.end.x - q.x, y: right.end.y - q.y };
-  const denominator = cross(r, s);
-  const qMinusP = { x: q.x - p.x, y: q.y - p.y };
-  if (Math.abs(denominator) <= tolerance) return null;
-  const leftT = cross(qMinusP, s) / denominator;
-  const rightT = cross(qMinusP, r) / denominator;
-  if (leftT < -tolerance || leftT > 1 + tolerance
-    || rightT < -tolerance || rightT > 1 + tolerance) return null;
-  return { leftT: Math.max(0, Math.min(1, leftT)),
-    rightT: Math.max(0, Math.min(1, rightT)) };
-}
-
-function axisValue(segment, axis, parameter) {
-  return segment.start[axis] + parameter * (segment.end[axis] - segment.start[axis]);
-}
-
-function qualifiedIntersection(left, right, axes, profile) {
-  const parameters = parameterIntersection(
-    projected(left, axes), projected(right, axes), profile.worldTolerance,
+function failEnvelope(count, profile) {
+  if (count <= profile.maxIntersectionPairs) return;
+  const error = new RangeError(
+    `Snap intersection pair envelope exceeded: ${count} > ${profile.maxIntersectionPairs}.`,
   );
-  if (!parameters) return null;
-  const outAxis = remainingAxis(axes);
-  const leftOut = axisValue(left, outAxis, parameters.leftT);
-  const rightOut = axisValue(right, outAxis, parameters.rightT);
-  if (Math.abs(leftOut - rightOut) > profile.worldTolerance) return null;
-  const point = Object.fromEntries(['x', 'y', 'z'].map((axis) => [
-    axis, axisValue(left, axis, parameters.leftT),
-  ]));
-  return {
-    point: normalizeSequentialSnapPoint(point, profile),
-    leftT: normalizeSequentialSnapNumber(parameters.leftT, profile),
-    rightT: normalizeSequentialSnapNumber(parameters.rightT, profile),
-  };
+  error.code = SEQUENTIAL_MOVE_SNAP_REJECTION.INTERSECTION_ENVELOPE;
+  throw error;
 }
 
-function candidate(left, right, intersection, axes) {
-  const pair = [left, right].sort((a, b) => a.segmentId.localeCompare(b.segmentId));
-  const material = {
-    mode: SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION,
-    segmentIds: pair.map((row) => row.segmentId),
-    worldPoint: intersection.point,
-    plane: axes.join('').toUpperCase(),
-  };
+function planeRecord(constraintInput) {
+  const constraint = createSequentialMoveConstraint(constraintInput);
+  return constraint.kind === 'plane' ? { constraint, ...PLANE_AXES[constraint.plane] } : null;
+}
+
+function coplanar(segment, omitted, tolerance) {
+  return Math.abs(segment.start[omitted] - segment.end[omitted]) <= tolerance;
+}
+
+function samePlane(left, right, omitted, tolerance) {
+  return coplanar(left, omitted, tolerance)
+    && coplanar(right, omitted, tolerance)
+    && Math.abs(left.start[omitted] - right.start[omitted]) <= tolerance;
+}
+
+function projectedIntersection(left, right, axes, tolerance) {
+  const [u, v] = axes;
+  const ax = left.end[u] - left.start[u];
+  const ay = left.end[v] - left.start[v];
+  const bx = right.end[u] - right.start[u];
+  const by = right.end[v] - right.start[v];
+  const offsetX = right.start[u] - left.start[u];
+  const offsetY = right.start[v] - left.start[v];
+  const determinant = ax * by - ay * bx;
+  if (Math.abs(determinant) <= tolerance) return null;
+  const leftParameter = (offsetX * by - offsetY * bx) / determinant;
+  const rightParameter = (offsetX * ay - offsetY * ax) / determinant;
+  if (leftParameter < -tolerance || leftParameter > 1 + tolerance
+    || rightParameter < -tolerance || rightParameter > 1 + tolerance) return null;
+  return { leftParameter, rightParameter };
+}
+
+function intersectionPoint(segment, parameter, profile) {
+  return normalizeSequentialSnapPoint(Object.fromEntries(['x', 'y', 'z'].map((axis) => [
+    axis, segment.start[axis] + parameter * (segment.end[axis] - segment.start[axis]),
+  ])), profile);
+}
+
+function effectivePoint(source, raw, axes, profile) {
+  const point = { ...raw };
+  axes.forEach((axis) => { point[axis] = source[axis]; });
+  return normalizeSequentialSnapPoint(point, profile);
+}
+
+function lockedAxes(axes) {
+  const allowed = new Set(axes);
+  return { x: allowed.has('x'), y: allowed.has('y'), z: allowed.has('z') };
+}
+
+function intersectionCandidate(left, right, result, plane, raw, profile) {
+  const pair = [left.segmentId, right.segmentId].sort();
+  const source = intersectionPoint(left, result.leftParameter, profile);
+  const worldPoint = effectivePoint(source, raw, plane.axes, profile);
+  const material = { mode: SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION, pair, worldPoint };
   return immutableJson({
     id: sequentialMoveSnapCandidateId(material),
     providerId: 'sequential:intersection',
     mode: SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION,
-    sourceEntityIds: [...new Set(pair.map((row) => row.geometryPartId))].sort(),
-    worldPoint: intersection.point,
+    sourceEntityIds: [...new Set([left.geometryPartId, right.geometryPartId])].sort(),
+    worldPoint,
     priority: 15,
-    lockedAxes: Object.fromEntries(['x', 'y', 'z'].map((axis) => [axis, axes.includes(axis)])),
+    lockedAxes: lockedAxes(plane.axes),
     compatibleConstraintKinds: ['plane'],
     compatibleReferenceIds: [],
-    label: `Intersection ${pair[0].segmentId} × ${pair[1].segmentId}`,
+    label: `Intersection ${pair.join(' × ')}`,
     metadata: {
       derivation: 'QUALIFIED_SEGMENT_INTERSECTION',
-      plane: axes.join('').toUpperCase(),
-      sourceSegments: pair,
-      parameters: Object.fromEntries([
-        [left.segmentId, intersection.leftT],
-        [right.segmentId, intersection.rightT],
-      ].sort(([a], [b]) => a.localeCompare(b))),
+      plane: plane.constraint.plane,
+      sourceSegmentIds: pair,
+      leftParameter: normalizeSequentialSnapNumber(result.leftParameter, profile),
+      rightParameter: normalizeSequentialSnapNumber(result.rightParameter, profile),
+      sourceWorldPoint: source,
     },
-  }, 'Sequential intersection snap candidate');
-}
-
-function pairCount(length) {
-  return length * (length - 1) / 2;
+  }, 'Sequential raw intersection candidate');
 }
 
 export function deriveSequentialMoveSnapIntersectionCandidates(input = {}) {
   const profile = createSequentialMoveSnapProfile(input.profile);
-  const axes = planeAxes(input.constraint);
-  if (!axes || !profile.enabledModes.includes(SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION)) {
-    return immutableJson({ candidates: [], rejectedPairs: 0, consideredPairs: 0 },
-      'Sequential intersection derivation');
-  }
-  const segments = [...(input.segments || [])]
-    .sort((left, right) => left.segmentId.localeCompare(right.segmentId));
-  const consideredPairs = pairCount(segments.length);
-  if (consideredPairs > profile.maxIntersectionPairs) {
-    const error = new RangeError(`Snap intersection pair envelope exceeded: ${consideredPairs}.`);
-    error.code = SEQUENTIAL_MOVE_SNAP_REJECTION.INTERSECTION_ENVELOPE;
-    throw error;
-  }
+  if (!profile.enabledModes.includes(SEQUENTIAL_MOVE_SNAP_MODE.INTERSECTION)) return [];
+  const plane = planeRecord(input.constraint);
+  if (!plane) return [];
+  const segments = [...(input.segments || [])].sort((left, right) => (
+    left.segmentId.localeCompare(right.segmentId)
+  ));
+  failEnvelope(pairCount(segments.length), profile);
+  const raw = normalizeSequentialSnapPoint(input.rawWorldPoint, profile);
   const candidates = [];
-  let rejectedPairs = 0;
   for (let leftIndex = 0; leftIndex < segments.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < segments.length; rightIndex += 1) {
       const left = segments[leftIndex];
       const right = segments[rightIndex];
-      if (left.geometryPartId === right.geometryPartId) { rejectedPairs += 1; continue; }
-      const intersection = qualifiedIntersection(left, right, axes, profile);
-      if (!intersection) { rejectedPairs += 1; continue; }
-      candidates.push(candidate(left, right, intersection, axes));
+      if (!samePlane(left, right, plane.omitted, profile.worldTolerance)) continue;
+      const result = projectedIntersection(left, right, plane.axes, profile.worldTolerance);
+      if (!result) continue;
+      candidates.push(intersectionCandidate(left, right, result, plane, raw, profile));
     }
   }
-  return immutableJson({
-    candidates,
-    rejectedPairs,
-    consideredPairs,
-  }, 'Sequential intersection derivation');
+  return immutableJson(candidates.sort((left, right) => left.id.localeCompare(right.id)),
+    'Sequential snap intersection candidates');
 }
