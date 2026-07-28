@@ -6,6 +6,7 @@ export const PIPELINE_PIPING_CODE_CATALOG_ENTRY_SCHEMA = 'PipelinePipingCodeCata
 const PROFILE_PLAN_SCHEMA = 'PipelineInputXmlProfileAuthorityPlan.v1';
 const ALLOWABLE_PLAN_SCHEMA = 'PipelineAllowableStressPlan.v1';
 const text = (value) => String(value ?? '').trim();
+const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -160,15 +161,20 @@ function authorityMap(inputs, sectionById, required, diagnostics) {
           authorityIndexes: [bySection.get(item.analysisSectionId).authorityIndex, authorityIndex] }));
       return;
     }
-    if (catalogOwners.has(item.catalogEntryId)) {
-      diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ID_DUPLICATE',
-        'Selected catalog entry IDs must be unique across admitted section authorities.',
+    const prior = catalogOwners.get(item.catalogEntryId);
+    if (prior && !same(prior.catalogEntry, item.catalogEntry)) {
+      diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ID_CONFLICT',
+        'A reused piping-code catalog entry ID must resolve to identical normalized evidence.',
         { catalogEntryId: item.catalogEntryId,
-          analysisSectionIds: [catalogOwners.get(item.catalogEntryId), item.analysisSectionId] }));
+          analysisSectionIds: [prior.analysisSectionId, item.analysisSectionId] }));
+      diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_CATALOG_ID_DUPLICATE',
+        'Conflicting catalog identity reuse retains the legacy duplicate-ID blocker.',
+        { catalogEntryId: item.catalogEntryId,
+          analysisSectionIds: [prior.analysisSectionId, item.analysisSectionId] }));
       return;
     }
     bySection.set(item.analysisSectionId, item);
-    catalogOwners.set(item.catalogEntryId, item.analysisSectionId);
+    if (!prior) catalogOwners.set(item.catalogEntryId, item);
   });
   for (const analysisSectionId of required) if (!bySection.has(analysisSectionId)) {
     diagnostics.push(diagnostic('PIPELINE_PIPING_CODE_AUTHORITY_REQUIRED',
