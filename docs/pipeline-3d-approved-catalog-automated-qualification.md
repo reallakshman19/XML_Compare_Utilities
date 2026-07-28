@@ -47,16 +47,20 @@ node scripts/run-pipeline-approved-catalog-qualification.mjs \
   --timeout-ms 180000
 ```
 
-The baseline must be an exact 40-hex commit SHA. The timeout must be a positive integer number of milliseconds.
+The baseline must be an exact 40-hex commit SHA. Before any test executes, the runner independently resolves the checked-out repository HEAD with `git rev-parse HEAD` and requires exact equality with the supplied baseline. Qualification is blocked if Git is unavailable, HEAD cannot be resolved, the result is not a 40-hex SHA, or the two SHAs differ.
+
+The timeout must be a positive integer number of milliseconds.
 
 ## Exit behavior
 
-- Exit code `0`: all six tests returned zero, emitted an explicit `PASS` sentinel, and produced no blockers.
+- Exit code `0`: the baseline matches checked-out HEAD, all six tests returned zero, emitted an explicit terminal `: PASS` sentinel, and produced no blockers.
 - Exit code `1`: preflight or one or more tests blocked qualification.
 
 The runner fails closed for:
 
 - invalid baseline SHA;
+- repository HEAD resolution failure;
+- supplied baseline and checked-out HEAD mismatch;
 - invalid timeout;
 - empty, duplicate or malformed test plan;
 - missing test file;
@@ -65,7 +69,7 @@ The runner fails closed for:
 - timeout;
 - signal termination;
 - nonzero or unavailable exit status;
-- zero exit without an explicit `PASS` sentinel.
+- zero exit without an explicit terminal `: PASS` sentinel.
 
 ## Evidence contract
 
@@ -88,7 +92,7 @@ Each test result records:
 The aggregate records:
 
 - harness version;
-- caller-supplied baseline commit;
+- authenticated baseline commit matching checked-out repository HEAD;
 - ordered test plan;
 - test results;
 - diagnostics and blocker codes;
@@ -98,7 +102,7 @@ Durations are intentionally variable. Use `deterministicPipelineApprovedCatalogQ
 
 ## Qualification boundary
 
-A ready result qualifies only the executed software test ladder at the stated commit. It does not resolve:
+A ready result qualifies only the executed software test ladder at the authenticated checked-out commit. It does not resolve:
 
 ```text
 APPROVED_PRODUCTION_REGISTRY_SOURCE_UNRESOLVED
