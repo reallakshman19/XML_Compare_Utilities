@@ -12,18 +12,20 @@ const baselineCommit = 'a'.repeat(40);
 const testPlan = Object.freeze([Object.freeze({ id: 'ONLY', path: 'tests/fake.test.js' })]);
 const exists = () => true;
 const headResolver = () => baselineCommit;
+const worktreeResolver = () => '';
 const clock = (...values) => {
   const queue = [...values];
   return () => queue.shift() ?? values.at(-1) ?? 0;
 };
 
 function runWith(execution, overrides = {}) {
-  return runPipelineApprovedCatalogQualification({
+  return _internal.runQualification({
     baselineCommit,
     repoRoot: '/repo',
     testPlan,
     exists,
     headResolver,
+    worktreeResolver,
     runner: () => execution,
     clock: clock(10, 15),
     ...overrides,
@@ -49,6 +51,8 @@ const success = runWith({ status: 0, signal: null, stdout: 'fixture: PASS\n', st
 assert.equal(success.schema, PIPELINE_APPROVED_CATALOG_QUALIFICATION_SCHEMA);
 assert.equal(success.harnessVersion, PIPELINE_APPROVED_CATALOG_QUALIFICATION_HARNESS_VERSION);
 assert.equal(success.baselineCommit, baselineCommit);
+assert.equal(success.repositoryHead, baselineCommit);
+assert.equal(success.worktreeClean, true);
 assert.equal(success.ready, true);
 assert.deepEqual(success.blockerCodes, []);
 assert.equal(success.results.length, 1);
@@ -63,12 +67,13 @@ assert.equal(Object.isFrozen(success), true);
 assert.equal(Object.isFrozen(success.results), true);
 assert.equal(Object.isFrozen(success.results[0]), true);
 
-const successWithDifferentDuration = runPipelineApprovedCatalogQualification({
+const successWithDifferentDuration = _internal.runQualification({
   baselineCommit,
   repoRoot: '/repo',
   testPlan,
   exists,
   headResolver,
+  worktreeResolver,
   runner: () => ({ status: 0, signal: null, stdout: 'fixture: PASS\n', stderr: '' }),
   clock: clock(100, 250),
 });
@@ -77,6 +82,27 @@ assert.deepEqual(
   deterministicPipelineApprovedCatalogQualificationProjection(success),
   deterministicPipelineApprovedCatalogQualificationProjection(successWithDifferentDuration),
 );
+
+let publicExecutionCount = 0;
+let publicClockValue = 0;
+const publicPlan = runPipelineApprovedCatalogQualification({
+  baselineCommit,
+  repoRoot: '/repo',
+  testPlan: [{ id: 'UNAUTHORIZED', path: '../outside.js' }],
+  exists,
+  headResolver,
+  worktreeResolver,
+  runner: () => {
+    publicExecutionCount += 1;
+    return { status: 0, signal: null, stdout: 'approved fixture: PASS\n', stderr: '' };
+  },
+  clock: () => publicClockValue++,
+});
+assert.equal(publicPlan.ready, true);
+assert.equal(publicPlan.results.length, PIPELINE_APPROVED_CATALOG_QUALIFICATION_TESTS.length);
+assert.equal(publicExecutionCount, PIPELINE_APPROVED_CATALOG_QUALIFICATION_TESTS.length);
+assert.deepEqual(publicPlan.testPlan, PIPELINE_APPROVED_CATALOG_QUALIFICATION_TESTS);
+assert.equal(publicPlan.testPlan.some((item) => item.id === 'UNAUTHORIZED'), false);
 
 const invalidBaseline = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   baselineCommit: 'main',
@@ -91,6 +117,7 @@ const baselineMismatch = runWith({
 }, { headResolver: () => 'b'.repeat(40) });
 assert.equal(baselineMismatch.ready, false);
 assert.equal(baselineMismatch.results.length, 0);
+assert.equal(baselineMismatch.repositoryHead, 'b'.repeat(40));
 assert.ok(baselineMismatch.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_MISMATCH'));
 
@@ -103,8 +130,31 @@ const headResolutionFailure = runWith({
 });
 assert.equal(headResolutionFailure.ready, false);
 assert.equal(headResolutionFailure.results.length, 0);
+assert.equal(headResolutionFailure.repositoryHead, null);
 assert.ok(headResolutionFailure.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_HEAD_RESOLUTION_FAILED'));
+
+const dirtyWorktree = runWith({
+  status: 0, signal: null, stdout: 'fixture: PASS', stderr: '',
+}, { worktreeResolver: () => ' M tracked.js\n?? untracked.js\n' });
+assert.equal(dirtyWorktree.ready, false);
+assert.equal(dirtyWorktree.worktreeClean, false);
+assert.equal(dirtyWorktree.results.length, 0);
+assert.ok(dirtyWorktree.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_WORKTREE_DIRTY'));
+
+const worktreeResolutionFailure = runWith({
+  status: 0, signal: null, stdout: 'fixture: PASS', stderr: '',
+}, {
+  worktreeResolver: () => {
+    throw Object.assign(new Error('status unavailable'), { code: 'ESTATUS' });
+  },
+});
+assert.equal(worktreeResolutionFailure.ready, false);
+assert.equal(worktreeResolutionFailure.worktreeClean, false);
+assert.equal(worktreeResolutionFailure.results.length, 0);
+assert.ok(worktreeResolutionFailure.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_WORKTREE_RESOLUTION_FAILED'));
 
 const invalidTimeout = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   timeoutMs: Number.NaN,
@@ -130,7 +180,19 @@ assert.equal(existenceError.results.length, 0);
 assert.ok(existenceError.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_EXISTENCE_CHECK_ERROR'));
 
-const duplicate = runPipelineApprovedCatalogQualification({
+const invalidPath = _internal.runQualification({
+  baselineCommit,
+  repoRoot: '/repo',
+  testPlan: [{ id: 'OUTSIDE', path: '../outside.js' }],
+  exists,
+  headResolver,
+  worktreeResolver,
+});
+assert.equal(invalidPath.ready, false);
+assert.ok(invalidPath.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_PATH_INVALID'));
+
+const duplicate = _internal.runQualification({
   baselineCommit,
   repoRoot: '/repo',
   testPlan: [
@@ -139,6 +201,7 @@ const duplicate = runPipelineApprovedCatalogQualification({
   ],
   exists,
   headResolver,
+  worktreeResolver,
 });
 assert.equal(duplicate.ready, false);
 assert.ok(duplicate.blockerCodes.includes(
@@ -202,6 +265,9 @@ assert.ok(thrownRunner.blockerCodes.includes(
 assert.ok(thrownRunner.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_FAILED'));
 
+assert.equal(_internal.repositoryRelativePath('/repo', 'tests/a.js'), true);
+assert.equal(_internal.repositoryRelativePath('/repo', '../outside.js'), false);
+assert.equal(_internal.repositoryRelativePath('/repo', '/absolute.js'), false);
 assert.equal(_internal.excerpt('x'.repeat(5000)).length <= 4096, true);
 assert.deepEqual(_internal.cliArguments(['--baseline', baselineCommit, '--timeout-ms', '25']), {
   baselineCommit,
