@@ -39,11 +39,6 @@ const SHA40 = /^[a-f0-9]{40}$/i;
 const PASS_SENTINEL = /:\s*PASS\s*$/;
 const MAX_EXCERPT = 4096;
 
-function plain(value) {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
-    && [Object.prototype, null].includes(Object.getPrototypeOf(value)));
-}
-
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.values(value).forEach(freeze);
@@ -87,13 +82,66 @@ function normalizedPlan(testPlan) {
   }));
 }
 
-function preflightDiagnostics({ baselineCommit, repoRoot, testPlan, timeoutMs, exists }) {
+function resolveRepositoryHead(repoRoot) {
+  let execution;
+  try {
+    execution = spawnSync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      timeout: 10000,
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, NO_COLOR: '1' },
+    }) || {};
+  } catch (error) {
+    throw error;
+  }
+  if (execution.error) throw execution.error;
+  if (execution.status !== 0) {
+    const error = new Error(text(execution.stderr).trim()
+      || 'git rev-parse HEAD returned a nonzero status.');
+    error.code = 'GIT_HEAD_STATUS';
+    throw error;
+  }
+  const head = text(execution.stdout).trim().toLowerCase();
+  if (!SHA40.test(head)) {
+    const error = new Error('git rev-parse HEAD did not return an exact 40-hex commit SHA.');
+    error.code = 'GIT_HEAD_INVALID';
+    throw error;
+  }
+  return head;
+}
+
+function preflightDiagnostics({ baselineCommit, repoRoot, testPlan, timeoutMs, exists,
+  headResolver }) {
   const diagnostics = [];
-  if (!SHA40.test(text(baselineCommit).trim())) diagnostics.push(diagnostic(
+  const suppliedBaseline = text(baselineCommit).trim().toLowerCase();
+  const baselineValid = SHA40.test(suppliedBaseline);
+  if (!baselineValid) diagnostics.push(diagnostic(
     'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_INVALID',
     'Qualification requires an exact 40-hex baseline commit SHA.',
     { baselineCommit: text(baselineCommit).trim() },
   ));
+  if (baselineValid) {
+    try {
+      const repositoryHead = text(headResolver(repoRoot)).trim().toLowerCase();
+      if (!SHA40.test(repositoryHead)) throw Object.assign(
+        new Error('Repository HEAD resolver did not return an exact 40-hex commit SHA.'),
+        { code: 'GIT_HEAD_INVALID' },
+      );
+      if (repositoryHead !== suppliedBaseline) diagnostics.push(diagnostic(
+        'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_MISMATCH',
+        'Supplied qualification baseline does not match the checked-out repository HEAD.',
+        { suppliedBaseline, repositoryHead },
+      ));
+    } catch (error) {
+      diagnostics.push(diagnostic(
+        'PIPELINE_APPROVED_CATALOG_QUALIFICATION_HEAD_RESOLUTION_FAILED',
+        'Qualification could not authenticate the checked-out repository HEAD.',
+        { code: error?.code ?? null, message: error?.message ?? String(error) },
+      ));
+    }
+  }
   if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) diagnostics.push(diagnostic(
     'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TIMEOUT_INVALID',
     'Qualification timeout must be a positive integer number of milliseconds.',
@@ -191,11 +239,12 @@ export function runPipelineApprovedCatalogQualification({
   timeoutMs = 120000,
   runner = spawnSync,
   exists = existsSync,
+  headResolver = resolveRepositoryHead,
   clock = () => Number(process.hrtime.bigint() / 1000000n),
 } = {}) {
   const plan = normalizedPlan(testPlan);
   const preflight = preflightDiagnostics({ baselineCommit, repoRoot, testPlan: plan,
-    timeoutMs, exists });
+    timeoutMs, exists, headResolver });
   if (preflight.length > 0) return resultFromPreflight({ baselineCommit, testPlan: plan,
     diagnostics: preflight });
 
@@ -278,6 +327,7 @@ export const _internal = Object.freeze({
   excerpt,
   diagnostic,
   normalizedPlan,
+  resolveRepositoryHead,
   preflightDiagnostics,
   executionDiagnostics,
   cliArguments,
