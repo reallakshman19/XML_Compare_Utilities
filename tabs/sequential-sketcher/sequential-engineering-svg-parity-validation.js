@@ -19,6 +19,7 @@ function assertMappedCounts(parity) {
   const pairs = [
     ['repair', 'repairCount'],
     ['candidate', 'candidateCount'],
+    ['reversalCandidate', 'reversalCandidateCount'],
     ['activePort', 'activePortCount'],
     ['support', 'supportCount'],
     ['rejectedCandidate', 'rejectedCandidateCount'],

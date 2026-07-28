@@ -68,6 +68,7 @@ function selectionCandidates(value) {
   return [
     text,
     `ssk:candidate:${text}`,
+    `ssk:reversal:${text}`,
     `ssk:component:${text}`,
     `ssk:support:${text}`,
     `ssk:repair:${text}`,
