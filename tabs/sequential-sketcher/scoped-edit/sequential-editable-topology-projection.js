@@ -1,11 +1,16 @@
 /** Pure canonical projection helpers for Sequential editable topology. */
-import { sequentialSemanticFingerprint } from './sequential-command-contracts.js';
+import {
+  copySequentialTopologyPoint,
+  resolveSequentialPortTopology,
+  sameSequentialTopologyPoint,
+  sequentialInternalNodeId,
+  sequentialTopologyGeometryPoints,
+} from './sequential-editable-topology-identity.js';
 
 export const SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION = Object.freeze({
   DUPLICATE_ID: 'SEQUENTIAL_EDITABLE_TOPOLOGY_DUPLICATE_ID',
   GEOMETRY_MISSING: 'SEQUENTIAL_EDITABLE_TOPOLOGY_GEOMETRY_MISSING',
   PORT_MISSING: 'SEQUENTIAL_EDITABLE_TOPOLOGY_PORT_MISSING',
-  POSITION_MISSING: 'SEQUENTIAL_EDITABLE_TOPOLOGY_POSITION_MISSING',
   SUPPORT_INVALID: 'SEQUENTIAL_EDITABLE_TOPOLOGY_SUPPORT_INVALID',
 });
 
@@ -17,93 +22,19 @@ function fail(code, message, Constructor = Error) {
 function sorted(rows, key) {
   return [...rows].sort((left, right) => String(left[key]).localeCompare(String(right[key])));
 }
-function point(value) {
-  if (!value || !['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]))) return null;
-  return { x: value.x, y: value.y, z: value.z };
-}
-function samePoint(left, right) {
-  return Boolean(left && right && left.x === right.x && left.y === right.y && left.z === right.z);
-}
-function geometryPoints(geometry) {
-  if (geometry?.kind === 'point') return [point(geometry.position)].filter(Boolean);
-  if (geometry?.kind === 'segment') return [point(geometry.start), point(geometry.end)].filter(Boolean);
-  if (geometry?.kind === 'polyline') return (geometry.points || []).map(point).filter(Boolean);
-  return [];
-}
 function assertUnique(rows, key, label) {
   const values = rows.map((row) => row[key]);
   const duplicate = values.find((value, index) => values.indexOf(value) !== index);
   if (duplicate) fail(SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION.DUPLICATE_ID,
     `Duplicate ${label}: ${duplicate}`, RangeError);
 }
-function resolvedPortPosition(port, connections) {
-  for (const row of connections) {
-    if (row.fromPortId === port.portId && point(row.fromPosition)) return point(row.fromPosition);
-    if (row.toPortId === port.portId && point(row.toPosition)) return point(row.toPosition);
-  }
-  return point(port.sourcePosition);
-}
-function repairConnectionIds(authority) {
-  return new Set(authority.repairs.map((repair) => repair.connectionId));
-}
-function exactConnection(connection, repaired) {
-  return !repaired.has(connection.connectionId)
-    && samePoint(point(connection.fromPosition), point(connection.toPosition));
-}
-function portAdjacency(portIds, connections, repaired) {
-  const result = new Map(portIds.map((id) => [id, []]));
-  connections.filter((row) => exactConnection(row, repaired)).forEach((row) => {
-    result.get(row.fromPortId)?.push(row.toPortId);
-    result.get(row.toPortId)?.push(row.fromPortId);
-  });
-  return result;
-}
-function connectedPortGroups(portIds, adjacency) {
-  const remaining = new Set(portIds); const groups = [];
-  while (remaining.size) {
-    const first = [...remaining].sort()[0]; const queue = [first]; const group = [];
-    remaining.delete(first);
-    while (queue.length) {
-      const current = queue.shift(); group.push(current);
-      for (const next of adjacency.get(current) || []) {
-        if (!remaining.has(next)) continue;
-        remaining.delete(next); queue.push(next);
-      }
-    }
-    groups.push(group.sort());
-  }
-  return groups.sort((left, right) => left[0].localeCompare(right[0]));
-}
-function nodeIdForPorts(portIds) {
-  const digest = sequentialSemanticFingerprint('SSKNODE', portIds).split(':').at(-1);
-  return `ssk:node:${digest}`;
-}
-function internalNodeId(componentId, position) {
-  const digest = sequentialSemanticFingerprint('SSKINTERNALNODE', { componentId, position })
-    .split(':').at(-1);
-  return `ssk:node:internal:${componentId}:${digest}`;
-}
-function portTopology(authority) {
-  const ports = authority.confirmedComponents.flatMap((component) => component.ports.map((port) => ({
-    ...port, componentId: component.componentId, branchId: component.branchId,
-    position: resolvedPortPosition(port, authority.committedConnections),
-  })));
-  ports.forEach((port) => {
-    if (!port.position) fail(SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION.POSITION_MISSING,
-      `Confirmed port position is missing: ${port.portId}`, RangeError);
-  });
-  assertUnique(ports, 'portId', 'port ID');
-  const repaired = repairConnectionIds(authority);
-  const ids = ports.map((row) => row.portId);
-  const groups = connectedPortGroups(ids, portAdjacency(ids, authority.committedConnections, repaired));
-  const nodeByPort = new Map(groups.flatMap((group) => group.map((id) => [id, nodeIdForPorts(group)])));
-  return { ports, repaired, nodeByPort };
-}
 function partVertices(entity, componentPorts, nodeByPort) {
-  return geometryPoints(entity.geometry).map((position) => {
-    const port = componentPorts.find((row) => samePoint(row.position, position));
+  return sequentialTopologyGeometryPoints(entity.geometry).map((position) => {
+    const port = componentPorts.find((row) => (
+      sameSequentialTopologyPoint(row.position, position)
+    ));
     const nodeId = port ? nodeByPort.get(port.portId)
-      : internalNodeId(entity.domainRef.componentId, position);
+      : sequentialInternalNodeId(entity.domainRef.componentId, position);
     return { nodeId, position, portId: port?.portId || null };
   });
 }
@@ -136,7 +67,7 @@ function connectionRecords(authority, topology) {
     const toNodeId = topology.nodeByPort.get(row.toPortId);
     if (!fromNodeId || !toNodeId) fail(SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION.PORT_MISSING,
       `Committed connection references unresolved ports: ${row.connectionId}`, RangeError);
-    const repaired = topology.repaired.has(row.connectionId);
+    const repaired = topology.repairedConnectionIds.has(row.connectionId);
     return {
       ...row, fromNodeId, toNodeId,
       nodeRelation: repaired ? 'REPAIR_MEDIATED_CONTINUITY'
@@ -171,9 +102,15 @@ function boundaryCuts(components, connections, portOwner) {
   }));
 }
 function supportRecords(authority) {
+  const carrierIds = new Set(authority.confirmedComponents.map((row) => row.componentId));
+  if (authority.unresolvedSupportFamilies.length) fail(
+    SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION.SUPPORT_INVALID,
+    'Editable topology cannot omit unresolved support families.',
+    RangeError,
+  );
   return sorted(authority.supports.map(({ glyph, family }) => {
-    const position = point(glyph.centerlinePointGlobal);
-    if (!glyph.carrierId || !position) fail(
+    const position = copySequentialTopologyPoint(glyph.centerlinePointGlobal);
+    if (!carrierIds.has(glyph.carrierId) || !family || !position) fail(
       SEQUENTIAL_EDITABLE_TOPOLOGY_PROJECTION_REJECTION.SUPPORT_INVALID,
       `Support attachment evidence is incomplete: ${glyph.glyphId}`, RangeError);
     return {
@@ -239,8 +176,7 @@ function nodeRecords(topology, parts, edges, connections, authority) {
       .some((row) => portIds.includes(row.activePortId));
     const repaired = incidentConnections
       .some((row) => row.nodeRelation === 'REPAIR_MEDIATED_CONTINUITY');
-    const terminal = portIds.some((portId) => terminalPorts.has(portId))
-      || incidentConnections.some((row) => row.status === 'INTENTIONAL_TERMINAL');
+    const terminal = portIds.some((portId) => terminalPorts.has(portId));
     return {
       nodeId, position: owned[0].position, portIds,
       incidentComponentIds: [...new Set(owned.map((row) => row.componentId))].sort(),
@@ -268,7 +204,7 @@ function repairRecords(authority, connections, nodeByPort) {
 }
 
 export function projectSequentialEditableTopology(authority, scene) {
-  const topology = portTopology(authority);
+  const topology = resolveSequentialPortTopology(authority);
   const partsWithVertices = geometryPartRecords(scene, topology);
   const internalEdgeRows = internalEdges(partsWithVertices);
   const committedConnections = connectionRecords(authority, topology);
@@ -285,6 +221,7 @@ export function projectSequentialEditableTopology(authority, scene) {
   const geometryParts = partsWithVertices.map(({ vertices, ...row }) => ({
     ...row, sourceStrokeId: componentById.get(row.componentId)?.ancestry.strokeId || null,
   }));
+  assertUnique(geometryParts, 'geometryPartId', 'geometry-part ID');
   return {
     nodes, ports, components, geometryParts, internalEdges: internalEdgeRows,
     committedConnections, componentBoundaryCuts,
