@@ -1,6 +1,8 @@
 import { freezeJsonValue } from '../../core/engineering-scene/index.js';
 import { classifySequentialEngineeringSvgAuthority } from './sequential-engineering-svg-authority.js';
 import { createSequentialEngineeringSvgIndexProjection } from './sequential-engineering-svg-index-projection.js';
+import { assertSequentialSupportAdjustmentRegister } from './support/sequential-support-adjustment-register.js';
+import { applySequentialSupportAdjustmentRegister } from './support/sequential-support-adjusted-projection.js';
 
 export const SEQUENTIAL_ENGINEERING_SVG_OWNER_BRIDGE_SCHEMA =
   'SequentialEngineeringSvgOwnerBridge.v1';
@@ -43,10 +45,13 @@ function buildSnapshot(state) {
     sessionFingerprint: authority.sessionFingerprint,
     confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
     supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
     session: authority.session,
     evidenceModel: authority.evidenceModel,
     indexProjection,
     confirmedConstruction: authority.confirmedConstruction,
+    baseSupportProjection: state.baseSupportProjection || null,
+    supportAdjustmentRegister: state.supportAdjustmentRegister || null,
     supportProjection: state.supportProjection || null,
     visibleProjection: String(state.visibleProjection || 'ISO'),
     constructionCandidateSelection: selection(state.constructionCandidateSelection),
@@ -71,6 +76,34 @@ function validateEnvelope(reason, snapshot) {
 function installPrivatePublisher(registerPublisher, publish) {
   if (registerPublisher == null) return;
   requiredFunction(registerPublisher, 'Sequential owner publisher registrar')(publish);
+}
+
+export function createSequentialAdjustedEngineeringSvgOwnerSnapshot(snapshot, registerValue) {
+  if (snapshot?.schema !== SEQUENTIAL_ENGINEERING_SVG_OWNER_SNAPSHOT_SCHEMA) {
+    throw new TypeError(`Adjusted owner snapshot requires ${SEQUENTIAL_ENGINEERING_SVG_OWNER_SNAPSHOT_SCHEMA}.`);
+  }
+  const base = snapshot.baseSupportProjection || snapshot.supportProjection;
+  if (!base) throw new RangeError('Adjusted owner snapshot requires a base support projection.');
+  const register = assertSequentialSupportAdjustmentRegister(
+    registerValue,
+    base.constructionFingerprint,
+  );
+  const supportProjection = applySequentialSupportAdjustmentRegister(base, register);
+  const material = {
+    ...snapshot,
+    baseSupportProjection: base,
+    supportAdjustmentRegister: register,
+    supportProjection,
+  };
+  const authority = classifySequentialEngineeringSvgAuthority(material);
+  return freezeJsonValue({
+    ...material,
+    revision: authority.revision,
+    sessionFingerprint: authority.sessionFingerprint,
+    confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
+    supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
+  });
 }
 
 export function createSequentialEngineeringSvgOwnerBridge(options = {}) {
