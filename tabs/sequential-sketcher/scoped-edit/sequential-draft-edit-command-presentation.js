@@ -39,8 +39,12 @@ export function installSequentialDraftEditCommandPanelStyle(value) {
   [value.actor, value.reason, value.evidence].forEach((element) => style(element, field));
   style(value.evidence, `${field};min-height:54px;resize:vertical`);
   const evidenceStyle = 'white-space:pre-wrap;overflow-wrap:anywhere;padding:8px;border-radius:7px;background:#020617;color:#bae6fd;font:10px ui-monospace,monospace';
-  style(value.target, evidenceStyle); style(value.preview, evidenceStyle);
-  [...value.commands, value.accept, value.cancel].forEach((element) => style(element, 'padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#172337;color:#dbeafe;cursor:pointer'));
+  style(value.target, evidenceStyle);
+  style(value.preview, evidenceStyle);
+  [...value.commands, value.accept, value.cancel].forEach((element) => style(
+    element,
+    'padding:7px;border:1px solid rgba(148,163,184,.35);border-radius:7px;background:#172337;color:#dbeafe;cursor:pointer',
+  ));
   style(value.status, 'display:block;margin:6px 0 9px;color:#99f6e4;font-size:10px;line-height:1.4');
 }
 
@@ -48,30 +52,55 @@ export function sequentialDraftEditPreparedPreview(prepared) {
   const transactions = prepared.candidate.transactionIds.length
     ? prepared.candidate.transactionIds.join(', ') : 'Journal-only accepted command';
   const payload = prepared.nativeCommand.payload || {};
-  const target = prepared.targets?.candidateId ? [
-    `Decision: ${prepared.targets.decisionId}`, `Candidate: ${prepared.targets.candidateId}`,
-    `Scene entity: ${payload.targetEntityId}`,
-    ...(prepared.nativeCommand.fromPortId ? [
-      `From port: ${prepared.nativeCommand.fromPortId}`,
-      `To port: ${prepared.nativeCommand.toPortId}`,
-    ] : []),
-  ] : prepared.targets?.decisionId ? [
-    `Decision: ${prepared.targets.decisionId}`, `Decision reason: ${payload.targetDecisionReason}`,
-    `Decision scope: ${payload.targetDecisionScope || 'unspecified'}`,
-    `Active port: ${payload.targetActivePortId || 'none'}`,
-    `Junction: ${payload.targetJunctionId || 'none'}`,
-    `Reference: ${payload.targetReference || 'none'}`,
-  ] : [];
+  let target = [];
+  if (prepared.nativeCommand.commandType === 'REVERSE_COMPONENT') {
+    target = [
+      `Decision: ${prepared.targets.decisionId}`,
+      `Reversal candidate: ${prepared.targets.candidateId}`,
+      `Component: ${prepared.targets.componentId}`,
+      `Entry port: ${prepared.targets.entryPortId}`,
+      `Scene entity: ${payload.targetEntityId}`,
+    ];
+  } else if (prepared.targets?.candidateId) {
+    target = [
+      `Decision: ${prepared.targets.decisionId}`,
+      `Candidate: ${prepared.targets.candidateId}`,
+      `Scene entity: ${payload.targetEntityId}`,
+      ...(prepared.nativeCommand.fromPortId ? [
+        `From port: ${prepared.nativeCommand.fromPortId}`,
+        `To port: ${prepared.nativeCommand.toPortId}`,
+      ] : []),
+    ];
+  } else if (prepared.targets?.decisionId) {
+    target = [
+      `Decision: ${prepared.targets.decisionId}`,
+      `Decision reason: ${payload.targetDecisionReason}`,
+      `Decision scope: ${payload.targetDecisionScope || 'unspecified'}`,
+      `Active port: ${payload.targetActivePortId || 'none'}`,
+      `Junction: ${payload.targetJunctionId || 'none'}`,
+      `Reference: ${payload.targetReference || 'none'}`,
+    ];
+  }
   return [
-    `Command: ${prepared.nativeCommand.commandType}`, `Branch: ${prepared.nativeCommand.branchId}`,
-    ...target, `Issued: ${prepared.envelope.origin.issuedAt}`,
-    `Predicted outcome: ${prepared.candidate.outcome}`, `Prepared ID: ${prepared.preparedId}`,
+    `Command: ${prepared.nativeCommand.commandType}`,
+    `Branch: ${prepared.nativeCommand.branchId}`,
+    ...target,
+    `Issued: ${prepared.envelope.origin.issuedAt}`,
+    `Predicted outcome: ${prepared.candidate.outcome}`,
+    `Prepared ID: ${prepared.preparedId}`,
     `Authority ID: ${prepared.expectedAuthority.authorityId}`,
     `Transaction mapping: ${transactions}`,
   ].join('\n');
 }
 
-export function sequentialDraftEditTargetText({ candidate, decision, manualPorts }) {
+export function sequentialDraftEditTargetText({ candidate, decision, reversal, manualPorts }) {
+  if (reversal) {
+    return `Selected reversal candidate: ${reversal.candidateId}`
+      + `\nDecision: ${reversal.decisionId}`
+      + `\nComponent: ${reversal.componentId}`
+      + `\nEntry port: ${reversal.entryPortId}`
+      + `\nScene entity: ${reversal.entityId}`;
+  }
   if (candidate) {
     return `Selected candidate: ${candidate.candidateId}\nDecision: ${candidate.decisionId}\nScene entity: ${candidate.entityId}`
       + (manualPorts
@@ -85,5 +114,5 @@ export function sequentialDraftEditTargetText({ candidate, decision, manualPorts
       + `\nJunction: ${decision.junctionId || 'none'}`
       + `\nReference: ${decision.referenceTarget || 'none'}`;
   }
-  return 'No authoritative command target. Pick a blue candidate or open a supported zero-candidate boundary decision.';
+  return 'No authoritative command target. Pick a blue connection candidate, a purple reversal entry, or open a supported zero-candidate boundary decision.';
 }
