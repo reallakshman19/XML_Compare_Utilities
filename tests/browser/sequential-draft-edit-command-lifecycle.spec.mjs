@@ -17,8 +17,8 @@ async function snapshot(page) {
   return page.evaluate(() => globalThis.__sskCommandLifecycle.snapshot());
 }
 
-// SSK-TS-3H-B01
-test('SSK-TS-3H-B01 exposes exactly twelve supervised controls without free-form authority IDs', async ({ page }) => {
+// SSK-TS-3H-Q-B01
+test('SSK-TS-3H-Q-B01 exposes exactly twelve supervised controls without free-form authority IDs', async ({ page }) => {
   await ready(page);
   await expect(page.locator('[data-ssk-draft-edit-command]')).toHaveCount(12);
   await expect(page.locator('[data-ssk-draft-edit-command="REVERSE_COMPONENT"]')).toHaveCount(1);
@@ -29,8 +29,8 @@ test('SSK-TS-3H-B01 exposes exactly twelve supervised controls without free-form
   expect(state.publications).toBe(0);
 });
 
-// SSK-TS-3H-B02
-test('SSK-TS-3H-B02 candidate selection is non-publishing and evidence validation fails closed', async ({ page }) => {
+// SSK-TS-3H-Q-B02
+test('SSK-TS-3H-Q-B02 candidate selection is non-publishing and evidence validation fails closed', async ({ page }) => {
   await ready(page, 'candidate');
   let state = await snapshot(page);
   expect(state.panel.candidateId).toBe('CANDIDATE-3H-BROWSER');
@@ -70,8 +70,8 @@ test('SSK-TS-3H-B02 candidate selection is non-publishing and evidence validatio
   expect(state.publications).toBe(0);
 });
 
-// SSK-TS-3H-B03
-test('SSK-TS-3H-B03 manual connection request uses the exact candidate-bound indexed port pair', async ({ page }) => {
+// SSK-TS-3H-Q-B03
+test('SSK-TS-3H-Q-B03 manual connection request uses the exact candidate-bound indexed port pair', async ({ page }) => {
   await ready(page, 'manual');
   await fillEvidence(page);
   await page.locator(command('MANUAL_CONNECT')).click();
@@ -86,8 +86,8 @@ test('SSK-TS-3H-B03 manual connection request uses the exact candidate-bound ind
   expect(state.publications).toBe(0);
 });
 
-// SSK-TS-3H-B04
-test('SSK-TS-3H-B04 boundary classification prepares exact zero-candidate decision evidence', async ({ page }) => {
+// SSK-TS-3H-Q-B04
+test('SSK-TS-3H-Q-B04 boundary classification prepares exact zero-candidate decision evidence', async ({ page }) => {
   await ready(page, 'boundary');
   await fillEvidence(page);
   await page.locator(command('MARK_TERMINAL')).click();
@@ -101,8 +101,8 @@ test('SSK-TS-3H-B04 boundary classification prepares exact zero-candidate decisi
   expect(state.accepts).toBe(0);
 });
 
-// SSK-TS-3H-B05
-test('SSK-TS-3H-B05 reversal requires exact candidate component and entry port then explicit acceptance', async ({ page }) => {
+// SSK-TS-3H-Q-B05
+test('SSK-TS-3H-Q-B05 reversal requires exact candidate component and entry port then explicit acceptance', async ({ page }) => {
   await ready(page, 'reversal');
   let state = await snapshot(page);
   expect(state.panel.reversalTargetId).toBe('SSK3H-REVERSAL-TARGET');
@@ -132,8 +132,8 @@ test('SSK-TS-3H-B05 reversal requires exact candidate component and entry port t
   expect(state.status).toContain('accepted and published');
 });
 
-// SSK-TS-3H-B06
-test('SSK-TS-3H-B06 stale acceptance is rejected without publication', async ({ page }) => {
+// SSK-TS-3H-Q-B06
+test('SSK-TS-3H-Q-B06 stale acceptance is rejected without publication', async ({ page }) => {
   await ready(page, 'reversal');
   await fillEvidence(page);
   await page.locator(command('REVERSE_COMPONENT')).click();
@@ -147,8 +147,8 @@ test('SSK-TS-3H-B06 stale acceptance is rejected without publication', async ({ 
   expect(state.status).toContain('PREPARED_COMMAND_STALE');
 });
 
-// SSK-TS-3H-B07
-test('SSK-TS-3H-B07 authority refresh and panel closure invalidate prepared work', async ({ page }) => {
+// SSK-TS-3H-Q-B07
+test('SSK-TS-3H-Q-B07 authority refresh and panel closure invalidate prepared work', async ({ page }) => {
   await ready(page, 'candidate');
   await fillEvidence(page);
   await page.locator(command('CONNECT_CANDIDATE')).click();
