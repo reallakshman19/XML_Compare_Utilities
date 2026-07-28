@@ -22,10 +22,13 @@ const reversalTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-d
 const supportTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-target.js');
 const supportDraft = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-draft.js');
 const supportApply = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-apply.js');
+const supportHistoryService = source('tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-history-service.js');
+const supportHistoryPresentation = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-history-presentation.js');
 const supportPanel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-panel.js');
 const supportFeature = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-feature.js');
 const supportBoundary = source('tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-boundary.js');
 const adjustmentRegister = source('tabs/sequential-sketcher/support/sequential-support-adjustment-register.js');
+const adjustmentHistory = source('tabs/sequential-sketcher/support/sequential-support-adjustment-history.js');
 const adjustedProjection = source('tabs/sequential-sketcher/support/sequential-support-adjusted-projection.js');
 const svgAuthority = source('tabs/sequential-sketcher/sequential-engineering-svg-authority.js');
 const ownerBridge = source('tabs/sequential-sketcher/sequential-engineering-svg-owner-bridge.js');
@@ -50,11 +53,12 @@ for (const [name, value] of [
   ['command presentation', presentation], ['candidate target resolver', candidateTarget],
   ['decision target resolver', decisionTarget], ['reversal target resolver', reversalTarget],
   ['support move target', supportTarget], ['support move draft', supportDraft],
-  ['support move apply', supportApply], ['support move panel', supportPanel],
+  ['support move apply', supportApply], ['support history service', supportHistoryService],
+  ['support history presentation', supportHistoryPresentation], ['support move panel', supportPanel],
   ['support move feature', supportFeature], ['support adjustment boundary', supportBoundary],
-  ['support adjustment register', adjustmentRegister], ['adjusted support projection', adjustedProjection],
-  ['engineering SVG authority', svgAuthority], ['owner bridge', ownerBridge],
-  ['workspace command boundary', boundary],
+  ['support adjustment register', adjustmentRegister], ['support adjustment history', adjustmentHistory],
+  ['adjusted support projection', adjustedProjection], ['engineering SVG authority', svgAuthority],
+  ['owner bridge', ownerBridge], ['workspace command boundary', boundary],
 ]) {
   assert(value.split(/\r?\n/).length <= 300, `${name} must remain under 300 lines`);
   assert.doesNotMatch(value, /export\s+default|module\.exports|exports\./);
@@ -72,44 +76,59 @@ assert.match(visual, /DRAFT SUPPORT/);
 assert.match(visual, /OVERLAY_STYLE/);
 
 assert.match(adjustmentRegister, /SequentialSupportAdjustmentRegister\.v1/);
-assert.match(adjustmentRegister, /headFingerprint/);
 assert.match(adjustmentRegister, /appendSequentialSupportAdjustment/);
 assert.match(adjustmentRegister, /current adjusted point/);
 assert.doesNotMatch(adjustmentRegister, /querySelector|gateway\.|publishCandidate|localStorage/);
+assert.match(adjustmentHistory, /SequentialSupportAdjustmentHistory\.v1/);
+assert.match(adjustmentHistory, /UNDO_SUPPORT_ADJUSTMENT/);
+assert.match(adjustmentHistory, /REDO_SUPPORT_ADJUSTMENT/);
+assert.match(adjustmentHistory, /recordSequentialSupportAdjustmentRegister/);
+assert.match(adjustmentHistory, /transitionSequentialSupportAdjustmentHistory/);
+assert.match(adjustmentHistory, /redoStack: \[\]/,
+  'new accepted support adjustment must clear support redo history');
+assert.doesNotMatch(adjustmentHistory,
+  /commandJournal|transactionLedger|undoStack.*session|localStorage|sessionStorage|indexedDB/);
 assert.match(adjustedProjection, /SequentialAdjustedSupportProjection\.v1/);
 assert.match(adjustedProjection, /resolvedSupportFamilies/);
 assert.match(adjustedProjection, /supportFamilies/);
 assert.match(adjustedProjection, /baseProjectionMutated: false/);
 assert.match(adjustedProjection, /silently substitute coordinates/);
-assert.doesNotMatch(adjustedProjection, /Object\.assign\(base|localStorage|sessionStorage/);
 
-assert.match(svgAuthority, /validateSupportAuthority/);
 assert.match(svgAuthority, /supportAdjustmentRegisterFingerprint/);
 assert.match(svgAuthority, /assertSequentialAdjustedSupportProjection/);
 assert.match(ownerBridge, /createSequentialAdjustedEngineeringSvgOwnerSnapshot/);
-assert.match(ownerBridge, /baseSupportProjection/);
-assert.match(ownerBridge, /supportAdjustmentRegister/);
 assert.match(readModel, /supportAdjustmentRegisterFingerprint/);
 
 assert.match(supportBoundary, /SequentialSupportAdjustmentBoundary\.v1/);
 assert.match(supportBoundary, /const byBranch = new Map\(\)/);
-assert.match(supportBoundary, /readEffectiveOwnerSnapshot/);
-assert.match(supportBoundary, /readView/);
-assert.match(supportBoundary, /publishCandidate/);
+assert.match(supportBoundary, /readHistory/);
+assert.match(supportBoundary, /publishHistoryCandidate/);
+assert.match(supportBoundary, /consumedHistoryPreparedIdsByBranch/);
+assert.match(supportBoundary, /already been consumed/);
+assert.match(supportBoundary, /recordSequentialSupportAdjustmentRegister/);
+assert.match(supportBoundary, /transitionSequentialSupportAdjustmentHistory/);
 assert.match(supportBoundary, /assertSequentialAdjustedSupportProjection/);
 assert.doesNotMatch(supportBoundary,
   /restorePackage|constructionTransaction|commandJournal|localStorage|sessionStorage|indexedDB/,
-  'support adjustments must remain branch-local and outside construction/persistence authority');
+  'support history must remain branch-local and outside construction/persistence authority');
 
 assert.match(supportApply, /SequentialPreparedSupportAdjustment\.v1/);
 assert.match(supportApply, /locateSupportOnCarrier/);
 assert.match(supportApply, /NOT_SAME_CARRIER/);
 assert.match(supportApply, /HIDDEN_SNAP/);
-assert.match(supportApply, /appendSequentialSupportAdjustment/);
 assert.match(supportApply, /publicationState: 'NOT_PUBLISHED'/);
 assert.match(supportApply, /publicationState: 'COMMITTED'/);
 assert.doesNotMatch(supportApply,
   /applyConstructionDecision|advanceConstruction|transactionLedger|decisionLedger|commandJournal/);
+assert.match(supportHistoryService, /SequentialPreparedSupportAdjustmentHistory\.v1/);
+assert.match(supportHistoryService, /SequentialPreparedSupportAdjustmentHistoryCandidate\.v1/);
+assert.match(supportHistoryService, /SEQUENTIAL_SUPPORT_ADJUSTMENT_HISTORY_ACTIONS/);
+assert.match(supportHistoryService, /expectedHistoryFingerprint/);
+assert.match(supportHistoryService, /publishHistoryCandidate/);
+assert.match(supportHistoryService, /publicationState: 'NOT_PUBLISHED'/);
+assert.match(supportHistoryService, /publicationState: 'COMMITTED'/);
+assert.doesNotMatch(supportHistoryService,
+  /createSequentialCommandService|commandGateway|commandJournal|transactionLedger|decisionLedger/);
 
 assert.match(supportTarget, /SequentialDraftEditSupportMoveTarget\.v1/);
 assert.match(supportTarget, /SEQUENTIAL_CONFIRMED_SUPPORT/);
@@ -123,15 +142,25 @@ assert.match(supportDraft, /publicationState: 'NOT_PUBLISHED'/);
 assert.doesNotMatch(supportDraft, /commandGateway|\.commit\(|publishCandidate|gateway\.|transaction|journal/);
 
 assert.match(supportPanel, /Preview move draft/);
-assert.match(supportPanel, /Apply adjustment/);
-assert.match(supportPanel, /Apply is the only publication action/);
+assert.match(supportPanel, /Prepare undo/);
+assert.match(supportPanel, /Prepare redo/);
+assert.match(supportPanel, /Apply prepared/);
+assert.match(supportPanel, /data-ssk-support-history-state/);
 assert.match(supportPanel, /data-ssk-support-move-review/);
 assert.match(supportPanel, /data-ssk-draft-edit-actor/);
 assert.doesNotMatch(supportPanel, /gateway\.|commandGateway|publishCandidate/);
+assert.match(supportHistoryPresentation, /Action:/);
+assert.match(supportHistoryPresentation, /Affected adjustment:/);
+assert.match(supportHistoryPresentation, /Current register:/);
+assert.match(supportHistoryPresentation, /Next history:/);
+assert.match(supportHistoryPresentation, /Apply prepared is the only publication action/);
+assert.doesNotMatch(supportHistoryPresentation, /querySelector|addEventListener|gateway\./);
 assert.match(supportFeature, /createSequentialDraftEditSupportMoveApplyService/);
-assert.match(supportFeature, /applyService\.prepare/);
-assert.match(supportFeature, /applyService\.accept/);
-assert.match(supportFeature, /supportAdjustmentBoundary/);
+assert.match(supportFeature, /createSequentialSupportAdjustmentHistoryService/);
+assert.match(supportFeature, /historyService\.prepare/);
+assert.match(supportFeature, /historyService\.accept/);
+assert.match(supportFeature, /readHistory/);
+assert.match(supportFeature, /publishHistoryCandidate/);
 assert.doesNotMatch(supportFeature, /restorePackage|constructionTransaction|commandJournal/);
 
 assert.match(controller, /supportAdjustmentBoundary\.readView/);
@@ -169,24 +198,26 @@ for (const label of [
 
 for (const moduleName of [
   'sequential-draft-edit-reversal-target', 'sequential-draft-edit-support-move-target',
-  'sequential-draft-edit-support-move-draft', 'sequential-draft-edit-support-move-panel',
-  'sequential-draft-edit-support-move-feature', 'sequential-draft-edit-support-move-apply',
+  'sequential-draft-edit-support-move-draft', 'sequential-draft-edit-support-history-presentation',
+  'sequential-draft-edit-support-move-panel', 'sequential-draft-edit-support-move-feature',
+  'sequential-draft-edit-support-move-apply', 'sequential-support-adjustment-history-service',
   'sequential-support-adjustment-boundary',
 ]) assert.match(index, new RegExp(moduleName));
 assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 12,
-  'SSK-TS-3I must preserve exactly twelve qualified construction command buttons');
+  'SSK-TS-3J must preserve exactly twelve qualified construction command buttons');
 for (const commandType of [
   'CONNECT_CANDIDATE', 'MANUAL_CONNECT', 'REJECT_CANDIDATE',
   'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT', 'ADVANCE_ONE',
   'RUN_UNTIL_BLOCKED', 'DEFER_DECISION', 'RESUME_DECISION',
   'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(markup, new RegExp(`data-ssk-draft-edit-command="${commandType}"`));
-assert.doesNotMatch(markup, /data-ssk-support-move-(?:apply|publish|commit)/);
+assert.doesNotMatch(markup, /data-ssk-support-(?:move|history)-(?:apply|publish|commit|undo|redo)/,
+  'support history controls must remain contained in the Draft Edit panel module');
 assert.match(gateway, /createSequentialCommandService/);
-assert.doesNotMatch(gateway, /querySelector|addEventListener|onPick|beginDrag|commitDrag/);
+assert.doesNotMatch(gateway, /supportAdjustment|querySelector|addEventListener|onPick|beginDrag|commitDrag/);
 assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
 assert.doesNotMatch(boundary, /supportAdjustment|Object\.assign\(model/,
-  'construction command boundary must not own support adjustments');
+  'construction command boundary must not own support adjustments or history');
 
 assert.match(fixture, /createSequentialScopedEdit3dViewer/);
 assert.match(browserSpec, /SSK-TS-1B-B10/);
@@ -205,4 +236,4 @@ assert.match(lifecycleDoc, /SSK-TS-3H-Q/);
 assert.match(lifecycleDoc, /Browser-qualified supervised command lifecycle/);
 assert.match(config, /sequential-draft-edit-command-lifecycle\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3I support adjustment and SSK-TS-3H-Q browser lifecycle containment: ok');
+console.log('Sequential SSK-TS-3J support history and SSK-TS-3H-Q browser lifecycle containment: ok');

@@ -11,8 +11,9 @@ import { createSequentialSupportAdjustmentBoundary } from '../tabs/sequential-sk
 import { selectSequentialDraftEditSupportMoveTarget } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-target.js';
 import { createSequentialDraftEditSupportMoveDraftStore } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-draft.js';
 import { createSequentialDraftEditSupportMoveApplyService } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-apply.js';
+import { createSequentialSupportAdjustmentHistoryService } from '../tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-history-service.js';
 
-const AT = '2026-07-28T07:00:00.000Z';
+const AT = '2026-07-28T08:35:00.000Z';
 function branchFixture(branchId, length = 1000, supportX = 250) {
   const source = [{
     type: 'BRANCH', name: branchId, attributes: { NAME: branchId, HPOS: { x: 0, y: 0, z: 0 } },
@@ -49,9 +50,9 @@ function branchFixture(branchId, length = 1000, supportX = 250) {
   return { branchId, source, confirmedConstruction, supportProjection, state, ownerBridge };
 }
 
-const branchA = branchFixture('/SSK/3I/BRANCH-A');
-const branchB = branchFixture('/SSK/3I/BRANCH-B', 1200, 400);
-const branchAChanged = branchFixture('/SSK/3I/BRANCH-A', 1000, 350);
+const branchA = branchFixture('/SSK/3J/BRANCH-A');
+const branchB = branchFixture('/SSK/3J/BRANCH-B', 1200, 400);
+const branchAChanged = branchFixture('/SSK/3J/BRANCH-A', 1000, 350);
 let active = branchA;
 let publications = 0;
 const boundary = createSequentialSupportAdjustmentBoundary({
@@ -59,9 +60,15 @@ const boundary = createSequentialSupportAdjustmentBoundary({
   readBaseOwnerSnapshot: () => active.ownerBridge.getSnapshot(),
   onPublished: () => { publications += 1; },
 });
-const service = createSequentialDraftEditSupportMoveApplyService({
+const moveService = createSequentialDraftEditSupportMoveApplyService({
   readCurrentState: boundary.readCurrentState,
   publishCandidate: boundary.publishCandidate,
+  now: () => AT,
+});
+const historyService = createSequentialSupportAdjustmentHistoryService({
+  readCurrentState: boundary.readCurrentState,
+  readHistory: boundary.readHistory,
+  publishHistoryCandidate: boundary.publishHistoryCandidate,
   now: () => AT,
 });
 function previewAt(x) {
@@ -72,36 +79,59 @@ function previewAt(x) {
     currentState: boundary.readCurrentState(),
   });
   const store = createSequentialDraftEditSupportMoveDraftStore();
-  return store.stage({ target, position: { x, y: 0, z: 0 }, actorId: 'operator-3i',
+  return store.stage({ target, position: { x, y: 0, z: 0 }, actorId: 'operator-3j',
     reason: 'Branch-local adjustment.', evidenceNote: 'Branch and carrier checked.' });
 }
+function historyInput(action) {
+  return { action, actorId: 'operator-3j', reason: 'Branch-local history transition.',
+    evidenceNote: 'History head and branch checked.' };
+}
 
-const preparedA = service.prepare(previewAt(300));
-assert.equal(service.accept(preparedA).accepted, true);
+const preparedA = moveService.prepare(previewAt(300));
+assert.equal(moveService.accept(preparedA).accepted, true);
 assert.equal(publications, 1);
 assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 300);
+assert.equal(boundary.readHistory().undoStack.length, 1);
+assert.equal(boundary.readHistory().redoStack.length, 0);
 assert.equal(boundary.getState().branchCount, 1);
 
 active = branchB;
 assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 400);
-assert.equal(boundary.readCurrentState().supportAdjustmentRegister.entries.length, 0);
+assert.equal(boundary.readHistory().currentRegister.entries.length, 0);
+assert.equal(boundary.readHistory().undoStack.length, 0);
 assert.equal(boundary.getState().branchCount, 2);
 
 active = branchA;
 assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 300,
-  'switching back must restore branch-local adjustment');
-assert.equal(boundary.readCurrentState().supportAdjustmentRegister.entries.length, 1);
+  'switching back must restore branch-local support adjustment');
+assert.equal(boundary.readHistory().undoStack.length, 1,
+  'switching back must restore branch-local support history');
+
+const undoPrepared = historyService.prepare(historyInput('UNDO_SUPPORT_ADJUSTMENT'));
+assert.equal(historyService.accept(undoPrepared).accepted, true);
+assert.equal(publications, 2);
+assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 250);
+assert.equal(boundary.readHistory().undoStack.length, 0);
+assert.equal(boundary.readHistory().redoStack.length, 1);
+
+active = branchB;
+assert.equal(boundary.readHistory().redoStack.length, 0);
+active = branchA;
+assert.equal(boundary.readHistory().redoStack.length, 1,
+  'branch switching must restore branch-local redo history');
 
 active = branchAChanged;
 assert.equal(branchAChanged.confirmedConstruction.constructionFingerprint,
   branchA.confirmedConstruction.constructionFingerprint,
   'support-only source changes must not alter confirmed pipe construction');
 assert.notDeepEqual(branchAChanged.supportProjection, branchA.supportProjection,
-  'support-only source changes must alter the complete base support projection');
-assert.equal(boundary.readCurrentState().supportAdjustmentRegister.entries.length, 0,
-  'changed support evidence must clear the incompatible adjustment register');
+  'support-only source changes must alter complete base support projection');
+assert.equal(boundary.readHistory().currentRegister.entries.length, 0);
+assert.equal(boundary.readHistory().undoStack.length, 0);
+assert.equal(boundary.readHistory().redoStack.length, 0,
+  'changed support evidence must clear incompatible branch-local history');
 assert.equal(boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 350);
 
 boundary.destroy();
 for (const row of [branchA, branchB, branchAChanged]) row.ownerBridge.destroy();
-console.log('Sequential SSK-TS-3I branch-local support adjustment lifecycle: ok');
+console.log('Sequential SSK-TS-3J branch-local support adjustment history lifecycle: ok');

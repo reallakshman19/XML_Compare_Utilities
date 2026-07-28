@@ -3,15 +3,21 @@ import {
   createSequentialAdjustedEngineeringSvgOwnerSnapshot,
 } from '../sequential-engineering-svg-owner-bridge.js';
 import {
-  createSequentialSupportAdjustmentRegister,
-  assertSequentialSupportAdjustmentRegister,
-} from '../support/sequential-support-adjustment-register.js';
-import {
-  applySequentialSupportAdjustmentRegister,
   assertSequentialAdjustedSupportProjection,
+  applySequentialSupportAdjustmentRegister,
   sequentialSupportProjectionFingerprint,
 } from '../support/sequential-support-adjusted-projection.js';
-import { sameSequentialContractValue } from './sequential-command-contracts.js';
+import {
+  assertSequentialSupportAdjustmentHistory,
+  createSequentialSupportAdjustmentHistory,
+  recordSequentialSupportAdjustmentRegister,
+  sequentialSupportAdjustmentHistoryCapabilities,
+  transitionSequentialSupportAdjustmentHistory,
+} from '../support/sequential-support-adjustment-history.js';
+import {
+  sameSequentialContractValue,
+  sequentialSemanticFingerprint,
+} from './sequential-command-contracts.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 import { createSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-edit-scene-adapter.js';
@@ -44,51 +50,62 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
   );
   const onPublished = requiredFunction(options.onPublished, 'onPublished');
   const byBranch = new Map();
+  const consumedHistoryPreparedIdsByBranch = new Map();
   let destroyed = false;
 
-  function currentRegister(snapshot) {
+  function currentHistory(snapshot) {
     const id = branchId(snapshot);
     const base = snapshot?.supportProjection || null;
     if (!id || !base) return null;
     const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
     const stored = byBranch.get(id);
     if (stored?.baseProjectionFingerprint === baseProjectionFingerprint) {
-      return assertSequentialSupportAdjustmentRegister(
-        stored.register,
-        base.constructionFingerprint,
-      );
+      if (!consumedHistoryPreparedIdsByBranch.has(id)) {
+        consumedHistoryPreparedIdsByBranch.set(id, new Set());
+      }
+      return assertSequentialSupportAdjustmentHistory(stored.history, {
+        constructionFingerprint: base.constructionFingerprint,
+        baseProjectionFingerprint,
+      });
     }
-    const register = createSequentialSupportAdjustmentRegister({
+    const history = createSequentialSupportAdjustmentHistory({
       constructionFingerprint: base.constructionFingerprint,
+      baseProjectionFingerprint,
     });
-    byBranch.set(id, Object.freeze({ baseProjectionFingerprint, register }));
-    return register;
+    byBranch.set(id, Object.freeze({ baseProjectionFingerprint, history }));
+    consumedHistoryPreparedIdsByBranch.set(id, new Set());
+    return history;
+  }
+  function readHistory() {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    return currentHistory(readBaseOwnerSnapshot());
   }
   function effectiveOwnerSnapshot() {
     if (destroyed) return null;
     const snapshot = readBaseOwnerSnapshot();
-    const register = currentRegister(snapshot);
-    return register
-      ? createSequentialAdjustedEngineeringSvgOwnerSnapshot(snapshot, register)
+    const history = currentHistory(snapshot);
+    return history
+      ? createSequentialAdjustedEngineeringSvgOwnerSnapshot(snapshot, history.currentRegister)
       : snapshot;
   }
   function readCurrentState() {
     if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
     const baseState = readBaseState();
     const baseSnapshot = readBaseOwnerSnapshot();
-    const register = currentRegister(baseSnapshot);
-    if (!register) return baseState;
+    const history = currentHistory(baseSnapshot);
+    if (!history) return baseState;
     const baseSupportProjection = baseSnapshot.supportProjection;
     const supportProjection = applySequentialSupportAdjustmentRegister(
       baseSupportProjection,
-      register,
+      history.currentRegister,
     );
     return {
       ...baseState,
       baseSupportProjection,
-      supportAdjustmentRegister: register,
+      supportAdjustmentHistory: history,
+      supportAdjustmentRegister: history.currentRegister,
       supportProjection,
-      ownerSnapshot: adjustedCommandOwner(baseState.ownerSnapshot, register),
+      ownerSnapshot: adjustedCommandOwner(baseState.ownerSnapshot, history.currentRegister),
     };
   }
   function readView() {
@@ -98,44 +115,113 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     const scene = buildSequentialScopedEditEngineeringScene(readModel);
     return Object.freeze({ ownerSnapshot, readModel, scene });
   }
-  function publishCandidate(input = {}) {
-    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+  function currentPublicationAuthority(input) {
     const before = readCurrentState();
     const authority = deriveSequentialEditAuthority(before);
     if (!sameSequentialContractValue(authority, input.expectedAuthority)) {
       throw new RangeError('Prepared support adjustment is stale against current edit authority.');
     }
+    return Object.freeze({ before, authority, base: before.baseSupportProjection,
+      history: before.supportAdjustmentHistory });
+  }
+  function store(authority, base, history) {
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
+    byBranch.set(authority.branchId, Object.freeze({ baseProjectionFingerprint, history }));
+  }
+  function publishCandidate(input = {}) {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    const current = currentPublicationAuthority(input);
     const candidate = input.candidate;
     if (candidate?.schema !== 'SequentialPreparedSupportAdjustmentCandidate.v1') {
       throw new TypeError('Support adjustment publication requires a prepared candidate.');
     }
-    const base = before.baseSupportProjection;
-    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
-    const current = assertSequentialSupportAdjustmentRegister(
-      before.supportAdjustmentRegister,
-      base.constructionFingerprint,
-    );
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(current.base);
     if (candidate.expectedBaseProjectionFingerprint !== baseProjectionFingerprint
-      || candidate.expectedRegisterHeadFingerprint !== current.headFingerprint) {
+      || candidate.expectedRegisterHeadFingerprint
+        !== current.history.currentRegister.headFingerprint) {
       throw new RangeError('Prepared support adjustment base or register authority is stale.');
     }
-    const register = assertSequentialSupportAdjustmentRegister(
+    const history = recordSequentialSupportAdjustmentRegister(
+      current.history,
       candidate.register,
-      base.constructionFingerprint,
     );
-    const entry = register.entries.at(-1) || null;
+    const entry = history.currentRegister.entries.at(-1) || null;
     if (!entry || !sameSequentialContractValue(entry, candidate.entry)) {
       throw new RangeError('Prepared support adjustment entry is not the canonical register tail.');
     }
-    assertSequentialAdjustedSupportProjection(base, register, candidate.supportProjection);
-    byBranch.set(authority.branchId, Object.freeze({ baseProjectionFingerprint, register }));
+    assertSequentialAdjustedSupportProjection(
+      current.base,
+      history.currentRegister,
+      candidate.supportProjection,
+    );
+    store(current.authority, current.base, history);
     const publication = Object.freeze({
       schema: 'SequentialSupportAdjustmentPublication.v1',
       committed: true,
       preparedId: input.preparedId,
       adjustmentId: entry.adjustmentId,
-      expectedAuthorityId: authority.authorityId,
-      registerHeadFingerprint: register.headFingerprint,
+      expectedAuthorityId: current.authority.authorityId,
+      registerHeadFingerprint: history.currentRegister.headFingerprint,
+      historyFingerprint: history.historyFingerprint,
+      effectiveProjectionFingerprint: sequentialSupportProjectionFingerprint(
+        candidate.supportProjection,
+      ),
+    });
+    onPublished(publication);
+    return publication;
+  }
+  function publishHistoryCandidate(input = {}) {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    const current = currentPublicationAuthority(input);
+    const candidate = input.candidate;
+    if (candidate?.schema !== 'SequentialPreparedSupportAdjustmentHistoryCandidate.v1') {
+      throw new TypeError('Support history publication requires a prepared history candidate.');
+    }
+    const consumed = consumedHistoryPreparedIdsByBranch.get(current.authority.branchId)
+      || new Set();
+    if (consumed.has(input.preparedId)) {
+      throw new RangeError('Prepared support history has already been consumed.');
+    }
+    const preparedMaterial = {
+      schema: 'SequentialPreparedSupportAdjustmentHistory.v1',
+      expectedAuthority: input.expectedAuthority,
+      candidate,
+    };
+    if (input.preparedId !== sequentialSemanticFingerprint('SSUPPORTHISTORYPREP', preparedMaterial)) {
+      throw new RangeError('Prepared support history ID differs from canonical candidate evidence.');
+    }
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(current.base);
+    if (candidate.expectedBaseProjectionFingerprint !== baseProjectionFingerprint
+      || candidate.expectedHistoryFingerprint !== current.history.historyFingerprint
+      || candidate.expectedCurrentRegisterHeadFingerprint
+        !== current.history.currentRegister.headFingerprint) {
+      throw new RangeError('Prepared support history base, history or register authority is stale.');
+    }
+    const transition = transitionSequentialSupportAdjustmentHistory(
+      current.history,
+      candidate.action,
+    );
+    if (!sameSequentialContractValue(transition.history, candidate.history)
+      || !sameSequentialContractValue(transition.affectedEntry, candidate.affectedEntry)) {
+      throw new RangeError('Prepared support history differs from canonical transition regeneration.');
+    }
+    assertSequentialAdjustedSupportProjection(
+      current.base,
+      transition.history.currentRegister,
+      candidate.supportProjection,
+    );
+    store(current.authority, current.base, transition.history);
+    consumed.add(input.preparedId);
+    consumedHistoryPreparedIdsByBranch.set(current.authority.branchId, consumed);
+    const publication = Object.freeze({
+      schema: 'SequentialSupportAdjustmentHistoryPublication.v1',
+      committed: true,
+      preparedId: input.preparedId,
+      action: candidate.action,
+      affectedAdjustmentId: candidate.affectedEntry?.adjustmentId || null,
+      expectedAuthorityId: current.authority.authorityId,
+      registerHeadFingerprint: transition.history.currentRegister.headFingerprint,
+      historyFingerprint: transition.history.historyFingerprint,
       effectiveProjectionFingerprint: sequentialSupportProjectionFingerprint(
         candidate.supportProjection,
       ),
@@ -146,23 +232,27 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
   return Object.freeze({
     schema: SEQUENTIAL_SUPPORT_ADJUSTMENT_BOUNDARY_SCHEMA,
     readCurrentState,
+    readHistory,
     readEffectiveOwnerSnapshot: effectiveOwnerSnapshot,
     readView,
     publishCandidate,
+    publishHistoryCandidate,
     getState: () => Object.freeze({
       branchCount: byBranch.size,
       branches: Object.freeze([...byBranch.entries()].map(([id, stored]) => Object.freeze({
         branchId: id,
-        constructionFingerprint: stored.register.constructionFingerprint,
+        constructionFingerprint: stored.history.constructionFingerprint,
         baseProjectionFingerprint: stored.baseProjectionFingerprint,
-        registerHeadFingerprint: stored.register.headFingerprint,
-        adjustmentCount: stored.register.entries.length,
+        ...sequentialSupportAdjustmentHistoryCapabilities(stored.history),
+        consumedHistoryPreparedCount:
+          consumedHistoryPreparedIdsByBranch.get(id)?.size || 0,
       }))),
       destroyed,
     }),
     destroy() {
       if (destroyed) return false;
-      destroyed = true; byBranch.clear(); return true;
+      destroyed = true; byBranch.clear();
+      consumedHistoryPreparedIdsByBranch.clear(); return true;
     },
   });
 }
