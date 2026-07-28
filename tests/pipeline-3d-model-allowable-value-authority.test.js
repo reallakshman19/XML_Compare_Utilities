@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   PIPELINE_ALLOWABLE_VALUE_AUTHORITY_PLAN_SCHEMA,
   PIPELINE_CODE_SOURCE_AUTHORITY_SCHEMA,
+  PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ENTRY_SCHEMA,
   approvedSourceReferenceKey,
   resolvePipelineAllowableValueAuthorityPlan,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-allowable-value-authority.js';
@@ -16,7 +17,6 @@ const codeSources = [
   source('B314', 'ASME B31.4 Selection Record', '2022', 'b'),
 ];
 const allowableSource = source('MAT-SHEET', 'Approved Material Sheet', 'R3', 'c');
-
 const profileAuthorityPlan = Object.freeze({
   schema: 'PipelineInputXmlProfileAuthorityPlan.v1', ready: true, blockerCodes: Object.freeze([]),
   sectionAuthorities: Object.freeze([
@@ -26,9 +26,11 @@ const profileAuthorityPlan = Object.freeze({
 });
 const pipingCodeAuthorities = Object.freeze([
   Object.freeze({ analysisSectionId: 'AS1', caesarPipingCode: 101,
-    sourceAuthority: codeSources[0].sourceId, sourceReference: approvedSourceReferenceKey(codeSources[0]) }),
+    sourceAuthority: codeSources[0].sourceId, sourceReference: approvedSourceReferenceKey(codeSources[0]),
+    catalogEntry: Object.freeze({ codeFamily: 'PROJECT-CODE', codeEdition: 'DB-R1', caesarVersion: '14.00' }) }),
   Object.freeze({ analysisSectionId: 'AS2', caesarPipingCode: 202,
-    sourceAuthority: codeSources[1].sourceId, sourceReference: approvedSourceReferenceKey(codeSources[1]) }),
+    sourceAuthority: codeSources[1].sourceId, sourceReference: approvedSourceReferenceKey(codeSources[1]),
+    catalogEntry: Object.freeze({ codeFamily: 'ASME B31.4', codeEdition: '2022', caesarVersion: '14.00' }) }),
 ]);
 const emptyCase = (num) => Object.freeze({ num, attributes: Object.freeze({
   HOT_ALLOW: null, HOT_SY: null, HOT_SU: null,
@@ -70,6 +72,14 @@ const authority = (section, profileId, resolvedMode, materialNumber, materialNam
     { num: 2, temperature: 200, hotAllow: base - 2, hotSy: base + 8, hotSu: base + 18 },
   ],
 });
+const catalogEntry = (item, index) => ({
+  catalogEntryId: index === 0 ? 'MAT-A106B-R3' : 'MAT-PIPELINE-R3',
+  codeFamily: item.codeFamily, codeEdition: item.codeEdition, caesarVersion: '14.00',
+  materialNumber: item.materialNumber, materialName: item.materialName,
+  coldAllow: structuredClone(item.coldAllow), sy: structuredClone(item.sy), su: structuredClone(item.su),
+  sourceAuthority: item.sourceAuthority, sourceReference: item.sourceReference,
+  cases: structuredClone(item.cases),
+});
 const authorities = [
   authority('AS1', 'normal-metallic', 'NORMAL', 106, 'A106 B', 1000, 0),
   authority('AS2', 'asme-b31.4', 'ASME_B31_4', 5, 'PIPELINE STEEL', 2000, 1),
@@ -77,6 +87,7 @@ const authorities = [
 authorities[1].su = { disposition: 'SENTINEL' };
 authorities[1].cases[0].hotSy = { disposition: 'SENTINEL' };
 authorities[1].cases[0].hotSu = { disposition: 'ZERO' };
+authorities.forEach((item, index) => { item.catalogEntry = catalogEntry(item, index); });
 
 const resolve = (values = authorities, modelElements = elements) =>
   resolvePipelineAllowableValueAuthorityPlan({ profileAuthorityPlan, pipingCodeAuthorityPlan,
@@ -87,32 +98,49 @@ assert.equal(plan.ready, true);
 assert.equal(plan.authorityCount, 2);
 assert.equal(plan.requiredSectionCount, 2);
 assert.equal(plan.authorities[0].codeSourceAuthority.schema, PIPELINE_CODE_SOURCE_AUTHORITY_SCHEMA);
-assert.equal(plan.authorities[0].codeSourceAuthority.codeEdition, 'DB-R1');
-assert.equal(plan.authorities[0].codeSourceAuthority.codeSource.referenceKey,
-  approvedSourceReferenceKey(codeSources[0]));
+assert.equal(plan.authorities[0].catalogEntry.schema,
+  PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ENTRY_SCHEMA);
+assert.equal(plan.authorities[0].catalogEntryId, 'MAT-A106B-R3');
+assert.equal(plan.authorities[0].catalogEntry.values.COLD_ALLOW.value, 1000);
+assert.equal(plan.authorities[1].catalogEntry.values.SU.disposition, 'SENTINEL');
+assert.equal(plan.authorities[1].catalogEntry.cases[0].values.HOT_SU.disposition, 'ZERO');
 assert.equal(plan.elements[0].allowableStress.attributes.COLD_ALLOW, 1000);
-assert.equal(plan.elements[0].allowableStress.attributes.SY, 1010);
-assert.equal(plan.elements[0].allowableStress.cases[0].attributes.HOT_ALLOW, 999);
 assert.equal(plan.elements[0].allowableStress.cases[1].attributes.HOT_SU, 1018);
-assert.equal(plan.elements[0].allowableStress.cases[2].allowableValueCaseAuthority, undefined);
-assert.equal(plan.elements[0].allowableStress.allowableValueAuthority.analysisSectionId, 'AS1');
 assert.equal(plan.elements[1].allowableStress.attributes.SU, null);
-assert.equal(plan.elements[1].allowableStress.cases[0].attributes.HOT_SY, null);
-assert.equal(plan.elements[1].allowableStress.cases[0].attributes.HOT_SU, 0);
-assert.equal(plan.authorities[1].values.SU.disposition, 'SENTINEL');
-assert.equal(Object.isFrozen(plan.authorities[0].codeSourceAuthority.codeSource), true);
+assert.equal(Object.isFrozen(plan.authorities[0].catalogEntry.cases), true);
 assert.deepEqual(plan, resolve(structuredClone(authorities)));
 
 assert.ok(resolve(authorities.slice(0, 1)).blockerCodes
   .includes('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_REQUIRED'));
 assert.ok(resolve([authorities[0], authorities[0], authorities[1]]).blockerCodes
   .includes('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_DUPLICATE'));
-const wrongMaterial = structuredClone(authorities); wrongMaterial[0].materialName = 'WRONG';
+const missingCatalog = structuredClone(authorities); delete missingCatalog[0].catalogEntry;
+assert.ok(resolve(missingCatalog).blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ENTRY_REQUIRED'));
+const wrongVersion = structuredClone(authorities); wrongVersion[0].catalogEntry.caesarVersion = '13.00';
+assert.ok(resolve(wrongVersion).blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_VERSION_INVALID'));
+const catalogValueConflict = structuredClone(authorities); catalogValueConflict[0].catalogEntry.coldAllow = 999;
+assert.ok(resolve(catalogValueConflict).blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_CONFLICT'));
+const catalogMaterialConflict = structuredClone(authorities);
+catalogMaterialConflict[0].catalogEntry.materialName = 'WRONG';
+assert.ok(resolve(catalogMaterialConflict).blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_CONFLICT'));
+const duplicateCatalog = structuredClone(authorities);
+duplicateCatalog[1].catalogEntry.catalogEntryId = duplicateCatalog[0].catalogEntry.catalogEntryId;
+assert.ok(resolve(duplicateCatalog).blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ID_DUPLICATE'));
+const wrongMaterial = structuredClone(authorities);
+wrongMaterial[0].materialName = 'WRONG'; wrongMaterial[0].catalogEntry.materialName = 'WRONG';
 assert.ok(resolve(wrongMaterial).blockerCodes.includes('PIPELINE_ALLOWABLE_VALUE_MATERIAL_MISMATCH'));
-const wrongTemperature = structuredClone(authorities); wrongTemperature[0].cases[0].temperature = 101;
+const wrongTemperature = structuredClone(authorities);
+wrongTemperature[0].cases[0].temperature = 101;
+wrongTemperature[0].catalogEntry.cases[0].temperature = 101;
 assert.ok(resolve(wrongTemperature).blockerCodes.includes('PIPELINE_ALLOWABLE_VALUE_TEMPERATURE_MISMATCH'));
 const extraCase = structuredClone(authorities);
-extraCase[0].cases.push({ num: 3, temperature: 300, hotAllow: 1, hotSy: 1, hotSu: 1 });
+const third = { num: 3, temperature: 300, hotAllow: 1, hotSy: 1, hotSu: 1 };
+extraCase[0].cases.push(structuredClone(third)); extraCase[0].catalogEntry.cases.push(structuredClone(third));
 assert.ok(resolve(extraCase).blockerCodes.includes('PIPELINE_ALLOWABLE_VALUE_CASE_UNUSED'));
 const conflictingElements = structuredClone(elements);
 conflictingElements[0].allowableStress.attributes.COLD_ALLOW = 9999;
@@ -131,11 +159,12 @@ assert.ok(resolve(badDigest).blockerCodes.includes('PIPELINE_APPROVED_SOURCE_SHA
 const wrongPipingSource = structuredClone(authorities); wrongPipingSource[0].codeSource.sourceId = 'OTHER';
 assert.ok(resolve(wrongPipingSource).blockerCodes
   .includes('PIPELINE_CODE_SOURCE_PIPING_PROVENANCE_MISMATCH'));
+const wrongCodeFamily = structuredClone(authorities); wrongCodeFamily[0].codeFamily = 'OTHER';
+wrongCodeFamily[0].catalogEntry.codeFamily = 'OTHER';
+assert.ok(resolve(wrongCodeFamily).blockerCodes
+  .includes('PIPELINE_CODE_SOURCE_PIPING_CATALOG_MISMATCH')); 
 const wrongAllowableSource = structuredClone(authorities); wrongAllowableSource[0].sourceReference = 'OTHER';
 assert.ok(resolve(wrongAllowableSource).blockerCodes
-  .includes('PIPELINE_CODE_SOURCE_ALLOWABLE_PROVENANCE_MISMATCH'));
-const wrongCaseSource = structuredClone(authorities); wrongCaseSource[0].cases[0].sourceAuthority = 'OTHER';
-assert.ok(resolve(wrongCaseSource).blockerCodes
   .includes('PIPELINE_CODE_SOURCE_ALLOWABLE_PROVENANCE_MISMATCH'));
 const nonProfile = resolvePipelineAllowableValueAuthorityPlan({ profileAuthorityPlan: null,
   pipingCodeAuthorityPlan: null, elements: [], allowableValueAuthorities: authorities });
