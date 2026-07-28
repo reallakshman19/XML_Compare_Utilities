@@ -17,6 +17,7 @@ function projectionIndexes(projection) {
     'Sequential index projection',
   );
   return {
+    branches: new Map(projection.branches.map((row) => [row.branchId, row.branch])),
     components: new Map(projection.components.map((row) => [row.componentId, row.component])),
     ports: new Map(projection.ports.map((row) => [row.portId, row.port])),
   };
