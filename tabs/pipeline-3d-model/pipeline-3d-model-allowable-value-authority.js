@@ -117,8 +117,9 @@ function authorityMap(inputs, sectionById, pipingBySection, required, diagnostic
   inputs.forEach((source, authorityIndex) => {
     const item = normalizedAuthority(source, authorityIndex, sectionById, pipingBySection, diagnostics); if (!item) return;
     if (bySection.has(item.analysisSectionId)) { diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_DUPLICATE', 'An analysis section may have only one allowable-value authority record.', { analysisSectionId: item.analysisSectionId })); return; }
-    if (catalogOwners.has(item.catalogEntryId)) { diagnostics.push(diagnostic('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ID_DUPLICATE', 'Selected material/allowable catalog entry IDs must be unique across admitted sections.', { catalogEntryId: item.catalogEntryId, analysisSectionIds: [catalogOwners.get(item.catalogEntryId), item.analysisSectionId] })); return; }
-    bySection.set(item.analysisSectionId, item); catalogOwners.set(item.catalogEntryId, item.analysisSectionId);
+    const prior = catalogOwners.get(item.catalogEntryId);
+    if (prior && !same(prior.catalogEntry, item.catalogEntry)) { diagnostics.push(diagnostic('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ID_CONFLICT', 'A reused material/allowable catalog entry ID must resolve to identical normalized evidence.', { catalogEntryId: item.catalogEntryId, analysisSectionIds: [prior.analysisSectionId, item.analysisSectionId] })); diagnostics.push(diagnostic('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ID_DUPLICATE', 'Conflicting catalog identity reuse retains the legacy duplicate-ID blocker.', { catalogEntryId: item.catalogEntryId, analysisSectionIds: [prior.analysisSectionId, item.analysisSectionId] })); return; }
+    bySection.set(item.analysisSectionId, item); if (!prior) catalogOwners.set(item.catalogEntryId, item);
   });
   for (const id of required) if (!bySection.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_REQUIRED', 'Every section containing ALLOWABLESTRESS requires allowable-value authority.', { analysisSectionId: id }));
   for (const id of bySection.keys()) if (!required.has(id)) diagnostics.push(diagnostic('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_UNUSED', 'Allowable-value authority cannot target a section without ALLOWABLESTRESS.', { analysisSectionId: id }));
