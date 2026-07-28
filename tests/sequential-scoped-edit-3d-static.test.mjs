@@ -40,7 +40,7 @@ const workbenchFixture = source('tests/browser/sequential-scoped-edit-3d-workben
 const workbenchSpec = source('tests/browser/sequential-scoped-edit-3d-workbench.spec.mjs');
 const lifecycleFixture = source('tests/browser/sequential-draft-edit-command-lifecycle-fixture.html');
 const lifecycleSpec = source('tests/browser/sequential-draft-edit-command-lifecycle.spec.mjs');
-const lifecycleDoc = source('docs/ssk-ts-3h-browser-command-lifecycle.md');
+const lifecycleDoc = source('docs/ssk-ts-3h-q-browser-command-lifecycle.md');
 const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
@@ -196,12 +196,13 @@ assert.match(lifecycleFixture, /createSequentialDraftEditCommandPanel/);
 assert.equal([...lifecycleFixture.matchAll(/data-ssk-draft-edit-command="/g)].length, 12);
 assert.doesNotMatch(lifecycleFixture,
   /data-ssk-(?:candidate|component|connection|entry-port|from-port|to-port)-id/);
-assert.match(lifecycleSpec, /SSK-TS-3H-B01/);
-assert.match(lifecycleSpec, /SSK-TS-3H-B07/);
+assert.match(lifecycleSpec, /SSK-TS-3H-Q-B01/);
+assert.match(lifecycleSpec, /SSK-TS-3H-Q-B07/);
 assert.match(lifecycleSpec, /\.locator\([^\n]+\)\.click\(\)/);
 assert.doesNotMatch(lifecycleSpec,
   /panel\.(?:prepare|accept)\(|gateway\.(?:prepare|accept|execute)\(|prepareCommand\(|acceptCommand\(|executeCommand\(/);
+assert.match(lifecycleDoc, /SSK-TS-3H-Q/);
 assert.match(lifecycleDoc, /Browser-qualified supervised command lifecycle/);
 assert.match(config, /sequential-draft-edit-command-lifecycle\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3I support adjustment and browser lifecycle containment: ok');
+console.log('Sequential SSK-TS-3I support adjustment and SSK-TS-3H-Q browser lifecycle containment: ok');
