@@ -6,6 +6,11 @@ async function upload(page, slot, name) {
   const buffer = await readFile(fixture(name));
   await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
 }
+async function keyboardActivate(page, name) {
+  const button = page.getByRole('button', { name });
+  await expect(button).toBeVisible(); await expect(button).toBeEnabled();
+  await button.focus(); await page.keyboard.press('Enter');
+}
 async function installViewer(page, fail = false) {
   await page.evaluate(({ shouldFail }) => {
     window.rcViewerLog = { selections: [], modes: [], fitAll: 0, fitSelected: 0, disposed: 0, models: null, callbacks: null };
@@ -93,7 +98,7 @@ test('bounded visual compare synchronizes 3D, queue, inspector, evidence, and in
   await expect(scopeBranch).not.toBeChecked();
   await expect(page.locator('footer [data-status="stale"]')).toBeVisible();
   expect(await page.evaluate(() => window.rcHandle.evidence().state.compare.audit)).toBeNull();
-  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
+  await keyboardActivate(page, 'Approve comparison basis');
   await runAndOpenReview(page);
   await expect(page.getByRole('heading', { name: 'Change summary' })).toBeVisible();
 
