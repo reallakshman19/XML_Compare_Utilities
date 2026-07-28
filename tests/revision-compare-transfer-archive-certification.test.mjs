@@ -119,7 +119,8 @@ async function inspectLocalHtml(html, hostile) {
     const logs = client.events.filter((item) => item.method === 'Log.entryAdded').map((item) => item.params.entry).filter((item) => item.level === 'error');
     socket.close(); return { parsed, localFile, fileNavigationError, logs, loadDurationMs: performance.now() - started };
   } finally {
-    processRef.kill('SIGKILL'); await Promise.race([once(processRef, 'exit'), delay(1000)]); rmSync(directory, { recursive: true, force: true });
+    processRef.kill('SIGKILL'); await Promise.race([once(processRef, 'exit'), delay(1000)]);
+    rmSync(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 });
   }
 }
 async function hostileBrowserProof(fixture) {
