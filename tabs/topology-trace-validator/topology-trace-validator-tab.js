@@ -123,7 +123,11 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
     },
     applyAutoFixes: async (request) => {
       await workspaceController.prepareEditForAutoFix(request.suggestions, shell);
-      const run = await editController.applyTopologyAutoFixes({ ...request, outOfScopeIssueIds: [] });
+      await checkerController.refresh();
+      const authority = checkerController.evidence();
+      const run = await editController.applyTopologyAutoFixes({ ...request,
+        report: authority.report, policy: authority.policy, policyHash: authority.policyHash,
+        outOfScopeIssueIds: [] });
       editExtensions?.refreshLedger();
       await editController.refreshExportPlan();
       return run;
