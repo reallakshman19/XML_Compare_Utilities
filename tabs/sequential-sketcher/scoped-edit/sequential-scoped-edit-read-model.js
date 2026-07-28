@@ -37,7 +37,9 @@ function authorityMaterial(snapshot) {
   const matches = sameSequentialContractValue(authority.revision, snapshot.revision)
     && authority.sessionFingerprint === snapshot.sessionFingerprint
     && authority.confirmedConstructionFingerprint === snapshot.confirmedConstructionFingerprint
-    && authority.supportConstructionFingerprint === snapshot.supportConstructionFingerprint;
+    && authority.supportConstructionFingerprint === snapshot.supportConstructionFingerprint
+    && authority.supportAdjustmentRegisterFingerprint
+      === snapshot.supportAdjustmentRegisterFingerprint;
   if (!matches) {
     fail(
       SEQUENTIAL_SCOPED_EDIT_READ_MODEL_REJECTION.AUTHORITY_MISMATCH,
@@ -55,6 +57,7 @@ function deriveAuthorityId(snapshot, authority) {
     sessionFingerprint: authority.sessionFingerprint,
     confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
     supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
   });
 }
 
@@ -121,6 +124,7 @@ function buildCertified(snapshotInput) {
     sessionFingerprint: authority.sessionFingerprint,
     confirmedConstructionFingerprint: authority.confirmedConstructionFingerprint,
     supportConstructionFingerprint: authority.supportConstructionFingerprint,
+    supportAdjustmentRegisterFingerprint: authority.supportAdjustmentRegisterFingerprint,
     ownerSnapshot: snapshot,
     selectionSnapshot: selectionSnapshot(snapshot, scene, authorityId),
     parity: built.parity,
