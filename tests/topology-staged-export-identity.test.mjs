@@ -37,7 +37,7 @@ const common = {
   baseCanonical,
   draft,
   editedCanonicalHash: 'fnv1a64:edited',
-  attributeLedger: { edits: [] },
+  attributeLedger: { schema: 'AttributeEditLedger.v1', edits: [], redoEdits: [], nextSequence: 1 },
   commandJournal: { schema: 'CommandJournal.v1', activeCommandIds: [] },
   exportedAt: '2026-07-28T07:30:00.000Z',
   ledgerRows: [],
