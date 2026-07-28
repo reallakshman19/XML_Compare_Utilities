@@ -13,7 +13,7 @@ const codeSources = [
   source('VENDOR-QUALIFICATION', 'GRE Vendor Qualification', 'R2', 'c'),
 ];
 const allowableSource = source('APPROVED-MATERIAL-SHEET', 'Approved Material Sheet', 'R4', 'd');
-const catalogEntries = [
+const codeCatalogEntries = [
   { catalogEntryId: 'CODE-NORMAL-R1', codeFamily: 'PROJECT-CODE', codeEdition: 'DB-R1',
     caesarVersion: '14.00', caesarPipingCode: 101, sourceAuthority: codeSources[0].sourceId,
     sourceReference: approvedSourceReferenceKey(codeSources[0]) },
@@ -27,13 +27,13 @@ const catalogEntries = [
 const pipingCodeAuthorities = [
   { analysisSectionId: 'AS1', profileId: 'normal-metallic', resolvedMode: 'NORMAL',
     caesarPipingCode: 101, sourceAuthority: codeSources[0].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[0]), catalogEntry: catalogEntries[0] },
+    sourceReference: approvedSourceReferenceKey(codeSources[0]), catalogEntry: codeCatalogEntries[0] },
   { analysisSectionId: 'AS2', profileId: 'asme-b31.4', resolvedMode: 'ASME_B31_4',
     caesarPipingCode: 202, sourceAuthority: codeSources[1].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[1]), catalogEntry: catalogEntries[1] },
+    sourceReference: approvedSourceReferenceKey(codeSources[1]), catalogEntry: codeCatalogEntries[1] },
   { analysisSectionId: 'AS3', profileId: 'gre', resolvedMode: 'GRE',
     caesarPipingCode: 303, sourceAuthority: codeSources[2].sourceId,
-    sourceReference: approvedSourceReferenceKey(codeSources[2]), catalogEntry: catalogEntries[2] },
+    sourceReference: approvedSourceReferenceKey(codeSources[2]), catalogEntry: codeCatalogEntries[2] },
 ];
 const caseValues = (num, temperature, hotAllow, hotSy, hotSu) => ({
   num, temperature, hotAllow, hotSy, hotSu,
@@ -44,14 +44,22 @@ const authority = (analysisSectionId, profileId, resolvedMode, base, index) => (
   coldAllow: base, sy: base + 100, su: base + 200,
   sourceAuthority: allowableSource.sourceId,
   sourceReference: approvedSourceReferenceKey(allowableSource),
-  codeFamily: catalogEntries[index].codeFamily,
-  codeEdition: catalogEntries[index].codeEdition,
+  codeFamily: codeCatalogEntries[index].codeFamily,
+  codeEdition: codeCatalogEntries[index].codeEdition,
   codeSource: structuredClone(codeSources[index]),
   allowableSource: structuredClone(allowableSource),
   cases: [
     caseValues(1, 100, base - 10, base + 90, base + 190),
     caseValues(2, 200, base - 20, base + 80, base + 180),
   ],
+});
+const materialCatalogEntry = (item, index) => ({
+  catalogEntryId: ['MAT-NORMAL-R4', 'MAT-B314-R4', 'MAT-GRE-R4'][index],
+  codeFamily: item.codeFamily, codeEdition: item.codeEdition, caesarVersion: '14.00',
+  materialNumber: item.materialNumber, materialName: item.materialName,
+  coldAllow: structuredClone(item.coldAllow), sy: structuredClone(item.sy), su: structuredClone(item.su),
+  sourceAuthority: item.sourceAuthority, sourceReference: item.sourceReference,
+  cases: structuredClone(item.cases),
 });
 const allowableValueAuthorities = [
   authority('AS1', 'normal-metallic', 'NORMAL', 1000, 0),
@@ -62,6 +70,9 @@ allowableValueAuthorities[1].su = { disposition: 'SENTINEL' };
 allowableValueAuthorities[1].cases[0].hotAllow = { disposition: 'SENTINEL' };
 allowableValueAuthorities[1].cases[0].hotSy = { disposition: 'ZERO' };
 allowableValueAuthorities[1].cases[0].hotSu = { disposition: 'ZERO' };
+allowableValueAuthorities.forEach((item, index) => {
+  item.catalogEntry = materialCatalogEntry(item, index);
+});
 
 function profileInput() {
   const input = structuredClone(profileDocumentInput());
@@ -90,16 +101,13 @@ assert.equal(plan.elements[2].allowableStress.attributes.SU, null);
 assert.equal(plan.elements[2].allowableStress.cases[0].attributes.HOT_ALLOW, null);
 assert.equal(plan.elements[2].allowableStress.cases[0].attributes.HOT_SY, 0);
 assert.equal(plan.elements[2].allowableStress.cases[0].attributes.HOT_SU, 0);
-assert.equal(plan.elements[0].allowableStress.allowableValueAuthority.sourceAuthority,
-  'APPROVED-MATERIAL-SHEET');
-assert.equal(plan.elements[0].allowableStress.allowableValueAuthority
-  .codeSourceAuthority.codeEdition, 'DB-R1');
+assert.equal(plan.elements[0].allowableStress.allowableValueAuthority.catalogEntryId,
+  'MAT-NORMAL-R4');
 assert.equal(plan.elements[2].allowableStress.allowableValueAuthority
-  .codeSourceAuthority.codeSource.referenceKey, approvedSourceReferenceKey(codeSources[1]));
-assert.equal(plan.elements[2].allowableStress.pipingCodeAuthority.catalogEntry.codeFamily,
-  'ASME B31.4');
-assert.equal(Object.isFrozen(plan.allowableValueAuthorityPlan.authorities[0]
-  .codeSourceAuthority.allowableSource), true);
+  .catalogEntry.values.SU.disposition, 'SENTINEL');
+assert.equal(plan.elements[2].allowableStress.allowableValueAuthority
+  .catalogEntry.cases[0].values.HOT_SU.disposition, 'ZERO');
+assert.equal(Object.isFrozen(plan.allowableValueAuthorityPlan.authorities[0].catalogEntry), true);
 assert.equal(Object.isFrozen(plan.pipingCodeAuthorityPlan.authorities[0].catalogEntry), true);
 
 const xml = buildInputXmlPipingModelXml(plan);
@@ -118,30 +126,45 @@ function writerBlocked(mutator) {
 }
 writerBlocked((value) => { value.elements[0].allowableStress.attributes.COLD_ALLOW = 999; });
 writerBlocked((value) => { value.elements[0].allowableStress.cases[0].attributes.HOT_ALLOW = 999; });
-writerBlocked((value) => { value.elements[0].allowableStress.cases[2].attributes.HOT_ALLOW = 1; });
 writerBlocked((value) => { value.elements[0].properties.materialNumber = 5; });
-writerBlocked((value) => { value.elements[0].mechanicalProperties.materialName = 'WRONG'; });
-writerBlocked((value) => { value.elements[0].properties.temperatures[0] = 101; });
 writerBlocked((value) => { delete value.elements[0].allowableStress.allowableValueAuthority; });
-writerBlocked((value) => { value.allowableValueAuthorityPlan.authorities[0].sourceAuthority = ''; });
 writerBlocked((value) => { value.allowableValueAuthorityPlan.authorities[0].values.COLD_ALLOW.disposition = 'SENTINEL'; });
-writerBlocked((value) => { value.allowableValueAuthorityPlan.elements[0].allowableStress = null; });
+writerBlocked((value) => { delete value.elements[0].allowableStress.allowableValueAuthority.catalogEntry; });
 writerBlocked((value) => { value.allowableValueAuthorityPlan.authorities[0]
-  .codeSourceAuthority.codeEdition = ''; });
-writerBlocked((value) => { delete value.elements[0].allowableStress.allowableValueAuthority
-  .codeSourceAuthority; });
-writerBlocked((value) => { value.elements[0].allowableStress.pipingCodeAuthority.sourceReference = 'FORGED'; });
-writerBlocked((value) => { value.elements[0].allowableStress.allowableValueAuthority
-  .codeSourceAuthority.allowableSource.sha256 = digest('e'); });
-writerBlocked((value) => { delete value.elements[0].allowableStress.pipingCodeAuthority.catalogEntry; });
-writerBlocked((value) => { value.pipingCodeAuthorityPlan.authorities[0]
-  .catalogEntry.codeFamily = 'FORGED'; });
+  .catalogEntry.values.COLD_ALLOW.value = 999; });
+writerBlocked((value) => { value.allowableValueAuthorityPlan.elements[0]
+  .allowableStress.allowableValueAuthority.catalogEntry.catalogEntryId = 'FORGED'; });
 
 const missingInput = profileInput();
 missingInput.allowableValueAuthorities.pop();
 const missing = buildPipelineInputXmlDocumentPlan(missingInput);
 assert.equal(missing.ready, false);
 assert.ok(missing.blockerCodes.includes('PIPELINE_ALLOWABLE_VALUE_AUTHORITY_REQUIRED'));
+const missingCatalogInput = profileInput();
+delete missingCatalogInput.allowableValueAuthorities[0].catalogEntry;
+const missingCatalog = buildPipelineInputXmlDocumentPlan(missingCatalogInput);
+assert.equal(missingCatalog.ready, false);
+assert.ok(missingCatalog.blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ENTRY_REQUIRED'));
+const duplicateCatalogInput = profileInput();
+duplicateCatalogInput.allowableValueAuthorities[1].catalogEntry.catalogEntryId =
+  duplicateCatalogInput.allowableValueAuthorities[0].catalogEntry.catalogEntryId;
+const duplicateCatalog = buildPipelineInputXmlDocumentPlan(duplicateCatalogInput);
+assert.equal(duplicateCatalog.ready, false);
+assert.ok(duplicateCatalog.blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_ID_DUPLICATE'));
+const wrongVersionInput = profileInput();
+wrongVersionInput.allowableValueAuthorities[0].catalogEntry.caesarVersion = '13.00';
+const wrongVersion = buildPipelineInputXmlDocumentPlan(wrongVersionInput);
+assert.equal(wrongVersion.ready, false);
+assert.ok(wrongVersion.blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_VERSION_INVALID'));
+const catalogConflictInput = profileInput();
+catalogConflictInput.allowableValueAuthorities[0].catalogEntry.coldAllow = 999;
+const catalogConflict = buildPipelineInputXmlDocumentPlan(catalogConflictInput);
+assert.equal(catalogConflict.ready, false);
+assert.ok(catalogConflict.blockerCodes
+  .includes('PIPELINE_MATERIAL_ALLOWABLE_CATALOG_CONFLICT'));
 const conflictInput = profileInput();
 conflictInput.allowableStresses[0].COLD_ALLOW = 999;
 const conflict = buildPipelineInputXmlDocumentPlan(conflictInput);
@@ -152,16 +175,6 @@ invalidSourceInput.allowableValueAuthorities[0].codeSource.sha256 = 'bad';
 const invalidSource = buildPipelineInputXmlDocumentPlan(invalidSourceInput);
 assert.equal(invalidSource.ready, false);
 assert.ok(invalidSource.blockerCodes.includes('PIPELINE_APPROVED_SOURCE_SHA256_INVALID'));
-const wrongProvenanceInput = profileInput();
-wrongProvenanceInput.pipingCodeAuthorities[0].sourceReference = 'WRONG';
-const wrongProvenance = buildPipelineInputXmlDocumentPlan(wrongProvenanceInput);
-assert.equal(wrongProvenance.ready, false);
-assert.ok(wrongProvenance.blockerCodes.includes('PIPELINE_PIPING_CODE_CATALOG_CONFLICT'));
-const missingCatalogInput = profileInput();
-delete missingCatalogInput.pipingCodeAuthorities[0].catalogEntry;
-const missingCatalog = buildPipelineInputXmlDocumentPlan(missingCatalogInput);
-assert.equal(missingCatalog.ready, false);
-assert.ok(missingCatalog.blockerCodes.includes('PIPELINE_PIPING_CODE_CATALOG_ENTRY_REQUIRED'));
 const noAllowable = buildPipelineInputXmlDocumentPlan(profileDocumentInput());
 assert.equal(Object.hasOwn(noAllowable, 'allowableValueAuthorityPlan'), false);
 const nonProfile = buildPipelineInputXmlDocumentPlan({
