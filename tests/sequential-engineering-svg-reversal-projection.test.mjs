@@ -4,6 +4,10 @@ import { createSequentialConstructionSession } from '../tabs/sequential-sketcher
 import { freezeConstructionSession } from '../tabs/sequential-sketcher/construction/sequential-construction-contract.js';
 import { classifySequentialEngineeringSvgAuthority } from '../tabs/sequential-sketcher/sequential-engineering-svg-authority.js';
 import { buildSequentialEngineeringSvgScene } from '../tabs/sequential-sketcher/sequential-engineering-svg-scene.js';
+import { createSequentialEngineeringSvgOwnerBridge } from '../tabs/sequential-sketcher/sequential-engineering-svg-owner-bridge.js';
+import { createSequentialScopedEditReadModel } from '../tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-read-model.js';
+import { buildSequentialScopedEditEngineeringScene } from '../tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-scene-adapter.js';
+import { createSequentialScopedEditVisualModel } from '../tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js';
 
 const BRANCH_ID = '/REVERSAL/PROJECTION';
 const REASONS = Object.freeze([
@@ -69,9 +73,27 @@ for (const reason of REASONS) {
   assert(reversal.every((row) => row.domainType === 'SEQUENTIAL_REVERSAL_CANDIDATE'));
   assert(reversal.every((row) => row.geometry.kind === 'point'));
   assert(reversal.every((row) => row.editCapabilities.length === 0));
+  assert(reversal.every((row) => row.contributesToFit === false));
   assert.equal(built.parity.reversalCandidateCount, 2);
   assert.equal(built.parity.mappedCountByCategory.reversalCandidate, 2);
   assert.equal(built.parity.propertySetCoverage.eligible, built.parity.propertySetCoverage.mapped);
+}
+
+{
+  const session = decisionSession(base.component, 'AMBIGUOUS_BRANCH_START');
+  const bridge = createSequentialEngineeringSvgOwnerBridge({
+    readOwnerState: () => ({
+      session, evidenceModel: base.evidenceModel, indexes: base.indexes,
+      visibleProjection: 'ISO', engineeringSceneSelection: null,
+    }),
+  });
+  const readModel = createSequentialScopedEditReadModel(bridge.getSnapshot());
+  const scene = buildSequentialScopedEditEngineeringScene(readModel);
+  const visual = createSequentialScopedEditVisualModel({ readModel, scene });
+  assert.equal(visual.markers.filter((row) => row.label === 'REVERSE ENTRY').length, 2);
+  assert.deepEqual(visual.bounds, { min: [0, 0, 0], max: [1, 1, 1] },
+    'read-only reversal markers must not expand visual fit bounds');
+  bridge.destroy();
 }
 
 {
