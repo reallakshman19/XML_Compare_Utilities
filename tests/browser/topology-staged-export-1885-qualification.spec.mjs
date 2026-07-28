@@ -145,7 +145,7 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
         'canonicalTopologyHash', 'sourceIdentity', 'sourcePath', 'sourcePaths', 'sourceRef',
         'sourceEntityId', 'sourceEntityIds', 'sourcePortId', 'sourcePortIds',
         'viewKey', 'recordId', 'inputHash', 'contentHash', 'createdAt', 'updatedAt',
-        'generatedAt', 'sourceName', 'jobName',
+        'generatedAt', 'sourceName', 'jobName', 'positionAuthority', 'sourcePosition',
       ]);
       return Object.fromEntries(Object.keys(value).sort()
         .filter((key) => value[key] !== undefined && !excluded.has(key) && key !== 'id' && !/Ids?$/.test(key))
@@ -227,6 +227,8 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   expect(roundTrip.normalizedCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedEngineeringSignature).toBe(roundTrip.editedEngineeringSignature);
   expect(roundTrip.normalizedCollectionSignatures).toEqual(roundTrip.editedCollectionSignatures);
+  expect(roundTrip.firstNodeDifference).toBeNull();
+  expect(roundTrip.firstSupportDifference).toBeNull();
   expect(roundTrip.normalizedFindingSignature).toBe(roundTrip.editedFindingSignature);
   expect(roundTrip.nodeCount).toBe(roundTrip.editedNodeCount);
   expect(roundTrip.edgeCount).toBe(roundTrip.editedEdgeCount);
