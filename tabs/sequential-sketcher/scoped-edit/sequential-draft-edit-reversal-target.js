@@ -82,7 +82,7 @@ function exactEntity(scene, objectId) {
     entryPortId: text(ref.entryPortId),
   });
 }
-function exactCandidate(state, resolved) {
+function currentIndexes(state, resolved) {
   const indexes = state?.indexes;
   if (!(indexes?.components instanceof Map) || !(indexes?.ports instanceof Map)) {
     fail(
@@ -90,8 +90,31 @@ function exactCandidate(state, resolved) {
       'Current reversal authority does not expose indexed components and ports.',
     );
   }
-  const candidate = projectSequentialReversalCandidates(state.session, indexes)
-    .find((row) => row.candidateId === resolved.candidateId);
+  const component = indexes.components.get(resolved.componentId);
+  if (!component || (state.session.confirmedComponentIds || []).includes(resolved.componentId)) {
+    fail(
+      SEQUENTIAL_DRAFT_EDIT_REVERSAL_REJECTION.COMPONENT_MISMATCH,
+      `Reversal component ${resolved.componentId} is not current unconfirmed evidence.`,
+    );
+  }
+  const entryPort = indexes.ports.get(resolved.entryPortId);
+  if (!entryPort || entryPort.componentId !== resolved.componentId) {
+    fail(
+      SEQUENTIAL_DRAFT_EDIT_REVERSAL_REJECTION.ENTRY_PORT_MISMATCH,
+      `Reversal entry port ${resolved.entryPortId} does not belong to the candidate component.`,
+    );
+  }
+  return Object.freeze({ indexes, component, entryPort });
+}
+function exactCandidate(state, resolved) {
+  const current = currentIndexes(state, resolved);
+  let candidate;
+  try {
+    candidate = projectSequentialReversalCandidates(state.session, current.indexes)
+      .find((row) => row.candidateId === resolved.candidateId);
+  } catch {
+    candidate = null;
+  }
   if (!candidate || candidate.componentId !== resolved.componentId
     || candidate.entryPortId !== resolved.entryPortId) {
     fail(
@@ -99,21 +122,7 @@ function exactCandidate(state, resolved) {
       `Reversal candidate ${resolved.candidateId} is not part of the exact current decision.`,
     );
   }
-  const component = indexes.components.get(candidate.componentId);
-  if (!component || (state.session.confirmedComponentIds || []).includes(candidate.componentId)) {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_REVERSAL_REJECTION.COMPONENT_MISMATCH,
-      `Reversal component ${candidate.componentId} is not current unconfirmed evidence.`,
-    );
-  }
-  const entryPort = indexes.ports.get(candidate.entryPortId);
-  if (!entryPort || entryPort.componentId !== candidate.componentId) {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_REVERSAL_REJECTION.ENTRY_PORT_MISMATCH,
-      `Reversal entry port ${candidate.entryPortId} does not belong to the candidate component.`,
-    );
-  }
-  return Object.freeze({ candidate, component, entryPort });
+  return Object.freeze({ candidate, component: current.component, entryPort: current.entryPort });
 }
 function buildTarget(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
