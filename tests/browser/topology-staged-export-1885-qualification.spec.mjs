@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 const BENCHMARK_SHA256 = '38c6080c73f84e55581ad75dcbfb6b580ea587fc287ecf1861d9dc8e793b5cd3';
 const REPRESENTABLE_OPERATIONS = new Set(['MOVE_NODE', 'MERGE_NODES', 'TRIM_EDGE']);
 
-test('TTV-C06 — exact 1885 staged export serializes all committed moves and rebuilds the edited canonical', async ({ page }, testInfo) => {
+test('TTV-C06 — exact 1885 staged export serializes all committed moves and rebuilds the edited topology', async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -55,6 +55,7 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   expect(exported.provenance.topologyEditDraftHash).toBe(committed.draftHash);
   expect(exported.provenance.editedCanonicalTopologyHash).toBe(committed.editedCanonicalTopologyHash);
   expect(exported.provenance.commandJournal.activeCommandIds).toEqual(committed.activeCommandIds);
+  expect(exported.provenance.positionIdentityToleranceMm).toBe(1e-6);
   expect(exported.provenance.positionRemaps).toHaveLength(60);
   expect(exported.provenance.ledger).toHaveLength(60);
 
@@ -73,6 +74,7 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   const roundTrip = await page.evaluate(async (stagedText) => {
     const core = await import('/vendor/3d-converters/topology-browser-core.mjs');
     const staged = await import('/workbench3d/core/staged-json-core.js');
+    const autoFix = await import('/tabs/topology-trace-validator/topology-checker-auto-fix.js');
     const parsed = JSON.parse(stagedText);
     const root = staged.readStagedBranches(parsed);
     const producerText = JSON.stringify(root.branches);
@@ -90,16 +92,22 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       angleToleranceDeg: 5, originToleranceMm: 0.1, clearanceMm: 0,
     });
     const edit = window.__topologyValidatorHarness.controller.evidence().edit;
+    const editedCanonical = edit.editedArtifacts.canonicalTopology;
     return {
       rootKey: root.rootKey,
       branchCount: root.branches.length,
       rawEnvelopeCanonicalTopologyHash: rawEnvelopeBuilt.canonicalTopology.canonicalTopologyHash,
       normalizedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
-      editedCanonicalTopologyHash: edit.editedArtifacts.canonicalTopology.canonicalTopologyHash,
+      editedCanonicalTopologyHash: editedCanonical.canonicalTopologyHash,
+      rawEnvelopeGeometryHash: autoFix.topologyGeometryHash(rawEnvelopeBuilt.canonicalTopology),
+      normalizedGeometryHash: autoFix.topologyGeometryHash(built.canonicalTopology),
+      editedGeometryHash: autoFix.topologyGeometryHash(editedCanonical),
       activeFindingCount: report.issues.length,
       expectedShortCount: report.issues.filter((row) => row.code === 'EXPECTED_SHORT_INLINE_COMPONENT').length,
       nodeCount: built.canonicalTopology.nodes.length,
       edgeCount: built.canonicalTopology.edges.length,
+      editedNodeCount: editedCanonical.nodes.length,
+      editedEdgeCount: editedCanonical.edges.length,
     };
   }, text);
 
@@ -116,6 +124,7 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       export: {
         schema: exported.schema,
         branchCount: exported.objects.length,
+        positionIdentityToleranceMm: exported.provenance.positionIdentityToleranceMm,
         remapCount: exported.provenance.positionRemaps.length,
         operationCount: operations.length,
         operationTypes: [...new Set(operations.map((row) => row.type))],
@@ -129,7 +138,10 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   expect(roundTrip.rootKey).toBe('objects');
   expect(roundTrip.branchCount).toBe(23);
   expect(roundTrip.rawEnvelopeCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
-  expect(roundTrip.normalizedCanonicalTopologyHash).toBe(roundTrip.editedCanonicalTopologyHash);
+  expect(roundTrip.normalizedCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
+  expect(roundTrip.normalizedGeometryHash).toBe(roundTrip.editedGeometryHash);
+  expect(roundTrip.nodeCount).toBe(roundTrip.editedNodeCount);
+  expect(roundTrip.edgeCount).toBe(roundTrip.editedEdgeCount);
   expect(roundTrip.expectedShortCount).toBe(0);
   expect(roundTrip.activeFindingCount).toBe(8);
   expect(pageErrors).toEqual([]);
