@@ -13,7 +13,9 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
 
   await page.locator('[data-ttv-checker-open]').click();
   const before = await qualificationSnapshot(page);
-  expect(before.checker.autoEligibleCount, 'pinned benchmark preflight population changed').toBe(60);
+  expect(before.checker.autoEligibleCount).toBeGreaterThan(0);
+  expect.soft(before.benchmark.sourceHash, 'platform document must bind the exact benchmark bytes').toBe(before.benchmark.sourceSha256);
+  expect.soft(before.checker.autoEligibleCount, 'pinned benchmark preflight population changed').toBe(60);
 
   await page.locator('[data-ttv-checker-auto-fix]').click();
   await page.waitForFunction((runCount) => {
@@ -63,6 +65,8 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
   const reloadedRun = reloaded.checker.autoFixRuns.find((row) => row.runId === run.runId);
   await attachEvidence(testInfo, 'topology-autofix-1885-reload.json', { run, after, reloaded, pageErrors });
 
+  expect(reloaded.benchmark.sourceSha256).toBe(before.benchmark.sourceSha256);
+  expect(reloaded.benchmark.sourceHash).toBe(before.benchmark.sourceHash);
   expect(reloaded.edit.commandAuthority.authorityId).toBe(run.commitProof.afterAuthorityId);
   expect(reloaded.edit.commandAuthority.currentDraftHash).toBe(run.commitProof.currentDraftHash);
   expect(reloaded.edit.draft.topologyEditDraftHash).toBe(run.commitProof.currentDraftHash);
