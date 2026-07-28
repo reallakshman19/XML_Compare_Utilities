@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict';
 import { stableToken } from '../tabs/sequential-sketcher/sequential-sketcher-contract.js';
 import { createSequentialBranchWorkspaceRegistry } from '../tabs/sequential-sketcher/sequential-branch-workspace-state.js';
-import {
-  createSequentialConstructionSession,
-  runConstructionUntilBlocked,
-} from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
+import { createSequentialConstructionSession, runConstructionUntilBlocked } from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
 import { createConfirmedSequentialConstruction } from '../tabs/sequential-sketcher/construction/sequential-construction-acceptance.js';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
 import { buildConfirmedConstructionSupportProjection } from '../tabs/sequential-sketcher/support/sequential-confirmed-support-projection.js';
 import { createSequentialEngineeringSvgOwnerBridge } from '../tabs/sequential-sketcher/sequential-engineering-svg-owner-bridge.js';
 import { createSequentialJournalAdoption } from '../tabs/sequential-sketcher/scoped-edit/sequential-command-service.js';
+import { deriveSequentialEditAuthority } from '../tabs/sequential-sketcher/scoped-edit/sequential-edit-authority.js';
 import { createSequentialSupportAdjustmentBoundary } from '../tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-boundary.js';
 import { selectSequentialDraftEditSupportMoveTarget } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-target.js';
 import { createSequentialDraftEditSupportMoveDraftStore } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-draft.js';
@@ -43,9 +41,7 @@ function fixture() {
   const confirmedConstruction = createConfirmedSequentialConstruction(session, indexes);
   const supportProjection = buildConfirmedConstructionSupportProjection(confirmedConstruction, indexes, {});
   const branchRegistry = createSequentialBranchWorkspaceRegistry();
-  branchRegistry.reset([BRANCH]); branchRegistry.save(BRANCH, {
-    session, confirmedConstruction, supportProjection,
-  });
+  branchRegistry.reset([BRANCH]); branchRegistry.save(BRANCH, { session, confirmedConstruction, supportProjection });
   const sourceFingerprint = `SOURCE-${stableToken(JSON.stringify(source))}`;
   const journalState = createSequentialJournalAdoption({
     documentId: `document:${sourceFingerprint}`, sessionId: `session:${sourceFingerprint}`,
@@ -55,13 +51,13 @@ function fixture() {
     readOwnerState: () => ({ session, evidenceModel: evidence, indexes,
       confirmedConstruction, supportProjection, visibleProjection: 'ISO' }),
   });
-  const ownerRevision = Object.freeze({
-    schema: 'SequentialCommandOwnerRevision.v1',
-    revision: ownerBridge.getSnapshot().revision,
-  });
   const baseState = {
     sourceFingerprint, evidence, indexes, session, branchRegistry, journalState,
-    confirmedConstruction, supportProjection, ownerSnapshot: ownerRevision, engineOptions: {},
+    confirmedConstruction, supportProjection,
+    ownerSnapshot: Object.freeze({
+      schema: 'SequentialCommandOwnerRevision.v1', revision: ownerBridge.getSnapshot().revision,
+    }),
+    engineOptions: {},
   };
   let publications = 0;
   const boundary = createSequentialSupportAdjustmentBoundary({
@@ -94,8 +90,7 @@ function fixture() {
     publications: () => publications };
 }
 
-const left = fixture();
-const right = fixture();
+const left = fixture(); const right = fixture();
 const leftInput = left.targetAndPreview({ x: 300, y: 0, z: 0 });
 const rightInput = right.targetAndPreview({ x: 300, y: 0, z: 0 });
 const leftPrepared = left.service.prepare(leftInput.preview);
@@ -115,11 +110,14 @@ const evidenceBefore = JSON.stringify(left.evidence);
 const sessionBefore = JSON.stringify(left.session);
 const confirmedBefore = JSON.stringify(left.confirmedConstruction);
 const journalBefore = JSON.stringify(left.journalState);
+const editAuthorityBefore = deriveSequentialEditAuthority(left.boundary.readCurrentState()).authorityId;
+const readAuthorityBefore = left.boundary.readView().readModel.authorityId;
 const accepted = left.service.accept(leftPrepared);
-assert.equal(accepted.accepted, true);
-assert.equal(accepted.publicationState, 'COMMITTED');
+assert.equal(accepted.accepted, true); assert.equal(accepted.publicationState, 'COMMITTED');
 assert.equal(left.publications(), 1);
 assert.equal(left.boundary.readCurrentState().supportProjection.supportGlyphs[0].centerlinePointGlobal.x, 300);
+assert.notEqual(deriveSequentialEditAuthority(left.boundary.readCurrentState()).authorityId, editAuthorityBefore);
+assert.notEqual(left.boundary.readView().readModel.authorityId, readAuthorityBefore);
 assert.equal(JSON.stringify(left.source), sourceBefore);
 assert.equal(JSON.stringify(left.evidence), evidenceBefore);
 assert.equal(JSON.stringify(left.session), sessionBefore);
@@ -140,12 +138,21 @@ for (const row of [
   [{ x: 300, y: 0, z: 10 }, SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.NOT_SAME_CARRIER],
   [{ x: 300, y: 0.0000001, z: 0 }, SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.HIDDEN_SNAP],
 ]) {
-  const test = fixture();
-  const input = test.targetAndPreview(row[0]);
-  assert.throws(() => test.service.prepare(input.preview),
-    (error) => error.code === row[1]);
-  assert.equal(test.publications(), 0);
+  const test = fixture(); const input = test.targetAndPreview(row[0]);
+  assert.throws(() => test.service.prepare(input.preview), (error) => error.code === row[1]);
+  assert.equal(test.publications(), 0); test.ownerBridge.destroy();
 }
 
-for (const test of [left, right, staleFixture]) test.ownerBridge.destroy();
+const tamper = fixture();
+const exact = tamper.targetAndPreview({ x: 300, y: 0, z: 0 });
+assert.throws(() => tamper.service.prepare({
+  ...exact.preview,
+  target: { ...exact.preview.target, supportMoveTargetId: 'TAMPERED-TARGET' },
+}), (error) => error.code === SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREVIEW_INVALID);
+const canonicalPrepared = tamper.service.prepare(exact.preview);
+assert.throws(() => tamper.service.accept({ ...canonicalPrepared, preparedId: 'TAMPERED-PREPARED' }),
+  (error) => error.code === SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREPARED_INVALID);
+assert.equal(tamper.publications(), 0);
+
+for (const test of [left, right, staleFixture, tamper]) test.ownerBridge.destroy();
 console.log('Sequential SSK-TS-3I support adjustment prepare and accept: ok');
