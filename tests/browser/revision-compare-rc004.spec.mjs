@@ -43,7 +43,7 @@ async function openAndCompare(page) {
   await upload(page, 'candidate', 'rc004-rev-b.json');
   await expect(page.locator('[data-slot="candidate"] strong')).toContainText('ready');
   await page.getByRole('button', { name: 'Approve comparison basis' }).click();
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
 }
 async function clickCandidate(page, targetRecordId) {
@@ -137,7 +137,7 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('STALE');
   await expect(page.getByRole('button', { name: 'Download decision ledger' })).toBeVisible();
   await keyboardActivate(page, 'Approve comparison basis');
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
   await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().state.decision.ledger.status)).toBe('CURRENT');
   const reattached = await page.evaluate(() => window.rcHandle.evidence().state.decision.ledger);
@@ -156,7 +156,7 @@ test('ambiguity decision ledger preserves audit evidence and one-to-one target o
   await changedCommon.focus(); await page.keyboard.press('Space');
   await expect(changedCommon).not.toBeChecked();
   await keyboardActivate(page, 'Approve comparison basis');
-  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await keyboardActivate(page, 'Run visual comparison');
   await expect(page.getByText('The current audit differs. Decision evidence was not remapped.')).toBeVisible({ timeout: 25_000 });
   expect(await page.evaluate(() => window.rcHandle.evidence().state.decision.replacementRequired)).toBe(true);
   await page.getByRole('button', { name: 'Start new decision ledger' }).click();
