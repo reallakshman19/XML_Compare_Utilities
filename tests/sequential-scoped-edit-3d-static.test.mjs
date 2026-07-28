@@ -103,6 +103,8 @@ assert.match(supportBoundary, /SequentialSupportAdjustmentBoundary\.v1/);
 assert.match(supportBoundary, /const byBranch = new Map\(\)/);
 assert.match(supportBoundary, /readHistory/);
 assert.match(supportBoundary, /publishHistoryCandidate/);
+assert.match(supportBoundary, /consumedHistoryPreparedIdsByBranch/);
+assert.match(supportBoundary, /already been consumed/);
 assert.match(supportBoundary, /recordSequentialSupportAdjustmentRegister/);
 assert.match(supportBoundary, /transitionSequentialSupportAdjustmentHistory/);
 assert.match(supportBoundary, /assertSequentialAdjustedSupportProjection/);
