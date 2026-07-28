@@ -7,6 +7,7 @@ on:
       - 'Benchmark/ATTRIBUTE_managed_stage_1885_Steam.json'
       - 'tabs/topology-trace-validator/**'
       - 'vendor/3d-converters/**'
+      - 'tests/topology-checker-report-binding.test.mjs'
       - 'tests/browser/topology-autofix-1885-qualification.spec.mjs'
       - 'tests/browser/topology-checker-autofix-1885-fixture.html'
       - 'playwright.topology-validator.config.mjs'
@@ -35,6 +36,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify checker report authority binding
+        run: node tests/topology-checker-report-binding.test.mjs
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
