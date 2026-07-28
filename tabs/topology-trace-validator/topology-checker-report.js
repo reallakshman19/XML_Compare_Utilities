@@ -24,10 +24,11 @@ export function bindTopologyCheckReport(canonical, report) {
   return deepFreeze({ ...material, topologyCheckReportHash: semanticHash(material) });
 }
 
-/** Execute the pinned producer check and bind its result to the supplied canonical authority. */
-export function runBoundTopologyChecks(core, canonical, options) {
-  if (typeof core?.runTopologyChecks !== 'function') throw new TypeError('Bound topology checks require runTopologyChecks().');
-  return bindTopologyCheckReport(canonical, core.runTopologyChecks(canonical, options));
+/** Execute and bind only after an authoritative canonical hash exists. */
+export function runTopologyChecksWithAvailableAuthority(core, canonical, options) {
+  if (typeof core?.runTopologyChecks !== 'function') throw new TypeError('Topology checks require runTopologyChecks().');
+  const report = core.runTopologyChecks(canonical, options);
+  return cleanText(canonical?.canonicalTopologyHash) ? bindTopologyCheckReport(canonical, report) : report;
 }
 
 export const _test = Object.freeze({ TOPOLOGY_CHECK_REPORT_SCHEMA });
