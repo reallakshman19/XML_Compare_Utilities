@@ -3,8 +3,10 @@ import { isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES } from './sequential-command-contracts.js';
 import {
   installSequentialDraftEditCommandPanelStyle,
+  sequentialDraftEditCommandPanelElements,
   sequentialDraftEditPreparedPreview,
   sequentialDraftEditTargetText,
+  setSequentialDraftEditPanelHidden,
 } from './sequential-draft-edit-command-presentation.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_COMMAND_PANEL_SCHEMA = 'SequentialDraftEditCommandPanel.v1';
@@ -27,29 +29,6 @@ function text(value) { return String(value ?? '').trim(); }
 function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
   return value;
-}
-function requiredElement(root, selector) {
-  const value = root.querySelector(selector);
-  if (!value) throw new Error(`Sequential Draft Edit command element missing: ${selector}`);
-  return value;
-}
-function elements(root) {
-  return {
-    panel: requiredElement(root, '[data-ssk-draft-edit-command-panel]'),
-    status: requiredElement(root, '[data-ssk-draft-edit-command-state]'),
-    target: requiredElement(root, '[data-ssk-draft-edit-target]'),
-    actor: requiredElement(root, '[data-ssk-draft-edit-actor]'),
-    reason: requiredElement(root, '[data-ssk-draft-edit-reason]'),
-    evidence: requiredElement(root, '[data-ssk-draft-edit-evidence]'),
-    preview: requiredElement(root, '[data-ssk-draft-edit-command-preview]'),
-    accept: requiredElement(root, '[data-ssk-draft-edit-command-accept]'),
-    cancel: requiredElement(root, '[data-ssk-draft-edit-command-cancel]'),
-    commands: [...root.querySelectorAll('[data-ssk-draft-edit-command]')],
-  };
-}
-function setHidden(element, hidden) {
-  element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-  if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert');
 }
 function notice(state, message, kind = 'ready') { state.notice = Object.freeze({ message, kind }); }
 function exactIssuedAt(now) {
@@ -154,7 +133,7 @@ function requestFor(state, commandType) {
 }
 function render(state) {
   const candidate = exactCandidateTarget(state); const decision = exactDecisionTarget(state);
-  setHidden(state.elements.panel, !state.active);
+  setSequentialDraftEditPanelHidden(state.elements.panel, !state.active);
   state.elements.target.textContent = sequentialDraftEditTargetText({
     candidate, decision, manualPorts: exactManualPorts(state),
   });
@@ -271,7 +250,8 @@ export function createSequentialDraftEditCommandPanel(options = {}) {
   if (!root?.querySelector) throw new TypeError('Draft Edit command panel requires a root.');
   const gateway = options.gateway;
   for (const name of ['getState', 'prepare', 'accept']) requiredFunction(gateway?.[name], `gateway.${name}`);
-  const panelElements = elements(root); installSequentialDraftEditCommandPanelStyle(panelElements);
+  const panelElements = sequentialDraftEditCommandPanelElements(root);
+  installSequentialDraftEditCommandPanelStyle(panelElements);
   const state = {
     root, gateway, elements: panelElements,
     readCurrentState: requiredFunction(options.readCurrentState, 'readCurrentState'),
