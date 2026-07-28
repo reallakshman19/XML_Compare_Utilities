@@ -7,6 +7,7 @@ import {
   freezeJsonValue,
 } from '../../core/engineering-scene/index.js';
 import { classifySequentialEngineeringSvgAuthority } from './sequential-engineering-svg-authority.js';
+import { buildSequentialReversalSceneEntities } from './sequential-engineering-svg-reversal-scene.js';
 
 export const SEQUENTIAL_ENGINEERING_SVG_PARITY_SCHEMA = 'SequentialEngineeringSvgParityReport.v1';
 
@@ -166,8 +167,8 @@ function supportEntities(authority, omissions) {
     }
     const id = `ssk:support:${glyph.glyphId}`;
     return sceneEntity({
-      id, geometry: createPointGeometry(position), domainType: 'SEQUENTIAL_CONFIRMED_SUPPORT',
-      layer: 'sequential-support', renderOrder: 40, contributesToFit: true,
+      id, geometry: createPointGeometry(position), domainType: 'SEQUENTIAL_CONFIRMED_SUPPORT', layer: 'sequential-support',
+      renderOrder: 40, contributesToFit: true,
       domainRef: { owner: 'sequential-sketcher', category: 'support', supportId: glyph.glyphId, familyId: glyph.familyId, carrierId: glyph.carrierId },
       metadata: { category: 'support', status: glyph.resolutionStatus, glyph, family },
     });
@@ -209,7 +210,7 @@ function disconnectedComponents(authority) {
 }
 
 function parityReport(authority, sceneId, entities, omissions) {
-  const categories = ['confirmed', 'repair', 'candidate', 'activePort', 'support', 'rejectedCandidate'];
+  const categories = ['confirmed', 'repair', 'candidate', 'reversalCandidate', 'activePort', 'support', 'rejectedCandidate'];
   const mapped = Object.fromEntries(categories.map((category) => [category, entities.filter((entity) => entity.domainRef.category === category).length]));
   const ids = entities.map((entity) => entity.id);
   const unresolvedPorts = authority.confirmedComponents.flatMap((component) => component.ports || [])
@@ -229,6 +230,7 @@ function parityReport(authority, sceneId, entities, omissions) {
     confirmedGeometryCount: mapped.confirmed,
     repairCount: authority.repairs.length,
     candidateCount: authority.candidates.length,
+    reversalCandidateCount: authority.reversalCandidates.length,
     activePortCount: authority.session.activeExitPortId ? 1 : 0,
     supportCount: authority.supports.length,
     restraintCount: 0,
@@ -262,6 +264,7 @@ export function buildSequentialEngineeringSvgScene(input, options = {}) {
     ...confirmedEntities(authority, omissions),
     ...repairEntities(authority, omissions),
     ...candidateEntities(authority, omissions),
+    ...buildSequentialReversalSceneEntities(authority, omissions),
     ...supportEntities(authority, omissions),
     ...activePortEntity(authority, omissions),
     ...rejectedEntities(authority, omissions),
