@@ -34,27 +34,16 @@ jobs:
         run: npm install --no-audit --no-fund --no-package-lock
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Diagnose transfer manifest reconstruction
+      - name: Expose installed Chromium
         run: |
-          node --input-type=module <<'NODE' | tee rc-xfer-009-diagnostic.log
-          import { createRevisionCompareTransferArtifacts } from './tabs/revision-compare/revision-transfer-artifacts.js';
-          import { handoverInspectionFixture, cryptoRef } from './tests/revision-compare-transfer-handover-inspection-fixtures.mjs';
-          const fixture = await handoverInspectionFixture();
-          const payload = fixture.bundle.payload;
-          const expected = await createRevisionCompareTransferArtifacts({
-            result: payload.transferResult,
-            audit: payload.transferAudit,
-            proof: payload.transferProof,
-            targetFileName: payload.transferPlan.receiverDocument.fileName,
-            patchedTargetSchema: payload.transferPlan.receiverDocument.profile,
-          }, { cryptoRef });
-          console.log(JSON.stringify({
-            actualManifest: payload.transferManifest,
-            expectedManifest: expected.manifest,
-            actualArtifactDescriptors: payload.transferArtifacts.map(({ text, ...rest }) => rest),
-            expectedArtifactDescriptors: expected.artifacts.map(({ text, ...rest }) => rest),
-          }, null, 2));
+          chromium_path=$(node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          console.log(chromium.executablePath());
           NODE
+          )
+          test -x "$chromium_path"
+          echo "CHROMIUM_PATH=$chromium_path" >> "$GITHUB_ENV"
+          "$chromium_path" --version
       - name: Run exact Revision Compare qualification
         run: |
           set -o pipefail
@@ -71,7 +60,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
           path: |
-            rc-xfer-009-diagnostic.log
             rc-xfer-009-qualification.log
             rc-xfer-009-worktree.log
             playwright-report/
