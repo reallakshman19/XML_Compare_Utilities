@@ -2,6 +2,14 @@ import { createEngineeringRevisionToken, freezeJsonValue } from '../../core/engi
 import { sequentialSessionFingerprint } from './construction/sequential-session-fingerprint.js';
 import { SEQUENTIAL_ENGINEERING_SVG_INDEX_PROJECTION_SCHEMA } from './sequential-engineering-svg-index-projection.js';
 import { projectSequentialReversalCandidates } from './sequential-engineering-svg-reversal-scene.js';
+import {
+  createSequentialSupportAdjustmentRegister,
+  assertSequentialSupportAdjustmentRegister,
+} from './support/sequential-support-adjustment-register.js';
+import {
+  applySequentialSupportAdjustmentRegister,
+  assertSequentialAdjustedSupportProjection,
+} from './support/sequential-support-adjusted-projection.js';
 
 export const SEQUENTIAL_ENGINEERING_SVG_AUTHORITY_SCHEMA = 'SequentialEngineeringSvgAuthority.v1';
 
@@ -46,13 +54,30 @@ function validateConfirmed(session, confirmed) {
   return confirmed;
 }
 
-function validateSupport(confirmed, supportProjection) {
-  if (!supportProjection) return null;
-  requireSchema(supportProjection, 'SequentialConfirmedSupportProjection.v1', 'Support projection');
-  if (!confirmed || supportProjection.constructionFingerprint !== confirmed.constructionFingerprint) {
-    throw new Error('Sequential support projection is not fingerprint-matched to confirmed construction.');
+function validateSupportAuthority(confirmed, input) {
+  const base = input.baseSupportProjection || input.supportProjection || null;
+  if (!base) {
+    if (input.supportAdjustmentRegister) {
+      throw new Error('Support adjustments require a confirmed base support projection.');
+    }
+    return Object.freeze({ base: null, register: null, effective: null });
   }
-  return supportProjection;
+  requireSchema(base, 'SequentialConfirmedSupportProjection.v1', 'Base support projection');
+  if (!confirmed || base.constructionFingerprint !== confirmed.constructionFingerprint) {
+    throw new Error('Sequential base support projection is not fingerprint-matched to confirmed construction.');
+  }
+  const register = input.supportAdjustmentRegister
+    ? assertSequentialSupportAdjustmentRegister(
+      input.supportAdjustmentRegister,
+      base.constructionFingerprint,
+    )
+    : createSequentialSupportAdjustmentRegister({
+      constructionFingerprint: base.constructionFingerprint,
+    });
+  const effective = input.baseSupportProjection
+    ? assertSequentialAdjustedSupportProjection(base, register, input.supportProjection)
+    : applySequentialSupportAdjustmentRegister(base, register);
+  return Object.freeze({ base, register, effective });
 }
 
 function resolvedPortPositions(session) {
@@ -95,11 +120,12 @@ function confirmedComponents(session, indexes, confirmed) {
   }));
 }
 
-function revisionToken(session, confirmed, supportProjection) {
+function revisionToken(session, confirmed, supportAuthority) {
   return createEngineeringRevisionToken({
     sessionFingerprint: sequentialSessionFingerprint(session),
     confirmedConstructionFingerprint: confirmed?.constructionFingerprint || null,
-    supportConstructionFingerprint: supportProjection?.constructionFingerprint || null,
+    supportConstructionFingerprint: supportAuthority.effective?.constructionFingerprint || null,
+    supportAdjustmentRegisterFingerprint: supportAuthority.register?.headFingerprint || null,
   });
 }
 
@@ -108,7 +134,8 @@ export function classifySequentialEngineeringSvgAuthority(input = {}) {
   requireSchema(input.evidenceModel, 'SequentialSourceEvidence.v1', 'Sequential evidence model');
   const indexes = requireIndexes(input);
   const confirmed = validateConfirmed(session, input.confirmedConstruction || null);
-  const supportProjection = validateSupport(confirmed, input.supportProjection || null);
+  const supportAuthority = validateSupportAuthority(confirmed, input);
+  const supportProjection = supportAuthority.effective;
   const resolvedPositions = resolvedPortPositions(session);
   const activePort = session.activeExitPortId ? indexes.ports.get(session.activeExitPortId) || null : null;
   const rejected = rejectedCandidateEvidence(session);
@@ -120,14 +147,18 @@ export function classifySequentialEngineeringSvgAuthority(input = {}) {
 
   return freezeJsonValue({
     schema: SEQUENTIAL_ENGINEERING_SVG_AUTHORITY_SCHEMA,
-    revision: revisionToken(session, confirmed, supportProjection),
+    revision: revisionToken(session, confirmed, supportAuthority),
     sessionFingerprint: sequentialSessionFingerprint(session),
     confirmedConstructionFingerprint: confirmed?.constructionFingerprint || null,
     supportConstructionFingerprint: supportProjection?.constructionFingerprint || null,
+    supportAdjustmentRegisterFingerprint: supportAuthority.register?.headFingerprint || null,
     state: session.state,
     session,
     evidenceModel: input.evidenceModel,
     confirmedConstruction: confirmed,
+    baseSupportProjection: supportAuthority.base,
+    supportAdjustmentRegister: supportAuthority.register,
+    supportProjection,
     confirmedComponents: confirmedComponents(session, indexes, confirmed),
     committedConnections: session.committedConnections || [],
     repairs: session.repairLedger || [],
