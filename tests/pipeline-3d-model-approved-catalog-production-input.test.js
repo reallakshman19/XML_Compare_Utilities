@@ -46,6 +46,9 @@ assert.equal(Object.isFrozen(inputs), true);
 
 const absent = pipelineApprovedCatalogProductionInputs({ registryIgnored: true });
 assert.deepEqual(absent, {});
+assert.deepEqual(pipelineApprovedCatalogProductionInputs(null), {});
+assert.deepEqual(pipelineApprovedCatalogProductionInputs([]), {});
+assert.equal(buildPipelineApprovedCatalogProductionSourceEvidence(null).active, false);
 const explicitNull = pipelineApprovedCatalogProductionInputs({ approvedCatalogRegistry: null });
 assert.equal(Object.hasOwn(explicitNull, 'approvedCatalogRegistry'), true);
 assert.equal(explicitNull.approvedCatalogRegistry, null);
