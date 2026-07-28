@@ -140,7 +140,10 @@ function componentRecords(authority, parts, edges, connections, supports, topolo
       componentId: component.componentId, canonicalType: component.canonicalType,
       branchId: component.branchId, routeOrder,
       portIds: component.ports.map((row) => row.portId),
-      nodeIds: [...new Set(ownedParts.flatMap((row) => row.nodeIds))].sort(),
+      nodeIds: [...new Set([
+        ...ownedParts.flatMap((row) => row.nodeIds),
+        ...component.ports.map((row) => topology.nodeByPort.get(row.portId)).filter(Boolean),
+      ])].sort(),
       geometryPartIds: ownedParts.map((row) => row.geometryPartId),
       geometryKinds: [...new Set(ownedParts.map((row) => row.geometry.kind))].sort(),
       internalEdgeIds: edges.filter((row) => row.componentId === component.componentId)
@@ -157,6 +160,44 @@ function componentRecords(authority, parts, edges, connections, supports, topolo
     };
   });
 }
+function nodeBoundaryClass(external, repaired, terminal, connected, portCount) {
+  if (external) return 'EXTERNAL_BOUNDARY';
+  if (repaired) return 'REPAIR_BOUNDARY';
+  if (terminal) return 'INTENTIONAL_TERMINAL';
+  if (connected) return 'CONNECTED';
+  return portCount ? 'OPEN_TERMINAL' : 'INTERNAL_GEOMETRY';
+}
+function nodeRecord(nodeId, topology, vertices, edges, connections, context) {
+  const owned = vertices.filter((row) => row.nodeId === nodeId);
+  const nodePorts = topology.ports.filter((row) => topology.nodeByPort.get(row.portId) === nodeId);
+  const portIds = nodePorts.map((row) => row.portId).sort();
+  const incidentConnections = connections
+    .filter((row) => row.fromNodeId === nodeId || row.toNodeId === nodeId);
+  const incidentEdges = edges.filter((row) => row.fromNodeId === nodeId || row.toNodeId === nodeId);
+  const external = context.boundaryClassifications
+    .some((row) => portIds.includes(row.activePortId));
+  const repaired = incidentConnections
+    .some((row) => row.nodeRelation === 'REPAIR_MEDIATED_CONTINUITY');
+  const terminal = portIds.some((portId) => context.terminalPorts.has(portId));
+  return {
+    nodeId, position: owned[0]?.position || nodePorts[0].position, portIds,
+    incidentComponentIds: [...new Set([
+      ...owned.map((row) => row.componentId),
+      ...nodePorts.map((row) => row.componentId),
+    ])].sort(),
+    incidentGeometryPartIds: [...new Set(owned.map((row) => row.geometryPartId))].sort(),
+    incidentEdgeIds: incidentEdges.map((row) => row.edgeId).sort(),
+    committedConnectionIds: incidentConnections.map((row) => row.connectionId).sort(),
+    degree: incidentConnections.length + incidentEdges.length,
+    boundaryClass: nodeBoundaryClass(external, repaired, terminal,
+      incidentConnections.length > 0, portIds.length),
+    positionProvenance: portIds.length ? 'CONFIRMED_PORT' : 'COMPONENT_GEOMETRY',
+    positionAncestry: nodePorts.map((row) => ({
+      portId: row.portId, componentId: row.componentId,
+      sourcePosition: row.sourcePosition, resolvedPosition: row.position,
+    })),
+  };
+}
 function nodeRecords(topology, parts, edges, connections, authority) {
   const terminalPorts = new Set(authority.confirmedComponents
     .filter((row) => ['CAP', 'BLIND'].includes(row.canonicalType))
@@ -164,36 +205,17 @@ function nodeRecords(topology, parts, edges, connections, authority) {
   const vertices = parts.flatMap((part) => part.vertices.map((vertex) => ({
     ...vertex, componentId: part.componentId, geometryPartId: part.geometryPartId,
   })));
-  const nodeIds = [...new Set(vertices.map((row) => row.nodeId))].sort();
-  return nodeIds.map((nodeId) => {
-    const owned = vertices.filter((row) => row.nodeId === nodeId);
-    const nodePorts = topology.ports.filter((row) => topology.nodeByPort.get(row.portId) === nodeId);
-    const portIds = nodePorts.map((row) => row.portId).sort();
-    const incidentConnections = connections
-      .filter((row) => row.fromNodeId === nodeId || row.toNodeId === nodeId);
-    const incidentEdges = edges.filter((row) => row.fromNodeId === nodeId || row.toNodeId === nodeId);
-    const external = authority.confirmedConstruction.boundaryClassifications
-      .some((row) => portIds.includes(row.activePortId));
-    const repaired = incidentConnections
-      .some((row) => row.nodeRelation === 'REPAIR_MEDIATED_CONTINUITY');
-    const terminal = portIds.some((portId) => terminalPorts.has(portId));
-    return {
-      nodeId, position: owned[0].position, portIds,
-      incidentComponentIds: [...new Set(owned.map((row) => row.componentId))].sort(),
-      incidentGeometryPartIds: [...new Set(owned.map((row) => row.geometryPartId))].sort(),
-      incidentEdgeIds: incidentEdges.map((row) => row.edgeId).sort(),
-      committedConnectionIds: incidentConnections.map((row) => row.connectionId).sort(),
-      degree: incidentConnections.length + incidentEdges.length,
-      boundaryClass: external ? 'EXTERNAL_BOUNDARY' : repaired ? 'REPAIR_BOUNDARY'
-        : terminal ? 'INTENTIONAL_TERMINAL' : incidentConnections.length ? 'CONNECTED'
-          : portIds.length ? 'OPEN_TERMINAL' : 'INTERNAL_GEOMETRY',
-      positionProvenance: portIds.length ? 'CONFIRMED_PORT' : 'COMPONENT_GEOMETRY',
-      positionAncestry: nodePorts.map((row) => ({
-        portId: row.portId, componentId: row.componentId,
-        sourcePosition: row.sourcePosition, resolvedPosition: row.position,
-      })),
-    };
-  });
+  const nodeIds = [...new Set([
+    ...vertices.map((row) => row.nodeId),
+    ...topology.ports.map((row) => topology.nodeByPort.get(row.portId)),
+  ])].sort();
+  const context = {
+    terminalPorts,
+    boundaryClassifications: authority.confirmedConstruction.boundaryClassifications,
+  };
+  return nodeIds.map((nodeId) => (
+    nodeRecord(nodeId, topology, vertices, edges, connections, context)
+  ));
 }
 function repairRecords(authority, connections, nodeByPort) {
   return sorted(authority.repairs.map((row) => {
