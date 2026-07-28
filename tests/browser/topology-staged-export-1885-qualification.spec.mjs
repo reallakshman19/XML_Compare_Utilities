@@ -106,6 +106,8 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       editedEngineeringSignature: await sha256(JSON.stringify(editedProjection)),
       normalizedCollectionSignatures: await collectionSignatures(normalizedProjection),
       editedCollectionSignatures: await collectionSignatures(editedProjection),
+      firstNodeDifference: firstDifference(normalizedProjection.nodes, editedProjection.nodes),
+      firstSupportDifference: firstDifference(normalizedProjection.supports, editedProjection.supports),
       normalizedFindingSignature: await findingSignature(report),
       editedFindingSignature: await findingSignature(checker.report),
       activeFindingCount: report.issues.length,
@@ -152,6 +154,16 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
 
     function sorted(values) {
       return values.map(engineeringRecord).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    }
+
+    function firstDifference(left, right) {
+      const length = Math.max(left.length, right.length);
+      for (let index = 0; index < length; index += 1) {
+        if (JSON.stringify(left[index]) !== JSON.stringify(right[index])) {
+          return { index, normalized: left[index] ?? null, edited: right[index] ?? null };
+        }
+      }
+      return null;
     }
 
     async function collectionSignatures(projection) {
