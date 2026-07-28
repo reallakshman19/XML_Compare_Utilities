@@ -20,8 +20,8 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
   expect(before.benchmark.sourceSha256).toBe(BENCHMARK_SHA256);
   expect(before.benchmark.sourceByteLength).toBe(BENCHMARK_BYTES);
   expect(before.benchmark.branchCount).toBe(BENCHMARK_BRANCHES);
-  expect(before.checker.canonicalTopologyHash).toMatch(/^fnv1a64:[0-9a-f]+$/);
-  expect(before.checker.reportHash).toMatch(/^fnv1a32:[0-9a-f]{8}$/);
+  expect(before.checker.canonicalTopologyHash).toBe('');
+  expect(before.checker.reportHash).toBe('');
   expect(before.checker.autoEligibleCount).toBeGreaterThan(0);
   expect.soft(before.checker.autoEligibleCount, 'pinned benchmark preflight population changed').toBe(60);
 
@@ -51,13 +51,14 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
 
   expect(after.benchmark.sourceHash).toMatch(/^[0-9a-f]{64}$/);
   expect(after.benchmark.documentId).toBe(`topology-document:${after.benchmark.sourceHash.slice(0, 20)}`);
+  expect(after.checker.canonicalTopologyHash).toMatch(/^fnv1a64:[0-9a-f]+$/);
+  expect(after.checker.reportHash).toMatch(/^fnv1a32:[0-9a-f]{8}$/);
   expect(after.edit.commandAuthority.authorityId).toBe(run.commitProof.afterAuthorityId);
   expect(after.edit.commandAuthority.currentDraftHash).toBe(run.commitProof.currentDraftHash);
   expect(after.edit.draft.topologyEditDraftHash).toBe(run.commitProof.currentDraftHash);
   expect(after.edit.commandJournal.activeCommandIds).toContain(run.commitProof.journalCommandId);
   expect(after.edit.editedCanonicalTopologyHash).toBe(run.commitProof.canonicalTopologyHash);
   expect(after.checker.canonicalTopologyHash).toBe(run.commitProof.canonicalTopologyHash);
-  expect(after.checker.canonicalTopologyHash).not.toBe(before.checker.canonicalTopologyHash);
 
   const resolvedCount = run.applied.length + run.related.length;
   expect(resolvedCount).toBeGreaterThan(0);
@@ -84,6 +85,7 @@ test('TTV-C05 — exact 1885 Steam Auto fix advances authority, checker state, a
   expect(reloaded.edit.commandJournal.activeCommandIds).toContain(run.commitProof.journalCommandId);
   expect(reloaded.edit.editedCanonicalTopologyHash).toBe(run.commitProof.canonicalTopologyHash);
   expect(reloaded.checker.canonicalTopologyHash).toBe(run.commitProof.canonicalTopologyHash);
+  expect(reloaded.checker.reportHash).toBe(after.checker.reportHash);
   expect(reloaded.checker.activeIssueIds).toEqual(after.checker.activeIssueIds);
   expect(reloaded.checker.resolvedIssueIds).toEqual(after.checker.resolvedIssueIds);
   expect(reloadedRun?.active).toBe(true);
