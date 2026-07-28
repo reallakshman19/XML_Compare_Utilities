@@ -94,14 +94,18 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
     const edit = harness.controller.evidence().edit;
     const checker = harness.controller.checker.evidence();
     const editedCanonical = edit.editedArtifacts.canonicalTopology;
+    const normalizedProjection = engineeringProjection(built.canonicalTopology);
+    const editedProjection = engineeringProjection(editedCanonical);
     return {
       rootKey: root.rootKey,
       branchCount: root.branches.length,
       rawEnvelopeCanonicalTopologyHash: rawEnvelopeBuilt.canonicalTopology.canonicalTopologyHash,
       normalizedCanonicalTopologyHash: built.canonicalTopology.canonicalTopologyHash,
       editedCanonicalTopologyHash: editedCanonical.canonicalTopologyHash,
-      normalizedEngineeringSignature: await engineeringSignature(built.canonicalTopology),
-      editedEngineeringSignature: await engineeringSignature(editedCanonical),
+      normalizedEngineeringSignature: await sha256(JSON.stringify(normalizedProjection)),
+      editedEngineeringSignature: await sha256(JSON.stringify(editedProjection)),
+      normalizedCollectionSignatures: await collectionSignatures(normalizedProjection),
+      editedCollectionSignatures: await collectionSignatures(editedProjection),
       normalizedFindingSignature: await findingSignature(report),
       editedFindingSignature: await findingSignature(checker.report),
       activeFindingCount: report.issues.length,
@@ -112,12 +116,47 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
       editedEdgeCount: editedCanonical.edges.length,
     };
 
-    async function engineeringSignature(canonical) {
-      const material = {};
-      for (const key of ['nodes', 'edges', 'pointFeatures', 'junctions', 'boundaries', 'supports', 'rigids', 'bends']) {
-        material[key] = normalize(canonical?.[key] ?? []);
+    function engineeringProjection(canonical) {
+      const nodes = canonical?.nodes ?? [];
+      const nodePositions = new Map(nodes.map((node) => [String(node.id ?? ''), normalize(node.position)]));
+      const projection = {
+        nodes: sorted(nodes.map((node) => engineeringRecord({ ...node, id: undefined }))),
+        edges: sorted((canonical?.edges ?? []).map((edge) => engineeringRecord({
+          ...edge,
+          id: undefined,
+          fromNodeId: undefined,
+          toNodeId: undefined,
+          fromPosition: nodePositions.get(String(edge.fromNodeId ?? '')) ?? null,
+          toPosition: nodePositions.get(String(edge.toNodeId ?? '')) ?? null,
+        }))),
+      };
+      for (const key of ['pointFeatures', 'junctions', 'boundaries', 'supports', 'rigids', 'bends']) {
+        projection[key] = sorted((canonical?.[key] ?? []).map(engineeringRecord));
       }
-      return sha256(stableStringify(material));
+      return projection;
+    }
+
+    function engineeringRecord(value) {
+      if (Array.isArray(value)) return value.map(engineeringRecord);
+      if (!value || typeof value !== 'object') return value;
+      const excluded = new Set([
+        'canonicalTopologyHash', 'sourceIdentity', 'sourcePath', 'sourcePaths', 'sourceRef',
+        'sourceEntityId', 'sourceEntityIds', 'sourcePortId', 'sourcePortIds',
+        'viewKey', 'recordId', 'inputHash', 'contentHash', 'createdAt', 'updatedAt',
+        'generatedAt', 'sourceName', 'jobName',
+      ]);
+      return Object.fromEntries(Object.keys(value).sort()
+        .filter((key) => value[key] !== undefined && !excluded.has(key) && key !== 'id' && !/Ids?$/.test(key))
+        .map((key) => [key, engineeringRecord(value[key])]));
+    }
+
+    function sorted(values) {
+      return values.map(engineeringRecord).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+    }
+
+    async function collectionSignatures(projection) {
+      return Object.fromEntries(await Promise.all(Object.entries(projection)
+        .map(async ([key, value]) => [key, await sha256(JSON.stringify(value))])));
     }
 
     async function findingSignature(value) {
@@ -131,23 +170,15 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
         details: issue.details,
         location: issue.location,
       }));
-      return sha256(stableStringify(issues));
+      return sha256(JSON.stringify(issues));
     }
 
     function normalize(value) {
       if (Array.isArray(value)) return value.map(normalize);
       if (!value || typeof value !== 'object') return value;
-      const excluded = new Set([
-        'canonicalTopologyHash', 'sourceIdentity', 'sourcePath', 'sourcePaths', 'sourceRef',
-        'sourceEntityId', 'sourceEntityIds', 'sourcePortId', 'sourcePortIds',
-        'viewKey', 'recordId', 'inputHash', 'contentHash', 'createdAt', 'updatedAt',
-        'generatedAt', 'sourceName', 'jobName',
-      ]);
-      return Object.fromEntries(Object.keys(value).sort().filter((key) => !excluded.has(key))
-        .map((key) => [key, normalize(value[key])]));
+      return Object.fromEntries(Object.keys(value).sort().map((key) => [key, normalize(value[key])]));
     }
 
-    function stableStringify(value) { return JSON.stringify(value); }
     async function sha256(value) {
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
       return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -183,6 +214,7 @@ test('TTV-C06 — exact 1885 staged export serializes all committed moves and re
   expect(roundTrip.rawEnvelopeCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedCanonicalTopologyHash).not.toBe(roundTrip.editedCanonicalTopologyHash);
   expect(roundTrip.normalizedEngineeringSignature).toBe(roundTrip.editedEngineeringSignature);
+  expect(roundTrip.normalizedCollectionSignatures).toEqual(roundTrip.editedCollectionSignatures);
   expect(roundTrip.normalizedFindingSignature).toBe(roundTrip.editedFindingSignature);
   expect(roundTrip.nodeCount).toBe(roundTrip.editedNodeCount);
   expect(roundTrip.edgeCount).toBe(roundTrip.editedEdgeCount);
