@@ -51,7 +51,10 @@ function pairwiseRows(anchors) {
 function candidateRows(candidateLedger = []) {
   return (candidateLedger || []).filter((row) => row?.anchorBasisId);
 }
-function usageFor(anchor, rows) {
+function loopRows(anchorLoopLedger = []) {
+  return (anchorLoopLedger || []).filter((row) => row?.anchorBasisId);
+}
+function legacyCounts(anchor, rows) {
   let evaluationCount = 0;
   let inToleranceEvaluationCount = 0;
   for (const row of rows) {
@@ -61,6 +64,14 @@ function usageFor(anchor, rows) {
       if (evaluation.withinTolerance) inToleranceEvaluationCount += 1;
     }
   }
+  return { evaluationCount, inToleranceEvaluationCount };
+}
+function equivalentTieRows(rows) {
+  return rows.filter((row) => Number(row.equivalentAnchorCount) > 1 && (!row.crossLoopRank || Number(row.crossLoopRank) === 1));
+}
+function usageFor(anchor, rows, allLoopRows) {
+  const scopedLoopRows = allLoopRows.filter((row) => row.anchorBasisId === anchor.anchorId);
+  const legacy = scopedLoopRows.length ? null : legacyCounts(anchor, rows);
   const winners = rows.filter((row) => row.anchorBasisId === anchor.anchorId);
   return Object.freeze({
     anchorBasisId: anchor.anchorId,
@@ -70,34 +81,37 @@ function usageFor(anchor, rows) {
     deltaEMm: fixed(anchor.deltaEMm),
     deltaNMm: fixed(anchor.deltaNMm),
     deltaElMm: fixed(anchor.deltaElMm),
-    evaluationCount,
-    inToleranceEvaluationCount,
+    evaluationCount: scopedLoopRows.length || legacy?.evaluationCount || 0,
+    inToleranceEvaluationCount: scopedLoopRows.filter((row) => row.withinTolerance).length || legacy?.inToleranceEvaluationCount || 0,
+    anchorLoopWinnerCount: scopedLoopRows.filter((row) => row.anchorLoopWinner && row.withinTolerance).length,
     bestBasisCount: winners.length,
     selectedDecisionCount: winners.filter((row) => row.accepted).length,
     nearestRejectedCount: winners.filter((row) => row.ledgerKind === 'NEAREST_REJECTED').length,
-    equivalentBestTieCount: winners.filter((row) => Number(row.equivalentAnchorCount) > 1).length,
+    equivalentBestTieCount: equivalentTieRows(winners).length,
   });
 }
-function diagnosticCodes(anchors, usageRows, rows, spread) {
+function diagnosticCodes(anchors, usageRows, rows, spread, allLoopRows) {
   const codes = [];
   if (!anchors.length) return Object.freeze(['NO_VALID_ANCHORS']);
   codes.push(anchors.length === 1 ? 'SINGLE_VALID_ANCHOR' : 'MULTIPLE_VALID_ANCHORS');
+  if (allLoopRows.length) codes.push('INDEPENDENT_ANCHOR_LOOPS');
   if ([spread.e.span, spread.n.span, spread.el.span].some((value) => Number(value) > 0)) codes.push('DISTINCT_ANCHOR_TRANSLATIONS');
   if (usageRows.some((row) => row.bestBasisCount === 0)) codes.push('VALID_ANCHOR_UNUSED_AS_BEST_BASIS');
-  if (rows.some((row) => Number(row.equivalentAnchorCount) > 1)) codes.push('EQUIVALENT_BEST_ANCHOR_TIES_PRESENT');
+  if (equivalentTieRows(rows).length) codes.push('EQUIVALENT_BEST_ANCHOR_TIES_PRESENT');
   if (usageRows.filter((row) => row.bestBasisCount > 0).length > 1) codes.push('BEST_BASIS_DISTRIBUTED_ACROSS_ANCHORS');
   return Object.freeze(codes);
 }
 function summaryText(summary) {
   if (!summary.validAnchorCount) return 'No valid anchor transform is available.';
-  if (summary.validAnchorCount === 1) return `One valid anchor transform is available and was the best basis for ${summary.candidateWinnerCount} candidate relationships.`;
-  return `${summary.validAnchorCount} valid anchor transforms were compared. ${summary.usedAsBestBasisCount} were used as a best candidate basis; maximum transform separation is ${summary.maxPairwiseSeparationMm} mm; ${summary.equivalentBestCandidateCount} candidate relationships had mathematically equivalent best anchors.`;
+  if (summary.validAnchorCount === 1) return `One valid anchor matching loop is available and contributed ${summary.candidateWinnerCount} cross-loop candidate relationships.`;
+  return `${summary.validAnchorCount} independent anchor matching loops were executed. ${summary.usedAsBestBasisCount} anchors contributed cross-loop candidates; maximum transform separation is ${summary.maxPairwiseSeparationMm} mm; ${summary.equivalentBestCandidateCount} support relationships had mathematically equivalent cross-loop winners.`;
 }
 
-export function buildAnchorConsistencyDiagnostics(anchor = {}, candidateLedger = []) {
+export function buildAnchorConsistencyDiagnostics(anchor = {}, candidateLedger = [], anchorLoopLedger = []) {
   const anchors = validAnchors(anchor);
   const rows = candidateRows(candidateLedger);
-  const usage = Object.freeze(anchors.map((item) => usageFor(item, rows)));
+  const loops = loopRows(anchorLoopLedger);
+  const usage = Object.freeze(anchors.map((item) => usageFor(item, rows, loops)));
   const pairwise = pairwiseRows(anchors);
   const spread = Object.freeze({
     e: Object.freeze(axisSpread(anchors, 'deltaEMm')),
@@ -110,15 +124,17 @@ export function buildAnchorConsistencyDiagnostics(anchor = {}, candidateLedger =
     usedAsBestBasisCount: usage.filter((row) => row.bestBasisCount > 0).length,
     unusedAsBestBasisCount: usage.filter((row) => row.bestBasisCount === 0).length,
     candidateWinnerCount: usage.reduce((sum, row) => sum + row.bestBasisCount, 0),
+    anchorLoopWinnerCount: usage.reduce((sum, row) => sum + row.anchorLoopWinnerCount, 0),
     selectedDecisionCount: usage.reduce((sum, row) => sum + row.selectedDecisionCount, 0),
-    equivalentBestCandidateCount: rows.filter((row) => Number(row.equivalentAnchorCount) > 1).length,
+    equivalentBestCandidateCount: equivalentTieRows(rows).length,
     maxPairwiseSeparationMm: pairwise[0]?.separationMm ?? 0,
   };
-  const codes = diagnosticCodes(anchors, usage, rows, spread);
+  const codes = diagnosticCodes(anchors, usage, rows, spread, loops);
   return Object.freeze({
     schema: NAVIS_ANCHOR_DIAGNOSTICS_SCHEMA,
     authorityEffect: 'NONE',
     policy: text(anchor.policy) || 'NONE',
+    matchingLoopPolicy: loops[0]?.anchorLoopPolicy || '',
     summary: Object.freeze({ ...summary, summaryText: summaryText(summary) }),
     transformSpread: spread,
     anchorUsage: usage,
@@ -127,4 +143,4 @@ export function buildAnchorConsistencyDiagnostics(anchor = {}, candidateLedger =
   });
 }
 
-export const _test = Object.freeze({ anchorLabel, axisSpread, pairwiseRows, validAnchors });
+export const _test = Object.freeze({ anchorLabel, axisSpread, equivalentTieRows, pairwiseRows, validAnchors });

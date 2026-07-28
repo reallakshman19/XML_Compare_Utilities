@@ -25,13 +25,22 @@ function ledgerBase(record, trace, positionChoice) {
 
 function resultEvidence(result) {
   return {
-    scoringModel: result.scoringModel, decisionStatus: result.status, decisionReason: result.decisionReason,
-    topCandidateTagId: result.topCandidateTagId, topCandidateScore: result.topCandidateScore,
+    scoringModel: result.scoringModel,
+    decisionPolicy: result.decisionPolicy || '',
+    decisionStatus: result.status,
+    decisionReason: result.decisionReason,
+    topCandidateTagId: result.topCandidateTagId,
+    topCandidateScore: result.topCandidateScore,
     topCandidateAnchorBasis: result.topCandidateAnchorBasis || '',
-    runnerUpTagId: result.runnerUpTagId, runnerUpScore: result.runnerUpScore,
+    runnerUpTagId: result.runnerUpTagId,
+    runnerUpScore: result.runnerUpScore,
     runnerUpCandidateAnchorBasis: result.runnerUpCandidateAnchorBasis || '',
-    scoreGap: result.scoreGap, requiredScoreGap: result.requiredScoreGap,
+    scoreGap: result.scoreGap,
+    requiredScoreGap: result.requiredScoreGap,
     distinctCommentCount: result.distinctCommentCount,
+    crossLoopWinnerCount: result.crossLoopWinnerCount ?? '',
+    equivalentCrossLoopWinnerCount: result.equivalentCrossLoopWinnerCount ?? '',
+    crossLoopGeometryGapMm: result.crossLoopGeometryGapMm ?? '',
   };
 }
 
@@ -39,12 +48,22 @@ function readableCandidate(row, config = {}) {
   return { ...row, auditRemark: candidateAuditRemark(row, config) };
 }
 
+function selectedCandidateMatches(selected, candidate) {
+  if (!selected || !candidate) return false;
+  if (selected.candidateKey || candidate.candidateKey) return selected.candidateKey === candidate.candidateKey;
+  return selected.evidenceId === candidate.evidenceId;
+}
+
 export function appendCandidateLedger(candidateLedger, base, candidates, result) {
   candidates.forEach((candidate, index) => {
     const row = {
-      ledgerId: `${base.tableRowId}:C${index + 1}`, ledgerKind: 'ACCEPTED_CANDIDATE', ...base,
-      candidateRank: index + 1, accepted: result.selected?.evidenceId === candidate.evidenceId,
-      ...resultEvidence(result), ...candidate,
+      ledgerId: `${base.tableRowId}:C${index + 1}`,
+      ledgerKind: 'ACCEPTED_CANDIDATE',
+      ...base,
+      candidateRank: index + 1,
+      accepted: selectedCandidateMatches(result.selected, candidate),
+      ...resultEvidence(result),
+      ...candidate,
     };
     candidateLedger.push(readableCandidate(row));
   });
@@ -92,6 +111,7 @@ export function buildDecisionRow(record, trace, positionChoice, candidates, resu
     status: result.status, ambiguity: result.ambiguity, confidence: result.confidence,
     confidenceScore: result.score, confidenceReasons: result.confidenceReasons, auditRemark, ...resultEvidence(result),
     supportIsonote: selected?.commentBody || '', selectedEvidenceId: selected?.evidenceId || '',
+    selectedCandidateKey: selected?.candidateKey || '',
     selectedViewName: selected?.viewName || '', selectedViewGuid: selected?.viewGuid || '',
     selectedTagId: selected?.tagId || '', selectedCommentId: selected?.commentId || '',
     selectedNavisPosition: selected?.tagPosition || null,
@@ -101,6 +121,8 @@ export function buildDecisionRow(record, trace, positionChoice, candidates, resu
     selectedAnchorDeltaEMm: selected?.anchorTransformDeltaEMm ?? null,
     selectedAnchorDeltaNMm: selected?.anchorTransformDeltaNMm ?? null,
     selectedAnchorDeltaElMm: selected?.anchorTransformDeltaElMm ?? null,
+    selectedAnchorLoopRank: selected?.anchorLoopRank ?? null,
+    selectedCrossLoopRank: selected?.crossLoopRank ?? null,
     nearestRejectedEvidenceId: nearest?.evidenceId || '', nearestRejectedViewName: nearest?.viewName || '',
     nearestRejectedViewGuid: nearest?.viewGuid || '', nearestRejectedTagId: nearest?.tagId || '',
     nearestRejectedCommentId: nearest?.commentId || '', nearestRejectedCommentBody: nearest?.commentBody || '',
@@ -122,12 +144,16 @@ export function buildAugmentedRow(record, decisionRow, result, candidates) {
     'Delta N mm': result.selected?.deltaNMm ?? '', 'Delta EL mm': result.selected?.deltaElMm ?? '',
     'Anchor pair basis': decisionRow.selectedAnchorBasis || decisionRow.nearestRejectedAnchorBasis || '',
     'Anchor Selection Reason': result.selected?.anchorSelectionReason || result.nearestRejected?.anchorSelectionReason || '',
+    'Anchor Loop Rank': result.selected?.anchorLoopRank ?? result.nearestRejected?.anchorLoopRank ?? '',
+    'Cross-loop Rank': result.selected?.crossLoopRank ?? '',
+    'Cross-loop Winner Count': result.crossLoopWinnerCount ?? '',
+    'Cross-loop Geometry Gap mm': result.crossLoopGeometryGapMm ?? '',
     'Bore Nominal mm': decisionRow.boreNominalMm ?? '', 'Bore Source Path': decisionRow.borePath,
     'OD mm': decisionRow.odMm ?? '', 'OD Source Path': decisionRow.odPath, 'OD Source': decisionRow.odSource,
     'OD Lookup Name': decisionRow.odLookupName, 'Vertical Basis': result.selected?.verticalBasis || '',
     'Vertical Residual mm': result.selected?.verticalResidualMm ?? '', 'Candidate Count': candidates.length,
-    'Candidate Score Model': decisionRow.scoringModel, 'Decision Reason': decisionRow.decisionReason,
-    'Audit Remark': decisionRow.auditRemark,
+    'Candidate Score Model': decisionRow.scoringModel, 'Decision Policy': decisionRow.decisionPolicy,
+    'Decision Reason': decisionRow.decisionReason, 'Audit Remark': decisionRow.auditRemark,
     'Top Candidate Tag ID': decisionRow.topCandidateTagId, 'Top Candidate Score': decisionRow.topCandidateScore ?? '',
     'Top Candidate Anchor Basis': decisionRow.topCandidateAnchorBasis,
     'Runner-up Tag ID': decisionRow.runnerUpTagId, 'Runner-up Score': decisionRow.runnerUpScore ?? '',
@@ -148,3 +174,5 @@ export function buildAugmentedRow(record, decisionRow, result, candidates) {
     'Identity Trace ID': decisionRow.identityTraceId,
   };
 }
+
+export const _test = Object.freeze({ selectedCandidateMatches });
