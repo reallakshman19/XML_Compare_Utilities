@@ -1,4 +1,5 @@
 /** Exact Sequential domain-target resolution; no visual or positional inference. */
+import { projectSequentialReversalCandidates } from '../sequential-engineering-svg-reversal-scene.js';
 import {
   SEQUENTIAL_COMMAND_REJECTION,
   createSequentialCommandTargetEvidence,
@@ -10,8 +11,8 @@ const DECISION_COMMANDS = new Set([
   'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'REVERSE_COMPONENT',
   'DEFER_DECISION', 'RESUME_DECISION',
 ]);
-const CANDIDATE_COMMANDS = new Set([
-  'CONNECT_CANDIDATE', 'MANUAL_CONNECT', 'REJECT_CANDIDATE', 'REVERSE_COMPONENT',
+const CONNECTION_CANDIDATE_COMMANDS = new Set([
+  'CONNECT_CANDIDATE', 'MANUAL_CONNECT', 'REJECT_CANDIDATE',
 ]);
 
 function fail(code, message) { throw sequentialCommandCodedError(code, message, RangeError); }
@@ -57,6 +58,42 @@ function verifyManualPorts(candidate, command, indexes) {
   exactMapValue(indexes?.ports, command.fromPortId, SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH, 'From port');
   exactMapValue(indexes?.ports, command.toPortId, SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH, 'To port');
 }
+function exactReversal(session, command, indexes) {
+  if (!command.candidateId || !command.componentId || !command.entryPortId) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.COMMAND_TARGET_MISSING,
+      'Reversal candidate, component and entry-port identities are required.',
+    );
+  }
+  const candidate = projectSequentialReversalCandidates(session, indexes)
+    .find((row) => row.candidateId === command.candidateId);
+  if (!candidate || candidate.componentId !== command.componentId
+    || candidate.entryPortId !== command.entryPortId) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.CURRENT_CANDIDATE_MISMATCH,
+      `Reversal candidate ${command.candidateId} is not exact current native authority.`,
+    );
+  }
+  const component = exactMapValue(
+    indexes?.components,
+    command.componentId,
+    SEQUENTIAL_COMMAND_REJECTION.CURRENT_COMPONENT_MISMATCH,
+    'Component',
+  );
+  const entryPort = exactMapValue(
+    indexes?.ports,
+    command.entryPortId,
+    SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH,
+    'Entry port',
+  );
+  if (entryPort.componentId !== component.componentId) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH,
+      `Entry port ${entryPort.portId} does not belong to component ${component.componentId}.`,
+    );
+  }
+  return Object.freeze({ candidate, component });
+}
 
 export function resolveSequentialCommandTargets(input = {}) {
   const command = input.command;
@@ -77,22 +114,11 @@ export function resolveSequentialCommandTargets(input = {}) {
   let component = null;
   let connection = null;
   if (DECISION_COMMANDS.has(command.commandType)) request = currentDecision(session, command);
-  if (CANDIDATE_COMMANDS.has(command.commandType)) candidate = currentCandidate(request, command);
+  if (CONNECTION_CANDIDATE_COMMANDS.has(command.commandType)) candidate = currentCandidate(request, command);
 
   if (command.commandType === 'MANUAL_CONNECT') verifyManualPorts(candidate, command, indexes);
   if (command.commandType === 'REVERSE_COMPONENT') {
-    component = exactMapValue(
-      indexes?.components,
-      command.componentId,
-      SEQUENTIAL_COMMAND_REJECTION.CURRENT_COMPONENT_MISMATCH,
-      'Component',
-    );
-    exactMapValue(
-      indexes?.ports,
-      command.entryPortId,
-      SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH,
-      'Entry port',
-    );
+    ({ candidate, component } = exactReversal(session, command, indexes));
   }
   if (command.connectionId) {
     connection = (session.committedConnections || []).find((row) => row.connectionId === command.connectionId);
