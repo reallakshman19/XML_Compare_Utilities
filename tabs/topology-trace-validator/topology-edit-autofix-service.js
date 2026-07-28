@@ -25,6 +25,10 @@ function commitProofFailure(message) {
   throw error;
 }
 
+function nativeCommandId(envelope) {
+  return cleanText(objectRecord(objectRecord(envelope).payload).nativeCommand?.id);
+}
+
 function buildAutoFixCommitProof(input, beforeAuthority, state, built, run) {
   const evidence = objectRecord(input.journalService.evidence());
   const afterAuthority = objectRecord(evidence.authority), journal = objectRecord(evidence.journal);
@@ -35,19 +39,25 @@ function buildAutoFixCommitProof(input, beforeAuthority, state, built, run) {
   const currentDraftHash = cleanText(stateDraft.topologyEditDraftHash), builtDraftHash = cleanText(builtDraft.topologyEditDraftHash);
   const canonicalTopologyHash = cleanText(builtCanonical.canonicalTopologyHash), transactionId = cleanText(run?.transactionId);
   const activeCommandIds = Object.freeze(asArray(journal.activeCommandIds).map(cleanText).filter(Boolean));
-  const recoveryCommandIds = Object.freeze(asArray(objectRecord(snapshot.commandJournal).activeCommandIds).map(cleanText).filter(Boolean));
+  const activeEnvelopes = asArray(evidence.commandEnvelopes).map(objectRecord);
+  const transactionEnvelope = activeEnvelopes.find((row) => nativeCommandId(row) === transactionId);
+  const journalCommandId = cleanText(transactionEnvelope?.commandId);
+  const recoveryJournal = objectRecord(snapshot.commandJournal);
+  const recoveryCommandIds = Object.freeze(asArray(recoveryJournal.activeCommandIds).map(cleanText).filter(Boolean));
+  const recoveryEnvelope = asArray(recoveryJournal.entries).map(objectRecord)
+    .find((row) => cleanText(row.commandId) === journalCommandId && nativeCommandId(row) === transactionId);
 
   if (!beforeAuthorityId || !afterAuthorityId || beforeAuthorityId === afterAuthorityId) commitProofFailure('journal authority did not advance.');
   if (!currentDraftHash || currentDraftHash !== cleanText(afterAuthority.currentDraftHash)) commitProofFailure('accepted replay draft does not match current journal authority.');
   if (currentDraftHash !== builtDraftHash) commitProofFailure('accepted replay draft does not match full-regeneration artifacts.');
   if (!canonicalTopologyHash || canonicalTopologyHash !== cleanText(run?.afterTopologyHash)) commitProofFailure('committed canonical hash does not match the autofix receipt.');
-  if (!transactionId || !activeCommandIds.includes(transactionId)) commitProofFailure('autofix transaction is not active in the accepted command journal.');
+  if (!transactionId || !journalCommandId || !activeCommandIds.includes(journalCommandId)) commitProofFailure('autofix transaction is not active in the accepted command journal.');
   if (cleanText(snapshot.schema) !== 'TopologyEditSessionDraft.v2') commitProofFailure('accepted transaction has no persisted recovery snapshot.');
-  if (!recoveryCommandIds.includes(transactionId)) commitProofFailure('persisted recovery snapshot does not contain the autofix transaction.');
+  if (!recoveryEnvelope || !recoveryCommandIds.includes(journalCommandId)) commitProofFailure('persisted recovery snapshot does not contain the autofix transaction envelope.');
 
   return Object.freeze({ schema: TOPOLOGY_AUTO_FIX_COMMIT_PROOF_SCHEMA,
     beforeAuthorityId, afterAuthorityId, authorityAdvanced: true,
-    currentDraftHash, canonicalTopologyHash, transactionId,
+    currentDraftHash, canonicalTopologyHash, transactionId, journalCommandId,
     activeCommandIds, recoverySnapshotSchema: cleanText(snapshot.schema),
     recoverySavedAt: cleanText(snapshot.savedAt), recoveryCommandIds });
 }
