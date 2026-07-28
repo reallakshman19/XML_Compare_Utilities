@@ -92,6 +92,7 @@ const teeComponent = tee.snapshot.components.find((row) => row.canonicalType ===
 assert.deepEqual(teeComponent.geometryPartIds.map((id) => id.split(':').at(-1)).sort(), ['branch', 'run']);
 const teeParts = tee.snapshot.geometryParts.filter((row) => row.componentId === teeComponent.componentId);
 assert.equal(teeParts.length, 2);
+assert(teeParts.every((row) => row.sourceStrokeId === teeComponent.ancestry.strokeId));
 assert.equal(teeComponent.geometryKinds.length, 1);
 assert(teeComponent.ancestry.sessionFingerprint);
 assert(teeComponent.ancestry.strokeId);
@@ -108,6 +109,10 @@ assert(tee.snapshot.openBoundaries.some((row) => row.boundaryClass === 'INTENTIO
 assert(tee.snapshot.openBoundaries.some((row) => row.boundaryClass === 'EXTERNAL_BOUNDARY'));
 assert(tee.snapshot.nodes.some((row) => row.positionAncestry.length));
 assert(tee.snapshot.componentBoundaryCuts.length > 0);
+assert(tee.snapshot.componentBoundaryCuts.every((row) => typeof row.currentCoincidence === 'boolean'));
+const teeGroup = tee.snapshot.selectionGroups.find((row) => row.componentId === teeComponent.componentId);
+assert.deepEqual([...teeGroup.geometryPartIds].sort(), [...teeComponent.geometryPartIds].sort());
+assert.equal(teeGroup.selectionCandidateIds.length, 2);
 const teeEligibility = tee.snapshot.eligibility.find((row) => row.targetId === teeComponent.componentId);
 assert(!teeEligibility.capabilities.includes('RIGID_MOVE_ELIGIBLE'));
 assert(!teeEligibility.capabilities.includes('ROTATE_ELIGIBLE'));
@@ -150,6 +155,8 @@ assert(supported.components.some((row) => row.canonicalType === 'PIPE'));
 assert(supported.components.some((row) => row.canonicalType === 'CAP'));
 assert(supported.selectionCandidates.every((row) => row.eligibilityId));
 assert(supported.selectionCandidates.every((row) => row.resolvedComponentId));
+assert(supported.selectionCandidates.every((row) => row.selectionGroupId));
+assert.equal(supported.selectionGroups.length, supported.components.length);
 assert(supported.selectionCandidates.every((row) => Array.isArray(row.boundaryCutIds)));
 assert.match(supported.authority.sourceEvidenceFingerprint, /^fnv1a32-canonical-json-v1:SSKSOURCEEVIDENCE:/);
 assert.match(supported.authority.sceneFingerprint, /^fnv1a32-canonical-json-v1:SSKEDITSCENE:/);
