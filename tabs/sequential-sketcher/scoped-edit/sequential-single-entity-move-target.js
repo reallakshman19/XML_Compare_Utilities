@@ -112,6 +112,17 @@ function targetMaterial(input, snapshot, scene) {
   };
 }
 
+function targetIdentity(material) {
+  return {
+    componentId: material.componentId,
+    selectionGroupId: material.selectionGroupId,
+    authorityId: material.authorityId,
+    snapshotFingerprint: material.snapshotFingerprint,
+    geometryFingerprint: material.geometryFingerprint,
+    eligibilityId: material.eligibilityId,
+  };
+}
+
 export function selectSequentialSingleEntityMoveTarget(input = {}) {
   const snapshot = createSequentialEditableTopologySnapshot(input.readModel);
   const scene = assertSequentialScopedEditSceneAncestry(
@@ -121,7 +132,7 @@ export function selectSequentialSingleEntityMoveTarget(input = {}) {
   const material = targetMaterial(input, snapshot, scene);
   return immutableJson({
     ...material,
-    moveTargetId: sequentialSemanticFingerprint('SSK3LMOVETARGET', material),
+    moveTargetId: sequentialSemanticFingerprint('SSK3LMOVETARGET', targetIdentity(material)),
   }, 'Sequential single-entity move target');
 }
 
