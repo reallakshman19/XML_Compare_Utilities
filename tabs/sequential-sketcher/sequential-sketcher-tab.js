@@ -5,8 +5,9 @@ import { mountSequentialProjectExportController } from './platform/sequential-pr
 import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialContinuityController } from './continuity/sequential-continuity-controller.js?v=20260717-ssk-continuity-geometry-1';
 import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequential-scoped-edit-production-shadow.js?v=20260727-ssk-ts-1b-shadow-1';
-import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260727-ssk-ts-3a-gateway-1';
+import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260728-ssk-ts-3i';
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
+import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260728-ssk-ts-3i';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -34,6 +35,9 @@ function commandEngineOptions(root) {
     candidateSearchRadiusMm: numeric(root, '[data-ssk-candidate-radius]', 250),
   };
 }
+function exactClock(provider) {
+  return typeof provider === 'function' ? provider : () => new Date().toISOString();
+}
 
 export function installSequentialSketcherTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
@@ -51,6 +55,7 @@ export function installSequentialSketcherTile(container, context = {}) {
   let continuityController = null;
   let previewController = null;
   let scopedEditShadow = null;
+  let supportAdjustmentBoundary = null;
   let draftEdit3dController = null;
   const open = () => {
     if (active) return;
@@ -61,23 +66,15 @@ export function installSequentialSketcherTile(container, context = {}) {
     overlay.setAttribute('aria-label', 'Sequential Sketcher');
     container.ownerDocument.body.appendChild(overlay);
     const close = () => {
-      draftEdit3dController?.destroy();
-      draftEdit3dController = null;
-      scopedEditShadow?.destroy();
-      scopedEditShadow = null;
-      previewController?.destroy();
-      previewController = null;
-      continuityController?.destroy();
-      continuityController = null;
-      persistenceController?.destroy();
-      persistenceController = null;
-      projectExportController?.destroy();
-      projectExportController = null;
-      redoController?.destroy();
-      redoController = null;
-      active?.destroy();
-      active = null;
-      overlay.remove();
+      draftEdit3dController?.destroy(); draftEdit3dController = null;
+      supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
+      scopedEditShadow?.destroy(); scopedEditShadow = null;
+      previewController?.destroy(); previewController = null;
+      continuityController?.destroy(); continuityController = null;
+      persistenceController?.destroy(); persistenceController = null;
+      projectExportController?.destroy(); projectExportController = null;
+      redoController?.destroy(); redoController = null;
+      active?.destroy(); active = null; overlay.remove();
     };
     active = mountSequentialSketcherWorkspace(overlay, { ...context, close });
     try {
@@ -101,17 +98,29 @@ export function installSequentialSketcherTile(container, context = {}) {
           onSynchronizationFailure: context.onSequentialDraftEditCommandSynchronizationFailure,
           syncAfterCommit: () => { scopedEditShadow?.observe(); draftEdit3dController?.refresh(); },
         });
+        supportAdjustmentBoundary = createSequentialSupportAdjustmentBoundary({
+          readBaseState: commandBoundary.readCurrentState,
+          readBaseOwnerSnapshot: active.getEngineeringSvgOwnerSnapshot,
+          onPublished: () => draftEdit3dController?.refresh(),
+        });
+        const issuedAtProvider = exactClock(context.sequentialDraftEditCommandIssuedAtProvider);
         draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
           shadow: scopedEditShadow,
           workspace: active,
           commandBoundary,
+          supportAdjustmentBoundary,
           createViewer: context.createSequentialScopedEdit3dViewer,
+          commandIssuedAtProvider: issuedAtProvider,
+          supportAdjustmentAppliedAtProvider: exactClock(
+            context.sequentialSupportAdjustmentAppliedAtProvider,
+          ),
           failureFactory: context.sequentialScopedEdit3dFailureFactory,
           onActivate: () => previewController?.switchRenderer('CONSTRUCTION_SVG'),
           onFailure: context.onSequentialScopedEdit3dFailure,
         });
       } catch (error) {
         draftEdit3dController = null;
+        supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
         try { context.onSequentialScopedEdit3dFailure?.({ stage: 'controller mount', message: error?.message || String(error) }); } catch {}
       }
     }
@@ -127,24 +136,16 @@ export function installSequentialSketcherTile(container, context = {}) {
   };
   tile.addEventListener('click', open);
   return () => {
-    draftEdit3dController?.destroy();
-    draftEdit3dController = null;
-    scopedEditShadow?.destroy();
-    scopedEditShadow = null;
-    previewController?.destroy();
-    previewController = null;
+    draftEdit3dController?.destroy(); draftEdit3dController = null;
+    supportAdjustmentBoundary?.destroy(); supportAdjustmentBoundary = null;
+    scopedEditShadow?.destroy(); scopedEditShadow = null;
+    previewController?.destroy(); previewController = null;
     tile.removeEventListener('click', open);
-    continuityController?.destroy();
-    continuityController = null;
-    persistenceController?.destroy();
-    persistenceController = null;
-    projectExportController?.destroy();
-    projectExportController = null;
-    redoController?.destroy();
-    redoController = null;
-    active?.destroy();
-    active = null;
-    tile.remove();
+    continuityController?.destroy(); continuityController = null;
+    persistenceController?.destroy(); persistenceController = null;
+    projectExportController?.destroy(); projectExportController = null;
+    redoController?.destroy(); redoController = null;
+    active?.destroy(); active = null; tile.remove();
   };
 }
 
