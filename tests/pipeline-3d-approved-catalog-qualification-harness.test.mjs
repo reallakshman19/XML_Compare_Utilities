@@ -11,6 +11,7 @@ import {
 const baselineCommit = 'a'.repeat(40);
 const testPlan = Object.freeze([Object.freeze({ id: 'ONLY', path: 'tests/fake.test.js' })]);
 const exists = () => true;
+const headResolver = () => baselineCommit;
 const clock = (...values) => {
   const queue = [...values];
   return () => queue.shift() ?? values.at(-1) ?? 0;
@@ -22,6 +23,7 @@ function runWith(execution, overrides = {}) {
     repoRoot: '/repo',
     testPlan,
     exists,
+    headResolver,
     runner: () => execution,
     clock: clock(10, 15),
     ...overrides,
@@ -66,6 +68,7 @@ const successWithDifferentDuration = runPipelineApprovedCatalogQualification({
   repoRoot: '/repo',
   testPlan,
   exists,
+  headResolver,
   runner: () => ({ status: 0, signal: null, stdout: 'fixture: PASS\n', stderr: '' }),
   clock: clock(100, 250),
 });
@@ -82,6 +85,26 @@ assert.equal(invalidBaseline.ready, false);
 assert.equal(invalidBaseline.results.length, 0);
 assert.ok(invalidBaseline.blockerCodes.includes(
   'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_INVALID'));
+
+const baselineMismatch = runWith({
+  status: 0, signal: null, stdout: 'fixture: PASS', stderr: '',
+}, { headResolver: () => 'b'.repeat(40) });
+assert.equal(baselineMismatch.ready, false);
+assert.equal(baselineMismatch.results.length, 0);
+assert.ok(baselineMismatch.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_MISMATCH'));
+
+const headResolutionFailure = runWith({
+  status: 0, signal: null, stdout: 'fixture: PASS', stderr: '',
+}, {
+  headResolver: () => {
+    throw Object.assign(new Error('head unavailable'), { code: 'ENOENT' });
+  },
+});
+assert.equal(headResolutionFailure.ready, false);
+assert.equal(headResolutionFailure.results.length, 0);
+assert.ok(headResolutionFailure.blockerCodes.includes(
+  'PIPELINE_APPROVED_CATALOG_QUALIFICATION_HEAD_RESOLUTION_FAILED'));
 
 const invalidTimeout = runWith({ status: 0, signal: null, stdout: 'fixture: PASS', stderr: '' }, {
   timeoutMs: Number.NaN,
@@ -115,6 +138,7 @@ const duplicate = runPipelineApprovedCatalogQualification({
     { id: 'DUP', path: 'tests/b.js' },
   ],
   exists,
+  headResolver,
 });
 assert.equal(duplicate.ready, false);
 assert.ok(duplicate.blockerCodes.includes(
