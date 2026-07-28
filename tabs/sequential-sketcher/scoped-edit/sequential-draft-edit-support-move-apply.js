@@ -52,17 +52,44 @@ function exactNow(now) {
   if (!isIsoTimestamp(value)) throw new TypeError('Support adjustment clock must return an exact ISO timestamp.');
   return value;
 }
+function targetMaterial(target = {}) {
+  return {
+    schema: 'SequentialDraftEditSupportMoveTarget.v1',
+    authorityId: target.authorityId,
+    readAuthorityId: target.readAuthorityId,
+    branchId: target.branchId,
+    sceneRevision: target.sceneRevision,
+    supportId: target.supportId,
+    familyId: target.familyId,
+    carrierId: target.carrierId,
+    entityId: target.entityId,
+    originalPosition: target.originalPosition,
+  };
+}
 function previewValue(value) {
   if (value?.schema !== 'SequentialDraftEditSupportMovePreview.v1'
     || value.intent?.schema !== 'EngineeringEditIntent.v1'
     || value.intent.type !== 'MOVE_ENTITY'
     || value.publicationState !== 'NOT_PUBLISHED') {
-    fail(
-      SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREVIEW_INVALID,
-      'Support adjustment requires one exact non-published MOVE_ENTITY preview.',
-      TypeError,
-    );
+    fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREVIEW_INVALID,
+      'Support adjustment requires one exact non-published MOVE_ENTITY preview.', TypeError);
   }
+  const target = value.target || {};
+  const expectedTargetId = sequentialSemanticFingerprint('SSK3DSUPPORTMOVE', targetMaterial(target));
+  const geometry = value.draft?.geometry?.[target.entityId];
+  const exact = target.supportMoveTargetId === expectedTargetId
+    && value.operationId === value.intent.operationId
+    && value.operationId === value.draft?.operationId
+    && sameSequentialContractValue(value.intent.baseRevision, target.sceneRevision)
+    && sameSequentialContractValue(value.draft?.baseRevision, target.sceneRevision)
+    && sameSequentialContractValue(value.intent.entityIds, [target.entityId])
+    && sameSequentialContractValue(value.originalPosition, target.originalPosition)
+    && sameSequentialContractValue(geometry?.original?.position, value.originalPosition)
+    && sameSequentialContractValue(geometry?.draft?.position, value.draftPosition)
+    && value.intent.source?.supportMoveTargetId === target.supportMoveTargetId
+    && value.intent.source?.authorityId === target.authorityId;
+  if (!exact) fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREVIEW_INVALID,
+    'Support adjustment preview differs from canonical target, intent or draft evidence.');
   return value;
 }
 function point(value, label) {
@@ -127,12 +154,22 @@ function expectedRegister(state, base) {
   );
 }
 function preparedMaterial(preview, expectedAuthority, candidate) {
-  return {
-    schema: SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA,
-    preview,
-    expectedAuthority,
-    candidate,
-  };
+  return { schema: SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA,
+    preview, expectedAuthority, candidate };
+}
+function preparedValue(value) {
+  if (value?.schema !== SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA) {
+    fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREPARED_INVALID,
+      `Prepared support adjustment must use ${SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA}.`,
+      TypeError);
+  }
+  previewValue(value.preview);
+  const material = preparedMaterial(value.preview, value.expectedAuthority, value.candidate);
+  if (value.preparedId !== sequentialSemanticFingerprint('SSUPPORTADJUSTPREP', material)) {
+    fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREPARED_INVALID,
+      'Prepared support adjustment differs from canonical regeneration.');
+  }
+  return value;
 }
 
 export function createSequentialDraftEditSupportMoveApplyService(options = {}) {
@@ -154,18 +191,12 @@ export function createSequentialDraftEditSupportMoveApplyService(options = {}) {
     const register = expectedRegister(state, located.base);
     const provenance = preview.intent.source || {};
     const appended = appendSequentialSupportAdjustment(register, {
-      supportId: preview.target.supportId,
-      familyId: preview.target.familyId,
-      carrierId: preview.target.carrierId,
-      fromPosition: preview.originalPosition,
-      toPosition: located.requested,
-      resolvedPosition: located.resolved,
-      targetId: preview.target.supportMoveTargetId,
-      operationId: preview.operationId,
-      actorId: provenance.actorId,
-      reason: provenance.reason,
-      evidenceNote: provenance.evidenceNote,
-      appliedAt: exactNow(now),
+      supportId: preview.target.supportId, familyId: preview.target.familyId,
+      carrierId: preview.target.carrierId, fromPosition: preview.originalPosition,
+      toPosition: located.requested, resolvedPosition: located.resolved,
+      targetId: preview.target.supportMoveTargetId, operationId: preview.operationId,
+      actorId: provenance.actorId, reason: provenance.reason,
+      evidenceNote: provenance.evidenceNote, appliedAt: exactNow(now),
     });
     const supportProjection = applySequentialSupportAdjustmentRegister(
       located.base,
@@ -186,39 +217,31 @@ export function createSequentialDraftEditSupportMoveApplyService(options = {}) {
     }, 'Sequential prepared support adjustment');
   }
   function accept(preparedInput) {
-    if (preparedInput?.schema !== SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA) {
-      fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PREPARED_INVALID,
-        `Prepared support adjustment must use ${SEQUENTIAL_PREPARED_SUPPORT_ADJUSTMENT_SCHEMA}.`,
-        TypeError);
-    }
+    const prepared = preparedValue(preparedInput);
     const currentAuthority = deriveSequentialEditAuthority(readCurrentState());
-    if (!sameSequentialContractValue(currentAuthority, preparedInput.expectedAuthority)) {
+    if (!sameSequentialContractValue(currentAuthority, prepared.expectedAuthority)) {
       return immutableJson({
         schema: SEQUENTIAL_SUPPORT_ADJUSTMENT_ACCEPTANCE_SCHEMA,
         accepted: false,
         reasonCode: SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.AUTHORITY_STALE,
-        preparedId: preparedInput.preparedId,
-        expectedAuthorityId: preparedInput.expectedAuthority.authorityId,
+        preparedId: prepared.preparedId,
+        expectedAuthorityId: prepared.expectedAuthority.authorityId,
         currentAuthorityId: currentAuthority.authorityId,
-        publicationState: 'NOT_PUBLISHED',
-        publication: null,
+        publicationState: 'NOT_PUBLISHED', publication: null,
       }, 'Sequential support adjustment acceptance');
     }
     try {
       const publication = publishCandidate({
-        preparedId: preparedInput.preparedId,
-        expectedAuthority: preparedInput.expectedAuthority,
-        candidate: preparedInput.candidate,
+        preparedId: prepared.preparedId,
+        expectedAuthority: prepared.expectedAuthority,
+        candidate: prepared.candidate,
       });
       return immutableJson({
         schema: SEQUENTIAL_SUPPORT_ADJUSTMENT_ACCEPTANCE_SCHEMA,
-        accepted: true,
-        reasonCode: null,
-        preparedId: preparedInput.preparedId,
-        expectedAuthorityId: preparedInput.expectedAuthority.authorityId,
+        accepted: true, reasonCode: null, preparedId: prepared.preparedId,
+        expectedAuthorityId: prepared.expectedAuthority.authorityId,
         currentAuthorityId: currentAuthority.authorityId,
-        publicationState: 'COMMITTED',
-        publication,
+        publicationState: 'COMMITTED', publication,
       }, 'Sequential support adjustment acceptance');
     } catch (error) {
       fail(SEQUENTIAL_SUPPORT_ADJUSTMENT_REJECTION.PUBLICATION_FAILED,
@@ -226,9 +249,7 @@ export function createSequentialDraftEditSupportMoveApplyService(options = {}) {
     }
   }
   return Object.freeze({
-    schema: 'SequentialDraftEditSupportMoveApplyService.v1',
-    prepare,
-    accept,
+    schema: 'SequentialDraftEditSupportMoveApplyService.v1', prepare, accept,
   });
 }
 
