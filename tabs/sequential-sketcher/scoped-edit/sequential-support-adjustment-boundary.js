@@ -119,13 +119,17 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
       candidate.register,
       base.constructionFingerprint,
     );
+    const entry = register.entries.at(-1) || null;
+    if (!entry || !sameSequentialContractValue(entry, candidate.entry)) {
+      throw new RangeError('Prepared support adjustment entry is not the canonical register tail.');
+    }
     assertSequentialAdjustedSupportProjection(base, register, candidate.supportProjection);
     byBranch.set(authority.branchId, register);
     const publication = Object.freeze({
       schema: 'SequentialSupportAdjustmentPublication.v1',
       committed: true,
       preparedId: input.preparedId,
-      adjustmentId: candidate.entry.adjustmentId,
+      adjustmentId: entry.adjustmentId,
       expectedAuthorityId: authority.authorityId,
       registerHeadFingerprint: register.headFingerprint,
       effectiveProjectionFingerprint: sequentialSupportProjectionFingerprint(
