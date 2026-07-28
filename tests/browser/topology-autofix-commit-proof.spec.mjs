@@ -30,14 +30,15 @@ test('TTV-C04 — Auto fix commits journal authority, persists recovery, and sur
   expect(proof.authorityAdvanced).toBe(true);
   expect(proof.beforeAuthorityId).not.toBe(proof.afterAuthorityId);
   expect(proof.transactionId).toBe(run.transactionId);
-  expect(proof.activeCommandIds).toContain(run.transactionId);
-  expect(proof.recoveryCommandIds).toContain(run.transactionId);
+  expect(proof.journalCommandId).toMatch(/^CJ-\d+$/);
+  expect(proof.activeCommandIds).toContain(proof.journalCommandId);
+  expect(proof.recoveryCommandIds).toContain(proof.journalCommandId);
   expect(proof.recoverySnapshotSchema).toBe('TopologyEditSessionDraft.v2');
 
   expect(after.edit.commandAuthority.authorityId).toBe(proof.afterAuthorityId);
   expect(after.edit.commandAuthority.currentDraftHash).toBe(proof.currentDraftHash);
   expect(after.edit.draft.topologyEditDraftHash).toBe(proof.currentDraftHash);
-  expect(after.edit.commandJournal.activeCommandIds).toContain(run.transactionId);
+  expect(after.edit.commandJournal.activeCommandIds).toContain(proof.journalCommandId);
   expect(after.edit.editedArtifacts.canonicalTopology.canonicalTopologyHash).toBe(proof.canonicalTopologyHash);
   expect(after.checker.report.canonicalTopologyHash).toBe(proof.canonicalTopologyHash);
   expect(after.checker.resolvedIssues.length).toBe(run.applied.length + run.related.length);
@@ -74,7 +75,7 @@ test('TTV-C04 — Auto fix commits journal authority, persists recovery, and sur
   expect(reloaded.edit.commandAuthority.authorityId).toBe(proof.afterAuthorityId);
   expect(reloaded.edit.commandAuthority.currentDraftHash).toBe(proof.currentDraftHash);
   expect(reloaded.edit.draft.topologyEditDraftHash).toBe(proof.currentDraftHash);
-  expect(reloaded.edit.commandJournal.activeCommandIds).toContain(run.transactionId);
+  expect(reloaded.edit.commandJournal.activeCommandIds).toContain(proof.journalCommandId);
   expect(reloaded.edit.editedArtifacts.canonicalTopology.canonicalTopologyHash).toBe(proof.canonicalTopologyHash);
   expect(reloaded.checker.report.canonicalTopologyHash).toBe(proof.canonicalTopologyHash);
   expect(reloaded.checker.resolvedIssues.length).toBe(after.checker.resolvedIssues.length);
