@@ -105,8 +105,11 @@ export function createSequentialScopedEditVisualModel(input = {}) {
     readModel,
   );
   const visible = scene.entities.filter((entity) => entity.visible !== false);
+  const fitVisible = visible.filter((entity) => entity.contributesToFit !== false);
   const segmentRows = visible.flatMap(segments);
   const markerRows = visible.map(marker).filter(Boolean);
+  const fitSegments = fitVisible.flatMap(segments);
+  const fitMarkers = fitVisible.map(marker).filter(Boolean);
   return createVisualGeometryModelV2({
     modelId: `sequential-draft-edit:${readModel.authorityId}`,
     documentId: `sequential-document:${readModel.branchId}`,
@@ -117,7 +120,7 @@ export function createSequentialScopedEditVisualModel(input = {}) {
     origin: [0, 0, 0],
     segments: segmentRows,
     markers: markerRows,
-    bounds: bounds(segmentRows, markerRows),
+    bounds: bounds(fitSegments, fitMarkers),
   });
 }
 
