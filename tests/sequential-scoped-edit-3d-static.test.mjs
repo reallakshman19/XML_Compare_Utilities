@@ -11,6 +11,7 @@ const controller = source('tabs/sequential-sketcher/scoped-edit/sequential-scope
 const contracts = source('tabs/sequential-sketcher/scoped-edit/sequential-command-contracts.js');
 const gateway = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-gateway.js');
 const panel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-panel.js');
+const presentation = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-command-presentation.js');
 const candidateTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-target-selection.js');
 const decisionTarget = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-decision-target.js');
 const boundary = source('tabs/sequential-sketcher/scoped-edit/sequential-workspace-command-boundary.js');
@@ -26,7 +27,7 @@ const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
   ['visual model', visual], ['3D controller', controller], ['command contracts', contracts],
-  ['command gateway', gateway], ['command panel', panel],
+  ['command gateway', gateway], ['command panel', panel], ['command presentation', presentation],
   ['candidate target resolver', candidateTarget], ['decision target resolver', decisionTarget],
   ['workspace command boundary', boundary],
 ]) {
@@ -65,13 +66,11 @@ assert.doesNotMatch(controller, /wireTopologyEditGestures|beginDrag|commitDrag|a
 
 const enabledBlock = contracts.match(/SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES[\s\S]*?\]\);/)?.[0] || '';
 for (const commandType of [
-  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'CONNECT_CANDIDATE', 'REJECT_CANDIDATE',
-  'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'DEFER_DECISION', 'RESUME_DECISION',
-  'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
+  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'CONNECT_CANDIDATE', 'MANUAL_CONNECT',
+  'REJECT_CANDIDATE', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY',
+  'DEFER_DECISION', 'RESUME_DECISION', 'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(enabledBlock, new RegExp(`'${commandType}'`));
-for (const commandType of ['MANUAL_CONNECT', 'REVERSE_COMPONENT']) {
-  assert.doesNotMatch(enabledBlock, new RegExp(`'${commandType}'`));
-}
+assert.doesNotMatch(enabledBlock, /'REVERSE_COMPONENT'/);
 
 assert.match(gateway, /createSequentialCommandService/);
 assert.match(gateway, /SEQUENTIAL_PREPARATION_ENABLED_COMMAND_TYPES/);
@@ -114,6 +113,14 @@ assert.doesNotMatch(decisionTarget, /querySelector|addEventListener|onPick|gatew
 
 assert.match(panel, /CANDIDATE_COMMANDS/);
 assert.match(panel, /BOUNDARY_COMMANDS/);
+assert.match(panel, /MANUAL_CONNECT/);
+assert.match(panel, /exactManualPorts/);
+assert.match(panel, /state\.current\?\.indexes\?\.ports/);
+assert.match(panel, /ports instanceof Map/);
+assert.match(panel, /ports\.has\(fromPortId\)/);
+assert.match(panel, /ports\.has\(toPortId\)/);
+assert.match(panel, /fromPortId: manualPorts\?\.fromPortId/);
+assert.match(panel, /toPortId: manualPorts\?\.toPortId/);
 assert.match(panel, /gateway\.prepare\(/);
 assert.match(panel, /gateway\.accept\(/);
 assert.match(panel, /exactCandidateTarget/);
@@ -128,8 +135,15 @@ assert.match(panel, /Prepared command cancelled without authority mutation/);
 assert.match(panel, /Prepare does not publish authority/);
 assert.doesNotMatch(panel, /gateway\.execute\(/,
   'visible command controls must never use direct execute');
-assert.doesNotMatch(panel, /MANUAL_CONNECT|REVERSE_COMPONENT/);
+assert.doesNotMatch(panel, /REVERSE_COMPONENT/);
 assert.doesNotMatch(panel, /\bbeginDrag\b|\bcommitDrag\b|\brotate\b|\bstretch\b|breakTopology/);
+
+assert.match(presentation, /sequentialDraftEditCommandPanelElements/);
+assert.match(presentation, /sequentialDraftEditPreparedPreview/);
+assert.match(presentation, /From port:/);
+assert.match(presentation, /To port:/);
+assert.doesNotMatch(presentation, /gateway\.|readCurrentState|deriveSequentialEditAuthority|publishCandidate/,
+  'presentation helper must not own command authority');
 
 assert.match(boundary, /SequentialWorkspaceRestoration\.v2/);
 assert.match(boundary, /restorePackage/);
@@ -157,15 +171,17 @@ assert.match(markup, /data-ssk-draft-edit-target/);
 assert.match(markup, /Target → prepare → review → accept/);
 assert.match(markup, /Accept prepared command/);
 assert.match(markup, /Cancel prepared command/);
-assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 10,
-  'SSK-TS-3D must expose exactly ten qualified command-selection buttons');
+assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 11,
+  'SSK-TS-3E must expose exactly eleven qualified command-selection buttons');
 for (const commandType of [
-  'CONNECT_CANDIDATE', 'REJECT_CANDIDATE', 'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY',
-  'ADVANCE_ONE', 'RUN_UNTIL_BLOCKED', 'DEFER_DECISION', 'RESUME_DECISION',
+  'CONNECT_CANDIDATE', 'MANUAL_CONNECT', 'REJECT_CANDIDATE',
+  'MARK_TERMINAL', 'MARK_EXTERNAL_BOUNDARY', 'ADVANCE_ONE',
+  'RUN_UNTIL_BLOCKED', 'DEFER_DECISION', 'RESUME_DECISION',
   'UNDO_LAST_TRANSACTION', 'REDO_LAST_TRANSACTION',
 ]) assert.match(markup, new RegExp(`data-ssk-draft-edit-command="${commandType}"`));
-assert.doesNotMatch(markup, /MANUAL_CONNECT|REVERSE_COMPONENT/);
-assert.doesNotMatch(markup, /data-ssk-command-execute|data-ssk-draft-edit-drag|data-ssk-coordinate-edit/);
+assert.doesNotMatch(markup, /REVERSE_COMPONENT/);
+assert.doesNotMatch(markup, /data-ssk-(?:from|to)-port|data-ssk-manual-port|data-ssk-command-execute|data-ssk-draft-edit-drag|data-ssk-coordinate-edit/,
+  'manual connect must not expose free-form port entry or geometry execution controls');
 
 assert.match(tab, /createSequentialWorkspaceCommandBoundary/);
 assert.match(tab, /commandBoundary/);
@@ -194,4 +210,4 @@ assert.match(workbenchSpec, /runtimePending/);
 assert.match(workbenchSpec, /instanceCount/);
 assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3D exact boundary decision Draft Edit 3D static containment: ok');
+console.log('Sequential SSK-TS-3E candidate-bound manual connection static containment: ok');
