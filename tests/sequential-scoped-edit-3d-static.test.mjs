@@ -26,6 +26,9 @@ const fixture = source('tests/browser/sequential-engineering-svg-preview-fixture
 const browserSpec = source('tests/browser/sequential-scoped-edit-3d.spec.mjs');
 const workbenchFixture = source('tests/browser/sequential-scoped-edit-3d-workbench-fixture.html');
 const workbenchSpec = source('tests/browser/sequential-scoped-edit-3d-workbench.spec.mjs');
+const lifecycleFixture = source('tests/browser/sequential-draft-edit-command-lifecycle-fixture.html');
+const lifecycleSpec = source('tests/browser/sequential-draft-edit-command-lifecycle.spec.mjs');
+const lifecycleDoc = source('docs/ssk-ts-3h-browser-command-lifecycle.md');
 const config = source('playwright.sequential-scoped-edit-3d.config.mjs');
 
 for (const [name, value] of [
@@ -141,6 +144,28 @@ assert.match(browserSpec, /SSK-TS-1B-B10/);
 assert.doesNotMatch(browserSpec, /appendEditCommand|commitDrag|beginDrag/);
 assert.match(workbenchFixture, /type="importmap"/);
 assert.match(workbenchSpec, /SSK-TS-1B-W04/);
-assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3G supervised component reversal static containment: ok');
+assert.match(lifecycleFixture, /createSequentialDraftEditCommandPanel/);
+assert.match(lifecycleFixture, /projectSequentialReversalCandidates/);
+assert.equal([...lifecycleFixture.matchAll(/data-ssk-draft-edit-command="/g)].length, 12,
+  'SSK-TS-3H fixture must expose exactly twelve supervised command controls');
+assert.doesNotMatch(lifecycleFixture,
+  /data-ssk-(?:candidate|component|connection|entry-port|from-port|to-port)-id/,
+  'browser qualification must not expose free-form authority inputs');
+assert.match(lifecycleFixture, /setMode\('candidate'\)/);
+assert.match(lifecycleFixture, /panel\.setActive\(false\)/);
+assert.match(lifecycleSpec, /SSK-TS-3H-B01/);
+assert.match(lifecycleSpec, /SSK-TS-3H-B07/);
+assert.match(lifecycleSpec, /\.locator\([^\n]+\)\.click\(\)/);
+assert.match(lifecycleSpec, /data-ssk-draft-edit-command-accept/);
+assert.match(lifecycleSpec, /data-ssk-draft-edit-command-cancel/);
+assert.doesNotMatch(lifecycleSpec,
+  /panel\.(?:prepare|accept)\(|gateway\.(?:prepare|accept|execute)\(|prepareCommand\(|acceptCommand\(|executeCommand\(/,
+  'primary browser lifecycle proof must use visible DOM controls');
+assert.doesNotMatch(lifecycleSpec, /appendEditCommand|commitDrag|beginDrag|rotate|stretch|breakTopology/);
+assert.match(lifecycleDoc, /Browser-qualified supervised command lifecycle/);
+assert.match(lifecycleDoc, /Exact-head Playwright execution: not available/);
+assert.match(config, /sequential-scoped-edit-3d-workbench\.spec\.mjs/);
+assert.match(config, /sequential-draft-edit-command-lifecycle\.spec\.mjs/);
+
+console.log('Sequential SSK-TS-3H browser-qualified supervised command lifecycle static containment: ok');
