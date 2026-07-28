@@ -1,6 +1,7 @@
 /** Exact confirmed-support target for non-publishing move drafts. */
 import { immutableJson, requiredContractText } from '../../../contracts/contract-values.js';
 import { createSequentialSupportAdjustmentRegister } from '../support/sequential-support-adjustment-register.js';
+import { sequentialSupportProjectionFingerprint } from '../support/sequential-support-adjusted-projection.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
@@ -11,7 +12,6 @@ import {
 
 export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_TARGET_SCHEMA =
   'SequentialDraftEditSupportMoveTarget.v1';
-
 export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION = Object.freeze({
   OBJECT_REQUIRED: 'DRAFT_EDIT_SUPPORT_OBJECT_REQUIRED',
   ENTITY_MISSING: 'DRAFT_EDIT_SUPPORT_ENTITY_MISSING',
@@ -24,17 +24,13 @@ export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION = Object.freeze({
 });
 
 function fail(code, message) {
-  const error = new RangeError(message);
-  error.code = code;
-  throw error;
+  const error = new RangeError(message); error.code = code; throw error;
 }
 function text(value) { return String(value ?? '').trim(); }
 function requiredObjectId(value) {
   const result = text(value);
-  if (!result) fail(
-    SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.OBJECT_REQUIRED,
-    'Draft Edit support selection requires an exact scene object ID.',
-  );
+  if (!result) fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.OBJECT_REQUIRED,
+    'Draft Edit support selection requires an exact scene object ID.');
   return result;
 }
 function point(value) {
@@ -59,61 +55,48 @@ function adjustmentFingerprint(state) {
 }
 function authorityAgreement(readModel, state) {
   const authority = deriveSequentialEditAuthority(state);
+  const supportProjection = state?.supportProjection || null;
   if (readModel.branchId !== authority.branchId
     || readModel.sessionFingerprint !== authority.sessionFingerprint
     || readModel.supportConstructionFingerprint
-      !== (state?.supportProjection?.constructionFingerprint || null)
+      !== (supportProjection?.constructionFingerprint || null)
+    || readModel.supportProjectionFingerprint
+      !== (supportProjection ? sequentialSupportProjectionFingerprint(supportProjection) : null)
     || readModel.supportAdjustmentRegisterFingerprint !== adjustmentFingerprint(state)) {
-    fail(
-      readModel.branchId === authority.branchId
-        ? SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE
-        : SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.BRANCH_MISMATCH,
-      'Draft Edit scene authority does not match current support authority.',
-    );
+    fail(readModel.branchId === authority.branchId
+      ? SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE
+      : SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.BRANCH_MISMATCH,
+    'Draft Edit scene authority does not match current support authority.');
   }
   return authority;
 }
 function exactEntity(scene, objectId) {
   const entity = scene.entities.find((row) => row.id === objectId);
-  if (!entity) fail(
-    SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.ENTITY_MISSING,
-    `Scene entity ${objectId} is not part of the certified Draft Edit scene.`,
-  );
+  if (!entity) fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.ENTITY_MISSING,
+    `Scene entity ${objectId} is not part of the certified Draft Edit scene.`);
   const ref = entity.domainRef || {};
   if (entity.domainType !== 'SEQUENTIAL_CONFIRMED_SUPPORT'
     || ref.category !== 'support' || !text(ref.supportId)) {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.ENTITY_NOT_SUPPORT,
-      `Scene entity ${objectId} is not a certified confirmed support.`,
-    );
+    fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.ENTITY_NOT_SUPPORT,
+      `Scene entity ${objectId} is not a certified confirmed support.`);
   }
   if (!entity.editCapabilities?.includes('MOVE_DRAFT')) {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.CAPABILITY_MISSING,
-      `Scene entity ${objectId} does not expose MOVE_DRAFT.`,
-    );
+    fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.CAPABILITY_MISSING,
+      `Scene entity ${objectId} does not expose MOVE_DRAFT.`);
   }
-  return Object.freeze({
-    entity,
-    supportId: text(ref.supportId),
-    familyId: text(ref.familyId),
-    carrierId: text(ref.carrierId),
-  });
+  return Object.freeze({ entity, supportId: text(ref.supportId),
+    familyId: text(ref.familyId), carrierId: text(ref.carrierId) });
 }
 function exactSupport(state, resolved) {
   const projection = state?.supportProjection;
   if (projection?.schema !== 'SequentialConfirmedSupportProjection.v1') {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISSING,
-      'Current authority has no confirmed support projection.',
-    );
+    fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISSING,
+      'Current authority has no confirmed support projection.');
   }
   const glyph = (projection.supportGlyphs || [])
     .find((row) => row.glyphId === resolved.supportId);
-  if (!glyph) fail(
-    SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISSING,
-    `Support ${resolved.supportId} is not current support evidence.`,
-  );
+  if (!glyph) fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISSING,
+    `Support ${resolved.supportId} is not current support evidence.`);
   const position = point(glyph.centerlinePointGlobal);
   const scenePosition = point(resolved.entity.geometry?.position);
   const family = supportFamilies(projection).get(glyph.familyId) || null;
@@ -121,10 +104,8 @@ function exactSupport(state, resolved) {
     || glyph.familyId !== resolved.familyId
     || glyph.carrierId !== resolved.carrierId
     || !family || !sameSequentialContractValue(position, scenePosition)) {
-    fail(
-      SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISMATCH,
-      `Support ${resolved.supportId} differs from current family, carrier or position evidence.`,
-    );
+    fail(SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISMATCH,
+      `Support ${resolved.supportId} differs from current family, carrier or position evidence.`);
   }
   return Object.freeze({ glyph, family, position });
 }
@@ -159,12 +140,10 @@ export function selectSequentialDraftEditSupportMoveTarget(input = {}) {
 export function validateSequentialDraftEditSupportMoveTarget(target, input = {}) {
   if (target?.schema !== SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_TARGET_SCHEMA) fail(
     SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.SUPPORT_MISMATCH,
-    `Support move target must use ${SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_TARGET_SCHEMA}.`,
-  );
+    `Support move target must use ${SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_TARGET_SCHEMA}.`);
   const rebuilt = buildTarget({ ...input, objectId: target.entityId });
   if (!sameSequentialContractValue(rebuilt, target)) fail(
     SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_REJECTION.AUTHORITY_STALE,
-    'Support move target is stale against current authority.',
-  );
+    'Support move target is stale against current authority.');
   return rebuilt;
 }
