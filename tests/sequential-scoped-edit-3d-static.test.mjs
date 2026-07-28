@@ -27,6 +27,9 @@ const supportHistoryPresentation = source('tabs/sequential-sketcher/scoped-edit/
 const supportPanel = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-panel.js');
 const supportFeature = source('tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-support-move-feature.js');
 const supportBoundary = source('tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-boundary.js');
+const editEligibility = source('tabs/sequential-sketcher/scoped-edit/sequential-edit-eligibility.js');
+const topologyProjection = source('tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-projection.js');
+const topologySnapshot = source('tabs/sequential-sketcher/scoped-edit/sequential-editable-topology-snapshot.js');
 const adjustmentRegister = source('tabs/sequential-sketcher/support/sequential-support-adjustment-register.js');
 const adjustmentHistory = source('tabs/sequential-sketcher/support/sequential-support-adjustment-history.js');
 const adjustedProjection = source('tabs/sequential-sketcher/support/sequential-support-adjusted-projection.js');
@@ -56,6 +59,8 @@ for (const [name, value] of [
   ['support move apply', supportApply], ['support history service', supportHistoryService],
   ['support history presentation', supportHistoryPresentation], ['support move panel', supportPanel],
   ['support move feature', supportFeature], ['support adjustment boundary', supportBoundary],
+  ['edit eligibility', editEligibility], ['editable topology projection', topologyProjection],
+  ['editable topology snapshot', topologySnapshot],
   ['support adjustment register', adjustmentRegister], ['support adjustment history', adjustmentHistory],
   ['adjusted support projection', adjustedProjection], ['engineering SVG authority', svgAuthority],
   ['owner bridge', ownerBridge], ['workspace command boundary', boundary],
@@ -74,6 +79,22 @@ assert.match(visual, /composeSequentialSupportMoveDraftScene/);
 assert.match(visual, /ORIGINAL SUPPORT/);
 assert.match(visual, /DRAFT SUPPORT/);
 assert.match(visual, /OVERLAY_STYLE/);
+
+assert.match(editEligibility, /SequentialEditEligibility\.v1/);
+assert.match(editEligibility, /rigidBoundaryCount/);
+assert.match(editEligibility, /LOCKED_CANDIDATE_OR_REPAIR/);
+assert.doesNotMatch(editEligibility, /querySelector|addEventListener|publishCandidate|localStorage|canvas/);
+assert.match(topologyProjection, /projectSequentialEditableTopology/);
+assert.match(topologyProjection, /BLOCKED_STATIONARY_TOPOLOGY_BOUNDARY/);
+assert.match(topologyProjection, /REPAIR_MEDIATED_CONTINUITY/);
+assert.match(topologyProjection, /positionAncestry/);
+assert.doesNotMatch(topologyProjection, /querySelector|addEventListener|publishCandidate|localStorage|raycast/);
+assert.match(topologySnapshot, /SequentialEditableTopologySnapshot\.v1/);
+assert.match(topologySnapshot, /sourceEvidenceFingerprint/);
+assert.match(topologySnapshot, /sceneFingerprint/);
+assert.match(topologySnapshot, /snapshotFingerprint/);
+assert.doesNotMatch(topologySnapshot,
+  /commandGateway|publishCandidate|localStorage|sessionStorage|indexedDB|beginDrag|commitDrag/);
 
 assert.match(adjustmentRegister, /SequentialSupportAdjustmentRegister\.v1/);
 assert.match(adjustmentRegister, /appendSequentialSupportAdjustment/);
@@ -201,7 +222,8 @@ for (const moduleName of [
   'sequential-draft-edit-support-move-draft', 'sequential-draft-edit-support-history-presentation',
   'sequential-draft-edit-support-move-panel', 'sequential-draft-edit-support-move-feature',
   'sequential-draft-edit-support-move-apply', 'sequential-support-adjustment-history-service',
-  'sequential-support-adjustment-boundary',
+  'sequential-support-adjustment-boundary', 'sequential-edit-eligibility',
+  'sequential-editable-topology-projection', 'sequential-editable-topology-snapshot',
 ]) assert.match(index, new RegExp(moduleName));
 assert.equal([...markup.matchAll(/data-ssk-draft-edit-command="/g)].length, 12,
   'SSK-TS-3J must preserve exactly twelve qualified construction command buttons');
@@ -236,4 +258,4 @@ assert.match(lifecycleDoc, /SSK-TS-3H-Q/);
 assert.match(lifecycleDoc, /Browser-qualified supervised command lifecycle/);
 assert.match(config, /sequential-draft-edit-command-lifecycle\.spec\.mjs/);
 
-console.log('Sequential SSK-TS-3J support history and SSK-TS-3H-Q browser lifecycle containment: ok');
+console.log('Sequential SSK-TS-3K topology and prior Draft Edit containment: ok');
