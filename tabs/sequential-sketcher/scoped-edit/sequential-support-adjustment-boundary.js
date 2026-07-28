@@ -14,7 +14,10 @@ import {
   sequentialSupportAdjustmentHistoryCapabilities,
   transitionSequentialSupportAdjustmentHistory,
 } from '../support/sequential-support-adjustment-history.js';
-import { sameSequentialContractValue } from './sequential-command-contracts.js';
+import {
+  sameSequentialContractValue,
+  sequentialSemanticFingerprint,
+} from './sequential-command-contracts.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
 import { createSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-edit-scene-adapter.js';
@@ -168,6 +171,14 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     const candidate = input.candidate;
     if (candidate?.schema !== 'SequentialPreparedSupportAdjustmentHistoryCandidate.v1') {
       throw new TypeError('Support history publication requires a prepared history candidate.');
+    }
+    const preparedMaterial = {
+      schema: 'SequentialPreparedSupportAdjustmentHistory.v1',
+      expectedAuthority: input.expectedAuthority,
+      candidate,
+    };
+    if (input.preparedId !== sequentialSemanticFingerprint('SSUPPORTHISTORYPREP', preparedMaterial)) {
+      throw new RangeError('Prepared support history ID differs from canonical candidate evidence.');
     }
     const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(current.base);
     if (candidate.expectedBaseProjectionFingerprint !== baseProjectionFingerprint
