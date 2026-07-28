@@ -42,6 +42,24 @@ assert.equal(Object.isFrozen(plan.elements[0].bend.curvatureNodes[0]), true);
 assert.equal(buildPipelineInputXmlDocumentPlanJson(plan),
   buildPipelineInputXmlDocumentPlanJson(buildPipelineInputXmlDocumentPlan(profileDocumentInput())));
 
+const profileRegistry = Object.freeze({
+  source: Object.freeze({
+    registryId: 'P3D-PROFILE-CATALOG', title: 'Approved Profile Catalog', revision: 'R1',
+    approvalReference: 'APPROVAL-PROFILE-R1', sha256: 'b'.repeat(64), caesarVersion: '14.00',
+  }),
+  pipingCodeEntries: Object.freeze([]),
+  materialAllowableEntries: Object.freeze([]),
+});
+const adoptedProfilePlan = buildPipelineInputXmlDocumentPlan({
+  ...profileDocumentInput(), approvedCatalogRegistry: profileRegistry,
+});
+assert.equal(adoptedProfilePlan.ready, true);
+assert.equal(adoptedProfilePlan.approvedCatalogAdoption.ready, true);
+assert.equal(adoptedProfilePlan.approvedCatalogRegistryBindingPlan.bindingCount, 0);
+assert.deepEqual(adoptedProfilePlan.elements, plan.elements);
+assert.deepEqual(adoptedProfilePlan.profileAuthorityPlan, plan.profileAuthorityPlan);
+assert.equal(buildInputXmlPipingModelXml(adoptedProfilePlan), buildInputXmlPipingModelXml(plan));
+
 const mutableAuthority = authorityFixture();
 mutableAuthority.bendResolution.candidates[0].diagnostics = [
   { severity: 'INFO', code: 'TRACE', message: 'trace', details: { node: 110 } },
