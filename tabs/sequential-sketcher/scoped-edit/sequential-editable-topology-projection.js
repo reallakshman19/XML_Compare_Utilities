@@ -165,6 +165,7 @@ function boundaryCuts(components, connections, portOwner) {
       componentId: component.componentId, connectionId: row.connectionId,
       selectedPortId, stationaryPortId, stationaryComponentId,
       nodeRelation: row.nodeRelation, status: row.status,
+      currentCoincidence: row.fromNodeId === row.toNodeId,
       rigidTransformDisposition: 'BLOCKED_STATIONARY_TOPOLOGY_BOUNDARY',
     }];
   }));
@@ -280,7 +281,10 @@ export function projectSequentialEditableTopology(authority, scene) {
     committedConnections, authority);
   const ports = sorted(topology.ports
     .map((row) => ({ ...row, nodeId: topology.nodeByPort.get(row.portId) })), 'portId');
-  const geometryParts = partsWithVertices.map(({ vertices, ...row }) => row);
+  const componentById = new Map(components.map((row) => [row.componentId, row]));
+  const geometryParts = partsWithVertices.map(({ vertices, ...row }) => ({
+    ...row, sourceStrokeId: componentById.get(row.componentId)?.ancestry.strokeId || null,
+  }));
   return {
     nodes, ports, components, geometryParts, internalEdges: internalEdgeRows,
     committedConnections, componentBoundaryCuts,
