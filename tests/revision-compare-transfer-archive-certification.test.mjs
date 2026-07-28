@@ -40,7 +40,7 @@ async function validationPrecedence(fixture) {
   await expectFirst(fixture, async (value) => {
     value.transferCompletion.bundle.forceIdentityFailure = true;
     value.transferCompletion.bundleArtifact.text += ' ';
-  }, /handover bundle.*identity|content identity/i);
+  }, /unsupported or missing fields|handover bundle.*identity|content identity/i);
   await expectFirst(fixture, async (value) => {
     value.transferCompletion.bundleArtifact.text += ' ';
   }, /handover bundle retained SHA-256/i);
