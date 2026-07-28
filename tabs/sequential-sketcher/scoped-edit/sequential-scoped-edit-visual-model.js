@@ -98,6 +98,10 @@ function bounds(segmentsInput, markersInput) {
   };
 }
 
+function contributesToVisualFit(entity) {
+  return category(entity) !== 'reversalCandidate';
+}
+
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
   const scene = assertSequentialScopedEditSceneAncestry(
@@ -105,7 +109,7 @@ export function createSequentialScopedEditVisualModel(input = {}) {
     readModel,
   );
   const visible = scene.entities.filter((entity) => entity.visible !== false);
-  const fitVisible = visible.filter((entity) => entity.contributesToFit !== false);
+  const fitVisible = visible.filter(contributesToVisualFit);
   const segmentRows = visible.flatMap(segments);
   const markerRows = visible.map(marker).filter(Boolean);
   const fitSegments = fitVisible.flatMap(segments);
@@ -124,4 +128,6 @@ export function createSequentialScopedEditVisualModel(input = {}) {
   });
 }
 
-export const _test = Object.freeze({ xyz, category, componentKind, segments, marker, bounds });
+export const _test = Object.freeze({
+  xyz, category, componentKind, segments, marker, bounds, contributesToVisualFit,
+});
