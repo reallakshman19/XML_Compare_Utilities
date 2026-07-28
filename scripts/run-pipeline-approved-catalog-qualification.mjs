@@ -87,12 +87,17 @@ function normalizedPlan(testPlan) {
   }));
 }
 
-function preflightDiagnostics({ baselineCommit, repoRoot, testPlan, exists }) {
+function preflightDiagnostics({ baselineCommit, repoRoot, testPlan, timeoutMs, exists }) {
   const diagnostics = [];
   if (!SHA40.test(text(baselineCommit).trim())) diagnostics.push(diagnostic(
     'PIPELINE_APPROVED_CATALOG_QUALIFICATION_BASELINE_INVALID',
     'Qualification requires an exact 40-hex baseline commit SHA.',
     { baselineCommit: text(baselineCommit).trim() },
+  ));
+  if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) diagnostics.push(diagnostic(
+    'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TIMEOUT_INVALID',
+    'Qualification timeout must be a positive integer number of milliseconds.',
+    { timeoutMs },
   ));
   if (testPlan.length === 0) diagnostics.push(diagnostic(
     'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_PLAN_EMPTY',
@@ -113,7 +118,19 @@ function preflightDiagnostics({ baselineCommit, repoRoot, testPlan, exists }) {
     ));
     ids.add(test.id);
     paths.add(test.path);
-    if (test.path && !exists(resolve(repoRoot, test.path))) diagnostics.push(diagnostic(
+    if (!test.path) return;
+    let present = false;
+    try {
+      present = exists(resolve(repoRoot, test.path));
+    } catch (error) {
+      diagnostics.push(diagnostic(
+        'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_EXISTENCE_CHECK_ERROR',
+        'Qualification could not verify an approved test path.',
+        { testIndex, id: test.id, path: test.path, message: error?.message ?? String(error) },
+      ));
+      return;
+    }
+    if (!present) diagnostics.push(diagnostic(
       'PIPELINE_APPROVED_CATALOG_QUALIFICATION_TEST_MISSING',
       'An approved qualification test file is missing.',
       { testIndex, id: test.id, path: test.path },
@@ -177,7 +194,8 @@ export function runPipelineApprovedCatalogQualification({
   clock = () => Number(process.hrtime.bigint() / 1000000n),
 } = {}) {
   const plan = normalizedPlan(testPlan);
-  const preflight = preflightDiagnostics({ baselineCommit, repoRoot, testPlan: plan, exists });
+  const preflight = preflightDiagnostics({ baselineCommit, repoRoot, testPlan: plan,
+    timeoutMs, exists });
   if (preflight.length > 0) return resultFromPreflight({ baselineCommit, testPlan: plan,
     diagnostics: preflight });
 
@@ -185,14 +203,19 @@ export function runPipelineApprovedCatalogQualification({
   const diagnostics = [];
   for (const test of plan) {
     const started = clock();
-    const execution = runner(process.execPath, [test.path], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      timeout: timeoutMs,
-      windowsHide: true,
-      maxBuffer: 16 * 1024 * 1024,
-      env: { ...process.env, NO_COLOR: '1' },
-    }) || {};
+    let execution;
+    try {
+      execution = runner(process.execPath, [test.path], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: timeoutMs,
+        windowsHide: true,
+        maxBuffer: 16 * 1024 * 1024,
+        env: { ...process.env, NO_COLOR: '1' },
+      }) || {};
+    } catch (error) {
+      execution = { status: null, signal: null, stdout: '', stderr: '', error };
+    }
     const durationMs = Math.max(0, clock() - started);
     const testDiagnostics = executionDiagnostics(test, execution);
     diagnostics.push(...testDiagnostics);
