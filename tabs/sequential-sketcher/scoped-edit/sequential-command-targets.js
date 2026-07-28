@@ -16,6 +16,15 @@ const CONNECTION_CANDIDATE_COMMANDS = new Set([
 ]);
 
 function fail(code, message) { throw sequentialCommandCodedError(code, message, RangeError); }
+function requireExactReversalIdentity(command) {
+  if (command.commandType !== 'REVERSE_COMPONENT') return;
+  if (!command.decisionId || !command.candidateId || !command.componentId || !command.entryPortId) {
+    fail(
+      SEQUENTIAL_COMMAND_REJECTION.COMMAND_RUNTIME_NOT_DETERMINISTIC,
+      'REVERSE_COMPONENT requires one exact certified decision, candidate, component and entry port.',
+    );
+  }
+}
 function currentDecision(session, command) {
   const request = session?.currentDecisionRequest;
   if (!request || request.decisionId !== command.decisionId) {
@@ -59,12 +68,6 @@ function verifyManualPorts(candidate, command, indexes) {
   exactMapValue(indexes?.ports, command.toPortId, SEQUENTIAL_COMMAND_REJECTION.CURRENT_PORT_MISMATCH, 'To port');
 }
 function exactReversal(session, command, indexes) {
-  if (!command.candidateId || !command.componentId || !command.entryPortId) {
-    fail(
-      SEQUENTIAL_COMMAND_REJECTION.COMMAND_TARGET_MISSING,
-      'Reversal candidate, component and entry-port identities are required.',
-    );
-  }
   const candidate = projectSequentialReversalCandidates(session, indexes)
     .find((row) => row.candidateId === command.candidateId);
   if (!candidate || candidate.componentId !== command.componentId
@@ -108,6 +111,7 @@ export function resolveSequentialCommandTargets(input = {}) {
       `Command branch ${command.branchId} does not match session branch ${session.rootBranchId || '(missing)'}.`,
     );
   }
+  requireExactReversalIdentity(command);
 
   let request = null;
   let candidate = null;
