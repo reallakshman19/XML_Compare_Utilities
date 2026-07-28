@@ -20,5 +20,6 @@ export * from './sequential-support-adjustment-history-service.js';
 export * from './sequential-support-adjustment-boundary.js';
 export * from './sequential-workspace-command-boundary.js';
 export * from './sequential-edit-eligibility.js';
+export * from './sequential-editable-topology-identity.js';
 export * from './sequential-editable-topology-projection.js';
 export * from './sequential-editable-topology-snapshot.js';
