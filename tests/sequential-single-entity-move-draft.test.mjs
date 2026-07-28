@@ -62,6 +62,10 @@ assert.deepEqual(constrainSequentialMoveDelta({ x: 4, y: 5, z: 6 }, 'X'), {
 assert.deepEqual(constrainSequentialMoveDelta({ x: 4, y: 5, z: 6 }, 'YZ'), {
   x: 0, y: 5, z: 6, magnitude: Math.hypot(5, 6),
 });
+assert.throws(
+  () => constrainSequentialMoveDelta({ x: '', y: 0, z: 0 }, 'X'),
+  /Move delta X is required/,
+);
 assert.deepEqual(sequentialMovePivot(target.geometryParts), { x: 5, y: 3, z: 0 });
 
 const translated = translateSequentialMoveGeometry(target.geometryParts, { x: 2, y: 3, z: 4 });
