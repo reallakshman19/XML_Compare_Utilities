@@ -122,7 +122,7 @@ test('RC-XFER-009-B01 canonical File import, isolation, downloads and lifecycle'
   expect(await authoritySnapshot(page)).toEqual(beforeMatrix);
 
   await expectSourceFiles(page, 'toBeDisabled');
-  await expect(page.locator('[data-revc-evidence-package-import]')).toBeDisabled();
+  await expect(page.locator('[data-revc-evidence-package-import]')).toHaveCount(0);
   await page.evaluate(() => {
     const input = document.querySelector('[data-revc-file="baseline"]'); input.disabled = false;
   });
