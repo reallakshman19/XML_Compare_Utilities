@@ -1,5 +1,8 @@
 /** Deterministic EngineeringScene.v1 projection of a certified Sequential read model. */
-import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
+import {
+  createEngineeringScene,
+  validateEngineeringScene,
+} from '../../../core/engineering-scene/index.js';
 import { buildSequentialEngineeringSvgScene } from '../sequential-engineering-svg-scene.js';
 import { sameSequentialContractValue } from './sequential-command-contracts.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
@@ -14,12 +17,29 @@ function fail(message) {
   throw error;
 }
 
+function scopedEditScene(sceneInput) {
+  const scene = validateEngineeringScene(sceneInput);
+  return createEngineeringScene({
+    ...scene,
+    entities: scene.entities.map((entity) => (
+      entity.domainRef?.category === 'support'
+        ? { ...entity, editCapabilities: ['MOVE_DRAFT'] }
+        : entity
+    )),
+    capabilities: {
+      ...scene.capabilities,
+      editing: false,
+      supportMoveDraftPreview: true,
+    },
+  });
+}
+
 function project(readModel) {
   const built = buildSequentialEngineeringSvgScene(readModel.ownerSnapshot, {
     sceneId: readModel.sceneId,
     visibleProjection: readModel.ownerSnapshot.visibleProjection,
   });
-  return validateEngineeringScene(built.scene);
+  return scopedEditScene(built.scene);
 }
 
 export function assertSequentialScopedEditSceneAncestry(sceneInput, readModelInput) {
@@ -38,3 +58,5 @@ export function buildSequentialScopedEditEngineeringScene(readModelInput) {
   const readModel = assertSequentialScopedEditReadModel(readModelInput);
   return assertSequentialScopedEditSceneAncestry(project(readModel), readModel);
 }
+
+export const _test = Object.freeze({ scopedEditScene });
