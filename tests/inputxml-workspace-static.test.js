@@ -113,7 +113,8 @@ assert.ok(diagnosticsHtml.includes('WORKSPACE_TEST'), 'Workspace diagnostics pan
 assert.ok(workspaceUi.renderPopup(workspaceUi.defaultState()).includes('inputxml_workspace_diagnostics.json'), 'Workspace popup renders its diagnostics panel.');
 
 assert.ok(!workspaceTabSource.includes('state.enrichment.inputXmlText = state.cleanXmlText;'), 'CleanXML is no longer assigned directly to Tab 2 enrichment.');
-assert.ok(workspaceTabSource.includes('onResult: (result) => apply5CResultToWorkspace(state, result)'), 'Workspace wires the Tab 3 result handoff.');
+assert.ok(workspaceTabSource.includes('const handoff = apply5CResultToWorkspace(state, result);'), 'Workspace wires the Tab 3 result through the explicit 5C handoff.');
+assert.ok(workspaceTabSource.includes("sourceKind: '5c'"), 'Workspace automatically categorizes accepted 5C InputXML through the producer worker.');
 assert.ok(workspaceTabSource.includes('enrichmentInputPreflight'), 'Workspace schema-gates Tab 2 enrichment.');
 assert.ok(workspaceTabSource.includes("inputXmlSource: '5c'"), 'Workspace records 5C InputXML provenance.');
 assert.ok(workspaceTabSource.includes('invalidateSideloadArtifacts'), 'Workspace separates helper-table invalidation from InputXML invalidation.');
