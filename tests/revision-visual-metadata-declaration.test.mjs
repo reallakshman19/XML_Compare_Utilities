@@ -82,10 +82,10 @@ async function declaredBasis(revA, revB) {
   assert.equal(basis.visualMetadataDeclaration.declarationId, declaration.declarationId);
   assert.equal(declaration.unit, 'MM');
   assert.equal(revisionVisualReadiness({ ...state, basis, basisStatus: 'CURRENT' }).status, 'READY');
-  const importedModel = revisionVisualMetadataDeclarationModel({
-    ...stateFixture(revA, revB), visualMetadataDeclaration: null, basis,
+  const staleBasisOnly = revisionVisualMetadataDeclarationModel({
+    ...stateFixture(revA, revB), basis, visualMetadataDeclaration: null,
   });
-  assert.equal(importedModel.status, 'APPLIED');
+  assert.equal(staleBasisOnly.status, 'REQUIRED');
   return { declaration, basis };
 }
 
