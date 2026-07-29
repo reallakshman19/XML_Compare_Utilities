@@ -52,7 +52,8 @@ function navigationClick(root, schedule, active, event) {
 
 export function revisionVisualMetadataRecoveryModel(state, approval) {
   const declaration = revisionVisualMetadataDeclarationModel(state);
-  const visible = approval?.status === 'BLOCKED' && declaration.status === 'REQUIRED';
+  const imported = state?.evidencePackageImport?.status === 'VERIFIED';
+  const visible = !imported && approval?.status === 'BLOCKED' && declaration.status === 'REQUIRED';
   return deepFreeze({
     visible,
     missingFields: Object.freeze([...(declaration.unknownFields ?? [])]),
