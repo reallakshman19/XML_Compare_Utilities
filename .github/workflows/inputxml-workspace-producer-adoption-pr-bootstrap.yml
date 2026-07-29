@@ -35,6 +35,12 @@ jobs:
           block = source[run_start:end]
           script = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines()) + '\n'
           script = script.replace(chr(92) + '"', '"')
+          script = script.replace(
+              "replace_once(old_render, new_render, 'categorized panel')",
+              "render_start = text.index('function renderCategorizedTab(state) {')\n"
+              "render_end = text.index('function renderMiscConfigSubtab', render_start)\n"
+              "text = text[:render_start] + new_render.rstrip() + '\\n\\n' + text[render_end:]",
+          )
           Path('/tmp/inputxml-workspace-adoption-apply.sh').write_text(script, encoding='utf-8')
           subprocess.run(['bash', '/tmp/inputxml-workspace-adoption-apply.sh'], check=True)
           Path('.github/workflows/inputxml-workspace-producer-adoption-pr-bootstrap.yml').unlink()
@@ -52,7 +58,7 @@ jobs:
       - name: Commit qualified integration
         run: |
           git config user.name 'github-actions[bot]'
-          git config user.email '4189827+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'feat(inputxml): adopt producer worker in Workspace'
           git push origin HEAD:agent/inputxml-workspace-producer-adoption
