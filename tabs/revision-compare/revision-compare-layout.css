@@ -110,6 +110,16 @@
 .revc-view-column,
 .revc-review-side {
   min-width: 0;
+  min-height: 0;
+}
+
+/* Prevent evidence growth in the right column from resizing and refitting the SVG viewport. */
+.revc-review-workspace {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.revc-view-column {
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .revc-review-side {
@@ -224,6 +234,7 @@
 
   .revc-review-workspace {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
     grid-auto-rows: max-content;
     overflow: auto;
     overscroll-behavior: contain;
@@ -231,6 +242,7 @@
 
   .revc-view-column {
     min-height: 50vh;
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
 
   .revc-review-side {
