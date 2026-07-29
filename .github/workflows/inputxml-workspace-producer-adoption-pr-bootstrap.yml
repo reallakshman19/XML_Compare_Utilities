@@ -36,6 +36,12 @@ jobs:
           script = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines()) + '\n'
           script = script.replace(chr(92) + '"', '"')
           script = script.replace(
+              "    if count != 1:\n        raise SystemExit(f'{label}: expected one anchor, found {count}')\n    text = text.replace(old, new, 1)",
+              "    expected = 2 if label == 'click close runtime cleanup' else 1\n"
+              "    if count != expected:\n        raise SystemExit(f'{label}: expected {expected} anchor(s), found {count}')\n"
+              "    text = text.replace(old, new, 1)",
+          )
+          script = script.replace(
               "replace_once(old_render, new_render, 'categorized panel')",
               "render_start = text.index('function renderCategorizedTab(state) {')\n"
               "render_end = text.index('function renderMiscConfigSubtab', render_start)\n"
