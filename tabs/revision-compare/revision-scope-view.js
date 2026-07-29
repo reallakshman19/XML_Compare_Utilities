@@ -51,7 +51,7 @@ function groupMarkup(group, title, description, state) {
       ${batchButtons(batch)}
     </header>
     <label class="revc-search">Filter ${escapeHtml(title)}
-      <input type="search" value="${escapeHtml(state.search[group])}" data-revc-search="${group}" placeholder="Branch, site, or owner">
+      <input type="search" value="${escapeHtml(state.search?.[group] ?? '')}" data-revc-search="${group}" placeholder="Branch, site, or owner">
     </label>
     ${filterNote(batch)}
     <div class="revc-scope-list">${batch.entries.length ? batch.entries.map((entry) => branchRow(entry, group, state.proposal)).join('') : `<p class="revc-empty">${emptyText(batch)}</p>`}</div>
