@@ -17,13 +17,30 @@ function hasRawRows(value) {
   const lines = String(value || '').split(/\r?\n/).filter((line) => line.trim());
   return lines.length > 1 && lines.slice(1).some((line) => /\d/.test(line));
 }
-function hasAuthoritativeProfile(dialog) {
-  return hasRawRows(rawValue(dialog, 'table2a-raw')) && hasRawRows(rawValue(dialog, 'table3a-raw'));
-}
 function readProfileRaw(dialog) {
   return Object.freeze({ table2a: rawValue(dialog, 'table2a-raw'),
     table3a: rawValue(dialog, 'table3a-raw'), table3b: rawValue(dialog, 'table3b-raw'),
     table3c: rawValue(dialog, 'table3c-raw') });
+}
+function profileRawState(dialog) {
+  const raw = readProfileRaw(dialog);
+  const suppliedTables = Object.entries(raw).filter(([, value]) => hasRawRows(value))
+    .map(([name]) => name);
+  return Object.freeze({ raw, suppliedTables: Object.freeze(suppliedTables),
+    active: suppliedTables.length > 0,
+    ready: hasRawRows(raw.table2a) && hasRawRows(raw.table3a) });
+}
+function hasAuthoritativeProfile(dialog) { return profileRawState(dialog).ready; }
+function hasAnyProfileRaw(dialog) { return profileRawState(dialog).active; }
+function resolveProfileRawInput(dialog) {
+  const state = profileRawState(dialog);
+  if (!state.active) return null;
+  if (state.ready) return state.raw;
+  const error = new Error('Authoritative profile input requires populated Table 2A and Table 3A data.');
+  error.code = 'PIPELINE_PROFILE_RAW_INCOMPLETE';
+  error.details = Object.freeze({ suppliedTables: state.suppliedTables,
+    table2aReady: hasRawRows(state.raw.table2a), table3aReady: hasRawRows(state.raw.table3a) });
+  throw error;
 }
 function readBranchInfo(dialog) {
   const value = (key) => find(dialog, `[data-p3d-field="${key}"]`)?.value?.trim() || '';
@@ -33,7 +50,7 @@ function buildInput(dialog) {
   return { table1Text: find(dialog, '[data-p3d="table1"]')?.value || '',
     table2Text: find(dialog, '[data-p3d="table2"]')?.value || '',
     table3Text: find(dialog, '[data-p3d="table3"]')?.value || '',
-    profileRaw: hasAuthoritativeProfile(dialog) ? readProfileRaw(dialog) : null,
+    profileRaw: resolveProfileRawInput(dialog),
     branchInfo: readBranchInfo(dialog),
     canonicalAnalysisSectionPlan: dialog.pipelineCanonicalAnalysisSectionPlan || null };
 }
@@ -102,7 +119,7 @@ function setWarnings(dialog, instance, warnings = []) {
 }
 function logWarning(dialog, instance, code, error, details = null) {
   const warning = warningFromError(error, code);
-  addPipelineWarning(instance.warnings, warning.code, warning.message, details);
+  addPipelineWarning(instance.warnings, warning.code, warning.message, details || error?.details || null);
   renderPipelineWarningLog(dialog, instance.warnings);
 }
 function publishCanonicalPlan(dialog, output) {
@@ -118,7 +135,7 @@ function run(dialog, instance) {
     renderOutputs(dialog, output); renderKeyPlan(dialog, output);
     const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
     setWarnings(dialog, instance, output.warnings || []); return output;
-  } catch (error) { logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
+  } catch (error) { instance.output = null; logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
 }
 function saveTextFile(filename, value, mime) {
   const blob = new Blob([value], { type: mime }), url = URL.createObjectURL(blob);
@@ -132,8 +149,9 @@ function download(dialog, instance, kind) {
     `Canonical InputXML is blocked: ${output.orchestration?.blockerCodes?.join(', ') || 'unknown blocker'}.`);
   saveTextFile('pipeline-3d-model.xml', output.xmlText, 'application/xml');
 }
-function downloadArtifact(instance, index) {
-  const item = instance.output?.artifacts?.[index]; if (!item) return;
+function downloadArtifact(dialog, instance, index) {
+  const output = instance.output || run(dialog, instance); if (!output) return;
+  const item = output.artifacts?.[index]; if (!item) return;
   saveTextFile(item.name, item.text, item.mime || 'application/octet-stream');
 }
 function rawTextFromPreview(panel) {
@@ -154,15 +172,23 @@ function scheduleRefresh(dialog, instance) {
   if (instance.refreshQueued) return; instance.refreshQueued = true;
   queueMicrotask(() => { instance.refreshQueued = false; run(dialog, instance); });
 }
+function pipelineSourceInput(target) {
+  const data = target?.dataset;
+  if (!data) return false;
+  if (data.p3dField !== undefined) return true;
+  if (['table1', 'table2', 'table3'].includes(data.p3d)) return true;
+  return typeof data.p3dSplit === 'string' && data.p3dSplit.endsWith('-raw');
+}
 function onInput(dialog, instance, event) {
   if (repairPreviewInput(dialog, event)) return;
   const target = event.target instanceof Element ? event.target : null;
-  if (target?.matches('[data-p3d-split$="-raw"]') && hasAuthoritativeProfile(dialog)) scheduleRefresh(dialog, instance);
+  if (pipelineSourceInput(target)) instance.output = null;
+  if (target?.matches('[data-p3d-split$="-raw"]') && hasAnyProfileRaw(dialog)) scheduleRefresh(dialog, instance);
 }
 function onClick(dialog, instance, event) {
   const target = event.target instanceof Element ? event.target.closest('button') : null;
   if (target?.dataset.p3dArtifact !== undefined) {
-    event.preventDefault(); downloadArtifact(instance, Number(target.dataset.p3dArtifact)); return;
+    event.preventDefault(); downloadArtifact(dialog, instance, Number(target.dataset.p3dArtifact)); return;
   }
   const action = target?.dataset.p3d; if (!['run', 'download-coordinate', 'download-xml'].includes(action)) return;
   event.preventDefault(); event.stopImmediatePropagation();
@@ -176,8 +202,11 @@ export function installPipelineProfilePropagation(dialog) {
   ensurePipelineWarningLog(dialog); renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
+  dialog.addEventListener('pipeline-engineering-configuration-apply', () => { instance.output = null; },
+    { signal: controller.signal });
   instance.destroy = () => { controller.abort(); INSTANCES.delete(dialog); };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
+  hasAnyProfileRaw, resolveProfileRawInput, profileRawState, pipelineSourceInput,
   rawTextFromPreview, renderTsvGrid, setWarnings, publishCanonicalPlan });
