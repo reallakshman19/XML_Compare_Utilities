@@ -27,7 +27,7 @@ export function resolvePipelineInputXmlDownloadState(output = {}) {
 }
 
 function ensureStatusElement(dialog) {
-  if (!dialog?.querySelector || !dialog?.ownerDocument) return null;
+  if (!dialog?.querySelector || !dialog?.ownerDocument?.createElement) return null;
   let element = dialog.querySelector(STATUS_SELECTOR);
   if (element) return element;
   element = dialog.ownerDocument.createElement('p');
