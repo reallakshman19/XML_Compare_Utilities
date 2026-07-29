@@ -8,6 +8,7 @@ import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derive
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
 import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profile-refresh-scheduler.js';
+import { createPipelineCanonicalPlanPublicationSession } from './pipeline-3d-model-canonical-plan-publication-session.js';
 import { writePipelineElementHtml, writePipelineElementText, writePipelineElementValue } from './pipeline-3d-model-dom-write.js';
 import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
@@ -120,17 +121,15 @@ function logWarning(dialog, instance, code, error, details = null) {
   addPipelineWarning(instance.warnings, warning.code, warning.message, details || error?.details || null);
   renderPipelineWarningLog(dialog, instance.warnings);
 }
-function publishCanonicalPlan(dialog, output) {
-  if (!output?.canonicalAnalysisSectionPlan) return;
-  dialog.pipelineCanonicalAnalysisSectionPlan = output.canonicalAnalysisSectionPlan;
-  dialog.dispatchEvent(new CustomEvent('pipeline-canonical-analysis-section-plan', {
-    bubbles: false, detail: { plan: output.canonicalAnalysisSectionPlan } }));
+function publishCanonicalPlan(dialog, output, instance) {
+  if (!output?.canonicalAnalysisSectionPlan) return false;
+  return instance.canonicalPlanSession.publish(dialog, output.canonicalAnalysisSectionPlan);
 }
 function run(dialog, instance) {
   instance.refreshScheduler?.cancel();
   try {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
-    instance.output = output; publishCanonicalPlan(dialog, output);
+    instance.output = output; publishCanonicalPlan(dialog, output, instance);
     instance.rendering = true;
     try { renderOutputs(dialog, output, instance); renderKeyPlan(dialog, output, instance); }
     finally { instance.rendering = false; }
@@ -201,6 +200,7 @@ function onClick(dialog, instance, event) {
 function createInstance(dialog) {
   const instance = { output: null, rendering: false, warnings: [],
     artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null,
+    canonicalPlanSession: createPipelineCanonicalPlanPublicationSession(),
     keyPlanSession: createPipelineKeyPlanRenderSession(paintKeyPlanCanvas) };
   instance.refreshScheduler = createPipelineProfileRefreshScheduler(() => run(dialog, instance));
   return instance;
@@ -217,7 +217,7 @@ export function installPipelineProfilePropagation(dialog) {
     { signal: controller.signal });
   instance.destroy = () => {
     controller.abort(); instance.refreshScheduler.destroy(); instance.artifactSession.reset();
-    instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
+    instance.canonicalPlanSession.reset(); instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
   };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
