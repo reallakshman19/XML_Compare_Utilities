@@ -4,6 +4,18 @@ import { assertJsonSafe, deepFreeze, deterministicId } from './revision-contract
 import { REVISION_VISUAL_METADATA_DECLARATION_SCHEMA } from './revision-visual-metadata-declaration.js';
 
 export const REVISION_COMPARISON_BASIS_SCHEMA = 'RevisionComparisonBasis.v1';
+const COMPATIBILITY_KEYS = Object.freeze([
+  'unitCompatibility',
+  'coordinateFrameCompatibility',
+  'verticalAxisCompatibility',
+]);
+
+function validateCompatibility(basis, errors) {
+  for (const key of COMPATIBILITY_KEYS) {
+    const item = basis?.[key];
+    if (item?.status !== 'COMPATIBLE') errors.push(`${key}.status must be COMPATIBLE`);
+  }
+}
 
 export function validateRevisionComparisonBasis(basis) {
   const errors = [];
@@ -16,6 +28,7 @@ export function validateRevisionComparisonBasis(basis) {
   if (basis?.visualMetadataDeclaration && basis.visualMetadataDeclaration.schema !== REVISION_VISUAL_METADATA_DECLARATION_SCHEMA) {
     errors.push(`visualMetadataDeclaration.schema must be ${REVISION_VISUAL_METADATA_DECLARATION_SCHEMA}`);
   }
+  validateCompatibility(basis, errors);
   if (basis?.validation?.status !== 'READY') errors.push('validation.status must be READY');
   return Object.freeze(errors);
 }
@@ -57,3 +70,5 @@ export async function createRevisionComparisonBasis(input, cryptoRef) {
   assertJsonSafe(basis, REVISION_COMPARISON_BASIS_SCHEMA);
   return basis;
 }
+
+export const _test = Object.freeze({ validateCompatibility });
