@@ -1,5 +1,6 @@
 import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260724-p3d-hard-051-1';
 import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core-050-1';
+import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -105,6 +106,7 @@ function renderOutputs(dialog, output) {
   if (table1Out) table1Out.textContent = output.table1OutputText;
   if (coordinateOut) coordinateOut.textContent = output.coordinateText;
   if (xmlOut) xmlOut.textContent = output.xmlText;
+  renderPipelineApprovedCatalogStatus(dialog, output);
   renderArtifacts(dialog, output);
 }
 function renderKeyPlan(dialog, output) {
