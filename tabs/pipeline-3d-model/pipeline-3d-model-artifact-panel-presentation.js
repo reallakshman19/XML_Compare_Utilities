@@ -42,10 +42,32 @@ export function summarizePipelineArtifacts(artifacts = []) {
   });
 }
 
+export function groupPipelineArtifactsByRole(items = []) {
+  const source = Array.isArray(items) ? items : [];
+  const groups = [];
+  const byRole = new Map();
+  for (const item of source) {
+    if (!byRole.has(item.role)) {
+      const group = { role: item.role, items: [] };
+      byRole.set(item.role, group); groups.push(group);
+    }
+    byRole.get(item.role).items.push(item);
+  }
+  return Object.freeze(groups.map((group) => Object.freeze({
+    role: group.role, items: Object.freeze([...group.items]),
+  })));
+}
+
 function artifactButton(item) {
   const title = escapeHtml(item.title);
   const label = escapeHtml(`Download ${item.name}: ${item.title}`);
   return `<button type="button" data-p3d-artifact="${item.index}" title="${title}" aria-label="${label}">${escapeHtml(item.name)}</button>`;
+}
+
+function roleGroup(group, open) {
+  const count = `${group.items.length} artifact${group.items.length === 1 ? '' : 's'}`;
+  const actions = group.items.map(artifactButton).join(' ');
+  return `<details data-p3d-artifact-role="${escapeHtml(group.role)}"${open ? ' open' : ''}><summary>${escapeHtml(group.role)} — ${count}</summary><div data-p3d-artifact-actions>${actions}</div></details>`;
 }
 
 export function buildPipelineArtifactPanelHtml(artifacts = []) {
@@ -54,5 +76,7 @@ export function buildPipelineArtifactPanelHtml(artifacts = []) {
     return '<h4>Engineering evidence artifacts</h4><p>No artifacts available.</p>';
   }
   const countLabel = `${summary.artifactCount} artifact${summary.artifactCount === 1 ? '' : 's'}`;
-  return `<h4>Engineering evidence artifacts</h4><p data-p3d-artifact-summary>${countLabel} — ${summary.totalSizeLabel}</p><div data-p3d-artifact-actions>${summary.items.map(artifactButton).join(' ')}</div>`;
+  const groups = groupPipelineArtifactsByRole(summary.items);
+  const groupedHtml = groups.map((group, index) => roleGroup(group, index === 0)).join('');
+  return `<h4>Engineering evidence artifacts</h4><p data-p3d-artifact-summary>${countLabel} — ${summary.totalSizeLabel} — ${groups.length} role${groups.length === 1 ? '' : 's'}</p><div data-p3d-artifact-role-groups>${groupedHtml}</div>`;
 }
