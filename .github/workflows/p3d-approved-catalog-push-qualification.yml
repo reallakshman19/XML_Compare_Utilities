@@ -1,5 +1,6 @@
 name: P3D approved-catalog push qualification
 
+# qualification-trigger: 2
 on:
   push:
     branches:
