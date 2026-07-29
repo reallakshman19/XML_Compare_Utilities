@@ -14,10 +14,11 @@
  * topology snap tolerance must never be used as an identity tolerance because
  * nearby but distinct source ports may otherwise be moved and merged.
  *
- * A topology-edited support has two independent authorities: its current node
- * position and the immutable source point used for carrier projection. When a
- * support coordinate is remapped, the original point is retained in
- * TOPOLOGY_SOURCE_POSITION so a conforming consumer can rebuild both values.
+ * A topology-edited support has three independent authorities: its current node
+ * position, the immutable source point used for carrier projection, and the
+ * exact canonical carrier source path. When a support coordinate is remapped,
+ * the latter two are retained as explicit staged evidence so a conforming
+ * consumer cannot switch to a nearer adjacent component at a moved junction.
  */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
@@ -27,6 +28,7 @@ import { isIsoTimestamp } from '../../contracts/contract-values.js';
 const COORD_FIELDS = Object.freeze(['APOS', 'LPOS', 'POS', 'BPOS', 'HPOS', 'TPOS']);
 const SUPPORT_TYPES = Object.freeze(new Set(['ATTA', 'SUPPORT', 'ANCI']));
 export const TOPOLOGY_SOURCE_POSITION_FIELD = 'TOPOLOGY_SOURCE_POSITION';
+export const TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD = 'TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH';
 export const STAGED_POSITION_IDENTITY_TOLERANCE_MM = 1e-6;
 
 const xyz = (value) => {
@@ -34,6 +36,7 @@ const xyz = (value) => {
   const coords = [Number(record.x), Number(record.y), Number(record.z)];
   return coords.every(Number.isFinite) ? coords : null;
 };
+const point = (coords) => ({ x: coords[0], y: coords[1], z: coords[2] });
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 
 export function buildPositionRemaps(baseCanonical, draft) {
@@ -75,41 +78,96 @@ function isSupportOwner(owner, attributes) {
   return SUPPORT_TYPES.has(type);
 }
 
-function preserveSupportSourcePosition(owner, attributes, coords, stats) {
-  if (!isSupportOwner(owner, attributes)) return;
-  if (Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD)) {
-    if (!xyz(attributes[TOPOLOGY_SOURCE_POSITION_FIELD])) {
-      throw new TypeError(`Support ${cleanText(owner?.name ?? attributes.NAME) || '(unnamed)'} has invalid ${TOPOLOGY_SOURCE_POSITION_FIELD} evidence.`);
+function buildSupportEvidenceBySourcePath(baseCanonical) {
+  const evidence = new Map();
+  for (const supportValue of asArray(baseCanonical?.supports)) {
+    const support = objectRecord(supportValue);
+    const sourcePosition = xyz(support.sourcePosition);
+    const carrierPath = cleanText(support.attachmentEdgeSourcePath);
+    if (!sourcePosition || !carrierPath) continue;
+    for (const sourcePathValue of asArray(support.sourcePaths)) {
+      const sourcePath = cleanText(sourcePathValue);
+      if (!sourcePath) continue;
+      const next = Object.freeze({ sourcePosition, carrierPath, supportId: cleanText(support.id), tag: cleanText(support.tag) });
+      const current = evidence.get(sourcePath);
+      if (current && (dist(current.sourcePosition, sourcePosition) > STAGED_POSITION_IDENTITY_TOLERANCE_MM || current.carrierPath !== carrierPath)) {
+        throw new Error(`Support source path ${sourcePath} resolves to conflicting canonical support evidence.`);
+      }
+      evidence.set(sourcePath, next);
     }
-    return;
   }
-  attributes[TOPOLOGY_SOURCE_POSITION_FIELD] = { x: coords[0], y: coords[1], z: coords[2] };
-  stats.supportSourcePositionsPreserved += 1;
+  return evidence;
 }
 
-function remapDocumentPositions(doc, remaps, identityToleranceMm, stats = { supportSourcePositionsPreserved: 0 }) {
+function validateExistingSupportEvidence(owner, attributes, canonical, identityToleranceMm) {
+  const label = cleanText(owner?.name ?? attributes.NAME) || canonical.tag || canonical.supportId || '(unnamed)';
+  if (Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD)) {
+    const existing = xyz(attributes[TOPOLOGY_SOURCE_POSITION_FIELD]);
+    if (!existing || dist(existing, canonical.sourcePosition) > identityToleranceMm) {
+      throw new TypeError(`Support ${label} has invalid or conflicting ${TOPOLOGY_SOURCE_POSITION_FIELD} evidence.`);
+    }
+  }
+  if (Object.hasOwn(attributes, TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD)) {
+    const existing = cleanText(attributes[TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD]);
+    if (!existing || existing !== canonical.carrierPath) {
+      throw new TypeError(`Support ${label} has invalid or conflicting ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD} evidence.`);
+    }
+  }
+}
+
+function preserveSupportProjectionEvidence(owner, ownerPath, attributes, supportEvidence, stats, identityToleranceMm) {
+  if (!isSupportOwner(owner, attributes)) return;
+  const canonical = supportEvidence.get(ownerPath);
+  const label = cleanText(owner?.name ?? attributes.NAME) || ownerPath;
+  if (!canonical) {
+    throw new Error(`Remapped support ${label} has no canonical carrier evidence for source path ${ownerPath}.`);
+  }
+  validateExistingSupportEvidence(owner, attributes, canonical, identityToleranceMm);
+  const hadSource = Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD);
+  const hadCarrier = Object.hasOwn(attributes, TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD);
+  if (hadSource !== hadCarrier) {
+    throw new TypeError(
+      `Support ${label} requires both ${TOPOLOGY_SOURCE_POSITION_FIELD} and ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD}.`,
+    );
+  }
+  if (!hadSource) {
+    attributes[TOPOLOGY_SOURCE_POSITION_FIELD] = point(canonical.sourcePosition);
+    attributes[TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD] = canonical.carrierPath;
+    stats.supportProjectionEvidencePreserved += 1;
+  }
+}
+
+function remapDocumentPositions(
+  doc,
+  remaps,
+  identityToleranceMm,
+  supportEvidence = new Map(),
+  stats = { supportProjectionEvidencePreserved: 0 },
+) {
   if (!remaps.length) return 0;
   let touched = 0;
   const branches = Array.isArray(doc) ? doc : (doc.hierarchy ?? doc.branches ?? doc.objects ?? []);
-  const rewrite = (owner) => {
+  const rewrite = (owner, ownerPath) => {
     const attributes = owner?.attributes;
     for (const field of COORD_FIELDS) {
       const coords = attributes && xyz(attributes[field]);
       if (!coords) continue;
       for (const remap of remaps) {
         if (dist(coords, remap.from) <= identityToleranceMm) {
-          preserveSupportSourcePosition(owner, attributes, coords, stats);
-          attributes[field] = { x: remap.to[0], y: remap.to[1], z: remap.to[2] };
+          preserveSupportProjectionEvidence(owner, ownerPath, attributes, supportEvidence, stats, identityToleranceMm);
+          attributes[field] = point(remap.to);
           touched += 1;
           break;
         }
       }
     }
   };
-  for (const branch of branches) {
-    rewrite(branch);
-    for (const child of Array.isArray(branch?.children) ? branch.children : []) rewrite(child);
-  }
+  branches.forEach((branch, branchIndex) => {
+    const branchPath = `$[${branchIndex}]`;
+    rewrite(branch, branchPath);
+    const children = Array.isArray(branch?.children) ? branch.children : [];
+    children.forEach((child, childIndex) => rewrite(child, `${branchPath}.children[${childIndex}]`));
+  });
   return touched;
 }
 
@@ -118,8 +176,15 @@ export function buildStagedExport(input) {
   const identityToleranceMm = positionIdentityTolerance(input.positionIdentityToleranceMm);
   const withAttributes = applyAttributeLedgerToStaged(input.baseStagedJson, input.attributeLedger);
   const remaps = buildPositionRemaps(input.baseCanonical, input.draft);
-  const remapStats = { supportSourcePositionsPreserved: 0 };
-  const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, identityToleranceMm, remapStats);
+  const supportEvidence = buildSupportEvidenceBySourcePath(input.baseCanonical);
+  const remapStats = { supportProjectionEvidencePreserved: 0 };
+  const coordinatesTouched = remapDocumentPositions(
+    withAttributes,
+    remaps,
+    identityToleranceMm,
+    supportEvidence,
+    remapStats,
+  );
   const provenance = {
     schema: 'StagedEditProvenance.v1',
     exportedAt: input.exportedAt,
@@ -129,7 +194,8 @@ export function buildStagedExport(input) {
     positionIdentityToleranceMm: identityToleranceMm,
     positionRemaps: remaps,
     supportSourcePositionField: TOPOLOGY_SOURCE_POSITION_FIELD,
-    supportSourcePositionsPreserved: remapStats.supportSourcePositionsPreserved,
+    supportCarrierAuthorityField: TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD,
+    supportProjectionEvidencePreserved: remapStats.supportProjectionEvidencePreserved,
     commands: asArray(objectRecord(input.draft).commands),
     attributeEdits: asArray(objectRecord(input.attributeLedger).edits),
     commandJournal: input.commandJournal,
@@ -148,7 +214,7 @@ export function buildStagedExport(input) {
     summary: {
       remaps: remaps.length,
       coordinatesTouched,
-      supportSourcePositionsPreserved: remapStats.supportSourcePositionsPreserved,
+      supportProjectionEvidencePreserved: remapStats.supportProjectionEvidencePreserved,
       attributeEdits: provenance.attributeEdits.length,
       positionIdentityToleranceMm: identityToleranceMm,
       rootShape,
@@ -159,6 +225,8 @@ export function buildStagedExport(input) {
 export const _test = Object.freeze({
   positionIdentityTolerance,
   isSupportOwner,
-  preserveSupportSourcePosition,
+  buildSupportEvidenceBySourcePath,
+  validateExistingSupportEvidence,
+  preserveSupportProjectionEvidence,
   remapDocumentPositions,
 });
