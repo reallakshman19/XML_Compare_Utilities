@@ -96,8 +96,9 @@ async function swapRevisions(context) {
 }
 async function refineScope(context, decisions) {
   const token = context.authority.invalidate(); await stopComparison(context);
-  const proposal = await proposalFor(context, context.readState(), decisions); if (!context.authority.isCurrent(token)) return;
+  const proposal = await proposalFor(context, context.readState(), decisions); if (!context.authority.isCurrent(token)) return false;
   commitAuthoritative(context, setWorkspaceProposal(context.readState(), proposal, decisions, context.now()));
+  return true;
 }
 async function setBranch(context, branchId, included) {
   const decisions = updateScopeDecision(context.readState().scopeDecisions, branchId, !included); await refineScope(context, decisions);
@@ -110,8 +111,8 @@ async function setGroup(context, group, included) {
   const state = context.readState();
   const result = applyRevisionScopeBatch(state.scopeDecisions, state, group, included);
   if (!result.batch.branchIds.length) return;
-  await refineScope(context, result.decisions);
-  context.options?.showToast?.(batchToast(result, included), 'success');
+  const committed = await refineScope(context, result.decisions);
+  if (committed) context.options?.showToast?.(batchToast(result, included), 'success');
 }
 function scopeDraft(proposal, side) { return Object.freeze({ selectedIds: side === 'A' ? proposal.includedBranchIdsA : proposal.includedBranchIdsB, exclusions: proposal.excludedBranches }); }
 async function approveBasis(context) {
