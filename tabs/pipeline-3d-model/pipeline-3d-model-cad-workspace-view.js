@@ -1,4 +1,7 @@
 import { GraphTool } from './pipeline-3d-model-interactive-graph.js';
+import {
+  buildPipelineCadSvgReferenceHtml,
+} from './pipeline-3d-model-svg-reference.js';
 
 export const PIPELINE_CAD_CANVAS_STORAGE_KEY = 'pipeline3dCadCanvas';
 const STYLE_ID = 'pipeline-3d-cad-workspace-style';
@@ -58,12 +61,16 @@ export function buildPipelineCadStageHtml(graphName) {
 </div>`;
 }
 
+export function buildPipelineCadWorkspaceHtml(graphName, legacySvgHtml = '') {
+  return `${buildPipelineCadSvgReferenceHtml(graphName, legacySvgHtml)}${buildPipelineCadStageHtml(graphName)}`;
+}
+
 export function ensurePipelineCadWorkspaceStyle(doc = globalThis.document) {
   if (!doc?.head || doc.getElementById(STYLE_ID)) return false;
   const style = doc.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-.p3d-cad-stage{position:relative;width:100%;height:100%;min-height:340px;background:#0b1220;overflow:hidden}.p3d-cad-stage canvas{display:block;width:100%;height:100%;min-height:340px;outline:none;cursor:crosshair;touch-action:none}.p3d-cad-toolbar{position:absolute;z-index:3;left:12px;top:12px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;max-width:calc(100% - 24px);padding:6px;border:1px solid rgba(148,163,184,.35);border-radius:8px;background:rgba(15,23,42,.92)}.p3d-cad-toolbar button{border:1px solid #475569;border-radius:6px;background:#1e293b;color:#e2e8f0;padding:5px 9px;font-size:11px}.p3d-cad-toolbar button[aria-pressed="true"]{background:#38bdf8;color:#082f49}.p3d-cad-toolbar button:disabled{opacity:.42}.p3d-cad-toolbar-separator{width:1px;height:22px;background:#475569}.p3d-cad-inline-editor{position:absolute;z-index:5;width:120px;border:1px solid #38bdf8;border-radius:5px;background:#020617;color:#f8fafc;padding:5px 7px;font:12px monospace}.p3d-cad-status{position:absolute;z-index:2;right:10px;bottom:8px;padding:3px 7px;background:rgba(2,6,23,.72);color:#94a3b8;font:10px monospace}.p3d-cad-status[data-state="error"]{color:#fecaca}
+.p3d-cad-stage{position:relative;width:100%;height:100%;min-height:340px;background:#0b1220;overflow:hidden}.p3d-cad-stage canvas{display:block;width:100%;height:100%;min-height:340px;outline:none;cursor:crosshair;touch-action:none}.p3d-cad-toolbar{position:absolute;z-index:3;left:12px;top:12px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;max-width:calc(100% - 24px);padding:6px;border:1px solid rgba(148,163,184,.35);border-radius:8px;background:rgba(15,23,42,.92)}.p3d-cad-toolbar button{border:1px solid #475569;border-radius:6px;background:#1e293b;color:#e2e8f0;padding:5px 9px;font-size:11px}.p3d-cad-toolbar button[aria-pressed="true"]{background:#38bdf8;color:#082f49}.p3d-cad-toolbar button:disabled{opacity:.42}.p3d-cad-toolbar-separator{width:1px;height:22px;background:#475569}.p3d-cad-inline-editor{position:absolute;z-index:5;width:120px;border:1px solid #38bdf8;border-radius:5px;background:#020617;color:#f8fafc;padding:5px 7px;font:12px monospace}.p3d-cad-status{position:absolute;z-index:4;right:10px;bottom:8px;padding:3px 7px;background:rgba(2,6,23,.72);color:#94a3b8;font:10px monospace}.p3d-cad-status[data-state="error"]{color:#fecaca}.p3d-cad-svg-reference{position:absolute;z-index:2;right:10px;bottom:32px;width:min(34%,360px);height:30%;min-height:110px;overflow:hidden;border:1px solid rgba(148,163,184,.65);border-radius:7px;background:#0b1220;opacity:.38;filter:grayscale(1);pointer-events:none}.p3d-cad-svg-reference::before{content:"SVG reference";position:absolute;z-index:1;left:6px;top:5px;padding:2px 5px;border-radius:4px;background:rgba(15,23,42,.8);color:#cbd5e1;font:10px monospace}.p3d-cad-svg-reference>svg{display:block;width:100%;height:100%}
 `;
   doc.head.appendChild(style);
   return true;
@@ -83,8 +90,8 @@ export function createPipelineCadWorkspaceView(dialog) {
   if (!table2Holder || !table3Holder) throw new Error('Pipeline CAD preview holders are missing.');
   ensurePipelineCadWorkspaceStyle(dialog.ownerDocument || globalThis.document);
   const originals = { table2x: table2Holder.innerHTML, table3x: table3Holder.innerHTML };
-  table2Holder.innerHTML = buildPipelineCadStageHtml('table2x');
-  table3Holder.innerHTML = buildPipelineCadStageHtml('table3x');
+  table2Holder.innerHTML = buildPipelineCadWorkspaceHtml('table2x', originals.table2x);
+  table3Holder.innerHTML = buildPipelineCadWorkspaceHtml('table3x', originals.table3x);
   const stages = {
     table2x: table2Holder.querySelector('[data-p3d-cad-stage="table2x"]'),
     table3x: table3Holder.querySelector('[data-p3d-cad-stage="table3x"]'),
