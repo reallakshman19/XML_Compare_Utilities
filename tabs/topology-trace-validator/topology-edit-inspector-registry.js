@@ -31,7 +31,8 @@ function inspectorContext(input) {
   const kind = active.kind;
   return {
     canonical, validation, selection, active, value, kind, contextEdgeId: cleanText(input.contextEdgeId),
-    node: kind === 'node' ? value : null, edge: kind === 'edge' ? value : null, support: kind === 'support' ? value : null,
+    node: kind === 'node' ? value : null, edge: kind === 'edge' ? value : null,
+    support: kind === 'support' ? value : null, bend: kind === 'bend' ? value : null,
   };
 }
 
@@ -50,6 +51,11 @@ function nodeEditorSection(context) {
 function edgeEditorSection(context) {
   const edge = context.edge;
   return `<dl><div><dt>From</dt><dd>${escapeMarkup(edge.fromNodeId)}</dd></div><div><dt>To</dt><dd>${escapeMarkup(edge.toNodeId)}</dd></div><div><dt>Role</dt><dd>${escapeMarkup(edge.segmentRole)}</dd></div></dl><button type="button" data-ttv-edit-inspector-action="DELETE">Delete edge</button><button type="button" data-ttv-edit-inspector-action="DELETE_SEQUENTIAL_REQUEST">Download Sequential retirement request</button><label>Split fraction<input type="number" min="0.001" max="0.999" step="0.001" value="0.5" data-ttv-edit-split-fraction></label><button type="button" data-ttv-edit-inspector-action="SPLIT">Split edge</button><button type="button" data-ttv-edit-inspector-action="SPLIT_SEQUENTIAL_REQUEST">Download Sequential split request</button><label>Disconnect endpoint<select data-ttv-edit-disconnect-endpoint><option value="FROM">FROM</option><option value="TO">TO</option></select></label><button type="button" data-ttv-edit-inspector-action="DISCONNECT">Disconnect endpoint</button><button type="button" data-ttv-edit-inspector-action="DISCONNECT_SEQUENTIAL_REQUEST">Download Sequential disconnect request</button>`;
+}
+
+function bendEditorSection(context) {
+  const bend = context.bend;
+  return `<dl><div><dt>Node</dt><dd>${escapeMarkup(bend.nodeId)}</dd></div><div><dt>Route arms</dt><dd>${asArray(bend.edgeIds).map(escapeMarkup).join(', ')}</dd></div><div><dt>Radius</dt><dd>${escapeMarkup(bend.radiusMm)} mm</dd></div><div><dt>Angle</dt><dd>${escapeMarkup(bend.angleDeg)}°</dd></div><div><dt>Authority</dt><dd>${escapeMarkup(bend.radiusAuthority)}</dd></div></dl><button type="button" data-ttv-edit-inspector-action="BEND_PRESERVATION_EXPORT">Download bend preservation evidence</button>`;
 }
 
 function supportEditorSection(context) {
@@ -82,6 +88,7 @@ export const TOPOLOGY_EDIT_INSPECTOR_SECTIONS = Object.freeze([
   section({ id: 'node-editor', kinds: ['node'], render: nodeEditorSection }),
   section({ id: 'edge-editor', kinds: ['edge'], render: edgeEditorSection }),
   section({ id: 'support-editor', kinds: ['support'], render: supportEditorSection }),
+  section({ id: 'bend-editor', kinds: ['bend'], render: bendEditorSection }),
   section({ id: 'geometry-details', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: geometrySection }),
   section({ id: 'validation', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: validationSection }),
   section({ id: 'lineage', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: lineageSection }),
