@@ -1,7 +1,7 @@
 import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter.js?v=20260724-p3d-hard-051-1';
 import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core-050-1';
 import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
-import { pipelineApprovedCatalogVisibleArtifacts } from './pipeline-3d-model-approved-catalog-status-artifact.js';
+import { pipelineVisibleArtifacts } from './pipeline-3d-model-visible-artifacts.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -87,7 +87,7 @@ function artifactPanel(dialog) {
   anchor.appendChild(panel); return panel;
 }
 function renderArtifacts(dialog, output) {
-  const panel = artifactPanel(dialog), artifacts = pipelineApprovedCatalogVisibleArtifacts(output);
+  const panel = artifactPanel(dialog), artifacts = pipelineVisibleArtifacts(output);
   panel.innerHTML = `<h4>Engineering evidence artifacts</h4>${artifacts.length
     ? artifacts.map((item, index) => `<button type="button" data-p3d-artifact="${index}">${escapeHtml(item.name)}</button>`).join(' ')
     : '<p>No artifacts available.</p>'}`;
@@ -158,7 +158,7 @@ function download(dialog, instance, kind) {
 }
 function downloadArtifact(dialog, instance, index) {
   const output = instance.output || run(dialog, instance); if (!output) return;
-  const item = pipelineApprovedCatalogVisibleArtifacts(output)[index]; if (!item) return;
+  const item = pipelineVisibleArtifacts(output)[index]; if (!item) return;
   saveTextFile(item.name, item.text, item.mime || 'application/octet-stream');
 }
 function rawTextFromPreview(panel) {
