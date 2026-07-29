@@ -2,6 +2,7 @@ export const PIPELINE_COMPLETED_OUTPUT_EMPTY = 'EMPTY';
 export const PIPELINE_COMPLETED_OUTPUT_BUILT = 'BUILT';
 export const PIPELINE_COMPLETED_OUTPUT_REUSED = 'REUSED';
 export const PIPELINE_COMPLETED_OUTPUT_FAILED = 'FAILED';
+const PROFILE_TEXT_KEYS = Object.freeze(['table2a', 'table3a', 'table3b', 'table3c']);
 function plain(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   return [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -14,13 +15,32 @@ function canonicalValue(value) {
   return Object.fromEntries(Object.keys(value).sort()
     .map((key) => [key, canonicalValue(value[key])]));
 }
-function inputIdentity(input = {}) {
-  return { ...input,
-    table2Text: input.profileRaw ? null : input.table2Text,
-    table3Text: input.profileRaw ? null : input.table3Text };
+function sourceText(value) {
+  if (value == null) return '';
+  if (typeof value !== 'string') throw new TypeError('Pipeline source table identity must be text.');
+  return value;
 }
-function inputSignature(input) {
-  return JSON.stringify(canonicalValue(inputIdentity(input)));
+function profileMetadata(profileRaw) {
+  if (!plain(profileRaw)) return profileRaw ?? null;
+  return Object.fromEntries(Object.entries(profileRaw)
+    .filter(([key]) => !PROFILE_TEXT_KEYS.includes(key)));
+}
+function inputIdentityParts(input = {}) {
+  const profileActive = Boolean(input.profileRaw);
+  const profile = plain(input.profileRaw) ? input.profileRaw : {};
+  const sourceTexts = profileActive
+    ? [sourceText(input.table1Text), ...PROFILE_TEXT_KEYS.map((key) => sourceText(profile[key]))]
+    : [sourceText(input.table1Text), sourceText(input.table2Text), sourceText(input.table3Text)];
+  const { table1Text, table2Text, table3Text, profileRaw, ...metadata } = input;
+  return Object.freeze({ sourceTexts: Object.freeze(sourceTexts),
+    metadata: Object.freeze({ ...metadata, profileRaw: profileMetadata(profileRaw) }) });
+}
+function metadataSignature(metadata) {
+  return JSON.stringify(canonicalValue(metadata));
+}
+function sameSourceTexts(previous, next) {
+  if (!previous || previous.length !== next.length) return false;
+  return previous.every((value, index) => value === next[index]);
 }
 function freezeTree(value, seen = new WeakSet()) {
   if (!value || typeof value !== 'object') return value;
@@ -37,26 +57,27 @@ function resolutionSnapshot(disposition, counts, output) {
 }
 export function createPipelineCompletedOutputSession(buildOutput) {
   if (typeof buildOutput !== 'function') throw new TypeError('Completed output session requires a builder.');
-  let signature = null, output = null, disposition = PIPELINE_COMPLETED_OUTPUT_EMPTY;
+  let sourceTexts = null, metadata = null, output = null;
+  let disposition = PIPELINE_COMPLETED_OUTPUT_EMPTY;
   const counts = { build: 0, reuse: 0, failure: 0 };
   function resolve(input) {
-    const nextSignature = inputSignature(input);
-    if (output && signature === nextSignature) {
+    const identity = inputIdentityParts(input), nextMetadata = metadataSignature(identity.metadata);
+    if (output && metadata === nextMetadata && sameSourceTexts(sourceTexts, identity.sourceTexts)) {
       counts.reuse += 1; disposition = PIPELINE_COMPLETED_OUTPUT_REUSED; return output;
     }
     try {
       const built = buildOutput(input);
       if (!built || typeof built !== 'object') throw new TypeError('Pipeline output builder must return an object.');
       const immutable = freezeTree(built);
-      signature = nextSignature; output = immutable; counts.build += 1;
+      sourceTexts = identity.sourceTexts; metadata = nextMetadata; output = immutable; counts.build += 1;
       disposition = PIPELINE_COMPLETED_OUTPUT_BUILT; return output;
     } catch (error) {
       counts.failure += 1; disposition = PIPELINE_COMPLETED_OUTPUT_FAILED; throw error;
     }
   }
-  function reset() { signature = null; output = null; disposition = PIPELINE_COMPLETED_OUTPUT_EMPTY; }
+  function reset() { sourceTexts = null; metadata = null; output = null; disposition = PIPELINE_COMPLETED_OUTPUT_EMPTY; }
   function snapshot() { return resolutionSnapshot(disposition, counts, output); }
   return Object.freeze({ resolve, reset, snapshot });
 }
-export const _test = Object.freeze({ canonicalValue, inputIdentity, inputSignature, freezeTree,
-  resolutionSnapshot });
+export const _test = Object.freeze({ canonicalValue, inputIdentityParts, metadataSignature,
+  sameSourceTexts, freezeTree, resolutionSnapshot });
