@@ -10,6 +10,7 @@ import { readAccdbNamedTables } from '../../parser/accdb-mdb.js';
 import { RuntimeEvents } from '../../contracts/runtime-events.js';
 import { applyXmlCompareSideload } from '../../xml-compare/XmlCompareSideloadEnricher.js';
 import { convertCategorizedInputXml, categorizedFileName } from '../../xml-compare/CategorizedInputXmlConverter.js';
+import { createCategorizedInputXmlWorkerClient } from '../../xml-compare/categorized-inputxml-worker/index.js';
 import { renderXmlCiiTopology5BPanel } from '../model-converters/xml-cii-topology-5b-panel.js';
 import { renderXmlCiiTopology5CPanel } from '../model-converters/xml-cii-topology-5c-panel.js';
 import { renderXmlCiiInputXmlCompare5DPanel } from '../model-converters/xml-cii-inputxml-compare-5d-panel.js';
@@ -23,6 +24,11 @@ import {
   cleanGeneratedInputForSourceChange, cleanSideloadForSourceChange, countDiagnostic,
   enrichmentInputPreflight, inputXmlFrom5CResult, manualCleanXmlPreflight, routeCleanXmlTo5C,
 } from './inputxml-workspace-orchestration.js';
+import {
+  createWorkspaceProducerAdoptionState, failWorkspaceProducerRun, finishWorkspaceProducerRun,
+  isWorkspaceGeneratedInputXml, startWorkspaceProducerRun, workspaceProducerCategorizedText,
+  workspaceProducerReceiptJson,
+} from './inputxml-workspace-producer-adoption.js';
 import { defaultRestraintTypeMutationConfig, normalizeRestraintTypeMutationConfig, RESTRAINT_TYPE_MUTATION_INFO } from '../../converters/xml-cii2019-core/restraint-type-mutation.js';
 
 /**
@@ -104,6 +110,7 @@ function collectWithInvalidation(dialog, state) {
     enrichmentInput: state.enrichment.inputXmlText,
     sideloadSource: sideloadSourceSignature(state.enrichment),
     categorizedInputText: state.categorizedInputText,
+    categorizedDirection: state.categorizedDirection,
   };
   collect(dialog, state);
   if (before.sourceXmlText !== state.sourceXmlText) invalidateCleanArtifacts(state);
@@ -112,7 +119,11 @@ function collectWithInvalidation(dialog, state) {
     state.enrichment.inputXmlSource = 'paste';
   }
   if (before.sideloadSource !== sideloadSourceSignature(state.enrichment)) invalidateSideloadArtifacts(state);
-  if (before.categorizedInputText !== state.categorizedInputText) invalidateCategorizedArtifacts(state);
+  if (before.categorizedInputText !== state.categorizedInputText || before.categorizedDirection !== state.categorizedDirection) {
+    invalidateCategorizedArtifacts(state);
+    resetWorkspaceProducerAdoption(dialog, state, 'categorized-input-changed');
+    if (before.categorizedInputText !== state.categorizedInputText) state.categorizedInputSource = 'paste';
+  }
   return state;
 }
 
@@ -121,13 +132,13 @@ function apply5CResultToWorkspace(state, result) {
   if (!handoff.ok) {
     appendWorkspaceDiagnostics(state, handoff.diagnostic);
     state.error = handoff.diagnostic.message;
-    return state;
+    return handoff;
   }
   const transition = cleanEnrichmentForInputChange(state.enrichment);
   state.enrichment = { ...state.enrichment, ...transition.patch, inputXmlText: handoff.text, inputXmlSource: '5c' };
   appendWorkspaceDiagnostics(state, transition.diagnostic, handoff.diagnostic);
   state.status = handoff.diagnostic.message;
-  return state;
+  return handoff;
 }
 
 function recordWorkspaceError(state, action, error) {
@@ -136,6 +147,120 @@ function recordWorkspaceError(state, action, error) {
     severity: 'ERROR', code: 'WORKSPACE_ACTION_FAILED', action, message,
   }));
   return message;
+}
+
+function workspaceProducerSource(state = {}) {
+  const sourceKind = String(state.categorizedInputSource || '');
+  return Object.freeze({
+    text: String(state.categorizedInputText || ''),
+    sourceKind,
+    filename: sourceKind === '5c'
+      ? 'inputxml-workspace-5c.input.xml'
+      : 'inputxml-workspace-enriched.input.xml',
+  });
+}
+
+function workspaceProducerRuntime(dialog) {
+  if (!dialog.__inputXmlWorkspaceProducerRuntime) {
+    dialog.__inputXmlWorkspaceProducerRuntime = {
+      client: null, abortController: null, generation: 0, closed: false,
+    };
+  }
+  return dialog.__inputXmlWorkspaceProducerRuntime;
+}
+
+function ensureWorkspaceProducerClient(dialog) {
+  const runtime = workspaceProducerRuntime(dialog);
+  if (runtime.closed) throw Object.assign(new Error('InputXML Workspace producer client is closed.'), { code: 'CLIENT_CLOSED' });
+  if (!runtime.client) runtime.client = createCategorizedInputXmlWorkerClient({ clientId: 'inputxml-workspace' });
+  return runtime.client;
+}
+
+function resetWorkspaceProducerAdoption(dialog, state, reason = 'workspace-source-changed') {
+  const runtime = workspaceProducerRuntime(dialog);
+  runtime.generation += 1;
+  runtime.abortController?.abort(reason);
+  runtime.abortController = null;
+  state.categorizedProducerAdoption = createWorkspaceProducerAdoptionState();
+  state.categorizedOutputText = '';
+}
+
+function closeWorkspaceProducerRuntime(dialog) {
+  const runtime = dialog?.__inputXmlWorkspaceProducerRuntime;
+  if (!runtime || runtime.closed) return;
+  runtime.closed = true;
+  runtime.generation += 1;
+  runtime.abortController?.abort('workspace-closed');
+  runtime.abortController = null;
+  runtime.client?.close?.();
+  runtime.client = null;
+}
+
+function workspaceProducerDiagnostic(adoption = {}, sourceKind = '') {
+  const success = adoption.status === 'success';
+  const failed = adoption.status === 'failed';
+  const summary = adoption.result?.summary || {};
+  return createInputXmlWorkspaceDiagnostic({
+    severity: success ? 'OK' : failed ? 'ERROR' : 'INFO',
+    code: success ? 'WORKSPACE_PRODUCER_CATEGORIZED' : failed
+      ? (adoption.error?.code || 'WORKSPACE_PRODUCER_CATEGORIZATION_FAILED')
+      : 'WORKSPACE_PRODUCER_CATEGORIZATION_STARTED',
+    action: 'producer-categorize-inputxml', stage: 'categorized', sourceKind,
+    count: Number(summary.categorizedElements || 0),
+    message: success
+      ? `Worker produced a receipt-bound CategorizedInputXML companion with ${Number(summary.categorizedElements || 0)} element(s).`
+      : failed ? (adoption.error?.message || 'Workspace producer categorization failed.')
+      : 'Worker categorization started for generated Workspace InputXML.',
+  });
+}
+
+async function runWorkspaceProducerCategorization(dialog, state, sourceInput = {}) {
+  const runtime = workspaceProducerRuntime(dialog);
+  runtime.generation += 1;
+  const generation = runtime.generation;
+  runtime.abortController?.abort('workspace-producer-superseded');
+  const started = startWorkspaceProducerRun(sourceInput);
+  state.categorizedDirection = 'input-to-categorized';
+  state.categorizedInputText = started.source.text;
+  state.categorizedInputSource = started.source.sourceKind;
+  state.categorizedProducerAdoption = started.adoption;
+  state.categorizedOutputText = '';
+  appendWorkspaceDiagnostics(state, workspaceProducerDiagnostic(started.adoption, started.source.sourceKind));
+  if (!started.request) {
+    state.error = started.adoption.error?.message || 'Workspace producer categorization could not start.';
+    rerender(dialog, state);
+    return started.adoption;
+  }
+
+  const abortController = new AbortController();
+  runtime.abortController = abortController;
+  state.status = 'Categorizing generated InputXML in the producer worker…';
+  rerender(dialog, state);
+  try {
+    const result = await ensureWorkspaceProducerClient(dialog).producer.categorizeInputXml(started.request, {
+      signal: abortController.signal,
+      timeoutMs: 60000,
+    });
+    if (runtime.closed || runtime.generation !== generation) return state.categorizedProducerAdoption;
+    state.categorizedProducerAdoption = finishWorkspaceProducerRun(started.adoption, result);
+  } catch (error) {
+    if (runtime.closed || runtime.generation !== generation) return state.categorizedProducerAdoption;
+    state.categorizedProducerAdoption = failWorkspaceProducerRun(started.adoption, error);
+  } finally {
+    if (runtime.abortController === abortController) runtime.abortController = null;
+  }
+
+  state.categorizedOutputText = workspaceProducerCategorizedText(started.source, state.categorizedProducerAdoption);
+  appendWorkspaceDiagnostics(state, workspaceProducerDiagnostic(state.categorizedProducerAdoption, started.source.sourceKind));
+  if (state.categorizedProducerAdoption.status === 'success') {
+    state.error = '';
+    state.status = 'Generated InputXML categorized by the worker; producer receipt is current.';
+  } else {
+    state.categorizedOutputText = '';
+    state.error = state.categorizedProducerAdoption.error?.message || 'Workspace producer categorization failed.';
+  }
+  rerender(dialog, state);
+  return state.categorizedProducerAdoption;
 }
 
 function ensureModalStyle(doc = globalThis.document) {
@@ -212,7 +337,9 @@ function defaultState() {
     enrichment: { inputXmlSource: '' },
     categorizedDirection: 'input-to-categorized',
     categorizedInputText: '',
+    categorizedInputSource: '',
     categorizedOutputText: '',
+    categorizedProducerAdoption: createWorkspaceProducerAdoptionState(),
     workspaceDiagnostics: createInputXmlWorkspaceDiagnostics(),
     status: '',
     error: '',
@@ -443,24 +570,31 @@ function renderEnrichmentTab(state) {
 }
 
 function renderCategorizedTab(state) {
+  const adoption = state.categorizedProducerAdoption || createWorkspaceProducerAdoptionState();
+  const workerManaged = isWorkspaceGeneratedInputXml(state.categorizedInputSource);
+  const producerMessage = workerManaged
+    ? `Generated source: ${state.categorizedInputSource}. Worker receipt status: ${adoption.status}. ${adoption.error?.message || ''}`
+    : 'Imported or pasted input uses the explicit compatibility conversion. Workspace-generated InputXML is categorized automatically by the worker.';
   return `<div class="ixw-grid">
     <section class="ixw-panel">
       <div class="ixw-title">Categorized XML Conversion</div>
       <label class="ixw-note">Direction
         <select data-ixw-field="categorizedDirection" style="margin-left:8px;background:#020617;color:#dbeafe;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:5px;">
-          <option value="input-to-categorized" ${state.categorizedDirection === 'input-to-categorized' ? 'selected' : ''}>InputXML to Categorized XML</option>
-          <option value="categorized-to-input" ${state.categorizedDirection === 'categorized-to-input' ? 'selected' : ''}>Categorized XML to InputXML</option>
+<option value="input-to-categorized" ${state.categorizedDirection === 'input-to-categorized' ? 'selected' : ''}>InputXML to Categorized XML</option>
+<option value="categorized-to-input" ${state.categorizedDirection === 'categorized-to-input' ? 'selected' : ''}>Categorized XML to InputXML</option>
         </select>
       </label>
       <div class="ixw-toolbar">
         <input type="file" accept="${XML_OR_TXT_ACCEPT}" data-ixw-file="categorizedInput">
         <button class="ixw-btn primary" data-ixw-action="run-categorized">Convert</button>
         <button class="ixw-btn" data-ixw-action="download-categorized" ${state.categorizedOutputText ? '' : 'disabled'}>Download</button>
+        <button class="ixw-btn" data-ixw-action="download-categorized-receipt" ${adoption.status === 'idle' ? 'disabled' : ''}>Download producer receipt</button>
       </div>
+      <div class="${adoption.status === 'failed' ? 'ixw-error' : 'ixw-note'}">${h(producerMessage)}</div>
       <textarea class="ixw-textarea tall" data-ixw-field="categorizedInputText" spellcheck="false" placeholder="Paste InputXML or Categorized XML">${h(state.categorizedInputText)}</textarea>
     </section>
     <section class="ixw-panel">
-      <div class="ixw-title">Output</div>
+      <div class="ixw-title">Companion Output</div>
       <div class="ixw-toolbar actions">
         <button class="ixw-btn" data-ixw-action="push-categorized-xmlcompare-source" ${state.categorizedOutputText ? '' : 'disabled'}>Push to XML Compare (Source)</button>
         <button class="ixw-btn" data-ixw-action="push-categorized-xmlcompare-target" ${state.categorizedOutputText ? '' : 'disabled'}>Push to XML Compare (Target)</button>
@@ -640,7 +774,7 @@ function buildCurrentDtxrRows(state) {
   return [...(state.dtxrRows || []), ...(state.jsonTraceDtxrRows || [])];
 }
 
-function handleAction(dialog, state, action, source) {
+async function handleAction(dialog, state, action, source) {
   collectWithInvalidation(dialog, state);
   state.error = '';
   try {
@@ -746,14 +880,25 @@ function handleAction(dialog, state, action, source) {
           count: result.report?.diagnosticSummary?.total || 0,
           message: `InputXML enrichment applied; ${result.report?.diagnosticSummary?.total || 0} sideload diagnostic event(s) recorded.`,
         }));
+        await runWorkspaceProducerCategorization(dialog, state, {
+          text: result.xmlText,
+          sourceKind: 'enriched',
+          filename: 'inputxml-workspace-enriched.input.xml',
+        });
       }
     } else if (action === 'run-categorized') {
-      state.categorizedOutputText = convertCategorizedInputXml(state.categorizedInputText, state.categorizedDirection, { sourceName: 'InputXML Workspace' });
-      const detection = detectXmlWorkspaceSchema({ name: 'inputxml-workspace-output.xml', text: state.categorizedOutputText });
-      appendWorkspaceDiagnostics(state, createInputXmlWorkspaceDiagnostic({ severity: state.categorizedOutputText ? 'OK' : 'ERROR', code: state.categorizedOutputText ? 'WORKSPACE_CATEGORIZED_OUTPUT_READY' : 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED', action, stage: 'categorized', outputKind: detection.kind, count: state.categorizedOutputText.length, message: state.categorizedOutputText ? `Categorized conversion produced ${state.categorizedOutputText.length} characters (${detection.label}).` : 'Categorized conversion produced no output.' }));
-      state.status = 'Categorized conversion complete.';
+      if (state.categorizedDirection === 'categorized-to-input' || !isWorkspaceGeneratedInputXml(state.categorizedInputSource)) {
+        state.categorizedOutputText = convertCategorizedInputXml(state.categorizedInputText, state.categorizedDirection, { sourceName: 'InputXML Workspace' });
+        const detection = detectXmlWorkspaceSchema({ name: 'inputxml-workspace-output.xml', text: state.categorizedOutputText });
+        appendWorkspaceDiagnostics(state, createInputXmlWorkspaceDiagnostic({ severity: state.categorizedOutputText ? 'OK' : 'ERROR', code: state.categorizedOutputText ? 'WORKSPACE_CATEGORIZED_OUTPUT_READY' : 'WORKSPACE_ZERO_RECORD_OUTPUT_BLOCKED', action, stage: 'categorized', outputKind: detection.kind, count: state.categorizedOutputText.length, message: state.categorizedOutputText ? `Categorized conversion produced ${state.categorizedOutputText.length} characters (${detection.label}).` : 'Categorized conversion produced no output.' }));
+        state.status = 'Explicit categorized conversion complete.';
+      } else {
+        await runWorkspaceProducerCategorization(dialog, state, workspaceProducerSource(state));
+      }
     } else if (action === 'download-categorized') {
       saveTextFile(categorizedFileName('inputxml-workspace.xml', state.categorizedDirection), state.categorizedOutputText, 'application/xml');
+    } else if (action === 'download-categorized-receipt') {
+      saveTextFile('inputxml-workspace-producer-receipt.json', workspaceProducerReceiptJson(workspaceProducerSource(state), state.categorizedProducerAdoption), 'application/json');
     } else if (action === 'push-categorized-xmlcompare-source' || action === 'push-categorized-xmlcompare-target') {
       const isSource = action.endsWith('source');
       const eventName = isSource ? RuntimeEvents.XML_COMPARE_SOURCE_LOADED : RuntimeEvents.XML_COMPARE_TARGET_LOADED;
@@ -824,7 +969,9 @@ function bindFileInputs(dialog, state) {
     const file = event.target.files?.[0];
     if (!file) return;
     invalidateCategorizedArtifacts(state);
+    resetWorkspaceProducerAdoption(dialog, state, 'categorized-upload');
     state.categorizedInputText = await file.text();
+    state.categorizedInputSource = 'upload';
     state.status = `Loaded: ${file.name}.`;
     rerender(dialog, state);
   });
@@ -846,7 +993,7 @@ function bindPopup(dialog, state) {
   }));
   bindSubtabButtons(dialog, state, '[data-ixw-clean-subtab]', 'cleanSubtab', 'cleanxml');
   bindSubtabButtons(dialog, state, '[data-ixw-misc-subtab]', 'miscSubtab', 'config');
-  dialog.querySelectorAll('[data-ixw-action]').forEach((button) => button.addEventListener(ACTIVATE, () => handleAction(dialog, state, button.getAttribute('data-ixw-action'), button)));
+  dialog.querySelectorAll('[data-ixw-action]').forEach((button) => button.addEventListener(ACTIVATE, () => { void handleAction(dialog, state, button.getAttribute('data-ixw-action'), button); }));
   bindFileInputs(dialog, state);
 }
 
@@ -858,7 +1005,14 @@ function bindRenderedPanels(dialog, state) {
     root: dialog,
     workflowXmlText: state.cleanXmlText || state.sourceXmlText || '',
     supportConfigJson: state.supportConfigJson || '{}',
-    onResult: (result) => apply5CResultToWorkspace(state, result),
+    onResult: (result) => {
+      const handoff = apply5CResultToWorkspace(state, result);
+      if (handoff.ok) {
+        void runWorkspaceProducerCategorization(dialog, state, { text: handoff.text, sourceKind: '5c', filename: 'inputxml-workspace-5c.input.xml' });
+      } else {
+        rerender(dialog, state);
+      }
+    },
   });
   const host5d = dialog.querySelector('[data-ixw-5d-host]');
   if (host5d) renderXmlCiiInputXmlCompare5DPanel(host5d, { root: dialog });
@@ -885,17 +1039,20 @@ function mountPopup(root, onClose) {
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', POPUP_TITLE_ID);
+  workspaceProducerRuntime(dialog);
   modal.appendChild(dialog);
   (document.body || root).appendChild(modal);
   rerender(dialog, state);
   modal.addEventListener(ACTIVATE, (event) => {
     if (event.target === modal || event.target.closest?.('[data-ixw-close="1"]')) {
+      closeWorkspaceProducerRuntime(dialog);
       modal.remove();
       onClose();
     }
   });
   modal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      closeWorkspaceProducerRuntime(dialog);
       modal.remove();
       onClose();
     }
@@ -917,7 +1074,10 @@ export function installInputXmlWorkspaceTile(container) {
     popup = mountPopup(utilitiesRoot, () => { popup = null; });
   });
   return () => {
-    if (popup) popup.remove();
+    if (popup) {
+      closeWorkspaceProducerRuntime(popup.querySelector('.ixw-dialog'));
+      popup.remove();
+    }
     launcher.remove();
   };
 }
