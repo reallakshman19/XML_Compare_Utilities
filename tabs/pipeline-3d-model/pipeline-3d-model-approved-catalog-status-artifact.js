@@ -1,6 +1,9 @@
 import {
   resolvePipelineApprovedCatalogStatus,
 } from './pipeline-3d-model-approved-catalog-status.js';
+import {
+  buildPipelineInputXmlReadinessArtifact,
+} from './pipeline-3d-model-inputxml-readiness-artifact.js';
 
 export const PIPELINE_APPROVED_CATALOG_STATUS_EVIDENCE_SCHEMA =
   'PipelineApprovedCatalogStatusEvidence.v1';
@@ -42,12 +45,14 @@ export function buildPipelineApprovedCatalogStatusArtifact(output = {}) {
   });
 }
 
+function appendArtifact(items, artifact) {
+  if (!items.some((item) => item?.name === artifact.name)) items.push(artifact);
+}
+
 export function pipelineApprovedCatalogVisibleArtifacts(output = {}) {
   const existing = Array.isArray(output?.artifacts) ? output.artifacts : [];
   const copied = [...existing];
-  if (copied.some((item) => item?.name === PIPELINE_APPROVED_CATALOG_STATUS_ARTIFACT_NAME)) {
-    return Object.freeze(copied);
-  }
-  copied.push(buildPipelineApprovedCatalogStatusArtifact(output));
+  appendArtifact(copied, buildPipelineApprovedCatalogStatusArtifact(output));
+  appendArtifact(copied, buildPipelineInputXmlReadinessArtifact(output));
   return Object.freeze(copied);
 }
