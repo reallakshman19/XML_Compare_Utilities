@@ -6,6 +6,7 @@ import { buildAuthoritativePipelineOutputs,
   buildPipelineNativeOutputBundle } from './pipeline-3d-model-profile-propagation.js?v=20260724-p3d-core-050-1';
 import { buildPipelineApprovedCatalogProductionSourceEvidence } from './pipeline-3d-model-approved-catalog-production-input.js';
 import { pipelineApprovedCatalogVisibleArtifacts } from './pipeline-3d-model-approved-catalog-status-artifact.js';
+import { resolvePipelineInputXmlBlockers } from './pipeline-3d-model-inputxml-readiness.js';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
@@ -56,24 +57,9 @@ function pipelineSourceText(input, output) {
     identity: output.identity, exportContext: output.exportContext,
     orchestration: output.orchestration });
 }
-function blockerCodes(value) {
-  return Array.isArray(value) ? value.map((code) => String(code || '').trim()).filter(Boolean) : [];
-}
-export function resolvePipelineProjectMigrationBlockers(output = {}) {
-  const blockers = [...new Set([
-    ...blockerCodes(output.orchestration?.blockerCodes),
-    ...blockerCodes(output.exportQualification?.blockerCodes),
-    ...blockerCodes(output.inputXmlDocumentPlan?.blockerCodes),
-  ])];
-  if (output.exportQualification
-    && output.exportQualification.inputXmlAllowed !== true && blockers.length === 0) {
-    blockers.push('PIPELINE_PROJECT_MIGRATION_INPUTXML_NOT_ALLOWED');
-  }
-  return Object.freeze(blockers);
-}
 export async function buildPipelineProjectMigration(input) {
   const output = buildPipelineProjectOutputs(input), plan = output.inputXmlDocumentPlan;
-  const blockers = resolvePipelineProjectMigrationBlockers(output);
+  const blockers = resolvePipelineInputXmlBlockers(output);
   const bendDiagnostics = output.elasticBends?.diagnostics || {};
   return buildSingleDocumentMigration({
     projectId: PIPELINE_CAD_PROJECT_ID, sourceName: input.sourceName,
