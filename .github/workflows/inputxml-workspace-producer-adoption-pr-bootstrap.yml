@@ -41,6 +41,23 @@ jobs:
               "render_end = text.index('function renderMiscConfigSubtab', render_start)\n"
               "text = text[:render_start] + new_render.rstrip() + '\\n\\n' + text[render_end:]",
           )
+          script = script.replace(
+              "replace_once(sideload_success, sideload_adopt, 'automatic enriched categorization')",
+              "apply_start = text.index(\"    } else if (action === 'apply-sideload') {\")\n"
+              "apply_end = text.index(\"    } else if (action === 'run-categorized') {\", apply_start)\n"
+              "apply_block = text[apply_start:apply_end]\n"
+              "success_end = apply_block.rfind('      }\\n')\n"
+              "if success_end < 0: raise SystemExit('apply-sideload success boundary missing')\n"
+              "adopt_call = \"        await runWorkspaceProducerCategorization(dialog, state, {\\n          text: result.xmlText,\\n          sourceKind: 'enriched',\\n          filename: 'inputxml-workspace-enriched.input.xml',\\n        });\\n\"\n"
+              "apply_block = apply_block[:success_end] + adopt_call + apply_block[success_end:]\n"
+              "text = text[:apply_start] + apply_block + text[apply_end:]",
+          )
+          script = script.replace(
+              "replace_once(old_run, new_run, 'categorized action routing')",
+              "action_start = text.index(\"    } else if (action === 'run-categorized') {\")\n"
+              "action_end = text.index(\"    } else if (action === 'push-categorized-xmlcompare-source'\", action_start)\n"
+              "text = text[:action_start] + new_run.rstrip() + '\\n' + text[action_end:]",
+          )
           Path('/tmp/inputxml-workspace-adoption-apply.sh').write_text(script, encoding='utf-8')
           subprocess.run(['bash', '/tmp/inputxml-workspace-adoption-apply.sh'], check=True)
           Path('.github/workflows/inputxml-workspace-producer-adoption-pr-bootstrap.yml').unlink()
