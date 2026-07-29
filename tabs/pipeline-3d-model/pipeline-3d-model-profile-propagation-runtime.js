@@ -11,6 +11,7 @@ import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profi
 import { writePipelineElementHtml, writePipelineElementText, writePipelineElementValue } from './pipeline-3d-model-dom-write.js';
 import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
+import { createPipelineKeyPlanRenderSession } from './pipeline-3d-model-keyplan-render-session.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
 import { addPipelineWarning, ensurePipelineWarningLog, renderPipelineWarningLog,
@@ -103,12 +104,12 @@ function renderOutputs(dialog, output, instance) {
   renderPipelineApprovedCatalogStatus(dialog, output);
   renderArtifacts(dialog, output, instance);
 }
-function renderKeyPlan(dialog, output) {
+function renderKeyPlan(dialog, output, instance) {
   const legend = find(dialog, '[data-p3d="keyplan-legend"]');
   const html = buildKeyPlanLegendHtml(output.table1Points, output.sheets);
   if (legend) { writePipelineElementHtml(legend, html); legend.hidden = !html; }
   const canvas = find(dialog, '[data-p3d="canvas-keyplan"]');
-  if (canvas) paintKeyPlanCanvas(canvas, output.table1Points, output.sheets,
+  instance.keyPlanSession.render(canvas, output.table1Points, output.sheets,
     ensureTooltip(dialog), markerPoints(output));
 }
 function setWarnings(dialog, instance, warnings = []) {
@@ -131,7 +132,7 @@ function run(dialog, instance) {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
     instance.output = output; publishCanonicalPlan(dialog, output);
     instance.rendering = true;
-    try { renderOutputs(dialog, output, instance); renderKeyPlan(dialog, output); }
+    try { renderOutputs(dialog, output, instance); renderKeyPlan(dialog, output, instance); }
     finally { instance.rendering = false; }
     const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
     setWarnings(dialog, instance, output.warnings || []); return output;
@@ -199,7 +200,8 @@ function onClick(dialog, instance, event) {
 }
 function createInstance(dialog) {
   const instance = { output: null, rendering: false, warnings: [],
-    artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null };
+    artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null,
+    keyPlanSession: createPipelineKeyPlanRenderSession(paintKeyPlanCanvas) };
   instance.refreshScheduler = createPipelineProfileRefreshScheduler(() => run(dialog, instance));
   return instance;
 }
@@ -215,7 +217,7 @@ export function installPipelineProfilePropagation(dialog) {
     { signal: controller.signal });
   instance.destroy = () => {
     controller.abort(); instance.refreshScheduler.destroy(); instance.artifactSession.reset();
-    INSTANCES.delete(dialog);
+    instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
   };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
