@@ -9,7 +9,7 @@ assert.match(tab, /inputxml-workspace-producer-adoption\.js/);
 assert.match(tab, /categorizedProducerAdoption: createWorkspaceProducerAdoptionState\(\)/);
 assert.match(tab, /categorizedInputSource: ''/);
 assert.match(tab, /async function runWorkspaceProducerCategorization/);
-assert.match(tab, /client\.producer\.categorizeInputXml/);
+assert.match(tab, /ensureWorkspaceProducerClient\(dialog\)\.producer\.categorizeInputXml/);
 assert.match(tab, /sourceKind: '5c'/);
 assert.match(tab, /sourceKind: 'enriched'/);
 assert.match(tab, /download-categorized-receipt/);
