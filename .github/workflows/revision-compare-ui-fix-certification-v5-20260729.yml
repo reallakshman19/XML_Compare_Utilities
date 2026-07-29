@@ -1,0 +1,150 @@
+name: Revision Compare UI Visibility Certification v5
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/revision-compare-ui-fix-certification-v5-20260729.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: revision-compare-ui-visibility-certification-v5
+  cancel-in-progress: true
+
+jobs:
+  qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: 'true'
+      EXPECTED_PRODUCT_HEAD: 66480607ec11fb37686ebcc0c92a7b68be062ced
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: cert/revision-compare-ui-visibility-20260729-v5
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify exact product ancestry and certification-only delta
+        run: |
+          set -euxo pipefail
+          git merge-base --is-ancestor "$EXPECTED_PRODUCT_HEAD" HEAD
+          git diff --name-only "$EXPECTED_PRODUCT_HEAD"..HEAD > /tmp/actual
+          printf '%s\n' '.github/workflows/revision-compare-ui-fix-certification-v5-20260729.yml' > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+          git rev-parse HEAD
+          git show -s --format='%H %P' HEAD
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --no-package-lock
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Expose installed Chromium
+        run: |
+          chromium_path=$(node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          console.log(chromium.executablePath());
+          NODE
+          )
+          test -x "$chromium_path"
+          echo "CHROMIUM_PATH=$chromium_path" >> "$GITHUB_ENV"
+      - name: Run property viewport regression first
+        run: npx playwright test tests/browser/revision-compare-property-evidence.spec.mjs --config=playwright.revision-compare.config.mjs
+      - name: Run complete Revision Compare qualification
+        run: |
+          set -o pipefail
+          /usr/bin/time -v npm run test:revision-compare-qualification 2>&1 | tee revision-compare-ui-qualification.log
+      - name: Capture repaired UI evidence
+        if: success()
+        run: |
+          mkdir -p revision-compare-ui-after
+          python3 -m http.server 4180 --bind 127.0.0.1 > revision-compare-ui-after/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          cat > revision-compare-ui-after.mjs <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { readFile, writeFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const baseUrl = 'http://127.0.0.1:4180/tests/browser/revision-compare-layout.html';
+          const fixtureA = resolve('tests/fixtures/revision-compare/rc002-rev-a.json');
+          const fixtureB = resolve('tests/fixtures/revision-compare/rc002-rev-b.json');
+          const browser = await chromium.launch({ headless: true });
+          const results = [];
+
+          async function open(viewport) {
+            const context = await browser.newContext({ viewport });
+            const page = await context.newPage();
+            await page.goto(baseUrl, { waitUntil: 'networkidle' });
+            await page.locator('[data-revc-open]').click();
+            await page.locator('.revc-dialog').waitFor({ state: 'visible' });
+            await page.waitForFunction(() => {
+              const hrefs = [...document.styleSheets].map((sheet) => sheet.href ?? '');
+              return hrefs.some((href) => href.includes('revision-compare-layout.css'))
+                && hrefs.some((href) => href.includes('revision-compare-review-containment.css'));
+            });
+            return { context, page };
+          }
+
+          async function loadPair(page) {
+            await page.locator('[data-revc-file="baseline"]').setInputFiles({ name: 'rc002-rev-a.json', mimeType: 'application/json', buffer: await readFile(fixtureA) });
+            await page.locator('[data-slot="baseline"] strong').filter({ hasText: /ready/i }).waitFor();
+            await page.locator('[data-revc-file="candidate"]').setInputFiles({ name: 'rc002-rev-b.json', mimeType: 'application/json', buffer: await readFile(fixtureB) });
+            await page.locator('[data-slot="candidate"] strong').filter({ hasText: /ready/i }).waitFor();
+          }
+
+          async function record(page, id, state) {
+            await page.screenshot({ path: `revision-compare-ui-after/${id}-${state}.png`, animations: 'disabled' });
+            const metrics = await page.evaluate(() => {
+              const box = (selector) => {
+                const element = document.querySelector(selector); if (!element) return null;
+                const rect = element.getBoundingClientRect();
+                return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, clientHeight: element.clientHeight, scrollHeight: element.scrollHeight };
+              };
+              return {
+                viewport: { width: innerWidth, height: innerHeight },
+                dialog: box('.revc-dialog'), body: box('.revc-body'), footer: box('.revc-dialog > footer'),
+                reviewWorkspace: box('.revc-review-workspace'), reviewSide: box('.revc-review-side'), transferSection: box('.revc-transfer-section'), viewerHost: box('.revc-viewer-host'),
+                loadHeadingVisible: Boolean(document.querySelector('#revc-load-title')?.getClientRects().length),
+                fileControlsVisible: [...document.querySelectorAll('.revc-file-button')].filter((element) => element.getClientRects().length).length,
+              };
+            });
+            results.push({ id, state, metrics });
+          }
+
+          for (const [id, viewport] of [['1280x720',{width:1280,height:720}],['980x760',{width:980,height:760}]]) {
+            const { context, page } = await open(viewport);
+            await record(page,id,'01-empty'); await loadPair(page);
+            await page.locator('[data-revc-approve-basis]').scrollIntoViewIfNeeded();
+            await record(page,id,'02-loaded-scope'); await context.close();
+          }
+          for (const [id, viewport] of [['1440x900',{width:1440,height:900}],['390x844',{width:390,height:844}]]) {
+            const { context, page } = await open(viewport); await loadPair(page);
+            await page.locator('[data-revc-approve-basis]').scrollIntoViewIfNeeded(); await page.locator('[data-revc-approve-basis]').click();
+            await page.locator('[data-revc-run-compare]').scrollIntoViewIfNeeded(); await page.locator('[data-revc-run-compare]').click();
+            await page.getByRole('heading',{name:'Guided visual revision review'}).waitFor({timeout:25000});
+            await record(page,id,'03-review'); await context.close();
+          }
+          await browser.close();
+          await writeFile('revision-compare-ui-after/metrics.json', JSON.stringify(results,null,2));
+          NODE
+          node revision-compare-ui-after.mjs
+      - name: Record repository state
+        if: always()
+        run: git status --short | tee revision-compare-ui-worktree.log
+      - name: Upload qualification and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-ui-visibility-evidence-v5
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            revision-compare-ui-qualification.log
+            revision-compare-ui-worktree.log
+            revision-compare-ui-after/
+            artifacts/revision-compare-results.json
+            playwright-report/
+            test-results/revision-compare/
