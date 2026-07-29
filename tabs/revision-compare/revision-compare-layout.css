@@ -226,7 +226,6 @@
   .revc-dialog,
   .revc-review-dialog {
     width: 100%;
-    height: calc(100vh - 12px);
   }
 
   .revc-head {
