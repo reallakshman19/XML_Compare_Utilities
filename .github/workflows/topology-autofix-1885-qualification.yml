@@ -70,6 +70,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: topology-1885-qualification-evidence
-          path: test-results/topology-trace-validator
-          if-no-files-found: warn
+          path: qualification-evidence/topology-1885
+          if-no-files-found: error
           retention-days: 14
