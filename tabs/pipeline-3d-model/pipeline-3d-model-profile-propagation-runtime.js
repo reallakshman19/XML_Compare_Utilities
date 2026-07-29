@@ -3,6 +3,7 @@ import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core
 import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
 import { pipelineVisibleArtifacts } from './pipeline-3d-model-visible-artifacts.js';
 import { buildPipelineArtifactPanelHtml } from './pipeline-3d-model-artifact-panel-presentation.js';
+import { createPipelineArtifactSession } from './pipeline-3d-model-artifact-session.js';
 import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
@@ -78,11 +79,11 @@ function artifactPanel(dialog) {
   const anchor = find(dialog, '[data-p3d="xml-output"]')?.parentElement || dialog;
   anchor.appendChild(panel); return panel;
 }
-function renderArtifacts(dialog, output) {
-  const panel = artifactPanel(dialog), artifacts = pipelineVisibleArtifacts(output);
+function renderArtifacts(dialog, output, instance) {
+  const panel = artifactPanel(dialog), artifacts = instance.artifactSession.resolve(output);
   panel.innerHTML = buildPipelineArtifactPanelHtml(artifacts);
 }
-function renderOutputs(dialog, output) {
+function renderOutputs(dialog, output, instance) {
   setTextArea(dialog, 'table2', output.table2Text); setTextArea(dialog, 'table3', output.table3Text);
   const table2Grid = find(dialog, '[data-p3d="table2x-output"]');
   const table3Grid = find(dialog, '[data-p3d="table3x-output"]');
@@ -99,7 +100,7 @@ function renderOutputs(dialog, output) {
   if (coordinateOut) coordinateOut.textContent = output.coordinateText;
   if (xmlOut) xmlOut.textContent = output.xmlText;
   renderPipelineApprovedCatalogStatus(dialog, output);
-  renderArtifacts(dialog, output);
+  renderArtifacts(dialog, output, instance);
 }
 function renderKeyPlan(dialog, output) {
   const legend = find(dialog, '[data-p3d="keyplan-legend"]');
@@ -128,11 +129,11 @@ function run(dialog, instance) {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
     instance.output = output; publishCanonicalPlan(dialog, output);
     instance.rendering = true;
-    try { renderOutputs(dialog, output); renderKeyPlan(dialog, output); }
+    try { renderOutputs(dialog, output, instance); renderKeyPlan(dialog, output); }
     finally { instance.rendering = false; }
     const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
     setWarnings(dialog, instance, output.warnings || []); return output;
-  } catch (error) { instance.output = null; logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
+  } catch (error) { instance.output = null; instance.artifactSession.reset(); logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
 }
 function saveTextFile(filename, value, mime) {
   const blob = new Blob([value], { type: mime }), url = URL.createObjectURL(blob);
@@ -148,7 +149,7 @@ function download(dialog, instance, kind) {
 }
 function downloadArtifact(dialog, instance, index) {
   const output = instance.output || run(dialog, instance); if (!output) return;
-  const item = pipelineVisibleArtifacts(output)[index]; if (!item) return;
+  const item = instance.artifactSession.resolve(output)[index]; if (!item) return;
   saveTextFile(item.name, item.text, item.mime || 'application/octet-stream');
 }
 function rawTextFromPreview(panel) {
@@ -179,7 +180,9 @@ function pipelineSourceInput(target) {
 function onInput(dialog, instance, event) {
   if (repairPreviewInput(dialog, event)) return;
   const target = event.target instanceof Element ? event.target : null;
-  if (!instance.rendering && pipelineSourceInput(target)) instance.output = null;
+  if (!instance.rendering && pipelineSourceInput(target)) {
+    instance.output = null; instance.artifactSession.reset();
+  }
   if (!instance.rendering && target?.matches('[data-p3d-split$="-raw"]')
     && hasAnyProfileRaw(dialog)) scheduleRefresh(dialog, instance);
 }
@@ -197,13 +200,15 @@ function onClick(dialog, instance, event) {
 export function installPipelineProfilePropagation(dialog) {
   if (!dialog || INSTANCES.has(dialog)) return INSTANCES.get(dialog)?.destroy || null;
   const controller = new AbortController(), instance = { output: null, refreshQueued: false,
-    rendering: false, warnings: [] };
+    rendering: false, warnings: [], artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts) };
   ensurePipelineWarningLog(dialog); renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
-  dialog.addEventListener('pipeline-engineering-configuration-apply', () => { instance.output = null; },
+  dialog.addEventListener('pipeline-engineering-configuration-apply', () => {
+    instance.output = null; instance.artifactSession.reset();
+  },
     { signal: controller.signal });
-  instance.destroy = () => { controller.abort(); INSTANCES.delete(dialog); };
+  instance.destroy = () => { controller.abort(); instance.artifactSession.reset(); INSTANCES.delete(dialog); };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
