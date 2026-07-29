@@ -2,6 +2,7 @@ name: P3D approved-catalog exact-head qualification v3
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/p3d-approved-catalog-exact-head-qualification-v3.yml'
 
