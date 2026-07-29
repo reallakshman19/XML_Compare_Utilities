@@ -4,7 +4,8 @@ import { createRevisionSessionManifest, createRevisionScopeManifest } from './re
 import { revisionComparisonPreflight } from './revision-preflight.js';
 import { revisionVisualReadiness } from './revision-compare-readiness.js';
 import { applyRevisionCompareSwapResults, revisionCompareSwapReadiness } from './revision-compare-intake-swap.js';
-import { createRevisionScopeProposal, updateScopeDecision, updateScopeGroup } from './revision-scope-proposal.js';
+import { applyRevisionScopeBatch } from './revision-scope-filter-batch.js';
+import { createRevisionScopeProposal, updateScopeDecision } from './revision-scope-proposal.js';
 import { RevisionRequestSupersededError } from './revision-load-service.js';
 import { RevisionCompareSupersededError } from './revision-compare-service.js';
 import { RevisionComparisonCancelledError } from './revision-compare-engine.js';
@@ -101,10 +102,16 @@ async function refineScope(context, decisions) {
 async function setBranch(context, branchId, included) {
   const decisions = updateScopeDecision(context.readState().scopeDecisions, branchId, !included); await refineScope(context, decisions);
 }
+function batchToast(result, included) {
+  const qualifier = result.batch.filtered ? 'visible ' : '';
+  return `${included ? 'Selected' : 'Cleared'} ${result.batch.visibleCount} ${qualifier}branch(es).`;
+}
 async function setGroup(context, group, included) {
-  const proposal = context.readState().proposal; if (!proposal) return;
-  const groups = { common: proposal.commonBranches, revAOnly: proposal.revAOnlyBranches, revBOnly: proposal.revBOnlyBranches };
-  await refineScope(context, updateScopeGroup(context.readState().scopeDecisions, (groups[group] ?? []).map((entry) => entry.branchId), included));
+  const state = context.readState();
+  const result = applyRevisionScopeBatch(state.scopeDecisions, state, group, included);
+  if (!result.batch.branchIds.length) return;
+  await refineScope(context, result.decisions);
+  context.options?.showToast?.(batchToast(result, included), 'success');
 }
 function scopeDraft(proposal, side) { return Object.freeze({ selectedIds: side === 'A' ? proposal.includedBranchIdsA : proposal.includedBranchIdsB, exclusions: proposal.excludedBranches }); }
 async function approveBasis(context) {
