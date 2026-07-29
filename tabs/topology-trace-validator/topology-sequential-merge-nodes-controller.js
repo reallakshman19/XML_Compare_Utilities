@@ -2,6 +2,7 @@
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
 import { createTopologySequentialAddStraightController } from './topology-sequential-add-straight-controller.js';
 import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
+import { createTopologySequentialDeleteEdgeController } from './topology-sequential-delete-edge-controller.js';
 import { createTopologySequentialDisconnectEndpointController } from './topology-sequential-disconnect-endpoint-controller.js';
 import { createTopologySequentialSplitEdgeController } from './topology-sequential-split-edge-controller.js';
 import {
@@ -66,7 +67,10 @@ function decorateSequentialRequests(mergeController, documentRef, now) {
   const disconnectController = createTopologySequentialDisconnectEndpointController(addController, {
     documentRef, now,
   });
-  return createTopologySequentialSplitEdgeController(disconnectController, { documentRef, now });
+  const splitController = createTopologySequentialSplitEdgeController(disconnectController, {
+    documentRef, now,
+  });
+  return createTopologySequentialDeleteEdgeController(splitController, { documentRef, now });
 }
 
 export function createTopologySequentialMergeNodesController(baseController, options = {}) {
