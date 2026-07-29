@@ -1,0 +1,93 @@
+name: Persist Topology 1885 Evidence
+
+on:
+  push:
+    branches:
+      - agent/topology-staged-export-1885-qualification-main
+    paths:
+      - '.github/workflows/persist-topology-1885-evidence.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/topology-staged-export-1885-qualification-main
+          fetch-depth: 0
+
+      - name: Persist exact evidence on successful runs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          spec_path = Path('tests/browser/topology-staged-export-1885-qualification.spec.mjs')
+          text = spec_path.read_text()
+          old_import = "import { createHash } from 'node:crypto';\n"
+          new_import = old_import + "import fs from 'node:fs';\n"
+          if text.count(old_import) != 1:
+              raise SystemExit('Expected one crypto import anchor')
+          text = text.replace(old_import, new_import, 1)
+
+          assertion_anchor = "  expect(provenance.positionRemaps).toHaveLength(60);\n"
+          assertion_block = assertion_anchor + "  expect(provenance.supportSourcePositionField).toBe('TOPOLOGY_SOURCE_POSITION');\n  expect(provenance.supportCarrierAuthorityField).toBe('TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH');\n  expect(provenance.supportProjectionEvidencePreserved).toBe(10);\n  expect(directExport.summary.supportProjectionEvidencePreserved).toBe(10);\n"
+          if text.count(assertion_anchor) != 1:
+              raise SystemExit('Expected one provenance assertion anchor')
+          text = text.replace(assertion_anchor, assertion_block, 1)
+
+          attach_anchor = "  await testInfo.attach('ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json', {\n"
+          evidence_block = """  const qualificationEvidence = {
+    benchmarkSha256: BENCHMARK_SHA256,
+    exportSha256,
+    exportByteLength: bytes.length,
+    committed,
+    export: {
+      rootShape: directExport.summary.rootShape,
+      branchCount: exported.length,
+      positionIdentityToleranceMm: provenance.positionIdentityToleranceMm,
+      remapCount: provenance.positionRemaps.length,
+      operationCount: operations.length,
+      operationTypes: [...new Set(operations.map((row) => row.type))],
+      ledgerCount: provenance.ledger.length,
+      supportSourcePositionField: provenance.supportSourcePositionField,
+      supportCarrierAuthorityField: provenance.supportCarrierAuthorityField,
+      supportProjectionEvidencePreserved: provenance.supportProjectionEvidencePreserved,
+    },
+    roundTrip,
+  };
+  const evidenceDirectory = 'qualification-evidence/topology-1885';
+  fs.mkdirSync(evidenceDirectory, { recursive: true });
+  fs.writeFileSync(`${evidenceDirectory}/ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json`, bytes);
+  fs.writeFileSync(`${evidenceDirectory}/topology-staged-export-1885-provenance.json`, directExport.provenanceText);
+  fs.writeFileSync(`${evidenceDirectory}/topology-staged-export-1885-evidence.json`, `${JSON.stringify(qualificationEvidence, null, 2)}\n`);
+
+""" + attach_anchor
+          if text.count(attach_anchor) != 1:
+              raise SystemExit('Expected one attachment anchor')
+          text = text.replace(attach_anchor, evidence_block, 1)
+          spec_path.write_text(text)
+
+          workflow_path = Path('.github/workflows/topology-autofix-1885-qualification.yml')
+          workflow = workflow_path.read_text()
+          old_path = '          path: test-results/topology-trace-validator\n'
+          new_path = '          path: qualification-evidence/topology-1885\n'
+          if workflow.count(old_path) != 1:
+              raise SystemExit('Expected one workflow evidence path anchor')
+          workflow_path.write_text(workflow.replace(old_path, new_path, 1))
+          PY
+
+      - name: Commit evidence retention and remove bootstrap
+        run: |
+          rm .github/workflows/persist-topology-1885-evidence.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tests/browser/topology-staged-export-1885-qualification.spec.mjs \
+            .github/workflows/topology-autofix-1885-qualification.yml \
+            .github/workflows/persist-topology-1885-evidence.yml
+          git commit -m "test(ttv): retain successful exact qualification evidence"
+          git push origin HEAD:agent/topology-staged-export-1885-qualification-main
