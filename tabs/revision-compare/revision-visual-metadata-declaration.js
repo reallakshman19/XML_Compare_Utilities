@@ -36,6 +36,11 @@ function equivalent(left, right, key) {
   return left === right;
 }
 
+function hasMissingSourceMetadata(revA, revB) {
+  return FIELD_DEFINITIONS.some((field) => sourceValue(revA, field.key) === 'UNKNOWN'
+    || sourceValue(revB, field.key) === 'UNKNOWN');
+}
+
 function assertSourceCompatibility(revA, revB, values) {
   for (const field of FIELD_DEFINITIONS) {
     const left = sourceValue(revA, field.key);
@@ -64,10 +69,15 @@ function coverage(revA, revB) {
   })])));
 }
 
+function assertDeclarationValues(revA, revB, values) {
+  if (!hasMissingSourceMetadata(revA, revB)) throw new Error('Source documents already declare complete visual metadata.');
+  if (!['X', 'Y', 'Z'].includes(values.verticalAxis)) throw new RangeError('Vertical axis must be X, Y, or Z.');
+  assertSourceCompatibility(revA, revB, values);
+}
+
 export async function createRevisionVisualMetadataDeclaration(revA, revB, values, cryptoRef) {
   const normalized = normalizedValues(values);
-  if (!['X', 'Y', 'Z'].includes(normalized.verticalAxis)) throw new RangeError('Vertical axis must be X, Y, or Z.');
-  assertSourceCompatibility(revA, revB, normalized);
+  assertDeclarationValues(revA, revB, normalized);
   const identity = {
     schema: REVISION_VISUAL_METADATA_DECLARATION_SCHEMA,
     ...sourceHashes(revA, revB),
@@ -80,9 +90,15 @@ export async function createRevisionVisualMetadataDeclaration(revA, revB, values
 
 export function revisionVisualMetadataDeclarationMatches(declaration, revA, revB) {
   if (!declaration || declaration.schema !== REVISION_VISUAL_METADATA_DECLARATION_SCHEMA) return false;
-  const hashes = sourceHashes(revA, revB);
-  return declaration.revAContentHash === hashes.revAContentHash
-    && declaration.revBContentHash === hashes.revBContentHash;
+  try {
+    const hashes = sourceHashes(revA, revB);
+    const values = normalizedValues(declaration);
+    assertDeclarationValues(revA, revB, values);
+    return declaration.revAContentHash === hashes.revAContentHash
+      && declaration.revBContentHash === hashes.revBContentHash;
+  } catch {
+    return false;
+  }
 }
 
 function effectiveValue(document, declaration, field) {
@@ -95,17 +111,18 @@ function effectiveValue(document, declaration, field) {
 function compatibility(field, left, right, declarationId) {
   let status = 'COMPATIBLE';
   if (left.value === 'UNKNOWN' || right.value === 'UNKNOWN') status = 'UNKNOWN';
-  else if (!equivalent(left.value, right.value, field.key)) status = 'INCOMPATIBLE';
-  return deepFreeze({
-    status, revA: left.value, revB: right.value, label: field.label,
-    revAOrigin: left.origin, revBOrigin: right.origin, declarationId: declarationId ?? null,
-  });
+  else if (left.value !== right.value) status = 'INCOMPATIBLE';
+  const core = { status, revA: left.value, revB: right.value, label: field.label };
+  const declaredEvidence = left.origin === 'OPERATOR_DECLARATION' || right.origin === 'OPERATOR_DECLARATION';
+  return deepFreeze(declaredEvidence ? {
+    ...core, revAOrigin: left.origin, revBOrigin: right.origin, declarationId,
+  } : core);
 }
 
 export function resolveRevisionVisualMetadata(revA, revB, declaration) {
   const errors = [];
   const usable = declaration && revisionVisualMetadataDeclarationMatches(declaration, revA, revB);
-  if (declaration && !usable) errors.push('Visual metadata declaration does not match the current revision content hashes.');
+  if (declaration && !usable) errors.push('Visual metadata declaration is invalid or does not match the current revision content hashes.');
   const active = usable ? declaration : null;
   const items = FIELD_DEFINITIONS.map((field) => compatibility(
     field, effectiveValue(revA, active, field), effectiveValue(revB, active, field), active?.declarationId,
