@@ -27,7 +27,7 @@ export function buildPipelineApprovedCatalogStatusEvidence(output = {}) {
   });
 }
 
-export function buildPipelineApprovedCatalogStatusJson(output = {}) {
+function buildPipelineApprovedCatalogStatusJson(output = {}) {
   return `${JSON.stringify(buildPipelineApprovedCatalogStatusEvidence(output), null, 2)}\n`;
 }
 
