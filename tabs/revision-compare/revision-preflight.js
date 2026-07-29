@@ -2,14 +2,7 @@
 
 import { deepFreeze, frozenStrings } from './revision-contract-utils.js';
 import { validateProjectDocument } from './revision-session-contracts.js';
-
-function compatibility(left, right, label) {
-  const a = left || 'UNKNOWN';
-  const b = right || 'UNKNOWN';
-  if (a === 'UNKNOWN' || b === 'UNKNOWN') return deepFreeze({ status: 'UNKNOWN', revA: a, revB: b, label });
-  if (a !== b) return deepFreeze({ status: 'INCOMPATIBLE', revA: a, revB: b, label });
-  return deepFreeze({ status: 'COMPATIBLE', revA: a, revB: b, label });
-}
+import { resolveRevisionVisualMetadata } from './revision-visual-metadata-declaration.js';
 
 function compatibilityMessages(items, blockers, warnings) {
   for (const item of items) {
@@ -31,7 +24,7 @@ function proposalMessages(proposal, blockers, warnings) {
   warnings.push(...(proposal.warnings ?? []));
 }
 
-export function revisionComparisonPreflight(revA, revB, proposal) {
+export function revisionComparisonPreflight(revA, revB, proposal, visualMetadataDeclaration = null) {
   const blockers = [], warnings = [], notes = [];
   intakeMessages(revA, 'Rev A', blockers, warnings);
   intakeMessages(revB, 'Rev B', blockers, warnings);
@@ -39,10 +32,11 @@ export function revisionComparisonPreflight(revA, revB, proposal) {
 
   const left = revA?.document;
   const right = revB?.document;
-  const unitCompatibility = compatibility(left?.unit, right?.unit, 'Unit');
-  const coordinateFrameCompatibility = compatibility(left?.coordinateFrame, right?.coordinateFrame, 'Coordinate frame');
-  const verticalAxisCompatibility = compatibility(left?.verticalAxis, right?.verticalAxis, 'Vertical axis');
-  compatibilityMessages([unitCompatibility, coordinateFrameCompatibility, verticalAxisCompatibility], blockers, warnings);
+  const compatibility = resolveRevisionVisualMetadata(left, right, visualMetadataDeclaration);
+  const items = [compatibility.unitCompatibility, compatibility.coordinateFrameCompatibility, compatibility.verticalAxisCompatibility];
+  blockers.push(...compatibility.errors);
+  notes.push(...compatibility.notes);
+  compatibilityMessages(items, blockers, warnings);
 
   if (left && right && left.sourceHash === right.sourceHash) notes.push('Rev A and Rev B file hashes are identical.');
   if (left && right && left.stagedSchema !== right.stagedSchema) warnings.push(`Staged schemas differ: ${left.stagedSchema} vs ${right.stagedSchema}.`);
@@ -53,6 +47,10 @@ export function revisionComparisonPreflight(revA, revB, proposal) {
     blockers: frozenStrings(blockers),
     warnings: frozenStrings(warnings),
     notes: frozenStrings(notes),
-    compatibility: deepFreeze({ unitCompatibility, coordinateFrameCompatibility, verticalAxisCompatibility }),
+    compatibility: deepFreeze({
+      unitCompatibility: compatibility.unitCompatibility,
+      coordinateFrameCompatibility: compatibility.coordinateFrameCompatibility,
+      verticalAxisCompatibility: compatibility.verticalAxisCompatibility,
+    }),
   });
 }
