@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: cert/revision-compare-ui-visibility-20260729
           fetch-depth: 2
       - uses: actions/setup-node@v6
         with:
@@ -30,7 +31,7 @@ jobs:
       - name: Verify exact product parent
         run: |
           set -euxo pipefail
-          test "$(git rev-parse HEAD^1)" = "$EXPECTED_PRODUCT_PARENT" || test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
           git rev-parse HEAD
           git rev-parse HEAD^
       - name: Install dependencies
