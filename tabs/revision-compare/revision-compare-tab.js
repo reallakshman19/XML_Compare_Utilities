@@ -2,6 +2,7 @@
 
 import { bindRevisionCompareIntakeInteractions } from './revision-compare-intake-interactions.js';
 import { mountRevisionCompareWorkspace } from './revision-compare-workspace.js?v=20260718-rc001';
+import { bindRevisionVisualMetadataNavigation } from './revision-visual-metadata-navigation.js';
 
 const STYLESHEETS = Object.freeze([
   Object.freeze({ id: 'revision-compare-style', href: './revision-compare.css?v=20260718-rc001' }),
@@ -34,8 +35,11 @@ export function installRevisionCompareTile(container, context = {}) {
 
   let active = null;
   let intakeCleanup = null;
+  let navigationCleanup = null;
   let overlay = null;
   const close = () => {
+    navigationCleanup?.();
+    navigationCleanup = null;
     intakeCleanup?.();
     intakeCleanup = null;
     active?.destroy();
@@ -49,6 +53,7 @@ export function installRevisionCompareTile(container, context = {}) {
     overlay.className = 'revc-backdrop';
     container.ownerDocument.body.appendChild(overlay);
     intakeCleanup = bindRevisionCompareIntakeInteractions(overlay);
+    navigationCleanup = bindRevisionVisualMetadataNavigation(overlay);
     active = mountRevisionCompareWorkspace(overlay, { close, showToast: context.showToast });
   };
   tile.addEventListener('click', open);

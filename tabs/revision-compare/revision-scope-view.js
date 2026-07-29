@@ -1,6 +1,7 @@
 /** Scope confirmation markup for common and one-sided branches. */
 import { revisionBasisApprovalReadiness } from './revision-compare-readiness.js';
 import { revisionScopeBatchModel } from './revision-scope-filter-batch.js';
+import { revisionVisualMetadataRecoveryModel } from './revision-visual-metadata-navigation.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -59,9 +60,13 @@ function groupMarkup(group, title, description, state) {
   </section>`;
 }
 
-function approvalStatusMarkup(readiness) {
+function approvalStatusMarkup(state, readiness) {
   if (readiness.status === 'READY') return '<small data-revc-basis-approval-status="ready">Visual metadata is complete.</small>';
-  return `<small data-revc-basis-approval-status="blocked">${escapeHtml(readiness.blockers.join(' '))}</small>`;
+  const recovery = revisionVisualMetadataRecoveryModel(state, readiness);
+  if (!recovery.visible) return `<small data-revc-basis-approval-status="blocked">${escapeHtml(readiness.blockers.join(' '))}</small>`;
+  const missing = `Missing visual metadata: ${recovery.missingFields.join(', ')}.`;
+  const guidance = `${readiness.blockers.join(' ')} ${missing}`;
+  return `<div class="revc-session-actions"><small data-revc-basis-approval-status="blocked">${escapeHtml(guidance)}</small><button type="button" data-revc-resolve-visual-metadata aria-controls="${recovery.targetId}">Resolve visual metadata</button></div>`;
 }
 
 export function revisionScopeMarkup(state, preflight) {
@@ -88,7 +93,7 @@ export function revisionScopeMarkup(state, preflight) {
       ${groupMarkup('revBOnly', 'Rev B only', 'Included as future addition candidates.', state)}
     </div>
     <div class="revc-scope-footer">
-      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span>${approvalStatusMarkup(approval)}</div>
+      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span>${approvalStatusMarkup(state, approval)}</div>
       <div class="revc-actions">
         <button type="button" data-revc-download-scope>Download scope/basis manifest</button>
         <button type="button" class="revc-primary" data-revc-approve-basis ${disabled}>Approve comparison basis</button>
