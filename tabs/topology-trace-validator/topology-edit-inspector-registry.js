@@ -33,6 +33,7 @@ function inspectorContext(input) {
     canonical, validation, selection, active, value, kind, contextEdgeId: cleanText(input.contextEdgeId),
     node: kind === 'node' ? value : null, edge: kind === 'edge' ? value : null,
     support: kind === 'support' ? value : null, bend: kind === 'bend' ? value : null,
+    junction: kind === 'junction' ? value : null,
   };
 }
 
@@ -56,6 +57,11 @@ function edgeEditorSection(context) {
 function bendEditorSection(context) {
   const bend = context.bend;
   return `<dl><div><dt>Node</dt><dd>${escapeMarkup(bend.nodeId)}</dd></div><div><dt>Route arms</dt><dd>${asArray(bend.edgeIds).map(escapeMarkup).join(', ')}</dd></div><div><dt>Radius</dt><dd>${escapeMarkup(bend.radiusMm)} mm</dd></div><div><dt>Angle</dt><dd>${escapeMarkup(bend.angleDeg)}°</dd></div><div><dt>Authority</dt><dd>${escapeMarkup(bend.radiusAuthority)}</dd></div></dl><button type="button" data-ttv-edit-inspector-action="BEND_PRESERVATION_EXPORT">Download bend preservation evidence</button>`;
+}
+
+function junctionEditorSection(context) {
+  const junction = context.junction;
+  return `<dl><div><dt>Node</dt><dd>${escapeMarkup(junction.nodeId)}</dd></div><div><dt>Route arms</dt><dd>${asArray(junction.edgeIds).map(escapeMarkup).join(', ')}</dd></div><div><dt>Degree</dt><dd>${asArray(junction.edgeIds).length}</dd></div></dl><button type="button" data-ttv-edit-inspector-action="JUNCTION_PRESERVATION_EXPORT">Download junction preservation evidence</button>`;
 }
 
 function supportEditorSection(context) {
@@ -84,14 +90,15 @@ function lineageSection(context) {
 function section(input) { return Object.freeze(input); }
 
 export const TOPOLOGY_EDIT_INSPECTOR_SECTIONS = Object.freeze([
-  section({ id: 'context-authority', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: contextAuthoritySection }),
+  section({ id: 'context-authority', kinds: ['node', 'edge', 'support', 'bend', 'junction', 'issue'], render: contextAuthoritySection }),
   section({ id: 'node-editor', kinds: ['node'], render: nodeEditorSection }),
   section({ id: 'edge-editor', kinds: ['edge'], render: edgeEditorSection }),
   section({ id: 'support-editor', kinds: ['support'], render: supportEditorSection }),
   section({ id: 'bend-editor', kinds: ['bend'], render: bendEditorSection }),
-  section({ id: 'geometry-details', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: geometrySection }),
-  section({ id: 'validation', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: validationSection }),
-  section({ id: 'lineage', kinds: ['node', 'edge', 'support', 'bend', 'issue'], render: lineageSection }),
+  section({ id: 'junction-editor', kinds: ['junction'], render: junctionEditorSection }),
+  section({ id: 'geometry-details', kinds: ['node', 'edge', 'support', 'bend', 'junction', 'issue'], render: geometrySection }),
+  section({ id: 'validation', kinds: ['node', 'edge', 'support', 'bend', 'junction', 'issue'], render: validationSection }),
+  section({ id: 'lineage', kinds: ['node', 'edge', 'support', 'bend', 'junction', 'issue'], render: lineageSection }),
 ]);
 
 export function buildRegisteredTopologyEditInspectorMarkup(input) {
