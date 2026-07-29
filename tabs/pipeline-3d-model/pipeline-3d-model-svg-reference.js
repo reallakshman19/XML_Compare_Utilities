@@ -1,3 +1,5 @@
+import { writePipelineElementHtml } from './pipeline-3d-model-dom-write.js';
+
 function text(value) {
   return String(value ?? '');
 }
@@ -19,8 +21,5 @@ export function resolvePipelineSvgPreviewTarget(holder) {
 }
 
 export function renderPipelineSvgPreview(holder, svgHtml) {
-  const target = resolvePipelineSvgPreviewTarget(holder);
-  if (!target) return false;
-  target.innerHTML = text(svgHtml);
-  return true;
+  return writePipelineElementHtml(resolvePipelineSvgPreviewTarget(holder), svgHtml);
 }
