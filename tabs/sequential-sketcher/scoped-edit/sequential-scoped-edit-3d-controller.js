@@ -31,13 +31,11 @@ function elements(root) {
     preview: find('[data-ssk-engineering-svg-preview-host]'), status: find('[data-ssk-preview-status]'),
   };
 }
-function setHidden(element, hidden) {
-  element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-  if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert');
-}
+function setHidden(element, hidden) { element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false'); if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert'); }
 function announce(state, message, status = 'ready') { state.elements.status.textContent = message; state.elements.status.dataset.state = status; }
 function set3dPressed(state, pressed) {
-  state.elements.button.classList.toggle('is-active', pressed); state.elements.button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  state.elements.button.classList.toggle('is-active', pressed);
+  state.elements.button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
   if (!pressed) return;
   state.root.querySelectorAll('[data-ssk-renderer]').forEach((button) => {
     button.classList.remove('is-active'); button.setAttribute('aria-pressed', 'false');
@@ -54,15 +52,16 @@ function show3dSurface(state) {
 function hide3dSurface(state) { setFeatureActivity(state, false); setHidden(state.elements.host, true); set3dPressed(state, false); }
 function available(state) { return Boolean(state.shadow.host() && state.shadow.readModel()); }
 function syncAvailability(state) {
-  const next = available(state);
-  state.elements.button.disabled = !next;
-  state.elements.button.title = next ? 'Open the certified Draft Edit 3D view' : 'Draft Edit 3D requires an open Sequential branch';
+  const next = available(state); state.elements.button.disabled = !next;
+  state.elements.button.title = next ? 'Open the certified Draft Edit 3D view'
+    : 'Draft Edit 3D requires an open Sequential branch';
   if (!next && state.active) {
     state.active = false; hide3dSurface(state); setHidden(state.elements.construction, false);
   }
   return next;
 }
-function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; } function applyProjection(state, readModel) {
+function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; }
+function applyProjection(state, readModel) {
   const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO';
   state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
 }
@@ -84,6 +83,7 @@ function applyScene(state) {
     readModel, scene, draft: state.supportMove?.getDraft(),
     moveDraft: state.componentEdit?.getMoveDraft(),
     nodeStretchDraft: state.componentEdit?.getStretchDraft(),
+    rotationDraft: state.componentEdit?.getRotationDraft(),
   });
   state.scene = scene; state.readModel = readModel;
   state.viewer.setVerticalAxis(scene.coordinateSystem.verticalAxis);
@@ -95,7 +95,8 @@ function applyScene(state) {
   applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
   announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · supervised geometry authority enabled.`);
 }
-function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; } function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
+function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; }
+function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
 function clearNonCommandTargets(state, reason = null) { state.supportMove?.clearTarget(reason); state.componentEdit?.clear(reason); }
 function selectCandidatePick(state, objectId) {
   clearNonCommandTargets(state);
@@ -117,21 +118,18 @@ function selectReversalPick(state, objectId) {
 }
 function selectSupportPick(state, objectId) {
   clearCommandTargets(state, 'Construction command target cleared for support adjustment.');
-  state.componentEdit?.clear();
-  const target = state.supportMove.select(objectId);
+  state.componentEdit?.clear(); const target = state.supportMove.select(objectId);
   announce(state, `Support ${target.supportId} selected. Review exact XYZ before Apply.`);
 }
-function componentPickNotice(state, result) {
-  if (result.mode === 'STRETCH_NODE') {
-    return `Stretch node mode · ${result.target.nodes.length} qualified node(s) for ${result.target.canonicalType} ${result.target.componentId}.`;
-  }
+function componentPickNotice(result) {
+  if (result.mode === 'STRETCH_NODE') return `Stretch node mode · ${result.target.nodes.length} qualified node(s) for ${result.target.canonicalType} ${result.target.componentId}.`;
+  if (result.mode === 'ROTATE_SUBGRAPH') return `Rotate mode · ${result.target.scope} · ${result.target.affectedComponentIds.length} component(s) · ${result.target.boundaryCuts.length} boundary cut(s).`;
   return `${result.target.canonicalType} ${result.target.componentId} selected. Preview, prepare and apply only when topology-preserving.`;
 }
 function selectComponentPick(state, objectId) {
   clearCommandTargets(state, 'Construction command target cleared for component edit.');
-  state.supportMove?.clearTarget();
-  const result = state.componentEdit.select(objectId);
-  announce(state, componentPickNotice(state, result));
+  state.supportMove?.clearTarget(); const result = state.componentEdit.select(objectId);
+  announce(state, componentPickNotice(result));
 }
 function clearAllTargets(state, reason = null) { clearCommandTargets(state, reason); clearNonCommandTargets(state, reason); }
 function selectPick(state, objectId) {
@@ -152,13 +150,11 @@ function selectPick(state, objectId) {
 function viewerOptions(state) {
   return { navigationPreset: 'CAD_EDIT', onPick: (pick) => selectPick(state, pick?.objectId || null),
     onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
-    onNavigationError: (error) => containFailure(state, error, 'navigation'), };
+    onNavigationError: (error) => containFailure(state, error, 'navigation') };
 }
 async function createViewer(state, canvas) {
   injectFailure(state.options.failureFactory, 'viewer-mount');
-  if (typeof state.options.createViewer === 'function') {
-    return state.options.createViewer(canvas, viewerOptions(state));
-  }
+  if (typeof state.options.createViewer === 'function') return state.options.createViewer(canvas, viewerOptions(state));
   const { createWorkbenchViewer } = await import('../../../workbench3d/viewer/workbench-viewer.js?v=20260728-ssk-ts-3i');
   return createWorkbenchViewer(canvas, viewerOptions(state));
 }
