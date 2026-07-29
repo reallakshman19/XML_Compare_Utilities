@@ -6,6 +6,9 @@ import {
   buildPipelineApprovedCatalogStatusEvidence,
   pipelineApprovedCatalogVisibleArtifacts,
 } from '../tabs/pipeline-3d-model/pipeline-3d-model-approved-catalog-status-artifact.js';
+import {
+  PIPELINE_INPUTXML_READINESS_ARTIFACT_NAME,
+} from '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-readiness-artifact.js';
 
 const output = {
   diagnostics: {
@@ -40,8 +43,11 @@ assert.equal(artifact.role, 'ENGINEERING_EVIDENCE');
 assert.equal(JSON.parse(artifact.text).state, 'BLOCKED');
 
 const visible = pipelineApprovedCatalogVisibleArtifacts(output);
-assert.deepEqual(visible.map((item) => item.name),
-  ['existing.json', PIPELINE_APPROVED_CATALOG_STATUS_ARTIFACT_NAME]);
+assert.deepEqual(visible.map((item) => item.name), [
+  'existing.json',
+  PIPELINE_APPROVED_CATALOG_STATUS_ARTIFACT_NAME,
+  PIPELINE_INPUTXML_READINESS_ARTIFACT_NAME,
+]);
 assert.equal(Object.isFrozen(visible), true);
 assert.equal(JSON.stringify(output), before, 'artifact assembly must not mutate source output');
 
@@ -51,5 +57,7 @@ const deduplicated = pipelineApprovedCatalogVisibleArtifacts({
 });
 assert.equal(deduplicated.filter((item) =>
   item.name === PIPELINE_APPROVED_CATALOG_STATUS_ARTIFACT_NAME).length, 1);
+assert.equal(deduplicated.filter((item) =>
+  item.name === PIPELINE_INPUTXML_READINESS_ARTIFACT_NAME).length, 1);
 
 console.log('pipeline-3d-model approved catalog status artifact: PASS');

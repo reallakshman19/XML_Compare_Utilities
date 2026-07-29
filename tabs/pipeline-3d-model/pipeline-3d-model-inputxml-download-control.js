@@ -2,8 +2,8 @@ import {
   buildPipelineInputXmlBlockedMessage,
 } from './pipeline-3d-model-inputxml-download-feedback.js';
 import {
-  resolvePipelineProjectMigrationBlockers,
-} from './pipeline-3d-model-project-adapter.js?v=20260724-p3d-hard-051-1';
+  resolvePipelineInputXmlReadiness,
+} from './pipeline-3d-model-inputxml-readiness.js';
 
 const XML_DOWNLOAD_SELECTOR = '[data-p3d="download-xml"]';
 const STATUS_SELECTOR = '[data-p3d-inputxml-status]';
@@ -15,14 +15,11 @@ function statusLabel(blocked, blockerCodes) {
 }
 
 export function resolvePipelineInputXmlDownloadState(output = {}) {
-  const blockerCodes = resolvePipelineProjectMigrationBlockers(output);
-  const blocked = blockerCodes.length > 0;
+  const readiness = resolvePipelineInputXmlReadiness(output);
   return Object.freeze({
-    state: blocked ? 'BLOCKED' : 'READY',
-    blocked,
-    blockerCodes,
-    label: statusLabel(blocked, blockerCodes),
-    title: blocked ? buildPipelineInputXmlBlockedMessage(output) : '',
+    ...readiness,
+    label: statusLabel(readiness.blocked, readiness.blockerCodes),
+    title: readiness.blocked ? buildPipelineInputXmlBlockedMessage(output) : '',
   });
 }
 
