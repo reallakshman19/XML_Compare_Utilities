@@ -1,4 +1,5 @@
 /** Scope confirmation markup for common and one-sided branches. */
+import { revisionScopeBatchModel } from './revision-scope-filter-batch.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -16,10 +17,6 @@ function countText(entry, group) {
   return `${entry.componentCount} components`;
 }
 
-function searchableText(entry) {
-  return `${entry.label} ${entry.site} ${entry.owner}`.toLowerCase();
-}
-
 function branchRow(entry, group, proposal) {
   const checked = rowSelected(proposal, group, entry.branchId) ? 'checked' : '';
   return `<label class="revc-scope-row" data-revc-scope-row>
@@ -29,28 +26,35 @@ function branchRow(entry, group, proposal) {
   </label>`;
 }
 
-function filteredRows(entries, query) {
-  const normalized = String(query ?? '').trim().toLowerCase();
-  if (!normalized) return entries;
-  return entries.filter((entry) => searchableText(entry).includes(normalized));
+function batchButtons(batch) {
+  const disabled = batch.visibleCount ? '' : 'disabled';
+  return `<div class="revc-group-actions">
+    <button type="button" data-revc-group="${batch.group}" data-revc-include="all" data-revc-batch-count="${batch.visibleCount}" ${disabled}>${batch.selectLabel}</button>
+    <button type="button" data-revc-group="${batch.group}" data-revc-include="none" data-revc-batch-count="${batch.visibleCount}" ${disabled}>${batch.clearLabel}</button>
+  </div>`;
 }
 
-function groupMarkup(group, title, description, entries, proposal, search) {
-  const visible = filteredRows(entries, search);
-  const hiddenCount = entries.length - visible.length;
+function filterNote(batch) {
+  if (!batch.filtered) return '';
+  return `<p class="revc-filter-note">${batch.visibleCount} of ${batch.totalCount} branch(es) visible; batch actions preserve ${batch.hiddenCount} hidden row(s).</p>`;
+}
+
+function emptyText(batch) {
+  return batch.totalCount ? 'No branches match this filter.' : 'No branches in this group.';
+}
+
+function groupMarkup(group, title, description, state) {
+  const batch = revisionScopeBatchModel(state, group);
   return `<section class="revc-scope-group" data-revc-scope-group="${group}">
     <header>
-      <div><h3>${escapeHtml(title)} <span>${entries.length}</span></h3><p>${escapeHtml(description)}</p></div>
-      <div class="revc-group-actions">
-        <button type="button" data-revc-group="${group}" data-revc-include="all">Select all</button>
-        <button type="button" data-revc-group="${group}" data-revc-include="none">Clear all</button>
-      </div>
+      <div><h3>${escapeHtml(title)} <span>${batch.visibleCount} visible · ${batch.hiddenCount} hidden</span></h3><p>${escapeHtml(description)}</p></div>
+      ${batchButtons(batch)}
     </header>
     <label class="revc-search">Filter ${escapeHtml(title)}
-      <input type="search" value="${escapeHtml(search)}" data-revc-search="${group}" placeholder="Branch, site, or owner">
+      <input type="search" value="${escapeHtml(state.search[group])}" data-revc-search="${group}" placeholder="Branch, site, or owner">
     </label>
-    ${hiddenCount ? `<p class="revc-filter-note">${hiddenCount} row(s) hidden by this filter; scope is unchanged.</p>` : ''}
-    <div class="revc-scope-list">${visible.length ? visible.map((entry) => branchRow(entry, group, proposal)).join('') : '<p class="revc-empty">No branches in this group.</p>'}</div>
+    ${filterNote(batch)}
+    <div class="revc-scope-list">${batch.entries.length ? batch.entries.map((entry) => branchRow(entry, group, state.proposal)).join('') : `<p class="revc-empty">${emptyText(batch)}</p>`}</div>
   </section>`;
 }
 
@@ -72,9 +76,9 @@ export function revisionScopeMarkup(state, preflight) {
       <div><b>${summary.retainedComponentCountA} / ${summary.retainedComponentCountB}</b><span>Components A / B</span></div>
     </div>
     <div class="revc-scope-groups">
-      ${groupMarkup('common', 'Common branches', 'Exact branch identity exists in both revisions.', proposal.commonBranches, proposal, state.search.common)}
-      ${groupMarkup('revAOnly', 'Rev A only', 'Included as future removal candidates.', proposal.revAOnlyBranches, proposal, state.search.revAOnly)}
-      ${groupMarkup('revBOnly', 'Rev B only', 'Included as future addition candidates.', proposal.revBOnlyBranches, proposal, state.search.revBOnly)}
+      ${groupMarkup('common', 'Common branches', 'Exact branch identity exists in both revisions.', state)}
+      ${groupMarkup('revAOnly', 'Rev A only', 'Included as future removal candidates.', state)}
+      ${groupMarkup('revBOnly', 'Rev B only', 'Included as future addition candidates.', state)}
     </div>
     <div class="revc-scope-footer">
       <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span></div>
@@ -85,3 +89,5 @@ export function revisionScopeMarkup(state, preflight) {
     </div>
   </section>`;
 }
+
+export const _test = Object.freeze({ batchButtons, branchRow, emptyText, escapeHtml, filterNote, groupMarkup });
