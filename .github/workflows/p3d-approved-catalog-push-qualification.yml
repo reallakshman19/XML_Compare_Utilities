@@ -1,0 +1,126 @@
+name: P3D approved-catalog push qualification
+
+on:
+  push:
+    branches:
+      - 'agent/p3d-xml-tri-2f-b-push-qualification'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_SHA: 8e9056e917db1e2613b064cd6a69b6590d839f66
+      EVIDENCE_DIR: ${{ runner.temp }}/p3d-approved-catalog-qualification
+    steps:
+      - name: Checkout exact TRI-2F-B head
+        uses: actions/checkout@v4
+        with:
+          ref: 8e9056e917db1e2613b064cd6a69b6590d839f66
+          fetch-depth: 0
+
+      - name: Confirm exact clean head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Run qualification and verifier
+        id: qualification
+        shell: bash
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          set +e
+          node scripts/run-pipeline-approved-catalog-qualification.mjs \
+            --baseline "$TARGET_SHA" \
+            > "$EVIDENCE_DIR/tri-2f-a.json"
+          harness_exit=$?
+          node scripts/verify-pipeline-approved-catalog-qualification-evidence.mjs \
+            --evidence "$EVIDENCE_DIR/tri-2f-a.json" \
+            --expected-baseline "$TARGET_SHA" \
+            > "$EVIDENCE_DIR/tri-2f-b-verification.json"
+          verifier_exit=$?
+          set -e
+          echo "harness_exit=$harness_exit" >> "$GITHUB_OUTPUT"
+          echo "verifier_exit=$verifier_exit" >> "$GITHUB_OUTPUT"
+
+      - name: Build qualification checkpoint
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+          const root = process.env.EVIDENCE_DIR;
+          const load = (name) => {
+            const path = `${root}/${name}`;
+            return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null;
+          };
+          const hash = (name) => {
+            const path = `${root}/${name}`;
+            return existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : null;
+          };
+          const qualification = load('tri-2f-a.json');
+          const verification = load('tri-2f-b-verification.json');
+          const body = [
+            '## TRI-2F-B exact-head qualification checkpoint',
+            '',
+            `- Target PR: #764`,
+            `- Exact verifier head: \`${process.env.TARGET_SHA}\``,
+            `- Actions run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            `- TRI-2F-A ready: \`${qualification?.ready === true}\``,
+            `- TRI-2F-A blockers: \`${JSON.stringify(qualification?.blockerCodes ?? null)}\``,
+            `- TRI-2F-A verified tests: \`${qualification?.results?.filter((item) => item?.ready === true).length ?? null}/${qualification?.testPlan?.length ?? null}\``,
+            `- TRI-2F-A evidence SHA-256: \`${hash('tri-2f-a.json')}\``,
+            `- TRI-2F-B ready: \`${verification?.ready === true}\``,
+            `- TRI-2F-B blockers: \`${JSON.stringify(verification?.blockerCodes ?? null)}\``,
+            `- TRI-2F-B verified test count: \`${verification?.verifiedTestCount ?? null}\``,
+            `- TRI-2F-B evidence-byte SHA-256: \`${verification?.evidenceSha256 ?? null}\``,
+            `- TRI-2F-B semantic-projection SHA-256: \`${verification?.semanticProjectionSha256 ?? null}\``,
+            `- TRI-2F-B verification JSON SHA-256: \`${hash('tri-2f-b-verification.json')}\``,
+            '',
+            'This checkpoint proves the repository harness and verifier executed against the exact detached head above. It does not resolve production registry authority, digest scope, actor identity, trusted time, CAESAR desktop qualification, or engineering release.',
+          ].join('\n');
+          writeFileSync(`${root}/comment.json`, `${JSON.stringify({ body })}\n`);
+          writeFileSync(`${root}/summary.md`, `${body}\n`);
+          NODE
+
+      - name: Post checkpoint to PR 764
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/issues/764/comments" \
+            --method POST \
+            --input "$EVIDENCE_DIR/comment.json"
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3d-approved-catalog-tri-2f-b-exact-head-evidence
+          path: ${{ env.EVIDENCE_DIR }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce ready qualification
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const root = process.env.EVIDENCE_DIR;
+          for (const name of ['tri-2f-a.json', 'tri-2f-b-verification.json']) {
+            const value = JSON.parse(readFileSync(`${root}/${name}`, 'utf8'));
+            if (value.ready !== true || value.blockerCodes?.length) {
+              throw new Error(`${name} is not ready: ${JSON.stringify(value.blockerCodes || [])}`);
+            }
+          }
+          NODE
