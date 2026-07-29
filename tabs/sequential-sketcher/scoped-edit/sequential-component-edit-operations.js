@@ -1,6 +1,7 @@
 /** Explicit operation-mode owner for confirmed-component move, stretch and rotation workflows. */
 import { createSequentialAddStraightRequestFeature } from './sequential-add-straight-request-feature.js';
 import { createSequentialBridgeGapRequestFeature } from './sequential-bridge-gap-request-feature.js';
+import { createSequentialDisconnectEndpointRequestFeature } from './sequential-disconnect-endpoint-request-feature.js';
 import { createSequentialMergeNodesRequestFeature } from './sequential-merge-nodes-request-feature.js';
 import { createSequentialNodeStretchFeature } from './sequential-node-stretch-feature.js';
 import { createSequentialRotationFeature } from './sequential-rotation-feature.js';
@@ -70,12 +71,14 @@ function syncActivity(state) {
   state.stretch.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE));
   state.rotation.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.ROTATE_SUBGRAPH));
   state.mergePreview.setActive(state.active); state.bridgePreview.setActive(state.active);
-  state.addStraightPreview.setActive(state.active); render(state);
+  state.addStraightPreview.setActive(state.active); state.disconnectPreview.setActive(state.active);
+  render(state);
 }
 function clear(state, reason = 'component-edit-cleared') {
   state.move.clearTarget(reason); state.stretch.clearTarget(reason);
   state.rotation.clearTarget(reason); state.mergePreview.clear(reason);
-  state.bridgePreview.clear(reason); state.addStraightPreview.clear(reason); return null;
+  state.bridgePreview.clear(reason); state.addStraightPreview.clear(reason);
+  state.disconnectPreview.clear(reason); return null;
 }
 function setMode(state, value) {
   if (state.destroyed) throw new Error('Component edit operations are destroyed.');
@@ -106,7 +109,8 @@ function destroy(state) {
   if (state.destroyed) return false;
   state.destroyed = true; state.panel.removeEventListener('click', state.onClick, true);
   state.move.destroy(); state.stretch.destroy(); state.rotation.destroy();
-  state.mergePreview.destroy(); state.bridgePreview.destroy(); state.addStraightPreview.destroy(); state.panel.remove(); return true;
+  state.mergePreview.destroy(); state.bridgePreview.destroy(); state.addStraightPreview.destroy();
+  state.disconnectPreview.destroy(); state.panel.remove(); return true;
 }
 function createMove(options) {
   return createSequentialSingleEntityMoveFeature({
@@ -142,21 +146,25 @@ function createBridgePreview(options) {
 function createAddStraightPreview(options) {
   return createSequentialAddStraightRequestFeature({ root: options.root, readModel: options.readModel });
 }
+function createDisconnectPreview(options) {
+  return createSequentialDisconnectEndpointRequestFeature({ root: options.root, readModel: options.readModel });
+}
 export function createSequentialComponentEditOperations(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Component edit operations require a root.');
   const state = {
     panel: install(root), mode: SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT,
     active: false, destroyed: false, move: null, stretch: null, rotation: null,
-    mergePreview: null, bridgePreview: null, addStraightPreview: null, onClick: null,
+    mergePreview: null, bridgePreview: null, addStraightPreview: null,
+    disconnectPreview: null, onClick: null,
     onModeChanged: requiredFunction(options.onModeChanged || (() => {}), 'onModeChanged'),
   };
   const shared = { ...options,
     onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged') };
   state.move = createMove(shared); state.stretch = createStretch(shared);
   state.rotation = createRotation(shared); state.mergePreview = createMergePreview(shared);
-  state.bridgePreview = createBridgePreview(shared);
-  state.addStraightPreview = createAddStraightPreview(shared); bind(state); syncActivity(state);
+  state.bridgePreview = createBridgePreview(shared); state.addStraightPreview = createAddStraightPreview(shared);
+  state.disconnectPreview = createDisconnectPreview(shared); bind(state); syncActivity(state);
   return Object.freeze({
     schema: SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; syncActivity(state); },
@@ -166,11 +174,12 @@ export function createSequentialComponentEditOperations(options = {}) {
     getRotationDraft: state.rotation.getDraft, getMergePreview: state.mergePreview.getPreview,
     getBridgePreview: state.bridgePreview.getPreview,
     getAddStraightPreview: state.addStraightPreview.getPreview,
+    getDisconnectPreview: state.disconnectPreview.getPreview,
     getState: () => Object.freeze({ active: state.active, mode: state.mode,
       move: state.move.getState(), stretch: state.stretch.getState(),
       rotation: state.rotation.getState(), mergePreview: state.mergePreview.getState(),
-      bridgePreview: state.bridgePreview.getState(),
-      addStraightPreview: state.addStraightPreview.getState(), destroyed: state.destroyed }),
+      bridgePreview: state.bridgePreview.getState(), addStraightPreview: state.addStraightPreview.getState(),
+      disconnectPreview: state.disconnectPreview.getState(), destroyed: state.destroyed }),
     destroy: () => destroy(state),
   });
 }
