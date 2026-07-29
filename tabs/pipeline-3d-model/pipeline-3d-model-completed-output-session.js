@@ -1,3 +1,5 @@
+import { canonicalPipelineMetadataValue as canonicalValue,
+  resolvePipelineMetadataIdentity } from './pipeline-3d-model-metadata-identity.js';
 export const PIPELINE_COMPLETED_OUTPUT_EMPTY = 'EMPTY';
 export const PIPELINE_COMPLETED_OUTPUT_BUILT = 'BUILT';
 export const PIPELINE_COMPLETED_OUTPUT_REUSED = 'REUSED';
@@ -6,14 +8,6 @@ const PROFILE_TEXT_KEYS = Object.freeze(['table2a', 'table3a', 'table3b', 'table
 function plain(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   return [Object.prototype, null].includes(Object.getPrototypeOf(value));
-}
-function canonicalValue(value) {
-  if (value === undefined) return null;
-  if (Array.isArray(value)) return value.map(canonicalValue);
-  if (!value || typeof value !== 'object') return value;
-  if (!plain(value)) throw new TypeError('Pipeline output input identity must be JSON-safe plain data.');
-  return Object.fromEntries(Object.keys(value).sort()
-    .map((key) => [key, canonicalValue(value[key])]));
 }
 function sourceText(value) {
   if (value == null) return '';
@@ -38,6 +32,9 @@ function inputIdentityParts(input = {}) {
 function metadataSignature(metadata) {
   return JSON.stringify(canonicalValue(metadata));
 }
+function identityMetadataSignature(identity) {
+  return metadataSignature(identity.metadata);
+}
 function sameSourceTexts(previous, next) {
   if (!previous || previous.length !== next.length) return false;
   return previous.every((value, index) => value === next[index]);
@@ -61,7 +58,8 @@ export function createPipelineCompletedOutputSession(buildOutput) {
   let disposition = PIPELINE_COMPLETED_OUTPUT_EMPTY;
   const counts = { build: 0, reuse: 0, failure: 0 };
   function resolve(input) {
-    const identity = inputIdentityParts(input), nextMetadata = metadataSignature(identity.metadata);
+    const identity = inputIdentityParts(input);
+    const nextMetadata = resolvePipelineMetadataIdentity(identity.metadata, metadata);
     if (output && metadata === nextMetadata && sameSourceTexts(sourceTexts, identity.sourceTexts)) {
       counts.reuse += 1; disposition = PIPELINE_COMPLETED_OUTPUT_REUSED; return output;
     }
@@ -80,4 +78,4 @@ export function createPipelineCompletedOutputSession(buildOutput) {
   return Object.freeze({ resolve, reset, snapshot });
 }
 export const _test = Object.freeze({ canonicalValue, inputIdentityParts, metadataSignature,
-  sameSourceTexts, freezeTree, resolutionSnapshot });
+  identityMetadataSignature, sameSourceTexts, freezeTree, resolutionSnapshot });
