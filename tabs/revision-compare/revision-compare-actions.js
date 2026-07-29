@@ -6,6 +6,9 @@ import { revisionVisualReadiness } from './revision-compare-readiness.js';
 import { applyRevisionCompareSwapResults, revisionCompareSwapReadiness } from './revision-compare-intake-swap.js';
 import { applyRevisionScopeBatch } from './revision-scope-filter-batch.js';
 import { createRevisionScopeProposal, updateScopeDecision } from './revision-scope-proposal.js';
+import {
+  clearRevisionVisualMetadataDeclaration, createRevisionVisualMetadataDeclaration,
+} from './revision-visual-metadata-declaration.js';
 import { RevisionRequestSupersededError } from './revision-load-service.js';
 import { RevisionCompareSupersededError } from './revision-compare-service.js';
 import { RevisionComparisonCancelledError } from './revision-compare-engine.js';
@@ -29,7 +32,9 @@ import {
 } from './revision-workspace-state.js';
 
 function labelFor(slotId) { return slotId === 'baseline' ? 'Rev A' : 'Rev B'; }
-function preflight(context, state) { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
+function preflight(context, state) {
+  return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal, state.visualMetadataDeclaration);
+}
 function commit(context, state) { context.writeState(state); context.render(state); return state; }
 function clockValue(context) { return Number(context.clock?.()) || 0; }
 export function createRevisionActionAuthority() {
@@ -53,7 +58,8 @@ async function refreshProposal(context, decisions) {
 }
 async function loadRevision(context, slotId, file) {
   await stopComparison(context); const generation = context.service.begin(slotId);
-  commitAuthoritative(context, startWorkspaceLoad(context.readState(), slotId, generation, file.name, file.size, context.now()));
+  const cleared = clearRevisionVisualMetadataDeclaration(context.readState());
+  commitAuthoritative(context, startWorkspaceLoad(cleared, slotId, generation, file.name, file.size, context.now()));
   try {
     const result = await context.service.loadFile(slotId, file, context.now(), generation);
     const loaded = finishWorkspaceLoad(context.readState(), slotId, result, context.now()); if (loaded === context.readState()) return;
@@ -68,13 +74,15 @@ async function cancelRevision(context, slotId) {
   const token = context.authority.invalidate(); await stopComparison(context);
   try {
     const generation = await context.service.cancel(slotId); if (!context.authority.isCurrent(token)) return;
-    commitAuthoritative(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
+    const reset = resetWorkspaceSlot(context.readState(), slotId, generation, context.now());
+    commitAuthoritative(context, clearRevisionVisualMetadataDeclaration(reset));
   } catch (error) { report(context, error); }
 }
 function swappedWorkspaceState(context) {
   const results = context.service.swapLoadedSlots();
   try {
-    return applyRevisionCompareSwapResults(context.readState(), results, context.now());
+    const state = clearRevisionVisualMetadataDeclaration(context.readState());
+    return applyRevisionCompareSwapResults(state, results, context.now());
   } catch (error) {
     try { context.service.swapLoadedSlots(); }
     catch (rollbackError) {
@@ -114,6 +122,35 @@ async function setGroup(context, group, included) {
   const committed = await refineScope(context, result.decisions);
   if (committed) context.options?.showToast?.(batchToast(result, included), 'success');
 }
+function visualMetadataValues(context) {
+  return {
+    unit: context.root.querySelector('[data-revc-visual-unit]')?.value,
+    coordinateFrame: context.root.querySelector('[data-revc-visual-frame]')?.value,
+    verticalAxis: context.root.querySelector('[data-revc-visual-axis]')?.value,
+  };
+}
+function declarationTransition(context, declaration, message) {
+  const state = { ...context.readState(), visualMetadataDeclaration: declaration };
+  const invalidated = setWorkspaceProposal(state, state.proposal, state.scopeDecisions, context.now());
+  return setWorkspaceMessage(invalidated, message);
+}
+async function applyVisualMetadata(context) {
+  const token = context.authority.invalidate(); await stopComparison(context);
+  const state = context.readState();
+  const declaration = await createRevisionVisualMetadataDeclaration(
+    state.slots.baseline.document, state.slots.candidate.document, visualMetadataValues(context), context.cryptoRef,
+  );
+  if (!context.authority.isCurrent(token)) return;
+  commitAuthoritative(context, declarationTransition(context, declaration, 'Visual coordinate declaration applied. Reapprove the comparison basis.'));
+  context.options?.showToast?.('Visual coordinate declaration applied. Reapprove the comparison basis.', 'success');
+}
+async function clearVisualMetadata(context) {
+  if (!context.readState().visualMetadataDeclaration) return;
+  const token = context.authority.invalidate(); await stopComparison(context);
+  if (!context.authority.isCurrent(token)) return;
+  commitAuthoritative(context, declarationTransition(context, null, 'Visual coordinate declaration cleared.'));
+  context.options?.showToast?.('Visual coordinate declaration cleared.', 'success');
+}
 function scopeDraft(proposal, side) { return Object.freeze({ selectedIds: side === 'A' ? proposal.includedBranchIdsA : proposal.includedBranchIdsB, exclusions: proposal.excludedBranches }); }
 async function approveBasis(context) {
   await stopComparison(context); const token = context.authority.invalidate(); const state = context.readState(); const current = preflight(context, state);
@@ -126,7 +163,10 @@ async function approveBasis(context) {
   if (!context.authority.isCurrent(token)) return;
   const scoped = finishWorkspaceScope(context.readState(), { baseline, candidate }, { baseline: scopeDraft(proposal, 'A'), candidate: scopeDraft(proposal, 'B') }, context.now());
   commitAuthoritative(context, scoped); const basisToken = context.authority.capture();
-  const basis = await createRevisionComparisonBasis({ sessionId: scoped.session.sessionId, revA: scoped.slots.baseline, revB: scoped.slots.candidate, proposal, preflight: preflight(context, scoped) }, context.cryptoRef);
+  const basis = await createRevisionComparisonBasis({
+    sessionId: scoped.session.sessionId, revA: scoped.slots.baseline, revB: scoped.slots.candidate,
+    proposal, preflight: preflight(context, scoped), visualMetadataDeclaration: scoped.visualMetadataDeclaration,
+  }, context.cryptoRef);
   if (!context.authority.isCurrent(basisToken)) return;
   commitAuthoritative(context, setWorkspaceBasis(context.readState(), basis)); context.options?.showToast?.('Comparison basis approved.', 'success');
 }
@@ -220,6 +260,7 @@ export function createRevisionActions(context) {
   return Object.freeze({
     load: (slotId, file) => loadRevision(guarded, slotId, file), cancel: (slotId) => cancelRevision(guarded, slotId),
     swapRevisions: safe(guarded, () => swapRevisions(guarded)),
+    applyVisualMetadata: safe(guarded, () => applyVisualMetadata(guarded)), clearVisualMetadata: safe(guarded, () => clearVisualMetadata(guarded)),
     setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)), setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
     setSearch: (group, value) => updateAndRender(guarded, setWorkspaceSearch, group, value), approveBasis: safe(guarded, () => approveBasis(guarded)),
     runVisualComparison: safe(guarded, () => runVisualComparison(guarded)), cancelComparison: safe(guarded, () => cancelComparison(guarded)),
