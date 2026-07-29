@@ -1,7 +1,10 @@
 /** Two-slot worker-backed intake service with lossless transfer snapshots and compare projection. */
 import { createProjectDocument, REVISION_SLOT_IDS } from './revision-session-contracts.js';
 import { createRevisionWorkerClient } from './revision-intake-worker-client.js';
-import { createRevisionCompareJsonDocumentSnapshot } from './revision-json-document.js';
+import {
+  createRevisionCompareJsonDocumentSnapshot,
+  rebindRevisionCompareJsonDocumentSnapshot,
+} from './revision-json-document.js';
 import { sha256Bytes, sha256Text } from './revision-hash.js';
 import { cleanText, deepFreeze, frozenStrings } from './revision-contract-utils.js';
 
@@ -63,6 +66,13 @@ async function losslessSnapshot(context, slotId, source, document, parsedValue) 
   }, context.cryptoRef);
   assertCurrent(context, slotId, source.generation); return snapshot;
 }
+function loadResult(source, document, jsonSnapshot, filtered) {
+  return deepFreeze({
+    generation: source.generation, document, jsonSnapshot, branchTree: source.branchTree,
+    branchIndex: source.branchIndex, branchIndexSummary: source.branchIndexSummary,
+    scopeResult: scopeResult(document, filtered), warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [],
+  });
+}
 async function loadBytes(context, slotId, fileName, bytesValue, now, suppliedGeneration) {
   assertSlot(slotId); const generation = suppliedGeneration ?? beginRequest(context, slotId);
   const bytes = bytesValue instanceof Uint8Array ? bytesValue : new Uint8Array(bytesValue);
@@ -74,7 +84,9 @@ async function loadBytes(context, slotId, fileName, bytesValue, now, suppliedGen
   const filtered = await context.clients.get(slotId).filter({ selectedIds: [] }); assertCurrent(context, slotId, generation);
   const document = await buildDocument(context, slotId, source, filtered, normalizeScope({}), now);
   const jsonSnapshot = await losslessSnapshot(context, slotId, source, document, parsedValue);
-  return deepFreeze({ generation, document, jsonSnapshot, branchTree: source.branchTree, branchIndex: source.branchIndex, branchIndexSummary: source.branchIndexSummary, scopeResult: scopeResult(document, filtered), warnings: intakeWarnings(source.metadata, source.branchIndexSummary), blockers: [] });
+  const result = loadResult(source, document, jsonSnapshot, filtered);
+  context.sources.set(slotId, deepFreeze({ ...source, initialResult: result }));
+  return result;
 }
 async function applyScope(context, slotId, requestedScope, now) {
   assertSlot(slotId); const source = context.sources.get(slotId);
@@ -99,6 +111,47 @@ async function projectCompareRecords(context, slotId, basis) {
   const projection = await context.clients.get(slotId).projectCompareRecords(projectionRequest(slotId, basis));
   assertCurrent(context, slotId, source.generation); return projection;
 }
+function swappableSource(context, slotId) {
+  const source = context.sources.get(slotId);
+  if (!source?.initialResult || source.generation !== context.generations.get(slotId)) {
+    throw new Error(`${slotId} revision is not ready to swap.`);
+  }
+  return source;
+}
+function rebindDocument(document, slotId) {
+  return createProjectDocument({
+    ...document,
+    documentId: `${slotId}:${document.sourceHash.slice(0, 20)}`,
+    slotId,
+    role: SLOT_ROLES[slotId],
+  });
+}
+function reboundLoadResult(source, slotId, generation) {
+  const document = rebindDocument(source.initialResult.document, slotId);
+  const jsonSnapshot = rebindRevisionCompareJsonDocumentSnapshot(
+    source.initialResult.jsonSnapshot,
+    SNAPSHOT_SIDES[slotId],
+    document.documentId,
+  );
+  return deepFreeze({ ...source.initialResult, generation, document, jsonSnapshot });
+}
+function swapLoadedSlots(context) {
+  if (context.disposed) throw new Error('Revision load service is disposed.');
+  const baselineSource = swappableSource(context, 'baseline');
+  const candidateSource = swappableSource(context, 'candidate');
+  const baselineGeneration = context.generations.get('baseline') + 1;
+  const candidateGeneration = context.generations.get('candidate') + 1;
+  const baseline = reboundLoadResult(candidateSource, 'baseline', baselineGeneration);
+  const candidate = reboundLoadResult(baselineSource, 'candidate', candidateGeneration);
+  const baselineClient = context.clients.get('baseline');
+  context.clients.set('baseline', context.clients.get('candidate'));
+  context.clients.set('candidate', baselineClient);
+  context.generations.set('baseline', baselineGeneration);
+  context.generations.set('candidate', candidateGeneration);
+  context.sources.set('baseline', deepFreeze({ ...candidateSource, generation: baselineGeneration, initialResult: baseline }));
+  context.sources.set('candidate', deepFreeze({ ...baselineSource, generation: candidateGeneration, initialResult: candidate }));
+  return deepFreeze({ baseline, candidate });
+}
 async function cancelRequest(context, slotId) {
   const generation = beginRequest(context, slotId); context.sources.delete(slotId); await context.clients.get(slotId).reset(); return generation;
 }
@@ -118,6 +171,9 @@ export function createRevisionLoadService(cryptoRef, options = {}) {
     },
     applyScope: (slotId, scope, now) => applyScope(context, slotId, scope, now),
     projectCompareRecords: (slotId, basis) => projectCompareRecords(context, slotId, basis),
+    swapLoadedSlots: () => swapLoadedSlots(context),
     cancel: (slotId) => cancelRequest(context, slotId), dispose: () => disposeService(context),
   });
 }
+
+export const _test = Object.freeze({ reboundLoadResult, rebindDocument, swapLoadedSlots, swappableSource });
