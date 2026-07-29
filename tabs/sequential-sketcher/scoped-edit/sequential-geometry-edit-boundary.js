@@ -19,6 +19,8 @@ import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-e
 
 export const SEQUENTIAL_GEOMETRY_EDIT_BOUNDARY_SCHEMA =
   'SequentialGeometryEditBoundary.v1';
+export const SEQUENTIAL_PREPARED_GEOMETRY_EDIT_CANDIDATE_SCHEMA =
+  'SequentialPreparedGeometryEditCandidate.v1';
 export const SEQUENTIAL_PREPARED_GEOMETRY_MOVE_CANDIDATE_SCHEMA =
   'SequentialPreparedGeometryMoveCandidate.v1';
 
@@ -54,9 +56,7 @@ function createJournal(snapshot) {
 function effectiveView(view, journal) {
   const readModel = createSequentialEffectiveGeometryReadModel(view.readModel, journal);
   return Object.freeze({
-    baseReadModel: view.readModel,
-    baseScene: view.scene,
-    readModel,
+    baseReadModel: view.readModel, baseScene: view.scene, readModel,
     scene: buildSequentialScopedEditEngineeringScene(readModel),
     geometryEditJournal: journal,
   });
@@ -65,14 +65,11 @@ function candidateEvidence(view, journal) {
   const snapshot = baseSnapshot(view);
   const readModel = createSequentialEffectiveGeometryReadModel(view.readModel, journal);
   const scene = applySequentialGeometryEditJournalToScene(view.scene, journal, {
-    revision: readModel.revision,
-    sceneId: readModel.sceneId,
+    revision: readModel.revision, sceneId: readModel.sceneId,
   });
   const topology = applySequentialGeometryEditJournalToTopology(snapshot, journal);
   return Object.freeze({
-    readModel,
-    scene,
-    topology,
+    readModel, scene, topology,
     sceneFingerprint: sequentialSemanticFingerprint('SSKGEOMETRYSCENE', scene),
     topologyFingerprint: topology.effectiveGeometryFingerprint,
   });
@@ -110,14 +107,18 @@ function publicationAuthority(runtime, input) {
   const state = readCurrentState(runtime);
   const authority = deriveSequentialEditAuthority(state);
   if (!sameSequentialContractValue(authority, input.expectedAuthority)) {
-    throw new RangeError('Prepared geometry move is stale against current edit authority.');
+    throw new RangeError('Prepared geometry edit is stale against current edit authority.');
   }
   const view = runtime.readBaseView();
   return Object.freeze({ state, authority, view, journal: currentJournal(runtime, view) });
 }
+function candidateSchema(value) {
+  return value === SEQUENTIAL_PREPARED_GEOMETRY_EDIT_CANDIDATE_SCHEMA
+    || value === SEQUENTIAL_PREPARED_GEOMETRY_MOVE_CANDIDATE_SCHEMA;
+}
 function validateCandidate(current, candidate) {
-  if (candidate?.schema !== SEQUENTIAL_PREPARED_GEOMETRY_MOVE_CANDIDATE_SCHEMA) {
-    throw new TypeError('Geometry publication requires a prepared geometry move candidate.');
+  if (!candidateSchema(candidate?.schema)) {
+    throw new TypeError('Geometry publication requires a prepared geometry-edit candidate.');
   }
   if (candidate.expectedJournalHeadFingerprint !== current.journal.headFingerprint) {
     throw new RangeError('Prepared geometry journal head is stale.');
@@ -135,16 +136,28 @@ function validateCandidate(current, candidate) {
   }
   return Object.freeze({ journal, entry, evidence });
 }
-function publicationRecord(current, preparedId, validated) {
-  return Object.freeze({
-    schema: 'SequentialGeometryMovePublication.v1', committed: true, preparedId,
-    entryId: validated.entry.entryId, operationId: validated.entry.operationId,
+function commonPublication(current, preparedId, validated) {
+  return {
+    committed: true, preparedId,
+    entryId: validated.entry.entryId,
+    operationId: validated.entry.operationId,
     componentId: validated.entry.componentId,
     expectedAuthorityId: current.authority.authorityId,
     journalHeadFingerprint: validated.journal.headFingerprint,
     effectiveReadAuthorityId: validated.evidence.readModel.authorityId,
     effectiveSceneFingerprint: validated.evidence.sceneFingerprint,
     effectiveTopologyFingerprint: validated.evidence.topologyFingerprint,
+  };
+}
+function publicationRecord(current, preparedId, validated) {
+  const common = commonPublication(current, preparedId, validated);
+  if (validated.entry.type !== 'STRETCH_NODE') {
+    return Object.freeze({ schema: 'SequentialGeometryMovePublication.v1', ...common });
+  }
+  return Object.freeze({
+    schema: 'SequentialNodeStretchPublication.v1', ...common,
+    type: validated.entry.type, nodeId: validated.entry.nodeId,
+    affectedComponentIds: validated.entry.affectedComponentIds,
   });
 }
 function publishCandidate(runtime, input = {}) {
@@ -153,7 +166,7 @@ function publishCandidate(runtime, input = {}) {
   const id = current.authority.branchId;
   const consumed = runtime.consumedByBranch.get(id) || new Set();
   if (consumed.has(input.preparedId)) {
-    throw new RangeError('Prepared geometry move has already been consumed.');
+    throw new RangeError('Prepared geometry edit has already been consumed.');
   }
   const validated = validateCandidate(current, input.candidate);
   runtime.byBranch.set(id, validated.journal);
@@ -176,9 +189,7 @@ function boundaryState(runtime) {
 }
 function destroyBoundary(runtime) {
   if (runtime.destroyed) return false;
-  runtime.destroyed = true;
-  runtime.byBranch.clear();
-  runtime.consumedByBranch.clear();
+  runtime.destroyed = true; runtime.byBranch.clear(); runtime.consumedByBranch.clear();
   return true;
 }
 

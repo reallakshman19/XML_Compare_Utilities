@@ -3,6 +3,7 @@ import { createVisualGeometryModelV2 } from '../../../contracts/visual-geometry-
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
 import { composeSequentialSupportMoveDraftScene } from './sequential-draft-edit-support-move-draft.js';
 import { composeSequentialSingleEntityMoveDraftScene } from './sequential-single-entity-move-draft.js';
+import { composeSequentialNodeStretchDraftScene } from './sequential-node-stretch-draft.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -51,12 +52,8 @@ function segmentRecord(entity, start, end, suffix = '0') {
   const visual = style(entity);
   return {
     primitiveId: `ssk3d:segment:${entity.id}:${suffix}`,
-    objectId: entity.id,
-    start,
-    end,
-    radiusMm: visual.radiusMm,
-    kind: componentKind(entity),
-    colorInt: visual.colorInt,
+    objectId: entity.id, start, end, radiusMm: visual.radiusMm,
+    kind: componentKind(entity), colorInt: visual.colorInt,
     pathId: String(entity.domainRef?.componentId || entity.domainRef?.connectionId || ''),
   };
 }
@@ -86,16 +83,11 @@ function marker(entity) {
   const overlay = overlayType(entity);
   const label = overlayLabel(entity, overlay, entityCategory);
   return {
-    primitiveId: `ssk3d:marker:${entity.id}`,
-    objectId: entity.id,
-    nodeId: entity.id,
-    kind: visual.markerKind,
-    position,
+    primitiveId: `ssk3d:marker:${entity.id}`, objectId: entity.id, nodeId: entity.id,
+    kind: visual.markerKind, position,
     sizeMm: overlay === 'draft' ? 34 : overlay === 'ghost' ? 24
       : entityCategory === 'support' ? 28 : entityCategory === 'reversalCandidate' ? 26 : 22,
-    colorInt: visual.colorInt,
-    ...(label ? { label } : {}),
-    isObjectMarker: true,
+    colorInt: visual.colorInt, ...(label ? { label } : {}), isObjectMarker: true,
   };
 }
 function bounds(segmentsInput, markersInput) {
@@ -111,17 +103,18 @@ function bounds(segmentsInput, markersInput) {
 }
 function composedScene(authoritative, input) {
   const supportScene = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
-  return composeSequentialSingleEntityMoveDraftScene(supportScene, input.moveDraft);
+  const moveScene = composeSequentialSingleEntityMoveDraftScene(supportScene, input.moveDraft);
+  return composeSequentialNodeStretchDraftScene(moveScene, input.nodeStretchDraft);
 }
 function combinedDraftId(input) {
-  return [input.draft?.operationId, input.moveDraft?.operationId].filter(Boolean).join(':') || null;
+  return [input.draft?.operationId, input.moveDraft?.operationId,
+    input.nodeStretchDraft?.operationId].filter(Boolean).join(':') || null;
 }
 
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
   const authoritative = assertSequentialScopedEditSceneAncestry(
-    validateEngineeringScene(input.scene),
-    readModel,
+    validateEngineeringScene(input.scene), readModel,
   );
   const scene = composedScene(authoritative, input);
   const visible = scene.entities.filter((entity) => entity.visible !== false);
@@ -138,9 +131,7 @@ export function createSequentialScopedEditVisualModel(input = {}) {
     unit: scene.coordinateSystem.unit,
     coordinateFrame: scene.coordinateSystem.frame,
     verticalAxis: scene.coordinateSystem.verticalAxis,
-    origin: [0, 0, 0],
-    segments: segmentRows,
-    markers: markerRows,
+    origin: [0, 0, 0], segments: segmentRows, markers: markerRows,
     bounds: bounds(fitSegments, fitMarkers),
   });
 }
