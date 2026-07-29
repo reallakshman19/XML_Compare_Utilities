@@ -1,6 +1,12 @@
 import {
   renderPipelineInputXmlDownloadControl,
 } from './pipeline-3d-model-inputxml-download-control.js';
+import { writePipelineElementText } from './pipeline-3d-model-dom-write.js';
+import {
+  writePipelineElementAttribute,
+  writePipelineElementDataset,
+  writePipelineElementProperty,
+} from './pipeline-3d-model-dom-state-write.js';
 
 const CATALOG_BLOCKER_TOKEN = 'APPROVED_CATALOG';
 const STATUS_SELECTOR = '[data-p3d-approved-catalog-status]';
@@ -44,8 +50,8 @@ function visibleStatusLabel(status) {
 function markApprovedCatalogState(dialog, status) {
   const button = dialog?.querySelector?.(XML_DOWNLOAD_SELECTOR);
   if (!button) return;
-  button.dataset.approvedCatalogState = status.state;
-  button.setAttribute?.('aria-describedby', STATUS_ID);
+  writePipelineElementDataset(button, 'approvedCatalogState', status.state);
+  writePipelineElementAttribute(button, 'aria-describedby', STATUS_ID);
 }
 
 export function resolvePipelineApprovedCatalogStatus(output = {}) {
@@ -85,9 +91,9 @@ export function renderPipelineApprovedCatalogStatus(dialog, output) {
   renderPipelineInputXmlDownloadControl(dialog, output);
   markApprovedCatalogState(dialog, status);
   if (!element) return status;
-  element.id = STATUS_ID;
-  element.dataset.state = status.state;
-  element.textContent = visibleStatusLabel(status);
-  element.title = status.blockerCodes.join(', ');
+  writePipelineElementProperty(element, 'id', STATUS_ID);
+  writePipelineElementDataset(element, 'state', status.state);
+  writePipelineElementText(element, visibleStatusLabel(status));
+  writePipelineElementProperty(element, 'title', status.blockerCodes.join(', '));
   return status;
 }

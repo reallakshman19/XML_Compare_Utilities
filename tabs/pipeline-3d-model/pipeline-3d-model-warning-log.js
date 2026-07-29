@@ -1,3 +1,5 @@
+import { writePipelineElementHtml, writePipelineElementText } from './pipeline-3d-model-dom-write.js';
+
 const STYLE_ID = 'pipeline-3d-model-warning-log-style';
 
 function escapeHtml(value) {
@@ -70,12 +72,10 @@ export function renderPipelineWarningLog(dialog, warnings = []) {
   const entries = Array.isArray(warnings) ? warnings : [];
   const count = panel.querySelector('[data-p3d-warning-count]');
   const body = panel.querySelector('[data-p3d-warning-body]');
-  if (count) count.textContent = String(entries.length);
-  if (body) {
-    body.innerHTML = entries.length
-      ? entries.map((warning, index) => `<div class="p3d-warning-log-entry" data-p3d-warning-entry="${index}"><span class="p3d-warning-log-code">${escapeHtml(warning.code || 'warning')}</span><div>${escapeHtml(warning.message || 'Pipeline warning.')}${detailsHtml(warning.details)}</div></div>`).join('')
-      : '<div class="p3d-warning-log-empty">No warnings.</div>';
-  }
+  writePipelineElementText(count, String(entries.length));
+  writePipelineElementHtml(body, entries.length
+    ? entries.map((warning, index) => `<div class="p3d-warning-log-entry" data-p3d-warning-entry="${index}"><span class="p3d-warning-log-code">${escapeHtml(warning.code || 'warning')}</span><div>${escapeHtml(warning.message || 'Pipeline warning.')}${detailsHtml(warning.details)}</div></div>`).join('')
+    : '<div class="p3d-warning-log-empty">No warnings.</div>');
   return panel;
 }
 
