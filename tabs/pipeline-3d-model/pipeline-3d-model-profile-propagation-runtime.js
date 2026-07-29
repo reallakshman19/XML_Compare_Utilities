@@ -8,6 +8,7 @@ import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derive
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
 import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profile-refresh-scheduler.js';
+import { writePipelineElementHtml, writePipelineElementText, writePipelineElementValue } from './pipeline-3d-model-dom-write.js';
 import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -63,8 +64,7 @@ function buildInput(dialog) {
     canonicalAnalysisSectionPlan: dialog.pipelineCanonicalAnalysisSectionPlan || null };
 }
 function setTextArea(dialog, name, value) {
-  const element = find(dialog, `[data-p3d="${name}"]`); if (!element) return;
-  element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
+  return writePipelineElementValue(find(dialog, `[data-p3d="${name}"]`), value);
 }
 function markerPoints(output) { return output.combined.filter((point) => point.sources?.includes('marker')); }
 function ensureTooltip(dialog) {
@@ -82,14 +82,14 @@ function artifactPanel(dialog) {
 }
 function renderArtifacts(dialog, output, instance) {
   const panel = artifactPanel(dialog), artifacts = instance.artifactSession.resolve(output);
-  panel.innerHTML = buildPipelineArtifactPanelHtml(artifacts);
+  writePipelineElementHtml(panel, buildPipelineArtifactPanelHtml(artifacts));
 }
 function renderOutputs(dialog, output, instance) {
   setTextArea(dialog, 'table2', output.table2Text); setTextArea(dialog, 'table3', output.table3Text);
   const table2Grid = find(dialog, '[data-p3d="table2x-output"]');
   const table3Grid = find(dialog, '[data-p3d="table3x-output"]');
-  if (table2Grid) table2Grid.innerHTML = buildPipelineDerivedTablePreviewHtml(output.table2XText);
-  if (table3Grid) table3Grid.innerHTML = buildPipelineDerivedTablePreviewHtml(output.table3XText);
+  writePipelineElementHtml(table2Grid, buildPipelineDerivedTablePreviewHtml(output.table2XText));
+  writePipelineElementHtml(table3Grid, buildPipelineDerivedTablePreviewHtml(output.table3XText));
   const table2Svg = find(dialog, '[data-p3d-split="table2x-preview"]');
   const table3Svg = find(dialog, '[data-p3d-split="table3x-preview"]');
   renderPipelineSvgPreview(table2Svg, createTable2XSVG(output.table2XText));
@@ -97,16 +97,16 @@ function renderOutputs(dialog, output, instance) {
   const table1Out = find(dialog, '[data-p3d="table1-output"]');
   const coordinateOut = find(dialog, '[data-p3d="coordinate-output"]');
   const xmlOut = find(dialog, '[data-p3d="xml-output"]');
-  if (table1Out) table1Out.textContent = output.table1OutputText;
-  if (coordinateOut) coordinateOut.textContent = output.coordinateText;
-  if (xmlOut) xmlOut.textContent = output.xmlText;
+  writePipelineElementText(table1Out, output.table1OutputText);
+  writePipelineElementText(coordinateOut, output.coordinateText);
+  writePipelineElementText(xmlOut, output.xmlText);
   renderPipelineApprovedCatalogStatus(dialog, output);
   renderArtifacts(dialog, output, instance);
 }
 function renderKeyPlan(dialog, output) {
   const legend = find(dialog, '[data-p3d="keyplan-legend"]');
   const html = buildKeyPlanLegendHtml(output.table1Points, output.sheets);
-  if (legend) { legend.innerHTML = html; legend.hidden = !html; }
+  if (legend) { writePipelineElementHtml(legend, html); legend.hidden = !html; }
   const canvas = find(dialog, '[data-p3d="canvas-keyplan"]');
   if (canvas) paintKeyPlanCanvas(canvas, output.table1Points, output.sheets,
     ensureTooltip(dialog), markerPoints(output));
