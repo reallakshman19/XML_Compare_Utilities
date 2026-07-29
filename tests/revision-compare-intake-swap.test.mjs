@@ -12,6 +12,7 @@ import {
   applyRevisionCompareSwapResults,
   revisionCompareSwapReadiness,
 } from '../tabs/revision-compare/revision-compare-intake-swap.js';
+import { _test as viewTest } from '../tabs/revision-compare/revision-compare-view.js';
 
 const NOW = '2026-07-29T10:45:00.000Z';
 const staged = (name, x) => JSON.stringify([{
@@ -40,51 +41,74 @@ function assertRoles(result, slotId, role, side, marker) {
   assert.equal(result.document.role, role);
   assert.equal(result.jsonSnapshot.side, side);
   assert.equal(result.jsonSnapshot.parsedValue[0].name, marker);
-  assert.match(componentId(result), new RegExp(`^record:${side === 'REV_A' ? 'A' : 'B'}:${slotId}:`));
+  const code = side === 'REV_A' ? 'A' : 'B';
+  assert.match(componentId(result), new RegExp(`^record:${code}:${slotId}:`));
+}
+
+async function loadPair(service) {
+  const baseline = await service.loadText('baseline', 'A.json', staged('A', 0), NOW);
+  const candidate = await service.loadText('candidate', 'B.json', staged('B', 1), NOW);
+  return Object.freeze({ baseline, candidate });
+}
+
+function loadedState(pair) {
+  let state = createRevisionWorkspaceState('swap-session', NOW);
+  state = attach(state, 'baseline', pair.baseline);
+  state = attach(state, 'candidate', pair.candidate);
+  return setWorkspaceBasis(state, Object.freeze({ basisId: 'before-swap' }));
+}
+
+async function verifyForwardSwap(service, pair, state) {
+  const swapped = service.swapLoadedSlots();
+  assert.equal(swapped.baseline.document.sourceHash, pair.candidate.document.sourceHash);
+  assert.equal(swapped.candidate.document.sourceHash, pair.baseline.document.sourceHash);
+  assertRoles(swapped.baseline, 'baseline', 'REFERENCE', 'REV_A', 'B');
+  assertRoles(swapped.candidate, 'candidate', 'CANDIDATE', 'REV_B', 'A');
+  const scopeA = await service.applyScope('baseline', { selectedIds: ['branch:B'] }, NOW);
+  const scopeB = await service.applyScope('candidate', { selectedIds: ['branch:A'] }, NOW);
+  assert.deepEqual(scopeA.scopeResult.selectedBranchIds, ['branch:B']);
+  assert.deepEqual(scopeB.scopeResult.selectedBranchIds, ['branch:A']);
+  return applyRevisionCompareSwapResults(state, swapped, NOW);
+}
+
+async function verifyReverseSwap(service, pair) {
+  const restored = service.swapLoadedSlots();
+  assert.equal(restored.baseline.document.sourceHash, pair.baseline.document.sourceHash);
+  const scope = await service.applyScope('baseline', { selectedIds: ['branch:A'] }, NOW);
+  assert.deepEqual(scope.scopeResult.selectedBranchIds, ['branch:A']);
+}
+
+function verifyWorkspaceState(state, pair) {
+  assert.equal(state.slots.baseline.document.sourceHash, pair.candidate.document.sourceHash);
+  assert.equal(state.slots.candidate.document.sourceHash, pair.baseline.document.sourceHash);
+  assert.equal(state.proposal, null);
+  assert.deepEqual(state.scopeDecisions, {});
+  assert.equal(state.basisStatus, 'STALE');
+  assert.equal(state.compare.audit, null);
+}
+
+function verifyUiAndImportedBoundary(state) {
+  assert.equal(revisionCompareSwapReadiness(state).status, 'READY');
+  assert.match(viewTest.swapControl(state), /data-revc-swap-revisions/);
+  assert.doesNotMatch(viewTest.swapControl(state), /data-revc-swap-revisions disabled/);
+  const imported = Object.freeze({
+    ...state,
+    evidencePackageImport: Object.freeze({ ...state.evidencePackageImport, status: 'VERIFIED' }),
+  });
+  assert.equal(revisionCompareSwapReadiness(imported).status, 'BLOCKED');
+  assert.match(viewTest.swapControl(imported), /data-revc-swap-revisions disabled/);
 }
 
 async function main() {
   const service = createRevisionLoadService(webcrypto, {
     clientFactory: () => createInlineRevisionWorkerClient({ cryptoRef: webcrypto }),
   });
-  const originalA = await service.loadText('baseline', 'A.json', staged('A', 0), NOW);
-  const originalB = await service.loadText('candidate', 'B.json', staged('B', 1), NOW);
-  let state = createRevisionWorkspaceState('swap-session', NOW);
-  state = attach(state, 'baseline', originalA);
-  state = attach(state, 'candidate', originalB);
-  state = setWorkspaceBasis(state, Object.freeze({ basisId: 'before-swap' }));
-
-  assert.equal(revisionCompareSwapReadiness(state).status, 'READY');
-  const swapped = service.swapLoadedSlots();
-  assert.equal(swapped.baseline.document.sourceHash, originalB.document.sourceHash);
-  assert.equal(swapped.candidate.document.sourceHash, originalA.document.sourceHash);
-  assertRoles(swapped.baseline, 'baseline', 'REFERENCE', 'REV_A', 'B');
-  assertRoles(swapped.candidate, 'candidate', 'CANDIDATE', 'REV_B', 'A');
-
-  const scopeA = await service.applyScope('baseline', { selectedIds: ['branch:B'] }, NOW);
-  const scopeB = await service.applyScope('candidate', { selectedIds: ['branch:A'] }, NOW);
-  assert.deepEqual(scopeA.scopeResult.selectedBranchIds, ['branch:B']);
-  assert.deepEqual(scopeB.scopeResult.selectedBranchIds, ['branch:A']);
-
-  state = applyRevisionCompareSwapResults(state, swapped, NOW);
-  assert.equal(state.slots.baseline.document.sourceHash, originalB.document.sourceHash);
-  assert.equal(state.slots.candidate.document.sourceHash, originalA.document.sourceHash);
-  assert.equal(state.proposal, null);
-  assert.deepEqual(state.scopeDecisions, {});
-  assert.equal(state.basisStatus, 'STALE');
-
-  const restored = service.swapLoadedSlots();
-  assert.equal(restored.baseline.document.sourceHash, originalA.document.sourceHash);
-  assert.deepEqual(
-    (await service.applyScope('baseline', { selectedIds: ['branch:A'] }, NOW)).scopeResult.selectedBranchIds,
-    ['branch:A'],
-  );
-
-  const imported = Object.freeze({
-    ...state,
-    evidencePackageImport: Object.freeze({ ...state.evidencePackageImport, status: 'VERIFIED' }),
-  });
-  assert.equal(revisionCompareSwapReadiness(imported).status, 'BLOCKED');
+  const pair = await loadPair(service);
+  const before = loadedState(pair);
+  verifyUiAndImportedBoundary(before);
+  const swapped = await verifyForwardSwap(service, pair, before);
+  verifyWorkspaceState(swapped, pair);
+  await verifyReverseSwap(service, pair);
   service.dispose();
   console.log('revision-compare-intake-swap: PASS');
 }
