@@ -24,7 +24,7 @@ function slotFacts(slot) {
 }
 function clearControl(slot, loading) {
   if (loading || (!slot.document && !slot.error && !slot.fileName)) return '';
-  return `<button type="button" class="revc-clear" data-revc-clear="${escapeHtml(slot.slotId)}">Clear revision</button>`;
+  return `<button type="button" class="revc-clear" data-revc-cancel="${escapeHtml(slot.slotId)}">Clear revision</button>`;
 }
 function slotCard(slot, label, subtitle, disabled = false) {
   const loading = slot.status === 'LOADING';
