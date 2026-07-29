@@ -21,7 +21,7 @@ export function validateRevisionComparisonBasis(basis) {
 }
 
 function identityPayload(input) {
-  return {
+  const identity = {
     schema: REVISION_COMPARISON_BASIS_SCHEMA,
     sessionId: input.sessionId,
     revADocumentId: input.revA.document.documentId,
@@ -36,8 +36,9 @@ function identityPayload(input) {
     unitCompatibility: input.preflight.compatibility.unitCompatibility,
     coordinateFrameCompatibility: input.preflight.compatibility.coordinateFrameCompatibility,
     verticalAxisCompatibility: input.preflight.compatibility.verticalAxisCompatibility,
-    visualMetadataDeclaration: input.visualMetadataDeclaration ?? null,
   };
+  if (input.visualMetadataDeclaration) identity.visualMetadataDeclaration = input.visualMetadataDeclaration;
+  return identity;
 }
 
 export async function createRevisionComparisonBasis(input, cryptoRef) {
