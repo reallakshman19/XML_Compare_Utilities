@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 const BENCHMARK_SHA256 = '38c6080c73f84e55581ad75dcbfb6b580ea587fc287ecf1861d9dc8e793b5cd3';
@@ -83,6 +84,10 @@ test('TTV-C06 — exact 1885 staged export preserves hierarchy shape and rebuild
   expect(provenance.commandJournal.activeCommandIds).toEqual(committed.activeCommandIds);
   expect(provenance.positionIdentityToleranceMm).toBe(1e-6);
   expect(provenance.positionRemaps).toHaveLength(60);
+  expect(provenance.supportSourcePositionField).toBe('TOPOLOGY_SOURCE_POSITION');
+  expect(provenance.supportCarrierAuthorityField).toBe('TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH');
+  expect(provenance.supportProjectionEvidencePreserved).toBe(10);
+  expect(directExport.summary.supportProjectionEvidencePreserved).toBe(10);
   expect(provenance.ledger).toHaveLength(60);
   expect(directExport.summary.rootShape).toBe('array');
 
@@ -222,6 +227,31 @@ test('TTV-C06 — exact 1885 staged export preserves hierarchy shape and rebuild
     }
   }, text);
 
+  const qualificationEvidence = {
+    benchmarkSha256: BENCHMARK_SHA256,
+    exportSha256,
+    exportByteLength: bytes.length,
+    committed,
+    export: {
+      rootShape: directExport.summary.rootShape,
+      branchCount: exported.length,
+      positionIdentityToleranceMm: provenance.positionIdentityToleranceMm,
+      remapCount: provenance.positionRemaps.length,
+      operationCount: operations.length,
+      operationTypes: [...new Set(operations.map((row) => row.type))],
+      ledgerCount: provenance.ledger.length,
+      supportSourcePositionField: provenance.supportSourcePositionField,
+      supportCarrierAuthorityField: provenance.supportCarrierAuthorityField,
+      supportProjectionEvidencePreserved: provenance.supportProjectionEvidencePreserved,
+    },
+    roundTrip,
+  };
+  const evidenceDirectory = 'qualification-evidence/topology-1885';
+  fs.mkdirSync(evidenceDirectory, { recursive: true });
+  fs.writeFileSync(`${evidenceDirectory}/ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json`, bytes);
+  fs.writeFileSync(`${evidenceDirectory}/topology-staged-export-1885-provenance.json`, directExport.provenanceText);
+  fs.writeFileSync(`${evidenceDirectory}/topology-staged-export-1885-evidence.json`, `${JSON.stringify(qualificationEvidence, null, 2)}\n`);
+
   await testInfo.attach('ATTRIBUTE_managed_stage_1885_Steam_edited_stage.json', {
     body: bytes,
     contentType: 'application/json',
@@ -231,22 +261,7 @@ test('TTV-C06 — exact 1885 staged export preserves hierarchy shape and rebuild
     contentType: 'application/json',
   });
   await testInfo.attach('topology-staged-export-1885-evidence.json', {
-    body: Buffer.from(`${JSON.stringify({
-      benchmarkSha256: BENCHMARK_SHA256,
-      exportSha256,
-      exportByteLength: bytes.length,
-      committed,
-      export: {
-        rootShape: directExport.summary.rootShape,
-        branchCount: exported.length,
-        positionIdentityToleranceMm: provenance.positionIdentityToleranceMm,
-        remapCount: provenance.positionRemaps.length,
-        operationCount: operations.length,
-        operationTypes: [...new Set(operations.map((row) => row.type))],
-        ledgerCount: provenance.ledger.length,
-      },
-      roundTrip,
-    }, null, 2)}\n`),
+    body: Buffer.from(`${JSON.stringify(qualificationEvidence, null, 2)}\n`),
     contentType: 'application/json',
   });
 
