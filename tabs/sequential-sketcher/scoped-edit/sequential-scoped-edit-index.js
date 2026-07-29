@@ -59,4 +59,7 @@ export * from './sequential-rotation-feature.js';
 export * from './sequential-rotation-application.js';
 export * from './sequential-rotation-application-panel.js';
 export * from './sequential-rotation-projection.js';
+export * from './sequential-merge-nodes-impact-preview.js';
+export * from './sequential-merge-nodes-request-panel.js';
+export * from './sequential-merge-nodes-request-feature.js';
 export * from './sequential-component-edit-operations.js';
