@@ -50,6 +50,71 @@ jobs:
           )
           test -x "$chromium_path"
           echo "CHROMIUM_PATH=$chromium_path" >> "$GITHUB_ENV"
+      - name: Diagnose review-side intrinsic overflow
+        run: |
+          python3 -m http.server 4179 --bind 127.0.0.1 > revision-compare-ui-diagnostic-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          cat > revision-compare-ui-diagnostic.mjs <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { readFile, writeFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+          await page.goto('http://127.0.0.1:4179/tests/browser/revision-compare-layout.html', { waitUntil: 'networkidle' });
+          await page.locator('[data-revc-open]').click();
+          await page.locator('[data-revc-file="baseline"]').setInputFiles({ name: 'a.json', mimeType: 'application/json', buffer: await readFile(resolve('tests/fixtures/revision-compare/rc002-rev-a.json')) });
+          await page.locator('[data-slot="baseline"] strong').filter({ hasText: /ready/i }).waitFor();
+          await page.locator('[data-revc-file="candidate"]').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: await readFile(resolve('tests/fixtures/revision-compare/rc002-rev-b.json')) });
+          await page.locator('[data-slot="candidate"] strong').filter({ hasText: /ready/i }).waitFor();
+          await page.locator('[data-revc-approve-basis]').scrollIntoViewIfNeeded();
+          await page.locator('[data-revc-approve-basis]').click();
+          await page.locator('[data-revc-run-compare]').scrollIntoViewIfNeeded();
+          await page.locator('[data-revc-run-compare]').click();
+          await page.getByRole('heading', { name: 'Guided visual revision review' }).waitFor({ timeout: 25_000 });
+          const diagnostic = await page.evaluate(() => {
+            const side = document.querySelector('.revc-review-side');
+            const sideRect = side.getBoundingClientRect();
+            const path = (element) => {
+              const parts = [];
+              let current = element;
+              while (current && current !== side) {
+                let part = current.tagName.toLowerCase();
+                if (current.id) part += `#${current.id}`;
+                if (typeof current.className === 'string' && current.className.trim()) part += `.${current.className.trim().split(/\s+/).join('.')}`;
+                parts.unshift(part); current = current.parentElement;
+              }
+              return `.revc-review-side > ${parts.join(' > ')}`;
+            };
+            const rows = [...side.querySelectorAll('*')].map((element) => {
+              const rect = element.getBoundingClientRect(); const style = getComputedStyle(element);
+              return {
+                path: path(element),
+                tag: element.tagName.toLowerCase(),
+                classes: typeof element.className === 'string' ? element.className : '',
+                text: (element.innerText || element.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 180),
+                rect: { left: rect.left, right: rect.right, width: rect.width, top: rect.top, bottom: rect.bottom },
+                clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+                overflowDelta: element.scrollWidth - element.clientWidth,
+                outsideRight: rect.right - sideRect.right,
+                display: style.display, width: style.width, minWidth: style.minWidth, maxWidth: style.maxWidth,
+                gridTemplateColumns: style.gridTemplateColumns, whiteSpace: style.whiteSpace,
+                overflowX: style.overflowX, overflowWrap: style.overflowWrap, wordBreak: style.wordBreak,
+              };
+            }).filter((row) => row.overflowDelta > 1 || row.outsideRight > 1 || row.rect.width > sideRect.width + 1)
+              .sort((a, b) => Math.max(b.overflowDelta, b.outsideRight, b.rect.width - sideRect.width) - Math.max(a.overflowDelta, a.outsideRight, a.rect.width - sideRect.width));
+            return {
+              side: { clientWidth: side.clientWidth, scrollWidth: side.scrollWidth, rect: { left: sideRect.left, right: sideRect.right, width: sideRect.width } },
+              offenders: rows.slice(0, 80),
+            };
+          });
+          console.log(JSON.stringify(diagnostic, null, 2));
+          await writeFile('revision-compare-ui-overflow-diagnostic.json', JSON.stringify(diagnostic, null, 2));
+          await page.screenshot({ path: 'revision-compare-ui-overflow-diagnostic.png', fullPage: false });
+          await browser.close();
+          NODE
+          node revision-compare-ui-diagnostic.mjs
       - name: Run complete Revision Compare qualification
         run: |
           set -o pipefail
@@ -151,6 +216,9 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
           path: |
+            revision-compare-ui-overflow-diagnostic.json
+            revision-compare-ui-overflow-diagnostic.png
+            revision-compare-ui-diagnostic-server.log
             revision-compare-ui-qualification.log
             revision-compare-ui-worktree.log
             revision-compare-ui-after/
