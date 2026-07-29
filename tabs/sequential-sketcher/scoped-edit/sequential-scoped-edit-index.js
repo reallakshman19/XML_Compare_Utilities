@@ -45,6 +45,8 @@ export * from './sequential-node-stretch-target.js';
 export * from './sequential-node-stretch-geometry.js';
 export * from './sequential-node-stretch-draft.js';
 export * from './sequential-node-stretch-panel.js';
+export * from './sequential-node-stretch-request-adapter.js';
+export * from './sequential-node-stretch-request-panel.js';
 export * from './sequential-node-stretch-feature.js';
 export * from './sequential-node-stretch-application.js';
 export * from './sequential-node-stretch-application-panel.js';
