@@ -6,6 +6,7 @@ import { revisionVisualReadiness } from '../tabs/revision-compare/revision-compa
 import { _test as viewTest } from '../tabs/revision-compare/revision-compare-view.js';
 import { _test as workspaceTest } from '../tabs/revision-compare/revision-compare-workspace.js';
 import { revisionComparisonPreflight } from '../tabs/revision-compare/revision-preflight.js';
+import { revisionScopeMarkup } from '../tabs/revision-compare/revision-scope-view.js';
 import {
   createRevisionVisualMetadataDeclaration, resolveRevisionVisualMetadata,
   revisionVisualMetadataDeclarationModel,
@@ -43,15 +44,18 @@ function stateFixture(revA, revB, declaration = null) {
   return {
     slots: { baseline: slot(revA), candidate: slot(revB) }, proposal: proposal(),
     visualMetadataDeclaration: declaration, basis: null, basisStatus: 'NONE',
+    search: { common: '', revAOnly: '', revBOnly: '' },
   };
 }
 
 function assertUnknownRecovery(revA, revB) {
   const state = stateFixture(revA, revB);
   const preflight = revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal);
-  assert.equal(preflight.status, 'READY');
+  assert.equal(preflight.status, 'BLOCKED');
   assert.equal(preflight.compatibility.unitCompatibility.status, 'UNKNOWN');
-  assert(preflight.warnings.includes('Unit is not declared on both revisions.'));
+  assert(preflight.blockers.includes('Unit is UNKNOWN. Declare visual coordinate metadata before approving the comparison basis.'));
+  assert.equal(preflight.warnings.some((item) => item.startsWith('Unit is not declared')), false);
+  assert.match(revisionScopeMarkup(state, preflight), /data-revc-approve-basis disabled/);
   const model = revisionVisualMetadataDeclarationModel(state);
   assert.equal(model.status, 'REQUIRED');
   assert.deepEqual(model.unknownFields, ['Unit', 'Coordinate frame', 'Vertical axis']);
@@ -75,6 +79,7 @@ async function declaredBasis(revA, revB) {
   assert.equal(preflight.status, 'READY');
   assert.equal(preflight.warnings.some((item) => item.startsWith('Unit is not declared')), false);
   assert(preflight.notes.some((item) => item.startsWith('Unit compatibility includes explicit operator-declared evidence')));
+  assert.doesNotMatch(revisionScopeMarkup(state, preflight), /data-revc-approve-basis disabled/);
   const basis = await createRevisionComparisonBasis({
     sessionId: 'session-1', revA: state.slots.baseline, revB: state.slots.candidate,
     proposal: state.proposal, preflight, visualMetadataDeclaration: declaration,
