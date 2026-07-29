@@ -1,0 +1,57 @@
+name: Qualify InputXML Workspace Producer Adoption Bootstrap
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/inputxml-workspace-producer-adoption-pr-bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/inputxml-workspace-producer-adoption
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Execute checked-in exact integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+          import subprocess
+
+          source = Path('.github/workflows/inputxml-workspace-producer-adoption-bootstrap.yml').read_text(encoding='utf-8')
+          marker = '      - name: Apply exact Workspace integration\n'
+          start = source.index(marker)
+          run_start = source.index('        run: |\n', start) + len('        run: |\n')
+          end = source.index('\n      - name: Run focused qualification', run_start)
+          script = dedent(source[run_start:end])
+          Path('/tmp/inputxml-workspace-adoption-apply.sh').write_text(script, encoding='utf-8')
+          subprocess.run(['bash', '/tmp/inputxml-workspace-adoption-apply.sh'], check=True)
+          Path('.github/workflows/inputxml-workspace-producer-adoption-pr-bootstrap.yml').unlink()
+          PY
+
+      - name: Run focused qualification
+        run: |
+          node --check tabs/inputxml-workspace/inputxml-workspace-producer-adoption.js
+          node --check tabs/inputxml-workspace/inputxml-workspace-tab.js
+          node tests/inputxml-workspace-producer-adoption.test.js
+          node tests/inputxml-workspace-producer-adoption-static.test.js
+          npm run test:inputxml-workspace
+          git diff --check
+
+      - name: Commit qualified integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(inputxml): adopt producer worker in Workspace'
+          git push origin HEAD:agent/inputxml-workspace-producer-adoption
