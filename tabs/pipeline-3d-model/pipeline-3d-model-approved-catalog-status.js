@@ -68,9 +68,3 @@ export function renderPipelineApprovedCatalogStatus(dialog, output) {
   element.title = status.blockerCodes.join(', ');
   return status;
 }
-
-export const _test = Object.freeze({
-  approvedCatalogBlockers,
-  bindingCount,
-  statusLabel,
-});
