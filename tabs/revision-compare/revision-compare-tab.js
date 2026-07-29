@@ -5,6 +5,7 @@ import { mountRevisionCompareWorkspace } from './revision-compare-workspace.js?v
 const STYLESHEETS = Object.freeze([
   Object.freeze({ id: 'revision-compare-style', href: './revision-compare.css?v=20260718-rc001' }),
   Object.freeze({ id: 'revision-compare-layout-style', href: './revision-compare-layout.css?v=20260729-ui-layout' }),
+  Object.freeze({ id: 'revision-compare-review-containment-style', href: './revision-compare-review-containment.css?v=20260729-ui-containment' }),
 ]);
 
 function ensureStylesheet(documentRef) {
