@@ -35,8 +35,15 @@ assert.equal(split.coverage, TOPOLOGY_SEQUENTIAL_COVERAGE.PARTIAL);
 assert.deepEqual(split.sequentialOperations, ['SPLIT_PIPE']);
 assert.equal(split.nextGate, 'SSK-TS-3Q');
 
-for (const commandType of ['ADD_BEND_DEFINITION', 'ADD_JUNCTION_DEFINITION',
-  'ATTRIBUTE_EDIT', 'REMARK_SET']) {
+const bend = topologySequentialCapability(matrix, 'ADD_BEND_DEFINITION');
+assert.equal(bend.coverage, TOPOLOGY_SEQUENTIAL_COVERAGE.PRESERVED_SEPARATELY);
+assert.equal(bend.disposition,
+  TOPOLOGY_SEQUENTIAL_CAPABILITY_DISPOSITION.VALIDATOR_ONLY_OPERATION);
+assert.equal(bend.authorityOwner, 'TOPOLOGY_VALIDATOR');
+assert.equal(bend.nextGate, 'COMPLETE');
+assert.deepEqual(bend.sequentialOperations, []);
+
+for (const commandType of ['ADD_JUNCTION_DEFINITION', 'ATTRIBUTE_EDIT', 'REMARK_SET']) {
   const capability = topologySequentialCapability(matrix, commandType);
   assert.equal(capability.coverage, TOPOLOGY_SEQUENTIAL_COVERAGE.PRESERVED_SEPARATELY);
   assert.equal(capability.disposition,
@@ -67,4 +74,4 @@ assert.throws(() => createTopologySequentialCapabilityMatrix({ entries: matrix.e
 assert.throws(() => assertTopologySequentialCapabilityMatrix({ ...matrix,
   matrixFingerprint: 'tampered' }), /canonical regeneration/);
 
-console.log('[PASS] Topology Validator to Sequential capability matrix is complete and fail-closed');
+console.log('[PASS] bend preservation gate complete in fail-closed capability matrix');
