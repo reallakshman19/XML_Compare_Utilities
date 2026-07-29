@@ -19,21 +19,24 @@ jobs:
     timeout-minutes: 120
     env:
       CI: 'true'
-      EXPECTED_PRODUCT_PARENT: d32dd67935a20d1e68de35db1a5324ec864e405e
+      EXPECTED_PRODUCT_HEAD: d32dd67935a20d1e68de35db1a5324ec864e405e
     steps:
       - uses: actions/checkout@v6
         with:
           ref: cert/revision-compare-ui-visibility-20260729
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - name: Verify exact product parent
+      - name: Verify exact product ancestry and certification-only delta
         run: |
           set -euxo pipefail
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_PARENT"
+          git merge-base --is-ancestor "$EXPECTED_PRODUCT_HEAD" HEAD
+          git diff --name-only "$EXPECTED_PRODUCT_HEAD"..HEAD > /tmp/actual-certification-delta
+          printf '%s\n' '.github/workflows/revision-compare-ui-fix-certification-20260729.yml' > /tmp/expected-certification-delta
+          diff -u /tmp/expected-certification-delta /tmp/actual-certification-delta
           git rev-parse HEAD
-          git rev-parse HEAD^
+          git show -s --format='%H %P' HEAD
       - name: Install dependencies
         run: npm install --no-audit --no-fund --no-package-lock
       - name: Install Chromium
