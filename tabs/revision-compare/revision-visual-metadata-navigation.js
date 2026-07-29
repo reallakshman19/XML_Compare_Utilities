@@ -29,7 +29,8 @@ function fieldValue(field) {
 
 function declarationTarget(section) {
   const fields = FIELD_SELECTORS.map((selector) => section?.querySelector?.(selector)).filter(enabled);
-  return fields.find((field) => !fieldValue(field)) ?? fields[0] ?? null;
+  return fields.find((field) => field.hasAttribute?.('data-revc-visual-missing'))
+    ?? fields.find((field) => !fieldValue(field)) ?? fields[0] ?? null;
 }
 
 function defaultSchedule(root, callback) {
