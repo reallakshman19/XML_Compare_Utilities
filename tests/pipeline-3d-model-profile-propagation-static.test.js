@@ -3,7 +3,9 @@ const read = (name) => fs.readFileSync(new URL(`../tabs/pipeline-3d-model/${name
 const names = ['pipeline-3d-model-profile-coordinate-map.js', 'pipeline-3d-model-profile-events.js',
   'pipeline-3d-model-profile-output.js', 'pipeline-3d-model-profile-propagation.js',
   'pipeline-3d-model-profile-propagation-runtime.js', 'pipeline-3d-model-export-context.js',
-  'pipeline-3d-model-inputxml-document.js', 'pipeline-3d-model-identity.js',
+  'pipeline-3d-model-inputxml-document.js', 'pipeline-3d-model-inputxml-readiness.js',
+  'pipeline-3d-model-inputxml-download-feedback.js', 'pipeline-3d-model-inputxml-download-control.js',
+  'pipeline-3d-model-inputxml-readiness-artifact.js', 'pipeline-3d-model-identity.js',
   'pipeline-3d-model-warning-log.js', 'pipeline-3d-model-core-orchestrator.js',
   'pipeline-3d-model-core-runtime.js', 'pipeline-3d-model-explicit-analysis-section-planner.js'];
 const sources = Object.fromEntries(names.map((name) => [name, read(name)]));
@@ -40,8 +42,13 @@ assert.match(adapter, /buildPipelineNativeOutputBundle/);
 assert.match(adapter, /configuration: output\.configurationPlan/);
 assert.match(adapter, /configurationSchema: output\.configurationPlan\.schema/);
 assert.match(adapter, /orchestrationBlockerCount/);
-assert.match(adapter, /resolvePipelineProjectMigrationBlockers/);
+assert.match(adapter, /resolvePipelineInputXmlBlockers/);
+assert.doesNotMatch(adapter, /resolvePipelineProjectMigrationBlockers/);
 assert.match(adapter, /migrationBlockerCount/);
+const downloadFeedback = sources['pipeline-3d-model-inputxml-download-feedback.js'];
+const downloadControl = sources['pipeline-3d-model-inputxml-download-control.js'];
+assert.doesNotMatch(downloadFeedback, /project-adapter/);
+assert.doesNotMatch(downloadControl, /project-adapter/);
 const addon = read('pipeline-3d-model-table-paste-addon.js');
 assert.match(addon, /installPipelineProfilePropagation\(dialog\)/);
 assert.match(addon, /installPipelineElasticBendSettingsUi\(dialog\)/);
@@ -83,17 +90,17 @@ assert.equal(runtimeTest.pipelineSourceInput({ dataset: { p3d: 'table1' } }), tr
 assert.equal(runtimeTest.pipelineSourceInput({ dataset: { p3dSplit: 'table3c-raw' } }), true);
 assert.equal(runtimeTest.pipelineSourceInput({ dataset: { p3d: 'download-xml' } }), false);
 
-const { resolvePipelineProjectMigrationBlockers } = await import(
-  '../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js');
-assert.deepEqual(resolvePipelineProjectMigrationBlockers({
+const { resolvePipelineInputXmlBlockers } = await import(
+  '../tabs/pipeline-3d-model/pipeline-3d-model-inputxml-readiness.js');
+assert.deepEqual(resolvePipelineInputXmlBlockers({
   orchestration: { blockerCodes: ['ORCHESTRATION_BLOCKER', 'SHARED_BLOCKER'] },
   exportQualification: { inputXmlAllowed: false, blockerCodes: ['EXPORT_BLOCKER', 'SHARED_BLOCKER'] },
   inputXmlDocumentPlan: { blockerCodes: ['DOCUMENT_BLOCKER'] },
 }), ['ORCHESTRATION_BLOCKER', 'SHARED_BLOCKER', 'EXPORT_BLOCKER', 'DOCUMENT_BLOCKER']);
-assert.deepEqual(resolvePipelineProjectMigrationBlockers({
+assert.deepEqual(resolvePipelineInputXmlBlockers({
   exportQualification: { inputXmlAllowed: false, blockerCodes: [] },
 }), ['PIPELINE_PROJECT_MIGRATION_INPUTXML_NOT_ALLOWED']);
-assert.deepEqual(resolvePipelineProjectMigrationBlockers({
+assert.deepEqual(resolvePipelineInputXmlBlockers({
   exportQualification: { inputXmlAllowed: true, blockerCodes: [] },
 }), []);
 
