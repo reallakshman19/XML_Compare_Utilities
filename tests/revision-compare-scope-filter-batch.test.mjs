@@ -56,6 +56,10 @@ function revisionDocuments() {
   };
 }
 
+function decisionIds(decisions) {
+  return Object.keys(decisions).sort();
+}
+
 async function loadSlot(service, state, slotId, value) {
   const generation = service.begin(slotId);
   const result = await service.loadText(slotId, `${slotId}.json`, JSON.stringify(value), NOW, generation);
@@ -114,10 +118,10 @@ function assertFilterMatching(proposal) {
 function assertPureDecisionPreservation(state) {
   const before = state.scopeDecisions;
   const cleared = applyRevisionScopeBatch(before, state, 'common', false);
-  assert.deepEqual(Object.keys(cleared.decisions), ['branch:LINE-NORTH', 'branch:LINE-SOUTH']);
-  assert.deepEqual(Object.keys(before), ['branch:LINE-SOUTH']);
+  assert.deepEqual(decisionIds(cleared.decisions), ['branch:LINE-NORTH', 'branch:LINE-SOUTH']);
+  assert.deepEqual(decisionIds(before), ['branch:LINE-SOUTH']);
   const selected = applyRevisionScopeBatch(cleared.decisions, state, 'common', true);
-  assert.deepEqual(Object.keys(selected.decisions), ['branch:LINE-SOUTH']);
+  assert.deepEqual(decisionIds(selected.decisions), ['branch:LINE-SOUTH']);
 }
 
 function assertFilteredMarkup(state) {
@@ -142,14 +146,14 @@ async function assertRealActionPath(service, state) {
   const harness = actionContext(service, state);
   await harness.actions.setGroupIncluded('common', false);
   let current = harness.readState();
-  assert.deepEqual(Object.keys(current.scopeDecisions), ['branch:LINE-NORTH', 'branch:LINE-SOUTH']);
+  assert.deepEqual(decisionIds(current.scopeDecisions), ['branch:LINE-NORTH', 'branch:LINE-SOUTH']);
   assert.deepEqual(current.proposal.includedBranchIdsA, ['branch:LINE-A-ONLY']);
   assert.deepEqual(current.proposal.includedBranchIdsB, ['branch:LINE-B-ONLY']);
   assert.deepEqual(harness.toasts.at(-1), { message: 'Cleared 1 visible branch(es).', tone: 'success' });
 
   await harness.actions.setGroupIncluded('common', true);
   current = harness.readState();
-  assert.deepEqual(Object.keys(current.scopeDecisions), ['branch:LINE-SOUTH']);
+  assert.deepEqual(decisionIds(current.scopeDecisions), ['branch:LINE-SOUTH']);
 
   harness.actions.setSearch('common', '');
   await harness.actions.setGroupIncluded('common', true);
