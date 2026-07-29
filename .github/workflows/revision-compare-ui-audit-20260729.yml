@@ -1,0 +1,192 @@
+name: Revision Compare UI Audit 2026-07-29
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/revision-compare-ui-audit-20260729.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --no-package-lock
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Create exact launcher host
+        run: |
+          cat > revision-compare-ui-audit-host.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>Revision Compare UI audit</title>
+            <style>
+              html,body{margin:0;min-height:100%;background:#020817;color:#fff;font-family:system-ui,sans-serif}
+              #tiles{padding:24px}.psmap-card{padding:16px;background:#0b1d2e;color:#fff;border:1px solid #294764;border-radius:10px}
+            </style>
+          </head>
+          <body>
+            <div id="tiles"></div>
+            <script type="module">
+              import { installRevisionCompareTile } from './tabs/revision-compare/revision-compare-tab.js';
+              window.__auditToasts = [];
+              installRevisionCompareTile(document.querySelector('#tiles'), { showToast: (...args) => window.__auditToasts.push(args) });
+            </script>
+          </body>
+          </html>
+          HTML
+      - name: Capture UI and metrics
+        run: |
+          mkdir -p ui-audit
+          python3 -m http.server 4173 --bind 127.0.0.1 > ui-audit/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid || true' EXIT
+          cat > /tmp/revision-compare-ui-audit.mjs <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { writeFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const baseUrl = 'http://127.0.0.1:4173/revision-compare-ui-audit-host.html';
+          const fixtureA = resolve('tests/fixtures/revision-compare/rc002-rev-a.json');
+          const fixtureB = resolve('tests/fixtures/revision-compare/rc002-rev-b.json');
+          const viewports = [
+            { id: '1440x900', width: 1440, height: 900 },
+            { id: '1280x720', width: 1280, height: 720 },
+            { id: '1024x768', width: 1024, height: 768 },
+            { id: '981x760', width: 981, height: 760 },
+            { id: '980x760', width: 980, height: 760 },
+            { id: '768x1024', width: 768, height: 1024 },
+            { id: '390x844', width: 390, height: 844 },
+          ];
+          const results = [];
+          const browser = await chromium.launch({ headless: true });
+
+          async function capture(page, viewport, state) {
+            await page.screenshot({ path: `ui-audit/${viewport.id}-${state}.png`, animations: 'disabled' });
+            const metrics = await page.evaluate(({ stateName }) => {
+              const viewport = { width: innerWidth, height: innerHeight };
+              const rect = (element) => {
+                if (!element) return null;
+                const value = element.getBoundingClientRect();
+                return { left: value.left, top: value.top, right: value.right, bottom: value.bottom, width: value.width, height: value.height };
+              };
+              const visible = (element) => {
+                if (!element) return false;
+                const style = getComputedStyle(element); const box = element.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0 && box.width > 0 && box.height > 0;
+              };
+              const descriptor = (element, index) => {
+                const box = element.getBoundingClientRect(); const style = getComputedStyle(element);
+                return {
+                  index,
+                  tag: element.tagName.toLowerCase(),
+                  text: (element.innerText || element.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 160),
+                  classes: element.className || '',
+                  rect: rect(element),
+                  display: style.display,
+                  position: style.position,
+                  overflowX: style.overflowX,
+                  overflowY: style.overflowY,
+                  clientWidth: element.clientWidth,
+                  scrollWidth: element.scrollWidth,
+                  clientHeight: element.clientHeight,
+                  scrollHeight: element.scrollHeight,
+                  clippedViewport: { left: box.left < -0.5, right: box.right > innerWidth + 0.5, top: box.top < -0.5, bottom: box.bottom > innerHeight + 0.5 },
+                  contentOverflowX: element.scrollWidth > element.clientWidth + 1,
+                  contentOverflowY: element.scrollHeight > element.clientHeight + 1,
+                };
+              };
+              const all = [...document.querySelectorAll('.revc-backdrop, .revc-dialog, .revc-dialog *')];
+              const interactive = [...document.querySelectorAll('.revc-dialog button, .revc-dialog input, .revc-dialog label, .revc-dialog summary')]
+                .filter(visible).map(descriptor);
+              const clipped = all.map(descriptor).filter((item) => Object.values(item.clippedViewport).some(Boolean));
+              const hiddenOverflowText = all.map(descriptor).filter((item) => item.text && (item.contentOverflowX || item.contentOverflowY) && (item.overflowX === 'hidden' || item.overflowY === 'hidden' || item.overflowX === 'clip' || item.overflowY === 'clip'));
+              const focusable = [...document.querySelectorAll('.revc-dialog button:not([disabled]), .revc-dialog input:not([disabled]), .revc-dialog summary, .revc-dialog [tabindex]:not([tabindex="-1"])')]
+                .filter(visible).map((element) => ({ tag: element.tagName.toLowerCase(), text: (element.innerText || element.getAttribute('aria-label') || element.getAttribute('data-revc-file') || '').trim().replace(/\s+/g, ' ').slice(0, 120), rect: rect(element) }));
+              const dialog = document.querySelector('.revc-dialog'); const backdrop = document.querySelector('.revc-backdrop');
+              return {
+                state: stateName,
+                viewport,
+                documentOverflow: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight, horizontal: document.documentElement.scrollWidth > innerWidth + 1, vertical: document.documentElement.scrollHeight > innerHeight + 1 },
+                bodyOverflow: { width: document.body.scrollWidth, height: document.body.scrollHeight, horizontal: document.body.scrollWidth > innerWidth + 1, vertical: document.body.scrollHeight > innerHeight + 1 },
+                backdrop: descriptor(backdrop, 0),
+                dialog: descriptor(dialog, 0),
+                bodyRegion: descriptor(document.querySelector('.revc-body'), 0),
+                footer: descriptor(document.querySelector('.revc-dialog > footer'), 0),
+                header: descriptor(document.querySelector('.revc-head'), 0),
+                interactive,
+                clipped,
+                hiddenOverflowText,
+                focusable,
+                toasts: window.__auditToasts ?? [],
+              };
+            }, { stateName: state });
+            results.push({ viewport, state, metrics });
+          }
+
+          async function activate(page, locator, name) {
+            try { await locator.click({ timeout: 5000 }); return { name, method: 'pointer', ok: true }; }
+            catch (error) {
+              try { await locator.focus(); await page.keyboard.press('Enter'); return { name, method: 'keyboard', ok: true, pointerError: error.message }; }
+              catch (keyboardError) { return { name, method: 'failed', ok: false, pointerError: error.message, keyboardError: keyboardError.message }; }
+            }
+          }
+
+          for (const viewport of viewports) {
+            const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+            const page = await context.newPage();
+            const events = [];
+            page.on('console', (message) => events.push({ type: 'console', level: message.type(), text: message.text() }));
+            page.on('pageerror', (error) => events.push({ type: 'pageerror', text: error.message }));
+            await page.goto(baseUrl, { waitUntil: 'networkidle' });
+            await page.locator('[data-revc-open]').click();
+            await page.locator('.revc-dialog').waitFor({ state: 'visible' });
+            await capture(page, viewport, '01-empty');
+
+            await page.locator('[data-revc-file="baseline"]').setInputFiles(fixtureA);
+            await page.locator('[data-slot="baseline"] strong').filter({ hasText: /ready/i }).waitFor({ timeout: 15000 });
+            await page.locator('[data-revc-file="candidate"]').setInputFiles(fixtureB);
+            await page.locator('[data-slot="candidate"] strong').filter({ hasText: /ready/i }).waitFor({ timeout: 15000 });
+            await capture(page, viewport, '02-loaded');
+
+            const approve = page.locator('[data-revc-approve-basis]');
+            const approveResult = await activate(page, approve, 'Approve comparison basis');
+            await page.waitForTimeout(250);
+            await capture(page, viewport, '03-approved');
+
+            let compareResult = null;
+            if (['1440x900', '1024x768', '390x844'].includes(viewport.id)) {
+              compareResult = await activate(page, page.locator('[data-revc-run-compare]'), 'Run visual comparison');
+              try {
+                await page.getByRole('heading', { name: /Guided visual revision review/ }).waitFor({ timeout: 25000 });
+                await capture(page, viewport, '04-review');
+              } catch (error) {
+                events.push({ type: 'review-timeout', text: error.message });
+              }
+            }
+            results.push({ viewport, state: 'interaction-results', approveResult, compareResult, events });
+            await context.close();
+          }
+          await browser.close();
+          await writeFile('ui-audit/revision-compare-ui-audit.json', JSON.stringify(results, null, 2));
+          NODE
+          node /tmp/revision-compare-ui-audit.mjs
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-ui-audit-20260729
+          retention-days: 30
+          if-no-files-found: error
+          path: ui-audit/
