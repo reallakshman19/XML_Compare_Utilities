@@ -8,6 +8,7 @@ export default defineConfig({
     'revision-compare-rc002.spec.mjs',
     'revision-compare-rc003.spec.mjs',
     'revision-compare-rc004.spec.mjs',
+    'revision-compare-layout.spec.mjs',
     'revision-compare-svg-preview.spec.mjs',
     'revision-compare-property-evidence.spec.mjs',
     'revision-compare-property-lifecycle.spec.mjs',
