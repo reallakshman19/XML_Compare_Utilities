@@ -55,9 +55,24 @@ function pipelineSourceText(input, output) {
     identity: output.identity, exportContext: output.exportContext,
     orchestration: output.orchestration });
 }
+function blockerCodes(value) {
+  return Array.isArray(value) ? value.map((code) => String(code || '').trim()).filter(Boolean) : [];
+}
+export function resolvePipelineProjectMigrationBlockers(output = {}) {
+  const blockers = [...new Set([
+    ...blockerCodes(output.orchestration?.blockerCodes),
+    ...blockerCodes(output.exportQualification?.blockerCodes),
+    ...blockerCodes(output.inputXmlDocumentPlan?.blockerCodes),
+  ])];
+  if (output.exportQualification
+    && output.exportQualification.inputXmlAllowed !== true && blockers.length === 0) {
+    blockers.push('PIPELINE_PROJECT_MIGRATION_INPUTXML_NOT_ALLOWED');
+  }
+  return Object.freeze(blockers);
+}
 export async function buildPipelineProjectMigration(input) {
   const output = buildPipelineProjectOutputs(input), plan = output.inputXmlDocumentPlan;
-  const blockers = output.orchestration?.blockerCodes || [];
+  const blockers = resolvePipelineProjectMigrationBlockers(output);
   const bendDiagnostics = output.elasticBends?.diagnostics || {};
   return buildSingleDocumentMigration({
     projectId: PIPELINE_CAD_PROJECT_ID, sourceName: input.sourceName,
@@ -86,7 +101,8 @@ export async function buildPipelineProjectMigration(input) {
       pipingElementCount: plan.counts?.numElt || 0,
       inputXmlBendCount: plan.counts?.numBend || 0,
       configurationBlockerCount: output.configurationPlan.blockerCodes.length,
-      orchestrationBlockerCount: blockers.length,
+      orchestrationBlockerCount: output.orchestration?.blockerCodes?.length || 0,
+      migrationBlockerCount: blockers.length,
       elasticBendCandidateCount: bendDiagnostics.candidateCount || 0,
       elasticBendEmittedCount: bendDiagnostics.emittedCount || 0,
       inputXmlDocumentBlockerCount: plan.blockerCodes?.length || 0,
