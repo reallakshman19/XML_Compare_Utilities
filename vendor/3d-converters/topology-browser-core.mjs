@@ -2903,6 +2903,17 @@ function pointText(point3) {
 function distanceText(value) {
   return Number.isFinite(value) ? Number(value).toFixed(3) : "unbounded";
 }
+function applySupportPositionEvidence(support) {
+  const attributes = support.component?.attributes;
+  if (!attributes || !Object.hasOwn(attributes, "TOPOLOGY_SOURCE_POSITION")) return;
+  const sourcePosition2 = strictPoint(attributes.TOPOLOGY_SOURCE_POSITION);
+  if (!sourcePosition2) {
+    throw new TypeError(`Support ${support.tag || support.id} has invalid TOPOLOGY_SOURCE_POSITION evidence.`);
+  }
+  support.sourcePosition = sourcePosition2;
+  support.positionAuthority = "ATTRIBUTE:TOPOLOGY_SOURCE_POSITION";
+  support.topologyPositionOverride = true;
+}
 function rankedSupportCandidates(edgeSpecs, support, scope) {
   const attached = new Set(support.attachedComponentEntityIds ?? []);
   return edgeSpecs.flatMap((edge, index) => {
@@ -2922,20 +2933,31 @@ function supportProjectionError(support, owning, global, toleranceMm) {
     `Support ${support.tag || support.id} is ${distanceText(owning?.distanceMm)} mm from its owning branch; limit is ${distanceText(toleranceMm)} mm. [${classification}] sourcePath=${support.sourcePaths.join("|")}; branches=${support.sourceBranchNames.join("|")}; positionAuthority=${support.positionAuthority}; position=${pointText(support.sourcePosition)}; nearestOwning=${owningText}; nearestAny=${globalText}.`
   );
 }
+function editedTopologyPosition(support, match, toleranceMm) {
+  if (support.topologyPositionOverride !== true) return null;
+  const projection = pointSegmentDistance(support.position, match.edge.fromPort.position, match.edge.toPort.position);
+  if (projection.distanceMm > toleranceMm) {
+    throw new Error(
+      `Support ${support.tag || support.id} edited topology position is ${distanceText(projection.distanceMm)} mm from carrier ${match.edge.sourcePath}; limit is ${distanceText(toleranceMm)} mm. [TOPOLOGY_EDITED_SUPPORT_POSITION_OFF_CARRIER] position=${pointText(support.position)}; nearest=${pointText(projection.projected)}.`
+    );
+  }
+  return projection;
+}
 function unresolvedReferenceError(support) {
   return new Error(
     `Support ${support.tag || support.id} has unresolved attachment reference(s): ${support.unresolvedAttachmentReferences.join(", ")}. sourcePath=${support.sourcePaths.join("|")}.`
   );
 }
-function acceptMatch(support, match, authority) {
+function acceptMatch(support, match, authority, toleranceMm) {
+  const topologyProjection = editedTopologyPosition(support, match, toleranceMm);
   support.connectionResidual = match.distanceMm;
-  support.edgeParameter = match.parameter;
+  support.edgeParameter = topologyProjection?.parameter ?? match.parameter;
   support.attachmentPosition = match.projected;
   support.attachmentAuthority = authority;
   support.attachmentEdgeSourcePath = match.edge.sourcePath;
   support.attachmentPort = {
     ...support.port,
-    position: match.projected,
+    position: topologyProjection ? { ...support.position } : match.projected,
     sourcePath: `${support.port.sourcePath}:PROJECTED_ATTACHMENT`,
     canonicalPositionAuthority: true,
     attachmentAuthority: authority,
@@ -2945,6 +2967,7 @@ function acceptMatch(support, match, authority) {
 function matchSupportsToEdges(edgeSpecs, supports, toleranceMm) {
   const matches = /* @__PURE__ */ new Map();
   for (const support of supports) {
+    applySupportPositionEvidence(support);
     const referenced = rankedSupportCandidates(edgeSpecs, support, "referenced");
     if (support.attachmentReferences.length && !referenced.length) throw unresolvedReferenceError(support);
     const owning = rankedSupportCandidates(edgeSpecs, support, "owning");
@@ -2954,7 +2977,7 @@ function matchSupportsToEdges(edgeSpecs, supports, toleranceMm) {
       throw supportProjectionError(support, owning[0], global[0], toleranceMm);
     }
     const authority = referenced.length ? `${support.attachmentAuthorities.join("+") || "ATTACHED_COMPONENT_REF/COMPRE"}:${support.attachmentReferences.join("|")}` : "OWNING_BRANCH_PROXIMITY";
-    acceptMatch(support, match, authority);
+    acceptMatch(support, match, authority, toleranceMm);
     matches.set(match.index, [...matches.get(match.index) ?? [], support]);
   }
   return matches;
@@ -3005,8 +3028,10 @@ function splitEdgeSpecsAtSupports(specs, supports, connectivity, topologyToleran
   });
 }
 var _test3 = Object.freeze({
+  applySupportPositionEvidence,
   rankedSupportCandidates,
   supportProjectionError,
+  editedTopologyPosition,
   unresolvedReferenceError
 });
 
