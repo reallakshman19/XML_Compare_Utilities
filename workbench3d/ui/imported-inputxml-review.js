@@ -40,6 +40,14 @@ function excludedDiagnostic(schema) {
   });
 }
 
+export function isGenuineCaesarInputXml(value = '') {
+  const raw = String(value ?? '');
+  const root = raw.match(/<CAESARII\b([^>]*)>/i);
+  return Boolean(root
+    && /\bXML_TYPE\s*=\s*["']Input["']/i.test(root[1])
+    && /<PIPINGMODEL\b/i.test(raw));
+}
+
 export function createImportedInputXmlReviewState(input = {}) {
   const status = STATUSES.has(clean(input.status).toUpperCase())
     ? clean(input.status).toUpperCase()
@@ -85,6 +93,7 @@ export function createImportedInputXmlReviewSource(input = {}) {
     filename: clean(input.filename) || `${side}-imported.input.xml`,
     fingerprint: contentFingerprint(text),
     sourceSchema: detectSchema(text),
+    genuineCaesarInputXml: isGenuineCaesarInputXml(text),
   });
 }
 
@@ -106,6 +115,23 @@ export function startImportedInputXmlReview(sourceInput = {}) {
       source,
       request: null,
       review: createImportedInputXmlReviewState({ side: source.side, status: 'IDLE' }),
+    });
+  }
+  if (source.sourceSchema === XML_SCHEMA_KINDS.INPUT_XML && !source.genuineCaesarInputXml) {
+    return Object.freeze({
+      source,
+      request: null,
+      review: createImportedInputXmlReviewState({
+        side: source.side,
+        status: 'NOT_APPLICABLE',
+        sourceSchema: source.sourceSchema,
+        sourceFilename: source.filename,
+        sourceFingerprint: source.fingerprint,
+        diagnostic: Object.freeze({
+code: 'WORKBENCH_CAESAR_INPUTXML_ROOT_REQUIRED',
+message: 'PIPINGELEMENT markers alone are insufficient; categorized review requires a CAESARII root with XML_TYPE="Input" and PIPINGMODEL.',
+        }),
+      }),
     });
   }
   if (source.sourceSchema !== XML_SCHEMA_KINDS.INPUT_XML) {
@@ -183,6 +209,7 @@ export function finishImportedInputXmlReview(review = {}, result = null) {
 export function importedInputXmlReviewIsCurrent(sourceInput = {}, review = {}) {
   const source = createImportedInputXmlReviewSource(sourceInput);
   return source.sourceSchema === XML_SCHEMA_KINDS.INPUT_XML
+    && source.genuineCaesarInputXml
     && review.status === 'PASS'
     && review.side === source.side
     && review.sourceFingerprint === source.fingerprint
@@ -205,6 +232,7 @@ export function importedInputXmlReviewReceipt(sourceInput = {}, review = {}) {
     source: Object.freeze({
       filename: source.filename,
       schema: source.sourceSchema,
+      genuineCaesarInputXml: source.genuineCaesarInputXml,
       fingerprint: review.sourceFingerprint || source.fingerprint,
       currentFingerprint: source.fingerprint,
       current: importedInputXmlReviewIsCurrent(source, review),
@@ -220,7 +248,8 @@ export function importedInputXmlReviewReceiptJson(sourceInput = {}, review = {})
 }
 
 function ensureRuntime(container) {
-  if (!container.__workbench3dImportedInputXmlReviewRuntime) {
+  if (!container.__workbench3dImportedInputXmlReviewRuntime
+      || container.__workbench3dImportedInputXmlReviewRuntime.closed) {
     container.__workbench3dImportedInputXmlReviewRuntime = {
       client: null,
       closed: false,

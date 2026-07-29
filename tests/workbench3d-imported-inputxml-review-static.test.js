@@ -19,6 +19,9 @@ assert.match(tab, /scheduleWorkbenchImportedInputXmlReview\(container, state, 's
 assert.match(tab, /scheduleWorkbenchImportedInputXmlReview\(container, state, 'target', 0\)/);
 assert.match(tab, /closeImportedInputXmlReviewRuntime\(container\)/);
 
+assert.match(review, /isGenuineCaesarInputXml/);
+assert.match(review, /WORKBENCH_CAESAR_INPUTXML_ROOT_REQUIRED/);
+assert.match(review, /source\.sourceSchema === XML_SCHEMA_KINDS\.INPUT_XML && !source\.genuineCaesarInputXml/);
 assert.match(review, /source\.sourceSchema !== XML_SCHEMA_KINDS\.INPUT_XML/);
 assert.match(review, /WORKBENCH_NODESET_REVIEW_EXCLUDED/);
 assert.match(review, /if \(!started\.request\) return started\.review/);
@@ -27,6 +30,7 @@ assert.match(review, /WORKBENCH_REVIEW_SOURCE_MISMATCH/);
 assert.match(review, /WORKBENCH_REVIEW_ARTIFACT_MISMATCH/);
 assert.match(review, /controller\?\.abort/);
 assert.match(review, /runtime\.client\?\.close\?\.\(\)/);
+assert.match(review, /__workbench3dImportedInputXmlReviewRuntime\.closed/);
 
 const nodeSetBranch = review.slice(
   review.indexOf('export function startImportedInputXmlReview'),

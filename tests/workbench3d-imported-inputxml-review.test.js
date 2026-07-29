@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createInputXmlProducerService } from '../xml-compare/inputxml-producer-api/index.js';
 import {
-  createImportedInputXmlReviewCollection,
+  _test, closeImportedInputXmlReviewRuntime, createImportedInputXmlReviewCollection,
   createImportedInputXmlReviewRequest,
   finishImportedInputXmlReview,
   importedInputXmlReviewIsCurrent,
@@ -14,6 +14,7 @@ import {
 const INPUT_XML = '<?xml version="1.0"?><CAESARII XML_TYPE="Input"><PIPINGMODEL><PIPINGELEMENT FROM_NODE="10" TO_NODE="20" DELTA_X="1000" DELTA_Y="0" DELTA_Z="0" /></PIPINGMODEL></CAESARII>';
 const NODESET_XML = '<?xml version="1.0"?><NodeSet schema="nodeset/v1" purpose="comparison-only"><Node id="N1" x="0" y="0" z="0" /></NodeSet>';
 const CATEGORIZED_XML = '<CategorizedInputXML schemaVersion="3"><Line id="L1" /></CategorizedInputXML>';
+const PIPINGELEMENT_ONLY_XML = '<Root><PIPINGELEMENT FROM_NODE="10" TO_NODE="20" /></Root>';
 
 const sourceStarted = startImportedInputXmlReview({ side: 'source', text: INPUT_XML, filename: 'source.input.xml' });
 assert.equal(sourceStarted.review.status, 'RUNNING');
@@ -67,6 +68,23 @@ const nodeSetRuntimeResult = await runImportedInputXmlReview({
 });
 assert.equal(nodeSetRuntimeResult.status, 'NOT_APPLICABLE');
 assert.equal(container.__workbench3dImportedInputXmlReviewRuntime.client, null, 'NodeSet review must not create a worker client.');
+
+
+const markerOnly = startImportedInputXmlReview({ side: 'source', text: PIPINGELEMENT_ONLY_XML, filename: 'marker-only.xml' });
+assert.equal(markerOnly.request, null);
+assert.equal(markerOnly.review.status, 'NOT_APPLICABLE');
+assert.equal(markerOnly.review.diagnostic.code, 'WORKBENCH_CAESAR_INPUTXML_ROOT_REQUIRED');
+const markerContainer = {};
+const markerState = { importedInputXmlReview: createImportedInputXmlReviewCollection() };
+await runImportedInputXmlReview({ container: markerContainer, state: markerState, side: 'source', text: PIPINGELEMENT_ONLY_XML, filename: 'marker-only.xml' });
+assert.equal(markerContainer.__workbench3dImportedInputXmlReviewRuntime.client, null, 'Non-CAESAR marker XML must not create a worker client.');
+
+const lifecycleContainer = {};
+const firstRuntime = _test.ensureRuntime(lifecycleContainer);
+closeImportedInputXmlReviewRuntime(lifecycleContainer);
+const remountedRuntime = _test.ensureRuntime(lifecycleContainer);
+assert.notEqual(remountedRuntime, firstRuntime, 'Remount must allocate a fresh imported-review runtime.');
+assert.equal(remountedRuntime.closed, false);
 
 const targetRequest = createImportedInputXmlReviewRequest({ side: 'target', text: INPUT_XML, filename: 'target.input.xml' });
 assert.notEqual(targetRequest.requestId, sourceStarted.request.requestId, 'Source and target request identities must remain distinct.');
