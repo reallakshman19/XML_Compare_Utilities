@@ -10,7 +10,8 @@ import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxm
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
 import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profile-refresh-scheduler.js';
 import { createPipelineCanonicalPlanPublicationSession } from './pipeline-3d-model-canonical-plan-publication-session.js';
-import { createPipelineCompletedOutputSession } from './pipeline-3d-model-completed-output-session.js';
+import { createPipelineCompletedOutputSession, PIPELINE_COMPLETED_OUTPUT_REUSED } from './pipeline-3d-model-completed-output-session.js';
+import { createPipelineRenderedSurfaceSession } from './pipeline-3d-model-rendered-surface-session.js';
 import { writePipelineElementHtml, writePipelineElementText, writePipelineElementValue } from './pipeline-3d-model-dom-write.js';
 import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
@@ -128,18 +129,35 @@ function publishCanonicalPlan(dialog, output, instance) {
   if (!output?.canonicalAnalysisSectionPlan) return false;
   return instance.canonicalPlanSession.publish(dialog, output.canonicalAnalysisSectionPlan);
 }
+function outputRenderRequired(dialog, output, instance) {
+  const state = instance.outputSession.snapshot();
+  return state.disposition !== PIPELINE_COMPLETED_OUTPUT_REUSED
+    || !instance.renderedSurfaceSession.matches(dialog, output);
+}
+function renderResolvedOutput(dialog, output, instance) {
+  const required = outputRenderRequired(dialog, output, instance);
+  instance.rendering = true;
+  try {
+    if (required) renderOutputs(dialog, output, instance);
+    renderKeyPlan(dialog, output, instance);
+  } finally { instance.rendering = false; }
+  const legacyError = find(dialog, '[data-p3d="error-message"]');
+  if (legacyError) legacyError.style.display = 'none';
+  if (required) {
+    setWarnings(dialog, instance, output.warnings || []);
+    instance.renderedSurfaceSession.capture(dialog, output);
+  }
+  return required;
+}
 function run(dialog, instance) {
   instance.refreshScheduler?.cancel();
   try {
     const input = buildInput(dialog), output = instance.outputSession.resolve(input);
     instance.output = output; publishCanonicalPlan(dialog, output, instance);
-    instance.rendering = true;
-    try { renderOutputs(dialog, output, instance); renderKeyPlan(dialog, output, instance); }
-    finally { instance.rendering = false; }
-    const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
-    setWarnings(dialog, instance, output.warnings || []); return output;
+    renderResolvedOutput(dialog, output, instance); return output;
   } catch (error) { instance.output = null; instance.outputSession.reset();
-    instance.artifactSession.reset(); logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
+    instance.renderedSurfaceSession.reset(); instance.artifactSession.reset();
+    logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
 }
 function saveTextFile(filename, value, mime) {
   const blob = new Blob([value], { type: mime }), url = URL.createObjectURL(blob);
@@ -186,7 +204,8 @@ function onInput(dialog, instance, event) {
   if (repairPreviewInput(dialog, event)) return;
   const target = event.target instanceof Element ? event.target : null;
   if (!instance.rendering && pipelineSourceInput(target)) {
-    instance.output = null; instance.outputSession.reset(); instance.artifactSession.reset();
+    instance.output = null; instance.outputSession.reset(); instance.renderedSurfaceSession.reset();
+    instance.artifactSession.reset();
   }
   if (!instance.rendering && target?.matches('[data-p3d-split$="-raw"]')) scheduleRefresh(instance);
 }
@@ -206,6 +225,7 @@ function createInstance(dialog) {
     artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null,
     canonicalPlanSession: createPipelineCanonicalPlanPublicationSession(),
     outputSession: createPipelineCompletedOutputSession(buildPipelineProjectOutputs),
+    renderedSurfaceSession: createPipelineRenderedSurfaceSession(),
     keyPlanSession: createPipelineKeyPlanRenderSession(paintKeyPlanCanvas) };
   instance.refreshScheduler = createPipelineProfileRefreshScheduler(() => run(dialog, instance));
   return instance;
@@ -218,16 +238,17 @@ export function installPipelineProfilePropagation(dialog) {
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('pipeline-engineering-configuration-apply', () => {
     instance.refreshScheduler.cancel(); instance.output = null; instance.outputSession.reset();
-    instance.artifactSession.reset();
+    instance.renderedSurfaceSession.reset(); instance.artifactSession.reset();
   },
     { signal: controller.signal });
   instance.destroy = () => {
     controller.abort(); instance.refreshScheduler.destroy(); instance.outputSession.reset();
-    instance.artifactSession.reset(); instance.canonicalPlanSession.reset(); instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
+    instance.renderedSurfaceSession.reset(); instance.artifactSession.reset();
+    instance.canonicalPlanSession.reset(); instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
   };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
   hasAnyProfileRaw, resolveProfileRawInput, profileRawState, pipelineSourceInput,
   rawTextFromPreview, renderTsvGrid: buildPipelineDerivedTablePreviewHtml,
-  scheduleRefresh, setWarnings, publishCanonicalPlan });
+  scheduleRefresh, setWarnings, publishCanonicalPlan, outputRenderRequired, renderResolvedOutput });
