@@ -115,6 +115,25 @@ function pathEntries(value, path = '', owner = null, entities = []) {
   return output;
 }
 
+function reboundEntityId(entry, side, sourceDocumentId) {
+  return entry.entityKind === 'COMPONENT'
+    ? `record:${sideCode(side)}:${sourceDocumentId}:${entry.projectionPath}`
+    : entry.entityId;
+}
+function reboundIndexes(snapshot, side, sourceDocumentId) {
+  const ids = new Map(snapshot.entityIndex.map((entry) => [entry.entityId, reboundEntityId(entry, side, sourceDocumentId)]));
+  const entityIndex = Object.freeze(snapshot.entityIndex.map((entry) => deepFreeze({
+    ...entry,
+    entityId: ids.get(entry.entityId),
+    parentEntityId: entry.parentEntityId ? (ids.get(entry.parentEntityId) ?? entry.parentEntityId) : null,
+  })));
+  const pathIndex = Object.freeze(snapshot.pathIndex.map((entry) => deepFreeze({
+    ...entry,
+    entityId: entry.entityId ? (ids.get(entry.entityId) ?? entry.entityId) : null,
+  })));
+  return { entityIndex, pathIndex };
+}
+
 export async function createRevisionCompareJsonDocumentSnapshot(input, cryptoRef) {
   const side = cleanText(input?.side).toUpperCase();
   const sourceDocumentId = cleanText(input?.sourceDocumentId);
@@ -133,10 +152,22 @@ export async function createRevisionCompareJsonDocumentSnapshot(input, cryptoRef
   assertJsonSafe(snapshot, REVISION_COMPARE_JSON_DOCUMENT_SCHEMA); return snapshot;
 }
 
+export function rebindRevisionCompareJsonDocumentSnapshot(snapshot, sideValue, documentIdValue) {
+  if (snapshot?.schema !== REVISION_COMPARE_JSON_DOCUMENT_SCHEMA) throw new TypeError('A lossless revision snapshot is required.');
+  const side = cleanText(sideValue).toUpperCase();
+  const sourceDocumentId = cleanText(documentIdValue);
+  if (!REVISION_COMPARE_JSON_SIDES.includes(side)) throw new TypeError('Snapshot side must be REV_A or REV_B.');
+  if (!sourceDocumentId) throw new TypeError('Snapshot sourceDocumentId is required.');
+  const indexes = reboundIndexes(snapshot, side, sourceDocumentId);
+  const rebound = deepFreeze({ ...snapshot, side, sourceDocumentId, ...indexes });
+  assertJsonSafe(rebound, REVISION_COMPARE_JSON_DOCUMENT_SCHEMA);
+  return rebound;
+}
+
 export function revisionCompareJsonSnapshotMatchesDocument(snapshot, document) {
   return Boolean(snapshot?.schema === REVISION_COMPARE_JSON_DOCUMENT_SCHEMA && document
     && snapshot.sourceDocumentId === document.documentId && snapshot.sourceContentSha256 === document.sourceHash
     && snapshot.fileName === document.fileName && snapshot.errors?.length === 0);
 }
 
-export const _test = Object.freeze({ appendPointer, componentCollection, rootDescriptor, strongestIdentity });
+export const _test = Object.freeze({ appendPointer, componentCollection, reboundIndexes, rootDescriptor, strongestIdentity });
