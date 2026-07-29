@@ -82,10 +82,11 @@ function assertRecoveryMarkup() {
   assert.doesNotMatch(revisionScopeMarkup(stateFixture(true), preflightFixture()), /data-revc-resolve-visual-metadata/);
 }
 
-function focusable(value = '', disabled = false) {
+function focusable(value = '', disabled = false, missing = false) {
   return {
     value, disabled, focusCalls: [], scrollCalls: [],
     getAttribute: () => null,
+    hasAttribute: (name) => missing && name === 'data-revc-visual-missing',
     focus(options) { this.focusCalls.push(options); },
     scrollIntoView(options) { this.scrollCalls.push(options); },
   };
@@ -93,7 +94,7 @@ function focusable(value = '', disabled = false) {
 
 function navigationRoot(reduced = false) {
   const unit = focusable('MM');
-  const frame = focusable('');
+  const frame = focusable('PLANT', false, true);
   const axis = focusable('');
   const approval = focusable('', true);
   const section = focusable();
@@ -118,7 +119,7 @@ function assertDirectFocus() {
   const elements = navigationRoot();
   assert.equal(focusRevisionVisualMetadata(elements.root), true);
   assert.equal(elements.frame.focusCalls.length, 1);
-  assert.equal(elements.unit.focusCalls.length, 0);
+  assert.equal(elements.axis.focusCalls.length, 0);
   assert.deepEqual(elements.section.scrollCalls[0], { block: 'center', behavior: 'smooth' });
   assert.equal(focusRevisionBasisApproval(elements.root), false);
   elements.approval.disabled = false;
