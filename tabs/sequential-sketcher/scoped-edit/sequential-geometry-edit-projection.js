@@ -1,13 +1,7 @@
 /** Deterministic effective scene and topology projection from geometry journal authority. */
-import {
-  createEngineeringScene,
-  validateEngineeringScene,
-} from '../../../core/engineering-scene/index.js';
+import { createEngineeringScene, validateEngineeringScene } from '../../../core/engineering-scene/index.js';
 import { translateEngineeringGeometry } from '../../../core/engineering-svg/engineering-svg-precision-geometry.js';
-import {
-  sameSequentialContractValue,
-  sequentialSemanticFingerprint,
-} from './sequential-command-contracts.js';
+import { sameSequentialContractValue, sequentialSemanticFingerprint } from './sequential-command-contracts.js';
 import {
   assertSequentialGeometryEditJournal,
   SEQUENTIAL_GEOMETRY_EDIT_ENTRY_SCHEMA,
@@ -19,6 +13,12 @@ import {
   validateSequentialStretchEntryPairs,
   validateSequentialStretchTopology,
 } from './sequential-node-stretch-projection.js';
+import {
+  projectSequentialRotationConnections,
+  projectSequentialRotationNode,
+  validateSequentialRotationEntryPairs,
+  validateSequentialRotationTopology,
+} from './sequential-rotation-projection.js';
 
 export const SEQUENTIAL_GEOMETRY_EDIT_PROJECTION_REJECTION = Object.freeze({
   ENTRY_STALE: 'SEQUENTIAL_GEOMETRY_EDIT_ENTRY_STALE',
@@ -42,10 +42,9 @@ function assertEntry(entry) {
   return entry;
 }
 function assertPosition(before, after, expected, label) {
-  if (!sameSequentialContractValue(expected, after?.position)) {
-    fail(SEQUENTIAL_GEOMETRY_EDIT_PROJECTION_REJECTION.TRANSFORM_INVALID,
-      `${label} after position differs from canonical regeneration.`);
-  }
+  if (!sameSequentialContractValue(expected, after?.position)) fail(
+    SEQUENTIAL_GEOMETRY_EDIT_PROJECTION_REJECTION.TRANSFORM_INVALID,
+    `${label} after position differs from canonical regeneration.`);
 }
 function entryMaps(entry) {
   return {
@@ -77,13 +76,15 @@ function validateMovePairs(entry, maps) {
 function validateEntryPairs(entry, maps) {
   if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.MOVE_COMPONENT) {
     validateMovePairs(entry, maps);
-  } else {
+  } else if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE) {
     validateSequentialStretchEntryPairs(entry, maps);
+  } else {
+    validateSequentialRotationEntryPairs(entry, maps);
   }
 }
 function allowedComponents(entry) {
-  return new Set(entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE
-    ? entry.affectedComponentIds : [entry.componentId]);
+  return new Set(entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.MOVE_COMPONENT
+    ? [entry.componentId] : entry.affectedComponentIds);
 }
 function projectSceneEntry(scene, entryInput) {
   const entry = assertEntry(entryInput); const maps = entryMaps(entry);
@@ -100,13 +101,11 @@ function projectSceneEntry(scene, entryInput) {
     return {
       ...entity,
       geometry: maps.afterParts.get(entity.id).geometry,
-      metadata: {
-        ...entity.metadata,
-        sequentialGeometryEdit: {
-          entryId: entry.entryId, operationId: entry.operationId,
-          type: entry.type, componentId: entry.componentId, nodeId: entry.nodeId || null,
-        },
-      },
+      metadata: { ...entity.metadata, sequentialGeometryEdit: {
+        entryId: entry.entryId, operationId: entry.operationId, type: entry.type,
+        componentId: entry.componentId, nodeId: entry.nodeId || null,
+        scope: entry.scope || null,
+      } },
     };
   });
   if (maps.beforeParts.size !== entities.filter((row) => maps.beforeParts.has(row.id)).length) {
@@ -122,22 +121,16 @@ export function applySequentialGeometryEditJournalToScene(sceneInput, journalInp
     ...scene,
     sceneId: String(options.sceneId || scene.sceneId),
     revision: options.revision || scene.revision,
-    metadata: {
-      ...scene.metadata,
-      sequentialGeometryEdit: {
-        journalHeadFingerprint: journalInput.headFingerprint,
-        entryCount: journalInput.entries?.length || 0,
-      },
-    },
+    metadata: { ...scene.metadata, sequentialGeometryEdit: {
+      journalHeadFingerprint: journalInput.headFingerprint,
+      entryCount: journalInput.entries?.length || 0,
+    } },
   });
 }
 function currentTopologyMaps(snapshot) {
-  return {
-    components: byId(snapshot.components, 'componentId'),
+  return { components: byId(snapshot.components, 'componentId'),
     parts: byId(snapshot.geometryParts, 'geometryPartId'),
-    ports: byId(snapshot.ports, 'portId'),
-    nodes: byId(snapshot.nodes, 'nodeId'),
-  };
+    ports: byId(snapshot.ports, 'portId'), nodes: byId(snapshot.nodes, 'nodeId') };
 }
 function validateCurrentParts(maps, evidence, components) {
   for (const before of evidence.beforeParts.values()) {
@@ -179,8 +172,10 @@ function validateTopologyEntry(snapshot, entryInput, maps) {
   validateEntryPairs(entry, evidence);
   if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.MOVE_COMPONENT) {
     validateMoveTopology(snapshot, entry, maps, evidence);
-  } else {
+  } else if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE) {
     validateSequentialStretchTopology(snapshot, entry, maps, evidence);
+  } else {
+    validateSequentialRotationTopology(snapshot, entry, maps, evidence);
   }
   return evidence;
 }
@@ -188,32 +183,32 @@ function projectedNodes(snapshot, entry, evidence) {
   if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE) {
     return snapshot.nodes.map((row) => projectSequentialStretchNode(row, evidence));
   }
-  return snapshot.nodes.map((row) => (
-    evidence.afterNodes.has(row.nodeId)
-      ? { ...row, position: evidence.afterNodes.get(row.nodeId).position,
-        positionProvenance: 'GEOMETRY_EDIT_JOURNAL' }
-      : row
-  ));
+  if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.ROTATE_SUBGRAPH) {
+    return snapshot.nodes.map((row) => projectSequentialRotationNode(row, evidence));
+  }
+  return snapshot.nodes.map((row) => (evidence.afterNodes.has(row.nodeId)
+    ? { ...row, position: evidence.afterNodes.get(row.nodeId).position,
+      positionProvenance: 'GEOMETRY_EDIT_JOURNAL' } : row));
+}
+function projectedConnections(snapshot, entry, evidence) {
+  if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE) {
+    return projectSequentialStretchConnections(snapshot.committedConnections, evidence);
+  }
+  if (entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.ROTATE_SUBGRAPH) {
+    return projectSequentialRotationConnections(snapshot.committedConnections, evidence);
+  }
+  return snapshot.committedConnections;
 }
 function projectTopologyEntry(snapshot, entry) {
   const evidence = validateTopologyEntry(snapshot, entry, currentTopologyMaps(snapshot));
-  const stretched = entry.type === SEQUENTIAL_GEOMETRY_EDIT_TYPE.STRETCH_NODE;
   return {
     ...snapshot,
-    geometryParts: snapshot.geometryParts.map((row) => (
-      evidence.afterParts.has(row.geometryPartId)
-        ? { ...row, geometry: evidence.afterParts.get(row.geometryPartId).geometry }
-        : row
-    )),
-    ports: snapshot.ports.map((row) => (
-      evidence.afterPorts.has(row.portId)
-        ? { ...row, position: evidence.afterPorts.get(row.portId).position }
-        : row
-    )),
+    geometryParts: snapshot.geometryParts.map((row) => (evidence.afterParts.has(row.geometryPartId)
+      ? { ...row, geometry: evidence.afterParts.get(row.geometryPartId).geometry } : row)),
+    ports: snapshot.ports.map((row) => (evidence.afterPorts.has(row.portId)
+      ? { ...row, position: evidence.afterPorts.get(row.portId).position } : row)),
     nodes: projectedNodes(snapshot, entry, evidence),
-    committedConnections: stretched
-      ? projectSequentialStretchConnections(snapshot.committedConnections, evidence)
-      : snapshot.committedConnections,
+    committedConnections: projectedConnections(snapshot, entry, evidence),
   };
 }
 export function applySequentialGeometryEditJournalToTopology(snapshotInput, journalInput) {

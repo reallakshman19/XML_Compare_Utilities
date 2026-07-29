@@ -2,8 +2,9 @@
 import { createVisualGeometryModelV2 } from '../../../contracts/visual-geometry-model.js';
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
 import { composeSequentialSupportMoveDraftScene } from './sequential-draft-edit-support-move-draft.js';
-import { composeSequentialSingleEntityMoveDraftScene } from './sequential-single-entity-move-draft.js';
 import { composeSequentialNodeStretchDraftScene } from './sequential-node-stretch-draft.js';
+import { composeSequentialRotationDraftScene } from './sequential-rotation-draft.js';
+import { composeSequentialSingleEntityMoveDraftScene } from './sequential-single-entity-move-draft.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 import { assertSequentialScopedEditSceneAncestry } from './sequential-scoped-edit-scene-adapter.js';
 
@@ -22,7 +23,6 @@ const OVERLAY_STYLE = Object.freeze({
   ghost: Object.freeze({ colorInt: 0x94a3b8, radiusMm: 7, markerKind: 'NODE' }),
   draft: Object.freeze({ colorInt: 0xfacc15, radiusMm: 10, markerKind: 'NODE' }),
 });
-
 function xyz(point) {
   return [point?.x, point?.y, point?.z].every(Number.isFinite)
     ? [point.x, point.y, point.z] : null;
@@ -78,10 +78,8 @@ function marker(entity) {
   if (entity.geometry?.kind !== 'point') return null;
   const position = xyz(entity.geometry.position);
   if (!position) return null;
-  const visual = style(entity);
-  const entityCategory = category(entity);
-  const overlay = overlayType(entity);
-  const label = overlayLabel(entity, overlay, entityCategory);
+  const visual = style(entity); const entityCategory = category(entity);
+  const overlay = overlayType(entity); const label = overlayLabel(entity, overlay, entityCategory);
   return {
     primitiveId: `ssk3d:marker:${entity.id}`, objectId: entity.id, nodeId: entity.id,
     kind: visual.markerKind, position,
@@ -102,15 +100,16 @@ function bounds(segmentsInput, markersInput) {
   };
 }
 function composedScene(authoritative, input) {
-  const supportScene = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
-  const moveScene = composeSequentialSingleEntityMoveDraftScene(supportScene, input.moveDraft);
-  return composeSequentialNodeStretchDraftScene(moveScene, input.nodeStretchDraft);
+  const support = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
+  const move = composeSequentialSingleEntityMoveDraftScene(support, input.moveDraft);
+  const stretch = composeSequentialNodeStretchDraftScene(move, input.nodeStretchDraft);
+  return composeSequentialRotationDraftScene(stretch, input.rotationDraft);
 }
 function combinedDraftId(input) {
   return [input.draft?.operationId, input.moveDraft?.operationId,
-    input.nodeStretchDraft?.operationId].filter(Boolean).join(':') || null;
+    input.nodeStretchDraft?.operationId, input.rotationDraft?.operationId]
+    .filter(Boolean).join(':') || null;
 }
-
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
   const authoritative = assertSequentialScopedEditSceneAncestry(
@@ -119,23 +118,18 @@ export function createSequentialScopedEditVisualModel(input = {}) {
   const scene = composedScene(authoritative, input);
   const visible = scene.entities.filter((entity) => entity.visible !== false);
   const fitVisible = visible.filter((entity) => category(entity) !== 'reversalCandidate');
-  const segmentRows = visible.flatMap(segments);
-  const markerRows = visible.map(marker).filter(Boolean);
-  const fitSegments = fitVisible.flatMap(segments);
-  const fitMarkers = fitVisible.map(marker).filter(Boolean);
+  const segmentRows = visible.flatMap(segments); const markerRows = visible.map(marker).filter(Boolean);
+  const fitSegments = fitVisible.flatMap(segments); const fitMarkers = fitVisible.map(marker).filter(Boolean);
   const draftId = combinedDraftId(input);
   return createVisualGeometryModelV2({
     modelId: `sequential-draft-edit:${readModel.authorityId}${draftId ? `:${draftId}` : ''}`,
     documentId: `sequential-document:${readModel.branchId}`,
     revisionId: draftId ? `${readModel.authorityId}:${draftId}` : readModel.authorityId,
-    unit: scene.coordinateSystem.unit,
-    coordinateFrame: scene.coordinateSystem.frame,
-    verticalAxis: scene.coordinateSystem.verticalAxis,
-    origin: [0, 0, 0], segments: segmentRows, markers: markerRows,
-    bounds: bounds(fitSegments, fitMarkers),
+    unit: scene.coordinateSystem.unit, coordinateFrame: scene.coordinateSystem.frame,
+    verticalAxis: scene.coordinateSystem.verticalAxis, origin: [0, 0, 0],
+    segments: segmentRows, markers: markerRows, bounds: bounds(fitSegments, fitMarkers),
   });
 }
-
 export const _test = Object.freeze({
   xyz, category, overlayType, componentKind, style, segments, marker, bounds,
 });

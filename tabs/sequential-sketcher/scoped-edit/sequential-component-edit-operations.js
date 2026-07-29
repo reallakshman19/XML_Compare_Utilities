@@ -1,5 +1,6 @@
-/** Explicit operation-mode owner for confirmed-component move and node stretch workflows. */
+/** Explicit operation-mode owner for confirmed-component move, stretch and rotation workflows. */
 import { createSequentialNodeStretchFeature } from './sequential-node-stretch-feature.js';
+import { createSequentialRotationFeature } from './sequential-rotation-feature.js';
 import { createSequentialSingleEntityMoveFeature } from './sequential-single-entity-move-feature.js';
 
 export const SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA =
@@ -7,6 +8,7 @@ export const SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA =
 export const SEQUENTIAL_COMPONENT_EDIT_MODE = Object.freeze({
   MOVE_COMPONENT: 'MOVE_COMPONENT',
   STRETCH_NODE: 'STRETCH_NODE',
+  ROTATE_SUBGRAPH: 'ROTATE_SUBGRAPH',
 });
 
 function requiredFunction(value, label) {
@@ -23,6 +25,7 @@ function markup() {
 <span>Component operation</span>
 <button type="button" data-ssk-component-edit-mode-value="MOVE_COMPONENT">Move component</button>
 <button type="button" data-ssk-component-edit-mode-value="STRETCH_NODE">Stretch node</button>
+<button type="button" data-ssk-component-edit-mode-value="ROTATE_SUBGRAPH">Rotate</button>
 </section>`;
 }
 function install(root) {
@@ -58,32 +61,32 @@ function render(state) {
     button.style.outline = selected ? '2px solid #38bdf8' : 'none';
   });
 }
+function childActive(state, mode) { return state.active && state.mode === mode; }
 function syncActivity(state) {
-  state.move.setActive(state.active && state.mode === SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT);
-  state.stretch.setActive(state.active && state.mode === SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE);
+  state.move.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT));
+  state.stretch.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE));
+  state.rotation.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.ROTATE_SUBGRAPH));
   render(state);
+}
+function clear(state, reason = 'component-edit-cleared') {
+  state.move.clearTarget(reason); state.stretch.clearTarget(reason);
+  state.rotation.clearTarget(reason); return null;
 }
 function setMode(state, value) {
   if (state.destroyed) throw new Error('Component edit operations are destroyed.');
   const mode = modeValue(value);
   if (mode === state.mode) return mode;
-  state.move.clearTarget('component-operation-mode-change');
-  state.stretch.clearTarget('component-operation-mode-change');
-  state.mode = mode;
-  syncActivity(state);
-  state.onModeChanged(mode);
-  return mode;
+  clear(state, 'component-operation-mode-change'); state.mode = mode;
+  syncActivity(state); state.onModeChanged(mode); return mode;
 }
 function select(state, objectId) {
   if (state.mode === SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE) {
     return { mode: state.mode, target: state.stretch.select(objectId) };
   }
+  if (state.mode === SEQUENTIAL_COMPONENT_EDIT_MODE.ROTATE_SUBGRAPH) {
+    return { mode: state.mode, target: state.rotation.select(objectId) };
+  }
   return { mode: state.mode, target: state.move.select(objectId) };
-}
-function clear(state, reason = 'component-edit-cleared') {
-  state.move.clearTarget(reason);
-  state.stretch.clearTarget(reason);
-  return null;
 }
 function bind(state) {
   state.onClick = (event) => {
@@ -96,58 +99,53 @@ function bind(state) {
 }
 function destroy(state) {
   if (state.destroyed) return false;
-  state.destroyed = true;
-  state.panel.removeEventListener('click', state.onClick, true);
-  state.move.destroy(); state.stretch.destroy(); state.panel.remove();
+  state.destroyed = true; state.panel.removeEventListener('click', state.onClick, true);
+  state.move.destroy(); state.stretch.destroy(); state.rotation.destroy(); state.panel.remove();
   return true;
 }
 function createMove(options) {
   return createSequentialSingleEntityMoveFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
     readViewer: options.readViewer, onDraftChanged: options.onDraftChanged,
-    geometryEditBoundary: options.geometryEditBoundary,
-    applicationNow: options.applicationNow,
+    geometryEditBoundary: options.geometryEditBoundary, applicationNow: options.applicationNow,
   });
 }
 function createStretch(options) {
   return createSequentialNodeStretchFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
-    onDraftChanged: options.onDraftChanged,
-    geometryEditBoundary: options.geometryEditBoundary,
+    onDraftChanged: options.onDraftChanged, geometryEditBoundary: options.geometryEditBoundary,
     applicationNow: options.applicationNow,
   });
 }
-
+function createRotation(options) {
+  return createSequentialRotationFeature({
+    root: options.root, readScene: options.readScene, readModel: options.readModel,
+    onDraftChanged: options.onDraftChanged, geometryEditBoundary: options.geometryEditBoundary,
+    applicationNow: options.applicationNow,
+  });
+}
 export function createSequentialComponentEditOperations(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Component edit operations require a root.');
   const state = {
-    panel: install(root),
-    mode: SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT,
-    active: false, destroyed: false, move: null, stretch: null, onClick: null,
+    panel: install(root), mode: SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT,
+    active: false, destroyed: false, move: null, stretch: null, rotation: null, onClick: null,
     onModeChanged: requiredFunction(options.onModeChanged || (() => {}), 'onModeChanged'),
   };
-  const shared = {
-    ...options,
-    onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged'),
-  };
-  state.move = createMove(shared);
-  state.stretch = createStretch(shared);
-  bind(state); syncActivity(state);
+  const shared = { ...options,
+    onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged') };
+  state.move = createMove(shared); state.stretch = createStretch(shared);
+  state.rotation = createRotation(shared); bind(state); syncActivity(state);
   return Object.freeze({
     schema: SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; syncActivity(state); },
-    setMode: (value) => setMode(state, value),
-    select: (objectId) => select(state, objectId),
-    clear: (reason) => clear(state, reason),
-    invalidate: (reason) => clear(state, reason || 'authority-change'),
-    getMoveDraft: state.move.getDraft,
-    getStretchDraft: state.stretch.getDraft,
-    getState: () => Object.freeze({
-      active: state.active, mode: state.mode,
+    setMode: (value) => setMode(state, value), select: (objectId) => select(state, objectId),
+    clear: (reason) => clear(state, reason), invalidate: (reason) => clear(state, reason || 'authority-change'),
+    getMoveDraft: state.move.getDraft, getStretchDraft: state.stretch.getDraft,
+    getRotationDraft: state.rotation.getDraft,
+    getState: () => Object.freeze({ active: state.active, mode: state.mode,
       move: state.move.getState(), stretch: state.stretch.getState(),
-      destroyed: state.destroyed,
-    }),
+      rotation: state.rotation.getState(), destroyed: state.destroyed }),
     destroy: () => destroy(state),
   });
 }
