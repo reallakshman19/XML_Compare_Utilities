@@ -36,8 +36,8 @@ import { createRevisionCompareTransferWorkspaceBindings } from './revision-trans
 
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-swap-revisions]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
-  '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]',
-  '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
+  '[data-revc-apply-visual-metadata]', '[data-revc-clear-visual-metadata]', '[data-revc-run-compare]', '[data-revc-cancel-comparison]',
+  '[data-revc-download-session]', '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
   '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
 ]);
 function defaultNow() { return new Date().toISOString(); }
@@ -82,6 +82,8 @@ function actionClick(actions, target) {
   const button = target.closest('button'); if (!button) return;
   if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
   if (button.hasAttribute('data-revc-swap-revisions')) actions.swapRevisions();
+  if (button.hasAttribute('data-revc-apply-visual-metadata')) actions.applyVisualMetadata();
+  if (button.hasAttribute('data-revc-clear-visual-metadata')) actions.clearVisualMetadata();
   if (button.dataset.revcGroup) actions.setGroupIncluded(button.dataset.revcGroup, button.dataset.revcInclude === 'all');
   if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
@@ -196,7 +198,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     onError: (error) => options.showToast?.(`${revisionCompareViewerBackendLabel(viewerAdapter?.evidence().viewerBackend)} unavailable: ${error.message}`, 'warning'),
   });
   const propertyInspector = options.propertyInspector ?? createRevisionComparePropertyInspector(options.propertyInspectorOptions);
-  function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal); }
+  function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal, state.visualMetadataDeclaration); }
   async function syncViewer(sequence) {
     if (destroyed || sequence !== renderSequence) return;
     if (!state.compare.reviewVisible || !state.compare.audit) { if (!state.compare.audit) viewerAdapter.clear(); return; }
@@ -218,7 +220,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   async function downloadEvidencePackage() {
     const captured = state;
     try {
-      const artifact = await createRevisionCompareEvidencePackage(captured, revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal), cryptoRef);
+      const currentPreflight = revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal, captured.visualMetadataDeclaration);
+      const artifact = await createRevisionCompareEvidencePackage(captured, currentPreflight, cryptoRef);
       downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact); options.showToast?.('Evidence package downloaded.', 'success');
     } catch (error) { reportFailure(root, options, error); }
   }
@@ -226,7 +229,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (signOffBusy) return; const captured = state; const input = revisionCompareSignOffInput(root); signOffBusy = true; actions.syncSignOffControls();
     try {
       if (!input.confirmed) throw new Error('Confirm the fixed completion declaration before creating the report.');
-      const report = await createRevisionCompareSignOffReport(captured, revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal), input, now(), cryptoRef);
+      const currentPreflight = revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal, captured.visualMetadataDeclaration);
+      const report = await createRevisionCompareSignOffReport(captured, currentPreflight, input, now(), cryptoRef);
       if (destroyed) return;
       if (!revisionCompareSignOffAuthorityMatches(captured, state)) throw new Error('Review evidence changed while the completion report was being created. Create the declaration again.');
       state = setWorkspaceSignOffReport(state, report); render(); options.showToast?.('Completion declaration created.', 'success');

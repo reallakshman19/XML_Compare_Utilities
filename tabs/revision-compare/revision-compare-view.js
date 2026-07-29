@@ -3,6 +3,7 @@ import { revisionScopeMarkup } from './revision-scope-view.js';
 import { revisionCompareReviewMarkup } from './revision-compare-review-view.js';
 import { revisionVisualReadiness } from './revision-compare-readiness.js';
 import { revisionCompareSwapReadiness } from './revision-compare-intake-swap.js';
+import { revisionVisualMetadataDeclarationModel } from './revision-visual-metadata-declaration.js';
 import { REVISION_REVIEW_STYLES } from './revision-review-styles.js';
 import { REVISION_DECISION_STYLES } from './revision-decision-styles.js';
 import { reviewSessionControlsMarkup } from './revision-review-view.js';
@@ -49,6 +50,16 @@ function compatibilityLine(item) { return `<li data-status="${item.status.toLowe
 function preflightMarkup(preflight) {
   return `<section class="revc-preflight"><header><div><span>COMPATIBILITY PREFLIGHT</span><h2>Trusted comparison boundary</h2></div><strong data-status="${escapeHtml(preflight.status.toLowerCase())}">${escapeHtml(preflight.status)}</strong></header><ul class="revc-compatibility">${compatibilityLine(preflight.compatibility.unitCompatibility)}${compatibilityLine(preflight.compatibility.coordinateFrameCompatibility)}${compatibilityLine(preflight.compatibility.verticalAxisCompatibility)}</ul><div class="revc-preflight-messages">${messageList('Blocking', preflight.blockers, 'blocker')}${messageList('Warnings', preflight.warnings, 'warning')}${messageList('Information', preflight.notes, 'note')}</div></section>`;
 }
+function axisOptions(value) {
+  return ['X', 'Y', 'Z'].map((axis) => `<option value="${axis}" ${value === axis ? 'selected' : ''}>${axis}</option>`).join('');
+}
+function visualMetadataDeclarationMarkup(state) {
+  const model = revisionVisualMetadataDeclarationModel(state); if (!model.visible) return '';
+  const values = model.declaration ?? model.defaults; const applied = model.status === 'APPLIED'; const blocked = model.status === 'BLOCKED';
+  const disabled = applied || blocked ? 'disabled' : '';
+  const unknown = model.unknownFields?.length ? `Missing source fields: ${model.unknownFields.join(', ')}.` : '';
+  return `<section class="revc-preflight" data-revc-visual-metadata><header><div><span>VISUAL COORDINATE EVIDENCE</span><h2>Declare visual coordinate system</h2><p>Use only when the staged files omit required metadata. This declaration is bound to the current file hashes and does not modify either source.</p></div><strong data-status="${model.status.toLowerCase()}">${model.status}</strong></header>${unknown ? `<p>${escapeHtml(unknown)}</p>` : ''}${messageList('Declaration blockers', model.blockers, 'blocker')}<div class="revc-scope-summary"><label>Unit<input type="text" data-revc-visual-unit value="${escapeHtml(values.unit)}" placeholder="e.g. mm" ${disabled}></label><label>Coordinate frame<input type="text" data-revc-visual-frame value="${escapeHtml(values.coordinateFrame)}" placeholder="e.g. PLANT" ${disabled}></label><label>Vertical axis<select data-revc-visual-axis ${disabled}><option value="">Select axis</option>${axisOptions(values.verticalAxis)}</select></label></div><div class="revc-actions">${applied ? '<button type="button" data-revc-clear-visual-metadata>Clear declaration</button>' : `<button type="button" class="revc-primary" data-revc-apply-visual-metadata ${blocked ? 'disabled' : ''}>Apply declaration</button>`}</div>${applied ? `<p>Declaration <b>${escapeHtml(model.declaration.declarationId)}</b> is active. Reapprove the comparison basis if it is stale.</p>` : ''}</section>`;
+}
 function progressMetrics(progress) {
   if (!progress) return '';
   return `<div class="revc-progress-metrics"><span>${escapeHtml(progress.recordsProcessed ?? 0)} records processed</span><span>${escapeHtml(progress.candidatePairsEvaluated ?? 0)} candidate pairs</span><span>${escapeHtml(progress.maximumCandidatesForOneRecord ?? 0)} max candidates</span></div>`;
@@ -62,7 +73,7 @@ function comparisonControlMarkup(state) {
 function setupMarkup(state, preflight) {
   const review = state.review.session ? reviewSessionControlsMarkup(state, false) : '';
   const decision = state.decision.ledger ? decisionLedgerControlsMarkup(state, false) : '';
-  return `<main class="revc-body"><section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header>${swapControl(state)}<div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision')}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision')}</div></section>${review}${decision}${preflightMarkup(preflight)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
+  return `<main class="revc-body"><section class="revc-load-stage" aria-labelledby="revc-load-title"><header class="revc-stage-head"><div><span>STAGE 1</span><h2 id="revc-load-title">Load revisions</h2><p>Rev A is the previous/reference revision. Rev B is the current/candidate revision.</p></div></header>${swapControl(state)}<div class="revc-slots">${slotCard(state.slots.baseline, 'REV A', 'Previous / reference revision')}${slotCard(state.slots.candidate, 'REV B', 'Current / candidate revision')}</div></section>${review}${decision}${preflightMarkup(preflight)}${visualMetadataDeclarationMarkup(state)}${revisionScopeMarkup(state, preflight)}${comparisonControlMarkup(state)}</main>`;
 }
 function footerMarkup(state, canDownload) {
   const imported = state.evidencePackageImport.status === 'VERIFIED';
@@ -75,4 +86,7 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
   const content = review ? `${importedPackageMarkup(state)}${revisionCompareReviewMarkup(state, viewerEvidence)}` : setupMarkup(state, preflight);
   return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
 }
-export const _test = Object.freeze({ clearControl, comparisonControlMarkup, escapeHtml, importedPackageMarkup, shortHash, slotCard, swapControl });
+export const _test = Object.freeze({
+  axisOptions, clearControl, comparisonControlMarkup, escapeHtml, importedPackageMarkup,
+  shortHash, slotCard, swapControl, visualMetadataDeclarationMarkup,
+});
