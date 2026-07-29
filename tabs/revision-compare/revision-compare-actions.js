@@ -3,6 +3,7 @@ import { createRevisionComparisonBasis } from './revision-comparison-basis.js';
 import { createRevisionSessionManifest, createRevisionScopeManifest } from './revision-manifests.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
 import { revisionVisualReadiness } from './revision-compare-readiness.js';
+import { applyRevisionCompareSwapResults, revisionCompareSwapReadiness } from './revision-compare-intake-swap.js';
 import { createRevisionScopeProposal, updateScopeDecision, updateScopeGroup } from './revision-scope-proposal.js';
 import { RevisionRequestSupersededError } from './revision-load-service.js';
 import { RevisionCompareSupersededError } from './revision-compare-service.js';
@@ -68,6 +69,29 @@ async function cancelRevision(context, slotId) {
     const generation = await context.service.cancel(slotId); if (!context.authority.isCurrent(token)) return;
     commitAuthoritative(context, resetWorkspaceSlot(context.readState(), slotId, generation, context.now()));
   } catch (error) { report(context, error); }
+}
+function swappedWorkspaceState(context) {
+  const results = context.service.swapLoadedSlots();
+  try {
+    return applyRevisionCompareSwapResults(context.readState(), results, context.now());
+  } catch (error) {
+    try { context.service.swapLoadedSlots(); }
+    catch (rollbackError) {
+      throw new AggregateError([error, rollbackError], 'Revision swap failed and service rollback was not completed.');
+    }
+    throw error;
+  }
+}
+async function swapRevisions(context) {
+  const readiness = revisionCompareSwapReadiness(context.readState());
+  if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
+  const token = context.authority.invalidate(); await stopComparison(context);
+  if (!context.authority.isCurrent(token)) return;
+  const current = revisionCompareSwapReadiness(context.readState());
+  if (current.status !== 'READY') throw new Error(current.blockers[0]);
+  commitAuthoritative(context, swappedWorkspaceState(context));
+  await refreshProposal(context, {});
+  context.options?.showToast?.('Rev A and Rev B swapped.', 'success');
 }
 async function refineScope(context, decisions) {
   const token = context.authority.invalidate(); await stopComparison(context);
@@ -187,6 +211,7 @@ export function createRevisionActions(context) {
   const guarded = { ...context, authority: createRevisionActionAuthority() }; const decisions = decisionContext(guarded);
   return Object.freeze({
     load: (slotId, file) => loadRevision(guarded, slotId, file), cancel: (slotId) => cancelRevision(guarded, slotId),
+    swapRevisions: safe(guarded, () => swapRevisions(guarded)),
     setBranchIncluded: safe(guarded, (id, included) => setBranch(guarded, id, included)), setGroupIncluded: safe(guarded, (group, included) => setGroup(guarded, group, included)),
     setSearch: (group, value) => updateAndRender(guarded, setWorkspaceSearch, group, value), approveBasis: safe(guarded, () => approveBasis(guarded)),
     runVisualComparison: safe(guarded, () => runVisualComparison(guarded)), cancelComparison: safe(guarded, () => cancelComparison(guarded)),
