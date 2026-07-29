@@ -9,6 +9,7 @@ import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
 import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260728-ssk-ts-3i';
 import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260728-ssk-ts-3n';
+import { createSequentialDraftEdit3dPilotFeature } from './scoped-edit/sequential-draft-edit-3d-pilot-feature.js?v=20260730-ssk-3d-p0-a';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -54,6 +55,7 @@ function createOverlay(runtime) {
   return overlay;
 }
 function destroyScoped(runtime) {
+  runtime.pilotFeature?.destroy(); runtime.pilotFeature = null;
   runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
   runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
   runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
@@ -109,6 +111,18 @@ function createBoundaries(runtime, overlay) {
   });
   return commandBoundary;
 }
+function mountPilot(runtime, overlay, commandBoundary) {
+  const context = runtime.context;
+  runtime.pilotFeature = createSequentialDraftEdit3dPilotFeature({
+    root: overlay, controller: runtime.draftEdit3dController, shadow: runtime.scopedEditShadow,
+    commandBoundary, supportBoundary: runtime.supportAdjustmentBoundary,
+    geometryBoundary: runtime.geometryEditBoundary, workspace: runtime.active,
+    documentRef: overlay.ownerDocument,
+    now: exactClock(context.sequentialDraftEdit3dPilotEvidenceAtProvider),
+    onExport: context.onSequentialDraftEdit3dPilotEvidence,
+    onFailure: context.onSequentialDraftEdit3dPilotEvidenceFailure,
+  });
+}
 function mountDraftEdit(runtime, overlay, commandBoundary) {
   const context = runtime.context;
   runtime.draftEdit3dController = mountSequentialScopedEdit3dController(overlay, {
@@ -123,13 +137,15 @@ function mountDraftEdit(runtime, overlay, commandBoundary) {
     onActivate: () => runtime.previewController?.switchRenderer('CONSTRUCTION_SVG'),
     onFailure: context.onSequentialScopedEdit3dFailure,
   });
+  mountPilot(runtime, overlay, commandBoundary);
 }
 function mountScoped(runtime, overlay) {
   if (!runtime.scopedEditShadow) return;
   try {
     mountDraftEdit(runtime, overlay, createBoundaries(runtime, overlay));
   } catch (error) {
-    runtime.draftEdit3dController = null;
+    runtime.pilotFeature?.destroy(); runtime.pilotFeature = null;
+    runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
     runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
     runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
     try { runtime.context.onSequentialScopedEdit3dFailure?.({
@@ -167,7 +183,7 @@ export function installSequentialSketcherTile(container, context = {}) {
     redoController: null, projectExportController: null, persistenceController: null,
     continuityController: null, previewController: null, scopedEditShadow: null,
     supportAdjustmentBoundary: null, geometryEditBoundary: null,
-    draftEdit3dController: null, open: null,
+    draftEdit3dController: null, pilotFeature: null, open: null,
   };
   runtime.open = () => openWorkspace(runtime);
   runtime.tile.addEventListener('click', runtime.open);

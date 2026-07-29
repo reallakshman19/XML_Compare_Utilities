@@ -59,3 +59,36 @@ test('SSK-TS-1B-W04 real Workbench closes without leaked canvas', async ({ page 
   expect(await page.locator('.ssk-modal').count()).toBe(0);
   expect(await page.locator('canvas').count()).toBe(0);
 });
+
+// SSK-3D-P0-A-W01
+test('SSK-3D-P0-A-W01 exports the exact engineering-demo baseline', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => globalThis.__ssk3dWorkbench.open());
+  expect(await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(true);
+  await page.evaluate(() => globalThis.__ssk3dWorkbench.activate3d());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(false);
+  await page.evaluate(() => globalThis.__ssk3dWorkbench.pilot());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports.length)).toBe(1);
+  const manifest = await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports[0]);
+  expect(manifest.schema).toBe('SequentialDraftEdit3dReleaseManifest.v1');
+  expect(manifest.baseline.commit).toBe('19e04711fc54083bd8e622bbd82048839ca8ebfa');
+  expect(manifest.authority.branchId).toBeTruthy();
+  expect(manifest.controller.fallbackSurface).toBe('CONSTRUCTION_SVG');
+  expect(manifest.disposition.internalPilotReady).toBe(false);
+  expect(manifest.disposition.newEditingAuthority).toBe(false);
+});
+
+// SSK-3D-P0-A-W02
+test('SSK-3D-P0-A-W02 injected scene failure returns to Construction SVG', async ({ page }) => {
+  await ready(page); await openAndActivate(page);
+  await page.evaluate(() => {
+    globalThis.__ssk3dWorkbench.injectFailure('scene-apply');
+    globalThis.__ssk3dWorkbench.refresh3d();
+  });
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().controller.active)).toBe(false);
+  const state = await page.evaluate(() => globalThis.__ssk3dWorkbench.state());
+  expect(state.hostHidden).toBe(true);
+  expect(state.constructionHidden).toBe(false);
+  expect(state.failures.some((row) => row.stage === 'owner refresh')).toBe(true);
+  expect(state.status).toContain('Construction SVG retained');
+});
