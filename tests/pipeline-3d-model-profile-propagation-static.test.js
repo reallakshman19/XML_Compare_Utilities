@@ -29,6 +29,7 @@ assert.match(runtime, /data-p3d-core-artifacts/); assert.match(runtime, /inputxm
 assert.match(runtime, /PIPELINE_PROFILE_RAW_INCOMPLETE/);
 assert.match(runtime, /pipelineSourceInput/);
 assert.match(runtime, /instance\.output = null/);
+assert.match(runtime, /instance\.rendering/);
 assert.doesNotMatch(runtime, /new Date|pipeline-3d-model-config-v1|MutationObserver/);
 const explicitSectionPlanner = sources['pipeline-3d-model-explicit-analysis-section-planner.js'];
 assert.match(explicitSectionPlanner, /resolveExplicitPipelineAnalysisSectionPlan/);
@@ -69,6 +70,9 @@ assert.equal(runtimeTest.buildInput(fakeDialog()).profileRaw, null);
 assert.throws(() => runtimeTest.buildInput(fakeDialog({ 'table2a-raw': 'H\n1' })),
   (error) => error?.code === 'PIPELINE_PROFILE_RAW_INCOMPLETE'
     && error.details.table2aReady === true && error.details.table3aReady === false);
+assert.throws(() => runtimeTest.buildInput(fakeDialog({ 'table3b-raw': 'marker text only' })),
+  (error) => error?.code === 'PIPELINE_PROFILE_RAW_INCOMPLETE'
+    && error.details.suppliedTables.includes('table3b'));
 const completeProfile = runtimeTest.buildInput(fakeDialog({
   'table2a-raw': 'H\n1', 'table3a-raw': 'H\n2',
 })).profileRaw;
