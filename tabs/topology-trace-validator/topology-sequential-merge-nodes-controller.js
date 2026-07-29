@@ -1,5 +1,6 @@
 /** Narrow controller decorator for non-publishing MERGE_NODES request export. */
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
+import { createTopologySequentialAddStraightController } from './topology-sequential-add-straight-controller.js';
 import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
 import {
   createTopologySequentialMergeNodesRequest,
@@ -78,7 +79,11 @@ export function createTopologySequentialMergeNodesController(baseController, opt
     runOperation,
     exportSequentialMergeNodesRequest,
   });
-  return createTopologySequentialBridgeGapController(mergeController, {
+  const bridgeController = createTopologySequentialBridgeGapController(mergeController, {
+    documentRef,
+    now,
+  });
+  return createTopologySequentialAddStraightController(bridgeController, {
     documentRef,
     now,
   });
