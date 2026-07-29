@@ -1,6 +1,7 @@
 /** Narrow controller decorator for non-publishing MERGE_NODES request export. */
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
 import { createTopologyBendDefinitionPreservationController } from './topology-bend-definition-preservation-controller.js';
+import { createTopologyJunctionDefinitionPreservationController } from './topology-junction-definition-preservation-controller.js';
 import { createTopologySequentialAddStraightController } from './topology-sequential-add-straight-controller.js';
 import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
 import { createTopologySequentialDeleteEdgeController } from './topology-sequential-delete-edge-controller.js';
@@ -72,7 +73,8 @@ function decorateSequentialRequests(mergeController, documentRef, now) {
     documentRef, now,
   });
   const deleteController = createTopologySequentialDeleteEdgeController(splitController, { documentRef, now });
-  return createTopologyBendDefinitionPreservationController(deleteController, { documentRef, now });
+  const bendController = createTopologyBendDefinitionPreservationController(deleteController, { documentRef, now });
+  return createTopologyJunctionDefinitionPreservationController(bendController, { documentRef, now });
 }
 
 export function createTopologySequentialMergeNodesController(baseController, options = {}) {
