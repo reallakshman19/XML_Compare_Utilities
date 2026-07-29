@@ -12,6 +12,8 @@ jobs:
   qualify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      EVIDENCE_DIR: ${{ runner.temp }}/p3d-approved-catalog-qualification
     steps:
       - name: Checkout exact TRI-2F-B head
         uses: actions/checkout@v4
@@ -30,19 +32,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p qualification-evidence
+          mkdir -p "$EVIDENCE_DIR"
           node scripts/run-pipeline-approved-catalog-qualification.mjs \
             --baseline 8e9056e917db1e2613b064cd6a69b6590d839f66 \
-            > qualification-evidence/tri-2f-a.json
+            > "$EVIDENCE_DIR/tri-2f-a.json"
 
       - name: Run TRI-2F-B evidence verifier
         shell: bash
         run: |
           set -euo pipefail
           node scripts/verify-pipeline-approved-catalog-qualification-evidence.mjs \
-            --evidence qualification-evidence/tri-2f-a.json \
+            --evidence "$EVIDENCE_DIR/tri-2f-a.json" \
             --expected-baseline 8e9056e917db1e2613b064cd6a69b6590d839f66 \
-            > qualification-evidence/tri-2f-b-verification.json
+            > "$EVIDENCE_DIR/tri-2f-b-verification.json"
 
       - name: Assert ready results
         shell: bash
@@ -50,10 +52,9 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import { readFileSync } from 'node:fs';
-          for (const path of [
-            'qualification-evidence/tri-2f-a.json',
-            'qualification-evidence/tri-2f-b-verification.json',
-          ]) {
+          const root = process.env.EVIDENCE_DIR;
+          for (const name of ['tri-2f-a.json', 'tri-2f-b-verification.json']) {
+            const path = `${root}/${name}`;
             const value = JSON.parse(readFileSync(path, 'utf8'));
             if (value.ready !== true || value.blockerCodes?.length) {
               throw new Error(`${path} is not ready: ${JSON.stringify(value.blockerCodes || [])}`);
@@ -65,6 +66,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: p3d-approved-catalog-tri-2f-b-exact-head-evidence
-          path: qualification-evidence/
+          path: ${{ env.EVIDENCE_DIR }}/
           if-no-files-found: error
           retention-days: 30
