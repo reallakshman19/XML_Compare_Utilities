@@ -19,7 +19,6 @@ const disposeTile = installSequentialSketcherTile(document.querySelector('#tiles
   onSequentialScopedEdit3dFailure(detail) { failures.push(detail); },
   onSequentialDraftEdit3dPilotEvidence(value) { pilotExports.push(value); },
   onSequentialDraftEdit3dPilotEvidenceFailure(error) { failures.push({ stage: 'pilot export', message: error.message }); },
-  sequentialDraftEdit3dPilotEvidenceAtProvider: () => '2026-07-30T02:30:00.000Z',
   sequentialScopedEdit3dFailureFactory(stage) {
     return stage === injectedFailureStage ? new Error(`Injected ${stage} failure`) : null;
   },

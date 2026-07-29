@@ -60,17 +60,22 @@ test('SSK-TS-1B-W04 real Workbench closes without leaked canvas', async ({ page 
   expect(await page.locator('canvas').count()).toBe(0);
 });
 
-// SSK-3D-P0-A-W01
-test('SSK-3D-P0-A-W01 exports the exact engineering-demo baseline', async ({ page }) => {
+// SSK-3D-P0-A-W01 / SSK-3D-P0-B-W01
+test('SSK-3D-P0-B-W01 unchanged authority exports byte-identical pilot evidence', async ({ page }) => {
   await ready(page);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.open());
   expect(await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(true);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.activate3d());
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(false);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.pilot());
-  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports.length)).toBe(1);
-  const manifest = await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports[0]);
+  await page.evaluate(() => globalThis.__ssk3dWorkbench.pilot());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports.length)).toBe(2);
+  const manifests = await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports);
+  const manifest = manifests[0];
+  expect(JSON.stringify(manifests[1])).toBe(JSON.stringify(manifest));
+  expect(manifests[1].manifestFingerprint).toBe(manifest.manifestFingerprint);
   expect(manifest.schema).toBe('SequentialDraftEdit3dReleaseManifest.v1');
+  expect(manifest.createdAt).toBeTruthy();
   expect(manifest.baseline.commit).toBe('19e04711fc54083bd8e622bbd82048839ca8ebfa');
   expect(manifest.authority.branchId).toBeTruthy();
   expect(manifest.controller.fallbackSurface).toBe('CONSTRUCTION_SVG');
