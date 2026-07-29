@@ -2,6 +2,7 @@
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
 import { createTopologySequentialAddStraightController } from './topology-sequential-add-straight-controller.js';
 import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
+import { createTopologySequentialDisconnectEndpointController } from './topology-sequential-disconnect-endpoint-controller.js';
 import {
   createTopologySequentialMergeNodesRequest,
   topologySequentialMergeNodesRequestFileName,
@@ -83,7 +84,11 @@ export function createTopologySequentialMergeNodesController(baseController, opt
     documentRef,
     now,
   });
-  return createTopologySequentialAddStraightController(bridgeController, {
+  const addController = createTopologySequentialAddStraightController(bridgeController, {
+    documentRef,
+    now,
+  });
+  return createTopologySequentialDisconnectEndpointController(addController, {
     documentRef,
     now,
   });
