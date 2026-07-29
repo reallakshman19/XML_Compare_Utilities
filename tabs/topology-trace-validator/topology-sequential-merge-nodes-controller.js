@@ -1,5 +1,6 @@
 /** Narrow controller decorator for non-publishing MERGE_NODES request export. */
 import { downloadText, outputStem } from './topology-edit-controller-helpers.js';
+import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
 import {
   createTopologySequentialMergeNodesRequest,
   topologySequentialMergeNodesRequestFileName,
@@ -71,11 +72,15 @@ export function createTopologySequentialMergeNodesController(baseController, opt
     return baseRunOperation.call(baseController, operation);
   }
 
-  return Object.freeze({
+  const mergeController = Object.freeze({
     ...baseController,
     schema: TOPOLOGY_SEQUENTIAL_MERGE_NODES_CONTROLLER_SCHEMA,
     runOperation,
     exportSequentialMergeNodesRequest,
+  });
+  return createTopologySequentialBridgeGapController(mergeController, {
+    documentRef,
+    now,
   });
 }
 

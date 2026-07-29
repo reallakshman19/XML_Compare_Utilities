@@ -16,6 +16,7 @@ export const EDIT_TOOL_CAPABILITIES = Object.freeze([
 export const EDIT_OPERATION_CAPABILITIES = Object.freeze([
   capability({ id: 'operation.merge', action: 'OPERATION', value: 'MERGE', label: 'Snap / Merge', title: 'Merge exactly two selected nodes', shortcut: '', rule: 'TWO_NODES' }),
   capability({ id: 'operation.merge-request', action: 'OPERATION', value: 'MERGE_SEQUENTIAL_REQUEST', label: 'Export Merge', title: 'Download a non-publishing Sequential merge request for two selected nodes', shortcut: '', rule: 'EXACT_TWO_NODES' }),
+  capability({ id: 'operation.bridge-request', action: 'OPERATION', value: 'BRIDGE_SEQUENTIAL_REQUEST', label: 'Export Bridge', title: 'Download a non-publishing Sequential bridge request for two selected nodes and the current context edge', shortcut: '', rule: 'EXACT_TWO_NODES_WITH_CONTEXT' }),
   capability({ id: 'operation.disconnect', action: 'OPERATION', value: 'DISCONNECT', label: 'Disconnect', title: 'Disconnect the selected edge endpoint', shortcut: '', rule: 'ONE_EDGE' }),
   capability({ id: 'operation.delete', action: 'OPERATION', value: 'DELETE', label: 'Delete', title: 'Delete the selected edge', shortcut: 'Delete', rule: 'ONE_EDGE' }),
 ]);
@@ -39,6 +40,7 @@ export function topologyEditCapabilityContext(input) {
   return Object.freeze({
     initialized: Boolean(value.initialized ?? value.editedArtifacts), busy: Boolean(value.busy),
     selection: Object.freeze(asArray(value.selection)), tool: cleanText(value.tool) || 'SELECT',
+    contextEdgeId: cleanText(value.contextEdgeId),
     canUndo: Boolean(value.canUndo ?? asArray(journal.activeCommandIds).length),
     canRedo: Boolean(value.canRedo ?? asArray(journal.redoCommandIds).length),
   });
@@ -51,6 +53,11 @@ function ruleResult(rule, context) {
   if (rule === 'INITIALIZED') return { enabled: context.initialized, reason: 'Initialize Edit Draft first.' };
   if (rule === 'TWO_NODES') return { enabled: context.initialized && nodes === 2, reason: 'Select exactly two nodes.' };
   if (rule === 'EXACT_TWO_NODES') return { enabled: context.initialized && context.selection.length === 2 && nodes === 2, reason: 'Select exactly two nodes and no other objects.' };
+  if (rule === 'EXACT_TWO_NODES_WITH_CONTEXT') return {
+    enabled: context.initialized && context.selection.length === 2 && nodes === 2
+      && Boolean(context.contextEdgeId),
+    reason: 'Select exactly two nodes and establish one context edge.',
+  };
   if (rule === 'ONE_EDGE') return { enabled: context.initialized && edges === 1, reason: 'Select exactly one edge.' };
   if (rule === 'CAN_UNDO') return { enabled: context.canUndo, reason: 'No command is available to undo.' };
   if (rule === 'CAN_REDO') return { enabled: context.canRedo, reason: 'No command is available to redo.' };
