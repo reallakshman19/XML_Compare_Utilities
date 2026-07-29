@@ -4,6 +4,9 @@ import {
 import {
   buildPipelineInputXmlReadinessArtifact,
 } from './pipeline-3d-model-inputxml-readiness-artifact.js';
+import {
+  buildPipelineInputXmlBlockerProvenanceArtifact,
+} from './pipeline-3d-model-inputxml-blocker-provenance-artifact.js';
 
 export const PIPELINE_APPROVED_CATALOG_STATUS_EVIDENCE_SCHEMA =
   'PipelineApprovedCatalogStatusEvidence.v1';
@@ -54,5 +57,6 @@ export function pipelineApprovedCatalogVisibleArtifacts(output = {}) {
   const copied = [...existing];
   appendArtifact(copied, buildPipelineApprovedCatalogStatusArtifact(output));
   appendArtifact(copied, buildPipelineInputXmlReadinessArtifact(output));
+  appendArtifact(copied, buildPipelineInputXmlBlockerProvenanceArtifact(output));
   return Object.freeze(copied);
 }
