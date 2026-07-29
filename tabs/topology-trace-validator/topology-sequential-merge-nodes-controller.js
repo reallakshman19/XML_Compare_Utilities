@@ -3,6 +3,7 @@ import { downloadText, outputStem } from './topology-edit-controller-helpers.js'
 import { createTopologySequentialAddStraightController } from './topology-sequential-add-straight-controller.js';
 import { createTopologySequentialBridgeGapController } from './topology-sequential-bridge-gap-controller.js';
 import { createTopologySequentialDisconnectEndpointController } from './topology-sequential-disconnect-endpoint-controller.js';
+import { createTopologySequentialSplitEdgeController } from './topology-sequential-split-edge-controller.js';
 import {
   createTopologySequentialMergeNodesRequest,
   topologySequentialMergeNodesRequestFileName,
@@ -55,6 +56,19 @@ function exportRequest(baseController, documentRef, intent, now) {
   return request;
 }
 
+function decorateSequentialRequests(mergeController, documentRef, now) {
+  const bridgeController = createTopologySequentialBridgeGapController(mergeController, {
+    documentRef, now,
+  });
+  const addController = createTopologySequentialAddStraightController(bridgeController, {
+    documentRef, now,
+  });
+  const disconnectController = createTopologySequentialDisconnectEndpointController(addController, {
+    documentRef, now,
+  });
+  return createTopologySequentialSplitEdgeController(disconnectController, { documentRef, now });
+}
+
 export function createTopologySequentialMergeNodesController(baseController, options = {}) {
   const evidence = requiredFunction(baseController?.evidence, 'baseController.evidence');
   const baseRunOperation = requiredFunction(baseController?.runOperation, 'baseController.runOperation');
@@ -68,9 +82,7 @@ export function createTopologySequentialMergeNodesController(baseController, opt
   }
 
   function runOperation(operation) {
-    if (operation === 'MERGE_SEQUENTIAL_REQUEST') {
-      return exportSequentialMergeNodesRequest();
-    }
+    if (operation === 'MERGE_SEQUENTIAL_REQUEST') return exportSequentialMergeNodesRequest();
     return baseRunOperation.call(baseController, operation);
   }
 
@@ -80,18 +92,7 @@ export function createTopologySequentialMergeNodesController(baseController, opt
     runOperation,
     exportSequentialMergeNodesRequest,
   });
-  const bridgeController = createTopologySequentialBridgeGapController(mergeController, {
-    documentRef,
-    now,
-  });
-  const addController = createTopologySequentialAddStraightController(bridgeController, {
-    documentRef,
-    now,
-  });
-  return createTopologySequentialDisconnectEndpointController(addController, {
-    documentRef,
-    now,
-  });
+  return decorateSequentialRequests(mergeController, documentRef, now);
 }
 
 export const _test = Object.freeze({ selectedMergeIntent, currentCanonical, requestInput });
