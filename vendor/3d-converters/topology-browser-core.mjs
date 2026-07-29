@@ -2896,6 +2896,8 @@ function resolveSupportAttachment(component, index) {
 var _test2 = Object.freeze({ aliases, attachmentReferences });
 
 // tabs/model-converters/converters/component-topology/topology-support-edge-splitter.js
+var TOPOLOGY_SOURCE_POSITION_FIELD = "TOPOLOGY_SOURCE_POSITION";
+var TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD = "TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH";
 function pointText(point3) {
   if (!point3) return "(none)";
   return `${point3.x.toFixed(3)},${point3.y.toFixed(3)},${point3.z.toFixed(3)}`;
@@ -2905,14 +2907,27 @@ function distanceText(value) {
 }
 function applySupportPositionEvidence(support) {
   const attributes = support.component?.attributes;
-  if (!attributes || !Object.hasOwn(attributes, "TOPOLOGY_SOURCE_POSITION")) return;
-  const sourcePosition2 = strictPoint(attributes.TOPOLOGY_SOURCE_POSITION);
+  if (!attributes) return;
+  const hasSourcePosition = Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD);
+  const hasCarrierPath = Object.hasOwn(attributes, TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD);
+  if (!hasSourcePosition && !hasCarrierPath) return;
+  if (hasSourcePosition !== hasCarrierPath) {
+    throw new TypeError(
+      `Support ${support.tag || support.id} dual-position evidence requires both ${TOPOLOGY_SOURCE_POSITION_FIELD} and ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD}.`
+    );
+  }
+  const sourcePosition2 = strictPoint(attributes[TOPOLOGY_SOURCE_POSITION_FIELD]);
   if (!sourcePosition2) {
-    throw new TypeError(`Support ${support.tag || support.id} has invalid TOPOLOGY_SOURCE_POSITION evidence.`);
+    throw new TypeError(`Support ${support.tag || support.id} has invalid ${TOPOLOGY_SOURCE_POSITION_FIELD} evidence.`);
+  }
+  const carrierPath = cleanText(attributes[TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD]);
+  if (!carrierPath) {
+    throw new TypeError(`Support ${support.tag || support.id} has invalid ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD} evidence.`);
   }
   support.sourcePosition = sourcePosition2;
-  support.positionAuthority = "ATTRIBUTE:TOPOLOGY_SOURCE_POSITION";
+  support.positionAuthority = `ATTRIBUTE:${TOPOLOGY_SOURCE_POSITION_FIELD}`;
   support.topologyPositionOverride = true;
+  support.topologyAttachmentEdgeSourcePath = carrierPath;
 }
 function rankedSupportCandidates(edgeSpecs, support, scope) {
   const attached = new Set(support.attachedComponentEntityIds ?? []);
@@ -2924,6 +2939,31 @@ function rankedSupportCandidates(edgeSpecs, support, scope) {
     const proximity = pointSegmentDistance(support.sourcePosition, edge.fromPort.position, edge.toPort.position);
     return [{ edge, index, owns, referenced, ...proximity }];
   }).sort((left, right) => left.distanceMm - right.distanceMm || left.index - right.index);
+}
+function authoritativeSupportCandidate(edgeSpecs, support) {
+  const carrierPath = cleanText(support.topologyAttachmentEdgeSourcePath);
+  if (!carrierPath) return null;
+  const candidates = rankedSupportCandidates(edgeSpecs, support, "all").filter((candidate) => cleanText(candidate.edge.sourcePath) === carrierPath);
+  if (!candidates.length) {
+    throw new Error(
+      `Support ${support.tag || support.id} cannot resolve carrier ${carrierPath}. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_NOT_FOUND]`
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `Support ${support.tag || support.id} carrier ${carrierPath} resolves to ${candidates.length} edges. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_AMBIGUOUS]`
+    );
+  }
+  const selected = candidates[0];
+  if (!selected.owns && !selected.referenced) {
+    throw new Error(
+      `Support ${support.tag || support.id} carrier ${carrierPath} is neither on its owning branch nor explicitly referenced. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_OUTSIDE_AUTHORITY]`
+    );
+  }
+  if (support.attachmentReferences.length && !selected.referenced) {
+    throw unresolvedReferenceError(support);
+  }
+  return selected;
 }
 function supportProjectionError(support, owning, global, toleranceMm) {
   const classification = global && global.distanceMm <= toleranceMm ? "POSSIBLE_WRONG_BRANCH_OWNERSHIP" : "SOURCE_SUPPORT_POSITION_OR_ROUTE_INVALID";
@@ -2968,15 +3008,17 @@ function matchSupportsToEdges(edgeSpecs, supports, toleranceMm) {
   const matches = /* @__PURE__ */ new Map();
   for (const support of supports) {
     applySupportPositionEvidence(support);
+    const authoritative = authoritativeSupportCandidate(edgeSpecs, support);
     const referenced = rankedSupportCandidates(edgeSpecs, support, "referenced");
-    if (support.attachmentReferences.length && !referenced.length) throw unresolvedReferenceError(support);
+    if (!authoritative && support.attachmentReferences.length && !referenced.length) throw unresolvedReferenceError(support);
     const owning = rankedSupportCandidates(edgeSpecs, support, "owning");
     const global = rankedSupportCandidates(edgeSpecs, support, "all");
-    const match = referenced[0] ?? owning[0];
-    if (!match || !referenced.length && match.distanceMm > toleranceMm) {
-      throw supportProjectionError(support, owning[0], global[0], toleranceMm);
+    const match = authoritative ?? referenced[0] ?? owning[0];
+    const matchIsReferenced = Boolean(match?.referenced && support.attachmentReferences.length);
+    if (!match || !matchIsReferenced && match.distanceMm > toleranceMm) {
+      throw supportProjectionError(support, match?.owns ? match : owning[0], global[0], toleranceMm);
     }
-    const authority = referenced.length ? `${support.attachmentAuthorities.join("+") || "ATTACHED_COMPONENT_REF/COMPRE"}:${support.attachmentReferences.join("|")}` : "OWNING_BRANCH_PROXIMITY";
+    const authority = matchIsReferenced ? `${support.attachmentAuthorities.join("+") || "ATTACHED_COMPONENT_REF/COMPRE"}:${support.attachmentReferences.join("|")}` : "OWNING_BRANCH_PROXIMITY";
     acceptMatch(support, match, authority, toleranceMm);
     matches.set(match.index, [...matches.get(match.index) ?? [], support]);
   }
@@ -3030,6 +3072,7 @@ function splitEdgeSpecsAtSupports(specs, supports, connectivity, topologyToleran
 var _test3 = Object.freeze({
   applySupportPositionEvidence,
   rankedSupportCandidates,
+  authoritativeSupportCandidate,
   supportProjectionError,
   editedTopologyPosition,
   unresolvedReferenceError
