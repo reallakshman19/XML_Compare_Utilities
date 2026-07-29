@@ -13,6 +13,11 @@
  * the moved node's original position at coordinate-identity precision. A
  * topology snap tolerance must never be used as an identity tolerance because
  * nearby but distinct source ports may otherwise be moved and merged.
+ *
+ * A topology-edited support has two independent authorities: its current node
+ * position and the immutable source point used for carrier projection. When a
+ * support coordinate is remapped, the original point is retained in
+ * TOPOLOGY_SOURCE_POSITION so a conforming consumer can rebuild both values.
  */
 
 import { asArray, cleanText, objectRecord } from './topology-validator-values.js';
@@ -20,6 +25,8 @@ import { applyAttributeLedgerToStaged } from './topology-attribute-edit-ledger.j
 import { isIsoTimestamp } from '../../contracts/contract-values.js';
 
 const COORD_FIELDS = Object.freeze(['APOS', 'LPOS', 'POS', 'BPOS', 'HPOS', 'TPOS']);
+const SUPPORT_TYPES = Object.freeze(new Set(['ATTA', 'SUPPORT', 'ANCI']));
+export const TOPOLOGY_SOURCE_POSITION_FIELD = 'TOPOLOGY_SOURCE_POSITION';
 export const STAGED_POSITION_IDENTITY_TOLERANCE_MM = 1e-6;
 
 const xyz = (value) => {
@@ -63,16 +70,35 @@ function positionIdentityTolerance(value) {
   return parsed;
 }
 
-function remapDocumentPositions(doc, remaps, identityToleranceMm) {
+function isSupportOwner(owner, attributes) {
+  const type = cleanText(owner?.type ?? attributes?.TYPE).toUpperCase();
+  return SUPPORT_TYPES.has(type);
+}
+
+function preserveSupportSourcePosition(owner, attributes, coords, stats) {
+  if (!isSupportOwner(owner, attributes)) return;
+  if (Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD)) {
+    if (!xyz(attributes[TOPOLOGY_SOURCE_POSITION_FIELD])) {
+      throw new TypeError(`Support ${cleanText(owner?.name ?? attributes.NAME) || '(unnamed)'} has invalid ${TOPOLOGY_SOURCE_POSITION_FIELD} evidence.`);
+    }
+    return;
+  }
+  attributes[TOPOLOGY_SOURCE_POSITION_FIELD] = { x: coords[0], y: coords[1], z: coords[2] };
+  stats.supportSourcePositionsPreserved += 1;
+}
+
+function remapDocumentPositions(doc, remaps, identityToleranceMm, stats = { supportSourcePositionsPreserved: 0 }) {
   if (!remaps.length) return 0;
   let touched = 0;
   const branches = Array.isArray(doc) ? doc : (doc.hierarchy ?? doc.branches ?? doc.objects ?? []);
-  const rewrite = (attributes) => {
+  const rewrite = (owner) => {
+    const attributes = owner?.attributes;
     for (const field of COORD_FIELDS) {
       const coords = attributes && xyz(attributes[field]);
       if (!coords) continue;
       for (const remap of remaps) {
         if (dist(coords, remap.from) <= identityToleranceMm) {
+          preserveSupportSourcePosition(owner, attributes, coords, stats);
           attributes[field] = { x: remap.to[0], y: remap.to[1], z: remap.to[2] };
           touched += 1;
           break;
@@ -81,8 +107,8 @@ function remapDocumentPositions(doc, remaps, identityToleranceMm) {
     }
   };
   for (const branch of branches) {
-    rewrite(branch?.attributes);
-    for (const child of Array.isArray(branch?.children) ? branch.children : []) rewrite(child?.attributes);
+    rewrite(branch);
+    for (const child of Array.isArray(branch?.children) ? branch.children : []) rewrite(child);
   }
   return touched;
 }
@@ -92,7 +118,8 @@ export function buildStagedExport(input) {
   const identityToleranceMm = positionIdentityTolerance(input.positionIdentityToleranceMm);
   const withAttributes = applyAttributeLedgerToStaged(input.baseStagedJson, input.attributeLedger);
   const remaps = buildPositionRemaps(input.baseCanonical, input.draft);
-  const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, identityToleranceMm);
+  const remapStats = { supportSourcePositionsPreserved: 0 };
+  const coordinatesTouched = remapDocumentPositions(withAttributes, remaps, identityToleranceMm, remapStats);
   const provenance = {
     schema: 'StagedEditProvenance.v1',
     exportedAt: input.exportedAt,
@@ -101,6 +128,8 @@ export function buildStagedExport(input) {
     editedCanonicalTopologyHash: cleanText(input.editedCanonicalHash),
     positionIdentityToleranceMm: identityToleranceMm,
     positionRemaps: remaps,
+    supportSourcePositionField: TOPOLOGY_SOURCE_POSITION_FIELD,
+    supportSourcePositionsPreserved: remapStats.supportSourcePositionsPreserved,
     commands: asArray(objectRecord(input.draft).commands),
     attributeEdits: asArray(objectRecord(input.attributeLedger).edits),
     commandJournal: input.commandJournal,
@@ -119,6 +148,7 @@ export function buildStagedExport(input) {
     summary: {
       remaps: remaps.length,
       coordinatesTouched,
+      supportSourcePositionsPreserved: remapStats.supportSourcePositionsPreserved,
       attributeEdits: provenance.attributeEdits.length,
       positionIdentityToleranceMm: identityToleranceMm,
       rootShape,
@@ -126,4 +156,9 @@ export function buildStagedExport(input) {
   };
 }
 
-export const _test = Object.freeze({ positionIdentityTolerance, remapDocumentPositions });
+export const _test = Object.freeze({
+  positionIdentityTolerance,
+  isSupportOwner,
+  preserveSupportSourcePosition,
+  remapDocumentPositions,
+});
