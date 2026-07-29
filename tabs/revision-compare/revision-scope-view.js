@@ -1,4 +1,5 @@
 /** Scope confirmation markup for common and one-sided branches. */
+import { revisionBasisApprovalReadiness } from './revision-compare-readiness.js';
 import { revisionScopeBatchModel } from './revision-scope-filter-batch.js';
 
 function escapeHtml(value) {
@@ -58,11 +59,17 @@ function groupMarkup(group, title, description, state) {
   </section>`;
 }
 
+function approvalStatusMarkup(readiness) {
+  if (readiness.status === 'READY') return '<small data-revc-basis-approval-status="ready">Visual metadata is complete.</small>';
+  return `<small data-revc-basis-approval-status="blocked">${escapeHtml(readiness.blockers.join(' '))}</small>`;
+}
+
 export function revisionScopeMarkup(state, preflight) {
   const proposal = state.proposal;
   if (!proposal) return '';
   const summary = proposal.summary;
-  const disabled = preflight.status !== 'READY' ? 'disabled' : '';
+  const approval = revisionBasisApprovalReadiness(preflight);
+  const disabled = approval.status !== 'READY' ? 'disabled' : '';
   return `<section class="revc-scope-stage" aria-labelledby="revc-scope-title">
     <header class="revc-stage-head">
       <div><span>STAGE 2</span><h2 id="revc-scope-title">Confirm branch scope</h2><p>Common and one-sided branches are selected by default. Exclusions are deliberate and recorded.</p></div>
@@ -81,7 +88,7 @@ export function revisionScopeMarkup(state, preflight) {
       ${groupMarkup('revBOnly', 'Rev B only', 'Included as future addition candidates.', state)}
     </div>
     <div class="revc-scope-footer">
-      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span></div>
+      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span>${approvalStatusMarkup(approval)}</div>
       <div class="revc-actions">
         <button type="button" data-revc-download-scope>Download scope/basis manifest</button>
         <button type="button" class="revc-primary" data-revc-approve-basis ${disabled}>Approve comparison basis</button>
@@ -90,4 +97,4 @@ export function revisionScopeMarkup(state, preflight) {
   </section>`;
 }
 
-export const _test = Object.freeze({ batchButtons, branchRow, emptyText, escapeHtml, filterNote, groupMarkup });
+export const _test = Object.freeze({ approvalStatusMarkup, batchButtons, branchRow, emptyText, escapeHtml, filterNote, groupMarkup });
