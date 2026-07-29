@@ -6,6 +6,7 @@ import { buildAuthoritativePipelineOutputs,
   buildPipelineNativeOutputBundle } from './pipeline-3d-model-profile-propagation.js?v=20260724-p3d-core-050-1';
 import { buildPipelineApprovedCatalogProductionSourceEvidence } from './pipeline-3d-model-approved-catalog-production-input.js';
 import { pipelineApprovedCatalogVisibleArtifacts } from './pipeline-3d-model-approved-catalog-status-artifact.js';
+import { pipelineArtifactsWithEvidenceBundle } from './pipeline-3d-model-evidence-bundle-artifact.js';
 import { pipelineArtifactsWithManifest } from './pipeline-3d-model-export-manifest-artifact.js';
 import { resolvePipelineInputXmlBlockers } from './pipeline-3d-model-inputxml-readiness.js';
 
@@ -47,7 +48,8 @@ export function pipelineProjectArtifacts(output) {
   if (output.elasticBendText && !seen.has('pipeline-elastic-bends.tsv')) base.push(
     evidenceArtifact('pipeline-bend-ledger', 'pipeline-elastic-bends.tsv',
       'PipelineBendResolution.v3', output.elasticBendText, 'text/tab-separated-values'));
-  return pipelineArtifactsWithManifest(base);
+  const bundled = pipelineArtifactsWithEvidenceBundle(base);
+  return pipelineArtifactsWithManifest(bundled);
 }
 function pipelineSourceText(input, output) {
   return JSON.stringify({ table1Text: input.table1Text, table2Text: input.table2Text,
