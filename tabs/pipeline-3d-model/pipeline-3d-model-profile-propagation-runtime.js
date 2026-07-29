@@ -7,6 +7,7 @@ import { createPipelineArtifactSession } from './pipeline-3d-model-artifact-sess
 import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
+import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -90,8 +91,8 @@ function renderOutputs(dialog, output, instance) {
   if (table3Grid) table3Grid.innerHTML = buildPipelineDerivedTablePreviewHtml(output.table3XText);
   const table2Svg = find(dialog, '[data-p3d-split="table2x-preview"]');
   const table3Svg = find(dialog, '[data-p3d-split="table3x-preview"]');
-  if (table2Svg) table2Svg.innerHTML = createTable2XSVG(output.table2XText);
-  if (table3Svg) table3Svg.innerHTML = createTable3XSVG(output.table3XText);
+  renderPipelineSvgPreview(table2Svg, createTable2XSVG(output.table2XText));
+  renderPipelineSvgPreview(table3Svg, createTable3XSVG(output.table3XText));
   const table1Out = find(dialog, '[data-p3d="table1-output"]');
   const coordinateOut = find(dialog, '[data-p3d="coordinate-output"]');
   const xmlOut = find(dialog, '[data-p3d="xml-output"]');
