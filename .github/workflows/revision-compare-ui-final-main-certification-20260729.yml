@@ -1,0 +1,78 @@
+name: Revision Compare UI Final Main Certification
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/revision-compare-ui-final-main-certification-20260729.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: revision-compare-ui-final-main-certification
+  cancel-in-progress: true
+
+jobs:
+  qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CI: 'true'
+      EXPECTED_PRODUCT_HEAD: 97d454e2698397f517a8cf15e2408d72b075b717
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: cert/revision-compare-ui-final-main-20260729
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify exact merged-main ancestry and workflow-only delta
+        run: |
+          set -euxo pipefail
+          git merge-base --is-ancestor "$EXPECTED_PRODUCT_HEAD" HEAD
+          git diff --name-only "$EXPECTED_PRODUCT_HEAD"..HEAD > /tmp/actual
+          printf '%s\n' '.github/workflows/revision-compare-ui-final-main-certification-20260729.yml' > /tmp/expected
+          diff -u /tmp/expected /tmp/actual
+          git rev-parse HEAD
+          git show -s --format='%H %P' HEAD
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --no-package-lock
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Expose installed Chromium
+        run: |
+          chromium_path=$(node --input-type=module <<'NODE'
+          import { chromium } from '@playwright/test';
+          console.log(chromium.executablePath());
+          NODE
+          )
+          test -x "$chromium_path"
+          echo "CHROMIUM_PATH=$chromium_path" >> "$GITHUB_ENV"
+      - name: Run focused UI regressions
+        run: |
+          npx playwright test \
+            tests/browser/revision-compare-property-evidence.spec.mjs \
+            tests/browser/revision-compare-layout.spec.mjs \
+            --config=playwright.revision-compare.config.mjs
+      - name: Run complete Revision Compare qualification
+        run: |
+          set -o pipefail
+          /usr/bin/time -v npm run test:revision-compare-qualification 2>&1 | tee revision-compare-ui-final-main.log
+      - name: Record repository state
+        if: always()
+        run: git status --short | tee revision-compare-ui-final-main-worktree.log
+      - name: Upload final-main evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: revision-compare-ui-final-main-evidence
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            revision-compare-ui-final-main.log
+            revision-compare-ui-final-main-worktree.log
+            artifacts/revision-compare-results.json
+            playwright-report/
+            test-results/revision-compare/
