@@ -11,7 +11,7 @@ const FIELD_DEFINITIONS = Object.freeze([
 
 function declared(value) {
   const text = cleanText(value);
-  return text && text.toUpperCase() !== 'UNKNOWN' ? text : 'UNKNOWN';
+  return text && text.toUpperCase() !== 'UNKNOWN' ? text.toUpperCase() : 'UNKNOWN';
 }
 
 function sourceValue(document, key) {
@@ -21,7 +21,7 @@ function sourceValue(document, key) {
 function requiredValue(values, field) {
   const value = cleanText(values?.[field.key]);
   if (!value) throw new TypeError(`${field.label} is required.`);
-  return field.key === 'verticalAxis' ? value.toUpperCase() : value;
+  return value.toUpperCase();
 }
 
 function sourceHashes(revA, revB) {
@@ -31,9 +31,8 @@ function sourceHashes(revA, revB) {
   return { revAContentHash, revBContentHash };
 }
 
-function equivalent(left, right, key) {
-  if (key === 'verticalAxis') return left.toUpperCase() === right.toUpperCase();
-  return left === right;
+function equivalent(left, right) {
+  return left.toUpperCase() === right.toUpperCase();
 }
 
 function hasMissingSourceMetadata(revA, revB) {
@@ -46,13 +45,13 @@ function assertSourceCompatibility(revA, revB, values) {
     const left = sourceValue(revA, field.key);
     const right = sourceValue(revB, field.key);
     const proposed = values[field.key];
-    if (left !== 'UNKNOWN' && right !== 'UNKNOWN' && !equivalent(left, right, field.key)) {
+    if (left !== 'UNKNOWN' && right !== 'UNKNOWN' && !equivalent(left, right)) {
       throw new Error(`${field.label} is already incompatible in the source documents: ${left} vs ${right}.`);
     }
-    if (left !== 'UNKNOWN' && !equivalent(left, proposed, field.key)) {
+    if (left !== 'UNKNOWN' && !equivalent(left, proposed)) {
       throw new Error(`${field.label} declaration conflicts with Rev A source metadata (${left}).`);
     }
-    if (right !== 'UNKNOWN' && !equivalent(right, proposed, field.key)) {
+    if (right !== 'UNKNOWN' && !equivalent(right, proposed)) {
       throw new Error(`${field.label} declaration conflicts with Rev B source metadata (${right}).`);
     }
   }
@@ -104,14 +103,14 @@ export function revisionVisualMetadataDeclarationMatches(declaration, revA, revB
 function effectiveValue(document, declaration, field) {
   const value = sourceValue(document, field.key);
   if (value !== 'UNKNOWN') return Object.freeze({ value, origin: 'SOURCE' });
-  const declaredValue = cleanText(declaration?.[field.key]);
-  return Object.freeze({ value: declaredValue || 'UNKNOWN', origin: declaredValue ? 'OPERATOR_DECLARATION' : 'UNKNOWN' });
+  const declaredValue = declared(declaration?.[field.key]);
+  return Object.freeze({ value: declaredValue, origin: declaredValue === 'UNKNOWN' ? 'UNKNOWN' : 'OPERATOR_DECLARATION' });
 }
 
 function compatibility(field, left, right, declarationId) {
   let status = 'COMPATIBLE';
   if (left.value === 'UNKNOWN' || right.value === 'UNKNOWN') status = 'UNKNOWN';
-  else if (left.value !== right.value) status = 'INCOMPATIBLE';
+  else if (!equivalent(left.value, right.value)) status = 'INCOMPATIBLE';
   const core = { status, revA: left.value, revB: right.value, label: field.label };
   const declaredEvidence = left.origin === 'OPERATOR_DECLARATION' || right.origin === 'OPERATOR_DECLARATION';
   return deepFreeze(declaredEvidence ? {
@@ -140,14 +139,15 @@ function defaultValue(revA, revB, field) {
   const right = sourceValue(revB, field.key);
   if (left !== 'UNKNOWN' && right === 'UNKNOWN') return left;
   if (right !== 'UNKNOWN' && left === 'UNKNOWN') return right;
-  return left !== 'UNKNOWN' && equivalent(left, right, field.key) ? left : '';
+  return left !== 'UNKNOWN' && equivalent(left, right) ? left : '';
 }
 
 export function revisionVisualMetadataDeclarationModel(state) {
   const revA = state?.slots?.baseline?.document;
   const revB = state?.slots?.candidate?.document;
   if (!revA || !revB) return deepFreeze({ status: 'UNAVAILABLE', visible: false, blockers: Object.freeze([]) });
-  const resolved = resolveRevisionVisualMetadata(revA, revB, state.visualMetadataDeclaration);
+  const declaration = state.visualMetadataDeclaration ?? state.basis?.visualMetadataDeclaration ?? null;
+  const resolved = resolveRevisionVisualMetadata(revA, revB, declaration);
   const items = [resolved.unitCompatibility, resolved.coordinateFrameCompatibility, resolved.verticalAxisCompatibility];
   const incompatible = items.filter((item) => item.status === 'INCOMPATIBLE');
   const unknown = items.filter((item) => item.status === 'UNKNOWN');
