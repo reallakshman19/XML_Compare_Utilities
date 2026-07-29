@@ -17,6 +17,10 @@ import { renderTopologyEditCanvas } from './topology-edit-canvas-renderer.js';
 import { pointerSelection } from './topology-edit-selection-model.js';
 import { applyReviewedTopologyFixes, applySafeTopologyAutoFixes } from './topology-edit-autofix-service.js';
 import { TOPOLOGY_COMMAND_AUTHORITY_MODE, createTopologyScopedEditCommandScope } from './topology-scoped-edit-command-scope.js';
+import {
+  createTopologySequentialMoveNodeRequest,
+  topologySequentialMoveNodeRequestFileName,
+} from './topology-sequential-move-node-request.js';
 import { buildTopologyEditInspectorMarkup, buildTopologyEditMetricsMarkup, buildTopologyEditTimelineMarkup, buildTopologyEditValidationMarkup } from './topology-edit-panel.js?v=20260717-ttv-components-v1';
 export function createTopologyEditController(elements, dependencies) {
   if (typeof dependencies?.onSelectionChange !== 'function') throw new TypeError('Edit controller requires onSelectionChange().');
@@ -160,7 +164,29 @@ export function createTopologyEditController(elements, dependencies) {
   function renderBottom() { if (!draft || !editedArtifacts) { elements.timeline.innerHTML = ''; elements.validation.innerHTML = ''; return; } elements.timeline.innerHTML = buildTopologyEditTimelineMarkup(draft); elements.validation.innerHTML = buildTopologyEditValidationMarkup(editedArtifacts.editValidation); const journal = journalService?.evidence().journal; elements.undo.disabled = !journal?.activeCommandIds.length || busy; elements.redo.disabled = !journal?.redoCommandIds.length || busy; syncTopologyEditCapabilityControls(elements.root, { initialized: Boolean(editedArtifacts), busy, selection, tool, canUndo: Boolean(journal?.activeCommandIds.length), canRedo: Boolean(journal?.redoCommandIds.length) }); if (busy) elements.exportBundle.disabled = true; else queueExportPlan(); dependencies.onRender?.(evidence()); }
   function renderMetrics() { elements.metrics.innerHTML = buildTopologyEditMetricsMarkup({ baseArtifacts, canonical: canonical(), draft, validation: objectRecord(editedArtifacts?.editValidation), lastRegenerationMs }); }
   function render() { renderCanvas(); renderInspector(); renderBottom(); renderMetrics(); }
-  async function runOperation(operation) { await dispatchTopologyEditOperation({ operation, selection, contextEdgeId, inspector: elements.inspector, execute: executeCommand }); }
+  function exportSequentialMoveNodeRequest(intent) {
+    if (!draft || !journalService || !platformContext?.document || !options) {
+      throw new Error('Edit Draft authority is unavailable for Sequential request export.');
+    }
+    const request = createTopologySequentialMoveNodeRequest({
+      canonical: canonical(), draft, commandAuthority: journalService.currentAuthority(),
+      projectDocument: platformContext.document, nodeId: intent.nodeId,
+      targetPosition: intent.targetPosition, createdAt: new Date().toISOString(),
+    });
+    const fileName = topologySequentialMoveNodeRequestFileName(
+      request, outputStem(options.sourceName),
+    );
+    downloadText(elements.root.ownerDocument, fileName,
+      `${JSON.stringify(request, null, 2)}\n`, 'application/json;charset=utf-8');
+    setStatus(`Sequential stretch request exported for node ${request.sourceNode.nodeId}; no edit was published.`, 'pass');
+    return request;
+  }
+  async function runOperation(operation) {
+    await dispatchTopologyEditOperation({
+      operation, selection, contextEdgeId, inspector: elements.inspector,
+      execute: executeCommand, exportSequentialMoveNodeRequest,
+    });
+  }
   function saveDraft() { if (!journalService || !options) throw new Error('No edit draft is available.'); return saveTopologySessionDraft({ service: journalService, uiState: persistentUiState(), savedAt: new Date().toISOString(), documentRef: elements.root.ownerDocument, sourceName: options.sourceName }); }
   async function loadDraftFile(file) {
     if (!file) throw new TypeError('A topology edit draft file is required.');
@@ -181,6 +207,6 @@ export function createTopologyEditController(elements, dependencies) {
   function setContextEdge(edgeId) { contextEdgeId = cleanText(edgeId); renderInspector(); }
   function evidence() { const journalEvidence = journalService?.evidence(); return Object.freeze({ baseArtifacts, editedArtifacts, draft, selection, projection, tool, contextEdgeId, busy, supportScale, lastRegenerationMs, projectSession: platformContext?.session ?? null, projectDocument: platformContext?.document ?? null, commandJournal: journalEvidence?.journal ?? null, commandEnvelopes: journalEvidence?.commandEnvelopes ?? Object.freeze([]), commandAuthority: journalEvidence?.authority ?? null, attributeLedger, remarks, editScope, exportPlan: exportPlanService.evidence().plan, canvas: canvasRuntime.evidence() }); }
   function destroy() { const released = releaseJournalAuthority(); clearAcceptedEditState(); navigation.destroy(); canvasRuntime.dispose(); exportPlanService.destroy(); return released; }
-  return Object.freeze({ initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale, setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, setContextEdge, applyTopologyFixSuggestions, applyTopologyAutoFixes, appendAttributeEditCommand, setCommandRemark, setEditScope, refreshExportPlan: queueExportPlan, addMeasurementPoint: canvasRuntime.addMeasurementPoint, focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); }, fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), toggleCameraType, setPivotToSelection, render, evidence, destroy });
+  return Object.freeze({ initialize, executeCommand, undo, redo, setTool, setProjection, setSelectionFilter, set3dVisible, setGhostModel, setSupportScale, setExternalSelection, runOperation, saveDraft, loadDraftFile, exportBundle, exportSequentialMoveNodeRequest, setContextEdge, applyTopologyFixSuggestions, applyTopologyAutoFixes, appendAttributeEditCommand, setCommandRemark, setEditScope, refreshExportPlan: queueExportPlan, addMeasurementPoint: canvasRuntime.addMeasurementPoint, focusSelection: () => { const row = selection.at(-1); if (row) navigation.fitObjectKey(`edit:${row.kind}:${row.id}`, true); }, fit: () => navigation.fit(), zoomIn: () => navigation.zoomIn(), zoomOut: () => navigation.zoomOut(), toggleCameraType, setPivotToSelection, render, evidence, destroy });
 }
 export const _test = Object.freeze({ producerSourceText, producerOptions, outputStem, uniqueSelection, shortestPathSelection, selectionForObjectId, objectForSelection, uniqueContextEdges });

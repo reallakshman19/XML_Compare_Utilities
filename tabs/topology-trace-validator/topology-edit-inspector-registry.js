@@ -44,7 +44,7 @@ function contextAuthoritySection(context) {
 function nodeEditorSection(context) {
   const coordinates = ['x', 'y', 'z'].map((axis) => `<label>${axis.toUpperCase()}<input type="number" step="any" data-ttv-edit-coordinate="${axis}" value="${context.node.position[axis]}"></label>`).join('');
   const target = ['x', 'y', 'z'].map((axis) => `<label>${axis.toUpperCase()}<input type="number" step="any" data-ttv-edit-target="${axis}"></label>`).join('');
-  return `<div class="ttv-edit-coordinate-grid">${coordinates}</div><button type="button" data-ttv-edit-inspector-action="MOVE_EXACT">Apply exact XYZ</button><h3>Add straight element</h3><div class="ttv-edit-coordinate-grid">${target}</div><button type="button" data-ttv-edit-inspector-action="ADD">Add with context</button>`;
+  return `<div class="ttv-edit-coordinate-grid">${coordinates}</div><button type="button" data-ttv-edit-inspector-action="MOVE_EXACT">Apply exact XYZ</button><button type="button" data-ttv-edit-inspector-action="MOVE_SEQUENTIAL_REQUEST">Download Sequential stretch request</button><h3>Add straight element</h3><div class="ttv-edit-coordinate-grid">${target}</div><button type="button" data-ttv-edit-inspector-action="ADD">Add with context</button>`;
 }
 
 function edgeEditorSection(context) {
