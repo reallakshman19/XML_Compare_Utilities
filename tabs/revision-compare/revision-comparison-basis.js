@@ -1,6 +1,7 @@
 /** Immutable RevisionComparisonBasis.v1 creation and validation. */
 
 import { assertJsonSafe, deepFreeze, deterministicId } from './revision-contract-utils.js';
+import { REVISION_VISUAL_METADATA_DECLARATION_SCHEMA } from './revision-visual-metadata-declaration.js';
 
 export const REVISION_COMPARISON_BASIS_SCHEMA = 'RevisionComparisonBasis.v1';
 
@@ -12,12 +13,15 @@ export function validateRevisionComparisonBasis(basis) {
   }
   if (!Array.isArray(basis?.includedBranchesA) || !basis.includedBranchesA.length) errors.push('includedBranchesA must not be empty');
   if (!Array.isArray(basis?.includedBranchesB) || !basis.includedBranchesB.length) errors.push('includedBranchesB must not be empty');
+  if (basis?.visualMetadataDeclaration && basis.visualMetadataDeclaration.schema !== REVISION_VISUAL_METADATA_DECLARATION_SCHEMA) {
+    errors.push(`visualMetadataDeclaration.schema must be ${REVISION_VISUAL_METADATA_DECLARATION_SCHEMA}`);
+  }
   if (basis?.validation?.status !== 'READY') errors.push('validation.status must be READY');
   return Object.freeze(errors);
 }
 
 function identityPayload(input) {
-  return {
+  const identity = {
     schema: REVISION_COMPARISON_BASIS_SCHEMA,
     sessionId: input.sessionId,
     revADocumentId: input.revA.document.documentId,
@@ -33,6 +37,8 @@ function identityPayload(input) {
     coordinateFrameCompatibility: input.preflight.compatibility.coordinateFrameCompatibility,
     verticalAxisCompatibility: input.preflight.compatibility.verticalAxisCompatibility,
   };
+  if (input.visualMetadataDeclaration) identity.visualMetadataDeclaration = input.visualMetadataDeclaration;
+  return identity;
 }
 
 export async function createRevisionComparisonBasis(input, cryptoRef) {
