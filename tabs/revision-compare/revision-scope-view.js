@@ -65,7 +65,8 @@ function approvalStatusMarkup(state, readiness) {
   const recovery = revisionVisualMetadataRecoveryModel(state, readiness);
   if (!recovery.visible) return `<small data-revc-basis-approval-status="blocked">${escapeHtml(readiness.blockers.join(' '))}</small>`;
   const missing = `Missing visual metadata: ${recovery.missingFields.join(', ')}.`;
-  return `<div data-revc-basis-approval-status="blocked"><small>${escapeHtml(missing)}</small><button type="button" data-revc-resolve-visual-metadata aria-controls="${recovery.targetId}">Resolve visual metadata</button></div>`;
+  const guidance = `${readiness.blockers.join(' ')} ${missing}`;
+  return `<div class="revc-session-actions"><small data-revc-basis-approval-status="blocked">${escapeHtml(guidance)}</small><button type="button" data-revc-resolve-visual-metadata aria-controls="${recovery.targetId}">Resolve visual metadata</button></div>`;
 }
 
 export function revisionScopeMarkup(state, preflight) {
