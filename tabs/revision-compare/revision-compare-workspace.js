@@ -35,7 +35,7 @@ import {
 import { createRevisionCompareTransferWorkspaceBindings } from './revision-transfer-workspace-bindings.js';
 
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
-  '[data-revc-file]', '[data-revc-cancel]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
+  '[data-revc-file]', '[data-revc-cancel]', '[data-revc-swap-revisions]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
   '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]',
   '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
   '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
@@ -81,6 +81,7 @@ function decisionButton(actions, button) {
 function actionClick(actions, target) {
   const button = target.closest('button'); if (!button) return;
   if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
+  if (button.hasAttribute('data-revc-swap-revisions')) actions.swapRevisions();
   if (button.dataset.revcGroup) actions.setGroupIncluded(button.dataset.revcGroup, button.dataset.revcInclude === 'all');
   if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
