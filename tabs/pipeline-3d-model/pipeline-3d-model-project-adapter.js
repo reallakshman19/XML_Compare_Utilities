@@ -5,6 +5,7 @@ import { buildCombinedCoordinateTable, parseTable1, table1ToTabText,
 import { buildAuthoritativePipelineOutputs,
   buildPipelineNativeOutputBundle } from './pipeline-3d-model-profile-propagation.js?v=20260724-p3d-core-050-1';
 import { buildPipelineApprovedCatalogProductionSourceEvidence } from './pipeline-3d-model-approved-catalog-production-input.js';
+import { pipelineApprovedCatalogVisibleArtifacts } from './pipeline-3d-model-approved-catalog-status-artifact.js';
 
 export const PIPELINE_CAD_PROJECT_ID = 'pipeline-cad';
 export const PIPELINE_CAD_SOURCE_SCHEMA = 'Pipeline3DModelTables.v1';
@@ -38,7 +39,7 @@ export function pipelineProjectArtifacts(output) {
       'PipelineIdentityContext.v1', output.identityText, 'text/tab-separated-values'),
   ];
   const seen = new Set(base.map((item) => item.name));
-  for (const item of output.artifacts || []) if (!seen.has(item.name)) {
+  for (const item of pipelineApprovedCatalogVisibleArtifacts(output)) if (!seen.has(item.name)) {
     seen.add(item.name); base.push(item);
   }
   if (output.elasticBendText && !seen.has('pipeline-elastic-bends.tsv')) base.push(
