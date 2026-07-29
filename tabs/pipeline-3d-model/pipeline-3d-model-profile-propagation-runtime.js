@@ -7,6 +7,7 @@ import { createPipelineArtifactSession } from './pipeline-3d-model-artifact-sess
 import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
+import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profile-refresh-scheduler.js';
 import { renderPipelineSvgPreview } from './pipeline-3d-model-svg-reference.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -125,6 +126,7 @@ function publishCanonicalPlan(dialog, output) {
     bubbles: false, detail: { plan: output.canonicalAnalysisSectionPlan } }));
 }
 function run(dialog, instance) {
+  instance.refreshScheduler?.cancel();
   try {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
     instance.output = output; publishCanonicalPlan(dialog, output);
@@ -166,9 +168,8 @@ function repairPreviewInput(dialog, event) {
   if (raw) { raw.value = update.text; queueMicrotask(() => raw.dispatchEvent(new Event('input', { bubbles: true }))); }
   return true;
 }
-function scheduleRefresh(dialog, instance) {
-  if (instance.refreshQueued) return; instance.refreshQueued = true;
-  queueMicrotask(() => { instance.refreshQueued = false; run(dialog, instance); });
+function scheduleRefresh(instance) {
+  instance.refreshScheduler.schedule();
 }
 function pipelineSourceInput(target) {
   const data = target?.dataset;
@@ -183,8 +184,7 @@ function onInput(dialog, instance, event) {
   if (!instance.rendering && pipelineSourceInput(target)) {
     instance.output = null; instance.artifactSession.reset();
   }
-  if (!instance.rendering && target?.matches('[data-p3d-split$="-raw"]')
-    && hasAnyProfileRaw(dialog)) scheduleRefresh(dialog, instance);
+  if (!instance.rendering && target?.matches('[data-p3d-split$="-raw"]')) scheduleRefresh(instance);
 }
 function onClick(dialog, instance, event) {
   const target = event.target instanceof Element ? event.target.closest('button') : null;
@@ -197,21 +197,29 @@ function onClick(dialog, instance, event) {
   if (action === 'download-coordinate') download(dialog, instance, 'coordinate');
   if (action === 'download-xml') download(dialog, instance, 'xml');
 }
+function createInstance(dialog) {
+  const instance = { output: null, rendering: false, warnings: [],
+    artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null };
+  instance.refreshScheduler = createPipelineProfileRefreshScheduler(() => run(dialog, instance));
+  return instance;
+}
 export function installPipelineProfilePropagation(dialog) {
   if (!dialog || INSTANCES.has(dialog)) return INSTANCES.get(dialog)?.destroy || null;
-  const controller = new AbortController(), instance = { output: null, refreshQueued: false,
-    rendering: false, warnings: [], artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts) };
+  const controller = new AbortController(), instance = createInstance(dialog);
   ensurePipelineWarningLog(dialog); renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('pipeline-engineering-configuration-apply', () => {
-    instance.output = null; instance.artifactSession.reset();
+    instance.refreshScheduler.cancel(); instance.output = null; instance.artifactSession.reset();
   },
     { signal: controller.signal });
-  instance.destroy = () => { controller.abort(); instance.artifactSession.reset(); INSTANCES.delete(dialog); };
+  instance.destroy = () => {
+    controller.abort(); instance.refreshScheduler.destroy(); instance.artifactSession.reset();
+    INSTANCES.delete(dialog);
+  };
   INSTANCES.set(dialog, instance); return instance.destroy;
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
   hasAnyProfileRaw, resolveProfileRawInput, profileRawState, pipelineSourceInput,
   rawTextFromPreview, renderTsvGrid: buildPipelineDerivedTablePreviewHtml,
-  setWarnings, publishCanonicalPlan });
+  scheduleRefresh, setWarnings, publishCanonicalPlan });
