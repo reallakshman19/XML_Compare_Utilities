@@ -3,6 +3,7 @@ import { createTopologyValidatorController } from './topology-validator-controll
 import { createTopologySvgEditorController } from './topology-svg-editor-controller.js?v=20260718-headless-autofix-v1';
 import { createTopologyParityController } from './topology-parity-controller.js?v=20260715-ttv-018-parity';
 import { createTopologyEditController } from './topology-edit-controller.js?v=20260718-edit-nav-icons-v3';
+import { createTopologySequentialMergeNodesController } from './topology-sequential-merge-nodes-controller.js';
 import { createTopologyCheckerController } from './topology-checker-controller.js';
 import { topologyCheckerIconMarkup } from './topology-checker-icons.js';
 import { createTopologyWorkspaceController } from './topology-workspace-controller.js?v=20260718-headless-autofix-v2';
@@ -104,12 +105,16 @@ export async function mountTopologyTraceValidatorWorkspace(root, initialArtifact
   const parityController = createTopologyParityController(collectParityElements(shell));
   let controller = null, checkerController = null;
   let editExtensions = null;
-  const editController = createTopologyEditController(collectEditElements(shell), {
+  const editElements = collectEditElements(shell);
+  const baseEditController = createTopologyEditController(editElements, {
     onSelectionChange: (selection) => controller?.synchronizeCanonicalSelection(selection, 'edit'),
     onRender: () => editExtensions?.onRender(),
     onGhostPick: (objectId) => editExtensions?.onGhostPick(objectId),
     reviewEvidence: () => checkerController?.evidence() ?? null,
     modeEvidence: () => workspaceController.modelMode(shell),
+  });
+  const editController = createTopologySequentialMergeNodesController(baseEditController, {
+    documentRef: shell.ownerDocument,
   });
   const workspaceController = createTopologyWorkspaceController(traceController, editController, parityController, editorController);
   checkerController = createTopologyCheckerController(collectCheckerElements(shell), {
