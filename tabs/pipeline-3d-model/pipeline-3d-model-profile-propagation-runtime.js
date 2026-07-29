@@ -2,6 +2,7 @@ import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter
 import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core-050-1';
 import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
 import { pipelineApprovedCatalogVisibleArtifacts } from './pipeline-3d-model-approved-catalog-status-artifact.js';
+import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -152,7 +153,7 @@ function download(dialog, instance, kind) {
   const output = instance.output || run(dialog, instance); if (!output) return;
   if (kind === 'coordinate') return saveTextFile('pipeline-coordinate-tab.tsv', output.coordinateText, 'text/tab-separated-values');
   if (!output.xmlText) return logWarning(dialog, instance, 'inputxml_blocked',
-    `Canonical InputXML is blocked: ${output.orchestration?.blockerCodes?.join(', ') || 'unknown blocker'}.`);
+    buildPipelineInputXmlBlockedMessage(output));
   saveTextFile('pipeline-3d-model.xml', output.xmlText, 'application/xml');
 }
 function downloadArtifact(dialog, instance, index) {
