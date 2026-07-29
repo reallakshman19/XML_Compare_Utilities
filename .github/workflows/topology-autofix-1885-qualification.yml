@@ -46,7 +46,7 @@ jobs:
           import fs from 'node:fs';
           import crypto from 'node:crypto';
           const manifest = JSON.parse(fs.readFileSync('vendor/3d-converters/topology-browser-core.manifest.json', 'utf8'));
-          const expectedCommit = '7a56911633345ea7b1db87a3b87b89797b31c5d0';
+          const expectedCommit = '2f0df7dc80d76834c9b1d507cd09ca332b45e431';
           if (manifest.sourceCommit !== expectedCommit) throw new Error(`Unexpected sourceCommit ${manifest.sourceCommit}`);
           const digest = `sha256:${crypto.createHash('sha256').update(fs.readFileSync('vendor/3d-converters/topology-browser-core.mjs')).digest('hex')}`;
           if (manifest.bundleSha256 !== digest) throw new Error(`Bundle digest mismatch ${manifest.bundleSha256} != ${digest}`);
