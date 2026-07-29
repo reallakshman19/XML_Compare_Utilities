@@ -1,3 +1,7 @@
+import {
+  renderPipelineInputXmlDownloadControl,
+} from './pipeline-3d-model-inputxml-download-control.js';
+
 const CATALOG_BLOCKER_TOKEN = 'APPROVED_CATALOG';
 const STATUS_SELECTOR = '[data-p3d-approved-catalog-status]';
 const XML_DOWNLOAD_SELECTOR = '[data-p3d="download-xml"]';
@@ -37,30 +41,11 @@ function visibleStatusLabel(status) {
   return `${status.label} — ${status.blockerCodes.join(', ')}`;
 }
 
-function downloadControl(status) {
-  const blocked = status.state === 'BLOCKED';
-  const reason = status.blockerCodes.join(', ') || 'approved catalog adoption is not ready';
-  return Object.freeze({
-    blocked,
-    title: blocked ? `InputXML download blocked: ${reason}` : '',
-  });
-}
-
-function renderXmlDownloadControl(dialog, status) {
+function markApprovedCatalogState(dialog, status) {
   const button = dialog?.querySelector?.(XML_DOWNLOAD_SELECTOR);
   if (!button) return;
-  const control = downloadControl(status);
-  button.disabled = control.blocked;
   button.dataset.approvedCatalogState = status.state;
-  button.setAttribute?.('aria-disabled', String(control.blocked));
   button.setAttribute?.('aria-describedby', STATUS_ID);
-  if (control.blocked) {
-    button.dataset.approvedCatalogOwnedTitle = 'true';
-    button.title = control.title;
-  } else if (button.dataset.approvedCatalogOwnedTitle === 'true') {
-    delete button.dataset.approvedCatalogOwnedTitle;
-    button.removeAttribute?.('title');
-  }
 }
 
 export function resolvePipelineApprovedCatalogStatus(output = {}) {
@@ -97,7 +82,8 @@ function ensureStatusElement(dialog) {
 export function renderPipelineApprovedCatalogStatus(dialog, output) {
   const status = resolvePipelineApprovedCatalogStatus(output);
   const element = ensureStatusElement(dialog);
-  renderXmlDownloadControl(dialog, status);
+  renderPipelineInputXmlDownloadControl(dialog, output);
+  markApprovedCatalogState(dialog, status);
   if (!element) return status;
   element.id = STATUS_ID;
   element.dataset.state = status.state;
