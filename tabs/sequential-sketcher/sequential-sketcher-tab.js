@@ -118,7 +118,6 @@ function mountPilot(runtime, overlay, commandBoundary) {
     commandBoundary, supportBoundary: runtime.supportAdjustmentBoundary,
     geometryBoundary: runtime.geometryEditBoundary, workspace: runtime.active,
     documentRef: overlay.ownerDocument,
-    now: exactClock(context.sequentialDraftEdit3dPilotEvidenceAtProvider),
     onExport: context.onSequentialDraftEdit3dPilotEvidence,
     onFailure: context.onSequentialDraftEdit3dPilotEvidenceFailure,
   });

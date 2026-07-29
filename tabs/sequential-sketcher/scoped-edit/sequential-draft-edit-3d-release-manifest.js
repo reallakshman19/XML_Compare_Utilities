@@ -64,6 +64,14 @@ function exactList(value, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(canonical)) fail(`${label} differs from the qualified baseline.`);
   return Object.freeze(canonical);
 }
+function journalAuthorityTimestamp(commandState) {
+  const state = object(commandState.journalState, 'commandState.journalState');
+  const journal = object(state.journal, 'commandState.journalState.journal');
+  if (journal.schema !== 'CommandJournal.v1' || !isIsoTimestamp(journal.updatedAt)) {
+    fail('Command journal authority timestamp is unavailable.', TypeError);
+  }
+  return journal.updatedAt;
+}
 function controllerEvidence(input) {
   const state = object(input.controllerState, 'controllerState');
   return {
@@ -86,13 +94,13 @@ function currentBranch(commandState, readModel) {
   return branchId;
 }
 function journalEvidence(commandState, supportState, geometryState) {
+  const journalState = object(commandState.journalState, 'commandState.journalState');
   const history = supportState.supportAdjustmentHistory || null;
   const register = supportState.supportAdjustmentRegister || history?.currentRegister || null;
   const geometryJournal = object(geometryState.geometryEditJournal, 'geometryEditJournal');
   return {
-    commandJournalHeadFingerprint: commandState.journalState
-      ? sequentialCommandJournalHeadFingerprint(commandState.journalState) : null,
-    commandJournalState: commandState.journalState ? 'PRESENT' : 'ABSENT',
+    commandJournalHeadFingerprint: sequentialCommandJournalHeadFingerprint(journalState),
+    commandJournalState: 'PRESENT',
     supportRegisterHeadFingerprint: register?.headFingerprint || null,
     supportHistoryFingerprint: history?.historyFingerprint || null,
     geometryJournalHeadFingerprint: text(geometryJournal.headFingerprint,
@@ -139,7 +147,7 @@ function material(input) {
   if (!controller.available) fail('Pilot baseline evidence requires an authoritative open branch.');
   return {
     schema: SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA,
-    createdAt: input.createdAt,
+    createdAt: journalAuthorityTimestamp(commandState),
     baseline: SEQUENTIAL_DRAFT_EDIT_3D_BASELINE,
     runtimePaths: SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS,
     authority: authorityEvidence(input, commandState, readModel, scene),
@@ -172,22 +180,21 @@ function invariant(value) {
   } catch { return false; }
 }
 export function createSequentialDraftEdit3dReleaseManifest(input = {}) {
-  if (!isIsoTimestamp(input.createdAt)) fail('createdAt must be an exact ISO timestamp.', TypeError);
   const base = material(input);
   return immutableJson({ ...base,
     manifestFingerprint: sequentialSemanticFingerprint('SSK3DRELEASE', base) },
   'Sequential Draft Edit 3D release manifest');
 }
 export function assertSequentialDraftEdit3dReleaseManifest(value) {
-  if (value?.schema !== SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA) {
+  const manifest = immutableJson(value, 'Sequential Draft Edit 3D release manifest');
+  if (manifest.schema !== SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA) {
     fail(`Release manifest must use ${SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA}.`, TypeError);
   }
-  const base = { ...value }; delete base.manifestFingerprint;
-  immutableJson(value, 'Sequential Draft Edit 3D release manifest');
-  if (!isIsoTimestamp(value.createdAt)
-    || value.manifestFingerprint !== sequentialSemanticFingerprint('SSK3DRELEASE', base)
-    || !invariant(value)) fail('Release manifest differs from the qualified engineering-demo baseline.');
-  return value;
+  const { manifestFingerprint, ...base } = manifest;
+  if (!isIsoTimestamp(manifest.createdAt)
+    || manifestFingerprint !== sequentialSemanticFingerprint('SSK3DRELEASE', base)
+    || !invariant(manifest)) fail('Release manifest differs from the qualified engineering-demo baseline.');
+  return manifest;
 }
 export function validateSequentialDraftEdit3dReleaseManifest(value, input = {}) {
   const asserted = assertSequentialDraftEdit3dReleaseManifest(value);

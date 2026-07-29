@@ -38,33 +38,52 @@ function download(documentRef, manifest) {
   documentRef.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
 }
 function evidenceInput(state) {
+  const commandState = state.commandBoundary.readCurrentState();
+  const supportState = state.supportBoundary.readCurrentState();
+  const geometryState = state.geometryBoundary.readCurrentState();
+  const view = state.geometryBoundary.readView();
   return {
     controllerSchema: state.controller.schema,
     controllerState: state.controller.getState(),
     shadowEvidence: state.shadow.evidence(),
-    commandState: state.commandBoundary.readCurrentState(),
-    supportState: state.supportBoundary.readCurrentState(),
-    geometryState: state.geometryBoundary.readCurrentState(),
-    view: state.geometryBoundary.readView(),
-    createdAt: state.now(),
+    commandState,
+    supportState,
+    geometryState,
+    view,
   };
+}
+function setAvailability(state, enabled, reason = '') {
+  state.lastError = reason || null;
+  state.button.disabled = !enabled;
+  state.button.title = enabled
+    ? 'Download immutable engineering-demo baseline evidence for the active branch'
+    : `Pilot evidence unavailable: ${reason}`;
+  return enabled;
 }
 function refresh(state) {
   if (state.destroyed) return false;
-  const controllerState = state.controller.getState();
-  state.button.disabled = controllerState.available !== true;
-  state.button.title = controllerState.available
-    ? 'Download immutable engineering-demo baseline evidence for the active branch'
-    : 'Open one authoritative Sequential branch before baseline export';
-  return !state.button.disabled;
+  try {
+    if (state.controller.getState().available !== true) {
+      throw new RangeError('Open one authoritative Sequential branch before baseline export.');
+    }
+    createSequentialDraftEdit3dReleaseManifest(evidenceInput(state));
+    return setAvailability(state, true);
+  } catch (error) {
+    return setAvailability(state, false, error?.message || String(error));
+  }
 }
 function exportEvidence(state) {
   if (state.destroyed) throw new Error('Draft Edit 3D pilot feature is destroyed.');
-  if (!refresh(state)) throw new RangeError('Pilot baseline export requires an authoritative open branch.');
-  const manifest = createSequentialDraftEdit3dReleaseManifest(evidenceInput(state));
-  download(state.documentRef, manifest);
-  try { state.onExport(manifest); } catch {}
-  return manifest;
+  try {
+    const manifest = createSequentialDraftEdit3dReleaseManifest(evidenceInput(state));
+    setAvailability(state, true);
+    download(state.documentRef, manifest);
+    try { state.onExport(manifest); } catch {}
+    return manifest;
+  } catch (error) {
+    setAvailability(state, false, error?.message || String(error));
+    throw error;
+  }
 }
 function bind(state) {
   state.button.addEventListener('click', state.onClick);
@@ -103,10 +122,10 @@ export function createSequentialDraftEdit3dPilotFeature(options = {}) {
     geometryBoundary: requiredMethods(options.geometryBoundary,
       ['readCurrentState', 'readView'], 'geometryBoundary'),
     workspace: requiredMethods(options.workspace, ['subscribeEngineeringSvgOwnerState'], 'workspace'),
-    now: requiredFunction(options.now || (() => new Date().toISOString()), 'now'),
     onExport: requiredFunction(options.onExport || (() => {}), 'onExport'),
     onFailure: requiredFunction(options.onFailure || (() => {}), 'onFailure'),
-    button: installButton(root), unsubscribe: null, onClick: null, destroyed: false,
+    button: installButton(root), unsubscribe: null, onClick: null,
+    lastError: null, destroyed: false,
   };
   state.onClick = (event) => {
     event.preventDefault(); event.stopImmediatePropagation();
@@ -119,7 +138,8 @@ export function createSequentialDraftEdit3dPilotFeature(options = {}) {
     exportEvidence: () => exportEvidence(state),
     refresh: () => refresh(state),
     getState: () => Object.freeze({ available: !state.button.disabled,
-      destroyed: state.destroyed, buttonPresent: state.button.isConnected !== false }),
+      lastError: state.lastError, destroyed: state.destroyed,
+      buttonPresent: state.button.isConnected !== false }),
     destroy: () => destroy(state),
   });
 }
