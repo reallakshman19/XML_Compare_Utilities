@@ -6,6 +6,7 @@ import { buildPipelineArtifactPanelHtml } from './pipeline-3d-model-artifact-pan
 import { createPipelineArtifactSession } from './pipeline-3d-model-artifact-session.js';
 import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
+import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
 import { TABLE_HEADERS } from './pipeline-3d-model-cad-model.js';
@@ -19,11 +20,6 @@ const RAW_HEADERS = Object.freeze({ 'table2a-raw': TABLE_HEADERS.table2a,
   'table3c-raw': TABLE_HEADERS.table3c });
 const find = (dialog, selector) => dialog.querySelector(selector);
 const rawValue = (dialog, name) => find(dialog, `[data-p3d-split="${name}"]`)?.value || '';
-function hasRawContent(value) { return String(value || '').trim().length > 0; }
-function hasRawRows(value) {
-  const lines = String(value || '').split(/\r?\n/).filter((line) => line.trim());
-  return lines.length > 1 && lines.slice(1).some((line) => /\d/.test(line));
-}
 function readProfileRaw(dialog) {
   return Object.freeze({ table2a: rawValue(dialog, 'table2a-raw'),
     table3a: rawValue(dialog, 'table3a-raw'), table3b: rawValue(dialog, 'table3b-raw'),
@@ -31,11 +27,13 @@ function readProfileRaw(dialog) {
 }
 function profileRawState(dialog) {
   const raw = readProfileRaw(dialog);
-  const suppliedTables = Object.entries(raw).filter(([, value]) => hasRawContent(value))
+  const tableReadiness = Object.freeze(Object.fromEntries(Object.entries(raw)
+    .map(([name, value]) => [name, scanPipelineRawTableReadiness(value)])));
+  const suppliedTables = Object.entries(tableReadiness).filter(([, state]) => state.hasContent)
     .map(([name]) => name);
-  return Object.freeze({ raw, suppliedTables: Object.freeze(suppliedTables),
+  return Object.freeze({ raw, tableReadiness, suppliedTables: Object.freeze(suppliedTables),
     active: suppliedTables.length > 0,
-    ready: hasRawRows(raw.table2a) && hasRawRows(raw.table3a) });
+    ready: tableReadiness.table2a.hasDataRow && tableReadiness.table3a.hasDataRow });
 }
 function hasAuthoritativeProfile(dialog) { return profileRawState(dialog).ready; }
 function hasAnyProfileRaw(dialog) { return profileRawState(dialog).active; }
@@ -46,7 +44,8 @@ function resolveProfileRawInput(dialog) {
   const error = new Error('Authoritative profile input requires populated Table 2A and Table 3A data.');
   error.code = 'PIPELINE_PROFILE_RAW_INCOMPLETE';
   error.details = Object.freeze({ suppliedTables: state.suppliedTables,
-    table2aReady: hasRawRows(state.raw.table2a), table3aReady: hasRawRows(state.raw.table3a) });
+    table2aReady: state.tableReadiness.table2a.hasDataRow,
+    table3aReady: state.tableReadiness.table3a.hasDataRow });
   throw error;
 }
 function readBranchInfo(dialog) {
