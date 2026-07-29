@@ -2,6 +2,8 @@
 import { cleanText, deepFreeze, deterministicId } from './revision-contract-utils.js';
 
 export const REVISION_VISUAL_METADATA_DECLARATION_SCHEMA = 'RevisionVisualMetadataDeclaration.v1';
+const DECLARATION_AUTHORITY = 'OPERATOR_DECLARATION_FOR_MISSING_SOURCE_METADATA';
+const DECLARATION_ID_PATTERN = /^visual-metadata:[a-f0-9]{24}$/;
 
 const FIELD_DEFINITIONS = Object.freeze([
   Object.freeze({ key: 'unit', label: 'Unit' }),
@@ -68,6 +70,15 @@ function coverage(revA, revB) {
   })])));
 }
 
+function validCoverage(declaration, revA, revB) {
+  const expected = coverage(revA, revB);
+  if (!Object.isFrozen(declaration.sourceCoverage)) return false;
+  return FIELD_DEFINITIONS.every(({ key }) => {
+    const item = declaration.sourceCoverage?.[key];
+    return Object.isFrozen(item) && item.revA === expected[key].revA && item.revB === expected[key].revB;
+  });
+}
+
 function assertDeclarationValues(revA, revB, values) {
   if (!hasMissingSourceMetadata(revA, revB)) throw new Error('Source documents already declare complete visual metadata.');
   if (!['X', 'Y', 'Z'].includes(values.verticalAxis)) throw new RangeError('Vertical axis must be X, Y, or Z.');
@@ -81,20 +92,23 @@ export async function createRevisionVisualMetadataDeclaration(revA, revB, values
     schema: REVISION_VISUAL_METADATA_DECLARATION_SCHEMA,
     ...sourceHashes(revA, revB),
     ...normalized,
-    authority: 'OPERATOR_DECLARATION_FOR_MISSING_SOURCE_METADATA',
+    authority: DECLARATION_AUTHORITY,
     sourceCoverage: coverage(revA, revB),
   };
   return deepFreeze({ ...identity, declarationId: await deterministicId('visual-metadata', identity, cryptoRef) });
 }
 
 export function revisionVisualMetadataDeclarationMatches(declaration, revA, revB) {
-  if (!declaration || declaration.schema !== REVISION_VISUAL_METADATA_DECLARATION_SCHEMA) return false;
+  if (!declaration || declaration.schema !== REVISION_VISUAL_METADATA_DECLARATION_SCHEMA
+      || !Object.isFrozen(declaration) || declaration.authority !== DECLARATION_AUTHORITY
+      || !DECLARATION_ID_PATTERN.test(cleanText(declaration.declarationId))) return false;
   try {
     const hashes = sourceHashes(revA, revB);
     const values = normalizedValues(declaration);
     assertDeclarationValues(revA, revB, values);
     return declaration.revAContentHash === hashes.revAContentHash
-      && declaration.revBContentHash === hashes.revBContentHash;
+      && declaration.revBContentHash === hashes.revBContentHash
+      && validCoverage(declaration, revA, revB);
   } catch {
     return false;
   }
