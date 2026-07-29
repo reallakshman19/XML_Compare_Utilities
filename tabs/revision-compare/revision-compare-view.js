@@ -53,12 +53,15 @@ function preflightMarkup(preflight) {
 function axisOptions(value) {
   return ['X', 'Y', 'Z'].map((axis) => `<option value="${axis}" ${value === axis ? 'selected' : ''}>${axis}</option>`).join('');
 }
+function missingAttribute(model, label) {
+  return model.unknownFields?.includes(label) ? 'data-revc-visual-missing' : '';
+}
 function visualMetadataDeclarationMarkup(state) {
   const model = revisionVisualMetadataDeclarationModel(state); if (!model.visible) return '';
   const values = model.declaration ?? model.defaults; const applied = model.status === 'APPLIED'; const blocked = model.status === 'BLOCKED';
   const disabled = applied || blocked ? 'disabled' : '';
   const unknown = model.unknownFields?.length ? `Missing source fields: ${model.unknownFields.join(', ')}.` : '';
-  return `<section id="revc-visual-metadata" class="revc-preflight" data-revc-visual-metadata aria-labelledby="revc-visual-metadata-title"><header><div><span>VISUAL COORDINATE EVIDENCE</span><h2 id="revc-visual-metadata-title">Declare visual coordinate system</h2><p>Use only when the staged files omit required metadata. This declaration is bound to the current file hashes and does not modify either source.</p></div><strong data-status="${model.status.toLowerCase()}">${model.status}</strong></header>${unknown ? `<p>${escapeHtml(unknown)}</p>` : ''}${messageList('Declaration blockers', model.blockers, 'blocker')}<div class="revc-scope-summary"><label>Unit<input type="text" data-revc-visual-unit value="${escapeHtml(values.unit)}" placeholder="e.g. mm" ${disabled}></label><label>Coordinate frame<input type="text" data-revc-visual-frame value="${escapeHtml(values.coordinateFrame)}" placeholder="e.g. PLANT" ${disabled}></label><label>Vertical axis<select data-revc-visual-axis ${disabled}><option value="">Select axis</option>${axisOptions(values.verticalAxis)}</select></label></div><div class="revc-actions">${applied ? '<button type="button" data-revc-clear-visual-metadata>Clear declaration</button>' : `<button type="button" class="revc-primary" data-revc-apply-visual-metadata ${blocked ? 'disabled' : ''}>Apply declaration</button>`}</div>${applied ? `<p>Declaration <b>${escapeHtml(model.declaration.declarationId)}</b> is active. Reapprove the comparison basis if it is stale.</p>` : ''}</section>`;
+  return `<section id="revc-visual-metadata" class="revc-preflight" data-revc-visual-metadata aria-labelledby="revc-visual-metadata-title"><header><div><span>VISUAL COORDINATE EVIDENCE</span><h2 id="revc-visual-metadata-title">Declare visual coordinate system</h2><p>Use only when the staged files omit required metadata. This declaration is bound to the current file hashes and does not modify either source.</p></div><strong data-status="${model.status.toLowerCase()}">${model.status}</strong></header>${unknown ? `<p>${escapeHtml(unknown)}</p>` : ''}${messageList('Declaration blockers', model.blockers, 'blocker')}<div class="revc-scope-summary"><label>Unit<input type="text" data-revc-visual-unit ${missingAttribute(model, 'Unit')} value="${escapeHtml(values.unit)}" placeholder="e.g. mm" ${disabled}></label><label>Coordinate frame<input type="text" data-revc-visual-frame ${missingAttribute(model, 'Coordinate frame')} value="${escapeHtml(values.coordinateFrame)}" placeholder="e.g. PLANT" ${disabled}></label><label>Vertical axis<select data-revc-visual-axis ${missingAttribute(model, 'Vertical axis')} ${disabled}><option value="">Select axis</option>${axisOptions(values.verticalAxis)}</select></label></div><div class="revc-actions">${applied ? '<button type="button" data-revc-clear-visual-metadata>Clear declaration</button>' : `<button type="button" class="revc-primary" data-revc-apply-visual-metadata ${blocked ? 'disabled' : ''}>Apply declaration</button>`}</div>${applied ? `<p>Declaration <b>${escapeHtml(model.declaration.declarationId)}</b> is active. Reapprove the comparison basis if it is stale.</p>` : ''}</section>`;
 }
 function progressMetrics(progress) {
   if (!progress) return '';
@@ -88,5 +91,5 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
 }
 export const _test = Object.freeze({
   axisOptions, clearControl, comparisonControlMarkup, escapeHtml, importedPackageMarkup,
-  shortHash, slotCard, swapControl, visualMetadataDeclarationMarkup,
+  missingAttribute, shortHash, slotCard, swapControl, visualMetadataDeclarationMarkup,
 });
