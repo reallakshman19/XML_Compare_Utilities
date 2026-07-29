@@ -146,8 +146,7 @@ export function revisionVisualMetadataDeclarationModel(state) {
   const revA = state?.slots?.baseline?.document;
   const revB = state?.slots?.candidate?.document;
   if (!revA || !revB) return deepFreeze({ status: 'UNAVAILABLE', visible: false, blockers: Object.freeze([]) });
-  const declaration = state.visualMetadataDeclaration ?? state.basis?.visualMetadataDeclaration ?? null;
-  const resolved = resolveRevisionVisualMetadata(revA, revB, declaration);
+  const resolved = resolveRevisionVisualMetadata(revA, revB, state.visualMetadataDeclaration);
   const items = [resolved.unitCompatibility, resolved.coordinateFrameCompatibility, resolved.verticalAxisCompatibility];
   const incompatible = items.filter((item) => item.status === 'INCOMPATIBLE');
   const unknown = items.filter((item) => item.status === 'UNKNOWN');
