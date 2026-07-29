@@ -5,7 +5,12 @@ const fixture = (name) => new URL(`../fixtures/revision-compare/${name}`, import
 
 async function waitForLayoutStyles(page) {
   await expect(page.locator('#revision-compare-layout-style')).toHaveAttribute('href', /revision-compare-layout\.css/);
-  await page.waitForFunction(() => [...document.styleSheets].some((sheet) => sheet.href?.includes('revision-compare-layout.css')));
+  await expect(page.locator('#revision-compare-review-containment-style')).toHaveAttribute('href', /revision-compare-review-containment\.css/);
+  await page.waitForFunction(() => {
+    const loaded = [...document.styleSheets].map((sheet) => sheet.href ?? '');
+    return loaded.some((href) => href.includes('revision-compare-layout.css'))
+      && loaded.some((href) => href.includes('revision-compare-review-containment.css'));
+  });
 }
 
 async function openWorkspace(page, viewport) {
