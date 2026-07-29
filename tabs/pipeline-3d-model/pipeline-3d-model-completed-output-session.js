@@ -1,5 +1,6 @@
 import { canonicalPipelineMetadataValue as canonicalValue,
   resolvePipelineMetadataIdentity } from './pipeline-3d-model-metadata-identity.js';
+import { isPipelineCanonicalRawProfile } from './pipeline-3d-model-raw-readiness-session.js';
 export const PIPELINE_COMPLETED_OUTPUT_EMPTY = 'EMPTY';
 export const PIPELINE_COMPLETED_OUTPUT_BUILT = 'BUILT';
 export const PIPELINE_COMPLETED_OUTPUT_REUSED = 'REUSED';
@@ -22,8 +23,10 @@ function profileMetadata(profileRaw) {
 function inputIdentityParts(input = {}) {
   const profileActive = Boolean(input.profileRaw);
   const profile = plain(input.profileRaw) ? input.profileRaw : {};
+  const profileIdentity = isPipelineCanonicalRawProfile(input.profileRaw)
+    ? input.profileRaw : PROFILE_TEXT_KEYS.map((key) => sourceText(profile[key]));
   const sourceTexts = profileActive
-    ? [sourceText(input.table1Text), ...PROFILE_TEXT_KEYS.map((key) => sourceText(profile[key]))]
+    ? [sourceText(input.table1Text), ...(Array.isArray(profileIdentity) ? profileIdentity : [profileIdentity])]
     : [sourceText(input.table1Text), sourceText(input.table2Text), sourceText(input.table3Text)];
   const { table1Text, table2Text, table3Text, profileRaw, ...metadata } = input;
   return Object.freeze({ sourceTexts: Object.freeze(sourceTexts),
