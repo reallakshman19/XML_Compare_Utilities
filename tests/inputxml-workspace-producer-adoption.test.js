@@ -11,6 +11,7 @@ import {
   workspaceProducerReceipt,
 } from '../tabs/inputxml-workspace/inputxml-workspace-producer-adoption.js';
 import { contentFingerprint } from '../xml-compare/categorized-inputxml-api/index.js';
+import { createInputXmlProducerService } from '../xml-compare/inputxml-producer-api/index.js';
 
 const INPUT_XML = '<?xml version="1.0"?><CAESARII XML_TYPE="Input"><PIPINGMODEL><PIPINGELEMENT FROM_NODE="10" TO_NODE="20" /></PIPINGMODEL></CAESARII>';
 const CATEGORIZED_XML = '<CategorizedInputXML schemaVersion="3"><Line id="L1" /></CategorizedInputXML>';
@@ -79,6 +80,18 @@ const adopted = await runWorkspaceProducerAdoption({ ...source, sourceKind: 'enr
 assert.equal(calls, 1);
 assert.equal(adopted.adoption.status, 'success');
 assert.equal(adopted.adoption.result.artifact.text, CATEGORIZED_XML);
+
+const realService = createInputXmlProducerService();
+const realAdoption = await runWorkspaceProducerAdoption(source, {
+  producer: { categorizeInputXml: async (request) => realService.categorizeInputXml(request) },
+});
+assert.equal(realAdoption.adoption.status, 'success');
+assert.equal(realAdoption.adoption.result.schema, 'InputXmlProducerCategorizeResult.v1');
+assert.equal(realAdoption.adoption.result.requestId, createWorkspaceProducerRequest(source).requestId);
+assert.equal(realAdoption.adoption.result.categorizedValidation.success, true);
+assert.equal(realAdoption.adoption.result.artifact.sourceFingerprint, contentFingerprint(INPUT_XML));
+assert.equal(workspaceProducerCategorizedText(source, realAdoption.adoption), realAdoption.adoption.result.artifact.text);
+assert.match(realAdoption.adoption.result.artifact.text, /<CategorizedInputXML\b/);
 
 const failed = await runWorkspaceProducerAdoption(source, {
   producer: { categorizeInputXml: async () => { throw Object.assign(new Error('worker unavailable'), { code: 'WORKER_UNAVAILABLE' }); } },
