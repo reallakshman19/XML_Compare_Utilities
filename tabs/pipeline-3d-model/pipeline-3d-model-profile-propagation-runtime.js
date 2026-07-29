@@ -13,6 +13,7 @@ const RAW_HEADERS = Object.freeze({ 'table2a-raw': TABLE_HEADERS.table2a,
   'table3c-raw': TABLE_HEADERS.table3c });
 const find = (dialog, selector) => dialog.querySelector(selector);
 const rawValue = (dialog, name) => find(dialog, `[data-p3d-split="${name}"]`)?.value || '';
+function hasRawContent(value) { return String(value || '').trim().length > 0; }
 function hasRawRows(value) {
   const lines = String(value || '').split(/\r?\n/).filter((line) => line.trim());
   return lines.length > 1 && lines.slice(1).some((line) => /\d/.test(line));
@@ -24,7 +25,7 @@ function readProfileRaw(dialog) {
 }
 function profileRawState(dialog) {
   const raw = readProfileRaw(dialog);
-  const suppliedTables = Object.entries(raw).filter(([, value]) => hasRawRows(value))
+  const suppliedTables = Object.entries(raw).filter(([, value]) => hasRawContent(value))
     .map(([name]) => name);
   return Object.freeze({ raw, suppliedTables: Object.freeze(suppliedTables),
     active: suppliedTables.length > 0,
@@ -132,7 +133,9 @@ function run(dialog, instance) {
   try {
     const input = buildInput(dialog), output = buildPipelineProjectOutputs(input);
     instance.output = output; publishCanonicalPlan(dialog, output);
-    renderOutputs(dialog, output); renderKeyPlan(dialog, output);
+    instance.rendering = true;
+    try { renderOutputs(dialog, output); renderKeyPlan(dialog, output); }
+    finally { instance.rendering = false; }
     const legacyError = find(dialog, '[data-p3d="error-message"]'); if (legacyError) legacyError.style.display = 'none';
     setWarnings(dialog, instance, output.warnings || []); return output;
   } catch (error) { instance.output = null; logWarning(dialog, instance, 'propagation_unavailable', error); return null; }
@@ -182,8 +185,9 @@ function pipelineSourceInput(target) {
 function onInput(dialog, instance, event) {
   if (repairPreviewInput(dialog, event)) return;
   const target = event.target instanceof Element ? event.target : null;
-  if (pipelineSourceInput(target)) instance.output = null;
-  if (target?.matches('[data-p3d-split$="-raw"]') && hasAnyProfileRaw(dialog)) scheduleRefresh(dialog, instance);
+  if (!instance.rendering && pipelineSourceInput(target)) instance.output = null;
+  if (!instance.rendering && target?.matches('[data-p3d-split$="-raw"]')
+    && hasAnyProfileRaw(dialog)) scheduleRefresh(dialog, instance);
 }
 function onClick(dialog, instance, event) {
   const target = event.target instanceof Element ? event.target.closest('button') : null;
@@ -198,7 +202,8 @@ function onClick(dialog, instance, event) {
 }
 export function installPipelineProfilePropagation(dialog) {
   if (!dialog || INSTANCES.has(dialog)) return INSTANCES.get(dialog)?.destroy || null;
-  const controller = new AbortController(), instance = { output: null, refreshQueued: false, warnings: [] };
+  const controller = new AbortController(), instance = { output: null, refreshQueued: false,
+    rendering: false, warnings: [] };
   ensurePipelineWarningLog(dialog); renderPipelineWarningLog(dialog, []);
   dialog.addEventListener('click', (event) => onClick(dialog, instance, event), { capture: true, signal: controller.signal });
   dialog.addEventListener('input', (event) => onInput(dialog, instance, event), { capture: true, signal: controller.signal });
