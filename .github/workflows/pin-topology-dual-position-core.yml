@@ -1,0 +1,68 @@
+name: Pin Topology Dual Position Core
+
+on:
+  push:
+    branches:
+      - agent/topology-staged-export-1885-qualification-main
+    paths:
+      - '.github/workflows/pin-topology-dual-position-core.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout XML Utilities branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/topology-staged-export-1885-qualification-main
+          fetch-depth: 0
+
+      - name: Checkout exact 3D Converters authority
+        uses: actions/checkout@v6
+        with:
+          repository: reallaksh19/3D_Converters
+          ref: 7a56911633345ea7b1db87a3b87b89797b31c5d0
+          path: .upstream-3d-converters
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Build exact browser core
+        working-directory: .upstream-3d-converters
+        run: |
+          npm ci
+          node scripts/build-topology-browser-core.mjs \
+            "$GITHUB_WORKSPACE/vendor/3d-converters/topology-browser-core.mjs" \
+            "$GITHUB_WORKSPACE/vendor/3d-converters/topology-browser-core.manifest.json"
+
+      - name: Verify durable source and bundle digest
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          const manifestPath = 'vendor/3d-converters/topology-browser-core.manifest.json';
+          const bundlePath = 'vendor/3d-converters/topology-browser-core.mjs';
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          const expectedCommit = '7a56911633345ea7b1db87a3b87b89797b31c5d0';
+          if (manifest.sourceCommit !== expectedCommit) throw new Error(`Unexpected sourceCommit ${manifest.sourceCommit}`);
+          const digest = `sha256:${crypto.createHash('sha256').update(fs.readFileSync(bundlePath)).digest('hex')}`;
+          if (manifest.bundleSha256 !== digest) throw new Error(`Bundle digest mismatch ${manifest.bundleSha256} != ${digest}`);
+          console.log(JSON.stringify({ sourceCommit: manifest.sourceCommit, bundleSha256: digest }));
+          NODE
+
+      - name: Commit pin and remove bootstrap
+        run: |
+          rm .github/workflows/pin-topology-dual-position-core.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add vendor/3d-converters/topology-browser-core.mjs \
+            vendor/3d-converters/topology-browser-core.manifest.json \
+            .github/workflows/pin-topology-dual-position-core.yml
+          git commit -m "vendor(ttv): pin merged support dual-position core"
+          git push origin HEAD:agent/topology-staged-export-1885-qualification-main
