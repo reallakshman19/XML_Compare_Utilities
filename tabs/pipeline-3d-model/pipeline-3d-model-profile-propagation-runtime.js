@@ -3,6 +3,7 @@ import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core
 import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
 import { pipelineVisibleArtifacts } from './pipeline-3d-model-visible-artifacts.js';
 import { buildPipelineArtifactPanelHtml } from './pipeline-3d-model-artifact-panel-presentation.js';
+import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -63,16 +64,6 @@ function setTextArea(dialog, name, value) {
   const element = find(dialog, `[data-p3d="${name}"]`); if (!element) return;
   element.value = value; element.dispatchEvent(new Event('input', { bubbles: true }));
 }
-const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}[ch]));
-function splitTsv(value) {
-  return String(value || '').split(/\r?\n/).filter((line) => line.trim()).map((line) => line.split('\t'));
-}
-function renderTsvGrid(value) {
-  const [headers = [], ...rows] = splitTsv(value);
-  return `<div class="p3d-derived-grid"><table><thead><tr>${headers.map((cell) => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((_, index) => `<td>${escapeHtml(row[index] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-}
 function markerPoints(output) { return output.combined.filter((point) => point.sources?.includes('marker')); }
 function ensureTooltip(dialog) {
   let tooltip = find(dialog, '.p3d-tooltip'); if (tooltip) return tooltip;
@@ -95,8 +86,8 @@ function renderOutputs(dialog, output) {
   setTextArea(dialog, 'table2', output.table2Text); setTextArea(dialog, 'table3', output.table3Text);
   const table2Grid = find(dialog, '[data-p3d="table2x-output"]');
   const table3Grid = find(dialog, '[data-p3d="table3x-output"]');
-  if (table2Grid) table2Grid.innerHTML = renderTsvGrid(output.table2XText);
-  if (table3Grid) table3Grid.innerHTML = renderTsvGrid(output.table3XText);
+  if (table2Grid) table2Grid.innerHTML = buildPipelineDerivedTablePreviewHtml(output.table2XText);
+  if (table3Grid) table3Grid.innerHTML = buildPipelineDerivedTablePreviewHtml(output.table3XText);
   const table2Svg = find(dialog, '[data-p3d-split="table2x-preview"]');
   const table3Svg = find(dialog, '[data-p3d-split="table3x-preview"]');
   if (table2Svg) table2Svg.innerHTML = createTable2XSVG(output.table2XText);
@@ -217,4 +208,5 @@ export function installPipelineProfilePropagation(dialog) {
 }
 export const _test = Object.freeze({ buildInput, readBranchInfo, hasAuthoritativeProfile,
   hasAnyProfileRaw, resolveProfileRawInput, profileRawState, pipelineSourceInput,
-  rawTextFromPreview, renderTsvGrid, setWarnings, publishCanonicalPlan });
+  rawTextFromPreview, renderTsvGrid: buildPipelineDerivedTablePreviewHtml,
+  setWarnings, publishCanonicalPlan });
