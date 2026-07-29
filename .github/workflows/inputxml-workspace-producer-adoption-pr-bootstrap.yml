@@ -25,7 +25,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          from textwrap import dedent
           import subprocess
 
           source = Path('.github/workflows/inputxml-workspace-producer-adoption-bootstrap.yml').read_text(encoding='utf-8')
@@ -33,7 +32,8 @@ jobs:
           start = source.index(marker)
           run_start = source.index('        run: |\n', start) + len('        run: |\n')
           end = source.index('\n      - name: Run focused qualification', run_start)
-          script = dedent(source[run_start:end])
+          block = source[run_start:end]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines()) + '\n'
           Path('/tmp/inputxml-workspace-adoption-apply.sh').write_text(script, encoding='utf-8')
           subprocess.run(['bash', '/tmp/inputxml-workspace-adoption-apply.sh'], check=True)
           Path('.github/workflows/inputxml-workspace-producer-adoption-pr-bootstrap.yml').unlink()
