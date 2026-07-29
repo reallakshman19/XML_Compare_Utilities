@@ -22,11 +22,11 @@ function rootAttribute(tagText, name) {
   const pattern = new RegExp(`\\b${name}\\s*=\\s*["']([^"']+)["']`, "i");
   return tagText.match(pattern)?.[1] || "";
 }
-function maskXmlBlocks(text5) {
-  return text5.replace(/<!--[\s\S]*?-->/g, "").replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "").replace(/<\?[\s\S]*?\?>/g, "").replace(/<!DOCTYPE[\s\S]*?>/gi, "");
+function maskXmlBlocks(text9) {
+  return text9.replace(/<!--[\s\S]*?-->/g, "").replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "").replace(/<\?[\s\S]*?\?>/g, "").replace(/<!DOCTYPE[\s\S]*?>/gi, "");
 }
-function scanXmlTags(text5) {
-  const cleaned = maskXmlBlocks(text5);
+function scanXmlTags(text9) {
+  const cleaned = maskXmlBlocks(text9);
   const tags = cleaned.match(/<[^>]*>/g) || [];
   const stack = [];
   const names = [];
@@ -59,9 +59,9 @@ function scanXmlTags(text5) {
   if (roots.length !== 1) errors.push(`Expected one XML root element, found ${roots.length}.`);
   return { errors, names, rootName: displayName(roots[0]), rootTag };
 }
-function parseXmlWithDom(text5, ParserCtor) {
+function parseXmlWithDom(text9, ParserCtor) {
   if (typeof ParserCtor !== "function") return null;
-  const document = new ParserCtor().parseFromString(text5, "application/xml");
+  const document = new ParserCtor().parseFromString(text9, "application/xml");
   const parserError = document.querySelector?.("parsererror");
   const root = document.documentElement;
   if (parserError || !root) {
@@ -85,11 +85,11 @@ function inputXmlEvidence(xml) {
   return xmlType === "input" || names.includes("pipingmodel") || names.includes("pipingelement");
 }
 function inspectXmlStructure(sourceText, ParserCtor = globalThis.DOMParser) {
-  const text5 = normalizeSourceText(sourceText);
-  if (!text5) return { ok: false, rootName: "", errors: ["Source text is empty."], warnings: [] };
-  const parsed = parseXmlWithDom(text5, ParserCtor) || scanXmlTags(text5);
+  const text9 = normalizeSourceText(sourceText);
+  if (!text9) return { ok: false, rootName: "", errors: ["Source text is empty."], warnings: [] };
+  const parsed = parseXmlWithDom(text9, ParserCtor) || scanXmlTags(text9);
   const errors = [...parsed.errors || []];
-  if (!text5.startsWith("<")) errors.push("XML source must begin with an element or declaration.");
+  if (!text9.startsWith("<")) errors.push("XML source must begin with an element or declaration.");
   return {
     ok: errors.length === 0,
     rootName: parsed.rootName || "",
@@ -99,10 +99,10 @@ function inspectXmlStructure(sourceText, ParserCtor = globalThis.DOMParser) {
   };
 }
 function inspectJsonStructure(sourceText) {
-  const text5 = normalizeSourceText(sourceText);
-  if (!text5) return { ok: false, rootShape: "", errors: ["Source text is empty."], warnings: [] };
+  const text9 = normalizeSourceText(sourceText);
+  if (!text9) return { ok: false, rootShape: "", errors: ["Source text is empty."], warnings: [] };
   try {
-    const value = JSON.parse(text5);
+    const value = JSON.parse(text9);
     const rootShape = Array.isArray(value) ? "array" : typeof value;
     const errors = value && (rootShape === "array" || rootShape === "object") ? [] : ["StagedJSON root must be an object or array."];
     return { ok: errors.length === 0, rootShape, errors, warnings: [] };
@@ -111,17 +111,17 @@ function inspectJsonStructure(sourceText) {
   }
 }
 function detectSourceKind(sourceText, ParserCtor = globalThis.DOMParser) {
-  const text5 = normalizeSourceText(sourceText);
-  if (!text5) return "unknown";
-  if (/^[\[{]/.test(text5)) {
+  const text9 = normalizeSourceText(sourceText);
+  if (!text9) return "unknown";
+  if (/^[\[{]/.test(text9)) {
     try {
-      JSON.parse(text5);
+      JSON.parse(text9);
       return "stagedjson";
     } catch {
       return "stagedjson";
     }
   }
-  if (text5.startsWith("<")) return inspectXmlStructure(text5, ParserCtor).sourceKind || "xml";
+  if (text9.startsWith("<")) return inspectXmlStructure(text9, ParserCtor).sourceKind || "xml";
   return "unknown";
 }
 function analyzeSourceText(sourceText, requestedKind = "auto", ParserCtor = globalThis.DOMParser) {
@@ -448,12 +448,16 @@ function attachPorts(entities, ports) {
   return entities.map((entity) => ({ ...entity, ports: Object.freeze(byEntity.get(entity.sourceEntityId) ?? []) }));
 }
 async function buildTopologySourceModel(sourceText, options) {
+  const revision = Number(options.sourceRevision ?? 1);
+  if (!Number.isInteger(revision) || revision < 1) {
+    throw new TypeError("Managed-stage sourceRevision must be a positive integer.");
+  }
   const envelope = await createSourceEnvelope({
     sourceText,
     sourceKind: "stagedjson",
     sourceName: options.sourceName,
     origin: "file",
-    revision: 1
+    revision
   });
   if (!envelope.validation.ok) throw new TypeError(`Invalid managed-stage source: ${envelope.validation.errors.join("; ")}`);
   const parsed = JSON.parse(envelope.sourceText);
@@ -738,7 +742,15 @@ function canonicalBranchRoot(value) {
 function branchSuffix(value) {
   return text(value).match(/\/(B0*\d+)$/i)?.[1]?.toUpperCase() || "";
 }
-function resolveBranchIdentity({ sourceName, owner }) {
+function resolveBranchIdentity({
+  sourceName,
+  owner,
+  sourceOrder = -1,
+  headRef,
+  tailRef,
+  headPosition,
+  tailPosition
+}) {
   const source = text(sourceName);
   const ownerRoot = canonicalBranchRoot(owner);
   const sourceRoot = canonicalBranchRoot(source);
@@ -746,8 +758,25 @@ function resolveBranchIdentity({ sourceName, owner }) {
     sourceName: source,
     owner: text(owner),
     canonicalName: ownerRoot || sourceRoot || source,
-    suffix: branchSuffix(source)
+    suffix: branchSuffix(source),
+    sourceOrder: nonNegativeInteger(sourceOrder),
+    headRef: text(headRef),
+    tailRef: text(tailRef),
+    headPosition: copyPoint(headPosition),
+    tailPosition: copyPoint(tailPosition)
   });
+}
+function copyPoint(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const x = Number(value.x);
+  const y = Number(value.y);
+  const z = Number(value.z);
+  if (![x, y, z].every(Number.isFinite)) return null;
+  return Object.freeze({ x, y, z });
+}
+function nonNegativeInteger(value) {
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : -1;
 }
 function text(value) {
   return String(value ?? "").trim();
@@ -931,10 +960,10 @@ var DTXR_RATING_PATTERNS = Object.freeze([
   [/\bPN\s*16\b/i, 160],
   [/\bPN\s*10\b/i, 100]
 ]);
-function ratingFromPipingClass(pipingClass, ratingSequence = DEFAULT_RATING_SEQUENCE) {
+function ratingFromPipingClass(pipingClass, ratingSequence2 = DEFAULT_RATING_SEQUENCE) {
   const clean = String(pipingClass ?? "").replace(/^\/+/, "").split("/").pop().toUpperCase().trim();
   if (!clean) return { rating: null, source: "none", confidence: "NONE" };
-  for (const [prefix, value] of ratingSequence) {
+  for (const [prefix, value] of ratingSequence2) {
     const p = String(prefix).toUpperCase();
     if (clean.startsWith(p)) {
       return { rating: Number(value), source: `piping-class-prefix:${prefix}`, confidence: "HIGH" };
@@ -962,7 +991,7 @@ function ratingFromDtxr(dtxr) {
   }
   return { rating: null, source: "none", confidence: "NONE" };
 }
-function resolveRating(attrs, ratingSequence = DEFAULT_RATING_SEQUENCE, config = {}) {
+function resolveRating(attrs, ratingSequence2 = DEFAULT_RATING_SEQUENCE, config = {}) {
   if (!attrs) return { rating: null, source: "none", confidence: "NONE" };
   const classMap = config.classRatingOverrides;
   if (classMap) {
@@ -982,7 +1011,7 @@ function resolveRating(attrs, ratingSequence = DEFAULT_RATING_SEQUENCE, config =
   for (const key of ["SPRE", "ISPE", "LSTU"]) {
     const val = attrs[key];
     if (val) {
-      const result = ratingFromPipingClass(val, ratingSequence);
+      const result = ratingFromPipingClass(val, ratingSequence2);
       if (result.rating !== null) return result;
     }
   }
@@ -1069,8 +1098,8 @@ function boreMmToNps(boreMm) {
   }
   return best && best.err <= Math.max(2, bore * 0.02) ? best.nps : "";
 }
-function scheduleFromDtxr(text5) {
-  const src = String(text5 ?? "").toUpperCase().replace(/SCH\.?/g, " SCH ");
+function scheduleFromDtxr(text9) {
+  const src = String(text9 ?? "").toUpperCase().replace(/SCH\.?/g, " SCH ");
   if (/\bXXS\b|DOUBLE\s+EXTRA\s+STRONG/.test(src)) return "XXS";
   if (/\bXS\b|EXTRA\s+STRONG/.test(src)) return "XS";
   if (/\bSTD\b|STANDARD\s+WT/.test(src)) return "STD";
@@ -1541,12 +1570,12 @@ function pointFromObj(obj) {
   return { x, y, z };
 }
 function pointFromString(str) {
-  const tokens = str.trim().split(/\s+/);
-  if (tokens.length < 6) return null;
+  const tokens2 = str.trim().split(/\s+/);
+  if (tokens2.length < 6) return null;
   const vals = {};
-  for (let i = 0; i < tokens.length - 1; i += 2) {
-    const axis = tokens[i].toUpperCase();
-    const raw = tokens[i + 1]?.replace(/mm|in|ft/gi, "");
+  for (let i = 0; i < tokens2.length - 1; i += 2) {
+    const axis = tokens2[i].toUpperCase();
+    const raw = tokens2[i + 1]?.replace(/mm|in|ft/gi, "");
     const n = num(raw);
     if (n === null) return null;
     if (axis === "E") vals.x = n;
@@ -2092,6 +2121,504 @@ function aggregateTotals(branchReports) {
   return { resolved, missing: missing2 };
 }
 
+// tabs/stagedjson-to-enrichxml/sj-psi-sequence-planner.js?v=1
+var PSI_SEQUENCE_PLAN_SCHEMA = "stagedjson-psi-sequence-plan/v1";
+function buildPsiSequencePlan(stagedJson, records = []) {
+  const errors = [];
+  const warnings = [];
+  const sourceBranches = collectSourceBranches(stagedJson, errors);
+  const branchesByName = new Map(sourceBranches.map((branch) => [branch.sourceName, branch]));
+  const recordGroups = groupRecords(records, branchesByName, sourceBranches.length, errors);
+  const allBranches = appendRecordOnlyBranches(sourceBranches, recordGroups, branchesByName);
+  const branches = allBranches.sort(compareBranch).map((branch, branchSequence) => buildBranchPlan(
+    branch,
+    recordGroups.get(branch.sourceName) || [],
+    branchSequence
+  ));
+  const knownNames = new Set(branches.map((branch) => branch.sourceBranchName));
+  const unresolvedReferences = [];
+  for (const branch of branches) {
+    for (const reference of branch.references) {
+      if (!knownNames.has(reference.targetBranchName)) {
+        unresolvedReferences.push({
+          sourceBranchName: branch.sourceBranchName,
+          ...reference
+        });
+      }
+    }
+    if (branch.components.length === 0) {
+      warnings.push(`Source branch ${branch.sourceBranchName} has no exported components.`);
+    }
+  }
+  for (const reference of unresolvedReferences) {
+    warnings.push(
+      `${reference.kind} reference from ${reference.sourceBranchName} targets absent branch ${reference.targetBranchName}.`
+    );
+  }
+  const canonicalNames = new Set(branches.map((branch) => branch.canonicalBranchName));
+  const componentCount = branches.reduce((total, branch) => total + branch.components.length, 0);
+  return Object.freeze({
+    schema: PSI_SEQUENCE_PLAN_SCHEMA,
+    orderingPolicy: "SOURCE_BRANCH_TRAVERSAL_THEN_SURVIVING_RECORD_ORDER",
+    branches: Object.freeze(branches),
+    unresolvedReferences: Object.freeze(unresolvedReferences),
+    summary: Object.freeze({
+      sourceBranchCount: branches.length,
+      canonicalBranchCount: canonicalNames.size,
+      componentCount,
+      unresolvedReferenceCount: unresolvedReferences.length
+    }),
+    validation: Object.freeze({
+      ok: errors.length === 0,
+      errors: Object.freeze(unique(errors)),
+      warnings: Object.freeze(unique(warnings))
+    })
+  });
+}
+function collectSourceBranches(stagedJson, errors) {
+  const root = Array.isArray(stagedJson) ? stagedJson : stagedJson?.objects || [stagedJson];
+  const branches = [];
+  const names = /* @__PURE__ */ new Set();
+  walk(root, (node) => {
+    const attrs = plain3(node.attributes);
+    const rawType = text3(node.type || attrs.TYPE || attrs.RAW_TYPE).toUpperCase();
+    if (rawType !== "BRANCH") return;
+    const identity = resolveBranchIdentity({
+      sourceName: node.name || attrs.NAME,
+      owner: attrs.OWNER,
+      sourceOrder: branches.length,
+      headRef: attrs.HREF,
+      tailRef: attrs.TREF,
+      headPosition: attrs.HPOS,
+      tailPosition: attrs.TPOS
+    });
+    if (!identity.sourceName) {
+      errors.push(`Source branch at order ${branches.length} has no identity.`);
+      return;
+    }
+    if (names.has(identity.sourceName)) {
+      errors.push(`Duplicate source branch identity ${identity.sourceName}.`);
+      return;
+    }
+    names.add(identity.sourceName);
+    branches.push(identity);
+  });
+  return branches;
+}
+function groupRecords(records, branchesByName, nextBranchOrder, errors) {
+  if (!Array.isArray(records)) {
+    errors.push("Enriched records must be an array.");
+    return /* @__PURE__ */ new Map();
+  }
+  const groups = /* @__PURE__ */ new Map();
+  records.forEach((record2, sourceOrder) => {
+    const sourceBranchName = text3(record2?.sourceBranchName || record2?.branchName || "/UNMAPPED");
+    if (!groups.has(sourceBranchName)) groups.set(sourceBranchName, []);
+    groups.get(sourceBranchName).push({ record: record2, sourceOrder });
+    if (!branchesByName.has(sourceBranchName)) {
+      branchesByName.set(sourceBranchName, resolveBranchIdentity({
+        sourceName: sourceBranchName,
+        owner: record2?.branchOwner || record2?.branchName,
+        sourceOrder: nextBranchOrder + branchesByName.size
+      }));
+    }
+  });
+  return groups;
+}
+function appendRecordOnlyBranches(sourceBranches, recordGroups, branchesByName) {
+  const result = [...sourceBranches];
+  const included = new Set(result.map((branch) => branch.sourceName));
+  for (const sourceBranchName of recordGroups.keys()) {
+    if (included.has(sourceBranchName)) continue;
+    result.push(branchesByName.get(sourceBranchName));
+    included.add(sourceBranchName);
+  }
+  return result;
+}
+function buildBranchPlan(branch, groupedRecords, branchSequence) {
+  const components = groupedRecords.sort((left, right) => left.sourceOrder - right.sourceOrder).map(({ record: record2, sourceOrder }, componentSequence) => Object.freeze({
+    sequence: componentSequence,
+    sourceOrder,
+    name: text3(record2?.name),
+    ref: text3(record2?.ref || record2?.attrs?.REF || record2?.name),
+    componentType: text3(record2?.componentType || record2?.rawType || "UNKNOWN"),
+    connectionBranchRefs: Object.freeze(unique([
+      record2?.attrs?.CREF,
+      record2?.attrs?.HREF,
+      record2?.attrs?.TREF
+    ].map(text3).filter(Boolean))),
+    record: record2
+  }));
+  const references = [];
+  addReference(references, "HREF", branch.headRef);
+  addReference(references, "TREF", branch.tailRef);
+  for (const component of components) {
+    for (const targetBranchName of component.connectionBranchRefs) {
+      addReference(references, "CREF", targetBranchName, component.ref);
+    }
+  }
+  return Object.freeze({
+    sequence: branchSequence,
+    sourceOrder: branch.sourceOrder,
+    sourceBranchName: branch.sourceName,
+    canonicalBranchName: branch.canonicalName,
+    branchOwner: branch.owner,
+    branchSuffix: branch.suffix,
+    headPosition: branch.headPosition,
+    tailPosition: branch.tailPosition,
+    references: Object.freeze(references),
+    components: Object.freeze(components)
+  });
+}
+function addReference(references, kind, targetBranchName, componentRef = "") {
+  const target = text3(targetBranchName);
+  if (!target) return;
+  const key = `${kind}\0${target}\0${componentRef}`;
+  if (references.some((reference) => reference.key === key)) return;
+  references.push(Object.freeze({ key, kind, targetBranchName: target, componentRef }));
+}
+function compareBranch(left, right) {
+  return left.sourceOrder - right.sourceOrder || left.sourceName.localeCompare(right.sourceName);
+}
+function walk(nodes, visit) {
+  for (const node of Array.isArray(nodes) ? nodes : []) {
+    if (!node || typeof node !== "object" || Array.isArray(node)) continue;
+    visit(node);
+    walk(node.children, visit);
+  }
+}
+function plain3(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function unique(values) {
+  return [...new Set(values)];
+}
+function text3(value) {
+  return String(value ?? "").trim();
+}
+
+// tabs/stagedjson-to-enrichxml/sj-xml-writer-parity.js?v=1
+var PSI_XML_WRITER_PARITY_SCHEMA = "stagedjson-psi-xml-writer-parity/v1";
+var NODE_FIELDS = Object.freeze([
+  "NodeName",
+  "Endpoint",
+  "Rigid",
+  "ComponentType",
+  "Weight",
+  "ComponentRefNo",
+  "ConnectionType",
+  "OutsideDiameter",
+  "WallThickness",
+  "CorrosionAllowance",
+  "InsulationThickness",
+  "Position",
+  "BendRadius",
+  "BendType",
+  "AlphaAngle",
+  "SIF",
+  "DTXR_POS",
+  "DTXR_SOURCE"
+]);
+function comparePsiWriterOutputs({ canonicalXmlText, sequentialXmlText, sequencePlan }) {
+  const canonical = parseWriterXml(canonicalXmlText);
+  const sequential = parseWriterXml(sequentialXmlText);
+  const plannedBranches = sequencePlan?.branches || [];
+  const expectedNames = plannedBranches.map((branch) => branch.sourceBranchName);
+  const actualNames = sequential.branches.map((branch) => branch.name);
+  const membershipIssues = validateMembership(sequential.branches, plannedBranches);
+  const canonicalSignatures = canonical.nodes.map((node) => node.semanticSignature);
+  const sequentialSignatures = sequential.nodes.map((node) => node.semanticSignature);
+  const allocationMismatches = compareAllocations(canonical.nodes, sequential.nodes);
+  const conditionMismatches = compareConditions(canonical, sequential, plannedBranches);
+  const nodeCardinalityEquivalent = canonical.nodes.length === sequential.nodes.length;
+  const engineeringEquivalent = sameMultiset(canonicalSignatures, sequentialSignatures);
+  const sequenceEquivalent = sameArray(canonicalSignatures, sequentialSignatures);
+  const sourceBoundaryEquivalent = sameArray(actualNames, expectedNames) && membershipIssues.length === 0;
+  const branchConditionsEquivalent = conditionMismatches.length === 0;
+  const errors = [];
+  const warnings = [];
+  if (!sourceBoundaryEquivalent) errors.push("Sequential XML does not preserve planned source branch boundaries.");
+  if (!nodeCardinalityEquivalent) errors.push("Canonical and sequential XML emit different node counts.");
+  if (!engineeringEquivalent) errors.push("Canonical and sequential XML differ in engineering node content.");
+  if (!sequenceEquivalent) warnings.push("Canonical and sequential node order differs.");
+  if (allocationMismatches.length) warnings.push("Canonical and sequential node allocations differ.");
+  if (!branchConditionsEquivalent) warnings.push("Source and canonical branch condition blocks differ.");
+  const selectionBlockers = buildSelectionBlockers({
+    sourceBoundaryEquivalent,
+    nodeCardinalityEquivalent,
+    engineeringEquivalent,
+    branchConditionsEquivalent
+  });
+  return deepFreeze({
+    schema: PSI_XML_WRITER_PARITY_SCHEMA,
+    summary: {
+      canonicalBranchCount: canonical.branches.length,
+      sequentialBranchCount: sequential.branches.length,
+      canonicalNodeCount: canonical.nodes.length,
+      sequentialNodeCount: sequential.nodes.length,
+      nodeCardinalityEquivalent,
+      engineeringEquivalent,
+      sequenceEquivalent,
+      numberingEquivalent: allocationMismatches.length === 0,
+      sourceBoundaryEquivalent,
+      branchConditionsEquivalent
+    },
+    differences: {
+      canonicalBranchNames: canonical.branches.map((branch) => branch.name),
+      sequentialBranchNames: actualNames,
+      membershipIssues: membershipIssues.slice(0, 100),
+      allocationMismatches: allocationMismatches.slice(0, 100),
+      branchConditionMismatches: conditionMismatches.slice(0, 100)
+    },
+    validation: { ok: errors.length === 0, errors: unique2(errors), warnings: unique2(warnings) },
+    switchGate: { allowed: false, reason: "SHADOW_ONLY" },
+    selectionGate: {
+      allowed: selectionBlockers.length === 0,
+      reason: selectionBlockers.length === 0 ? "PARITY_PROVEN" : "PARITY_BLOCKED",
+      blockers: selectionBlockers
+    }
+  });
+}
+function buildSelectionBlockers(summary) {
+  const blockers = [];
+  if (!summary.sourceBoundaryEquivalent) blockers.push("SOURCE_BOUNDARY_MISMATCH");
+  if (!summary.nodeCardinalityEquivalent) blockers.push("NODE_CARDINALITY_MISMATCH");
+  if (!summary.engineeringEquivalent) blockers.push("ENGINEERING_CONTENT_MISMATCH");
+  if (!summary.branchConditionsEquivalent) blockers.push("BRANCH_CONDITION_MISMATCH");
+  return blockers;
+}
+function parseWriterXml(xmlText) {
+  const branches = xmlBlocks(xmlText, "Branch").map((block) => {
+    const name = tagValue(block, "Branchname");
+    const nodes = xmlBlocks(block, "Node").map((node) => parseNode(node, name));
+    return {
+      name,
+      nodes,
+      conditionSignature: JSON.stringify({
+        temperature: normalizedBlock(block, "Temperature"),
+        pressure: normalizedBlock(block, "Pressure"),
+        materialNumber: tagValue(block, "MaterialNumber"),
+        insulationDensity: tagValue(block, "InsulationDensity"),
+        fluidDensity: tagValue(block, "FluidDensity")
+      })
+    };
+  });
+  return { branches, nodes: branches.flatMap((branch) => branch.nodes) };
+}
+function parseNode(block, branchName) {
+  const fields = {};
+  for (const field of NODE_FIELDS) fields[field] = tagValue(block, field);
+  fields.Restraints = xmlBlocks(block, "Restraint").map(normalizeXml);
+  return {
+    branchName,
+    nodeNumber: tagValue(block, "NodeNumber"),
+    componentRefNo: fields.ComponentRefNo,
+    semanticSignature: JSON.stringify(fields)
+  };
+}
+function validateMembership(actualBranches, plannedBranches) {
+  const issues = [];
+  const actualByName = new Map(actualBranches.map((branch) => [branch.name, branch]));
+  for (const planned of plannedBranches) {
+    const actual = actualByName.get(planned.sourceBranchName);
+    if (!actual) {
+      issues.push({ branchName: planned.sourceBranchName, issue: "MISSING_BRANCH" });
+      continue;
+    }
+    const expectedRefs = new Set(planned.components.map((component) => text4(component.record?.ref || component.record?.name || component.ref || component.name)));
+    const actualRefs = new Set(actual.nodes.map((node) => text4(node.componentRefNo)));
+    for (const ref of actualRefs) {
+      if (ref && !expectedRefs.has(ref)) {
+        issues.push({ branchName: planned.sourceBranchName, componentRefNo: ref, issue: "UNEXPECTED_NODE" });
+      }
+    }
+    for (const ref of expectedRefs) {
+      if (ref && !actualRefs.has(ref)) {
+        issues.push({ branchName: planned.sourceBranchName, componentRefNo: ref, issue: "MISSING_NODE" });
+      }
+    }
+  }
+  return issues;
+}
+function compareAllocations(canonicalNodes, sequentialNodes) {
+  const canonical = occurrenceMap(canonicalNodes);
+  const sequential = occurrenceMap(sequentialNodes);
+  const keys = /* @__PURE__ */ new Set([...canonical.keys(), ...sequential.keys()]);
+  const mismatches = [];
+  for (const key of keys) {
+    const left = canonical.get(key);
+    const right = sequential.get(key);
+    if (!left || !right || left.nodeNumber !== right.nodeNumber) {
+      mismatches.push({
+        semanticOccurrence: key,
+        canonicalNodeNumber: left?.nodeNumber ?? null,
+        sequentialNodeNumber: right?.nodeNumber ?? null
+      });
+    }
+  }
+  return mismatches;
+}
+function compareConditions(canonical, sequential, plannedBranches) {
+  const canonicalByName = new Map(canonical.branches.map((branch) => [branch.name, branch]));
+  const sequentialByName = new Map(sequential.branches.map((branch) => [branch.name, branch]));
+  const mismatches = [];
+  for (const planned of plannedBranches) {
+    const source = sequentialByName.get(planned.sourceBranchName);
+    const owner = canonicalByName.get(planned.canonicalBranchName);
+    if (source && owner && source.conditionSignature !== owner.conditionSignature) {
+      mismatches.push({
+        sourceBranchName: planned.sourceBranchName,
+        canonicalBranchName: planned.canonicalBranchName
+      });
+    }
+  }
+  return mismatches;
+}
+function occurrenceMap(nodes) {
+  const counts = /* @__PURE__ */ new Map();
+  const result = /* @__PURE__ */ new Map();
+  for (const node of nodes) {
+    const count = (counts.get(node.semanticSignature) || 0) + 1;
+    counts.set(node.semanticSignature, count);
+    result.set(`${node.semanticSignature}#${count}`, node);
+  }
+  return result;
+}
+function sameMultiset(left, right) {
+  if (left.length !== right.length) return false;
+  const counts = /* @__PURE__ */ new Map();
+  for (const value of left) counts.set(value, (counts.get(value) || 0) + 1);
+  for (const value of right) {
+    const count = counts.get(value) || 0;
+    if (!count) return false;
+    if (count === 1) counts.delete(value);
+    else counts.set(value, count - 1);
+  }
+  return counts.size === 0;
+}
+function sameArray(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+function xmlBlocks(value, tagName) {
+  return String(value ?? "").match(new RegExp(`<${tagName}>[\\s\\S]*?<\\/${tagName}>`, "g")) || [];
+}
+function normalizedBlock(value, tagName) {
+  return normalizeXml(xmlBlocks(value, tagName)[0] || "");
+}
+function tagValue(value, tagName) {
+  const match = String(value ?? "").match(new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`));
+  return decodeXml(text4(match?.[1]));
+}
+function decodeXml(value) {
+  return String(value ?? "").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+function normalizeXml(value) {
+  return String(value ?? "").replace(/>\s+</g, "><").replace(/\s+/g, " ").trim();
+}
+function unique2(values) {
+  return [...new Set(values)];
+}
+function text4(value) {
+  return String(value ?? "").trim();
+}
+function deepFreeze(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  for (const child of Object.values(value)) deepFreeze(child);
+  return value;
+}
+
+// tabs/stagedjson-to-enrichxml/sj-sequential-writer-shadow.js?v=2
+var PSI_SEQUENTIAL_WRITER_SHADOW_SCHEMA = "stagedjson-psi-sequential-writer-shadow/v1";
+var PSI_XML_WRITER_SELECTION_SCHEMA = "stagedjson-psi-xml-writer-selection/v1";
+var PSI_WRITER_MODE_CANONICAL = "canonical";
+var PSI_WRITER_MODE_SEQUENTIAL = "sequential";
+function buildSequentialWriterShadow({ sequencePlan, canonicalXmlText, config = {} }) {
+  if (!sequencePlan || sequencePlan.validation?.ok !== true) {
+    return failedShadow(["A valid PSI sequence plan is required."]);
+  }
+  try {
+    const branchMap = /* @__PURE__ */ new Map();
+    const records = [];
+    for (const branch of sequencePlan.branches) {
+      const branchRecords = branch.components.map((component) => ({
+        ...component.record,
+        canonicalBranchName: component.record?.branchName || branch.canonicalBranchName,
+        branchName: branch.sourceBranchName,
+        sourceBranchName: branch.sourceBranchName
+      }));
+      branchMap.set(branch.sourceBranchName, branchRecords);
+      records.push(...branchRecords);
+    }
+    const xmlText = buildEnrichedXml(branchMap, config);
+    const parity = comparePsiWriterOutputs({ canonicalXmlText, sequentialXmlText: xmlText, sequencePlan });
+    return Object.freeze({
+      schema: PSI_SEQUENTIAL_WRITER_SHADOW_SCHEMA,
+      generated: true,
+      xmlText,
+      records: Object.freeze(records),
+      parity,
+      validation: Object.freeze({ ok: parity.validation.ok, errors: parity.validation.errors })
+    });
+  } catch (error) {
+    return failedShadow([error instanceof Error ? error.message : String(error)]);
+  }
+}
+function selectPsiWriterOutput({
+  canonicalXmlText,
+  canonicalRecords = [],
+  writerShadow,
+  config = {}
+}) {
+  const requestedMode = normalizeMode(config.psiWriterMode);
+  const blockers = requestedMode === PSI_WRITER_MODE_SEQUENTIAL ? sequentialBlockers(writerShadow, canonicalRecords) : [];
+  const effectiveMode = requestedMode === PSI_WRITER_MODE_SEQUENTIAL && blockers.length === 0 ? PSI_WRITER_MODE_SEQUENTIAL : PSI_WRITER_MODE_CANONICAL;
+  const useSequential = effectiveMode === PSI_WRITER_MODE_SEQUENTIAL;
+  const records = useSequential ? writerShadow.records : canonicalRecords;
+  return Object.freeze({
+    schema: PSI_XML_WRITER_SELECTION_SCHEMA,
+    requestedMode,
+    effectiveMode,
+    fallbackApplied: requestedMode !== effectiveMode,
+    xmlText: useSequential ? writerShadow.xmlText : canonicalXmlText,
+    records: Object.freeze([...records]),
+    gate: Object.freeze({
+      allowed: blockers.length === 0,
+      reason: blockers.length === 0 ? useSequential ? "SEQUENTIAL_PARITY_PROVEN" : "CANONICAL_DEFAULT" : "SEQUENTIAL_BLOCKED",
+      blockers: Object.freeze(blockers)
+    })
+  });
+}
+function sequentialBlockers(writerShadow, canonicalRecords) {
+  const blockers = [];
+  if (!writerShadow?.generated) blockers.push("SHADOW_NOT_GENERATED");
+  if (writerShadow?.validation?.ok !== true) blockers.push("SHADOW_VALIDATION_FAILED");
+  if (writerShadow?.parity?.selectionGate?.allowed !== true) {
+    blockers.push(...writerShadow?.parity?.selectionGate?.blockers || ["PARITY_GATE_BLOCKED"]);
+  }
+  if (!Array.isArray(writerShadow?.records)) blockers.push("SEQUENTIAL_TRACE_MISSING");
+  if ((writerShadow?.records?.length ?? -1) !== canonicalRecords.length) {
+    blockers.push("TRACE_CARDINALITY_MISMATCH");
+  }
+  if (writerShadow?.records?.some((record2) => record2.xmlNodeNum === null || record2.xmlNodeNum === void 0)) {
+    blockers.push("SEQUENTIAL_NODE_ALLOCATION_MISSING");
+  }
+  return [...new Set(blockers)];
+}
+function normalizeMode(value) {
+  return String(value ?? "").trim().toLowerCase() === PSI_WRITER_MODE_SEQUENTIAL ? PSI_WRITER_MODE_SEQUENTIAL : PSI_WRITER_MODE_CANONICAL;
+}
+function failedShadow(errors) {
+  return Object.freeze({
+    schema: PSI_SEQUENTIAL_WRITER_SHADOW_SCHEMA,
+    generated: false,
+    xmlText: "",
+    records: Object.freeze([]),
+    parity: null,
+    validation: Object.freeze({ ok: false, errors: Object.freeze([...new Set(errors)]) })
+  });
+}
+
 // tabs/stagedjson-to-enrichxml/sj-enrichment-engine.js
 function runEnrichment(input) {
   const { stagedJsonText, config = {} } = input;
@@ -2102,10 +2629,32 @@ function runEnrichment(input) {
   const enriched = records.map((record2) => enrichRecord(record2, { config, ratingSeq, vertAxis }));
   let grouped = groupSupportsHierarchy(enriched);
   grouped = groupSupportsByPos(grouped);
-  const branchMap = groupByBranch(grouped);
-  const xmlText = buildEnrichedXml(branchMap, config);
-  const audit = buildAudit(grouped, branchMap);
-  return { xmlText, audit, records: grouped };
+  const sequencePlan = buildPsiSequencePlan(parsed, grouped);
+  const canonicalBranchMap = groupByBranch(grouped);
+  const canonicalXmlText = buildEnrichedXml(canonicalBranchMap, config);
+  const writerShadow = buildSequentialWriterShadow({
+    sequencePlan,
+    canonicalXmlText,
+    config
+  });
+  const writerSelection = selectPsiWriterOutput({
+    canonicalXmlText,
+    canonicalRecords: grouped,
+    writerShadow,
+    config
+  });
+  const selectedRecords = writerSelection.records;
+  const audit = buildAudit(selectedRecords, groupByBranch(selectedRecords));
+  return {
+    xmlText: writerSelection.xmlText,
+    audit,
+    records: selectedRecords,
+    canonicalXmlText,
+    canonicalRecords: grouped,
+    sequencePlan,
+    writerShadow,
+    writerSelection
+  };
 }
 function groupSupportsHierarchy(records) {
   const byName = /* @__PURE__ */ new Map();
@@ -2347,12 +2896,38 @@ function resolveSupportAttachment(component, index) {
 var _test2 = Object.freeze({ aliases, attachmentReferences });
 
 // tabs/model-converters/converters/component-topology/topology-support-edge-splitter.js
+var TOPOLOGY_SOURCE_POSITION_FIELD = "TOPOLOGY_SOURCE_POSITION";
+var TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD = "TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH";
 function pointText(point3) {
   if (!point3) return "(none)";
   return `${point3.x.toFixed(3)},${point3.y.toFixed(3)},${point3.z.toFixed(3)}`;
 }
 function distanceText(value) {
   return Number.isFinite(value) ? Number(value).toFixed(3) : "unbounded";
+}
+function applySupportPositionEvidence(support) {
+  const attributes = support.component?.attributes;
+  if (!attributes) return;
+  const hasSourcePosition = Object.hasOwn(attributes, TOPOLOGY_SOURCE_POSITION_FIELD);
+  const hasCarrierPath = Object.hasOwn(attributes, TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD);
+  if (!hasSourcePosition && !hasCarrierPath) return;
+  if (hasSourcePosition !== hasCarrierPath) {
+    throw new TypeError(
+      `Support ${support.tag || support.id} dual-position evidence requires both ${TOPOLOGY_SOURCE_POSITION_FIELD} and ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD}.`
+    );
+  }
+  const sourcePosition2 = strictPoint(attributes[TOPOLOGY_SOURCE_POSITION_FIELD]);
+  if (!sourcePosition2) {
+    throw new TypeError(`Support ${support.tag || support.id} has invalid ${TOPOLOGY_SOURCE_POSITION_FIELD} evidence.`);
+  }
+  const carrierPath = cleanText(attributes[TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD]);
+  if (!carrierPath) {
+    throw new TypeError(`Support ${support.tag || support.id} has invalid ${TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_FIELD} evidence.`);
+  }
+  support.sourcePosition = sourcePosition2;
+  support.positionAuthority = `ATTRIBUTE:${TOPOLOGY_SOURCE_POSITION_FIELD}`;
+  support.topologyPositionOverride = true;
+  support.topologyAttachmentEdgeSourcePath = carrierPath;
 }
 function rankedSupportCandidates(edgeSpecs, support, scope) {
   const attached = new Set(support.attachedComponentEntityIds ?? []);
@@ -2365,6 +2940,31 @@ function rankedSupportCandidates(edgeSpecs, support, scope) {
     return [{ edge, index, owns, referenced, ...proximity }];
   }).sort((left, right) => left.distanceMm - right.distanceMm || left.index - right.index);
 }
+function authoritativeSupportCandidate(edgeSpecs, support) {
+  const carrierPath = cleanText(support.topologyAttachmentEdgeSourcePath);
+  if (!carrierPath) return null;
+  const candidates = rankedSupportCandidates(edgeSpecs, support, "all").filter((candidate) => cleanText(candidate.edge.sourcePath) === carrierPath);
+  if (!candidates.length) {
+    throw new Error(
+      `Support ${support.tag || support.id} cannot resolve carrier ${carrierPath}. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_NOT_FOUND]`
+    );
+  }
+  if (candidates.length > 1) {
+    throw new Error(
+      `Support ${support.tag || support.id} carrier ${carrierPath} resolves to ${candidates.length} edges. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_AMBIGUOUS]`
+    );
+  }
+  const selected = candidates[0];
+  if (!selected.owns && !selected.referenced) {
+    throw new Error(
+      `Support ${support.tag || support.id} carrier ${carrierPath} is neither on its owning branch nor explicitly referenced. [TOPOLOGY_ATTACHMENT_EDGE_SOURCE_PATH_OUTSIDE_AUTHORITY]`
+    );
+  }
+  if (support.attachmentReferences.length && !selected.referenced) {
+    throw unresolvedReferenceError(support);
+  }
+  return selected;
+}
 function supportProjectionError(support, owning, global, toleranceMm) {
   const classification = global && global.distanceMm <= toleranceMm ? "POSSIBLE_WRONG_BRANCH_OWNERSHIP" : "SOURCE_SUPPORT_POSITION_OR_ROUTE_INVALID";
   const owningText = owning ? `${owning.edge.sourcePath}/${owning.edge.segmentRole}@${pointText(owning.projected)}` : "(none)";
@@ -2373,20 +2973,31 @@ function supportProjectionError(support, owning, global, toleranceMm) {
     `Support ${support.tag || support.id} is ${distanceText(owning?.distanceMm)} mm from its owning branch; limit is ${distanceText(toleranceMm)} mm. [${classification}] sourcePath=${support.sourcePaths.join("|")}; branches=${support.sourceBranchNames.join("|")}; positionAuthority=${support.positionAuthority}; position=${pointText(support.sourcePosition)}; nearestOwning=${owningText}; nearestAny=${globalText}.`
   );
 }
+function editedTopologyPosition(support, match, toleranceMm) {
+  if (support.topologyPositionOverride !== true) return null;
+  const projection = pointSegmentDistance(support.position, match.edge.fromPort.position, match.edge.toPort.position);
+  if (projection.distanceMm > toleranceMm) {
+    throw new Error(
+      `Support ${support.tag || support.id} edited topology position is ${distanceText(projection.distanceMm)} mm from carrier ${match.edge.sourcePath}; limit is ${distanceText(toleranceMm)} mm. [TOPOLOGY_EDITED_SUPPORT_POSITION_OFF_CARRIER] position=${pointText(support.position)}; nearest=${pointText(projection.projected)}.`
+    );
+  }
+  return projection;
+}
 function unresolvedReferenceError(support) {
   return new Error(
     `Support ${support.tag || support.id} has unresolved attachment reference(s): ${support.unresolvedAttachmentReferences.join(", ")}. sourcePath=${support.sourcePaths.join("|")}.`
   );
 }
-function acceptMatch(support, match, authority) {
+function acceptMatch(support, match, authority, toleranceMm) {
+  const topologyProjection = editedTopologyPosition(support, match, toleranceMm);
   support.connectionResidual = match.distanceMm;
-  support.edgeParameter = match.parameter;
+  support.edgeParameter = topologyProjection?.parameter ?? match.parameter;
   support.attachmentPosition = match.projected;
   support.attachmentAuthority = authority;
   support.attachmentEdgeSourcePath = match.edge.sourcePath;
   support.attachmentPort = {
     ...support.port,
-    position: match.projected,
+    position: topologyProjection ? { ...support.position } : match.projected,
     sourcePath: `${support.port.sourcePath}:PROJECTED_ATTACHMENT`,
     canonicalPositionAuthority: true,
     attachmentAuthority: authority,
@@ -2396,16 +3007,19 @@ function acceptMatch(support, match, authority) {
 function matchSupportsToEdges(edgeSpecs, supports, toleranceMm) {
   const matches = /* @__PURE__ */ new Map();
   for (const support of supports) {
+    applySupportPositionEvidence(support);
+    const authoritative = authoritativeSupportCandidate(edgeSpecs, support);
     const referenced = rankedSupportCandidates(edgeSpecs, support, "referenced");
-    if (support.attachmentReferences.length && !referenced.length) throw unresolvedReferenceError(support);
+    if (!authoritative && support.attachmentReferences.length && !referenced.length) throw unresolvedReferenceError(support);
     const owning = rankedSupportCandidates(edgeSpecs, support, "owning");
     const global = rankedSupportCandidates(edgeSpecs, support, "all");
-    const match = referenced[0] ?? owning[0];
-    if (!match || !referenced.length && match.distanceMm > toleranceMm) {
-      throw supportProjectionError(support, owning[0], global[0], toleranceMm);
+    const match = authoritative ?? referenced[0] ?? owning[0];
+    const matchIsReferenced = Boolean(match?.referenced && support.attachmentReferences.length);
+    if (!match || !matchIsReferenced && match.distanceMm > toleranceMm) {
+      throw supportProjectionError(support, match?.owns ? match : owning[0], global[0], toleranceMm);
     }
-    const authority = referenced.length ? `${support.attachmentAuthorities.join("+") || "ATTACHED_COMPONENT_REF/COMPRE"}:${support.attachmentReferences.join("|")}` : "OWNING_BRANCH_PROXIMITY";
-    acceptMatch(support, match, authority);
+    const authority = matchIsReferenced ? `${support.attachmentAuthorities.join("+") || "ATTACHED_COMPONENT_REF/COMPRE"}:${support.attachmentReferences.join("|")}` : "OWNING_BRANCH_PROXIMITY";
+    acceptMatch(support, match, authority, toleranceMm);
     matches.set(match.index, [...matches.get(match.index) ?? [], support]);
   }
   return matches;
@@ -2456,8 +3070,11 @@ function splitEdgeSpecsAtSupports(specs, supports, connectivity, topologyToleran
   });
 }
 var _test3 = Object.freeze({
+  applySupportPositionEvidence,
   rankedSupportCandidates,
+  authoritativeSupportCandidate,
   supportProjectionError,
+  editedTopologyPosition,
   unresolvedReferenceError
 });
 
@@ -2496,8 +3113,17 @@ function hasManagedStageEngineeringAuthority(component) {
   const enriched = component.enrichedAttributes ?? {};
   return cleanText(enriched.schema) === "stagedjson-cii2019-enriched-attributes/v1" && cleanText(enriched.componentType).toUpperCase() === "SUPPORT" && cleanText(enriched.status).toLowerCase() === "resolved" && enriched.needsReview === false;
 }
-function isProjectedSupport(component) {
-  return isSupportType(component.sourceType) && (cleanText(component.supportProjection?.disposition) !== "DEFER_SUPPORT" || hasManagedStageEngineeringAuthority(component));
+function isOnOwningRoute(component, model, toleranceMm) {
+  const position = supportPortOrNull(component)?.position ?? null;
+  if (!position) return false;
+  return model.components.some((candidate) => candidate.sourceBranchEntityId === component.sourceBranchEntityId && candidate.isRouteComponent === true && candidate.positions.APOS && candidate.positions.LPOS && pointSegmentDistance(position, candidate.positions.APOS, candidate.positions.LPOS).distanceMm <= toleranceMm);
+}
+function isProjectedSupport(component, model, attachmentIndex, toleranceMm) {
+  if (!isSupportType(component.sourceType)) return false;
+  if (cleanText(component.supportProjection?.disposition) !== "DEFER_SUPPORT") return true;
+  if (!hasManagedStageEngineeringAuthority(component)) return false;
+  const attachment = resolveSupportAttachment(component, attachmentIndex);
+  return attachment.sourceEntityIds.length > 0 || isOnOwningRoute(component, model, toleranceMm);
 }
 function mergeAttachment(anchor, attachment) {
   anchor.attachmentReferences.push(...attachment.references);
@@ -2519,7 +3145,7 @@ function referenceTarget(current, reference, byName) {
   const candidates = byName.get(reference) ?? [];
   return candidates.find((row) => row.sourceBranchEntityId === current.sourceBranchEntityId) ?? (candidates.length === 1 ? candidates[0] : null);
 }
-function buildSupportAnchors(model, supportEntries, attachmentIndex) {
+function buildSupportAnchors(model, supportEntries, attachmentIndex, projectedSupport) {
   const anchors = supportEntries.map(({ component, record: record2 }, order) => {
     const port = supportPort(component);
     const enrichmentPosition = bestPosition(record2.attrs);
@@ -2549,7 +3175,7 @@ function buildSupportAnchors(model, supportEntries, attachmentIndex) {
     return anchor;
   });
   const byPosition = new Map(anchors.map((anchor) => [formatPosition(anchor.position), anchor]));
-  const supportComponents = model.components.filter(isProjectedSupport);
+  const supportComponents = model.components.filter(projectedSupport);
   const byName = supportNameIndex(model);
   for (const component of supportComponents) {
     const anchor = findSupportAnchor(component, byPosition, byName);
@@ -2587,6 +3213,15 @@ function findSupportAnchor(component, byPosition, byName) {
   }
   return null;
 }
+function rigidWeight(record2) {
+  if (Number.isFinite(record2.resolved?.weightKg)) {
+    return { weightKg: Number(record2.resolved.weightKg), weightAuthority: "RESOLVED_WEIGHT_KG" };
+  }
+  if (Number.isFinite(record2.sourceWeightKg)) {
+    return { weightKg: Number(record2.sourceWeightKg), weightAuthority: "SOURCE_WEIGHT_KG" };
+  }
+  return { weightKg: null, weightAuthority: "MISSING" };
+}
 function assignRigidEdges(edges, nodes, rigids, toleranceMm) {
   const nodeById3 = new Map(nodes.map((node) => [node.id, node]));
   return rigids.map((rigid) => {
@@ -2618,10 +3253,9 @@ function assignRigidEdges(edges, nodes, rigids, toleranceMm) {
       sourcePath: rigid.component.sourcePath,
       edgeId: selected.edge.id,
       inputXmlElementId: selected.edge.inputXmlElementIds[0],
-      inputXmlNodeId: nodeById3.get(selected.edge.toNodeId).inputXmlNodeIds[0],
       connectionResidual: selected.distanceMm,
       componentType: rigid.record.componentType,
-      weightKg: Number(rigid.record.resolved?.weightKg ?? rigid.record.sourceWeightKg ?? 0)
+      ...rigidWeight(rigid.record)
     };
   });
 }
@@ -2629,9 +3263,15 @@ function buildTopologyEngineeringProjection(sourceText, model, options) {
   const enrichment = runEnrichment({ stagedJsonText: sourceText, config: options.enrichmentConfig });
   const index = componentRecordIndex(model, enrichment.records);
   const attachmentIndex = buildSupportAttachmentIndex(model);
-  const supportEntries = index.entries.filter(({ component, record: record2 }) => isSupportType(record2.componentType) && isProjectedSupport(component));
-  const supports = buildSupportAnchors(model, supportEntries, attachmentIndex);
-  const deferredSupports = model.components.filter((component) => isSupportType(component.sourceType) && !isProjectedSupport(component));
+  const projectedSupport = (component) => isProjectedSupport(
+    component,
+    model,
+    attachmentIndex,
+    options.supportProjectionToleranceMm
+  );
+  const supportEntries = index.entries.filter(({ component, record: record2 }) => isSupportType(record2.componentType) && projectedSupport(component));
+  const supports = buildSupportAnchors(model, supportEntries, attachmentIndex, projectedSupport);
+  const deferredSupports = model.components.filter((component) => isSupportType(component.sourceType) && !projectedSupport(component));
   const rigids = index.entries.filter(({ record: record2 }) => isRigidType(record2.componentType)).map(({ component, record: record2 }) => ({
     component,
     record: record2,
@@ -2657,6 +3297,7 @@ function buildTopologyEngineeringProjection(sourceText, model, options) {
     })
   });
 }
+var _test4 = Object.freeze({ rigidWeight });
 
 // tabs/model-converters/converters/component-topology/topology-canonical-builder.js
 function componentEdgeSpecs(component, overlap) {
@@ -2740,16 +3381,6 @@ function canonicalPort(ports) {
   return ports.find((port) => port.canonicalPositionAuthority === true) ?? ports[0];
 }
 function buildNodes(model, connectivity, edgeSpecs, junctions, boundaries) {
-  const branchIndexByComponentId = /* @__PURE__ */ new Map();
-  if (model.branches) {
-    model.branches.forEach((branch, bIdx) => {
-      if (branch.components) {
-        branch.components.forEach((comp) => {
-          branchIndexByComponentId.set(comp.sourceEntityId, bIdx);
-        });
-      }
-    });
-  }
   const projectedPorts = edgeSpecs.flatMap((edge) => [edge.fromPort, edge.toPort]);
   const terminalPorts = [...junctions.map((row) => row.port), ...boundaries.map((row) => row.port)];
   const portByKey = new Map(model.sourcePorts.map((port) => [port.key, port]));
@@ -2766,20 +3397,14 @@ function buildNodes(model, connectivity, edgeSpecs, junctions, boundaries) {
     root,
     ports: ports.sort((left, right) => left.order - right.order)
   })).sort((left, right) => left.ports[0].order - right.ports[0].order);
-  const branchCounters = /* @__PURE__ */ new Map();
   const nodes = ordered.map((group, index) => {
     const authority = canonicalPort(group.ports);
-    let bIdx = branchIndexByComponentId.get(authority.sourceEntityId);
-    if (bIdx === void 0) bIdx = 0;
-    const count = (branchCounters.get(bIdx) ?? 0) + 1;
-    branchCounters.set(bIdx, count);
-    const caesarNodeNumber = (bIdx + 1) * 1e4 + count * 10;
     return {
       id: `CN-${sequenceId(index + 1)}`,
       position: { ...authority.position },
       sourcePortIds: uniqueText(group.ports.map((port) => port.sourcePortId)),
       sourceEntityIds: uniqueText(group.ports.map((port) => port.sourceEntityId)),
-      inputXmlNodeIds: [String(caesarNodeNumber)],
+      numberingAuthoritySourceEntityId: authority.sourceEntityId,
       positionAuthority: authority.attachmentAuthority || authority.sourcePath,
       connectionAuthority: uniqueText(group.ports.map((port) => port.sourcePath)),
       connectionResidual: maximumResidual(group.ports, authority.position)
@@ -2883,7 +3508,6 @@ function buildCanonicalTopology(model, connectivity, engineering, toleranceMm, s
     return {
       id: support.id,
       nodeId: node.id,
-      inputXmlNodeId: node.inputXmlNodeIds[0],
       position: { ...node.position },
       sourcePosition: { ...support.sourcePosition },
       attachmentPosition: { ...support.attachmentPosition },
@@ -2900,7 +3524,7 @@ function buildCanonicalTopology(model, connectivity, engineering, toleranceMm, s
   });
   const rigids = assignRigidEdges(edges, nodes, engineering.rigids, supportProjectionToleranceMm);
   return Object.freeze({
-    schema: "CanonicalTopology.v1",
+    schema: "CanonicalTopology.v2",
     sourceIdentity: model.sourceIdentity,
     coordinateFrame: Object.freeze({ schema: "ManagedStage.XYZ.v1", unit: "mm", axisFabrication: false }),
     toleranceMm: toleranceMm ?? TOPOLOGY_TOLERANCE_MM,
@@ -3126,88 +3750,52 @@ function cleanMaterialText(value) {
 function cleanMaterialCode(value) {
   return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
 }
-function mapMaterialTextToCiiCode(materialText, materialMap) {
-  const key = cleanMaterialText(materialText);
-  if (!key) return null;
-  const rows = Array.isArray(materialMap) ? materialMap : [];
-  return rows.find((row) => {
-    const candidates = [
-      row.material,
-      row.Material,
-      row.materialName,
-      row.Material_Name,
-      row.description,
-      row.Description,
-      row.name,
-      row.Name
-    ];
-    return candidates.some((value) => cleanMaterialText(value) === key);
-  }) || null;
-}
 
-// converters/xml-cii2019-core/support-mapping-config.js
-var HALT = "STOP";
-var LINE_LIMIT_KIND = `LINE${HALT}`;
-var SUPPORT_INTENT_FIELDS = "SPRE,SKEY,NAME,DESCRIPTION,DESC,CMPSUPTYPE,DTXR,SUPPORT_TYPE,SUPPORT_KIND,SUPPORT_MAPPER_KIND,MDSSUPPTYPE";
-var LIMIT_PATTERN = String.raw`\b(?:LINE\s*STOP|LIMIT\s*STOP|AXIAL\s*STOP|DIRECTIONAL\s+ANCHOR)\b`;
-var REQUIRED_SUPPORT_RULES = Object.freeze([
-  Object.freeze({
-    id: "builtin-user-limit",
-    enabled: true,
-    priority: 10,
-    source: "all",
-    field: SUPPORT_INTENT_FIELDS,
-    pattern: LIMIT_PATTERN,
-    match: "regex",
-    kind: LINE_LIMIT_KIND,
-    label: ["LIMIT/PIPE/LINE", HALT, "-> LIM"].join(" ")
-  }),
-  Object.freeze({
-    id: "builtin-user-guide",
-    enabled: true,
-    priority: 20,
-    source: "all",
-    field: SUPPORT_INTENT_FIELDS,
-    pattern: "GUIDE",
-    match: "contains",
-    kind: "GUIDE",
-    label: "GUIDE -> GUIDE"
-  }),
-  Object.freeze({
-    id: "builtin-user-rest",
-    enabled: true,
-    priority: 30,
-    source: "all",
-    field: SUPPORT_INTENT_FIELDS,
-    pattern: "REST,SHOE,BP,BEARING PLATE,WP,WEAR PAD,ANCI",
-    match: "contains",
-    kind: "REST",
-    label: "REST/SHOE/BP/WP/ANCI -> REST"
-  }),
-  Object.freeze({
-    id: "builtin-atta-rest",
-    enabled: true,
-    priority: 40,
-    source: "all",
-    field: "ComponentType,COMPONENTTYPE",
-    pattern: "ATTA",
-    match: "equals",
-    kind: "REST",
-    label: "ComponentType ATTA -> REST (+Y)"
-  })
-]);
-
-// converters/xml-cii2019-core/config.js
-var LINE_LIST_PROCESS_FIELDS = Object.freeze(["p1", "hydroPressure", "t1", "t2", "t3", "density"]);
-var DEFAULT_PIPING_CLASS_MATCH = Object.freeze({ classExactScore: 1e3, overrideScore: 1100, leadingNumericExactScore: 940, prefixBaseScore: 910, startsWithScore: 860, numericDistanceBaseScore: 760, numericDistancePenalty: 45, numericDistanceMax: 5, fuzzyRatioWeight: 780, fuzzyMinRatio: 0.6, ambiguousScoreDelta: 50, minAcceptScore: 760, reviewBelowConfidence: 1, maxCandidates: 8, rowScoring: { boreToleranceMm: 1, classExactWeight: 1e3, boreExactWeight: 300, boreNearWeight: 220, componentExactWeight: 180, pipeRigidWeight: 120, ratingExactWeight: 80, scheduleExactWeight: 60, minAcceptScore: 1e3, ambiguousScoreDelta: 50 } });
-var DEFAULT_TEE_SIF_TYPE_MAPPING = Object.freeze([
-  { code: 1, label: "Reinforced Fabricated Tee", patterns: ["\\bREINFORCED\\b.*\\bFAB(?:RICATED)?\\b.*\\bTEE\\b", "\\bFAB(?:RICATED)?\\b.*\\bREINFORCED\\b.*\\bTEE\\b", "\\bREINF(?:ORCED)?\\b.*\\bTEE\\b"] },
-  { code: 2, label: "Unreinforced Fabricated Tee", patterns: ["\\bUN[-\\s]?REINFORCED\\b.*\\bFAB(?:RICATED)?\\b.*\\bTEE\\b", "\\bFAB(?:RICATED)?\\b.*\\bUN[-\\s]?REINFORCED\\b.*\\bTEE\\b", "\\bUNREINF(?:ORCED)?\\b.*\\bTEE\\b"] },
-  { code: 3, label: "Welding Tee", patterns: ["\\bWELD(?:ING)?\\s+TEE\\b", "\\bTEE\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bTEE\\b.*\\bBUTT\\s*[- ]?\\s*WELD\\b", "\\bTEE\\b.*\\bBUTTWELD\\b", "\\bTEE\\s+(?:EQUAL|REDUC(?:ING|ER)?)\\b", "\\bTEEB?\\b"] },
-  { code: 4, label: "Sweepolet", patterns: ["\\bSWEEPOLET\\b", "\\bSWEEP\\s*OLET\\b"] },
-  { code: 5, label: "Weldolet", patterns: ["\\bWELDOLET\\b", "\\bWELD\\s*OLET\\b", "\\bWOLET\\b", "\\bBRANCH\\s+OUTLET\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bBRANCH\\s+FITTING\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bOLET\\b.*\\bB\\s*\\.?\\s*W\\.?\\b"] },
-  { code: 6, label: "Extruded Welding Tee", patterns: ["\\bEXTRUDED\\b.*\\bWELD(?:ING)?\\b.*\\bTEE\\b", "\\bEXTRUDED\\b.*\\bTEE\\b", "\\bEXT(?:RUDED)?\\s+TEE\\b"] }
-]);
+// converters/xml-cii2019-core/nps-bore-resolver.js
+var NPS_TO_BORE_MM = Object.freeze({
+  "0.5": 15,
+  "0.75": 20,
+  "1": 25,
+  "1.25": 32,
+  "1.5": 40,
+  "2": 50,
+  "2.5": 65,
+  "3": 80,
+  "3.5": 90,
+  "4": 100,
+  "5": 125,
+  "6": 150,
+  "8": 200,
+  "10": 250,
+  "12": 300,
+  "14": 350,
+  "16": 400,
+  "18": 450,
+  "20": 500,
+  "22": 550,
+  "24": 600,
+  "26": 650,
+  "28": 700,
+  "30": 750,
+  "32": 800,
+  "34": 850,
+  "36": 900,
+  "38": 950,
+  "40": 1e3,
+  "42": 1050,
+  "44": 1100,
+  "46": 1150,
+  "48": 1200,
+  "52": 1300,
+  "56": 1400,
+  "60": 1500,
+  "64": 1600,
+  "66": 1650,
+  "68": 1700,
+  "72": 1800,
+  "76": 1900,
+  "80": 2e3
+});
 
 // converters/xml-cii2019-core/piping-class-resolver.js
 var DEFAULT_PIPING_CLASS_MATCH_CONFIG = Object.freeze({
@@ -3216,9 +3804,8 @@ var DEFAULT_PIPING_CLASS_MATCH_CONFIG = Object.freeze({
   leadingNumericExactScore: 940,
   prefixBaseScore: 910,
   startsWithScore: 860,
-  numericDistanceBaseScore: 760,
-  numericDistancePenalty: 45,
-  numericDistanceMax: 5,
+  numericFamilyBaseScore: 800,
+  numericFamilyPrefixWeight: 35,
   fuzzyRatioWeight: 780,
   fuzzyMinRatio: 0.6,
   ambiguousScoreDelta: 50,
@@ -3337,11 +3924,11 @@ function buildDefaultRows() {
 var DEFAULT_PIPING_CLASS_MATERIAL_CODE_ROWS = Object.freeze(buildDefaultRows());
 
 // converters/xml-cii2019-core/piping-class-material-code-resolver.js
-function text3(value) {
+function text5(value) {
   return String(value ?? "").trim();
 }
 function normalizeClass(value) {
-  return text3(value).toUpperCase().replace(/\s+/g, "");
+  return text5(value).toUpperCase().replace(/\s+/g, "");
 }
 function baseClass(value) {
   const normalized = normalizeClass(value);
@@ -3352,18 +3939,96 @@ function wildcardExpression(pattern) {
   const escaped = normalizeClass(pattern).replace(/[.+^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^${escaped.replace(/\?/g, ".").replace(/\*/g, ".*")}$`);
 }
-function rowMatch(row, effectiveClass, allowSuffixNormalization) {
+function ratingSequence(config) {
+  const candidates = [
+    config?.rating?.ratingSequence,
+    config?.ratingSequence,
+    config?.regexTesterConfig?.ratingSequence,
+    config?.regex?.ratingSequence
+  ];
+  const rows = candidates.find(Array.isArray) || [];
+  return rows.map((pair, index) => ({
+    prefix: normalizeClass(Array.isArray(pair) ? pair[0] : pair?.prefix),
+    rating: text5(Array.isArray(pair) ? pair[1] : pair?.rating),
+    index
+  })).filter((row) => /^[A-Z0-9]{1,2}$/.test(row.prefix) && row.rating).sort((left, right) => right.prefix.length - left.prefix.length || left.index - right.index);
+}
+function isolateXmlCiiPipingClassRatingPrefix(value, config = {}) {
+  const pipingClass = normalizeClass(value);
+  for (const row of ratingSequence(config)) {
+    if (pipingClass.startsWith(row.prefix) && pipingClass.length > row.prefix.length) {
+      return {
+        pipingClass,
+        ratingPrefix: row.prefix,
+        rating: row.rating,
+        prefixLength: row.prefix.length,
+        materialFamily: pipingClass.slice(row.prefix.length)
+      };
+    }
+  }
+  return {
+    pipingClass,
+    ratingPrefix: "",
+    rating: "",
+    prefixLength: 0,
+    materialFamily: pipingClass
+  };
+}
+function leadingRatingWildcards(pattern) {
+  const match = normalizeClass(pattern).match(/^(\?{1,2})(.+)$/);
+  return match ? { prefixLength: match[1].length, familyPattern: match[2] } : null;
+}
+function familyExactMatch(pattern, effectiveClass, allowSuffixNormalization, config) {
+  if (pattern.includes("*") || pattern.includes("?")) return null;
+  const effective = isolateXmlCiiPipingClassRatingPrefix(effectiveClass, config);
+  const candidate = isolateXmlCiiPipingClassRatingPrefix(pattern, config);
+  if (!effective.ratingPrefix || !candidate.ratingPrefix) return null;
+  if (effective.materialFamily === candidate.materialFamily) {
+    return {
+      method: "rating-prefix-family-exact",
+      rank: 3,
+      specificity: candidate.materialFamily.length,
+      ratingPrefix: effective.ratingPrefix,
+      materialFamily: effective.materialFamily
+    };
+  }
+  if (allowSuffixNormalization && baseClass(effective.materialFamily) === baseClass(candidate.materialFamily)) {
+    return {
+      method: "rating-prefix-family-normalized",
+      rank: 2.5,
+      specificity: baseClass(candidate.materialFamily).length,
+      ratingPrefix: effective.ratingPrefix,
+      materialFamily: effective.materialFamily
+    };
+  }
+  return null;
+}
+function familyWildcardMatch(pattern, effectiveClass, allowSuffixNormalization, config) {
+  const wildcard = leadingRatingWildcards(pattern);
+  if (!wildcard) return null;
+  const effective = isolateXmlCiiPipingClassRatingPrefix(effectiveClass, config);
+  if (!effective.ratingPrefix || effective.prefixLength !== wildcard.prefixLength) return null;
+  const expression = wildcardExpression(wildcard.familyPattern);
+  const family = effective.materialFamily;
+  const familyBase = allowSuffixNormalization ? baseClass(family) : family;
+  if (!expression.test(family) && !expression.test(familyBase)) return null;
+  return {
+    method: "rating-prefix-family-wildcard",
+    rank: 1,
+    specificity: wildcard.familyPattern.replace(/[?*]/g, "").length,
+    ratingPrefix: effective.ratingPrefix,
+    materialFamily: family
+  };
+}
+function rowMatch(row, effectiveClass, allowSuffixNormalization, config) {
   const pattern = normalizeClass(row?.pipingClass);
   if (!pattern) return null;
-  if (pattern === effectiveClass) return { method: "exact", rank: 3, specificity: pattern.length };
+  if (pattern === effectiveClass) return { method: "exact", rank: 4, specificity: pattern.length };
   const effectiveBase = allowSuffixNormalization ? baseClass(effectiveClass) : effectiveClass;
   if (allowSuffixNormalization && effectiveBase !== effectiveClass && pattern === effectiveBase) {
-    return { method: "normalized-suffix", rank: 2, specificity: pattern.length };
+    return { method: "normalized-suffix", rank: 3.5, specificity: pattern.length };
   }
-  if (!pattern.includes("*") && !pattern.includes("?")) return null;
-  if (!wildcardExpression(pattern).test(effectiveClass) && !wildcardExpression(pattern).test(effectiveBase)) return null;
-  const specificity = pattern.replace(/[?*]/g, "").length;
-  return { method: "wildcard", rank: 1, specificity };
+  return familyExactMatch(pattern, effectiveClass, allowSuffixNormalization, config) || familyWildcardMatch(pattern, effectiveClass, allowSuffixNormalization, config);
 }
 function compareCandidates(left, right) {
   return right.rank - left.rank || right.specificity - left.specificity || right.confidence - left.confidence || left.index - right.index;
@@ -3381,9 +4046,9 @@ function resolveConfiguredMaterialCode({ pipingClass, config }) {
   const threshold = Number.isFinite(Number(mapConfig?.confidenceThreshold)) ? Number(mapConfig.confidenceThreshold) : 80;
   const rows = Array.isArray(mapConfig?.rows) && mapConfig.rows.length ? mapConfig.rows : useAppDefaults ? DEFAULT_PIPING_CLASS_MATERIAL_CODE_ROWS : [];
   const candidates = rows.map((row, index) => {
-    const matched = rowMatch(row, effectiveClass, mapConfig?.normalizeClassSuffix !== false);
+    const matched = rowMatch(row, effectiveClass, mapConfig?.normalizeClassSuffix !== false, config);
     const confidence = Number(row?.confidence);
-    const materialCode = text3(row?.materialCode);
+    const materialCode = text5(row?.materialCode);
     if (!matched || !materialCode || !Number.isFinite(confidence) || confidence < threshold) return null;
     return { ...matched, confidence, materialCode, row, index };
   }).filter(Boolean).sort(compareCandidates);
@@ -3393,13 +4058,295 @@ function resolveConfiguredMaterialCode({ pipingClass, config }) {
   if (conflictingCodes.length > 1) return null;
   return {
     materialCode: best.materialCode,
-    materialName: text3(best.row.materialName),
-    materialCategory: text3(best.row.materialCategory),
+    materialName: text5(best.row.materialName),
+    materialCategory: text5(best.row.materialCategory),
     confidence: best.confidence,
     method: best.method,
+    ratingPrefix: best.ratingPrefix || "",
+    materialFamily: best.materialFamily || "",
     matchedRow: best.row
   };
 }
+
+// converters/xml-cii2019-core/material-code-fuzzy-resolver.js
+var KNOWN_GRADE_ALIASES = Object.freeze({
+  S32803: "S31803"
+});
+function text6(value) {
+  return value === void 0 || value === null ? "" : String(value).trim();
+}
+function unique3(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+function normalizeSurface(value) {
+  return text6(value).toUpperCase().replace(/[‐‑‒–—]/g, "-").replace(/\b(?:ASTM|ASME|UNS|MATERIAL|MATL|GRADE|GR)\b/g, " ").replace(/[^A-Z0-9]+/g, "").trim();
+}
+function specification(value) {
+  const normalized = text6(value).toUpperCase().replace(/[‐‑‒–—]/g, "-");
+  const match = normalized.match(/\b([AB])\s*[- ]?\s*(\d{3})\b/);
+  return match ? `${match[1]}${match[2]}` : "";
+}
+function rawGrade(value) {
+  const normalized = text6(value).toUpperCase().replace(/[‐‑‒–—]/g, "-");
+  const patterns = [
+    /\bS\s*[- ]?\s*(\d{5})\b/,
+    /\bN\s*[- ]?\s*(\d{5})\b/,
+    /\bTP\s*[- ]?\s*(\d{3}[A-Z0-9]*)\b/,
+    /\bP\s*[- ]?\s*(\d{1,3}[A-Z0-9]*)\b/,
+    /\bF\s*[- ]?\s*(\d{1,3}[A-Z0-9]*)\b/,
+    /\bX\s*[- ]?\s*(\d{2,3})\b/
+  ];
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (!match) continue;
+    const prefix = pattern.source.includes("TP") ? "TP" : pattern.source.includes("\\bS") ? "S" : pattern.source.includes("\\bN") ? "N" : pattern.source.includes("\\bP") ? "P" : pattern.source.includes("\\bF") ? "F" : "X";
+    return `${prefix}${match[1]}`;
+  }
+  return "";
+}
+function canonicalGrade(value) {
+  const grade = rawGrade(value);
+  return KNOWN_GRADE_ALIASES[grade] || grade;
+}
+function usedKnownAlias(value) {
+  const grade = rawGrade(value);
+  return !!(grade && KNOWN_GRADE_ALIASES[grade]);
+}
+function tokens(value) {
+  return unique3(text6(value).toUpperCase().match(/[A-Z]+\d+[A-Z0-9]*|\d+[A-Z]+[A-Z0-9]*/g) || []);
+}
+function levenshtein(left, right) {
+  const a = text6(left);
+  const b = text6(right);
+  if (a === b) return 0;
+  if (!a) return b.length;
+  if (!b) return a.length;
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= a.length; row += 1) {
+    const current = [row];
+    for (let column = 1; column <= b.length; column += 1) {
+      current[column] = Math.min(
+        current[column - 1] + 1,
+        previous[column] + 1,
+        previous[column - 1] + (a[row - 1] === b[column - 1] ? 0 : 1)
+      );
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+function dice(left, right) {
+  const a = normalizeSurface(left);
+  const b = normalizeSurface(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const counts = /* @__PURE__ */ new Map();
+  for (let index = 0; index < a.length - 1; index += 1) {
+    const pair = a.slice(index, index + 2);
+    counts.set(pair, (counts.get(pair) || 0) + 1);
+  }
+  let hits = 0;
+  for (let index = 0; index < b.length - 1; index += 1) {
+    const pair = b.slice(index, index + 2);
+    const count = counts.get(pair) || 0;
+    if (count > 0) {
+      hits += 1;
+      counts.set(pair, count - 1);
+    }
+  }
+  return 2 * hits / (a.length - 1 + (b.length - 1));
+}
+function rowCode(row) {
+  return text6(row?.code || row?.Code || row?.materialCode || row?.MaterialCode || row?.["Material Code"]);
+}
+function rowNames(row) {
+  return unique3([
+    row?.material,
+    row?.Material,
+    row?.materialName,
+    row?.Material_Name,
+    row?.["Material Name"],
+    row?.description,
+    row?.Description,
+    row?.name,
+    row?.Name
+  ].map(text6));
+}
+function normalizeXmlCiiMaterialIdentity(value) {
+  const spec = specification(value);
+  const grade = canonicalGrade(value);
+  return {
+    original: text6(value),
+    compact: normalizeSurface(value),
+    specification: spec,
+    rawGrade: rawGrade(value),
+    grade,
+    canonical: [spec, grade].filter(Boolean).join("-"),
+    tokens: tokens(value),
+    usedKnownAlias: usedKnownAlias(value)
+  };
+}
+function scoreXmlCiiMaterialMapCandidate(materialText, candidateText) {
+  const query = normalizeXmlCiiMaterialIdentity(materialText);
+  const candidate = normalizeXmlCiiMaterialIdentity(candidateText);
+  if (!query.compact || !candidate.compact) return { score: 0, method: "none", reasons: [], query, candidate };
+  if (query.compact === candidate.compact) {
+    return { score: 1, method: "exact", reasons: ["surface-exact"], query, candidate };
+  }
+  const sameSpec = !!query.specification && query.specification === candidate.specification;
+  const sameGrade = !!query.grade && query.grade === candidate.grade;
+  const aliasMatch = sameGrade && (query.usedKnownAlias || candidate.usedKnownAlias);
+  if (sameSpec && sameGrade) {
+    return {
+      score: aliasMatch ? 0.98 : 0.995,
+      method: aliasMatch ? "known-alias" : "designation-exact",
+      reasons: [sameSpec ? "specification-exact" : "", aliasMatch ? "known-grade-alias" : "grade-exact"].filter(Boolean),
+      query,
+      candidate
+    };
+  }
+  if (sameGrade && (!query.specification || !candidate.specification)) {
+    return { score: 0.93, method: "grade-exact", reasons: ["grade-exact", "specification-missing"], query, candidate };
+  }
+  if (sameGrade && query.specification && candidate.specification && !sameSpec) {
+    return { score: 0.72, method: "grade-spec-conflict", reasons: ["grade-exact", "specification-conflict"], query, candidate };
+  }
+  if (sameSpec && query.grade && candidate.grade) {
+    const distance = levenshtein(query.grade, candidate.grade);
+    const maxLength = Math.max(query.grade.length, candidate.grade.length);
+    if (distance === 1 && maxLength >= 5) {
+      return { score: 0.9, method: "grade-edit-distance-1", reasons: ["specification-exact", "grade-edit-distance-1"], query, candidate };
+    }
+    if (distance === 2 && maxLength >= 7) {
+      return { score: 0.84, method: "grade-edit-distance-2", reasons: ["specification-exact", "grade-edit-distance-2"], query, candidate };
+    }
+  }
+  const queryTokens = new Set(query.tokens);
+  const candidateTokens = candidate.tokens;
+  const tokenHits = candidateTokens.filter((token) => queryTokens.has(token)).length;
+  const tokenCoverage = candidateTokens.length ? tokenHits / candidateTokens.length : 0;
+  const similarity = dice(materialText, candidateText);
+  const score = Math.min(0.88, (sameSpec ? 0.18 : 0) + tokenCoverage * 0.4 + similarity * 0.45);
+  return {
+    score,
+    method: score >= 0.86 ? "fuzzy-token" : "weak-fuzzy",
+    reasons: [sameSpec ? "specification-exact" : "", tokenCoverage ? `token-coverage-${tokenCoverage.toFixed(2)}` : "", `dice-${similarity.toFixed(3)}`].filter(Boolean),
+    query,
+    candidate
+  };
+}
+function resolveXmlCiiMaterialCodeFromMap(materialText, materialMap, options = {}) {
+  const threshold = Number.isFinite(Number(options.threshold)) ? Number(options.threshold) : 0.86;
+  const ambiguityMargin = Number.isFinite(Number(options.ambiguityMargin)) ? Number(options.ambiguityMargin) : 0.04;
+  const rows = Array.isArray(materialMap) ? materialMap : [];
+  const candidates = [];
+  rows.forEach((row, rowIndex) => {
+    const code = rowCode(row);
+    if (!code) return;
+    for (const name of rowNames(row)) {
+      const scored = scoreXmlCiiMaterialMapCandidate(materialText, name);
+      if (scored.score <= 0) continue;
+      candidates.push({ ...scored, materialCode: code, matchedMaterial: name, matchedRow: row, rowIndex });
+    }
+  });
+  const bestByCode = /* @__PURE__ */ new Map();
+  for (const candidate of candidates) {
+    const previous = bestByCode.get(candidate.materialCode);
+    if (!previous || candidate.score > previous.score || candidate.score === previous.score && candidate.rowIndex < previous.rowIndex) {
+      bestByCode.set(candidate.materialCode, candidate);
+    }
+  }
+  const ranked = [...bestByCode.values()].sort((left, right) => right.score - left.score || left.rowIndex - right.rowIndex || left.materialCode.localeCompare(right.materialCode));
+  const best = ranked[0] || null;
+  if (!best || best.score < threshold) {
+    return { materialCode: "", confidence: best?.score || 0, method: best ? "below-threshold" : "none", needsReview: true, ambiguous: false, matchedRow: best?.matchedRow || null, matchedMaterial: best?.matchedMaterial || "", reasons: best?.reasons || [], candidates: ranked.slice(0, 5) };
+  }
+  const second = ranked[1] || null;
+  const ambiguous = !!second && second.materialCode !== best.materialCode && best.score - second.score < ambiguityMargin;
+  if (ambiguous) {
+    return { materialCode: "", confidence: best.score, method: "ambiguous", needsReview: true, ambiguous: true, matchedRow: null, matchedMaterial: "", reasons: ["top-candidate-margin-too-small"], candidates: ranked.slice(0, 5) };
+  }
+  return {
+    materialCode: best.materialCode,
+    confidence: best.score,
+    method: best.method,
+    needsReview: false,
+    ambiguous: false,
+    matchedRow: best.matchedRow,
+    matchedMaterial: best.matchedMaterial,
+    reasons: best.reasons,
+    candidates: ranked.slice(0, 5)
+  };
+}
+
+// converters/xml-cii2019-core/dtxr-rating-resolver.js
+var SUPPORTED_RATINGS = Object.freeze(["150", "300", "600", "900", "1500", "2500"]);
+var RATING_ALT = SUPPORTED_RATINGS.join("|");
+
+// converters/xml-cii2019-core/support-mapping-config.js
+var HALT = "STOP";
+var LINE_LIMIT_KIND = `LINE${HALT}`;
+var SUPPORT_INTENT_FIELDS = "SPRE,SKEY,NAME,DESCRIPTION,DESC,CMPSUPTYPE,DTXR,SUPPORT_TYPE,SUPPORT_KIND,SUPPORT_MAPPER_KIND,MDSSUPPTYPE";
+var LIMIT_PATTERN = String.raw`\b(?:LINE\s*STOP|LIMIT\s*STOP|AXIAL\s*STOP|DIRECTIONAL\s+ANCHOR)\b`;
+var REQUIRED_SUPPORT_RULES = Object.freeze([
+  Object.freeze({
+    id: "builtin-user-limit",
+    enabled: true,
+    priority: 10,
+    source: "all",
+    field: SUPPORT_INTENT_FIELDS,
+    pattern: LIMIT_PATTERN,
+    match: "regex",
+    kind: LINE_LIMIT_KIND,
+    label: ["LIMIT/PIPE/LINE", HALT, "-> LIM"].join(" ")
+  }),
+  Object.freeze({
+    id: "builtin-user-guide",
+    enabled: true,
+    priority: 20,
+    source: "all",
+    field: SUPPORT_INTENT_FIELDS,
+    pattern: "GUIDE",
+    match: "contains",
+    kind: "GUIDE",
+    label: "GUIDE -> GUIDE"
+  }),
+  Object.freeze({
+    id: "builtin-user-rest",
+    enabled: true,
+    priority: 30,
+    source: "all",
+    field: SUPPORT_INTENT_FIELDS,
+    pattern: "REST,SHOE,BP,BEARING PLATE,WP,WEAR PAD,ANCI",
+    match: "contains",
+    kind: "REST",
+    label: "REST/SHOE/BP/WP/ANCI -> REST"
+  }),
+  Object.freeze({
+    id: "builtin-atta-rest",
+    enabled: true,
+    priority: 40,
+    source: "all",
+    field: "ComponentType,COMPONENTTYPE",
+    pattern: "ATTA",
+    match: "equals",
+    kind: "REST",
+    label: "ComponentType ATTA -> REST (+Y)"
+  })
+]);
+
+// converters/xml-cii2019-core/config.js
+var LINE_LIST_PROCESS_FIELDS = Object.freeze(["p1", "hydroPressure", "t1", "t2", "t3", "density"]);
+var DEFAULT_PIPING_CLASS_MATCH = Object.freeze({ classExactScore: 1e3, overrideScore: 1100, leadingNumericExactScore: 940, prefixBaseScore: 910, startsWithScore: 860, numericDistanceBaseScore: 760, numericDistancePenalty: 45, numericDistanceMax: 5, fuzzyRatioWeight: 780, fuzzyMinRatio: 0.6, ambiguousScoreDelta: 50, minAcceptScore: 760, reviewBelowConfidence: 1, maxCandidates: 8, rowScoring: { boreToleranceMm: 1, classExactWeight: 1e3, boreExactWeight: 300, boreNearWeight: 220, componentExactWeight: 180, pipeRigidWeight: 120, ratingExactWeight: 80, scheduleExactWeight: 60, minAcceptScore: 1e3, ambiguousScoreDelta: 50 } });
+var DEFAULT_TEE_SIF_TYPE_MAPPING = Object.freeze([
+  { code: 1, label: "Reinforced Fabricated Tee", patterns: ["\\bREINFORCED\\b.*\\bFAB(?:RICATED)?\\b.*\\bTEE\\b", "\\bFAB(?:RICATED)?\\b.*\\bREINFORCED\\b.*\\bTEE\\b", "\\bREINF(?:ORCED)?\\b.*\\bTEE\\b"] },
+  { code: 2, label: "Unreinforced Fabricated Tee", patterns: ["\\bUN[-\\s]?REINFORCED\\b.*\\bFAB(?:RICATED)?\\b.*\\bTEE\\b", "\\bFAB(?:RICATED)?\\b.*\\bUN[-\\s]?REINFORCED\\b.*\\bTEE\\b", "\\bUNREINF(?:ORCED)?\\b.*\\bTEE\\b"] },
+  { code: 3, label: "Welding Tee", patterns: ["\\bWELD(?:ING)?\\s+TEE\\b", "\\bTEE\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bTEE\\b.*\\bBUTT\\s*[- ]?\\s*WELD\\b", "\\bTEE\\b.*\\bBUTTWELD\\b", "\\bTEE\\s+(?:EQUAL|REDUC(?:ING|ER)?)\\b", "\\bTEEB?\\b"] },
+  { code: 4, label: "Sweepolet", patterns: ["\\bSWEEPOLET\\b", "\\bSWEEP\\s*OLET\\b"] },
+  { code: 5, label: "Weldolet", patterns: ["\\bWELDOLET\\b", "\\bWELD\\s*OLET\\b", "\\bWOLET\\b", "\\bBRANCH\\s+OUTLET\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bBRANCH\\s+FITTING\\b.*\\bB\\s*\\.?\\s*W\\.?\\b", "\\bOLET\\b.*\\bB\\s*\\.?\\s*W\\.?\\b"] },
+  { code: 6, label: "Extruded Welding Tee", patterns: ["\\bEXTRUDED\\b.*\\bWELD(?:ING)?\\b.*\\bTEE\\b", "\\bEXTRUDED\\b.*\\bTEE\\b", "\\bEXT(?:RUDED)?\\s+TEE\\b"] }
+]);
 
 // converters/xml-cii2019-core/service-process-fallback.js
 var DEFAULT_FIELDS = Object.freeze(["p1", "hydroPressure", "t1", "t2", "t3", "density"]);
@@ -3414,115 +4361,268 @@ var PROCESS_ALIASES = Object.freeze({
 var SERVICE_ALIASES = Object.freeze(["service", "Service", "SERVICE", "fluid", "Fluid", "FLUID", "lineKey1", "Key 1", "ColumnX1", "Medium", "medium"]);
 
 // converters/xml-cii2019-core/branch-process-resolver.js
-function text4(value) {
-  return String(value ?? "").trim();
+function text7(value) {
+  return value === void 0 || value === null ? "" : String(value).trim();
 }
 function headerKey(value) {
-  return text4(value).toUpperCase().replace(/[^A-Z0-9]+/g, "");
+  return text7(value).toUpperCase().replace(/[^A-Z0-9]+/g, "");
 }
 function readAny(row, keys) {
   if (!row || typeof row !== "object") return "";
   const wanted = (keys || []).map(headerKey).filter(Boolean);
   for (const source of [row, row._raw]) {
     if (!source || typeof source !== "object") continue;
-    for (const key of keys || []) {
-      const direct = source[key];
-      if (text4(direct)) return text4(direct);
-    }
+    for (const key of keys || []) if (text7(source[key])) return text7(source[key]);
     for (const [key, value] of Object.entries(source)) {
-      if (wanted.includes(headerKey(key)) && text4(value)) return text4(value);
+      if (wanted.includes(headerKey(key)) && text7(value)) return text7(value);
     }
   }
   return "";
 }
-function firstText2(row, keys) {
-  return readAny(row, keys);
-}
-function overrideValue(overrides, bucketName, keys = []) {
+function overrideRecord(overrides, bucketName, keys = []) {
   const bucket = overrides?.[bucketName];
   if (bucket && typeof bucket === "object" && !Array.isArray(bucket)) {
     for (const key of keys) {
-      if (key && Object.prototype.hasOwnProperty.call(bucket, key) && text4(bucket[key])) return text4(bucket[key]);
+      if (key && Object.hasOwn(bucket, key) && text7(bucket[key])) {
+        return { key: text7(key), value: text7(bucket[key]) };
+      }
     }
+    return null;
   }
-  if (bucket !== void 0 && (typeof bucket !== "object" || bucket === null) && text4(bucket)) return text4(bucket);
-  return "";
+  const value = bucket !== void 0 && (typeof bucket !== "object" || bucket === null) ? text7(bucket) : "";
+  return value ? { key: "", value } : null;
 }
 function classRowMaterial(row) {
   return readAny(row, ["materialName", "Material_Name", "Material Name", "Material", "material", "MATERIAL", "Mat", "MAT", "MOC"]);
 }
-function materialMapRowCode(row) {
-  return cleanMaterialCode(readAny(row, ["code", "Code", "materialCode", "MaterialCode", "Material Code", "MAT_CODE", "CII Code", "CA3"]));
+function directMaterialCode(row) {
+  return cleanMaterialCode(readAny(row, [
+    "materialCode",
+    "Material Code",
+    "MATERIAL_CODE",
+    "MAT_CODE",
+    "Mat Code",
+    "MatID",
+    "MaterialCode",
+    "CA3"
+  ]));
 }
-function materialMapRowNames(row) {
-  return [readAny(row, ["material", "Material"]), readAny(row, ["materialName", "Material_Name", "Material Name"]), readAny(row, ["description", "Description"]), readAny(row, ["name", "Name"])].map(text4).filter(Boolean);
+function normalKey(value) {
+  return text7(value).toUpperCase().replace(/\s+/g, "");
 }
-function materialComparable(value) {
-  return cleanMaterialText(value).replace(/\b(ASTM|ASME|API)\b/g, " ").replace(/\bA\s*\/\s*SA\b/g, " ").replace(/\bSA\b/g, " ").replace(/\bGR(?:ADE)?\.?\b/g, " ").replace(/\bCL(?:ASS)?\.?\b/g, "CL").replace(/[^A-Z0-9]/g, "");
+function materialScopedCodeOverride(record2, material) {
+  if (!record2 || !material) return false;
+  const identity = normalizeXmlCiiMaterialIdentity(material);
+  const key = normalKey(record2.key).replace(/^MAT(?:ERIAL)?:/, "");
+  return key === normalKey(material) || key === identity.compact || key === normalKey(identity.canonical);
 }
-function mapMaterialTextToCiiCodeRobust(materialText, materialMap) {
-  const exact = mapMaterialTextToCiiCode(materialText, materialMap);
-  if (exact) return exact;
-  const key = materialComparable(materialText);
-  if (!key) return null;
-  const rows = Array.isArray(materialMap) ? materialMap : [];
-  const suffix = rows.find((row) => {
-    if (!materialMapRowCode(row)) return false;
-    return materialMapRowNames(row).some((candidate) => {
-      const cand = materialComparable(candidate);
-      if (!cand) return false;
-      return cand === key || cand.length >= 4 && key.endsWith(cand) || key.length >= 4 && cand.endsWith(key);
+function materialMapResult(material, materialMap, config) {
+  if (!material) return null;
+  const fuzzyConfig = config?.materialCodeFuzzy || config?.material?.fuzzy || {};
+  const result = resolveXmlCiiMaterialCodeFromMap(material, materialMap, fuzzyConfig);
+  return result.materialCode ? result : null;
+}
+function materialResolution({ material, source, mapped, codeRecord, directCode }) {
+  const pinned = materialScopedCodeOverride(codeRecord, material);
+  if (pinned) {
+    const conflict = !!mapped && mapped.materialCode !== cleanMaterialCode(codeRecord.value);
+    return {
+      material,
+      materialCode: cleanMaterialCode(codeRecord.value),
+      source: conflict ? "material-scoped-override-conflict" : "material-scoped-override",
+      confidence: conflict ? mapped.confidence : 1,
+      matchMethod: "override",
+      needsReview: conflict,
+      conflict: conflict ? {
+        overrideCode: cleanMaterialCode(codeRecord.value),
+        resolvedCode: mapped.materialCode,
+        overrideKey: codeRecord.key
+      } : null,
+      matchedRow: mapped?.matchedRow || null
+    };
+  }
+  if (mapped) {
+    const overrideCode = cleanMaterialCode(codeRecord?.value);
+    const conflict = !!overrideCode && overrideCode !== mapped.materialCode;
+    return {
+      material,
+      materialCode: mapped.materialCode,
+      source: conflict ? "material-evidence-corrected" : source,
+      confidence: mapped.confidence,
+      matchMethod: mapped.method,
+      needsReview: false,
+      conflict: conflict ? {
+        overrideCode,
+        resolvedCode: mapped.materialCode,
+        overrideKey: codeRecord?.key || ""
+      } : null,
+      matchedRow: mapped.matchedRow
+    };
+  }
+  if (directCode) {
+    return {
+      material,
+      materialCode: directCode,
+      source: "line-list-material-code",
+      confidence: 1,
+      matchMethod: "direct-line-code",
+      needsReview: false,
+      conflict: null,
+      matchedRow: null
+    };
+  }
+  if (codeRecord) {
+    return {
+      material,
+      materialCode: "",
+      source: "process-material-unresolved",
+      confidence: 0,
+      matchMethod: "none",
+      needsReview: true,
+      conflict: {
+        overrideCode: cleanMaterialCode(codeRecord.value),
+        resolvedCode: "",
+        overrideKey: codeRecord.key
+      },
+      matchedRow: null
+    };
+  }
+  return {
+    material,
+    materialCode: "",
+    source: "process-material-unresolved",
+    confidence: 0,
+    matchMethod: "none",
+    needsReview: true,
+    conflict: null,
+    matchedRow: null
+  };
+}
+var SERVICE_FIELDS = Object.freeze(["p1", "hydroPressure", "t1", "t2", "t3", "density"]);
+function resolveMaterialCodeFromLineMaterial({
+  lineRow,
+  materialMap,
+  pipingClassRow,
+  pipingClass,
+  overrides = {},
+  overrideKeys = [],
+  xmlNode,
+  xmlBranch,
+  config = {}
+}) {
+  const lineMaterialRaw = readAny(lineRow, [
+    "material",
+    "Material",
+    "MATERIAL",
+    "Material_Name",
+    "Material Name",
+    "MOC"
+  ]);
+  const materialOverride = overrideRecord(overrides, "material", overrideKeys);
+  const processMaterial = cleanMaterialText(materialOverride?.value || lineMaterialRaw);
+  const codeRecord = overrideRecord(overrides, "materialCode", [
+    ...overrideKeys,
+    processMaterial,
+    lineMaterialRaw
+  ].filter(Boolean));
+  const directLineCode = directMaterialCode(lineRow);
+  if (processMaterial) {
+    return materialResolution({
+      material: processMaterial,
+      source: materialOverride ? "override-material-map" : "line-list-material-map",
+      mapped: materialMapResult(processMaterial, materialMap, config),
+      codeRecord,
+      directCode: directLineCode
     });
-  });
-  if (suffix) return suffix;
-  const compositeMatches = rows.flatMap((row, rowIndex) => materialMapRowNames(row).flatMap((candidate) => {
-    const comparable = materialComparable(candidate), position = key.indexOf(comparable);
-    return materialMapRowCode(row) && comparable.length >= 4 && position >= 0 ? [{ row, rowIndex, position, length: comparable.length }] : [];
-  }));
-  compositeMatches.sort((left, right) => left.position - right.position || right.length - left.length || left.rowIndex - right.rowIndex);
-  if (compositeMatches.length) return compositeMatches[0].row;
-  const designations = key.match(/[A-Z]\d{5}/g) ?? [];
-  return designations.flatMap((designation) => rows.filter((row) => materialMapRowCode(row) && materialMapRowNames(row).some((candidate) => materialComparable(candidate).includes(designation))))[0] ?? null;
-}
-var SERVICE_FALLBACK_FIELDS = Object.freeze(["p1", "hydroPressure", "t1", "t2", "t3", "density"]);
-function resolveMaterialCodeFromLineMaterial({ lineRow, materialMap, pipingClassRow, pipingClass, overrides = {}, overrideKeys = [], xmlNode, xmlBranch, config = {} }) {
-  const lineMaterialRaw = firstText2(lineRow, ["material", "Material", "MATERIAL", "Material_Name", "Material Name", "MOC"]);
-  const classMaterialRaw = classRowMaterial(pipingClassRow);
-  const materialOverride = overrideValue(overrides, "material", overrideKeys);
-  const preferredMaterial = materialOverride || classMaterialRaw || lineMaterialRaw;
-  const materialText = cleanMaterialText(preferredMaterial);
-  const explicitMaterialCode = overrideValue(overrides, "materialCode", [...overrideKeys, classMaterialRaw, lineMaterialRaw, materialText].filter(Boolean));
-  const legacyMaterialCode = overrideValue(overrides, "material", [classMaterialRaw, lineMaterialRaw, materialText].filter(Boolean));
-  const configuredMaterialCode = resolveConfiguredMaterialCode({ pipingClass, config });
-  const manualResult = explicitMaterialCode ? { material: materialText, materialCode: cleanMaterialCode(explicitMaterialCode), source: "override" } : legacyMaterialCode && legacyMaterialCode !== materialOverride ? { material: materialText, materialCode: cleanMaterialCode(legacyMaterialCode), source: "override" } : null;
-  const configuredResult = configuredMaterialCode ? {
-    material: materialText || cleanMaterialText(configuredMaterialCode.materialName),
-    materialCode: cleanMaterialCode(configuredMaterialCode.materialCode),
-    source: "piping-class-config-map",
-    matchedRow: configuredMaterialCode.matchedRow,
-    confidence: configuredMaterialCode.confidence,
-    matchMethod: configuredMaterialCode.method
-  } : null;
-  if (config?.pipingClassMaterialCodeMap?.manualOverrideWins !== false && manualResult) return manualResult;
-  const configuredIsExact = configuredResult && configuredResult.matchMethod !== "wildcard";
-  if (config?.pipingClassMaterialCodeMap?.exactPipingClassFirst !== false && configuredIsExact) return configuredResult;
-  const directClassCode = cleanMaterialCode(readAny(pipingClassRow, ["materialCode", "Material Code", "MATERIAL_CODE", "MAT_CODE", "Mat Code", "MatID", "MaterialCode", "CA3"]));
-  if (directClassCode) return { material: materialText || cleanMaterialText(classMaterialRaw), materialCode: directClassCode, source: "piping-class-material-code", matchedRow: pipingClassRow };
-  const directLineCode = cleanMaterialCode(readAny(lineRow, ["materialCode", "Material Code", "MATERIAL_CODE", "MAT_CODE", "Mat Code", "MatID", "MaterialCode", "CA3"]));
-  if (directLineCode) return { material: materialText || cleanMaterialText(lineMaterialRaw), materialCode: directLineCode, source: materialOverride ? "override-material-code" : "line-list-material-code", matchedRow: lineRow };
-  if (configuredResult) return configuredResult;
-  if (manualResult) return manualResult;
-  const fromClassMaterial = mapMaterialTextToCiiCodeRobust(classMaterialRaw, materialMap);
-  const fromClassCode = materialMapRowCode(fromClassMaterial);
-  if (fromClassCode) return { material: cleanMaterialText(classMaterialRaw), materialCode: fromClassCode, source: "piping-class-material-map", matchedRow: fromClassMaterial };
-  const fromLineMaterial = mapMaterialTextToCiiCodeRobust(materialText || lineMaterialRaw, materialMap);
-  const fromLineCode = materialMapRowCode(fromLineMaterial);
-  if (fromLineCode) return { material: cleanMaterialText(materialText || lineMaterialRaw), materialCode: fromLineCode, source: materialOverride ? "override-material-map" : "line-list-material-map", matchedRow: fromLineMaterial };
+  }
+  if (directLineCode) {
+    return {
+      material: "",
+      materialCode: directLineCode,
+      source: "line-list-material-code",
+      confidence: 1,
+      matchMethod: "direct-line-code",
+      needsReview: false,
+      conflict: null,
+      matchedRow: lineRow
+    };
+  }
+  if (codeRecord) {
+    return {
+      material: "",
+      materialCode: cleanMaterialCode(codeRecord.value),
+      source: "override-unvalidated",
+      confidence: 0,
+      matchMethod: "override",
+      needsReview: true,
+      conflict: null,
+      matchedRow: null
+    };
+  }
   const xmlMaterial = cleanMaterialText(xmlNode?.material || xmlBranch?.material || "");
-  const fromXmlMaterial = mapMaterialTextToCiiCodeRobust(xmlMaterial, materialMap);
-  const fromXmlCode = materialMapRowCode(fromXmlMaterial);
-  if (fromXmlCode) return { material: materialText || xmlMaterial, materialCode: fromXmlCode, source: "xml-material-map", matchedRow: fromXmlMaterial };
-  return { material: materialText || cleanMaterialText(lineMaterialRaw) || cleanMaterialText(classMaterialRaw) || xmlMaterial, materialCode: "", source: xmlMaterial ? "xml-fallback" : "blank", matchedRow: null };
+  const xmlMapped = materialMapResult(xmlMaterial, materialMap, config);
+  if (xmlMapped) {
+    return {
+      material: xmlMaterial,
+      materialCode: xmlMapped.materialCode,
+      source: "xml-material-map",
+      confidence: xmlMapped.confidence,
+      matchMethod: xmlMapped.method,
+      needsReview: false,
+      conflict: null,
+      matchedRow: xmlMapped.matchedRow
+    };
+  }
+  const directClassCode = directMaterialCode(pipingClassRow);
+  const classMaterial = cleanMaterialText(classRowMaterial(pipingClassRow));
+  if (directClassCode) {
+    return {
+      material: classMaterial,
+      materialCode: directClassCode,
+      source: "piping-class-fallback",
+      confidence: 1,
+      matchMethod: "exact-class-row",
+      needsReview: false,
+      conflict: null,
+      matchedRow: pipingClassRow
+    };
+  }
+  const configured = resolveConfiguredMaterialCode({ pipingClass, config });
+  if (configured) {
+    return {
+      material: cleanMaterialText(configured.materialName),
+      materialCode: cleanMaterialCode(configured.materialCode),
+      source: "piping-class-fallback",
+      confidence: Number(configured.confidence) / 100,
+      matchMethod: configured.method,
+      needsReview: configured.method === "rating-prefix-family-wildcard",
+      conflict: null,
+      matchedRow: configured.matchedRow
+    };
+  }
+  const classMapped = materialMapResult(classMaterial, materialMap, config);
+  if (classMapped) {
+    return {
+      material: classMaterial,
+      materialCode: classMapped.materialCode,
+      source: "piping-class-fallback",
+      confidence: classMapped.confidence,
+      matchMethod: classMapped.method,
+      needsReview: true,
+      conflict: null,
+      matchedRow: classMapped.matchedRow
+    };
+  }
+  return {
+    material: xmlMaterial || classMaterial,
+    materialCode: "",
+    source: xmlMaterial ? "xml-fallback" : "blank",
+    confidence: 0,
+    matchMethod: "none",
+    needsReview: true,
+    conflict: null,
+    matchedRow: null
+  };
 }
 
 // converters/xml-cii2019-core/default-material-map-rows.js
@@ -5102,8 +6202,8 @@ function engineeringValues(record2) {
   const materialDensity = finiteNumber4(enriched.materialDensityKgM3 ?? attrs.MDEN);
   const insulationDensity = finiteNumber4(enriched.insulationDensityKgM3 ?? attrs.IDEN);
   const fluidDensity = finiteNumber4(enriched.fluidDensityOpeKgM3 ?? attrs.FDENSITY ?? attrs.FLDEN);
-  const directMaterialCode = enriched.materialCode ?? attrs.MESC;
-  const mappedMaterial = directMaterialCode ? null : [enriched.material, attrs.MTXX].map((material) => resolveMaterialCodeFromLineMaterial({
+  const directMaterialCode2 = enriched.materialCode ?? attrs.MESC;
+  const mappedMaterial = directMaterialCode2 ? null : [enriched.material, attrs.MTXX].map((material) => resolveMaterialCodeFromLineMaterial({
     lineRow: { material },
     materialMap: DEFAULT_MATERIAL_MAP_ROWS,
     pipingClassRow: null,
@@ -5127,7 +6227,7 @@ function engineeringValues(record2) {
     pipeDensity: materialDensity === null ? null : materialDensity / 1e6,
     insulationDensity: insulationDensity === null ? null : insulationDensity / 1e6,
     fluidDensity: fluidDensity === null ? null : fluidDensity / 1e6,
-    materialNumber: directMaterialCode ?? mappedMaterial?.materialCode,
+    materialNumber: directMaterialCode2 ?? mappedMaterial?.materialCode,
     materialName: mappedMaterial?.material ?? enriched.material ?? attrs.MTXX ?? attrs.MESC,
     lineId: enriched.lineNo ?? record2?.branchName,
     name: record2?.name
@@ -5152,8 +6252,8 @@ function lineContextIndex(records) {
   return contexts;
 }
 function nativePressure(value) {
-  const text5 = cleanText(value).toUpperCase();
-  return ["ATM", "ATMOSPHERIC", "ATMOSPHERE"].includes(text5) ? 0 : value;
+  const text9 = cleanText(value).toUpperCase();
+  return ["ATM", "ATMOSPHERIC", "ATMOSPHERE"].includes(text9) ? 0 : value;
 }
 function buildEdgeEngineeringValues(edges, records) {
   const contexts = lineContextIndex(records), result = /* @__PURE__ */ new Map();
@@ -5164,7 +6264,7 @@ function buildEdgeEngineeringValues(edges, records) {
   }
   return result;
 }
-var _test4 = Object.freeze({ missing, fillContext, lineContextIndex, nativePressure });
+var _test5 = Object.freeze({ missing, fillContext, lineContextIndex, nativePressure });
 
 // tabs/model-converters/converters/component-topology/topology-inputxml-trace-attributes.js
 function list(value) {
@@ -5220,10 +6320,745 @@ function topologyRigidTraceAttributes(edge, rigids) {
     ["SOURCE_PATHS", list(rigids.map((rigid) => rigid.sourcePath))],
     ["BRANCH_IDS", list(rigids.flatMap((rigid) => rigid.branchIds ?? rigid.sourceBranchEntityIds ?? []))],
     ["ASSIGNMENT_AUTHORITY", list(rigids.map((rigid) => rigid.assignmentAuthority))],
+    ["WEIGHT_AUTHORITY", list(rigids.map((rigid) => rigid.weightAuthority))],
     ["CONNECTION_RESIDUAL", fixedTrace(Math.max(0, ...rigids.map((rigid) => Number(rigid.connectionResidual) || 0)))]
   ];
 }
-var _test5 = Object.freeze({ list, fixedTrace, pointAttributes });
+var _test6 = Object.freeze({ list, fixedTrace, pointAttributes });
+
+// contracts/topo-enriched-xml/contract-rules.js
+var PARITY_BOOLEAN_GATES = Object.freeze([
+  "nodePlanHashEquivalent",
+  "occurrencePlanHashEquivalent",
+  "occurrenceIdentityEquivalent",
+  "componentProjectionEquivalent",
+  "endpointSemanticsEquivalent",
+  "engineeringContentEquivalent",
+  "sourceBoundaryEquivalent",
+  "branchConditionsEquivalent",
+  "traceIdentityEquivalent",
+  "traceCardinalityEquivalent",
+  "reservedOccurrenceTreatmentEquivalent",
+  "numberingEquivalent",
+  "atomicBundleCoherent"
+]);
+var PARITY_NUMERIC_GATES = Object.freeze({
+  occurrenceCoverage: 100,
+  reservedOccurrenceCoverage: 100,
+  writerSideAllocations: 0,
+  unplannedOccurrences: 0
+});
+var CONTRACT_SPECS = Object.freeze({
+  "TopoSourceInventory.v1": { required: ["schema", "projectId", "zoneId", "coordinateFrameId", "sourceIdentity", "branches", "entities", "ports", "validation"], arrayFields: ["branches", "entities", "ports"] },
+  "TopoLogicalGraph.v1": { required: ["schema", "projectId", "zoneId", "coordinateFrameId", "sourceInventoryHash", "nodes", "edges", "junctions", "boundaries", "supports", "validation"], arrayFields: ["nodes", "edges", "junctions", "boundaries", "supports"] },
+  "TopoNodeTopologyNormalization.v1": { required: ["schema", "projectId", "zoneId", "sourceInventoryHash", "inputLogicalTopologyHash", "outputLogicalTopologyHash", "rawPortMappings", "actions", "validation"], arrayFields: ["rawPortMappings", "actions"] },
+  "TopoSequencePlan.v1": { required: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "branches", "components", "validation"], arrayFields: ["branches", "components"] },
+  "TopoNodeHistoryMatchResult.v1": { required: ["schema", "projectId", "zoneId", "mainLineKey", "coordinateFrameId", "logicalTopologyHash", "baseRegistrySnapshotHash", "matches", "newNodes", "ambiguous", "conflicts", "reactivated", "retirementCandidates", "validation"], arrayFields: ["matches", "newNodes", "ambiguous", "conflicts", "reactivated", "retirementCandidates"] },
+  "TopoNodeAllocationResult.v1": { required: ["schema", "projectId", "zoneId", "baseRegistrySnapshotHash", "historyMatchResultHash", "leases", "allocations", "retirements", "reactivations", "validation"], arrayFields: ["leases", "allocations", "retirements", "reactivations"] },
+  "TopoNodePlan.v1": { required: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "sequencePlanHash", "baseRegistrySnapshotHash", "configHash", "logicalNodes", "emittedOccurrences", "reservedOccurrences", "rawPortMappings", "componentProjection", "validation", "nodePlanHash"], arrayFields: ["logicalNodes", "emittedOccurrences", "reservedOccurrences", "rawPortMappings", "componentProjection"] },
+  "TopoTopologyIndex.v1": { required: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "nodePlanHash", "sourceToLogical", "logicalToSource", "logicalToOccurrences", "occurrenceToLogical", "validation"], arrayFields: ["sourceToLogical", "logicalToSource", "logicalToOccurrences", "occurrenceToLogical"] },
+  "TopoNodeRegistryPatch.v1": { required: ["schema", "projectId", "zoneId", "baseRegistryCommit", "baseRegistrySnapshotHash", "coverage", "preconditions", "operations", "validation", "proposedRegistryHash"], arrayFields: ["preconditions", "operations"] },
+  "TopoPreprocessAudit.v1": { required: ["schema", "runId", "projectId", "zoneId", "sourceHash", "configHash", "baseRegistrySnapshotHash", "evaluatedAt", "summary", "actions", "validation"], arrayFields: ["actions"] },
+  "TopoEnrichedXmlValidationReport.v1": { required: ["schema", "projectId", "zoneId", "operatingMode", "sourceInventoryHash", "logicalTopologyHash", "sequencePlanHash", "nodePlanHash", "gates", "issues", "validation"], arrayFields: ["issues"] },
+  "PsiWriterOccurrencePlan.v1": { required: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "sequencePlanHash", "occurrences", "componentProjection", "validation", "occurrencePlanHash"], arrayFields: ["occurrences", "componentProjection"] },
+  "PsiWriterOccurrence.v1": { required: ["schema", "occurrenceId", "sourceEntityId", "sourceBranch", "canonicalMainLine", "componentProjectionId", "projectionRole", "endpoint", "psiComponentType", "coordinateRole", "disposition"], arrayFields: [] },
+  "PsiSerializationPlan.v1": { required: ["schema", "projectId", "zoneId", "nodePlanHash", "occurrencePlanHash", "profile", "branches", "occurrences", "validation", "serializationPlanHash"], arrayFields: ["branches", "occurrences"] },
+  "PsiWriterParityReport.v2": { required: ["schema", "projectId", "zoneId", "nodePlanHash", "occurrencePlanHash", "canonical", "sequential", "differences", "gates", "validation"], arrayFields: ["differences"] }
+});
+var RELATIVE_NUMBER_FIELDS = /* @__PURE__ */ new Set([
+  "offset",
+  "numberOffset",
+  "nodeOffset",
+  "derivedFromOccurrenceId",
+  "startNodeNumber",
+  "nodeCounter",
+  "numberingSpan",
+  "increment",
+  "relativeTo",
+  "baseNodeNumber"
+]);
+var OCCURRENCE_REQUIRED_FIELDS = CONTRACT_SPECS["PsiWriterOccurrence.v1"].required.filter((field) => field !== "schema");
+var OCCURRENCE_ALLOWED_FIELDS = /* @__PURE__ */ new Set([
+  ...CONTRACT_SPECS["PsiWriterOccurrence.v1"].required,
+  "logicalNodeId",
+  "sourceRecordId",
+  "rawComponentType",
+  "normalizedComponentType",
+  "coordinateEvidence",
+  "orderingEvidence"
+]);
+var PARITY_SIDE_REQUIRED_FIELDS = Object.freeze([
+  "nodePlanHash",
+  "occurrencePlanHash",
+  "xmlHash",
+  "traceHash",
+  "bundleHash",
+  "emittedOccurrenceCount",
+  "reservedOccurrenceCount"
+]);
+function customValidateContract(schemaName, value) {
+  const errors = [];
+  if (["TopoNodePlan.v1", "PsiSerializationPlan.v1"].includes(schemaName)) errors.push(...rejectRelativeNumberRepresentation(value, schemaName));
+  if (schemaName === "TopoSourceInventory.v1") errors.push(...validateSourceInventory(value));
+  if (schemaName === "TopoLogicalGraph.v1") errors.push(...validateLogicalGraph(value));
+  if (schemaName === "TopoNodeTopologyNormalization.v1") errors.push(...validateNormalization(value));
+  if (schemaName === "TopoSequencePlan.v1") errors.push(...validateSequencePlan(value));
+  if (schemaName === "TopoNodeHistoryMatchResult.v1") errors.push(...validateHistoryMatches(value));
+  if (schemaName === "TopoNodeAllocationResult.v1") errors.push(...validateAllocation(value));
+  if (schemaName === "TopoNodePlan.v1") errors.push(...validateNodePlan(value));
+  if (schemaName === "TopoTopologyIndex.v1") errors.push(...validateTopologyIndex(value));
+  if (schemaName === "TopoNodeRegistryPatch.v1") errors.push(...validateRegistryPatch(value));
+  if (schemaName === "TopoPreprocessAudit.v1") errors.push(...validateAudit(value));
+  if (schemaName === "TopoEnrichedXmlValidationReport.v1") errors.push(...validateValidationReport(value));
+  if (schemaName === "PsiWriterOccurrence.v1") errors.push(...validateOccurrence(value, "PsiWriterOccurrence.v1", true));
+  if (schemaName === "PsiWriterOccurrencePlan.v1") errors.push(...validateOccurrencePlan(value));
+  if (schemaName === "PsiSerializationPlan.v1") errors.push(...validateSerializationPlan(value));
+  if (schemaName === "PsiWriterParityReport.v2") errors.push(...validateParity(value));
+  return unique4(errors);
+}
+function validateSourceInventory(value) {
+  return [
+    ...requiredFieldsForRows(value.branches, ["sourceBranch"], "TopoSourceInventory.v1.branches"),
+    ...requiredFieldsForRows(value.entities, ["sourceEntityId"], "TopoSourceInventory.v1.entities"),
+    ...requiredFieldsForRows(value.ports, ["sourcePortId", "sourceEntityId"], "TopoSourceInventory.v1.ports"),
+    ...uniqueField(value.entities, "sourceEntityId", "TopoSourceInventory.v1.entities"),
+    ...uniqueField(value.ports, "sourcePortId", "TopoSourceInventory.v1.ports")
+  ];
+}
+function validateLogicalGraph(value) {
+  const errors = [
+    ...requiredFieldsForRows(value.nodes, ["logicalNodeId"], "TopoLogicalGraph.v1.nodes"),
+    ...requiredFieldsForRows(value.edges, ["logicalEdgeId", "fromLogicalNodeId", "toLogicalNodeId"], "TopoLogicalGraph.v1.edges"),
+    ...uniqueField(value.nodes, "logicalNodeId", "TopoLogicalGraph.v1.nodes"),
+    ...uniqueField(value.edges, "logicalEdgeId", "TopoLogicalGraph.v1.edges")
+  ];
+  const nodes = new Set(array(value.nodes).map((row) => text8(row?.logicalNodeId)).filter(Boolean));
+  for (const edge of array(value.edges)) {
+    if (!nodes.has(text8(edge?.fromLogicalNodeId))) errors.push(`Logical edge ${text8(edge?.logicalEdgeId)} has unknown fromLogicalNodeId.`);
+    if (!nodes.has(text8(edge?.toLogicalNodeId))) errors.push(`Logical edge ${text8(edge?.logicalEdgeId)} has unknown toLogicalNodeId.`);
+    if (text8(edge?.fromLogicalNodeId) && text8(edge?.fromLogicalNodeId) === text8(edge?.toLogicalNodeId)) errors.push(`Logical edge ${text8(edge?.logicalEdgeId)} cannot be a self-loop.`);
+  }
+  return errors;
+}
+function validateNormalization(value) {
+  const errors = [
+    ...requiredFieldsForRows(value.rawPortMappings, ["sourcePortId", "logicalNodeId"], "TopoNodeTopologyNormalization.v1.rawPortMappings"),
+    ...requiredFieldsForRows(value.actions, ["actionId", "disposition"], "TopoNodeTopologyNormalization.v1.actions")
+  ];
+  for (const action of array(value.actions)) {
+    const disposition = text8(action?.disposition);
+    if (!["PRESERVE", "CONSUME_MICRO_COMPONENT", "SNAP_MICRO_GAP", "BLOCKED_CONFLICT", "REVIEW_REQUIRED"].includes(disposition)) {
+      errors.push(`Unknown topology-normalization disposition: ${disposition || "(blank)"}.`);
+    }
+    if (["CONSUME_MICRO_COMPONENT", "SNAP_MICRO_GAP"].includes(disposition) && !text8(action?.authority)) errors.push(`${disposition} requires explicit authority.`);
+  }
+  return errors;
+}
+function validateSequencePlan(value) {
+  return [
+    ...requiredFieldsForRows(value.branches, ["sourceBranch", "canonicalMainLine"], "TopoSequencePlan.v1.branches"),
+    ...requiredFieldsForRows(value.components, ["sourceEntityId", "sourceBranch"], "TopoSequencePlan.v1.components"),
+    ...uniqueField(value.branches, "sourceBranch", "TopoSequencePlan.v1.branches"),
+    ...uniqueField(value.components, "sourceEntityId", "TopoSequencePlan.v1.components")
+  ];
+}
+function validateHistoryMatches(value) {
+  const errors = requiredFieldsForRows(value.matches, ["logicalNodeId", "historyNodeId"], "TopoNodeHistoryMatchResult.v1.matches");
+  const current = /* @__PURE__ */ new Set();
+  const history = /* @__PURE__ */ new Set();
+  for (const match of array(value.matches)) {
+    const logicalNodeId = text8(match?.logicalNodeId);
+    const historyNodeId = text8(match?.historyNodeId);
+    if (current.has(logicalNodeId)) errors.push(`Logical node ${logicalNodeId} is claimed more than once.`);
+    if (history.has(historyNodeId)) errors.push(`Historical node ${historyNodeId} is claimed more than once.`);
+    current.add(logicalNodeId);
+    history.add(historyNodeId);
+  }
+  return errors;
+}
+function validateAllocation(value) {
+  const errors = requiredFieldsForRows(value.leases, ["leaseId", "mainLineKey", "start", "end", "step"], "TopoNodeAllocationResult.v1.leases");
+  const numbers = /* @__PURE__ */ new Map();
+  const logicalOwners = /* @__PURE__ */ new Map();
+  const historyOwners = /* @__PURE__ */ new Map();
+  for (const [index, row] of array(value.allocations).entries()) {
+    const number = row?.engineeringNodeNumber;
+    const logicalNodeId = text8(row?.logicalNodeId);
+    const historyNodeId = text8(row?.historyNodeId);
+    const owner = historyNodeId || logicalNodeId;
+    if (!Number.isInteger(number) || number < 0) errors.push(`Allocation ${index} requires a non-negative integer engineeringNodeNumber.`);
+    if (!owner) errors.push(`Allocation ${index} requires historyNodeId or logicalNodeId ownership.`);
+    if (logicalNodeId && logicalOwners.has(logicalNodeId)) errors.push(`Logical node ${logicalNodeId} has more than one engineering allocation.`);
+    if (historyNodeId && historyOwners.has(historyNodeId)) errors.push(`Historical node ${historyNodeId} has more than one engineering allocation.`);
+    if (numbers.has(number) && numbers.get(number) !== owner) errors.push(`Engineering node number ${number} has multiple zone owners.`);
+    if (logicalNodeId) logicalOwners.set(logicalNodeId, number);
+    if (historyNodeId) historyOwners.set(historyNodeId, number);
+    numbers.set(number, owner);
+  }
+  return errors;
+}
+function validateNodePlan(value) {
+  const emitted = array(value.emittedOccurrences);
+  const reserved = array(value.reservedOccurrences);
+  const all = [...emitted, ...reserved];
+  const errors = [
+    ...requiredFieldsForRows(value.logicalNodes, ["logicalNodeId"], "TopoNodePlan.v1.logicalNodes"),
+    ...requiredFieldsForRows(all, ["occurrenceId", "logicalNodeId", "componentProjectionId", "engineeringNodeNumber"], "TopoNodePlan.v1.occurrences"),
+    ...requiredFieldsForRows(value.rawPortMappings, ["sourcePortId", "logicalNodeId"], "TopoNodePlan.v1.rawPortMappings"),
+    ...requiredFieldsForRows(value.componentProjection, ["componentProjectionId", "sourceEntityId", "emittedOccurrenceIds", "reservedOccurrenceIds"], "TopoNodePlan.v1.componentProjection"),
+    ...uniqueField(value.logicalNodes, "logicalNodeId", "TopoNodePlan.v1.logicalNodes"),
+    ...uniqueField(all, "occurrenceId", "TopoNodePlan.v1.occurrences"),
+    ...uniqueField(value.componentProjection, "componentProjectionId", "TopoNodePlan.v1.componentProjection")
+  ];
+  const logicalNodes = new Set(array(value.logicalNodes).map((row) => text8(row?.logicalNodeId)).filter(Boolean));
+  const occurrenceKind = /* @__PURE__ */ new Map();
+  const occurrenceById = /* @__PURE__ */ new Map();
+  const numberOwners = /* @__PURE__ */ new Map();
+  for (const [kind, occurrences] of [["EMITTED", emitted], ["RESERVED", reserved]]) {
+    for (const row of occurrences) {
+      const occurrenceId = text8(row?.occurrenceId);
+      const logicalNodeId = text8(row?.logicalNodeId);
+      const number = row?.engineeringNodeNumber;
+      occurrenceKind.set(occurrenceId, kind);
+      occurrenceById.set(occurrenceId, row);
+      if (!logicalNodes.has(logicalNodeId)) errors.push(`${kind.toLowerCase()} occurrence ${occurrenceId} has no logical-node mapping.`);
+      if (!Number.isInteger(number) || number < 0) errors.push(`${kind.toLowerCase()} occurrence ${occurrenceId} requires an explicit engineeringNodeNumber.`);
+      if (numberOwners.has(number) && numberOwners.get(number) !== logicalNodeId) errors.push(`Engineering node number ${number} maps to multiple logical nodes.`);
+      numberOwners.set(number, logicalNodeId);
+    }
+  }
+  const ownership = /* @__PURE__ */ new Map();
+  for (const projection of array(value.componentProjection)) {
+    const projectionId = text8(projection?.componentProjectionId);
+    const refs = [["EMITTED", projection?.emittedOccurrenceIds], ["RESERVED", projection?.reservedOccurrenceIds]];
+    if (refs.every(([, ids]) => array(ids).length === 0)) errors.push(`Component projection ${projectionId} owns no occurrence.`);
+    for (const [expectedKind, ids] of refs) {
+      for (const rawId of array(ids)) {
+        const occurrenceId = text8(rawId);
+        const row = occurrenceById.get(occurrenceId);
+        if (!row) {
+          errors.push(`Component projection ${projectionId} references unknown ${expectedKind.toLowerCase()} occurrence ${occurrenceId}.`);
+          continue;
+        }
+        if (occurrenceKind.get(occurrenceId) !== expectedKind) errors.push(`Component projection ${projectionId} classifies occurrence ${occurrenceId} as ${expectedKind} but the node plan classifies it as ${occurrenceKind.get(occurrenceId)}.`);
+        if (text8(row.componentProjectionId) !== projectionId) errors.push(`Occurrence ${occurrenceId} declares componentProjectionId ${text8(row.componentProjectionId)} but is owned by ${projectionId}.`);
+        if (ownership.has(occurrenceId)) errors.push(`Occurrence ${occurrenceId} is owned by multiple component projections.`);
+        ownership.set(occurrenceId, projectionId);
+      }
+    }
+  }
+  for (const occurrenceId of occurrenceById.keys()) {
+    if (!ownership.has(occurrenceId)) errors.push(`Occurrence ${occurrenceId} is orphaned from componentProjection ownership.`);
+  }
+  return errors;
+}
+function validateTopologyIndex(value) {
+  return [
+    ...requiredFieldsForRows(value.sourceToLogical, ["sourceIdentity"], "TopoTopologyIndex.v1.sourceToLogical"),
+    ...requiredFieldsForRows(value.occurrenceToLogical, ["occurrenceId", "logicalNodeId"], "TopoTopologyIndex.v1.occurrenceToLogical"),
+    ...uniqueField(value.sourceToLogical, "sourceIdentity", "TopoTopologyIndex.v1.sourceToLogical"),
+    ...uniqueField(value.occurrenceToLogical, "occurrenceId", "TopoTopologyIndex.v1.occurrenceToLogical")
+  ];
+}
+function validateRegistryPatch(value) {
+  const errors = requiredFieldsForRows(value.operations, ["operationId", "type"], "TopoNodeRegistryPatch.v1.operations");
+  const coverage = isRecord(value.coverage) ? value.coverage : {};
+  const permitsRetirement = coverage.authoritativeForRetirement === true && ["FULL_LINE", "FULL_ZONE"].includes(text8(coverage.scope));
+  for (const operation of array(value.operations)) {
+    if (text8(operation?.type) === "RETIRE_NODE" && !permitsRetirement) errors.push("Partial or non-authoritative runs cannot retire historical nodes.");
+  }
+  return errors;
+}
+function validateAudit(value) {
+  return [
+    ...requiredFieldsForRows(value.actions, ["actionId", "type"], "TopoPreprocessAudit.v1.actions"),
+    ...uniqueField(value.actions, "actionId", "TopoPreprocessAudit.v1.actions")
+  ];
+}
+function validateValidationReport(value) {
+  return text8(value.operatingMode) === "ENFORCED" && value.validation?.status !== "PASS" ? ["ENFORCED output requires validation PASS."] : [];
+}
+function validateOccurrence(value, owner, requireSchema) {
+  const errors = requiredFields(value, requireSchema ? ["schema", ...OCCURRENCE_REQUIRED_FIELDS] : OCCURRENCE_REQUIRED_FIELDS, owner);
+  if (!["EMITTED", "RESERVED"].includes(text8(value?.disposition))) errors.push(`${owner}.disposition must be EMITTED or RESERVED.`);
+  if (requireSchema && value?.schema !== "PsiWriterOccurrence.v1") errors.push(`${owner}.schema must equal PsiWriterOccurrence.v1.`);
+  for (const field of ["engineeringNodeNumber", "nodeNumber"]) {
+    if (field in (value || {})) errors.push(`${owner} must not contain ${field}.`);
+  }
+  for (const field of Object.keys(value || {})) {
+    if (!OCCURRENCE_ALLOWED_FIELDS.has(field)) errors.push(`${owner} contains unapproved field ${field}.`);
+  }
+  return errors;
+}
+function validateOccurrencePlan(value) {
+  const errors = [
+    ...uniqueField(value.occurrences, "occurrenceId", "PsiWriterOccurrencePlan.v1.occurrences"),
+    ...requiredFieldsForRows(value.componentProjection, ["componentProjectionId", "occurrenceIds"], "PsiWriterOccurrencePlan.v1.componentProjection"),
+    ...uniqueField(value.componentProjection, "componentProjectionId", "PsiWriterOccurrencePlan.v1.componentProjection")
+  ];
+  const ids = /* @__PURE__ */ new Set();
+  for (const [index, occurrence] of array(value.occurrences).entries()) {
+    errors.push(...validateOccurrence(occurrence, `PsiWriterOccurrencePlan.v1.occurrences[${index}]`, false));
+    ids.add(text8(occurrence?.occurrenceId));
+  }
+  const ownership = /* @__PURE__ */ new Map();
+  for (const projection of array(value.componentProjection)) {
+    for (const rawId of array(projection?.occurrenceIds)) {
+      const occurrenceId = text8(rawId);
+      const projectionId = text8(projection?.componentProjectionId);
+      if (!ids.has(occurrenceId)) errors.push(`Occurrence-plan component projection references unknown occurrence ${occurrenceId}.`);
+      if (ownership.has(occurrenceId)) errors.push(`Occurrence-plan occurrence ${occurrenceId} has multiple component-projection owners.`);
+      ownership.set(occurrenceId, projectionId);
+    }
+  }
+  for (const occurrence of array(value.occurrences)) {
+    const occurrenceId = text8(occurrence?.occurrenceId);
+    const owner = ownership.get(occurrenceId);
+    if (!owner) errors.push(`Occurrence-plan occurrence ${occurrenceId} is orphaned from componentProjection ownership.`);
+    else if (owner !== text8(occurrence?.componentProjectionId)) errors.push(`Occurrence-plan occurrence ${occurrenceId} declares ${text8(occurrence?.componentProjectionId)} but is owned by ${owner}.`);
+  }
+  return errors;
+}
+function validateSerializationPlan(value) {
+  const errors = [
+    ...uniqueField(value.occurrences, "occurrenceId", "PsiSerializationPlan.v1.occurrences"),
+    ...requiredFieldsForRows(value.occurrences, ["occurrenceId", "logicalNodeId", "componentProjectionId", "engineeringNodeNumber", "disposition"], "PsiSerializationPlan.v1.occurrences")
+  ];
+  for (const row of array(value.occurrences)) {
+    if (!Number.isInteger(row?.engineeringNodeNumber) || row.engineeringNodeNumber < 0) errors.push(`Serialization occurrence ${text8(row?.occurrenceId)} requires explicit engineeringNodeNumber.`);
+    if (!["EMITTED", "RESERVED"].includes(text8(row?.disposition))) errors.push(`Serialization occurrence ${text8(row?.occurrenceId)} requires EMITTED or RESERVED disposition.`);
+  }
+  return errors;
+}
+function validateParity(value) {
+  const errors = [];
+  for (const sideName of ["canonical", "sequential"]) {
+    const side = isRecord(value?.[sideName]) ? value[sideName] : {};
+    errors.push(...requiredFields(side, PARITY_SIDE_REQUIRED_FIELDS, `PsiWriterParityReport.v2.${sideName}`));
+    if (side.nodePlanHash && side.nodePlanHash !== value.nodePlanHash) errors.push(`${sideName} nodePlanHash must equal report nodePlanHash.`);
+    if (side.occurrencePlanHash && side.occurrencePlanHash !== value.occurrencePlanHash) errors.push(`${sideName} occurrencePlanHash must equal report occurrencePlanHash.`);
+  }
+  const gates = isRecord(value.gates) ? value.gates : {};
+  errors.push(...requiredFields(gates, [...PARITY_BOOLEAN_GATES, ...Object.keys(PARITY_NUMERIC_GATES)], "PsiWriterParityReport.v2.gates"));
+  if (value.validation?.status === "PASS") {
+    if (array(value.differences).length) errors.push("PASS parity report cannot contain differences.");
+    for (const gate of PARITY_BOOLEAN_GATES) {
+      if (gates[gate] !== true) errors.push(`PASS parity report requires ${gate}=true.`);
+    }
+    for (const [gate, expected] of Object.entries(PARITY_NUMERIC_GATES)) {
+      if (gates[gate] !== expected) errors.push(`PASS parity report requires ${gate}=${expected}.`);
+    }
+  }
+  return errors;
+}
+function rejectRelativeNumberRepresentation(value, owner) {
+  const errors = [];
+  walk2(value, (key) => {
+    if (RELATIVE_NUMBER_FIELDS.has(key)) errors.push(`${owner} prohibits relative or writer-owned number field ${key}.`);
+  });
+  return errors;
+}
+function walk2(value, visit) {
+  if (Array.isArray(value)) return value.forEach((item) => walk2(item, visit));
+  if (!isRecord(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    visit(key, child);
+    walk2(child, visit);
+  }
+}
+function requiredFields(value, fields, owner) {
+  const errors = [];
+  if (!isRecord(value)) return [`${owner} must be an object.`];
+  for (const field of fields) {
+    if (!(field in value) || value[field] === null || value[field] === "") errors.push(`${owner}.${field} is required.`);
+  }
+  return errors;
+}
+function requiredFieldsForRows(rows, fields, owner) {
+  const errors = [];
+  for (const [index, row] of array(rows).entries()) errors.push(...requiredFields(row, fields, `${owner}[${index}]`));
+  return errors;
+}
+function uniqueField(rows, field, owner) {
+  const errors = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const row of array(rows)) {
+    const value = text8(row?.[field]);
+    if (!value) errors.push(`${owner} entry requires ${field}.`);
+    else if (seen.has(value)) errors.push(`${owner} contains duplicate ${field} ${value}.`);
+    seen.add(value);
+  }
+  return errors;
+}
+
+// contracts/topo-enriched-xml/contract-core.js
+var TOPO_STATUS_VALUES = Object.freeze(["PASS", "REVIEW_REQUIRED", "BLOCKED"]);
+var TOPO_OPERATING_MODE_VALUES = Object.freeze(["LEGACY", "SHADOW", "REVIEW", "ENFORCED"]);
+var PSI_OCCURRENCE_DISPOSITIONS = Object.freeze(["EMITTED", "RESERVED"]);
+var AUDIT_METADATA_KEYS = Object.freeze(/* @__PURE__ */ new Set([
+  "evaluatedAt",
+  "generatedAt",
+  "createdAt",
+  "updatedAt",
+  "runtimeMs",
+  "durationMs",
+  "displayUrl",
+  "runUrl",
+  "workflowRunId",
+  "workflowRunAttempt"
+]));
+var HASH_POLICIES = deepFreeze2({
+  sourceInventoryHash: {
+    contract: "TopoSourceInventory.v1",
+    include: ["schema", "projectId", "zoneId", "coordinateFrameId", "sourceIdentity", "branches", "entities", "ports"],
+    excludeAuditMetadata: true
+  },
+  logicalTopologyHash: {
+    contract: "TopoLogicalGraph.v1",
+    include: ["schema", "projectId", "zoneId", "coordinateFrameId", "nodes", "edges", "junctions", "boundaries", "supports"],
+    excludeAuditMetadata: true
+  },
+  sequencePlanHash: {
+    contract: "TopoSequencePlan.v1",
+    include: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "branches", "components"],
+    excludeAuditMetadata: true
+  },
+  baseRegistrySnapshotHash: {
+    contract: "registry snapshot aggregate",
+    include: ["schemaVersions", "policy", "pool", "lineHistories"],
+    excludeAuditMetadata: true
+  },
+  configHash: {
+    contract: "TopoEnrichedXML configuration",
+    include: ["config"],
+    excludeAuditMetadata: true
+  },
+  coordinateRegistrationHash: {
+    contract: "coordinate registration evidence",
+    include: ["registration"],
+    excludeAuditMetadata: true
+  },
+  historyMatchResultHash: {
+    contract: "TopoNodeHistoryMatchResult.v1",
+    include: ["schema", "projectId", "zoneId", "mainLineKey", "coordinateFrameId", "matches", "newNodes", "ambiguous", "conflicts", "reactivated", "retirementCandidates"],
+    excludeAuditMetadata: true
+  },
+  allocationResultHash: {
+    contract: "TopoNodeAllocationResult.v1",
+    include: ["schema", "projectId", "zoneId", "baseRegistrySnapshotHash", "leases", "allocations", "retirements", "reactivations"],
+    excludeAuditMetadata: true
+  },
+  nodePlanHash: {
+    contract: "TopoNodePlan.v1",
+    include: ["schema", "projectId", "zoneId", "sourceInventoryHash", "logicalTopologyHash", "sequencePlanHash", "baseRegistrySnapshotHash", "configHash", "logicalNodes", "emittedOccurrences", "reservedOccurrences", "rawPortMappings", "componentProjection"],
+    excludeAuditMetadata: true
+  },
+  proposedRegistryHash: {
+    contract: "TopoNodeRegistryPatch.v1",
+    include: ["schema", "projectId", "zoneId", "baseRegistryCommit", "baseRegistrySnapshotHash", "preconditions", "operations"],
+    excludeAuditMetadata: true
+  }
+});
+function validateStatusModel(validation, owner = "validation") {
+  const errors = [];
+  if (!isRecord(validation)) return [`${owner} must be an object.`];
+  const status = text8(validation.status);
+  if (!TOPO_STATUS_VALUES.includes(status)) errors.push(`${owner}.status must be PASS, REVIEW_REQUIRED, or BLOCKED.`);
+  const blockers = array(validation.blockers);
+  const reviewItems = array(validation.reviewItems);
+  if (status === "PASS" && blockers.length) errors.push(`${owner}: PASS cannot contain blockers.`);
+  if (status === "PASS" && reviewItems.length) errors.push(`${owner}: PASS cannot contain reviewItems.`);
+  if (status === "REVIEW_REQUIRED" && blockers.length) errors.push(`${owner}: REVIEW_REQUIRED cannot contain blockers.`);
+  if (status === "REVIEW_REQUIRED" && reviewItems.length === 0) errors.push(`${owner}: REVIEW_REQUIRED requires review evidence.`);
+  if (status === "BLOCKED" && blockers.length === 0) errors.push(`${owner}: BLOCKED requires at least one blocker.`);
+  return errors;
+}
+function validateOperatingMode(mode) {
+  return TOPO_OPERATING_MODE_VALUES.includes(text8(mode)) ? [] : ["operatingMode must be LEGACY, SHADOW, REVIEW, or ENFORCED."];
+}
+function validateContract(schemaName, value) {
+  const errors = [];
+  const spec = CONTRACT_SPECS[schemaName];
+  if (!spec) return [`Unknown frozen contract: ${schemaName}.`];
+  if (!isRecord(value)) return [`${schemaName} artifact must be an object.`];
+  if (value.schema !== schemaName) errors.push(`schema must equal ${schemaName}.`);
+  for (const field of spec.required) {
+    if (!(field in value) || value[field] === null || value[field] === "") errors.push(`${schemaName}.${field} is required.`);
+  }
+  for (const field of spec.arrayFields || []) {
+    if (field in value && !Array.isArray(value[field])) errors.push(`${schemaName}.${field} must be an array.`);
+  }
+  if ("validation" in value) errors.push(...validateStatusModel(value.validation, `${schemaName}.validation`));
+  if ("operatingMode" in value) errors.push(...validateOperatingMode(value.operatingMode));
+  errors.push(...customValidateContract(schemaName, value));
+  return unique4(errors);
+}
+function assertContract(schemaName, value) {
+  const errors = validateContract(schemaName, value);
+  if (errors.length) throw new TypeError(`${schemaName} validation failed: ${errors.join("; ")}`);
+  return value;
+}
+function freezeContract(schemaName, value) {
+  assertContract(schemaName, value);
+  return deepFreeze2(structuredClone(value));
+}
+function createContractApi(schemaName) {
+  return Object.freeze({
+    schema: schemaName,
+    validate: (value) => Object.freeze(validateContract(schemaName, value)),
+    assert: (value) => assertContract(schemaName, value),
+    freeze: (value) => freezeContract(schemaName, value)
+  });
+}
+function canonicalSemanticJson(value, options = {}) {
+  const excluded = new Set(options.excludedKeys || AUDIT_METADATA_KEYS);
+  const canonical = canonicalize(value, excluded);
+  return JSON.stringify(canonical);
+}
+function semanticHashInput(value, policyName) {
+  const policy = HASH_POLICIES[policyName];
+  if (!policy) throw new RangeError(`Unknown semantic hash policy: ${policyName}.`);
+  const selected = {};
+  for (const field of policy.include) if (Object.prototype.hasOwnProperty.call(value, field)) selected[field] = value[field];
+  return selected;
+}
+async function computeSemanticHash(value, policyName) {
+  const input = semanticHashInput(value, policyName);
+  const bytes = new TextEncoder().encode(canonicalSemanticJson(input));
+  if (!globalThis.crypto?.subtle) throw new Error("Web Crypto SHA-256 is required for semantic hashes.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return `sha256:${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+function deepFreeze2(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.freeze(value);
+  for (const child of Object.values(value)) deepFreeze2(child);
+  return value;
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function array(value) {
+  return Array.isArray(value) ? value : [];
+}
+function text8(value) {
+  return String(value ?? "").trim();
+}
+function unique4(values) {
+  return [...new Set(values)];
+}
+function canonicalize(value, excluded) {
+  if (Array.isArray(value)) return value.map((item) => canonicalize(item, excluded));
+  if (!isRecord(value)) return value;
+  const output = {};
+  for (const key of Object.keys(value).filter((key2) => !excluded.has(key2)).sort()) {
+    output[key] = canonicalize(value[key], excluded);
+  }
+  return output;
+}
+
+// contracts/topo-enriched-xml/contracts.js
+var PSISERIALIZATIONPLAN_V1 = createContractApi("PsiSerializationPlan.v1");
+var PSIWRITEROCCURRENCE_V1 = createContractApi("PsiWriterOccurrence.v1");
+var PSIWRITEROCCURRENCEPLAN_V1 = createContractApi("PsiWriterOccurrencePlan.v1");
+var PSIWRITERPARITYREPORT_V2 = createContractApi("PsiWriterParityReport.v2");
+var TOPOENRICHEDXMLVALIDATIONREPORT_V1 = createContractApi("TopoEnrichedXmlValidationReport.v1");
+var TOPOLOGICALGRAPH_V1 = createContractApi("TopoLogicalGraph.v1");
+var TOPONODEALLOCATIONRESULT_V1 = createContractApi("TopoNodeAllocationResult.v1");
+var TOPONODEHISTORYMATCHRESULT_V1 = createContractApi("TopoNodeHistoryMatchResult.v1");
+var TOPONODEPLAN_V1 = createContractApi("TopoNodePlan.v1");
+var TOPONODEREGISTRYPATCH_V1 = createContractApi("TopoNodeRegistryPatch.v1");
+var TOPONODETOPOLOGYNORMALIZATION_V1 = createContractApi("TopoNodeTopologyNormalization.v1");
+var TOPOPREPROCESSAUDIT_V1 = createContractApi("TopoPreprocessAudit.v1");
+var TOPOSEQUENCEPLAN_V1 = createContractApi("TopoSequencePlan.v1");
+var TOPOSOURCEINVENTORY_V1 = createContractApi("TopoSourceInventory.v1");
+var TOPOTOPOLOGYINDEX_V1 = createContractApi("TopoTopologyIndex.v1");
+
+// converters/inputxml-release/inputxml-release-hash.js
+function encodeText(value) {
+  return new TextEncoder().encode(String(value));
+}
+function releaseBytes(value) {
+  if (typeof value === "string") return encodeText(value);
+  if (value instanceof Uint8Array) return new Uint8Array(value);
+  if (value instanceof ArrayBuffer) return new Uint8Array(value.slice(0));
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+  }
+  throw new TypeError("Release content must be text, ArrayBuffer, or a typed array.");
+}
+function stableValue(value) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("Release JSON cannot contain non-finite numbers.");
+    return value;
+  }
+  if (Array.isArray(value)) return value.map((item) => stableValue(item));
+  if (typeof value !== "object") throw new TypeError(`Unsupported release JSON value: ${typeof value}.`);
+  return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+}
+function stableReleaseJson(value) {
+  return `${JSON.stringify(stableValue(value), null, 2)}
+`;
+}
+async function sha256Hex2(value) {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error("Web Crypto SHA-256 is required for InputXML release evidence.");
+  const digest = await subtle.digest("SHA-256", releaseBytes(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+async function hashReleaseJson(value, excludedField) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Release JSON hash input must be an object.");
+  }
+  const payload = Object.fromEntries(Object.entries(value).filter(([key]) => key !== excludedField));
+  return sha256Hex2(stableReleaseJson(payload));
+}
+
+// tabs/model-converters/converters/component-topology/topology-numbering-projection.js
+function branchIndexBySourceEntity(model) {
+  const result = /* @__PURE__ */ new Map();
+  for (const [branchIndex, branch] of (model.branches ?? []).entries()) {
+    for (const component of branch.components ?? []) result.set(component.sourceEntityId, branchIndex);
+  }
+  return result;
+}
+function allocatedNumbers(canonical, model) {
+  const branchIndexes = branchIndexBySourceEntity(model), counters = /* @__PURE__ */ new Map();
+  return new Map(canonical.nodes.map((node) => {
+    const authority = cleanText(node.numberingAuthoritySourceEntityId);
+    const branchIndex = branchIndexes.get(authority) ?? 0;
+    const ordinal = (counters.get(branchIndex) ?? 0) + 1;
+    counters.set(branchIndex, ordinal);
+    return [node.id, (branchIndex + 1) * 1e4 + ordinal * 10];
+  }));
+}
+function requiredNumber(numberByNode, nodeId) {
+  const number = Number(numberByNode.get(nodeId));
+  if (!Number.isInteger(number) || number < 1) {
+    throw new TypeError(`Canonical node ${nodeId} has no positive engineering node allocation.`);
+  }
+  return number;
+}
+function nodeRows(canonical, numberByNode) {
+  return canonical.nodes.map((node, index) => ({
+    logicalNodeId: `LN-${sequenceId(index + 1)}`,
+    historyNodeId: node.id,
+    engineeringNodeNumber: requiredNumber(numberByNode, node.id),
+    allocationKind: "COMPONENT_TOPOLOGY_AUTHORITY",
+    matchDisposition: "MATCHED"
+  }));
+}
+function occurrenceRows(canonical, logicalNodes) {
+  return canonical.nodes.map((node, index) => ({
+    occurrenceId: `NO-${sequenceId(index + 1)}`,
+    logicalNodeId: logicalNodes[index].logicalNodeId,
+    historyNodeId: logicalNodes[index].historyNodeId,
+    componentProjectionId: `CP-${sequenceId(index + 1)}`,
+    engineeringNodeNumber: logicalNodes[index].engineeringNodeNumber,
+    disposition: "EMITTED",
+    sourceEntityId: cleanText(node.numberingAuthoritySourceEntityId || node.sourceEntityIds?.[0])
+  }));
+}
+function rawPortMappings(canonical, logicalNodes) {
+  return canonical.nodes.flatMap((node, index) => uniqueText(node.sourcePortIds ?? []).map((sourcePortId) => ({
+    sourcePortId,
+    logicalNodeId: logicalNodes[index].logicalNodeId
+  }))).sort((left, right) => left.sourcePortId.localeCompare(right.sourcePortId));
+}
+function componentProjection(occurrences) {
+  return occurrences.map((row) => ({
+    componentProjectionId: row.componentProjectionId,
+    sourceEntityId: row.sourceEntityId || row.historyNodeId,
+    emittedOccurrenceIds: [row.occurrenceId],
+    reservedOccurrenceIds: []
+  }));
+}
+async function buildNodePlan(canonical, numberByNode) {
+  const logicalNodes = nodeRows(canonical, numberByNode);
+  const emittedOccurrences = occurrenceRows(canonical, logicalNodes);
+  const anchor = `sha256:${canonical.canonicalTopologyHashSha256}`;
+  const candidate = {
+    schema: "TopoNodePlan.v1",
+    projectId: cleanText(canonical.sourceIdentity?.sourceName) || "component-topology",
+    zoneId: "component-topology",
+    sourceInventoryHash: anchor,
+    logicalTopologyHash: anchor,
+    sequencePlanHash: anchor,
+    baseRegistrySnapshotHash: anchor,
+    configHash: anchor,
+    logicalNodes,
+    emittedOccurrences,
+    reservedOccurrences: [],
+    rawPortMappings: rawPortMappings(canonical, logicalNodes),
+    componentProjection: componentProjection(emittedOccurrences),
+    validation: { status: "PASS", blockers: [], reviewItems: [], warnings: [] }
+  };
+  candidate.nodePlanHash = await computeSemanticHash(candidate, "nodePlanHash");
+  const errors = TOPONODEPLAN_V1.validate(candidate);
+  if (errors.length) throw new TypeError(`Generated TopoNodePlan.v1 is invalid: ${errors.join("; ")}`);
+  return TOPONODEPLAN_V1.freeze(candidate);
+}
+async function buildProjection(canonical, nodePlan) {
+  const logicalById = new Map(nodePlan.logicalNodes.map((row) => [row.logicalNodeId, row]));
+  const logicalByPort = new Map(nodePlan.rawPortMappings.map((row) => [row.sourcePortId, row.logicalNodeId]));
+  const nodes = canonical.nodes.map((node) => {
+    const logicalIds = uniqueText(node.sourcePortIds.map((portId) => logicalByPort.get(portId)));
+    if (logicalIds.length !== 1) throw new Error(`Canonical node ${node.id} maps to ${logicalIds.length} logical nodes.`);
+    const logical = logicalById.get(logicalIds[0]);
+    return { canonicalNodeId: node.id, logicalNodeId: logical.logicalNodeId, engineeringNodeNumber: logical.engineeringNodeNumber };
+  });
+  const base = { schema: "NumberedTopologyProjection.v1", canonicalTopologyHashSha256: canonical.canonicalTopologyHashSha256, topoNodePlanHashSha256: nodePlan.nodePlanHash.replace(/^sha256:/, ""), authority: "TopoNodePlan.v1", nodes };
+  return Object.freeze({ ...base, numberedTopologyProjectionHashSha256: await hashReleaseJson(base, "numberedTopologyProjectionHashSha256") });
+}
+function shadowReport(canonical, expectedNumbers, projection) {
+  const actual = new Map(projection.nodes.map((row) => [row.canonicalNodeId, row.engineeringNodeNumber]));
+  const differences = canonical.nodes.flatMap((node) => {
+    const expected = requiredNumber(expectedNumbers, node.id), observed = actual.get(node.id);
+    return expected === observed ? [] : [{ canonicalNodeId: node.id, expected, actual: observed ?? null }];
+  });
+  return Object.freeze({ schema: "TopologyNumberingShadowReport.v1", status: differences.length ? "BLOCKED" : "PASS", differences: Object.freeze(differences) });
+}
+async function stampCanonicalTopologyV2(canonical) {
+  if (canonical.schema !== "CanonicalTopology.v2") throw new TypeError("CanonicalTopology.v2 is required.");
+  const summary = { nodes: canonical.nodes.length, edges: canonical.edges.length, supports: canonical.supports.length };
+  const base = { ...canonical, summary };
+  return Object.freeze({ ...base, canonicalTopologyHashSha256: await hashReleaseJson(base, "canonicalTopologyHashSha256") });
+}
+async function buildTopologyNumberingArtifacts(canonical, model, suppliedNumbers) {
+  const expectedNumbers = allocatedNumbers(canonical, model);
+  const numberByNode = suppliedNumbers instanceof Map ? suppliedNumbers : expectedNumbers;
+  const topoNodePlan = await buildNodePlan(canonical, numberByNode);
+  const numberedTopologyProjection = await buildProjection(canonical, topoNodePlan);
+  const numberingShadowReport = shadowReport(canonical, expectedNumbers, numberedTopologyProjection);
+  if (numberingShadowReport.status !== "PASS") throw new Error("Node-plan numbering differs from the legacy allocation baseline.");
+  return Object.freeze({ topoNodePlan, numberedTopologyProjection, numberingShadowReport });
+}
+function applyNumberedTopologyProjection(canonical, projection) {
+  if (projection?.schema !== "NumberedTopologyProjection.v1") throw new TypeError("NumberedTopologyProjection.v1 is required.");
+  if (projection.canonicalTopologyHashSha256 !== canonical.canonicalTopologyHashSha256) throw new Error("Numbered topology projection targets a different canonical topology.");
+  const byNode = new Map(projection.nodes.map((row) => [row.canonicalNodeId, row.engineeringNodeNumber]));
+  if (byNode.size !== canonical.nodes.length) throw new Error("Numbered topology projection does not cover every canonical node.");
+  const nodes = canonical.nodes.map((node) => ({ ...node, inputXmlNodeIds: [String(requiredNumber(byNode, node.id))] }));
+  const supports = canonical.supports.map((support) => ({ ...support, inputXmlNodeId: String(requiredNumber(byNode, support.nodeId)) }));
+  const edgeById3 = new Map(canonical.edges.map((edge) => [edge.id, edge]));
+  const rigids = canonical.rigids.map((rigid) => {
+    const edge = edgeById3.get(rigid.edgeId);
+    if (!edge) throw new Error(`Rigid ${rigid.id || rigid.sourceEntityId} references missing edge ${rigid.edgeId}.`);
+    return { ...rigid, inputXmlNodeId: String(requiredNumber(byNode, edge.toNodeId)) };
+  });
+  return Object.freeze({ ...canonical, schema: "CanonicalTopology.v1", nodes: Object.freeze(nodes), supports: Object.freeze(supports), rigids: Object.freeze(rigids) });
+}
+async function canonicalTopologyV2FromLegacy(canonical) {
+  const nodes = canonical.nodes.map(({ inputXmlNodeIds: _numbers, ...node }) => node);
+  const supports = canonical.supports.map(({ inputXmlNodeId: _number, ...support }) => support);
+  const rigids = canonical.rigids.map(({ inputXmlNodeId: _number, ...rigid }) => rigid);
+  const { canonicalTopologyHash: _legacyHash, canonicalTopologyHashSha256: _sha, ...rest } = canonical;
+  return stampCanonicalTopologyV2({ ...rest, schema: "CanonicalTopology.v2", nodes, supports, rigids });
+}
+function legacyNumberMap(canonical) {
+  return new Map(canonical.nodes.map((node) => [node.id, Number(node.inputXmlNodeIds?.[0])]));
+}
 
 // tabs/model-converters/converters/component-topology/topology-inputxml-writer.js
 var SENTINEL = "-1.010100";
@@ -5340,13 +7175,18 @@ function supportIndex(canonical) {
   }
   return { supportsByEdge, namesByNode };
 }
+function rigidGroupWeight(rigids) {
+  const weights = rigids.map((rigid) => finiteNumber4(rigid.weightKg));
+  if (weights.some((weight) => weight === null)) return null;
+  return weights.reduce((sum, weight) => sum + weight, 0);
+}
 function elementXml(edge, nodes, values, supports, rigids, bends, names) {
   const from = nodes.get(edge.fromNodeId), to = nodes.get(edge.toNodeId);
   if (!from || !to) throw new Error(`InputXML edge ${edge.id} references a missing canonical node.`);
   const attributes = nativeAttributes(edge, from, to, values, names.get(from.id) ?? "", names.get(to.id) ?? "");
   const children = [];
   if (rigids.length) {
-    const weight = rigids.reduce((sum, rigid) => sum + Number(rigid.weightKg || 0), 0);
+    const weight = rigidGroupWeight(rigids);
     const types = [...new Set(rigids.map((rigid) => cleanText(rigid.componentType)).filter(Boolean))];
     children.push(`      <RIGID ${serialize([
       ["ID", `RIGID:${edge.id}`],
@@ -5361,19 +7201,23 @@ function elementXml(edge, nodes, values, supports, rigids, bends, names) {
   return `    <PIPINGELEMENT ${serialize(attributes)}>
 ${children.join("\n")}${children.length ? "\n" : ""}    </PIPINGELEMENT>`;
 }
-function buildTopologyInputXml(canonical, engineering, options) {
-  if (!cleanText(canonical.canonicalTopologyHash)) throw new Error("Topology InputXML requires a hashed CanonicalTopology.v1 snapshot.");
-  const nodes = nodeMap(canonical), supportData = supportIndex(canonical);
-  const engineeringByEdge = buildEdgeEngineeringValues(canonical.edges, engineering.recordBySourceEntityId);
+function buildTopologyInputXml(canonical, engineering, numberedProjection, options) {
+  if (!cleanText(canonical.canonicalTopologyHashSha256)) throw new Error("Topology InputXML requires a hashed CanonicalTopology.v2 snapshot.");
+  if (options.inputXmlCompatibilityMode !== "CANONICAL_STRICT") {
+    throw new Error("Topology InputXML writer requires explicit CANONICAL_STRICT compatibility mode.");
+  }
+  const numbered = applyNumberedTopologyProjection(canonical, numberedProjection);
+  const nodes = nodeMap(numbered), supportData = supportIndex(numbered);
+  const engineeringByEdge = buildEdgeEngineeringValues(numbered.edges, engineering.recordBySourceEntityId);
   const rigidByEdge = /* @__PURE__ */ new Map();
-  for (const rigid of canonical.rigids) rigidByEdge.set(rigid.edgeId, [...rigidByEdge.get(rigid.edgeId) ?? [], rigid]);
+  for (const rigid of numbered.rigids) rigidByEdge.set(rigid.edgeId, [...rigidByEdge.get(rigid.edgeId) ?? [], rigid]);
   const bendByEdge = /* @__PURE__ */ new Map();
-  for (const bend of canonical.bends ?? []) {
+  for (const bend of numbered.bends ?? []) {
     const edgeId = bend.edgeIds?.[0];
     if (!edgeId) throw new Error(`Bend ${bend.id} has no owning InputXML edge.`);
     bendByEdge.set(edgeId, [...bendByEdge.get(edgeId) ?? [], bend]);
   }
-  const elements = canonical.edges.map((edge) => elementXml(
+  const elements = numbered.edges.map((edge) => elementXml(
     edge,
     nodes,
     engineeringByEdge.get(edge.id),
@@ -5382,12 +7226,12 @@ function buildTopologyInputXml(canonical, engineering, options) {
     bendByEdge.get(edge.id) ?? [],
     supportData.namesByNode
   )).join("\n");
-  const restraintCount = canonical.supports.reduce((sum, support) => sum + support.restraints.length, 0);
-  const derivedBendCount = canonical.edges.filter((edge) => edge.segmentRole.includes("ELBO/BEND_RUN_IN")).length;
-  const bendCount = derivedBendCount + (canonical.bends ?? []).length;
+  const restraintCount = numbered.supports.reduce((sum, support) => sum + support.restraints.length, 0);
+  const derivedBendCount = numbered.edges.filter((edge) => edge.segmentRole.includes("ELBO/BEND_RUN_IN")).length;
+  const bendCount = derivedBendCount + (numbered.bends ?? []).length;
   const modelAttributes = [
     ["JOBNAME", options.jobName],
-    ["NUMELT", canonical.edges.length],
+    ["NUMELT", numbered.edges.length],
     ["NUMNOZ", 0],
     ["NOHGRS", 0],
     ["NUMBEND", bendCount],
@@ -5403,8 +7247,12 @@ function buildTopologyInputXml(canonical, engineering, options) {
     ["NORTH_X", 0],
     ["NORTH_Y", 1],
     ["NORTH_Z", 0],
-    ["CANONICAL_TOPOLOGY_HASH", canonical.canonicalTopologyHash],
-    ["TOPOLOGY_TRACE_LEDGER_HASH", cleanText(options.topologyTraceLedgerHash)]
+    ["CANONICAL_TOPOLOGY_HASH", cleanText(options.legacyCanonicalTopologyHash)],
+    ["CANONICAL_TOPOLOGY_SHA256", canonical.canonicalTopologyHashSha256],
+    ["TOPO_NODE_PLAN_HASH", numberedProjection.topoNodePlanHashSha256],
+    ["NUMBERED_TOPOLOGY_PROJECTION_HASH", numberedProjection.numberedTopologyProjectionHashSha256],
+    ["TOPOLOGY_TRACE_LEDGER_HASH", cleanText(options.topologyTraceLedgerHash)],
+    ["INPUTXML_COMPATIBILITY_MODE", options.inputXmlCompatibilityMode]
   ];
   if (cleanText(options.topologyEditDraftHash)) modelAttributes.push(["TOPOLOGY_EDIT_DRAFT_HASH", cleanText(options.topologyEditDraftHash)]);
   if (cleanText(options.topologyEditLedgerHash)) modelAttributes.push(["TOPOLOGY_EDIT_LEDGER_HASH", cleanText(options.topologyEditLedgerHash)]);
@@ -5418,7 +7266,7 @@ function buildTopologyInputXml(canonical, engineering, options) {
     ""
   ].join("\n");
 }
-var _test6 = Object.freeze({ finiteNumber: finiteNumber4, fixed, globalFixed, physicalWall, nodeMap, engineeringRecord, engineeringValues, nativeAttributes, serialize, supportIndex, bendXml, elementXml });
+var _test7 = Object.freeze({ finiteNumber: finiteNumber4, fixed, globalFixed, physicalWall, nodeMap, engineeringRecord, engineeringValues, nativeAttributes, serialize, supportIndex, bendXml, rigidGroupWeight, elementXml });
 
 // tabs/model-converters/converters/component-topology/topology-deterministic-hash.js
 var DEFAULT_OMIT_KEYS = Object.freeze([
@@ -5428,8 +7276,33 @@ var DEFAULT_OMIT_KEYS = Object.freeze([
   "parsedInputXmlTopologyHash",
   "topologyParityReportHash"
 ]);
+function assertNoUnpairedSurrogates(value, label = "topology hash string") {
+  const text9 = String(value ?? "");
+  for (let index = 0; index < text9.length; index += 1) {
+    const unit2 = text9.charCodeAt(index);
+    if (unit2 >= 55296 && unit2 <= 56319) {
+      const next = text9.charCodeAt(index + 1);
+      if (!(next >= 56320 && next <= 57343)) {
+        throw new TypeError(`${label} contains an unpaired high surrogate at code-unit ${index}.`);
+      }
+      index += 1;
+    } else if (unit2 >= 56320 && unit2 <= 57343) {
+      throw new TypeError(`${label} contains an unpaired low surrogate at code-unit ${index}.`);
+    }
+  }
+  return text9;
+}
+function defineOwn(record2, key, value) {
+  Object.defineProperty(record2, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true
+  });
+}
 function canonicalValue(value, omitKeys) {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (value === null || typeof value === "boolean") return value;
+  if (typeof value === "string") return assertNoUnpairedSurrogates(value);
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new TypeError(`Cannot hash non-finite number: ${value}.`);
     return Object.is(value, -0) ? 0 : value;
@@ -5440,10 +7313,11 @@ function canonicalValue(value, omitKeys) {
       /** @type {Record<string, unknown>} */
       value
     );
-    const result = {};
-    for (const key of Object.keys(record2).sort()) {
+    const result = /* @__PURE__ */ Object.create(null);
+    for (const rawKey of Object.keys(record2).sort()) {
+      const key = assertNoUnpairedSurrogates(rawKey, "topology hash object key");
       if (omitKeys.has(key) || record2[key] === void 0) continue;
-      result[key] = canonicalValue(record2[key], omitKeys);
+      defineOwn(result, key, canonicalValue(record2[key], omitKeys));
     }
     return result;
   }
@@ -5453,8 +7327,8 @@ function canonicalJson(value, options = {}) {
   const omitKeys = new Set(options.omitKeys ?? DEFAULT_OMIT_KEYS);
   return JSON.stringify(canonicalValue(value, omitKeys));
 }
-function hashText(text5) {
-  const bytes = new TextEncoder().encode(String(text5 ?? ""));
+function hashText(text9) {
+  const bytes = new TextEncoder().encode(String(text9 ?? ""));
   let hash = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
   const mask = 0xffffffffffffffffn;
@@ -5473,7 +7347,12 @@ function stampArtifactHash(artifact, fieldName) {
   return Object.freeze({ ...artifact, [fieldName]: hash });
 }
 var TOPOLOGY_HASH_ALGORITHM = "fnv1a64-canonical-json-v1";
-var _test7 = Object.freeze({ canonicalValue, DEFAULT_OMIT_KEYS });
+var _test8 = Object.freeze({
+  assertNoUnpairedSurrogates,
+  canonicalValue,
+  defineOwn,
+  DEFAULT_OMIT_KEYS
+});
 
 // tabs/model-converters/converters/component-topology/topology-edit-contract.js
 var TOPOLOGY_EDIT_COMMAND_TYPES = Object.freeze([
@@ -5517,9 +7396,9 @@ function point(value, label) {
   };
 }
 function requiredText(value, label) {
-  const text5 = String(value ?? "").trim();
-  if (!text5) throw editError("MISSING_VALUE", `${label} is required.`);
-  return text5;
+  const text9 = String(value ?? "").trim();
+  if (!text9) throw editError("MISSING_VALUE", `${label} is required.`);
+  return text9;
 }
 function textIds(values) {
   return uniqueText(values.map((value) => String(value ?? "").trim()).filter(Boolean));
@@ -5620,7 +7499,7 @@ function redoTopologyEditCommand(draft) {
   const [command, ...redoCommands] = draft.redoCommands;
   return finalizeDraft({ ...structuredClone(draft), commands: [...draft.commands, command], redoCommands });
 }
-var _test8 = Object.freeze({ finalizeDraft });
+var _test9 = Object.freeze({ finalizeDraft });
 
 // tabs/model-converters/converters/component-topology/topology-edit-state.js
 function mutableCanonical(canonical) {
@@ -5654,10 +7533,7 @@ function synchronizeNodeDependents(state, nodeId, position) {
     for (const row of state[collectionName]) {
       if (row.nodeId !== nodeId) continue;
       row.position = { ...position };
-      if (collectionName === "supports") {
-        row.attachmentPosition = { ...position };
-        row.inputXmlNodeId = nodeById(state, nodeId).inputXmlNodeIds[0];
-      }
+      if (collectionName === "supports") row.inputXmlNodeId = nodeById(state, nodeId).inputXmlNodeIds[0];
     }
   }
 }
@@ -5691,6 +7567,47 @@ function inheritedEdge(context, id, inputId, fromNodeId, toNodeId, operation, co
     editAncestry: textIds([...context.editAncestry ?? [], context.id, commandId])
   };
 }
+function edgeSourcePaths(edge) {
+  return textIds([edge.sourcePath, ...edge.sourcePaths ?? []]);
+}
+function supportCarrierProjection(state, support, nodeIndex) {
+  const sourcePosition2 = support.sourcePosition;
+  if (!sourcePosition2 || !["x", "y", "z"].every((axis) => Number.isFinite(Number(sourcePosition2[axis])))) return null;
+  const authoritativePath = String(support.attachmentEdgeSourcePath ?? "").trim();
+  const attachedIds = new Set((support.attachedComponentEntityIds ?? []).map(String));
+  const ranked = state.edges.flatMap((edge) => {
+    const from = nodeIndex.get(edge.fromNodeId), to = nodeIndex.get(edge.toNodeId);
+    if (!from || !to) return [];
+    const pathMatch = authoritativePath && edgeSourcePaths(edge).includes(authoritativePath);
+    const referenceMatch = (edge.sourceEntityIds ?? []).some((id) => attachedIds.has(String(id)));
+    const incident = edge.fromNodeId === support.nodeId || edge.toNodeId === support.nodeId;
+    if (!pathMatch && !referenceMatch && !incident) return [];
+    const projection = pointSegmentDistance(sourcePosition2, from.position, to.position);
+    return [{ edge, projection, rank: pathMatch ? 0 : referenceMatch ? 1 : 2 }];
+  }).sort((left, right) => left.rank - right.rank || left.projection.distanceMm - right.projection.distanceMm || String(left.edge.id).localeCompare(String(right.edge.id)));
+  const selected = ranked[0];
+  if (authoritativePath && selected?.rank !== 0) {
+    throw editError("SUPPORT_CARRIER_NOT_FOUND", `Support ${support.id} cannot resolve authoritative carrier ${authoritativePath} after topology editing.`);
+  }
+  return selected ?? null;
+}
+function refreshSupport(state, support, nodeIndex) {
+  const node = nodeIndex.get(support.nodeId);
+  if (!node) return;
+  support.position = { ...node.position };
+  support.inputXmlNodeId = node.inputXmlNodeIds[0];
+  const selected = supportCarrierProjection(state, support, nodeIndex);
+  if (!selected) {
+    support.attachmentPosition = { ...node.position };
+    support.connectionResidual = 0;
+    return;
+  }
+  support.attachmentPosition = { ...selected.projection.projected };
+  support.connectionResidual = selected.projection.distanceMm;
+  if (!String(support.attachmentEdgeSourcePath ?? "").trim()) {
+    support.attachmentEdgeSourcePath = edgeSourcePaths(selected.edge)[0] ?? "";
+  }
+}
 function refreshDerivedTopology(state) {
   const nodeIndex = new Map(state.nodes.map((node) => [node.id, node]));
   const degree = /* @__PURE__ */ new Map();
@@ -5709,19 +7626,14 @@ function refreshDerivedTopology(state) {
     if (node) boundary.position = { ...node.position };
     boundary.participatingEdgeIds = incidentEdges(state, boundary.nodeId).map((edge) => edge.id);
   }
-  for (const support of state.supports) {
-    const node = nodeIndex.get(support.nodeId);
-    if (!node) continue;
-    support.position = { ...node.position };
-    support.attachmentPosition = { ...node.position };
-    support.inputXmlNodeId = node.inputXmlNodeIds[0];
-  }
+  for (const support of state.supports) refreshSupport(state, support, nodeIndex);
   for (const bend of state.bends ?? []) {
     const node = nodeIndex.get(bend.nodeId);
     if (node) bend.position = { ...node.position };
     bend.edgeIds = incidentEdges(state, bend.nodeId).map((edge) => edge.id);
   }
 }
+var _test10 = Object.freeze({ edgeSourcePaths, supportCarrierProjection, refreshSupport });
 
 // tabs/model-converters/converters/component-topology/topology-edit-engineering-operations.js
 function assertNoBend(state, nodeId) {
@@ -5809,7 +7721,7 @@ function trimEdge(state, command) {
   synchronizeNodeDependents(state, nodeId, position);
   return { targets: [edgeId, nodeId], changed: [edgeId, nodeId], created: [], removed: [], before, after: { ...position } };
 }
-var _test9 = Object.freeze({ assertNoBend, assertTrimDependencies });
+var _test11 = Object.freeze({ assertNoBend, assertTrimDependencies });
 
 // tabs/model-converters/converters/component-topology/topology-edit-operations.js
 function moveNode(state, payload) {
@@ -6403,7 +8315,7 @@ function attachmentIssues(canonical, graph) {
   }));
   return issues;
 }
-var _test10 = Object.freeze({ runIn, runOut, componentEntityIds, sharedNode, restraintToken, knownRestraint, knownDirection });
+var _test12 = Object.freeze({ runIn, runOut, componentEntityIds, sharedNode, restraintToken, knownRestraint, knownDirection });
 
 // tabs/model-converters/converters/component-topology/topology-checker-route-rules.js
 function edgeRadius(edge) {
@@ -6493,15 +8405,15 @@ function snapGapIssues(canonical, graph, options) {
   for (const row of candidates) for (const endpoint of [row.left, row.right]) frequency.set(endpoint.nodeId, (frequency.get(endpoint.nodeId) ?? 0) + 1);
   return candidates.map((row) => {
     const sameBranch = ownerBranch(row.left.edge) && ownerBranch(row.left.edge) === ownerBranch(row.right.edge);
-    const unique = frequency.get(row.left.nodeId) === 1 && frequency.get(row.right.nodeId) === 1;
+    const unique5 = frequency.get(row.left.nodeId) === 1 && frequency.get(row.right.nodeId) === 1;
     return topologyIssue({
       code: "SNAP_GAP",
       severity: "ERROR",
-      confidence: sameBranch && unique ? "HIGH" : "MEDIUM",
-      fixability: sameBranch && unique ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
+      confidence: sameBranch && unique5 ? "HIGH" : "MEDIUM",
+      fixability: sameBranch && unique5 ? "AUTO_APPROVED" : "NEEDS_CONFIRMATION",
       message: `Open endpoints ${row.left.nodeId} and ${row.right.nodeId} are ${row.gapMm.toFixed(3)} mm apart.`,
       objectIds: [row.left.edge.id, row.right.edge.id, row.left.nodeId, row.right.nodeId],
-      details: { gapMm: row.gapMm, endpointIds: [row.left.nodeId, row.right.nodeId], edgeIds: [row.left.edge.id, row.right.edge.id], sameBranch, uniqueCandidate: unique },
+      details: { gapMm: row.gapMm, endpointIds: [row.left.nodeId, row.right.nodeId], edgeIds: [row.left.edge.id, row.right.edge.id], sameBranch, uniqueCandidate: unique5 },
       location: graph.nodes.get(row.left.nodeId).position
     });
   });
@@ -6577,7 +8489,7 @@ function validateTopologyGeometry(canonical, options) {
     topologyCheckReport: report
   });
 }
-var _test11 = Object.freeze({ compareIssues, SEVERITY_RANK });
+var _test13 = Object.freeze({ compareIssues, SEVERITY_RANK });
 
 // tabs/model-converters/converters/component-topology/topology-edit-validation.js
 var GEOMETRY_DIAGNOSTIC_OPTIONS = Object.freeze({
@@ -6703,7 +8615,7 @@ function mergeGeometryDiagnostics(structural, current, base) {
     summary: Object.freeze({ findingCount: findings.length, blockingCount, geometryFindingCount: geometryFindings.length })
   });
 }
-var _test12 = Object.freeze({ finding, duplicateFindings, geometryFindingKey });
+var _test14 = Object.freeze({ finding, duplicateFindings, geometryFindingKey });
 
 // tabs/model-converters/converters/component-topology/topology-edit-engine.js
 var EDIT_LEDGER_HASH_KEYS = Object.freeze(["topologyEditLedgerHash"]);
@@ -6784,7 +8696,7 @@ function materializeTopologyEditDraft(canonical, draft) {
   const validation = mergeGeometryDiagnostics(validateEditedTopology(canonicalTopology, draft), canonicalTopology, canonical);
   return Object.freeze({ canonicalTopology, editLedger: editLedger(draft, canonicalTopology, records), validation });
 }
-var _test13 = Object.freeze({
+var _test15 = Object.freeze({
   finiteNumber: finiteNumber5,
   point,
   editError,
@@ -6842,12 +8754,13 @@ function enrichCanonicalTopologyIdentity(canonical, model) {
     participatingEdgeIds: uniqueText(edges.filter((edge) => edge.fromNodeId === row.nodeId || edge.toNodeId === row.nodeId).map((edge) => edge.id))
   }));
   const supports = (canonical.supports ?? []).map((row) => traceRow(row, indexes));
-  const rigids = (canonical.rigids ?? []).map((row) => {
+  const rigids = (canonical.rigids ?? []).map((row, index) => {
     const branchIds = indexedValues([row.sourceEntityId], indexes.branchByEntity);
     const edge = edgeById3.get(row.edgeId);
     const assignmentAuthority = edge?.sourceEntityIds?.includes(row.sourceEntityId) ? "SOURCE_COMPONENT_EDGE" : edge?.sourceEntityIds?.some((id) => branchIds.includes(id)) ? "SOURCE_BRANCH_EDGE" : "GLOBAL_PROXIMITY_FALLBACK";
     return {
       ...row,
+      id: cleanText(row.id) || `CR-${sequenceId(index + 1)}`,
       sourceEntityIds: uniqueText([row.sourceEntityId]),
       sourcePaths: uniqueText([row.sourcePath, ...indexedValues([row.sourceEntityId], indexes.pathByEntity)]),
       branchIds,
@@ -6907,7 +8820,7 @@ function enrichTopologyTraceLedgerIdentity(ledger, canonical, model, engineering
     records: Object.freeze(records)
   });
 }
-var _test14 = Object.freeze({ sourceIndexes, indexedValues, traceRow, sourcePosition });
+var _test16 = Object.freeze({ sourceIndexes, indexedValues, traceRow, sourcePosition });
 
 // tabs/model-converters/converters/component-topology/topology-svg-scene-builder.js
 function sceneNode(row) {
@@ -7090,16 +9003,16 @@ function buildTopologySvgScene(canonical, ledger, producerDiagnostics = []) {
   });
   return stampArtifactHash(scene, "svgSceneHash");
 }
-var _test15 = Object.freeze({ sceneNode, sceneEdge, sceneSupport, deferredSupport, sceneRigids });
+var _test17 = Object.freeze({ sceneNode, sceneEdge, sceneSupport, deferredSupport, sceneRigids });
 
 // tabs/model-converters/converters/component-topology/topology-inputxml-parser-values.js
-function decodeXml(value) {
+function decodeXml2(value) {
   return String(value ?? "").replaceAll("&quot;", '"').replaceAll("&apos;", "'").replaceAll("&lt;", "<").replaceAll("&gt;", ">").replaceAll("&amp;", "&");
 }
 function parseAttributes(source) {
   const attributes = {};
   String(source ?? "").replace(/([A-Za-z_][\w:.-]*)\s*=\s*(["'])(.*?)\2/g, (_match, name, _quote, value) => {
-    attributes[name.toUpperCase()] = decodeXml(value);
+    attributes[name.toUpperCase()] = decodeXml2(value);
     return "";
   });
   return attributes;
@@ -7175,6 +9088,7 @@ function parseRigid(attrs, elementId) {
     sourcePaths: Object.freeze(list2(attribute(attrs, "SOURCE_PATHS"))),
     branchIds: Object.freeze(list2(attribute(attrs, "BRANCH_IDS"))),
     assignmentAuthorities: Object.freeze(list2(attribute(attrs, "ASSIGNMENT_AUTHORITY"))),
+    weightAuthorities: Object.freeze(list2(attribute(attrs, "WEIGHT_AUTHORITY"))),
     connectionResidual: normalizedNumber(attribute(attrs, "CONNECTION_RESIDUAL"), DELTA_DECIMALS),
     sourceBodyCount: finiteNumber6(attribute(attrs, "SOURCE_BODY_COUNT")),
     weight: finiteNumber6(attribute(attrs, "WEIGHT")),
@@ -7355,7 +9269,7 @@ function parseTopologyInputXml(xmlText) {
   return stampArtifactHash(parsed, "parsedInputXmlTopologyHash");
 }
 var INPUTXML_TOPOLOGY_SERIALIZATION = Object.freeze({ globalCoordinateDecimals: GLOBAL_DECIMALS, deltaDecimals: DELTA_DECIMALS, coordinateToleranceMm: 0 });
-var _test16 = Object.freeze({ issue, parseRestraint, parseRigid, parseChildren, endpointRows, buildNodes: buildNodes2, parseElement });
+var _test18 = Object.freeze({ issue, parseRestraint, parseRigid, parseChildren, endpointRows, buildNodes: buildNodes2, parseElement });
 
 // tabs/model-converters/converters/component-topology/topology-parity-values.js
 var GLOBAL_DECIMALS2 = 3;
@@ -8251,6 +10165,114 @@ var TOPOLOGY_PARITY_NORMALIZATION = Object.freeze({
   toleranceMm: 0
 });
 
+// tabs/model-converters/converters/component-topology/topology-parity-report-v2.js
+function anchorMismatch(code, expected, actual) {
+  return Object.freeze({ severity: "BLOCKING", category: code, expected, actual, status: "OPEN" });
+}
+function inputXmlTopologyHash(xmlText) {
+  return String(xmlText).match(/\bCANONICAL_TOPOLOGY_SHA256="([0-9a-f]{64})"/)?.[1] ?? "";
+}
+async function buildParsedInputXmlTopologyV1(input) {
+  const parsed = input.parsedInputXmlTopology;
+  if (parsed?.schema !== "ParsedInputXmlTopology.v1") throw new TypeError("ParsedInputXmlTopology.v1 is required.");
+  const base = {
+    schema: "ParsedInputXmlTopology.v1",
+    inputXmlHashSha256: await sha256Hex2(input.topologyInputXml),
+    canonicalTopologyHashSha256: input.canonicalTopologyV2.canonicalTopologyHashSha256,
+    nodes: parsed.nodes,
+    elements: parsed.elements,
+    restraints: parsed.restraints,
+    rigids: parsed.rigids,
+    issues: parsed.issues,
+    summary: parsed.summary
+  };
+  return Object.freeze({ ...base, parsedInputXmlTopologyHashSha256: await hashReleaseJson(base, "parsedInputXmlTopologyHashSha256") });
+}
+async function buildTopologyParityReportV2(input) {
+  const legacy = input.topologyParityReportV1;
+  if (legacy?.schema !== "TopologyParityReport.v1") throw new TypeError("TopologyParityReport.v1 evidence is required.");
+  const mismatches = [...legacy.mismatches ?? []];
+  const embeddedHash = inputXmlTopologyHash(input.topologyInputXml);
+  if (embeddedHash !== input.canonicalTopologyV2.canonicalTopologyHashSha256) {
+    mismatches.push(anchorMismatch("CANONICAL_TOPOLOGY_SHA256_MISMATCH", input.canonicalTopologyV2.canonicalTopologyHashSha256, embeddedHash));
+  }
+  for (const difference of input.numberingShadowReport.differences ?? []) {
+    mismatches.push(anchorMismatch("NODE_PLAN_NUMBERING_MISMATCH", difference.expected, difference.actual));
+  }
+  const status = legacy.ok && mismatches.length === 0 ? "PASS" : "BLOCKED";
+  const base = {
+    schema: "TopologyParityReport.v2",
+    status,
+    canonicalTopologyHashSha256: input.canonicalTopologyV2.canonicalTopologyHashSha256,
+    topoNodePlanHashSha256: input.topoNodePlan.nodePlanHash.replace(/^sha256:/, ""),
+    numberedTopologyProjectionHashSha256: input.numberedTopologyProjection.numberedTopologyProjectionHashSha256,
+    inputXmlHashSha256: await sha256Hex2(input.topologyInputXml),
+    parsedInputXmlTopologyHashSha256: input.parsedInputXmlTopologyV2.parsedInputXmlTopologyHashSha256,
+    svgSceneHash: input.topologySvgScene.svgSceneHash,
+    summary: Object.freeze({ ...legacy.summary, topologyMismatchCount: mismatches.length }),
+    mismatches: Object.freeze(mismatches)
+  };
+  return Object.freeze({ ...base, topologyParityReportHashSha256: await hashReleaseJson(base, "topologyParityReportHashSha256") });
+}
+var _test19 = Object.freeze({ inputXmlTopologyHash, anchorMismatch });
+
+// converters/inputxml-release/inputxml-compatibility-request.js
+var INPUTXML_COMPATIBILITY_ROUTE_DIRECTIONS = Object.freeze({
+  stagedjson_to_inputxml: "INPUTXML_PRODUCER",
+  seljson_to_inputxml: "INPUTXML_PRODUCER",
+  pdf_to_inputxml: "INPUTXML_PRODUCER",
+  pdf_to_inputxml_cii14: "INPUTXML_PRODUCER",
+  inputxml_to_xml: "INPUTXML_CONSUMER",
+  inputxml_to_cii: "INPUTXML_CONSUMER",
+  inputxml14_to_cii: "INPUTXML_CONSUMER",
+  inputxml_to_cii2019: "INPUTXML_CONSUMER",
+  component_topology_inputxml_writer: "TOPOLOGY_WRITER"
+});
+var MODES = Object.freeze(["CANONICAL_STRICT", "ADAPTED_CANONICAL", "DIAGNOSTIC_ONLY"]);
+function requiredText2(value, label) {
+  const text9 = typeof value === "string" ? value.trim() : "";
+  if (!text9) throw new TypeError(`${label} is required.`);
+  return text9;
+}
+function approvalValue(value, mode) {
+  const approvalId = typeof value === "string" && value.trim() ? value.trim() : null;
+  if (approvalId !== null && mode !== "ADAPTED_CANONICAL") {
+    throw new TypeError("Approved semantic split requires ADAPTED_CANONICAL mode.");
+  }
+  return approvalId;
+}
+function routeDirection(converterId) {
+  const direction = INPUTXML_COMPATIBILITY_ROUTE_DIRECTIONS[converterId];
+  if (!direction) throw new TypeError(`Unsupported InputXML compatibility route: ${converterId}.`);
+  return direction;
+}
+function compatibilityMode(options) {
+  const mode = requiredText2(options?.inputXmlCompatibilityMode, "InputXML compatibility mode");
+  if (!MODES.includes(mode)) throw new TypeError(`Unsupported InputXML compatibility mode: ${mode}.`);
+  return mode;
+}
+async function buildInputXmlCompatibilityRequest(input) {
+  const converterId = requiredText2(input?.converterId, "Converter ID");
+  const direction = routeDirection(converterId);
+  const mode = compatibilityMode(input?.options);
+  const sourceName = requiredText2(input?.sourceName, "InputXML source name");
+  const sourceHashSha256 = await sha256Hex2(releaseBytes(input?.sourceBytes));
+  const approvedSemanticSplitId = approvalValue(input?.options?.approvedSemanticSplitId, mode);
+  const base = {
+    schema: "InputXmlCompatibilityRequest.v1",
+    converterId,
+    direction,
+    mode,
+    sourceName,
+    sourceHashSha256,
+    approvedSemanticSplitId
+  };
+  return Object.freeze({
+    ...base,
+    requestHashSha256: await hashReleaseJson(base, "requestHashSha256")
+  });
+}
+
 // tabs/model-converters/converters/component-topology/topology-artifact-exporter.js
 function componentCounts(model) {
   const counts = {};
@@ -8261,15 +10283,17 @@ function componentCounts(model) {
   return counts;
 }
 function referenceCounts(model) {
-  const branchNames = new Set(model.branches.map((branch) => cleanText(branch.name)));
-  const componentAliases = new Set(model.components.flatMap((component) => [component.sourceRef, component.name]).map(cleanText).filter(Boolean));
+  const branches = new Set(model.branches.map((branch) => cleanText(branch.name)));
+  const aliases2 = new Set(model.components.flatMap(
+    (component) => [component.sourceRef, component.name]
+  ).map(cleanText).filter(Boolean));
   const branchReferences = model.branches.flatMap((branch) => ["HREF", "TREF"].flatMap((field) => {
     const value = cleanText(branch.attributes[field]);
-    return value ? [{ value, resolved: branchNames.has(value) || componentAliases.has(value) }] : [];
+    return value ? [{ value, resolved: branches.has(value) || aliases2.has(value) }] : [];
   }));
   const crefReferences = model.components.flatMap((component) => {
     const value = cleanText(component.attributes.CREF);
-    return value ? [{ value, resolved: branchNames.has(value) }] : [];
+    return value ? [{ value, resolved: branches.has(value) }] : [];
   });
   return {
     cref: crefReferences.length,
@@ -8290,7 +10314,9 @@ function artifactMetrics(model, canonical, ledger, engineering, parsed, scene, p
       branches: model.branches.length,
       childRecords: model.components.length,
       routeComponents: model.components.filter((component) => component.isRouteComponent).length,
-      supports: model.components.filter((component) => componentCategory(component.sourceType) === "SUPPORT").length,
+      supports: model.components.filter(
+        (component) => componentCategory(component.sourceType) === "SUPPORT"
+      ).length,
       componentCounts: Object.freeze(componentCounts(model))
     }),
     references: Object.freeze(referenceCounts(model)),
@@ -8308,12 +10334,17 @@ function artifactMetrics(model, canonical, ledger, engineering, parsed, scene, p
       records: ledger.records.length,
       routeRecords: ledger.summary.routeRecords,
       blockedRecords: ledger.summary.blockedRecords,
-      deferredSupports: ledger.records.filter((row) => row.primaryDisposition === "DEFER_SUPPORT").length
+      deferredSupports: ledger.records.filter(
+        (row) => row.primaryDisposition === "DEFER_SUPPORT"
+      ).length
     }),
     engineering: engineering.metrics,
     inputXml: Object.freeze({
       elements: canonical.edges.length,
-      restraints: canonical.supports.reduce((sum, support) => sum + support.restraints.length, 0),
+      restraints: canonical.supports.reduce(
+        (sum, support) => sum + support.restraints.length,
+        0
+      ),
       rigids: new Set(canonical.rigids.map((rigid) => rigid.edgeId)).size,
       rigidBodies: canonical.rigids.length
     }),
@@ -8331,51 +10362,95 @@ function artifactMetrics(model, canonical, ledger, engineering, parsed, scene, p
 async function buildProducerState(sourceText, options) {
   const model = await buildTopologySourceModel(sourceText, {
     sourceName: options.sourceName,
+    sourceRevision: options.sourceRevision ?? 1,
     toleranceMm: options.toleranceMm
   });
   const engineering = buildTopologyEngineeringProjection(sourceText, model, {
-    enrichmentConfig: options.enrichmentConfig
+    enrichmentConfig: options.enrichmentConfig,
+    supportProjectionToleranceMm: options.supportProjectionToleranceMm
   });
   const connectivity = buildExplicitConnectivity(model, options.toleranceMm);
-  const builtCanonical = buildCanonicalTopology(
+  const built = buildCanonicalTopology(
     model,
     connectivity,
     engineering,
     options.toleranceMm,
     options.supportProjectionToleranceMm
   );
+  const canonicalTopologyV2 = await stampCanonicalTopologyV2(
+    enrichCanonicalTopologyIdentity(built, model)
+  );
+  const numbering = await buildTopologyNumberingArtifacts(canonicalTopologyV2, model, null);
   const canonicalTopology = stampArtifactHash(
-    enrichCanonicalTopologyIdentity(builtCanonical, model),
+    applyNumberedTopologyProjection(canonicalTopologyV2, numbering.numberedTopologyProjection),
     "canonicalTopologyHash"
   );
-  return Object.freeze({ model, engineering, canonicalTopology });
+  return Object.freeze({ model, engineering, canonicalTopology, canonicalTopologyV2, ...numbering });
 }
-function buildArtifactsFromState(state, options, editMetadata, failOnParity) {
-  const { model, engineering, canonicalTopology } = state;
-  const builtLedger = buildTopologyTraceLedger(model, canonicalTopology);
-  const traceLedger = stampArtifactHash(enrichTopologyTraceLedgerIdentity(
-    builtLedger,
-    canonicalTopology,
+async function buildArtifactsFromState(state, options, editMetadata, failOnParity) {
+  const {
     model,
     engineering,
-    {
-      sourceName: options.sourceName,
-      topologyToleranceMm: options.toleranceMm,
-      supportProjectionToleranceMm: options.supportProjectionToleranceMm
-    }
-  ), "topologyTraceLedgerHash");
-  const topologyInputXml = buildTopologyInputXml(canonicalTopology, engineering, {
+    canonicalTopology,
+    canonicalTopologyV2,
+    topoNodePlan,
+    numberedTopologyProjection,
+    numberingShadowReport
+  } = state;
+  const builtLedger = buildTopologyTraceLedger(model, canonicalTopology);
+  const traceLedger = stampArtifactHash(
+    enrichTopologyTraceLedgerIdentity(
+      builtLedger,
+      canonicalTopology,
+      model,
+      engineering,
+      {
+        sourceName: options.sourceName,
+        topologyToleranceMm: options.toleranceMm,
+        supportProjectionToleranceMm: options.supportProjectionToleranceMm
+      }
+    ),
+    "topologyTraceLedgerHash"
+  );
+  const topologyInputXml = buildTopologyInputXml(canonicalTopologyV2, engineering, numberedTopologyProjection, {
     jobName: options.jobName,
+    inputXmlCompatibilityMode: "CANONICAL_STRICT",
+    legacyCanonicalTopologyHash: canonicalTopology.canonicalTopologyHash,
     topologyTraceLedgerHash: traceLedger.topologyTraceLedgerHash,
     topologyEditDraftHash: editMetadata?.editDraft?.topologyEditDraftHash,
     topologyEditLedgerHash: editMetadata?.editLedger?.topologyEditLedgerHash
   });
+  const inputXmlCompatibilityRequest = await buildInputXmlCompatibilityRequest({
+    converterId: "component_topology_inputxml_writer",
+    sourceName: `${options.sourceName}.topology.input.xml`,
+    sourceBytes: new TextEncoder().encode(topologyInputXml),
+    options: {
+      inputXmlCompatibilityMode: "CANONICAL_STRICT",
+      approvedSemanticSplitId: ""
+    }
+  });
   const parsedInputXmlTopology = parseTopologyInputXml(topologyInputXml);
+  const parsedInputXmlTopologyV2 = await buildParsedInputXmlTopologyV1({
+    parsedInputXmlTopology,
+    topologyInputXml,
+    inputXmlCompatibilityRequest,
+    canonicalTopologyV2
+  });
   const topologySvgScene = buildTopologySvgScene(canonicalTopology, traceLedger, []);
   const topologyParityReport = buildTopologyParityReport({
     canonicalTopology,
     traceLedger,
     parsedInputXmlTopology,
+    topologySvgScene
+  });
+  const topologyParityReportV2 = await buildTopologyParityReportV2({
+    topologyParityReportV1: topologyParityReport,
+    canonicalTopologyV2,
+    topoNodePlan,
+    numberedTopologyProjection,
+    numberingShadowReport,
+    topologyInputXml,
+    parsedInputXmlTopologyV2,
     topologySvgScene
   });
   const metrics = artifactMetrics(
@@ -8391,17 +10466,25 @@ function buildArtifactsFromState(state, options, editMetadata, failOnParity) {
   const artifacts = Object.freeze({
     sourceIdentity: model.sourceIdentity,
     canonicalTopology,
+    canonicalTopologyV2,
+    topoNodePlan,
+    numberedTopologyProjection,
+    numberingShadowReport,
     traceLedger,
     topologyInputXml,
     parsedInputXmlTopology,
+    parsedInputXmlTopologyV2,
     topologySvgScene,
     topologyParityReport,
+    topologyParityReportV2,
     topologyParityMismatchesCsv: topologyParityMismatchesCsv(topologyParityReport),
     metrics,
     buildIssues: canonicalTopology.buildIssues,
     ...editMetadata ?? {}
   });
-  if (failOnParity && !topologyParityReport.ok) throw new TopologyParityError(topologyParityReport);
+  if (failOnParity && (!topologyParityReport.ok || topologyParityReportV2.status !== "PASS")) {
+    throw new TopologyParityError(topologyParityReport);
+  }
   return artifacts;
 }
 async function buildComponentTopologyArtifacts(sourceText, options) {
@@ -8412,11 +10495,19 @@ async function buildEditedComponentTopologyArtifacts(sourceText, draft, options)
   const baseState = await buildProducerState(sourceText, options);
   const materialized = materializeTopologyEditDraft(baseState.canonicalTopology, draft);
   const editValidation = materialized.validation;
+  const canonicalTopologyV2 = await canonicalTopologyV2FromLegacy(materialized.canonicalTopology);
+  const numbering = await buildTopologyNumberingArtifacts(
+    canonicalTopologyV2,
+    baseState.model,
+    legacyNumberMap(materialized.canonicalTopology)
+  );
   const state = Object.freeze({
     ...baseState,
-    canonicalTopology: materialized.canonicalTopology
+    canonicalTopology: materialized.canonicalTopology,
+    canonicalTopologyV2,
+    ...numbering
   });
-  const artifacts = buildArtifactsFromState(state, options, {
+  const artifacts = await buildArtifactsFromState(state, options, {
     editDraft: draft,
     editLedger: materialized.editLedger,
     editValidation
@@ -8427,61 +10518,40 @@ async function buildEditedComponentTopologyArtifacts(sourceText, draft, options)
     message: `${artifacts.topologyParityReport.summary.topologyMismatchCount} independent topology parity mismatches remain.`,
     objectIds: Object.freeze([])
   })];
-  const combinedFindings = Object.freeze([...editValidation.findings, ...parityBlocking]);
-  const blockingCount = combinedFindings.filter((finding2) => finding2.blocking).length;
+  const findings = Object.freeze([...editValidation.findings, ...parityBlocking]);
+  const blockingCount = findings.filter((finding2) => finding2.blocking).length;
   return Object.freeze({
     ...artifacts,
     editValidation: Object.freeze({
       ...editValidation,
       ok: blockingCount === 0,
-      findings: combinedFindings,
-      summary: Object.freeze({ findingCount: combinedFindings.length, blockingCount })
+      findings,
+      summary: Object.freeze({ findingCount: findings.length, blockingCount })
     })
   });
 }
 function topologyArtifactOutputs(artifacts, options) {
   const outputs = [
-    Object.freeze({
-      name: `${options.stem}.canonical-topology.json`,
-      text: `${JSON.stringify(artifacts.canonicalTopology, null, 2)}
+    ["canonical-topology.json", artifacts.canonicalTopology, "application/json;charset=utf-8"],
+    ["canonical-topology-v2.json", artifacts.canonicalTopologyV2, "application/json;charset=utf-8"],
+    ["topo-node-plan.json", artifacts.topoNodePlan, "application/json;charset=utf-8"],
+    ["numbered-topology-projection.json", artifacts.numberedTopologyProjection, "application/json;charset=utf-8"],
+    ["topology-numbering-shadow-report.json", artifacts.numberingShadowReport, "application/json;charset=utf-8"],
+    ["topology-trace-ledger.json", artifacts.traceLedger, "application/json;charset=utf-8"],
+    ["topology.input.xml", artifacts.topologyInputXml, "application/xml;charset=utf-8"],
+    ["topology.inputxml-compatibility-request.json", artifacts.inputXmlCompatibilityRequest, "application/json;charset=utf-8"],
+    ["topology-svg-scene.json", artifacts.topologySvgScene, "application/json;charset=utf-8"],
+    ["parsed-inputxml-topology.json", artifacts.parsedInputXmlTopology, "application/json;charset=utf-8"],
+    ["parsed-inputxml-topology-v2.json", artifacts.parsedInputXmlTopologyV2, "application/json;charset=utf-8"],
+    ["topology-parity-report.json", artifacts.topologyParityReport, "application/json;charset=utf-8"],
+    ["topology-parity-report-v2.json", artifacts.topologyParityReportV2, "application/json;charset=utf-8"],
+    ["topology-parity-mismatches.csv", artifacts.topologyParityMismatchesCsv, "text/csv;charset=utf-8"]
+  ].map(([suffix, value, mime]) => Object.freeze({
+    name: `${options.stem}.${suffix}`,
+    text: typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}
 `,
-      mime: "application/json;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.topology-trace-ledger.json`,
-      text: `${JSON.stringify(artifacts.traceLedger, null, 2)}
-`,
-      mime: "application/json;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.topology.input.xml`,
-      text: artifacts.topologyInputXml,
-      mime: "application/xml;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.topology-svg-scene.json`,
-      text: `${JSON.stringify(artifacts.topologySvgScene, null, 2)}
-`,
-      mime: "application/json;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.parsed-inputxml-topology.json`,
-      text: `${JSON.stringify(artifacts.parsedInputXmlTopology, null, 2)}
-`,
-      mime: "application/json;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.topology-parity-report.json`,
-      text: `${JSON.stringify(artifacts.topologyParityReport, null, 2)}
-`,
-      mime: "application/json;charset=utf-8"
-    }),
-    Object.freeze({
-      name: `${options.stem}.topology-parity-mismatches.csv`,
-      text: artifacts.topologyParityMismatchesCsv,
-      mime: "text/csv;charset=utf-8"
-    })
-  ];
+    mime
+  }));
   if (artifacts.editDraft) outputs.unshift(Object.freeze({
     name: `${options.stem}.topology-edit-draft.json`,
     text: `${JSON.stringify(artifacts.editDraft, null, 2)}
@@ -8496,7 +10566,7 @@ function topologyArtifactOutputs(artifacts, options) {
   }));
   return Object.freeze(outputs);
 }
-var _test17 = Object.freeze({
+var _test20 = Object.freeze({
   componentCounts,
   referenceCounts,
   artifactMetrics,
@@ -8641,7 +10711,7 @@ function applyApprovedTopologyFixes(draft, suggestions) {
   if (!approved.length) return draft;
   return appendTopologyEditTransaction(draft, approved.flatMap((row) => row.operations), { suggestionIds: approved.map((row) => row.id), issueIds: approved.map((row) => row.issueId) });
 }
-var _test18 = Object.freeze({ edgeDiameter, inferredJunctionKind, projectPoint, provenTrim });
+var _test21 = Object.freeze({ edgeDiameter, inferredJunctionKind, projectPoint, provenTrim });
 
 // tabs/model-converters/converters/component-topology/topology-checker-review.js
 var TOPOLOGY_REVIEW_STATUSES = Object.freeze(["OPEN", "ACKNOWLEDGED", "SUPPRESSED", "RESOLVED"]);
@@ -8685,7 +10755,7 @@ function topologyReviewSummary(report, state) {
     suppressedCount: count("SUPPRESSED")
   });
 }
-var _test19 = Object.freeze({ finalizeReviewState });
+var _test22 = Object.freeze({ finalizeReviewState });
 
 // tabs/model-converters/converters/component-topology/topology-browser-core.js
 var TOPOLOGY_BROWSER_CORE_CONTRACT = Object.freeze({
