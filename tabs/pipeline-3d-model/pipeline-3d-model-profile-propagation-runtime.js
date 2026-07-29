@@ -8,6 +8,7 @@ import { createPipelineArtifactSession } from './pipeline-3d-model-artifact-sess
 import { buildPipelineDerivedTablePreviewHtml } from './pipeline-3d-model-derived-table-preview.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { scanPipelineRawTableReadiness } from './pipeline-3d-model-raw-table-readiness.js';
+import { buildPipelineRawReadinessState, createPipelineRawReadinessSession } from './pipeline-3d-model-raw-readiness-session.js';
 import { createPipelineProfileRefreshScheduler } from './pipeline-3d-model-profile-refresh-scheduler.js';
 import { createPipelineCanonicalPlanPublicationSession } from './pipeline-3d-model-canonical-plan-publication-session.js';
 import { createPipelineCompletedOutputSession, PIPELINE_COMPLETED_OUTPUT_REUSED } from './pipeline-3d-model-completed-output-session.js';
@@ -33,20 +34,15 @@ function readProfileRaw(dialog) {
     table3a: rawValue(dialog, 'table3a-raw'), table3b: rawValue(dialog, 'table3b-raw'),
     table3c: rawValue(dialog, 'table3c-raw') });
 }
-function profileRawState(dialog) {
+function profileRawState(dialog, session = null) {
   const raw = readProfileRaw(dialog);
-  const tableReadiness = Object.freeze(Object.fromEntries(Object.entries(raw)
-    .map(([name, value]) => [name, scanPipelineRawTableReadiness(value)])));
-  const suppliedTables = Object.entries(tableReadiness).filter(([, state]) => state.hasContent)
-    .map(([name]) => name);
-  return Object.freeze({ raw, tableReadiness, suppliedTables: Object.freeze(suppliedTables),
-    active: suppliedTables.length > 0,
-    ready: tableReadiness.table2a.hasDataRow && tableReadiness.table3a.hasDataRow });
+  return session ? session.resolve(raw)
+    : buildPipelineRawReadinessState(raw, scanPipelineRawTableReadiness);
 }
-function hasAuthoritativeProfile(dialog) { return profileRawState(dialog).ready; }
-function hasAnyProfileRaw(dialog) { return profileRawState(dialog).active; }
-function resolveProfileRawInput(dialog) {
-  const state = profileRawState(dialog);
+function hasAuthoritativeProfile(dialog, session = null) { return profileRawState(dialog, session).ready; }
+function hasAnyProfileRaw(dialog, session = null) { return profileRawState(dialog, session).active; }
+function resolveProfileRawInput(dialog, session = null) {
+  const state = profileRawState(dialog, session);
   if (!state.active) return null;
   if (state.ready) return state.raw;
   const error = new Error('Authoritative profile input requires populated Table 2A and Table 3A data.');
@@ -60,11 +56,11 @@ function readBranchInfo(dialog) {
   const value = (key) => find(dialog, `[data-p3d-field="${key}"]`)?.value?.trim() || '';
   return Object.fromEntries(CONFIG_KEYS.map((key) => [key, value(key)]));
 }
-function buildInput(dialog) {
+function buildInput(dialog, instance = null) {
   return { table1Text: find(dialog, '[data-p3d="table1"]')?.value || '',
     table2Text: find(dialog, '[data-p3d="table2"]')?.value || '',
     table3Text: find(dialog, '[data-p3d="table3"]')?.value || '',
-    profileRaw: resolveProfileRawInput(dialog),
+    profileRaw: resolveProfileRawInput(dialog, instance?.rawReadinessSession),
     branchInfo: readBranchInfo(dialog),
     configurationDraft: loadPipelineEngineeringConfigurationDraft(),
     canonicalAnalysisSectionPlan: dialog.pipelineCanonicalAnalysisSectionPlan || null };
@@ -152,7 +148,7 @@ function renderResolvedOutput(dialog, output, instance) {
 function run(dialog, instance) {
   instance.refreshScheduler?.cancel();
   try {
-    const input = buildInput(dialog), output = instance.outputSession.resolve(input);
+    const input = buildInput(dialog, instance), output = instance.outputSession.resolve(input);
     instance.output = output; publishCanonicalPlan(dialog, output, instance);
     renderResolvedOutput(dialog, output, instance); return output;
   } catch (error) { instance.output = null; instance.outputSession.reset();
@@ -225,6 +221,7 @@ function createInstance(dialog) {
     artifactSession: createPipelineArtifactSession(pipelineVisibleArtifacts), refreshScheduler: null,
     canonicalPlanSession: createPipelineCanonicalPlanPublicationSession(),
     outputSession: createPipelineCompletedOutputSession(buildPipelineProjectOutputs),
+    rawReadinessSession: createPipelineRawReadinessSession(scanPipelineRawTableReadiness),
     renderedSurfaceSession: createPipelineRenderedSurfaceSession(),
     keyPlanSession: createPipelineKeyPlanRenderSession(paintKeyPlanCanvas) };
   instance.refreshScheduler = createPipelineProfileRefreshScheduler(() => run(dialog, instance));
@@ -243,7 +240,7 @@ export function installPipelineProfilePropagation(dialog) {
     { signal: controller.signal });
   instance.destroy = () => {
     controller.abort(); instance.refreshScheduler.destroy(); instance.outputSession.reset();
-    instance.renderedSurfaceSession.reset(); instance.artifactSession.reset();
+    instance.rawReadinessSession.reset(); instance.renderedSurfaceSession.reset(); instance.artifactSession.reset();
     instance.canonicalPlanSession.reset(); instance.keyPlanSession.reset(); INSTANCES.delete(dialog);
   };
   INSTANCES.set(dialog, instance); return instance.destroy;
