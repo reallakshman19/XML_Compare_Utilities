@@ -4,6 +4,7 @@ import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { createSequentialDraftEditSupportMoveFeature } from './sequential-draft-edit-support-move-feature.js';
 import { createSequentialComponentEditOperations } from './sequential-component-edit-operations.js';
+import { createSequentialDraftEdit3dPilotFeature } from './sequential-draft-edit-3d-pilot-feature.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
 import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
 import { selectSequentialDraftEditReversalTarget } from './sequential-draft-edit-reversal-target.js';
@@ -14,41 +15,25 @@ const VIEW_BY_PROJECTION = Object.freeze({ ISO: 'iso', XY: 'top', XZ: 'front', Y
 function requiredFunction(value, label) { if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value; }
 function requiredMethods(value, names, label) { names.forEach((name) => requiredFunction(value?.[name], `${label}.${name}`)); return value; }
 function injectFailure(factory, stage) {
-  if (typeof factory !== 'function') return;
-  const result = factory(stage);
-  if (result instanceof Error) throw result;
-  if (result) throw new Error(String(result));
+  if (typeof factory !== 'function') return; const result = factory(stage);
+  if (result instanceof Error) throw result; if (result) throw new Error(String(result));
 }
 function elements(root) {
-  const find = (selector) => {
-    const value = root.querySelector(selector);
-    if (!value) throw new Error(`Sequential Draft Edit 3D element missing: ${selector}`);
-    return value;
-  };
-  return {
-    button: find('[data-ssk-draft-edit-3d]'), host: find('[data-ssk-draft-edit-3d-host]'),
-    construction: find('[data-ssk-construction-surface]'),
-    preview: find('[data-ssk-engineering-svg-preview-host]'), status: find('[data-ssk-preview-status]'),
-  };
+  const find = (selector) => { const value = root.querySelector(selector); if (!value) throw new Error(`Sequential Draft Edit 3D element missing: ${selector}`); return value; };
+  return { button: find('[data-ssk-draft-edit-3d]'), host: find('[data-ssk-draft-edit-3d-host]'),
+    construction: find('[data-ssk-construction-surface]'), preview: find('[data-ssk-engineering-svg-preview-host]'),
+    status: find('[data-ssk-preview-status]') };
 }
 function setHidden(element, hidden) { element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false'); if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert'); }
 function announce(state, message, status = 'ready') { state.elements.status.textContent = message; state.elements.status.dataset.state = status; }
 function set3dPressed(state, pressed) {
-  state.elements.button.classList.toggle('is-active', pressed);
-  state.elements.button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-  if (!pressed) return;
-  state.root.querySelectorAll('[data-ssk-renderer]').forEach((button) => {
+  state.elements.button.classList.toggle('is-active', pressed); state.elements.button.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+  if (!pressed) return; state.root.querySelectorAll('[data-ssk-renderer]').forEach((button) => {
     button.classList.remove('is-active'); button.setAttribute('aria-pressed', 'false');
   });
 }
-function setFeatureActivity(state, active) {
-  state.commandPanel?.setActive(active); state.supportMove?.setActive(active);
-  state.componentEdit?.setActive(active);
-}
-function show3dSurface(state) {
-  setHidden(state.elements.construction, true); setHidden(state.elements.preview, true);
-  setHidden(state.elements.host, false); set3dPressed(state, true); setFeatureActivity(state, true);
-}
+function setFeatureActivity(state, active) { state.commandPanel?.setActive(active); state.supportMove?.setActive(active); state.componentEdit?.setActive(active); }
+function show3dSurface(state) { setHidden(state.elements.construction, true); setHidden(state.elements.preview, true); setHidden(state.elements.host, false); set3dPressed(state, true); setFeatureActivity(state, true); }
 function hide3dSurface(state) { setFeatureActivity(state, false); setHidden(state.elements.host, true); set3dPressed(state, false); }
 function available(state) { return Boolean(state.shadow.host() && state.shadow.readModel()); }
 function syncAvailability(state) {
@@ -58,13 +43,10 @@ function syncAvailability(state) {
   if (!next && state.active) {
     state.active = false; hide3dSurface(state); setHidden(state.elements.construction, false);
   }
-  return next;
+  state.pilotFeature?.refresh(); return next;
 }
 function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; }
-function applyProjection(state, readModel) {
-  const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO';
-  state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
-}
+function applyProjection(state, readModel) { const projection = readModel?.ownerSnapshot?.visibleProjection || 'ISO'; state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso'); }
 function syncDecisionTarget(state, scene, readModel) {
   try {
     state.commandPanel?.setDecisionTarget(createSequentialDraftEditDecisionTarget({
@@ -94,6 +76,7 @@ function applyScene(state) {
   if (state.mountKey !== mountKey) { state.mountKey = mountKey; state.viewer.fitAll(); }
   applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
   announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · supervised geometry authority enabled.`);
+  state.pilotFeature?.refresh();
 }
 function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; }
 function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
@@ -173,6 +156,7 @@ function containFailure(state, error, stage) {
   state.failureCount += 1; state.active = false; hide3dSurface(state);
   setHidden(state.elements.construction, false);
   announce(state, `Draft Edit 3D failed during ${stage}: ${message}. Construction SVG retained.`, 'error');
+  state.pilotFeature?.refresh();
   try { state.options.onFailure?.({ stage, message }); } catch {}
   return false;
 }
@@ -200,13 +184,14 @@ function handleClick(state, event) {
     event.preventDefault(); event.stopImmediatePropagation(); show3d(state); return;
   }
   if (event.target?.closest?.('[data-ssk-renderer]') && state.active) {
-    state.active = false; hide3dSurface(state);
+    state.active = false; hide3dSurface(state); state.pilotFeature?.refresh();
   }
 }
 function destroy(state) {
   if (state.destroyed) return false;
   state.destroyed = true; state.root.removeEventListener('click', state.onClick, true);
   try { state.unsubscribe?.(); } catch {}
+  try { state.pilotFeature?.destroy(); } catch {}
   try { state.componentEdit?.destroy(); } catch {}
   try { state.supportMove?.destroy(); } catch {}
   try { state.commandPanel?.destroy(); } catch {}
@@ -216,14 +201,28 @@ function destroy(state) {
   state.elements.host.innerHTML = ''; CONTROLLERS.delete(state.root); return true;
 }
 function draftRefresh(state) { if (state.active && state.viewer && state.scene && state.readModel) applyScene(state); }
+function controllerSnapshot(state) { return { active: state.active, available: available(state), mounted: Boolean(state.viewer), mountKey: state.mountKey, failureCount: state.failureCount, destroyed: state.destroyed }; }
+function pilotRuntime(state) {
+  const currentState = state.geometryEditBoundary.readCurrentState();
+  const view = state.geometryEditBoundary.readView();
+  return {
+    authority: deriveSequentialEditAuthority(currentState),
+    supportAdjustmentRegister: currentState.supportAdjustmentRegister || null,
+    supportAdjustmentHistory: currentState.supportAdjustmentHistory || null,
+    geometryEditJournal: state.geometryEditBoundary.readJournal(), ownerSnapshot: currentState.ownerSnapshot,
+    readModel: view.readModel, scene: view.scene, shadowEvidence: state.shadow.evidence(),
+    controllerState: controllerSnapshot(state),
+    viewerState: state.viewer?.getStateSnapshot?.() ?? null,
+    surfaces: { constructionHidden: state.elements.construction.hidden,
+      draftEdit3dHidden: state.elements.host.hidden },
+  };
+}
 function installFeatures(state) {
   try {
     state.commandPanel = createSequentialDraftEditCommandPanel({
       root: state.root, gateway: state.gateway,
       readCurrentState: state.commandBoundary.readCurrentState,
-      readCurrentAuthorityId: () => deriveSequentialEditAuthority(
-        state.commandBoundary.readCurrentState(),
-      ).authorityId,
+      readCurrentAuthorityId: () => deriveSequentialEditAuthority(state.commandBoundary.readCurrentState()).authorityId,
       now: state.options.commandIssuedAtProvider,
       onAccepted: state.options.onCommandAccepted, onFailure: state.options.onCommandFailure,
     });
@@ -240,12 +239,16 @@ function installFeatures(state) {
       applicationNow: state.options.geometryMoveAppliedAtProvider || state.options.commandIssuedAtProvider,
       onModeChanged: (mode) => announce(state, `Component operation mode: ${mode}.`),
     });
+    state.pilotFeature = createSequentialDraftEdit3dPilotFeature({ root: state.root,
+      readRuntime: () => pilotRuntime(state), download: state.options.downloadPilotBaselineEvidence,
+      onStatus: (message, status) => announce(state, message, status) });
     state.onClick = (event) => handleClick(state, event);
     state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
     if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
     state.root.addEventListener('click', state.onClick, true);
   } catch (error) {
     try { state.unsubscribe?.(); } catch {}
+    try { state.pilotFeature?.destroy(); } catch {}
     try { state.componentEdit?.destroy(); } catch {}
     try { state.supportMove?.destroy(); } catch {}
     try { state.commandPanel?.destroy(); } catch {}
@@ -257,12 +260,9 @@ export function getSequentialScopedEdit3dController(root) { return CONTROLLERS.g
 export function mountSequentialScopedEdit3dController(root, options = {}) {
   if (!root?.querySelector) throw new TypeError('Sequential Draft Edit 3D controller requires a root.');
   const existing = CONTROLLERS.get(root); if (existing) return existing;
-  const commandBoundary = requiredMethods(options.commandBoundary,
-    ['readCurrentState', 'publishCandidate'], 'commandBoundary');
-  const supportAdjustmentBoundary = requiredMethods(options.supportAdjustmentBoundary,
-    ['readCurrentState', 'readView', 'publishCandidate'], 'supportAdjustmentBoundary');
-  const geometryEditBoundary = requiredMethods(options.geometryEditBoundary,
-    ['readCurrentState', 'readView', 'readJournal', 'publishCandidate'], 'geometryEditBoundary');
+  const commandBoundary = requiredMethods(options.commandBoundary, ['readCurrentState', 'publishCandidate'], 'commandBoundary');
+  const supportAdjustmentBoundary = requiredMethods(options.supportAdjustmentBoundary, ['readCurrentState', 'readView', 'publishCandidate'], 'supportAdjustmentBoundary');
+  const geometryEditBoundary = requiredMethods(options.geometryEditBoundary, ['readCurrentState', 'readView', 'readJournal', 'publishCandidate'], 'geometryEditBoundary');
   const shadow = requiredMethods(options.shadow, ['host', 'readModel', 'evidence'], 'shadow');
   const workspace = requiredMethods(options.workspace, ['subscribeEngineeringSvgOwnerState'], 'workspace');
   const gateway = createSequentialDraftEditCommandGateway({
@@ -273,7 +273,7 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
     shadow, workspace, elements: elements(root), viewer: null, pending: null,
     scene: null, readModel: null, mountKey: '', active: false, destroyed: false,
     failureCount: 0, unsubscribe: null, commandPanel: null, supportMove: null,
-    componentEdit: null,
+    componentEdit: null, pilotFeature: null,
   };
   installFeatures(state); syncAvailability(state);
   const controller = Object.freeze({
@@ -281,11 +281,11 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
     show: () => show3d(state), refresh: () => { scheduleRefresh(state); return true; },
     getCommandGatewayState: gateway.getState, getCommandPanelState: state.commandPanel.getState,
     prepareCommand: gateway.prepare, acceptCommand: gateway.accept, executeCommand: gateway.execute,
+    exportPilotBaselineEvidence: state.pilotFeature.exportEvidence,
     getState: () => Object.freeze({
-      active: state.active, available: available(state), mounted: Boolean(state.viewer),
-      mountKey: state.mountKey, failureCount: state.failureCount, destroyed: state.destroyed,
-      commandGateway: gateway.getState(), commandPanel: state.commandPanel.getState(),
-      supportMove: state.supportMove.getState(), componentEdit: state.componentEdit.getState(),
+      ...controllerSnapshot(state), commandGateway: gateway.getState(),
+      commandPanel: state.commandPanel.getState(), supportMove: state.supportMove.getState(),
+      componentEdit: state.componentEdit.getState(), pilotBaseline: state.pilotFeature.getState(),
       supportAdjustmentBoundary: supportAdjustmentBoundary.getState?.() || null,
       geometryEditBoundary: geometryEditBoundary.getState?.() || null,
       viewerState: state.viewer?.getStateSnapshot?.() ?? null,
