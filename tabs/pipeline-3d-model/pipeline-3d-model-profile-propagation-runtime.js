@@ -2,6 +2,7 @@ import { buildPipelineProjectOutputs } from './pipeline-3d-model-project-adapter
 import { CONFIG_FIELDS } from './pipeline-3d-model-config.js?v=20260724-p3d-core-050-1';
 import { renderPipelineApprovedCatalogStatus } from './pipeline-3d-model-approved-catalog-status.js';
 import { pipelineVisibleArtifacts } from './pipeline-3d-model-visible-artifacts.js';
+import { buildPipelineArtifactPanelHtml } from './pipeline-3d-model-artifact-panel-presentation.js';
 import { buildPipelineInputXmlBlockedMessage } from './pipeline-3d-model-inputxml-download-feedback.js';
 import { buildKeyPlanLegendHtml, paintKeyPlanCanvas } from './pipeline-3d-model-keyplan.js';
 import { createTable2XSVG, createTable3XSVG } from './pipeline-3d-model-preview.js';
@@ -88,9 +89,7 @@ function artifactPanel(dialog) {
 }
 function renderArtifacts(dialog, output) {
   const panel = artifactPanel(dialog), artifacts = pipelineVisibleArtifacts(output);
-  panel.innerHTML = `<h4>Engineering evidence artifacts</h4>${artifacts.length
-    ? artifacts.map((item, index) => `<button type="button" data-p3d-artifact="${index}">${escapeHtml(item.name)}</button>`).join(' ')
-    : '<p>No artifacts available.</p>'}`;
+  panel.innerHTML = buildPipelineArtifactPanelHtml(artifacts);
 }
 function renderOutputs(dialog, output) {
   setTextArea(dialog, 'table2', output.table2Text); setTextArea(dialog, 'table3', output.table3Text);
