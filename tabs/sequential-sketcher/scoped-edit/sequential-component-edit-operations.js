@@ -1,4 +1,5 @@
 /** Explicit operation-mode owner for confirmed-component move, stretch and rotation workflows. */
+import { createSequentialBridgeGapRequestFeature } from './sequential-bridge-gap-request-feature.js';
 import { createSequentialMergeNodesRequestFeature } from './sequential-merge-nodes-request-feature.js';
 import { createSequentialNodeStretchFeature } from './sequential-node-stretch-feature.js';
 import { createSequentialRotationFeature } from './sequential-rotation-feature.js';
@@ -67,11 +68,12 @@ function syncActivity(state) {
   state.move.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT));
   state.stretch.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE));
   state.rotation.setActive(childActive(state, SEQUENTIAL_COMPONENT_EDIT_MODE.ROTATE_SUBGRAPH));
-  state.mergePreview.setActive(state.active); render(state);
+  state.mergePreview.setActive(state.active); state.bridgePreview.setActive(state.active); render(state);
 }
 function clear(state, reason = 'component-edit-cleared') {
   state.move.clearTarget(reason); state.stretch.clearTarget(reason);
-  state.rotation.clearTarget(reason); state.mergePreview.clear(reason); return null;
+  state.rotation.clearTarget(reason); state.mergePreview.clear(reason);
+  state.bridgePreview.clear(reason); return null;
 }
 function setMode(state, value) {
   if (state.destroyed) throw new Error('Component edit operations are destroyed.');
@@ -102,7 +104,7 @@ function destroy(state) {
   if (state.destroyed) return false;
   state.destroyed = true; state.panel.removeEventListener('click', state.onClick, true);
   state.move.destroy(); state.stretch.destroy(); state.rotation.destroy();
-  state.mergePreview.destroy(); state.panel.remove(); return true;
+  state.mergePreview.destroy(); state.bridgePreview.destroy(); state.panel.remove(); return true;
 }
 function createMove(options) {
   return createSequentialSingleEntityMoveFeature({
@@ -130,20 +132,25 @@ function createMergePreview(options) {
     root: options.root, readModel: options.readModel,
   });
 }
+function createBridgePreview(options) {
+  return createSequentialBridgeGapRequestFeature({
+    root: options.root, readModel: options.readModel,
+  });
+}
 export function createSequentialComponentEditOperations(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Component edit operations require a root.');
   const state = {
     panel: install(root), mode: SEQUENTIAL_COMPONENT_EDIT_MODE.MOVE_COMPONENT,
     active: false, destroyed: false, move: null, stretch: null, rotation: null,
-    mergePreview: null, onClick: null,
+    mergePreview: null, bridgePreview: null, onClick: null,
     onModeChanged: requiredFunction(options.onModeChanged || (() => {}), 'onModeChanged'),
   };
   const shared = { ...options,
     onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged') };
   state.move = createMove(shared); state.stretch = createStretch(shared);
   state.rotation = createRotation(shared); state.mergePreview = createMergePreview(shared);
-  bind(state); syncActivity(state);
+  state.bridgePreview = createBridgePreview(shared); bind(state); syncActivity(state);
   return Object.freeze({
     schema: SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; syncActivity(state); },
@@ -151,10 +158,11 @@ export function createSequentialComponentEditOperations(options = {}) {
     clear: (reason) => clear(state, reason), invalidate: (reason) => clear(state, reason || 'authority-change'),
     getMoveDraft: state.move.getDraft, getStretchDraft: state.stretch.getDraft,
     getRotationDraft: state.rotation.getDraft, getMergePreview: state.mergePreview.getPreview,
+    getBridgePreview: state.bridgePreview.getPreview,
     getState: () => Object.freeze({ active: state.active, mode: state.mode,
       move: state.move.getState(), stretch: state.stretch.getState(),
       rotation: state.rotation.getState(), mergePreview: state.mergePreview.getState(),
-      destroyed: state.destroyed }),
+      bridgePreview: state.bridgePreview.getState(), destroyed: state.destroyed }),
     destroy: () => destroy(state),
   });
 }
