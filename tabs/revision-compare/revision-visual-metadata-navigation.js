@@ -9,6 +9,7 @@ const FIELD_SELECTORS = Object.freeze([
   '[data-revc-visual-frame]',
   '[data-revc-visual-axis]',
 ]);
+const APPROVAL_FOCUS_FRAMES = 24;
 
 function enabled(element) {
   return Boolean(element && !element.disabled && element.getAttribute?.('aria-disabled') !== 'true');
@@ -29,6 +30,24 @@ function fieldValue(field) {
 function declarationTarget(section) {
   const fields = FIELD_SELECTORS.map((selector) => section?.querySelector?.(selector)).filter(enabled);
   return fields.find((field) => !fieldValue(field)) ?? fields[0] ?? null;
+}
+
+function defaultSchedule(root, callback) {
+  return root.ownerDocument.defaultView.requestAnimationFrame(callback);
+}
+
+function waitForApproval(root, schedule, active, remaining) {
+  if (!active() || focusRevisionBasisApproval(root) || remaining <= 0) return;
+  schedule(() => waitForApproval(root, schedule, active, remaining - 1));
+}
+
+function navigationClick(root, schedule, active, event) {
+  const button = event.target?.closest?.('button');
+  if (!button) return;
+  if (button.hasAttribute('data-revc-resolve-visual-metadata')) focusRevisionVisualMetadata(root);
+  if (button.hasAttribute('data-revc-apply-visual-metadata')) {
+    schedule(() => waitForApproval(root, schedule, active, APPROVAL_FOCUS_FRAMES));
+  }
 }
 
 export function revisionVisualMetadataRecoveryModel(state, approval) {
@@ -58,11 +77,19 @@ export function focusRevisionBasisApproval(root) {
   return true;
 }
 
-export function focusApprovalAfterDeclaration(root, operation) {
-  return Promise.resolve(operation).then(
-    () => focusRevisionBasisApproval(root),
-    () => false,
-  );
+export function bindRevisionVisualMetadataNavigation(root, options = {}) {
+  if (!root?.addEventListener) throw new TypeError('Revision visual metadata navigation root is required.');
+  let bound = true;
+  const schedule = options.schedule ?? ((callback) => defaultSchedule(root, callback));
+  const listener = (event) => navigationClick(root, schedule, () => bound, event);
+  root.addEventListener('click', listener);
+  return () => {
+    if (!bound) return;
+    bound = false;
+    root.removeEventListener('click', listener);
+  };
 }
 
-export const _test = Object.freeze({ declarationTarget, enabled, fieldValue, reducedMotion });
+export const _test = Object.freeze({
+  declarationTarget, enabled, fieldValue, navigationClick, reducedMotion, waitForApproval,
+});
