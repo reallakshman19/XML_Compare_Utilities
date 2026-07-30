@@ -7,6 +7,7 @@ import {
   decisionProgressMarkup,
 } from './revision-decision-view.js';
 import { filterDecisionAwareProjection } from './revision-decision-projection.js';
+import { revisionReviewFilterResetModel } from './revision-review-filter-reset.js';
 
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 function human(value) { return String(value ?? '').replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()); }
@@ -61,6 +62,12 @@ function reasonFilters(state) {
   const active = new Set(state.compare.queue.changedReasons); const labels = { GEOMETRY: 'Geometry', PROPERTIES: 'Properties', CONNECTIVITY: 'Connectivity', SUPPORT_HIERARCHY: 'Support / hierarchy' };
   return `<div class="revc-filter-row revc-reason-filters">${Object.entries(labels).map(([value, label]) => `<label><input type="checkbox" data-revc-changed-reason="${value}" ${active.has(value) ? 'checked' : ''}>${label}</label>`).join('')}</div>`;
 }
+function reviewFilterResetMarkup(state) {
+  const reset = revisionReviewFilterResetModel(state);
+  const imported = state.evidencePackageImport?.status === 'VERIFIED';
+  if (!reset.visible || imported) return '';
+  return `<div class="revc-session-actions" data-revc-review-filter-reset-status><small>${escapeHtml(reset.message)}</small><button type="button" data-revc-clear-review-filters data-revc-filter-count="${reset.activeCount}">${escapeHtml(reset.label)}</button></div>`;
+}
 function queueRow(entry, selected) {
   const { row, item } = entry;
   return `<button type="button" class="revc-queue-row" data-revc-difference-id="${escapeHtml(row.differenceId)}" ${selected ? 'aria-current="true"' : ''}><span><b>${escapeHtml(titleText(row))}</b><small>${escapeHtml(row.context?.branchId)} · ${escapeHtml(row.context?.componentType)}</small></span><em data-category="${row.differenceCategory.toLowerCase()}">${human(row.differenceCategory)}</em><strong data-review-state="${item.reviewState.toLowerCase()}">${human(item.reviewState)}</strong>${decisionBadgeMarkup(entry)}<span class="revc-queue-reason">${escapeHtml(primaryReason(row))}</span><small>${human(row.matchCertainty)}</small></button>`;
@@ -69,7 +76,7 @@ export function reviewQueueMarkup(state) {
   if (state.review.replacementRequired) return '<section class="revc-review-queue"><h2>Change queue</h2><p class="revc-empty">Start a new review session explicitly for this different audit.</p></section>';
   const projection = reviewPriorityProjection(state); const selected = state.compare.selectedDifferenceId;
   const hiddenSelected = Boolean(selected && !projection.visible.some((entry) => entry.row.differenceId === selected));
-  return `<section class="revc-review-queue"><header><div><h2>Change queue</h2><small>Deterministic review priority</small></div><span>${projection.visibleCount} shown · ${projection.hiddenCount} hidden</span></header><label class="revc-review-search">Search review<input type="search" data-revc-review-search value="${escapeHtml(state.review.filters.search)}" placeholder="Object, branch, type, state, note"></label>${stateFilters(state)}${categoryFilters(state)}${certaintyFilters(state)}${reasonFilters(state)}${decisionFilterMarkup(state)}${hiddenSelected ? '<p class="revc-filter-note">The selected row is hidden by the active filters; its inspector remains authoritative.</p>' : ''}<div class="revc-queue-list">${projection.visible.length ? projection.visible.map((entry) => queueRow(entry, entry.row.differenceId === selected)).join('') : '<p class="revc-empty">No review rows match the active filters.</p>'}</div></section>`;
+  return `<section class="revc-review-queue"><header><div><h2>Change queue</h2><small>Deterministic review priority</small></div><span>${projection.visibleCount} shown · ${projection.hiddenCount} hidden</span></header><label class="revc-review-search">Search review<input type="search" data-revc-review-search value="${escapeHtml(state.review.filters.search)}" placeholder="Object, branch, type, state, note"></label>${stateFilters(state)}${categoryFilters(state)}${certaintyFilters(state)}${reasonFilters(state)}${decisionFilterMarkup(state)}${reviewFilterResetMarkup(state)}${hiddenSelected ? '<p class="revc-filter-note">The selected row is hidden by the active filters; its inspector remains authoritative.</p>' : ''}<div class="revc-queue-list">${projection.visible.length ? projection.visible.map((entry) => queueRow(entry, entry.row.differenceId === selected)).join('') : '<p class="revc-empty">No review rows match the active filters.</p>'}</div></section>`;
 }
 function propertyRows(row) {
   if (!row.changedProperties.length) return '<p class="revc-empty">No supported scalar property changes.</p>';
@@ -105,4 +112,4 @@ export function reviewInspectorMarkup(state) {
 export function revisionReviewSideMarkup(state) {
   return `${reviewProgressMarkup(state.review.session)}${decisionProgressMarkup(state)}${reviewSessionControlsMarkup(state, Boolean(state.compare.audit))}${decisionLedgerControlsMarkup(state, Boolean(state.compare.audit))}${reviewQueueMarkup(state)}${reviewInspectorMarkup(state)}`;
 }
-export const _test = Object.freeze({ escapeHtml, primaryReason, sourcePaths, titleText });
+export const _test = Object.freeze({ escapeHtml, primaryReason, reviewFilterResetMarkup, sourcePaths, titleText });
