@@ -47,16 +47,19 @@ assert.equal(storage.rows.size, 1);
 assert.equal(first.refresh().kind, 'MOVE_COMPONENT');
 first.destroy();
 
-let restored = 0;
+let restored = 0; let activated = 0;
 const secondRoot = root();
 const second = createSequentialDraftEditRecoveryController({ root: secondRoot, storage,
   readContext: () => context, now: () => '2026-07-30T16:01:00.000Z',
+  beforeRestore: async () => { activated += 1; return true; },
   restoreHandlers: { MOVE_COMPONENT(record) { restored += 1; return record.input.delta; } } });
 assert.equal(second.refresh().kind, 'MOVE_COMPONENT');
 assert.equal(second.getState().record.kind, 'MOVE_COMPONENT');
-assert.deepEqual(second.restore(), { x: 5, y: 0, z: 0, magnitude: 5 });
+assert.deepEqual(await second.restore(), { x: 5, y: 0, z: 0, magnitude: 5 });
+assert.equal(activated, 1);
 assert.equal(restored, 1);
 assert.equal(second.getState().record, null);
+assert.equal(second.getState().restoring, false);
 assert.equal(storage.rows.size, 1);
 second.refresh();
 assert.equal(second.getState().record, null);
@@ -79,6 +82,21 @@ const stale = createSequentialDraftEditRecoveryController({ root: root(), storag
 assert.equal(stale.refresh(), null);
 assert.equal(storage.rows.size, 0);
 assert.match(stale.getState().notice, /STALE_REMOVED/);
+
+const driftStorage = memoryStorage();
+let liveContext = context; let driftRestored = 0;
+const driftCapture = createSequentialDraftEditRecoveryController({ root: root(), storage: driftStorage,
+  readContext: () => liveContext, now: () => '2026-07-30T16:03:30.000Z', restoreHandlers: {} });
+driftCapture.capture('MOVE_COMPONENT', descriptor); driftCapture.destroy();
+const drift = createSequentialDraftEditRecoveryController({ root: root(), storage: driftStorage,
+  readContext: () => liveContext, now: () => '2026-07-30T16:03:31.000Z',
+  beforeRestore: async () => { liveContext = { ...context, editBaseFingerprint: 'CHANGED' }; return true; },
+  restoreHandlers: { MOVE_COMPONENT() { driftRestored += 1; } } });
+assert.equal(drift.refresh().kind, 'MOVE_COMPONENT');
+assert.equal(await drift.restore(), null);
+assert.equal(driftRestored, 0);
+assert.equal(driftStorage.rows.size, 0);
+assert.match(drift.getState().notice, /RESTORE_REJECTED/);
 
 const otherContext = { ...context, authority: { ...context.authority, authorityId: 'AUTH-B', branchId: '/B',
   branchSetFingerprint: 'BRANCHES-BEFORE-DELETION' } };
