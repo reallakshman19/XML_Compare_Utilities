@@ -51,7 +51,8 @@ export function clearRevisionReviewFilters(state) {
   if (!model.visible) return Object.freeze({ message, model, state });
   const compare = deepFreeze({ ...state.compare, queue: deepFreeze({ ...state.compare.queue,
     categories: DEFAULT_QUEUE.categories, changedReasons: DEFAULT_QUEUE.changedReasons, needsDecisionOnly: false }) });
-  const review = deepFreeze({ ...state.review, filters: DEFAULT_REVIEW_FILTERS });
+  const reviewFilters = deepFreeze({ ...DEFAULT_REVIEW_FILTERS, categories: state.review.filters.categories });
+  const review = deepFreeze({ ...state.review, filters: reviewFilters });
   const decision = deepFreeze({ ...state.decision, filters: DEFAULT_DECISION_FILTERS });
   const next = deepFreeze({ ...state, compare, review, decision, message });
   return Object.freeze({ message, model, state: next });
