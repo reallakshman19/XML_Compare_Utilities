@@ -173,12 +173,19 @@ export function revisionResponsivenessObservationReceiptMatches(receipt, input) 
     const context = receiptContext(input);
     return receipt?.schema === RECEIPT_SCHEMA
       && receipt.session?.sessionId === input.session?.sessionId
+      && receipt.session?.createdAt === input.session?.createdAt
+      && receipt.session?.updatedAt === input.session?.updatedAt
       && receipt.audit?.auditId === context.audit.auditId
+      && receipt.audit?.basisId === context.audit.basisId
       && receipt.revisions?.revA?.sourceHash === context.revA.sourceHash
       && receipt.revisions?.revA?.scopedHash === context.revA.scopedHash
       && receipt.revisions?.revB?.sourceHash === context.revB.sourceHash
       && receipt.revisions?.revB?.scopedHash === context.revB.scopedHash
+      && receipt.observation?.runKey === context.model.runKey
       && receipt.observation?.runId === context.model.runId
+      && receipt.observation?.policyId === context.model.policyId
+      && receipt.observation?.bandId === context.model.bandId
+      && receipt.observation?.drawableCount === context.model.drawableCount
       && receipt.observation?.disposition === context.model.disposition;
   } catch {
     return false;
