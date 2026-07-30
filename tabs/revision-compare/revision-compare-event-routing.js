@@ -31,6 +31,7 @@ function comparisonButton(actions, button) {
   if (button.dataset.revcPresentation) actions.setPresentation(button.dataset.revcPresentation);
   if (button.dataset.revcViewerBackend) actions.setViewerBackend(button.dataset.revcViewerBackend);
   if (button.hasAttribute('data-revc-rerun-responsiveness')) actions.rerunResponsiveness();
+  if (button.hasAttribute('data-revc-download-responsiveness-receipt')) actions.downloadResponsivenessReceipt();
   if (button.hasAttribute('data-revc-fit-all')) actions.fitAll();
   if (button.hasAttribute('data-revc-fit-selected')) actions.fitSelected();
   if (button.dataset.revcDifferenceId) actions.selectDifference(button.dataset.revcDifferenceId);
