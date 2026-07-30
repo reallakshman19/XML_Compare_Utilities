@@ -6,6 +6,10 @@ export const BEND_REVIEW_HISTORY_KIND = Object.freeze({
   PACKAGE: 'PACKAGE',
   RECEIPT: 'RECEIPT',
 });
+export const BEND_REVIEW_HISTORY_FILTER = Object.freeze({
+  ALL: 'ALL',
+  CURRENT_PACKAGE: 'CURRENT_PACKAGE',
+});
 
 let historyEntries = Object.freeze([]);
 let historySequence = 0;
@@ -15,6 +19,10 @@ function array(value) { return Array.isArray(value) ? value : []; }
 function kind(value) {
   return Object.values(BEND_REVIEW_HISTORY_KIND).includes(value)
     ? value : BEND_REVIEW_HISTORY_KIND.PACKAGE;
+}
+function filter(value) {
+  return Object.values(BEND_REVIEW_HISTORY_FILTER).includes(value)
+    ? value : BEND_REVIEW_HISTORY_FILTER.ALL;
 }
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -48,14 +56,27 @@ export function getBendReviewHistory() {
   return historyEntries;
 }
 
+export function filterBendReviewHistory(
+  entries = historyEntries,
+  mode = BEND_REVIEW_HISTORY_FILTER.ALL,
+  currentPackageSignature = '',
+) {
+  const rows = array(entries);
+  if (filter(mode) === BEND_REVIEW_HISTORY_FILTER.ALL) return rows;
+  const signature = text(currentPackageSignature);
+  return rows.filter((entry) => signature && text(entry?.currentPackageSignature) === signature);
+}
+
 export function clearBendReviewHistory() {
   historyEntries = Object.freeze([]);
   historySequence = 0;
   return historyEntries;
 }
 
-export function bendReviewHistoryCount(entries = historyEntries) {
+export function bendReviewHistoryCount(entries = historyEntries, totalEntries = entries) {
   const count = array(entries).length;
+  const total = array(totalEntries).length;
+  if (count !== total) return `${count} of ${total} checks`;
   return `${count} check${count === 1 ? '' : 's'}`;
 }
 
@@ -66,8 +87,10 @@ function historyRow(entry) {
   return `<tr><td>${entry.sequence}</td><td>${esc(entry.kind)}</td><td>${esc(status)}</td><td>${esc(entry.code)}</td><td><code>${esc(artifact)}</code></td><td><code>${esc(current)}</code></td><td>${entry.differenceCount}</td></tr>`;
 }
 
-export function bendReviewHistoryHtml(entries = historyEntries) {
+export function bendReviewHistoryHtml(entries = historyEntries, emptyMessage = '') {
   const rows = array(entries);
-  if (!rows.length) return '<p class="wb3d-muted">No package or receipt checks in this browser session.</p>';
+  if (!rows.length) {
+    return `<p class="wb3d-muted">${esc(emptyMessage || 'No package or receipt checks in this browser session.')}</p>`;
+  }
   return `<div class="wb3d-table-wrap"><table><thead><tr><th>#</th><th>Check</th><th>Status</th><th>Code</th><th>Artifact</th><th>Current package</th><th>Differences</th></tr></thead><tbody>${rows.map(historyRow).join('')}</tbody></table></div>`;
 }
