@@ -5,26 +5,38 @@ import { verifyRevisionResponsivenessObservationReceiptJson } from './revision-r
 
 export const REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS = 'VERIFIED_CURRENT_AT_EXPORT';
 
-function currentDocuments(state) {
+function currentAuthority(state) {
   return {
+    session: state?.session,
     audit: state?.compare?.audit,
     revA: state?.slots?.baseline?.document,
     revB: state?.slots?.candidate?.document,
   };
 }
 
-function authorityMatches(receipt, audit, revA, revB) {
-  return Boolean(receipt && audit && revA && revB
+function revisionMatches(receipt, document) {
+  return Boolean(receipt && document
+    && receipt.documentId === document.documentId
+    && receipt.sourceHash === document.sourceHash
+    && receipt.scopedHash === document.scopedHash
+    && receipt.stagedSchema === document.stagedSchema
+    && receipt.unit === document.unit
+    && receipt.coordinateFrame === document.coordinateFrame
+    && receipt.verticalAxis === document.verticalAxis);
+}
+
+function authorityMatches(receipt, session, audit, revA, revB) {
+  return Boolean(receipt && session && audit
+    && receipt.session?.sessionId === session.sessionId
+    && receipt.session?.createdAt === session.createdAt
+    && receipt.session?.updatedAt === session.updatedAt
     && receipt.audit?.auditId === audit.auditId
     && receipt.audit?.basisId === audit.basisId
+    && receipt.audit?.engineVersion === audit.engineVersion
     && receipt.audit?.revADocumentId === audit.revADocumentId
     && receipt.audit?.revBDocumentId === audit.revBDocumentId
-    && receipt.revisions?.revA?.documentId === revA.documentId
-    && receipt.revisions?.revA?.sourceHash === revA.sourceHash
-    && receipt.revisions?.revA?.scopedHash === revA.scopedHash
-    && receipt.revisions?.revB?.documentId === revB.documentId
-    && receipt.revisions?.revB?.sourceHash === revB.sourceHash
-    && receipt.revisions?.revB?.scopedHash === revB.scopedHash);
+    && revisionMatches(receipt.revisions?.revA, revA)
+    && revisionMatches(receipt.revisions?.revB, revB));
 }
 
 function requireV2Receipt(receipt) {
@@ -43,8 +55,8 @@ export function createRevisionEvidencePackageResponsivenessReceiptAttachment(val
   if (value.status !== 'VERIFIED_CURRENT' || value.runId !== receipt.observation?.runId) {
     throw new TypeError('Responsiveness receipt attachment must be verified for the current active run.');
   }
-  const { audit, revA, revB } = currentDocuments(state);
-  if (!authorityMatches(receipt, audit, revA, revB)) {
+  const { session, audit, revA, revB } = currentAuthority(state);
+  if (!authorityMatches(receipt, session, audit, revA, revB)) {
     throw new TypeError('Responsiveness receipt attachment does not match the evidence-package authority.');
   }
   return deepFreeze(receipt);
@@ -58,10 +70,10 @@ export function revisionEvidencePackageResponsivenessIdentity(receipt) {
   });
 }
 
-export async function verifyRevisionEvidencePackageResponsivenessReceipt(receipt, audit, revA, revB, cryptoRef) {
+export async function verifyRevisionEvidencePackageResponsivenessReceipt(receipt, session, audit, revA, revB, cryptoRef) {
   requireV2Receipt(receipt);
   const verification = await verifyRevisionResponsivenessObservationReceiptJson(JSON.stringify(receipt), cryptoRef);
-  if (verification.contentSha256Status !== 'VERIFIED' || !authorityMatches(receipt, audit, revA, revB)) {
+  if (verification.contentSha256Status !== 'VERIFIED' || !authorityMatches(receipt, session, audit, revA, revB)) {
     throw new TypeError('Attached responsiveness receipt does not verify against the packaged authority.');
   }
   return deepFreeze({
