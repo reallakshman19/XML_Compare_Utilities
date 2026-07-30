@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
 import { routeRevisionCompareActionClick } from '../tabs/revision-compare/revision-compare-event-routing.js';
 import {
+  REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA,
   createRevisionResponsivenessObservationReceipt,
   revisionResponsivenessObservationReceiptFileName,
   revisionResponsivenessObservationReceiptMatches,
 } from '../tabs/revision-compare/revision-responsiveness-observation-receipt.js';
+import {
+  createRevisionResponsivenessReceiptIntegrity,
+  revisionResponsivenessReceiptId,
+} from '../tabs/revision-compare/revision-responsiveness-receipt-integrity.js';
 import { revisionViewerCompletedRunSnapshot } from '../tabs/revision-compare/revision-viewer-run-comparison.js';
 import {
   REVISION_VIEWER_DEFAULT_RESPONSIVENESS_POLICY,
@@ -137,7 +142,14 @@ const input = receiptInput(current);
 const receipt = await createRevisionResponsivenessObservationReceipt(input, globalThis.crypto);
 const duplicate = await createRevisionResponsivenessObservationReceipt(input, globalThis.crypto);
 assert.deepEqual(duplicate, receipt, 'identical authority and observations must produce identical receipt bytes');
+assert.equal(receipt.schema, REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA);
+assert.equal(receipt.schema, 'RevisionResponsivenessObservationReceipt.v2');
+assert.match(receipt.contentSha256, /^[a-f0-9]{64}$/);
+assert.equal(receipt.receiptId, revisionResponsivenessReceiptId(receipt.contentSha256));
 assert.match(receipt.receiptId, /^responsiveness-observation:[a-f0-9]{24}$/);
+const integrity = await createRevisionResponsivenessReceiptIntegrity(receipt, globalThis.crypto);
+assert.equal(integrity.contentSha256, receipt.contentSha256);
+assert.equal(integrity.receiptId, receipt.receiptId);
 assert.equal(receipt.authority.classification, 'PRODUCT_RUNTIME_OBSERVATION_ONLY');
 assert.equal(receipt.authority.engineeringCertification, 'NONE');
 assert.match(receipt.authority.statement, /not engineering acceptance/i);
