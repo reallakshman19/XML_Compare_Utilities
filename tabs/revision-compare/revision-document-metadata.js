@@ -76,7 +76,7 @@ export function stagedDocumentMetadata(document) {
   const profile = inferredProfile(document);
   return deepFreeze({
     stagedSchema: declared([
-      root.stagedSchema, metadata.stagedSchema, root.sourceSchema, root.schema, metadata.schema, profile?.stagedSchema,
+      root.stagedSchema, metadata.stagedSchema, root.schema, metadata.schema, profile?.stagedSchema,
     ]),
     unit: declared([root.unit, root.units, metadata.unit, metadata.units, profile?.fields.unit]),
     verticalAxis: declared([
