@@ -153,7 +153,7 @@ test('representative Sequential source exposes real Workbench scene, fit and pic
   expect(finalEvidence.scene.status).toBe('READY');
 });
 
-test('large Sequential comparison can rerun the real Workbench responsiveness measurement', async ({ page }) => {
+test('large Sequential comparison can compare consecutive Workbench responsiveness runs', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await installResponsivenessPolicy(page);
@@ -187,6 +187,11 @@ test('large Sequential comparison can rerun the real Workbench responsiveness me
   await expect(performance.locator('[data-revc-performance-run]')).toHaveText('Run 2');
   await expect(performance.locator('[data-revc-performance-fit-count]')).toHaveText('0');
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('PENDING');
+  const comparison = performance.locator('[data-revc-run-comparison]');
+  await expect(comparison).toBeVisible();
+  await expect(comparison).toHaveAttribute('data-state', 'available');
+  await expect(comparison).toContainText('Run 1 → Run 2');
+  await expect(comparison.locator('[data-revc-run-delta-fit]')).toHaveText('Pending');
   await expect(page.locator('[data-revc-scene-selection]')).not.toHaveText('None');
   await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().viewer.viewer.skippedRebuildCount), { timeout: 60_000 })
     .toBeGreaterThan(skippedBefore);
@@ -195,13 +200,21 @@ test('large Sequential comparison can rerun the real Workbench responsiveness me
   await page.getByRole('button', { name: 'Fit selected' }).click();
   await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
+  await expect(comparison.locator('[data-revc-run-delta-scene]')).not.toHaveText('Pending');
+  await expect(comparison.locator('[data-revc-run-delta-ready]')).not.toHaveText('Pending');
+  await expect(comparison.locator('[data-revc-run-delta-fit]')).not.toHaveText('Pending');
+  await expect(comparison.locator('[data-revc-run-delta-memory]')).toHaveText(/Pending|MiB/);
   await expect(performance.locator('[data-revc-performance-heap]')).toHaveText(/Unavailable|MiB/);
-  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /Rerun measurement clears only runtime timing observations/);
+  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /Run deltas are current minus previous/);
 
   const evidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence()));
   expect(evidence.scene.runSequence).toBe(2);
   expect(evidence.scene.runId).toMatch(/run:2$/);
+  expect(evidence.scene.previousRun.runSequence).toBe(1);
   expect(evidence.scene.responsiveness.bandId).toBe('BALANCED');
   expect(evidence.scene.responsiveness.disposition).toBe('QUALIFIED');
+  expect(evidence.scene.responsiveness.comparison.available).toBe(true);
+  expect(evidence.scene.responsiveness.comparison.previous.runSequence).toBe(1);
+  expect(evidence.scene.responsiveness.comparison.current.runSequence).toBe(2);
   expect(evidence.viewer.fitSelectedCount).toBeGreaterThan(0);
 });

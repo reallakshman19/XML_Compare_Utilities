@@ -3,6 +3,10 @@ import { routeRevisionCompareActionClick } from '../tabs/revision-compare/revisi
 import { createRevisionCompareViewerAdapter } from '../tabs/revision-compare/revision-compare-viewer-adapter.js';
 import { createRevisionViewerSceneMonitor } from '../tabs/revision-compare/revision-viewer-scene-monitor.js';
 import {
+  revisionViewerCompletedRunSnapshot,
+  revisionViewerRunComparison,
+} from '../tabs/revision-compare/revision-viewer-run-comparison.js';
+import {
   REVISION_VIEWER_DEFAULT_RESPONSIVENESS_POLICY,
   createRevisionViewerResponsivenessPolicy,
   readRevisionViewerMemory,
@@ -44,8 +48,10 @@ function scene(drawableCount, status = 'READY') {
 }
 function observations(overrides = {}) {
   return {
+    runKey: 'audit:performance|WEBGL',
     runId: 'audit:performance|WEBGL|run:1',
     runSequence: 1,
+    previousRun: null,
     elapsedMs: 900,
     sceneRuntimeObservedMs: 600,
     firstReadyMs: 800,
@@ -80,18 +86,40 @@ const coarse = revisionViewerResponsivenessModel(scene(12000), viewerEvidence(),
 assert.equal(fine.bandId, 'FINE');
 assert.equal(balanced.bandId, 'BALANCED');
 assert.equal(coarse.bandId, 'COARSE');
+assert.equal(fine.runKey, 'audit:performance|WEBGL');
 assert.equal(fine.runId, 'audit:performance|WEBGL|run:1');
 assert.equal(fine.runSequence, 1);
 assert.equal(fine.canRerun, true);
 assert.equal(fine.disposition, 'QUALIFIED');
 assert.equal(fine.metrics.memory.status, 'UNAVAILABLE');
+assert.equal(fine.comparison.available, false);
+assert.equal(fine.comparison.reason, 'NO_PREVIOUS_COMPLETED_RUN');
 assert.match(fine.message, /heap telemetry is unavailable/);
 assert.match(fine.disclosure, /sampling resolution 250 ms/i);
+assert.match(fine.disclosure, /Run deltas are current minus previous/);
 assert.match(fine.disclosure, /Rerun measurement clears only runtime timing observations/);
 assert.match(fine.disclosure, /do not alter renderer, engineering, topology, comparison, persistence, or export authority/);
 const fineMarkup = revisionViewerResponsivenessMarkup(fine);
 assert.match(fineMarkup, /data-revc-rerun-responsiveness/);
 assert.match(fineMarkup, /data-revc-performance-run>Run 1</);
+assert.match(fineMarkup, /data-revc-run-comparison/);
+
+const previousFine = revisionViewerCompletedRunSnapshot(fine.runKey, fine);
+assert.equal(previousFine.runSequence, 1);
+assert.equal(revisionViewerCompletedRunSnapshot(fine.runKey, { ...fine, disposition: 'PENDING' }), null);
+const secondFine = revisionViewerResponsivenessModel(scene(2999), viewerEvidence({ lastFitSelectedMs: 20 }), observations({
+  runId: 'audit:performance|WEBGL|run:2', runSequence: 2, previousRun: previousFine,
+  sceneRuntimeObservedMs: 500, firstReadyMs: 650,
+}), policy);
+assert.equal(secondFine.comparison.available, true);
+assert.equal(secondFine.comparison.previous.runSequence, 1);
+assert.equal(secondFine.comparison.current.runSequence, 2);
+assert.equal(secondFine.comparison.deltas.sceneMs, -100);
+assert.equal(secondFine.comparison.deltas.firstReadyMs, -150);
+assert.equal(secondFine.comparison.deltas.fitSelectedMs, -10);
+assert.equal(secondFine.comparison.deltas.heapGrowthBytes, null);
+assert.match(revisionViewerResponsivenessMarkup(secondFine), /Run 1 → Run 2/);
+assert.equal(revisionViewerRunComparison(previousFine, secondFine, 'other|WEBGL').reason, 'RUN_KEY_MISMATCH');
 
 const slowFit = revisionViewerResponsivenessModel(scene(100), viewerEvidence({ lastFitSelectedMs: 100 }), observations(), policy);
 assert.equal(slowFit.metrics.fitSelected.status, 'FAIL');
@@ -178,15 +206,35 @@ assert.equal(monitor.evidence().responsiveness.disposition, 'QUALIFIED');
 assert.equal(monitor.evidence().responsiveness.metrics.memory.value, 25 * MIB);
 monitor.resetResponsiveness();
 assert.equal(monitor.evidence().runKey, null);
+assert.equal(monitor.evidence().previousRun.runSequence, 1);
 assert.equal(monitor.evidence().firstReadyMs, null);
 evidence = viewerEvidence({ fitSelectedCount: 0, lastFitSelectedMs: null });
 monitor.start(monitorRoot(), monitoredAudit, adapterEvidence);
 assert.equal(monitor.evidence().runSequence, 2);
 assert.notEqual(monitor.evidence().runId, firstRunId);
+assert.equal(monitor.evidence().responsiveness.comparison.available, true);
+assert.equal(monitor.evidence().responsiveness.comparison.previous.runSequence, 1);
+assert.equal(monitor.evidence().responsiveness.comparison.current.runSequence, 2);
 assert.equal(monitor.evidence().responsiveness.metrics.fitSelected.count, 0);
+now = 550;
+heapUsed = 130 * MIB;
+evidence = viewerEvidence({ fitSelectedCount: 1, lastFitSelectedMs: 10 });
+const secondReadyTimer = [...timers.values()][0];
+timers.clear();
+secondReadyTimer();
+const comparison = monitor.evidence().responsiveness.comparison;
+assert.equal(comparison.deltas.sceneMs, -300);
+assert.equal(comparison.deltas.firstReadyMs, -300);
+assert.equal(comparison.deltas.fitSelectedMs, -10);
+assert.equal(comparison.deltas.heapGrowthBytes, -20 * MIB);
+monitor.stop();
+monitor.start(monitorRoot(), audit('audit:replacement'), adapterEvidence);
+assert.equal(monitor.evidence().previousRun, null, 'new audit clears the previous-run baseline');
+assert.equal(monitor.evidence().responsiveness.comparison.available, false);
 monitor.destroy();
 assert.equal(timers.size, 0);
 assert.equal(monitor.evidence().runKey, null);
+assert.equal(monitor.evidence().previousRun, null);
 assert.equal(monitor.evidence().runSequence, 0);
 
 let viewerCallbacks;

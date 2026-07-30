@@ -12,6 +12,7 @@ import {
   readRevisionViewerMemory,
   revisionViewerResponsivenessModel,
 } from './revision-viewer-responsiveness.js';
+import { revisionViewerCompletedRunSnapshot } from './revision-viewer-run-comparison.js';
 
 function timerFunction(value, fallback, label) {
   const result = value ?? fallback;
@@ -120,8 +121,10 @@ function currentModels(context) {
   if (elapsedMs >= context.pendingLimitMs) scene = timedOutRevisionViewerSceneStatus(scene, elapsedMs);
   observeTiming(context, scene, elapsedMs);
   const observations = {
+    runKey: context.runKey,
     runId: context.runId,
     runSequence: context.runSequence,
+    previousRun: context.previousRun,
     elapsedMs,
     sceneRuntimeObservedMs: context.sceneRuntimeObservedMs,
     firstReadyMs: context.firstReadyMs,
@@ -225,6 +228,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
     memoryReader: timerFunction(options.memoryReader, () => readRevisionViewerMemory(), 'Scene monitor memoryReader'),
     generation: 0, timer: null, active: false, destroyed: false,
     root: null, audit: null, adapter: null, runKey: null, runId: null, runSequence: 0,
+    previousRun: null,
     activeStartedAt: null, accumulatedActiveMs: 0, elapsedMs: 0,
     sceneRuntimeObservedMs: null, firstReadyMs: null,
     memoryBaselineUsedBytes: null, memoryPeakUsedBytes: null, memoryLimitBytes: null,
@@ -240,7 +244,10 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       const evidence = adapter.evidence();
       const key = runKey(audit, evidence);
       detach(context);
-      if (context.runKey !== key) beginRun(context, key);
+      if (context.runKey !== key) {
+        if (context.previousRun?.runKey !== key) context.previousRun = null;
+        beginRun(context, key);
+      }
       context.active = true;
       context.activeStartedAt = context.clock();
       context.root = root;
@@ -253,6 +260,8 @@ export function createRevisionViewerSceneMonitor(options = {}) {
     stop: () => detach(context),
     resetResponsiveness() {
       if (context.destroyed) throw new Error('Revision viewer scene monitor is destroyed.');
+      const completedRun = revisionViewerCompletedRunSnapshot(context.runKey, context.lastPerformanceModel);
+      if (completedRun) context.previousRun = completedRun;
       detach(context);
       clearRun(context);
       return true;
@@ -263,6 +272,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       runKey: context.runKey,
       runId: context.runId,
       runSequence: context.runSequence,
+      previousRun: context.previousRun,
       sampleCount: context.sampleCount,
       runSampleCount: context.runSampleCount,
       status: context.lastModel?.status ?? 'INACTIVE',
@@ -276,6 +286,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       if (context.destroyed) return false;
       detach(context);
       clearRun(context);
+      context.previousRun = null;
       context.runSequence = 0;
       context.destroyed = true;
       return true;
