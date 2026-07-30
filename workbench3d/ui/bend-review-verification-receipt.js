@@ -89,6 +89,11 @@ function validateReceipt(receipt) {
   if (receipt.authority !== BEND_REVIEW_VERIFICATION_RECEIPT_AUTHORITY) return `Unexpected receipt authority: ${text(receipt.authority) || 'missing'}.`;
   if (receipt.deterministic !== true) return 'Receipt must declare deterministic=true.';
   if (!object(receipt.payload)) return 'Receipt payload is missing.';
+  if (!object(receipt.payload.currentPackage)) return 'Receipt current-package reference is missing.';
+  if (receipt.payload.currentPackage.contract !== BEND_REVIEW_PACKAGE_CONTRACT) return `Unsupported recorded package contract: ${text(receipt.payload.currentPackage.contract) || 'missing'}.`;
+  if (!text(receipt.payload.currentPackage.packageSignature)) return 'Receipt current-package signature is missing.';
+  if (!text(receipt.payload.currentPackage.disposition)) return 'Receipt current-package disposition is missing.';
+  if (!object(receipt.payload.verification)) return 'Receipt verification evidence is missing.';
   const expected = computeBendReviewVerificationReceiptSignature(receipt.payload);
   if (receipt.receiptSignature !== expected) return `Receipt signature mismatch; expected ${expected}.`;
   return '';
@@ -100,8 +105,10 @@ export function verifyBendReviewVerificationReceipt(receipt, currentManifest) {
   const recorded = receipt.payload?.currentPackage ?? {};
   const current = packageReference(currentManifest);
   const differences = [];
-  if (recorded.contract !== BEND_REVIEW_PACKAGE_CONTRACT) differences.push(receiptDifference('Recorded package contract', recorded.contract, BEND_REVIEW_PACKAGE_CONTRACT));
-  for (const [field, label] of [['packageSignature', 'Current package signature'], ['disposition', 'Current package disposition']]) {
+  for (const [field, label] of [
+    ['contract', 'Current package contract'], ['packageSignature', 'Current package signature'],
+    ['disposition', 'Current package disposition'],
+  ]) {
     if (text(recorded[field]) !== text(current[field])) differences.push(receiptDifference(label, recorded[field], current[field]));
   }
   if (differences.length) {
