@@ -44,14 +44,20 @@ function jsonCopy(value) {
 }
 function safeSnapshot(viewer) { return jsonCopy(viewer?.getStateSnapshot?.() ?? null); }
 function auditIdentity(audit) { return audit?.auditId ?? audit?.basisId ?? null; }
-function resetInteractionEvidence(context) {
+function resetPickEvidence(context) {
   context.pickCount = 0;
   context.lastPickedObjectId = null;
   context.lastPickedDifferenceId = null;
+}
+function resetResponsivenessEvidence(context) {
   context.fitSelectedCount = 0;
   context.lastFitSelectedMs = null;
   context.maxFitSelectedMs = null;
   context.lastFitSelectedDifferenceId = null;
+}
+function resetInteractionEvidence(context) {
+  resetPickEvidence(context);
+  resetResponsivenessEvidence(context);
 }
 function finiteElapsed(startedAt, completedAt) {
   const elapsed = Number(completedAt) - Number(startedAt);
@@ -179,6 +185,10 @@ export function createRevisionCompareViewerAdapter(options = {}) {
       context.previewSourceDifferenceId = null;
       context.previewTargetDifferenceId = null;
       applySelection(context);
+    },
+    resetResponsivenessEvidence: () => {
+      resetResponsivenessEvidence(context);
+      return true;
     },
     fitSelected: () => fitSelected(context),
     fitAll: () => context.controller.fitAll(),
