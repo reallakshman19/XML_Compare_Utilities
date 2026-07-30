@@ -15,6 +15,10 @@ import {
   transitionSequentialSupportAdjustmentHistory,
 } from '../support/sequential-support-adjustment-history.js';
 import {
+  restoreSupportAdjustmentPackageMaps,
+  supportAdjustmentPackageRows,
+} from '../persistence/sequential-support-adjustment-package-state.js';
+import {
   sameSequentialContractValue,
   sequentialSemanticFingerprint,
 } from './sequential-command-contracts.js';
@@ -24,6 +28,9 @@ import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-e
 
 export const SEQUENTIAL_SUPPORT_ADJUSTMENT_BOUNDARY_SCHEMA =
   'SequentialSupportAdjustmentBoundary.v1';
+
+const SUPPORT_PACKAGE_STAGE_SCHEMA = 'SequentialSupportAdjustmentPackageStage.v1';
+const SUPPORT_PACKAGE_COMMIT_SCHEMA = 'SequentialSupportAdjustmentPackageCommit.v1';
 
 function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
@@ -41,6 +48,10 @@ function adjustedCommandOwner(ownerSnapshot, register) {
     }),
   });
 }
+function replaceMap(target, source) {
+  target.clear();
+  source.forEach((value, key) => target.set(key, value));
+}
 
 export function createSequentialSupportAdjustmentBoundary(options = {}) {
   const readBaseState = requiredFunction(options.readBaseState, 'readBaseState');
@@ -51,6 +62,8 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
   const onPublished = requiredFunction(options.onPublished, 'onPublished');
   const byBranch = new Map();
   const consumedHistoryPreparedIdsByBranch = new Map();
+  const preparedPackageStages = new WeakMap();
+  const committedPackageStates = new WeakMap();
   let destroyed = false;
 
   function currentHistory(snapshot) {
@@ -229,6 +242,91 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     onPublished(publication);
     return publication;
   }
+  function exportPackageState() {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    return supportAdjustmentPackageRows(byBranch, consumedHistoryPreparedIdsByBranch);
+  }
+  function stagedHistory(restored, snapshot) {
+    const id = branchId(snapshot);
+    const base = snapshot?.supportProjection || null;
+    if (!id || !base) return null;
+    const stored = restored.byBranch.get(id);
+    if (!stored) return null;
+    const baseProjectionFingerprint = sequentialSupportProjectionFingerprint(base);
+    if (stored.baseProjectionFingerprint !== baseProjectionFingerprint) {
+      throw new RangeError('Restored support adjustment base projection is stale.');
+    }
+    return assertSequentialSupportAdjustmentHistory(stored.history, {
+      constructionFingerprint: base.constructionFingerprint,
+      baseProjectionFingerprint,
+    });
+  }
+  function preparePackageState(value) {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    const restored = restoreSupportAdjustmentPackageMaps(value);
+    stagedHistory(restored, readBaseOwnerSnapshot());
+    const stage = Object.freeze({ schema: SUPPORT_PACKAGE_STAGE_SCHEMA, state: restored.state });
+    preparedPackageStages.set(stage, restored);
+    return stage;
+  }
+  function preparedRecord(stage) {
+    const restored = preparedPackageStages.get(stage);
+    if (stage?.schema !== SUPPORT_PACKAGE_STAGE_SCHEMA || !restored) {
+      throw new TypeError('Support package state must be prepared by this boundary.');
+    }
+    return restored;
+  }
+  function readPackageStageView(stage) {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    const restored = preparedRecord(stage);
+    const snapshot = readBaseOwnerSnapshot();
+    const history = stagedHistory(restored, snapshot);
+    const ownerSnapshot = history
+      ? createSequentialAdjustedEngineeringSvgOwnerSnapshot(snapshot, history.currentRegister)
+      : snapshot;
+    if (!ownerSnapshot) return Object.freeze({ ownerSnapshot: null, readModel: null, scene: null });
+    const readModel = createSequentialScopedEditReadModel(ownerSnapshot);
+    return Object.freeze({ ownerSnapshot, readModel,
+      scene: buildSequentialScopedEditEngineeringScene(readModel) });
+  }
+  function commitPackageState(stage) {
+    if (destroyed) throw new Error('Support adjustment boundary is destroyed.');
+    const restored = preparedRecord(stage);
+    const previous = Object.freeze({
+      byBranch: new Map(byBranch),
+      consumedByBranch: new Map(consumedHistoryPreparedIdsByBranch),
+    });
+    replaceMap(byBranch, restored.byBranch);
+    replaceMap(consumedHistoryPreparedIdsByBranch, restored.consumedByBranch);
+    const commit = Object.freeze({ schema: SUPPORT_PACKAGE_COMMIT_SCHEMA, state: restored.state });
+    committedPackageStates.set(commit, previous);
+    preparedPackageStages.delete(stage);
+    return commit;
+  }
+  function committedRecord(commit) {
+    const previous = committedPackageStates.get(commit);
+    if (commit?.schema !== SUPPORT_PACKAGE_COMMIT_SCHEMA || !previous) {
+      throw new TypeError('Support package commit is not active on this boundary.');
+    }
+    return previous;
+  }
+  function rollbackPackageState(commit) {
+    const previous = committedRecord(commit);
+    replaceMap(byBranch, previous.byBranch);
+    replaceMap(consumedHistoryPreparedIdsByBranch, previous.consumedByBranch);
+    committedPackageStates.delete(commit);
+    return commit.state;
+  }
+  function finalizePackageState(commit) {
+    committedRecord(commit);
+    committedPackageStates.delete(commit);
+    return commit.state;
+  }
+  function discardPackageState(stage) {
+    if (!preparedPackageStages.has(stage)) return false;
+    preparedPackageStages.delete(stage);
+    return true;
+  }
   return Object.freeze({
     schema: SEQUENTIAL_SUPPORT_ADJUSTMENT_BOUNDARY_SCHEMA,
     readCurrentState,
@@ -237,6 +335,13 @@ export function createSequentialSupportAdjustmentBoundary(options = {}) {
     readView,
     publishCandidate,
     publishHistoryCandidate,
+    exportPackageState,
+    preparePackageState,
+    readPackageStageView,
+    commitPackageState,
+    rollbackPackageState,
+    finalizePackageState,
+    discardPackageState,
     getState: () => Object.freeze({
       branchCount: byBranch.size,
       branches: Object.freeze([...byBranch.entries()].map(([id, stored]) => Object.freeze({

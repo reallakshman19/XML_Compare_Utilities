@@ -10,6 +10,10 @@ import {
   applySequentialGeometryEditJournalToScene,
   applySequentialGeometryEditJournalToTopology,
 } from './sequential-geometry-edit-projection.js';
+import {
+  geometryEditPackageRows,
+  restoreGeometryEditPackageMaps,
+} from '../persistence/sequential-geometry-edit-package-state.js';
 import { createSequentialEffectiveGeometryReadModel } from './sequential-effective-geometry-read-model.js';
 import { createSequentialEditableTopologySnapshot } from './sequential-editable-topology-snapshot.js';
 import { buildSequentialScopedEditEngineeringScene } from './sequential-scoped-edit-scene-adapter.js';
@@ -19,6 +23,9 @@ export const SEQUENTIAL_PREPARED_GEOMETRY_EDIT_CANDIDATE_SCHEMA =
   'SequentialPreparedGeometryEditCandidate.v1';
 export const SEQUENTIAL_PREPARED_GEOMETRY_MOVE_CANDIDATE_SCHEMA =
   'SequentialPreparedGeometryMoveCandidate.v1';
+
+const GEOMETRY_PACKAGE_STAGE_SCHEMA = 'SequentialGeometryEditPackageStage.v1';
+const GEOMETRY_PACKAGE_COMMIT_SCHEMA = 'SequentialGeometryEditPackageCommit.v1';
 
 function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
@@ -147,6 +154,89 @@ function publishCandidate(runtime, input = {}) {
   const publication = publicationRecord(current, input.preparedId, validated);
   runtime.onPublished(publication); return publication;
 }
+function exportPackageState(runtime) {
+  if (runtime.destroyed) throw new Error('Geometry edit boundary is destroyed.');
+  return geometryEditPackageRows(runtime.byBranch, runtime.consumedByBranch);
+}
+function replaceMap(target, source) {
+  target.clear();
+  source.forEach((value, key) => target.set(key, value));
+}
+function restorationBase(view) {
+  if (!view?.readModel || !view?.scene) return Object.freeze({ branchId: null, fingerprint: null });
+  const snapshot = baseSnapshot(view);
+  return Object.freeze({
+    branchId: branchId(view),
+    fingerprint: sequentialGeometryEditBaseFingerprint(snapshot),
+    snapshot,
+  });
+}
+function validateRestoredBase(restored, base) {
+  if (!base.branchId) return;
+  const journal = restored.byBranch.get(base.branchId);
+  if (journal) assertSequentialGeometryEditJournal(journal, base.snapshot);
+}
+function preparePackageState(runtime, value, options = {}) {
+  if (runtime.destroyed) throw new Error('Geometry edit boundary is destroyed.');
+  const restored = restoreGeometryEditPackageMaps(value);
+  const base = restorationBase(options.baseView || runtime.readBaseView());
+  validateRestoredBase(restored, base);
+  const stage = Object.freeze({ schema: GEOMETRY_PACKAGE_STAGE_SCHEMA, state: restored.state });
+  runtime.preparedPackageStages.set(stage, Object.freeze({ restored, base }));
+  return stage;
+}
+function preparedRecord(runtime, stage) {
+  const record = runtime.preparedPackageStages.get(stage);
+  if (stage?.schema !== GEOMETRY_PACKAGE_STAGE_SCHEMA || !record) {
+    throw new TypeError('Geometry package state must be prepared by this boundary.');
+  }
+  return record;
+}
+function commitPackageState(runtime, stage) {
+  if (runtime.destroyed) throw new Error('Geometry edit boundary is destroyed.');
+  const record = preparedRecord(runtime, stage);
+  const currentBase = restorationBase(runtime.readBaseView());
+  if (currentBase.branchId !== record.base.branchId
+    || currentBase.fingerprint !== record.base.fingerprint) {
+    throw new RangeError('Prepared geometry package base changed before commit.');
+  }
+  validateRestoredBase(record.restored, currentBase);
+  const previous = Object.freeze({
+    byBranch: new Map(runtime.byBranch),
+    consumedByBranch: new Map(runtime.consumedByBranch),
+  });
+  replaceMap(runtime.byBranch, record.restored.byBranch);
+  replaceMap(runtime.consumedByBranch, record.restored.consumedByBranch);
+  const commit = Object.freeze({ schema: GEOMETRY_PACKAGE_COMMIT_SCHEMA,
+    state: record.restored.state });
+  runtime.committedPackageStates.set(commit, previous);
+  runtime.preparedPackageStages.delete(stage);
+  return commit;
+}
+function committedRecord(runtime, commit) {
+  const previous = runtime.committedPackageStates.get(commit);
+  if (commit?.schema !== GEOMETRY_PACKAGE_COMMIT_SCHEMA || !previous) {
+    throw new TypeError('Geometry package commit is not active on this boundary.');
+  }
+  return previous;
+}
+function rollbackPackageState(runtime, commit) {
+  const previous = committedRecord(runtime, commit);
+  replaceMap(runtime.byBranch, previous.byBranch);
+  replaceMap(runtime.consumedByBranch, previous.consumedByBranch);
+  runtime.committedPackageStates.delete(commit);
+  return commit.state;
+}
+function finalizePackageState(runtime, commit) {
+  committedRecord(runtime, commit);
+  runtime.committedPackageStates.delete(commit);
+  return commit.state;
+}
+function discardPackageState(runtime, stage) {
+  if (!runtime.preparedPackageStages.has(stage)) return false;
+  runtime.preparedPackageStages.delete(stage);
+  return true;
+}
 function boundaryState(runtime) {
   return Object.freeze({ branchCount: runtime.byBranch.size,
     branches: Object.freeze([...runtime.byBranch.entries()].map(([id, journal]) => Object.freeze({
@@ -163,12 +253,19 @@ export function createSequentialGeometryEditBoundary(options = {}) {
   const runtime = { readBaseState: requiredFunction(options.readBaseState, 'readBaseState'),
     readBaseView: requiredFunction(options.readBaseView, 'readBaseView'),
     onPublished: requiredFunction(options.onPublished, 'onPublished'),
-    byBranch: new Map(), consumedByBranch: new Map(), destroyed: false };
+    byBranch: new Map(), consumedByBranch: new Map(), destroyed: false,
+    preparedPackageStages: new WeakMap(), committedPackageStates: new WeakMap() };
   return Object.freeze({
     schema: SEQUENTIAL_GEOMETRY_EDIT_BOUNDARY_SCHEMA,
     readCurrentState: () => readCurrentState(runtime),
     readJournal: () => currentJournal(runtime, runtime.readBaseView()),
     readView: () => readView(runtime), publishCandidate: (input) => publishCandidate(runtime, input),
+    exportPackageState: () => exportPackageState(runtime),
+    preparePackageState: (value, options) => preparePackageState(runtime, value, options),
+    commitPackageState: (stage) => commitPackageState(runtime, stage),
+    rollbackPackageState: (commit) => rollbackPackageState(runtime, commit),
+    finalizePackageState: (commit) => finalizePackageState(runtime, commit),
+    discardPackageState: (stage) => discardPackageState(runtime, stage),
     getState: () => boundaryState(runtime), destroy: () => destroyBoundary(runtime),
   });
 }

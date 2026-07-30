@@ -22,6 +22,7 @@ function frozenStrings(values = []) {
 function expectedPackageRevision(schema) {
   if (schema === 'SequentialWorkspacePackage.v1') return 1;
   if (schema === 'SequentialWorkspacePackage.v2') return 2;
+  if (schema === 'SequentialWorkspacePackage.v3') return 3;
   return null;
 }
 function validPackageIdentity(schema, revision) {
@@ -52,6 +53,33 @@ function packageIdentity(options) {
   if (!identity.present) fail('WORKSPACE_APPLY_PACKAGE_IDENTITY_REQUIRED');
   return { packageSchema: identity.packageSchema, packageRevision: identity.packageRevision };
 }
+function draftEditEvidence(restoration) {
+  const extension = restoration?.draftEditExtension || null;
+  if (!extension) return Object.freeze({
+    extensionFingerprint: null,
+    supportBranchCount: 0,
+    supportAdjustmentCount: 0,
+    geometryBranchCount: 0,
+    geometryEditCount: 0,
+  });
+  const summary = extension.summary || {};
+  return Object.freeze({
+    extensionFingerprint: text(extension.extensionFingerprint) || null,
+    supportBranchCount: Number(summary.supportBranchCount || 0),
+    supportAdjustmentCount: Number(summary.supportAdjustmentCount || 0),
+    geometryBranchCount: Number(summary.geometryBranchCount || 0),
+    geometryEditCount: Number(summary.geometryEditCount || 0),
+  });
+}
+function validDraftEditEvidence(value, packageSchema) {
+  if (packageSchema !== 'SequentialWorkspacePackage.v3' && value == null) return true;
+  const evidence = value || {};
+  const counts = ['supportBranchCount', 'supportAdjustmentCount',
+    'geometryBranchCount', 'geometryEditCount'];
+  if (!counts.every((key) => Number.isSafeInteger(evidence[key]) && evidence[key] >= 0)) return false;
+  if (packageSchema === 'SequentialWorkspacePackage.v3') return Boolean(text(evidence.extensionFingerprint));
+  return evidence.extensionFingerprint === null && counts.every((key) => evidence[key] === 0);
+}
 function validateReceiptPackageIdentity(receipt, index) {
   const hasSchema = receipt.packageSchema !== undefined;
   const hasRevision = receipt.packageRevision !== undefined;
@@ -64,12 +92,14 @@ function validateReceiptPackageIdentity(receipt, index) {
   if (!SEQUENTIAL_WORKSPACE_JOURNAL_IMPACTS.includes(receipt.impact.journalImpact)) {
     fail(`WORKSPACE_APPLY_RECEIPT_JOURNAL_IMPACT_INVALID:${index}`);
   }
+  if (!validDraftEditEvidence(receipt.draftEditEvidence, receipt.packageSchema)) {
+    fail(`WORKSPACE_APPLY_RECEIPT_DRAFT_EDIT_EVIDENCE_INVALID:${index}`);
+  }
 }
 
 export function sequentialWorkspaceApplicationReceiptFingerprint(value) {
   return stableToken(JSON.stringify(canonicalValue(fingerprintPayload(value))));
 }
-
 export function validateSequentialWorkspaceApplicationApproval(preview, approval = {}) {
   if (preview?.schema !== 'SequentialWorkspaceImportPreview.v1') fail('WORKSPACE_APPLY_PREVIEW_INVALID');
   const reason = text(approval.reason);
@@ -78,7 +108,6 @@ export function validateSequentialWorkspaceApplicationApproval(preview, approval
   if (preview.hasDestructiveChanges && !evidenceNote) fail('WORKSPACE_APPLY_EVIDENCE_REQUIRED');
   return Object.freeze({ reason, evidenceNote });
 }
-
 function impact(preview) {
   return Object.freeze({
     sourceRelation: preview.sourceRelation,
@@ -98,7 +127,6 @@ function impact(preview) {
     hasDestructiveChanges: Boolean(preview.hasDestructiveChanges),
   });
 }
-
 export function createSequentialWorkspaceApplicationReceipt(options = {}) {
   const approval = validateSequentialWorkspaceApplicationApproval(options.preview, options);
   const identity = packageIdentity(options);
@@ -122,6 +150,7 @@ export function createSequentialWorkspaceApplicationReceipt(options = {}) {
     beforeWorkspaceFingerprint: beforeFingerprint,
     afterWorkspaceFingerprint: afterFingerprint,
     previewCurrentStateFingerprint: options.preview.currentStateFingerprint,
+    draftEditEvidence: draftEditEvidence(options.restoration),
     impact: impact(options.preview),
     externalBoundaryPolicyFingerprint: SEQUENTIAL_EXTERNAL_BOUNDARY_POLICY.policyFingerprint,
     tolerancePolicyFingerprint: SEQUENTIAL_CONSTRUCTION_TOLERANCE_POLICY.policyFingerprint,
@@ -132,7 +161,6 @@ export function createSequentialWorkspaceApplicationReceipt(options = {}) {
     receiptFingerprint: sequentialWorkspaceApplicationReceiptFingerprint(payload),
   });
 }
-
 export function validateSequentialWorkspaceApplicationReceipt(receipt, index = 0) {
   if (receipt?.schema !== SEQUENTIAL_WORKSPACE_APPLICATION_RECEIPT_SCHEMA) {
     fail(`WORKSPACE_APPLY_RECEIPT_SCHEMA_INVALID:${index}`);
@@ -156,5 +184,7 @@ export function validateSequentialWorkspaceApplicationReceipt(receipt, index = 0
   }
   const expected = sequentialWorkspaceApplicationReceiptFingerprint(receipt);
   if (receipt.receiptFingerprint !== expected) fail(`WORKSPACE_APPLY_RECEIPT_FINGERPRINT_MISMATCH:${index}`);
-  return Object.freeze({ ...receipt, impact: Object.freeze({ ...(receipt.impact || {}) }) });
+  return Object.freeze({ ...receipt,
+    draftEditEvidence: Object.freeze({ ...(receipt.draftEditEvidence || {}) }),
+    impact: Object.freeze({ ...(receipt.impact || {}) }) });
 }

@@ -24,6 +24,16 @@ function difference(left, right) { const other = new Set(right); return left.fil
 function intersection(left, right) { const other = new Set(right); return left.filter((value) => other.has(value)); }
 function sessionFingerprint(snapshot) { return snapshot?.session ? sequentialSessionFingerprint(snapshot.session) : null; }
 function workspaceIdentity(snapshot) { return `${sessionFingerprint(snapshot) || ''}|${text(snapshot?.selectedCandidateId)}`; }
+function editIdentity(value) { return text(value?.extensionFingerprint) || null; }
+function editSummary(value) {
+  const summary = value?.summary || {};
+  return Object.freeze({
+    supportBranchCount: Number(summary.supportBranchCount || 0),
+    supportAdjustmentCount: Number(summary.supportAdjustmentCount || 0),
+    geometryBranchCount: Number(summary.geometryBranchCount || 0),
+    geometryEditCount: Number(summary.geometryEditCount || 0),
+  });
+}
 function currentBranchIds(model) {
   if (model?.evidence?.branches) return sorted(model.evidence.branches.map((branch) => branch.branchId));
   return sorted(model?.branchRegistry?.ids?.() || []);
@@ -45,7 +55,7 @@ function journalIdentity(state, failureCode) {
     journalHeadFingerprint: sequentialCommandJournalHeadFingerprint(state),
   });
 }
-function journalImpact(current, packaged) {
+function authorityImpact(current, packaged) {
   if (!current && !packaged) return 'ABSENT';
   if (!current) return 'INSTALL';
   if (!packaged) return 'REMOVE';
@@ -61,7 +71,9 @@ export function sequentialWorkspaceCurrentStateFingerprint(model = {}) {
     workspaces: currentWorkspaceRows(model),
   };
   const authority = journalIdentity(model.journalState, 'WORKSPACE_IMPORT_JOURNAL_STATE_INVALID');
+  const editFingerprint = editIdentity(model.draftEditExtension);
   if (authority) material.journalAuthority = authority;
+  if (editFingerprint) material.draftEditExtensionFingerprint = editFingerprint;
   return stableToken(canonicalJson(material));
 }
 
@@ -76,6 +88,7 @@ export function sequentialWorkspaceRestorationStateFingerprint(restoration = {})
     branchRegistry: registry,
     session: restoration.workspaces?.find((row) => row.branchId === restoration.activeBranchId)?.snapshot?.session || null,
     journalState: restoration.journalState ?? null,
+    draftEditExtension: restoration.draftEditExtension || null,
   });
 }
 
@@ -122,8 +135,12 @@ export function buildSequentialWorkspaceImportPreview(restoration, model = {}) {
   const changes = workspaceChanges(restoration, model);
   const currentJournal = journalIdentity(model.journalState, 'WORKSPACE_IMPORT_JOURNAL_STATE_INVALID');
   const packageJournal = journalIdentity(restoration.journalState, 'WORKSPACE_IMPORT_PACKAGE_JOURNAL_INVALID');
-  const impact = journalImpact(currentJournal, packageJournal);
-  const destructiveJournal = impact === 'REPLACE' || impact === 'REMOVE';
+  const journalImpact = authorityImpact(currentJournal, packageJournal);
+  const currentEdit = editIdentity(model.draftEditExtension);
+  const packageEdit = editIdentity(restoration.draftEditExtension);
+  const draftEditImpact = authorityImpact(currentEdit, packageEdit);
+  const destructiveJournal = journalImpact === 'REPLACE' || journalImpact === 'REMOVE';
+  const destructiveEdit = draftEditImpact === 'REPLACE' || draftEditImpact === 'REMOVE';
   return Object.freeze({
     schema: SEQUENTIAL_WORKSPACE_IMPORT_PREVIEW_SCHEMA,
     packageFingerprint: restoration.packageFingerprint,
@@ -157,10 +174,15 @@ export function buildSequentialWorkspaceImportPreview(restoration, model = {}) {
     packageJournalCheckpointId: packageJournal?.adoptionCheckpointId || null,
     currentJournalHeadFingerprint: currentJournal?.journalHeadFingerprint || null,
     packageJournalHeadFingerprint: packageJournal?.journalHeadFingerprint || null,
-    journalImpact: impact,
+    journalImpact,
+    currentDraftEditExtensionFingerprint: currentEdit,
+    packageDraftEditExtensionFingerprint: packageEdit,
+    draftEditImpact,
+    packageDraftEditSummary: editSummary(restoration.draftEditExtension),
     requiresExplicitApply: true,
     hasDestructiveChanges: sourceRelation === 'DIFFERENT' || changes.overwrittenIds.length > 0
-      || changes.removedIds.length > 0 || difference(currentBranches, packageBranches).length > 0 || destructiveJournal,
+      || changes.removedIds.length > 0 || difference(currentBranches, packageBranches).length > 0
+      || destructiveJournal || destructiveEdit,
   });
 }
 
@@ -169,5 +191,6 @@ export function formatSequentialWorkspaceImportPreview(preview) {
   const source = { EMPTY: 'will load source evidence into an empty workspace', MATCH: 'matches the current source evidence', DIFFERENT: 'will replace the current source evidence' }[preview.sourceRelation];
   const register = preview.decisionRegisterSummary
     ? ` Register: ${preview.decisionRegisterSummary.unresolvedCount || 0} unresolved, ${preview.decisionRegisterSummary.manualResolutionCount || 0} manual.` : '';
-  return `Verified ${preview.packageSchema} revision ${preview.packageRevision} package ${preview.packageFingerprint}: source ${source}; journal impact ${preview.journalImpact}; ${preview.packageSavedWorkspaceCount} saved workspaces (${preview.newWorkspaceBranchIds.length} new, ${preview.overwrittenWorkspaceBranchIds.length} overwrite, ${preview.unchangedWorkspaceBranchIds.length} unchanged, ${preview.removedWorkspaceBranchIds.length} current removals); ${preview.packageTotals.transactionCount} transactions, ${preview.packageTotals.undoEntryCount} undo entries, ${preview.packageTotals.redoEntryCount} redo entries, ${preview.packageTotals.deferredDecisionCount} deferred decisions.${register} Nothing has been applied.`;
+  const edits = preview.packageDraftEditSummary;
+  return `Verified ${preview.packageSchema} revision ${preview.packageRevision} package ${preview.packageFingerprint}: source ${source}; journal impact ${preview.journalImpact}; Draft Edit 3D impact ${preview.draftEditImpact} (${edits.supportAdjustmentCount} support adjustments, ${edits.geometryEditCount} geometry edits); ${preview.packageSavedWorkspaceCount} saved workspaces (${preview.newWorkspaceBranchIds.length} new, ${preview.overwrittenWorkspaceBranchIds.length} overwrite, ${preview.unchangedWorkspaceBranchIds.length} unchanged, ${preview.removedWorkspaceBranchIds.length} current removals); ${preview.packageTotals.transactionCount} transactions, ${preview.packageTotals.undoEntryCount} undo entries, ${preview.packageTotals.redoEntryCount} redo entries, ${preview.packageTotals.deferredDecisionCount} deferred decisions.${register} Nothing has been applied.`;
 }

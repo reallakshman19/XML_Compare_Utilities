@@ -2,13 +2,14 @@ import { mountSequentialSketcherWorkspace } from './sequential-sketcher-workspac
 import { mountSequentialEngineeringSvgPreviewController } from './sequential-engineering-svg-preview-controller.js?v=20260721-ssk-esvg-preview-1';
 import { mountSequentialRedoController } from './construction/sequential-redo-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
 import { mountSequentialProjectExportController } from './platform/sequential-project-export-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
-import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260717-ssk-workspace-apply-receipts-1';
+import { mountSequentialWorkspacePersistenceController } from './persistence/sequential-workspace-persistence-controller.js?v=20260730-ssk-3d-p1-a';
+import { createSequentialDraftEditPackageRuntime } from './persistence/sequential-draft-edit-package-runtime.js?v=20260730-ssk-3d-p1-a';
 import { mountSequentialContinuityController } from './continuity/sequential-continuity-controller.js?v=20260717-ssk-continuity-geometry-1';
 import { createSequentialScopedEditProductionShadow } from './scoped-edit/sequential-scoped-edit-production-shadow.js?v=20260727-ssk-ts-1b-shadow-1';
 import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-scoped-edit-3d-controller.js?v=20260728-ssk-ts-3i';
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
-import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260728-ssk-ts-3i';
-import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260728-ssk-ts-3n';
+import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260730-ssk-3d-p1-a';
+import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260730-ssk-3d-p1-a';
 import { createSequentialDraftEdit3dPilotFeature } from './scoped-edit/sequential-draft-edit-3d-pilot-feature.js?v=20260730-ssk-3d-p0-a';
 
 const STYLE_ID = 'sequential-sketcher-style';
@@ -59,6 +60,7 @@ function destroyScoped(runtime) {
   runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
   runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
   runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
+  runtime.draftEditPackageRuntime = null;
   runtime.scopedEditShadow?.destroy(); runtime.scopedEditShadow = null;
 }
 function destroyWorkspace(runtime, removeTile = false) {
@@ -87,6 +89,27 @@ function mountShadow(runtime) {
     try { runtime.context.onSequentialScopedEditShadowFailure?.(error); } catch {}
   }
 }
+function reportDraftEditRestorationDiagnostic(runtime, diagnostic) {
+  try {
+    runtime.context.onSequentialScopedEdit3dFailure?.({
+      stage: 'post-commit restoration refresh',
+      message: diagnostic.message,
+      diagnostic,
+    });
+  } catch {}
+}
+function createDraftEditPackageRuntime(runtime) {
+  runtime.draftEditPackageRuntime = createSequentialDraftEditPackageRuntime({
+    workspace: runtime.active,
+    supportBoundary: runtime.supportAdjustmentBoundary,
+    geometryBoundary: runtime.geometryEditBoundary,
+    onRestored: () => {
+      runtime.scopedEditShadow?.observe();
+      runtime.draftEdit3dController?.refresh();
+    },
+    onDiagnostic: (diagnostic) => reportDraftEditRestorationDiagnostic(runtime, diagnostic),
+  });
+}
 function createBoundaries(runtime, overlay) {
   const commandBoundary = createSequentialWorkspaceCommandBoundary({
     readModel: runtime.active.getModel,
@@ -109,6 +132,7 @@ function createBoundaries(runtime, overlay) {
     readBaseView: runtime.supportAdjustmentBoundary.readView,
     onPublished: () => runtime.draftEdit3dController?.refresh(),
   });
+  createDraftEditPackageRuntime(runtime);
   return commandBoundary;
 }
 function mountPilot(runtime, overlay, commandBoundary) {
@@ -147,6 +171,7 @@ function mountScoped(runtime, overlay) {
     runtime.draftEdit3dController?.destroy(); runtime.draftEdit3dController = null;
     runtime.geometryEditBoundary?.destroy(); runtime.geometryEditBoundary = null;
     runtime.supportAdjustmentBoundary?.destroy(); runtime.supportAdjustmentBoundary = null;
+    runtime.draftEditPackageRuntime = null;
     try { runtime.context.onSequentialScopedEdit3dFailure?.({
       stage: 'controller mount', message: error?.message || String(error),
     }); } catch {}
@@ -160,7 +185,10 @@ function mountSecondary(runtime, overlay) {
   });
   runtime.redoController = mountSequentialRedoController(overlay, runtime.active, runtime.context);
   runtime.projectExportController = mountSequentialProjectExportController(overlay, runtime.active, runtime.context);
-  runtime.persistenceController = mountSequentialWorkspacePersistenceController(overlay, runtime.active, runtime.context);
+  runtime.persistenceController = mountSequentialWorkspacePersistenceController(overlay, runtime.active, {
+    ...runtime.context,
+    draftEditPackageRuntime: runtime.draftEditPackageRuntime,
+  });
   runtime.continuityController = mountSequentialContinuityController(overlay, runtime.active, runtime.context);
 }
 function openWorkspace(runtime) {
@@ -182,7 +210,7 @@ export function installSequentialSketcherTile(container, context = {}) {
     redoController: null, projectExportController: null, persistenceController: null,
     continuityController: null, previewController: null, scopedEditShadow: null,
     supportAdjustmentBoundary: null, geometryEditBoundary: null,
-    draftEdit3dController: null, pilotFeature: null, open: null,
+    draftEditPackageRuntime: null, draftEdit3dController: null, pilotFeature: null, open: null,
   };
   runtime.open = () => openWorkspace(runtime);
   runtime.tile.addEventListener('click', runtime.open);
