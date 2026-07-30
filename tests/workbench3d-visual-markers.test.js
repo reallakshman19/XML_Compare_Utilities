@@ -9,6 +9,7 @@ import { SOURCE_ELEMENT_ORIENTATION_CONTRACT } from '../workbench3d/adapters/sou
 import { resolvePacketNode, buildNodeInfoIndex } from '../workbench3d/adapters/node-resolver.js';
 import { groupObjectBlocks } from '../workbench3d/adapters/block-grouper.js';
 import './workbench3d-inputxml-bend-samples.test.js';
+import './workbench3d-consumed-bend-ancestry.test.js';
 
 const xml = `<CAESARII XML_TYPE="Input"><PIPINGMODEL>
   <PIPINGELEMENT FROM_NODE="10.000000" TO_NODE="20.000000" DELTA_X="1000.000000" DIAMETER="114.3" NAME="E1">
