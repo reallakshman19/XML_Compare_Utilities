@@ -36,6 +36,15 @@ function downloadText(documentRef, filename, content) {
 function timestamp() { return new Date().toISOString().replaceAll(':', '-').replace(/\.\d{3}Z$/u, 'Z'); }
 function createdAt() { return new Date().toISOString(); }
 function postCommit(action) { try { action(); } catch {} }
+function editSummary(value) {
+  const summary = value?.summary || value?.draftEditExtension?.summary || null;
+  if (!summary) return 'legacy package with no durable Draft Edit 3D state';
+  return `${summary.supportAdjustmentCount} support adjustments across ${summary.supportBranchCount} branches and ${summary.geometryEditCount} geometry edits across ${summary.geometryBranchCount} branches`;
+}
+function hasDurableEditAuthority(state) {
+  return Number(state?.supportBranchCount || 0) > 0
+    || Number(state?.geometryBranchCount || 0) > 0;
+}
 
 export function mountSequentialWorkspacePersistenceController(root, workspace, context = {}) {
   const exportButton = required(root, '[data-ssk-workspace-export]');
@@ -46,17 +55,37 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
   const reasonInput = required(root, '[data-ssk-workspace-apply-reason]');
   const evidenceInput = required(root, '[data-ssk-workspace-apply-evidence]');
   const summary = required(root, '[data-ssk-workspace-package-summary]');
+  const editRuntime = context.draftEditPackageRuntime || null;
   let pendingRestoration = null;
   let pendingPreview = null;
+  let pendingEditFingerprint = null;
   let lastReceipt = null;
 
-  function setPending(restoration, preview) {
+  function currentEditExtension() {
+    if (!editRuntime) return null;
+    const model = workspace?.getModel?.() || {};
+    const state = editRuntime.getState();
+    if (!hasDurableEditAuthority(state)) return null;
+    if (!model.journalState) throw new RangeError(
+      'Durable Draft Edit 3D state requires accepted-command journal authority.');
+    return editRuntime.createExtension();
+  }
+  function currentModelWithEdit() {
+    const model = workspace?.getModel?.() || {};
+    const draftEditExtension = currentEditExtension();
+    return draftEditExtension ? { ...model, draftEditExtension } : model;
+  }
+  function currentEditFingerprint() {
+    return currentEditExtension()?.extensionFingerprint || null;
+  }
+  function setPending(restoration, preview, editFingerprint = null) {
     pendingRestoration = restoration;
     pendingPreview = preview;
+    pendingEditFingerprint = editFingerprint;
     applyButton.disabled = !pendingRestoration;
     cancelButton.disabled = !pendingRestoration;
   }
-  function clearPending() { setPending(null, null); }
+  function clearPending() { setPending(null, null, null); }
   function clearApproval() { reasonInput.value = ''; evidenceInput.value = ''; }
   function applicationReceipts() { return workspace?.getModel?.()?.workspaceApplicationReceipts || []; }
 
@@ -67,6 +96,7 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       setSummary(summary, 'Load or restore source evidence before exporting a session package.', 'error');
       return null;
     }
+    const draftEditExtension = currentEditExtension();
     const json = serializeSequentialWorkspacePackageWithReceipts({
       records: model.records,
       evidence: model.evidence,
@@ -76,22 +106,26 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       journalState: model.journalState,
       createdAt: createdAt(),
       applicationReceipts: applicationReceipts(),
+      draftEditExtension,
     });
     const packageValue = JSON.parse(json);
     downloadText(root.ownerDocument, `sequential-workspace-${timestamp()}.json`, json);
     const saved = model.branchRegistry.savedCount();
-    setSummary(summary, `Exported ${packageValue.schema} revision ${packageValue.revision}: ${saved} saved branch workspaces, journal authority ${model.journalState ? 'present' : 'absent'}, and ${applicationReceipts().length} application receipts.`, 'ok');
-    context.showToast?.(`${packageValue.schema} exported.`, 'success');
+    setSummary(summary, `Exported ${packageValue.schema} revision ${packageValue.revision}: ${saved} saved branch workspaces, journal authority ${model.journalState ? 'present' : 'absent'}, ${editSummary(packageValue)}, and ${applicationReceipts().length} application receipts.`, 'ok');
+    const suffix = draftEditExtension ? ' with durable Draft Edit 3D state' : '';
+    context.showToast?.(`${packageValue.schema} exported${suffix}.`, 'success');
     return json;
   }
 
   async function previewFile(file) {
     if (!file) return null;
     workspace?.saveActiveBranch?.();
+    const currentModel = currentModelWithEdit();
+    const editFingerprint = currentModel.draftEditExtension?.extensionFingerprint || null;
     const restoration = restoreSequentialWorkspacePackageWithReceipts(await file.text());
-    const preview = buildSequentialWorkspaceImportPreview(restoration, workspace?.getModel?.() || {});
-    setPending(restoration, preview);
-    setSummary(summary, `${formatSequentialWorkspaceImportPreview(preview)} Package history contains ${restoration.applicationReceipts.length} application receipts.`, preview.hasDestructiveChanges ? 'warning' : 'ok');
+    const preview = buildSequentialWorkspaceImportPreview(restoration, currentModel);
+    setPending(restoration, preview, editFingerprint);
+    setSummary(summary, `${formatSequentialWorkspaceImportPreview(preview)} Package contains ${editSummary(restoration.draftEditExtension)} and ${restoration.applicationReceipts.length} application receipts.`, preview.hasDestructiveChanges ? 'warning' : 'ok');
     context.showToast?.(`${preview.packageSchema} verified; journal impact ${preview.journalImpact}.`, 'success');
     return Object.freeze({ restoration, preview });
   }
@@ -116,26 +150,35 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
   }
   function settleApplied(restoration, preview, receipt) {
     lastReceipt = receipt;
-    pendingRestoration = null;
-    pendingPreview = null;
+    clearPending();
     postCommit(() => { receiptButton.disabled = false; });
-    postCommit(() => { applyButton.disabled = true; cancelButton.disabled = true; });
     postCommit(clearApproval);
-    postCommit(() => setSummary(summary, `Applied ${preview.packageSchema} revision ${preview.packageRevision}; journal impact ${preview.journalImpact}; receipt ${receipt.receiptId}.`, 'ok'));
-    postCommit(() => context.showToast?.(`${preview.packageSchema} applied and receipt recorded.`, 'success'));
+    postCommit(() => setSummary(summary, `Applied ${preview.packageSchema} revision ${preview.packageRevision}; journal impact ${preview.journalImpact}; restored ${editSummary(restoration.draftEditExtension)}; receipt ${receipt.receiptId}.`, 'ok'));
+    const suffix = restoration.draftEditExtension ? ' with durable Draft Edit 3D state' : '';
+    postCommit(() => context.showToast?.(`${preview.packageSchema} applied${suffix}.`, 'success'));
     return Object.freeze({ restoration, receipt });
   }
-
+  function stalePreview() {
+    const current = sequentialWorkspaceCurrentStateFingerprint(currentModelWithEdit());
+    return current !== pendingPreview.currentStateFingerprint
+      || currentEditFingerprint() !== pendingEditFingerprint;
+  }
+  function restoreDraftEdit(restoration) {
+    if (!editRuntime) return null;
+    return restoration.draftEditExtension
+      ? editRuntime.restoreExtension(restoration.draftEditExtension)
+      : editRuntime.clear();
+  }
   function applyPending() {
     if (!pendingRestoration || !pendingPreview) {
       setSummary(summary, 'Select and verify a package before applying it.', 'info');
       return null;
     }
     workspace?.saveActiveBranch?.();
-    const beforeFingerprint = sequentialWorkspaceCurrentStateFingerprint(workspace?.getModel?.() || {});
-    if (beforeFingerprint !== pendingPreview.currentStateFingerprint) {
+    const beforeFingerprint = sequentialWorkspaceCurrentStateFingerprint(currentModelWithEdit());
+    if (stalePreview()) {
       clearPending();
-      const message = 'WORKSPACE_IMPORT_PREVIEW_STALE: current source, branch, selection, or journal work changed after preview.';
+      const message = 'WORKSPACE_IMPORT_PREVIEW_STALE: current source, branch, selection, journal, support, or geometry edit state changed after preview.';
       setSummary(summary, message, 'error');
       context.showToast?.(message, 'error');
       return Object.freeze({ outcome: 'WORKSPACE_IMPORT_PREVIEW_STALE' });
@@ -149,6 +192,7 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
       applicationReceipts: receipts,
       expectedJournalImpact: preview.journalImpact,
     });
+    restoreDraftEdit(restoration);
     return settleApplied(restoration, preview, receipt);
   }
 
@@ -159,7 +203,7 @@ export function mountSequentialWorkspacePersistenceController(root, workspace, c
     }
     clearPending();
     clearApproval();
-    setSummary(summary, 'Verified package preview cancelled. No workspace or journal authority was changed.', 'info');
+    setSummary(summary, 'Verified package preview cancelled. No workspace, journal, support, or geometry authority was changed.', 'info');
     return true;
   }
   function exportLastReceipt() {

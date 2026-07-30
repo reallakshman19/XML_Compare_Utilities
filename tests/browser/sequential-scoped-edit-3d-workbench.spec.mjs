@@ -25,6 +25,25 @@ async function openAndActivate(page, advance = true) {
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().controller?.active)).toBe(true);
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().viewer?.runtimePending)).toBe(false);
 }
+async function durableReady(page) {
+  await page.goto('/tests/browser/sequential-draft-edit-package-v3-fixture.html');
+  await expect.poll(() => page.evaluate(() => Boolean(globalThis.__ssk3dPackage))).toBe(true);
+  await page.evaluate(() => globalThis.__ssk3dPackage.open());
+  await page.evaluate(() => globalThis.__ssk3dPackage.activate3d());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.viewerState?.runtimePending)).toBe(false);
+}
+async function selectVisibleMoveTarget(page) {
+  const canvas = page.locator('[data-ssk-draft-edit-3d-canvas] canvas');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  for (const ratio of [0.5, 0.45, 0.55, 0.4, 0.6]) {
+    await canvas.click({ position: { x: box.width * ratio, y: box.height / 2 } });
+    const text = await page.locator('[data-ssk-single-move-target]').textContent();
+    if (!text?.includes('No confirmed')) return;
+  }
+  await expect(page.locator('[data-ssk-single-move-target]')).not.toContainText('No confirmed');
+}
 function expectFixtureEvidence(manifest) {
   expect(manifest.fixtureCatalog.schema).toBe('SequentialDraftEdit3dFixtureCatalog.v1');
   expect(manifest.fixtureCatalog.scenarioCount).toBe(FIXTURE_IDS.length);
@@ -129,4 +148,58 @@ test('SSK-3D-P0-A-W02 injected scene failure returns to Construction SVG', async
   expect(state.constructionHidden).toBe(false);
   expect(state.failures.some((row) => row.stage === 'owner refresh')).toBe(true);
   expect(state.status).toContain('Construction SVG retained');
+});
+
+// SSK-3D-P1-A-W01
+test('SSK-3D-P1-A-W01 accepted component move survives workspace package reopen', async ({ page }) => {
+  await durableReady(page);
+  const canvas = page.locator('[data-ssk-draft-edit-3d-canvas] canvas');
+  await expect(canvas).toHaveCount(1);
+  await selectVisibleMoveTarget(page);
+  await page.locator('[data-ssk-single-move-constraint]').selectOption('X');
+  await page.locator('[data-ssk-single-move-axis="x"]').fill('25');
+  await page.locator('[data-ssk-single-move-preview]').click();
+  await expect(page.locator('[data-ssk-geometry-move-prepare]')).toBeEnabled();
+  await page.locator('[data-ssk-geometry-move-actor]').fill('P1_UI_OPERATOR');
+  await page.locator('[data-ssk-geometry-move-reason]').fill('Verify durable package restoration.');
+  await page.locator('[data-ssk-geometry-move-evidence]').fill('Isolated unsupported pipe selected in real Workbench.');
+  await page.locator('[data-ssk-geometry-move-prepare]').click();
+  await expect(page.locator('[data-ssk-geometry-move-accept]')).toBeEnabled();
+  await page.locator('[data-ssk-geometry-move-accept]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .geometryBranches.some((row) => row.entryCount === 1))).toBe(true);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('[data-ssk-workspace-export]').click();
+  const download = await downloadPromise;
+  const packagePath = await download.path();
+  expect(packagePath).toBeTruthy();
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('SequentialWorkspacePackage.v3');
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('1 geometry edits');
+
+  await page.evaluate(() => globalThis.__ssk3dPackage.close());
+  await page.evaluate(() => globalThis.__ssk3dPackage.open());
+  await page.locator('[data-ssk-workspace-import]').setInputFiles(packagePath);
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('Draft Edit 3D impact INSTALL');
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('1 geometry edits');
+  await page.locator('[data-ssk-workspace-apply-reason]')
+    .fill('Restore reviewed durable Draft Edit 3D authority.');
+  await page.locator('[data-ssk-workspace-apply-evidence]')
+    .fill('Package schema, journal authority and edit counts reviewed.');
+  await page.locator('[data-ssk-workspace-apply]').click();
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('Applied SequentialWorkspacePackage.v3 revision 3');
+  await expect(page.locator('[data-ssk-workspace-package-summary]'))
+    .toContainText('1 geometry edits');
+
+  await page.locator('[data-ssk-draft-edit-3d]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  const restored = await page.evaluate(() => globalThis.__ssk3dPackage.state());
+  expect(restored.canvasCount).toBe(1);
+  expect(restored.geometryBranches.some((row) => row.entryCount === 1)).toBe(true);
+  expect(restored.failures).toEqual([]);
 });
