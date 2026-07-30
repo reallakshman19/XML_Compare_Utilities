@@ -59,4 +59,17 @@ const ambiguousVisual = buildVisualModel(ambiguous);
 assert.strictEqual(ambiguousVisual.bendSummary.blocked, 1);
 assert.strictEqual(ambiguousVisual.geometryDiagnostics[0].code, 'BEND_CONSUMED_LEGS_AMBIGUOUS');
 
+const duplicatePackets = buildCanonicalGraph('source', [
+  record(0, '10', '20', [1000, 0, 0]),
+  record(1, '20', '21', [0, 0, 0], [{ kind: 'BEND', attrs: { RADIUS: '200' } }]),
+  record(2, '21', '22', [0, 0, 0], [{ kind: 'BEND', attrs: { RADIUS: '200' } }]),
+  record(3, '22', '30', [0, 1000, 0]),
+], {});
+const duplicateVisual = buildVisualModel(duplicatePackets);
+assert.strictEqual(duplicateVisual.bendSummary.resolved, 0);
+assert.strictEqual(duplicateVisual.bendSummary.blocked, 2);
+assert.ok(duplicateVisual.geometryDiagnostics.every(
+  (diagnostic) => diagnostic.code === 'BEND_CONSUMED_PACKET_AMBIGUOUS',
+));
+
 console.log('workbench3d-consumed-bend-ancestry.test.js passed');
