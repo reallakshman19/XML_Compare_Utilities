@@ -7,6 +7,10 @@ function activeGroups(state) {
   return REVISION_SCOPE_FILTER_GROUPS.filter((group) => Boolean(cleanText(state?.search?.[group])));
 }
 
+function clearedMessage(count) {
+  return `Cleared ${count} scope filter${count === 1 ? '' : 's'}.`;
+}
+
 export function revisionScopeFilterResetModel(state) {
   const groups = Object.freeze(activeGroups(state));
   const count = groups.length;
@@ -25,7 +29,9 @@ export function clearRevisionScopeFilters(state, setSearch) {
   const model = revisionScopeFilterResetModel(state);
   let next = state;
   for (const group of REVISION_SCOPE_FILTER_GROUPS) next = setSearch(next, group, '');
-  return Object.freeze({ model, state: next });
+  const message = clearedMessage(model.activeCount);
+  if (model.visible) next = deepFreeze({ ...next, message });
+  return Object.freeze({ message, model, state: next });
 }
 
 export function createRevisionScopeFilterResetAction(context) {
@@ -33,9 +39,8 @@ export function createRevisionScopeFilterResetAction(context) {
     const result = clearRevisionScopeFilters(context.readState(), context.setSearch);
     if (!result.model.visible) return;
     context.writeState(result.state); context.render(result.state);
-    const message = `Cleared ${result.model.activeCount} scope filter${result.model.activeCount === 1 ? '' : 's'}.`;
-    context.showToast?.(message, 'success');
+    context.showToast?.(result.message, 'success');
   };
 }
 
-export const _test = Object.freeze({ activeGroups });
+export const _test = Object.freeze({ activeGroups, clearedMessage });
