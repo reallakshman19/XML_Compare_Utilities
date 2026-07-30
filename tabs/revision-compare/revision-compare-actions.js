@@ -2,7 +2,7 @@
 import { createRevisionComparisonBasis } from './revision-comparison-basis.js';
 import { createRevisionSessionManifest, createRevisionScopeManifest } from './revision-manifests.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
-import { revisionVisualReadiness } from './revision-compare-readiness.js';
+import { revisionBasisApprovalReadiness, revisionVisualReadiness } from './revision-compare-readiness.js';
 import { applyRevisionCompareSwapResults, revisionCompareSwapReadiness } from './revision-compare-intake-swap.js';
 import { applyRevisionScopeBatch } from './revision-scope-filter-batch.js';
 import { createRevisionScopeProposal, updateScopeDecision } from './revision-scope-proposal.js';
@@ -154,7 +154,8 @@ async function clearVisualMetadata(context) {
 function scopeDraft(proposal, side) { return Object.freeze({ selectedIds: side === 'A' ? proposal.includedBranchIdsA : proposal.includedBranchIdsB, exclusions: proposal.excludedBranches }); }
 async function approveBasis(context) {
   await stopComparison(context); const token = context.authority.invalidate(); const state = context.readState(); const current = preflight(context, state);
-  if (current.status !== 'READY') throw new Error(current.blockers[0] || 'Comparison basis is blocked.');
+  const readiness = revisionBasisApprovalReadiness(current);
+  if (readiness.status !== 'READY') throw new Error(readiness.blockers[0] || 'Comparison basis is blocked.');
   const proposal = state.proposal;
   const [baseline, candidate] = await Promise.all([
     context.service.applyScope('baseline', { selectedIds: proposal.includedBranchIdsA }, context.now()),
