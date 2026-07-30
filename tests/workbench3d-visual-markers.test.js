@@ -7,6 +7,7 @@ import { buildVisualModel, resolvePacketPosition } from '../workbench3d/adapters
 import { effectiveDiameterByObject, resolveInputXmlBends } from '../workbench3d/adapters/inputxml-bend-geometry.js';
 import { resolvePacketNode, buildNodeInfoIndex } from '../workbench3d/adapters/node-resolver.js';
 import { groupObjectBlocks } from '../workbench3d/adapters/block-grouper.js';
+import './workbench3d-inputxml-bend-samples.test.js';
 
 const xml = `<CAESARII XML_TYPE="Input"><PIPINGMODEL>
   <PIPINGELEMENT FROM_NODE="10.000000" TO_NODE="20.000000" DELTA_X="1000.000000" DIAMETER="114.3" NAME="E1">

@@ -5,6 +5,7 @@
  */
 
 import { buildEvidenceModel, connectorLedgerModel } from './evidence-view-models.js';
+import { bendDiagnosticsPanelHtml } from './bend-diagnostics-panel.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -61,7 +62,7 @@ export function evidencePanelHtml(state) {
   </div>`;
 }
 
-/** Connector ledger table (collapsible card) with basis + Show-in-3D. */
+/** Connector + InputXML bend diagnostic cards with existing Show-in-3D actions. */
 export function connectorLedgerHtml(state) {
   if (!state.audit) return '';
   const rows = connectorLedgerModel(state.audit, state.graphs);
@@ -71,7 +72,7 @@ export function connectorLedgerHtml(state) {
       <td>${esc(r.source)}</td><td>${esc(r.target)}</td>
       <td>${esc(r.confidence)}</td><td class="wb3d-muted">${esc(r.basis)}</td>
     </tr>`).join('');
-  return `
+  return `${bendDiagnosticsPanelHtml(state)}
   <details class="wb3d-card">
     <summary><h3>Connector ledger <span class="wb3d-muted">${rows.length} relationship(s) — click a row for full evidence</span></h3></summary>
     <div class="wb3d-toolbar"><button class="wb3d-btn wb3d-btn-mini" data-action="export-connector-ledger">Export connector CSV</button></div>
