@@ -46,7 +46,19 @@ function importedPackageMarkup(state) {
   const decision = lifecycle.decisionReattached ? 'Reattached from archived STALE status' : 'Attached exactly as packaged CURRENT authority';
   return `<section class="revc-preflight" data-revc-imported-evidence-package><header><div><span>EVIDENCE PACKAGE</span><h2>Imported evidence package</h2></div><strong data-status="ready">VERIFIED</strong></header><dl class="revc-facts">${fact('Package ID', lifecycle.packageId, 'data-revc-imported-package-id')}${fact('Content SHA-256', lifecycle.contentSha256, 'data-revc-imported-package-sha')}${fact('Rev A file', state.slots.baseline.fileName, 'data-revc-imported-rev-a-file')}${fact('Rev B file', state.slots.candidate.fileName, 'data-revc-imported-rev-b-file')}${fact('Review authority', review, 'data-revc-imported-review-status')}${fact('Decision authority', decision, 'data-revc-imported-decision-status')}</dl><p data-revc-package-authenticity-boundary>${escapeHtml(REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT)}</p></section>`;
 }
-function compatibilityLine(item) { return `<li data-status="${item.status.toLowerCase()}"><b>${escapeHtml(item.label)}</b><span>${escapeHtml(item.revA)} ↔ ${escapeHtml(item.revB)}</span><em>${escapeHtml(item.status)}</em></li>`; }
+function compatibilityEvidenceTitle(item) {
+  const profileIds = [...new Set([item.revAProfileId, item.revBProfileId].filter(Boolean))];
+  if (profileIds.length) {
+    return `Resolved by bounded product compatibility profile ${profileIds.join(', ')}. The source files remain unchanged and the evidence is bound to their content hashes.`;
+  }
+  if (item.declarationId) return `Resolved by operator declaration ${item.declarationId}, bound to the current source hashes.`;
+  return '';
+}
+function compatibilityLine(item) {
+  const title = compatibilityEvidenceTitle(item);
+  const info = title ? `<span data-revc-compatibility-evidence tabindex="0" role="img" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}">ⓘ</span>` : '';
+  return `<li data-status="${item.status.toLowerCase()}"><b>${escapeHtml(item.label)}${info}</b><span>${escapeHtml(item.revA)} ↔ ${escapeHtml(item.revB)}</span><em>${escapeHtml(item.status)}</em></li>`;
+}
 function preflightMarkup(preflight) {
   return `<section class="revc-preflight"><header><div><span>COMPATIBILITY PREFLIGHT</span><h2>Trusted comparison boundary</h2></div><strong data-status="${escapeHtml(preflight.status.toLowerCase())}">${escapeHtml(preflight.status)}</strong></header><ul class="revc-compatibility">${compatibilityLine(preflight.compatibility.unitCompatibility)}${compatibilityLine(preflight.compatibility.coordinateFrameCompatibility)}${compatibilityLine(preflight.compatibility.verticalAxisCompatibility)}</ul><div class="revc-preflight-messages">${messageList('Blocking', preflight.blockers, 'blocker')}${messageList('Warnings', preflight.warnings, 'warning')}${messageList('Information', preflight.notes, 'note')}</div></section>`;
 }
@@ -90,6 +102,7 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
   return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
 }
 export const _test = Object.freeze({
-  axisOptions, clearControl, comparisonControlMarkup, escapeHtml, importedPackageMarkup,
-  missingAttribute, shortHash, slotCard, swapControl, visualMetadataDeclarationMarkup,
+  axisOptions, clearControl, comparisonControlMarkup, compatibilityEvidenceTitle, compatibilityLine,
+  escapeHtml, importedPackageMarkup, missingAttribute, shortHash, slotCard, swapControl,
+  visualMetadataDeclarationMarkup,
 });
