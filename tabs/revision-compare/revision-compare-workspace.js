@@ -20,6 +20,11 @@ import { createRevisionImpactReportDownloadActions } from './revision-impact-rep
 import { createRevisionReviewFilterResetAction, renderRevisionReviewFilterResetControl } from './revision-review-filter-reset.js';
 import { createRevisionScopeFilterResetAction } from './revision-scope-filter-reset.js';
 import {
+  createRevisionResponsivenessObservationReceipt,
+  revisionResponsivenessObservationReceiptFileName,
+  revisionResponsivenessObservationReceiptMatches,
+} from './revision-responsiveness-observation-receipt.js';
+import {
   REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
   completeWorkspaceTrustReceiptImport, createRevisionWorkspaceState,
   failWorkspaceEvidencePackageImport, failWorkspaceSignOff, failWorkspaceTrustReceiptImport,
@@ -102,6 +107,15 @@ function reportFailure(root, options, error) {
   const message = error?.message || String(error); const live = root.querySelector('[data-revc-live]');
   if (live) live.textContent = message; options.showToast?.(message, 'error');
 }
+function responsivenessReceiptInput(currentState, sceneEvidence) {
+  return {
+    session: currentState.session,
+    audit: currentState.compare.audit,
+    revA: currentState.slots.baseline.document,
+    revB: currentState.slots.candidate.document,
+    sceneEvidence,
+  };
+}
 export function mountRevisionCompareWorkspace(root, options = {}) {
   if (!root) throw new TypeError('Revision Compare workspace root is required.');
   const now = options.now ?? defaultNow; const clock = options.clock ?? defaultClock;
@@ -161,6 +175,20 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
       reportFailure(root, options, error);
       return false;
     }
+  }
+  async function downloadResponsivenessReceipt() {
+    const captured = state;
+    const input = responsivenessReceiptInput(captured, sceneMonitor.evidence());
+    try {
+      const receipt = await createRevisionResponsivenessObservationReceipt(input, cryptoRef);
+      if (destroyed) return;
+      const current = responsivenessReceiptInput(state, sceneMonitor.evidence());
+      if (!revisionResponsivenessObservationReceiptMatches(receipt, current)) {
+        throw new Error('Responsiveness authority changed while the receipt was being created. Download the current run again.');
+      }
+      downloadArtifact(root, revisionResponsivenessObservationReceiptFileName(receipt), receipt);
+      options.showToast?.('Responsiveness observation receipt downloaded.', 'success');
+    } catch (error) { if (!destroyed) reportFailure(root, options, error); }
   }
   async function downloadEvidencePackage() {
     const captured = state;
@@ -233,7 +261,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
-    ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff, rerunResponsiveness,
+    ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, downloadResponsivenessReceipt,
+    importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff, rerunResponsiveness,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
@@ -250,4 +279,4 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     },
   });
 }
-export const _test = Object.freeze({ actionClick, enforceImportedModeRestrictions, initialWorkspaceState, inputChange, prepareEvidencePackageControl, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });
+export const _test = Object.freeze({ actionClick, enforceImportedModeRestrictions, initialWorkspaceState, inputChange, prepareEvidencePackageControl, preparePropertyHost, responsivenessReceiptInput, sessionId, syncBackendButtons, syncDecisionButtons });
