@@ -1,13 +1,15 @@
-/** Verify one archived RevisionCompareEvidencePackage.v1 without source replay. */
+/** Verify archived Revision Compare evidence packages without source replay. */
 import { deepFreeze } from './revision-contract-utils.js';
 import { createRevisionComparisonBasis, validateRevisionComparisonBasis } from './revision-comparison-basis.js';
 import {
   REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS,
   REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX,
-  REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA,
+  REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
+  REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA,
   canonicalRevisionCompareEvidenceValue,
   revisionCompareEvidencePackageHashMaterial,
 } from './revision-evidence-package.js';
+import { verifyRevisionCompareEvidencePackageV2 } from './revision-evidence-package-v2-import.js';
 import { reattachVerifiedReviewRecord, verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
@@ -163,12 +165,15 @@ function liveIntake(manifest) {
 export async function verifyRevisionCompareEvidencePackageJson(text, fileName, importedAt, cryptoRef) {
   let parsed; try { parsed = JSON.parse(String(text ?? '')); }
   catch (error) { throw new SyntaxError(`Evidence package JSON is invalid: ${error.message}`); }
+  if (parsed?.schema === REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA) {
+    return verifyRevisionCompareEvidencePackageV2(parsed, fileName, importedAt, cryptoRef, verifyRevisionCompareEvidencePackageJson);
+  }
   exactKeys(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS, 'Evidence package');
-  requiredSchema(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA, 'Evidence package');
+  requiredSchema(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, 'Evidence package');
   exactKeys(parsed.payload, PAYLOAD_FIELDS, 'Evidence package payload'); requireReady(parsed.validation, 'Package validation');
   if (!HASH_PATTERN.test(parsed.contentSha256 ?? '')) throw new TypeError('contentSha256 must be a lowercase 64-character SHA-256.');
   if (parsed.packageId !== `${REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX}${parsed.contentSha256}`) throw new TypeError('packageId does not match contentSha256.');
-  const frozen = deepFreeze(canonicalRevisionCompareEvidenceValue(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA));
+  const frozen = deepFreeze(canonicalRevisionCompareEvidenceValue(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA));
   const material = revisionCompareEvidencePackageHashMaterial(frozen);
   if (await sha256Text(JSON.stringify(material), cryptoRef) !== frozen.contentSha256) throw new TypeError('Evidence package canonical SHA-256 does not match contentSha256.');
   const manifests = { sessionManifest: frozen.payload.sessionManifest, scopeManifest: frozen.payload.scopeBasisManifest };
