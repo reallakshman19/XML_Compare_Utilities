@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { routeRevisionCompareActionClick } from '../tabs/revision-compare/revision-compare-event-routing.js';
 import { createRevisionImpactReportDownloadActions } from '../tabs/revision-compare/revision-impact-report-download.js';
-import { serializeRevisionImpactReportCsv } from '../tabs/revision-compare/revision-impact-report-csv.js';
+import { serializeRevisionImpactReportCsv, _test as csvTest } from '../tabs/revision-compare/revision-impact-report-csv.js';
 import {
   createRevisionImpactReport,
   revisionImpactDashboardModel,
@@ -176,6 +176,9 @@ async function assertArtifacts(state) {
   const visible = await createRevisionImpactReport(state, 'VISIBLE', webcrypto);
   assert.equal(full.reportId, repeated.reportId);
   assert.notEqual(full.reportId, visible.reportId);
+  const selectionChanged = Object.freeze({ ...state, compare: Object.freeze({ ...state.compare, selectedDifferenceId: 'difference:a3:none' }) });
+  const selectionReport = await createRevisionImpactReport(selectionChanged, 'FULL', webcrypto);
+  assert.equal(full.reportId, selectionReport.reportId);
   assert.equal(full.rows.length, 4);
   assert.equal(visible.rows.length, 2);
   assert(Object.isFrozen(full));
@@ -184,6 +187,8 @@ async function assertArtifacts(state) {
   assert.match(csv, /METRIC,metadata,scope,VISIBLE/);
   assert.match(csv, /DETAIL,differenceRows/);
   assert.match(csv, /difference:a1:b1/);
+  assert.equal(csvTest.csvCell('=SUM(A1:A2)'), "'=SUM(A1:A2)");
+  assert.equal(csvTest.csvCell(-12.5), '-12.5');
 }
 
 function assertMarkup(state) {
