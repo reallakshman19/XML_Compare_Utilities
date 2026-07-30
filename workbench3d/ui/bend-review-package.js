@@ -108,8 +108,12 @@ function completeness(inputs, comparison, bends) {
   return Object.freeze({ gates, complete: Object.values(gates).every(Boolean) });
 }
 
+export function computeWorkbenchEvidenceSignature(prefix, payload = {}) {
+  return hash(prefix, payload);
+}
+
 export function computeBendReviewPackageSignature(payload = {}) {
-  return hash('wb3d-review', payload);
+  return computeWorkbenchEvidenceSignature('wb3d-review', payload);
 }
 
 export function buildBendReviewPackageManifest(state = {}) {
