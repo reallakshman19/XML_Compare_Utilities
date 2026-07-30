@@ -7,6 +7,10 @@ import {
   computeBendReviewPackageSignature,
   serializeBendReviewPackageManifest,
 } from './bend-review-package.js';
+import {
+  buildBendReviewVerificationReceipt,
+  serializeBendReviewVerificationReceipt,
+} from './bend-review-verification-receipt.js';
 
 export const BEND_REVIEW_VERIFICATION_STATUS = Object.freeze({
   MATCH: 'MATCH',
@@ -119,12 +123,18 @@ function esc(value) {
   }[character]));
 }
 
-export function verificationResultHtml(verification) {
+function receiptLink(receipt) {
+  if (!receipt) return '';
+  const content = encodeURIComponent(serializeBendReviewVerificationReceipt(receipt));
+  return `<a class="wb3d-btn wb3d-btn-mini" href="data:application/json;charset=utf-8,${content}" download="workbench-bend-verification-receipt.json">Export verification receipt</a>`;
+}
+
+export function verificationResultHtml(verification, receipt = null) {
   const style = verification.status === BEND_REVIEW_VERIFICATION_STATUS.MATCH ? 'is-ok'
     : verification.status === BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE ? 'is-bad' : '';
   const rows = verification.differences.length
     ? `<ul class="wb3d-list">${verification.differences.map((row) => `<li>${esc(row.field)}: imported <code>${esc(row.imported)}</code> · current <code>${esc(row.current)}</code></li>`).join('')}</ul>` : '';
-  return `<div><span class="wb3d-badge ${style}">${esc(verification.status.replaceAll('_', ' '))}</span> <span class="wb3d-muted">${esc(verification.message)}</span>${rows}</div>`;
+  return `<div><span class="wb3d-badge ${style}">${esc(verification.status.replaceAll('_', ' '))}</span> <span class="wb3d-muted">${esc(verification.message)}</span>${rows}${receiptLink(receipt)}</div>`;
 }
 
 export function bendReviewVerifierHtml(currentManifest) {
@@ -147,14 +157,17 @@ function registerVerifierElement() {
         const file = input.files?.[0];
         if (!file) return;
         let verification;
+        let importedManifest = null;
         try {
           const parsed = parseBendReviewPackageText(await file.text());
-          verification = parsed.ok ? verifyBendReviewPackage(parsed.manifest, current)
+          importedManifest = parsed.ok ? parsed.manifest : null;
+          verification = parsed.ok ? verifyBendReviewPackage(importedManifest, current)
             : result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_PARSE_FAILED', parsed.error);
         } catch (error) {
           verification = result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_READ_FAILED', `Package could not be read: ${error?.message || error}`);
         }
-        if (output) output.innerHTML = verificationResultHtml(verification);
+        const receipt = buildBendReviewVerificationReceipt({ importedManifest, currentManifest: current, verification });
+        if (output) output.innerHTML = verificationResultHtml(verification, receipt);
         input.value = '';
       });
     }
