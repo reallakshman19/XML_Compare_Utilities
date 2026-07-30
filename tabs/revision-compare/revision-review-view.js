@@ -1,12 +1,15 @@
 /** RC-003 guided review extended in place with RC-004 decision evidence. */
 import { REVIEW_NOTE_MAX_LENGTH, reviewEventIndex, reviewItemIndex } from './revision-review-contracts.js';
-import { projectReviewPriority, nextPriorityDifferenceId, previousPriorityDifferenceId } from './revision-review-priority.js';
+import { nextPriorityDifferenceId, previousPriorityDifferenceId } from './revision-review-priority.js';
 import { reviewSessionMatchesAudit } from './revision-review-session.js';
 import {
   decisionBadgeMarkup, decisionFilterMarkup, decisionInspectorMarkup, decisionLedgerControlsMarkup,
   decisionProgressMarkup,
 } from './revision-decision-view.js';
-import { filterDecisionAwareProjection } from './revision-decision-projection.js';
+import { revisionImpactReportMarkup } from './revision-impact-report-view.js';
+import { reviewPriorityProjection } from './revision-review-projection.js';
+
+export { reviewPriorityProjection } from './revision-review-projection.js';
 
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
 function human(value) { return String(value ?? '').replaceAll('_', ' ').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()); }
@@ -18,15 +21,6 @@ function primaryReason(row) {
   if (row.differenceCategory === 'ADDED') return 'Present only in Rev B.';
   if (row.differenceCategory === 'REMOVED') return 'Present only in Rev A.';
   return row.evidenceSummary?.primary || 'Comparison evidence is unavailable.';
-}
-function combinedFilters(state) {
-  return { ...state.review.filters, categories: state.compare.queue.categories, search: state.review.filters.search,
-    needsDecisionOnly: state.compare.queue.needsDecisionOnly, changedReasons: state.compare.queue.changedReasons };
-}
-export function reviewPriorityProjection(state) {
-  const audit = state.compare.audit; const session = state.review.session;
-  if (!audit || !reviewSessionMatchesAudit(session, audit)) return { all: [], visible: [], visibleCount: 0, hiddenCount: 0 };
-  return filterDecisionAwareProjection(projectReviewPriority(audit, session, combinedFilters(state)), audit, state.decision);
 }
 function progressCard(label, value, tone) { return `<div data-tone="${tone}"><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></div>`; }
 export function reviewProgressMarkup(session) {
@@ -103,6 +97,6 @@ export function reviewInspectorMarkup(state) {
   return `<section class="revc-inspector"><header><div><span>${human(row.differenceCategory)}</span><h2>${escapeHtml(titleText(row))}</h2></div><strong>${human(row.matchCertainty)}</strong></header><div class="revc-explanation"><b>Engineering explanation</b><p>${escapeHtml(primaryReason(row))}</p></div><dl class="revc-inspector-facts"><div><dt>Review state</dt><dd>${human(item.reviewState)}</dd></div><div><dt>Original certainty</dt><dd>${human(row.matchCertainty)}</dd></div><div><dt>Rev A identity</dt><dd>${escapeHtml(row.context?.revAIdentity || 'Not applicable')}</dd></div><div><dt>Rev B identity</dt><dd>${escapeHtml(row.context?.revBIdentity || 'Not applicable')}</dd></div><div><dt>Branch</dt><dd>${escapeHtml(row.context?.branchId || 'Unavailable')}</dd></div><div><dt>Component type</dt><dd>${escapeHtml(row.context?.componentType || 'Unavailable')}</dd></div></dl>${decisionInspectorMarkup(state, row)}<details class="revc-evidence-level" data-level="2"><summary>Level 2 · Engineering details and review action</summary><section><h3>Changed properties</h3>${propertyRows(row)}</section><section><h3>Geometry</h3><p>${escapeHtml(row.geometryDelta?.reason || 'Geometry evidence is unavailable.')}</p></section><section><h3>Change reasons</h3><p>${escapeHtml(row.changeReasons.join(', ') || 'Unavailable')}</p></section><section><h3>Review note</h3><textarea data-revc-review-note maxlength="${REVIEW_NOTE_MAX_LENGTH}" ${stale ? 'disabled' : ''}>${escapeHtml(item.note)}</textarea><small>${item.note.length} / ${REVIEW_NOTE_MAX_LENGTH}</small><button type="button" data-revc-save-review-note ${stale ? 'disabled' : ''}>Save note</button></section>${stateActions(item, stale)}</details><details class="revc-evidence-level revc-evidence" data-level="3"><summary>Level 3 · Source and audit evidence</summary><p>${escapeHtml(row.evidenceSummary?.primary || 'Comparison evidence is unavailable.')}</p><dl class="revc-evidence-facts">${sessionFact('Source record ID', row.sourceRecordId)}${sessionFact('Target record ID', row.targetRecordId)}${sessionFact('Source visual object', row.visualRefs?.sourceObjectId)}${sessionFact('Target visual object', row.visualRefs?.targetObjectId)}${sessionFact('Audit ID', audit.auditId)}${sessionFact('Basis ID', audit.basisId)}${sessionFact('Engine version', audit.engineVersion)}${sessionFact('Configuration', JSON.stringify(audit.configuration))}</dl><h3>Source evidence paths</h3>${sourcePaths(row)}<h3>Candidate evidence</h3>${candidateMarkup(audit, row)}<h3>Selected-item review history</h3>${eventHistory(session, item)}</details><div class="revc-review-navigation"><button type="button" data-revc-previous-priority ${previous ? '' : 'disabled'}>Previous</button><button type="button" class="revc-primary" data-revc-next-priority ${next ? '' : 'disabled'}>Next priority</button></div></section>`;
 }
 export function revisionReviewSideMarkup(state) {
-  return `${reviewProgressMarkup(state.review.session)}${decisionProgressMarkup(state)}${reviewSessionControlsMarkup(state, Boolean(state.compare.audit))}${decisionLedgerControlsMarkup(state, Boolean(state.compare.audit))}${reviewQueueMarkup(state)}${reviewInspectorMarkup(state)}`;
+  return `${reviewProgressMarkup(state.review.session)}${decisionProgressMarkup(state)}${revisionImpactReportMarkup(state)}${reviewSessionControlsMarkup(state, Boolean(state.compare.audit))}${decisionLedgerControlsMarkup(state, Boolean(state.compare.audit))}${reviewQueueMarkup(state)}${reviewInspectorMarkup(state)}`;
 }
 export const _test = Object.freeze({ escapeHtml, primaryReason, sourcePaths, titleText });

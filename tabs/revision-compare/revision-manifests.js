@@ -61,10 +61,10 @@ export function serializeRevisionArtifact(artifact) {
   return `${JSON.stringify(artifact, null, 2)}\n`;
 }
 
-export function downloadRevisionArtifact(root, fileName, artifact) {
+function browserDownload(root, fileName, text, mimeType) {
   const windowRef = root?.ownerDocument?.defaultView;
   if (!windowRef?.Blob || !windowRef?.URL?.createObjectURL) throw new Error('Browser download APIs are unavailable.');
-  const blob = new windowRef.Blob([serializeRevisionArtifact(artifact)], { type: 'application/json;charset=utf-8' });
+  const blob = new windowRef.Blob([text], { type: mimeType });
   const url = windowRef.URL.createObjectURL(blob);
   const anchor = root.ownerDocument.createElement('a');
   anchor.href = url;
@@ -72,3 +72,13 @@ export function downloadRevisionArtifact(root, fileName, artifact) {
   anchor.click();
   windowRef.URL.revokeObjectURL(url);
 }
+
+export function downloadRevisionTextArtifact(root, fileName, text, mimeType = 'text/plain;charset=utf-8') {
+  browserDownload(root, fileName, String(text ?? ''), mimeType);
+}
+
+export function downloadRevisionArtifact(root, fileName, artifact) {
+  downloadRevisionTextArtifact(root, fileName, serializeRevisionArtifact(artifact), 'application/json;charset=utf-8');
+}
+
+export const _test = Object.freeze({ browserDownload, intakeManifest });

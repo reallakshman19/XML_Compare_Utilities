@@ -10,6 +10,7 @@ const STYLESHEETS = Object.freeze([
   Object.freeze({ id: 'revision-compare-layout-style', href: './revision-compare-layout.css?v=20260729-ui-layout' }),
   Object.freeze({ id: 'revision-compare-review-containment-style', href: './revision-compare-review-containment.css?v=20260729-ui-containment' }),
   Object.freeze({ id: 'revision-compare-intake-style', href: './revision-compare-intake.css?v=20260729-rc-ux-001' }),
+  Object.freeze({ id: 'revision-impact-report-style', href: './revision-impact-report.css?v=20260730-rc-ux-012' }),
 ]);
 
 function ensureStylesheet(documentRef) {

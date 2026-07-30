@@ -56,6 +56,11 @@ function decisionButton(actions, button) {
   if (button.hasAttribute('data-revc-start-new-decision')) actions.startNewDecisionLedger();
 }
 
+function impactReportButton(actions, button) {
+  if (button.dataset.revcDownloadImpactJson) actions.downloadImpactJson(button.dataset.revcDownloadImpactJson);
+  if (button.dataset.revcDownloadImpactCsv) actions.downloadImpactCsv(button.dataset.revcDownloadImpactCsv);
+}
+
 export function routeRevisionCompareActionClick(actions, target) {
   const button = target.closest('button');
   if (!button) return;
@@ -76,6 +81,7 @@ export function routeRevisionCompareActionClick(actions, target) {
   comparisonButton(actions, button);
   reviewButton(actions, button);
   decisionButton(actions, button);
+  impactReportButton(actions, button);
   actions.transferClick(button);
 }
 
@@ -135,4 +141,4 @@ export function bindRevisionCompareWorkspaceEvents(root, actions, cleanups) {
   });
 }
 
-export const _test = Object.freeze({ comparisonButton, decisionButton, reviewButton, trackedListener });
+export const _test = Object.freeze({ comparisonButton, decisionButton, impactReportButton, reviewButton, trackedListener });
