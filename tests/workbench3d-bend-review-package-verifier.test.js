@@ -12,6 +12,7 @@ import {
   BEND_REVIEW_RECEIPT_STATUS,
   BEND_REVIEW_VERIFICATION_RECEIPT_CONTRACT,
   buildBendReviewVerificationReceipt,
+  computeBendReviewVerificationReceiptSignature,
   parseBendReviewVerificationReceiptText,
   serializeBendReviewVerificationReceipt,
   verifyBendReviewVerificationReceipt,
@@ -62,6 +63,9 @@ assert.strictEqual(staleCurrent.status, BEND_REVIEW_RECEIPT_STATUS.STALE_CURRENT
 assert.deepStrictEqual(staleCurrent.differences.map((row) => row.field), ['Current package signature']);
 assert.strictEqual(verifyBendReviewVerificationReceipt({ ...receipt, receiptSignature: 'wb3d-verify-00000000' }, current).status,
   BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT);
+const missingReferencePayload = { ...receipt.payload, currentPackage: null };
+const missingReference = { ...receipt, payload: missingReferencePayload, receiptSignature: computeBendReviewVerificationReceiptSignature(missingReferencePayload) };
+assert.strictEqual(verifyBendReviewVerificationReceipt(missingReference, current).status, BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT);
 assert.strictEqual(parseBendReviewVerificationReceiptText('{bad').ok, false);
 assert.match(receiptVerificationResultHtml(staleCurrent), /STALE CURRENT PACKAGE/);
 assert.match(receiptVerificationResultHtml(staleCurrent), /Current package signature/);
