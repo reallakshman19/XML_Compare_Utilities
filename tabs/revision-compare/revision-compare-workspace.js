@@ -1,5 +1,11 @@
 /** Revision Compare workspace lifecycle over trusted compare, review, decisions and transfer. */
 import { createRevisionActions } from './revision-compare-actions.js';
+import {
+  bindRevisionCompareWorkspaceEvents,
+  routeRevisionCompareActionClick as actionClick,
+  routeRevisionCompareInputChange as inputChange,
+  syncRevisionDecisionButtons as syncDecisionButtons,
+} from './revision-compare-event-routing.js';
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
 import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-backend.js';
@@ -9,6 +15,7 @@ import { createRevisionCompareService } from './revision-compare-service.js';
 import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
+import { createRevisionReviewFilterResetAction, renderRevisionReviewFilterResetControl } from './revision-review-filter-reset.js';
 import { createRevisionScopeFilterResetAction } from './revision-scope-filter-reset.js';
 import {
   REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
@@ -37,103 +44,13 @@ import { createRevisionCompareTransferWorkspaceBindings } from './revision-trans
 
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-swap-revisions]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
-  '[data-revc-apply-visual-metadata]', '[data-revc-clear-visual-metadata]', '[data-revc-clear-scope-filters]', '[data-revc-run-compare]', '[data-revc-cancel-comparison]',
-  '[data-revc-download-session]', '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
-  '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
+  '[data-revc-apply-visual-metadata]', '[data-revc-clear-visual-metadata]', '[data-revc-clear-scope-filters]', '[data-revc-clear-review-filters]',
+  '[data-revc-run-compare]', '[data-revc-cancel-comparison]', '[data-revc-download-session]', '[data-revc-download-scope]',
+  '[data-revc-review-import]', '[data-revc-decision-import]', '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
 ]);
 function defaultNow() { return new Date().toISOString(); }
 function defaultClock() { return globalThis.performance?.now?.() ?? 0; }
 function sessionId(now) { return `revision-session-${String(now).replace(/[^0-9]/g, '')}`; }
-function trackedListener(cleanups, target, type, handler) { target.addEventListener(type, handler); cleanups.push(() => target.removeEventListener(type, handler)); }
-function fileChange(actions, target) { const file = target.files?.[0]; if (file) actions.load(target.dataset.revcFile, file); }
-function packageFileChange(actions, target) { const file = target.files?.[0]; target.value = ''; if (file) actions.importEvidencePackage(file); }
-function trustFileChange(actions, target) { const file = target.files?.[0]; target.value = ''; if (file) actions.importTrustReceipt(file); }
-function comparisonButton(actions, button) {
-  if (button.hasAttribute('data-revc-run-compare')) actions.runVisualComparison();
-  if (button.hasAttribute('data-revc-cancel-comparison')) actions.cancelComparison();
-  if (button.hasAttribute('data-revc-open-review')) actions.showReview();
-  if (button.hasAttribute('data-revc-edit-scope')) actions.showSetup();
-  if (button.dataset.revcCategory) actions.toggleCategory(button.dataset.revcCategory);
-  if (button.dataset.revcPresentation) actions.setPresentation(button.dataset.revcPresentation);
-  if (button.dataset.revcViewerBackend) actions.setViewerBackend(button.dataset.revcViewerBackend);
-  if (button.hasAttribute('data-revc-fit-all')) actions.fitAll();
-  if (button.hasAttribute('data-revc-fit-selected')) actions.fitSelected();
-  if (button.dataset.revcDifferenceId) actions.selectDifference(button.dataset.revcDifferenceId);
-}
-function reviewButton(actions, button) {
-  if (button.dataset.revcReviewState) actions.setReviewState(button.dataset.revcReviewState);
-  if (button.hasAttribute('data-revc-save-review-note')) actions.saveReviewNote();
-  if (button.hasAttribute('data-revc-next-priority')) actions.nextPriority();
-  if (button.hasAttribute('data-revc-previous-priority')) actions.previousPriority();
-  if (button.hasAttribute('data-revc-download-review')) actions.downloadReviewSession();
-  if (button.hasAttribute('data-revc-start-new-review')) actions.startNewReviewSession();
-}
-function decisionButton(actions, button) {
-  if (button.dataset.revcPreviewCandidateIndex !== undefined) actions.previewCandidate(button.dataset.revcPreviewCandidateIndex);
-  if (button.hasAttribute('data-revc-previous-candidate')) actions.previousCandidate();
-  if (button.hasAttribute('data-revc-next-candidate')) actions.nextCandidate();
-  if (button.hasAttribute('data-revc-accept-candidate')) actions.acceptCandidate();
-  if (button.hasAttribute('data-revc-confirm-no-match')) actions.confirmNoMatch();
-  if (button.hasAttribute('data-revc-defer-decision')) actions.deferDecision();
-  if (button.hasAttribute('data-revc-revoke-decision')) actions.revokeDecision();
-  if (button.hasAttribute('data-revc-download-decision')) actions.downloadDecisionLedger();
-  if (button.hasAttribute('data-revc-start-new-decision')) actions.startNewDecisionLedger();
-}
-function actionClick(actions, target) {
-  const button = target.closest('button'); if (!button) return;
-  if (button.dataset.revcCancel) actions.cancel(button.dataset.revcCancel);
-  if (button.hasAttribute('data-revc-swap-revisions')) actions.swapRevisions();
-  if (button.hasAttribute('data-revc-apply-visual-metadata')) actions.applyVisualMetadata();
-  if (button.hasAttribute('data-revc-clear-visual-metadata')) actions.clearVisualMetadata();
-  if (button.hasAttribute('data-revc-clear-scope-filters')) actions.clearScopeFilters();
-  if (button.dataset.revcGroup) actions.setGroupIncluded(button.dataset.revcGroup, button.dataset.revcInclude === 'all');
-  if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
-  if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
-  if (button.hasAttribute('data-revc-download-scope')) actions.downloadScope();
-  if (button.hasAttribute('data-revc-download-evidence-package')) actions.downloadEvidencePackage();
-  if (button.hasAttribute('data-revc-create-sign-off') || button.hasAttribute('data-revc-create-new-sign-off')) actions.createSignOff();
-  if (button.hasAttribute('data-revc-download-sign-off')) actions.downloadSignOff();
-  if (button.hasAttribute('data-revc-close')) actions.close();
-  comparisonButton(actions, button); reviewButton(actions, button); decisionButton(actions, button); actions.transferClick(button);
-}
-function reviewInput(actions, target) {
-  if (target.matches('[data-revc-review-search]')) actions.setReviewSearch(target.value);
-  if (target.matches('[data-revc-review-state-filter]')) actions.toggleReviewFilter('reviewStates', target.dataset.revcReviewStateFilter);
-  if (target.matches('[data-revc-certainty-filter]')) actions.toggleReviewFilter('certainties', target.dataset.revcCertaintyFilter);
-  if (target.matches('[data-revc-review-import]')) { const file = target.files?.[0]; if (file) actions.importReviewSession(file); }
-}
-function decisionInput(actions, target) {
-  if (target.matches('[data-revc-decision-state-filter]')) actions.toggleDecisionFilter(target.dataset.revcDecisionStateFilter);
-  if (target.matches('[data-revc-unresolved-ambiguity]')) actions.setUnresolvedAmbiguity(target.checked);
-  if (target.matches('[data-revc-decision-import]')) { const file = target.files?.[0]; if (file) actions.importDecisionLedger(file); }
-}
-function inputChange(actions, target) {
-  if (target.matches('[data-revc-trust-import]')) trustFileChange(actions, target);
-  if (target.matches('[data-revc-evidence-package-import]')) packageFileChange(actions, target);
-  if (target.matches('[data-revc-file]')) fileChange(actions, target);
-  if (target.matches('[data-revc-search]')) actions.setSearch(target.dataset.revcSearch, target.value);
-  if (target.matches('[data-revc-branch-id]')) actions.setBranchIncluded(target.dataset.revcBranchId, target.checked);
-  if (target.matches('[data-revc-queue-search]')) actions.setQueueSearch(target.value);
-  if (target.matches('[data-revc-changed-reason]')) actions.toggleChangedReason(target.dataset.revcChangedReason);
-  if (target.matches('[data-revc-needs-decision]')) actions.setNeedsDecision(target.checked);
-  reviewInput(actions, target); decisionInput(actions, target); actions.transferChange(target); actions.syncSignOffControls();
-}
-function syncDecisionButtons(root) {
-  const field = root.querySelector('[data-revc-decision-rationale]'); if (!field) return;
-  const hasRationale = Boolean(field.value.trim()); const count = root.querySelector('[data-revc-rationale-count]');
-  if (count) count.textContent = `Required · ${field.value.length} / ${field.maxLength}`;
-  root.querySelectorAll('[data-action-allowed]').forEach((button) => { button.disabled = button.dataset.actionAllowed !== 'true' || !hasRationale; });
-}
-function bindWorkspace(root, actions, cleanups) {
-  trackedListener(cleanups, root, 'click', (event) => actionClick(actions, event.target));
-  trackedListener(cleanups, root, 'change', (event) => inputChange(actions, event.target));
-  trackedListener(cleanups, root, 'input', (event) => {
-    if (event.target.matches('[data-revc-queue-search]')) actions.setQueueSearch(event.target.value);
-    if (event.target.matches('[data-revc-review-search]')) actions.setReviewSearch(event.target.value);
-    if (event.target.matches('[data-revc-decision-rationale]')) syncDecisionButtons(root);
-    actions.syncSignOffControls();
-  });
-}
 function previewFor(state) {
   const audit = state.compare.audit; const ledger = state.decision.ledger; const preview = state.decision.preview;
   return audit && decisionLedgerMatchesAudit(ledger, audit) ? candidatePreview(audit, ledger, preview.differenceId, preview.candidateIndex) : null;
@@ -276,19 +193,20 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
     const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); transferBindings?.render(state);
-    renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
+    renderRevisionReviewFilterResetControl(root, state); renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
     enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
     Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
   const clearScopeFilters = createRevisionScopeFilterResetAction({ readState: () => state, writeState: (next) => { state = next; }, render, setSearch: setWorkspaceSearch, showToast: options.showToast });
+  const clearReviewFilters = createRevisionReviewFilterResetAction({ readState: () => state, writeState: (next) => { state = next; }, render, showToast: options.showToast });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
-    ...baseActions, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
+    ...baseActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
-  bindWorkspace(root, actions, cleanups); render();
+  bindRevisionCompareWorkspaceEvents(root, actions, cleanups); render();
   return Object.freeze({
     evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), transfer: transferBindings.model(), compareRunId: compareService.activeRunId() }),
     destroy: () => { destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
