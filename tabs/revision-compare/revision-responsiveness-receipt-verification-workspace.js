@@ -14,6 +14,17 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
   let state = createRevisionResponsivenessReceiptVerificationState();
   let destroyed = false;
   const model = () => revisionResponsivenessReceiptVerificationModel(state, options.readCurrentInput());
+  function attachment() {
+    const current = model(); const receipt = state.verification?.receipt;
+    if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
+    return Object.freeze({ status: current.status, runId: receipt.observation.runId, receipt });
+  }
+  function matchesAttachment(value) {
+    const current = attachment();
+    return Boolean(current && value && current.runId === value.runId
+      && current.receipt.receiptId === value.receipt?.receiptId
+      && current.receipt.contentSha256 === value.receipt?.contentSha256);
+  }
   async function importFile(file) {
     const generation = state.generation + 1;
     state = startRevisionResponsivenessReceiptVerification(state, generation, file?.name);
@@ -33,7 +44,9 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
     }
   }
   return Object.freeze({
+    attachment,
     importFile,
+    matchesAttachment,
     model,
     render: () => renderRevisionResponsivenessReceiptVerificationSection(options.root, model()),
     destroy() {
