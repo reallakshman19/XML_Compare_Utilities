@@ -24,6 +24,12 @@ function proposalMessages(proposal, blockers, warnings) {
   warnings.push(...(proposal.warnings ?? []));
 }
 
+function identicalSourceMessage(left, right, blockers) {
+  if (left && right && left.sourceHash === right.sourceHash) {
+    blockers.push('Rev A and Rev B are the same source. Replace either revision before approving the comparison basis.');
+  }
+}
+
 export function revisionComparisonPreflight(revA, revB, proposal, visualMetadataDeclaration = null) {
   const blockers = [], warnings = [], notes = [];
   intakeMessages(revA, 'Rev A', blockers, warnings);
@@ -37,8 +43,8 @@ export function revisionComparisonPreflight(revA, revB, proposal, visualMetadata
   blockers.push(...compatibility.errors);
   notes.push(...compatibility.notes);
   compatibilityMessages(items, blockers, warnings);
+  identicalSourceMessage(left, right, blockers);
 
-  if (left && right && left.sourceHash === right.sourceHash) notes.push('Rev A and Rev B file hashes are identical.');
   if (left && right && left.stagedSchema !== right.stagedSchema) warnings.push(`Staged schemas differ: ${left.stagedSchema} vs ${right.stagedSchema}.`);
   if (proposal && !proposal.commonBranches.length) warnings.push('No exact common branches were found.');
 
@@ -54,3 +60,5 @@ export function revisionComparisonPreflight(revA, revB, proposal, visualMetadata
     }),
   });
 }
+
+export const _test = Object.freeze({ identicalSourceMessage });
