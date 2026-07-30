@@ -40,7 +40,7 @@ async function importReceiptFile(context, file) {
 }
 
 async function importSignatureFile(context, file) {
-  const generation = context.signatureState().generation + 1;
+  const generation = context.nextSignatureGeneration();
   context.setSignatureState(startRevisionResponsivenessSignatureImport(context.signatureState(), generation, file?.name)); context.render();
   try {
     const target = context.retainedReceipt();
@@ -61,13 +61,14 @@ async function importSignatureFile(context, file) {
 
 export function createRevisionResponsivenessReceiptVerificationWorkspace(options) {
   let state = createRevisionResponsivenessReceiptVerificationState();
-  let signatureState = createRevisionResponsivenessSignatureState(); let destroyed = false;
+  let signatureState = createRevisionResponsivenessSignatureState(); let signatureGeneration = 0; let destroyed = false;
   const retainedReceipt = () => state.verification?.receipt ?? null;
   const model = () => revisionResponsivenessReceiptVerificationModel(state, options.readCurrentInput());
   const signatureModel = () => revisionResponsivenessSignatureModel(signatureState, retainedReceipt(), model());
   const context = {
     cryptoRef: options.cryptoRef, destroyed: () => destroyed, receiptState: () => state, signatureState: () => signatureState,
     retainedReceipt, render: options.renderWorkspace, reportFailure: options.reportFailure, showToast: options.showToast,
+    nextSignatureGeneration: () => { signatureGeneration += 1; return signatureGeneration; },
     setReceiptState: (value) => { state = value; }, setSignatureState: (value) => { signatureState = value; },
   };
   function attachment() {
