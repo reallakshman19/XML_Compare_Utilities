@@ -43,6 +43,10 @@ function authorityReferences(state) {
   });
 }
 
+function assertReferenceMap(before, after) {
+  for (const [key, value] of Object.entries(before)) assert.equal(after[key], value, `${key} reference changed`);
+}
+
 function assertModel(state) {
   const model = revisionScopeFilterResetModel(state);
   assert.equal(model.visible, true);
@@ -61,7 +65,7 @@ function assertPureClear(state) {
   assert.equal(result.state.message, 'Cleared 2 scope filters.');
   assert.equal(result.message, 'Cleared 2 scope filters.');
   assert.equal(result.model.activeCount, 2);
-  assert.deepEqual(authorityReferences(result.state), before);
+  assertReferenceMap(before, authorityReferences(result.state));
   assert.notEqual(result.state, state);
   assert.throws(() => clearRevisionScopeFilters(state, null), /Scope-search transition is required/);
 }
