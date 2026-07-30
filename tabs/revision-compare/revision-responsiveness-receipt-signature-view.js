@@ -12,7 +12,7 @@ function messageFor(model) {
   if (!model.available) return 'Verify a full-digest responsiveness receipt v2 before importing its detached signature receipt.';
   if (model.status === 'IMPORTING') return 'Checking the signature receipt, public key profile, canonical subject and detached RSA-PSS signature.';
   if (model.status === 'FAILED') return model.error || 'The detached signature receipt could not be verified.';
-  if (model.status === 'VERIFIED') return 'The detached signature is valid for the retained responsiveness receipt and supplied public key.';
+  if (model.status === 'VERIFIED') return 'The detached signature is valid and will accompany its responsiveness receipt in the next evidence-package export.';
   return 'Import a detached signature receipt for the retained responsiveness receipt.';
 }
 function signatureInput(documentRef, disabled) {
