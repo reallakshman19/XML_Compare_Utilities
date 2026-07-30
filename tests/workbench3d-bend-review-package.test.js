@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { buildBendReviewPackageManifest, serializeBendReviewPackageManifest } from '../workbench3d/ui/bend-review-package.js';
 import { bendDiagnosticsPanelHtml } from '../workbench3d/ui/bend-diagnostics-panel.js';
+import './workbench3d-bend-review-package-verifier.test.js';
 
 const bendAudit = (modelId, signature) => ({
   contract: 'BendGeometryAudit.v1', modelId, signatureAlgorithm: 'stable-json-fnv1a32', signature,
@@ -44,6 +45,7 @@ assert.notStrictEqual(changed.packageSignature, first.packageSignature);
 const html = bendDiagnosticsPanelHtml(base);
 assert.match(html, /Review package/);
 assert.match(html, /Export review package/);
+assert.match(html, /wb3d-bend-review-verifier/);
 assert.match(html, new RegExp(first.packageSignature));
 assert.strictEqual(buildBendReviewPackageManifest({ ...base, audit: null }).disposition, 'INCOMPLETE');
 console.log('workbench3d-bend-review-package.test.js passed');
