@@ -27,6 +27,18 @@ function intakeWarnings(metadata, summary) {
   if (summary.branchCount > 500 || summary.componentCount > 10000) warnings.push('Large revision detected; refine scope deliberately.');
   return Object.freeze(warnings);
 }
+function metadataEvidence(metadata, sourceHash) {
+  const profile = metadata.profile;
+  if (!profile) return null;
+  return deepFreeze({
+    authority: profile.authority,
+    evidenceId: `metadata-profile:${sourceHash.slice(0, 24)}:${profile.profileId}`,
+    profileId: profile.profileId,
+    sourceHash,
+    fields: profile.fields,
+    explanation: profile.explanation,
+  });
+}
 function normalizeScope(scope) { return deepFreeze({ wildcard: cleanText(scope?.wildcard), selectedIds: frozenStrings(scope?.selectedIds) }); }
 function decodeJsonBytes(bytes) {
   try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
@@ -49,7 +61,8 @@ async function buildDocument(context, slotId, source, filtered, scope, now) {
     documentId: `${slotId}:${source.sourceHash.slice(0, 20)}`, slotId, role: SLOT_ROLES[slotId], fileName: source.fileName,
     fileSizeBytes: source.fileSizeBytes, sourceHash: source.sourceHash, scopedHash, stagedSchema: source.metadata.stagedSchema,
     rootShape: source.rootShape, unit: source.metadata.unit, verticalAxis: source.metadata.verticalAxis,
-    coordinateFrame: source.metadata.coordinateFrame, scope, createdAt: now, stats: filtered.stats,
+    coordinateFrame: source.metadata.coordinateFrame, metadataEvidence: metadataEvidence(source.metadata, source.sourceHash),
+    scope, createdAt: now, stats: filtered.stats,
   });
 }
 function scopeResult(document, filtered) {
@@ -176,4 +189,4 @@ export function createRevisionLoadService(cryptoRef, options = {}) {
   });
 }
 
-export const _test = Object.freeze({ reboundLoadResult, rebindDocument, swapLoadedSlots, swappableSource });
+export const _test = Object.freeze({ metadataEvidence, reboundLoadResult, rebindDocument, swapLoadedSlots, swappableSource });

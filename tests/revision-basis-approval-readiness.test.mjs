@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
+import { createRevisionActions } from '../tabs/revision-compare/revision-compare-actions.js';
 import { createRevisionComparisonBasis } from '../tabs/revision-compare/revision-comparison-basis.js';
 import {
   revisionBasisApprovalReadiness,
@@ -91,6 +92,26 @@ async function assertUnknownIsNotApprovable(revA, revB) {
   }, webcrypto), /unitCompatibility\.status must be COMPATIBLE/);
 }
 
+async function assertActionGatePreventsScopeMutation(revA, revB) {
+  let state = workspace(revA, revB);
+  let scopeCalls = 0;
+  let reported = '';
+  const actions = createRevisionActions({
+    root: { querySelector: () => null },
+    options: { showToast: (message) => { reported = message; } },
+    service: { applyScope: async () => { scopeCalls += 1; } },
+    cryptoRef: webcrypto,
+    readState: () => state,
+    writeState: (next) => { state = next; },
+    render: () => {},
+    now: () => '2026-07-30T00:00:00.000Z',
+    downloadArtifact: () => {},
+  });
+  await actions.approveBasis();
+  assert.equal(scopeCalls, 0);
+  assert.match(reported, /Unit must be declared before approving/);
+}
+
 async function assertDeclarationUnlocksApproval(revA, revB) {
   const declaration = await createRevisionVisualMetadataDeclaration(revA, revB, {
     unit: 'mm', coordinateFrame: 'plant', verticalAxis: 'z',
@@ -111,5 +132,6 @@ async function assertDeclarationUnlocksApproval(revA, revB) {
 const revA = documentFixture('baseline', 'a');
 const revB = documentFixture('candidate', 'b');
 await assertUnknownIsNotApprovable(revA, revB);
+await assertActionGatePreventsScopeMutation(revA, revB);
 await assertDeclarationUnlocksApproval(revA, revB);
 console.log('revision-basis-approval-readiness: PASS');

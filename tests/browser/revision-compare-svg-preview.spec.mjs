@@ -8,9 +8,14 @@ async function upload(page, slot, name) {
   await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
 }
 
+async function uploadValue(page, slot, name, value) {
+  const buffer = Buffer.from(JSON.stringify(value));
+  await page.locator(`[data-revc-file="${slot}"]`).setInputFiles({ name, mimeType: 'application/json', buffer });
+}
+
 async function installViewerHarness(page, failTargetPane = false) {
   await page.evaluate(async ({ failPane }) => {
-    window.rcSvgCertificationLog = { disposed: 0, modes: [] };
+    window.rcSvgCertificationLog = { disposed: 0, modes: [], models: null };
     const viewerFactory = async (host) => {
       const canvas = document.createElement('canvas');
       canvas.dataset.revcSvgCertificationWebgl = '1';
@@ -20,7 +25,7 @@ async function installViewerHarness(page, failTargetPane = false) {
       const fitCounts = { all: 0, selection: 0 };
       return {
         reattach(nextHost) { if (canvas.parentElement !== nextHost) nextHost.appendChild(canvas); },
-        setModels() {},
+        setModels(models) { window.rcSvgCertificationLog.models = structuredClone(models); },
         setStatuses() {},
         setVerticalAxis() {},
         setMode(value) { mode = value; window.rcSvgCertificationLog.modes.push(value); },
@@ -114,6 +119,65 @@ async function selectAndProve(page, category) {
   await expect.poll(() => viewerSnapshot(page).then((value) => value.selectedIds)).toEqual(evidence.ids);
   await expect(page.locator('[data-revc-hidden-fit-authority].is-selected')).toHaveCount(0);
 }
+
+function sequentialSource(name, endX) {
+  return [{
+    name: '/ASIM-1885-10"-S8810101-91261M7-HC-01/B1',
+    type: 'BRANCH',
+    attributes: {
+      NAME: '/ASIM-1885-10"-S8810101-91261M7-HC-01/B1',
+      HPOS: { x: 0, y: 0, z: 0 },
+      TPOS: { x: endX, y: 0, z: 0 },
+      HREF: '/PREVIOUS',
+      TREF: '/NEXT',
+    },
+    children: [{
+      name,
+      type: 'PIPE',
+      attributes: {
+        APOS: { x: 10, y: 20, z: 30 },
+        LPOS: { x: endX, y: 40, z: 50 },
+        ROUTE_TIER: 'BUILD_QUEUE_CONTINUITY',
+        AUTO_GENERATED_PIPE: 'true',
+      },
+    }],
+  }];
+}
+
+test('Sequential source arrays resolve metadata visibly and render object-point geometry', async ({ page }) => {
+  await page.goto('/tests/browser/revision-compare-rc001.html');
+  await installViewerHarness(page);
+  await page.getByRole('button', { name: 'Open Revision Compare' }).click();
+  await uploadValue(page, 'baseline', 'sequential-a.json', sequentialSource('PIPE AUTO CONTINUITY CONT-A', 100));
+  await uploadValue(page, 'candidate', 'sequential-b.json', sequentialSource('PIPE AUTO CONTINUITY CONT-B', 110));
+  const preflight = page.locator('.revc-preflight').filter({ hasText: 'COMPATIBILITY PREFLIGHT' });
+  await expect(preflight).toContainText('MM ↔ MM');
+  await expect(preflight).toContainText('PLANT ↔ PLANT');
+  await expect(preflight).toContainText('Z ↔ Z');
+  await expect(preflight.locator('[data-revc-compatibility-evidence]')).toHaveCount(3);
+  await expect(page.locator('[data-revc-visual-metadata]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Approve comparison basis' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
+  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
+  const audit = await auditEvidence(page);
+  expect(audit.visualModels.revA.segments).toHaveLength(1);
+  expect(audit.visualModels.revB.segments).toHaveLength(1);
+  await expect(page.locator('[data-revc-svg-overlay-root="1"] line')).not.toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Side-by-side' }).click();
+  const panes = page.locator('[data-revc-svg-pane-root="1"]');
+  await expect(panes).toHaveCount(2);
+  await expect(panes.nth(0).locator('line')).not.toHaveCount(0);
+  await expect(panes.nth(1).locator('line')).not.toHaveCount(0);
+
+  await page.getByRole('button', { name: '3D (WebGL)' }).click();
+  await expect(page.locator('[data-revc-svg-certification-webgl]')).toHaveCount(1);
+  const webglModels = await page.evaluate(() => structuredClone(window.rcSvgCertificationLog.models));
+  expect(webglModels.source.segments).toHaveLength(1);
+  expect(webglModels.target.segments).toHaveLength(1);
+});
 
 test('RC-SVG-001B links panes, viewport history, exact evidence and backend lifecycle', async ({ page }) => {
   await openAndCompare(page);

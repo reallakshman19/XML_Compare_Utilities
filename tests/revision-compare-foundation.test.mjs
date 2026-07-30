@@ -8,6 +8,8 @@ await import('./revision-compare-rc002-core.test.mjs');
 await import('./revision-compare-rc002-worker.test.mjs');
 await import('./revision-compare-rc002-owner-fixes.test.mjs');
 await import('./revision-compare-rc002-static.test.mjs');
+await import('./revision-basis-approval-readiness.test.mjs');
+await import('./revision-compare-sequential-source-recovery.test.mjs');
 await import('./revision-compare-rc003-contracts.test.mjs');
 await import('./revision-compare-rc003-priority.test.mjs');
 await import('./revision-compare-rc003-owner-fixes.test.mjs');

@@ -6,6 +6,8 @@ export const PROJECT_DOCUMENT_SCHEMA = 'ProjectDocument.v1';
 export const PROJECT_SESSION_SCHEMA = 'ProjectSession.v1';
 export const REVISION_SLOT_IDS = Object.freeze(['baseline', 'candidate']);
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
+const PROFILE_AUTHORITY = 'BOUNDED_PRODUCT_COMPATIBILITY_PROFILE';
+const METADATA_KEYS = Object.freeze(['unit', 'coordinateFrame', 'verticalAxis']);
 
 function known(value) {
   return cleanText(value).toUpperCase() || 'UNKNOWN';
@@ -33,9 +35,38 @@ function normalizedStats(value) {
   });
 }
 
+function normalizedMetadataEvidence(value) {
+  if (!value) return null;
+  return deepFreeze({
+    authority: cleanText(value.authority),
+    evidenceId: cleanText(value.evidenceId),
+    profileId: cleanText(value.profileId),
+    sourceHash: cleanText(value.sourceHash).toLowerCase(),
+    fields: Object.fromEntries(METADATA_KEYS.map((key) => [key, known(value.fields?.[key])])),
+    explanation: cleanText(value.explanation),
+  });
+}
+
 function timestamp(value) {
   const text = cleanText(value);
   return Number.isNaN(Date.parse(text)) ? '' : text;
+}
+
+function metadataEvidenceErrors(document) {
+  const evidence = document?.metadataEvidence;
+  if (!evidence) return [];
+  const errors = [];
+  if (evidence.authority !== PROFILE_AUTHORITY) errors.push('metadataEvidence.authority is invalid');
+  for (const key of ['evidenceId', 'profileId', 'explanation']) {
+    if (!cleanText(evidence[key])) errors.push(`metadataEvidence.${key} is required`);
+  }
+  if (evidence.sourceHash !== document.sourceHash) errors.push('metadataEvidence.sourceHash must match sourceHash');
+  for (const key of METADATA_KEYS) {
+    if (known(evidence.fields?.[key]) !== known(document?.[key])) {
+      errors.push(`metadataEvidence.fields.${key} must match document metadata`);
+    }
+  }
+  return errors;
 }
 
 export function validateProjectDocument(document) {
@@ -50,10 +81,12 @@ export function validateProjectDocument(document) {
   if (!Number.isInteger(document?.fileSizeBytes) || document.fileSizeBytes < 0) errors.push('fileSizeBytes must be non-negative');
   if (!timestamp(document?.createdAt)) errors.push('createdAt must be an ISO timestamp');
   if (!document?.stats || !document?.scope) errors.push('stats and scope are required');
+  errors.push(...metadataEvidenceErrors(document));
   return Object.freeze(errors);
 }
 
 export function createProjectDocument(input) {
+  const metadataEvidence = normalizedMetadataEvidence(input?.metadataEvidence);
   const document = deepFreeze({
     schema: PROJECT_DOCUMENT_SCHEMA,
     documentId: cleanText(input?.documentId),
@@ -68,6 +101,7 @@ export function createProjectDocument(input) {
     unit: known(input?.unit),
     verticalAxis: known(input?.verticalAxis),
     coordinateFrame: known(input?.coordinateFrame),
+    ...(metadataEvidence ? { metadataEvidence } : {}),
     stats: normalizedStats(input?.stats),
     scope: normalizedScope(input?.scope),
     createdAt: cleanText(input?.createdAt),
