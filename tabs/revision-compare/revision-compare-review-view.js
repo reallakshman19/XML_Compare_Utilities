@@ -1,6 +1,10 @@
 /** Fixed viewer + queue + authoritative inspector markup for RC-002 through RC-SVG-003. */
 import { revisionReviewSideMarkup } from './revision-review-view.js';
 import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-backend.js';
+import {
+  revisionViewerSceneStatus,
+  revisionViewerSceneStatusMarkup,
+} from './revision-viewer-scene-status.js';
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -59,6 +63,7 @@ export function revisionCompareReviewMarkup(state, viewerEvidence = {}) {
   const failure = failureMatches(state.compare, viewerEvidence)
     ? `<div class="revc-viewer-failure"><b>${label} unavailable.</b><p>${escapeHtml(viewerEvidence.error)}</p><span>The change queue and inspector remain available. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`
     : '';
-  return `<main class="revc-review-workspace"><section class="revc-view-column"><header class="revc-review-context"><div><span>REV A ↔ REV B</span><h2>${escapeHtml(state.slots.baseline.fileName)} ↔ ${escapeHtml(state.slots.candidate.fileName)}</h2><p>${state.basis.scopeSummary.includedBranchCountA} Rev A branches · ${state.basis.scopeSummary.includedBranchCountB} Rev B branches · current basis</p></div></header>${viewerToolbar(state.compare, viewerEvidence)}${failure}<div class="revc-viewer-host" data-revc-viewer-host aria-label="${viewerLabel}"></div></section><aside class="revc-review-side">${summaryMarkup(audit)}${revisionReviewSideMarkup(state)}</aside></main>`;
+  const sceneStatus = revisionViewerSceneStatus(audit, viewerEvidence);
+  return `<main class="revc-review-workspace"><section class="revc-view-column"><header class="revc-review-context"><div><span>REV A ↔ REV B</span><h2>${escapeHtml(state.slots.baseline.fileName)} ↔ ${escapeHtml(state.slots.candidate.fileName)}</h2><p>${state.basis.scopeSummary.includedBranchCountA} Rev A branches · ${state.basis.scopeSummary.includedBranchCountB} Rev B branches · current basis</p></div></header>${viewerToolbar(state.compare, viewerEvidence)}${revisionViewerSceneStatusMarkup(sceneStatus)}${failure}<div class="revc-viewer-host" data-revc-viewer-host aria-label="${viewerLabel}"></div></section><aside class="revc-review-side">${summaryMarkup(audit)}${revisionReviewSideMarkup(state)}</aside></main>`;
 }
 export const _test = Object.freeze({ displayedBackend, failureMatches, rowSearchText });
