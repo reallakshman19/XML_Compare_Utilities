@@ -1,7 +1,8 @@
 // W5: full evidence model (A/B/Delta/basis/traceability), domain templates,
-// connector ledger.
+// connector ledger and InputXML bend diagnostic integration.
 import assert from 'assert';
 import { buildEvidenceModel, connectorLedgerModel, evidenceDomainFor } from '../workbench3d/ui/evidence-view-models.js';
+import { connectorLedgerHtml } from '../workbench3d/ui/evidence-panel.js';
 import { buildNodeSetGraph } from '../workbench3d/adapters/nodeset-adapter.js';
 import { runNodeCompare } from '../workbench3d/compare/node-compare-engine.js';
 import { parseInputXmlRecords } from '../workbench3d/adapters/inputxml-adapter.js';
@@ -80,6 +81,18 @@ assert.ok(ledger.every((r) => r.symbol && r.status && (r.basis !== undefined)));
 assert.ok(ledger.some((r) => r.source !== '—' && r.target !== '—'), 'matched rows show both sides');
 assert.ok(ledger.some((r) => r.target === '—'), 'deleted row shows dash target');
 assert.ok(ledger.some((r) => /PS-1\./.test(r.source)), 'ledger uses support ids');
+
+const integratedHtml = connectorLedgerHtml({
+  audit, graphs, sourceName: 'source.xml', targetName: 'target.xml',
+  visuals: {
+    A: { bendSummary: { requested: 1, resolved: 0, blocked: 1, arcSegments: 0 }, geometryDiagnostics: [{ objectId: 'source:E1', severity: 'BLOCKED', code: 'BEND_RADIUS_MISSING', message: 'Radius required.' }] },
+    B: { bendSummary: { requested: 2, resolved: 2, blocked: 0, arcSegments: 24 }, geometryDiagnostics: [] },
+  },
+});
+assert.match(integratedHtml, /data-wb3d-bend-diagnostics/);
+assert.match(integratedHtml, /2\/3 resolved · 1 blocked/);
+assert.match(integratedHtml, /data-action="select-object" data-object="source:E1"/);
+assert.match(integratedHtml, /Connector ledger/);
 
 console.log('workbench3d-evidence.test.js passed');
 console.log(`  fields=${model.fields.length} delta=${model.delta.length} basis=${model.basis.length} ledger=${ledger.length}`);
