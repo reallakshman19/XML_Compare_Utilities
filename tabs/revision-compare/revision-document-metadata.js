@@ -2,7 +2,7 @@
 
 import { cleanText, deepFreeze } from './revision-contract-utils.js';
 
-export const SEQUENTIAL_SKETCHER_SOURCE_PROFILE = deepFreeze({
+const SEQUENTIAL_SKETCHER_SOURCE_PROFILE = deepFreeze({
   authority: 'BOUNDED_PRODUCT_COMPATIBILITY_PROFILE',
   profileId: 'sequential-sketcher-source-array/mm-plant-z/v1',
   stagedSchema: 'sequential-sketcher-source-array/v1',
@@ -86,5 +86,3 @@ export function stagedDocumentMetadata(document) {
     profile,
   });
 }
-
-export const _test = Object.freeze({ branchHasSequentialEvidence, finiteObjectPoint, inferredProfile });
