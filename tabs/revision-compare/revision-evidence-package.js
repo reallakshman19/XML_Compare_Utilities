@@ -1,4 +1,4 @@
-/** Deterministic binding of existing Revision Compare v1 authorities. */
+/** Deterministic binding of existing Revision Compare authorities and optional runtime evidence. */
 import { assertJsonSafe, deepFreeze } from './revision-contract-utils.js';
 import {
   REVISION_SCOPE_MANIFEST_SCHEMA,
@@ -13,8 +13,15 @@ import { createDecisionLedgerExport } from './revision-decision-manifest.js';
 import { DECISION_LEDGER_SCHEMA } from './revision-decision-contracts.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
 import { sha256Text } from './revision-hash.js';
+import {
+  REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS,
+  createRevisionEvidencePackageResponsivenessReceiptAttachment,
+  revisionEvidencePackageResponsivenessIdentity,
+} from './revision-evidence-package-responsiveness-receipt.js';
 
-export const REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA = 'RevisionCompareEvidencePackage.v1';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA = 'RevisionCompareEvidencePackage.v1';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA = 'RevisionCompareEvidencePackage.v2';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA = REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA;
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX = 'revision-evidence-package:';
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS = Object.freeze([
   'schema', 'packageId', 'contentSha256', 'identity', 'authorityStatus', 'payload', 'validation',
@@ -26,16 +33,12 @@ export function canonicalRevisionCompareEvidenceValue(value, path = 'value') {
     if (!Number.isFinite(value)) throw new TypeError(`${path} must contain only finite JSON numbers.`);
     return value;
   }
-  if (Array.isArray(value)) {
-    return value.map((item, index) => canonicalRevisionCompareEvidenceValue(item, `${path}[${index}]`));
-  }
+  if (Array.isArray(value)) return value.map((item, index) => canonicalRevisionCompareEvidenceValue(item, `${path}[${index}]`));
   if (!value || typeof value !== 'object') throw new TypeError(`${path} is not JSON-safe.`);
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`${path} must be a plain object.`);
   const output = {};
-  for (const key of Object.keys(value).sort()) {
-    output[key] = canonicalRevisionCompareEvidenceValue(value[key], `${path}.${key}`);
-  }
+  for (const key of Object.keys(value).sort()) output[key] = canonicalRevisionCompareEvidenceValue(value[key], `${path}.${key}`);
   return output;
 }
 
@@ -59,12 +62,8 @@ function readinessErrors(state) {
   if (state?.basisStatus !== 'CURRENT') errors.push('Evidence package requires a current comparison basis.');
   if (!basis) errors.push('Evidence package requires an approved comparison basis.');
   if (!sessionId || !state?.proposal) errors.push('Evidence package requires the current revision session and scope proposal.');
-  if (!state?.slots?.baseline || !state?.slots?.candidate) {
-    errors.push('Evidence package requires both current revision intake records.');
-  }
-  if (basis && sessionId && basis.sessionId !== sessionId) {
-    errors.push('The comparison basis does not belong to the current revision session.');
-  }
+  if (!state?.slots?.baseline || !state?.slots?.candidate) errors.push('Evidence package requires both current revision intake records.');
+  if (basis && sessionId && basis.sessionId !== sessionId) errors.push('The comparison basis does not belong to the current revision session.');
   if (!audit || audit.schema !== 'RevisionCompareAudit.v1' || audit.validation?.status !== 'READY') {
     errors.push('Evidence package requires a READY RevisionCompareAudit.v1.');
   }
@@ -103,7 +102,7 @@ function manifestErrors(state, sessionManifest, scopeBasisManifest) {
   return errors;
 }
 
-function exactPayload(state, preflight) {
+function exactPayload(state, preflight, responsivenessReceipt) {
   const sessionManifest = createRevisionSessionManifest(state, preflight);
   const scopeBasisManifest = createRevisionScopeManifest(state, preflight);
   const errors = manifestErrors(state, sessionManifest, scopeBasisManifest);
@@ -114,6 +113,7 @@ function exactPayload(state, preflight) {
     audit: state.compare.audit,
     reviewSession: createReviewSessionExport(state.review.session),
     decisionLedger: createDecisionLedgerExport(state.decision.ledger),
+    ...(responsivenessReceipt ? { responsivenessReceipt } : {}),
   }, 'payload'));
 }
 
@@ -128,44 +128,47 @@ function packageIdentity(state, payload) {
     revADocumentId: audit.revADocumentId,
     revBDocumentId: audit.revBDocumentId,
     engineVersion: audit.engineVersion,
+    ...(revisionEvidencePackageResponsivenessIdentity(payload.responsivenessReceipt) ?? {}),
   };
 }
 
 function hashMaterial(state, payload) {
+  const attached = Boolean(payload.responsivenessReceipt);
   return revisionCompareEvidencePackageHashMaterial({
-    schema: REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA,
+    schema: attached ? REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA : REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
     identity: packageIdentity(state, payload),
     authorityStatus: {
       basisStatus: state.basisStatus,
       auditValidationStatus: payload.audit.validation.status,
       reviewStatus: payload.reviewSession.status,
       decisionStatus: payload.decisionLedger.status,
+      ...(attached ? { responsivenessReceiptStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS } : {}),
     },
     payload,
     validation: { status: 'READY', errors: [] },
   });
 }
 
-export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef) {
+export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef, responsivenessAttachment = null) {
   const readiness = revisionCompareEvidencePackageReadiness(state);
   if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
-  const material = hashMaterial(state, exactPayload(state, preflight));
+  const receipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(responsivenessAttachment, state);
+  const material = hashMaterial(state, exactPayload(state, preflight, receipt));
   const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
   const artifact = deepFreeze(canonicalRevisionCompareEvidenceValue({
     ...material,
     packageId: `${REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX}${contentSha256}`,
     contentSha256,
-  }, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA));
-  assertJsonSafe(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  }, material.schema));
+  assertJsonSafe(artifact, material.schema);
   return artifact;
 }
 
 export function serializeRevisionCompareEvidencePackage(artifact) {
-  if (artifact?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA) {
-    throw new TypeError('A RevisionCompareEvidencePackage.v1 artifact is required.');
-  }
-  const canonical = canonicalRevisionCompareEvidenceValue(artifact, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
-  assertJsonSafe(canonical, REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA);
+  const schemas = [REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA];
+  if (!schemas.includes(artifact?.schema)) throw new TypeError(`A ${schemas.join(' or ')} artifact is required.`);
+  const canonical = canonicalRevisionCompareEvidenceValue(artifact, artifact.schema);
+  assertJsonSafe(canonical, artifact.schema);
   return `${JSON.stringify(canonical, null, 2)}\n`;
 }
 
