@@ -66,14 +66,13 @@ function candidateSummary(index, row) {
   });
 }
 
-function impactRow(entry, candidatesById, selectedDifferenceId, priorityIndex) {
+function impactRow(entry, candidatesById, priorityIndex) {
   const { row, item } = entry;
   const decision = entry.decisionItem;
   const candidates = candidateSummary(candidatesById, row);
   return deepFreeze({
     differenceId: row.differenceId,
     priorityRank: priorityIndex + 1,
-    selected: row.differenceId === selectedDifferenceId,
     branchId: clean(row.context?.branchId),
     componentType: clean(row.context?.componentType),
     differenceCategory: row.differenceCategory,
@@ -183,7 +182,7 @@ function reportCoreFromProjection(state, scope, projection) {
   const normalizedScope = normalizeScope(scope);
   const entries = normalizedScope === 'VISIBLE' ? projection.visible : projection.all;
   const candidatesById = candidateIndex(state.compare.audit);
-  const rows = Object.freeze(entries.map((entry, index) => impactRow(entry, candidatesById, state.compare.selectedDifferenceId, index)));
+  const rows = Object.freeze(entries.map((entry, index) => impactRow(entry, candidatesById, index)));
   const summary = summaryFor(rows);
   return deepFreeze({
     schema: REVISION_IMPACT_REPORT_SCHEMA,
@@ -195,8 +194,6 @@ function reportCoreFromProjection(state, scope, projection) {
       visibleRowCount: projection.visible.length,
       hiddenRowCount: projection.hiddenCount,
       exportedRowCount: rows.length,
-      selectedDifferenceId: state.compare.selectedDifferenceId,
-      selectedIncluded: rows.some((row) => row.selected),
     }),
     summary,
     highlights: highlights(summary),
