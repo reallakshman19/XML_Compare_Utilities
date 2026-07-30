@@ -1,9 +1,15 @@
 /** Deterministic, audit-bound browser responsiveness observation receipt. */
 import {
-  assertJsonSafe, cleanText, deepFreeze, deterministicId, stableStringify,
+  assertJsonSafe, cleanText, deepFreeze, stableStringify,
 } from './revision-contract-utils.js';
+import {
+  REVISION_RESPONSIVENESS_RECEIPT_V1_SCHEMA,
+  REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA,
+  createRevisionResponsivenessReceiptIntegrity,
+} from './revision-responsiveness-receipt-integrity.js';
 
-export const REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA = 'RevisionResponsivenessObservationReceipt.v1';
+export const REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_V1_SCHEMA = REVISION_RESPONSIVENESS_RECEIPT_V1_SCHEMA;
+export const REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA = REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA;
 const AUDIT_SCHEMA = 'RevisionCompareAudit.v1';
 const COMPLETED_DISPOSITIONS = new Set(['QUALIFIED', 'NOT_QUALIFIED']);
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
@@ -174,7 +180,7 @@ export async function createRevisionResponsivenessObservationReceipt(input, cryp
   const identity = receiptIdentity(input);
   const receipt = deepFreeze({
     ...identity,
-    receiptId: await deterministicId('responsiveness-observation', identity, cryptoRef),
+    ...await createRevisionResponsivenessReceiptIntegrity(identity, cryptoRef),
   });
   assertJsonSafe(receipt, REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA);
   return receipt;
@@ -182,8 +188,9 @@ export async function createRevisionResponsivenessObservationReceipt(input, cryp
 
 export function revisionResponsivenessObservationReceiptMatches(receipt, input) {
   try {
-    const { receiptId: _receiptId, ...identity } = receipt;
-    return stableStringify(identity) === stableStringify(receiptIdentity(input));
+    const { receiptId: _receiptId, contentSha256: _contentSha256, ...identity } = receipt;
+    return receipt.schema === REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA
+      && stableStringify(identity) === stableStringify(receiptIdentity(input));
   } catch {
     return false;
   }

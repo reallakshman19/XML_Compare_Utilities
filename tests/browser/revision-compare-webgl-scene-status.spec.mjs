@@ -232,8 +232,9 @@ test('large Sequential comparison can download and verify consecutive Workbench 
   expect(path).not.toBeNull();
   expect(download.suggestedFilename()).toMatch(/^revision-responsiveness-.*-run-2\.json$/);
   const receipt = JSON.parse(await readFile(path, 'utf8'));
-  expect(receipt.schema).toBe('RevisionResponsivenessObservationReceipt.v1');
-  expect(receipt.receiptId).toMatch(/^responsiveness-observation:[a-f0-9]{24}$/);
+  expect(receipt.schema).toBe('RevisionResponsivenessObservationReceipt.v2');
+  expect(receipt.contentSha256).toMatch(/^[a-f0-9]{64}$/);
+  expect(receipt.receiptId).toBe(`responsiveness-observation:${receipt.contentSha256.slice(0, 24)}`);
   expect(receipt.authority.classification).toBe('PRODUCT_RUNTIME_OBSERVATION_ONLY');
   expect(receipt.authority.engineeringCertification).toBe('NONE');
   expect(receipt.authority.statement).toMatch(/not engineering acceptance/i);
@@ -258,8 +259,10 @@ test('large Sequential comparison can download and verify consecutive Workbench 
   await expect(verification).toHaveAttribute('data-revc-responsiveness-receipt-verification', 'verified_current');
   await expect(verification).toContainText('VERIFIED_CURRENT');
   await expect(verification).toContainText('Schema structure');
+  await expect(verification).toContainText('Content SHA-256');
   await expect(verification).toContainText('Receipt ID');
   await expect(verification).toContainText('VERIFIED');
+  await expect(verification).toContainText(receipt.contentSha256);
   await expect(verification).toContainText('Current audit');
   await expect(verification).toContainText('MATCH');
   await expect(verification).toContainText('Active run');
@@ -267,6 +270,8 @@ test('large Sequential comparison can download and verify consecutive Workbench 
   await expect(verification).toContainText('NOT_ESTABLISHED');
   const verifiedEvidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence().responsivenessReceiptVerification));
   expect(verifiedEvidence.status).toBe('VERIFIED_CURRENT');
+  expect(verifiedEvidence.contentSha256Status).toBe('VERIFIED');
+  expect(verifiedEvidence.contentSha256).toBe(receipt.contentSha256);
   expect(verifiedEvidence.receiptId).toBe(receipt.receiptId);
   expect(verifiedEvidence.authenticityStatus).toBe('NOT_ESTABLISHED');
 });

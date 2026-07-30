@@ -1,11 +1,15 @@
 /** Strict local integrity verification for responsiveness observation receipts. */
 import {
-  assertJsonSafe, deepFreeze, deterministicId, stableStringify,
+  assertJsonSafe, deepFreeze, stableStringify,
 } from './revision-contract-utils.js';
+import {
+  REVISION_RESPONSIVENESS_RECEIPT_V1_SCHEMA,
+  REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA,
+  verifyRevisionResponsivenessReceiptIntegrity,
+} from './revision-responsiveness-receipt-integrity.js';
 import {
   REVISION_RESPONSIVENESS_OBSERVATION_AUTHORITY,
   REVISION_RESPONSIVENESS_OBSERVATION_CAVEATS,
-  REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA,
 } from './revision-responsiveness-observation-receipt.js';
 
 export const REVISION_RESPONSIVENESS_RECEIPT_VERIFICATION_SCHEMA = 'RevisionResponsivenessReceiptVerification.v1';
@@ -15,7 +19,8 @@ export const REVISION_RESPONSIVENESS_RECEIPT_VERIFICATION_STATUS = Object.freeze
   IDLE: 'IDLE', IMPORTING: 'IMPORTING', VERIFIED: 'VERIFIED', FAILED: 'FAILED',
 });
 
-const ROOT = ['schema', 'authority', 'session', 'audit', 'revisions', 'observation', 'caveats', 'receiptId'];
+const ROOT_V1 = ['schema', 'authority', 'session', 'audit', 'revisions', 'observation', 'caveats', 'receiptId'];
+const ROOT_V2 = [...ROOT_V1, 'contentSha256'];
 const AUTHORITY = ['classification', 'engineeringCertification', 'statement'];
 const SESSION = ['sessionId', 'createdAt', 'updatedAt'];
 const AUDIT = ['auditId', 'basisId', 'engineVersion', 'revADocumentId', 'revBDocumentId'];
@@ -169,9 +174,12 @@ function validateObservation(value) {
 }
 
 function validateReceipt(input) {
-  assertPlainJson(input, 'receipt'); exactObject(input, ROOT, 'receipt');
-  if (input.schema !== REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA) throw new TypeError(`Receipt schema must be ${REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA}.`);
+  assertPlainJson(input, 'receipt');
+  const schemas = [REVISION_RESPONSIVENESS_RECEIPT_V1_SCHEMA, REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA];
+  if (!schemas.includes(input?.schema)) throw new TypeError(`Receipt schema must be ${schemas.join(' or ')}.`);
+  exactObject(input, input.schema === REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA ? ROOT_V2 : ROOT_V1, 'receipt');
   if (!RECEIPT_ID.test(input.receiptId)) throw new TypeError('receiptId is invalid.');
+  if (input.schema === REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA && !SHA256.test(input.contentSha256)) throw new TypeError('contentSha256 must be lowercase SHA-256.');
   exactObject(input.authority, AUTHORITY, 'authority');
   if (stableStringify(input.authority) !== stableStringify(REVISION_RESPONSIVENESS_OBSERVATION_AUTHORITY)) throw new TypeError('Receipt authority boundary is invalid.');
   exactObject(input.session, SESSION, 'session'); text(input.session.sessionId, 'session.sessionId'); exactIso(input.session.createdAt, 'session.createdAt'); exactIso(input.session.updatedAt, 'session.updatedAt');
@@ -213,7 +221,7 @@ export function completeRevisionResponsivenessReceiptVerification(state, generat
 }
 
 export function failRevisionResponsivenessReceiptVerification(state, generation, error) {
-  if (state.generation !== generation) return state;
+  if (state.generation !== generation || state.status !== 'IMPORTING') return state;
   return deepFreeze({ ...state, status: 'FAILED', verification: null, error: error?.message || String(error) });
 }
 
@@ -222,12 +230,13 @@ export async function verifyRevisionResponsivenessObservationReceiptJson(textVal
   if (new TextEncoder().encode(textSource).byteLength > REVISION_RESPONSIVENESS_RECEIPT_MAX_BYTES) throw new RangeError('Responsiveness receipt is limited to 256 KiB.');
   assertNoDuplicateJsonKeys(textSource);
   let parsed; try { parsed = JSON.parse(textSource); } catch { throw new TypeError('Responsiveness receipt JSON is invalid.'); }
-  const receipt = validateReceipt(parsed); const { receiptId: _receiptId, ...identity } = receipt;
-  const expected = await deterministicId('responsiveness-observation', identity, cryptoRef);
-  if (receipt.receiptId !== expected) throw new TypeError('Receipt ID does not match the canonical receipt content.');
+  const receipt = validateReceipt(parsed);
+  const integrity = await verifyRevisionResponsivenessReceiptIntegrity(receipt, cryptoRef);
   const verification = deepFreeze({
     schema: REVISION_RESPONSIVENESS_RECEIPT_VERIFICATION_SCHEMA,
-    structureStatus: 'VERIFIED', receiptIdStatus: 'VERIFIED', authenticityStatus: 'NOT_ESTABLISHED', receipt,
+    structureStatus: 'VERIFIED', receiptIdStatus: integrity.receiptIdStatus,
+    contentSha256Status: integrity.contentSha256Status, contentSha256: integrity.contentSha256,
+    authenticityStatus: 'NOT_ESTABLISHED', receipt,
   });
   assertJsonSafe(verification, REVISION_RESPONSIVENESS_RECEIPT_VERIFICATION_SCHEMA);
   return verification;
@@ -236,9 +245,10 @@ export async function verifyRevisionResponsivenessObservationReceiptJson(textVal
 export function revisionResponsivenessReceiptVerificationModel(state, currentInput) {
   const verification = state?.verification; const receipt = verification?.receipt;
   if (state?.status !== 'VERIFIED' || !receipt) return deepFreeze({
-    status: state?.status ?? 'IDLE', fileName: state?.fileName ?? '', receiptId: null,
+    status: state?.status ?? 'IDLE', fileName: state?.fileName ?? '', receiptId: null, contentSha256: null,
     structureStatus: state?.status === 'FAILED' ? 'FAILED' : 'NOT_VERIFIED',
     receiptIdStatus: state?.status === 'FAILED' ? 'FAILED' : 'NOT_VERIFIED',
+    contentSha256Status: state?.status === 'FAILED' ? 'FAILED' : 'NOT_VERIFIED',
     authorityStatus: 'UNAVAILABLE', runStatus: 'UNAVAILABLE', authenticityStatus: 'NOT_ESTABLISHED',
     error: state?.error ?? null,
   });
@@ -246,7 +256,9 @@ export function revisionResponsivenessReceiptVerificationModel(state, currentInp
   const runStatus = runRelation(receipt, currentInput, authorityStatus);
   return deepFreeze({
     status: runStatus === 'MATCH' ? 'VERIFIED_CURRENT' : authorityStatus === 'MATCH' ? 'VERIFIED_HISTORICAL' : 'VERIFIED_OTHER_AUTHORITY',
-    fileName: state.fileName, receiptId: receipt.receiptId, structureStatus: verification.structureStatus,
-    receiptIdStatus: verification.receiptIdStatus, authorityStatus, runStatus, authenticityStatus: verification.authenticityStatus, error: null,
+    fileName: state.fileName, receiptId: receipt.receiptId, contentSha256: verification.contentSha256,
+    structureStatus: verification.structureStatus, receiptIdStatus: verification.receiptIdStatus,
+    contentSha256Status: verification.contentSha256Status, authorityStatus, runStatus,
+    authenticityStatus: verification.authenticityStatus, error: null,
   });
 }
