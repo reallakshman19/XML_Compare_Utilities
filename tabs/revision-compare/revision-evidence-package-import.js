@@ -6,10 +6,12 @@ import {
   REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX,
   REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
   REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA,
+  REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA,
   canonicalRevisionCompareEvidenceValue,
   revisionCompareEvidencePackageHashMaterial,
 } from './revision-evidence-package.js';
 import { verifyRevisionCompareEvidencePackageV2 } from './revision-evidence-package-v2-import.js';
+import { verifyRevisionCompareEvidencePackageV3 } from './revision-evidence-package-v3-import.js';
 import { reattachVerifiedReviewRecord, verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
@@ -165,6 +167,9 @@ function liveIntake(manifest) {
 export async function verifyRevisionCompareEvidencePackageJson(text, fileName, importedAt, cryptoRef) {
   let parsed; try { parsed = JSON.parse(String(text ?? '')); }
   catch (error) { throw new SyntaxError(`Evidence package JSON is invalid: ${error.message}`); }
+  if (parsed?.schema === REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA) {
+    return verifyRevisionCompareEvidencePackageV3(parsed, fileName, importedAt, cryptoRef, verifyRevisionCompareEvidencePackageJson);
+  }
   if (parsed?.schema === REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA) {
     return verifyRevisionCompareEvidencePackageV2(parsed, fileName, importedAt, cryptoRef, verifyRevisionCompareEvidencePackageJson);
   }
