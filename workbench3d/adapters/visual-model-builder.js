@@ -1,7 +1,4 @@
-/**
- * visual-model-builder.js — CanonicalObjectGraph.v1 → VisualGeometryModel.v1.
- * Pure view-model derivation; never mutates the graph or touches Three.js.
- */
+/** CanonicalObjectGraph.v1 → VisualGeometryModel.v1. */
 
 import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
 import {
@@ -71,10 +68,7 @@ function addObjectSegment(segments, object, nodeCoord, plan, diameters) {
     kind: resolvedObjectKind(object),
     pathId: object.pathId,
     center: object.attrs?.centerPoint || object.attrs?.centrePoint || object.attrs?.center || object.attrs?.centre || null,
-    attrs: {
-      ...(object.attrs ?? {}),
-      diameterSource: diameter?.source ?? 'UNRESOLVED',
-    },
+    attrs: { ...(object.attrs ?? {}), diameterSource: diameter?.source ?? 'UNRESOLVED' },
   });
 }
 
@@ -98,6 +92,9 @@ function addArcSegments(segments, graph, plan, diameters) {
           bendAngleDeg: arc.angleDeg,
           bendCornerNode: arc.cornerNode,
           bendDirectionEvidence: arc.directionEvidence,
+          bendPacketSource: arc.packetSource,
+          bendIncomingObjectId: arc.incomingObjectId,
+          bendOutgoingObjectId: arc.outgoingObjectId,
           arcPart: `${index + 1}/${arc.points.length - 1}`,
         },
       });
