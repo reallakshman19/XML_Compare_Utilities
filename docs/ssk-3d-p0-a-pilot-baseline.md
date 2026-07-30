@@ -7,6 +7,7 @@ Roadmap phase: P0 — baseline freeze and pilot harness
 Authority issue: #861
 Hardening issue: #870
 Fixture-catalog issue: #875
+Limitation-register issue: #884
 Baseline: main @ 19e04711fc54083bd8e622bbd82048839ca8ebfa
 Release level: ENGINEERING_DEMO_BASELINE
 New editing authority: none
@@ -48,8 +49,9 @@ The manifest binds:
 - same-carrier support adjustment;
 - structural-impact preview capabilities;
 - representative fixture catalog and catalog fingerprint;
+- owner-attested known-limitation register and register fingerprint;
 - qualified runtime paths;
-- explicit known limitations and non-authority disposition.
+- explicit non-authority disposition.
 
 ## Fixed capability inventory
 
@@ -103,10 +105,11 @@ The release manifest has a canonical `manifestFingerprint`. Validation independe
 - controller or viewer state;
 - supported capability lists;
 - representative fixture inventory or catalog fingerprint;
+- limitation inventory, ownership, containment, exit gates or attestation fingerprint;
 - runtime path inventory;
-- limitation and release-disposition records.
+- release-disposition records.
 
-A consistently re-fingerprinted forgery is rejected because fixed baseline, fixture-catalog and disposition invariants are asserted independently of the fingerprint.
+A consistently re-fingerprinted forgery is rejected because fixed baseline, fixture-catalog, limitation-register and disposition invariants are asserted independently of the fingerprint.
 
 ### Byte-stable authority time
 
@@ -131,6 +134,22 @@ SSK3D-FIXTURE-SUPPORT-CONFIRMED
 
 Each scenario records its fixture symbol, purpose, expected session state, required evidence, exercised operations and governing limitations. Scenario order and identity are fixed. Catalog mutation invalidates both `catalogFingerprint` and the enclosing release-manifest fingerprint.
 
+### Owner-attested known-limitation register
+
+SSK-3D-P0-D adds immutable `SequentialDraftEdit3dLimitationRegister.v1` evidence. The register contains the exact six release limitations, one accountable authority role for each limitation, the required operational containment, the evidence needed for closure, and the explicit exit gate.
+
+The ownership attestation uses `SEMANTIC_FINGERPRINT_ROLE_ATTESTATION`. It establishes canonical content integrity and exact role assignment only. Its trust boundary explicitly records:
+
+```text
+contentIntegrity: ESTABLISHED_BY_CANONICAL_FINGERPRINT
+signerIdentity: NOT_ESTABLISHED
+organizationalAuthority: NOT_ESTABLISHED
+certificateTrust: NOT_ESTABLISHED
+productionApproval: NOT_ESTABLISHED
+```
+
+The attestation does not claim a cryptographically verified person, organizational authorization, certificate chain or production approval. Any limitation, owner, containment rule, evidence requirement, exit gate or trust-boundary change invalidates the register and enclosing release-manifest fingerprints.
+
 ## Browser harness
 
 The existing real-Workbench fixture now exposes deterministic pilot-harness actions and evidence:
@@ -142,10 +161,11 @@ The existing real-Workbench fixture now exposes deterministic pilot-harness acti
 5. verify real Workbench realization;
 6. export the exact release manifest twice and compare the canonical payloads;
 7. verify the four representative fixture scenario IDs and catalog fingerprint are bound;
-8. return manually to Construction SVG;
-9. inject a `scene-apply` failure;
-10. verify automatic Construction SVG fallback and reported failure;
-11. close without leaked canvas.
+8. verify the six known limitations, accountable roles and attestation trust boundary are bound;
+9. return manually to Construction SVG;
+10. inject a `scene-apply` failure;
+11. verify automatic Construction SVG fallback and reported failure;
+12. close without leaked canvas.
 
 The fixture uses the same production controller and Workbench path. Evidence time comes from current command-journal authority. The obsolete pilot wall-clock fixture hook is removed. No engineering-state mock is introduced.
 
@@ -159,6 +179,8 @@ NO_UNRESTRICTED_MULTI_SELECTION
 NO_AUTOMATIC_TOPOLOGY_REPAIR
 ENGINEERING_DEMO_ONLY
 ```
+
+Every limitation remains `OPEN` and is bound to an accountable authority role, containment rule, evidence requirement and exit gate. The release is not promoted merely because the register is fingerprinted.
 
 The artifact explicitly records:
 
@@ -179,9 +201,10 @@ This work pack does not:
 - publish through command, support or geometry boundaries;
 - alter package schemas or persistence;
 - change the Workbench viewer, canvas or renderer implementation;
+- establish signer identity or production approval;
 - promote the release above engineering-demo baseline;
 - claim that CI is the release gate.
 
 ## Phase 0 continuation
 
-This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration, representative fixture catalog and deterministic launch/fallback harness. Remaining Phase 0 work is the signed known-limitation register ownership and controlled operator walkthrough record.
+This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration, representative fixture catalog, owner-attested limitation register and deterministic launch/fallback harness. Remaining Phase 0 work is the controlled operator walkthrough record.

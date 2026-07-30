@@ -1,5 +1,20 @@
 import { test, expect } from '@playwright/test';
 
+const FIXTURE_IDS = [
+  'SSK3D-FIXTURE-AMBIGUOUS-BLOCKED',
+  'SSK3D-FIXTURE-CANDIDATE-REJECTED',
+  'SSK3D-FIXTURE-GAP-REPAIRED',
+  'SSK3D-FIXTURE-SUPPORT-CONFIRMED',
+];
+const LIMITATION_IDS = [
+  'NO_STRUCTURAL_TOPOLOGY_APPLICATION',
+  'NO_GEOMETRY_OR_SUPPORT_PERSISTENCE_IN_PORTABLE_PACKAGE',
+  'NO_HETEROGENEOUS_ATOMIC_TRANSACTION',
+  'NO_UNRESTRICTED_MULTI_SELECTION',
+  'NO_AUTOMATIC_TOPOLOGY_REPAIR',
+  'ENGINEERING_DEMO_ONLY',
+];
+
 async function ready(page) {
   await page.goto('/tests/browser/sequential-scoped-edit-3d-workbench-fixture.html');
   await expect.poll(() => page.evaluate(() => Boolean(globalThis.__ssk3dWorkbench))).toBe(true);
@@ -9,6 +24,22 @@ async function openAndActivate(page, advance = true) {
   await page.evaluate((value) => globalThis.__ssk3dWorkbench.activate3d(undefined, value), advance);
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().controller?.active)).toBe(true);
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().viewer?.runtimePending)).toBe(false);
+}
+function expectFixtureEvidence(manifest) {
+  expect(manifest.fixtureCatalog.schema).toBe('SequentialDraftEdit3dFixtureCatalog.v1');
+  expect(manifest.fixtureCatalog.scenarioCount).toBe(FIXTURE_IDS.length);
+  expect(manifest.fixtureCatalog.scenarios.map((row) => row.scenarioId)).toEqual(FIXTURE_IDS);
+}
+function expectLimitationEvidence(manifest) {
+  const register = manifest.limitationRegister;
+  expect(register.schema).toBe('SequentialDraftEdit3dLimitationRegister.v1');
+  expect(register.entryCount).toBe(LIMITATION_IDS.length);
+  expect(register.entries.map((row) => row.limitationId)).toEqual(LIMITATION_IDS);
+  const trust = register.ownershipAttestation.trustBoundary;
+  expect(trust.contentIntegrity).toBe('ESTABLISHED_BY_CANONICAL_FINGERPRINT');
+  expect(trust.signerIdentity).toBe('NOT_ESTABLISHED');
+  expect(trust.organizationalAuthority).toBe('NOT_ESTABLISHED');
+  expect(trust.productionApproval).toBe('NOT_ESTABLISHED');
 }
 
 // SSK-TS-1B-W01
@@ -60,8 +91,8 @@ test('SSK-TS-1B-W04 real Workbench closes without leaked canvas', async ({ page 
   expect(await page.locator('canvas').count()).toBe(0);
 });
 
-// SSK-3D-P0-A-W01 / SSK-3D-P0-B-W01 / SSK-3D-P0-C-W01
-test('SSK-3D-P0-C-W01 pilot evidence binds the representative fixture catalog', async ({ page }) => {
+// SSK-3D-P0-A-W01 / SSK-3D-P0-B-W01 / SSK-3D-P0-C-W01 / SSK-3D-P0-D-W01
+test('SSK-3D-P0-D-W01 pilot evidence binds owner-attested limitations', async ({ page }) => {
   await ready(page);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.open());
   expect(await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(true);
@@ -78,14 +109,8 @@ test('SSK-3D-P0-C-W01 pilot evidence binds the representative fixture catalog', 
   expect(manifest.createdAt).toBeTruthy();
   expect(manifest.baseline.commit).toBe('19e04711fc54083bd8e622bbd82048839ca8ebfa');
   expect(manifest.authority.branchId).toBeTruthy();
-  expect(manifest.fixtureCatalog.schema).toBe('SequentialDraftEdit3dFixtureCatalog.v1');
-  expect(manifest.fixtureCatalog.scenarioCount).toBe(4);
-  expect(manifest.fixtureCatalog.scenarios.map((row) => row.scenarioId)).toEqual([
-    'SSK3D-FIXTURE-AMBIGUOUS-BLOCKED',
-    'SSK3D-FIXTURE-CANDIDATE-REJECTED',
-    'SSK3D-FIXTURE-GAP-REPAIRED',
-    'SSK3D-FIXTURE-SUPPORT-CONFIRMED',
-  ]);
+  expectFixtureEvidence(manifest);
+  expectLimitationEvidence(manifest);
   expect(manifest.controller.fallbackSurface).toBe('CONSTRUCTION_SVG');
   expect(manifest.disposition.internalPilotReady).toBe(false);
   expect(manifest.disposition.newEditingAuthority).toBe(false);
