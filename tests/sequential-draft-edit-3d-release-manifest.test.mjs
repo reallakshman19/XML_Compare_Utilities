@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import {
+  SEQUENTIAL_DRAFT_EDIT_3D_FIXTURE_SCENARIO_IDS,
+  createSequentialDraftEdit3dFixtureCatalog,
+} from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-fixture-catalog.js';
+import {
   SEQUENTIAL_DRAFT_EDIT_3D_BASELINE,
   SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES,
   assertSequentialDraftEdit3dReleaseManifest,
@@ -63,6 +67,9 @@ assert.equal(manifest.journals.commandJournalHeadFingerprint,
 assert.equal(manifest.journals.supportRegisterHeadFingerprint, 'SUPPORT-HEAD-1');
 assert.equal(manifest.journals.geometryJournalHeadFingerprint, 'GEOMETRY-HEAD-1');
 assert.equal(manifest.journals.geometryEntryCount, 1);
+assert.deepEqual(manifest.fixtureCatalog, createSequentialDraftEdit3dFixtureCatalog());
+assert.deepEqual(manifest.fixtureCatalog.scenarios.map((scenario) => scenario.scenarioId),
+  SEQUENTIAL_DRAFT_EDIT_3D_FIXTURE_SCENARIO_IDS);
 assert.equal(manifest.controller.fallbackSurface, 'CONSTRUCTION_SVG');
 assert.equal(manifest.disposition.internalPilotReady, false);
 assert.equal(manifest.disposition.newEditingAuthority, false);
@@ -109,6 +116,9 @@ assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedBaseline));
 const forgedCapability = structuredClone(manifest);
 forgedCapability.capabilities.geometryOperations = ['MOVE_COMPONENT']; refingerprint(forgedCapability);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedCapability));
+const forgedCatalog = structuredClone(manifest);
+forgedCatalog.fixtureCatalog.scenarios[0].fixtureSymbol = 'inventedFixture'; refingerprint(forgedCatalog);
+assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedCatalog));
 const forgedDisposition = structuredClone(manifest);
 forgedDisposition.disposition.internalPilotReady = true; refingerprint(forgedDisposition);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedDisposition));
@@ -118,4 +128,4 @@ assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   controllerState: { ...input.controllerState, available: false } }));
 assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   view: { ...input.view, readModel: { ...input.view.readModel, branchId: 'BRANCH-B' } } }));
-console.log('[PASS] byte-stable authority, journals, immutable assertion and regeneration');
+console.log('[PASS] byte-stable authority, fixture catalog, journals and regeneration');

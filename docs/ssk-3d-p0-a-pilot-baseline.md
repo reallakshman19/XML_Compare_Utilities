@@ -6,6 +6,7 @@
 Roadmap phase: P0 — baseline freeze and pilot harness
 Authority issue: #861
 Hardening issue: #870
+Fixture-catalog issue: #875
 Baseline: main @ 19e04711fc54083bd8e622bbd82048839ca8ebfa
 Release level: ENGINEERING_DEMO_BASELINE
 New editing authority: none
@@ -46,6 +47,7 @@ The manifest binds:
 - qualified geometry operations;
 - same-carrier support adjustment;
 - structural-impact preview capabilities;
+- representative fixture catalog and catalog fingerprint;
 - qualified runtime paths;
 - explicit known limitations and non-authority disposition.
 
@@ -100,10 +102,11 @@ The release manifest has a canonical `manifestFingerprint`. Validation independe
 - command, support or geometry journal heads;
 - controller or viewer state;
 - supported capability lists;
+- representative fixture inventory or catalog fingerprint;
 - runtime path inventory;
 - limitation and release-disposition records.
 
-A consistently re-fingerprinted forgery is rejected because fixed baseline and disposition invariants are asserted independently of the fingerprint.
+A consistently re-fingerprinted forgery is rejected because fixed baseline, fixture-catalog and disposition invariants are asserted independently of the fingerprint.
 
 ### Byte-stable authority time
 
@@ -112,6 +115,21 @@ SSK-3D-P0-B derives `createdAt` from the validated current `CommandJournal.v1.up
 Two exports from unchanged engineering authority are byte-equivalent and have the same `manifestFingerprint`. A changed command-journal timestamp or head changes the payload and fingerprint. Missing or malformed command-journal authority disables export and fails closed instead of inventing a time.
 
 The export feature captures command, support, geometry, view, controller, and shadow evidence once for each export. Manifest assertion copies and deeply freezes caller input before returning canonical evidence.
+
+### Representative fixture catalog
+
+SSK-3D-P0-C adds immutable `SequentialDraftEdit3dFixtureCatalog.v1` evidence. The catalog references the existing real fixture symbols in `tests/helpers/sequential-engineering-svg-fixture.js` and does not embed mutable sessions or introduce production mocks.
+
+The qualified inventory is:
+
+```text
+SSK3D-FIXTURE-AMBIGUOUS-BLOCKED
+SSK3D-FIXTURE-CANDIDATE-REJECTED
+SSK3D-FIXTURE-GAP-REPAIRED
+SSK3D-FIXTURE-SUPPORT-CONFIRMED
+```
+
+Each scenario records its fixture symbol, purpose, expected session state, required evidence, exercised operations and governing limitations. Scenario order and identity are fixed. Catalog mutation invalidates both `catalogFingerprint` and the enclosing release-manifest fingerprint.
 
 ## Browser harness
 
@@ -123,10 +141,11 @@ The existing real-Workbench fixture now exposes deterministic pilot-harness acti
 4. activate Draft Edit 3D;
 5. verify real Workbench realization;
 6. export the exact release manifest twice and compare the canonical payloads;
-7. return manually to Construction SVG;
-8. inject a `scene-apply` failure;
-9. verify automatic Construction SVG fallback and reported failure;
-10. close without leaked canvas.
+7. verify the four representative fixture scenario IDs and catalog fingerprint are bound;
+8. return manually to Construction SVG;
+9. inject a `scene-apply` failure;
+10. verify automatic Construction SVG fallback and reported failure;
+11. close without leaked canvas.
 
 The fixture uses the same production controller and Workbench path. Evidence time comes from current command-journal authority. The obsolete pilot wall-clock fixture hook is removed. No engineering-state mock is introduced.
 
@@ -165,4 +184,4 @@ This work pack does not:
 
 ## Phase 0 continuation
 
-This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration and deterministic launch/fallback harness. Remaining Phase 0 work is the representative fixture catalog, signed known-limitation register ownership and controlled operator walkthrough record.
+This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration, representative fixture catalog and deterministic launch/fallback harness. Remaining Phase 0 work is the signed known-limitation register ownership and controlled operator walkthrough record.
