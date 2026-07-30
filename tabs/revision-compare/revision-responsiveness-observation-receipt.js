@@ -3,16 +3,16 @@ import {
   assertJsonSafe, cleanText, deepFreeze, deterministicId, stableStringify,
 } from './revision-contract-utils.js';
 
-const RECEIPT_SCHEMA = 'RevisionResponsivenessObservationReceipt.v1';
+export const REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA = 'RevisionResponsivenessObservationReceipt.v1';
 const AUDIT_SCHEMA = 'RevisionCompareAudit.v1';
 const COMPLETED_DISPOSITIONS = new Set(['QUALIFIED', 'NOT_QUALIFIED']);
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
-const AUTHORITY = Object.freeze({
+export const REVISION_RESPONSIVENESS_OBSERVATION_AUTHORITY = deepFreeze({
   classification: 'PRODUCT_RUNTIME_OBSERVATION_ONLY',
   engineeringCertification: 'NONE',
   statement: 'This receipt records browser runtime observations and is not engineering acceptance, design validation, or certification.',
 });
-const CAVEATS = Object.freeze([
+export const REVISION_RESPONSIVENESS_OBSERVATION_CAVEATS = deepFreeze([
   'Scene completion and first-ready values are sampled at the active product-policy resolution.',
   'Fit selected records synchronous command-dispatch time, not frame-paint completion.',
   'Browser heap telemetry is optional; unavailable values remain null and are not inferred.',
@@ -160,13 +160,13 @@ function observationIdentity(scene, model) {
 function receiptIdentity(input) {
   const { audit, scene, model, revA, revB } = receiptContext(input);
   return deepFreeze({
-    schema: RECEIPT_SCHEMA,
-    authority: AUTHORITY,
+    schema: REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA,
+    authority: REVISION_RESPONSIVENESS_OBSERVATION_AUTHORITY,
     session: sessionIdentity(input?.session),
     audit: auditIdentity(audit),
     revisions: { revA, revB },
     observation: observationIdentity(scene, model),
-    caveats: CAVEATS,
+    caveats: REVISION_RESPONSIVENESS_OBSERVATION_CAVEATS,
   });
 }
 
@@ -176,7 +176,7 @@ export async function createRevisionResponsivenessObservationReceipt(input, cryp
     ...identity,
     receiptId: await deterministicId('responsiveness-observation', identity, cryptoRef),
   });
-  assertJsonSafe(receipt, RECEIPT_SCHEMA);
+  assertJsonSafe(receipt, REVISION_RESPONSIVENESS_OBSERVATION_RECEIPT_SCHEMA);
   return receipt;
 }
 
