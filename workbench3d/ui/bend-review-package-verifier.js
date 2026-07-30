@@ -15,10 +15,12 @@ import {
   verifyBendReviewVerificationReceipt,
 } from './bend-review-verification-receipt.js';
 import {
+  BEND_REVIEW_HISTORY_FILTER,
   BEND_REVIEW_HISTORY_KIND,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
   clearBendReviewHistory,
+  filterBendReviewHistory,
   getBendReviewHistory,
   recordBendReviewHistory,
 } from './bend-review-verification-history.js';
@@ -191,23 +193,33 @@ async function receiptVerification(file, current) {
   }
 }
 
-function renderHistory(element) {
-  const entries = getBendReviewHistory();
+function historyFilter(element) {
+  return element.querySelector('[data-history-filter]')?.value || BEND_REVIEW_HISTORY_FILTER.ALL;
+}
+
+function renderHistory(element, current) {
+  const allEntries = getBendReviewHistory();
+  const entries = filterBendReviewHistory(allEntries, historyFilter(element), current?.packageSignature);
   const output = element.querySelector('[data-verification-history]');
   const count = element.querySelector('[data-verification-history-count]');
-  if (output) output.innerHTML = bendReviewHistoryHtml(entries);
-  if (count) count.textContent = bendReviewHistoryCount(entries);
+  const filtered = entries.length !== allEntries.length;
+  const empty = filtered ? 'No session checks reference the currently loaded review package.' : '';
+  if (output) output.innerHTML = bendReviewHistoryHtml(entries, empty);
+  if (count) count.textContent = bendReviewHistoryCount(entries, allEntries);
 }
 
 function recordHistory(element, checkKind, verification, artifactSignature, current) {
   recordBendReviewHistory({ checkKind, verification, artifactSignature, currentManifest: current });
-  renderHistory(element);
+  renderHistory(element, current);
 }
 
-function attachHistoryClear(element) {
+function attachHistoryControls(element, current) {
+  element.querySelector('[data-history-filter]')?.addEventListener('change', () => {
+    renderHistory(element, current);
+  });
   element.querySelector('[data-history-clear]')?.addEventListener('click', () => {
     clearBendReviewHistory();
-    renderHistory(element);
+    renderHistory(element, current);
   });
 }
 
@@ -240,7 +252,7 @@ function attachReceiptInput(element, current) {
 }
 
 export function bendReviewVerifierControlsHtml() {
-  return `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input data-package-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div><div class="wb3d-toolbar"><label class="wb3d-file">Verify receipt <input data-receipt-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-receipt-result>Select a verification receipt exported by this Workbench.</span></div><details class="wb3d-card" data-verification-history-card><summary><strong>Session verification history</strong> <span class="wb3d-muted" data-verification-history-count>0 checks</span></summary><p class="wb3d-muted">Page-memory only; not persisted, exported, or written into Workbench comparison state.</p><div data-verification-history></div><div class="wb3d-toolbar"><button type="button" class="wb3d-btn wb3d-btn-mini" data-history-clear>Clear session history</button></div></details>`;
+  return `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input data-package-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div><div class="wb3d-toolbar"><label class="wb3d-file">Verify receipt <input data-receipt-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-receipt-result>Select a verification receipt exported by this Workbench.</span></div><details class="wb3d-card" data-verification-history-card><summary><strong>Session verification history</strong> <span class="wb3d-muted" data-verification-history-count>0 checks</span></summary><p class="wb3d-muted">Page-memory only; not persisted, exported, or written into Workbench comparison state.</p><div class="wb3d-toolbar"><label class="wb3d-file">History view <select data-history-filter><option value="ALL">All session checks</option><option value="CURRENT_PACKAGE">Current package only</option></select></label></div><div data-verification-history></div><div class="wb3d-toolbar"><button type="button" class="wb3d-btn wb3d-btn-mini" data-history-clear>Clear session history</button></div></details>`;
 }
 
 function registerVerifierElement() {
@@ -253,8 +265,8 @@ function registerVerifierElement() {
       const current = decodeCurrent(this);
       attachPackageInput(this, current);
       attachReceiptInput(this, current);
-      attachHistoryClear(this);
-      renderHistory(this);
+      attachHistoryControls(this, current);
+      renderHistory(this, current);
     }
   }
   customElements.define(ELEMENT_NAME, BendReviewVerifierElement);
