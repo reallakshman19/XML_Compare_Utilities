@@ -57,6 +57,9 @@ function finite(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, number) : null;
 }
+function nonNegativeInteger(value) {
+  return Math.max(0, Math.trunc(Number(value) || 0));
+}
 function timingMetric(value, limit, elapsed, terminalFailure) {
   const measured = finite(value);
   if (measured != null) return { status: measured <= limit ? 'PASS' : 'FAIL', value: measured, limit };
@@ -65,7 +68,7 @@ function timingMetric(value, limit, elapsed, terminalFailure) {
   return { status: 'PENDING', value: null, limit };
 }
 function fitMetric(evidence, limit) {
-  const count = Math.max(0, Math.trunc(Number(evidence?.fitSelectedCount) || 0));
+  const count = nonNegativeInteger(evidence?.fitSelectedCount);
   const value = finite(evidence?.lastFitSelectedMs);
   if (!count || value == null) return { status: 'PENDING', value: null, limit, count };
   return { status: value <= limit ? 'PASS' : 'FAIL', value, limit, count };
@@ -95,11 +98,11 @@ function policyDisclosure(policy) {
     const drawables = item.maximumDrawablesExclusive == null ? 'unbounded' : `< ${item.maximumDrawablesExclusive}`;
     return `${item.bandId}: drawables ${drawables}, scene ≤ ${item.sceneObservedMaxMs} ms, first ready ≤ ${item.firstReadyMaxMs} ms, fit selected dispatch ≤ ${item.fitSelectedMaxMs} ms, heap growth ≤ ${Math.round(item.heapGrowthMaxBytes / MIB)} MiB`;
   }).join('; ');
-  return `Product responsiveness policy ${policy.policyId}. Sampling resolution ${policy.samplingResolutionMs} ms. ${bands}. Fit selected measures synchronous command dispatch, not frame-paint completion. Memory is sampled only when the browser exposes performance.memory; unavailable memory is advisory, does not block timing qualification, and is never inferred. These observations do not alter renderer, engineering, topology, comparison, persistence, or export authority.`;
+  return `Product responsiveness policy ${policy.policyId}. Sampling resolution ${policy.samplingResolutionMs} ms. ${bands}. Rerun measurement clears only runtime timing observations and requests the current audit from the existing renderer again. Fit selected measures synchronous command dispatch, not frame-paint completion. Memory is sampled only when the browser exposes performance.memory; unavailable memory is advisory, does not block timing qualification, and is never inferred. These observations do not alter renderer, engineering, topology, comparison, persistence, or export authority.`;
 }
 export function revisionViewerResponsivenessModel(scene, viewerEvidence, observations = {}, policyValue) {
   const policy = createRevisionViewerResponsivenessPolicy(policyValue);
-  const drawableCount = Math.max(0, Math.trunc(Number(scene?.expected?.total) || 0));
+  const drawableCount = nonNegativeInteger(scene?.expected?.total);
   const activeBand = selectBand(policy, drawableCount);
   const terminalFailure = ['FAILED', 'BLOCKED'].includes(scene?.status);
   const metrics = deepFreeze({
@@ -111,9 +114,12 @@ export function revisionViewerResponsivenessModel(scene, viewerEvidence, observa
   const result = {
     schema: REVISION_VIEWER_RESPONSIVENESS_SCHEMA,
     policyId: policy.policyId,
+    runId: String(observations.runId ?? ''),
+    runSequence: nonNegativeInteger(observations.runSequence),
     sceneStatus: scene?.status ?? 'INACTIVE',
     bandId: activeBand.bandId,
     drawableCount,
+    canRerun: scene?.requestedBackend === 'WEBGL' && drawableCount > 0,
     disposition: disposition(scene ?? {}, metrics),
     metrics,
     message: '',
@@ -137,9 +143,14 @@ function formatMemory(value) { return finite(value) == null ? 'Unavailable' : `$
 function fact(label, value, attribute, status = '') {
   return `<div><dt>${escapeHtml(label)}</dt><dd ${attribute} ${status ? `data-status="${escapeHtml(status.toLowerCase())}"` : ''}>${escapeHtml(value)}</dd></div>`;
 }
+function rerunControl(model) {
+  const disabled = model.canRerun ? '' : 'disabled';
+  return `<div class="revc-performance-actions"><strong data-revc-performance-disposition data-status="${escapeHtml(model.disposition.toLowerCase())}">${escapeHtml(model.disposition)}</strong><button type="button" data-revc-rerun-responsiveness ${disabled}>Rerun measurement</button></div>`;
+}
 export function revisionViewerResponsivenessMarkup(model) {
   const metric = model.metrics;
-  return `<section class="revc-performance-status" data-revc-performance-status data-status="${escapeHtml(model.disposition.toLowerCase())}"><header><div><span>WEBGL PERFORMANCE</span><b>Observed responsiveness</b><span class="revc-info-icon" tabindex="0" role="img" aria-label="Responsiveness policy and authority boundary" title="${escapeHtml(model.disclosure)}">ⓘ</span></div><strong data-revc-performance-disposition data-status="${escapeHtml(model.disposition.toLowerCase())}">${escapeHtml(model.disposition)}</strong></header><dl>${fact('Size band', model.bandId, 'data-revc-performance-band')}${fact('Drawables', model.drawableCount, 'data-revc-performance-drawables')}${fact('Scene completion', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`, 'data-revc-performance-scene', metric.scene.status)}${fact('First ready', `${formatMs(metric.firstReady.value)} / ${metric.firstReady.limit} ms`, 'data-revc-performance-ready', metric.firstReady.status)}${fact('Fit selected dispatch', `${formatMs(metric.fitSelected.value)} / ${metric.fitSelected.limit} ms`, 'data-revc-performance-fit', metric.fitSelected.status)}${fact('Fit samples', metric.fitSelected.count, 'data-revc-performance-fit-count')}${fact('Heap used', formatMemory(metric.memory.usedBytes), 'data-revc-performance-heap')}${fact('Peak heap growth', `${formatMemory(metric.memory.value)} / ${formatMemory(metric.memory.limit)}`, 'data-revc-performance-memory', metric.memory.status)}</dl><p data-revc-performance-message>${escapeHtml(model.message)}</p></section>`;
+  const run = model.runSequence ? `Run ${model.runSequence}` : 'Not started';
+  return `<section class="revc-performance-status" data-revc-performance-status data-status="${escapeHtml(model.disposition.toLowerCase())}"><header><div><span>WEBGL PERFORMANCE</span><b>Observed responsiveness</b><span class="revc-info-icon" tabindex="0" role="img" aria-label="Responsiveness policy and authority boundary" title="${escapeHtml(model.disclosure)}">ⓘ</span></div>${rerunControl(model)}</header><dl>${fact('Measurement run', run, 'data-revc-performance-run')}${fact('Size band', model.bandId, 'data-revc-performance-band')}${fact('Drawables', model.drawableCount, 'data-revc-performance-drawables')}${fact('Scene completion', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`, 'data-revc-performance-scene', metric.scene.status)}${fact('First ready', `${formatMs(metric.firstReady.value)} / ${metric.firstReady.limit} ms`, 'data-revc-performance-ready', metric.firstReady.status)}${fact('Fit selected dispatch', `${formatMs(metric.fitSelected.value)} / ${metric.fitSelected.limit} ms`, 'data-revc-performance-fit', metric.fitSelected.status)}${fact('Fit samples', metric.fitSelected.count, 'data-revc-performance-fit-count')}${fact('Heap used', formatMemory(metric.memory.usedBytes), 'data-revc-performance-heap')}${fact('Peak heap growth', `${formatMemory(metric.memory.value)} / ${formatMemory(metric.memory.limit)}`, 'data-revc-performance-memory', metric.memory.status)}</dl><p data-revc-performance-message>${escapeHtml(model.message)}</p></section>`;
 }
 function setText(root, selector, value) {
   const element = root?.querySelector?.(selector);
@@ -164,7 +175,10 @@ export function applyRevisionViewerResponsiveness(root, model) {
     dispositionNode.textContent = model.disposition;
     dispositionNode.setAttribute('data-status', model.disposition.toLowerCase());
   }
+  const rerun = host.querySelector('[data-revc-rerun-responsiveness]');
+  if (rerun) rerun.disabled = !model.canRerun;
   const metric = model.metrics;
+  setText(host, '[data-revc-performance-run]', model.runSequence ? `Run ${model.runSequence}` : 'Not started');
   setText(host, '[data-revc-performance-band]', model.bandId);
   setText(host, '[data-revc-performance-drawables]', model.drawableCount);
   setMetric(host, '[data-revc-performance-scene]', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`, metric.scene.status);
@@ -178,5 +192,5 @@ export function applyRevisionViewerResponsiveness(root, model) {
 }
 export const REVISION_VIEWER_RESPONSIVENESS_CSS = `
 .revc-view-column{grid-template-rows:auto auto auto auto minmax(0,1fr)}
-.revc-performance-status{display:grid;gap:7px;padding:8px 10px;border-bottom:1px solid #203550;background:#081827}.revc-performance-status>header{display:flex;align-items:center;justify-content:space-between;gap:10px}.revc-performance-status>header>div{display:flex;align-items:center;gap:7px}.revc-performance-status>header span:first-child{color:#60a5fa;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.08em}.revc-performance-status>header b{font-size:11px}.revc-performance-status>header strong{font:700 10px/1.2 ui-monospace,monospace}.revc-performance-status dl{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#203550}.revc-performance-status dl div{min-width:0;padding:6px 7px;background:#0b1d2e}.revc-performance-status dt{font-size:8px;text-transform:uppercase;color:#7893ac}.revc-performance-status dd{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e4f2;font:10px/1.3 ui-monospace,monospace}.revc-performance-status p{margin:0;color:#9fb4c9;font-size:10px}.revc-performance-status [data-status=qualified],.revc-performance-status [data-status=pass]{color:#5eead4}.revc-performance-status [data-status=pending],.revc-performance-status [data-status=unavailable],.revc-performance-status [data-status=inactive]{color:#fbbf24}.revc-performance-status [data-status=not_qualified],.revc-performance-status [data-status=fail]{color:#fb7185}@media(max-width:980px){.revc-performance-status dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.revc-performance-status{display:grid;gap:7px;padding:8px 10px;border-bottom:1px solid #203550;background:#081827}.revc-performance-status>header{display:flex;align-items:center;justify-content:space-between;gap:10px}.revc-performance-status>header>div{display:flex;align-items:center;gap:7px}.revc-performance-status>header span:first-child{color:#60a5fa;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.08em}.revc-performance-status>header b{font-size:11px}.revc-performance-actions strong{font:700 10px/1.2 ui-monospace,monospace}.revc-performance-actions button{padding:4px 7px;border:1px solid #35587b;border-radius:4px;background:#0b1d2e;color:#dbeafe;font-size:10px;cursor:pointer}.revc-performance-actions button:disabled{opacity:.45;cursor:not-allowed}.revc-performance-status dl{margin:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#203550}.revc-performance-status dl div{min-width:0;padding:6px 7px;background:#0b1d2e}.revc-performance-status dt{font-size:8px;text-transform:uppercase;color:#7893ac}.revc-performance-status dd{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e4f2;font:10px/1.3 ui-monospace,monospace}.revc-performance-status p{margin:0;color:#9fb4c9;font-size:10px}.revc-performance-status [data-status=qualified],.revc-performance-status [data-status=pass]{color:#5eead4}.revc-performance-status [data-status=pending],.revc-performance-status [data-status=unavailable],.revc-performance-status [data-status=inactive]{color:#fbbf24}.revc-performance-status [data-status=not_qualified],.revc-performance-status [data-status=fail]{color:#fb7185}@media(max-width:1100px){.revc-performance-status dl{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.revc-performance-status dl{grid-template-columns:repeat(2,minmax(0,1fr))}.revc-performance-status>header{align-items:flex-start;flex-direction:column}}
 `;
