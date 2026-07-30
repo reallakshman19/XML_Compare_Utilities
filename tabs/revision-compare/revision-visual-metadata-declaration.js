@@ -3,6 +3,7 @@ import { cleanText, deepFreeze, deterministicId } from './revision-contract-util
 
 export const REVISION_VISUAL_METADATA_DECLARATION_SCHEMA = 'RevisionVisualMetadataDeclaration.v1';
 const DECLARATION_AUTHORITY = 'OPERATOR_DECLARATION_FOR_MISSING_SOURCE_METADATA';
+const PROFILE_ORIGIN = 'PRODUCT_COMPATIBILITY_PROFILE';
 const DECLARATION_ID_PATTERN = /^visual-metadata:[a-f0-9]{24}$/;
 
 const FIELD_DEFINITIONS = Object.freeze([
@@ -18,6 +19,18 @@ function declared(value) {
 
 function sourceValue(document, key) {
   return declared(document?.[key]);
+}
+
+function sourceEvidence(document, key) {
+  const evidence = document?.metadataEvidence;
+  if (!evidence || declared(evidence.fields?.[key]) !== sourceValue(document, key)) {
+    return Object.freeze({ origin: 'SOURCE' });
+  }
+  return Object.freeze({
+    origin: PROFILE_ORIGIN,
+    evidenceId: evidence.evidenceId,
+    profileId: evidence.profileId,
+  });
 }
 
 function requiredValue(values, field) {
@@ -116,9 +129,25 @@ export function revisionVisualMetadataDeclarationMatches(declaration, revA, revB
 
 function effectiveValue(document, declaration, field) {
   const value = sourceValue(document, field.key);
-  if (value !== 'UNKNOWN') return Object.freeze({ value, origin: 'SOURCE' });
+  if (value !== 'UNKNOWN') return Object.freeze({ value, ...sourceEvidence(document, field.key) });
   const declaredValue = declared(declaration?.[field.key]);
-  return Object.freeze({ value: declaredValue, origin: declaredValue === 'UNKNOWN' ? 'UNKNOWN' : 'OPERATOR_DECLARATION' });
+  return Object.freeze({
+    value: declaredValue,
+    origin: declaredValue === 'UNKNOWN' ? 'UNKNOWN' : 'OPERATOR_DECLARATION',
+  });
+}
+
+function compatibilityEvidence(left, right, declarationId) {
+  const evidence = {
+    revAOrigin: left.origin,
+    revBOrigin: right.origin,
+  };
+  if (declarationId) evidence.declarationId = declarationId;
+  for (const [side, item] of [['revA', left], ['revB', right]]) {
+    if (item.evidenceId) evidence[`${side}EvidenceId`] = item.evidenceId;
+    if (item.profileId) evidence[`${side}ProfileId`] = item.profileId;
+  }
+  return evidence;
 }
 
 function compatibility(field, left, right, declarationId) {
@@ -126,10 +155,22 @@ function compatibility(field, left, right, declarationId) {
   if (left.value === 'UNKNOWN' || right.value === 'UNKNOWN') status = 'UNKNOWN';
   else if (!equivalent(left.value, right.value)) status = 'INCOMPATIBLE';
   const core = { status, revA: left.value, revB: right.value, label: field.label };
-  const declaredEvidence = left.origin === 'OPERATOR_DECLARATION' || right.origin === 'OPERATOR_DECLARATION';
-  return deepFreeze(declaredEvidence ? {
-    ...core, revAOrigin: left.origin, revBOrigin: right.origin, declarationId,
-  } : core);
+  const evidenced = left.origin !== 'SOURCE' || right.origin !== 'SOURCE';
+  return deepFreeze(evidenced ? { ...core, ...compatibilityEvidence(left, right, declarationId) } : core);
+}
+
+function compatibilityNotes(items) {
+  const notes = [];
+  for (const item of items) {
+    if (item.revAOrigin === 'OPERATOR_DECLARATION' || item.revBOrigin === 'OPERATOR_DECLARATION') {
+      notes.push(`${item.label} compatibility includes explicit operator-declared evidence; source files remain unchanged.`);
+    }
+    if (item.revAOrigin === PROFILE_ORIGIN || item.revBOrigin === PROFILE_ORIGIN) {
+      const profiles = [...new Set([item.revAProfileId, item.revBProfileId].filter(Boolean))].join(', ');
+      notes.push(`${item.label} compatibility uses bounded product-profile evidence (${profiles}); source files remain unchanged.`);
+    }
+  }
+  return Object.freeze(notes);
 }
 
 export function resolveRevisionVisualMetadata(revA, revB, declaration) {
@@ -140,11 +181,9 @@ export function resolveRevisionVisualMetadata(revA, revB, declaration) {
   const items = FIELD_DEFINITIONS.map((field) => compatibility(
     field, effectiveValue(revA, active, field), effectiveValue(revB, active, field), active?.declarationId,
   ));
-  const notes = items.filter((item) => item.revAOrigin === 'OPERATOR_DECLARATION' || item.revBOrigin === 'OPERATOR_DECLARATION')
-    .map((item) => `${item.label} compatibility includes explicit operator-declared evidence; source files remain unchanged.`);
   return deepFreeze({
     unitCompatibility: items[0], coordinateFrameCompatibility: items[1], verticalAxisCompatibility: items[2],
-    declaration: active, errors: Object.freeze(errors), notes: Object.freeze(notes),
+    declaration: active, errors: Object.freeze(errors), notes: compatibilityNotes(items),
   });
 }
 
