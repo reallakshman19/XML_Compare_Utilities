@@ -116,44 +116,56 @@ function receiptContext(input) {
   return { audit, scene, model, revA, revB };
 }
 
+function sessionIdentity(session) {
+  return deepFreeze({
+    sessionId: required(session?.sessionId, 'sessionId'),
+    createdAt: required(session?.createdAt, 'session createdAt'),
+    updatedAt: required(session?.updatedAt, 'session updatedAt'),
+  });
+}
+
+function auditIdentity(audit) {
+  return deepFreeze({
+    auditId: audit.auditId,
+    basisId: required(audit.basisId, 'basisId'),
+    engineVersion: required(audit.engineVersion, 'engineVersion'),
+    revADocumentId: audit.revADocumentId,
+    revBDocumentId: audit.revBDocumentId,
+  });
+}
+
+function observationIdentity(scene, model) {
+  return deepFreeze({
+    backend: 'WEBGL',
+    runKey: model.runKey,
+    runId: model.runId,
+    runSequence: model.runSequence,
+    policyId: required(model.policyId, 'policyId'),
+    bandId: required(model.bandId, 'bandId'),
+    drawableCount: Math.max(0, Math.trunc(Number(model.drawableCount) || 0)),
+    sceneStatus: required(model.sceneStatus, 'sceneStatus'),
+    disposition: model.disposition,
+    elapsedMs: numberOrNull(scene.elapsedMs),
+    sampleCount: Math.max(0, Math.trunc(Number(scene.runSampleCount) || 0)),
+    metrics: {
+      scene: metric(model.metrics?.scene),
+      firstReady: metric(model.metrics?.firstReady),
+      fitSelected: metric(model.metrics?.fitSelected),
+      memory: metric(model.metrics?.memory),
+    },
+    comparison: comparison(model.comparison),
+  });
+}
+
 function receiptIdentity(input) {
   const { audit, scene, model, revA, revB } = receiptContext(input);
   return deepFreeze({
     schema: RECEIPT_SCHEMA,
     authority: AUTHORITY,
-    session: {
-      sessionId: required(input?.session?.sessionId, 'sessionId'),
-      createdAt: required(input?.session?.createdAt, 'session createdAt'),
-      updatedAt: required(input?.session?.updatedAt, 'session updatedAt'),
-    },
-    audit: {
-      auditId: audit.auditId,
-      basisId: required(audit.basisId, 'basisId'),
-      engineVersion: required(audit.engineVersion, 'engineVersion'),
-      revADocumentId: audit.revADocumentId,
-      revBDocumentId: audit.revBDocumentId,
-    },
+    session: sessionIdentity(input?.session),
+    audit: auditIdentity(audit),
     revisions: { revA, revB },
-    observation: {
-      backend: 'WEBGL',
-      runKey: model.runKey,
-      runId: model.runId,
-      runSequence: model.runSequence,
-      policyId: required(model.policyId, 'policyId'),
-      bandId: required(model.bandId, 'bandId'),
-      drawableCount: Math.max(0, Math.trunc(Number(model.drawableCount) || 0)),
-      sceneStatus: required(model.sceneStatus, 'sceneStatus'),
-      disposition: model.disposition,
-      elapsedMs: numberOrNull(scene.elapsedMs),
-      sampleCount: Math.max(0, Math.trunc(Number(scene.runSampleCount) || 0)),
-      metrics: {
-        scene: metric(model.metrics?.scene),
-        firstReady: metric(model.metrics?.firstReady),
-        fitSelected: metric(model.metrics?.fitSelected),
-        memory: metric(model.metrics?.memory),
-      },
-      comparison: comparison(model.comparison),
-    },
+    observation: observationIdentity(scene, model),
     caveats: CAVEATS,
   });
 }
