@@ -4,37 +4,13 @@ import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
 import {
   effectiveDiameterByObject, resolveInputXmlBends, trimmedEndpoint,
 } from './inputxml-bend-geometry.js';
+import {
+  resolvePacketMarkerPlacement, resolvePacketPosition,
+} from './packet-marker-placement.js';
+
+export { resolvePacketPosition };
 
 const PACKET_MARKER_KINDS = Object.freeze(['RIGID', 'BEND', 'SIF', 'RESTRAINT', 'HANGER', 'SUPPORT']);
-
-function normalizeNodeText(value) {
-  const num = Number(String(value ?? '').trim());
-  if (Number.isFinite(num)) return String(Math.round(num));
-  const text = String(value ?? '').trim();
-  return text || '';
-}
-
-function midpoint(start, end) {
-  if (start && end) return start.map((value, axis) => (value + end[axis]) / 2);
-  return start ?? end ?? [0, 0, 0];
-}
-
-export function resolvePacketPosition(packet, object, nodeCoord, placement = 'mid') {
-  const start = nodeCoord.get(object.fromNode);
-  const end = nodeCoord.get(object.toNode);
-  const mid = midpoint(start, end);
-  if (placement === 'from' && start) return { position: [...start], resolvedNodeId: object.fromNode, fallback: false };
-  if (placement === 'to' && end) return { position: [...end], resolvedNodeId: object.toNode, fallback: false };
-  if (placement !== 'text') return { position: mid, resolvedNodeId: null, fallback: false };
-  const nodeText = packet.attrs?.NODE ?? packet.attrs?.CNODE ?? null;
-  if (nodeText === null || nodeText === undefined || String(nodeText).trim() === '') {
-    return { position: mid, resolvedNodeId: null, fallback: true };
-  }
-  const nodeId = normalizeNodeText(nodeText);
-  const coord = nodeCoord.get(nodeId);
-  if (coord) return { position: [...coord], resolvedNodeId: nodeId, fallback: false };
-  return { position: mid, resolvedNodeId: nodeId, fallback: true };
-}
 
 function resolvedObjectKind(object) {
   if (object.kind !== 'RIGID') return object.kind;
@@ -116,13 +92,14 @@ function addObjectMarker(markers, object, position, markerSize) {
 function addPacketMarkers(markers, object, nodeCoord, options) {
   for (const packet of object.packets ?? []) {
     if (!options.allowedKinds.includes(packet.kind)) continue;
-    const resolved = resolvePacketPosition(packet, object, nodeCoord, options.placement);
+    const resolved = resolvePacketMarkerPlacement(packet, object, nodeCoord, options.placement);
     markers.push({
       objectId: object.objectId,
       kind: packet.kind,
       position: resolved.position,
       nodeId: resolved.resolvedNodeId,
       fallback: resolved.fallback,
+      placementEvidence: resolved.placementEvidence,
       consumedFrom: packet.consumedFrom ?? null,
       sizeMm: options.markerSize ?? undefined,
     });
