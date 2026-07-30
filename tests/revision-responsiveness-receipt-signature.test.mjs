@@ -34,7 +34,7 @@ const revA = document('document:a', HASH_A, SCOPE_A); const revB = document('doc
 function runSummary(runId) {
   return Object.freeze({ runId, runSequence: 1, policyId: 'signature-policy', bandId: 'FINE', drawableCount: 2, disposition: 'QUALIFIED', sceneMs: 10, firstReadyMs: 12, fitSelectedMs: 2, heapGrowthBytes: null });
 }
-function currentInput() {
+function currentInput(sessionValue = session) {
   const runId = `${RUN_KEY}|run:1`; const current = runSummary(runId);
   const responsiveness = Object.freeze({
     runKey: RUN_KEY, runId, runSequence: 1, policyId: current.policyId, bandId: current.bandId,
@@ -49,7 +49,7 @@ function currentInput() {
       deltas: Object.freeze({ sceneMs: null, firstReadyMs: null, fitSelectedMs: null, heapGrowthBytes: null }) }),
   });
   return Object.freeze({
-    session, audit, revA, revB,
+    session: sessionValue, audit, revA, revB,
     sceneEvidence: Object.freeze({ runKey: RUN_KEY, runId, runSequence: 1, runSampleCount: 1, elapsedMs: 15, responsiveness }),
   });
 }
@@ -84,6 +84,11 @@ async function rehash(value) {
 }
 function fileFor(name, value) {
   const text = JSON.stringify(value); return { name, size: Buffer.byteLength(text), text: async () => text };
+}
+function deferredFile(name, value) {
+  const text = JSON.stringify(value); let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  return { file: { name, size: Buffer.byteLength(text), text: async () => { await gate; return text; } }, release };
 }
 
 const input = currentInput(); const target = await createRevisionResponsivenessObservationReceipt(input, webcrypto);
@@ -124,6 +129,13 @@ assert.equal(lifecycle.signatureModel().status, 'VERIFIED'); assert.equal(lifecy
 assert.equal(lifecycle.signatureModel().trustStatus, 'NOT_ESTABLISHED');
 await lifecycle.importFile(fileFor('receipt-again.json', target));
 assert.equal(lifecycle.signatureModel().status, 'IDLE', 'replacing the target receipt must clear its signature state');
+
+const target2 = await createRevisionResponsivenessObservationReceipt(currentInput(Object.freeze({ ...session, updatedAt: '2026-07-30T12:06:00.000Z' })), webcrypto);
+const signed2 = await signatureReceiptFor(target2); await lifecycle.importFile(fileFor('receipt-race-a.json', target));
+const delayed = deferredFile('signature-old.json', signed.receipt); const oldImport = lifecycle.importFile(delayed.file, 'signature');
+await lifecycle.importFile(fileFor('receipt-race-b.json', target2)); await lifecycle.importFile(fileFor('signature-new.json', signed2.receipt), 'signature');
+delayed.release(); await oldImport;
+assert.equal(lifecycle.signatureModel().signatureReceiptId, signed2.receipt.receiptId, 'stale signature completion must not replace the newer signature');
 
 let routed = null;
 const routedActions = new Proxy({ transferChange() {}, syncSignOffControls() {} }, {
