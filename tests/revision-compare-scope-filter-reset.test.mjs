@@ -58,6 +58,8 @@ function assertPureClear(state) {
   const before = authorityReferences(state);
   const result = clearRevisionScopeFilters(state, setWorkspaceSearch);
   assert.deepEqual(result.state.search, { common: '', revAOnly: '', revBOnly: '' });
+  assert.equal(result.state.message, 'Cleared 2 scope filters.');
+  assert.equal(result.message, 'Cleared 2 scope filters.');
   assert.equal(result.model.activeCount, 2);
   assert.deepEqual(authorityReferences(result.state), before);
   assert.notEqual(result.state, state);
@@ -83,6 +85,7 @@ function assertAction(state) {
   const harness = actionHarness(state);
   harness.action();
   assert.deepEqual(harness.readState().search, { common: '', revAOnly: '', revBOnly: '' });
+  assert.equal(harness.readState().message, 'Cleared 2 scope filters.');
   assert.equal(harness.writes.length, 1);
   assert.equal(harness.renders.length, 1);
   assert.equal(harness.writes[0], harness.renders[0]);
@@ -101,6 +104,7 @@ function assertSingular() {
   assert.equal(model.message, 'Reveal all branches by clearing 1 active scope filter.');
   const harness = actionHarness(state);
   harness.action();
+  assert.equal(harness.readState().message, 'Cleared 1 scope filter.');
   assert.deepEqual(harness.toasts, [{ message: 'Cleared 1 scope filter.', tone: 'success' }]);
 }
 
