@@ -8,6 +8,7 @@ Authority issue: #861
 Hardening issue: #870
 Fixture-catalog issue: #875
 Limitation-register issue: #884
+Operator-walkthrough issue: #888
 Baseline: main @ 19e04711fc54083bd8e622bbd82048839ca8ebfa
 Release level: ENGINEERING_DEMO_BASELINE
 New editing authority: none
@@ -17,23 +18,25 @@ New editing authority: none
 
 This work pack freezes the existing Sequential Draft Edit 3D capability as one reproducible engineering-demo baseline. It does not qualify internal-pilot or production use and does not add an edit operation.
 
-The Sequential Sketcher toolbar gains one visible action:
+The Sequential Sketcher toolbar provides two visible evidence actions:
 
 ```text
 Download 3D pilot baseline
+Download 3D walkthrough worksheet
 ```
 
-The action is disabled until one authoritative Sequential branch is open. Export reads current authority and runtime state without preparing, applying or publishing any engineering change.
+Both actions are disabled until one authoritative Sequential branch is open. Export reads current authority and runtime state without preparing, applying or publishing any engineering change.
 
-## Release artifact
+## Release artifacts
 
-The action exports:
+The actions export:
 
 ```text
 SequentialDraftEdit3dReleaseManifest.v1
+SequentialDraftEdit3dOperatorWalkthroughWorksheet.v1
 ```
 
-The manifest binds:
+The release manifest binds:
 
 - repository and exact frozen baseline commit;
 - roadmap phase, work pack and engineering-demo release level;
@@ -50,6 +53,7 @@ The manifest binds:
 - structural-impact preview capabilities;
 - representative fixture catalog and catalog fingerprint;
 - owner-attested known-limitation register and register fingerprint;
+- controlled operator-walkthrough protocol and pending execution gate;
 - qualified runtime paths;
 - explicit non-authority disposition.
 
@@ -106,10 +110,11 @@ The release manifest has a canonical `manifestFingerprint`. Validation independe
 - supported capability lists;
 - representative fixture inventory or catalog fingerprint;
 - limitation inventory, ownership, containment, exit gates or attestation fingerprint;
+- walkthrough protocol, step inventory or pending execution gate;
 - runtime path inventory;
 - release-disposition records.
 
-A consistently re-fingerprinted forgery is rejected because fixed baseline, fixture-catalog, limitation-register and disposition invariants are asserted independently of the fingerprint.
+A consistently re-fingerprinted forgery is rejected because fixed baseline, fixture-catalog, limitation-register, walkthrough-protocol and disposition invariants are asserted independently of the fingerprint.
 
 ### Byte-stable authority time
 
@@ -150,13 +155,37 @@ productionApproval: NOT_ESTABLISHED
 
 The attestation does not claim a cryptographically verified person, organizational authorization, certificate chain or production approval. Any limitation, owner, containment rule, evidence requirement, exit gate or trust-boundary change invalidates the register and enclosing release-manifest fingerprints.
 
+### Controlled operator walkthrough
+
+SSK-3D-P0-E adds immutable `SequentialDraftEdit3dOperatorWalkthroughProtocol.v1`, `SequentialDraftEdit3dOperatorWalkthroughWorksheet.v1` and `SequentialDraftEdit3dOperatorWalkthroughRecord.v1` contracts.
+
+The worksheet is bound to the current release-manifest fingerprint, active branch, authority timestamp and exact twelve-step protocol. It intentionally contains no operator name, role, environment, execution timestamp, observation or step result. Its status remains:
+
+```text
+PENDING_OPERATOR_EXECUTION
+```
+
+A completed record can be constructed only from explicit operator-supplied values and one result for every governed step. Results are limited to `PASS`, `FAIL` and `BLOCKED`. A failed or blocked step requires an observation. The final disposition is `PASS` only when all twelve steps pass; otherwise it is `BLOCKED`.
+
+The record trust boundary states:
+
+```text
+contentIntegrity: ESTABLISHED_BY_CANONICAL_FINGERPRINT
+operatorIdentity: SELF_ASSERTED
+organizationalAuthority: NOT_ESTABLISHED
+certificateTrust: NOT_ESTABLISHED
+productionApproval: NOT_ESTABLISHED
+```
+
+The worksheet and record contracts do not fabricate operator execution or convert a self-asserted operator claim into verified identity or approval.
+
 ## Browser harness
 
-The existing real-Workbench fixture now exposes deterministic pilot-harness actions and evidence:
+The existing real-Workbench fixture exposes the governed walkthrough sequence:
 
 1. open Sequential Sketcher;
 2. inspect representative staged records;
-3. open one branch;
+3. open one authoritative branch;
 4. activate Draft Edit 3D;
 5. verify real Workbench realization;
 6. export the exact release manifest twice and compare the canonical payloads;
@@ -166,6 +195,8 @@ The existing real-Workbench fixture now exposes deterministic pilot-harness acti
 10. inject a `scene-apply` failure;
 11. verify automatic Construction SVG fallback and reported failure;
 12. close without leaked canvas.
+
+The browser evidence verifies that the separate walkthrough action exports a pending worksheet containing these exact step IDs. It does not claim that a human operator has completed them.
 
 The fixture uses the same production controller and Workbench path. Evidence time comes from current command-journal authority. The obsolete pilot wall-clock fixture hook is removed. No engineering-state mock is introduced.
 
@@ -189,6 +220,7 @@ internalPilotReady: false
 newEditingAuthority: false
 structuralTopologyPublication: NOT_AUTHORIZED
 packagePersistenceChange: NONE
+operatorWalkthrough: PENDING_OPERATOR_EXECUTION
 fallbackSurface: CONSTRUCTION_SVG
 ```
 
@@ -201,10 +233,11 @@ This work pack does not:
 - publish through command, support or geometry boundaries;
 - alter package schemas or persistence;
 - change the Workbench viewer, canvas or renderer implementation;
-- establish signer identity or production approval;
+- fabricate a completed operator walkthrough;
+- establish operator identity or production approval;
 - promote the release above engineering-demo baseline;
 - claim that CI is the release gate.
 
 ## Phase 0 continuation
 
-This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration, representative fixture catalog, owner-attested limitation register and deterministic launch/fallback harness. Remaining Phase 0 work is the controlled operator walkthrough record.
+This work pack delivers the exact release manifest, authority diagnostic export, byte-stable authority regeneration, representative fixture catalog, owner-attested limitation register, controlled walkthrough protocol, pending worksheet export and completed-record contract. Phase 0 remains open until an actual controlled operator executes all twelve steps and retains a valid completed record.

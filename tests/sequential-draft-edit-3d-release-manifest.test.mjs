@@ -8,6 +8,10 @@ import {
   createSequentialDraftEdit3dLimitationRegister,
 } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-limitation-register.js';
 import {
+  SEQUENTIAL_DRAFT_EDIT_3D_WALKTHROUGH_STEP_IDS,
+  createSequentialDraftEdit3dOperatorWalkthroughProtocol,
+} from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-operator-walkthrough.js';
+import {
   SEQUENTIAL_DRAFT_EDIT_3D_BASELINE,
   SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES,
   assertSequentialDraftEdit3dReleaseManifest,
@@ -80,9 +84,16 @@ assert.deepEqual(manifest.limitationRegister.entries.map((entry) => entry.limita
 assert.deepEqual(manifest.limitations, SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS);
 assert.equal(manifest.limitationRegister.ownershipAttestation.trustBoundary.signerIdentity,
   'NOT_ESTABLISHED');
+assert.equal(manifest.operatorWalkthrough.status, 'PENDING_OPERATOR_EXECUTION');
+assert.equal(manifest.operatorWalkthrough.completedRecordRequired, true);
+assert.deepEqual(manifest.operatorWalkthrough.protocol,
+  createSequentialDraftEdit3dOperatorWalkthroughProtocol());
+assert.deepEqual(manifest.operatorWalkthrough.protocol.steps.map((step) => step.stepId),
+  SEQUENTIAL_DRAFT_EDIT_3D_WALKTHROUGH_STEP_IDS);
 assert.equal(manifest.controller.fallbackSurface, 'CONSTRUCTION_SVG');
 assert.equal(manifest.disposition.internalPilotReady, false);
 assert.equal(manifest.disposition.newEditingAuthority, false);
+assert.equal(manifest.disposition.operatorWalkthrough, 'PENDING_OPERATOR_EXECUTION');
 assert.equal(Object.isFrozen(manifest), true);
 
 const mutableManifest = structuredClone(manifest);
@@ -134,6 +145,13 @@ const forgedRegister = structuredClone(manifest);
 forgedRegister.limitationRegister.entries[0].accountableRole = 'UNAUTHORIZED_OWNER';
 refingerprint(forgedRegister);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedRegister));
+const forgedWalkthrough = structuredClone(manifest);
+forgedWalkthrough.operatorWalkthrough.status = 'COMPLETED'; refingerprint(forgedWalkthrough);
+assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedWalkthrough));
+const forgedProtocol = structuredClone(manifest);
+forgedProtocol.operatorWalkthrough.protocol.steps[0].instruction = 'Skip this step.';
+refingerprint(forgedProtocol);
+assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedProtocol));
 const forgedDisposition = structuredClone(manifest);
 forgedDisposition.disposition.internalPilotReady = true; refingerprint(forgedDisposition);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedDisposition));
@@ -143,4 +161,4 @@ assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   controllerState: { ...input.controllerState, available: false } }));
 assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   view: { ...input.view, readModel: { ...input.view.readModel, branchId: 'BRANCH-B' } } }));
-console.log('[PASS] byte-stable authority, fixture catalog, limitation register and regeneration');
+console.log('[PASS] byte-stable authority, catalogs, limitation register, walkthrough gate and regeneration');

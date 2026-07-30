@@ -11,6 +11,10 @@ import {
   assertSequentialDraftEdit3dLimitationRegister,
   createSequentialDraftEdit3dLimitationRegister,
 } from './sequential-draft-edit-3d-limitation-register.js';
+import {
+  assertSequentialDraftEdit3dOperatorWalkthroughProtocol,
+  createSequentialDraftEdit3dOperatorWalkthroughProtocol,
+} from './sequential-draft-edit-3d-operator-walkthrough.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA =
   'SequentialDraftEdit3dReleaseManifest.v1';
@@ -45,6 +49,7 @@ export const SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS = Object.freeze([
   'tabs/sequential-sketcher/scoped-edit/sequential-component-edit-operations.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-fixture-catalog.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-limitation-register.js',
+  'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-operator-walkthrough.js',
   'workbench3d/viewer/workbench-viewer.js',
 ]);
 export const SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS = SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS;
@@ -140,6 +145,13 @@ function capabilityEvidence(controllerState) {
     structuralImpactPreviews: SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES.structuralImpactPreviews,
   };
 }
+function walkthroughGate() {
+  return Object.freeze({
+    status: 'PENDING_OPERATOR_EXECUTION',
+    completedRecordRequired: true,
+    protocol: createSequentialDraftEdit3dOperatorWalkthroughProtocol(),
+  });
+}
 function material(input) {
   const commandState = object(input.commandState, 'commandState');
   const supportState = object(input.supportState, 'supportState');
@@ -160,6 +172,7 @@ function material(input) {
     capabilities: capabilityEvidence(input.controllerState),
     fixtureCatalog: createSequentialDraftEdit3dFixtureCatalog(),
     limitationRegister: createSequentialDraftEdit3dLimitationRegister(),
+    operatorWalkthrough: walkthroughGate(),
     limitations: SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS,
     disposition: Object.freeze({
       releaseLevel: 'ENGINEERING_DEMO_BASELINE',
@@ -167,6 +180,7 @@ function material(input) {
       newEditingAuthority: false,
       structuralTopologyPublication: 'NOT_AUTHORIZED',
       packagePersistenceChange: 'NONE',
+      operatorWalkthrough: 'PENDING_OPERATOR_EXECUTION',
     }),
   };
 }
@@ -184,6 +198,14 @@ function limitationRegisterInvariant(value) {
     return exact && JSON.stringify(ids) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS);
   } catch { return false; }
 }
+function walkthroughInvariant(value) {
+  try {
+    const protocol = assertSequentialDraftEdit3dOperatorWalkthroughProtocol(value?.protocol);
+    return value.status === 'PENDING_OPERATOR_EXECUTION'
+      && value.completedRecordRequired === true
+      && JSON.stringify(protocol) === JSON.stringify(createSequentialDraftEdit3dOperatorWalkthroughProtocol());
+  } catch { return false; }
+}
 function invariant(value) {
   try {
     return value.baseline?.repository === SEQUENTIAL_DRAFT_EDIT_3D_BASELINE.repository
@@ -193,12 +215,14 @@ function invariant(value) {
       && JSON.stringify(value.capabilities) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES)
       && fixtureCatalogInvariant(value.fixtureCatalog)
       && limitationRegisterInvariant(value.limitationRegister)
+      && walkthroughInvariant(value.operatorWalkthrough)
       && JSON.stringify(value.limitations) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS)
       && value.controller?.fallbackSurface === 'CONSTRUCTION_SVG'
       && value.disposition?.internalPilotReady === false
       && value.disposition?.newEditingAuthority === false
       && value.disposition?.structuralTopologyPublication === 'NOT_AUTHORIZED'
-      && value.disposition?.packagePersistenceChange === 'NONE';
+      && value.disposition?.packagePersistenceChange === 'NONE'
+      && value.disposition?.operatorWalkthrough === 'PENDING_OPERATOR_EXECUTION';
   } catch { return false; }
 }
 export function createSequentialDraftEdit3dReleaseManifest(input = {}) {

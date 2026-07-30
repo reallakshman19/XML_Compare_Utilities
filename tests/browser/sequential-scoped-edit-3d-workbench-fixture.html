@@ -13,11 +13,12 @@ import { blockedSequentialFixture, repairedSequentialFixture } from '../helpers/
 
 const records = [...blockedSequentialFixture().records, ...repairedSequentialFixture().records];
 const branches = records.map((row) => row.name).sort();
-const failures = [], pilotExports = [];
+const failures = [], pilotExports = [], walkthroughExports = [];
 let injectedFailureStage = '';
 const disposeTile = installSequentialSketcherTile(document.querySelector('#tiles'), {
   onSequentialScopedEdit3dFailure(detail) { failures.push(detail); },
   onSequentialDraftEdit3dPilotEvidence(value) { pilotExports.push(value); },
+  onSequentialDraftEdit3dOperatorWalkthroughWorksheet(value) { walkthroughExports.push(value); },
   onSequentialDraftEdit3dPilotEvidenceFailure(error) { failures.push({ stage: 'pilot export', message: error.message }); },
   sequentialScopedEdit3dFailureFactory(stage) {
     return stage === injectedFailureStage ? new Error(`Injected ${stage} failure`) : null;
@@ -35,6 +36,7 @@ function projection(value) { click(`[data-ssk-view="${value}"]`); }
 function renderer(value) { click(`[data-ssk-renderer="${value}"]`); }
 function draft3d() { click('[data-ssk-draft-edit-3d]'); }
 function pilot() { click('[data-ssk-draft-edit-pilot-export]'); }
+function walkthrough() { click('[data-ssk-draft-edit-walkthrough-export]'); }
 function injectFailure(stage) { injectedFailureStage = stage; }
 function clearFailure() { injectedFailureStage = ''; }
 function refresh3d() { controller()?.refresh(); }
@@ -50,7 +52,9 @@ function state() {
     hostHidden: Boolean(root()?.querySelector('[data-ssk-draft-edit-3d-host]')?.hidden),
     constructionHidden: Boolean(root()?.querySelector('[data-ssk-construction-surface]')?.hidden),
     pilotDisabled: Boolean(root()?.querySelector('[data-ssk-draft-edit-pilot-export]')?.disabled),
+    walkthroughDisabled: Boolean(root()?.querySelector('[data-ssk-draft-edit-walkthrough-export]')?.disabled),
     pilotExports: [...pilotExports],
+    walkthroughExports: [...walkthroughExports],
     status: root()?.querySelector('[data-ssk-preview-status]')?.textContent || '',
     activeBranch: root()?.querySelector('[data-ssk-active-branch]')?.textContent || '',
     failures: [...failures],
@@ -58,5 +62,5 @@ function state() {
 }
 function close() { click('[data-ssk-action="close"]'); }
 
-globalThis.__ssk3dWorkbench = { records, branches, failures, pilotExports, open, inspect, openBranch, advance, projection, renderer, draft3d, pilot, injectFailure, clearFailure, refresh3d, tick, activate3d, state, controller, root, close, destroyTile: disposeTile };
+globalThis.__ssk3dWorkbench = { records, branches, failures, pilotExports, walkthroughExports, open, inspect, openBranch, advance, projection, renderer, draft3d, pilot, walkthrough, injectFailure, clearFailure, refresh3d, tick, activate3d, state, controller, root, close, destroyTile: disposeTile };
 </script></body></html>

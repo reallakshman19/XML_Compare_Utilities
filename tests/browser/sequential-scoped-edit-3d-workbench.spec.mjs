@@ -14,6 +14,20 @@ const LIMITATION_IDS = [
   'NO_AUTOMATIC_TOPOLOGY_REPAIR',
   'ENGINEERING_DEMO_ONLY',
 ];
+const WALKTHROUGH_STEP_IDS = [
+  'OPEN_SEQUENTIAL_SKETCHER',
+  'INSPECT_REPRESENTATIVE_SOURCE',
+  'OPEN_AUTHORITATIVE_BRANCH',
+  'ACTIVATE_DRAFT_EDIT_3D',
+  'VERIFY_WORKBENCH_REALIZATION',
+  'EXPORT_BASELINE_TWICE',
+  'VERIFY_FIXTURE_CATALOG',
+  'VERIFY_LIMITATION_REGISTER',
+  'RETURN_TO_CONSTRUCTION_SVG',
+  'INJECT_SCENE_APPLY_FAILURE',
+  'VERIFY_AUTOMATIC_FALLBACK',
+  'CLOSE_WITHOUT_CANVAS_LEAK',
+];
 
 async function ready(page) {
   await page.goto('/tests/browser/sequential-scoped-edit-3d-workbench-fixture.html');
@@ -40,6 +54,22 @@ function expectLimitationEvidence(manifest) {
   expect(trust.signerIdentity).toBe('NOT_ESTABLISHED');
   expect(trust.organizationalAuthority).toBe('NOT_ESTABLISHED');
   expect(trust.productionApproval).toBe('NOT_ESTABLISHED');
+}
+function expectWalkthroughEvidence(manifest, worksheet) {
+  expect(manifest.operatorWalkthrough.status).toBe('PENDING_OPERATOR_EXECUTION');
+  expect(manifest.operatorWalkthrough.completedRecordRequired).toBe(true);
+  expect(manifest.operatorWalkthrough.protocol.steps.map((row) => row.stepId))
+    .toEqual(WALKTHROUGH_STEP_IDS);
+  expect(worksheet.schema).toBe('SequentialDraftEdit3dOperatorWalkthroughWorksheet.v1');
+  expect(worksheet.status).toBe('PENDING_OPERATOR_EXECUTION');
+  expect(worksheet.releaseManifest.manifestFingerprint).toBe(manifest.manifestFingerprint);
+  expect(worksheet.protocol.protocolFingerprint)
+    .toBe(manifest.operatorWalkthrough.protocol.protocolFingerprint);
+  expect(worksheet.stepResults.map((row) => row.stepId)).toEqual(WALKTHROUGH_STEP_IDS);
+  expect(worksheet.stepResults.every((row) => row.result === null && row.observation === null))
+    .toBe(true);
+  expect(worksheet.trustBoundary.operatorIdentity).toBe('SELF_ASSERTED');
+  expect(worksheet.trustBoundary.productionApproval).toBe('NOT_ESTABLISHED');
 }
 
 // SSK-TS-1B-W01
@@ -91,29 +121,37 @@ test('SSK-TS-1B-W04 real Workbench closes without leaked canvas', async ({ page 
   expect(await page.locator('canvas').count()).toBe(0);
 });
 
-// SSK-3D-P0-A-W01 / SSK-3D-P0-B-W01 / SSK-3D-P0-C-W01 / SSK-3D-P0-D-W01
-test('SSK-3D-P0-D-W01 pilot evidence binds owner-attested limitations', async ({ page }) => {
+// SSK-3D-P0-A-W01 through SSK-3D-P0-E-W01
+test('SSK-3D-P0-E-W01 pilot evidence exports a pending controlled walkthrough worksheet', async ({ page }) => {
   await ready(page);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.open());
-  expect(await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(true);
+  const unavailable = await page.evaluate(() => globalThis.__ssk3dWorkbench.state());
+  expect(unavailable.pilotDisabled).toBe(true);
+  expect(unavailable.walkthroughDisabled).toBe(true);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.activate3d());
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotDisabled)).toBe(false);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().walkthroughDisabled)).toBe(false);
   await page.evaluate(() => globalThis.__ssk3dWorkbench.pilot());
   await page.evaluate(() => globalThis.__ssk3dWorkbench.pilot());
+  await page.evaluate(() => globalThis.__ssk3dWorkbench.walkthrough());
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports.length)).toBe(2);
-  const manifests = await page.evaluate(() => globalThis.__ssk3dWorkbench.state().pilotExports);
-  const manifest = manifests[0];
-  expect(JSON.stringify(manifests[1])).toBe(JSON.stringify(manifest));
-  expect(manifests[1].manifestFingerprint).toBe(manifest.manifestFingerprint);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dWorkbench.state().walkthroughExports.length)).toBe(1);
+  const evidence = await page.evaluate(() => globalThis.__ssk3dWorkbench.state());
+  const manifest = evidence.pilotExports[0];
+  const worksheet = evidence.walkthroughExports[0];
+  expect(JSON.stringify(evidence.pilotExports[1])).toBe(JSON.stringify(manifest));
+  expect(evidence.pilotExports[1].manifestFingerprint).toBe(manifest.manifestFingerprint);
   expect(manifest.schema).toBe('SequentialDraftEdit3dReleaseManifest.v1');
   expect(manifest.createdAt).toBeTruthy();
   expect(manifest.baseline.commit).toBe('19e04711fc54083bd8e622bbd82048839ca8ebfa');
   expect(manifest.authority.branchId).toBeTruthy();
   expectFixtureEvidence(manifest);
   expectLimitationEvidence(manifest);
+  expectWalkthroughEvidence(manifest, worksheet);
   expect(manifest.controller.fallbackSurface).toBe('CONSTRUCTION_SVG');
   expect(manifest.disposition.internalPilotReady).toBe(false);
   expect(manifest.disposition.newEditingAuthority).toBe(false);
+  expect(manifest.disposition.operatorWalkthrough).toBe('PENDING_OPERATOR_EXECUTION');
 });
 
 // SSK-3D-P0-A-W02

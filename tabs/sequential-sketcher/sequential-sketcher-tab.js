@@ -9,7 +9,7 @@ import { mountSequentialScopedEdit3dController } from './scoped-edit/sequential-
 import { createSequentialWorkspaceCommandBoundary } from './scoped-edit/sequential-workspace-command-boundary.js?v=20260727-ssk-ts-3a-gateway-1';
 import { createSequentialSupportAdjustmentBoundary } from './scoped-edit/sequential-support-adjustment-boundary.js?v=20260728-ssk-ts-3i';
 import { createSequentialGeometryEditBoundary } from './scoped-edit/sequential-geometry-edit-boundary.js?v=20260728-ssk-ts-3n';
-import { createSequentialDraftEdit3dPilotFeature } from './scoped-edit/sequential-draft-edit-3d-pilot-feature.js?v=20260730-ssk-3d-p0-a';
+import { createSequentialDraftEdit3dPilotFeature } from './scoped-edit/sequential-draft-edit-3d-pilot-feature.js?v=20260730-ssk-3d-p0-e';
 
 const STYLE_ID = 'sequential-sketcher-style';
 const CONTINUITY_STYLE_ID = 'sequential-continuity-style';
@@ -119,6 +119,7 @@ function mountPilot(runtime, overlay, commandBoundary) {
     geometryBoundary: runtime.geometryEditBoundary, workspace: runtime.active,
     documentRef: overlay.ownerDocument,
     onExport: context.onSequentialDraftEdit3dPilotEvidence,
+    onWalkthroughExport: context.onSequentialDraftEdit3dOperatorWalkthroughWorksheet,
     onFailure: context.onSequentialDraftEdit3dPilotEvidenceFailure,
   });
 }
