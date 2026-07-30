@@ -2,21 +2,32 @@
 
 import { buildSingleDocumentMigration } from '../../contracts/project-migration-contract.js';
 import { SEQUENTIAL_SKETCH_SCHEMA } from './sequential-sketcher-contract.js';
+import { parseStagedJson } from './sequential-sketcher-source.js';
 
 export const SEQUENTIAL_SKETCHER_PROJECT_ID = 'sequential-sketcher';
-export const SEQUENTIAL_PROJECT_EXPORT_SCHEMA = 'SequentialProjectExport.v1';
+export const SEQUENTIAL_PROJECT_EXPORT_SCHEMA = 'SequentialProjectExport.v2';
+
+const SEQUENTIAL_STAGED_SCHEMA = 'sequential-sketcher-source-array/v1';
+const SEQUENTIAL_SOURCE_UNIT = 'MM';
+const SEQUENTIAL_COORDINATE_FRAME = 'PLANT';
+const SEQUENTIAL_VERTICAL_AXIS = 'Z';
 
 function exportPayload(input) {
   return Object.freeze({
     schema: SEQUENTIAL_PROJECT_EXPORT_SCHEMA,
+    stagedSchema: SEQUENTIAL_STAGED_SCHEMA,
     sourceSchema: SEQUENTIAL_SKETCH_SCHEMA,
+    unit: SEQUENTIAL_SOURCE_UNIT,
+    coordinateFrame: SEQUENTIAL_COORDINATE_FRAME,
+    verticalAxis: SEQUENTIAL_VERTICAL_AXIS,
+    branches: Object.freeze(parseStagedJson(input.sourceText)),
     constructionSession: input.session,
     confirmedConstruction: input.confirmedConstruction,
     supportProjection: input.supportProjection,
   });
 }
 
-/** Serialize the current route evidence; readiness is enforced by ExportPlan. */
+/** Serialize route evidence and the source-compatible metadata envelope; readiness is enforced by ExportPlan. */
 export function sequentialProjectArtifacts(input) {
   const text = `${JSON.stringify(exportPayload(input), null, 2)}\n`;
   return Object.freeze([Object.freeze({
@@ -51,7 +62,8 @@ export async function buildSequentialProjectMigration(input) {
   return buildSingleDocumentMigration({
     projectId: SEQUENTIAL_SKETCHER_PROJECT_ID, sourceName: input.sourceName,
     sourceText: input.sourceText, sourceSchema: SEQUENTIAL_SKETCH_SCHEMA,
-    rootShape: 'branches', unit: 'MM', verticalAxis: 'Z', coordinateFrame: 'GLOBAL',
+    rootShape: 'branches', unit: SEQUENTIAL_SOURCE_UNIT, verticalAxis: SEQUENTIAL_VERTICAL_AXIS,
+    coordinateFrame: SEQUENTIAL_COORDINATE_FRAME,
     stats: { branchCount: input.evidence?.branches?.length || 0, componentCount: input.evidence?.components?.length || 0, scanned: input.evidence?.branches?.length || 0, matched: calculations.confirmedComponents, filtered: 0 },
     scope: { wildcard: '', selectedIds: input.session?.rootBranchId ? [input.session.rootBranchId] : [] },
     createdAt: input.createdAt, cryptoRef: input.cryptoRef,
