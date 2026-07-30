@@ -3,7 +3,11 @@ import { createSequentialRotationApplicationService } from './sequential-rotatio
 import { createSequentialRotationApplicationPanel } from './sequential-rotation-application-panel.js';
 import { createSequentialRotationDraftStore } from './sequential-rotation-draft.js';
 import { createSequentialRotationPanel } from './sequential-rotation-panel.js';
-import { selectSequentialRotationTarget, validateSequentialRotationTarget } from './sequential-rotation-target.js';
+import {
+  selectSequentialRotationTarget,
+  validateSequentialRotationTarget,
+} from './sequential-rotation-target.js';
+import { sequentialDraftEditRecoveryTargetMatches } from './sequential-draft-edit-recovery-contract.js';
 
 export const SEQUENTIAL_ROTATION_FEATURE_SCHEMA = 'SequentialRotationFeature.v1';
 
@@ -20,10 +24,38 @@ function exactTarget(state) {
   state.target = validateSequentialRotationTarget(state.target, targetInput(state));
   return state.target;
 }
+function recoveryEvidence(target) {
+  return Object.freeze({
+    targetId: target.rotationTargetId,
+    authorityId: target.authorityId,
+    snapshotFingerprint: target.snapshotFingerprint,
+    sceneRevision: target.sceneRevision,
+    seedComponentId: target.seedComponentId,
+    affectedComponentIds: target.affectedComponentIds,
+    eligibilityIds: target.eligibilityIds,
+  });
+}
+function recoveryDescriptor(preview) {
+  return Object.freeze({
+    selector: Object.freeze({ objectId: preview.target.selectedObjectId, scope: preview.target.scope }),
+    targetEvidence: recoveryEvidence(preview.target),
+    input: Object.freeze({
+      pivot: preview.transform.pivot,
+      axis: preview.transform.axis,
+      angleDegrees: preview.transform.angleDegrees,
+      profile: preview.transform.profile,
+    }),
+  });
+}
+function notifyRecovery(state, preview) {
+  if (!state.restoring) state.onRecoveryDraft(recoveryDescriptor(preview));
+}
 function renderPreview(state, preview, notice = null) {
   state.panel.setPreview(preview, notice);
   state.applicationPanel.setPreview(preview);
-  state.onDraftChanged(state.draftStore.getDraft()); return preview;
+  state.onDraftChanged(state.draftStore.getDraft());
+  notifyRecovery(state, preview);
+  return preview;
 }
 function previewRotation(state, input = {}) {
   const preview = state.draftStore.stage({ ...input, target: exactTarget(state) });
@@ -32,18 +64,22 @@ function previewRotation(state, input = {}) {
 }
 function cancelPreview(state, reason = 'cancelled') {
   if (state.destroyed) return null;
+  const hadPreview = Boolean(state.draftStore.getPreview());
   state.draftStore.cancel(reason);
   state.applicationPanel.invalidate(`Rotation application invalidated: ${reason}.`);
   state.panel.setPreview(null, `Rotation preview cleared: ${reason}.`);
-  state.onDraftChanged(null); return null;
+  state.onDraftChanged(null);
+  if (hadPreview && !state.restoring) state.onRecoveryClear(reason);
+  return null;
+}
+function selectTargetWithScope(state, objectId, scope) {
+  cancelPreview(state, 'target-change'); state.selectedObjectId = objectId;
+  state.target = selectSequentialRotationTarget({ objectId, scope, ...targetInput(state) });
+  state.panel.setTarget(state.target); return state.target;
 }
 function selectTarget(state, objectId) {
   if (state.destroyed) throw new Error('Rotation feature is destroyed.');
-  cancelPreview(state, 'target-change'); state.selectedObjectId = objectId;
-  state.target = selectSequentialRotationTarget({
-    objectId, scope: state.panel.getScope(), ...targetInput(state),
-  });
-  state.panel.setTarget(state.target); return state.target;
+  return selectTargetWithScope(state, objectId, state.panel.getScope());
 }
 function scopeChanged(state) {
   if (!state.selectedObjectId) { state.target = null; state.panel.clearTarget(); return null; }
@@ -60,6 +96,33 @@ function setFeatureActive(state, value) {
   if (!state.active) clearTarget(state, 'Rotation cleared because Draft Edit 3D closed.');
   state.panel.setActive(state.active); state.applicationPanel.setActive(state.active);
   return state.active;
+}
+function setField(root, selector, value) {
+  const field = root.querySelector(selector);
+  if (field) field.value = String(value);
+}
+function restorePanelValues(state, record) {
+  setField(state.root, '[data-ssk-rotation-scope]', record.selector.scope);
+  for (const axis of ['x', 'y', 'z']) {
+    setField(state.root, `[data-ssk-rotation-pivot-${axis}]`, record.input.pivot[axis]);
+    setField(state.root, `[data-ssk-rotation-axis-${axis}]`, record.input.axis[axis]);
+  }
+  setField(state.root, '[data-ssk-rotation-angle]', record.input.angleDegrees);
+  setField(state.root, '[data-ssk-rotation-tolerance]', record.input.profile.boundaryTolerance);
+}
+function restoreRecovery(state, record) {
+  if (record?.kind !== 'ROTATE_SUBGRAPH') throw new TypeError('Rotation recovery kind is invalid.');
+  state.restoring = true;
+  try {
+    restorePanelValues(state, record);
+    const target = selectTargetWithScope(state, record.selector.objectId, record.selector.scope);
+    if (!sequentialDraftEditRecoveryTargetMatches(record, recoveryEvidence(target))) {
+      throw new RangeError('Rotation recovery target differs from current eligibility evidence.');
+    }
+    const preview = previewRotation(state, record.input);
+    state.onRecoveryDraft(recoveryDescriptor(preview));
+    return preview;
+  } finally { state.restoring = false; }
 }
 function createApplication(state) {
   const boundary = state.geometryEditBoundary;
@@ -82,11 +145,13 @@ function initializeState(options) {
     readScene: requiredFunction(options.readScene, 'readScene'),
     readModel: requiredFunction(options.readModel, 'readModel'),
     onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged'),
+    onRecoveryDraft: requiredFunction(options.onRecoveryDraft || (() => {}), 'onRecoveryDraft'),
+    onRecoveryClear: requiredFunction(options.onRecoveryClear || (() => {}), 'onRecoveryClear'),
     geometryEditBoundary: requiredMethods(options.geometryEditBoundary,
       ['readCurrentState', 'readView', 'readJournal', 'publishCandidate'], 'geometryEditBoundary'),
     applicationNow: requiredFunction(options.applicationNow, 'applicationNow'),
     draftStore: createSequentialRotationDraftStore(),
-    target: null, selectedObjectId: null, active: false, destroyed: false,
+    target: null, selectedObjectId: null, active: false, destroyed: false, restoring: false,
   };
   state.panel = createSequentialRotationPanel({
     root,
@@ -123,6 +188,7 @@ export function createSequentialRotationFeature(options = {}) {
     clearTarget: (reason) => clearTarget(state, reason),
     cancel: (reason) => cancelPreview(state, reason),
     preview: (input) => previewRotation(state, input),
+    restoreRecovery: (record) => restoreRecovery(state, record),
     invalidate: (reason) => clearTarget(state, reason || 'authority-change'),
     getDraft: state.draftStore.getDraft,
     getPreview: state.draftStore.getPreview,
@@ -130,3 +196,5 @@ export function createSequentialRotationFeature(options = {}) {
     destroy: () => destroyFeature(state),
   });
 }
+
+export const _test = Object.freeze({ recoveryDescriptor, recoveryEvidence });

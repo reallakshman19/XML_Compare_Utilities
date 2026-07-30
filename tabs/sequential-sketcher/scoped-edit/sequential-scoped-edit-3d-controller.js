@@ -4,32 +4,27 @@ import { createSequentialDraftEditCommandGateway } from './sequential-draft-edit
 import { createSequentialDraftEditCommandPanel } from './sequential-draft-edit-command-panel.js';
 import { createSequentialDraftEditSupportMoveFeature } from './sequential-draft-edit-support-move-feature.js';
 import { createSequentialComponentEditOperations } from './sequential-component-edit-operations.js';
+import { createSequentialDraftEditRecoveryController } from './sequential-draft-edit-recovery-controller.js';
 import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edit-target-selection.js';
 import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
 import { selectSequentialDraftEditReversalTarget } from './sequential-draft-edit-reversal-target.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
-export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1'; export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
+export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
+export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
 const CONTROLLERS = new WeakMap();
 const VIEW_BY_PROJECTION = Object.freeze({ ISO: 'iso', XY: 'top', XZ: 'front', YZ: 'side' });
 function requiredFunction(value, label) { if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value; }
 function requiredMethods(value, names, label) { names.forEach((name) => requiredFunction(value?.[name], `${label}.${name}`)); return value; }
 function injectFailure(factory, stage) {
-  if (typeof factory !== 'function') return;
-  const result = factory(stage);
-  if (result instanceof Error) throw result;
-  if (result) throw new Error(String(result));
+  if (typeof factory !== 'function') return; const result = factory(stage);
+  if (result instanceof Error) throw result; if (result) throw new Error(String(result));
 }
 function elements(root) {
-  const find = (selector) => {
-    const value = root.querySelector(selector);
-    if (!value) throw new Error(`Sequential Draft Edit 3D element missing: ${selector}`);
-    return value;
-  };
-  return {
-    button: find('[data-ssk-draft-edit-3d]'), host: find('[data-ssk-draft-edit-3d-host]'),
+  const find = (selector) => { const value = root.querySelector(selector);
+    if (!value) throw new Error(`Sequential Draft Edit 3D element missing: ${selector}`); return value; };
+  return { button: find('[data-ssk-draft-edit-3d]'), host: find('[data-ssk-draft-edit-3d-host]'),
     construction: find('[data-ssk-construction-surface]'),
-    preview: find('[data-ssk-engineering-svg-preview-host]'), status: find('[data-ssk-preview-status]'),
-  };
+    preview: find('[data-ssk-engineering-svg-preview-host]'), status: find('[data-ssk-preview-status]') };
 }
 function setHidden(element, hidden) { element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false'); if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert'); }
 function announce(state, message, status = 'ready') { state.elements.status.textContent = message; state.elements.status.dataset.state = status; }
@@ -55,9 +50,7 @@ function syncAvailability(state) {
   const next = available(state); state.elements.button.disabled = !next;
   state.elements.button.title = next ? 'Open the certified Draft Edit 3D view'
     : 'Draft Edit 3D requires an open Sequential branch';
-  if (!next && state.active) {
-    state.active = false; hide3dSurface(state); setHidden(state.elements.construction, false);
-  }
+  if (!next && state.active) { state.active = false; hide3dSurface(state); setHidden(state.elements.construction, false); }
   return next;
 }
 function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; }
@@ -66,25 +59,17 @@ function applyProjection(state, readModel) {
   state.viewer?.setStandardView(VIEW_BY_PROJECTION[projection] || 'iso');
 }
 function syncDecisionTarget(state, scene, readModel) {
-  try {
-    state.commandPanel?.setDecisionTarget(createSequentialDraftEditDecisionTarget({
-      readModel, scene, currentState: state.commandBoundary.readCurrentState(),
-    }));
-  } catch { state.commandPanel?.clearDecisionTarget(); }
+  try { state.commandPanel?.setDecisionTarget(createSequentialDraftEditDecisionTarget({
+    readModel, scene, currentState: state.commandBoundary.readCurrentState(),
+  })); } catch { state.commandPanel?.clearDecisionTarget(); }
 }
 function applyScene(state) {
   injectFailure(state.options.failureFactory, 'scene-apply');
-  const view = state.geometryEditBoundary.readView();
-  const readModel = view.readModel; const scene = view.scene;
-  if (!state.shadow.host() || !readModel || !scene) {
-    throw new Error('Sequential Draft Edit 3D authority is unavailable.');
-  }
-  const model = createSequentialScopedEditVisualModel({
-    readModel, scene, draft: state.supportMove?.getDraft(),
-    moveDraft: state.componentEdit?.getMoveDraft(),
-    nodeStretchDraft: state.componentEdit?.getStretchDraft(),
-    rotationDraft: state.componentEdit?.getRotationDraft(),
-  });
+  const view = state.geometryEditBoundary.readView(); const readModel = view.readModel; const scene = view.scene;
+  if (!state.shadow.host() || !readModel || !scene) throw new Error('Sequential Draft Edit 3D authority is unavailable.');
+  const model = createSequentialScopedEditVisualModel({ readModel, scene, draft: state.supportMove?.getDraft(),
+    moveDraft: state.componentEdit?.getMoveDraft(), nodeStretchDraft: state.componentEdit?.getStretchDraft(),
+    rotationDraft: state.componentEdit?.getRotationDraft() });
   state.scene = scene; state.readModel = readModel;
   state.viewer.setVerticalAxis(scene.coordinateSystem.verticalAxis);
   state.viewer.setModels({ source: null, target: model, registrationTranslation: [0, 0, 0] });
@@ -99,8 +84,7 @@ function selectionCategory(state, objectId) { return state.scene?.entities.find(
 function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
 function clearNonCommandTargets(state, reason = null) { state.supportMove?.clearTarget(reason); state.componentEdit?.clear(reason); }
 function selectCandidatePick(state, objectId) {
-  clearNonCommandTargets(state);
-  const target = selectSequentialDraftEditCandidateTarget({
+  clearNonCommandTargets(state); const target = selectSequentialDraftEditCandidateTarget({
     objectId, readModel: state.readModel, scene: state.scene,
     currentState: state.commandBoundary.readCurrentState(),
   });
@@ -108,8 +92,7 @@ function selectCandidatePick(state, objectId) {
   announce(state, `Candidate ${target.candidateId} selected. Pick alone does not issue a command.`);
 }
 function selectReversalPick(state, objectId) {
-  clearNonCommandTargets(state);
-  const target = selectSequentialDraftEditReversalTarget({
+  clearNonCommandTargets(state); const target = selectSequentialDraftEditReversalTarget({
     objectId, readModel: state.readModel, scene: state.scene,
     currentState: state.commandBoundary.readCurrentState(),
   });
@@ -147,11 +130,10 @@ function selectPick(state, objectId) {
     announce(state, `Draft Edit 3D selected ${objectId}. No authoritative target was established.`);
   }
 }
-function viewerOptions(state) {
-  return { navigationPreset: 'CAD_EDIT', onPick: (pick) => selectPick(state, pick?.objectId || null),
-    onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
-    onNavigationError: (error) => containFailure(state, error, 'navigation') };
-}
+function viewerOptions(state) { return { navigationPreset: 'CAD_EDIT',
+  onPick: (pick) => selectPick(state, pick?.objectId || null),
+  onRuntimeError: (error) => containFailure(state, error, 'viewer runtime'),
+  onNavigationError: (error) => containFailure(state, error, 'navigation') }; }
 async function createViewer(state, canvas) {
   injectFailure(state.options.failureFactory, 'viewer-mount');
   if (typeof state.options.createViewer === 'function') return state.options.createViewer(canvas, viewerOptions(state));
@@ -159,29 +141,25 @@ async function createViewer(state, canvas) {
   return createWorkbenchViewer(canvas, viewerOptions(state));
 }
 async function ensureViewer(state) {
-  if (state.viewer) return state.viewer;
-  if (state.pending) return state.pending;
+  if (state.viewer) return state.viewer; if (state.pending) return state.pending;
   state.elements.host.innerHTML = '<div data-ssk-draft-edit-3d-canvas style="position:absolute;inset:0"></div>';
   const canvas = state.elements.host.querySelector('[data-ssk-draft-edit-3d-canvas]');
-  state.pending = createViewer(state, canvas)
-    .then((viewer) => { state.viewer = viewer; return viewer; })
+  state.pending = createViewer(state, canvas).then((viewer) => { state.viewer = viewer; return viewer; })
     .finally(() => { state.pending = null; });
   return state.pending;
 }
 function containFailure(state, error, stage) {
-  const message = error?.message || String(error);
-  state.failureCount += 1; state.active = false; hide3dSurface(state);
-  setHidden(state.elements.construction, false);
+  const message = error?.message || String(error); state.failureCount += 1; state.active = false;
+  hide3dSurface(state); setHidden(state.elements.construction, false);
   announce(state, `Draft Edit 3D failed during ${stage}: ${message}. Construction SVG retained.`, 'error');
-  try { state.options.onFailure?.({ stage, message }); } catch {}
-  return false;
+  try { state.options.onFailure?.({ stage, message }); } catch {} return false;
 }
 async function show3d(state) {
   if (state.destroyed || !syncAvailability(state)) return false;
   try {
     await ensureViewer(state); if (state.destroyed) return false;
     try { state.options.onActivate?.(); } catch {}
-    state.active = true; show3dSurface(state); applyScene(state); return true;
+    state.active = true; show3dSurface(state); applyScene(state); state.recovery?.refresh(); return true;
   } catch (error) { return containFailure(state, error, 'view mount'); }
 }
 function scheduleRefresh(state) {
@@ -192,7 +170,8 @@ function scheduleRefresh(state) {
     state.supportMove?.invalidate('Support adjustment invalidated because owner authority changed.');
     state.componentEdit?.invalidate('Component edit invalidated because owner authority changed.');
     syncAvailability(state); if (!state.active) return;
-    try { applyScene(state); } catch (error) { containFailure(state, error, 'owner refresh'); }
+    try { applyScene(state); state.recovery?.refresh(); }
+    catch (error) { containFailure(state, error, 'owner refresh'); }
   });
 }
 function handleClick(state, event) {
@@ -206,51 +185,78 @@ function handleClick(state, event) {
 function destroy(state) {
   if (state.destroyed) return false;
   state.destroyed = true; state.root.removeEventListener('click', state.onClick, true);
-  try { state.unsubscribe?.(); } catch {}
-  try { state.componentEdit?.destroy(); } catch {}
-  try { state.supportMove?.destroy(); } catch {}
-  try { state.commandPanel?.destroy(); } catch {}
-  try { state.gateway?.destroy(); } catch {}
+  try { state.unsubscribe?.(); } catch {} try { state.recovery?.destroy(); } catch {}
+  try { state.componentEdit?.destroy(); } catch {} try { state.supportMove?.destroy(); } catch {}
+  try { state.commandPanel?.destroy(); } catch {} try { state.gateway?.destroy(); } catch {}
   try { state.viewer?.dispose(); } catch {}
   state.viewer = null; state.scene = null; state.readModel = null;
   state.elements.host.innerHTML = ''; CONTROLLERS.delete(state.root); return true;
 }
 function draftRefresh(state) { if (state.active && state.viewer && state.scene && state.readModel) applyScene(state); }
+function authorityEvidence(value) {
+  return Object.freeze({ authorityId: value.authorityId, sourceFingerprint: value.sourceFingerprint,
+    branchId: value.branchId, branchSetFingerprint: value.branchSetFingerprint,
+    journalHeadFingerprint: value.journalHeadFingerprint,
+    confirmedConstructionFingerprint: value.confirmedConstructionFingerprint,
+    supportProjectionFingerprint: value.supportProjectionFingerprint,
+    ownerRevisionFingerprint: value.ownerRevisionFingerprint });
+}
+function recoveryContext(state, kind) {
+  const support = kind === 'MOVE_SUPPORT_SAME_CARRIER';
+  const boundary = support ? state.supportAdjustmentBoundary : state.geometryEditBoundary;
+  const current = boundary.readCurrentState(); const history = boundary.readHistory();
+  if (!history?.historyFingerprint) throw new RangeError('Pending draft recovery requires current history authority.');
+  return Object.freeze({ authority: authorityEvidence(deriveSequentialEditAuthority(current)),
+    editBaseFingerprint: history.historyFingerprint });
+}
+function installRecovery(state) {
+  if (!state.options.recoveryStorage) return null;
+  return createSequentialDraftEditRecoveryController({ root: state.root,
+    storage: state.options.recoveryStorage, readContext: (kind) => recoveryContext(state, kind),
+    now: state.options.recoverySavedAtProvider || state.options.commandIssuedAtProvider,
+    beforeRestore: async () => {
+      if (state.active) return true;
+      const opened = await show3d(state);
+      if (!opened) throw new Error('Draft Edit 3D could not be opened for pending-draft recovery.');
+      return true;
+    },
+    restoreHandlers: {
+      MOVE_COMPONENT: (record) => state.componentEdit.restoreRecovery(record),
+      STRETCH_NODE: (record) => state.componentEdit.restoreRecovery(record),
+      ROTATE_SUBGRAPH: (record) => state.componentEdit.restoreRecovery(record),
+      MOVE_SUPPORT_SAME_CARRIER: (record) => state.supportMove.restoreRecovery(record),
+    }, onDiagnostic: state.options.onRecoveryDiagnostic });
+}
 function installFeatures(state) {
   try {
-    state.commandPanel = createSequentialDraftEditCommandPanel({
-      root: state.root, gateway: state.gateway,
+    state.commandPanel = createSequentialDraftEditCommandPanel({ root: state.root, gateway: state.gateway,
       readCurrentState: state.commandBoundary.readCurrentState,
-      readCurrentAuthorityId: () => deriveSequentialEditAuthority(
-        state.commandBoundary.readCurrentState(),
-      ).authorityId,
+      readCurrentAuthorityId: () => deriveSequentialEditAuthority(state.commandBoundary.readCurrentState()).authorityId,
       now: state.options.commandIssuedAtProvider,
-      onAccepted: state.options.onCommandAccepted, onFailure: state.options.onCommandFailure,
-    });
-    state.supportMove = createSequentialDraftEditSupportMoveFeature({
-      root: state.root, readScene: () => state.scene, readModel: () => state.readModel,
+      onAccepted: state.options.onCommandAccepted, onFailure: state.options.onCommandFailure });
+    state.supportMove = createSequentialDraftEditSupportMoveFeature({ root: state.root,
+      readScene: () => state.scene, readModel: () => state.readModel,
       supportAdjustmentBoundary: state.supportAdjustmentBoundary,
       now: state.options.supportAdjustmentAppliedAtProvider || state.options.commandIssuedAtProvider,
       onDraftChanged: () => draftRefresh(state),
-    });
-    state.componentEdit = createSequentialComponentEditOperations({
-      root: state.root, readScene: () => state.scene, readModel: () => state.readModel,
-      readViewer: () => state.viewer, onDraftChanged: () => draftRefresh(state),
-      geometryEditBoundary: state.geometryEditBoundary,
+      onRecoveryDraft: (descriptor) => state.recovery?.capture('MOVE_SUPPORT_SAME_CARRIER', descriptor),
+      onRecoveryClear: (reason) => state.recovery?.clear('MOVE_SUPPORT_SAME_CARRIER', reason) });
+    state.componentEdit = createSequentialComponentEditOperations({ root: state.root,
+      readScene: () => state.scene, readModel: () => state.readModel, readViewer: () => state.viewer,
+      onDraftChanged: () => draftRefresh(state), geometryEditBoundary: state.geometryEditBoundary,
       applicationNow: state.options.geometryMoveAppliedAtProvider || state.options.commandIssuedAtProvider,
       onModeChanged: (mode) => announce(state, `Component operation mode: ${mode}.`),
-    });
+      onRecoveryDraft: (kind, descriptor) => state.recovery?.capture(kind, descriptor),
+      onRecoveryClear: (kind, reason) => state.recovery?.clear(kind, reason) });
+    state.recovery = installRecovery(state); state.recovery?.refresh();
     state.onClick = (event) => handleClick(state, event);
     state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
     if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
     state.root.addEventListener('click', state.onClick, true);
   } catch (error) {
-    try { state.unsubscribe?.(); } catch {}
-    try { state.componentEdit?.destroy(); } catch {}
-    try { state.supportMove?.destroy(); } catch {}
-    try { state.commandPanel?.destroy(); } catch {}
-    try { state.gateway.destroy(); } catch {}
-    throw error;
+    try { state.unsubscribe?.(); } catch {} try { state.recovery?.destroy(); } catch {}
+    try { state.componentEdit?.destroy(); } catch {} try { state.supportMove?.destroy(); } catch {}
+    try { state.commandPanel?.destroy(); } catch {} try { state.gateway.destroy(); } catch {} throw error;
   }
 }
 export function getSequentialScopedEdit3dController(root) { return CONTROLLERS.get(root) || null; }
@@ -260,37 +266,32 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
   const commandBoundary = requiredMethods(options.commandBoundary,
     ['readCurrentState', 'publishCandidate'], 'commandBoundary');
   const supportAdjustmentBoundary = requiredMethods(options.supportAdjustmentBoundary,
-    ['readCurrentState', 'readView', 'publishCandidate'], 'supportAdjustmentBoundary');
+    ['readCurrentState', 'readView', 'readHistory', 'publishCandidate'], 'supportAdjustmentBoundary');
+  requiredFunction(supportAdjustmentBoundary.readView, 'supportAdjustmentBoundary.readView');
   const geometryEditBoundary = requiredMethods(options.geometryEditBoundary,
-    ['readCurrentState', 'readView', 'readJournal', 'publishCandidate'], 'geometryEditBoundary');
+    ['readCurrentState', 'readView', 'readHistory', 'readJournal', 'publishCandidate'], 'geometryEditBoundary');
   const shadow = requiredMethods(options.shadow, ['host', 'readModel', 'evidence'], 'shadow');
   const workspace = requiredMethods(options.workspace, ['subscribeEngineeringSvgOwnerState'], 'workspace');
   const gateway = createSequentialDraftEditCommandGateway({
-    readCurrentState: commandBoundary.readCurrentState, publishCandidate: commandBoundary.publishCandidate,
-  });
-  const state = {
-    root, options, gateway, commandBoundary, supportAdjustmentBoundary, geometryEditBoundary,
+    readCurrentState: commandBoundary.readCurrentState, publishCandidate: commandBoundary.publishCandidate });
+  const state = { root, options, gateway, commandBoundary, supportAdjustmentBoundary, geometryEditBoundary,
     shadow, workspace, elements: elements(root), viewer: null, pending: null,
     scene: null, readModel: null, mountKey: '', active: false, destroyed: false,
     failureCount: 0, unsubscribe: null, commandPanel: null, supportMove: null,
-    componentEdit: null,
-  };
+    componentEdit: null, recovery: null };
   installFeatures(state); syncAvailability(state);
-  const controller = Object.freeze({
-    schema: SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1,
+  const controller = Object.freeze({ schema: SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1,
     show: () => show3d(state), refresh: () => { scheduleRefresh(state); return true; },
     getCommandGatewayState: gateway.getState, getCommandPanelState: state.commandPanel.getState,
     prepareCommand: gateway.prepare, acceptCommand: gateway.accept, executeCommand: gateway.execute,
-    getState: () => Object.freeze({
-      active: state.active, available: available(state), mounted: Boolean(state.viewer),
-      mountKey: state.mountKey, failureCount: state.failureCount, destroyed: state.destroyed,
-      commandGateway: gateway.getState(), commandPanel: state.commandPanel.getState(),
-      supportMove: state.supportMove.getState(), componentEdit: state.componentEdit.getState(),
+    getState: () => Object.freeze({ active: state.active, available: available(state),
+      mounted: Boolean(state.viewer), mountKey: state.mountKey, failureCount: state.failureCount,
+      destroyed: state.destroyed, commandGateway: gateway.getState(),
+      commandPanel: state.commandPanel.getState(), supportMove: state.supportMove.getState(),
+      componentEdit: state.componentEdit.getState(), recovery: state.recovery?.getState() || null,
       supportAdjustmentBoundary: supportAdjustmentBoundary.getState?.() || null,
       geometryEditBoundary: geometryEditBoundary.getState?.() || null,
-      viewerState: state.viewer?.getStateSnapshot?.() ?? null,
-    }),
-    destroy: () => destroy(state),
-  });
+      viewerState: state.viewer?.getStateSnapshot?.() ?? null }),
+    destroy: () => destroy(state) });
   CONTROLLERS.set(root, controller); return controller;
 }

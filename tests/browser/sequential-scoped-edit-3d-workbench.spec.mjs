@@ -44,6 +44,18 @@ async function selectVisibleMoveTarget(page) {
   }
   await expect(page.locator('[data-ssk-single-move-target]')).not.toContainText('No confirmed');
 }
+async function selectVisibleStretchTarget(page) {
+  await page.locator('[data-ssk-component-edit-mode-value="STRETCH_NODE"]').click();
+  const canvas = page.locator('[data-ssk-draft-edit-3d-canvas] canvas');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  for (const ratio of [0.5, 0.45, 0.55, 0.4, 0.6]) {
+    await canvas.click({ position: { x: box.width * ratio, y: box.height / 2 } });
+    const text = await page.locator('[data-ssk-node-stretch-position]').textContent();
+    if (text?.includes('Current:')) return;
+  }
+  await expect(page.locator('[data-ssk-node-stretch-position]')).toContainText('Current:');
+}
 async function applyVisibleMove(page, delta, expectedCount) {
   await selectVisibleMoveTarget(page);
   await page.locator('[data-ssk-single-move-constraint]').selectOption('X');
@@ -275,4 +287,66 @@ test('SSK-3D-P1-B-W01 geometry cursor and redo survive workspace package reopen'
     .geometryBranches.some((row) => row.activeEntryCount === 2
       && row.redoEntryCount === 0))).toBe(true);
   expect((await page.evaluate(() => globalThis.__ssk3dPackage.state())).failures).toEqual([]);
+});
+
+// SSK-3D-P1-C-W01
+test('SSK-3D-P1-C-W01 pending move restores explicitly and publishes only after fresh prepare', async ({ page }) => {
+  await durableReady(page);
+  await selectVisibleMoveTarget(page);
+  await page.locator('[data-ssk-single-move-constraint]').selectOption('X');
+  await page.locator('[data-ssk-single-move-axis="x"]').fill('15');
+  await page.locator('[data-ssk-single-move-preview]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .controller.recovery.storage.recordCount)).toBe(1);
+  expect((await page.evaluate(() => globalThis.__ssk3dPackage.state())).geometryBranches
+    .every((row) => row.entryCount === 0)).toBe(true);
+
+  await page.evaluate(() => globalThis.__ssk3dPackage.close());
+  await page.evaluate(() => globalThis.__ssk3dPackage.open());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(false);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
+  await expect(page.locator('[data-ssk-draft-recovery-kind]')).toHaveText('MOVE_COMPONENT');
+  await page.locator('[data-ssk-draft-recovery-restore]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(1);
+  await expect(page.locator('[data-ssk-geometry-move-prepare]')).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .controller.componentEdit.move.operationId)).not.toBe(null);
+  expect((await page.evaluate(() => globalThis.__ssk3dPackage.state())).geometryBranches
+    .every((row) => row.entryCount === 0)).toBe(true);
+
+  await page.locator('[data-ssk-geometry-move-actor]').fill('P1_RECOVERY_OPERATOR');
+  await page.locator('[data-ssk-geometry-move-reason]').fill('Fresh review after explicit recovery.');
+  await page.locator('[data-ssk-geometry-move-evidence]').fill('Recovered exact delta and current target evidence reviewed.');
+  await page.locator('[data-ssk-geometry-move-prepare]').click();
+  await expect(page.locator('[data-ssk-geometry-move-accept]')).toBeEnabled();
+  await page.locator('[data-ssk-geometry-move-accept]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .geometryBranches.some((row) => row.entryCount === 1))).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .controller.recovery.storage.recordCount)).toBe(0);
+});
+
+// SSK-3D-P1-C-W02
+test('SSK-3D-P1-C-W02 pending stretch can be discarded without accepted authority change', async ({ page }) => {
+  await durableReady(page);
+  await selectVisibleStretchTarget(page);
+  const x = Number(await page.locator('[data-ssk-node-stretch-x]').inputValue());
+  await page.locator('[data-ssk-node-stretch-x]').fill(String(x + 5));
+  await page.locator('[data-ssk-node-stretch-preview]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .controller.recovery.storage.recordCount)).toBe(1);
+
+  await page.evaluate(() => globalThis.__ssk3dPackage.close());
+  await page.evaluate(() => globalThis.__ssk3dPackage.open());
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(false);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
+  await expect(page.locator('[data-ssk-draft-recovery-kind]')).toHaveText('STRETCH_NODE');
+  await page.locator('[data-ssk-draft-recovery-discard]').click();
+  await expect(page.locator('[data-ssk-draft-recovery]')).toBeHidden();
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
+    .controller.recovery.storage.recordCount)).toBe(0);
+  expect((await page.evaluate(() => globalThis.__ssk3dPackage.state())).geometryBranches
+    .every((row) => row.entryCount === 0)).toBe(true);
 });
