@@ -22,6 +22,12 @@ function trustFileChange(actions, target) {
   if (file) actions.importTrustReceipt(file);
 }
 
+function responsivenessReceiptFileChange(actions, target) {
+  const file = target.files?.[0];
+  target.value = '';
+  if (file) actions.importResponsivenessReceipt(file);
+}
+
 function comparisonButton(actions, button) {
   if (button.hasAttribute('data-revc-run-compare')) actions.runVisualComparison();
   if (button.hasAttribute('data-revc-cancel-comparison')) actions.cancelComparison();
@@ -107,6 +113,7 @@ function decisionInput(actions, target) {
 }
 
 export function routeRevisionCompareInputChange(actions, target) {
+  if (target.matches('[data-revc-responsiveness-receipt-import]')) responsivenessReceiptFileChange(actions, target);
   if (target.matches('[data-revc-trust-import]')) trustFileChange(actions, target);
   if (target.matches('[data-revc-evidence-package-import]')) packageFileChange(actions, target);
   if (target.matches('[data-revc-file]')) fileChange(actions, target);
