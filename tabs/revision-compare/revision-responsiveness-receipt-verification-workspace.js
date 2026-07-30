@@ -59,6 +59,24 @@ async function importSignatureFile(context, file) {
   }
 }
 
+function packageAttachment(current, receipt, signatureState) {
+  if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
+  const signatureReceipt = signatureState.status === 'VERIFIED' ? signatureState.receipt : null;
+  return Object.freeze({
+    status: current.status, runId: receipt.observation.runId, receipt,
+    ...(signatureReceipt ? { signatureStatus: 'VERIFIED', signatureReceipt } : {}),
+  });
+}
+function packageAttachmentMatches(current, value) {
+  const currentSignature = current?.signatureReceipt;
+  return Boolean(current && value && current.runId === value.runId
+    && current.receipt.receiptId === value.receipt?.receiptId
+    && current.receipt.contentSha256 === value.receipt?.contentSha256
+    && Boolean(currentSignature) === Boolean(value.signatureReceipt)
+    && (!currentSignature || (currentSignature.receiptId === value.signatureReceipt?.receiptId
+      && currentSignature.contentSha256 === value.signatureReceipt?.contentSha256)));
+}
+
 export function createRevisionResponsivenessReceiptVerificationWorkspace(options) {
   let state = createRevisionResponsivenessReceiptVerificationState();
   let signatureState = createRevisionResponsivenessSignatureState(); let signatureGeneration = 0; let destroyed = false;
@@ -71,24 +89,8 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
     nextSignatureGeneration: () => { signatureGeneration += 1; return signatureGeneration; },
     setReceiptState: (value) => { state = value; }, setSignatureState: (value) => { signatureState = value; },
   };
-  function attachment() {
-    const current = model(); const receipt = retainedReceipt();
-    if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
-    const signatureReceipt = signatureState.status === 'VERIFIED' ? signatureState.receipt : null;
-    return Object.freeze({
-      status: current.status, runId: receipt.observation.runId, receipt,
-      ...(signatureReceipt ? { signatureStatus: 'VERIFIED', signatureReceipt } : {}),
-    });
-  }
-  function matchesAttachment(value) {
-    const current = attachment(); const currentSignature = current?.signatureReceipt;
-    return Boolean(current && value && current.runId === value.runId
-      && current.receipt.receiptId === value.receipt?.receiptId
-      && current.receipt.contentSha256 === value.receipt?.contentSha256
-      && Boolean(currentSignature) === Boolean(value.signatureReceipt)
-      && (!currentSignature || (currentSignature.receiptId === value.signatureReceipt?.receiptId
-        && currentSignature.contentSha256 === value.signatureReceipt?.contentSha256)));
-  }
+  const attachment = () => packageAttachment(model(), retainedReceipt(), signatureState);
+  const matchesAttachment = (value) => packageAttachmentMatches(attachment(), value);
   return Object.freeze({
     attachment, matchesAttachment, model, signatureModel,
     importFile: (file, subtype = 'receipt') => (subtype === 'signature' ? importSignatureFile(context, file) : importReceiptFile(context, file)),
