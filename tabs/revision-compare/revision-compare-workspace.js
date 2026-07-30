@@ -24,6 +24,7 @@ import {
   revisionResponsivenessObservationReceiptFileName,
   revisionResponsivenessObservationReceiptMatches,
 } from './revision-responsiveness-observation-receipt.js';
+import { createRevisionResponsivenessReceiptVerificationWorkspace } from './revision-responsiveness-receipt-verification-workspace.js';
 import {
   REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
   completeWorkspaceTrustReceiptImport, createRevisionWorkspaceState,
@@ -127,7 +128,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
   let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
-  let trustImportGeneration = 0; let transferBindings = null;
+  let trustImportGeneration = 0; let transferBindings = null; let receiptVerificationBindings = null;
   if (!viewerAdapter) viewerAdapter = createRevisionCompareViewerAdapter({
     ...options.viewerAdapterOptions, viewerPolicy: policy,
     onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
@@ -247,7 +248,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     sceneMonitor.stop();
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); transferBindings?.render(state);
+    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); receiptVerificationBindings?.render(); transferBindings?.render(state);
     renderRevisionReviewFilterResetControl(root, state); renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
     enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
     Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
@@ -259,10 +260,14 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     root, readState: () => state, cryptoRef, downloadArtifact, downloadText,
     showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error),
   });
+  receiptVerificationBindings = createRevisionResponsivenessReceiptVerificationWorkspace({
+    root, cryptoRef, readCurrentInput: () => responsivenessReceiptInput(state, sceneMonitor.evidence()), renderWorkspace: render,
+    showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error),
+  });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
     ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, downloadResponsivenessReceipt,
-    importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff, rerunResponsiveness,
+    importEvidencePackage, importTrustReceipt, importResponsivenessReceipt: receiptVerificationBindings.importFile, createSignOff, downloadSignOff, rerunResponsiveness,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
@@ -270,11 +275,11 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   return Object.freeze({
     evidence: () => Object.freeze({
       state, preflight: preflight(), viewer: viewerAdapter.evidence(), scene: sceneMonitor.evidence(),
-      property: propertyInspector.evidence(), transfer: transferBindings.model(), compareRunId: compareService.activeRunId(),
+      property: propertyInspector.evidence(), transfer: transferBindings.model(), responsivenessReceiptVerification: receiptVerificationBindings.model(), compareRunId: compareService.activeRunId(),
     }),
     destroy: () => {
       destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup());
-      sceneMonitor.destroy(); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose();
+      sceneMonitor.destroy(); receiptVerificationBindings.destroy(); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose();
       viewerAdapter.dispose(); service.dispose(); root.innerHTML = '';
     },
   });
