@@ -146,6 +146,22 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (!host || !state.compare.audit || !state.compare.selectedDifferenceId) { propertyInspector.clear(); return; }
     await propertyInspector.render(host, state.compare.audit, state.compare.selectedDifferenceId);
   }
+  function rerunResponsiveness() {
+    try {
+      if (!state.compare.reviewVisible || !state.compare.audit) throw new Error('Open the current visual review before rerunning responsiveness.');
+      if (state.compare.viewerBackend !== 'WEBGL') throw new Error('Select 3D (WebGL) before rerunning responsiveness.');
+      if (typeof viewerAdapter.resetResponsivenessEvidence !== 'function') throw new Error('The active viewer adapter does not support responsiveness reruns.');
+      if (typeof sceneMonitor.resetResponsiveness !== 'function') throw new Error('The active scene monitor does not support responsiveness reruns.');
+      viewerAdapter.resetResponsivenessEvidence();
+      sceneMonitor.resetResponsiveness();
+      render();
+      options.showToast?.('WebGL responsiveness measurement restarted.', 'success');
+      return true;
+    } catch (error) {
+      reportFailure(root, options, error);
+      return false;
+    }
+  }
   async function downloadEvidencePackage() {
     const captured = state;
     try {
@@ -217,7 +233,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
-    ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
+    ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff, rerunResponsiveness,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });

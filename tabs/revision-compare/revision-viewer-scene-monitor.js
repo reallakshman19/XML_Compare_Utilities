@@ -71,9 +71,11 @@ function runKey(audit, evidence) {
 function memorySample(context) {
   try { return context.memoryReader(); } catch { return Object.freeze({ available: false, usedBytes: null, limitBytes: null }); }
 }
-function resetRun(context, key) {
+function beginRun(context, key) {
   const memory = memorySample(context);
+  context.runSequence += 1;
   context.runKey = key;
+  context.runId = `${key}|run:${context.runSequence}`;
   context.activeStartedAt = null;
   context.accumulatedActiveMs = 0;
   context.elapsedMs = 0;
@@ -118,6 +120,8 @@ function currentModels(context) {
   if (elapsedMs >= context.pendingLimitMs) scene = timedOutRevisionViewerSceneStatus(scene, elapsedMs);
   observeTiming(context, scene, elapsedMs);
   const observations = {
+    runId: context.runId,
+    runSequence: context.runSequence,
     elapsedMs,
     sceneRuntimeObservedMs: context.sceneRuntimeObservedMs,
     firstReadyMs: context.firstReadyMs,
@@ -188,6 +192,7 @@ function detach(context) {
 }
 function clearRun(context) {
   context.runKey = null;
+  context.runId = null;
   context.activeStartedAt = null;
   context.accumulatedActiveMs = 0;
   context.elapsedMs = 0;
@@ -219,7 +224,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
     clearTimer: timerFunction(options.clearTimer, (timer) => clearTimeout(timer), 'Scene monitor clearTimer'),
     memoryReader: timerFunction(options.memoryReader, () => readRevisionViewerMemory(), 'Scene monitor memoryReader'),
     generation: 0, timer: null, active: false, destroyed: false,
-    root: null, audit: null, adapter: null, runKey: null,
+    root: null, audit: null, adapter: null, runKey: null, runId: null, runSequence: 0,
     activeStartedAt: null, accumulatedActiveMs: 0, elapsedMs: 0,
     sceneRuntimeObservedMs: null, firstReadyMs: null,
     memoryBaselineUsedBytes: null, memoryPeakUsedBytes: null, memoryLimitBytes: null,
@@ -235,7 +240,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       const evidence = adapter.evidence();
       const key = runKey(audit, evidence);
       detach(context);
-      if (context.runKey !== key) resetRun(context, key);
+      if (context.runKey !== key) beginRun(context, key);
       context.active = true;
       context.activeStartedAt = context.clock();
       context.root = root;
@@ -246,10 +251,18 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       return true;
     },
     stop: () => detach(context),
+    resetResponsiveness() {
+      if (context.destroyed) throw new Error('Revision viewer scene monitor is destroyed.');
+      detach(context);
+      clearRun(context);
+      return true;
+    },
     evidence: () => Object.freeze({
       active: context.active,
       destroyed: context.destroyed,
       runKey: context.runKey,
+      runId: context.runId,
+      runSequence: context.runSequence,
       sampleCount: context.sampleCount,
       runSampleCount: context.runSampleCount,
       status: context.lastModel?.status ?? 'INACTIVE',
@@ -263,6 +276,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       if (context.destroyed) return false;
       detach(context);
       clearRun(context);
+      context.runSequence = 0;
       context.destroyed = true;
       return true;
     },
