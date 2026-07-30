@@ -36,7 +36,7 @@ export function mountSequentialProjectExportController(root, workspace, context 
       throw new Error(migration.exportPlan.gate.blockers.join(' '));
     }
     downloadArtifact(root.ownerDocument, migration.outputs[0]);
-    context.showToast?.('Accepted Sequential project exported.', 'success');
+    context.showToast?.('Accepted Sequential project metadata envelope exported.', 'success');
     return migration;
   }
 
