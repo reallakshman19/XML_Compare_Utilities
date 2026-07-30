@@ -31,13 +31,21 @@ function previewObjectIds(context) {
   return [source?.visualRefs?.sourceObjectId, target?.visualRefs?.targetObjectId].filter(Boolean);
 }
 function picked(context, pick) {
-  if (!pick?.objectId) { context.options.onPick?.(null); return; }
-  context.options.onPick?.(context.differenceByObjectId.get(pick.objectId) ?? null);
+  context.pickCount += 1;
+  context.lastPickedObjectId = pick?.objectId ?? null;
+  context.lastPickedDifferenceId = pick?.objectId ? context.differenceByObjectId.get(pick.objectId) ?? null : null;
+  context.options.onPick?.(context.lastPickedDifferenceId);
 }
 function jsonCopy(value) {
   try { return JSON.parse(JSON.stringify(value)); } catch { return null; }
 }
 function safeSnapshot(viewer) { return jsonCopy(viewer?.getStateSnapshot?.() ?? null); }
+function auditIdentity(audit) { return audit?.auditId ?? audit?.basisId ?? null; }
+function resetPickEvidence(context) {
+  context.pickCount = 0;
+  context.lastPickedObjectId = null;
+  context.lastPickedDifferenceId = null;
+}
 
 function applySelection(context) {
   const ids = previewObjectIds(context) ?? relatedObjectIds(rowById(context, context.selectedDifferenceId));
@@ -56,7 +64,11 @@ function applyPresentation(viewer, value) {
 }
 
 async function renderViewer(context, hostElement, audit) {
-  context.audit = audit; indexAudit(context, audit);
+  const identity = auditIdentity(audit);
+  if (context.auditIdentity !== identity) resetPickEvidence(context);
+  context.auditIdentity = identity;
+  context.audit = audit;
+  indexAudit(context, audit);
   context.host = hostElement;
   applySelection(context);
   return context.controller.render(hostElement, presentation(context));
@@ -64,9 +76,13 @@ async function renderViewer(context, hostElement, audit) {
 
 function clearViewer(context) {
   context.controller.clear();
-  Object.assign(context, { audit: null, host: null, selectedDifferenceId: null,
-    previewSourceDifferenceId: null, previewTargetDifferenceId: null });
-  context.differenceByObjectId.clear(); context.rowByDifferenceId.clear();
+  Object.assign(context, {
+    audit: null, auditIdentity: null, host: null, selectedDifferenceId: null,
+    previewSourceDifferenceId: null, previewTargetDifferenceId: null,
+  });
+  resetPickEvidence(context);
+  context.differenceByObjectId.clear();
+  context.rowByDifferenceId.clear();
 }
 
 function setBackend(context, value) {
@@ -89,6 +105,8 @@ function evidence(context) {
     viewerBackend: lifecycle.requestedBackend, activeBackend: lifecycle.activeBackend,
     presentationMode: context.presentationMode, selectedDifferenceId: context.selectedDifferenceId,
     previewSourceDifferenceId: context.previewSourceDifferenceId, previewTargetDifferenceId: context.previewTargetDifferenceId,
+    pickCount: context.pickCount, lastPickedObjectId: context.lastPickedObjectId,
+    lastPickedDifferenceId: context.lastPickedDifferenceId,
     policy: context.policy, mountRequests: lifecycle.mountRequests,
     snapshots: lifecycle.snapshots, viewer: lifecycle.viewer,
   });
@@ -98,9 +116,10 @@ export function createRevisionCompareViewerAdapter(options = {}) {
   const webglFactory = options.webglViewerFactory ?? options.viewerFactory ?? createWorkbenchViewer;
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   const context = {
-    options, policy, controller: null, host: null, audit: null,
+    options, policy, controller: null, host: null, audit: null, auditIdentity: null,
     presentationMode: policy.defaultSvgPresentation,
     selectedDifferenceId: null, previewSourceDifferenceId: null, previewTargetDifferenceId: null,
+    pickCount: 0, lastPickedObjectId: null, lastPickedDifferenceId: null,
     differenceByObjectId: new Map(), rowByDifferenceId: new Map(), disposed: false,
   };
   context.controller = createEngineeringViewerController({
@@ -121,9 +140,24 @@ export function createRevisionCompareViewerAdapter(options = {}) {
     render: (host, audit) => renderViewer(context, host, audit),
     setBackend: (backend) => setBackend(context, backend),
     setPresentationMode: (mode) => setPresentationMode(context, mode),
-    selectDifference: (id) => { context.selectedDifferenceId = id ?? null; if (context.previewSourceDifferenceId !== context.selectedDifferenceId) { context.previewSourceDifferenceId = null; context.previewTargetDifferenceId = null; } applySelection(context); },
-    previewPair: (sourceDifferenceId, targetDifferenceId) => { context.previewSourceDifferenceId = sourceDifferenceId ?? null; context.previewTargetDifferenceId = targetDifferenceId ?? null; applySelection(context); },
-    clearPreview: () => { context.previewSourceDifferenceId = null; context.previewTargetDifferenceId = null; applySelection(context); },
+    selectDifference: (id) => {
+      context.selectedDifferenceId = id ?? null;
+      if (context.previewSourceDifferenceId !== context.selectedDifferenceId) {
+        context.previewSourceDifferenceId = null;
+        context.previewTargetDifferenceId = null;
+      }
+      applySelection(context);
+    },
+    previewPair: (sourceDifferenceId, targetDifferenceId) => {
+      context.previewSourceDifferenceId = sourceDifferenceId ?? null;
+      context.previewTargetDifferenceId = targetDifferenceId ?? null;
+      applySelection(context);
+    },
+    clearPreview: () => {
+      context.previewSourceDifferenceId = null;
+      context.previewTargetDifferenceId = null;
+      applySelection(context);
+    },
     fitSelected: () => (context.selectedDifferenceId ? context.controller.fitSelection() : false),
     fitAll: () => context.controller.fitAll(),
     clear: () => clearViewer(context),
@@ -136,4 +170,4 @@ export function createRevisionCompareViewerAdapter(options = {}) {
     evidence: () => evidence(context),
   });
 }
-export const _test = Object.freeze({ jsonCopy, previewObjectIds, relatedObjectIds, safeSnapshot });
+export const _test = Object.freeze({ auditIdentity, jsonCopy, previewObjectIds, relatedObjectIds, safeSnapshot });
