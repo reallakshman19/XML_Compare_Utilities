@@ -8,6 +8,7 @@ import { revisionComparisonPreflight } from '../tabs/revision-compare/revision-p
 import { createRevisionScopeProposal } from '../tabs/revision-compare/revision-scope-proposal.js';
 
 const NOW = '2026-07-30T05:30:00.000Z';
+const PROFILE_ID = 'sequential-sketcher-source-array/mm-plant-z/v1';
 
 function source(name, endX) {
   return [{
@@ -34,19 +35,18 @@ function source(name, endX) {
 }
 
 const inferred = stagedDocumentMetadata(source('PIPE AUTO CONTINUITY CONT-TEST', 100));
-assert.deepEqual(inferred, {
-  stagedSchema: 'sequential-sketcher-source-array/v1',
-  unit: 'MM',
-  verticalAxis: 'Z',
-  coordinateFrame: 'PLANT',
-});
+assert.equal(inferred.stagedSchema, 'sequential-sketcher-source-array/v1');
+assert.equal(inferred.unit, 'MM');
+assert.equal(inferred.coordinateFrame, 'PLANT');
+assert.equal(inferred.verticalAxis, 'Z');
+assert.equal(inferred.profile.profileId, PROFILE_ID);
+assert.equal(inferred.profile.authority, 'BOUNDED_PRODUCT_COMPATIBILITY_PROFILE');
 
-assert.deepEqual(stagedDocumentMetadata([{ name: '/UNRECOGNIZED', children: [] }]), {
-  stagedSchema: 'UNKNOWN',
-  unit: 'UNKNOWN',
-  verticalAxis: 'UNKNOWN',
-  coordinateFrame: 'UNKNOWN',
-});
+const unresolved = stagedDocumentMetadata([{ name: '/UNRECOGNIZED', children: [] }]);
+assert.equal(unresolved.unit, 'UNKNOWN');
+assert.equal(unresolved.coordinateFrame, 'UNKNOWN');
+assert.equal(unresolved.verticalAxis, 'UNKNOWN');
+assert.equal(unresolved.profile, null);
 
 const request = {
   basisId: 'basis:sequential',
@@ -90,17 +90,26 @@ for (const revision of [revA, revB]) {
   assert.equal(revision.document.unit, 'MM');
   assert.equal(revision.document.coordinateFrame, 'PLANT');
   assert.equal(revision.document.verticalAxis, 'Z');
+  assert.equal(revision.document.metadataEvidence.profileId, PROFILE_ID);
+  assert.equal(revision.document.metadataEvidence.sourceHash, revision.document.sourceHash);
   assert.equal(revision.warnings.some((warning) => warning.includes('not declared')), false);
 }
 const proposal = await createRevisionScopeProposal(revA, revB, {}, globalThis.crypto);
 const preflight = revisionComparisonPreflight(revA, revB, proposal);
 assert.equal(preflight.status, 'READY');
 assert.equal(revisionBasisApprovalReadiness(preflight).status, 'READY');
-assert.deepEqual([
-  preflight.compatibility.unitCompatibility.status,
-  preflight.compatibility.coordinateFrameCompatibility.status,
-  preflight.compatibility.verticalAxisCompatibility.status,
-], ['COMPATIBLE', 'COMPATIBLE', 'COMPATIBLE']);
+for (const item of [
+  preflight.compatibility.unitCompatibility,
+  preflight.compatibility.coordinateFrameCompatibility,
+  preflight.compatibility.verticalAxisCompatibility,
+]) {
+  assert.equal(item.status, 'COMPATIBLE');
+  assert.equal(item.revAOrigin, 'PRODUCT_COMPATIBILITY_PROFILE');
+  assert.equal(item.revBOrigin, 'PRODUCT_COMPATIBILITY_PROFILE');
+  assert.equal(item.revAProfileId, PROFILE_ID);
+  assert.equal(item.revBProfileId, PROFILE_ID);
+}
+assert(preflight.notes.every((note) => note.includes('bounded product-profile evidence')));
 service.dispose();
 
 console.log('revision-compare-sequential-source-recovery: PASS');
