@@ -21,6 +21,7 @@ const JWK = ['kty', 'n', 'e', 'alg', 'ext', 'key_ops'];
 const PRIVATE_JWK = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth'];
 const SHA256 = /^[a-f0-9]{64}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
+const FIXED_TRUST_BOUNDARY = Object.freeze({ identityStatus: 'EXTERNALLY_ASSERTED', trustStatus: 'NOT_ESTABLISHED' });
 
 function exactObject(value, fields, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${label} must be a plain object.`);
@@ -35,9 +36,11 @@ function exactObject(value, fields, label) {
 function assertPlainJson(value, label, seen = new WeakSet()) {
   if (value === null || ['string', 'boolean'].includes(typeof value)) return;
   if (typeof value === 'number' && Number.isFinite(value)) return;
-  if (Array.isArray(value)) { value.forEach((item, index) => assertPlainJson(item, `${label}[${index}]`, seen)); return; }
   if (!value || typeof value !== 'object') throw new TypeError(`${label} is not JSON-safe.`);
   if (seen.has(value)) throw new TypeError(`${label} must not contain cycles.`); seen.add(value);
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertPlainJson(item, `${label}[${index}]`, seen)); seen.delete(value); return;
+  }
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) throw new TypeError(`${label} must contain plain objects only.`);
   Object.entries(value).forEach(([key, item]) => assertPlainJson(item, `${label}.${key}`, seen)); seen.delete(value);
@@ -143,6 +146,13 @@ function validateClaim(claim) {
     keyId: requiredText(claim.keyId, 'signerClaim.keyId', 160),
   };
 }
+function validateBoundary(value) {
+  exactObject(value, BOUNDARY, 'trustBoundary');
+  if (value.identityStatus !== FIXED_TRUST_BOUNDARY.identityStatus || value.trustStatus !== FIXED_TRUST_BOUNDARY.trustStatus) {
+    throw new TypeError('The signature receipt trust boundary is invalid.');
+  }
+  return { ...FIXED_TRUST_BOUNDARY };
+}
 
 export function revisionResponsivenessSignatureSubject(receipt) {
   if (receipt?.schema !== REVISION_RESPONSIVENESS_RECEIPT_V2_SCHEMA) throw new TypeError('A verified RevisionResponsivenessObservationReceipt.v2 is required.');
@@ -152,11 +162,15 @@ export function revisionResponsivenessSignatureSubject(receipt) {
     runId: receipt.observation?.runId,
   }));
 }
-export function revisionResponsivenessSignaturePayload(subject) {
-  return deepFreeze({ schema: REVISION_RESPONSIVENESS_SIGNATURE_PAYLOAD_SCHEMA, ...validateSubject(subject) });
+export function revisionResponsivenessSignaturePayload(subject, signerClaim, signedAt, trustBoundary = FIXED_TRUST_BOUNDARY) {
+  return deepFreeze({
+    schema: REVISION_RESPONSIVENESS_SIGNATURE_PAYLOAD_SCHEMA, algorithm: REVISION_RESPONSIVENESS_SIGNATURE_ALGORITHM,
+    subject: validateSubject(subject), signerClaim: validateClaim(signerClaim),
+    signedAt: exactIso(signedAt, 'signedAt'), trustBoundary: validateBoundary(trustBoundary),
+  });
 }
-export function serializeRevisionResponsivenessSignaturePayload(subject) {
-  return stableStringify(revisionResponsivenessSignaturePayload(subject));
+export function serializeRevisionResponsivenessSignaturePayload(subject, signerClaim, signedAt, trustBoundary = FIXED_TRUST_BOUNDARY) {
+  return stableStringify(revisionResponsivenessSignaturePayload(subject, signerClaim, signedAt, trustBoundary));
 }
 export function revisionResponsivenessSignatureReceiptHashMaterial(receipt) {
   return deepFreeze(JSON.parse(stableStringify({
@@ -169,20 +183,19 @@ function validateStructure(input) {
   assertPlainJson(input, 'receipt'); exactObject(input, ROOT, 'receipt');
   if (input.schema !== REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA) throw new TypeError(`Receipt schema must be ${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA}.`);
   const subject = validateSubject(input.subject); const signerClaim = validateClaim(input.signerClaim);
-  exactObject(input.signature, SIGNATURE, 'signature'); exactObject(input.trustBoundary, BOUNDARY, 'trustBoundary');
+  exactObject(input.signature, SIGNATURE, 'signature');
   if (input.signature.algorithm !== REVISION_RESPONSIVENESS_SIGNATURE_ALGORITHM) throw new TypeError('Only RSA_PSS_SHA256 is supported.');
-  exactIso(input.signature.signedAt, 'signature.signedAt');
-  if (input.trustBoundary.identityStatus !== 'EXTERNALLY_ASSERTED' || input.trustBoundary.trustStatus !== 'NOT_ESTABLISHED') throw new TypeError('The signature receipt trust boundary is invalid.');
+  const signedAt = exactIso(input.signature.signedAt, 'signature.signedAt'); const trustBoundary = validateBoundary(input.trustBoundary);
   const key = validatePublicJwk(input.signature.publicKeyJwk);
-  return { subject, signerClaim, key, signatureBytes: decodeBase64Url(input.signature.signatureBase64Url, 'signature.signatureBase64Url') };
+  return { subject, signerClaim, signedAt, trustBoundary, key, signatureBytes: decodeBase64Url(input.signature.signatureBase64Url, 'signature.signatureBase64Url') };
 }
 
 async function verifyHashes(input, structure, cryptoRef) {
   const receiptHash = await sha256Text(stableStringify(revisionResponsivenessSignatureReceiptHashMaterial(input)), cryptoRef);
   if (digest(input.contentSha256, 'contentSha256') !== receiptHash) throw new TypeError('Signature receipt content SHA-256 does not match canonical material.');
   if (input.receiptId !== `${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX}${receiptHash}`) throw new TypeError('Signature receipt ID does not match content SHA-256.');
-  const payload = serializeRevisionResponsivenessSignaturePayload(structure.subject);
-  if (digest(input.signature.signedPayloadSha256, 'signature.signedPayloadSha256') !== await sha256Text(payload, cryptoRef)) throw new TypeError('Signed-payload SHA-256 does not match the canonical responsiveness subject.');
+  const payload = serializeRevisionResponsivenessSignaturePayload(structure.subject, structure.signerClaim, structure.signedAt, structure.trustBoundary);
+  if (digest(input.signature.signedPayloadSha256, 'signature.signedPayloadSha256') !== await sha256Text(payload, cryptoRef)) throw new TypeError('Signed-payload SHA-256 does not match the canonical responsiveness signature payload.');
   if (digest(input.signature.publicKeySha256, 'signature.publicKeySha256') !== await sha256Text(stableStringify(structure.key.jwk), cryptoRef)) throw new TypeError('Public-JWK SHA-256 does not match the supplied public key.');
   return payload;
 }
