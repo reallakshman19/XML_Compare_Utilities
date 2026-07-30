@@ -303,10 +303,12 @@ test('SSK-3D-P1-C-W01 pending move restores explicitly and publishes only after 
 
   await page.evaluate(() => globalThis.__ssk3dPackage.close());
   await page.evaluate(() => globalThis.__ssk3dPackage.open());
-  await page.evaluate(() => globalThis.__ssk3dPackage.activate3d());
-  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(false);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
   await expect(page.locator('[data-ssk-draft-recovery-kind]')).toHaveText('MOVE_COMPONENT');
   await page.locator('[data-ssk-draft-recovery-restore]').click();
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(1);
   await expect(page.locator('[data-ssk-geometry-move-prepare]')).toBeEnabled();
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
     .controller.componentEdit.move.operationId)).not.toBe(null);
@@ -337,11 +339,12 @@ test('SSK-3D-P1-C-W02 pending stretch can be discarded without accepted authorit
 
   await page.evaluate(() => globalThis.__ssk3dPackage.close());
   await page.evaluate(() => globalThis.__ssk3dPackage.open());
-  await page.evaluate(() => globalThis.__ssk3dPackage.activate3d());
-  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state().controller?.active)).toBe(false);
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
   await expect(page.locator('[data-ssk-draft-recovery-kind]')).toHaveText('STRETCH_NODE');
   await page.locator('[data-ssk-draft-recovery-discard]').click();
   await expect(page.locator('[data-ssk-draft-recovery]')).toBeHidden();
+  await expect(page.locator('[data-ssk-draft-edit-3d-canvas] canvas')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => globalThis.__ssk3dPackage.state()
     .controller.recovery.storage.recordCount)).toBe(0);
   expect((await page.evaluate(() => globalThis.__ssk3dPackage.state())).geometryBranches
