@@ -2,11 +2,16 @@
 
 import { cleanText, deepFreeze } from './revision-contract-utils.js';
 
-export const SEQUENTIAL_SKETCHER_SOURCE_PROFILE = Object.freeze({
+export const SEQUENTIAL_SKETCHER_SOURCE_PROFILE = deepFreeze({
+  authority: 'BOUNDED_PRODUCT_COMPATIBILITY_PROFILE',
+  profileId: 'sequential-sketcher-source-array/mm-plant-z/v1',
   stagedSchema: 'sequential-sketcher-source-array/v1',
-  unit: 'MM',
-  verticalAxis: 'Z',
-  coordinateFrame: 'PLANT',
+  fields: {
+    unit: 'MM',
+    coordinateFrame: 'PLANT',
+    verticalAxis: 'Z',
+  },
+  explanation: 'Sequential Sketcher source arrays use millimetres in the PLANT frame with Z vertical.',
 });
 
 function record(value) {
@@ -59,25 +64,26 @@ function branchHasSequentialEvidence(branch) {
 }
 
 function inferredProfile(document) {
-  if (!Array.isArray(document) || !document.length) return {};
-  if (!document.every((item) => itemType(item) === 'BRANCH')) return {};
-  return document.some(branchHasSequentialEvidence) ? SEQUENTIAL_SKETCHER_SOURCE_PROFILE : {};
+  if (!Array.isArray(document) || !document.length) return null;
+  if (!document.every((item) => itemType(item) === 'BRANCH')) return null;
+  return document.some(branchHasSequentialEvidence) ? SEQUENTIAL_SKETCHER_SOURCE_PROFILE : null;
 }
 
 export function stagedDocumentMetadata(document) {
   const root = record(document);
   const metadata = record(root.metadata);
   const coordinates = record(root.coordinateSystem);
-  const inferred = inferredProfile(document);
+  const profile = inferredProfile(document);
   return deepFreeze({
-    stagedSchema: declared([root.schema, metadata.schema, inferred.stagedSchema]),
-    unit: declared([root.unit, root.units, metadata.unit, metadata.units, inferred.unit]),
+    stagedSchema: declared([root.schema, metadata.schema, profile?.stagedSchema]),
+    unit: declared([root.unit, root.units, metadata.unit, metadata.units, profile?.fields.unit]),
     verticalAxis: declared([
-      root.verticalAxis, root.upAxis, metadata.verticalAxis, coordinates.upAxis, inferred.verticalAxis,
+      root.verticalAxis, root.upAxis, metadata.verticalAxis, coordinates.upAxis, profile?.fields.verticalAxis,
     ]),
     coordinateFrame: declared([
-      root.coordinateFrame, root.frame, metadata.coordinateFrame, coordinates.name, inferred.coordinateFrame,
+      root.coordinateFrame, root.frame, metadata.coordinateFrame, coordinates.name, profile?.fields.coordinateFrame,
     ]),
+    profile,
   });
 }
 
