@@ -31,7 +31,7 @@ const SAMPLES = Object.freeze([
 ]);
 
 function declaredCount(xmlText, attribute) {
-  const match = new RegExp(`\b${attribute}="(\d+)"`, 'i').exec(xmlText);
+  const match = new RegExp(`\\b${attribute}="(\\d+)"`, 'i').exec(xmlText);
   return match ? Number(match[1]) : null;
 }
 
