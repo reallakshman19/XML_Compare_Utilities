@@ -207,6 +207,31 @@ function arcRecord(occurrence, incomingObject, outgoingObject, cornerNode, evide
   };
 }
 
+function consumedOccurrenceKey(occurrence) {
+  if (!occurrence.packet.sourceAncestry && !occurrence.packet.consumedFrom) return null;
+  const ancestry = resolveConsumedPacketAncestry(occurrence.packet);
+  return ancestry.ok ? `${ancestry.lineId}\u0000${ancestry.cornerNode}` : null;
+}
+
+function duplicateConsumedKeys(occurrences) {
+  const counts = new Map();
+  for (const occurrence of occurrences) {
+    const key = consumedOccurrenceKey(occurrence);
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, count]) => count > 1).map(([key]) => key));
+}
+
+function duplicateConsumedDiagnostic(occurrence, key, occurrences) {
+  const count = occurrences.filter((item) => consumedOccurrenceKey(item) === key).length;
+  return blocked(
+    occurrence,
+    'BEND_CONSUMED_PACKET_AMBIGUOUS',
+    `Multiple consumed bend packets resolve to the same normalized corner; found ${count}.`,
+    { consumedPacketCount: count },
+  );
+}
+
 function resolveOneBend(graph, occurrence, nodeCoord) {
   const radiusMm = numericAttribute(occurrence.packet.attrs, RADIUS_KEYS);
   if (!radiusMm) return { diagnostic: blocked(occurrence, 'BEND_RADIUS_MISSING', 'Explicit positive bend radius is required.') };
@@ -241,7 +266,13 @@ export function resolveInputXmlBends(graph) {
   const diagnostics = [];
   const trims = new Map();
   const occurrences = bendOccurrences(graph);
+  const duplicateKeys = duplicateConsumedKeys(occurrences);
   for (const occurrence of occurrences) {
+    const consumedKey = consumedOccurrenceKey(occurrence);
+    if (consumedKey && duplicateKeys.has(consumedKey)) {
+      diagnostics.push(duplicateConsumedDiagnostic(occurrence, consumedKey, occurrences));
+      continue;
+    }
     const result = resolveOneBend(graph, occurrence, nodeCoord);
     if (result.diagnostic) { diagnostics.push(result.diagnostic); continue; }
     const arc = result.arc;
