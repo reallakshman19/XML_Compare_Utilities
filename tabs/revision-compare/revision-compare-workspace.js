@@ -9,11 +9,12 @@ import { createRevisionCompareService } from './revision-compare-service.js';
 import { downloadRevisionArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
+import { createRevisionScopeFilterResetAction } from './revision-scope-filter-reset.js';
 import {
   REVISION_EVIDENCE_PACKAGE_IMPORT_STATUS, completeWorkspaceEvidencePackageImport,
   completeWorkspaceTrustReceiptImport, createRevisionWorkspaceState,
   failWorkspaceEvidencePackageImport, failWorkspaceSignOff, failWorkspaceTrustReceiptImport,
-  setWorkspaceSignOffReport, startWorkspaceEvidencePackageImport, startWorkspaceTrustReceiptImport,
+  setWorkspaceSearch, setWorkspaceSignOffReport, startWorkspaceEvidencePackageImport, startWorkspaceTrustReceiptImport,
 } from './revision-workspace-state.js';
 import { candidatePreview } from './revision-decision-projection.js';
 import { decisionLedgerMatchesAudit } from './revision-decision-ledger.js';
@@ -36,7 +37,7 @@ import { createRevisionCompareTransferWorkspaceBindings } from './revision-trans
 
 const IMPORTED_RESTRICTED_SELECTORS = Object.freeze([
   '[data-revc-file]', '[data-revc-cancel]', '[data-revc-swap-revisions]', '[data-revc-edit-scope]', '[data-revc-approve-basis]',
-  '[data-revc-apply-visual-metadata]', '[data-revc-clear-visual-metadata]', '[data-revc-run-compare]', '[data-revc-cancel-comparison]',
+  '[data-revc-apply-visual-metadata]', '[data-revc-clear-visual-metadata]', '[data-revc-clear-scope-filters]', '[data-revc-run-compare]', '[data-revc-cancel-comparison]',
   '[data-revc-download-session]', '[data-revc-download-scope]', '[data-revc-review-import]', '[data-revc-decision-import]',
   '[data-revc-start-new-review]', '[data-revc-start-new-decision]',
 ]);
@@ -84,6 +85,7 @@ function actionClick(actions, target) {
   if (button.hasAttribute('data-revc-swap-revisions')) actions.swapRevisions();
   if (button.hasAttribute('data-revc-apply-visual-metadata')) actions.applyVisualMetadata();
   if (button.hasAttribute('data-revc-clear-visual-metadata')) actions.clearVisualMetadata();
+  if (button.hasAttribute('data-revc-clear-scope-filters')) actions.clearScopeFilters();
   if (button.dataset.revcGroup) actions.setGroupIncluded(button.dataset.revcGroup, button.dataset.revcInclude === 'all');
   if (button.hasAttribute('data-revc-approve-basis')) actions.approveBasis();
   if (button.hasAttribute('data-revc-download-session')) actions.downloadSession();
@@ -279,9 +281,10 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
   }
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
+  const clearScopeFilters = createRevisionScopeFilterResetAction({ readState: () => state, writeState: (next) => { state = next; }, render, setSearch: setWorkspaceSearch, showToast: options.showToast });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
-    ...baseActions, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
+    ...baseActions, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
