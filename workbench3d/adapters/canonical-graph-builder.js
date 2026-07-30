@@ -12,6 +12,7 @@
 
 import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
 import { buildSourceOrientation, captureSourceRecord } from './source-element-orientation.js';
+import { consumeShortElements } from './short-element-normalizer.js';
 
 function addVec(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
 
@@ -20,7 +21,7 @@ function addVec(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
  * Disconnected components each start at origin; componentId recorded per node.
  */
 function solveNodeCoordinates(records) {
-  const adjacency = new Map(); // node -> [{record, forward}]
+  const adjacency = new Map();
   const pushEdge = (node, record, forward) => {
     if (!adjacency.has(node)) adjacency.set(node, []);
     adjacency.get(node).push({ record, forward });
@@ -46,7 +47,7 @@ function solveNodeCoordinates(records) {
       for (const { record, forward } of adjacency.get(node) ?? []) {
         const other = forward ? record.toNode : record.fromNode;
         if (coords.has(other)) continue;
-        const delta = forward ? record.deltaMm : record.deltaMm.map((v) => -v);
+        const delta = forward ? record.deltaMm : record.deltaMm.map((value) => -value);
         coords.set(other, addVec(base, delta));
         componentOf.set(other, componentId);
         queue.push(other);
@@ -56,69 +57,7 @@ function solveNodeCoordinates(records) {
   return { coords, componentOf };
 }
 
-/**
- * Consume short/zero elements within tolerance.
- * The dropped node is remapped onto the retained node; property packets of the
- * consumed element re-attach to the nearest surviving neighbor element.
- */
-function consumeShortElements(records, toleranceMm) {
-  const nodeAlias = new Map(); // dropped node -> retained node
-  const resolve = (node) => {
-    let current = node;
-    while (nodeAlias.has(current)) current = nodeAlias.get(current);
-    return current;
-  };
-  const degree = new Map();
-  for (const record of records) {
-    degree.set(record.fromNode, (degree.get(record.fromNode) ?? 0) + 1);
-    degree.set(record.toNode, (degree.get(record.toNode) ?? 0) + 1);
-  }
-  const consumedRows = [];
-  const surviving = [];
-  const orphanPackets = []; // packets awaiting re-attachment
-  for (const record of records) {
-    const isExpectedShort = /VALVE|FLANGE|GASK|INST|WELD|REDUCER/i.test(record.componentType || '');
-    const isShort = record.lengthMm <= toleranceMm && !isExpectedShort;
-    if (!isShort || !record.fromNode || !record.toNode || record.fromNode === record.toNode) {
-      surviving.push(record);
-      continue;
-    }
-    // Retain the busier node so branch topology is preserved.
-    const fromDeg = degree.get(record.fromNode) ?? 0;
-    const toDeg = degree.get(record.toNode) ?? 0;
-    const retained = resolve(toDeg > fromDeg ? record.toNode : record.fromNode);
-    const dropped = resolve(toDeg > fromDeg ? record.fromNode : record.toNode);
-    if (retained !== dropped) nodeAlias.set(dropped, retained);
-    consumedRows.push({
-      elementName: record.name || `#${record.index}`,
-      fromTo: `${record.fromNode}->${record.toNode}`,
-      retainedNode: retained,
-      droppedNode: dropped,
-      lengthMm: Number(record.lengthMm.toFixed(3)),
-      toleranceMm,
-      packetEvidence: record.packets.map((p) => p.kind).join('+') || '',
-      action: 'CONSUMED',
-    });
-    if (record.packets.length) orphanPackets.push({ nearNode: retained, packets: record.packets, from: record });
-  }
-  // Remap surviving endpoints through aliases.
-  for (const record of surviving) {
-    record.fromNode = resolve(record.fromNode);
-    record.toNode = resolve(record.toNode);
-  }
-  // Re-attach orphan packets to the nearest surviving neighbor element.
-  for (const orphan of orphanPackets) {
-    const host = surviving.find((r) => r.fromNode === orphan.nearNode || r.toNode === orphan.nearNode) ?? surviving[0];
-    if (!host) continue;
-    for (const packet of orphan.packets) {
-      host.packets.push({ ...packet, consumedFrom: orphan.from.name || `#${orphan.from.index}` });
-    }
-  }
-  return { surviving, consumedRows };
-}
-
-function buildPaths(records, degree) {
-  const isAnchor = (node) => (degree.get(node) ?? 0) !== 2;
+function recordsByNode(records) {
   const byNode = new Map();
   for (const record of records) {
     for (const node of [record.fromNode, record.toNode]) {
@@ -126,37 +65,50 @@ function buildPaths(records, degree) {
       byNode.get(node).push(record);
     }
   }
-  const visited = new Set();
-  const paths = [];
-  const walk = (startNode, firstRecord) => {
-    const elements = [];
-    let node = startNode;
-    let record = firstRecord;
-    while (record && !visited.has(record)) {
-      visited.add(record);
-      const forward = record.fromNode === node;
-      const nextNode = forward ? record.toNode : record.fromNode;
-      elements.push({ record, forward });
-      node = nextNode;
-      if (isAnchor(node)) break;
-      record = (byNode.get(node) ?? []).find((r) => !visited.has(r));
-    }
-    return { elements, endNode: node };
-  };
+  return byNode;
+}
+
+function walkPath(startNode, firstRecord, byNode, isAnchor, visited) {
+  const elements = [];
+  let node = startNode;
+  let record = firstRecord;
+  while (record && !visited.has(record)) {
+    visited.add(record);
+    const forward = record.fromNode === node;
+    node = forward ? record.toNode : record.fromNode;
+    elements.push({ record, forward });
+    if (isAnchor(node)) break;
+    record = (byNode.get(node) ?? []).find((item) => !visited.has(item));
+  }
+  return { elements, endNode: node };
+}
+
+function appendAnchorPaths(paths, byNode, isAnchor, visited) {
   const anchorNodes = Array.from(byNode.keys()).filter(isAnchor);
   for (const anchor of anchorNodes) {
     for (const record of byNode.get(anchor) ?? []) {
       if (visited.has(record)) continue;
-      const { elements, endNode } = walk(anchor, record);
-      if (elements.length) paths.push({ startNode: anchor, endNode, elements });
+      const result = walkPath(anchor, record, byNode, isAnchor, visited);
+      if (result.elements.length) paths.push({ startNode: anchor, ...result });
     }
   }
-  // Pure loops (no anchors) — start anywhere.
+}
+
+function appendLoopPaths(paths, records, byNode, isAnchor, visited) {
   for (const record of records) {
     if (visited.has(record)) continue;
-    const { elements, endNode } = walk(record.fromNode, record);
-    if (elements.length) paths.push({ startNode: record.fromNode, endNode, elements });
+    const result = walkPath(record.fromNode, record, byNode, isAnchor, visited);
+    if (result.elements.length) paths.push({ startNode: record.fromNode, ...result });
   }
+}
+
+function buildPaths(records, degree) {
+  const isAnchor = (node) => (degree.get(node) ?? 0) !== 2;
+  const byNode = recordsByNode(records);
+  const visited = new Set();
+  const paths = [];
+  appendAnchorPaths(paths, byNode, isAnchor, visited);
+  appendLoopPaths(paths, records, byNode, isAnchor, visited);
   return paths;
 }
 
@@ -168,109 +120,125 @@ function anchorType(node, degree, restraintNodes) {
   return 'ROUTE';
 }
 
-/**
- * Build CanonicalObjectGraph.v1 from raw records.
- * @param {string} modelId 'source' | 'target' | any
- * @param {Array} rawRecords records from parseInputXmlRecords
- * @param {object} options { shortElementToleranceMm }
- */
-export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
-  const toleranceMm = Number(options.shortElementToleranceMm ?? 6);
-  // Deep-ish copy so canonicalization never mutates adapter output.
-  const records = rawRecords.map((r) => ({
-    ...r,
-    deltaMm: [...r.deltaMm],
-    packets: r.packets.map((p) => ({ ...p, attrs: { ...p.attrs } })),
-    properties: { ...r.properties },
-    blocks: r.blocks ?? null,
-    sourceRecord: captureSourceRecord(r),
-  }));
-  const { surviving, consumedRows } = consumeShortElements(records, toleranceMm);
+function copyRecord(record) {
+  return {
+    ...record,
+    deltaMm: [...record.deltaMm],
+    packets: record.packets.map((packet) => ({ ...packet, attrs: { ...packet.attrs } })),
+    properties: { ...record.properties },
+    blocks: record.blocks ?? null,
+    sourceRecord: captureSourceRecord(record),
+  };
+}
 
-  const { coords, componentOf } = solveNodeCoordinates(surviving);
+function objectKind(record) {
+  if (record.componentType) return record.componentType;
+  if (record.packets.some((packet) => packet.kind === 'RIGID')) return 'RIGID';
+  return record.packets.some((packet) => packet.kind === 'BEND') ? 'BEND' : 'PIPE';
+}
+
+function buildObject(modelId, record, forward, pathId, sequence, stationMm, objectNumber) {
+  const startNode = forward ? record.fromNode : record.toNode;
+  const endNode = forward ? record.toNode : record.fromNode;
+  return {
+    objectId: `${modelId}:E${objectNumber}`,
+    kind: objectKind(record),
+    fromNode: startNode,
+    toNode: endNode,
+    canonicalFromTo: `${startNode}->${endNode}`,
+    sourceOrientation: buildSourceOrientation(record, forward),
+    lengthMm: Number(record.lengthMm.toFixed(3)),
+    diameterMm: Number.isFinite(record.diameterMm) ? record.diameterMm : null,
+    wallThickMm: Number.isFinite(record.wallThickMm) ? record.wallThickMm : null,
+    name: record.name,
+    lineId: record.lineId,
+    pathId,
+    pathSequence: sequence,
+    stationMm: Number(stationMm.toFixed(3)),
+    packets: record.packets,
+    properties: record.properties,
+    blocks: record.blocks ?? null,
+    rawIndex: record.index,
+  };
+}
+
+function buildPath(modelId, path, pathIndex, objects, degree, restraintNodes) {
+  const pathId = `${modelId}:P${pathIndex + 1}`;
+  const elementIds = [];
+  let station = 0;
+  let totalLength = 0;
+  path.elements.forEach(({ record, forward }, sequence) => {
+    const object = buildObject(modelId, record, forward, pathId, sequence, station, objects.length + 1);
+    station += record.lengthMm;
+    totalLength += record.lengthMm;
+    objects.push(object);
+    elementIds.push(object.objectId);
+  });
+  return {
+    pathId,
+    startNode: path.startNode,
+    endNode: path.endNode,
+    startAnchorType: anchorType(path.startNode, degree, restraintNodes),
+    endAnchorType: anchorType(path.endNode, degree, restraintNodes),
+    elementIds,
+    elementCount: elementIds.length,
+    totalLengthMm: Number(totalLength.toFixed(3)),
+    packetSequence: path.elements.flatMap(({ record }) => record.packets.map((packet) => packet.kind)).join('>'),
+  };
+}
+
+function buildHierarchy(objects, paths) {
+  const lineIds = Array.from(new Set(objects.map((object) => object.lineId || '(model)')));
+  return lineIds.map((lineId) => ({
+    lineId,
+    paths: paths
+      .filter((path) => objects.some((object) => object.pathId === path.pathId && (object.lineId || '(model)') === lineId))
+      .map((path) => ({ pathId: path.pathId, elementIds: path.elementIds })),
+  }));
+}
+
+function degreeByNode(records) {
   const degree = new Map();
-  for (const record of surviving) {
+  for (const record of records) {
     degree.set(record.fromNode, (degree.get(record.fromNode) ?? 0) + 1);
     degree.set(record.toNode, (degree.get(record.toNode) ?? 0) + 1);
   }
-  const restraintNodes = new Set();
-  for (const record of surviving) {
+  return degree;
+}
+
+function restraintNodeIds(records) {
+  const nodes = new Set();
+  for (const record of records) {
     for (const packet of record.packets) {
-      if (packet.kind === 'RESTRAINT' && packet.attrs.NODE) restraintNodes.add(String(Math.round(Number(packet.attrs.NODE))));
+      if (packet.kind === 'RESTRAINT' && packet.attrs.NODE) nodes.add(String(Math.round(Number(packet.attrs.NODE))));
     }
   }
+  return nodes;
+}
 
-  const rawPaths = buildPaths(surviving, degree);
-  const objects = [];
-  const objectByRecord = new Map();
-  const paths = rawPaths.map((path, pathIndex) => {
-    const pathId = `${modelId}:P${pathIndex + 1}`;
-    let station = 0;
-    const elementIds = [];
-    let totalLength = 0;
-    path.elements.forEach(({ record, forward }, seq) => {
-      const objectId = `${modelId}:E${objects.length + 1}`;
-      const startNode = forward ? record.fromNode : record.toNode;
-      const endNode = forward ? record.toNode : record.fromNode;
-      const object = {
-        objectId,
-        kind: record.componentType ? record.componentType :
-              record.packets.some((p) => p.kind === 'RIGID') ? 'RIGID'
-          : record.packets.some((p) => p.kind === 'BEND') ? 'BEND' : 'PIPE',
-        fromNode: startNode,
-        toNode: endNode,
-        canonicalFromTo: `${startNode}->${endNode}`,
-        sourceOrientation: buildSourceOrientation(record, forward),
-        lengthMm: Number(record.lengthMm.toFixed(3)),
-        diameterMm: Number.isFinite(record.diameterMm) ? record.diameterMm : null,
-        wallThickMm: Number.isFinite(record.wallThickMm) ? record.wallThickMm : null,
-        name: record.name,
-        lineId: record.lineId,
-        pathId,
-        pathSequence: seq,
-        stationMm: Number(station.toFixed(3)),
-        packets: record.packets,
-        properties: record.properties,
-        blocks: record.blocks ?? null,
-        rawIndex: record.index,
-      };
-      station += record.lengthMm;
-      totalLength += record.lengthMm;
-      objects.push(object);
-      objectByRecord.set(record, object);
-      elementIds.push(objectId);
-    });
-    return {
-      pathId,
-      startNode: path.startNode,
-      endNode: path.endNode,
-      startAnchorType: anchorType(path.startNode, degree, restraintNodes),
-      endAnchorType: anchorType(path.endNode, degree, restraintNodes),
-      elementIds,
-      elementCount: elementIds.length,
-      totalLengthMm: Number(totalLength.toFixed(3)),
-      packetSequence: path.elements.flatMap(({ record }) => record.packets.map((p) => p.kind)).join('>'),
-    };
-  });
-
-  const nodes = Array.from(coords.entries()).map(([nodeId, xyz]) => ({
+function canonicalNodes(coords, componentOf, degree, restraintNodes) {
+  return Array.from(coords.entries()).map(([nodeId, coordinates]) => ({
     nodeId,
-    coordMm: xyz.map((v) => Number(v.toFixed(3))),
+    coordMm: coordinates.map((value) => Number(value.toFixed(3))),
     degree: degree.get(nodeId) ?? 0,
     componentId: componentOf.get(nodeId) ?? 'C1',
     anchorType: anchorType(nodeId, degree, restraintNodes),
   }));
-  const anchors = nodes.filter((n) => n.anchorType !== 'ROUTE');
+}
 
-  // Hierarchy: line -> path -> element
-  const lineIds = Array.from(new Set(objects.map((o) => o.lineId || '(model)')));
-  const hierarchy = lineIds.map((lineId) => ({
-    lineId,
-    paths: paths
-      .filter((p) => objects.some((o) => o.pathId === p.pathId && (o.lineId || '(model)') === lineId))
-      .map((p) => ({ pathId: p.pathId, elementIds: p.elementIds })),
-  }));
-
+/** Build CanonicalObjectGraph.v1 from raw records. */
+export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
+  const toleranceMm = Number(options.shortElementToleranceMm ?? 6);
+  const records = rawRecords.map(copyRecord);
+  const { surviving, consumedRows } = consumeShortElements(records, toleranceMm);
+  const { coords, componentOf } = solveNodeCoordinates(surviving);
+  const degree = degreeByNode(surviving);
+  const restraintNodes = restraintNodeIds(surviving);
+  const objects = [];
+  const rawPaths = buildPaths(surviving, degree);
+  const paths = rawPaths.map((path, index) => buildPath(modelId, path, index, objects, degree, restraintNodes));
+  const nodes = canonicalNodes(coords, componentOf, degree, restraintNodes);
+  const anchors = nodes.filter((node) => node.anchorType !== 'ROUTE');
   return {
     contract: CONTRACT_VERSIONS.CanonicalObjectGraph,
     modelId,
@@ -283,6 +251,6 @@ export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
     nodes,
     anchors,
     paths,
-    hierarchy,
+    hierarchy: buildHierarchy(objects, paths),
   };
 }
