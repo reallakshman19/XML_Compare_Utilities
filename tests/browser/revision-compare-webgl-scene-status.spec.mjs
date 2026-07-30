@@ -154,7 +154,7 @@ test('representative Sequential source exposes real Workbench scene, fit and pic
   expect(finalEvidence.scene.status).toBe('READY');
 });
 
-test('large Sequential comparison can compare and download consecutive Workbench responsiveness runs', async ({ page }) => {
+test('large Sequential comparison can download and verify consecutive Workbench responsiveness runs', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await installResponsivenessPolicy(page);
@@ -250,4 +250,23 @@ test('large Sequential comparison can compare and download consecutive Workbench
   expect(receipt.observation.comparison.previous.runSequence).toBe(1);
   expect(receipt.observation.comparison.current.runSequence).toBe(2);
   expect(receipt.observation.metrics.memory.value === null || Number.isFinite(receipt.observation.metrics.memory.value)).toBe(true);
+
+  await page.locator('[data-revc-responsiveness-receipt-import]').setInputFiles({
+    name: 'responsiveness-run-2.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(receipt)),
+  });
+  const verification = page.locator('[data-revc-responsiveness-receipt-verification]');
+  await expect(verification).toHaveAttribute('data-revc-responsiveness-receipt-verification', 'verified_current');
+  await expect(verification).toContainText('VERIFIED_CURRENT');
+  await expect(verification).toContainText('Schema structure');
+  await expect(verification).toContainText('Receipt ID');
+  await expect(verification).toContainText('VERIFIED');
+  await expect(verification).toContainText('Current audit');
+  await expect(verification).toContainText('MATCH');
+  await expect(verification).toContainText('Active run');
+  await expect(verification).toContainText('Authenticity');
+  await expect(verification).toContainText('NOT_ESTABLISHED');
+  const verifiedEvidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence().responsivenessReceiptVerification));
+  expect(verifiedEvidence.status).toBe('VERIFIED_CURRENT');
+  expect(verifiedEvidence.receiptId).toBe(receipt.receiptId);
+  expect(verifiedEvidence.authenticityStatus).toBe('NOT_ESTABLISHED');
 });
