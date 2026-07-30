@@ -75,6 +75,7 @@ function resetRun(context, key) {
   const memory = memorySample(context);
   context.runKey = key;
   context.startedAt = context.clock();
+  context.elapsedMs = 0;
   context.sceneRuntimeObservedMs = null;
   context.firstReadyMs = null;
   context.memoryBaselineUsedBytes = memory.available ? memory.usedBytes : null;
@@ -138,6 +139,7 @@ function updateDom(context, scene, performanceModel) {
     applySceneStatus(context.root, scene);
     context.lastSceneIdentity = sceneIdentity;
   }
+  if (!performanceModel) return;
   const performanceIdentity = JSON.stringify(performanceModel);
   if (performanceIdentity !== context.lastPerformanceIdentity) {
     applyRevisionViewerResponsiveness(context.root, performanceModel);
@@ -161,7 +163,7 @@ function sample(context, generation) {
   context.runSampleCount += 1;
   context.lastModel = scene;
   if (performanceModel) context.lastPerformanceModel = performanceModel;
-  updateDom(context, scene, performanceModel ?? context.lastPerformanceModel);
+  updateDom(context, scene, performanceModel);
   if (!scene.terminal) schedule(context, generation);
 }
 function detach(context) {
@@ -171,10 +173,11 @@ function detach(context) {
   context.root = null;
   context.audit = null;
   context.adapter = null;
+  context.lastSceneIdentity = '';
+  context.lastPerformanceIdentity = '';
   return true;
 }
-function stop(context) {
-  detach(context);
+function clearRun(context) {
   context.runKey = null;
   context.startedAt = 0;
   context.elapsedMs = 0;
@@ -183,12 +186,9 @@ function stop(context) {
   context.memoryBaselineUsedBytes = null;
   context.memoryPeakUsedBytes = null;
   context.memoryLimitBytes = null;
-  context.lastSceneIdentity = '';
-  context.lastPerformanceIdentity = '';
   context.lastModel = null;
   context.lastPerformanceModel = null;
   context.runSampleCount = 0;
-  return true;
 }
 function policyFor(options, intervalMs) {
   if (options.responsivenessPolicy) return createRevisionViewerResponsivenessPolicy(options.responsivenessPolicy);
@@ -233,8 +233,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       sample(context, generation);
       return true;
     },
-    detach: () => detach(context),
-    stop: () => stop(context),
+    stop: () => detach(context),
     evidence: () => Object.freeze({
       active: context.active,
       destroyed: context.destroyed,
@@ -250,7 +249,8 @@ export function createRevisionViewerSceneMonitor(options = {}) {
     }),
     destroy() {
       if (context.destroyed) return false;
-      stop(context);
+      detach(context);
+      clearRun(context);
       context.destroyed = true;
       return true;
     },
