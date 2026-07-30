@@ -90,6 +90,7 @@ function stop(context) {
   context.audit = null;
   context.adapter = null;
   context.lastIdentity = '';
+  context.lastModel = null;
   return true;
 }
 
@@ -132,7 +133,6 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       if (context.destroyed) return false;
       stop(context);
       context.destroyed = true;
-      context.lastModel = null;
       return true;
     },
   });
