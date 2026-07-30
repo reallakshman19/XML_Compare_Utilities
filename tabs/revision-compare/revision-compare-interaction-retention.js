@@ -84,8 +84,36 @@ function restoreFocus(root, focus) {
 function restoreScroll(root, scroll) {
   for (const position of scroll ?? []) {
     const element = root?.querySelector?.(position.selector);
-    if (element) element.scrollTo?.({ top: position.top, left: position.left, behavior: 'auto' });
+    if (!element) continue;
+    if (typeof element.scrollTo === 'function') element.scrollTo({ top: position.top, left: position.left, behavior: 'auto' });
+    else { element.scrollTop = position.top; element.scrollLeft = position.left; }
   }
+}
+
+function rerenderEvent(event) {
+  const target = event.target;
+  if (event.type === 'input') return target.matches?.('[data-revc-search], [data-revc-queue-search], [data-revc-review-search]');
+  if (event.type === 'change') return target.matches?.('[data-revc-search], [data-revc-branch-id]');
+  return event.type === 'click' && target.closest?.('[data-revc-group]');
+}
+
+function dispatchScopeChange(root, event) {
+  if (event.type !== 'input' || event.isComposing || !event.target.matches?.('[data-revc-search]')) return;
+  const EventConstructor = root.ownerDocument.defaultView.Event;
+  event.target.dispatchEvent(new EventConstructor('change', { bubbles: true }));
+}
+
+function captureEvent(state, event) {
+  if (!state.bound || !rerenderEvent(event)) return;
+  state.snapshot = captureRevisionCompareInteraction(state.root);
+  dispatchScopeChange(state.root, event);
+}
+
+function restoreMutation(state) {
+  if (!state.bound || !state.snapshot) return;
+  const snapshot = state.snapshot;
+  state.snapshot = null;
+  restoreRevisionCompareInteraction(state.root, snapshot);
 }
 
 export function captureRevisionCompareInteraction(root) {
@@ -99,6 +127,25 @@ export function restoreRevisionCompareInteraction(root, snapshot) {
   return focused;
 }
 
+export function bindRevisionCompareInteractionRetention(root, options = {}) {
+  if (!root?.addEventListener) throw new TypeError('Revision Compare interaction-retention root is required.');
+  const Observer = options.MutationObserver ?? root.ownerDocument.defaultView.MutationObserver;
+  if (typeof Observer !== 'function') throw new TypeError('MutationObserver is required for interaction retention.');
+  const state = { root, bound: true, snapshot: null, observer: null };
+  const listener = (event) => captureEvent(state, event);
+  for (const type of ['input', 'change', 'click']) root.addEventListener(type, listener, true);
+  state.observer = new Observer(() => restoreMutation(state));
+  state.observer.observe(root, { childList: true, subtree: true });
+  return () => {
+    if (!state.bound) return;
+    state.bound = false;
+    state.snapshot = null;
+    state.observer.disconnect();
+    for (const type of ['input', 'change', 'click']) root.removeEventListener(type, listener, true);
+  };
+}
+
 export const _test = Object.freeze({
-  enabled, findKeyed, focusSnapshot, keyedFocus, restoreFocus, restoreSelection, scrollSnapshot,
+  captureEvent, dispatchScopeChange, enabled, findKeyed, focusSnapshot, keyedFocus,
+  rerenderEvent, restoreFocus, restoreMutation, restoreSelection, scrollSnapshot,
 });
