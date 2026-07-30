@@ -5,7 +5,7 @@
 import { REVISION_IMPACT_REPORT_SCHEMA } from './revision-impact-report-model.js';
 
 export const REVISION_IMPACT_CSV_COLUMNS = Object.freeze([
-  'recordType', 'section', 'key', 'value', 'differenceId', 'priorityRank', 'selected',
+  'recordType', 'section', 'key', 'value', 'differenceId', 'priorityRank',
   'branchId', 'componentType', 'differenceCategory', 'effectiveDifferenceCategory',
   'matchCertainty', 'reviewState', 'decisionState', 'changeReasons',
   'changedPropertyCount', 'changedPropertyKeys', 'geometryStatus', 'maximumPointDelta',
@@ -15,9 +15,15 @@ export const REVISION_IMPACT_CSV_COLUMNS = Object.freeze([
   'evidenceSummary',
 ]);
 
+function safeCsvText(value) {
+  const text = Array.isArray(value) ? value.join(' | ') : String(value);
+  if (typeof value === 'number' || typeof value === 'boolean') return text;
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+}
+
 function csvCell(value) {
   if (value === null || value === undefined) return '';
-  const text = Array.isArray(value) ? value.join(' | ') : String(value);
+  const text = safeCsvText(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
@@ -85,7 +91,6 @@ function detailRecord(row) {
     section: 'differenceRows',
     differenceId: row.differenceId,
     priorityRank: row.priorityRank,
-    selected: row.selected,
     branchId: row.branchId,
     componentType: row.componentType,
     differenceCategory: row.differenceCategory,
@@ -129,4 +134,4 @@ export function serializeRevisionImpactReportCsv(report) {
   return `${csvLine(Object.fromEntries(REVISION_IMPACT_CSV_COLUMNS.map((column) => [column, column])))}\n${records.map(csvLine).join('\n')}\n`;
 }
 
-export const _test = Object.freeze({ csvCell, detailRecord, metadataRecords, summaryRecords });
+export const _test = Object.freeze({ csvCell, detailRecord, metadataRecords, safeCsvText, summaryRecords });
