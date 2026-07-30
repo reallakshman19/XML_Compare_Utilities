@@ -8,8 +8,11 @@ import {
   serializeBendReviewPackageManifest,
 } from './bend-review-package.js';
 import {
+  BEND_REVIEW_RECEIPT_STATUS,
   buildBendReviewVerificationReceipt,
+  parseBendReviewVerificationReceiptText,
   serializeBendReviewVerificationReceipt,
+  verifyBendReviewVerificationReceipt,
 } from './bend-review-verification-receipt.js';
 
 export const BEND_REVIEW_VERIFICATION_STATUS = Object.freeze({
@@ -137,9 +140,68 @@ export function verificationResultHtml(verification, receipt = null) {
   return `<div><span class="wb3d-badge ${style}">${esc(verification.status.replaceAll('_', ' '))}</span> <span class="wb3d-muted">${esc(verification.message)}</span>${rows}${receiptLink(receipt)}</div>`;
 }
 
+export function receiptVerificationResultHtml(verification) {
+  const style = verification.status === BEND_REVIEW_RECEIPT_STATUS.MATCH ? 'is-ok'
+    : verification.status === BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT ? 'is-bad' : '';
+  const rows = verification.differences.length
+    ? `<ul class="wb3d-list">${verification.differences.map((row) => `<li>${esc(row.field)}: receipt <code>${esc(row.imported)}</code> · current <code>${esc(row.current)}</code></li>`).join('')}</ul>` : '';
+  return `<div><span class="wb3d-badge ${style}">${esc(verification.status.replaceAll('_', ' '))}</span> <span class="wb3d-muted">${esc(verification.message)}</span>${rows}</div>`;
+}
+
 export function bendReviewVerifierHtml(currentManifest) {
   const current = encodeURIComponent(serializeBendReviewPackageManifest(currentManifest));
   return `<${ELEMENT_NAME} data-current="${esc(current)}"></${ELEMENT_NAME}>`;
+}
+
+function decodeCurrent(element) {
+  try { return JSON.parse(decodeURIComponent(element.dataset.current || '')); } catch { return null; }
+}
+
+async function packageVerification(file, current) {
+  try {
+    const parsed = parseBendReviewPackageText(await file.text());
+    const importedManifest = parsed.ok ? parsed.manifest : null;
+    const verification = parsed.ok ? verifyBendReviewPackage(importedManifest, current)
+      : result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_PARSE_FAILED', parsed.error);
+    return { verification, receipt: buildBendReviewVerificationReceipt({ importedManifest, currentManifest: current, verification }) };
+  } catch (error) {
+    const verification = result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_READ_FAILED', `Package could not be read: ${error?.message || error}`);
+    return { verification, receipt: buildBendReviewVerificationReceipt({ importedManifest: null, currentManifest: current, verification }) };
+  }
+}
+
+async function receiptVerification(file, current) {
+  try {
+    const parsed = parseBendReviewVerificationReceiptText(await file.text());
+    return parsed.ok ? verifyBendReviewVerificationReceipt(parsed.receipt, current)
+      : result(BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT, 'RECEIPT_PARSE_FAILED', parsed.error);
+  } catch (error) {
+    return result(BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT, 'RECEIPT_READ_FAILED', `Receipt could not be read: ${error?.message || error}`);
+  }
+}
+
+function attachPackageInput(element, current) {
+  const input = element.querySelector('[data-package-file]');
+  const output = element.querySelector('[data-verification-result]');
+  input?.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const completed = await packageVerification(file, current);
+    if (output) output.innerHTML = verificationResultHtml(completed.verification, completed.receipt);
+    input.value = '';
+  });
+}
+
+function attachReceiptInput(element, current) {
+  const input = element.querySelector('[data-receipt-file]');
+  const output = element.querySelector('[data-receipt-result]');
+  input?.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    const verification = await receiptVerification(file, current);
+    if (output) output.innerHTML = receiptVerificationResultHtml(verification);
+    input.value = '';
+  });
 }
 
 function registerVerifierElement() {
@@ -148,28 +210,10 @@ function registerVerifierElement() {
     connectedCallback() {
       if (this.dataset.ready === 'true') return;
       this.dataset.ready = 'true';
-      this.innerHTML = `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div>`;
-      const input = this.querySelector('input[type="file"]');
-      const output = this.querySelector('[data-verification-result]');
-      let current;
-      try { current = JSON.parse(decodeURIComponent(this.dataset.current || '')); } catch { current = null; }
-      input?.addEventListener('change', async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        let verification;
-        let importedManifest = null;
-        try {
-          const parsed = parseBendReviewPackageText(await file.text());
-          importedManifest = parsed.ok ? parsed.manifest : null;
-          verification = parsed.ok ? verifyBendReviewPackage(importedManifest, current)
-            : result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_PARSE_FAILED', parsed.error);
-        } catch (error) {
-          verification = result(BEND_REVIEW_VERIFICATION_STATUS.INVALID_PACKAGE, 'PACKAGE_READ_FAILED', `Package could not be read: ${error?.message || error}`);
-        }
-        const receipt = buildBendReviewVerificationReceipt({ importedManifest, currentManifest: current, verification });
-        if (output) output.innerHTML = verificationResultHtml(verification, receipt);
-        input.value = '';
-      });
+      this.innerHTML = `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input data-package-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div><div class="wb3d-toolbar"><label class="wb3d-file">Verify receipt <input data-receipt-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-receipt-result>Select a verification receipt exported by this Workbench.</span></div>`;
+      const current = decodeCurrent(this);
+      attachPackageInput(this, current);
+      attachReceiptInput(this, current);
     }
   }
   customElements.define(ELEMENT_NAME, BendReviewVerifierElement);
