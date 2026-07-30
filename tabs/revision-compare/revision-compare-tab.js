@@ -1,6 +1,7 @@
 /** Utilities launcher for RC-001 trusted revision intake and scope approval. */
 
 import { bindRevisionCompareIntakeInteractions } from './revision-compare-intake-interactions.js';
+import { bindRevisionCompareInteractionRetention } from './revision-compare-interaction-retention.js';
 import { mountRevisionCompareWorkspace } from './revision-compare-workspace.js?v=20260718-rc001';
 import { bindRevisionVisualMetadataNavigation } from './revision-visual-metadata-navigation.js';
 
@@ -22,6 +23,22 @@ function ensureStylesheet(documentRef) {
   }
 }
 
+function bindWorkspaceInteractions(overlay) {
+  return [
+    bindRevisionCompareIntakeInteractions(overlay),
+    bindRevisionVisualMetadataNavigation(overlay),
+    bindRevisionCompareInteractionRetention(overlay),
+  ];
+}
+
+function releaseWorkspace(state) {
+  state.cleanups.splice(0).reverse().forEach((cleanup) => cleanup());
+  state.active?.destroy();
+  state.overlay?.remove();
+  state.active = null;
+  state.overlay = null;
+}
+
 /** Install one Utilities tile and return a complete destroy function. */
 export function installRevisionCompareTile(container, context = {}) {
   ensureStylesheet(container.ownerDocument);
@@ -32,29 +49,15 @@ export function installRevisionCompareTile(container, context = {}) {
   tile.setAttribute('data-revc-open', '1');
   tile.innerHTML = '<span class="revc-launcher-icon">A↔B</span><b>Revision Compare</b><span>Load two revisions and approve the exact branch scope</span>';
   container.appendChild(tile);
-
-  let active = null;
-  let intakeCleanup = null;
-  let navigationCleanup = null;
-  let overlay = null;
-  const close = () => {
-    navigationCleanup?.();
-    navigationCleanup = null;
-    intakeCleanup?.();
-    intakeCleanup = null;
-    active?.destroy();
-    active = null;
-    overlay?.remove();
-    overlay = null;
-  };
+  const state = { active: null, cleanups: [], overlay: null };
+  const close = () => releaseWorkspace(state);
   const open = () => {
-    if (active) return;
-    overlay = container.ownerDocument.createElement('div');
-    overlay.className = 'revc-backdrop';
-    container.ownerDocument.body.appendChild(overlay);
-    intakeCleanup = bindRevisionCompareIntakeInteractions(overlay);
-    navigationCleanup = bindRevisionVisualMetadataNavigation(overlay);
-    active = mountRevisionCompareWorkspace(overlay, { close, showToast: context.showToast });
+    if (state.active) return;
+    state.overlay = container.ownerDocument.createElement('div');
+    state.overlay.className = 'revc-backdrop';
+    container.ownerDocument.body.appendChild(state.overlay);
+    state.cleanups = bindWorkspaceInteractions(state.overlay);
+    state.active = mountRevisionCompareWorkspace(state.overlay, { close, showToast: context.showToast });
   };
   tile.addEventListener('click', open);
   return () => {
@@ -64,4 +67,4 @@ export function installRevisionCompareTile(container, context = {}) {
   };
 }
 
-export const _test = Object.freeze({ ensureStylesheet });
+export const _test = Object.freeze({ bindWorkspaceInteractions, ensureStylesheet, releaseWorkspace });
