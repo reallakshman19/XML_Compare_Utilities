@@ -1,8 +1,12 @@
 /** Durable branch-local support and geometry edit state carried by workspace packages. */
 import { immutableJson } from '../../../contracts/contract-values.js';
 import { createConfirmedSequentialConstruction } from '../construction/sequential-construction-acceptance.js';
-import { sequentialSemanticFingerprint } from '../scoped-edit/sequential-command-contracts.js';
+import { sameSequentialContractValue, sequentialSemanticFingerprint } from '../scoped-edit/sequential-command-contracts.js';
 import { assertSequentialGeometryEditJournal } from '../scoped-edit/sequential-geometry-edit-journal.js';
+import {
+  assertSequentialGeometryEditHistory,
+  sequentialGeometryEditHistoryJournal,
+} from '../scoped-edit/sequential-geometry-edit-history.js';
 import { createSequentialEditableTopologySnapshot } from '../scoped-edit/sequential-editable-topology-snapshot.js';
 import { createSequentialScopedEditReadModel } from '../scoped-edit/sequential-scoped-edit-read-model.js';
 import {
@@ -20,8 +24,7 @@ export const SEQUENTIAL_DRAFT_EDIT_PACKAGE_RESTORATION_SCHEMA =
 
 function fail(code, detail = '', Constructor = RangeError) {
   const error = new Constructor(`${code}${detail ? `: ${detail}` : ''}`);
-  error.code = code;
-  throw error;
+  error.code = code; throw error;
 }
 function text(value, label) {
   const result = String(value ?? '').trim();
@@ -53,57 +56,77 @@ function supportRow(value) {
     baseProjectionFingerprint: text(value?.baseProjectionFingerprint,
       'support baseProjectionFingerprint'),
   });
-  return Object.freeze({
-    branchId,
+  return Object.freeze({ branchId,
     constructionFingerprint: history.constructionFingerprint,
     baseProjectionFingerprint: history.baseProjectionFingerprint,
-    history,
-    consumedPreparedIds: consumedIds(value?.consumedPreparedIds, 'support consumedPreparedIds'),
-  });
+    history, consumedPreparedIds: consumedIds(value?.consumedPreparedIds,
+      'support consumedPreparedIds') });
 }
 function geometryRow(value) {
   const branchId = text(value?.branchId, 'geometry branchId');
+  const consumedPreparedIds = consumedIds(value?.consumedPreparedIds,
+    'geometry consumedPreparedIds');
+  if (value?.history) {
+    const history = assertSequentialGeometryEditHistory(value.history, { branchId });
+    const journal = sequentialGeometryEditHistoryJournal(history);
+    if (value.journal && !sameSequentialContractValue(
+      assertSequentialGeometryEditJournal(value.journal), journal)) {
+      fail('DRAFT_EDIT_PACKAGE_GEOMETRY_ACTIVE_JOURNAL_MISMATCH', branchId);
+    }
+    return Object.freeze({ branchId,
+      confirmedConstructionFingerprint: history.confirmedConstructionFingerprint,
+      baseFingerprint: history.baseFingerprint, history, journal, consumedPreparedIds });
+  }
   const journal = assertSequentialGeometryEditJournal(value?.journal);
   if (journal.branchId !== branchId) fail('DRAFT_EDIT_PACKAGE_GEOMETRY_BRANCH_MISMATCH', branchId);
-  return Object.freeze({
-    branchId,
+  return Object.freeze({ branchId,
     confirmedConstructionFingerprint: journal.confirmedConstructionFingerprint,
-    baseFingerprint: journal.baseFingerprint,
-    journal,
-    consumedPreparedIds: consumedIds(value?.consumedPreparedIds, 'geometry consumedPreparedIds'),
-  });
+    baseFingerprint: journal.baseFingerprint, journal, consumedPreparedIds });
+}
+function geometryCounts(row) {
+  if (row.history) return { total: row.history.entries.length, active: row.history.cursor };
+  return { total: row.journal.entries.length, active: row.journal.entries.length };
+}
+function extensionSummary(supportBranches, geometryBranches) {
+  const summary = {
+    supportBranchCount: supportBranches.length,
+    supportAdjustmentCount: supportBranches.reduce((count, row) =>
+      count + row.history.currentRegister.entries.length, 0),
+    geometryBranchCount: geometryBranches.length,
+    geometryEditCount: geometryBranches.reduce((count, row) => count + geometryCounts(row).total, 0),
+  };
+  if (geometryBranches.some((row) => row.history)) {
+    summary.activeGeometryEditCount = geometryBranches.reduce((count, row) =>
+      count + geometryCounts(row).active, 0);
+    summary.geometryRedoCount = summary.geometryEditCount - summary.activeGeometryEditCount;
+    summary.geometryHistoryTransitionCount = geometryBranches.reduce((count, row) =>
+      count + (row.history?.consumedTransitionIds.length || 0), 0);
+  }
+  return Object.freeze(summary);
 }
 function extensionMaterial(input) {
   const supportBranches = sorted(rows(input.supportBranches || [], 'supportBranches').map(supportRow));
   const geometryBranches = sorted(rows(input.geometryBranches || [], 'geometryBranches').map(geometryRow));
-  uniqueBranches(supportBranches, 'supportBranches');
-  uniqueBranches(geometryBranches, 'geometryBranches');
+  uniqueBranches(supportBranches, 'supportBranches'); uniqueBranches(geometryBranches, 'geometryBranches');
   return {
     schema: SEQUENTIAL_DRAFT_EDIT_PACKAGE_EXTENSION_SCHEMA,
     sourceFingerprint: text(input.sourceFingerprint, 'sourceFingerprint'),
     branchSetFingerprint: text(input.branchSetFingerprint, 'branchSetFingerprint'),
     commandJournalHeadFingerprint: input.commandJournalHeadFingerprint
       ? text(input.commandJournalHeadFingerprint, 'commandJournalHeadFingerprint') : null,
-    supportBranches,
-    geometryBranches,
-    summary: Object.freeze({
-      supportBranchCount: supportBranches.length,
-      supportAdjustmentCount: supportBranches.reduce((count, row) =>
-        count + row.history.currentRegister.entries.length, 0),
-      geometryBranchCount: geometryBranches.length,
-      geometryEditCount: geometryBranches.reduce((count, row) => count + row.journal.entries.length, 0),
-    }),
+    supportBranches, geometryBranches,
+    summary: extensionSummary(supportBranches, geometryBranches),
   };
 }
 function assertSummary(value, material) {
-  const expected = material.summary;
   const actual = value?.summary || {};
-  if (actual.supportBranchCount !== expected.supportBranchCount
-    || actual.supportAdjustmentCount !== expected.supportAdjustmentCount
-    || actual.geometryBranchCount !== expected.geometryBranchCount
-    || actual.geometryEditCount !== expected.geometryEditCount) {
-    fail('DRAFT_EDIT_PACKAGE_SUMMARY_INVALID');
+  for (const [key, expected] of Object.entries(material.summary)) {
+    if (actual[key] !== expected) fail('DRAFT_EDIT_PACKAGE_SUMMARY_INVALID', key);
   }
+  const allowed = new Set(Object.keys(material.summary));
+  Object.keys(actual).forEach((key) => {
+    if (!allowed.has(key)) fail('DRAFT_EDIT_PACKAGE_SUMMARY_INVALID', key);
+  });
 }
 function baseIdentity(restoration) {
   return {
@@ -151,14 +174,9 @@ function workspaceMap(restoration) {
 }
 function baseOwnerSnapshot(restoration, snapshot) {
   const bridge = createSequentialEngineeringSvgOwnerBridge({
-    readOwnerState: () => ({
-      session: snapshot.session,
-      evidenceModel: restoration.evidence,
-      indexes: restoration.indexes,
-      confirmedConstruction: snapshot.confirmedConstruction,
-      supportProjection: snapshot.supportProjection,
-      visibleProjection: 'ISO',
-    }),
+    readOwnerState: () => ({ session: snapshot.session, evidenceModel: restoration.evidence,
+      indexes: restoration.indexes, confirmedConstruction: snapshot.confirmedConstruction,
+      supportProjection: snapshot.supportProjection, visibleProjection: 'ISO' }),
   });
   try { return bridge.getSnapshot(); } finally { bridge.destroy(); }
 }
@@ -181,7 +199,12 @@ function validateGeometryAuthority(item, restoration, snapshot, support) {
   const owner = effectiveOwner(restoration, snapshot, support);
   const readModel = createSequentialScopedEditReadModel(owner);
   const topology = createSequentialEditableTopologySnapshot(readModel);
-  assertSequentialGeometryEditJournal(item.journal, topology);
+  if (item.history) {
+    const history = assertSequentialGeometryEditHistory(item.history, { snapshot: topology });
+    assertSequentialGeometryEditJournal(sequentialGeometryEditHistoryJournal(history), topology);
+  } else {
+    assertSequentialGeometryEditJournal(item.journal, topology);
+  }
 }
 function validateEditAuthority(extension, restoration) {
   const workspaces = workspaceMap(restoration);
@@ -194,32 +217,26 @@ function validateEditAuthority(extension, restoration) {
 function restorationMaterial(extension, workspaceRestoration) {
   validateBranchInventory(extension, workspaceRestoration);
   validateEditAuthority(extension, workspaceRestoration);
-  return {
-    schema: SEQUENTIAL_DRAFT_EDIT_PACKAGE_RESTORATION_SCHEMA,
+  return { schema: SEQUENTIAL_DRAFT_EDIT_PACKAGE_RESTORATION_SCHEMA,
     sourceFingerprint: extension.sourceFingerprint,
     branchSetFingerprint: extension.branchSetFingerprint,
     commandJournalHeadFingerprint: extension.commandJournalHeadFingerprint,
-    supportBranches: extension.supportBranches,
-    geometryBranches: extension.geometryBranches,
-    summary: extension.summary,
-    extensionFingerprint: extension.extensionFingerprint,
-  };
+    supportBranches: extension.supportBranches, geometryBranches: extension.geometryBranches,
+    summary: extension.summary, extensionFingerprint: extension.extensionFingerprint };
 }
 
 export function createSequentialDraftEditPackageExtension(input = {}) {
   const material = extensionMaterial(input);
-  return immutableJson({
-    ...material,
-    extensionFingerprint: sequentialSemanticFingerprint('SSK3DEDITPACKAGE', material),
-  }, 'Sequential Draft Edit package extension');
+  return immutableJson({ ...material,
+    extensionFingerprint: sequentialSemanticFingerprint('SSK3DEDITPACKAGE', material) },
+  'Sequential Draft Edit package extension');
 }
 export function assertSequentialDraftEditPackageExtension(value) {
   const extension = immutableJson(value, 'Sequential Draft Edit package extension');
   if (extension.schema !== SEQUENTIAL_DRAFT_EDIT_PACKAGE_EXTENSION_SCHEMA) {
     fail('DRAFT_EDIT_PACKAGE_SCHEMA_INVALID', extension.schema, TypeError);
   }
-  const material = extensionMaterial(extension);
-  assertSummary(extension, material);
+  const material = extensionMaterial(extension); assertSummary(extension, material);
   const expected = sequentialSemanticFingerprint('SSK3DEDITPACKAGE', material);
   if (extension.extensionFingerprint !== expected) fail('DRAFT_EDIT_PACKAGE_FINGERPRINT_MISMATCH');
   return extension;
@@ -230,9 +247,8 @@ export function restoreSequentialDraftEditPackageExtension(value, workspaceResto
     'Sequential Draft Edit package restoration');
 }
 export function emptySequentialDraftEditPackageExtension(input = {}) {
-  return createSequentialDraftEditPackageExtension({
-    ...input, supportBranches: [], geometryBranches: [],
-  });
+  return createSequentialDraftEditPackageExtension({ ...input,
+    supportBranches: [], geometryBranches: [] });
 }
 export function sequentialDraftEditPackageExtensionFingerprint(value) {
   return assertSequentialDraftEditPackageExtension(clone(value)).extensionFingerprint;

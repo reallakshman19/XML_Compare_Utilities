@@ -27,11 +27,16 @@ function workspaceIdentity(snapshot) { return `${sessionFingerprint(snapshot) ||
 function editIdentity(value) { return text(value?.extensionFingerprint) || null; }
 function editSummary(value) {
   const summary = value?.summary || {};
+  const geometryEditCount = Number(summary.geometryEditCount || 0);
   return Object.freeze({
     supportBranchCount: Number(summary.supportBranchCount || 0),
     supportAdjustmentCount: Number(summary.supportAdjustmentCount || 0),
     geometryBranchCount: Number(summary.geometryBranchCount || 0),
-    geometryEditCount: Number(summary.geometryEditCount || 0),
+    geometryEditCount,
+    activeGeometryEditCount: summary.activeGeometryEditCount == null
+      ? geometryEditCount : Number(summary.activeGeometryEditCount),
+    geometryRedoCount: Number(summary.geometryRedoCount || 0),
+    geometryHistoryTransitionCount: Number(summary.geometryHistoryTransitionCount || 0),
   });
 }
 function currentBranchIds(model) {
@@ -192,5 +197,5 @@ export function formatSequentialWorkspaceImportPreview(preview) {
   const register = preview.decisionRegisterSummary
     ? ` Register: ${preview.decisionRegisterSummary.unresolvedCount || 0} unresolved, ${preview.decisionRegisterSummary.manualResolutionCount || 0} manual.` : '';
   const edits = preview.packageDraftEditSummary;
-  return `Verified ${preview.packageSchema} revision ${preview.packageRevision} package ${preview.packageFingerprint}: source ${source}; journal impact ${preview.journalImpact}; Draft Edit 3D impact ${preview.draftEditImpact} (${edits.supportAdjustmentCount} support adjustments, ${edits.geometryEditCount} geometry edits); ${preview.packageSavedWorkspaceCount} saved workspaces (${preview.newWorkspaceBranchIds.length} new, ${preview.overwrittenWorkspaceBranchIds.length} overwrite, ${preview.unchangedWorkspaceBranchIds.length} unchanged, ${preview.removedWorkspaceBranchIds.length} current removals); ${preview.packageTotals.transactionCount} transactions, ${preview.packageTotals.undoEntryCount} undo entries, ${preview.packageTotals.redoEntryCount} redo entries, ${preview.packageTotals.deferredDecisionCount} deferred decisions.${register} Nothing has been applied.`;
+  return `Verified ${preview.packageSchema} revision ${preview.packageRevision} package ${preview.packageFingerprint}: source ${source}; journal impact ${preview.journalImpact}; Draft Edit 3D impact ${preview.draftEditImpact} (${edits.supportAdjustmentCount} support adjustments, ${edits.geometryEditCount} geometry edits (${edits.activeGeometryEditCount} active, ${edits.geometryRedoCount} redo)); ${preview.packageSavedWorkspaceCount} saved workspaces (${preview.newWorkspaceBranchIds.length} new, ${preview.overwrittenWorkspaceBranchIds.length} overwrite, ${preview.unchangedWorkspaceBranchIds.length} unchanged, ${preview.removedWorkspaceBranchIds.length} current removals); ${preview.packageTotals.transactionCount} transactions, ${preview.packageTotals.undoEntryCount} undo entries, ${preview.packageTotals.redoEntryCount} redo entries, ${preview.packageTotals.deferredDecisionCount} deferred decisions.${register} Nothing has been applied.`;
 }

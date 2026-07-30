@@ -1,14 +1,19 @@
-/** Package adapter for branch-local accepted geometry journals. */
+/** Package adapter for branch-local accepted geometry history and edit preparations. */
 import { immutableJson } from '../../../contracts/contract-values.js';
 import { assertSequentialGeometryEditJournal } from '../scoped-edit/sequential-geometry-edit-journal.js';
+import { sameSequentialContractValue } from '../scoped-edit/sequential-command-contracts.js';
+import {
+  assertSequentialGeometryEditHistory,
+  createSequentialGeometryEditHistory,
+  sequentialGeometryEditHistoryJournal,
+} from '../scoped-edit/sequential-geometry-edit-history.js';
 
 export const SEQUENTIAL_GEOMETRY_EDIT_PACKAGE_STATE_SCHEMA =
   'SequentialGeometryEditPackageState.v1';
 
 function fail(code, detail = '', Constructor = RangeError) {
   const error = new Constructor(`${code}${detail ? `: ${detail}` : ''}`);
-  error.code = code;
-  throw error;
+  error.code = code; throw error;
 }
 function text(value, label) {
   const result = String(value ?? '').trim();
@@ -21,14 +26,28 @@ function ids(values, label) {
   if (new Set(result).size !== result.length) fail('GEOMETRY_PACKAGE_IDS_DUPLICATE', label);
   return Object.freeze(result);
 }
+function historyValue(value) {
+  if (!value?.history) {
+    const journal = assertSequentialGeometryEditJournal(value?.journal);
+    return Object.freeze({ history: createSequentialGeometryEditHistory({ journal }), journal });
+  }
+  const history = assertSequentialGeometryEditHistory(value.history);
+  const journal = sequentialGeometryEditHistoryJournal(history);
+  if (value.journal && !sameSequentialContractValue(
+    assertSequentialGeometryEditJournal(value.journal), journal)) {
+    fail('GEOMETRY_PACKAGE_ACTIVE_JOURNAL_MISMATCH');
+  }
+  return Object.freeze({ history, journal });
+}
 function row(value) {
   const branchId = text(value?.branchId, 'geometry package branchId');
-  const journal = assertSequentialGeometryEditJournal(value?.journal);
-  if (journal.branchId !== branchId) fail('GEOMETRY_PACKAGE_BRANCH_MISMATCH', branchId);
+  const { history, journal } = historyValue(value);
+  if (history.branchId !== branchId) fail('GEOMETRY_PACKAGE_BRANCH_MISMATCH', branchId);
   return Object.freeze({
     branchId,
-    confirmedConstructionFingerprint: journal.confirmedConstructionFingerprint,
-    baseFingerprint: journal.baseFingerprint,
+    confirmedConstructionFingerprint: history.confirmedConstructionFingerprint,
+    baseFingerprint: history.baseFingerprint,
+    history,
     journal,
     consumedPreparedIds: ids(value?.consumedPreparedIds || [],
       'geometry package consumedPreparedId'),
@@ -47,18 +66,28 @@ function stateMaterial(values) {
     schema: SEQUENTIAL_GEOMETRY_EDIT_PACKAGE_STATE_SCHEMA,
     branches,
     branchCount: branches.length,
-    editCount: branches.reduce((count, item) => count + item.journal.entries.length, 0),
+    editCount: branches.reduce((count, item) => count + item.history.entries.length, 0),
+    activeEditCount: branches.reduce((count, item) => count + item.history.cursor, 0),
+    redoEditCount: branches.reduce((count, item) =>
+      count + item.history.entries.length - item.history.cursor, 0),
     consumedPreparedCount: branches.reduce((count, item) =>
       count + item.consumedPreparedIds.length, 0),
+    consumedTransitionCount: branches.reduce((count, item) =>
+      count + item.history.consumedTransitionIds.length, 0),
   };
 }
 function assertCounts(value, expected) {
   for (const key of ['branchCount', 'editCount', 'consumedPreparedCount']) {
     if (value?.[key] !== expected[key]) fail('GEOMETRY_PACKAGE_COUNT_INVALID', key);
   }
+  for (const key of ['activeEditCount', 'redoEditCount', 'consumedTransitionCount']) {
+    if (value?.[key] != null && value[key] !== expected[key]) {
+      fail('GEOMETRY_PACKAGE_COUNT_INVALID', key);
+    }
+  }
 }
-function hasDurableAuthority(journal, consumed) {
-  return journal.entries.length > 0 || consumed.size > 0;
+function hasDurableAuthority(history, consumed) {
+  return history.entries.length > 0 || history.consumedTransitionIds.length > 0 || consumed.size > 0;
 }
 
 export function createSequentialGeometryEditPackageState(values = []) {
@@ -73,14 +102,15 @@ export function assertSequentialGeometryEditPackageState(value) {
   return immutableJson(rebuilt, 'Sequential geometry-edit package state');
 }
 export function geometryEditPackageRows(byBranch, consumedByBranch) {
-  const rows = [...byBranch.entries()].flatMap(([branchId, journal]) => {
+  const rows = [...byBranch.entries()].flatMap(([branchId, history]) => {
     const consumed = consumedByBranch.get(branchId) || new Set();
-    if (!hasDurableAuthority(journal, consumed)) return [];
+    if (!hasDurableAuthority(history, consumed)) return [];
     return [{
       branchId,
-      confirmedConstructionFingerprint: journal.confirmedConstructionFingerprint,
-      baseFingerprint: journal.baseFingerprint,
-      journal,
+      confirmedConstructionFingerprint: history.confirmedConstructionFingerprint,
+      baseFingerprint: history.baseFingerprint,
+      history,
+      journal: sequentialGeometryEditHistoryJournal(history),
       consumedPreparedIds: [...consumed],
     }];
   });
@@ -88,10 +118,9 @@ export function geometryEditPackageRows(byBranch, consumedByBranch) {
 }
 export function restoreGeometryEditPackageMaps(value) {
   const state = assertSequentialGeometryEditPackageState(value);
-  const byBranch = new Map();
-  const consumedByBranch = new Map();
+  const byBranch = new Map(); const consumedByBranch = new Map();
   state.branches.forEach((item) => {
-    byBranch.set(item.branchId, item.journal);
+    byBranch.set(item.branchId, item.history);
     consumedByBranch.set(item.branchId, new Set(item.consumedPreparedIds));
   });
   return Object.freeze({ state, byBranch, consumedByBranch });

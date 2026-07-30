@@ -61,24 +61,40 @@ function draftEditEvidence(restoration) {
     supportAdjustmentCount: 0,
     geometryBranchCount: 0,
     geometryEditCount: 0,
+    activeGeometryEditCount: 0,
+    geometryRedoCount: 0,
+    geometryHistoryTransitionCount: 0,
   });
   const summary = extension.summary || {};
+  const geometryEditCount = Number(summary.geometryEditCount || 0);
   return Object.freeze({
     extensionFingerprint: text(extension.extensionFingerprint) || null,
     supportBranchCount: Number(summary.supportBranchCount || 0),
     supportAdjustmentCount: Number(summary.supportAdjustmentCount || 0),
     geometryBranchCount: Number(summary.geometryBranchCount || 0),
-    geometryEditCount: Number(summary.geometryEditCount || 0),
+    geometryEditCount,
+    activeGeometryEditCount: summary.activeGeometryEditCount == null
+      ? geometryEditCount : Number(summary.activeGeometryEditCount),
+    geometryRedoCount: Number(summary.geometryRedoCount || 0),
+    geometryHistoryTransitionCount: Number(summary.geometryHistoryTransitionCount || 0),
   });
 }
 function validDraftEditEvidence(value, packageSchema) {
   if (packageSchema !== 'SequentialWorkspacePackage.v3' && value == null) return true;
   const evidence = value || {};
-  const counts = ['supportBranchCount', 'supportAdjustmentCount',
+  const legacyCounts = ['supportBranchCount', 'supportAdjustmentCount',
     'geometryBranchCount', 'geometryEditCount'];
-  if (!counts.every((key) => Number.isSafeInteger(evidence[key]) && evidence[key] >= 0)) return false;
+  if (!legacyCounts.every((key) => Number.isSafeInteger(evidence[key]) && evidence[key] >= 0)) return false;
+  const active = evidence.activeGeometryEditCount == null
+    ? evidence.geometryEditCount : evidence.activeGeometryEditCount;
+  const redo = evidence.geometryRedoCount == null ? 0 : evidence.geometryRedoCount;
+  const transitions = evidence.geometryHistoryTransitionCount == null
+    ? 0 : evidence.geometryHistoryTransitionCount;
+  if (![active, redo, transitions].every((count) => Number.isSafeInteger(count) && count >= 0)
+    || active > evidence.geometryEditCount || redo !== evidence.geometryEditCount - active) return false;
   if (packageSchema === 'SequentialWorkspacePackage.v3') return Boolean(text(evidence.extensionFingerprint));
-  return evidence.extensionFingerprint === null && counts.every((key) => evidence[key] === 0);
+  return evidence.extensionFingerprint === null
+    && [...legacyCounts.map((key) => evidence[key]), active, redo, transitions].every((count) => count === 0);
 }
 function validateReceiptPackageIdentity(receipt, index) {
   const hasSchema = receipt.packageSchema !== undefined;
