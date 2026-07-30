@@ -9,6 +9,7 @@ import {
 import { revisionCompareWorkspaceMarkup } from './revision-compare-view.js';
 import { createRevisionCompareViewerAdapter } from './revision-compare-viewer-adapter.js';
 import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-backend.js';
+import { createRevisionViewerSceneMonitor } from './revision-viewer-scene-monitor.js';
 import { createComparisonLifecycleState } from './revision-compare-lifecycle.js';
 import { REVISION_COMPARE_DEFAULT_VIEWER_POLICY, createRevisionCompareViewerPolicy } from './revision-compare-viewer-policy.js';
 import { createRevisionCompareService } from './revision-compare-service.js';
@@ -118,12 +119,18 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     onPick: (differenceId) => { if (differenceId) actions?.selectDifference(differenceId); },
     onError: (error) => options.showToast?.(`${revisionCompareViewerBackendLabel(viewerAdapter?.evidence().viewerBackend)} unavailable: ${error.message}`, 'warning'),
   });
+  const sceneMonitor = options.sceneMonitor ?? createRevisionViewerSceneMonitor(options.sceneMonitorOptions);
   const propertyInspector = options.propertyInspector ?? createRevisionComparePropertyInspector(options.propertyInspectorOptions);
   function preflight() { return revisionComparisonPreflight(state.slots.baseline, state.slots.candidate, state.proposal, state.visualMetadataDeclaration); }
   async function syncViewer(sequence) {
     if (destroyed || sequence !== renderSequence) return;
-    if (!state.compare.reviewVisible || !state.compare.audit) { if (!state.compare.audit) viewerAdapter.clear(); return; }
-    const host = root.querySelector('[data-revc-viewer-host]'); if (!host) return;
+    if (!state.compare.reviewVisible || !state.compare.audit) {
+      sceneMonitor.stop();
+      if (!state.compare.audit) viewerAdapter.clear();
+      return;
+    }
+    const host = root.querySelector('[data-revc-viewer-host]');
+    if (!host) { sceneMonitor.stop(); return; }
     viewerAdapter.setBackend?.(state.compare.viewerBackend);
     const mounted = await viewerAdapter.render(host, state.compare.audit); if (destroyed || sequence !== renderSequence) return;
     viewerAdapter.setPresentationMode(state.compare.presentationMode); viewerAdapter.selectDifference(state.compare.selectedDifferenceId);
@@ -132,6 +139,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     const evidence = viewerAdapter.evidence(); syncBackendButtons(root, evidence); const renderedFailure = root.querySelector('.revc-viewer-failure');
     if (mounted) renderedFailure?.remove();
     else if (!renderedFailure) host.innerHTML = `<div class="revc-viewer-fallback"><b>${revisionCompareViewerBackendLabel(state.compare.viewerBackend)} unavailable.</b><span>Use the queue and inspector to continue review. Recovery requires explicit user action.</span>${recoveryMarkup(state.compare)}</div>`;
+    sceneMonitor.start(root, state.compare.audit, viewerAdapter);
   }
   async function syncPropertyInspector(sequence, host) {
     if (destroyed || sequence !== renderSequence) return;
@@ -193,6 +201,7 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   }
   function render(next = state) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
+    sceneMonitor.stop();
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
     const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); transferBindings?.render(state);
     renderRevisionReviewFilterResetControl(root, state); renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
@@ -214,8 +223,15 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   });
   bindRevisionCompareWorkspaceEvents(root, actions, cleanups); render();
   return Object.freeze({
-    evidence: () => Object.freeze({ state, preflight: preflight(), viewer: viewerAdapter.evidence(), property: propertyInspector.evidence(), transfer: transferBindings.model(), compareRunId: compareService.activeRunId() }),
-    destroy: () => { destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup()); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose(); viewerAdapter.dispose(); service.dispose(); root.innerHTML = ''; },
+    evidence: () => Object.freeze({
+      state, preflight: preflight(), viewer: viewerAdapter.evidence(), scene: sceneMonitor.evidence(),
+      property: propertyInspector.evidence(), transfer: transferBindings.model(), compareRunId: compareService.activeRunId(),
+    }),
+    destroy: () => {
+      destroyed = true; renderSequence += 1; cleanups.splice(0).reverse().forEach((cleanup) => cleanup());
+      sceneMonitor.destroy(); transferBindings.destroy(); compareService.dispose(); propertyInspector.dispose();
+      viewerAdapter.dispose(); service.dispose(); root.innerHTML = '';
+    },
   });
 }
 export const _test = Object.freeze({ actionClick, enforceImportedModeRestrictions, initialWorkspaceState, inputChange, prepareEvidencePackageControl, preparePropertyHost, sessionId, syncBackendButtons, syncDecisionButtons });
