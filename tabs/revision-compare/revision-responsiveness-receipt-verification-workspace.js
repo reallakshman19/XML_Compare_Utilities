@@ -73,13 +73,21 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
   };
   function attachment() {
     const current = model(); const receipt = retainedReceipt();
-    return current.status === 'VERIFIED_CURRENT' && receipt ? Object.freeze({ status: current.status, runId: receipt.observation.runId, receipt }) : null;
+    if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
+    const signatureReceipt = signatureState.status === 'VERIFIED' ? signatureState.receipt : null;
+    return Object.freeze({
+      status: current.status, runId: receipt.observation.runId, receipt,
+      ...(signatureReceipt ? { signatureStatus: 'VERIFIED', signatureReceipt } : {}),
+    });
   }
   function matchesAttachment(value) {
-    const current = attachment();
+    const current = attachment(); const currentSignature = current?.signatureReceipt;
     return Boolean(current && value && current.runId === value.runId
       && current.receipt.receiptId === value.receipt?.receiptId
-      && current.receipt.contentSha256 === value.receipt?.contentSha256);
+      && current.receipt.contentSha256 === value.receipt?.contentSha256
+      && Boolean(currentSignature) === Boolean(value.signatureReceipt)
+      && (!currentSignature || (currentSignature.receiptId === value.signatureReceipt?.receiptId
+        && currentSignature.contentSha256 === value.signatureReceipt?.contentSha256)));
   }
   return Object.freeze({
     attachment, matchesAttachment, model, signatureModel,
