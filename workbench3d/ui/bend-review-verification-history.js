@@ -24,6 +24,13 @@ function filter(value) {
   return Object.values(BEND_REVIEW_HISTORY_FILTER).includes(value)
     ? value : BEND_REVIEW_HISTORY_FILTER.ALL;
 }
+function statusBucket(value) {
+  const status = text(value).toUpperCase();
+  if (status === 'MATCH') return 'match';
+  if (status.startsWith('STALE_')) return 'stale';
+  if (status.startsWith('INVALID_')) return 'invalid';
+  return 'other';
+}
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -80,6 +87,26 @@ export function bendReviewHistoryCount(entries = historyEntries, totalEntries = 
   return `${count} check${count === 1 ? '' : 's'}`;
 }
 
+export function summarizeBendReviewHistory(entries = historyEntries) {
+  const summary = { total: 0, match: 0, stale: 0, invalid: 0, other: 0 };
+  for (const entry of array(entries)) {
+    summary.total += 1;
+    summary[statusBucket(entry?.status)] += 1;
+  }
+  return Object.freeze(summary);
+}
+
+function summaryBadge(label, count, style = '') {
+  const className = style && count ? ` ${style}` : '';
+  return `<span class="wb3d-badge${className}">${label} ${count}</span>`;
+}
+
+export function bendReviewHistorySummaryHtml(entries = historyEntries) {
+  const summary = summarizeBendReviewHistory(entries);
+  const other = summary.other ? summaryBadge('Other', summary.other) : '';
+  return `<div class="wb3d-toolbar" data-verification-history-summary>${summaryBadge('Match', summary.match, 'is-ok')}${summaryBadge('Stale', summary.stale)}${summaryBadge('Invalid', summary.invalid, 'is-bad')}${other}</div>`;
+}
+
 function historyRow(entry) {
   const status = text(entry?.status).replaceAll('_', ' ');
   const artifact = text(entry?.artifactSignature) || '—';
@@ -89,8 +116,9 @@ function historyRow(entry) {
 
 export function bendReviewHistoryHtml(entries = historyEntries, emptyMessage = '') {
   const rows = array(entries);
+  const summary = bendReviewHistorySummaryHtml(rows);
   if (!rows.length) {
-    return `<p class="wb3d-muted">${esc(emptyMessage || 'No package or receipt checks in this browser session.')}</p>`;
+    return `${summary}<p class="wb3d-muted">${esc(emptyMessage || 'No package or receipt checks in this browser session.')}</p>`;
   }
-  return `<div class="wb3d-table-wrap"><table><thead><tr><th>#</th><th>Check</th><th>Status</th><th>Code</th><th>Artifact</th><th>Current package</th><th>Differences</th></tr></thead><tbody>${rows.map(historyRow).join('')}</tbody></table></div>`;
+  return `${summary}<div class="wb3d-table-wrap"><table><thead><tr><th>#</th><th>Check</th><th>Status</th><th>Code</th><th>Artifact</th><th>Current package</th><th>Differences</th></tr></thead><tbody>${rows.map(historyRow).join('')}</tbody></table></div>`;
 }
