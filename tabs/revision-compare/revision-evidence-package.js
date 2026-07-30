@@ -19,9 +19,18 @@ import {
   revisionEvidencePackageResponsivenessIdentity,
   verifyRevisionEvidencePackageResponsivenessReceipt,
 } from './revision-evidence-package-responsiveness-receipt.js';
+import {
+  REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_IDENTITY_STATUS,
+  REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_STATUS,
+  REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_TRUST_STATUS,
+  createRevisionEvidencePackageResponsivenessSignatureAttachment,
+  revisionEvidencePackageResponsivenessSignatureIdentity,
+  verifyRevisionEvidencePackageResponsivenessSignature,
+} from './revision-evidence-package-responsiveness-signature.js';
 
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA = 'RevisionCompareEvidencePackage.v1';
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA = 'RevisionCompareEvidencePackage.v2';
+export const REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA = 'RevisionCompareEvidencePackage.v3';
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_SCHEMA = REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA;
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX = 'revision-evidence-package:';
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS = Object.freeze([
@@ -103,7 +112,7 @@ function manifestErrors(state, sessionManifest, scopeBasisManifest) {
   return errors;
 }
 
-function exactPayload(state, preflight, responsivenessReceipt) {
+function exactPayload(state, preflight, runtimeEvidence) {
   const sessionManifest = createRevisionSessionManifest(state, preflight);
   const scopeBasisManifest = createRevisionScopeManifest(state, preflight);
   const errors = manifestErrors(state, sessionManifest, scopeBasisManifest);
@@ -114,7 +123,8 @@ function exactPayload(state, preflight, responsivenessReceipt) {
     audit: state.compare.audit,
     reviewSession: createReviewSessionExport(state.review.session),
     decisionLedger: createDecisionLedgerExport(state.decision.ledger),
-    ...(responsivenessReceipt ? { responsivenessReceipt } : {}),
+    ...(runtimeEvidence.receipt ? { responsivenessReceipt: runtimeEvidence.receipt } : {}),
+    ...(runtimeEvidence.signatureReceipt ? { responsivenessSignatureReceipt: runtimeEvidence.signatureReceipt } : {}),
   }, 'payload'));
 }
 
@@ -130,41 +140,58 @@ function packageIdentity(state, payload) {
     revBDocumentId: audit.revBDocumentId,
     engineVersion: audit.engineVersion,
     ...(revisionEvidencePackageResponsivenessIdentity(payload.responsivenessReceipt) ?? {}),
+    ...(revisionEvidencePackageResponsivenessSignatureIdentity(payload.responsivenessSignatureReceipt) ?? {}),
   };
 }
 
+function packageSchema(payload) {
+  if (payload.responsivenessSignatureReceipt) return REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA;
+  return payload.responsivenessReceipt ? REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA : REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA;
+}
+
 function hashMaterial(state, payload) {
-  const attached = Boolean(payload.responsivenessReceipt);
+  const hasReceipt = Boolean(payload.responsivenessReceipt);
+  const hasSignature = Boolean(payload.responsivenessSignatureReceipt);
   return revisionCompareEvidencePackageHashMaterial({
-    schema: attached ? REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA : REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
+    schema: packageSchema(payload),
     identity: packageIdentity(state, payload),
     authorityStatus: {
       basisStatus: state.basisStatus,
       auditValidationStatus: payload.audit.validation.status,
       reviewStatus: payload.reviewSession.status,
       decisionStatus: payload.decisionLedger.status,
-      ...(attached ? { responsivenessReceiptStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS } : {}),
+      ...(hasReceipt ? { responsivenessReceiptStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS } : {}),
+      ...(hasSignature ? {
+        responsivenessSignatureStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_STATUS,
+        responsivenessSignatureIdentityStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_IDENTITY_STATUS,
+        responsivenessSignatureTrustStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_SIGNATURE_TRUST_STATUS,
+      } : {}),
     },
     payload,
     validation: { status: 'READY', errors: [] },
   });
 }
 
-async function verifiedResponsivenessReceipt(state, attachment, cryptoRef) {
-  const receipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(attachment, state);
-  if (!receipt) return null;
-  const verified = await verifyRevisionEvidencePackageResponsivenessReceipt(
-    receipt, state.session, state.compare.audit,
+async function verifiedRuntimeEvidence(state, attachment, cryptoRef) {
+  const selectedReceipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(attachment, state);
+  if (!selectedReceipt) return { receipt: null, signatureReceipt: null };
+  const receiptVerification = await verifyRevisionEvidencePackageResponsivenessReceipt(
+    selectedReceipt, state.session, state.compare.audit,
     state.slots.baseline.document, state.slots.candidate.document, cryptoRef,
   );
-  return verified.receipt;
+  const selectedSignature = createRevisionEvidencePackageResponsivenessSignatureAttachment(attachment, receiptVerification.receipt);
+  if (!selectedSignature) return { receipt: receiptVerification.receipt, signatureReceipt: null };
+  const signatureVerification = await verifyRevisionEvidencePackageResponsivenessSignature(
+    selectedSignature, receiptVerification.receipt, cryptoRef,
+  );
+  return { receipt: receiptVerification.receipt, signatureReceipt: signatureVerification.receipt };
 }
 
 export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef, responsivenessAttachment = null) {
   const readiness = revisionCompareEvidencePackageReadiness(state);
   if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
-  const receipt = await verifiedResponsivenessReceipt(state, responsivenessAttachment, cryptoRef);
-  const material = hashMaterial(state, exactPayload(state, preflight, receipt));
+  const runtimeEvidence = await verifiedRuntimeEvidence(state, responsivenessAttachment, cryptoRef);
+  const material = hashMaterial(state, exactPayload(state, preflight, runtimeEvidence));
   const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
   const artifact = deepFreeze(canonicalRevisionCompareEvidenceValue({
     ...material,
@@ -176,8 +203,12 @@ export async function createRevisionCompareEvidencePackage(state, preflight, cry
 }
 
 export function serializeRevisionCompareEvidencePackage(artifact) {
-  const schemas = [REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA];
-  if (!schemas.includes(artifact?.schema)) throw new TypeError(`A ${schemas.join(' or ')} artifact is required.`);
+  const schemas = [
+    REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
+    REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA,
+    REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA,
+  ];
+  if (!schemas.includes(artifact?.schema)) throw new TypeError(`A ${schemas.join(', ')} artifact is required.`);
   const canonical = canonicalRevisionCompareEvidenceValue(artifact, artifact.schema);
   assertJsonSafe(canonical, artifact.schema);
   return `${JSON.stringify(canonical, null, 2)}\n`;
