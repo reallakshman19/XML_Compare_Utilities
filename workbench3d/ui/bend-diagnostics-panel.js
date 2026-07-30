@@ -36,6 +36,7 @@ function disposition(summary, loaded) {
 }
 
 function sideModel(label, name, visual) {
+  const loaded = Boolean(visual?.bendSummary);
   const summary = {
     requested: count(visual?.bendSummary?.requested),
     resolved: count(visual?.bendSummary?.resolved),
@@ -47,8 +48,8 @@ function sideModel(label, name, visual) {
   return Object.freeze({
     label,
     name,
-    loaded: Boolean(visual),
-    disposition: disposition(summary, Boolean(visual)),
+    loaded,
+    disposition: disposition(summary, loaded),
     summary: Object.freeze(summary),
     diagnostics: Object.freeze(diagnostics.map((row) => Object.freeze({
       ...row,
@@ -97,8 +98,6 @@ function sideHtml(side) {
 
 export function bendDiagnosticsPanelHtml(state = {}) {
   const model = buildBendDiagnosticsModel(state);
-  if (!model.source.loaded && !model.target.loaded) {
-    return '<details class="wb3d-card" data-wb3d-bend-diagnostics><summary><h3>InputXML bend geometry</h3></summary><p class="wb3d-muted">Run compare to derive bend geometry diagnostics.</p></details>';
-  }
+  if (!model.source.loaded && !model.target.loaded) return '';
   return `<details class="wb3d-card" data-wb3d-bend-diagnostics ${model.totals.blocked ? 'open' : ''}><summary><h3>InputXML bend geometry <span class="wb3d-muted">${model.totals.resolved}/${model.totals.requested} resolved · ${model.totals.blocked} blocked</span></h3></summary><p class="wb3d-muted">${esc(model.authorityNote)}</p><div class="wb3d-evi-cols">${sideHtml(model.source)}${sideHtml(model.target)}</div></details>`;
 }
