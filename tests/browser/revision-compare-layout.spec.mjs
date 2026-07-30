@@ -47,6 +47,26 @@ async function expectWithinViewport(page, selector) {
   expect(result.bottom).toBeLessThanOrEqual(result.height + 0.5);
 }
 
+async function setScroll(locator, requested) {
+  return locator.evaluate((element, top) => {
+    const maximum = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTop = Math.min(top, maximum);
+    return element.scrollTop;
+  }, requested);
+}
+
+async function typeWithRetention(page, locator, text) {
+  await locator.focus();
+  let expected = '';
+  for (const character of text) {
+    expected += character;
+    await page.keyboard.type(character);
+    await expect(locator).toHaveValue(expected);
+    await expect(locator).toBeFocused();
+  }
+  return expected;
+}
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1280, height: 720 },
@@ -100,6 +120,28 @@ for (const viewport of [
   });
 }
 
+test('scope filtering preserves focus, caret, controls and body scroll', async ({ page }) => {
+  await openWorkspace(page, { width: 980, height: 760 });
+  await loadPair(page);
+  const body = page.locator('.revc-body');
+  const initialScroll = await setScroll(body, 80);
+  const filter = page.locator('[data-revc-search="common"]');
+  const value = await typeWithRetention(page, filter, 'line');
+  const selection = await filter.evaluate((element) => ({ start: element.selectionStart, end: element.selectionEnd }));
+  expect(selection).toEqual({ start: value.length, end: value.length });
+  expect(await body.evaluate((element) => element.scrollTop)).toBeCloseTo(initialScroll, 0);
+
+  const checkbox = page.locator('[data-revc-branch-id]').first();
+  await checkbox.focus();
+  await checkbox.click();
+  await expect(checkbox).toBeFocused();
+
+  const clearVisible = page.locator('[data-revc-group="common"][data-revc-include="none"]');
+  await clearVisible.focus();
+  await clearVisible.click();
+  await expect(clearVisible).toBeFocused();
+});
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1024, height: 768 },
@@ -142,3 +184,18 @@ for (const viewport of [
     }
   });
 }
+
+test('review search preserves focus, caret and side-panel scroll', async ({ page }) => {
+  await openWorkspace(page, { width: 1440, height: 900 });
+  await loadPair(page);
+  await page.locator('[data-revc-approve-basis]').click();
+  await page.locator('[data-revc-run-compare]').click();
+  await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 25_000 });
+  const side = page.locator('.revc-review-side');
+  const initialScroll = await setScroll(side, 60);
+  const search = page.locator('[data-revc-review-search]');
+  const value = await typeWithRetention(page, search, 'pipe');
+  const selection = await search.evaluate((element) => ({ start: element.selectionStart, end: element.selectionEnd }));
+  expect(selection).toEqual({ start: value.length, end: value.length });
+  expect(await side.evaluate((element) => element.scrollTop)).toBeCloseTo(initialScroll, 0);
+});
