@@ -9,10 +9,7 @@ import {
   canonicalRevisionCompareEvidenceValue,
   revisionCompareEvidencePackageHashMaterial,
 } from './revision-evidence-package.js';
-import {
-  REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS,
-  verifyRevisionEvidencePackageResponsivenessReceipt,
-} from './revision-evidence-package-responsiveness-receipt.js';
+import { verifyRevisionCompareEvidencePackageV2 } from './revision-evidence-package-v2-import.js';
 import { reattachVerifiedReviewRecord, verifyReviewSessionRecord } from './revision-review-manifest.js';
 import { reattachVerifiedDecisionRecord, verifyDecisionEvidenceRecord } from './revision-decision-manifest.js';
 import { sha256Text } from './revision-hash.js';
@@ -24,12 +21,9 @@ export const REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT = 'Integrity and a
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const DECISION_PAYLOAD_KEY = ['decision', 'Ledger'].join('');
 const DECISION_IDENTITY_KEY = `${DECISION_PAYLOAD_KEY}Id`;
-const PAYLOAD_FIELDS_V1 = Object.freeze(['sessionManifest', 'scopeBasisManifest', 'audit', 'reviewSession', DECISION_PAYLOAD_KEY]);
-const PAYLOAD_FIELDS_V2 = Object.freeze([...PAYLOAD_FIELDS_V1, 'responsivenessReceipt']);
-const IDENTITY_FIELDS_V1 = Object.freeze(['sessionId', 'basisId', 'auditId', 'reviewSessionId', DECISION_IDENTITY_KEY, 'revADocumentId', 'revBDocumentId', 'engineVersion']);
-const IDENTITY_FIELDS_V2 = Object.freeze([...IDENTITY_FIELDS_V1, 'responsivenessReceiptId', 'responsivenessReceiptContentSha256']);
-const STATUS_FIELDS_V1 = Object.freeze(['basisStatus', 'auditValidationStatus', 'reviewStatus', 'decisionStatus']);
-const STATUS_FIELDS_V2 = Object.freeze([...STATUS_FIELDS_V1, 'responsivenessReceiptStatus']);
+const PAYLOAD_FIELDS = Object.freeze(['sessionManifest', 'scopeBasisManifest', 'audit', 'reviewSession', DECISION_PAYLOAD_KEY]);
+const IDENTITY_FIELDS = Object.freeze(['sessionId', 'basisId', 'auditId', 'reviewSessionId', DECISION_IDENTITY_KEY, 'revADocumentId', 'revBDocumentId', 'engineVersion']);
+const STATUS_FIELDS = Object.freeze(['basisStatus', 'auditValidationStatus', 'reviewStatus', 'decisionStatus']);
 const SESSION_MANIFEST_FIELDS = Object.freeze(['schema', 'session', 'revisions', 'preflight', 'scopeProposalId', 'scopeSummary', 'basisStatus', 'basisId']);
 const SCOPE_MANIFEST_FIELDS = Object.freeze(['schema', 'sessionId', 'proposal', 'basisStatus', 'basis', 'preflight']);
 const INTAKE_FIELDS = Object.freeze(['schema', 'slotId', 'role', 'requestGeneration', 'status', 'fileName', 'fileSizeBytes', 'contentHash', 'document', 'branchIndexSummary', 'scopeResult', 'warnings', 'blockers', 'error']);
@@ -149,7 +143,7 @@ function verifyAudit(audit, basis, revA, revB) {
 function verifyTopLevel(packageValue, documents) {
   const { session, basis } = documents; const audit = packageValue.payload.audit;
   const reviewSession = packageValue.payload.reviewSession; const decisionRecord = packageValue.payload[DECISION_PAYLOAD_KEY];
-  exactKeys(packageValue.identity, IDENTITY_FIELDS_V1, 'Package identity'); exactKeys(packageValue.authorityStatus, STATUS_FIELDS_V1, 'Package authorityStatus');
+  exactKeys(packageValue.identity, IDENTITY_FIELDS, 'Package identity'); exactKeys(packageValue.authorityStatus, STATUS_FIELDS, 'Package authorityStatus');
   const expectedIdentity = {
     sessionId: session.sessionId, basisId: basis.basisId, auditId: audit.auditId,
     reviewSessionId: reviewSession.reviewSessionId, [DECISION_IDENTITY_KEY]: decisionRecord.ledgerId,
@@ -168,50 +162,20 @@ function liveIntake(manifest) {
   });
 }
 
-async function verifyEnvelope(parsed, schema, payloadFields, cryptoRef) {
+export async function verifyRevisionCompareEvidencePackageJson(text, fileName, importedAt, cryptoRef) {
+  let parsed; try { parsed = JSON.parse(String(text ?? '')); }
+  catch (error) { throw new SyntaxError(`Evidence package JSON is invalid: ${error.message}`); }
+  if (parsed?.schema === REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA) {
+    return verifyRevisionCompareEvidencePackageV2(parsed, fileName, importedAt, cryptoRef, verifyRevisionCompareEvidencePackageJson);
+  }
   exactKeys(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_FIELDS, 'Evidence package');
-  requiredSchema(parsed, schema, 'Evidence package');
-  exactKeys(parsed.payload, payloadFields, 'Evidence package payload'); requireReady(parsed.validation, 'Package validation');
+  requiredSchema(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, 'Evidence package');
+  exactKeys(parsed.payload, PAYLOAD_FIELDS, 'Evidence package payload'); requireReady(parsed.validation, 'Package validation');
   if (!HASH_PATTERN.test(parsed.contentSha256 ?? '')) throw new TypeError('contentSha256 must be a lowercase 64-character SHA-256.');
   if (parsed.packageId !== `${REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX}${parsed.contentSha256}`) throw new TypeError('packageId does not match contentSha256.');
-  const frozen = deepFreeze(canonicalRevisionCompareEvidenceValue(parsed, schema));
+  const frozen = deepFreeze(canonicalRevisionCompareEvidenceValue(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA));
   const material = revisionCompareEvidencePackageHashMaterial(frozen);
   if (await sha256Text(JSON.stringify(material), cryptoRef) !== frozen.contentSha256) throw new TypeError('Evidence package canonical SHA-256 does not match contentSha256.');
-  return frozen;
-}
-
-async function v1Projection(value, cryptoRef) {
-  const { responsivenessReceipt: _receipt, ...payload } = value.payload;
-  const { responsivenessReceiptId: _id, responsivenessReceiptContentSha256: _hash, ...identity } = value.identity;
-  const { responsivenessReceiptStatus: _status, ...authorityStatus } = value.authorityStatus;
-  const material = revisionCompareEvidencePackageHashMaterial({
-    schema: REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, identity, authorityStatus, payload, validation: value.validation,
-  });
-  const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
-  return canonicalRevisionCompareEvidenceValue({
-    ...material, packageId: `${REVISION_COMPARE_EVIDENCE_PACKAGE_ID_PREFIX}${contentSha256}`, contentSha256,
-  }, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA);
-}
-
-function verifyV2Binding(value, verified, attachment) {
-  exactKeys(value.identity, IDENTITY_FIELDS_V2, 'Package identity'); exactKeys(value.authorityStatus, STATUS_FIELDS_V2, 'Package authorityStatus');
-  const expectedIdentity = {
-    sessionId: verified.session.sessionId, basisId: verified.basis.basisId, auditId: verified.audit.auditId,
-    reviewSessionId: value.payload.reviewSession.reviewSessionId, [DECISION_IDENTITY_KEY]: value.payload[DECISION_PAYLOAD_KEY].ledgerId,
-    revADocumentId: verified.audit.revADocumentId, revBDocumentId: verified.audit.revBDocumentId, engineVersion: verified.audit.engineVersion,
-    responsivenessReceiptId: attachment.receiptId, responsivenessReceiptContentSha256: attachment.contentSha256,
-  };
-  if (!sameJson(value.identity, expectedIdentity)) throw new TypeError('Package identity does not equal its nested authority and responsiveness identities.');
-  const expectedStatus = {
-    basisStatus: 'CURRENT', auditValidationStatus: 'READY', reviewStatus: value.payload.reviewSession.status,
-    decisionStatus: value.payload[DECISION_PAYLOAD_KEY].status,
-    responsivenessReceiptStatus: REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS,
-  };
-  if (!sameJson(value.authorityStatus, expectedStatus)) throw new TypeError('Package authorityStatus does not equal its nested authority and responsiveness statuses.');
-}
-
-async function verifyV1Package(parsed, fileName, importedAt, cryptoRef) {
-  const frozen = await verifyEnvelope(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA, PAYLOAD_FIELDS_V1, cryptoRef);
   const manifests = { sessionManifest: frozen.payload.sessionManifest, scopeManifest: frozen.payload.scopeBasisManifest };
   const documents = verifyDocuments(manifests.sessionManifest, manifests.scopeManifest); await verifyBasis(manifests, documents, cryptoRef);
   const audit = frozen.payload.audit; verifyAudit(audit, documents.basis, documents.revA, documents.revB);
@@ -231,33 +195,6 @@ async function verifyV1Package(parsed, fileName, importedAt, cryptoRef) {
       schema: REVISION_EVIDENCE_PACKAGE_IMPORT_RECEIPT_SCHEMA, fileName: String(fileName ?? ''),
       packageId: frozen.packageId, contentSha256: frozen.contentSha256, integrityStatus: 'VERIFIED',
       reviewReattached, decisionReattached, authenticityStatus: 'NOT_ESTABLISHED',
-    },
-  });
-}
-
-export async function verifyRevisionCompareEvidencePackageJson(text, fileName, importedAt, cryptoRef) {
-  let parsed; try { parsed = JSON.parse(String(text ?? '')); }
-  catch (error) { throw new SyntaxError(`Evidence package JSON is invalid: ${error.message}`); }
-  if (parsed?.schema === REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA) return verifyV1Package(parsed, fileName, importedAt, cryptoRef);
-  if (parsed?.schema !== REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA) {
-    throw new TypeError(`Evidence package schema must be ${REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA} or ${REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA}.`);
-  }
-  const frozen = await verifyEnvelope(parsed, REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA, PAYLOAD_FIELDS_V2, cryptoRef);
-  const projection = await v1Projection(frozen, cryptoRef);
-  const verified = await verifyV1Package(projection, fileName, importedAt, cryptoRef);
-  const attachment = await verifyRevisionEvidencePackageResponsivenessReceipt(
-    frozen.payload.responsivenessReceipt, verified.audit,
-    verified.slots.baseline.document, verified.slots.candidate.document, cryptoRef,
-  );
-  verifyV2Binding(frozen, verified, attachment);
-  return deepFreeze({
-    ...verified,
-    responsivenessReceiptVerification: attachment,
-    receipt: {
-      ...verified.receipt, packageId: frozen.packageId, contentSha256: frozen.contentSha256,
-      responsivenessReceiptAttached: true, responsivenessReceiptId: attachment.receiptId,
-      responsivenessReceiptContentSha256: attachment.contentSha256,
-      responsivenessReceiptIntegrityStatus: attachment.integrityStatus,
     },
   });
 }
