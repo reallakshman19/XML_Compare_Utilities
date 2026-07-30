@@ -19,11 +19,13 @@ import {
   verifyBendReviewVerificationReceipt,
 } from '../workbench3d/ui/bend-review-verification-receipt.js';
 import {
+  BEND_REVIEW_HISTORY_FILTER,
   BEND_REVIEW_HISTORY_KIND,
   BEND_REVIEW_HISTORY_LIMIT,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
   clearBendReviewHistory,
+  filterBendReviewHistory,
   getBendReviewHistory,
   recordBendReviewHistory,
 } from '../workbench3d/ui/bend-review-verification-history.js';
@@ -98,6 +100,25 @@ assert.strictEqual(bendReviewHistoryCount(history), '2 checks');
 assert.match(bendReviewHistoryHtml(history), /STALE CURRENT PACKAGE/);
 assert.match(bendReviewHistoryHtml(history), new RegExp(receipt.receiptSignature));
 assert.doesNotMatch(bendReviewHistoryHtml(history), /sourceXml|targetXml|<A\/>/);
+
+const currentOnly = filterBendReviewHistory(
+  history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, current.packageSignature,
+);
+assert.strictEqual(currentOnly.length, 1);
+assert.strictEqual(currentOnly[0].kind, BEND_REVIEW_HISTORY_KIND.PACKAGE);
+assert.strictEqual(getBendReviewHistory().length, 2);
+assert.strictEqual(bendReviewHistoryCount(currentOnly, history), '1 of 2 checks');
+const changedOnly = filterBendReviewHistory(
+  history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, changedCurrent.packageSignature,
+);
+assert.strictEqual(changedOnly.length, 1);
+assert.strictEqual(changedOnly[0].kind, BEND_REVIEW_HISTORY_KIND.RECEIPT);
+assert.strictEqual(filterBendReviewHistory(history, 'UNKNOWN', current.packageSignature).length, 2);
+assert.strictEqual(filterBendReviewHistory(
+  history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, 'wb3d-review-missing',
+).length, 0);
+assert.match(bendReviewHistoryHtml([], 'No checks match <current>.'), /&lt;current&gt;/);
+
 for (let index = 0; index < BEND_REVIEW_HISTORY_LIMIT + 2; index += 1) {
   recordBendReviewHistory({ checkKind: BEND_REVIEW_HISTORY_KIND.PACKAGE, verification: matching,
     artifactSignature: `wb3d-review-${String(index).padStart(8, '0')}`, currentManifest: current });
@@ -115,4 +136,6 @@ const controls = bendReviewVerifierControlsHtml();
 assert.match(controls, /Session verification history/);
 assert.match(controls, /Page-memory only/);
 assert.match(controls, /data-history-clear/);
+assert.match(controls, /data-history-filter/);
+assert.match(controls, /Current package only/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');
