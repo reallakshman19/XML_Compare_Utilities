@@ -10,6 +10,7 @@ import { reviewSessionControlsMarkup } from './revision-review-view.js';
 import { decisionLedgerControlsMarkup } from './revision-decision-view.js';
 import { REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT } from './revision-evidence-package-import.js';
 import { REVISION_COMPARE_SVG_CSS } from './revision-compare-svg-styles.js';
+import { REVISION_VIEWER_SCENE_STATUS_CSS } from './revision-viewer-scene-status.js';
 
 // The user-facing "Import evidence package" option is intentionally removed; direct Rev A/Rev B intake is the product path.
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
@@ -48,9 +49,7 @@ function importedPackageMarkup(state) {
 }
 function compatibilityEvidenceTitle(item) {
   const profileIds = [...new Set([item.revAProfileId, item.revBProfileId].filter(Boolean))];
-  if (profileIds.length) {
-    return `Resolved by bounded product compatibility profile ${profileIds.join(', ')}. The source files remain unchanged and the evidence is bound to their content hashes.`;
-  }
+  if (profileIds.length) return `Resolved by bounded product compatibility profile ${profileIds.join(', ')}. The source files remain unchanged and the evidence is bound to their content hashes.`;
   if (item.declarationId) return `Resolved by operator declaration ${item.declarationId}, bound to the current source hashes.`;
   return '';
 }
@@ -82,7 +81,7 @@ function progressMetrics(progress) {
 function comparisonControlMarkup(state) {
   if (!state.basis) return '';
   const readiness = revisionVisualReadiness(state); const active = ['PROJECTING', 'COMPARING', 'BUILDING_VISUAL'].includes(state.compare.status);
-  if (active) return `<section class="revc-compare-control" data-status="active"><header><div><span>STAGE 3</span><h2>Running visual comparison</h2></div><strong>${escapeHtml(state.compare.status)}</strong></header><div class="revc-progress"><b>${escapeHtml(state.compare.progress?.stage || 'Starting')}</b>${progressMetrics(state.compare.progress)}<button type="button" data-revc-cancel-comparison>Cancel comparison</button></div></section>`;
+  if (active) return `<section class="revc-compare-control" data-status="active"><header><div><span>STAGE 3</span><h2>Running visual comparison</h2><p>Building current deterministic visual evidence.</p></div><strong>${escapeHtml(state.compare.status)}</strong></header><div class="revc-progress"><b>${escapeHtml(state.compare.progress?.stage || 'Starting')}</b>${progressMetrics(state.compare.progress)}<button type="button" data-revc-cancel-comparison>Cancel comparison</button></div></section>`;
   return `<section class="revc-compare-control"><header><div><span>STAGE 3</span><h2>Bounded visual comparison</h2><p>Run deterministic exact and bounded inferred matching from the current approved basis.</p></div><strong data-status="${readiness.status.toLowerCase()}">${readiness.status}</strong></header>${messageList('Visual-readiness blockers', readiness.blockers, 'blocker')}${state.compare.error ? messageList('Comparison failure', [state.compare.error], 'blocker') : ''}<div class="revc-compare-actions"><button type="button" class="revc-primary" data-revc-run-compare ${readiness.status !== 'READY' ? 'disabled' : ''}>Run visual comparison</button>${state.compare.audit ? '<button type="button" data-revc-open-review>Open visual review</button>' : ''}</div></section>`;
 }
 function setupMarkup(state, preflight) {
@@ -99,7 +98,7 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
   const canDownload = state.slots.baseline.document || state.slots.candidate.document;
   const review = state.compare.reviewVisible && state.compare.audit && state.basisStatus === 'CURRENT';
   const content = review ? `${importedPackageMarkup(state)}${revisionCompareReviewMarkup(state, viewerEvidence)}` : setupMarkup(state, preflight);
-  return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
+  return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}${REVISION_VIEWER_SCENE_STATUS_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
 }
 export const _test = Object.freeze({
   axisOptions, clearControl, comparisonControlMarkup, compatibilityEvidenceTitle, compatibilityLine,
