@@ -4,6 +4,7 @@ import { serializeBendGeometryAudit } from '../adapters/bend-geometry-audit.js';
 import {
   buildBendReviewPackageManifest, serializeBendReviewPackageManifest,
 } from './bend-review-package.js';
+import { bendReviewVerifierHtml } from './bend-review-package-verifier.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -114,7 +115,7 @@ function reviewPackageHtml(manifest) {
   const content = encodeURIComponent(serializeBendReviewPackageManifest(manifest));
   const run = manifest.payload.comparison;
   const inputs = manifest.payload.inputs;
-  return `<div class="wb3d-card"><h4>Review package <span class="wb3d-badge">${esc(manifest.disposition)}</span></h4><div class="wb3d-toolbar"><span class="wb3d-muted">Package <code>${esc(manifest.packageSignature)}</code> · run <code>${esc(run.runSignature)}</code></span><a class="wb3d-btn wb3d-btn-mini" href="data:application/json;charset=utf-8,${content}" download="workbench-bend-review-package.json">Export review package</a></div><p class="wb3d-muted">Source <code>${esc(inputs.source.identitySignature)}</code> · Target <code>${esc(inputs.target.identitySignature)}</code> · deterministic read-only binding.</p></div>`;
+  return `<div class="wb3d-card"><h4>Review package <span class="wb3d-badge">${esc(manifest.disposition)}</span></h4><div class="wb3d-toolbar"><span class="wb3d-muted">Package <code>${esc(manifest.packageSignature)}</code> · run <code>${esc(run.runSignature)}</code></span><a class="wb3d-btn wb3d-btn-mini" href="data:application/json;charset=utf-8,${content}" download="workbench-bend-review-package.json">Export review package</a></div><p class="wb3d-muted">Source <code>${esc(inputs.source.identitySignature)}</code> · Target <code>${esc(inputs.target.identitySignature)}</code> · deterministic read-only binding.</p>${bendReviewVerifierHtml(manifest)}</div>`;
 }
 
 function sideHtml(side) {
