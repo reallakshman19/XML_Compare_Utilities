@@ -13,6 +13,12 @@ import {
   createRevisionCompareViewerPolicy,
 } from './revision-compare-viewer-policy.js';
 
+function defaultClock() { return globalThis.performance?.now?.() ?? Date.now(); }
+function clockFunction(value) {
+  const result = value ?? defaultClock;
+  if (typeof result !== 'function') throw new TypeError('Revision Compare viewer clock must be a function.');
+  return result;
+}
 function indexAudit(context, audit) {
   context.differenceByObjectId = new Map();
   context.rowByDifferenceId = new Map();
@@ -41,31 +47,46 @@ function jsonCopy(value) {
 }
 function safeSnapshot(viewer) { return jsonCopy(viewer?.getStateSnapshot?.() ?? null); }
 function auditIdentity(audit) { return audit?.auditId ?? audit?.basisId ?? null; }
-function resetPickEvidence(context) {
+function resetInteractionEvidence(context) {
   context.pickCount = 0;
   context.lastPickedObjectId = null;
   context.lastPickedDifferenceId = null;
+  context.fitSelectedCount = 0;
+  context.lastFitSelectedMs = null;
+  context.maxFitSelectedMs = null;
+  context.lastFitSelectedDifferenceId = null;
 }
-
+function finiteElapsed(startedAt, completedAt) {
+  const elapsed = Number(completedAt) - Number(startedAt);
+  return Number.isFinite(elapsed) ? Math.max(0, elapsed) : null;
+}
+function fitSelected(context) {
+  if (!context.selectedDifferenceId || !context.controller.evidence().mounted) return false;
+  const startedAt = context.clock();
+  const result = context.controller.fitSelection();
+  const elapsed = finiteElapsed(startedAt, context.clock());
+  context.fitSelectedCount += 1;
+  context.lastFitSelectedMs = elapsed;
+  if (elapsed != null) context.maxFitSelectedMs = Math.max(context.maxFitSelectedMs ?? 0, elapsed);
+  context.lastFitSelectedDifferenceId = context.selectedDifferenceId;
+  return result;
+}
 function applySelection(context) {
   const ids = previewObjectIds(context) ?? relatedObjectIds(rowById(context, context.selectedDifferenceId));
   context.controller.setSelection(ids[0] ?? null, ids.slice(1));
 }
-
 function presentation(context) {
   return Object.freeze({ audit: context.audit, mode: context.presentationMode });
 }
-
 function applyPresentation(viewer, value) {
   viewer.setModels({ source: value.audit.visualModels.revA, target: value.audit.visualModels.revB });
   viewer.setStatuses(new Map(Object.entries(value.audit.visualModels.statusByObjectId)));
   viewer.setMode(value.mode);
   viewer.setVerticalAxis(value.audit.visualModels.revA.verticalAxis);
 }
-
 async function renderViewer(context, hostElement, audit) {
   const identity = auditIdentity(audit);
-  if (context.auditIdentity !== identity) resetPickEvidence(context);
+  if (context.auditIdentity !== identity) resetInteractionEvidence(context);
   context.auditIdentity = identity;
   context.audit = audit;
   indexAudit(context, audit);
@@ -73,31 +94,27 @@ async function renderViewer(context, hostElement, audit) {
   applySelection(context);
   return context.controller.render(hostElement, presentation(context));
 }
-
 function clearViewer(context) {
   context.controller.clear();
   Object.assign(context, {
     audit: null, auditIdentity: null, host: null, selectedDifferenceId: null,
     previewSourceDifferenceId: null, previewTargetDifferenceId: null,
   });
-  resetPickEvidence(context);
+  resetInteractionEvidence(context);
   context.differenceByObjectId.clear();
   context.rowByDifferenceId.clear();
 }
-
 function setBackend(context, value) {
   const backend = normalizeRevisionCompareViewerBackend(value);
   if (!context.policy.retainedBackends.includes(backend)) throw new TypeError(`Viewer backend ${backend} is not retained by policy.`);
   return context.controller.setBackend(backend);
 }
-
 function setPresentationMode(context, value) {
   context.presentationMode = value === 'side-by-side' ? 'side-by-side' : 'overlay';
   if (!context.audit || !context.host || !context.controller.evidence().mounted) return true;
   context.controller.render(context.host, presentation(context));
   return !context.controller.evidence().failed;
 }
-
 function evidence(context) {
   const lifecycle = context.controller.evidence();
   return deepFreeze({
@@ -107,6 +124,8 @@ function evidence(context) {
     previewSourceDifferenceId: context.previewSourceDifferenceId, previewTargetDifferenceId: context.previewTargetDifferenceId,
     pickCount: context.pickCount, lastPickedObjectId: context.lastPickedObjectId,
     lastPickedDifferenceId: context.lastPickedDifferenceId,
+    fitSelectedCount: context.fitSelectedCount, lastFitSelectedMs: context.lastFitSelectedMs,
+    maxFitSelectedMs: context.maxFitSelectedMs, lastFitSelectedDifferenceId: context.lastFitSelectedDifferenceId,
     policy: context.policy, mountRequests: lifecycle.mountRequests,
     snapshots: lifecycle.snapshots, viewer: lifecycle.viewer,
   });
@@ -116,10 +135,13 @@ export function createRevisionCompareViewerAdapter(options = {}) {
   const webglFactory = options.webglViewerFactory ?? options.viewerFactory ?? createWorkbenchViewer;
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   const context = {
-    options, policy, controller: null, host: null, audit: null, auditIdentity: null,
+    options, policy, clock: clockFunction(options.clock), controller: null,
+    host: null, audit: null, auditIdentity: null,
     presentationMode: policy.defaultSvgPresentation,
     selectedDifferenceId: null, previewSourceDifferenceId: null, previewTargetDifferenceId: null,
     pickCount: 0, lastPickedObjectId: null, lastPickedDifferenceId: null,
+    fitSelectedCount: 0, lastFitSelectedMs: null, maxFitSelectedMs: null,
+    lastFitSelectedDifferenceId: null,
     differenceByObjectId: new Map(), rowByDifferenceId: new Map(), disposed: false,
   };
   context.controller = createEngineeringViewerController({
@@ -158,7 +180,7 @@ export function createRevisionCompareViewerAdapter(options = {}) {
       context.previewTargetDifferenceId = null;
       applySelection(context);
     },
-    fitSelected: () => (context.selectedDifferenceId ? context.controller.fitSelection() : false),
+    fitSelected: () => fitSelected(context),
     fitAll: () => context.controller.fitAll(),
     clear: () => clearViewer(context),
     dispose: () => {
