@@ -30,11 +30,19 @@ function band(value, index) {
     heapGrowthMaxBytes: positive(value.heapGrowthMaxBytes, `bands[${index}].heapGrowthMaxBytes`),
   });
 }
+function validateBandOrder(bands) {
+  let previous = 0;
+  bands.slice(0, -1).forEach((item, index) => {
+    if (item.maximumDrawablesExclusive <= previous) throw new RangeError(`bands[${index}].maximumDrawablesExclusive must increase.`);
+    previous = item.maximumDrawablesExclusive;
+  });
+}
 export function createRevisionViewerResponsivenessPolicy(value = REVISION_VIEWER_DEFAULT_RESPONSIVENESS_POLICY) {
   if (!Array.isArray(value?.bands) || !value.bands.length) throw new TypeError('Responsiveness policy bands are required.');
   const bands = value.bands.map(band);
   if (!bands.every((item) => item.bandId)) throw new TypeError('Every responsiveness band requires a bandId.');
   if (bands.at(-1).maximumDrawablesExclusive != null) throw new TypeError('The final responsiveness band must be unbounded.');
+  validateBandOrder(bands);
   return deepFreeze({
     policyId: String(value.policyId ?? '').trim() || 'revision-webgl-responsiveness/custom',
     samplingResolutionMs: positive(value.samplingResolutionMs, 'samplingResolutionMs'),
@@ -44,11 +52,16 @@ export function createRevisionViewerResponsivenessPolicy(value = REVISION_VIEWER
 function selectBand(policy, drawableCount) {
   return policy.bands.find((item) => item.maximumDrawablesExclusive == null || drawableCount < item.maximumDrawablesExclusive);
 }
-function finite(value) { return Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : null; }
+function finite(value) {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : null;
+}
 function timingMetric(value, limit, elapsed, terminalFailure) {
   const measured = finite(value);
   if (measured != null) return { status: measured <= limit ? 'PASS' : 'FAIL', value: measured, limit };
-  if (terminalFailure || finite(elapsed) > limit) return { status: 'FAIL', value: finite(elapsed), limit };
+  const current = finite(elapsed);
+  if (terminalFailure || (current != null && current > limit)) return { status: 'FAIL', value: current, limit };
   return { status: 'PENDING', value: null, limit };
 }
 function fitMetric(evidence, limit) {
@@ -64,8 +77,9 @@ function memoryMetric(observation, limit) {
 }
 function disposition(scene, metrics) {
   if (scene.requestedBackend !== 'WEBGL') return 'INACTIVE';
-  if ([metrics.scene.status, metrics.firstReady.status, metrics.fitSelected.status, metrics.memory.status].includes('FAIL')) return 'NOT_QUALIFIED';
-  if (scene.status !== 'READY' || [metrics.scene.status, metrics.firstReady.status, metrics.fitSelected.status].includes('PENDING')) return 'PENDING';
+  const statuses = [metrics.scene.status, metrics.firstReady.status, metrics.fitSelected.status, metrics.memory.status];
+  if (statuses.includes('FAIL')) return 'NOT_QUALIFIED';
+  if (scene.status !== 'READY' || statuses.slice(0, 3).includes('PENDING')) return 'PENDING';
   return 'QUALIFIED';
 }
 function messageFor(result) {
@@ -77,7 +91,10 @@ function messageFor(result) {
   return 'Waiting for the WebGL scene to become ready.';
 }
 function policyDisclosure(policy) {
-  const bands = policy.bands.map((item) => `${item.bandId}: drawables ${item.maximumDrawablesExclusive == null ? 'unbounded' : `< ${item.maximumDrawablesExclusive}`}, scene ≤ ${item.sceneObservedMaxMs} ms, first ready ≤ ${item.firstReadyMaxMs} ms, fit selected ≤ ${item.fitSelectedMaxMs} ms, heap growth ≤ ${Math.round(item.heapGrowthMaxBytes / MIB)} MiB`).join('; ');
+  const bands = policy.bands.map((item) => {
+    const drawables = item.maximumDrawablesExclusive == null ? 'unbounded' : `< ${item.maximumDrawablesExclusive}`;
+    return `${item.bandId}: drawables ${drawables}, scene ≤ ${item.sceneObservedMaxMs} ms, first ready ≤ ${item.firstReadyMaxMs} ms, fit selected ≤ ${item.fitSelectedMaxMs} ms, heap growth ≤ ${Math.round(item.heapGrowthMaxBytes / MIB)} MiB`;
+  }).join('; ');
   return `Product responsiveness policy ${policy.policyId}. Sampling resolution ${policy.samplingResolutionMs} ms. ${bands}. Memory is sampled only when the browser exposes performance.memory. These observations do not alter renderer, engineering, topology, comparison, persistence, or export authority.`;
 }
 export function revisionViewerResponsivenessModel(scene, viewerEvidence, observations = {}, policyValue) {
@@ -124,7 +141,16 @@ export function revisionViewerResponsivenessMarkup(model) {
   const metric = model.metrics;
   return `<section class="revc-performance-status" data-revc-performance-status data-status="${escapeHtml(model.disposition.toLowerCase())}"><header><div><span>WEBGL PERFORMANCE</span><b>Observed responsiveness</b><span class="revc-info-icon" tabindex="0" role="img" aria-label="Responsiveness policy and authority boundary" title="${escapeHtml(model.disclosure)}">ⓘ</span></div><strong data-revc-performance-disposition data-status="${escapeHtml(model.disposition.toLowerCase())}">${escapeHtml(model.disposition)}</strong></header><dl>${fact('Size band', model.bandId, 'data-revc-performance-band')}${fact('Drawables', model.drawableCount, 'data-revc-performance-drawables')}${fact('Scene completion', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`, 'data-revc-performance-scene', metric.scene.status)}${fact('First ready', `${formatMs(metric.firstReady.value)} / ${metric.firstReady.limit} ms`, 'data-revc-performance-ready', metric.firstReady.status)}${fact('Fit selected', `${formatMs(metric.fitSelected.value)} / ${metric.fitSelected.limit} ms`, 'data-revc-performance-fit', metric.fitSelected.status)}${fact('Fit samples', metric.fitSelected.count, 'data-revc-performance-fit-count')}${fact('Heap used', formatMemory(metric.memory.usedBytes), 'data-revc-performance-heap')}${fact('Peak heap growth', `${formatMemory(metric.memory.value)} / ${formatMemory(metric.memory.limit)}`, 'data-revc-performance-memory', metric.memory.status)}</dl><p data-revc-performance-message>${escapeHtml(model.message)}</p></section>`;
 }
-function setText(root, selector, value) { const element = root?.querySelector?.(selector); if (element) element.textContent = String(value); }
+function setText(root, selector, value) {
+  const element = root?.querySelector?.(selector);
+  if (element) element.textContent = String(value);
+}
+function setMetric(root, selector, value, status) {
+  const element = root?.querySelector?.(selector);
+  if (!element) return;
+  element.textContent = String(value);
+  element.setAttribute('data-status', status.toLowerCase());
+}
 export function applyRevisionViewerResponsiveness(root, model) {
   let host = root?.querySelector?.('[data-revc-performance-status]');
   if (!host) {
@@ -134,16 +160,19 @@ export function applyRevisionViewerResponsiveness(root, model) {
   if (!host) return false;
   host.setAttribute('data-status', model.disposition.toLowerCase());
   const dispositionNode = host.querySelector('[data-revc-performance-disposition]');
-  if (dispositionNode) { dispositionNode.textContent = model.disposition; dispositionNode.setAttribute('data-status', model.disposition.toLowerCase()); }
+  if (dispositionNode) {
+    dispositionNode.textContent = model.disposition;
+    dispositionNode.setAttribute('data-status', model.disposition.toLowerCase());
+  }
   const metric = model.metrics;
   setText(host, '[data-revc-performance-band]', model.bandId);
   setText(host, '[data-revc-performance-drawables]', model.drawableCount);
-  setText(host, '[data-revc-performance-scene]', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`);
-  setText(host, '[data-revc-performance-ready]', `${formatMs(metric.firstReady.value)} / ${metric.firstReady.limit} ms`);
-  setText(host, '[data-revc-performance-fit]', `${formatMs(metric.fitSelected.value)} / ${metric.fitSelected.limit} ms`);
+  setMetric(host, '[data-revc-performance-scene]', `${formatMs(metric.scene.value)} / ${metric.scene.limit} ms`, metric.scene.status);
+  setMetric(host, '[data-revc-performance-ready]', `${formatMs(metric.firstReady.value)} / ${metric.firstReady.limit} ms`, metric.firstReady.status);
+  setMetric(host, '[data-revc-performance-fit]', `${formatMs(metric.fitSelected.value)} / ${metric.fitSelected.limit} ms`, metric.fitSelected.status);
   setText(host, '[data-revc-performance-fit-count]', metric.fitSelected.count);
   setText(host, '[data-revc-performance-heap]', formatMemory(metric.memory.usedBytes));
-  setText(host, '[data-revc-performance-memory]', `${formatMemory(metric.memory.value)} / ${formatMemory(metric.memory.limit)}`);
+  setMetric(host, '[data-revc-performance-memory]', `${formatMemory(metric.memory.value)} / ${formatMemory(metric.memory.limit)}`, metric.memory.status);
   setText(host, '[data-revc-performance-message]', model.message);
   return true;
 }
