@@ -3,10 +3,7 @@ import { createEngineeringViewerController } from '../../core/engineering-viewer
 import { createWorkbenchViewer } from '../../workbench3d/viewer/workbench-viewer.js';
 import { createRevisionCompareEngineeringSvgViewer } from './revision-compare-engineering-svg-viewer.js';
 import { deepFreeze } from './revision-contract-utils.js';
-import {
-  REVISION_COMPARE_VIEWER_BACKEND,
-  normalizeRevisionCompareViewerBackend,
-} from './revision-compare-viewer-backend.js';
+import { normalizeRevisionCompareViewerBackend } from './revision-compare-viewer-backend.js';
 import { createRevisionCompareViewerFactory } from './revision-compare-viewer-contract.js';
 import {
   REVISION_COMPARE_DEFAULT_VIEWER_POLICY,
