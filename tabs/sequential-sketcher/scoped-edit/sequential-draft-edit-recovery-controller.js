@@ -63,8 +63,8 @@ function render(state) {
   state.detail.textContent = record
     ? `Branch: ${record.authority.branchId}\nSaved: ${record.savedAt}\nTarget: ${record.targetEvidence.targetId}\nValues: ${JSON.stringify(record.input)}`
     : state.warning ? 'No pending draft. Crash recovery storage is unavailable or stale.' : 'No pending draft.';
-  state.restore.disabled = !record || state.destroyed;
-  state.discard.disabled = !record || state.destroyed;
+  state.restore.disabled = !record || state.destroyed || state.restoring;
+  state.discard.disabled = !record || state.destroyed || state.restoring;
   state.status.textContent = state.notice || 'Recovery is pending work only and never publishes.';
 }
 function diagnostic(state, code, error = null) {
@@ -168,26 +168,42 @@ function clear(state, kind, reason = 'cleared') {
   state.warning = false; state.suppressed.clear(); state.notice = `${kind} recovery cleared: ${reason}.`;
   refresh(state); return removed;
 }
-function restore(state) {
+function ensureCurrentRecord(state, record) {
+  if (state.record?.recordFingerprint !== record.recordFingerprint) {
+    throw new RangeError('Pending draft changed while Draft Edit 3D was opening.');
+  }
+  if (!sequentialDraftEditRecoveryContextMatches(record, currentContext(state, record.kind))) {
+    throw new RangeError('Pending draft ancestry changed before restore.');
+  }
+}
+async function restore(state) {
   const record = state.record;
-  if (!record) return null;
+  if (!record || state.restoring) return null;
+  state.restoring = true;
+  state.notice = `${record.kind} recovery is opening Draft Edit 3D for current-authority review.`;
+  render(state);
   try {
-    if (!sequentialDraftEditRecoveryContextMatches(record, currentContext(state, record.kind))) {
-      throw new RangeError('Pending draft ancestry changed before restore.');
-    }
-    const result = requiredFunction(state.restoreHandlers[record.kind],
+    ensureCurrentRecord(state, record);
+    const activated = await state.beforeRestore(record);
+    if (activated === false) throw new Error('Draft Edit 3D could not be opened for recovery.');
+    if (state.destroyed) return null;
+    ensureCurrentRecord(state, record);
+    const result = await requiredFunction(state.restoreHandlers[record.kind],
       `restoreHandlers.${record.kind}`)(record);
-    state.suppressed.add(record.recordFingerprint); state.record = null;
+    state.suppressed.add(record.recordFingerprint); state.record = null; state.warning = false;
     state.notice = `${record.kind} draft restored to preview. Prepare and Apply remain explicit.`;
-    render(state); return result;
+    return result;
   } catch (error) {
     state.storage.remove(record.authority.branchId, record.kind); state.record = null;
-    diagnostic(state, 'DRAFT_EDIT_RECOVERY_RESTORE_REJECTED', error); render(state); return null;
+    diagnostic(state, 'DRAFT_EDIT_RECOVERY_RESTORE_REJECTED', error); return null;
+  } finally {
+    state.restoring = false;
+    if (!state.destroyed) render(state);
   }
 }
 function discard(state) {
   const record = state.record;
-  if (!record) return false;
+  if (!record || state.restoring) return false;
   state.storage.remove(record.authority.branchId, record.kind);
   state.warning = false; state.suppressed.delete(record.recordFingerprint); state.record = null;
   state.notice = `${record.kind} pending draft discarded. Accepted authority was unchanged.`;
@@ -202,6 +218,7 @@ export function createSequentialDraftEditRecoveryController(options = {}) {
     root, panel, storage: options.storage,
     readContext: requiredFunction(options.readContext, 'readContext'),
     now: requiredFunction(options.now, 'now'),
+    beforeRestore: requiredFunction(options.beforeRestore || (async () => true), 'beforeRestore'),
     restoreHandlers: options.restoreHandlers || {},
     onDiagnostic: requiredFunction(options.onDiagnostic || (() => {}), 'onDiagnostic'),
     kind: required(root, '[data-ssk-draft-recovery-kind]'),
@@ -209,13 +226,14 @@ export function createSequentialDraftEditRecoveryController(options = {}) {
     restore: required(root, '[data-ssk-draft-recovery-restore]'),
     discard: required(root, '[data-ssk-draft-recovery-discard]'),
     status: required(root, '[data-ssk-draft-recovery-status]'),
-    record: null, notice: null, warning: false, suppressed: new Set(), lastBranchId: null, destroyed: false,
+    record: null, notice: null, warning: false, suppressed: new Set(), lastBranchId: null,
+    restoring: false, destroyed: false,
   };
   if (!state.storage?.save || !state.storage?.forBranch || !state.storage?.remove) {
     throw new TypeError('Draft recovery controller requires a recovery storage owner.');
   }
   syncStorageWarning(state);
-  const onRestore = () => restore(state); const onDiscard = () => discard(state);
+  const onRestore = () => { void restore(state); }; const onDiscard = () => discard(state);
   state.restore.addEventListener('click', onRestore); state.discard.addEventListener('click', onDiscard);
   render(state);
   return Object.freeze({
@@ -225,7 +243,7 @@ export function createSequentialDraftEditRecoveryController(options = {}) {
     refresh: () => refresh(state),
     restore: () => restore(state), discard: () => discard(state),
     getState: () => Object.freeze({ record: state.record, notice: state.notice, warning: state.warning,
-      storage: state.storage.getState?.() || null, destroyed: state.destroyed }),
+      restoring: state.restoring, storage: state.storage.getState?.() || null, destroyed: state.destroyed }),
     destroy() {
       if (state.destroyed) return false;
       state.destroyed = true; state.restore.removeEventListener('click', onRestore);
