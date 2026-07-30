@@ -12,6 +12,7 @@ await import('./revision-basis-approval-readiness.test.mjs');
 await import('./revision-compare-sequential-source-recovery.test.mjs');
 await import('./revision-viewer-scene-status.test.mjs');
 await import('./revision-viewer-responsiveness.test.mjs');
+await import('./revision-responsiveness-observation-receipt.test.mjs');
 await import('./revision-viewer-backend-lineage.test.mjs');
 await import('./revision-compare-rc003-contracts.test.mjs');
 await import('./revision-compare-rc003-priority.test.mjs');
