@@ -1,15 +1,25 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
+import { stableStringify } from '../tabs/revision-compare/revision-contract-utils.js';
 import { createRevisionComparisonBasis } from '../tabs/revision-compare/revision-comparison-basis.js';
 import {
   REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA,
   REVISION_COMPARE_EVIDENCE_PACKAGE_V2_SCHEMA,
+  REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA,
   createRevisionCompareEvidencePackage,
   revisionCompareEvidencePackageHashMaterial,
   serializeRevisionCompareEvidencePackage,
 } from '../tabs/revision-compare/revision-evidence-package.js';
 import { verifyRevisionCompareEvidencePackageJson } from '../tabs/revision-compare/revision-evidence-package-import.js';
 import { createRevisionResponsivenessObservationReceipt } from '../tabs/revision-compare/revision-responsiveness-observation-receipt.js';
+import {
+  REVISION_RESPONSIVENESS_SIGNATURE_ALGORITHM,
+  REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX,
+  REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA,
+  revisionResponsivenessSignatureReceiptHashMaterial,
+  revisionResponsivenessSignatureSubject,
+  serializeRevisionResponsivenessSignaturePayload,
+} from '../tabs/revision-compare/revision-responsiveness-receipt-signature.js';
 import { revisionComparisonPreflight } from '../tabs/revision-compare/revision-preflight.js';
 import { attachProjectDocument, createProjectDocument, createProjectSession } from '../tabs/revision-compare/revision-session-contracts.js';
 import { createReviewSession, setReviewItemNote } from '../tabs/revision-compare/revision-review-session.js';
@@ -18,6 +28,7 @@ import { sha256Text } from '../tabs/revision-compare/revision-hash.js';
 
 const NOW = '2026-07-30T12:00:00.000Z';
 const LATER = '2026-07-30T12:05:00.000Z';
+const SIGNED_AT = '2026-07-30T12:10:00.000Z';
 const hash = (character) => character.repeat(64);
 function documentFor(slotId, role, character) {
   return createProjectDocument({
@@ -125,10 +136,39 @@ async function attachmentFor(value) {
   }, webcrypto);
   return Object.freeze({ status: 'VERIFIED_CURRENT', runId, receipt });
 }
-async function rehash(value) {
+async function signatureAttachmentFor(attachment) {
+  const keys = await webcrypto.subtle.generateKey({ name: 'RSA-PSS', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
+  const publicKeyJwk = await webcrypto.subtle.exportKey('jwk', keys.publicKey);
+  const signerClaim = { displayName: 'External Runtime Reviewer', role: 'Verifier', organization: 'Example Engineering', issuer: null, keyId: 'runtime-rsa-001' };
+  const trustBoundary = { identityStatus: 'EXTERNALLY_ASSERTED', trustStatus: 'NOT_ESTABLISHED' };
+  const subject = revisionResponsivenessSignatureSubject(attachment.receipt);
+  const payload = serializeRevisionResponsivenessSignaturePayload(subject, signerClaim, SIGNED_AT, trustBoundary);
+  const signatureBytes = new Uint8Array(await webcrypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keys.privateKey, new TextEncoder().encode(payload)));
+  const signatureReceipt = {
+    schema: REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA, receiptId: '', contentSha256: '', subject, signerClaim,
+    signature: {
+      algorithm: REVISION_RESPONSIVENESS_SIGNATURE_ALGORITHM, publicKeyJwk,
+      publicKeySha256: await sha256Text(stableStringify(publicKeyJwk), webcrypto),
+      signedPayloadSha256: await sha256Text(payload, webcrypto), signatureBase64Url: Buffer.from(signatureBytes).toString('base64url'), signedAt: SIGNED_AT,
+    },
+    trustBoundary,
+  };
+  signatureReceipt.contentSha256 = await sha256Text(stableStringify(revisionResponsivenessSignatureReceiptHashMaterial(signatureReceipt)), webcrypto);
+  signatureReceipt.receiptId = `${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX}${signatureReceipt.contentSha256}`;
+  return Object.freeze({ ...attachment, signatureStatus: 'VERIFIED', signatureReceipt: Object.freeze(signatureReceipt) });
+}
+async function rehashPackage(value) {
   value.contentSha256 = await sha256Text(JSON.stringify(revisionCompareEvidencePackageHashMaterial(value)), webcrypto);
   value.packageId = `revision-evidence-package:${value.contentSha256}`;
   return JSON.stringify(value);
+}
+async function rehashSignature(value) {
+  const signature = value.payload.responsivenessSignatureReceipt;
+  signature.contentSha256 = await sha256Text(stableStringify(revisionResponsivenessSignatureReceiptHashMaterial(signature)), webcrypto);
+  signature.receiptId = `${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX}${signature.contentSha256}`;
+  value.identity.responsivenessSignatureReceiptId = signature.receiptId;
+  value.identity.responsivenessSignatureReceiptContentSha256 = signature.contentSha256;
+  return rehashPackage(value);
 }
 
 const value = await authority();
@@ -143,27 +183,63 @@ assert.equal(v2.identity.responsivenessReceiptId, attachment.receipt.receiptId);
 assert.equal(v2.identity.responsivenessReceiptContentSha256, attachment.receipt.contentSha256);
 assert.equal(v2.authorityStatus.responsivenessReceiptStatus, 'VERIFIED_CURRENT_AT_EXPORT');
 assert.notEqual(v2.contentSha256, v1.contentSha256);
-const repeated = await createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, attachment);
-assert.equal(serializeRevisionCompareEvidencePackage(repeated), serializeRevisionCompareEvidencePackage(v2));
+const repeatedV2 = await createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, attachment);
+assert.equal(serializeRevisionCompareEvidencePackage(repeatedV2), serializeRevisionCompareEvidencePackage(v2));
 
-const verified = await verifyRevisionCompareEvidencePackageJson(JSON.stringify(v2), 'attached.json', LATER, webcrypto);
-assert.equal(verified.receipt.packageId, v2.packageId);
-assert.equal(verified.receipt.responsivenessReceiptAttached, true);
-assert.equal(verified.receipt.responsivenessReceiptId, attachment.receipt.receiptId);
-assert.equal(verified.receipt.responsivenessReceiptContentSha256, attachment.receipt.contentSha256);
-assert.equal(verified.receipt.responsivenessReceiptIntegrityStatus, 'VERIFIED');
-assert.equal(verified.responsivenessReceiptVerification.authenticityStatus, 'NOT_ESTABLISHED');
-assert.equal(verified.responsivenessReceiptVerification.receipt.observation.runId, attachment.runId);
+const verifiedV2 = await verifyRevisionCompareEvidencePackageJson(JSON.stringify(v2), 'attached-v2.json', LATER, webcrypto);
+assert.equal(verifiedV2.receipt.packageId, v2.packageId);
+assert.equal(verifiedV2.receipt.responsivenessReceiptAttached, true);
+assert.equal(verifiedV2.receipt.responsivenessReceiptIntegrityStatus, 'VERIFIED');
+assert.equal(verifiedV2.responsivenessReceiptVerification.authenticityStatus, 'NOT_ESTABLISHED');
+
+const signedAttachment = await signatureAttachmentFor(attachment);
+const v3 = await createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, signedAttachment);
+assert.equal(v3.schema, REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA);
+assert.deepEqual(v3.payload.responsivenessReceipt, attachment.receipt);
+assert.deepEqual(v3.payload.responsivenessSignatureReceipt, signedAttachment.signatureReceipt);
+assert.equal(v3.identity.responsivenessSignatureReceiptId, signedAttachment.signatureReceipt.receiptId);
+assert.equal(v3.identity.responsivenessSignatureReceiptContentSha256, signedAttachment.signatureReceipt.contentSha256);
+assert.equal(v3.identity.responsivenessSignaturePublicKeySha256, signedAttachment.signatureReceipt.signature.publicKeySha256);
+assert.equal(v3.authorityStatus.responsivenessSignatureStatus, 'CRYPTOGRAPHICALLY_VERIFIED_AT_EXPORT');
+assert.equal(v3.authorityStatus.responsivenessSignatureIdentityStatus, 'EXTERNALLY_ASSERTED');
+assert.equal(v3.authorityStatus.responsivenessSignatureTrustStatus, 'NOT_ESTABLISHED');
+assert.notEqual(v3.contentSha256, v2.contentSha256);
+const repeatedV3 = await createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, signedAttachment);
+assert.equal(serializeRevisionCompareEvidencePackage(repeatedV3), serializeRevisionCompareEvidencePackage(v3));
+
+const verifiedV3 = await verifyRevisionCompareEvidencePackageJson(JSON.stringify(v3), 'attached-v3.json', LATER, webcrypto);
+assert.equal(verifiedV3.receipt.packageId, v3.packageId);
+assert.equal(verifiedV3.receipt.responsivenessSignatureReceiptAttached, true);
+assert.equal(verifiedV3.receipt.responsivenessSignatureCryptographicStatus, 'VALID');
+assert.equal(verifiedV3.receipt.responsivenessSignatureIdentityStatus, 'EXTERNALLY_ASSERTED');
+assert.equal(verifiedV3.receipt.responsivenessSignatureTrustStatus, 'NOT_ESTABLISHED');
+assert.equal(verifiedV3.responsivenessSignatureVerification.receiptId, signedAttachment.signatureReceipt.receiptId);
+assert.equal(verifiedV3.responsivenessSignatureVerification.trustStatus, 'NOT_ESTABLISHED');
 
 await assert.rejects(
   () => createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, { ...attachment, status: 'VERIFIED_HISTORICAL' }),
   /verified for the current active run/i,
 );
+await assert.rejects(
+  () => createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, { ...signedAttachment, signatureStatus: 'FAILED' }),
+  /signature attachment must be verified/i,
+);
 const wrongAuthority = structuredClone(attachment); wrongAuthority.receipt.audit.auditId = 'audit:other';
 await assert.rejects(() => createRevisionCompareEvidencePackage(value.state, value.preflight, webcrypto, wrongAuthority), /does not match/i);
-const tampered = structuredClone(v2); tampered.payload.responsivenessReceipt.observation.metrics.scene.value += 1;
+const tamperedReceipt = structuredClone(v2); tamperedReceipt.payload.responsivenessReceipt.observation.metrics.scene.value += 1;
 await assert.rejects(
-  () => verifyRevisionCompareEvidencePackageJson(await rehash(tampered), 'tampered.json', LATER, webcrypto),
+  () => verifyRevisionCompareEvidencePackageJson(await rehashPackage(tamperedReceipt), 'tampered-receipt.json', LATER, webcrypto),
   /Content SHA-256 does not match canonical receipt content/i,
+);
+const tamperedSignature = structuredClone(v3);
+tamperedSignature.payload.responsivenessSignatureReceipt.signerClaim.displayName = 'Altered Reviewer';
+await assert.rejects(
+  () => verifyRevisionCompareEvidencePackageJson(await rehashSignature(tamperedSignature), 'tampered-signature.json', LATER, webcrypto),
+  /Signed-payload SHA-256|signature is invalid/i,
+);
+const relabeled = structuredClone(v2); relabeled.schema = REVISION_COMPARE_EVIDENCE_PACKAGE_V3_SCHEMA;
+await assert.rejects(
+  () => verifyRevisionCompareEvidencePackageJson(await rehashPackage(relabeled), 'relabeled.json', LATER, webcrypto),
+  /unless a responsivenessSignatureReceipt attachment is present/i,
 );
 console.log('revision-evidence-package-responsiveness-receipt.test.mjs passed');
