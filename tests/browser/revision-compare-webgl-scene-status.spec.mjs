@@ -153,8 +153,8 @@ test('representative Sequential source exposes real Workbench scene, fit and pic
   expect(finalEvidence.scene.status).toBe('READY');
 });
 
-test('large Sequential comparison exposes a completed responsiveness disposition', async ({ page }) => {
-  test.setTimeout(150_000);
+test('large Sequential comparison can rerun the real Workbench responsiveness measurement', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await installResponsivenessPolicy(page);
   await page.getByRole('button', { name: 'Open Revision Compare' }).click();
@@ -169,6 +169,7 @@ test('large Sequential comparison exposes a completed responsiveness disposition
   await expect(page.locator('[data-revc-scene-state]')).toHaveText('READY', { timeout: 60_000 });
   const performance = page.locator('[data-revc-performance-status]');
   await expect(performance).toBeVisible();
+  await expect(performance.locator('[data-revc-performance-run]')).toHaveText('Run 1');
   await expect(performance.locator('[data-revc-performance-band]')).toHaveText('BALANCED');
   expect(await numericText(performance.locator('[data-revc-performance-drawables]'))).toBeGreaterThanOrEqual(3000);
   await expect(performance.locator('[data-revc-performance-scene]')).not.toContainText('Pending');
@@ -178,14 +179,28 @@ test('large Sequential comparison exposes a completed responsiveness disposition
   await page.locator('[data-revc-difference-id]').first().click();
   await page.getByRole('button', { name: 'Fit selected' }).click();
   await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
-  await expect(performance.locator('[data-revc-performance-fit]')).not.toContainText('Pending');
+  await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
+  const skippedBefore = await page.evaluate(() => window.rcHandle.evidence().viewer.viewer.skippedRebuildCount);
+  const pickCountBefore = await page.evaluate(() => window.rcHandle.evidence().viewer.pickCount);
+
+  await performance.getByRole('button', { name: 'Rerun measurement' }).click();
+  await expect(performance.locator('[data-revc-performance-run]')).toHaveText('Run 2');
+  await expect(performance.locator('[data-revc-performance-fit-count]')).toHaveText('0');
+  await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('PENDING');
+  await expect(page.locator('[data-revc-scene-selection]')).not.toHaveText('None');
+  await expect.poll(() => page.evaluate(() => window.rcHandle.evidence().viewer.viewer.skippedRebuildCount), { timeout: 60_000 })
+    .toBeGreaterThan(skippedBefore);
+  expect(await page.evaluate(() => window.rcHandle.evidence().viewer.pickCount)).toBe(pickCountBefore);
+
+  await page.getByRole('button', { name: 'Fit selected' }).click();
+  await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
   await expect(performance.locator('[data-revc-performance-heap]')).toHaveText(/Unavailable|MiB/);
-  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /browser-large-model-policy/);
+  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /Rerun measurement clears only runtime timing observations/);
 
   const evidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence()));
-  expect(evidence.scene.sceneRuntimeObservedMs).not.toBeNull();
-  expect(evidence.scene.firstReadyMs).not.toBeNull();
+  expect(evidence.scene.runSequence).toBe(2);
+  expect(evidence.scene.runId).toMatch(/run:2$/);
   expect(evidence.scene.responsiveness.bandId).toBe('BALANCED');
   expect(evidence.scene.responsiveness.disposition).toBe('QUALIFIED');
   expect(evidence.viewer.fitSelectedCount).toBeGreaterThan(0);
