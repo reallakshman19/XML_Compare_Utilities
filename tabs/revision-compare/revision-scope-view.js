@@ -1,6 +1,7 @@
 /** Scope confirmation markup for common and one-sided branches. */
 import { revisionBasisApprovalReadiness } from './revision-compare-readiness.js';
 import { revisionScopeBatchModel } from './revision-scope-filter-batch.js';
+import { revisionScopeFilterResetModel } from './revision-scope-filter-reset.js';
 import { revisionScopeResetModel } from './revision-scope-reset.js';
 import { revisionVisualMetadataRecoveryModel } from './revision-visual-metadata-navigation.js';
 
@@ -70,6 +71,16 @@ function approvalStatusMarkup(state, readiness) {
   return `<div class="revc-session-actions"><small data-revc-basis-approval-status="blocked">${escapeHtml(guidance)}</small><button type="button" data-revc-resolve-visual-metadata aria-controls="${recovery.targetId}">Resolve visual metadata</button></div>`;
 }
 
+function filterResetMarkup(state) {
+  const reset = revisionScopeFilterResetModel(state);
+  const imported = state.evidencePackageImport?.status === 'VERIFIED';
+  if (!reset.visible || imported) return '';
+  return `<div class="revc-session-actions" data-revc-filter-reset-status>
+    <small>${escapeHtml(reset.message)}</small>
+    <button type="button" data-revc-clear-scope-filters data-revc-filter-count="${reset.activeCount}">${escapeHtml(reset.label)}</button>
+  </div>`;
+}
+
 function scopeResetMarkup(state) {
   const reset = revisionScopeResetModel(state);
   const imported = state.evidencePackageImport?.status === 'VERIFIED';
@@ -104,7 +115,7 @@ export function revisionScopeMarkup(state, preflight) {
       ${groupMarkup('revBOnly', 'Rev B only', 'Included as future addition candidates.', state)}
     </div>
     <div class="revc-scope-footer">
-      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span>${approvalStatusMarkup(state, approval)}${scopeResetMarkup(state)}</div>
+      <div><b>Active basis</b><span>${summary.includedBranchCountA} Rev A branches · ${summary.includedBranchCountB} Rev B branches · ${summary.excludedBranchCount} excluded</span>${approvalStatusMarkup(state, approval)}${filterResetMarkup(state)}${scopeResetMarkup(state)}</div>
       <div class="revc-actions">
         <button type="button" data-revc-download-scope>Download scope/basis manifest</button>
         <button type="button" class="revc-primary" data-revc-approve-basis ${disabled}>Approve comparison basis</button>
@@ -113,4 +124,4 @@ export function revisionScopeMarkup(state, preflight) {
   </section>`;
 }
 
-export const _test = Object.freeze({ approvalStatusMarkup, batchButtons, branchRow, emptyText, escapeHtml, filterNote, groupMarkup, scopeResetMarkup });
+export const _test = Object.freeze({ approvalStatusMarkup, batchButtons, branchRow, emptyText, escapeHtml, filterNote, filterResetMarkup, groupMarkup, scopeResetMarkup });
