@@ -46,5 +46,12 @@ export function resolveSourceOrientation(object) {
   if (endpoints.size !== 2 || !endpoints.has(fromNode) || !endpoints.has(toNode)) {
     return invalid('BEND_SOURCE_ORIENTATION_CONFLICT', 'Canonical source orientation conflicts with the object endpoints.');
   }
-  return { ok: true, fromNode, toNode, evidence: 'SOURCE_ORIENTATION_V1' };
+  const rawIndex = Number(orientation.rawIndex);
+  return {
+    ok: true,
+    fromNode,
+    toNode,
+    rawIndex: Number.isInteger(rawIndex) ? rawIndex : null,
+    evidence: 'SOURCE_ORIENTATION_V1',
+  };
 }
