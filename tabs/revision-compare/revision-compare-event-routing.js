@@ -31,7 +31,7 @@ function responsivenessReceiptFileChange(actions, target) {
 function responsivenessSignatureFileChange(actions, target) {
   const file = target.files?.[0];
   target.value = '';
-  if (file) actions.importResponsivenessSignature(file);
+  if (file) actions.importResponsivenessReceipt(file, 'signature');
 }
 
 function comparisonButton(actions, button) {
