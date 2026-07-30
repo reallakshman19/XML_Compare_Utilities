@@ -24,10 +24,12 @@ import {
   BEND_REVIEW_HISTORY_LIMIT,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
+  bendReviewHistorySummaryHtml,
   clearBendReviewHistory,
   filterBendReviewHistory,
   getBendReviewHistory,
   recordBendReviewHistory,
+  summarizeBendReviewHistory,
 } from '../workbench3d/ui/bend-review-verification-history.js';
 
 const bendAudit = (signature) => ({
@@ -100,6 +102,11 @@ assert.strictEqual(bendReviewHistoryCount(history), '2 checks');
 assert.match(bendReviewHistoryHtml(history), /STALE CURRENT PACKAGE/);
 assert.match(bendReviewHistoryHtml(history), new RegExp(receipt.receiptSignature));
 assert.doesNotMatch(bendReviewHistoryHtml(history), /sourceXml|targetXml|<A\/>/);
+assert.deepStrictEqual(summarizeBendReviewHistory(history),
+  { total: 2, match: 1, stale: 1, invalid: 0, other: 0 });
+assert.match(bendReviewHistorySummaryHtml(history), /Match 1/);
+assert.match(bendReviewHistorySummaryHtml(history), /Stale 1/);
+assert.match(bendReviewHistorySummaryHtml(history), /Invalid 0/);
 
 const currentOnly = filterBendReviewHistory(
   history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, current.packageSignature,
@@ -108,6 +115,8 @@ assert.strictEqual(currentOnly.length, 1);
 assert.strictEqual(currentOnly[0].kind, BEND_REVIEW_HISTORY_KIND.PACKAGE);
 assert.strictEqual(getBendReviewHistory().length, 2);
 assert.strictEqual(bendReviewHistoryCount(currentOnly, history), '1 of 2 checks');
+assert.deepStrictEqual(summarizeBendReviewHistory(currentOnly),
+  { total: 1, match: 1, stale: 0, invalid: 0, other: 0 });
 const changedOnly = filterBendReviewHistory(
   history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, changedCurrent.packageSignature,
 );
@@ -118,6 +127,11 @@ assert.strictEqual(filterBendReviewHistory(
   history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, 'wb3d-review-missing',
 ).length, 0);
 assert.match(bendReviewHistoryHtml([], 'No checks match <current>.'), /&lt;current&gt;/);
+const categorized = summarizeBendReviewHistory([...history,
+  { status: 'INVALID_RECEIPT' }, { status: 'UNAVAILABLE' }]);
+assert.deepStrictEqual(categorized, { total: 4, match: 1, stale: 1, invalid: 1, other: 1 });
+assert.match(bendReviewHistorySummaryHtml([...history, { status: 'UNAVAILABLE' }]), /Other 1/);
+assert.match(bendReviewHistoryHtml([], 'No checks.'), /data-verification-history-summary/);
 
 for (let index = 0; index < BEND_REVIEW_HISTORY_LIMIT + 2; index += 1) {
   recordBendReviewHistory({ checkKind: BEND_REVIEW_HISTORY_KIND.PACKAGE, verification: matching,
