@@ -92,8 +92,11 @@ function restoreScroll(root, scroll) {
 
 function rerenderEvent(event) {
   const target = event.target;
-  if (event.type === 'input') return target.matches?.('[data-revc-search], [data-revc-queue-search], [data-revc-review-search]');
-  if (event.type === 'change') return target.matches?.('[data-revc-search], [data-revc-branch-id]');
+  if (event.type === 'input') {
+    if (event.isComposing && target.matches?.('[data-revc-search]')) return false;
+    return target.matches?.('[data-revc-search], [data-revc-queue-search], [data-revc-review-search]');
+  }
+  if (event.type === 'change') return target.matches?.('[data-revc-branch-id]');
   return event.type === 'click' && target.closest?.('[data-revc-group]');
 }
 
