@@ -10,6 +10,7 @@ import {
   createRevisionWorkspaceState,
   setWorkspaceDecisionUnresolvedOnly,
   setWorkspaceNeedsDecision,
+  setWorkspaceQueueSearch,
   setWorkspaceReviewSearch,
   toggleWorkspaceCategory,
   toggleWorkspaceChangedReason,
@@ -22,6 +23,7 @@ const NOW = '2026-07-30T03:00:00.000Z';
 function filteredWorkspace() {
   let state = createRevisionWorkspaceState('review-filter-reset-session', NOW);
   state = setWorkspaceReviewSearch(state, '  pump  ');
+  state = setWorkspaceQueueSearch(state, 'legacy-queue-search');
   state = toggleWorkspaceReviewFilter(state, 'reviewStates', 'REVIEWED');
   state = toggleWorkspaceCategory(state, 'REMOVED');
   state = toggleWorkspaceReviewFilter(state, 'certainties', 'EXACT');
@@ -82,6 +84,7 @@ function assertPureReset(state) {
   assert.deepEqual(result.state.compare.queue.categories, ['CHANGED', 'ADDED', 'REMOVED']);
   assert.deepEqual(result.state.compare.queue.changedReasons, ['GEOMETRY', 'PROPERTIES', 'CONNECTIVITY', 'SUPPORT_HIERARCHY']);
   assert.equal(result.state.compare.queue.needsDecisionOnly, false);
+  assert.equal(result.state.compare.queue.search, 'legacy-queue-search');
   assert.equal(result.state.review.filters.search, '');
   assert.equal(result.state.review.filters.reviewStates.length, 4);
   assert.equal(result.state.review.filters.certainties.length, 4);
