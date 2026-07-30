@@ -214,6 +214,12 @@ function installRecovery(state) {
   return createSequentialDraftEditRecoveryController({ root: state.root,
     storage: state.options.recoveryStorage, readContext: (kind) => recoveryContext(state, kind),
     now: state.options.recoverySavedAtProvider || state.options.commandIssuedAtProvider,
+    beforeRestore: async () => {
+      if (state.active) return true;
+      const opened = await show3d(state);
+      if (!opened) throw new Error('Draft Edit 3D could not be opened for pending-draft recovery.');
+      return true;
+    },
     restoreHandlers: {
       MOVE_COMPONENT: (record) => state.componentEdit.restoreRecovery(record),
       STRETCH_NODE: (record) => state.componentEdit.restoreRecovery(record),
@@ -242,7 +248,7 @@ function installFeatures(state) {
       onModeChanged: (mode) => announce(state, `Component operation mode: ${mode}.`),
       onRecoveryDraft: (kind, descriptor) => state.recovery?.capture(kind, descriptor),
       onRecoveryClear: (kind, reason) => state.recovery?.clear(kind, reason) });
-    state.recovery = installRecovery(state);
+    state.recovery = installRecovery(state); state.recovery?.refresh();
     state.onClick = (event) => handleClick(state, event);
     state.unsubscribe = state.workspace.subscribeEngineeringSvgOwnerState(() => scheduleRefresh(state));
     if (typeof state.unsubscribe !== 'function') throw new TypeError('Sequential owner subscription must return an unsubscribe function.');
