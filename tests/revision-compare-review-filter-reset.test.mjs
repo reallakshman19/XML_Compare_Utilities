@@ -18,11 +18,11 @@ function activatedWorkspace() {
     visualMetadataDeclaration: Object.freeze({ declarationId: 'declaration-1' }),
     compare: Object.freeze({ ...base.compare,
       audit: Object.freeze({ auditId: 'audit-1' }), selectedDifferenceId: 'difference-1',
-      queue: Object.freeze({ ...base.compare.queue,
+      queue: Object.freeze({ ...base.compare.queue, search: 'legacy-queue-search',
         categories: Object.freeze(['CHANGED']), changedReasons: Object.freeze(['GEOMETRY']), needsDecisionOnly: true }) }),
     review: Object.freeze({ ...base.review,
       session: Object.freeze({ reviewSessionId: 'review-1' }),
-      filters: Object.freeze({ ...base.review.filters,
+      filters: Object.freeze({ ...base.review.filters, categories: Object.freeze(['ADDED', 'CHANGED']),
         search: ' pump ', reviewStates: Object.freeze(['UNREVIEWED']), certainties: Object.freeze(['AMBIGUOUS']) }) }),
     decision: Object.freeze({ ...base.decision,
       ledger: Object.freeze({ ledgerId: 'ledger-1' }),
@@ -64,6 +64,8 @@ function assertPureReset(state) {
   const result = clearRevisionReviewFilters(state);
   assert.equal(result.message, 'Cleared 8 review filters.');
   assert.equal(result.state.message, result.message);
+  assert.equal(result.state.compare.queue.search, 'legacy-queue-search');
+  assert.deepEqual(result.state.review.filters.categories, ['ADDED', 'CHANGED']);
   assert.equal(result.state.review.filters.search, '');
   assert.equal(result.state.compare.queue.needsDecisionOnly, false);
   assert.equal(result.state.decision.filters.unresolvedOnly, false);
