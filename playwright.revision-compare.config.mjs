@@ -10,6 +10,7 @@ export default defineConfig({
     'revision-compare-rc004.spec.mjs',
     'revision-compare-layout.spec.mjs',
     'revision-compare-svg-preview.spec.mjs',
+    'revision-compare-webgl-scene-status.spec.mjs',
     'revision-compare-property-evidence.spec.mjs',
     'revision-compare-property-lifecycle.spec.mjs',
     'revision-compare-svg-first-policy.spec.mjs',
