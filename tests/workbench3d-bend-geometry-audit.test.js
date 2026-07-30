@@ -4,6 +4,7 @@ import {
   buildBendGeometryAudit, serializeBendGeometryAudit,
 } from '../workbench3d/adapters/bend-geometry-audit.js';
 import { bendDiagnosticsPanelHtml, buildBendDiagnosticsModel } from '../workbench3d/ui/bend-diagnostics-panel.js';
+import './workbench3d-bend-review-package.test.js';
 
 function plan(prefix, reverse = false, radiusMm = 200) {
   const arc = (id, incoming, outgoing, corner, radius) => ({

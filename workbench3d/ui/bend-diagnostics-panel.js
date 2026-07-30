@@ -1,6 +1,9 @@
 /** Read-only InputXML bend-geometry diagnostics and deterministic audit evidence. */
 
 import { serializeBendGeometryAudit } from '../adapters/bend-geometry-audit.js';
+import {
+  buildBendReviewPackageManifest, serializeBendReviewPackageManifest,
+} from './bend-review-package.js';
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -72,6 +75,7 @@ export function buildBendDiagnosticsModel(state = {}) {
     source,
     target,
     auditParity: auditParity(source, target),
+    reviewPackage: buildBendReviewPackageManifest(state),
     totals: Object.freeze({
       requested: source.summary.requested + target.summary.requested,
       resolved: source.summary.resolved + target.summary.resolved,
@@ -106,6 +110,13 @@ function auditHtml(side) {
   return `<div class="wb3d-toolbar"><span class="wb3d-muted">Audit <code>${esc(side.signature)}</code> · ${esc(side.signatureAlgorithm)}</span><a class="wb3d-btn wb3d-btn-mini" href="data:application/json;charset=utf-8,${content}" download="${fileName}">Export audit JSON</a></div>`;
 }
 
+function reviewPackageHtml(manifest) {
+  const content = encodeURIComponent(serializeBendReviewPackageManifest(manifest));
+  const run = manifest.payload.comparison;
+  const inputs = manifest.payload.inputs;
+  return `<div class="wb3d-card"><h4>Review package <span class="wb3d-badge">${esc(manifest.disposition)}</span></h4><div class="wb3d-toolbar"><span class="wb3d-muted">Package <code>${esc(manifest.packageSignature)}</code> · run <code>${esc(run.runSignature)}</code></span><a class="wb3d-btn wb3d-btn-mini" href="data:application/json;charset=utf-8,${content}" download="workbench-bend-review-package.json">Export review package</a></div><p class="wb3d-muted">Source <code>${esc(inputs.source.identitySignature)}</code> · Target <code>${esc(inputs.target.identitySignature)}</code> · deterministic read-only binding.</p></div>`;
+}
+
 function sideHtml(side) {
   const summary = side.summary;
   return `<div><h4>${esc(side.label)} <span class="wb3d-muted">${esc(side.name)}</span> <span class="wb3d-badge">${esc(side.disposition.replaceAll('_', ' '))}</span></h4><div class="wb3d-tiles">${tile('Requested bends', summary.requested)}${tile('Resolved bends', summary.resolved)}${tile('Blocked bends', summary.blocked)}${tile('Arc chords', summary.arcSegments)}</div>${auditHtml(side)}${diagnosticRows(side)}</div>`;
@@ -115,5 +126,5 @@ export function bendDiagnosticsPanelHtml(state = {}) {
   const model = buildBendDiagnosticsModel(state);
   if (!model.source.loaded && !model.target.loaded) return '';
   const parity = model.auditParity.replaceAll('_', ' ');
-  return `<details class="wb3d-card" data-wb3d-bend-diagnostics ${model.totals.blocked ? 'open' : ''}><summary><h3>InputXML bend geometry <span class="wb3d-muted">${model.totals.resolved}/${model.totals.requested} resolved · ${model.totals.blocked} blocked · audit ${esc(parity)}</span></h3></summary><p class="wb3d-muted">${esc(model.authorityNote)} ${esc(model.signatureNote)}</p><div class="wb3d-evi-cols">${sideHtml(model.source)}${sideHtml(model.target)}</div></details>`;
+  return `<details class="wb3d-card" data-wb3d-bend-diagnostics ${model.totals.blocked ? 'open' : ''}><summary><h3>InputXML bend geometry <span class="wb3d-muted">${model.totals.resolved}/${model.totals.requested} resolved · ${model.totals.blocked} blocked · audit ${esc(parity)}</span></h3></summary><p class="wb3d-muted">${esc(model.authorityNote)} ${esc(model.signatureNote)}</p>${reviewPackageHtml(model.reviewPackage)}<div class="wb3d-evi-cols">${sideHtml(model.source)}${sideHtml(model.target)}</div></details>`;
 }
