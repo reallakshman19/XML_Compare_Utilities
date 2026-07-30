@@ -170,4 +170,4 @@ export function createRevisionCompareViewerAdapter(options = {}) {
     evidence: () => evidence(context),
   });
 }
-export const _test = Object.freeze({ auditIdentity, jsonCopy, previewObjectIds, relatedObjectIds, safeSnapshot });
+export const _test = Object.freeze({ jsonCopy, previewObjectIds, relatedObjectIds, safeSnapshot });
