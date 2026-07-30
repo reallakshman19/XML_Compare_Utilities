@@ -17,6 +17,7 @@ import {
   REVISION_EVIDENCE_PACKAGE_RESPONSIVENESS_STATUS,
   createRevisionEvidencePackageResponsivenessReceiptAttachment,
   revisionEvidencePackageResponsivenessIdentity,
+  verifyRevisionEvidencePackageResponsivenessReceipt,
 } from './revision-evidence-package-responsiveness-receipt.js';
 
 export const REVISION_COMPARE_EVIDENCE_PACKAGE_V1_SCHEMA = 'RevisionCompareEvidencePackage.v1';
@@ -149,10 +150,19 @@ function hashMaterial(state, payload) {
   });
 }
 
+async function verifiedResponsivenessReceipt(state, attachment, cryptoRef) {
+  const receipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(attachment, state);
+  if (!receipt) return null;
+  const verified = await verifyRevisionEvidencePackageResponsivenessReceipt(
+    receipt, state.compare.audit, state.slots.baseline.document, state.slots.candidate.document, cryptoRef,
+  );
+  return verified.receipt;
+}
+
 export async function createRevisionCompareEvidencePackage(state, preflight, cryptoRef, responsivenessAttachment = null) {
   const readiness = revisionCompareEvidencePackageReadiness(state);
   if (readiness.status !== 'READY') throw new Error(readiness.blockers[0]);
-  const receipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(responsivenessAttachment, state);
+  const receipt = await verifiedResponsivenessReceipt(state, responsivenessAttachment, cryptoRef);
   const material = hashMaterial(state, exactPayload(state, preflight, receipt));
   const contentSha256 = await sha256Text(JSON.stringify(material), cryptoRef);
   const artifact = deepFreeze(canonicalRevisionCompareEvidenceValue({
