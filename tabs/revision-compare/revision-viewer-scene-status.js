@@ -4,6 +4,16 @@ import { cleanText, deepFreeze } from './revision-contract-utils.js';
 export const REVISION_VIEWER_SCENE_STATUS_SCHEMA = 'RevisionViewerSceneStatus.v1';
 export const REVISION_VIEWER_SCENE_REFRESH_MS = 250;
 export const REVISION_VIEWER_SCENE_PENDING_LIMIT_MS = 15000;
+export const REVISION_VIEWER_SCENE_STATUS_CSS = `
+.revc-view-column{grid-template-rows:auto auto auto minmax(0,1fr)}
+.revc-scene-status{display:grid;gap:7px;padding:8px 10px;border-bottom:1px solid #203550;background:#071421}
+.revc-scene-status>header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.revc-scene-status>header>div{display:flex;align-items:center;gap:7px;min-width:0}.revc-scene-status>header span:first-child{color:#5eead4;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.08em}.revc-scene-status>header b{font-size:11px;color:#dbeafe}.revc-scene-status>header strong{font:700 10px/1.2 ui-monospace,monospace;color:#93a9bf}
+.revc-info-icon{display:inline-grid;place-items:center;width:17px;height:17px;border:1px solid #35587b;border-radius:50%;color:#7dd3fc;cursor:help;font-size:11px}
+.revc-scene-status dl{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#203550}.revc-scene-status dl div{min-width:0;padding:6px 7px;background:#0b1d2e}.revc-scene-status dt{font-size:8px;text-transform:uppercase;color:#7893ac}.revc-scene-status dd{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e4f2;font:10px/1.3 ui-monospace,monospace}
+.revc-scene-status p{margin:0;color:#9fb4c9;font-size:10px}.revc-scene-status [data-status=ready]{color:#5eead4}.revc-scene-status [data-status=pending],.revc-scene-status [data-status=starting],.revc-scene-status [data-status=timeout]{color:#fbbf24}.revc-scene-status [data-status=blocked],.revc-scene-status [data-status=failed]{color:#fb7185}
+@media(max-width:980px){.revc-scene-status dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+`;
 
 const RENDERER_EVIDENCE_NOTE = 'Renderer evidence only. Counts, picks, and runtime revision do not alter source, engineering, topology, comparison, or export authority. Status refreshes every 250 ms while WebGL review is active.';
 
