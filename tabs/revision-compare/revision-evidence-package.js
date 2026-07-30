@@ -154,7 +154,8 @@ async function verifiedResponsivenessReceipt(state, attachment, cryptoRef) {
   const receipt = createRevisionEvidencePackageResponsivenessReceiptAttachment(attachment, state);
   if (!receipt) return null;
   const verified = await verifyRevisionEvidencePackageResponsivenessReceipt(
-    receipt, state.compare.audit, state.slots.baseline.document, state.slots.candidate.document, cryptoRef,
+    receipt, state.session, state.compare.audit,
+    state.slots.baseline.document, state.slots.candidate.document, cryptoRef,
   );
   return verified.receipt;
 }
