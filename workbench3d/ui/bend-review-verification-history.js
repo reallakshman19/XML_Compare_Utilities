@@ -10,6 +10,10 @@ export const BEND_REVIEW_HISTORY_FILTER = Object.freeze({
   ALL: 'ALL',
   CURRENT_PACKAGE: 'CURRENT_PACKAGE',
 });
+export const BEND_REVIEW_HISTORY_STATUS_FILTER = Object.freeze({
+  ALL: 'ALL',
+  NEEDS_ATTENTION: 'NEEDS_ATTENTION',
+});
 
 let historyEntries = Object.freeze([]);
 let historySequence = 0;
@@ -23,6 +27,10 @@ function kind(value) {
 function filter(value) {
   return Object.values(BEND_REVIEW_HISTORY_FILTER).includes(value)
     ? value : BEND_REVIEW_HISTORY_FILTER.ALL;
+}
+function statusFilter(value) {
+  return Object.values(BEND_REVIEW_HISTORY_STATUS_FILTER).includes(value)
+    ? value : BEND_REVIEW_HISTORY_STATUS_FILTER.ALL;
 }
 function statusBucket(value) {
   const status = text(value).toUpperCase();
@@ -72,6 +80,15 @@ export function filterBendReviewHistory(
   if (filter(mode) === BEND_REVIEW_HISTORY_FILTER.ALL) return rows;
   const signature = text(currentPackageSignature);
   return rows.filter((entry) => signature && text(entry?.currentPackageSignature) === signature);
+}
+
+export function filterBendReviewHistoryByStatus(
+  entries = historyEntries,
+  mode = BEND_REVIEW_HISTORY_STATUS_FILTER.ALL,
+) {
+  const rows = array(entries);
+  if (statusFilter(mode) === BEND_REVIEW_HISTORY_STATUS_FILTER.ALL) return rows;
+  return rows.filter((entry) => statusBucket(entry?.status) !== 'match');
 }
 
 export function clearBendReviewHistory() {

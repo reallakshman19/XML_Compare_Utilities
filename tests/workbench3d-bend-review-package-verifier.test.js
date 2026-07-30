@@ -22,11 +22,13 @@ import {
   BEND_REVIEW_HISTORY_FILTER,
   BEND_REVIEW_HISTORY_KIND,
   BEND_REVIEW_HISTORY_LIMIT,
+  BEND_REVIEW_HISTORY_STATUS_FILTER,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
   bendReviewHistorySummaryHtml,
   clearBendReviewHistory,
   filterBendReviewHistory,
+  filterBendReviewHistoryByStatus,
   getBendReviewHistory,
   recordBendReviewHistory,
   summarizeBendReviewHistory,
@@ -127,6 +129,24 @@ assert.strictEqual(filterBendReviewHistory(
   history, BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE, 'wb3d-review-missing',
 ).length, 0);
 assert.match(bendReviewHistoryHtml([], 'No checks match <current>.'), /&lt;current&gt;/);
+
+const attentionOnly = filterBendReviewHistoryByStatus(
+  history, BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION,
+);
+assert.strictEqual(attentionOnly.length, 1);
+assert.strictEqual(attentionOnly[0].status, BEND_REVIEW_RECEIPT_STATUS.STALE_CURRENT_PACKAGE);
+assert.strictEqual(filterBendReviewHistoryByStatus(
+  currentOnly, BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION,
+).length, 0);
+assert.strictEqual(filterBendReviewHistoryByStatus(
+  changedOnly, BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION,
+).length, 1);
+assert.strictEqual(filterBendReviewHistoryByStatus(history, 'UNKNOWN').length, 2);
+assert.strictEqual(filterBendReviewHistoryByStatus([
+  { status: 'MATCH' }, { status: 'INVALID_RECEIPT' }, { status: 'UNAVAILABLE' },
+], BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION).length, 2);
+assert.strictEqual(getBendReviewHistory().length, 2);
+
 const categorized = summarizeBendReviewHistory([...history,
   { status: 'INVALID_RECEIPT' }, { status: 'UNAVAILABLE' }]);
 assert.deepStrictEqual(categorized, { total: 4, match: 1, stale: 1, invalid: 1, other: 1 });
@@ -152,4 +172,6 @@ assert.match(controls, /Page-memory only/);
 assert.match(controls, /data-history-clear/);
 assert.match(controls, /data-history-filter/);
 assert.match(controls, /Current package only/);
+assert.match(controls, /data-history-status-filter/);
+assert.match(controls, /Needs attention only/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');
