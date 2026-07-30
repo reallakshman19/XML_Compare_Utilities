@@ -4,13 +4,18 @@ import {
   BEND_REVIEW_VERIFICATION_STATUS,
   bendReviewVerifierHtml,
   parseBendReviewPackageText,
+  receiptVerificationResultHtml,
   verificationResultHtml,
   verifyBendReviewPackage,
 } from '../workbench3d/ui/bend-review-package-verifier.js';
 import {
+  BEND_REVIEW_RECEIPT_STATUS,
   BEND_REVIEW_VERIFICATION_RECEIPT_CONTRACT,
   buildBendReviewVerificationReceipt,
+  computeBendReviewVerificationReceiptSignature,
+  parseBendReviewVerificationReceiptText,
   serializeBendReviewVerificationReceipt,
+  verifyBendReviewVerificationReceipt,
 } from '../workbench3d/ui/bend-review-verification-receipt.js';
 
 const bendAudit = (signature) => ({
@@ -36,8 +41,6 @@ const parsed = parseBendReviewPackageText(serializeBendReviewPackageManifest(imp
 assert.strictEqual(parsed.ok, true);
 assert.strictEqual(parsed.manifest.packageSignature, imported.packageSignature);
 assert.strictEqual(parseBendReviewPackageText('{bad').ok, false);
-assert.match(bendReviewVerifierHtml(imported), /wb3d-bend-review-verifier/);
-assert.match(bendReviewVerifierHtml(imported), /data-current=/);
 
 const receipt = buildBendReviewVerificationReceipt({ importedManifest: imported, currentManifest: current, verification: matching });
 assert.strictEqual(receipt.contract, BEND_REVIEW_VERIFICATION_RECEIPT_CONTRACT);
@@ -51,8 +54,23 @@ assert.doesNotMatch(serializeBendReviewVerificationReceipt(receipt), /<A\/>|sour
 assert.match(verificationResultHtml(matching, receipt), /Export verification receipt/);
 assert.match(verificationResultHtml(matching, receipt), new RegExp(receipt.receiptSignature));
 
-const stale = verifyBendReviewPackage(imported, buildBendReviewPackageManifest({ ...state, sourceXml: '<A changed="1"/>' }));
-const staleReceipt = buildBendReviewVerificationReceipt({ importedManifest: imported, currentManifest: current, verification: stale });
-assert.strictEqual(staleReceipt.payload.verification.differenceCount, stale.differences.length);
-assert.notStrictEqual(staleReceipt.receiptSignature, receipt.receiptSignature);
+const receiptParsed = parseBendReviewVerificationReceiptText(serializeBendReviewVerificationReceipt(receipt));
+assert.strictEqual(receiptParsed.ok, true);
+assert.strictEqual(verifyBendReviewVerificationReceipt(receipt, current).status, BEND_REVIEW_RECEIPT_STATUS.MATCH);
+const changedCurrent = buildBendReviewPackageManifest({ ...state, config: { lengthToleranceMm: 8 } });
+const staleCurrent = verifyBendReviewVerificationReceipt(receipt, changedCurrent);
+assert.strictEqual(staleCurrent.status, BEND_REVIEW_RECEIPT_STATUS.STALE_CURRENT_PACKAGE);
+assert.deepStrictEqual(staleCurrent.differences.map((row) => row.field), ['Current package signature']);
+assert.strictEqual(verifyBendReviewVerificationReceipt({ ...receipt, receiptSignature: 'wb3d-verify-00000000' }, current).status,
+  BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT);
+const missingReferencePayload = { ...receipt.payload, currentPackage: null };
+const missingReference = { ...receipt, payload: missingReferencePayload, receiptSignature: computeBendReviewVerificationReceiptSignature(missingReferencePayload) };
+assert.strictEqual(verifyBendReviewVerificationReceipt(missingReference, current).status, BEND_REVIEW_RECEIPT_STATUS.INVALID_RECEIPT);
+assert.strictEqual(parseBendReviewVerificationReceiptText('{bad').ok, false);
+assert.match(receiptVerificationResultHtml(staleCurrent), /STALE CURRENT PACKAGE/);
+assert.match(receiptVerificationResultHtml(staleCurrent), /Current package signature/);
+
+const html = bendReviewVerifierHtml(imported);
+assert.match(html, /wb3d-bend-review-verifier/);
+assert.match(html, /data-current=/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');
