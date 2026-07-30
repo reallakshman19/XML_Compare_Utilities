@@ -51,7 +51,8 @@ export function clearRevisionReviewFilters(state) {
   const model = revisionReviewFilterResetModel(state);
   if (!model.visible) return deepFreeze({ model, state, message: '' });
   const message = clearedMessage(model.activeCount);
-  const compare = deepFreeze({ ...state.compare, queue: DEFAULT_QUEUE });
+  const queue = deepFreeze({ ...DEFAULT_QUEUE, search: state.compare.queue.search });
+  const compare = deepFreeze({ ...state.compare, queue });
   const review = deepFreeze({ ...state.review, filters: DEFAULT_REVIEW_FILTERS });
   const decision = deepFreeze({ ...state.decision, filters: DEFAULT_DECISION_FILTERS });
   return deepFreeze({ model, state: deepFreeze({ ...state, compare, review, decision, message }), message });
