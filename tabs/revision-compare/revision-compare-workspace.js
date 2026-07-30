@@ -72,7 +72,7 @@ function preparePropertyHost(root, state) {
   section.appendChild(host); return host;
 }
 function appendTextElement(documentRef, parent, tag, text) { const element = documentRef.createElement(tag); element.textContent = text; parent.appendChild(element); return element; }
-function prepareEvidencePackageControl(root, state) {
+function prepareEvidencePackageControl(root, state, responsivenessAttachment = null) {
   const host = root.querySelector('.revc-review-side') ?? root.querySelector('.revc-body'); if (!host) return null;
   const readiness = revisionCompareEvidencePackageReadiness(state); const documentRef = root.ownerDocument;
   const section = documentRef.createElement('section'); section.className = 'revc-review-session'; section.setAttribute('data-revc-evidence-package', readiness.status.toLowerCase());
@@ -80,8 +80,10 @@ function prepareEvidencePackageControl(root, state) {
   appendTextElement(documentRef, title, 'span', 'REVIEW EVIDENCE EXPORT'); appendTextElement(documentRef, title, 'h2', 'Authority chain export');
   const status = appendTextElement(documentRef, header, 'strong', readiness.status); status.setAttribute('data-status', readiness.status.toLowerCase());
   header.appendChild(title); header.appendChild(status);
-  const message = appendTextElement(documentRef, section, 'p', readiness.status === 'READY'
-    ? 'Current session, scope, audit, review and decision authorities are ready for deterministic export.' : readiness.blockers[0]);
+  const readyMessage = responsivenessAttachment
+    ? 'Current authorities are ready. The verified-current responsiveness receipt will be attached to a versioned evidence package.'
+    : 'Current session, scope, audit, review and decision authorities are ready for deterministic export.';
+  const message = appendTextElement(documentRef, section, 'p', readiness.status === 'READY' ? readyMessage : readiness.blockers[0]);
   message.setAttribute('data-revc-evidence-package-status', readiness.status);
   const controls = documentRef.createElement('div'); controls.className = 'revc-session-actions';
   const button = appendTextElement(documentRef, controls, 'button', 'Download evidence package'); button.type = 'button';
@@ -192,11 +194,16 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     } catch (error) { if (!destroyed) reportFailure(root, options, error); }
   }
   async function downloadEvidencePackage() {
-    const captured = state;
+    const captured = state; const attachment = receiptVerificationBindings?.attachment();
     try {
       const currentPreflight = revisionComparisonPreflight(captured.slots.baseline, captured.slots.candidate, captured.proposal, captured.visualMetadataDeclaration);
-      const artifact = await createRevisionCompareEvidencePackage(captured, currentPreflight, cryptoRef);
-      downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact); options.showToast?.('Evidence package downloaded.', 'success');
+      const artifact = await createRevisionCompareEvidencePackage(captured, currentPreflight, cryptoRef, attachment);
+      if (destroyed) return;
+      if (attachment && !receiptVerificationBindings.matchesAttachment(attachment)) {
+        throw new Error('Responsiveness receipt authority changed while the evidence package was being created. Export the current evidence again.');
+      }
+      downloadArtifact(root, revisionCompareEvidencePackageFileName(captured.session.sessionId), artifact);
+      options.showToast?.(attachment ? 'Evidence package downloaded with verified responsiveness receipt.' : 'Evidence package downloaded.', 'success');
     } catch (error) { reportFailure(root, options, error); }
   }
   async function createSignOff() {
@@ -248,7 +255,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
     if (destroyed) return; state = next; renderSequence += 1; const sequence = renderSequence;
     sceneMonitor.stop();
     root.innerHTML = revisionCompareWorkspaceMarkup(state, preflight(), viewerAdapter.evidence());
-    const propertyHost = preparePropertyHost(root, state); prepareEvidencePackageControl(root, state); receiptVerificationBindings?.render(); transferBindings?.render(state);
+    const propertyHost = root && preparePropertyHost(root, state);
+    prepareEvidencePackageControl(root, state, receiptVerificationBindings?.attachment()); receiptVerificationBindings?.render(); transferBindings?.render(state);
     renderRevisionReviewFilterResetControl(root, state); renderRevisionCompareSignOffSection(root, state); renderRevisionCompareTrustReceiptSection(root, state);
     enforceImportedModeRestrictions(root, state); syncDecisionButtons(root); syncRevisionCompareSignOffControls(root, state, signOffBusy);
     Promise.resolve().then(() => syncViewer(sequence)); Promise.resolve().then(() => syncPropertyInspector(sequence, propertyHost));
