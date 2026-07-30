@@ -74,7 +74,8 @@ function memorySample(context) {
 function resetRun(context, key) {
   const memory = memorySample(context);
   context.runKey = key;
-  context.startedAt = context.clock();
+  context.activeStartedAt = null;
+  context.accumulatedActiveMs = 0;
   context.elapsedMs = 0;
   context.sceneRuntimeObservedMs = null;
   context.firstReadyMs = null;
@@ -106,9 +107,13 @@ function observeTiming(context, model, elapsedMs) {
   }
   if (context.firstReadyMs == null && model.status === 'READY') context.firstReadyMs = elapsedMs;
 }
+function activeElapsed(context) {
+  const current = context.activeStartedAt == null ? 0 : Math.max(0, context.clock() - context.activeStartedAt);
+  return context.accumulatedActiveMs + current;
+}
 function currentModels(context) {
   const evidence = context.adapter.evidence();
-  const elapsedMs = Math.max(0, context.clock() - context.startedAt);
+  const elapsedMs = activeElapsed(context);
   let scene = revisionViewerSceneStatus(context.audit, evidence);
   if (elapsedMs >= context.pendingLimitMs) scene = timedOutRevisionViewerSceneStatus(scene, elapsedMs);
   observeTiming(context, scene, elapsedMs);
@@ -168,7 +173,11 @@ function sample(context, generation) {
 }
 function detach(context) {
   context.generation += 1;
+  if (context.active && context.activeStartedAt != null) {
+    context.accumulatedActiveMs += Math.max(0, context.clock() - context.activeStartedAt);
+  }
   context.active = false;
+  context.activeStartedAt = null;
   stopTimer(context);
   context.root = null;
   context.audit = null;
@@ -179,7 +188,8 @@ function detach(context) {
 }
 function clearRun(context) {
   context.runKey = null;
-  context.startedAt = 0;
+  context.activeStartedAt = null;
+  context.accumulatedActiveMs = 0;
   context.elapsedMs = 0;
   context.sceneRuntimeObservedMs = null;
   context.firstReadyMs = null;
@@ -210,7 +220,8 @@ export function createRevisionViewerSceneMonitor(options = {}) {
     memoryReader: timerFunction(options.memoryReader, () => readRevisionViewerMemory(), 'Scene monitor memoryReader'),
     generation: 0, timer: null, active: false, destroyed: false,
     root: null, audit: null, adapter: null, runKey: null,
-    startedAt: 0, elapsedMs: 0, sceneRuntimeObservedMs: null, firstReadyMs: null,
+    activeStartedAt: null, accumulatedActiveMs: 0, elapsedMs: 0,
+    sceneRuntimeObservedMs: null, firstReadyMs: null,
     memoryBaselineUsedBytes: null, memoryPeakUsedBytes: null, memoryLimitBytes: null,
     lastSceneIdentity: '', lastPerformanceIdentity: '', lastModel: null, lastPerformanceModel: null,
     sampleCount: 0, runSampleCount: 0,
@@ -226,6 +237,7 @@ export function createRevisionViewerSceneMonitor(options = {}) {
       detach(context);
       if (context.runKey !== key) resetRun(context, key);
       context.active = true;
+      context.activeStartedAt = context.clock();
       context.root = root;
       context.audit = audit;
       context.adapter = adapter;
