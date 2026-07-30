@@ -56,8 +56,47 @@ function representativeSequential(candidate = false) {
   ];
 }
 
+function largeSequential(candidate = false) {
+  return Array.from({ length: 120 }, (_, branchIndex) => {
+    const y = branchIndex * 800;
+    const z = (branchIndex % 5) * 75;
+    const name = `/PLANT/LARGE/B${String(branchIndex + 1).padStart(3, '0')}`;
+    const children = Array.from({ length: 13 }, (_, segmentIndex) => {
+      const start = [segmentIndex * 250, y, z];
+      const end = [(segmentIndex + 1) * 250, y, z];
+      const changed = candidate && branchIndex % 20 === 0 && segmentIndex === 6;
+      return pipe(
+        `PIPE AUTO CONTINUITY B${String(branchIndex + 1).padStart(3, '0')}-${String(segmentIndex + 1).padStart(2, '0')}`,
+        start,
+        end,
+        { LBORE: changed ? 175 : 150 },
+      );
+    });
+    return branch(name, [0, y, z], [13 * 250, y, z], children);
+  });
+}
+
 async function numericText(locator) {
   return Number((await locator.textContent())?.trim());
+}
+
+async function installResponsivenessPolicy(page) {
+  await page.evaluate(() => {
+    const MIB = 1024 * 1024;
+    window.rcMountOptions = {
+      sceneMonitorOptions: {
+        responsivenessPolicy: {
+          policyId: 'browser-large-model-policy',
+          samplingResolutionMs: 250,
+          bands: [
+            { bandId: 'FINE', maximumDrawablesExclusive: 3000, sceneObservedMaxMs: 60_000, firstReadyMaxMs: 60_000, fitSelectedMaxMs: 2000, heapGrowthMaxBytes: 2048 * MIB },
+            { bandId: 'BALANCED', maximumDrawablesExclusive: 12000, sceneObservedMaxMs: 60_000, firstReadyMaxMs: 60_000, fitSelectedMaxMs: 2000, heapGrowthMaxBytes: 2048 * MIB },
+            { bandId: 'COARSE', maximumDrawablesExclusive: null, sceneObservedMaxMs: 60_000, firstReadyMaxMs: 60_000, fitSelectedMaxMs: 2000, heapGrowthMaxBytes: 2048 * MIB },
+          ],
+        },
+      },
+    };
+  });
 }
 
 test('representative Sequential source exposes real Workbench scene, fit and pick evidence', async ({ page }) => {
@@ -112,4 +151,42 @@ test('representative Sequential source exposes real Workbench scene, fit and pic
   expect(finalEvidence.viewer.lastPickedObjectId).toBeTruthy();
   expect(finalEvidence.scene.active).toBe(true);
   expect(finalEvidence.scene.status).toBe('READY');
+});
+
+test('large Sequential comparison exposes a completed responsiveness disposition', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto('/tests/browser/revision-compare-rc001.html');
+  await installResponsivenessPolicy(page);
+  await page.getByRole('button', { name: 'Open Revision Compare' }).click();
+  await uploadValue(page, 'baseline', 'sequential-large-a.json', largeSequential(false));
+  await uploadValue(page, 'candidate', 'sequential-large-b.json', largeSequential(true));
+
+  await page.getByRole('button', { name: 'Approve comparison basis' }).click();
+  await page.getByRole('button', { name: 'Run visual comparison' }).click();
+  await expect(page.getByRole('heading', { name: 'Guided visual revision review' })).toBeVisible({ timeout: 75_000 });
+  await page.getByRole('button', { name: '3D (WebGL)' }).click();
+
+  await expect(page.locator('[data-revc-scene-state]')).toHaveText('READY', { timeout: 60_000 });
+  const performance = page.locator('[data-revc-performance-status]');
+  await expect(performance).toBeVisible();
+  await expect(performance.locator('[data-revc-performance-band]')).toHaveText('BALANCED');
+  expect(await numericText(performance.locator('[data-revc-performance-drawables]'))).toBeGreaterThanOrEqual(3000);
+  await expect(performance.locator('[data-revc-performance-scene]')).not.toContainText('Pending');
+  await expect(performance.locator('[data-revc-performance-ready]')).not.toContainText('Pending');
+  await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('PENDING');
+
+  await page.locator('[data-revc-difference-id]').first().click();
+  await page.getByRole('button', { name: 'Fit selected' }).click();
+  await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
+  await expect(performance.locator('[data-revc-performance-fit]')).not.toContainText('Pending');
+  await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
+  await expect(performance.locator('[data-revc-performance-heap]')).toHaveText(/Unavailable|MiB/);
+  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /browser-large-model-policy/);
+
+  const evidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence()));
+  expect(evidence.scene.sceneRuntimeObservedMs).not.toBeNull();
+  expect(evidence.scene.firstReadyMs).not.toBeNull();
+  expect(evidence.scene.responsiveness.bandId).toBe('BALANCED');
+  expect(evidence.scene.responsiveness.disposition).toBe('QUALIFIED');
+  expect(evidence.viewer.fitSelectedCount).toBeGreaterThan(0);
 });
