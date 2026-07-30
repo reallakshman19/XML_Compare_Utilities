@@ -1,17 +1,12 @@
 /**
  * visual-model-builder.js — CanonicalObjectGraph.v1 → VisualGeometryModel.v1.
- *
- * Pure view-model derivation: centerline segments, node markers, and property
- * packet markers. Never mutates the canonical graph; never touches Three.js.
- *
- * Options (all optional):
- *   markerPlacement    'from' | 'to' | 'mid' (default) | 'text'
- *   packetMarkerKinds  string[] allowlist of packet kinds to render (null = default set)
- *   showAllNodes       emit a NODE marker for every graph node
- *   nodeMarkerSizeMm   marker radius for node/packet markers
+ * Pure view-model derivation; never mutates the graph or touches Three.js.
  */
 
 import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
+import {
+  effectiveDiameterByObject, resolveInputXmlBends, trimmedEndpoint,
+} from './inputxml-bend-geometry.js';
 
 const PACKET_MARKER_KINDS = Object.freeze(['RIGID', 'BEND', 'SIF', 'RESTRAINT', 'HANGER', 'SUPPORT']);
 
@@ -22,110 +17,161 @@ function normalizeNodeText(value) {
   return text || '';
 }
 
-/**
- * Resolve where a packet marker sits on its host object.
- * 'text' mode reads the packet's NODE/CNODE attribute and resolves it against
- * the GLOBAL node coordinate map; unknown nodes fall back to midpoint with
- * fallback:true so the UI can flag them.
- */
+function midpoint(start, end) {
+  if (start && end) return start.map((value, axis) => (value + end[axis]) / 2);
+  return start ?? end ?? [0, 0, 0];
+}
+
 export function resolvePacketPosition(packet, object, nodeCoord, placement = 'mid') {
   const start = nodeCoord.get(object.fromNode);
   const end = nodeCoord.get(object.toNode);
-  const mid = start && end
-    ? [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2, (start[2] + end[2]) / 2]
-    : (start ?? end ?? [0, 0, 0]);
+  const mid = midpoint(start, end);
   if (placement === 'from' && start) return { position: [...start], resolvedNodeId: object.fromNode, fallback: false };
   if (placement === 'to' && end) return { position: [...end], resolvedNodeId: object.toNode, fallback: false };
-  if (placement === 'text') {
-    const nodeText = packet.attrs?.NODE ?? packet.attrs?.CNODE ?? null;
-    if (nodeText !== null && nodeText !== undefined && String(nodeText).trim() !== '') {
-      const nodeId = normalizeNodeText(nodeText);
-      const coord = nodeCoord.get(nodeId);
-      if (coord) return { position: [...coord], resolvedNodeId: nodeId, fallback: false };
-      return { position: mid, resolvedNodeId: nodeId, fallback: true };
-    }
+  if (placement !== 'text') return { position: mid, resolvedNodeId: null, fallback: false };
+  const nodeText = packet.attrs?.NODE ?? packet.attrs?.CNODE ?? null;
+  if (nodeText === null || nodeText === undefined || String(nodeText).trim() === '') {
     return { position: mid, resolvedNodeId: null, fallback: true };
   }
-  return { position: mid, resolvedNodeId: null, fallback: false };
+  const nodeId = normalizeNodeText(nodeText);
+  const coord = nodeCoord.get(nodeId);
+  if (coord) return { position: [...coord], resolvedNodeId: nodeId, fallback: false };
+  return { position: mid, resolvedNodeId: nodeId, fallback: true };
+}
+
+function resolvedObjectKind(object) {
+  if (object.kind !== 'RIGID') return object.kind;
+  const packet = object.packets?.find((item) => item.kind === 'RIGID');
+  if (!packet) return object.kind;
+  const type = String(packet.attrs?.TYPE || packet.attrs?.type || '').toUpperCase();
+  const name = String(object.name || '').toUpperCase();
+  if (/VALVE/.test(type) || /VALVE/.test(name)) return 'VALVE';
+  if (/FLANGE|FLAN/.test(type) || /FLANGE|FLAN/.test(name)) return 'FLANGE';
+  return object.kind;
+}
+
+function segmentRadius(object, diameters) {
+  const resolved = diameters.get(object.objectId);
+  return resolved?.diameterMm ? resolved.diameterMm / 2 : 25;
+}
+
+function addObjectSegment(segments, object, nodeCoord, plan, diameters) {
+  const rawStart = nodeCoord.get(object.fromNode);
+  const rawEnd = nodeCoord.get(object.toNode);
+  if (!rawStart || !rawEnd) return;
+  const start = trimmedEndpoint(plan, object.objectId, object.fromNode, rawStart);
+  const end = trimmedEndpoint(plan, object.objectId, object.toNode, rawEnd);
+  if (Math.hypot(...end.map((value, axis) => value - start[axis])) <= 1e-6) return;
+  const diameter = diameters.get(object.objectId);
+  segments.push({
+    objectId: object.objectId,
+    start: [...start],
+    end: [...end],
+    radiusMm: segmentRadius(object, diameters),
+    kind: resolvedObjectKind(object),
+    pathId: object.pathId,
+    center: object.attrs?.centerPoint || object.attrs?.centrePoint || object.attrs?.center || object.attrs?.centre || null,
+    attrs: {
+      ...(object.attrs ?? {}),
+      diameterSource: diameter?.source ?? 'UNRESOLVED',
+    },
+  });
+}
+
+function addArcSegments(segments, graph, plan, diameters) {
+  const objectById = new Map(graph.objects.map((object) => [object.objectId, object]));
+  for (const arc of plan.arcs) {
+    const object = objectById.get(arc.objectId);
+    if (!object) continue;
+    for (let index = 0; index < arc.points.length - 1; index += 1) {
+      segments.push({
+        objectId: object.objectId,
+        start: [...arc.points[index]],
+        end: [...arc.points[index + 1]],
+        radiusMm: segmentRadius(object, diameters),
+        kind: 'BEND',
+        pathId: object.pathId,
+        center: [...arc.center],
+        attrs: {
+          bendGeometry: 'EXPLICIT_RADIUS_ARC',
+          bendRadiusMm: arc.radiusMm,
+          bendAngleDeg: arc.angleDeg,
+          bendCornerNode: arc.cornerNode,
+          bendDirectionEvidence: arc.directionEvidence,
+          arcPart: `${index + 1}/${arc.points.length - 1}`,
+        },
+      });
+    }
+  }
+}
+
+function addObjectMarker(markers, object, position, markerSize) {
+  markers.push({
+    objectId: object.objectId,
+    kind: 'NODE',
+    nodeId: object.fromNode,
+    position: [...position],
+    isObjectMarker: true,
+    sizeMm: markerSize ?? 60,
+  });
+}
+
+function addPacketMarkers(markers, object, nodeCoord, options) {
+  for (const packet of object.packets ?? []) {
+    if (!options.allowedKinds.includes(packet.kind)) continue;
+    const resolved = resolvePacketPosition(packet, object, nodeCoord, options.placement);
+    markers.push({
+      objectId: object.objectId,
+      kind: packet.kind,
+      position: resolved.position,
+      nodeId: resolved.resolvedNodeId,
+      fallback: resolved.fallback,
+      consumedFrom: packet.consumedFrom ?? null,
+      sizeMm: options.markerSize ?? undefined,
+    });
+  }
+}
+
+function addGraphMarkers(markers, graph, markerSize, showAllNodes) {
+  for (const anchor of graph.anchors ?? []) {
+    markers.push({ objectId: null, kind: `ANCHOR_${anchor.anchorType}`, position: [...anchor.coordMm], nodeId: anchor.nodeId });
+  }
+  if (!showAllNodes) return;
+  const anchorIds = new Set((graph.anchors ?? []).map((anchor) => anchor.nodeId));
+  for (const node of graph.nodes ?? []) {
+    if (anchorIds.has(node.nodeId)) continue;
+    markers.push({ objectId: null, kind: 'NODE', position: [...node.coordMm], nodeId: node.nodeId, sizeMm: markerSize ?? 24 });
+  }
 }
 
 export function buildVisualModel(graph, options = {}) {
-  const placement = options.markerPlacement ?? 'mid';
-  const allowedKinds = Array.isArray(options.packetMarkerKinds) ? options.packetMarkerKinds : PACKET_MARKER_KINDS;
-  const markerSize = Number.isFinite(options.nodeMarkerSizeMm) ? options.nodeMarkerSizeMm : null;
-  const nodeCoord = new Map(graph.nodes.map((n) => [n.nodeId, n.coordMm]));
+  const settings = {
+    placement: options.markerPlacement ?? 'mid',
+    allowedKinds: Array.isArray(options.packetMarkerKinds) ? options.packetMarkerKinds : PACKET_MARKER_KINDS,
+    markerSize: Number.isFinite(options.nodeMarkerSizeMm) ? options.nodeMarkerSizeMm : null,
+  };
+  const nodeCoord = new Map(graph.nodes.map((node) => [node.nodeId, node.coordMm]));
+  const bendPlan = resolveInputXmlBends(graph);
+  const diameters = effectiveDiameterByObject(graph.objects);
   const segments = [];
   const markers = [];
   for (const object of graph.objects) {
     const start = nodeCoord.get(object.fromNode);
-    const end = nodeCoord.get(object.toNode);
-    if (!start || !end) continue;
     const isPoint = object.fromNode === object.toNode || object.lengthMm === 0;
-    if (isPoint) {
-      // Zero-length (node-set) object: render as a pickable object marker.
-      markers.push({
-        objectId: object.objectId,
-        kind: 'NODE',
-        nodeId: object.fromNode,
-        position: [...start],
-        isObjectMarker: true,
-        sizeMm: markerSize ?? 60,
-      });
-    } else {
-      let resolvedKind = object.kind;
-      if (object.kind === 'RIGID') {
-        const rigidPacket = object.packets?.find((p) => p.kind === 'RIGID');
-        if (rigidPacket) {
-          const typeAttr = String(rigidPacket.attrs?.TYPE || rigidPacket.attrs?.type || '').toUpperCase();
-          const nameAttr = String(object.name || '').toUpperCase();
-          if (/VALVE/.test(typeAttr) || /VALVE/.test(nameAttr)) {
-            resolvedKind = 'VALVE';
-          } else if (/FLANGE/.test(typeAttr) || /FLAN/.test(typeAttr) || /FLANGE/.test(nameAttr) || /FLAN/.test(nameAttr)) {
-            resolvedKind = 'FLANGE';
-          }
-        }
-      }
-      segments.push({
-        objectId: object.objectId,
-        start: [...start],
-        end: [...end],
-        radiusMm: object.diameterMm ? object.diameterMm / 2 : 25,
-        kind: resolvedKind,
-        pathId: object.pathId,
-        center: object.attrs?.centerPoint || object.attrs?.centrePoint || object.attrs?.center || object.attrs?.centre || null,
-        attrs: object.attrs ? { ...object.attrs } : null,
-      });
-    }
-    for (const packet of object.packets) {
-      if (!allowedKinds.includes(packet.kind)) continue;
-      const resolved = resolvePacketPosition(packet, object, nodeCoord, placement);
-      markers.push({
-        objectId: object.objectId,
-        kind: packet.kind,
-        position: resolved.position,
-        nodeId: resolved.resolvedNodeId,
-        fallback: resolved.fallback,
-        consumedFrom: packet.consumedFrom ?? null,
-        sizeMm: markerSize ?? undefined,
-      });
-    }
+    if (isPoint && start) addObjectMarker(markers, object, start, settings.markerSize);
+    else addObjectSegment(segments, object, nodeCoord, bendPlan, diameters);
+    addPacketMarkers(markers, object, nodeCoord, settings);
   }
-  for (const anchor of graph.anchors) {
-    markers.push({ objectId: null, kind: `ANCHOR_${anchor.anchorType}`, position: [...anchor.coordMm], nodeId: anchor.nodeId });
-  }
-  if (options.showAllNodes) {
-    const anchorIds = new Set(graph.anchors.map((a) => a.nodeId));
-    for (const node of graph.nodes) {
-      if (anchorIds.has(node.nodeId)) continue;
-      markers.push({ objectId: null, kind: 'NODE', position: [...node.coordMm], nodeId: node.nodeId, sizeMm: markerSize ?? 24 });
-    }
-  }
+  addArcSegments(segments, graph, bendPlan, diameters);
+  addGraphMarkers(markers, graph, settings.markerSize, options.showAllNodes);
   return {
     contract: CONTRACT_VERSIONS.VisualGeometryModel,
     modelId: graph.modelId,
     unit: 'mm',
     segments,
     markers,
+    bendSummary: bendPlan.summary,
+    geometryDiagnostics: bendPlan.diagnostics,
     bounds: computeBounds(segments, markers),
   };
 }
@@ -134,12 +180,12 @@ function computeBounds(segments, markers = []) {
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];
   const include = (point) => {
-    for (let i = 0; i < 3; i += 1) {
-      if (point[i] < min[i]) min[i] = point[i];
-      if (point[i] > max[i]) max[i] = point[i];
+    for (let axis = 0; axis < 3; axis += 1) {
+      if (point[axis] < min[axis]) min[axis] = point[axis];
+      if (point[axis] > max[axis]) max[axis] = point[axis];
     }
   };
-  for (const seg of segments) { include(seg.start); include(seg.end); }
+  for (const segment of segments) { include(segment.start); include(segment.end); }
   for (const marker of markers) include(marker.position);
   if (!Number.isFinite(min[0])) return { min: [0, 0, 0], max: [0, 0, 0] };
   return { min, max };
