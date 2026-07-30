@@ -11,6 +11,7 @@
  */
 
 import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
+import { buildSourceOrientation, captureSourceRecord } from './source-element-orientation.js';
 
 function addVec(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
 
@@ -176,7 +177,14 @@ function anchorType(node, degree, restraintNodes) {
 export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
   const toleranceMm = Number(options.shortElementToleranceMm ?? 6);
   // Deep-ish copy so canonicalization never mutates adapter output.
-  const records = rawRecords.map((r) => ({ ...r, deltaMm: [...r.deltaMm], packets: r.packets.map((p) => ({ ...p, attrs: { ...p.attrs } })), properties: { ...r.properties }, blocks: r.blocks ?? null }));
+  const records = rawRecords.map((r) => ({
+    ...r,
+    deltaMm: [...r.deltaMm],
+    packets: r.packets.map((p) => ({ ...p, attrs: { ...p.attrs } })),
+    properties: { ...r.properties },
+    blocks: r.blocks ?? null,
+    sourceRecord: captureSourceRecord(r),
+  }));
   const { surviving, consumedRows } = consumeShortElements(records, toleranceMm);
 
   const { coords, componentOf } = solveNodeCoordinates(surviving);
@@ -212,6 +220,7 @@ export function buildCanonicalGraph(modelId, rawRecords, options = {}) {
         fromNode: startNode,
         toNode: endNode,
         canonicalFromTo: `${startNode}->${endNode}`,
+        sourceOrientation: buildSourceOrientation(record, forward),
         lengthMm: Number(record.lengthMm.toFixed(3)),
         diameterMm: Number.isFinite(record.diameterMm) ? record.diameterMm : null,
         wallThickMm: Number.isFinite(record.wallThickMm) ? record.wallThickMm : null,
