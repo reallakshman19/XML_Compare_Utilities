@@ -1,8 +1,8 @@
 /** Pure, bounded comparison of the current and immediately previous WebGL responsiveness runs. */
 import { deepFreeze } from './revision-contract-utils.js';
 
-export const REVISION_VIEWER_RUN_SNAPSHOT_SCHEMA = 'RevisionViewerRunSnapshot.v1';
-export const REVISION_VIEWER_RUN_COMPARISON_SCHEMA = 'RevisionViewerRunComparison.v1';
+const REVISION_VIEWER_RUN_SNAPSHOT_SCHEMA = 'RevisionViewerRunSnapshot.v1';
+const REVISION_VIEWER_RUN_COMPARISON_SCHEMA = 'RevisionViewerRunComparison.v1';
 
 function finite(value) {
   if (value == null || value === '') return null;
