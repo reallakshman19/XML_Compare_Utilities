@@ -6,6 +6,11 @@ import {
   assertSequentialDraftEdit3dFixtureCatalog,
   createSequentialDraftEdit3dFixtureCatalog,
 } from './sequential-draft-edit-3d-fixture-catalog.js';
+import {
+  SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS,
+  assertSequentialDraftEdit3dLimitationRegister,
+  createSequentialDraftEdit3dLimitationRegister,
+} from './sequential-draft-edit-3d-limitation-register.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA =
   'SequentialDraftEdit3dReleaseManifest.v1';
@@ -39,16 +44,10 @@ export const SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS = Object.freeze([
   'tabs/sequential-sketcher/scoped-edit/sequential-geometry-edit-boundary.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-component-edit-operations.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-fixture-catalog.js',
+  'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-limitation-register.js',
   'workbench3d/viewer/workbench-viewer.js',
 ]);
-export const SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS = Object.freeze([
-  'NO_STRUCTURAL_TOPOLOGY_APPLICATION',
-  'NO_GEOMETRY_OR_SUPPORT_PERSISTENCE_IN_PORTABLE_PACKAGE',
-  'NO_HETEROGENEOUS_ATOMIC_TRANSACTION',
-  'NO_UNRESTRICTED_MULTI_SELECTION',
-  'NO_AUTOMATIC_TOPOLOGY_REPAIR',
-  'ENGINEERING_DEMO_ONLY',
-]);
+export const SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS = SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS;
 
 function fail(message, Constructor = RangeError) { throw new Constructor(message); }
 function text(value, label) {
@@ -160,6 +159,7 @@ function material(input) {
     controller,
     capabilities: capabilityEvidence(input.controllerState),
     fixtureCatalog: createSequentialDraftEdit3dFixtureCatalog(),
+    limitationRegister: createSequentialDraftEdit3dLimitationRegister(),
     limitations: SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS,
     disposition: Object.freeze({
       releaseLevel: 'ENGINEERING_DEMO_BASELINE',
@@ -176,6 +176,14 @@ function fixtureCatalogInvariant(value) {
     return JSON.stringify(catalog) === JSON.stringify(createSequentialDraftEdit3dFixtureCatalog());
   } catch { return false; }
 }
+function limitationRegisterInvariant(value) {
+  try {
+    const register = assertSequentialDraftEdit3dLimitationRegister(value);
+    const exact = JSON.stringify(register) === JSON.stringify(createSequentialDraftEdit3dLimitationRegister());
+    const ids = register.entries.map((entry) => entry.limitationId);
+    return exact && JSON.stringify(ids) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS);
+  } catch { return false; }
+}
 function invariant(value) {
   try {
     return value.baseline?.repository === SEQUENTIAL_DRAFT_EDIT_3D_BASELINE.repository
@@ -184,6 +192,7 @@ function invariant(value) {
       && JSON.stringify(value.runtimePaths) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS)
       && JSON.stringify(value.capabilities) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES)
       && fixtureCatalogInvariant(value.fixtureCatalog)
+      && limitationRegisterInvariant(value.limitationRegister)
       && JSON.stringify(value.limitations) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS)
       && value.controller?.fallbackSurface === 'CONSTRUCTION_SVG'
       && value.disposition?.internalPilotReady === false

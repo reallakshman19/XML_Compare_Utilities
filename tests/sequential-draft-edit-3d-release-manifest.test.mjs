@@ -4,6 +4,10 @@ import {
   createSequentialDraftEdit3dFixtureCatalog,
 } from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-fixture-catalog.js';
 import {
+  SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS,
+  createSequentialDraftEdit3dLimitationRegister,
+} from '../tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-limitation-register.js';
+import {
   SEQUENTIAL_DRAFT_EDIT_3D_BASELINE,
   SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES,
   assertSequentialDraftEdit3dReleaseManifest,
@@ -70,6 +74,12 @@ assert.equal(manifest.journals.geometryEntryCount, 1);
 assert.deepEqual(manifest.fixtureCatalog, createSequentialDraftEdit3dFixtureCatalog());
 assert.deepEqual(manifest.fixtureCatalog.scenarios.map((scenario) => scenario.scenarioId),
   SEQUENTIAL_DRAFT_EDIT_3D_FIXTURE_SCENARIO_IDS);
+assert.deepEqual(manifest.limitationRegister, createSequentialDraftEdit3dLimitationRegister());
+assert.deepEqual(manifest.limitationRegister.entries.map((entry) => entry.limitationId),
+  SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS);
+assert.deepEqual(manifest.limitations, SEQUENTIAL_DRAFT_EDIT_3D_LIMITATION_IDS);
+assert.equal(manifest.limitationRegister.ownershipAttestation.trustBoundary.signerIdentity,
+  'NOT_ESTABLISHED');
 assert.equal(manifest.controller.fallbackSurface, 'CONSTRUCTION_SVG');
 assert.equal(manifest.disposition.internalPilotReady, false);
 assert.equal(manifest.disposition.newEditingAuthority, false);
@@ -106,7 +116,8 @@ assert.throws(() => validateSequentialDraftEdit3dReleaseManifest(manifest, { ...
   commandState: { ...input.commandState, journalState: changedJournalState } }));
 
 function refingerprint(value) {
-  const base = { ...value }; delete base.manifestFingerprint;
+  const base = { ...value };
+  delete base.manifestFingerprint;
   value.manifestFingerprint = sequentialSemanticFingerprint('SSK3DRELEASE', base);
   return value;
 }
@@ -119,6 +130,10 @@ assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedCapability)
 const forgedCatalog = structuredClone(manifest);
 forgedCatalog.fixtureCatalog.scenarios[0].fixtureSymbol = 'inventedFixture'; refingerprint(forgedCatalog);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedCatalog));
+const forgedRegister = structuredClone(manifest);
+forgedRegister.limitationRegister.entries[0].accountableRole = 'UNAUTHORIZED_OWNER';
+refingerprint(forgedRegister);
+assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedRegister));
 const forgedDisposition = structuredClone(manifest);
 forgedDisposition.disposition.internalPilotReady = true; refingerprint(forgedDisposition);
 assert.throws(() => assertSequentialDraftEdit3dReleaseManifest(forgedDisposition));
@@ -128,4 +143,4 @@ assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   controllerState: { ...input.controllerState, available: false } }));
 assert.throws(() => createSequentialDraftEdit3dReleaseManifest({ ...input,
   view: { ...input.view, readModel: { ...input.view.readModel, branchId: 'BRANCH-B' } } }));
-console.log('[PASS] byte-stable authority, fixture catalog, journals and regeneration');
+console.log('[PASS] byte-stable authority, fixture catalog, limitation register and regeneration');
