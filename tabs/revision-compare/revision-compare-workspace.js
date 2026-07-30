@@ -12,9 +12,10 @@ import { revisionCompareViewerBackendLabel } from './revision-compare-viewer-bac
 import { createComparisonLifecycleState } from './revision-compare-lifecycle.js';
 import { REVISION_COMPARE_DEFAULT_VIEWER_POLICY, createRevisionCompareViewerPolicy } from './revision-compare-viewer-policy.js';
 import { createRevisionCompareService } from './revision-compare-service.js';
-import { downloadRevisionArtifact } from './revision-manifests.js';
+import { downloadRevisionArtifact, downloadRevisionTextArtifact } from './revision-manifests.js';
 import { createRevisionLoadService } from './revision-load-service.js';
 import { revisionComparisonPreflight } from './revision-preflight.js';
+import { createRevisionImpactReportDownloadActions } from './revision-impact-report-download.js';
 import { createRevisionReviewFilterResetAction, renderRevisionReviewFilterResetControl } from './revision-review-filter-reset.js';
 import { createRevisionScopeFilterResetAction } from './revision-scope-filter-reset.js';
 import {
@@ -106,7 +107,8 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const cryptoRef = options.cryptoRef ?? root.ownerDocument.defaultView?.crypto;
   const service = options.service ?? createRevisionLoadService(cryptoRef, options.loadServiceOptions);
   const compareService = options.compareService ?? createRevisionCompareService(options.compareServiceOptions);
-  const downloadArtifact = options.downloadArtifact ?? downloadRevisionArtifact; const cleanups = [];
+  const downloadArtifact = options.downloadArtifact ?? downloadRevisionArtifact;
+  const downloadText = options.downloadText ?? downloadRevisionTextArtifact; const cleanups = [];
   const policy = createRevisionCompareViewerPolicy(options.viewerPolicy ?? options.viewerAdapterOptions?.viewerPolicy ?? REVISION_COMPARE_DEFAULT_VIEWER_POLICY);
   let state = initialWorkspaceState(options.sessionId ?? sessionId(now()), now(), policy);
   let actions = null; let renderSequence = 0; let viewerAdapter = options.viewerAdapter ?? null; let destroyed = false; let signOffBusy = false;
@@ -200,9 +202,13 @@ export function mountRevisionCompareWorkspace(root, options = {}) {
   const baseActions = createRevisionActions({ root, options, service, compareService, viewerAdapter, cryptoRef, clock, readState: () => state, writeState: (next) => { state = next; }, render, now, downloadArtifact });
   const clearScopeFilters = createRevisionScopeFilterResetAction({ readState: () => state, writeState: (next) => { state = next; }, render, setSearch: setWorkspaceSearch, showToast: options.showToast });
   const clearReviewFilters = createRevisionReviewFilterResetAction({ readState: () => state, writeState: (next) => { state = next; }, render, showToast: options.showToast });
+  const impactActions = createRevisionImpactReportDownloadActions({
+    root, readState: () => state, cryptoRef, downloadArtifact, downloadText,
+    showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error),
+  });
   transferBindings = createRevisionCompareTransferWorkspaceBindings({ root, readState: () => state, writeState: (next) => { state = next; }, render, now, cryptoRef, showToast: options.showToast, reportFailure: (error) => reportFailure(root, options, error) });
   actions = Object.freeze({
-    ...baseActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
+    ...baseActions, ...impactActions, clearReviewFilters, clearScopeFilters, downloadEvidencePackage, importEvidencePackage, importTrustReceipt, createSignOff, downloadSignOff,
     transferClick: transferBindings.handleClick, transferChange: transferBindings.handleChange,
     syncSignOffControls: () => syncRevisionCompareSignOffControls(root, state, signOffBusy),
   });
