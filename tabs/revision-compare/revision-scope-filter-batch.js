@@ -1,5 +1,6 @@
 /** Shared filter and batch-selection authority for Revision Compare branch scope. */
 import { cleanText, deepFreeze, frozenStrings } from './revision-contract-utils.js';
+import { revisionScopeResetModel } from './revision-scope-reset.js';
 import { updateScopeGroup } from './revision-scope-proposal.js';
 
 const GROUP_FIELDS = Object.freeze({
@@ -16,6 +17,16 @@ function searchableText(entry) {
   return [entry?.label, entry?.site, entry?.owner].map(cleanText).join(' ').toLowerCase();
 }
 
+function resetBatchModel(state) {
+  const reset = revisionScopeResetModel(state);
+  return deepFreeze({
+    group: 'reset', query: '', filtered: false, entries: Object.freeze([]),
+    branchIds: frozenStrings(Object.keys(state?.scopeDecisions ?? {})),
+    totalCount: reset.decisionCount, visibleCount: reset.decisionCount, hiddenCount: 0,
+    selectLabel: reset.label, clearLabel: '',
+  });
+}
+
 export function revisionScopeGroupEntries(proposal, group) {
   const field = GROUP_FIELDS[group];
   if (!field) throw new RangeError(`Unknown revision scope group: ${group}`);
@@ -29,6 +40,7 @@ export function filterRevisionScopeEntries(entries, query) {
 }
 
 export function revisionScopeBatchModel(state, group) {
+  if (group === 'reset') return resetBatchModel(state);
   const entries = revisionScopeGroupEntries(state?.proposal, group);
   const query = normalizedQuery(state?.search?.[group]);
   const visibleEntries = filterRevisionScopeEntries(entries, query);
@@ -55,4 +67,4 @@ export function applyRevisionScopeBatch(decisions, state, group, include) {
   });
 }
 
-export const _test = Object.freeze({ normalizedQuery, searchableText });
+export const _test = Object.freeze({ normalizedQuery, resetBatchModel, searchableText });
