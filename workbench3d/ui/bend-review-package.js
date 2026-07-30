@@ -4,8 +4,7 @@ import { stableStringify } from '../adapters/bend-geometry-audit.js';
 
 export const BEND_REVIEW_PACKAGE_CONTRACT = 'WorkbenchBendReviewPackage.v1';
 export const BEND_REVIEW_PACKAGE_SIGNATURE_ALGORITHM = 'stable-json-fnv1a32';
-
-const AUTHORITY = 'READ_ONLY_REVIEW_BINDING';
+export const BEND_REVIEW_PACKAGE_AUTHORITY = 'READ_ONLY_REVIEW_BINDING';
 
 function text(value) { return String(value ?? '').trim(); }
 function array(value) { return Array.isArray(value) ? value : []; }
@@ -109,6 +108,10 @@ function completeness(inputs, comparison, bends) {
   return Object.freeze({ gates, complete: Object.values(gates).every(Boolean) });
 }
 
+export function computeBendReviewPackageSignature(payload = {}) {
+  return hash('wb3d-review', payload);
+}
+
 export function buildBendReviewPackageManifest(state = {}) {
   const inputs = Object.freeze({
     source: inputIdentity('A', state.sourceName, state.sourceXml, state.graphs?.sourceSchema),
@@ -130,9 +133,9 @@ export function buildBendReviewPackageManifest(state = {}) {
   return Object.freeze({
     contract: BEND_REVIEW_PACKAGE_CONTRACT,
     signatureAlgorithm: BEND_REVIEW_PACKAGE_SIGNATURE_ALGORITHM,
-    packageSignature: hash('wb3d-review', payload),
+    packageSignature: computeBendReviewPackageSignature(payload),
     deterministic: true,
-    authority: AUTHORITY,
+    authority: BEND_REVIEW_PACKAGE_AUTHORITY,
     disposition: readiness.complete ? 'COMPLETE' : 'INCOMPLETE',
     payload,
   });
