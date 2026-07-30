@@ -4,12 +4,17 @@ import {
 
 const SUPPORT_SOURCE_TYPES = new Set(['SUPPORT', 'ATTA', 'ANCI']);
 
+function sourceRecords(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === 'object' && Array.isArray(parsed.branches)) return parsed.branches;
+  throw new Error('Source JSON root must be a branch array or an envelope containing branches.');
+}
+
 export function parseStagedJson(text) {
   let parsed;
   try { parsed = JSON.parse(String(text || '')); }
   catch (error) { throw new Error(`Source JSON is invalid: ${error.message}`); }
-  if (!Array.isArray(parsed)) throw new Error('Source JSON root must be an array of branch records.');
-  return parsed;
+  return sourceRecords(parsed);
 }
 
 export function branchIdentity(record) {

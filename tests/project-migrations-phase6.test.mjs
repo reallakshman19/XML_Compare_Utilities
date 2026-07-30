@@ -9,7 +9,11 @@ import { SAMPLE_TABLE_1, SAMPLE_TABLE_2, SAMPLE_TABLE_3 } from '../tabs/pipeline
 import { buildPipelineProjectMigration, buildPipelineProjectOutputs } from '../tabs/pipeline-3d-model/pipeline-3d-model-project-adapter.js';
 import { createConfirmedSequentialConstruction } from '../tabs/sequential-sketcher/construction/sequential-construction-acceptance.js';
 import { createSequentialConstructionSession, runConstructionUntilBlocked } from '../tabs/sequential-sketcher/construction/sequential-construction-runtime.js';
-import { buildSequentialProjectMigration } from '../tabs/sequential-sketcher/sequential-sketcher-project-adapter.js';
+import {
+  buildSequentialProjectMigration,
+  SEQUENTIAL_PROJECT_EXPORT_SCHEMA,
+  sequentialProjectArtifacts,
+} from '../tabs/sequential-sketcher/sequential-sketcher-project-adapter.js';
 import { buildSequentialEvidenceModel, indexSequentialEvidence } from '../tabs/sequential-sketcher/source/sequential-evidence-model.js';
 import { buildConfirmedConstructionSupportProjection } from '../tabs/sequential-sketcher/support/sequential-confirmed-support-projection.js';
 import { buildSupportSteelRelationshipBundle } from '../tabs/support-steel-relationship-builder/support-steel-evidence-bundle.js';
@@ -101,13 +105,26 @@ const acceptedIndexes = indexSequentialEvidence(acceptedEvidence);
 const acceptedSession = runConstructionUntilBlocked(createSequentialConstructionSession('/PHASE6/B1'), acceptedEvidence, acceptedIndexes, {}).session;
 const confirmed = createConfirmedSequentialConstruction(acceptedSession, acceptedIndexes);
 const supportProjection = buildConfirmedConstructionSupportProjection(confirmed, acceptedIndexes, { projectionToleranceMm: 50, onCenterlineToleranceMm: 0.001, ambiguityToleranceMm: 1 });
-const sequentialReady = await buildSequentialProjectMigration({
+const sequentialInput = {
   sourceText: JSON.stringify(acceptedRecords), sourceName: 'accepted.json', evidence: acceptedEvidence,
   session: acceptedSession, confirmedConstruction: confirmed, supportProjection,
   createdAt: NOW, cryptoRef: globalThis.crypto,
-});
+};
+const sequentialReady = await buildSequentialProjectMigration(sequentialInput);
 assert.equal(sequentialReady.exportPlan.gate.status, 'READY');
-assert.match(sequentialReady.outputs[0].text, /ConfirmedSequentialConstruction\.v1/);
+assert.equal(sequentialReady.document.unit, 'MM');
+assert.equal(sequentialReady.document.coordinateFrame, 'PLANT');
+assert.equal(sequentialReady.document.verticalAxis, 'Z');
+assert.deepEqual(sequentialReady.outputs.map((row) => row.text), sequentialProjectArtifacts(sequentialInput).map((row) => row.text));
+const sequentialEnvelope = JSON.parse(sequentialReady.outputs[0].text);
+assert.equal(sequentialEnvelope.schema, SEQUENTIAL_PROJECT_EXPORT_SCHEMA);
+assert.equal(sequentialEnvelope.stagedSchema, 'sequential-sketcher-source-array/v1');
+assert.equal(sequentialEnvelope.sourceSchema, 'SequentialBranchSketch.v1');
+assert.equal(sequentialEnvelope.unit, 'MM');
+assert.equal(sequentialEnvelope.coordinateFrame, 'PLANT');
+assert.equal(sequentialEnvelope.verticalAxis, 'Z');
+assert.deepEqual(sequentialEnvelope.branches, acceptedRecords);
+assert.equal(sequentialEnvelope.confirmedConstruction.schema, 'ConfirmedSequentialConstruction.v1');
 
 const supportBundle = buildSupportSteelRelationshipBundle({
   supportInput: SUPPORT_STEEL_SAMPLE_SUPPORT, steelInput: SUPPORT_STEEL_SAMPLE_STEEL,

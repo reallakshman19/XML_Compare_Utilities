@@ -19,6 +19,12 @@ const source = [{
 }];
 
 const records = parseStagedJson(JSON.stringify(source));
+assert.deepEqual(parseStagedJson(JSON.stringify({
+  schema: 'SequentialProjectExport.v2',
+  stagedSchema: 'sequential-sketcher-source-array/v1',
+  unit: 'MM', coordinateFrame: 'PLANT', verticalAxis: 'Z', branches: source,
+})), source, 'metadata envelopes must preserve the authoritative branch records');
+assert.throws(() => parseStagedJson(JSON.stringify({ objects: source })), /envelope containing branches/i);
 const branch = selectExactBranch(records, branchId);
 const inventory = buildBranchInventory(branch);
 assert.equal(inventory.routeComponents.length, 3);
