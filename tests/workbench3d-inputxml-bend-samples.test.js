@@ -7,6 +7,7 @@ import { buildVisualModel } from '../workbench3d/adapters/visual-model-builder.j
 import {
   bendDiagnosticsPanelHtml, buildBendDiagnosticsModel,
 } from '../workbench3d/ui/bend-diagnostics-panel.js';
+import './workbench3d-bend-geometry-audit.test.js';
 
 const SAMPLES = Object.freeze([
   Object.freeze({
@@ -30,7 +31,7 @@ const SAMPLES = Object.freeze([
 ]);
 
 function declaredCount(xmlText, attribute) {
-  const match = new RegExp(`\\b${attribute}="(\\d+)"`, 'i').exec(xmlText);
+  const match = new RegExp(`\b${attribute}="(\d+)"`, 'i').exec(xmlText);
   return match ? Number(match[1]) : null;
 }
 
@@ -75,6 +76,12 @@ function qualifySample(sample) {
     `${sample.id}: deterministic diagnostics`);
   assert.deepStrictEqual(bendSegments(visual), bendSegments(repeated),
     `${sample.id}: deterministic resolved geometry`);
+  assert.deepStrictEqual(visual.bendAudit, repeated.bendAudit,
+    `${sample.id}: deterministic bend audit`);
+  assert.match(visual.bendAudit.signature, /^wb3d-bend-[0-9a-f]{8}$/,
+    `${sample.id}: semantic signature`);
+  assert.strictEqual(visual.bendAudit.payload.summaryConsistent, true,
+    `${sample.id}: audit summary consistency`);
   assert.strictEqual(bendSegments(visual).length,
     visual.bendSummary.arcSegments, `${sample.id}: arc chord count`);
   for (const diagnostic of visual.geometryDiagnostics) {
@@ -102,8 +109,13 @@ assert.strictEqual(panel.totals.requested,
   source.visual.bendSummary.requested + target.visual.bendSummary.requested);
 assert.strictEqual(panel.totals.resolved,
   source.visual.bendSummary.resolved + target.visual.bendSummary.resolved);
-assert.match(bendDiagnosticsPanelHtml(panelState), /InputXML bend geometry/);
-assert.match(bendDiagnosticsPanelHtml(panelState), /Visual derivation evidence only/);
+assert.ok(panel.source.signature && panel.target.signature, 'panel exposes both audit signatures');
+assert.ok(['MATCH', 'DIFFERENT'].includes(panel.auditParity), 'panel reports audit parity');
+const panelHtml = bendDiagnosticsPanelHtml(panelState);
+assert.match(panelHtml, /InputXML bend geometry/);
+assert.match(panelHtml, /Read-only visual derivation evidence/);
+assert.match(panelHtml, /Export audit JSON/);
+assert.match(panelHtml, /stable-json-fnv1a32/);
 
 const blockedState = {
   sourceName: 'blocked.xml', targetName: 'ready.xml',
@@ -120,12 +132,13 @@ const blockedState = {
 };
 const blockedModel = buildBendDiagnosticsModel(blockedState);
 assert.strictEqual(blockedModel.source.disposition, 'REVIEW_REQUIRED');
+assert.strictEqual(blockedModel.auditParity, 'NOT_AVAILABLE');
 const blockedHtml = bendDiagnosticsPanelHtml(blockedState);
 assert.match(blockedHtml, /BEND_RADIUS_MISSING/);
 assert.match(blockedHtml, /data-action="select-object" data-object="source:E2"/);
 
 for (const result of qualified) {
   const summary = result.visual.bendSummary;
-  console.log(`  ${result.sample.id}: elements=${result.parsed.records.length} bends=${summary.requested} resolved=${summary.resolved} blocked=${summary.blocked} chords=${summary.arcSegments}`);
+  console.log(`  ${result.sample.id}: elements=${result.parsed.records.length} bends=${summary.requested} resolved=${summary.resolved} blocked=${summary.blocked} chords=${summary.arcSegments} signature=${result.visual.bendAudit.signature}`);
 }
 console.log('workbench3d-inputxml-bend-samples.test.js passed');
