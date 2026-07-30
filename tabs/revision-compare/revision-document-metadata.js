@@ -75,7 +75,9 @@ export function stagedDocumentMetadata(document) {
   const coordinates = record(root.coordinateSystem);
   const profile = inferredProfile(document);
   return deepFreeze({
-    stagedSchema: declared([root.schema, metadata.schema, profile?.stagedSchema]),
+    stagedSchema: declared([
+      root.stagedSchema, metadata.stagedSchema, root.sourceSchema, root.schema, metadata.schema, profile?.stagedSchema,
+    ]),
     unit: declared([root.unit, root.units, metadata.unit, metadata.units, profile?.fields.unit]),
     verticalAxis: declared([
       root.verticalAxis, root.upAxis, metadata.verticalAxis, coordinates.upAxis, profile?.fields.verticalAxis,
