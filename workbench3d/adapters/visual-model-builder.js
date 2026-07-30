@@ -1,6 +1,7 @@
 /** CanonicalObjectGraph.v1 → VisualGeometryModel.v1. */
 
 import { CONTRACT_VERSIONS } from '../contracts/contracts.js';
+import { buildBendGeometryAudit } from './bend-geometry-audit.js';
 import {
   effectiveDiameterByObject, resolveInputXmlBends, trimmedEndpoint,
 } from './inputxml-bend-geometry.js';
@@ -126,6 +127,7 @@ export function buildVisualModel(graph, options = {}) {
   };
   const nodeCoord = new Map(graph.nodes.map((node) => [node.nodeId, node.coordMm]));
   const bendPlan = resolveInputXmlBends(graph);
+  const bendAudit = buildBendGeometryAudit(graph, bendPlan);
   const diameters = effectiveDiameterByObject(graph.objects);
   const segments = [];
   const markers = [];
@@ -145,6 +147,7 @@ export function buildVisualModel(graph, options = {}) {
     segments,
     markers,
     bendSummary: bendPlan.summary,
+    bendAudit,
     geometryDiagnostics: bendPlan.diagnostics,
     bounds: computeBounds(segments, markers),
   };
