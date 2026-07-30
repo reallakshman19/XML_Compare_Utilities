@@ -38,7 +38,8 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
       && current.receipt.receiptId === value.receipt?.receiptId
       && current.receipt.contentSha256 === value.receipt?.contentSha256);
   }
-  async function importFile(file) {
+  async function importFile(file, subtype = 'receipt') {
+    if (subtype === 'signature') return importSignatureFile(file);
     const generation = state.generation + 1;
     state = startRevisionResponsivenessReceiptVerification(state, generation, file?.name);
     signatureState = createRevisionResponsivenessSignatureState(); options.renderWorkspace();
@@ -76,7 +77,7 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
     }
   }
   return Object.freeze({
-    attachment, importFile, importSignatureFile, matchesAttachment, model, signatureModel,
+    attachment, importFile, matchesAttachment, model, signatureModel,
     render() {
       renderRevisionResponsivenessReceiptVerificationSection(options.root, model());
       renderRevisionResponsivenessSignatureSection(options.root, signatureModel());
