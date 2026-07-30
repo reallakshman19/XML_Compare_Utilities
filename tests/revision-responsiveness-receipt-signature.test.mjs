@@ -60,18 +60,19 @@ async function keyPair(modulusLength = 2048) {
 async function signatureReceiptFor(target, keys = await keyPair()) {
   const publicKeyJwk = await webcrypto.subtle.exportKey('jwk', keys.publicKey);
   const subject = revisionResponsivenessSignatureSubject(target);
-  const payload = serializeRevisionResponsivenessSignaturePayload(subject);
+  const signerClaim = { displayName: 'External Runtime Reviewer', role: 'Verifier', organization: 'Example Engineering', issuer: null, keyId: 'runtime-rsa-001' };
+  const signedAt = '2026-07-30T12:10:00.000Z';
+  const trustBoundary = { identityStatus: 'EXTERNALLY_ASSERTED', trustStatus: 'NOT_ESTABLISHED' };
+  const payload = serializeRevisionResponsivenessSignaturePayload(subject, signerClaim, signedAt, trustBoundary);
   const signatureBytes = new Uint8Array(await webcrypto.subtle.sign({ name: 'RSA-PSS', saltLength: 32 }, keys.privateKey, new TextEncoder().encode(payload)));
   const receipt = {
-    schema: REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA, receiptId: '', contentSha256: '', subject,
-    signerClaim: { displayName: 'External Runtime Reviewer', role: 'Verifier', organization: 'Example Engineering', issuer: null, keyId: 'runtime-rsa-001' },
+    schema: REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_SCHEMA, receiptId: '', contentSha256: '', subject, signerClaim,
     signature: {
       algorithm: REVISION_RESPONSIVENESS_SIGNATURE_ALGORITHM, publicKeyJwk,
       publicKeySha256: await sha256Text(stableStringify(publicKeyJwk), webcrypto),
-      signedPayloadSha256: await sha256Text(payload, webcrypto), signatureBase64Url: base64Url(signatureBytes),
-      signedAt: '2026-07-30T12:10:00.000Z',
+      signedPayloadSha256: await sha256Text(payload, webcrypto), signatureBase64Url: base64Url(signatureBytes), signedAt,
     },
-    trustBoundary: { identityStatus: 'EXTERNALLY_ASSERTED', trustStatus: 'NOT_ESTABLISHED' },
+    trustBoundary,
   };
   receipt.contentSha256 = await sha256Text(stableStringify(revisionResponsivenessSignatureReceiptHashMaterial(receipt)), webcrypto);
   receipt.receiptId = `${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX}${receipt.contentSha256}`;
@@ -81,6 +82,10 @@ async function rehash(value) {
   value.contentSha256 = await sha256Text(stableStringify(revisionResponsivenessSignatureReceiptHashMaterial(value)), webcrypto);
   value.receiptId = `${REVISION_RESPONSIVENESS_SIGNATURE_RECEIPT_ID_PREFIX}${value.contentSha256}`;
   return value;
+}
+async function resignPayloadHash(value) {
+  const payload = serializeRevisionResponsivenessSignaturePayload(value.subject, value.signerClaim, value.signature.signedAt, value.trustBoundary);
+  value.signature.signedPayloadSha256 = await sha256Text(payload, webcrypto); return rehash(value);
 }
 function fileFor(name, value) {
   const text = JSON.stringify(value); return { name, size: Buffer.byteLength(text), text: async () => text };
@@ -109,9 +114,18 @@ for (const [mutate, pattern] of [
   [(value) => { value.signature.publicKeySha256 = '0'.repeat(64); }, /Public-JWK/],
   [(value) => { value.signature.publicKeyJwk.d = 'private'; }, /unsupported or missing fields|Private RSA/],
   [(value) => { value.trustBoundary.trustStatus = 'TRUSTED'; }, /trust boundary/],
+  [(value) => { value.signerClaim.displayName = 'Altered Reviewer'; }, /Signed-payload/],
+  [(value) => { value.signature.signedAt = '2026-07-30T12:11:00.000Z'; }, /Signed-payload/],
 ]) {
   const value = structuredClone(signed.receipt); mutate(value); await rehash(value);
   await assert.rejects(() => verifyRevisionResponsivenessSignatureReceipt(value, target, webcrypto), pattern);
+}
+for (const mutate of [
+  (value) => { value.signerClaim.displayName = 'Altered Reviewer'; },
+  (value) => { value.signature.signedAt = '2026-07-30T12:11:00.000Z'; },
+]) {
+  const value = structuredClone(signed.receipt); mutate(value); await resignPayloadHash(value);
+  await assert.rejects(() => verifyRevisionResponsivenessSignatureReceipt(value, target, webcrypto), /signature is invalid/);
 }
 const invalid = structuredClone(signed.receipt); const signatureBytes = Buffer.from(invalid.signature.signatureBase64Url, 'base64url');
 signatureBytes[0] ^= 1; invalid.signature.signatureBase64Url = signatureBytes.toString('base64url'); await rehash(invalid);
