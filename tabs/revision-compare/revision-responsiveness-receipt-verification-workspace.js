@@ -20,17 +20,59 @@ import {
 import { renderRevisionResponsivenessReceiptVerificationSection } from './revision-responsiveness-receipt-verification-view.js';
 import { renderRevisionResponsivenessSignatureSection } from './revision-responsiveness-receipt-signature-view.js';
 
+async function importReceiptFile(context, file) {
+  const generation = context.receiptState().generation + 1;
+  context.setReceiptState(startRevisionResponsivenessReceiptVerification(context.receiptState(), generation, file?.name));
+  context.setSignatureState(createRevisionResponsivenessSignatureState()); context.render();
+  try {
+    if (!file) throw new TypeError('Select a responsiveness observation receipt.');
+    if (file.size > REVISION_RESPONSIVENESS_RECEIPT_MAX_BYTES) throw new RangeError('Responsiveness receipt is limited to 256 KiB.');
+    const verification = await verifyRevisionResponsivenessObservationReceiptJson(await file.text(), context.cryptoRef);
+    if (context.destroyed()) return;
+    const current = context.receiptState(); const next = completeRevisionResponsivenessReceiptVerification(current, generation, verification);
+    if (next === current) return; context.setReceiptState(next); context.render();
+    context.showToast?.('Responsiveness receipt structure and ID verified.', 'success');
+  } catch (error) {
+    if (context.destroyed()) return;
+    const current = context.receiptState(); const next = failRevisionResponsivenessReceiptVerification(current, generation, error);
+    if (next === current) return; context.setReceiptState(next); context.render(); context.reportFailure(error);
+  }
+}
+
+async function importSignatureFile(context, file) {
+  const generation = context.signatureState().generation + 1;
+  context.setSignatureState(startRevisionResponsivenessSignatureImport(context.signatureState(), generation, file?.name)); context.render();
+  try {
+    const target = context.retainedReceipt();
+    if (!target) throw new TypeError('Verify a responsiveness observation receipt before importing its detached signature.');
+    if (!file) throw new TypeError('Select a responsiveness signature receipt.');
+    if (file.size > REVISION_RESPONSIVENESS_SIGNATURE_MAX_BYTES) throw new RangeError('Responsiveness signature receipt is limited to 256 KiB.');
+    const receipt = await verifyRevisionResponsivenessSignatureReceiptJson(await file.text(), target, context.cryptoRef);
+    if (context.destroyed()) return;
+    const current = context.signatureState(); const next = completeRevisionResponsivenessSignatureImport(current, generation, receipt);
+    if (next === current) return; context.setSignatureState(next); context.render();
+    context.showToast?.('Responsiveness receipt signature verified.', 'success');
+  } catch (error) {
+    if (context.destroyed()) return;
+    const current = context.signatureState(); const next = failRevisionResponsivenessSignatureImport(current, generation, error);
+    if (next === current) return; context.setSignatureState(next); context.render(); context.reportFailure(error);
+  }
+}
+
 export function createRevisionResponsivenessReceiptVerificationWorkspace(options) {
   let state = createRevisionResponsivenessReceiptVerificationState();
-  let signatureState = createRevisionResponsivenessSignatureState();
-  let destroyed = false;
+  let signatureState = createRevisionResponsivenessSignatureState(); let destroyed = false;
   const retainedReceipt = () => state.verification?.receipt ?? null;
   const model = () => revisionResponsivenessReceiptVerificationModel(state, options.readCurrentInput());
   const signatureModel = () => revisionResponsivenessSignatureModel(signatureState, retainedReceipt(), model());
+  const context = {
+    cryptoRef: options.cryptoRef, destroyed: () => destroyed, receiptState: () => state, signatureState: () => signatureState,
+    retainedReceipt, render: options.renderWorkspace, reportFailure: options.reportFailure, showToast: options.showToast,
+    setReceiptState: (value) => { state = value; }, setSignatureState: (value) => { signatureState = value; },
+  };
   function attachment() {
     const current = model(); const receipt = retainedReceipt();
-    if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
-    return Object.freeze({ status: current.status, runId: receipt.observation.runId, receipt });
+    return current.status === 'VERIFIED_CURRENT' && receipt ? Object.freeze({ status: current.status, runId: receipt.observation.runId, receipt }) : null;
   }
   function matchesAttachment(value) {
     const current = attachment();
@@ -38,46 +80,9 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
       && current.receipt.receiptId === value.receipt?.receiptId
       && current.receipt.contentSha256 === value.receipt?.contentSha256);
   }
-  async function importFile(file, subtype = 'receipt') {
-    if (subtype === 'signature') return importSignatureFile(file);
-    const generation = state.generation + 1;
-    state = startRevisionResponsivenessReceiptVerification(state, generation, file?.name);
-    signatureState = createRevisionResponsivenessSignatureState(); options.renderWorkspace();
-    try {
-      if (!file) throw new TypeError('Select a responsiveness observation receipt.');
-      if (file.size > REVISION_RESPONSIVENESS_RECEIPT_MAX_BYTES) throw new RangeError('Responsiveness receipt is limited to 256 KiB.');
-      const verification = await verifyRevisionResponsivenessObservationReceiptJson(await file.text(), options.cryptoRef);
-      if (destroyed) return;
-      const next = completeRevisionResponsivenessReceiptVerification(state, generation, verification);
-      if (next === state) return; state = next; options.renderWorkspace();
-      options.showToast?.('Responsiveness receipt structure and ID verified.', 'success');
-    } catch (error) {
-      if (destroyed) return;
-      const next = failRevisionResponsivenessReceiptVerification(state, generation, error);
-      if (next === state) return; state = next; options.renderWorkspace(); options.reportFailure(error);
-    }
-  }
-  async function importSignatureFile(file) {
-    const generation = signatureState.generation + 1;
-    signatureState = startRevisionResponsivenessSignatureImport(signatureState, generation, file?.name); options.renderWorkspace();
-    try {
-      const target = retainedReceipt();
-      if (!target) throw new TypeError('Verify a responsiveness observation receipt before importing its detached signature.');
-      if (!file) throw new TypeError('Select a responsiveness signature receipt.');
-      if (file.size > REVISION_RESPONSIVENESS_SIGNATURE_MAX_BYTES) throw new RangeError('Responsiveness signature receipt is limited to 256 KiB.');
-      const receipt = await verifyRevisionResponsivenessSignatureReceiptJson(await file.text(), target, options.cryptoRef);
-      if (destroyed) return;
-      const next = completeRevisionResponsivenessSignatureImport(signatureState, generation, receipt);
-      if (next === signatureState) return; signatureState = next; options.renderWorkspace();
-      options.showToast?.('Responsiveness receipt signature verified.', 'success');
-    } catch (error) {
-      if (destroyed) return;
-      const next = failRevisionResponsivenessSignatureImport(signatureState, generation, error);
-      if (next === signatureState) return; signatureState = next; options.renderWorkspace(); options.reportFailure(error);
-    }
-  }
   return Object.freeze({
-    attachment, importFile, matchesAttachment, model, signatureModel,
+    attachment, matchesAttachment, model, signatureModel,
+    importFile: (file, subtype = 'receipt') => (subtype === 'signature' ? importSignatureFile(context, file) : importReceiptFile(context, file)),
     render() {
       renderRevisionResponsivenessReceiptVerificationSection(options.root, model());
       renderRevisionResponsivenessSignatureSection(options.root, signatureModel());
