@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 async function uploadValue(page, slot, name, value) {
@@ -153,7 +154,7 @@ test('representative Sequential source exposes real Workbench scene, fit and pic
   expect(finalEvidence.scene.status).toBe('READY');
 });
 
-test('large Sequential comparison can compare consecutive Workbench responsiveness runs', async ({ page }) => {
+test('large Sequential comparison can compare and download consecutive Workbench responsiveness runs', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/tests/browser/revision-compare-rc001.html');
   await installResponsivenessPolicy(page);
@@ -168,6 +169,7 @@ test('large Sequential comparison can compare consecutive Workbench responsivene
 
   await expect(page.locator('[data-revc-scene-state]')).toHaveText('READY', { timeout: 60_000 });
   const performance = page.locator('[data-revc-performance-status]');
+  const receiptButton = performance.getByRole('button', { name: 'Download receipt' });
   await expect(performance).toBeVisible();
   await expect(performance.locator('[data-revc-performance-run]')).toHaveText('Run 1');
   await expect(performance.locator('[data-revc-performance-band]')).toHaveText('BALANCED');
@@ -175,11 +177,13 @@ test('large Sequential comparison can compare consecutive Workbench responsivene
   await expect(performance.locator('[data-revc-performance-scene]')).not.toContainText('Pending');
   await expect(performance.locator('[data-revc-performance-ready]')).not.toContainText('Pending');
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('PENDING');
+  await expect(receiptButton).toBeDisabled();
 
   await page.locator('[data-revc-difference-id]').first().click();
   await page.getByRole('button', { name: 'Fit selected' }).click();
   await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
+  await expect(receiptButton).toBeEnabled();
   const skippedBefore = await page.evaluate(() => window.rcHandle.evidence().viewer.viewer.skippedRebuildCount);
   const pickCountBefore = await page.evaluate(() => window.rcHandle.evidence().viewer.pickCount);
 
@@ -187,6 +191,7 @@ test('large Sequential comparison can compare consecutive Workbench responsivene
   await expect(performance.locator('[data-revc-performance-run]')).toHaveText('Run 2');
   await expect(performance.locator('[data-revc-performance-fit-count]')).toHaveText('0');
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('PENDING');
+  await expect(receiptButton).toBeDisabled();
   const comparison = performance.locator('[data-revc-run-comparison]');
   await expect(comparison).toBeVisible();
   await expect(comparison).toHaveAttribute('data-state', 'available');
@@ -200,12 +205,13 @@ test('large Sequential comparison can compare consecutive Workbench responsivene
   await page.getByRole('button', { name: 'Fit selected' }).click();
   await expect.poll(() => numericText(performance.locator('[data-revc-performance-fit-count]'))).toBeGreaterThan(0);
   await expect(performance.locator('[data-revc-performance-disposition]')).toHaveText('QUALIFIED');
+  await expect(receiptButton).toBeEnabled();
   await expect(comparison.locator('[data-revc-run-delta-scene]')).not.toHaveText('Pending');
   await expect(comparison.locator('[data-revc-run-delta-ready]')).not.toHaveText('Pending');
   await expect(comparison.locator('[data-revc-run-delta-fit]')).not.toHaveText('Pending');
   await expect(comparison.locator('[data-revc-run-delta-memory]')).toHaveText(/Pending|MiB/);
   await expect(performance.locator('[data-revc-performance-heap]')).toHaveText(/Unavailable|MiB/);
-  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /Run deltas are current minus previous/);
+  await expect(performance.locator('.revc-info-icon')).toHaveAttribute('title', /not engineering acceptance, design validation, or certification/i);
 
   const evidence = await page.evaluate(() => structuredClone(window.rcHandle.evidence()));
   expect(evidence.scene.runSequence).toBe(2);
@@ -217,4 +223,31 @@ test('large Sequential comparison can compare consecutive Workbench responsivene
   expect(evidence.scene.responsiveness.comparison.previous.runSequence).toBe(1);
   expect(evidence.scene.responsiveness.comparison.current.runSequence).toBe(2);
   expect(evidence.viewer.fitSelectedCount).toBeGreaterThan(0);
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    receiptButton.click(),
+  ]);
+  const path = await download.path();
+  expect(path).not.toBeNull();
+  expect(download.suggestedFilename()).toMatch(/^revision-responsiveness-.*-run-2\.json$/);
+  const receipt = JSON.parse(await readFile(path, 'utf8'));
+  expect(receipt.schema).toBe('RevisionResponsivenessObservationReceipt.v1');
+  expect(receipt.receiptId).toMatch(/^responsiveness-observation:[a-f0-9]{24}$/);
+  expect(receipt.authority.classification).toBe('PRODUCT_RUNTIME_OBSERVATION_ONLY');
+  expect(receipt.authority.engineeringCertification).toBe('NONE');
+  expect(receipt.authority.statement).toMatch(/not engineering acceptance/i);
+  expect(receipt.audit.auditId).toBe(evidence.state.compare.audit.auditId);
+  expect(receipt.audit.basisId).toBe(evidence.state.compare.audit.basisId);
+  expect(receipt.revisions.revA.sourceHash).toBe(evidence.state.slots.baseline.document.sourceHash);
+  expect(receipt.revisions.revB.scopedHash).toBe(evidence.state.slots.candidate.document.scopedHash);
+  expect(receipt.observation.runId).toBe(evidence.scene.runId);
+  expect(receipt.observation.runSequence).toBe(2);
+  expect(receipt.observation.policyId).toBe('browser-large-model-policy');
+  expect(receipt.observation.bandId).toBe('BALANCED');
+  expect(receipt.observation.disposition).toBe('QUALIFIED');
+  expect(receipt.observation.comparison.available).toBe(true);
+  expect(receipt.observation.comparison.previous.runSequence).toBe(1);
+  expect(receipt.observation.comparison.current.runSequence).toBe(2);
+  expect(receipt.observation.metrics.memory.value === null || Number.isFinite(receipt.observation.metrics.memory.value)).toBe(true);
 });
