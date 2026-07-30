@@ -71,7 +71,15 @@ function engineeringProperties(record, sourcePath) {
   return deepFreeze(output);
 }
 
+function axisValues(value, keys) {
+  const source = objectRecord(value);
+  if (!keys.every((key) => Object.hasOwn(source, key))) return null;
+  const parsed = keys.map((key) => Number(source[key]));
+  return parsed.every(Number.isFinite) ? Object.freeze(parsed) : null;
+}
 function vector(value) {
+  const objectValue = axisValues(value, ['x', 'y', 'z']) ?? axisValues(value, ['X', 'Y', 'Z']);
+  if (objectValue) return objectValue;
   const parts = Array.isArray(value) ? value : cleanText(value).split(/[\s,]+/).filter(Boolean);
   if (parts.length < 3) return null;
   const parsed = parts.slice(0, 3).map(Number);
@@ -79,7 +87,8 @@ function vector(value) {
 }
 function vectorList(value) {
   if (!Array.isArray(value)) return [];
-  if (value.length >= 3 && !Array.isArray(value[0])) return vector(value) ? [vector(value)] : [];
+  const flat = value.length >= 3 && value.slice(0, 3).every((entry) => Number.isFinite(Number(entry)));
+  if (flat) return vector(value) ? [vector(value)] : [];
   return value.map(vector).filter(Boolean);
 }
 
