@@ -104,7 +104,10 @@ function clearViewer(context) {
 function setBackend(context, value) {
   const backend = normalizeRevisionCompareViewerBackend(value);
   if (!context.policy.retainedBackends.includes(backend)) throw new TypeError(`Viewer backend ${backend} is not retained by policy.`);
-  return context.controller.setBackend(backend);
+  const previous = context.controller.evidence().requestedBackend;
+  const result = context.controller.setBackend(backend);
+  if (previous !== backend) resetInteractionEvidence(context);
+  return result;
 }
 function setPresentationMode(context, value) {
   context.presentationMode = value === 'side-by-side' ? 'side-by-side' : 'overlay';
