@@ -10,6 +10,7 @@ import { reviewSessionControlsMarkup } from './revision-review-view.js';
 import { decisionLedgerControlsMarkup } from './revision-decision-view.js';
 import { REVISION_EVIDENCE_PACKAGE_AUTHENTICITY_STATEMENT } from './revision-evidence-package-import.js';
 import { REVISION_COMPARE_SVG_CSS } from './revision-compare-svg-styles.js';
+import { REVISION_VIEWER_SCENE_STATUS_CSS } from './revision-viewer-scene-status.js';
 
 // The user-facing "Import evidence package" option is intentionally removed; direct Rev A/Rev B intake is the product path.
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character])); }
@@ -99,7 +100,7 @@ export function revisionCompareWorkspaceMarkup(state, preflight, viewerEvidence 
   const canDownload = state.slots.baseline.document || state.slots.candidate.document;
   const review = state.compare.reviewVisible && state.compare.audit && state.basisStatus === 'CURRENT';
   const content = review ? `${importedPackageMarkup(state)}${revisionCompareReviewMarkup(state, viewerEvidence)}` : setupMarkup(state, preflight);
-  return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
+  return `<style>${REVISION_REVIEW_STYLES}${REVISION_DECISION_STYLES}${REVISION_COMPARE_SVG_CSS}${REVISION_VIEWER_SCENE_STATUS_CSS}</style><section class="revc-dialog ${review ? 'revc-review-dialog' : ''}" role="dialog" aria-modal="true" aria-labelledby="revc-title"><header class="revc-head"><div><span>REVISION COMPARE · RC-004</span><h1 id="revc-title">${review ? 'Guided visual revision review' : 'Trusted revision intake and scope'}</h1><p>${review ? '3D or read-only SVG context, guided review, persisted ambiguity evidence, and explicit decision history.' : 'Load immutable staged revisions, approve scope, and run bounded visual comparison.'}</p></div><button type="button" data-revc-close aria-label="Close Revision Compare">Close</button></header>${content}${footerMarkup(state, canDownload)}</section>`;
 }
 export const _test = Object.freeze({
   axisOptions, clearControl, comparisonControlMarkup, compatibilityEvidenceTitle, compatibilityLine,
