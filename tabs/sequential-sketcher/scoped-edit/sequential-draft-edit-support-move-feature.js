@@ -8,6 +8,7 @@ import {
   validateSequentialDraftEditSupportMoveTarget,
 } from './sequential-draft-edit-support-move-target.js';
 import { sequentialSupportAdjustmentHistoryCapabilities } from '../support/sequential-support-adjustment-history.js';
+import { sequentialDraftEditRecoveryTargetMatches } from './sequential-draft-edit-recovery-contract.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_FEATURE_SCHEMA =
   'SequentialDraftEditSupportMoveFeature.v1';
@@ -22,12 +23,50 @@ function requiredBoundary(value) {
   ]) requiredFunction(value?.[name], `supportAdjustmentBoundary.${name}`);
   return value;
 }
+function recoveryEvidence(target) {
+  return Object.freeze({
+    targetId: target.supportMoveTargetId,
+    authorityId: target.authorityId,
+    sceneRevision: target.sceneRevision,
+    readAuthorityId: target.readAuthorityId,
+    supportId: target.supportId,
+    familyId: target.familyId,
+    carrierId: target.carrierId,
+    entityId: target.entityId,
+  });
+}
+function recoveryDescriptor(preview) {
+  const source = preview.intent.source;
+  return Object.freeze({
+    selector: Object.freeze({ objectId: preview.target.entityId }),
+    targetEvidence: recoveryEvidence(preview.target),
+    input: Object.freeze({
+      position: preview.draftPosition,
+      actorId: source.actorId,
+      reason: source.reason,
+      evidenceNote: source.evidenceNote,
+    }),
+  });
+}
+function setField(root, selector, value) {
+  const field = root.querySelector(selector); if (field) field.value = String(value);
+}
+function restorePanelValues(root, record) {
+  for (const axis of ['x', 'y', 'z']) {
+    setField(root, `[data-ssk-support-move-coordinate="${axis}"]`, record.input.position[axis]);
+  }
+  setField(root, '[data-ssk-draft-edit-actor]', record.input.actorId);
+  setField(root, '[data-ssk-draft-edit-reason]', record.input.reason);
+  setField(root, '[data-ssk-draft-edit-evidence]', record.input.evidenceNote);
+}
 
 export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   const readScene = requiredFunction(options.readScene, 'readScene');
   const readModel = requiredFunction(options.readModel, 'readModel');
   const adjustmentBoundary = requiredBoundary(options.supportAdjustmentBoundary);
   const onDraftChanged = requiredFunction(options.onDraftChanged, 'onDraftChanged');
+  const onRecoveryDraft = requiredFunction(options.onRecoveryDraft || (() => {}), 'onRecoveryDraft');
+  const onRecoveryClear = requiredFunction(options.onRecoveryClear || (() => {}), 'onRecoveryClear');
   const now = requiredFunction(options.now, 'support adjustment now');
   const draftStore = createSequentialDraftEditSupportMoveDraftStore();
   const applyService = createSequentialDraftEditSupportMoveApplyService({
@@ -45,6 +84,7 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   let prepared = null;
   let active = false;
   let destroyed = false;
+  let restoring = false;
 
   function historyState() {
     const history = adjustmentBoundary.readHistory();
@@ -52,11 +92,8 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   }
   function syncHistory() { panel.setHistoryState(historyState()); }
   function targetInput() {
-    return {
-      readModel: readModel(),
-      scene: readScene(),
-      currentState: adjustmentBoundary.readCurrentState(),
-    };
+    return { readModel: readModel(), scene: readScene(),
+      currentState: adjustmentBoundary.readCurrentState() };
   }
   function exactTarget() {
     if (!target) throw new RangeError('Select one exact confirmed support before previewing a move draft.');
@@ -65,14 +102,17 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   }
   function cancel(reason = 'cancelled') {
     if (destroyed) return null;
+    const hadPreview = Boolean(draftStore.getPreview());
     draftStore.cancel(reason); prepared = null;
     panel.setPreview(null); panel.setPrepared(null); syncHistory();
     onDraftChanged(null);
+    if (hadPreview && !restoring) onRecoveryClear(reason);
     return null;
   }
   function preview(input = {}) {
     const current = exactTarget();
     const draftPreview = draftStore.stage({ ...input, target: current });
+    onRecoveryDraft(recoveryDescriptor(draftPreview));
     prepared = applyService.prepare(draftPreview);
     panel.setPreview(draftPreview); panel.setPrepared(prepared); syncHistory();
     onDraftChanged(draftPreview);
@@ -81,6 +121,7 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
   function prepareHistory(input = {}) {
     draftStore.cancel('support-history-prepare');
     target = null; panel.clearTarget(); onDraftChanged(null);
+    onRecoveryClear('support-history-prepare');
     prepared = historyService.prepare(input);
     panel.setPrepared(prepared); syncHistory();
     return prepared;
@@ -93,16 +134,13 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
     if (acceptance.accepted) {
       draftStore.cancel('support-operation-applied'); prepared = null; target = null;
       panel.setPreview(null); panel.setPrepared(null); syncHistory();
-      onDraftChanged(null);
+      onDraftChanged(null); onRecoveryClear('accepted-support-adjustment');
     }
     return acceptance;
   }
   const panel = createSequentialDraftEditSupportMovePanel({
-    root: options.root,
-    onPreview: preview,
-    onPrepareHistory: prepareHistory,
-    onApply: apply,
-    onCancel: cancel,
+    root: options.root, onPreview: preview, onPrepareHistory: prepareHistory,
+    onApply: apply, onCancel: cancel,
   });
   syncHistory();
 
@@ -110,49 +148,55 @@ export function createSequentialDraftEditSupportMoveFeature(options = {}) {
     if (destroyed) throw new Error('Support move feature is destroyed.');
     cancel('target-change');
     target = selectSequentialDraftEditSupportMoveTarget({ objectId, ...targetInput() });
-    panel.setTarget(target); syncHistory();
-    return target;
+    panel.setTarget(target); syncHistory(); return target;
   }
   function clearTarget(reason = null) {
     if (destroyed) return null;
-    cancel(reason || 'target-cleared');
-    target = null;
-    panel.clearTarget(reason); syncHistory();
-    return null;
+    cancel(reason || 'target-cleared'); target = null;
+    panel.clearTarget(reason); syncHistory(); return null;
   }
   function setActive(value) {
     active = value === true && !destroyed;
     if (!active) clearTarget('Support operation cleared because Draft Edit 3D closed.');
-    panel.setActive(active); syncHistory();
-    return active;
+    panel.setActive(active); syncHistory(); return active;
+  }
+  function restoreRecovery(record) {
+    if (record?.kind !== 'MOVE_SUPPORT_SAME_CARRIER') {
+      throw new TypeError('Support recovery kind is invalid.');
+    }
+    restoring = true;
+    try {
+      const current = select(record.selector.objectId);
+      if (!sequentialDraftEditRecoveryTargetMatches(record, recoveryEvidence(current))) {
+        throw new RangeError('Support recovery target differs from current carrier evidence.');
+      }
+      restorePanelValues(options.root, record);
+      const draftPreview = draftStore.stage({ ...record.input, target: exactTarget() });
+      prepared = null;
+      panel.setPreview(draftPreview); panel.setPrepared(null); syncHistory();
+      onDraftChanged(draftPreview); onRecoveryDraft(recoveryDescriptor(draftPreview));
+      return draftPreview;
+    } finally { restoring = false; }
   }
   return Object.freeze({
     schema: SEQUENTIAL_DRAFT_EDIT_SUPPORT_MOVE_FEATURE_SCHEMA,
-    setActive,
-    select,
-    clearTarget,
-    cancel,
-    prepareHistory,
-    apply,
+    setActive, select, clearTarget, cancel, prepareHistory, apply, restoreRecovery,
     invalidate: clearTarget,
-    getDraft: draftStore.getDraft,
-    getPreview: draftStore.getPreview,
+    getDraft: draftStore.getDraft, getPreview: draftStore.getPreview,
     getPrepared: () => prepared,
     getState: () => Object.freeze({
-      active,
-      targetId: target?.supportMoveTargetId || null,
+      active, targetId: target?.supportMoveTargetId || null,
       supportId: target?.supportId || null,
       operationId: draftStore.getPreview()?.operationId || null,
       preparedId: prepared?.preparedId || null,
-      history: historyState(),
-      panel: panel.getState(),
-      destroyed,
+      history: historyState(), panel: panel.getState(), destroyed,
     }),
     destroy() {
       if (destroyed) return false;
       destroyed = true; target = null; prepared = null; active = false;
-      panel.destroy(); draftStore.destroy(); onDraftChanged(null);
-      return true;
+      panel.destroy(); draftStore.destroy(); onDraftChanged(null); return true;
     },
   });
 }
+
+export const _test = Object.freeze({ recoveryDescriptor, recoveryEvidence });

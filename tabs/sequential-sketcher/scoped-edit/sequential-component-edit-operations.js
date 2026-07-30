@@ -37,9 +37,7 @@ function markup() {
 }
 function install(root) {
   const host = required(root, '[data-ssk-visual-stack]');
-  if (!root.querySelector('[data-ssk-component-edit-mode]')) {
-    host.insertAdjacentHTML('beforeend', markup());
-  }
+  if (!root.querySelector('[data-ssk-component-edit-mode]')) host.insertAdjacentHTML('beforeend', markup());
   const panel = required(root, '[data-ssk-component-edit-mode]');
   panel.style.cssText = [
     'position:absolute', 'top:12px', 'left:50%', 'transform:translateX(-50%)',
@@ -101,6 +99,13 @@ function select(state, objectId) {
   }
   return { mode: state.mode, target: state.move.select(objectId) };
 }
+function restoreRecovery(state, record) {
+  const mode = modeValue(record?.kind);
+  setMode(state, mode);
+  if (mode === SEQUENTIAL_COMPONENT_EDIT_MODE.STRETCH_NODE) return state.stretch.restoreRecovery(record);
+  if (mode === SEQUENTIAL_COMPONENT_EDIT_MODE.ROTATE_SUBGRAPH) return state.rotation.restoreRecovery(record);
+  return state.move.restoreRecovery(record);
+}
 function bind(state) {
   state.onClick = (event) => {
     const button = event.target?.closest?.('[data-ssk-component-edit-mode-value]');
@@ -118,25 +123,32 @@ function destroy(state) {
   state.disconnectPreview.destroy(); state.splitPreview.destroy(); state.retirementPreview.destroy();
   state.panel.remove(); return true;
 }
+function recoveryCallbacks(options, kind) {
+  return {
+    onRecoveryDraft: (descriptor) => options.onRecoveryDraft(kind, descriptor),
+    onRecoveryClear: (reason) => options.onRecoveryClear(kind, reason),
+  };
+}
 function createMove(options) {
   return createSequentialSingleEntityMoveFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
     readViewer: options.readViewer, onDraftChanged: options.onDraftChanged,
     geometryEditBoundary: options.geometryEditBoundary, applicationNow: options.applicationNow,
+    ...recoveryCallbacks(options, 'MOVE_COMPONENT'),
   });
 }
 function createStretch(options) {
   return createSequentialNodeStretchFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
     onDraftChanged: options.onDraftChanged, geometryEditBoundary: options.geometryEditBoundary,
-    applicationNow: options.applicationNow,
+    applicationNow: options.applicationNow, ...recoveryCallbacks(options, 'STRETCH_NODE'),
   });
 }
 function createRotation(options) {
   return createSequentialRotationFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
     onDraftChanged: options.onDraftChanged, geometryEditBoundary: options.geometryEditBoundary,
-    applicationNow: options.applicationNow,
+    applicationNow: options.applicationNow, ...recoveryCallbacks(options, 'ROTATE_SUBGRAPH'),
   });
 }
 function createHistory(options, state) {
@@ -178,7 +190,9 @@ export function createSequentialComponentEditOperations(options = {}) {
     onModeChanged: requiredFunction(options.onModeChanged || (() => {}), 'onModeChanged'),
   };
   const shared = { ...options,
-    onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged') };
+    onDraftChanged: requiredFunction(options.onDraftChanged, 'onDraftChanged'),
+    onRecoveryDraft: requiredFunction(options.onRecoveryDraft || (() => {}), 'onRecoveryDraft'),
+    onRecoveryClear: requiredFunction(options.onRecoveryClear || (() => {}), 'onRecoveryClear') };
   state.move = createMove(shared); state.stretch = createStretch(shared);
   state.rotation = createRotation(shared); state.history = createHistory(shared, state);
   state.mergePreview = createMergePreview(shared); state.bridgePreview = createBridgePreview(shared);
@@ -189,6 +203,7 @@ export function createSequentialComponentEditOperations(options = {}) {
     schema: SEQUENTIAL_COMPONENT_EDIT_OPERATIONS_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; syncActivity(state); },
     setMode: (value) => setMode(state, value), select: (objectId) => select(state, objectId),
+    restoreRecovery: (record) => restoreRecovery(state, record),
     clear: (reason) => clear(state, reason), invalidate: (reason) => clear(state, reason || 'authority-change'),
     getMoveDraft: state.move.getDraft, getStretchDraft: state.stretch.getDraft,
     getRotationDraft: state.rotation.getDraft, getMergePreview: state.mergePreview.getPreview,
