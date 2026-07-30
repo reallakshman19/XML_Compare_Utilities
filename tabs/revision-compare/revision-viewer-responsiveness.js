@@ -99,7 +99,7 @@ function policyDisclosure(policy) {
     const drawables = item.maximumDrawablesExclusive == null ? 'unbounded' : `< ${item.maximumDrawablesExclusive}`;
     return `${item.bandId}: drawables ${drawables}, scene ≤ ${item.sceneObservedMaxMs} ms, first ready ≤ ${item.firstReadyMaxMs} ms, fit selected dispatch ≤ ${item.fitSelectedMaxMs} ms, heap growth ≤ ${Math.round(item.heapGrowthMaxBytes / MIB)} MiB`;
   }).join('; ');
-  return `Product responsiveness policy ${policy.policyId}. Sampling resolution ${policy.samplingResolutionMs} ms. ${bands}. Run deltas are current minus previous; negative timing or heap deltas mean lower observed cost. Rerun measurement clears only runtime timing observations and requests the current audit from the existing renderer again. Fit selected measures synchronous command dispatch, not frame-paint completion. Memory is sampled only when the browser exposes performance.memory; unavailable memory is advisory, does not block timing qualification, and is never inferred. These observations do not alter renderer, engineering, topology, comparison, persistence, or export authority.`;
+  return `Product responsiveness policy ${policy.policyId}. Sampling resolution ${policy.samplingResolutionMs} ms. ${bands}. Run deltas are current minus previous; negative timing or heap deltas mean lower observed cost. Rerun measurement clears only runtime timing observations and requests the current audit from the existing renderer again. Completed runs may be downloaded as deterministic audit-bound product-runtime observation receipts; those receipts are not engineering acceptance, design validation, or certification. Fit selected measures synchronous command dispatch, not frame-paint completion. Memory is sampled only when the browser exposes performance.memory; unavailable memory is advisory, does not block timing qualification, and is never inferred. These observations do not alter renderer, engineering, topology, comparison, persistence, or export authority.`;
 }
 export function revisionViewerResponsivenessModel(scene, viewerEvidence, observations = {}, policyValue) {
   const policy = createRevisionViewerResponsivenessPolicy(policyValue);
@@ -122,12 +122,14 @@ export function revisionViewerResponsivenessModel(scene, viewerEvidence, observa
     bandId: activeBand.bandId,
     drawableCount,
     canRerun: scene?.requestedBackend === 'WEBGL' && drawableCount > 0,
+    canDownloadReceipt: false,
     disposition: disposition(scene ?? {}, metrics),
     metrics,
     comparison: null,
     message: '',
     disclosure: policyDisclosure(policy),
   };
+  result.canDownloadReceipt = ['QUALIFIED', 'NOT_QUALIFIED'].includes(result.disposition);
   result.message = messageFor(result);
   result.comparison = revisionViewerRunComparison(observations.previousRun, result, result.runKey);
   return deepFreeze(result);
@@ -154,8 +156,9 @@ function fact(label, value, attribute, status = '') {
   return `<div><dt>${escapeHtml(label)}</dt><dd ${attribute} ${status ? `data-status="${escapeHtml(status.toLowerCase())}"` : ''}>${escapeHtml(value)}</dd></div>`;
 }
 function rerunControl(model) {
-  const disabled = model.canRerun ? '' : 'disabled';
-  return `<div class="revc-performance-actions"><strong data-revc-performance-disposition data-status="${escapeHtml(model.disposition.toLowerCase())}">${escapeHtml(model.disposition)}</strong><button type="button" data-revc-rerun-responsiveness ${disabled}>Rerun measurement</button></div>`;
+  const rerunDisabled = model.canRerun ? '' : 'disabled';
+  const receiptDisabled = model.canDownloadReceipt ? '' : 'disabled';
+  return `<div class="revc-performance-actions"><strong data-revc-performance-disposition data-status="${escapeHtml(model.disposition.toLowerCase())}">${escapeHtml(model.disposition)}</strong><button type="button" data-revc-rerun-responsiveness ${rerunDisabled}>Rerun measurement</button><button type="button" data-revc-download-responsiveness-receipt ${receiptDisabled}>Download receipt</button></div>`;
 }
 function comparisonBody(comparison) {
   if (!comparison?.available) return `<p>${comparison?.reason === 'NO_PREVIOUS_COMPLETED_RUN' ? 'Complete and rerun a measurement to compare runs.' : 'The previous and current runs are not comparable.'}</p>`;
@@ -202,6 +205,8 @@ export function applyRevisionViewerResponsiveness(root, model) {
   }
   const rerun = host.querySelector('[data-revc-rerun-responsiveness]');
   if (rerun) rerun.disabled = !model.canRerun;
+  const receipt = host.querySelector('[data-revc-download-responsiveness-receipt]');
+  if (receipt) receipt.disabled = !model.canDownloadReceipt;
   const metric = model.metrics;
   setText(host, '[data-revc-performance-run]', model.runSequence ? `Run ${model.runSequence}` : 'Not started');
   setText(host, '[data-revc-performance-band]', model.bandId);
@@ -218,5 +223,5 @@ export function applyRevisionViewerResponsiveness(root, model) {
 }
 export const REVISION_VIEWER_RESPONSIVENESS_CSS = `
 .revc-view-column{grid-template-rows:auto auto auto auto minmax(0,1fr)}
-.revc-performance-status{display:grid;gap:7px;padding:8px 10px;border-bottom:1px solid #203550;background:#081827}.revc-performance-status>header{display:flex;align-items:center;justify-content:space-between;gap:10px}.revc-performance-status>header>div{display:flex;align-items:center;gap:7px}.revc-performance-status>header span:first-child{color:#60a5fa;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.08em}.revc-performance-status>header b{font-size:11px}.revc-performance-actions strong{font:700 10px/1.2 ui-monospace,monospace}.revc-performance-actions button{padding:4px 7px;border:1px solid #35587b;border-radius:4px;background:#0b1d2e;color:#dbeafe;font-size:10px;cursor:pointer}.revc-performance-actions button:disabled{opacity:.45;cursor:not-allowed}.revc-performance-status>dl{margin:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#203550}.revc-performance-status dl div{min-width:0;padding:6px 7px;background:#0b1d2e}.revc-performance-status dt{font-size:8px;text-transform:uppercase;color:#7893ac}.revc-performance-status dd{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e4f2;font:10px/1.3 ui-monospace,monospace}.revc-performance-status>p{margin:0;color:#9fb4c9;font-size:10px}.revc-run-comparison{display:grid;gap:5px;padding:6px 7px;border:1px solid #203550;background:#071421}.revc-run-comparison>header{display:flex;justify-content:space-between;gap:8px}.revc-run-comparison>header b{font-size:10px;color:#bfdbfe}.revc-run-comparison>header em{font:9px/1.2 ui-monospace,monospace;color:#9fb4c9}.revc-run-comparison>dl{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#203550}.revc-run-comparison>p{margin:0;color:#7893ac;font-size:10px}.revc-performance-status [data-status=qualified],.revc-performance-status [data-status=pass]{color:#5eead4}.revc-performance-status [data-status=pending],.revc-performance-status [data-status=unavailable],.revc-performance-status [data-status=inactive]{color:#fbbf24}.revc-performance-status [data-status=not_qualified],.revc-performance-status [data-status=fail]{color:#fb7185}@media(max-width:1100px){.revc-performance-status>dl{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.revc-performance-status>dl,.revc-run-comparison>dl{grid-template-columns:repeat(2,minmax(0,1fr))}.revc-performance-status>header{align-items:flex-start;flex-direction:column}}
+.revc-performance-status{display:grid;gap:7px;padding:8px 10px;border-bottom:1px solid #203550;background:#081827}.revc-performance-status>header{display:flex;align-items:center;justify-content:space-between;gap:10px}.revc-performance-status>header>div{display:flex;align-items:center;gap:7px}.revc-performance-status>header span:first-child{color:#60a5fa;font:700 10px/1.2 ui-monospace,monospace;letter-spacing:.08em}.revc-performance-status>header b{font-size:11px}.revc-performance-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.revc-performance-actions strong{font:700 10px/1.2 ui-monospace,monospace}.revc-performance-actions button{padding:4px 7px;border:1px solid #35587b;border-radius:4px;background:#0b1d2e;color:#dbeafe;font-size:10px;cursor:pointer}.revc-performance-actions button:disabled{opacity:.45;cursor:not-allowed}.revc-performance-status>dl{margin:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:#203550}.revc-performance-status dl div{min-width:0;padding:6px 7px;background:#0b1d2e}.revc-performance-status dt{font-size:8px;text-transform:uppercase;color:#7893ac}.revc-performance-status dd{margin:2px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d6e4f2;font:10px/1.3 ui-monospace,monospace}.revc-performance-status>p{margin:0;color:#9fb4c9;font-size:10px}.revc-run-comparison{display:grid;gap:5px;padding:6px 7px;border:1px solid #203550;background:#071421}.revc-run-comparison>header{display:flex;justify-content:space-between;gap:8px}.revc-run-comparison>header b{font-size:10px;color:#bfdbfe}.revc-run-comparison>header em{font:9px/1.2 ui-monospace,monospace;color:#9fb4c9}.revc-run-comparison>dl{margin:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#203550}.revc-run-comparison>p{margin:0;color:#7893ac;font-size:10px}.revc-performance-status [data-status=qualified],.revc-performance-status [data-status=pass]{color:#5eead4}.revc-performance-status [data-status=pending],.revc-performance-status [data-status=unavailable],.revc-performance-status [data-status=inactive]{color:#fbbf24}.revc-performance-status [data-status=not_qualified],.revc-performance-status [data-status=fail]{color:#fb7185}@media(max-width:1100px){.revc-performance-status>dl{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:700px){.revc-performance-status>dl,.revc-run-comparison>dl{grid-template-columns:repeat(2,minmax(0,1fr))}.revc-performance-status>header{align-items:flex-start;flex-direction:column}}
 `;
