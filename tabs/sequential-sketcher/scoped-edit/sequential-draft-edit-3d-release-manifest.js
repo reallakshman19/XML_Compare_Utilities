@@ -2,6 +2,10 @@
 import { immutableJson, isIsoTimestamp } from '../../../contracts/contract-values.js';
 import { sequentialSemanticFingerprint } from './sequential-command-contracts.js';
 import { sequentialCommandJournalHeadFingerprint } from './sequential-command-journal.js';
+import {
+  assertSequentialDraftEdit3dFixtureCatalog,
+  createSequentialDraftEdit3dFixtureCatalog,
+} from './sequential-draft-edit-3d-fixture-catalog.js';
 
 export const SEQUENTIAL_DRAFT_EDIT_3D_RELEASE_MANIFEST_SCHEMA =
   'SequentialDraftEdit3dReleaseManifest.v1';
@@ -34,6 +38,7 @@ export const SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS = Object.freeze([
   'tabs/sequential-sketcher/scoped-edit/sequential-support-adjustment-boundary.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-geometry-edit-boundary.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-component-edit-operations.js',
+  'tabs/sequential-sketcher/scoped-edit/sequential-draft-edit-3d-fixture-catalog.js',
   'workbench3d/viewer/workbench-viewer.js',
 ]);
 export const SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS = Object.freeze([
@@ -154,6 +159,7 @@ function material(input) {
     journals: journalEvidence(commandState, supportState, geometryState),
     controller,
     capabilities: capabilityEvidence(input.controllerState),
+    fixtureCatalog: createSequentialDraftEdit3dFixtureCatalog(),
     limitations: SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS,
     disposition: Object.freeze({
       releaseLevel: 'ENGINEERING_DEMO_BASELINE',
@@ -164,6 +170,12 @@ function material(input) {
     }),
   };
 }
+function fixtureCatalogInvariant(value) {
+  try {
+    const catalog = assertSequentialDraftEdit3dFixtureCatalog(value);
+    return JSON.stringify(catalog) === JSON.stringify(createSequentialDraftEdit3dFixtureCatalog());
+  } catch { return false; }
+}
 function invariant(value) {
   try {
     return value.baseline?.repository === SEQUENTIAL_DRAFT_EDIT_3D_BASELINE.repository
@@ -171,6 +183,7 @@ function invariant(value) {
       && value.baseline?.releaseLevel === 'ENGINEERING_DEMO_BASELINE'
       && JSON.stringify(value.runtimePaths) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_RUNTIME_PATHS)
       && JSON.stringify(value.capabilities) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_CAPABILITIES)
+      && fixtureCatalogInvariant(value.fixtureCatalog)
       && JSON.stringify(value.limitations) === JSON.stringify(SEQUENTIAL_DRAFT_EDIT_3D_LIMITATIONS)
       && value.controller?.fallbackSurface === 'CONSTRUCTION_SVG'
       && value.disposition?.internalPilotReady === false
