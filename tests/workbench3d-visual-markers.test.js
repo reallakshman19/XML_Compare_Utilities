@@ -5,6 +5,7 @@ import { parseInputXmlRecords } from '../workbench3d/adapters/inputxml-adapter.j
 import { buildCanonicalGraph } from '../workbench3d/adapters/canonical-graph-builder.js';
 import { buildVisualModel, resolvePacketPosition } from '../workbench3d/adapters/visual-model-builder.js';
 import { effectiveDiameterByObject, resolveInputXmlBends } from '../workbench3d/adapters/inputxml-bend-geometry.js';
+import { SOURCE_ELEMENT_ORIENTATION_CONTRACT } from '../workbench3d/adapters/source-element-orientation.js';
 import { resolvePacketNode, buildNodeInfoIndex } from '../workbench3d/adapters/node-resolver.js';
 import { groupObjectBlocks } from '../workbench3d/adapters/block-grouper.js';
 import './workbench3d-inputxml-bend-samples.test.js';
@@ -101,12 +102,28 @@ assert.strictEqual(restraintBlock.instances.length, 2, 'two restraint instances'
 assert.strictEqual(restraintBlock.instances[0].label, '[1]');
 assert.ok(!restraintBlock.instances[0].entries.some(([k]) => k === 'STIFFNESS'), 'sentinel attr hidden');
 
-function bendGraph({ radius = '200', branch = false } = {}) {
+function orientation(fromNode, toNode, rawIndex) {
+  return {
+    contract: SOURCE_ELEMENT_ORIENTATION_CONTRACT,
+    fromNode,
+    toNode,
+    resolvedFromNode: fromNode,
+    resolvedToNode: toNode,
+    deltaMm: [0, 0, 0],
+    rawIndex,
+    canonicalDirection: 'SOURCE_REVERSED',
+  };
+}
+
+function bendGraph({ radius = '200', branch = false, orientationMode = 'valid' } = {}) {
+  const bendOrientation = orientationMode === 'missing' ? undefined
+    : orientationMode === 'conflict' ? orientation('10', '30', 0)
+      : orientation('10', '20', 0);
   const objects = [
-    { objectId: 'source:B1', kind: 'BEND', fromNode: '20', toNode: '10', lengthMm: 1000, diameterMm: 100, rawIndex: 0, lineId: '', pathId: 'source:P1', packets: [{ kind: 'BEND', attrs: { RADIUS: radius, ANGLE1: '-2.020200' } }] },
-    { objectId: 'source:P2', kind: 'PIPE', fromNode: '30', toNode: '20', lengthMm: 1000, diameterMm: null, rawIndex: 1, lineId: '', pathId: 'source:P1', packets: [] },
+    { objectId: 'source:B1', kind: 'BEND', fromNode: '20', toNode: '10', sourceOrientation: bendOrientation, lengthMm: 1000, diameterMm: 100, rawIndex: 0, lineId: '', pathId: 'source:P1', packets: [{ kind: 'BEND', attrs: { RADIUS: radius, ANGLE1: '-2.020200' } }] },
+    { objectId: 'source:P2', kind: 'PIPE', fromNode: '30', toNode: '20', sourceOrientation: orientation('20', '30', 1), lengthMm: 1000, diameterMm: null, rawIndex: 1, lineId: '', pathId: 'source:P1', packets: [] },
   ];
-  if (branch) objects.push({ objectId: 'source:P3', kind: 'PIPE', fromNode: '20', toNode: '40', lengthMm: 600, diameterMm: null, rawIndex: 2, lineId: '', pathId: 'source:P2', packets: [] });
+  if (branch) objects.push({ objectId: 'source:P3', kind: 'PIPE', fromNode: '20', toNode: '40', sourceOrientation: orientation('20', '40', 2), lengthMm: 600, diameterMm: null, rawIndex: 2, lineId: '', pathId: 'source:P2', packets: [] });
   return {
     modelId: 'source', objects, anchors: [],
     nodes: [
@@ -124,14 +141,45 @@ assert.deepStrictEqual(bendPlan.summary, { requested: 1, resolved: 1, blocked: 0
 assert.deepStrictEqual(bendPlan.arcs[0].points[0], [800, 0, 0]);
 assert.deepStrictEqual(bendPlan.arcs[0].points.at(-1), [1000, 200, 0]);
 assert.strictEqual(bendPlan.arcs[0].angleDeg, 90, 'ANGLE1 control value is ignored; angle derives from topology');
+assert.strictEqual(bendPlan.arcs[0].directionEvidence, 'SOURCE_ORIENTATION_V1');
+
+const reordered = bendGraph();
+reordered.objects.reverse();
+reordered.objects[0].rawIndex = 800;
+reordered.objects[1].rawIndex = -99;
+assert.deepStrictEqual(resolveInputXmlBends(reordered).arcs, bendPlan.arcs, 'object order and rawIndex do not control bend direction');
+
 const bendVisual = buildVisualModel(bendModel);
 assert.strictEqual(bendVisual.segments.length, 14, 'trimmed legs plus deterministic arc chords');
 assert.strictEqual(bendVisual.geometryDiagnostics.length, 0);
-assert.strictEqual(bendVisual.segments.find((s) => s.objectId === 'source:P2').radiusMm, 50);
+assert.strictEqual(bendVisual.segments.find((segment) => segment.objectId === 'source:P2').radiusMm, 50);
 
 const missingRadius = resolveInputXmlBends(bendGraph({ radius: '-1.010100' }));
 assert.strictEqual(missingRadius.diagnostics[0].code, 'BEND_RADIUS_MISSING');
 const ambiguousBend = resolveInputXmlBends(bendGraph({ branch: true }));
 assert.strictEqual(ambiguousBend.diagnostics[0].code, 'BEND_ADJACENCY_AMBIGUOUS');
+const missingOrientation = resolveInputXmlBends(bendGraph({ orientationMode: 'missing' }));
+assert.strictEqual(missingOrientation.diagnostics[0].code, 'BEND_SOURCE_ORIENTATION_MISSING');
+const conflictingOrientation = resolveInputXmlBends(bendGraph({ orientationMode: 'conflict' }));
+assert.strictEqual(conflictingOrientation.diagnostics[0].code, 'BEND_SOURCE_ORIENTATION_CONFLICT');
+
+const reversedXml = `<CAESARII XML_TYPE="Input"><PIPINGMODEL>
+  <PIPINGELEMENT FROM_NODE="20" TO_NODE="30" DELTA_Y="1000" DIAMETER="100"/>
+  <PIPINGELEMENT FROM_NODE="10" TO_NODE="20" DELTA_X="1000" DIAMETER="100"><BEND RADIUS="200"/></PIPINGELEMENT>
+</PIPINGMODEL></CAESARII>`;
+const reversedGraph = buildCanonicalGraph('source', parseInputXmlRecords(reversedXml).records, {});
+const reversedBend = reversedGraph.objects.find((object) => object.kind === 'BEND');
+assert.strictEqual(reversedBend.canonicalFromTo, '20->10');
+assert.deepStrictEqual(reversedBend.sourceOrientation, {
+  contract: SOURCE_ELEMENT_ORIENTATION_CONTRACT,
+  fromNode: '10',
+  toNode: '20',
+  resolvedFromNode: '10',
+  resolvedToNode: '20',
+  deltaMm: [1000, 0, 0],
+  rawIndex: 1,
+  canonicalDirection: 'SOURCE_REVERSED',
+});
+assert.strictEqual(resolveInputXmlBends(reversedGraph).summary.resolved, 1);
 
 console.log('workbench3d-visual-markers.test.js passed');

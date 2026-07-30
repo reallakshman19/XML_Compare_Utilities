@@ -1,5 +1,7 @@
 /** Pure CAESAR InputXML bend reconstruction for Workbench visual geometry. */
 
+import { resolveSourceOrientation } from './source-element-orientation.js';
+
 const RADIUS_KEYS = Object.freeze([
   'RADIUS', 'BEND_RADIUS', 'BENDRADIUS', 'BEND_RAD',
   'BENDRAD', 'CURVE_RADIUS', 'CURVERADIUS', 'R',
@@ -53,35 +55,6 @@ function otherNode(object, nodeId) {
   return null;
 }
 
-function sameLine(a, b) {
-  if (!a.lineId || !b.lineId) return true;
-  return a.lineId === b.lineId;
-}
-
-function sharedNode(a, b) {
-  const shared = endpoints(a).filter((nodeId) => endpoints(b).includes(nodeId));
-  return shared.length === 1 ? shared[0] : null;
-}
-
-function orderedNeighbor(objects, host, direction) {
-  const candidates = objects.filter((object) => sameLine(object, host)
-    && Number.isInteger(object.rawIndex)
-    && (direction > 0 ? object.rawIndex > host.rawIndex : object.rawIndex < host.rawIndex));
-  candidates.sort((a, b) => direction > 0 ? a.rawIndex - b.rawIndex : b.rawIndex - a.rawIndex);
-  return candidates.find((object) => sharedNode(host, object)) ?? null;
-}
-
-function resolveSourceDirection(objects, host) {
-  const next = orderedNeighbor(objects, host, 1);
-  const previous = orderedNeighbor(objects, host, -1);
-  const toNode = next ? sharedNode(host, next) : null;
-  const fromNode = previous ? sharedNode(host, previous) : null;
-  if (toNode && fromNode && toNode !== fromNode) return { fromNode, toNode, evidence: 'RAW_INDEX_BOTH' };
-  if (toNode) return { fromNode: otherNode(host, toNode), toNode, evidence: 'RAW_INDEX_NEXT' };
-  if (fromNode) return { fromNode, toNode: otherNode(host, fromNode), evidence: 'RAW_INDEX_PREVIOUS' };
-  return null;
-}
-
 function bendPacket(object) {
   return object.packets?.find((packet) => packet.kind === 'BEND') ?? null;
 }
@@ -105,14 +78,16 @@ function blocked(objectId, code, message, details = {}) {
   return { objectId, severity: 'BLOCKED', code, message, ...details };
 }
 
+function orientationDiagnostic(object, direction) {
+  return blocked(object.objectId, direction.code, direction.message);
+}
+
 function resolveOneBend(graph, object, nodeCoord) {
   const packet = bendPacket(object);
   const radiusMm = numericAttribute(packet?.attrs, RADIUS_KEYS);
   if (!radiusMm) return { diagnostic: blocked(object.objectId, 'BEND_RADIUS_MISSING', 'Explicit positive bend radius is required.') };
-  const direction = resolveSourceDirection(graph.objects, object);
-  if (!direction?.fromNode || !direction.toNode) {
-    return { diagnostic: blocked(object.objectId, 'BEND_DIRECTION_UNRESOLVED', 'Raw element ordering does not establish the bend corner.') };
-  }
+  const direction = resolveSourceOrientation(object);
+  if (!direction.ok) return { diagnostic: orientationDiagnostic(object, direction) };
   const corner = nodeCoord.get(direction.toNode);
   const previous = nodeCoord.get(direction.fromNode);
   if (!corner || !previous) return { diagnostic: blocked(object.objectId, 'BEND_NODE_MISSING', 'Bend endpoint coordinates are unavailable.') };
