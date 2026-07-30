@@ -79,6 +79,7 @@ assert.equal(pipelineOutputById.get('pipeline-coordinate-table').text, pipelineN
 assert.equal(pipelineOutputById.has('pipeline-inputxml'), false);
 assert.equal(pipelineOutputById.has('pipeline-inputxml-document-plan'), false);
 assert.equal(pipelineNative.xmlText, '');
+assert.equal(pipelineNative.inputXmlDocumentPlan.ready, false);
 
 const realEvidence = buildSequentialEvidenceModel(realBranches);
 const realIndexes = indexSequentialEvidence(realEvidence);
