@@ -16,12 +16,12 @@ function fact(documentRef, list, label, value, status = '') {
 }
 
 function messageFor(model) {
-  if (model.status === 'IMPORTING') return 'Checking the receipt schema, canonical fields and deterministic receipt ID.';
+  if (model.status === 'IMPORTING') return 'Checking the receipt schema, canonical content SHA-256 and deterministic receipt ID.';
   if (model.status === 'FAILED') return model.error || 'The responsiveness receipt could not be verified.';
-  if (model.status === 'VERIFIED_CURRENT') return 'Receipt structure and deterministic ID are verified; its audit lineage and run ID match the active WebGL run.';
-  if (model.status === 'VERIFIED_HISTORICAL') return 'Receipt structure and deterministic ID are verified for the current audit lineage, but it records a different WebGL run.';
-  if (model.status === 'VERIFIED_OTHER_AUTHORITY') return 'Receipt structure and deterministic ID are verified, but its audit or source lineage differs from the current workspace.';
-  return 'Select a responsiveness observation receipt to verify its strict structure and deterministic ID, then compare its authority with this workspace.';
+  if (model.status === 'VERIFIED_CURRENT') return 'Receipt structure and integrity are verified; its audit lineage and run ID match the active WebGL run.';
+  if (model.status === 'VERIFIED_HISTORICAL') return 'Receipt structure and integrity are verified for the current audit lineage, but it records a different WebGL run.';
+  if (model.status === 'VERIFIED_OTHER_AUTHORITY') return 'Receipt structure and integrity are verified, but its audit or source lineage differs from the current workspace.';
+  return 'Select a responsiveness observation receipt to verify its strict structure and integrity, then compare its authority with this workspace.';
 }
 
 function verificationInput(documentRef) {
@@ -52,10 +52,12 @@ export function renderRevisionResponsivenessReceiptVerificationSection(root, mod
   message.setAttribute('data-revc-responsiveness-receipt-message', '');
   const facts = documentRef.createElement('dl'); facts.className = 'revc-session-facts';
   fact(documentRef, facts, 'Schema structure', model.structureStatus, model.structureStatus);
+  fact(documentRef, facts, 'Content SHA-256', model.contentSha256Status, model.contentSha256Status);
   fact(documentRef, facts, 'Receipt ID', model.receiptIdStatus, model.receiptIdStatus);
   fact(documentRef, facts, 'Current audit', model.authorityStatus, model.authorityStatus);
   fact(documentRef, facts, 'Active run', model.runStatus, model.runStatus);
   fact(documentRef, facts, 'Authenticity', model.authenticityStatus, model.authenticityStatus);
+  if (model.contentSha256) fact(documentRef, facts, 'Canonical SHA-256', model.contentSha256);
   if (model.receiptId) fact(documentRef, facts, 'Receipt identity', model.receiptId);
   section.appendChild(facts);
   const controls = documentRef.createElement('div'); controls.className = 'revc-session-actions';
