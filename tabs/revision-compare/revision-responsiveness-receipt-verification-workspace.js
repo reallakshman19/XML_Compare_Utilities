@@ -1,4 +1,4 @@
-/** Workspace-owned import lifecycle for local responsiveness receipt verification. */
+/** Workspace-owned receipt integrity and detached-signature verification lifecycle. */
 import {
   REVISION_RESPONSIVENESS_RECEIPT_MAX_BYTES,
   completeRevisionResponsivenessReceiptVerification,
@@ -8,14 +8,27 @@ import {
   startRevisionResponsivenessReceiptVerification,
   verifyRevisionResponsivenessObservationReceiptJson,
 } from './revision-responsiveness-observation-receipt-import.js';
+import {
+  REVISION_RESPONSIVENESS_SIGNATURE_MAX_BYTES,
+  completeRevisionResponsivenessSignatureImport,
+  createRevisionResponsivenessSignatureState,
+  failRevisionResponsivenessSignatureImport,
+  revisionResponsivenessSignatureModel,
+  startRevisionResponsivenessSignatureImport,
+  verifyRevisionResponsivenessSignatureReceiptJson,
+} from './revision-responsiveness-receipt-signature.js';
 import { renderRevisionResponsivenessReceiptVerificationSection } from './revision-responsiveness-receipt-verification-view.js';
+import { renderRevisionResponsivenessSignatureSection } from './revision-responsiveness-receipt-signature-view.js';
 
 export function createRevisionResponsivenessReceiptVerificationWorkspace(options) {
   let state = createRevisionResponsivenessReceiptVerificationState();
+  let signatureState = createRevisionResponsivenessSignatureState();
   let destroyed = false;
+  const retainedReceipt = () => state.verification?.receipt ?? null;
   const model = () => revisionResponsivenessReceiptVerificationModel(state, options.readCurrentInput());
+  const signatureModel = () => revisionResponsivenessSignatureModel(signatureState, retainedReceipt(), model());
   function attachment() {
-    const current = model(); const receipt = state.verification?.receipt;
+    const current = model(); const receipt = retainedReceipt();
     if (current.status !== 'VERIFIED_CURRENT' || !receipt) return null;
     return Object.freeze({ status: current.status, runId: receipt.observation.runId, receipt });
   }
@@ -28,7 +41,7 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
   async function importFile(file) {
     const generation = state.generation + 1;
     state = startRevisionResponsivenessReceiptVerification(state, generation, file?.name);
-    options.renderWorkspace();
+    signatureState = createRevisionResponsivenessSignatureState(); options.renderWorkspace();
     try {
       if (!file) throw new TypeError('Select a responsiveness observation receipt.');
       if (file.size > REVISION_RESPONSIVENESS_RECEIPT_MAX_BYTES) throw new RangeError('Responsiveness receipt is limited to 256 KiB.');
@@ -43,17 +56,35 @@ export function createRevisionResponsivenessReceiptVerificationWorkspace(options
       if (next === state) return; state = next; options.renderWorkspace(); options.reportFailure(error);
     }
   }
+  async function importSignatureFile(file) {
+    const generation = signatureState.generation + 1;
+    signatureState = startRevisionResponsivenessSignatureImport(signatureState, generation, file?.name); options.renderWorkspace();
+    try {
+      const target = retainedReceipt();
+      if (!target) throw new TypeError('Verify a responsiveness observation receipt before importing its detached signature.');
+      if (!file) throw new TypeError('Select a responsiveness signature receipt.');
+      if (file.size > REVISION_RESPONSIVENESS_SIGNATURE_MAX_BYTES) throw new RangeError('Responsiveness signature receipt is limited to 256 KiB.');
+      const receipt = await verifyRevisionResponsivenessSignatureReceiptJson(await file.text(), target, options.cryptoRef);
+      if (destroyed) return;
+      const next = completeRevisionResponsivenessSignatureImport(signatureState, generation, receipt);
+      if (next === signatureState) return; signatureState = next; options.renderWorkspace();
+      options.showToast?.('Responsiveness receipt signature verified.', 'success');
+    } catch (error) {
+      if (destroyed) return;
+      const next = failRevisionResponsivenessSignatureImport(signatureState, generation, error);
+      if (next === signatureState) return; signatureState = next; options.renderWorkspace(); options.reportFailure(error);
+    }
+  }
   return Object.freeze({
-    attachment,
-    importFile,
-    matchesAttachment,
-    model,
-    render: () => renderRevisionResponsivenessReceiptVerificationSection(options.root, model()),
+    attachment, importFile, importSignatureFile, matchesAttachment, model, signatureModel,
+    render() {
+      renderRevisionResponsivenessReceiptVerificationSection(options.root, model());
+      renderRevisionResponsivenessSignatureSection(options.root, signatureModel());
+    },
     destroy() {
       if (destroyed) return false;
-      destroyed = true;
-      state = createRevisionResponsivenessReceiptVerificationState();
-      return true;
+      destroyed = true; state = createRevisionResponsivenessReceiptVerificationState();
+      signatureState = createRevisionResponsivenessSignatureState(); return true;
     },
   });
 }
