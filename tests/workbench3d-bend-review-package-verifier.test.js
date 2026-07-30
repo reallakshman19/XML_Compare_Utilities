@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildBendReviewPackageManifest, serializeBendReviewPackageManifest } from '../workbench3d/ui/bend-review-package.js';
 import {
   BEND_REVIEW_VERIFICATION_STATUS,
+  bendReviewVerifierControlsHtml,
   bendReviewVerifierHtml,
   parseBendReviewPackageText,
   receiptVerificationResultHtml,
@@ -17,6 +18,15 @@ import {
   serializeBendReviewVerificationReceipt,
   verifyBendReviewVerificationReceipt,
 } from '../workbench3d/ui/bend-review-verification-receipt.js';
+import {
+  BEND_REVIEW_HISTORY_KIND,
+  BEND_REVIEW_HISTORY_LIMIT,
+  bendReviewHistoryCount,
+  bendReviewHistoryHtml,
+  clearBendReviewHistory,
+  getBendReviewHistory,
+  recordBendReviewHistory,
+} from '../workbench3d/ui/bend-review-verification-history.js';
 
 const bendAudit = (signature) => ({
   contract: 'BendGeometryAudit.v1', signatureAlgorithm: 'stable-json-fnv1a32', signature,
@@ -70,7 +80,39 @@ assert.strictEqual(parseBendReviewVerificationReceiptText('{bad').ok, false);
 assert.match(receiptVerificationResultHtml(staleCurrent), /STALE CURRENT PACKAGE/);
 assert.match(receiptVerificationResultHtml(staleCurrent), /Current package signature/);
 
+clearBendReviewHistory();
+recordBendReviewHistory({
+  checkKind: BEND_REVIEW_HISTORY_KIND.PACKAGE, verification: matching,
+  artifactSignature: imported.packageSignature, currentManifest: current,
+});
+recordBendReviewHistory({
+  checkKind: BEND_REVIEW_HISTORY_KIND.RECEIPT, verification: staleCurrent,
+  artifactSignature: receipt.receiptSignature, currentManifest: changedCurrent,
+});
+const history = getBendReviewHistory();
+assert.strictEqual(history.length, 2);
+assert.strictEqual(history[0].kind, BEND_REVIEW_HISTORY_KIND.RECEIPT);
+assert.strictEqual(history[0].differenceCount, 1);
+assert.strictEqual(history[1].artifactSignature, imported.packageSignature);
+assert.strictEqual(bendReviewHistoryCount(history), '2 checks');
+assert.match(bendReviewHistoryHtml(history), /STALE CURRENT PACKAGE/);
+assert.match(bendReviewHistoryHtml(history), new RegExp(receipt.receiptSignature));
+assert.doesNotMatch(bendReviewHistoryHtml(history), /sourceXml|targetXml|<A\/>/);
+for (let index = 0; index < BEND_REVIEW_HISTORY_LIMIT + 2; index += 1) {
+  recordBendReviewHistory({ checkKind: BEND_REVIEW_HISTORY_KIND.PACKAGE, verification: matching,
+    artifactSignature: `wb3d-review-${String(index).padStart(8, '0')}`, currentManifest: current });
+}
+assert.strictEqual(getBendReviewHistory().length, BEND_REVIEW_HISTORY_LIMIT);
+assert.strictEqual(getBendReviewHistory()[0].sequence, BEND_REVIEW_HISTORY_LIMIT + 4);
+clearBendReviewHistory();
+assert.strictEqual(getBendReviewHistory().length, 0);
+assert.match(bendReviewHistoryHtml(), /No package or receipt checks/);
+
 const html = bendReviewVerifierHtml(imported);
 assert.match(html, /wb3d-bend-review-verifier/);
 assert.match(html, /data-current=/);
+const controls = bendReviewVerifierControlsHtml();
+assert.match(controls, /Session verification history/);
+assert.match(controls, /Page-memory only/);
+assert.match(controls, /data-history-clear/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');
