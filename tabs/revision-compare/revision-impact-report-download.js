@@ -30,7 +30,6 @@ function authoritySnapshot(state, scope) {
     reviewSession: state.review.session,
     decisionLedger: state.decision.ledger,
     slots: state.slots,
-    selectedDifferenceId: state.compare.selectedDifferenceId,
     compareQueue: visible ? state.compare.queue : null,
     reviewFilters: visible ? state.review.filters : null,
     decisionFilters: visible ? state.decision.filters : null,
