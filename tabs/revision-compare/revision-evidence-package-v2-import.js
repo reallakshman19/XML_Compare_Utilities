@@ -87,7 +87,7 @@ export async function verifyRevisionCompareEvidencePackageV2(parsed, fileName, i
   const projection = await v1Projection(frozen, cryptoRef);
   const verified = await verifyV1Json(JSON.stringify(projection), fileName, importedAt, cryptoRef);
   const attachment = await verifyRevisionEvidencePackageResponsivenessReceipt(
-    frozen.payload.responsivenessReceipt, verified.audit,
+    frozen.payload.responsivenessReceipt, verified.session, verified.audit,
     verified.slots.baseline.document, verified.slots.candidate.document, cryptoRef,
   );
   verifyBinding(frozen, verified, attachment);
