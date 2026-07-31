@@ -11,6 +11,12 @@ import {
 import {
   isSequentialEffectiveGeometryReadModel,
 } from './sequential-effective-geometry-read-model.js';
+import {
+  isSequentialEffectiveTopologyReadModel,
+} from './sequential-effective-topology-read-model.js';
+import {
+  applySequentialTopologyEditJournalToScene,
+} from './sequential-topology-edit-projection.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
 
 export const SEQUENTIAL_SCOPED_EDIT_SCENE_REJECTION = Object.freeze({
@@ -46,6 +52,14 @@ function baseProject(readModel) {
   return scopedEditScene(built.scene);
 }
 function project(readModel) {
+  if (isSequentialEffectiveTopologyReadModel(readModel)) {
+    const base = project(readModel.topologyBaseReadModel);
+    return applySequentialTopologyEditJournalToScene(
+      base,
+      readModel.topologyEditJournal,
+      { revision: readModel.revision, sceneId: readModel.sceneId },
+    );
+  }
   if (!isSequentialEffectiveGeometryReadModel(readModel)) return baseProject(readModel);
   const base = baseProject(readModel.baseReadModel);
   return applySequentialGeometryEditJournalToScene(

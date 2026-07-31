@@ -3,6 +3,7 @@ import { createVisualGeometryModelV2 } from '../../../contracts/visual-geometry-
 import { validateEngineeringScene } from '../../../core/engineering-scene/engineering-contract-validation.js';
 import { composeSequentialSupportMoveDraftScene } from './sequential-draft-edit-support-move-draft.js';
 import { composeSequentialNodeStretchDraftScene } from './sequential-node-stretch-draft.js';
+import { composeSequentialPipeSplitDraftScene } from './sequential-pipe-split-draft.js';
 import { composeSequentialRotationDraftScene } from './sequential-rotation-draft.js';
 import { composeSequentialSingleEntityMoveDraftScene } from './sequential-single-entity-move-draft.js';
 import { assertSequentialScopedEditReadModel } from './sequential-scoped-edit-read-model.js';
@@ -103,12 +104,13 @@ function composedScene(authoritative, input) {
   const support = composeSequentialSupportMoveDraftScene(authoritative, input.draft);
   const move = composeSequentialSingleEntityMoveDraftScene(support, input.moveDraft);
   const stretch = composeSequentialNodeStretchDraftScene(move, input.nodeStretchDraft);
-  return composeSequentialRotationDraftScene(stretch, input.rotationDraft);
+  const rotation = composeSequentialRotationDraftScene(stretch, input.rotationDraft);
+  return composeSequentialPipeSplitDraftScene(rotation, input.splitDraft);
 }
 function combinedDraftId(input) {
   return [input.draft?.operationId, input.moveDraft?.operationId,
-    input.nodeStretchDraft?.operationId, input.rotationDraft?.operationId]
-    .filter(Boolean).join(':') || null;
+    input.nodeStretchDraft?.operationId, input.rotationDraft?.operationId,
+    input.splitDraft?.operationId].filter(Boolean).join(':') || null;
 }
 export function createSequentialScopedEditVisualModel(input = {}) {
   const readModel = assertSequentialScopedEditReadModel(input.readModel);
