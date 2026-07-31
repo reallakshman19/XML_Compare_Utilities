@@ -18,6 +18,7 @@ import {
   BEND_REVIEW_HISTORY_FILTER,
   BEND_REVIEW_HISTORY_KIND,
   BEND_REVIEW_HISTORY_KIND_FILTER,
+  BEND_REVIEW_HISTORY_SEARCH_LIMIT,
   BEND_REVIEW_HISTORY_STATUS_FILTER,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
@@ -25,6 +26,7 @@ import {
   filterBendReviewHistory,
   filterBendReviewHistoryByKind,
   filterBendReviewHistoryByStatus,
+  filterBendReviewHistoryByText,
   getBendReviewHistory,
   recordBendReviewHistory,
 } from './bend-review-verification-history.js';
@@ -167,9 +169,7 @@ export function bendReviewVerifierHtml(currentManifest) {
   return `<${ELEMENT_NAME} data-current="${esc(current)}"></${ELEMENT_NAME}>`;
 }
 
-function decodeCurrent(element) {
-  try { return JSON.parse(decodeURIComponent(element.dataset.current || '')); } catch { return null; }
-}
+function decodeCurrent(element) { try { return JSON.parse(decodeURIComponent(element.dataset.current || '')); } catch { return null; } }
 
 async function packageVerification(file, current) {
   try {
@@ -197,15 +197,14 @@ async function receiptVerification(file, current) {
   }
 }
 
-function selectedValue(element, selector, fallback) {
-  return element.querySelector(selector)?.value || fallback;
-}
+function selectedValue(element, selector, fallback = '') { return element.querySelector(selector)?.value || fallback; }
 
-function historyEmptyMessage(packageMode, statusMode, kindMode) {
-  const attention = statusMode === BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION;
-  const current = packageMode === BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE;
+function historyEmptyMessage(packageMode, statusMode, kindMode, query) {
   const label = kindMode === BEND_REVIEW_HISTORY_KIND_FILTER.PACKAGE ? 'package'
     : kindMode === BEND_REVIEW_HISTORY_KIND_FILTER.RECEIPT ? 'receipt' : 'session';
+  if (text(query)) return `No visible ${label} checks match the history search.`;
+  const attention = statusMode === BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION;
+  const current = packageMode === BEND_REVIEW_HISTORY_FILTER.CURRENT_PACKAGE;
   if (attention && current) return `No attention-needed ${label} checks reference the currently loaded review package.`;
   if (attention) return `No ${label} checks need attention.`;
   if (current) return `No ${label} checks reference the currently loaded review package.`;
@@ -217,13 +216,15 @@ function renderHistory(element, current) {
   const packageMode = selectedValue(element, '[data-history-filter]', BEND_REVIEW_HISTORY_FILTER.ALL);
   const statusMode = selectedValue(element, '[data-history-status-filter]', BEND_REVIEW_HISTORY_STATUS_FILTER.ALL);
   const kindMode = selectedValue(element, '[data-history-kind-filter]', BEND_REVIEW_HISTORY_KIND_FILTER.ALL);
+  const query = selectedValue(element, '[data-history-search]');
   const packageEntries = filterBendReviewHistory(allEntries, packageMode, current?.packageSignature);
   const statusEntries = filterBendReviewHistoryByStatus(packageEntries, statusMode);
-  const entries = filterBendReviewHistoryByKind(statusEntries, kindMode);
+  const kindEntries = filterBendReviewHistoryByKind(statusEntries, kindMode);
+  const entries = filterBendReviewHistoryByText(kindEntries, query);
   const output = element.querySelector('[data-verification-history]');
   const count = element.querySelector('[data-verification-history-count]');
   if (output) output.innerHTML = bendReviewHistoryHtml(entries,
-    historyEmptyMessage(packageMode, statusMode, kindMode));
+    historyEmptyMessage(packageMode, statusMode, kindMode, query));
   if (count) count.textContent = bendReviewHistoryCount(entries, allEntries);
 }
 
@@ -236,6 +237,7 @@ function attachHistoryControls(element, current) {
   for (const selector of ['[data-history-filter]', '[data-history-status-filter]', '[data-history-kind-filter]']) {
     element.querySelector(selector)?.addEventListener('change', () => renderHistory(element, current));
   }
+  element.querySelector('[data-history-search]')?.addEventListener('input', () => renderHistory(element, current));
   element.querySelector('[data-history-clear]')?.addEventListener('click', () => {
     clearBendReviewHistory();
     renderHistory(element, current);
@@ -271,7 +273,7 @@ function attachReceiptInput(element, current) {
 }
 
 export function bendReviewVerifierControlsHtml() {
-  return `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input data-package-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div><div class="wb3d-toolbar"><label class="wb3d-file">Verify receipt <input data-receipt-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-receipt-result>Select a verification receipt exported by this Workbench.</span></div><details class="wb3d-card" data-verification-history-card><summary><strong>Session verification history</strong> <span class="wb3d-muted" data-verification-history-count>0 checks</span></summary><p class="wb3d-muted">Page-memory only; not persisted, exported, or written into Workbench comparison state.</p><div class="wb3d-toolbar"><label class="wb3d-file">History view <select data-history-filter><option value="ALL">All session checks</option><option value="CURRENT_PACKAGE">Current package only</option></select></label><label class="wb3d-file">Status view <select data-history-status-filter><option value="ALL">All statuses</option><option value="NEEDS_ATTENTION">Needs attention only</option></select></label><label class="wb3d-file">Check kind <select data-history-kind-filter><option value="ALL">Package and receipt checks</option><option value="PACKAGE">Package checks only</option><option value="RECEIPT">Receipt checks only</option></select></label></div><div data-verification-history></div><div class="wb3d-toolbar"><button type="button" class="wb3d-btn wb3d-btn-mini" data-history-clear>Clear session history</button></div></details>`;
+  return `<div class="wb3d-toolbar"><label class="wb3d-file">Verify review package <input data-package-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-verification-result>Select a package JSON exported by this Workbench.</span></div><div class="wb3d-toolbar"><label class="wb3d-file">Verify receipt <input data-receipt-file type="file" accept=".json,application/json"></label><span class="wb3d-muted" data-receipt-result>Select a verification receipt exported by this Workbench.</span></div><details class="wb3d-card" data-verification-history-card><summary><strong>Session verification history</strong> <span class="wb3d-muted" data-verification-history-count>0 checks</span></summary><p class="wb3d-muted">Page-memory only; not persisted, exported, or written into Workbench comparison state.</p><div class="wb3d-toolbar"><label class="wb3d-file">History view <select data-history-filter><option value="ALL">All session checks</option><option value="CURRENT_PACKAGE">Current package only</option></select></label><label class="wb3d-file">Status view <select data-history-status-filter><option value="ALL">All statuses</option><option value="NEEDS_ATTENTION">Needs attention only</option></select></label><label class="wb3d-file">Check kind <select data-history-kind-filter><option value="ALL">Package and receipt checks</option><option value="PACKAGE">Package checks only</option><option value="RECEIPT">Receipt checks only</option></select></label><label class="wb3d-file">History search <input data-history-search type="search" maxlength="${BEND_REVIEW_HISTORY_SEARCH_LIMIT}" placeholder="Status, code, kind, or signature"></label></div><div data-verification-history></div><div class="wb3d-toolbar"><button type="button" class="wb3d-btn wb3d-btn-mini" data-history-clear>Clear session history</button></div></details>`;
 }
 
 function registerVerifierElement() {
