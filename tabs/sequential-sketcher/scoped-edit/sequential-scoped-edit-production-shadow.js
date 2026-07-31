@@ -21,10 +21,15 @@ function errorEvidence(error) {
 function scopeRequest(readModel, scene) {
   const selected = readModel.selectionSnapshot.entityIds;
   const entityIds = selected.length ? selected : scene.entities.slice(0, 1).map((entity) => entity.id);
-  if (!entityIds.length) throw new RangeError('Sequential production shadow scene is empty.');
+  if (!entityIds.length) return null;
   return createEngineeringScopeRequest({ schema: 'EngineeringScopeRequest.v1', kind: 'SELECTION',
     boundaryPolicy: 'FROZEN', elementBudget: Math.max(1, scene.entities.length),
     selection: { entityIds, closureDepth: 0 } });
+}
+
+function emptySceneEvidence(readModel, scene) {
+  return freezeJsonValue({ schema: 'SequentialEmptySceneMountEvidence.v1',
+    authorityId: readModel.authorityId, sceneId: scene.sceneId, entityIds: [], mountedCount: 0 });
 }
 
 function mountKey(readModel) {
@@ -38,11 +43,12 @@ function mountKey(readModel) {
 function mountEvidence(readModel, host) {
   const scene = host.scene();
   const request = scopeRequest(readModel, scene);
-  const scope = host.resolveScope(request);
+  const scope = request ? host.resolveScope(request) : emptySceneEvidence(readModel, scene);
+  const mountedCount = request ? scope.stats.mounted : 0;
   return freezeJsonValue({ authorityId: readModel.authorityId,
     sceneHash: sequentialSemanticFingerprint('SSK3DSCENE', scene),
     scopeHash: sequentialSemanticFingerprint('SSK3DSCOPE', scope),
-    entityCount: scene.entities.length, mountedCount: scope.stats.mounted });
+    entityCount: scene.entities.length, mountedCount });
 }
 
 function release(current) {
@@ -120,4 +126,4 @@ export function createSequentialScopedEditProductionShadow(input = {}) {
   });
 }
 
-export const _test = Object.freeze({ scopeRequest, mountKey, mountEvidence, release });
+export const _test = Object.freeze({ scopeRequest, emptySceneEvidence, mountKey, mountEvidence, release });
