@@ -201,7 +201,7 @@ function createState(options, host) {
   };
 }
 export function createSequentialMoveManipulatorController(options = {}) {
-  const host = options.host || options.root?.querySelector?.('[data-ssk-draft-edit-3d-host]');
+  const host = options.host;
   if (!host?.ownerDocument) throw new TypeError('Manipulator controller requires the Draft Edit host.');
   const state = createState(options, host);
   state.overlay = createSequentialMoveManipulatorOverlay({
