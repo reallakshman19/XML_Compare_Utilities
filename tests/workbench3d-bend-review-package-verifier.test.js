@@ -21,6 +21,7 @@ import {
 import {
   BEND_REVIEW_HISTORY_FILTER,
   BEND_REVIEW_HISTORY_KIND,
+  BEND_REVIEW_HISTORY_KIND_FILTER,
   BEND_REVIEW_HISTORY_LIMIT,
   BEND_REVIEW_HISTORY_STATUS_FILTER,
   bendReviewHistoryCount,
@@ -28,6 +29,7 @@ import {
   bendReviewHistorySummaryHtml,
   clearBendReviewHistory,
   filterBendReviewHistory,
+  filterBendReviewHistoryByKind,
   filterBendReviewHistoryByStatus,
   getBendReviewHistory,
   recordBendReviewHistory,
@@ -145,6 +147,15 @@ assert.strictEqual(filterBendReviewHistoryByStatus(history, 'UNKNOWN').length, 2
 assert.strictEqual(filterBendReviewHistoryByStatus([
   { status: 'MATCH' }, { status: 'INVALID_RECEIPT' }, { status: 'UNAVAILABLE' },
 ], BEND_REVIEW_HISTORY_STATUS_FILTER.NEEDS_ATTENTION).length, 2);
+
+const packageOnly = filterBendReviewHistoryByKind(history, BEND_REVIEW_HISTORY_KIND_FILTER.PACKAGE);
+const receiptOnly = filterBendReviewHistoryByKind(history, BEND_REVIEW_HISTORY_KIND_FILTER.RECEIPT);
+assert.deepStrictEqual(packageOnly.map((entry) => entry.kind), [BEND_REVIEW_HISTORY_KIND.PACKAGE]);
+assert.deepStrictEqual(receiptOnly.map((entry) => entry.kind), [BEND_REVIEW_HISTORY_KIND.RECEIPT]);
+assert.strictEqual(filterBendReviewHistoryByKind(attentionOnly, BEND_REVIEW_HISTORY_KIND_FILTER.PACKAGE).length, 0);
+assert.strictEqual(filterBendReviewHistoryByKind(attentionOnly, BEND_REVIEW_HISTORY_KIND_FILTER.RECEIPT).length, 1);
+assert.strictEqual(filterBendReviewHistoryByKind(history, 'UNKNOWN').length, 2);
+assert.strictEqual(filterBendReviewHistoryByKind([{ kind: 'UNKNOWN' }], BEND_REVIEW_HISTORY_KIND_FILTER.PACKAGE).length, 0);
 assert.strictEqual(getBendReviewHistory().length, 2);
 
 const categorized = summarizeBendReviewHistory([...history,
@@ -174,4 +185,7 @@ assert.match(controls, /data-history-filter/);
 assert.match(controls, /Current package only/);
 assert.match(controls, /data-history-status-filter/);
 assert.match(controls, /Needs attention only/);
+assert.match(controls, /data-history-kind-filter/);
+assert.match(controls, /Package checks only/);
+assert.match(controls, /Receipt checks only/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');

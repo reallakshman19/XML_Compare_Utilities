@@ -14,6 +14,11 @@ export const BEND_REVIEW_HISTORY_STATUS_FILTER = Object.freeze({
   ALL: 'ALL',
   NEEDS_ATTENTION: 'NEEDS_ATTENTION',
 });
+export const BEND_REVIEW_HISTORY_KIND_FILTER = Object.freeze({
+  ALL: 'ALL',
+  PACKAGE: 'PACKAGE',
+  RECEIPT: 'RECEIPT',
+});
 
 let historyEntries = Object.freeze([]);
 let historySequence = 0;
@@ -31,6 +36,10 @@ function filter(value) {
 function statusFilter(value) {
   return Object.values(BEND_REVIEW_HISTORY_STATUS_FILTER).includes(value)
     ? value : BEND_REVIEW_HISTORY_STATUS_FILTER.ALL;
+}
+function kindFilter(value) {
+  return Object.values(BEND_REVIEW_HISTORY_KIND_FILTER).includes(value)
+    ? value : BEND_REVIEW_HISTORY_KIND_FILTER.ALL;
 }
 function statusBucket(value) {
   const status = text(value).toUpperCase();
@@ -89,6 +98,16 @@ export function filterBendReviewHistoryByStatus(
   const rows = array(entries);
   if (statusFilter(mode) === BEND_REVIEW_HISTORY_STATUS_FILTER.ALL) return rows;
   return rows.filter((entry) => statusBucket(entry?.status) !== 'match');
+}
+
+export function filterBendReviewHistoryByKind(
+  entries = historyEntries,
+  mode = BEND_REVIEW_HISTORY_KIND_FILTER.ALL,
+) {
+  const rows = array(entries);
+  const selected = kindFilter(mode);
+  if (selected === BEND_REVIEW_HISTORY_KIND_FILTER.ALL) return rows;
+  return rows.filter((entry) => text(entry?.kind) === selected);
 }
 
 export function clearBendReviewHistory() {
