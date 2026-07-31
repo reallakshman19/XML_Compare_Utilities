@@ -2,6 +2,7 @@
 
 export const BEND_REVIEW_HISTORY_AUTHORITY = 'SESSION_MEMORY_ONLY';
 export const BEND_REVIEW_HISTORY_LIMIT = 12;
+export const BEND_REVIEW_HISTORY_SEARCH_LIMIT = 160;
 export const BEND_REVIEW_HISTORY_KIND = Object.freeze({
   PACKAGE: 'PACKAGE',
   RECEIPT: 'RECEIPT',
@@ -40,6 +41,10 @@ function statusFilter(value) {
 function kindFilter(value) {
   return Object.values(BEND_REVIEW_HISTORY_KIND_FILTER).includes(value)
     ? value : BEND_REVIEW_HISTORY_KIND_FILTER.ALL;
+}
+function searchText(value) {
+  return text(value).slice(0, BEND_REVIEW_HISTORY_SEARCH_LIMIT).toLowerCase()
+    .replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
 }
 function statusBucket(value) {
   const status = text(value).toUpperCase();
@@ -108,6 +113,19 @@ export function filterBendReviewHistoryByKind(
   const selected = kindFilter(mode);
   if (selected === BEND_REVIEW_HISTORY_KIND_FILTER.ALL) return rows;
   return rows.filter((entry) => text(entry?.kind) === selected);
+}
+
+export function filterBendReviewHistoryByText(
+  entries = historyEntries,
+  query = '',
+) {
+  const rows = array(entries);
+  const needle = searchText(query);
+  if (!needle) return rows;
+  return rows.filter((entry) => searchText([
+    entry?.kind, entry?.status, entry?.code,
+    entry?.artifactSignature, entry?.currentPackageSignature,
+  ].join(' ')).includes(needle));
 }
 
 export function clearBendReviewHistory() {

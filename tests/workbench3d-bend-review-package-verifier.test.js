@@ -23,6 +23,7 @@ import {
   BEND_REVIEW_HISTORY_KIND,
   BEND_REVIEW_HISTORY_KIND_FILTER,
   BEND_REVIEW_HISTORY_LIMIT,
+  BEND_REVIEW_HISTORY_SEARCH_LIMIT,
   BEND_REVIEW_HISTORY_STATUS_FILTER,
   bendReviewHistoryCount,
   bendReviewHistoryHtml,
@@ -31,6 +32,7 @@ import {
   filterBendReviewHistory,
   filterBendReviewHistoryByKind,
   filterBendReviewHistoryByStatus,
+  filterBendReviewHistoryByText,
   getBendReviewHistory,
   recordBendReviewHistory,
   summarizeBendReviewHistory,
@@ -156,6 +158,17 @@ assert.strictEqual(filterBendReviewHistoryByKind(attentionOnly, BEND_REVIEW_HIST
 assert.strictEqual(filterBendReviewHistoryByKind(attentionOnly, BEND_REVIEW_HISTORY_KIND_FILTER.RECEIPT).length, 1);
 assert.strictEqual(filterBendReviewHistoryByKind(history, 'UNKNOWN').length, 2);
 assert.strictEqual(filterBendReviewHistoryByKind([{ kind: 'UNKNOWN' }], BEND_REVIEW_HISTORY_KIND_FILTER.PACKAGE).length, 0);
+assert.strictEqual(filterBendReviewHistoryByText(history, '').length, 2);
+assert.deepStrictEqual(filterBendReviewHistoryByText(history, 'stale current').map((entry) => entry.kind),
+  [BEND_REVIEW_HISTORY_KIND.RECEIPT]);
+assert.strictEqual(filterBendReviewHistoryByText(history, 'CURRENT_PACKAGE_CHANGED').length, 1);
+assert.strictEqual(filterBendReviewHistoryByText(history, receipt.receiptSignature.slice(-6)).length, 1);
+assert.strictEqual(filterBendReviewHistoryByText(history, current.packageSignature.toUpperCase()).length, 1);
+assert.strictEqual(filterBendReviewHistoryByText(packageOnly, 'receipt').length, 0);
+assert.strictEqual(filterBendReviewHistoryByText(receiptOnly, 'receipt').length, 1);
+assert.strictEqual(filterBendReviewHistoryByText(history, 'missing value').length, 0);
+assert.strictEqual(filterBendReviewHistoryByText(history,
+  `${'x'.repeat(BEND_REVIEW_HISTORY_SEARCH_LIMIT)}stale`).length, 0);
 assert.strictEqual(getBendReviewHistory().length, 2);
 
 const categorized = summarizeBendReviewHistory([...history,
@@ -188,4 +201,7 @@ assert.match(controls, /Needs attention only/);
 assert.match(controls, /data-history-kind-filter/);
 assert.match(controls, /Package checks only/);
 assert.match(controls, /Receipt checks only/);
+assert.match(controls, /data-history-search/);
+assert.match(controls, new RegExp(`maxlength="${BEND_REVIEW_HISTORY_SEARCH_LIMIT}"`));
+assert.match(controls, /Status, code, kind, or signature/);
 console.log('workbench3d-bend-review-package-verifier.test.js passed');
