@@ -4,6 +4,7 @@ export default defineConfig({
   testMatch: [
     'sequential-scoped-edit-3d.spec.mjs',
     'sequential-scoped-edit-3d-workbench.spec.mjs',
+    'sequential-p1-combined-qualification.spec.mjs',
     'sequential-draft-edit-command-lifecycle.spec.mjs',
   ],
   timeout: 45_000, expect: { timeout: 8_000 }, fullyParallel: false, workers: 1, retries: 0,
