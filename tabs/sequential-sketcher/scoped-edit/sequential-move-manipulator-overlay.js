@@ -87,8 +87,8 @@ function relativePlanePoints(material) {
 }
 function setVisible(state, visible) {
   state.svg.hidden = !visible; state.svg.setAttribute('aria-hidden', visible ? 'false' : 'true');
-  state.svg.style.pointerEvents = visible ? 'auto' : 'none';
-  if (visible) state.svg.removeAttribute('inert'); else state.svg.setAttribute('inert', '');
+  state.svg.style.pointerEvents = visible ? 'auto' : 'none'; if (visible) {
+    state.svg.removeAttribute('hidden'); state.svg.removeAttribute('inert'); } else { state.svg.setAttribute('hidden', ''); state.svg.setAttribute('inert', ''); }
 }
 function releaseCapture(state) {
   if (state.capturedPointerId == null) return;
@@ -245,8 +245,8 @@ function renderModel(state, model, viewer) {
   renderHandleState(state); return true;
 }
 function destroyOverlay(state) {
-  if (state.destroyed) return false; state.destroyed = true; releaseCapture(state);
-  unbind(state); state.svg.remove(); return true;
+  if (state.destroyed) return false; state.destroyed = true; releaseCapture(state); unbind(state);
+  state.svg.remove(); return true;
 }
 export function createSequentialMoveManipulatorOverlay(options = {}) {
   const host = options.host;
@@ -287,7 +287,7 @@ export function createSequentialMoveManipulatorOverlay(options = {}) {
     hide: (reason) => hide(state, reason),
     cancelPointerInteraction(reason = null) { releaseCapture(state); state.draggingHandle = null; renderHandleState(state); if (reason) announce(state, reason); return true; },
     getState: () => Object.freeze({
-      visible: !state.svg.hidden, manipulatorId: state.model?.manipulatorId || null,
+      visible: state.svg.getAttribute('hidden') == null && !state.svg.hidden, manipulatorId: state.model?.manipulatorId || null,
       activeHandle: state.activeHandle, draggingHandle: state.draggingHandle,
       capturedPointerId: state.capturedPointerId, handleCount: state.handles.size,
       viewAlignedAxes: Object.freeze([...state.viewAlignedAxes]), destroyed: state.destroyed,
