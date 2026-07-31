@@ -1,13 +1,18 @@
-export const PIPELINE_CAD_RUNTIME_BUILD = '2026.07.13-cad-default-1';
+export const PIPELINE_CAD_RUNTIME_BUILD = '2026.07.31-popup-reopen-1';
 export const PIPELINE_CAD_RENDERER_STORAGE_KEY = 'pipeline3dCadRenderer';
 export const PIPELINE_CAD_FALLBACK_STORAGE_KEY = 'pipeline3dCadRendererFallback';
 export const PIPELINE_CAD_LEGACY_CANVAS_STORAGE_KEY = 'pipeline3dCadCanvas';
+export const PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY = 'pipeline3dCadDialogReopen';
 export const PIPELINE_CAD_RENDERER_CANVAS = 'canvas';
 export const PIPELINE_CAD_RENDERER_SVG = 'svg';
 
 const RELOAD_GUARD_SESSION_KEY = 'pipeline3dCadFallbackReloaded';
+const RESTORE_OBSERVER_DATA_KEY = 'p3dCadDialogRestoreObserver';
 const STYLE_ID = 'pipeline-3d-cad-runtime-policy-style';
 const CONTROL_SELECTOR = '[data-p3d-cad-renderer-control]';
+const SWITCH_SELECTOR = '[data-p3d-cad-renderer-switch]';
+const LAUNCH_SELECTOR = '[data-pipeline-3d-model-launcher] [data-p3d-open="1"]';
+const DIALOG_SELECTOR = '.pipeline-3d-model-dialog';
 const MESSAGE_ERROR_PATTERN = /PipelineCad|Pipeline CAD Canvas|Table2XCanvas|Table3XCanvas|InteractiveGraph/;
 const STACK_ERROR_PATTERN = /\b(?:mountPipelineCadWorkspace|patchDialog|Table2XCanvas|Table3XCanvas|PipelineCadController|InteractiveGraph)\b/;
 
@@ -97,6 +102,51 @@ export function readPipelineCadFallback(storage = globalThis.localStorage) {
   }
 }
 
+export function markPipelineCadDialogReopen(sessionStorage = globalThis.sessionStorage) {
+  return safeSet(sessionStorage, PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY, '1');
+}
+
+export function consumePipelineCadDialogReopen(sessionStorage = globalThis.sessionStorage) {
+  if (safeGet(sessionStorage, PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY) !== '1') return false;
+  safeRemove(sessionStorage, PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY);
+  return true;
+}
+
+function restorePipelineCadDialog(doc, sessionStorage) {
+  if (safeGet(sessionStorage, PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY) !== '1') return false;
+  if (doc?.querySelector?.(DIALOG_SELECTOR)) {
+    consumePipelineCadDialogReopen(sessionStorage);
+    return true;
+  }
+  const launcher = doc?.querySelector?.(LAUNCH_SELECTOR);
+  if (!launcher?.click) return false;
+  consumePipelineCadDialogReopen(sessionStorage);
+  launcher.click();
+  return true;
+}
+
+export function installPipelineCadDialogRestore(doc = globalThis.document, options = {}) {
+  if (!doc) return null;
+  const sessionStorage = options.sessionStorage ?? globalThis.sessionStorage;
+  if (restorePipelineCadDialog(doc, sessionStorage)) return null;
+  if (safeGet(sessionStorage, PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY) !== '1') return null;
+  if (!doc.body) {
+    doc.addEventListener?.('DOMContentLoaded', () => installPipelineCadDialogRestore(doc, options), { once: true });
+    return null;
+  }
+  if (doc.body.dataset?.[RESTORE_OBSERVER_DATA_KEY] === '1') return null;
+  const MutationObserverCtor = options.MutationObserver ?? globalThis.MutationObserver;
+  if (typeof MutationObserverCtor !== 'function') return null;
+  if (doc.body.dataset) doc.body.dataset[RESTORE_OBSERVER_DATA_KEY] = '1';
+  const observer = new MutationObserverCtor(() => {
+    if (!restorePipelineCadDialog(doc, sessionStorage)) return;
+    observer.disconnect();
+    if (doc.body?.dataset) delete doc.body.dataset[RESTORE_OBSERVER_DATA_KEY];
+  });
+  observer.observe(doc.body, { childList: true, subtree: true });
+  return observer;
+}
+
 export function isPipelineCadRuntimeError(error) {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error?.message ?? error ?? '');
   const stack = error instanceof Error ? String(error.stack || '') : String(error?.stack || '');
@@ -126,10 +176,12 @@ export function handlePipelineCadRuntimeFailure(error, options = {}) {
 
 export function requestPipelineCadRenderer(renderer, options = {}) {
   const storage = options.storage ?? globalThis.localStorage;
+  const sessionStorage = options.sessionStorage ?? globalThis.sessionStorage;
   const location = options.location ?? globalThis.location;
   const normalized = persistPipelineCadRenderer(renderer, storage);
   safeRemove(storage, PIPELINE_CAD_FALLBACK_STORAGE_KEY);
-  safeRemove(options.sessionStorage ?? globalThis.sessionStorage, RELOAD_GUARD_SESSION_KEY);
+  safeRemove(sessionStorage, RELOAD_GUARD_SESSION_KEY);
+  if (options.reopenDialog === true) markPipelineCadDialogReopen(sessionStorage);
   try {
     const url = new URL(location?.href || globalThis.location?.href || 'http://localhost/');
     url.searchParams.delete('pipelineCadRenderer');
@@ -183,14 +235,15 @@ function installRendererControl(dialog, options = {}) {
     control.dataset.p3dCadRendererControl = '1';
     control.innerHTML = '<span data-p3d-cad-renderer-label></span><button type="button" data-p3d-cad-renderer-switch></button>';
     host.appendChild(control);
-    control.querySelector('[data-p3d-cad-renderer-switch]')?.addEventListener('click', () => {
+    control.querySelector(SWITCH_SELECTOR)?.addEventListener('click', () => {
       const current = resolvePipelineCadRenderer(options);
-      requestPipelineCadRenderer(current === PIPELINE_CAD_RENDERER_CANVAS ? PIPELINE_CAD_RENDERER_SVG : PIPELINE_CAD_RENDERER_CANVAS, options);
+      const next = current === PIPELINE_CAD_RENDERER_CANVAS ? PIPELINE_CAD_RENDERER_SVG : PIPELINE_CAD_RENDERER_CANVAS;
+      requestPipelineCadRenderer(next, { ...options, reopenDialog: true });
     });
   }
   control.dataset.renderer = renderer;
   const label = control.querySelector('[data-p3d-cad-renderer-label]');
-  const button = control.querySelector('[data-p3d-cad-renderer-switch]');
+  const button = control.querySelector(SWITCH_SELECTOR);
   if (label) {
     const base = renderer === PIPELINE_CAD_RENDERER_CANVAS ? 'Renderer: CAD Canvas' : 'Renderer: Legacy SVG';
     const nextLabel = fallback?.reason && renderer === PIPELINE_CAD_RENDERER_SVG
@@ -211,7 +264,7 @@ function installRendererControl(dialog, options = {}) {
 export function installPipelineCadRendererControls(doc = globalThis.document, options = {}) {
   if (!doc?.body) return null;
   ensureStyle(doc);
-  const patchAll = () => doc.querySelectorAll('.pipeline-3d-model-dialog').forEach((dialog) => installRendererControl(dialog, options));
+  const patchAll = () => doc.querySelectorAll(DIALOG_SELECTOR).forEach((dialog) => installRendererControl(dialog, options));
   patchAll();
   if (doc.body.dataset.p3dCadRendererObserver === '1') return null;
   doc.body.dataset.p3dCadRendererObserver = '1';
@@ -233,6 +286,7 @@ export function installPipelineCadRuntimeFailureGuard(target = globalThis, optio
 if (globalThis.document) {
   installPipelineCadRuntimeFailureGuard(globalThis);
   applyPipelineCadRendererPolicy();
+  installPipelineCadDialogRestore(globalThis.document);
   if (globalThis.document.body) installPipelineCadRendererControls(globalThis.document);
   else globalThis.document.addEventListener('DOMContentLoaded', () => installPipelineCadRendererControls(globalThis.document), { once: true });
 }

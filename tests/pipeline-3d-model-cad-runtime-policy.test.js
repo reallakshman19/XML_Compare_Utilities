@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY,
   PIPELINE_CAD_FALLBACK_STORAGE_KEY,
   PIPELINE_CAD_LEGACY_CANVAS_STORAGE_KEY,
   PIPELINE_CAD_RENDERER_CANVAS,
   PIPELINE_CAD_RENDERER_STORAGE_KEY,
   PIPELINE_CAD_RENDERER_SVG,
   applyPipelineCadRendererPolicy,
+  consumePipelineCadDialogReopen,
   handlePipelineCadRuntimeFailure,
+  installPipelineCadDialogRestore,
+  markPipelineCadDialogReopen,
   persistPipelineCadRenderer,
   requestPipelineCadRenderer,
   resolvePipelineCadRenderer,
@@ -51,14 +55,36 @@ function memoryStorage(initial = {}) {
   requestPipelineCadRenderer('svg', {
     storage,
     sessionStorage,
+    reopenDialog: true,
     location: { href: 'https://example.test/app?pipelineCadRenderer=canvas&x=1' },
     navigate(url) { navigated = url; },
   });
   assert.equal(storage.getItem(PIPELINE_CAD_RENDERER_STORAGE_KEY), 'svg');
   assert.equal(storage.getItem(PIPELINE_CAD_LEGACY_CANVAS_STORAGE_KEY), null);
   assert.equal(storage.getItem(PIPELINE_CAD_FALLBACK_STORAGE_KEY), null);
+  assert.equal(sessionStorage.getItem(PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY), '1');
   assert.match(navigated, /x=1/);
   assert.doesNotMatch(navigated, /pipelineCadRenderer/);
+}
+
+{
+  const sessionStorage = memoryStorage();
+  assert.equal(markPipelineCadDialogReopen(sessionStorage), true);
+  let clicks = 0;
+  const launcher = { click() { clicks += 1; } };
+  const doc = { querySelector(selector) { return selector === '.pipeline-3d-model-dialog' ? null : launcher; } };
+  installPipelineCadDialogRestore(doc, { sessionStorage });
+  assert.equal(clicks, 1);
+  assert.equal(consumePipelineCadDialogReopen(sessionStorage), false);
+}
+
+{
+  const sessionStorage = memoryStorage({ [PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY]: '1' });
+  let clicks = 0;
+  const doc = { querySelector() { return { click() { clicks += 1; } }; } };
+  installPipelineCadDialogRestore(doc, { sessionStorage });
+  assert.equal(clicks, 0);
+  assert.equal(consumePipelineCadDialogReopen(sessionStorage), false);
 }
 
 {
@@ -85,6 +111,8 @@ assert.equal(configSource.split('\n')[0], "import './pipeline-3d-model-cad-runti
 assert.match(runtimeSource, /return PIPELINE_CAD_RENDERER_CANVAS;/);
 assert.match(runtimeSource, /pipelineCadRenderer/);
 assert.match(runtimeSource, /Use Legacy SVG/);
+assert.match(runtimeSource, /PIPELINE_CAD_DIALOG_REOPEN_SESSION_KEY/);
+assert.match(runtimeSource, /installPipelineCadDialogRestore/);
 assert.match(runtimeSource, /handlePipelineCadRuntimeFailure/);
 assert.match(browserSpec, /CAD-R01/);
 assert.match(browserSpec, /CAD-R02/);
