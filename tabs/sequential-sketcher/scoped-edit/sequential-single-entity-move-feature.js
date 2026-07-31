@@ -1,6 +1,4 @@
-/**
- * Lifecycle owner for component move previews, snap evidence and supervised apply.
- */
+/** Lifecycle owner for component move previews, snap evidence and supervised apply. */
 import { createSequentialMoveManipulatorController } from './sequential-move-manipulator-controller.js';
 import { createSequentialMoveSnapFeature } from './sequential-move-snap-feature.js';
 import { createSequentialSingleEntityMoveApplicationService } from './sequential-single-entity-move-application.js';
@@ -8,39 +6,29 @@ import { createSequentialSingleEntityMoveApplicationPanel } from './sequential-s
 import { createSequentialSingleEntityMoveDraftStore } from './sequential-single-entity-move-draft.js';
 import { createSequentialSingleEntityMoveDragSession } from './sequential-single-entity-move-drag.js';
 import { createSequentialSingleEntityMovePanel } from './sequential-single-entity-move-panel.js';
-import {
-  selectSequentialSingleEntityMoveTarget,
-  validateSequentialSingleEntityMoveTarget,
-} from './sequential-single-entity-move-target.js';
+import { selectSequentialSingleEntityMoveTarget, validateSequentialSingleEntityMoveTarget }
+  from './sequential-single-entity-move-target.js';
 import { sequentialDraftEditRecoveryTargetMatches } from './sequential-draft-edit-recovery-contract.js';
-
-export const SEQUENTIAL_SINGLE_ENTITY_MOVE_FEATURE_SCHEMA =
-  'SequentialSingleEntityMoveFeature.v1';
-
+export const SEQUENTIAL_SINGLE_ENTITY_MOVE_FEATURE_SCHEMA = 'SequentialSingleEntityMoveFeature.v1';
 function requiredFunction(value, label) {
-  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
-  return value;
+  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value;
 }
-function requiredMethods(value, names, label) {
-  names.forEach((name) => requiredFunction(value?.[name], `${label}.${name}`)); return value;
-}
+function requiredMethods(value, names, label) { names.forEach((name) =>
+  requiredFunction(value?.[name], `${label}.${name}`)); return value; }
 function targetInput(state) { return { readModel: state.readModel(), scene: state.readScene() }; }
 function exactTarget(state) {
   if (!state.target) throw new RangeError('Select one confirmed pipe or fitting before move preview.');
   state.target = validateSequentialSingleEntityMoveTarget(state.target, targetInput(state));
   return state.target;
 }
-function isManipulatorEvent(event) {
-  return Boolean(event.target?.closest?.('[data-ssk-move-manipulator]'));
-}
+function currentTarget(state) { return state.target ? exactTarget(state) : null; }
+function isManipulatorEvent(event) { return Boolean(event.target?.closest?.(
+  '[data-ssk-move-manipulator]')); }
 function recoveryEvidence(target) {
   return Object.freeze({
-    targetId: target.moveTargetId,
-    authorityId: target.authorityId,
-    snapshotFingerprint: target.snapshotFingerprint,
-    sceneRevision: target.sceneRevision,
-    componentId: target.componentId,
-    eligibilityId: target.eligibilityId,
+    targetId: target.moveTargetId, authorityId: target.authorityId,
+    snapshotFingerprint: target.snapshotFingerprint, sceneRevision: target.sceneRevision,
+    componentId: target.componentId, eligibilityId: target.eligibilityId,
     geometryFingerprint: target.geometryFingerprint,
   });
 }
@@ -49,20 +37,15 @@ function recoveryDescriptor(preview) {
     selector: Object.freeze({ objectId: preview.target.objectId }),
     targetEvidence: recoveryEvidence(preview.target),
     input: Object.freeze({
-      constraint: preview.constraint,
-      rawDelta: preview.rawDelta,
-      delta: preview.delta,
-      interaction: preview.interaction,
-      snapSelection: preview.snapSelection,
+      constraint: preview.constraint, rawDelta: preview.rawDelta, delta: preview.delta,
+      interaction: preview.interaction, snapSelection: preview.snapSelection,
     }),
   });
 }
-function syncTransient(state) {
-  state.readViewer()?.setTransient?.(state.snap.transient(state.draftStore.getPreview()));
-}
-function snapChanged(state, value) {
-  state.panel?.setSnapState(value.acquisition, value.review); syncTransient(state);
-}
+function syncTransient(state) { state.readViewer()?.setTransient?.(
+  state.snap.transient(state.draftStore.getPreview())); }
+function snapChanged(state, value) { state.panel?.setSnapState(
+  value.acquisition, value.review); syncTransient(state); }
 function renderPreview(state, preview, notice = null) {
   state.panel.setPreview(preview, notice);
   state.applicationPanel.setPreview(preview);
@@ -100,16 +83,18 @@ function cancelPreview(state, reason = 'cancelled') {
   if (hadPreview && !state.restoring) state.onRecoveryClear(reason);
   return null;
 }
+function cancelFeaturePreview(state, reason = 'cancelled') { return state.manipulator?.getState().dragging ? state.manipulator.cancel(reason) : cancelPreview(state, reason); }
 function selectTarget(state, objectId) {
   if (state.destroyed) throw new Error('Single-entity move feature is destroyed.');
-  cancelPreview(state, 'target-change');
+  cancelFeaturePreview(state, 'target-change');
   state.target = selectSequentialSingleEntityMoveTarget({ objectId, ...targetInput(state) });
   state.panel.setTarget(state.target); state.manipulator?.refresh(); return state.target;
 }
 function clearTarget(state, reason = null) {
-  if (state.destroyed) return null;
-  cancelPreview(state, reason || 'target-cleared'); state.manipulator?.clear(reason);
-  state.target = null; state.panel.clearTarget(reason); return null;
+  if (state.destroyed) return null; const disposition = reason || 'target-cleared';
+  if (state.manipulator?.getState().dragging) state.manipulator.clear(disposition); else {
+    cancelPreview(state, disposition); state.manipulator?.clear(disposition);
+  } state.target = null; state.panel.clearTarget(reason); return null;
 }
 function pointerDown(state, event) {
   if (isManipulatorEvent(event) || !state.active || !state.target
@@ -122,7 +107,7 @@ function pointerDown(state, event) {
     event.target?.setPointerCapture?.(event.pointerId);
     event.preventDefault(); event.stopImmediatePropagation();
   } catch (error) {
-    state.panel.setPreview(null, `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`);
+    state.panel.setNotice(`${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`);
   }
 }
 function pointerMove(state, event) {
@@ -154,23 +139,21 @@ function setFeatureActive(state, value) {
   state.manipulator?.setActive(state.active); return state.active;
 }
 function bindFeature(state) {
-  state.surface.addEventListener('pointerdown', state.handlers.down, true);
-  state.surface.addEventListener('pointermove', state.handlers.move, true);
-  state.surface.addEventListener('pointerup', state.handlers.end, true);
-  state.surface.addEventListener('pointercancel', state.handlers.cancel, true);
+  for (const [type, handler] of [['pointerdown', state.handlers.down], ['pointermove', state.handlers.move],
+    ['pointerup', state.handlers.end], ['pointercancel', state.handlers.cancel]])
+    state.surface.addEventListener(type, handler, true);
   state.window?.addEventListener('keydown', state.handlers.key);
 }
 function unbindFeature(state) {
-  state.surface.removeEventListener('pointerdown', state.handlers.down, true);
-  state.surface.removeEventListener('pointermove', state.handlers.move, true);
-  state.surface.removeEventListener('pointerup', state.handlers.end, true);
-  state.surface.removeEventListener('pointercancel', state.handlers.cancel, true);
+  for (const [type, handler] of [['pointerdown', state.handlers.down], ['pointermove', state.handlers.move],
+    ['pointerup', state.handlers.end], ['pointercancel', state.handlers.cancel]])
+    state.surface.removeEventListener(type, handler, true);
   state.window?.removeEventListener('keydown', state.handlers.key);
 }
 function destroyFeature(state) {
   if (state.destroyed) return false;
-  unbindFeature(state); state.target = null; state.active = false;
-  state.manipulator.destroy(); state.drag.destroy(); state.snap.destroy();
+  unbindFeature(state); state.active = false;
+  state.manipulator.destroy(); state.target = null; state.drag.destroy(); state.snap.destroy();
   state.applicationPanel.destroy(); state.panel.destroy(); state.draftStore.destroy();
   state.readViewer()?.setTransient?.(null); state.onDraftChanged(null);
   state.destroyed = true; return true;
@@ -188,7 +171,7 @@ function createSnap(state) {
 function createPanel(state) {
   return createSequentialSingleEntityMovePanel({
     root: state.root, onPreview: (input) => previewNumeric(state, input),
-    onCancel: (reason) => cancelPreview(state, reason),
+    onCancel: (reason) => cancelFeaturePreview(state, reason),
     onSnapSelect: (id) => state.snap.select(id), onSnapPrevious: state.snap.previous,
     onSnapNext: state.snap.next, onSnapUse: state.snap.useSelected,
     onSnapClear: state.snap.clearSnap,
@@ -202,8 +185,12 @@ function finishManipulatorDrag(state, pointerId) {
 }
 function createManipulator(state) {
   return createSequentialMoveManipulatorController({
-    root: state.root, host: state.surface, readViewer: state.readViewer,
-    readTarget: () => state.target,
+    host: state.surface, readViewer: state.readViewer, readTarget: () => currentTarget(state),
+    constraintApi: {
+      get: state.panel.getConstraint,
+      set: state.panel.setConstraint,
+      subscribe: state.panel.subscribeConstraintChanged,
+    },
     beginDrag: (input) => {
       state.snap.clear(); return state.drag.begin({ ...input, target: exactTarget(state) });
     },
@@ -214,6 +201,8 @@ function createManipulator(state) {
     },
     endDrag: (pointerId) => finishManipulatorDrag(state, pointerId),
     cancelDrag: (reason) => cancelPreview(state, reason),
+    onError: (error, phase) => state.panel.setNotice(
+      `${phase}: ${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`),
   });
 }
 function createApplication(state) {
@@ -229,17 +218,11 @@ function createApplication(state) {
     onCommitted: () => clearTarget(state, 'accepted-geometry-move'),
   });
 }
-function setField(root, selector, value) {
-  const field = root.querySelector(selector); if (field) field.value = String(value);
-}
 function restorePanelValues(state, record) {
   const constraint = record.input.constraint.kind === 'axis'
     ? record.input.constraint.axis : record.input.constraint.plane;
-  setField(state.root, '[data-ssk-single-move-constraint]', constraint);
-  state.manipulator.setConstraint(constraint);
-  for (const axis of ['x', 'y', 'z']) {
-    setField(state.root, `[data-ssk-single-move-axis="${axis}"]`, record.input.rawDelta[axis]);
-  }
+  state.panel.setConstraint(constraint, 'recovery');
+  state.panel.setDelta(record.input.rawDelta);
 }
 function restoreRecovery(state, record) {
   if (record?.kind !== 'MOVE_COMPONENT') throw new TypeError('Move recovery kind is invalid.');
@@ -249,11 +232,9 @@ function restoreRecovery(state, record) {
     if (!sequentialDraftEditRecoveryTargetMatches(record, recoveryEvidence(target))) {
       throw new RangeError('Move recovery target differs from current eligibility evidence.');
     }
-    restorePanelValues(state, record);
-    state.snap.clear();
+    restorePanelValues(state, record); state.snap.clear();
     const preview = stagePreview(state, record.input);
-    state.onRecoveryDraft(recoveryDescriptor(preview));
-    return preview;
+    state.onRecoveryDraft(recoveryDescriptor(preview)); return preview;
   } finally { state.restoring = false; }
 }
 function initializeFeatureState(options) {
@@ -307,7 +288,7 @@ export function createSequentialSingleEntityMoveFeature(options = {}) {
   return Object.freeze({
     schema: SEQUENTIAL_SINGLE_ENTITY_MOVE_FEATURE_SCHEMA,
     setActive: (value) => setFeatureActive(state, value), select: (id) => selectTarget(state, id),
-    clearTarget: (reason) => clearTarget(state, reason), cancel: (reason) => cancelPreview(state, reason),
+    clearTarget: (reason) => clearTarget(state, reason), cancel: (reason) => cancelFeaturePreview(state, reason),
     previewNumeric: (input) => previewNumeric(state, input),
     restoreRecovery: (record) => restoreRecovery(state, record),
     invalidate: (reason) => clearTarget(state, reason),
@@ -315,6 +296,5 @@ export function createSequentialSingleEntityMoveFeature(options = {}) {
     getState: () => featureStateSnapshot(state), destroy: () => destroyFeature(state),
   });
 }
-
-export const _test = Object.freeze({ acquireForPreview, isManipulatorEvent, pointerCancel,
-  pointerDown, pointerEnd, pointerMove, recoveryDescriptor, recoveryEvidence });
+export const _test = Object.freeze({ acquireForPreview, currentTarget, isManipulatorEvent,
+  pointerCancel, pointerDown, pointerEnd, pointerMove, recoveryDescriptor, recoveryEvidence });
