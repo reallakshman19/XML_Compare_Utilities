@@ -1,6 +1,4 @@
-/**
- * Lifecycle controller connecting manipulator handles to the existing move drag session.
- */
+/** Lifecycle controller connecting translation handles to the existing move drag session. */
 import {
   createSequentialMoveManipulator,
   createSequentialMoveManipulatorHandleStart,
@@ -15,6 +13,13 @@ function requiredFunction(value, label) {
   if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
   return value;
 }
+function requiredConstraintApi(value) {
+  return Object.freeze({
+    get: requiredFunction(value?.get, 'constraintApi.get'),
+    set: requiredFunction(value?.set, 'constraintApi.set'),
+    subscribe: requiredFunction(value?.subscribe, 'constraintApi.subscribe'),
+  });
+}
 function handleValue(value) {
   const handle = String(value || '').trim().toUpperCase();
   if (!SEQUENTIAL_MOVE_MANIPULATOR_HANDLES.includes(handle)) {
@@ -23,156 +28,219 @@ function handleValue(value) {
   return handle;
 }
 function pointer(event) {
-  return {
-    pointerId: event.pointerId,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  };
+  return { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY };
 }
-function isAvailable(state) {
-  return Boolean(state.active && state.readTarget() && state.readViewer());
+function stop(event) { event.preventDefault?.(); event.stopImmediatePropagation?.(); }
+function report(state, error, phase) {
+  state.lastError = error instanceof Error ? error : new Error(String(error));
+  try { state.onError(state.lastError, phase); } catch {}
 }
-function stop(event) {
-  event.preventDefault?.(); event.stopImmediatePropagation?.();
+function currentSnapshot(state) {
+  const target = state.readTarget();
+  const viewer = state.readViewer();
+  if (!target || !viewer) return null;
+  return { target, viewer, model: createSequentialMoveManipulator(target) };
+}
+function sameInteraction(state, snapshot) {
+  return Boolean(snapshot && state.dragging
+    && snapshot.model.manipulatorId === state.dragging.manipulatorId
+    && snapshot.target.moveTargetId === state.dragging.moveTargetId
+    && snapshot.target.authorityId === state.dragging.authorityId
+    && snapshot.target.sceneRevision === state.dragging.sceneRevision);
+}
+function cancelInteraction(state, reason = 'manipulator-cancelled') {
+  if (!state.dragging || state.cancelling) {
+    state.overlay.cancelPointerInteraction(reason); return null;
+  }
+  const active = state.dragging;
+  state.dragging = null; state.cancelling = true; state.overlay.cancelPointerInteraction(reason);
+  try { return state.cancelDrag(reason, active); }
+  catch (error) { report(state, error, 'cancel'); return null; }
+  finally { state.cancelling = false; }
 }
 function render(state) {
-  if (state.destroyed || !isAvailable(state)) {
-    state.model = null; state.overlay.hide(); return false;
+  if (state.destroyed || !state.active) {
+    state.model = null; state.overlay.hide('Translation manipulator inactive.'); return false;
+  }
+  let snapshot;
+  try { snapshot = currentSnapshot(state); }
+  catch (error) {
+    cancelInteraction(state, 'manipulator-authority-invalidated');
+    report(state, error, 'render'); state.model = null;
+    state.overlay.hide('Translation manipulator authority invalidated.'); return false;
+  }
+  if (!snapshot) {
+    cancelInteraction(state, 'manipulator-target-unavailable'); state.model = null;
+    state.overlay.hide('Translation manipulator target unavailable.'); return false;
+  }
+  if (state.dragging && !sameInteraction(state, snapshot)) {
+    cancelInteraction(state, 'manipulator-identity-changed');
   }
   try {
-    const model = createSequentialMoveManipulator(state.readTarget());
-    state.model = model; state.overlay.setModel(model, state.readViewer());
-    state.overlay.setActiveHandle(state.constraint.value);
-    state.lastError = null; return true;
+    state.model = snapshot.model; state.overlay.setModel(snapshot.model, snapshot.viewer);
+    state.overlay.setActiveHandle(state.constraintApi.get()); state.lastError = null; return true;
   } catch (error) {
-    state.lastError = error; state.model = null; state.overlay.hide(); return false;
+    cancelInteraction(state, 'manipulator-projection-failed');
+    report(state, error, 'projection'); state.model = null;
+    state.overlay.hide('Translation manipulator projection failed.'); return false;
   }
 }
-function schedule(state) {
-  if (state.frame || state.destroyed || !state.active) return;
-  const frame = state.window?.requestAnimationFrame?.bind(state.window);
-  if (!frame) return;
-  const tick = () => {
-    state.frame = null;
-    if (state.destroyed || !state.active) return;
-    render(state); state.frame = frame(tick);
-  };
-  state.frame = frame(tick);
+function queueRefresh(state) {
+  if (state.destroyed || !state.active || state.frame != null) return;
+  const request = state.window?.requestAnimationFrame?.bind(state.window);
+  if (!request) { render(state); return; }
+  state.frame = request(() => { state.frame = null; render(state); });
 }
 function cancelFrame(state) {
-  if (!state.frame) return;
+  if (state.frame == null) return;
   state.window?.cancelAnimationFrame?.(state.frame); state.frame = null;
 }
-function setConstraint(state, value) {
+function setConstraint(state, value, source = 'manipulator') {
   const handle = handleValue(value);
-  state.constraint.value = handle;
-  state.overlay.setActiveHandle(handle);
-  return handle;
+  state.constraintApi.set(handle, source); state.overlay.setActiveHandle(handle); return handle;
 }
 function begin(state, handleId, event) {
-  if (!state.model || state.dragging) return null;
-  const target = state.readTarget();
+  if (!state.active || state.dragging || !render(state)) return null;
+  const snapshot = currentSnapshot(state);
+  if (!snapshot || snapshot.model.manipulatorId !== state.model?.manipulatorId) return null;
   const selected = setConstraint(state, handleId);
   const handleStart = createSequentialMoveManipulatorHandleStart({
-    target, handleId: selected, pointer: pointer(event),
+    target: snapshot.target, handleId: selected, pointer: pointer(event),
   });
   try {
-    const result = state.beginDrag({ target, handleStart, pointerId: event.pointerId,
-      clientX: event.clientX, clientY: event.clientY });
-    state.dragging = { handleId: selected, pointerId: event.pointerId };
+    const result = state.beginDrag({
+      target: snapshot.target, handleStart, pointerId: event.pointerId,
+      clientX: event.clientX, clientY: event.clientY,
+    });
+    if (result == null || result === false) return null;
+    state.dragging = {
+      handleId: selected, pointerId: event.pointerId,
+      manipulatorId: snapshot.model.manipulatorId,
+      moveTargetId: snapshot.target.moveTargetId,
+      authorityId: snapshot.target.authorityId,
+      sceneRevision: snapshot.target.sceneRevision,
+    };
     stop(event); return result;
   } catch (error) {
-    state.lastError = error; state.dragging = null; throw error;
+    report(state, error, 'begin'); state.dragging = null; return null;
   }
 }
 function update(state, event) {
   if (!state.dragging || event.pointerId !== state.dragging.pointerId) return null;
-  const result = state.updateDrag(pointer(event)); stop(event); return result;
+  let snapshot;
+  try { snapshot = currentSnapshot(state); }
+  catch (error) { report(state, error, 'update-authority'); cancelInteraction(state,
+    'manipulator-authority-invalidated'); return null; }
+  if (!sameInteraction(state, snapshot)) {
+    cancelInteraction(state, 'manipulator-identity-changed'); return null;
+  }
+  try { const result = state.updateDrag(pointer(event)); stop(event); return result; }
+  catch (error) { report(state, error, 'update'); cancelInteraction(state,
+    'manipulator-update-failed'); return null; }
 }
 function end(state, event) {
   if (!state.dragging || event.pointerId !== state.dragging.pointerId) return null;
-  const result = state.endDrag(event.pointerId);
-  state.dragging = null; stop(event); render(state); return result;
+  const active = state.dragging;
+  try {
+    const result = state.endDrag(event.pointerId, active); state.dragging = null;
+    stop(event); queueRefresh(state); return result;
+  } catch (error) {
+    report(state, error, 'end'); return cancelInteraction(state, 'manipulator-end-failed');
+  }
 }
 function cancel(state, eventOrReason = 'manipulator-cancel') {
-  if (!state.dragging) return null;
   const reason = typeof eventOrReason === 'string'
     ? eventOrReason : eventOrReason?.type || 'manipulator-cancel';
-  state.dragging = null;
-  const result = state.cancelDrag(reason);
+  const result = cancelInteraction(state, reason);
   if (typeof eventOrReason !== 'string') stop(eventOrReason);
-  render(state); return result;
+  queueRefresh(state); return result;
 }
 function bind(state) {
-  state.onConstraintChange = () => {
-    try { setConstraint(state, state.constraint.value); }
-    catch (error) { state.lastError = error; }
-  };
-  state.constraint.addEventListener('change', state.onConstraintChange);
+  state.unsubscribeConstraint = state.constraintApi.subscribe((value) => {
+    try { state.overlay.setActiveHandle(handleValue(value)); }
+    catch (error) { report(state, error, 'constraint'); }
+  });
+  state.onViewActivity = () => queueRefresh(state);
+  for (const type of ['pointermove', 'pointerup', 'wheel']) {
+    state.host.addEventListener(type, state.onViewActivity, { passive: true });
+  }
+  state.window?.addEventListener('resize', state.onViewActivity);
+  const ResizeObserverCtor = state.window?.ResizeObserver;
+  if (typeof ResizeObserverCtor === 'function') {
+    state.resizeObserver = new ResizeObserverCtor(state.onViewActivity);
+    state.resizeObserver.observe(state.host);
+  }
+}
+function unbind(state) {
+  state.unsubscribeConstraint?.(); state.unsubscribeConstraint = null;
+  for (const type of ['pointermove', 'pointerup', 'wheel']) {
+    state.host.removeEventListener(type, state.onViewActivity, { passive: true });
+  }
+  state.window?.removeEventListener('resize', state.onViewActivity);
+  state.resizeObserver?.disconnect?.(); state.resizeObserver = null;
 }
 function destroy(state) {
   if (state.destroyed) return false;
-  state.destroyed = true; cancelFrame(state);
-  state.constraint.removeEventListener('change', state.onConstraintChange);
-  state.overlay.destroy(); return true;
+  cancelInteraction(state, 'manipulator-destroyed'); state.destroyed = true;
+  cancelFrame(state); unbind(state); state.overlay.destroy(); return true;
 }
-function createControllerState(options, root, host, constraint) {
+function createState(options, host) {
   return {
-    root, host, constraint, window: host.ownerDocument.defaultView,
+    host, window: host.ownerDocument.defaultView,
+    constraintApi: requiredConstraintApi(options.constraintApi),
     readViewer: requiredFunction(options.readViewer, 'readViewer'),
     readTarget: requiredFunction(options.readTarget, 'readTarget'),
     beginDrag: requiredFunction(options.beginDrag, 'beginDrag'),
     updateDrag: requiredFunction(options.updateDrag, 'updateDrag'),
     endDrag: requiredFunction(options.endDrag, 'endDrag'),
     cancelDrag: requiredFunction(options.cancelDrag, 'cancelDrag'),
-    active: false, model: null, dragging: null, frame: null,
-    lastError: null, destroyed: false, onConstraintChange: null, overlay: null,
+    onError: requiredFunction(options.onError || (() => {}), 'onError'),
+    active: false, model: null, dragging: null, frame: null, lastError: null,
+    cancelling: false, destroyed: false, overlay: null,
+    unsubscribeConstraint: null, onViewActivity: null, resizeObserver: null,
   };
 }
-function installControllerOverlay(state) {
+export function createSequentialMoveManipulatorController(options = {}) {
+  const host = options.host;
+  if (!host?.ownerDocument) throw new TypeError('Manipulator controller requires the Draft Edit host.');
+  const state = createState(options, host);
   state.overlay = createSequentialMoveManipulatorOverlay({
-    host: state.host,
+    host,
     onPointerDown: (handleId, event) => begin(state, handleId, event),
     onPointerMove: (event) => update(state, event),
     onPointerEnd: (event) => end(state, event),
     onPointerCancel: (event) => cancel(state, event),
-    onKeyboardSelect: (handleId) => setConstraint(state, handleId),
+    onKeyboardSelect: (handleId) => setConstraint(state, handleId, 'keyboard'),
+    onError: (error, phase) => { report(state, error, `overlay-${phase}`);
+      cancelInteraction(state, `manipulator-${phase}-failed`); },
   });
-}
-function controllerApi(state) {
+  bind(state);
   return Object.freeze({
     schema: SEQUENTIAL_MOVE_MANIPULATOR_CONTROLLER_SCHEMA,
     setActive(value) {
       state.active = value === true && !state.destroyed;
-      if (!state.active) { cancel(state, 'manipulator-inactive'); cancelFrame(state); }
-      else schedule(state);
+      if (!state.active) {
+        cancelInteraction(state, 'manipulator-inactive'); cancelFrame(state);
+        state.model = null; return state.overlay.hide('Translation manipulator inactive.');
+      }
       return render(state);
     },
     refresh: () => render(state),
     clear(reason = 'manipulator-cleared') {
-      cancel(state, reason); state.model = null; state.overlay.hide(); return true;
+      cancelInteraction(state, reason); cancelFrame(state); state.model = null;
+      return state.overlay.hide(reason);
     },
-    setConstraint: (value) => setConstraint(state, value),
+    setConstraint: (value, source) => setConstraint(state, value, source),
     cancel: (reason) => cancel(state, reason),
     getState: () => Object.freeze({
       active: state.active, visible: state.overlay.getState().visible,
       manipulatorId: state.model?.manipulatorId || null,
-      constraint: state.constraint.value, dragging: state.dragging,
-      lastError: state.lastError?.message || null, destroyed: state.destroyed,
-      overlay: state.overlay.getState(),
+      constraint: state.constraintApi.get(), dragging: state.dragging,
+      framePending: state.frame != null, lastError: state.lastError?.message || null,
+      destroyed: state.destroyed, overlay: state.overlay.getState(),
     }),
     destroy: () => destroy(state),
   });
 }
-export function createSequentialMoveManipulatorController(options = {}) {
-  const root = options.root;
-  const host = options.host || root?.querySelector?.('[data-ssk-draft-edit-3d-host]');
-  const constraint = root?.querySelector?.('[data-ssk-single-move-constraint]');
-  if (!host?.ownerDocument || !constraint) {
-    throw new TypeError('Manipulator controller requires the Draft Edit host and move constraint.');
-  }
-  const state = createControllerState(options, root, host, constraint);
-  installControllerOverlay(state); bind(state); return controllerApi(state);
-}
 
-export const _test = Object.freeze({ handleValue, isAvailable, pointer });
+export const _test = Object.freeze({ currentSnapshot, handleValue, pointer, sameInteraction });

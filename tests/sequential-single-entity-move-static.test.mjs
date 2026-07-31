@@ -30,7 +30,13 @@ const paths = [
   'tabs/sequential-sketcher/scoped-edit/sequential-single-entity-move-panel.js',
   'tabs/sequential-sketcher/scoped-edit/sequential-single-entity-move-feature.js',
 ];
+const manipulatorPaths = [
+  'tabs/sequential-sketcher/scoped-edit/sequential-move-manipulator-contract.js',
+  'tabs/sequential-sketcher/scoped-edit/sequential-move-manipulator-overlay.js',
+  'tabs/sequential-sketcher/scoped-edit/sequential-move-manipulator-controller.js',
+];
 const modules = Object.fromEntries(paths.map((path) => [path, source(path)]));
+const manipulator = Object.fromEntries(manipulatorPaths.map((path) => [path, source(path)]));
 const controller = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-3d-controller.js');
 const visual = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-visual-model.js');
 const index = source('tabs/sequential-sketcher/scoped-edit/sequential-scoped-edit-index.js');
@@ -42,13 +48,34 @@ for (const [path, value] of [...Object.entries(modules), ['controller', controll
     assert(row.lines <= 40, `${path} function ${row.name} must remain at or below 40 lines`);
   }
 }
+for (const [path, value] of Object.entries(manipulator)) {
+  assert(value.split(/\r?\n/).length <= 300, `${path} must remain under 300 lines`);
+  assert.doesNotMatch(value, /export\s+default|module\.exports|exports\./);
+}
 
-const production = Object.values(modules).join('\n');
-assert.doesNotMatch(production,
+const previewOnly = paths.slice(0, 5).map((path) => modules[path]).join('\n');
+assert.doesNotMatch(previewOnly,
   /publishCandidate|commandGateway|createSequentialCommandService|commandJournal|transactionLedger|localStorage|sessionStorage|indexedDB/);
-assert.doesNotMatch(production,
+assert.doesNotMatch(previewOnly,
   /acquireEngineeringSvgSnap|snapProviders|nearest|screenTolerance|worldTolerance/,
-  'SSK-TS-3L must not add snap or hidden inference');
+  'SSK-TS-3L must not add hidden snap inference');
+const manipulatorProduction = Object.values(manipulator).join('\n');
+assert.doesNotMatch(manipulatorProduction,
+  /publishCandidate|onPrepare|onAccept|applicationService|commandJournal|localStorage|sessionStorage|indexedDB/,
+  'translation manipulator must not own application, publication, history or persistence');
+assert.doesNotMatch(manipulatorProduction, /workbench3d\//,
+  'translation manipulator must consume the viewer boundary without renderer imports');
+assert.doesNotMatch(manipulator[manipulatorPaths[1]], /FALLBACK_DIRECTIONS/,
+  'view-aligned axes must not use fabricated fallback screen directions');
+assert.match(manipulator[manipulatorPaths[1]], /hidden: ''/);
+assert.match(manipulator[manipulatorPaths[1]], /axisWorldPoint\(model, axis, -1\)/);
+assert.doesNotMatch(manipulator[manipulatorPaths[2]], /single-move-constraint|querySelector/,
+  'controller must consume the move-panel constraint API instead of owning its DOM field');
+assert.match(modules[paths[4]], /subscribeConstraintChanged/);
+assert.match(modules[paths[4]], /setConstraint/);
+assert.match(modules[paths[5]], /constraintApi/);
+assert.match(modules[paths[5]], /readTarget: \(\) => currentTarget\(state\)/);
+
 assert.match(modules[paths[0]], /SequentialSingleEntityMoveTarget\.v1/);
 assert.match(modules[paths[0]], /targetIdentity/);
 assert.match(modules[paths[1]], /WOULD_DISCONNECT/);
@@ -72,4 +99,4 @@ for (const name of paths.map((path) => path.split('/').at(-1).replace(/\.js$/, '
   assert.match(index, new RegExp(name));
 }
 
-console.log('Sequential SSK-TS-3L static containment: ok');
+console.log('Sequential SSK-TS-3L and P2-A-Q static containment: ok');

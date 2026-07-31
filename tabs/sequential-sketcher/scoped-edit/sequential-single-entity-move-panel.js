@@ -1,21 +1,21 @@
 /** Contained preview/cancel and explicit snap-review UI for one component translation. */
 import { SEQUENTIAL_MOVE_SNAP_MODE } from './sequential-move-snap-contracts.js';
-
-export const SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA =
-  'SequentialSingleEntityMovePanel.v1';
-
+export const SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA = 'SequentialSingleEntityMovePanel.v1';
+const MOVE_CONSTRAINTS = Object.freeze(['X', 'Y', 'Z', 'XY', 'XZ', 'YZ']);
 function requiredFunction(value, label) {
-  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`);
-  return value;
+  if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value;
 }
 function required(root, selector) {
   const value = root.querySelector(selector);
-  if (!value) throw new Error(`Single-entity move panel element missing: ${selector}`);
-  return value;
+  if (!value) throw new Error(`Single-entity move panel element missing: ${selector}`); return value;
+}
+function constraintValue(value) {
+  const result = String(value || '').trim().toUpperCase();
+  if (!MOVE_CONSTRAINTS.includes(result)) throw new TypeError(`Unsupported move constraint: ${value}`);
+  return result;
 }
 function setHidden(element, hidden) {
-  element.hidden = hidden;
-  element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  element.hidden = hidden; element.setAttribute('aria-hidden', hidden ? 'true' : 'false');
   if (hidden) element.setAttribute('inert', ''); else element.removeAttribute('inert');
 }
 function markup() {
@@ -73,9 +73,8 @@ function install(root) {
   return panel;
 }
 function numericDelta(elements) {
-  return Object.freeze(Object.fromEntries(['x', 'y', 'z'].map((axis) => [
-    axis, elements.axes[axis].value,
-  ])));
+  return Object.freeze(Object.fromEntries(['x', 'y', 'z'].map((axis) =>
+    [axis, elements.axes[axis].value])));
 }
 function diagnosisText(preview) {
   if (!preview) return 'No move preview is active.';
@@ -111,8 +110,7 @@ function snapStatus(state) {
     `Acquisition: ${acquisition.acquisitionFingerprint}`,
   ].join('\n');
 }
-function renderCandidates(state) {
-  const list = state.elements.candidates;
+function renderCandidates(state) { const list = state.elements.candidates;
   list.replaceChildren(...(state.acquisition?.candidates || []).map((candidate) => {
     const option = list.ownerDocument.createElement('option');
     option.value = candidate.id;
@@ -158,7 +156,8 @@ function elements(root, panel) {
   };
 }
 function enabledModes(elementsValue) {
-  const selected = new Set(elementsValue.modes.filter((row) => row.checked).map((row) => row.dataset.sskMoveSnapMode));
+  const selected = new Set(elementsValue.modes.filter((row) => row.checked)
+    .map((row) => row.dataset.sskMoveSnapMode));
   return [
     ...(selected.has('endpoint') ? [SEQUENTIAL_MOVE_SNAP_MODE.ENDPOINT] : []),
     ...(selected.has('midpoint') ? [SEQUENTIAL_MOVE_SNAP_MODE.MIDPOINT] : []),
@@ -181,6 +180,23 @@ function snapProfile(state) {
     },
   };
 }
+function notifyConstraint(state, source) {
+  const value = constraintValue(state.elements.constraint.value);
+  for (const listener of state.constraintListeners) listener(value, source);
+  return value;
+}
+function setConstraint(state, value, source = 'programmatic') {
+  const next = constraintValue(value);
+  const changed = state.elements.constraint.value !== next;
+  state.elements.constraint.value = next;
+  if (changed) notifyConstraint(state, source);
+  return next;
+}
+function setDelta(state, value = {}) {
+  for (const axis of ['x', 'y', 'z']) if (value[axis] != null)
+    state.elements.axes[axis].value = String(value[axis]);
+  return numericDelta(state.elements);
+}
 function invoke(state, callback, success) {
   try { callback(); state.notice = success; }
   catch (error) { state.notice = `${error.code || error.name || 'ERROR'}: ${error.message || String(error)}`; }
@@ -188,6 +204,8 @@ function invoke(state, callback, success) {
 }
 function bind(state) {
   state.handlers = {
+    constraint: () => { try { notifyConstraint(state, 'operator'); }
+      catch (error) { state.notice = `${error.name}: ${error.message}`; render(state); } },
     preview: () => invoke(state, () => { state.preview = state.onPreview({
       constraint: state.elements.constraint.value, delta: numericDelta(state.elements),
     }); }, 'Exact numeric draft and snap evidence created. Nothing was published.'),
@@ -195,13 +213,16 @@ function bind(state) {
       'Move preview cancelled without authority mutation.'),
     select: () => invoke(state, () => state.onSnapSelect(state.elements.candidates.value),
       'Snap candidate selected for review. Geometry is unchanged.'),
-    previous: () => invoke(state, state.onSnapPrevious, 'Previous snap candidate selected. Geometry is unchanged.'),
-    next: () => invoke(state, state.onSnapNext, 'Next snap candidate selected. Geometry is unchanged.'),
+    previous: () => invoke(state, state.onSnapPrevious,
+      'Previous snap candidate selected. Geometry is unchanged.'),
+    next: () => invoke(state, state.onSnapNext,
+      'Next snap candidate selected. Geometry is unchanged.'),
     use: () => invoke(state, () => { state.preview = state.onSnapUse(); },
       'Selected candidate explicitly applied to the preview only.'),
     clearSnap: () => invoke(state, () => { state.preview = state.onSnapClear(); },
       'Snap cleared; raw preview restored.'),
   };
+  state.elements.constraint.addEventListener('change', state.handlers.constraint);
   state.elements.preview.addEventListener('click', state.handlers.preview);
   state.elements.cancel.addEventListener('click', state.handlers.cancel);
   state.elements.candidates.addEventListener('change', state.handlers.select);
@@ -212,15 +233,15 @@ function bind(state) {
 function destroyPanel(state) {
   if (state.destroyed) return false;
   state.destroyed = true;
+  state.elements.constraint.removeEventListener('change', state.handlers.constraint);
   state.elements.preview.removeEventListener('click', state.handlers.preview);
   state.elements.cancel.removeEventListener('click', state.handlers.cancel);
   state.elements.candidates.removeEventListener('change', state.handlers.select);
   for (const name of ['previous', 'next', 'use', 'clearSnap']) {
     state.elements[name].removeEventListener('click', state.handlers[name]);
   }
-  state.elements.panel.remove(); return true;
+  state.constraintListeners.clear(); state.elements.panel.remove(); return true;
 }
-
 function createPanelState(options, root) {
   return {
     elements: elements(root, install(root)),
@@ -232,10 +253,9 @@ function createPanelState(options, root) {
     onSnapUse: requiredFunction(options.onSnapUse, 'onSnapUse'),
     onSnapClear: requiredFunction(options.onSnapClear, 'onSnapClear'),
     active: false, destroyed: false, target: null, preview: null,
-    acquisition: null, review: null, notice: null,
+    acquisition: null, review: null, notice: null, constraintListeners: new Set(),
   };
 }
-
 function panelApi(state) {
   return Object.freeze({
     schema: SEQUENTIAL_SINGLE_ENTITY_MOVE_PANEL_SCHEMA,
@@ -243,7 +263,7 @@ function panelApi(state) {
     setTarget(target) {
       state.target = target; state.preview = null; state.acquisition = null; state.review = null;
       state.notice = 'Target selected. Drag or preview an exact delta.';
-      ['x', 'y', 'z'].forEach((axis) => { state.elements.axes[axis].value = '0'; }); render(state);
+      setDelta(state, { x: 0, y: 0, z: 0 }); render(state);
     },
     clearTarget(reason = null) {
       state.target = null; state.preview = null; state.acquisition = null;
@@ -251,12 +271,19 @@ function panelApi(state) {
     },
     setPreview(preview, notice = null) { state.preview = preview; state.notice = notice; render(state); },
     setSnapState(acquisition, review) { state.acquisition = acquisition; state.review = review; render(state); },
-    getConstraint: () => state.elements.constraint.value,
+    setNotice(notice) { state.notice = notice; render(state); return notice; },
+    setConstraint: (value, source) => setConstraint(state, value, source),
+    subscribeConstraintChanged(callback) {
+      const listener = requiredFunction(callback, 'constraint listener');
+      state.constraintListeners.add(listener); return () => state.constraintListeners.delete(listener);
+    },
+    setDelta: (value) => setDelta(state, value),
+    getConstraint: () => constraintValue(state.elements.constraint.value),
     getSnapProfile: () => snapProfile(state),
     getState: () => Object.freeze({
       active: state.active, targetId: state.target?.moveTargetId || null,
       operationId: state.preview?.operationId || null,
-      constraint: state.elements.constraint.value,
+      constraint: constraintValue(state.elements.constraint.value),
       acquisitionFingerprint: state.acquisition?.acquisitionFingerprint || null,
       selectedCandidateId: state.review?.selectedCandidateId || null,
       destroyed: state.destroyed,
@@ -264,11 +291,9 @@ function panelApi(state) {
     destroy: () => destroyPanel(state),
   });
 }
-
 export function createSequentialSingleEntityMovePanel(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Single-entity move panel requires a root.');
-  const state = createPanelState(options, root);
-  bind(state); render(state);
-  return panelApi(state);
+  const state = createPanelState(options, root); bind(state); render(state); return panelApi(state);
 }
+export const _test = Object.freeze({ constraintValue, setConstraint, setDelta });
