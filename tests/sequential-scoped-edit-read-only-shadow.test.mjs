@@ -43,12 +43,27 @@ assert.equal(shadow.evidence().status, 'IDLE');
 assert.equal(shadow.host(), null);
 
 const blocked = blockedSequentialFixture();
+current = ownerState({ ...blocked, session: blocked.initial });
+publish('branch-opened');
+assert.equal(shadow.evidence().status, 'MOUNTED');
+assert.equal(shadow.host().scene().entities.length, 0,
+  'a valid open branch must mount even before visible entities exist');
+assert.deepEqual(shadow.evidence().lastDiagnostic.mount, {
+  authorityId: shadow.readModel().authorityId,
+  sceneHash: shadow.evidence().lastDiagnostic.mount.sceneHash,
+  scopeHash: shadow.evidence().lastDiagnostic.mount.scopeHash,
+  entityCount: 0,
+  mountedCount: 0,
+});
+const emptyHost = shadow.host();
+
 const candidateId = blocked.session.currentDecisionRequest.candidates[0].candidateId;
 current = ownerState(blocked, candidateId);
-publish('branch-opened');
+publish('construction-advanced');
 assert.equal(shadow.evidence().status, 'MOUNTED');
 assert.equal(shadow.readModel().schema, 'SequentialScopedEditReadModel.v1');
 assert.deepEqual(shadow.readModel().selectionSnapshot.entityIds, [`ssk:candidate:${candidateId}`]);
+assert.throws(() => emptyHost.scene(), /destroyed/);
 
 const firstHost = shadow.host();
 const scene = firstHost.scene();
@@ -85,7 +100,7 @@ current = null;
 publish('source-reloaded');
 assert.equal(shadow.evidence().status, 'IDLE');
 assert.equal(shadow.host(), null);
-assert(diagnostics.length >= 3);
+assert(diagnostics.length >= 4);
 
 assert.equal(shadow.destroy().status, 'DESTROYED');
 assert.equal(shadow.destroy().status, 'DESTROYED');
