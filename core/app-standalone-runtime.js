@@ -8,13 +8,16 @@ export const STANDALONE_APP = Object.freeze({
   id: 'xml-compare-utilities',
   name: 'XML Compare Utilities',
   subtitle: 'XML Compare and Utilities',
-  build: 'M27 P3D-BASE-039 parseable Pipeline baseline · 2026-07-22',
+  build: 'Utilities resilient loader · 2026-07-31',
   defaultTab: 'xml-compare',
 });
 
 const TAB_VISIBILITY_URL = new URL('../config/tab-visibility.json', import.meta.url).href;
 const APP_ICON_URL = new URL('../assets/app-icon.svg?v=standalone-1', import.meta.url).href;
 const ACTIVE_TAB_STORAGE_KEY = 'xml-compare-utilities.activeTabId';
+const PSNM_UTILITY_ENTRY_URL = new URL('../tabs/psnm-utility-pages-entry.js', import.meta.url);
+const PSNM_UTILITY_BUILD = 'standalone-20260731-pages-utilities-robust-1';
+let psnmUtilityImportAttempt = 0;
 const TAB_ID_ALIASES = new Map([
   ['xml-compare', 'xml-compare'],
   ['psnm-utility', 'psnm-utility']
@@ -70,13 +73,26 @@ function pickRenderer(module, exportName, tabId) {
   return renderer;
 }
 
+function psnmUtilityEntryUrl(retry = false) {
+  const url = new URL(PSNM_UTILITY_ENTRY_URL);
+  url.searchParams.set('v', PSNM_UTILITY_BUILD);
+  if (retry) url.searchParams.set('retry', `${Date.now()}-${psnmUtilityImportAttempt += 1}`);
+  return url.href;
+}
+
+async function importPsnmUtilityEntry() {
+  try { return await import(psnmUtilityEntryUrl()); }
+  catch (firstError) {
+    try { return await import(psnmUtilityEntryUrl(true)); }
+    catch (retryError) {
+      throw new AggregateError([firstError, retryError], 'Utilities entry failed after a cache-bypass retry.');
+    }
+  }
+}
+
 async function loadPsnmUtilityRenderer() {
-  await Promise.allSettled([
-    import('../tabs/psnm-utility/psnm-ui-p2-enhancements.js?v=standalone-1'),
-    import('../tabs/psnm-utility/psnm-phase4c-hardening.js?v=standalone-1'),
-    import('../tabs/psnm-utility/psnm-phase4d-persistence.js?v=standalone-1'),
-  ]);
-  return import('../tabs/psnm-utility-tab.js?v=standalone-20260722-p3d-base-039-1').then((module) => pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility'));
+  const module = await importPsnmUtilityEntry();
+  return pickRenderer(module, 'renderPSNM_UtilityTab', 'psnm-utility');
 }
 
 function createAppShell(root) {
@@ -271,4 +287,4 @@ export function destroy() {
   appDestroy?.();
 }
 
-export const _test = Object.freeze({ createBuildStamp });
+export const _test = Object.freeze({ createBuildStamp, psnmUtilityEntryUrl });

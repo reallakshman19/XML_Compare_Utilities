@@ -1,105 +1,179 @@
-import './psnm-utility/psnm-context-actions.js?v=20260613-context-actions-no-blocker-1';
-import './psnm-utility/psnm-lite-persistence-transform-preview.js?v=20260609-lite-persist-preview-2';
-import { renderPSNM_UtilityTab as renderPSNMCoreUtilityTab } from './psnm-utility-tab-coordinate-audit-ui.js?v=20260615-coordinate-audit-phase-d-1';
-import { installPsnmAxisAutoAnchorAddon } from './psnm-utility/psnm-axis-auto-anchor-addon.js?v=20260612-axis-auto-anchor-addon-1';
-import { installPsnmAnchorPersistenceAddon } from './psnm-utility/psnm-anchor-persistence-addon.js?v=20260613-anchor-persistence-1';
-import { installPsMappingUtilityTile } from './ps-mapping-utility-tab-support-prefix-ui.js?v=20260614-support-prefix-ui-no-duplicate-playground-1';
-import { installPsMappingModalBridge } from './ps-mapping-utility/ps-mapping-modal-bridge.js?v=20260611-modal-bridge-1';
-import { installPsFamilyClashAuditTile } from './ps-family-clash-audit/ps-family-clash-audit-tab.js?v=20260716-ps-family-evidence-graph-1';
-import { installPipeline3dModelTile } from './pipeline-3d-model/pipeline-3d-model-tab.js?v=20260722-p3d-base-039-1';
-import { installPipeline3dTablePasteAddon } from './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js?v=20260722-p3d-base-039-1';
-import { installInputXmlWorkspaceTile } from './inputxml-workspace/inputxml-workspace-tab.js?v=20260710-inputxml-workspace-1';
-import { installXmlBuilderUtilityTile } from './xml-builder/xml-builder-utility-tile.js?v=20260710-xml-builder-utility-1';
-import { installNavisTagIsonoteUtilityTile } from './navis-tag-isonote/navis-tag-isonote-tab.js?v=20260714-nti-001';
-import { installSupportSteelRelationshipBuilderTile } from './support-steel-relationship-builder/support-steel-relationship-tab.js?v=20260717-ssrb-preview-stale-1';
-import { installTopologyTraceValidatorTile } from './topology-trace-validator/topology-trace-validator-tab.js?v=20260718-edit-nav-icons-v3';
-import { installPsnmUtilityLayoutStabilizer } from './psnm-utility-tab-layout-stabilizer.js?v=20260716-ssrb-layout-1';
-import { installSequentialSketcherTile } from './sequential-sketcher/sequential-sketcher-tab.js?v=20260718-ssk-geometry-order-1';
-import { installRevisionCompareTile } from './revision-compare/revision-compare-tab.js?v=20260717-rc-001';
-import './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js?v=20260610-psmap-audit-tag-1';
+const BUILD_TOKEN = 'standalone-20260731-pages-utilities-robust-1';
+let retrySequence = 0;
 
-function utilityRoot(container) {
-  return container.querySelector('.psnm-root') || container;
+const LAYOUT_MODULE = './psnm-utility-tab-layout-stabilizer.js';
+
+const PRELOAD_MODULES = Object.freeze([
+  './psnm-utility/psnm-ui-p2-enhancements.js',
+  './psnm-utility/psnm-phase4c-hardening.js',
+  './psnm-utility/psnm-phase4d-persistence.js',
+  './psnm-utility/psnm-context-actions.js',
+  './psnm-utility/psnm-lite-persistence-transform-preview.js',
+  './ps-mapping-utility/ps-mapping-mandatory-audit-shim.js',
+]);
+
+const INSTALLERS = Object.freeze([
+  ['PSNM core utility', './psnm-utility-tab-coordinate-audit-ui.js', 'renderPSNM_UtilityTab', true],
+  ['Axis auto-anchor', './psnm-utility/psnm-axis-auto-anchor-addon.js', 'installPsnmAxisAutoAnchorAddon', true],
+  ['Anchor persistence', './psnm-utility/psnm-anchor-persistence-addon.js', 'installPsnmAnchorPersistenceAddon', true],
+  ['PS mapping', './ps-mapping-utility-tab-support-prefix-ui.js', 'installPsMappingUtilityTile', true],
+  ['Support steel relationship builder', './support-steel-relationship-builder/support-steel-relationship-tab.js', 'installSupportSteelRelationshipBuilderTile', true],
+  ['PS family clash audit', './ps-family-clash-audit/ps-family-clash-audit-tab.js', 'installPsFamilyClashAuditTile', true],
+  ['Pipeline 3D Model', './pipeline-3d-model/pipeline-3d-model-tab.js', 'installPipeline3dModelTile', true],
+  ['Pipeline table paste', './pipeline-3d-model/pipeline-3d-model-table-paste-addon.js', 'installPipeline3dTablePasteAddon', false],
+  ['Input XML workspace', './inputxml-workspace/inputxml-workspace-tab.js', 'installInputXmlWorkspaceTile', true],
+  ['XML builder', './xml-builder/xml-builder-utility-tile.js', 'installXmlBuilderUtilityTile', true],
+  ['Navis tag isonote', './navis-tag-isonote/navis-tag-isonote-tab.js', 'installNavisTagIsonoteUtilityTile', true],
+  ['Topology trace validator', './topology-trace-validator/topology-trace-validator-tab.js', 'installTopologyTraceValidatorTile', true],
+  ['Sequential sketcher', './sequential-sketcher/sequential-sketcher-tab.js', 'installSequentialSketcherTile', true],
+  ['Revision compare', './revision-compare/revision-compare-tab.js', 'installRevisionCompareTile', true],
+  ['PS mapping modal bridge', './ps-mapping-utility/ps-mapping-modal-bridge.js', 'installPsMappingModalBridge', true],
+]);
+
+function h(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
 }
 
-function mountPsMappingLauncher(container, ctx) {
-  const root = utilityRoot(container);
-  if (root.querySelector('[data-psmap-action="open"]')) return null;
-  return installPsMappingUtilityTile(root, ctx);
+function moduleUrl(specifier, forceFresh = false) {
+  const url = new URL(specifier, import.meta.url);
+  url.searchParams.set('v', BUILD_TOKEN);
+  if (forceFresh) url.searchParams.set('retry', `${Date.now()}-${retrySequence += 1}`);
+  return url.href;
 }
 
-function mountPsFamilyClashAudit(container, ctx) {
-  return installPsFamilyClashAuditTile(utilityRoot(container), ctx);
+async function importWithRetry(specifier, forceFresh = false) {
+  if (forceFresh) return import(moduleUrl(specifier, true));
+  try { return await import(moduleUrl(specifier)); }
+  catch (firstError) {
+    try { return await import(moduleUrl(specifier, true)); }
+    catch (retryError) {
+      throw new AggregateError([firstError, retryError], `Module ${specifier} failed after a cache-bypass retry.`);
+    }
+  }
 }
 
-function mountPipeline3dModel(container, ctx) {
-  return installPipeline3dModelTile(utilityRoot(container), ctx);
+function destroyMounted(runtime) {
+  while (runtime.destroyers.length) {
+    const destroy = runtime.destroyers.pop();
+    try { destroy?.(); } catch (error) { console.warn('Utilities cleanup failed', error); }
+  }
 }
 
-function mountInputXmlWorkspace(container, ctx) {
-  return installInputXmlWorkspaceTile(utilityRoot(container), ctx);
+function addDestroy(runtime, destroy) {
+  if (typeof destroy !== 'function') return;
+  if (runtime.disposed) destroy();
+  else runtime.destroyers.push(destroy);
 }
 
-function mountXmlBuilder(container, ctx) {
-  return installXmlBuilderUtilityTile(utilityRoot(container), ctx);
+function failureMessage(reason) {
+  return String(reason?.message || reason || 'Unknown module failure');
 }
 
-function mountNavisTagIsonote(container, ctx) {
-  return installNavisTagIsonoteUtilityTile(utilityRoot(container), ctx);
+function renderWarnings(deckRoot, failures) {
+  deckRoot.querySelector('[data-psnm-module-warning]')?.remove();
+  if (!failures.length) return;
+  const warning = document.createElement('section');
+  warning.className = 'psmap-card';
+  warning.setAttribute('data-psnm-module-warning', '1');
+  warning.innerHTML = `<div class="psmap-card-head"><b>Utilities loaded with limited modules</b></div>
+<div class="psmap-card-body"><p>${failures.length} optional module(s) could not be loaded. Other utilities remain available.</p>
+<ul>${failures.map((failure) => `<li><b>${h(failure.label)}</b>: ${h(failure.message)}</li>`).join('')}</ul></div>`;
+  deckRoot.prepend(warning);
 }
 
-function mountSupportSteelRelationshipBuilder(container, ctx) {
-  return installSupportSteelRelationshipBuilderTile(utilityRoot(container), ctx);
+function renderFatal(container, error, retry) {
+  container.innerHTML = `<section class="tab-error" data-psnm-runtime-error="1">
+<h2>Could not initialize Utilities</h2>
+<p>The required Utilities shell was fetched twice, including one cache-bypass attempt.</p>
+<pre>${h(error?.message || error)}</pre>
+<button type="button" data-psnm-runtime-retry="1">Retry Utilities</button>
+</section>`;
+  container.querySelector('[data-psnm-runtime-retry="1"]')?.addEventListener('click', retry, { once: true });
 }
 
-function mountTopologyTraceValidator(container, ctx) {
-  return installTopologyTraceValidatorTile(utilityRoot(container), ctx);
+async function loadOptionalModules(forceFresh) {
+  const preloads = await Promise.allSettled(PRELOAD_MODULES.map((specifier) => importWithRetry(specifier, forceFresh)));
+  const installers = await Promise.allSettled(INSTALLERS.map(async (descriptor) => ({
+    descriptor,
+    module: await importWithRetry(descriptor[1], forceFresh),
+  })));
+  return { preloads, installers };
 }
 
-function mountSequentialSketcher(container, ctx) {
-  return installSequentialSketcherTile(utilityRoot(container), ctx);
+function preloadFailures(results) {
+  return results.flatMap((result, index) => result.status === 'rejected' ? [{
+    label: `Enhancement ${PRELOAD_MODULES[index]}`,
+    message: failureMessage(result.reason),
+  }] : []);
 }
 
-function mountRevisionCompare(container, ctx) {
-  return installRevisionCompareTile(utilityRoot(container), ctx);
+function mountInstallers(deckRoot, ctx, runtime, results) {
+  const failures = [];
+  results.forEach((result, index) => {
+    const descriptor = INSTALLERS[index];
+    if (result.status === 'rejected') {
+      failures.push({ label: descriptor[0], message: failureMessage(result.reason) });
+      return;
+    }
+    try {
+      const installer = result.value.module?.[descriptor[2]];
+      if (typeof installer !== 'function') throw new Error(`Missing export ${descriptor[2]}`);
+      const destroy = descriptor[3] ? installer(deckRoot, ctx) : installer(deckRoot);
+      addDestroy(runtime, destroy);
+    } catch (error) {
+      failures.push({ label: descriptor[0], message: failureMessage(error) });
+    }
+  });
+  return failures;
+}
+
+async function mountUtilities(container, ctx, runtime, generation, forceFresh) {
+  const optionalPromise = loadOptionalModules(forceFresh);
+  const layoutResult = await Promise.allSettled([importWithRetry(LAYOUT_MODULE, forceFresh)]);
+  if (runtime.disposed || generation !== runtime.generation) return;
+
+  container.innerHTML = '';
+  const layoutModule = layoutResult[0].status === 'fulfilled' ? layoutResult[0].value : null;
+  const layoutInstaller = layoutModule?.installPsnmUtilityLayoutStabilizer;
+  const deckRoot = typeof layoutInstaller === 'function' ? layoutInstaller(container, ctx) : container;
+  const failures = layoutResult[0].status === 'rejected' ? [{
+    label: 'Utilities layout',
+    message: failureMessage(layoutResult[0].reason),
+  }] : [];
+
+  const optional = await optionalPromise;
+  if (runtime.disposed || generation !== runtime.generation) return;
+  failures.push(
+    ...preloadFailures(optional.preloads),
+    ...mountInstallers(deckRoot, ctx, runtime, optional.installers),
+  );
+  renderWarnings(deckRoot, failures);
 }
 
 export function renderPSNM_UtilityTab(container, ctx = {}) {
-  const deckRoot = installPsnmUtilityLayoutStabilizer(container, ctx);
-  const destroyPSNM = renderPSNMCoreUtilityTab(deckRoot, ctx);
-  const destroyAxisAutoAnchor = installPsnmAxisAutoAnchorAddon(deckRoot, ctx);
-  const destroyAnchorPersistence = installPsnmAnchorPersistenceAddon(deckRoot, ctx);
-  const destroyPsMapping = installPsMappingUtilityTile(deckRoot, ctx);
-  const destroySupportSteelRelationshipBuilder = installSupportSteelRelationshipBuilderTile(deckRoot, ctx);
-  const destroyPsFamilyClashAudit = installPsFamilyClashAuditTile(deckRoot, ctx);
-  const destroyPipeline3dModel = installPipeline3dModelTile(deckRoot, ctx);
-  const destroyPipeline3dTablePaste = installPipeline3dTablePasteAddon(deckRoot);
-  const destroyInputXmlWorkspace = installInputXmlWorkspaceTile(deckRoot, ctx);
-  const destroyXmlBuilder = installXmlBuilderUtilityTile(deckRoot, ctx);
-  const destroyNavisTagIsonote = installNavisTagIsonoteUtilityTile(deckRoot, ctx);
-  const destroyTopologyTraceValidator = installTopologyTraceValidatorTile(deckRoot, ctx);
-  const destroySequentialSketcher = installSequentialSketcherTile(deckRoot, ctx);
-  const destroyRevisionCompare = installRevisionCompareTile(deckRoot, ctx);
-  const destroyBridge = installPsMappingModalBridge(deckRoot, ctx);
+  const runtime = { disposed: false, destroyers: [], generation: 0 };
 
+  const start = (forceFresh = false) => {
+    runtime.generation += 1;
+    const generation = runtime.generation;
+    destroyMounted(runtime);
+    container.innerHTML = '<div class="tab-loading">Loading Utilities modules...</div>';
+    mountUtilities(container, ctx, runtime, generation, forceFresh).catch((error) => {
+      if (runtime.disposed || generation !== runtime.generation) return;
+      renderFatal(container, error, () => start(true));
+    });
+  };
+
+  start();
   return () => {
-    if (typeof destroyRevisionCompare === 'function') destroyRevisionCompare();
-    if (typeof destroySequentialSketcher === 'function') destroySequentialSketcher();
-    if (typeof destroyTopologyTraceValidator === 'function') destroyTopologyTraceValidator();
-    if (typeof destroyBridge === 'function') destroyBridge();
-    if (typeof destroyNavisTagIsonote === 'function') destroyNavisTagIsonote();
-    if (typeof destroyXmlBuilder === 'function') destroyXmlBuilder();
-    if (typeof destroyInputXmlWorkspace === 'function') destroyInputXmlWorkspace();
-    if (typeof destroyPipeline3dTablePaste === 'function') destroyPipeline3dTablePaste();
-    if (typeof destroyPipeline3dModel === 'function') destroyPipeline3dModel();
-    if (typeof destroyPsFamilyClashAudit === 'function') destroyPsFamilyClashAudit();
-    if (typeof destroySupportSteelRelationshipBuilder === 'function') destroySupportSteelRelationshipBuilder();
-    if (typeof destroyPsMapping === 'function') destroyPsMapping();
-    if (typeof destroyAnchorPersistence === 'function') destroyAnchorPersistence();
-    if (typeof destroyAxisAutoAnchor === 'function') destroyAxisAutoAnchor();
-    if (typeof destroyPSNM === 'function') destroyPSNM();
+    runtime.disposed = true;
+    runtime.generation += 1;
+    destroyMounted(runtime);
     container.innerHTML = '';
   };
 }
 
 export default renderPSNM_UtilityTab;
+export const _test = Object.freeze({ moduleUrl, preloadFailures });
