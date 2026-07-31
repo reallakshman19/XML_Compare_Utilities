@@ -147,7 +147,8 @@ function createStretch(options) {
 function createRotation(options) {
   return createSequentialRotationFeature({
     root: options.root, readScene: options.readScene, readModel: options.readModel,
-    onDraftChanged: options.onDraftChanged, geometryEditBoundary: options.geometryEditBoundary,
+    readViewer: options.readViewer, onDraftChanged: options.onDraftChanged,
+    geometryEditBoundary: options.geometryEditBoundary,
     applicationNow: options.applicationNow, ...recoveryCallbacks(options, 'ROTATE_SUBGRAPH'),
   });
 }
