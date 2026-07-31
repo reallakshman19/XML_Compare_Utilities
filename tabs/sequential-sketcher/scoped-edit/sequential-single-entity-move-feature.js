@@ -1,4 +1,7 @@
-/** Lifecycle owner for component move previews, snap evidence and supervised apply. */
+/**
+ * Lifecycle owner for component move previews, snap evidence and supervised apply.
+ */
+import { createSequentialMoveManipulatorController } from './sequential-move-manipulator-controller.js';
 import { createSequentialMoveSnapFeature } from './sequential-move-snap-feature.js';
 import { createSequentialSingleEntityMoveApplicationService } from './sequential-single-entity-move-application.js';
 import { createSequentialSingleEntityMoveApplicationPanel } from './sequential-single-entity-move-application-panel.js';
@@ -26,6 +29,9 @@ function exactTarget(state) {
   if (!state.target) throw new RangeError('Select one confirmed pipe or fitting before move preview.');
   state.target = validateSequentialSingleEntityMoveTarget(state.target, targetInput(state));
   return state.target;
+}
+function isManipulatorEvent(event) {
+  return Boolean(event.target?.closest?.('[data-ssk-move-manipulator]'));
 }
 function recoveryEvidence(target) {
   return Object.freeze({
@@ -98,15 +104,16 @@ function selectTarget(state, objectId) {
   if (state.destroyed) throw new Error('Single-entity move feature is destroyed.');
   cancelPreview(state, 'target-change');
   state.target = selectSequentialSingleEntityMoveTarget({ objectId, ...targetInput(state) });
-  state.panel.setTarget(state.target); return state.target;
+  state.panel.setTarget(state.target); state.manipulator?.refresh(); return state.target;
 }
 function clearTarget(state, reason = null) {
   if (state.destroyed) return null;
-  cancelPreview(state, reason || 'target-cleared'); state.target = null;
-  state.panel.clearTarget(reason); return null;
+  cancelPreview(state, reason || 'target-cleared'); state.manipulator?.clear(reason);
+  state.target = null; state.panel.clearTarget(reason); return null;
 }
 function pointerDown(state, event) {
-  if (!state.active || !state.target || event.button !== 0 || state.draftStore.getPreview()) return;
+  if (isManipulatorEvent(event) || !state.active || !state.target
+    || event.button !== 0 || state.draftStore.getPreview()) return;
   try {
     state.snap.clear(); state.drag.begin({
       target: exactTarget(state), constraint: state.panel.getConstraint(),
@@ -119,7 +126,7 @@ function pointerDown(state, event) {
   }
 }
 function pointerMove(state, event) {
-  if (state.drag.getState().status !== 'dragging') return;
+  if (isManipulatorEvent(event) || state.drag.getState().status !== 'dragging') return;
   try {
     const result = state.drag.update({
       pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
@@ -129,21 +136,22 @@ function pointerMove(state, event) {
   } catch (error) { cancelPreview(state, error.code || error.message || 'pointer-drag-failed'); }
 }
 function pointerEnd(state, event) {
-  if (state.drag.getState().status !== 'dragging') return;
+  if (isManipulatorEvent(event) || state.drag.getState().status !== 'dragging') return;
   state.drag.end(event.pointerId); event.target?.releasePointerCapture?.(event.pointerId);
   const preview = state.draftStore.getPreview();
   if (preview && !state.restoring) state.onRecoveryDraft(recoveryDescriptor(preview));
   event.preventDefault(); event.stopImmediatePropagation();
 }
 function pointerCancel(state, event) {
-  if (state.drag.getState().status !== 'dragging') return;
+  if (isManipulatorEvent(event) || state.drag.getState().status !== 'dragging') return;
   event.target?.releasePointerCapture?.(event.pointerId); cancelPreview(state, 'pointer-cancel');
   event.preventDefault(); event.stopImmediatePropagation();
 }
 function setFeatureActive(state, value) {
   state.active = value === true && !state.destroyed;
   if (!state.active) clearTarget(state, 'Move preview cleared because Draft Edit 3D closed.');
-  state.panel.setActive(state.active); state.applicationPanel.setActive(state.active); return state.active;
+  state.panel.setActive(state.active); state.applicationPanel.setActive(state.active);
+  state.manipulator?.setActive(state.active); return state.active;
 }
 function bindFeature(state) {
   state.surface.addEventListener('pointerdown', state.handlers.down, true);
@@ -162,8 +170,8 @@ function unbindFeature(state) {
 function destroyFeature(state) {
   if (state.destroyed) return false;
   unbindFeature(state); state.target = null; state.active = false;
-  state.drag.destroy(); state.snap.destroy(); state.applicationPanel.destroy();
-  state.panel.destroy(); state.draftStore.destroy();
+  state.manipulator.destroy(); state.drag.destroy(); state.snap.destroy();
+  state.applicationPanel.destroy(); state.panel.destroy(); state.draftStore.destroy();
   state.readViewer()?.setTransient?.(null); state.onDraftChanged(null);
   state.destroyed = true; return true;
 }
@@ -186,6 +194,28 @@ function createPanel(state) {
     onSnapClear: state.snap.clearSnap,
   });
 }
+function finishManipulatorDrag(state, pointerId) {
+  const result = state.drag.end(pointerId);
+  const preview = state.draftStore.getPreview();
+  if (preview && !state.restoring) state.onRecoveryDraft(recoveryDescriptor(preview));
+  return result;
+}
+function createManipulator(state) {
+  return createSequentialMoveManipulatorController({
+    root: state.root, host: state.surface, readViewer: state.readViewer,
+    readTarget: () => state.target,
+    beginDrag: (input) => {
+      state.snap.clear(); return state.drag.begin({ ...input, target: exactTarget(state) });
+    },
+    updateDrag: (input) => {
+      const result = state.drag.update(input);
+      acquireForPreview(state, result.preview, { x: input.clientX, y: input.clientY });
+      return result;
+    },
+    endDrag: (pointerId) => finishManipulatorDrag(state, pointerId),
+    cancelDrag: (reason) => cancelPreview(state, reason),
+  });
+}
 function createApplication(state) {
   const boundary = state.geometryEditBoundary;
   state.applicationService = createSequentialSingleEntityMoveApplicationService({
@@ -206,6 +236,7 @@ function restorePanelValues(state, record) {
   const constraint = record.input.constraint.kind === 'axis'
     ? record.input.constraint.axis : record.input.constraint.plane;
   setField(state.root, '[data-ssk-single-move-constraint]', constraint);
+  state.manipulator.setConstraint(constraint);
   for (const axis of ['x', 'y', 'z']) {
     setField(state.root, `[data-ssk-single-move-axis="${axis}"]`, record.input.rawDelta[axis]);
   }
@@ -242,18 +273,21 @@ function initializeFeatureState(options) {
       ['readCurrentState', 'readView', 'readJournal', 'publishCandidate'], 'geometryEditBoundary'),
     applicationNow: requiredFunction(options.applicationNow, 'applicationNow'),
     draftStore: createSequentialSingleEntityMoveDraftStore(),
-    target: null, active: false, destroyed: false, panel: null, snap: null, restoring: false,
+    target: null, active: false, destroyed: false, panel: null, snap: null,
+    manipulator: null, restoring: false,
   };
   state.drag = createSequentialSingleEntityMoveDragSession({
     readViewer: state.readViewer, onPreview: (input) => stagePreview(state, input),
   });
   state.snap = createSnap(state); state.panel = createPanel(state);
-  state.applicationPanel = createApplication(state);
+  state.manipulator = createManipulator(state); state.applicationPanel = createApplication(state);
   state.handlers = {
     down: (event) => pointerDown(state, event), move: (event) => pointerMove(state, event),
     end: (event) => pointerEnd(state, event), cancel: (event) => pointerCancel(state, event),
     key: (event) => {
-      if (event.key === 'Escape' && (state.target || state.draftStore.getPreview())) cancelPreview(state, 'escape');
+      if (event.key !== 'Escape' || (!state.target && !state.draftStore.getPreview())) return;
+      if (state.manipulator.getState().dragging) state.manipulator.cancel('escape');
+      else cancelPreview(state, 'escape');
     },
   };
   return state;
@@ -264,8 +298,8 @@ function featureStateSnapshot(state) {
     componentId: state.target?.componentId || null,
     operationId: state.draftStore.getPreview()?.operationId || null,
     drag: state.drag.getState(), snap: state.snap.getState(),
-    panel: state.panel.getState(), application: state.applicationPanel.getState(),
-    destroyed: state.destroyed,
+    panel: state.panel.getState(), manipulator: state.manipulator.getState(),
+    application: state.applicationPanel.getState(), destroyed: state.destroyed,
   });
 }
 export function createSequentialSingleEntityMoveFeature(options = {}) {
@@ -282,5 +316,5 @@ export function createSequentialSingleEntityMoveFeature(options = {}) {
   });
 }
 
-export const _test = Object.freeze({ acquireForPreview, pointerCancel, pointerDown, pointerEnd,
-  pointerMove, recoveryDescriptor, recoveryEvidence });
+export const _test = Object.freeze({ acquireForPreview, isManipulatorEvent, pointerCancel,
+  pointerDown, pointerEnd, pointerMove, recoveryDescriptor, recoveryEvidence });
