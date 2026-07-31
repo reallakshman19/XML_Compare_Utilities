@@ -1,4 +1,4 @@
-/** Explicit numeric rotation preview panel with scope and boundary evidence. */
+/** Explicit numeric rotation preview panel with pivot, scope and boundary evidence. */
 import { SEQUENTIAL_ROTATION_SCOPE } from './sequential-rotation-target.js';
 
 export const SEQUENTIAL_ROTATION_PANEL_SCHEMA = 'SequentialRotationPanel.v1';
@@ -54,8 +54,7 @@ function install(root) {
 function elements(root, panel) {
   const names = ['pivot-x', 'pivot-y', 'pivot-z', 'axis-x', 'axis-y', 'axis-z'];
   return {
-    panel,
-    scope: required(root, '[data-ssk-rotation-scope]'),
+    panel, scope: required(root, '[data-ssk-rotation-scope]'),
     target: required(root, '[data-ssk-rotation-target]'),
     values: Object.fromEntries(names.map((name) => [name, required(root, `[data-ssk-rotation-${name}]`)])),
     angle: required(root, '[data-ssk-rotation-angle]'),
@@ -72,13 +71,15 @@ function exactNumber(element, label) {
   if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite.`);
   return value;
 }
+function pointValue(values, prefix, label) {
+  return { x: exactNumber(values[`${prefix}-x`], `${label} X`),
+    y: exactNumber(values[`${prefix}-y`], `${label} Y`),
+    z: exactNumber(values[`${prefix}-z`], `${label} Z`) };
+}
 function inputValue(state) {
-  const value = state.elements.values;
   return {
-    pivot: { x: exactNumber(value['pivot-x'], 'Pivot X'),
-      y: exactNumber(value['pivot-y'], 'Pivot Y'), z: exactNumber(value['pivot-z'], 'Pivot Z') },
-    axis: { x: exactNumber(value['axis-x'], 'Axis X'),
-      y: exactNumber(value['axis-y'], 'Axis Y'), z: exactNumber(value['axis-z'], 'Axis Z') },
+    pivot: pointValue(state.elements.values, 'pivot', 'Pivot'),
+    axis: pointValue(state.elements.values, 'axis', 'Axis'),
     angleDegrees: exactNumber(state.elements.angle, 'Angle'),
     profile: { boundaryTolerance: exactNumber(state.elements.tolerance, 'Boundary tolerance') },
   };
@@ -102,7 +103,7 @@ function render(state) {
   state.elements.cancel.disabled = !state.preview || state.destroyed;
   state.elements.diagnosis.textContent = diagnosisText(state.preview);
   state.elements.status.textContent = state.notice || (state.target
-    ? 'Enter pivot, axis and angle. Preview does not publish.' : 'Select confirmed geometry.');
+    ? 'Review pivot, axis and angle. Preview does not publish.' : 'Select confirmed geometry.');
 }
 function preview(state) {
   try {
@@ -115,16 +116,47 @@ function preview(state) {
   render(state);
 }
 function cancel(state, reason = 'operator-cancel') {
-  state.onCancel(reason); state.preview = null; state.notice = `Rotation preview cleared: ${reason}.`; render(state);
+  state.onCancel(reason); state.preview = null;
+  state.notice = `Rotation preview cleared: ${reason}.`; render(state);
+}
+function setPointFields(state, prefix, value) {
+  for (const axis of ['x', 'y', 'z']) {
+    state.elements.values[`${prefix}-${axis}`].value = String(value[axis]);
+  }
+}
+function axisId(state) {
+  try {
+    const axis = pointValue(state.elements.values, 'axis', 'Axis');
+    const length = Math.hypot(axis.x, axis.y, axis.z);
+    if (!(length > 0)) return null;
+    const value = { x: axis.x / length, y: axis.y / length, z: axis.z / length };
+    const tolerance = 1e-12;
+    if (Math.abs(value.x - 1) < tolerance && Math.abs(value.y) < tolerance && Math.abs(value.z) < tolerance) return 'X';
+    if (Math.abs(value.y - 1) < tolerance && Math.abs(value.x) < tolerance && Math.abs(value.z) < tolerance) return 'Y';
+    if (Math.abs(value.z - 1) < tolerance && Math.abs(value.x) < tolerance && Math.abs(value.y) < tolerance) return 'Z';
+    return null;
+  } catch { return null; }
+}
+function setAxis(state, value) {
+  const axis = String(value || '').trim().toUpperCase();
+  const vectors = { X: { x: 1, y: 0, z: 0 }, Y: { x: 0, y: 1, z: 0 }, Z: { x: 0, y: 0, z: 1 } };
+  if (!vectors[axis]) throw new TypeError(`Rotation axis must be X, Y or Z: ${value}`);
+  setPointFields(state, 'axis', vectors[axis]); state.onAxisChange(axis); render(state); return axis;
 }
 function bind(state) {
   state.handlers = {
     preview: () => preview(state), cancel: () => cancel(state),
     scope: () => { state.preview = null; state.notice = null; state.onScopeChange(state.elements.scope.value); },
+    pivot: () => { try { state.onPivotChange(pointValue(state.elements.values, 'pivot', 'Pivot')); } catch {} },
+    axis: () => { try { state.onAxisChange(axisId(state)); } catch {} },
   };
   state.elements.preview.addEventListener('click', state.handlers.preview);
   state.elements.cancel.addEventListener('click', state.handlers.cancel);
   state.elements.scope.addEventListener('change', state.handlers.scope);
+  for (const axis of ['x', 'y', 'z']) {
+    state.elements.values[`pivot-${axis}`].addEventListener('input', state.handlers.pivot);
+    state.elements.values[`axis-${axis}`].addEventListener('input', state.handlers.axis);
+  }
 }
 function destroy(state) {
   if (state.destroyed) return false;
@@ -132,30 +164,49 @@ function destroy(state) {
   state.elements.preview.removeEventListener('click', state.handlers.preview);
   state.elements.cancel.removeEventListener('click', state.handlers.cancel);
   state.elements.scope.removeEventListener('change', state.handlers.scope);
+  for (const axis of ['x', 'y', 'z']) {
+    state.elements.values[`pivot-${axis}`].removeEventListener('input', state.handlers.pivot);
+    state.elements.values[`axis-${axis}`].removeEventListener('input', state.handlers.axis);
+  }
   state.elements.panel.remove(); return true;
 }
 export function createSequentialRotationPanel(options = {}) {
   const root = options.root;
   if (!root?.querySelector) throw new TypeError('Rotation panel requires a root.');
-  const panel = install(root);
   const state = {
-    elements: elements(root, panel),
+    elements: elements(root, install(root)),
     onPreview: requiredFunction(options.onPreview, 'onPreview'),
     onCancel: requiredFunction(options.onCancel, 'onCancel'),
     onScopeChange: requiredFunction(options.onScopeChange, 'onScopeChange'),
+    onPivotChange: requiredFunction(options.onPivotChange || (() => {}), 'onPivotChange'),
+    onAxisChange: requiredFunction(options.onAxisChange || (() => {}), 'onAxisChange'),
     active: false, destroyed: false, target: null, preview: null, notice: null,
   };
   bind(state); render(state);
   return Object.freeze({
     schema: SEQUENTIAL_ROTATION_PANEL_SCHEMA,
     setActive(value) { state.active = value === true && !state.destroyed; render(state); },
-    setTarget(target) { state.target = target; state.preview = null; state.notice = null; render(state); },
+    setTarget(target, pivot = null) {
+      state.target = target; state.preview = null; state.notice = null;
+      if (pivot) setPointFields(state, 'pivot', pivot); render(state);
+    },
     clearTarget(reason = null) { state.target = null; state.preview = null; state.notice = reason; render(state); },
     setPreview(value, notice = null) { state.preview = value; state.notice = notice; render(state); },
+    setPivot(value) { setPointFields(state, 'pivot', value); state.onPivotChange(value); render(state); },
+    setAxis: (value) => setAxis(state, value),
+    setAngle(value) { state.elements.angle.value = String(value); render(state); },
     getScope: () => state.elements.scope.value || SEQUENTIAL_ROTATION_SCOPE.COMPONENT_ONLY,
+    getPivot: () => pointValue(state.elements.values, 'pivot', 'Pivot'),
+    getAxis: () => pointValue(state.elements.values, 'axis', 'Axis'),
+    getAxisId: () => axisId(state),
+    getProfile: () => ({ boundaryTolerance: exactNumber(state.elements.tolerance, 'Boundary tolerance') }),
+    getInput: () => inputValue(state),
     getState: () => Object.freeze({ active: state.active, scope: state.elements.scope.value,
-      targetId: state.target?.rotationTargetId || null,
-      operationId: state.preview?.operationId || null, destroyed: state.destroyed }),
+      targetId: state.target?.rotationTargetId || null, operationId: state.preview?.operationId || null,
+      pivot: state.target ? pointValue(state.elements.values, 'pivot', 'Pivot') : null,
+      axisId: axisId(state), destroyed: state.destroyed }),
     destroy: () => destroy(state),
   });
 }
+
+export const _test = Object.freeze({ axisId, inputValue, pointValue, setPointFields });
