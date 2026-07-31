@@ -9,9 +9,8 @@ import { selectSequentialDraftEditCandidateTarget } from './sequential-draft-edi
 import { createSequentialDraftEditDecisionTarget } from './sequential-draft-edit-decision-target.js';
 import { selectSequentialDraftEditReversalTarget } from './sequential-draft-edit-reversal-target.js';
 import { deriveSequentialEditAuthority } from './sequential-edit-authority.js';
-export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
-export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D';
-const CONTROLLERS = new WeakMap();
+import { classifySequentialDraftEdit3dAvailability, sequentialDraftEdit3dActiveMessage } from './sequential-scoped-edit-3d-availability.js'; export const SEQUENTIAL_SCOPED_EDIT_3D_CONTROLLER_V1 = 'SequentialScopedEdit3dController.v1';
+export const SEQUENTIAL_SCOPED_EDIT_3D_RENDERER = 'DRAFT_EDIT_3D'; const CONTROLLERS = new WeakMap();
 const VIEW_BY_PROJECTION = Object.freeze({ ISO: 'iso', XY: 'top', XZ: 'front', YZ: 'side' });
 function requiredFunction(value, label) { if (typeof value !== 'function') throw new TypeError(`${label} must be a function.`); return value; }
 function requiredMethods(value, names, label) { names.forEach((name) => requiredFunction(value?.[name], `${label}.${name}`)); return value; }
@@ -45,13 +44,14 @@ function show3dSurface(state) {
   setHidden(state.elements.host, false); set3dPressed(state, true); setFeatureActivity(state, true);
 }
 function hide3dSurface(state) { setFeatureActivity(state, false); setHidden(state.elements.host, true); set3dPressed(state, false); }
-function available(state) { return Boolean(state.shadow.host() && state.shadow.readModel()); }
+function available(state) { return classifySequentialDraftEdit3dAvailability(state.shadow).available; }
 function syncAvailability(state) {
-  const next = available(state); state.elements.button.disabled = !next;
-  state.elements.button.title = next ? 'Open the certified Draft Edit 3D view'
-    : 'Draft Edit 3D requires an open Sequential branch';
-  if (!next && state.active) { state.active = false; hide3dSurface(state); setHidden(state.elements.construction, false); }
-  return next;
+  const value = classifySequentialDraftEdit3dAvailability(state.shadow);
+  state.elements.button.disabled = !value.available; state.elements.button.title = value.title;
+  state.elements.button.dataset.sskAvailability = value.code;
+  if (!value.available && state.active) { state.active = false; hide3dSurface(state);
+    setHidden(state.elements.construction, false); }
+  if (!state.active) announce(state, value.message, value.status); return value.available;
 }
 function selectedIds(readModel) { return readModel?.selectionSnapshot?.entityIds || []; }
 function applyProjection(state, readModel) {
@@ -76,9 +76,9 @@ function applyScene(state) {
   state.viewer.setMode('target-only');
   const ids = selectedIds(readModel); state.viewer.setSelection(ids.at(-1) || null, ids.slice(0, -1));
   const mountKey = `${state.shadow.evidence().mountKey}:${readModel.authorityId}`;
-  if (state.mountKey !== mountKey) { state.mountKey = mountKey; state.viewer.fitAll(); }
+  if (state.mountKey !== mountKey) { state.mountKey = mountKey; if (scene.entities.length) state.viewer.fitAll(); }
   applyProjection(state, readModel); syncDecisionTarget(state, scene, readModel);
-  announce(state, `Draft Edit 3D active · ${scene.entities.length} entities · supervised geometry authority enabled.`);
+  announce(state, sequentialDraftEdit3dActiveMessage(scene.entities.length));
 }
 function selectionCategory(state, objectId) { return state.scene?.entities.find((row) => row.id === objectId)?.domainRef?.category || null; }
 function clearCommandTargets(state, reason = null) { state.commandPanel?.clearCandidateTarget(); state.commandPanel?.clearReversalTarget(reason); }
@@ -285,7 +285,8 @@ export function mountSequentialScopedEdit3dController(root, options = {}) {
     getCommandGatewayState: gateway.getState, getCommandPanelState: state.commandPanel.getState,
     prepareCommand: gateway.prepare, acceptCommand: gateway.accept, executeCommand: gateway.execute,
     getState: () => Object.freeze({ active: state.active, available: available(state),
-      mounted: Boolean(state.viewer), mountKey: state.mountKey, failureCount: state.failureCount,
+      availability: classifySequentialDraftEdit3dAvailability(state.shadow), mounted: Boolean(state.viewer),
+      mountKey: state.mountKey, failureCount: state.failureCount,
       destroyed: state.destroyed, commandGateway: gateway.getState(),
       commandPanel: state.commandPanel.getState(), supportMove: state.supportMove.getState(),
       componentEdit: state.componentEdit.getState(), recovery: state.recovery?.getState() || null,
