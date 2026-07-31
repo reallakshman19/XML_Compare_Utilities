@@ -112,6 +112,7 @@ function begin(state, handleId, event) {
       target: snapshot.target, handleStart, pointerId: event.pointerId,
       clientX: event.clientX, clientY: event.clientY,
     });
+    if (result == null || result === false) return null;
     state.dragging = {
       handleId: selected, pointerId: event.pointerId,
       manipulatorId: snapshot.model.manipulatorId,
@@ -139,9 +140,13 @@ function update(state, event) {
 }
 function end(state, event) {
   if (!state.dragging || event.pointerId !== state.dragging.pointerId) return null;
-  const active = state.dragging; state.dragging = null;
-  try { const result = state.endDrag(event.pointerId, active); stop(event); queueRefresh(state); return result; }
-  catch (error) { report(state, error, 'end'); return null; }
+  const active = state.dragging;
+  try {
+    const result = state.endDrag(event.pointerId, active); state.dragging = null;
+    stop(event); queueRefresh(state); return result;
+  } catch (error) {
+    report(state, error, 'end'); return cancelInteraction(state, 'manipulator-end-failed');
+  }
 }
 function cancel(state, eventOrReason = 'manipulator-cancel') {
   const reason = typeof eventOrReason === 'string'
