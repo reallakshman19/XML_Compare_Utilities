@@ -71,8 +71,8 @@ function clearPreviewState(state, reason) {
 }
 function cancelPreview(state, reason = 'cancelled') {
   if (state.destroyed) return null;
-  state.rings?.cancel(reason); state.drag?.cancel(reason);
-  return clearPreviewState(state, reason);
+  if (state.rings?.cancel(reason)) return null;
+  state.drag?.cancel(reason); return clearPreviewState(state, reason);
 }
 function selectTargetWithScope(state, objectId, scope) {
   cancelPreview(state, 'target-change'); state.selectedObjectId = objectId;
