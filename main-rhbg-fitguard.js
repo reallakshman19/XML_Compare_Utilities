@@ -11,7 +11,7 @@ function reportStartupError(error) {
 }
 
 async function startStandaloneApp() {
-  const module = await import('./core/app.js?v=standalone-20260731-pages-utilities-recovery-1');
+  const module = await import('./core/app.js?v=standalone-20260731-pages-utilities-robust-1');
   await module.init(startupMount());
 }
 
