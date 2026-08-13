@@ -32,8 +32,8 @@ DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <w:p><w:r><w:t>Outer</w:t></w:r></w:p>
           <w:tbl>
             <w:tr>
-              <w:tc><w:p><w:r><w:t>Nested 1</w:t></w:r></w:tc>
-              <w:tc><w:p><w:r><w:t>Nested 2</w:t></w:r></w:tc>
+              <w:tc><w:p><w:r><w:t>Nested 1</w:t></w:r></w:p></w:tc>
+              <w:tc><w:p><w:r><w:t>Nested 2</w:t></w:r></w:p></w:tc>
             </w:tr>
           </w:tbl>
         </w:tc>
@@ -138,6 +138,59 @@ MISSING_REL_DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </w:document>
 """
 
+TABLE_GRID_DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:tbl>
+    <w:tblGrid><w:gridCol/><w:gridCol/><w:gridCol/></w:tblGrid>
+    <w:tr>
+      <w:tc><w:tcPr><w:gridSpan w:val="2"/><w:vMerge w:val="restart"/></w:tcPr><w:p><w:r><w:t>Merged12</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>R1C</w:t></w:r></w:p></w:tc>
+    </w:tr>
+    <w:tr>
+      <w:tc><w:tcPr><w:gridSpan w:val="2"/><w:vMerge/></w:tcPr><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>R2C</w:t></w:r></w:p></w:tc>
+    </w:tr>
+    <w:tr>
+      <w:tc><w:p><w:r><w:t>A3</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>C3</w:t></w:r></w:p></w:tc>
+    </w:tr>
+  </w:tbl></w:body>
+</w:document>
+"""
+
+OMITTED_GRID_DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:tbl>
+    <w:tblGrid><w:gridCol/><w:gridCol/><w:gridCol/><w:gridCol/></w:tblGrid>
+    <w:tr>
+      <w:trPr><w:gridBefore w:val="1"/></w:trPr>
+      <w:tc><w:p><w:r><w:t>B1</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p/></w:tc>
+      <w:tc><w:p><w:r><w:t>D1</w:t></w:r></w:p></w:tc>
+    </w:tr>
+    <w:tr>
+      <w:tc><w:p><w:r><w:t>A2</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>B2</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>C2</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>D2</w:t></w:r></w:p></w:tc>
+    </w:tr>
+  </w:tbl></w:body>
+</w:document>
+"""
+
+ORPHAN_VMERGE_DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body><w:tbl>
+    <w:tblGrid><w:gridCol/><w:gridCol/></w:tblGrid>
+    <w:tr>
+      <w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p><w:r><w:t>Orphan</w:t></w:r></w:p></w:tc>
+      <w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc>
+    </w:tr>
+  </w:tbl></w:body>
+</w:document>
+"""
+
 EXPECTED_HTML = '# Example Heading\n\nAlpha\tBeta\nGamma\n\n---\n\nAfter page break\n\n<table>\n  <tr>\n    <td colspan="2">A &amp; B</td>\n    <td>Outer<br><table>\n  <tr>\n    <td>Nested 1</td>\n    <td>Nested 2</td>\n  </tr>\n</table></td>\n  </tr>\n</table>\n'
 EXPECTED_TSV = '# Example Heading\n\nAlpha\tBeta\nGamma\n\n---\n\nAfter page break\n\nA & B\tOuter Nested 1 | Nested 2\n'
 
@@ -203,8 +256,8 @@ class DocxToMarkdownTest(unittest.TestCase):
 
     def test_evidence_is_versioned_and_traces_blocks(self):
         _, stats, evidence = self.run_converter("html", evidence=True)
-        self.assertEqual(evidence["semanticSchemaVersion"], "2")
-        self.assertEqual(evidence["canonicalizationVersion"], "2")
+        self.assertEqual(evidence["semanticSchemaVersion"], "3")
+        self.assertEqual(evidence["canonicalizationVersion"], "3")
         self.assertEqual(evidence["optionsHash"], stats["options_hash"])
         self.assertEqual(evidence["blocks"][0]["provenance"]["paragraph_index"], 0)
         table = next(block for block in evidence["blocks"] if block["kind"] == "table")
@@ -268,6 +321,51 @@ class DocxToMarkdownTest(unittest.TestCase):
         self.assertEqual(markdown, "Ordinary\n")
         self.assertNotIn("headingLevel", evidence["blocks"][0])
         self.assertIn("DOCX_STYLE_UNRESOLVED", [item["code"] for item in evidence["diagnostics"]])
+
+    def test_logical_grid_combines_gridspan_and_vertical_merge(self):
+        markdown, _, evidence = self.run_converter(evidence=True, document_xml=TABLE_GRID_DOCUMENT_XML)
+        expected = '<table>\n  <tr>\n    <td colspan="2" rowspan="2">Merged12</td>\n    <td>R1C</td>\n  </tr>\n  <tr>\n    <td>R2C</td>\n  </tr>\n  <tr>\n    <td>A3</td>\n    <td></td>\n    <td>C3</td>\n  </tr>\n</table>\n'
+        self.assertEqual(markdown, expected)
+        table = evidence["blocks"][0]
+        self.assertEqual(table["gridWidth"], 3)
+        merged = table["rows"][0][0]
+        self.assertEqual((merged["row"], merged["column"]), (0, 0))
+        self.assertEqual((merged["rowSpan"], merged["columnSpan"]), (2, 2))
+        self.assertEqual(len(merged["sourceProvenance"]), 2)
+        self.assertEqual(table["rows"][1][0]["column"], 2)
+        self.assertEqual(table["rows"][2][1]["column"], 1)
+
+    def test_tsv_source_rows_preserve_empty_and_merge_positions(self):
+        markdown, _, evidence = self.run_converter("tsv", evidence=True, document_xml=TABLE_GRID_DOCUMENT_XML)
+        self.assertEqual(markdown, "Merged12\tR1C\n\tR2C\nA3\t\tC3\n")
+        table = evidence["blocks"][0]
+        continuation = table["sourceRows"][1][0]
+        self.assertEqual(continuation["column"], 0)
+        self.assertEqual(continuation["vMerge"], "continue")
+        self.assertEqual(table["sourceRows"][2][1]["column"], 1)
+        self.assertFalse(any(cell.get("omitted") for cell in table["sourceRows"][1]))
+
+    def test_gridbefore_and_empty_cells_cannot_shift_values(self):
+        markdown, _, evidence = self.run_converter("tsv", evidence=True, document_xml=OMITTED_GRID_DOCUMENT_XML)
+        self.assertEqual(markdown, "\tB1\t\tD1\nA2\tB2\tC2\tD2\n")
+        table = evidence["blocks"][0]
+        self.assertEqual(table["gridWidth"], 4)
+        self.assertTrue(table["rows"][0][0]["omitted"])
+        self.assertEqual(table["sourceRowGrid"][0]["gridBefore"], 1)
+        self.assertEqual(table["sourceRows"][0][0]["column"], 1)
+        self.assertTrue(table["positionRows"][0][0]["omitted"])
+        self.assertEqual(table["rows"][0][0]["column"], 0)
+        self.assertEqual(table["rows"][0][1]["column"], 1)
+        self.assertEqual(table["rows"][0][2]["column"], 2)
+        self.assertEqual(table["rows"][0][3]["column"], 3)
+
+    def test_orphan_vertical_merge_is_diagnosed_without_column_shift(self):
+        markdown, _, evidence = self.run_converter(evidence=True, document_xml=ORPHAN_VMERGE_DOCUMENT_XML)
+        self.assertIn("Orphan", markdown)
+        self.assertIn("TABLE_VERTICAL_MERGE_ORPHAN", [item["code"] for item in evidence["diagnostics"]])
+        table = evidence["blocks"][0]
+        self.assertEqual(table["rows"][0][0]["column"], 0)
+        self.assertEqual(table["rows"][0][1]["column"], 1)
 
     def test_zip_path_traversal_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
