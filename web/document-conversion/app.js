@@ -60,7 +60,9 @@ async function runSearch() {
     clearRangeInputs();
     renderSearchState();
     const count = result.summary?.totalMatches ?? 0;
-    setNotice(elements.searchStatus, `${count} trusted match${count === 1 ? '' : 'es'} found.`, count ? 'success' : 'muted');
+    const incomplete = result.index?.pagesWithoutSearchableText?.length ?? 0;
+    const suffix = incomplete ? ` · ${incomplete} page${incomplete === 1 ? '' : 's'} unsearchable` : '';
+    setNotice(elements.searchStatus, `${count} trusted match${count === 1 ? '' : 'es'} found${suffix}.`, count ? 'success' : 'muted');
   } catch (error) {
     resetSearchView();
     setNotice(elements.searchStatus, errorMessage(error), 'error');
@@ -70,7 +72,7 @@ async function runSearch() {
 }
 
 function searchPayload() {
-  return {
+  const payload = {
     sourcePath: elements.sourcePath.value,
     query: elements.query.value,
     options: {
@@ -82,6 +84,7 @@ function searchPayload() {
       ocrConfidenceMin: Number(elements.searchConfidence.value),
     },
   };
+  return withPassword(payload);
 }
 
 function renderSearchState() {
@@ -183,7 +186,7 @@ function conversionPayload() {
     setNotice(elements.convertStatus, 'Choose a valid 1-based page range before converting.', 'error');
     return null;
   }
-  return {
+  const payload = {
     sourcePath: elements.sourcePath.value,
     pages: { start, end },
     options: {
@@ -196,6 +199,11 @@ function conversionPayload() {
       engineeringRegions: elements.engineeringRegions.value,
     },
   };
+  return withPassword(payload);
+}
+
+function withPassword(payload) {
+  return elements.pdfPassword.value ? { ...payload, password: elements.pdfPassword.value } : payload;
 }
 
 async function copyMarkdown() {
@@ -264,7 +272,7 @@ function outputElements() {
 
 function collectElements() {
   const ids = [
-    'health-dot', 'health-text', 'source-path', 'query', 'search-button',
+    'health-dot', 'health-text', 'source-path', 'pdf-password', 'query', 'search-button',
     'case-sensitive', 'whole-word', 'search-ocr', 'search-language',
     'search-confidence', 'search-status', 'index-summary', 'page-chips',
     'clear-selection', 'page-start', 'page-end', 'range-help', 'search-results',
