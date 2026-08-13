@@ -1,0 +1,15 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Observation.v1",
+  "type":"object",
+  "additionalProperties":true,
+  "required":["schema","observationId","kind","sourceHash","surfaceId","rawText"],
+  "properties":{
+    "schema":{"const":"Observation.v1"},
+    "observationId":{"type":"string"},
+    "kind":{"type":"string"},
+    "sourceHash":{"type":"string"},
+    "surfaceId":{"type":"string"},
+    "rawText":{"type":"string"}
+  }
+}
