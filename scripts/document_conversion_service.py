@@ -12,6 +12,7 @@ from pdf_search_index import (
     DEFAULT_MAX_CACHE_DOCUMENTS,
     DEFAULT_MAX_INDEX_CHARS,
     DEFAULT_MAX_SEARCH_RESULTS,
+    MAX_QUERY_CHARS,
     PDF_SEARCH_INDEX_REVISION,
     PdfSearchError,
     PdfSearchIndexCache,
@@ -367,6 +368,15 @@ def _parse_search_request(payload: dict[str, Any]) -> dict:
     unknown = sorted(set(payload) - {"sourcePath", "query", "options", "password"})
     if unknown:
         raise ConversionApiError("PDF_SEARCH_REQUEST_FIELD_UNKNOWN", f"unknown search fields: {', '.join(unknown)}")
+    query = payload.get("query")
+    if not isinstance(query, str) or not query.strip():
+        raise ConversionApiError("PDF_SEARCH_QUERY_REQUIRED", "query must be a non-empty string")
+    if len(query) > MAX_QUERY_CHARS:
+        raise ConversionApiError(
+            "PDF_SEARCH_QUERY_LIMIT_EXCEEDED",
+            f"query length {len(query)} exceeds limit {MAX_QUERY_CHARS}",
+            422,
+        )
     options = payload.get("options") or {}
     if not isinstance(options, dict):
         raise ConversionApiError("PDF_SEARCH_OPTIONS_INVALID", "search options must be a JSON object")
@@ -389,7 +399,7 @@ def _parse_search_request(payload: dict[str, Any]) -> dict:
         raise ConversionApiError("API_PASSWORD_INVALID", "password must be a string when supplied")
     return {
         "sourcePath": payload.get("sourcePath"),
-        "query": payload.get("query"),
+        "query": query,
         "options": normalized,
         "password": password,
     }
