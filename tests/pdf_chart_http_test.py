@@ -82,6 +82,10 @@ class PdfChartHttpTest(unittest.TestCase):
         curve = next(item for item in page["primitives"] if item["kind"] == "curve")
         cubic = next(command for command in curve["path"] if command["op"] == "c")
         self.assertEqual(cubic["points"][0], [30.0, 10.0])
+        evidence_cubic = next(
+            segment for segment in curve["geometry"]["segments"] if segment["op"] == "C"
+        )
+        self.assertEqual(evidence_cubic["c1"], [30.0, 10.0])
         self.assertEqual(vector["interpretation"]["curveDigitization"], "NOT_PERFORMED")
         status, _, data = self._request(
             "POST", "/v1/render-pages", {"sourcePath": str(self.source), "pages": [2]},
