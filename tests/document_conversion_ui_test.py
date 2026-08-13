@@ -42,12 +42,14 @@ class DocumentConversionUiStaticTest(unittest.TestCase):
     def test_ui_exposes_ocr_provenance_and_explicit_page_authority(self):
         renderer = (UI / "ui-render.js").read_text(encoding="utf-8")
         html = (UI / "index.html").read_text(encoding="utf-8")
+        app = (UI / "app.js").read_text(encoding="utf-8")
         self.assertIn("match.extraction === 'ocr'", renderer)
         self.assertIn("match.confidence", renderer)
         self.assertIn('id="page-start"', html)
         self.assertIn('id="page-end"', html)
         self.assertIn('id="search-ocr"', html)
         self.assertIn('id="pdf-password"', html)
+        self.assertIn("withPassword(payload)", app)
 
     def test_ui_has_no_remote_assets(self):
         for path in UI.iterdir():
