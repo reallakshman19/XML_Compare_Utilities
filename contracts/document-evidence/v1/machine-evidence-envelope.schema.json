@@ -13,9 +13,9 @@
     "transforms":{"type":"array","items":{"$ref":"transform.schema.json"}},
     "observations":{"type":"array","items":{"$ref":"observation.schema.json"}},
     "decisions":{"type":"array","items":{"$ref":"decision.schema.json"}},
-    "diagnostics":{"type":"array","items":{"type":"object"}},
-    "providerProfiles":{"type":"array","items":{"type":"object"}},
-    "renderProfiles":{"type":"array","items":{"type":"object"}},
+    "diagnostics":{"type":"array","items":{"$ref":"diagnostic.schema.json"}},
+    "providerProfiles":{"type":"array","items":{"$ref":"provider-profile.schema.json"}},
+    "renderProfiles":{"type":"array","items":{"$ref":"render-profile.schema.json"}},
     "operation":{"type":"string","minLength":1},
     "selection":{"type":"object"},
     "canonicalOptions":{"type":"object"}
