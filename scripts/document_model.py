@@ -9,7 +9,7 @@ from typing import Any
 
 SEMANTIC_SCHEMA_VERSION = "3"
 CANONICALIZATION_VERSION = "3"
-CONVERTER_REVISION = "docx-table-grid-v3"
+CONVERTER_REVISION = "docx-table-render-policy-v1"
 
 
 @dataclass(frozen=True)
