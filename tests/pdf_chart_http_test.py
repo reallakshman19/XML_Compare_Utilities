@@ -22,6 +22,11 @@ class PdfChartHttpTest(unittest.TestCase):
         stream = BytesIO()
         pdf = canvas.Canvas(stream, pagesize=(100, 100))
         pdf.line(10, 10, 90, 90)
+        pdf.rect(20, 20, 30, 20, stroke=1, fill=0)
+        path = pdf.beginPath()
+        path.moveTo(10, 70)
+        path.curveTo(30, 90, 60, 30, 90, 70)
+        pdf.drawPath(path, stroke=1, fill=0)
         pdf.showPage()
         pdf.save()
         self.tmp = tempfile.TemporaryDirectory()
@@ -66,11 +71,18 @@ class PdfChartHttpTest(unittest.TestCase):
         status, content_type, data = self._request("POST", "/v1/render-pages", request)
         self.assertEqual((status, content_type), (200, "application/zip"))
         with zipfile.ZipFile(BytesIO(data)) as archive:
-            self.assertEqual(json.loads(archive.read("manifest.json"))["pages"][0]["page"], 1)
+            manifest = json.loads(archive.read("manifest.json"))
+            self.assertEqual(manifest["pages"][0]["sourcePage"], 1)
         status, _, data = self._request(
             "POST", "/v1/inspect-vectors", {"sourcePath": str(self.source), "pages": [1]},
         )
-        self.assertEqual(json.loads(data)["pages"][0]["counts"]["line"], 1)
+        vector = json.loads(data)
+        page = vector["pages"][0]
+        self.assertEqual(page["counts"], {"line": 1, "rect": 1, "curve": 1})
+        curve = next(item for item in page["primitives"] if item["kind"] == "curve")
+        cubic = next(command for command in curve["path"] if command["op"] == "c")
+        self.assertEqual(cubic["points"][0], [30.0, 10.0])
+        self.assertEqual(vector["interpretation"]["curveDigitization"], "NOT_PERFORMED")
         status, _, data = self._request(
             "POST", "/v1/render-pages", {"sourcePath": str(self.source), "pages": [2]},
         )
