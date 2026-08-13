@@ -1,52 +1,45 @@
 # Document Evidence Contract v1
 
-This directory is the canonical, provider-neutral contract authority for the shared document-evidence platform governed by issue #974.
+This directory is the canonical provider-neutral contract authority for issue #974.
 
 ## Scope
 
-The contract covers source identity, surfaces, coordinate transforms, geometry, provider and render profiles, native-text quality, text/OCR observations, structured diagnostics, evidence decisions, overlays, deterministic machine evidence, and append-only human correction events.
+DocumentEvidence.v1 covers immutable source identity, named surfaces, invertible transforms, provider-neutral geometry, provider/render/font profiles, DOCX semantic and rendered-page identity, native/OCR observations, diagnostics, extraction decisions, table evidence, overlays, deterministic bundles, bounded OCR resources, storage policy, and append-only corrections/effective views.
 
-It does **not** assign engineering, screening, publication, benchmark, or design authority. An `accepted` evidence decision means only that extraction evidence resolves what the identified source surface says.
+`accepted` is extraction authority only. It does not assign downstream publication, benchmark, screening, or design authority.
 
-## Authority and portability
+## Core rules
 
-XML_Compare_Utilities owns these schemas and canonical conformance vectors. Python implementations here and TypeScript implementations in Pdf-Hub must conform to these files; neither implementation is the schema authority and there is no runtime dependency between repositories.
+1. Every coordinate belongs to a named `Surface`.
+2. Every geometry-changing step, including crop, deskew, padding, and resample, has explicit forward/inverse `SurfaceTransform` lineage.
+3. Observations are immutable. Decisions and corrections never rewrite machine observations.
+4. Provider confidence is evidence, not a disagreement tie-breaker.
+5. DOCX page numbers are render-profile-bound; OOXML remains semantic authority and the identified rendered surface is visual/page authority.
+6. Resolved font-file hashes and substitutions are explicit rendered-layout evidence.
+7. Provider-neutral geometry retains exact cubic controls plus style/clip/CTM/image/raw-provider evidence.
+8. Stale source/surface/transform overlays fail closed.
+9. Persistent evidence is not retrieval-eligible without a content-addressed storage policy defining TTL, access scope, eviction, and retained-byte limits.
+10. Diagnostic behavior is governed by `diagnostic-catalog.json`.
 
-## Contract rules
+## Normative contract files
 
-1. Every coordinate is attached to a named `Surface`.
-2. Geometry-changing operations use `SurfaceTransform` forward/inverse matrices.
-3. Machine observations are immutable; decisions and corrections do not rewrite them.
-4. Provider confidence remains raw provider evidence.
-5. `strong` or `mapping_corrupt` native quality requires supporting evidence and an assessment profile bound to the observation provider profile.
-6. DOCX rendered evidence binds a `RenderProfile` including renderer/environment/font/display-policy identity.
-7. Diagnostic severity, retained evidence, blocked use, and reviewer resolution come from `diagnostic-catalog.json`.
-8. Differing normalized numeric values default to `review_required` unless an explicit versioned reconciliation profile says otherwise.
+- source/surface/transform: `source.schema.json`, `surface.schema.json`, `transform.schema.json`
+- geometry: `geometry.schema.json`, `geometry-evidence.schema.json`
+- provider/rendering: `provider-profile.schema.json`, `render-profile.schema.json`, `resolved-font-manifest.schema.json`
+- DOCX: `docx-page-authority.schema.json`, `docx-semantic-content.schema.json`, `docx-semantic-ref.schema.json`, `docx-semantic-visual-map.schema.json`
+- text/evidence: `native-quality.schema.json`, `observation.schema.json`, `decision.schema.json`, `diagnostic.schema.json`, `diagnostic-catalog.json`
+- tables/UI: `table-pass.schema.json`, `table-discovery.schema.json`, `table-extraction.schema.json`, `overlay.schema.json`
+- determinism/portability: `machine-evidence-envelope.schema.json`, `evidence-bundle-manifest.schema.json`, `storage-policy.schema.json`, `ocr-resource-policy.schema.json`
+- review lineage: `correction-event.schema.json`, `effective-evidence-view.schema.json`
+- catalogs/conformance: `openapi.yaml`, `coordinate-conventions.md`, `canonicalization.md`, `conformance/transform-vectors.json`, `conformance/provider-invariants-v1.json`, `conformance/qualification-v1.json`
 
-## Normative files
+## Portability and qualification
 
-- `source.schema.json`
-- `surface.schema.json`
-- `transform.schema.json`
-- `geometry.schema.json`
-- `provider-profile.schema.json`
-- `render-profile.schema.json`
-- `native-quality.schema.json`
-- `observation.schema.json`
-- `diagnostic.schema.json`
-- `diagnostic-catalog.json`
-- `decision.schema.json`
-- `overlay.schema.json`
-- `machine-evidence-envelope.schema.json`
-- `correction-event.schema.json`
-- `coordinate-conventions.md`
-- `canonicalization.md`
-- `openapi.yaml`
-- `conformance/transform-vectors.json`
+XML_Compare_Utilities owns these contracts; other repositories are conformance implementations and do not become independent schema authorities. Provider conformance is based on source/surface/transform/lineage invariants, not exact equality of OCR output between providers.
 
-Provider/render profiles, native-text quality, and diagnostics are normative v1 objects rather than opaque repository-local payloads. Unknown provider coordinate conventions remain representable but are not trusted for coordinate use until resolved.
+The executable reference qualification covers transform round-trip, numeric OCR conflict, DOCX renderer-only drift versus same-profile nondeterminism, cubic-control preservation, deterministic envelope ordering, and source-lineage rejection. No cross-platform bitwise raster guarantee is claimed.
 
-`openapi.yaml` still carries the table-route catalog from the previous contract slice; direct schema files in this directory are authoritative until the OpenAPI component list is synchronized.
+Controlled source targets remain fail-closed until exact source locators are proven against the pinned source. Legacy coordinate artifacts missing source/surface/transform/profile identity require an explicit adapter or rebuild; they are never silently reinterpreted under v1.
 
 ## Versioning
 
