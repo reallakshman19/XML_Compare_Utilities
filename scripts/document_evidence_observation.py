@@ -20,11 +20,12 @@ def make_observation(
     kind: str, source_hash: str, surface: dict, provider: str, provider_version: str,
     raw_text: str, document_geometry: dict, *, provider_profile_hash: str | None = None,
     input_raster_hash: str | None = None, provider_confidence_raw: float | None = None,
-    provider_geometry: dict | None = None, preprocessing_transform_hashes=(),
-    native_quality: dict | None = None, raw_provider_evidence_hash: str | None = None,
-    extensions: dict | None = None,
+    provider_geometry: dict | None = None, provider_surface: dict | None = None,
+    preprocessing_transform_hashes=(), native_quality: dict | None = None,
+    raw_provider_evidence_hash: str | None = None, extensions: dict | None = None,
 ) -> dict:
     _validate_binding(kind, source_hash, surface, provider, provider_version)
+    _validate_provider_geometry(source_hash, provider_geometry, provider_surface)
     identity = _base_identity(
         kind, source_hash, surface, provider, provider_version, raw_text, document_geometry,
     )
@@ -32,6 +33,8 @@ def make_observation(
         "providerProfileHash": provider_profile_hash,
         "inputRasterHash": input_raster_hash,
         "providerGeometry": provider_geometry,
+        "providerSurfaceId": provider_surface.get("surfaceId") if provider_surface else None,
+        "providerSurfaceHash": provider_surface.get("surfaceHash") if provider_surface else None,
         "nativeQuality": native_quality,
         "rawProviderEvidenceHash": raw_provider_evidence_hash,
     }
@@ -56,6 +59,21 @@ def _base_identity(kind, source_hash, surface, provider, provider_version, raw_t
         "rawText": str(raw_text), "normalizedText": normalize_text(raw_text),
         "documentGeometry": document_geometry,
     }
+
+
+def _validate_provider_geometry(source_hash, geometry, provider_surface):
+    if geometry is None:
+        return
+    if provider_surface is None:
+        raise ObservationError(
+            "OBSERVATION_PROVIDER_SURFACE_REQUIRED",
+            "provider geometry requires an explicit provider surface",
+        )
+    if provider_surface.get("sourceHash") != source_hash:
+        raise ObservationError(
+            "EVIDENCE_SOURCE_UNBOUND",
+            "provider surface source does not match observation source",
+        )
 
 
 def _validate_binding(kind, source_hash, surface, provider, provider_version):
