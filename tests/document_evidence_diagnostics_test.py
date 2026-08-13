@@ -1,6 +1,7 @@
 import unittest
 
-from document_evidence_diagnostics import (
+from document_evidence_decision import (
+    DiagnosticError,
     blocked_downstream,
     diagnostic,
     fail_closed_matrix,
@@ -32,6 +33,10 @@ class DiagnosticMatrixTest(unittest.TestCase):
         self.assertEqual(value["severity"], "REVIEW_REQUIRED")
         self.assertEqual(value["subjectId"], "cell:r0:c1")
         self.assertIn("ordinal-cell-shift", value["blockedDownstream"])
+
+    def test_unknown_diagnostic_code_fails_closed(self):
+        with self.assertRaises(DiagnosticError):
+            diagnostic("NOT_A_REAL_CODE")
 
 
 if __name__ == "__main__":
