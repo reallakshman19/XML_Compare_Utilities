@@ -4,7 +4,7 @@
   "title":"MachineEvidenceEnvelope.v1",
   "type":"object",
   "additionalProperties":false,
-  "required":["schema","machineEvidenceHash","source","surfaces","transforms","observations","decisions","diagnostics","operation","selection","canonicalOptions"],
+  "required":["schema","machineEvidenceHash","source","surfaces","transforms","observations","decisions","geometryEvidence","diagnostics","operation","selection","canonicalOptions"],
   "properties":{
     "schema":{"const":"MachineEvidenceEnvelope.v1"},
     "machineEvidenceHash":{"type":"string","minLength":1},
@@ -13,6 +13,7 @@
     "transforms":{"type":"array","items":{"$ref":"transform.schema.json"}},
     "observations":{"type":"array","items":{"$ref":"observation.schema.json"}},
     "decisions":{"type":"array","items":{"$ref":"decision.schema.json"}},
+    "geometryEvidence":{"type":"array","items":{"$ref":"geometry-evidence.schema.json"}},
     "diagnostics":{"type":"array","items":{"$ref":"diagnostic.schema.json"}},
     "providerProfiles":{"type":"array","items":{"$ref":"provider-profile.schema.json"}},
     "renderProfiles":{"type":"array","items":{"$ref":"render-profile.schema.json"}},
