@@ -27,9 +27,12 @@ This inventory is the implementation-time decision record for XML_Compare_Utilit
 | `scripts/document_evidence_ocr_table_assignment.py` | **NEW BOUNDED COORDINATION OWNER** | Assign OCR words only to already-proven table cells by geometry; ambiguous memberships are not guessed. |
 | `scripts/document_evidence_ocr_table_provider.py` | **ADAPTER / COORDINATION** | Builds one OCR observation per reconstructed logical cell and exact OCR TablePass evidence. |
 | `scripts/document_evidence_table_http.py` | **THIN TRANSPORT ADAPTER** | Adds `/v2/tables/discover` and `/v2/tables/extract` on the existing server; contains strict request/resource policy but no table parser. |
+| `scripts/document_evidence_controlled_fixtures.py` | **QUALIFICATION ONLY** | Generates deterministic reviewable born-digital PDF and OOXML DOCX sources for real parser/render/geometry/semantic tests. It is never a production renderer or parser. |
+| `scripts/document_evidence_scanned_fixture.py` | **QUALIFICATION ONLY** | Generates the pinned Pillow image-only low-contrast, rotated/skewed PDF qualification source used to exercise actual PDFium/Tesseract paths. |
+| `scripts/document_evidence_broken_tounicode_fixture.py` | **QUALIFICATION ONLY** | Generates a real PDF with a deliberately corrupt ToUnicode mapping so native extraction can be compared with actual rendered OCR. |
 | `scripts/profiles/ei_aviff_stage5c/source_targets.py` | **DOMAIN PROFILE (L6 OUTSIDE CORE)** | Semantic source-target mapping only. No engineering/screening/design authority. |
 | Pipeline 3D Model OCR table parser(s) | **ADAPT / REFERENCE** | Existing fail-closed reconstruction behavior may inform a reconstruction adapter, but consumer-side parsers are not generic evidence authority. |
-| External Word-to-Table implementation | **REFERENCE_ONLY / PENDING_INSPECTION** | Do not reuse or adapt until exact repository/commit, license, dependencies, tests, coordinate assumptions and failure behavior are inspectable. No qualification claim depends on it. |
+| External Word-to-Table implementation | **REFERENCE_ONLY / PENDING_INSPECTION** | No unique inspectable repository/commit has been identified. Do not reuse or adapt until exact source, license, dependencies, tests, coordinate assumptions and failure behavior are proven. No qualification claim depends on it. |
 | Pdf-Hub OCR/render modules | **ADAPT AFTER OWNER TASK ACTIVATION** | Future TypeScript conformance implementation only; XML contracts remain schema authority and there is no runtime coupling. |
 | 3D_Converters | **CONSUMER ONLY FOR THIS STAGE** | No OCR/reconciliation implementation. Candidate-master/publication/calculation authority remains separate downstream governance. |
 
