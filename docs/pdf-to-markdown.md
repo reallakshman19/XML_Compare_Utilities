@@ -24,6 +24,8 @@ The optional runtime is pinned in `requirements-pdf.txt`:
 ```text
 pdfplumber==0.11.10
 pdfminer.six==20260107
+pypdfium2==5.8.0
+Pillow==12.3.0
 ```
 
 The converter records the actual backend versions in evidence and includes them in the canonical option hash. Running a different backend version therefore cannot masquerade as the same conversion profile.
@@ -77,7 +79,7 @@ Examples of deliberate gates:
 - 20+ vector line/rect/curve objects with usable text -> `TABLE_HEAVY`;
 - less than 20 visible characters with image coverage >= 60% -> `SCANNED`.
 
-An inadequate native text layer emits `PDF_NATIVE_TEXT_INADEQUATE`. No OCR is performed in this slice; canonical options explicitly record `ocr: never`. The diagnostic is the handoff point for the later controlled OCR policy.
+An inadequate native text layer emits `PDF_NATIVE_TEXT_INADEQUATE`. With the controlled OCR layer enabled, that diagnostic/classification becomes the deterministic handoff into `--ocr auto`; healthy born-digital native text remains authoritative and does not invoke OCR.
 
 ## Line reconstruction
 
@@ -137,6 +139,90 @@ Options:
 
 `metadata` is the default. `drop` emits stable diagnostics rather than silently deleting the fact that repeated content existed.
 
+## PDF table reconstruction
+
+PDF tables use two independent candidate strategies through `scripts/pdf_tables.py` and are normalized into the **same** `TableBlock` / `TableCell` semantic model used by DOCX. Table text is removed from the ordinary native-line stream only after a candidate passes the reconciliation gates, preventing duplicate Markdown.
+
+### Ruled/grid strategy
+
+The ruled strategy uses PDF line geometry and is preferred when corroborated. It may infer `rowSpan` / `columnSpan` from explicit geometric cell boundaries. The resulting cell provenance retains page, bbox, extraction method `embedded-table-ruled`, and candidate confidence.
+
+### Whitespace/alignment strategy
+
+The text strategy is deliberately more conservative. It treats each accepted source row ordinal as one logical row and **does not infer rowspan from vertical whitespace gaps**. This prevents blank inter-row space from becoming invented merged cells. Missing physical positions become explicit omitted cells.
+
+Text candidates must satisfy all of the following confidence signals before normalization:
+
+- at least 3 source rows and a conservative non-empty density gate of 0.85;
+- sufficient column whitespace: median per-column cell-width/text-length score at least 9.0;
+- vertical compactness that does not look like prose spread across the page;
+- final confidence at least 0.78.
+
+The whitespace score specifically prevents repeated words in ordinary two-column prose from being promoted to a 10- or 15-column table merely because word starts align across lines. A generated two-column regression fixture verifies that this remains prose and continues through the reading-order algorithm.
+
+### Reconciliation / ambiguity
+
+Ruled candidates require confidence at least 0.85. Low-confidence candidates are diagnosed and removed **before** cross-strategy conflict checks, so a weak text false positive cannot veto a strong ruled table.
+
+When two high-confidence candidates overlap by at least 70% IoU:
+
+- same row/column shape -> prefer ruled (when present) and add corroboration confidence;
+- different shape -> reject the conflicting reconstruction and emit `PDF_TABLE_AMBIGUOUS`.
+
+Contained duplicate candidates are suppressed with `PDF_TABLE_DUPLICATE_CANDIDATE`. Candidates below their strategy threshold emit `PDF_TABLE_LOW_CONFIDENCE`. Backend strategy failures retain native text and emit `PDF_TABLE_EXTRACTION_FAILED` rather than silently deleting page content.
+
+Accepted tables are recorded in page evidence with strategy, bbox, confidence, row/column count, and reasons. Pages containing accepted tables are classified `TABLE_HEAVY` unless the stronger `ENGINEERING_DRAWING` classification already applies.
+
+### Rendering
+
+PDF tables use the shared table renderer policy:
+
+```text
+--table-mode auto|markdown|html|records
+```
+
+Simple rectangular PDF tables may render as GFM with synthetic `Column N` labels; merged/omitted structures use HTML; wide tables use record-oriented output. Unsafe explicit Markdown requests fall back via the same `TABLE_RENDER_MODE_FALLBACK` contract used for DOCX.
+
+## Controlled OCR fallback
+
+OCR is a page-level fallback over the native/table semantic document, not a whole-document replacement. The PDF CLI supports:
+
+```text
+--ocr auto|always|never
+--ocr-language eng
+--ocr-confidence-min 0.70
+--ocr-scale 2.0
+--ocr-max-pixels 16000000
+--ocr-memory-mb 64
+--ocr-max-pages 100
+--ocr-max-job-pixels 250000000
+--ocr-timeout 60
+```
+
+`auto` is the default. It skips healthy `BORN_DIGITAL`, `MIXED`, and adequately extracted `TABLE_HEAVY` pages. It requests OCR for `SCANNED`, `IMAGE_HEAVY`, `UNKNOWN`, or otherwise inadequate native text. `always` forces OCR for qualification/debug use; `never` disables it. The decision and reason are recorded per page.
+
+### Raster and memory limits
+
+`PdfiumRasterizer` uses the pinned `pypdfium2` runtime and converts the selected page only. The requested scale is clamped before rendering by both the pixel ceiling and a peak-memory working-set estimate. The working-set estimate uses 10 bytes/pixel to reserve headroom for the RGBA bitmap plus PIL/image-conversion and PNG-encoder buffers; the post-render dimensions are checked again. A scale below the configured minimum is rejected with `OCR_RASTER_LIMIT_EXCEEDED` rather than rendering an unbounded page.
+
+The job also enforces page count and total raster-pixel budgets. Exceeding those limits is fatal (`OCR_PAGE_LIMIT_EXCEEDED` / `OCR_JOB_PIXEL_LIMIT_EXCEEDED`) so a hostile or accidentally huge PDF cannot silently consume unbounded OCR resources.
+
+### Tesseract boundary and language policy
+
+OCR recognition uses the Tesseract CLI directly with TSV output; there is no shell invocation and no `pytesseract` runtime dependency. Tesseract is a separately deployed system dependency (5.x in the qualified environment) and its actual version is recorded in evidence/canonical options whenever OCR runs. `pypdfium2`'s actual version is recorded the same way. The selected language expression is restricted to a conservative alphanumeric/`_+.-` grammar before it reaches the CLI.
+
+The pinned Python OCR dependencies are `pypdfium2==5.8.0` and `Pillow==12.3.0`. The qualified local package metadata reports pypdfium2's bundled license set as BSD-3-Clause/Apache-2.0 plus dependency licenses; the deployed Tesseract 5.5.0 package declares Apache-2.0. Release/container builds should pin the system Tesseract package explicitly and rerun the real-backend OCR fixture.
+
+### Confidence, provenance, and native/OCR merge
+
+Tesseract words are converted back from raster pixels to top-left PDF-point coordinates. Evidence retains word/line/paragraph text, bbox and confidence plus engine/rasterizer versions, raster dimensions/scale, pixel count, and the page-level decision reason. Semantic OCR paragraphs use `extraction: ocr` and carry confidence in their provenance.
+
+Native content remains authoritative on overlap. OCR blocks that substantially overlap native paragraphs are discarded when normalized text and engineering numeric tokens agree; materially different overlaps emit `OCR_NATIVE_CONFLICT` and keep the native value. OCR overlapping a native semantic table is treated as duplicate table text, preventing a second flattened copy of engineering cells.
+
+Canonical OCR text is accepted only when page confidence meets `--ocr-confidence-min` (default 0.70). Empty/low-confidence results produce an explicit page marker (`OCR_TEXT_EMPTY` or `OCR_LOW_CONFIDENCE`) rather than guessed text. OCR on layout-unsafe pages such as engineering drawings is not promoted to ordinary paragraphs unless the existing semantic structure makes the merge safe; otherwise `OCR_LAYOUT_UNRESOLVED` is emitted with a visible marker.
+
+The OCR mode, language, thresholds, raster budgets, timeout, OCR revision, and invoked engine/rasterizer versions participate in the canonical option identity. This prevents conversions produced by different OCR engines/versions or policies from masquerading as the same artifact.
+
 ## Security and resource gates
 
 The native backend fails closed for:
@@ -168,13 +254,10 @@ Runtime timestamps and random UUIDs are not emitted.
 
 ## Current limitations
 
-This slice is intentionally **native positioned extraction + reading order**, not the entire PDF roadmap.
+The implemented PDF path now includes native positioned extraction, reading order, conservative ruled/whitespace table normalization, and controlled page-level OCR fallback with native/OCR deduplication.
 
 Still deferred:
 
-- PDF table regions normalized into the shared semantic table model;
-- controlled OCR (`--ocr auto|always|never`) and OCR/native merge;
-- raster memory/timeout/language/confidence policy;
 - engineering-drawing region extraction;
 - figures/images as PDF assets;
 - sophisticated side-note/caption graph reconstruction beyond the current column/anchor model.
