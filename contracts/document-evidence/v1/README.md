@@ -4,7 +4,7 @@ This directory is the canonical, provider-neutral contract authority for the sha
 
 ## Scope
 
-The contract covers source identity, surfaces, coordinate transforms, geometry, text/OCR observations, evidence decisions, overlays, deterministic machine evidence, and append-only human correction events.
+The contract covers source identity, surfaces, coordinate transforms, geometry, provider and render profiles, native-text quality, text/OCR observations, structured diagnostics, evidence decisions, overlays, deterministic machine evidence, and append-only human correction events.
 
 It does **not** assign engineering, screening, publication, benchmark, or design authority. An `accepted` evidence decision means only that extraction evidence resolves what the identified source surface says.
 
@@ -15,23 +15,26 @@ XML_Compare_Utilities owns these schemas and canonical conformance vectors. Pyth
 ## Contract rules
 
 1. Every coordinate is attached to a named `Surface`.
-2. Every geometry-changing operation is represented by a `SurfaceTransform` with forward and inverse 3x3 matrices.
-3. Machine observations are immutable.
-4. Evidence decisions do not mutate observations.
-5. Human corrections are append-only events outside deterministic machine evidence.
-6. Provider confidence is raw provider evidence unless a separately identified calibration model exists.
-7. Non-axis-aligned geometry is a polygon or quad; an axis-aligned bbox is derived only.
-8. Stale source or transform references fail closed for aligned overlays.
-9. Differing normalized numeric values default to `review_required`; a non-zero tolerance requires a separately versioned reconciliation profile.
-10. Machine evidence identity excludes execution-time noise but includes provider, source, surface, and transform differences that can change meaning.
+2. Geometry-changing operations use `SurfaceTransform` forward/inverse matrices.
+3. Machine observations are immutable; decisions and corrections do not rewrite them.
+4. Provider confidence remains raw provider evidence.
+5. `strong` or `mapping_corrupt` native quality requires supporting evidence and an assessment profile bound to the observation provider profile.
+6. DOCX rendered evidence binds a `RenderProfile` including renderer/environment/font/display-policy identity.
+7. Diagnostic severity, retained evidence, blocked use, and reviewer resolution come from `diagnostic-catalog.json`.
+8. Differing normalized numeric values default to `review_required` unless an explicit versioned reconciliation profile says otherwise.
 
-## Files
+## Normative files
 
 - `source.schema.json`
 - `surface.schema.json`
 - `transform.schema.json`
 - `geometry.schema.json`
+- `provider-profile.schema.json`
+- `render-profile.schema.json`
+- `native-quality.schema.json`
 - `observation.schema.json`
+- `diagnostic.schema.json`
+- `diagnostic-catalog.json`
 - `decision.schema.json`
 - `overlay.schema.json`
 - `machine-evidence-envelope.schema.json`
@@ -41,7 +44,7 @@ XML_Compare_Utilities owns these schemas and canonical conformance vectors. Pyth
 - `openapi.yaml`
 - `conformance/transform-vectors.json`
 
-Provider/render profile schemas and the structured diagnostic catalog are the next contract extension before runtime migration. Until then, profile and diagnostic objects in the machine envelope are opaque extension points and implementations must not invent incompatible shared semantics.
+Provider/render profiles, native-text quality, and diagnostics are normative v1 objects rather than opaque repository-local payloads. Unknown provider coordinate conventions remain representable but are not trusted for coordinate use until resolved.
 
 ## Versioning
 
