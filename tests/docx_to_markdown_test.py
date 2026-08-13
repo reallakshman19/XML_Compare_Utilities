@@ -43,6 +43,9 @@ DOCUMENT_XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </w:document>
 """
 
+EXPECTED_HTML = '# Example Heading\n\nAlpha\tBeta\nGamma\n\n---\n\nAfter page break\n\n<table>\n  <tr>\n    <td colspan="2">A &amp; B</td>\n    <td>Outer<br><table>\n  <tr>\n    <td>Nested 1</td>\n    <td>Nested 2</td>\n  </tr>\n</table></td>\n  </tr>\n</table>\n'
+EXPECTED_TSV = '# Example Heading\n\nAlpha\tBeta\nGamma\n\n---\n\nAfter page break\n\nA & B\tOuter Nested 1 | Nested 2\n'
+
 
 def build_docx(path: Path):
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as package:
@@ -66,18 +69,13 @@ class DocxToMarkdownTest(unittest.TestCase):
 
     def test_html_mode_preserves_order_breaks_and_table_structure(self):
         markdown, stats, _ = self.run_converter("html")
-        self.assertIn("# Example Heading", markdown)
-        self.assertIn("Alpha\tBeta\nGamma", markdown)
-        self.assertIn("---\n\nAfter page break", markdown)
-        self.assertIn('<td colspan="2">A &amp; B</td>', markdown)
-        self.assertIn("Nested 1", markdown)
-        self.assertIn("Nested 2", markdown)
+        self.assertEqual(markdown, EXPECTED_HTML)
         self.assertEqual(stats["tables"], 1)
         self.assertEqual(stats["nonempty_text_nodes"], 9)
 
     def test_tsv_mode_preserves_table_text_and_reports_hashes(self):
         markdown, stats, _ = self.run_converter("tsv")
-        self.assertIn("A & B\tOuter Nested 1 | Nested 2", markdown)
+        self.assertEqual(markdown, EXPECTED_TSV)
         self.assertEqual(len(stats["source_git_blob_sha"]), 40)
         self.assertEqual(len(stats["output_sha256"]), 64)
         self.assertEqual(stats["table_format"], "tsv")
