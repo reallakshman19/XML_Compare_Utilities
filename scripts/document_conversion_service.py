@@ -8,6 +8,17 @@ from pathlib import Path
 from typing import Any
 
 from pdf_page_range import PageRange, PageRangeError, make_page_range_backends
+from pdf_search_index import (
+    DEFAULT_MAX_CACHE_DOCUMENTS,
+    DEFAULT_MAX_INDEX_CHARS,
+    DEFAULT_MAX_SEARCH_RESULTS,
+    PDF_SEARCH_INDEX_REVISION,
+    PdfSearchError,
+    PdfSearchIndexCache,
+    build_pdf_search_index,
+    index_metadata,
+    search_pdf_index,
+)
 
 API_SCHEMA = "DocumentConversionApi.v1"
 DEFAULT_MAX_SOURCE_BYTES = 512 * 1024 * 1024
@@ -23,6 +34,7 @@ _ALLOWED_OPTION_KEYS = {
     "engineeringRegions",
     "revisions",
 }
+_ALLOWED_SEARCH_OPTION_KEYS = {"caseSensitive", "wholeWord", "useRegex"}
 
 
 class ConversionApiError(ValueError):
@@ -41,6 +53,9 @@ class ConversionServiceConfig:
     max_source_bytes: int = DEFAULT_MAX_SOURCE_BYTES
     max_range_pages: int = DEFAULT_MAX_RANGE_PAGES
     max_source_pages: int = 2000
+    max_search_index_chars: int = DEFAULT_MAX_INDEX_CHARS
+    max_search_results: int = DEFAULT_MAX_SEARCH_RESULTS
+    max_search_cache_documents: int = DEFAULT_MAX_CACHE_DOCUMENTS
 
     def __post_init__(self) -> None:
         if not self.allowed_roots:
@@ -49,8 +64,16 @@ class ConversionServiceConfig:
                 "at least one allowed source root is required",
                 500,
             )
-        if self.max_source_bytes <= 0 or self.max_range_pages <= 0 or self.max_source_pages <= 0:
-            raise ConversionApiError("API_POLICY_INVALID", "conversion service limits must be positive", 500)
+        limits = (
+            self.max_source_bytes,
+            self.max_range_pages,
+            self.max_source_pages,
+            self.max_search_index_chars,
+            self.max_search_results,
+            self.max_search_cache_documents,
+        )
+        if min(limits) <= 0:
+            raise ConversionApiError("API_POLICY_INVALID", "conversion/search service limits must be positive", 500)
 
     @classmethod
     def from_roots(
@@ -60,14 +83,27 @@ class ConversionServiceConfig:
         max_source_bytes: int = DEFAULT_MAX_SOURCE_BYTES,
         max_range_pages: int = DEFAULT_MAX_RANGE_PAGES,
         max_source_pages: int = 2000,
+        max_search_index_chars: int = DEFAULT_MAX_INDEX_CHARS,
+        max_search_results: int = DEFAULT_MAX_SEARCH_RESULTS,
+        max_search_cache_documents: int = DEFAULT_MAX_CACHE_DOCUMENTS,
     ) -> "ConversionServiceConfig":
         resolved = tuple(Path(root).expanduser().resolve(strict=True) for root in roots)
-        return cls(resolved, max_source_bytes, max_range_pages, max_source_pages)
+        return cls(
+            resolved,
+            max_source_bytes,
+            max_range_pages,
+            max_source_pages,
+            max_search_index_chars,
+            max_search_results,
+            max_search_cache_documents,
+        )
 
 
 class DocumentConversionService:
-    def __init__(self, config: ConversionServiceConfig):
+    def __init__(self, config: ConversionServiceConfig, *, search_backend=None):
         self.config = config
+        self._search_backend = search_backend
+        self._search_cache = PdfSearchIndexCache(config.max_search_cache_documents)
 
     def convert(self, payload: dict[str, Any]) -> dict:
         request = _parse_request(payload, self.config)
@@ -100,6 +136,51 @@ class DocumentConversionService:
                 "sizeBytes": len(source_bytes),
             },
             "pageRange": request["pageRange"].to_dict() if request["pageRange"] else None,
+        })
+        return result
+
+    def search(self, payload: dict[str, Any]) -> dict:
+        request = _parse_search_request(payload)
+        resolved = resolve_source_path(request["sourcePath"], self.config.allowed_roots)
+        if resolved.suffix.lower() != ".pdf":
+            raise ConversionApiError(
+                "PDF_SEARCH_SOURCE_REQUIRED",
+                "PDF search currently supports .pdf sources only",
+                415,
+            )
+        source_bytes = _read_bounded(resolved, self.config.max_source_bytes)
+        source_sha = hashlib.sha256(source_bytes).hexdigest()
+        cache_key = _search_cache_key(source_sha, request["password"])
+        try:
+            index, cache_hit = self._search_cache.get_or_build(
+                cache_key,
+                lambda: build_pdf_search_index(
+                    source_bytes,
+                    backend=self._search_backend,
+                    password=request["password"],
+                    max_pages=self.config.max_source_pages,
+                    max_index_chars=self.config.max_search_index_chars,
+                ),
+            )
+            result = search_pdf_index(
+                index,
+                request["query"],
+                case_sensitive=request["options"]["caseSensitive"],
+                whole_word=request["options"]["wholeWord"],
+                max_results=self.config.max_search_results,
+            )
+        except PdfSearchError as exc:
+            raise ConversionApiError(exc.code, str(exc), 422) from exc
+
+        result.update({
+            "source": {
+                "logicalPath": request["sourcePath"],
+                "type": "pdf",
+                "sha256": f"sha256:{source_sha}",
+                "sizeBytes": len(source_bytes),
+            },
+            "index": index_metadata(index, cache_hit=cache_hit),
+            "diagnostics": _search_diagnostics(index),
         })
         return result
 
@@ -280,6 +361,40 @@ def _parse_request(payload: dict[str, Any], config: ConversionServiceConfig) -> 
     }
 
 
+def _parse_search_request(payload: dict[str, Any]) -> dict:
+    if not isinstance(payload, dict):
+        raise ConversionApiError("API_REQUEST_INVALID", "request body must be a JSON object")
+    unknown = sorted(set(payload) - {"sourcePath", "query", "options", "password"})
+    if unknown:
+        raise ConversionApiError("PDF_SEARCH_REQUEST_FIELD_UNKNOWN", f"unknown search fields: {', '.join(unknown)}")
+    options = payload.get("options") or {}
+    if not isinstance(options, dict):
+        raise ConversionApiError("PDF_SEARCH_OPTIONS_INVALID", "search options must be a JSON object")
+    unknown_options = sorted(set(options) - _ALLOWED_SEARCH_OPTION_KEYS)
+    if unknown_options:
+        raise ConversionApiError("PDF_SEARCH_OPTION_UNKNOWN", f"unknown search options: {', '.join(unknown_options)}")
+    normalized = {
+        "caseSensitive": _bool_option("caseSensitive", options.get("caseSensitive", False)),
+        "wholeWord": _bool_option("wholeWord", options.get("wholeWord", False)),
+        "useRegex": _bool_option("useRegex", options.get("useRegex", False)),
+    }
+    if normalized["useRegex"]:
+        raise ConversionApiError(
+            "PDF_SEARCH_REGEX_UNSUPPORTED",
+            "regex search is disabled in API v1; use literal search with optional wholeWord",
+            422,
+        )
+    password = payload.get("password")
+    if password is not None and not isinstance(password, str):
+        raise ConversionApiError("API_PASSWORD_INVALID", "password must be a string when supplied")
+    return {
+        "sourcePath": payload.get("sourcePath"),
+        "query": payload.get("query"),
+        "options": normalized,
+        "password": password,
+    }
+
+
 def _parse_pages(value, max_range_pages: int) -> PageRange | None:
     if value is None:
         return None
@@ -332,6 +447,12 @@ def _choice(name: str, value, allowed: set[str]) -> None:
         raise ConversionApiError("API_OPTION_INVALID", f"{name} must be one of: {', '.join(sorted(allowed))}")
 
 
+def _bool_option(name: str, value) -> bool:
+    if not isinstance(value, bool):
+        raise ConversionApiError("PDF_SEARCH_OPTION_INVALID", f"{name} must be boolean")
+    return value
+
+
 def _pdf_kwargs(request: dict) -> dict:
     options = request["options"]
     return {
@@ -355,6 +476,27 @@ def _docx_kwargs(request: dict) -> dict:
         "footer_mode": options["footers"],
         "image_mode": options["images"],
     }
+
+
+def _search_cache_key(source_sha: str, password: str | None) -> str:
+    password_key = "none"
+    if password is not None:
+        password_key = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return f"{PDF_SEARCH_INDEX_REVISION}:{source_sha}:{password_key}"
+
+
+def _search_diagnostics(index) -> list[dict]:
+    if not index.pages_without_native_text:
+        return []
+    return [{
+        "code": "PDF_SEARCH_NATIVE_TEXT_INCOMPLETE",
+        "severity": "WARNING",
+        "message": (
+            f"{len(index.pages_without_native_text)} page(s) contain no searchable native text; "
+            "OCR-derived search indexing is not enabled in this PDF search slice"
+        ),
+        "provenance": {"source_type": "pdf"},
+    }]
 
 
 def _read_bounded(path: Path, max_bytes: int) -> bytes:
