@@ -119,7 +119,12 @@ def render_table_html(table: TableBlock, indent: int = 0) -> str:
     for row in table.rows:
         lines.append(prefix + "  <tr>")
         for cell in row.cells:
-            attr = f' colspan="{cell.column_span}"' if cell.column_span != 1 else ""
+            attributes = []
+            if cell.column_span != 1:
+                attributes.append(f'colspan="{cell.column_span}"')
+            if cell.row_span != 1:
+                attributes.append(f'rowspan="{cell.row_span}"')
+            attr = f" {' '.join(attributes)}" if attributes else ""
             lines.append(prefix + f"    <td{attr}>{render_cell_html(cell)}</td>")
         lines.append(prefix + "  </tr>")
     lines.append(prefix + "</table>")
@@ -130,9 +135,10 @@ def flatten_block_text(block) -> str:
     if isinstance(block, ParagraphBlock):
         return block.text.replace("\t", " ").replace("\n", " ")
     if isinstance(block, TableBlock):
+        rows = block.position_rows or block.source_rows or block.rows
         return " / ".join(
             " | ".join(flatten_cell_text(cell) for cell in row.cells)
-            for row in block.rows
+            for row in rows
         )
     if isinstance(block, UnsupportedBlock):
         return f"⟦{block.code}⟧"
@@ -146,9 +152,10 @@ def flatten_cell_text(cell: TableCell) -> str:
 
 
 def render_table_tsv(table: TableBlock) -> str:
+    rows = table.position_rows or table.source_rows or table.rows
     return "\n".join(
         "\t".join(flatten_cell_text(cell) for cell in row.cells)
-        for row in table.rows
+        for row in rows
     )
 
 
