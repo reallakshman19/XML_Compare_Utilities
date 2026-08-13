@@ -6,19 +6,46 @@ The DOCX path now builds an OOXML package graph before parsing the Word body. It
 
 ## Usage
 
-Faithful table structure using HTML tables inside Markdown:
+Legacy HTML table rendering remains the no-flag/default behavior:
 
 ```bash
-python scripts/docx_to_markdown.py input.docx --output output.md --table-format html --stats-json
+python scripts/docx_to_markdown.py input.docx --output output.md --stats-json
 ```
 
-Compact table transcription using tab-separated rows:
+The compatibility flags remain available:
 
 ```bash
-python scripts/docx_to_markdown.py input.docx --output output.md --table-format tsv --stats-json
+python scripts/docx_to_markdown.py input.docx --table-format html
+python scripts/docx_to_markdown.py input.docx --table-format tsv
 ```
 
-The default table format is `html`.
+Comparison-grade semantic table policy is opt-in through:
+
+```bash
+python scripts/docx_to_markdown.py input.docx --table-mode auto
+python scripts/docx_to_markdown.py input.docx --table-mode markdown
+python scripts/docx_to_markdown.py input.docx --table-mode html
+python scripts/docx_to_markdown.py input.docx --table-mode records
+```
+
+`--table-format` and `--table-mode` are mutually exclusive. The legacy default remains HTML so existing users do not silently receive a different canonical document.
+
+## Table renderer policy
+
+`scripts/table_rendering.py` classifies the already-normalized semantic table; it does not re-parse OOXML or infer a header row.
+
+Deterministic `auto` policy:
+
+- `SIMPLE`: rectangular table with no merges, omissions or nested tables -> GFM Markdown;
+- `WIDE_ENGINEERING`: at least 8 logical columns, otherwise structurally simple -> record-oriented rendering;
+- `COMPLEX_MERGED`: any rowspan, colspan or omitted logical position -> HTML;
+- `NESTED`: nested table content -> HTML.
+
+GFM output uses synthetic `Column 1`, `Column 2`, ... labels and emits every source row as data. This deliberately avoids inventing table-header semantics merely because GFM syntax requires a header row.
+
+Record-oriented output preserves logical coordinates such as `C1-C2 (R1-R2)` and uses explicit `⟦EMPTY⟧` / `⟦OMITTED⟧` markers. An explicit unsafe request, such as `--table-mode markdown` for a merged table, falls back to HTML and emits `TABLE_RENDER_MODE_FALLBACK`; it never flattens spans into shifted pipe columns.
+
+Evidence emitted with `--table-mode` includes a deterministic `tableRendering` decision for each table: requested mode, resolved renderer, classification and reasons. Renderer fallback diagnostics are also added to canonical evidence diagnostics.
 
 ## Integrity gates
 
@@ -41,7 +68,8 @@ The reported statistics include:
 - generated Markdown SHA-256 and byte count;
 - top-level paragraph and table counts;
 - count of non-empty Word text nodes;
-- selected table rendering mode;
+- legacy table format and optional semantic table mode;
+- resolved table renderers and fallback count;
 - semantic schema and canonicalization versions;
 - canonical options hash;
 - package part, relationship, style, numbering-instance and content-type counts.
@@ -50,7 +78,7 @@ The Git blob identity is calculated using Git's canonical `blob <size>\0<bytes>`
 
 ## Semantic model and evidence
 
-Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it now parses into semantic paragraph, page-break, and table objects before rendering Markdown.
+Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it parses into semantic paragraph, page-break and table objects before rendering Markdown.
 
 Deterministic evidence can be emitted without changing normal Markdown output:
 
@@ -58,14 +86,16 @@ Deterministic evidence can be emitted without changing normal Markdown output:
 python scripts/docx_to_markdown.py input.docx \
   --output output.md \
   --evidence output.evidence.json \
-  --table-format html
+  --table-mode auto
 ```
 
 Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema/canonicalization versions, profile/options identity, stable source-derived block IDs, DOCX part/index provenance, effective style/list metadata, hyperlink targets, table cell coordinates/spans, package metadata and stable diagnostics. Table evidence distinguishes physical `sourceRows`, placeholder-expanded `positionRows`, and normalized logical `rows`; canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
 
+This renderer-policy slice changes the converter revision but intentionally keeps semantic schema and canonicalization at v3: existing `--table-format html|tsv` behavior is unchanged, while `tableMode` is a new canonical option rather than a migration of an existing option.
+
 ## OOXML package, styles and numbering
 
-The primary `convert_docx_bytes()` path now resolves package context instead of treating `word/document.xml` as the whole document. `convert_document_xml()` remains available as a compatibility path for callers that intentionally supply only the main XML part; it cannot resolve package relationships, styles or numbering that are absent from that input.
+The primary `convert_docx_bytes()` path resolves package context instead of treating `word/document.xml` as the whole document. `convert_document_xml()` remains available as a compatibility path for callers that intentionally supply only the main XML part; it cannot resolve package relationships, styles or numbering that are absent from that input.
 
 Heading inference uses deterministic priority: direct `w:outlineLvl`, inherited style `w:outlineLvl`, then recognized `Heading1`-`Heading6` style identifiers/names. A large/bold formatting heuristic is intentionally not used. Style `w:basedOn` inheritance is retained in evidence.
 
@@ -85,7 +115,7 @@ The semantic table keeps three deliberately different views:
 
 An explicit empty `w:tc` remains a cell. A missing position implied by `gridBefore`, `gridAfter`, or a shorter irregular row becomes an `omitted` logical placeholder. A continuation without a matching restart emits `TABLE_VERTICAL_MERGE_ORPHAN`; malformed merge values and irregular row widths also emit stable diagnostics instead of moving values to guessed columns.
 
-HTML rendering uses the normalized grid and emits `rowspan`/`colspan`. Legacy `--table-format tsv` intentionally remains a compact compatibility transcription based on `positionRows`; evidence is the authoritative source for merged-cell coordinates. A later renderer-policy slice will introduce comparison-grade automatic selection between GFM/HTML/records for complex or wide tables.
+HTML rendering uses the normalized grid and emits `rowspan`/`colspan`. Legacy `--table-format tsv` intentionally remains a compact compatibility transcription based on `positionRows`; evidence is the authoritative source for merged-cell coordinates.
 
 Full revision modes, notes/comments, image extraction, field-forensic evidence, headers/footers, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
 
@@ -100,14 +130,18 @@ That controlled source was identified as:
 - path: `Energy-Institute-AVIFF---Worked-Examples.doc.docx`;
 - Git blob SHA: `ceee15ed5f7f320045d5f3979024e2e8664613f2`.
 
-For source-review work, prefer `--table-format html` because it retains table and colspan structure. Use `--table-format tsv` when a compact, text-oriented transcription is more useful.
+For source-review work, use `--table-mode auto` when mixed simple/complex/wide tables should select the safest representation. Use explicit HTML for source-faithful span review, and legacy TSV only when compact compatibility transcription is specifically required.
 
 ## Focused validation
 
-Run the standalone standard-library test:
+Run the standalone suites:
 
 ```bash
 python tests/docx_to_markdown_test.py
+python tests/table_rendering_test.py
+python tests/table_mode_wiring_test.py
 ```
 
-The focused suite covers the legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior, ZIP path-traversal rejection, `gridSpan` + `vMerge` interaction, physical empty cells, omitted positions from `gridBefore`, logical-column invariants, and orphan vertical-merge diagnostics.
+The existing DOCX suite covers legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior, ZIP path-traversal rejection, `gridSpan` + `vMerge` interaction, physical empty cells, omitted positions from `gridBefore`, logical-column invariants, and orphan vertical-merge diagnostics.
+
+The renderer suites cover simple GFM selection without header inference, merged/nested HTML selection, wide record rendering, explicit empty/omitted markers, span coordinates, unsafe explicit-mode fallback, legacy HTML default wiring and semantic table-mode CLI exposure.
