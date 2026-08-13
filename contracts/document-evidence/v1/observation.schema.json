@@ -5,6 +5,7 @@
   "type":"object",
   "additionalProperties":false,
   "required":["schema","observationId","observationHash","kind","sourceHash","surfaceId","surfaceHash","provider","providerVersion","rawText","normalizedText","documentGeometry"],
+  "dependentRequired":{"providerGeometry":["providerSurfaceId","providerSurfaceHash"]},
   "properties":{
     "schema":{"const":"Observation.v1"},
     "observationId":{"type":"string","minLength":1},
@@ -21,6 +22,8 @@
     "normalizedText":{"type":"string"},
     "providerConfidenceRaw":{"type":["number","null"]},
     "providerGeometry":{"$ref":"geometry.schema.json"},
+    "providerSurfaceId":{"type":"string","minLength":1},
+    "providerSurfaceHash":{"type":"string","minLength":1},
     "documentGeometry":{"$ref":"geometry.schema.json"},
     "preprocessingTransformHashes":{"type":"array","items":{"type":"string","minLength":1}},
     "nativeQuality":{"type":"object"},
