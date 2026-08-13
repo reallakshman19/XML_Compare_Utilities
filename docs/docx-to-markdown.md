@@ -91,7 +91,7 @@ python scripts/docx_to_markdown.py input.docx \
 
 Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema/canonicalization versions, profile/options identity, stable source-derived block IDs, DOCX part/index provenance, effective style/list metadata, hyperlink targets, table cell coordinates/spans, package metadata and stable diagnostics. Table evidence distinguishes physical `sourceRows`, placeholder-expanded `positionRows`, and normalized logical `rows`; canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
 
-This renderer-policy slice changes the converter revision but intentionally keeps semantic schema and canonicalization at v3: existing `--table-format html|tsv` behavior is unchanged, while `tableMode` is a new canonical option rather than a migration of an existing option.
+The renderer-policy slice changed the converter revision while keeping semantic schema/canonicalization at v3 because existing `--table-format html|tsv` behavior was unchanged. The advanced DOCX revision/note slice below intentionally advances both semantic schema and canonicalization to v4.
 
 ## OOXML package, styles and numbering
 
@@ -101,7 +101,7 @@ Heading inference uses deterministic priority: direct `w:outlineLvl`, inherited 
 
 Numbering resolves `numId -> w:num -> abstractNumId -> w:abstractNum -> ilvl`, including `startOverride` and level overrides. Markdown uses `-` for bullet levels and `1.` for ordered levels while evidence retains Word `numFmt`, `lvlText`, start and level so source semantics are not invented.
 
-Paragraph parsing is child-order aware. Content controls (`w:sdt`) are expanded in place; external hyperlinks are rendered from relationship targets without fetching them; complex field instructions are suppressed while displayed field results are retained; and the current deliberate revision policy is **accepted** (`w:ins`/`w:moveTo` retained, `w:del`/`w:moveFrom` suppressed). Missing relationships/styles/numbering produce stable diagnostics rather than guessed values.
+Paragraph parsing is child-order aware. Content controls (`w:sdt`) are expanded in place; external hyperlinks are rendered from relationship targets without fetching them; complex field instructions are suppressed while displayed field results are retained. Missing relationships/styles/numbering produce stable diagnostics rather than guessed values.
 
 ## Word table grid normalization
 
@@ -117,7 +117,30 @@ An explicit empty `w:tc` remains a cell. A missing position implied by `gridBefo
 
 HTML rendering uses the normalized grid and emits `rowspan`/`colspan`. Legacy `--table-format tsv` intentionally remains a compact compatibility transcription based on `positionRows`; evidence is the authoritative source for merged-cell coordinates.
 
-Full revision modes, notes/comments, image extraction, field-forensic evidence, headers/footers, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
+## Revisions, notes, comments, fields and running content
+
+The DOCX package path supports `--revisions accepted|rejected|markup` (default `accepted`). Revision selection is performed before the normal OOXML traversal so deleted and moved content is never accidentally included by descendant-text extraction.
+
+- `accepted`: `w:ins` / `w:moveTo` are retained; `w:del` / `w:moveFrom` are removed.
+- `rejected`: `w:del` / `w:moveFrom` are retained; `w:ins` / `w:moveTo` are removed.
+- `markup`: all four are retained. Inline revisions become semantic revision nodes and render as deterministic `<ins>` / `<del>` markup. Author/date metadata stays in evidence rather than readable prose. Block-level revisions are retained but emit `DOCX_BLOCK_REVISION_MARKUP_LIMITED` when an inline tag cannot safely span block boundaries.
+
+Footnote and endnote references are typed semantic references. Definitions are parsed from `word/footnotes.xml` / `word/endnotes.xml`, skip separator pseudo-notes, respect the selected revision mode, and render as deterministic `[^fnN]` / `[^enN]` definitions. Comments are parsed from `word/comments.xml` and remain evidence-only by default; comment author/date are retained.
+
+Complex and simple Word field instructions/results are recorded in forensic metadata (`metadata.fields`). Readable Markdown still uses the displayed field result; instructions such as `REF`, `PAGEREF`, `SEQ`, `PAGE`, etc. do not leak into the readable text merely because they exist in `w:instrText`.
+
+Running headers/footers use explicit policy flags:
+
+```bash
+--headers keep|metadata|drop
+--footers keep|metadata|drop
+```
+
+The default is `metadata`: running content is retained with source-part provenance but not duplicated in body Markdown. `keep` emits clearly labeled source-part blocks before/after the document body; this deliberately does **not** claim section-placement reconstruction. `drop` removes the running text from evidence and emits stable `DOCX_HEADER_DROPPED` / `DOCX_FOOTER_DROPPED` diagnostics so the loss is intentional rather than silent.
+
+This slice bumps semantic schema and canonicalization to v4 because notes/revisions add semantic types and previously suppressed note content can now alter canonical Markdown.
+
+Deterministic image extraction/captions, section-aware header/footer association, richer field-type interpretation, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
 
 ## EI AVIFF conversion provenance
 
@@ -140,8 +163,14 @@ Run the standalone suites:
 python tests/docx_to_markdown_test.py
 python tests/table_rendering_test.py
 python tests/table_mode_wiring_test.py
+python tests/docx_ancillary_test.py
+python tests/docx_revision_semantics_test.py
+python tests/docx_revision_rendering_test.py
+python tests/docx_revision_notes_integration_test.py
 ```
 
 The existing DOCX suite covers legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior, ZIP path-traversal rejection, `gridSpan` + `vMerge` interaction, physical empty cells, omitted positions from `gridBefore`, logical-column invariants, and orphan vertical-merge diagnostics.
 
 The renderer suites cover simple GFM selection without header inference, merged/nested HTML selection, wide record rendering, explicit empty/omitted markers, span coordinates, unsafe explicit-mode fallback, legacy HTML default wiring and semantic table-mode CLI exposure.
+
+The advanced-DOCX suites cover accepted/rejected/markup revision selection, revision author/date evidence, block-markup ambiguity diagnostics, footnote/endnote/comment provenance, note revision behavior, complex-field forensic instruction/result evidence, metadata/keep/drop running-header/footer policies, and canonical option separation across revision/policy modes.
