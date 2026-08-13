@@ -1,7 +1,7 @@
 import unittest
 
 from document_evidence_geometry import normalize_pdfplumber_primitive
-from document_evidence_surface import canonical_pdf_page_surface, rendered_raster_surface
+from document_evidence_surface import canonical_hash, canonical_pdf_page_surface, rendered_raster_surface
 from document_evidence_transform import (
     SurfaceTransformError,
     apply_matrix,
@@ -9,7 +9,6 @@ from document_evidence_transform import (
     map_geometry,
     render_scale_transform,
 )
-
 
 SOURCE_HASH = "sha256:" + "1" * 64
 IMAGE_HASH = "sha256:" + "2" * 64
@@ -61,6 +60,40 @@ class DocumentEvidenceRuntimeTest(unittest.TestCase):
         self.assertEqual(cubic, {"op": "C", "c1": [30.0, 10.0], "c2": [60.0, 70.0], "to": [90.0, 30.0]})
         self.assertEqual(primitive["path"][1]["points"][0], [30.0, 10.0])
         self.assertEqual(primitive["surfaceId"], page["surfaceId"])
+
+    def test_docx_render_profile_is_hash_checked_and_bound_to_surface(self):
+        identity = {
+            "schema": "RenderProfile.v1", "documentKind": "docx", "renderer": "writer",
+            "rendererVersion": "1", "rendererBinaryHash": "sha256:" + "3" * 64,
+            "environment": {"osFamily": "linux", "architecture": "x86_64"},
+            "fontManifestHash": "sha256:" + "4" * 64, "locale": "en-US",
+            "trackedRevisionDisplay": "final", "fieldUpdatePolicy": "preserve",
+            "determinism": {"semantic": "profile-bound", "artifact": "profile-bound", "bitwiseRaster": "not-claimed"},
+        }
+        profile_hash = canonical_hash(identity)
+        profile = {**identity, "renderProfileId": f"render-profile:{profile_hash[7:31]}", "renderProfileHash": profile_hash}
+        page = canonical_pdf_page_surface(SOURCE_HASH, 1, 100, 100)
+        raster = rendered_raster_surface(
+            SOURCE_HASH, page, 200, 200, image_sha256=IMAGE_HASH, renderer="fixture",
+            renderer_version="1", render_scale=2, render_profile=profile,
+        )
+        self.assertEqual(raster["renderProfileHash"], profile_hash)
+
+    def test_incomplete_docx_render_profile_fails_closed(self):
+        identity = {
+            "schema": "RenderProfile.v1", "documentKind": "docx", "renderer": "writer",
+            "rendererVersion": "1",
+            "determinism": {"semantic": "profile-bound", "artifact": "profile-bound", "bitwiseRaster": "not-claimed"},
+        }
+        profile_hash = canonical_hash(identity)
+        profile = {**identity, "renderProfileId": "render-profile:test", "renderProfileHash": profile_hash}
+        page = canonical_pdf_page_surface(SOURCE_HASH, 1, 100, 100)
+        with self.assertRaises(ValueError) as caught:
+            rendered_raster_surface(
+                SOURCE_HASH, page, 200, 200, image_sha256=IMAGE_HASH, renderer="fixture",
+                renderer_version="1", render_scale=2, render_profile=profile,
+            )
+        self.assertIn("DOCX_RENDER_PROFILE_INCOMPLETE", str(caught.exception))
 
 
 if __name__ == "__main__":
