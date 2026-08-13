@@ -22,6 +22,7 @@ from document_model import (
     TableRow,
     UnsupportedBlock,
 )
+from table_grid import RawTable, RawTableCell, RawTableRow, normalize_table_grid
 from ooxml_package import (
     DOC_PART,
     NUMBERING_PART,
@@ -99,6 +100,30 @@ def cell_colspan(cell: ET.Element) -> int:
         return 1
 
 
+def cell_vmerge(cell: ET.Element) -> str | None:
+    properties = cell.find(W + "tcPr")
+    merge = properties.find(W + "vMerge") if properties is not None else None
+    if merge is None:
+        return None
+    return merge.get(W + "val", "continue")
+
+
+def row_grid_offset(row: ET.Element, name: str) -> int:
+    properties = row.find(W + "trPr")
+    node = properties.find(W + name) if properties is not None else None
+    if node is None:
+        return 0
+    try:
+        return max(0, int(node.get(W + "val", "0")))
+    except ValueError:
+        return 0
+
+
+def table_grid_width(table: ET.Element) -> int:
+    grid = table.find(W + "tblGrid")
+    return len(grid.findall(W + "gridCol")) if grid is not None else 0
+
+
 def heading_level(style: str | None) -> int | None:
     return semantic_heading_level(style, None, None)
 
@@ -152,28 +177,50 @@ def parse_table(
     context: ParseContext | None = None,
 ) -> TableBlock:
     context = context or _empty_context()
-    rows = []
-    for row_index, row in enumerate(table.findall(W + "tr")):
-        rows.append(_parse_table_row(row, table_index, row_index, context))
     provenance = SourceRef("docx", context.source_part, table_index=table_index)
-    return TableBlock(block_id or f"docx:t{table_index}", tuple(rows), provenance)
+    raw_rows = tuple(
+        _parse_raw_table_row(row, table_index, row_index, context)
+        for row_index, row in enumerate(table.findall(W + "tr"))
+    )
+    raw = RawTable(raw_rows, table_grid_width(table))
+    rows, source_rows, position_rows, grid_width, diagnostics = normalize_table_grid(
+        raw, provenance
+    )
+    context.diagnostics.extend(diagnostics)
+    return TableBlock(
+        block_id or f"docx:t{table_index}", rows, provenance,
+        source_rows, position_rows, grid_width,
+    )
 
 
-def _parse_table_row(
+def _parse_raw_table_row(
     row: ET.Element,
     table_index: int,
     row_index: int,
     context: ParseContext,
-) -> TableRow:
-    cells = []
-    for cell_index, cell in enumerate(row.findall(W + "tc")):
-        provenance = SourceRef(
-            "docx", context.source_part, table_index=table_index,
-            row_index=row_index, cell_index=cell_index,
-        )
-        blocks = parse_cell_blocks(cell, table_index, row_index, cell_index, context)
-        cells.append(TableCell(blocks, provenance, cell_colspan(cell)))
-    return TableRow(tuple(cells))
+) -> RawTableRow:
+    cells = tuple(
+        _parse_raw_table_cell(cell, table_index, row_index, cell_index, context)
+        for cell_index, cell in enumerate(row.findall(W + "tc"))
+    )
+    return RawTableRow(
+        cells, row_grid_offset(row, "gridBefore"), row_grid_offset(row, "gridAfter")
+    )
+
+
+def _parse_raw_table_cell(
+    cell: ET.Element,
+    table_index: int,
+    row_index: int,
+    cell_index: int,
+    context: ParseContext,
+) -> RawTableCell:
+    provenance = SourceRef(
+        "docx", context.source_part, table_index=table_index,
+        row_index=row_index, cell_index=cell_index,
+    )
+    blocks = parse_cell_blocks(cell, table_index, row_index, cell_index, context)
+    return RawTableCell(blocks, provenance, cell_colspan(cell), cell_vmerge(cell))
 
 
 def count_nonempty_text_nodes(body: ET.Element) -> int:
