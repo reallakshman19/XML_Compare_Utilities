@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Convert a DOCX Word body to deterministic Markdown.
-
-The public CLI and conversion function remain compatible with the original
-stdlib converter while parsing through a versioned semantic document model.
-"""
+"""Convert a DOCX package to deterministic Markdown through a semantic model."""
 
 from __future__ import annotations
 
@@ -12,8 +8,6 @@ import hashlib
 import html
 import json
 import sys
-import zipfile
-from io import BytesIO
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -21,20 +15,37 @@ from document_model import (
     CANONICALIZATION_VERSION,
     SEMANTIC_SCHEMA_VERSION,
     DocumentModel,
+    InlineBreak,
+    InlineHyperlink,
+    InlineSymbol,
+    InlineTab,
+    InlineText,
+    InlineUnsupported,
     PageBreakBlock,
     ParagraphBlock,
-    SourceRef,
     TableBlock,
     TableCell,
-    TableRow,
+    UnsupportedBlock,
     build_evidence,
     canonical_json_bytes,
     options_hash,
 )
-
-WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-W = f"{{{WORD_NS}}}"
-DOC_PART = "word/document.xml"
+from docx_ooxml_parser import (
+    DOC_PART,
+    cell_colspan,
+    count_nonempty_text_nodes,
+    heading_level,
+    local_name,
+    paragraph_style,
+    paragraph_text,
+    parse_cell_blocks,
+    parse_document_xml,
+    parse_docx_package,
+    parse_table,
+    read_document_xml,
+    table_colspan,
+)
+from ooxml_package import OoxmlPackage
 
 
 def git_blob_sha(data: bytes) -> str:
@@ -46,150 +57,59 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def read_document_xml(docx_bytes: bytes) -> tuple[bytes, int]:
-    try:
-        with zipfile.ZipFile(BytesIO(docx_bytes)) as package:
-            try:
-                info = package.getinfo(DOC_PART)
-                return package.read(info), info.CRC
-            except KeyError as exc:
-                raise ValueError(f"DOCX does not contain {DOC_PART}") from exc
-    except zipfile.BadZipFile as exc:
-        raise ValueError("Input is not a valid DOCX/ZIP package") from exc
-
-
-def local_name(node: ET.Element) -> str:
-    return node.tag.rsplit("}", 1)[-1]
-
-
-def paragraph_style(paragraph: ET.Element) -> str | None:
-    properties = paragraph.find(W + "pPr")
-    if properties is None:
-        return None
-    style = properties.find(W + "pStyle")
-    return None if style is None else style.get(W + "val")
-
-
-def paragraph_text(paragraph: ET.Element) -> tuple[str, bool]:
-    parts: list[str] = []
-    page_break = False
-    for node in paragraph.iter():
-        name = local_name(node)
-        if name == "t":
-            parts.append(node.text or "")
-        elif name == "tab":
-            parts.append("\t")
-        elif name == "br":
-            page_break = page_break or node.get(W + "type") == "page"
-            parts.append("\n")
-    return "".join(parts), page_break
-
-
-def table_colspan(cell: ET.Element) -> str | None:
-    properties = cell.find(W + "tcPr")
-    if properties is None:
-        return None
-    grid_span = properties.find(W + "gridSpan")
-    return None if grid_span is None else grid_span.get(W + "val")
-
-
-def cell_colspan(cell: ET.Element) -> int:
-    raw = table_colspan(cell)
-    try:
-        return max(1, int(raw)) if raw is not None else 1
-    except ValueError:
-        return 1
-
-
-def heading_level(style: str | None) -> int | None:
-    if not style or not style.startswith("Heading"):
-        return None
-    level_text = style.removeprefix("Heading")
-    if not level_text.isdigit():
-        return None
-    level = int(level_text)
-    return level if 1 <= level <= 6 else None
-
-
-def parse_cell_blocks(cell: ET.Element, table_index: int, row_index: int, cell_index: int) -> tuple:
-    blocks = []
-    for child_index, child in enumerate(list(cell)):
-        name = local_name(child)
-        provenance = SourceRef("docx", DOC_PART, table_index=table_index, row_index=row_index, cell_index=cell_index)
-        if name == "p":
-            text, _ = paragraph_text(child)
-            if text:
-                blocks.append(ParagraphBlock(f"docx:t{table_index}:r{row_index}:c{cell_index}:p{child_index}", text, provenance))
-        elif name == "tbl":
-            blocks.append(parse_table(child, table_index, f"docx:t{table_index}:r{row_index}:c{cell_index}:t{child_index}"))
-    return tuple(blocks)
-
-
-def parse_table(table: ET.Element, table_index: int, block_id: str | None = None) -> TableBlock:
-    rows = []
-    for row_index, row in enumerate(table.findall(W + "tr")):
-        cells = []
-        for cell_index, cell in enumerate(row.findall(W + "tc")):
-            provenance = SourceRef("docx", DOC_PART, table_index=table_index, row_index=row_index, cell_index=cell_index)
-            cells.append(TableCell(parse_cell_blocks(cell, table_index, row_index, cell_index), provenance, cell_colspan(cell)))
-        rows.append(TableRow(tuple(cells)))
-    return TableBlock(block_id or f"docx:t{table_index}", tuple(rows), SourceRef("docx", DOC_PART, table_index=table_index))
-
-
-def count_nonempty_text_nodes(body: ET.Element) -> int:
-    return sum(1 for node in body.iter(W + "t") if node.text not in (None, ""))
-
-
-def parse_document_xml(document_xml: bytes) -> tuple[DocumentModel, dict]:
-    try:
-        root = ET.fromstring(document_xml)
-    except ET.ParseError as exc:
-        raise ValueError(f"{DOC_PART} is not valid XML: {exc}") from exc
-    body = root.find(W + "body")
-    if body is None:
-        raise ValueError(f"{DOC_PART} does not contain w:body")
-
-    blocks = []
-    paragraph_count = 0
-    table_count = 0
-    for child in list(body):
-        name = local_name(child)
-        if name == "p":
-            paragraph_index = paragraph_count
-            paragraph_count += 1
-            text, has_page_break = paragraph_text(child)
-            provenance = SourceRef("docx", DOC_PART, paragraph_index=paragraph_index)
-            if has_page_break:
-                blocks.append(PageBreakBlock(f"docx:p{paragraph_index}:page-break", provenance))
-                text = text.lstrip("\n")
-            if text:
-                blocks.append(ParagraphBlock(f"docx:p{paragraph_index}", text, provenance, heading_level(paragraph_style(child))))
-        elif name == "tbl":
-            blocks.append(parse_table(child, table_count))
-            table_count += 1
-
-    document = DocumentModel("docx", tuple(blocks), metadata={"part": DOC_PART})
-    stats = {
-        "paragraphs": paragraph_count,
-        "tables": table_count,
-        "nonempty_text_nodes": count_nonempty_text_nodes(body),
-    }
-    return document, stats
-
-
 def render_paragraph(block: ParagraphBlock) -> str:
-    if block.heading_level is None:
-        return block.text
-    return f"{'#' * block.heading_level} {block.text.strip()}"
+    content = _render_inlines(block.inlines) if _needs_inline_rendering(block.inlines) else block.text
+    if block.heading_level is not None:
+        return f"{'#' * block.heading_level} {content.strip()}"
+    if block.list_info is not None:
+        marker = "-" if block.list_info.number_format == "bullet" else "1."
+        return f"{'  ' * block.list_info.level}{marker} {content}"
+    return content
+
+
+def _needs_inline_rendering(inlines) -> bool:
+    return any(
+        isinstance(value, (InlineHyperlink, InlineSymbol, InlineUnsupported))
+        for value in inlines
+    )
+
+
+def _render_inlines(inlines) -> str:
+    parts = []
+    for inline in inlines:
+        if isinstance(inline, InlineText):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineTab):
+            parts.append("\t")
+        elif isinstance(inline, InlineBreak):
+            parts.append("\n")
+        elif isinstance(inline, InlineHyperlink):
+            parts.append(_render_hyperlink(inline))
+        elif isinstance(inline, InlineSymbol):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineUnsupported):
+            parts.append(inline.marker)
+    return "".join(parts)
+
+
+def _render_hyperlink(inline: InlineHyperlink) -> str:
+    if not inline.target:
+        return inline.text
+    label = inline.text.replace("[", "\\[").replace("]", "\\]")
+    target = inline.target.replace(" ", "%20").replace(")", "%29")
+    return f"[{label}]({target})"
 
 
 def render_cell_html(cell: TableCell) -> str:
     pieces = []
     for block in cell.blocks:
         if isinstance(block, ParagraphBlock):
-            pieces.append(html.escape(block.text, quote=False).replace("\t", "&#9;").replace("\n", "<br>"))
+            rendered = html.escape(render_paragraph(block), quote=False)
+            pieces.append(rendered.replace("\t", "&#9;").replace("\n", "<br>"))
         elif isinstance(block, TableBlock):
             pieces.append(render_table_html(block))
+        elif isinstance(block, UnsupportedBlock):
+            pieces.append(html.escape(f"⟦{block.code}⟧", quote=False))
     return "<br>".join(pieces)
 
 
@@ -210,16 +130,26 @@ def flatten_block_text(block) -> str:
     if isinstance(block, ParagraphBlock):
         return block.text.replace("\t", " ").replace("\n", " ")
     if isinstance(block, TableBlock):
-        return " / ".join(" | ".join(flatten_cell_text(cell) for cell in row.cells) for row in block.rows)
+        return " / ".join(
+            " | ".join(flatten_cell_text(cell) for cell in row.cells)
+            for row in block.rows
+        )
+    if isinstance(block, UnsupportedBlock):
+        return f"⟦{block.code}⟧"
     return ""
 
 
 def flatten_cell_text(cell: TableCell) -> str:
-    return " ".join(text for text in (flatten_block_text(block) for block in cell.blocks) if text)
+    return " ".join(
+        text for text in (flatten_block_text(block) for block in cell.blocks) if text
+    )
 
 
 def render_table_tsv(table: TableBlock) -> str:
-    return "\n".join("\t".join(flatten_cell_text(cell) for cell in row.cells) for row in table.rows)
+    return "\n".join(
+        "\t".join(flatten_cell_text(cell) for cell in row.cells)
+        for row in table.rows
+    )
 
 
 def html_paragraph_text(paragraph: ET.Element) -> str:
@@ -249,15 +179,36 @@ def table_to_tsv(table: ET.Element) -> str:
 
 
 def render_document(document: DocumentModel, table_format: str) -> str:
-    blocks = []
+    rendered: list[tuple[str, bool]] = []
     for block in document.blocks:
-        if isinstance(block, PageBreakBlock):
-            blocks.append("---")
-        elif isinstance(block, ParagraphBlock):
-            blocks.append(render_paragraph(block))
-        elif isinstance(block, TableBlock):
-            blocks.append(render_table_html(block) if table_format == "html" else render_table_tsv(block))
-    return "\n\n".join(blocks).rstrip() + "\n"
+        item = _render_block(block, table_format)
+        if item is not None:
+            rendered.append(item)
+    return _join_rendered_blocks(rendered)
+
+
+def _render_block(block, table_format: str) -> tuple[str, bool] | None:
+    if isinstance(block, PageBreakBlock):
+        return "---", False
+    if isinstance(block, ParagraphBlock):
+        return render_paragraph(block), block.list_info is not None and block.heading_level is None
+    if isinstance(block, TableBlock):
+        text = render_table_html(block) if table_format == "html" else render_table_tsv(block)
+        return text, False
+    if isinstance(block, UnsupportedBlock):
+        return f"<!-- {block.code}: {block.description} -->", False
+    return None
+
+
+def _join_rendered_blocks(rendered: list[tuple[str, bool]]) -> str:
+    if not rendered:
+        return "\n"
+    output = rendered[0][0]
+    for index in range(1, len(rendered)):
+        text, is_list = rendered[index]
+        previous_list = rendered[index - 1][1]
+        output += ("\n" if is_list and previous_list else "\n\n") + text
+    return output.rstrip() + "\n"
 
 
 def convert_document_xml(document_xml: bytes, table_format: str) -> tuple[str, dict]:
@@ -266,15 +217,32 @@ def convert_document_xml(document_xml: bytes, table_format: str) -> tuple[str, d
 
 
 def convert_docx_bytes(docx_bytes: bytes, table_format: str) -> tuple[bytes, dict]:
-    document_xml, document_crc = read_document_xml(docx_bytes)
-    document, stats = parse_document_xml(document_xml)
+    package = OoxmlPackage.from_bytes(docx_bytes)
+    document, stats = parse_docx_package(package)
     output = render_document(document, table_format).encode("utf-8")
-    option_values = {"profile": "readable", "tableFormat": table_format}
-    return output, {
+    option_values = _canonical_options(table_format)
+    document_xml = package.require_part(DOC_PART)
+    return output, _conversion_stats(
+        docx_bytes, document_xml, package, document, stats, output, option_values,
+        table_format,
+    )
+
+
+def _conversion_stats(
+    docx_bytes: bytes,
+    document_xml: bytes,
+    package: OoxmlPackage,
+    document: DocumentModel,
+    stats: dict,
+    output: bytes,
+    option_values: dict,
+    table_format: str,
+) -> dict:
+    return {
         **stats,
         "docx_bytes": len(docx_bytes),
         "document_xml_bytes": len(document_xml),
-        "document_xml_crc32": f"0x{document_crc:08x}",
+        "document_xml_crc32": f"0x{package.crc32[DOC_PART]:08x}",
         "source_git_blob_sha": git_blob_sha(docx_bytes),
         "source_sha256": sha256_hex(docx_bytes),
         "output_sha256": sha256_hex(output),
@@ -283,13 +251,18 @@ def convert_docx_bytes(docx_bytes: bytes, table_format: str) -> tuple[bytes, dic
         "semantic_schema_version": SEMANTIC_SCHEMA_VERSION,
         "canonicalization_version": CANONICALIZATION_VERSION,
         "options_hash": options_hash(option_values),
+        "package_parts": len(package.parts),
+        "relationships": document.metadata.get("relationshipCount", 0),
+        "styles": document.metadata.get("styleCount", 0),
+        "numbering_instances": document.metadata.get("numberingInstanceCount", 0),
+        "content_types": document.metadata.get("contentTypeCount", 0),
     }
 
 
 def conversion_evidence(docx_bytes: bytes, table_format: str) -> dict:
-    document_xml, _ = read_document_xml(docx_bytes)
-    document, _ = parse_document_xml(document_xml)
-    options = {"profile": "readable", "tableFormat": table_format}
+    package = OoxmlPackage.from_bytes(docx_bytes)
+    document, _ = parse_docx_package(package)
+    options = _canonical_options(table_format)
     return build_evidence(
         document,
         source_sha256=sha256_hex(docx_bytes),
@@ -297,6 +270,10 @@ def conversion_evidence(docx_bytes: bytes, table_format: str) -> dict:
         profile="readable",
         options=options,
     )
+
+
+def _canonical_options(table_format: str) -> dict:
+    return {"profile": "readable", "tableFormat": table_format, "revisions": "accepted"}
 
 
 def default_output_path(input_path: Path) -> Path:
@@ -312,7 +289,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Input DOCX path")
     parser.add_argument("-o", "--output", type=Path, help="Output Markdown path")
-    parser.add_argument("--table-format", choices=("html", "tsv"), default="html", help="Table rendering: faithful HTML tables or compact TSV rows")
+    parser.add_argument(
+        "--table-format", choices=("html", "tsv"), default="html",
+        help="Table rendering: faithful HTML tables or compact TSV rows",
+    )
     parser.add_argument("--evidence", type=Path, help="Optional deterministic evidence JSON path")
     parser.add_argument("--expected-git-blob-sha", help="Expected source Git blob SHA-1")
     parser.add_argument("--expected-output-sha256", help="Expected Markdown SHA-256")
