@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "3"
-CANONICALIZATION_VERSION = "3"
-CONVERTER_REVISION = "docx-table-render-policy-v1"
+SEMANTIC_SCHEMA_VERSION = "6"
+CANONICALIZATION_VERSION = "5"
+CONVERTER_REVISION = "document-pdf-native-v6"
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,13 @@ class SourceRef:
     table_index: int | None = None
     row_index: int | None = None
     cell_index: int | None = None
+    note_type: str | None = None
+    note_id: str | None = None
+    comment_id: str | None = None
+    page: int | None = None
+    bbox: tuple[float, float, float, float] | None = None
+    extraction: str | None = None
+    confidence: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
@@ -70,7 +77,50 @@ class InlineUnsupported:
     code: str
 
 
-Inline = InlineText | InlineTab | InlineBreak | InlineHyperlink | InlineSymbol | InlineUnsupported
+@dataclass(frozen=True)
+class InlineImage:
+    asset_id: str
+    alt_text: str = ""
+    relationship_id: str | None = None
+    caption: str | None = None
+    filename: str | None = None
+    render_supported: bool = True
+
+
+@dataclass(frozen=True)
+class InlineNoteReference:
+    note_type: str
+    note_id: str
+
+
+@dataclass(frozen=True)
+class InlineCommentReference:
+    comment_id: str
+
+
+@dataclass(frozen=True)
+class InlineRevision:
+    revision_type: str
+    inlines: tuple["Inline", ...]
+    author: str | None = None
+    date: str | None = None
+
+
+Inline = (
+    InlineText | InlineTab | InlineBreak | InlineHyperlink | InlineSymbol |
+    InlineUnsupported | InlineImage | InlineNoteReference | InlineCommentReference | InlineRevision
+)
+
+
+@dataclass(frozen=True)
+class PositionedSpan:
+    text: str
+    bbox: tuple[float, float, float, float]
+    font: str | None = None
+    font_size: float | None = None
+    bold: bool = False
+    italic: bool = False
+    page: int | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +134,8 @@ class ParagraphBlock:
     outline_level: int | None = None
     list_info: ListInfo | None = None
     inlines: tuple[Inline, ...] = ()
+    source_refs: tuple[SourceRef, ...] = ()
+    positioned_spans: tuple[PositionedSpan, ...] = ()
 
     @property
     def kind(self) -> str:
@@ -150,12 +202,46 @@ Block = ParagraphBlock | PageBreakBlock | UnsupportedBlock | TableBlock
 
 
 @dataclass(frozen=True)
+class AssetDefinition:
+    asset_id: str
+    source_part: str
+    relationship_id: str
+    media_part: str
+    source_filename: str
+    content_type: str | None
+    sha256: str
+    byte_length: int
+    filename: str
+    render_supported: bool
+
+
+@dataclass(frozen=True)
+class NoteDefinition:
+    note_type: str
+    note_id: str
+    text: str
+    provenance: SourceRef
+
+
+@dataclass(frozen=True)
+class CommentDefinition:
+    comment_id: str
+    text: str
+    provenance: SourceRef
+    author: str | None = None
+    date: str | None = None
+
+
+@dataclass(frozen=True)
 class DocumentModel:
     source_type: str
     blocks: tuple[Block, ...]
     metadata: dict[str, Any] = field(default_factory=dict)
     diagnostics: tuple[dict[str, Any], ...] = ()
     semantic_schema_version: str = SEMANTIC_SCHEMA_VERSION
+    notes: tuple[NoteDefinition, ...] = ()
+    comments: tuple[CommentDefinition, ...] = ()
+    assets: tuple[AssetDefinition, ...] = ()
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -184,7 +270,52 @@ def inline_evidence(inline: Inline) -> dict[str, Any] | None:
         }
     if isinstance(inline, InlineUnsupported):
         return {"kind": "unsupported", "code": inline.code, "marker": inline.marker}
+    if isinstance(inline, InlineImage):
+        return {
+            "kind": "image",
+            "assetId": inline.asset_id,
+            "altText": inline.alt_text,
+            "relationshipId": inline.relationship_id,
+            "caption": inline.caption,
+            "filename": inline.filename,
+            "renderSupported": inline.render_supported,
+        }
+    if isinstance(inline, InlineNoteReference):
+        return {"kind": "noteReference", "noteType": inline.note_type, "noteId": inline.note_id}
+    if isinstance(inline, InlineCommentReference):
+        return {"kind": "commentReference", "commentId": inline.comment_id}
+    if isinstance(inline, InlineRevision):
+        return {
+            "kind": "revision",
+            "revisionType": inline.revision_type,
+            "author": inline.author,
+            "date": inline.date,
+            "text": _inline_plain_text(inline.inlines),
+        }
     return None
+
+
+def _inline_plain_text(inlines: tuple[Inline, ...]) -> str:
+    parts: list[str] = []
+    for inline in inlines:
+        if isinstance(inline, InlineText):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineTab):
+            parts.append("\t")
+        elif isinstance(inline, InlineBreak):
+            parts.append("\n")
+        elif isinstance(inline, InlineHyperlink):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineSymbol):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineImage):
+            parts.append(f"[image:{inline.alt_text or inline.asset_id}]")
+        elif isinstance(inline, InlineNoteReference):
+            prefix = "fn" if inline.note_type == "footnote" else "en"
+            parts.append(f"[^{prefix}{inline.note_id}]")
+        elif isinstance(inline, InlineRevision):
+            parts.append(_inline_plain_text(inline.inlines))
+    return "".join(parts)
 
 
 def block_evidence(block: Block) -> dict[str, Any]:
@@ -226,6 +357,21 @@ def _add_paragraph_evidence(evidence: dict[str, Any], block: ParagraphBlock) -> 
     inline_items = [item for item in (inline_evidence(value) for value in block.inlines) if item]
     if inline_items:
         evidence["inlines"] = inline_items
+    if block.source_refs:
+        evidence["sourceProvenance"] = [ref.to_dict() for ref in block.source_refs]
+    if block.positioned_spans:
+        evidence["positionedSpans"] = [
+            {
+                "text": span.text,
+                "bbox": list(span.bbox),
+                "font": span.font,
+                "fontSize": span.font_size,
+                "bold": span.bold,
+                "italic": span.italic,
+                "page": span.page,
+            }
+            for span in block.positioned_spans
+        ]
 
 
 def _table_rows_evidence(block: TableBlock) -> list[list[dict[str, Any]]]:
@@ -276,5 +422,39 @@ def build_evidence(
         "optionsHash": options_hash(options),
         "metadata": document.metadata,
         "blocks": [block_evidence(block) for block in document.blocks],
+        "assets": [
+            {
+                "assetId": asset.asset_id,
+                "sourcePart": asset.source_part,
+                "relationshipId": asset.relationship_id,
+                "mediaPart": asset.media_part,
+                "sourceFilename": asset.source_filename,
+                "contentType": asset.content_type,
+                "sha256": asset.sha256,
+                "byteLength": asset.byte_length,
+                "filename": asset.filename,
+                "renderSupported": asset.render_supported,
+            }
+            for asset in document.assets
+        ],
+        "notes": [
+            {
+                "noteType": note.note_type,
+                "noteId": note.note_id,
+                "text": note.text,
+                "provenance": note.provenance.to_dict(),
+            }
+            for note in document.notes
+        ],
+        "comments": [
+            {
+                "commentId": comment.comment_id,
+                "text": comment.text,
+                "author": comment.author,
+                "date": comment.date,
+                "provenance": comment.provenance.to_dict(),
+            }
+            for comment in document.comments
+        ],
         "diagnostics": list(document.diagnostics),
     }
