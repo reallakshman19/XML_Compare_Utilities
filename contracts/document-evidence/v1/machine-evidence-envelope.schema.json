@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"MachineEvidenceEnvelope.v1",
+  "type":"object",
+  "required":["schema","source","surfaces","transforms","observations","decisions"],
+  "properties":{
+    "schema":{"const":"MachineEvidenceEnvelope.v1"},
+    "source":{"$ref":"source.schema.json"},
+    "surfaces":{"type":"array"},
+    "transforms":{"type":"array"},
+    "observations":{"type":"array"},
+    "decisions":{"type":"array"}
+  }
+}
