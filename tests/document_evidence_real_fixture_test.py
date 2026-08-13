@@ -27,9 +27,10 @@ class RealControlledFixtureTest(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertEqual(f"sha256:{hashlib.sha256(first).hexdigest()}", expected)
 
-    def test_real_docx_package_semantics_and_relationships(self):
+    def test_real_docx_package_semantics_relationships_and_revisions(self):
         from document_evidence_docx_semantic import semantic_docx_content
         from docx_ooxml_parser import parse_docx_package
+        from docx_revision_semantics import prepare_package_for_revisions
         from ooxml_package import DOC_PART, OoxmlPackage
 
         data = controlled_docx_bytes()
@@ -42,8 +43,15 @@ class RealControlledFixtureTest(unittest.TestCase):
         image = package.relationship(DOC_PART, "rId3")
         self.assertEqual(image.resolved_part, self.truth["imagePart"])
         document_xml = package.require_part(DOC_PART)
-        for token in self.truth["docxRequiredSemanticTokens"]:
+        for token in ("Controlled Evidence Fixture", "T3-1 = 10.0 MPa", "Inserted"):
             self.assertIn(token.encode("utf-8"), document_xml)
+        _, revision_events, _ = prepare_package_for_revisions(package, "markup")
+        revision_types = {item["revisionType"] for item in revision_events}
+        self.assertEqual(revision_types, {"ins", "del"})
+        deleted = next(item for item in revision_events if item["revisionType"] == "del")
+        inserted = next(item for item in revision_events if item["revisionType"] == "ins")
+        self.assertEqual((inserted["revisionId"], deleted["revisionId"]), ("7", "8"))
+        self.assertIn(b"Deleted", document_xml)
         _, stats = parse_docx_package(package)
         self.assertEqual(stats["tables"], 1)
         self.assertGreaterEqual(stats["paragraphs"], 3)
