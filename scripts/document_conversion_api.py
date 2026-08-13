@@ -14,6 +14,11 @@ from document_conversion_service import (
     ConversionServiceConfig,
     DocumentConversionService,
 )
+from pdf_search_index import (
+    DEFAULT_MAX_CACHE_DOCUMENTS,
+    DEFAULT_MAX_INDEX_CHARS,
+    DEFAULT_MAX_SEARCH_RESULTS,
+)
 
 DEFAULT_MAX_REQUEST_BYTES = 128 * 1024
 
@@ -41,6 +46,15 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
                 "schema": API_SCHEMA,
                 "sourceTypes": ["docx", "pdf"],
                 "pdfPageRange": {"supported": True, "numbering": "1-based-inclusive"},
+                "pdfSearch": {
+                    "supported": True,
+                    "endpoint": "/v1/search",
+                    "nativeTextOnly": True,
+                    "caseSensitive": True,
+                    "wholeWord": True,
+                    "regex": False,
+                    "completeOrError": True,
+                },
                 "assetTransport": False,
                 "remoteSourceFetch": False,
             })
@@ -48,43 +62,52 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
         self._write_error(404, "API_ROUTE_NOT_FOUND", "route not found")
 
     def do_POST(self):
-        if self.path != "/v1/convert":
+        operation = {
+            "/v1/convert": self.server.service.convert,
+            "/v1/search": self.server.service.search,
+        }.get(self.path)
+        if operation is None:
             self._write_error(404, "API_ROUTE_NOT_FOUND", "route not found")
             return
+        payload = self._read_json_request()
+        if payload is None:
+            return
+
+        if not self.server.semaphore.acquire(blocking=False):
+            self._write_error(503, "API_BUSY", "conversion/search concurrency limit reached")
+            return
+        try:
+            result = operation(payload)
+            self._write_json(200, result)
+        except ConversionApiError as exc:
+            self._write_json(exc.status, exc.to_dict())
+        except Exception as exc:
+            self._write_error(500, "API_INTERNAL_ERROR", f"request failed: {type(exc).__name__}")
+        finally:
+            self.server.semaphore.release()
+
+    def _read_json_request(self):
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
         if content_type != "application/json":
             self._write_error(415, "API_CONTENT_TYPE_REQUIRED", "Content-Type must be application/json")
-            return
+            return None
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             self._write_error(400, "API_CONTENT_LENGTH_INVALID", "Content-Length must be an integer")
-            return
+            return None
         if length <= 0 or length > self.server.max_request_bytes:
             self._write_error(
                 413,
                 "API_REQUEST_SIZE_LIMIT_EXCEEDED",
                 f"request body must be 1..{self.server.max_request_bytes} bytes",
             )
-            return
+            return None
         try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            return json.loads(self.rfile.read(length).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             self._write_error(400, "API_JSON_INVALID", "request body must be valid UTF-8 JSON")
-            return
-
-        if not self.server.semaphore.acquire(blocking=False):
-            self._write_error(503, "API_BUSY", "conversion concurrency limit reached")
-            return
-        try:
-            result = self.server.service.convert(payload)
-            self._write_json(200, result)
-        except ConversionApiError as exc:
-            self._write_json(exc.status, exc.to_dict())
-        except Exception as exc:
-            self._write_error(500, "API_INTERNAL_ERROR", f"conversion failed: {type(exc).__name__}")
-        finally:
-            self.server.semaphore.release()
+            return None
 
     def log_message(self, format, *args):
         super().log_message(format, *args)
@@ -116,6 +139,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-source-mb", type=int, default=512)
     parser.add_argument("--max-range-pages", type=int, default=50)
     parser.add_argument("--max-source-pages", type=int, default=2000)
+    parser.add_argument("--max-search-index-chars", type=int, default=DEFAULT_MAX_INDEX_CHARS)
+    parser.add_argument("--max-search-results", type=int, default=DEFAULT_MAX_SEARCH_RESULTS)
+    parser.add_argument("--max-search-cache-documents", type=int, default=DEFAULT_MAX_CACHE_DOCUMENTS)
     parser.add_argument("--max-request-kb", type=int, default=128)
     parser.add_argument("--max-concurrency", type=int, default=2)
     return parser
@@ -139,13 +165,26 @@ def run(argv=None) -> int:
     args = build_parser().parse_args(argv)
     if not (1 <= args.port <= 65535):
         raise ConversionApiError("API_PORT_INVALID", "port must be between 1 and 65535", 500)
-    if min(args.max_source_mb, args.max_range_pages, args.max_source_pages, args.max_request_kb, args.max_concurrency) <= 0:
+    limits = (
+        args.max_source_mb,
+        args.max_range_pages,
+        args.max_source_pages,
+        args.max_search_index_chars,
+        args.max_search_results,
+        args.max_search_cache_documents,
+        args.max_request_kb,
+        args.max_concurrency,
+    )
+    if min(limits) <= 0:
         raise ConversionApiError("API_POLICY_INVALID", "all API resource limits must be positive", 500)
     config = ConversionServiceConfig.from_roots(
         _roots(args),
         max_source_bytes=args.max_source_mb * 1024 * 1024,
         max_range_pages=args.max_range_pages,
         max_source_pages=args.max_source_pages,
+        max_search_index_chars=args.max_search_index_chars,
+        max_search_results=args.max_search_results,
+        max_search_cache_documents=args.max_search_cache_documents,
     )
     service = DocumentConversionService(config)
     server = ConversionHttpServer(
