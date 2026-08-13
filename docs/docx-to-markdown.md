@@ -1,8 +1,8 @@
 # DOCX to Markdown utility
 
-`scripts/docx_to_markdown.py` converts the readable Word body of a DOCX file to deterministic Markdown using only the Python standard library.
+`scripts/docx_to_markdown.py` converts DOCX packages to deterministic Markdown using only the Python standard library.
 
-It opens the DOCX as a ZIP package, reads `word/document.xml`, walks top-level Word paragraphs and tables in document order, maps `Heading1` through `Heading6` to Markdown headings, preserves tabs and line/page breaks, and retains table text including nested tables. No Office application, OCR, Pandoc, or third-party Python package is required.
+The DOCX path now builds an OOXML package graph before parsing the Word body. It indexes package parts, content types and per-part relationships; resolves `word/styles.xml` inheritance and `word/numbering.xml`; walks paragraphs, tables and content controls in source order; and keeps external relationships as data without performing network fetches. No Office application, OCR, Pandoc, or third-party Python package is required.
 
 ## Usage
 
@@ -43,13 +43,14 @@ The reported statistics include:
 - count of non-empty Word text nodes;
 - selected table rendering mode;
 - semantic schema and canonicalization versions;
-- canonical options hash.
+- canonical options hash;
+- package part, relationship, style, numbering-instance and content-type counts.
 
 The Git blob identity is calculated using Git's canonical `blob <size>\0<bytes>` hashing rule, so it can be compared directly with a repository blob SHA.
 
 ## Semantic model and evidence
 
-Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it now parses into semantic paragraph, page-break, and table objects before rendering Markdown.
+Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it parses into semantic paragraph, page-break, unsupported and table objects before rendering Markdown.
 
 Deterministic evidence can be emitted without changing normal Markdown output:
 
@@ -60,9 +61,19 @@ python scripts/docx_to_markdown.py input.docx \
   --table-format html
 ```
 
-Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema version, canonicalization version, profile, canonical options hash, stable source-derived block IDs, DOCX part/index provenance, table cell coordinates/spans, and diagnostics. Canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
+Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema/canonicalization versions, profile/options identity, stable source-derived block IDs, DOCX part/index provenance, effective style/list metadata, hyperlink targets, table cell coordinates/spans, package metadata and stable diagnostics. Canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
 
-This first architectural slice deliberately preserves the previous extraction boundary. Full OOXML package-graph resolution, effective style inheritance, numbering, vertical merges, revisions, relationships, notes, images, fields, PDF extraction, and OCR are subsequent issue #960 work and must not be inferred as supported by this compatibility layer.
+## OOXML package, styles and numbering
+
+The primary `convert_docx_bytes()` path now resolves package context instead of treating `word/document.xml` as the whole document. `convert_document_xml()` remains available as a compatibility path for callers that intentionally supply only the main XML part; it cannot resolve package relationships, styles or numbering that are absent from that input.
+
+Heading inference uses deterministic priority: direct `w:outlineLvl`, inherited style `w:outlineLvl`, then recognized `Heading1`-`Heading6` style identifiers/names. A large/bold formatting heuristic is intentionally not used. Style `w:basedOn` inheritance is retained in evidence.
+
+Numbering resolves `numId -> w:num -> abstractNumId -> w:abstractNum -> ilvl`, including `startOverride` and level overrides. Markdown uses `-` for bullet levels and `1.` for ordered levels while evidence retains Word `numFmt`, `lvlText`, start and level so source semantics are not invented.
+
+Paragraph parsing is child-order aware. Content controls (`w:sdt`) are expanded in place; external hyperlinks are rendered from relationship targets without fetching them; complex field instructions are suppressed while displayed field results are retained; and the current deliberate revision policy is **accepted** (`w:ins`/`w:moveTo` retained, `w:del`/`w:moveFrom` suppressed). Missing relationships/styles/numbering produce stable diagnostics rather than guessed values.
+
+Logical table-grid reconstruction (`w:vMerge`, omitted cells and authoritative logical coordinates), full revision modes, notes/comments, image extraction, field-forensic evidence, headers/footers, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
 
 ## EI AVIFF conversion provenance
 
@@ -85,4 +96,4 @@ Run the standalone standard-library test:
 python tests/docx_to_markdown_test.py
 ```
 
-The test creates a minimal DOCX package in a temporary directory and verifies heading conversion, tabs/line/page breaks, nested table text, HTML colspan output, compact TSV output, deterministic hashes, fail-closed source-hash validation, versioned evidence/provenance, and byte-identical evidence across repeated runs.
+The focused suite now covers the legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior and ZIP path-traversal rejection.
