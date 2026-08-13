@@ -46,6 +46,8 @@ XML_Compare_Utilities owns these schemas and canonical conformance vectors. Pyth
 
 Provider/render profiles, native-text quality, and diagnostics are normative v1 objects rather than opaque repository-local payloads. Unknown provider coordinate conventions remain representable but are not trusted for coordinate use until resolved.
 
+`openapi.yaml` still carries the table-route catalog from the previous contract slice; direct schema files in this directory are authoritative until the OpenAPI component list is synchronized.
+
 ## Versioning
 
 The directory name is the schema major version. Breaking coordinate semantics, hash semantics, required identity fields, or decision-state meaning require a new major directory.
