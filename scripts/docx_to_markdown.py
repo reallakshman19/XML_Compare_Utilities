@@ -188,7 +188,7 @@ def table_to_tsv(table: ET.Element) -> str:
 
 def render_document(
     document: DocumentModel,
-    table_format: str,
+    table_format: str = "html",
     *,
     table_mode: str | None = None,
     table_decisions: list[tuple[str, TableRenderDecision]] | None = None,
@@ -243,7 +243,7 @@ def convert_document_xml(document_xml: bytes, table_format: str) -> tuple[str, d
 
 
 def convert_docx_bytes(
-    docx_bytes: bytes, table_format: str, *, table_mode: str | None = None,
+    docx_bytes: bytes, table_format: str = "html", *, table_mode: str | None = None,
 ) -> tuple[bytes, dict]:
     package = OoxmlPackage.from_bytes(docx_bytes)
     document, stats = parse_docx_package(package)
@@ -298,7 +298,7 @@ def _conversion_stats(
 
 
 def conversion_evidence(
-    docx_bytes: bytes, table_format: str, *, table_mode: str | None = None,
+    docx_bytes: bytes, table_format: str = "html", *, table_mode: str | None = None,
 ) -> dict:
     package = OoxmlPackage.from_bytes(docx_bytes)
     document, _ = parse_docx_package(package)
