@@ -1,7 +1,7 @@
 """Reviewable deterministic PDF/DOCX qualification fixtures."""
 from __future__ import annotations
 from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_STORED, ZipFile, ZipInfo
 import xml.etree.ElementTree as ET
 
 W='http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -25,7 +25,7 @@ def controlled_pdf_bytes():
 
 def controlled_docx_bytes():
     parts=_docx_parts(); output=BytesIO()
-    with ZipFile(output,'w',ZIP_DEFLATED,compresslevel=9) as archive:
+    with ZipFile(output,'w',ZIP_STORED) as archive:
         for name in sorted(parts): archive.writestr(_zip_info(name),parts[name])
     return output.getvalue()
 
@@ -64,4 +64,4 @@ def _content_types():
     for part,ctype in [('document','application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'),('styles','application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml'),('numbering','application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'),('header1','application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml'),('footer1','application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml')]: ET.SubElement(root,q(CT,'Override'),{'PartName':f'/word/{part}.xml','ContentType':ctype})
     return ET.tostring(root,encoding='utf-8',xml_declaration=True)
 def _png_1x1(): return bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000000020001e221bc330000000049454e44ae426082')
-def _zip_info(name): value=ZipInfo(name,(1980,1,1,0,0,0)); value.compress_type=ZIP_DEFLATED; value.external_attr=0o600<<16; return value
+def _zip_info(name): value=ZipInfo(name,(1980,1,1,0,0,0)); value.compress_type=ZIP_STORED; value.external_attr=0o600<<16; return value
