@@ -22,13 +22,16 @@ class TableRenderDecision:
 
 def classify_table(table: TableBlock) -> tuple[str, tuple[str, ...]]:
     reasons: list[str] = []
+    width = _grid_width(table)
+    if width == 0:
+        reasons.append("zero-column table cannot be represented as valid GFM")
+        return "COMPLEX_MERGED", tuple(reasons)
     if _has_nested_table(table):
         reasons.append("nested table content requires structural rendering")
         return "NESTED", tuple(reasons)
     if _has_complex_grid(table):
         reasons.append("merged or omitted cells require span-aware rendering")
         return "COMPLEX_MERGED", tuple(reasons)
-    width = _grid_width(table)
     if width >= WIDE_COLUMN_THRESHOLD:
         reasons.append(f"logical width {width} >= {WIDE_COLUMN_THRESHOLD}")
         return "WIDE_ENGINEERING", tuple(reasons)
