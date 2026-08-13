@@ -1,0 +1,167 @@
+{
+  "schema": "DocumentEvidenceDiagnosticCatalog.v1",
+  "codes": {
+    "OCR_NUMERIC_DISAGREEMENT": {
+      "severity": "REVIEW_REQUIRED",
+      "message": "Multiple observations for the same logical numeric cell disagree materially.",
+      "detection": "Aligned observations parse as different exact numeric values.",
+      "retainedEvidence": ["all-cell-observations", "provider-profiles", "cell-geometry"],
+      "blockedDownstream": ["trusted-numeric-value", "accepted-table-cell"],
+      "reviewerResolution": "REVIEWER_CAN_RESOLVE",
+      "matrixCase": true
+    },
+    "TEXT_OBSERVATION_CONFLICT": {
+      "severity": "REVIEW_REQUIRED",
+      "message": "Text observations for one logical token conflict without a trusted resolution rule.",
+      "detection": "Aligned normalized text differs and no qualified native/OCR rule resolves it.",
+      "retainedEvidence": ["all-text-observations", "provider-profiles", "token-geometry"],
+      "blockedDownstream": ["trusted-text", "accepted-table-cell"],
+      "reviewerResolution": "REVIEWER_CAN_RESOLVE",
+      "matrixCase": true
+    },
+    "TEXT_CONFUSABLE_DISAGREEMENT": {
+      "severity": "WARNING",
+      "message": "OCR differs only by qualified confusable characters from strong native text.",
+      "detection": "Strong native text and OCR normalize to a configured confusable-equivalent token.",
+      "retainedEvidence": ["native-observation", "ocr-observation", "native-quality"],
+      "blockedDownstream": [],
+      "reviewerResolution": "NOT_APPLICABLE",
+      "matrixCase": false
+    },
+    "PDF_TEXT_MAPPING_CORRUPT": {
+      "severity": "WARNING",
+      "message": "Native PDF text mapping is explicitly qualified as corrupt; unanimous OCR is selected.",
+      "detection": "NativeTextQuality is mapping_corrupt and aligned OCR observations agree.",
+      "retainedEvidence": ["corrupt-native-observation", "ocr-observations", "native-quality"],
+      "blockedDownstream": [],
+      "reviewerResolution": "NOT_APPLICABLE",
+      "matrixCase": false
+    },
+    "TABLE_CELL_PASS_MISSING": {
+      "severity": "REVIEW_REQUIRED",
+      "message": "A required extraction pass has no observation for an aligned logical cell.",
+      "detection": "Exact row/column alignment finds a missing required pass cell.",
+      "retainedEvidence": ["present-pass-cells", "table-candidate", "page-surface"],
+      "blockedDownstream": ["ordinal-cell-shift", "accepted-table-cell"],
+      "reviewerResolution": "REVIEWER_CAN_RESOLVE",
+      "matrixCase": true
+    },
+    "TABLE_PAGE_SURFACE_REQUIRED": {
+      "severity": "BLOCKED",
+      "message": "Governed table extraction requires an explicit page-bearing source surface.",
+      "detection": "Table pass input lacks pageNumber on its bound source surface.",
+      "retainedEvidence": ["source-identity", "unbound-table-request"],
+      "blockedDownstream": ["governed-table-pass", "target-mapping"],
+      "reviewerResolution": "SOURCE_REBIND_REQUIRED",
+      "matrixCase": true
+    },
+    "PROVIDER_PIXEL_CONVENTION_UNKNOWN": {
+      "severity": "BLOCKED",
+      "message": "Provider geometry coordinate convention is unknown.",
+      "detection": "Provider profile reports unknown or undeclared pixel convention for geometry-bearing output.",
+      "retainedEvidence": ["provider-output", "provider-profile", "surface"],
+      "blockedDownstream": ["trusted-coordinate-use", "aligned-overlay"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "OBSERVATION_PROVIDER_SURFACE_REQUIRED": {
+      "severity": "BLOCKED",
+      "message": "Provider geometry is present without an explicit provider surface.",
+      "detection": "Observation contains providerGeometry but no provider surface identity.",
+      "retainedEvidence": ["observation-text", "provider-geometry"],
+      "blockedDownstream": ["geometry-reconciliation", "aligned-overlay"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "OBSERVATION_PROVIDER_PROFILE_CONFLICT": {
+      "severity": "BLOCKED",
+      "message": "Observation provider identity conflicts with its supplied provider profile.",
+      "detection": "Observation role/provider/version or explicit profile hash differs from ProviderProfile.v1.",
+      "retainedEvidence": ["observation", "provider-profile"],
+      "blockedDownstream": ["trusted-observation", "cross-provider-reconciliation"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "NATIVE_QUALITY_PROFILE_CONFLICT": {
+      "severity": "BLOCKED",
+      "message": "Native text quality assessment is not bound to the observation provider profile.",
+      "detection": "NativeTextQuality assessmentProfileHash differs from observation providerProfileHash.",
+      "retainedEvidence": ["native-observation", "native-quality", "provider-profile"],
+      "blockedDownstream": ["native-text-preference", "trusted-text"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "NATIVE_QUALITY_HASH_INVALID": {
+      "severity": "BLOCKED",
+      "message": "Native text quality content does not match its claimed hash.",
+      "detection": "Recomputed canonical NativeTextQuality hash differs from nativeQualityHash.",
+      "retainedEvidence": ["native-quality", "native-observation"],
+      "blockedDownstream": ["native-text-preference", "trusted-text"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "DOCX_RENDER_PROFILE_INCOMPLETE": {
+      "severity": "BLOCKED",
+      "message": "DOCX rendered-page evidence lacks required renderer, environment, font, or display-policy identity.",
+      "detection": "RenderProfile.v1 for documentKind=docx omits a required reproducibility field.",
+      "retainedEvidence": ["docx-source", "partial-render-profile"],
+      "blockedDownstream": ["docx-layout-comparison", "docx-aligned-overlay"],
+      "reviewerResolution": "REGENERATION_REQUIRED",
+      "matrixCase": true
+    },
+    "DOCX_RENDER_PROFILE_CHANGED": {
+      "severity": "REVIEW_REQUIRED",
+      "message": "DOCX semantic source is unchanged but rendered-page profile identity changed.",
+      "detection": "Source semantic hash matches while renderProfileHash differs.",
+      "retainedEvidence": ["docx-source", "prior-render-profile", "current-render-profile"],
+      "blockedDownstream": ["layout-change-classification", "aligned-overlay-reuse"],
+      "reviewerResolution": "REVIEWER_CAN_RESOLVE",
+      "matrixCase": true
+    },
+    "TRANSFORM_NONINVERTIBLE": {
+      "severity": "BLOCKED",
+      "message": "Surface transform is singular and cannot be inverted.",
+      "detection": "Affine determinant is zero or below the numerical singularity gate.",
+      "retainedEvidence": ["source-surface", "target-surface", "forward-matrix"],
+      "blockedDownstream": ["coordinate-backprojection", "aligned-overlay"],
+      "reviewerResolution": "RECOMPUTE_REQUIRED",
+      "matrixCase": true
+    },
+    "TRANSFORM_ROUNDTRIP_FAILED": {
+      "severity": "BLOCKED",
+      "message": "Surface transform exceeds the declared continuous round-trip tolerance.",
+      "detection": "Deterministic fiducial forward/inverse error exceeds the contract gate.",
+      "retainedEvidence": ["transform", "fiducials", "numeric-validation"],
+      "blockedDownstream": ["trusted-coordinate-use", "aligned-overlay"],
+      "reviewerResolution": "RECOMPUTE_REQUIRED",
+      "matrixCase": true
+    },
+    "OVERLAY_STALE_SOURCE": {
+      "severity": "BLOCKED",
+      "message": "Overlay source hash does not match the current document source.",
+      "detection": "Overlay sourceHash differs from active source identity.",
+      "retainedEvidence": ["overlay", "prior-source-identity", "current-source-identity"],
+      "blockedDownstream": ["aligned-overlay-render", "review-acceptance"],
+      "reviewerResolution": "SOURCE_REBIND_REQUIRED",
+      "matrixCase": true
+    },
+    "OVERLAY_STALE_TRANSFORM": {
+      "severity": "BLOCKED",
+      "message": "Overlay transform hash does not match the current surface transform.",
+      "detection": "Overlay surfaceTransformHash differs from the active transform identity.",
+      "retainedEvidence": ["overlay", "prior-transform", "current-transform"],
+      "blockedDownstream": ["aligned-overlay-render", "review-acceptance"],
+      "reviewerResolution": "RECOMPUTE_REQUIRED",
+      "matrixCase": true
+    },
+    "EVIDENCE_HASH_INVALID": {
+      "severity": "BLOCKED",
+      "message": "Canonical evidence content does not match its claimed hash.",
+      "detection": "Recomputed canonical hash differs from the stored evidence hash.",
+      "retainedEvidence": ["claimed-evidence", "recomputed-hash"],
+      "blockedDownstream": ["trusted-evidence", "publication"],
+      "reviewerResolution": "RECOMPUTE_REQUIRED",
+      "matrixCase": true
+    }
+  }
+}
