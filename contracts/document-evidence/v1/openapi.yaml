@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: XML Compare Utilities Document Evidence Contract
-  version: 1.1.0
+  version: 1.2.0
   description: >-
     Provider-neutral document-evidence contract and governed table extraction routes.
 paths:
@@ -52,6 +52,20 @@ paths:
                   items:
                     type: integer
                     minimum: 1
+                options:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    ocr:
+                      type: string
+                      enum: [never, always]
+                      default: never
+                      description: >-
+                        `always` runs exactly one bounded existing OCR pass per explicitly selected page.
+                    ocrLanguage:
+                      type: string
+                      minLength: 1
+                      default: eng
       responses:
         '200':
           description: Source-bound table observations, per-pass cells, and extraction-only decisions.
@@ -87,3 +101,10 @@ components:
       $ref: ./correction-event.schema.json
 x-contract-status: runtime-partial
 x-authority-boundary: extraction-only
+x-table-ocr-policy:
+  modes: [never, always]
+  attemptsPerSelectedPage: 1
+  maxPagePixels: 24000000
+  maxDimensionPixels: 12000
+  maxJobOutputBytes: 134217728
+  maxAttemptSeconds: 30
