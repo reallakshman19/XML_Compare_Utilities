@@ -16,6 +16,7 @@ from document_conversion_service import (
     ConversionServiceConfig,
     DocumentConversionService,
 )
+from document_evidence_table_http import table_api_capabilities, table_route_operations
 from pdf_chart_api import (
     ChartBinaryResponse,
     chart_api_capabilities,
@@ -86,7 +87,7 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
-        operation = {
+        operations = {
             "/v1/convert": self.server.service.convert,
             "/v1/search": self.server.service.search,
             "/v1/render-pages": lambda body: render_pages_request(
@@ -95,7 +96,9 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
             "/v1/inspect-vectors": lambda body: inspect_vectors_request(
                 body, self.server.service.config,
             ),
-        }.get(path)
+        }
+        operations.update(table_route_operations(self.server.service.config))
+        operation = operations.get(path)
         if operation is None:
             self._write_error(404, "API_ROUTE_NOT_FOUND", "route not found")
             return
@@ -212,6 +215,7 @@ def _capabilities(config: ConversionServiceConfig) -> dict:
             "completeOrError": True,
         },
         **chart_api_capabilities(),
+        **table_api_capabilities(),
         "assetTransport": False,
         "remoteSourceFetch": False,
     }
