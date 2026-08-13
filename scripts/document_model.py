@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "4"
-CANONICALIZATION_VERSION = "4"
-CONVERTER_REVISION = "docx-revisions-notes-v4"
+SEMANTIC_SCHEMA_VERSION = "5"
+CANONICALIZATION_VERSION = "5"
+CONVERTER_REVISION = "docx-assets-v5"
 
 
 @dataclass(frozen=True)
@@ -74,6 +74,16 @@ class InlineUnsupported:
 
 
 @dataclass(frozen=True)
+class InlineImage:
+    asset_id: str
+    alt_text: str = ""
+    relationship_id: str | None = None
+    caption: str | None = None
+    filename: str | None = None
+    render_supported: bool = True
+
+
+@dataclass(frozen=True)
 class InlineNoteReference:
     note_type: str
     note_id: str
@@ -94,7 +104,7 @@ class InlineRevision:
 
 Inline = (
     InlineText | InlineTab | InlineBreak | InlineHyperlink | InlineSymbol |
-    InlineUnsupported | InlineNoteReference | InlineCommentReference | InlineRevision
+    InlineUnsupported | InlineImage | InlineNoteReference | InlineCommentReference | InlineRevision
 )
 
 
@@ -175,6 +185,20 @@ Block = ParagraphBlock | PageBreakBlock | UnsupportedBlock | TableBlock
 
 
 @dataclass(frozen=True)
+class AssetDefinition:
+    asset_id: str
+    source_part: str
+    relationship_id: str
+    media_part: str
+    source_filename: str
+    content_type: str | None
+    sha256: str
+    byte_length: int
+    filename: str
+    render_supported: bool
+
+
+@dataclass(frozen=True)
 class NoteDefinition:
     note_type: str
     note_id: str
@@ -200,6 +224,7 @@ class DocumentModel:
     semantic_schema_version: str = SEMANTIC_SCHEMA_VERSION
     notes: tuple[NoteDefinition, ...] = ()
     comments: tuple[CommentDefinition, ...] = ()
+    assets: tuple[AssetDefinition, ...] = ()
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -228,6 +253,16 @@ def inline_evidence(inline: Inline) -> dict[str, Any] | None:
         }
     if isinstance(inline, InlineUnsupported):
         return {"kind": "unsupported", "code": inline.code, "marker": inline.marker}
+    if isinstance(inline, InlineImage):
+        return {
+            "kind": "image",
+            "assetId": inline.asset_id,
+            "altText": inline.alt_text,
+            "relationshipId": inline.relationship_id,
+            "caption": inline.caption,
+            "filename": inline.filename,
+            "renderSupported": inline.render_supported,
+        }
     if isinstance(inline, InlineNoteReference):
         return {"kind": "noteReference", "noteType": inline.note_type, "noteId": inline.note_id}
     if isinstance(inline, InlineCommentReference):
@@ -256,6 +291,8 @@ def _inline_plain_text(inlines: tuple[Inline, ...]) -> str:
             parts.append(inline.text)
         elif isinstance(inline, InlineSymbol):
             parts.append(inline.text)
+        elif isinstance(inline, InlineImage):
+            parts.append(f"[image:{inline.alt_text or inline.asset_id}]")
         elif isinstance(inline, InlineNoteReference):
             prefix = "fn" if inline.note_type == "footnote" else "en"
             parts.append(f"[^{prefix}{inline.note_id}]")
@@ -353,6 +390,21 @@ def build_evidence(
         "optionsHash": options_hash(options),
         "metadata": document.metadata,
         "blocks": [block_evidence(block) for block in document.blocks],
+        "assets": [
+            {
+                "assetId": asset.asset_id,
+                "sourcePart": asset.source_part,
+                "relationshipId": asset.relationship_id,
+                "mediaPart": asset.media_part,
+                "sourceFilename": asset.source_filename,
+                "contentType": asset.content_type,
+                "sha256": asset.sha256,
+                "byteLength": asset.byte_length,
+                "filename": asset.filename,
+                "renderSupported": asset.render_supported,
+            }
+            for asset in document.assets
+        ],
         "notes": [
             {
                 "noteType": note.note_type,
