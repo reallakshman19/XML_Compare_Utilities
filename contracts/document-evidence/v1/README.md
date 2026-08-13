@@ -4,13 +4,13 @@ This directory is the canonical, provider-neutral contract authority for the sha
 
 ## Scope
 
-The contract covers generic source identity, rendered surfaces, coordinate transforms, geometry, text/OCR observations, evidence decisions, diagnostics, overlays, deterministic machine evidence, and append-only human correction events.
+The contract covers source identity, surfaces, coordinate transforms, geometry, text/OCR observations, evidence decisions, overlays, deterministic machine evidence, and append-only human correction events.
 
-It deliberately does **not** assign engineering, screening, publication, benchmark, or design authority. An `accepted` evidence decision means only that the extraction evidence resolves what the identified source surface says.
+It does **not** assign engineering, screening, publication, benchmark, or design authority. An `accepted` evidence decision means only that extraction evidence resolves what the identified source surface says.
 
 ## Authority and portability
 
-XML_Compare_Utilities owns these schemas and canonical conformance vectors. Python implementations in this repository and TypeScript implementations in Pdf-Hub must conform to these files; neither implementation is the schema authority and there is no runtime dependency between the repositories.
+XML_Compare_Utilities owns these schemas and canonical conformance vectors. Python implementations here and TypeScript implementations in Pdf-Hub must conform to these files; neither implementation is the schema authority and there is no runtime dependency between repositories.
 
 ## Contract rules
 
@@ -20,29 +20,29 @@ XML_Compare_Utilities owns these schemas and canonical conformance vectors. Pyth
 4. Evidence decisions do not mutate observations.
 5. Human corrections are append-only events outside deterministic machine evidence.
 6. Provider confidence is raw provider evidence unless a separately identified calibration model exists.
-7. Non-axis-aligned geometry is represented as polygons/quadrilaterals; axis-aligned bounding boxes may be derived indexes only.
+7. Non-axis-aligned geometry is a polygon or quad; an axis-aligned bbox is derived only.
 8. Stale source or transform references fail closed for aligned overlays.
-9. Generic numeric disagreement defaults to `review_required` when normalized numeric values differ; non-zero tolerances require a separately versioned reconciliation profile.
-10. Machine evidence identity excludes execution-time noise but includes all provider/profile/source/transform differences capable of changing meaning.
+9. Differing normalized numeric values default to `review_required`; a non-zero tolerance requires a separately versioned reconciliation profile.
+10. Machine evidence identity excludes execution-time noise but includes provider, source, surface, and transform differences that can change meaning.
 
 ## Files
 
-- `source.schema.json` — immutable source identity.
-- `surface.schema.json` — named coordinate-bearing surfaces.
-- `transform.schema.json` — forward/inverse transform lineage.
-- `geometry.schema.json` — provider-neutral geometry without lossy Bezier flattening.
-- `profile.schema.json` — provider/render/preprocessing identity inputs.
-- `observation.schema.json` — immutable native/OCR observations.
-- `diagnostic.schema.json` — structured fail-closed diagnostics.
-- `decision.schema.json` — extraction-evidence decisions only.
-- `overlay.schema.json` — universal document-coordinate overlays.
-- `machine-evidence-envelope.schema.json` — deterministic machine evidence bundle.
-- `correction-event.schema.json` — append-only reviewer correction event.
-- `coordinate-conventions.md` — normative coordinate chain and numerical gates.
-- `canonicalization.md` — deterministic JSON/hash rules.
-- `openapi.yaml` — schema catalog for HTTP consumers; runtime paths are intentionally not declared in this contract-only slice.
-- `conformance/transform-vectors.json` — shared transform test vectors.
+- `source.schema.json`
+- `surface.schema.json`
+- `transform.schema.json`
+- `geometry.schema.json`
+- `observation.schema.json`
+- `decision.schema.json`
+- `overlay.schema.json`
+- `machine-evidence-envelope.schema.json`
+- `correction-event.schema.json`
+- `coordinate-conventions.md`
+- `canonicalization.md`
+- `openapi.yaml`
+- `conformance/transform-vectors.json`
+
+Provider/render profile schemas and the structured diagnostic catalog are the next contract extension before runtime migration. Until then, profile and diagnostic objects in the machine envelope are opaque extension points and implementations must not invent incompatible shared semantics.
 
 ## Versioning
 
-The directory name is the schema major version. Compatible additive changes may increment an individual schema's minor metadata. Breaking coordinate semantics, hash semantics, required identity fields, or decision-state meaning require a new major directory.
+The directory name is the schema major version. Breaking coordinate semantics, hash semantics, required identity fields, or decision-state meaning require a new major directory.
