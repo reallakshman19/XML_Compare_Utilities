@@ -1,11 +1,64 @@
 openapi: 3.1.0
 info:
   title: XML Compare Utilities Document Evidence Contract
-  version: 1.0.0
+  version: 1.1.0
   description: >-
-    Schema catalog for the provider-neutral document-evidence contract. This
-    contract-only slice intentionally declares no runtime HTTP paths.
-paths: {}
+    Provider-neutral document-evidence contract and governed table extraction routes.
+paths:
+  /v2/tables/discover:
+    post:
+      summary: Discover advisory PDF table candidates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sourcePath]
+              properties:
+                sourcePath:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Advisory candidate pages/regions only; no governed extraction authority.
+          content:
+            application/json:
+              schema:
+                $ref: ./table-discovery.schema.json
+  /v2/tables/extract:
+    post:
+      summary: Extract governed evidence from explicitly selected PDF pages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sourcePath, sourceHash, pages]
+              properties:
+                sourcePath:
+                  type: string
+                  minLength: 1
+                sourceHash:
+                  type: string
+                  minLength: 1
+                pages:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: integer
+                    minimum: 1
+      responses:
+        '200':
+          description: Source-bound table observations, per-pass cells, and extraction-only decisions.
+          content:
+            application/json:
+              schema:
+                $ref: ./table-extraction.schema.json
 components:
   schemas:
     SourceIdentity:
@@ -20,11 +73,17 @@ components:
       $ref: ./observation.schema.json
     EvidenceDecision:
       $ref: ./decision.schema.json
+    TablePass:
+      $ref: ./table-pass.schema.json
+    TableDiscovery:
+      $ref: ./table-discovery.schema.json
+    TableExtraction:
+      $ref: ./table-extraction.schema.json
     Overlay:
       $ref: ./overlay.schema.json
     MachineEvidenceEnvelope:
       $ref: ./machine-evidence-envelope.schema.json
     CorrectionEvent:
       $ref: ./correction-event.schema.json
-x-contract-status: schema-only
-x-runtime-routes-deferred: true
+x-contract-status: runtime-partial
+x-authority-boundary: extraction-only
