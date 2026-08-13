@@ -31,13 +31,20 @@ DocumentEvidence.v1 covers immutable source identity, named surfaces, invertible
 - tables/UI: `table-pass.schema.json`, `table-discovery.schema.json`, `table-extraction.schema.json`, `overlay.schema.json`
 - determinism/portability: `machine-evidence-envelope.schema.json`, `evidence-bundle-manifest.schema.json`, `storage-policy.schema.json`, `ocr-resource-policy.schema.json`
 - review lineage: `correction-event.schema.json`, `effective-evidence-view.schema.json`
-- catalogs/conformance: `openapi.yaml`, `coordinate-conventions.md`, `canonicalization.md`, `conformance/transform-vectors.json`, `conformance/provider-invariants-v1.json`, `conformance/qualification-v1.json`
+- catalogs/conformance: `openapi.yaml`, `coordinate-conventions.md`, `canonicalization.md`, `conformance/transform-vectors.json`, `conformance/provider-invariants-v1.json`, `conformance/qualification-v1.json`, `conformance/controlled-real-fixture-v1.json`, `conformance/scanned-real-fixture-v1.json`, `conformance/broken-tounicode-real-fixture-v1.json`
 
 ## Portability and qualification
 
 XML_Compare_Utilities owns these contracts; other repositories are conformance implementations and do not become independent schema authorities. Provider conformance is based on source/surface/transform/lineage invariants, not exact equality of OCR output between providers.
 
-The executable reference qualification covers transform round-trip, numeric OCR conflict, DOCX renderer-only drift versus same-profile nondeterminism, cubic-control preservation, deterministic envelope ordering, and source-lineage rejection. No cross-platform bitwise raster guarantee is claimed.
+Two qualification layers are intentionally retained:
+
+- `qualification-v1.json` plus `scripts/document_evidence_qualification.py` provides deterministic fault injection for transform round-trip, numeric OCR disagreement, DOCX renderer-profile drift/same-profile nondeterminism, cubic controls, envelope ordering, and source-lineage rejection.
+- real controlled fixtures exercise actual parser/render/OCR paths: `controlled-real-fixture-v1.json` binds a reviewable born-digital PDF and OOXML DOCX; `scanned-real-fixture-v1.json` binds an image-only low-contrast +2.75 degree skewed PDF with nonzero CropBox and `/Rotate 90`; `broken-tounicode-real-fixture-v1.json` binds a PDF whose visual `T3-1` is corrupted by ToUnicode to native `T3-�` while OCR sees the rendered glyph.
+
+Real fixture byte identities are predeclared before parser assertions. PDF/OCR tests use the pinned optional PDF dependency profile and skip visibly when that profile or the deployed Tesseract CLI is absent; the tests do not replace missing providers with mocks.
+
+No cross-platform bitwise raster guarantee is claimed. Controlled DOCX fixture ZIP entries use stored compression, fixed timestamps, stable ordering, and fixed permissions so its qualification byte identity does not depend on a zlib implementation.
 
 Controlled source targets remain fail-closed until exact source locators are proven against the pinned source. Legacy coordinate artifacts missing source/surface/transform/profile identity require an explicit adapter or rebuild; they are never silently reinterpreted under v1.
 
