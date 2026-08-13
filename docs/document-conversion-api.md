@@ -1,12 +1,12 @@
-# Document conversion and PDF search HTTP API
+# Document search, OCR indexing, conversion API and UI
 
-The API is a thin, local/server HTTP adapter over the existing deterministic DOCX/PDF -> Markdown engine. It does not contain a second parser or renderer.
+This capability is a thin HTTP/UI layer over the existing deterministic DOCX/PDF -> Markdown engine. It does not create a second parser, table engine, OCR engine, or Markdown renderer.
 
-For PDF discovery it also exposes a deterministic native-text search index. The search design adapts the useful concepts in `reallaksh19/Pdf-Hub` search indexing: cache positioned page text by document identity, return page/snippet/rectangle hits, and keep search separate from navigation/conversion. There is no runtime dependency on Pdf-Hub. The reviewed Pdf-Hub frontend search code is MIT-licensed.
+For PDF discovery it adapts useful search/index concepts from `reallaksh19/Pdf-Hub@162274faf8f8badf01148978e8b1b4b54b724ce3`: positioned page-text indexing, page/bbox-aware OCR records, deterministic search ordering, and a page-grouped search workflow. The reviewed Pdf-Hub frontend code is MIT-licensed. There is no Pdf-Hub runtime dependency.
 
-## Start the service
+## Start the API and browser workspace
 
-The server refuses to start without at least one allowed source root.
+At least one controlled source root is required:
 
 ```bash
 python scripts/document_conversion_api.py \
@@ -15,30 +15,46 @@ python scripts/document_conversion_api.py \
   --allow-root /Common
 ```
 
-For a sibling checkout instead:
+Open:
+
+```text
+http://127.0.0.1:8765/document-conversion/
+```
+
+For a sibling Common checkout:
 
 ```bash
 python scripts/document_conversion_api.py --allow-root ../Common
 ```
 
-`DOCUMENT_CONVERSION_ALLOWED_ROOTS` may also contain one or more roots separated by the platform path separator.
+`DOCUMENT_CONVERSION_ALLOWED_ROOTS` may contain multiple platform-path-separated roots.
 
-## Search first, then choose pages, then convert
+The browser workspace and API use the same origin. No wildcard CORS policy is required.
 
-The intended application flow is:
+## Intended workflow
 
 ```text
 controlled PDF
-  -> POST /v1/search
-  -> caller receives every literal native-text match
-  -> caller/app selects the required page range
-  -> POST /v1/convert with that explicit range
-  -> Markdown + evidence/diagnostics
+  -> search/index native text + controlled OCR fallback
+  -> return every trusted match with original page/bbox/provenance
+  -> user/app chooses the required page range
+  -> convert only that explicit range
+  -> Markdown + evidence + diagnostics
 ```
 
-The search service never infers or silently expands the page range to convert.
+Search never silently chooses or expands the conversion range. The user/application remains the authority for the range passed to conversion.
 
-### 1. Search `T2.3`
+## Browser UI
+
+The `/document-conversion/` workspace provides three explicit stages:
+
+1. **Search PDF** — source path, optional password, query, case/whole-word options, OCR mode/language/confidence.
+2. **Choose pages** — results are grouped by original PDF page and labeled `Native` or `OCR`; OCR hits show confidence. Selecting result pages sets the min/max conversion range, while a manually typed range clears chip selection so the authority remains unambiguous.
+3. **Convert to Markdown** — choose table/OCR/engineering-region/header/footer policies, convert the bounded range, inspect Markdown or evidence, then copy/download Markdown or evidence JSON.
+
+The UI does not use `innerHTML` for extracted document text. Search snippets are built using DOM text nodes and `<mark>` elements.
+
+## Search `T2.3`
 
 ```bash
 curl --fail --silent --show-error \
@@ -51,89 +67,141 @@ curl --fail --silent --show-error \
   "options": {
     "caseSensitive": false,
     "wholeWord": false,
-    "useRegex": false
+    "useRegex": false,
+    "ocr": "auto",
+    "ocrLanguage": "eng",
+    "ocrConfidenceMin": 0.70
   }
 }
 JSON
 ```
 
-Example response shape:
+For encrypted PDFs, add a top-level `password` field. Passwords are not returned in response identity or logged by application code.
+
+### Search response
+
+The response contains:
+
+- source SHA-256 and size;
+- deterministic search/index identities;
+- index cache source (`built`, `memory`, or `disk`);
+- original total page count;
+- native/OCR indexed page information;
+- pages that remain without trusted searchable text;
+- every trusted match;
+- `pagesWithMatches` for caller navigation/selection;
+- diagnostics.
+
+Representative hit:
 
 ```json
 {
-  "schema": "PdfSearchApi.v1",
-  "source": {
-    "logicalPath": "/Common/EI - AVIFF Guidelines 2nd Edition.pdf",
-    "type": "pdf",
-    "sha256": "sha256:...",
-    "sizeBytes": 10348594
-  },
-  "index": {
-    "indexId": "sha256:...",
-    "revision": "pdf-search-index-v1",
-    "cacheHit": false,
-    "totalPages": 0,
-    "indexedLines": 0,
-    "indexedChars": 0,
-    "nativeTextPages": 0,
-    "pagesWithoutNativeText": [],
-    "nativeTextOnly": true,
-    "backendVersions": {}
-  },
-  "query": "T2.3",
-  "options": {
-    "caseSensitive": false,
-    "wholeWord": false,
-    "useRegex": false
-  },
-  "searchHash": "sha256:...",
-  "summary": {
-    "totalMatches": 0,
-    "pagesWithMatches": [
-      { "page": 56, "matches": 2 },
-      { "page": 61, "matches": 1 }
-    ]
-  },
-  "matches": [
-    {
-      "id": "pdf-search:...",
-      "page": 56,
-      "lineId": "p56:l12",
-      "matchText": "T2.3",
-      "lineText": "...",
-      "charRange": { "start": 8, "end": 12 },
-      "snippet": "...T2.3...",
-      "snippetMatchRange": { "start": 8, "end": 12 },
-      "bbox": [72.0, 118.0, 410.0, 131.0],
-      "bboxPrecision": "line",
-      "extraction": "embedded-text"
-    }
-  ],
-  "diagnostics": []
+  "id": "pdf-search:...",
+  "page": 56,
+  "itemId": "ocr:p56:l3",
+  "matchText": "T2.3",
+  "lineText": "...",
+  "snippet": "... T2.3 ...",
+  "bbox": [72.0, 118.0, 410.0, 131.0],
+  "bboxPrecision": "line",
+  "extraction": "ocr",
+  "confidence": 0.93
 }
 ```
 
-The example page numbers above illustrate the response schema; they are not asserted source locators for the EI document until the API is run against the exact controlled PDF.
+The page number above only illustrates the schema. It is not asserted as an EI source locator until the API is run against the exact controlled PDF.
 
-Search properties:
+## Native + OCR search policy
 
-- page numbers are original PDF **1-based** page numbers;
-- all literal matches are returned or the request fails with `PDF_SEARCH_RESULT_LIMIT_EXCEEDED`;
-- hits are deterministic and ordered by source page/layout order;
-- hit IDs are stable for the same source occurrence;
-- line-level bboxes are returned for caller navigation/highlighting;
-- the first search builds an in-memory index keyed by source identity; later searches reuse it;
-- encrypted-source cache entries are partitioned by password fingerprint so a prior decrypted index cannot satisfy a passwordless request;
-- the index contains no timestamps and has a deterministic `indexId`/`searchHash`;
-- regex execution is intentionally disabled in API v1 (`PDF_SEARCH_REGEX_UNSUPPORTED`).
+Search uses the same source stack as conversion:
 
-This first search slice indexes **native embedded PDF text only**. If pages have no native searchable text, the response lists them under `pagesWithoutNativeText` and emits `PDF_SEARCH_NATIVE_TEXT_INCOMPLETE`. OCR-derived search indexing is a later slice; conversion itself still retains its existing controlled OCR policies.
+```text
+existing pdfplumber/pdfminer positioned native extraction
+  -> native text quality gate
+  -> existing PdfiumRasterizer when OCR is required
+  -> existing TesseractCliEngine
+  -> confidence gate
+  -> geometric/text dedup against native text
+  -> deterministic search index
+```
 
-### 2. Caller chooses a range
+Search OCR modes:
 
-The caller may decide, for example, that the relevant source section is pages 56-68. That choice remains caller/application authority rather than a search heuristic.
+```text
+auto    OCR pages whose native text quality is inadequate
+always  OCR every page, then deduplicate against native text
+never   index native text only
+```
 
-### 3. Convert the chosen pages
+Default minimum OCR confidence is `0.70`. OCR lines below the configured threshold do not enter the search index.
+
+Native/OCR duplicate suppression requires overlapping geometry plus high normalized-text similarity. Native text remains the preferred search representation when equivalent OCR text overlaps it.
+
+Resource gates are fail-closed. Defaults include:
+
+```text
+source PDF pages            2000
+search OCR pages             100
+search OCR job pixels        250,000,000
+search OCR timeout/page       60 seconds
+search index characters       20,000,000
+search result matches          5,000
+```
+
+If the result limit would be exceeded, search fails with `PDF_SEARCH_RESULT_LIMIT_EXCEEDED`; it never silently truncates the result set.
+
+Regex execution remains disabled. Literal search supports case-sensitive and whole-word modes.
+
+## Persistent search indexes
+
+Persistent PDF search indexing is enabled by default. Unless overridden, indexes are written to:
+
+```text
+~/.cache/xml-compare-utilities/pdf-search
+```
+
+Override it with:
+
+```bash
+python scripts/document_conversion_api.py \
+  --allow-root /Common \
+  --search-index-dir /var/cache/xml-compare/pdf-search
+```
+
+Or set:
+
+```text
+DOCUMENT_CONVERSION_SEARCH_INDEX_DIR
+```
+
+For memory-only operation:
+
+```bash
+python scripts/document_conversion_api.py \
+  --allow-root /Common \
+  --no-persistent-search-index
+```
+
+Persistent-index properties:
+
+- deterministic hashed filenames, not source filenames;
+- canonical JSON payloads with no timestamps;
+- atomic temp-file replacement;
+- best-effort owner-only `0600` file permissions;
+- bounded persisted document count, default `32`;
+- key partitioning by source SHA-256, index revision, password fingerprint, OCR mode, OCR language, and confidence threshold;
+- corrupt/mismatched stored indexes are ignored and rebuilt from the authoritative PDF;
+- the plaintext index contains extracted source text and should therefore be stored with the same confidentiality controls as the source document.
+
+A successful response identifies the source used for that request:
+
+```text
+cacheSource = built | memory | disk
+```
+
+## Choose pages, then convert
+
+After search, the caller may determine that pages 56-68 are the required section. Conversion remains a separate request:
 
 ```bash
 curl --fail --silent --show-error \
@@ -156,82 +224,13 @@ curl --fail --silent --show-error \
 JSON
 ```
 
-Page numbers are **1-based and inclusive** and provenance keeps the original PDF page numbers.
+Page ranges are **1-based and inclusive**. The range layer injects page-aware native/table/figure/engineering adapters into the existing conversion stack; it does not create a temporary subset PDF. Source page 56 therefore remains page 56 in text, tables, OCR, figures, engineering regions, diagnostics, and evidence.
 
-The conversion response includes:
+The response includes Markdown, source identity, explicit page range, deterministic request hash, converter options hash, evidence, diagnostics, and conversion statistics.
 
-```json
-{
-  "schema": "DocumentConversionApi.v1",
-  "source": {
-    "logicalPath": "/Common/EI - AVIFF Guidelines 2nd Edition.pdf",
-    "type": "pdf",
-    "sha256": "sha256:...",
-    "sizeBytes": 10348594
-  },
-  "pageRange": { "start": 56, "end": 68, "count": 13 },
-  "requestHash": "sha256:...",
-  "markdown": "...",
-  "markdownSha256": "sha256:...",
-  "converterOptionsHash": "sha256:...",
-  "evidence": {},
-  "diagnostics": [],
-  "stats": {}
-}
-```
-
-`requestHash` includes the full source SHA-256, page range and normalized API options. Changing only pages 56-68 to 57-69 therefore produces a different request identity even when the source file is unchanged.
-
-## PDF search implementation
-
-The search index uses the same positioned native PDF backend already used by the converter (`pdfplumber` / `pdfminer.six`) and the existing deterministic character-to-line clustering. It records searchable line text with original page number and line bbox.
-
-The design references these Pdf-Hub concepts without copying its browser runtime into this repository:
-
-```text
-Pdf-Hub SearchIndexer
-  -> document-keyed in-memory positioned-text cache
-  -> literal/case/whole-word search
-
-Pdf-Hub OCR search index
-  -> page/source/bbox-aware search records
-  -> stable result ordering and source context
-```
-
-This repository adapts those ideas to the server/Python conversion architecture and source SHA-256 identities.
-
-## DOCX
-
-`POST /v1/convert` also accepts `.docx` sources. DOCX conversion is whole-document in API v1; sending `pages` with a DOCX request returns `DOCX_PAGE_RANGE_UNSUPPORTED`.
-
-`POST /v1/search` is PDF-only in this first slice; DOCX search returns `PDF_SEARCH_SOURCE_REQUIRED`.
-
-```json
-{
-  "sourcePath": "/Common/Energy-Institute-AVIFF---Worked-Examples.doc.docx",
-  "options": {
-    "tableMode": "auto",
-    "revisions": "accepted",
-    "images": "skip"
-  }
-}
-```
-
-## Range semantics
-
-The PDF range layer injects range-aware adapters into the existing native-text, table, figure and engineering-geometry backend seams. It does not create a temporary subset PDF, so source page 56 remains page 56 for:
-
-- native text provenance;
-- table provenance;
-- OCR rasterization;
-- figure geometry;
-- engineering-region extraction.
-
-Document-level heading and running-content inference is scoped to the selected range. Evidence therefore emits `PDF_PAGE_RANGE_CONTEXT_LIMITED` so a range conversion is never represented as identical to a whole-document semantic pass.
+Range conversion emits `PDF_PAGE_RANGE_CONTEXT_LIMITED` because document-level heading/running-content inference is necessarily scoped to the requested range.
 
 ## Conversion options
-
-Supported conversion request options:
 
 ```text
 headers             keep | metadata | drop
@@ -241,66 +240,72 @@ ocr                 auto | always | never
 ocrLanguage         Tesseract language expression, e.g. eng
 images              skip
 engineeringRegions  auto | always | never
-revisions            accepted | rejected | markup   (DOCX)
+revisions           accepted | rejected | markup   (DOCX)
 ```
 
-Binary asset transport is intentionally not part of API v1. `images=extract` fails with `API_ASSET_TRANSPORT_NOT_IMPLEMENTED` instead of returning Markdown with inaccessible asset links.
+API v1 intentionally requires `images=skip`. Binary figure-asset transport is not silently improvised; `images=extract` fails with `API_ASSET_TRANSPORT_NOT_IMPLEMENTED`.
 
-## Search options
+## DOCX
 
-```text
-caseSensitive  boolean, default false
-wholeWord      boolean, default false
-useRegex       false only in v1
-```
+`POST /v1/convert` accepts `.docx` and routes through the existing DOCX conversion engine. DOCX conversion is whole-document in this API version; PDF-style `pages` are rejected with `DOCX_PAGE_RANGE_UNSUPPORTED`.
 
-Queries must be non-empty and at most 512 characters. The default hard result cap is 5,000 matches. A search that would exceed the cap fails rather than returning an incomplete result set.
+`POST /v1/search` remains PDF-only. DOCX search is not part of this slice.
 
 ## Security boundary
 
-The service is designed for an application/backend deployment, not as an unrestricted filesystem proxy.
+The server is an application/backend service, not an unrestricted filesystem or network proxy.
 
-- remote URLs are never fetched;
-- source paths must resolve under an explicit `--allow-root`;
-- symlink/path traversal escapes are rejected after canonical path resolution;
-- only `.pdf` and `.docx` are accepted by the conversion source resolver;
-- search is explicitly restricted to `.pdf`;
-- source byte size, requested range length, total PDF page count, search-index characters, search results, cache size, request body size and concurrent requests are bounded;
-- invalid/empty search queries are rejected before PDF indexing begins;
-- arbitrary regex search is disabled in the HTTP API v1;
-- existing PDF/OCR memory, pixel, timeout and confidence limits still apply to conversion;
-- passwords may be supplied in JSON requests but are not included in public response identity or access logs;
-- decrypted search caches are partitioned by password fingerprint;
-- responses use `Cache-Control: no-store`.
+- source paths must resolve under explicit `--allow-root` roots;
+- symlink/path-traversal escapes are rejected after canonical resolution;
+- remote source URLs are never fetched;
+- search is PDF-only;
+- conversion accepts PDF/DOCX only;
+- request, source, range, page, search-index, OCR, result, cache, and concurrency limits are explicit;
+- invalid search queries/options fail before expensive indexing where possible;
+- arbitrary regex is disabled;
+- password-bearing index caches are partitioned by a one-way password fingerprint;
+- UI/API responses use `Cache-Control: no-store`;
+- UI assets are served from a fixed allowlist only;
+- browser responses use `nosniff`, `no-referrer`, and a self-only Content Security Policy;
+- no wildcard CORS headers are emitted.
 
-Default server limits:
+## Server flags
 
 ```text
-source bytes              512 MiB
-page range                50 pages
-source PDF pages          2000
-search indexed characters 20,000,000
-search matches            5,000 (complete-or-error)
-search cached documents   8
-JSON request              128 KiB
-concurrent jobs           2
+--allow-root PATH                    repeatable controlled source root
+--max-source-mb N
+--max-range-pages N
+--max-source-pages N
+--max-search-index-chars N
+--max-search-results N
+--max-search-cache-documents N
+--search-index-dir PATH
+--no-persistent-search-index
+--max-search-persisted-documents N
+--search-ocr-confidence-min N
+--search-ocr-max-pages N
+--search-ocr-max-job-pixels N
+--search-ocr-timeout-seconds N
+--max-request-kb N
+--max-concurrency N
 ```
 
-Relevant server flags:
+## Routes
 
 ```text
---max-search-index-chars
---max-search-results
---max-search-cache-documents
-```
-
-## Health and capabilities
-
-```text
+GET  /                         -> redirects to the workspace
+GET  /document-conversion/     browser workspace
 GET  /healthz
 GET  /v1/capabilities
 POST /v1/search
 POST /v1/convert
 ```
 
-No CORS header is emitted by default. A future browser UI should call this through the application origin/reverse proxy or add an explicitly governed origin policy rather than enabling wildcard CORS.
+## Current limitations
+
+- Search is PDF-only.
+- Regex search is disabled.
+- Search indexing is line-oriented; returned bbox precision is `line`.
+- Low-confidence OCR lines are deliberately excluded and may leave pages marked unsearchable.
+- The API does not transport extracted binary figure assets yet (`images=skip`).
+- The browser workspace consumes mounted/allowed server paths; it does not upload arbitrary local browser files.
