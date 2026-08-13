@@ -16,6 +16,9 @@ from document_model import (
     SEMANTIC_SCHEMA_VERSION,
     DocumentModel,
     InlineBreak,
+    InlineCommentReference,
+    InlineNoteReference,
+    InlineRevision,
     InlineHyperlink,
     InlineSymbol,
     InlineTab,
@@ -45,6 +48,8 @@ from docx_ooxml_parser import (
     read_document_xml,
     table_colspan,
 )
+from docx_ancillary import REVISION_MODES
+from docx_revision_semantics import enrich_document_model, prepare_package_for_revisions
 from ooxml_package import OoxmlPackage
 from table_rendering import TABLE_MODES, TableRenderDecision, render_table_by_policy
 
@@ -70,7 +75,10 @@ def render_paragraph(block: ParagraphBlock) -> str:
 
 def _needs_inline_rendering(inlines) -> bool:
     return any(
-        isinstance(value, (InlineHyperlink, InlineSymbol, InlineUnsupported))
+        isinstance(value, (
+            InlineHyperlink, InlineSymbol, InlineUnsupported, InlineNoteReference,
+            InlineCommentReference, InlineRevision,
+        ))
         for value in inlines
     )
 
@@ -90,6 +98,19 @@ def _render_inlines(inlines) -> str:
             parts.append(inline.text)
         elif isinstance(inline, InlineUnsupported):
             parts.append(inline.marker)
+        elif isinstance(inline, InlineNoteReference):
+            prefix = "fn" if inline.note_type == "footnote" else "en"
+            parts.append(f"[^{prefix}{inline.note_id}]")
+        elif isinstance(inline, InlineCommentReference):
+            continue
+        elif isinstance(inline, InlineRevision):
+            content = _render_inlines(inline.inlines)
+            tag = "ins" if inline.revision_type in {"ins", "moveTo"} else "del"
+            attribute = (
+                f' data-revision="{inline.revision_type}"'
+                if inline.revision_type.startswith("move") else ""
+            )
+            parts.append(f"<{tag}{attribute}>{content}</{tag}>")
     return "".join(parts)
 
 
@@ -192,13 +213,53 @@ def render_document(
     *,
     table_mode: str | None = None,
     table_decisions: list[tuple[str, TableRenderDecision]] | None = None,
+    header_mode: str = "metadata",
+    footer_mode: str = "metadata",
 ) -> str:
     rendered: list[tuple[str, bool]] = []
     for block in document.blocks:
         item = _render_block(block, table_format, table_mode, table_decisions)
         if item is not None:
             rendered.append(item)
-    return _join_rendered_blocks(rendered)
+    body = _join_rendered_blocks(rendered)
+    body = _render_running_content(body, document, header_mode, footer_mode)
+    return _append_note_definitions(body, document)
+
+
+def _render_running_content(
+    body: str, document: DocumentModel, header_mode: str, footer_mode: str,
+) -> str:
+    headers = document.metadata.get("runningHeaders", []) if header_mode == "keep" else []
+    footers = document.metadata.get("runningFooters", []) if footer_mode == "keep" else []
+    prefix = _running_content_blocks(headers, "HEADER")
+    suffix = _running_content_blocks(footers, "FOOTER")
+    parts = []
+    if prefix:
+        parts.append(prefix)
+    if body.strip():
+        parts.append(body.rstrip())
+    if suffix:
+        parts.append(suffix)
+    return "\n\n".join(parts).rstrip() + "\n" if parts else "\n"
+
+
+def _running_content_blocks(items: list[dict], label: str) -> str:
+    blocks = []
+    for item in items:
+        text = item.get("text", "")
+        blocks.append(f"<!-- DOCX {label} PART {item['part']} -->\n{text}")
+    return "\n\n".join(blocks)
+
+
+def _append_note_definitions(body: str, document: DocumentModel) -> str:
+    if not document.notes:
+        return body
+    definitions = []
+    for note in document.notes:
+        prefix = "fn" if note.note_type == "footnote" else "en"
+        text = note.text.replace("\n", "\n    ")
+        definitions.append(f"[^{prefix}{note.note_id}]: {text}")
+    return body.rstrip() + "\n\n" + "\n".join(definitions) + "\n"
 
 
 def _render_block(
@@ -243,19 +304,29 @@ def convert_document_xml(document_xml: bytes, table_format: str) -> tuple[str, d
 
 
 def convert_docx_bytes(
-    docx_bytes: bytes, table_format: str = "html", *, table_mode: str | None = None,
+    docx_bytes: bytes, table_format: str = "html", *,
+    table_mode: str | None = None, revision_mode: str = "accepted",
+    header_mode: str = "metadata", footer_mode: str = "metadata",
 ) -> tuple[bytes, dict]:
     package = OoxmlPackage.from_bytes(docx_bytes)
-    document, stats = parse_docx_package(package)
+    prepared, revision_events, fields = prepare_package_for_revisions(package, revision_mode)
+    document, stats = parse_docx_package(prepared)
+    document = enrich_document_model(
+        document, package, revision_mode, revision_events, fields,
+        header_mode=header_mode, footer_mode=footer_mode,
+    )
     table_decisions: list[tuple[str, TableRenderDecision]] = []
     output = render_document(
         document, table_format, table_mode=table_mode, table_decisions=table_decisions,
+        header_mode=header_mode, footer_mode=footer_mode,
     ).encode("utf-8")
-    option_values = _canonical_options(table_format, table_mode)
+    option_values = _canonical_options(
+        table_format, table_mode, revision_mode, header_mode, footer_mode,
+    )
     document_xml = package.require_part(DOC_PART)
     return output, _conversion_stats(
         docx_bytes, document_xml, package, document, stats, output, option_values,
-        table_format, table_mode, table_decisions,
+        table_format, table_mode, revision_mode, header_mode, footer_mode, table_decisions,
     )
 
 
@@ -269,6 +340,9 @@ def _conversion_stats(
     option_values: dict,
     table_format: str,
     table_mode: str | None,
+    revision_mode: str,
+    header_mode: str,
+    footer_mode: str,
     table_decisions: list[tuple[str, TableRenderDecision]],
 ) -> dict:
     return {
@@ -282,6 +356,14 @@ def _conversion_stats(
         "output_bytes": len(output),
         "table_format": table_format,
         "table_mode": table_mode,
+        "revision_mode": revision_mode,
+        "header_mode": header_mode,
+        "footer_mode": footer_mode,
+        "headers": document.metadata.get("headerCount", 0),
+        "footers": document.metadata.get("footerCount", 0),
+        "notes": len(document.notes),
+        "comments": len(document.comments),
+        "fields": len(document.metadata.get("fields", [])),
         "table_renderers": [decision.renderer for _, decision in table_decisions],
         "table_render_fallbacks": sum(
             decision.diagnostic is not None for _, decision in table_decisions
@@ -298,13 +380,25 @@ def _conversion_stats(
 
 
 def conversion_evidence(
-    docx_bytes: bytes, table_format: str = "html", *, table_mode: str | None = None,
+    docx_bytes: bytes, table_format: str = "html", *,
+    table_mode: str | None = None, revision_mode: str = "accepted",
+    header_mode: str = "metadata", footer_mode: str = "metadata",
 ) -> dict:
     package = OoxmlPackage.from_bytes(docx_bytes)
-    document, _ = parse_docx_package(package)
+    prepared, revision_events, fields = prepare_package_for_revisions(package, revision_mode)
+    document, _ = parse_docx_package(prepared)
+    document = enrich_document_model(
+        document, package, revision_mode, revision_events, fields,
+        header_mode=header_mode, footer_mode=footer_mode,
+    )
     decisions: list[tuple[str, TableRenderDecision]] = []
-    render_document(document, table_format, table_mode=table_mode, table_decisions=decisions)
-    options = _canonical_options(table_format, table_mode)
+    render_document(
+        document, table_format, table_mode=table_mode, table_decisions=decisions,
+        header_mode=header_mode, footer_mode=footer_mode,
+    )
+    options = _canonical_options(
+        table_format, table_mode, revision_mode, header_mode, footer_mode,
+    )
     evidence = build_evidence(
         document,
         source_sha256=sha256_hex(docx_bytes),
@@ -347,10 +441,18 @@ def _table_render_diagnostic(
     return {**decision.diagnostic, "blockId": block_id}
 
 
-def _canonical_options(table_format: str, table_mode: str | None = None) -> dict:
-    if table_mode is not None:
-        return {"profile": "readable", "tableMode": table_mode, "revisions": "accepted"}
-    return {"profile": "readable", "tableFormat": table_format, "revisions": "accepted"}
+def _canonical_options(
+    table_format: str, table_mode: str | None = None, revision_mode: str = "accepted",
+    header_mode: str = "metadata", footer_mode: str = "metadata",
+) -> dict:
+    value = {
+        "profile": "readable", "revisions": revision_mode,
+        "headers": header_mode, "footers": footer_mode,
+    }
+    value["tableMode" if table_mode is not None else "tableFormat"] = (
+        table_mode if table_mode is not None else table_format
+    )
+    return value
 
 
 def default_output_path(input_path: Path) -> Path:
@@ -374,6 +476,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--table-mode", choices=TABLE_MODES, default=None,
         help="Semantic table rendering policy: auto, markdown, html, or records",
     )
+    parser.add_argument(
+        "--revisions", choices=REVISION_MODES, default="accepted",
+        help="Word revision policy: accepted, rejected, or markup",
+    )
+    parser.add_argument(
+        "--headers", choices=("keep", "metadata", "drop"), default="metadata",
+        help="Running header policy: keep in Markdown, metadata only, or drop",
+    )
+    parser.add_argument(
+        "--footers", choices=("keep", "metadata", "drop"), default="metadata",
+        help="Running footer policy: keep in Markdown, metadata only, or drop",
+    )
     parser.add_argument("--evidence", type=Path, help="Optional deterministic evidence JSON path")
     parser.add_argument("--expected-git-blob-sha", help="Expected source Git blob SHA-1")
     parser.add_argument("--expected-output-sha256", help="Expected Markdown SHA-256")
@@ -389,7 +503,10 @@ def run_cli(argv: list[str] | None = None) -> int:
         raise ValueError("Use either --table-format or --table-mode, not both")
     table_format = args.table_format or "html"
     source = args.input.read_bytes()
-    output, stats = convert_docx_bytes(source, table_format, table_mode=args.table_mode)
+    output, stats = convert_docx_bytes(
+        source, table_format, table_mode=args.table_mode, revision_mode=args.revisions,
+        header_mode=args.headers, footer_mode=args.footers,
+    )
     verify_expected("source Git blob SHA", stats["source_git_blob_sha"], args.expected_git_blob_sha)
     verify_expected("output SHA-256", stats["output_sha256"], args.expected_output_sha256)
     output_path = args.output or default_output_path(args.input)
@@ -398,7 +515,10 @@ def run_cli(argv: list[str] | None = None) -> int:
     if args.evidence:
         args.evidence.parent.mkdir(parents=True, exist_ok=True)
         args.evidence.write_bytes(canonical_json_bytes(
-            conversion_evidence(source, table_format, table_mode=args.table_mode)
+            conversion_evidence(
+                source, table_format, table_mode=args.table_mode, revision_mode=args.revisions,
+                header_mode=args.headers, footer_mode=args.footers,
+            )
         ))
     if args.stats_json:
         print(json.dumps({**stats, "output_path": str(output_path)}, sort_keys=True))
