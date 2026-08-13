@@ -46,6 +46,7 @@ from docx_ooxml_parser import (
     table_colspan,
 )
 from ooxml_package import OoxmlPackage
+from table_rendering import TABLE_MODES, TableRenderDecision, render_table_by_policy
 
 
 def git_blob_sha(data: bytes) -> str:
@@ -185,22 +186,40 @@ def table_to_tsv(table: ET.Element) -> str:
     return render_table_tsv(parse_table(table, 0, "compat-table"))
 
 
-def render_document(document: DocumentModel, table_format: str) -> str:
+def render_document(
+    document: DocumentModel,
+    table_format: str,
+    *,
+    table_mode: str | None = None,
+    table_decisions: list[tuple[str, TableRenderDecision]] | None = None,
+) -> str:
     rendered: list[tuple[str, bool]] = []
     for block in document.blocks:
-        item = _render_block(block, table_format)
+        item = _render_block(block, table_format, table_mode, table_decisions)
         if item is not None:
             rendered.append(item)
     return _join_rendered_blocks(rendered)
 
 
-def _render_block(block, table_format: str) -> tuple[str, bool] | None:
+def _render_block(
+    block,
+    table_format: str,
+    table_mode: str | None,
+    table_decisions: list[tuple[str, TableRenderDecision]] | None,
+) -> tuple[str, bool] | None:
     if isinstance(block, PageBreakBlock):
         return "---", False
     if isinstance(block, ParagraphBlock):
         return render_paragraph(block), block.list_info is not None and block.heading_level is None
     if isinstance(block, TableBlock):
-        text = render_table_html(block) if table_format == "html" else render_table_tsv(block)
+        if table_mode is None:
+            text = render_table_html(block) if table_format == "html" else render_table_tsv(block)
+            return text, False
+        text, decision = render_table_by_policy(
+            block, table_mode, cell_text=flatten_cell_text, html_renderer=render_table_html,
+        )
+        if table_decisions is not None:
+            table_decisions.append((block.block_id, decision))
         return text, False
     if isinstance(block, UnsupportedBlock):
         return f"<!-- {block.code}: {block.description} -->", False
@@ -223,15 +242,20 @@ def convert_document_xml(document_xml: bytes, table_format: str) -> tuple[str, d
     return render_document(document, table_format), stats
 
 
-def convert_docx_bytes(docx_bytes: bytes, table_format: str) -> tuple[bytes, dict]:
+def convert_docx_bytes(
+    docx_bytes: bytes, table_format: str, *, table_mode: str | None = None,
+) -> tuple[bytes, dict]:
     package = OoxmlPackage.from_bytes(docx_bytes)
     document, stats = parse_docx_package(package)
-    output = render_document(document, table_format).encode("utf-8")
-    option_values = _canonical_options(table_format)
+    table_decisions: list[tuple[str, TableRenderDecision]] = []
+    output = render_document(
+        document, table_format, table_mode=table_mode, table_decisions=table_decisions,
+    ).encode("utf-8")
+    option_values = _canonical_options(table_format, table_mode)
     document_xml = package.require_part(DOC_PART)
     return output, _conversion_stats(
         docx_bytes, document_xml, package, document, stats, output, option_values,
-        table_format,
+        table_format, table_mode, table_decisions,
     )
 
 
@@ -244,6 +268,8 @@ def _conversion_stats(
     output: bytes,
     option_values: dict,
     table_format: str,
+    table_mode: str | None,
+    table_decisions: list[tuple[str, TableRenderDecision]],
 ) -> dict:
     return {
         **stats,
@@ -255,6 +281,11 @@ def _conversion_stats(
         "output_sha256": sha256_hex(output),
         "output_bytes": len(output),
         "table_format": table_format,
+        "table_mode": table_mode,
+        "table_renderers": [decision.renderer for _, decision in table_decisions],
+        "table_render_fallbacks": sum(
+            decision.diagnostic is not None for _, decision in table_decisions
+        ),
         "semantic_schema_version": SEMANTIC_SCHEMA_VERSION,
         "canonicalization_version": CANONICALIZATION_VERSION,
         "options_hash": options_hash(option_values),
@@ -266,20 +297,59 @@ def _conversion_stats(
     }
 
 
-def conversion_evidence(docx_bytes: bytes, table_format: str) -> dict:
+def conversion_evidence(
+    docx_bytes: bytes, table_format: str, *, table_mode: str | None = None,
+) -> dict:
     package = OoxmlPackage.from_bytes(docx_bytes)
     document, _ = parse_docx_package(package)
-    options = _canonical_options(table_format)
-    return build_evidence(
+    decisions: list[tuple[str, TableRenderDecision]] = []
+    render_document(document, table_format, table_mode=table_mode, table_decisions=decisions)
+    options = _canonical_options(table_format, table_mode)
+    evidence = build_evidence(
         document,
         source_sha256=sha256_hex(docx_bytes),
         source_git_blob_sha=git_blob_sha(docx_bytes),
         profile="readable",
         options=options,
     )
+    if table_mode is not None:
+        evidence["tableRendering"] = [
+            _table_render_decision_evidence(block_id, decision)
+            for block_id, decision in decisions
+        ]
+        evidence["diagnostics"].extend(
+            _table_render_diagnostic(block_id, decision)
+            for block_id, decision in decisions
+            if decision.diagnostic is not None
+        )
+    return evidence
 
 
-def _canonical_options(table_format: str) -> dict:
+def _table_render_decision_evidence(
+    block_id: str, decision: TableRenderDecision,
+) -> dict:
+    value = {
+        "blockId": block_id,
+        "requestedMode": decision.requested_mode,
+        "renderer": decision.renderer,
+        "classification": decision.classification,
+        "reasons": list(decision.reasons),
+    }
+    if decision.diagnostic is not None:
+        value["diagnostic"] = decision.diagnostic
+    return value
+
+
+def _table_render_diagnostic(
+    block_id: str, decision: TableRenderDecision,
+) -> dict:
+    assert decision.diagnostic is not None
+    return {**decision.diagnostic, "blockId": block_id}
+
+
+def _canonical_options(table_format: str, table_mode: str | None = None) -> dict:
+    if table_mode is not None:
+        return {"profile": "readable", "tableMode": table_mode, "revisions": "accepted"}
     return {"profile": "readable", "tableFormat": table_format, "revisions": "accepted"}
 
 
@@ -297,8 +367,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("input", type=Path, help="Input DOCX path")
     parser.add_argument("-o", "--output", type=Path, help="Output Markdown path")
     parser.add_argument(
-        "--table-format", choices=("html", "tsv"), default="html",
-        help="Table rendering: faithful HTML tables or compact TSV rows",
+        "--table-format", choices=("html", "tsv"), default=None,
+        help="Legacy table rendering compatibility: HTML or compact TSV",
+    )
+    parser.add_argument(
+        "--table-mode", choices=TABLE_MODES, default=None,
+        help="Semantic table rendering policy: auto, markdown, html, or records",
     )
     parser.add_argument("--evidence", type=Path, help="Optional deterministic evidence JSON path")
     parser.add_argument("--expected-git-blob-sha", help="Expected source Git blob SHA-1")
@@ -311,8 +385,11 @@ def run_cli(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not args.input.is_file():
         raise ValueError(f"Input file does not exist: {args.input}")
+    if args.table_format is not None and args.table_mode is not None:
+        raise ValueError("Use either --table-format or --table-mode, not both")
+    table_format = args.table_format or "html"
     source = args.input.read_bytes()
-    output, stats = convert_docx_bytes(source, args.table_format)
+    output, stats = convert_docx_bytes(source, table_format, table_mode=args.table_mode)
     verify_expected("source Git blob SHA", stats["source_git_blob_sha"], args.expected_git_blob_sha)
     verify_expected("output SHA-256", stats["output_sha256"], args.expected_output_sha256)
     output_path = args.output or default_output_path(args.input)
@@ -320,7 +397,9 @@ def run_cli(argv: list[str] | None = None) -> int:
     output_path.write_bytes(output)
     if args.evidence:
         args.evidence.parent.mkdir(parents=True, exist_ok=True)
-        args.evidence.write_bytes(canonical_json_bytes(conversion_evidence(source, args.table_format)))
+        args.evidence.write_bytes(canonical_json_bytes(
+            conversion_evidence(source, table_format, table_mode=args.table_mode)
+        ))
     if args.stats_json:
         print(json.dumps({**stats, "output_path": str(output_path)}, sort_keys=True))
     else:
