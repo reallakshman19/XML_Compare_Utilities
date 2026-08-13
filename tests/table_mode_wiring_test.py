@@ -69,6 +69,10 @@ class TableModeWiringTest(unittest.TestCase):
         self.assertTrue(rendered.startswith("| Column 1 | Column 2 |"))
         self.assertEqual(decisions[0][1].renderer, "markdown")
 
+    def test_new_api_can_request_table_mode_without_legacy_argument(self):
+        rendered = self.module.render_document(simple_document(), table_mode="auto")
+        self.assertTrue(rendered.startswith("| Column 1 | Column 2 |"))
+
     def test_cli_defaults_preserve_legacy_html(self):
         args = self.module.build_parser().parse_args(["input.docx"])
         self.assertIsNone(args.table_mode)
