@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "3"
-CANONICALIZATION_VERSION = "3"
-CONVERTER_REVISION = "docx-table-render-policy-v1"
+SEMANTIC_SCHEMA_VERSION = "4"
+CANONICALIZATION_VERSION = "4"
+CONVERTER_REVISION = "docx-revisions-notes-v4"
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,9 @@ class SourceRef:
     table_index: int | None = None
     row_index: int | None = None
     cell_index: int | None = None
+    note_type: str | None = None
+    note_id: str | None = None
+    comment_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
@@ -70,7 +73,29 @@ class InlineUnsupported:
     code: str
 
 
-Inline = InlineText | InlineTab | InlineBreak | InlineHyperlink | InlineSymbol | InlineUnsupported
+@dataclass(frozen=True)
+class InlineNoteReference:
+    note_type: str
+    note_id: str
+
+
+@dataclass(frozen=True)
+class InlineCommentReference:
+    comment_id: str
+
+
+@dataclass(frozen=True)
+class InlineRevision:
+    revision_type: str
+    inlines: tuple["Inline", ...]
+    author: str | None = None
+    date: str | None = None
+
+
+Inline = (
+    InlineText | InlineTab | InlineBreak | InlineHyperlink | InlineSymbol |
+    InlineUnsupported | InlineNoteReference | InlineCommentReference | InlineRevision
+)
 
 
 @dataclass(frozen=True)
@@ -150,12 +175,31 @@ Block = ParagraphBlock | PageBreakBlock | UnsupportedBlock | TableBlock
 
 
 @dataclass(frozen=True)
+class NoteDefinition:
+    note_type: str
+    note_id: str
+    text: str
+    provenance: SourceRef
+
+
+@dataclass(frozen=True)
+class CommentDefinition:
+    comment_id: str
+    text: str
+    provenance: SourceRef
+    author: str | None = None
+    date: str | None = None
+
+
+@dataclass(frozen=True)
 class DocumentModel:
     source_type: str
     blocks: tuple[Block, ...]
     metadata: dict[str, Any] = field(default_factory=dict)
     diagnostics: tuple[dict[str, Any], ...] = ()
     semantic_schema_version: str = SEMANTIC_SCHEMA_VERSION
+    notes: tuple[NoteDefinition, ...] = ()
+    comments: tuple[CommentDefinition, ...] = ()
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -184,7 +228,40 @@ def inline_evidence(inline: Inline) -> dict[str, Any] | None:
         }
     if isinstance(inline, InlineUnsupported):
         return {"kind": "unsupported", "code": inline.code, "marker": inline.marker}
+    if isinstance(inline, InlineNoteReference):
+        return {"kind": "noteReference", "noteType": inline.note_type, "noteId": inline.note_id}
+    if isinstance(inline, InlineCommentReference):
+        return {"kind": "commentReference", "commentId": inline.comment_id}
+    if isinstance(inline, InlineRevision):
+        return {
+            "kind": "revision",
+            "revisionType": inline.revision_type,
+            "author": inline.author,
+            "date": inline.date,
+            "text": _inline_plain_text(inline.inlines),
+        }
     return None
+
+
+def _inline_plain_text(inlines: tuple[Inline, ...]) -> str:
+    parts: list[str] = []
+    for inline in inlines:
+        if isinstance(inline, InlineText):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineTab):
+            parts.append("\t")
+        elif isinstance(inline, InlineBreak):
+            parts.append("\n")
+        elif isinstance(inline, InlineHyperlink):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineSymbol):
+            parts.append(inline.text)
+        elif isinstance(inline, InlineNoteReference):
+            prefix = "fn" if inline.note_type == "footnote" else "en"
+            parts.append(f"[^{prefix}{inline.note_id}]")
+        elif isinstance(inline, InlineRevision):
+            parts.append(_inline_plain_text(inline.inlines))
+    return "".join(parts)
 
 
 def block_evidence(block: Block) -> dict[str, Any]:
@@ -276,5 +353,24 @@ def build_evidence(
         "optionsHash": options_hash(options),
         "metadata": document.metadata,
         "blocks": [block_evidence(block) for block in document.blocks],
+        "notes": [
+            {
+                "noteType": note.note_type,
+                "noteId": note.note_id,
+                "text": note.text,
+                "provenance": note.provenance.to_dict(),
+            }
+            for note in document.notes
+        ],
+        "comments": [
+            {
+                "commentId": comment.comment_id,
+                "text": comment.text,
+                "author": comment.author,
+                "date": comment.date,
+                "provenance": comment.provenance.to_dict(),
+            }
+            for comment in document.comments
+        ],
         "diagnostics": list(document.diagnostics),
     }
