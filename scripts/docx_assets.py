@@ -56,7 +56,12 @@ def prepare_package_for_assets(package):
                 assets_by_part, payloads, diagnostics,
             )
             drawings.append(event)
-            _replace_drawing(paragraph, drawing, event["drawingIndex"])
+            if not _replace_drawing(paragraph, drawing, event["drawingIndex"]):
+                diagnostics.append(_diagnostic(
+                    "DOCX_DRAWING_TOKENIZATION_FAILED", "WARNING",
+                    f"Drawing {event['drawingIndex']} could not be replaced by a semantic token",
+                    DOC_PART,
+                ))
     parts = dict(package.parts)
     parts[DOC_PART] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     prepared = package.__class__(
@@ -143,11 +148,7 @@ def _drawing_event(
         return _unresolved_event(base, "DOCX_DRAWING_RELATIONSHIP_MISSING", diagnostics)
     relationship = package.relationship(DOC_PART, relationship_id)
     if relationship is None or relationship.is_external or not relationship.resolved_part:
-        code = (
-            "DOCX_EXTERNAL_IMAGE_NOT_FETCHED"
-            if relationship and relationship.is_external
-            else "DOCX_DRAWING_RELATIONSHIP_MISSING"
-        )
+        code = "DOCX_EXTERNAL_IMAGE_NOT_FETCHED" if relationship and relationship.is_external else "DOCX_DRAWING_RELATIONSHIP_MISSING"
         return _unresolved_event(base, code, diagnostics)
     media_part = relationship.resolved_part
     payload = package.part_bytes(media_part)
@@ -167,9 +168,7 @@ def _drawing_event(
     return {**base, "assetId": asset.asset_id, "status": "ok"}
 
 
-def _asset_definition(
-    package, media_part: str, relationship_id: str, payload: bytes,
-) -> AssetDefinition:
+def _asset_definition(package, media_part: str, relationship_id: str, payload: bytes) -> AssetDefinition:
     digest = hashlib.sha256(payload).hexdigest()
     extension = posixpath.splitext(media_part)[1].lstrip(".").lower() or "bin"
     filename = f"asset-{digest[:24]}.{extension}"
@@ -189,9 +188,7 @@ def _asset_definition(
 
 def _unresolved_event(base: dict, code: str, diagnostics: list[dict]) -> dict:
     diagnostics.append(_diagnostic(
-        code, "WARNING",
-        f"Drawing {base['drawingIndex']} could not resolve a safe embedded image",
-        DOC_PART,
+        code, "WARNING", f"Drawing {base['drawingIndex']} could not resolve a safe embedded image", DOC_PART,
     ))
     return {**base, "assetId": None, "status": code}
 
@@ -214,13 +211,25 @@ def _drawing_alt_text(drawing: ET.Element) -> str:
 
 def _caption_candidates(root: ET.Element) -> dict[int, str]:
     paragraphs = list(root.iter(W + "p"))
+    ordinals = {id(paragraph): index for index, paragraph in enumerate(paragraphs)}
+    parents = {id(child): parent for parent in root.iter() for child in list(parent)}
     captions: dict[int, str] = {}
-    for index, paragraph in enumerate(paragraphs[:-1]):
+    for paragraph in paragraphs:
         if paragraph.find(".//" + W + "drawing") is None:
             continue
-        candidate = paragraphs[index + 1]
-        if _is_explicit_caption(candidate):
-            captions[index] = _paragraph_text(candidate)
+        parent = parents.get(id(paragraph))
+        if parent is None:
+            continue
+        siblings = list(parent)
+        try:
+            index = next(i for i, node in enumerate(siblings) if node is paragraph)
+        except StopIteration:
+            continue
+        if index + 1 >= len(siblings):
+            continue
+        candidate = siblings[index + 1]
+        if candidate.tag == W + "p" and _is_explicit_caption(candidate):
+            captions[ordinals[id(paragraph)]] = _paragraph_text(candidate)
     return captions
 
 
@@ -242,16 +251,15 @@ def _paragraph_text(paragraph: ET.Element) -> str:
     ).strip()
 
 
-def _replace_drawing(
-    paragraph: ET.Element, drawing: ET.Element, drawing_index: int,
-) -> None:
+def _replace_drawing(paragraph: ET.Element, drawing: ET.Element, drawing_index: int) -> bool:
     for run in paragraph.iter(W + "r"):
         for index, child in enumerate(list(run)):
             if child is drawing:
                 text = ET.Element(W + "t")
                 text.text = f"{TOKEN_START}IMAGE:{drawing_index}{TOKEN_END}"
                 run[index] = text
-                return
+                return True
+    return False
 
 
 def _enrich_block(block, event_map: dict[str, dict]):
@@ -268,9 +276,7 @@ def _enrich_block(block, event_map: dict[str, dict]):
     return block
 
 
-def _enrich_rows(
-    rows: tuple[TableRow, ...], event_map: dict[str, dict],
-) -> tuple[TableRow, ...]:
+def _enrich_rows(rows: tuple[TableRow, ...], event_map: dict[str, dict]) -> tuple[TableRow, ...]:
     return tuple(
         replace(row, cells=tuple(_enrich_cell(cell, event_map) for cell in row.cells))
         for row in rows
@@ -278,10 +284,7 @@ def _enrich_rows(
 
 
 def _enrich_cell(cell: TableCell, event_map: dict[str, dict]) -> TableCell:
-    return replace(
-        cell,
-        blocks=tuple(_enrich_block(block, event_map) for block in cell.blocks),
-    )
+    return replace(cell, blocks=tuple(_enrich_block(block, event_map) for block in cell.blocks))
 
 
 def _enrich_inlines(inlines: tuple, event_map: dict[str, dict]) -> tuple:
@@ -296,13 +299,7 @@ def _enrich_inlines(inlines: tuple, event_map: dict[str, dict]) -> tuple:
                 values.append(InlineText(inline.text[position:match.start()]))
             event = event_map.get(match.group(1), {})
             if event.get("assetId"):
-                asset = next(
-                    (
-                        value for value in event_map.get("__assets__", ())
-                        if value.asset_id == event["assetId"]
-                    ),
-                    None,
-                )
+                asset = next((value for value in event_map.get("__assets__", ()) if value.asset_id == event["assetId"]), None)
                 values.append(InlineImage(
                     event["assetId"], event.get("altText", ""),
                     event.get("relationshipId"), event.get("caption"),
