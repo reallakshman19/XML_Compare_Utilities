@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "6"
+SEMANTIC_SCHEMA_VERSION = "7"
 CANONICALIZATION_VERSION = "5"
-CONVERTER_REVISION = "document-pdf-native-v6"
+CONVERTER_REVISION = "document-pdf-figures-v7"
 
 
 @dataclass(frozen=True)
@@ -198,7 +198,23 @@ class TableBlock:
         return "table"
 
 
-Block = ParagraphBlock | PageBreakBlock | UnsupportedBlock | TableBlock
+@dataclass(frozen=True)
+class FigureBlock:
+    block_id: str
+    asset_id: str
+    provenance: SourceRef
+    alt_text: str = ""
+    caption: str | None = None
+    filename: str | None = None
+    render_supported: bool = True
+    source_index: int | None = None
+
+    @property
+    def kind(self) -> str:
+        return "figure"
+
+
+Block = ParagraphBlock | PageBreakBlock | UnsupportedBlock | TableBlock | FigureBlock
 
 
 @dataclass(frozen=True)
@@ -338,6 +354,15 @@ def block_evidence(block: Block) -> dict[str, Any]:
             evidence["positionRows"] = _table_rows_evidence_rows(block.position_rows)
         if block.grid_width is not None:
             evidence["gridWidth"] = block.grid_width
+    if isinstance(block, FigureBlock):
+        evidence.update({
+            "assetId": block.asset_id,
+            "altText": block.alt_text,
+            "caption": block.caption,
+            "filename": block.filename,
+            "renderSupported": block.render_supported,
+            "sourceIndex": block.source_index,
+        })
     if isinstance(block, UnsupportedBlock):
         evidence.update({"code": block.code, "description": block.description})
     return evidence
