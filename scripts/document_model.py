@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "2"
-CANONICALIZATION_VERSION = "2"
-CONVERTER_REVISION = "docx-ooxml-v2"
+SEMANTIC_SCHEMA_VERSION = "3"
+CANONICALIZATION_VERSION = "3"
+CONVERTER_REVISION = "docx-table-grid-v3"
 
 
 @dataclass(frozen=True)
@@ -118,11 +118,18 @@ class TableCell:
     provenance: SourceRef
     column_span: int = 1
     row_span: int = 1
+    row_index: int | None = None
+    column_index: int | None = None
+    is_omitted: bool = False
+    v_merge: str | None = None
+    source_refs: tuple[SourceRef, ...] = ()
 
 
 @dataclass(frozen=True)
 class TableRow:
     cells: tuple[TableCell, ...]
+    grid_before: int = 0
+    grid_after: int = 0
 
 
 @dataclass(frozen=True)
@@ -130,6 +137,9 @@ class TableBlock:
     block_id: str
     rows: tuple[TableRow, ...]
     provenance: SourceRef
+    source_rows: tuple[TableRow, ...] = ()
+    position_rows: tuple[TableRow, ...] = ()
+    grid_width: int | None = None
 
     @property
     def kind(self) -> str:
@@ -187,6 +197,16 @@ def block_evidence(block: Block) -> dict[str, Any]:
         _add_paragraph_evidence(evidence, block)
     if isinstance(block, TableBlock):
         evidence["rows"] = _table_rows_evidence(block)
+        if block.source_rows:
+            evidence["sourceRows"] = _table_rows_evidence_rows(block.source_rows)
+            evidence["sourceRowGrid"] = [
+                {"gridBefore": row.grid_before, "gridAfter": row.grid_after}
+                for row in block.source_rows
+            ]
+        if block.position_rows:
+            evidence["positionRows"] = _table_rows_evidence_rows(block.position_rows)
+        if block.grid_width is not None:
+            evidence["gridWidth"] = block.grid_width
     if isinstance(block, UnsupportedBlock):
         evidence.update({"code": block.code, "description": block.description})
     return evidence
@@ -209,17 +229,33 @@ def _add_paragraph_evidence(evidence: dict[str, Any], block: ParagraphBlock) -> 
 
 
 def _table_rows_evidence(block: TableBlock) -> list[list[dict[str, Any]]]:
+    return _table_rows_evidence_rows(block.rows)
+
+
+def _table_rows_evidence_rows(rows: tuple[TableRow, ...]) -> list[list[dict[str, Any]]]:
     return [
-        [
-            {
-                "columnSpan": cell.column_span,
-                "rowSpan": cell.row_span,
-                "provenance": cell.provenance.to_dict(),
-            }
-            for cell in row.cells
-        ]
-        for row in block.rows
+        [_table_cell_evidence(cell) for cell in row.cells]
+        for row in rows
     ]
+
+
+def _table_cell_evidence(cell: TableCell) -> dict[str, Any]:
+    value: dict[str, Any] = {
+        "columnSpan": cell.column_span,
+        "rowSpan": cell.row_span,
+        "provenance": cell.provenance.to_dict(),
+    }
+    if cell.row_index is not None:
+        value["row"] = cell.row_index
+    if cell.column_index is not None:
+        value["column"] = cell.column_index
+    if cell.is_omitted:
+        value["omitted"] = True
+    if cell.v_merge is not None:
+        value["vMerge"] = cell.v_merge
+    if cell.source_refs:
+        value["sourceProvenance"] = [ref.to_dict() for ref in cell.source_refs]
+    return value
 
 
 def build_evidence(
