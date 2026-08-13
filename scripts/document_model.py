@@ -7,9 +7,9 @@ import hashlib
 import json
 from typing import Any
 
-SEMANTIC_SCHEMA_VERSION = "5"
+SEMANTIC_SCHEMA_VERSION = "6"
 CANONICALIZATION_VERSION = "5"
-CONVERTER_REVISION = "docx-assets-v5"
+CONVERTER_REVISION = "document-pdf-native-v6"
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,10 @@ class SourceRef:
     note_type: str | None = None
     note_id: str | None = None
     comment_id: str | None = None
+    page: int | None = None
+    bbox: tuple[float, float, float, float] | None = None
+    extraction: str | None = None
+    confidence: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {key: value for key, value in asdict(self).items() if value is not None}
@@ -109,6 +113,17 @@ Inline = (
 
 
 @dataclass(frozen=True)
+class PositionedSpan:
+    text: str
+    bbox: tuple[float, float, float, float]
+    font: str | None = None
+    font_size: float | None = None
+    bold: bool = False
+    italic: bool = False
+    page: int | None = None
+
+
+@dataclass(frozen=True)
 class ParagraphBlock:
     block_id: str
     text: str
@@ -119,6 +134,8 @@ class ParagraphBlock:
     outline_level: int | None = None
     list_info: ListInfo | None = None
     inlines: tuple[Inline, ...] = ()
+    source_refs: tuple[SourceRef, ...] = ()
+    positioned_spans: tuple[PositionedSpan, ...] = ()
 
     @property
     def kind(self) -> str:
@@ -340,6 +357,21 @@ def _add_paragraph_evidence(evidence: dict[str, Any], block: ParagraphBlock) -> 
     inline_items = [item for item in (inline_evidence(value) for value in block.inlines) if item]
     if inline_items:
         evidence["inlines"] = inline_items
+    if block.source_refs:
+        evidence["sourceProvenance"] = [ref.to_dict() for ref in block.source_refs]
+    if block.positioned_spans:
+        evidence["positionedSpans"] = [
+            {
+                "text": span.text,
+                "bbox": list(span.bbox),
+                "font": span.font,
+                "fontSize": span.font_size,
+                "bold": span.bold,
+                "italic": span.italic,
+                "page": span.page,
+            }
+            for span in block.positioned_spans
+        ]
 
 
 def _table_rows_evidence(block: TableBlock) -> list[list[dict[str, Any]]]:
