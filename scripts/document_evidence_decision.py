@@ -39,10 +39,51 @@ def reconcile_cell(observations, *, logical_cell_id: str | None = None) -> dict:
             "review_required", values, diagnostics=("OCR_NUMERIC_DISAGREEMENT",),
             notes=_notes(logical_cell_id),
         )
+    resolved = _reconcile_native_ocr_text(values, logical_cell_id)
+    if resolved is not None:
+        return resolved
     return make_decision(
         "review_required", values, diagnostics=("TEXT_OBSERVATION_CONFLICT",),
         notes=_notes(logical_cell_id),
     )
+
+
+def _reconcile_native_ocr_text(observations, logical_cell_id):
+    native = tuple(item for item in observations if item["kind"] == "native-text")
+    ocr = tuple(item for item in observations if item["kind"] == "ocr")
+    if len(native) != 1 or not ocr:
+        return None
+    quality = _native_quality_state(native[0])
+    ocr_texts = {item["normalizedText"] for item in ocr}
+    if quality == "mapping_corrupt" and len(ocr_texts) == 1:
+        return _accepted_text(
+            observations, _deterministic_selection(ocr), "PDF_TEXT_MAPPING_CORRUPT", logical_cell_id,
+        )
+    if quality == "strong" and all(_confusable_equivalent(native[0]["normalizedText"], text) for text in ocr_texts):
+        return _accepted_text(
+            observations, native[0], "TEXT_CONFUSABLE_DISAGREEMENT", logical_cell_id,
+        )
+    return None
+
+
+def _accepted_text(observations, selected, diagnostic, logical_cell_id):
+    return make_decision(
+        "accepted", observations, selected=selected, effective_text=selected["normalizedText"],
+        diagnostics=(diagnostic,), notes=_notes(logical_cell_id),
+    )
+
+
+def _native_quality_state(observation):
+    quality = observation.get("nativeQuality") or {}
+    status = quality.get("status")
+    if status in {"strong", "mapping_corrupt"}:
+        return status
+    return "unknown"
+
+
+def _confusable_equivalent(left, right):
+    translation = str.maketrans({"l": "1", "i": "1", "|": "1", "o": "0"})
+    return str(left).casefold().translate(translation) == str(right).casefold().translate(translation)
 
 
 def make_decision(
