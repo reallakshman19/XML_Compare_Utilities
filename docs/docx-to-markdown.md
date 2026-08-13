@@ -50,7 +50,7 @@ The Git blob identity is calculated using Git's canonical `blob <size>\0<bytes>`
 
 ## Semantic model and evidence
 
-Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it parses into semantic paragraph, page-break, unsupported and table objects before rendering Markdown.
+Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it now parses into semantic paragraph, page-break, and table objects before rendering Markdown.
 
 Deterministic evidence can be emitted without changing normal Markdown output:
 
@@ -61,7 +61,7 @@ python scripts/docx_to_markdown.py input.docx \
   --table-format html
 ```
 
-Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema/canonicalization versions, profile/options identity, stable source-derived block IDs, DOCX part/index provenance, effective style/list metadata, hyperlink targets, table cell coordinates/spans, package metadata and stable diagnostics. Canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
+Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema/canonicalization versions, profile/options identity, stable source-derived block IDs, DOCX part/index provenance, effective style/list metadata, hyperlink targets, table cell coordinates/spans, package metadata and stable diagnostics. Table evidence distinguishes physical `sourceRows`, placeholder-expanded `positionRows`, and normalized logical `rows`; canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
 
 ## OOXML package, styles and numbering
 
@@ -73,7 +73,21 @@ Numbering resolves `numId -> w:num -> abstractNumId -> w:abstractNum -> ilvl`, i
 
 Paragraph parsing is child-order aware. Content controls (`w:sdt`) are expanded in place; external hyperlinks are rendered from relationship targets without fetching them; complex field instructions are suppressed while displayed field results are retained; and the current deliberate revision policy is **accepted** (`w:ins`/`w:moveTo` retained, `w:del`/`w:moveFrom` suppressed). Missing relationships/styles/numbering produce stable diagnostics rather than guessed values.
 
-Logical table-grid reconstruction (`w:vMerge`, omitted cells and authoritative logical coordinates), full revision modes, notes/comments, image extraction, field-forensic evidence, headers/footers, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
+## Word table grid normalization
+
+Word tables are parsed in two stages rather than rendered directly from `w:tc` order. The source parser first records physical rows/cells, `w:tblGrid`, `w:gridSpan`, `w:vMerge`, and row-level `w:gridBefore`/`w:gridAfter`. `scripts/table_grid.py` then derives deterministic logical `(row, column, rowSpan, columnSpan)` coordinates.
+
+The semantic table keeps three deliberately different views:
+
+- `sourceRows`: physical source cells only, with row `gridBefore`/`gridAfter` retained separately;
+- `positionRows`: a source-position view with explicit omitted placeholders inserted so empty/omitted positions cannot shift following values;
+- `rows`: the normalized logical grid. `vMerge` continuations are attached to the restart cell, increment its `rowSpan`, retain all contributing source provenance, and are not emitted as duplicate logical cells.
+
+An explicit empty `w:tc` remains a cell. A missing position implied by `gridBefore`, `gridAfter`, or a shorter irregular row becomes an `omitted` logical placeholder. A continuation without a matching restart emits `TABLE_VERTICAL_MERGE_ORPHAN`; malformed merge values and irregular row widths also emit stable diagnostics instead of moving values to guessed columns.
+
+HTML rendering uses the normalized grid and emits `rowspan`/`colspan`. Legacy `--table-format tsv` intentionally remains a compact compatibility transcription based on `positionRows`; evidence is the authoritative source for merged-cell coordinates. A later renderer-policy slice will introduce comparison-grade automatic selection between GFM/HTML/records for complex or wide tables.
+
+Full revision modes, notes/comments, image extraction, field-forensic evidence, headers/footers, PDF extraction and OCR remain subsequent issue #960 slices and must not be inferred as complete here.
 
 ## EI AVIFF conversion provenance
 
@@ -96,4 +110,4 @@ Run the standalone standard-library test:
 python tests/docx_to_markdown_test.py
 ```
 
-The focused suite now covers the legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior and ZIP path-traversal rejection.
+The focused suite covers the legacy byte-exact HTML/TSV outputs plus deterministic evidence, style inheritance, direct outline overrides, numbering/start overrides, package content types/root relationships, content-control order, hyperlink resolution, complex field display results, accepted revisions, symbols, missing-relationship diagnostics, unresolved-style behavior, ZIP path-traversal rejection, `gridSpan` + `vMerge` interaction, physical empty cells, omitted positions from `gridBefore`, logical-column invariants, and orphan vertical-merge diagnostics.
