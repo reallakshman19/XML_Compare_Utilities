@@ -26,7 +26,7 @@
     "providerSurfaceHash":{"type":"string","minLength":1},
     "documentGeometry":{"$ref":"geometry.schema.json"},
     "preprocessingTransformHashes":{"type":"array","items":{"type":"string","minLength":1}},
-    "nativeQuality":{"type":"object"},
+    "nativeQuality":{"$ref":"native-quality.schema.json"},
     "rawProviderEvidenceHash":{"type":"string","minLength":1},
     "extensions":{"type":"object"}
   }
