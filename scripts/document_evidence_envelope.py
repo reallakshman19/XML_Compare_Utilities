@@ -13,7 +13,7 @@ class EvidenceEnvelopeError(ValueError):
 def make_machine_evidence(
     source: dict,
     *,
-    surfaces=(), transforms=(), observations=(), decisions=(), diagnostics=(),
+    surfaces=(), transforms=(), observations=(), decisions=(), geometry_evidence=(), diagnostics=(),
     provider_profiles=(), render_profiles=(), operation: str, selection: dict,
     canonical_options: dict,
 ) -> dict:
@@ -24,7 +24,8 @@ def make_machine_evidence(
     transforms = tuple(transforms)
     observations = tuple(observations)
     decisions = tuple(decisions)
-    _validate_lineage(source_hash, surfaces, transforms, observations, decisions)
+    geometry_evidence = tuple(geometry_evidence)
+    _validate_lineage(source_hash, surfaces, transforms, observations, decisions, geometry_evidence)
     identity = {
         "schema": "MachineEvidenceEnvelope.v1",
         "source": source,
@@ -32,6 +33,7 @@ def make_machine_evidence(
         "transforms": _ordered(transforms, "transformHash"),
         "observations": _ordered(observations, "observationHash"),
         "decisions": _ordered(decisions, "decisionHash"),
+        "geometryEvidence": _ordered(geometry_evidence, "geometryHash"),
         "diagnostics": sorted((dict(item) for item in diagnostics), key=canonical_hash),
         "providerProfiles": _ordered(provider_profiles, "profileHash"),
         "renderProfiles": _ordered(render_profiles, "renderProfileHash"),
@@ -43,7 +45,7 @@ def make_machine_evidence(
     return {**identity, "machineEvidenceHash": evidence_hash}
 
 
-def _validate_lineage(source_hash, surfaces, transforms, observations, decisions):
+def _validate_lineage(source_hash, surfaces, transforms, observations, decisions, geometry_evidence):
     for surface in surfaces:
         if surface.get("sourceHash") != source_hash:
             raise EvidenceEnvelopeError("EVIDENCE_SOURCE_UNBOUND", "surface source does not match envelope source")
@@ -59,6 +61,9 @@ def _validate_lineage(source_hash, surfaces, transforms, observations, decisions
     for decision in decisions:
         if not set(decision.get("observationHashes", ())).issubset(observation_hashes):
             raise EvidenceEnvelopeError("DECISION_OBSERVATION_UNBOUND", "decision references observation outside envelope")
+    for geometry in geometry_evidence:
+        if geometry.get("sourceHash") != source_hash or geometry.get("surfaceId") not in surface_ids:
+            raise EvidenceEnvelopeError("GEOMETRY_EVIDENCE_UNBOUND", "geometry evidence source/surface is outside envelope")
 
 
 def _ordered(values, hash_key):
