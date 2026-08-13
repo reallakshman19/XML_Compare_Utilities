@@ -23,7 +23,7 @@ def run_cli(argv: list[str] | None = None) -> int:
     if kind == "docx":
         from docx_conversion import run_cli as run_docx
         return run_docx(args)
-    from pdf_conversion import run_cli as run_pdf
+    from pdf_ocr_conversion import run_cli as run_pdf
     return run_pdf(args)
 
 
