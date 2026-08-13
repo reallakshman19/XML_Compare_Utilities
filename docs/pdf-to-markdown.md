@@ -137,6 +137,50 @@ Options:
 
 `metadata` is the default. `drop` emits stable diagnostics rather than silently deleting the fact that repeated content existed.
 
+## PDF table reconstruction
+
+PDF tables use two independent candidate strategies through `scripts/pdf_tables.py` and are normalized into the **same** `TableBlock` / `TableCell` semantic model used by DOCX. Table text is removed from the ordinary native-line stream only after a candidate passes the reconciliation gates, preventing duplicate Markdown.
+
+### Ruled/grid strategy
+
+The ruled strategy uses PDF line geometry and is preferred when corroborated. It may infer `rowSpan` / `columnSpan` from explicit geometric cell boundaries. The resulting cell provenance retains page, bbox, extraction method `embedded-table-ruled`, and candidate confidence.
+
+### Whitespace/alignment strategy
+
+The text strategy is deliberately more conservative. It treats each accepted source row ordinal as one logical row and **does not infer rowspan from vertical whitespace gaps**. This prevents blank inter-row space from becoming invented merged cells. Missing physical positions become explicit omitted cells.
+
+Text candidates must satisfy all of the following confidence signals before normalization:
+
+- at least 3 source rows and a conservative non-empty density gate of 0.85;
+- sufficient column whitespace: median per-column cell-width/text-length score at least 9.0;
+- vertical compactness that does not look like prose spread across the page;
+- final confidence at least 0.78.
+
+The whitespace score specifically prevents repeated words in ordinary two-column prose from being promoted to a 10- or 15-column table merely because word starts align across lines. A generated two-column regression fixture verifies that this remains prose and continues through the reading-order algorithm.
+
+### Reconciliation / ambiguity
+
+Ruled candidates require confidence at least 0.85. Low-confidence candidates are diagnosed and removed **before** cross-strategy conflict checks, so a weak text false positive cannot veto a strong ruled table.
+
+When two high-confidence candidates overlap by at least 70% IoU:
+
+- same row/column shape -> prefer ruled (when present) and add corroboration confidence;
+- different shape -> reject the conflicting reconstruction and emit `PDF_TABLE_AMBIGUOUS`.
+
+Contained duplicate candidates are suppressed with `PDF_TABLE_DUPLICATE_CANDIDATE`. Candidates below their strategy threshold emit `PDF_TABLE_LOW_CONFIDENCE`. Backend strategy failures retain native text and emit `PDF_TABLE_EXTRACTION_FAILED` rather than silently deleting page content.
+
+Accepted tables are recorded in page evidence with strategy, bbox, confidence, row/column count, and reasons. Pages containing accepted tables are classified `TABLE_HEAVY` unless the stronger `ENGINEERING_DRAWING` classification already applies.
+
+### Rendering
+
+PDF tables use the shared table renderer policy:
+
+```text
+--table-mode auto|markdown|html|records
+```
+
+Simple rectangular PDF tables may render as GFM with synthetic `Column N` labels; merged/omitted structures use HTML; wide tables use record-oriented output. Unsafe explicit Markdown requests fall back via the same `TABLE_RENDER_MODE_FALLBACK` contract used for DOCX.
+
 ## Security and resource gates
 
 The native backend fails closed for:
@@ -162,21 +206,21 @@ Canonical evidence contains:
 - reading-order mode/confidence;
 - running-content metadata;
 - block/line/span PDF provenance and bboxes;
+- table candidate strategy/confidence/reasons and normalized table/cell provenance;
 - stable diagnostics.
 
-Runtime timestamps and random UUIDs are not emitted.
+Runtime timestamps and random UUIDs are not emitted. PDF table policy is separately identified by `pdfTableRevision` and `tableMode` in canonical options.
 
 ## Current limitations
 
-This slice is intentionally **native positioned extraction + reading order**, not the entire PDF roadmap.
+The implemented PDF path now includes native positioned extraction, reading order, and conservative ruled/whitespace table normalization.
 
 Still deferred:
 
-- PDF table regions normalized into the shared semantic table model;
 - controlled OCR (`--ocr auto|always|never`) and OCR/native merge;
 - raster memory/timeout/language/confidence policy;
 - engineering-drawing region extraction;
 - figures/images as PDF assets;
 - sophisticated side-note/caption graph reconstruction beyond the current column/anchor model.
 
-When native text is inadequate or order is ambiguous, diagnostics expose that uncertainty rather than silently claiming full fidelity.
+When native text is inadequate, table structure is uncertain, or order is ambiguous, diagnostics expose that uncertainty rather than silently claiming full fidelity.
