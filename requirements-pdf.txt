@@ -1,0 +1,3 @@
+# Native positioned PDF extraction (optional; DOCX path remains stdlib-only).
+pdfplumber==0.11.10
+pdfminer.six==20260107
