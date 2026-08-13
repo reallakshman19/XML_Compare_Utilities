@@ -4,7 +4,7 @@ from __future__ import annotations
 from io import BytesIO
 import hashlib
 import json
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
+from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
 from pdf_chart_policy import coordinate_system, interpretation_boundary
 
@@ -18,7 +18,7 @@ class ChartBinaryResponse:
 
 
 def build_render_bundle(rendered, source, request_hash, revision):
-    pages = [_page_manifest(item) for item in rendered]
+    pages = [_page_manifest(item, source) for item in rendered]
     manifest = {
         "schema": "PdfPageRenderApi.v1",
         "revision": revision,
@@ -29,7 +29,7 @@ def build_render_bundle(rendered, source, request_hash, revision):
         "interpretation": interpretation_boundary(),
     }
     stream = BytesIO()
-    with ZipFile(stream, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
+    with ZipFile(stream, "w", compression=ZIP_STORED) as archive:
         _write_entry(archive, "manifest.json", _json_bytes(manifest))
         for item in rendered:
             _write_entry(archive, f"page-{item.page:06d}.png", item.png_bytes)
@@ -43,10 +43,13 @@ def build_render_bundle(rendered, source, request_hash, revision):
     )
 
 
-def _page_manifest(value):
+def _page_manifest(value, source):
     image_sha = hashlib.sha256(value.png_bytes).hexdigest()
     return {
         "page": value.page,
+        "sourcePage": value.page,
+        "sourceSha256": source["sha256"],
+        "sourceGitBlobSha": source["gitBlobSha"],
         "file": f"page-{value.page:06d}.png",
         "contentType": "image/png",
         "imageSha256": f"sha256:{image_sha}",
@@ -65,7 +68,7 @@ def _page_manifest(value):
 
 def _write_entry(archive, name, data):
     info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-    info.compress_type = ZIP_DEFLATED
+    info.compress_type = ZIP_STORED
     info.external_attr = 0o600 << 16
     archive.writestr(info, data)
 
