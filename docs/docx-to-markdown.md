@@ -37,12 +37,32 @@ The reported statistics include:
 - DOCX byte count;
 - `word/document.xml` byte count and ZIP CRC32;
 - source Git blob SHA-1;
+- source SHA-256;
 - generated Markdown SHA-256 and byte count;
 - top-level paragraph and table counts;
 - count of non-empty Word text nodes;
-- selected table rendering mode.
+- selected table rendering mode;
+- semantic schema and canonicalization versions;
+- canonical options hash.
 
 The Git blob identity is calculated using Git's canonical `blob <size>\0<bytes>` hashing rule, so it can be compared directly with a repository blob SHA.
+
+## Semantic model and evidence
+
+Issue #960 introduces `scripts/document_model.py` as the versioned semantic contract between source parsing and rendering. The existing `scripts/docx_to_markdown.py` entry point remains the compatibility wrapper; it now parses into semantic paragraph, page-break, and table objects before rendering Markdown.
+
+Deterministic evidence can be emitted without changing normal Markdown output:
+
+```bash
+python scripts/docx_to_markdown.py input.docx \
+  --output output.md \
+  --evidence output.evidence.json \
+  --table-format html
+```
+
+Evidence contains the source SHA-256 and Git blob SHA, converter revision, semantic schema version, canonicalization version, profile, canonical options hash, stable source-derived block IDs, DOCX part/index provenance, table cell coordinates/spans, and diagnostics. Canonical evidence is serialized with sorted keys and contains no runtime timestamp or random UUID.
+
+This first architectural slice deliberately preserves the previous extraction boundary. Full OOXML package-graph resolution, effective style inheritance, numbering, vertical merges, revisions, relationships, notes, images, fields, PDF extraction, and OCR are subsequent issue #960 work and must not be inferred as supported by this compatibility layer.
 
 ## EI AVIFF conversion provenance
 
@@ -65,4 +85,4 @@ Run the standalone standard-library test:
 python tests/docx_to_markdown_test.py
 ```
 
-The test creates a minimal DOCX package in a temporary directory and verifies heading conversion, tabs/line/page breaks, nested table text, HTML colspan output, compact TSV output, deterministic hashes, and fail-closed source-hash validation.
+The test creates a minimal DOCX package in a temporary directory and verifies heading conversion, tabs/line/page breaks, nested table text, HTML colspan output, compact TSV output, deterministic hashes, fail-closed source-hash validation, versioned evidence/provenance, and byte-identical evidence across repeated runs.
