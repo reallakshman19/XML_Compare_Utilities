@@ -50,31 +50,22 @@ def build_docx(path: Path):
 
 
 class DocxToMarkdownTest(unittest.TestCase):
-    def run_converter(self, table_format: str):
+    def run_converter(self, table_format: str, evidence: bool = False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "sample.docx"
             output = root / "sample.md"
+            evidence_path = root / "sample.evidence.json"
             build_docx(source)
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT),
-                    str(source),
-                    "--output",
-                    str(output),
-                    "--table-format",
-                    table_format,
-                    "--stats-json",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            return output.read_text(encoding="utf-8"), json.loads(result.stdout)
+            command = [sys.executable, str(SCRIPT), str(source), "--output", str(output), "--table-format", table_format, "--stats-json"]
+            if evidence:
+                command.extend(["--evidence", str(evidence_path)])
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            evidence_json = json.loads(evidence_path.read_text()) if evidence else None
+            return output.read_text(encoding="utf-8"), json.loads(result.stdout), evidence_json
 
     def test_html_mode_preserves_order_breaks_and_table_structure(self):
-        markdown, stats = self.run_converter("html")
+        markdown, stats, _ = self.run_converter("html")
         self.assertIn("# Example Heading", markdown)
         self.assertIn("Alpha\tBeta\nGamma", markdown)
         self.assertIn("---\n\nAfter page break", markdown)
@@ -85,7 +76,7 @@ class DocxToMarkdownTest(unittest.TestCase):
         self.assertEqual(stats["nonempty_text_nodes"], 9)
 
     def test_tsv_mode_preserves_table_text_and_reports_hashes(self):
-        markdown, stats = self.run_converter("tsv")
+        markdown, stats, _ = self.run_converter("tsv")
         self.assertIn("A & B\tOuter Nested 1 | Nested 2", markdown)
         self.assertEqual(len(stats["source_git_blob_sha"]), 40)
         self.assertEqual(len(stats["output_sha256"]), 64)
@@ -95,19 +86,31 @@ class DocxToMarkdownTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "sample.docx"
             build_docx(source)
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT),
-                    str(source),
-                    "--expected-git-blob-sha",
-                    "0" * 40,
-                ],
-                capture_output=True,
-                text=True,
-            )
+            result = subprocess.run([sys.executable, str(SCRIPT), str(source), "--expected-git-blob-sha", "0" * 40], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("source Git blob SHA mismatch", result.stderr)
+
+    def test_evidence_is_versioned_and_traces_blocks(self):
+        _, stats, evidence = self.run_converter("html", evidence=True)
+        self.assertEqual(evidence["semanticSchemaVersion"], "1")
+        self.assertEqual(evidence["canonicalizationVersion"], "1")
+        self.assertEqual(evidence["optionsHash"], stats["options_hash"])
+        self.assertEqual(evidence["blocks"][0]["provenance"]["paragraph_index"], 0)
+        table = next(block for block in evidence["blocks"] if block["kind"] == "table")
+        self.assertEqual(table["rows"][0][0]["columnSpan"], 2)
+        self.assertEqual(table["rows"][0][0]["provenance"]["cell_index"], 0)
+
+    def test_evidence_is_byte_deterministic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "sample.docx"
+            build_docx(source)
+            outputs = []
+            for index in range(2):
+                evidence = root / f"evidence-{index}.json"
+                subprocess.run([sys.executable, str(SCRIPT), str(source), "--evidence", str(evidence)], check=True, capture_output=True, text=True)
+                outputs.append(evidence.read_bytes())
+            self.assertEqual(outputs[0], outputs[1])
 
 
 if __name__ == "__main__":
