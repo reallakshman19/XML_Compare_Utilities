@@ -1,14 +1,23 @@
 {
   "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://contracts.xml-compare-utilities.local/document-evidence/v1/machine-evidence-envelope.schema.json",
   "title":"MachineEvidenceEnvelope.v1",
   "type":"object",
-  "required":["schema","source","surfaces","transforms","observations","decisions"],
+  "additionalProperties":false,
+  "required":["schema","machineEvidenceHash","source","surfaces","transforms","observations","decisions","diagnostics","operation","selection","canonicalOptions"],
   "properties":{
     "schema":{"const":"MachineEvidenceEnvelope.v1"},
+    "machineEvidenceHash":{"type":"string","minLength":1},
     "source":{"$ref":"source.schema.json"},
-    "surfaces":{"type":"array"},
-    "transforms":{"type":"array"},
-    "observations":{"type":"array"},
-    "decisions":{"type":"array"}
+    "surfaces":{"type":"array","items":{"$ref":"surface.schema.json"}},
+    "transforms":{"type":"array","items":{"$ref":"transform.schema.json"}},
+    "observations":{"type":"array","items":{"$ref":"observation.schema.json"}},
+    "decisions":{"type":"array","items":{"$ref":"decision.schema.json"}},
+    "diagnostics":{"type":"array","items":{"type":"object"}},
+    "providerProfiles":{"type":"array","items":{"type":"object"}},
+    "renderProfiles":{"type":"array","items":{"type":"object"}},
+    "operation":{"type":"string","minLength":1},
+    "selection":{"type":"object"},
+    "canonicalOptions":{"type":"object"}
   }
 }
