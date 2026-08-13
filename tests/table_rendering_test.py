@@ -47,6 +47,14 @@ class TableRenderingTest(unittest.TestCase):
             "| Column 1 | Column 2 |\n| --- | --- |\n| A | B |",
         )
 
+    def test_zero_column_table_uses_html(self):
+        rendered, decision = render_table_by_policy(
+            table([], 0), "auto", cell_text=cell_text, html_renderer=html_renderer,
+        )
+        self.assertEqual(decision.renderer, "html")
+        self.assertEqual(decision.classification, "COMPLEX_MERGED")
+        self.assertTrue(rendered.startswith("<table"))
+
     def test_auto_merged_uses_html(self):
         value = table([[cell("Merged", 0, 0, column_span=2)]], 2)
         rendered, decision = render_table_by_policy(
