@@ -85,10 +85,16 @@ def paragraph_text(paragraph: ET.Element) -> tuple[str, bool]:
     return "".join(parts), page_break
 
 
-def table_colspan(cell: ET.Element) -> int:
+def table_colspan(cell: ET.Element) -> str | None:
     properties = cell.find(W + "tcPr")
-    grid_span = None if properties is None else properties.find(W + "gridSpan")
-    raw = None if grid_span is None else grid_span.get(W + "val")
+    if properties is None:
+        return None
+    grid_span = properties.find(W + "gridSpan")
+    return None if grid_span is None else grid_span.get(W + "val")
+
+
+def cell_colspan(cell: ET.Element) -> int:
+    raw = table_colspan(cell)
     try:
         return max(1, int(raw)) if raw is not None else 1
     except ValueError:
@@ -125,7 +131,7 @@ def parse_table(table: ET.Element, table_index: int, block_id: str | None = None
         cells = []
         for cell_index, cell in enumerate(row.findall(W + "tc")):
             provenance = SourceRef("docx", DOC_PART, table_index=table_index, row_index=row_index, cell_index=cell_index)
-            cells.append(TableCell(parse_cell_blocks(cell, table_index, row_index, cell_index), provenance, table_colspan(cell)))
+            cells.append(TableCell(parse_cell_blocks(cell, table_index, row_index, cell_index), provenance, cell_colspan(cell)))
         rows.append(TableRow(tuple(cells)))
     return TableBlock(block_id or f"docx:t{table_index}", tuple(rows), SourceRef("docx", DOC_PART, table_index=table_index))
 
@@ -214,6 +220,32 @@ def flatten_cell_text(cell: TableCell) -> str:
 
 def render_table_tsv(table: TableBlock) -> str:
     return "\n".join("\t".join(flatten_cell_text(cell) for cell in row.cells) for row in table.rows)
+
+
+def html_paragraph_text(paragraph: ET.Element) -> str:
+    text, _ = paragraph_text(paragraph)
+    return html.escape(text, quote=False).replace("\t", "&#9;").replace("\n", "<br>")
+
+
+def heading_prefix(style: str | None) -> str | None:
+    level = heading_level(style)
+    return None if level is None else "#" * level
+
+
+def table_to_html(table: ET.Element, indent: int = 0) -> str:
+    return render_table_html(parse_table(table, 0, "compat-table"), indent)
+
+
+def flatten_table_text(table: ET.Element) -> str:
+    semantic = parse_table(table, 0, "compat-table")
+    return " / ".join(
+        " | ".join(flatten_cell_text(cell) for cell in row.cells)
+        for row in semantic.rows
+    )
+
+
+def table_to_tsv(table: ET.Element) -> str:
+    return render_table_tsv(parse_table(table, 0, "compat-table"))
 
 
 def render_document(document: DocumentModel, table_format: str) -> str:
