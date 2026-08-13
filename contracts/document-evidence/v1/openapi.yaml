@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: XML Compare Utilities Document Evidence Contract
+  version: 1.0.0
+  description: >-
+    Schema catalog for the provider-neutral document-evidence contract. This
+    contract-only slice intentionally declares no runtime HTTP paths.
+paths: {}
+components:
+  schemas:
+    SourceIdentity:
+      $ref: ./source.schema.json
+    Surface:
+      $ref: ./surface.schema.json
+    SurfaceTransform:
+      $ref: ./transform.schema.json
+    Geometry:
+      $ref: ./geometry.schema.json
+    Observation:
+      $ref: ./observation.schema.json
+    EvidenceDecision:
+      $ref: ./decision.schema.json
+    Overlay:
+      $ref: ./overlay.schema.json
+    MachineEvidenceEnvelope:
+      $ref: ./machine-evidence-envelope.schema.json
+    CorrectionEvent:
+      $ref: ./correction-event.schema.json
+x-contract-status: schema-only
+x-runtime-routes-deferred: true
