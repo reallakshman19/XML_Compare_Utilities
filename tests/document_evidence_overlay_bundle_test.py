@@ -17,6 +17,15 @@ TRANSFORM = "sha256:" + "b" * 64
 GEO = {"type": "Quad", "coordinates": [[1, 1], [9, 1], [9, 4], [1, 4]]}
 
 
+def cache(**changes):
+    options = {
+        "operation": "table-extract", "selection": {"pages": [1]},
+        "canonical_options": {"ocr": "never"},
+    }
+    options.update(changes)
+    return cache_identity(SOURCE, **options)
+
+
 class OverlayBundleTest(unittest.TestCase):
     def test_overlay_source_and_transform_staleness_fail_closed(self):
         surface = canonical_pdf_page_surface(SOURCE, 1, 100, 100)
@@ -42,10 +51,17 @@ class OverlayBundleTest(unittest.TestCase):
         with self.assertRaises(EvidenceBundleError):
             make_bundle_manifest({"../secret": b"x"}, source_hash=SOURCE, machine_evidence_hash="sha256:" + "e" * 64)
 
-    def test_cache_key_changes_with_schema_or_profiles(self):
-        base = cache_identity(SOURCE)
-        self.assertNotEqual(base, cache_identity(SOURCE, schema_major=2))
-        self.assertNotEqual(base, cache_identity(SOURCE, render_profile_hash="sha256:" + "f" * 64))
+    def test_cache_key_changes_with_semantic_inputs(self):
+        base = cache()
+        self.assertNotEqual(base, cache(schema_major=2))
+        self.assertNotEqual(base, cache(render_profile_hash="sha256:" + "f" * 64))
+        self.assertNotEqual(base, cache(selection={"pages": [2]}))
+        self.assertNotEqual(base, cache(operation="search"))
+        self.assertNotEqual(base, cache(canonical_options={"ocr": "always"}))
+
+    def test_cache_key_requires_operation_selection_and_options(self):
+        with self.assertRaises(EvidenceBundleError):
+            cache_identity(SOURCE, operation="", selection={}, canonical_options={})
 
     def test_legacy_coordinate_artifacts_require_rebuild_when_lineage_missing(self):
         result = classify_legacy_artifact("ocr", {"sourceHash": SOURCE})
