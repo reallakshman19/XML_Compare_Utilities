@@ -1,16 +1,96 @@
 """Provider-neutral surface identity helpers for DocumentEvidence.v1."""
 from __future__ import annotations
 
+from decimal import Decimal
 import hashlib
 import json
+import math
+
+_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 def canonical_json_bytes(value) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    """Serialize JSON-compatible data using RFC 8785/JCS rules."""
+    return _jcs(value).encode("utf-8")
 
 
 def canonical_hash(value) -> str:
-    return f"sha256:{hashlib.sha256(canonical_json_bytes(value)).hexdigest()}"
+    """Hash canonical JSON, domain-separated by a schema name when present."""
+    payload = canonical_json_bytes(value)
+    schema = value.get("schema") if isinstance(value, dict) else None
+    if isinstance(schema, str) and schema:
+        payload = schema.encode("utf-8") + b"\0" + payload
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _jcs(value) -> str:
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, str):
+        return _jcs_string(value)
+    if isinstance(value, int):
+        return _jcs_integer(value)
+    if isinstance(value, float):
+        return _jcs_float(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_jcs(item) for item in value) + "]"
+    if isinstance(value, dict):
+        return _jcs_object(value)
+    raise TypeError(f"value is not JCS JSON-compatible: {type(value).__name__}")
+
+
+def _jcs_string(value: str) -> str:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError("JCS strings must not contain lone Unicode surrogates") from exc
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _jcs_integer(value: int) -> str:
+    if abs(value) > _SAFE_INTEGER:
+        raise ValueError("JCS integers must fit the IEEE-754 safe integer domain")
+    return str(value)
+
+
+def _jcs_float(value: float) -> str:
+    if not math.isfinite(value):
+        raise ValueError("JCS numbers must be finite")
+    if value == 0:
+        return "0"
+    sign = "-" if value < 0 else ""
+    decimal = Decimal(repr(abs(value))).normalize()
+    digits = "".join(str(item) for item in decimal.as_tuple().digits) or "0"
+    exponent = len(digits) + decimal.as_tuple().exponent - 1
+    return sign + _ecmascript_decimal(digits, exponent)
+
+
+def _ecmascript_decimal(digits: str, exponent: int) -> str:
+    decimal_point = exponent + 1
+    if 0 < decimal_point <= 21:
+        if len(digits) <= decimal_point:
+            return digits + "0" * (decimal_point - len(digits))
+        return digits[:decimal_point] + "." + digits[decimal_point:]
+    if -6 < decimal_point <= 0:
+        return "0." + "0" * (-decimal_point) + digits
+    fraction = "." + digits[1:] if len(digits) > 1 else ""
+    exponent_text = f"+{exponent}" if exponent >= 0 else str(exponent)
+    return digits[0] + fraction + "e" + exponent_text
+
+
+def _jcs_object(value: dict) -> str:
+    if any(not isinstance(key, str) for key in value):
+        raise TypeError("JCS object keys must be strings")
+    try:
+        keys = sorted(value, key=lambda key: key.encode("utf-16be"))
+    except UnicodeEncodeError as exc:
+        raise ValueError("JCS object keys must not contain lone Unicode surrogates") from exc
+    pairs = (_jcs_string(key) + ":" + _jcs(value[key]) for key in keys)
+    return "{" + ",".join(pairs) + "}"
 
 
 def validate_render_profile(profile: dict) -> dict:
