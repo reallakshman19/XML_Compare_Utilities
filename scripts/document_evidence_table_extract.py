@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 
 from document_evidence_observation import make_observation
+from document_evidence_provider_conformance import make_provider_profile
 from document_evidence_surface import canonical_hash, canonical_pdf_page_surface
 from document_evidence_table import make_table_pass, reconcile_table_passes
 
@@ -98,20 +99,11 @@ def _candidate_evidence(source_hash, surface, candidate, index, provider_version
     candidate_id = _candidate_id(source_hash, candidate, index)
     observations, cells = [], []
     provider_version = provider_versions.get("pdfplumber", "unknown")
-    profile_hash = canonical_hash(
-        {"provider": "pdfplumber-table", "strategy": candidate.strategy}
-    )
+    profile = _native_provider_profile(provider_version, candidate.strategy)
     for row_index, row in enumerate(candidate.rows):
         _append_row_evidence(
-            observations,
-            cells,
-            source_hash,
-            surface,
-            candidate,
-            row,
-            row_index,
-            provider_version,
-            profile_hash,
+            observations, cells, source_hash, surface, candidate, row,
+            row_index, provider_version, profile,
         )
     table_pass = make_table_pass(
         candidate_id, f"native:{candidate.strategy}", surface, cells,
@@ -120,15 +112,28 @@ def _candidate_evidence(source_hash, surface, candidate, index, provider_version
     decisions = reconcile_table_passes((table_pass,), observation_index)
     return {
         "candidate": _candidate_summary(source_hash, candidate, index),
+        "providerProfile": profile,
         "observations": observations,
         "tablePass": table_pass,
         "cellDecisions": list(decisions),
     }
 
 
+def _native_provider_profile(provider_version, strategy):
+    return make_provider_profile(
+        "native-text", "pdfplumber-table", provider_version,
+        determinism={
+            "semantic": "profile-bound",
+            "artifact": "not-applicable",
+            "bitwiseRaster": "not-applicable",
+        },
+        options={"strategy": strategy},
+    )
+
+
 def _append_row_evidence(
     observations, cells, source_hash, surface, candidate, row,
-    row_index, provider_version, profile_hash,
+    row_index, provider_version, profile,
 ):
     for column_index, bbox in enumerate(row.cells):
         if bbox is None:
@@ -136,14 +141,8 @@ def _append_row_evidence(
         text = row.texts[column_index] if column_index < len(row.texts) else ""
         geometry = _bbox_quad(bbox)
         observation = make_observation(
-            "native-text",
-            source_hash,
-            surface,
-            "pdfplumber-table",
-            provider_version,
-            text,
-            geometry,
-            provider_profile_hash=profile_hash,
+            "native-text", source_hash, surface, "pdfplumber-table",
+            provider_version, text, geometry, provider_profile=profile,
             extensions={
                 "strategy": candidate.strategy,
                 "candidateConfidence": candidate.confidence,
