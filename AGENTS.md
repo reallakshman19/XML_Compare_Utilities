@@ -3,6 +3,139 @@
 This file is the canonical policy for the repository. Tools that discover
 `.agents/AGENTS.md` must follow its pointer back to this file.
 
+The repository—not a chat session—is the durable source of work state. These rules apply to **all contributors and agents**: ChatGPT, Codex, Claude, Cursor, Copilot, Gemini, local agents, scripts acting as agents, and humans.
+
+Canonical cross-repository delivery protocol:
+
+`reallaksh19/Common/skills/engineering-pr-delivery/`
+
+## Universal Engineering Delivery and Handover
+
+### Continuous handover invariant
+
+Assume the active agent may disappear, lose context, become incapable, or be replaced after any meaningful action.
+
+At every durable checkpoint, another qualified agent must be able to recover the mission, current truth, partial work, evidence, risks, authority boundaries, validation state, and exact next action from repository + PR artifacts without chat history.
+
+No essential technical state may exist only in private reasoning or conversation history.
+
+### Live grounding before mutation
+
+Before changing production or engineering-sensitive files, establish live repository/PR truth where available: current base/main SHA, WIP/branch/PR identity, PR head and merge base, actual changed files/commits, current checks/reviews, source task, predecessor/follow-on PRs, active overlapping work, and base drift.
+
+Live mutable repository state overrides stale reports and prior conversation.
+
+### Durable WIP/PR identity
+
+Before PR allocation use a unique identity:
+
+```text
+WIP-<short-id>
+agents/WIP-<short-id>_workreport.md
+```
+
+Do not use one shared `PR_PENDING_workreport.md` in a multi-agent repository.
+
+After PR allocation use:
+
+```text
+agents/PR<NUMBER>_workreport.md
+```
+
+The work report must remain recovery-first and continuously preserve mission/scope, current implementation/partial work, active findings/risks/decisions/questions, current hypothesis and falsifier, authority/invariants, validation PASS/FAIL/NOT_RUN, changed-file ledger, review/check state, highest risk, exact work location, and one executable `EXACT_NEXT_ACTION`.
+
+The existing `.agent-worklogs/` patch ledger remains required by this repository and supplements—not replaces—the PR work report.
+
+### Engineering-critical takeover begins READ_ONLY
+
+For work affecting topology/CAD authority, XML engineering semantics, geometry transforms, engineering exports, piping/model data, or other engineering-sensitive behavior, an incoming agent begins takeover with:
+
+```text
+TAKEOVER_AUTHORITY = READ_ONLY
+```
+
+Before production mutation it must independently re-ground, reconcile the prior report against the actual PR, inspect critical code/tests/evidence, classify stale/contradicted/inherited facts, complete repository-specific Appendix A qualification, and decide whether to `CONTINUE`, `QUARANTINE`, `SALVAGE_PARTIAL`, or `SUPERSEDE`.
+
+Do not grant implementation authority because an agent claims expertise.
+
+### Appendix A — Implementation Takeover Qualification
+
+Appendix A is an implementation authorization gate, not a theory quiz.
+
+Normally require:
+
+```text
+A1 Production Trace
+A2 Current Failure Isolation
+A3 Authority / Invariant
+A4 Independent Validation
+A5 Next-Commit / Minimal Patch
+```
+
+A question is invalid if it can be answered correctly without opening the current repository, PR diff, tests, evidence, or work report.
+
+Prefer `trace`, `reproduce`, `calculate`, `isolate`, `predict`, `falsify`, `compare`, `prove`, `reconcile`, and exact patch-boundary tasks over generic `define`/`describe`/`explain` prompts.
+
+For engineering-critical takeover, default qualification is:
+
+```text
+total >= 92/100
+minimum per challenge >= 17/20
+```
+
+Fabricated repository evidence, unsafe engineering claims, incorrect authority assumptions, or validation gaming may cause immediate failure regardless of score.
+
+### Multi-agent coordination
+
+Before implementation and before each new stage inspect other active PRs/WIPs for exact-file overlap, path-prefix overlap, topology/CAD/engineering authority overlap, dependency/stacked-PR relationships, and base drift.
+
+Classify:
+
+```text
+SAFE
+COORDINATION_REQUIRED
+BLOCKED_BY_ACTIVE_CLAIM
+UNKNOWN
+```
+
+No exact-file overlap does not prove semantic/authority independence.
+
+### Validation integrity
+
+Every material check must distinguish:
+
+```text
+STATUS      = PASS | FAIL | NOT_RUN | NOT_APPLICABLE
+OBSERVATION = execution/inspection/inference basis
+ORACLE      = implementation-coupled or independent authority class
+```
+
+Never weaken tolerances merely because a test fails, replace independent expected values with production output, change implementation and oracle together and call the result independent, delete difficult benchmarks to obtain green status, hard-code fixture answers into production, silence fail-closed behavior, or claim `NOT_RUN` as `PASS`.
+
+### Damaged PRs and incapable agents
+
+Do not preserve a PR because of sunk effort. If the work report cannot explain the diff, authority is unclear, commits cannot be classified, expected values changed with implementation, or conflict resolution requires guessing engineering intent, quarantine and assess salvage.
+
+Valid outcomes:
+
+```text
+CONTINUE
+SALVAGE_PARTIAL
+SUPERSEDE
+ABANDON
+```
+
+Preserve known-good commits, benchmarks, independent evidence, decisions, invariants, patch ledgers and provenance even when the implementation PR is superseded.
+
+### Merge discipline
+
+- One coherent assignment per PR unless the owner explicitly changes scope.
+- Do not silently broaden scope.
+- Explain every changed file before closure.
+- Do not modify workflow files unless explicitly authorized.
+- Keep the PR handover-ready while waiting for review/merge.
+- **Never merge without explicit owner authorization.**
+
 ## Engineering Principles
 
 - Keep changes simple, explicit, scoped, and easy to reason about.
@@ -87,7 +220,6 @@ Each `modules/<module-slug>.md` must use these headings:
 - Update the module log after every material change batch and refresh its patch before handoff. Mark status as `planned`, `in_progress`, `completed`, or `blocked`; do not mark completed while required validation or undo data is missing.
 - Do not place credentials, tokens, private data, or large generated artifacts in the ledger. Record safe references and checksums instead.
 - Before modifying a dirty file touched by another task ledger, read its manifest and preserve its baseline. If selective undo is no longer safe because later changes overlap, stop and escalate instead of guessing.
-
 
 ## Backup and Git Safety
 
