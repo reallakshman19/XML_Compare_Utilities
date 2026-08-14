@@ -127,6 +127,38 @@ ABANDON
 
 Preserve known-good commits, benchmarks, independent evidence, decisions, invariants, patch ledgers and provenance even when the implementation PR is superseded.
 
+### AUTO MODE — autonomous phase execution
+
+The exact owner keyword `AUTO MODE` sets:
+
+```text
+EXECUTION_MODE = AUTO
+AUTO_STATE = RUNNING
+SCOPE_AUTHORITY = LOCKED_TO_APPROVED_MISSION
+PHASE_PROGRESSION = AUTO
+MERGE_AUTHORITY = OWNER_ONLY
+```
+
+AUTO MODE authorizes automatic phase progression through the approved plan. It does not authorize scope expansion, topology/CAD/XML authority changes beyond approved scope, switching runtime/writer/canvas, weakening validation, destructive actions, or merge.
+
+For each phase, preserve the existing `.agent-worklogs/` and backup requirements, record the phase plan before product-file edits, implement only the approved phase, validate, refresh module patches/checksums/work report/status/claims/Appendix A as needed, create a durable checkpoint, evaluate hard stops, and continue automatically when none applies.
+
+Routine phase completion is not a reason to ask `Would you like me to continue?`.
+
+Stop AUTO when continuing requires an unapproved change to topology/CAD authority, XML engineering semantics, geometry-transform authority, piping/model data authority, runtime/writer/canvas selection, persistence/export semantics, or any protected engineering source of truth.
+
+If repeated attempts do not narrow uncertainty, if safe selective undo can no longer be proven, or if the agent cannot state a concrete hypothesis, falsifier, next isolating experiment, and protected invariants, stop product mutation and set:
+
+```text
+PR_RECOVERY_STATE = TAKEOVER_REQUIRED
+TAKEOVER_AUTHORITY = READ_ONLY
+AUTO_STATE = TAKEOVER_REQUIRED
+```
+
+Refresh the work report, patch ledger, and Appendix A for immediate takeover.
+
+`AUTO MODE` never implies `AUTO MERGE`; merge remains owner-only unless separately and explicitly authorized.
+
 ### Merge discipline
 
 - One coherent assignment per PR unless the owner explicitly changes scope.
