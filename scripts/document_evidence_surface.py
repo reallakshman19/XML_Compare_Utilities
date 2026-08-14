@@ -6,8 +6,6 @@ import hashlib
 import json
 import math
 
-_SAFE_INTEGER = 9_007_199_254_740_991
-
 
 def canonical_json_bytes(value) -> bytes:
     """Serialize JSON-compatible data using RFC 8785/JCS rules."""
@@ -52,9 +50,13 @@ def _jcs_string(value: str) -> str:
 
 
 def _jcs_integer(value: int) -> str:
-    if abs(value) > _SAFE_INTEGER:
-        raise ValueError("JCS integers must fit the IEEE-754 safe integer domain")
-    return str(value)
+    try:
+        ieee_value = float(value)
+    except OverflowError as exc:
+        raise ValueError("JCS numbers must be expressible as IEEE-754 doubles") from exc
+    if not math.isfinite(ieee_value):
+        raise ValueError("JCS numbers must be expressible as IEEE-754 doubles")
+    return _jcs_float(ieee_value)
 
 
 def _jcs_float(value: float) -> str:

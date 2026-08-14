@@ -48,6 +48,14 @@ class DocumentEvidenceReviewRegressionsTest(unittest.TestCase):
             b"[0.000001,1e-7,100000000000000000000,1e+21,0]",
         )
 
+    def test_rfc8785_large_ieee754_integer_samples(self):
+        self.assertEqual(canonical_json_bytes(9_007_199_254_740_992), b"9007199254740992")
+        self.assertEqual(
+            canonical_json_bytes(295_147_905_179_352_830_000),
+            b"295147905179352830000",
+        )
+        self.assertEqual(canonical_json_bytes(10**30), b"1e+30")
+
     def test_utf16_sort_and_schema_domain_hash(self):
         value = {"\ue000": 2, "😀": 1}
         self.assertEqual(canonical_json_bytes(value), '{"😀":1,"\ue000":2}'.encode())
@@ -55,8 +63,8 @@ class DocumentEvidenceReviewRegressionsTest(unittest.TestCase):
         expected = hashlib.sha256(b"Example.v1\0" + canonical_json_bytes(typed)).hexdigest()
         self.assertEqual(canonical_hash(typed), "sha256:" + expected)
 
-    def test_jcs_rejects_unsafe_or_nonfinite_numbers(self):
-        for value in (9_007_199_254_740_992, float("nan"), float("inf")):
+    def test_jcs_rejects_nonfinite_or_unrepresentable_numbers(self):
+        for value in (float("nan"), float("inf"), 10**400):
             with self.assertRaises(ValueError):
                 canonical_json_bytes(value)
 
