@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 
+_EPSILON = 1e-9
+
+
 def assign_ocr_words_to_cells(table_pass, words) -> dict:
     cells = table_pass["cells"]
     assignments = {cell["cellId"]: [] for cell in cells}
@@ -37,10 +40,46 @@ def assign_ocr_words_to_cells(table_pass, words) -> dict:
 def _contains(geometry, point):
     if geometry.get("type") not in {"Quad", "Polygon"}:
         return False
-    xs = [float(item[0]) for item in geometry["coordinates"]]
-    ys = [float(item[1]) for item in geometry["coordinates"]]
+    polygon = [(float(x), float(y)) for x, y in geometry.get("coordinates", ())]
+    if len(polygon) < 3:
+        return False
+    if not _inside_bounds(polygon, point):
+        return False
+    return _point_in_polygon(polygon, point)
+
+
+def _point_in_polygon(polygon, point):
     x, y = point
-    return min(xs) <= x <= max(xs) and min(ys) <= y <= max(ys)
+    inside = False
+    previous = polygon[-1]
+    for current in polygon:
+        if _point_on_segment(previous, current, point):
+            return True
+        x1, y1 = previous
+        x2, y2 = current
+        if (y1 > y) != (y2 > y):
+            crossing = (x2 - x1) * (y - y1) / (y2 - y1) + x1
+            if x < crossing:
+                inside = not inside
+        previous = current
+    return inside
+
+
+def _point_on_segment(start, end, point):
+    x1, y1 = start
+    x2, y2 = end
+    x, y = point
+    cross = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
+    if abs(cross) > _EPSILON:
+        return False
+    return min(x1, x2) - _EPSILON <= x <= max(x1, x2) + _EPSILON and min(y1, y2) - _EPSILON <= y <= max(y1, y2) + _EPSILON
+
+
+def _inside_bounds(polygon, point):
+    xs = [item[0] for item in polygon]
+    ys = [item[1] for item in polygon]
+    x, y = point
+    return min(xs) - _EPSILON <= x <= max(xs) + _EPSILON and min(ys) - _EPSILON <= y <= max(ys) + _EPSILON
 
 
 def _bbox_center(bbox):
