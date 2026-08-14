@@ -16,6 +16,13 @@ from document_conversion_service import (
     ConversionServiceConfig,
     DocumentConversionService,
 )
+from document_evidence_table_http import table_api_capabilities, table_route_operations
+from pdf_chart_api import (
+    ChartBinaryResponse,
+    chart_api_capabilities,
+    inspect_vectors_request,
+    render_pages_request,
+)
 from pdf_search_index import (
     DEFAULT_MAX_CACHE_DOCUMENTS,
     DEFAULT_MAX_INDEX_CHARS,
@@ -57,7 +64,7 @@ class ConversionHttpServer(ThreadingHTTPServer):
 
 
 class ConversionRequestHandler(BaseHTTPRequestHandler):
-    server_version = "DocumentConversionApi/2"
+    server_version = "DocumentConversionApi/3"
 
     def do_GET(self):
         path = urlsplit(self.path).path
@@ -80,10 +87,18 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlsplit(self.path).path
-        operation = {
+        operations = {
             "/v1/convert": self.server.service.convert,
             "/v1/search": self.server.service.search,
-        }.get(path)
+            "/v1/render-pages": lambda body: render_pages_request(
+                body, self.server.service.config,
+            ),
+            "/v1/inspect-vectors": lambda body: inspect_vectors_request(
+                body, self.server.service.config,
+            ),
+        }
+        operations.update(table_route_operations(self.server.service.config))
+        operation = operations.get(path)
         if operation is None:
             self._write_error(404, "API_ROUTE_NOT_FOUND", "route not found")
             return
@@ -91,16 +106,33 @@ class ConversionRequestHandler(BaseHTTPRequestHandler):
         if payload is None:
             return
         if not self.server.semaphore.acquire(blocking=False):
-            self._write_error(503, "API_BUSY", "conversion/search concurrency limit reached")
+            self._write_error(503, "API_BUSY", "document operation concurrency limit reached")
             return
         try:
-            self._write_json(200, operation(payload))
+            result = operation(payload)
+            if isinstance(result, ChartBinaryResponse):
+                self._write_binary_response(result)
+            else:
+                self._write_json(200, result)
         except ConversionApiError as exc:
             self._write_json(exc.status, exc.to_dict())
         except Exception as exc:
             self._write_error(500, "API_INTERNAL_ERROR", f"request failed: {type(exc).__name__}")
         finally:
             self.server.semaphore.release()
+
+    def _write_binary_response(self, result):
+        self.send_response(200)
+        self.send_header("Content-Type", result.content_type)
+        self.send_header("Content-Disposition", f'attachment; filename="{result.filename}"')
+        for name, value in result.headers.items():
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(result.body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        self.wfile.write(result.body)
 
     def _read_json_request(self):
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
@@ -182,6 +214,8 @@ def _capabilities(config: ConversionServiceConfig) -> dict:
             "regex": False,
             "completeOrError": True,
         },
+        **chart_api_capabilities(),
+        **table_api_capabilities(),
         "assetTransport": False,
         "remoteSourceFetch": False,
     }
