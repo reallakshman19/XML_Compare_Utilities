@@ -1,6 +1,6 @@
 # Canonicalization and hashing — Document Evidence v1
 
-Machine evidence uses deterministic canonical JSON. Implementations must follow RFC 8785 JSON Canonicalization Scheme semantics for object-key ordering, number serialization and UTF-8 encoding.
+Machine evidence uses deterministic canonical JSON. Implementations must follow RFC 8785 JSON Canonicalization Scheme (JCS) semantics: I-JSON data, UTF-16 code-unit property ordering, ECMAScript-compatible finite IEEE-754 number serialization, JSON string escaping, and UTF-8 output with no insignificant whitespace.
 
 ## Hash form
 
@@ -8,13 +8,24 @@ Machine evidence uses deterministic canonical JSON. Implementations must follow 
 sha256:<64 lowercase hex characters>
 ```
 
-For a schema object whose identity is `X.v1`:
+For a schema-bearing object whose identity is `X.v1`:
 
 ```text
 contentHash = SHA-256(UTF8("X.v1\0") || JCS(canonicalObjectWithoutSelfHash))
 ```
 
 A self-hash field is excluded only from the hash of the object that contains that field. Referenced source, surface, transform, provider and observation hashes remain included.
+
+Internal helper identities that do not carry a `schema` field are JCS-hashed without a schema prefix and are not portable contract-object hashes. Cross-repository contracts must use schema-bearing identities.
+
+## JCS input restrictions
+
+- object keys are strings and are sorted by UTF-16 code units;
+- strings containing lone Unicode surrogates are rejected;
+- `NaN` and infinities are rejected;
+- integer-valued JSON numbers must stay within the IEEE-754 safe integer domain (`±9007199254740991`); larger exact integers must be represented as strings by their schema;
+- `-0` serializes as `0`;
+- number notation follows ECMAScript thresholds, including fixed notation for `1e-6` and `1e20`, and exponent notation for `1e-7` and `1e21`.
 
 ## Included semantic inputs
 
