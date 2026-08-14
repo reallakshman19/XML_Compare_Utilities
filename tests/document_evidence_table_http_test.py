@@ -34,13 +34,17 @@ class TableHttpAdapterTest(unittest.TestCase):
         self.assertEqual(value["ocrAttemptsPerPage"], 1)
         self.assertLessEqual(value["ocrMaxPagePixels"], 24_000_000)
 
-    def test_discovery_remains_advisory(self):
+    def test_discovery_remains_advisory_with_source_identity(self):
         result = discover_tables_request(
             {"sourcePath": "fixture.pdf"}, CONFIG,
             source_loader=loader, candidate_provider=lambda _: ({}, ()),
         )
         self.assertEqual(result["schema"], "DocumentEvidenceTableDiscovery.v1")
         self.assertNotIn("tables", result)
+        self.assertEqual(result["source"]["schema"], "SourceIdentity.v1")
+        self.assertEqual(result["source"]["sha256"], SOURCE_HASH)
+        self.assertEqual(result["source"]["mediaType"], "application/pdf")
+        self.assertEqual(result["source"]["logicalPath"], "fixture.pdf")
 
     def test_ocr_always_is_one_bounded_pass_per_selected_page(self):
         calls = []
@@ -62,7 +66,18 @@ class TableHttpAdapterTest(unittest.TestCase):
         self.assertTrue(all(item[2] <= 24_000_000 for item in calls))
         self.assertTrue(all(item[3] <= 64 * 1024 * 1024 for item in calls))
         self.assertTrue(all(item[4] <= 30.0 for item in calls))
+        self.assertEqual(result["source"]["sha256"], SOURCE_HASH)
         self.assertEqual(result["options"], {"ocr": "always", "ocrLanguage": "eng"})
+
+    def test_source_metadata_mismatch_fails_closed(self):
+        def bad_loader(request, config):
+            return SOURCE, {"logicalPath": request["sourcePath"], "sizeBytes": len(SOURCE) + 1}
+        with self.assertRaises(ValueError) as caught:
+            discover_tables_request(
+                {"sourcePath": "fixture.pdf"}, CONFIG,
+                source_loader=bad_loader, candidate_provider=lambda _: ({}, ()),
+            )
+        self.assertIn("source metadata size", str(caught.exception))
 
     def test_unknown_ocr_mode_fails_closed(self):
         with self.assertRaises(ValueError):

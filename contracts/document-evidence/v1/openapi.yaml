@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: XML Compare Utilities Document Evidence Contract
-  version: 1.4.0
+  version: 1.4.1
   description: >-
     Provider-neutral document-evidence contract and governed table extraction routes.
 paths:
@@ -20,7 +20,7 @@ paths:
                 sourcePath: {type: string, minLength: 1}
       responses:
         '200':
-          description: Advisory candidate pages/regions only; no governed extraction authority.
+          description: Advisory candidate pages/regions with immutable SourceIdentity.v1; no governed extraction authority.
           content:
             application/json:
               schema: {$ref: ./table-discovery.schema.json}
@@ -55,7 +55,7 @@ paths:
                     ocrLanguage: {type: string, minLength: 1, default: eng}
       responses:
         '200':
-          description: Source-bound table observations, per-pass cells, and extraction-only decisions.
+          description: Source-bound table observations, per-pass cells, extraction-only decisions and the effective bounded extraction options.
           content:
             application/json:
               schema: {$ref: ./table-extraction.schema.json}

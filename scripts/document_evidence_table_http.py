@@ -1,6 +1,8 @@
 """Thin HTTP-operation adapters for governed DocumentEvidence table routes."""
 from __future__ import annotations
 
+import hashlib
+
 from document_evidence_pdf_table_provider import (
     make_pdf_table_candidate_provider,
     make_pdf_table_page_provider,
@@ -39,7 +41,8 @@ def discover_tables_request(
     candidate_provider=None,
 ) -> dict:
     request = _parse_payload(payload, required=("sourcePath",), allowed=("sourcePath",))
-    source_bytes, source = (source_loader or _default_source_loader)(request, config)
+    source_bytes, raw_source = (source_loader or _default_source_loader)(request, config)
+    source = _source_identity(source_bytes, raw_source)
     provider = candidate_provider or make_pdf_table_candidate_provider(
         max_source_pages=config.max_source_pages,
     )
@@ -61,7 +64,8 @@ def extract_tables_request(
         allowed=("sourcePath", "sourceHash", "pages", "options"),
     )
     options = _table_options(request.get("options"))
-    source_bytes, source = (source_loader or _default_source_loader)(request, config)
+    source_bytes, raw_source = (source_loader or _default_source_loader)(request, config)
+    source = _source_identity(source_bytes, raw_source)
     provider = page_provider or make_pdf_table_page_provider(
         max_source_pages=config.max_source_pages,
     )
@@ -185,6 +189,34 @@ def _parse_payload(payload, *, required, allowed):
             f"required request field(s): {', '.join(missing)}",
         )
     return dict(payload)
+
+
+def _source_identity(source_bytes, raw_source):
+    value = dict(raw_source or {})
+    digest = hashlib.sha256(source_bytes).hexdigest()
+    source_hash = f"sha256:{digest}"
+    if value.get("sizeBytes") not in (None, len(source_bytes)):
+        raise GovernedTableError(
+            "TABLE_SOURCE_METADATA_MISMATCH",
+            "source metadata size does not match source bytes",
+        )
+    if value.get("schema") == "SourceIdentity.v1":
+        if value.get("sha256") != source_hash or value.get("mediaType") != "application/pdf":
+            raise GovernedTableError(
+                "TABLE_SOURCE_IDENTITY_MISMATCH",
+                "provided SourceIdentity.v1 does not match PDF source bytes",
+            )
+        return value
+    result = {
+        "schema": "SourceIdentity.v1",
+        "sourceId": f"source:{digest[:24]}",
+        "sha256": source_hash,
+        "mediaType": "application/pdf",
+        "sizeBytes": len(source_bytes),
+    }
+    if isinstance(value.get("logicalPath"), str) and value["logicalPath"]:
+        result["logicalPath"] = value["logicalPath"]
+    return result
 
 
 def _default_source_loader(request, config):

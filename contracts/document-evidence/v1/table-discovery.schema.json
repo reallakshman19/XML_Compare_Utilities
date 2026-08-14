@@ -4,10 +4,11 @@
   "title": "DocumentEvidenceTableDiscovery.v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "sourceHash", "candidates", "diagnostics"],
+  "required": ["schema", "sourceHash", "source", "candidates", "diagnostics"],
   "properties": {
     "schema": {"const": "DocumentEvidenceTableDiscovery.v1"},
     "sourceHash": {"type": "string", "minLength": 1},
+    "source": {"$ref": "source.schema.json"},
     "candidates": {
       "type": "array",
       "items": {
