@@ -1,3 +1,4 @@
+import hashlib
 import http.client
 from io import BytesIO
 import json
@@ -32,7 +33,8 @@ class PdfChartHttpTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name).resolve()
         self.source = self.root / "chart.pdf"
-        self.source.write_bytes(stream.getvalue())
+        self.source_bytes = stream.getvalue()
+        self.source.write_bytes(self.source_bytes)
         service = DocumentConversionService(ConversionServiceConfig((self.root,)))
         self.server = ConversionHttpServer(
             ("127.0.0.1", 0), ConversionRequestHandler, service=service,
@@ -82,12 +84,41 @@ class PdfChartHttpTest(unittest.TestCase):
         curve = next(item for item in page["primitives"] if item["kind"] == "curve")
         cubic = next(command for command in curve["path"] if command["op"] == "c")
         self.assertEqual(cubic["points"][0], [30.0, 10.0])
+        evidence_cubic = next(
+            segment for segment in curve["geometry"]["segments"] if segment["op"] == "C"
+        )
+        self.assertEqual(evidence_cubic["c1"], [30.0, 10.0])
         self.assertEqual(vector["interpretation"]["curveDigitization"], "NOT_PERFORMED")
         status, _, data = self._request(
             "POST", "/v1/render-pages", {"sourcePath": str(self.source), "pages": [2]},
         )
         error = json.loads(data)["error"]
         self.assertEqual((status, error["code"]), (422, "PDF_CHART_PAGE_OUT_OF_RANGE"))
+
+    def test_governed_table_routes_use_exact_source_hash_and_pages(self):
+        status, _, data = self._request("GET", "/v1/capabilities")
+        capabilities = json.loads(data)["documentEvidenceTables"]
+        self.assertEqual(capabilities["extractionEndpoint"], "/v2/tables/extract")
+        status, _, data = self._request(
+            "POST", "/v2/tables/discover", {"sourcePath": str(self.source)},
+        )
+        discovery = json.loads(data)
+        self.assertEqual((status, discovery["schema"]), (200, "DocumentEvidenceTableDiscovery.v1"))
+        self.assertNotIn("tables", discovery)
+        source_hash = f"sha256:{hashlib.sha256(self.source_bytes).hexdigest()}"
+        status, _, data = self._request(
+            "POST", "/v2/tables/extract",
+            {"sourcePath": str(self.source), "sourceHash": source_hash, "pages": [1]},
+        )
+        extraction = json.loads(data)
+        self.assertEqual((status, extraction["pages"]), (200, [1]))
+        self.assertEqual(extraction["sourceHash"], source_hash)
+        status, _, data = self._request(
+            "POST", "/v2/tables/extract",
+            {"sourcePath": str(self.source), "sourceHash": "sha256:" + "0" * 64, "pages": [1]},
+        )
+        error = json.loads(data)["error"]
+        self.assertEqual((status, error["code"]), (422, "EVIDENCE_SOURCE_HASH_MISMATCH"))
 
 
 if __name__ == "__main__":

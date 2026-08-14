@@ -1,5 +1,7 @@
 """Resource and authority policy for governed PDF chart API endpoints."""
 
+from document_evidence_surface import canonical_pdf_coordinate_system
+
 PAGE_RENDER_SCHEMA = "PdfPageRenderApi.v1"
 PAGE_RENDER_REVISION = "pdf-page-render-v1"
 VECTOR_INSPECTION_SCHEMA = "PdfVectorInspectionApi.v1"
@@ -30,10 +32,4 @@ def interpretation_boundary() -> dict:
 
 
 def coordinate_system() -> dict:
-    return {
-        "units": "PDF points",
-        "origin": "top-left",
-        "xDirection": "right",
-        "yDirection": "down",
-        "bboxOrder": ["x0", "top", "x1", "bottom"],
-    }
+    return canonical_pdf_coordinate_system()
