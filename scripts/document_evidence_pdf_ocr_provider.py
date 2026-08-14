@@ -4,14 +4,15 @@ from __future__ import annotations
 import hashlib
 
 from document_evidence_observation import make_observation
-from document_evidence_surface import canonical_hash, canonical_pdf_page_surface, rendered_raster_surface
+from document_evidence_provider_conformance import make_provider_profile
+from document_evidence_surface import canonical_pdf_page_surface, rendered_raster_surface
 from document_evidence_transform import render_scale_transform
 
 OCR_EVIDENCE_PROVIDER = "xml-compare-pdf-ocr-v1"
 OCR_EVIDENCE_REVISION = "document-evidence-ocr-adapter-v1"
 
 
-def adapt_ocr_page(source_hash: str, result, *, language: str = "eng") -> dict:
+def adapt_ocr_page(source_hash: str, result, *, language: str = "eng", pass_id: str | None = None) -> dict:
     raster = result.raster
     image_hash = f"sha256:{hashlib.sha256(raster.png_bytes).hexdigest()}"
     page_surface = canonical_pdf_page_surface(
@@ -24,11 +25,11 @@ def adapt_ocr_page(source_hash: str, result, *, language: str = "eng") -> dict:
         renderer_version=result.rasterizer_version, render_scale=raster.scale,
     )
     transform = render_scale_transform(page_surface, raster_surface, raster.scale)
-    profile_hash = canonical_hash(_profile(result, language))
+    profile = _provider_profile(result, language, pass_id)
     observations = [
         _word_observation(
             source_hash, page_surface, raster_surface, transform,
-            result, word, image_hash, profile_hash, language,
+            result, word, image_hash, profile, language,
         )
         for word in result.words
     ]
@@ -38,6 +39,7 @@ def adapt_ocr_page(source_hash: str, result, *, language: str = "eng") -> dict:
         "pageSurface": page_surface,
         "rasterSurface": raster_surface,
         "renderTransform": transform,
+        "providerProfile": profile,
         "observations": observations,
         "diagnostics": [_legacy_evidence_diagnostic(result)],
     }
@@ -45,7 +47,7 @@ def adapt_ocr_page(source_hash: str, result, *, language: str = "eng") -> dict:
 
 def _word_observation(
     source_hash, page_surface, raster_surface, transform, result, word,
-    image_hash, profile_hash, language,
+    image_hash, profile, language,
 ):
     document_geometry = _bbox_quad(word.bbox)
     provider_geometry = _bbox_quad(_document_bbox_to_raster(word.bbox, result.raster.scale))
@@ -66,25 +68,28 @@ def _word_observation(
     return make_observation(
         "ocr", source_hash, page_surface, OCR_EVIDENCE_PROVIDER,
         OCR_EVIDENCE_REVISION, word.text, document_geometry,
-        provider_profile_hash=profile_hash,
-        input_raster_hash=image_hash,
+        provider_profile=profile, input_raster_hash=image_hash,
         provider_confidence_raw=word.confidence,
-        provider_geometry=provider_geometry,
-        provider_surface=raster_surface,
+        provider_geometry=provider_geometry, provider_surface=raster_surface,
         preprocessing_transform_hashes=(transform["transformHash"],),
         extensions=extensions,
     )
 
 
-def _profile(result, language):
-    return {
-        "provider": OCR_EVIDENCE_PROVIDER,
-        "revision": OCR_EVIDENCE_REVISION,
+def _provider_profile(result, language, pass_id):
+    options = {
         "upstreamEngineVersion": result.engine_version,
         "rasterizerVersion": result.rasterizer_version,
-        "language": language,
         "confidenceScale": "legacy-normalized-0-1",
     }
+    if pass_id is not None:
+        options["passId"] = str(pass_id)
+    return make_provider_profile(
+        "ocr", OCR_EVIDENCE_PROVIDER, OCR_EVIDENCE_REVISION,
+        determinism={"semantic": "profile-bound", "artifact": "profile-bound", "bitwiseRaster": "not-claimed"},
+        model="tesseract-cli", language=language,
+        coordinateConvention="continuous-pixel-edges", options=options,
+    )
 
 
 def _legacy_evidence_diagnostic(result):
