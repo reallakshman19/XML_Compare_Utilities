@@ -50,12 +50,21 @@ def build_deterministic_bundle(entries: dict[str, bytes], manifest: dict) -> byt
 def cache_identity(
     source_hash: str,
     *,
+    operation: str,
+    selection: dict,
+    canonical_options: dict,
     schema_major: int = 1,
     provider_profile_hash: str | None = None,
     render_profile_hash: str | None = None,
     preprocessing_profile_hash: str | None = None,
 ) -> str:
-    identity = {"schema": "EvidenceCacheKey.v1", "schemaMajor": int(schema_major), "sourceHash": source_hash}
+    if not operation or not isinstance(selection, dict) or not isinstance(canonical_options, dict):
+        raise EvidenceBundleError("cache identity requires operation, selection and canonical options")
+    identity = {
+        "schema": "EvidenceCacheKey.v1", "schemaMajor": int(schema_major),
+        "sourceHash": source_hash, "operation": operation,
+        "selection": selection, "canonicalOptions": canonical_options,
+    }
     for key, value in (
         ("providerProfileHash", provider_profile_hash),
         ("renderProfileHash", render_profile_hash),
