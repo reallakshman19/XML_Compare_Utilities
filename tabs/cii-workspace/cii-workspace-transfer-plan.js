@@ -3,9 +3,11 @@ import { ciiReviewLedgerBlockers } from './cii-workspace-review.js';
 
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [edge.elementId, edge])); }
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
-function reviewed(review, correspondenceId) {
-  const accepted = new Set(review?.reviewedCorrespondenceIds || []); const rejected = new Set(review?.rejectedCorrespondenceIds || []);
-  return accepted.has(correspondenceId) && !rejected.has(correspondenceId);
+function reviewAuthority(review, correspondenceId) {
+  const rejected = new Set(review?.rejectedCorrespondenceIds || []);
+  if (rejected.has(correspondenceId)) return null;
+  if (new Set(review?.lockedCorrespondenceIds || []).has(correspondenceId)) return 'LOCKED';
+  return new Set(review?.reviewedCorrespondenceIds || []).has(correspondenceId) ? 'REVIEWED' : null;
 }
 function blocked(blockers) { return blockers.length ? 'BLOCKED' : 'PREVIEW_READY'; }
 
@@ -26,8 +28,8 @@ function nodeNameOperations(sourceGraph, targetGraph, correspondence, review) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph); const operations = [];
   for (const row of correspondence?.nodeRows || []) {
     if (row.kind !== 'NODE' || !row.sourceNodeId || !row.targetNodeId) continue;
-    const locked = row.status === 'LOCKED';
-    if (!locked && !reviewed(review, row.correspondenceId)) continue;
+    const inherentLock = row.status === 'LOCKED'; const reviewedAuthority = reviewAuthority(review, row.correspondenceId);
+    if (!inherentLock && !reviewedAuthority) continue;
     if (['CONFLICT', 'UNRESOLVED', 'INSERTED', 'DELETED'].includes(row.status)) continue;
     const source = sourceNodes.get(String(row.sourceNodeId)); const target = targetNodes.get(String(row.targetNodeId));
     if (!source?.nodeName) continue;
@@ -36,7 +38,7 @@ function nodeNameOperations(sourceGraph, targetGraph, correspondence, review) {
     if (before && before !== source.nodeName) blockers.push('TARGET_NODENAME_NONBLANK');
     operations.push(operationBase('NodeName', 'NODE', row,
       Object.freeze({ nodeId: source.id, nodeName: source.nodeName }), Object.freeze({ nodeId: row.targetNodeId, nodeName: before }),
-      before, source.nodeName, blockers, locked ? 'LOCKED' : 'REVIEWED'));
+      before, source.nodeName, blockers, inherentLock ? 'LOCKED' : reviewedAuthority));
   }
   return operations;
 }
@@ -55,7 +57,7 @@ function sizeBlockers(sourceEdges, targetEdges, toleranceMm) {
 function operatingOperations(sourceGraph, targetGraph, correspondence, review, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const operations = [];
   for (const row of correspondence?.elementRows || []) {
-    if (!reviewed(review, row.correspondenceId)) continue;
+    const authority = reviewAuthority(review, row.correspondenceId); if (!authority) continue;
     const sourceIds = row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : []); const targetIds = row.targetElementIds || [];
     const sources = sourceIds.map((id) => sourceEdges.get(id)).filter(Boolean); const targets = targetIds.map((id) => targetEdges.get(id)).filter(Boolean);
     const baseBlockers = sizeBlockers(sources, targets, Number(options.diameterToleranceMm || 2));
@@ -66,7 +68,7 @@ function operatingOperations(sourceGraph, targetGraph, correspondence, review, o
       operations.push(operationBase(property, 'ELEMENT_PATH', row,
         Object.freeze({ elementIds: Object.freeze(sourceIds), value: Number(source[property]), unitAuthority: 'SOURCE_CII_NATIVE' }),
         Object.freeze({ elementIds: Object.freeze(targetIds), values: Object.freeze(before), diameters: Object.freeze(targets.map((edge) => edge.diameter)) }),
-        Object.freeze(before), Number(source[property]), blockers));
+        Object.freeze(before), Number(source[property]), blockers, authority));
     }
   }
   return operations;
@@ -75,7 +77,8 @@ function operatingOperations(sourceGraph, targetGraph, correspondence, review, o
 function rigidWeightOperations(sourceGraph, targetGraph, correspondence, review, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const operations = [];
   for (const row of correspondence?.componentRows || []) {
-    if (row.kind !== 'COMPONENT' || row.componentKind !== 'RIGID' || !reviewed(review, row.correspondenceId)) continue;
+    const authority = reviewAuthority(review, row.correspondenceId);
+    if (row.kind !== 'COMPONENT' || row.componentKind !== 'RIGID' || !authority) continue;
     const sourceId = row.sourceElementId; const targetId = row.targetElementIds?.[0];
     const source = sourceEdges.get(sourceId); const target = targetEdges.get(targetId);
     if (!source || !target) continue;
@@ -84,7 +87,7 @@ function rigidWeightOperations(sourceGraph, targetGraph, correspondence, review,
     operations.push(operationBase('rigidWeight', 'RIGID_COMPONENT', row,
       Object.freeze({ componentId: row.sourceComponentId, elementId: sourceId, mass: source.rigidEvidence?.mass ?? null, lengthMm: source.lengthMm }),
       Object.freeze({ componentId: row.targetComponentId, elementId: targetId, mass: target.rigidEvidence?.mass ?? null, lengthMm: target.lengthMm }),
-      target.rigidEvidence?.mass ?? null, source.rigidEvidence?.mass ?? null, [...new Set(blockers)]));
+      target.rigidEvidence?.mass ?? null, source.rigidEvidence?.mass ?? null, [...new Set(blockers)], authority));
   }
   return operations;
 }
