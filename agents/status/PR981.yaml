@@ -4,31 +4,44 @@ pr_or_wip: PR981
 mission: CII Workspace V1 anchored topology correspondence and property-transfer preview
 workstream: cii-workspace-v1
 branch: agent/issue-980-cii-workspace-v1
-product_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
-validation_basis_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
+product_code_head: 5927971e00172b8892495fedfff3dc1ebb820346
+validation_head: 2b4caacfe4147d8b5f3c3d0bb724e445877a7eb1
 main_head_last_checked: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_NEW_FILES_ONLY_WITH_AUTHORITY_BLOCKERS
+agent_state: ACTIVE_WITH_TWO_PROTECTED_AUTHORITY_BLOCKERS
 pr_recovery_state: HEALTHY_WITH_EXTERNAL_AUTHORITY_BLOCKERS
 handover_readiness: READY
 report_path: agents/PR981_workreport.md
 appendix_a_status: CURRENT_QUALIFIED
-grounding_epoch: GE-005
-current_stage: STAGE03_VALIDATED_STAGE07_HARDENED
+grounding_epoch: GE-006
+current_stage: NEW_FILE_V1_NEAR_COMPLETE_AUTHORITY_BLOCKED
 stage_percentages:
   stage01_intake: 88
-  stage02_anchors: 82
-  stage03_topology_path: 92
-  stage04_review: 82
-  stage05_transfer_preview: 90
+  stage02_anchors: 96
+  stage03_topology_path: 96
+  stage04_review: 96
+  stage05_transfer_preview: 94
   stage06_placeholder_v1: 100
-  stage07_validation_export: 90
+  stage07_validation_export: 95
   utilities_registration: 0
-validation_summary: 12 focused executable CII Workspace tests PASS including production path-aligner integration, determinism, parser-backed benchmark intake, rigid custody, and deterministic enriched exports
+aggregate:
+  new_file_v1_implementation: 96
+  authorized_validation: 94
+  seven_stage_readiness_excluding_registry: 95
+  full_product_acceptance_including_registry: 83
+validation_summary: 15 of 15 focused executable CII Workspace tests PASS; all new CII Workspace JS modules remain below 300 physical lines
+completed_this_epoch:
+  - production path-aligner topology/subdivision and determinism validation
+  - alternate-route, anchor-order, and outside-span fail-closed gates
+  - parser-backed real benchmark intake
+  - rigid component custody and ambiguity validation
+  - deterministic enriched audit CSV/JSON
+  - exact-one shell lifecycle, review refresh, export, destroy/reopen
+  - deterministic evidence-only suggested landmarks
+  - stale review/export invalidation after file or anchor changes
 blockers:
-  - output.cii first element has zero OD and is rejected by protected parser/sections/elements.js heuristic; resolving requires parsing-authority decision, not a local bypass
+  - output.cii first element has zero OD and is rejected by protected parser/sections/elements.js heuristic; resolution requires parsing-authority decision, not a local bypass
   - live Utilities registration requires editing existing tabs/psnm-utility-tab.js, forbidden by current owner instruction
-highest_risk: Stage01 coverage for neutral CII files with zero/missing OD cannot be broadened without changing or superseding protected parser authority
-exact_next_action: validate Stage04 shell lifecycle and Stage07 artifact behavior using new-file-only tests; do not alter parser or Utilities registry without explicit owner authorization
-last_updated: 2026-08-16T16:15:00+04:00
+exact_next_action: no protected-authority workaround; broaden new-file-only real CII pair fixtures if useful, otherwise owner decision is required for Stage01 zero-OD parsing authority and Utilities registry integration
+last_updated: 2026-08-16T16:25:00+04:00
