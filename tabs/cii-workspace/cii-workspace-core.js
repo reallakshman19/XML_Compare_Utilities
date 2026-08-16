@@ -4,6 +4,7 @@ import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapte
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
 import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
 import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
+import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
@@ -62,7 +63,10 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const anchors = normalizeAnchorPairs(input?.anchorPairs);
   const landmarks = deepFreeze({ source: suggestCiiLandmarks(sourceGraph, options), target: suggestCiiLandmarks(targetGraph, options) });
   const geometry = qualifyCiiGeometryTransform(geometryPairs(sourceGraph, targetGraph, anchors), options);
-  const pathAudit = buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options);
+  const pathAudit = deepFreeze({
+    structural: buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options),
+    candidates: buildCiiPathCandidateAudit(sourceGraph, targetGraph, options),
+  });
   const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
