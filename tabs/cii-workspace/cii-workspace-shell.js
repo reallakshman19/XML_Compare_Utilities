@@ -45,17 +45,18 @@ function correspondenceMarkup(result, decisions) {
   if (!rows.length) return '<p>No correspondence rows.</p>';
   return `<table><thead><tr><th>Decision</th><th>Kind</th><th>Status</th><th>Source</th><th>Target</th><th>Evidence / alternatives</th></tr></thead><tbody>${rows.map((row) => {
     const decision = decisions.get(row.correspondenceId) || '';
-    const controls = row.kind === 'NODE' && row.status === 'LOCKED' ? 'LOCKED' : `<select data-ciiw-decision="${h(row.correspondenceId)}"><option value="">Review…</option><option value="ACCEPT" ${decision === 'ACCEPT' ? 'selected' : ''}>Accept</option><option value="REJECT" ${decision === 'REJECT' ? 'selected' : ''}>Reject</option></select>`;
+    const controls = row.kind === 'NODE' && row.status === 'LOCKED' ? 'LOCKED' : `<select data-ciiw-decision="${h(row.correspondenceId)}"><option value="">Review…</option><option value="LOCK" ${decision === 'LOCK' ? 'selected' : ''}>Lock</option><option value="ACCEPT" ${decision === 'ACCEPT' ? 'selected' : ''}>Accept</option><option value="REJECT" ${decision === 'REJECT' ? 'selected' : ''}>Reject</option></select>`;
     return `<tr><td>${controls}</td><td>${h(row.kind)}</td><td>${h(row.status)}</td><td>${h(rowSource(row))}</td><td>${h(rowTarget(row))}</td><td>${evidenceMarkup(row)}</td></tr>`;
   }).join('')}</tbody></table>`;
 }
 function reviewFrom(decisions) {
-  const reviewedCorrespondenceIds = []; const rejectedCorrespondenceIds = [];
+  const reviewedCorrespondenceIds = []; const lockedCorrespondenceIds = []; const rejectedCorrespondenceIds = [];
   for (const [id, decision] of decisions.entries()) {
+    if (decision === 'LOCK') lockedCorrespondenceIds.push(id);
     if (decision === 'ACCEPT') reviewedCorrespondenceIds.push(id);
     if (decision === 'REJECT') rejectedCorrespondenceIds.push(id);
   }
-  return { reviewedCorrespondenceIds, rejectedCorrespondenceIds };
+  return { reviewedCorrespondenceIds, lockedCorrespondenceIds, rejectedCorrespondenceIds };
 }
 
 export function mountCiiWorkspaceShell(container, options = {}) {
