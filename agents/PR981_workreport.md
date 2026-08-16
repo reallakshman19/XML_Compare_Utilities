@@ -3,98 +3,114 @@
 ## CURRENT RECOVERY STATE
 
 ```text
-HANDOVER_READINESS: READY_FOR_OWNER_DECISIONS_WITH_FULL_SUITE_FOLLOWUP
-PR_RECOVERY_STATE: HARDENED_NEW_FILE_CORE / FOCUSED_EXECUTION_VALIDATED
-TAKEOVER_AUTHORITY: WRITE_ALLOWED (NEW FILES ONLY)
+HANDOVER_READINESS: READY_FOR_FULL_SUITE_AND_BROWSER_VALIDATION
+PR_RECOVERY_STATE: CORE + APPROVED PROTECTED INTEGRATION IMPLEMENTED
 MERGE_AUTHORITY: OWNER_ONLY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #980
 PR_OR_WIP: PR981
 BRANCH: agent/issue-980-cii-workspace-v1
-VALIDATED_PRODUCT_HEAD: 565d619b99ee188cb5b4a60797f1578744786ee5
-MAIN_HEAD_LAST_CHECKED: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
-MERGE_BASE: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
-GROUNDING_EPOCH: GE-008 FOCUSED EXECUTION VALIDATION
+VALIDATED_IMPLEMENTATION_HEAD: f5bfd5aeb4dc5cefef1583be12b94531dfa469f5
+MAIN_BASE: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
+GROUNDING_EPOCH: GE-010 APPROVED PROTECTED INTEGRATION
+OWNER_AUTHORIZATION_COMMENT: Issue #980 comment 5308388872
 ```
+
+## What changed after owner authorization
+
+The owner explicitly approved the GE-009 protected changes at 2026-08-16 20:06 +04:00. Recovery provenance is recorded on Issue #980 comment `5308388872`.
+
+### AUTH-002 — Utilities registration IMPLEMENTED
+
+`tabs/psnm-utility-tab.js` now contains exactly one authoritative installer descriptor:
+
+```js
+['CII Workspace', './cii-workspace/cii-workspace-tab.js', 'installCiiWorkspaceTile', true]
+```
+
+The existing Utilities runtime remains lifecycle authority: it passes `(deckRoot, ctx)`, retains the returned destroy function, and cleans it on Utilities teardown/retry. No alternate launcher was added.
+
+### AUTH-001A — zero/missing-OD writer contract IMPLEMENTED
+
+The generic neutral parser was not weakened. The existing CII2019 pre-write section validator now rejects generated ELEMENTS start rows whose OD is non-finite or below `10`, matching `parser/sections/elements.js` element-start authority.
+
+The unchanged `inputxml_to_cii2019.py` already calls `cii2019_section_rules.assert_cii2019_sections_valid(cii_text)` before `_build_cii_text()` returns. Therefore normal CLI output, workflow callers using `_build_cii_text`, and compatibility raw ELEMENTS overrides all fail closed before invalid neutral CII can be returned/written.
+
+Existing source semantics remain intact:
+- a real InputXML diameter is used;
+- later missing/sentinel diameter inherits the prior resolved diameter;
+- an explicit qualified `--default-diameter` can resolve an initially missing value;
+- unresolved, sub-threshold, or non-finite OD cannot become generated neutral CII.
+
+The 3,617-line converter itself is byte-identical to baseline. The final protected diff is surgical: `cii2019_section_rules.py` has 44 added lines / 0 deleted lines and `tabs/psnm-utility-tab.js` has 1 added line / 0 deleted lines.
+
+The historical root `output.cii` is not assigned invented engineering data. Its OD=0 rows remain a legacy-invalid artifact. The full-file CII Workspace intake regression now uses the maintained `Benchmark/Pipeline/CII` corpus instead.
 
 ## Validation truth
 
-A networkless local validation slice was reconstructed from GitHub connector content at product head `565d619b99ee188cb5b4a60797f1578744786ee5`. The hardened CII Workspace modules and the protected baseline path-aligner were executed locally. Neutral-CII parser execution used the protected baseline neutral parser logic, including the exact `parser/sections/elements.js` element-start heuristic. XML/PDF parser imports were load-only shims because those parser branches were not exercised by the neutral-CII tests.
+### CII Workspace
 
-### CII Workspace result
+**22 CII Workspace JavaScript test files PASS** in the reconstructed networkless validation environment after the protected integration changes. This includes the previous 20 hardened tests plus:
+- full-file intake path using `Benchmark/Pipeline/CII` semantics;
+- exact one-descriptor Utilities registry authority check.
 
-**20 CII Workspace test files PASS in one fresh sweep.**
+All hardened correspondence, permutation, coordinate-invariance, ambiguity/winner-gap, target custody, SHA-bound review, engineer LOCK, rigid COMPONENT custody, transfer, NODENAME, reroute/subdivision, Stage06 fail-closed, export/audit and shell lifecycle oracles remain green in that sweep.
 
-PASS:
-1. `cii-workspace-alignment-semantics.test.js`
-2. `cii-workspace-coordinate-invariance.test.js`
-3. `cii-workspace-determinism.test.js`
-4. `cii-workspace-disconnected-components.test.js`
-5. `cii-workspace-export-audit.test.js`
-6. `cii-workspace-gang-ambiguity.test.js`
-7. `cii-workspace-geometry-authority.test.js`
-8. `cii-workspace-hard-conflict.test.js`
-9. `cii-workspace-intake-benchmark-slice.test.js`
-10. `cii-workspace-landmarks.test.js`
-11. `cii-workspace-nodename.test.js`
-12. `cii-workspace-placeholder-gate.test.js`
-13. `cii-workspace-reroute-unresolved.test.js`
-14. `cii-workspace-rigid-custody.test.js`
-15. `cii-workspace-shell-lifecycle.test.js`
-16. `cii-workspace-single-anchor.test.js`
-17. `cii-workspace-topology-route-gates.test.js`
-18. `cii-workspace-topology.test.js`
-19. `cii-workspace-transfer-preview.test.js`
-20. `cii-workspace-transfer-review.test.js`
+### Diameter contract
 
-The repository-root `cii-workspace-intake.test.js` is **BLOCKED_BY_AUTHORITY**, not PASS. The root `output.cii` element records begin with OD `0.00000`; the protected baseline `isElemRow` heuristic rejects OD below 10. The failure mode `CII_WORKSPACE_ELEMENTS_REQUIRED` was reproduced against the exact leading root-file element block. Do not patch or bypass that parser under current authority.
+A focused contract harness PASS verifies the approved semantics: unresolved first OD fails the threshold, explicit fallback succeeds, real OD carries across a later sentinel, OD 5 fails, OD 10 passes, and non-finite OD fails.
 
-All reconstructed CII Workspace JS modules also passed `node --check`.
+`tests/test_inputxml_to_cii2019_diameter_policy.py` is added as the repository regression binding those semantics to the unchanged converter `_parse_model` behavior plus the actual `cii2019_section_rules.validate_elements_rows` pre-write enforcement point.
 
-## Focused protected-authority regressions
+### Protected authority regressions
 
-- **T11 XML topology/path — PASS (focused authority regression):** the exact protected baseline `xml-cii-inputxml-path-aligner.js` was executed by the topology, permutation, subdivision, ambiguity and disconnected-component tests. Path construction/alignment remained deterministic and target/path custody behavior remained intact.
-- **T12 Revision Compare — PASS (focused authority regression):** the exact protected baseline `revision-compare-matching.js` was executed in a focused regression covering unique exact identity, duplicate-identity ambiguity, bounded candidate generation, winner-gap rejection, candidate cap and one-target custody.
+- **T11 XML topology/path — PASS (focused):** exact baseline `xml-cii-inputxml-path-aligner.js` previously executed through topology, permutation, subdivision, ambiguity and disconnected-component oracles.
+- **T12 Revision Compare — PASS (focused):** exact baseline bounded matcher previously executed for unique/duplicate identity, candidate cap, winner-gap and target custody.
+- **T1 Utilities integration — IMPLEMENTED / focused source+lifecycle checks PASS:** authoritative descriptor exists exactly once and CII installer lifecycle test passes. A full browser Utilities smoke remains required before merge.
 
-These focused PASS results are **not** a claim that the repository's full `test:xml`, full Revision Compare qualification/browser suite, or all T1–T12 package-level regressions ran. Those broader suites remain `NOT_RUN` in this networkless reconstruction environment.
+GitHub Actions has no workflow run attached to implementation head `f5bfd5a...`; do not represent these focused executions as CI.
 
 ## Acceptance matrix
 
 | Area | State | Evidence / remaining |
 |---|---|---|
-| Parser-supported neutral intake | PASS | parser-backed benchmark test |
-| Root `output.cii` intake | BLOCKED_BY_AUTHORITY | protected OD heuristic rejects generated OD=0 element starts |
-| Anchors / one-anchor behavior | PASS | single-anchor test + shell lifecycle |
-| Geometry authority / transformed XYZ | PASS | geometry + coordinate-invariance tests |
-| Candidate ambiguity / winner gap | PASS | gang ambiguity test |
-| Multi-hop / path evidence | PASS | correspondence tests execute hardened evidence path |
-| Structural OD/WT/branch/rigid conflicts | PASS | hard-conflict test |
-| Permutation determinism | PASS | record-order and same-geometry P1/T1 permutations |
-| Target custody | PASS | single-anchor competing-claim oracle |
-| NODE / ELEMENT-PATH / COMPONENT custody | PASS | alignment, transfer, rigid-component tests |
-| Review SHA/correspondence binding | PASS | transfer-review stale-identity tests |
-| Engineer LOCK authority | PASS | bound review/LOCK test |
-| Reroute / false subdivision gates | PASS | reroute/subdivision test |
-| Stage 06 fail-closed placeholder | PASS | placeholder gate + shell lifecycle |
-| Audit / CSV determinism | PASS | export-audit test |
-| Shell lifecycle / stale invalidation | PASS | installer lifecycle test |
-| T11 XML topology/path authority | PASS — FOCUSED | exact baseline path-aligner exercised; full XML suite NOT_RUN |
-| T12 Revision Compare authority | PASS — FOCUSED | exact baseline bounded matcher exercised; full suite NOT_RUN |
-| Utilities registration | BLOCKED_BY_AUTHORITY | requires protected `tabs/psnm-utility-tab.js` edit |
+| Parser-supported neutral intake | PASS | parser-backed benchmark + maintained full-file path |
+| Generated unknown/sub-threshold OD | PASS — FAIL-CLOSED | pre-write section rule matches neutral parser threshold |
+| Legacy root `output.cii` | DOCUMENTED INVALID ARTIFACT | not rewritten with invented engineering OD |
+| Live Utilities registration | IMPLEMENTED | one authoritative descriptor; browser smoke NOT_RUN |
+| Anchors / one-anchor behavior | PASS | focused execution |
+| Geometry authority / transformed XYZ | PASS | focused execution |
+| Candidate ambiguity / winner gap | PASS | focused execution |
+| Multi-hop / path evidence | PASS | focused execution |
+| Structural OD/WT/branch/rigid conflicts | PASS | focused execution |
+| Permutation determinism | PASS | focused execution |
+| Target custody | PASS | focused execution |
+| NODE / ELEMENT-PATH / COMPONENT custody | PASS | focused execution |
+| Review SHA/correspondence binding | PASS | focused execution |
+| Engineer LOCK authority | PASS | focused execution |
+| Reroute / false subdivision gates | PASS | focused execution |
+| Stage 06 fail-closed placeholder | PASS | no writer/mutation authority added |
+| Audit / CSV determinism | PASS | focused execution |
+| Shell lifecycle / stale invalidation | PASS | focused execution |
+| T11 XML topology/path | PASS — FOCUSED | full XML suite NOT_RUN |
+| T12 Revision Compare | PASS — FOCUSED | full Revision Compare suite NOT_RUN |
 
-## Remaining hard stops
+## Remaining before merge
 
-1. **AUTH-001 — parser decision required.** Decide authoritative behavior for zero/missing OD in neutral CII. Do not silently promote `output-normalizer.js` or weaken `parser/sections/elements.js` under current scope.
-2. **AUTH-002 — Utilities registration required.** Live `Utilities -> CII Workspace` needs the authoritative existing registry edit; no alternate launcher is acceptable.
-3. **FULL-SUITE-001 — follow-up validation.** Run the repository's full XML and Revision Compare suites in a normal authenticated checkout/CI before merge. Focused T11/T12 authority regressions pass, but full-suite evidence remains NOT_RUN.
-4. **RIGID-001 — conservative limit.** Interior rigid-component ownership remains fail-closed outside the supportable unique-terminal rigid-record slice.
+1. **FULL-SUITE-001:** run the repository's full XML topology/model-converter suite in a normal authenticated checkout/CI.
+2. **FULL-SUITE-002:** run the full Revision Compare qualification/browser/scale suite.
+3. **BROWSER-001:** smoke `Utilities -> CII Workspace` in the real Utilities deck, including mount/destroy/re-entry and Revision Compare coexistence.
+4. **PYTHON-001:** run the repository Python converter/section-rule tests, including `tests/test_inputxml_to_cii2019_diameter_policy.py`, in a normal checkout. The focused contract harness passed, but no GitHub CI run is attached.
+5. **RIGID-001:** broader interior rigid-component ownership remains deliberately fail-closed outside the supportable unique-terminal rigid-record slice.
 
-## Containment invariants
+## Containment / safety invariants
 
-Current write scope remains only new `tabs/cii-workspace/**`, new `tests/cii-workspace-*`, and PR recovery records. Protected parser, model-converter, Revision Compare, XML Compare, converter/writer/navigation files and `tabs/psnm-utility-tab.js` remain untouched. Stage 06 remains `NOT_IMPLEMENTED`; no modified-target-CII bytes can be exported.
-
-Keep PR draft. Do not merge, change parser authority, add writer authority, or bypass Utilities registration without explicit owner authorization.
+- `parser/**` remains unchanged; no OD=0 parser bypass was introduced.
+- `inputxml_to_cii2019.py` remains unchanged relative to baseline; enforcement is in its existing pre-write section-rule authority.
+- Utilities integration is the single approved registry descriptor; no alternate launcher exists.
+- Stage06 target-CII mutation/export remains visibly `NOT_IMPLEMENTED` and no modified-target bytes can be exported.
+- PR remains draft and merge remains owner-only until broad validation is complete.
 
 ## Qualification provenance
 
-Issue #980 contains an owner-authored `QUALIFIED` marker before implementation commits. The five scored screening answers required by the original issue are not present in the issue discussion; treat the owner marker as the recorded authority, not as evidence that the scoring trail exists.
+Issue #980 contains the owner-authored `QUALIFIED` marker before implementation. The five scored screening answers required by the original issue are not present in the issue discussion; treat the owner marker as recorded authority, not as evidence that the full scoring trail exists.
