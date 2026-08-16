@@ -6,6 +6,8 @@ export const CII_WORKSPACE_SCHEMAS = Object.freeze({
   transferPlan: 'CIIWorkspaceTransferPlan.v1',
   transferOperation: 'CIIWorkspaceTransferOperation.v1',
   audit: 'CIIWorkspaceAudit.v1',
+  inspection: 'CIIWorkspaceInspection.v1',
+  landmarkSuggestion: 'CIIWorkspaceLandmarkSuggestion.v1',
 });
 
 export const CII_WORKSPACE_STAGES = Object.freeze([
