@@ -63,6 +63,12 @@ export function mountCiiWorkspaceShell(container, options = {}) {
   let current = null; let baseInput = null; let disposed = false; const decisions = new Map();
   const query = (selector) => container.querySelector(selector); const status = query('[data-ciiw-status]'); const results = query('[data-ciiw-results]'); const landmarkBox = query('[data-ciiw-landmarks]');
   const reviewButton = query('[data-ciiw-refresh-review]'); const csvButton = query('[data-ciiw-export-csv]'); const jsonButton = query('[data-ciiw-export-json]');
+  const invalidate = (message, clearLandmarks = false) => {
+    current = null; baseInput = null; decisions.clear(); results.innerHTML = '';
+    reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true;
+    if (clearLandmarks) landmarkBox.innerHTML = '';
+    status.textContent = message;
+  };
   const readFiles = async () => {
     const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0];
     if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.');
@@ -96,6 +102,8 @@ export function mountCiiWorkspaceShell(container, options = {}) {
     } catch (error) { if (!disposed) { current = null; status.textContent = error.message || String(error); results.innerHTML = ''; reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true; } }
   };
   query('[data-ciiw-close]').addEventListener('click', () => options.close?.()); query('[data-ciiw-inspect]').addEventListener('click', inspect); query('[data-ciiw-analyze]').addEventListener('click', analyze);
+  for (const selector of ['[data-ciiw-source]', '[data-ciiw-target]']) query(selector).addEventListener('change', () => invalidate('CII files changed. Inspect the models again before using prior correspondence.', true));
+  for (const selector of ['[data-ciiw-source-anchors]', '[data-ciiw-target-anchors]']) query(selector).addEventListener('input', () => invalidate('Locked anchors changed. Rebuild correspondence before review or export.'));
   reviewButton.addEventListener('click', async () => { try { status.textContent = 'Refreshing reviewed preview…'; await run(reviewFrom(decisions)); } catch (error) { status.textContent = error.message || String(error); } });
   csvButton.addEventListener('click', () => current && download(container.ownerDocument, 'cii-correspondence.csv', current.artifacts.correspondenceCsv, 'text/csv'));
   jsonButton.addEventListener('click', () => current && download(container.ownerDocument, 'cii-workspace-audit.json', current.artifacts.auditJson, 'application/json'));
