@@ -88,7 +88,9 @@ The full handover/scale/browser qualification command was not executed from a co
 
 ### XML / model-converter — PASS (focused authority), full `test:xml` PARTIAL
 
-The exact baseline `xml-cii-inputxml-path-aligner.js` focused T11 authority regression remains PASS across topology, permutation, subdivision, ambiguity, and disconnected-component oracles. Current InputXML Workspace producer-adoption/static contracts were inspected to confirm shared-producer routing and current Utilities integration dependencies.
+The exact baseline `xml-cii-inputxml-path-aligner.js` focused T11 authority regression remains PASS across topology, permutation, subdivision, ambiguity, and disconnected-component oracles.
+
+The current InputXML Workspace producer-adoption and static integration contracts were fetched and inspected to identify the broader producer-routing surface, including generated-source custody, worker receipt binding, and current Utilities integration dependencies. Those broader InputXML Workspace files were **not** claimed as executed full-suite tests in GE-011.
 
 The repository `test:xml` command is a broad multi-module chain and cannot be truthfully reconstructed wholesale without the full private checkout. Its state is therefore **PARTIAL — focused authority PASS**, not full-suite PASS.
 
