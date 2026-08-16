@@ -20,14 +20,21 @@ function geometryPairs(sourceGraph, targetGraph, anchors) {
   });
 }
 
-function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, transferPlan) {
+function normalizeReview(review) {
+  return Object.freeze({
+    reviewedCorrespondenceIds: Object.freeze([...(review?.reviewedCorrespondenceIds || [])].map(String).sort()),
+    rejectedCorrespondenceIds: Object.freeze([...(review?.rejectedCorrespondenceIds || [])].map(String).sort()),
+  });
+}
+
+function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan) {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.audit,
     direction: 'SOURCE_TO_TARGET',
     source: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256, summary: sourceDocument.summary }),
     target: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, summary: targetDocument.summary }),
     lockedAnchors: Object.freeze(anchors), geometry, automaticPathAudit: pathAudit,
-    correspondence, transferPreview: transferPlan,
+    correspondence, review, transferPreview: transferPlan,
     mutationAuthority: Object.freeze({ stage06: 'NOT_IMPLEMENTED', modifiedTargetCiiExport: 'BLOCKED' }),
   });
 }
@@ -40,8 +47,9 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const geometry = qualifyCiiGeometryTransform(geometryPairs(sourceGraph, targetGraph, anchors), options);
   const pathAudit = buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options);
   const correspondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
-  const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, input?.review, options);
-  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, transferPlan);
+  const review = normalizeReview(input?.review);
+  const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
+  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan);
   const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, correspondence, transferPlan, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);

@@ -2,7 +2,10 @@ import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId } from './cii-workspace-con
 
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [edge.elementId, edge])); }
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
-function reviewed(review, correspondenceId) { return new Set(review?.reviewedCorrespondenceIds || []).has(correspondenceId); }
+function reviewed(review, correspondenceId) {
+  const accepted = new Set(review?.reviewedCorrespondenceIds || []); const rejected = new Set(review?.rejectedCorrespondenceIds || []);
+  return accepted.has(correspondenceId) && !rejected.has(correspondenceId);
+}
 function blocked(blockers) { return blockers.length ? 'BLOCKED' : 'PREVIEW_READY'; }
 
 function operationBase(property, custody, row, source, target, before, proposed, blockers) {
