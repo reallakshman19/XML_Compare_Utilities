@@ -11,12 +11,54 @@ function endpointDegrees(edge) {
   return [edge?.fromContext?.degree || 0, edge?.toContext?.degree || 0].sort((a, b) => a - b);
 }
 
-function structuralBlockers(source, target) {
+function transitionSignature(edge) {
+  return [Boolean(edge?.fromContext?.sizeTransition), Boolean(edge?.toContext?.sizeTransition)].sort().join('|');
+}
+
+function structuralBlockers(source, target, options) {
   const blockers = [];
   const sDegrees = endpointDegrees(source); const tDegrees = endpointDegrees(target);
   if ((sDegrees[1] >= 3) !== (tDegrees[1] >= 3)) blockers.push('BRANCH_TOPOLOGY_INCOMPATIBLE');
   if ((source.componentKind === 'RIGID') !== (target.componentKind === 'RIGID')) blockers.push('RIGID_COMPONENT_KIND_INCOMPATIBLE');
+  if (transitionSignature(source) !== transitionSignature(target)) blockers.push('SIZE_TRANSITION_CONTEXT_INCOMPATIBLE');
+  const sourceOd = Number(source.diameter); const targetOd = Number(target.diameter);
+  const relativeTolerance = Number(options.hardDiameterRelativeTolerance ?? 0.12);
+  if (sourceOd > 0 && targetOd > 0 && Math.abs(sourceOd - targetOd) / Math.max(sourceOd, targetOd) > relativeTolerance) {
+    blockers.push('OD_INCOMPATIBLE');
+  }
   return blockers;
+}
+
+function jaccard(left = [], right = []) {
+  const a = new Set(left); const b = new Set(right);
+  if (!a.size && !b.size) return 1;
+  let hits = 0;
+  for (const value of a) if (b.has(value)) hits += 1;
+  return hits / Math.max(new Set([...a, ...b]).size, 1);
+}
+
+function contextSimilarity(left, right) {
+  const a = left?.neighbourhoodLayers || []; const b = right?.neighbourhoodLayers || [];
+  const weights = [1, 0.7, 0.45]; let total = 0; let weight = 0;
+  for (let index = 0; index < weights.length; index += 1) {
+    if (!a[index] && !b[index]) continue;
+    total += weights[index] * jaccard(a[index] || [], b[index] || []); weight += weights[index];
+  }
+  return weight ? total / weight : 0;
+}
+
+function neighbourhoodSimilarity(source, target) {
+  const direct = (contextSimilarity(source?.fromContext, target?.fromContext) + contextSimilarity(source?.toContext, target?.toContext)) / 2;
+  const reverse = (contextSimilarity(source?.fromContext, target?.toContext) + contextSimilarity(source?.toContext, target?.fromContext)) / 2;
+  return Math.max(direct, reverse);
+}
+
+function sequenceSimilarity(source, target) {
+  const a = source?.pathSequenceContext || []; const b = target?.pathSequenceContext || [];
+  if (!a.length || !b.length) return 0;
+  const length = Math.max(a.length, b.length); let matches = 0;
+  for (let index = 0; index < length; index += 1) if (a[index] === b[index]) matches += 1;
+  return matches / length;
 }
 
 function midpoint(edge) {
@@ -30,34 +72,33 @@ function midpoint(edge) {
 
 function geometryEvidence(source, target, transform) {
   if (transform?.status !== 'READY') return { score: 0, distanceMm: null, available: false };
-  const registered = registeredCiiPoint(transform, midpoint(source));
-  const targetMid = midpoint(target);
+  const registered = registeredCiiPoint(transform, midpoint(source)); const targetMid = midpoint(target);
   if (!registered || !targetMid) return { score: 0, distanceMm: null, available: false };
   const distanceMm = Math.hypot(registered.x - targetMid.x, registered.y - targetMid.y, registered.z - targetMid.z);
-  const score = 8 * closeness(distanceMm, 0, 25);
-  return { score, distanceMm, available: true };
+  return { score: 8 * closeness(distanceMm, 0, 25), distanceMm, available: true };
 }
 
 export function scoreCiiEdgeCandidate(source, target, options = {}) {
-  const blockers = structuralBlockers(source, target);
-  const length = 14 * closeness(source.lengthMm, target.lengthMm, options.lengthToleranceMm || 25);
-  const od = 12 * closeness(source.diameter, target.diameter, options.diameterToleranceMm || 2);
-  const wall = 5 * closeness(source.wall, target.wall, options.wallToleranceMm || 1);
+  const blockers = structuralBlockers(source, target, options);
   const sDegrees = endpointDegrees(source); const tDegrees = endpointDegrees(target);
-  const topology = 20 * ((sDegrees[0] === tDegrees[0] && sDegrees[1] === tDegrees[1]) ? 1 : 0);
-  const neighbourhood = 13 * (closeness(sDegrees[0], tDegrees[0], 2) + closeness(sDegrees[1], tDegrees[1], 2)) / 2;
-  const component = source.componentKind === target.componentKind ? 16 : (source.componentKind === 'PIPE' && target.componentKind === 'BEND' ? 2 : 0);
-  const station = source.pathStationMidMm != null && target.pathStationMidMm != null
-    ? 12 * closeness(source.pathStationMidMm / Math.max(source.pathTotalLengthMm || 1, 1), target.pathStationMidMm / Math.max(target.pathTotalLengthMm || 1, 1), 0.08) : 0;
+  const topology = 18 * ((sDegrees[0] === tDegrees[0] && sDegrees[1] === tDegrees[1]) ? 1 : 0);
+  const neighbourhood = 15 * neighbourhoodSimilarity(source, target);
+  const pathSequence = 12 * sequenceSimilarity(source, target);
+  const length = 12 * closeness(source.lengthMm, target.lengthMm, options.lengthToleranceMm || 25);
+  const od = 10 * closeness(source.diameter, target.diameter, options.diameterToleranceMm || 2);
+  const wall = 5 * closeness(source.wall, target.wall, options.wallToleranceMm || 1);
+  const componentKind = source.componentKind === target.componentKind ? 12 : (source.componentKind === 'PIPE' && target.componentKind === 'BEND' ? 2 : 0);
+  const rigidLength = source.componentKind === 'RIGID' && target.componentKind === 'RIGID'
+    ? 8 * closeness(source.lengthMm, target.lengthMm, options.rigidLengthToleranceMm || 6) : 0;
+  const pathStation = source.pathStationMidMm != null && target.pathStationMidMm != null
+    ? 10 * closeness(source.pathStationMidMm / Math.max(source.pathTotalLengthMm || 1, 1), target.pathStationMidMm / Math.max(target.pathTotalLengthMm || 1, 1), 0.08) : 0;
   const geometry = geometryEvidence(source, target, options.geometryTransform);
-  const components = { topology, neighbourhood, pathSequence: 0, length, od, wall, componentKind: component, rigidLength: 0, pathStation: station, registeredGeometry: geometry.score };
+  const components = { topology, neighbourhood, pathSequence, length, od, wall, componentKind, rigidLength, pathStation, registeredGeometry: geometry.score };
   const score = blockers.length ? 0 : Math.min(100, Object.values(components).reduce((sum, value) => sum + value, 0));
   return deepFreeze({
     score: Number(score.toFixed(1)),
     components: Object.freeze(Object.fromEntries(Object.entries(components).map(([key, value]) => [key, Number(value.toFixed(1))]))),
-    blockers: Object.freeze(blockers),
-    geometryDistanceMm: geometry.distanceMm,
-    hardFail: blockers.length > 0,
+    blockers: Object.freeze(blockers), geometryDistanceMm: geometry.distanceMm, hardFail: blockers.length > 0,
   });
 }
 
