@@ -21,11 +21,15 @@ function stageMarkup() {
 ${stage.id === '06' ? `<p>${h(stage.blockers?.[0])}</p><button type="button" disabled data-ciiw-apply>Apply to target CII</button>` : ''}
 </section>`).join('');
 }
+function componentText(summary) {
+  const rows = Object.entries(summary?.componentCounts || {}).sort(([a], [b]) => a.localeCompare(b));
+  return rows.length ? rows.map(([kind, count]) => `${kind}:${count}`).join(', ') : 'none';
+}
 function landmarkSide(label, side) {
   const rows = side?.landmarks || [];
   const items = rows.length ? rows.map((row) => `<li><b>${h(row.nodeId)}</b> — ${h(row.reasons.join(', '))} <small>SUGGESTED · engineer lock required</small></li>`).join('') : '<li>No distinctive landmark suggestions.</li>';
   const summary = side?.summary || {};
-  return `<div><h4>${h(label)} landmarks</h4><p>${h(summary.elementCount || 0)} elements · ${h(summary.nodeCount || 0)} nodes · ${h(summary.bendCount || 0)} bends · ${h(summary.rigidRecordCount || 0)} rigid records</p><ul>${items}</ul></div>`;
+  return `<div><h4>${h(label)} model</h4><p>Version: ${h(summary.version || 'unspecified')}</p><p>${h(summary.elementCount || 0)} elements · ${h(summary.nodeCount || 0)} nodes · ${h(summary.terminalCount || 0)} terminals · ${h(summary.branchCount || 0)} branches</p><p>Components: ${h(componentText(summary))} · ${h(summary.bendCount || 0)} bends · ${h(summary.rigidRecordCount || 0)} rigid records</p><h5>Suggested landmarks</h5><ul>${items}</ul></div>`;
 }
 function landmarkMarkup(inspection) { return `<div class="ciiw-landmark-grid">${landmarkSide('SOURCE', inspection?.source)}${landmarkSide('TARGET', inspection?.target)}</div>`; }
 function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
