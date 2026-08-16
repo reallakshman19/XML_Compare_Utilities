@@ -5,6 +5,7 @@ import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
 import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
 import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
 import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
+import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
@@ -69,7 +70,8 @@ export async function createCiiWorkspacePreview(input, options = {}) {
     candidates: buildCiiPathCandidateAudit(sourceGraph, targetGraph, options),
   });
   const baseCorrespondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
-  const correspondence = attachCiiComponentCorrespondence(baseCorrespondence, sourceGraph, targetGraph);
+  const nodeGatedCorrespondence = applyCiiNodeCustodyGates(baseCorrespondence, sourceGraph);
+  const correspondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan, landmarks);
