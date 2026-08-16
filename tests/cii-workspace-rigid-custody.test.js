@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
 import { createCiiTransferPreview } from '../tabs/cii-workspace/cii-workspace-transfer-plan.js';
+import { createCiiWorkspaceReviewLedger } from '../tabs/cii-workspace/cii-workspace-review.js';
 
 function document(side, from, to, mass, extraRigids = []) {
   return {
@@ -26,8 +27,10 @@ const row = {
   sourceElementId: sourceGraph.edges[0].elementId, targetElementIds: [targetGraph.edges[0].elementId],
   status: 'HIGH', authority: 'LOCKED_ANCHOR_SPAN_ALIGNMENT',
 };
-const correspondence = { status: 'READY', nodeRows: [], elementRows: [row] };
-const review = { reviewedCorrespondenceIds: [row.correspondenceId], rejectedCorrespondenceIds: [] };
+const correspondence = { status: 'READY', correspondenceIdentity: 'corr-rigid', nodeRows: [], elementRows: [row] };
+const review = createCiiWorkspaceReviewLedger(sourceDocument, targetDocument, [], correspondence, {
+  reviewedCorrespondenceIds: [row.correspondenceId], rejectedCorrespondenceIds: [],
+});
 const plan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review);
 const rigid = plan.operations.find((operation) => operation.property === 'rigidWeight');
 assert(rigid, 'reviewed rigid↔rigid correspondence should create a rigidWeight preview');
@@ -35,6 +38,7 @@ assert.strictEqual(rigid.status, 'PREVIEW_READY');
 assert.strictEqual(rigid.before, 10);
 assert.strictEqual(rigid.proposed, 25);
 assert.strictEqual(rigid.custody, 'RIGID_COMPONENT');
+assert.strictEqual(rigid.sourceEvidence.componentEvidence, 'UNIQUE_TERMINAL_RECORD');
 
 const ambiguousTargetDocument = document('TARGET', 6000, 6010, 10, [{ node: 6010, mass: 11 }]);
 const ambiguousTargetGraph = adaptCiiDocumentToTopologyGraph(ambiguousTargetDocument);
