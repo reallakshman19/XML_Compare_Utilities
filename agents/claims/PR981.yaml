@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE_TWO_PROTECTED_AUTHORITY_BLOCKERS
+claim_state: ACTIVE_HARDENED_NEW_FILE_CORE_VALIDATION_REQUIRED
 files:
   exact: []
   prefixes:
@@ -13,6 +13,7 @@ authority_domains:
   - CII_WORKSPACE_INTAKE_INSPECTION
   - CII_WORKSPACE_LANDMARK_EVIDENCE
   - CII_WORKSPACE_CORRESPONDENCE
+  - CII_WORKSPACE_REVIEW_AUTHORITY
   - CII_WORKSPACE_TRANSFER_PREVIEW
   - CII_WORKSPACE_AUDIT_EXPORT
   - CII_WORKSPACE_PLACEHOLDER_GATE
@@ -34,6 +35,18 @@ forbidden_existing_file_edits:
   - parser/**
   - xml-compare/**
   - converters/**
-last_verified_product_code_head: 5927971e00172b8892495fedfff3dc1ebb820346
-last_verified_validation_head: 2b4caacfe4147d8b5f3c3d0bb724e445877a7eb1
-validation_state: 15_OF_15_FOCUSED_PASS_ZERO_OD_PARSER_AUTHORITY_BLOCKED_UTILITIES_REGISTRY_BLOCKED
+implementation_claims:
+  - bounded candidate evidence with winner gap and target custody is present in new CII Workspace files
+  - production alignElementPaths path-candidate authority is consumed read-only
+  - multi-hop neighbourhood and path-sequence/rigid-length evidence are implemented
+  - review decisions are bound to source/target content and correspondence decision identity
+  - NODE, ELEMENT_PATH, and explicit RIGID COMPONENT custody are separated
+  - one-anchor correspondence is supported but review-gated
+  - NODENAME raw-block mapping is identity-bound to avoid parsed-ordinal drift
+validation_state: POST_AUDIT_HARDENED_HEAD_NOT_RUN
+validation_note: >-
+  Do not reuse the earlier 15/15 focused PASS claim for the hardened head.
+  Fresh executable validation, XML topology regression and Revision Compare regression are NOT_RUN.
+protected_blockers:
+  - zero-OD root output.cii versus parser/sections/elements.js element-start authority
+  - live Utilities registration versus owner-locked tabs/psnm-utility-tab.js
