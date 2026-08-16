@@ -1,12 +1,11 @@
 import { deepFreeze } from './cii-workspace-contracts.js';
 
-function riskySourceElements(correspondence) {
-  const risky = new Set();
-  for (const row of correspondence?.elementRows || []) {
-    if (!['REVIEW', 'UNRESOLVED', 'CONFLICT'].includes(row.status)) continue;
-    for (const id of row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : [])) risky.add(id);
-  }
-  return risky;
+function riskyRows(correspondence) {
+  return (correspondence?.elementRows || []).filter((row) => ['REVIEW', 'UNRESOLVED', 'CONFLICT'].includes(row.status));
+}
+
+function rowSourceIds(row) {
+  return row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : []);
 }
 
 function uniqueNodeRows(rows) {
@@ -19,12 +18,18 @@ function uniqueNodeRows(rows) {
 }
 
 export function applyCiiNodeCustodyGates(correspondence, sourceGraph) {
-  const risky = riskySourceElements(correspondence);
+  const risky = riskyRows(correspondence);
+  const riskyIds = new Set(risky.flatMap(rowSourceIds));
   const nodeRows = uniqueNodeRows(correspondence?.nodeRows).map((row) => {
-    if (!risky.size || row.status === 'LOCKED' || !row.sourceNodeId) return row;
+    if (!riskyIds.size || row.status === 'LOCKED' || !row.sourceNodeId) return row;
     const incident = sourceGraph?.adjacency?.get(String(row.sourceNodeId)) || [];
-    const affected = incident.filter((edge) => risky.has(edge.elementId)).map((edge) => edge.elementId).sort();
+    const affected = incident.filter((edge) => riskyIds.has(edge.elementId)).map((edge) => edge.elementId).sort();
     if (!affected.length) return row;
+    const linkedCandidates = risky.filter((item) => rowSourceIds(item).some((id) => affected.includes(id))).map((item) => Object.freeze({
+      correspondenceId: item.correspondenceId,
+      status: item.status,
+      candidates: item.evidence?.candidates || null,
+    }));
     return deepFreeze({
       ...row,
       status: row.status === 'CONFLICT' ? 'CONFLICT' : 'REVIEW',
@@ -32,7 +37,7 @@ export function applyCiiNodeCustodyGates(correspondence, sourceGraph) {
         ...(row.evidence || {}),
         nodeCustodyGate: Object.freeze({
           status: 'REVIEW_REQUIRED', blocker: 'ADJACENT_ELEMENT_CANDIDATE_AMBIGUITY',
-          sourceElementIds: Object.freeze(affected),
+          sourceElementIds: Object.freeze(affected), linkedCandidateEvidence: Object.freeze(linkedCandidates),
         }),
       }),
     });
