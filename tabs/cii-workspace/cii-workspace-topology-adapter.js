@@ -7,7 +7,6 @@ function orderedPair(a, b) { return compareNodeIds(a, b) <= 0 ? [a, b] : [b, a];
 
 function rawEdge(element) {
   return {
-    sourceRecordIndex: Number(element.index ?? 0),
     from: nodeId(element.from), to: nodeId(element.to),
     canonicalFrom: nodeId(element.from), canonicalTo: nodeId(element.to),
     normalizedFromTo: `${nodeId(element.from)}->${nodeId(element.to)}`,
@@ -17,8 +16,7 @@ function rawEdge(element) {
     P1: Number(element.P1 || 0), T1: Number(element.T1 || 0),
     fromPos: element.fromPos || null, toPos: element.toPos || null,
     componentKind: element.hasBend ? 'BEND' : 'PIPE',
-    packetEvidence: element.hasBend ? ['BEND'] : [],
-    flags: element.hasBend ? ['BEND'] : [],
+    packetEvidence: element.hasBend ? ['BEND'] : [], flags: element.hasBend ? ['BEND'] : [],
   };
 }
 
@@ -37,9 +35,7 @@ function canonicalizeElements(elements) {
 function buildIncidence(elements) {
   const adjacency = new Map();
   const add = (node, edge) => {
-    const key = nodeId(node);
-    if (!adjacency.has(key)) adjacency.set(key, []);
-    adjacency.get(key).push(edge);
+    const key = nodeId(node); if (!adjacency.has(key)) adjacency.set(key, []); adjacency.get(key).push(edge);
   };
   for (const edge of elements) { add(edge.from, edge); add(edge.to, edge); }
   for (const rows of adjacency.values()) rows.sort((a, b) => a.elementId.localeCompare(b.elementId, undefined, { numeric: true }));
@@ -57,9 +53,7 @@ function rigidEvidenceFor(edge, rigidByNode, adjacency) {
 }
 
 function nodeToken(node, edge, adjacency) {
-  const next = otherNode(edge, node);
-  const degree = (adjacency.get(node) || []).length;
-  const nextDegree = (adjacency.get(next) || []).length;
+  const next = otherNode(edge, node); const degree = (adjacency.get(node) || []).length; const nextDegree = (adjacency.get(next) || []).length;
   return `D${degree}->D${nextDegree}|${edge.componentKind}|OD${round(edge.diameter, 3)}`;
 }
 
@@ -69,37 +63,29 @@ function neighbourhoodLayers(start, adjacency, maxDepth = 3) {
     const tokens = []; const nextFrontier = [];
     for (const node of frontier.sort(compareNodeIds)) {
       for (const edge of adjacency.get(node) || []) {
-        tokens.push(nodeToken(node, edge, adjacency));
-        const next = otherNode(edge, node);
+        tokens.push(nodeToken(node, edge, adjacency)); const next = otherNode(edge, node);
         if (!visited.has(next)) { visited.add(next); nextFrontier.push(next); }
       }
     }
-    layers.push(Object.freeze(uniqueStrings(tokens)));
-    frontier = uniqueStrings(nextFrontier).sort(compareNodeIds);
+    layers.push(Object.freeze(uniqueStrings(tokens))); frontier = uniqueStrings(nextFrontier).sort(compareNodeIds);
   }
   return Object.freeze(layers);
 }
 
 function contextFor(node, adjacency) {
-  const incident = adjacency.get(node) || [];
-  const diameters = incident.map((edge) => round(edge.diameter)).sort((a, b) => a - b);
+  const incident = adjacency.get(node) || []; const diameters = incident.map((edge) => round(edge.diameter)).sort((a, b) => a - b);
   return Object.freeze({
-    nodeId: node,
-    degree: incident.length,
-    inDegree: incident.filter((edge) => edge.to === node).length,
-    outDegree: incident.filter((edge) => edge.from === node).length,
-    lengths: incident.map((edge) => round(edge.lengthMm)).sort((a, b) => a - b),
-    diameters,
-    sizeTransition: new Set(diameters).size > 1,
-    componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
+    nodeId: node, degree: incident.length,
+    inDegree: incident.filter((edge) => edge.to === node).length, outDegree: incident.filter((edge) => edge.from === node).length,
+    lengths: incident.map((edge) => round(edge.lengthMm)).sort((a, b) => a - b), diameters,
+    sizeTransition: new Set(diameters).size > 1, componentKinds: uniqueStrings(incident.map((edge) => edge.componentKind)),
     neighbourhoodLayers: neighbourhoodLayers(node, adjacency),
   });
 }
 
 function attachContexts(edges, adjacency) {
   for (const edge of edges) {
-    edge.fromContext = contextFor(edge.from, adjacency);
-    edge.toContext = contextFor(edge.to, adjacency);
+    edge.fromContext = contextFor(edge.from, adjacency); edge.toContext = contextFor(edge.to, adjacency);
     edge.anchorFlags = uniqueStrings([
       edge.fromContext.degree === 1 ? 'FROM_TERMINAL' : '', edge.toContext.degree === 1 ? 'TO_TERMINAL' : '',
       edge.fromContext.degree >= 3 ? 'FROM_BRANCH' : '', edge.toContext.degree >= 3 ? 'TO_BRANCH' : '',
@@ -114,24 +100,16 @@ export function adaptCiiDocumentToTopologyGraph(document) {
   if (document?.schema !== CII_WORKSPACE_SCHEMAS.document) throw new Error('CII_WORKSPACE_DOCUMENT_REQUIRED');
   const rigidByNode = new Map();
   for (const record of document.parsed.rigids || []) {
-    const key = nodeId(record.node);
-    if (!rigidByNode.has(key)) rigidByNode.set(key, []);
-    rigidByNode.get(key).push(record);
+    const key = nodeId(record.node); if (!rigidByNode.has(key)) rigidByNode.set(key, []); rigidByNode.get(key).push(record);
   }
-  const edges = canonicalizeElements(document.parsed.elements);
-  const adjacency = buildIncidence(edges);
+  const edges = canonicalizeElements(document.parsed.elements); const adjacency = buildIncidence(edges);
   for (const edge of edges) {
     edge.rigidEvidence = rigidEvidenceFor(edge, rigidByNode, adjacency);
-    if (edge.rigidEvidence.status === 'UNIQUE_TERMINAL_RECORD') {
-      edge.componentKind = 'RIGID'; edge.packetEvidence = ['RIGID']; edge.flags = ['RIGID'];
-    }
+    if (edge.rigidEvidence.status === 'UNIQUE_TERMINAL_RECORD') { edge.componentKind = 'RIGID'; edge.packetEvidence = ['RIGID']; edge.flags = ['RIGID']; }
   }
-  attachContexts(edges, adjacency);
-  const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
+  attachContexts(edges, adjacency); const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
   return {
-    schema: CII_WORKSPACE_SCHEMAS.graph,
-    side: document.side,
-    documentId: `${document.side}:${document.contentSha256}`,
+    schema: CII_WORKSPACE_SCHEMAS.graph, side: document.side, documentId: `${document.side}:${document.contentSha256}`,
     edges, adjacency,
     nodes: orderedNodes.map((id) => Object.freeze({
       id, degree: adjacency.get(id).length, position: document.parsed.nodes?.[id] || null,
