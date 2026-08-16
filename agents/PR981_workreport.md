@@ -3,7 +3,7 @@
 ## CURRENT RECOVERY STATE
 
 ```text
-HANDOVER_READINESS: READY_FOR_FULL_SUITE_AND_BROWSER_VALIDATION
+HANDOVER_READINESS: READY_FOR_OWNER_REVIEW_WITH_ENVIRONMENT_LIMITS
 PR_RECOVERY_STATE: CORE + APPROVED PROTECTED INTEGRATION IMPLEMENTED
 MERGE_AUTHORITY: OWNER_ONLY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
@@ -12,105 +12,127 @@ PR_OR_WIP: PR981
 BRANCH: agent/issue-980-cii-workspace-v1
 VALIDATED_IMPLEMENTATION_HEAD: f5bfd5aeb4dc5cefef1583be12b94531dfa469f5
 MAIN_BASE: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
-GROUNDING_EPOCH: GE-010 APPROVED PROTECTED INTEGRATION
+GROUNDING_EPOCH: GE-011 OWNER-WAIVED ACTIONS / EXTENDED LOCAL VALIDATION
 OWNER_AUTHORIZATION_COMMENT: Issue #980 comment 5308388872
+ACTIONS_STATUS_GATE: WAIVED_BY_OWNER_IN_ACTIVE_CHAT_2026-08-16T21:07+04:00
 ```
 
-## What changed after owner authorization
+## Implemented protected integration
 
-The owner explicitly approved the GE-009 protected changes at 2026-08-16 20:06 +04:00. Recovery provenance is recorded on Issue #980 comment `5308388872`.
+### AUTH-002 — Utilities registration
 
-### AUTH-002 — Utilities registration IMPLEMENTED
-
-`tabs/psnm-utility-tab.js` now contains exactly one authoritative installer descriptor:
+`tabs/psnm-utility-tab.js` contains exactly one authoritative installer descriptor:
 
 ```js
 ['CII Workspace', './cii-workspace/cii-workspace-tab.js', 'installCiiWorkspaceTile', true]
 ```
 
-The existing Utilities runtime remains lifecycle authority: it passes `(deckRoot, ctx)`, retains the returned destroy function, and cleans it on Utilities teardown/retry. No alternate launcher was added.
+The existing Utilities runtime remains lifecycle authority. No alternate launcher was added.
 
-### AUTH-001A — zero/missing-OD writer contract IMPLEMENTED
+### AUTH-001A — generated zero/missing-OD contract
 
-The generic neutral parser was not weakened. The existing CII2019 pre-write section validator now rejects generated ELEMENTS start rows whose OD is non-finite or below `10`, matching `parser/sections/elements.js` element-start authority.
+The generic neutral parser was not weakened. `converters/scripts/cii2019_section_rules.py` rejects generated ELEMENTS start rows whose OD is non-finite or below `10`, matching `parser/sections/elements.js` element-start authority.
 
-The unchanged `inputxml_to_cii2019.py` already calls `cii2019_section_rules.assert_cii2019_sections_valid(cii_text)` before `_build_cii_text()` returns. Therefore normal CLI output, workflow callers using `_build_cii_text`, and compatibility raw ELEMENTS overrides all fail closed before invalid neutral CII can be returned/written.
+`converters/scripts/inputxml_to_cii2019.py` remains byte-identical to baseline and already calls `cii2019_section_rules.assert_cii2019_sections_valid(cii_text)` before generated text can be returned/written. Real source OD, later sentinel carry-forward, and an explicit qualified `--default-diameter` remain supported. Unresolved/sub-threshold OD fails closed.
 
-Existing source semantics remain intact:
-- a real InputXML diameter is used;
-- later missing/sentinel diameter inherits the prior resolved diameter;
-- an explicit qualified `--default-diameter` can resolve an initially missing value;
-- unresolved, sub-threshold, or non-finite OD cannot become generated neutral CII.
+The protected cumulative diff remains surgical:
+- `converters/scripts/cii2019_section_rules.py`: +44 / -0.
+- `tabs/psnm-utility-tab.js`: +1 / -0.
+- `parser/**`: unchanged.
+- `converters/scripts/inputxml_to_cii2019.py`: unchanged.
 
-The 3,617-line converter itself is byte-identical to baseline. The final protected diff is surgical: `cii2019_section_rules.py` has 44 added lines / 0 deleted lines and `tabs/psnm-utility-tab.js` has 1 added line / 0 deleted lines.
+The historical root `output.cii` remains documented as a legacy-invalid OD=0 artifact and was not assigned invented engineering data. Maintained full-file CII Workspace intake coverage uses `Benchmark/Pipeline/CII`.
 
-The historical root `output.cii` is not assigned invented engineering data. Its OD=0 rows remain a legacy-invalid artifact. The full-file CII Workspace intake regression now uses the maintained `Benchmark/Pipeline/CII` corpus instead.
+## GE-011 validation truth
 
-## Validation truth
+### CII Workspace — PASS (focused executable suite)
 
-### CII Workspace
+**22 CII Workspace JavaScript test files PASS** in the reconstructed networkless validation environment after protected integration. The sweep covers maintained full-file intake, correspondence/path semantics, permutation and coordinate invariance, ambiguity/winner gap, target custody, SHA-bound review and LOCK authority, rigid COMPONENT custody, transfer gates, NODENAME identity protection, reroute/subdivision gates, disconnected components, Stage06 fail-closed behavior, audit/export, shell lifecycle, and the exact Utilities descriptor contract.
 
-**22 CII Workspace JavaScript test files PASS** in the reconstructed networkless validation environment after the protected integration changes. This includes the previous 20 hardened tests plus:
-- full-file intake path using `Benchmark/Pipeline/CII` semantics;
-- exact one-descriptor Utilities registry authority check.
+All reconstructed CII Workspace modules also pass syntax checking.
 
-All hardened correspondence, permutation, coordinate-invariance, ambiguity/winner-gap, target custody, SHA-bound review, engineer LOCK, rigid COMPONENT custody, transfer, NODENAME, reroute/subdivision, Stage06 fail-closed, export/audit and shell lifecycle oracles remain green in that sweep.
+### Python OD + section rules — PASS (reconstructed current slices), full checkout PARTIAL
 
-### Diameter contract
+The current OD policy/carry-default slice was executed through the repository regression intent: **5/5 PASS**.
 
-A focused contract harness PASS verifies the approved semantics: unresolved first OD fails the threshold, explicit fallback succeeds, real OD carries across a later sentinel, OD 5 fails, OD 10 passes, and non-finite OD fails.
+Covered:
+- unresolved initial sentinel with default OD 0 is rejected;
+- explicit fallback 114.3 succeeds;
+- real OD 114.3 carries across a later sentinel;
+- OD 5 is rejected;
+- OD 10 is accepted;
+- non-finite OD is rejected by the policy harness.
 
-`tests/test_inputxml_to_cii2019_diameter_policy.py` is added as the repository regression binding those semantics to the unchanged converter `_parse_model` behavior plus the actual `cii2019_section_rules.validate_elements_rows` pre-write enforcement point.
+The new OD rule was also exercised against the six pre-existing `test_cii2019_section_rules.py` regression intents: **6/6 PASS**. Their targeted missing-section/order/count/unit assertions remain valid with the new OD diagnostics additive on zero-filled synthetic ELEMENTS blocks.
 
-### Protected authority regressions
+This is strong policy compatibility evidence, but not a claim that every Python converter test in the private repository ran from an exact checkout. The complete private checkout cannot be materialized in this environment.
 
-- **T11 XML topology/path — PASS (focused):** exact baseline `xml-cii-inputxml-path-aligner.js` previously executed through topology, permutation, subdivision, ambiguity and disconnected-component oracles.
-- **T12 Revision Compare — PASS (focused):** exact baseline bounded matcher previously executed for unique/duplicate identity, candidate cap, winner-gap and target custody.
-- **T1 Utilities integration — IMPLEMENTED / focused source+lifecycle checks PASS:** authoritative descriptor exists exactly once and CII installer lifecycle test passes. A full browser Utilities smoke remains required before merge.
+### Utilities lifecycle — PASS in exact runtime DOM harness; real browser ENVIRONMENT_BLOCKED
 
-GitHub Actions has no workflow run attached to implementation head `f5bfd5a...`; do not represent these focused executions as CI.
+The exact current `tabs/psnm-utility-tab.js` runtime was executed with the reconstructed exact CII Workspace installer:
+- initial render exposes exactly one CII Workspace tile;
+- opening mounts the CII Workspace backdrop;
+- Utilities destroy closes the workspace and clears the container;
+- re-entry exposes exactly one CII Workspace tile again;
+- second destroy clears the container.
+
+A real Chromium smoke was attempted, including an isolated trivial local page. Chromium hangs before page rendering/request dispatch in this container, so the real-browser/Playwright gate is **ENVIRONMENT_BLOCKED**, not an application failure. Revision Compare coexistence in a real browser therefore remains unclaimed.
+
+### Revision Compare — PASS (expanded focused evidence), full qualification PARTIAL
+
+Existing focused exact-baseline matcher/custody regression remains PASS for unique/duplicate identity, candidate caps, winner-gap rejection, and one-target custody.
+
+GE-011 additionally executed a **5,000-row property-evidence runtime stress slice** covering deterministic audit identity, scalar/null evidence mapping, stale-token rejection, invalid evidence paths, unsupported types, zero source-document lookups/comparison reruns, and audit immutability. Result: PASS.
+
+The full handover/scale/browser qualification command was not executed from a complete checkout. Browser qualification is environment-blocked as described above.
+
+### XML / model-converter — PASS (focused authority), full `test:xml` PARTIAL
+
+The exact baseline `xml-cii-inputxml-path-aligner.js` focused T11 authority regression remains PASS across topology, permutation, subdivision, ambiguity, and disconnected-component oracles. Current InputXML Workspace producer-adoption/static contracts were inspected to confirm shared-producer routing and current Utilities integration dependencies.
+
+The repository `test:xml` command is a broad multi-module chain and cannot be truthfully reconstructed wholesale without the full private checkout. Its state is therefore **PARTIAL — focused authority PASS**, not full-suite PASS.
+
+### GitHub Actions/status — WAIVED BY OWNER
+
+At 2026-08-16 21:07 +04:00 the owner explicitly directed: `skip github actions, proceed others`. GitHub Actions workflow/status evidence is therefore removed from the requested validation gates. No further Actions/status polling is required for this workstream unless the owner reverses that direction.
 
 ## Acceptance matrix
 
 | Area | State | Evidence / remaining |
 |---|---|---|
-| Parser-supported neutral intake | PASS | parser-backed benchmark + maintained full-file path |
-| Generated unknown/sub-threshold OD | PASS — FAIL-CLOSED | pre-write section rule matches neutral parser threshold |
-| Legacy root `output.cii` | DOCUMENTED INVALID ARTIFACT | not rewritten with invented engineering OD |
-| Live Utilities registration | IMPLEMENTED | one authoritative descriptor; browser smoke NOT_RUN |
-| Anchors / one-anchor behavior | PASS | focused execution |
-| Geometry authority / transformed XYZ | PASS | focused execution |
-| Candidate ambiguity / winner gap | PASS | focused execution |
-| Multi-hop / path evidence | PASS | focused execution |
-| Structural OD/WT/branch/rigid conflicts | PASS | focused execution |
-| Permutation determinism | PASS | focused execution |
-| Target custody | PASS | focused execution |
-| NODE / ELEMENT-PATH / COMPONENT custody | PASS | focused execution |
-| Review SHA/correspondence binding | PASS | focused execution |
-| Engineer LOCK authority | PASS | focused execution |
-| Reroute / false subdivision gates | PASS | focused execution |
-| Stage 06 fail-closed placeholder | PASS | no writer/mutation authority added |
-| Audit / CSV determinism | PASS | focused execution |
-| Shell lifecycle / stale invalidation | PASS | focused execution |
-| T11 XML topology/path | PASS — FOCUSED | full XML suite NOT_RUN |
-| T12 Revision Compare | PASS — FOCUSED | full Revision Compare suite NOT_RUN |
+| CII Workspace focused executable suite | PASS | 22 JS tests |
+| Parser-supported / maintained full-file neutral intake | PASS — FOCUSED | benchmark-backed reconstructed execution |
+| Generated unknown/sub-threshold OD | PASS — FAIL-CLOSED | pre-write rule matches neutral-parser threshold |
+| Legacy root `output.cii` | DOCUMENTED INVALID ARTIFACT | not rewritten with invented OD |
+| Python diameter policy | PASS — FOCUSED | 5/5 reconstructed current policy slice |
+| Existing CII2019 section-rule regression intents | PASS — FOCUSED | 6/6 reconstructed current validator slice |
+| Utilities registration | IMPLEMENTED | exactly one authoritative descriptor |
+| Utilities mount/destroy/re-entry | PASS — DOM HARNESS | exact current runtime + exact CII installer |
+| Real browser Utilities/Revision coexistence | ENVIRONMENT_BLOCKED | Chromium hangs even on trivial local HTML |
+| T11 XML topology/path | PASS — FOCUSED | exact authority regression |
+| Full `test:xml` | PARTIAL | complete private checkout unavailable |
+| T12 Revision matcher/custody | PASS — FOCUSED | exact authority regression |
+| Revision property evidence | PASS — FOCUSED/STRESS | 5,000-row runtime slice |
+| Full Revision handover/scale/browser qualification | PARTIAL / BROWSER BLOCKED | complete checkout/browser unavailable |
+| GitHub Actions/status | WAIVED_BY_OWNER | explicit 2026-08-16 chat direction |
+| Stage06 target mutation/export | PASS — FAIL-CLOSED | remains `NOT_IMPLEMENTED` |
 
-## Remaining before merge
+## Remaining validation limitations
 
-1. **FULL-SUITE-001:** run the repository's full XML topology/model-converter suite in a normal authenticated checkout/CI.
-2. **FULL-SUITE-002:** run the full Revision Compare qualification/browser/scale suite.
-3. **BROWSER-001:** smoke `Utilities -> CII Workspace` in the real Utilities deck, including mount/destroy/re-entry and Revision Compare coexistence.
-4. **PYTHON-001:** run the repository Python converter/section-rule tests, including `tests/test_inputxml_to_cii2019_diameter_policy.py`, in a normal checkout. The focused contract harness passed, but no GitHub CI run is attached.
-5. **RIGID-001:** broader interior rigid-component ownership remains deliberately fail-closed outside the supportable unique-terminal rigid-record slice.
+1. **FULL-CHECKOUT-001:** a complete authenticated checkout would still be needed to claim literal full `npm run test:xml`, complete Revision handover/scale, and the complete Python converter suite. Current evidence is focused/partial and is labeled as such.
+2. **BROWSER-001:** real-browser Utilities + Revision Compare coexistence cannot run in this container because Chromium does not render even a trivial local page. DOM-harness lifecycle PASS does not replace that claim.
+3. **RIGID-001:** broader interior rigid-component ownership remains deliberately fail-closed outside the supportable unique-terminal rigid-record slice.
+
+GitHub Actions/status checks are **not** a remaining limitation because the owner waived them.
 
 ## Containment / safety invariants
 
-- `parser/**` remains unchanged; no OD=0 parser bypass was introduced.
-- `inputxml_to_cii2019.py` remains unchanged relative to baseline; enforcement is in its existing pre-write section-rule authority.
+- `parser/**` remains unchanged; no OD=0 parser bypass exists.
+- `inputxml_to_cii2019.py` remains unchanged from baseline.
 - Utilities integration is the single approved registry descriptor; no alternate launcher exists.
-- Stage06 target-CII mutation/export remains visibly `NOT_IMPLEMENTED` and no modified-target bytes can be exported.
-- PR remains draft and merge remains owner-only until broad validation is complete.
+- Stage06 target-CII mutation/export remains visibly `NOT_IMPLEMENTED`; no modified-target bytes can be exported.
+- PR remains draft; merge remains owner-only.
 
 ## Qualification provenance
 
-Issue #980 contains the owner-authored `QUALIFIED` marker before implementation. The five scored screening answers required by the original issue are not present in the issue discussion; treat the owner marker as recorded authority, not as evidence that the full scoring trail exists.
+Issue #980 contains the owner-authored `QUALIFIED` marker before implementation. The five scored screening answers required by the original issue are not present in the issue discussion; treat the owner marker as recorded authority, not evidence that the full scoring trail exists.
