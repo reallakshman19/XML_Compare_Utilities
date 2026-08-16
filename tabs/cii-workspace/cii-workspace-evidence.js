@@ -15,15 +15,20 @@ function transitionSignature(edge) {
   return [Boolean(edge?.fromContext?.sizeTransition), Boolean(edge?.toContext?.sizeTransition)].sort().join('|');
 }
 
+function relativeDelta(a, b) {
+  const left = Number(a); const right = Number(b);
+  if (!(left > 0) || !(right > 0)) return 0;
+  return Math.abs(left - right) / Math.max(left, right);
+}
+
 function structuralBlockers(source, target, options) {
   const blockers = [];
   const sDegrees = endpointDegrees(source); const tDegrees = endpointDegrees(target);
   if ((sDegrees[1] >= 3) !== (tDegrees[1] >= 3)) blockers.push('BRANCH_TOPOLOGY_INCOMPATIBLE');
   if ((source.componentKind === 'RIGID') !== (target.componentKind === 'RIGID')) blockers.push('RIGID_COMPONENT_KIND_INCOMPATIBLE');
   if (transitionSignature(source) !== transitionSignature(target)) blockers.push('SIZE_TRANSITION_CONTEXT_INCOMPATIBLE');
-  const sourceOd = Number(source.diameter); const targetOd = Number(target.diameter);
-  const relativeTolerance = Number(options.hardDiameterRelativeTolerance ?? 0.12);
-  if (sourceOd > 0 && targetOd > 0 && Math.abs(sourceOd - targetOd) / Math.max(sourceOd, targetOd) > relativeTolerance) blockers.push('OD_INCOMPATIBLE');
+  if (relativeDelta(source.diameter, target.diameter) > Number(options.hardDiameterRelativeTolerance ?? 0.12)) blockers.push('OD_INCOMPATIBLE');
+  if (relativeDelta(source.wall, target.wall) > Number(options.hardWallRelativeTolerance ?? 0.35)) blockers.push('WALL_THICKNESS_INCOMPATIBLE');
   return blockers;
 }
 
