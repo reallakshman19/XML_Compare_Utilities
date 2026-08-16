@@ -3,8 +3,11 @@ import fs from 'fs';
 import { webcrypto } from 'crypto';
 import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-intake.js';
 
-const text = fs.readFileSync(new URL('../output.cii', import.meta.url), 'utf8');
-const document = await intakeCiiWorkspaceDocument(text, 'output.cii', { side: 'SOURCE', cryptoRef: webcrypto });
+// Use the repository's maintained full neutral-CII benchmark as the real-file oracle.
+// Root output.cii is a legacy generated artifact with unresolved OD=0 rows and is
+// deliberately not normalized or assigned invented engineering data here.
+const text = fs.readFileSync(new URL('../Benchmark/Pipeline/CII', import.meta.url), 'utf8');
+const document = await intakeCiiWorkspaceDocument(text, 'Benchmark/Pipeline/CII', { side: 'SOURCE', cryptoRef: webcrypto });
 const renamed = await intakeCiiWorkspaceDocument(text, 'renamed-copy.cii', { side: 'TARGET', cryptoRef: webcrypto });
 assert.strictEqual(document.schema, 'CIIWorkspaceDocument.v1');
 assert.strictEqual(document.format, 'NEUTRAL');
@@ -18,4 +21,4 @@ assert(document.parserAlias.endsWith('.accdb'));
 assert.strictEqual(document.nodeNameEvidence.schema, 'CIIWorkspaceNodeNameEvidence.v1');
 assert.strictEqual(document.summary.nodeNameCount, Object.keys(document.nodeNames).length);
 assert.strictEqual(document.summary.nodeNameConflictCount, document.nodeNameEvidence.conflicts.length);
-console.log('CII Workspace neutral intake checks passed.');
+console.log('CII Workspace full neutral benchmark intake checks passed.');
