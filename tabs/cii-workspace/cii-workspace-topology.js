@@ -133,9 +133,10 @@ function singleAnchorCorrespondence(sourceGraph, targetGraph, anchor, options) {
   const elementRows = sources.map((source) => {
     const initial = buildCiiCandidateEvidence(source, targets, null, options); const winner = initial.winnerTargetElementId;
     const evidence = winner ? buildCiiCandidateEvidence(source, targets, winner, options) : initial;
+    const baseStatus = evidence.winnerScore >= Number(options.highConfidenceScore || 82) ? 'HIGH' : 'REVIEW';
     return deepFreeze({
       correspondenceId: stableId('element', source.elementId, winner), kind: 'ELEMENT', sourceElementId: source.elementId,
-      targetElementIds: Object.freeze(winner ? [winner] : []), status: evidence.status === 'SUPPORTED' ? 'HIGH' : (evidence.status === 'AMBIGUOUS' ? 'REVIEW' : 'UNRESOLVED'),
+      targetElementIds: Object.freeze(winner ? [winner] : []), status: candidateStatus(evidence, baseStatus),
       authority: 'SINGLE_ANCHOR_NEIGHBOURHOOD_CANDIDATE', evidence: deepFreeze({ candidates: evidence }),
     });
   });
