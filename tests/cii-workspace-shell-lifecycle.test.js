@@ -123,6 +123,11 @@ assert.strictEqual(shell.querySelector('[data-ciiw-refresh-review]').disabled, t
 
 shell.querySelector('[data-ciiw-source]').files = [file('source.cii', cii(10, 20))];
 shell.querySelector('[data-ciiw-target]').files = [file('target.cii', cii(5000, 5010))];
+await shell.querySelector('[data-ciiw-inspect]').click();
+assert(shell.querySelector('[data-ciiw-landmarks]').innerHTML.includes('10'));
+assert(shell.querySelector('[data-ciiw-landmarks]').innerHTML.includes('5000'));
+assert(shell.querySelector('[data-ciiw-landmarks]').innerHTML.includes('SUGGESTED'));
+assert(/evidence only/.test(shell.querySelector('[data-ciiw-status]').textContent));
 shell.querySelector('[data-ciiw-source-anchors]').value = '10,20';
 shell.querySelector('[data-ciiw-target-anchors]').value = '5000,5010';
 await shell.querySelector('[data-ciiw-analyze]').click();
