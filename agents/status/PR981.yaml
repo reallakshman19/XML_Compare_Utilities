@@ -8,7 +8,7 @@ validated_product_head: 565d619b99ee188cb5b4a60797f1578744786ee5
 main_head_last_checked: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: FOCUSED_EXECUTION_VALIDATED_OWNER_DECISIONS_REQUIRED
+agent_state: FOCUSED_EXECUTION_VALIDATED_AUTHORIZATION_REQUESTED
 pr_recovery_state: READY_FOR_OWNER_DECISIONS_WITH_FULL_SUITE_FOLLOWUP
 handover_readiness: READY
 report_path: agents/PR981_workreport.md
@@ -22,6 +22,19 @@ validation_summary: >-
   zero-OD element-start heuristic. Focused exact-baseline T11 path-aligner and T12
   Revision Compare matching/custody regressions PASS; full repository XML and Revision
   Compare suites remain NOT_RUN.
+authority_request:
+  issue_comment_id: 5308346786
+  state: REQUESTED_NOT_AUTHORIZED
+  auth_001_recommended: >-
+    AUTH-001A fail-closed InputXML->CII2019 unknown-diameter writer/workflow correction;
+    do not change the generic neutral parser and do not guess/regenerate root output.cii
+    without authoritative source/fallback data.
+  auth_001_alternate: >-
+    AUTH-001B product-wide neutral parser/validator support for OD=unknown with structural
+    fixed-format characterization, including small-bore cases; no CII Workspace bypass.
+  auth_002: >-
+    One tabs/psnm-utility-tab.js INSTALLERS descriptor for CII Workspace plus focused
+    Utilities/Revision Compare lifecycle regressions.
 acceptance_matrix:
   intake_parser_supported_cii: PASS
   root_output_cii_zero_od: BLOCKED_BY_PARSER_AUTHORITY
@@ -51,6 +64,8 @@ known_limits:
   - CII Workspace tests are not registered in existing package.json scripts because existing files remain read-only
   - full repository XML and Revision Compare qualification/browser suites have not run in this networkless validation slice
 exact_next_action: >-
-  Obtain owner decision for zero/missing-OD parser authority and Utilities registry scope;
-  before merge, run full XML and Revision Compare suites in a normal authenticated checkout/CI.
-last_updated: 2026-08-16T19:17:00+04:00
+  Await explicit owner choice for AUTH-001A versus AUTH-001B and explicit AUTH-002 authorization
+  recorded on Issue #980; then implement only the authorized protected patch(es) with the
+  listed focused regressions. Before merge, run the full XML and Revision Compare suites in
+  a normal authenticated checkout/CI.
+last_updated: 2026-08-16T20:01:00+04:00
