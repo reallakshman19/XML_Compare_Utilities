@@ -1,6 +1,7 @@
 import { buildElementPaths, scorePathMatch, alignElementSequence } from '../model-converters/xml-cii-inputxml-path-aligner.js';
 import { deepFreeze, stableId } from './cii-workspace-contracts.js';
-import { ciiAlignmentScore, scoreCiiEdgeCandidate } from './cii-workspace-evidence.js';
+import { ciiAlignmentScore } from './cii-workspace-evidence.js';
+import { deriveCiiAlignmentCorrespondence } from './cii-workspace-alignment.js';
 
 function otherNode(edge, current) { return edge.from === current ? edge.to : edge.from; }
 function sortIncidents(rows) { return [...(rows || [])].sort((a, b) => a.elementId.localeCompare(b.elementId)); }
@@ -99,24 +100,6 @@ function subdivisionEvidence(sourcePath, targetPath, options) {
   return deepFreeze({ compatible: lengthOk && diameterOk && componentOk, lengthDeltaMm, lengthOk, diameterOk, componentOk, internalNodes });
 }
 
-function confidence(evidence) {
-  if (evidence.hardFail) return 'CONFLICT';
-  if (evidence.score >= 82) return 'HIGH';
-  if (evidence.score >= 55) return 'REVIEW';
-  return 'UNRESOLVED';
-}
-
-function matchedElementRows(alignment, options) {
-  return alignment.operations.filter((op) => op.op === 'MATCH').map((op) => {
-    const evidence = scoreCiiEdgeCandidate(op.refEdge, op.targetEdge, options);
-    return deepFreeze({
-      correspondenceId: stableId('element', op.refEdge.elementId, op.targetEdge.elementId),
-      kind: 'ELEMENT', sourceElementId: op.refEdge.elementId, targetElementIds: Object.freeze([op.targetEdge.elementId]),
-      status: confidence(evidence), evidence,
-    });
-  });
-}
-
 function lockedNodeRows(anchorPairs) {
   return anchorPairs.map((pair) => deepFreeze({
     correspondenceId: stableId('node', pair.sourceNodeId, pair.targetNodeId), kind: 'NODE',
@@ -149,6 +132,7 @@ export function compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs
   if (anchorOrderBlocker) return deepFreeze({ status: 'BLOCKED', blockers: Object.freeze([anchorOrderBlocker]), nodeRows: Object.freeze(lockedNodeRows(ordered)) });
   const scoreOptions = { ...options, geometryTransform: options.geometryTransform };
   const alignment = alignElementSequence(sourcePath, targetPath, (a, b) => ciiAlignmentScore(a, b, scoreOptions), options);
+  const alignmentRows = deriveCiiAlignmentCorrespondence(alignment, scoreOptions);
   const subdivision = subdivisionEvidence(sourcePath, targetPath, { ...options, targetGraph });
   const pathScore = scorePathMatch(sourcePath, targetPath, options);
   const elementRows = subdivision?.compatible ? [deepFreeze({
@@ -156,11 +140,16 @@ export function compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs
     kind: 'ELEMENT_PATH', sourceElementIds: Object.freeze([sourcePath.elements[0].elementId]),
     targetElementIds: Object.freeze(targetPath.elements.map((edge) => edge.elementId)), status: 'HIGH',
     authority: 'LOCKED_ANCHOR_SPAN_SUBDIVISION', evidence: subdivision,
-  })] : matchedElementRows(alignment, scoreOptions);
-  const nodeRows = [...lockedNodeRows(ordered), ...insertedRows(subdivision)];
+  })] : alignmentRows.elementRows;
+  const nodeRows = [
+    ...lockedNodeRows(ordered),
+    ...(subdivision?.compatible ? insertedRows(subdivision) : alignmentRows.nodeRows),
+  ];
   const hardConflicts = elementRows.filter((row) => row.status === 'CONFLICT');
+  const matched = elementRows.some((row) => ['HIGH', 'REVIEW'].includes(row.status) || row.kind === 'ELEMENT_PATH');
+  const status = hardConflicts.length ? 'CONFLICT' : (matched ? 'READY' : 'UNRESOLVED');
   return deepFreeze({
-    schema: 'CIIWorkspaceCorrespondence.v1', status: hardConflicts.length ? 'CONFLICT' : 'READY', blockers: Object.freeze([]),
+    schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: Object.freeze([]),
     pathScore: Number(pathScore.toFixed(1)), sourcePath, targetPath,
     alignment: deepFreeze({ score: alignment.score, operations: alignment.operations.map((op) => ({ op: op.op, sourceElementId: op.refEdge?.elementId || null, targetElementId: op.targetEdge?.elementId || null })) }),
     nodeRows: Object.freeze(nodeRows), elementRows: Object.freeze(elementRows),

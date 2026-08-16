@@ -50,7 +50,7 @@ export function scoreCiiEdgeCandidate(source, target, options = {}) {
   const station = source.pathStationMidMm != null && target.pathStationMidMm != null
     ? 12 * closeness(source.pathStationMidMm / Math.max(source.pathTotalLengthMm || 1, 1), target.pathStationMidMm / Math.max(target.pathTotalLengthMm || 1, 1), 0.08) : 0;
   const geometry = geometryEvidence(source, target, options.geometryTransform);
-  const components = { topology, neighbourhood, pathSequence: 0, od, wall, componentKind: component, rigidLength: 0, pathStation: station, registeredGeometry: geometry.score };
+  const components = { topology, neighbourhood, pathSequence: 0, length, od, wall, componentKind: component, rigidLength: 0, pathStation: station, registeredGeometry: geometry.score };
   const score = blockers.length ? 0 : Math.min(100, Object.values(components).reduce((sum, value) => sum + value, 0));
   return deepFreeze({
     score: Number(score.toFixed(1)),
