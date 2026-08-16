@@ -5,8 +5,9 @@ function nameRow(fromName, toName) {
   return `  ${String(fromName).padEnd(26)}${String(toName).padEnd(25)}`;
 }
 
-function elementBlock(pointer) {
+function elementBlock(element, pointer) {
   const rows = Array.from({ length: 15 }, () => '0');
+  rows[0] = `${element.from} ${element.to} 0 0 1000 273`;
   rows[13] = `0 0 0 0 0 ${pointer}`;
   return rows.join('\n');
 }
@@ -14,7 +15,7 @@ function elementBlock(pointer) {
 function fixture(elements, pointers, nameRows) {
   return [
     '#$ ELEMENTS',
-    ...pointers.map((pointer) => elementBlock(pointer)),
+    ...elements.map((element, index) => elementBlock(element, pointers[index])),
     '#$ NODENAME',
     ...nameRows,
     '#$ BEND',
@@ -48,7 +49,20 @@ const outOfRange = extractCiiNodeNameEvidence(
 assert.deepStrictEqual(outOfRange.names, {});
 assert(outOfRange.conflicts.some((item) => item.code === 'NODENAME_POINTER_OUT_OF_RANGE'));
 
-const missingPointerRow = extractCiiNodeNameEvidence('#$ ELEMENTS\n0\n#$ NODENAME\n' + nameRow('A', 'B'), parsed);
+// If the protected parser skips the first raw element, the surviving parsed element
+// must bind to its FROM/TO raw block rather than inheriting block 0's NODENAME pointer.
+const skippedFirst = extractCiiNodeNameEvidence(
+  fixture(parsed.elements, [1, 2], [nameRow('SKIPPED-FROM', 'SKIPPED-TO'), nameRow('SURVIVOR', 'END-300')]),
+  { nodes: { 200: {}, 300: {} }, elements: [{ from: 200, to: 300 }] },
+);
+assert.deepStrictEqual(skippedFirst.names, { 200: 'SURVIVOR', 300: 'END-300' });
+assert.strictEqual(skippedFirst.mappedElementCount, 1);
+assert.strictEqual(skippedFirst.rawElementBlockCount, 2);
+
+const missingPointerRow = extractCiiNodeNameEvidence(
+  '#$ ELEMENTS\n100 200 0 0 1000 273\n#$ NODENAME\n' + nameRow('A', 'B'),
+  { nodes: { 100: {}, 200: {} }, elements: [{ from: 100, to: 200 }] },
+);
 assert(missingPointerRow.conflicts.some((item) => item.code === 'NODENAME_POINTER_UNREADABLE'));
 
-console.log('CII Workspace NODENAME evidence checks passed.');
+console.log('CII Workspace NODENAME identity-bound evidence checks passed.');
