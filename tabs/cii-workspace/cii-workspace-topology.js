@@ -3,6 +3,7 @@ import { deepFreeze, stableId, stableStringify } from './cii-workspace-contracts
 import { ciiAlignmentScore } from './cii-workspace-evidence.js';
 import { deriveCiiAlignmentCorrespondence } from './cii-workspace-alignment.js';
 import { buildCiiCandidateEvidence, candidateStatus, targetCustodyConflicts } from './cii-workspace-candidates.js';
+import { evaluateCiiAnchorPathGate, applyCiiPathGateToRows } from './cii-workspace-path-gates.js';
 
 function otherNode(edge, current) { return edge.from === current ? edge.to : edge.from; }
 function sortIncidents(rows) { return [...(rows || [])].sort((a, b) => a.elementId.localeCompare(b.elementId, undefined, { numeric: true })); }
@@ -164,8 +165,8 @@ export function compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs
   if (ordered.length === 1) return singleAnchorCorrespondence(sourceGraph, targetGraph, ordered[0], options);
   const first = ordered[0]; const last = ordered[ordered.length - 1];
   const sourceRoute = uniqueRoute(sourceGraph, first.sourceNodeId, last.sourceNodeId); const targetRoute = uniqueRoute(targetGraph, first.targetNodeId, last.targetNodeId);
-  const blockers = [sourceRoute, targetRoute].filter((item) => item.status !== 'READY').map((item) => item.blocker);
-  if (blockers.length) return deepFreeze({ status: 'BLOCKED', blockers: Object.freeze(blockers), nodeRows: Object.freeze(lockedNodeRows(ordered)), elementRows: Object.freeze([]) });
+  const routeBlockers = [sourceRoute, targetRoute].filter((item) => item.status !== 'READY').map((item) => item.blocker);
+  if (routeBlockers.length) return deepFreeze({ status: 'BLOCKED', blockers: Object.freeze(routeBlockers), nodeRows: Object.freeze(lockedNodeRows(ordered)), elementRows: Object.freeze([]) });
   const toleranceMm = Number(options.lengthToleranceMm || 6); const sourcePath = routePath(sourceRoute, 'LOCKED-SOURCE', toleranceMm); const targetPath = routePath(targetRoute, 'LOCKED-TARGET', toleranceMm);
   const anchorOrderBlocker = intermediateAnchorBlocker(sourcePath, targetPath, ordered);
   if (anchorOrderBlocker) return deepFreeze({ status: 'BLOCKED', blockers: Object.freeze([anchorOrderBlocker]), nodeRows: Object.freeze(lockedNodeRows(ordered)), elementRows: Object.freeze([]) });
@@ -173,19 +174,21 @@ export function compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchorPairs
   const alignment = alignElementSequence(sourcePath, targetPath, (a, b) => ciiAlignmentScore(a, b, scoreOptions), options);
   const alignmentRows = deriveCiiAlignmentCorrespondence(alignment, scoreOptions); const subdivision = subdivisionEvidence(sourcePath, targetPath, { ...options, targetGraph });
   const pathScore = scorePathMatch(sourcePath, targetPath, options);
-  const elementRows = subdivision?.compatible ? [deepFreeze({
+  const pathGate = evaluateCiiAnchorPathGate(sourcePath, targetPath, alignment, subdivision, pathScore, options);
+  const rawElementRows = subdivision?.compatible ? [deepFreeze({
     correspondenceId: stableId('path', sourcePath.elements[0].elementId, ...targetPath.elements.map((edge) => edge.elementId)), kind: 'ELEMENT_PATH', sourceElementIds: Object.freeze([sourcePath.elements[0].elementId]),
     targetElementIds: Object.freeze(targetPath.elements.map((edge) => edge.elementId)), status: 'HIGH', authority: 'LOCKED_ANCHOR_SPAN_SUBDIVISION', evidence: deepFreeze({ subdivision, pathScore: Number(pathScore.toFixed(1)) }),
   })] : withCandidateEvidence(alignmentRows.elementRows, sourcePath, targetPath, scoreOptions);
+  const elementRows = applyCiiPathGateToRows(rawElementRows, pathGate);
   const nodeRows = [...lockedNodeRows(ordered), ...(subdivision?.compatible ? insertedRows(subdivision) : alignmentRows.nodeRows)];
   const custody = targetCustodyConflicts(elementRows); const hardConflicts = elementRows.filter((row) => row.status === 'CONFLICT');
   const ambiguity = elementRows.some((row) => row.status === 'REVIEW' && row.evidence?.candidates?.status === 'AMBIGUOUS');
   const matched = elementRows.some((row) => ['HIGH', 'REVIEW'].includes(row.status) || row.kind === 'ELEMENT_PATH');
-  const resultBlockers = custody.length ? ['TARGET_CUSTODY_AMBIGUOUS'] : [];
+  const resultBlockers = [...(custody.length ? ['TARGET_CUSTODY_AMBIGUOUS'] : []), ...pathGate.blockers];
   const status = hardConflicts.length ? 'CONFLICT' : (resultBlockers.length ? 'UNRESOLVED' : (matched ? 'READY' : 'UNRESOLVED'));
   return deepFreeze({
     schema: 'CIIWorkspaceCorrespondence.v1', status, blockers: Object.freeze(resultBlockers), ambiguityRetained: ambiguity, targetCustodyConflicts: custody,
-    correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, ordered, elementRows), pathScore: Number(pathScore.toFixed(1)), sourcePath, targetPath,
+    correspondenceIdentity: correspondenceIdentity(sourceGraph, targetGraph, ordered, elementRows), pathScore: Number(pathScore.toFixed(1)), pathGate, sourcePath, targetPath,
     alignment: deepFreeze({ score: alignment.score, operations: alignment.operations.map((op) => ({ op: op.op, sourceElementId: op.refEdge?.elementId || null, targetElementId: op.targetEdge?.elementId || null })) }),
     nodeRows: Object.freeze(nodeRows), elementRows: Object.freeze(elementRows),
   });
