@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE_HARDENED_NEW_FILE_CORE_VALIDATION_REQUIRED
+claim_state: ACTIVE_FOCUSED_EXECUTION_VALIDATED_OWNER_DECISIONS_REQUIRED
 files:
   exact: []
   prefixes:
@@ -36,17 +36,21 @@ forbidden_existing_file_edits:
   - xml-compare/**
   - converters/**
 implementation_claims:
-  - bounded candidate evidence with winner gap and target custody is present in new CII Workspace files
-  - production alignElementPaths path-candidate authority is consumed read-only
+  - bounded candidate evidence with winner gap and target custody is present
+  - production alignElementPaths authority is consumed read-only
   - multi-hop neighbourhood and path-sequence/rigid-length evidence are implemented
-  - review decisions are bound to source/target content and correspondence decision identity
+  - review decisions are bound to source/target content and correspondence identity
+  - engineer LOCK authority is distinct from computed confidence
   - NODE, ELEMENT_PATH, and explicit RIGID COMPONENT custody are separated
   - one-anchor correspondence is supported but review-gated
   - NODENAME raw-block mapping is identity-bound to avoid parsed-ordinal drift
-validation_state: POST_AUDIT_HARDENED_HEAD_NOT_RUN
+  - reroute and false-subdivision path gates fail closed
+validation_state: GE008_FOCUSED_EXECUTION_VALIDATED
+validated_product_head: 565d619b99ee188cb5b4a60797f1578744786ee5
 validation_note: >-
-  Do not reuse the earlier 15/15 focused PASS claim for the hardened head.
-  Fresh executable validation, XML topology regression and Revision Compare regression are NOT_RUN.
+  20 current CII Workspace tests PASS in a fresh reconstructed sweep. Root output.cii
+  intake is BLOCKED_BY_AUTHORITY. Focused exact-baseline path-aligner and Revision Compare
+  matching/custody regressions PASS. Full XML and Revision Compare suites remain NOT_RUN.
 protected_blockers:
   - zero-OD root output.cii versus parser/sections/elements.js element-start authority
   - live Utilities registration versus owner-locked tabs/psnm-utility-tab.js
