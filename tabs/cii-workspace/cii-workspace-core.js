@@ -7,6 +7,7 @@ import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-wo
 import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
 import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
+import { bindCiiCorrespondenceIdentity } from './cii-workspace-identity.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
@@ -71,7 +72,8 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   });
   const baseCorrespondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
   const nodeGatedCorrespondence = applyCiiNodeCustodyGates(baseCorrespondence, sourceGraph);
-  const correspondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
+  const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
+  const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
   const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan, landmarks);
