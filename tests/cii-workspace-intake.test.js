@@ -5,10 +5,17 @@ import { intakeCiiWorkspaceDocument } from '../tabs/cii-workspace/cii-workspace-
 
 const text = fs.readFileSync(new URL('../output.cii', import.meta.url), 'utf8');
 const document = await intakeCiiWorkspaceDocument(text, 'output.cii', { side: 'SOURCE', cryptoRef: webcrypto });
+const renamed = await intakeCiiWorkspaceDocument(text, 'renamed-copy.cii', { side: 'TARGET', cryptoRef: webcrypto });
 assert.strictEqual(document.schema, 'CIIWorkspaceDocument.v1');
 assert.strictEqual(document.format, 'NEUTRAL');
 assert(document.summary.elementCount > 0);
 assert(/^[a-f0-9]{64}$/.test(document.contentSha256));
+assert.strictEqual(document.contentSha256, renamed.contentSha256);
+assert.strictEqual(document.side, 'SOURCE');
+assert.strictEqual(renamed.side, 'TARGET');
 assert.strictEqual(document.parserAuthority, 'parser/caesar-parser.js');
 assert(document.parserAlias.endsWith('.accdb'));
+assert.strictEqual(document.nodeNameEvidence.schema, 'CIIWorkspaceNodeNameEvidence.v1');
+assert.strictEqual(document.summary.nodeNameCount, Object.keys(document.nodeNames).length);
+assert.strictEqual(document.summary.nodeNameConflictCount, document.nodeNameEvidence.conflicts.length);
 console.log('CII Workspace neutral intake checks passed.');
