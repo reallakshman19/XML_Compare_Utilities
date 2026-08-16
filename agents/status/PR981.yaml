@@ -4,44 +4,49 @@ pr_or_wip: PR981
 mission: CII Workspace V1 anchored topology correspondence and property-transfer preview
 workstream: cii-workspace-v1
 branch: agent/issue-980-cii-workspace-v1
-product_code_head: 5927971e00172b8892495fedfff3dc1ebb820346
-validation_head: 2b4caacfe4147d8b5f3c3d0bb724e445877a7eb1
 main_head_last_checked: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_WITH_TWO_PROTECTED_AUTHORITY_BLOCKERS
-pr_recovery_state: HEALTHY_WITH_EXTERNAL_AUTHORITY_BLOCKERS
-handover_readiness: READY
+agent_state: HARDENED_NEW_FILE_CORE_VALIDATION_REQUIRED
+pr_recovery_state: READY_FOR_VALIDATION_TAKEOVER
+handover_readiness: READY_FOR_VALIDATION_TAKEOVER
 report_path: agents/PR981_workreport.md
-appendix_a_status: CURRENT_QUALIFIED
-grounding_epoch: GE-006
-current_stage: NEW_FILE_V1_NEAR_COMPLETE_AUTHORITY_BLOCKED
-stage_percentages:
-  stage01_intake: 88
-  stage02_anchors: 96
-  stage03_topology_path: 96
-  stage04_review: 96
-  stage05_transfer_preview: 94
-  stage06_placeholder_v1: 100
-  stage07_validation_export: 95
-  utilities_registration: 0
-aggregate:
-  new_file_v1_implementation: 96
-  authorized_validation: 94
-  seven_stage_readiness_excluding_registry: 95
-  full_product_acceptance_including_registry: 83
-validation_summary: 15 of 15 focused executable CII Workspace tests PASS; all new CII Workspace JS modules remain below 300 physical lines
-completed_this_epoch:
-  - production path-aligner topology/subdivision and determinism validation
-  - alternate-route, anchor-order, and outside-span fail-closed gates
-  - parser-backed real benchmark intake
-  - rigid component custody and ambiguity validation
-  - deterministic enriched audit CSV/JSON
-  - exact-one shell lifecycle, review refresh, export, destroy/reopen
-  - deterministic evidence-only suggested landmarks
-  - stale review/export invalidation after file or anchor changes
+appendix_a_status: OWNER_RECORDED_QUALIFIED
+qualification_evidence_note: owner QUALIFIED marker exists; five scored answers are not present in Issue #980 discussion
+scope_authority: NEW_FILES_ONLY
+validation_state: POST_AUDIT_HARDENED_HEAD_NOT_RUN
+validation_summary: >-
+  GE-007 hardened candidate/winner-gap, multi-hop evidence, permutation identity,
+  review binding, component custody, one-anchor behavior and NODENAME ordinal mapping.
+  Fresh executable validation has NOT_RUN in the connector-only environment and no
+  GitHub Actions run is attached to the current head. Prior 15/15 focused evidence is stale.
+acceptance_matrix:
+  intake_parser_supported_cii: IMPLEMENTED_VALIDATION_REQUIRED
+  root_output_cii_zero_od: BLOCKED_BY_PARSER_AUTHORITY
+  anchor_contract_and_one_anchor: HARDENED_VALIDATION_REQUIRED
+  topology_path_reuse: HARDENED_VALIDATION_REQUIRED
+  bounded_candidate_winner_gap: HARDENED_VALIDATION_REQUIRED
+  multihop_neighbourhood: HARDENED_VALIDATION_REQUIRED
+  structural_conflicts: HARDENED_VALIDATION_REQUIRED
+  permutation_determinism: HARDENED_VALIDATION_REQUIRED
+  target_custody: HARDENED_VALIDATION_REQUIRED
+  review_identity_binding: HARDENED_VALIDATION_REQUIRED
+  node_element_component_separation: HARDENED_VALIDATION_REQUIRED
+  transfer_preview: HARDENED_VALIDATION_REQUIRED
+  stage06_placeholder: IMPLEMENTED_VALIDATION_REQUIRED
+  audit_export: HARDENED_VALIDATION_REQUIRED
+  xml_topology_regression: NOT_RUN
+  revision_compare_regression: NOT_RUN
+  utilities_registration: BLOCKED_BY_AUTHORITY
 blockers:
-  - output.cii first element has zero OD and is rejected by protected parser/sections/elements.js heuristic; resolution requires parsing-authority decision, not a local bypass
+  - root output.cii first element has zero OD and protected parser/sections/elements.js rejects it under the current element-start heuristic
   - live Utilities registration requires editing existing tabs/psnm-utility-tab.js, forbidden by current owner instruction
-exact_next_action: no protected-authority workaround; broaden new-file-only real CII pair fixtures if useful, otherwise owner decision is required for Stage01 zero-OD parsing authority and Utilities registry integration
-last_updated: 2026-08-16T16:25:00+04:00
+  - fresh current-head execution validation is unavailable in the connector-only environment
+known_limits:
+  - broader interior rigid-component ownership remains fail-closed outside the supportable unique-terminal record slice
+  - CII Workspace tests are not registered in existing package.json scripts because existing files remain read-only
+exact_next_action: >-
+  Run all current CII Workspace tests plus Issue #980 XML topology and Revision Compare
+  regressions in an authenticated checkout/CI, classify each PASS/FAIL/NOT_RUN with oracle,
+  then request owner authority only for the zero-OD parser decision and Utilities registry edit.
+last_updated: 2026-08-16T18:10:00+04:00
