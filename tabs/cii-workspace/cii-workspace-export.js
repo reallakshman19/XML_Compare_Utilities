@@ -1,13 +1,13 @@
 import { stableStringify, uniqueStrings } from './cii-workspace-contracts.js';
 
 function csvCell(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
-function rowSource(row) { return row.sourceNodeId || (row.sourceElementIds || [row.sourceElementId]).filter(Boolean).join('|') || ''; }
-function rowTarget(row) { return row.targetNodeId || (row.targetElementIds || []).filter(Boolean).join('|') || ''; }
+function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || (row.sourceElementIds || [row.sourceElementId]).filter(Boolean).join('|') || ''; }
+function rowTarget(row) { return row.targetNodeId || row.targetComponentId || (row.targetElementIds || []).filter(Boolean).join('|') || ''; }
 function rowOperation(row) {
   if (row.status === 'INSERTED') return 'INSERT_TARGET';
   if (row.status === 'DELETED') return 'DELETE_SOURCE';
   if (row.kind === 'ELEMENT_PATH' && (row.targetElementIds || []).length > 1) return 'SOURCE_1_TO_TARGET_N';
-  return row.sourceNodeId || row.sourceElementId || row.sourceElementIds?.length ? 'MATCH' : 'UNRESOLVED';
+  return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.length ? 'MATCH' : 'UNRESOLVED';
 }
 function reviewDecision(row, review) {
   if (row.status === 'LOCKED') return 'LOCKED';
@@ -29,7 +29,11 @@ function transferFields(row, transferPlan) {
 }
 
 export function correspondenceRowsToCsv(correspondence, context = {}) {
-  const rows = [...(correspondence?.nodeRows || []), ...(correspondence?.elementRows || [])].map((row) => {
+  const rows = [
+    ...(correspondence?.nodeRows || []),
+    ...(correspondence?.elementRows || []),
+    ...(correspondence?.componentRows || []),
+  ].map((row) => {
     const transfer = transferFields(row, context.transferPlan);
     return {
       kind: row.kind,
