@@ -60,6 +60,12 @@ function sequenceSimilarity(source, target) {
   return matches / length;
 }
 
+function stationFraction(edge) {
+  if (edge?.pathStationMidMm == null) return null;
+  const total = Number(edge.pathTotalLengthMm || edge.pathTotalVectorLengthMm || 0);
+  return total > 0 ? Number(edge.pathStationMidMm) / total : null;
+}
+
 function midpoint(edge) {
   if (!edge?.fromPos || !edge?.toPos) return null;
   return {
@@ -89,8 +95,8 @@ export function scoreCiiEdgeCandidate(source, target, options = {}) {
   const componentKind = source.componentKind === target.componentKind ? 12 : (source.componentKind === 'PIPE' && target.componentKind === 'BEND' ? 2 : 0);
   const rigidLength = source.componentKind === 'RIGID' && target.componentKind === 'RIGID'
     ? 8 * closeness(source.lengthMm, target.lengthMm, options.rigidLengthToleranceMm || 6) : 0;
-  const pathStation = source.pathStationMidMm != null && target.pathStationMidMm != null
-    ? 10 * closeness(source.pathStationMidMm / Math.max(source.pathTotalLengthMm || 1, 1), target.pathStationMidMm / Math.max(target.pathTotalLengthMm || 1, 1), 0.08) : 0;
+  const sourceStation = stationFraction(source); const targetStation = stationFraction(target);
+  const pathStation = sourceStation != null && targetStation != null ? 10 * closeness(sourceStation, targetStation, 0.08) : 0;
   const geometry = geometryEvidence(source, target, options.geometryTransform);
   const components = { topology, neighbourhood, pathSequence, length, od, wall, componentKind, rigidLength, pathStation, registeredGeometry: geometry.score };
   const score = blockers.length ? 0 : Math.min(100, Object.values(components).reduce((sum, value) => sum + value, 0));
