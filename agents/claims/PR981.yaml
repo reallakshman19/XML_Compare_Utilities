@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE_BLOCKED_ON_INTEGRATION_AUTHORITY
+claim_state: ACTIVE_BLOCKED_ON_PROTECTED_AUTHORITIES
 files:
   exact: []
   prefixes:
@@ -12,6 +12,7 @@ files:
 authority_domains:
   - CII_WORKSPACE_CORRESPONDENCE
   - CII_WORKSPACE_TRANSFER_PREVIEW
+  - CII_WORKSPACE_AUDIT_EXPORT
   - CII_WORKSPACE_PLACEHOLDER_GATE
 claim_modes:
   - EXCLUSIVE
@@ -22,6 +23,7 @@ shared_read_authorities:
   - tabs/revision-compare/revision-compare-matching.js
   - tabs/revision-compare/revision-transfer-plan.js
 observe_only_references:
+  - converters/xml-cii2019-core/output-normalizer.js
   - reallaksh19/3D_Converters
 forbidden_existing_file_edits:
   - tabs/psnm-utility-tab.js
@@ -29,4 +31,6 @@ forbidden_existing_file_edits:
   - tabs/model-converters/**
   - parser/**
   - xml-compare/**
-last_verified_product_head: c86fc9ce50aa65c539989c7a8ad04d79d7e2371f
+  - converters/**
+last_verified_product_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
+validation_state: STAGE03_PASS_STAGE07_DETERMINISTIC_OUTPUT_CII_ZERO_OD_AUTHORITY_BLOCKED
