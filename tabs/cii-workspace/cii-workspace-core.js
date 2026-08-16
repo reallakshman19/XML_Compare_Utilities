@@ -46,9 +46,19 @@ function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit
     mutationAuthority: Object.freeze({ stage06: 'NOT_IMPLEMENTED', modifiedTargetCiiExport: 'BLOCKED' }),
   });
 }
+function inspectionSummary(document, graph) {
+  const componentCounts = {};
+  for (const edge of graph?.edges || []) componentCounts[edge.componentKind] = (componentCounts[edge.componentKind] || 0) + 1;
+  return deepFreeze({
+    ...document.summary,
+    terminalCount: (graph?.nodes || []).filter((node) => Number(node.degree) === 1).length,
+    branchCount: (graph?.nodes || []).filter((node) => Number(node.degree) >= 3).length,
+    componentCounts,
+  });
+}
 function inspectionSide(document, graph, options) {
   return Object.freeze({
-    fileName: document.fileName, contentSha256: document.contentSha256, summary: document.summary,
+    fileName: document.fileName, contentSha256: document.contentSha256, summary: inspectionSummary(document, graph),
     landmarks: suggestCiiLandmarks(graph, options),
   });
 }
