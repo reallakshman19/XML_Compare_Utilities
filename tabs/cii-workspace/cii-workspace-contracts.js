@@ -1,11 +1,14 @@
 export const CII_WORKSPACE_SCHEMAS = Object.freeze({
   document: 'CIIWorkspaceDocument.v1',
   graph: 'CIIWorkspaceGraph.v1',
-  stage: 'CIIWorkspaceStage.v1',
+  anchor: 'CIIWorkspaceAnchor.v1',
+  candidateEvidence: 'CIIWorkspaceCandidateEvidence.v1',
   correspondence: 'CIIWorkspaceCorrespondence.v1',
+  reviewLedger: 'CIIWorkspaceReviewLedger.v1',
   transferPlan: 'CIIWorkspaceTransferPlan.v1',
   transferOperation: 'CIIWorkspaceTransferOperation.v1',
   audit: 'CIIWorkspaceAudit.v1',
+  stage: 'CIIWorkspaceStage.v1',
   inspection: 'CIIWorkspaceInspection.v1',
   landmarkSuggestion: 'CIIWorkspaceLandmarkSuggestion.v1',
 });
@@ -31,6 +34,8 @@ export function stableStringify(value) {
   const normalize = (item) => {
     if (Array.isArray(item)) return item.map(normalize);
     if (!item || typeof item !== 'object') return item;
+    if (item instanceof Map) return normalize(Object.fromEntries([...item.entries()].sort(([a], [b]) => String(a).localeCompare(String(b)))));
+    if (item instanceof Set) return normalize([...item].sort());
     return Object.fromEntries(Object.keys(item).sort().map((key) => [key, normalize(item[key])]));
   };
   return JSON.stringify(normalize(value));
