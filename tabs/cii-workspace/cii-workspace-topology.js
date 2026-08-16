@@ -72,6 +72,10 @@ function routePath(route, pathId, toleranceMm) {
 }
 
 function pathNodes(path) { return [path.startNode, ...path.elements.map((edge) => edge.routeTo)]; }
+function pathVectorLength(path) {
+  const vector = (path?.elements || []).reduce((sum, edge) => ({ x: sum.x + Number(edge.dx || 0), y: sum.y + Number(edge.dy || 0), z: sum.z + Number(edge.dz || 0) }), { x: 0, y: 0, z: 0 });
+  return Math.hypot(vector.x, vector.y, vector.z);
+}
 function intermediateAnchorBlocker(sourcePath, targetPath, anchors) {
   if (anchors.length <= 2) return '';
   const sourceNodes = pathNodes(sourcePath); const targetNodes = pathNodes(targetPath); let sourceLast = -1; let targetLast = -1;
@@ -91,9 +95,26 @@ function subdivisionEvidence(sourcePath, targetPath, options) {
   const lengthDeltaMm = Math.abs(sourcePath.totalLengthMm - targetPath.totalLengthMm);
   const lengthOk = lengthDeltaMm <= Number(options.pathLengthToleranceMm || 25);
   const diameterOk = targetPath.elements.every((edge) => Math.abs(edge.diameter - source.diameter) <= Number(options.diameterToleranceMm || 2));
+  const wallOk = targetPath.elements.every((edge) => Math.abs(edge.wall - source.wall) <= Number(options.wallToleranceMm || 1));
   const componentOk = targetPath.elements.every((edge) => edge.componentKind === 'PIPE');
   const transitionOk = targetPath.elements.every((edge) => !edge.fromContext?.sizeTransition && !edge.toContext?.sizeTransition);
-  return deepFreeze({ compatible: lengthOk && diameterOk && componentOk && transitionOk, lengthDeltaMm, lengthOk, diameterOk, componentOk, transitionOk, internalNodes });
+  const sourceStraightness = pathVectorLength(sourcePath) / Math.max(sourcePath.totalLengthMm, 1);
+  const targetStraightness = pathVectorLength(targetPath) / Math.max(targetPath.totalLengthMm, 1);
+  const straightnessOk = targetStraightness >= Number(options.subdivisionMinStraightness ?? 0.995)
+    && Math.abs(sourceStraightness - targetStraightness) <= Number(options.subdivisionStraightnessTolerance ?? 0.01);
+  const evidenceFamilies = deepFreeze({
+    topology: { internalDegree2: true, sourceEndpointDegrees: [source.fromContext?.degree || 0, source.toContext?.degree || 0], targetEndpointDegrees: [targetPath.elements[0]?.fromContext?.degree || 0, targetPath.elements.at(-1)?.toContext?.degree || 0] },
+    neighbourhood: { source: [source.fromContext?.neighbourhoodLayers || [], source.toContext?.neighbourhoodLayers || []], target: [targetPath.elements[0]?.fromContext?.neighbourhoodLayers || [], targetPath.elements.at(-1)?.toContext?.neighbourhoodLayers || []] },
+    pathSequence: { source: [source.componentKind], target: targetPath.elements.map((edge) => edge.componentKind) },
+    od: { source: source.diameter, target: targetPath.elements.map((edge) => edge.diameter), compatible: diameterOk },
+    wall: { source: source.wall, target: targetPath.elements.map((edge) => edge.wall), compatible: wallOk },
+    componentKind: { source: source.componentKind, target: targetPath.elements.map((edge) => edge.componentKind), compatible: componentOk },
+    rigidLength: { applicable: false },
+    pathStation: { sourceLengthMm: sourcePath.totalLengthMm, targetLengthMm: targetPath.totalLengthMm, lengthDeltaMm },
+    registeredGeometry: { available: options.geometryTransform?.status === 'READY', transformStatus: options.geometryTransform?.status || 'UNAVAILABLE' },
+  });
+  const compatible = lengthOk && diameterOk && wallOk && componentOk && transitionOk && straightnessOk;
+  return deepFreeze({ compatible, lengthDeltaMm, lengthOk, diameterOk, wallOk, componentOk, transitionOk, straightnessOk, sourceStraightness, targetStraightness, internalNodes, evidenceFamilies });
 }
 
 function lockedNodeRows(anchorPairs) {
