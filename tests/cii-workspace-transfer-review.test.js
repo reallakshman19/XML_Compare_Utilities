@@ -26,8 +26,15 @@ assert.strictEqual(reviewed.operations[0].proposed, 'VALVE-N1');
 assert.strictEqual(reviewed.operations[0].matchAuthority.status, 'REVIEWED');
 assert.strictEqual(reviewed.operations[0].matchAuthority.candidateStatus, 'HIGH');
 
+const locked = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, ledger(correspondence, {
+  lockedCorrespondenceIds: [row.correspondenceId],
+}));
+assert.strictEqual(locked.operations.length, 1);
+assert.strictEqual(locked.operations[0].matchAuthority.status, 'LOCKED');
+assert.strictEqual(locked.operations[0].matchAuthority.candidateStatus, 'HIGH', 'engineer LOCK is authority and must not rewrite computed confidence');
+
 const stale = createCiiTransferPreview(sourceDocument, { ...targetDocument, contentSha256: 't2' }, sourceGraph, targetGraph, correspondence, ledger(correspondence, {
-  reviewedCorrespondenceIds: [row.correspondenceId],
+  lockedCorrespondenceIds: [row.correspondenceId],
 }));
 assert.strictEqual(stale.operations.length, 0);
 assert(stale.blockers.includes('STALE_REVIEW_TARGET_IDENTITY'));
@@ -37,7 +44,7 @@ const insertedCorrespondence = {
   nodeRows: [{ ...row, correspondenceId: 'insert:5010', sourceNodeId: null, status: 'INSERTED' }], elementRows: [],
 };
 const inserted = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, insertedCorrespondence, ledger(insertedCorrespondence, {
-  reviewedCorrespondenceIds: ['insert:5010'],
+  lockedCorrespondenceIds: ['insert:5010'],
 }));
 assert.strictEqual(inserted.operations.length, 0);
 
@@ -45,9 +52,9 @@ const conflictedCorrespondence = {
   status: 'CONFLICT', correspondenceIdentity: 'corr-conflict', nodeRows: [{ ...row, status: 'CONFLICT' }], elementRows: [],
 };
 const conflicted = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, conflictedCorrespondence, ledger(conflictedCorrespondence, {
-  reviewedCorrespondenceIds: [row.correspondenceId],
+  lockedCorrespondenceIds: [row.correspondenceId],
 }));
 assert.strictEqual(conflicted.operations.length, 0);
 assert(conflicted.blockers.includes('CORRESPONDENCE_CONTAINS_STRUCTURAL_CONFLICT'));
 
-console.log('CII Workspace bound-review NodeName custody checks passed.');
+console.log('CII Workspace bound-review/LOCKED NodeName custody checks passed.');
