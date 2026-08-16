@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE
+claim_state: ACTIVE_BLOCKED_ON_INTEGRATION_AUTHORITY
 files:
   exact: []
   prefixes:
@@ -29,4 +29,4 @@ forbidden_existing_file_edits:
   - tabs/model-converters/**
   - parser/**
   - xml-compare/**
-last_verified_head: a82947f52d4371853c32784d8b776f7f4f6e01a6
+last_verified_product_head: 54cfa95e5bb0473f8b21d29ea720ee777c8e0480
