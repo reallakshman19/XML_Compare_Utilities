@@ -3,20 +3,35 @@ import { stableStringify } from '../tabs/cii-workspace/cii-workspace-contracts.j
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
 import { compareLockedCiiAnchorSpan } from '../tabs/cii-workspace/cii-workspace-topology.js';
 
-function makeDocument(side, offset) {
-  const elements = [
-    { index: 0, from: offset, to: offset + 10, dx: 500, dy: 0, dz: 0, length: 500, od: 273, wall: 8, P1: 10, T1: 100, hasBend: false },
-    { index: 1, from: offset + 10, to: offset + 20, dx: 500, dy: 0, dz: 0, length: 500, od: 273, wall: 8, P1: 10, T1: 100, hasBend: false },
+function element(from, to, length) {
+  return { from, to, dx: length, dy: 0, dz: 0, length, od: 273, wall: 8, P1: 10, T1: 100, hasBend: false };
+}
+function makeDocument(side, offset, order = [0, 1, 2]) {
+  const base = [
+    element(offset, offset + 10, 400),
+    element(offset + 10, offset + 20, 500),
+    element(offset + 20, offset + 30, 600),
   ];
-  const nodes = Object.fromEntries([offset, offset + 10, offset + 20].map((node) => [node, { x: node, y: 0, z: 0 }]));
+  const elements = order.map((position, index) => ({ ...base[position], index }));
+  const nodes = Object.fromEntries([offset, offset + 10, offset + 20, offset + 30].map((node, index) => [node, { x: index * 500, y: 0, z: 0 }]));
+  for (const item of elements) { item.fromPos = nodes[item.from]; item.toPos = nodes[item.to]; }
   return { schema: 'CIIWorkspaceDocument.v1', side, contentSha256: `${side}-sha`, nodeNames: {}, parsed: { elements, nodes, rigids: [] } };
 }
-function run() {
-  const source = adaptCiiDocumentToTopologyGraph(makeDocument('SOURCE', 100));
-  const target = adaptCiiDocumentToTopologyGraph(makeDocument('TARGET', 5000));
-  return compareLockedCiiAnchorSpan(source, target, [
-    { sourceNodeId: '100', targetNodeId: '5000' }, { sourceNodeId: '120', targetNodeId: '5020' },
+function run(sourceOrder, targetOrder) {
+  const source = adaptCiiDocumentToTopologyGraph(makeDocument('SOURCE', 100, sourceOrder));
+  const target = adaptCiiDocumentToTopologyGraph(makeDocument('TARGET', 5000, targetOrder));
+  const correspondence = compareLockedCiiAnchorSpan(source, target, [
+    { sourceNodeId: '100', targetNodeId: '5000' }, { sourceNodeId: '130', targetNodeId: '5030' },
   ]);
+  return { sourceEdges: source.edges, targetEdges: target.edges, correspondence };
 }
-assert.strictEqual(stableStringify(run()), stableStringify(run()));
-console.log('CII Workspace deterministic correspondence checks passed.');
+
+const canonical = stableStringify(run([0, 1, 2], [0, 1, 2]));
+for (const [sourceOrder, targetOrder] of [
+  [[2, 0, 1], [1, 2, 0]],
+  [[1, 2, 0], [2, 0, 1]],
+  [[2, 1, 0], [2, 1, 0]],
+]) {
+  assert.strictEqual(stableStringify(run(sourceOrder, targetOrder)), canonical, 'record-order permutations must produce identical canonical correspondence material');
+}
+console.log('CII Workspace permutation-invariant correspondence checks passed.');
