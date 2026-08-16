@@ -136,6 +136,14 @@ assert.strictEqual(shell.querySelector('[data-ciiw-refresh-review]').disabled, f
 assert.strictEqual(shell.querySelector('[data-ciiw-export-csv]').disabled, false);
 assert.strictEqual(shell.querySelector('[data-ciiw-export-json]').disabled, false);
 
+shell.querySelector('[data-ciiw-source-anchors]').value = '10,20,30';
+await shell.querySelector('[data-ciiw-source-anchors]').dispatch('input');
+assert.strictEqual(shell.querySelector('[data-ciiw-refresh-review]').disabled, true, 'anchor edits must invalidate stale review state');
+assert.strictEqual(shell.querySelector('[data-ciiw-export-csv]').disabled, true, 'anchor edits must invalidate stale exports');
+assert(/Locked anchors changed/.test(shell.querySelector('[data-ciiw-status]').textContent));
+shell.querySelector('[data-ciiw-source-anchors]').value = '10,20';
+await shell.querySelector('[data-ciiw-analyze]').click();
+
 const decisions = shell.querySelector('[data-ciiw-results]').querySelectorAll('[data-ciiw-decision]');
 assert(decisions.length >= 1, 'automated correspondence should expose review control');
 decisions[0].value = 'ACCEPT'; await decisions[0].dispatch('change');
@@ -147,6 +155,12 @@ await shell.querySelector('[data-ciiw-export-csv]').click();
 await shell.querySelector('[data-ciiw-export-json]').click();
 assert.deepStrictEqual(documentRef.downloads.map((item) => item.name), ['cii-correspondence.csv', 'cii-workspace-audit.json']);
 assert.strictEqual(shell.querySelector('[data-ciiw-apply]').disabled, true, 'review/export cannot enable Stage06');
+
+shell.querySelector('[data-ciiw-target]').files = [file('target-2.cii', cii(5000, 5010))];
+await shell.querySelector('[data-ciiw-target]').dispatch('change');
+assert.strictEqual(shell.querySelector('[data-ciiw-export-json]').disabled, true, 'file changes must invalidate stale export state');
+assert.strictEqual(shell.querySelector('[data-ciiw-landmarks]').innerHTML, '', 'file changes must clear prior landmark evidence');
+assert(/CII files changed/.test(shell.querySelector('[data-ciiw-status]').textContent));
 
 await shell.querySelector('[data-ciiw-close]').click();
 assert.strictEqual(overlay(documentRef), null, 'close must destroy and remove overlay');
