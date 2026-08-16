@@ -13,6 +13,7 @@ function reviewDecision(row, review) {
   if (row.status === 'LOCKED') return 'LOCKED';
   const id = row.correspondenceId;
   if ((review?.rejectedCorrespondenceIds || []).includes(id)) return 'REJECTED';
+  if ((review?.lockedCorrespondenceIds || []).includes(id)) return 'LOCKED';
   if ((review?.reviewedCorrespondenceIds || []).includes(id)) return 'ACCEPTED';
   return 'UNREVIEWED';
 }
