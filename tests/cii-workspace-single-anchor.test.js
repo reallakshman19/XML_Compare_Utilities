@@ -23,7 +23,7 @@ const oneAnchor = compareLockedCiiAnchorSpan(source, target, [{ sourceNodeId: '1
 assert.strictEqual(oneAnchor.status, 'READY');
 assert.strictEqual(oneAnchor.nodeRows[0].status, 'LOCKED');
 assert.strictEqual(oneAnchor.elementRows.length, 1);
-assert.strictEqual(oneAnchor.elementRows[0].status, 'HIGH');
+assert.strictEqual(oneAnchor.elementRows[0].status, 'REVIEW', 'one anchor may bound a unique candidate but does not by itself create HIGH authority');
 assert.strictEqual(oneAnchor.elementRows[0].evidence.candidates.status, 'SUPPORTED');
 
 const sourceBranch = graph('SOURCE', [edge(0, 100, 110), edge(1, 100, 120)]);
