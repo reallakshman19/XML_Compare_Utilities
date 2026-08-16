@@ -1,8 +1,11 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE_FOCUSED_EXECUTION_VALIDATED_OWNER_DECISIONS_REQUIRED
+claim_state: ACTIVE_APPROVED_INTEGRATION_IMPLEMENTED_FULL_VALIDATION_REQUIRED
 files:
-  exact: []
+  exact:
+    - converters/scripts/cii2019_section_rules.py
+    - tabs/psnm-utility-tab.js
+    - tests/test_inputxml_to_cii2019_diameter_policy.py
   prefixes:
     - tabs/cii-workspace/
     - tests/cii-workspace-
@@ -17,11 +20,17 @@ authority_domains:
   - CII_WORKSPACE_TRANSFER_PREVIEW
   - CII_WORKSPACE_AUDIT_EXPORT
   - CII_WORKSPACE_PLACEHOLDER_GATE
+  - CII2019_GENERATED_OD_COMPATIBILITY
+  - UTILITIES_CII_WORKSPACE_REGISTRATION
 claim_modes:
   - EXCLUSIVE
+owner_authorization:
+  issue_comment_id: 5308388872
+  scope: AUTH_001A_AND_AUTH_002
 shared_read_authorities:
   - parser/caesar-parser.js
   - parser/sections/elements.js
+  - converters/scripts/inputxml_to_cii2019.py
   - tabs/model-converters/xml-cii-inputxml-path-aligner.js
   - tabs/revision-compare/revision-compare-matching.js
   - tabs/revision-compare/revision-transfer-plan.js
@@ -29,12 +38,12 @@ observe_only_references:
   - converters/xml-cii2019-core/output-normalizer.js
   - reallaksh19/3D_Converters
 forbidden_existing_file_edits:
-  - tabs/psnm-utility-tab.js
+  - parser/**
   - tabs/revision-compare/**
   - tabs/model-converters/**
-  - parser/**
   - xml-compare/**
-  - converters/**
+  - converters/** EXCEPT converters/scripts/cii2019_section_rules.py
+  - tabs/** EXCEPT tabs/psnm-utility-tab.js and new tabs/cii-workspace/**
 implementation_claims:
   - bounded candidate evidence with winner gap and target custody is present
   - production alignElementPaths authority is consumed read-only
@@ -45,12 +54,19 @@ implementation_claims:
   - one-anchor correspondence is supported but review-gated
   - NODENAME raw-block mapping is identity-bound to avoid parsed-ordinal drift
   - reroute and false-subdivision path gates fail closed
-validation_state: GE008_FOCUSED_EXECUTION_VALIDATED
-validated_product_head: 565d619b99ee188cb5b4a60797f1578744786ee5
+  - generated CII2019 element OD below the neutral-parser threshold fails in existing pre-write section validation
+  - Utilities contains exactly one authoritative CII Workspace installer descriptor
+validation_state: GE010_FOCUSED_POST_INTEGRATION_VALIDATED
+validated_implementation_head: f5bfd5aeb4dc5cefef1583be12b94531dfa469f5
 validation_note: >-
-  20 current CII Workspace tests PASS in a fresh reconstructed sweep. Root output.cii
-  intake is BLOCKED_BY_AUTHORITY. Focused exact-baseline path-aligner and Revision Compare
-  matching/custody regressions PASS. Full XML and Revision Compare suites remain NOT_RUN.
-protected_blockers:
-  - zero-OD root output.cii versus parser/sections/elements.js element-start authority
-  - live Utilities registration versus owner-locked tabs/psnm-utility-tab.js
+  22 current CII Workspace JavaScript tests PASS in the reconstructed networkless sweep.
+  Focused diameter-policy harness PASS. Focused exact-baseline path-aligner and Revision
+  Compare matching/custody regressions PASS. Full XML, Revision Compare, Python converter,
+  and browser Utilities suites remain NOT_RUN; no GitHub Actions run is attached.
+remaining_validation_gates:
+  - full XML/model-converter regression suite
+  - full Revision Compare qualification/browser/scale suite
+  - Python converter/section-rule suite on an exact checkout
+  - real browser Utilities mount/destroy/re-entry smoke
+known_limit:
+  - broader interior rigid-component ownership remains fail-closed outside the unique-terminal record slice
