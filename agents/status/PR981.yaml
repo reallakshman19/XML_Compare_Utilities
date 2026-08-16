@@ -4,18 +4,31 @@ pr_or_wip: PR981
 mission: CII Workspace V1 anchored topology correspondence and property-transfer preview
 workstream: cii-workspace-v1
 branch: agent/issue-980-cii-workspace-v1
-product_head: c86fc9ce50aa65c539989c7a8ad04d79d7e2371f
+product_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
+validation_basis_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
 main_head_last_checked: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: ACTIVE_NEW_FILES_ONLY_INTEGRATION_BLOCKED
-pr_recovery_state: HEALTHY_WITH_EXTERNAL_INTEGRATION_BLOCKER
+agent_state: ACTIVE_NEW_FILES_ONLY_WITH_AUTHORITY_BLOCKERS
+pr_recovery_state: HEALTHY_WITH_EXTERNAL_AUTHORITY_BLOCKERS
 handover_readiness: READY
 report_path: agents/PR981_workreport.md
 appendix_a_status: CURRENT_QUALIFIED
-grounding_epoch: GE-004
-current_stage: CORE_HARDENED_VALIDATION_PARTIAL_INTEGRATION_BLOCKED
-blocker: live Utilities registration requires editing existing tabs/psnm-utility-tab.js, forbidden by current owner instruction
-highest_risk: real neutral rigid association plus repo-dependent parser/path-aligner integration remain unexecuted
-exact_next_action: run repo-dependent intake/topology/determinism tests in a full checkout or CI; do not edit existing registry/parser/topology/writer files without owner authorization
-last_updated: 2026-08-16T15:48:00+04:00
+grounding_epoch: GE-005
+current_stage: STAGE03_VALIDATED_STAGE07_HARDENED
+stage_percentages:
+  stage01_intake: 88
+  stage02_anchors: 82
+  stage03_topology_path: 92
+  stage04_review: 82
+  stage05_transfer_preview: 90
+  stage06_placeholder_v1: 100
+  stage07_validation_export: 90
+  utilities_registration: 0
+validation_summary: 12 focused executable CII Workspace tests PASS including production path-aligner integration, determinism, parser-backed benchmark intake, rigid custody, and deterministic enriched exports
+blockers:
+  - output.cii first element has zero OD and is rejected by protected parser/sections/elements.js heuristic; resolving requires parsing-authority decision, not a local bypass
+  - live Utilities registration requires editing existing tabs/psnm-utility-tab.js, forbidden by current owner instruction
+highest_risk: Stage01 coverage for neutral CII files with zero/missing OD cannot be broadened without changing or superseding protected parser authority
+exact_next_action: validate Stage04 shell lifecycle and Stage07 artifact behavior using new-file-only tests; do not alter parser or Utilities registry without explicit owner authorization
+last_updated: 2026-08-16T16:15:00+04:00
