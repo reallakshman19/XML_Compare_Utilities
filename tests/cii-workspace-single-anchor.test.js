@@ -28,7 +28,12 @@ assert.strictEqual(oneAnchor.elementRows[0].evidence.candidates.status, 'SUPPORT
 
 const sourceBranch = graph('SOURCE', [edge(0, 100, 110), edge(1, 100, 120)]);
 const targetSingle = graph('TARGET', [edge(0, 5000, 5010)]);
-const custody = compareLockedCiiAnchorSpan(sourceBranch, targetSingle, [{ sourceNodeId: '100', targetNodeId: '5000' }]);
+const custody = compareLockedCiiAnchorSpan(
+  sourceBranch,
+  targetSingle,
+  [{ sourceNodeId: '100', targetNodeId: '5000' }],
+  { candidatePassingScore: 40 },
+);
 assert.strictEqual(custody.status, 'UNRESOLVED');
 assert(custody.blockers.includes('TARGET_CUSTODY_AMBIGUOUS'));
 assert(custody.targetCustodyConflicts.length > 0);
