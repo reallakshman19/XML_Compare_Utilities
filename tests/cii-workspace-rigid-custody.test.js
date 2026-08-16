@@ -1,5 +1,6 @@
 import assert from 'assert';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
+import { attachCiiComponentCorrespondence } from '../tabs/cii-workspace/cii-workspace-components.js';
 import { createCiiTransferPreview } from '../tabs/cii-workspace/cii-workspace-transfer-plan.js';
 import { createCiiWorkspaceReviewLedger } from '../tabs/cii-workspace/cii-workspace-review.js';
 
@@ -27,21 +28,24 @@ const row = {
   sourceElementId: sourceGraph.edges[0].elementId, targetElementIds: [targetGraph.edges[0].elementId],
   status: 'HIGH', authority: 'LOCKED_ANCHOR_SPAN_ALIGNMENT',
 };
-const correspondence = { status: 'READY', correspondenceIdentity: 'corr-rigid', nodeRows: [], elementRows: [row] };
+const correspondence = attachCiiComponentCorrespondence({ status: 'READY', correspondenceIdentity: 'corr-rigid', nodeRows: [], elementRows: [row] }, sourceGraph, targetGraph);
+assert.strictEqual(correspondence.componentRows.length, 1);
+assert.strictEqual(correspondence.componentRows[0].kind, 'COMPONENT');
+const componentRow = correspondence.componentRows[0];
 const review = createCiiWorkspaceReviewLedger(sourceDocument, targetDocument, [], correspondence, {
-  reviewedCorrespondenceIds: [row.correspondenceId], rejectedCorrespondenceIds: [],
+  reviewedCorrespondenceIds: [componentRow.correspondenceId], rejectedCorrespondenceIds: [],
 });
 const plan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review);
 const rigid = plan.operations.find((operation) => operation.property === 'rigidWeight');
-assert(rigid, 'reviewed rigid↔rigid correspondence should create a rigidWeight preview');
+assert(rigid, 'reviewed rigid COMPONENT correspondence should create a rigidWeight preview');
 assert.strictEqual(rigid.status, 'PREVIEW_READY');
 assert.strictEqual(rigid.before, 10);
 assert.strictEqual(rigid.proposed, 25);
 assert.strictEqual(rigid.custody, 'RIGID_COMPONENT');
-assert.strictEqual(rigid.sourceEvidence.componentEvidence, 'UNIQUE_TERMINAL_RECORD');
+assert.strictEqual(rigid.matchAuthority.kind, 'COMPONENT');
 
 const ambiguousTargetDocument = document('TARGET', 6000, 6010, 10, [{ node: 6010, mass: 11 }]);
 const ambiguousTargetGraph = adaptCiiDocumentToTopologyGraph(ambiguousTargetDocument);
 assert.strictEqual(ambiguousTargetGraph.edges[0].rigidEvidence.status, 'AMBIGUOUS');
 assert.strictEqual(ambiguousTargetGraph.edges[0].componentKind, 'PIPE');
-console.log('CII Workspace rigid component custody checks passed.');
+console.log('CII Workspace rigid component correspondence/custody checks passed.');
