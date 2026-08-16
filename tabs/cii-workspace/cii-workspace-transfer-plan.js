@@ -8,20 +8,29 @@ function reviewed(review, correspondenceId) {
 }
 function blocked(blockers) { return blockers.length ? 'BLOCKED' : 'PREVIEW_READY'; }
 
-function operationBase(property, custody, row, source, target, before, proposed, blockers) {
+function operationBase(property, custody, row, source, target, before, proposed, blockers, authorityStatus = 'REVIEWED') {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferOperation,
     operationId: stableId('op', property, row.correspondenceId), direction: 'SOURCE_TO_TARGET',
     property, custody, sourceEvidence: source, targetEvidence: target,
-    matchAuthority: Object.freeze({ correspondenceId: row.correspondenceId, kind: row.kind, status: row.status, authority: row.authority || 'REVIEWED_CORRESPONDENCE' }),
+    matchAuthority: Object.freeze({
+      correspondenceId: row.correspondenceId,
+      kind: row.kind,
+      status: authorityStatus,
+      candidateStatus: row.status,
+      authority: row.authority || 'REVIEWED_CORRESPONDENCE',
+    }),
     before, proposed, status: blocked(blockers), blockers: Object.freeze(blockers),
   });
 }
 
-function nodeNameOperations(sourceGraph, targetGraph, correspondence) {
+function nodeNameOperations(sourceGraph, targetGraph, correspondence, review) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph); const operations = [];
   for (const row of correspondence?.nodeRows || []) {
-    if (!row.sourceNodeId || !row.targetNodeId || !['LOCKED', 'REVIEWED'].includes(row.status)) continue;
+    if (row.kind !== 'NODE' || !row.sourceNodeId || !row.targetNodeId) continue;
+    const locked = row.status === 'LOCKED';
+    if (!locked && !reviewed(review, row.correspondenceId)) continue;
+    if (['CONFLICT', 'UNRESOLVED', 'INSERTED', 'DELETED'].includes(row.status)) continue;
     const source = sourceNodes.get(String(row.sourceNodeId)); const target = targetNodes.get(String(row.targetNodeId));
     if (!source?.nodeName) continue;
     const before = target?.nodeName || ''; const blockers = [];
@@ -29,7 +38,8 @@ function nodeNameOperations(sourceGraph, targetGraph, correspondence) {
     if (before && before !== source.nodeName) blockers.push('TARGET_NODENAME_NONBLANK');
     operations.push(operationBase('NodeName', 'NODE', row,
       Object.freeze({ nodeId: source.id, nodeName: source.nodeName }),
-      Object.freeze({ nodeId: row.targetNodeId, nodeName: before }), before, source.nodeName, blockers));
+      Object.freeze({ nodeId: row.targetNodeId, nodeName: before }), before, source.nodeName, blockers,
+      locked ? 'LOCKED' : 'REVIEWED'));
   }
   return operations;
 }
@@ -37,6 +47,7 @@ function nodeNameOperations(sourceGraph, targetGraph, correspondence) {
 function sizeBlockers(sourceEdges, targetEdges, toleranceMm) {
   const blockers = [];
   if (!sourceEdges.length || !targetEdges.length) return ['ELEMENT_PATH_EVIDENCE_MISSING'];
+  if (sourceEdges.length !== 1) blockers.push('SOURCE_PATH_CARDINALITY_UNSUPPORTED');
   const reference = sourceEdges[0].diameter;
   if (sourceEdges.some((edge) => Math.abs(edge.diameter - reference) > toleranceMm)) blockers.push('SOURCE_PATH_SIZE_TRANSITION');
   if (targetEdges.some((edge) => Math.abs(edge.diameter - reference) > toleranceMm)) blockers.push('TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE');
@@ -86,7 +97,7 @@ function rigidWeightOperations(sourceGraph, targetGraph, correspondence, review,
 
 export function createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review = {}, options = {}) {
   const operations = [
-    ...nodeNameOperations(sourceGraph, targetGraph, correspondence),
+    ...nodeNameOperations(sourceGraph, targetGraph, correspondence, review),
     ...operatingOperations(sourceGraph, targetGraph, correspondence, review, options),
     ...rigidWeightOperations(sourceGraph, targetGraph, correspondence, review, options),
   ];
