@@ -1,4 +1,5 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId } from './cii-workspace-contracts.js';
+import { ciiReviewLedgerBlockers } from './cii-workspace-review.js';
 
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [edge.elementId, edge])); }
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
@@ -14,11 +15,8 @@ function operationBase(property, custody, row, source, target, before, proposed,
     operationId: stableId('op', property, row.correspondenceId), direction: 'SOURCE_TO_TARGET',
     property, custody, sourceEvidence: source, targetEvidence: target,
     matchAuthority: Object.freeze({
-      correspondenceId: row.correspondenceId,
-      kind: row.kind,
-      status: authorityStatus,
-      candidateStatus: row.status,
-      authority: row.authority || 'REVIEWED_CORRESPONDENCE',
+      correspondenceId: row.correspondenceId, kind: row.kind, status: authorityStatus,
+      candidateStatus: row.status, authority: row.authority || 'REVIEWED_CORRESPONDENCE',
     }),
     before, proposed, status: blocked(blockers), blockers: Object.freeze(blockers),
   });
@@ -37,9 +35,8 @@ function nodeNameOperations(sourceGraph, targetGraph, correspondence, review) {
     if (!target) blockers.push('TARGET_NODE_NOT_FOUND');
     if (before && before !== source.nodeName) blockers.push('TARGET_NODENAME_NONBLANK');
     operations.push(operationBase('NodeName', 'NODE', row,
-      Object.freeze({ nodeId: source.id, nodeName: source.nodeName }),
-      Object.freeze({ nodeId: row.targetNodeId, nodeName: before }), before, source.nodeName, blockers,
-      locked ? 'LOCKED' : 'REVIEWED'));
+      Object.freeze({ nodeId: source.id, nodeName: source.nodeName }), Object.freeze({ nodeId: row.targetNodeId, nodeName: before }),
+      before, source.nodeName, blockers, locked ? 'LOCKED' : 'REVIEWED'));
   }
   return operations;
 }
@@ -51,22 +48,20 @@ function sizeBlockers(sourceEdges, targetEdges, toleranceMm) {
   const reference = sourceEdges[0].diameter;
   if (sourceEdges.some((edge) => Math.abs(edge.diameter - reference) > toleranceMm)) blockers.push('SOURCE_PATH_SIZE_TRANSITION');
   if (targetEdges.some((edge) => Math.abs(edge.diameter - reference) > toleranceMm)) blockers.push('TARGET_PATH_SIZE_TRANSITION_UNREPRESENTED_IN_SOURCE');
-  return blockers;
+  if (targetEdges.some((edge) => edge.fromContext?.sizeTransition || edge.toContext?.sizeTransition)) blockers.push('TARGET_PATH_REDUCER_CONTEXT_REQUIRES_SPLIT');
+  return [...new Set(blockers)];
 }
 
 function operatingOperations(sourceGraph, targetGraph, correspondence, review, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const operations = [];
   for (const row of correspondence?.elementRows || []) {
     if (!reviewed(review, row.correspondenceId)) continue;
-    const sourceIds = row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : []);
-    const targetIds = row.targetElementIds || [];
-    const sources = sourceIds.map((id) => sourceEdges.get(id)).filter(Boolean);
-    const targets = targetIds.map((id) => targetEdges.get(id)).filter(Boolean);
+    const sourceIds = row.sourceElementIds || (row.sourceElementId ? [row.sourceElementId] : []); const targetIds = row.targetElementIds || [];
+    const sources = sourceIds.map((id) => sourceEdges.get(id)).filter(Boolean); const targets = targetIds.map((id) => targetEdges.get(id)).filter(Boolean);
     const baseBlockers = sizeBlockers(sources, targets, Number(options.diameterToleranceMm || 2));
     for (const property of ['P1', 'T1']) {
       const source = sources[0]; if (!source || !Number.isFinite(Number(source[property])) || Number(source[property]) === 0) continue;
-      const before = targets.map((edge) => Number(edge[property] || 0));
-      const blockers = [...baseBlockers];
+      const before = targets.map((edge) => Number(edge[property] || 0)); const blockers = [...baseBlockers];
       if (row.status === 'CONFLICT' || row.status === 'UNRESOLVED') blockers.push('CORRESPONDENCE_NOT_TRANSFERABLE');
       operations.push(operationBase(property, 'ELEMENT_PATH', row,
         Object.freeze({ elementIds: Object.freeze(sourceIds), value: Number(source[property]), unitAuthority: 'SOURCE_CII_NATIVE' }),
@@ -88,27 +83,40 @@ function rigidWeightOperations(sourceGraph, targetGraph, correspondence, review,
     if (source.rigidEvidence?.status !== 'UNIQUE_TERMINAL_RECORD' || target.rigidEvidence?.status !== 'UNIQUE_TERMINAL_RECORD') blockers.push('RIGID_COMPONENT_EVIDENCE_NOT_UNIQUE');
     if (Math.abs(source.lengthMm - target.lengthMm) > Number(options.rigidLengthToleranceMm || 6)) blockers.push('RIGID_LENGTH_INCOMPATIBLE');
     operations.push(operationBase('rigidWeight', 'RIGID_COMPONENT', row,
-      Object.freeze({ elementId: sourceId, mass: source.rigidEvidence?.mass ?? null, lengthMm: source.lengthMm }),
-      Object.freeze({ elementId: targetId, mass: target.rigidEvidence?.mass ?? null, lengthMm: target.lengthMm }),
+      Object.freeze({ componentEvidence: 'UNIQUE_TERMINAL_RECORD', elementId: sourceId, mass: source.rigidEvidence?.mass ?? null, lengthMm: source.lengthMm }),
+      Object.freeze({ componentEvidence: 'UNIQUE_TERMINAL_RECORD', elementId: targetId, mass: target.rigidEvidence?.mass ?? null, lengthMm: target.lengthMm }),
       target.rigidEvidence?.mass ?? null, source.rigidEvidence?.mass ?? null, blockers));
   }
   return operations;
 }
 
+function blockedPlan(sourceDocument, targetDocument, blockers) {
+  return deepFreeze({
+    schema: CII_WORKSPACE_SCHEMAS.transferPlan, direction: 'SOURCE_TO_TARGET',
+    sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
+    targetDocument: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256 }),
+    operations: Object.freeze([]), status: 'BLOCKED', blockers: Object.freeze(blockers),
+    summary: Object.freeze({ operationCount: 0, previewReadyCount: 0, blockedCount: 0 }),
+  });
+}
+
 export function createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review = {}, options = {}) {
+  const reviewBlockers = ciiReviewLedgerBlockers(review, sourceDocument, targetDocument, correspondence);
+  if (reviewBlockers.length) return blockedPlan(sourceDocument, targetDocument, reviewBlockers);
   const operations = [
     ...nodeNameOperations(sourceGraph, targetGraph, correspondence, review),
     ...operatingOperations(sourceGraph, targetGraph, correspondence, review, options),
     ...rigidWeightOperations(sourceGraph, targetGraph, correspondence, review, options),
   ];
-  const blockers = [];
+  const blockers = []; const readyCount = operations.filter((item) => item.status === 'PREVIEW_READY').length;
   if (!operations.length) blockers.push('NO_REVIEWED_TRANSFER_PREVIEW_OPERATIONS');
+  if (operations.length && !readyCount) blockers.push('NO_TRANSFERABLE_PREVIEW_OPERATIONS');
   if (correspondence?.status === 'CONFLICT') blockers.push('CORRESPONDENCE_CONTAINS_STRUCTURAL_CONFLICT');
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferPlan, direction: 'SOURCE_TO_TARGET',
     sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
     targetDocument: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256 }),
     operations: Object.freeze(operations), status: blockers.length ? 'BLOCKED' : 'PREVIEW_READY', blockers: Object.freeze(blockers),
-    summary: Object.freeze({ operationCount: operations.length, previewReadyCount: operations.filter((item) => item.status === 'PREVIEW_READY').length, blockedCount: operations.filter((item) => item.status === 'BLOCKED').length }),
+    summary: Object.freeze({ operationCount: operations.length, previewReadyCount: readyCount, blockedCount: operations.filter((item) => item.status === 'BLOCKED').length }),
   });
 }
