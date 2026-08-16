@@ -4,18 +4,18 @@ pr_or_wip: PR981
 mission: CII Workspace V1 anchored topology correspondence and property-transfer preview
 workstream: cii-workspace-v1
 branch: agent/issue-980-cii-workspace-v1
-product_head: 54cfa95e5bb0473f8b21d29ea720ee777c8e0480
+product_head: c86fc9ce50aa65c539989c7a8ad04d79d7e2371f
 main_head_last_checked: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
-agent_state: BLOCKED_ON_EXISTING_FILE_AUTHORITY
+agent_state: ACTIVE_NEW_FILES_ONLY_INTEGRATION_BLOCKED
 pr_recovery_state: HEALTHY_WITH_EXTERNAL_INTEGRATION_BLOCKER
 handover_readiness: READY
 report_path: agents/PR981_workreport.md
 appendix_a_status: CURRENT_QUALIFIED
-grounding_epoch: GE-003
-current_stage: CORE_IMPLEMENTED_VALIDATION_PARTIAL_INTEGRATION_BLOCKED
+grounding_epoch: GE-004
+current_stage: CORE_HARDENED_VALIDATION_PARTIAL_INTEGRATION_BLOCKED
 blocker: live Utilities registration requires editing existing tabs/psnm-utility-tab.js, forbidden by current owner instruction
-highest_risk: conservative NODENAME/rigid semantic inference needs real-fixture validation
-exact_next_action: obtain explicit owner authorization before registry integration; run repo-dependent intake/topology/determinism tests in full checkout or CI
-last_updated: 2026-08-16T15:30:00+04:00
+highest_risk: real neutral rigid association plus repo-dependent parser/path-aligner integration remain unexecuted
+exact_next_action: run repo-dependent intake/topology/determinism tests in a full checkout or CI; do not edit existing registry/parser/topology/writer files without owner authorization
+last_updated: 2026-08-16T15:48:00+04:00

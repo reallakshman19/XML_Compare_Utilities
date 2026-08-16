@@ -29,4 +29,4 @@ forbidden_existing_file_edits:
   - tabs/model-converters/**
   - parser/**
   - xml-compare/**
-last_verified_product_head: 54cfa95e5bb0473f8b21d29ea720ee777c8e0480
+last_verified_product_head: c86fc9ce50aa65c539989c7a8ad04d79d7e2371f
