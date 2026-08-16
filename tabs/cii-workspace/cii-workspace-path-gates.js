@@ -5,6 +5,7 @@ export function evaluateCiiAnchorPathGate(sourcePath, targetPath, alignment, sub
   const sourceLength = Number(sourcePath?.totalLengthMm || 0); const targetLength = Number(targetPath?.totalLengthMm || 0);
   const lengthDivergenceRatio = Math.abs(sourceLength - targetLength) / Math.max(sourceLength, targetLength, 1);
   const blockers = [];
+  if (subdivision && !subdivision.compatible) blockers.push('SUBDIVISION_SEMANTICS_INCOMPATIBLE');
   if (Number(pathScore) < Number(options.minAnchorPathScore ?? 45)) blockers.push('ANCHOR_PATH_SCORE_BELOW_MINIMUM');
   if (lengthDivergenceRatio > Number(options.maxAnchorPathLengthDivergence ?? 0.20)) blockers.push('ANCHOR_PATH_LENGTH_DIVERGENCE');
   const ops = new Set((alignment?.operations || []).map((item) => item.op));
@@ -21,9 +22,6 @@ export function applyCiiPathGateToRows(rows, pathGate) {
   if (pathGate?.status !== 'UNRESOLVED') return rows;
   return rows.map((row) => {
     if (!['HIGH', 'REVIEW'].includes(row.status)) return row;
-    return deepFreeze({
-      ...row, status: 'REVIEW',
-      evidence: deepFreeze({ ...(row.evidence || {}), pathGate }),
-    });
+    return deepFreeze({ ...row, status: 'REVIEW', evidence: deepFreeze({ ...(row.evidence || {}), pathGate }) });
   });
 }
