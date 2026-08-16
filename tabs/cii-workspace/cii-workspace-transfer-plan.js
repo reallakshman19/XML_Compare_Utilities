@@ -74,18 +74,17 @@ function operatingOperations(sourceGraph, targetGraph, correspondence, review, o
 
 function rigidWeightOperations(sourceGraph, targetGraph, correspondence, review, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const operations = [];
-  for (const row of correspondence?.elementRows || []) {
-    if (!reviewed(review, row.correspondenceId)) continue;
-    const sourceId = row.sourceElementId || row.sourceElementIds?.[0]; const targetId = row.targetElementIds?.[0];
+  for (const row of correspondence?.componentRows || []) {
+    if (row.kind !== 'COMPONENT' || row.componentKind !== 'RIGID' || !reviewed(review, row.correspondenceId)) continue;
+    const sourceId = row.sourceElementId; const targetId = row.targetElementIds?.[0];
     const source = sourceEdges.get(sourceId); const target = targetEdges.get(targetId);
-    if (!source || !target || source.componentKind !== 'RIGID' || target.componentKind !== 'RIGID') continue;
-    const blockers = [];
-    if (source.rigidEvidence?.status !== 'UNIQUE_TERMINAL_RECORD' || target.rigidEvidence?.status !== 'UNIQUE_TERMINAL_RECORD') blockers.push('RIGID_COMPONENT_EVIDENCE_NOT_UNIQUE');
+    if (!source || !target) continue;
+    const blockers = [...(row.evidence?.blockers || [])];
     if (Math.abs(source.lengthMm - target.lengthMm) > Number(options.rigidLengthToleranceMm || 6)) blockers.push('RIGID_LENGTH_INCOMPATIBLE');
     operations.push(operationBase('rigidWeight', 'RIGID_COMPONENT', row,
-      Object.freeze({ componentEvidence: 'UNIQUE_TERMINAL_RECORD', elementId: sourceId, mass: source.rigidEvidence?.mass ?? null, lengthMm: source.lengthMm }),
-      Object.freeze({ componentEvidence: 'UNIQUE_TERMINAL_RECORD', elementId: targetId, mass: target.rigidEvidence?.mass ?? null, lengthMm: target.lengthMm }),
-      target.rigidEvidence?.mass ?? null, source.rigidEvidence?.mass ?? null, blockers));
+      Object.freeze({ componentId: row.sourceComponentId, elementId: sourceId, mass: source.rigidEvidence?.mass ?? null, lengthMm: source.lengthMm }),
+      Object.freeze({ componentId: row.targetComponentId, elementId: targetId, mass: target.rigidEvidence?.mass ?? null, lengthMm: target.lengthMm }),
+      target.rigidEvidence?.mass ?? null, source.rigidEvidence?.mass ?? null, [...new Set(blockers)]));
   }
   return operations;
 }
