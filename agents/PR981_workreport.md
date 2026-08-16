@@ -5,8 +5,8 @@
 ## 1. Recovery Header
 
 ```text
-HANDOVER_READINESS: READY
-PR_RECOVERY_STATE: HEALTHY_WITH_EXTERNAL_AUTHORITY_BLOCKERS
+HANDOVER_READINESS: READY_FOR_VALIDATION_TAKEOVER
+PR_RECOVERY_STATE: HARDENED_NEW_FILE_CORE / VALIDATION_REQUIRED
 TAKEOVER_AUTHORITY: WRITE_ALLOWED (NEW FILES ONLY)
 EXECUTION_MODE: MANUAL
 AUTO_STATE: NOT_ACTIVE
@@ -16,162 +16,118 @@ REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #980
 PR_OR_WIP: PR981
 BRANCH: agent/issue-980-cii-workspace-v1
-PRODUCT_CODE_HEAD: 5927971e00172b8892495fedfff3dc1ebb820346
-VALIDATION_HEAD: 2b4caacfe4147d8b5f3c3d0bb724e445877a7eb1
 MAIN_HEAD_LAST_CHECKED: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 MERGE_BASE: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
-APPENDIX_A_STATUS: CURRENT / QUALIFIED
-GROUNDING_EPOCH: GE-006
-CURRENT_STAGE: NEW-FILE V1 NEAR COMPLETE / TWO PROTECTED AUTHORITY BLOCKERS
+APPENDIX_A_STATUS: OWNER RECORDED QUALIFIED ON ISSUE #980
+GROUNDING_EPOCH: GE-007 POST-AUDIT HARDENING
+CURRENT_STAGE: NEW-FILE IMPLEMENTATION HARDENED; CURRENT HEAD REQUIRES FRESH EXECUTION VALIDATION
 CURRENT_BLOCKERS:
 - Stage01 zero/missing-OD compatibility: repository output.cii is rejected by protected parser/sections/elements.js element-start heuristic.
 - Live Utilities registration: requires protected tabs/psnm-utility-tab.js edit.
-EXACT_NEXT_ACTION: do not bypass either authority; only broader new-file fixtures remain executable without owner scope expansion.
+- Fresh post-hardening execution evidence is not available from this connector-only environment; no GitHub Actions run is attached to the current head.
+EXACT_NEXT_ACTION: run the full CII Workspace test set plus Issue #980 T1-T12 regressions in an authenticated checkout/CI, classify every oracle, then resolve only the remaining protected parser/Utilities decisions with owner authority.
 ```
 
-## 2. Quantitative Status
+## 2. Why the prior percentages were retired
 
-Percentages are engineering completion estimates against Issue #980 acceptance, combining implemented behavior and observed validation. They are not GitHub-generated metrics.
+The previous report used self-assigned percentages and a `15/15 focused executable tests PASS` headline. A fresh audit found that those numbers obscured mandatory Issue #980 gaps: candidate winner-gap evidence, true permutation invariance, review identity binding, explicit component correspondence, one-anchor behavior, and the difference between selected focused tests and the full required oracle.
 
-| Stage | Effective | Observed evidence | Remaining |
-|---|---:|---|---|
-| **01 Intake & model summary** | **88%** | parser-backed real benchmark intake PASS; SHA identity PASS; fixed-width NODENAME pointer/conflict handling PASS; model summary shown in inspection UI | `output.cii` zero-OD first element is rejected by protected parser authority |
-| **02 Anchors** | **96%** | manual engineer-locked anchors; 1/2/3+ geometry gates PASS; deterministic terminal/branch/size-transition/rigid/bend/name landmark suggestions; suggestions explicitly evidence-only | broader real-file landmark ranking examples |
-| **03 Topology / path match** | **96%** | exact baseline path-aligner exports exercised; 1→N subdivision PASS; MATCH/INSERT/DELETE PASS; determinism PASS; gang/hard-conflict PASS; alternate-route/order/outside-span blockers PASS | broader large multi-span real CII pair corpus |
-| **04 Correspondence review** | **96%** | accept/reject ledger; reviewed NodeName custody; shell analyze→accept→refresh PASS; file/anchor edits invalidate stale review and exports; destroy/reopen PASS | richer browser/manual UX only |
-| **05 Property-transfer preview** | **94%** | NodeName/P1/T1 preview custody PASS; reducer/OD blockers PASS; rigid↔rigid custody PASS; ambiguous rigid fail-closed; shell review activates preview-only transfer | broader mixed-property real CII pair |
-| **06 Apply to target CII** | **100% for V1 placeholder requirement** | visible stable `NOT_IMPLEMENTED`; disabled action; bypass test; no writer/download route | actual mutation intentionally 0% and outside this Work Pack |
-| **07 Validation & export** | **95%** | deterministic correspondence and audit bytes; enriched CSV carries operation/confidence/authority/review/evidence/custody/status/blockers; shell CSV/JSON export PASS; modified target null | only broader real-file corpus |
-| **Utilities registration** | **0% / BLOCKED** | new installer exists and exact-one lifecycle test PASS when invoked | existing registry edit explicitly forbidden by owner |
+GE-007 therefore removes percentages as the primary readiness signal. The prior 15-test execution is inherited historical evidence only; it predates the hardening changes below and must not be represented as validation of the current head.
 
-Aggregate:
-- **new-file V1 implementation: ~96%**
-- **authorized validation: ~94%**
-- **seven-stage readiness excluding live Utilities registration: ~95%**
-- **full product acceptance including required Utilities placement: ~83%**
+## 3. Current acceptance matrix
 
-The full-product number remains materially lower because the required live registry integration is deliberately 0%, not hidden behind a workaround.
+| Area | Implementation state | Current evidence | Remaining |
+|---|---|---|---|
+| Intake / SHA / model summary | IMPLEMENTED for parser-supported neutral CII | code inspected; prior benchmark evidence inherited | root `output.cii` zero-OD parser-authority blocker; fresh run required |
+| NODENAME fixed-width custody | HARDENED | raw ELEMENTS blocks now bind to parsed elements by FROM/TO identity rather than parsed ordinal | execute normal/conflict/skipped-raw-block fixtures |
+| Manual anchors | HARDENED | `CIIWorkspaceAnchor.v1`; one or more locked pairs supported | fresh shell/core execution |
+| Geometry authority | IMPLEMENTED | one/two anchors remain underdetermined; 3+ non-collinear registration remains bounded | execute coordinate-invariance fixture |
+| Path/topology reuse | HARDENED | protected `buildElementPaths`, `scorePathMatch`, `alignElementSequence`, and `alignElementPaths` are consumed read-only | fresh production-path regression execution |
+| Candidate ambiguity | HARDENED | bounded alternatives, winner/runner-up gap, thresholds, reasons and audit-visible alternatives | execute adversarial gang fixture and larger real pairs |
+| Neighbourhood evidence | HARDENED | deterministic 1/2/3-hop degree/component/OD context | fresh fixture execution |
+| Structural contradictions | HARDENED | branch, rigid-kind, size-transition-context and gross OD incompatibility fail closed | fresh contradiction suite |
+| Determinism | HARDENED | element IDs no longer derive from parser record index; test now permutes source/target record order | execute permutation test and byte-identical audit check |
+| Target custody | HARDENED | duplicate target element claims are retained as conflicts | execute one-anchor/global custody fixture |
+| NODE custody | HARDENED | ambiguous adjacent element evidence downgrades non-locked node custody to REVIEW; LOCKED rows deduplicate and win authority | fresh execution |
+| ELEMENT/PATH custody | IMPLEMENTED / HARDENED | 1->N subdivision plus candidate evidence; reducer context blocks subdivision transfer semantics | fresh execution |
+| COMPONENT custody | HARDENED | explicit `COMPONENT` rigid correspondence exists separately from element rows | terminal-rigid slice only; broader interior rigid semantics remain conservative/unresolved |
+| Review authority | HARDENED | `CIIWorkspaceReviewLedger.v1` binds source SHA, target SHA, anchors and full correspondence/evidence identity | execute stale-source/target/correspondence tests |
+| Transfer preview | HARDENED | NodeName, P1/T1 and rigid weight require appropriate reviewed custody; reducer paths split/block; non-ready correspondence blocks plan | fresh execution |
+| Stage 06 placeholder | IMPLEMENTED / FAIL-CLOSED | no writer or modified-CII export added | fresh placeholder regression |
+| Audit / CSV | HARDENED | NODE + ELEMENT/PATH + COMPONENT evidence/custody exported; modified target remains null | fresh byte-determinism execution |
+| Live Utilities placement | BLOCKED_BY_AUTHORITY | installer exists but is intentionally not registered | owner authorization for one `tabs/psnm-utility-tab.js` edit |
+| XML topology regression | NOT_RUN for GE-007 | protected files not modified | execute existing XML topology/path fixtures |
+| Revision Compare regression | NOT_RUN for GE-007 | protected files not modified | execute existing Revision Compare suite |
 
-## 3. GE-006 Completed Work
+## 4. GE-007 hardening changes
 
-### Stage 03 — production topology validation
-The exact baseline `tabs/model-converters/xml-cii-inputxml-path-aligner.js` implementation at `b0f13c99...` was exercised with current CII adapters in a disposable local validation slice. No protected repository file was modified.
+### Candidate and path authority
 
-PASS:
-- anchored source-1→target-N subdivision with target internal node retained as `INSERTED`;
-- deterministic repeated correspondence;
-- explicit MATCH / INSERT_TARGET / DELETE_SOURCE rows;
-- gang-of-nodes greedy-local regression protection;
-- branch/rigid structural hard conflicts;
-- alternate physical route blocks automatic custody;
-- locked intermediate anchor order contradiction blocks;
-- locked intermediate anchor outside anchor span blocks.
+- Added `CIIWorkspaceCandidateEvidence.v1` with bounded candidates, winner/runner-up scores, explicit winner gap, threshold, reasons, and deterministic ordering.
+- Added read-only reuse of production `alignElementPaths()` for whole-path candidate/winner-gap audit evidence instead of relying only on one sequence alignment.
+- Locked-span matching still uses the production sequence aligner but now attaches candidate-alternative evidence and retains ambiguity.
+- Added target-custody conflict detection rather than allowing two source rows to silently claim one target.
 
-### Stage 01 — parser-backed qualification and blocker discovery
-A real repository benchmark slice from `converters/scripts/inputxml_profile_bm_cii_2019.cii` parses through protected `parser/caesar-parser.js` and current intake with FROM 10 / TO 20 / OD 114.3 / wall 6 / T1 350 / P1 2.
+### Evidence and hard conflicts
 
-`output.cii`, however, begins with an ELEMENTS row whose sixth field (diameter) is `0.00000`. The protected `parser/sections/elements.js` element-start heuristic requires the sixth value to be at least 10. That row therefore does not become an element and intake fails with `CII_WORKSPACE_ELEMENTS_REQUIRED`.
+- Replaced placeholder `pathSequence: 0` and `rigidLength: 0` with actual evidence.
+- Added deterministic multi-hop neighbourhood context through three hops.
+- Added fail-closed size-transition context and gross-OD contradictions; aggregate score cannot rescue those conflicts.
+- Path station evidence now normalizes both CII locked-span and reused production path-authority representations.
 
-This is a **protected parsing-authority mismatch**, not an unexecuted test. The repository also contains `converters/xml-cii2019-core/output-normalizer.js::parseCiiElements`, but CII Workspace has **not** silently promoted that separate primitive into parser authority. Owner qualification/scope expansion is required before changing this boundary.
+### Determinism
 
-### Stage 02 — suggested landmark evidence
-New `cii-workspace-landmarks.js` produces deterministic `CIIWorkspaceLandmarkSuggestion.v1` records from CII graph evidence:
-- BRANCH;
-- RIGID_ADJACENT;
-- SIZE_TRANSITION;
-- TERMINAL;
-- BEND_ADJACENT;
-- NAMED_NODE.
+- CII topology element IDs are canonicalized from engineering content rather than parser record index.
+- The determinism test now shuffles SOURCE and TARGET record order instead of merely running the same ordered input twice.
+- Final correspondence identity is bound to source/target content hashes, anchors, row status/authority and evidence material.
 
-Every computed record is:
-```text
-status = SUGGESTED
-authority = EVIDENCE_ONLY_ENGINEER_LOCK_REQUIRED
-```
+### Review and transfer custody
 
-It can never create `LOCKED`. The shell now lets the engineer inspect both models and see summaries + suggested landmarks before entering the manual SOURCE/TARGET locked-anchor pairs.
+- Added `CIIWorkspaceAnchor.v1`, `CIIWorkspaceReviewLedger.v1`, and `CIIWorkspaceCandidateEvidence.v1` contracts required by Issue #980.
+- Review decisions are fail-closed unless bound to current source SHA, target SHA and correspondence identity.
+- Node custody is downgraded when adjacent element correspondence remains ambiguous.
+- Added explicit `COMPONENT` rows for supportable rigid correspondence. Rigid-weight preview now requires review of a COMPONENT row, not a rigid-looking element row.
+- P1/T1 preview blocks reducer/size-transition paths and records a split-required blocker.
+- A transfer plan cannot be preview-ready when correspondence itself is not READY or when every proposed operation is blocked.
 
-### Stage 04 — review lifecycle and stale-state invalidation
-A test-only minimal DOM harness exercises the actual new installer/shell without adding npm dependencies or editing package/workflow files:
-- exactly one tile when installer invoked;
-- all seven stages visible;
-- Stage06 disabled;
-- model inspection + suggested landmarks;
-- manual locked anchors;
-- analysis;
-- engineer ACCEPT;
-- refresh to preview-only transfer;
-- CSV/JSON export;
-- close/destroy;
-- reopen;
-- uninstall.
+### One-anchor workflow and UI review
 
-Changing locked anchors invalidates review/export state. Changing either CII file additionally clears previous landmark evidence. Stale review decisions cannot remain actionable against new inputs.
+- One locked anchor pair is now accepted as authority. It can bound local candidates but does not establish registered geometry or automatically create HIGH confidence; inferred rows remain review-gated unless evidence independently clears the high threshold.
+- The review UI now exposes serialized evidence and candidate alternatives and includes COMPONENT rows.
+- Model inspection shows node/element/bend/rigid summary counts.
 
-### Stage 05 — rigid custody
-Unique supportable terminal RIGID records on SOURCE and TARGET produce reviewed `RIGID_COMPONENT` weight preview. Ambiguous rigid evidence stays unpromoted and fail-closed.
+### CII fixed-format NODENAME hardening
 
-### Stage 07 — deterministic explainable audit exports
-Correspondence CSV now includes:
-- kind;
-- operation (`MATCH`, `INSERT_TARGET`, `DELETE_SOURCE`, `SOURCE_1_TO_TARGET_N`);
-- confidence;
-- source / target;
-- correspondence ID;
-- authority;
-- review decision;
-- serialized evidence;
-- transfer properties;
-- transfer custodies;
-- transfer statuses;
-- blockers.
+The previous NODENAME adapter assumed `parsed.elements[index]` corresponded to raw ELEMENTS block `index`. That assumption is unsafe when the protected parser skips a raw block, such as a zero-OD row. The adapter now reads raw fixed-format blocks, records FROM/TO + pointer identity, and maps each parsed element back to its matching raw block. A new fixture covers a skipped first raw element so the surviving element cannot inherit the wrong NODENAME pointer.
 
-Same input state produces identical CSV and audit JSON bytes. `modifiedTargetCii` remains `null`; audit retains Stage06 `NOT_IMPLEMENTED`.
-
-## 4. Fresh Validation Ledger
+## 5. Validation ledger — current head
 
 ```text
-VAL-301 PASS — all new/changed CII Workspace JS in disposable validation slice parses with node --check
-VAL-302 PASS — every CII Workspace JS module remains <300 physical lines
-VAL-303 PASS — 15/15 focused executable tests
-VAL-304 PASS — exact baseline path-aligner integration: topology/subdivision
-VAL-305 PASS — exact baseline path-aligner integration: determinism
-VAL-306 PASS — alternate route / anchor order / outside-span fail-closed topology gates
-VAL-307 PASS — parser-backed real benchmark intake
-VAL-308 BLOCKED_BY_AUTHORITY — output.cii zero-OD first element vs protected parser heuristic
-VAL-309 PASS — deterministic evidence-only landmark suggestions; computed evidence never LOCKED
-VAL-310 PASS — shell/installer lifecycle with inspection, review, transfer preview, export, destroy/reopen
-VAL-311 PASS — file/anchor changes invalidate stale review/export custody
-VAL-312 PASS — rigid component custody + ambiguity fail closed
-VAL-313 PASS — enriched deterministic CSV + audit JSON; modified CII blocked
-VAL-314 NOT_APPLICABLE — live Utilities registry integration under current owner scope
+GE007-VAL-001 PASS (INSPECTION) — GitHub compare remains based on b0f13c99; all changed paths are additions, no protected existing production file was modified.
+GE007-VAL-002 PASS (INSPECTION) — every added CII Workspace JS file is below the repository's 300-physical-line limit in the compare metadata.
+GE007-VAL-003 NOT_RUN — current hardened CII Workspace test set; connector environment has no local gh/authenticated checkout and current head has no GitHub Actions run.
+GE007-VAL-004 NOT_RUN — permutation-invariance executable oracle.
+GE007-VAL-005 NOT_RUN — adversarial gang/winner-gap executable oracle.
+GE007-VAL-006 NOT_RUN — coordinate translation/rotation correspondence-invariance oracle.
+GE007-VAL-007 NOT_RUN — bound review / stale-identity executable oracle.
+GE007-VAL-008 NOT_RUN — explicit rigid COMPONENT custody executable oracle.
+GE007-VAL-009 NOT_RUN — shell lifecycle against hardened review contract.
+GE007-VAL-010 BLOCKED_BY_AUTHORITY — root output.cii first element has zero OD and protected parser/sections/elements.js rejects it under the current element-start heuristic.
+GE007-VAL-011 NOT_RUN — existing XML topology/path regression suite.
+GE007-VAL-012 NOT_RUN — existing Revision Compare regression suite.
+GE007-VAL-013 BLOCKED_BY_AUTHORITY — live Utilities registry integration.
 ```
 
-Focused executable PASS set:
-1. `cii-workspace-nodename.test.js`
-2. `cii-workspace-landmarks.test.js`
-3. `cii-workspace-geometry-authority.test.js`
-4. `cii-workspace-alignment-semantics.test.js`
-5. `cii-workspace-topology.test.js`
-6. `cii-workspace-topology-route-gates.test.js`
-7. `cii-workspace-determinism.test.js`
-8. `cii-workspace-gang-ambiguity.test.js`
-9. `cii-workspace-hard-conflict.test.js`
-10. `cii-workspace-transfer-preview.test.js`
-11. `cii-workspace-transfer-review.test.js`
-12. `cii-workspace-rigid-custody.test.js`
-13. `cii-workspace-intake-benchmark-slice.test.js`
-14. `cii-workspace-export-audit.test.js`
-15. `cii-workspace-shell-lifecycle.test.js`
+Oracle policy: do not promote any GE-007 NOT_RUN item to PASS from code inspection. The pre-GE-007 `15/15` result is stale after implementation changes and is not the current validation state.
 
-## 5. Authority / Containment Invariants
+## 6. Authority / containment invariants
 
 Current write scope remains only:
 - new `tabs/cii-workspace/**` paths relative to baseline;
 - new `tests/cii-workspace-*` paths;
-- PR recovery records.
+- PR recovery/status/claim records that were already new in this PR.
 
-Protected read-only authorities remain:
+Protected read-only authorities remain untouched:
 - `parser/**`;
 - `tabs/model-converters/**`;
 - `tabs/revision-compare/**`;
@@ -179,27 +135,31 @@ Protected read-only authorities remain:
 - existing converters/writers/navigation;
 - `tabs/psnm-utility-tab.js`.
 
-No private XML `_buildAdjacency` clone, auto-registration, global hook, MutationObserver, alternate navigation entry, target-CII writer, hidden mutation token, or modified-CII download exists.
+No alternate launcher, global hook, MutationObserver, target-CII writer, hidden mutation token, or modified-CII download was added.
 
-## 6. Remaining Work / Hard Stops
+## 7. Remaining hard stops / follow-up
 
-| ID | Severity | State | Item |
-|---|---|---|---|
-| AUTH-001 | high | **OWNER DECISION REQUIRED** | Zero/missing-OD neutral CII compatibility. Decide whether protected parser authority may change or whether an existing neutral-block primitive may be explicitly qualified for adapter use. |
-| AUTH-002 | high | **OWNER DECISION REQUIRED** | Register `installCiiWorkspaceTile` in existing `tabs/psnm-utility-tab.js`. No alternate launcher is acceptable. |
-| VAL-315 | low/medium | optional under current authority | Add broader real multi-branch/mixed-property CII pair corpus without changing authorities. |
+| ID | State | Item |
+|---|---|---|
+| VAL-001 | REQUIRED | Execute all current CII Workspace tests in one real checkout and record exact commands/results. |
+| VAL-002 | REQUIRED | Execute Issue #980 T11 XML topology regression and T12 Revision Compare regression. |
+| VAL-003 | REQUIRED | Reconcile any failing old tests whose oracle encoded superseded behavior; do not weaken acceptance semantics to make them green. |
+| AUTH-001 | OWNER DECISION REQUIRED | Decide zero/missing-OD neutral CII parsing authority; do not silently switch to a second parser. |
+| AUTH-002 | OWNER DECISION REQUIRED | Authorize the single Utilities registry edit required for live `Utilities -> CII Workspace`. |
+| RIGID-001 | REVIEW | Broader interior-rigid CII ownership remains unresolved unless authoritative parser/component semantics support it; current adapter deliberately fails closed outside the supportable unique-terminal slice. |
 
-## 7. Continuation Rules
+## 8. Continuation rules
 
 ```text
-DO NOT patch parser/sections/elements.js under current authority.
-DO NOT silently switch parser authority to output-normalizer.js.
+DO NOT patch parser/sections/elements.js without explicit owner authority.
+DO NOT silently promote output-normalizer.js to parsing authority.
 DO NOT edit tabs/psnm-utility-tab.js without explicit owner authorization.
-DO NOT invent a launcher bypass.
+DO NOT invent another launcher.
 DO NOT implement target-CII mutation or modified-target export.
-KEEP PR draft; merge remains owner-only.
+DO NOT restore percentage-based readiness or claim stale 15/15 validation for the hardened head.
+KEEP PR DRAFT; merge remains owner-only.
 ```
 
-# APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
+# APPENDIX A — qualification provenance
 
-Status: **CURRENT / QUALIFIED**. Issue #980 qualification was completed against `main` at `b0f13c99...`. GE-006 stays within the narrower owner instruction and converts the major new-file-only acceptance gaps into observed, fail-closed validation evidence.
+GitHub Issue #980 contains an owner-authored `QUALIFIED` marker before the implementation commits. The issue does not itself contain the five scored screening answers required by the original text; treat the owner's recorded qualification as the authority marker, not as evidence that the full scoring trail is present in the issue discussion.
