@@ -1,4 +1,4 @@
-import { createCiiWorkspacePreview } from './cii-workspace-core.js';
+import { createCiiWorkspacePreview, inspectCiiWorkspaceModels } from './cii-workspace-core.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
 
 function h(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
@@ -19,6 +19,12 @@ function stageMarkup() {
 ${stage.id === '06' ? `<p>${h(stage.blockers?.[0])}</p><button type="button" disabled data-ciiw-apply>Apply to target CII</button>` : ''}
 </section>`).join('');
 }
+function landmarkSide(label, side) {
+  const rows = side?.landmarks || [];
+  const items = rows.length ? rows.map((row) => `<li><b>${h(row.nodeId)}</b> — ${h(row.reasons.join(', '))} <small>SUGGESTED · engineer lock required</small></li>`).join('') : '<li>No distinctive landmark suggestions.</li>';
+  return `<div><h4>${h(label)} landmarks</h4><p>${h(side?.summary?.elementCount || 0)} elements · ${h(side?.summary?.nodeCount || 0)} nodes</p><ul>${items}</ul></div>`;
+}
+function landmarkMarkup(inspection) { return `<div class="ciiw-landmark-grid">${landmarkSide('SOURCE', inspection?.source)}${landmarkSide('TARGET', inspection?.target)}</div>`; }
 function rowSource(row) { return row.sourceNodeId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
 function rowTarget(row) { return row.targetNodeId || row.targetElementIds?.join('|') || ''; }
 function correspondenceMarkup(result, decisions) {
@@ -44,18 +50,24 @@ export function mountCiiWorkspaceShell(container, options = {}) {
   container.innerHTML = `<div class="ciiw-workspace"><header><h2>CII Workspace</h2><button type="button" data-ciiw-close>Close</button></header>
 <div class="ciiw-intake"><label>SOURCE CII <input type="file" accept=".cii,.accdb" data-ciiw-source></label>
 <label>TARGET CII <input type="file" accept=".cii,.accdb" data-ciiw-target></label>
-<label>SOURCE anchors <input type="text" placeholder="100, 200" data-ciiw-source-anchors></label>
-<label>TARGET anchors <input type="text" placeholder="5000, 5020" data-ciiw-target-anchors></label>
+<button type="button" data-ciiw-inspect>Inspect models &amp; suggest landmarks</button><div data-ciiw-landmarks></div>
+<label>SOURCE locked anchors <input type="text" placeholder="100, 200" data-ciiw-source-anchors></label>
+<label>TARGET locked anchors <input type="text" placeholder="5000, 5020" data-ciiw-target-anchors></label>
 <button type="button" data-ciiw-analyze>Build correspondence preview</button></div>
-<div class="ciiw-status" data-ciiw-status>Load two neutral CII files and enter corresponding locked anchors.</div>
+<div class="ciiw-status" data-ciiw-status>Load two neutral CII files, inspect suggested landmarks, then enter engineer-locked anchor pairs.</div>
 <div class="ciiw-stages">${stageMarkup()}</div>
 <section class="ciiw-results"><h3>Correspondence review</h3><div data-ciiw-results></div>
 <button type="button" data-ciiw-refresh-review disabled>Refresh property-transfer preview</button>
 <button type="button" data-ciiw-export-csv disabled>Export correspondence CSV</button>
 <button type="button" data-ciiw-export-json disabled>Export audit JSON</button></section></div>`;
   let current = null; let baseInput = null; let disposed = false; const decisions = new Map();
-  const query = (selector) => container.querySelector(selector); const status = query('[data-ciiw-status]'); const results = query('[data-ciiw-results]');
+  const query = (selector) => container.querySelector(selector); const status = query('[data-ciiw-status]'); const results = query('[data-ciiw-results]'); const landmarkBox = query('[data-ciiw-landmarks]');
   const reviewButton = query('[data-ciiw-refresh-review]'); const csvButton = query('[data-ciiw-export-csv]'); const jsonButton = query('[data-ciiw-export-json]');
+  const readFiles = async () => {
+    const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0];
+    if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.');
+    return { sourceText: await sourceFile.text(), sourceFileName: sourceFile.name, targetText: await targetFile.text(), targetFileName: targetFile.name };
+  };
   const render = () => {
     results.innerHTML = correspondenceMarkup(current, decisions);
     results.querySelectorAll('[data-ciiw-decision]').forEach((select) => select.addEventListener('change', () => { decisions.set(select.dataset.ciiwDecision, select.value); }));
@@ -66,17 +78,24 @@ export function mountCiiWorkspaceShell(container, options = {}) {
     status.textContent = `Correspondence ${current.correspondence.status}; transfer preview ${current.transferPlan.status}.`;
     render(); reviewButton.disabled = false; csvButton.disabled = false; jsonButton.disabled = false;
   };
+  const inspect = async () => {
+    try {
+      status.textContent = 'Inspecting model summaries and landmark evidence…'; decisions.clear(); current = null; baseInput = await readFiles();
+      const inspection = await inspectCiiWorkspaceModels(baseInput);
+      if (disposed) return;
+      landmarkBox.innerHTML = landmarkMarkup(inspection);
+      status.textContent = 'Suggested landmarks are evidence only. Enter corresponding SOURCE/TARGET anchors to lock engineer authority.';
+      reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true;
+    } catch (error) { if (!disposed) { status.textContent = error.message || String(error); landmarkBox.innerHTML = ''; } }
+  };
   const analyze = async () => {
     try {
-      const sourceFile = query('[data-ciiw-source]').files?.[0]; const targetFile = query('[data-ciiw-target]').files?.[0];
-      if (!sourceFile || !targetFile) throw new Error('SOURCE and TARGET CII files are required.');
-      status.textContent = 'Building preview…'; decisions.clear();
-      baseInput = { sourceText: await sourceFile.text(), sourceFileName: sourceFile.name, targetText: await targetFile.text(), targetFileName: targetFile.name,
-        anchorPairs: anchorPairs(query('[data-ciiw-source-anchors]').value, query('[data-ciiw-target-anchors]').value) };
+      status.textContent = 'Building preview…'; decisions.clear(); baseInput = await readFiles();
+      baseInput.anchorPairs = anchorPairs(query('[data-ciiw-source-anchors]').value, query('[data-ciiw-target-anchors]').value);
       await run();
     } catch (error) { if (!disposed) { current = null; status.textContent = error.message || String(error); results.innerHTML = ''; reviewButton.disabled = true; csvButton.disabled = true; jsonButton.disabled = true; } }
   };
-  query('[data-ciiw-close]').addEventListener('click', () => options.close?.()); query('[data-ciiw-analyze]').addEventListener('click', analyze);
+  query('[data-ciiw-close]').addEventListener('click', () => options.close?.()); query('[data-ciiw-inspect]').addEventListener('click', inspect); query('[data-ciiw-analyze]').addEventListener('click', analyze);
   reviewButton.addEventListener('click', async () => { try { status.textContent = 'Refreshing reviewed preview…'; await run(reviewFrom(decisions)); } catch (error) { status.textContent = error.message || String(error); } });
   csvButton.addEventListener('click', () => current && download(container.ownerDocument, 'cii-correspondence.csv', current.artifacts.correspondenceCsv, 'text/csv'));
   jsonButton.addEventListener('click', () => current && download(container.ownerDocument, 'cii-workspace-audit.json', current.artifacts.auditJson, 'application/json'));
