@@ -28,8 +28,8 @@ function landmarkSide(label, side) {
   return `<div><h4>${h(label)} landmarks</h4><p>${h(summary.elementCount || 0)} elements · ${h(summary.nodeCount || 0)} nodes · ${h(summary.bendCount || 0)} bends · ${h(summary.rigidRecordCount || 0)} rigid records</p><ul>${items}</ul></div>`;
 }
 function landmarkMarkup(inspection) { return `<div class="ciiw-landmark-grid">${landmarkSide('SOURCE', inspection?.source)}${landmarkSide('TARGET', inspection?.target)}</div>`; }
-function rowSource(row) { return row.sourceNodeId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
-function rowTarget(row) { return row.targetNodeId || row.targetElementIds?.join('|') || ''; }
+function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
+function rowTarget(row) { return row.targetNodeId || row.targetComponentId || row.targetElementIds?.join('|') || ''; }
 function evidenceMarkup(row) {
   if (!row.evidence) return '<span>—</span>';
   const candidates = row.evidence?.candidates;
@@ -37,7 +37,11 @@ function evidenceMarkup(row) {
   return `<details><summary>${h(summary)}</summary><pre>${h(stableStringify(row.evidence))}</pre></details>`;
 }
 function correspondenceMarkup(result, decisions) {
-  const rows = [...(result?.correspondence?.nodeRows || []), ...(result?.correspondence?.elementRows || [])];
+  const rows = [
+    ...(result?.correspondence?.nodeRows || []),
+    ...(result?.correspondence?.elementRows || []),
+    ...(result?.correspondence?.componentRows || []),
+  ];
   if (!rows.length) return '<p>No correspondence rows.</p>';
   return `<table><thead><tr><th>Decision</th><th>Kind</th><th>Status</th><th>Source</th><th>Target</th><th>Evidence / alternatives</th></tr></thead><tbody>${rows.map((row) => {
     const decision = decisions.get(row.correspondenceId) || '';
