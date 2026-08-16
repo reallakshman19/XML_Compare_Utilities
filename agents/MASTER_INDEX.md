@@ -4,35 +4,38 @@ Live GitHub state remains authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Main base | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|---|
-| PR981 | CII Workspace V1 anchored topology + transfer preview | `agent/issue-980-cii-workspace-v1` | APPROVED PROTECTED INTEGRATION IMPLEMENTED / FOCUSED VALIDATION PASS / BROAD VALIDATION REQUIRED | ENGINEERING_CRITICAL | `b0f13c99` | new CII Workspace + owner-approved OD validator and Utilities registry edits | AUTH-001A + AUTH-002 COMPLETE; KEEP DRAFT | run full XML, Revision Compare, Python converter and real browser Utilities validation before merge |
+| PR981 | CII Workspace V1 anchored topology + transfer preview | `agent/issue-980-cii-workspace-v1` | APPROVED INTEGRATION / EXTENDED FOCUSED VALIDATION PASS / FULL-CHECKOUT+BROWSER ENVIRONMENT LIMITS | ENGINEERING_CRITICAL | `b0f13c99` | new CII Workspace + owner-approved OD validator and Utilities registry edits | ACTIONS WAIVED BY OWNER; KEEP DRAFT | owner review of remaining full-checkout/browser limitations |
 
-## PR981 GE-010 snapshot
+## PR981 GE-011 snapshot
 
 Validated implementation head: `f5bfd5aeb4dc5cefef1583be12b94531dfa469f5`. Later commits update recovery/status records only.
 
 - **22 CII Workspace JavaScript test files PASS** in the reconstructed networkless sweep.
-- InputXML→CII2019 generated OD now fails closed in the existing pre-write section validator when OD is non-finite or below the repository neutral-parser threshold of 10.
-- `converters/scripts/inputxml_to_cii2019.py` remains unchanged from baseline; normal source OD, carry-forward, and explicit qualified fallback semantics remain intact.
-- Legacy root `output.cii` is documented as an invalid historical artifact and is not assigned invented OD values; maintained full-file intake coverage uses `Benchmark/Pipeline/CII`.
-- `Utilities -> CII Workspace` is registered through exactly one descriptor in `tabs/psnm-utility-tab.js`; no alternate launcher exists.
-- T11 XML topology/path authority: **PASS — focused regression**; full XML suite remains NOT_RUN.
-- T12 Revision Compare authority: **PASS — focused regression**; full Revision Compare suite remains NOT_RUN.
+- Diameter policy regression intent: **5/5 PASS** in the reconstructed current policy/carry-default slice.
+- Pre-existing CII2019 section-rule regression intents: **6/6 PASS** in the reconstructed current validator slice; the OD rule is additive without breaking their targeted assertions.
+- Exact current Utilities runtime + reconstructed exact CII Workspace installer: **PASS** for one-tile mount, open, destroy, and re-entry lifecycle in the DOM harness.
+- Real Chromium/browser validation: **ENVIRONMENT_BLOCKED**; Chromium hangs before rendering even trivial local HTML, so real Revision Compare coexistence remains unclaimed.
+- T11 XML topology/path authority: **PASS — focused**; literal full `test:xml` is **PARTIAL** because a complete private checkout is unavailable.
+- T12 Revision matcher/custody: **PASS — focused**; GE-011 also adds a **5,000-row Revision property-evidence stress PASS**.
+- Full Revision handover/scale/browser qualification is **PARTIAL / BROWSER BLOCKED**.
+- GitHub Actions and commit-status evidence are **WAIVED_BY_OWNER** per the 2026-08-16 21:07 +04:00 active-chat direction: `skip github actions, proceed others`.
 - Stage06 remains visibly `NOT_IMPLEMENTED` and fail-closed.
-- No GitHub Actions run is attached to the validated implementation head.
 
 ## Protected diff boundary
 
 Owner authorization is recorded on Issue #980 comment `5308388872`.
 
-The approved protected cumulative diff against base is intentionally small:
+The approved protected cumulative diff against base remains intentionally small:
 - `converters/scripts/cii2019_section_rules.py`: +44 / -0 — generated ELEMENTS OD compatibility guard only.
 - `tabs/psnm-utility-tab.js`: +1 / -0 — one CII Workspace installer descriptor.
 - `parser/**`: unchanged.
 - `converters/scripts/inputxml_to_cii2019.py`: unchanged.
 - Revision Compare and model-converter authorities: unchanged.
 
-## Remaining validation
+## Remaining limitations, not failed checks
 
-Before merge, execute the full repository XML/model-converter regressions, full Revision Compare qualification/browser/scale suite, Python converter/section-rule tests including `tests/test_inputxml_to_cii2019_diameter_policy.py`, and a real browser Utilities mount/destroy/re-entry smoke verifying CII Workspace and Revision Compare coexistence.
+A literal full-suite claim still requires a complete authenticated checkout for the broad XML/Revision/Python command chains. Real-browser Utilities + Revision Compare coexistence requires a functioning browser runtime. These are recorded as PARTIAL / ENVIRONMENT_BLOCKED rather than PASS or FAIL.
 
-See `agents/PR981_workreport.md` for the detailed GE-010 acceptance matrix and safety invariants.
+GitHub Actions/status checks are no longer a requested gate unless the owner reverses the waiver.
+
+See `agents/PR981_workreport.md` for the detailed GE-011 acceptance matrix and safety invariants.
