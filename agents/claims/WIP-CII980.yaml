@@ -1,0 +1,32 @@
+schema: AgentClaim.v1
+pr_or_wip: WIP-CII980
+claim_state: ACTIVE
+files:
+  exact: []
+  prefixes:
+    - tabs/cii-workspace/
+    - tests/cii-workspace-
+    - agents/WIP-CII980
+    - agents/status/WIP-CII980
+    - agents/claims/WIP-CII980
+authority_domains:
+  - CII_WORKSPACE_CORRESPONDENCE
+  - CII_WORKSPACE_TRANSFER_PREVIEW
+  - CII_WORKSPACE_PLACEHOLDER_GATE
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - parser/caesar-parser.js
+  - parser/sections/elements.js
+  - tabs/model-converters/xml-cii-inputxml-path-aligner.js
+  - tabs/revision-compare/revision-compare-matching.js
+  - tabs/revision-compare/revision-transfer-plan.js
+observe_only_references:
+  - reallaksh19/3D_Converters
+forbidden_existing_file_edits:
+  - tabs/psnm-utility-tab.js
+  - tabs/revision-compare/**
+  - tabs/model-converters/**
+  - parser/**
+  - xml-compare/**
+last_verified_head: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
