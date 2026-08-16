@@ -1,0 +1,54 @@
+import { parse as parseCaesarFile } from '../../parser/caesar-parser.js';
+import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
+import { extractCiiNodeNameEvidence } from './cii-workspace-nodename.js';
+
+function parserAlias(fileName) {
+  const name = String(fileName || 'model.cii').trim() || 'model.cii';
+  return /\.cii$/i.test(name) ? name.replace(/\.cii$/i, '.accdb') : `${name}.accdb`;
+}
+
+function versionLabel(text) {
+  const rows = String(text || '').split(/\r?\n/); const start = rows.findIndex((row) => /^\s*#\$\s*VERSION\s*$/i.test(row));
+  if (start < 0) return '';
+  for (let index = start + 1; index < rows.length; index += 1) {
+    if (/^\s*#\$/.test(rows[index])) break;
+    const value = rows[index].trim(); if (value) return value.slice(0, 120);
+  }
+  return '';
+}
+
+async function sha256Text(text, cryptoRef) {
+  if (!cryptoRef?.subtle) throw new Error('CII_WORKSPACE_SHA256_UNAVAILABLE');
+  const bytes = new TextEncoder().encode(String(text ?? ''));
+  const digest = await cryptoRef.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}) {
+  const sourceText = String(rawText ?? '');
+  if (!sourceText.trim()) throw new Error('CII_WORKSPACE_EMPTY_INPUT');
+  if (!/^#\$\s*(VERSION|CONTROL|ELEMENTS)/m.test(sourceText)) throw new Error('CII_WORKSPACE_NEUTRAL_CII_REQUIRED');
+  const parsed = parseCaesarFile(sourceText, parserAlias(fileName));
+  if (parsed.format !== 'NEUTRAL') throw new Error('CII_WORKSPACE_NEUTRAL_CII_REQUIRED');
+  if (!parsed.elements?.length) throw new Error('CII_WORKSPACE_ELEMENTS_REQUIRED');
+  if (parsed.errors?.length) throw new Error(`CII_WORKSPACE_PARSE_BLOCKED: ${parsed.errors[0].msg || parsed.errors[0]}`);
+  const cryptoRef = options.cryptoRef ?? globalThis.crypto;
+  const contentSha256 = await sha256Text(sourceText, cryptoRef);
+  const nodeNameEvidence = extractCiiNodeNameEvidence(sourceText, parsed);
+  return deepFreeze({
+    schema: CII_WORKSPACE_SCHEMAS.document,
+    side: options.side === 'TARGET' ? 'TARGET' : 'SOURCE',
+    fileName: String(fileName || 'model.cii'), contentSha256, textLength: sourceText.length,
+    format: parsed.format, parserAuthority: 'parser/caesar-parser.js', parserAlias: parserAlias(fileName), parsed,
+    nodeNames: nodeNameEvidence.names, nodeNameEvidence,
+    summary: Object.freeze({
+      version: versionLabel(sourceText),
+      elementCount: parsed.elements.length,
+      nodeCount: Object.keys(parsed.nodes || {}).length,
+      bendCount: parsed.bends?.length || 0,
+      rigidRecordCount: parsed.rigids?.length || 0,
+      nodeNameCount: Object.keys(nodeNameEvidence.names).length,
+      nodeNameConflictCount: nodeNameEvidence.conflicts.length,
+    }),
+  });
+}

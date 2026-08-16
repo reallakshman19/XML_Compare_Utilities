@@ -20,6 +20,7 @@ Benchmark CII may be used elsewhere for optional calibration only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 import re
 from typing import Iterable, Mapping, Sequence
 
@@ -104,6 +105,9 @@ LINES_PER_AUX_BLOCK: dict[str, int] = {
 # ELEMENTS layout currently used by the converter profile:
 # 9 real rows + string/name/line rows + 3 IEL rows = 15 payload rows per element.
 ELEMENT_LINES_PER_BLOCK = 15
+# Generated neutral CII must remain consumable by parser/sections/elements.js,
+# whose element-start authority rejects OD below 10 model-length units.
+MIN_NEUTRAL_ELEMENT_OD = 10.0
 
 
 # UNITS = 4 real conversion-constant lines + 24 label lines.
@@ -543,6 +547,44 @@ def validate_elements_rows(
             actual=len(rows),
         )
 
+    complete_blocks = min(control.numelt, len(rows) // ELEMENT_LINES_PER_BLOCK)
+    for element_index in range(complete_blocks):
+        start_row = rows[element_index * ELEMENT_LINES_PER_BLOCK]
+        tokens = start_row.split()
+        if len(tokens) < 6:
+            report.add(
+                "CII2019-ELEMENT-START-FORMAT",
+                "ELEMENTS",
+                f"Element {element_index + 1} start row must contain at least 6 numeric fields including OD.",
+                expected=6,
+                actual=len(tokens),
+            )
+            continue
+        try:
+            od = float(tokens[5])
+        except ValueError:
+            report.add(
+                "CII2019-ELEMENT-OD-FORMAT",
+                "ELEMENTS",
+                f"Element {element_index + 1} OD token is not numeric: {tokens[5]!r}.",
+                expected=f">= {MIN_NEUTRAL_ELEMENT_OD:g}",
+                actual=tokens[5],
+            )
+            continue
+        if not math.isfinite(od) or od < MIN_NEUTRAL_ELEMENT_OD:
+            report.add(
+                "CII2019-ELEMENT-OD-UNRESOLVED",
+                "ELEMENTS",
+                (
+                    f"Element {element_index + 1} OD is {od:g}; generated neutral CII requires "
+                    f"OD >= {MIN_NEUTRAL_ELEMENT_OD:g} so the repository neutral parser can recognize "
+                    "the element row. Resolve source/carry-forward diameter or provide an explicit "
+                    "qualified fallback before writing."
+                ),
+                expected=f">= {MIN_NEUTRAL_ELEMENT_OD:g}",
+                actual=od,
+            )
+
     return report
 
 
@@ -702,6 +744,8 @@ def assert_cii2019_sections_valid(cii_text: str) -> None:
     ]
 
     raise ValueError("CII 2019 section validation failed:\n" + "\n".join(messages))
+
+
 def build_control_from_sections(
     sections: Mapping[str, Sequence[str]],
     *,
