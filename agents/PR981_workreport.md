@@ -1,4 +1,4 @@
-# WIP-CII980 — CII Workspace V1 Work Report
+# PR981 — CII Workspace V1 Work Report
 
 # CURRENT RECOVERY STATE — READ FIRST
 
@@ -15,61 +15,62 @@ PHASE_PROGRESSION: MANUAL
 MERGE_AUTHORITY: OWNER_ONLY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 SOURCE_TASK: Issue #980
-PR_OR_WIP: WIP-CII980
+PR_OR_WIP: PR981
 BRANCH: agent/issue-980-cii-workspace-v1
-PR_HEAD_OBSERVED: N/A
-REPORT_BASIS_HEAD: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
+PR_HEAD_OBSERVED: a82947f52d4371853c32784d8b776f7f4f6e01a6
+REPORT_BASIS_HEAD: a82947f52d4371853c32784d8b776f7f4f6e01a6
 MAIN_HEAD_LAST_CHECKED: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 MERGE_BASE: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
 REPORT_SYNC: CURRENT
 APPENDIX_A_STATUS: CURRENT
-GROUNDING_EPOCH: GE-001
+GROUNDING_EPOCH: GE-002
 CURRENT_TAKEOVER: TKO-001
-CURRENT_STAGE: BASELINE / PLAN
-LAST_COMPLETED_STAGE: QUALIFICATION
-CURRENT_BLOCKER: Existing production modules are owner-locked read-only; Utilities registry integration is therefore deferred.
+CURRENT_STAGE: PLAN / CORE IMPLEMENTATION
+LAST_COMPLETED_STAGE: PR ALLOCATION
+CURRENT_BLOCKER: Existing production modules are owner-locked read-only; Utilities registry integration is deferred.
 HIGHEST_RISK: Accidental creation of duplicate topology/CII writer authority.
-LAST_DURABLE_CHECKPOINT: branch created from exact issue baseline
+LAST_DURABLE_CHECKPOINT: PR981 allocated as draft from exact issue baseline
 EXACT_NEXT_ACTION: add new-file-only CII Workspace core, fail-closed Stage 06, and focused regressions.
 ```
 
 ## 2. Handover in 60 Seconds
 
 ### What is now true
-Owner recorded `QUALIFIED` for Issue #980 and instructed use of Engineering PR Delivery. Existing production modules must not be edited/tampered with. New CII Workspace/test/recovery files are permitted. `3D_Converters` may be inspected as reference only.
+Owner recorded `QUALIFIED` for Issue #980 and instructed use of Engineering PR Delivery. Existing production modules must not be edited/tampered with. New CII Workspace/test/recovery files are permitted. `3D_Converters` may be inspected as reference only. Draft PR #981 is allocated.
 
 ### What is currently being worked on
 A standalone V1 core under `tabs/cii-workspace/` that consumes existing parser/topology exports without changing them.
 
 ### What remains unfinished
-Utilities registry integration cannot be completed without editing `tabs/psnm-utility-tab.js`; this is intentionally blocked by current owner authority. Stage 06 target-CII mutation/export is also intentionally unavailable.
+Utilities registry integration cannot be completed without editing `tabs/psnm-utility-tab.js`; this is intentionally blocked by current owner authority. Stage 06 target-CII mutation/export is intentionally unavailable.
 
 ### What has been proven
-Live `main` equals issue baseline `b0f13c99...`; no existing `agents/` protocol records exist; no open PR claims `tabs/cii-workspace/**`.
+Live `main` equals issue baseline `b0f13c99...`; no pre-existing `agents/` protocol records existed; no open PR claimed `tabs/cii-workspace/**`; PR981 currently contains recovery metadata only.
 
 ### What has NOT been proven / NOT_RUN
-No new code exists yet. No tests have been executed. No browser integration is claimed.
+No CII Workspace product code exists yet. No focused tests or browser integration have run.
 
 ### What must not be assumed
-Do not infer permission to edit XML topology, Revision Compare, writers, navigation, utilities registry, or existing parser modules.
+Do not infer permission to edit XML topology, Revision Compare, writers, navigation, Utilities registry, or parser modules.
 
 ### Highest-risk remaining item
 CII property/component semantics must be translated explicitly rather than inheriting XML child semantics.
 
 ### Exact next action
-Add new modules and tests only; preserve all existing files byte-for-byte.
+Add new modules and tests only; preserve every file present at baseline byte-for-byte.
 
 ## 3. Repository Ground Truth
 
 - repository: `reallaksh19/XML_Compare_Utilities`
 - default/base: `main`
-- GE-001 main: `b0f13c99e036c590a281e2d10bd2b7f0d64e58eb`
+- GE-002 main: `b0f13c99e036c590a281e2d10bd2b7f0d64e58eb`
+- PR: `#981`, draft, head `a82947f52d4371853c32784d8b776f7f4f6e01a6`
 - branch: `agent/issue-980-cii-workspace-v1`
+- merge base: `b0f13c99e036c590a281e2d10bd2b7f0d64e58eb`
 - source task: #980
 - open-PR scan: no `cii-workspace` workstream found
-- repository `agents/` directory: absent on baseline
 - issue qualification comment: recorded as `QUALIFIED`
-- coordination: `SAFE` for new `tabs/cii-workspace/**`, `tests/cii-workspace-*`, and per-work recovery files
+- coordination: `SAFE` for new `tabs/cii-workspace/**`, `tests/cii-workspace-*`, and PR recovery files
 
 ## 4. Mission / Scope / Acceptance
 
@@ -93,7 +94,7 @@ Explicit non-goals under current authority:
 
 | Work item | Implementation | Integration | Validation | Location | Remaining |
 |---|---|---|---|---|---|
-| Recovery records | in progress | repository | source inspection | `agents/**` | publish checkpoint |
+| Recovery records | complete | PR981 | source inspection | `agents/**` | keep current |
 | CII intake/graph adapter | unstarted | standalone | NOT_RUN | `tabs/cii-workspace/` | implement |
 | Anchored topology matcher | unstarted | standalone | NOT_RUN | `tabs/cii-workspace/` | implement |
 | Transfer preview | unstarted | standalone | NOT_RUN | `tabs/cii-workspace/` | implement |
@@ -105,7 +106,7 @@ Explicit non-goals under current authority:
 | ID | Type | Severity | Priority | Status | Summary | Evidence | Current PR? |
 |---|---|---|---|---|---|---|---|
 | DEC-001 | decision | high | P0 | active | Existing modules remain read-only; use adapters/new files only. | owner instruction | yes |
-| RISK-001 | risk | high | P0 | active | Parser geometry origin/ordering cannot become match authority. | issue hierarchy | yes |
+| RISK-001 | risk | high | P0 | active | Parser-derived absolute geometry cannot become match authority. | issue hierarchy | yes |
 | RISK-002 | risk | high | P0 | active | RIGID/BEND semantics require CII-specific translation. | parser inspection | yes |
 | IMP-001 | implementation | high | P0 | open | Build immutable correspondence evidence with hard structural veto. | issue #980 | yes |
 | IMP-002 | implementation | high | P0 | open | Stage 06 must be visibly/fail-closed unavailable. | issue #980 | yes |
@@ -163,19 +164,19 @@ Origin: UNKNOWN_ORIGIN
 
 ## 10. Changed-File Ledger
 
-At this checkpoint only new recovery files are intended. No existing file may change.
+At PR allocation only recovery files are present. No baseline file may change.
 
 ## 11. Review / CI State
 
-No PR allocated yet. No CI applicable yet. Merge authority is owner-only.
+PR981 is draft. No product validation applies yet. Merge authority is owner-only.
 
 ## 12. Repository Coordination / Overlap
 
 ```text
-MASTER_INDEX_CHECKED: baseline absent; creating WIP entry
-STATUS_RECORD: agents/status/WIP-CII980.yaml
-CLAIM_RECORD: agents/claims/WIP-CII980.yaml
-LAST_OVERLAP_CHECK: GE-001
+MASTER_INDEX_CHECKED: yes
+STATUS_RECORD: agents/status/PR981.yaml
+CLAIM_RECORD: agents/claims/PR981.yaml
+LAST_OVERLAP_CHECK: GE-002
 FILE_OVERLAP: none found for tabs/cii-workspace/**
 AUTHORITY_OVERLAP: shared-read only with existing parser/path topology authorities
 DEPENDENCY_OVERLAP: none requiring coordination
@@ -187,9 +188,10 @@ COORDINATION_STATE: SAFE
 ```text
 Start here: new tabs/cii-workspace modules
 Exact file/function/component: CII parser adapter and immutable contracts
+Current value/path under investigation: neutral parser adapter semantics
 Do not redo: qualification/repository authority trace
 Do not change: any pre-existing module
-Validation still required: syntax, focused unit fixtures, determinism, placeholder bypass, existing XML regression if shared code ever changes
+Validation still required: syntax, focused unit fixtures, determinism, placeholder bypass, existing XML regression only if shared code ever changes
 Highest-risk remaining item: component/rigid semantic translation
 Exact next action: implement new-file-only core and regressions
 ```
@@ -198,6 +200,7 @@ Exact next action: implement new-file-only core and regressions
 
 - `TKO-001`: owner-qualified start on exact main; no predecessor PR; implementation authority restricted to new files.
 - `GE-001`: verified main `b0f13c99...`, issue #980, open PR scan, no baseline agents directory.
+- `GE-002`: PR981 allocated; head `a82947f5...`; main and merge base unchanged.
 
 # APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
 

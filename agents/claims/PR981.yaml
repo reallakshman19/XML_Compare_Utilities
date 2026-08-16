@@ -1,14 +1,14 @@
 schema: AgentClaim.v1
-pr_or_wip: WIP-CII980
+pr_or_wip: PR981
 claim_state: ACTIVE
 files:
   exact: []
   prefixes:
     - tabs/cii-workspace/
     - tests/cii-workspace-
-    - agents/WIP-CII980
-    - agents/status/WIP-CII980
-    - agents/claims/WIP-CII980
+    - agents/PR981
+    - agents/status/PR981
+    - agents/claims/PR981
 authority_domains:
   - CII_WORKSPACE_CORRESPONDENCE
   - CII_WORKSPACE_TRANSFER_PREVIEW
@@ -29,4 +29,4 @@ forbidden_existing_file_edits:
   - tabs/model-converters/**
   - parser/**
   - xml-compare/**
-last_verified_head: b0f13c99e036c590a281e2d10bd2b7f0d64e58eb
+last_verified_head: a82947f52d4371853c32784d8b776f7f4f6e01a6
