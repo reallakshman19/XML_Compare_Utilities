@@ -29,6 +29,7 @@ LAST_COMPLETED_STAGE: NODENAME POINTER GROUNDING + GEOMETRY HARDENING + ALIGNMEN
 CURRENT_BLOCKER: CII Workspace cannot appear in live Utilities without editing tabs/psnm-utility-tab.js, which remains owner-forbidden.
 HIGHEST_RISK: Real neutral rigid-component association and repository parser/path-aligner integration have not yet executed at the current product head.
 LAST_DURABLE_PRODUCT_CHECKPOINT: c86fc9ce50aa65c539989c7a8ad04d79d7e2371f
+RECOVERY_CHECKPOINT: 6313fea19a4ef5cb444e05dd99cbe01849ba6040
 EXACT_NEXT_ACTION: run repo-dependent intake/topology/determinism tests in a full checkout or CI; continue only new-file CII Workspace hardening; do not invent alternate registration.
 ```
 
@@ -51,10 +52,11 @@ The live Utilities tile remains intentionally blocked because registration requi
 - main/merge base: `b0f13c99e036c590a281e2d10bd2b7f0d64e58eb`
 - PR: `#981`, open, draft, mergeable
 - product head: `c86fc9ce50aa65c539989c7a8ad04d79d7e2371f`
+- recovery checkpoint: `6313fea19a4ef5cb444e05dd99cbe01849ba6040`
 - branch: `agent/issue-980-cii-workspace-v1`
 - main drift at GE-004: none
 - qualification: Issue #980 records `QUALIFIED`
-- diff containment at product head: 30 added paths, 0 deletions, 0 pre-existing-file modifications
+- final diff containment at `6313fea1...`: 30 added paths, 0 deletions, 0 pre-existing-file modifications
 - CI/workflow runs at product head: none
 
 ## 4. Authority / Scope Invariants
@@ -108,10 +110,10 @@ ID: VAL-101
 Status: PASS
 Observation: GIT_COMPARE
 Oracle: GITHUB_COMMIT_GRAPH
-Basis: compare b0f13c99... -> 39826c7b... before latest transfer-only new-file update; PR metadata at c86fc9ce reports 30 changed files / 0 deletions
+Basis: compare b0f13c99... -> 6313fea1...
 Expected: no pre-existing file edits under owner lock
-Actual: all compared paths are added; no existing repository module modified or deleted
-Limitations: final recovery commit follows product head and changes recovery files only
+Actual: 30 changed paths, every path status=added; 0 deletions; 0 pre-existing-file modifications
+Limitations: none material to containment
 ```
 
 ```text
@@ -179,7 +181,8 @@ All product/test/recovery paths in the PR are additions relative to the locked i
 ## 9. Review / CI / Continuation
 
 - PR981 remains draft and mergeable.
-- product head before this recovery-only checkpoint: `c86fc9ce...`.
+- product head: `c86fc9ce...`.
+- recovery checkpoint before this report refresh: `6313fea1...`.
 - main remains `b0f13c99...`.
 - no workflow run exists for the product head.
 - no merge or ready-for-review authority has been granted.
