@@ -9,11 +9,19 @@ function riskySourceElements(correspondence) {
   return risky;
 }
 
+function uniqueNodeRows(rows) {
+  const byId = new Map();
+  for (const row of rows || []) {
+    const previous = byId.get(row.correspondenceId);
+    if (!previous || row.status === 'LOCKED' || previous.status !== 'LOCKED') byId.set(row.correspondenceId, row);
+  }
+  return [...byId.values()].sort((a, b) => String(a.correspondenceId).localeCompare(String(b.correspondenceId), undefined, { numeric: true }));
+}
+
 export function applyCiiNodeCustodyGates(correspondence, sourceGraph) {
   const risky = riskySourceElements(correspondence);
-  if (!risky.size) return correspondence;
-  const nodeRows = (correspondence?.nodeRows || []).map((row) => {
-    if (row.status === 'LOCKED' || !row.sourceNodeId) return row;
+  const nodeRows = uniqueNodeRows(correspondence?.nodeRows).map((row) => {
+    if (!risky.size || row.status === 'LOCKED' || !row.sourceNodeId) return row;
     const incident = sourceGraph?.adjacency?.get(String(row.sourceNodeId)) || [];
     const affected = incident.filter((edge) => risky.has(edge.elementId)).map((edge) => edge.elementId).sort();
     if (!affected.length) return row;
@@ -23,8 +31,7 @@ export function applyCiiNodeCustodyGates(correspondence, sourceGraph) {
       evidence: deepFreeze({
         ...(row.evidence || {}),
         nodeCustodyGate: Object.freeze({
-          status: 'REVIEW_REQUIRED',
-          blocker: 'ADJACENT_ELEMENT_CANDIDATE_AMBIGUITY',
+          status: 'REVIEW_REQUIRED', blocker: 'ADJACENT_ELEMENT_CANDIDATE_AMBIGUITY',
           sourceElementIds: Object.freeze(affected),
         }),
       }),
