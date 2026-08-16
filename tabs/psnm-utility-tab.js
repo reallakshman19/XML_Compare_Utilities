@@ -27,6 +27,7 @@ const INSTALLERS = Object.freeze([
   ['Topology trace validator', './topology-trace-validator/topology-trace-validator-tab.js', 'installTopologyTraceValidatorTile', true],
   ['Sequential sketcher', './sequential-sketcher/sequential-sketcher-tab.js', 'installSequentialSketcherTile', true],
   ['Revision compare', './revision-compare/revision-compare-tab.js', 'installRevisionCompareTile', true],
+  ['CII Workspace', './cii-workspace/cii-workspace-tab.js', 'installCiiWorkspaceTile', true],
   ['PS mapping modal bridge', './ps-mapping-utility/ps-mapping-modal-bridge.js', 'installPsMappingModalBridge', true],
 ]);
 
