@@ -111,6 +111,7 @@ export function createCiiTransferPreview(sourceDocument, targetDocument, sourceG
   if (!operations.length) blockers.push('NO_REVIEWED_TRANSFER_PREVIEW_OPERATIONS');
   if (operations.length && !readyCount) blockers.push('NO_TRANSFERABLE_PREVIEW_OPERATIONS');
   if (correspondence?.status === 'CONFLICT') blockers.push('CORRESPONDENCE_CONTAINS_STRUCTURAL_CONFLICT');
+  else if (correspondence?.status !== 'READY') blockers.push('CORRESPONDENCE_NOT_READY');
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.transferPlan, direction: 'SOURCE_TO_TARGET',
     sourceDocument: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256 }),
