@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR981
-claim_state: ACTIVE_BLOCKED_ON_PROTECTED_AUTHORITIES
+claim_state: ACTIVE_TWO_PROTECTED_AUTHORITY_BLOCKERS
 files:
   exact: []
   prefixes:
@@ -10,6 +10,8 @@ files:
     - agents/status/PR981
     - agents/claims/PR981
 authority_domains:
+  - CII_WORKSPACE_INTAKE_INSPECTION
+  - CII_WORKSPACE_LANDMARK_EVIDENCE
   - CII_WORKSPACE_CORRESPONDENCE
   - CII_WORKSPACE_TRANSFER_PREVIEW
   - CII_WORKSPACE_AUDIT_EXPORT
@@ -32,5 +34,6 @@ forbidden_existing_file_edits:
   - parser/**
   - xml-compare/**
   - converters/**
-last_verified_product_head: d34f26a39da232b50c859b0b4cf6b398ca2edaee
-validation_state: STAGE03_PASS_STAGE07_DETERMINISTIC_OUTPUT_CII_ZERO_OD_AUTHORITY_BLOCKED
+last_verified_product_code_head: 5927971e00172b8892495fedfff3dc1ebb820346
+last_verified_validation_head: 2b4caacfe4147d8b5f3c3d0bb724e445877a7eb1
+validation_state: 15_OF_15_FOCUSED_PASS_ZERO_OD_PARSER_AUTHORITY_BLOCKED_UTILITIES_REGISTRY_BLOCKED
