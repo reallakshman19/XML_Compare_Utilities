@@ -22,8 +22,11 @@ function rawEdge(element) {
 
 function canonicalEdgeKey(edge) {
   const [a, b] = orderedPair(edge.from, edge.to);
-  const vector = [Math.abs(edge.dx), Math.abs(edge.dy), Math.abs(edge.dz)].map((value) => round(value)).sort((x, y) => x - y);
-  return [a, b, edge.componentKind, round(edge.lengthMm), round(edge.diameter), round(edge.wall), ...vector].join('|');
+  return [
+    a, b, `${edge.from}->${edge.to}`, edge.componentKind,
+    round(edge.lengthMm), round(edge.diameter), round(edge.wall), round(edge.P1), round(edge.T1),
+    round(edge.dx), round(edge.dy), round(edge.dz),
+  ].join('|');
 }
 
 function canonicalizeElements(elements) {
