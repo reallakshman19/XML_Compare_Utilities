@@ -23,9 +23,7 @@ function structuralBlockers(source, target, options) {
   if (transitionSignature(source) !== transitionSignature(target)) blockers.push('SIZE_TRANSITION_CONTEXT_INCOMPATIBLE');
   const sourceOd = Number(source.diameter); const targetOd = Number(target.diameter);
   const relativeTolerance = Number(options.hardDiameterRelativeTolerance ?? 0.12);
-  if (sourceOd > 0 && targetOd > 0 && Math.abs(sourceOd - targetOd) / Math.max(sourceOd, targetOd) > relativeTolerance) {
-    blockers.push('OD_INCOMPATIBLE');
-  }
+  if (sourceOd > 0 && targetOd > 0 && Math.abs(sourceOd - targetOd) / Math.max(sourceOd, targetOd) > relativeTolerance) blockers.push('OD_INCOMPATIBLE');
   return blockers;
 }
 
@@ -39,6 +37,7 @@ function jaccard(left = [], right = []) {
 
 function contextSimilarity(left, right) {
   const a = left?.neighbourhoodLayers || []; const b = right?.neighbourhoodLayers || [];
+  if (!a.length && !b.length) return closeness(left?.degree || 0, right?.degree || 0, 2);
   const weights = [1, 0.7, 0.45]; let total = 0; let weight = 0;
   for (let index = 0; index < weights.length; index += 1) {
     if (!a[index] && !b[index]) continue;
@@ -84,7 +83,7 @@ export function scoreCiiEdgeCandidate(source, target, options = {}) {
   const topology = 18 * ((sDegrees[0] === tDegrees[0] && sDegrees[1] === tDegrees[1]) ? 1 : 0);
   const neighbourhood = 15 * neighbourhoodSimilarity(source, target);
   const pathSequence = 12 * sequenceSimilarity(source, target);
-  const length = 12 * closeness(source.lengthMm, target.lengthMm, options.lengthToleranceMm || 25);
+  const length = 14 * closeness(source.lengthMm, target.lengthMm, options.lengthToleranceMm || 25);
   const od = 10 * closeness(source.diameter, target.diameter, options.diameterToleranceMm || 2);
   const wall = 5 * closeness(source.wall, target.wall, options.wallToleranceMm || 1);
   const componentKind = source.componentKind === target.componentKind ? 12 : (source.componentKind === 'PIPE' && target.componentKind === 'BEND' ? 2 : 0);
