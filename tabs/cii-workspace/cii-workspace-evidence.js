@@ -23,11 +23,14 @@ function compatibilityComponents(evaluation) {
 
 function rankingScore(evaluation) {
   if (!evaluation.identity?.identitySupported) return 0;
-  const methodQuality = [
-    evaluation.m1Spatial?.pass ? Number(evaluation.m1Spatial.score || 0) : null,
-    evaluation.m2Network?.pass ? Number(evaluation.m2Network.score || 0) : null,
-  ].filter(Number.isFinite);
-  const quality = methodQuality.length ? Math.max(...methodQuality) : 0;
+  const m1Pass = Boolean(evaluation.m1Spatial?.pass);
+  const m2Pass = Boolean(evaluation.m2Network?.pass);
+  let quality = 0;
+  if (m1Pass && m2Pass) {
+    // Agreement is only as strong as the weaker supporting method.
+    quality = Math.min(Number(evaluation.m1Spatial.score || 0), Number(evaluation.m2Network.score || 0));
+  } else if (m1Pass) quality = Number(evaluation.m1Spatial.score || 0);
+  else if (m2Pass) quality = Number(evaluation.m2Network.score || 0);
   return Number((0.5 * Number(evaluation.identity.score || 0) + 0.5 * quality).toFixed(1));
 }
 
