@@ -6,263 +6,289 @@
 HANDOVER_READINESS: READY
 PR_RECOVERY_STATE: IMPLEMENTATION_COMPLETE_VALIDATION_PARTIAL_STACKED_DRAFT
 TAKEOVER_AUTHORITY: OWNER_OR_REQUALIFIED_AGENT
-EXECUTION_MODE: MANUAL
-AUTO_STATE: NOT_ACTIVE
-SCOPE_AUTHORITY: LOCKED_TO_PHASE7_AUX_CUSTODY_AND_BENCHMARK
-MERGE_AUTHORITY: OWNER_ONLY
+EXECUTION_MODE: AUTO
+AUTO_STATE: RUNNING
+PHASE_PROGRESSION: AUTO
+SCOPE_AUTHORITY: LOCKED_TO_APPROVED_CII_COMPARE_MISSION
+MERGE_AUTHORITY: OWNER_GRANTED_IF_ALL_APPROVED_PHASES_COMPLETE_AND_QUALIFIED
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR_OR_WIP: PR987
 BRANCH: agent/cii-aux-custody-benchmark
-PR_HEAD_OBSERVED: 098762d6e35408f691dd8c506d54cd7d22bc3eac
-REPORT_BASIS_HEAD: 098762d6e35408f691dd8c506d54cd7d22bc3eac
+REPORT_BASIS_HEAD: b47a7cbc6227ef8432b9fa2796ca2e64f6949fe9
 STACKED_BASE_PR: PR986
-STACKED_BASE_HEAD: 2e84648cb0dfd71ef304be744ea7e2dcb3f3e35f
 STACKED_DEPENDENCY: PR982 -> PR983 -> PR984 -> PR985 -> PR986 -> PR987
-GROUNDING_EPOCH: GE-987-002
-CURRENT_STAGE: IMPLEMENT_VALIDATE_RECONCILE
-CURRENT_BLOCKER: FULL_AUTHENTICATED_CHECKOUT_UNAVAILABLE
-HIGHEST_RISK: REAL-FILE END-TO-END CORRESPONDENCE/DELTA EXECUTION NOT YET OBSERVED
-EXACT_NEXT_ACTION: execute committed PR987 focused tests and the real-file benchmark qualification test in a complete checkout; do not enable target mutation.
+GROUNDING_EPOCH: GE-987-004
+CURRENT_STAGE: HANDOVER_AND_SUCCESSOR_PHASE
+CURRENT_BLOCKER: FULL THREE-FILE/FROZEN-POLICY EXECUTION NOT OBSERVED
+HIGHEST_RISK: REAL SOURCE->TARGET1/TARGET2 END-TO-END CORRESPONDENCE REMAINS UNEXECUTED
+EXACT_NEXT_ACTION: continue automatically into read-only Transfer Preview qualification; do not enable target mutation.
 ```
 
-## 1. Handover in 60 seconds
+## Handover in 60 seconds
 
-PR987 fixes auxiliary CII custody that the generic parser cannot safely establish. The protected writer is the format authority. ELEMENT rows 12–14 point to auxiliary sections; RESTRANT line1 fixed fields define numeric type/stiffness/gap/friction/connecting-node; RIGID first field is a pointer-bound weight; SIF&TEES is pointer-bound raw evidence with field-2 meaning intentionally unresolved.
+PR987 establishes CII auxiliary engineering custody that the generic parser cannot safely infer. It does not change M1/M2 policy, propagation policy, or target-write authority.
 
-The implementation is local to CII Workspace. It does **not** rewrite the generic parser and does not alter M1/M2 policy, propagation policy, or target mutation authority.
+The protected writer is read-only authority. Key corrected record rules are:
 
-## 2. Source authority established
+```text
+ELEMENT                 15-row blocks
+RESTRANT pointer        1-based 24-row block index
+SIF&TEES pointer        1-based 10-row block index
+RIGID pointer           1-based single-row record index
+RESTRANT line 1         node, type, stiffness, gap, friction, connecting node
+RESTRANT line 2         X/Y/Z direction cosines
+```
 
-Protected reference inspected: `reallaksh19/3D_Converters/converters/scripts/inputxml_to_cii2019.py`.
+A previous Phase7 implementation incorrectly treated RESTRANT and SIF pointers as raw row numbers. This was found by source audit and corrected before qualification.
 
-- `_row()` widths = `[15] + [13] * remaining`;
-- ELEMENT block = 15 raw rows;
-- row12 pointer order = bend, rigid, expjt, restraint, displmnt, forcmnt;
-- row13 pointer order = uniform, wind, offset, allowbl, SIF&TEES, NODENAME;
-- row14 pointer order = reducer, flange, equipment;
-- RESTRANT = six 4-row slots per pointer block;
-- RESTRANT line1 = node, type, stiffness, gap, friction, connecting node;
-- RESTRANT line2 = X/Y/Z direction cosines;
-- RIGID pointer resolves a record whose first field is writer `rigid_weight`;
-- SIF&TEES record/node custody is pointer-bound; current source does not justify assigning a semantic name to raw field2;
-- MISCEL_1 contains hanger-related groups, but benchmark hanger node/group custody is not yet qualified.
+## Current implementation
 
-## 3. Implemented production changes
+### Auxiliary pointer custody
 
-### `cii-workspace-auxiliary.js`
+`tabs/cii-workspace/cii-workspace-auxiliary.js` now:
 
-- parses raw 15-row ELEMENT blocks;
-- extracts row12/13/14 auxiliary pointers;
-- maps raw blocks back to parsed elements by index + FROM/TO custody;
-- parses source-qualified RESTRANT numeric fields and 4-row slot custody;
-- builds RESTRANT `byPointer` and `byNode` evidence;
-- resolves RIGID records by 1-based pointer and publishes writer weight;
-- resolves SIF&TEES raw record spans by pointer and strips only the renumbered node field from normalized payload equality;
-- exposes per-element `restraintRecords`, `rigidRecord`, and `sifTeeRecord`;
-- fail-closes auxiliary family capabilities to `PARSE_ERROR` on custody/decode conflicts;
-- reports raw MISCEL_1 presence for Hanger while keeping Hanger `NOT_PARSED`.
+- reads raw 15-row ELEMENT blocks and row12/13/14 pointer fields;
+- binds auxiliary evidence to parsed elements by index + FROM/TO custody;
+- treats RESTRANT pointers as 24-row block indices;
+- treats SIF&TEES pointers as 10-row block indices;
+- treats RIGID pointers as single-row indices;
+- fail-closes pointer/decode conflicts;
+- preserves SIF field 2 as raw/partial evidence only.
 
-### `cii-workspace-intake.js`
+### RIGID authority
 
-- attaches `auxiliaryEvidence` after generic parse;
-- overlays baseline capability states with pointer-qualified restraint/rigid/SIF states;
-- reports `auxiliaryConflictCount`.
+CII Workspace no longer uses generic `parsed.rigids` node/mass guesses to classify topology. A RIGID component exists only when ELEMENT pointer custody reaches a qualified RIGID record. If RIGID auxiliary capability is `PARSE_ERROR`, topology adaptation throws `CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED`.
 
-### `cii-workspace-topology-adapter.js`
+### SIF/TEE identity separation
 
-- RIGID component identity is determined only by pointer-bound RIGID evidence;
-- the unsafe generic `parsed.rigids` node/mass association is no longer used for CII Workspace topology;
-- SIF/TEE is retained only as downstream evidence;
-- **SIF/TEE is excluded from `packetEvidence`, neighbourhood tokens and M2 identity** so a revision SIF change cannot change correspondence identity.
+SIF/TEE remains downstream engineering evidence only. It is excluded from M2 packet/neighbourhood identity so a SIF revision cannot alter correspondence identity.
 
-### `cii-workspace-components.js`
+### Restraint engineering deltas
 
-- rigid component custody is tied to matched element + pointer-bound RIGID evidence;
-- missing pointer custody is a fail-closed component conflict.
-
-### `cii-workspace-engineering-delta.js`
-
-For pointer-qualified real CII evidence:
+Pointer-qualified real CII can report:
 
 - restraint presence;
-- numeric restraint code set (code descriptions remain partial/unmapped);
-- restraint gap values;
-- restraint friction values;
-- restraint stiffness values;
-- direction-cosine set;
-- qualified numeric restraint record set;
-- SIF/Tee record presence;
-- SIF/Tee raw code field2 and normalized raw payload, both PARTIAL semantics;
-- rigid weight based on pointer-bound record;
-- native node-location evidence and registered-node-location evidence are separate rows.
+- numeric type-code set;
+- gap values;
+- friction values;
+- stiffness values;
+- direction cosines;
+- normalized numeric record set.
 
-For legacy/synthetic documents without auxiliary custody, old conservative behavior is retained: no gap/friction semantic labels are invented.
+Human-readable meanings of all CAESAR type codes remain intentionally unresolved.
 
-### `cii-workspace-core.js`
+### Hanger custody
 
-Qualified geometry registration is explicitly passed into engineering-delta generation so native and registered coordinate bases remain distinct evidence.
+`tabs/cii-workspace/cii-workspace-hanger.js` qualifies hanger **node presence/count only** from CONTROL + MISCEL_1.
 
-## 4. Benchmark qualification findings
+Two observed layouts are supported explicitly:
 
-### Restraint 130
+1. `CAESAR_SYNCHRONIZER_IHGRNODE_FIRST` — defaults then IHGRNODE;
+2. `INPUTXML_CURRENT_HGRDAT_FIRST` — defaults, five per-hanger rows, then IHGRNODE.
 
-SOURCE:
+A layout is accepted only when:
 
-```text
-node 130
-raw type code 15
-friction 0.0
-```
+- CONTROL `NOHGRS` is valid;
+- CONTROL `NUMELT` matches parsed element count;
+- calculated MISCEL_1 offset is valid;
+- packed IHGRNODE value count equals `NOHGRS` exactly;
+- every decoded node is a positive integer present in parsed topology;
+- competing layouts either reduce to the same node set or one uniquely qualifies.
 
-TARGET1:
+Ambiguous/invalid layouts fail closed. HGRDAT/TAG/GUID semantics are still not normalized.
 
-```text
-node 20130
-raw type code 9
-friction 0.3
-```
+## Quantitative benchmark custody
 
-TARGET2:
+### Node 130 restraint block arithmetic
 
 ```text
-node 10130
-raw type code 9
-friction 0.0
+SOURCE 120->130      restraint pointer 5
+TARGET1 20120->20130 restraint pointer 5
+TARGET2 10120->10130 restraint pointer 6
+
+block-start row = (pointer - 1) * 24 + 1
+SOURCE/TARGET1 pointer 5 -> row 97
+TARGET2 pointer 6        -> row 121
 ```
 
-Gap/friction field positions are source-qualified by the protected writer. Human-readable meaning of type codes 9/15 is not asserted.
-
-### SIF/Tee 70
-
-Pointer-bound raw SIF&TEES evidence:
+Expected numeric evidence:
 
 ```text
-SOURCE  node 70     raw field2 code 3
-TARGET1 node 20070  raw field2 code 5
-TARGET2 node 10070  raw field2 code 5
+SOURCE 130     type 15, friction 0.0
+TARGET1 20130  type 9,  friction 0.3
+TARGET2 10130  type 9,  friction 0.0
 ```
 
-The raw code changes are valid engineering evidence. The semantic label for code 3/5 remains unresolved.
+### Node 70 SIF/Tee block arithmetic
 
-### 113→116 weight note — benchmark contradiction
-
-SOURCE `113→116` uses RIGID pointer 9.
-TARGET1/TARGET2 corresponding span uses pointer 11.
-
-Pointer-resolved first-field writer weight:
+The actual branch correspondence is:
 
 ```text
-SOURCE   pointer 9  -> 111.200
-TARGET1  pointer 11 -> 111.200
-TARGET2  pointer 11 -> 111.200
+SOURCE   70->250
+TARGET1  20070->20250
+TARGET2  10070->10250
 ```
 
-Therefore **pointer index changed, writer weight did not**. The historical statement “weight changed” is quarantined in `CII_COMPARE_EXPECTED.json`; code is not tuned to manufacture that change.
-
-### Hanger at 205
-
-MISCEL_1 is present, and the protected writer shows hanger groups live there. However a defensible benchmark node/group custody for the claimed 205 hanger deletion has not yet been established. Hanger remains `NOT_PARSED`, count `null`, with raw MISCEL_1 presence shown. No deletion claim is asserted.
-
-## 5. Benchmark oracle corrections
-
-`Benchmark/CIICompare/CII_COMPARE_EXPECTED.json` now:
-
-- keeps numbering offsets as non-authoritative hints;
-- retains corrected 130→20130/10130 mappings;
-- records qualified restraint 130 expectations;
-- records pointer-bound SIF raw-code expectations;
-- quarantines 10→20000, 30→20130, unvalidated 50→20050, and the contradicted 113–116 weight-change note.
-
-## 6. Tests committed
-
-- `tests/cii-workspace-auxiliary-custody.test.js`
-  - synthetic fixed-field pointer custody;
-  - restraint gap/friction;
-  - deliberate bogus generic RIGID parser evidence ignored;
-  - pointer-bound rigid classification.
-- `tests/cii-workspace-auxiliary-delta.test.js`
-  - restraint 15→9 / friction 0→0.3;
-  - SIF raw 3→5;
-  - pointer-bound rigid weight delta;
-  - native vs registered geometry basis.
-- `tests/cii-workspace-auxiliary-sif-identity-separation.test.js`
-  - proves SIF/TEE change does not alter M2 packet/neighbourhood identity.
-- `tests/cii-workspace-benchmark-qualification.test.js`
-  - real SOURCE/TARGET1/TARGET2 intake and auxiliary assertions;
-  - proves pointer9/11 weights are all 111.2;
-  - confirms corrected oracle/quarantine.
-- inherited `tests/cii-workspace-engineering-delta.test.js`
-  - updated to explicit native-basis label while preserving legacy partial restraint semantics.
-
-## 7. Validation ledger
-
-### VAL-987-01 — source authority
+Pointers:
 
 ```text
-Status: PASS
-Observation: SOURCE_INSPECTION
-Authority: protected 3D_Converters writer + benchmark CII raw records
+SOURCE  SIF pointer 1 -> SIF rows 1-10
+TARGET1 pointer 8     -> SIF rows 71-80
+TARGET2 pointer 8     -> SIF rows 71-80
 ```
 
-### VAL-987-02 — fixed-field/pointer hand check
+Pointer-bound raw field2 values:
 
 ```text
-Status: PASS
-Observation: RECONSTRUCTED_LOCAL_HAND_CHECK
-Checked: pointer rows; TARGET1 20130 line1; SOURCE pointer9/TARGET1 pointer11 rigid weight
-Result: restraint fields decode as expected; both pointer-resolved weights = 111.2
-Limitation: not literal repository test execution
+SOURCE 70      3
+TARGET1 20070  5
+TARGET2 10070  5
 ```
 
-### VAL-987-03 — committed focused Node tests
+### 113->116 weight note
 
 ```text
-Status: NOT_RUN
-Reason: complete authenticated checkout unavailable in current container; github.com DNS resolution fails
-Tests:
-  node tests/cii-workspace-auxiliary-custody.test.js
-  node tests/cii-workspace-auxiliary-delta.test.js
-  node tests/cii-workspace-auxiliary-sif-identity-separation.test.js
-  node tests/cii-workspace-engineering-delta.test.js
+SOURCE pointer 9   -> writer weight 111.2
+TARGET1 pointer 11 -> writer weight 111.2
+TARGET2 pointer 11 -> writer weight 111.2
 ```
 
-### VAL-987-04 — real benchmark file qualification
+The historical claim “weight changed” remains QUARANTINED. Pointer-number change is not an engineering weight change.
+
+### Hanger at node 205
+
+SOURCE CONTROL:
 
 ```text
-Status: NOT_RUN
-Test: node tests/cii-workspace-benchmark-qualification.test.js
-Reason: benchmark files unavailable in a complete local checkout
+NUMELT = 40
+NUMNOZ = 0
+NOHGRS = 1
+RRMAT rows = ceil(40/6) = 7
+vendor/synchronizer IHGRNODE row = 7 + 2 + 1 = MISCEL_1 row 10
+MISCEL_1 row 10 = 205
 ```
 
-### VAL-987-05 — full SOURCE/TARGET1/TARGET2 CII Workspace preview
+TARGET1/TARGET2 both declare `NOHGRS=0`.
+
+Therefore the benchmark now source-qualifies:
 
 ```text
-Status: NOT_RUN
-Requirement: full intake -> correspondence -> deltas -> review with frozen policy
+SOURCE node 205    hanger present, count 1
+TARGET1 node 20205 hanger absent,  count 0
+TARGET2 node 10205 hanger absent,  count 0
+semantic delta     REMOVED_IN_TARGET
 ```
 
-## 8. Safety invariants
+This remains downstream property evidence; it does not alter M1/M2 identity confidence.
 
-- no protected writer edits;
-- no generic parser ELEMENT/RESTRANT edit in PR987;
-- no M1/M2 scoring changes;
-- no propagation changes;
-- no node-number-offset identity rule;
-- SIF/TEE changes are downstream engineering evidence only;
-- unsupported hanger semantics stay unresolved;
-- target CII mutation remains blocked;
-- Stage06 remains NOT_IMPLEMENTED.
+## Benchmark oracle
 
-## 9. Continuation
+`Benchmark/CIICompare/CII_COMPARE_EXPECTED.json` now includes qualified expectations for:
 
-The next qualified step is **runtime qualification**, not more semantic expansion:
+- restraint 130 TARGET1/TARGET2;
+- SIF/Tee raw field2 at node70 TARGET1/TARGET2;
+- hanger node205 deletion TARGET1/TARGET2;
+- explicit source/target node and gang mappings.
 
-1. run all PR987 focused tests in a complete checkout;
-2. run the real three-file auxiliary benchmark test;
-3. run SOURCE→TARGET1 full preview and freeze/record actual correspondence outcomes;
-4. run TARGET2 blind with no policy retuning;
-5. only then consider a separate Hanger/MISCEL_1 qualification or transfer-authority PR.
+Still quarantined:
 
-# APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
+- `10 -> 20000` as node identity;
+- `30 -> 20130`;
+- unvalidated `50 -> 20050`;
+- 113-116 weight-change claim.
 
-`NOT_REQUIRED_SAME_AGENT_CONTINUATION` for the current agent. A future different implementation agent must re-ground against live branch/PR state and source authority before engineering-critical mutation.
+Number offsets remain non-authoritative hints and are never used to derive expected targets.
+
+## Validation ledger
+
+### VAL-987-01 protected-source inspection
+
+```text
+STATUS: PASS
+OBSERVATION: SOURCE_INSPECTION
+ORACLE: AUTHORITATIVE_REFERENCE
+```
+
+### VAL-987-02 block-index hand qualification
+
+```text
+STATUS: PASS
+OBSERVATION: SOURCE_INSPECTION + INDEPENDENT_REPRODUCTION
+Checked: restraint block 5/6, SIF block 1/8, RIGID pointer 9/11
+```
+
+### VAL-987-03 focused hanger layout test
+
+```text
+STATUS: PASS
+OBSERVATION: LOCAL_EXECUTION
+SOURCE INTEGRITY: exact GitHub blobs SHA-verified before execution
+TEST: tests/cii-workspace-hanger-custody.test.js
+COVERS: both supported layouts, NOHGRS=0, invalid-node fail closed
+```
+
+### VAL-987-04 focused hanger delta test
+
+```text
+STATUS: PASS
+OBSERVATION: LOCAL_EXECUTION
+SOURCE INTEGRITY: exact GitHub blobs SHA-verified before execution
+TEST: tests/cii-workspace-hanger-delta.test.js
+COVERS: REMOVED_IN_TARGET, count 1->0, identity unchanged, PARSE_ERROR suppresses assertion
+```
+
+### VAL-987-05 auxiliary pointer runtime suite
+
+```text
+STATUS: NOT_RUN
+Tests include:
+  tests/cii-workspace-auxiliary-custody.test.js
+  tests/cii-workspace-auxiliary-delta.test.js
+  tests/cii-workspace-auxiliary-sif-identity-separation.test.js
+  tests/cii-workspace-rigid-custody.test.js
+```
+
+### VAL-987-06 real three-file benchmark qualification
+
+```text
+STATUS: NOT_RUN
+TEST: tests/cii-workspace-benchmark-qualification.test.js
+```
+
+### VAL-987-07 full frozen-policy preview
+
+```text
+STATUS: NOT_RUN
+TEST: tests/cii-workspace-benchmark-end-to-end.test.js
+Requirement: SOURCE->TARGET1 and TARGET2 under identical policy
+```
+
+No GitHub status checks/workflow runs were observed for the reconciled head. An unavailable runner is not counted as product PASS.
+
+## Negative assurance / invariants
+
+PR987 intentionally does not change:
+
+```text
+M1 scoring
+M2 scoring
+winner gap
+anchor propagation
+number-offset policy
+protected writer
+parser/sections/elements.js
+parser/sections/restraints.js
+target CII writer/mutation
+```
+
+Stage06/modified-target export remain blocked.
+
+## AUTO continuation
+
+Owner enabled autonomous phase progression and subsequently authorized merge **only if all approved phases are complete and qualified**. This is conditional merge authority, not permission to bypass validation.
+
+Next phase: transfer-preview qualification on a successor stacked draft. Actual target mutation remains a separate hard-gated phase and may not be enabled unless the complete acceptance programme passes.
+
+# APPENDIX A
+
+`NOT_REQUIRED_SAME_AGENT_CONTINUATION` while current qualified agent continues in AUTO mode. Any different implementation agent must re-ground live repository state and the protected format authority before engineering-critical mutation.
