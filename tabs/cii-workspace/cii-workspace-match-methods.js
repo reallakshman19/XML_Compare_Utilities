@@ -151,11 +151,17 @@ export function normalizedCiiMethodScore(method, dimensions, options = {}) {
 export function fuseCiiIdentityEvidence(m1, m2, dimensions, options = {}) {
   const m1Score = normalizedCiiMethodScore(m1, dimensions, options);
   const m2Score = normalizedCiiMethodScore(m2, dimensions, options);
+  const dimensionsPass = Boolean(dimensions?.diameter?.pass && dimensions?.wall?.pass);
   let confidence = 'UNRESOLVED';
-  if (m1?.pass && m2?.pass) {
-    confidence = dimensions?.diameter?.pass && dimensions?.wall?.pass ? 'HIGH' : 'MEDIUM';
+
+  if (m1?.available === false && m2?.pass) {
+    // Missing coordinates are neutral evidence, not proof of a geometry change.
+    confidence = dimensionsPass ? 'HIGH' : 'MEDIUM';
+  } else if (m1?.pass && m2?.pass) {
+    confidence = dimensionsPass ? 'HIGH' : 'MEDIUM';
   } else if (m1?.pass && !m2?.pass) confidence = 'REVIEW';
-  else if (!m1?.pass && m2?.pass) confidence = 'MEDIUM';
+  else if (m1?.available !== false && !m1?.pass && m2?.pass) confidence = 'MEDIUM';
+
   const identitySupported = Boolean(m1?.pass || m2?.pass);
   return deepFreeze({
     confidence, identitySupported,
@@ -163,9 +169,10 @@ export function fuseCiiIdentityEvidence(m1, m2, dimensions, options = {}) {
     score: Math.max(m1Score, m2Score),
     reasons: Object.freeze([
       ...(!identitySupported ? ['IDENTITY_METHOD_NOT_SUPPORTED'] : []),
+      ...(m1?.available === false && m2?.pass ? ['M1_UNAVAILABLE_M2_SUPPORTED'] : []),
       ...(m1?.pass && !m2?.pass ? ['M1_PASS_M2_FAIL_REVIEW_REQUIRED'] : []),
-      ...(!m1?.pass && m2?.pass ? ['M1_FAIL_M2_PASS_GEOMETRY_CHANGED'] : []),
-      ...(m1?.pass && m2?.pass && (!dimensions?.diameter?.pass || !dimensions?.wall?.pass) ? ['IDENTITY_SUPPORTED_DIMENSIONS_CHANGED'] : []),
+      ...(m1?.available !== false && !m1?.pass && m2?.pass ? ['M1_FAIL_M2_PASS_GEOMETRY_CHANGED'] : []),
+      ...((m1?.pass || m1?.available === false) && m2?.pass && !dimensionsPass ? ['IDENTITY_SUPPORTED_DIMENSIONS_CHANGED'] : []),
     ]),
   });
 }
