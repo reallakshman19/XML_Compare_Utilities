@@ -42,28 +42,28 @@
       "sourceNode": "70",
       "target1Node": "20070",
       "target2Node": "10070",
-      "purpose": "identity-with-sif-tee-change"
+      "purpose": "identity-with-pointer-bound-sif-tee-raw-change"
     },
     {
       "id": "NODE-113",
       "sourceNode": "113",
       "target1Node": "20113",
       "target2Node": "10113",
-      "purpose": "weight-change-span-start"
+      "purpose": "rigid-pointer-custody-span-start"
     },
     {
       "id": "NODE-116",
       "sourceNode": "116",
       "target1Node": "20116",
       "target2Node": "10116",
-      "purpose": "weight-change-span-end"
+      "purpose": "rigid-pointer-custody-span-end"
     },
     {
       "id": "NODE-130",
       "sourceNode": "130",
       "target1Node": "20130",
       "target2Node": "10130",
-      "purpose": "restraint-change"
+      "purpose": "restraint-code-and-friction-change"
     },
     {
       "id": "NODE-205",
@@ -89,6 +89,60 @@
       "purpose": "size-wall-change-and-target2-internal-length-redistribution"
     }
   ],
+  "propertyExpectations": [
+    {
+      "id": "RESTRAINT-130-TARGET1",
+      "family": "RESTRAINT",
+      "sourceNode": "130",
+      "targetNode": "20130",
+      "target": "target1",
+      "expected": {
+        "sourceTypeCodes": [15],
+        "targetTypeCodes": [9],
+        "sourceFrictionValues": [0.0],
+        "targetFrictionValues": [0.3]
+      },
+      "authority": "PROTECTED_WRITER_FIXED_FIELDS_PLUS_BENCHMARK_RECORD"
+    },
+    {
+      "id": "RESTRAINT-130-TARGET2",
+      "family": "RESTRAINT",
+      "sourceNode": "130",
+      "targetNode": "10130",
+      "target": "target2",
+      "expected": {
+        "sourceTypeCodes": [15],
+        "targetTypeCodes": [9],
+        "sourceFrictionValues": [0.0],
+        "targetFrictionValues": [0.0]
+      },
+      "authority": "PROTECTED_WRITER_FIXED_FIELDS_PLUS_BENCHMARK_RECORD"
+    },
+    {
+      "id": "SIF-TEE-70-TARGET1",
+      "family": "SIF_TEE_RAW",
+      "sourceNode": "70",
+      "targetNode": "20070",
+      "target": "target1",
+      "expected": {
+        "sourceRawCode": 3,
+        "targetRawCode": 5
+      },
+      "authority": "ELEMENT_POINTER_BOUND_RAW_RECORD_FIELD_2_SEMANTICS_UNRESOLVED"
+    },
+    {
+      "id": "SIF-TEE-70-TARGET2",
+      "family": "SIF_TEE_RAW",
+      "sourceNode": "70",
+      "targetNode": "10070",
+      "target": "target2",
+      "expected": {
+        "sourceRawCode": 3,
+        "targetRawCode": 5
+      },
+      "authority": "ELEMENT_POINTER_BOUND_RAW_RECORD_FIELD_2_SEMANTICS_UNRESOLVED"
+    }
+  ],
   "quarantinedExpectations": [
     {
       "id": "NOTE-BASE-10-20000",
@@ -107,6 +161,12 @@
       "status": "QUARANTINED",
       "text": "50-70 -> 20050-20070",
       "reason": "The current benchmark does not provide a validated literal source node 50 / target node 20050 expectation."
+    },
+    {
+      "id": "NOTE-113-116-WEIGHT",
+      "status": "QUARANTINED",
+      "text": "113-116 -> 20113-20116 weight changed",
+      "reason": "The SOURCE element points to RIGID record 9 and TARGET1/TARGET2 point to record 11, but pointer-resolved first-field rigid weight is 111.200 in each model. A pointer-index change is not itself a weight change, so this expectation is not an engineering assertion until a different authoritative weight field is identified."
     }
   ],
   "oracleRules": {
