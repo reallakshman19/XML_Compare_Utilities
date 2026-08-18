@@ -33,13 +33,8 @@ function restraintBlock(node, typeCode, friction) {
   return rows;
 }
 function sifRecord(node, rawCode) {
-  return [
-    row([`${node}.000`, `${rawCode}.00000`, '0.000000', '0.000000', '0.000000', '0.000000']),
-    row(['0.000000', '0.000000', '0.000000', '0.000000', '0.000000', '0.000000']),
-    row(['0.000000', '0.000000', '0.000000', '0.000000', '0.000000', '0.000000']),
-    row(['0.000000', '0.000000', '0.000000', '0.000000', '9999.99', '9999.99']),
-    row(['0.000000', '0.000000', '0.000000', '0.000000', '0.000000', '0.000000']),
-  ];
+  const zero = row(['0.000000', '0.000000', '0.000000', '0.000000', '0.000000', '0.000000']);
+  return [row([`${node}.000`, `${rawCode}.00000`, '0.000000', '0.000000', '0.000000', '0.000000']), ...Array(9).fill(zero)];
 }
 function parsedElement(index, from, to, fromX) {
   return { index, from, to, dx: 100, dy: 0, dz: 0, od: 60.3, wall: 3.9, P1: 10, T1: 100, length: 100,
@@ -130,7 +125,8 @@ assert.strictEqual(registeredLocation.changed, false);
 assert(Math.abs(registeredLocation.delta.distanceMm) < 1e-9);
 assert.strictEqual(deltas.summary.geometryBases.registered, 'QUALIFIED_RIGID_3D_REGISTRATION');
 
-assert(!deltas.limitations.find((item) => item.family === 'restraints').reason.includes('not qualified'), 'gap/friction are now source-qualified numeric fields');
+assert.strictEqual(source.capabilities.families.sifTee.details.pointerUnit, '10_ROW_BLOCK_INDEX');
+assert.strictEqual(source.capabilities.families.restraints.details.pointerUnit, '24_ROW_BLOCK_INDEX');
 assert.strictEqual(deltas.limitations.find((item) => item.family === 'sifTee').comparisonState, 'PARTIAL');
 
 const restraintBlockedSource = {
