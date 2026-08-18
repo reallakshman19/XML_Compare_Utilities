@@ -5,12 +5,26 @@ function round(value, places = 6) { return Number(Number(value || 0).toFixed(pla
 function otherNode(edge, node) { return edge.from === node ? edge.to : edge.from; }
 function orderedPair(a, b) { return compareNodeIds(a, b) <= 0 ? [a, b] : [b, a]; }
 
+function capability(document, family) { return document?.capabilities?.families?.[family] || null; }
+function pointerFamilyReady(document, family, authorityToken, qualification = null) {
+  const item = capability(document, family);
+  if (!item || item.state === 'PARSE_ERROR') return false;
+  if (qualification && item.qualification !== qualification) return false;
+  return String(item.authority || '').includes(authorityToken);
+}
 function auxiliaryForElement(document, element) {
   return document?.auxiliaryEvidence?.elements?.[Number(element?.index)] || null;
 }
-function rigidEvidence(auxiliary) {
+function rigidEvidence(document, auxiliary) {
   const record = auxiliary?.rigidRecord;
   if (!record) return Object.freeze({ status: 'NONE' });
+  if (!pointerFamilyReady(document, 'rigidMass', '#RIGID_POINTER', 'QUALIFIED')) {
+    return Object.freeze({
+      status: 'UNAVAILABLE',
+      reason: 'RIGID_POINTER_CUSTODY_NOT_QUALIFIED',
+      pointer: Number(record.pointer),
+    });
+  }
   return Object.freeze({
     status: 'POINTER_BOUND_RECORD',
     pointer: Number(record.pointer),
@@ -20,8 +34,12 @@ function rigidEvidence(auxiliary) {
     authority: 'ELEMENT_RIGID_POINTER_TO_RIGID_RECORD',
   });
 }
-function rawEdge(element, auxiliary) {
-  const rigid = rigidEvidence(auxiliary);
+function sifTeeEvidence(document, auxiliary) {
+  if (!auxiliary?.sifTeeRecord) return null;
+  return pointerFamilyReady(document, 'sifTee', '#SIF_TEE_POINTER') ? auxiliary.sifTeeRecord : null;
+}
+function rawEdge(document, element, auxiliary) {
+  const rigid = rigidEvidence(document, auxiliary);
   const componentKind = rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : (element.hasBend ? 'BEND' : 'PIPE');
   // Identity packet evidence contains structural component facts only. SIF/TEE
   // is deliberately excluded: it is a downstream revision property and must
@@ -44,7 +62,7 @@ function rawEdge(element, auxiliary) {
     parsedElementIndex: Number(element.index),
     auxiliaryPointers: auxiliary?.pointers || null,
     // Retained as downstream engineering evidence only; no M2 token consumes it.
-    sifTeeEvidence: auxiliary?.sifTeeRecord || null,
+    sifTeeEvidence: sifTeeEvidence(document, auxiliary),
     rigidEvidence: rigid,
   };
 }
@@ -59,7 +77,7 @@ function canonicalEdgeKey(edge) {
 }
 
 function canonicalizeElements(document) {
-  const rows = (document?.parsed?.elements || []).map((element) => rawEdge(element, auxiliaryForElement(document, element)));
+  const rows = (document?.parsed?.elements || []).map((element) => rawEdge(document, element, auxiliaryForElement(document, element)));
   rows.sort((a, b) => canonicalEdgeKey(a).localeCompare(canonicalEdgeKey(b), undefined, { numeric: true, sensitivity: 'base' }));
   return rows.map((edge, index) => ({ ...edge, elementId: `E${index + 1}:${edge.from}->${edge.to}`, index: index + 1 }));
 }
@@ -122,6 +140,8 @@ function attachContexts(edges, adjacency) {
 
 export function adaptCiiDocumentToTopologyGraph(document) {
   if (document?.schema !== CII_WORKSPACE_SCHEMAS.document) throw new Error('CII_WORKSPACE_DOCUMENT_REQUIRED');
+  const rigidCapability = capability(document, 'rigidMass');
+  if (rigidCapability?.state === 'PARSE_ERROR') throw new Error('CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED');
   const edges = canonicalizeElements(document); const adjacency = buildIncidence(edges);
   attachContexts(edges, adjacency); const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
   return {
