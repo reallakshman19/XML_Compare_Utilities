@@ -1,0 +1,48 @@
+schema: AgentClaim.v1
+pr_or_wip: PR983
+claim_state: ACTIVE_IMPLEMENTATION
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-intake.js
+    - Benchmark/CIICompare/CII_COMPARE_EXPECTED.json
+    - tests/helpers/cii-compare-benchmark-oracle.js
+    - tests/cii-workspace-capabilities.test.js
+    - tests/cii-workspace-benchmark-oracle.test.js
+    - agents/PR983_workreport.md
+    - agents/status/PR983.yaml
+    - agents/claims/PR983.yaml
+  prefixes:
+    - tabs/cii-workspace/cii-workspace-capabilities
+
+authority_domains:
+  - CII_WORKSPACE_INTAKE_CAPABILITY_STATE
+  - CII_COMPARE_BENCHMARK_ORACLE_TEST_AUTHORITY
+claim_modes:
+  - EXCLUSIVE
+owner_authorization:
+  source: active_chat
+  scope: BENCHMARK_ORACLE_PREFLIGHT_AND_NORMALIZED_CAPABILITY_STATES
+shared_read_authorities:
+  - parser/caesar-parser.js
+  - parser/sections/restraints.js
+  - parser/sections/elements.js
+  - Benchmark/CIICompare/
+forbidden_existing_file_edits:
+  - parser/**
+  - converters/**
+  - tabs/revision-compare/**
+  - tabs/model-converters/**
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-topology*.js
+  - tabs/cii-workspace/cii-workspace-transfer*.js
+implementation_claims:
+  - parser capability state must distinguish parsed/empty from unparsed/unsupported/error
+  - raw section presence is evidence only, not semantic authority
+  - benchmark oracle remains test-only and may not become production node-offset logic
+validation_state: IMPLEMENTATION_IN_PROGRESS
+remaining_validation_gates:
+  - focused capability-state tests
+  - benchmark preflight against SOURCE/TARGET1/TARGET2
+  - diff reconciliation against stacked base
+known_limits:
+  - restraint semantic classification outside qualified direction codes remains partial
