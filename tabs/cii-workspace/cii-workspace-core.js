@@ -9,6 +9,8 @@ import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
 import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
 import { bindCiiCorrespondenceIdentity } from './cii-workspace-identity.js';
+import { buildCiiEngineeringDeltas } from './cii-workspace-engineering-delta.js';
+import { buildCiiCompareReviewModel } from './cii-workspace-compare-review.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
 import { createCiiWorkspaceStageModel } from './cii-workspace-placeholders.js';
@@ -37,13 +39,13 @@ function geometryPairs(sourceGraph, targetGraph, anchors) {
     return left && right ? [{ source: left, target: right, sourceNodeId: pair.sourceNodeId, targetNodeId: pair.targetNodeId }] : [];
   });
 }
-function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan, landmarks) {
+function buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks) {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.audit, direction: 'SOURCE_TO_TARGET',
     source: Object.freeze({ fileName: sourceDocument.fileName, contentSha256: sourceDocument.contentSha256, summary: sourceDocument.summary }),
     target: Object.freeze({ fileName: targetDocument.fileName, contentSha256: targetDocument.contentSha256, summary: targetDocument.summary }),
     lockedAnchors: anchors, landmarkSuggestions: landmarks, geometry, automaticPathAudit: pathAudit,
-    correspondence, review, transferPreview: transferPlan,
+    correspondence, review, engineeringDeltas, compareReview, transferPreview: transferPlan,
     mutationAuthority: Object.freeze({ stage06: 'NOT_IMPLEMENTED', modifiedTargetCiiExport: 'BLOCKED' }),
   });
 }
@@ -90,9 +92,11 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
+  const engineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, options);
+  const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, options);
-  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, transferPlan, landmarks);
-  const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, landmarks, correspondence, review, transferPlan, audit };
+  const audit = buildAudit(sourceDocument, targetDocument, anchors, geometry, pathAudit, correspondence, review, engineeringDeltas, compareReview, transferPlan, landmarks);
+  const result = { stages: createCiiWorkspaceStageModel(), sourceDocument, targetDocument, landmarks, correspondence, review, engineeringDeltas, compareReview, transferPlan, audit };
   result.artifacts = ciiWorkspaceArtifactBundle(result);
   return deepFreeze(result);
 }
