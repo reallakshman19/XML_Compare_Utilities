@@ -1,0 +1,35 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR984
+mission: CII M1 Spatial and M2 Network evidence separation
+workstream: cii-m1-m2-evidence
+branch: agent/cii-m1-m2-evidence
+stacked_base_pr: PR983
+stacked_base_head: 070ef9038a9fc2af87a1e7a49b0e8f600d98d3ba
+main_base: ceb0c0193a4be68b28a913b74bdc453ccf79d336
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: IMPLEMENTATION_IN_PROGRESS
+pr_recovery_state: STACKED_DRAFT_ACTIVE
+handover_readiness: READY
+report_path: agents/PR984_workreport.md
+appendix_a_status: NOT_REQUIRED_SAME_AGENT_CONTINUATION
+scope_authority: LOCKED_TO_M1_M2_EVIDENCE_ONLY
+validation_state: NOT_RUN_IMPLEMENTATION_IN_PROGRESS
+acceptance_matrix:
+  m1_spatial_euclidean: NOT_RUN
+  m2_network_independent: NOT_RUN
+  od_removed_from_network_token: NOT_RUN
+  od_wall_not_identity_blockers: NOT_RUN
+  od_wall_relative_evidence: NOT_RUN
+  fusion_matrix: NOT_RUN
+  method_disagreement_review: NOT_RUN
+  winner_gap_preserved: EXPECTED_DIFF_GUARD
+  target_custody_preserved: EXPECTED_DIFF_GUARD
+  propagation_unchanged: EXPECTED_DIFF_GUARD
+  transfer_unchanged: EXPECTED_DIFF_GUARD
+known_limits:
+  - stacked on PR983 and PR982
+  - no anchor-seeded propagation in this PR
+exact_next_action: implement independent M1/M2 evidence and focused tests
+last_updated: 2026-08-18T17:49:00+04:00
