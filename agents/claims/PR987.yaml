@@ -1,0 +1,47 @@
+schema: AgentClaim.v1
+pr_or_wip: PR987
+claim_state: ACTIVE_IMPLEMENTATION
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-engineering-delta.js
+    - tabs/cii-workspace/cii-workspace-capabilities.js
+    - tabs/cii-workspace/cii-workspace-intake.js
+    - agents/PR987_workreport.md
+    - agents/status/PR987.yaml
+    - agents/claims/PR987.yaml
+  prefixes:
+    - tabs/cii-workspace/cii-workspace-auxiliary
+    - tests/cii-workspace-auxiliary
+    - tests/cii-workspace-benchmark-qualification
+authority_domains:
+  - CII_ELEMENT_AUX_POINTER_CUSTODY
+  - CII_RESTRAINT_SEMANTIC_EVIDENCE
+  - CII_RIGID_WEIGHT_CUSTODY
+  - CII_SIF_TEE_RAW_CUSTODY
+  - CII_BENCHMARK_QUALIFICATION
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - parser/fixed-field.js
+  - tabs/cii-workspace/cii-workspace-nodename.js
+  - Benchmark/CIICompare/
+  - tabs/cii-workspace/cii-workspace-compare-review.js
+forbidden_existing_file_edits:
+  - converters/**
+  - parser/sections/elements.js
+  - parser/sections/restraints.js
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - tabs/cii-workspace/cii-workspace-transfer*.js
+implementation_claims:
+  - auxiliary records are associated by authoritative ELEMENT pointer index, not guessed from node arithmetic
+  - restraint gap/friction fields are source-qualified fixed fields
+  - RIGID record first value is interpreted as weight only when reached through an element rigid pointer
+  - SIF&TEES records remain raw/partial except source-qualified node/index custody
+  - auxiliary deltas are downstream and cannot rewrite correspondence identity
+validation_state: IMPLEMENTATION_IN_PROGRESS
+known_limits:
+  - hanger MISCEL_1 semantics remain unresolved until custody is independently proven
+  - target mutation remains blocked
