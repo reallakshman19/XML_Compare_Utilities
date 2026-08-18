@@ -10,6 +10,7 @@ files:
     - tabs/cii-workspace/cii-workspace-components.js
     - tabs/cii-workspace/cii-workspace-core.js
     - Benchmark/CIICompare/CII_COMPARE_EXPECTED.json
+    - tests/cii-workspace-engineering-delta.test.js
     - agents/PR987_workreport.md
     - agents/status/PR987.yaml
     - agents/claims/PR987.yaml
