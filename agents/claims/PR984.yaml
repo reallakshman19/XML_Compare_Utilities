@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR984
-claim_state: ACTIVE_IMPLEMENTATION
+claim_state: IMPLEMENTATION_COMPLETE_HANDOVER_READY
 files:
   exact:
     - tabs/cii-workspace/cii-workspace-evidence.js
@@ -34,17 +34,19 @@ forbidden_existing_file_edits:
   - tabs/model-converters/**
 implementation_claims:
   - M1 and M2 are independently visible evidence
+  - M1 uses Euclidean spatial distance
   - OD and wall are supporting evidence only
   - M2 topology token contains no OD or wall
   - method disagreement maps to REVIEW
   - MEDIUM confidence is projected into existing workflow REVIEW status until engineer approval
   - branch/rigid contradictions remain hard identity conflicts; OD/WT differences do not
-validation_state: IMPLEMENTATION_IN_PROGRESS
+  - identity-unsupported candidates receive zero confidence and ranking score
+  - confidence score is distinct from method-quality ranking score
+  - method-specific winner gaps preserve repeated-network discrimination
+validation_state: FOCUSED_RECONSTRUCTED_PASS_FULL_CHECKOUT_NOT_RUN
+validated_implementation_head: 2cf30cb8df4e6540d73bd4649f4f42fcece59738
 remaining_validation_gates:
-  - focused M1/M2 decision tests
-  - candidate winner-gap regression
-  - alignment semantics regression
-  - hard-conflict semantic regression
-  - stacked diff reconciliation
+  - literal current-head repository test commands in a complete authenticated checkout
 known_limits:
-  - anchor-seeded propagation intentionally deferred
+  - anchor-seeded propagation intentionally deferred to Phase 5
+  - direct container checkout environment-blocked by GitHub DNS resolution
