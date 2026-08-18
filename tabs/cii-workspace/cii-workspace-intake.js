@@ -58,7 +58,7 @@ export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}
     summary: Object.freeze({
       version: versionLabel(sourceText),
       elementCount: parsed.elements.length,
-      nodeCount: Object.keys(parsed.nodes || {}).length,
+      nodeCount: capabilityCount(families.nodes),
       bendCount: parsed.bends?.length || 0,
       rigidRecordCount: capabilityCount(families.rigidMass),
       restraintNodeCount: parsedDetailCount(families.restraints, 'nodeCount'),
