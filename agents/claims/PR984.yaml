@@ -6,6 +6,7 @@ files:
     - tabs/cii-workspace/cii-workspace-evidence.js
     - tabs/cii-workspace/cii-workspace-topology-adapter.js
     - tabs/cii-workspace/cii-workspace-candidates.js
+    - tabs/cii-workspace/cii-workspace-alignment.js
     - agents/PR984_workreport.md
     - agents/status/PR984.yaml
     - agents/claims/PR984.yaml
@@ -16,6 +17,7 @@ authority_domains:
   - CII_M1_SPATIAL_EVIDENCE
   - CII_M2_NETWORK_EVIDENCE
   - CII_IDENTITY_FUSION
+  - CII_ALIGNMENT_CONFIDENCE_PROJECTION
 claim_modes:
   - EXCLUSIVE
 shared_read_authorities:
@@ -34,6 +36,7 @@ implementation_claims:
   - OD and wall are supporting evidence only
   - M2 topology token contains no OD or wall
   - method disagreement maps to REVIEW
+  - MEDIUM confidence is projected into existing workflow REVIEW status until engineer approval
 validation_state: IMPLEMENTATION_IN_PROGRESS
 remaining_validation_gates:
   - focused M1/M2 decision tests
