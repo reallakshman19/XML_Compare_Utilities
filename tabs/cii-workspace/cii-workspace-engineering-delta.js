@@ -150,6 +150,36 @@ function qualifiedRestraintDeltas(row, sourceRecords, targetRecords) {
   return deltas;
 }
 
+function hangerEvidence(document, nodeId) {
+  const family = capability(document, 'hangers');
+  if (!family || family.state === 'PARSE_ERROR') return { mode: 'UNAVAILABLE', records: [] };
+  const qualified = family.details?.nodePresenceQualified === true
+    && String(family.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE')
+    && document?.hangerEvidence?.status === 'QUALIFIED';
+  if (!qualified) return { mode: 'UNAVAILABLE', records: [] };
+  return { mode: 'NODE_PRESENCE_QUALIFIED', records: [...(document.hangerEvidence?.byNode?.[String(nodeId)] || [])] };
+}
+function qualifiedHangerDeltas(row, sourceRecords, targetRecords) {
+  const sourceCount = sourceRecords.length; const targetCount = targetRecords.length;
+  if (sourceCount === 0 && targetCount === 0) return [];
+  const sourcePresent = sourceCount > 0; const targetPresent = targetCount > 0;
+  const authority = 'CONTROL_NOHGRS_PLUS_MISCE L_1_IHGRNODE'.replace('MISCE L', 'MISCEL');
+  return [
+    deltaRow(row, 'HANGER', 'Hanger presence', sourcePresent, targetPresent, {
+      changed: sourcePresent !== targetPresent,
+      semanticChange: sourcePresent === targetPresent ? 'UNCHANGED' : (targetPresent ? 'ADDED_IN_TARGET' : 'REMOVED_IN_TARGET'),
+      authority,
+      evidenceStatus: 'PARTIAL',
+      limitations: ['Hanger node presence/count is qualified; HGRDAT and other hanger attributes are not normalized.'],
+    }),
+    deltaRow(row, 'HANGER', 'Hanger record count at node', sourceCount, targetCount, {
+      changed: sourceCount !== targetCount, delta: targetCount - sourceCount, authority,
+      evidenceStatus: 'PARTIAL',
+      limitations: ['Count is derived from qualified IHGRNODE membership only.'],
+    }),
+  ];
+}
+
 function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
   const sourceNameCapability = capability(sourceDocument, 'nodeNames'); const targetNameCapability = capability(targetDocument, 'nodeNames');
@@ -183,6 +213,12 @@ function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGra
       deltas.push(...qualifiedRestraintDeltas(row, sourceRestraint.records, targetRestraint.records));
     } else if (sourceRestraint.mode === 'LEGACY_PARTIAL' && targetRestraint.mode === 'LEGACY_PARTIAL') {
       deltas.push(...legacyRestraintDeltas(row, sourceRestraint.legacy, targetRestraint.legacy));
+    }
+
+    const sourceHanger = hangerEvidence(sourceDocument, row.sourceNodeId);
+    const targetHanger = hangerEvidence(targetDocument, row.targetNodeId);
+    if (sourceHanger.mode === 'NODE_PRESENCE_QUALIFIED' && targetHanger.mode === 'NODE_PRESENCE_QUALIFIED') {
+      deltas.push(...qualifiedHangerDeltas(row, sourceHanger.records, targetHanger.records));
     }
   }
   return deltas;
@@ -282,11 +318,21 @@ function pointerPartialLimitation(sourceDocument, targetDocument, family, label,
   }
   return limitation(sourceDocument, targetDocument, family, label);
 }
+function hangerPartialLimitation(sourceDocument, targetDocument) {
+  const source = capability(sourceDocument, 'hangers'); const target = capability(targetDocument, 'hangers');
+  if (source?.state === 'PARSE_ERROR' || target?.state === 'PARSE_ERROR') return limitation(sourceDocument, targetDocument, 'hangers', 'Hangers', 'BLOCKED');
+  const ready = source?.details?.nodePresenceQualified === true && target?.details?.nodePresenceQualified === true
+    && String(source?.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE')
+    && String(target?.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE');
+  return ready
+    ? limitation(sourceDocument, targetDocument, 'hangers', 'Hangers', 'PARTIAL', 'Hanger count/node presence is qualified; HGRDAT and other hanger attributes remain unnormalized.')
+    : limitation(sourceDocument, targetDocument, 'hangers', 'Hangers');
+}
 
 function capabilityLimitations(sourceDocument, targetDocument) {
   return Object.freeze([
     pointerPartialLimitation(sourceDocument, targetDocument, 'restraints', 'Restraints', '#RESTRANT'),
-    limitation(sourceDocument, targetDocument, 'hangers', 'Hangers'),
+    hangerPartialLimitation(sourceDocument, targetDocument),
     pointerPartialLimitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee', '#SIF_TEE_POINTER'),
     limitation(sourceDocument, targetDocument, 'weightData', 'General weight data'),
     limitation(sourceDocument, targetDocument, 'lineNumbers', 'Line numbers'),
