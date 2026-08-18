@@ -31,9 +31,13 @@ const target2 = await intakeCiiWorkspaceDocument(target2Text, 'BM_CII_TARGET2.CI
 for (const document of [source, target1, target2]) {
   assert.strictEqual(document.auxiliaryEvidence.conflicts.length, 0, `${document.fileName}: auxiliary custody must be conflict-free`);
   assert.strictEqual(document.auxiliaryEvidence.mappedElementCount, document.summary.elementCount);
+  assert.strictEqual(document.auxiliaryEvidence.restraints.blockRows, 24);
+  assert.strictEqual(document.auxiliaryEvidence.sifTee.blockRows, 10);
   assert.strictEqual(document.capabilities.families.restraints.details.gapFrictionQualified, true);
+  assert.strictEqual(document.capabilities.families.restraints.details.pointerUnit, '24_ROW_BLOCK_INDEX');
   assert.strictEqual(document.capabilities.families.rigidMass.qualification, 'QUALIFIED');
   assert.strictEqual(document.capabilities.families.sifTee.qualification, 'PARTIAL');
+  assert.strictEqual(document.capabilities.families.sifTee.details.pointerUnit, '10_ROW_BLOCK_INDEX');
   assert.strictEqual(document.capabilities.families.hangers.state, 'NOT_PARSED', 'hanger semantics remain unresolved in this qualification phase');
 }
 
@@ -49,6 +53,22 @@ assert.strictEqual(sifAtNode(source, 70)?.rawCode, 3);
 assert.strictEqual(sifAtNode(target1, 20070)?.rawCode, 5);
 assert.strictEqual(sifAtNode(target2, 10070)?.rawCode, 5);
 
+// Pin the actual element ownership as well as the record node. SOURCE branch
+// 70->250 owns SIF block 1; corresponding target branches own block 8. This
+// proves that the IEL value is a 10-row block index, not a raw section row.
+const sourceSifOwner = elementAux(source, 70, 250);
+const target1SifOwner = elementAux(target1, 20070, 20250);
+const target2SifOwner = elementAux(target2, 10070, 10250);
+assert.strictEqual(sourceSifOwner.pointers.sifTee, 1);
+assert.strictEqual(target1SifOwner.pointers.sifTee, 8);
+assert.strictEqual(target2SifOwner.pointers.sifTee, 8);
+assert.strictEqual(sourceSifOwner.sifTeeRecord?.node, '70');
+assert.strictEqual(sourceSifOwner.sifTeeRecord?.rawCode, 3);
+assert.strictEqual(target1SifOwner.sifTeeRecord?.node, '20070');
+assert.strictEqual(target1SifOwner.sifTeeRecord?.rawCode, 5);
+assert.strictEqual(target2SifOwner.sifTeeRecord?.node, '10070');
+assert.strictEqual(target2SifOwner.sifTeeRecord?.rawCode, 5);
+
 const sourceRigid = elementAux(source, 113, 116); const target1Rigid = elementAux(target1, 20113, 20116); const target2Rigid = elementAux(target2, 10113, 10116);
 assert.strictEqual(sourceRigid.pointers.rigid, 9);
 assert.strictEqual(target1Rigid.pointers.rigid, 11);
@@ -63,4 +83,4 @@ assert(oracle.propertyExpectations.some((item) => item.id === 'RESTRAINT-130-TAR
 assert(oracle.propertyExpectations.some((item) => item.id === 'SIF-TEE-70-TARGET2'));
 assert.strictEqual(oracle.oracleRules.deriveTargetsFromOffset, false);
 
-console.log('CII real-file auxiliary benchmark qualification checks passed.');
+console.log('CII real-file auxiliary benchmark block-index qualification checks passed.');
