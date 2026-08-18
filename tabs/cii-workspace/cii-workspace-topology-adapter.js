@@ -23,10 +23,12 @@ function rigidEvidence(auxiliary) {
 function rawEdge(element, auxiliary) {
   const rigid = rigidEvidence(auxiliary);
   const componentKind = rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : (element.hasBend ? 'BEND' : 'PIPE');
+  // Identity packet evidence contains structural component facts only. SIF/TEE
+  // is deliberately excluded: it is a downstream revision property and must
+  // not alter M2 correspondence merely because the SIF/tee record changed.
   const packetEvidence = uniqueStrings([
     element.hasBend ? 'BEND' : '',
     rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : '',
-    auxiliary?.sifTeeRecord ? 'SIF_TEE' : '',
   ]);
   return {
     from: nodeId(element.from), to: nodeId(element.to),
@@ -41,6 +43,7 @@ function rawEdge(element, auxiliary) {
     packetEvidence, flags: packetEvidence,
     parsedElementIndex: Number(element.index),
     auxiliaryPointers: auxiliary?.pointers || null,
+    // Retained as downstream engineering evidence only; no M2 token consumes it.
     sifTeeEvidence: auxiliary?.sifTeeRecord || null,
     rigidEvidence: rigid,
   };
@@ -73,8 +76,8 @@ function buildIncidence(elements) {
 
 function nodeToken(node, edge, adjacency) {
   const next = otherNode(edge, node); const degree = (adjacency.get(node) || []).length; const nextDegree = (adjacency.get(next) || []).length;
-  // Network/Gang identity is structural. OD and wall are independent evidence
-  // and must not be embedded here or they would be double-counted by M2.
+  // Network/Gang identity is structural. OD, wall, and SIF/TEE are independent
+  // revision evidence and must not be embedded here or double-counted by M2.
   return `D${degree}->D${nextDegree}|${edge.componentKind}`;
 }
 
