@@ -57,7 +57,9 @@ function rigidEvidenceFor(edge, rigidByNode, adjacency) {
 
 function nodeToken(node, edge, adjacency) {
   const next = otherNode(edge, node); const degree = (adjacency.get(node) || []).length; const nextDegree = (adjacency.get(next) || []).length;
-  return `D${degree}->D${nextDegree}|${edge.componentKind}|OD${round(edge.diameter, 3)}`;
+  // Network/Gang identity is structural. OD and wall are independent evidence
+  // and must not be embedded here or they would be double-counted by M2.
+  return `D${degree}->D${nextDegree}|${edge.componentKind}`;
 }
 
 function neighbourhoodLayers(start, adjacency, maxDepth = 3) {
