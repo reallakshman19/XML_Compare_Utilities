@@ -3,6 +3,7 @@ import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId, stableStringify } from './
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [String(edge.elementId), edge])); }
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
 function restraintMap(document) { return new Map((document?.parsed?.restraints || []).map((item) => [String(item.node), item])); }
+function capability(document, family) { return document?.capabilities?.families?.[family] || null; }
 function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 function numberDelta(source, target) { const a = finite(source); const b = finite(target); return a == null || b == null ? null : b - a; }
 function changedNumber(source, target, tolerance = 1e-9) { const delta = numberDelta(source, target); return delta == null ? false : Math.abs(delta) > tolerance; }
@@ -60,7 +61,7 @@ function deltaRow(row, category, property, sourceValue, targetValue, config = {}
     identityKind: row.kind,
     sourceIdentity,
     targetIdentity,
-    identityConfidence: ciiIdentityConfidence(row),
+    identityConfidence: config.identityConfidence || ciiIdentityConfidence(row),
     category,
     property,
     sourceValue,
@@ -77,6 +78,9 @@ function deltaRow(row, category, property, sourceValue, targetValue, config = {}
 function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
   const sourceRestraints = restraintMap(sourceDocument); const targetRestraints = restraintMap(targetDocument);
+  const sourceNameCapability = capability(sourceDocument, 'nodeNames'); const targetNameCapability = capability(targetDocument, 'nodeNames');
+  const nameQualified = sourceNameCapability?.qualification === 'QUALIFIED' && targetNameCapability?.qualification === 'QUALIFIED';
+  const nameLimitations = [...(sourceNameCapability?.limitations || []), ...(targetNameCapability?.limitations || [])];
   const deltas = []; const toleranceMm = Number(options.engineeringGeometryToleranceMm ?? 0.01);
   for (const row of rows || []) {
     if (row.kind !== 'NODE' || !row.sourceNodeId || !row.targetNodeId || !ciiIdentityBound(row)) continue;
@@ -88,8 +92,10 @@ function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGra
 
     const sourceName = sourceDocument?.nodeNames?.[String(row.sourceNodeId)] || '';
     const targetName = targetDocument?.nodeNames?.[String(row.targetNodeId)] || '';
-    deltas.push(deltaRow(row, 'NODE_NAME', 'Node name / to-name', sourceName, targetName, {
-      authority: 'CII_NODENAME_FIXED_LAYOUT',
+    // A blank/blank comparison from a partially qualified NODENAME family is
+    // not evidence of equality; conflicting names may have been withheld.
+    if (nameQualified || sourceName || targetName) deltas.push(deltaRow(row, 'NODE_NAME', 'Node name / to-name', sourceName, targetName, {
+      evidenceStatus: nameQualified ? 'QUALIFIED' : 'PARTIAL', authority: 'CII_NODENAME_FIXED_LAYOUT', limitations: nameLimitations,
     }));
 
     const sourceRestraint = sourceRestraints.get(String(row.sourceNodeId)) || null;
@@ -151,17 +157,21 @@ function elementDeltas(rows, sourceGraph, targetGraph, options) {
   return deltas;
 }
 
-function componentDeltas(rows, sourceGraph, targetGraph, options) {
+function componentDeltas(componentRows, elementRows, sourceGraph, targetGraph, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const deltas = [];
+  const elementById = new Map((elementRows || []).map((row) => [row.correspondenceId, row]));
   const tolerance = Number(options.engineeringMassTolerance ?? 1e-9);
-  for (const row of rows || []) {
-    if (row.kind !== 'COMPONENT' || row.componentKind !== 'RIGID' || !ciiIdentityBound(row)) continue;
+  for (const row of componentRows || []) {
+    if (row.kind !== 'COMPONENT' || row.componentKind !== 'RIGID') continue;
+    const parent = elementById.get(row.parentElementCorrespondenceId);
+    if (!parent || !ciiIdentityBound(parent) || (row.evidence?.blockers || []).length) continue;
     const source = sourceEdges.get(String(row.sourceElementId)); const target = targetEdges.get(String(targetIds(row)[0] || ''));
     if (!source || !target) continue;
     const sourceMass = source.rigidEvidence?.mass ?? null; const targetMass = target.rigidEvidence?.mass ?? null;
     if (sourceMass == null && targetMass == null) continue;
     deltas.push(deltaRow(row, 'WEIGHT_RIGID', 'Rigid mass', sourceMass, targetMass, {
       changed: changedNumber(sourceMass, targetMass, tolerance), delta: numberDelta(sourceMass, targetMass), authority: 'PARSED_RIGID_MASS',
+      identityConfidence: ciiIdentityConfidence(parent),
     }));
   }
   return deltas;
@@ -200,7 +210,7 @@ export function buildCiiEngineeringDeltas(sourceDocument, targetDocument, source
   const rows = [
     ...nodeDeltas(correspondence?.nodeRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
     ...elementDeltas(correspondence?.elementRows, sourceGraph, targetGraph, options),
-    ...componentDeltas(correspondence?.componentRows, sourceGraph, targetGraph, options),
+    ...componentDeltas(correspondence?.componentRows, correspondence?.elementRows, sourceGraph, targetGraph, options),
   ];
   rows.sort((a, b) => `${a.sourceIdentity}|${a.category}|${a.property}`.localeCompare(`${b.sourceIdentity}|${b.category}|${b.property}`, undefined, { numeric: true }));
   const changedRows = rows.filter((row) => row.changed);
