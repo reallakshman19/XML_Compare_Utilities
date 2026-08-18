@@ -12,10 +12,15 @@
  *   Separator     : -1  -1  (length < 5 → filtered)
  *   Flag rows     : 3 rows of integer flags                        (filtered by isNodeLike)
  *
+ * CAESAR II neutral records are fixed-field/Fortran-style records. A negative
+ * field may start immediately after a positive field without whitespace, so
+ * whitespace splitting is not a valid primary decoder for canonical rows.
+ *
  * Absolute node positions are computed by walking cumulative DX/DY/DZ from node 1.
  */
 
 import { pipeLength } from '../../utils/formatter.js';
+import { decodeCiiNumericRow } from '../fixed-field.js';
 
 /** Default material properties (Carbon Steel ASTM A106 Gr. B) */
 const CS_DEFAULTS = {
@@ -30,14 +35,16 @@ export function parseElements(lines, log) {
   const elements = [];
   const nodes = {};
 
-  // Filter to numeric-only lines (drop text lines and separators)
+  // Decode canonical 80-column rows by field position. The decoder retains a
+  // whitespace fallback only for shorter/non-canonical legacy numeric rows.
   const dataLines = lines
     .filter(l => l.trim() && !l.trim().startsWith('*'))
-    .map(l => l.trim().split(/\s+/).map(Number))
+    .map(l => decodeCiiNumericRow(l))
     .filter(parts =>
+      Array.isArray(parts) &&
       parts.length >= 5 &&           // need at least 5 values
-      !isNaN(parts[0]) &&
-      !isNaN(parts[1])
+      Number.isFinite(parts[0]) &&
+      Number.isFinite(parts[1])
     );
 
   if (!dataLines.length) {
@@ -48,9 +55,9 @@ export function parseElements(lines, log) {
   /**
    * Node-like: positive integer (node IDs in CAESAR II neutral are like 1.00000, 5.00000)
    * BUT we must NOT misidentify temperature values (350.000) or pressure (30.000) as node starts.
-   * Key heuristic: element row has EXACTLY OD > 10mm as 6th value.
-   * Simpler: use the pair (from, to) where BOTH are positive integers AND
-   * the line has exactly 6 values (not more), matching the known row 1 format.
+   * Key heuristic: element row has OD > 10mm as 6th value.
+   * The pair (from, to) must both be positive integers and the decoded row must
+   * contain the six canonical element-header values.
    */
   const isElemRow = (p) => {
     const from = p[0], to = p[1];
@@ -58,10 +65,10 @@ export function parseElements(lines, log) {
     if (!Number.isInteger(from) || from <= 0 || from > 99999) return false;
     if (!Number.isInteger(to)   || to   <= 0 || to   > 99999) return false;
     if (from === to) return false; // self-loop not valid
+    if (p.length < 6 || !Number.isFinite(p[5])) return false;
     // The 6th value (index 5) is OD — must be > 10mm to be a valid pipe element row.
-    // This already filters out temperature rows (T1/T2 values in col 5 are near 0)
-    // and pressure rows (P1 in col 0 but col 1 = 0 → rejected above by to > 0 check).
-    if (p.length >= 6 && p[5] < 10) return false;
+    // This also filters out common integer flag rows in the element block.
+    if (p[5] <= 10) return false;
     return true;
   };
 
@@ -99,6 +106,14 @@ export function parseElements(lines, log) {
     const dy   = p[3] ?? 0;
     const dz   = p[4] ?? 0;
     const od   = p[5] ?? 0;
+
+    // A decoded element row must never degrade an invalid numeric field to a
+    // geometric zero. Guard explicitly even though decodeCiiNumericRow already
+    // rejects invalid occupied fixed fields.
+    if (![dx, dy, dz, od].every(Number.isFinite)) {
+      log.push({ level: 'ERROR', msg: `ELEMENTS: invalid fixed-field geometry for ${from}→${to}` });
+      continue;
+    }
 
     // Ensure from-node has a position
     if (!nodes[from]) {
