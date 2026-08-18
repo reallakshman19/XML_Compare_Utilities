@@ -62,10 +62,13 @@ assert.strictEqual(families.lineNumbers.raw.markerCount, 1);
 
 assert.deepStrictEqual(families.pipeProperties.details.uniqueODs, [114.3]);
 assert.deepStrictEqual(families.pipeProperties.details.uniqueWalls, [6]);
-assert.strictEqual(families.process.details.pressureSetCount, 1);
+assert.strictEqual(families.process.qualification, 'PARTIAL');
+assert.strictEqual(families.process.details.elementRecordCount, 1);
+assert.strictEqual(families.process.details.uniquePressureValueCount, 1);
 assert.deepStrictEqual(families.process.details.pressureValues, [2]);
-assert.strictEqual(families.process.details.temperatureSetCount, 1);
+assert.strictEqual(families.process.details.uniqueTemperatureValueCount, 1);
 assert.deepStrictEqual(families.process.details.temperatureValues, [350]);
+assert(families.process.limitations.some((item) => item.includes('not qualified load-case counts')));
 
 // A missing expected parser payload is an authority failure, not EMPTY.
 const malformed = buildCiiWorkspaceCapabilities('#$ RESTRANT\n130 15\n', {
@@ -112,8 +115,8 @@ assert.strictEqual(document.summary.weightRecordCount, null);
 assert.strictEqual(document.summary.lineNumberCount, null);
 assert.strictEqual(document.summary.capabilityStates.hangers, 'NOT_PARSED');
 assert.strictEqual(document.summary.capabilityStates.lineNumbers, 'NOT_PARSED');
-assert.strictEqual(document.summary.process.pressureSetCount, 1);
-assert.strictEqual(document.summary.process.temperatureSetCount, 1);
+assert.strictEqual(document.summary.process.uniquePressureValueCount, 1);
+assert.strictEqual(document.summary.process.uniqueTemperatureValueCount, 1);
 assert.deepStrictEqual(document.summary.pipeProperties.uniqueODs, [114.3]);
 assert(Object.isFrozen(document.capabilities));
 
