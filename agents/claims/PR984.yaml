@@ -7,6 +7,7 @@ files:
     - tabs/cii-workspace/cii-workspace-topology-adapter.js
     - tabs/cii-workspace/cii-workspace-candidates.js
     - tabs/cii-workspace/cii-workspace-alignment.js
+    - tests/cii-workspace-hard-conflict.test.js
     - agents/PR984_workreport.md
     - agents/status/PR984.yaml
     - agents/claims/PR984.yaml
@@ -37,10 +38,13 @@ implementation_claims:
   - M2 topology token contains no OD or wall
   - method disagreement maps to REVIEW
   - MEDIUM confidence is projected into existing workflow REVIEW status until engineer approval
+  - branch/rigid contradictions remain hard identity conflicts; OD/WT differences do not
 validation_state: IMPLEMENTATION_IN_PROGRESS
 remaining_validation_gates:
   - focused M1/M2 decision tests
   - candidate winner-gap regression
+  - alignment semantics regression
+  - hard-conflict semantic regression
   - stacked diff reconciliation
 known_limits:
   - anchor-seeded propagation intentionally deferred
