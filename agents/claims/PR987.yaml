@@ -9,6 +9,7 @@ files:
     - tabs/cii-workspace/cii-workspace-topology-adapter.js
     - tabs/cii-workspace/cii-workspace-components.js
     - tabs/cii-workspace/cii-workspace-core.js
+    - Benchmark/CIICompare/CII_COMPARE_EXPECTED.json
     - agents/PR987_workreport.md
     - agents/status/PR987.yaml
     - agents/claims/PR987.yaml
@@ -29,7 +30,10 @@ shared_read_authorities:
   - parser/fixed-field.js
   - tabs/cii-workspace/cii-workspace-nodename.js
   - tabs/cii-workspace/cii-workspace-geometry.js
-  - Benchmark/CIICompare/
+  - Benchmark/CIICompare/BM_CII_SOURCE.CII
+  - Benchmark/CIICompare/BM_CII_TARGET1.CII
+  - Benchmark/CIICompare/BM_CII_TARGET2.CII
+  - Benchmark/CIICompare/Target1.txt
   - tabs/cii-workspace/cii-workspace-compare-review.js
 forbidden_existing_file_edits:
   - converters/**
@@ -47,6 +51,7 @@ implementation_claims:
   - SIF&TEES records remain raw/partial except source-qualified node/index custody
   - topology and component rigid custody use pointer-bound auxiliary evidence, not generic section node guessing
   - engineering deltas expose native-coordinate basis and registered-coordinate basis separately when registration is READY
+  - benchmark expectations contradicted by pointer-resolved engineering data are quarantined rather than tuned into code
   - auxiliary deltas are downstream and cannot rewrite correspondence identity
 validation_state: IMPLEMENTATION_IN_PROGRESS
 known_limits:
