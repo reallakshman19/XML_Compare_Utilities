@@ -56,9 +56,9 @@ Restraint code      COPY    PREVIEW_READY
 Hanger at 205       CREATE  BLOCKED
 SIF/Tee raw change  COPY    BLOCKED
 Rigid 111.2->111.2  KEEP    PREVIEW_READY
-OD change            KEEP    PROTECTED
-Wall change          KEEP    PROTECTED
-Process P1 change    COPY    BLOCKED
+OD change           KEEP    PROTECTED
+Wall change         KEEP    PROTECTED
+Process P1 change   COPY    BLOCKED
 ```
 
 This distinction prevents `BLOCKED` from hiding what would actually be required if a future writer becomes qualified.
@@ -175,13 +175,7 @@ policy.odProtected = true
 policy.wallProtected = true
 ```
 
-Plan summary includes:
-
-- operation count;
-- COPY / CREATE / DELETE / KEEP / BLOCKED action counts;
-- preview-ready count;
-- protected count;
-- blocked count.
+Plan summary includes operation count, COPY / CREATE / DELETE / KEEP / BLOCKED action counts, preview-ready count, protected count, and blocked count.
 
 Rejected correspondence does not produce an operation. Stale review identity blocks the plan before operations are emitted.
 
@@ -207,24 +201,11 @@ data-ciiw-apply
 ## 7. Tests added
 
 - `tests/cii-workspace-transfer-preview-policy.test.js`
-  - action/status separation;
-  - restraint COPY;
-  - hanger CREATE + BLOCKED;
-  - SIF COPY + BLOCKED;
-  - rigid KEEP;
-  - OD/wall/geometry protected;
-  - P1 COPY + BLOCKED;
-  - rejected and stale review gates.
+  - action/status separation; restraint COPY; hanger CREATE + BLOCKED; SIF COPY + BLOCKED; rigid KEEP; OD/wall/geometry protected; P1 COPY + BLOCKED; rejected and stale review gates.
 - `tests/cii-workspace-transfer-preview-ui.test.js`
-  - action/family columns;
-  - action counts;
-  - protected wording;
-  - both apply controls disabled.
+  - action/family columns; action counts; protected wording; both apply controls disabled.
 - `tests/cii-workspace-benchmark-transfer-preview.test.js`
-  - real SOURCE/TARGET1/TARGET2 harness under the same frozen policy;
-  - explicitly reviews benchmark identities instead of deriving them from offsets;
-  - asserts node130 restraint preview, node205 hanger CREATE/block, node70 SIF COPY/block, rigid KEEP, OD/WT protection;
-  - asserts Stage06 and modified-target output remain blocked.
+  - real SOURCE/TARGET1/TARGET2 harness under the same frozen policy; explicitly reviews benchmark identities instead of deriving them from offsets; asserts node130 restraint preview, node205 hanger CREATE/block, node70 SIF COPY/block, rigid KEEP, OD/WT protection; asserts Stage06 and modified-target output remain blocked.
 
 ## 8. Validation ledger
 
@@ -246,17 +227,8 @@ tabs/cii-workspace/cii-workspace-transfer-plan.js
 tests/cii-workspace-transfer-preview-policy.test.js
 ```
 
-Current corrected policy blob:
-
-```text
-081c3d91d0157b4481f353566a2029050ba69428
-```
-
-Current policy-test blob:
-
-```text
-61207db5fd7ff04da54d56bac42b28141d566c31
-```
+Current corrected policy blob: `081c3d91d0157b4481f353566a2029050ba69428`.
+Current policy-test blob: `61207db5fd7ff04da54d56bac42b28141d566c31`.
 
 Observed output:
 
@@ -291,9 +263,7 @@ STATUS: PASS
 OBSERVATION: SOURCE_INSPECTION
 ```
 
-Current shell blob `7cf7a2ed7fe126eeb6970d780ffe9330880eda0f` visibly contains Action/Family columns, action counts, protected wording and both disabled apply controls.
-
-The dedicated static test is committed but was not executed in a complete checkout.
+Current shell blob `7cf7a2ed7fe126eeb6970d780ffe9330880eda0f` visibly contains Action/Family columns, action counts, protected wording and both disabled apply controls. The dedicated static test is committed but was not executed in a complete checkout.
 
 ### VAL-988-05 — real benchmark transfer preview
 
@@ -311,13 +281,14 @@ node tests/cii-workspace-benchmark-qualification.test.js
 node tests/cii-workspace-benchmark-end-to-end.test.js
 ```
 
-The runtime has no mounted repository/benchmark copy; direct git/raw-GitHub download is unavailable; no GitHub status checks or workflow runs have executed for the PR head. This is an environment limitation and is not counted as PASS.
+The runtime has no mounted repository/benchmark copy; direct git/raw-GitHub download is unavailable; no suitable existing CII qualification workflow exists, and no GitHub status/workflow runs have executed for the PR head. This environment limitation is not counted as PASS.
 
 ## 9. Changed-file boundary
 
 PR988 changes only:
 
 ```text
+agents/MASTER_INDEX.md
 agents/PR988_workreport.md
 agents/claims/PR988.yaml
 agents/status/PR988.yaml
@@ -354,7 +325,7 @@ Exact continuation:
 3. run `cii-workspace-benchmark-end-to-end.test.js`;
 4. run `cii-workspace-benchmark-transfer-preview.test.js`;
 5. run the inherited CII Workspace regression set / UI lifecycle as applicable;
-6. if all pass without policy retuning, then evaluate the separately qualified target-writer phase;
+6. if all pass without policy retuning, evaluate the separately qualified target-writer phase;
 7. merge only after the full approved programme is complete and qualified.
 
 # APPENDIX A
