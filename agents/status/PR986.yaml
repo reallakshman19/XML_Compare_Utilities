@@ -1,0 +1,32 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR986
+mission: CII Compare Review and engineering deltas
+workstream: cii-compare-review-deltas
+branch: agent/cii-compare-review-deltas
+stacked_base_pr: PR985
+stacked_base_head: 0f9dac7a512266c5a83a7d412f19d679c59136ec
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: IMPLEMENTATION_IN_PROGRESS
+pr_recovery_state: STACKED_DRAFT_ACTIVE
+handover_readiness: READY
+report_path: agents/PR986_workreport.md
+scope_authority: LOCKED_TO_COMPARE_REVIEW_AND_DELTAS
+validation_state: NOT_RUN_IMPLEMENTATION_IN_PROGRESS
+acceptance_matrix:
+  identity_vs_change_separation: NOT_RUN
+  geometry_delta: NOT_RUN
+  od_wall_delta: NOT_RUN
+  node_name_delta: NOT_RUN
+  restraint_code_raw_delta: NOT_RUN
+  process_p1_t1_delta: NOT_RUN
+  rigid_mass_delta: NOT_RUN
+  unsupported_family_truthfulness: NOT_RUN
+  executive_summary: NOT_RUN
+  correspondence_review_grid: NOT_RUN
+  evidence_inspector: NOT_RUN
+  delta_grid: NOT_RUN
+  transfer_mutation_unchanged: EXPECTED_DIFF_GUARD
+exact_next_action: implement downstream delta model and Compare Review projection
+last_updated: 2026-08-18T18:44:00+04:00
