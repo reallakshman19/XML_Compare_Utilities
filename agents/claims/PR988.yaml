@@ -1,0 +1,40 @@
+schema: AgentClaim.v1
+pr_or_wip: PR988
+claim_state: ACTIVE
+execution_mode: AUTO
+merge_authority: OWNER_GRANTED_IF_ALL_APPROVED_PHASES_COMPLETE_AND_QUALIFIED
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-transfer-plan.js
+    - tabs/cii-workspace/cii-workspace-engineering-delta.js
+    - tabs/cii-workspace/cii-workspace-core.js
+    - tests/cii-workspace-transfer-plan.test.js
+    - tests/cii-workspace-transfer-preview-policy.test.js
+    - agents/PR988_workreport.md
+    - agents/status/PR988.yaml
+    - agents/claims/PR988.yaml
+authority_domains:
+  - CII_TRANSFER_PREVIEW_POLICY
+  - CII_TRANSFER_OPERATION_CLASSIFICATION
+  - CII_TRANSFER_PROPERTY_CUSTODY
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - tabs/cii-workspace/cii-workspace-review.js
+  - tabs/cii-workspace/cii-workspace-compare-review.js
+  - tabs/cii-workspace/cii-workspace-hanger.js
+  - tabs/cii-workspace/cii-workspace-auxiliary.js
+  - Benchmark/CIICompare/CII_COMPARE_EXPECTED.json
+forbidden_existing_file_edits:
+  - converters/**
+  - parser/**
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - any target CII writer/mutator
+implementation_claims:
+  - transfer preview is downstream of reviewed correspondence and qualified property evidence
+  - geometry, node numbering, OD, wall and topology are protected by default
+  - target mutation remains blocked
+validation_state: NOT_RUN
