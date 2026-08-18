@@ -1,4 +1,5 @@
 import { parse as parseCaesarFile } from '../../parser/caesar-parser.js';
+import { buildCiiWorkspaceCapabilities, capabilityCount } from './cii-workspace-capabilities.js';
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
 import { extractCiiNodeNameEvidence } from './cii-workspace-nodename.js';
 
@@ -24,6 +25,17 @@ async function sha256Text(text, cryptoRef) {
   return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('');
 }
 
+function capabilityStates(capabilities) {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(capabilities?.families || {}).map(([family, capability]) => [family, capability.state]),
+  ));
+}
+
+function parsedDetailCount(capability, key) {
+  const count = capabilityCount(capability);
+  return count === null ? null : Number(capability?.details?.[key] ?? count);
+}
+
 export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}) {
   const sourceText = String(rawText ?? '');
   if (!sourceText.trim()) throw new Error('CII_WORKSPACE_EMPTY_INPUT');
@@ -35,20 +47,32 @@ export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}
   const cryptoRef = options.cryptoRef ?? globalThis.crypto;
   const contentSha256 = await sha256Text(sourceText, cryptoRef);
   const nodeNameEvidence = extractCiiNodeNameEvidence(sourceText, parsed);
+  const capabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence);
+  const families = capabilities.families;
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.document,
     side: options.side === 'TARGET' ? 'TARGET' : 'SOURCE',
     fileName: String(fileName || 'model.cii'), contentSha256, textLength: sourceText.length,
     format: parsed.format, parserAuthority: 'parser/caesar-parser.js', parserAlias: parserAlias(fileName), parsed,
-    nodeNames: nodeNameEvidence.names, nodeNameEvidence,
+    nodeNames: nodeNameEvidence.names, nodeNameEvidence, capabilities,
     summary: Object.freeze({
       version: versionLabel(sourceText),
       elementCount: parsed.elements.length,
       nodeCount: Object.keys(parsed.nodes || {}).length,
       bendCount: parsed.bends?.length || 0,
-      rigidRecordCount: parsed.rigids?.length || 0,
+      rigidRecordCount: capabilityCount(families.rigidMass),
+      restraintNodeCount: parsedDetailCount(families.restraints, 'nodeCount'),
+      restraintRecordCount: parsedDetailCount(families.restraints, 'rawRecordCount'),
+      forceNodeCount: capabilityCount(families.forces),
+      hangerCount: capabilityCount(families.hangers),
+      sifTeeCount: capabilityCount(families.sifTee),
+      weightRecordCount: capabilityCount(families.weightData),
+      lineNumberCount: capabilityCount(families.lineNumbers),
       nodeNameCount: Object.keys(nodeNameEvidence.names).length,
       nodeNameConflictCount: nodeNameEvidence.conflicts.length,
+      pipeProperties: families.pipeProperties.details || null,
+      process: families.process.details || null,
+      capabilityStates: capabilityStates(capabilities),
     }),
   });
 }
