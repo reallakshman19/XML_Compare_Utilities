@@ -21,19 +21,30 @@ function compatibilityComponents(evaluation) {
   });
 }
 
+function rankingScore(evaluation) {
+  if (!evaluation.identity?.identitySupported) return 0;
+  const methodQuality = [
+    evaluation.m1Spatial?.pass ? Number(evaluation.m1Spatial.score || 0) : null,
+    evaluation.m2Network?.pass ? Number(evaluation.m2Network.score || 0) : null,
+  ].filter(Number.isFinite);
+  const quality = methodQuality.length ? Math.max(...methodQuality) : 0;
+  return Number((0.5 * Number(evaluation.identity.score || 0) + 0.5 * quality).toFixed(1));
+}
+
 /**
  * Candidate evidence contract.
  *
  * Identity is established only by M1 Spatial and/or M2 Network. OD and wall
  * are supporting revision evidence and can never establish identity by
- * themselves. The numeric score remains useful for candidate ranking, while
- * `identityConfidence` carries the engineering meaning for review/UI.
+ * themselves. `score` is the configured 50/30/30 confidence score;
+ * `rankingScore` adds method quality only for candidate/path ordering.
  */
 export function scoreCiiEdgeCandidate(source, target, options = {}) {
   const evaluation = evaluateCiiMatchMethods(source, target, options);
   const blockers = evaluation.m2Network?.blockers || [];
   return deepFreeze({
     score: evaluation.identity.score,
+    rankingScore: rankingScore(evaluation),
     weightedScores: evaluation.identity.weightedScores,
     identityConfidence: evaluation.identity.confidence,
     identitySupported: evaluation.identity.identitySupported,
@@ -51,5 +62,5 @@ export function scoreCiiEdgeCandidate(source, target, options = {}) {
 }
 
 export function ciiAlignmentScore(source, target, options = {}) {
-  return scoreCiiEdgeCandidate(source, target, options).score;
+  return scoreCiiEdgeCandidate(source, target, options).rankingScore;
 }
