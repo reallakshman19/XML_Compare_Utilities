@@ -1,0 +1,34 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR983
+mission: CII benchmark preflight and normalized engineering-data capability states
+workstream: cii-compare-oracle-capabilities
+branch: agent/cii-oracle-capability-states
+stacked_base_pr: PR982
+stacked_base_head: aacbcf9e95645d8ee964d01ebca24b80da7e7de9
+main_base: ceb0c0193a4be68b28a913b74bdc453ccf79d336
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: IMPLEMENTATION_IN_PROGRESS
+pr_recovery_state: STACKED_DRAFT_ACTIVE
+handover_readiness: READY
+report_path: agents/PR983_workreport.md
+appendix_a_status: NOT_REQUIRED_SAME_AGENT_CONTINUATION
+scope_authority: LOCKED_TO_ORACLE_AND_CAPABILITY_STATES
+validation_state: NOT_RUN_IMPLEMENTATION_IN_PROGRESS
+acceptance_matrix:
+  capability_states_contract: NOT_RUN
+  intake_integration: NOT_RUN
+  raw_presence_separate_from_semantic_authority: NOT_RUN
+  unsupported_family_false_zero_guard: NOT_RUN
+  restraint_partial_semantics_disclosure: NOT_RUN
+  benchmark_oracle_integrity: NOT_RUN
+  target1_preflight: NOT_RUN
+  target2_blind_preflight: NOT_RUN
+  matcher_unchanged: EXPECTED_DIFF_GUARD
+  transfer_mutation_unchanged: EXPECTED_DIFF_GUARD
+known_limits:
+  - PR983 depends on PR982 fixed-field parser until PR982 is merged and PR983 retargeted
+  - no UI change is in scope
+exact_next_action: implement capability module and intake integration, then focused tests
+last_updated: 2026-08-18T17:22:00+04:00
