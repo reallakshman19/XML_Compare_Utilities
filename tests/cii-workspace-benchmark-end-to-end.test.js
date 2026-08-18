@@ -68,6 +68,10 @@ for (const result of [target1, target2]) {
   assert.strictEqual(result.artifacts?.modifiedTargetCii, null);
   assert.strictEqual(result.sourceDocument.auxiliaryEvidence.conflicts.length, 0);
   assert.strictEqual(result.targetDocument.auxiliaryEvidence.conflicts.length, 0);
+  assert.strictEqual(result.sourceDocument.hangerEvidence.conflicts.length, 0);
+  assert.strictEqual(result.targetDocument.hangerEvidence.conflicts.length, 0);
+  assert.strictEqual(result.sourceDocument.summary.hangerCount, 1);
+  assert.strictEqual(result.targetDocument.summary.hangerCount, 0);
 }
 
 // TARGET1 qualification set. No target is derived arithmetically by this test;
@@ -87,6 +91,17 @@ assert(target1Moved205);
 assert.strictEqual(target1Moved205.methodA?.pass, false, '205 spatial evidence must fail at 100 mm');
 assert.strictEqual(target1Moved205.methodB?.pass, true, '205 network identity must survive relocation');
 assert.strictEqual(target1Moved205.confidence, 'MEDIUM');
+
+const node205t1 = nodeRow(target1, '205');
+const hangerT1 = changedDelta(target1, node205t1.correspondenceId, 'Hanger presence');
+assert(hangerT1, 'TARGET1 node205 must report source hanger removal downstream of identity');
+assert.strictEqual(hangerT1.sourceValue, true);
+assert.strictEqual(hangerT1.targetValue, false);
+assert.strictEqual(hangerT1.semanticChange, 'REMOVED_IN_TARGET');
+const hangerCountT1 = changedDelta(target1, node205t1.correspondenceId, 'Hanger record count at node');
+assert.strictEqual(hangerCountT1?.sourceValue, 1);
+assert.strictEqual(hangerCountT1?.targetValue, 0);
+assert.strictEqual(hangerCountT1?.delta, -1);
 
 for (const tuple of [['250','255'], ['255','260'], ['260','270']]) {
   const row = edgeRow(target1, ...tuple); const review = reviewRow(target1, row.correspondenceId);
@@ -126,6 +141,17 @@ assertEdge(target2, '205', '210', '10205', '10210');
 for (const tuple of [
   ['250','255','10250','10255'], ['255','260','10255','10260'], ['260','270','10260','10270'],
 ]) assertEdge(target2, ...tuple);
+
+const node205t2 = nodeRow(target2, '205');
+const hangerT2 = changedDelta(target2, node205t2.correspondenceId, 'Hanger presence');
+assert(hangerT2, 'TARGET2 node205 must independently report source hanger removal under frozen policy');
+assert.strictEqual(hangerT2.sourceValue, true);
+assert.strictEqual(hangerT2.targetValue, false);
+assert.strictEqual(hangerT2.semanticChange, 'REMOVED_IN_TARGET');
+const hangerCountT2 = changedDelta(target2, node205t2.correspondenceId, 'Hanger record count at node');
+assert.strictEqual(hangerCountT2?.sourceValue, 1);
+assert.strictEqual(hangerCountT2?.targetValue, 0);
+assert.strictEqual(hangerCountT2?.delta, -1);
 
 for (const tuple of [['250','255'], ['255','260'], ['260','270']]) {
   const row = edgeRow(target2, ...tuple); const review = reviewRow(target2, row.correspondenceId);
