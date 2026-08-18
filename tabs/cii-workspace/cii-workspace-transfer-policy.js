@@ -55,6 +55,9 @@ function common(delta, family, action, status, blockers = [], extra = {}) {
     ...extra,
   });
 }
+function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READY) {
+  return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready;
+}
 
 export function classifyCiiTransferDelta(delta, options = {}) {
   if (!delta) return null;
@@ -68,7 +71,7 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     if (!delta.changed) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY);
     const source = String(delta.sourceValue || ''); const target = String(delta.targetValue || '');
     if (!source && target) {
-      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
+      return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.DELETE, CII_TRANSFER_STATUSES.BLOCKED,
         ['NODE_NAME_DELETE_REQUIRES_EXPLICIT_POLICY']);
     }
     if (source && target && source !== target && options.allowNodeNameOverwrite !== true) {
@@ -83,13 +86,11 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     if (!String(delta.authority || '').includes('PROTECTED_WRITER_RESTRANT')) blockers.push('RESTRAINT_FIXED_FIELD_AUTHORITY_REQUIRED');
     if (delta.property === 'Restraint presence') {
       const action = actionFromPresence(delta.sourceValue, delta.targetValue);
-      return common(delta, 'RESTRAINT', blockers.length ? CII_TRANSFER_ACTIONS.BLOCKED : action,
-        blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers,
+      return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
         { rawNumericSemantics: true });
     }
     const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
-    return common(delta, 'RESTRAINT', blockers.length ? CII_TRANSFER_ACTIONS.BLOCKED : action,
-      blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers,
+    return common(delta, 'RESTRAINT', action, statusFromBlockers(blockers), blockers,
       { rawNumericSemantics: delta.evidenceStatus === 'PARTIAL' });
   }
 
@@ -101,13 +102,12 @@ export function classifyCiiTransferDelta(delta, options = {}) {
       if (action === CII_TRANSFER_ACTIONS.CREATE) blockers.push('HANGER_CREATE_PAYLOAD_NOT_QUALIFIED');
       // DELETE can be semantically previewed from qualified node presence alone;
       // actual writer/mutation remains globally blocked outside this phase.
-      return common(delta, 'HANGER', blockers.length ? CII_TRANSFER_ACTIONS.BLOCKED : action,
-        blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers,
+      return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers,
         { nodePresenceOnly: true });
     }
     const action = delta.changed ? CII_TRANSFER_ACTIONS.BLOCKED : CII_TRANSFER_ACTIONS.KEEP;
     if (delta.changed) blockers.push('HANGER_RECORD_COUNT_IS_EVIDENCE_ONLY');
-    return common(delta, 'HANGER', action, blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers,
+    return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers,
       { nodePresenceOnly: true });
   }
 
@@ -119,8 +119,7 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     if (delta.property === 'SIF/Tee record presence') {
       const action = actionFromPresence(delta.sourceValue, delta.targetValue);
       if (action === CII_TRANSFER_ACTIONS.CREATE) blockers.push('SIF_TEE_TARGET_NODE_REWRITE_NOT_IMPLEMENTED');
-      return common(delta, 'SIF_TEE', blockers.length ? CII_TRANSFER_ACTIONS.BLOCKED : action,
-        blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers,
+      return common(delta, 'SIF_TEE', action, statusFromBlockers(blockers), blockers,
         { rawSemanticsOnly: true });
     }
     blockers.push('SIF_TEE_RAW_RECORD_REWRITE_NOT_IMPLEMENTED');
@@ -132,19 +131,14 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     const blockers = [];
     if (!String(delta.authority || '').includes('ELEMENT_RIGID_POINTER_TO_RIGID_RECORD')) blockers.push('RIGID_POINTER_WEIGHT_AUTHORITY_REQUIRED');
     const action = sameValue(delta.sourceValue, delta.targetValue) ? CII_TRANSFER_ACTIONS.KEEP : CII_TRANSFER_ACTIONS.COPY;
-    return common(delta, 'WEIGHT_RIGID', blockers.length ? CII_TRANSFER_ACTIONS.BLOCKED : action,
-      blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : CII_TRANSFER_STATUSES.PREVIEW_READY, blockers);
+    return common(delta, 'WEIGHT_RIGID', action, statusFromBlockers(blockers), blockers);
   }
 
   if (delta.category === 'PROCESS') {
     if (!delta.changed) return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED,
       ['PROCESS_TRANSFER_PARTIAL_AUTHORITY'], { protected: true });
-    if (options.enablePartialProcessPreview === true) {
-      return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED,
-        ['PROCESS_TRANSFER_WRITER_NOT_QUALIFIED']);
-    }
-    return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
-      ['PROCESS_TRANSFER_PARTIAL_AUTHORITY']);
+    const blockers = [options.enablePartialProcessPreview === true ? 'PROCESS_TRANSFER_WRITER_NOT_QUALIFIED' : 'PROCESS_TRANSFER_PARTIAL_AUTHORITY'];
+    return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers);
   }
 
   return common(delta, delta.category || 'UNKNOWN', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
