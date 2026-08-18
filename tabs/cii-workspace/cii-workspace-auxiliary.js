@@ -182,7 +182,17 @@ function bindElementAuxiliary(descriptors, restraints, rigids, sifTee) {
   }
   return Object.freeze(byParsedElementIndex);
 }
-function parsedCapability(count, qualification, authority, rawRowCount, limitations = [], details = {}) {
+function hasConflict(aux, prefixes) {
+  const rows = aux?.conflicts || [];
+  return rows.some((item) => prefixes.some((prefix) => String(item.code || '').startsWith(prefix)));
+}
+function parsedCapability(count, qualification, authority, rawRowCount, limitations = [], details = {}, parseError = false) {
+  if (parseError) return deepFreeze({
+    state: 'PARSE_ERROR', count: null, qualification: 'NONE', authority,
+    raw: Object.freeze({ present: rawRowCount > 0, nonEmptyRowCount: rawRowCount }),
+    details: Object.freeze(details),
+    limitations: Object.freeze(['Qualified auxiliary custody encountered a parse/custody conflict; this family is fail-closed.', ...limitations]),
+  });
   return deepFreeze({
     state: count > 0 ? 'PARSED' : 'EMPTY', count, qualification, authority,
     raw: Object.freeze({ present: rawRowCount > 0, nonEmptyRowCount: rawRowCount }),
@@ -196,6 +206,11 @@ export function applyCiiAuxiliaryCapabilities(baseCapabilities, auxiliaryEvidenc
   const restraintNodes = new Set(restraintRecords.map((record) => String(record.node)));
   const rigidRecords = Object.values(aux.rigids?.byPointer || {});
   const sifRecords = Object.values(aux.sifTee?.byPointer || {});
+  const commonConflict = hasConflict(aux, ['AUX_']);
+  const restraintError = commonConflict || hasConflict(aux, ['RESTRAINT_']) || (Number(aux.restraints?.sectionRowCount || 0) > 0 && restraintRecords.length === 0);
+  const rigidError = commonConflict || hasConflict(aux, ['RIGID_']) || (Number(aux.rigids?.sectionRowCount || 0) > 0 && rigidRecords.length === 0);
+  const sifError = commonConflict || hasConflict(aux, ['SIF_TEE_']) || (Number(aux.sifTee?.sectionRowCount || 0) > 0 && sifRecords.length === 0);
+  const miscelRows = Number(aux.miscel1SectionRowCount || 0);
   return deepFreeze({
     ...base,
     families: Object.freeze({
@@ -204,18 +219,23 @@ export function applyCiiAuxiliaryCapabilities(baseCapabilities, auxiliaryEvidenc
         restraintRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RESTRANT',
         Number(aux.restraints?.sectionRowCount || 0),
         ['Numeric node/type/stiffness/gap/friction/connecting-node and direction-cosine fields are source-qualified; semantic meaning of CAESAR restraint type codes is not mapped in this workspace.'],
-        { nodeCount: restraintNodes.size, rawRecordCount: restraintRecords.length, gapFrictionQualified: true },
+        { nodeCount: restraintNodes.size, rawRecordCount: restraintRecords.length, gapFrictionQualified: true }, restraintError,
       ),
       rigidMass: parsedCapability(
         rigidRecords.length, 'QUALIFIED', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RIGID_POINTER',
-        Number(aux.rigids?.sectionRowCount || 0), [], { pointerBoundRecordCount: rigidRecords.length },
+        Number(aux.rigids?.sectionRowCount || 0), [], { pointerBoundRecordCount: rigidRecords.length }, rigidError,
       ),
       sifTee: parsedCapability(
         sifRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#SIF_TEE_POINTER',
         Number(aux.sifTee?.sectionRowCount || 0),
         ['SIF&TEES record custody and raw payload are pointer-qualified; the semantic meaning of the second numeric field/raw code is not asserted.'],
-        { pointerBoundRecordCount: sifRecords.length },
+        { pointerBoundRecordCount: sifRecords.length }, sifError,
       ),
+      hangers: deepFreeze({
+        state: 'NOT_PARSED', count: null, qualification: 'NONE', authority: null,
+        raw: Object.freeze({ present: miscelRows > 0, nonEmptyRowCount: miscelRows, section: 'MISCEL_1' }),
+        limitations: Object.freeze(['MISCEL_1 raw data is present when indicated, but hanger group/node custody is not qualified in this phase; no hanger count or deletion claim is asserted.']),
+      }),
     }),
   });
 }
@@ -226,6 +246,7 @@ export function buildCiiWorkspaceAuxiliaryEvidence(rawText, parsed = {}) {
   const rigids = buildRigidEvidence(rawText, descriptors, conflicts);
   const sifTee = buildSifEvidence(rawText, descriptors, conflicts);
   const elements = bindElementAuxiliary(descriptors, restraints, rigids, sifTee);
+  const miscel1SectionRowCount = sectionRows(rawText, 'MISCEL_1').length;
   return deepFreeze({
     schema: 'CIIWorkspaceAuxiliaryEvidence.v1',
     sourceAuthority: '3D_Converters/inputxml_to_cii2019.py fixed rows + IEL pointer order',
@@ -233,7 +254,7 @@ export function buildCiiWorkspaceAuxiliaryEvidence(rawText, parsed = {}) {
     rawElementBlockCount: raw.blocks.length,
     mappedElementCount: descriptors.length,
     elements,
-    restraints, rigids, sifTee,
+    restraints, rigids, sifTee, miscel1SectionRowCount,
     conflicts: Object.freeze(conflicts),
     semanticHashBasis: stableStringify({
       elements: Object.values(elements).map((item) => ({ from: item.from, to: item.to, pointers: item.pointers })),
