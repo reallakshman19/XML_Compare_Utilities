@@ -154,14 +154,15 @@ function processCapability(parsed, sections) {
     authority: 'parser/sections/elements.js',
     raw: rawSectionEvidence(sections, ['ELEMENTS']),
     details: Object.freeze({
-      pressureSetCount: pressures.length,
+      elementRecordCount: elements.length,
+      uniquePressureValueCount: pressures.length,
       pressureValues: Object.freeze(pressures),
       pressureRange: numericRange(pressures),
-      temperatureSetCount: temperatures.length,
+      uniqueTemperatureValueCount: temperatures.length,
       temperatureValues: Object.freeze(temperatures),
       temperatureRange: numericRange(temperatures),
     }),
-    limitations: Object.freeze(['Current neutral parser publishes P1, T1 and T2 only; this is not a complete process-data model.']),
+    limitations: Object.freeze(['Current neutral parser publishes element P1, T1 and T2 values only; unique values are not qualified load-case counts or a complete process-data model.']),
   });
 }
 
