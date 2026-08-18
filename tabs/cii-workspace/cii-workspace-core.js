@@ -4,6 +4,7 @@ import { adaptCiiDocumentToTopologyGraph } from './cii-workspace-topology-adapte
 import { qualifyCiiGeometryTransform } from './cii-workspace-geometry.js';
 import { suggestCiiLandmarks } from './cii-workspace-landmarks.js';
 import { buildCiiAutomaticPathAudit, compareLockedCiiAnchorSpan } from './cii-workspace-topology.js';
+import { propagateSingleCiiAnchorCorrespondence } from './cii-workspace-propagation.js';
 import { buildCiiPathCandidateAudit } from './cii-workspace-path-candidates.js';
 import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
@@ -62,6 +63,10 @@ function inspectionSide(document, graph, options) {
     landmarks: suggestCiiLandmarks(graph, options),
   });
 }
+function buildBaseCorrespondence(sourceGraph, targetGraph, anchors, options) {
+  if (anchors.length === 1) return propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph, anchors[0], options);
+  return compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, options);
+}
 
 export async function inspectCiiWorkspaceModels(input, options = {}) {
   const pair = await intakePair(input, options);
@@ -80,7 +85,7 @@ export async function createCiiWorkspacePreview(input, options = {}) {
     structural: buildCiiAutomaticPathAudit(sourceGraph, targetGraph, options),
     candidates: buildCiiPathCandidateAudit(sourceGraph, targetGraph, options),
   });
-  const baseCorrespondence = compareLockedCiiAnchorSpan(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
+  const baseCorrespondence = buildBaseCorrespondence(sourceGraph, targetGraph, anchors, { ...options, geometryTransform: geometry });
   const nodeGatedCorrespondence = applyCiiNodeCustodyGates(baseCorrespondence, sourceGraph);
   const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
