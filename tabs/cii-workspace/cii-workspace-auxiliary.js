@@ -182,6 +182,43 @@ function bindElementAuxiliary(descriptors, restraints, rigids, sifTee) {
   }
   return Object.freeze(byParsedElementIndex);
 }
+function parsedCapability(count, qualification, authority, rawRowCount, limitations = [], details = {}) {
+  return deepFreeze({
+    state: count > 0 ? 'PARSED' : 'EMPTY', count, qualification, authority,
+    raw: Object.freeze({ present: rawRowCount > 0, nonEmptyRowCount: rawRowCount }),
+    details: Object.freeze(details), limitations: Object.freeze(limitations),
+  });
+}
+
+export function applyCiiAuxiliaryCapabilities(baseCapabilities, auxiliaryEvidence) {
+  const base = baseCapabilities || {}; const families = base.families || {}; const aux = auxiliaryEvidence || {};
+  const restraintRecords = aux.restraints?.records || [];
+  const restraintNodes = new Set(restraintRecords.map((record) => String(record.node)));
+  const rigidRecords = Object.values(aux.rigids?.byPointer || {});
+  const sifRecords = Object.values(aux.sifTee?.byPointer || {});
+  return deepFreeze({
+    ...base,
+    families: Object.freeze({
+      ...families,
+      restraints: parsedCapability(
+        restraintRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RESTRANT',
+        Number(aux.restraints?.sectionRowCount || 0),
+        ['Numeric node/type/stiffness/gap/friction/connecting-node and direction-cosine fields are source-qualified; semantic meaning of CAESAR restraint type codes is not mapped in this workspace.'],
+        { nodeCount: restraintNodes.size, rawRecordCount: restraintRecords.length, gapFrictionQualified: true },
+      ),
+      rigidMass: parsedCapability(
+        rigidRecords.length, 'QUALIFIED', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RIGID_POINTER',
+        Number(aux.rigids?.sectionRowCount || 0), [], { pointerBoundRecordCount: rigidRecords.length },
+      ),
+      sifTee: parsedCapability(
+        sifRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#SIF_TEE_POINTER',
+        Number(aux.sifTee?.sectionRowCount || 0),
+        ['SIF&TEES record custody and raw payload are pointer-qualified; the semantic meaning of the second numeric field/raw code is not asserted.'],
+        { pointerBoundRecordCount: sifRecords.length },
+      ),
+    }),
+  });
+}
 
 export function buildCiiWorkspaceAuxiliaryEvidence(rawText, parsed = {}) {
   const conflicts = []; const raw = rawElementBlocks(rawText, conflicts); const descriptors = matchBlocks(parsed, raw.blocks, conflicts);
