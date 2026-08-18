@@ -30,6 +30,7 @@ const target2 = await intakeCiiWorkspaceDocument(target2Text, 'BM_CII_TARGET2.CI
 
 for (const document of [source, target1, target2]) {
   assert.strictEqual(document.auxiliaryEvidence.conflicts.length, 0, `${document.fileName}: auxiliary custody must be conflict-free`);
+  assert.strictEqual(document.hangerEvidence.conflicts.length, 0, `${document.fileName}: hanger node custody must be conflict-free`);
   assert.strictEqual(document.auxiliaryEvidence.mappedElementCount, document.summary.elementCount);
   assert.strictEqual(document.auxiliaryEvidence.restraints.blockRows, 24);
   assert.strictEqual(document.auxiliaryEvidence.sifTee.blockRows, 10);
@@ -38,7 +39,29 @@ for (const document of [source, target1, target2]) {
   assert.strictEqual(document.capabilities.families.rigidMass.qualification, 'QUALIFIED');
   assert.strictEqual(document.capabilities.families.sifTee.qualification, 'PARTIAL');
   assert.strictEqual(document.capabilities.families.sifTee.details.pointerUnit, '10_ROW_BLOCK_INDEX');
-  assert.strictEqual(document.capabilities.families.hangers.state, 'NOT_PARSED', 'hanger semantics remain unresolved in this qualification phase');
+  assert.strictEqual(document.capabilities.families.hangers.qualification, 'PARTIAL');
+  assert.strictEqual(document.capabilities.families.hangers.details.nodePresenceQualified, true);
+}
+
+// CONTROL/MISCEL_1 benchmark custody. SOURCE: NUMELT=40 -> 7 RRMAT rows,
+// then two defaults, so vendor/synchronizer IHGRNODE is MISCEL_1 row 10 = 205.
+assert.strictEqual(source.hangerEvidence.control.numelt, 40);
+assert.strictEqual(source.hangerEvidence.control.numnoz, 0);
+assert.strictEqual(source.hangerEvidence.control.nohgrs, 1);
+assert.strictEqual(source.hangerEvidence.count, 1);
+assert.deepStrictEqual(source.hangerEvidence.nodes, ['205']);
+assert.strictEqual(source.hangerEvidence.layout, 'CAESAR_SYNCHRONIZER_IHGRNODE_FIRST');
+assert.strictEqual(source.hangerEvidence.candidates.length, 1);
+assert.strictEqual(source.hangerEvidence.candidates[0].startRow1Based, 10);
+assert.strictEqual(source.hangerEvidence.byNode['205'].length, 1);
+assert.strictEqual(source.summary.hangerCount, 1);
+for (const target of [target1, target2]) {
+  assert.strictEqual(target.hangerEvidence.control.nohgrs, 0);
+  assert.strictEqual(target.hangerEvidence.count, 0);
+  assert.deepStrictEqual(target.hangerEvidence.nodes, []);
+  assert.strictEqual(target.hangerEvidence.layout, 'CONTROL_NOHGRS_ZERO');
+  assert.strictEqual(target.capabilities.families.hangers.state, 'EMPTY');
+  assert.strictEqual(target.summary.hangerCount, 0);
 }
 
 const source130Owner = elementAux(source, 120, 130);
@@ -94,6 +117,8 @@ const weightNote = oracle.quarantinedExpectations.find((item) => item.id === 'NO
 assert(weightNote && weightNote.status === 'QUARANTINED');
 assert(oracle.propertyExpectations.some((item) => item.id === 'RESTRAINT-130-TARGET1'));
 assert(oracle.propertyExpectations.some((item) => item.id === 'SIF-TEE-70-TARGET2'));
+assert(oracle.propertyExpectations.some((item) => item.id === 'HANGER-205-TARGET1'));
+assert(oracle.propertyExpectations.some((item) => item.id === 'HANGER-205-TARGET2'));
 assert.strictEqual(oracle.oracleRules.deriveTargetsFromOffset, false);
 
-console.log('CII real-file auxiliary benchmark block-index qualification checks passed.');
+console.log('CII real-file auxiliary/hanger benchmark custody qualification checks passed.');
