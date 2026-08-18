@@ -11,6 +11,7 @@ function rankedRows(sourceEdge, targetEdges, options) {
     return deepFreeze({
       targetElementId: targetEdge.elementId,
       score: evidence.score,
+      rankingScore: evidence.rankingScore,
       hardFail: evidence.hardFail,
       blockers: evidence.blockers,
       components: evidence.components,
@@ -21,14 +22,16 @@ function rankedRows(sourceEdge, targetEdges, options) {
       identityReasons: evidence.identityReasons,
       weightedScores: evidence.weightedScores,
     });
-  }).sort((a, b) => b.score - a.score || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }));
+  }).sort((a, b) => b.rankingScore - a.rankingScore
+    || b.score - a.score
+    || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }));
 }
 
 function methodRanking(rows, methodKey) {
   return [...(rows || [])]
     .filter((row) => row.methods?.[methodKey]?.pass)
     .sort((a, b) => Number(b.methods[methodKey].score || 0) - Number(a.methods[methodKey].score || 0)
-      || b.score - a.score
+      || b.rankingScore - a.rankingScore
       || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }));
 }
 
@@ -46,7 +49,7 @@ function combinedWinnerGap(m1, m2, methodDisagreement, winner, all) {
   if (m2.winner && m2.winner.targetElementId === winner?.targetElementId) gaps.push(m2.gap);
   if (gaps.length) return Math.min(...gaps);
   const runner = winner ? all.find((row) => row.targetElementId !== winner.targetElementId) || null : null;
-  return winner ? Number((winner.score - (runner?.score || 0)).toFixed(1)) : 0;
+  return winner ? Number((winner.rankingScore - (runner?.rankingScore || 0)).toFixed(1)) : 0;
 }
 
 function auditRows(all, winner, limit) {
@@ -101,8 +104,10 @@ export function buildCiiCandidateEvidence(sourceEdge, targetEdges, expectedTarge
     rankedCandidates: bounded,
     winnerTargetElementId: winner?.targetElementId || null,
     winnerScore: winner?.score || 0,
+    winnerRankingScore: winner?.rankingScore || 0,
     winnerIdentityConfidence: winner?.identityConfidence || 'UNRESOLVED',
     runnerUpScore: runner?.score || 0,
+    runnerUpRankingScore: runner?.rankingScore || 0,
     winnerGap: Number(gap.toFixed(1)),
     requiredWinnerGap: winnerGap(options),
     passingScore: passingScore(options),
