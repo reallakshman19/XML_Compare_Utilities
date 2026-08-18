@@ -5,7 +5,29 @@ function round(value, places = 6) { return Number(Number(value || 0).toFixed(pla
 function otherNode(edge, node) { return edge.from === node ? edge.to : edge.from; }
 function orderedPair(a, b) { return compareNodeIds(a, b) <= 0 ? [a, b] : [b, a]; }
 
-function rawEdge(element) {
+function auxiliaryForElement(document, element) {
+  return document?.auxiliaryEvidence?.elements?.[Number(element?.index)] || null;
+}
+function rigidEvidence(auxiliary) {
+  const record = auxiliary?.rigidRecord;
+  if (!record) return Object.freeze({ status: 'NONE' });
+  return Object.freeze({
+    status: 'POINTER_BOUND_RECORD',
+    pointer: Number(record.pointer),
+    weight: Number(record.weight),
+    mass: Number(record.weight),
+    rawFields: record.rawFields || Object.freeze([]),
+    authority: 'ELEMENT_RIGID_POINTER_TO_RIGID_RECORD',
+  });
+}
+function rawEdge(element, auxiliary) {
+  const rigid = rigidEvidence(auxiliary);
+  const componentKind = rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : (element.hasBend ? 'BEND' : 'PIPE');
+  const packetEvidence = uniqueStrings([
+    element.hasBend ? 'BEND' : '',
+    rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : '',
+    auxiliary?.sifTeeRecord ? 'SIF_TEE' : '',
+  ]);
   return {
     from: nodeId(element.from), to: nodeId(element.to),
     canonicalFrom: nodeId(element.from), canonicalTo: nodeId(element.to),
@@ -15,8 +37,12 @@ function rawEdge(element) {
     diameter: Number(element.od || 0), wall: Number(element.wall || 0),
     P1: Number(element.P1 || 0), T1: Number(element.T1 || 0),
     fromPos: element.fromPos || null, toPos: element.toPos || null,
-    componentKind: element.hasBend ? 'BEND' : 'PIPE',
-    packetEvidence: element.hasBend ? ['BEND'] : [], flags: element.hasBend ? ['BEND'] : [],
+    componentKind,
+    packetEvidence, flags: packetEvidence,
+    parsedElementIndex: Number(element.index),
+    auxiliaryPointers: auxiliary?.pointers || null,
+    sifTeeEvidence: auxiliary?.sifTeeRecord || null,
+    rigidEvidence: rigid,
   };
 }
 
@@ -29,8 +55,8 @@ function canonicalEdgeKey(edge) {
   ].join('|');
 }
 
-function canonicalizeElements(elements) {
-  const rows = (elements || []).map(rawEdge);
+function canonicalizeElements(document) {
+  const rows = (document?.parsed?.elements || []).map((element) => rawEdge(element, auxiliaryForElement(document, element)));
   rows.sort((a, b) => canonicalEdgeKey(a).localeCompare(canonicalEdgeKey(b), undefined, { numeric: true, sensitivity: 'base' }));
   return rows.map((edge, index) => ({ ...edge, elementId: `E${index + 1}:${edge.from}->${edge.to}`, index: index + 1 }));
 }
@@ -43,16 +69,6 @@ function buildIncidence(elements) {
   for (const edge of elements) { add(edge.from, edge); add(edge.to, edge); }
   for (const rows of adjacency.values()) rows.sort((a, b) => a.elementId.localeCompare(b.elementId, undefined, { numeric: true }));
   return adjacency;
-}
-
-function rigidEvidenceFor(edge, rigidByNode, adjacency) {
-  const candidates = [];
-  for (const endpoint of [edge.from, edge.to]) {
-    const records = rigidByNode.get(endpoint) || [];
-    if (records.length === 1 && (adjacency.get(endpoint) || []).length === 1) candidates.push({ endpoint, record: records[0] });
-  }
-  if (candidates.length !== 1) return Object.freeze({ status: candidates.length ? 'AMBIGUOUS' : 'NONE' });
-  return Object.freeze({ status: 'UNIQUE_TERMINAL_RECORD', nodeId: candidates[0].endpoint, mass: Number(candidates[0].record.mass) });
 }
 
 function nodeToken(node, edge, adjacency) {
@@ -103,15 +119,7 @@ function attachContexts(edges, adjacency) {
 
 export function adaptCiiDocumentToTopologyGraph(document) {
   if (document?.schema !== CII_WORKSPACE_SCHEMAS.document) throw new Error('CII_WORKSPACE_DOCUMENT_REQUIRED');
-  const rigidByNode = new Map();
-  for (const record of document.parsed.rigids || []) {
-    const key = nodeId(record.node); if (!rigidByNode.has(key)) rigidByNode.set(key, []); rigidByNode.get(key).push(record);
-  }
-  const edges = canonicalizeElements(document.parsed.elements); const adjacency = buildIncidence(edges);
-  for (const edge of edges) {
-    edge.rigidEvidence = rigidEvidenceFor(edge, rigidByNode, adjacency);
-    if (edge.rigidEvidence.status === 'UNIQUE_TERMINAL_RECORD') { edge.componentKind = 'RIGID'; edge.packetEvidence = ['RIGID']; edge.flags = ['RIGID']; }
-  }
+  const edges = canonicalizeElements(document); const adjacency = buildIncidence(edges);
   attachContexts(edges, adjacency); const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
   return {
     schema: CII_WORKSPACE_SCHEMAS.graph, side: document.side, documentId: `${document.side}:${document.contentSha256}`,
