@@ -20,9 +20,7 @@ function componentEdgeIds(graph, startNode) {
 }
 
 function candidateMatrix(sourceEdges, targetEdges, options) {
-  return sourceEdges.map((source) => targetEdges.map((target) => ({
-    source, target, evidence: scoreCiiEdgeCandidate(source, target, options),
-  })));
+  return sourceEdges.map((source) => targetEdges.map((target) => ({ source, target, evidence: scoreCiiEdgeCandidate(source, target, options) })));
 }
 
 function enumerateAssignments(matrix, targetCount, limit = 720) {
@@ -116,38 +114,39 @@ export function propagateSingleCiiAnchorCorrespondence(sourceGraph, targetGraph,
     for (const selected of assignment.winner.pairs) {
       const source = selected.source; const target = selected.target;
       const candidates = buildCiiCandidateEvidence(source, targetEdges, target.elementId, options);
+      const propagationEvidence = { sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth,
+        assignmentScore: assignment.winner.rankingScore, assignmentGap: assignment.gap, requiredGap: assignment.requiredGap };
       if (candidates.status !== 'SUPPORTED') {
         blockedSourceEdges.add(source.elementId); blockers.add('PROPAGATION_CANDIDATE_AMBIGUITY');
-        elementRows.push(unresolvedElementRow(source, target, 'ANCHOR_PROPAGATION_CANDIDATE_BLOCKED', {
-          propagation: { sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth,
-            assignmentScore: assignment.winner.rankingScore, assignmentGap: assignment.gap, requiredGap: assignment.requiredGap }, candidates,
-        }));
+        elementRows.push(unresolvedElementRow(source, target, 'ANCHOR_PROPAGATION_CANDIDATE_BLOCKED', { propagation: propagationEvidence, candidates }));
         continue;
       }
       if (targetEdgeCustody.has(target.elementId) && targetEdgeCustody.get(target.elementId) !== source.elementId) {
-        blockers.add('TARGET_EDGE_CUSTODY_CONFLICT'); custodyConflicts.push({ kind: 'EDGE', targetElementId: target.elementId, first: targetEdgeCustody.get(target.elementId), second: source.elementId });
-        blockedSourceEdges.add(source.elementId); continue;
+        blockers.add('TARGET_EDGE_CUSTODY_CONFLICT'); blockedSourceEdges.add(source.elementId);
+        custodyConflicts.push({ kind: 'EDGE', targetElementId: target.elementId, first: targetEdgeCustody.get(target.elementId), second: source.elementId });
+        elementRows.push(unresolvedElementRow(source, target, 'ANCHOR_PROPAGATION_EDGE_CUSTODY_BLOCKED', { propagation: propagationEvidence, candidates }));
+        continue;
       }
-
-      sourceEdgeCustody.set(source.elementId, target.elementId); targetEdgeCustody.set(target.elementId, source.elementId);
-      const confidence = candidates.winnerIdentityConfidence || selected.evidence.identityConfidence || 'REVIEW';
-      const row = deepFreeze({
-        correspondenceId: stableId('element', source.elementId, target.elementId), kind: 'ELEMENT', sourceElementId: source.elementId,
-        targetElementIds: Object.freeze([target.elementId]), status: workflowStatus(confidence), authority: 'ANCHOR_PROPAGATED_M1_M2',
-        evidence: deepFreeze({ candidates, propagation: {
-          sourceNode: current.sourceNode, targetNode: current.targetNode, depth: current.depth,
-          assignmentScore: Number(assignment.winner.rankingScore.toFixed(1)), assignmentGap: Number(assignment.gap.toFixed(1)), requiredGap: assignment.requiredGap,
-        } }),
-      });
-      elementRows.push(row);
 
       const nextSource = otherNode(source, current.sourceNode); const nextTarget = otherNode(target, current.targetNode);
       const sourceClaim = sourceNodeCustody.get(nextSource); const targetClaim = targetNodeCustody.get(nextTarget);
       if ((sourceClaim && sourceClaim !== nextTarget) || (targetClaim && targetClaim !== nextSource)) {
-        blockers.add('TARGET_NODE_CUSTODY_CONFLICT'); custodyConflicts.push({ kind: 'NODE', sourceNodeId: nextSource, targetNodeId: nextTarget, sourceClaim: sourceClaim || null, targetClaim: targetClaim || null });
+        blockers.add('TARGET_NODE_CUSTODY_CONFLICT'); blockedSourceEdges.add(source.elementId);
+        custodyConflicts.push({ kind: 'NODE', sourceNodeId: nextSource, targetNodeId: nextTarget, sourceClaim: sourceClaim || null, targetClaim: targetClaim || null });
+        elementRows.push(unresolvedElementRow(source, target, 'ANCHOR_PROPAGATION_NODE_CUSTODY_BLOCKED', { propagation: propagationEvidence, candidates }));
         continue;
       }
+
+      sourceEdgeCustody.set(source.elementId, target.elementId); targetEdgeCustody.set(target.elementId, source.elementId);
       sourceNodeCustody.set(nextSource, nextTarget); targetNodeCustody.set(nextTarget, nextSource);
+      const confidence = candidates.winnerIdentityConfidence || selected.evidence.identityConfidence || 'REVIEW';
+      const row = deepFreeze({
+        correspondenceId: stableId('element', source.elementId, target.elementId), kind: 'ELEMENT', sourceElementId: source.elementId,
+        targetElementIds: Object.freeze([target.elementId]), status: workflowStatus(confidence), authority: 'ANCHOR_PROPAGATED_M1_M2',
+        evidence: deepFreeze({ candidates, propagation: { ...propagationEvidence,
+          assignmentScore: Number(assignment.winner.rankingScore.toFixed(1)), assignmentGap: Number(assignment.gap.toFixed(1)) } }),
+      });
+      elementRows.push(row);
       if (!nodeRows.some((item) => item.sourceNodeId === nextSource && item.targetNodeId === nextTarget)) {
         nodeRows.push(deepFreeze({ correspondenceId: stableId('node', nextSource, nextTarget), kind: 'NODE', sourceNodeId: nextSource, targetNodeId: nextTarget,
           status: row.status, authority: 'ANCHOR_PROPAGATED_M1_M2', evidence: row.evidence }));
