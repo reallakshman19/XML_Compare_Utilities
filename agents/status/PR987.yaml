@@ -1,0 +1,28 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR987
+mission: CII auxiliary custody and benchmark qualification
+workstream: cii-aux-custody-benchmark
+branch: agent/cii-aux-custody-benchmark
+stacked_base_pr: PR986
+stacked_base_head: 2e84648cb0dfd71ef304be744ea7e2dcb3f3e35f
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+agent_state: IMPLEMENTATION_IN_PROGRESS
+pr_recovery_state: STACKED_DRAFT_ACTIVE
+handover_readiness: READY
+report_path: agents/PR987_workreport.md
+scope_authority: LOCKED_TO_AUX_CUSTODY_AND_BENCHMARK
+validation_state: NOT_RUN_IMPLEMENTATION_IN_PROGRESS
+acceptance_matrix:
+  element_aux_pointer_custody: NOT_RUN
+  restraint_gap_friction_semantics: NOT_RUN
+  rigid_weight_pointer_custody: NOT_RUN
+  sif_tee_raw_pointer_custody: NOT_RUN
+  compare_review_aux_deltas: NOT_RUN
+  target1_benchmark_assertions: NOT_RUN
+  target2_blind_assertions: NOT_RUN
+  hanger_semantics: UNRESOLVED_SOURCE_AUTHORITY
+  transfer_mutation_unchanged: EXPECTED_DIFF_GUARD
+exact_next_action: implement CII Workspace auxiliary custody parser and focused tests
+last_updated: 2026-08-18T21:18:00+04:00
