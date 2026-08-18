@@ -2,42 +2,39 @@
 
 Live GitHub state remains authoritative over this snapshot.
 
-| Work | Mission | Branch | State | Criticality | Main base | Scope claim | Coordination | Next action |
-|---|---|---|---|---|---|---|---|---|
-| PR984 | CII M1 Spatial / M2 Network evidence separation | `agent/cii-m1-m2-evidence` | IMPLEMENTATION COMPLETE / FOCUSED VALIDATION PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | stacked on PR983 `070ef903` | M1/M2 evidence + confidence/ranking + winner gap; no propagation | SAFE STACK on PR983/PR982 | keep draft; Phase 5 propagation in separate stacked PR |
-| PR983 | CII benchmark oracle/preflight + truthful capability states | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | stacked on PR982 `aacbcf9e` | CII intake capability publication + test-only benchmark oracle/preflight | SAFE STACK; PR984 depends on it | keep draft; execute full benchmark tests in qualified runner, then retarget after PR982 merge |
-| PR982 | CII fixed-field ELEMENT parser qualification | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT UNMERGED | ENGINEERING_CRITICAL | `ceb0c019` | fixed-field parser + benchmark regression | SAFE; PR983/PR984 depend on it | keep draft pending owner merge/review decision |
-| PR981 | CII Workspace V1 anchored topology + transfer preview | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | `b0f13c99` | historical CII Workspace V1 | HISTORICAL | none |
+| Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
+|---|---|---|---|---|---|---|---|
+| PR985 | CII anchor-seeded network propagation | `agent/cii-anchor-propagation` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | one-anchor propagation + frontier assignment/custody | SAFE STACK on PR984/983/982 | keep draft; proceed to Compare Review/property-delta phase |
+| PR984 | CII M1 Spatial / M2 Network evidence | `agent/cii-m1-m2-evidence` | IMPLEMENTATION COMPLETE / FOCUSED PASS / FULL-CHECKOUT NOT_RUN / STACKED DRAFT | ENGINEERING_CRITICAL | M1/M2 evidence + confidence/ranking | SAFE STACK | keep draft; endpoint-coordinate correction is now authority |
+| PR983 | capability states + benchmark oracle/preflight | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | intake authority + test-only oracle | SAFE STACK | keep draft |
+| PR982 | fixed-field ELEMENT parser | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT | ENGINEERING_CRITICAL | fixed-field parser + regression | SAFE STACK | keep draft pending owner merge decision |
+| PR981 | CII Workspace V1 | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 | ENGINEERING_CRITICAL | historical CII Workspace V1 | HISTORICAL | none |
 
-## PR984 GE-984-002 snapshot
+## PR985 GE-985-002
 
-Validated implementation head: `2cf30cb8df4e6540d73bd4649f4f42fcece59738`. Later commits update recovery/status records only.
+Validated implementation head: `6e35a8997d6c2c4dcdc914b634d111277092f633`; later commits are recovery/status only.
 
-- M1 Spatial uses Euclidean midpoint distance; 90/90/90 mm => ~155.9 mm and fails the 100 mm default tolerance.
-- M2 Network uses structural topology/neighbourhood/path evidence; OD/WT are removed from topology tokens.
-- OD and wall are independent ±10% supporting evidence with weights 30/30; identity weight is 50.
-- M1 FAIL + M2 PASS produces MEDIUM confidence; MEDIUM remains workflow REVIEW until engineer approval.
-- Both identity methods failing produces score=0/rankingScore=0 even if dimensions match.
-- M1/M2 selecting different targets produces `METHOD_A_B_DISAGREE` / REVIEW.
-- Candidate confidence and ranking are separated: repeated-network focused case retains confidence 100 for both candidates but M2/ranking discriminates correct 90.0/95.0 from wrong 84.8/92.4.
-- Branch topology and rigid-kind contradictions remain hard conflicts.
-- Focused reconstructed Node execution passes M1/M2, gang winner-gap, alignment semantics and hard-conflict slices. Literal current-head repository test commands remain `NOT_RUN` because a complete authenticated checkout is unavailable in this environment.
-- Stacked diff contains 11 intended files; no parser, converter, propagation, transfer, Revision Compare or model-converter edits.
+- Production one-anchor preview now uses bounded multi-hop propagation; multi-anchor unique-path code is unchanged.
+- Every frontier is solved as a one-to-one assignment with assignment winner-gap and per-pair PR984 candidate evidence.
+- Edge and node custody are checked before commit; ambiguity/custody failure remains audit-visible and stops that frontier.
+- MEDIUM identity may propagate while remaining workflow `REVIEW`.
+- Incomplete source/target component coverage forces overall `UNRESOLVED`, preserving transfer fail-closed behavior.
+- Focused reconstructed execution PASS: 4-edge multi-hop; 205 200-mm node shift; TARGET1 250 OD/WT change; TARGET2 102xx redistributed 250 gang; symmetric branch ambiguity stop.
+- TARGET2 test contains explicit 102xx IDs and no `+20000`/offset production rule.
+- Literal full-checkout repository tests remain `NOT_RUN` because the current container cannot resolve GitHub for a complete checkout.
 
-See `agents/PR984_workreport.md`, `agents/status/PR984.yaml`, and `agents/claims/PR984.yaml`.
+See `agents/PR985_workreport.md`, `agents/status/PR985.yaml`, `agents/claims/PR985.yaml`.
 
-## PR983 GE-983-002 snapshot
+## PR984 GE-984-003 correction
 
-PR983 publishes truthful CII capability states and a test-only benchmark oracle/preflight. Unsupported/unparsed Hanger/SIF/general Weight/Line-number families remain `count:null`; numbering offsets are non-authoritative hints. Real all-three-file benchmark execution remains `NOT_RUN` in the current environment.
+M1 Spatial is now **endpoint-coordinate based**, not midpoint based. For each candidate edge it evaluates both direct and reversed endpoint custody and uses the maximum matched-endpoint displacement. This closes the benchmark trap where a 200 mm node-205 move would appear as only 100 mm at the element midpoint. Focused endpoint regression pins `[0, 200] mm` and M1 FAIL at a 100 mm tolerance, including reversed element storage.
 
-See `agents/PR983_workreport.md`, `agents/status/PR983.yaml`, and `agents/claims/PR983.yaml`.
+All earlier PR984 invariants remain: OD/WT are supporting evidence only, M2 tokens contain no dimensions, method disagreement is REVIEW, and unsupported identity scores 0.
 
-## PR982 GE-982-001 snapshot
+## PR983 / PR982 retained state
 
-PR982 fixes canonical CAESAR II fixed-field ELEMENT parsing using widths `[15,13,13,13,13,13]`. SOURCE `255→260` is independently decoded as `DX=0`, `DY=-0.000488281`, `DZ=-271.602`, `OD=60.3`. Literal repository test execution remains `NOT_RUN` in the current environment.
+PR983 retains truthful capability states and test-only benchmark preflight. PR982 retains fixed-field decoding for the reported adjacent negative scientific field. Both remain draft/unmerged and owner merge authority is unchanged.
 
-See `agents/PR982_workreport.md`, `agents/status/PR982.yaml`, and `agents/claims/PR982.yaml`.
+## Transfer boundary
 
-## PR981 historical snapshot
-
-PR981 is merged. Its historical validation and limitations remain in `agents/PR981_workreport.md`. Stage06 target mutation remains `NOT_IMPLEMENTED`/blocked in the current product authority chain.
+Stage06 target-CII mutation/export remains `NOT_IMPLEMENTED` / blocked. No PR in this stack enables target mutation.
