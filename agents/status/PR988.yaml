@@ -1,0 +1,29 @@
+schema: AgentPrStatus.v1
+repository: reallaksh19/XML_Compare_Utilities
+pr_or_wip: PR988
+mission: CII Transfer Preview qualification
+workstream: cii-transfer-preview-qualification
+branch: agent/cii-transfer-preview-qualification
+stacked_base_pr: PR987
+work_intent: IMPLEMENT
+criticality: ENGINEERING_CRITICAL
+execution_mode: AUTO
+auto_state: RUNNING
+phase_progression: AUTO
+merge_authority: OWNER_GRANTED_IF_ALL_APPROVED_PHASES_COMPLETE_AND_QUALIFIED
+agent_state: IMPLEMENTING
+pr_recovery_state: STACKED_DRAFT_HANDOVER_READY
+handover_readiness: READY
+report_path: agents/PR988_workreport.md
+scope_authority: READ_ONLY_TRANSFER_PREVIEW_QUALIFICATION
+validation_state: NOT_RUN
+acceptance_matrix:
+  action_classification: PLANNED
+  reviewed_locked_gate: PLANNED
+  protected_geometry_od_wall: PLANNED
+  restraint_preview: PLANNED
+  hanger_preview: PLANNED
+  sif_tee_preview: PLANNED
+  rigid_weight_preview: PLANNED
+  target_mutation: BLOCKED
+exact_next_action: implement transfer policy and focused regressions without modifying any target writer
