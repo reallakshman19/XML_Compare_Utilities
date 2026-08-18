@@ -166,7 +166,7 @@ export function fuseCiiIdentityEvidence(m1, m2, dimensions, options = {}) {
   return deepFreeze({
     confidence, identitySupported,
     weightedScores: Object.freeze({ m1: m1Score, m2: m2Score }),
-    score: Math.max(m1Score, m2Score),
+    score: identitySupported ? Math.max(m1Score, m2Score) : 0,
     reasons: Object.freeze([
       ...(!identitySupported ? ['IDENTITY_METHOD_NOT_SUPPORTED'] : []),
       ...(m1?.available === false && m2?.pass ? ['M1_UNAVAILABLE_M2_SUPPORTED'] : []),
