@@ -4,6 +4,14 @@ import { ciiIdentityBound, ciiIdentityConfidence } from './cii-workspace-enginee
 function rowSource(row) { return row.sourceNodeId || row.sourceComponentId || row.sourceElementId || row.sourceElementIds?.join('|') || ''; }
 function rowTarget(row) { return row.targetNodeId || row.targetComponentId || row.targetElementIds?.join('|') || ''; }
 function candidateEvidence(row) { return row?.evidence?.candidates || row?.evidence?.element?.candidates || null; }
+function reviewConfidence(row, candidates) {
+  if (row?.status === 'LOCKED') return 'LOCKED';
+  if (['UNRESOLVED', 'CONFLICT', 'DELETED', 'INSERTED'].includes(row?.status)) return 'UNRESOLVED';
+  if (row?.evidence?.nodeCustodyGate) return 'REVIEW';
+  if (candidates?.status === 'AMBIGUOUS') return 'REVIEW';
+  if (candidates?.status === 'UNRESOLVED') return 'UNRESOLVED';
+  return ciiIdentityConfidence(row);
+}
 function winnerEvidence(row) {
   const candidates = candidateEvidence(row);
   if (!candidates) return row?.evidence?.element || row?.evidence || null;
@@ -37,7 +45,7 @@ function projection(row, review, changeMap) {
     correspondenceId: row.correspondenceId,
     kind: row.kind,
     workflowStatus: row.status,
-    confidence: ciiIdentityConfidence(row),
+    confidence: reviewConfidence(row, candidates),
     identityBound: ciiIdentityBound(row),
     source: rowSource(row), target: rowTarget(row),
     methodA: m1 ? Object.freeze({ pass: Boolean(m1.pass), available: m1.available !== false, score: m1.score ?? 0, distanceMm: m1.distanceMm ?? null, toleranceMm: m1.toleranceMm ?? null, basis: m1.basis || '' }) : null,
