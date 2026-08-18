@@ -11,267 +11,166 @@ TAKEOVER_AUTHORITY: OWNER_OR_REQUALIFIED_AGENT
 EXECUTION_MODE: MANUAL
 AUTO_STATE: NOT_ACTIVE
 SCOPE_AUTHORITY: LOCKED_TO_APPROVED_M1_M2_EVIDENCE_PHASE
-PHASE_PROGRESSION: MANUAL
 MERGE_AUTHORITY: OWNER_ONLY
 REPOSITORY: reallaksh19/XML_Compare_Utilities
 PR_OR_WIP: PR984
 BRANCH: agent/cii-m1-m2-evidence
-PR_HEAD_OBSERVED: 2cf30cb8df4e6540d73bd4649f4f42fcece59738
-REPORT_BASIS_HEAD: 2cf30cb8df4e6540d73bd4649f4f42fcece59738
+VALIDATED_IMPLEMENTATION_HEAD: dd165a4a04b51b15d06322d7f577c88a33641b6c
+REPORT_BASIS_HEAD: dd165a4a04b51b15d06322d7f577c88a33641b6c
 MAIN_HEAD_LAST_CHECKED: ceb0c0193a4be68b28a913b74bdc453ccf79d336
 MERGE_BASE: 070ef9038a9fc2af87a1e7a49b0e8f600d98d3ba
 STACKED_DEPENDENCY: PR982 -> PR983 -> PR984
-REPORT_SYNC: RECONCILED_TO_11_FILE_STACKED_DIFF
+REPORT_SYNC: GE-984-003_ENDPOINT_QUALIFIED
 APPENDIX_A_STATUS: NOT_REQUIRED_SAME_AGENT_CONTINUATION
-GROUNDING_EPOCH: GE-984-002
 CURRENT_STAGE: HANDOVER_READY
-LAST_COMPLETED_STAGE: IMPLEMENT_VALIDATE_RECONCILE
-CURRENT_BLOCKER: COMPLETE_AUTHENTICATED_CHECKOUT_UNAVAILABLE_FOR_LITERAL_REPO_TEST_COMMANDS
-HIGHEST_RISK: REAL_BENCHMARK_PROPAGATION_NOT_YET_IMPLEMENTED; THIS PR IS EVIDENCE ONLY
-LAST_DURABLE_CHECKPOINT: 2cf30cb8df4e6540d73bd4649f4f42fcece59738
-EXACT_NEXT_ACTION: open a separate stacked Phase 5 PR for anchor-seeded propagation; do not merge PR984 without owner authority.
+CURRENT_BLOCKER: COMPLETE_AUTHENTICATED_CHECKOUT_UNAVAILABLE_FOR_LITERAL_REPOSITORY_TESTS
+HIGHEST_RISK: FULL_REAL_FILE_QUALIFICATION_NOT_RUN
+EXACT_NEXT_ACTION: keep PR984 draft/unmerged; propagation is isolated in PR985.
 ```
 
 ## 2. Handover in 60 Seconds
 
-### What is now true
+PR984 separates CII correspondence evidence into **M1 Spatial** and **M2 Network/Gang**. OD and wall are independent supporting revision evidence, not identity blockers. Candidate confidence and candidate/path ranking are separate authorities, and M1/M2 disagreement is retained as REVIEW rather than averaged away.
 
-PR984 separates CII identity evidence into M1 Spatial and M2 Network/Gang. OD and wall are independent revision evidence and are no longer hard identity blockers. M2 topology tokens no longer include OD/WT. Candidate ranking preserves method-specific winner gaps and explicitly reports M1/M2 target disagreement.
+A material correction was made during downstream propagation qualification: M1 is now **node/endpoint-coordinate based**, not midpoint based. For each candidate element, M1 evaluates direct and reversed endpoint custody and uses the **maximum matched-endpoint Euclidean displacement**. This is necessary for the benchmark 205 pattern: one endpoint stays fixed while the other moves 200 mm; midpoint movement is only 100 mm and would be an unsafe false pass at the configured 100 mm tolerance.
 
-### What has been implemented
+## 3. Current implementation
 
-- `cii-workspace-match-methods.js`:
-  - M1 Euclidean midpoint distance, default 100 mm;
-  - M2 topology/neighbourhood/path evidence, default threshold 55;
-  - OD/WT relative evidence, default ±10%;
-  - 50/30/30 normalized confidence scoring;
-  - explicit HIGH/MEDIUM/REVIEW/UNRESOLVED fusion.
-- `cii-workspace-evidence.js`:
-  - publishes both methods and dimension evidence;
-  - `score` is engineering confidence;
-  - `rankingScore` separately includes method quality for candidate/path ordering;
-  - identity-unsupported candidates always score 0.
-- `cii-workspace-topology-adapter.js`:
-  - network tokens are structural only: `D<degree>->D<degree>|<componentKind>`.
-- `cii-workspace-candidates.js`:
-  - independent M1 and M2 winners;
-  - method disagreement => `AMBIGUOUS` / `METHOD_A_B_DISAGREE`;
-  - method-specific winner gaps prevent 50/30/30 confidence ties from erasing topology discrimination;
-  - MEDIUM remains existing workflow `REVIEW` until engineer approval, preserving custody semantics.
-- `cii-workspace-alignment.js`:
-  - confidence projection uses HIGH / REVIEW / UNRESOLVED based on method fusion rather than old score thresholds.
+### M1 Spatial
 
-### What has been proven
+- default tolerance: 100 mm;
+- direct/reversed endpoint pairing evaluated deterministically;
+- source points are registered when geometry transform is `READY`, raw-global otherwise;
+- authoritative distance = maximum matched-endpoint Euclidean displacement;
+- missing endpoint coordinates => M1 `UNAVAILABLE`, not a false FAIL.
 
-Reconstructed focused Node execution using the current method semantics passed these mechanisms together:
+### M2 Network/Gang
 
-1. 90/90/90 mm coordinate change => Euclidean distance ~155.9 mm => M1 FAIL for 100 mm tolerance.
-2. 205 concept: 200 mm move => M1 FAIL, M2 PASS, OD/WT PASS => MEDIUM, not hard fail.
-3. 250 concept: OD 60.3→114.3 and WT 3.9→4.7752 both fail ±10%, but identity remains MEDIUM when M1/M2 support it; confidence score ≈45.5.
-4. Same OD/WT with neither identity method supported => UNRESOLVED, hard fail, confidence/ranking score 0.
-5. Legacy neighbourhood tokens with different OD values normalize to the same structural M2 identity form.
-6. Existing topology-only alignment semantics remain HIGH when M1 is unavailable rather than falsely treated as geometry failure.
-7. Existing gang ambiguity logic remains discriminating: correct M2 90.0 versus wrong-region M2 84.8; ranking scores 95.0 versus 92.4 while both confidence scores remain 100.
-8. Branch and rigid-kind contradictions remain structural hard conflicts with score 0.
-9. OD/WT differences no longer produce `OD_INCOMPATIBLE` / `WALL_THICKNESS_INCOMPATIBLE` hard blockers.
+- topology, neighbourhood, ordered path/component context, station and bounded local-length evidence;
+- OD/WT removed from topology tokens and stripped from legacy-style tokens before comparison;
+- branch-topology and rigid-kind contradictions remain structural hard blockers.
 
-### What has NOT been proven / NOT_RUN
+### Dimensions / confidence
 
-- literal `node tests/cii-workspace-m1-m2-evidence.test.js` from a complete authenticated repository checkout;
-- literal full CII Workspace suite at PR984 current head;
-- SOURCE→TARGET1 and SOURCE→TARGET2 end-to-end correspondence using anchor-seeded propagation, because propagation is intentionally Phase 5;
-- browser UI, because UI is not in PR984 scope.
+- OD relative tolerance: ±10%; weight 30;
+- wall relative tolerance: ±10%; weight 30;
+- identity weight: 50;
+- M1+M2 PASS with dimensions PASS => HIGH;
+- M1+M2 PASS with dimensional revision => MEDIUM;
+- M1 FAIL + M2 PASS => MEDIUM;
+- M1 PASS + M2 FAIL => REVIEW;
+- both identity methods fail => UNRESOLVED, score/rankingScore 0;
+- dimensions alone can never establish identity.
 
-Direct container checkout is environment-blocked by GitHub DNS resolution. This is not counted as product PASS or FAIL.
+### Candidate ranking / custody compatibility
 
-## 3. Repository Ground Truth
+- M1 and M2 select their own winners;
+- different winners => `METHOD_A_B_DISAGREE` / REVIEW;
+- method-specific winner gaps prevent 50/30/30 confidence ties from erasing network discrimination;
+- `score` is engineering confidence; `rankingScore` adds method quality only for ordering;
+- MEDIUM projects to existing workflow `REVIEW` until engineer approval, preserving existing custody/transfer gates.
 
-At GE-984-002:
+## 4. Focused validation evidence
 
-- main: `ceb0c0193a4be68b28a913b74bdc453ccf79d336`;
-- PR982: draft/unmerged fixed-field parser dependency;
-- PR983: draft/unmerged capability/oracle dependency;
-- PR984: open, draft, mergeable at observed head `2cf30cb8df4e6540d73bd4649f4f42fcece59738` before this report-only checkpoint;
-- stacked base: PR983 head `070ef9038a9fc2af87a1e7a49b0e8f600d98d3ba`;
-- stacked diff: 11 intended files, no unexplained files.
+Reconstructed local Node execution passed:
 
-## 4. Mission / Scope / Acceptance
+1. 90/90/90 mm endpoint translation => Euclidean ~155.9 mm => M1 FAIL at 100 mm.
+2. Benchmark-faithful 205 edge: endpoint distances `[0, 200] mm` => M1 FAIL; reversed element storage gives the same physical result.
+3. 205 concept with M2 PASS and OD/WT PASS => MEDIUM, not hard fail.
+4. 250 concept with OD `60.3→114.3` and WT `3.9→4.7752` outside ±10% => identity remains MEDIUM when M1/M2 support it.
+5. dimensions-only candidate => UNRESOLVED, hardFail=true, score=0, rankingScore=0.
+6. repeated-network discrimination => correct M2 90.0/rank95.0 versus wrong M2 84.8/rank92.4 while confidence remains 100 for both.
+7. branch and rigid-kind contradictions remain hard fail.
+8. existing topology-only alignment remains valid when M1 coordinates are unavailable.
 
-Mission: implement independent M1 Spatial and M2 Network/Gang evidence while preserving existing candidate custody/review workflow.
+Literal current-head repository tests from a complete authenticated checkout remain **NOT_RUN**. The local container cannot resolve GitHub for a complete checkout; this is an environment limitation, not a product PASS or FAIL.
 
-Acceptance achieved at source/focused-slice level:
+## 5. Active engineering register
 
-- M1 uses Euclidean distance;
-- M2 does not embed OD/WT;
-- OD/WT are ±10% supporting evidence;
-- both identity methods fail => no correspondence support regardless of dimensions;
-- M1/M2 disagreement => review;
-- M1 fail + M2 pass => MEDIUM confidence;
-- both pass + dimension change => MEDIUM;
-- target custody/winner-gap workflow remains intact;
-- no propagation/UI/transfer changes.
+| ID | Type | Status | Summary |
+|---|---|---|---|
+| ISS-984-01 | ISS | CLOSED | OD/WT hard identity blockers removed |
+| ISS-984-02 | ISS | CLOSED | dimensions removed from M2 topology tokens |
+| ISS-984-03 | ISS | CLOSED | M1/M2 independently exposed |
+| ISS-984-04 | ISS | CLOSED | confidence tie no longer erases network-quality ranking |
+| ISS-984-05 | ISS | CLOSED | midpoint M1 replaced by endpoint-coordinate M1 |
+| DEC-984-01 | DEC | ACCEPTED | M1/M2 establish identity; OD/WT support confidence only |
+| DEC-984-02 | DEC | ACCEPTED | MEDIUM remains workflow REVIEW until engineer approval |
+| DEC-984-03 | DEC | ACCEPTED | confidence and ranking are separate authorities |
+| DEC-984-04 | DEC | ACCEPTED | M1 authoritative distance = maximum matched-endpoint displacement |
+| RISK-984-01 | RISK | OPEN_VALIDATION | literal full-checkout current-head tests not run |
 
-Explicit non-goals remain:
-
-- anchor-seeded BFS/graph propagation;
-- Tab 2 UI;
-- target mutation;
-- parser/converter changes;
-- node-offset identity logic.
-
-## 5. Current Implementation State
-
-| Work item | Implementation | Integration | Validation | Remaining |
-|---|---|---|---|---|
-| M1 Spatial | COMPLETE | consumed by evidence/candidates | focused reconstructed PASS | full checkout run |
-| M2 Network | COMPLETE | consumed by evidence/candidates | focused reconstructed PASS | full checkout run |
-| OD/WT independent evidence | COMPLETE | evidence + confidence | focused reconstructed PASS | full checkout run |
-| M1/M2 disagreement | COMPLETE | candidate evidence | focused reconstructed PASS | full checkout run |
-| winner-gap preservation | COMPLETE | candidates | existing gang test reconstructed PASS | full checkout run |
-| alignment confidence projection | COMPLETE | alignment | existing alignment test reconstructed PASS | full checkout run |
-| propagation | NOT_IMPLEMENTED | N/A | NOT_RUN | Phase 5 |
-
-## 6. Active Engineering Item Register
-
-| ID | Type | Severity | Status | Summary |
-|---|---|---|---|---|
-| ISS-984-01 | ISS | HIGH | CLOSED | OD/WT hard identity blockers removed |
-| ISS-984-02 | ISS | HIGH | CLOSED | OD removed from network topology token |
-| ISS-984-03 | ISS | HIGH | CLOSED | M1/M2 now independently visible |
-| ISS-984-04 | ISS | HIGH | CLOSED | binary confidence score initially erased gang winner-gap; fixed with method-specific gaps/rankingScore |
-| DEC-984-01 | DEC | HIGH | ACCEPTED | identity gate is M1 or M2; dimensions support confidence only |
-| DEC-984-02 | DEC | HIGH | ACCEPTED | MEDIUM projects to workflow REVIEW until engineer approval |
-| DEC-984-03 | DEC | HIGH | ACCEPTED | confidence score and ranking score are separate authorities |
-| RISK-984-01 | RISK | MEDIUM | MITIGATED | winner-gap/custody semantics preserved in focused regression |
-| RISK-984-02 | RISK | HIGH | OPEN_NEXT_PHASE | one anchor still does not propagate across complete network |
-
-## 7. Current Technical Diagnosis
+## 6. Authority / invariants
 
 ```text
-Observed defect: prior matcher blended topology/geometry/dimensions; OD/WT could hard-veto identity and OD was embedded in M2 tokens.
-Root cause: identity and revision-property evidence had not been separated into independent authorities.
-Implemented correction: M1 + M2 establish identity; OD/WT only affect confidence. Candidate ranking uses separate method quality so binary 50/30/30 scoring does not erase topology discrimination.
-Falsifier: a candidate with M1 FAIL and M2 FAIL but dimensions PASS receives nonzero identity/ranking score or is classified supported.
-Current falsifier result: focused reconstructed test produces hardFail=true, score=0, rankingScore=0.
-Next isolating experiment: Phase 5 anchor-seeded network propagation on 205 and 250 benchmark gangs.
+parsed endpoint coordinates + topology
+ -> M1 endpoint spatial evidence / M2 network evidence
+ -> independent OD/WT evidence
+ -> identity confidence + confidence score
+ -> separate ranking score / method winner gap
+ -> candidate review / existing target custody gates
 ```
 
-## 8. Authority and Invariants
-
-```text
-SOURCE/TARGET parsed geometry/topology
-  -> M1 Spatial + M2 Network identity evidence
-  -> OD/WT supporting dimension evidence
-  -> confidence score / identityConfidence
-  -> separate rankingScore
-  -> candidate winner/winner-gap/custody
-  -> workflow REVIEW/LOCK authority
-```
-
-Invariants:
-
+Must remain true:
 - no dimensions-only identity;
 - no node-offset identity;
+- no midpoint-only M1 authority;
 - method disagreement cannot be averaged away;
-- M1 unavailable is neutral, not M1 fail;
+- M1 unavailable is neutral;
 - branch/rigid contradictions remain fail-closed;
-- transfer Stage06 remains blocked.
+- Stage06 target mutation remains blocked.
 
-## 9. Validation Ledger
+## 7. Validation ledger
 
-### VAL-984-01 — method/fusion focused slice
-
+### VAL-984-01 — M1 endpoint benchmark semantics
 ```text
 Status: PASS
 Observation: LOCAL_EXECUTION
-Oracle: IMPLEMENTATION_COUPLED + HAND-CALC GEOMETRY ASSERTIONS
-Tested semantic state: current PR984 source through ranking-score split
-Evidence: reconstructed Node assertions for diagonal distance, 205, 250, dimensions-only, M2 token normalization
-Expected/actual: all assertions satisfied
-Limitation: not literal full-checkout import graph
+Oracle: HAND-CALC GEOMETRY
+Expected: [0,200] mm endpoint displacement for 205 pattern; FAIL at 100 mm
+Actual: PASS, including reversed storage
 Origin: RESOLVED_BY_PR
 ```
 
-### VAL-984-02 — existing gang winner-gap semantics
-
+### VAL-984-02 — method/fusion and repeated-network regression
 ```text
 Status: PASS
 Observation: LOCAL_EXECUTION
-Oracle: IMPLEMENTATION_COUPLED REGRESSION
-Expected: correct repeated region remains distinguishable from wrong region
-Actual: M2 90.0 vs 84.8; ranking 95.0 vs 92.4; confidence both 100
-Limitation: reconstructed focused execution
+Oracle: IMPLEMENTATION_COUPLED + hand-calculated geometry assertions
+Actual: focused assertions passed
 Origin: RESOLVED_BY_PR
 ```
 
-### VAL-984-03 — full repository PR984 commands
-
+### VAL-984-03 — literal full repository current-head tests
 ```text
 Status: NOT_RUN
 Observation: NOT_OBSERVED
 Oracle: NONE
-Limitation: authenticated checkout unavailable; direct container GitHub DNS resolution fails
+Limitation: complete authenticated checkout unavailable
 ```
 
-## 10. Changed-File Ledger
+## 8. Changed-file ledger
 
-Stacked diff against PR983 base: 11 files, all intended.
+Stacked diff against PR983 base is **12 intended files**:
+- `agents/MASTER_INDEX.md`
+- `agents/PR984_workreport.md`
+- `agents/claims/PR984.yaml`
+- `agents/status/PR984.yaml`
+- `tabs/cii-workspace/cii-workspace-alignment.js`
+- `tabs/cii-workspace/cii-workspace-candidates.js`
+- `tabs/cii-workspace/cii-workspace-evidence.js`
+- `tabs/cii-workspace/cii-workspace-match-methods.js`
+- `tabs/cii-workspace/cii-workspace-topology-adapter.js`
+- `tests/cii-workspace-hard-conflict.test.js`
+- `tests/cii-workspace-m1-m2-evidence.test.js`
+- `tests/cii-workspace-m1-endpoint-spatial.test.js`
 
-| File | Purpose | Sensitive | Validation |
-|---|---|---:|---|
-| `agents/MASTER_INDEX.md` | coordination | no | source inspection |
-| `agents/PR984_workreport.md` | recovery | no | reconciled |
-| `agents/claims/PR984.yaml` | claim | no | reconciled |
-| `agents/status/PR984.yaml` | status | no | reconcile after report |
-| `tabs/cii-workspace/cii-workspace-alignment.js` | confidence projection | yes | focused regression |
-| `tabs/cii-workspace/cii-workspace-candidates.js` | independent winners/gaps | yes | focused regression |
-| `tabs/cii-workspace/cii-workspace-evidence.js` | confidence/ranking contract | yes | focused regression |
-| `tabs/cii-workspace/cii-workspace-match-methods.js` | M1/M2/dimensions/fusion | yes | focused regression |
-| `tabs/cii-workspace/cii-workspace-topology-adapter.js` | OD-free network tokens | yes | focused regression |
-| `tests/cii-workspace-hard-conflict.test.js` | new identity-blocker semantics | no | focused reconstructed PASS |
-| `tests/cii-workspace-m1-m2-evidence.test.js` | new method contract | no | focused reconstructed PASS |
+Unexplained files: 0. No parser, converter, propagation, transfer, Revision Compare or model-converter edits belong to PR984.
 
-Unexplained files: 0.
+## 9. Continuation
 
-## 11. Review / CI State
-
-At last observed implementation head:
-
-- draft: yes;
-- mergeable: yes;
-- review threads: to refresh at final handover;
-- workflow/status checks: to refresh at final handover;
-- merge authority: owner only.
-
-## 12. Repository Coordination / Overlap
-
-```text
-MASTER_INDEX_CHECKED: yes
-STATUS_RECORD: agents/status/PR984.yaml
-CLAIM_RECORD: agents/claims/PR984.yaml
-FILE_OVERLAP: intentional only with stacked predecessor read authorities; no undeclared production overlap
-AUTHORITY_OVERLAP: PR984 owns M1/M2 evidence only
-DEPENDENCY_OVERLAP: explicit PR982 -> PR983 -> PR984 stack
-COORDINATION_STATE: SAFE_STACKED_WORKSTREAM
-```
-
-## 13. Continuation State
-
-```text
-Start here: Phase 5 new stacked branch from PR984 reconciled head
-Exact component: one-anchor correspondence expansion / topology propagation
-Do not redo: fixed-field parser, capabilities/oracle, M1/M2 evidence separation
-Do not change: protected writer, transfer Stage06, node-offset policy
-Validation required: SOURCE→TARGET1 propagation cases, then TARGET2 blind after policy freeze
-Highest-risk remaining item: stopping propagation at ambiguity while still reaching distant benchmark nodes
-Exact next action: implement bounded anchor-seeded BFS/assignment using existing candidate evidence, winner-gap, and target custody
-```
-
-## 14. Takeover / Custody Chain
-
-- GE-984-001: stacked PR initialized from PR983 exact head.
-- GE-984-002: implementation complete; diff and focused validation reconciled. A future different implementation agent must re-ground and complete Appendix A before mutation.
+Propagation is no longer a PR984 responsibility; it is isolated in PR985. Keep PR984 draft/unmerged unless owner explicitly authorizes merge.
 
 # APPENDIX A — IMPLEMENTATION TAKEOVER QUALIFICATION
 
-`NOT_REQUIRED_SAME_AGENT_CONTINUATION` for the current agent. Future takeover requires repository-specific qualification.
+`NOT_REQUIRED_SAME_AGENT_CONTINUATION`. A different future implementation agent must re-ground and qualify before engineering-critical mutation.
