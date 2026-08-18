@@ -7,6 +7,7 @@ files:
     - tabs/cii-workspace/cii-workspace-shell.js
     - tabs/cii-workspace/cii-workspace.css
     - tabs/cii-workspace/cii-workspace-contracts.js
+    - tabs/cii-workspace/cii-workspace-export.js
     - agents/PR986_workreport.md
     - agents/status/PR986.yaml
     - agents/claims/PR986.yaml
@@ -19,6 +20,7 @@ authority_domains:
   - CII_ENGINEERING_DELTA_PROJECTION
   - CII_COMPARE_REVIEW_VIEW_MODEL
   - CII_COMPARE_REVIEW_UI
+  - CII_COMPARE_REVIEW_EXPORT
 claim_modes:
   - EXCLUSIVE
 shared_read_authorities:
@@ -40,6 +42,8 @@ implementation_claims:
   - identity confidence and engineering change severity remain separate
   - unsupported/unparsed property families are surfaced explicitly
   - restraint gap/friction semantics are not invented from raw rows
+  - Compare Review CSV preserves confidence separately from workflow status
 validation_state: IMPLEMENTATION_IN_PROGRESS
 known_limits:
   - target mutation intentionally remains blocked
+  - engineering location delta currently reports parsed native coordinate-basis evidence; registered delta qualification remains separate
