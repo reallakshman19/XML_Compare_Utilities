@@ -1,6 +1,6 @@
 schema: AgentClaim.v1
 pr_or_wip: PR987
-claim_state: IMPLEMENTATION_COMPLETE_HANDOVER_READY
+claim_state: ACTIVE_RECONCILIATION
 files:
   exact:
     - tabs/cii-workspace/cii-workspace-engineering-delta.js
@@ -11,6 +11,7 @@ files:
     - tabs/cii-workspace/cii-workspace-core.js
     - Benchmark/CIICompare/CII_COMPARE_EXPECTED.json
     - tests/cii-workspace-engineering-delta.test.js
+    - tests/cii-workspace-rigid-custody.test.js
     - agents/PR987_workreport.md
     - agents/status/PR987.yaml
     - agents/claims/PR987.yaml
@@ -36,6 +37,7 @@ shared_read_authorities:
   - Benchmark/CIICompare/BM_CII_TARGET2.CII
   - Benchmark/CIICompare/Target1.txt
   - tabs/cii-workspace/cii-workspace-compare-review.js
+  - tabs/cii-workspace/cii-workspace-transfer-plan.js
 forbidden_existing_file_edits:
   - converters/**
   - parser/sections/elements.js
@@ -49,15 +51,18 @@ implementation_claims:
   - auxiliary records are associated by authoritative ELEMENT pointer index, not guessed from node arithmetic
   - restraint gap/friction fields are source-qualified fixed fields
   - RIGID record first value is interpreted as weight only when reached through an element rigid pointer
+  - malformed or unqualified RIGID auxiliary custody cannot enter topology/M2 identity
+  - malformed or unqualified restraint/SIF auxiliary evidence is withheld from engineering deltas and reported BLOCKED/LIMITED
   - SIF&TEES records remain raw/partial except source-qualified node/index custody
   - SIF/TEE property evidence is excluded from M2 identity tokens
   - topology and component rigid custody use pointer-bound auxiliary evidence, not generic section node guessing
   - engineering deltas expose native-coordinate basis and registered-coordinate basis separately when registration is READY
   - benchmark expectations contradicted by pointer-resolved engineering data are quarantined rather than tuned into code
   - auxiliary deltas are downstream and cannot rewrite correspondence identity
-validation_state: SOURCE_QUALIFIED_RECONSTRUCTED_HANDCHECK_PASS_RUNTIME_NOT_RUN
+validation_state: SOURCE_QUALIFIED_STATIC_RECONCILIATION_RUNTIME_NOT_RUN
 remaining_validation_gates:
   - literal PR987 focused test commands in a complete checkout
+  - inherited suite after rigid-custody regression migration
   - real SOURCE/TARGET1/TARGET2 auxiliary benchmark test
   - full frozen-policy SOURCE->TARGET1 and TARGET2 preview qualification
 known_limits:
