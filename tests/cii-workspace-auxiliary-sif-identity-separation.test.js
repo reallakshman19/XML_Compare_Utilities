@@ -7,6 +7,10 @@ function document(withSif) {
   return {
     schema: 'CIIWorkspaceDocument.v1', side: withSif ? 'TARGET' : 'SOURCE', contentSha256: withSif ? 'target' : 'source',
     parsed: { elements: [element], nodes: { 10: { x: 0, y: 0, z: 0 }, 20: { x: 100, y: 0, z: 0 } } }, nodeNames: {},
+    capabilities: { families: {
+      rigidMass: { state: 'EMPTY', qualification: 'QUALIFIED', authority: 'tabs/cii-workspace/cii-workspace-auxiliary.js#RIGID_POINTER' },
+      sifTee: { state: withSif ? 'PARSED' : 'EMPTY', qualification: 'PARTIAL', authority: 'tabs/cii-workspace/cii-workspace-auxiliary.js#SIF_TEE_POINTER' },
+    } },
     auxiliaryEvidence: { elements: { 0: {
       pointers: { rigid: 0, sifTee: withSif ? 1 : 0 }, rigidRecord: null,
       sifTeeRecord: withSif ? { pointer: 1, node: '20', rawCode: 5, normalizedPayload: [[null, 5]] } : null,
