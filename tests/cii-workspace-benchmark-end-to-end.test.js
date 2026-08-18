@@ -75,6 +75,7 @@ for (const result of [target1, target2]) {
 for (const [source, target] of [['10','20010'], ['35','20035'], ['70','20070'], ['113','20113'], ['116','20116'], ['130','20130'], ['205','20205']]) {
   assertNode(target1, source, target);
 }
+const target1SifBranch = assertEdge(target1, '70', '250', '20070', '20250');
 assertEdge(target1, '200', '205', '20200', '20205');
 assertEdge(target1, '205', '210', '20205', '20210');
 for (const tuple of [
@@ -102,8 +103,10 @@ assert.deepStrictEqual(changedDelta(target1, node130t1.correspondenceId, 'Restra
 assert.deepStrictEqual(changedDelta(target1, node130t1.correspondenceId, 'Restraint friction values')?.sourceValue, [0]);
 assert.deepStrictEqual(changedDelta(target1, node130t1.correspondenceId, 'Restraint friction values')?.targetValue, [0.3]);
 
-const sifT1 = (target1.engineeringDeltas?.changedRows || []).find((row) => row.property === 'SIF/Tee raw code (field 2)' && row.sourceValue === 3 && row.targetValue === 5);
-assert(sifT1, 'TARGET1 must expose pointer-bound SIF/Tee raw-code change 3->5');
+const sifT1 = changedDelta(target1, target1SifBranch.correspondenceId, 'SIF/Tee raw code (field 2)');
+assert(sifT1, 'TARGET1 70->250 / 20070->20250 correspondence must expose pointer-bound SIF/Tee raw-code change');
+assert.strictEqual(sifT1.sourceValue, 3);
+assert.strictEqual(sifT1.targetValue, 5);
 
 const rigidWeightT1 = anyDelta(target1, 'Rigid weight');
 assert(rigidWeightT1, 'TARGET1 should carry pointer-bound rigid-weight evidence');
@@ -117,6 +120,7 @@ if (String(rigidWeightT1.sourceIdentity).includes('RIGID')) {
 for (const [source, target] of [['10','10010'], ['35','10035'], ['70','10070'], ['113','10113'], ['116','10116'], ['130','10130'], ['205','10205']]) {
   assertNode(target2, source, target);
 }
+const target2SifBranch = assertEdge(target2, '70', '250', '10070', '10250');
 assertEdge(target2, '200', '205', '10200', '10205');
 assertEdge(target2, '205', '210', '10205', '10210');
 for (const tuple of [
@@ -141,7 +145,9 @@ const t2FrictionEvidence = (target2.engineeringDeltas?.rows || []).find((row) =>
 assert.deepStrictEqual(t2FrictionEvidence?.sourceValue, [0]);
 assert.deepStrictEqual(t2FrictionEvidence?.targetValue, [0]);
 
-const sifT2 = (target2.engineeringDeltas?.changedRows || []).find((row) => row.property === 'SIF/Tee raw code (field 2)' && row.sourceValue === 3 && row.targetValue === 5);
-assert(sifT2, 'TARGET2 must expose pointer-bound SIF/Tee raw-code change 3->5');
+const sifT2 = changedDelta(target2, target2SifBranch.correspondenceId, 'SIF/Tee raw code (field 2)');
+assert(sifT2, 'TARGET2 70->250 / 10070->10250 correspondence must expose pointer-bound SIF/Tee raw-code change');
+assert.strictEqual(sifT2.sourceValue, 3);
+assert.strictEqual(sifT2.targetValue, 5);
 
 console.log('CII full SOURCE/TARGET1/TARGET2 benchmark acceptance checks passed.');
