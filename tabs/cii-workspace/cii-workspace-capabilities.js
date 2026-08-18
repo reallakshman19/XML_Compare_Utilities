@@ -11,7 +11,6 @@ export const CII_CAPABILITY_STATES = Object.freeze({
 const QUALIFICATION = Object.freeze({
   QUALIFIED: 'QUALIFIED',
   PARTIAL: 'PARTIAL',
-  SUMMARY_ONLY: 'SUMMARY_ONLY',
   NONE: 'NONE',
 });
 
@@ -36,7 +35,7 @@ function rawSectionEvidence(sections, names = []) {
   const rows = present.flatMap((name) => sections.get(name) || []);
   const dataRows = rows.filter((row) => {
     const text = row.trim();
-    return text && !text.startsWith('*') && !/^[-+]?1\s+[-+]?1$/.test(text);
+    return text && !text.startsWith('*') && !/^-1(?:\.0+)?\s+-1(?:\.0+)?$/.test(text);
   });
   return Object.freeze({
     requestedSections: Object.freeze(requested),
@@ -91,6 +90,29 @@ function nonZeroUnique(values) {
 function numericRange(values) {
   const finite = finiteValues(values);
   return finite.length ? Object.freeze({ min: Math.min(...finite), max: Math.max(...finite) }) : null;
+}
+
+function nodeCapability(parsed, sections) {
+  const nodes = parsed?.nodes;
+  if (!nodes || Array.isArray(nodes) || typeof nodes !== 'object') {
+    return deepFreeze({
+      state: CII_CAPABILITY_STATES.PARSE_ERROR,
+      count: null,
+      qualification: QUALIFICATION.NONE,
+      authority: 'parser/sections/elements.js#nodes',
+      raw: rawSectionEvidence(sections, ['ELEMENTS']),
+      limitations: Object.freeze(['Expected parsed node map is unavailable or malformed.']),
+    });
+  }
+  const count = Object.keys(nodes).length;
+  return deepFreeze({
+    state: count ? CII_CAPABILITY_STATES.PARSED : CII_CAPABILITY_STATES.EMPTY,
+    count,
+    qualification: QUALIFICATION.QUALIFIED,
+    authority: 'parser/sections/elements.js#nodes',
+    raw: rawSectionEvidence(sections, ['ELEMENTS']),
+    limitations: Object.freeze([]),
+  });
 }
 
 function pipePropertyCapability(parsed, sections) {
@@ -191,6 +213,7 @@ export function buildCiiWorkspaceCapabilities(rawText, parsed = {}, nodeNameEvid
     states: CII_CAPABILITY_STATES,
     sections: Object.freeze(Object.fromEntries([...sections.entries()].map(([name, rows]) => [name, Object.freeze({ present: true, rowCount: rows.filter((row) => row.trim()).length })]))),
     families: Object.freeze({
+      nodes: nodeCapability(parsed, sections),
       elements: parserArrayCapability(parsed, sections, { parsedKey: 'elements', sections: ['ELEMENTS'], authority: 'parser/sections/elements.js' }),
       bends: parserArrayCapability(parsed, sections, { parsedKey: 'bends', sections: ['BEND'], authority: 'parser/sections/bends.js' }),
       restraints: deepFreeze({ ...restraints, details: restraintDetails(restraintValues) }),
