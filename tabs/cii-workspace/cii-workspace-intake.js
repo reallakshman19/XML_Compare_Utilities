@@ -1,5 +1,5 @@
 import { parse as parseCaesarFile } from '../../parser/caesar-parser.js';
-import { buildCiiWorkspaceAuxiliaryEvidence } from './cii-workspace-auxiliary.js';
+import { applyCiiAuxiliaryCapabilities, buildCiiWorkspaceAuxiliaryEvidence } from './cii-workspace-auxiliary.js';
 import { buildCiiWorkspaceCapabilities, capabilityCount } from './cii-workspace-capabilities.js';
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
 import { extractCiiNodeNameEvidence } from './cii-workspace-nodename.js';
@@ -49,7 +49,8 @@ export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}
   const contentSha256 = await sha256Text(sourceText, cryptoRef);
   const nodeNameEvidence = extractCiiNodeNameEvidence(sourceText, parsed);
   const auxiliaryEvidence = buildCiiWorkspaceAuxiliaryEvidence(sourceText, parsed);
-  const capabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence, auxiliaryEvidence);
+  const baselineCapabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence);
+  const capabilities = applyCiiAuxiliaryCapabilities(baselineCapabilities, auxiliaryEvidence);
   const families = capabilities.families;
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.document,
