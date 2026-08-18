@@ -1,0 +1,45 @@
+schema: AgentClaim.v1
+pr_or_wip: PR986
+claim_state: ACTIVE_IMPLEMENTATION
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-core.js
+    - tabs/cii-workspace/cii-workspace-shell.js
+    - tabs/cii-workspace/cii-workspace.css
+    - tabs/cii-workspace/cii-workspace-contracts.js
+    - agents/PR986_workreport.md
+    - agents/status/PR986.yaml
+    - agents/claims/PR986.yaml
+  prefixes:
+    - tabs/cii-workspace/cii-workspace-engineering-delta
+    - tabs/cii-workspace/cii-workspace-compare-review
+    - tests/cii-workspace-engineering-delta
+    - tests/cii-workspace-compare-review
+authority_domains:
+  - CII_ENGINEERING_DELTA_PROJECTION
+  - CII_COMPARE_REVIEW_VIEW_MODEL
+  - CII_COMPARE_REVIEW_UI
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - tabs/cii-workspace/cii-workspace-review.js
+  - tabs/cii-workspace/cii-workspace-capabilities.js
+forbidden_existing_file_edits:
+  - parser/**
+  - converters/**
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-propagation.js
+  - tabs/cii-workspace/cii-workspace-transfer*.js
+implementation_claims:
+  - engineering deltas are downstream of correspondence and cannot alter identity
+  - identity confidence and engineering change severity remain separate
+  - unsupported/unparsed property families are surfaced explicitly
+  - restraint gap/friction semantics are not invented from raw rows
+validation_state: IMPLEMENTATION_IN_PROGRESS
+known_limits:
+  - target mutation intentionally remains blocked
