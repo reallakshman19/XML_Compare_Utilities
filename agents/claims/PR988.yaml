@@ -6,6 +6,7 @@ auto_state: BLOCKED
 merge_authority: OWNER_GRANTED_IF_ALL_APPROVED_PHASES_COMPLETE_AND_QUALIFIED
 files:
   exact:
+    - agents/MASTER_INDEX.md
     - tabs/cii-workspace/cii-workspace-transfer-policy.js
     - tabs/cii-workspace/cii-workspace-transfer-plan.js
     - tabs/cii-workspace/cii-workspace-core.js
@@ -21,6 +22,7 @@ authority_domains:
   - CII_TRANSFER_OPERATION_CLASSIFICATION
   - CII_TRANSFER_PROPERTY_CUSTODY
   - CII_TRANSFER_TAB3_PRESENTATION
+  - CII_AGENT_COORDINATION_INDEX
 claim_modes:
   - EXCLUSIVE
 shared_read_authorities:
