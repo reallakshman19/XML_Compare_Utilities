@@ -65,7 +65,7 @@ assert.strictEqual(find('Restraint code set').status, 'PREVIEW_READY');
 assert.strictEqual(find('Restraint friction values').action, 'COPY');
 assert.strictEqual(find('Restraint friction values').status, 'PREVIEW_READY');
 
-assert.strictEqual(find('Hanger presence').action, 'BLOCKED');
+assert.strictEqual(find('Hanger presence').action, 'CREATE', 'intended operation remains visible even though execution is blocked');
 assert.strictEqual(find('Hanger presence').status, 'BLOCKED');
 assert(find('Hanger presence').blockers.includes('HANGER_CREATE_PAYLOAD_NOT_QUALIFIED'));
 assert.strictEqual(find('Hanger record count at node').action, 'BLOCKED');
@@ -85,13 +85,14 @@ for (const property of ['OD', 'Wall thickness', 'Element length']) {
   assert.strictEqual(find(property).status, 'PROTECTED');
   assert(find(property).blockers.includes('TARGET_PROPERTY_PROTECTED_BY_DEFAULT'));
 }
-assert.strictEqual(find('P1').action, 'BLOCKED');
+assert.strictEqual(find('P1').action, 'COPY', 'partial authority blocks execution but must retain the intended copy action');
 assert.strictEqual(find('P1').status, 'BLOCKED');
 assert(find('P1').blockers.includes('PROCESS_TRANSFER_PARTIAL_AUTHORITY'));
 
-assert(plan.summary.byAction.COPY >= 3);
+assert(plan.summary.byAction.COPY >= 4);
+assert(plan.summary.byAction.CREATE >= 1);
 assert(plan.summary.byAction.KEEP >= 4);
-assert(plan.summary.byAction.BLOCKED >= 3);
+assert(plan.summary.byAction.BLOCKED >= 1);
 assert(plan.summary.protectedCount >= 3);
 assert(plan.summary.previewReadyCount >= 3);
 
@@ -107,4 +108,4 @@ assert.strictEqual(stale.status, 'BLOCKED');
 assert.strictEqual(stale.operations.length, 0);
 assert(stale.blockers.includes('STALE_REVIEW_TARGET_IDENTITY'));
 
-console.log('CII qualified transfer-preview policy checks passed.');
+console.log('CII qualified transfer-preview action/status separation checks passed.');
