@@ -90,7 +90,7 @@ for (const { result, rows } of [target1, target2]) {
   assert(hanger);
   assert.strictEqual(hanger.before, false);
   assert.strictEqual(hanger.proposed, true);
-  assert.strictEqual(hanger.action, 'BLOCKED');
+  assert.strictEqual(hanger.action, 'CREATE', 'the intended SOURCE->TARGET action must remain visible while execution is blocked');
   assert.strictEqual(hanger.status, 'BLOCKED');
   assert(hanger.blockers.includes('HANGER_CREATE_PAYLOAD_NOT_QUALIFIED'));
 
