@@ -24,12 +24,29 @@ function rankedRows(sourceEdge, targetEdges, options) {
   }).sort((a, b) => b.score - a.score || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }));
 }
 
-function methodWinner(rows, methodKey) {
+function methodRanking(rows, methodKey) {
   return [...(rows || [])]
     .filter((row) => row.methods?.[methodKey]?.pass)
     .sort((a, b) => Number(b.methods[methodKey].score || 0) - Number(a.methods[methodKey].score || 0)
       || b.score - a.score
-      || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }))[0] || null;
+      || String(a.targetElementId).localeCompare(String(b.targetElementId), undefined, { numeric: true }));
+}
+
+function methodWinnerState(rows, methodKey) {
+  const ranked = methodRanking(rows, methodKey);
+  const winner = ranked[0] || null; const runner = ranked[1] || null;
+  const gap = winner ? Number(winner.methods[methodKey].score || 0) - Number(runner?.methods?.[methodKey]?.score || 0) : 0;
+  return Object.freeze({ winner, runner, gap: Number(gap.toFixed(1)) });
+}
+
+function combinedWinnerGap(m1, m2, methodDisagreement, winner, all) {
+  if (methodDisagreement) return 0;
+  const gaps = [];
+  if (m1.winner && m1.winner.targetElementId === winner?.targetElementId) gaps.push(m1.gap);
+  if (m2.winner && m2.winner.targetElementId === winner?.targetElementId) gaps.push(m2.gap);
+  if (gaps.length) return Math.min(...gaps);
+  const runner = winner ? all.find((row) => row.targetElementId !== winner.targetElementId) || null : null;
+  return winner ? Number((winner.score - (runner?.score || 0)).toFixed(1)) : 0;
 }
 
 function auditRows(all, winner, limit) {
@@ -45,14 +62,14 @@ function auditRows(all, winner, limit) {
 
 export function buildCiiCandidateEvidence(sourceEdge, targetEdges, expectedTargetId, options = {}) {
   const all = rankedRows(sourceEdge, targetEdges, options);
-  const m1Winner = methodWinner(all, 'm1Spatial');
-  const m2Winner = methodWinner(all, 'm2Network');
-  const methodDisagreement = Boolean(m1Winner && m2Winner && m1Winner.targetElementId !== m2Winner.targetElementId);
+  const m1 = methodWinnerState(all, 'm1Spatial');
+  const m2 = methodWinnerState(all, 'm2Network');
+  const methodDisagreement = Boolean(m1.winner && m2.winner && m1.winner.targetElementId !== m2.winner.targetElementId);
   const winner = !methodDisagreement
-    ? (m1Winner || m2Winner || all[0] || null)
+    ? (m1.winner || m2.winner || all[0] || null)
     : (all[0] || null);
   const runner = winner ? all.find((row) => row.targetElementId !== winner.targetElementId) || null : null;
-  const gap = winner ? winner.score - (runner?.score || 0) : 0;
+  const gap = combinedWinnerGap(m1, m2, methodDisagreement, winner, all);
   const winnerPasses = Boolean(winner && winner.identitySupported && winner.score >= passingScore(options));
   const unique = Boolean(winnerPasses && (!runner || gap >= winnerGap(options)));
   const expectedIsWinner = Boolean(winner && String(winner.targetElementId) === String(expectedTargetId || ''));
@@ -90,10 +107,11 @@ export function buildCiiCandidateEvidence(sourceEdge, targetEdges, expectedTarge
     requiredWinnerGap: winnerGap(options),
     passingScore: passingScore(options),
     methodWinners: Object.freeze({
-      m1Spatial: m1Winner?.targetElementId || null,
-      m2Network: m2Winner?.targetElementId || null,
+      m1Spatial: m1.winner?.targetElementId || null,
+      m2Network: m2.winner?.targetElementId || null,
       disagree: methodDisagreement,
     }),
+    methodWinnerGaps: Object.freeze({ m1Spatial: m1.gap, m2Network: m2.gap }),
     status,
     reasons: Object.freeze(reasons),
   });
