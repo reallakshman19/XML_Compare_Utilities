@@ -8,6 +8,7 @@ const POINTER_ROW14 = 14;
 const RESTRAINT_SLOTS = 6;
 const RESTRAINT_ROWS_PER_SLOT = 4;
 const RESTRAINT_BLOCK_ROWS = RESTRAINT_SLOTS * RESTRAINT_ROWS_PER_SLOT;
+const SIF_TEE_BLOCK_ROWS = 10;
 
 function escapeRegExp(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function sectionRows(rawText, names) {
@@ -85,12 +86,20 @@ function matchBlocks(parsed, rawBlocks, conflicts) {
   }
   return matched;
 }
-function nextPointerLimit(pointer, pointers, rowCount) {
-  const next = pointers.find((value) => value > pointer);
-  return next ? next - 1 : rowCount;
-}
 function positivePointers(descriptors, key) {
   return [...new Set(descriptors.map((item) => item.raw.pointers[key]).filter((value) => Number.isSafeInteger(value) && value > 0))].sort((a, b) => a - b);
+}
+function fixedBlockByIndex(rows, pointer, blockRows, prefix, conflicts) {
+  const start = (Number(pointer) - 1) * blockRows;
+  const end = start + blockRows;
+  if (!Number.isSafeInteger(pointer) || pointer < 1 || start < 0 || end > rows.length) {
+    pushConflict(conflicts, `${prefix}_POINTER_OUT_OF_RANGE`, {
+      pointer, rowCount: rows.length, rowsPerBlock: blockRows,
+      availableBlockCount: Math.floor(rows.length / blockRows),
+    });
+    return null;
+  }
+  return rows.slice(start, end);
 }
 function restraintRecord(line1, line2, tagRow, guidRow, context, conflicts) {
   const first = numeric(line1, 6); const second = numeric(line2, 3);
@@ -115,13 +124,14 @@ function restraintRecord(line1, line2, tagRow, guidRow, context, conflicts) {
 function buildRestraintEvidence(rawText, descriptors, conflicts) {
   const rows = sectionRows(rawText, 'RESTRANT'); const pointers = positivePointers(descriptors, 'restraint');
   const byPointer = {}; const allRecords = []; const byNode = {};
+  if (pointers.length && rows.length % RESTRAINT_BLOCK_ROWS !== 0) {
+    pushConflict(conflicts, 'RESTRAINT_SECTION_ROW_COUNT_NOT_MULTIPLE_OF_24', { rowCount: rows.length, rowsPerBlock: RESTRAINT_BLOCK_ROWS });
+  }
   for (const pointer of pointers) {
-    if (pointer > rows.length) { pushConflict(conflicts, 'RESTRAINT_POINTER_OUT_OF_RANGE', { pointer, rowCount: rows.length }); continue; }
-    const end = nextPointerLimit(pointer, pointers, rows.length); const span = rows.slice(pointer - 1, end);
-    if (span.length < RESTRAINT_BLOCK_ROWS) {
-      pushConflict(conflicts, 'RESTRAINT_BLOCK_TOO_SHORT', { pointer, rowCount: span.length, expectedMinimum: RESTRAINT_BLOCK_ROWS }); continue;
-    }
-    if (span.length !== RESTRAINT_BLOCK_ROWS) pushConflict(conflicts, 'RESTRAINT_BLOCK_SPAN_UNEXPECTED', { pointer, rowCount: span.length, expected: RESTRAINT_BLOCK_ROWS });
+    // Protected writer authority: the IEL restraint pointer is a 1-based
+    // 24-row auxiliary-block index, not a section-row index.
+    const span = fixedBlockByIndex(rows, pointer, RESTRAINT_BLOCK_ROWS, 'RESTRAINT', conflicts);
+    if (!span) continue;
     const records = [];
     for (let slot = 0; slot < RESTRAINT_SLOTS; slot += 1) {
       const base = slot * RESTRAINT_ROWS_PER_SLOT;
@@ -134,7 +144,8 @@ function buildRestraintEvidence(rawText, descriptors, conflicts) {
     byPointer[pointer] = Object.freeze(records);
   }
   return deepFreeze({
-    authority: 'PROTECTED_WRITER_RESTRANT_LINE1_LINE2', sectionRowCount: rows.length,
+    authority: 'PROTECTED_WRITER_RESTRANT_BLOCK_INDEX_24_ROWS', sectionRowCount: rows.length,
+    blockRows: RESTRAINT_BLOCK_ROWS,
     records: Object.freeze(allRecords), byPointer: Object.freeze(byPointer),
     byNode: Object.freeze(Object.fromEntries(Object.entries(byNode).map(([node, records]) => [node, Object.freeze(records)]))),
   });
@@ -142,6 +153,8 @@ function buildRestraintEvidence(rawText, descriptors, conflicts) {
 function buildRigidEvidence(rawText, descriptors, conflicts) {
   const rows = sectionRows(rawText, 'RIGID'); const pointers = positivePointers(descriptors, 'rigid'); const byPointer = {};
   for (const pointer of pointers) {
+    // RIGID is one row per pointer, so its 1-based record index equals its
+    // section-row index. This differs intentionally from RESTRANT/SIF blocks.
     if (pointer > rows.length) { pushConflict(conflicts, 'RIGID_POINTER_OUT_OF_RANGE', { pointer, rowCount: rows.length }); continue; }
     const values = numeric(rows[pointer - 1], 1);
     if (!values) { pushConflict(conflicts, 'RIGID_RECORD_UNREADABLE', { pointer }); continue; }
@@ -151,9 +164,14 @@ function buildRigidEvidence(rawText, descriptors, conflicts) {
 }
 function buildSifEvidence(rawText, descriptors, conflicts) {
   const rows = sectionRows(rawText, ['SIF&TEES', 'SIF']); const pointers = positivePointers(descriptors, 'sifTee'); const byPointer = {};
+  if (pointers.length && rows.length % SIF_TEE_BLOCK_ROWS !== 0) {
+    pushConflict(conflicts, 'SIF_TEE_SECTION_ROW_COUNT_NOT_MULTIPLE_OF_10', { rowCount: rows.length, rowsPerBlock: SIF_TEE_BLOCK_ROWS });
+  }
   for (const pointer of pointers) {
-    if (pointer > rows.length) { pushConflict(conflicts, 'SIF_TEE_POINTER_OUT_OF_RANGE', { pointer, rowCount: rows.length }); continue; }
-    const end = nextPointerLimit(pointer, pointers, rows.length); const recordRows = rows.slice(pointer - 1, end);
+    // Protected writer authority: the IEL SIF&TEES pointer is a 1-based
+    // 10-row record-block index, not a section-row index.
+    const recordRows = fixedBlockByIndex(rows, pointer, SIF_TEE_BLOCK_ROWS, 'SIF_TEE', conflicts);
+    if (!recordRows) continue;
     const first = numeric(recordRows[0], 2);
     if (!first) { pushConflict(conflicts, 'SIF_TEE_RECORD_UNREADABLE', { pointer }); continue; }
     const decodedRows = recordRows.map((row) => decodeCiiNumericRow(row));
@@ -166,7 +184,10 @@ function buildSifEvidence(rawText, descriptors, conflicts) {
       authority: 'POINTER_BOUND_RAW_SIF_TEE_RECORD; FIELD_2_SEMANTICS_UNQUALIFIED',
     });
   }
-  return deepFreeze({ authority: 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD', sectionRowCount: rows.length, byPointer: Object.freeze(byPointer) });
+  return deepFreeze({
+    authority: 'PROTECTED_WRITER_SIF_TEE_BLOCK_INDEX_10_ROWS', sectionRowCount: rows.length,
+    blockRows: SIF_TEE_BLOCK_ROWS, byPointer: Object.freeze(byPointer),
+  });
 }
 function bindElementAuxiliary(descriptors, restraints, rigids, sifTee) {
   const byParsedElementIndex = {};
@@ -219,17 +240,17 @@ export function applyCiiAuxiliaryCapabilities(baseCapabilities, auxiliaryEvidenc
         restraintRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RESTRANT',
         Number(aux.restraints?.sectionRowCount || 0),
         ['Numeric node/type/stiffness/gap/friction/connecting-node and direction-cosine fields are source-qualified; semantic meaning of CAESAR restraint type codes is not mapped in this workspace.'],
-        { nodeCount: restraintNodes.size, rawRecordCount: restraintRecords.length, gapFrictionQualified: true }, restraintError,
+        { nodeCount: restraintNodes.size, rawRecordCount: restraintRecords.length, gapFrictionQualified: true, pointerUnit: '24_ROW_BLOCK_INDEX' }, restraintError,
       ),
       rigidMass: parsedCapability(
         rigidRecords.length, 'QUALIFIED', 'tabs/cii-workspace/cii-workspace-auxiliary.js#RIGID_POINTER',
-        Number(aux.rigids?.sectionRowCount || 0), [], { pointerBoundRecordCount: rigidRecords.length }, rigidError,
+        Number(aux.rigids?.sectionRowCount || 0), [], { pointerBoundRecordCount: rigidRecords.length, pointerUnit: 'ROW_RECORD_INDEX' }, rigidError,
       ),
       sifTee: parsedCapability(
         sifRecords.length, 'PARTIAL', 'tabs/cii-workspace/cii-workspace-auxiliary.js#SIF_TEE_POINTER',
         Number(aux.sifTee?.sectionRowCount || 0),
-        ['SIF&TEES record custody and raw payload are pointer-qualified; the semantic meaning of the second numeric field/raw code is not asserted.'],
-        { pointerBoundRecordCount: sifRecords.length }, sifError,
+        ['SIF&TEES record custody and raw payload are pointer-qualified by 10-row record block; the semantic meaning of the second numeric field/raw code is not asserted.'],
+        { pointerBoundRecordCount: sifRecords.length, pointerUnit: '10_ROW_BLOCK_INDEX' }, sifError,
       ),
       hangers: deepFreeze({
         state: 'NOT_PARSED', count: null, qualification: 'NONE', authority: null,
@@ -249,7 +270,7 @@ export function buildCiiWorkspaceAuxiliaryEvidence(rawText, parsed = {}) {
   const miscel1SectionRowCount = sectionRows(rawText, 'MISCEL_1').length;
   return deepFreeze({
     schema: 'CIIWorkspaceAuxiliaryEvidence.v1',
-    sourceAuthority: '3D_Converters/inputxml_to_cii2019.py fixed rows + IEL pointer order',
+    sourceAuthority: '3D_Converters/inputxml_to_cii2019.py fixed rows + IEL block-index pointer order',
     elementBlockRows: ELEMENT_BLOCK_ROWS,
     rawElementBlockCount: raw.blocks.length,
     mappedElementCount: descriptors.length,
