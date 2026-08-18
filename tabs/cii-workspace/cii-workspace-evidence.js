@@ -8,7 +8,9 @@ function compatibilityComponents(evaluation) {
     topology: Number(network.topology || 0),
     neighbourhood: Number(network.neighbourhood || 0),
     pathSequence: Number(network.pathSequence || 0),
-    length: Number(network.localLength || 0),
+    // Preserve the historical 14-point public component scale while M2 uses a
+    // 10-point local-length contribution internally.
+    length: Number((1.4 * Number(network.localLength || 0)).toFixed(1)),
     od: dimensions.diameter?.pass ? 30 : 0,
     wall: dimensions.wall?.pass ? 30 : 0,
     componentKind: Number(network.componentKind || 0),
