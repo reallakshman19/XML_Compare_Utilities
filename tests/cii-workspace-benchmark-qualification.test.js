@@ -41,6 +41,16 @@ for (const document of [source, target1, target2]) {
   assert.strictEqual(document.capabilities.families.hangers.state, 'NOT_PARSED', 'hanger semantics remain unresolved in this qualification phase');
 }
 
+const source130Owner = elementAux(source, 120, 130);
+const target1_130Owner = elementAux(target1, 20120, 20130);
+const target2_130Owner = elementAux(target2, 10120, 10130);
+assert.strictEqual(source130Owner.pointers.restraint, 5);
+assert.strictEqual(target1_130Owner.pointers.restraint, 5);
+assert.strictEqual(target2_130Owner.pointers.restraint, 6);
+assert.strictEqual((source130Owner.pointers.restraint - 1) * 24 + 1, 97);
+assert.strictEqual((target1_130Owner.pointers.restraint - 1) * 24 + 1, 97);
+assert.strictEqual((target2_130Owner.pointers.restraint - 1) * 24 + 1, 121);
+
 const source130 = restraint(source, 130); const target1_130 = restraint(target1, 20130); const target2_130 = restraint(target2, 10130);
 assert.deepStrictEqual(sorted(source130.map((record) => record.typeCode)), [15]);
 assert.deepStrictEqual(sorted(target1_130.map((record) => record.typeCode)), [9]);
@@ -62,6 +72,9 @@ const target2SifOwner = elementAux(target2, 10070, 10250);
 assert.strictEqual(sourceSifOwner.pointers.sifTee, 1);
 assert.strictEqual(target1SifOwner.pointers.sifTee, 8);
 assert.strictEqual(target2SifOwner.pointers.sifTee, 8);
+assert.strictEqual((sourceSifOwner.pointers.sifTee - 1) * 10 + 1, 1);
+assert.strictEqual((target1SifOwner.pointers.sifTee - 1) * 10 + 1, 71);
+assert.strictEqual((target2SifOwner.pointers.sifTee - 1) * 10 + 1, 71);
 assert.strictEqual(sourceSifOwner.sifTeeRecord?.node, '70');
 assert.strictEqual(sourceSifOwner.sifTeeRecord?.rawCode, 3);
 assert.strictEqual(target1SifOwner.sifTeeRecord?.node, '20070');
