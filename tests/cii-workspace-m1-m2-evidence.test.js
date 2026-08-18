@@ -1,6 +1,6 @@
 import assert from 'assert';
 
-import { scoreCiiEdgeCandidate } from '../tabs/cii-workspace/cii-workspace-evidence.js';
+import { ciiAlignmentScore, scoreCiiEdgeCandidate } from '../tabs/cii-workspace/cii-workspace-evidence.js';
 import { buildCiiCandidateEvidence } from '../tabs/cii-workspace/cii-workspace-candidates.js';
 import { evaluateCiiMatchMethods } from '../tabs/cii-workspace/cii-workspace-match-methods.js';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
@@ -17,8 +17,8 @@ function edge(id, options = {}) {
     lengthMm: Number(options.lengthMm ?? 1000),
     diameter: Number(options.diameter ?? 88.9),
     wall: Number(options.wall ?? 5.5),
-    fromPos: { x: midpoint.x - half, y: midpoint.y, z: midpoint.z },
-    toPos: { x: midpoint.x + half, y: midpoint.y, z: midpoint.z },
+    fromPos: options.noPosition ? null : { x: midpoint.x - half, y: midpoint.y, z: midpoint.z },
+    toPos: options.noPosition ? null : { x: midpoint.x + half, y: midpoint.y, z: midpoint.z },
     fromContext: options.fromContext || context(),
     toContext: options.toContext || context(),
     pathSequenceContext: options.pathSequenceContext || ['PIPE', 'PIPE', 'PIPE'],
@@ -82,6 +82,8 @@ function edge(id, options = {}) {
   assert.strictEqual(evidence.methods.m2Network.pass, false);
   assert.strictEqual(evidence.identityConfidence, 'UNRESOLVED');
   assert.strictEqual(evidence.hardFail, true);
+  assert.strictEqual(evidence.score, 0);
+  assert.strictEqual(evidence.rankingScore, 0);
 }
 
 // M2 must not double-count OD through neighbourhood tokens. Legacy-style
@@ -113,6 +115,32 @@ function edge(id, options = {}) {
   const tokens = graph.nodes.flatMap((node) => node.neighbourhoodLayers.flat());
   assert(tokens.length > 0);
   assert(tokens.every((token) => !/\|OD|\|WT/i.test(token)));
+}
+
+// Confidence remains the configured 50/30/30 engineering score, while path
+// ranking retains method quality so repeated network regions do not tie.
+{
+  const sourceLayers = [
+    ['D2->D2|PIPE|OD273'],
+    ['D2->D2|PIPE|OD273'],
+    ['D2->D3|PIPE|OD273', 'D3->D1|PIPE|OD114'],
+  ];
+  const wrongLayers = [
+    ['D2->D2|PIPE|OD273'],
+    ['D2->D2|PIPE|OD273'],
+    ['D2->D2|PIPE|OD273', 'D2->D2|RIGID|OD219'],
+  ];
+  const source = edge('S-rank', { noPosition: true, diameter: 273, wall: 8, fromContext: context(2, sourceLayers), toContext: context(2, sourceLayers) });
+  const correct = edge('T-rank-correct', { noPosition: true, diameter: 273, wall: 8, fromContext: context(2, sourceLayers), toContext: context(2, sourceLayers) });
+  const wrong = edge('T-rank-wrong', { noPosition: true, diameter: 273, wall: 8, fromContext: context(2, wrongLayers), toContext: context(2, wrongLayers) });
+  const correctEvidence = scoreCiiEdgeCandidate(source, correct);
+  const wrongEvidence = scoreCiiEdgeCandidate(source, wrong);
+  assert.strictEqual(correctEvidence.score, 100);
+  assert.strictEqual(wrongEvidence.score, 100);
+  assert(correctEvidence.methods.m2Network.score > wrongEvidence.methods.m2Network.score);
+  assert(correctEvidence.rankingScore > wrongEvidence.rankingScore);
+  assert.strictEqual(ciiAlignmentScore(source, correct), correctEvidence.rankingScore);
+  assert.strictEqual(ciiAlignmentScore(source, wrong), wrongEvidence.rankingScore);
 }
 
 // M1 and M2 choose independently. If they select different target elements,
