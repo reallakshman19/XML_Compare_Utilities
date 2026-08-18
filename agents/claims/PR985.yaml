@@ -1,0 +1,39 @@
+schema: AgentClaim.v1
+pr_or_wip: PR985
+claim_state: ACTIVE_IMPLEMENTATION
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-topology.js
+    - agents/PR985_workreport.md
+    - agents/status/PR985.yaml
+    - agents/claims/PR985.yaml
+  prefixes:
+    - tabs/cii-workspace/cii-workspace-propagation
+    - tests/cii-workspace-propagation
+authority_domains:
+  - CII_ONE_ANCHOR_PROPAGATION
+  - CII_FRONTIER_ASSIGNMENT
+  - CII_PROPAGATION_CUSTODY
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+forbidden_existing_file_edits:
+  - parser/**
+  - converters/**
+  - tabs/cii-workspace/cii-workspace-candidates.js
+  - tabs/cii-workspace/cii-workspace-evidence.js
+  - tabs/cii-workspace/cii-workspace-match-methods.js
+  - tabs/cii-workspace/cii-workspace-transfer*.js
+  - tabs/revision-compare/**
+  - tabs/model-converters/**
+implementation_claims:
+  - one-anchor correspondence expands beyond the incident edge set
+  - every accepted source edge/node has unique target custody
+  - ambiguous frontier evidence does not propagate
+  - MEDIUM supported identity may propagate but remains workflow REVIEW
+validation_state: IMPLEMENTATION_IN_PROGRESS
+known_limits:
+  - multi-anchor unique-path authority is intentionally unchanged
