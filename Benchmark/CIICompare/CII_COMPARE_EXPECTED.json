@@ -70,7 +70,7 @@
       "sourceNode": "205",
       "target1Node": "20205",
       "target2Node": "10205",
-      "purpose": "moved-intermediate-node"
+      "purpose": "moved-intermediate-node-with-hanger-deletion"
     }
   ],
   "gangMappings": [
@@ -141,6 +141,34 @@
         "targetRawCode": 5
       },
       "authority": "ELEMENT_POINTER_BOUND_RAW_RECORD_FIELD_2_SEMANTICS_UNRESOLVED"
+    },
+    {
+      "id": "HANGER-205-TARGET1",
+      "family": "HANGER_NODE_PRESENCE",
+      "sourceNode": "205",
+      "targetNode": "20205",
+      "target": "target1",
+      "expected": {
+        "sourcePresent": true,
+        "targetPresent": false,
+        "sourceRecordCountAtNode": 1,
+        "targetRecordCountAtNode": 0
+      },
+      "authority": "CONTROL_NOHGRS_PLUS_DUAL_LAYOUT_VALIDATED_IHGRNODE"
+    },
+    {
+      "id": "HANGER-205-TARGET2",
+      "family": "HANGER_NODE_PRESENCE",
+      "sourceNode": "205",
+      "targetNode": "10205",
+      "target": "target2",
+      "expected": {
+        "sourcePresent": true,
+        "targetPresent": false,
+        "sourceRecordCountAtNode": 1,
+        "targetRecordCountAtNode": 0
+      },
+      "authority": "CONTROL_NOHGRS_PLUS_DUAL_LAYOUT_VALIDATED_IHGRNODE"
     }
   ],
   "quarantinedExpectations": [
