@@ -4,9 +4,22 @@ Live GitHub state remains authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Main base | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|---|
-| PR983 | CII benchmark oracle/preflight + truthful capability states | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | stacked on PR982 `aacbcf9e` | CII intake capability publication + test-only benchmark oracle/preflight | SAFE STACK; no matcher/parser/transfer edits | keep draft; execute full benchmark tests in qualified runner, then retarget after PR982 merge |
-| PR982 | CII fixed-field ELEMENT parser qualification | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT UNMERGED | ENGINEERING_CRITICAL | `ceb0c019` | `parser/fixed-field.js`, `parser/sections/elements.js`, focused regression + PR982 recovery records | SAFE; PR983 is explicit stacked dependent | keep draft pending owner/review validation decision |
+| PR984 | CII M1 Spatial / M2 Network evidence separation | `agent/cii-m1-m2-evidence` | IMPLEMENTATION IN PROGRESS / STACKED DRAFT | ENGINEERING_CRITICAL | stacked on PR983 `070ef903` | M1/M2 evidence + fusion only; preserve custody/winner gap | SAFE STACK on PR983/PR982 | implement independent evidence and focused regressions |
+| PR983 | CII benchmark oracle/preflight + truthful capability states | `agent/cii-oracle-capability-states` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / STACKED DRAFT | ENGINEERING_CRITICAL | stacked on PR982 `aacbcf9e` | CII intake capability publication + test-only benchmark oracle/preflight | SAFE STACK; PR984 depends on it | keep draft; execute full benchmark tests in qualified runner, then retarget after PR982 merge |
+| PR982 | CII fixed-field ELEMENT parser qualification | `agent/cii-fixed-field-parser` | IMPLEMENTATION COMPLETE / VALIDATION PARTIAL / DRAFT UNMERGED | ENGINEERING_CRITICAL | `ceb0c019` | `parser/fixed-field.js`, `parser/sections/elements.js`, focused regression + PR982 recovery records | SAFE; PR983/PR984 are explicit stacked dependents | keep draft pending owner/review validation decision |
 | PR981 | CII Workspace V1 anchored topology + transfer preview | `agent/issue-980-cii-workspace-v1` | MERGED 2026-08-16 / historical validation limitations retained | ENGINEERING_CRITICAL | `b0f13c99` | CII Workspace V1 + owner-approved OD validator and Utilities registry edits | HISTORICAL; no active claim blocker | none; see PR981 work report for retained limitations |
+
+## PR984 GE-984-001 snapshot
+
+PR984 is the Phase 4 evidence-only stacked workstream. Current source-level gaps are:
+
+- `cii-workspace-evidence.js` blends topology, geometry, OD and wall into one score and hard-blocks candidates for OD/WT deltas;
+- `cii-workspace-topology-adapter.js` embeds `OD...` in neighbourhood tokens, double-counting size inside M2 Network identity;
+- the approved method contract requires M1 Spatial and M2 Network/Gang to remain independently visible, with OD/WT as supporting evidence only.
+
+PR984 scope is limited to M1/M2 evidence/fusion and focused regressions. Anchor-seeded propagation, Tab 2 UI and transfer remain deferred.
+
+See `agents/PR984_workreport.md`, `agents/status/PR984.yaml`, and `agents/claims/PR984.yaml`.
 
 ## PR983 GE-983-002 snapshot
 
@@ -32,7 +45,7 @@ Validated implementation head: `311a35851a78d135d00e52d7bd2642f51beb6260`. Later
 - The reported SOURCE `255→260` row independently reproduces `DX=0`, `DY=-0.000488281`, `DZ=-271.602`, `OD=60.3`.
 - Regression source covers SOURCE/TARGET1/TARGET2 exact benchmark rows; execution of the repository test command remains `NOT_RUN` in the current tool environment.
 - `converters/scripts/inputxml_to_cii2019.py` is unchanged; correspondence and transfer authorities are unchanged.
-- PR982 is draft/unmerged and is the explicit dependency base for PR983.
+- PR982 is draft/unmerged and is the explicit dependency base for PR983/PR984.
 
 See `agents/PR982_workreport.md`, `agents/status/PR982.yaml`, and `agents/claims/PR982.yaml`.
 
