@@ -1,0 +1,43 @@
+schema: AgentClaim.v1
+pr_or_wip: PR984
+claim_state: ACTIVE_IMPLEMENTATION
+files:
+  exact:
+    - tabs/cii-workspace/cii-workspace-evidence.js
+    - tabs/cii-workspace/cii-workspace-topology-adapter.js
+    - tabs/cii-workspace/cii-workspace-candidates.js
+    - agents/PR984_workreport.md
+    - agents/status/PR984.yaml
+    - agents/claims/PR984.yaml
+  prefixes:
+    - tests/cii-workspace-m1-m2
+    - tabs/cii-workspace/cii-workspace-match-methods
+authority_domains:
+  - CII_M1_SPATIAL_EVIDENCE
+  - CII_M2_NETWORK_EVIDENCE
+  - CII_IDENTITY_FUSION
+claim_modes:
+  - EXCLUSIVE
+shared_read_authorities:
+  - tabs/cii-workspace/cii-workspace-topology.js
+  - tabs/cii-workspace/cii-workspace-geometry.js
+  - Benchmark/CIICompare/
+forbidden_existing_file_edits:
+  - parser/**
+  - converters/**
+  - tabs/cii-workspace/cii-workspace-topology.js
+  - tabs/cii-workspace/cii-workspace-transfer*.js
+  - tabs/revision-compare/**
+  - tabs/model-converters/**
+implementation_claims:
+  - M1 and M2 are independently visible evidence
+  - OD and wall are supporting evidence only
+  - M2 topology token contains no OD or wall
+  - method disagreement maps to REVIEW
+validation_state: IMPLEMENTATION_IN_PROGRESS
+remaining_validation_gates:
+  - focused M1/M2 decision tests
+  - candidate winner-gap regression
+  - stacked diff reconciliation
+known_limits:
+  - anchor-seeded propagation intentionally deferred
