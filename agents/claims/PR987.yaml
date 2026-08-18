@@ -7,6 +7,7 @@ files:
     - tabs/cii-workspace/cii-workspace-capabilities.js
     - tabs/cii-workspace/cii-workspace-intake.js
     - tabs/cii-workspace/cii-workspace-topology-adapter.js
+    - tabs/cii-workspace/cii-workspace-components.js
     - tabs/cii-workspace/cii-workspace-core.js
     - agents/PR987_workreport.md
     - agents/status/PR987.yaml
@@ -44,7 +45,7 @@ implementation_claims:
   - restraint gap/friction fields are source-qualified fixed fields
   - RIGID record first value is interpreted as weight only when reached through an element rigid pointer
   - SIF&TEES records remain raw/partial except source-qualified node/index custody
-  - topology rigid classification uses pointer-bound auxiliary evidence, not generic section node guessing
+  - topology and component rigid custody use pointer-bound auxiliary evidence, not generic section node guessing
   - engineering deltas expose native-coordinate basis and registered-coordinate basis separately when registration is READY
   - auxiliary deltas are downstream and cannot rewrite correspondence identity
 validation_state: IMPLEMENTATION_IN_PROGRESS
