@@ -7,7 +7,7 @@ branch: agent/cii-m1-m2-evidence
 stacked_base_pr: PR983
 stacked_base_head: 070ef9038a9fc2af87a1e7a49b0e8f600d98d3ba
 main_base: ceb0c0193a4be68b28a913b74bdc453ccf79d336
-validated_implementation_head: 2cf30cb8df4e6540d73bd4649f4f42fcece59738
+validated_implementation_head: dd165a4a04b51b15d06322d7f577c88a33641b6c
 work_intent: IMPLEMENT
 criticality: ENGINEERING_CRITICAL
 agent_state: IMPLEMENTATION_COMPLETE_VALIDATION_PARTIAL
@@ -18,7 +18,9 @@ appendix_a_status: NOT_REQUIRED_SAME_AGENT_CONTINUATION
 scope_authority: LOCKED_TO_M1_M2_EVIDENCE_ONLY
 validation_state: FOCUSED_RECONSTRUCTED_PASS_FULL_CHECKOUT_NOT_RUN
 acceptance_matrix:
-  m1_spatial_euclidean: PASS_RECONSTRUCTED_FOCUSED
+  m1_endpoint_spatial_euclidean: PASS_RECONSTRUCTED_FOCUSED
+  m1_205_endpoint_displacement_200mm: PASS_RECONSTRUCTED_FOCUSED
+  m1_reversed_storage_invariant: PASS_RECONSTRUCTED_FOCUSED
   m2_network_independent: PASS_RECONSTRUCTED_FOCUSED
   od_removed_from_network_token: PASS_SOURCE_AND_FOCUSED
   od_wall_not_identity_blockers: PASS_RECONSTRUCTED_FOCUSED
@@ -30,13 +32,12 @@ acceptance_matrix:
   branch_rigid_hard_conflicts: PASS_RECONSTRUCTED_FOCUSED
   dimensions_only_identity_guard: PASS_RECONSTRUCTED_FOCUSED
   ranking_score_separate_from_confidence: PASS_RECONSTRUCTED_FOCUSED
-  target_custody_preserved: SOURCE_DIFF_GUARD
   propagation_unchanged: SOURCE_DIFF_GUARD
   transfer_unchanged: SOURCE_DIFF_GUARD
   literal_repository_tests_current_head: NOT_RUN_COMPLETE_CHECKOUT_UNAVAILABLE
 known_limits:
   - stacked on PR983 and PR982
-  - no anchor-seeded propagation in this PR
+  - anchor-seeded propagation intentionally belongs to PR985
   - direct container checkout is environment-blocked by GitHub DNS resolution
-exact_next_action: create separate stacked Phase 5 PR for anchor-seeded propagation from reconciled PR984 head; keep PR984 draft/unmerged
-last_updated: 2026-08-18T18:13:00+04:00
+exact_next_action: keep PR984 draft/unmerged; PR985 is the separate propagation follow-on
+last_updated: 2026-08-18T18:34:00+04:00
