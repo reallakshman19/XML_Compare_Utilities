@@ -28,6 +28,11 @@ function targetIds(row) { return row?.targetElementIds || (row?.targetElementId 
 function candidateEvidence(row) { return row?.evidence?.candidates || row?.evidence?.element?.candidates || null; }
 function sortedUniqueNumeric(values) { return [...new Set((values || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b); }
 function sortedStable(values) { return [...(values || [])].sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), undefined, { numeric: true })); }
+function pointerFamilyReady(document, family, authorityToken) {
+  const item = capability(document, family);
+  if (!item || item.state === 'PARSE_ERROR') return false;
+  return String(item.authority || '').includes(authorityToken);
+}
 
 export function ciiIdentityConfidence(row) {
   if (!row) return 'UNRESOLVED';
@@ -81,9 +86,16 @@ function legacyRestraint(document, nodeId) {
   return (document?.parsed?.restraints || []).find((item) => String(item.node) === String(nodeId)) || null;
 }
 function restraintEvidence(document, nodeId) {
+  const family = capability(document, 'restraints');
   const byNode = document?.auxiliaryEvidence?.restraints?.byNode;
-  if (byNode && typeof byNode === 'object') {
-    return { mode: 'AUXILIARY_QUALIFIED', records: [...(byNode[String(nodeId)] || [])] };
+  if (document?.auxiliaryEvidence?.restraints) {
+    if (family?.state === 'PARSE_ERROR') return { mode: 'UNAVAILABLE', reason: 'RESTRAINT_AUXILIARY_PARSE_ERROR', records: [], legacy: null };
+    const qualified = family?.details?.gapFrictionQualified === true
+      && String(family?.authority || '').includes('#RESTRANT');
+    if (qualified && byNode && typeof byNode === 'object') {
+      return { mode: 'AUXILIARY_QUALIFIED', records: [...(byNode[String(nodeId)] || [])], legacy: null };
+    }
+    return { mode: 'UNAVAILABLE', reason: 'RESTRAINT_AUXILIARY_CUSTODY_NOT_QUALIFIED', records: [], legacy: null };
   }
   const legacy = legacyRestraint(document, nodeId);
   return { mode: 'LEGACY_PARTIAL', legacy, records: [] };
@@ -169,34 +181,34 @@ function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGra
     const targetRestraint = restraintEvidence(targetDocument, row.targetNodeId);
     if (sourceRestraint.mode === 'AUXILIARY_QUALIFIED' && targetRestraint.mode === 'AUXILIARY_QUALIFIED') {
       deltas.push(...qualifiedRestraintDeltas(row, sourceRestraint.records, targetRestraint.records));
-    } else {
+    } else if (sourceRestraint.mode === 'LEGACY_PARTIAL' && targetRestraint.mode === 'LEGACY_PARTIAL') {
       deltas.push(...legacyRestraintDeltas(row, sourceRestraint.legacy, targetRestraint.legacy));
     }
   }
   return deltas;
 }
 
-function sifTeeDeltas(row, source, target) {
+function sifTeeDeltas(row, sourceDocument, targetDocument, source, target) {
+  if (!pointerFamilyReady(sourceDocument, 'sifTee', '#SIF_TEE_POINTER')
+    || !pointerFamilyReady(targetDocument, 'sifTee', '#SIF_TEE_POINTER')) return [];
   const sourceRecord = source?.sifTeeEvidence || null; const targetRecord = target?.sifTeeEvidence || null;
   if (!sourceRecord && !targetRecord) return [];
   const authority = 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD';
   const deltas = [deltaRow(row, 'SIF_TEE', 'SIF/Tee record presence', Boolean(sourceRecord), Boolean(targetRecord), {
     changed: Boolean(sourceRecord) !== Boolean(targetRecord), authority,
   })];
-  if (sourceRecord || targetRecord) {
-    deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee raw code (field 2)', sourceRecord?.rawCode ?? null, targetRecord?.rawCode ?? null, {
-      evidenceStatus: 'PARTIAL', authority,
-      limitations: ['The second numeric field is preserved as a raw code; its CAESAR semantic label is not asserted by the current source authority.'],
-    }));
-    deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee normalized raw payload', sourceRecord?.normalizedPayload ?? null, targetRecord?.normalizedPayload ?? null, {
-      evidenceStatus: 'PARTIAL', authority,
-      limitations: ['Node number is removed from the normalized first row so revision renumbering is not reported as a payload change.'],
-    }));
-  }
+  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee raw code (field 2)', sourceRecord?.rawCode ?? null, targetRecord?.rawCode ?? null, {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['The second numeric field is preserved as a raw code; its CAESAR semantic label is not asserted by the current source authority.'],
+  }));
+  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee normalized raw payload', sourceRecord?.normalizedPayload ?? null, targetRecord?.normalizedPayload ?? null, {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['Node number is removed from the normalized first row so revision renumbering is not reported as a payload change.'],
+  }));
   return deltas;
 }
 
-function elementDeltas(rows, sourceGraph, targetGraph, options) {
+function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const deltas = [];
   const geometryToleranceMm = Number(options.engineeringGeometryToleranceMm ?? 0.01);
   const valueTolerance = Number(options.engineeringNumericTolerance ?? 1e-9);
@@ -224,7 +236,7 @@ function elementDeltas(rows, sourceGraph, targetGraph, options) {
         limitations: ['P1/T1 are parsed element values; they are not a complete qualified load-case/process model.'],
       }));
     }
-    deltas.push(...sifTeeDeltas(row, source, target));
+    deltas.push(...sifTeeDeltas(row, sourceDocument, targetDocument, source, target));
   }
   return deltas;
 }
@@ -255,18 +267,27 @@ function limitation(sourceDocument, targetDocument, family, label, forcedState =
   const target = targetDocument?.capabilities?.families?.[family] || null;
   const sourceState = source?.state || 'UNAVAILABLE'; const targetState = target?.state || 'UNAVAILABLE';
   const sourceQualification = source?.qualification || 'NONE'; const targetQualification = target?.qualification || 'NONE';
-  const comparisonState = forcedState || ((sourceQualification === 'QUALIFIED' && targetQualification === 'QUALIFIED') ? 'QUALIFIED' : 'LIMITED');
+  const parseBlocked = sourceState === 'PARSE_ERROR' || targetState === 'PARSE_ERROR';
+  const comparisonState = forcedState || (parseBlocked ? 'BLOCKED' : ((sourceQualification === 'QUALIFIED' && targetQualification === 'QUALIFIED') ? 'QUALIFIED' : 'LIMITED'));
   return deepFreeze({
     family, label, sourceState, targetState, sourceQualification, targetQualification, comparisonState,
     reason: forcedReason || [...(source?.limitations || []), ...(target?.limitations || [])][0] || '',
   });
 }
+function pointerPartialLimitation(sourceDocument, targetDocument, family, label, authorityToken) {
+  const source = capability(sourceDocument, family); const target = capability(targetDocument, family);
+  if (source?.state === 'PARSE_ERROR' || target?.state === 'PARSE_ERROR') return limitation(sourceDocument, targetDocument, family, label, 'BLOCKED');
+  if (pointerFamilyReady(sourceDocument, family, authorityToken) && pointerFamilyReady(targetDocument, family, authorityToken)) {
+    return limitation(sourceDocument, targetDocument, family, label, 'PARTIAL');
+  }
+  return limitation(sourceDocument, targetDocument, family, label);
+}
 
 function capabilityLimitations(sourceDocument, targetDocument) {
   return Object.freeze([
-    limitation(sourceDocument, targetDocument, 'restraints', 'Restraints', 'PARTIAL', 'Numeric restraint type, stiffness, gap, friction and direction-cosine fields are source-qualified; type-code descriptions are not mapped.'),
+    pointerPartialLimitation(sourceDocument, targetDocument, 'restraints', 'Restraints', '#RESTRANT'),
     limitation(sourceDocument, targetDocument, 'hangers', 'Hangers'),
-    limitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee', 'PARTIAL', 'Pointer custody and raw SIF&TEES payload are qualified; raw code semantics remain unresolved.'),
+    pointerPartialLimitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee', '#SIF_TEE_POINTER'),
     limitation(sourceDocument, targetDocument, 'weightData', 'General weight data'),
     limitation(sourceDocument, targetDocument, 'lineNumbers', 'Line numbers'),
     limitation(sourceDocument, targetDocument, 'process', 'Process P1/T1/T2', 'PARTIAL', 'Current process evidence is element-value level only.'),
@@ -282,7 +303,7 @@ function familyCounts(rows) {
 export function buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, options = {}) {
   const rows = [
     ...nodeDeltas(correspondence?.nodeRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
-    ...elementDeltas(correspondence?.elementRows, sourceGraph, targetGraph, options),
+    ...elementDeltas(correspondence?.elementRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
     ...componentDeltas(correspondence?.componentRows, correspondence?.elementRows, sourceGraph, targetGraph, options),
   ];
   rows.sort((a, b) => `${a.sourceIdentity}|${a.category}|${a.property}`.localeCompare(`${b.sourceIdentity}|${b.category}|${b.property}`, undefined, { numeric: true }));
