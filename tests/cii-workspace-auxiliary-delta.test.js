@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { buildCiiWorkspaceAuxiliaryEvidence } from '../tabs/cii-workspace/cii-workspace-auxiliary.js';
+import { applyCiiAuxiliaryCapabilities, buildCiiWorkspaceAuxiliaryEvidence } from '../tabs/cii-workspace/cii-workspace-auxiliary.js';
 import { adaptCiiDocumentToTopologyGraph } from '../tabs/cii-workspace/cii-workspace-topology-adapter.js';
 import { buildCiiEngineeringDeltas } from '../tabs/cii-workspace/cii-workspace-engineering-delta.js';
 
@@ -45,16 +45,17 @@ function parsedElement(index, from, to, fromX) {
   return { index, from, to, dx: 100, dy: 0, dz: 0, od: 60.3, wall: 3.9, P1: 10, T1: 100, length: 100,
     fromPos: { x: fromX, y: 0, z: 0 }, toPos: { x: fromX + 100, y: 0, z: 0 }, hasBend: false };
 }
-function capabilityFamilies() {
-  return {
-    restraints: { state: 'PARSED', qualification: 'PARTIAL', limitations: ['type-code descriptions unresolved'] },
+function baselineCapabilities() {
+  return { schema: 'CIIWorkspaceCapabilities.v1', families: {
+    restraints: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['not parsed'] },
+    rigidMass: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['not parsed'] },
+    sifTee: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['not parsed'] },
     hangers: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['hanger custody unresolved'] },
-    sifTee: { state: 'PARSED', qualification: 'PARTIAL', limitations: ['raw code meaning unresolved'] },
     weightData: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['general weight unresolved'] },
     lineNumbers: { state: 'NOT_PARSED', qualification: 'NONE', limitations: ['line number unresolved'] },
     process: { state: 'PARSED', qualification: 'PARTIAL', limitations: ['element values only'] },
     nodeNames: { state: 'EMPTY', qualification: 'QUALIFIED', limitations: [] },
-  };
+  } };
 }
 function makeDocument(side, spec) {
   const elements = [
@@ -78,8 +79,9 @@ function makeDocument(side, spec) {
   ].join('\n');
   const auxiliaryEvidence = buildCiiWorkspaceAuxiliaryEvidence(text, parsed);
   assert.strictEqual(auxiliaryEvidence.conflicts.length, 0);
+  const capabilities = applyCiiAuxiliaryCapabilities(baselineCapabilities(), auxiliaryEvidence);
   return { schema: 'CIIWorkspaceDocument.v1', side, contentSha256: side, fileName: `${side}.CII`, parsed, nodeNames: {}, auxiliaryEvidence,
-    capabilities: { families: capabilityFamilies() }, summary: { nodeCount: Object.keys(nodes).length, elementCount: elements.length } };
+    capabilities, summary: { nodeCount: Object.keys(nodes).length, elementCount: elements.length } };
 }
 function edgeByEnds(graph, from, to) { return graph.edges.find((edge) => edge.from === String(from) && edge.to === String(to)); }
 
@@ -130,5 +132,33 @@ assert.strictEqual(deltas.summary.geometryBases.registered, 'QUALIFIED_RIGID_3D_
 
 assert(!deltas.limitations.find((item) => item.family === 'restraints').reason.includes('not qualified'), 'gap/friction are now source-qualified numeric fields');
 assert.strictEqual(deltas.limitations.find((item) => item.family === 'sifTee').comparisonState, 'PARTIAL');
+
+const restraintBlockedSource = {
+  ...source,
+  capabilities: {
+    ...source.capabilities,
+    families: {
+      ...source.capabilities.families,
+      restraints: { ...source.capabilities.families.restraints, state: 'PARSE_ERROR', qualification: 'NONE' },
+    },
+  },
+};
+const restraintBlocked = buildCiiEngineeringDeltas(restraintBlockedSource, target, sourceGraph, targetGraph, correspondence, { geometryTransform });
+assert(!restraintBlocked.rows.some((item) => item.category === 'RESTRAINT'), 'PARSE_ERROR restraint evidence must be withheld');
+assert.strictEqual(restraintBlocked.limitations.find((item) => item.family === 'restraints').comparisonState, 'BLOCKED');
+
+const sifBlockedTarget = {
+  ...target,
+  capabilities: {
+    ...target.capabilities,
+    families: {
+      ...target.capabilities.families,
+      sifTee: { ...target.capabilities.families.sifTee, state: 'PARSE_ERROR', qualification: 'NONE' },
+    },
+  },
+};
+const sifBlocked = buildCiiEngineeringDeltas(source, sifBlockedTarget, sourceGraph, targetGraph, correspondence, { geometryTransform });
+assert(!sifBlocked.rows.some((item) => item.category === 'SIF_TEE'), 'PARSE_ERROR SIF/Tee evidence must be withheld');
+assert.strictEqual(sifBlocked.limitations.find((item) => item.family === 'sifTee').comparisonState, 'BLOCKED');
 
 console.log('CII auxiliary engineering-delta checks passed.');
