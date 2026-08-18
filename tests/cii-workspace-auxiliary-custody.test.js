@@ -86,7 +86,7 @@ assert.strictEqual(capabilities.families.rigidMass.qualification, 'QUALIFIED');
 assert.strictEqual(capabilities.families.sifTee.qualification, 'PARTIAL');
 
 const document = {
-  schema: 'CIIWorkspaceDocument.v1', side: 'SOURCE', contentSha256: 'test', parsed, nodeNames: {}, auxiliaryEvidence: auxiliary,
+  schema: 'CIIWorkspaceDocument.v1', side: 'SOURCE', contentSha256: 'test', parsed, nodeNames: {}, auxiliaryEvidence: auxiliary, capabilities,
 };
 const graph = adaptCiiDocumentToTopologyGraph(document);
 assert.strictEqual(graph.edges.length, 1);
@@ -96,5 +96,17 @@ assert.strictEqual(graph.edges[0].rigidEvidence.pointer, 1);
 assert.strictEqual(graph.edges[0].rigidEvidence.weight, 123.4);
 assert.strictEqual(graph.edges[0].rigidEvidence.mass, 123.4, 'mass alias may exist only after pointer-bound weight custody');
 assert.strictEqual(graph.edges[0].sifTeeEvidence.rawCode, 3);
+
+const blockedDocument = {
+  ...document,
+  capabilities: {
+    ...capabilities,
+    families: {
+      ...capabilities.families,
+      rigidMass: { ...capabilities.families.rigidMass, state: 'PARSE_ERROR', qualification: 'NONE' },
+    },
+  },
+};
+assert.throws(() => adaptCiiDocumentToTopologyGraph(blockedDocument), /CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED/);
 
 console.log('CII auxiliary pointer-custody checks passed.');
