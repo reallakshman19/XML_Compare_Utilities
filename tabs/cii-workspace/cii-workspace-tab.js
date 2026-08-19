@@ -1,10 +1,15 @@
 import { mountCiiWorkspaceEngineeringShell } from './cii-workspace-engineering-ui.js';
 
 const STYLE_ID = 'cii-workspace-style';
+const ENGINEERING_STYLE_ID = 'cii-workspace-engineering-style';
+function stylesheet(documentRef, id, relativeUrl) {
+  if (documentRef.getElementById(id)) return;
+  const link = documentRef.createElement('link'); link.id = id; link.rel = 'stylesheet';
+  link.href = new URL(relativeUrl, import.meta.url).href; documentRef.head.appendChild(link);
+}
 function ensureStylesheet(documentRef) {
-  if (documentRef.getElementById(STYLE_ID)) return;
-  const link = documentRef.createElement('link'); link.id = STYLE_ID; link.rel = 'stylesheet';
-  link.href = new URL('./cii-workspace.css', import.meta.url).href; documentRef.head.appendChild(link);
+  stylesheet(documentRef, STYLE_ID, './cii-workspace.css');
+  stylesheet(documentRef, ENGINEERING_STYLE_ID, './cii-workspace-engineering-ui.css');
 }
 
 export function installCiiWorkspaceTile(container, context = {}) {
