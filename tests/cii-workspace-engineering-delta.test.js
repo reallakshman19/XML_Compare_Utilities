@@ -76,7 +76,7 @@ assert(deltas.changedRows.some((row) => row.category === 'RESTRAINT' && row.prop
 const rawRestraint = deltas.changedRows.find((row) => row.property === 'Raw restraint records');
 assert.strictEqual(rawRestraint.semanticChange, 'RAW_ROWS_CHANGED');
 assert(rawRestraint.limitations[0].includes('without labelling unqualified columns'));
-assert(!deltas.rows.some((row) => /friction|gap/i.test(row.property)), 'unqualified restraint columns must not be assigned gap/friction semantics');
+assert(!deltas.rows.some((row) => /friction|gap/i.test(row.property)), 'legacy restraint fixtures without auxiliary custody must not receive gap/friction semantics');
 assert.strictEqual(deltas.summary.identityMutationAuthority, 'NONE_READ_ONLY_DOWNSTREAM');
 
 const model = buildCiiCompareReviewModel(sourceDoc, targetDoc, correspondence, review, deltas);
@@ -105,8 +105,10 @@ const movedCorrespondence = { status: 'READY', nodeRows: [
   { correspondenceId: 'element:S205:T205', kind: 'ELEMENT', sourceElementId: 'S205', targetElementIds: ['T205'], status: 'REVIEW', evidence: { candidates: movedCandidates } },
 ], componentRows: [] };
 const movedDeltas = buildCiiEngineeringDeltas(movedSource, movedTarget, movedSourceGraph, movedTargetGraph, movedCorrespondence);
-const movedLocation = movedDeltas.changedRows.find((row) => row.correspondenceId === 'node:205:20205' && row.property === 'Node location');
+const movedLocation = movedDeltas.changedRows.find((row) => row.correspondenceId === 'node:205:20205' && row.property === 'Node location (native basis)');
 assert(movedLocation && Math.abs(movedLocation.delta.distanceMm - 200) < 1e-9);
+assert.strictEqual(movedDeltas.summary.geometryBases.native, 'PARSED_NATIVE_NODE_COORDINATES');
+assert.strictEqual(movedDeltas.summary.geometryBases.registered, 'UNAVAILABLE');
 const movedReview = buildCiiCompareReviewModel(movedSource, movedTarget, movedCorrespondence, review, movedDeltas);
 const movedElementProjection = movedReview.rows.find((row) => row.correspondenceId === 'element:S205:T205');
 assert.strictEqual(movedElementProjection.confidence, 'MEDIUM');

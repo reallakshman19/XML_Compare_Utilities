@@ -5,7 +5,49 @@ function round(value, places = 6) { return Number(Number(value || 0).toFixed(pla
 function otherNode(edge, node) { return edge.from === node ? edge.to : edge.from; }
 function orderedPair(a, b) { return compareNodeIds(a, b) <= 0 ? [a, b] : [b, a]; }
 
-function rawEdge(element) {
+function capability(document, family) { return document?.capabilities?.families?.[family] || null; }
+function pointerFamilyReady(document, family, authorityToken, qualification = null) {
+  const item = capability(document, family);
+  if (!item || item.state === 'PARSE_ERROR') return false;
+  if (qualification && item.qualification !== qualification) return false;
+  return String(item.authority || '').includes(authorityToken);
+}
+function auxiliaryForElement(document, element) {
+  return document?.auxiliaryEvidence?.elements?.[Number(element?.index)] || null;
+}
+function rigidEvidence(document, auxiliary) {
+  const record = auxiliary?.rigidRecord;
+  if (!record) return Object.freeze({ status: 'NONE' });
+  if (!pointerFamilyReady(document, 'rigidMass', '#RIGID_POINTER', 'QUALIFIED')) {
+    return Object.freeze({
+      status: 'UNAVAILABLE',
+      reason: 'RIGID_POINTER_CUSTODY_NOT_QUALIFIED',
+      pointer: Number(record.pointer),
+    });
+  }
+  return Object.freeze({
+    status: 'POINTER_BOUND_RECORD',
+    pointer: Number(record.pointer),
+    weight: Number(record.weight),
+    mass: Number(record.weight),
+    rawFields: record.rawFields || Object.freeze([]),
+    authority: 'ELEMENT_RIGID_POINTER_TO_RIGID_RECORD',
+  });
+}
+function sifTeeEvidence(document, auxiliary) {
+  if (!auxiliary?.sifTeeRecord) return null;
+  return pointerFamilyReady(document, 'sifTee', '#SIF_TEE_POINTER') ? auxiliary.sifTeeRecord : null;
+}
+function rawEdge(document, element, auxiliary) {
+  const rigid = rigidEvidence(document, auxiliary);
+  const componentKind = rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : (element.hasBend ? 'BEND' : 'PIPE');
+  // Identity packet evidence contains structural component facts only. SIF/TEE
+  // is deliberately excluded: it is a downstream revision property and must
+  // not alter M2 correspondence merely because the SIF/tee record changed.
+  const packetEvidence = uniqueStrings([
+    element.hasBend ? 'BEND' : '',
+    rigid.status === 'POINTER_BOUND_RECORD' ? 'RIGID' : '',
+  ]);
   return {
     from: nodeId(element.from), to: nodeId(element.to),
     canonicalFrom: nodeId(element.from), canonicalTo: nodeId(element.to),
@@ -15,8 +57,13 @@ function rawEdge(element) {
     diameter: Number(element.od || 0), wall: Number(element.wall || 0),
     P1: Number(element.P1 || 0), T1: Number(element.T1 || 0),
     fromPos: element.fromPos || null, toPos: element.toPos || null,
-    componentKind: element.hasBend ? 'BEND' : 'PIPE',
-    packetEvidence: element.hasBend ? ['BEND'] : [], flags: element.hasBend ? ['BEND'] : [],
+    componentKind,
+    packetEvidence, flags: packetEvidence,
+    parsedElementIndex: Number(element.index),
+    auxiliaryPointers: auxiliary?.pointers || null,
+    // Retained as downstream engineering evidence only; no M2 token consumes it.
+    sifTeeEvidence: sifTeeEvidence(document, auxiliary),
+    rigidEvidence: rigid,
   };
 }
 
@@ -29,8 +76,8 @@ function canonicalEdgeKey(edge) {
   ].join('|');
 }
 
-function canonicalizeElements(elements) {
-  const rows = (elements || []).map(rawEdge);
+function canonicalizeElements(document) {
+  const rows = (document?.parsed?.elements || []).map((element) => rawEdge(document, element, auxiliaryForElement(document, element)));
   rows.sort((a, b) => canonicalEdgeKey(a).localeCompare(canonicalEdgeKey(b), undefined, { numeric: true, sensitivity: 'base' }));
   return rows.map((edge, index) => ({ ...edge, elementId: `E${index + 1}:${edge.from}->${edge.to}`, index: index + 1 }));
 }
@@ -45,20 +92,10 @@ function buildIncidence(elements) {
   return adjacency;
 }
 
-function rigidEvidenceFor(edge, rigidByNode, adjacency) {
-  const candidates = [];
-  for (const endpoint of [edge.from, edge.to]) {
-    const records = rigidByNode.get(endpoint) || [];
-    if (records.length === 1 && (adjacency.get(endpoint) || []).length === 1) candidates.push({ endpoint, record: records[0] });
-  }
-  if (candidates.length !== 1) return Object.freeze({ status: candidates.length ? 'AMBIGUOUS' : 'NONE' });
-  return Object.freeze({ status: 'UNIQUE_TERMINAL_RECORD', nodeId: candidates[0].endpoint, mass: Number(candidates[0].record.mass) });
-}
-
 function nodeToken(node, edge, adjacency) {
   const next = otherNode(edge, node); const degree = (adjacency.get(node) || []).length; const nextDegree = (adjacency.get(next) || []).length;
-  // Network/Gang identity is structural. OD and wall are independent evidence
-  // and must not be embedded here or they would be double-counted by M2.
+  // Network/Gang identity is structural. OD, wall, and SIF/TEE are independent
+  // revision evidence and must not be embedded here or double-counted by M2.
   return `D${degree}->D${nextDegree}|${edge.componentKind}`;
 }
 
@@ -103,15 +140,9 @@ function attachContexts(edges, adjacency) {
 
 export function adaptCiiDocumentToTopologyGraph(document) {
   if (document?.schema !== CII_WORKSPACE_SCHEMAS.document) throw new Error('CII_WORKSPACE_DOCUMENT_REQUIRED');
-  const rigidByNode = new Map();
-  for (const record of document.parsed.rigids || []) {
-    const key = nodeId(record.node); if (!rigidByNode.has(key)) rigidByNode.set(key, []); rigidByNode.get(key).push(record);
-  }
-  const edges = canonicalizeElements(document.parsed.elements); const adjacency = buildIncidence(edges);
-  for (const edge of edges) {
-    edge.rigidEvidence = rigidEvidenceFor(edge, rigidByNode, adjacency);
-    if (edge.rigidEvidence.status === 'UNIQUE_TERMINAL_RECORD') { edge.componentKind = 'RIGID'; edge.packetEvidence = ['RIGID']; edge.flags = ['RIGID']; }
-  }
+  const rigidCapability = capability(document, 'rigidMass');
+  if (rigidCapability?.state === 'PARSE_ERROR') throw new Error('CII_WORKSPACE_RIGID_AUXILIARY_PARSE_BLOCKED');
+  const edges = canonicalizeElements(document); const adjacency = buildIncidence(edges);
   attachContexts(edges, adjacency); const orderedNodes = [...adjacency.keys()].sort(compareNodeIds);
   return {
     schema: CII_WORKSPACE_SCHEMAS.graph, side: document.side, documentId: `${document.side}:${document.contentSha256}`,

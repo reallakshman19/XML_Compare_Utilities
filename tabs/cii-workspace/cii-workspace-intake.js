@@ -1,4 +1,6 @@
 import { parse as parseCaesarFile } from '../../parser/caesar-parser.js';
+import { applyCiiAuxiliaryCapabilities, buildCiiWorkspaceAuxiliaryEvidence } from './cii-workspace-auxiliary.js';
+import { applyCiiHangerCapabilities, buildCiiHangerEvidence } from './cii-workspace-hanger.js';
 import { buildCiiWorkspaceCapabilities, capabilityCount } from './cii-workspace-capabilities.js';
 import { CII_WORKSPACE_SCHEMAS, deepFreeze } from './cii-workspace-contracts.js';
 import { extractCiiNodeNameEvidence } from './cii-workspace-nodename.js';
@@ -47,14 +49,18 @@ export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}
   const cryptoRef = options.cryptoRef ?? globalThis.crypto;
   const contentSha256 = await sha256Text(sourceText, cryptoRef);
   const nodeNameEvidence = extractCiiNodeNameEvidence(sourceText, parsed);
-  const capabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence);
+  const auxiliaryEvidence = buildCiiWorkspaceAuxiliaryEvidence(sourceText, parsed);
+  const hangerEvidence = buildCiiHangerEvidence(sourceText, parsed);
+  const baselineCapabilities = buildCiiWorkspaceCapabilities(sourceText, parsed, nodeNameEvidence);
+  const auxiliaryCapabilities = applyCiiAuxiliaryCapabilities(baselineCapabilities, auxiliaryEvidence);
+  const capabilities = applyCiiHangerCapabilities(auxiliaryCapabilities, hangerEvidence);
   const families = capabilities.families;
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.document,
     side: options.side === 'TARGET' ? 'TARGET' : 'SOURCE',
     fileName: String(fileName || 'model.cii'), contentSha256, textLength: sourceText.length,
-    format: parsed.format, parserAuthority: 'parser/caesar-parser.js', parserAlias: parserAlias(fileName), parsed,
-    nodeNames: nodeNameEvidence.names, nodeNameEvidence, capabilities,
+    format: parsed.format, parserAuthority: 'parser/caesar-parser.js + CII Workspace fixed-field auxiliary/hanger custody', parserAlias: parserAlias(fileName), parsed,
+    nodeNames: nodeNameEvidence.names, nodeNameEvidence, auxiliaryEvidence, hangerEvidence, capabilities,
     summary: Object.freeze({
       version: versionLabel(sourceText),
       elementCount: parsed.elements.length,
@@ -70,6 +76,8 @@ export async function intakeCiiWorkspaceDocument(rawText, fileName, options = {}
       lineNumberCount: capabilityCount(families.lineNumbers),
       nodeNameCount: Object.keys(nodeNameEvidence.names).length,
       nodeNameConflictCount: nodeNameEvidence.conflicts.length,
+      auxiliaryConflictCount: auxiliaryEvidence.conflicts.length,
+      hangerConflictCount: hangerEvidence.conflicts.length,
       pipeProperties: families.pipeProperties.details || null,
       process: families.process.details || null,
       capabilityStates: capabilityStates(capabilities),

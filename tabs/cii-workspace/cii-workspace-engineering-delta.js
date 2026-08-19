@@ -1,8 +1,8 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
+import { registeredCiiPoint } from './cii-workspace-geometry.js';
 
 function edgeMap(graph) { return new Map((graph?.edges || []).map((edge) => [String(edge.elementId), edge])); }
 function nodeMap(graph) { return new Map((graph?.nodes || []).map((node) => [String(node.id), node])); }
-function restraintMap(document) { return new Map((document?.parsed?.restraints || []).map((item) => [String(item.node), item])); }
 function capability(document, family) { return document?.capabilities?.families?.[family] || null; }
 function finite(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
 function numberDelta(source, target) { const a = finite(source); const b = finite(target); return a == null || b == null ? null : b - a; }
@@ -26,6 +26,13 @@ function vectorDifference(source, target) {
 function sourceIds(row) { return row?.sourceElementIds || (row?.sourceElementId ? [row.sourceElementId] : []); }
 function targetIds(row) { return row?.targetElementIds || (row?.targetElementId ? [row.targetElementId] : []); }
 function candidateEvidence(row) { return row?.evidence?.candidates || row?.evidence?.element?.candidates || null; }
+function sortedUniqueNumeric(values) { return [...new Set((values || []).map(Number).filter(Number.isFinite))].sort((a, b) => a - b); }
+function sortedStable(values) { return [...(values || [])].sort((a, b) => stableStringify(a).localeCompare(stableStringify(b), undefined, { numeric: true })); }
+function pointerFamilyReady(document, family, authorityToken) {
+  const item = capability(document, family);
+  if (!item || item.state === 'PARSE_ERROR') return false;
+  return String(item.authority || '').includes(authorityToken);
+}
 
 export function ciiIdentityConfidence(row) {
   if (!row) return 'UNRESOLVED';
@@ -75,9 +82,106 @@ function deltaRow(row, category, property, sourceValue, targetValue, config = {}
   });
 }
 
+function legacyRestraint(document, nodeId) {
+  return (document?.parsed?.restraints || []).find((item) => String(item.node) === String(nodeId)) || null;
+}
+function restraintEvidence(document, nodeId) {
+  const family = capability(document, 'restraints');
+  const byNode = document?.auxiliaryEvidence?.restraints?.byNode;
+  if (document?.auxiliaryEvidence?.restraints) {
+    if (family?.state === 'PARSE_ERROR') return { mode: 'UNAVAILABLE', reason: 'RESTRAINT_AUXILIARY_PARSE_ERROR', records: [], legacy: null };
+    const qualified = family?.details?.gapFrictionQualified === true
+      && String(family?.authority || '').includes('#RESTRANT');
+    if (qualified && byNode && typeof byNode === 'object') {
+      return { mode: 'AUXILIARY_QUALIFIED', records: [...(byNode[String(nodeId)] || [])], legacy: null };
+    }
+    return { mode: 'UNAVAILABLE', reason: 'RESTRAINT_AUXILIARY_CUSTODY_NOT_QUALIFIED', records: [], legacy: null };
+  }
+  const legacy = legacyRestraint(document, nodeId);
+  return { mode: 'LEGACY_PARTIAL', legacy, records: [] };
+}
+function qualifiedRestraintSet(records) {
+  return sortedStable((records || []).map((record) => ({
+    typeCode: Number(record.typeCode), stiffness: Number(record.stiffness), gap: Number(record.gap), friction: Number(record.friction),
+    directionCosines: record.directionCosines || null,
+  })));
+}
+function legacyRestraintDeltas(row, sourceRestraint, targetRestraint) {
+  const deltas = []; const sourcePresent = Boolean(sourceRestraint); const targetPresent = Boolean(targetRestraint);
+  if (!sourcePresent && !targetPresent) return deltas;
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint presence', sourcePresent, targetPresent, {
+    changed: sourcePresent !== targetPresent, semanticChange: sourcePresent === targetPresent ? 'UNCHANGED' : (targetPresent ? 'ADDED_IN_TARGET' : 'REMOVED_IN_TARGET'),
+    evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js', limitations: ['Legacy restraint evidence is partial; auxiliary fixed-field custody was not supplied.'],
+  }));
+  const sourceCodes = sortedUniqueNumeric(sourceRestraint?.dofs || []); const targetCodes = sortedUniqueNumeric(targetRestraint?.dofs || []);
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint code set', sourceCodes, targetCodes, {
+    evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js#dofs',
+    limitations: ['Numeric restraint codes are compared exactly; derived support type semantics are not authoritative for all CAESAR codes.'],
+  }));
+  const sourceRows = sortedStable([...(sourceRestraint?.rows || [])].map((item) => [...item]));
+  const targetRows = sortedStable([...(targetRestraint?.rows || [])].map((item) => [...item]));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Raw restraint records', sourceRows, targetRows, {
+    evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js#rows',
+    semanticChange: stableStringify(sourceRows) === stableStringify(targetRows) ? 'UNCHANGED' : 'RAW_ROWS_CHANGED',
+    limitations: ['Raw numeric row differences are retained without labelling unqualified columns as gap or friction.'],
+  }));
+  return deltas;
+}
+function qualifiedRestraintDeltas(row, sourceRecords, targetRecords) {
+  const deltas = []; const sourcePresent = sourceRecords.length > 0; const targetPresent = targetRecords.length > 0;
+  if (!sourcePresent && !targetPresent) return deltas;
+  const authority = 'PROTECTED_WRITER_RESTRANT_LINE1_LINE2';
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint presence', sourcePresent, targetPresent, {
+    changed: sourcePresent !== targetPresent, semanticChange: sourcePresent === targetPresent ? 'UNCHANGED' : (targetPresent ? 'ADDED_IN_TARGET' : 'REMOVED_IN_TARGET'),
+    authority,
+  }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint code set', sortedUniqueNumeric(sourceRecords.map((record) => record.typeCode)), sortedUniqueNumeric(targetRecords.map((record) => record.typeCode)), {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['The numeric CAESAR restraint type field is source-qualified; human-readable meaning for every code 1..62 is not mapped here.'],
+  }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint gap values', sortedUniqueNumeric(sourceRecords.map((record) => record.gap)), sortedUniqueNumeric(targetRecords.map((record) => record.gap)), { authority }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint friction values', sortedUniqueNumeric(sourceRecords.map((record) => record.friction)), sortedUniqueNumeric(targetRecords.map((record) => record.friction)), { authority }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint stiffness values', sortedUniqueNumeric(sourceRecords.map((record) => record.stiffness)), sortedUniqueNumeric(targetRecords.map((record) => record.stiffness)), { authority }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint direction-cosine set', sortedStable(sourceRecords.map((record) => record.directionCosines)), sortedStable(targetRecords.map((record) => record.directionCosines)), { authority }));
+  deltas.push(deltaRow(row, 'RESTRAINT', 'Qualified restraint numeric record set', qualifiedRestraintSet(sourceRecords), qualifiedRestraintSet(targetRecords), {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['Numeric fields are qualified by fixed position; restraint type-code descriptions remain intentionally unresolved.'],
+  }));
+  return deltas;
+}
+
+function hangerEvidence(document, nodeId) {
+  const family = capability(document, 'hangers');
+  if (!family || family.state === 'PARSE_ERROR') return { mode: 'UNAVAILABLE', records: [] };
+  const qualified = family.details?.nodePresenceQualified === true
+    && String(family.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE')
+    && document?.hangerEvidence?.status === 'QUALIFIED';
+  if (!qualified) return { mode: 'UNAVAILABLE', records: [] };
+  return { mode: 'NODE_PRESENCE_QUALIFIED', records: [...(document.hangerEvidence?.byNode?.[String(nodeId)] || [])] };
+}
+function qualifiedHangerDeltas(row, sourceRecords, targetRecords) {
+  const sourceCount = sourceRecords.length; const targetCount = targetRecords.length;
+  if (sourceCount === 0 && targetCount === 0) return [];
+  const sourcePresent = sourceCount > 0; const targetPresent = targetCount > 0;
+  const authority = 'CONTROL_NOHGRS_PLUS_MISCE L_1_IHGRNODE'.replace('MISCE L', 'MISCEL');
+  return [
+    deltaRow(row, 'HANGER', 'Hanger presence', sourcePresent, targetPresent, {
+      changed: sourcePresent !== targetPresent,
+      semanticChange: sourcePresent === targetPresent ? 'UNCHANGED' : (targetPresent ? 'ADDED_IN_TARGET' : 'REMOVED_IN_TARGET'),
+      authority,
+      evidenceStatus: 'PARTIAL',
+      limitations: ['Hanger node presence/count is qualified; HGRDAT and other hanger attributes are not normalized.'],
+    }),
+    deltaRow(row, 'HANGER', 'Hanger record count at node', sourceCount, targetCount, {
+      changed: sourceCount !== targetCount, delta: targetCount - sourceCount, authority,
+      evidenceStatus: 'PARTIAL',
+      limitations: ['Count is derived from qualified IHGRNODE membership only.'],
+    }),
+  ];
+}
+
 function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
   const sourceNodes = nodeMap(sourceGraph); const targetNodes = nodeMap(targetGraph);
-  const sourceRestraints = restraintMap(sourceDocument); const targetRestraints = restraintMap(targetDocument);
   const sourceNameCapability = capability(sourceDocument, 'nodeNames'); const targetNameCapability = capability(targetDocument, 'nodeNames');
   const nameQualified = sourceNameCapability?.qualification === 'QUALIFIED' && targetNameCapability?.qualification === 'QUALIFIED';
   const nameLimitations = [...(sourceNameCapability?.limitations || []), ...(targetNameCapability?.limitations || [])];
@@ -85,47 +189,62 @@ function nodeDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGra
   for (const row of rows || []) {
     if (row.kind !== 'NODE' || !row.sourceNodeId || !row.targetNodeId || !ciiIdentityBound(row)) continue;
     const sourceNode = sourceNodes.get(String(row.sourceNodeId)); const targetNode = targetNodes.get(String(row.targetNodeId));
-    const distanceMm = vectorDistance(sourceNode?.position, targetNode?.position);
-    if (distanceMm != null) deltas.push(deltaRow(row, 'GEOMETRY', 'Node location', sourceNode.position, targetNode.position, {
-      changed: distanceMm > toleranceMm, delta: { distanceMm }, authority: 'PARSED_NODE_COORDINATES',
+    const nativeDistanceMm = vectorDistance(sourceNode?.position, targetNode?.position);
+    if (nativeDistanceMm != null) deltas.push(deltaRow(row, 'GEOMETRY', 'Node location (native basis)', sourceNode.position, targetNode.position, {
+      changed: nativeDistanceMm > toleranceMm, delta: { distanceMm: nativeDistanceMm, basis: 'NATIVE' }, authority: 'PARSED_NATIVE_NODE_COORDINATES',
+    }));
+    const registeredSource = registeredCiiPoint(options.geometryTransform, sourceNode?.position);
+    const registeredDistanceMm = registeredSource ? vectorDistance(registeredSource, targetNode?.position) : null;
+    if (registeredDistanceMm != null) deltas.push(deltaRow(row, 'GEOMETRY', 'Node location (registered basis)', registeredSource, targetNode.position, {
+      changed: registeredDistanceMm > toleranceMm,
+      delta: { distanceMm: registeredDistanceMm, basis: 'REGISTERED_RIGID_3D' },
+      authority: 'QUALIFIED_RIGID_3D_REGISTRATION',
     }));
 
     const sourceName = sourceDocument?.nodeNames?.[String(row.sourceNodeId)] || '';
     const targetName = targetDocument?.nodeNames?.[String(row.targetNodeId)] || '';
-    // A blank/blank comparison from a partially qualified NODENAME family is
-    // not evidence of equality; conflicting names may have been withheld.
     if (nameQualified || sourceName || targetName) deltas.push(deltaRow(row, 'NODE_NAME', 'Node name / to-name', sourceName, targetName, {
       evidenceStatus: nameQualified ? 'QUALIFIED' : 'PARTIAL', authority: 'CII_NODENAME_FIXED_LAYOUT', limitations: nameLimitations,
     }));
 
-    const sourceRestraint = sourceRestraints.get(String(row.sourceNodeId)) || null;
-    const targetRestraint = targetRestraints.get(String(row.targetNodeId)) || null;
-    const sourcePresent = Boolean(sourceRestraint); const targetPresent = Boolean(targetRestraint);
-    if (sourcePresent || targetPresent) {
-      deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint presence', sourcePresent, targetPresent, {
-        changed: sourcePresent !== targetPresent, semanticChange: sourcePresent === targetPresent ? 'UNCHANGED' : (targetPresent ? 'ADDED_IN_TARGET' : 'REMOVED_IN_TARGET'),
-        evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js',
-        limitations: ['Restraint family is only partially qualified.'],
-      }));
-      const sourceCodes = [...new Set(sourceRestraint?.dofs || [])].sort((a, b) => a - b);
-      const targetCodes = [...new Set(targetRestraint?.dofs || [])].sort((a, b) => a - b);
-      deltas.push(deltaRow(row, 'RESTRAINT', 'Restraint code set', sourceCodes, targetCodes, {
-        evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js#dofs',
-        limitations: ['Numeric restraint codes are compared exactly; derived support type semantics are not authoritative for all CAESAR codes.'],
-      }));
-      const sourceRows = [...(sourceRestraint?.rows || [])].map((item) => [...item]).sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
-      const targetRows = [...(targetRestraint?.rows || [])].map((item) => [...item]).sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
-      deltas.push(deltaRow(row, 'RESTRAINT', 'Raw restraint records', sourceRows, targetRows, {
-        evidenceStatus: 'PARTIAL', authority: 'parser/sections/restraints.js#rows',
-        semanticChange: stableStringify(sourceRows) === stableStringify(targetRows) ? 'UNCHANGED' : 'RAW_ROWS_CHANGED',
-        limitations: ['Raw numeric row differences are retained without labelling unqualified columns as gap or friction.'],
-      }));
+    const sourceRestraint = restraintEvidence(sourceDocument, row.sourceNodeId);
+    const targetRestraint = restraintEvidence(targetDocument, row.targetNodeId);
+    if (sourceRestraint.mode === 'AUXILIARY_QUALIFIED' && targetRestraint.mode === 'AUXILIARY_QUALIFIED') {
+      deltas.push(...qualifiedRestraintDeltas(row, sourceRestraint.records, targetRestraint.records));
+    } else if (sourceRestraint.mode === 'LEGACY_PARTIAL' && targetRestraint.mode === 'LEGACY_PARTIAL') {
+      deltas.push(...legacyRestraintDeltas(row, sourceRestraint.legacy, targetRestraint.legacy));
+    }
+
+    const sourceHanger = hangerEvidence(sourceDocument, row.sourceNodeId);
+    const targetHanger = hangerEvidence(targetDocument, row.targetNodeId);
+    if (sourceHanger.mode === 'NODE_PRESENCE_QUALIFIED' && targetHanger.mode === 'NODE_PRESENCE_QUALIFIED') {
+      deltas.push(...qualifiedHangerDeltas(row, sourceHanger.records, targetHanger.records));
     }
   }
   return deltas;
 }
 
-function elementDeltas(rows, sourceGraph, targetGraph, options) {
+function sifTeeDeltas(row, sourceDocument, targetDocument, source, target) {
+  if (!pointerFamilyReady(sourceDocument, 'sifTee', '#SIF_TEE_POINTER')
+    || !pointerFamilyReady(targetDocument, 'sifTee', '#SIF_TEE_POINTER')) return [];
+  const sourceRecord = source?.sifTeeEvidence || null; const targetRecord = target?.sifTeeEvidence || null;
+  if (!sourceRecord && !targetRecord) return [];
+  const authority = 'ELEMENT_POINTER_TO_SIF_TEES_RAW_RECORD';
+  const deltas = [deltaRow(row, 'SIF_TEE', 'SIF/Tee record presence', Boolean(sourceRecord), Boolean(targetRecord), {
+    changed: Boolean(sourceRecord) !== Boolean(targetRecord), authority,
+  })];
+  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee raw code (field 2)', sourceRecord?.rawCode ?? null, targetRecord?.rawCode ?? null, {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['The second numeric field is preserved as a raw code; its CAESAR semantic label is not asserted by the current source authority.'],
+  }));
+  deltas.push(deltaRow(row, 'SIF_TEE', 'SIF/Tee normalized raw payload', sourceRecord?.normalizedPayload ?? null, targetRecord?.normalizedPayload ?? null, {
+    evidenceStatus: 'PARTIAL', authority,
+    limitations: ['Node number is removed from the normalized first row so revision renumbering is not reported as a payload change.'],
+  }));
+  return deltas;
+}
+
+function elementDeltas(rows, sourceDocument, targetDocument, sourceGraph, targetGraph, options) {
   const sourceEdges = edgeMap(sourceGraph); const targetEdges = edgeMap(targetGraph); const deltas = [];
   const geometryToleranceMm = Number(options.engineeringGeometryToleranceMm ?? 0.01);
   const valueTolerance = Number(options.engineeringNumericTolerance ?? 1e-9);
@@ -153,6 +272,7 @@ function elementDeltas(rows, sourceGraph, targetGraph, options) {
         limitations: ['P1/T1 are parsed element values; they are not a complete qualified load-case/process model.'],
       }));
     }
+    deltas.push(...sifTeeDeltas(row, sourceDocument, targetDocument, source, target));
   }
   return deltas;
 }
@@ -167,10 +287,11 @@ function componentDeltas(componentRows, elementRows, sourceGraph, targetGraph, o
     if (!parent || !ciiIdentityBound(parent) || (row.evidence?.blockers || []).length) continue;
     const source = sourceEdges.get(String(row.sourceElementId)); const target = targetEdges.get(String(targetIds(row)[0] || ''));
     if (!source || !target) continue;
-    const sourceMass = source.rigidEvidence?.mass ?? null; const targetMass = target.rigidEvidence?.mass ?? null;
-    if (sourceMass == null && targetMass == null) continue;
-    deltas.push(deltaRow(row, 'WEIGHT_RIGID', 'Rigid mass', sourceMass, targetMass, {
-      changed: changedNumber(sourceMass, targetMass, tolerance), delta: numberDelta(sourceMass, targetMass), authority: 'PARSED_RIGID_MASS',
+    const sourceWeight = source.rigidEvidence?.weight ?? source.rigidEvidence?.mass ?? null;
+    const targetWeight = target.rigidEvidence?.weight ?? target.rigidEvidence?.mass ?? null;
+    if (sourceWeight == null && targetWeight == null) continue;
+    deltas.push(deltaRow(row, 'WEIGHT_RIGID', 'Rigid weight', sourceWeight, targetWeight, {
+      changed: changedNumber(sourceWeight, targetWeight, tolerance), delta: numberDelta(sourceWeight, targetWeight), authority: 'ELEMENT_RIGID_POINTER_TO_RIGID_RECORD',
       identityConfidence: ciiIdentityConfidence(parent),
     }));
   }
@@ -182,18 +303,37 @@ function limitation(sourceDocument, targetDocument, family, label, forcedState =
   const target = targetDocument?.capabilities?.families?.[family] || null;
   const sourceState = source?.state || 'UNAVAILABLE'; const targetState = target?.state || 'UNAVAILABLE';
   const sourceQualification = source?.qualification || 'NONE'; const targetQualification = target?.qualification || 'NONE';
-  const comparisonState = forcedState || ((sourceQualification === 'QUALIFIED' && targetQualification === 'QUALIFIED') ? 'QUALIFIED' : 'LIMITED');
+  const parseBlocked = sourceState === 'PARSE_ERROR' || targetState === 'PARSE_ERROR';
+  const comparisonState = forcedState || (parseBlocked ? 'BLOCKED' : ((sourceQualification === 'QUALIFIED' && targetQualification === 'QUALIFIED') ? 'QUALIFIED' : 'LIMITED'));
   return deepFreeze({
     family, label, sourceState, targetState, sourceQualification, targetQualification, comparisonState,
     reason: forcedReason || [...(source?.limitations || []), ...(target?.limitations || [])][0] || '',
   });
 }
+function pointerPartialLimitation(sourceDocument, targetDocument, family, label, authorityToken) {
+  const source = capability(sourceDocument, family); const target = capability(targetDocument, family);
+  if (source?.state === 'PARSE_ERROR' || target?.state === 'PARSE_ERROR') return limitation(sourceDocument, targetDocument, family, label, 'BLOCKED');
+  if (pointerFamilyReady(sourceDocument, family, authorityToken) && pointerFamilyReady(targetDocument, family, authorityToken)) {
+    return limitation(sourceDocument, targetDocument, family, label, 'PARTIAL');
+  }
+  return limitation(sourceDocument, targetDocument, family, label);
+}
+function hangerPartialLimitation(sourceDocument, targetDocument) {
+  const source = capability(sourceDocument, 'hangers'); const target = capability(targetDocument, 'hangers');
+  if (source?.state === 'PARSE_ERROR' || target?.state === 'PARSE_ERROR') return limitation(sourceDocument, targetDocument, 'hangers', 'Hangers', 'BLOCKED');
+  const ready = source?.details?.nodePresenceQualified === true && target?.details?.nodePresenceQualified === true
+    && String(source?.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE')
+    && String(target?.authority || '').includes('#CONTROL_NOHGRS_IHGRNODE');
+  return ready
+    ? limitation(sourceDocument, targetDocument, 'hangers', 'Hangers', 'PARTIAL', 'Hanger count/node presence is qualified; HGRDAT and other hanger attributes remain unnormalized.')
+    : limitation(sourceDocument, targetDocument, 'hangers', 'Hangers');
+}
 
 function capabilityLimitations(sourceDocument, targetDocument) {
   return Object.freeze([
-    limitation(sourceDocument, targetDocument, 'restraints', 'Restraints', 'PARTIAL', 'Numeric restraint codes and raw rows are comparable; gap/friction semantic columns are not qualified.'),
-    limitation(sourceDocument, targetDocument, 'hangers', 'Hangers'),
-    limitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee'),
+    pointerPartialLimitation(sourceDocument, targetDocument, 'restraints', 'Restraints', '#RESTRANT'),
+    hangerPartialLimitation(sourceDocument, targetDocument),
+    pointerPartialLimitation(sourceDocument, targetDocument, 'sifTee', 'SIF / Tee', '#SIF_TEE_POINTER'),
     limitation(sourceDocument, targetDocument, 'weightData', 'General weight data'),
     limitation(sourceDocument, targetDocument, 'lineNumbers', 'Line numbers'),
     limitation(sourceDocument, targetDocument, 'process', 'Process P1/T1/T2', 'PARTIAL', 'Current process evidence is element-value level only.'),
@@ -209,7 +349,7 @@ function familyCounts(rows) {
 export function buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, options = {}) {
   const rows = [
     ...nodeDeltas(correspondence?.nodeRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
-    ...elementDeltas(correspondence?.elementRows, sourceGraph, targetGraph, options),
+    ...elementDeltas(correspondence?.elementRows, sourceDocument, targetDocument, sourceGraph, targetGraph, options),
     ...componentDeltas(correspondence?.componentRows, correspondence?.elementRows, sourceGraph, targetGraph, options),
   ];
   rows.sort((a, b) => `${a.sourceIdentity}|${a.category}|${a.property}`.localeCompare(`${b.sourceIdentity}|${b.category}|${b.property}`, undefined, { numeric: true }));
@@ -226,6 +366,7 @@ export function buildCiiEngineeringDeltas(sourceDocument, targetDocument, source
       unchangedPropertyCount: rows.length - changedRows.length,
       changeFamilyCounts: familyCounts(rows),
       identityMutationAuthority: 'NONE_READ_ONLY_DOWNSTREAM',
+      geometryBases: Object.freeze({ native: 'PARSED_NATIVE_NODE_COORDINATES', registered: options.geometryTransform?.status === 'READY' ? 'QUALIFIED_RIGID_3D_REGISTRATION' : 'UNAVAILABLE' }),
     }),
   });
 }
