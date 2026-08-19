@@ -29,6 +29,7 @@ authority_domains:
   - CII_METHOD_B_CROSS_COMPATIBLE_3D_COMPLEXITY_WEIGHT
   - CII_BASE_ANCHOR_METHOD_QUALIFICATION
   - CII_CROSS_LOOP_IDENTITY_CONFLICT_VETO
+  - CII_SOURCE3_TARGET31_BENCHMARK_EXPECTATION
 claim_modes:
   - EXCLUSIVE
 forbidden_existing_file_edits:
@@ -53,6 +54,8 @@ implementation_claims:
   - changed third run may leave a qualified two-axis basis READY but receives only two-axis complexity credit
   - opposite collinear rays merge to one run
   - WT process values and node-number offsets remain excluded from Method B identity
+  - SOURCE-3/TARGET3-1 contains at least three observed valid local node-number offsets and therefore forbids one-global-offset identity authority
+  - SOURCE-3/TARGET3-1 real acceptance regression is authored around Method A 60920/60930/60940 to 7290/7300/7310 and Method B 60930 to 7300
   - first-success and majority-vote identity arbitration are forbidden
-validation_state: FOCUSED_EXACT_BLOB_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_THIRD_RUN_NEGATIVE_REGRESSION_PASS_COORDINATE_BENCHMARK_FULL_REPO_BROWSER_REAL_CII_NOT_RUN_ENVIRONMENT
+validation_state: FOCUSED_JS_PASS_INDEPENDENT_PYTHON_ORACLE_PASS_THIRD_RUN_NEGATIVE_PASS_SOURCE3_TARGET31_AUTHORED_NOT_RUN_ENVIRONMENT_COORDINATE_FULL_REPO_BROWSER_NOT_RUN_ENVIRONMENT
 merge_disposition: OWNER_ONLY_NO_MERGE_AUTHORITY
