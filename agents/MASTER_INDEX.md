@@ -4,7 +4,7 @@ Live GitHub state is authoritative over this snapshot.
 
 | Work | Mission | Branch | State | Criticality | Scope claim | Coordination | Next action |
 |---|---|---|---|---|---|---|---|
-| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / IMPLEMENTATION COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / FULL REPO+BROWSER+REAL CII NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | local Method A multi-basis ambiguity; independent A/B OR loops; Method B two-axis run gate; cross-loop identity conflict veto | SAFE / first core slice of Issue #993 | owner review core/sample; complete-checkout and real-CII qualification before wider authority; do not merge without explicit authorization |
+| PR994 | CII independent multi-base Method A/B core | `agent/cii-multi-base-core` | DRAFT / OD-SCALED IMPLEMENTATION COMPLETE / FOCUSED JS PASS / INDEPENDENT PYTHON ORACLE PASS / FULL REPO+BROWSER+REAL CII NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | independent A/B OR loops; Method A `x*SOURCE_OD` residual/basis tolerance; Method B OD-scaled run/angular tolerance + 3D-complexity weight; two-axis gate; conflict veto | SAFE / first core slice of Issue #993 | owner review; complete-checkout/real-CII qualification before wider authority; do not merge without explicit authorization |
 | PR992 | CII Target Writer 1B qualified fields | `agent/cii-writer-1b-qualified-slice` | MERGED 2026-08-19 · `168d21bd` / retained REAL BENCHMARK+LIFECYCLE NOT_RUN_ENVIRONMENT | ENGINEERING_CRITICAL | extended ELEMENT fixed fields; topology-closed conditional OD; existing-block single RESTRANT free-slot create/clear; Writer 1A compatibility; plan-driven negative assurance | HISTORICAL / merged into main | retained NOT_RUN_ENVIRONMENT gates remain historical qualification truth |
 | PR991 | CII Target Writer 1A | `agent/cii-writer-1a` | MERGED 2026-08-19 · `edf297f7` | ENGINEERING_CRITICAL | cardinality-preserving WT/P1/T1/T2, existing RIGID, deterministic existing-RESTRANT pointer/slot mutation; Stage06 readiness; reparse/negative assurance | HISTORICAL / merged into main | retained real benchmark/full-suite NOT_RUN_ENVIRONMENT evidence |
 | PR990 | Refresh CII compare + writer roadmap | `agent/cii-writer-roadmap-doc` | MERGED 2026-08-19 · `87123aa6` | ENGINEERING_CRITICAL | Writer 1A/1B/2/3 roadmap and mutation-class policy | HISTORICAL / merged into main | none |
@@ -20,7 +20,7 @@ Live GitHub state is authoritative over this snapshot.
 
 ## PR994 — current CII base-anchor authority work
 
-PR994 is the first core slice of Issue #993. The controlling architecture is:
+Controlling architecture:
 
 ```text
 independent Method A local bases
@@ -31,20 +31,41 @@ compatible READY evidence accumulates
 conflicting READY source/target identity claims => AMBIGUOUS
 ```
 
-Separate local Method A bases may retain different rigid transforms. Within one local Method A base, every qualified non-collinear triplet is evaluated against every anchor assigned to that base; materially different residual-qualified transforms fail that base closed with `METHOD_A_AMBIGUOUS_BASES`. Method B now requires at least two independent undirected straight-pipe runs on both SOURCE and TARGET before Base Anchor confidence can reach MEDIUM/HIGH.
+Current tolerance authority, superseding the first fixed-tolerance draft:
+
+```text
+T = x * SOURCE_OD
+x default = 2.0; configurable
+SOURCE OD reference = minimum positive incident SOURCE OD
+OD role = tolerance scale only; no identity points
+TARGET OD = no tolerance or identity authority
+```
+
+Method A uses per-anchor normalized residual `r/(x*SOURCE_OD)` and evaluates every qualified local triplet against all anchors. Alternate admissible transforms that materially disagree fail closed with `METHOD_A_AMBIGUOUS_BASES`.
+
+Method B retains the hard minimum two-independent-run gate. Run-length mismatch is compared directly with `x*SOURCE_OD`; included-angle mismatch is converted to transverse displacement `2*L*sin(deltaTheta/2)` and compared with the same tolerance. Geometry complexity weight increases as:
+
+```text
+one axis              0 / 40
+2 independent axes   24 / 40
+3+ coplanar axes     32 / 40
+3+ non-coplanar      32 + 8*scalar-triple-product
+orthogonal XYZ       40 / 40
+```
 
 Focused validation truth:
 
 ```text
-focused JS syntax: PASS
-Method A multi-basis regression: PASS_IMPLEMENTATION_COUPLED
-Method B one-axis/two-axis regression: PASS_IMPLEMENTATION_COUPLED
-independent A/B OR + conflict-veto regression: PASS_IMPLEMENTATION_COUPLED
+current production/test syntax: PASS_LOCAL_EXACT_BLOBS
+Method A OD-scaled regression: PASS_IMPLEMENTATION_COUPLED
+Method B OD-scaled length/angular + complexity regression: PASS_IMPLEMENTATION_COUPLED
+Base Anchor weight/target-OD invariance regression: PASS_IMPLEMENTATION_COUPLED
 independent Python numerical oracle: PASS_INDEPENDENT_REPRODUCTION
+coordinate-invariance execution: NOT_RUN_ENVIRONMENT
+real CII benchmark: NOT_RUN_ENVIRONMENT
 full repository suite: NOT_RUN_ENVIRONMENT
 browser / Chromium: NOT_RUN_ENVIRONMENT
-real CII benchmark: NOT_RUN_ENVIRONMENT
-CI: NOT_RUN
+CI: NOT_RUN unless exact-head runs appear
 ```
 
 Explicitly outside PR994 authority:
@@ -76,65 +97,21 @@ row 5: P7 | P8 | P9 | protected unrelated fields...
 row 6: insulation density | fluid density | protected unrelated fields... | hydro pressure
 ```
 
-Conditional OD is not blanket PIPE_SIZE authority. It requires approved 1:1 element correspondence, `PIPE` on SOURCE/TARGET, zero reducer pointers, no BEND/RIGID semantic transition, and a topology-closed post-write run: every neighboring TARGET edge at each non-terminal endpoint must already match the proposed SOURCE OD. OD remains excluded from M1/M2 identity.
+Conditional OD is not blanket PIPE_SIZE authority. It requires approved 1:1 element correspondence, `PIPE` on SOURCE/TARGET, zero reducer pointers, no BEND/RIGID semantic transition, and a topology-closed post-write run. OD remains excluded from M1/M2 identity.
 
-Existing-block RESTRANT slot mutation is limited to:
-
-```text
-6 slots × 4 rows = 24 rows per block
-one net CREATE or CLEAR per qualified node correspondence
-same target block pointer and same section row count
-empty tag/GUID metadata only
-unique pairing of unchanged records
-```
-
-Writer 1B never creates/deletes restraint blocks or mutates restraint tag/GUID strings. Ambiguous pairing fails closed.
+Existing-block RESTRANT slot mutation remains limited to one net CREATE or CLEAR inside an already-owned 24-row block, with target pointer/cardinality and metadata custody preserved. Ambiguous pairing fails closed.
 
 Validation truth retained at merge:
 
 ```text
-focused exact-module Writer 1B execution: PASS_IMPLEMENTATION_COUPLED
-15-row parser ambiguity case: PASS_IMPLEMENTATION_COUPLED
-OD topology-closed eligibility: PASS_IMPLEMENTATION_COUPLED
-plan-driven negative assurance: PASS_IMPLEMENTATION_COUPLED
+focused Writer 1B execution: PASS_IMPLEMENTATION_COUPLED
 real TARGET1/TARGET2 Writer 1B benchmark: NOT_RUN_ENVIRONMENT
-explicit Writer 1A TARGET1/TARGET2 compatibility: NOT_RUN_ENVIRONMENT
-full shell/browser/inherited CII Workspace suite: NOT_RUN_ENVIRONMENT
-CI status checks: none
+Writer 1A TARGET1/TARGET2 compatibility: NOT_RUN_ENVIRONMENT
+full shell/browser/inherited CII suite: NOT_RUN_ENVIRONMENT
 ```
 
-PR992 was merged under explicit owner authority at `main@168d21bd9e9c198d22009f62b6203e4f60fd4ba1`; the retained NOT_RUN_ENVIRONMENT items remain qualification truth and are not retroactively converted to PASS.
-
-Explicitly outside PR992 authority:
-
-```text
-SIF/TEE semantic rewrite
-new/delete RESTRANT block or pointer re-indexing
-multiple-slot restraint cardinality changes
-restraint tag/GUID string mutation
-BEND/FORCMNT/DISPLMNT/UNIFORM/WIND/OFFSETS/ALLOWBLS mutation
-node/element/connectivity/geometry mutation
-workflow changes
-protected external writer changes
-```
-
-See `agents/PR992_workreport.md`, `agents/status/PR992.yaml`, and `agents/claims/PR992.yaml`.
+PR992 was merged under explicit owner authority at `main@168d21bd9e9c198d22009f62b6203e4f60fd4ba1`; retained NOT_RUN items remain qualification truth.
 
 ## PR991 — merged Writer 1A authority
 
-Writer 1A applies SOURCE engineering values to an approved TARGET only when every approved non-KEEP operation is compatible with the qualified Writer 1A whitelist.
-
-Executable mutation families merged in PR991:
-
-```text
-ELEMENT WT
-ELEMENT P1
-ELEMENT T1
-ELEMENT T2
-existing pointer-bound RIGID weight
-existing RESTRANT numeric fields through qualified pointer/slot pairing
-```
-
-Each existing restraint retains target-native pointer/slot/node custody. Pairing uses singleton cardinality or exhaustive global assignment up to `6! = 720`; exact GUID/tag, approved mapped connecting-node identity and direction cosines are stable evidence. Slot order and mutable type/stiffness/gap/friction are not identity evidence. A tied best assignment fails closed.
-
-PR991 focused execution passed before merge. Real TARGET1/TARGET2/full-browser runtime remained `NOT_RUN_ENVIRONMENT` and was preserved truthfully under the owner's explicit merge authorization.
+Writer 1A applies SOURCE engineering values to an approved TARGET only when every approved non-KEEP operation is within the qualified Writer 1A whitelist. Qualified families remain WT/P1/T1/T2, existing RIGID weight and deterministic existing-RESTRANT numeric fields. Target-native pointer/slot/node custody and fail-closed pairing remain authoritative.
