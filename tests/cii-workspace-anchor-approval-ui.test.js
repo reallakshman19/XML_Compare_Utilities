@@ -9,8 +9,12 @@ assert(shell.includes('Node-number offsets, OD and wall are not used.'), 'base-a
 assert(shell.includes('Accept all HIGH'), 'Correspondence Review must expose bulk HIGH acceptance');
 assert(shell.includes('Accept all MEDIUM'), 'Correspondence Review must expose bulk MEDIUM acceptance');
 assert(shell.includes('REVIEW and UNRESOLVED rows are never bulk accepted.'), 'bulk acceptance must retain fail-closed review boundary');
+assert(shell.includes("row.confidence !== confidence || !row.identityBound"), 'bulk acceptance must require the selected confidence and bound identity');
+assert(shell.includes("row.decision === 'LOCKED'"), 'bulk acceptance must preserve already locked rows');
+assert(shell.includes("decisions.set(row.correspondenceId, 'ACCEPT')"), 'bulk acceptance must only stage explicit ACCEPT decisions');
 assert(shell.includes('<th>Approval</th><th>Source</th><th>Target</th>'), 'Engineering Delta Grid must expose Approval before delta evidence');
 assert(shell.includes('Approval is inherited from the parent correspondence Decision above'), 'Delta approval must explicitly derive from correspondence review');
+assert(shell.includes('updateCiiReviewDecisions(current.review, reviewFrom(decisions))'), 'approval must be bound through the existing review ledger before transfer refresh');
 assert(shell.includes('Only accepted/locked correspondence can produce transfer rows.'), 'Transfer Preview must state its approval authority gate');
 assert(shell.includes('<th>Approval authority</th>'), 'Transfer Preview rows must expose reviewed/locked authority');
 assert(shell.includes('TRANSFER PREVIEW · BLOCKED'), 'Tab3 must keep target mutation explicitly BLOCKED');
