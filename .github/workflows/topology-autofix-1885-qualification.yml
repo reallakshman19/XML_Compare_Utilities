@@ -1,5 +1,6 @@
 name: Topology 1885 Qualification
 
+# TEMP PR-only EMP.1 source observation job; never merge this evidence branch.
 on:
   pull_request:
     paths:
