@@ -1,0 +1,25 @@
+schema: AgentStatus.v1
+pr: 998
+repository: reallaksh19/XML_Compare_Utilities
+branch: agent/cii-multi-base-ui-fix
+stacked_base_pr: 997
+stacked_base_branch: agent/cii-fullscreen-anchor-evidence-ui
+stacked_base_head: 3b772956dbd4407f29df66789bae22e5ade112b1
+main_at_grounding: df19d1834459f486fddd77eaec4297767ef83c6b
+state: DRAFT_IMPLEMENTATION_COMPLETE_FOCUSED_SELECTION_PASS
+criticality: ENGINEERING_CRITICAL_UI_AUTHORITY_SEAM
+execution_mode: AUTO
+auto_state: RUNNING
+scope_authority: LOCKED_TO_APPROVED_MISSION
+phase_progression: AUTO
+merge_authority: OWNER_ONLY
+handover_readiness: READY_FOR_REVIEW
+coordination: SAFE_STACKED_SUCCESSOR_TO_PR997
+focused_selection_validation: PASS_LOCAL_EXECUTION_EXACT_BRANCH_BLOBS
+integration_source_review: PASS_SOURCE_INSPECTION
+focused_full_ui: NOT_RUN_ENVIRONMENT
+shell_lifecycle: NOT_RUN_ENVIRONMENT
+browser_chromium: NOT_RUN_ENVIRONMENT
+full_repository_suite: NOT_RUN_ENVIRONMENT
+concept_note: REFRESHED_TO_CURRENT_METHOD_A_B_MULTI_BASE_AUTHORITY
+next_action: reconcile exact head/diff/checks; mark AUTO complete when no implementation work remains; do not merge without owner authorization
