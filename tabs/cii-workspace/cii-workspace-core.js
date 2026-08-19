@@ -11,6 +11,7 @@ import { applyCiiNodeCustodyGates } from './cii-workspace-node-custody.js';
 import { attachCiiComponentCorrespondence } from './cii-workspace-components.js';
 import { bindCiiCorrespondenceIdentity } from './cii-workspace-identity.js';
 import { buildCiiEngineeringDeltas } from './cii-workspace-engineering-delta.js';
+import { augmentCiiEngineeringDeltasWithRestraintPairing } from './cii-workspace-restraint-transfer.js';
 import { buildCiiCompareReviewModel } from './cii-workspace-compare-review.js';
 import { createCiiTransferPreview } from './cii-workspace-transfer-plan.js';
 import { normalizeCiiWorkspaceReview } from './cii-workspace-review.js';
@@ -95,6 +96,18 @@ function rigidMutationMap(writerResult) {
     .filter((item) => item.section === 'RIGID')
     .map((item) => [Number(item.pointer), Number(item.proposed)]));
 }
+function restraintMutationMap(writerResult) {
+  const out = new Map();
+  for (const item of writerResult?.mutations || []) {
+    if (item.section !== 'RESTRANT') continue;
+    out.set(`${Number(item.pointer)}:${Number(item.slot)}:${item.field}`, Number(item.proposed));
+  }
+  return out;
+}
+function restraintRecordMap(document) {
+  return new Map((document?.auxiliaryEvidence?.restraints?.records || [])
+    .map((record) => [`${Number(record.pointer)}:${Number(record.slot)}`, record]));
+}
 function validateElementCustody(beforeDocument, afterDocument, targetGraph, writerResult, errors) {
   const before = beforeDocument?.parsed?.elements || []; const after = afterDocument?.parsed?.elements || [];
   if (before.length !== after.length) { errors.push('ELEMENT_COUNT_CHANGED'); return; }
@@ -120,10 +133,48 @@ function validateRigidCustody(beforeDocument, afterDocument, writerResult, error
     if (!sameNumber(expected, after[key]?.weight)) errors.push(`RIGID_${pointer}_EXPECTED_WEIGHT_MISMATCH`);
   }
 }
+function validateRestraintCustody(beforeDocument, afterDocument, writerResult, errors) {
+  const before = restraintRecordMap(beforeDocument); const after = restraintRecordMap(afterDocument);
+  const beforeKeys = [...before.keys()].sort(); const afterKeys = [...after.keys()].sort();
+  if (stableStringify(beforeKeys) !== stableStringify(afterKeys)) { errors.push('RESTRAINT_POINTER_SLOT_SET_CHANGED'); return; }
+  if (Number(beforeDocument?.auxiliaryEvidence?.restraints?.sectionRowCount) !== Number(afterDocument?.auxiliaryEvidence?.restraints?.sectionRowCount)) {
+    errors.push('RESTRAINT_SECTION_CARDINALITY_CHANGED');
+  }
+  const mutations = restraintMutationMap(writerResult);
+  const scalarFields = [
+    ['typeCode', 'Restraint typeCode'],
+    ['stiffness', 'Restraint stiffness'],
+    ['gap', 'Restraint gap'],
+    ['friction', 'Restraint friction'],
+    ['connectingNode', 'Restraint connectingNode'],
+  ];
+  const directionFields = [
+    ['x', 'Restraint direction X'],
+    ['y', 'Restraint direction Y'],
+    ['z', 'Restraint direction Z'],
+  ];
+  for (const key of beforeKeys) {
+    const left = before.get(key); const right = after.get(key); const prefix = `${Number(left.pointer)}:${Number(left.slot)}`;
+    if (String(left.node) !== String(right?.node)) errors.push(`RESTRAINT_${prefix}_NODE_UNEXPECTED_CHANGE`);
+    if (stableStringify(left.tag) !== stableStringify(right?.tag)) errors.push(`RESTRAINT_${prefix}_TAG_UNEXPECTED_CHANGE`);
+    if (stableStringify(left.guid) !== stableStringify(right?.guid)) errors.push(`RESTRAINT_${prefix}_GUID_UNEXPECTED_CHANGE`);
+    for (const [property, mutationField] of scalarFields) {
+      const mutationKey = `${prefix}:${mutationField}`;
+      const expected = mutations.has(mutationKey) ? mutations.get(mutationKey) : Number(left[property]);
+      if (!sameNumber(expected, right?.[property])) errors.push(`RESTRAINT_${prefix}_${property}_EXPECTED_VALUE_MISMATCH`);
+    }
+    for (const [axis, mutationField] of directionFields) {
+      const mutationKey = `${prefix}:${mutationField}`;
+      const expected = mutations.has(mutationKey) ? mutations.get(mutationKey) : Number(left.directionCosines?.[axis]);
+      if (!sameNumber(expected, right?.directionCosines?.[axis])) errors.push(`RESTRAINT_${prefix}_direction_${axis}_EXPECTED_VALUE_MISMATCH`);
+    }
+  }
+}
 function validateNegativeAssurance(beforeDocument, afterDocument, targetGraph, writerResult) {
   const errors = [];
   validateElementCustody(beforeDocument, afterDocument, targetGraph, writerResult, errors);
   validateRigidCustody(beforeDocument, afterDocument, writerResult, errors);
+  validateRestraintCustody(beforeDocument, afterDocument, writerResult, errors);
   if (stableStringify(beforeDocument?.parsed?.nodes || {}) !== stableStringify(afterDocument?.parsed?.nodes || {})) errors.push('NODE_GEOMETRY_CHANGED');
   if (stableStringify(beforeDocument?.nodeNames || {}) !== stableStringify(afterDocument?.nodeNames || {})) errors.push('NODE_NAMES_CHANGED');
   const beforePointers = Object.values(beforeDocument?.auxiliaryEvidence?.elements || {}).map((item) => item.pointers);
@@ -132,7 +183,8 @@ function validateNegativeAssurance(beforeDocument, afterDocument, targetGraph, w
   if (errors.length) throw new Error(`CII_WRITER_1A_NEGATIVE_ASSURANCE_FAILED:${errors.join('|')}`);
   return deepFreeze({ schema: 'CIIWorkspaceWriter1AValidation.v1', status: 'PASS', unexpectedSemanticDeltaCount: 0, checks: Object.freeze([
     'ELEMENT_COUNT_UNCHANGED', 'NODE_NUMBERS_AND_GEOMETRY_UNCHANGED', 'FROM_TO_DX_DY_DZ_OD_UNCHANGED',
-    'AUXILIARY_POINTER_OWNERSHIP_UNCHANGED', 'RIGID_POINTER_SET_UNCHANGED', 'ONLY_APPROVED_WRITER_1A_VALUES_CHANGED',
+    'AUXILIARY_POINTER_OWNERSHIP_UNCHANGED', 'RIGID_POINTER_SET_UNCHANGED', 'RESTRAINT_POINTER_SLOT_SET_UNCHANGED',
+    'RESTRAINT_TAG_GUID_UNCHANGED', 'ONLY_APPROVED_WRITER_1A_VALUES_CHANGED',
   ]) });
 }
 
@@ -160,7 +212,8 @@ export async function createCiiWorkspacePreview(input, options = {}) {
   const componentCorrespondence = attachCiiComponentCorrespondence(nodeGatedCorrespondence, sourceGraph, targetGraph);
   const correspondence = bindCiiCorrespondenceIdentity(componentCorrespondence, sourceDocument, targetDocument, anchors);
   const review = normalizeCiiWorkspaceReview(input?.review, sourceDocument, targetDocument, anchors, correspondence);
-  const engineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
+  const baseEngineeringDeltas = buildCiiEngineeringDeltas(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, { ...options, geometryTransform: geometry });
+  const engineeringDeltas = augmentCiiEngineeringDeltasWithRestraintPairing(baseEngineeringDeltas, sourceDocument, targetDocument, correspondence, options);
   const compareReview = buildCiiCompareReviewModel(sourceDocument, targetDocument, correspondence, review, engineeringDeltas);
   const transferPlan = createCiiTransferPreview(sourceDocument, targetDocument, sourceGraph, targetGraph, correspondence, review, engineeringDeltas, options);
   const writerReadiness = ciiWriter1AReadiness(transferPlan);
