@@ -14,7 +14,7 @@ export const CII_TRANSFER_STATUSES = Object.freeze({
   PROTECTED: 'PROTECTED',
 });
 
-const PROTECTED_CATEGORIES = new Set(['GEOMETRY', 'PIPE_SIZE', 'WALL']);
+const PROTECTED_CATEGORIES = new Set(['GEOMETRY', 'PIPE_SIZE']);
 const RESTRAINT_PROPERTIES = new Set([
   'Restraint presence',
   'Restraint code set',
@@ -30,6 +30,11 @@ const SIF_TEE_PROPERTIES = new Set([
   'SIF/Tee raw code (field 2)',
   'SIF/Tee normalized raw payload',
 ]);
+const PROCESS_AUTHORITIES = Object.freeze({
+  P1: 'PROTECTED_WRITER_ELEMENT_ROW4_P1_FIXED_FIELD',
+  T1: 'PROTECTED_WRITER_ELEMENT_ROW2_T1_FIXED_FIELD',
+  T2: 'PROTECTED_WRITER_ELEMENT_ROW2_T2_FIXED_FIELD',
+});
 
 function sameValue(a, b) { return stableStringify(a) === stableStringify(b); }
 function bool(value) { return value === true; }
@@ -59,6 +64,28 @@ function statusFromBlockers(blockers, ready = CII_TRANSFER_STATUSES.PREVIEW_READ
   return blockers.length ? CII_TRANSFER_STATUSES.BLOCKED : ready;
 }
 
+function writer1AWall(delta) {
+  if (delta.property !== 'Wall thickness') return null;
+  const blockers = [];
+  if (!String(delta.authority || '').includes('PROTECTED_WRITER_ELEMENT_ROW2_WT_FIXED_FIELD')) {
+    blockers.push('WALL_FIXED_FIELD_AUTHORITY_REQUIRED');
+  }
+  const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
+  return common(delta, 'WALL', action, statusFromBlockers(blockers), blockers,
+    { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD' });
+}
+
+function writer1AProcess(delta) {
+  const token = PROCESS_AUTHORITIES[delta.property];
+  if (!token) return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
+    ['PROCESS_FIELD_NOT_QUALIFIED_FOR_WRITER_1A']);
+  const blockers = [];
+  if (!String(delta.authority || '').includes(token)) blockers.push('PROCESS_FIXED_FIELD_AUTHORITY_REQUIRED');
+  const action = delta.changed ? CII_TRANSFER_ACTIONS.COPY : CII_TRANSFER_ACTIONS.KEEP;
+  return common(delta, 'PROCESS', action, statusFromBlockers(blockers), blockers,
+    { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_ELEMENT_FIELD' });
+}
+
 export function classifyCiiTransferDelta(delta, options = {}) {
   if (!delta) return null;
   if (PROTECTED_CATEGORIES.has(delta.category)) {
@@ -66,6 +93,9 @@ export function classifyCiiTransferDelta(delta, options = {}) {
       delta.changed ? ['TARGET_PROPERTY_PROTECTED_BY_DEFAULT'] : [],
       { protected: true, policyAuthority: 'CII_TRANSFER_PROTECTED_MODEL_DEFINING_PROPERTIES' });
   }
+
+  if (delta.category === 'WALL') return writer1AWall(delta)
+    || common(delta, 'WALL', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED, ['WALL_FIELD_NOT_QUALIFIED_FOR_WRITER_1A']);
 
   if (delta.category === 'NODE_NAME' && delta.property === 'Node name / to-name') {
     if (!delta.changed) return common(delta, 'NODE_NAME', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PREVIEW_READY);
@@ -100,8 +130,6 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     if (delta.property === 'Hanger presence') {
       const action = actionFromPresence(delta.sourceValue, delta.targetValue);
       if (action === CII_TRANSFER_ACTIONS.CREATE) blockers.push('HANGER_CREATE_PAYLOAD_NOT_QUALIFIED');
-      // DELETE can be semantically previewed from qualified node presence alone;
-      // actual writer/mutation remains globally blocked outside this phase.
       return common(delta, 'HANGER', action, statusFromBlockers(blockers), blockers,
         { nodePresenceOnly: true });
     }
@@ -131,15 +159,11 @@ export function classifyCiiTransferDelta(delta, options = {}) {
     const blockers = [];
     if (!String(delta.authority || '').includes('ELEMENT_RIGID_POINTER_TO_RIGID_RECORD')) blockers.push('RIGID_POINTER_WEIGHT_AUTHORITY_REQUIRED');
     const action = sameValue(delta.sourceValue, delta.targetValue) ? CII_TRANSFER_ACTIONS.KEEP : CII_TRANSFER_ACTIONS.COPY;
-    return common(delta, 'WEIGHT_RIGID', action, statusFromBlockers(blockers), blockers);
+    return common(delta, 'WEIGHT_RIGID', action, statusFromBlockers(blockers), blockers,
+      { policyAuthority: 'CII_WRITER_1A_CARDINALITY_PRESERVING_RIGID_RECORD' });
   }
 
-  if (delta.category === 'PROCESS') {
-    if (!delta.changed) return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.KEEP, CII_TRANSFER_STATUSES.PROTECTED,
-      ['PROCESS_TRANSFER_PARTIAL_AUTHORITY'], { protected: true });
-    const blockers = [options.enablePartialProcessPreview === true ? 'PROCESS_TRANSFER_WRITER_NOT_QUALIFIED' : 'PROCESS_TRANSFER_PARTIAL_AUTHORITY'];
-    return common(delta, 'PROCESS', CII_TRANSFER_ACTIONS.COPY, CII_TRANSFER_STATUSES.BLOCKED, blockers);
-  }
+  if (delta.category === 'PROCESS') return writer1AProcess(delta);
 
   return common(delta, delta.category || 'UNKNOWN', CII_TRANSFER_ACTIONS.BLOCKED, CII_TRANSFER_STATUSES.BLOCKED,
     ['TRANSFER_FAMILY_NOT_QUALIFIED']);
