@@ -13,7 +13,8 @@ function methodALoop(base, index, options) {
   return deepFreeze({
     schema: CII_WORKSPACE_SCHEMAS.methodABaseLoop, loopId: String(base?.baseId || `METHOD_A_${index + 1}`),
     method: 'METHOD_A_SPATIAL', combination: 'INDEPENDENT_OR_LOOP', status: loopStatus(geometry.status),
-    geometry, anchorPairs: deepFreeze(anchorPairs.map((pair) => ({
+    confidence: geometry.confidence || 'REVIEW', weight: geometry.weight || null, geometry,
+    anchorPairs: deepFreeze(anchorPairs.map((pair) => ({
       sourceNodeId: pair.sourceNodeId == null ? null : String(pair.sourceNodeId),
       targetNodeId: pair.targetNodeId == null ? null : String(pair.targetNodeId),
     }))),
@@ -23,7 +24,7 @@ function methodBLoop(anchor, index, sourceGraph, targetGraph, options) {
   const evidence = qualifyCiiMethodBRunBasis(sourceGraph, targetGraph, anchor.sourceNodeId, anchor.targetNodeId, options);
   return deepFreeze({
     loopId: String(anchor?.baseId || `METHOD_B_${index + 1}`), method: 'METHOD_B_NETWORK', combination: 'INDEPENDENT_OR_LOOP',
-    status: evidence.status, evidence,
+    status: evidence.status, weight: evidence.weight || null, evidence,
     anchorPairs: Object.freeze([{ sourceNodeId: String(anchor.sourceNodeId), targetNodeId: String(anchor.targetNodeId) }]),
   });
 }
