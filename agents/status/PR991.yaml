@@ -46,4 +46,5 @@ acceptance_matrix:
   free_slot_restraint_create: DEFERRED_WRITER_1B
   pointer_cardinality_create_delete: BLOCKED_WRITER_2
   topology_mutation: BLOCKED_WRITER_3
+dependency_state: PR990_READY_TO_MERGE_THEN_RETARGET_PR991_TO_MAIN
 exact_next_action: merge PR990 dependency, retarget PR991 to main, verify incremental diff unchanged, then merge exact PR991 head under owner-authorized environmental qualification exception
