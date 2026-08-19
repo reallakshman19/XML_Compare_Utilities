@@ -115,7 +115,6 @@ assert abs(undirected_angle) < 1e-12
 def included_angle(a, b):
     return degrees(acos(abs(dot(unit(a), unit(b)))))
 
-
 assert abs(included_angle((1, 0, 0), (0, 0, 1)) - 90.0) < 1e-12
 assert abs(included_angle((0, 1, 0), (0, 0, 1)) - 90.0) < 1e-12
 assert hypot(12000 - 12000, 7000 - 7000) == 0
