@@ -29,11 +29,11 @@ const sourceRecords = [
   }),
 ];
 const targetRecords = [
-  record(7, 2, 9500, {
+  record(1, 2, 9500, {
     typeCode: 61, stiffness: 8e9, gap: 99, friction: 0.9, connectingNode: 0,
     directionCosines: { x: 0, y: 1, z: 0 }, tag: 'Y-SUPPORT',
   }),
-  record(7, 6, 9500, {
+  record(1, 6, 9500, {
     typeCode: 62, stiffness: 9e9, gap: 88, friction: 0.8, connectingNode: 9520,
     directionCosines: { x: 1, y: 0, z: 0 }, tag: 'X-SUPPORT',
   }),
