@@ -70,8 +70,9 @@ assert(result.text.includes('      325.000'));
 assert(result.text.includes('      375.000'));
 assert(result.text.includes('        15.0000'));
 assert(result.text.includes('       125.500'));
-assert(result.text.includes('    114.30000'), 'OD must remain untouched');
-assert(result.text.includes('        100.000'), 'geometry must remain untouched');
+const beforeHeader = targetText.split(/\r\n/)[3];
+const afterHeader = result.text.split(/\r\n/)[3];
+assert.strictEqual(afterHeader, beforeHeader, 'FROM/TO/DX/DY/DZ/OD header row must remain byte-identical');
 
 const unsupported = {
   ...transferPlan,
