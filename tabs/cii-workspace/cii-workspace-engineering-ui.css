@@ -1,0 +1,7 @@
+.ciiw-backdrop[data-ciiw-layout] .ciiw-anchor-suggestions {
+  display: none;
+}
+
+.ciiw-backdrop[data-ciiw-layout] .ciiw-landmark-grid {
+  margin-top: .75rem;
+}
