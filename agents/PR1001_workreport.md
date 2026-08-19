@@ -15,11 +15,14 @@ PR: 1001
 BRANCH: agent/cii-explicit-transfer-scope
 BASE_AT_GROUNDING: main@0274f63c6e17a0495a63e268b5da0dc0bb0e8a16
 PREDECESSOR: PR999 merged -> 0274f63c6e17a0495a63e268b5da0dc0bb0e8a16
+REPORT_BASIS_HEAD: 4f04983e71f7bf0795dbfc03de7843c454ff78d0
 MERGE_AUTHORITY: OWNER_ONLY
-CURRENT_STAGE: VALIDATE / RECONCILE
+CURRENT_STAGE: HANDOVER / OWNER REVIEW
 GROUNDING_EPOCH: GE-001 / 2026-08-19
 CURRENT_BLOCKER: COMPLETE_CHECKOUT_REPOSITORY_AND_BROWSER_EXECUTION_NOT_RUN_ENVIRONMENT
-EXACT_NEXT_ACTION: remove temporary WIP custody, reconcile exact 14-file ledger, live main/head/checks; owner review; do not merge without explicit authorization
+FINAL_LEDGER: 14 EXPECTED / 14 ACTUAL / 0 UNEXPLAINED
+WIP_RESIDUE: NONE
+EXACT_NEXT_ACTION: refresh live PR head/main/reviews/checks; remain draft until explicit owner merge authorization
 ```
 
 ## Handover in 60 Seconds
@@ -45,41 +48,40 @@ The scope binds SOURCE hash, TARGET hash and the exact mutable operation-ID set.
 
 ---
 
-# 1. Ground truth
+# 1. Final grounded state
 
-At implementation grounding:
+At final reconciliation before this report commit:
 
 ```text
 main = 0274f63c6e17a0495a63e268b5da0dc0bb0e8a16
 PR999 = MERGED
-PR1001 = draft successor
-branch = agent/cii-explicit-transfer-scope
-initial implementation diff = 10 production/doc/test/oracle files before permanent custody
+PR1001 = OPEN / DRAFT / MERGEABLE / UNMERGED
+PR1001 branch = agent/cii-explicit-transfer-scope
 behind main = 0
+changed files = 14 expected / 14 actual / 0 unexplained
+temporary WIP files = none
 ```
 
-Live GitHub state overrides this snapshot.
+Live GitHub state overrides this snapshot. The report commit advances the branch head; `REPORT_BASIS_HEAD` records the pre-report reconciliation head.
 
 ---
 
 # 2. Root cause
 
-Identity approval and transfer classification already existed, but the product path had no independent mutation-scope custody. Once correspondence was reviewed, every classified transfer operation flowed into Writer readiness. This meant a single unsupported reviewed delta could block unrelated supported mutations, and there was no authoritative way to say:
+Identity approval and transfer classification already existed, but the product path had no independent mutation-scope custody. Every reviewed classified operation flowed into Writer readiness. A single unsupported reviewed delta could therefore block unrelated qualified mutations, and there was no authoritative representation of:
 
 ```text
 identity accepted
-but this engineering delta is intentionally NOT being transferred
+but this engineering delta is intentionally NOT transferred
 ```
 
-A visual checkbox alone would be disqualifying because Writer would still receive the unfiltered operation set.
+A visual checkbox would be insufficient because Writer would still receive the unfiltered operation set.
 
 ---
 
 # 3. Implemented authority
 
 ## 3.1 Scope schemas
-
-Added:
 
 ```text
 CIIWorkspaceTransferScope.v1
@@ -93,7 +95,7 @@ A scope binds:
 ```text
 SOURCE content SHA-256
 TARGET content SHA-256
-candidateOperationIds[]
+exact candidateOperationIds[]
 one decision for every mutable candidate operation
 ```
 
@@ -104,7 +106,7 @@ APPLY
 EXCLUDE
 ```
 
-Fail-closed blockers include:
+Fail-closed blockers:
 
 ```text
 TRANSFER_SCOPE_EXPLICIT_SELECTION_REQUIRED
@@ -118,37 +120,33 @@ TRANSFER_SCOPE_NO_APPLY_OPERATIONS
 
 ## 3.3 APPLY
 
-APPLY remains in the existing transfer plan `operations[]`. Existing Writer 1A/1B readiness evaluates it unchanged.
-
-No new Writer whitelist is introduced.
+APPLY remains in existing `transferPlan.operations[]`. Existing Writer 1A/1B readiness evaluates it unchanged. PR1001 does not add Writer support for any family.
 
 ## 3.4 EXCLUDE
 
-EXCLUDE is moved to `excludedOperations[]` with `scopeDecision: EXCLUDE`.
+EXCLUDE moves to `excludedOperations[]` with `scopeDecision: EXCLUDE`.
 
 It remains visible in:
 
 - scoped audit JSON;
-- transfer-scope applied/excluded IDs and counts;
+- applied/excluded IDs and counts;
 - excluded-operation UI;
 - engineering-delta presentation as `EXCLUDED`;
 - SOURCE proposal traceability.
 
 It is absent from Writer `operations[]`.
 
-Therefore a blocked SIF/TEE delta can be explicitly EXCLUDED while a qualified P1 delta is APPLY. Writer then evaluates P1 only. If SIF/TEE is instead APPLY, Writer remains BLOCKED.
+Thus a blocked SIF/TEE delta may be EXCLUDED while qualified P1 is APPLY. Writer evaluates P1 only. If SIF/TEE is APPLY, Writer remains BLOCKED.
 
 ## 3.5 All EXCLUDE
-
-All EXCLUDE does not mean success:
 
 ```text
 TRANSFER_SCOPE_NO_APPLY_OPERATIONS
 => transfer plan BLOCKED
-=> Writer mutation authority unavailable
+=> no mutation authority
 ```
 
-## 3.6 Scoped preview and audit
+## 3.6 Scoped preview / audit
 
 `bindCiiTransferScopeToPreview()` recalculates:
 
@@ -161,7 +159,7 @@ TRANSFER_SCOPE_NO_APPLY_OPERATIONS
 - mutation-authority status;
 - artifact bundle.
 
-After scope binding, the existing Compare-tab CSV/audit controls are intercepted to export the scoped artifacts. This avoids two competing audit authorities.
+After binding, existing Compare-tab CSV/audit controls are intercepted to export the scoped artifacts, avoiding a competing unscoped mutation audit.
 
 ---
 
@@ -169,21 +167,20 @@ After scope binding, the existing Compare-tab CSV/audit controls are intercepted
 
 The CII Workspace tile now mounts `mountCiiWorkspaceScopedEngineeringShell()`.
 
-The scoped shell wraps the already-established PR997/998 engineering shell; it does not create another matching engine.
+The wrapper consumes the existing PR997/998 engineering shell; it does not create a second matching or Writer-policy engine.
 
 Transfer Preview provides:
 
 - one APPLY/EXCLUDE decision per mutable operation;
 - default EXCLUDE before engineer action;
-- APPLY-all-preview-ready convenience action;
-- EXCLUDE-all convenience action;
-- explicit Bind APPLY/EXCLUDE scope action;
+- APPLY-all-preview-ready and EXCLUDE-all convenience actions;
+- explicit Bind APPLY / EXCLUDE scope;
+- scope ID and selected/excluded counts;
+- separate excluded-operation table;
 - scoped audit export;
-- scope ID and applied/excluded counts;
-- separate excluded-operation evidence table;
 - Writer Apply disabled until scope is BOUND and Writer readiness is READY.
 
-Review decisions and mutation scope remain separate. If correspondence review changes, scope becomes dirty and must be rebound after `Apply approvals to Transfer Preview`.
+Correspondence review and mutation scope remain distinct. Changing correspondence decisions makes scope dirty until approvals are rebound through the existing review action.
 
 ---
 
@@ -196,7 +193,7 @@ reviewed/classified transfer candidate
     -> explicit operation-level mutation scope
 ```
 
-Unchanged protected authority:
+Unchanged:
 
 ```text
 Method A/B mathematics and weighting
@@ -211,7 +208,7 @@ protected converters
 GitHub workflows
 ```
 
-Low-level direct Writer tests/callers remain compatible. Product CII Workspace is the path that requires explicit scope.
+Low-level Writer callers remain compatible. Product CII Workspace is the path that requires explicit scope.
 
 ---
 
@@ -220,9 +217,9 @@ Low-level direct Writer tests/callers remain compatible. Product CII Workspace i
 | Validation | Status | Observation / Oracle |
 |---|---|---|
 | Main/source grounding | PASS | SOURCE_INSPECTION |
-| Frozen authority-boundary diff | PASS | GIT_COMPARE |
-| Standalone scope state-machine oracle | PASS | INDEPENDENT_REPRODUCTION |
-| APPLY P1 + EXCLUDE blocked SIF state | PASS | INDEPENDENT_REPRODUCTION |
+| Final 14-file authority-boundary diff | PASS | GIT_COMPARE |
+| Standalone scope state machine | PASS | INDEPENDENT_REPRODUCTION |
+| APPLY P1 + EXCLUDE blocked SIF | PASS | INDEPENDENT_REPRODUCTION |
 | all EXCLUDE blocks mutation | PASS | INDEPENDENT_REPRODUCTION |
 | new operation invalidates stale scope | PASS | INDEPENDENT_REPRODUCTION |
 | TARGET hash mismatch invalidates scope | PASS | INDEPENDENT_REPRODUCTION |
@@ -233,13 +230,11 @@ Low-level direct Writer tests/callers remain compatible. Product CII Workspace i
 | Chromium | NOT_RUN_ENVIRONMENT | NOT_OBSERVED |
 | Full repository suite | NOT_RUN_ENVIRONMENT | NOT_OBSERVED |
 
-The local runtime failed before checkout because `github.com` DNS resolution was unavailable. No authored repository test is represented as PASS.
+The runtime failed before checkout because `github.com` DNS resolution was unavailable. No authored repository test is represented as PASS.
 
 ---
 
-# 7. Changed-file ledger target
-
-Permanent expected final diff:
+# 7. Final changed-file ledger
 
 ```text
 agents/MASTER_INDEX.md
@@ -258,65 +253,65 @@ tests/cii-workspace-transfer-scope.test.js
 tests/qualification/cii-workspace-transfer-scope-oracle.md
 ```
 
-Expected: **14 files**.
+Final: **14 expected / 14 actual / 0 unexplained**.
 
-Temporary `agents/WIP-CII-TRANSFER-SCOPE*` files are not part of final scope and must be deleted.
+No `agents/WIP-CII-TRANSFER-SCOPE*` file remains.
 
 ---
 
 # 8. Risks / remaining qualification
 
 **RISK-1001-01 — Browser lifecycle not executed.**  
-The scoped shell uses a local MutationObserver around Transfer Preview. Source review found observer disconnect/reconnect protection around self-rendering, but real Chromium lifecycle remains NOT_RUN.
+The scoped shell uses a local MutationObserver around Transfer Preview. It disconnects before its own render and reconnects afterward; real Chromium lifecycle remains NOT_RUN.
 
 **RISK-1001-02 — Full Writer round trip not executed through scoped UI.**  
-The Writer itself is unchanged and receives only selected operations, but a complete product round trip remains NOT_RUN_ENVIRONMENT.
+Writer implementation is unchanged and receives only selected operations, but the complete product round trip remains NOT_RUN_ENVIRONMENT.
 
-**RISK-1001-03 — Direct old shell remains compatibility path.**  
-The product tile is routed through the scoped shell. Direct programmatic callers of lower-level engineering shell/Writer APIs remain compatible and are not silently redefined by this PR.
+**RISK-1001-03 — Direct lower-level shell remains compatibility path.**  
+The product tile is scoped; direct programmatic use of lower-level shell/Writer APIs is deliberately not silently redefined.
 
 ---
 
 # 9. Decision log
 
 **DEC-1001-01:** EXCLUDE is a separate audit collection, never fake KEEP.  
-**DEC-1001-02:** Writer policy is not modified; scope filters the operation set before readiness.  
-**DEC-1001-03:** Exact operation-set equality is required to prevent stale scope applying new operations.  
-**DEC-1001-04:** SOURCE/TARGET hashes are part of scope custody.  
+**DEC-1001-02:** Writer policy is unchanged; scope filters before readiness.  
+**DEC-1001-03:** Exact operation-set equality prevents stale scope applying new operations.  
+**DEC-1001-04:** SOURCE/TARGET hashes are scope custody.  
 **DEC-1001-05:** All EXCLUDE has no mutation authority.  
-**DEC-1001-06:** Product tile requires explicit scope; low-level Writer compatibility remains intact.  
-**DEC-1001-07:** After binding, existing audit/CSV exports use scoped artifacts.
+**DEC-1001-06:** Product tile requires explicit scope; low-level compatibility remains.  
+**DEC-1001-07:** Bound audit/CSV exports use scoped artifacts.
 
 ---
 
 # Appendix A — Expert handover questionnaire
 
-1. **Where is the mutation-scope authority applied?**  
-   In `cii-workspace-transfer-scope.js`, after transfer classification and before Writer readiness.
+1. **Where is mutation-scope authority applied?**  
+   `cii-workspace-transfer-scope.js`, after transfer classification and before Writer readiness.
 
 2. **Does EXCLUDE modify Writer classification?**  
-   No. It removes the operation from Writer `operations[]` while retaining the original operation in `excludedOperations[]`.
+   No. It removes the operation from Writer `operations[]` while retaining the original classified operation in `excludedOperations[]`.
 
-3. **Can an unsupported operation be made ready by selecting APPLY?**  
+3. **Can an unsupported operation become ready by APPLY?**  
    No. Existing Writer readiness sees it and remains blocked.
 
-4. **What prevents an old scope from silently applying a newly generated operation?**  
-   Exact mutable candidate operation-ID set equality. Mismatch returns `TRANSFER_SCOPE_OPERATION_SET_MISMATCH`.
+4. **What prevents an old scope from applying a newly generated operation?**  
+   Exact mutable candidate operation-ID set equality; mismatch is `TRANSFER_SCOPE_OPERATION_SET_MISMATCH`.
 
-5. **What prevents reusing scope on a changed TARGET?**  
-   SOURCE/TARGET content hashes are bound and mismatches invalidate scope.
+5. **What prevents scope reuse on changed TARGET/SOURCE?**  
+   Bound content SHA-256 values.
 
-6. **What happens if every operation is EXCLUDE?**  
+6. **What happens if every mutable operation is EXCLUDE?**  
    `TRANSFER_SCOPE_NO_APPLY_OPERATIONS`; no Writer mutation authority.
 
-7. **What is the canonical audit after scope binding?**  
-   The scoped preview audit, containing both selected transfer plan and excluded operations. Existing export controls are intercepted to export scoped artifacts.
+7. **What is canonical audit after binding?**  
+   Scoped preview audit containing selected transfer plan plus excluded operations. Existing export controls emit scoped artifacts.
 
-8. **Did this PR change Writer 1B's whitelist or fixed-field logic?**  
+8. **Did PR1001 change Writer 1B whitelist/fixed-field logic?**  
    No.
 
 9. **What remains NOT_RUN?**  
-   Repository-imported focused tests, shell lifecycle, real SOURCE 3/TARGET 3-1 browser flow, Chromium and full suite due environment checkout/DNS limitation.
+   Repository-focused tests, shell lifecycle, real SOURCE 3/TARGET 3-1 browser flow, Chromium and full suite due checkout/DNS limitation.
 
-10. **What is the falsifier for this increment?**  
-    If an EXCLUDED operation still reaches Writer `operations[]`, if a newly appearing operation is implicitly APPLY under an old scope, or if a selected unsupported APPLY becomes Writer-ready, the implementation is invalid.
+10. **Falsifier?**  
+    If EXCLUDE still reaches Writer `operations[]`, a new operation becomes implicit APPLY under an old scope, or selected unsupported APPLY becomes Writer-ready, PR1001 is invalid.
