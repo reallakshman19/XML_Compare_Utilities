@@ -11,6 +11,7 @@ handover_readiness: READY
 coordination: SAFE
 mutation_authority: WRITE_ALLOWED_WITHIN_DECLARED_SCOPE
 merge_authority: OWNER_ONLY
+merge_disposition: CONDITIONAL_ON_EXPLICIT_OWNER_ACCEPTANCE_OF_NOT_RUN_ENVIRONMENT
 scope_authority: CII_WRITER_1B_QUALIFIED_CARDINALITY_PRESERVING
 protected_external_writer: reallaksh19/3D_Converters/converters/scripts/inputxml_to_cii2019.py
 qualified_scope:
@@ -36,7 +37,9 @@ focused_execution:
   od_topology_closed_eligibility: PASS_IMPLEMENTATION_COUPLED
   round_trip_negative_assurance: PASS_IMPLEMENTATION_COUPLED
 real_benchmark_target1_target2: NOT_RUN_ENVIRONMENT
+writer1a_target1_target2_compatibility: NOT_RUN_ENVIRONMENT
 full_checkout_browser_lifecycle: NOT_RUN_ENVIRONMENT
 ci_status: NONE
+known_engineering_defect: NONE_IDENTIFIED
 highest_risk: real TARGET1/TARGET2 and inherited browser/full-suite execution still require a complete checkout; do not infer PASS from focused reconstruction
-exact_next_action: execute committed Writer 1B TARGET1/TARGET2, explicit Writer 1A compatibility, transfer-policy, shell lifecycle and relevant full CII Workspace tests in a complete checkout; inspect failures without weakening authority; keep SIF/TEE blocked; do not merge without owner authorization
+exact_next_action: if owner explicitly accepts the retained NOT_RUN_ENVIRONMENT gates, merge PR992 with expected head SHA; otherwise execute the committed Writer 1B/Writer 1A compatibility/transfer-policy/lifecycle suite in a complete checkout before merge
