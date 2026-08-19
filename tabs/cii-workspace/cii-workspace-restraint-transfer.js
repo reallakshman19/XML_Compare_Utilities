@@ -1,4 +1,5 @@
 import { CII_WORKSPACE_SCHEMAS, deepFreeze, stableId, stableStringify } from './cii-workspace-contracts.js';
+import { ciiIdentityBound } from './cii-workspace-engineering-delta.js';
 import { pairCiiRestraintRecords } from './cii-workspace-restraint-pairing.js';
 
 function capability(document) { return document?.capabilities?.families?.restraints || null; }
@@ -12,6 +13,7 @@ function qualified(document) {
 
 function transferableNodeRows(correspondence) {
   return (correspondence?.nodeRows || []).filter((row) => row?.sourceNodeId && row?.targetNodeId
+    && ciiIdentityBound(row)
     && !['CONFLICT', 'UNRESOLVED', 'INSERTED', 'DELETED'].includes(row.status));
 }
 
